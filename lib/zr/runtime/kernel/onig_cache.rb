@@ -494,6 +494,7 @@ module Zr::Kern
     return 0 if OnigMatch[m].match_cache_status != ONIG_MATCH_CACHE_STATUS_ENABLED
     zr_onig_check_match_cache_on(m, pbegin)
   end
+
   inline :zr_onig_check_match_cache
 
   #: (ptr, ptr) -> word
@@ -542,6 +543,7 @@ module Zr::Kern
     return 0 if num_fails < len * OnigMatch[m].num_cache_opcodes
     zr_onig_fail_match_cache_init(m, status, num_fails, len)
   end
+
   inline :zr_onig_fail_match_cache
 
   #: (ptr, word, word, word) -> word

@@ -1,6 +1,9 @@
 # an import names its wasm module with `from: "module"`
 module Zr::Kern
-  Libc.import :fd_close, [I32] => I32, from: :wasi
+  module Libc
+    #: (i32) -> i32
+    def self.fd_close(fd) = Machine.import(from: :wasi)
+  end
 
   #: (i32, ptr) -> i32
   def main(argc, argv)

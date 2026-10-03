@@ -10,30 +10,37 @@ module Zr::Kern
     #: (ptr, ptr, i32, i32, ptr, ptr) -> i32
     def self.call(fn, p1, i1, i2, p2, p3) = Machine.indirect
   end
+
   module FfiPrepCifVar
     #: (ptr, ptr, i32, i32, i32, ptr, ptr) -> i32
     def self.call(fn, p1, i1, i2, i3, p2, p3) = Machine.indirect
   end
+
   module FfiCall
     #: (ptr, ptr, ptr, ptr, ptr) -> void
     def self.call(fn, p1, p2, p3, p4) = Machine.indirect
   end
+
   module FfiClosureAlloc
     #: (ptr, word, ptr) -> ptr
     def self.call(fn, n, p) = Machine.indirect
   end
+
   module FfiPrepClosureLoc
     #: (ptr, ptr, ptr, ptr, ptr, ptr) -> i32
     def self.call(fn, p1, p2, p3, p4, p5) = Machine.indirect
   end
+
   module FfiClosureFree
     #: (ptr, ptr) -> void
     def self.call(fn, p) = Machine.indirect
   end
+
   module CWords
     #: (ptr, word, word, word, word, word, word, word, word) -> word
     def self.call(fn, n1, n2, n3, n4, n5, n6, n7, n8) = Machine.indirect
   end
+
   module CWordsF64
     #: (ptr, word, word, word, word, word, word, word, f64) -> word
     def self.call(fn, n1, n2, n3, n4, n5, n6, n7, x) = Machine.indirect

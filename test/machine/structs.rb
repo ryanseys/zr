@@ -2,11 +2,28 @@
 # writers of every width, and a constant folded from a struct's size.
 # The program prints the fields it wrote back through the readers.
 module Zr::Kern
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :exit, [I32] => Void
+  module Libc
+    #: (i32, ptr, word) -> word
+    def self.write(i, p, n) = Machine.import
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
 
-  RBasic = layout flags: Word, klass: Value
-  RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr, enc: I32, cr: I8, frozen: Bool
+  class RBasic < Layout
+    attr_accessor :flags #: word
+    attr_accessor :klass #: value
+  end
+
+  class RString < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+    attr_accessor :ptr #: ptr
+    attr_accessor :enc #: i32
+    attr_accessor :cr #: i8
+    attr_accessor :frozen #: bool
+  end
+
   STRING_BYTES = RString.size
   ARENA = STRING_BYTES * 4
 
@@ -38,26 +55,26 @@ module Zr::Kern
     put_word(RString.size)
     put_word(ARENA)
     s = arena() + STRING_BYTES
-    RBasic.set_flags(RString.basic(s), 5)
-    RBasic.set_klass(RString.basic(s), Machine.value(77))
-    RString.set_len(s, 3)
-    RString.set_capa(s, 16)
-    RString.set_ptr(s, Machine.bytes("abc"))
-    RString.set_enc(s, 2)
-    RString.set_cr(s, 1)
-    RString.set_frozen(s, true)
-    put_word(RBasic.flags(s))
-    put_word(Machine.word(RBasic.klass(RString.basic(s))))
-    put_word(RString.len(s))
-    put_word(RString.capa(s))
-    Libc.write(1, RString.ptr(s), RString.len(s))
+    RBasic[RString[s].basic].flags = 5
+    RBasic[RString[s].basic].klass = Machine.value(77)
+    RString[s].len = 3
+    RString[s].capa = 16
+    RString[s].ptr = Machine.bytes("abc")
+    RString[s].enc = 2
+    RString[s].cr = 1
+    RString[s].frozen = true
+    put_word(RBasic[s].flags)
+    put_word(Machine.word(RBasic[RString[s].basic].klass))
+    put_word(RString[s].len)
+    put_word(RString[s].capa)
+    Libc.write(1, RString[s].ptr, RString[s].len)
     Libc.write(1, Machine.bytes("\n"), 1)
-    put_word(Machine.u32(RString.enc(s)))
-    put_word(Machine.u8(RString.cr(s)))
-    put_word(Machine.word(RString.frozen(s)))
+    put_word(Machine.u32(RString[s].enc))
+    put_word(Machine.u8(RString[s].cr))
+    put_word(Machine.word(RString[s].frozen))
     # the neighbours are untouched
-    put_word(RString.len(arena()))
-    put_word(RString.len(s + STRING_BYTES))
+    put_word(RString[arena()].len)
+    put_word(RString[s + STRING_BYTES].len)
     Libc.exit(0)
     0
   end

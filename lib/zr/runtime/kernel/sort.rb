@@ -144,6 +144,7 @@ module Zr::Kern
     end
     zr_sort_cmp_values(st, x, y)
   end
+
   inline :zr_sort_cmp
 
   # Compares two Values as zr_sort_cmp does: after a failure, 0 and no
@@ -638,6 +639,7 @@ module Zr::Kern
   def zr_uniform_less(base, i, j)
     zr_uniform_key_less(Pair[base + (i * Pair.size)].key, Pair[base + (j * Pair.size)].key)
   end
+
   inline :zr_uniform_less
 
   #: (ptr, word, word) -> void

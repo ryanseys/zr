@@ -1,6 +1,10 @@
 # Every integer operator of the kernel subset, one bit of the exit status each.
 module Zr::Kern
-  Libc.import :exit, [I32] => Void
+  module Libc
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
+
   #: (i32, ptr) -> i32
   def main(argc, argv)
     a = 100

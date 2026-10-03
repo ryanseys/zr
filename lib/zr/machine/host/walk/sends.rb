@@ -209,7 +209,7 @@ module Zr
           # The code that calls the method a send finds, with the receiver,
           # the argument count and vector, and the block.
           def dispatcher(node, s, mode)
-            size = k::CallCache.layout_size
+            size = k::CallCache.size
             name = id(node.name)
             if node.name == :new && node.block.nil?
               # `new` with no block runs with no frame of its own, as in a
@@ -419,7 +419,7 @@ module Zr
           # that keeps it copies it to the heap (`zr_block_proc`).
           def block_image(node, s)
             fn, m = block_fn(node, s)
-            size = k::RProc.layout_size
+            size = k::RProc.size
             flags = k::T_PROC | k::FL_ALLOCATED | k::FL_STACK
             klass = @kern.zr_global(k::G_PROC)
             site = @sites[node]
@@ -566,7 +566,7 @@ module Zr
             kwargs = node.kwargs && hash(node.kwargs, s)
             block = node.block && block_arg(node.block, s)
             site = node.block.is_a?(Hir::Block) ? @sites[node.block] : nil
-            at = cell(node, :sc, k::SuperCache.layout_size)
+            at = cell(node, :sc, k::SuperCache.size)
             using = node.using
             lambda do |f|
               if in_block
@@ -620,7 +620,7 @@ module Zr
           def sender(node, s, name, kind, mode: 0, using: nil, core: true)
             mode |= SEND_CORE if core && core_send?(name, s)
             mode |= SEND_USING if using
-            at = cell(node, kind, k::CallCache.layout_size * 4)
+            at = cell(node, kind, k::CallCache.size * 4)
             mid = id(name)
             # The site's cell first, as `cached_send` tests it: a hit makes
             # no call into the kernel. Refinements go through the kernel.

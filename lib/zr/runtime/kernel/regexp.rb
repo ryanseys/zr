@@ -49,6 +49,7 @@ module Zr::Kern
     attr_accessor :alt #: value
     attr_accessor :limit #: word
   end
+
   T_REGEXP = 31
   G_REGEXP = 42
   G_REGEXP_LITERALS = 43
@@ -435,18 +436,21 @@ module Zr::Kern
     end
     zr_ivar_get(m, id)
   end
+
   inline :zr_match_field
 
   #: (value) -> value
   def zr_match_string(m)
     zr_match_field(m, Machine.id(:string), 1)
   end
+
   inline :zr_match_string
 
   #: (value) -> value
   def zr_match_offsets(m)
     zr_match_field(m, Machine.id(:offsets), 2)
   end
+
   inline :zr_match_offsets
 
   # The registers of a match, read as CRuby's rb_reg_nth_match and

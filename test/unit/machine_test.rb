@@ -83,9 +83,20 @@ class MachineTest < Minitest::Test
   def test_a_stack_image_gets_no_write_barrier
     source = <<~RUBY
       module Zr::Kern
-        Libc.import :abort, [] => Void
-        RBasic = layout flags: Word, klass: Value
-        Cell = layout basic: RBasic, item: Value
+        module Libc
+          #: () -> void
+          def self.abort = Machine.import
+        end
+
+        class RBasic < Layout
+          attr_accessor :flags #: word
+          attr_accessor :klass #: value
+        end
+
+        class Cell < Layout
+          attr_reader :basic #: RBasic
+          attr_accessor :item #: value
+        end
 
         #: (value, value) -> void
         def zr_write_barrier(owner, value)
@@ -93,18 +104,19 @@ class MachineTest < Minitest::Test
             Libc.abort()
           end
         end
+
         inline :zr_write_barrier
 
         #: (value, value) -> void
         def on_heap(cell, v)
-          Cell.set_item(cell, v)
+          Cell[cell].item = v
         end
 
         #: (value) -> void
         def on_stack(v)
           d = Machine.slot(Cell.size)
           c = Machine.value(d)
-          Cell.set_item(c, v)
+          Cell[c].item = v
         end
 
         #: (value, value) -> void
@@ -114,7 +126,7 @@ class MachineTest < Minitest::Test
           if v == cell
             c = cell
           end
-          Cell.set_item(c, v)
+          Cell[c].item = v
         end
       end
     RUBY

@@ -15,7 +15,7 @@ module Zr
     # The kernel on CRuby (A7). The kernel's files are plain Ruby in
     # `module Zr::Kern` (A6), and a host loads them into this ruby: each
     # `def` is a method of the module, and the forms that a build lowers
-    # (`Machine.*`, `Libc.*`, `layout`, `fn`) are objects here that act on
+    # (`Machine.*`, `Libc.*`, layouts, signatures) are objects here that act on
     # the process's real memory through Fiddle.
     #
     # The values are the type model of A6: an I8, I32, Word or Value is an
@@ -99,86 +99,6 @@ module Zr
         end
       end
 
-      # `Name = layout field: Type, ...`: each field at its natural
-      # alignment, a struct field embedded in place. It answers
-      # `Name.size`, `Name.field(p)` and `Name.set_field(p, value)`; the
-      # reader of an embedded struct answers its address.
-      #
-      # A field may be named `size`: `Name.size` with no pointer is still
-      # the layout's size, as in the lowering. So the layout's own readers
-      # have names no field has.
-      #
-      # A Value read from a field is pinned (`Host#pin`), and a Value
-      # written to a field of a cell gets the collector's write barrier, as
-      # the lowering emits it (`Function#barrier`).
-      class Layout
-        # @rbs @host: Host
-
-        attr_reader :layout_fields #: Hash[String, [Integer, Type | Layout]]
-        attr_reader :layout_size, :layout_align #: Integer
-
-        #: (Hash[Symbol, Type | Layout] fields, Host host) -> void
-        def initialize(fields, host)
-          @host = host
-          off = 0
-          @layout_align = 1
-          @layout_fields = fields.to_h do |name, type|
-            size, align = type.is_a?(Layout) ? [type.layout_size, type.layout_align] : [type.size, type.size]
-            raise ArgumentError, "a field cannot be Void" if size.zero?
-
-            off += (-off) % align
-            @layout_align = [@layout_align, align].max
-            at = off
-            off += size
-            [name.to_s, [at, type]]
-          end
-          @layout_size = off + ((-off) % @layout_align)
-          @layout_fields.each { |name, (at, type)| accessors(name, at, type) }
-        end
-
-        #: (*untyped pointer) -> Integer
-        def size(*pointer)
-          pointer.empty? ? @layout_size : raise(NoMethodError, "no field size")
-        end
-
-        # Marks this layout as a cell's: a store of a Value into one of its
-        # fields runs the write barrier of the cell at `p`.
-        #: () -> void
-        def cell!
-          host = @host
-          @layout_fields.each do |name, (at, type)|
-            next unless type.is_a?(Type) && type.name == "Value"
-
-            store = Memory.writer(type, at)
-            define_singleton_method(:"set_#{name}") do |p, value|
-              store.call(p, value)
-              host.barrier(p, value)
-            end
-          end
-        end
-
-        private
-
-        #: (String name, Integer at, Type | Layout type) -> void
-        def accessors(name, at, type)
-          host = @host
-          reader = if type.is_a?(Layout)
-                     ->(p) { p + at }
-                   elsif type.name == "Value"
-                     load = Memory.reader(type, at)
-                     ->(p) { host.pin(load.call(p)) }
-                   else
-                     Memory.reader(type, at)
-                   end
-          define_singleton_method(:"set_#{name}", Memory.writer(type, at)) unless type.is_a?(Layout)
-          if name == "size"
-            define_singleton_method(:size) { |*pointer| pointer.empty? ? @layout_size : reader.call(pointer.first) }
-          else
-            define_singleton_method(name, reader)
-          end
-        end
-      end
-
       # The memory of a layout at an address: `RArray[p]`. Each kernel
       # `class Name < Layout` is a subclass of the host's `Layout`
       # (`view_base`), and each `attr_accessor` or `attr_reader` of its
@@ -214,37 +134,15 @@ module Zr
         end
       end
 
-      # `Name = fn [types] => type`: a call through a pointer,
-      # `Name.call(p, ...)`.
-      class Fn
-        # @rbs @host: Host
-
-        attr_reader :params #: Array[Type]
-        attr_reader :ret #: Type
-
-        #: (Host host, Array[Type] params, Type ret) -> void
-        def initialize(host, params, ret)
-          @host = host
-          @params = params
-          @ret = ret
-        end
-
-        #: (Integer at, *untyped args) -> untyped
-        def call(at, *args) = @host.call_at(at, @params, @ret, args)
-      end
-
-      # `Libc`: `Libc.import :name, [types] => type` declares a C function,
-      # and `Libc.name(...)` calls it. A def of the same name answers the
-      # import, as the lowering's `answers_import` says.
+      # `Libc`: a kernel file opens it and declares a C function as
+      # `def self.name(...) = Machine.import`, and `Libc.name(...)` calls
+      # it. A def of the same name answers the import, as the lowering's
+      # `answers_import` says.
       #
       # The first call of an import finds what answers it (`Host#answer`),
       # and the import's method becomes that: later calls go straight to
       # it. The kernel's own defs are all loaded by then, and the host's
       # layers prepended.
-      #
-      # Libc is a Module, so that a kernel file can open it and declare
-      # an import as `def self.name(...) = Machine.import`; `bind_imports` then
-      # gives each such import the same lazy answer.
       class Libc < Module
         # @rbs @host: Host
 
@@ -255,9 +153,8 @@ module Zr
           @imports = {}
         end
 
-        # Gives each import that a kernel file declared in `module Libc`
-        # (not named `bind`: that is a libc call)
-        # its answer on first call, as `import` does.
+        # Gives each import that the kernel files declare its answer on
+        # first call. (It is not named `bind`: that is a libc call.)
         #: (Hash[String, Import | Raw] imports) -> void
         def bind_imports(imports)
           imports.each_value do |import|
@@ -269,14 +166,6 @@ module Zr
             @imports[import.name] = [params, ret]
             define_singleton_method(name) { |*args| answer(name, params, ret).call(*args) }
           end
-        end
-
-        #: (Symbol name, Hash[untyped, Type] signature) -> Symbol
-        def import(name, signature)
-          pair = signature.find { |key, _| key.is_a?(Array) } or raise ArgumentError, "an import is `Libc.import :name, [types] => type`"
-          params, ret = pair
-          @imports[name.to_s] = [params, ret]
-          define_singleton_method(name) { |*args| answer(name, params, ret).call(*args) }
         end
 
         attr_reader :imports #: Hash[String, [Array[Type], Type]]
@@ -534,7 +423,6 @@ module Zr
         load_order(trees).each { |file| load(file) }
         bind_declarations
         @barriers = @kern.method_defined?(:zr_write_barrier)
-        cells!
         frames(trees.values)
       end
 
@@ -935,22 +823,6 @@ module Zr
         words.to_set
       end
 
-      # Gives each layout of a cell (RBasic, and each layout that starts
-      # with it) the write barrier, as the lowering's `cell?` does.
-      #: () -> void
-      def cells!
-        return unless @kern.const_defined?(:RBasic, false)
-
-        basic = @kern::RBasic
-        @kern.constants(false).each do |name|
-          layout = @kern.const_get(name)
-          next unless layout.is_a?(Layout)
-
-          first = layout.layout_fields.first&.last&.last
-          layout.cell! if layout.equal?(basic) || first.equal?(basic)
-        end
-      end
-
       # A fresh `Zr::Kern` with the forms a kernel file declares with.
       #: () -> Module
       def kernel_module
@@ -958,19 +830,11 @@ module Zr
         host = self #: Host
         kern = Module.new
         kern.extend(kern)
-        TYPES.each { |name, type| kern.const_set(name, type) }
         kern.const_set(:Machine, Intrinsics.new(self))
         kern.const_set(:Libc, Libc.new(self))
         kern.const_set(:Layout, view_base)
-        # The kernel file gives the fields, so Steep cannot type them.
-        kern.define_singleton_method(:layout) { |**fields| Layout.new(fields, host) } # steep:ignore FallbackAny
-        kern.define_singleton_method(:fn) do |signature|
-          params, ret = signature.first
-          Fn.new(host, params, ret)
-        end
         kern.define_singleton_method(:inline) { |_name| nil }
         kern.define_singleton_method(:collects) { |name| host.collectors << name.to_s }
-        kern.define_singleton_method(:raw) { |_name, _signature| nil }
         Zr.send(:remove_const, :Kern) if Zr.const_defined?(:Kern, false)
         Zr.const_set(:Kern, kern)
       end
@@ -1159,8 +1023,8 @@ module Zr
         end
       end
 
-      # The type of a call: a def's type, `Machine.value`, a layout field,
-      # a view (`Name[p]`), or a signature's `call`. An operator on words
+      # The type of a call: a def's type, `Machine.value`, a field of a
+      # view, a view (`Name[p]`), or a signature's `call`. An operator on words
       # is a word.
       #: (Prism::CallNode node, Hash[Symbol, String?] types) -> String?
       def call_type(node, types)
@@ -1175,14 +1039,7 @@ module Zr
         return node.name == :value ? "Value" : "Word" if recv.name == :Machine
         return "Word" if recv.name == :Libc
 
-        thing = @kern.const_get(recv.name, false) if @kern.const_defined?(recv.name, false)
-        case thing
-        when Layout
-          type = thing.layout_fields[node.name.to_s]&.last
-          type.is_a?(Type) ? type.name : "Word"
-        when Fn then thing.ret.name
-        when Module then @unit.declared_sigs[recv.name.to_s]&.ret
-        end
+        @unit.declared_sigs[recv.name.to_s]&.ret
       end
 
       # The layout of the view that `node` is: `Name[p]`, a local that
@@ -1299,7 +1156,7 @@ module Zr
       # through a pointer, and each def that calls one of those.
       #: (Hash[String, Prism::DefNode] defs) -> Set[String]
       def collecting_defs(defs)
-        signatures = @kern.constants(false).select { |name| @kern.const_get(name).is_a?(Fn) }.to_set #: Set[Symbol]
+        signatures = @unit.declared_sigs.each_key.to_set(&:to_sym)
         calls = defs.transform_values { |node| calls_in(node.body, defs, signatures) }
         set = Set.new(@collectors) #: Set[String | Symbol]
         set << :indirect

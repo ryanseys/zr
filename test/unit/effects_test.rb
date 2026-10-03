@@ -15,11 +15,30 @@ require "zr/runtime"
 class EffectsTest < Minitest::Test
   SOURCE = <<~'RB'
     module Zr::Kern
-      Libc.import :write, [I32, Ptr, Word] => Word
-      Cell = layout basic: RBasic, next: Value
-      RBasic = layout flags: Word, klass: Value
-      Row = layout id: Word, value: Value
-      Thunk = fn [] => Void
+      module Libc
+        #: (i32, ptr, word) -> word
+        def self.write(i, p, n) = Machine.import
+      end
+
+      class Cell < Layout
+        attr_reader :basic #: RBasic
+        attr_accessor :next #: value
+      end
+
+      class RBasic < Layout
+        attr_accessor :flags #: word
+        attr_accessor :klass #: value
+      end
+
+      class Row < Layout
+        attr_accessor :id #: word
+        attr_accessor :value #: value
+      end
+
+      module Thunk
+        #: (ptr) -> void
+        def self.call(fn) = Machine.indirect
+      end
 
       #: () -> ptr
       def gates
@@ -38,12 +57,12 @@ class EffectsTest < Minitest::Test
 
       #: (ptr, value) -> void
       def link(cell, v)
-        Cell.set_next(cell, v)
+        Cell[cell].next = v
       end
 
       #: (ptr, word) -> void
       def fill(row, v)
-        Row.set_id(row, v)
+        Row[row].id = v
       end
 
       #: (ptr) -> void

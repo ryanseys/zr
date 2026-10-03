@@ -2,7 +2,10 @@
 # right side only when the left decides nothing, which the tally of
 # `probe` calls proves; every fact is one bit of the exit status.
 module Zr::Kern
-  Libc.import :exit, [I32] => Void
+  module Libc
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
 
   ONE = 1
   MASK = ONE << 4 | 3

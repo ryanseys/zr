@@ -15,6 +15,8 @@ module Zr
       "value" => "Value", "f64" => "F64", "void" => "Void"
     }.freeze #: Hash[String, String]
 
+    RBS_NAMES = RBS_TYPES.invert.freeze #: Hash[String, String]
+
     DEF_TYPE = /\A#:\s*\((?<params>[^()]*)\)\s*->\s*(?<ret>\w+)\s*\z/
 
     # The `#:` comments of a parsed file, by line.
@@ -46,6 +48,11 @@ module Zr
     # layout.
     #: (String name) -> String?
     def self.type_named(name) = RBS_TYPES[name] || (name if name.match?(/\A[A-Z]\w*\z/))
+
+    # The type of a def of `params` and `ret`, as its `#:` comment writes
+    # it: `(i32, ptr) -> i32`.
+    #: (Array[String] params, String ret) -> String
+    def self.rbs_type(params, ret) = "(#{params.map { |type| RBS_NAMES.fetch(type, type) }.join(", ")}) -> #{RBS_NAMES.fetch(ret, ret)}"
 
     # Whether a word is an immediate and not a pointer to a cell: a
     # Fixnum, a flonum, a Symbol, nil, true or false. This is the same

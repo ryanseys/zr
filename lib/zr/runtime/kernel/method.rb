@@ -9,6 +9,7 @@ module Zr::Kern
     attr_accessor :owner #: value
     attr_reader :entry #: MEntry
   end
+
   T_METHOD = 29
   G_METHOD = 33
   G_UNBOUND_METHOD = 34

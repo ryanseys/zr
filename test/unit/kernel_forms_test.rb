@@ -10,16 +10,28 @@ require_relative "../../lib/zr/machine/lower"
 class KernelFormsTest < Minitest::Test
   OPERATORS = <<~RUBY
     module Zr::Kern
-      Libc.import :memset, [Ptr, I32, Word] => Ptr
-      Pair = layout head: Word, tail: I32
-      Thunk = fn [Word] => Word
+      module Libc
+        #: (ptr, i32, word) -> ptr
+        def self.memset(p, i, n) = Machine.import
+      end
+
+      class Pair < Layout
+        attr_accessor :head #: word
+        attr_accessor :tail #: i32
+      end
+
+      module Thunk
+        #: (ptr, word) -> word
+        def self.call(fn, n) = Machine.indirect
+      end
+
       LIMIT = 1 << 4
 
       #: (ptr, word) -> word
       def first(p, n)
         Libc.memset(p, Machine.i32(0), Pair.size)
-        Pair.set_head(p, n * LIMIT)
-        Thunk.call(Machine.addr(:twice), Pair.head(p))
+        Pair[p].head = n * LIMIT
+        Thunk.call(Machine.addr(:twice), Pair[p].head)
       end
 
       #: (word) -> word
@@ -36,22 +48,35 @@ class KernelFormsTest < Minitest::Test
       def mix(a, b)
         (a * b) + (a << 3) - (a / b) + (a % b) + (b - a)
       end
+
       inline :twice
     end
   RUBY
 
   NAMED = <<~RUBY
     module Zr::Kern
-      Libc.import :memset, [Ptr, I32, Word] => Ptr
-      Pair = layout head: Word, tail: I32
-      Thunk = fn [Word] => Word
+      module Libc
+        #: (ptr, i32, word) -> ptr
+        def self.memset(p, i, n) = Machine.import
+      end
+
+      class Pair < Layout
+        attr_accessor :head #: word
+        attr_accessor :tail #: i32
+      end
+
+      module Thunk
+        #: (ptr, word) -> word
+        def self.call(fn, n) = Machine.indirect
+      end
+
       LIMIT = 1 << 4
 
       #: (ptr, word) -> word
       def first(p, n)
         Libc.memset(p, Machine.i32(0), Pair.size)
-        Pair.set_head(p, n * LIMIT)
-        Thunk.call(Machine.addr(:twice), Pair.head(p))
+        Pair[p].head = n * LIMIT
+        Thunk.call(Machine.addr(:twice), Pair[p].head)
       end
 
       #: (word) -> word
@@ -68,6 +93,7 @@ class KernelFormsTest < Minitest::Test
       def mix(a, b)
         Machine.add_wrap(Machine.mul_wrap(a, b), Machine.shl_wrap(a, 3)) - Machine.sdiv(a, b) + Machine.srem(a, b) + Machine.sub_wrap(b, a)
       end
+
       inline :twice
     end
   RUBY
@@ -89,8 +115,12 @@ class KernelFormsTest < Minitest::Test
 
   CHECKED = <<~RUBY
     module Zr::Kern
-      Libc.import :write, [I32, Ptr, Word] => Word
-      Libc.import :abort, [] => Void
+      module Libc
+        #: (i32, ptr, word) -> word
+        def self.write(i, p, n) = Machine.import
+        #: () -> void
+        def self.abort = Machine.import
+      end
 
       #: (ptr, word) -> void
       def zr_bug(bytes, len)
@@ -129,7 +159,7 @@ class KernelFormsTest < Minitest::Test
     found = checks(CHECKED)
 
     assert_equal 9, found.fetch("plain") # four +, one each of - * <<, / by a negative or zero, >> by 64
-    assert_includes found.fetch(:texts), "k.rb:13: + wraps (ZR_KERNEL_CHECKED)\n"
+    assert_includes found.fetch(:texts), "k.rb:17: + wraps (ZR_KERNEL_CHECKED)\n"
   end
 
   def test_a_named_operation_is_not_checked_and_a_ptr_is_checked_unsigned
@@ -137,7 +167,7 @@ class KernelFormsTest < Minitest::Test
 
     assert_equal 1, found.fetch("named") # the plain + that joins them
     assert_equal 2, found.fetch("address") # n * 8 as a Word, p + as a Ptr
-    assert_includes found.fetch(:texts), "k.rb:23: + leaves the range of a Ptr (ZR_KERNEL_CHECKED)\n"
+    assert_includes found.fetch(:texts), "k.rb:27: + leaves the range of a Ptr (ZR_KERNEL_CHECKED)\n"
   end
 
   def test_the_build_without_checks_has_none
@@ -154,7 +184,11 @@ class KernelFormsTest < Minitest::Test
 
   def test_a_bare_call_in_the_plain_form_goes_only_to_a_def
     message = refusal(<<~RUBY)
-      Libc.import :getpid, [] => I32
+      module Libc
+        #: () -> i32
+        def self.getpid = Machine.import
+      end
+
       #: () -> i32
       def pid
         getpid
@@ -172,11 +206,11 @@ class KernelFormsTest < Minitest::Test
       end
     RUBY
 
-    assert_match(/one is not a Libc.import here/, message)
+    assert_match(/one is not an import here/, message)
   end
 
   def test_a_raw_function_repeats_its_signature
-    assert_match(/zr_switch is \[Ptr, Ptr\] => Void/, refusal("raw :zr_switch, [Ptr] => Void"))
+    assert_match(/zr_switch is \(ptr, ptr\) -> void/, refusal("#: (ptr) -> void\ndef zr_switch(p) = Machine.raw"))
   end
 
   def test_the_module_is_zr_kern

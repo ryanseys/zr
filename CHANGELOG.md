@@ -120,6 +120,16 @@ The first public release.
   call. RBS reads the comments with `sig/zr/kern.rbs`, so the generated
   `sig/zr_kern.rbs` and `zr-dev gen kern_rbs` are gone. zr refuses a
   `#:` comment that no def follows; two such comments were in the kernel.
+- The kernel's declarations are typed Ruby too. A layout is
+  `class Name < Layout` with one `attr_accessor :field #: type` for each
+  field, read through a view (`RString[s].len`). An import is
+  `def self.name(...) = Machine.import` in a `module Libc`, which each
+  layer keeps in its own `imports.rb`; zr refuses an import declared
+  twice. A signature is a module with a typed `def self.call`. zr
+  refuses arithmetic on a view, a view where a `ptr` is necessary, and
+  a condition that is not a `bool`, so the kernel means the same on
+  CRuby (`Machine::Host`) as in a binary. Each program in
+  `test/machine/` runs on CRuby too, and gives the binary's output.
 - `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of
   `lib/` with SimpleCov, and writes `tmp/coverage/index.html`. It gates
   nothing.

@@ -366,6 +366,7 @@ module Zr::Kern
     kept = MEntry[e].ivar.index
     kept == 0 ? Machine.value(QNIL) : Machine.value(kept)
   end
+
   inline :zr_bmethod_cref_kept
 
   # Runs the body of a `refine` block with the holder module as self. A

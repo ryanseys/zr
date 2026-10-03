@@ -23,6 +23,7 @@ module Zr::Kern
     attr_accessor :entry #: ptr
     attr_accessor :lazy #: value
   end
+
   T_CREF = 25
   # The `RCref.eval` value for a block that runs under an object with no
   # singleton class, as in `1.instance_eval`. A `def` there has no class to

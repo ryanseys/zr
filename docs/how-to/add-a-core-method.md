@@ -70,15 +70,16 @@ module Zr::Kern
   # ...
   #: (value) -> value
   def zr_str_bytesize(s)
-    zr_fix(RString.len(s))
+    zr_fix(RString[s].len)
   end
 end
 ```
 
 Every `def` has a `#: (types) -> type` comment on the line above it. A bare call goes only to a def. To
-call a libc function, declare it with `Libc.import :name, [types] => type`
-and call it as `Libc.name(...)`.
-[The kernel's typed Ruby](../reference/machine-dialect.md) lists the
+call a libc function, declare it in the `module Libc` of
+`lib/zr/runtime/kernel/imports.rb` (`#: (types) -> type`, then
+`def self.name(a, b) = Machine.import`) and call it as `Libc.name(...)`.
+[The kernel subset](../reference/kernel-subset.md) lists the
 types and the `Machine.*` operations.
 
 Then write the descriptions again, because they list every kernel def:

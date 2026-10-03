@@ -1,9 +1,14 @@
 # A def of an imported name answers that import's calls: `exit` here
 # says goodbye before it leaves through `_exit`.
 module Zr::Kern
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :exit, [I32] => Void
-  Libc.import :_exit, [I32] => Void
+  module Libc
+    #: (i32, ptr, word) -> word
+    def self.write(i, p, n) = Machine.import
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+    #: (i32) -> void
+    def self._exit(i) = Machine.import
+  end
 
   #: (i32) -> void
   def exit(code)

@@ -15,10 +15,12 @@ module Zr::Kern
     attr_accessor :cap #: word
     attr_accessor :names #: word
   end
+
   class IvEntry < Layout
     attr_accessor :id #: word
     attr_accessor :value #: value
   end
+
   class RObject < Layout
     attr_reader :basic #: RBasic
     attr_reader :iv #: IvTab

@@ -272,12 +272,12 @@ module Zr
           target(node, node.name.to_s, args, imports: false)
         elsif @unit.libc?(node.receiver)
           import = @unit.import_for(node.name.to_s)
-          refuse(node, "#{node.name} is not a Libc.import here") unless import.is_a?(Import)
+          refuse(node, "#{node.name} is not an import here") unless import.is_a?(Import)
           target(node, node.name.to_s, args)
         elsif @unit.machine?(node.receiver)
           intrinsic(node, args, want)
         elsif node.name == :call && node.receiver.is_a?(Prism::ConstantReadNode) && !@unit.sig_read?(node.receiver)
-          refuse(node, "#{node.receiver.name} is not a `fn` signature here")
+          refuse(node, "#{node.receiver.name} is not a signature here")
         elsif (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && @unit.sig_read?(receiver)
           refuse(node, "a signature takes `call`") unless node.name == :call
           indirect(node, @unit.sig_for(receiver.name.to_s), args[0], args.drop(1))
@@ -296,7 +296,9 @@ module Zr
           refuse(args[0], "#{layout.name}[p] of a #{pt}") unless %w[Ptr Word Value].include?(pt) || view(pt)
           [ptr, layout.name]
         elsif node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
-          field(node, layout, args, want)
+          return literal(node, layout.size, want) if node.name == :size && args.empty?
+
+          refuse(node, "#{layout.name}.#{node.name}: a field is read through a view, `#{layout.name}[p].field`")
         elsif (receiver = node.receiver) && !OPERATORS.key?(node.name) && args.size <= 1
           view_field(node, receiver, args)
         elsif args.size == 1 && OPERATORS.key?(node.name)
@@ -306,22 +308,6 @@ module Zr
         else
           refuse(node, "a call with a receiver that is not Machine or a struct")
         end
-      end
-
-      # `Name.size`, `Name.field(p)` and `Name.set_field(p, v)`. For a
-      # field of a struct type, `Name.field(p)` returns its address.
-      #: (Prism::CallNode node, Layout layout, Array[Prism::node] args, String? want) -> [untyped, String]
-      def field(node, layout, args, want)
-        name = node.name.to_s
-        return literal(node, layout.size, want) if name == "size" && args.empty?
-
-        writer = name.start_with?("set_")
-        fname = writer ? name.delete_prefix("set_") : name
-        layout.fields.fetch(fname) { refuse(node, "#{layout.name} has no field #{fname}") }
-        refuse(node, "#{layout.name}.#{name} takes #{writer ? "a pointer and a value" : "a pointer"}") if args.size != (writer ? 2 : 1)
-        ptr, pt = expr(args[0])
-        refuse(args[0], "#{layout.name}.#{name} of a #{pt}") unless %w[Ptr Word Value].include?(pt) || view(pt)
-        access(node, layout, fname, ptr, args[0], writer ? args[1] : nil, view: false)
       end
 
       # `view.field` and `view.field = value`, where `view` is `Name[p]`

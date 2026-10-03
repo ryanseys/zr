@@ -2,8 +2,12 @@
 # as their operand, a Word or an I32. Every line is a tally ruby can
 # check by hand.
 module Zr::Kern
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :exit, [I32] => Void
+  module Libc
+    #: (i32, ptr, word) -> word
+    def self.write(i, p, n) = Machine.import
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
 
   #: (word) -> void
   def put_word(n)

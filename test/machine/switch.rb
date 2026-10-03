@@ -1,10 +1,17 @@
 # Two stacks, one million switches between them: the context-switch stub
 # is a raw function this unit carries, on either road.
 module Zr::Kern
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :mmap, [Ptr, Word, I32, I32, I32, Word] => Ptr
-  Libc.import :exit, [I32] => Void
-  raw :zr_switch, [Ptr, Ptr] => Void
+  module Libc
+    #: (i32, ptr, word) -> word
+    def self.write(i, p, n) = Machine.import
+    #: (ptr, word, i32, i32, i32, word) -> ptr
+    def self.mmap(p, n1, i1, i2, i3, n2) = Machine.import
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
+
+  #: (ptr, ptr) -> void
+  def zr_switch(p1, p2) = Machine.raw
 
   # The other stack's body: bounce back forever.
   #: () -> void

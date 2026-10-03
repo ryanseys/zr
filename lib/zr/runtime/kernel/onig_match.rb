@@ -190,6 +190,7 @@ module Zr::Kern
     end
     zr_onig_check_clock(m)
   end
+
   inline :zr_onig_check_interrupt
 
   #: (ptr) -> bool
@@ -512,6 +513,7 @@ module Zr::Kern
     end
     ONIGERR_UNDEFINED_BYTECODE
   end
+
   inline :zr_onig_op_cclass
 
   # OP_ANYCHAR..OP_ANYCHAR_ML_STAR_PEEK_NEXT: `.` and `.*`.
@@ -867,6 +869,7 @@ module Zr::Kern
     end
     ONIGERR_UNDEFINED_BYTECODE
   end
+
   inline :zr_onig_op_memory
 
   # The repeat_inc tail for OP_REPEAT_INC and OP_REPEAT_INC_SG. `pbegin`
@@ -1015,6 +1018,7 @@ module Zr::Kern
     end
     ONIGERR_UNDEFINED_BYTECODE
   end
+
   inline :zr_onig_op_control
 
   # null_check_found: an empty loop is found, so skip the next

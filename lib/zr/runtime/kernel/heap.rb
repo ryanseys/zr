@@ -404,6 +404,7 @@ module Zr::Kern
   def zr_old_p(v)
     !zr_special_p(v) && (RBasic[v].flags & FL_STACK) == 0 && zr_aged_p(v)
   end
+
   inline :zr_old_p
 
   # Sets `v`'s bit in its arena's remembered map, and flags the arena, so
@@ -441,6 +442,7 @@ module Zr::Kern
       zr_remember(owner)
     end
   end
+
   inline :zr_write_barrier
 
   # Remembers `owner` if it is old, whatever it now contains. A bulk write
@@ -452,6 +454,7 @@ module Zr::Kern
       zr_remember(owner)
     end
   end
+
   inline :zr_write_barrier_all
 
   # The bytes of an arena of size class `c`: its head, its four bitmaps and
@@ -629,6 +632,7 @@ module Zr::Kern
     attr_accessor :nvalues #: word
     attr_accessor :svars #: value
   end
+
   class Task < Layout
     attr_accessor :top #: ptr
     attr_accessor :serial #: word
@@ -1825,6 +1829,7 @@ module Zr::Kern
       zr_cell_take(sc, bits, type, klass)
     end
   end
+
   inline :zr_alloc
 
   # The cell of the first clear bit of `bits`, the word at size class

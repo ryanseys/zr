@@ -587,6 +587,7 @@ module Zr::Kern
     end
     !zr_str_ascii_bytes_p(a) && !zr_str_ascii_bytes_p(b)
   end
+
   inline :zr_str_join_incompatible_p
 
   # Raises the error, with the encoding of the receiver first. Encoding

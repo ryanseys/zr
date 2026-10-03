@@ -112,9 +112,9 @@ library and the bundled gems (`Library::Roots.stdlib`,
 **Lowering.** The change of the program from one form to a lower one:
 HIR to IR, or the kernel's typed Ruby to IR.
 
-**Machine dialect.** The old form of the kernel: top-level statements,
-`machine def` and `Machine.import`. A one-off rewrite changed it to
-typed Ruby. See **Typed Ruby**.
+**Machine dialect.** The first form of the kernel: top-level
+statements, `machine def` and `Machine.import`. One-off rewrites
+changed it to typed Ruby. See **Typed Ruby**.
 
 **Method stamp.** A global word that every change to a method table or
 an ancestor chain changes. The collector also changes it when it frees
@@ -199,19 +199,24 @@ programs (`test/programs`). See
 runs the HIR of a string node by node (`lib/zr/eval/walk.rb`).
 `ZR_EVAL=walk` uses it on a native target too.
 
-**Typed Ruby.** The language of the kernel: plain Ruby syntax in one
-`module Zr::Kern` for each file, with a `#:` comment of machine types above
-each `def`. See [The kernel's typed Ruby](machine-dialect.md).
+**Typed Ruby.** The language of the kernel, a subset of Ruby: one
+`module Zr::Kern` for each file, with a `#:` comment of machine types
+above each `def`, layouts as `class Name < Layout`, and imports in
+`module Libc`. CRuby runs it too. See [The kernel subset](kernel-subset.md).
 
 **Undef.** The Value `0x34`. A function returns it when an unwind is
 pending.
 
 **Unit test.** A minitest file in `test/unit/`.
 
+**View.** `RString[s]`: the memory of a layout at an address, read and
+written through its fields (`RString[s].len = n`). In a binary a view
+is its address; on CRuby it is a small object.
+
 **WASI module.** The output of `zr build --emit wasm`: a WebAssembly
 module for `wasm32-wasi`.
 
-**Word.** 8 bytes, or 64 bits. The `Word` type of the kernel's typed Ruby.
+**Word.** 8 bytes, or 64 bits. The `word` type of the kernel's typed Ruby.
 
 **zr.** The project, the gem and the command. The runtime's symbols
 are `zr_*`, and the environment variables are `ZR_*`.

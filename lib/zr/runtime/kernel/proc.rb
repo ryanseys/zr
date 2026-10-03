@@ -37,6 +37,7 @@ module Zr::Kern
     attr_accessor :cell #: value
     attr_accessor :home #: ptr
   end
+
   class RProc < Layout
     attr_reader :basic #: RBasic
     attr_accessor :fn #: ptr
@@ -54,10 +55,12 @@ module Zr::Kern
     attr_accessor :lambda #: word
     attr_accessor :passed #: word
   end
+
   module Block
     #: (ptr, value, word, ptr, value) -> value
     def self.call(fn, v1, n, p, v2) = Machine.indirect
   end
+
   T_ENV = 26
   T_PROC = 27
   # The descriptor of a block literal in the frame record of the send that
@@ -158,6 +161,7 @@ module Zr::Kern
     cell = REnv[env].cell
     zr_write_barrier(cell == QNIL ? env : cell, v)
   end
+
   inline :zr_env_barrier
 
   #: (value, word, value) -> value

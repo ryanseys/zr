@@ -166,7 +166,7 @@ module Zr
             mode |= Sends::SEND_CORE if core_send?(t.name, s)
             word = line_word(t, s)
             name = id(t.name)
-            at = cell(t, :cc, k::CallCache.layout_size * 4)
+            at = cell(t, :cc, k::CallCache.size * 4)
             entry, globals = Sends::OPT_ENTRIES[t.name] if t.opt && t.using != :owner && !s.unit.traced
             classes = globals&.map { |g| @kern.zr_global(@kern.const_get(g)) }
             safe = t.safe

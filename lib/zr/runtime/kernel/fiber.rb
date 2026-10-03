@@ -19,6 +19,7 @@ module Zr::Kern
     attr_accessor :home #: value
     attr_accessor :kw #: word
   end
+
   T_FIBER = 30
   G_FIBER = 39
   FIBER_CREATED = 0

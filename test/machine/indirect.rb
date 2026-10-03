@@ -2,11 +2,22 @@
 # each taken with Machine.addr and called through one Machine.sig, and a
 # visitor that walks the table through a pointer it was handed.
 module Zr::Kern
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :exit, [I32] => Void
+  module Libc
+    #: (i32, ptr, word) -> word
+    def self.write(i, p, n) = Machine.import
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
 
-  Binop = fn [Word, Word] => Word
-  Each = fn [Ptr, Word] => Void
+  module Binop
+    #: (ptr, word, word) -> word
+    def self.call(fn, n1, n2) = Machine.indirect
+  end
+
+  module Each
+    #: (ptr, ptr, word) -> void
+    def self.call(fn, p, n) = Machine.indirect
+  end
 
   #: (word, word) -> word
   def add(a, b)

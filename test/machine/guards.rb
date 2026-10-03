@@ -3,8 +3,12 @@
 # lowers its body in place, the return a jump to the end of it. Each
 # def below answers one letter, and the letters must spell the line.
 module Zr::Kern
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :exit, [I32] => Void
+  module Libc
+    #: (i32, ptr, word) -> word
+    def self.write(i, p, n) = Machine.import
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
 
   # The letters, as bytes. Every answer of the defs below is one, so
   # the arguments a body is meant to answer for sit above them all.

@@ -21,6 +21,7 @@ module Zr::Kern
     attr_accessor :kroots #: ptr
     attr_accessor :resumed #: word
   end
+
   CONT_SIDE_BYTES = 1048576
   CONT_CAPTURE = 1
   CONT_RESTORE = 2

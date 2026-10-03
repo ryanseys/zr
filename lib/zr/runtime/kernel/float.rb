@@ -8,6 +8,7 @@ module Zr::Kern
     attr_reader :basic #: RBasic
     attr_accessor :bits #: word
   end
+
   T_FLOAT = 4
   G_FLOAT = 40
   # The flonum +0.0, 0x8000000000000002, as a signed Word.

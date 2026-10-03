@@ -1,4 +1,4 @@
-# Binop is not a `fn` signature here
+# Binop is not a signature here
 module Zr::Kern
   #: (word, word) -> word
   def add(a, b)

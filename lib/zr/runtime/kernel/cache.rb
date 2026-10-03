@@ -58,6 +58,7 @@ module Zr::Kern
     attr_accessor :shape #: word
     attr_accessor :direct #: ptr
   end
+
   CALL_WAYS = 4
   SHAPE_NONE = 0
   SHAPE_READER = 1
@@ -124,6 +125,7 @@ module Zr::Kern
     attr_accessor :klass #: value
     attr_accessor :arm #: word
   end
+
   CASE_ROWS = 32
 
   # Records a change that a constant lookup can see.

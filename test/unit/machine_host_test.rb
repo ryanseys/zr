@@ -11,9 +11,22 @@ require_relative "../../lib/zr/machine/host"
 class MachineHostTest < Minitest::Test
   SOURCE = <<~RUBY
     module Zr::Kern
-      Libc.import :strlen, [Ptr] => Word
-      Pair = layout head: Word, tail: I32, flag: Bool
-      Twice = fn [Word] => Word
+      module Libc
+        #: (ptr) -> word
+        def self.strlen(p) = Machine.import
+      end
+
+      class Pair < Layout
+        attr_accessor :head #: word
+        attr_accessor :tail #: i32
+        attr_accessor :flag #: bool
+      end
+
+      module Twice
+        #: (ptr, word) -> word
+        def self.call(fn, n) = Machine.indirect
+      end
+
       LIMIT = Pair.size * 2
 
       #: (word) -> word
@@ -40,10 +53,10 @@ class MachineHostTest < Minitest::Test
 
       #: (ptr, word) -> word
       def pair(p, n)
-        Pair.set_head(p, n)
-        Pair.set_tail(p, Machine.i32(0 - 1))
-        Pair.set_flag(p, true)
-        Pair.head(p) + Machine.sword(Pair.tail(p))
+        Pair[p].head = n
+        Pair[p].tail = Machine.i32(0 - 1)
+        Pair[p].flag = true
+        Pair[p].head + Machine.sword(Pair[p].tail)
       end
     end
   RUBY
@@ -65,8 +78,9 @@ class MachineHostTest < Minitest::Test
     p = Zr::Machine::Host::Memory.zeroed(host.kern::Pair.size)
 
     assert_equal 41, host.call(:pair, p, 42)
-    assert_equal [0, 8, 12, 16], [*host.kern::Pair.layout_fields.values.map(&:first), host.kern::Pair.size]
-    assert host.kern::Pair.flag(p)
+    assert_equal 16, host.kern::Pair.size
+    pair = host.kern::Pair[p]
+    assert_equal [42, -1, true], [pair.head, pair.tail, pair.flag]
   end
 
   def test_a_slot_is_given_back_when_its_def_returns
@@ -105,7 +119,11 @@ class MachineHostTest < Minitest::Test
   def test_a_value_read_from_a_field_is_a_root
     source = <<~RUBY
       module Zr::Kern
-        Cell = layout klass: Value, count: Word
+        class Cell < Layout
+          attr_accessor :klass #: value
+          attr_accessor :count #: word
+        end
+
         collects :zr_gc
 
         #: () -> void
@@ -114,10 +132,42 @@ class MachineHostTest < Minitest::Test
 
         #: (ptr) -> word
         def walk(p)
-          v = Cell.klass(p)
-          n = Cell.count(p)
+          v = Cell[p].klass
+          n = Cell[p].count
           while n > 0
             zr_gc
+            n -= 1
+          end
+          0
+        end
+      end
+    RUBY
+    rooted = Dir.mktmpdir("zr-host-") do |dir|
+      path = File.join(dir, "k.rb")
+      File.write(path, source)
+      Zr::Machine::Host.new([path]).instance_variable_get(:@rooted)
+    end
+
+    assert_equal [:v], rooted.fetch("walk")
+  end
+
+  # A call through a signature can collect, as in the lowering
+  # (`Lower#collecting_defs`), so a def that makes one in a loop keeps its
+  # Value locals as roots.
+  def test_a_call_through_a_signature_can_collect
+    source = <<~RUBY
+      module Zr::Kern
+        module Step
+          #: (ptr) -> void
+          def self.call(fn) = Machine.indirect
+        end
+
+        #: (ptr, ptr) -> word
+        def walk(p, fn)
+          v = Machine.value(Machine.load64(p, 0))
+          n = Machine.load64(p, 8)
+          while n > 0
+            Step.call(fn)
             n -= 1
           end
           0

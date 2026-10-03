@@ -91,7 +91,7 @@ module Zr
             values = open ? 1 : scopes.first.size
             loops = [] #: Array[untyped]
             Scope.new(node: node, unit: unit, def_node: def_node, kind: kind, scopes: scopes, homes: homes, meta: meta,
-                      params: params, open: open, line: m.line(meta) | (m.node(meta) << 32), values: values,
+                      params: params, open: open, line: m[meta].line | (m[meta].node << 32), values: values,
                       blank: Array.new([values, 1].max, @qnil).freeze, names: id_table(scopes.first), loops: loops)
           end
 
@@ -115,24 +115,25 @@ module Zr
           def meta(node, unit, kind, name: 0, parent: 0, params: nil, locals: [], fn: 0, open: true, ruby: false, cover: nil)
             @metas[node] ||= begin
               m = k::FrameMeta
-              addr = Memory.zeroed(m.layout_size, 8)
+              addr = Memory.zeroed(m.size, 8)
               file = unit.file.to_s
-              m.set_name(addr, name.is_a?(Integer) ? name : id(name))
-              m.set_file(addr, @host.bytes(file))
-              m.set_file_len(addr, unit.internal ? 0 : file.bytesize)
-              m.set_kind(addr, kind)
-              m.set_line(addr, line_of(node))
-              m.set_parent(addr, parent)
-              m.set_arity(addr, params ? params.arity : 0)
-              m.set_params(addr, params ? param_table(params) : 0)
-              m.set_fn(addr, fn)
-              m.set_locals(addr, id_table(locals))
-              m.set_env(addr, open ? 1 : 0)
-              m.set_node(addr, unit.node_ids&.[](node) || 0)
-              m.set_hidden(addr, unit.hidden ? 1 : 0)
-              m.set_ruby(addr, ruby ? 1 : 0)
-              m.set_cover(addr, cover ? cover + 1 : 0)
-              m.set_box(addr, m.box(unit.root)) if unit.root
+              row = m[addr]
+              row.name = name.is_a?(Integer) ? name : id(name)
+              row.file = @host.bytes(file)
+              row.file_len = unit.internal ? 0 : file.bytesize
+              row.kind = kind
+              row.line = line_of(node)
+              row.parent = parent
+              row.arity = params ? params.arity : 0
+              row.params = params ? param_table(params) : 0
+              row.fn = fn
+              row.locals = id_table(locals)
+              row.env = open ? 1 : 0
+              row.node = unit.node_ids&.[](node) || 0
+              row.hidden = unit.hidden ? 1 : 0
+              row.ruby = ruby ? 1 : 0
+              row.cover = cover ? cover + 1 : 0
+              row.box = m[unit.root].box if unit.root
               addr
             end
           end

@@ -56,7 +56,10 @@ class WasmTest < Minitest::Test
   # call, and a native build refuses it with a message that gives the name.
   IMPORTED = <<~RUBY
     module Zr::Kern
-      Libc.import :fd_write, [I32, I32, I32, I32] => I32, from: "wasi_snapshot_preview1"
+      module Libc
+        #: (i32, i32, i32, i32) -> i32
+        def self.fd_write(i1, i2, i3, i4) = Machine.import(from: "wasi_snapshot_preview1")
+      end
 
       #: (i32, ptr) -> i32
       def main(argc, argv)
@@ -83,7 +86,7 @@ class WasmTest < Minitest::Test
   # An import of a name that the module imports already, with another
   # signature, is refused, and the message gives both imports.
   def test_an_import_with_another_signature_is_refused
-    source = IMPORTED.sub("[I32, I32, I32, I32] => I32", "[I32, I32, I32] => I32")
+    source = IMPORTED.sub("#: (i32, i32, i32, i32) -> i32", "#: (i32, i32, i32) -> i32").sub("fd_write(i1, i2, i3, i4)", "fd_write(i1, i2, i3)")
                      .sub(", Machine.i32(iov + 8))", ")")
     functions, data = Zr::Machine.compile(source, "imported.rb")
     Dir.mktmpdir("zr-wasm-") do |dir|

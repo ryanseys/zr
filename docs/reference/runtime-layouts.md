@@ -27,7 +27,10 @@ A `Value` is a 64-bit word with CRuby's tagging (`lib/zr/runtime/kernel/value.rb
 ## The object header
 
 ```ruby
-RBasic = layout flags: Word, klass: Value
+class RBasic < Layout
+  attr_accessor :flags #: word
+  attr_accessor :klass #: value
+end
 ```
 
 | Bits of `flags` | Meaning |
@@ -54,13 +57,53 @@ RBasic = layout flags: Word, klass: Value
 ## Objects
 
 ```ruby
-RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr
-RArray = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr, base: Ptr
-RObject = layout basic: RBasic, iv: IvTab
-RProc = layout basic: RBasic, fn: Ptr, meta: Ptr, env: Value, self: Value, cref: Value,
-               blk: Value, home: Ptr, serial: Word, site: Word, ret_home: Ptr, ret_serial: Word,
-               spread: Word, lambda: Word, passed: Word
-REnv = layout basic: RBasic, parent: Value, slots: Ptr, nslots: Word, names: Ptr, cell: Value, home: Ptr
+class RString < Layout
+  attr_reader :basic #: RBasic
+  attr_accessor :len #: word
+  attr_accessor :capa #: word
+  attr_accessor :ptr #: ptr
+end
+
+class RArray < Layout
+  attr_reader :basic #: RBasic
+  attr_accessor :len #: word
+  attr_accessor :capa #: word
+  attr_accessor :ptr #: ptr
+  attr_accessor :base #: ptr
+end
+
+class RObject < Layout
+  attr_reader :basic #: RBasic
+  attr_reader :iv #: IvTab
+end
+
+class RProc < Layout
+  attr_reader :basic #: RBasic
+  attr_accessor :fn #: ptr
+  attr_accessor :meta #: ptr
+  attr_accessor :env #: value
+  attr_accessor :self #: value
+  attr_accessor :cref #: value
+  attr_accessor :blk #: value
+  attr_accessor :home #: ptr
+  attr_accessor :serial #: word
+  attr_accessor :site #: word
+  attr_accessor :ret_home #: ptr
+  attr_accessor :ret_serial #: word
+  attr_accessor :spread #: word
+  attr_accessor :lambda #: word
+  attr_accessor :passed #: word
+end
+
+class REnv < Layout
+  attr_reader :basic #: RBasic
+  attr_accessor :parent #: value
+  attr_accessor :slots #: ptr
+  attr_accessor :nslots #: word
+  attr_accessor :names #: ptr
+  attr_accessor :cell #: value
+  attr_accessor :home #: ptr
+end
 ```
 
 - A String's bytes and an Array's elements stay in the object's cell
@@ -88,8 +131,19 @@ smallest size that contains the object and its contents.
 Every compiled Ruby function keeps one record in its machine frame:
 
 ```ruby
-Frame = layout prev: Ptr, meta: Ptr, line: Word, self: Value, cref: Value, blk: Value,
-               entry: Ptr, defined: Value, serial: Word, nvalues: Word, svars: Value
+class Frame < Layout
+  attr_accessor :prev #: ptr
+  attr_accessor :meta #: ptr
+  attr_accessor :line #: word
+  attr_accessor :self #: value
+  attr_accessor :cref #: value
+  attr_accessor :blk #: value
+  attr_accessor :entry #: ptr
+  attr_accessor :defined #: value
+  attr_accessor :serial #: word
+  attr_accessor :nvalues #: word
+  attr_accessor :svars #: value
+end
 ```
 
 `nvalues` Value slots follow the header: locals, the staging slots of
@@ -108,10 +162,32 @@ newest record, and `prev` links each record to its caller's.
 ## Method entries and inline caches
 
 ```ruby
-MEntry = layout mid: Word, fn: Ptr, arity: Word, kind: Word, meta: Ptr, cref: Value,
-                vis: Word, orig: Word, from: Value, core: Word, ivar: IvarCache, cover: Word,
-                direct: Ptr, concealed: Word
-CallCache = layout klass: Value, stamp: Word, entry: Ptr, found: Value, fn: Ptr, shape: Word, direct: Ptr
+class MEntry < Layout
+  attr_accessor :mid #: word
+  attr_accessor :fn #: ptr
+  attr_accessor :arity #: word
+  attr_accessor :kind #: word
+  attr_accessor :meta #: ptr
+  attr_accessor :cref #: value
+  attr_accessor :vis #: word
+  attr_accessor :orig #: word
+  attr_accessor :from #: value
+  attr_accessor :core #: word
+  attr_reader :ivar #: IvarCache
+  attr_accessor :cover #: word
+  attr_accessor :direct #: ptr
+  attr_accessor :concealed #: word
+end
+
+class CallCache < Layout
+  attr_accessor :klass #: value
+  attr_accessor :stamp #: word
+  attr_accessor :entry #: ptr
+  attr_accessor :found #: value
+  attr_accessor :fn #: ptr
+  attr_accessor :shape #: word
+  attr_accessor :direct #: ptr
+end
 ```
 
 A compiled method takes `(recv, argc, argv, entry, blk, found)`. A

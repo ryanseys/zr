@@ -1,8 +1,12 @@
 # One file of a three-file unit: the imports, a constant, and a printer
 # the other files call.
 module Zr::Kern
-  Libc.import :write, [I32, Ptr, Word] => Word
-  Libc.import :exit, [I32] => Void
+  module Libc
+    #: (i32, ptr, word) -> word
+    def self.write(i, p, n) = Machine.import
+    #: (i32) -> void
+    def self.exit(i) = Machine.import
+  end
 
   BASE = 10
 

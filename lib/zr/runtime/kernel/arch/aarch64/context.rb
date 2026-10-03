@@ -4,7 +4,7 @@ module Zr::Kern
   # and link registers, and the stack pointer into a context. Then it loads
   # the registers from a different context.
   #: (ptr, ptr) -> void
-  def zr_switch(p1, p2) = Machine.raw
+  def zr_switch(from, to) = Machine.raw
 
   CONTEXT_BYTES = 176
 

@@ -121,6 +121,7 @@ module Zr::Kern
     end
     values
   end
+
   inline :zr_struct_values_guessed
 
   # Returns the member that the entry `e` reads, or nil while the struct

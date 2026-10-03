@@ -13,6 +13,7 @@ module Zr::Kern
     attr_accessor :w6 #: word
     attr_accessor :w7 #: word
   end
+
   class Buf < Layout
     attr_accessor :ptr #: ptr
     attr_accessor :len #: word

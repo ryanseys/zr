@@ -87,6 +87,7 @@ module Zr::Kern
     attr_accessor :direct #: ptr
     attr_accessor :concealed #: word
   end
+
   class CEntry < Layout
     attr_accessor :id #: word
     attr_accessor :value #: value
@@ -108,26 +109,32 @@ module Zr::Kern
     #: (ptr, value, word, ptr, ptr, value, value) -> value
     def self.call(fn, v1, n, p1, p2, v2, v3) = Machine.indirect
   end
+
   module Builtin
     #: (ptr, value, word, ptr, value, value) -> value
     def self.call(fn, v1, n, p, v2, v3) = Machine.indirect
   end
+
   module Direct0
     #: (ptr, value, ptr, value, value) -> value
     def self.call(fn, v1, p, v2, v3) = Machine.indirect
   end
+
   module Direct1
     #: (ptr, value, ptr, value, value, value) -> value
     def self.call(fn, v1, p, v2, v3, v4) = Machine.indirect
   end
+
   module Direct2
     #: (ptr, value, ptr, value, value, value, value) -> value
     def self.call(fn, v1, p, v2, v3, v4, v5) = Machine.indirect
   end
+
   module Direct3
     #: (ptr, value, ptr, value, value, value, value, value) -> value
     def self.call(fn, v1, p, v2, v3, v4, v5, v6) = Machine.indirect
   end
+
   module Direct4
     #: (ptr, value, ptr, value, value, value, value, value, value) -> value
     def self.call(fn, v1, p, v2, v3, v4, v5, v6, v7) = Machine.indirect
@@ -1088,6 +1095,7 @@ module Zr::Kern
     attr_accessor :fn #: ptr
     attr_accessor :vis #: word
   end
+
   GATE_ROWS = 56
 
   #: (word, word, word, word) -> word
@@ -2336,6 +2344,7 @@ module Zr::Kern
     attr_accessor :stamp #: word
     attr_accessor :refine #: value
   end
+
   MCACHE_ROWS = 2048
   # `ZR_MCACHE=0` does a walk for each send. `ZR_MCACHE=verify` gets both
   # results and stops if they differ, which finds a change to a method

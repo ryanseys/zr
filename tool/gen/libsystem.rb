@@ -23,7 +23,7 @@ module Zr
 
           kernel = Zr::RuntimeSources.for(Target::AARCH64_DARWIN).kernel_files
           names = (kernel + Dir[Dev.path("test/machine/**/*.rb")].sort).flat_map do |file|
-            File.read(file).scan(/Libc\.import\s+:(\w+)|def self\.(\w+)\b.*= Machine\.import\b|Machine\.extern\(:(\w+)\)/).flatten.compact
+            File.read(file).scan(/def self\.(\w+)\b.*= Machine\.import\b|Machine\.extern\(:(\w+)\)/).flatten.compact
           end
           names += Native::Fixtures::NAMES.flat_map do |name|
             functions, data = Native::Fixtures.build(name)

@@ -195,6 +195,7 @@ module Zr::Kern
   def zr_onig_inherit_null_check(m, stk)
     stk == OnigMatch[m].stk_base ? 0 : OnigStk[stk - OnigStk.size].null_check
   end
+
   inline :zr_onig_inherit_null_check
 
   # STACK_PUSH: a state entry (ALT, POS, POS_NOT, LOOK_BEHIND_NOT).
@@ -210,6 +211,7 @@ module Zr::Kern
     OnigStk[stk].d = Machine.word(keep)
     OnigMatch[m].stk = stk + OnigStk.size
   end
+
   inline :zr_onig_push
 
   # STACK_PUSH_TYPE: a marker entry (STOP_BT, ABSENT, RETURN).

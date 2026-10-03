@@ -348,7 +348,7 @@ module Zr
         #: () -> void
         def layouts!
           k = @kern
-          @record = k::Frame.layout_size
+          @record = k::Frame.size
           @line_at = offset(k::Frame, "line")
           @env_slots = offset(k::REnv, "slots")
           @env_parent = offset(k::REnv, "parent")
@@ -368,7 +368,7 @@ module Zr
           @cc_entry = offset(k::CallCache, "entry")
           @cc_found = offset(k::CallCache, "found")
           @cc_fn = offset(k::CallCache, "fn")
-          task = k::Task.layout_fields
+          task = @host.layout_of(k::Task).fields
           @task_top = Memory.reader(TYPES["Ptr"], task.fetch("top").first)
           @task_set_top = Memory.writer(TYPES["Ptr"], task.fetch("top").first)
           @task_limit = Memory.reader(TYPES["Ptr"], task.fetch("stack_limit").first)
@@ -381,8 +381,8 @@ module Zr
           @integer = k.zr_global(k::G_INTEGER)
         end
 
-        #: (Layout layout, String field) -> Integer
-        def offset(layout, field) = layout.layout_fields.fetch(field).first
+        #: (singleton(View) layout, String field) -> Integer
+        def offset(layout, field) = @host.layout_of(layout).fields.fetch(field).first
 
         # A core file's or a program's toplevel.
         #: (Hir::Program | Hir::Unit hir, Unit unit, Integer kind) -> Integer
@@ -433,7 +433,7 @@ module Zr
                                  defs: hir.defs || {}, target: target, manifest: Manifest.bytes(manifest, target)).texts
           TEXTS.zip(texts) do |field, lines|
             text = lines.join("\n").b
-            Memory.set_words(words + table.layout_fields.fetch(field).first, [@host.bytes(text), text.bytesize])
+            Memory.set_words(words + offset(table, field), [@host.bytes(text), text.bytesize])
           end
           units = [] #: Array[[String, Hir::entry]]
           Hash(hir.entries).each { |path, unit| units << [Paths.shown(path), unit] if path.start_with?("/") }
@@ -444,8 +444,8 @@ module Zr
           end
           at = Memory.zeroed([rows.size * 8, 8].max, 8)
           Memory.set_words(at, rows) unless rows.empty?
-          table.set_units(words, units.size)
-          table.set_rows(words, at)
+          table[words].units = units.size
+          table[words].rows = at
         end
 
         # `values` as an argument vector in the slot area for a call that no

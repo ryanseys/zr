@@ -462,7 +462,7 @@ module Zr
               return ->(_) { @kern.zr_global(slot) }
             end
 
-            at = cell(node, :cc, k::ConstCache.layout_size)
+            at = cell(node, :cc, k::ConstCache.size)
             name = id(node.name)
             word = line_word(node, s)
             if node.scope.nil?
@@ -527,7 +527,7 @@ module Zr
 
           def ivar_read(node, s)
             name = id(ivar(node.name, s))
-            at = cell(node, :ic, k::IvarCache.layout_size)
+            at = cell(node, :ic, k::IvarCache.size)
             ->(f) { check(@kern.zr_ivar_get_cached(f.self_, name, at)) }
           end
 
@@ -540,7 +540,7 @@ module Zr
           # The code that stores a Value into the ivar `node` names.
           def ivar_store(node, s)
             name = id(ivar(node.name, s))
-            at = cell(node, :ic, k::IvarCache.layout_size)
+            at = cell(node, :ic, k::IvarCache.size)
             word = line_word(node, s)
             lambda do |f, v|
               line!(f, word)

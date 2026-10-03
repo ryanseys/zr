@@ -22,38 +22,44 @@ The usual solution is C. zr uses the solution of Squeak's Slang,
 RPython and Jikes RVM: write the low level in a restricted form of the
 high-level language. Each kernel file is one `module Zr::Kern` of
 plain Ruby. A `def` has a `#:` type comment, every local has a machine
-type, a struct is a layout, and a call is a machine call:
+type, a struct is a layout class, and a call is a machine call:
 
 ```ruby
 module Zr::Kern
-  RString = layout basic: RBasic, len: Word, capa: Word, ptr: Ptr
+  class RString < Layout
+    attr_reader :basic #: RBasic
+    attr_accessor :len #: word
+    attr_accessor :capa #: word
+    attr_accessor :ptr #: ptr
+  end
 
   #: (value) -> value
   def zr_str_bytesize(s)
-    zr_fix(RString.len(s))
+    zr_fix(RString[s].len)
   end
 end
 ```
 
 Thus the whole project has one language and one compiler. The kernel
 lowers to the same IR as a program, so the same backends and tests
-cover it. [The kernel's typed Ruby](../reference/machine-dialect.md)
+cover it. [The kernel subset](../reference/kernel-subset.md)
 lists its forms.
 
 ## Running kernel code on the host
 
-The kernel's lowering gives some Ruby forms other meanings: `0` is
-false, `/` truncates, and words wrap at 2**64. At present, kernel code
-does not run under CRuby. zr compiles it first.
-
-The goal is that the kernel means the same on CRuby. Thus a plain
+The kernel means the same on CRuby as in a binary. `Machine::Host`
+(`lib/zr/machine/host.rb`) runs the kernel's files as Ruby: a view is a
+small object, an import is a call through Fiddle, and the intrinsics
+are Ruby methods. The lowering refuses the forms whose meaning is
+different: a condition that is not a `bool`, because CRuby takes `0`
+as true, and arithmetic on a view. Thus a plain
 `+ - * <<` must not overflow, and a plain `/ %` must get no negative
 operand. An operation that must wrap uses `Machine.add_wrap`,
 `sub_wrap`, `mul_wrap` or `shl_wrap`. A division with an operand that
 can be negative uses `Machine.sdiv` or `Machine.srem`. These lower to
 the same IR as the plain operators.
 
-The tests run kernel code in two ways:
+The tests run kernel code in three ways:
 
 - `Harness::KernelJIT` (`test/support/harness/kernel_jit.rb`) compiles
   kernel files into one compilation unit, loads the machine code into
@@ -64,6 +70,10 @@ The tests run kernel code in two ways:
 - `IR::Interp` runs the IR of a typed-Ruby program without a
   backend. `test/unit/interp_test.rb` runs the programs in
   `test/machine/` this way.
+- `Machine::Host` runs kernel files on CRuby.
+  `test/unit/machine_host_test.rb` runs each program in `test/machine/`
+  on CRuby and compares its output with the binary's, and
+  `Harness::KernelHost` runs the same files as `Harness::KernelJIT`.
 
 ## Why the core library is ordinary Ruby
 
@@ -117,7 +127,7 @@ that layer also implements the libc calls, over WASI preview 1.
 
 The architecture layer, in `lib/zr/runtime/kernel/arch/<arch>/`, does
 the same for the machine. It gives the `zr_switch` function that
-switches tasks (`raw :zr_switch, [Ptr, Ptr] => Void` on aarch64), the
+switches tasks (`def zr_switch(from, to) = Machine.raw` on aarch64), the
 size of a saved context (`CONTEXT_BYTES`), `zr_arch_context_start`,
 which makes a context that starts a new task, and `zr_arch_context_sp`,
 which reads the stack pointer that `zr_switch` saved in a context.

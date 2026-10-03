@@ -50,6 +50,7 @@ module Zr::Kern
     attr_accessor :owns_backref #: word
     attr_accessor :frameless #: word
   end
+
   KIND_MAIN = 0
   KIND_DEF = 1
   KIND_BUILTIN = 2
@@ -88,6 +89,7 @@ module Zr::Kern
     attr_accessor :bt #: value
     attr_accessor :cause #: value
   end
+
   T_EXCEPTION = 24
 
   G_EXCEPTION = 16

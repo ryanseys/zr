@@ -9,6 +9,7 @@ module Zr::Kern
     attr_accessor :ptr #: ptr
     attr_accessor :base #: ptr
   end
+
   G_ARRAY = 25
   G_INDEX_ERROR = 26
   # CRuby's ARY_MAX_SIZE: the maximum number of elements in an Array,

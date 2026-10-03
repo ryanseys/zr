@@ -19,12 +19,14 @@ module Zr::Kern
     attr_accessor :iter #: word
     attr_accessor :gen #: word
   end
+
   class HEntry < Layout
     attr_accessor :key #: value
     attr_accessor :value #: value
     attr_accessor :live #: word
     attr_accessor :hash #: word
   end
+
   T_HASH = 8
   G_HASH = 30
   G_KEY_ERROR = 31

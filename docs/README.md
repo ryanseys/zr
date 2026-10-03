@@ -54,7 +54,7 @@ Facts about commands, formats and layouts.
 - [Benchmark recordings](reference/test-format.md): the files beside a
   benchmark
 - [Repository layout](reference/repository-layout.md)
-- [The kernel's typed Ruby](reference/machine-dialect.md)
+- [The kernel subset](reference/kernel-subset.md)
 - [Runtime layouts](reference/runtime-layouts.md)
 - [Glossary](reference/glossary.md)
 
