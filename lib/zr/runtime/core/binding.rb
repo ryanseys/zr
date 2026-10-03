@@ -130,7 +130,7 @@ class Binding
     Primitive.attr! :hidden
     name = symbol_name(name)
     raise NameError.new("numbered parameter '#{name}' is not a local variable", name, receiver: self) if numbered?(name)
-    raise NameError.new("wrong local variable name '#{name}' for #{inspect}", name, receiver: self) unless /\A[a-z_\u0080-\u{10ffff}][[:word:]\u0080-\u{10ffff}]*\z/.match?(name)
+    raise NameError.new("wrong local variable name '#{name}' for #{inspect}", name, receiver: self) unless local_name?(name)
 
     name
   end
@@ -161,9 +161,17 @@ class Binding
     Primitive.zr_binding_scopes(self).map { |names| names.map { |n| named?(n) ? n : nil } }
   end
 
+  # Whether `name` has the form of a local: a lowercase or non-ASCII letter
+  # or `_`, then word characters. The lowering's hidden locals (`%tmp1`)
+  # do not have it.
+  def local_name?(name)
+    Primitive.attr! :hidden
+    /\A[a-z_\u0080-\u{10ffff}][\w\u0080-\u{10ffff}]*\z/.match?(name.to_s)
+  end
+
   def named?(name)
     Primitive.attr! :hidden
-    /\A[a-z_][A-Za-z0-9_]*\z/.match?(name.to_s) && !numbered?(name)
+    local_name?(name) && !numbered?(name)
   end
 end
 
