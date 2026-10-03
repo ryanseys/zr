@@ -209,24 +209,6 @@ writes the libSystem list again. See
 
 See [How to measure performance](../how-to/measure-performance.md).
 
-### The kernel rewrite
-
-`ruby tool/kern_rewrite.rb FILE...` rewrites kernel files from the old
-machine dialect to [typed Ruby](machine-dialect.md). Each file becomes
-one `module Zr::Kern`. `machine def` becomes `def`,
-`Machine.import "f"` becomes `Libc.import :f`, and a bare call to an
-import becomes `Libc.f(...)`. `Machine.struct :X, ...` becomes
-`X = layout ...`. `Machine.sig :name` becomes `Name = fn`, and
-`Machine.call(:name, p, ...)` becomes `Name.call(p, ...)`.
-`Machine.inline`, `Machine.collects` and `Machine.raw` lose
-`Machine.`. The tool does not change a file that is already one
-`module Zr::Kern`. It changes only the spelling: run
-`zr-dev golden save` before and `zr-dev golden check` after, to show
-that the IR stays the same.
-
-A generator that writes a file below `lib/zr/runtime/kernel/` puts its
-output through the same rewrite (`tool/lib/zr/dev/files.rb`).
-
 ### Self-compile checks
 
 | Command | Does |

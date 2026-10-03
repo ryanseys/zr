@@ -39,6 +39,7 @@ module Zr
           io.puts "# zlib's tables, made as crc32.c and trees.c make them; the license is"
           io.puts "# in lib/zr/runtime/kernel/zlib.rb."
           io.puts
+          io.puts "module Zr::Kern"
 
           emit_u32(io, "zr_crc_table", crc_table,
                     "The CRC of every byte value, 256 words: crc32.c's crc_table, which get_crc_table answers too.")
@@ -78,6 +79,7 @@ module Zr
           emit_u32(io, "zr_deflate_config_table",
                     [0, 0, 0, 0, 4, 4, 8, 4, 4, 5, 16, 8, 4, 6, 32, 32, 4, 4, 16, 16, 8, 16, 32, 32, 8, 16, 128, 128, 8, 32, 128, 256, 32, 128, 258, 1024, 32, 258, 258, 4096],
                     "Each level's good, lazy, nice and chain lengths: deflate.c's configuration_table, whose func column zr_deflate_kind answers.")
+          io.puts "end"
         end
 
         private
@@ -276,15 +278,19 @@ module Zr
 
         # `words` as little-endian 32-bit cells, in rows of 32 bytes
         # joined by line continuations, as the kernel's byte tables read.
+        # A blank line comes before each def but the first. The later
+        # lines of the literal are inside the String, so they have no
+        # indent.
         def emit_u32(io, name, words, comment)
           rows = words.pack("V*").bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02X", b) }.join }
-          io.puts "# #{comment}"
-          io.puts "#: () -> ptr"
-          io.puts "machine def #{name}"
-          io.puts "  Machine.bytes("
-          io.puts "  \"#{rows.join("\\\n")}\")"
-          io.puts "end"
-          io.puts
+          io.puts if @emitted
+          @emitted = true
+          io.puts "  # #{comment}"
+          io.puts "  #: () -> ptr"
+          io.puts "  def #{name}"
+          io.puts "    Machine.bytes("
+          io.puts "    \"#{rows.join("\\\n")}\")"
+          io.puts "  end"
         end
       end
     end

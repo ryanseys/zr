@@ -113,8 +113,8 @@ library and the bundled gems (`Library::Roots.stdlib`,
 HIR to IR, or the kernel's typed Ruby to IR.
 
 **Machine dialect.** The old form of the kernel: top-level statements,
-`machine def` and `Machine.import`. `tool/kern_rewrite.rb` changed it
-to typed Ruby. See **Typed Ruby**.
+`machine def` and `Machine.import`. A one-off rewrite changed it to
+typed Ruby. See **Typed Ruby**.
 
 **Method stamp.** A global word that every change to a method table or
 an ancestor chain changes. The collector also changes it when it frees

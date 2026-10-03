@@ -422,14 +422,16 @@ module Zr
           RUBY
         end
 
+        # A def of `Zr::Kern` that gives `bytes`. The later lines of the
+        # literal are inside the String, so they have no indent.
         def emit_bytes(io, ename, bytes, comment)
           rows = bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02X", b) }.join }
-          io.print "# #{comment}\n"
-          io.print "#: () -> ptr\n"
-          io.print "machine def #{ename}\n"
-          io.print "  Machine.bytes(\n"
-          io.print "  \"#{rows.join("\\\n")}\")\n"
-          io.print "end\n\n"
+          io.print "  # #{comment}\n"
+          io.print "  #: () -> ptr\n"
+          io.print "  def #{ename}\n"
+          io.print "    Machine.bytes(\n"
+          io.print "    \"#{rows.join("\\\n")}\")\n"
+          io.print "  end\n"
         end
 
         def write_kernel(io, tables, order, ctype_bits, case_fold)
@@ -452,11 +454,16 @@ module Zr
             # The byte tables the kernel's Onigmo matcher reads; the license is in
             # lib/zr/runtime/kernel/regexp.rb.
 
+            module Zr::Kern
           RUBY
           emit_bytes(io, "zr_onig_utf8_len", utf8_len, "EncLen_UTF8: the length a UTF-8 lead byte announces, 256 bytes (utf_8.c).")
+          io.print "\n"
           emit_bytes(io, "zr_onig_ctype_bits", ctype_bits.pack("V*").bytes, "The 8859-1 ctype bits of each code point under 256, as 256 words (unicode.c).")
+          io.print "\n"
           emit_bytes(io, "zr_onig_word_ranges", ([word.size] + word.flatten).pack("V*").bytes, "CR_Word: the count, then (low, high) pairs of code points, as words.")
+          io.print "\n"
           emit_bytes(io, "zr_onig_fold_rows", ([rows.size] + rows.flatten).pack("V*").bytes, "CaseFold_11 sorted by code point: the count, then rows of five words (from, how many, three codes).")
+          io.print "end\n"
         end
       end
     end

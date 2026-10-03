@@ -93,36 +93,40 @@ module Zr
             # zr_onig_precise_len also reads them, so a String and a Regexp on it
             # find the same characters.
 
-            # Whether the encoding `index` has multibyte characters of its own
-            # kind: not UTF-8, not UTF-16 or UTF-32, and not one byte for each
-            # character.
-            #: (word) -> bool
-            machine def zr_enc_mb_p(index)
-              #{test("index", mb.map { |e| index_of(e) })}
-            end
+            module Zr::Kern
+              # Whether the encoding `index` has multibyte characters of its own
+              # kind: not UTF-8, not UTF-16 or UTF-32, and not one byte for each
+              # character.
+              #: (word) -> bool
+              def zr_enc_mb_p(index)
+                #{test("index", mb.map { |e| index_of(e) })}
+              end
 
-            # Whether the encoding writes its characters in the same way as UTF-8.
-            #: (word) -> bool
-            machine def zr_enc_utf8_like_p(index)
-              #{test("index", utf8_like.map { |e| index_of(e) })}
-            end
+              # Whether the encoding writes its characters in the same way as UTF-8.
+              #: (word) -> bool
+              def zr_enc_utf8_like_p(index)
+                #{test("index", utf8_like.map { |e| index_of(e) })}
+              end
 
-            # The descriptor to step through a multibyte encoding, or 0 for other
-            # encodings.
-            #: (word) -> word
-            machine def zr_enc_mb_descriptor(index)
+              # The descriptor to step through a multibyte encoding, or 0 for other
+              # encodings.
+              #: (word) -> word
+              def zr_enc_mb_descriptor(index)
           HEAD
           blobs = bases.group_by { |enc, _| enc.descriptor }.to_h { |_, pairs| [pairs.first.first, pairs.flat_map(&:last)] }
           blobs.each do |enc, encodings|
-            kernel << "  # #{encodings.map(&:name).join(", ")}\n"
-            kernel << "  if #{test("index", encodings.map { |e| index_of(e) })}\n"
-            kernel << "    return Machine.word(#{def_name(enc)})\n  end\n"
+            kernel << "    # #{encodings.map(&:name).join(", ")}\n"
+            kernel << "    if #{test("index", encodings.map { |e| index_of(e) })}\n"
+            kernel << "      return Machine.word(#{def_name(enc)})\n    end\n"
           end
-          kernel << "  0\nend\n"
+          kernel << "    0\n  end\n"
+          # The later lines of a bytes literal are inside the String, so
+          # they have no indent.
           blobs.each_key do |enc|
-            kernel << "\n#: () -> ptr\nmachine def #{def_name(enc)}\n"
-            kernel << "  Machine.bytes(\n  #{bytes_literal(enc.descriptor)})\nend\n"
+            kernel << "\n  #: () -> ptr\n  def #{def_name(enc)}\n"
+            kernel << "    Machine.bytes(\n    #{bytes_literal(enc.descriptor)})\n  end\n"
           end
+          kernel << "end\n"
           io.print kernel
           warn "#{blobs.size} descriptors for #{mb.size} encodings, #{kernel.bytesize} bytes"
         end

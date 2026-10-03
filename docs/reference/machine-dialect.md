@@ -183,8 +183,7 @@ The kernel was in a "machine dialect" before: top-level statements,
 `machine def`, `Machine.import "f"` with bare calls to imports,
 `Machine.struct`, `Machine.sig` with `Machine.call`, and
 `Machine.inline`, `Machine.collects` and `Machine.raw "zr_switch"`.
-`tool/kern_rewrite.rb` rewrote each kernel file to the plain form.
-`zr-dev golden check` (`tool/golden.rb`) shows that the lowering of the
-kernel stays the same. A generator that writes a file below
-`lib/zr/runtime/kernel/` (`tool/lib/zr/dev/files.rb`) puts its output
-through the same rewrite.
+A one-off rewrite changed each kernel file to the plain form, and
+`zr-dev golden check` (`tool/golden.rb`) showed that the lowering of
+the kernel stayed the same. The generators that write kernel files
+(`enc_mb`, `onig_unicode`, `zlib_tables`) write the plain form.
