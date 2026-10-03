@@ -204,6 +204,7 @@ module Zr
 
       def positional: () -> Integer
       def spread?: () -> bool
+      def simple?: () -> bool
       def plain?: () -> bool
       def names: () -> Array[Symbol]
       def arity: () -> Integer

@@ -467,18 +467,56 @@ module Zr
             ->(f) { truthy?(@kern.zr_const_defined_at(scope.call(f), name)) }
           end
 
-          # A method: its receiver and arguments must be defined, then the
-          # receiver's class answers. Any receiver, `self` too, makes the
-          # call explicit.
+          # A method: its arguments must be defined, then its receiver,
+          # then the receiver's class answers. As in the lowering
+          # (`Lower::Function::Defined#method_defined`), a receiver is
+          # evaluated once. Any receiver, `self` too, makes the call
+          # explicit.
           def method_defined(send, s)
-            parts = [send.recv, *send.args].compact.map { |part| part_defined(part, s) }
-            recv = receiver(send.recv, s)
-            name = id(send.name)
-            explicit = !send.recv.nil?
-            lambda do |f|
-              next false unless parts.all? { |part| part.call(f) }
+            test = method_test(send, s)
+            ->(f) { !test.call(f).nil? }
+          end
 
-              truthy?(@kern.zr_method_defined(recv.call(f), name, explicit))
+          # The test of `send`: a lambda that gives nil when it is not
+          # defined, else the value of its receiver (self when it has none).
+          def method_test(send, s)
+            parts = send.args.compact.map { |part| part_defined(part, s) }
+            name = id(send.name)
+            value = send.recv && defined_receiver(send.recv, s)
+            lambda do |f|
+              next unless parts.all? { |part| part.call(f) }
+              next (f.self_ if truthy?(@kern.zr_method_defined(f.self_, name, false))) unless value
+
+              r = value.call(f)
+              r if r && truthy?(@kern.zr_method_defined(r, name, true))
+            end
+          end
+
+          # The value of the receiver `node` when it is defined, else nil.
+          # A call on a receiver of its own runs once, on the receiver that
+          # its own test evaluated.
+          def defined_receiver(node, s)
+            kept = node.is_a?(Hir::Send) && node.recv && !node.recv.is_a?(Hir::SelfRef) && !node.safe
+            unless kept
+              test = part_defined(node, s)
+              value = code(node, s)
+              return ->(f) { value.call(f) if test.call(f) }
+            end
+
+            test = method_test(node, s)
+            # The send reads its receiver first, before an argument can
+            # come back here, so the newest entry is its own.
+            held = [] #: Array[Integer]
+            call = send_node(node, s, ->(_) { held.last })
+            lambda do |f|
+              r = test.call(f) or next
+
+              held.push(r)
+              begin
+                call.call(f)
+              ensure
+                held.pop
+              end
             end
           end
 

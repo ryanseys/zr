@@ -92,11 +92,13 @@ module Zr
 
           private
 
-          def send_node(node, s)
+          # `recv` is the code of the receiver when the caller has its value
+          # already (`Control#defined_receiver`).
+          def send_node(node, s, recv = nil)
             return primitive(node, s) if s.internal? && primitive?(node)
             return send_node(funcall(node), s) if kernel_send?(node, s)
 
-            recv = receiver(node.recv, s)
+            recv ||= receiver(node.recv, s)
             args, splat = arguments(node.args, s)
             op, between = fast_paths(node, s, splat)
             kwargs = node.kwargs && hash(node.kwargs, s)
@@ -105,6 +107,9 @@ module Zr
             dispatch = dispatcher(node, s, send_mode(node, s))
             word = line_word(node, s)
             using = node.using
+            # Proc#call and Proc#yield pass a `**h` on to the block as a
+            # yield does, also an empty one (`Lower::Function::Sends`).
+            kw_argc = %i[call yield].include?(node.name) ? :zr_kw_argc_yield : :zr_kw_argc
             safe = node.safe
             covers = node.covers
             interp = node.interp
@@ -166,7 +171,7 @@ module Zr
                 values += [kw] if kw
                 av = argv(f, values)
                 argc = values.size
-                argc = @kern.zr_kw_argc(argc, av) if kw
+                argc = @kern.public_send(kw_argc, argc, av) if kw
                 argc = @kern.zr_kw_ruby2_out(argc, av) if splat && !kw
                 line!(f, word)
                 activate(using, f) if using
@@ -522,7 +527,7 @@ module Zr
                 values += [kw] if kw
                 av = argv(f, values)
                 argc = values.size
-                argc = @kern.zr_kw_argc(argc, av) if kw
+                argc = @kern.zr_kw_argc_yield(argc, av) if kw
                 line!(f, word)
                 if internal || f.blk == @qnil
                   check(@kern.zr_yield(f.blk, argc, av))

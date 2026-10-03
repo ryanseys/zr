@@ -113,6 +113,20 @@ module Zr
           @at = at
         end
 
+        # The view of this layout at `address`. A view does not change, so
+        # the last one that a layout made serves again for the same
+        # address: the kernel reads several fields of one object in a row,
+        # and a view for each read was most of what the host allocated.
+        #: (Integer | bool | View | nil address) -> instance
+        def self.[](address)
+          # @type ivar @last: View?
+          at = address.is_a?(Integer) ? address : Host.bits(address)
+          last = @last
+          return last if last && last.at == at
+
+          @last = new(at)
+        end
+
         # Defines the reader `name`, which answers what `read` gives for
         # the view's address.
         #: (Symbol name, ^(Integer at) -> untyped read) -> void
@@ -449,7 +463,6 @@ module Zr
       def view_base
         host = self #: Host
         base = Class.new(View) #: singleton(View)
-        base.define_singleton_method(:[]) { |p| new(Host.bits(p)) }
         base.define_singleton_method(:size) { host.layout_of(self).size }
         base.define_singleton_method(:attr_accessor) { |*names| host.view_fields(self, names, writer: true) }
         base.define_singleton_method(:attr_reader) { |*names| host.view_fields(self, names, writer: false) }

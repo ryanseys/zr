@@ -183,6 +183,13 @@ module Zr
         min.positive? || optional.size > 1
       end
 
+      # Only leading required parameters, and `|a,|`: a block that CRuby
+      # counts as simple (rb_simple_iseq_p). Keywords given to a block
+      # that is not simple, even an empty `**h`, keep a lone Array whole.
+      def simple?
+        optional.empty? && [nil, :implicit].include?(rest) && post.empty? && keywords.empty? && kwrest.nil? && block.nil?
+      end
+
       # Only required parameters: the exact arity that a dispatcher can check.
       def plain?
         optional.empty? && rest.nil? && post.empty? && keywords.empty? && kwrest.nil?

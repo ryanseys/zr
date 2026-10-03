@@ -68,6 +68,9 @@ module Zr
             arity = arity_check(p)
             block = block_store(p, s)
             rest_fn = p.rest && p.rest != :implicit ? fn : 0
+            # `**nil` refuses keywords before the count is checked, as
+            # CRuby's setup_parameters_complex does (`Lower::Function::Params`).
+            nokey = p.kwrest == :nokey
             lambda do |f, argc, argv|
               t = task
               kw = @task_kw.call(t)
@@ -86,9 +89,10 @@ module Zr
                 argc = @kern.zr_kw_undeclared(kw, argc, argv, rest_fn)
               end
               args = Memory.words(argv, argc)
+              keywords&.call(f, kwhash) if nokey
               arity.call(args.size)
               positional.call(f, args)
-              keywords&.call(f, kwhash)
+              keywords&.call(f, kwhash) unless nokey
               block&.call(f, f.blk)
             end
           end
@@ -105,6 +109,11 @@ module Zr
             nothing = p.names.empty? && p.plain?
             spread = p.spread?
             spread_kind = p.optional.empty? ? 1 : 2
+            # Keywords given to a block stop a lone Array from spreading,
+            # as in the lowering (`Lower::Function::Params`): keywords
+            # that the block takes, or any keywords, even an empty `**h`,
+            # given to a block that is not simple.
+            guarded = spread && !p.simple?
             node = s.node
             lambda do |f, argc, argv, blk|
               strict = lambda_proc?(f.proc)
@@ -113,8 +122,14 @@ module Zr
               @task_set_kw.call(t, 0)
               kwhash = nil
               if keywords
-                argc = @kern.zr_kw_tab_in(kw, argc, argv) if kw > 1
-                if kw != 0
+                # A table's values become one Hash argument; a table of no
+                # keywords (an empty `**h` at a yield) makes none.
+                hashed = kw
+                if kw > 1
+                  argc = @kern.zr_kw_tab_in(kw, argc, argv)
+                  hashed = @kern.zr_kw_hashed(kw)
+                end
+                if hashed != 0 && argc.positive?
                   argc -= 1
                   kwhash = Memory.word(argv + (argc * 8))
                 end
@@ -124,7 +139,8 @@ module Zr
               next arity.call(argc) if nothing && strict
 
               arity.call(argc) if strict
-              if spread && !strict
+              keyworded = keywords ? kw > 1 || (!kwhash.nil? && kwhash != @qnil) : guarded && kw != 0
+              if spread && !strict && !keyworded
                 out = f.stack.take(16)
                 n = check(@kern.zr_block_args(argc, argv, spread_kind, out, out + 8))
                 argc = n >> 1
