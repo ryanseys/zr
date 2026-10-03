@@ -433,7 +433,9 @@ module Zr
           @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
                                 ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
           # A program that calls pp includes pp.rb, which the first call loads.
-          @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp)
+          # A send whose name is computed (or a String) may reach pp too.
+          dynamic = (SENDS + FETCHES).include?(name) && args.first && !(args.first.is_a?(Literal) && args.first.value.is_a?(Symbol))
+          @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp) || dynamic
           # A program that calls irb includes irb, which `binding.irb` loads.
           @irbs = true if name == :irb || ((SENDS + FETCHES).include?(name) && named == :irb)
         end

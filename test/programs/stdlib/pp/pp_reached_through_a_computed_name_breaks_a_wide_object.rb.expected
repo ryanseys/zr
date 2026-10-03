@@ -1,0 +1,7 @@
+{alpha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ beta: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+ gamma: [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]}
+["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+ [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]]
+{short: 1}
