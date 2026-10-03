@@ -38,6 +38,7 @@ module Zr
         # @rbs @normalizes: bool
         # @rbs @pretty_prints: bool
         # @rbs @irbs: bool
+        # @rbs @load_path_computed: bool?
         # @rbs @asts: bool
         # @rbs @configures: bool
         # @rbs @activations: Integer
@@ -285,8 +286,18 @@ module Zr
           return unless LOAD_PATH_CHANGES.include?(node.name)
 
           literal = %i[unshift push <<].include?(node.name) && node.arguments&.arguments&.all? { |a| literal_path(a, file) }
-          @evals = true unless literal
+          return if literal
+
+          @evals = true
+          @load_path_computed = true
         end
+
+        # Whether a file changed $LOAD_PATH in a way the compiler cannot
+        # follow. A later require of a library name then searches the
+        # path at run time, as ruby does, and finds the compiled file only
+        # when no directory the program added has one of that name.
+        #: () -> bool
+        def load_path_computed? = @load_path_computed || false
 
         # Whether this build is an eval. A string of ruby cannot add a unit
         # to a program that is already linked, and it cannot see the
@@ -612,10 +623,9 @@ module Zr
           if kind == :require_relative
             candidate(File.expand_path(feature, File.dirname(from)))
           elsif feature.start_with?("/", "./", "../", "~")
-            # A path relative to the working directory, which the program
-            # can change. The requiring file's directory is the second
-            # place to look.
-            candidate(File.expand_path(feature)) || candidate(File.expand_path(feature, File.dirname(from)))
+            # A path relative to the working directory, as ruby reads it:
+            # never relative to the requiring file.
+            candidate(File.expand_path(feature))
           elsif feature == "zr_description" && @description
             # The kernel's description, which the runtime gives
             # (`Runtime#carried_text`); no root holds it.
@@ -625,7 +635,10 @@ module Zr
               found = candidate(File.join(root, feature)) || native(root, feature)
               return found if found
             end
-            nil
+            # rb_f_load: a name that no root has is a path from the working
+            # directory, as it is written.
+            here = File.expand_path(feature)
+            kind == :load && File.file?(here) ? here : nil
           end
         end
 
@@ -671,7 +684,9 @@ module Zr
         end
 
         # The absolute path of a literal: a String, `File.expand_path(str,
-        # __dir__)` or `File.join(__dir__, str...)`. nil for all others.
+        # __dir__)`, `File.expand_path(str, __FILE__)` or `File.join(__dir__,
+        # str...)`, where `File.dirname(__FILE__)` can stand for `__dir__`.
+        # nil for all others.
         #: (Prism::node node, String file) -> String?
         def literal_path(node, file)
           dir = File.dirname(file)
@@ -689,15 +704,22 @@ module Zr
             args = node.arguments.arguments #: untyped
             if node.name == :expand_path && args.size == 2 && args[0].is_a?(Prism::StringNode) && dir_call?(args[1])
               File.expand_path(args[0].unescaped, dir)
+            elsif node.name == :expand_path && args.size == 2 && args[0].is_a?(Prism::StringNode) && args[1].is_a?(Prism::SourceFileNode)
+              File.expand_path(args[0].unescaped, file)
             elsif node.name == :join && dir_call?(args[0]) && args[1..].all?(Prism::StringNode)
               File.join(dir, *args[1..].map(&:unescaped))
             end
           end
         end
 
+        # `__dir__`, or `File.dirname(__FILE__)`: the directory of the file.
         #: (Prism::node? node) -> bool
         def dir_call?(node)
-          node.is_a?(Prism::CallNode) && node.name == :__dir__ && node.receiver.nil? && node.arguments.nil?
+          return false unless node.is_a?(Prism::CallNode)
+          return node.receiver.nil? && node.arguments.nil? if node.name == :__dir__
+
+          node.name == :dirname && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File &&
+            node.arguments&.arguments&.size == 1 && node.arguments.arguments[0].is_a?(Prism::SourceFileNode)
         end
       end
     end

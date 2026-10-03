@@ -82,6 +82,14 @@ module Zr
         Session.current.memo([:stdlib, target.triple]) { [Layout.ext_os(target), Layout::EXT, Layout::RUNTIME_LIB, *Ports.roots, pure, *bundled_roots].freeze }
       end
 
+      # The roots of zr's ports of C: the OS layer, the portable native
+      # parts, and the port gems. A require at run time searches them
+      # before $LOAD_PATH, so a host gem's copy, whose C no binary here can
+      # load, never shadows them. Every other root comes after $LOAD_PATH,
+      # as ruby's own library does.
+      #: (?Target target) -> Array[String]
+      def native(target = Target.default) = [Layout.ext_os(target), Layout::EXT, *Ports.roots]
+
       # Every file of the library, for a stamp of what a build can read.
       #: () -> Array[String]
       def files = Dir[File.join(Layout::PREFIX, "lib/**/*")].select { |path| File.file?(path) }

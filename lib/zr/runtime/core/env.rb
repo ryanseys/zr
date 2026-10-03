@@ -290,6 +290,12 @@ class << ENV
 end
 
 module Kernel
+  # The working directory as the program started, and each file's
+  # directory once asked. ruby fixes a file's real path as it loads, so a
+  # later chdir does not move __dir__.
+  FILE_DIRS = [Primitive.zr_getcwd, {}]
+  private_constant :FILE_DIRS
+
   # The directory of the caller's file, absolute.
   def __dir__
     file = Primitive.zr_caller_file
@@ -297,7 +303,19 @@ module Kernel
     return nil if file.nil? || file.start_with?("(eval at ")
     return +"." if file == +"-e"
 
-    File.dirname(File.expand_path(file))
+    Kernel.send(:file_dir, file)
+  end
+
+  # The real directory of `file`, a name from the starting directory.
+  def self.file_dir(file)
+    Primitive.attr! :hidden
+    start, dirs = FILE_DIRS
+    dirs[file] ||= begin
+      path = File.expand_path(file, start.is_a?(String) ? start : "/")
+      File.dirname(File.realpath(path))
+    rescue SystemCallError
+      File.dirname(path)
+    end
   end
 end
 

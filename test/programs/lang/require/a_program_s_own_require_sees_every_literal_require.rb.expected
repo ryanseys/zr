@@ -1,0 +1,6 @@
+require tr_alpha
+require tr_beta
+true
+require tr_alpha
+false
+3

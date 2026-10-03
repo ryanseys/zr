@@ -69,7 +69,7 @@ module Zr
         line = node.location.start_line
         # `call` makes this node only for a literal feature.
         feature = literal_feature(node) #: String
-        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && !Library::Roots.runtime_file?(@file)
+        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && @loader.own?(@file)
           # The prelude loaded rubygems as the program booted.
           gems!(:Gem)
           return Literal.new(false, line)
@@ -94,6 +94,19 @@ module Zr
         # source builds the same bytes on any machine.
         unless path
           gate!(node, feature)
+          # ruby's load of a bare name falls back to the working directory
+          # it runs in (a settings file beside the binary), so the program
+          # carries the compiler to read it, unless the build is gated.
+          @loader.compiles_at_run_time! if node.name == :load && !@loader.gated?
+          return plain_call(node, compiles: false)
+        end
+
+        # After a $LOAD_PATH change the compiler cannot follow, a library
+        # name is searched for at run time, as ruby searches: the file
+        # stays compiled in, and the search uses it unless a directory the
+        # program added has one of that name.
+        if node.name == :require && @loader.load_path_computed? && !feature.start_with?("/", "./", "../", "~") && @loader.own?(@file)
+          @loader.add(path)
           return plain_call(node, compiles: false)
         end
 

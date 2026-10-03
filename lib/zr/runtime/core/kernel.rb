@@ -116,12 +116,15 @@ module Kernel
     Primitive.attr! :hidden
     return found(File.expand_path(name)) if name.start_with?("/", "./", "../", "~")
 
-    # The library that the program was compiled against lists pure Ruby
-    # first, then the gems whose native part this runtime includes. Those
-    # come before $LOAD_PATH: an installed copy of such a gem that rubygems
-    # activates has a C part that no program here can load.
-    pure, *native = Primitive.zr_load_names(0).split("\n")
-    dirs = native + $LOAD_PATH.map { |dir| File.path(dir) } + [pure].compact
+    # The library that the program was compiled against lists the roots
+    # of this runtime's ports of C, an empty line, then the others. The
+    # ports come before $LOAD_PATH: an installed copy of such a gem that
+    # rubygems activates has a C part that no program here can load. The
+    # others come after it, as ruby's own library does, so a directory the
+    # program adds can shadow them.
+    lines = Primitive.zr_load_names(0).split("\n")
+    cut = lines.index("") || lines.size
+    dirs = lines[0, cut] + $LOAD_PATH.map { |dir| File.path(dir) } + (lines[cut + 1..] || [])
     dirs.each do |dir|
       path = found(File.expand_path(name, dir))
       return path if path

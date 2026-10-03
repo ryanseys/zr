@@ -82,10 +82,12 @@ module Zr
       # Only a build reads the roots. An eval in a program (evals false)
       # builds its tables here too, and must not read them: they are the
       # build machine's directories.
+      # The roots a run-time require searches before $LOAD_PATH, an empty
+      # line, then the ones it searches after it (`Kernel.search`).
       names = if evals
-                pure = Library::Roots.pure
-                roots = Library::Roots.stdlib(target) - [pure]
-                [[pure, *gem_roots, *roots].map(&shown), uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
+                native = Library::Roots.native(target)
+                later = gem_roots + (Library::Roots.stdlib(target) - native)
+                [[*native.map(&shown), "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
               else
                 none = [] #: Array[String]
                 [none] * 4
