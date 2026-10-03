@@ -726,9 +726,10 @@ module Kernel
   end
 
   # CRuby's prelude: the first pp requires ruby's own pp.rb, whose
-  # Kernel#pp replaces this one. A program that calls pp by name includes
-  # pp.rb and arms that require. A program that reaches pp only through
-  # a computed name prints inspect on one line each, as `p` does.
+  # Kernel#pp replaces this one. A program that calls pp by name, or
+  # sends a computed name, includes pp.rb and arms that require. Any other
+  # way to reach pp prints inspect on one line each, as `p` does, and
+  # stops at a line that pp.rb would break.
   def pp(*objs)
     Primitive.attr! :ruby
     if (load = Kernel.send(:pretty_printer))
