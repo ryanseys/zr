@@ -61,13 +61,14 @@ module Zr
     # The compiler files that drive zr but that neither a build nor a link
     # loads: the caches of whole runs and of zr's own files, the server, the
     # compiled compiler's checks, `zr doctor`, `zr cache`, and the host
-    # machine that runs the kernel on CRuby (A7). An edit to one
-    # of them rebuilt the runtime (16 s, and eval support too), although no
-    # output can depend on it. `compiler_digest_test.rb` checks that a build
-    # and a link load none of them.
-    DRIVER_ONLY = %w[
-      cache/janitor.rb cache/run.rb doctor.rb machine/host.rb machine/host/boot.rb machine/host/walk.rb server.rb server/client.rb
-    ].map { |name| File.join(__dir__, name) }.freeze
+    # machine that runs the kernel on CRuby (machine/host.rb and each file
+    # under machine/host/). An edit to one of them rebuilt the runtime (16 s,
+    # and eval support too), although no output can depend on it.
+    # `compiler_digest_test.rb` checks that a build and a link load none of
+    # them, and that it lists each compiler file that they do not load.
+    DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb doctor.rb machine/host.rb server.rb server/client.rb]
+                     .map { |name| File.join(__dir__, name) } +
+                   Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze
 
     # The compiler files that belong to one target: an instruction set's
     # backend, and an object format's writer. A runtime object for a
