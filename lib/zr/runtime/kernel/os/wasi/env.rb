@@ -10,6 +10,13 @@ module Zr::Kern
     zr_str_new(Machine.bytes("wasm32-wasi"), 11)
   end
 
+  # WASI has no locale: the core gives the codeset that wasi-libc, a musl,
+  # would give (Encoding.locale_charmap).
+  #: () -> value
+  def zr_os_locale_charmap
+    Machine.value(QNIL)
+  end
+
   # Converts a host vector of `count` 32-bit addresses at `raw` to a
   # NULL-terminated table of words, with space for `extra` more.
   #: (ptr, word, word) -> ptr

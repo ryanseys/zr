@@ -15,6 +15,18 @@ module Zr::Kern
     zr_str_new(Machine.bytes("arm64-darwin23"), 14)
   end
 
+  # The locale's codeset, as ruby's main sets it: setlocale(LC_CTYPE, "")
+  # from the environment, then nl_langinfo(CODESET). LC_CTYPE is 2 and
+  # CODESET is 0 in darwin's headers.
+  #: () -> value
+  def zr_os_locale_charmap
+    empty = Machine.slot(8)
+    Machine.store64(empty, 0, 0)
+    Libc.setlocale(Machine.i32(2), empty)
+    codeset = Libc.nl_langinfo(Machine.i32(0))
+    zr_str_new(codeset, zr_cstr_len(codeset))
+  end
+
   # The environment's NULL-terminated table of `NAME=value` strings.
   #: () -> ptr
   def zr_os_environ

@@ -145,6 +145,7 @@ module Zr
           mprotect
           munmap
           nanosleep
+          nl_langinfo
           opendir
           openlog
           pathconf
@@ -187,6 +188,7 @@ module Zr
           setgid
           setgrent
           setgroups
+          setlocale
           setlogmask
           setpgid
           setpriority

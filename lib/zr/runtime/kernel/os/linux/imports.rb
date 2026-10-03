@@ -47,5 +47,9 @@ module Zr::Kern
     def self.pthread_create(p1, p2, p3, p4) = Machine.import
     #: (ptr) -> i32
     def self.pthread_detach(p) = Machine.import
+    #: (i32, ptr) -> ptr
+    def self.setlocale(i, p) = Machine.import
+    #: (i32) -> ptr
+    def self.nl_langinfo(i) = Machine.import
   end
 end

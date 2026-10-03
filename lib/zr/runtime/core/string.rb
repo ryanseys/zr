@@ -3116,6 +3116,13 @@ class Encoding
   end
 
   def name = @names.first
+
+  # The names the table lists, before `names` moves the default ones.
+  def listed_names
+    Primitive.attr! :hidden
+    @names
+  end
+  private :listed_names
   alias to_s name
 
   # Marshal writes an encoding by name, as ruby does.
@@ -4060,11 +4067,39 @@ class Encoding
   end
 
   # Every name but the first of each encoding, pointing at the first.
+  # `locale`, `external` and `filesystem` name the encodings they stand
+  # for now, not the ones the table lists.
   def self.aliases
-    LIST.each_with_object({}) { |encoding, out| encoding.names.drop(1).each { |name| out[name] = encoding.name } }
+    names = LIST.each_with_object({}) { |encoding, out| encoding.names.drop(1).each { |name| out[name] = encoding.name } }
+    names.merge("locale" => locale_encoding.name, "external" => default_external.name, "filesystem" => default_external.name)
   end
 
-  def self.locale_charmap = +"UTF-8"
+  # The codeset of the locale that the environment named as the program
+  # started, as ruby's main sets it with setlocale(LC_CTYPE, ""). WASI
+  # has no locale; there it is what wasi-libc, a musl, gives: "ASCII" for
+  # the C locale and "UTF-8" for any other.
+  def self.locale_charmap = LOCALE[0].dup
+
+  # The locale's encoding (rb_locale_encindex): the charmap's encoding, or
+  # UTF-8 for a name that no encoding has.
+  def self.locale_encoding
+    Primitive.attr! :hidden
+    LOCALE[1] ||= by_name[LOCALE[0].upcase(:ascii)]&.send(:load) || UTF_8
+  end
+
+  def self.read_locale
+    Primitive.attr! :hidden
+    charmap = Primitive.zr_os_locale_charmap
+    unless charmap
+      name = %w[LC_ALL LC_CTYPE LANG].map { |var| Primitive.zr_environment_get(var) }.find { |value| value && !value.empty? }
+      charmap = %w[C POSIX].include?(name) ? +"ASCII" : +"UTF-8"
+    end
+    Primitive.zr_str_usascii(charmap).freeze
+  end
+
+  # The charmap, read as the program starts, and its encoding once asked.
+  LOCALE = [read_locale, nil]
+  private_constant :LOCALE
 
   def self.find(name)
     return name if name.is_a?(Encoding)
@@ -4076,6 +4111,7 @@ class Encoding
       # These follow the defaults: each is whatever its default is, nil too.
       return default_internal if key == +"INTERNAL"
       return default_external if key == +"EXTERNAL" || key == +"FILESYSTEM"
+      return locale_encoding if key == +"LOCALE"
     end
     if (found = by_name[text])
       nil
@@ -4096,7 +4132,7 @@ class Encoding
     Primitive.attr! :hidden
     @by_name ||= {}.tap do |index|
       LIST.each do |encoding|
-        encoding.names.each do |name|
+        encoding.send(:listed_names).each do |name|
           index[name.upcase(:ascii)] ||= encoding
           index[name] ||= encoding
         end
@@ -4121,11 +4157,11 @@ class Encoding
   end
 
   # The external and internal encodings a program set, nil for the ones
-  # it did not: UTF-8 and none.
+  # it did not: the locale's encoding and none.
   DEFAULTS = [nil, nil]
   private_constant :DEFAULTS
 
-  def self.default_external = DEFAULTS[0] || UTF_8
+  def self.default_external = DEFAULTS[0] || locale_encoding
 
   def self.default_internal = DEFAULTS[1]
 
@@ -4146,14 +4182,15 @@ class Encoding
   end
 
   # The names that follow the defaults, rather than one encoding.
-  MOVING = %w[external filesystem internal].freeze
+  MOVING = %w[locale external filesystem internal].freeze
   private_constant :MOVING
 
   def names
     moving = []
+    moving << "locale" if equal?(Encoding.locale_encoding)
     moving.push("external", "filesystem") if equal?(Encoding.default_external)
     moving << "internal" if equal?(Encoding.default_internal)
-    return @names if moving == %w[external filesystem] && @names.include?("external")
+    return @names if moving == @names & MOVING
 
     (@names - MOVING + moving.map { |name| Primitive.zr_str_usascii(name.dup).freeze }).freeze
   end

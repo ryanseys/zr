@@ -14,7 +14,8 @@ RUBY_DESCRIPTION = "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [#{RUBY_P
 # this ruby is not a cross-compiling one.
 CROSS_COMPILING = nil
 
-ARGV = Primitive.zr_program_args
+# ruby gives the arguments the locale's encoding.
+ARGV = Primitive.zr_program_args.each { |arg| arg.force_encoding(Encoding.find("locale")) }
 $* = ARGV
 $; = nil
 $, = nil
@@ -59,7 +60,7 @@ class << ENV
 
   # env_str_new: what the environment gives is frozen.
   def [](name)
-    Primitive.zr_environment_get(variable_name(name))&.freeze
+    Primitive.zr_environment_get(variable_name(name))&.force_encoding(Encoding.find("locale"))&.freeze
   end
 
   def fetch(*args)
@@ -124,9 +125,10 @@ class << ENV
   end
 
   def to_h(&block)
+    locale = Encoding.find("locale")
     hash = Primitive.zr_environment_list.to_h do |entry|
       i = entry.index("=") || entry.bytesize
-      [entry[0, i].freeze, (entry[i + 1..] || +"").freeze]
+      [entry[0, i].force_encoding(locale).freeze, (entry[i + 1..] || +"").force_encoding(locale).freeze]
     end
     block ? hash.to_h(&block) : hash
   end
