@@ -158,30 +158,30 @@ module Zr
         TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage|trace_object_allocations\w*)\b/
         TRACE_CONSTANTS = %i[TracePoint Coverage].freeze
         TRACE_CALLS = %i[set_trace_func add_trace_func trace_object_allocations trace_object_allocations_start].freeze
-        TRACE_WORDS = %w[TracePoint Coverage set_trace_func add_trace_func trace_object_allocations
-                         trace_object_allocations_start].freeze
         COVERAGE_CONSTANTS = %i[Coverage].freeze
-        COVERAGE_WORDS = %w[Coverage].freeze
 
         #: (Prism::node tree) -> bool
-        def names_tracing?(tree) = names_of?(tree, TRACE_CONSTANTS, TRACE_CALLS, TRACE_WORDS)
+        def names_tracing?(tree) = names_of?(tree, TRACE_CONSTANTS, TRACE_CALLS, TRACE_NAMES)
 
         #: (Prism::node tree) -> bool
-        def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [], COVERAGE_WORDS)
+        def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [], COVERAGE_NAMES)
 
         # Whether the tree uses one of `constants`, calls one of `calls`,
-        # or contains one of `words` as a symbol or a string. The words
-        # make this as safe as a plain regexp: a name got by `const_get` of
-        # a string also counts. To arm a program that does not trace costs
-        # time, but to miss one that does gives wrong output.
-        #: (Prism::node tree, Array[Symbol] constants, Array[Symbol] calls, Array[String] words) -> bool
+        # or has a symbol or a string that `words` matches. The words make
+        # this as safe as a plain regexp: a name got by `const_get` of a
+        # string counts, and so does the code of an eval
+        # (`eval("TracePoint.new(:call) { }")`). To arm a program that does
+        # not trace costs time, but to miss one that does gives wrong
+        # output. A name that only the run computes is missed; `--trace`
+        # arms such a program.
+        #: (Prism::node tree, Array[Symbol] constants, Array[Symbol] calls, Regexp words) -> bool
         def names_of?(tree, constants, calls, words)
           !tree.breadth_first_search do |n|
             case n
             when Prism::ConstantReadNode then constants.include?(n.name)
             when Prism::ConstantPathNode then n.parent.nil? && constants.include?(n.name)
             when Prism::CallNode then calls.include?(n.name)
-            when Prism::SymbolNode, Prism::StringNode then words.include?(n.unescaped)
+            when Prism::SymbolNode, Prism::StringNode then words.match?(n.unescaped.b)
             end #: bool
           end.nil?
         end

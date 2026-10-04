@@ -403,7 +403,7 @@ module Zr
             unless unit.internal
               if main
                 file = unit.file.to_s.b
-                k.zr_program_start(@host.bytes(file), file.bytesize)
+                k.zr_program_start(@host.bytes(file), file.bytesize, @traced ? 1 : 0)
                 k.zr_toplevel_binding(f.env, f.self_, f.cref, m)
               end
               Array(hir.warnings).each do |line|

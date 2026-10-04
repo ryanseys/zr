@@ -19,6 +19,7 @@ module Zr
     # @rbs @wasm_names: bool
     # @rbs @tune: bool
     # @rbs @run_cache: bool
+    # @rbs @trace: bool
 
     # `ZR_LINKER`: `auto` (zr's own linker, and cc for what it cannot
     # link), `ruby` (zr's linker only) or `cc`. Empty or unset is `auto`.
@@ -68,6 +69,7 @@ module Zr
       # them, split as a shell splits them.
       @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
       @run_cache = Config.flag?("ZR_RUN_CACHE", default: true)
+      @trace = Config.flag?("ZR_TRACE")
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
       @server = ENV["ZR_SERVER"].to_s.empty? ? nil : ENV["ZR_SERVER"]
       freeze
@@ -161,6 +163,11 @@ module Zr
     # `ZR_TUNE=0` keeps ruby's limits and leaves YJIT off.
     #: () -> bool
     def tune? = @tune
+
+    # `ZR_TRACE=1` builds the program with its trace events armed, as
+    # `--trace` does, for a TracePoint that it reaches by a computed name.
+    #: () -> bool
+    def trace? = @trace
 
     # `ZR_RUN_CACHE=0` makes `zr run` build each run (`Cache::Run`).
     #: () -> bool

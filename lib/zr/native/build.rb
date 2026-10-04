@@ -140,13 +140,16 @@ module Zr
       # @rbs sources: bool
       # @rbs gem_set: GemSet?
       # @rbs gate: bool | Symbol
+      # @rbs trace: bool
       # @rbs return: Program
-      def lower(source, file, target: Target.default, jobs: Build.jobs, sources: false, gem_set: nil, gate: false)
+      def lower(source, file, target: Target.default, jobs: Build.jobs, sources: false, gem_set: nil, gate: false, trace: false)
         runtime = Runtime.for(target)
         runtime.description
         runtime_object(runtime, jobs: jobs)
         runtime.release
-        Program.build(source, file, target: target, sources: sources, gem_set: gem_set, gate: gate) { |f, entry| assemble(f, entry, target: target) }
+        Program.build(source, file, target: target, sources: sources, gem_set: gem_set, gate: gate, trace: trace) do |f, entry|
+          assemble(f, entry, target: target)
+        end
       end
 
       # Prepares and assembles one function immediately after `Program.build`

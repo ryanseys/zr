@@ -72,19 +72,21 @@ module Zr
     #
     # `gem_set` is the GemSet whose gems come before zr's standard library
     # (lib/zr/gem_set.rb), or nil. `gate` stops the build at a require that
-    # nothing has in the program's own files (`Hir::Build#gate!`).
+    # nothing has in the program's own files (`Hir::Build#gate!`). `trace`
+    # arms the program's trace events whatever its files name.
     # @rbs source: String
     # @rbs file: String
     # @rbs target: Target
     # @rbs sources: bool
     # @rbs gem_set: GemSet?
     # @rbs gate: bool | Symbol
+    # @rbs trace: bool
     # @rbs &finish: ? (IR::Function, String) -> Obj::Code
     # @rbs return: Program
-    def self.build(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, &finish)
+    def self.build(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, trace: false, &finish)
       rt = Runtime.for(target)
       support = EvalSupport.for(target)
-      hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate) }
+      hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace) }
       redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
       # source takes seconds to lower.

@@ -41,15 +41,16 @@ module Zr
 
       # `digest` is the runtime's digest (`RuntimeSources#runtime_digest`). `gems` is the
       # build's GemSet: a program built with other gems is another entry,
-      # also when the files of the first gems are still there.
-      #: (String input, target: Target, digest: String, link: Array[String], ?gems: GemSet?) -> void
-      def initialize(input, target:, digest:, link:, gems: nil)
+      # also when the files of the first gems are still there. A build with
+      # its trace events armed (`trace`) is another entry too.
+      #: (String input, target: Target, digest: String, link: Array[String], ?gems: GemSet?, ?trace: bool) -> void
+      def initialize(input, target:, digest:, link:, gems: nil, trace: false)
         @input = File.expand_path(input)
         config = Config.current
         @digest = digest
         @target = target
         @key = Store.key(VERSION, Zr::VERSION, digest, Digests.link, target.triple, Paths.root.to_s,
-                         config.linker, config.eval_walk?, config.verify?, *link, "\0", gems && !gems.empty? ? gems.digest : "",
+                         config.linker, config.eval_walk?, config.verify?, trace, *link, "\0", gems && !gems.empty? ? gems.digest : "",
                          @input, File.binread(@input))
       end
 

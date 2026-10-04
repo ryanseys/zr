@@ -147,9 +147,11 @@ module Zr::Kern
   end
 
   # The program's entry. `$0` and `$PROGRAM_NAME` get its file name, in a
-  # frozen String that `Process.argv0` keeps when `$0` changes.
-  #: (ptr, word) -> void
-  def zr_program_start(file, len)
+  # frozen String that `Process.argv0` keeps when `$0` changes. `traced`
+  # is 1 when the program's code fires trace events (`zr_trace_built_m`).
+  #: (ptr, word, word) -> void
+  def zr_program_start(file, len, traced)
+    Machine.store64(Machine.static(:trace_built, 8), 0, traced)
     name = zr_str_new(file, len)
     RBasic[name].flags = RBasic[name].flags | FL_FREEZE
     zr_set_global(G_ARGV0, name)

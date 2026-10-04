@@ -69,6 +69,13 @@ module Zr::Kern
   # around such a method, as around a method of the program.
   MENTRY_CRUBY_RUBY = 2
 
+  # Whether the program's own code fires trace events: its build saw a
+  # name of TracePoint, or was asked for them (`zr_program_start`).
+  #: () -> value
+  def zr_trace_built_m
+    zr_bool(Machine.load64(Machine.static(:trace_built, 8), 0) != 0)
+  end
+
   # Whether any TracePoint is enabled now, for an eval that compiles its
   # string with the events armed only while one can fire.
   #: () -> value

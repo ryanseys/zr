@@ -45,6 +45,9 @@ module Zr
                                let a require in the program's files that zr cannot
                                find wait for the run time (the binary then carries
                                the compiler to compile what it finds then)
+        --trace                arm the trace events in the program's code, for a
+                               TracePoint that it reaches by a computed name
+                               (ZR_TRACE=1 does the same)
       TEXT
       OPTIONS = <<~TEXT.sub("  -h, --help", "#{GEMS}  -h, --help") #: String
         Options:

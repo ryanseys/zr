@@ -72,6 +72,19 @@ class TracePoint
       EVENTS.fetch(name) { raise ArgumentError, "unknown event: #{name}" }
     end
 
+    # A program whose files never name TracePoint is built without the
+    # events, so its code fires none (lib/zr/hir/build/loader.rb,
+    # TRACE_NAMES). A point that such a program enables, by a name the
+    # run computed, says so once, and names the build that arms them.
+    def untraced!
+      Primitive.attr! :hidden
+      return if Primitive.zr_trace_built_m || Primitive.zr_hidden_get(self, :__untraced__)
+
+      Primitive.zr_hidden_set(self, :__untraced__, true)
+      STDERR.write("zr: warning: a TracePoint is enabled, but zr built this program without trace events because no file names " \
+                   "TracePoint, so its code fires none. Build it with --trace (or ZR_TRACE=1).\n")
+    end
+
     def enabled
       Primitive.attr! :hidden
       Primitive.zr_hidden_get(self, :__enabled__) || Primitive.zr_hidden_set(self, :__enabled__, [])
@@ -392,6 +405,7 @@ class TracePoint
     Primitive.attr! :hidden
     points = TracePoint.send(:enabled)
     if on
+      TracePoint.send(:untraced!)
       points << self unless points.include?(self)
     else
       points.delete(self)

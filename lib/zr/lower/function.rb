@@ -336,7 +336,7 @@ module Zr
       #: () -> void
       def program_start
         file = @f.symbol_value(@f.symbol(@l.file_bytes))
-        kernel("zr_program_start", file, imm(@l.shown_file.bytesize))
+        kernel("zr_program_start", file, imm(@l.shown_file.bytesize), imm(@l.traced? ? 1 : 0))
       end
 
       # The file's parse-time warnings, on stderr as the file starts.

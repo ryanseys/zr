@@ -42,6 +42,7 @@ module Zr
           when "--gem" then opts[:gems] << gem_flag(value || args.shift, command)
           when "--print-gems" then opts[:print_gems] = true
           when "--allow-runtime-require" then opts[:runtime_require] = true
+          when "--trace" then opts[:trace] = true
           when "--gemfile" then opts[:gemfile] = value || args.shift || Errors.usage_error("--gemfile needs a path", command)
           when /\A-./ then Errors.usage_error("unknown option '#{word}'", command)
           else
@@ -50,6 +51,11 @@ module Zr
         end
         check(command, opts)
       end
+
+      # Whether the build arms the program's trace events: `--trace`, or
+      # `ZR_TRACE=1` when the flag is absent.
+      #: (Hash[Symbol, untyped] opts) -> bool
+      def trace?(opts) = opts[:trace] || Config.current.trace?
 
       # `--gem NAME=VERSION` or `--gem NAME=DIR`, as [name, value].
       #: (String? word, String command) -> [String, String]

@@ -47,6 +47,7 @@ module Zr
 
           Paths.root = opts[:root]
           link = Config.current.link + opts[:link]
+          trace = Options.trace?(opts)
           cache = @missed || kept_run(input, target, link, opts[:args], gems) if name == "run" && emit.nil?
           require_relative "../../runtime"
           require_relative "../../native/build"
@@ -55,12 +56,12 @@ module Zr
           # same files but never comes here, so it never writes to the cache.
           require_relative "../../cache/parse" unless HOSTED
           if name == "run" && emit.nil? && Zr::Cache::Run.wanted?
-            cache ||= Zr::Cache::Run.new(input, target: target, digest: Runtime.for(target).digest, link: link, gems: gems)
+            cache ||= Zr::Cache::Run.new(input, target: target, digest: Runtime.for(target).digest, link: link, gems: gems, trace: trace)
           end
           # Only `zr build` notes a require that will raise LoadError when it
           # runs; `run` and `diff` print the program's output alone.
           gate = opts[:runtime_require] ? false : (name == "build" ? :warn : true) #: bool | :warn
-          program = lower(input, target, assemble: emit.nil?, gem_set: gems, gate: gate)
+          program = lower(input, target, assemble: emit.nil?, gem_set: gems, gate: gate, trace: trace)
           status = Paths.tmpdir("zr-build-") do |work|
             out = name == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
             case emit
@@ -107,7 +108,8 @@ module Zr
           # A set that does not resolve goes on to the build, which says why.
           gems = kept_gems(opts) or return
           digest = RuntimeSources.for(target).runtime_digest or return
-          cache = Zr::Cache::Run.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems)
+          cache = Zr::Cache::Run.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems,
+                                                        trace: Options.trace?(opts))
           kept = cache.hit
           exec(GcTuning.program_env, [kept, kept], *opts[:args]) if kept
           # The build keeps its binary here, with no second digest.
@@ -117,12 +119,12 @@ module Zr
         # A binary's functions are assembled as they are lowered, so the IR of
         # a large program is never all in memory at once (`Native::Build.lower`).
         # Returns a `Zr::Program`.
-        #: (String input, Target target, ?assemble: bool, ?gem_set: GemSet?, ?gate: bool | :warn) -> Program
-        def lower(input, target, assemble: false, gem_set: nil, gate: false)
+        #: (String input, Target target, ?assemble: bool, ?gem_set: GemSet?, ?gate: bool | :warn, ?trace: bool) -> Program
+        def lower(input, target, assemble: false, gem_set: nil, gate: false, trace: false)
           source = File.read(input)
-          return Program.build(source, input, target: target, gem_set: gem_set, gate: gate) unless assemble
+          return Program.build(source, input, target: target, gem_set: gem_set, gate: gate, trace: trace) unless assemble
 
-          Native::Build.lower(source, input, target: target, sources: name == "run", gem_set: gem_set, gate: gate)
+          Native::Build.lower(source, input, target: target, sources: name == "run", gem_set: gem_set, gate: gate, trace: trace)
         rescue Refused => e
           warn Refusals.refusal_report(e)
           exit REFUSED
