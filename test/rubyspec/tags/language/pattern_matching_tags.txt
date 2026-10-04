@@ -1,4 +1,3 @@
-fails:Pattern matching Hash pattern passes keys specified in pattern to #deconstruct_keys method if pattern contains double splat operator **
 fails:Pattern matching Ruby 3.1 improvements can omit parentheses in one line pattern matching
 fails:Pattern matching Ruby 3.1 improvements supports pinning expressions in array pattern
 fails:Pattern matching Ruby 3.1 improvements supports pinning expressions in hash pattern

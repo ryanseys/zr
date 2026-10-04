@@ -1,2 +1,1 @@
-fails:Multiple assignment with a MRHS value can be used to swap range of array elements
 fails:Instance variables global variable when global variable is uninitialized warns about accessing uninitialized global variable in verbose mode
