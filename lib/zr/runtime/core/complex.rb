@@ -58,6 +58,13 @@ class Complex < Numeric
 
     # A value of any numeric kind as a Complex, as Kernel#Complex reads
     # it; nil when `exception` is false and it cannot be.
+    # k_numeric_p and f_real_p: a Numeric that says it is real.
+    def real_numeric?(value)
+      Primitive.attr! :hidden
+      value.is_a?(Numeric) && value.real?
+    end
+    private :real_numeric?
+
     def convert(value, exception)
       Primitive.attr! :hidden
       case value
@@ -226,7 +233,8 @@ class Complex < Numeric
     case other
     when Complex then Complex.send(:build, real + other.real, imaginary + other.imaginary)
     when Integer, Float, Rational then Complex.send(:build, real + other, imaginary)
-    else Primitive.zr_num_coerce_m(self, other, :+, 0)
+    # rb_complex_plus: any real Numeric adds to the real part.
+    else Complex.send(:real_numeric?, other) ? Complex.send(:build, real + other, imaginary) : Primitive.zr_num_coerce_m(self, other, :+, 0)
     end
   end
 
@@ -234,7 +242,7 @@ class Complex < Numeric
     case other
     when Complex then Complex.send(:build, real - other.real, imaginary - other.imaginary)
     when Integer, Float, Rational then Complex.send(:build, real - other, imaginary)
-    else Primitive.zr_num_coerce_m(self, other, :-, 0)
+    else Complex.send(:real_numeric?, other) ? Complex.send(:build, real - other, imaginary) : Primitive.zr_num_coerce_m(self, other, :-, 0)
     end
   end
 
@@ -254,7 +262,7 @@ class Complex < Numeric
       Complex.send(:build, Complex.send(:safe_mul, ar, br, arz, brz) - Complex.send(:safe_mul, ai, bi, aiz, biz),
                    Complex.send(:safe_mul, ar, bi, arz, biz) + Complex.send(:safe_mul, ai, br, aiz, brz))
     when Integer, Float, Rational then Complex.send(:build, real * other, imaginary * other)
-    else Primitive.zr_num_coerce_m(self, other, :*, 0)
+    else Complex.send(:real_numeric?, other) ? Complex.send(:build, real * other, imaginary * other) : Primitive.zr_num_coerce_m(self, other, :*, 0)
     end
   end
 
@@ -278,7 +286,12 @@ class Complex < Numeric
       Complex.send(:build, floating ? x : canonical(x), floating ? y : canonical(y))
     when Integer, Float, Rational
       Complex.send(:build, canonical(real.quo(other)), canonical(imaginary.quo(other)))
-    else Primitive.zr_num_coerce_m(self, other, :/, 0)
+    # f_divide: a real Numeric divides each part with quo; any other
+    # coerces and divides with quo.
+    else
+      return Complex.send(:build, real.quo(other), imaginary.quo(other)) if Complex.send(:real_numeric?, other)
+
+      Primitive.zr_num_coerce_m(self, other, :quo, 0)
     end
   end
 
@@ -322,7 +335,7 @@ class Complex < Numeric
     case other
     when Complex then real == other.real && imaginary == other.imaginary
     when Integer, Float, Rational then real == other && imaginary == 0
-    else other == self
+    else Complex.send(:real_numeric?, other) ? real == other && imaginary == 0 : other == self
     end
   end
 
@@ -335,7 +348,8 @@ class Complex < Numeric
     end
   end
 
-  def eql?(other) = other.is_a?(Complex) && real.eql?(other.real) && imaginary.eql?(other.imaginary)
+  # nucomp_eql_p: the parts' classes and ==, not their eql?.
+  def eql?(other) = other.is_a?(Complex) && real.class == other.real.class && imaginary.class == other.imaginary.class && self == other
 
   def hash = [real, imaginary, :Complex].hash
 
@@ -343,7 +357,10 @@ class Complex < Numeric
     case other
     when Complex then [other, self]
     when Integer, Float, Rational then [Complex.send(:build, other, 0), self]
-    else raise TypeError, "#{other.class} can't be coerced into Complex"
+    else
+      raise TypeError, "#{other.class} can't be coerced into Complex" unless Complex.send(:real_numeric?, other)
+
+      [Complex.send(:build, other, 0), self]
     end
   end
 
@@ -357,7 +374,8 @@ class Complex < Numeric
 
   def finite? = !(real.is_a?(Float) && !real.finite?) && !(imaginary.is_a?(Float) && !imaginary.finite?)
 
-  def infinite? = finite? ? nil : 1
+  # A NaN part is not infinite.
+  def infinite? = real.infinite? || imaginary.infinite? ? 1 : nil
 
   def to_c = self
 
