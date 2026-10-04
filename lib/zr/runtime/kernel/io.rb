@@ -363,7 +363,7 @@ module Zr::Kern
     e = Libc.readdir(d)
     while e != 0
       name = zr_os_dirent_name(e)
-      zr_ary_push(out, zr_str_new(name, zr_cstr_len(name)))
+      zr_ary_push(out, zr_path_str(zr_str_new(name, zr_cstr_len(name))))
       e = Libc.readdir(d)
     end
     Libc.closedir(d)
@@ -384,7 +384,7 @@ module Zr::Kern
     e = Libc.readdir(d)
     while e != 0
       name = zr_os_dirent_name(e)
-      zr_ary_push(out, zr_str_new(name, zr_cstr_len(name)))
+      zr_ary_push(out, zr_path_str(zr_str_new(name, zr_cstr_len(name))))
       zr_ary_push(out, zr_fix(zr_os_dirent_kind(e)))
       e = Libc.readdir(d)
     end
@@ -436,7 +436,7 @@ module Zr::Kern
     e = Libc.readdir(d)
     while e != 0
       name = zr_os_dirent_name(e)
-      zr_ary_push(out, zr_str_new(name, zr_cstr_len(name)))
+      zr_ary_push(out, zr_path_str(zr_str_new(name, zr_cstr_len(name))))
       e = Libc.readdir(d)
     end
     Libc.closedir(d)

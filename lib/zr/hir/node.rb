@@ -248,6 +248,9 @@ module Zr
     # `chilled` marks a String literal in a file with no
     # frozen_string_literal: its String warns at its first change.
     Literal = Node.new(:value, :line, :chilled)
+    # `__FILE__` in the program's main file, whose name came from the
+    # command line: a path in the encoding of the locale.
+    PathLiteral = Node.new(:literal, :line)
     SelfRef = Node.new(:line)
     # `def name(params) body end`; its value is the name. `params` is a
     # Params; `receiver` is the expression of a singleton def

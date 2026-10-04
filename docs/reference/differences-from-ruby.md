@@ -78,10 +78,12 @@ zlib, io-console, etc, fcntl) are at ruby 4.0.7's versions.
 
 A program reads its locale from `LC_ALL`, `LC_CTYPE` and `LANG` as it
 starts, as ruby does: `Encoding.locale_charmap`, the default external
-encoding, ARGV and ENV follow it. The main file's `__FILE__`, `$0` and
-`__dir__` stay UTF-8 strings; under `LANG=C` they are US-ASCII in ruby. A
-build does not read its own locale: two builds under two locales write
-the same bytes.
+encoding, ARGV and ENV follow it. So do the paths that the system gives:
+the main file's `__FILE__`, `$0` and `__dir__`, the main file's lines in a
+backtrace and in `caller`, `Dir.pwd` and a directory's entries. A
+required file's paths are UTF-8, as ruby gives them on macOS; ruby on
+Linux gives them the locale's encoding too. A build does not read its
+own locale: two builds under two locales write the same bytes.
 
 ## Ruby bugs
 

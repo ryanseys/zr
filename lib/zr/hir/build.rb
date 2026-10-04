@@ -104,7 +104,7 @@ module Zr
           loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
                               gate: gate, description: Library::Roots.description(target))
-          loader.own!(file)
+          loader.main!(file)
           [loader, loader.unit(file, source, line, scopes, method: method)]
         end
         # A build knows three facts only after it reads every file: that
@@ -588,7 +588,7 @@ module Zr
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
         when Prism::InterpolatedStringNode then interpolated_string(node, line)
-        when Prism::SourceFileNode then literal_string(node, Paths.shown(@file), line)
+        when Prism::SourceFileNode then source_file(node, line)
         when Prism::SourceLineNode then Literal.new(line, line)
         when Prism::SourceEncodingNode
           Send.of(ConstRead.new(nil, :Encoding, line), :find, [Literal.new(@encoding.name, line)], line)

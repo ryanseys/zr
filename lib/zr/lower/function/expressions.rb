@@ -25,6 +25,7 @@ module Zr
           when Hir::Trace then trace_line(node)
           when Hir::Cover then cover_branch(node)
           when Hir::Literal then literal(node)
+          when Hir::PathLiteral then kernel("zr_path_str", literal(node.literal))
           when Hir::SelfRef then @self
           when Hir::Core then kernel("zr_core_class", sym_word(node.name))
           when Hir::Once then once(node)

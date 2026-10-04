@@ -132,6 +132,7 @@ module Zr
         def nesting(cref) = WalkWorld.lexical(cref)
         # CRuby has no way to chill a String that exists.
         def chill(string) = string
+        def path(string) = string
 
         def const_get(cref, name)
           found = WalkWorld.lexical(cref).find { |mod| mod.const_defined?(name, false) }

@@ -332,7 +332,7 @@ module Zr::Kern
     if FrameMeta[meta].file_len == 0
       return Machine.value(QNIL)
     end
-    zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len)
+    zr_meta_file(meta)
   end
 
   #: (value) -> value

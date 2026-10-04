@@ -41,6 +41,9 @@ module Zr
             when nil then constant(@qnil)
             when Hir::Seq then seq(node, s)
             when Hir::Literal then literal(node, s)
+            when Hir::PathLiteral
+              text = literal(node.literal, s)
+              ->(f) { @kern.zr_path_str(text.call(f)) }
             when Hir::Send then send_node(node, s)
             when Hir::Local then local_get(node.name, node.depth, s)
             when Hir::Assign then local_set(node.name, node.depth, s, code(node.value, s))

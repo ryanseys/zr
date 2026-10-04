@@ -155,10 +155,52 @@ module Zr::Kern
   def zr_program_start(file, len, traced)
     Machine.store64(Machine.static(:trace_built, 8), 0, traced)
     zr_set_global(G_START_DIR, zr_getcwd())
-    name = zr_str_new(file, len)
+    name = zr_path_str(zr_str_new(file, len))
     RBasic[name].flags = RBasic[name].flags | FL_FREEZE
     zr_set_global(G_ARGV0, name)
     zr_gvar_set(Machine.id(:$0), name)
+  end
+
+  # The encoding of a path that the system gives (the program's name, a
+  # directory's entries, the working directory): the default external
+  # encoding, which the core gives as it changes (`Encoding.follow_paths`).
+  # It is UTF-8 until then.
+  #: () -> word
+  def zr_path_index
+    i = Machine.load64(Machine.static(:path_index, 8), 0)
+    i == 0 ? ENC_UTF8 : i - 1
+  end
+
+  #: (value) -> value
+  def zr_path_index_set(index)
+    Machine.store64(Machine.static(:path_index, 8), 0, zr_fix2long(index) + 1)
+    Machine.value(QNIL)
+  end
+
+  # `s`, a path that the system gave, in the path encoding.
+  #: (value) -> value
+  def zr_path_str(s)
+    index = zr_path_index()
+    if index != ENC_UTF8
+      zr_str_set_index(s, index)
+    end
+    s
+  end
+
+  # Whether `file` is the program's main file. Its name came from the
+  # command line, so ruby gives it, and its frames' paths, the path
+  # encoding; a required file's path is UTF-8.
+  #: (ptr, word) -> bool
+  def zr_main_file_p(file, len)
+    name = zr_global(G_ARGV0)
+    name != QNIL && name != 0 && zr_bytes_eq(file, len, RString[name].ptr, RString[name].len)
+  end
+
+  # The file of `meta` as a String.
+  #: (ptr) -> value
+  def zr_meta_file(meta)
+    s = zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len)
+    zr_main_file_p(FrameMeta[meta].file, FrameMeta[meta].file_len) ? zr_path_str(s) : s
   end
 
   # The working directory as the program started: where its relative
@@ -236,7 +278,7 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     meta = Frame[rec].meta
-    zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len)
+    zr_meta_file(meta)
   end
 
   #: () -> value

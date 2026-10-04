@@ -620,8 +620,13 @@ module Zr::Kern
     while i < n
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
-      zr_buf_row(b, rows + (i * BtRow.size))
-      zr_ary_push(out, zr_buf_take(b))
+      row = rows + (i * BtRow.size)
+      zr_buf_row(b, row)
+      line = zr_buf_take(b)
+      if zr_main_file_p(BtRow[row].file, BtRow[row].file_len)
+        line = zr_path_str(line)
+      end
+      zr_ary_push(out, line)
       i += 1
     end
     out
@@ -866,6 +871,18 @@ module Zr::Kern
     exc
   end
 
+  # The text that `b` holds for the frame `rec`, as a String: in the path
+  # encoding when the frame's file is the main file.
+  #: (ptr, ptr) -> value
+  def zr_frame_text(b, rec)
+    line = zr_buf_take(b)
+    source = zr_frame_with_file(rec)
+    if source != 0 && zr_main_file_p(FrameMeta[Frame[source].meta].file, FrameMeta[Frame[source].meta].file_len)
+      return zr_path_str(line)
+    end
+    line
+  end
+
   # Writes `file:line:in 'label'` for the live frame `rec`.
   #: (ptr, ptr) -> void
   def zr_buf_frame(b, rec)
@@ -957,7 +974,7 @@ module Zr::Kern
           b = Machine.slot(Buf.size)
           zr_buf_init(b)
           zr_buf_frame(b, rec)
-          zr_ary_push(out, zr_buf_take(b))
+          zr_ary_push(out, zr_frame_text(b, rec))
         end
       end
       rec = Frame[rec].prev
@@ -993,7 +1010,7 @@ module Zr::Kern
           b = Machine.slot(Buf.size)
           zr_buf_init(b)
           zr_buf_frame(b, rec)
-          zr_ary_push(out, zr_buf_take(b))
+          zr_ary_push(out, zr_frame_text(b, rec))
         end
       end
       rec = Frame[rec].prev

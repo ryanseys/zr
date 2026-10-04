@@ -459,7 +459,7 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len))
+    zr_ary_push(out, zr_meta_file(meta))
     zr_ary_push(out, zr_fix(FrameMeta[meta].line))
     out
   end
@@ -719,7 +719,7 @@ module Zr::Kern
   def zr_iseq_meta_info(meta_word)
     meta = Machine.ptr(zr_fix2long(meta_word))
     out = zr_ary_new(3)
-    zr_ary_push(out, zr_str_new(FrameMeta[meta].file, FrameMeta[meta].file_len))
+    zr_ary_push(out, zr_meta_file(meta))
     zr_ary_push(out, zr_fix(FrameMeta[meta].line))
     kind = FrameMeta[meta].kind
     name = Machine.id(:top)
@@ -778,7 +778,7 @@ module Zr::Kern
         else
           zr_buf_frame(b, rec)
         end
-        zr_ary_push(entry, zr_buf_take(b))
+        zr_ary_push(entry, zr_frame_text(b, rec))
         source = zr_frame_with_file(rec)
         zr_ary_push(entry, zr_fix(source == 0 || native ? 0 : zr_frame_node_id(source)))
         zr_ary_push(entry, Frame[rec].self)

@@ -15,6 +15,7 @@ module Zr
         # @rbs @gem_set: GemSet?
         # @rbs @gate: bool | Symbol
         # @rbs @own: Hash[String, bool]
+        # @rbs @main: String?
         # @rbs @data: Hash[String, Integer]
         # @rbs @prebuilt_eval: untyped
         # @rbs @preloaded: Array[String]
@@ -95,6 +96,7 @@ module Zr
           @gem_set = gem_set
           @gate = gate
           @own = {}
+          @main = nil
           @data = {}
           @prebuilt_eval = external ? nil : prebuilt_eval
           @preloaded = preloaded
@@ -620,6 +622,16 @@ module Zr
         def own!(path) = @own[File.expand_path(path)] = true
         #: (String path) -> bool
         def own?(path) = @own.key?(File.expand_path(path))
+
+        # The program's main file, whose name came from the command line.
+        #: (String path) -> void
+        def main!(path)
+          own!(path)
+          @main = File.expand_path(path)
+        end
+
+        #: (String path) -> bool
+        def main?(path) = @main == File.expand_path(path)
 
         # Why a build cannot use the file at `path`: it is in a gem of the
         # GemSet that zr cannot compile (a C extension). Nil otherwise.

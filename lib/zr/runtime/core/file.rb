@@ -110,7 +110,7 @@ class File < IO
     path = expand_home(path_of(path))
     return normalized(path) if path.start_with?("/")
 
-    base = dir.nil? ? Dir.pwd : expand_path(dir)
+    base = dir.nil? ? Dir.send(:cwd) : expand_path(dir)
     normalized(base.end_with?("/") ? base + path : "#{base}/#{path}")
   end
 
@@ -707,7 +707,7 @@ class File < IO
   # far, except the last name for realdirpath.
   def self.realpath_walk(path, last_may_miss)
     Primitive.attr! :hidden
-    resolved = path.start_with?("/") ? +"" : realpath_names(+"", Dir.pwd.split("/"), false, {})
+    resolved = path.start_with?("/") ? +"" : realpath_names(+"", Dir.send(:cwd).split("/"), false, {})
     resolved = realpath_names(resolved, path.split("/"), last_may_miss, {})
     resolved.empty? ? +"/" : resolved
   end
@@ -1219,7 +1219,17 @@ class Dir
   end
   private :open_names
 
+  # In the path encoding, but binary where that is US-ASCII, as
+  # rb_dir_getwd gives it.
   def self.pwd
+    dir = Primitive.zr_path_str(cwd)
+    dir.encoding == Encoding::US_ASCII ? dir.force_encoding(Encoding::BINARY) : dir
+  end
+
+  # The working directory as the system gives it, which File.expand_path
+  # and File.realpath build on: UTF-8, as ruby gives their results.
+  def self.cwd
+    Primitive.attr! :hidden
     dir = Primitive.zr_getcwd
     raise SystemCallError.new(+"getcwd", -dir) if dir.is_a?(Integer)
 

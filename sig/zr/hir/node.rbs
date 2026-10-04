@@ -250,6 +250,11 @@ module Zr
       attr_accessor chilled: bool?
     end
 
+    class PathLiteral < Node
+      attr_accessor literal: Literal
+      attr_accessor line: Integer
+    end
+
     class SelfRef < Node
       attr_accessor line: Integer
     end

@@ -173,6 +173,7 @@ module Zr
           when nil then nil
           when Hir::Seq then node.stmts.map { |s| walk(s, ctx) }.last
           when Hir::Literal then literal(node)
+          when Hir::PathLiteral then World.path(literal(node.literal))
           when Hir::FrozenString then node.value
           when Hir::SelfRef then ctx.self_
           when Hir::Trace then nil

@@ -289,6 +289,9 @@ class << ENV
   end
 end
 
+# Paths that the system gives take the locale's encoding from the start.
+Encoding.send(:follow_paths) unless Encoding.locale_charmap == +"UTF-8"
+
 module Kernel
   # Each file's directory once asked, from the working directory as the
   # program started. ruby fixes a file's real path as it loads, so a later
@@ -303,7 +306,10 @@ module Kernel
     return nil if file.nil? || file.start_with?("(eval at ")
     return +"." if file == +"-e"
 
-    Kernel.send(:file_dir, file)
+    # The directory is in the encoding of the file's name: the main
+    # file's is a path from the command line (`zr_meta_file`).
+    dir = Kernel.send(:file_dir, file)
+    dir.encoding == file.encoding ? dir : dir.dup.force_encoding(file.encoding)
   end
 
   # The real directory of `file`, a name from the starting directory.

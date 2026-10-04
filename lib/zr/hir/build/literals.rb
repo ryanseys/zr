@@ -12,6 +12,14 @@ module Zr
       #: (Prism::StringNode | Prism::SourceFileNode node, String text, Integer line) -> (Literal | FrozenString)
       def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
 
+      # `__FILE__`: the file's shown name. In the main file it is a path
+      # from the command line, which ruby gives the locale's encoding.
+      #: (Prism::SourceFileNode node, Integer line) -> node
+      def source_file(node, line)
+        text = literal_string(node, Paths.shown(@file), line)
+        text.is_a?(Literal) && !@eval && @loader&.main?(@file) ? PathLiteral.new(text, line) : text
+      end
+
       # A literal that a frozen_string_literal comment freezes: the one
       # frozen String of its text, with no send of `freeze` (ruby never
       # sends it for this case).
@@ -203,7 +211,7 @@ module Zr
           value.low = frozen_literal(node.left, value.low, line) if node.left
           value.high = frozen_literal(node.right, value.high, line) if node.right
         when Prism::StringNode, Prism::SourceFileNode
-          text = value.value
+          text = (value.is_a?(PathLiteral) ? value.literal : value).value
           return FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
         end
         value

@@ -4101,6 +4101,16 @@ class Encoding
   LOCALE = [read_locale, nil]
   private_constant :LOCALE
 
+  # A path that the system gives (a directory's entries, the working
+  # directory, the program's name) is in the default external encoding,
+  # as rb_filesystem_encoding is on a POSIX system. The kernel tags such
+  # Strings (`zr_path_str`); under a UTF-8 locale it has nothing to do.
+  # core/env.rb starts it, once every encoding's methods are defined.
+  def self.follow_paths
+    Primitive.attr! :hidden
+    Primitive.zr_path_index_set(carried(default_external))
+  end
+
   def self.find(name)
     return name if name.is_a?(Encoding)
 
@@ -4172,6 +4182,7 @@ class Encoding
     raise ArgumentError, +"default external can not be nil" if encoding.nil?
 
     DEFAULTS[0] = find(encoding)
+    follow_paths
     encoding
   end
 

@@ -84,6 +84,8 @@ module Zr
       # `Module.nesting` under `cref`, and a String literal's chill.
       def nesting(cref) = Primitive.zr_cref_nesting(cref)
       def chill(string) = Primitive.zr_str_chill(string)
+      # A path from the system, in the locale's encoding (`zr_path_str`).
+      def path(string) = Primitive.zr_path_str(string)
 
       # A bare constant under `cref`, and `scope::Name`.
       def const_get(cref, name) = Primitive.zr_const_get_m(cref, name)
