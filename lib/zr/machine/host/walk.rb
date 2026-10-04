@@ -430,8 +430,7 @@ module Zr
           # `Walk::EvalSupport` has the `units` that `Manifest` reads of a `Zr::EvalSupport`.
           manifest = Manifest.of_program(hir, @eval_files) # steep:ignore ArgumentTypeMismatch
           texts = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
-                                 defs: hir.defs || {}, target: target, manifest: Manifest.bytes(manifest, target),
-                                 redirects: hir.evals ? LoadTables.own_copies(Hash(hir.entries), @eval_files.units) : {}).texts
+                                 defs: hir.defs || {}, target: target, manifest: Manifest.bytes(manifest, target)).texts
           TEXTS.zip(texts) do |field, lines|
             text = lines.join("\n").b
             Memory.set_words(words + offset(table, field), [@host.bytes(text), text.bytesize])

@@ -90,7 +90,6 @@ module Zr
         Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace)
       end
       redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
-      redirects.merge!(LoadTables.own_copies(hir.entries, support.units)) if hir.evals
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
       # source takes seconds to lower.
       GcTuning.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE

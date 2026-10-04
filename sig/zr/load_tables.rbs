@@ -23,7 +23,6 @@ module Zr
                      ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
                      ?redirects: Hash[String, String]) -> void
 
-    def self.own_copies: (Hash[String, Hir::entry] entries, Hash[String, untyped] carried) -> Hash[String, String]
     def data: (?Array[[String, String]] units) -> Array[Obj::Datum]
     def texts: () -> Array[Array[String]]
   end
