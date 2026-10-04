@@ -563,7 +563,7 @@ module Zr
         # and the first one finishes.
         #: (String path) -> entry
         def add(path)
-          return @index[path] if @index.key?(path)
+          return @index[path] if @index.key?(path) && !own_copy?(path)
           # After a build finds that the program evals, it will run again
           # with eval support (`Build.program` uses it as `external`). So
           # from here, it refers to each eval support file as that build
@@ -589,6 +589,15 @@ module Zr
                       end
           i
         end
+
+        # Whether a traced build gives the program its own unit of `path`,
+        # a file that eval support carries (its entry is a String). Eval
+        # support's copy fires no trace events, and a TracePoint must see
+        # the calls into a library that the program requires. A hidden load
+        # (`hidden`) keeps the copy. Eval support's own require of the file
+        # then runs the program's unit (`Program.own_copies`).
+        #: (String path) -> bool
+        def own_copy?(path) = @trace && !@hiding && @index[path].is_a?(String)
 
         # A unit that stops with a message when it runs. An autoload of a
         # feature that this runtime has no file for becomes this: the

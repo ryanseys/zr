@@ -88,6 +88,7 @@ module Zr
       support = EvalSupport.for(target)
       hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace) }
       redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
+      redirects.merge!(own_copies(hir, support)) if hir.evals
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
       # source takes seconds to lower.
       GcTuning.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
@@ -114,6 +115,15 @@ module Zr
                               target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
                               manifest: Manifest.bytes(gems, target), redirects: redirects)
       new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
+    end
+
+    # The files that eval support carries and the program has its own unit
+    # of, as a traced build gives it (`Loader#own_copy?`). Each maps to
+    # itself: the table row of the path is the program's unit, so eval
+    # support's require of the file runs that unit, and one copy loads.
+    #: (Hir::Program hir, EvalSupport support) -> Hash[String, String]
+    def self.own_copies(hir, support)
+      hir.entries.filter_map { |path, entry| [path, path] if entry.is_a?(Integer) && support.units.key?(path) }.to_h
     end
 
     # Eval support has zr's own copy of some libraries (fileutils, pp, irb,
