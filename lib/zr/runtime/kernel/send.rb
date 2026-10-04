@@ -735,6 +735,13 @@ module Zr::Kern
     copy
   end
 
+  # Marks `h` as a hash of keywords that a ruby2_keywords method passes on.
+  #: (value) -> value
+  def zr_ruby2_hash_mark(h)
+    RBasic[h].flags = RBasic[h].flags | FL_RUBY2
+    h
+  end
+
   #: (value) -> value
   def zr_ruby2_hash_p(h)
     zr_bool(!zr_special_p(h) && zr_type(h) == T_HASH && (RBasic[h].flags & FL_RUBY2) != 0)

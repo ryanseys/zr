@@ -112,7 +112,9 @@ class Array
 
   # A comparison already in flight on this Array compares as equal.
   def <=>(other)
-    return nil unless other.is_a?(Array)
+    # rb_check_array_type: to_ary makes an Array of the other side.
+    other = Array.try_convert(other) unless other.is_a?(Array)
+    return nil if other.nil?
     return 0 if equal?(other)
     return 0 if Primitive.zr_recursive_enter(self, :<=>)
 
@@ -183,8 +185,13 @@ class Array
   def join_part(x)
     Primitive.attr! :hidden
     return x if x.is_a?(String) || x.is_a?(Array)
-    return x.to_str if x.respond_to?(:to_str)
-    return x.to_ary if x.respond_to?(:to_ary)
+    # rb_check_string_type, then rb_check_array_type: a nil from either
+    # goes on to the next.
+    text = String.try_convert(x)
+    return text if text
+
+    list = Array.try_convert(x)
+    return list if list
 
     Primitive.zr_obj_as_string(x)
   end
@@ -201,6 +208,8 @@ class Array
 
   def index(v = (omitted = true; nil))
     return to_enum(:index) if omitted && !block_given?
+
+    Primitive.zr_warn_here_m("given block not used") if block_given? && !omitted
 
     i = 0
     while i < Primitive.zr_ary_len_m(self)
@@ -297,8 +306,8 @@ class Array
   def rassoc(value)
     i = 0
     while i < Primitive.zr_ary_len_m(self)
-      row = Primitive.zr_ary_aref1_m(self, i)
-      return row if row.is_a?(Array) && row.size > 1 && Primitive.zr_rb_equal(row[1], value)
+      row = Array.try_convert(Primitive.zr_ary_aref1_m(self, i))
+      return row if row && row.size > 1 && Primitive.zr_rb_equal(row[1], value)
 
       i += 1
     end
@@ -611,6 +620,8 @@ class Array
   # through `each`, with the length read again each time round.
   def count(item = (none = true))
     return Primitive.zr_ary_len_m(self) if none && !block_given?
+
+    Primitive.zr_warn_here_m("given block not used") if block_given? && !none
 
     n = 0
     i = 0
@@ -991,8 +1002,9 @@ class Array
   def assoc(key)
     i = 0
     while i < Primitive.zr_ary_len_m(self)
-      x = Primitive.zr_ary_aref1_m(self, i)
-      return x if x.is_a?(Array) && x.size > 0 && Primitive.zr_rb_equal(x[0], key)
+      # rb_check_array_type: an element with to_ary counts as its Array.
+      x = Array.try_convert(Primitive.zr_ary_aref1_m(self, i))
+      return x if x && x.size > 0 && Primitive.zr_rb_equal(x[0], key)
 
       i += 1
     end
@@ -1000,7 +1012,9 @@ class Array
   end
 
   def *(other)
-    return join(other) if other.is_a?(String)
+    # rb_check_string_type first: to_str joins.
+    text = other.is_a?(String) ? other : (other.is_a?(Integer) ? nil : String.try_convert(other))
+    return join(text) if text
 
     other = Primitive.zr_index_operand_m(other)
     raise ArgumentError, +"negative argument" if other < 0
@@ -1258,6 +1272,8 @@ class Array
   def rindex(v = (omitted = true; nil))
     return to_enum(:rindex) if omitted && !block_given?
 
+    Primitive.zr_warn_here_m("given block not used") if block_given? && !omitted
+
     i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0
       return i if omitted ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_rb_equal(Primitive.zr_ary_aref1_m(self, i), v)
@@ -1294,6 +1310,7 @@ class Array
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       pair = block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_ary_aref1_m(self, i)
+      pair = Array.try_convert(pair) || pair unless pair.is_a?(Array)
       raise TypeError, "wrong element type #{pair.class} at #{i} (expected array)" unless pair.is_a?(Array)
       raise ArgumentError, "wrong array length at #{i} (expected 2, was #{pair.size})" unless pair.size == 2
 

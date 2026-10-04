@@ -366,7 +366,8 @@ module Zr::Kern
             return e
           end
         else
-          same = zr_key_eql(HEntry[e].key, key)
+          # st EQUAL(key, stored): the key looked up answers eql?.
+          same = zr_key_eql(key, HEntry[e].key)
           if same == KEY_RAISED
             return Machine.ptr(HASH_RAISED)
           end
@@ -397,7 +398,8 @@ module Zr::Kern
             return e
           end
         else
-          same = zr_key_eql(HEntry[e].key, key)
+          # st EQUAL(key, stored): the key looked up answers eql?.
+          same = zr_key_eql(key, HEntry[e].key)
           if same == KEY_RAISED
             return Machine.ptr(HASH_RAISED)
           end

@@ -21,7 +21,8 @@ class Hash
   def self.ruby2_keywords_hash(hash)
     raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash" unless hash.is_a?(Hash)
 
-    Primitive.zr_ruby2_hash_new(hash)
+    # rb_hash_dup: the class, ivars, default and compare_by_identity stay.
+    Primitive.zr_ruby2_hash_mark(Kernel.instance_method(:dup).bind_call(hash))
   end
 
   def self.ruby2_keywords_hash?(hash)
