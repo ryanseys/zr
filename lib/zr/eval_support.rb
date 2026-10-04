@@ -152,7 +152,7 @@ module Zr
 
     #: () -> Hash[Symbol, untyped]
     def lowered
-      @lowered ||= Timing.phase("eval support lowered") do
+      @lowered ||= Timing.phase("lowering eval support", "eval support lowered") do
         GcTuning.heavy!
         Runtime.announce("eval support (the compiler in a program that calls eval)", target)
         loader = Hir::Build.eval_support(target)

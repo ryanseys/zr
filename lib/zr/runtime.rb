@@ -68,7 +68,7 @@ module Zr
     def unit
       raise "the runtime's IR was released" if @released
 
-      @unit ||= Timing.phase("kernel lowered") do
+      @unit ||= Timing.phase("lowering the kernel", "kernel lowered") do
         GcTuning.heavy!
         files = RuntimeSources.for(target).kernel_files.map do |path|
           [sources.fetch(path), path] #: [String, String]
@@ -99,7 +99,7 @@ module Zr
       # object contains the core's file names; so two checkouts never
       # share one. A build with a path root (`Paths.root`) writes
       # different names, so the root is also an input.
-      @digest ||= Timing.phase("runtime digest") do
+      @digest ||= Timing.phase("taking the runtime digest", "runtime digest") do
         files = sources.keys + gem_prelude_files
         @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
         digest_of(files)
@@ -285,8 +285,8 @@ module Zr
     # moves the ids after it and no code.
     #: () -> [Array[Obj::Code | IR::Function], Array[Obj::Datum]]
     def lowered
-      @lowered ||= Timing.phase("core lowered") do
-        core = @core_cache = Timing.phase("core cache: opened") { Cache::Lowering::Core.for(target) }
+      @lowered ||= Timing.phase("lowering the core", "core lowered") do
+        core = @core_cache = Timing.phase("core cache: opening", "core cache: opened") { Cache::Lowering::Core.for(target) }
         fixed = unit.symbols.ids.dup.freeze
         functions, data = core ? core.lower(unit, fixed, sources) : Runtime.core(unit, fixed, target, sources)
         @table = Machine::Symbols.new(kernel_symbols.names, sites: kernel_symbols.sites)

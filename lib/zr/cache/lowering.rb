@@ -89,10 +89,10 @@ module Zr
         inliner = IR::Passes::Inline.new(fixed_ir)
         inliner.run
         @leaf = fixed_ir.to_h { |f| [f.name, inliner.settled_leaf?(f.name) ? IR::Fingerprint.of(f, Set.new) : nil] }
-        records = Timing.phase("#{label}: checked") { pieces.map { |piece| current(piece) } }
+        records = Timing.phase("#{label}: checking the pieces", "#{label}: checked") { pieces.map { |piece| current(piece) } }
         missing = pieces.each_index.reject { |i| records[i] }
         report(label, pieces.size - missing.size, pieces.size)
-        made = Timing.phase("#{label}: made") do
+        made = Timing.phase("#{label}: making the pieces with no entry", "#{label}: made") do
           Native::Parallel.map(missing.map { |i| pieces[i] }, jobs: Config.current.jobs,
                                weight: :weight.to_proc #: ^(Piece) -> Integer
                               ) do |piece|
@@ -102,8 +102,8 @@ module Zr
         missing.zip(made) { |i, pair| records[i] = pair }
         # Each piece now has its record.
         filled = records #: Array[[Hash[Symbol, untyped], Hash[String, String]?]]
-        Timing.phase("#{label}: kept") { keep(pieces, filled) }
-        Timing.phase("#{label}: code read") { results(filled) }
+        Timing.phase("#{label}: keeping the pieces", "#{label}: kept") { keep(pieces, filled) }
+        Timing.phase("#{label}: reading the code", "#{label}: code read") { results(filled) }
       end
 
       # `[record, nil]` for a piece whose entry holds, else nil. The code

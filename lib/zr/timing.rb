@@ -3,18 +3,22 @@
 require_relative "config"
 
 module Zr
-  # With `ZR_TIMING=1`, each build phase prints one line to stderr when it
-  # ends. The line gives the seconds, the collector's run count, and its
-  # marking and sweeping milliseconds for the phase. Both ruby and a zr
-  # binary report these (GC.stat).
+  # With `ZR_TIMING=1`, each build phase prints a line to stderr when it
+  # starts ("zr: inlining the unit ..."), so a long phase shows what it
+  # does, and one when it ends. The end line gives the seconds, the
+  # collector's run count, and its marking and sweeping milliseconds for
+  # the phase. Both ruby and a zr binary report these (GC.stat).
   module Timing
     module_function
 
-    # Runs the block, the phase `label`, and returns its value.
-    #: [T] (String label) { () -> T } -> T
-    def phase(label)
+    # Runs the block and returns its value. `doing` names the phase as it
+    # starts, and `label` as it ends; `zr-dev compile` keys its rows by
+    # the label.
+    #: [T] (String doing, String label) { () -> T } -> T
+    def phase(doing, label)
       return yield unless Config.current.timing?
 
+      warn "zr: #{doing} ..."
       began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       before = collector
       begin

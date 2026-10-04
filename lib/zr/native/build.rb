@@ -107,7 +107,7 @@ module Zr
         objects << eval_support_object(program.evals, jobs: jobs) if program.evals
         root(program.runtime, objects, program.evals)
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) } #: [Array[IR::Function], Array[Obj::Code]]
-        Timing.phase("program object written and linked") do
+        Timing.phase("writing and linking the program object", "program object written and linked") do
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs, link: link)
         end
@@ -178,10 +178,10 @@ module Zr
         # and parsing the 25 MB image took 21% of a link, and a test tier
         # links thousands of times. A link never writes to it.
         kept = prelinks[path] ||= File.exist?(path) &&
-                                  Timing.phase("prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) } #: Obj::MachO::Prelink | false | nil
+                                  Timing.phase("loading the prelink", "prelink loaded") { Obj::MachO::Prelink.load(File.binread(path)) } #: Obj::MachO::Prelink | false | nil
         return kept if kept
 
-        Timing.phase("objects prelinked") do
+        Timing.phase("prelinking the objects", "objects prelinked") do
           Obj::MachO::Prelink.build(objects.map { |o| File.binread(o) }).tap { |base| Cache::Store.write_file(path, base.dump) }
         end
       end
@@ -214,7 +214,7 @@ module Zr
       def skeleton(objects)
         path = skeleton_path(objects) or return nil
         skeletons = Session.current.memo(:skeletons) { {} } #: Hash[String, String]
-        skeletons[path] ||= File.exist?(path) ? path : Timing.phase("skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
+        skeletons[path] ||= File.exist?(path) ? path : Timing.phase("writing the skeleton", "skeleton written") { Cache::Store.write_file(path, Obj::MachO::Skeleton.bytes(prelink(objects))) }
       end
 
       # The eval support object, built once for each key.
@@ -237,7 +237,7 @@ module Zr
             units = nil # the lambda would keep the IR alive
             support.release
           end
-          why = Timing.phase("eval support object assembled and written") do
+          why = Timing.phase("assembling and writing the eval support object", "eval support object assembled and written") do
             object(support.functions, support.data, fresh, export: true, target: support.target, jobs: jobs, cache: code,
                                                            inlined: !units.nil?, known: units&.known || {}, release: done)
           end
@@ -270,7 +270,7 @@ module Zr
           # unit already; its code cache has that code.
           core = runtime.core_cache
           cache = core&.code || CodeCache.for("runtime", runtime.target)
-          why = Timing.phase("runtime object assembled and written") do
+          why = Timing.phase("assembling and writing the runtime object", "runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs,
                                                                          cache: cache, inlined: !core.nil?, known: core&.known || {})
           end
@@ -307,7 +307,7 @@ module Zr
           functions = nil # rubocop:disable Lint/UselessAssignment -- the frame would keep the IR alive
           release.call
         end
-        File.binwrite(obj, Timing.phase("object file written") { writer(target).write(built) })
+        File.binwrite(obj, Timing.phase("writing the object file", "object file written") { writer(target).write(built) })
         nil
       rescue Backend::Refused => e
         e.message
@@ -342,13 +342,13 @@ module Zr
         # only `cached` gets it: the backend gives `functions` to the
         # block as they are.
         ir = functions #: Array[IR::Function]
-        Timing.phase("unit inlined") { IR::Passes.inline(ir) } unless inlined
+        Timing.phase("inlining the unit", "unit inlined") { IR::Passes.inline(ir) } unless inlined
         emitter = backend(target)
         code = assembled + raw.map { |name| emitter::Stub.function(name) }
         emitter.unit(ir, data, raw: code, export: export) do |all, defined|
           next cached(all, defined, emitter, cache, jobs, floor, known) if cache
 
-          Timing.phase("unit assembled (#{all.size} functions)") do
+          Timing.phase("assembling the unit (#{all.size} functions)", "unit assembled (#{all.size} functions)") do
             Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f| #$ IR::Function, Obj::Code
               IR::Passes.prepare(f)
               emitter.assemble(f, defined)
@@ -392,9 +392,9 @@ module Zr
           [key, Marshal.dump(made), true]
         end
         made = ir.zip(answers).to_h
-        Timing.phase("code cache kept") { cache.keep(all.each_with_index.map { |f, i| made[i]&.first(2) || known.fetch(f.name) }) }
+        Timing.phase("keeping the code cache", "code cache kept") { cache.keep(all.each_with_index.map { |f, i| made[i]&.first(2) || known.fetch(f.name) }) }
         warn format("zr: code cache: %d of %d functions assembled", answers.count(&:last), all.size) if Config.current.timing?
-        loaded = Timing.phase("code cache loaded") { all.each_with_index.map { |f, i| made[i] ? Marshal.load(made[i][1]) : f } }
+        loaded = Timing.phase("loading the code cache", "code cache loaded") { all.each_with_index.map { |f, i| made[i] ? Marshal.load(made[i][1]) : f } }
         # Each IR function is machine code now.
         loaded #: Array[Obj::Code]
       end

@@ -141,7 +141,7 @@ module Zr
     #: () -> bool
     def eval_walk? = @eval_mode == "walk"
 
-    # `ZR_TIMING=1` prints one line to stderr for each build phase.
+    # `ZR_TIMING=1` prints a line to stderr as each build phase starts and ends.
     #: () -> bool
     def timing? = @timing
 

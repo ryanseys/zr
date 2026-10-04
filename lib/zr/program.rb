@@ -86,7 +86,9 @@ module Zr
     def self.build(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, trace: false, &finish)
       rt = Runtime.for(target)
       support = EvalSupport.for(target)
-      hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace) }
+      hir = Timing.phase("building the HIR", "hir built") do
+        Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace)
+      end
       redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
       redirects.merge!(LoadTables.own_copies(hir.entries, support.units)) if hir.evals
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
@@ -102,7 +104,8 @@ module Zr
       # is correct for this build while the kernel's ABI is the same.
       units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, entries: Lower.entries_of("zr_toplevel", hir.units))
       lower = Lower.new(hir, rt.description, symbols, target: target, fixed: rt.fixed_ids, units: units || nil)
-      functions, data = Timing.phase(finish ? "program lowered and assembled" : "program lowered") do
+      doing, done = finish ? ["lowering and assembling the program", "program lowered and assembled"] : ["lowering the program", "program lowered"]
+      functions, data = Timing.phase(doing, done) do
         finish ? lower.run { |f| yield(f, lower.entry) } : lower.run
       end
       units = hir.entries.map do |path, i|

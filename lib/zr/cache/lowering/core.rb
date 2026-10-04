@@ -38,14 +38,14 @@ module Zr
           @unit = unit
           @ids = ids
           @sources = sources
-          @base = Timing.phase("core cache: key") do
+          @base = Timing.phase("core cache: taking the key", "core cache: key") do
             base_key(Machine::Description.of(unit).to_text, Lower.boot_classes.inspect, *ids.keys)
           end
           paths = RuntimeSources.for(@target).core_files
           @prelude = Runtime.prelude(paths.map { |path| Runtime.core_entry(path) }, unit)
           pieces = paths.map { |path| core_file(path) }
           # The gem prelude is one more piece: its key has each file it loads.
-          @gem_hir = Timing.phase("core cache: gem prelude built") { Runtime.gem_prelude(@target) }
+          @gem_hir = Timing.phase("core cache: building the gem prelude", "core cache: gem prelude built") { Runtime.gem_prelude(@target) }
           pieces << gem_piece
           kernel = unit.functions
           names = kernel.map(&:name) + unit.data.map(&:name) + unit.raw + [@prelude.name] + pieces.map(&:entry)

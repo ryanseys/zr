@@ -51,7 +51,8 @@ not at the same time as a test run.
 
 ## Time a build
 
-Set `ZR_TIMING=1` to print how long each phase of a build takes:
+Set `ZR_TIMING=1` to print each phase of a build as it starts, and how
+long it took as it ends:
 
 ```console
 $ ZR_TIMING=1 exe/zr build app.rb -o app
