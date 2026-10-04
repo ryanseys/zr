@@ -1,0 +1,38 @@
+"01234abcd901234567890123456789"
+"5678901234"
+"56789"
+15
+"existing"
+EOFError
+"end of file reached"
+""
+TypeError
+"no implicit conversion of Symbol into Integer"
+RangeError
+"bignum too big to convert into 'long long'"
+RangeError
+"bignum too big to convert into 'long'"
+TypeError
+"advice must be a Symbol"
+RangeError
+"bignum too big to convert into 'long long'"
+nil
+"foobar"
+IOError
+"closing non-duplex IO for writing"
+0
+true
+true
+1
+true
+nil
+8
+#<Encoding:US-ASCII>
+ArgumentError
+"negative offset -1 given"
+true
+nil
+TypeError
+"can't convert Object to IO (Object#to_io gives String)"
+from to_ary
+"out\nerr\n"

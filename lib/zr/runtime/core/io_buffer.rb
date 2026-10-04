@@ -70,6 +70,25 @@ class IO
     end
     private_class_method :announce
 
+    # io_flags_for_size: a page or more is mapped, less is internal, and
+    # nothing is neither.
+    def self.flags_for(size)
+      Primitive.attr! :hidden
+      return 0 if size.zero?
+
+      size >= PAGE_SIZE ? MAPPED : INTERNAL
+    end
+
+    # io_buffer_extract_size: an Integer that is not negative.
+    def self.size_operand(size)
+      Primitive.attr! :hidden
+      raise TypeError, +"not an Integer" unless Integer === size
+      raise ArgumentError, +"Size can't be negative!" if size.negative?
+
+      size
+    end
+    private_class_method :flags_for, :size_operand
+
     def self.row(type)
       Primitive.attr! :hidden
       TYPES[type] or raise ArgumentError, +"Invalid type name!"
@@ -80,7 +99,7 @@ class IO
     # read-only; with one it is writable for the length of the block.
     def self.for(string)
       buffer = allocate
-      buffer.send(:external, string, !block_given?)
+      buffer.send(:external, string, !block_given? || string.frozen?)
       return buffer unless block_given?
 
       begin
@@ -122,15 +141,17 @@ class IO
       buffer
     end
 
-    def initialize(size = DEFAULT_SIZE, flags = 0)
+    # rb_io_buffer_initialize: the size and the flags are Integers. With
+    # no flags, a buffer of a page or more is mapped and a smaller one is
+    # internal; given flags must name one of the two.
+    def initialize(size = DEFAULT_SIZE, flags = (none = true; 0))
       Buffer.send(:announce)
-      size = Primitive.zr_index_operand_m(size)
-      raise ArgumentError, +"Size can't be negative!" if size < 0
-
-      @bytes = "\0".b * size
-      @start = 0
-      @size = size
-      @flags = INTERNAL | flags
+      size = Buffer.send(:size_operand, size)
+      unless none
+        raise TypeError, +"not an Integer" unless Integer === flags
+        raise ArgumentError, +"Flags can't be negative!" if flags.negative?
+      end
+      allocated(size, none ? Buffer.send(:flags_for, size) : flags)
     end
 
     attr_reader :size
@@ -138,11 +159,9 @@ class IO
     # A copy owns its bytes, so it is writable even when the original
     # is a read-only window on a String.
     def initialize_copy(other)
-      @bytes = other.get_string
-      @start = 0
-      @size = @bytes.bytesize
-      @flags = INTERNAL
-      @mapping = nil
+      bytes = other.get_string
+      allocated(bytes.bytesize, Buffer.send(:flags_for, bytes.bytesize))
+      @bytes&.replace(bytes)
       self
     end
 
@@ -153,13 +172,21 @@ class IO
     def private? = @flags & PRIVATE != 0
     def readonly? = @flags & READONLY != 0
     def locked? = @flags & LOCKED != 0
-    # A buffer stays valid over `free` and `transfer`; only a mapping
-    # that went away makes one invalid.
-    def valid? = true
-    def null? = @bytes.nil? || @size.zero?
+
+    # io_buffer_validate: a slice is valid while its source still holds
+    # the same bytes, and the slice lies inside them.
+    def valid?
+      return true if @source.nil?
+
+      bytes, start, size = @source.is_a?(String) ? [@source, 0, @source.bytesize] : @source.send(:held)
+      !bytes.nil? && bytes.equal?(@bytes) && @start >= start && @start + @size <= start + size
+    end
+
+    # A null buffer has no memory; an empty one may have some.
+    def null? = @bytes.nil?
     def empty? = @size.zero?
 
-    # A freed buffer keeps its object and lets go of its bytes.
+    # A freed buffer keeps its object and lets go of its bytes and flags.
     def free
       raise LockedError, +"Buffer is locked!" if locked?
 
@@ -167,6 +194,8 @@ class IO
       @start = 0
       @size = 0
       @mapping = nil
+      @source = nil
+      @flags = 0
       self
     end
 
@@ -181,22 +210,40 @@ class IO
       end
     end
 
+    # rb_io_buffer_resize: a null buffer gets new memory; an internal one
+    # grows or shrinks in place, and a size of zero frees it; any other
+    # one is copied into new memory, which leaves its slices invalid.
     def resize(size)
+      size = Buffer.send(:size_operand, size)
       raise LockedError, +"Cannot resize locked buffer!" if locked?
+      return allocated(size, Buffer.send(:flags_for, size)) if @bytes.nil?
       raise AccessError, +"Cannot resize external buffer!" if external?
 
-      @bytes = @bytes.byteslice(0, size).b
-      @bytes << ("\0".b * (size - @bytes.bytesize)) if @bytes.bytesize < size
-      @size = size
+      if internal?
+        return free if size.zero?
+
+        if size < @size
+          @bytes.replace(@bytes.byteslice(0, size))
+        else
+          @bytes << ("\0".b * (size - @size))
+        end
+        @size = size
+        return self
+      end
+      kept = get_string(0, [size, @size].min)
+      allocated(size, Buffer.send(:flags_for, size))
+      @bytes&.bytesplice(0, kept.bytesize, kept)
       self
     end
 
-    # A window on the same bytes, offset into this one.
+    # A window on the same bytes, offset into this one. A slice keeps
+    # only the read-only flag, and its source is the buffer that owns
+    # the bytes.
     def slice(offset = 0, length = nil)
       length = @size - offset if length.nil?
       bounds(offset, length)
       part = allocate_like
-      part.send(:window, @bytes, @start + offset, length, (@flags & ~INTERNAL) | SLICE, @mapping)
+      part.send(:window, @bytes, @start + offset, length, @flags & READONLY, @mapping, @source || self)
       part
     end
 
@@ -451,29 +498,45 @@ class IO
     end
     private_class_method :lent, :io_of
 
+    # The new buffer takes the memory, with its address and flags; this
+    # one keeps its flags and has no memory.
     def transfer
+      raise LockedError, +"Cannot transfer ownership of locked buffer!" if locked?
+
       other = Buffer.allocate
-      other.send(:window, @bytes, @start, @size, @flags, @mapping)
-      free
+      other.send(:window, @bytes, @start, @size, @flags, @mapping, @source)
+      @bytes = nil
+      @start = 0
+      @size = 0
+      @mapping = nil
+      @source = nil
       other
     end
 
-    # The header ruby shows: the address, the size, and the flags that
-    # are set. A window on nothing shows NULL alone.
+    # The header ruby shows: the address, the size, NULL where there is
+    # no memory, the flags that are set, SLICE where the bytes belong to
+    # another buffer or a String, and INVALID where they no longer do.
+    # The address of a memory block is the identity of its String.
     def to_s
-      shown = if null?
-                ["NULL"]
-              else
-                [internal? ? "INTERNAL" : nil, external? ? "EXTERNAL" : nil, mapped? ? "MAPPED" : nil,
-                 @flags & FILE != 0 ? "FILE" : nil, shared? ? "SHARED" : nil, locked? ? "LOCKED" : nil, private? ? "PRIVATE" : nil,
-                 readonly? ? "READONLY" : nil, @flags & SLICE != 0 ? "SLICE" : nil].compact
-              end
-      "#<IO::Buffer #{format('0x%016x', object_id)}+#{@size}#{shown.empty? ? '' : " #{shown.join(' ')}"}>"
+      address = @bytes.nil? ? 0 : (@bytes.object_id * 16) + @start
+      shown = []
+      shown << "NULL" if @bytes.nil?
+      shown << "EXTERNAL" if external?
+      shown << "INTERNAL" if internal?
+      shown << "MAPPED" if mapped?
+      shown << "FILE" if @flags & FILE != 0
+      shown << "SHARED" if shared?
+      shown << "LOCKED" if locked?
+      shown << "PRIVATE" if private?
+      shown << "READONLY" if readonly?
+      shown << "SLICE" unless @source.nil?
+      shown << "INVALID" unless valid?
+      "#<IO::Buffer #{format('0x%016x', address)}+#{@size}#{shown.empty? ? '' : " #{shown.join(' ')}"}>"
     end
 
     # The bytes go under the header, up to the first 256 of them.
     def inspect
-      return to_s if null?
+      return to_s if null? || !valid?
       return "#{to_s}\n#{hexdump}" if @size <= 256
 
       "#{to_s}\n#{hexdump(0, 256)}\n(and #{@size - 256} more bytes not printed)"
@@ -546,18 +609,45 @@ class IO
       @bytes = string
       @start = 0
       @size = string.bytesize
-      @flags = EXTERNAL | SLICE | (readonly ? READONLY : 0)
+      @flags = EXTERNAL | (readonly ? READONLY : 0)
+      @source = string
       self
     end
 
-    def window(bytes, start, size, flags, mapping = nil)
+    def window(bytes, start, size, flags, mapping = nil, source = nil)
       Primitive.attr! :hidden
       @bytes = bytes
       @start = start
       @size = size
       @flags = flags
       @mapping = mapping
+      @source = source
       self
+    end
+
+    # io_buffer_initialize: memory of `size` bytes, or none for a size
+    # of zero.
+    def allocated(size, flags)
+      Primitive.attr! :hidden
+      if size.zero?
+        @bytes = nil
+      else
+        raise AllocationError, +"Could not allocate buffer!" if (flags & (INTERNAL | MAPPED)).zero?
+
+        @bytes = "\0".b * size
+      end
+      @start = 0
+      @size = size
+      @flags = flags
+      @mapping = nil
+      @source = nil
+      self
+    end
+
+    # The memory a slice of this buffer shares, and where its window is.
+    def held
+      Primitive.attr! :hidden
+      [@bytes, @start, @size]
     end
 
     # io_buffer_map_file: the file's bytes from `offset`, and where they
@@ -595,11 +685,13 @@ class IO
     def writable
       Primitive.attr! :hidden
       raise AccessError, +"Buffer is not writable!" if readonly?
+      raise InvalidatedError, +"Buffer is invalid!" unless valid?
       raise InvalidatedError, +"Buffer has been invalidated!" if null?
     end
 
     def bounds(offset, length, type = nil)
       Primitive.attr! :hidden
+      raise InvalidatedError, +"Buffer has been invalidated!" unless valid?
       raise ArgumentError, +"Offset can't be negative!" if offset < 0
       raise ArgumentError, +"Length can't be negative!" if length < 0
       return if offset + length <= @size

@@ -75,8 +75,9 @@ class IO
   # passes on then refuses.
   def self.read(path, length = nil, offset = nil, extra = (none = true; nil), **options)
     raise ArgumentError, +"wrong number of arguments (given 3, expected 0..2)" unless none
+    raise ArgumentError, "negative offset #{offset} given" if offset && (offset = IO.send(:offset_of, offset)).negative?
 
-    File.open(File.send(:path_of, path), options[:mode].nil? ? "r" : nil, **options) do |file|
+    opened(File.send(:path_of, path), options[:mode].nil? ? "r" : nil, options) do |file|
       file.seek(offset) if offset
       length ? file.read(length) : file.read
     end
@@ -89,7 +90,7 @@ class IO
   def self.written(path, content, offset, binary, options)
     Primitive.attr! :hidden
     options = options.merge(mode: File::WRONLY | File::CREAT | (offset ? 0 : File::TRUNC)) if options[:mode].nil?
-    File.open(File.send(:path_of, path), **options) do |file|
+    opened(File.send(:path_of, path), nil, options) do |file|
       file.binmode if binary
       file.seek(offset) if offset
       file.write(content)
@@ -99,20 +100,54 @@ class IO
 
   # The options of an open belong to the open, as rb_io_extract_modeenc
   # takes them; only `chomp:` belongs to the lines.
+  # The separator and the limit convert before the file opens.
   def self.readlines(path, *args, **options)
     line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
-    File.open(File.send(:path_of, path), options[:mode].nil? ? "r" : nil, **options) { |file| file.readlines(*args, **line) }
+    path = File.send(:path_of, path)
+    args = line_args(args)
+    opened(path, options[:mode].nil? ? "r" : nil, options) { |file| file.readlines(*args, **line) }
   end
 
+  # Each line is also `$_`, which is nil at the end.
   def self.foreach(path, *args, **options, &block)
     return to_enum(:foreach, path, *args, **options) unless block
 
     line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
-    File.open(File.send(:path_of, path), options[:mode].nil? ? "r" : nil, **options) do |file|
-      file.send(:each_line_for, :foreach, args, line.fetch(:chomp, false), &block)
+    path = File.send(:path_of, path)
+    args = line_args(args)
+    opened(path, options[:mode].nil? ? "r" : nil, options) do |file|
+      file.send(:each_line_for, :foreach, args, line.fetch(:chomp, false)) do |text|
+        $_ = text
+        yield text
+      end
     end
-    nil
+    $_ = nil
   end
+
+  # gets' arguments, converted, in a form that converts again to the same.
+  def self.line_args(args)
+    Primitive.attr! :hidden
+    return args if args.empty?
+
+    separator, limit = allocate.send(:getline_args, args)
+    [separator, limit || -1]
+  end
+
+  # open_key_args: an :open_args Array is the whole of the open, and the
+  # other options do not count.
+  def self.opened(path, mode, options, &block)
+    Primitive.attr! :hidden
+    given = options[:open_args]
+    return File.open(path, mode, **options, &block) if given.nil?
+
+    given = Array.try_convert(given) or raise TypeError, "no implicit conversion of #{given.class} into Array"
+    keywords = given.last.is_a?(Hash) ? given.last : {}
+    positional = keywords.empty? && !given.last.is_a?(Hash) ? given : given[0...-1]
+    raise ArgumentError, "wrong number of arguments (given #{positional.size + 1}, expected 1..3)" if positional.size > 2
+
+    File.open(path, *positional, **keywords, &block)
+  end
+  private_class_method :opened, :line_args
 
   # rb_io_s_new: a block here is a mistake, which ruby names.
   def self.new(*args, **options, &block)
@@ -254,6 +289,21 @@ class IO
     value
   end
 
+  # rb_io_ext_int_to_encs with no internal encoding given: the default
+  # internal encoding converts from the external one, which the stream
+  # then keeps, also when the two are the same. With no conversion, an
+  # external encoding that was not given stays unset and follows the
+  # default. A binary stream converts nothing.
+  def self.default_encodings(external)
+    Primitive.attr! :hidden
+    given = external || Encoding.default_external
+    internal = Encoding.default_internal
+    return [external, nil] if internal.nil? || Encoding::BINARY.equal?(given)
+    return [given, nil] if internal.equal?(given)
+
+    [given, internal]
+  end
+
   # io.c's find_encoding: an Encoding, or the one a String names; a name
   # that matches nothing warns and gives none.
   def self.found_encoding(value)
@@ -385,6 +435,7 @@ class IO
   # creation takes, minus the umask.
   def self.sysopen(path, mode = +"r", perm = nil)
     path = File.send(:path_of, path)
+    mode = +"r" if mode.nil?
     flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, File.send(:open_mode, mode))
     perm = perm.nil? ? 0o666 : Integer(perm)
     fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(path, flags, perm) }
@@ -482,6 +533,7 @@ class IO
     end
     env = args.first.is_a?(Hash) ? args.shift : nil
     command, mode = args
+    mode = Primitive.zr_str_operand(mode) unless mode.nil? || mode.is_a?(Integer)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
     return popen_fork((mode || "r").to_s, &block) if command == +"-"
 
@@ -578,6 +630,11 @@ class IO
       plan[twin] = :close
     end
     words = Array(command)
+    # A Hash at the end of the command Array is more exec options.
+    if words.size > 1 && (extra = Hash.try_convert(words.last))
+      words = words[0...-1]
+      options = extra.merge(options)
+    end
     pid = Process.send(:spawn_command, env ? [env, *words] : words, plan.merge(options))
     Primitive.zr_io_close(theirs)
     Primitive.zr_io_close(child_in) if child_in
@@ -595,7 +652,15 @@ class IO
 
   private_class_method :pipe_ends, :popen_stream, :popen_fork
 
-  def self.try_convert(object) = object.respond_to?(:to_io) ? object.to_io : nil
+  # rb_io_check_io: #to_io must give an IO.
+  def self.try_convert(object)
+    return object if IO === object
+
+    io = Primitive.zr_check_call(object, :to_io)
+    raise TypeError, "can't convert #{conversion_name(object)} to IO (#{conversion_name(object)}#to_io gives #{conversion_name(io)})" unless io.nil? || IO === io
+
+    io
+  end
 
   COPY_CHUNK = 16 * 1024
   private_constant :COPY_CHUNK
@@ -649,7 +714,17 @@ class IO
     when String then raise TypeError, +"no implicit conversion from string"
     when true, false then raise TypeError, +"no implicit conversion from boolean"
     else Primitive.zr_index_operand_m(value)
-    end
+    end.tap { |offset| raise RangeError, +"bignum too big to convert into 'long long'" unless offset.bit_length < 64 }
+  end
+
+  # interpret_seek_whence: :SET, :CUR and :END, and the two that find
+  # data and holes, else a C int.
+  WHENCE = { SET: 0, CUR: 1, END: 2, DATA: 3, HOLE: 4 }.freeze
+  private_constant :WHENCE
+
+  def self.whence_of(whence)
+    Primitive.attr! :hidden
+    WHENCE.fetch(whence) { c_int(whence) }
   end
 
   # An end of a copy as the IO it reads or writes, opening a path with
@@ -745,14 +820,7 @@ class IO
       end
     end
     text, binary, external, internal, conversion = IO.send(:open_options, mode, options)
-    # rb_io_ext_int_to_encs: a text stream that gives no internal encoding
-    # takes the default one as it opens, unless the two are the same.
-    # Then it keeps the external one it converts from.
-    if internal.nil? && !binary && !(default = Encoding.default_internal).nil? && !Encoding::BINARY.equal?(external) &&
-       !default.equal?(external || Encoding.default_external)
-      internal = default
-      external ||= Encoding.default_external
-    end
+    external, internal = IO.send(:default_encodings, external) if internal.nil? && !binary
     @fd = fd
     @mode = text
     # What the mode allows, decided once: every read and write checks it.
@@ -885,6 +953,10 @@ class IO
     raise SystemCallError.new(nil, -fd) if fd < 0
 
     @fd = fd
+    # rb_cloexec_dup: the copy closes on exec, and closes its descriptor.
+    flags = Primitive.zr_io_fcntl(fd, F_GETFD, 0)
+    Primitive.zr_io_fcntl(fd, F_SETFD, flags | FD_CLOEXEC) unless flags.negative?
+    @autoclose = true
     clear_buffer
     @wbuf = +"".b
     @tty = Primitive.zr_io_tty_p(fd)
@@ -895,18 +967,84 @@ class IO
   # `reopen`: this stream's descriptor number comes to refer to the other
   # stream's open file, so every existing reference follows along.
   # Saving and restoring $stdout uses this.
-  def reopen(other, mode = nil)
-    check_open
-    write_pending
-    other = File.open(other, mode || @mode) unless other.is_a?(IO)
-    result = Primitive.zr_io_dup2(other.fileno, @fd)
-    raise SystemCallError.new(label, -result, +"rb_io_reopen") if result < 0
+  # rb_io_reopen: one argument that converts with #to_io is a stream;
+  # anything else is a path, opened in the given mode or in this stream's.
+  def reopen(other, mode = nil, **options)
+    if mode.nil? && options.empty? && (io = IO.try_convert(other))
+      return reopen_stream(io)
+    end
 
-    @path = other.path
+    other = File.send(:path_of, other)
+    opened = File.open(other, mode || @mode, **options)
+    if @closed
+      # A closed stream takes the new descriptor itself, as rb_sysopen
+      # gives one to a stream that has none.
+      @fd = opened.fileno
+      opened.autoclose = false
+      @closed = false
+      @autoclose = @fd > 2
+    else
+      write_pending
+      dup_from(opened.fileno, other)
+    end
+    adopt_mode(opened.send(:mode_state)) if mode || !options.empty?
+    opened.close unless opened.closed?
+    @path = other
     clear_buffer
     @eof = false
-    @lineno = 0
     self
+  end
+
+  # io_reopen: this descriptor number comes to refer to the other
+  # stream's open file, at the other stream's position, with its mode,
+  # its path and its class.
+  def reopen_stream(other)
+    Primitive.attr! :hidden
+    check_open
+    other.send(:check_open)
+    return self if equal?(other)
+
+    write_pending
+    pos = other.pos if other.send(:mode_state)[1]
+    other.send(:write_pending)
+    adopt_mode(other.send(:mode_state))
+    @pid = other.pid
+    @lineno = other.send(:mode_state)[1] ? other.lineno : 0
+    @path = other.path if other.path
+    unless @fd == other.fileno
+      dup_from(other.fileno, @path)
+      if pos
+        seek(pos)
+        other.seek(pos)
+      end
+    end
+    clear_buffer
+    @eof = false
+    Primitive.zr_exc_set_class(self, other.class)
+  end
+
+  # rb_cloexec_dup2: a descriptor above the standard three keeps
+  # FD_CLOEXEC, which dup2(2) itself clears.
+  def dup_from(fd, name)
+    Primitive.attr! :hidden
+    result = Primitive.zr_io_dup2(fd, @fd)
+    raise SystemCallError.new(name, -result, +"rb_io_reopen") if result < 0
+    return if @fd <= 2
+
+    flags = Primitive.zr_io_fcntl(@fd, F_GETFD, 0)
+    Primitive.zr_io_fcntl(@fd, F_SETFD, flags | FD_CLOEXEC) unless flags.negative?
+  end
+
+  # The mode and the conversions of a stream, which a reopen copies.
+  def mode_state
+    Primitive.attr! :hidden
+    [@mode, @readable, @writable, @external, @internal, @binmode, @universal, @read_options, @write_options]
+  end
+
+  def adopt_mode(state)
+    Primitive.attr! :hidden
+    @mode, @readable, @writable, @external, @internal, @binmode, @universal, @read_options, @write_options = state
+    @bom_written = false
   end
 
   def flush
@@ -1020,7 +1158,12 @@ class IO
 
   # posix_fadvise is a hint, and darwin has none: ruby returns nil
   # where the call is absent.
+  # rb_io_advise: the advice is a Symbol, and the two ends are off_t.
   def advise(kind, offset = 0, length = 0)
+    raise TypeError, +"advice must be a Symbol" unless kind.is_a?(Symbol)
+
+    IO.send(:offset_of, offset)
+    IO.send(:offset_of, length)
     check_open
     raise NotImplementedError, "Unsupported advice: #{kind.inspect}" unless %i[normal sequential random willneed dontneed noreuse].include?(kind)
 
@@ -1041,7 +1184,7 @@ class IO
   # reads its end of input, while its output stays readable here.
   def close_write
     return nil if closed?
-    raise IOError, +"closing non-duplex IO for writing" if @mode.start_with?("r") && !@mode.include?("+")
+    raise IOError, +"closing non-duplex IO for writing" if @readable && !@twin && !@pid
     return close unless @twin
 
     write_pending
@@ -1141,8 +1284,9 @@ class IO
   end
 
   def pwrite(text, offset)
-    check_writable
     text = Primitive.zr_obj_as_string(text)
+    offset = IO.send(:offset_of, offset)
+    check_writable
     result = if (scheduler = IO.send(:scheduler_taking, :io_pwrite))
                IO::Buffer.send(:lent, text.b, readonly: true) do |memory|
                  IO.send(:io_result, scheduler.io_pwrite(self, memory, offset, 0, 0))
@@ -1198,12 +1342,12 @@ class IO
       to ||= Encoding.default_external unless from.nil?
       external, internal = from.nil? ? [to, nil] : [from, to]
     elsif external.nil?
-      internal = nil
+      external, internal = IO.send(:default_encodings, nil)
     elsif (text = String.try_convert(external)) && text.encoding.ascii_compatible?
       external, internal, = IO.send(:mode_encodings, text)
+      external, internal = IO.send(:default_encodings, external) if internal.nil? && !external.nil?
     else
-      external = IO.send(:found_encoding, external)
-      internal = nil
+      external, internal = IO.send(:default_encodings, IO.send(:found_encoding, external))
     end
     options = {} if !one && internal.nil? && options.empty?
     conversion = IO.send(:conversion_options, options, @universal)
@@ -1233,7 +1377,15 @@ class IO
   # The arguments are walked without Array's own methods: a program
   # that redefines one of those must not break the stream it writes
   # the redefinition's report to.
+  # io_write: one empty String writes nothing, and checks nothing.
   def write(*objects)
+    if Primitive.zr_ary_len_m(objects) == 1
+      text = Primitive.zr_obj_as_string(Primitive.zr_ary_at_m(objects, 0))
+      return 0 if text.empty?
+
+      check_writable
+      return write_bytes(converted(text))
+    end
     check_writable
     total = 0
     i = 0
@@ -1338,6 +1490,9 @@ class IO
     return yield(+"\n") if objects.empty?
 
     objects.each do |object|
+      # rb_check_array_type: a String is a line as it is; anything else
+      # that converts with #to_ary is its items.
+      object = Array.try_convert(object) || object unless String === object
       if object.is_a?(Array)
         # An array that contains itself shows the marker in its own
         # place, so the walk does not go on for ever.
@@ -1388,8 +1543,10 @@ class IO
   # always binary; without a length, everything that is left.
   # The length is checked before the stream, as io_read does.
   def read(length = nil, buffer = nil)
+    length = Primitive.zr_index_operand_m(length) unless length.nil?
     raise ArgumentError, "negative length #{length} given" if length && length < 0
 
+    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
     check_readable
 
     IO.send(:room_for!, length)
@@ -1411,13 +1568,36 @@ class IO
 
         return filled(text, buffer)
       end
-      fill while !@eof && @buffer.bytesize < length
+      # io_bufread: what the buffer holds, then the rest with no buffer.
+      text = take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
+      text << read_direct(length - text.bytesize) if text.bytesize < length
       # At the end, the buffer is emptied, as io_read does.
-      return buffer&.clear && nil if @buffer.empty? && length > 0
+      return buffer&.clear && nil if text.empty? && length > 0
 
-      return filled(take(length).force_encoding(Encoding::BINARY), buffer)
+      return filled(text, buffer)
     end
     buffer ? buffer.replace(out) : out
+  end
+
+  # Up to `length` bytes past the buffer, read until they are all there
+  # or the stream ends.
+  def read_direct(length)
+    Primitive.attr! :hidden
+    text = +"".b
+    while text.bytesize < length
+      park_until(READABLE)
+      chunk = read_memory(length - text.bytesize)
+      break if chunk.nil?
+
+      if chunk.is_a?(Integer)
+        raise SystemCallError.new(label, -chunk, +"io_fread") unless -chunk == Errno::EAGAIN::Errno
+
+        wait_again(READABLE)
+      else
+        text << chunk.b
+      end
+    end
+    text
   end
 
   # These three all read what is there and fill a buffer when one is
@@ -1425,10 +1605,14 @@ class IO
   # rb_io_sysread: one read(2) of the descriptor, past the buffer, which
   # must be empty.
   def sysread(length, buffer = nil)
+    length = Primitive.zr_index_operand_m(length)
+    raise ArgumentError, "negative length #{length} given" if length < 0
+
+    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
+    return buffer || +"".b if length.zero?
+
     check_readable
     raise IOError, +"sysread for buffered IO" unless @buffer.empty?
-    raise ArgumentError, "negative length #{length} given" if length < 0
-    return filled(+"".b, buffer) if length.zero?
 
     IO.send(:room_for!, length)
     park_until(READABLE) unless IO.send(:scheduler_taking, :io_read)
@@ -1556,6 +1740,8 @@ class IO
     raise ArgumentError, +"ASCII incompatible encoding needs binmode" unless @binmode
     raise ArgumentError, +"encoding conversion is set" unless @internal.nil?
     raise ArgumentError, "encoding is set to #{@external} already" unless @external.nil? || Encoding::BINARY.equal?(@external)
+    # io_strip_bom: a stream that cannot read has no mark to find.
+    return nil unless @readable
 
     strip_bom
   end
@@ -1654,7 +1840,8 @@ class IO
 
   alias each each_line
 
-  def readlines(*args, chomp: false)
+  # Keywords other than chomp: do not count, as extract_getline_opts reads only that one.
+  def readlines(*args, chomp: false, **)
     lines = []
     each_line_for(:readlines, args, chomp) { |line| lines << line }
     lines
@@ -1722,7 +1909,7 @@ class IO
     offset = IO.send(:offset_of, offset)
     check_open
     write_pending
-    whence = { set: SEEK_SET, cur: SEEK_CUR, end: SEEK_END }.fetch(whence) if whence.is_a?(Symbol)
+    whence = IO.send(:whence_of, whence)
     offset -= @buffer.bytesize if whence == SEEK_CUR
     clear_buffer
     @eof = false
@@ -2069,16 +2256,26 @@ class IO
     buffer.replace(text).force_encoding(encoding)
   end
 
+  # rb_io_check_char_readable: bytes that wait to be written go out
+  # before a read.
   def check_readable
     Primitive.attr! :hidden
     check_open
     raise IOError, +"not opened for reading" unless @readable
+
+    write_pending unless @wbuf.empty?
   end
 
+  # rb_io_check_writable: a write after a buffered read goes where the
+  # reader is, so io_unread gives the bytes it read ahead back to the
+  # file. A pipe cannot seek, and keeps them.
   def check_writable
     Primitive.attr! :hidden
     check_open
     raise IOError, +"not opened for writing" unless @writable
+    return if @buffer.empty? || @universal
+
+    clear_buffer unless Primitive.zr_io_seek(@fd, -@buffer.bytesize, SEEK_CUR).negative?
   end
 
   # More bytes into the buffer; none marks the end.
@@ -2283,7 +2480,10 @@ class IO
       separator = Primitive.zr_str_operand(separator) unless separator.nil?
     end
     # A negative limit is no limit.
-    limit = implicit_integer(limit) unless limit.nil?
+    unless limit.nil?
+      limit = implicit_integer(limit)
+      raise RangeError, +"bignum too big to convert into 'long'" unless limit.bit_length < 64
+    end
     [separator, limit&.negative? ? nil : limit]
   end
 

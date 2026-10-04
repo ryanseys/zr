@@ -1,0 +1,12 @@
+"Line 1\n"
+File
+"Line 2\n"
+true
+true
+true
+File
+"can't convert Object to IO (Object#to_io gives String)"
+false
+"Line 1\n"
+true
+"closed stream"

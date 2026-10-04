@@ -1,0 +1,7 @@
+["r", #<Encoding:IBM866>, nil]
+["r+", #<Encoding:IBM866>, nil]
+["w", #<Encoding:IBM866>, nil]
+["a", #<Encoding:IBM866>, nil]
+[#<Encoding:BINARY (ASCII-8BIT)>, nil, #<Encoding:BINARY (ASCII-8BIT)>]
+[#<Encoding:IBM866>, #<Encoding:UTF-8>, #<Encoding:UTF-8>]
+[#<Encoding:IBM437>, #<Encoding:IBM866>]
