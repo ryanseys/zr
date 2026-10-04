@@ -20,14 +20,29 @@ module Zr
       def run(argv)
         require_relative "../lib/zr/cli"
         require_relative "../lib/zr/native/build"
-        case argv
-        in ["1"] then one
-        in ["2"] then two
-        else fail!("give the stage: 1 or 2")
-        end
+        stage = case argv
+                in ["1"] then :one
+                in ["2"] then :two
+                else fail!("give the stage: 1 or 2")
+                end
+        alone { send(stage) }
       end
 
       ZR = Dev.path("exe/zr")
+      LOCK = Dev.path("tmp/stage.lock")
+
+      # Runs the block while this process holds the stage lock. A stage
+      # takes 2-5 GB and every core it is given, so a second stage at the
+      # same time swaps the machine; it stops at once instead. The system
+      # drops the lock when this process ends, however it ends.
+      def alone
+        FileUtils.mkdir_p(File.dirname(LOCK))
+        File.open(LOCK, File::RDWR | File::CREAT) do |lock|
+          lock.flock(File::LOCK_EX | File::LOCK_NB) or
+            fail!("another `zr-dev stage` runs now (#{LOCK} is locked); run one stage at a time")
+          yield
+        end
+      end
 
       # Each build prints a line to stderr as each of its phases ends
       # (`Zr::Timing`), so a long self-compile shows where it is.
