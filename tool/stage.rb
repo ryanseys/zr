@@ -51,25 +51,18 @@ module Zr
         work = Dir.mktmpdir("zr-stage1-")
         puts "work (kept if this fails): #{work}"
 
-        # The two self-compiles share nothing (each has its own cache and
-        # output, and the tree is read-only). Thus they run at the same time,
-        # with half the assembly workers each, if the machine has sufficient
-        # memory. Each uses 1-2 GB under ruby, and its workers use the same
-        # again. One after the other, they take 2 x 66 s.
-        at_once = Native::Parallel.machine_bytes >= 12 * (1 << 30)
-        jobs = at_once ? [Native::Build.jobs / 2, 1].max.to_s : nil
-        started = %w[a b].map do |n|
+        # The two self-compiles run one after the other (2 x 66 s), each
+        # with its own cache and output. At the same time, they swapped a
+        # 16 GB machine that had other work: each uses 1-2 GB under ruby,
+        # and its workers use the same again.
+        outs = %w[a b].map do |n|
           cache = File.join(work, "#{n}-cache")
           FileUtils.mkdir_p(cache)
           out = File.join(work, "#{n}.o")
-          puts "self-compile #{n} -> #{out}#{" (at once, #{jobs} jobs each)" if at_once}"
-          env = { "ZR_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil, "ZR_JOBS" => jobs }
-          pid = spawn(env, Dev.ruby, ZR, "build", ZR, "-o", out, "--emit", "obj", chdir: ROOT)
-          [n, at_once ? pid : Process.wait2(pid).last]
-        end
-        outs = started.map do |n, pid_or_status|
-          status = pid_or_status.is_a?(Integer) ? Process.wait2(pid_or_status).last : pid_or_status
-          fail!("self-compile #{n} failed; its work is in #{work}") unless status.success?
+          puts "self-compile #{n} -> #{out}"
+          env = { "ZR_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil }
+          system(env, Dev.ruby, ZR, "build", ZR, "-o", out, "--emit", "obj", chdir: ROOT) or
+            fail!("self-compile #{n} failed; its work is in #{work}")
           digest = runtime_digest(File.join(work, "#{n}-cache"))
           runtime = File.join(work, "#{n}-cache", "store", "object", digest[0, 2], "#{digest}.o")
           fail!("the runtime object was not cached; the work is in #{work}") unless File.file?(runtime)
