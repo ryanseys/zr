@@ -4,12 +4,16 @@ require "rbconfig"
 require_relative "session"
 
 module Zr
-  # The `ZR_*` environment variables that steer a build, read once.
-  # `Config.current` reads the environment on first use; every later call
-  # in the same process gets that same frozen instance, so one build sees
-  # one consistent set of settings even if something changes `ENV`
+  # The settings that steer zr, read once. Each one (`SETTINGS`) has a
+  # flag on the command line and a `ZR_*` environment variable; the flag
+  # wins (`CLI.settings!` takes the flags off the command line).
+  # `Config.current` reads them on first use; every later call in the
+  # same process gets that same frozen instance, so one build sees one
+  # consistent set of settings even if something changes `ENV`
   # afterward. Code reads a `ZR_*` variable only through this class.
   class Config
+    # @rbs @given: Hash[String, String]
+    # @rbs @env: Hash[String, String] | RBS::Unnamed::ENVClass
     # @rbs @jobs_given: bool
     # @rbs @jobs: Integer?
     # @rbs @eval_mode: String?
@@ -28,9 +32,64 @@ module Zr
     # `ZR_CODE_CACHE`: on, off, or on with a check of each hit.
     CODE_CACHES = %w[1 0 verify].freeze
 
-    # A `ZR_*` value that zr cannot use. The message names the variable,
-    # its value, and a value that works. The CLI prints it and exits 2.
+    # A `ZR_*` value or a setting's flag that zr cannot use. The message
+    # names the variable or the flag, its value, and a value that works.
+    # The CLI prints it and exits 2.
     class Invalid < ArgumentError; end
+
+    # @rbs skip -- typed in sig/zr/config.rbs
+    Setting = Data.define(:env, :flag, :kind, :values, :about, :steers)
+
+    # A row of `SETTINGS`.
+    #: (String env, String flag, :switch | :choice | :value kind, Array[String] | String | nil values, String about, ?steers: bool) -> Setting
+    def self.row(env, flag, kind, values, about, steers: true)
+      Setting.new(env: env, flag: flag, kind: kind, values: values, about: about, steers: steers)
+    end
+    private_class_method :row
+
+    # One row for each setting: its variable, its flag, its kind and what
+    # the flag takes, and the line of `zr help`. A `:switch` is on or off
+    # (`--timing`, `--no-timing`); a `:choice` takes one of its values; a
+    # `:value` takes a word that `Config` checks as it reads it
+    # (`--jobs=4` or `--jobs 4`). A setting that `steers` changes what a
+    # build writes, so a build server with other values does not build
+    # for it.
+    SETTINGS = [
+      row("ZR_LINKER", "--linker", :choice, LINKERS, "the macOS linker: auto, ruby (zr's own only) or cc"),
+      row("ZR_JOBS", "--jobs", :value, "N", "the workers that assemble a large unit; -j N is the same"),
+      row("ZR_EVAL", "--eval-mode", :choice, %w[walk], "walk: eval in a native program walks the tree"),
+      row("ZR_TIMING", "--timing", :switch, nil, "print each phase of a build and its seconds", steers: false),
+      row("ZR_VERIFY", "--verify", :switch, nil, "check each IR function before it is assembled"),
+      row("ZR_KERNEL_CHECKED", "--kernel-checked", :switch, nil, "check each operator of the kernel that can wrap"),
+      row("ZR_WASM_NAMES", "--wasm-names", :switch, nil, "give a WASI module a name section"),
+      row("ZR_WASM_WIDTH", "--wasm-width", :value, "N", "the group size of a large wasm function's dispatch"),
+      row("ZR_TUNE", "--tune", :switch, nil, "larger collector limits and YJIT for heavy work (on)"),
+      row("ZR_CACHE", "--cache-dir", :value, "DIR", "the cache directory (`zr cache path` prints it)"),
+      row("ZR_CACHE_MAX_GB", "--cache-max-gb", :value, "GB", "the most GB that an installed zr keeps (5; 0: no limit)"),
+      row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr starts for gems and syntax errors"),
+      row("ZR_LINK_ARGS", "--link-args", :value, "WORDS", "words for the system linker, split as a shell does"),
+      row("ZR_RUN_CACHE", "--run-cache", :switch, nil, "keep the binary of each run and run it again (on)"),
+      row("ZR_TRACE", "--trace", :switch, nil, "arm the trace events in the program's code"),
+      row("ZR_CODE_CACHE", "--code-cache", :choice, CODE_CACHES, "keep the runtime's machine code (1), not (0), or check it"),
+      row("ZR_SERVER", "--server", :value, "0|SOCKET", "0: build alone; a path: the build server at that socket", steers: false),
+      row("ZR_DEBUG", "--backtrace", :switch, nil, "show the backtrace of an error that stops zr", steers: false)
+    ].freeze #: Array[Setting]
+
+    # The setting of each flag, also `-j` and the `--no-` form of a switch.
+    FLAGS = SETTINGS.flat_map do |setting|
+      names = setting.kind == :switch ? [setting.flag, setting.flag.sub("--", "--no-")] : [setting.flag]
+      names.map { |name| [name, setting] }
+    end.to_h.then { |flags| flags.merge("-j" => flags.fetch("--jobs")) }.freeze #: Hash[String, Setting]
+
+    # The flag of `setting` with what it takes, as `zr help` shows it:
+    # `--jobs N`, `--linker auto|ruby|cc`, `--[no-]tune`.
+    #: (Setting setting) -> String
+    def self.usage(setting)
+      values = setting.values
+      return setting.flag.sub("--", "--[no-]") if setting.kind == :switch
+
+      "#{setting.flag} #{values.is_a?(Array) ? values.join("|") : values}"
+    end
 
     attr_reader :linker, :host_ruby #: String
     attr_reader :wasm_width #: Integer
@@ -38,42 +97,72 @@ module Zr
     attr_reader :cache_max_gb, :test_binaries_gb #: Float
     attr_reader :link #: Array[String]
 
-    #: () -> void
-    def initialize
+    # The settings from `given` (by variable name, as `CLI.settings!`
+    # reads the flags), and the rest from `env`.
+    #: (?Hash[String, String] given, ?(Hash[String, String] | RBS::Unnamed::ENVClass) env) -> void
+    def initialize(given = {}, env = ENV)
+      @given = given
+      @env = env
       @linker = choice("ZR_LINKER", LINKERS, "auto")
-      @jobs_given = !ENV["ZR_JOBS"].to_s.empty?
+      @jobs_given = !value("ZR_JOBS").empty?
       @jobs = number("ZR_JOBS", nil, "4", min: 1) if @jobs_given
       # Not exposed as a plain reader: `eval` is a Kernel method, and
       # `eval_walk?` is the only thing anything reads this for.
-      @eval_mode = ENV["ZR_EVAL"]
-      @timing = Config.flag?("ZR_TIMING")
-      @verify = Config.flag?("ZR_VERIFY")
-      @kernel_checked = Config.flag?("ZR_KERNEL_CHECKED")
-      @wasm_names = Config.flag?("ZR_WASM_NAMES")
+      @eval_mode = text("ZR_EVAL")
+      @timing = switch?("ZR_TIMING")
+      @verify = switch?("ZR_VERIFY")
+      @kernel_checked = switch?("ZR_KERNEL_CHECKED")
+      @wasm_names = switch?("ZR_WASM_NAMES")
       # `ZR_WASM_WIDTH`: the group size of a large wasm function's dispatch
       # (`Backend::Wasm::Codegen::Body::LADDER` explains the default).
       @wasm_width = number("ZR_WASM_WIDTH", 256, "256", min: 1)
-      @tune = Config.flag?("ZR_TUNE", default: true)
-      @cache = ENV["ZR_CACHE"]
+      @tune = switch?("ZR_TUNE", default: true)
+      @cache = text("ZR_CACHE")
       # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
       # (default 5; 0 turns the limit off).
       @cache_max_gb = number("ZR_CACHE_MAX_GB", 5.0, "10", kind: :Float, min: 0)
       # `ZR_TEST_BINARIES_GB`: the most GB of binaries that the program tests
-      # keeps in the store (default 8).
+      # keeps in the store (default 8). The tests set it; it has no flag.
       @test_binaries_gb = number("ZR_TEST_BINARIES_GB", 8.0, "8", kind: :Float, min: 0)
       # `ZR_HOST_RUBY`: the ruby that zr starts when it needs ruby itself:
       # to resolve gems (lib/zr/gem_set.rb), and for ruby's report of a
       # syntax error (`CLI::Refusals.syntax_report`).
-      @host_ruby = ENV["ZR_HOST_RUBY"].to_s.empty? ? running_ruby : ENV["ZR_HOST_RUBY"] #: String
+      @host_ruby = text("ZR_HOST_RUBY") || running_ruby
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
-      @link = words(ENV.fetch("ZR_LINK_ARGS", "")).freeze
-      @run_cache = Config.flag?("ZR_RUN_CACHE", default: true)
-      @trace = Config.flag?("ZR_TRACE")
+      @link = words(value("ZR_LINK_ARGS")).freeze
+      @run_cache = switch?("ZR_RUN_CACHE", default: true)
+      @trace = switch?("ZR_TRACE")
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
-      @server = ENV["ZR_SERVER"].to_s.empty? ? nil : ENV["ZR_SERVER"]
+      @server = text("ZR_SERVER")
+      @fingerprint = SETTINGS.select(&:steers).to_h { |setting| [setting.env, value(setting.env)] }.freeze
       freeze
     end
+
+    # The value of each setting that changes what a build writes: a build
+    # server builds only for a client whose fingerprint is its own.
+    attr_reader :fingerprint #: Hash[String, String]
+
+    # The value of `name`: its flag's, else its variable's, else "".
+    #: (String name) -> String
+    def value(name) = @given.fetch(name) { @env[name].to_s }
+    private :value
+
+    # What a message calls `name`: its flag when the flag gave the value.
+    #: (String name) -> String
+    def source(name) = @given.key?(name) ? Config.setting(name).flag : name
+    private :source
+
+    # The value of `name`, or nil when it is empty.
+    #: (String name) -> String?
+    def text(name) = (given = value(name)).empty? ? nil : given
+    private :text
+
+    # Whether `name` is on: empty gives `default`, "0" is off, and any
+    # other value is on.
+    #: (String name, ?default: bool) -> bool
+    def switch?(name, default: false) = Config.on?(value(name), default)
+    private :switch?
 
     # The words of `line` as Shellwords.split gives them. zr does not
     # require shellwords: the compiled compiler goes into a program with
@@ -86,7 +175,7 @@ module Zr
       line.scan(/\G\s*(?>([^\0\s\\'"]+)|'([^\0']*)'|"((?:[^\0"\\]|\\[^\0])*)"|(\\[^\0]?)|(\S))(\s|\z)?/m) do |groups|
         # The pattern has groups, so `scan` yields an Array of them.
         word, sq, dq, esc, garbage, sep = groups #: Array[String?]
-        raise Invalid, "ZR_LINK_ARGS has a quote with no end: #{line.inspect}. Close the quote, or put a \ before it." if garbage
+        raise Invalid, "#{source("ZR_LINK_ARGS")} has a quote with no end: #{line.inspect}. Close the quote, or put a \\ before it." if garbage
 
         # One of the five groups matches; the last is an escape.
         field << (word || sq || dq&.gsub(/\\([$`"\\\n])/, '\\1') || esc.to_s.gsub(/\\(.)/, '\\1'))
@@ -109,12 +198,13 @@ module Zr
     # it is unset or empty.
     #: (String name, Array[String] values, String default) -> String
     def choice(name, values, default)
-      value = ENV[name].to_s
-      return default if value.empty?
-      return value if values.include?(value)
+      given = value(name)
+      return default if given.empty?
+      return given if values.include?(given)
 
       *others, last = values
-      raise Invalid, "#{name} is #{value.inspect}. Set it to #{others.join(", ")} or #{last}, for example #{name}=#{default}."
+      name = source(name)
+      raise Invalid, "#{name} is #{given.inspect}. Set it to #{others.join(", ")} or #{last}, for example #{name}=#{default}."
     end
 
     # The number in `name` (an Integer, or with `kind: :Float` any
@@ -124,15 +214,16 @@ module Zr
     #: (String name, nil default, String example, ?kind: :Integer, ?min: Integer?) -> Integer?
     #: (String name, Float default, String example, ?kind: :Float, ?min: Integer?) -> Float
     def number(name, default, example, kind: :Integer, min: nil)
-      value = ENV[name].to_s
-      return default if value.empty?
+      given = value(name)
+      return default if given.empty?
 
-      number = Kernel.send(kind, value, exception: false)
+      number = Kernel.send(kind, given, exception: false)
       return number if number && (min.nil? || number >= min)
 
       what = kind == :Integer ? "a whole number" : "a number"
       what += " of #{min} or more" if min
-      raise Invalid, "#{name} is #{value.inspect}. Set it to #{what}, for example #{name}=#{example}."
+      name = source(name)
+      raise Invalid, "#{name} is #{given.inspect}. Set it to #{what}, for example #{name}=#{example}."
     end
     private :choice, :number
 
@@ -198,24 +289,76 @@ module Zr
       [Etc.nprocessors, 6].min
     end
 
-    # `ZR_DEBUG=1` shows the backtrace of an error that stops zr
-    # (`CLI.guard`). It is read on its own, not with the rest: it must
-    # work when another ZR_* value is bad.
+    # The row of the variable `name`.
+    #: (String name) -> Setting
+    def self.setting(name) = SETTINGS.find { |setting| setting.env == name } || raise(KeyError, name)
+
+    # Takes the flags of settings off the front of `words`, and returns
+    # them by variable name, with the words after them. `--` and the
+    # first other word stop it.
+    #: (Array[String] words) -> [Hash[String, String], Array[String]]
+    def self.flags(words)
+      given = {} #: Hash[String, String]
+      rest = words.dup
+      while (word = rest.first)
+        name, value = word.split("=", 2)
+        name, value = "-j", word.delete_prefix("-j") if word.match?(/\A-j\d/)
+        setting = FLAGS[name.to_s] or break
+        rest.shift
+        given[setting.env] = flag_value(setting, name.to_s, value, rest)
+      end
+      [given, rest]
+    end
+
+    # The value that the flag `name` of `setting` gives: "1" or "0" for a
+    # switch, else the word after `=` or the next word.
+    #: (Setting setting, String name, String? value, Array[String] rest) -> String
+    def self.flag_value(setting, name, value, rest)
+      if setting.kind == :switch
+        raise Invalid, "#{name} takes no value. Give #{name} alone." if value
+
+        return name.start_with?("--no-") ? "0" : "1"
+      end
+      value ||= rest.shift
+      raise Invalid, "#{name} needs a value: #{usage(setting)}." if value.nil?
+
+      value
+    end
+    private_class_method :flag_value
+
+    # The settings that the command line gave, by variable name.
+    #: () -> Hash[String, String]
+    def self.given = Session.current.memo(:settings) { {} }
+
+    # Uses `given` (from `flags`) for the settings of this process, and
+    # reads them again at the next `current`.
+    #: (Hash[String, String] given) -> void
+    def self.given!(given)
+      Session.current.set(:settings, given.freeze)
+      reset!
+    end
+
+    # `ZR_DEBUG=1` (or `--backtrace`) shows the backtrace of an error that
+    # stops zr (`CLI.guard`). It is read on its own, not with the rest: it
+    # must work when another setting is bad.
     #: () -> bool
-    def self.debug? = flag?("ZR_DEBUG")
+    def self.debug? = on?(given.fetch("ZR_DEBUG") { ENV["ZR_DEBUG"] }, false)
 
     # Whether the environment variable `name` is on. Unset or empty gives
     # `default`, "0" is off, and any other value is on.
     #: (String name, ?default: bool) -> bool
-    def self.flag?(name, default: false)
-      value = ENV[name]
-      value.nil? || value.empty? ? default : value != "0"
-    end
+    def self.flag?(name, default: false) = on?(ENV[name], default)
+
+    # Whether `value` is on: nil or empty gives `default`, "0" is off,
+    # and any other value is on.
+    #: (String? value, bool default) -> bool
+    def self.on?(value, default) = value.nil? || value.empty? ? default : value != "0"
 
     # The one instance for this process. A later call returns the same
-    # instance; `reset!` and `with` are the only way to get a new one.
+    # instance; `reset!`, `given!` and `with` are the only way to get a
+    # new one.
     #: () -> Config
-    def self.current = Session.current.memo(:config) { new }
+    def self.current = Session.current.memo(:config) { new(given) }
 
     # Drops the current instance, so the next `current` reads `ENV` again.
     #: () -> void

@@ -62,7 +62,7 @@ module Zr
       attr_reader :warnings #: Array[String]
 
       # zr's own flags that ruby mode takes, and whether each takes a value.
-      ZR_FLAGS = { "--trace" => false, "--allow-runtime-require" => false, "--gem" => true, "--gemfile" => true }.freeze
+      OWN_FLAGS = { "--trace" => false, "--allow-runtime-require" => false, "--gem" => true, "--gemfile" => true }.freeze
 
       # ruby's --enable and --disable features (ruby.c's EACH_FEATURES).
       FEATURES = %w[gems error_highlight did_you_mean syntax_suggest rubyopt frozen_string_literal yjit zjit].freeze
@@ -380,9 +380,9 @@ module Zr
       def long!(s, argv)
         name, given = s.split("=", 2)
         name = name.to_s
-        if ZR_FLAGS.key?("--#{name}")
+        if OWN_FLAGS.key?("--#{name}")
           @zr << "--#{name}"
-          @zr << (given || argv.shift || raise(Invalid, "missing argument for --#{name}")) if ZR_FLAGS.fetch("--#{name}")
+          @zr << (given || argv.shift || raise(Invalid, "missing argument for --#{name}")) if OWN_FLAGS.fetch("--#{name}")
           return
         end
         case name

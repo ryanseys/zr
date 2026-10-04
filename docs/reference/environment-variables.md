@@ -11,7 +11,7 @@ three groups:
 A *flag* is a variable that is on or off. Unset or empty gives the
 default. `0` is off. Any other value is on (`Zr::Config.flag?`).
 
-A `ZR_*` value that zr cannot use stops the command with one line and
+A `ZR_*` value, or a setting's flag, that zr cannot use stops the command with one line and
 exit status 2. The line names the variable and a value that works:
 
 ```
@@ -23,39 +23,43 @@ zr: ZR_JOBS is "abc". Set it to a whole number of 1 or more, for example ZR_JOBS
 ### The compiler
 
 `zr`, and every rake task and `zr-dev` command that compiles, read these.
+Each `ZR_*` setting also has a flag, which `zr` takes before the command
+or right after its name, as in `zr --jobs 2 build app.rb -o app` or
+`zr --no-tune -e 'p 1'`. The flag wins over the variable. `zr help`
+lists the flags (`Zr::Config::SETTINGS`).
 
-| Variable | Values | Default | Effect |
-|---|---|---|---|
-| `ZR_CACHE` | a directory | `tmp/cache` in a checkout; `$XDG_CACHE_HOME/zr` if `XDG_CACHE_HOME` is set; else `~/Library/Caches/zr` on macOS and `~/.cache/zr` on other hosts | Where zr keeps the built runtime, eval support, the prelinked images and the other cache files. `zr cache size` and `zr cache clean` also look in the user cache, which `XDG_CACHE_HOME` and `HOME` give, for the compiled compilers that older zr versions kept there (`self-*/`, `shipped-*/`). |
-| `XDG_CACHE_HOME` | a directory | unset | The base of the user cache for an installed gem (see `ZR_CACHE`). |
-| `HOME` | a directory | the user's | The user cache is below it when `XDG_CACHE_HOME` is not set. With no `HOME` (some containers and CI jobs), zr stops and says to set `HOME` or `ZR_CACHE`. |
-| `ZR_CACHE_MAX_GB` | a number of GB, 0 or more | 5 | After a build, an installed zr deletes the cache entries that were used longest ago and that no root names, and then the compiled compilers that older zr versions kept, when the cache is larger than this. It measures at most once a day. `0` turns this off. A checkout never does it; use `zr cache clean`. |
-| `ZR_LINK_ARGS` | words | none | Arguments for the system linker, split as a shell splits them, before the `--link` arguments of the command. They make zr link a native binary with `cc` (see `--link` in [The `zr` command](cli.md)). A WASI module or an object ignores them. |
-| `ZR_LINKER` | `auto`, `ruby`, `cc` | `auto` | The macOS linker. `auto`: zr's own Mach-O linker, and `cc` for a link that zr's linker refuses. `ruby`: zr's linker only; a link it cannot do stops with a message. `cc`: the system linker always. Another value is an error. |
-| `ZR_DEBUG` | `0`, `1` | `0` | `1`: an error that stops zr shows its backtrace. Otherwise zr prints one line: the message, or for a defect in zr, `zr: internal error: ...` and where to report it. |
-| `ZR_JOBS` | a whole number, 1 or more | one for each core, at most 6 | How many worker processes assemble a large compilation unit. When it is not set, zr also uses fewer workers if the machine does not have the memory for them. |
-| `ZR_TIMING` | flag | off | Prints to stderr each phase of a build as it starts, and the seconds it took as it ends. |
-| `ZR_CODE_CACHE` | `0`, `1`, `verify` | `1` | A build keeps the machine code of each function of the runtime object and of eval support in `<cache>/store/code/`, by a fingerprint of the function's IR, and assembles only the functions whose IR changed. `0` assembles every function. `verify` assembles every function, and stops when the kept code differs. |
-| `ZR_GC_ADDED` | set by zr | unset | Set with the collector's limits when zr starts itself again, so that zr removes the limits from the environment of a program that `zr run` runs. zr deletes it at once. |
-| `ZR_RUN_CACHE` | `0`, `1` | `1` | `zr run` keeps each binary it builds, with the digest of every file it was built from, in `<cache>/store/run/`, at most 2 GB. A second run whose files are all the same runs the kept binary with no build. A program with a require that stays for the run time is not kept. `0` builds each run. |
-| `ZR_TRACE` | flag | off | Builds the program with its trace events armed, as `--trace` does. The flag wins when both are given. |
-| `ZR_SERVER` | `0`, a path | unset | Unset: `zr run` and `zr build` send the build to the server that `zr-dev serve` runs, when one listens at `<cache>/server.sock`. `0`: they always build alone. A path: they use the server that listens at that socket. See [Tools](tools.md#build-server). |
-| `ZR_VERIFY` | flag | off | Checks dominance and types in every IR function before it is assembled, and checks that each pass reported the changes it made (`IR::Analysis`). |
-| `ZR_KERNEL_CHECKED` | flag | off | Lowers the kernel with a check at each operator whose meaning differs from Ruby's: a plain `+ - * <<` that wraps (a signed type) or leaves `[0, 2**64)` (a `Ptr`), a `/ %` with a negative operand or a zero divisor, and a `>>` by the width or more. A failed check prints the kernel file and line, then aborts. It finds the places that need `Machine.add_wrap`, `Machine.sdiv` or a fix, so that the kernel means the same on CRuby. It is part of the runtime digest. |
-| `ZR_HOST_RUBY` | a command | `ruby` | The ruby that a `zr-dev` tool starts its children with (`Dev.ruby`), and that zr starts when it needs ruby itself: to resolve gems (`lib/zr/gem_set.rb`), and for ruby's report of a syntax error (`lib/zr/config.rb`). |
-| `ZR_TUNE` | flag | on | `0` runs the compiler with ruby's own collector settings and without YJIT. When it is on, a build that lowers the kernel, the core or eval support starts `zr` again with larger collector limits (`RUBY_GC_MALLOC_LIMIT`, `RUBY_GC_OLDMALLOC_LIMIT`), and heavy work turns on YJIT. zr does not change limits that you set. |
-| `ZR_EVAL` | `walk` | unset | `walk` makes a native program use the tree-walking interpreter for eval, in place of the eval compiler. A wasm program always uses the tree-walking interpreter. See [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md). |
-| `ZR_WASM_NAMES` | flag | off | A WASI module gets a `name` section, so that wasmtime's traps and profiles show zr's function names. It changes the module's bytes. |
-| `ZR_WASM_WIDTH` | a number | 256 | In a WASI module, a function with more blocks than this dispatches to its blocks in two steps, in groups of this size. |
-| `GEM_HOME`, `GEM_PATH` | directories | ruby's | Where rubygems finds the zr gem itself, and the gems that `--gem NAME=VERSION` and a Gemfile.lock name. A build reads no other gem from here: a program's library is zr's `vendor/ruby`. |
-| `BUNDLE_GEMFILE` | a Gemfile | unset | `bundle exec` sets it. A build then reads the gems of its lock before zr's standard library, as `bundle exec ruby` does; `--gemfile` wins over it. zr never needs `bundle exec`, and never starts bundler inside itself. See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). zr's own development Gemfile never applies. |
-| `TMPDIR` | a directory | `/tmp` | Where a build writes its temporary files. When neither `TMPDIR` nor `/tmp` is a directory that zr can write to, zr stops and says to set `TMPDIR`. |
-| `CC` | a command | unset | On a glibc aarch64 Linux, the C compiler that links an `aarch64-linux-musl` binary, before `aarch64-linux-musl-gcc` and `musl-gcc`. It must link against musl. |
-| `OPENSSL_DIR` | a prefix | unset | `zr doctor` looks for OpenSSL 3 in `$OPENSSL_DIR/lib`, as a compiled program does (see [Compiled programs](#compiled-programs)). |
-| `RUBY_GC_MALLOC_LIMIT`, `RUBY_GC_OLDMALLOC_LIMIT` | numbers | set by zr | ruby's collector limits. zr sets them for its own heavy work (`ZR_TUNE`), and removes them from the environment of a program that `zr run` runs. A value that you set wins. |
-| `RUBYOPT`, `RUBYLIB`, `BUNDLER_SETUP`, `BUNDLE_BIN_PATH`, `BUNDLER_VERSION` | | | zr clears these for the child that reads a Gemfile.lock, so that the host's bundle does not load into it. A `-rbundler/setup` in `RUBYOPT` still loads into the `zr` command itself; zr needs no bundle. |
-| `PATH` | directories | | zr looks here for the tools of a target (for example `aarch64-linux-musl-gcc`), and `zr run --emit wasm` looks here for `wasmtime`. |
-| `DEVELOPER_DIR`, `SDKROOT` | directories | set by zr | When zr runs `cc` on macOS, it sets these to the install that the SDK comes from. zr keeps values that you set. |
+| Variable | Flag | Values | Default | Effect |
+|---|---|---|---|---|
+| `ZR_CACHE` | `--cache-dir DIR` | a directory | `tmp/cache` in a checkout; `$XDG_CACHE_HOME/zr` if `XDG_CACHE_HOME` is set; else `~/Library/Caches/zr` on macOS and `~/.cache/zr` on other hosts | Where zr keeps the built runtime, eval support, the prelinked images and the other cache files. `zr cache size` and `zr cache clean` also look in the user cache, which `XDG_CACHE_HOME` and `HOME` give, for the compiled compilers that older zr versions kept there (`self-*/`, `shipped-*/`). |
+| `XDG_CACHE_HOME` | | a directory | unset | The base of the user cache for an installed gem (see `ZR_CACHE`). |
+| `HOME` | | a directory | the user's | The user cache is below it when `XDG_CACHE_HOME` is not set. With no `HOME` (some containers and CI jobs), zr stops and says to set `HOME` or `ZR_CACHE`. |
+| `ZR_CACHE_MAX_GB` | `--cache-max-gb GB` | a number of GB, 0 or more | 5 | After a build, an installed zr deletes the cache entries that were used longest ago and that no root names, and then the compiled compilers that older zr versions kept, when the cache is larger than this. It measures at most once a day. `0` turns this off. A checkout never does it; use `zr cache clean`. |
+| `ZR_LINK_ARGS` | `--link-args WORDS` | words | none | Arguments for the system linker, split as a shell splits them, before the `--link` arguments of the command. They make zr link a native binary with `cc` (see `--link` in [The `zr` command](cli.md)). A WASI module or an object ignores them. |
+| `ZR_LINKER` | `--linker auto|ruby|cc` | `auto`, `ruby`, `cc` | `auto` | The macOS linker. `auto`: zr's own Mach-O linker, and `cc` for a link that zr's linker refuses. `ruby`: zr's linker only; a link it cannot do stops with a message. `cc`: the system linker always. Another value is an error. |
+| `ZR_DEBUG` | `--backtrace`, `--no-backtrace` | `0`, `1` | `0` | `1`: an error that stops zr shows its backtrace. Otherwise zr prints one line: the message, or for a defect in zr, `zr: internal error: ...` and where to report it. |
+| `ZR_JOBS` | `--jobs N`, `-j N` | a whole number, 1 or more | one for each core, at most 6 | How many worker processes assemble a large compilation unit. When it is not set, zr also uses fewer workers if the machine does not have the memory for them. |
+| `ZR_TIMING` | `--timing`, `--no-timing` | flag | off | Prints to stderr each phase of a build as it starts, and the seconds it took as it ends. |
+| `ZR_CODE_CACHE` | `--code-cache 1|0|verify` | `0`, `1`, `verify` | `1` | A build keeps the machine code of each function of the runtime object and of eval support in `<cache>/store/code/`, by a fingerprint of the function's IR, and assembles only the functions whose IR changed. `0` assembles every function. `verify` assembles every function, and stops when the kept code differs. |
+| `ZR_GC_ADDED` | | set by zr | unset | Set with the collector's limits when zr starts itself again, so that zr removes the limits from the environment of a program that `zr run` runs. zr deletes it at once. |
+| `ZR_RUN_CACHE` | `--run-cache`, `--no-run-cache` | `0`, `1` | `1` | `zr run` keeps each binary it builds, with the digest of every file it was built from, in `<cache>/store/run/`, at most 2 GB. A second run whose files are all the same runs the kept binary with no build. A program with a require that stays for the run time is not kept. `0` builds each run. |
+| `ZR_TRACE` | `--trace`, `--no-trace` | flag | off | Builds the program with its trace events armed, as `--trace` does. The flag wins when both are given. |
+| `ZR_SERVER` | `--server 0|SOCKET` | `0`, a path | unset | Unset: `zr run` and `zr build` send the build to the server that `zr-dev serve` runs, when one listens at `<cache>/server.sock`. `0`: they always build alone. A path: they use the server that listens at that socket. See [Tools](tools.md#build-server). |
+| `ZR_VERIFY` | `--verify`, `--no-verify` | flag | off | Checks dominance and types in every IR function before it is assembled, and checks that each pass reported the changes it made (`IR::Analysis`). |
+| `ZR_KERNEL_CHECKED` | `--kernel-checked`, `--no-kernel-checked` | flag | off | Lowers the kernel with a check at each operator whose meaning differs from Ruby's: a plain `+ - * <<` that wraps (a signed type) or leaves `[0, 2**64)` (a `Ptr`), a `/ %` with a negative operand or a zero divisor, and a `>>` by the width or more. A failed check prints the kernel file and line, then aborts. It finds the places that need `Machine.add_wrap`, `Machine.sdiv` or a fix, so that the kernel means the same on CRuby. It is part of the runtime digest. |
+| `ZR_HOST_RUBY` | `--host-ruby RUBY` | a command | `ruby` | The ruby that a `zr-dev` tool starts its children with (`Dev.ruby`), and that zr starts when it needs ruby itself: to resolve gems (`lib/zr/gem_set.rb`), and for ruby's report of a syntax error (`lib/zr/config.rb`). |
+| `ZR_TUNE` | `--tune`, `--no-tune` | flag | on | `0` runs the compiler with ruby's own collector settings and without YJIT. When it is on, a build that lowers the kernel, the core or eval support starts `zr` again with larger collector limits (`RUBY_GC_MALLOC_LIMIT`, `RUBY_GC_OLDMALLOC_LIMIT`), and heavy work turns on YJIT. zr does not change limits that you set. |
+| `ZR_EVAL` | `--eval-mode walk` | `walk` | unset | `walk` makes a native program use the tree-walking interpreter for eval, in place of the eval compiler. A wasm program always uses the tree-walking interpreter. See [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md). |
+| `ZR_WASM_NAMES` | `--wasm-names`, `--no-wasm-names` | flag | off | A WASI module gets a `name` section, so that wasmtime's traps and profiles show zr's function names. It changes the module's bytes. |
+| `ZR_WASM_WIDTH` | `--wasm-width N` | a number | 256 | In a WASI module, a function with more blocks than this dispatches to its blocks in two steps, in groups of this size. |
+| `GEM_HOME`, `GEM_PATH` | | directories | ruby's | Where rubygems finds the zr gem itself, and the gems that `--gem NAME=VERSION` and a Gemfile.lock name. A build reads no other gem from here: a program's library is zr's `vendor/ruby`. |
+| `BUNDLE_GEMFILE` | | a Gemfile | unset | `bundle exec` sets it. A build then reads the gems of its lock before zr's standard library, as `bundle exec ruby` does; `--gemfile` wins over it. zr never needs `bundle exec`, and never starts bundler inside itself. See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). zr's own development Gemfile never applies. |
+| `TMPDIR` | | a directory | `/tmp` | Where a build writes its temporary files. When neither `TMPDIR` nor `/tmp` is a directory that zr can write to, zr stops and says to set `TMPDIR`. |
+| `CC` | | a command | unset | On a glibc aarch64 Linux, the C compiler that links an `aarch64-linux-musl` binary, before `aarch64-linux-musl-gcc` and `musl-gcc`. It must link against musl. |
+| `OPENSSL_DIR` | | a prefix | unset | `zr doctor` looks for OpenSSL 3 in `$OPENSSL_DIR/lib`, as a compiled program does (see [Compiled programs](#compiled-programs)). |
+| `RUBY_GC_MALLOC_LIMIT`, `RUBY_GC_OLDMALLOC_LIMIT` | | numbers | set by zr | ruby's collector limits. zr sets them for its own heavy work (`ZR_TUNE`), and removes them from the environment of a program that `zr run` runs. A value that you set wins. |
+| `RUBYOPT`, `RUBYLIB`, `BUNDLER_SETUP`, `BUNDLE_BIN_PATH`, `BUNDLER_VERSION` | | | | zr clears these for the child that reads a Gemfile.lock, so that the host's bundle does not load into it. A `-rbundler/setup` in `RUBYOPT` still loads into the `zr` command itself; zr needs no bundle. |
+| `PATH` | | directories | | zr looks here for the tools of a target (for example `aarch64-linux-musl-gcc`), and `zr run --emit wasm` looks here for `wasmtime`. |
+| `DEVELOPER_DIR`, `SDKROOT` | | directories | set by zr | When zr runs `cc` on macOS, it sets these to the install that the SDK comes from. zr keeps values that you set. |
 
 ### Compiled programs
 

@@ -151,5 +151,5 @@ compiler. Install one as `zr doctor` says (step 4), or build with
 
 This is a defect in zr. Report it at
 <https://github.com/ryanseys/zr/issues> with the output of `zr doctor`.
-Run the command again with `ZR_DEBUG=1` to get the backtrace for the
+Run the command again with `zr --backtrace` (or `ZR_DEBUG=1`) to get the backtrace for the
 report.

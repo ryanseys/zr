@@ -267,9 +267,25 @@ class CliParseTest < Minitest::Test
 
     _, err = assert_exit(1) { CLI.guard { raise NoMethodError, "undefined method 'x'" } }
     assert_equal "zr: internal error: NoMethodError: undefined method 'x'. This is a defect in zr. Report it at " \
-                 "#{Zr::ISSUES_URL} with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace.\n", err
+                 "#{Zr::ISSUES_URL} with the output of 'zr doctor'. Run zr --backtrace (or set ZR_DEBUG=1) to see the backtrace.\n", err
 
     assert_exit(130) { CLI.guard { raise Interrupt } }
+  end
+
+  # The flags of settings come off the front of the words and right after
+  # a command's name; the words after them stay for the command.
+  def test_settings_come_off_before_and_after_the_command_name
+    assert_equal %w[build a.rb -o a --timing], CLI.settings!(%w[--jobs 2 build --no-tune a.rb -o a --timing])
+    assert_equal({ "ZR_JOBS" => "2", "ZR_TUNE" => "0" }, Zr::Config.given)
+    assert_equal 2, Zr::Config.current.jobs
+
+    assert_equal %w[-e p --timing], CLI.settings!(%w[--timing -e p --timing])
+    assert_predicate Zr::Config.current, :timing?
+
+    _, err = assert_exit(2) { CLI.guard { CLI.settings!(%w[-j x run a.rb]) && Zr::Config.current } }
+    assert_equal "zr: --jobs is \"x\". Set it to a whole number of 1 or more, for example --jobs=4.\n", err
+  ensure
+    Zr::Config.given!({})
   end
 
   def test_guard_shows_the_backtrace_under_zr_debug

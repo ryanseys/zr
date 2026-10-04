@@ -70,6 +70,80 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  # Each setting's flag wins over its variable, and gives the same value.
+  def test_a_flag_wins_over_the_variable_for_each_setting
+    cases = {
+      "ZR_LINKER" => [%w[--linker cc], :linker, "cc"],
+      "ZR_JOBS" => [%w[-j3], :jobs, 3],
+      "ZR_EVAL" => [%w[--eval-mode=walk], :eval_walk?, true],
+      "ZR_TIMING" => [%w[--timing], :timing?, true],
+      "ZR_VERIFY" => [%w[--verify], :verify?, true],
+      "ZR_KERNEL_CHECKED" => [%w[--kernel-checked], :kernel_checked?, true],
+      "ZR_WASM_NAMES" => [%w[--wasm-names], :wasm_names?, true],
+      "ZR_WASM_WIDTH" => [%w[--wasm-width 128], :wasm_width, 128],
+      "ZR_TUNE" => [%w[--no-tune], :tune?, false],
+      "ZR_CACHE" => [%w[--cache-dir /tmp/c], :cache, "/tmp/c"],
+      "ZR_CACHE_MAX_GB" => [%w[--cache-max-gb=0.5], :cache_max_gb, 0.5],
+      "ZR_HOST_RUBY" => [%w[--host-ruby /bin/ruby], :host_ruby, "/bin/ruby"],
+      "ZR_LINK_ARGS" => [["--link-args", "a.o -lz"], :link, %w[a.o -lz]],
+      "ZR_RUN_CACHE" => [%w[--no-run-cache], :run_cache?, false],
+      "ZR_TRACE" => [%w[--trace], :trace?, true],
+      "ZR_CODE_CACHE" => [%w[--code-cache verify], :code_cache, "verify"],
+      "ZR_SERVER" => [%w[--server 0], :server, "0"]
+    }
+    assert_equal Zr::Config::SETTINGS.map(&:env) - %w[ZR_DEBUG], cases.keys
+
+    cases.each do |name, (words, reader, value)|
+      # A switch's variable says the opposite, so only the flag gives `value`.
+      opposite = value ? "0" : "1"
+      env = { name => Zr::Config.setting(name).kind == :switch ? opposite : "" }
+      given, rest = Zr::Config.flags([*words, "run"])
+
+      assert_equal ["run"], rest, name
+      assert_equal value, Zr::Config.new(given, env).public_send(reader), name
+    end
+  end
+
+  # The flags stop at the first word that is not one, and at `--`.
+  def test_flags_come_off_the_front_only
+    assert_equal [{ "ZR_TIMING" => "1" }, %w[-e p --verify]], Zr::Config.flags(%w[--timing -e p --verify])
+    assert_equal [{}, %w[-- --timing]], Zr::Config.flags(%w[-- --timing])
+  end
+
+  # A bad flag names the flag, not the variable.
+  def test_a_bad_flag_names_the_flag
+    {
+      %w[--jobs x] => '--jobs is "x". Set it to a whole number of 1 or more, for example --jobs=4.',
+      %w[--linker gold] => '--linker is "gold". Set it to auto, ruby or cc, for example --linker=auto.',
+      %w[--link-args 'a] => %(--link-args has a quote with no end: "'a". Close the quote, or put a \\ before it.)
+    }.each do |words, message|
+      error = assert_raises(Zr::Config::Invalid, words.inspect) { Zr::Config.new(Zr::Config.flags(words).first, {}) }
+      assert_equal message, error.message
+    end
+    error = assert_raises(Zr::Config::Invalid) { Zr::Config.flags(%w[--jobs]) }
+    assert_equal "--jobs needs a value: --jobs N.", error.message
+    error = assert_raises(Zr::Config::Invalid) { Zr::Config.flags(%w[--timing=1]) }
+    assert_equal "--timing takes no value. Give --timing alone.", error.message
+  end
+
+  # `--backtrace` turns on the backtrace as `ZR_DEBUG=1` does.
+  def test_backtrace_flag_is_debug
+    Zr::Config.given!(Zr::Config.flags(%w[--backtrace]).first)
+    assert_predicate Zr::Config, :debug?
+  ensure
+    Zr::Config.given!({})
+  end
+
+  # A build server builds only for the same fingerprint; the timing and
+  # the server's socket do not change what a build writes.
+  def test_the_fingerprint_holds_the_settings_that_steer_a_build
+    plain = Zr::Config.new({}, {}).fingerprint
+
+    assert_equal plain, Zr::Config.new({ "ZR_TIMING" => "1", "ZR_SERVER" => "0" }, {}).fingerprint
+    refute_equal plain, Zr::Config.new({ "ZR_KERNEL_CHECKED" => "1" }, {}).fingerprint
+    refute_equal plain, Zr::Config.new({}, { "ZR_LINKER" => "cc" }).fingerprint
+  end
+
   def test_jobs_defaults_to_at_most_six
     Zr::Config.with(ZR_JOBS: nil) { |config| assert_operator config.jobs, :<=, 6 }
   end

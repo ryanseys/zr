@@ -12,12 +12,13 @@
 # `CLI.guard` turns an error into one line and an exit status.
 require_relative "../lib/zr/cli"
 Zr::CLI.guard do
-  # A bad ZR_* value stops here, before the server gets the command.
+  # A bad setting stops here, before the server gets the command.
+  argv = Zr::CLI.settings!(ARGV)
   Zr::Config.current
-  Zr::CLI.kept!(ARGV)
+  Zr::CLI.kept!(argv)
   require_relative "../lib/zr/server"
-  Zr::Server.hand_to(ARGV)
+  Zr::Server.hand_to(argv)
 
-  Zr::CLI.tune!(__FILE__, later: true) if Zr::CLI.compiles?(ARGV)
-  Zr::CLI.start(ARGV)
+  Zr::CLI.tune!(__FILE__, later: true) if Zr::CLI.compiles?(argv)
+  Zr::CLI.start(argv)
 end

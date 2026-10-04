@@ -1,0 +1,15 @@
+# The record of lib/zr/config.rb.
+module Zr
+  class Config
+    class Setting < Data
+      attr_reader env: String
+      attr_reader flag: String
+      attr_reader kind: :switch | :choice | :value
+      attr_reader values: Array[String] | String | nil
+      attr_reader about: String
+      attr_reader steers: bool
+
+      def self.new: (env: String, flag: String, kind: :switch | :choice | :value, values: Array[String] | String | nil, about: String, steers: bool) -> instance
+    end
+  end
+end

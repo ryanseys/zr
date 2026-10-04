@@ -18,7 +18,7 @@ module Zr
       # Runs the command, and turns an error that escapes it into one line
       # and an exit status: 130 for Ctrl-C, 2 for a bad setting, 1 for any
       # other error. An error that zr did not expect is a defect: the line
-      # says so and where to report it. ZR_DEBUG=1 shows the backtrace.
+      # says so and where to report it. --backtrace or ZR_DEBUG=1 shows the backtrace.
       #: [T] () { () -> T } -> T
       def guard
         yield
@@ -39,7 +39,7 @@ module Zr
         return "#{error.message}#{cache_hint(error)}" if error.is_a?(SystemCallError)
 
         "internal error: #{error.class}: #{error.message}. This is a defect in zr. Report it at #{ISSUES_URL} " \
-          "with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace."
+          "with the output of 'zr doctor'. Run zr --backtrace (or set ZR_DEBUG=1) to see the backtrace."
       end
 
       # For an error that writing into zr's cache gave, how to fix it.

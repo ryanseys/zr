@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../version"
+require_relative "../config"
 require_relative "errors"
 
 module Zr
@@ -8,6 +9,13 @@ module Zr
     # What `zr help` prints: the list of commands (`USAGE`) and one page for
     # each command (`PAGES`).
     module Help
+      # The lines of the settings: each flag with what it takes, then what
+      # it does, wrapped to the width of the rest of the usage.
+      SETTINGS = Config::SETTINGS.map do |setting|
+        first, *rest = setting.about.scan(/\S.{0,56}(?=\s|\z)/)
+        [format("  %-28s%s\n", Config.usage(setting), first), *rest.map { |line| "#{" " * 30}#{line}\n" }].join
+      end.join.freeze #: String
+
       USAGE = <<~TEXT.freeze
         Usage: zr <command> [options]
                zr [ruby switches] [--] [<file.rb> | -] [args...]
@@ -29,7 +37,10 @@ module Zr
         program on standard input. A command's name always wins: run a script
         named like one as `zr ./build`.
 
-        Exit status: 0 success; 1 error; 2 usage error or a bad ZR_* value;
+        Settings, before the command or right after its name. Each one also
+        reads its variable (--jobs reads ZR_JOBS); the flag wins:
+        #{SETTINGS}
+        Exit status: 0 success; 1 error; 2 usage error or a bad setting;
         3 zr does not support the program, the target or this ruby; 130 Ctrl-C.
         `zr run` exits with the program's status.
         Environment variables: #{DOCS_URL}/reference/environment-variables.md

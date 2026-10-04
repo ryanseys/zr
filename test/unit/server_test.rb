@@ -30,6 +30,7 @@ class ServerTest < Minitest::Test
     assert_equal "another protocol", server.refusal(request.merge(version: 0))
     assert_equal "another ruby", server.refusal(request.merge(ruby_version: "3.0.0"))
     assert_equal "another RUBYOPT", server.refusal(request(env: ENV.to_h.merge("RUBYOPT" => "-rsomething")))
+    assert_equal "another ZR_TUNE", server.refusal(request(settings: { "ZR_TUNE" => "0" })), "--no-tune"
     server.instance_variable_set(:@stamps, {})
     assert_equal "zr changed", server.refusal(request)
   end
@@ -92,7 +93,8 @@ class ServerTest < Minitest::Test
   private
 
   def request(env: ENV.to_h, **rest)
-    { version: Server::VERSION, argv: %w[run a.rb], cwd: Dir.pwd, env: env, ruby: RbConfig.ruby, ruby_version: RUBY_VERSION }.merge(rest)
+    { version: Server::VERSION, argv: %w[run a.rb], settings: {}, cwd: Dir.pwd, env: env, ruby: RbConfig.ruby,
+      ruby_version: RUBY_VERSION }.merge(rest)
   end
 
   # Waits until the server listens, or fails with its log.

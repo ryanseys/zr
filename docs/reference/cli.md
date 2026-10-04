@@ -53,6 +53,26 @@ and the message links [How to install zr](../how-to/install.md).
 | `--print-gems` | no | yes | After the build, prints the gems that the output was built with, as `zr inspect` does. |
 | `-h`, `--help` | yes | yes | Prints the help for the command. |
 
+## Settings
+
+Each `ZR_*` setting of the compiler also has a flag: `--jobs N` (or
+`-j N`) for `ZR_JOBS`, `--no-tune` for `ZR_TUNE=0`, `--cache-dir DIR`
+for `ZR_CACHE`, and so on. `zr help` lists them, and
+[Environment variables](environment-variables.md#the-compiler) gives
+each one with its variable. A flag comes before the command or right
+after its name, and wins over the variable:
+
+```
+zr --jobs 2 build app.rb -o app
+zr build --timing app.rb -o app
+zr --no-run-cache -e 'p 1'
+```
+
+A switch takes `--name` for on and `--no-name` for off. A setting with
+a value takes it as the next word or after `=`. A bad value stops zr
+with exit status 2 and a line that names the flag:
+`zr: --jobs is "x". Set it to a whole number of 1 or more, for example --jobs=4.`
+
 ## `zr` as a ruby
 
 `zr` takes ruby's command line when its first word names no command and
@@ -302,7 +322,7 @@ zr: ZR_JOBS is "abc". Set it to a whole number of 1 or more, for example ZR_JOBS
 An error that zr did not expect is a defect in zr. Its line says so:
 
 ```
-zr: internal error: NoMethodError: undefined method 'x' for nil. This is a defect in zr. Report it at https://github.com/ryanseys/zr/issues with the output of 'zr doctor'. Set ZR_DEBUG=1 to see the backtrace.
+zr: internal error: NoMethodError: undefined method 'x' for nil. This is a defect in zr. Report it at https://github.com/ryanseys/zr/issues with the output of 'zr doctor'. Run zr --backtrace (or set ZR_DEBUG=1) to see the backtrace.
 ```
 
 A refusal of a form of Ruby gives the file, the line and the column,

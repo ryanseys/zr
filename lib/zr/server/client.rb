@@ -29,7 +29,8 @@ module Zr
         require "socket"
         reply = begin
           UNIXSocket.open(path) do |sock|
-            Client.put(sock, { version: VERSION, argv: argv, cwd: Dir.pwd, env: ENV.to_h, ruby: RbConfig.ruby, ruby_version: RUBY_VERSION })
+            Client.put(sock, { version: VERSION, argv: argv, settings: Config.given, cwd: Dir.pwd, env: ENV.to_h,
+                               ruby: RbConfig.ruby, ruby_version: RUBY_VERSION })
             sock.send_io($stdout)
             sock.send_io($stderr)
             Client.take(sock)

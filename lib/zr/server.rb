@@ -40,8 +40,9 @@ module Zr
     # @rbs @jobs: Hash[IO, { pid: Integer, client: UNIXSocket, argv: Array[String], began: Float, ?answered: bool, ?stopped: bool }]
     # @rbs @stamps: Hash[String, [Integer, Rational]?]?
     # @rbs @digest: String?
+    # @rbs @fingerprint: Hash[String, String]?
 
-    VERSION = 1
+    VERSION = 2
 
     # The socket of the server for this cache, or nil when the server is
     # off (`ZR_SERVER=0`) or the path is too long for a socket.
@@ -126,7 +127,9 @@ module Zr
       return "zr changed" unless stamps == @stamps
 
       env = message[:env]
-      %w[RUBYOPT RUBYLIB ZR_TUNE].each { |name| return "another #{name}" unless env[name] == ENV[name] }
+      %w[RUBYOPT RUBYLIB].each { |name| return "another #{name}" unless env[name] == ENV[name] }
+      return "another ZR_TUNE" unless Config.new(message[:settings], env).tune? == Config.current.tune?
+
       nil
     end
 
@@ -219,6 +222,7 @@ module Zr
       $stderr.reopen(err)
       Dir.chdir(message[:cwd])
       ENV.replace(message[:env])
+      Config.given!(message[:settings])
       fresh!(message)
       reply = nil #: Hash[Symbol, untyped]?
       CLI.served! { |binary, args, temp| reply = ran(binary, args, temp) }
@@ -257,15 +261,11 @@ module Zr
     #: (?untyped message) -> void
     def fresh!(message = nil)
       Session.current.reset!(keep_runtimes: true)
-      return if message && @digest && settings(message[:env]) == settings(ENV) && message[:argv].none? { |word| word.start_with?("--path-root") } &&
+      return if message && @digest && Config.current.fingerprint == @fingerprint && message[:argv].none? { |word| word.start_with?("--path-root") } &&
                 RuntimeSources.for(Target.default).runtime_digest == @digest
 
       Session.current.reset!
     end
-
-    # The variables that steer a build.
-    #: (Hash[String, String] | RBS::Unnamed::ENVClass env) -> Hash[String, String]
-    def settings(env) = env.select { |name, _| name.start_with?("ZR_") && name != "ZR_SERVER" && name != "ZR_TIMING" }
 
     # Loads, in the server, what the next builds read for the runtime of
     # the files as they are now: its description and symbols, and the
@@ -293,6 +293,7 @@ module Zr
         Native::Build.prelink(set) if images.include?(Native::Build.prelink_path(set))
       end
       @digest = digest
+      @fingerprint = Config.current.fingerprint
       say "loaded the runtime #{digest[0, 12]}"
     rescue StandardError => e
       @digest = nil

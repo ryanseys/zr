@@ -73,6 +73,24 @@ module Zr
       later ? GcTuning.later(script, ARGV) : GcTuning.now(script, ARGV)
     end
 
+    # Takes the flags of settings (`Config::SETTINGS`, such as `--jobs 2`)
+    # off the front of `argv` and off the front of a command's words, and
+    # makes them this process's settings. Returns the other words. `argv`
+    # stays as it is, so zr started again for the collector (`tune!`)
+    # reads the same flags.
+    #: (Array[String] argv) -> Array[String]
+    def settings!(argv)
+      given, rest = Config.flags(argv)
+      verb = rest.first
+      if verb && (COMMANDS.key?(verb) || ALIASES.key?(verb))
+        more, words = Config.flags(rest.drop(1))
+        given = given.merge(more)
+        rest = [verb, *words]
+      end
+      Config.given!(given)
+      rest
+    end
+
     # Runs the command that the first word of `argv` names, with the words
     # after it.
     #: (Array[String] argv) -> void
