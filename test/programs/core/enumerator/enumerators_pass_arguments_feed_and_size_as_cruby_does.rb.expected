@@ -1,0 +1,22 @@
+1: [[:arg0, :arg1, :each0, :each1]]
+2: [[:arg0, :arg1, :each0]]
+3: [[:x, :y], 1]
+4: 42
+5: nil
+6: [:a, nil]
+7: TypeError: feed value already set
+8: true
+9: "#<Enumerator::Chain: uninitialized>"
+10: "#<Enumerator::Product: uninitialized>"
+11: :done
+rewind
+12: :done
+13: 4
+14: nil
+15: nil
+16: true
+17: ArgumentError: uninitialized product
+18: NoMethodError: undefined method 'new' for class Enumerator::ArithmeticSequence
+19: TypeError: allocator undefined for Enumerator::ArithmeticSequence
+20: 200
+21: 4

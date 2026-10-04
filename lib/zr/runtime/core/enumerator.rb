@@ -13,6 +13,7 @@ class Enumerator
       raise LocalJumpError, +"no block given" unless block
 
       @block = block
+      self
     end
 
     def <<(value)
@@ -44,10 +45,10 @@ class Enumerator
       self
     end
 
-    # The yielder ignores any arguments that a caller adds, as CRuby's
-    # own method entry takes them and returns an arity of -1.
-    def each(*, &block)
-      Primitive.zr_hidden_get(self, :__block__).call(Yielder.new(&block))
+    # generator_each: the arguments a caller adds go to the block after
+    # the yielder.
+    def each(*args, &block)
+      Primitive.zr_hidden_get(self, :__block__).call(Yielder.new(&block), *args)
     end
 
     private
@@ -114,16 +115,25 @@ class Enumerator
     e
   end
 
+  # enumerator_each: arguments with no block make a copy that passes
+  # them on too.
   def each(*extra, &block)
     initialized!
-    return self unless block
+    unless block
+      return self if extra.empty?
+
+      copy = dup
+      copy.send(:enumerate, @receiver, @method, @args + extra, @kwargs, @size)
+      return copy
+    end
 
     @receiver.__send__(@method, *@args, *extra, **@kwargs, &block)
   end
 
+  # A size that responds to call is called, a Proc or not.
   def size
     initialized!
-    @size.is_a?(Proc) ? @size.call : @size
+    @size.respond_to?(:call) ? @size.call : @size
   end
 
   # Without a block, the enumerator shows the offset only as it was given.
@@ -246,9 +256,7 @@ class Enumerator
     Primitive.attr! :hidden
     raise_stop if @stop
     @fiber = Fiber.new { run } unless @fiber&.alive?
-    fed = @feed
-    @feed = nil
-    values = @fiber.resume(fed&.first)
+    values = @fiber.resume
     if @stop
       @fiber = nil
       @lookahead = nil
@@ -259,7 +267,13 @@ class Enumerator
 
   def run
     Primitive.attr! :hidden
-    result = each { |*values| Fiber.yield(values) }
+    # next_ii: the value a feed set is what the paused yield returns, once.
+    result = each do |*values|
+      Fiber.yield(values)
+      fed = @feed
+      @feed = nil
+      fed&.first
+    end
     @stop = StopIteration.new(+"iteration reached an end")
     Primitive.zr_hidden_set(@stop, :result, result)
     nil
@@ -319,9 +333,16 @@ class Enumerator::ArithmeticSequence < Enumerator
   # from `first` to `last` by `step`.
   def self.for(receiver, method, args, kwargs, first, last, step, exclude_end)
     Primitive.attr! :hidden
-    seq = allocate
+    seq = Primitive.zr_class_allocate(self)
     seq.send(:sequence, [receiver, method, args, kwargs], first, last, step, exclude_end)
     seq
+  end
+
+  # Only the core makes these: rb_undef_alloc_func and no `new`.
+  def self.allocate = raise(TypeError, "allocator undefined for #{self}")
+
+  class << self
+    undef_method :new
   end
 
   def exclude_end? = @exclude_end
@@ -580,7 +601,7 @@ class Enumerator::Lazy < Enumerator
   def initialize(receiver, size = nil, &block)
     raise ArgumentError, +"tried to call lazy new without a block" unless block
 
-    chain(receiver, :each, :run_new, block:) { size }
+    chain(receiver, :each, :run_new, block:) { size.respond_to?(:call) ? size.call : size }
   end
 
   def lazy = self
@@ -964,6 +985,8 @@ class Enumerator::Chain < Enumerator
 
     i = 0
     while i < Primitive.zr_ary_len_m(@enums)
+      # enum_chain's pos: how far an iteration got, which rewind reads.
+      @pos = i
       Primitive.zr_ary_at_m(@enums, i).each(*args, &block)
       i += 1
     end
@@ -983,12 +1006,23 @@ class Enumerator::Chain < Enumerator
     total
   end
 
+  # enum_chain_rewind: the enumerables an iteration reached, last first.
   def rewind
-    @enums.reverse_each { |e| e.rewind if e.respond_to?(:rewind) }
+    i = @pos || -1
+    while i >= 0
+      e = @enums[i]
+      e.__send__(:rewind) if e.respond_to?(:rewind, true)
+      i -= 1
+    end
+    @pos = nil
     self
   end
 
-  def inspect = Primitive.zr_obj_form("#<Enumerator::Chain: #{@enums.inspect}>")
+  def inspect
+    return Primitive.zr_obj_form("#<Enumerator::Chain: uninitialized>") if @enums.nil?
+
+    Primitive.zr_obj_form("#<Enumerator::Chain: #{@enums.inspect}>")
+  end
 
   private def initialize_copy(other)
     Kernel.instance_method(:initialize_copy).bind_call(self, other)
@@ -1013,34 +1047,51 @@ class Enumerator::Product < Enumerator
   end
 
   def each(&block)
-    return to_enum(:each) unless block
+    return to_enum(:each) { size } unless block
 
     walk(0, [], &block)
     self
   end
 
+  # enum_product_total_size: nil or an infinity ends the count; any
+  # other size that is no Integer makes it nil.
   def size
     total = 1
     @enums.each do |e|
       n = e.respond_to?(:size) ? e.size : nil
-      return nil if n.nil?
-      return n if n.is_a?(Float) && n.infinite?
+      return n if n.nil? || (n.is_a?(Float) && n.infinite?)
+      return nil unless n.is_a?(Integer)
 
       total *= n
     end
     total
   end
 
+  # enum_product_rewind: each enumerable, in order.
   def rewind
-    @enums.reverse_each { |e| e.rewind if e.respond_to?(:rewind) }
+    @enums.each { |e| e.__send__(:rewind) if e.respond_to?(:rewind, true) }
     self
   end
 
-  def inspect = Primitive.zr_obj_form("#<Enumerator::Product: #{@enums.inspect}>")
+  def inspect
+    return Primitive.zr_obj_form("#<Enumerator::Product: uninitialized>") if @enums.nil?
+    return Primitive.zr_obj_form("#<Enumerator::Product: ...>") if Primitive.zr_recursive_enter(self, :inspect)
+
+    begin
+      Primitive.zr_obj_form("#<Enumerator::Product: #{@enums.inspect}>")
+    ensure
+      Primitive.zr_recursive_leave(self, :inspect)
+    end
+  end
 
   private def initialize_copy(other)
+    return self if equal?(other)
+
+    enums = Primitive.zr_hidden_get(other, :enums)
+    raise ArgumentError, +"uninitialized product" if enums.nil?
+
     Kernel.instance_method(:initialize_copy).bind_call(self, other)
-    @enums = Primitive.zr_hidden_get(other, :enums).dup
+    @enums = enums.dup
     self
   end
 
