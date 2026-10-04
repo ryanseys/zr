@@ -269,6 +269,13 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-e", "p Kernel.private_method_defined?(:chomp)")
   end
 
+  def test_parse_warnings_follow_verbose_and_go_through_warning_warn
+    same_as_ruby("-W0", "-e", "{a: 1, a: 2}")
+    same_as_ruby("-e", "{a: 1, a: 2}")
+    same_as_ruby("-w", "-e", "eval(%q(defined?(x); 1))")
+    same_as_ruby("-e", "def Warning.warn(m) = print(%q(caught: ), m); eval(%q({b: 1, b: 2}))")
+  end
+
   def test_warning_switches_set_verbose_and_the_categories
     same_as_ruby("-w", "x.rb")
     same_as_ruby("-W0", "-e", "p $VERBOSE; warn 'shown'")

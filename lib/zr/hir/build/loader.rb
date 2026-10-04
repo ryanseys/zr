@@ -556,16 +556,19 @@ module Zr
 
         # Ruby's parse-time warnings for the file (`key :k is duplicated
         # and overwritten on line 24` and similar), as ruby prints them.
-        # prism knows the rules and the line of each. A plain run does not
-        # print `-w` level warnings.
+        # prism knows the rules and the line of each. A warning of the `-w`
+        # level starts with VERBOSE_WARNING: the run prints it only under a
+        # true $VERBOSE.
         #: (Prism::ParseResult result, String file) -> Array[String]
         def warnings(result, file)
-          result.warnings.filter_map do |w|
-            next unless w.level == :default
-
-            "#{Paths.shown(file)}:#{w.location.start_line}: warning: #{w.message}"
+          result.warnings.map do |w|
+            text = "#{Paths.shown(file)}:#{w.location.start_line}: warning: #{w.message}"
+            w.level == :default ? text : VERBOSE_WARNING + text
           end
         end
+
+        # The mark at the head of a warning that only a true $VERBOSE prints.
+        VERBOSE_WARNING = "\x01"
 
         # The index of `path`'s unit, built at first use. The index entry
         # is set before the file is read, so two files that require each

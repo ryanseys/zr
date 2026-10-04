@@ -339,12 +339,14 @@ module Zr
         kernel("zr_program_start", file, imm(@l.shown_file.bytesize), imm(@l.traced? ? 1 : 0))
       end
 
-      # The file's parse-time warnings, on stderr as the file starts.
+      # The file's parse-time warnings as the file starts (an eval's as it
+      # runs), through Warning.warn and under $VERBOSE as ruby gives them.
       #: () -> void
       def parse_warnings
         @l.warnings.each do |line|
-          text = "#{line}\n"
-          kernel("zr_write_err", @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize))
+          verbose = line.start_with?(Hir::Build::Loader::VERBOSE_WARNING)
+          text = "#{verbose ? line[1..] : line}\n"
+          kernel("zr_parse_warning", @f.symbol_value(@f.symbol(@l.literal(text))), imm(text.bytesize), imm(verbose ? 1 : 0))
         end
       end
 

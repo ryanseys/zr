@@ -153,6 +153,17 @@ module Zr::Kern
     zr_warning_write(zr_buf_take(b))
   end
 
+  # A parse-time warning: none under a nil $VERBOSE, and one of the -w
+  # level (`verbose`) only under a true one; through Warning.warn.
+  #: (ptr, word, word) -> void
+  def zr_parse_warning(bytes, n, verbose)
+    level = zr_gvar_get(Machine.id(:$VERBOSE))
+    if level == QNIL || (verbose != 0 && level != QTRUE)
+      return
+    end
+    zr_warning_write(zr_str_new(bytes, n))
+  end
+
   # rb_write_warning_str: a warning goes to `Warning.warn`, which a program
   # may override to catch it. Before the program starts, and while
   # `Warning.warn` runs, it goes straight to stderr.

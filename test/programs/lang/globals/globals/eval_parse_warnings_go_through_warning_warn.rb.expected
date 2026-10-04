@@ -1,0 +1,1 @@
+["(eval):1: warning: key :foo is duplicated and overwritten on line 1\n", "(eval):1: warning: possibly useless use of defined? in void context\n", "(eval):1: warning: integer literal in flip-flop\n", "(eval):1: warning: integer literal in flip-flop\n"]

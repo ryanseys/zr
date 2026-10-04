@@ -149,9 +149,21 @@ module Zr
         body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         coverable = loader.covers? ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
-        Program.new(main.file, main.locals, body, loader.units, main.warnings, eval_support && loader.evals?, loader.entries, loader.tracing?,
+        Program.new(main.file, main.locals, body, loader.units, main_warnings(main.warnings, switches.verbose), eval_support && loader.evals?, loader.entries, loader.tracing?,
                     main.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
                     loader.covers? ? loader.defs : {})
+      end
+
+      # The main file's parse-time warnings under the -W level it was
+      # parsed with: none for -W0, the -w level ones too for -w. They print
+      # as the program starts, whatever $VERBOSE is then.
+      #: (Array[String] warnings, bool | Symbol | nil verbose) -> Array[String]
+      def self.main_warnings(warnings, verbose)
+        return warnings if verbose == :runtime
+        return [] if verbose.nil?
+
+        mark = Loader::VERBOSE_WARNING
+        verbose ? warnings.map { |w| w.delete_prefix(mark) } : warnings.reject { |w| w.start_with?(mark) }
       end
 
       # @rbs file: String

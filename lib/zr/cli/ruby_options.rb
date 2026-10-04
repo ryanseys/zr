@@ -152,7 +152,7 @@ module Zr
         # a file (a regexp literal in a condition).
         command_line << "e" unless @inline.empty?
         Hir::Switches.new(prelude: prelude, command_line: command_line, frozen_string_literal: @features["frozen_string_literal"],
-                          gems: @features.fetch("gems", true), inline: !@inline.empty?)
+                          gems: @features.fetch("gems", true), inline: !@inline.empty?, verbose: (verbose = @verbose) ? verbose.first : false)
       end
 
       # The ruby that sets what the switches set, in ruby's order: the

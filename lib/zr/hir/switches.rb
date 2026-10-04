@@ -7,7 +7,10 @@ module Zr
     #
     # `prelude` is ruby that runs after the preludes of the build and
     # before the main file's first line: the settings of -w, -I, -r, -E,
-    # -s and the others. It is a unit of its own (`Library::Roots::SWITCHES`),
+    # -s and the others. `verbose` is the $VERBOSE that -W gives when the
+    # main file is parsed (nil, false or true): it decides which of that
+    # file's parse-time warnings print, as ruby parses after the switches.
+    # :runtime (no switches, or a compile at run time) leaves it to $VERBOSE. It is a unit of its own (`Library::Roots::SWITCHES`),
     # so the main file keeps its line numbers. It is part of the runtime,
     # so it can write the globals that ruby makes read-only ($-p, $-l).
     #
@@ -24,14 +27,16 @@ module Zr
       attr_reader :frozen_string_literal #: bool?
       attr_reader :gems #: bool
       attr_reader :inline #: bool
+      attr_reader :verbose #: bool | Symbol | nil
 
-      #: (?prelude: String?, ?command_line: String, ?frozen_string_literal: bool?, ?gems: bool, ?inline: bool) -> void
-      def initialize(prelude: nil, command_line: "", frozen_string_literal: nil, gems: true, inline: false)
+      #: (?prelude: String?, ?command_line: String, ?frozen_string_literal: bool?, ?gems: bool, ?inline: bool, ?verbose: bool | Symbol | nil) -> void
+      def initialize(prelude: nil, command_line: "", frozen_string_literal: nil, gems: true, inline: false, verbose: :runtime)
         @prelude = prelude
         @command_line = command_line
         @frozen_string_literal = frozen_string_literal
         @gems = gems
         @inline = inline
+        @verbose = verbose
         freeze
       end
 
@@ -50,7 +55,7 @@ module Zr
       # What a cache key needs: two builds with other switches are other
       # programs.
       #: () -> String
-      def key = [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline].join("\0")
+      def key = [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect].join("\0")
     end
   end
 end
