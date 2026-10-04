@@ -1,24 +1,5 @@
 fails:Marshal.dump with a Symbol dumps an encoded Symbol
-fails:Marshal.dump with an object responding to #marshal_dump does not use Class#name
-fails:Marshal.dump with an object responding to #_dump ignores overridden name method
-fails:Marshal.dump with an object responding to #_dump raises a TypeError if _dump returns a non-string
-fails:Marshal.dump with a Class ignores overridden name method
-fails:Marshal.dump with a Class dumps a class with multibyte characters in name
-fails:Marshal.dump with a Module ignores overridden name method
-fails:Marshal.dump with a Module dumps a module with multibyte characters in name
-fails:Marshal.dump with a Data ignores overridden name method
-fails:Marshal.dump with a String ignores overridden name method when dumps a String subclass
-fails:Marshal.dump with a Regexp ignores overridden name method when dumps a Regexp subclass
-fails:Marshal.dump with an Array ignores overridden name method when dumps an Array subclass
-fails:Marshal.dump with a Hash ignores overridden name method when dumps a Hash subclass
-fails:Marshal.dump with a Struct ignores overridden name method
-fails:Marshal.dump with an Object ignores overridden name method
 fails:Marshal.dump with an Object raises TypeError if an Object has a singleton class and singleton instance variables
 fails:Marshal.dump with an Object dumps a BasicObject subclass if it defines respond_to?
-fails:Marshal.dump with a Range raises TypeError with an anonymous Range subclass
-fails:Marshal.dump with a Time ignores overridden name method
-fails:Marshal.dump with a Time dumps a Time subclass with multibyte characters in name
-fails:Marshal.dump with a Time adds instance variables before the object itself into the objects table
-fails:Marshal.dump with an Exception dumps the cause for the exception
 fails:Marshal.dump when passed an IO raises an Error when the IO-Object does not respond to #write
 fails:Marshal.dump when passed an IO calls binmode when it's defined
