@@ -1,0 +1,1 @@
+lang/misc/index_splat_globals_and_commands_as_cruby_does.rb:17: warning: '$4294967296' is too big for a number variable, always nil

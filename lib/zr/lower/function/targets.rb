@@ -123,8 +123,12 @@ module Zr
           slots = reserve(1 + node.args.size)
           @f.store(expr(node.recv), @rec, value_offset(slots))
           # A splat keeps its array in the slot and splats it at both
-          # sends, so the indexes are evaluated once.
-          node.args.each_with_index { |a, i| @f.store(expr(a.is_a?(Hir::Splat) ? a.value : a), @rec, value_offset(slots + 1 + i)) }
+          # sends, so the indexes are evaluated once and to_a is called
+          # once.
+          node.args.each_with_index do |a, i|
+            v = a.is_a?(Hir::Splat) ? checked(kernel("zr_splat_to_a", expr(a.value))) : expr(a)
+            @f.store(v, @rec, value_offset(slots + 1 + i))
+          end
           recv = Hir::Slot.new(slots, node.line)
           # A literal `self` keeps its right to call private methods.
           recv = node.recv if node.recv.is_a?(Hir::SelfRef)

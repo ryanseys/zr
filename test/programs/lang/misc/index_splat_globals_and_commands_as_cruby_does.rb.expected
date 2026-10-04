@@ -1,0 +1,10 @@
+to_a
+to_a
+to_a
+[7]
+nil
+lang/misc/index_splat_globals_and_commands_as_cruby_does.rb:21: warning: global variable '$never_set_global_for_test' not initialized
+nil
+42
+["static", true]
+["dynamic 1", false]

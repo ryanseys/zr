@@ -988,6 +988,16 @@ module Zr::Kern
   def zr_gvar_read(id)
     r = zr_ractor_gvar_check(id)
     return r if r == QUNDEF
+    # rb_gvar_undef_getter: under $VERBOSE, a global that was never set warns.
+    if zr_box_current() == QNIL && zr_gvar_row(zr_gvar_resolve(id)) == 0 && zr_gvar_get(Machine.id(:$VERBOSE)) == QTRUE
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("global variable '"), 17)
+      zr_buf_sym(b, id)
+      zr_buf_push(b, Machine.bytes("' not initialized"), 17)
+      zr_warn_here(Buf[b].ptr, Buf[b].len)
+      zr_buf_free(b)
+    end
     zr_gvar_get(id)
   end
 

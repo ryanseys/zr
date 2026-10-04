@@ -341,6 +341,13 @@ module Zr::Kern
       zr_method_copy(own, MEntry[e].mid, e, zr_meta_owned_by(MEntry[e].meta, own), MEntry[e].vis, false)
       i += 1
     end
+    # rb_singleton_class_clone copies the constants too.
+    i = 0
+    while i < ClassExt[ext].clen
+      c = ClassExt[ext].ctab + (i * CEntry.size)
+      zr_const_write(own, CEntry[c].id, CEntry[c].value)
+      i += 1
+    end
     k = RClass[meta].superclass
     mods = zr_ary_new(4)
     while k != QNIL && zr_type(k) == T_ICLASS

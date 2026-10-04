@@ -628,8 +628,10 @@ module Zr
         when Prism::SourceEncodingNode
           Send.of(ConstRead.new(nil, :Encoding, line), :find, [Literal.new(@encoding.name, line)], line)
         when Prism::InterpolatedSymbolNode then Send.of(interpolation(node, line), :to_sym, [], line)
-        when Prism::XStringNode then Send.of(nil, :`, [Literal.new(node.unescaped, line)], line)
-        when Prism::NumberedReferenceReadNode then BackRef.new(:nth, node.number, line)
+        # A static command is a frozen String, as CRuby passes it to `.
+        when Prism::XStringNode then Send.of(nil, :`, [frozen_literal_string(node.unescaped, line)], line)
+        # Prism gives 0 for a number too big for a variable, which is always nil.
+        when Prism::NumberedReferenceReadNode then node.number.zero? ? Literal.new(nil, line) : BackRef.new(:nth, node.number, line)
         when Prism::BackReferenceReadNode then back_reference(node, line)
         when Prism::RegularExpressionNode then regexp_literal(node, line, taken: taken)
         when Prism::InterpolatedRegularExpressionNode then interpolated_regexp(node, line)

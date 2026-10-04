@@ -352,7 +352,11 @@ module Zr
           # Outside the main ractor, a program's global read raises unless
           # CRuby keeps that global per ractor. The core reads without this
           # check.
-          @l.internal? ? kernel("zr_gvar_get", sym_word(node.name)) : checked(kernel("zr_gvar_read", sym_word(node.name)))
+          return kernel("zr_gvar_get", sym_word(node.name)) if @l.internal?
+
+          # The read may warn (an unset global under $VERBOSE) at its line.
+          at_node(node)
+          checked(kernel("zr_gvar_read", sym_word(node.name)))
         end
 
         # The globals that ruby hooks: a write checks the value, or raises
