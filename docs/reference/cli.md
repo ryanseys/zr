@@ -6,10 +6,12 @@ describes only `zr`. For the `bin/` scripts, the rake tasks and the
 
 ```
 Usage: zr <command> [options]
+       zr [ruby switches] [--] [<file.rb> | -] [args...]
 
 Commands:
   run <file.rb> [args...]     compile a program, run it, then delete the build
   build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
+                              (`compile` is another name)
   gems [<file.rb>]            list the gems that a build reads, and their sources
   inspect <binary>            print the gems that a binary was built with
   diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
@@ -22,7 +24,8 @@ Commands:
 `zr help <command>` and `zr <command> --help` (or `-h`) print the
 options of a command. `zr version` prints zr's version and the ruby
 whose output it gives (`zr 0.1.0 (for ruby 4.0.7)`). `zr --version` and `zr -v` are the
-same.
+same. A first word that names no command runs zr as a ruby: see
+[`zr` as a ruby](#zr-as-a-ruby).
 
 An option takes its value as the next word or after `=`: `--emit wasm`
 and `--emit=wasm` are the same. For `build`, options can
@@ -46,9 +49,61 @@ and the message links [How to install zr](../how-to/install.md).
 | `--gem <name>=<version\|dir>` | yes | yes | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
 | `--gemfile <path>` | yes | yes | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
 | `--allow-runtime-require` | yes | yes | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler (such a binary is about 110 MB) to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
-| `--trace` | yes | yes | Builds the program with its trace events armed (`ZR_TRACE=1` does the same). zr arms them by itself when a file of the program names `TracePoint`, `set_trace_func` or `Coverage`, in code or in a string. A program that reaches TracePoint only by a name it computes (`Object.const_get(name)`) needs this flag; without it, its code fires no events, and zr warns when it enables a TracePoint. |
+| `--trace` | yes | yes | Builds the program with its trace events armed (`ZR_TRACE=1` does the same). zr arms them by itself when the code of a file of the program names `TracePoint`, `set_trace_func` or `Coverage`. A program that reaches TracePoint only by a name in a string or a symbol (`Object.const_get("TracePoint")`), or in an eval's code, needs this flag; without it, its code fires no events, and zr warns when it enables a TracePoint. |
 | `--print-gems` | no | yes | After the build, prints the gems that the output was built with, as `zr inspect` does. |
 | `-h`, `--help` | yes | yes | Prints the help for the command. |
+
+## `zr` as a ruby
+
+`zr` takes ruby's command line when its first word names no command and
+is a switch, `-`, a file, or a name that ends in `.rb`. With no words,
+it reads the program from standard input, unless standard input is a
+terminal (then it prints the usage and exits with status 2).
+
+```sh
+zr app.rb a b                        # the same as `zr run app.rb a b`
+zr -e 'p ARGV' -- -x y               # $0 and __FILE__ are "-e"
+echo 'p 1' | zr                      # $0 and __FILE__ are "-"
+zr -lane 'print $F.last' input.txt
+zr -i.bak -pe '$_.upcase!' notes.txt
+zr -Ilib -rapp -w script.rb
+```
+
+A command's name always wins: run a script named `build` as
+`zr ./build` or `zr -- build`. zr reads the switches as ruby 4.0.7 does,
+in order, up to the script's name, `-` or `--`; a cluster such as
+`-lane` is one switch per letter. It also reads the switches on the
+script's first line when that line starts with `#!` and names ruby
+(`#!/usr/bin/env ruby -w`), also for `zr run` and `zr build`.
+
+| Switch | Effect |
+|---|---|
+| `-e code` | The program is each `-e` as a line. Every word after the switches goes to `ARGV`. |
+| `-n`, `-p`, `-a`, `-l` | The `while gets` loop around the program (`-p` prints `$_`), `$F = $_.split`, and a chomped `$_` with `$\ = $/`. The program's `BEGIN` blocks run once, before the loop. |
+| `-0[octal]`, `-F pattern` | `$/` and `$;`. |
+| `-i[ext]` | `ARGF` edits each file in place, with a backup named `<file><ext>`, or none for `-i`. |
+| `-s` | Each word of `ARGV` up to the first that does not start with `-` (or up to `--`) sets a global: `-x` sets `$x` to true, `-name=value` sets `$name` to "value". |
+| `-I dir`, `-r library` | `$LOAD_PATH` starts with `dir`, and the program requires `library` before its first line. The build reads both. |
+| `-w`, `-W[0\|1\|2]`, `-W:[no-]category`, `-v`, `--verbose`, `-d` | `$VERBOSE`, the `Warning` categories and `$DEBUG`. `-v` also prints zr's version (`zr version`). |
+| `-E ext[:int]`, `-U`, `-K[esun]`, `--encoding`, `--external-encoding`, `--internal-encoding` | The default external and internal encodings. |
+| `-x[dir]` | The program starts at the first line that starts with `#!` and names ruby. |
+| `-C dir`, `-X dir` | zr changes to `dir` before it reads the script, and the program runs there. |
+| `-S` | Searches `RUBYPATH`, then `PATH`, for the script. |
+| `-c` | Prints `Syntax OK`, or ruby's syntax error and status 1, and runs nothing. |
+| `--enable`/`--disable` `gems`, `frozen-string-literal`, `all` | `--disable-gems` does not load rubygems as the program starts. `frozen-string-literal` is the default of every file without the magic comment. |
+| `--jit`, `--yjit`, `--zjit`, `-y`, `--parser=prism`, `--crash-report` | No effect: zr compiles the program ahead of time, with prism. |
+| `--dump`, `--parser=parse.y`, `--backtrace-limit` | Exit status 3: zr does not support them. |
+| `-h`, `--help`, `--version` | zr's help and version. |
+
+zr's own flags `--trace`, `--gem`, `--gemfile` and
+`--allow-runtime-require` can come before the script. A switch that ruby
+does not know stops zr as it stops ruby, with status 1:
+`zr: invalid option -q  (-h will show valid options) (RuntimeError)`.
+
+zr builds the program, runs it, and keeps the binary in the run cache,
+as `zr run` does. The cache keys a program from `-e` or standard input
+on its text and its switches, so the same command line runs the kept
+binary at once.
 
 ## `zr run [options] <file.rb> [args...]`
 

@@ -8,6 +8,8 @@ require_relative "../command"
 require_relative "../options"
 require_relative "../refusals"
 require_relative "../runner"
+require_relative "../ruby_options"
+require_relative "version"
 require_relative "gems"
 
 module Zr
@@ -26,17 +28,116 @@ module Zr
       class Compile < Command
         # @rbs @missed: Zr::Cache::Run?
         # @rbs @served: (^(String, Array[String], bool) -> Object?)?
+        # @rbs @options: RubyOptions?
+        # @rbs @given: [String, String]?
 
         #: () -> bool
         def reads_help? = true
 
-        # `run` or `build`, and its arguments.
+        # `run` or `build`, and its arguments. The script's shebang line can
+        # give ruby's switches, as for ruby (`RubyOptions#shebang!`).
         #: (Array[String] argv) -> void
         def run(argv)
           opts = Options.parse(name, argv)
           Refusals.pinned!
           input = opts[:input]
           abort "zr: no such file: #{input}" unless File.file?(input)
+          source = File.read(input)
+          compile(opts, source, input, RubyOptions.new.tap { |options| options.shebang!(source) }.switches)
+        end
+
+        # `zr` as a ruby (`CLI.start`): runs the program of -e, of a script
+        # or of standard input, with ruby's switches, as `ruby` would. What
+        # acts before the build is done here: -v, -C, -S, -x and -c.
+        # Raises RubyOptions::Invalid for a command line that ruby rejects.
+        #: (Array[String] argv) -> void
+        def ruby(argv)
+          options = @options || RubyOptions.parse(argv)
+          return CLI::Help.show if options.help?
+
+          options.warnings.each { |line| warn line }
+          Refusals.pinned!
+          if (why = options.refused)
+            warn "zr: #{why}"
+            exit REFUSED
+          end
+          puts Version::LINE if options.version || options.version_only
+          puts RUBY_COPYRIGHT if options.copyright
+          return unless options.runs?($stdin.tty?)
+
+          source, file = @given || given(options)
+          return syntax_check(source, file, options) if options.check
+
+          opts = Options.parse("run", [*options.zr, "--", file, *options.args])
+          compile(opts, source, file, options.switches)
+        end
+
+        # The program's text and its file name for ruby mode: -e's code
+        # (file "-e"), standard input (file "-") or the script, after -C
+        # and with -S's search. Reads the switches of its shebang line, or
+        # of the `#!ruby` line that -x looks for. Stops as ruby does when
+        # it cannot.
+        #: (RubyOptions options) -> [String, String]
+        def given(options)
+          options.chdirs.each do |dir|
+            # -C changes the directory of zr, which the program then runs in.
+            Dir.chdir(dir) # rubocop:disable ThreadSafety/DirChdir
+          rescue SystemCallError
+            fatal("Can't chdir to #{dir} (fatal)")
+          end
+          return [options.inline_source, "-e"] unless options.inline.empty?
+
+          name = options.script
+          source, file = if name.nil? || name == "-"
+                           [$stdin.read.to_s, "-"]
+                         else
+                           path = options.search ? searched(name) : name
+                           [File.read(path), path]
+                         end
+          line = options.xflag ? source.each_line.find { |text| text.start_with?("#!") && text.include?("ruby") } : source
+          fatal("no Ruby script found in input (LoadError)", prefix: file) unless line
+          options.shebang!(line)
+          [source, file]
+        rescue SystemCallError => e
+          # strerror's words, without what ruby's message adds after them.
+          fatal("#{e.message.sub(/ @ .*\z/m, "")} -- #{name} (LoadError)")
+        end
+
+        # -S: the script in RUBYPATH's directories, then PATH's, as ruby's
+        # dln_find_file_r. A name with a "/" is a path already.
+        #: (String name) -> String
+        def searched(name)
+          return name if name.include?("/")
+
+          dirs = [ENV.fetch("RUBYPATH", nil), ENV.fetch("PATH", nil)].compact.flat_map { |list| list.split(File::PATH_SEPARATOR) }
+          dirs.map { |dir| File.join(dir, name) }.find { |path| File.file?(path) } || name
+        end
+
+        # -c: "Syntax OK", or ruby's report of the syntax error and status 1.
+        #: (String source, String file, RubyOptions options) -> void
+        def syntax_check(source, file, options)
+          require_relative "../../parse"
+          require_relative "../../hir/syntax_report"
+          result = Zr.parse(source, filepath: file, **options.switches.parse_options(true))
+          return puts("Syntax OK") if result.errors.empty?
+
+          $stderr.write(Refusals.syntax_text("zr", Hir::SyntaxReport.error(result, file)))
+          exit 1
+        end
+
+        # Prints the line of an error before the program runs, as ruby
+        # does, and exits 1: after the program's name, or the script's.
+        #: (String line, ?prefix: String) -> bot
+        def fatal(line, prefix: "zr")
+          warn "#{prefix}: #{line}"
+          exit 1
+        end
+
+        # The build and the run of a program: `source`, the text of the
+        # file `input` ("-e" or "-" for a program with no file), with the
+        # ruby switches `switches`.
+        #: (Hash[Symbol, untyped] opts, String source, String input, Hir::Switches switches) -> void
+        def compile(opts, source, input, switches)
           gems = Options.gem_set(opts)
 
           target = Options.target_for(opts[:triple], opts[:emit], name)
@@ -48,7 +149,12 @@ module Zr
           Paths.root = opts[:root]
           link = Config.current.link + opts[:link]
           trace = Options.trace?(opts)
-          cache = @missed || kept_run(input, target, link, opts[:args], gems) if name == "run" && emit.nil?
+          # The run cache's entry for a runtime of `digest`.
+          # @type var entry: ^(String) -> Zr::Cache::Run
+          entry = lambda do |digest|
+            Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest, link: link, gems: gems, trace: trace)
+          end
+          cache = @missed || kept_run(target, opts[:args], &entry) if name == "run" && emit.nil?
           require_relative "../../runtime"
           require_relative "../../native/build"
           # Under ruby, lib/zr/prism.rb turns the parse cache on. A compiled
@@ -56,7 +162,7 @@ module Zr
           # same files but never comes here, so it never writes to the cache.
           require_relative "../../cache/parse" unless HOSTED
           if name == "run" && emit.nil? && Zr::Cache::Run.wanted?
-            cache ||= Zr::Cache::Run.new(input, target: target, digest: Runtime.for(target).digest, link: link, gems: gems, trace: trace)
+            cache ||= entry.call(Runtime.for(target).digest)
           end
           # Only `zr build` notes a require that will raise LoadError when it
           # runs; `run` and `diff` print the program's output alone.
@@ -64,7 +170,7 @@ module Zr
                  elsif name == "build" then :warn
                  else true
                  end #: bool | :warn
-          program = lower(input, target, assemble: emit.nil?, gem_set: gems, gate: gate, trace: trace)
+          program = lower(input, target, source: source, switches: switches, assemble: emit.nil?, gem_set: gems, gate: gate, trace: trace)
           status = Paths.tmpdir("zr-build-") do |work|
             out = name == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
             case emit
@@ -96,13 +202,24 @@ module Zr
         # start (whose first start already looked).
         #: (Array[String] argv) -> void
         def kept!(argv)
-          return unless argv.first == "run" && !ENV.key?(GcTuning::ADDED) && !Host.compiled?
+          ruby = CLI.ruby_mode?(argv)
+          return unless (argv.first == "run" || ruby) && !ENV.key?(GcTuning::ADDED) && !Host.compiled?
 
           require_relative "../../cache/run"
-          return unless Zr::Cache::Run.wanted?
+          return unless Zr::Cache::Run.wanted? && Refusals.host_refusal.nil?
 
-          opts = Options.parse("run", argv.drop(1))
-          return if opts[:emit] || opts[:triple] || Refusals.host_refusal || !File.file?(opts[:input])
+          if ruby
+            found = kept_ruby(argv) or return
+            opts, source, input, switches = found
+          else
+            opts = Options.parse("run", argv.drop(1))
+            input = opts[:input]
+            return unless File.file?(input)
+
+            source = File.read(input)
+            switches = RubyOptions.new.tap { |options| options.shebang!(source) }.switches
+          end
+          return if opts[:emit] || opts[:triple]
 
           target = Target.default
           return unless target.runs_here? && target.refusal(nil).nil?
@@ -111,8 +228,8 @@ module Zr
           # A set that does not resolve goes on to the build, which says why.
           gems = kept_gems(opts) or return
           digest = RuntimeSources.for(target).runtime_digest or return
-          cache = Zr::Cache::Run.new(opts[:input], target: target, digest: digest, link: Config.current.link + opts[:link], gems: gems,
-                                                        trace: Options.trace?(opts))
+          cache = Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest,
+                                            link: Config.current.link + opts[:link], gems: gems, trace: Options.trace?(opts))
           kept = cache.hit
           exec(GcTuning.program_env, [kept, kept], *opts[:args]) if kept
           # The build keeps its binary here, with no second digest.
@@ -121,13 +238,23 @@ module Zr
 
         # A binary's functions are assembled as they are lowered, so the IR of
         # a large program is never all in memory at once (`Native::Build.lower`).
-        # Returns a `Zr::Program`.
-        #: (String input, Target target, ?assemble: bool, ?gem_set: GemSet?, ?gate: bool | :warn, ?trace: bool) -> Program
-        def lower(input, target, assemble: false, gem_set: nil, gate: false, trace: false)
-          source = File.read(input)
-          return Program.build(source, input, target: target, gem_set: gem_set, gate: gate, trace: trace) unless assemble
+        # Returns a `Zr::Program`. `source` is the text of `input`, which
+        # ruby mode gives for a program with no file.
+        # @rbs input: String
+        # @rbs target: Target
+        # @rbs source: String
+        # @rbs switches: Hir::Switches
+        # @rbs assemble: bool
+        # @rbs gem_set: GemSet?
+        # @rbs gate: bool | :warn
+        # @rbs trace: bool
+        # @rbs return: Program
+        def lower(input, target, source: File.read(input), switches: Hir::Switches::NONE, assemble: false, gem_set: nil, gate: false, trace: false)
+          unless assemble
+            return Program.build(source, input, target: target, gem_set: gem_set, gate: gate, trace: trace, switches: switches)
+          end
 
-          Native::Build.lower(source, input, target: target, sources: name == "run", gem_set: gem_set, gate: gate, trace: trace)
+          Native::Build.lower(source, input, target: target, sources: name == "run", gem_set: gem_set, gate: gate, trace: trace, switches: switches)
         rescue Refused => e
           warn Refusals.refusal_report(e)
           exit REFUSED
@@ -141,7 +268,9 @@ module Zr
           # 1. The binary does the same, with ruby's own report. In ruby, a
           # required file that does not parse raises when the require runs.
           # zr does not support this, so it refuses.
-          report = Refusals.syntax_report(input)
+          # A program with no file: ruby's report has no syntax_suggest part.
+          given = !File.file?(input) && e.respond_to?(:path) && e.path == input
+          report = given ? Refusals.syntax_text(input, e) : Refusals.syntax_report(input)
           unless report
             warn "zr: a required file does not parse: #{e.message.lines.first.chomp}"
             exit REFUSED
@@ -204,6 +333,27 @@ module Zr
           Runner.run_binary(out, rest)
         end
 
+        # Ruby mode's program for `kept!`: the options of `zr run`, the text,
+        # the file and the switches. It reads the program now (after -C),
+        # and `ruby` uses what it read. nil for a command line that does
+        # not run a program from the cache: -v and -c print, and an error
+        # is for `ruby` to report.
+        #: (Array[String] argv) -> [Hash[Symbol, untyped], String, String, Hir::Switches]?
+        def kept_ruby(argv)
+          options = RubyOptions.parse(argv)
+          return nil if options.refused || options.check || options.version || options.version_only || options.copyright || options.help?
+          return nil unless options.runs?($stdin.tty?)
+
+          # ruby warns as it reads the switches, before the program runs.
+          options.warnings.each { |line| warn line }
+          options.warnings.clear
+          @options = options
+          source, file = @given = given(options)
+          [Options.parse("run", [*options.zr, "--", file, *options.args]), source, file, options.switches]
+        rescue RubyOptions::Invalid
+          nil
+        end
+
         # The GemSet of a `zr run` before the build, or nil when it does not
         # resolve.
         #: (Hash[Symbol, untyped] opts) -> GemSet?
@@ -218,13 +368,14 @@ module Zr
         # cache, and zr exits as it does. This loads only the digests, not the
         # compiler. Returns the cache for the build otherwise, or nil when zr
         # needs a build to know the runtime's digest.
-        #: (String input, Target target, Array[String] link, Array[String] args, GemSet gems) -> Zr::Cache::Run?
-        def kept_run(input, target, link, args, gems)
+        # The block gives the cache's entry for the runtime's digest.
+        #: (Target target, Array[String] args) { (String) -> Zr::Cache::Run } -> Zr::Cache::Run?
+        def kept_run(target, args)
           require_relative "../../cache/run"
           return nil unless Zr::Cache::Run.wanted?
 
           digest = RuntimeSources.for(target).runtime_digest or return nil
-          cache = Zr::Cache::Run.new(input, target: target, digest: digest, link: link, gems: gems)
+          cache = yield(digest)
           kept = cache.hit
           Runner.exit_as(Runner.run_binary(kept, args)) if kept
           cache

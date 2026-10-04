@@ -55,6 +55,21 @@ eval, to_binary and each_child as ruby does" tests the parts of
 | Threads | green: every thread runs on one OS thread, and a switch happens where a thread blocks or at a safe point once the 100 ms timer fires. `Thread#priority` is kept and read back, but does not change the order. A call into C code (FFI, Fiddle, a port's library call) blocks every thread until it returns. | threads run under the GVL, one at a time, and a blocking C call releases it; the timeslice shrinks or grows with the priority |
 | How deep Ruby code recurses before `SystemStackError` | about 250,000 frames of a plain method on the main thread, as Ruby frames are native frames on a stack that the system grows as it is used; a thread or a fiber has a 64 MiB stack (`FIBER_STACK_BYTES`, lib/zr/runtime/kernel/fiber.rb) | about 10,000, from a 1 MiB VM stack. The error, its message and the backtrace's form are the same; the `... N levels...` count in an uncaught error's report differs with the depth. |
 
+## The command line
+
+`zr` takes ruby's switches ([`zr` as a ruby](cli.md#zr-as-a-ruby)).
+These give other output than ruby's:
+
+| What | zr | ruby 4.0.7 |
+|---|---|---|
+| `-v`, `--version` | zr's version, `zr 0.1.0 (for ruby 4.0.7)` | `RUBY_DESCRIPTION` |
+| `-h`, `--help` | zr's usage | ruby's list of switches |
+| `--disable=did_you_mean`, `error_highlight`, `syntax_suggest` | no effect: every program loads them as it starts | the program starts without them |
+| `RUBYOPT` | not read: zr's own ruby reads it | its switches come after the command line's |
+| `-d` | the program's own exceptions | also the `LoadError`s that rubygems' boot rescues, because ruby loads rubygems before every program and zr only before one that uses it |
+| `-r` of a library that no directory has | the `LoadError` comes from the prelude that runs the switches | the `LoadError` comes from `Kernel#require` in rubygems |
+| `$-i` and `ARGF.inplace_mode` | two values: `-i` sets both, and an assignment sets only its own | one value |
+
 ## Library versions
 
 zr carries the pure-Ruby files of ruby 4.0.7's default and bundled gems

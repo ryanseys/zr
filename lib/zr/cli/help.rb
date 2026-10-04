@@ -10,10 +10,12 @@ module Zr
     module Help
       USAGE = <<~TEXT.freeze
         Usage: zr <command> [options]
+               zr [ruby switches] [--] [<file.rb> | -] [args...]
 
         Commands:
           run <file.rb> [args...]     compile a program, run it, then delete the build
           build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
+                                      (`compile` is another name)
           gems [<file.rb>]            list the gems that a build reads, and their sources
           inspect <binary>            print the gems that a binary was built with
           diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
@@ -21,6 +23,11 @@ module Zr
           cache [path|size|clean]     show or clean the build cache
           version                     print the version
           help [<command>]            print help for zr or for one command
+
+        Any other first word runs zr as a ruby, with ruby's switches (-e, -n,
+        -p, -I, -r, -w and the others): `zr app.rb args`, `zr -e 'p 1'`, or a
+        program on standard input. A command's name always wins: run a script
+        named like one as `zr ./build`.
 
         Exit status: 0 success; 1 error; 2 usage error or a bad ZR_* value;
         3 zr does not support the program, the target or this ruby; 130 Ctrl-C.

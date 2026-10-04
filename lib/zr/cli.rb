@@ -11,6 +11,7 @@ require_relative "cli/help"
 require_relative "cli/options"
 require_relative "cli/refusals"
 require_relative "cli/runner"
+require_relative "cli/ruby_options"
 require_relative "cli/command"
 require_relative "cli/commands/cache"
 require_relative "cli/commands/compile"
@@ -27,7 +28,11 @@ module Zr
   # benchmarks, generated tables) are rake tasks.
   #
   # Each word that `zr` takes first is a command (lib/zr/cli/commands/):
-  # `CLI.start` finds its class in `COMMANDS` and runs it. The process's
+  # `CLI.start` finds its class in `COMMANDS` and runs it. Any other first
+  # word that is a switch, `-`, a file or a name that ends in `.rb` runs
+  # zr as a ruby (`ruby_mode?`): `zr app.rb args`, `zr -e 'p 1'`. A
+  # command's name always wins, so a script named like one runs as
+  # `zr ./build` or `zr -- build`. The process's
   # entry points (`start`, `guard`, `kept!`, `served!`, `tune!`,
   # `run_binary` and `exit_as`) are the calls that `exe/zr` and the build
   # server (lib/zr/server.rb) make.
@@ -52,6 +57,9 @@ module Zr
       "cache" => Commands::Cache
     }.freeze #: Hash[String, singleton(Command)]
 
+    # Other names of commands.
+    ALIASES = { "compile" => "build" }.freeze #: Hash[String, String]
+
     # The commands that compile.
     COMPILE = COMMANDS.select { |_, command| command == Commands::Compile }.keys.freeze #: Array[String]
 
@@ -69,8 +77,11 @@ module Zr
     # after it.
     #: (Array[String] argv) -> void
     def start(argv)
+      return ruby(argv) if ruby_mode?(argv)
+
       args = argv.dup
       verb = args.shift
+      verb = ALIASES.fetch(verb, verb) if verb
       verb = "version" if %w[--version -v].include?(verb)
       verb = "help" if Help::FLAGS.include?(verb)
       return unknown_verb(verb) unless COMMANDS.key?(verb)
@@ -84,6 +95,43 @@ module Zr
       end
       Errors.usage_error("unexpected argument '#{args.first}'", known) if handler.plain? && !args.empty?
       handler.run(args)
+    end
+
+    # Whether `argv` runs zr as a ruby: its first word names no command and
+    # is a switch, `-`, a file or a name that ends in `.rb`. With no word,
+    # zr reads the program from standard input, unless it is a terminal.
+    #: (Array[String] argv, ?tty: bool) -> bool
+    def ruby_mode?(argv, tty: $stdin.tty?)
+      word = argv.first
+      return !tty if word.nil?
+      return false if COMMANDS.key?(word) || ALIASES.key?(word) || Help::FLAGS.include?(word) || word == "--version"
+
+      word.start_with?("-") || word.end_with?(".rb") || File.file?(word)
+    end
+
+    # Runs zr as a ruby (`Commands::Compile#ruby`). A command line that
+    # ruby rejects ends as ruby ends it: one line and status 1.
+    #: (Array[String] argv) -> void
+    def ruby(argv)
+      run = command("run") #: Commands::Compile
+      run.ruby(argv)
+    rescue RubyOptions::Invalid => e
+      warn "zr: #{e.message} (RuntimeError)"
+      exit 1
+    end
+
+    # Whether the command line compiles, so `exe/zr` tunes the collector
+    # for it (`tune!`). That can start zr again with the same words, so
+    # ruby mode tunes only when the words give the same program again:
+    # not for standard input, which is read, and not after -C.
+    #: (Array[String] argv) -> bool
+    def compiles?(argv)
+      return COMPILE.include?(ALIASES.fetch(argv.first.to_s, argv.first.to_s)) unless ruby_mode?(argv)
+
+      options = RubyOptions.parse(argv)
+      options.runs?($stdin.tty?) && !options.check && options.chdirs.empty? && !(options.inline.empty? && [nil, "-"].include?(options.script))
+    rescue RubyOptions::Invalid
+      false
     end
 
     # The command for `verb`. The process keeps it, so a compile command

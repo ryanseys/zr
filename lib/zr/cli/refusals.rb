@@ -120,6 +120,15 @@ module Zr
         lines.join("\n")
       end
 
+      # ruby's report of a syntax error, as its error_print writes it: the
+      # message's first line after `prefix` (the script's name, or the
+      # program's for -c) and the class, then the lines that show where.
+      #: (String prefix, Exception error) -> String
+      def syntax_text(prefix, error)
+        first, rest = error.message.split("\n", 2)
+        "#{prefix}: #{first} (#{error.class})\n#{rest}\n"
+      end
+
       # ruby's report for `input`, which does not parse, or nil when it
       # parses (then a file that it requires did not). The host ruby writes
       # it, without gems, so no other version of syntax_suggest is loaded.

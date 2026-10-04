@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# zr: a Ruby compiler, written in Ruby. `zr help` lists the commands.
+# zr: a Ruby compiler, written in Ruby. `zr help` lists the commands, and
+# `zr app.rb` or `zr -e 'p 1'` runs a program as ruby does.
 #
 # Use require_relative, not require: the collector tuning starts this file
 # again, and it must load this same copy of zr. A `zr run` whose binary
@@ -17,6 +18,6 @@ Zr::CLI.guard do
   require_relative "../lib/zr/server"
   Zr::Server.hand_to(ARGV)
 
-  Zr::CLI.tune!(__FILE__, later: true) if Zr::CLI::COMPILE.include?(ARGV.first)
+  Zr::CLI.tune!(__FILE__, later: true) if Zr::CLI.compiles?(ARGV)
   Zr::CLI.start(ARGV)
 end

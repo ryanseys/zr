@@ -164,14 +164,16 @@ class CliParseTest < Minitest::Test
   end
 
   def test_an_unknown_command_exits_2
-    _, err = assert_exit(2) { CLI.start(%w[compile app.rb]) }
+    _, err = assert_exit(2) { CLI.start(%w[frobnicate app.rb]) }
 
-    assert_equal "zr: unknown command 'compile'\nRun 'zr help' for usage.\n", err
+    assert_equal "zr: unknown command 'frobnicate'\nRun 'zr help' for usage.\n", err
   end
 
+  # An option is ruby's (lib/zr/cli/ruby_options.rb), and ruby rejects an
+  # unknown one with status 1.
   def test_an_unknown_option_or_a_near_command_says_so
-    _, err = assert_exit(2) { CLI.start(%w[--frob]) }
-    assert_equal "zr: unknown option '--frob'\nRun 'zr help' for usage.\n", err
+    _, err = assert_exit(1) { CLI.start(%w[--frob]) }
+    assert_equal "zr: invalid option --frob  (-h will show valid options) (RuntimeError)\n", err
 
     { "biuld" => "build", "rn" => "run", "doctr" => "doctor", "gemss" => "gems" }.each do |typo, name|
       _, err = assert_exit(2) { CLI.start([typo]) }
@@ -212,10 +214,17 @@ class CliParseTest < Minitest::Test
     assert_equal "zr #{Zr::VERSION} (for ruby #{Zr::RUBY})\n", capture_io { CLI.start(%w[-v]) }.first
   end
 
+  # With a terminal for standard input. Otherwise zr reads the program
+  # from it, as ruby does.
   def test_no_command_prints_the_usage_on_stderr_and_exits_2
+    terminal = StringIO.new.tap { |io| io.define_singleton_method(:tty?) { true } }
+    stdin = $stdin
+    $stdin = terminal
     _, err = assert_exit(2) { CLI.start([]) }
 
     assert_match(/\AUsage: zr <command>/, err)
+  ensure
+    $stdin = stdin
   end
 
   def test_help_for_a_command_prints_its_options_and_exits_0
