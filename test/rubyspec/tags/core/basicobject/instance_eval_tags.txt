@@ -1,20 +1,9 @@
 hangs:BasicObject#instance_eval evaluates procs originating from methods
-fails:BasicObject#instance_eval evaluates string with given filename and linenumber
 fails:BasicObject#instance_eval evaluates string with given filename and negative linenumber
-fails:BasicObject#instance_eval has access to the caller's local variables
-fails:BasicObject#instance_eval converts string argument with #to_str method
 fails:BasicObject#instance_eval raises ArgumentError if returned value is not String
-fails:BasicObject#instance_eval converts filename argument with #to_str method
-fails:BasicObject#instance_eval converts lineno argument with #to_int method
 fails:BasicObject#instance_eval raises ArgumentError if returned value is not Integer
-fails:BasicObject#instance_eval constants lookup when a String given looks in the receiver singleton class first
 fails:BasicObject#instance_eval constants lookup when a String given looks in the receiver class next
-fails:BasicObject#instance_eval constants lookup when a String given looks in the caller class next
-fails:BasicObject#instance_eval constants lookup when a String given looks in the caller outer scopes next
-fails:BasicObject#instance_eval constants lookup when a String given looks in the receiver class hierarchy next
 fails:BasicObject#instance_eval class variables lookup gets class variables in the caller class when called with a String
-fails:BasicObject#instance_eval class variables lookup gets class variables in the block definition scope when called with a block
 fails:BasicObject#instance_eval class variables lookup sets class variables in the caller class when called with a String
-fails:BasicObject#instance_eval class variables lookup sets class variables in the block definition scope when called with a block
 fails:BasicObject#instance_eval class variables lookup does not have access to class variables in the receiver class when called with a String
 fails:BasicObject#instance_eval class variables lookup does not have access to class variables in the receiver's singleton class when called with a String

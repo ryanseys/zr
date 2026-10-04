@@ -1,5 +1,3 @@
-fails:Module#define_method converts non-String name to String with #to_str
-fails:Module#define_method raises TypeError when #to_str called on non-String name returns non-String value
 fails:Module#define_method raises a TypeError when a Method from a singleton class is defined on another class
 fails:Module#define_method raises a TypeError when an UnboundMethod from a singleton class is defined on another class
 fails:Module#define_method when passed a Proc object and a method is defined inside defines the nested method in the default definee where the Proc was created

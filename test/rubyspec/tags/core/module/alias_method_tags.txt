@@ -1,6 +1,4 @@
 fails:Module#alias_method creates methods that are == to each other
-fails:Module#alias_method converts the names using #to_str
-fails:Module#alias_method raises a NoMethodError if the given name raises a NoMethodError during type coercion using to_str
 fails:Module#alias_method aliasing special methods keeps initialize private when aliasing
 fails:Module#alias_method aliasing special methods keeps initialize_copy private when aliasing
 fails:Module#alias_method aliasing special methods keeps initialize_clone private when aliasing

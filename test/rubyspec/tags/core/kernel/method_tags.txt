@@ -1,3 +1,1 @@
 fails:Kernel#method will see an alias of the original method as == when in a derived class
-fails:Kernel#method converts the given name to a String using #to_str calls #to_str to convert the given name to a String
-fails:Kernel#method converts the given name to a String using #to_str raises a NoMethodError if the given argument raises a NoMethodError during type coercion to a String

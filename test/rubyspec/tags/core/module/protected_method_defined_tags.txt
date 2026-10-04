@@ -1,1 +1,0 @@
-fails:Module#protected_method_defined? calls #to_str to convert an Object

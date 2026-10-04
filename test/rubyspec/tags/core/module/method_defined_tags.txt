@@ -1,2 +1,0 @@
-fails:Module#method_defined? raises a TypeError when the given object is not a string/symbol
-fails:Module#method_defined? converts the given name to a string using to_str
