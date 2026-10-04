@@ -714,6 +714,8 @@ class Time
   alias xmlschema iso8601
 
   def deconstruct_keys(keys)
+    raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.nil? || keys.is_a?(Array)
+
     all = { year: year, month: month, day: day, yday: yday, wday: wday,
             hour: hour, min: min, sec: sec, subsec: subsec, dst: dst?, zone: zone }
     return all if keys.nil?

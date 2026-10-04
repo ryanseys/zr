@@ -43,7 +43,8 @@ module ObjectSpace
     # wmap_each and its kin yield with no enumerator: no block is a
     # LocalJumpError.
     def each(&block)
-      raise LocalJumpError, +"no block given" unless block
+      raise LocalJumpError, +"no block given" unless block || @table.empty?
+      return self unless block
 
       @table.each(&block)
       self
@@ -51,14 +52,16 @@ module ObjectSpace
     alias each_pair each
 
     def each_key(&block)
-      raise LocalJumpError, +"no block given" unless block
+      raise LocalJumpError, +"no block given" unless block || @table.empty?
+      return self unless block
 
       @table.each_key(&block)
       self
     end
 
     def each_value(&block)
-      raise LocalJumpError, +"no block given" unless block
+      raise LocalJumpError, +"no block given" unless block || @table.empty?
+      return self unless block
 
       @table.each_value(&block)
       self
@@ -94,7 +97,9 @@ module ObjectSpace
     def [](key) = @table[key]
 
     def []=(key, value)
-      raise ArgumentError, +"WeakKeyMap keys must be garbage collectable" if UNCOLLECTABLE.any? { |kind| key.is_a?(kind) }
+      # wkmap_aset hashes the key first, which a BasicObject cannot.
+      key.hash
+      raise ArgumentError, +"WeakKeyMap keys must be garbage collectable" if UNCOLLECTABLE.any? { |kind| kind === key }
 
       @table[key] = value
     end
@@ -204,6 +209,7 @@ module ObjectSpace
   # constant; any other names a cell. With more than one ractor, only a
   # shareable object comes back.
   def _id2ref(id)
+    Warning.send(:deprecated, "ObjectSpace._id2ref is deprecated")
     id = to_integer(id)
     # NUM2PTR: an id of eight bytes or fewer must fit a pointer.
     raise RangeError, "bignum out of range of unsigned long" if id < -(2**63) && id > -(2**64)

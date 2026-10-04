@@ -1127,6 +1127,9 @@ class Fiber
 
     def storage_key(key)
       return key.to_sym if key.is_a?(String)
+      # rb_check_id: what to_str gives.
+      text = String.try_convert(key) unless key.is_a?(Symbol)
+      return text.to_sym if text
       raise TypeError, "#{key.inspect} is not a symbol nor a string" unless key.is_a?(Symbol)
 
       key
@@ -1303,6 +1306,8 @@ class Thread::Mutex
   # nil when the timeout ran out.
   def sleep(timeout = nil)
     Primitive.attr! :ruby
+    # The duration is checked before the lock is released.
+    Thread.send(:interval, timeout) unless timeout.nil?
     unlock
     begin
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)

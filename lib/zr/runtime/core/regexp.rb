@@ -30,7 +30,8 @@ class Regexp
       options = source.options
       source = source.source
     end
-    raise TypeError, "no implicit conversion of #{conversion_name(source)} into String" unless source.is_a?(String)
+    # reg_init_args: StringValue of anything else.
+    source = Primitive.zr_str_operand(source) unless source.is_a?(String)
 
     Regexp.send(:seat, self, source, Regexp.send(:option_bits, options), warns: !copied)
     Primitive.zr_regexp_limit_set(self, Regexp.send(:nanoseconds, timeout))
@@ -50,7 +51,15 @@ class Regexp
         bits |= { "i" => IGNORECASE, "x" => EXTENDED, "m" => MULTILINE }.fetch(c) { raise ArgumentError, "unknown regexp option: #{options}" }
       end
       bits
-    else raise TypeError, "no implicit conversion of #{conversion_name(options)} into Integer"
+    else
+      # reg_extract_args: a String spelling, else any other value is a
+      # flag for ignorecase (rb_bool_expected warns under $VERBOSE).
+      if (text = String.try_convert(options))
+        return option_bits(text)
+      end
+
+      Primitive.zr_warn_here_m("expected true or false as ignorecase: #{options.inspect}") if $VERBOSE
+      IGNORECASE
     end
   end
   private_class_method :option_bits
@@ -450,7 +459,8 @@ class Regexp
 
   alias eql? ==
 
-  def hash = [source, options].hash
+  # rb_reg_hash: the /n flag does not count.
+  def hash = [source, options & ~NOENCODING].hash
 
   def to_s = Pattern.str_with_term(pattern, encoding, options, "/")
 
@@ -513,7 +523,9 @@ class Regexp
     result && Primitive.zr_str_byte_to_char(result.send(:text), result.send(:position))
   end
 
+  # reg_operand: a Symbol's name, or what to_str gives.
   def ===(text)
+    text = String.try_convert(text) || text unless text.is_a?(String) || text.is_a?(Symbol)
     unless text.is_a?(String) || text.is_a?(Symbol)
       Primitive.zr_backref_set(nil)
       return false
@@ -533,6 +545,7 @@ class Regexp
   # False for what memoization cannot cover: backreferences, subexp
   # calls and the absence operator.
   def self.linear_time?(regexp, options = nil, timeout: nil)
+    Primitive.zr_warn_here_m("flags ignored") if regexp.is_a?(Regexp) && !options.nil?
     regexp = new(regexp, options) unless regexp.is_a?(Regexp)
     !backref?(regexp.source, Primitive.zr_regexp_captures(regexp))
   end
@@ -730,7 +743,7 @@ class MatchData
   # More keys than named groups return an empty Hash; a key with no
   # group ends the walk.
   def deconstruct_keys(keys)
-    raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.nil? || keys.is_a?(Array)
+    raise TypeError, "wrong argument type #{keys.class} (expected Array)" unless keys.nil? || keys.is_a?(Array)
 
     all = named_captures(symbolize_names: true)
     return all if keys.nil?

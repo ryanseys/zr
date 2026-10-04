@@ -140,6 +140,8 @@ class Binding
     Primitive.attr! :hidden
     return name if name.is_a?(Symbol)
     return name.to_sym if name.is_a?(String)
+    # rb_check_id: what to_str gives.
+    return String.try_convert(name).to_sym if String.try_convert(name)
 
     raise TypeError, "#{name.inspect} is not a symbol nor a string"
   end

@@ -1,0 +1,27 @@
+core/object/objects_and_regexps_check_as_cruby_does.rb:11: warning: ObjectSpace._id2ref is deprecated
+1: nil
+2: ObjectSpace::WeakMap
+3: ObjectSpace::WeakMap
+4: ObjectSpace::WeakMap
+5: ObjectSpace::WeakMap
+6: LocalJumpError: no block given
+7: 1
+8: NoMethodError: undefined method 'hash' for an instance of BasicObject
+9: true
+10: /a/i
+11: /abc/
+12: TypeError: can't convert Object to String (Object#to_str gives Integer)
+13: true
+core/object/objects_and_regexps_check_as_cruby_does.rb:27: warning: flags ignored
+14: true
+15: TypeError: wrong argument type Integer (expected Array or nil)
+16: [true, 5, 5]
+17: 1
+18: 2
+19: TypeError: wrong argument type Integer (expected Array)
+20: ArgumentError: time interval must not be negative
+21: ArgumentError: comparison of String with 0 failed
+22: TypeError: can't copy the root class
+23: 5
+24: NoMethodError
+25: [ThreadError]

@@ -211,6 +211,10 @@ module Zr::Kern
   # singleton methods.
   #: (value) -> value
   def zr_class_copy(orig)
+    # class_init_copy_check: BasicObject has no copy.
+    if orig == zr_global(G_BASIC_OBJECT)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy the root class"), 25)
+    end
     klass = zr_type(orig) == T_CLASS ? zr_global(G_CLASS) : zr_global(G_MODULE)
     copy = zr_class_alloc(zr_type(orig), RClass[orig].superclass, klass)
     from = RClass[orig].ext
@@ -292,6 +296,7 @@ module Zr::Kern
     end
     if zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE
       copy = zr_class_copy(recv)
+      return copy if copy == QUNDEF
     else
       r = zr_copy_allocatable(recv)
       return r if r == QUNDEF

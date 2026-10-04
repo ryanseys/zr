@@ -10,7 +10,11 @@ module Comparable
 
     begin
       c = self <=> other
-      !c.nil? && c == 0
+      # rb_cmpint: an Integer by its sign; anything else answers > 0, then < 0.
+      return false if c.nil?
+      return c == 0 if c.is_a?(Integer)
+
+      !(c > 0) && !(c < 0)
     ensure
       Primitive.zr_recursive_leave(self, :==)
     end
