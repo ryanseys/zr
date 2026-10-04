@@ -59,28 +59,55 @@ module Zr
         result
       end
 
-      # zr under ruby compiles the compiler once, to an object, with its own
-      # cache. This checks that the self-compile has no refusals, without
-      # a compiled binary. Stage 2 checks the bytes: the compiled compiler
-      # must build the same binary as ruby, which a build that depended on
-      # hash order or the time would not.
+      # zr under ruby compiles the compiler once. This checks that the
+      # self-compile has no refusals. Stage 2 checks the bytes: the compiled
+      # compiler must build the same binary as ruby, which a build that
+      # depended on hash order or the time would not.
       def one
         Dev.tune!
-        # After a failure, the work directory stays, so you can look at the
-        # object and the cache. After a pass, the task removes it.
-        work = Dir.mktmpdir("zr-stage1-")
-        puts "work (kept if this fails): #{work}"
-        cache = File.join(work, "cache")
-        FileUtils.mkdir_p(cache)
-        out = File.join(work, "zr.o")
-        env = BUILD_ENV.merge("ZR_CACHE" => cache)
-        step("self-compile -> #{out}") do
-          system(env, Dev.ruby, ZR, "build", ZR, "-o", out, "--emit", "obj", chdir: ROOT) or
-            fail!("the self-compile failed; its work is in #{work}")
+        zr = stage1!
+        puts "stage 1 passes: #{File.size(zr)} bytes of compiler, kept in #{zr}"
+      end
+
+      # Stage 1's binary, its cache and its stamp. They stay after a run, so
+      # stage 2 and later work (`tmp/stage1/zr build app.rb`) reuse them.
+      STAGE1 = Dev.path("tmp/stage1")
+      STAGE1_ZR = File.join(STAGE1, "zr")
+      STAMP = File.join(STAGE1, "zr.sources")
+      # What a self-compile reads: the compiler, the runtime, the vendored
+      # libraries and the locked gems.
+      SOURCES = %w[exe lib vendor Gemfile.lock].freeze
+
+      # Returns stage 1's binary: the kept one when it was built from these
+      # sources, else a new build. The cache stays between builds; its keys
+      # are the digests of what each entry was made from.
+      def stage1!
+        stamp = sources_stamp
+        if stamp && File.executable?(STAGE1_ZR) && File.file?(STAMP) && File.read(STAMP) == stamp
+          puts "stage 1: #{STAGE1_ZR} was built from these sources; it is used again"
+          return STAGE1_ZR
         end
-        puts "stage 1 passes: #{File.size(out)} bytes of compiler"
-        FileUtils.rm_rf(work)
-        puts "nothing is kept: #{work} is gone"
+
+        FileUtils.rm_f([STAGE1_ZR, STAMP])
+        FileUtils.mkdir_p(File.join(STAGE1, "cache"))
+        env = BUILD_ENV.merge("ZR_CACHE" => File.join(STAGE1, "cache"))
+        step("stage 1: ruby compiles the compiler -> #{STAGE1_ZR}") do
+          system(env, Dev.ruby, ZR, "build", ZR, "-o", STAGE1_ZR, chdir: ROOT) or fail!("stage 1 did not build")
+        end
+        # A source that changed during the build makes a binary of neither
+        # tree, so it gets no stamp and the next run builds again.
+        File.write(STAMP, stamp) if stamp && stamp == sources_stamp
+        STAGE1_ZR
+      end
+
+      # The git trees of SOURCES at HEAD, or nil when one of them has a
+      # change that is not committed (or this is not a checkout): then no
+      # stamp can name the sources.
+      def sources_stamp
+        status = Dev.git("status", "--porcelain", "--", *SOURCES) or return nil
+        return nil unless status.empty?
+
+        Dev.git("rev-parse", *SOURCES.map { |path| "HEAD:#{path}" })
       end
 
       # Stage 1 is the compiler compiled by zr under ruby. Stage 2 is the same
@@ -101,22 +128,17 @@ module Zr
       # `ZR_LINKER=cc`, `ld` writes a new UUID and signature for each link.
       def two
         Dev.tune!
-        stages = (1..2).map do |n|
-          dir = File.join(ROOT, "tmp/stage#{n}")
-          FileUtils.rm_rf(dir)
-          FileUtils.mkdir_p(File.join(dir, "cache"))
-          File.join(dir, "zr")
-        end
-        caches = stages.map { |path| BUILD_ENV.merge("ZR_CACHE" => File.join(File.dirname(path), "cache")) }
-
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        step("stage 1: ruby compiles the compiler -> #{stages[0]}") do
-          system(caches[0], Dev.ruby, ZR, "build", ZR, "-o", stages[0]) or
-            fail!("stage 1 did not build")
-        end
+        stages = [stage1!, Dev.path("tmp/stage2/zr")]
         puts "stage 1: #{File.size(stages[0])} bytes"
+
+        # Stage 2 starts from an empty cache, so the compiled compiler makes
+        # every entry itself.
+        dir = File.dirname(stages[1])
+        FileUtils.rm_rf(dir)
+        FileUtils.mkdir_p(File.join(dir, "cache"))
         step("stage 2: stage 1 compiles the compiler -> #{stages[1]}") do
-          system(caches[1], stages[0], "build", ZR, "-o", stages[1]) or
+          system(BUILD_ENV.merge("ZR_CACHE" => File.join(dir, "cache")), stages[0], "build", ZR, "-o", stages[1]) or
             fail!("stage 1 did not compile the compiler")
         end
 

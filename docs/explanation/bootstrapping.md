@@ -22,17 +22,23 @@ does. Then stage 1 builds stage 2 with the same decisions that stage 0
 made when it built stage 1, and the two binaries are the same bytes.
 This is a *fixed point*.
 
-zr compiles itself only to check itself. `zr-dev stage 2` builds stage 1
-in `tmp/stage1/zr` (`tool/stage.rb`), and `zr-dev compile --zr` builds
+zr compiles itself only to check itself. `zr-dev stage 1` and
+`zr-dev stage 2` build stage 1 in `tmp/stage1/zr` (`tool/stage.rb`), and `zr-dev compile --zr` builds
 it in `tmp/compile/zr` to time it (`tool/compile.rb`). The `zr` command
 does not use stage 1: ruby runs every command of `exe/zr`.
 
 ## What `stage 1` checks
 
-`zr-dev stage 1` runs stage 0 once, with a cache of its own, and
-compiles the compiler to an object. It checks that zr compiles its own
-source with no refusal, without a compiled binary, so it is fast
-enough to run after any change to the compiler.
+`zr-dev stage 1` runs stage 0 once and builds stage 1 in
+`tmp/stage1/zr`, with a cache of its own in `tmp/stage1/cache`. It
+checks that zr compiles its own source with no refusal.
+
+The binary and the cache stay after the run. A stamp,
+`tmp/stage1/zr.sources`, names the git trees of `exe`, `lib`, `vendor`
+and `Gemfile.lock` that the binary was built from. When those paths
+have no uncommitted change and the stamp matches, `zr-dev stage 1` and
+`zr-dev stage 2` use the binary again and do not build it. Only one
+`zr-dev stage` runs at a time (`tmp/stage.lock`).
 
 Stage 1 does not compare bytes. Stage 2 does: if a build depended on
 hash order, object addresses, the time, or the order in which a

@@ -213,8 +213,8 @@ See [How to measure performance](../how-to/measure-performance.md).
 
 | Command | Does |
 |---|---|
-| `zr-dev stage 1` | Compiles the compiler (`exe/zr`) to an object once, with a cache of its own, and passes if the build has no refusal. |
-| `zr-dev stage 2` | Builds `exe/zr` with ruby, then builds it again with that binary (`tmp/stage1/zr build exe/zr`), and compares the two binaries. It takes about ten minutes and 5 GB of memory. |
+| `zr-dev stage 1` | Builds the compiler (`exe/zr`) with ruby into `tmp/stage1/zr`, and passes if the build has no refusal. It keeps the binary, and uses it again while `exe`, `lib`, `vendor` and `Gemfile.lock` are the committed trees that it was built from. |
+| `zr-dev stage 2` | Builds `exe/zr` with ruby (or uses stage 1's kept binary), then builds it again with that binary (`tmp/stage1/zr build exe/zr`) into `tmp/stage2/zr`, and compares the two binaries. Both binaries stay. It takes about ten minutes and 5 GB of memory. |
 
 See [Bootstrapping](../explanation/bootstrapping.md).
 
