@@ -623,7 +623,7 @@ class Numeric
       numeric = (limit.nil? || limit.is_a?(Numeric)) && step.is_a?(Numeric)
       return Enumerator::ArithmeticSequence.for(self, :step, args, kwargs, self, limit, step, false) if numeric
 
-      return to_enum(:step, limit, step)
+      return to_enum(:step, limit, step) { step_size(limit, step) }
     end
 
     stepping(limit, step, &block)
@@ -632,17 +632,33 @@ class Numeric
 
   private
 
+  # num_step_negative_p: an Integer's sign while Integer#< is ruby's
+  # own, else `step > 0` sent.
+  def step_descending?(step)
+    Primitive.attr! :hidden
+    if step.is_a?(Integer) && Primitive.zr_int_lt_basic_p then step < 0
+    elsif step.respond_to?(:>) then !step.public_send(:>, 0)
+    else raise TypeError, "#{step.class} can't be coerced into Integer"
+    end
+  end
+
+  # num_step_size over values that are not all numbers, as
+  # ruby_num_interval_step_size counts them.
+  def step_size(limit, step)
+    Primitive.attr! :hidden
+    descending = step_descending?(step)
+    return Float::INFINITY if limit.nil? || Primitive.zr_rb_equal(step, 0)
+    return 0 if descending ? self < limit : self > limit
+
+    (limit - self).div(step) + 1
+  end
+
   # num_step's walk: a missing limit is an infinite one in the step's
   # direction, a Float anywhere walks as ruby_float_step does, and any
   # other value is compared with the limit before each yield.
   def stepping(limit, step)
     Primitive.attr! :hidden
-    # num_step_negative_p: an Integer's sign while Integer#< is ruby's
-    # own, else `step > 0` sent.
-    descending = if step.is_a?(Integer) && Primitive.zr_int_lt_basic_p then step < 0
-                 elsif step.respond_to?(:>) then !step.public_send(:>, 0)
-                 else raise TypeError, "#{step.class} can't be coerced into Integer"
-                 end
+    descending = step_descending?(step)
     limit = descending ? -Float::INFINITY : Float::INFINITY if limit.nil?
     endless = Primitive.zr_rb_equal(step, 0) || (limit.is_a?(Float) && limit.infinite? && (limit.negative? ? descending : !descending))
     whole = is_a?(Integer) && step.is_a?(Integer) && (endless || limit.is_a?(Integer))

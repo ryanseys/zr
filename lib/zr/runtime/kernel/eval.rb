@@ -28,6 +28,12 @@ module Zr::Kern
   # Runs the block with `self_` as self and `klass` as the definee.
   #: (value, value, value, word, ptr) -> value
   def zr_yield_under(blk, self_, klass, argc, argv)
+    # A native Proc (of a Method, a Symbol or an enumerator stage) keeps
+    # its data where a block keeps its self, and runs as it is: the self
+    # of instance_exec does not reach it.
+    if RProc[blk].meta == 0
+      return Block.call(RProc[blk].fn, blk, argc, argv, Machine.value(QNIL))
+    end
     c = zr_cref_push_eval(klass, RProc[blk].cref)
     # An object that can have a singleton class gets one only when the
     # block needs it, as in ruby's instance_exec.

@@ -574,11 +574,13 @@ module Marshal
     end
 
     # A regexp and a `_dump` payload need their encoding before they can be
-    # built, so both read their own bytes, then their own ivars.
+    # built, so both read their own bytes, then their own ivars. A regexp
+    # takes its place in the links first (r_prepare); what `_load` builds
+    # takes the next place after the ivars (r_entry).
     def deferred(tag)
       @pos += 1
       here = @objects.size
-      @objects << nil
+      @objects << nil if tag == REGEXP
       klass = tag == USRDEF ? constant(symbol_or_link, Class) : nil
       payload = text
       options = tag == REGEXP ? byte : nil
@@ -586,6 +588,8 @@ module Marshal
       built = tag == REGEXP ? Regexp.new(payload, options) : loaded(klass, payload)
       # A Regexp takes the ivars that were dumped with it.
       payload.instance_variables.each { |name| built.instance_variable_set(name, payload.instance_variable_get(name)) } if tag == REGEXP
+      return keep(built) unless tag == REGEXP
+
       @objects[here] = built
       built
     end

@@ -53,6 +53,11 @@ class Module
     end
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless (1..3).cover?(args.size)
 
+    # eval_under: the source and the file name are Strings, and the
+    # line is a C int.
+    args[0] = Primitive.zr_str_operand(args[0])
+    args[1] = Primitive.zr_str_operand(args[1]) unless args[1].nil?
+    args[2] = Primitive.zr_index_operand_m(args[2]) unless args[2].nil?
     name = args[1] || Primitive.zr_eval_source_name
     code = Zr::Eval.current.compile(args[0], name, args[2] || 1, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters)
     Primitive.zr_trace_script_compiled(args[0], name, args[2] || 1)
@@ -77,6 +82,11 @@ class BasicObject
       ::Kernel.raise ::ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)"
     end
 
+    # eval_under: the source and the file name are Strings, and the
+    # line is a C int.
+    args[0] = Primitive.zr_str_operand(args[0])
+    args[1] = Primitive.zr_str_operand(args[1]) unless args[1].nil?
+    args[2] = Primitive.zr_index_operand_m(args[2]) unless args[2].nil?
     name = args[1] || Primitive.zr_eval_source_name
     code = ::Zr::Eval.current.compile(args[0], name, args[2] || 1, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters)
     Primitive.zr_trace_script_compiled(args[0], name, args[2] || 1)

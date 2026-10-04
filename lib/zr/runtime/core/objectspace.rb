@@ -131,11 +131,25 @@ module ObjectSpace
     raise ArgumentError, "cannot define finalizer for #{obj.class}" if Primitive.zr_special_p_m(obj)
 
     Primitive.zr_frozen_error(obj) if obj.frozen?
+    # rb_callable_receiver: a finalizer that holds the object keeps it
+    # alive, which ruby warns about.
+    receiver = if Proc === callable then Primitive.zr_proc_self_m(callable)
+               elsif Method === callable then callable.receiver
+               end
+    Primitive.zr_warn_here_m("finalizer references object to be finalized") if receiver.equal?(obj)
     table = Primitive.zr_finalizers_m
     row = table[obj]
     if row.nil?
       row = [obj.object_id]
       table[obj] = row
+    end
+    # A finalizer equal to one already defined is not added again, and
+    # the call returns the one already there.
+    i = 1
+    while i < row.size
+      return [0, row[i]] if row[i] == callable
+
+      i += 1
     end
     row << callable
     [0, callable]

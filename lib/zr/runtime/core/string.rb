@@ -178,43 +178,60 @@ class String
 
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     value = args.pop
-    value = Primitive.zr_str_operand(value)
 
+    # rb_str_aset_m: the replacement converts only after the place it
+    # goes is found, as rb_str_subpat_set and rb_str_update check it.
     index = args[0]
     count = Primitive.zr_str_length_m(self)
-    case index
-    when Integer
-      start = index < 0 ? index + count : index
-      raise IndexError, "index #{index} out of string" if start < 0 || start > count
-
-      if args.size == 2
-        length = args[1]
-        raise IndexError, "negative length #{length}" if length < 0
-
-        length = count - start if length > count - start
-      else
-        length = start == count ? 0 : 1
-      end
-    when Range
-      start, length = range_span(index, count)
-      raise RangeError, "#{index.inspect} out of range" unless start
-    when String
-      start = OWN[:index].bind_call(self, index)
-      raise IndexError, +"string not matched" unless start
-
-      length = index.size
-    when Regexp
+    if Regexp === index
       match = index.send(:search, self, 0, false)
       raise IndexError, +"regexp not matched" unless match
 
       group = args.size == 2 ? args[1] : 0
+      unless group.is_a?(String) || group.is_a?(Symbol)
+        group = Primitive.zr_index_operand_m(group)
+        groups = match.size
+        raise IndexError, "index #{group} out of regexp" if group >= groups || (group.negative? && -group >= groups)
+
+        group += groups if group.negative?
+      end
       start = match.begin(group)
       raise IndexError, "regexp group #{group} not matched" if start.nil?
 
       length = match.end(group) - start
+      value = Primitive.zr_str_operand(value)
+    elsif args.size == 2
+      index = Primitive.zr_index_operand_m(index)
+      length = Primitive.zr_index_operand_m(args[1])
+      raise IndexError, "negative length #{length}" if length < 0
+
+      value = Primitive.zr_str_operand(value)
+      start = index < 0 ? index + count : index
+      raise IndexError, "index #{index} out of string" if start < 0 || start > count
+
+      length = count - start if length > count - start
     else
-      args[0] = Primitive.zr_index_operand_m(index)
-      return send(:[]=, *args, value)
+      case index
+      when Integer
+        value = Primitive.zr_str_operand(value)
+        start = index < 0 ? index + count : index
+        raise IndexError, "index #{index} out of string" if start < 0 || start > count
+
+        length = start == count ? 0 : 1
+      when Range
+        start, length = range_span(index, count)
+        raise RangeError, "#{index.inspect} out of range" unless start
+
+        value = Primitive.zr_str_operand(value)
+      when String
+        start = OWN[:index].bind_call(self, index)
+        raise IndexError, +"string not matched" unless start
+
+        length = index.size
+        value = Primitive.zr_str_operand(value)
+      else
+        return send(:[]=, Primitive.zr_index_operand_m(index), value)
+      end
     end
     from = Primitive.zr_str_char_offset_m(self, start)
     to = Primitive.zr_str_char_offset_m(self, length > count - start ? count : start + length)
