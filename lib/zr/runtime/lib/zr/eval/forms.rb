@@ -11,18 +11,20 @@ module Kernel
   # receiver is self, which is that frame's own self unless a `send`
   # gave another.
   def eval(source, binding = nil, file = nil, line = 1)
+    using = Primitive.zr_eval_using
     unless binding.nil?
       raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)
 
       name = file || Primitive.zr_eval_source_name
-      code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(binding), Primitive.zr_binding_parameters(binding))
+      code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(binding), Primitive.zr_binding_parameters(binding),
+                                      using: Primitive.zr_hidden_get(binding, :__using__))
       Primitive.zr_trace_script_compiled(source, name, line)
       return Primitive.zr_binding_run(code, binding)
     end
     name = file || Primitive.zr_eval_source_name
-    code = Zr::Eval.current.compile(source, name, line, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters)
+    code = Zr::Eval.current.compile(source, name, line, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters, using: using)
     Primitive.zr_trace_script_compiled(source, name, line)
-    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref, Primitive.zr_eval_env, Primitive.zr_eval_block)
+    Primitive.zr_eval_run(code, self, Primitive.zr_cref_dup(Primitive.zr_eval_cref), Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
 
   # As in ruby: private where it is written, public where it is
@@ -36,7 +38,8 @@ class Binding
   # Ruby run in this binding's scope, as Kernel#eval given it runs.
   def eval(source, file = nil, line = 1)
     name = file || Primitive.zr_eval_source_name
-    code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(self), Primitive.zr_binding_parameters(self))
+    code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(self), Primitive.zr_binding_parameters(self),
+                                    using: Primitive.zr_hidden_get(self, :__using__))
     Primitive.zr_trace_script_compiled(source, name, line)
     Primitive.zr_binding_run(code, self)
   end
@@ -90,6 +93,6 @@ class BasicObject
     name = args[1] || Primitive.zr_eval_source_name
     code = ::Zr::Eval.current.compile(args[0], name, args[2] || 1, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters)
     Primitive.zr_trace_script_compiled(args[0], name, args[2] || 1)
-    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_under(Primitive.zr_eval_class_of(self), Primitive.zr_eval_cref), Primitive.zr_eval_env, Primitive.zr_eval_block)
+    Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_lazy(self, Primitive.zr_eval_cref), Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
 end

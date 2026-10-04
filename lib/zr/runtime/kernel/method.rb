@@ -573,7 +573,9 @@ module Zr::Kern
   end
 
   # Two methods are equal when they refer to the same code, with the same
-  # receiver and the same owner.
+  # receiver, and one owner is the other or an ancestor of it: an alias
+  # or a visibility change in a subclass or a singleton class is the same
+  # method, as CRuby resolves the entry to its original.
   #: (value, word, ptr, value, value) -> value
   def zr_method_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
@@ -584,18 +586,35 @@ module Zr::Kern
     b = Machine.ptr(RMethod[other].entry)
     # A method from `define_method` keeps its body in the entry's cref.
     # Two different bodies are two different methods.
-    zr_bool(RMethod[recv].recv == RMethod[other].recv && RMethod[recv].owner == RMethod[other].owner && zr_entry_body(a) == zr_entry_body(b) && MEntry[a].kind == MEntry[b].kind &&
+    zr_bool(RMethod[recv].recv == RMethod[other].recv && zr_owners_related(RMethod[recv].owner, RMethod[other].owner) && zr_entry_body(a) == zr_entry_body(b) && MEntry[a].kind == MEntry[b].kind &&
             (MEntry[a].kind != KIND_BMETHOD || MEntry[a].cref == MEntry[b].cref))
+  end
+
+  # Whether `a` is `b` or in its ancestor chain, or the other way round.
+  #: (value, value) -> bool
+  def zr_owners_related(a, b)
+    zr_owner_below(a, b) || zr_owner_below(b, a)
+  end
+
+  # Whether `top` is `k` or one of the classes above it.
+  #: (value, value) -> bool
+  def zr_owner_below(k, top)
+    while k != QNIL && !zr_special_p(k)
+      if k == top || (zr_type(k) == T_ICLASS && RClass[k].attached == top)
+        return true
+      end
+      k = RClass[k].superclass
+    end
+    false
   end
 
   # The hash of the parts that `zr_method_eq` compares, so that equal
   # methods have the same hash. As in method_hash, it uses the receiver
-  # and the entry.
+  # and the entry, not the owner, which an equal method may differ in.
   #: (value, word, ptr, value, value) -> value
   def zr_method_hash(recv, argc, argv, cref, blk)
     e = Machine.ptr(RMethod[recv].entry)
     h = zr_hash_mix(Machine.word(RMethod[recv].recv))
-    h = zr_hash_mix(h ^ Machine.word(RMethod[recv].owner))
     h = zr_hash_mix(h ^ Machine.word(zr_entry_body(e)) ^ MEntry[e].kind)
     if MEntry[e].kind == KIND_BMETHOD
       h = zr_hash_mix(h ^ Machine.word(MEntry[e].cref))

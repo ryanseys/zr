@@ -16,3 +16,7 @@ nil
 #<Encoding:US-ASCII>
 #<Encoding:US-ASCII>
 #<Encoding:BINARY (ASCII-8BIT)>
+true
+#<Encoding:UTF-8>
+false
+#<Encoding:US-ASCII>

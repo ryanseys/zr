@@ -362,18 +362,52 @@ class Range
   end
 
   # A step of any kind: each value is the last plus the step, until
-  # the end.
+  # the end, as range_step walks with `<=>` and `+` alone. A negative
+  # numeric step walks back; otherwise the first step must go the way
+  # from begin to end, or nothing is yielded.
   def added(n, name)
     Primitive.attr! :hidden
     return to_enum(name, n) unless block_given?
     raise ArgumentError, +"#step iteration for beginless ranges is meaningless" if @begin.nil?
 
     v = @begin
-    while @end.nil? || (@excl ? v < @end : v <= @end)
-      yield v
-      v += n
+    if @end.nil?
+      while true
+        yield v
+        v = v.__send__(:+, n)
+      end
+    elsif @begin.is_a?(Numeric) && n.is_a?(Numeric) && ordered(n, 0) < 0
+      while (c = ordered(@end, v)) < 0 || (c.zero? && !@excl)
+        yield v
+        break if c.zero?
+
+        v = v.__send__(:+, n)
+      end
+    elsif (dir = ordered(@begin, @end)).zero?
+      yield v unless @excl
+    elsif dir == ordered(@begin, @begin.__send__(:+, n))
+      while (c = ordered(v, @end)) == dir || (c.zero? && !@excl)
+        yield v
+        break if c.zero?
+
+        v = v.__send__(:+, n)
+      end
     end
     self
+  end
+
+  # r_less: `a <=> b` as -1, 0 or 1, or a value no direction equals when
+  # the two do not compare.
+  def ordered(a, b)
+    Primitive.attr! :hidden
+    r = a.__send__(:<=>, b)
+    return 2_147_483_647 if r.nil?
+    return r <=> 0 if r.is_a?(Integer)
+
+    if r > 0 then 1
+    elsif r < 0 then -1
+    else 0
+    end
   end
   # Every `n`th element of a String range, by succ; the argument checks
   # wait for the walk.

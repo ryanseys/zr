@@ -109,6 +109,14 @@ module Zr::Kern
     cref
   end
 
+  # The class whose constants a lookup reads at `cref`: the class, or for
+  # an object whose singleton class is not made yet, the object's class.
+  #: (value) -> value
+  def zr_cref_lookup_class(cref)
+    obj = RCref[cref].lazy
+    obj != QNIL ? zr_class_of(obj) : zr_cref_klass(cref)
+  end
+
   #: (value) -> value
   def zr_cref_lexical_class(cref)
     zr_cref_klass(zr_cref_lexical(cref))
@@ -439,12 +447,15 @@ module Zr::Kern
     # An anonymous class gets its name here. The name is permanent under a
     # scope with a permanent name (and then the classes it contains get
     # permanent names too). Otherwise the name is temporary.
+    # Under an anonymous scope, only a class with no name gets one: a
+    # temporary name stays as it is.
     if !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RClass[v].name == QNIL || (RBasic[v].flags & FL_TEMP_NAME) != 0)
-      RClass[v].name = zr_class_name_under(klass, id)
       if zr_class_named_for_good(klass)
+        RClass[v].name = zr_class_name_under(klass, id)
         RBasic[v].flags = RBasic[v].flags & (0 - (FL_TEMP_NAME + 1))
         zr_name_nested(v)
-      else
+      elsif RClass[v].name == QNIL
+        RClass[v].name = zr_class_name_under(klass, id)
         RBasic[v].flags = RBasic[v].flags | FL_TEMP_NAME
       end
     end
@@ -611,7 +622,7 @@ module Zr::Kern
     while true
       e = zr_const_row_under(cref, id)
       if e == 0
-        return zr_uninitialized_constant(zr_cref_klass(cref), id)
+        return zr_uninitialized_constant(zr_cref_lookup_class(cref), id)
       end
       r = zr_const_deprecated(e, id)
       return r if r == QUNDEF
@@ -633,14 +644,14 @@ module Zr::Kern
     c = cref
     while RCref[c].next != QNIL
       if RCref[c].eval == 0
-        e = zr_const_row(zr_cref_klass(c), id)
+        e = zr_const_row(zr_cref_lookup_class(c), id)
         if e != 0 && !zr_const_declared_only(e)
           return e
         end
       end
       c = RCref[c].next
     end
-    e = zr_const_row_read_in(zr_cref_klass(cref), id, false)
+    e = zr_const_row_read_in(zr_cref_lookup_class(cref), id, false)
     if e == 0
       b = zr_box_current()
       if b != QNIL
@@ -651,7 +662,7 @@ module Zr::Kern
         end
       end
     end
-    if e == 0 && zr_type(zr_cref_klass(cref)) == T_MODULE
+    if e == 0 && zr_type(zr_cref_lookup_class(cref)) == T_MODULE
       e = zr_const_row_in(zr_global(G_OBJECT), id, false)
     end
     e
@@ -921,6 +932,28 @@ module Zr::Kern
         RBasic[v].flags = RBasic[v].flags & (0 - (FL_TEMP_NAME + 1))
         RClass[v].name = zr_class_name_under(mod, CEntry[ClassExt[ext].ctab + (i * CEntry.size)].id)
         zr_name_nested(v)
+      end
+      i += 1
+    end
+  end
+
+  # `mod` just got the temporary name `name`, or lost it (nil). Each class
+  # or module that it contains with a temporary name takes its path under
+  # the new name, or none, recursively, as set_sub_temporary_name does.
+  #: (value, value) -> void
+  def zr_rename_nested(mod, name)
+    ext = RClass[mod].ext
+    i = 0
+    while i < ClassExt[ext].clen
+      e = ClassExt[ext].ctab + (i * CEntry.size)
+      v = CEntry[e].value
+      if v != QUNDEF && !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RBasic[v].flags & FL_TEMP_NAME) != 0 && v != mod
+        if name == QNIL
+          RClass[v].name = Machine.value(QNIL)
+        else
+          RClass[v].name = zr_class_name_under(mod, CEntry[e].id)
+        end
+        zr_rename_nested(v, RClass[v].name)
       end
       i += 1
     end

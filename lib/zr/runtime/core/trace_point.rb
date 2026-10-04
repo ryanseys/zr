@@ -249,6 +249,9 @@ class TracePoint
           (Primitive.zr_hidden_get(point, :__thread__).nil? || Primitive.zr_hidden_get(point, :__thread__).equal?(thread)) &&
           targets?(point, row)
       end
+      # The last one runs first. A targeted point's hook is the code's own,
+      # which ruby runs after the global ones.
+      points = points.select { |point| Primitive.zr_hidden_get(point, :__target__) } + points.reject { |point| Primitive.zr_hidden_get(point, :__target__) }
       fiber = Fiber.current
       Primitive.zr_hidden_set(fiber, :__trace_row__, row)
       begin
@@ -271,6 +274,7 @@ class TracePoint
       target_thread = block_given? && target.nil? && target_line.nil? ? Thread.current : nil
     end
     raise ArgumentError, +"only target_line is specified" if target.nil? && !target_line.nil?
+    raise ArgumentError, +"can't nest-enable a targeting TracePoint" if target.nil? && enabled? && Primitive.zr_hidden_get(self, :__target__)
 
     aim(target, target_line) unless target.nil?
     if target_thread
@@ -299,6 +303,8 @@ class TracePoint
 
   def disable
     Primitive.attr! :ruby
+    raise ArgumentError, +"can't disable a targeting TracePoint in a block" if block_given? && Primitive.zr_hidden_get(self, :__target__)
+
     was = enabled?
     switch(false)
     return was unless block_given?
@@ -404,8 +410,32 @@ class TracePoint
     events = Primitive.zr_hidden_get(self, :__events__)
     raise ArgumentError, +"target_line is specified, but line event is not specified" if line && (events & EVENTS[:line]).zero?
 
+    # rb_iseq_add_local_tracepoint_recursively: a hook only for an event
+    # that the target's code fires, and only on a line of it.
+    raise ArgumentError, +"can not enable any hooks" if (events & (TARGET_EVENTS.fetch(target.is_a?(Proc)) | C_EVENTS)).zero?
+
+    line = line.is_a?(Integer) ? line : Primitive.zr_index_operand_m(line) unless line.nil?
+    raise ArgumentError, +"can not enable any hooks" if line && (line.negative? || !target_line?(target, line))
+
     Primitive.zr_hidden_set(self, :__target__, target)
-    Primitive.zr_hidden_set(self, :__target_line__, line && Integer(line))
+    Primitive.zr_hidden_set(self, :__target_line__, line)
+  end
+
+  # The events that a Proc's code (true) or a method's code (false) and the
+  # blocks in it can fire.
+  TARGET_EVENTS = {
+    true => EVENTS.values_at(:line, :b_call, :b_return, :rescue).sum,
+    false => EVENTS.values_at(:line, :call, :return, :b_call, :b_return, :rescue).sum
+  }.freeze
+  private_constant :TARGET_EVENTS
+
+  # Whether `line` of `target` fires a :line event. For a block, whose
+  # lines zr does not list, a line before its first one does not.
+  def target_line?(target, line)
+    Primitive.attr! :hidden
+    RubyVM::InstructionSequence.of(target).trace_points.any? { |at, _| at == line }
+  rescue NotImplementedError
+    line >= target.source_location[1]
   end
 
   def switch(on)

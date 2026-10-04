@@ -73,7 +73,7 @@ module Zr
           when Prism::AssocNode
             [expr(e.key), expr(e.value.is_a?(Prism::ImplicitNode) ? e.value.value : e.value)]
           when Prism::AssocSplatNode
-            [HashSplat.new(e.value ? expr(e.value) : Local.new(ANONYMOUS[:kwrest], @block_depth, e.location.start_line), e.location.start_line), nil]
+            [HashSplat.new(e.value ? expr(e.value) : anonymous(:kwrest, e.location.start_line), e.location.start_line), nil]
           end
         end
       end
@@ -283,9 +283,9 @@ module Zr
       # syntax error here.
       #: (Prism::InterpolatedRegularExpressionNode | Prism::InterpolatedMatchLastLineNode node, Integer line) -> node
       def interpolated_regexp(node, line)
-        pinned = regexp_encoding(node)
         # Each fragment is a separate String: ruby reads each one in its
-        # own encoding before it joins them.
+        # own encoding before it joins them, so only a flag letter pins one.
+        pinned = flag_encoding(node)
         fragments = ArrayLit.new(interpolation(node, line).parts.map { |part| Interp.new([part], line) }, line)
         args = [fragments, Literal.new(regexp_options(node), line), Literal.new(pinned && ::Encoding.list.index(pinned), line)]
         made = Send.of(ConstRead.new(nil, :Regexp, line), :interpolated, args, line)

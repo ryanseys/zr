@@ -341,8 +341,10 @@ module Zr::Kern
   end
 
   # Returns the cref for a define_method body. The entry makes it at its
-  # first call and keeps it in its `ivar` word. The cref makes the owner
-  # the definee of a `def` in the body, on top of the block's own cref. It
+  # first call and keeps it in its `ivar` word. The definee of a `def` in
+  # the body is the class where the block was written, as in ruby, or the
+  # owner for a block with no cref. The cref sits on top of the block's
+  # own cref. It
   # refers to the method entry, so that `super`, a trace and a `break` can
   # find the method. A copy of the entry (in a Method, a saved entry or
   # another class) makes its own cref, because it is a different entry.
@@ -352,7 +354,9 @@ module Zr::Kern
     if c != QNIL && RCref[c].entry == e
       return c
     end
-    c = zr_cref_push_eval(FrameMeta[MEntry[e].meta].owner, RProc[MEntry[e].cref].cref)
+    outer = RProc[MEntry[e].cref].cref
+    definee = outer == QNIL ? FrameMeta[MEntry[e].meta].owner : zr_cref_klass(outer)
+    c = zr_cref_push_eval(definee, outer)
     RCref[c].entry = e
     MEntry[e].ivar.index = Machine.word(c)
     # The cref goes into the entry's `ivar` word. The kernel subset

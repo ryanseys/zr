@@ -27,6 +27,22 @@ module Zr::Kern
     Frame[zr_eval_frame()].cref
   end
 
+  # A copy of `cref` for an eval string: a `private` with no names there
+  # sets the copy's visibility, not the visibility of the code around it.
+  #: (value) -> value
+  def zr_cref_dup(cref)
+    if cref == QNIL
+      return cref
+    end
+    c = zr_cref_push(RCref[cref].klass, RCref[cref].next)
+    RCref[c].vis = RCref[cref].vis
+    RCref[c].modfn = RCref[cref].modfn
+    RCref[c].eval = RCref[cref].eval
+    RCref[c].entry = RCref[cref].entry
+    RCref[c].lazy = RCref[cref].lazy
+    c
+  end
+
   #: () -> value
   def zr_eval_block
     Frame[zr_eval_frame()].blk
@@ -54,6 +70,23 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_eval_cref_under(mod, outer)
     zr_cref_push(mod, outer)
+  end
+
+  # The cref of `obj.instance_eval(string)`: the object's singleton class,
+  # made when the code first needs it, as CRuby's CREF_SINGLETON. Until
+  # then a constant lookup reads the object's class there.
+  #: (value, value) -> value
+  def zr_eval_cref_lazy(obj, outer)
+    if zr_special_p(obj) || zr_singleton_refused_p(obj)
+      return zr_cref_push(zr_class_of(obj), outer)
+    end
+    k = RBasic[obj].klass
+    c = zr_cref_push(k, outer)
+    unless zr_singleton_p(k) && RClass[k].attached == obj
+      RCref[c].klass = Machine.value(QNIL)
+      RCref[c].lazy = obj
+    end
+    c
   end
 
   # The cref for a `load` with a wrap module: the module on top of the
@@ -185,7 +218,24 @@ module Zr::Kern
     b = zr_binding_of(Frame[rec].meta, zr_frame_env(rec), Frame[rec].self, Frame[rec].cref)
     RProc[b].blk = blk
     RProc[b].serial = zr_frame_line(rec)
+    # The refinements in use where `binding` is written, which an eval in
+    # the binding uses.
+    using = zr_eval_using()
+    if using != QNIL
+      zr_hidden_set(b, zr_sym(Machine.id(:__using__)), using)
+    end
     b
+  end
+
+  # The `using` entry in force at the eval or binding call that runs now,
+  # as an Integer, or nil. The call site writes it (`note_eval_using`);
+  # this reads it once.
+  #: () -> value
+  def zr_eval_using
+    t = zr_task()
+    id = Task[t].eval_using
+    Task[t].eval_using = 0
+    id == 0 ? Machine.value(QNIL) : zr_fix(id - 1)
   end
 
   # `Proc#binding`: the scope where the block was written, which the Proc

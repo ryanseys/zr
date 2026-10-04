@@ -1,0 +1,8 @@
+"can not enable any hooks"
+"can't nest-enable a targeting TracePoint"
+"can't disable a targeting TracePoint in a block"
+[:outer, :outer, :outer, :inner]
+"can not enable any hooks"
+[TypeError, "no implicit conversion of Object into Integer"]
+"can not enable any hooks"
+[23]

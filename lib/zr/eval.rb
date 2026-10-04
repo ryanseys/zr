@@ -83,15 +83,16 @@ module Zr
     # @rbs line: _ToInt
     # @rbs scopes: Array[Array[Symbol]]
     # @rbs method: untyped
+    # @rbs using: Integer?
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
-    def compile(source, file, line = 1, scopes = [], method = nil)
+    def compile(source, file, line = 1, scopes = [], method = nil, using: nil)
       # Coverage cannot measure eval'd code, so it stops with a message.
       # Coverage is there only when the program loads it. It is reached by
       # a symbol: a constant that names it in code arms the trace events of
       # the build (`Loader#names_of?`), and this code only reports to it.
       coverage = Object.const_defined?(:Coverage) && Object.const_get(:Coverage) #: untyped
       coverage.send(:eval_compiled!) if coverage && coverage.respond_to?(:eval_compiled!, true)
-      Eval.plainly { compiled(source, file, line, scopes, method) }
+      Eval.plainly { compiled(source, file, line, scopes, method, using) }
     rescue Hir::Invalid => e
       # Ruby reads a regexp literal when it compiles the string around it,
       # so an invalid pattern is a syntax error, not a run-time error. A
@@ -133,8 +134,9 @@ module Zr
     # @rbs line: _ToInt
     # @rbs scopes: Array[Array[Symbol]]
     # @rbs method: untyped
+    # @rbs using: Integer?
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
-    def compiled(source, file, line, scopes, method)
+    def compiled(source, file, line, scopes, method, using)
       @count += 1
       name = "zr_eval_#{@count}"
       # A `using` entry is a slot in one table that the whole program
@@ -143,7 +145,7 @@ module Zr
       # entries, and takes them now, because no other code runs before
       # the next compile.
       hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
-                                                    activations: @runtime.activations, trace: @runtime.tracing?)
+                                                    activations: @runtime.activations, trace: @runtime.tracing?, using: using)
       @runtime.take_activations(hir.activations)
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)

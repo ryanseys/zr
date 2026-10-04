@@ -274,9 +274,16 @@ module Zr::Kern
       return zr_fix(zr_value_code(v) & 4611686018427387903)
     end
     r = zr_send(v, Machine.id(:hash), 0, 0)
-    return r if r == QUNDEF
-    if zr_big_p(r)
-      r = zr_send(r, Machine.id(:hash), 0, 0)
+    # rb_hash: a hash that is not a Fixnum is reduced: a bignum by its own
+    # hash, anything else by to_int.
+    while r != QUNDEF && !zr_fixnum_p(r)
+      if zr_big_p(r)
+        r = zr_send(r, Machine.id(:hash), 0, 0)
+      elsif zr_float_p(r)
+        r = zr_send(r, Machine.id(:to_int), 0, 0)
+      else
+        r = zr_to_int(r)
+      end
     end
     r
   end

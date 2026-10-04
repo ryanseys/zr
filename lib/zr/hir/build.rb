@@ -94,9 +94,10 @@ module Zr
       # @rbs gem_set: GemSet?
       # @rbs gate: bool | Symbol
       # @rbs switches: Switches
+      # @rbs using: Integer?
       # @rbs return: Program
       def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
-                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE)
+                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
@@ -108,6 +109,7 @@ module Zr
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
                               gate: gate, description: Library::Roots.description(target), switches: switches)
           loader.main!(file)
+          loader.eval_using = using
           # Built before the main file, so that the main file's requires
           # search the -I roots that the prelude adds. It runs as a load: it
           # is not in $LOADED_FEATURES, and what its -r requires is the
@@ -189,7 +191,8 @@ module Zr
         @singleton = false
         @body_marks = []
         @block_depth = 0
-        @using = nil
+        # An eval starts under the refinements of its call site.
+        @using = eval ? loader&.eval_using : nil
         # The number of `using` entries that this build made. `statement`
         # reads it to know if a search of its new statement can find one.
         @usings = 0
@@ -245,6 +248,15 @@ module Zr
           depth = scopes.index { |names| names.include?(name) } #: Integer
           [name, 1 + depth]
         end
+      end
+
+      # The method's anonymous `*`, `**` or `&` that a call forwards. In an
+      # eval, the method is the scope `@def_depths` gives, out past the
+      # string's own scopes.
+      #: (Symbol kind, Integer line) -> Local
+      def anonymous(kind, line)
+        name = ANONYMOUS.fetch(kind)
+        Local.new(name, @block_depth + (@def_depths&.fetch(name, nil) || 0), line)
       end
 
       # The warnings ruby's compiler gives for the file's regexp literals,
@@ -479,7 +491,7 @@ module Zr
         # Almost no file has a `using`.
         made = @usings
         traced = line_event(node)
-        out = using_activation(node) || expr(node, taken: taken)
+        out = using_activation(node) || assigned_using(node) || expr(node, taken: taken)
         out = Seq.new([traced, out], traced.line) if traced
         mark_using(out, {}) if @using
         return out if out.is_a?(Using)
@@ -527,6 +539,15 @@ module Zr
         @using = @loader ? @loader.next_activation : (@activations += 1)
         @usings += 1
         Using.new(@using, from, value, node.location.start_line)
+      end
+
+      # `x = using mod`: the activation, whose value (self) the local gets.
+      #: (Prism::node node) -> Assign?
+      def assigned_using(node)
+        return nil unless node.is_a?(Prism::LocalVariableWriteNode)
+
+        activation = using_activation(node.value) or return nil
+        Assign.new(node.name, node.depth, activation, node.location.start_line)
       end
 
       #: (untyped node, Hash[Integer, bool] seen) -> void
@@ -1049,7 +1070,7 @@ module Zr
       #: (Prism::BlockNode | Prism::BlockArgumentNode node) -> block
       def block(node)
         line = node.location.start_line
-        return BlockPass.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:block], @block_depth, line), line) if node.is_a?(Prism::BlockArgumentNode)
+        return BlockPass.new(node.expression ? expr(node.expression) : anonymous(:block, line), line) if node.is_a?(Prism::BlockArgumentNode)
 
         in_block do
           params, extra = block_params(node.parameters)
@@ -1364,9 +1385,9 @@ module Zr
             kwargs = HashLit.new(call_keyword_pairs(hash_pairs(a.elements), line), line)
             nil
           when Prism::ForwardingArgumentsNode
-            kwargs = HashLit.new([HashSplat.new(Local.new(ANONYMOUS[:kwrest], @block_depth, line), line), nil], line)
-            block = BlockPass.new(Local.new(ANONYMOUS[:block], @block_depth, line), line)
-            Splat.new(Local.new(ANONYMOUS[:rest], @block_depth, line), line)
+            kwargs = HashLit.new([HashSplat.new(anonymous(:kwrest, line), line), nil], line)
+            block = BlockPass.new(anonymous(:block, line), line)
+            Splat.new(anonymous(:rest, line), line)
           else expr(a)
           end
         end
@@ -1400,7 +1421,7 @@ module Zr
       # method forwards, anywhere a splat can be.
       #: (Prism::SplatNode node, Integer line) -> Splat
       def splat(node, line)
-        Splat.new(node.expression ? expr(node.expression) : Local.new(ANONYMOUS[:rest], @block_depth, line), line)
+        Splat.new(node.expression ? expr(node.expression) : anonymous(:rest, line), line)
       end
 
       # The bodies that a file always runs when it loads: its own

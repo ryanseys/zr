@@ -667,6 +667,7 @@ module Zr::Kern
     attr_accessor :found #: value
     attr_accessor :refine #: value
     attr_accessor :ractor #: word
+    attr_accessor :eval_using #: word
   end
 
   # The runtime's own roots: the core classes and the main object.

@@ -107,12 +107,25 @@ class File < IO
 
   def self.absolute_path?(path) = path_of(path).start_with?("/")
 
+  # The result is in the argument's encoding; a relative US-ASCII one takes
+  # the encoding of the directory it joins. The working directory is in
+  # the filesystem's, which has to be ASCII compatible to join them.
   def self.expand_path(path, dir = nil)
-    path = expand_home(path_of(path))
-    return normalized(path) if path.start_with?("/")
+    given = path_of(path)
+    path = expand_home(given)
+    encoding = given.encoding
+    full = if path.start_with?("/")
+             normalized(path)
+           else
+             if dir.nil? && !Encoding.default_external.ascii_compatible?
+               raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.default_external} and #{given.encoding}"
+             end
 
-    base = dir.nil? ? Dir.send(:cwd) : expand_path(dir)
-    normalized(base.end_with?("/") ? base + path : "#{base}/#{path}")
+             base = dir.nil? ? Dir.send(:cwd) : expand_path(dir)
+             encoding = dir.nil? ? Encoding.find("filesystem") : base.encoding if encoding == Encoding::US_ASCII
+             normalized(base.end_with?("/") ? base + path : "#{base}/#{path}")
+           end
+    encoding.ascii_compatible? ? full.force_encoding(encoding) : full
   end
 
   # An absolute path with its `.` and `..` names and repeated slashes
@@ -139,6 +152,10 @@ class File < IO
 
     name = path[1..].split("/", 2).first
     home = name.nil? || name.empty? ? Dir.home : Dir.home(name)
+    # rb_default_home_dir: a home that is not absolute is refused.
+    unless home.start_with?("/")
+      raise ArgumentError, name.nil? || name.empty? ? +"non-absolute home" : "non-absolute home of #{name}"
+    end
     rest = path[(name.nil? ? 1 : name.size + 1)..]
     rest.nil? || rest.empty? ? home : "#{home}#{rest}"
   end

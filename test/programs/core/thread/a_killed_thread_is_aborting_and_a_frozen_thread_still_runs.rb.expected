@@ -1,0 +1,13 @@
+["aborting", true]
+"sleep"
+"aborting"
+"aborting"
+false
+true
+nil
+false
+[FrozenError, "can't modify frozen thread locals"]
+FrozenError
+:done
+false
+"123 is not a symbol nor a string"

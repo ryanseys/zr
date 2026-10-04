@@ -19,3 +19,9 @@ p "a#{"b"}c".encoding
 p eval(%q("a#{"b"}c").dup.force_encoding("us-ascii")).encoding
 p eval("__ENCODING__".dup.force_encoding("US-ASCII"))
 p eval("__ENCODING__".dup.force_encoding("BINARY"))
+make_regexp = -> str { /#{str}/ }
+r = make_regexp.call("\xC3\xA9t\xC3\xA9".dup.force_encoding(Encoding::UTF_8))
+p r.fixed_encoding?, r.encoding
+r = make_regexp.call("abc".dup.force_encoding(Encoding::UTF_8))
+p r.fixed_encoding?, r.encoding
+x = "q"

@@ -246,7 +246,7 @@ module Zr::Kern
     meta = MEntry[e].meta
     Frame[rec].prev = Task[t].top
     Frame[rec].meta = meta
-    Frame[rec].line = FrameMeta[meta].line | (FrameMeta[meta].node << 32)
+    Frame[rec].line = (FrameMeta[meta].line & 4294967295) | (FrameMeta[meta].node << 32)
     Frame[rec].serial = 0
     Frame[rec].self = recv
     Frame[rec].cref = MEntry[e].cref

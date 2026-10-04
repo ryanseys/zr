@@ -127,7 +127,9 @@ module Zr::Kern
   # of the prism node that runs in its high half.
   #: (ptr) -> word
   def zr_frame_line(rec)
-    Frame[rec].line & 4294967295
+    # A signed 32-bit line: an eval may start at a negative one.
+    line = Frame[rec].line & 4294967295
+    line >= 2147483648 ? line - 4294967296 : line
   end
 
   #: (ptr) -> word

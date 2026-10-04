@@ -1,0 +1,9 @@
+#<Encoding:Windows-1251>
+#<Encoding:BINARY (ASCII-8BIT)>
+Encoding::CompatibilityError
+[ArgumentError, "non-absolute home"]
+[ArgumentError, "non-absolute home"]
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:US-ASCII>
+#<Encoding:EUC-JP>

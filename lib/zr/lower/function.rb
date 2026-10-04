@@ -438,7 +438,7 @@ module Zr
                                              blocks: @blocks)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
-        @line = line | (node_id << 32)
+        @line = (line & LINE_MASK) | (node_id << 32)
         @f.store(imm(@line), @rec, off(@frame, "line"))
         @proc = @twin_of ? entry_field("cref") : @f.args[0] if @kind == :block
         @qnil = imm(@l.const("QNIL"))
@@ -655,6 +655,10 @@ module Zr
         @line = nil
       end
 
+      # A frame's line word holds the line in its low 32 bits, which an
+      # eval with a negative first line makes negative (zr_frame_line).
+      LINE_MASK = 0xffffffff
+
       # The line a backtrace reports for what runs next.
       #: (Integer line, ?Integer node_id) -> void
       def at_line(line, node_id = 0)
@@ -662,7 +666,7 @@ module Zr
         # raises or polls. So the record keeps the caller's line.
         return if @inline
 
-        word = line | (node_id << 32)
+        word = (line & LINE_MASK) | (node_id << 32)
         return if word == @line
 
         @line = word

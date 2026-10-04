@@ -242,6 +242,10 @@ module Zr
         # next entry that it takes.
         attr_reader :activations #: Integer
 
+        # The `using` entry in force where an eval runs, which its code
+        # starts under, or nil.
+        attr_accessor :eval_using #: Integer?
+
         #: () -> Integer
         def next_activation = @activations.tap { @activations += 1 }
 
@@ -490,7 +494,11 @@ module Zr
         # @rbs return: Unit
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           options = @switches.parse_options(main?(file) && scopes.nil?)
-          result = scopes ? Zr.parse(source, filepath: file, line: line, scopes: scopes, **options) : Zr.parse(source, filepath: file, line: line, **options)
+          result = if scopes
+                     Zr.parse(source, filepath: file, line: line, scopes: Loader.prism_scopes(scopes), **options)
+                   else
+                     Zr.parse(source, filepath: file, line: line, **options)
+                   end
           raise SyntaxReport.error(result, file) unless result.errors.empty?
           if (marker = result.data_loc) && !(@switches.inline && main?(file))
             @data[file] = source.byteindex("\n", marker.start_offset)&.succ || source.bytesize
@@ -517,6 +525,21 @@ module Zr
           end
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings, Library::Roots.internal_library?(file), spots, @hiding,
                    source, @activations != rows, build.node_ids)
+        end
+
+        # An eval's outer scopes for prism. A method's anonymous `*`, `**`
+        # and `&` (and `...`, which declares all three) are what the scope
+        # forwards, not locals, so `eval "foo(*)"` parses as in ruby.
+        #: (Array[Array[Symbol]] scopes) -> Array[Array[Symbol] | Prism::Scope]
+        def self.prism_scopes(scopes)
+          forwarded = Build::ANONYMOUS.values
+          scopes.map do |locals|
+            forwards = locals & forwarded
+            next locals if forwards.empty?
+
+            forwards += [:"..."] if forwards.size == forwarded.size
+            Prism.scope(locals: locals - forwarded, forwarding: forwards)
+          end
         end
 
         # The SyntaxError for a `yield` in an eval string, outside any

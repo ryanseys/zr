@@ -587,6 +587,10 @@ module Zr::Kern
       return zr_frozen_error(klass)
     end
     e = zr_find_method(klass, old_id)
+    # A refinement aliases a method of the class it refines.
+    if e == 0 && zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
+      e = zr_find_method(ClassExt[RClass[klass].ext].refined, old_id)
+    end
       # A module's ancestor list is only the module, so the lookup then
       # tries Object's methods (and Kernel's), as rb_alias does.
     if e == 0 && zr_type(klass) == T_MODULE
@@ -677,18 +681,16 @@ module Zr::Kern
   # level has none, but a `class Object` body has one.
   #: (value) -> value
   def zr_cvar_base(cref)
+    # As vm_get_cvar_base: a singleton class's scope (`class << obj`, an
+    # instance_eval string) and an eval's are passed over.
     cref = zr_cref_lexical(cref)
+    while RCref[cref].next != QNIL && (RCref[cref].eval != 0 || RCref[cref].lazy != QNIL || zr_singleton_p(zr_cref_klass(cref)))
+      cref = RCref[cref].next
+    end
     if cref == zr_global(G_TOP_CREF)
       return Machine.value(QNIL)
     end
-    k = zr_cref_klass(cref)
-    while zr_singleton_p(k)
-      k = RClass[k].attached
-      if zr_special_p(k) || (zr_type(k) != T_CLASS && zr_type(k) != T_MODULE)
-        return Machine.value(QNIL)
-      end
-    end
-    k
+    zr_cref_klass(cref)
   end
 
   # The class in `klass`'s ancestor list whose table contains `id`, or nil.
@@ -2146,6 +2148,11 @@ module Zr::Kern
     # new entry is a definition, so it calls the hook. A change to an entry
     # that this class already has calls no hook.
     copied = zr_find_method_at(zr_origin(klass), mid) != e
+    # An ancestor's method that already has the visibility stays where it
+    # is, as rb_export_method makes no entry for it.
+    if copied && modfn == 0 && MEntry[e].vis == vis
+      return Machine.value(QNIL)
+    end
     if copied
       zr_method_copy(zr_origin(klass), mid, e, MEntry[e].meta, vis, true)
     else
@@ -2273,10 +2280,22 @@ module Zr::Kern
       if all == 0
         k = Machine.value(QNIL)
       else
-        k = RClass[k].superclass
+        k = zr_refinement_next(k)
       end
     end
     out
+  end
+
+  # The next class of a method search from `k`: its superclass, or after a
+  # refinement's own chain, the class it refines, as CRuby's refinement
+  # reaches its refined class (`alias`, `instance_methods`).
+  #: (value) -> value
+  def zr_refinement_next(k)
+    up = RClass[k].superclass
+    if up == QNIL && zr_type(k) == T_MODULE && ClassExt[RClass[k].ext].refined != QNIL
+      return ClassExt[RClass[k].ext].refined
+    end
+    up
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -2873,6 +2892,7 @@ module Zr::Kern
     else
       RBasic[mod].flags = RBasic[mod].flags | FL_TEMP_NAME
     end
+    zr_rename_nested(mod, name)
     Machine.value(QTRUE)
   end
 
@@ -2942,6 +2962,15 @@ module Zr::Kern
       owner = FrameMeta[meta].owner
       if !zr_special_p(owner) && (zr_type(owner) == T_MODULE || zr_type(owner) == T_CLASS)
         list = ClassExt[RClass[owner].ext].active
+      end
+    end
+    # The refine block's own code, outside any method: the refinement it
+    # defines is its cref.
+    cref = Frame[rec].cref
+    if list == QNIL && cref != QNIL && RCref[cref].lazy == QNIL
+      k = RCref[cref].klass
+      if !zr_special_p(k) && (zr_type(k) == T_MODULE || zr_type(k) == T_CLASS)
+        list = ClassExt[RClass[k].ext].active
       end
     end
     Task[zr_task()].refine = list

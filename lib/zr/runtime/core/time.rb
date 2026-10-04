@@ -544,7 +544,13 @@ class Time
     return set(*self.class.send(:now_parts, zone)) if now
 
     text = str && String.try_convert(str)
-    return set(*self.class.send(:string_parts, text, zone, precision)) if text
+    if text
+      # NUM2SIZET: nil reads every digit, a Float truncates, and a negative
+      # count wraps to no limit.
+      digits = precision.nil? ? nil : Primitive.zr_index_operand_m(precision)
+      digits = nil if digits&.negative?
+      return set(*self.class.send(:string_parts, text, zone, digits))
+    end
 
     set(*self.class.send(:civil_parts, year, mon, mday, hour, min, sec, zone))
   end

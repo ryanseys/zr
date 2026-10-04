@@ -474,6 +474,7 @@ module Zr
         # A traced program sends every operator, so a :c_call sees it.
         #: (Hir::Send node, String recv, String argv, String argc) -> String
         def send_staged(node, recv, argv, argc)
+          note_eval_using(node) if EVAL_USING.include?(node.name)
           if node.block && iterator_template?(node)
             iterate(node, recv, argv, argc)
           elsif node.block
@@ -491,6 +492,19 @@ module Zr
           else
             dispatch(node, recv, argv, argc)
           end.tap { deactivate(node) }
+        end
+
+        # The calls whose string runs under the refinements of the call
+        # site, or whose Binding keeps them for an eval.
+        EVAL_USING = %i[eval instance_eval class_eval module_eval binding].freeze
+
+        # Tells the eval or binding call the `using` entry in force here
+        # (the entry plus one; 0 for none). Every such call writes it, so
+        # no call reads one that an earlier site left.
+        #: (Hir::Send node) -> void
+        def note_eval_using(node)
+          using = node.using
+          @f.store(imm(using.is_a?(Integer) ? using + 1 : 0), @task_addr, off(@task, "eval_using"), region: :task)
         end
 
         # Pushes `parts` one at a time into an Array in the record slot

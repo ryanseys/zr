@@ -78,6 +78,7 @@ module Zr::Kern
     Task[t].found = Machine.value(QNIL)
     Task[t].refine = Machine.value(QNIL)
     Task[t].ractor = 0
+    Task[t].eval_using = 0
   end
 
   # Marks the current task as a ractor task. After this, the task refuses

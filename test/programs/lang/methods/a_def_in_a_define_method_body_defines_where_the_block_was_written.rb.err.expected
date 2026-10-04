@@ -1,0 +1,57 @@
+lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb: --> lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb
+
+Unmatched keyword, missing `end' ?
+
+> 18  class Base; def hi = :base; end
+> 19  class Sub < Base; define_method(:hi) { [super(), :sub] }; end
+> 20  p Sub.new.hi
+> 21  m = Module.new { define_method(:z) { self.class } }
+> 22  class UsesM; end
+> 23  UsesM.include(m)
+> 24  p UsesM.new.z
+> 25  c = Class.new { class << self; def foo; end; end }
+> 26  m = c.method(:foo)
+> 27  p((Class.new { define_method :bar, m } rescue [$!.class, $!.message]))
+> 28  p((Class.new { define_method :bar, m.unbind } rescue [$!.class, $!.message]))
+> 29  class NSMA
+> 33    p((def self.foo; end) rescue [$!.class, $!.message[0, 50]])
+> 34  end
+> 35  o = Object.new
+> 36  class << o
+> 37    undef_method :singleton_method_added
+> 38    p((def foo; end) rescue [$!.class, $!.message[0, 50]])
+> 39    p((define_method(:bar) {}) rescue [$!.class, $!.message[0, 50]])
+> 40  end
+> 41  p((o.define_singleton_method(:baz) {}) rescue [$!.class, $!.message[0, 50]])
+> 42  rec = []
+> 43  o2 = Object.new
+> 50  o2.define_singleton_method(:baz) {}
+> 51  p rec
+
+lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb:33: syntax errors found (SyntaxError)
+  31 |     undef_method :singleton_method_added
+  32 |   end
+> 33 |   p((def self.foo; end) rescue [$!.class, $!.message[0, 50]])
+     |                         ^~~~~~ unexpected 'rescue' modifier; expected a `)` to close the arguments
+     |                                                             ^ unexpected ')', ignoring it
+     |                                                             ^ unexpected ')', expecting end-of-input
+  34 | end
+  35 | o = Object.new
+  36 | class << o
+  37 |   undef_method :singleton_method_added
+> 38 |   p((def foo; end) rescue [$!.class, $!.message[0, 50]])
+     |                    ^~~~~~ unexpected 'rescue' modifier; expected a `)` to close the arguments
+     |                                                        ^ unexpected ')', ignoring it
+     |                                                        ^ unexpected ')', expecting end-of-input
+> 39 |   p((define_method(:bar) {}) rescue [$!.class, $!.message[0, 50]])
+     |                              ^~~~~~ unexpected 'rescue' modifier; expected a `)` to close the arguments
+     |                                                                  ^ unexpected ')', ignoring it
+     |                                                                  ^ unexpected ')', expecting end-of-input
+  40 | end
+> 41 | ... rescue [$!.class, $!.message[0, 50]])
+     |     ^~~~~~ unexpected 'rescue' modifier; expected a `)` to close the arguments
+     |                                         ^ unexpected ')', ignoring it
+     |                                         ^ unexpected ')', expecting end-of-input
+  42 | rec = []
+  43 | o2 = Object.new
+

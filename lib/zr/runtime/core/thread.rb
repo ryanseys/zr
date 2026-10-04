@@ -390,6 +390,7 @@ class Thread
     @report_on_exception = Thread.report_on_exception
     @abort_on_exception = false
     @killed = false
+    @aborting = false
     @pending = nil
     @kill_tag = Object.new
     @waiters = []
@@ -418,11 +419,13 @@ class Thread
 
   def stop? = @status == :dead || @status == :sleep
 
+  # A killed thread that still runs its ensure clauses is aborting, unless
+  # it sleeps there.
   def status
     case @status
     when :dead then @exception ? nil : false
     when :sleep then +"sleep"
-    else +"run"
+    else @killed ? +"aborting" : +"run"
     end
   end
 
@@ -566,6 +569,20 @@ class Thread
 
   def thread_variables = @variables.keys
 
+  # A frozen Thread still runs: CRuby keeps a thread's state in C fields,
+  # which freezing leaves alone. zr keeps it in instance variables, so
+  # freezing marks the thread instead, and the locals' writers check it.
+  def freeze
+    Primitive.attr! :hidden
+    Primitive.zr_state_set(self, :__frozen__, true)
+    self
+  end
+
+  def frozen?
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__frozen__) == true
+  end
+
   def inspect
     head = Primitive.zr_obj_head(self)
     head = "#{head}@#{@name}" if @name
@@ -648,6 +665,10 @@ class Thread
   # fibers.
   def kill_here
     Primitive.attr! :hidden
+    @killed = true
+    # The unwind runs the ensure clauses, which a later switch must not
+    # interrupt again.
+    @aborting = true
     fiber = Fiber.current
     resumer = Primitive.zr_fiber_prev_m(fiber) unless root?(fiber)
     tag = resumer && Primitive.zr_hidden_get(fiber, :__kill__)
@@ -800,7 +821,7 @@ class Thread
     Primitive.attr! :hidden
     return unless @armed
 
-    kill_here if @killed
+    kill_here if @killed && !@aborting
     if @pending && !masked?(@pending)
       e = @pending
       @pending = nil

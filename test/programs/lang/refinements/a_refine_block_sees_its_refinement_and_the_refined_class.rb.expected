@@ -1,0 +1,11 @@
+"foo"
+2
+NoMethodError
+2
+NoMethodError
+true
+[]
+[]
+"***foo"
+"**foo"
+"wrong argument type Class (expected Module)"

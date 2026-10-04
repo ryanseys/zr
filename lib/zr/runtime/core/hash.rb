@@ -434,14 +434,10 @@ class Hash
   # A hash that contains itself uses a fixed value for the reference
   # back, so the walk ends.
   def hash
-    return 7 if Primitive.zr_recursive_enter(self, :hash)
-
-    begin
+    Kernel.send(:outer_hash, self, Primitive.zr_hash_len_m(self)) do
       total = Primitive.zr_hash_len_m(self)
       Primitive.zr_hash_foreach(self) { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
       total
-    ensure
-      Primitive.zr_recursive_leave(self, :hash)
     end
   end
 

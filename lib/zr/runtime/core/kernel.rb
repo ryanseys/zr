@@ -2,6 +2,40 @@
 
 # Kernel's conversion and convenience methods.
 module Kernel
+  # rb_exec_recursive_outer for Array#hash and Hash#hash: the block's hash
+  # of `obj`, unless the walk meets an object that it is inside of. Then
+  # the outermost call gives a hash of its size alone, so equal recursive
+  # structures hash the same.
+  def self.outer_hash(obj, size)
+    Primitive.attr! :hidden
+    fiber = Fiber.current
+    tag = Primitive.zr_hidden_get(fiber, :__hash_outer__)
+    if tag
+      throw tag if Primitive.zr_recursive_enter(obj, :hash)
+
+      begin
+        return yield
+      ensure
+        Primitive.zr_recursive_leave(obj, :hash)
+      end
+    end
+    tag = Object.new
+    Primitive.zr_state_set(fiber, :__hash_outer__, tag)
+    Primitive.zr_recursive_enter(obj, :hash)
+    begin
+      met = true
+      value = catch(tag) do
+        v = yield
+        met = false
+        v
+      end
+      met ? (size * 31) + (obj.is_a?(Hash) ? 2 : 1) : value
+    ensure
+      Primitive.zr_recursive_leave(obj, :hash)
+      Primitive.zr_state_set(fiber, :__hash_outer__, nil)
+    end
+  end
+
   def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   def loop
@@ -512,6 +546,10 @@ module Kernel
       end
       IO.send(:each_line_of, msgs) { |*parts| text.concat(*parts) }
     end
+    # Warning itself writes the text, as rb_warning_string does there, so a
+    # Warning#warn that calls super does not come back to itself.
+    return $stderr.write(text) && nil if equal?(Warning)
+
     Warning.send(:emit, text, category)
     nil
   end

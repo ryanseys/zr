@@ -601,9 +601,8 @@ class Array
     mask = 72057594037927935
     leaf = Primitive.zr_ary_leaf_hash(self, 7)
     return leaf if leaf
-    return 7 if Primitive.zr_recursive_enter(self, :hash)
 
-    begin
+    Kernel.send(:outer_hash, self, Primitive.zr_ary_len_m(self)) do
       h = 7
       i = 0
       while i < Primitive.zr_ary_len_m(self)
@@ -611,8 +610,6 @@ class Array
         i += 1
       end
       h
-    ensure
-      Primitive.zr_recursive_leave(self, :hash)
     end
   end
 
