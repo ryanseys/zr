@@ -370,6 +370,9 @@ class Random::Base
     # rb_to_int: a Float truncates; a Rational or a real Complex converts.
     seed = seed.to_i if seed.is_a?(Float)
     seed = seed.to_i if seed.is_a?(Rational) || seed.is_a?(Complex)
+    # rb_to_int: nil is named as a value, and to_int converts the rest.
+    raise TypeError, +"no implicit conversion of nil into Integer" if seed.nil?
+
     seed = Primitive.zr_index_operand_m(seed) unless seed.is_a?(Integer)
 
     Primitive.zr_hidden_set(self, :__seed__, seed)

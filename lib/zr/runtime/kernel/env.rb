@@ -778,7 +778,6 @@ module Zr::Kern
     end
     hidden = kind == 3 || zr_hidden_now()
     visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
-    real = Machine.value(QNIL)
     if kind != 2
       while !hidden && zr_ary_has_string(visible, path)
         r = zr_feature_wait(path)
