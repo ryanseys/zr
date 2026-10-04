@@ -996,6 +996,11 @@ module Zr::Kern
     zr_float_new(zr_buf_strtod(b))
   end
 
+  #: (word) -> bool
+  def zr_hex_digit_p(c)
+    (c >= 48 && c <= 57) || (c >= 97 && c <= 102) || (c >= 65 && c <= 70)
+  end
+
   # `Float("0x1p+3")`: strtod reads the hex form itself, so all the text
   # goes to it. The end pointer shows whether it read all the text.
   #: (value) -> value
@@ -1009,6 +1014,12 @@ module Zr::Kern
       c = Machine.u8(Machine.load8(p + i, 0))
       if c != 95
         zr_buf_byte(b, c)
+      elsif i == 0 || i + 1 >= len || !zr_hex_digit_p(Machine.u8(Machine.load8(p + i - 1, 0))) ||
+            !zr_hex_digit_p(Machine.u8(Machine.load8(p + i + 1, 0)))
+        # An underscore stands only between two digits: not next to the
+        # 0x prefix, the p of the exponent, or either end.
+        zr_buf_free(b)
+        return Machine.value(QNIL)
       end
       i += 1
     end

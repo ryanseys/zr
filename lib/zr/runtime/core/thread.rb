@@ -729,7 +729,9 @@ class Thread
     # raised.
     TracePoint.send(:thread_event, :thread_end, self)
     finish
-    Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception)
+    # thread_do_start: a SystemExit, or any exception under abort_on_exception,
+    # goes on in the main thread.
+    Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception || @exception.is_a?(SystemExit))
     Thread.send(:switch)
     Primitive.zr_unimplemented(+"a finished thread that runs again")
   end
