@@ -7,7 +7,7 @@ module Zr
   # the program links next to the runtime, or nil. Its JIT finds kernel
   # functions by name. `sources` maps the path of each file the program was
   # built from to the digest of the bytes that were compiled (the run
-  # cache checks them); it is empty when the build does not know them.
+  # cache checks them); it is nil when the build does not know them.
   # `gems` are the manifest's rows (lib/zr/manifest.rb): the gems that the
   # program's files come from.
   #
@@ -22,10 +22,10 @@ module Zr
     # @rbs functions: Array[Obj::Code | IR::Function]
     # @rbs data: Array[Obj::Datum]
     # @rbs evals: EvalSupport?
-    # @rbs sources: Hash[String, String]
+    # @rbs sources: Hash[String, String]?
     # @rbs gems: Array[Manifest::Row]
     # @rbs return: void
-    def initialize(runtime:, functions:, data:, evals:, sources: {}, gems: [])
+    def initialize(runtime:, functions:, data:, evals:, sources: nil, gems: [])
       super
     end
 
@@ -74,6 +74,7 @@ module Zr
     # (lib/zr/gem_set.rb), or nil. `gate` stops the build at a require that
     # nothing has in the program's own files (`Hir::Build#gate!`). `trace`
     # arms the program's trace events whatever its files name.
+    # `switches` are the ruby switches of the build (`Hir::Switches`).
     # @rbs source: String
     # @rbs file: String
     # @rbs target: Target
@@ -81,20 +82,22 @@ module Zr
     # @rbs gem_set: GemSet?
     # @rbs gate: bool | Symbol
     # @rbs trace: bool
+    # @rbs switches: Hir::Switches
     # @rbs &finish: ? (IR::Function, String) -> Obj::Code
     # @rbs return: Program
-    def self.build(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, trace: false, &finish)
+    def self.build(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, trace: false,
+                   switches: Hir::Switches::NONE, &finish)
       rt = Runtime.for(target)
       support = EvalSupport.for(target)
       hir = Timing.phase("building the HIR", "hir built") do
-        Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace)
+        Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace, switches: switches)
       end
       redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
       # source takes seconds to lower.
       GcTuning.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
       # Before the lowering, which lets go of each unit's source.
-      sources = sources ? built_from(source, file, hir) : {} #: Hash[String, String]
+      sources = (built_from(source, file, hir) if sources) #: Hash[String, String]?
       gems = Manifest.of_program(hir, support, gem_set)
       symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
       # Only the kernel's names have fixed ids. The link numbers all other
@@ -148,16 +151,18 @@ module Zr
     end
 
     # The path and digest of each file that `hir` was built from: `file`,
-    # with `source`, and each unit that has its own file. Empty when a
-    # require stays for the run time (a file that did not exist, or a name
-    # built at run time): a file that appears later would change the
-    # build, and no list of paths can say which.
-    #: (String source, String file, Hir::Program hir) -> Hash[String, String]
+    # with `source`, and each unit that has its own file. A program from
+    # -e or standard input has no file; the run cache keys on its text. nil
+    # when a require stays for the run time (a file that did not exist, or
+    # a name built at run time): a file that appears later would change
+    # the build, and no list of paths can say which.
+    #: (String source, String file, Hir::Program hir) -> Hash[String, String]?
     def self.built_from(source, file, hir)
-      return {} if run_time_require?([hir.body, *hir.units.map(&:body)])
+      return nil if run_time_require?([hir.body, *hir.units.map(&:body)])
 
       # The filter keeps only the units that have a source.
-      files = [[file, source], *hir.units.filter_map { |u| [u.file, u.source] if u.source && File.file?(u.file) }] #: Array[[String, String]]
+      main = File.file?(file) ? [[file, source]] : [] #: Array[[String, String]]
+      files = [*main, *hir.units.filter_map { |u| [u.file, u.source] if u.source && File.file?(u.file) }] #: Array[[String, String]]
       files.to_h { |path, bytes| [File.expand_path(path), Digest::SHA256.hexdigest(bytes)] }
     end
 

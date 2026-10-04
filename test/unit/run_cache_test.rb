@@ -26,6 +26,10 @@ class RunCacheTest < Minitest::Test
 
   def cache = Zr::Cache::Run.new(@main, target: Zr::Target.default, digest: Zr::Runtime.for.digest, link: [])
 
+  def inline(switches)
+    Zr::Cache::Run.new("-e", source: "puts 4\n", switches: switches, target: Zr::Target.default, digest: Zr::Runtime.for.digest, link: [])
+  end
+
   def build_and_keep
     program = Zr::Native::Build.lower(File.read(@main), @main, sources: true)
     out = File.join(@work, "program")
@@ -62,7 +66,7 @@ class RunCacheTest < Minitest::Test
     File.write(@main, %(begin; require_relative "later"; rescue LoadError; end\nputs 1\n))
     program = build_and_keep
 
-    assert_empty program.sources
+    assert_nil program.sources
     assert_nil cache.hit
   end
 
@@ -75,6 +79,24 @@ class RunCacheTest < Minitest::Test
     other = Zr::Cache::Run.new(@main, target: Zr::Target.default, digest: Zr::Runtime.for.digest, link: [], gems: gems)
 
     assert_nil other.hit
+  end
+
+  # A program from -e has no file: the key holds its text and its ruby
+  # switches, so the same words run the kept binary, and other switches
+  # do not.
+  def test_a_program_with_no_file_is_found_by_its_text
+    switches = Zr::Hir::Switches.new(inline: true)
+    program = Zr::Native::Build.lower("puts 4\n", "-e", sources: true, switches: switches)
+    out = File.join(@work, "program")
+    why = Zr::Native::Build.program(program, out, work: @work)
+    raise why if why
+
+    inline(switches).keep(out, program, File.join(@work, "build"))
+    kept = inline(switches).hit
+
+    assert kept
+    assert_equal "4\n", `#{kept}`
+    assert_nil inline(Zr::Hir::Switches.new(inline: true, prelude: "$VERBOSE = true\n")).hit
   end
 
   def test_the_list_of_sources_names_every_file

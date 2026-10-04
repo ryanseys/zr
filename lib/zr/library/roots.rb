@@ -27,6 +27,11 @@ module Zr
       # where its cache was. It is part of the runtime, as its kernel is.
       DESCRIPTION = "<zr>/zr_description.rb"
 
+      # The name of the ruby switches' prelude (`Hir::Switches#prelude`).
+      # No file has it either: the build gives its text. It is part of
+      # the runtime, so it can write the globals that ruby makes read-only.
+      SWITCHES = "<zr>/ruby_switches.rb"
+
       # The compiler that a program with eval links in, and the
       # tree-walking interpreter for a program that cannot write machine
       # code into itself. Both contain the same front end. `Zr::Eval`
@@ -104,10 +109,15 @@ module Zr
       def files = Dir[File.join(Layout::PREFIX, "lib/**/*")].select { |path| File.file?(path) }
 
       #: (String file) -> bool
-      def runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || description?(file)
+      def runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || given?(file)
 
       #: (String file) -> bool
       def description?(file) = file == DESCRIPTION
+
+      # A file whose text the build gives, not a directory: the kernel's
+      # description or the switches' prelude.
+      #: (String file) -> bool
+      def given?(file) = file == DESCRIPTION || file == SWITCHES
 
       # Gives the source of the kernel's description of `target` when a
       # file requires `zr_description`: only eval support and a program
@@ -120,7 +130,7 @@ module Zr
       # internal, as the core is, so a backtrace shows its methods as
       # builtins.
       #: (String file) -> bool
-      def internal_library?(file) = file.start_with?("#{Layout::EXT}/", "#{Layout::RUNTIME_LIB}/") || description?(file)
+      def internal_library?(file) = file.start_with?("#{Layout::EXT}/", "#{Layout::RUNTIME_LIB}/") || given?(file)
 
       # The eval support file for `target`. `ZR_EVAL=walk` selects the
       # tree-walking interpreter where the eval compiler (JIT) could run.

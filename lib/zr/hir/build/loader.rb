@@ -46,6 +46,7 @@ module Zr
         # @rbs @back_refs: Hash[Symbol, Prism::node]
         # @rbs @alias_flags: Hash[Symbol, Symbol?]
         # @rbs @hiding: bool?
+        # @rbs @switches: Switches
 
         attr_reader :units #: Array[Unit]
 
@@ -71,6 +72,7 @@ module Zr
         # `gate`: a literal require in the program's own files that no
         # root has stops the build (`Build#gate!`). A build from the CLI
         # sets it; `--allow-runtime-require` does not.
+        # `switches` are the ruby switches of the build (`Hir::Switches`).
         # @rbs roots: Array[String]
         # @rbs eval: bool
         # @rbs external: untyped
@@ -86,11 +88,13 @@ module Zr
         # @rbs gem_set: GemSet?
         # @rbs gate: bool | Symbol
         # @rbs description: (^() -> String?)?
+        # @rbs switches: Switches
         # @rbs return: void
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
-                       gate: false, description: nil)
+                       gate: false, description: nil, switches: Switches::NONE)
           @deferred = deferred
+          @switches = switches
           @modules = {}
           @description = description
           @gem_set = gem_set
@@ -394,13 +398,18 @@ module Zr
         # program boots, as ruby loads it for every program.
         #: () -> bool
         def gems? = @gems
+
+        # Whether rubygems loads as the program boots: not under
+        # `--disable-gems`, where `Gem` is a name like any other.
+        #: () -> bool
+        def boots_gems? = @switches.gems
         GEM_NAMES = %i[Gem Bundler].freeze
 
         # rubygems evals when it loads, so a program that includes it also
         # links in the compiler.
         #: (Symbol name) -> void
         def gems!(name)
-          return unless GEM_NAMES.include?(name)
+          return unless GEM_NAMES.include?(name) && boots_gems?
 
           @gems = true
           @evals = true
@@ -479,9 +488,10 @@ module Zr
         # @rbs method: Array[[Symbol, Symbol?]]?
         # @rbs return: Unit
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
-          result = scopes ? Zr.parse(source, filepath: file, line: line, scopes: scopes) : Zr.parse(source, filepath: file, line: line)
+          options = @switches.parse_options(main?(file) && scopes.nil?)
+          result = scopes ? Zr.parse(source, filepath: file, line: line, scopes: scopes, **options) : Zr.parse(source, filepath: file, line: line, **options)
           raise SyntaxReport.error(result, file) unless result.errors.empty?
-          if (marker = result.data_loc)
+          if (marker = result.data_loc) && !(@switches.inline && main?(file))
             @data[file] = source.byteindex("\n", marker.start_offset)&.succ || source.bytesize
           end
           stray = scopes && method.nil? && invalid_yields(source, file, line) #: SyntaxError?
@@ -584,6 +594,8 @@ module Zr
                         # `resolve` finds this file only with a description.
                         text = @description&.call or raise ArgumentError, "#{path} has no description text"
                         unit(path, text)
+                      elsif path == Library::Roots::SWITCHES
+                        unit(path, @switches.prelude || raise(ArgumentError, "the build has no switches' prelude"))
                       else
                         unit(path)
                       end

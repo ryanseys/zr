@@ -78,6 +78,8 @@ module Zr
       # `gem_set` is a GemSet (lib/zr/gem_set.rb): the gems that come
       # before zr's standard library, or nil. `gate` stops the build at a
       # require in the program's own files that no root has (Loader).
+      # `switches` are the ruby switches of the build (`Hir::Switches`):
+      # their prelude runs after the other preludes, before the main file.
       # @rbs source: String
       # @rbs file: String
       # @rbs roots: Array[String]
@@ -91,21 +93,27 @@ module Zr
       # @rbs trace: bool
       # @rbs gem_set: GemSet?
       # @rbs gate: bool | Symbol
+      # @rbs switches: Switches
       # @rbs return: Program
       def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
-                       trace: false, gem_set: nil, gate: false)
+                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
         # build machine.
         file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
-        # @type var built: ^(untyped, bool, bool, bool) -> [Loader, Unit]
+        # @type var built: ^(untyped, bool, bool, bool) -> [Loader, Unit, Require?]
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
-                              gate: gate, description: Library::Roots.description(target))
+                              gate: gate, description: Library::Roots.description(target), switches: switches)
           loader.main!(file)
-          [loader, loader.unit(file, source, line, scopes, method: method)]
+          # Built before the main file, so that the main file's requires
+          # search the -I roots that the prelude adds. It runs as a load: it
+          # is not in $LOADED_FEATURES, and what its -r requires is the
+          # program's, not hidden as a runtime file's requires are.
+          switched = (Require.new(:load, "zr/ruby_switches", Library::Roots::SWITCHES, loader.add(Library::Roots::SWITCHES), 0) if switches.prelude)
+          [loader, loader.unit(file, source, line, scopes, method: method), switched]
         end
         # A build knows three facts only after it reads every file: that
         # the program uses eval, TracePoint, or Coverage. Each fact needs
@@ -117,7 +125,7 @@ module Zr
         # can only change from false to true, so the loop ends.
         evals = covers = false
         external = nil #: untyped
-        loader, main = built.call(external, trace, evals, covers)
+        loader, main, switched = built.call(external, trace, evals, covers)
         preludes = eval_support ? Build.preludes(loader, target) : [] #: Array[node]
         loop do
           over = loader.evals? ? prebuilt : nil
@@ -127,7 +135,7 @@ module Zr
           external = over
           trace ||= loader.traces?
           covers = loader.covers?
-          loader, main = built.call(external, trace, evals, covers)
+          loader, main, switched = built.call(external, trace, evals, covers)
           preludes = eval_support ? Build.preludes(loader, target) : []
         end
         # A program with eval numbers its `using` entries here. A compile
@@ -136,6 +144,7 @@ module Zr
         # entries are taken before the first line, and a compile at run
         # time starts after the last of them.
         preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.evals? && loader.activations.positive?
+        preludes << switched if switched
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
@@ -416,11 +425,25 @@ module Zr
 
         body = node.body
         if hoist
+          body = body.flat_map { |s| hoisted_from_loop(s) }
           early, rest = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
           body = early + rest #: Array[Prism::node]
         end
         last = body.size - 1
         Seq.new(body.each_with_index.map { |s, i| statement(s, taken: taken && i == last) }, node.location.start_line)
+      end
+
+      # -n and -p wrap the file in a `while gets` loop (prism's
+      # `command_line`), with its `BEGIN { }` blocks inside. Ruby runs them
+      # once, before the loop, as anywhere else: the blocks, then the loop
+      # without them. No other loop can hold a BEGIN, which parses only at
+      # the toplevel.
+      #: (Prism::node node) -> Array[Prism::node]
+      def hoisted_from_loop(node)
+        return [node] unless node.is_a?(Prism::WhileNode) && (inner = node.statements)
+
+        early, rest = inner.body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
+        early.empty? ? [node] : [*early, node.copy(statements: inner.copy(body: rest))]
       end
 
       # One statement. Each send in it gets the activation that is active
