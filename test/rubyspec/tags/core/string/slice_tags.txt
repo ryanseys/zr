@@ -1,4 +1,3 @@
 fails:String#slice! with index calls to_int on index
 fails:String#slice! with index, length calls to_int on idx and length
 fails:String#slice! Range calls to_int on range arguments
-fails:String#slice! with Regexp, index returns the encoding aware capture for the given index

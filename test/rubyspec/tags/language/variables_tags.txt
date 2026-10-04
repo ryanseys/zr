@@ -1,1 +1,1 @@
-fails:Instance variables global variable when global variable is uninitialized warns about accessing uninitialized global variable in verbose mode
+fails:Instance variables global variable when global variable is uninitialized doesn't warn at lazy initialization

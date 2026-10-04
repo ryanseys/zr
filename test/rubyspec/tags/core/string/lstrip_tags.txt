@@ -1,1 +1,0 @@
-fails:String#lstrip! raises an ArgumentError if the first non-space codepoint is invalid

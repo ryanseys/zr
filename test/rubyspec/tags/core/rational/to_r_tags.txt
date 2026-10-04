@@ -1,3 +1,0 @@
-fails:Rational#to_r raises TypeError trying to convert BasicObject
-fails:Rational#to_r works when a BasicObject has to_r
-fails:Rational#to_r fails when a BasicObject's to_r does not return a Rational

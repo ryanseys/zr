@@ -1,2 +1,1 @@
 fails:File.dirname returns all the components of filename except the last one
-fails:File.dirname when level is passed calls #to_int if passed not numeric value

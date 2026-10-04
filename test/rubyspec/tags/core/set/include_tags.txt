@@ -1,1 +1,0 @@
-fails:Set#include? member equality is checked using both #hash and #eql?

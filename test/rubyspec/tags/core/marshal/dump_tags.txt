@@ -1,5 +1,0 @@
-fails:Marshal.dump with a Symbol dumps an encoded Symbol
-fails:Marshal.dump with an Object raises TypeError if an Object has a singleton class and singleton instance variables
-fails:Marshal.dump with an Object dumps a BasicObject subclass if it defines respond_to?
-fails:Marshal.dump when passed an IO raises an Error when the IO-Object does not respond to #write
-fails:Marshal.dump when passed an IO calls binmode when it's defined

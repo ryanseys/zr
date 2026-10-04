@@ -1,1 +1,0 @@
-fails:SignalException runs after at_exit

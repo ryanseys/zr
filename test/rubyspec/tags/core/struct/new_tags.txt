@@ -1,3 +1,0 @@
-fails:Struct.new calls to_str on its first argument (constant name)
-fails:Struct.new on subclasses creates a constant in subclass' namespace
-fails:Struct.new keyword_init: true option new class instantiation accepts arguments as hash as well

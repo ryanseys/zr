@@ -1,1 +1,0 @@
-fails:ENV#clone raises ArgumentError when keyword argument 'freeze' is neither nil nor boolean

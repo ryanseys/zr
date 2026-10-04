@@ -1,2 +1,0 @@
-fails:Refinement#extend_object is not defined
-fails:Refinement#extend_object is not called by Object#extend

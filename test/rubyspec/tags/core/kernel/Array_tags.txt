@@ -1,2 +1,0 @@
-fails:Kernel.Array calls #to_a if #to_ary is not defined, even if it's private
-fails:Kernel#Array calls #to_a if #to_ary is not defined, even if it's private

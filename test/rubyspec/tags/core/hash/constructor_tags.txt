@@ -1,1 +1,0 @@
-fails:Hash.[] coerces a single argument which responds to #to_ary

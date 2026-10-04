@@ -1,1 +1,0 @@
-fails:Enumerator#size returns the result from size.call if the size respond to call

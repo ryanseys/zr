@@ -1,1 +1,0 @@
-fails:Hash#to_h with block coerces returned pair to Array with #to_ary

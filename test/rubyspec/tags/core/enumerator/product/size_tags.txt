@@ -1,3 +1,0 @@
-fails:Enumerator::Product#size returns nil if any enumerable reports its size as Float::NAN
-fails:Enumerator::Product#size returns nil if any enumerable reports a not-convertible to Integer
-fails:Enumerator::Product#size returns nil if any enumerable reports a non-Integer but convertible to Integer size

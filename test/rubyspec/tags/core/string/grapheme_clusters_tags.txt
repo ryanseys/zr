@@ -1,3 +1,0 @@
-fails:String#grapheme_clusters passes each char in self to the given block
-fails:String#grapheme_clusters returns self
-fails:String#grapheme_clusters passes each grapheme cluster in self to the given block

@@ -1,2 +1,0 @@
-fails:Enumerator::Product#inspect represents a recursive element with '[...]'
-fails:Enumerator::Product#inspect returns a not initialized representation if #initialized is not called yet

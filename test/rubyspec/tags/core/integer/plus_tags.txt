@@ -1,1 +1,0 @@
-fails:Integer#+ coerces the RHS and calls #coerce even if it's private

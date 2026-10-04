@@ -1,7 +1,5 @@
 fails:Marshal.load when called with freeze: true deep freezing deduplicates frozen strings
 fails:Marshal.load when called on objects with custom _dump methods does not set instance variables of an object with user-defined _dump/_load
 fails:Marshal.load for a String sets binmode if it is loading through StringIO stream
-fails:Marshal.load for an Object loads an Object with a non-US-ASCII instance variable
-fails:Marshal.load for a Time loads Time objects stored as links
 fails:Marshal.load for a wrapped C pointer loads
 fails:Marshal.load for a wrapped C pointer raises TypeError when the local class is missing _load_data

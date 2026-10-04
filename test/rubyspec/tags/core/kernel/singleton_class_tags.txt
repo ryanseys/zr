@@ -1,1 +1,0 @@
-fails:Kernel#singleton_class for an IO object with a replaced singleton class looks up singleton methods from the fresh singleton class after an object instance got a new one

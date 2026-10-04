@@ -1,2 +1,0 @@
-fails:Fiber.[] can use keys as strings
-fails:Fiber.[] can use any object that responds to #to_str as a key

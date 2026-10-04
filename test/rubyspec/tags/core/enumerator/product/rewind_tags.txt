@@ -1,1 +1,0 @@
-fails:Enumerator::Product#rewind calls a rewind method on each enumerable in direct order

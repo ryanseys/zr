@@ -1,2 +1,0 @@
-fails:File#to_path returns a different String on every call
-fails:File#to_path returns a mutable String

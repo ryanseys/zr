@@ -1,1 +1,0 @@
-fails:String#ord raises ArgumentError if the character is broken

@@ -1,3 +1,0 @@
-fails:File.truncate raises a TypeError if not passed an Integer type for the second argument
-fails:File#truncate does not move the file read pointer to the specified byte offset
-fails:File#truncate raises a TypeError if not passed an Integer type for the for the argument

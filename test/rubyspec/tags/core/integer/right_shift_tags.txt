@@ -1,1 +1,0 @@
-fails:Integer#>> (with n >> m) bignum raises a TypeError when #to_int does not return an Integer

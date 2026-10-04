@@ -1,3 +1,0 @@
-fails:File.open opens a file with mode and permission as nil
-fails:File.open raises an IOError when write in a block opened with File::RDONLY|File::APPEND mode
-fails:File.open raises an IOError if the file exists when open with File::RDONLY|File::APPEND

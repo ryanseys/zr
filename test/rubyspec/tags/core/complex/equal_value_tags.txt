@@ -1,1 +1,0 @@
-fails:Complex#== with a Numeric which responds to #real? with true returns real == other when the imaginary part is zero

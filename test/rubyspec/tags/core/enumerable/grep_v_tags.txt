@@ -1,3 +1,2 @@
-fails:Enumerable#grep_v does not set $~ when given no block
-fails:Enumerable#grep_v does not modify Regexp.last_match without block
 fails:Enumerable#grep_v correctly handles non-string elements
+fails:Enumerable#grep_v without block returns an Array of matched elements

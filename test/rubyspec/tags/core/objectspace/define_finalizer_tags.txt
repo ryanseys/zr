@@ -1,7 +1,2 @@
-fails:ObjectSpace.define_finalizer warns if the finalizer has the object as the receiver
-fails:ObjectSpace.define_finalizer warns if the finalizer is a method bound to the receiver
-fails:ObjectSpace.define_finalizer warns if the finalizer was a block in the receiver
 fails:ObjectSpace.define_finalizer calls a finalizer defined in a finalizer running at exit
-fails:ObjectSpace.define_finalizer defines same finalizer only once
-fails:ObjectSpace.define_finalizer returns the defined finalizer
 fails:ObjectSpace.define_finalizer when $VERBOSE is nil does not warn even if an exception is raised in finalizer

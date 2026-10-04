@@ -1,1 +1,0 @@
-fails:String#delete_prefix! calls to_str on its argument

@@ -1,1 +1,0 @@
-fails:Class#dup raises TypeError if called on BasicObject
