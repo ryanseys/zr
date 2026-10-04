@@ -16,7 +16,7 @@ module Zr
           usage_error("unknown option '#{argv.find { |word| word.start_with?("-") }}'") if argv.any? { |word| word.start_with?("-") }
           usage_error("give one binary") unless argv.size == 1
           path = argv.first
-          abort "zr: no such file: #{path}" unless File.file?(path)
+          Errors.file!(path)
           manifest = Manifest.find(File.binread(path))
           abort "zr: #{path} has no gem manifest; zr #{VERSION} did not build it" unless manifest
           return puts(JSON.generate(manifest)) if json

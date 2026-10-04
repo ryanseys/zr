@@ -16,10 +16,24 @@ module Zr
         interrupt = Signal.trap("INT") { nil }
         # `[binary, binary]`: with no arguments, a lone string would be a
         # command for the shell.
-        system(GcTuning.program_env, [binary, binary], *rest)
+        system(program_env, [binary, binary], *rest)
         Signal.trap("INT", interrupt)
         # `system` sets `$?` also when the binary does not start.
         $? #: Process::Status
+      end
+
+      # The environment changes for a program that zr runs: the collector
+      # limits that zr set for itself go (`GcTuning.program_env`), and
+      # `ZR_RUBY` names this `zr`, so the program's `RbConfig.ruby` is the zr
+      # that ran it (lib/zr/runtime/ext/rbconfig.rb), as a ruby program's is
+      # the ruby that ran it.
+      #: () -> Hash[String, String?]
+      def program_env
+        env = GcTuning.program_env
+        launcher = $PROGRAM_NAME
+        return env unless File.basename(launcher) == "zr" && File.file?(launcher)
+
+        env.merge("ZR_RUBY" => File.realpath(launcher))
       end
 
       # The end of `zr run`, once the build is gone: the program's status.

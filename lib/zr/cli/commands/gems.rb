@@ -36,7 +36,7 @@ module Zr
           opts = Options.parse(name, argv)
           gem_set = Options.gem_set(opts)
           rows = if opts[:input]
-                   abort "zr: no such file: #{opts[:input]}" unless File.file?(opts[:input])
+                   Errors.file!(opts[:input])
                    of_file(opts[:input], gem_set, Options.target_for(opts[:triple], opts[:emit], name))
                  else
                    Manifest.all(gem_set)

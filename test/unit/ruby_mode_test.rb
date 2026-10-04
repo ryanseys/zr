@@ -241,6 +241,12 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-", "a", stdin: "p ARGV\n")
   end
 
+  # A program's `RbConfig.ruby` is the zr that ran it, as a ruby
+  # program's is its ruby.
+  def test_rbconfig_ruby_runs_the_interpreter_that_ran_the_program
+    same_as_ruby("-e", 'system(RbConfig.ruby, "-e", "print 6 * 7; exit 7"); p $?.exitstatus')
+  end
+
   def test_the_loop_switches_read_their_input_as_ruby
     same_as_ruby("-lane", "print $F.reverse.join(' ')", "in.txt")
     same_as_ruby("-pe", "$_.upcase!", "in.txt")

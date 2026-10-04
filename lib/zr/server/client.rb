@@ -66,7 +66,8 @@ module Zr
           $stdout.flush
           exit(code)
         in { run: String => binary, args: Array => args, temp: false }
-          exec([binary, binary], *args)
+          require_relative "../cli/runner"
+          exec(CLI::Runner.program_env, [binary, binary], *args)
         in { run: String => binary, args: Array => args, temp: true }
           require_relative "../cli"
           status = CLI.run_binary(binary, args)

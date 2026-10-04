@@ -41,7 +41,7 @@ module Zr
           opts = Options.parse(name, argv)
           Refusals.pinned!
           input = opts[:input]
-          abort "zr: no such file: #{input}" unless File.file?(input)
+          Errors.file!(input)
           source = File.read(input)
           compile(opts, source, input, RubyOptions.new.tap { |options| options.shebang!(source) }.switches)
         end
@@ -231,7 +231,7 @@ module Zr
           cache = Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest,
                                             link: Config.current.link + opts[:link], gems: gems, trace: Options.trace?(opts))
           kept = cache.hit
-          exec(GcTuning.program_env, [kept, kept], *opts[:args]) if kept
+          exec(Runner.program_env, [kept, kept], *opts[:args]) if kept
           # The build keeps its binary here, with no second digest.
           @missed = cache
         end

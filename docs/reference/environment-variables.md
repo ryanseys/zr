@@ -73,6 +73,7 @@ them.
 | `ZR_GC_TRACE` | set (any value) | unset | Prints one line to stderr for each collection. See [Memory and the collector](../explanation/memory-and-the-collector.md#read-the-collector-trace). |
 | `ZR_MCACHE` | `0`, `verify` | unset | `0`: fills no inline cache, so every send looks up its method. `verify`: checks every cache hit against a fresh lookup, and stops at the first that is different. |
 | `OPENSSL_DIR` | a prefix | unset | `require "openssl"` in a macOS program opens `libssl.3.dylib` in `$OPENSSL_DIR/lib` and nowhere else. When it is not set, the program looks in the Homebrew and MacPorts prefixes. |
+| `ZR_RUBY` | a path | set by `zr` | The `zr` that ran the program: `zr run` and `zr app.rb` set it to the path of the `zr` command. `RbConfig.ruby` gives it, so `system(RbConfig.ruby, "-e", ...)` runs zr. Without it, `RbConfig.ruby` is `$ZR_BINDIR/zr` when `ZR_BINDIR` or `ZR_PREFIX` is set, else the first `zr` on `PATH`, else `~/.zr/bin/zr`. |
 | `ZR_PREFIX` | a directory | `~/.zr` | The install prefix that `RbConfig` gives. |
 | `ZR_BINDIR` | a directory | `$ZR_PREFIX/bin` | `RbConfig::CONFIG["bindir"]`. |
 | `ZR_RUBY_INSTALL_NAME` | a name | `zr` | `RbConfig::CONFIG["ruby_install_name"]`. |

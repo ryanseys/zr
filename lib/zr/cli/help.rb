@@ -135,7 +135,8 @@ module Zr
           compares stdout, stderr, the exit status and the signal. Prints
           the kind of difference (same, output-diff, exception-diff,
           status-diff, crash, timeout, refused or build-error), then a diff
-          of each part. Exits with status 0 only when the two are the same.
+          of each part. Exits with status 0 when the two are the same, 1 when
+          they differ, 2 when the build failed, and 3 when zr refused it.
 
           ruby reads the same --gem directories, and runs as `bundle exec
           ruby` does with --gemfile or BUNDLE_GEMFILE. The two runs can

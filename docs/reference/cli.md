@@ -204,7 +204,9 @@ paths, so two machines build the same bytes.
 Runs `<file.rb>` with `[args...]` under ruby and as a zr binary, and
 compares stdout, stderr, the exit status and the signal. It prints the
 kind of difference, then a unified diff of each part that differs. It
-exits with status 0 only when the two runs are the same.
+exits with status 0 when the two runs are the same, 1 when they differ
+(`output-diff`, `exception-diff`, `status-diff`, `crash`, `timeout`), 2
+for a `build-error`, and 3 when zr refused the program.
 
 | Kind | Meaning |
 |---|---|
@@ -366,9 +368,9 @@ Please report it.
 | Status | Meaning |
 |---|---|
 | 0 | Success. For `zr run`, the program's own status. |
-| 1 | An error. A build step failed, or a require in the program's own files has no file; the message tells which. For `zr diff`, the two runs differ. |
-| 2 | A usage error: the command line is wrong, or a `ZR_*` variable has a value that zr cannot use. |
-| 3 | A refusal: zr does not support the program, or this host cannot build or run the target, or the ruby is not 4.0.7 or a later 4.0 release. The message gives the form and its line, or the missing tool. |
+| 1 | An error. A build step failed, or a require in the program's own files has no file; the message tells which. For `zr diff`, the two runs differ. In ruby mode (`zr app.rb`, `zr -e`), the statuses that ruby gives: 1 for a missing script or a switch that ruby rejects. |
+| 2 | A usage error: the command line is wrong, the file that a command names does not exist, or a setting (a `ZR_*` variable or its flag) has a value that zr cannot use. For `zr diff`, the build failed. |
+| 3 | A refusal: zr does not support the program, or this host cannot build or run the target, or the ruby is not 4.0.7 or a later 4.0 release. The message gives the form and its line, or the missing tool. `zr diff` also exits 3 when zr refused the program. |
 | 130 | Ctrl-C stopped zr. zr removes its temporary files first. |
 
 A program that does not parse still builds, and `zr build` gives a

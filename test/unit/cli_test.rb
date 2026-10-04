@@ -235,10 +235,16 @@ class CliParseTest < Minitest::Test
     assert_equal CLI::Help::PAGES.fetch("run"), capture_io { CLI.start(%w[help run]) }.first
   end
 
-  def test_a_missing_file_prints_one_line_and_exits_1
-    _, err = assert_exit(1) { CLI.start(%w[run no_such_file.rb]) }
+  # A command's missing input is a usage error. In ruby mode, ruby's own
+  # status and message.
+  def test_a_missing_file_prints_one_line_and_exits_2
+    [%w[run], %w[build -o x], %w[diff], %w[gems], %w[inspect]].each do |command, *options|
+      _, err = assert_exit(2) { CLI.start([command, *options, "no_such_file.rb"]) }
 
-    assert_equal "zr: no such file: no_such_file.rb\n", err
+      assert_equal "zr: no such file: no_such_file.rb\n", err, command
+    end
+    _, err = assert_exit(1) { CLI.start(%w[no_such_file.rb]) }
+    assert_equal "zr: No such file or directory -- no_such_file.rb (LoadError)\n", err
   end
 
   # A host that runs no native target (x86_64 Linux) builds a darwin

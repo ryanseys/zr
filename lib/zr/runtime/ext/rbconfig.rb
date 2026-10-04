@@ -190,9 +190,22 @@ module RbConfig
   MAKEFILE_CONFIG = CONFIG.dup
   TOPDIR = CONFIG["topdir"]
 
-  # `RbConfig.ruby` -- the full path to the running interpreter.
+  # `RbConfig.ruby` -- the full path to the running interpreter, which is
+  # zr: the `zr` that ran the program (`ZR_RUBY`, which `zr run` and `zr
+  # app.rb` set), else the one in `ZR_BINDIR` or `ZR_PREFIX`, else the
+  # first `zr` on PATH, else `~/.zr/bin/zr`. So `system(RbConfig.ruby,
+  # "-e", ...)` runs zr, as it runs ruby in a ruby program.
   def self.ruby
-    File.join(CONFIG["bindir"], CONFIG["ruby_install_name"] + CONFIG["EXEEXT"])
+    given = ENV["ZR_RUBY"]
+    return given unless given.nil? || given.empty?
+
+    name = CONFIG["ruby_install_name"] + CONFIG["EXEEXT"]
+    unless ENV["ZR_BINDIR"] || ENV["ZR_PREFIX"]
+      found = ENV["PATH"].to_s.split(File::PATH_SEPARATOR).map { |dir| File.join(dir, name) }
+                         .find { |path| File.file?(path) && File.executable?(path) }
+      return found if found
+    end
+    File.join(CONFIG["bindir"], name)
   end
 
   # `RbConfig.fire_update!` -- upstream's, transcribed: sets `key` in

@@ -9,7 +9,8 @@ module Zr
       # `zr diff [options] FILE [args...]`: runs FILE under ruby and as a zr
       # binary, and compares stdout, stderr, the exit status and the signal.
       # It prints the kind of difference (`Zr::Diff.kind`), and a diff of
-      # each part. Exit status 0 when the two are the same, else 1.
+      # each part. Exit status 0 when the two are the same, 1 when they
+      # differ, 2 when the build broke, and 3 when zr refused the program.
       #
       # In `Commands`, `Diff` names this class: the runs are `Zr::Diff`.
       class Diff < Command
@@ -20,7 +21,7 @@ module Zr
           opts = Options.parse("run", words)
           usage_error("--emit does not apply; zr diff runs a binary for this host") if opts[:emit]
           input = opts[:input]
-          abort "zr: no such file: #{input}" unless File.file?(input)
+          Errors.file!(input)
           # `input` is one of the words, so `index` finds it.
           at = argv.index(input) #: Integer
           options = argv.take(at)
@@ -31,7 +32,7 @@ module Zr
             unless built.status.zero?
               puts built.status == REFUSED ? "refused" : "build-error"
               $stderr.print built.stderr
-              exit 1
+              exit(built.status == REFUSED ? REFUSED : 2)
             end
             ruby = Zr::Diff.run([RbConfig.ruby, *ruby_flags(gem_set), input, *opts[:args]], env: ruby_env(opts))
             zr = Zr::Diff.run([out, *opts[:args]])

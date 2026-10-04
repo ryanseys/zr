@@ -55,6 +55,16 @@ module Zr
         ""
       end
 
+      # The input that the command names is not a file: a usage error,
+      # status 2.
+      #: (String? path) -> void
+      def file!(path)
+        return if path && File.file?(path)
+
+        warn "zr: no such file: #{path}"
+        exit 2
+      end
+
       # One line that says what is wrong, and where to find help.
       #: (String message, ?String? command) -> bot
       def usage_error(message, command = nil)
