@@ -141,6 +141,7 @@ module Zr
           handlers = node.rescues.map do |clause|
             [rescue_test(clause, exc_at), clause] #: [String, Hir::Rescue]
           end
+          kernel("zr_rescue_miss", @f.fetch("i64", @rec, exc_at))
           @f.jump(landing)
 
           handlers.each do |handler, clause|

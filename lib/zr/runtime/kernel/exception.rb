@@ -375,6 +375,17 @@ module Zr::Kern
     prev
   end
 
+  # A rescue whose clauses all missed passes the raise on. A clause's
+  # test runs code (its class can autoload a file that raises and
+  # rescues), and that can clear the task's pending raise, so the raise
+  # is set again from the value that the landing took.
+  #: (value) -> void
+  def zr_rescue_miss(exc)
+    t = zr_task()
+    Task[t].pending = exc
+    Task[t].pending_kind = PENDING_RAISE
+  end
+
   #: () -> value
   def zr_errinfo
     Task[zr_task()].errinfo
