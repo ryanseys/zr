@@ -1,5 +1,0 @@
-fails:IO.for_fd ignores the :encoding option when the :external_encoding option is present
-fails:IO.for_fd ignores the :encoding option when the :internal_encoding option is present
-fails:IO.for_fd coerces mode with #to_int
-fails:IO.for_fd coerces mode with #to_int when passed in options
-fails:IO.for_fd coerces :encoding option with #to_str
