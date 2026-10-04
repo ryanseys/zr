@@ -1,7 +1,0 @@
-fails:Array#pack with format 'U' ignores whitespace in the format string
-fails:Array#pack with format 'U' ignores comments in the format string
-fails:Array#pack with format 'U' raise ArgumentError when a directive is unknown
-fails:Array#pack with format 'U' raises a TypeError if #to_int does not return an Integer
-fails:Array#pack with format 'u' ignores whitespace in the format string
-fails:Array#pack with format 'u' ignores comments in the format string
-fails:Array#pack with format 'u' raise ArgumentError when a directive is unknown

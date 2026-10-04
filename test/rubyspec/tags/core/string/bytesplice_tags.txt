@@ -1,7 +1,7 @@
 fails:String#bytesplice raises TypeError when integer index is provided without length argument
 fails:String#bytesplice raises IndexError when str_index is less than -bytesize
 hangs:String#bytesplice raises IndexError when str_index is greater than bytesize
-fails:String#bytesplice raises IndexError for negative str length
+hangs:String#bytesplice raises IndexError for negative str length
 fails:String#bytesplice replaces with integer str indices
 fails:String#bytesplice raises RangeError when str range left boundary is less than -bytesize
 fails:String#bytesplice replaces with str ranges

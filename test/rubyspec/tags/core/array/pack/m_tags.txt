@@ -1,7 +1,0 @@
-fails:Array#pack with format 'M' ignores whitespace in the format string
-fails:Array#pack with format 'M' ignores comments in the format string
-fails:Array#pack with format 'M' raise ArgumentError when a directive is unknown
-fails:Array#pack with format 'M' converts the object to a String representation if #to_s does not return a String
-fails:Array#pack with format 'm' ignores whitespace in the format string
-fails:Array#pack with format 'm' ignores comments in the format string
-fails:Array#pack with format 'm' raise ArgumentError when a directive is unknown

@@ -1,6 +1,0 @@
-fails:Array#pack with format 'Q' ignores whitespace in the format string
-fails:Array#pack with format 'Q' ignores comments in the format string
-fails:Array#pack with format 'Q' raise ArgumentError when a directive is unknown
-fails:Array#pack with format 'q' ignores whitespace in the format string
-fails:Array#pack with format 'q' ignores comments in the format string
-fails:Array#pack with format 'q' raise ArgumentError when a directive is unknown

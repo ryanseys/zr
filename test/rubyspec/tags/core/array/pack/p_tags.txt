@@ -1,6 +1,0 @@
-fails:Array#pack with format 'P' ignores whitespace in the format string
-fails:Array#pack with format 'P' ignores comments in the format string
-fails:Array#pack with format 'P' raise ArgumentError when a directive is unknown
-fails:Array#pack with format 'p' ignores whitespace in the format string
-fails:Array#pack with format 'p' ignores comments in the format string
-fails:Array#pack with format 'p' raise ArgumentError when a directive is unknown
