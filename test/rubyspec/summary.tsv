@@ -46,9 +46,9 @@ core/regexp	24	260	248	0	0
 core/set	54	179	175	0	0
 core/signal	3	52	52	0	0
 core/sizedqueue	16	129	112	0	0
-core/string	139	3641	3519	0	0
+core/string	139	3641	3583	0	0
 core/struct	30	180	174	0	0
-core/symbol	29	323	317	0	0
+core/symbol	29	323	321	0	0
 core/systemexit	2	6	6	0	0
 core/thread	53	373	324	0	0
 core/threadgroup	5	8	8	0	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	25114	1	0
+total	2174	26314	25182	1	0

@@ -1,5 +1,0 @@
-fails:String#[] with index, length raises a TypeError when idx or length can't be converted to an integer
-fails:String#[] with index, length raises a TypeError when the given index or the given length is nil
-fails:String#[] with Range raises a type error if a range is passed with a length
-fails:String#[] with Regexp, index raises a TypeError when the given index is nil
-fails:String#[] with String returns a String instance when given a subclass instance

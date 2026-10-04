@@ -1,1 +1,0 @@
-fails:String#rpartition with String converts its argument using :to_str

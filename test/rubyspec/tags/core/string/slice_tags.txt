@@ -1,16 +1,4 @@
-fails:String#slice with index, length raises a TypeError when idx or length can't be converted to an integer
-fails:String#slice with index, length raises a TypeError when the given index or the given length is nil
-fails:String#slice with Range raises a type error if a range is passed with a length
-fails:String#slice with Regexp, index raises a TypeError when the given index is nil
-fails:String#slice with String returns a String instance when given a subclass instance
-fails:String#slice! with index raises a FrozenError if self is frozen
 fails:String#slice! with index calls to_int on index
-fails:String#slice! with index, length raises a FrozenError if self is frozen
 fails:String#slice! with index, length calls to_int on idx and length
 fails:String#slice! Range calls to_int on range arguments
-fails:String#slice! Range raises a FrozenError on a frozen instance that would not be modified
-fails:String#slice! with Regexp raises a FrozenError on a frozen instance that would not be modified
 fails:String#slice! with Regexp, index returns the encoding aware capture for the given index
-fails:String#slice! with Regexp, index raises a FrozenError if self is frozen
-fails:String#slice! with String returns a subclass instance when given a subclass instance
-fails:String#slice! with String raises a FrozenError if self is frozen
