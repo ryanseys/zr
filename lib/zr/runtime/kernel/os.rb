@@ -48,6 +48,7 @@
 #   zr_os_poll_start     [] => Void
 #   zr_os_malloc_size    [Ptr] => Word
 #   zr_os_machine_bytes  [] => Word
+#   zr_os_locale_charmap [] => Value
 #
 # stacks and loaded code
 #   zr_os_stack_low      [] => Word

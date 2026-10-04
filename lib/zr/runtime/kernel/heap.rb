@@ -1458,13 +1458,13 @@ module Zr::Kern
   #: (value) -> value
   def zr_gc_profile_set(flag)
     GcProfile[zr_gc_profile()].on = flag == QTRUE ? 1 : 0
-    QNIL
+    Machine.value(QNIL)
   end
 
   #: () -> value
   def zr_gc_profile_clear
     GcProfile[zr_gc_profile()].count = 0
-    QNIL
+    Machine.value(QNIL)
   end
 
   # The rows so far, each an Array of PROFILE_ROW Integers.
