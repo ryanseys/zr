@@ -72,10 +72,11 @@ class TracePoint
       EVENTS.fetch(name) { raise ArgumentError, "unknown event: #{name}" }
     end
 
-    # A program whose files never name TracePoint is built without the
+    # A program whose code never names TracePoint is built without the
     # events, so its code fires none (lib/zr/hir/build/loader.rb,
-    # TRACE_NAMES). A point that such a program enables, by a name the
-    # run computed, says so once, and names the build that arms them.
+    # `names_of?`). A point that such a program enables, by a name in a
+    # string or one the run computed, says so once, and names the build
+    # that arms them.
     def untraced!
       Primitive.attr! :hidden
       return if Primitive.zr_trace_built_m || Primitive.zr_hidden_get(self, :__untraced__)

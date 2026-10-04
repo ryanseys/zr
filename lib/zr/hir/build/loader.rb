@@ -163,27 +163,25 @@ module Zr
         COVERAGE_CONSTANTS = %i[Coverage].freeze
 
         #: (Prism::node tree) -> bool
-        def names_tracing?(tree) = names_of?(tree, TRACE_CONSTANTS, TRACE_CALLS, TRACE_NAMES)
+        def names_tracing?(tree) = names_of?(tree, TRACE_CONSTANTS, TRACE_CALLS)
 
         #: (Prism::node tree) -> bool
-        def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [], COVERAGE_NAMES)
+        def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [])
 
-        # Whether the tree uses one of `constants`, calls one of `calls`,
-        # or has a symbol or a string that `words` matches. The words make
-        # this as safe as a plain regexp: a name got by `const_get` of a
-        # string counts, and so does the code of an eval
-        # (`eval("TracePoint.new(:call) { }")`). To arm a program that does
-        # not trace costs time, but to miss one that does gives wrong
-        # output. A name that only the run computes is missed; `--trace`
-        # arms such a program.
-        #: (Prism::node tree, Array[Symbol] constants, Array[Symbol] calls, Regexp words) -> bool
-        def names_of?(tree, constants, calls, words)
+        # Whether the tree's code uses one of `constants` or calls one of
+        # `calls`. A string or a symbol does not count: a help text or a
+        # table of these names (as in this file) is not a trace, and the
+        # events cost code size and time in every file. A program that
+        # reaches TracePoint only by a name in a string, a symbol or an
+        # eval's code is built with `--trace` (or `ZR_TRACE=1`); without
+        # it, the TracePoint warns when it is enabled.
+        #: (Prism::node tree, Array[Symbol] constants, Array[Symbol] calls) -> bool
+        def names_of?(tree, constants, calls)
           !tree.breadth_first_search do |n|
             case n
             when Prism::ConstantReadNode then constants.include?(n.name)
             when Prism::ConstantPathNode then n.parent.nil? && constants.include?(n.name)
             when Prism::CallNode then calls.include?(n.name)
-            when Prism::SymbolNode, Prism::StringNode then words.match?(n.unescaped.b)
             end #: bool
           end.nil?
         end

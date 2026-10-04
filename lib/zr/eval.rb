@@ -86,9 +86,11 @@ module Zr
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
     def compile(source, file, line = 1, scopes = [], method = nil)
       # Coverage cannot measure eval'd code, so it stops with a message.
-      # Coverage is there only when the program loads it, which `defined?`
-      # checks, so Steep cannot know the constant.
-      ::Coverage.send(:eval_compiled!) if defined?(::Coverage) && ::Coverage.respond_to?(:eval_compiled!, true) # steep:ignore
+      # Coverage is there only when the program loads it. It is reached by
+      # a symbol: a constant that names it in code arms the trace events of
+      # the build (`Loader#names_of?`), and this code only reports to it.
+      coverage = Object.const_defined?(:Coverage) && Object.const_get(:Coverage) #: untyped
+      coverage.send(:eval_compiled!) if coverage && coverage.respond_to?(:eval_compiled!, true)
       Eval.plainly { compiled(source, file, line, scopes, method) }
     rescue Hir::Invalid => e
       # Ruby reads a regexp literal when it compiles the string around it,

@@ -20,16 +20,19 @@ class TraceNamesTest < Minitest::Test
 
   def test_code_that_refers_to_tracing_enables_it
     ["TracePoint.new(:line) { }.enable", "::TracePoint", "set_trace_func(proc { })",
-     "add_trace_func(proc { })", "send(:set_trace_func, proc { })", "Coverage.start"].each do |source|
+     "add_trace_func(proc { })", "Coverage.start"].each do |source|
       assert traces?("#{source}\n"), source
     end
   end
 
-  # A name that zr cannot resolve also enables line events. Line events
-  # in a program that does not trace cost time, but a missed program
-  # that traces gives a wrong result.
-  def test_a_name_reached_through_a_string_still_arms_it
-    assert traces?(%(Object.const_get("TracePoint")\n))
+  # A name in a string or a symbol does not enable line events: a help
+  # text or a table of these names is not a trace. Such a program is
+  # built with --trace (trace_flag_test.rb).
+  def test_a_name_in_a_string_or_a_symbol_does_not_arm_it
+    refute traces?(%(Object.const_get("TracePoint")\n))
+    refute traces?(%(send(:set_trace_func, proc { })\n))
+    refute traces?(%(eval("TracePoint.new(:call) { }")\n))
+    refute traces?(%(NAMES = %i[TracePoint Coverage].freeze\n))
   end
 
   private

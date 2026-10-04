@@ -1,5 +1,7 @@
 # A TracePoint that only eval code names sees the calls of the program's
-# own methods.
+# own methods. zr arms trace events only for code that names TracePoint,
+# not for a name in a string, so this needs `zr run --trace` (or
+# ZR_TRACE=1); without it, the TracePoint warns and sees no calls.
 
 def double(x) = x * 2
 
