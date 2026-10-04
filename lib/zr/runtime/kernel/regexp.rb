@@ -366,11 +366,33 @@ module Zr::Kern
           up = Frame[up].prev
         end
         if up == 0
-          return rec
+          # The parent block has returned (a block made in it runs later):
+          # $~ lives further out, as CRuby keeps it in the method's env.
+          up = zr_backref_ancestor(rec, parent)
+          if up == 0
+            return rec
+          end
         end
         rec = up
       else
         return rec
+      end
+    end
+    0
+  end
+
+  # The nearest live frame of a scope outside the block scope `meta`,
+  # whose own frame has returned, or 0.
+  #: (ptr, ptr) -> ptr
+  def zr_backref_ancestor(rec, meta)
+    while meta != 0 && (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL)
+      meta = FrameMeta[meta].parent
+      up = Frame[rec].prev
+      while up != 0 && Frame[up].meta != meta
+        up = Frame[up].prev
+      end
+      if up != 0
+        return up
       end
     end
     0
