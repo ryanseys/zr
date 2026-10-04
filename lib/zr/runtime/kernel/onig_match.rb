@@ -237,14 +237,14 @@ module Zr::Kern
   # OP_EXACT1..OP_EXACTN_IC: literal bytes.
   #: (ptr, word) -> word
   def zr_onig_op_exact(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     e = OnigMatch[m].aend
     sbegin = s
     if op == OP_EXACT1
       return ONIG_OP_FAIL if s + 1 > e
       return ONIG_OP_FAIL if Machine.load8(p, 0) != Machine.load8(s, 0)
-      OnigMatch[m].p = p + 1
+      OnigMatch[m].pc = p + 1
       OnigMatch[m].s = s + 1
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
@@ -259,7 +259,7 @@ module Zr::Kern
         s = s + 1
         tlen -= 1
       end
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = s
       OnigMatch[m].sprev = s - 1
       return ONIG_OP_NEXT
@@ -275,7 +275,7 @@ module Zr::Kern
       end
       return ONIG_OP_FAIL if Machine.load8(p, 0) != Machine.load8(s, 0)
       OnigMatch[m].sprev = s
-      OnigMatch[m].p = p + 1
+      OnigMatch[m].pc = p + 1
       OnigMatch[m].s = s + 1
       return ONIG_OP_NEXT
     end
@@ -294,7 +294,7 @@ module Zr::Kern
         q = q + 1
         len -= 1
       end
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = s
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
@@ -321,7 +321,7 @@ module Zr::Kern
           len -= 1
         end
       end
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = s
       OnigMatch[m].sprev = sprev
       return ONIG_OP_NEXT
@@ -332,7 +332,7 @@ module Zr::Kern
   # OP_EXACTMB2N1..OP_EXACTMBN: literal multibyte characters.
   #: (ptr, word) -> word
   def zr_onig_op_exact_mb(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     e = OnigMatch[m].aend
     sbegin = s
@@ -340,7 +340,7 @@ module Zr::Kern
       return ONIG_OP_FAIL if s + 2 > e
       return ONIG_OP_FAIL if Machine.load8(p, 0) != Machine.load8(s, 0)
       return ONIG_OP_FAIL if Machine.load8(p, 1) != Machine.load8(s, 1)
-      OnigMatch[m].p = p + 2
+      OnigMatch[m].pc = p + 2
       OnigMatch[m].s = s + 2
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
@@ -359,7 +359,7 @@ module Zr::Kern
       OnigMatch[m].sprev = s
       return ONIG_OP_FAIL if Machine.load8(p, 0) != Machine.load8(s, 0)
       return ONIG_OP_FAIL if Machine.load8(p, 1) != Machine.load8(s, 1)
-      OnigMatch[m].p = p + 2
+      OnigMatch[m].pc = p + 2
       OnigMatch[m].s = s + 2
       return ONIG_OP_NEXT
     end
@@ -378,7 +378,7 @@ module Zr::Kern
         end
         tlen -= 1
       end
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = s
       OnigMatch[m].sprev = s - width
       return ONIG_OP_NEXT
@@ -395,7 +395,7 @@ module Zr::Kern
         s = s + 1
         tlen2 -= 1
       end
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = s
       OnigMatch[m].sprev = s - tlen
       return ONIG_OP_NEXT
@@ -418,7 +418,7 @@ module Zr::Kern
     s = s + mb_len
     code = zr_onig_mbc_to_code(enc, ss, s)
     return ONIG_OP_FAIL if !zr_onig_in_code_range_p(p, code)
-    OnigMatch[m].p = p + tlen
+    OnigMatch[m].pc = p + tlen
     OnigMatch[m].s = s
     OnigMatch[m].sprev = sbegin
     ONIG_OP_NEXT
@@ -434,7 +434,7 @@ module Zr::Kern
     mb_len = zr_onig_enclen(enc, s, e)
     if s + mb_len > e
       return ONIG_OP_FAIL if s + 1 > e
-      OnigMatch[m].p = p + tlen
+      OnigMatch[m].pc = p + tlen
       OnigMatch[m].s = e
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
@@ -443,7 +443,7 @@ module Zr::Kern
     s = s + mb_len
     code = zr_onig_mbc_to_code(enc, ss, s)
     return ONIG_OP_FAIL if zr_onig_in_code_range_p(p, code)
-    OnigMatch[m].p = p + tlen
+    OnigMatch[m].pc = p + tlen
     OnigMatch[m].s = s
     OnigMatch[m].sprev = sbegin
     ONIG_OP_NEXT
@@ -452,7 +452,7 @@ module Zr::Kern
   # OP_CCLASS..OP_CCLASS_MIX_NOT: character classes.
   #: (ptr, word) -> word
   def zr_onig_op_cclass(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     e = OnigMatch[m].aend
     enc = OnigMatch[m].enc
@@ -461,14 +461,14 @@ module Zr::Kern
     c = Machine.u8(Machine.load8(s, 0))
     if op == OP_CCLASS
       return ONIG_OP_FAIL if !zr_onig_bitset_at(p, c)
-      OnigMatch[m].p = p + ONIG_SIZE_BITSET
+      OnigMatch[m].pc = p + ONIG_SIZE_BITSET
       OnigMatch[m].s = s + zr_onig_enclen(enc, s, e)
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
     end
     if op == OP_CCLASS_NOT
       return ONIG_OP_FAIL if zr_onig_bitset_at(p, c)
-      OnigMatch[m].p = p + ONIG_SIZE_BITSET
+      OnigMatch[m].pc = p + ONIG_SIZE_BITSET
       OnigMatch[m].s = s + zr_onig_enclen(enc, s, e)
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
@@ -484,7 +484,7 @@ module Zr::Kern
       return ONIG_OP_FAIL if !zr_onig_bitset_at(p, c)
       p = p + ONIG_SIZE_BITSET
       tlen = zr_onig_get_i32(p)
-      OnigMatch[m].p = p + 4 + tlen
+      OnigMatch[m].pc = p + 4 + tlen
       OnigMatch[m].s = s + 1
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
@@ -492,7 +492,7 @@ module Zr::Kern
     if op == OP_CCLASS_MB_NOT
       if !zr_onig_mbc_head_p(enc, s, e)
         tlen = zr_onig_get_i32(p)
-        OnigMatch[m].p = p + 4 + tlen
+        OnigMatch[m].pc = p + 4 + tlen
         OnigMatch[m].s = s + 1
         OnigMatch[m].sprev = sbegin
         return ONIG_OP_NEXT
@@ -506,7 +506,7 @@ module Zr::Kern
       return ONIG_OP_FAIL if zr_onig_bitset_at(p, c)
       p = p + ONIG_SIZE_BITSET
       tlen = zr_onig_get_i32(p)
-      OnigMatch[m].p = p + 4 + tlen
+      OnigMatch[m].pc = p + 4 + tlen
       OnigMatch[m].s = s + 1
       OnigMatch[m].sprev = sbegin
       return ONIG_OP_NEXT
@@ -519,7 +519,7 @@ module Zr::Kern
   # OP_ANYCHAR..OP_ANYCHAR_ML_STAR_PEEK_NEXT: `.` and `.*`.
   #: (ptr, word) -> word
   def zr_onig_op_anychar(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     e = OnigMatch[m].aend
     enc = OnigMatch[m].enc
@@ -578,7 +578,7 @@ module Zr::Kern
       p = p + 1
       sprev = sbegin
     end
-    OnigMatch[m].p = p
+    OnigMatch[m].pc = p
     OnigMatch[m].s = s
     OnigMatch[m].sprev = sprev
     ONIG_OP_NEXT
@@ -732,7 +732,7 @@ module Zr::Kern
   # OP_BACKREF1..OP_BACKREF_WITH_LEVEL: back references.
   #: (ptr, word) -> word
   def zr_onig_op_backref(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     e = OnigMatch[m].aend
     enc = OnigMatch[m].enc
@@ -747,7 +747,7 @@ module Zr::Kern
       end
       ns = zr_onig_backref_one(m, mem, op == OP_BACKREFN_IC ? 1 : 0)
       return ONIG_OP_FAIL if ns == 0
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = ns
       return ONIG_OP_NEXT
     end
@@ -787,7 +787,7 @@ module Zr::Kern
                 sprev = sprev + len
               end
               OnigMatch[m].sprev = sprev
-              OnigMatch[m].p = p + (ONIG_SIZE_MEMNUM * (tlen - i - 1))
+              OnigMatch[m].pc = p + (ONIG_SIZE_MEMNUM * (tlen - i - 1))
               OnigMatch[m].s = s
               return ONIG_OP_NEXT
             end
@@ -813,7 +813,7 @@ module Zr::Kern
           sprev = sprev + len
         end
         OnigMatch[m].sprev = sprev
-        OnigMatch[m].p = p + (ONIG_SIZE_MEMNUM * tlen)
+        OnigMatch[m].pc = p + (ONIG_SIZE_MEMNUM * tlen)
         OnigMatch[m].s = s
         return ONIG_OP_NEXT
       end
@@ -825,14 +825,14 @@ module Zr::Kern
   # OP_MEMORY_START..OP_KEEP: capture groups and \K.
   #: (ptr, word) -> word
   def zr_onig_op_memory(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     if op == OP_KEEP
       OnigMatch[m].pkeep = s
       return ONIG_OP_NEXT
     end
     mem = zr_onig_get_memnum(p)
-    OnigMatch[m].p = p + ONIG_SIZE_MEMNUM
+    OnigMatch[m].pc = p + ONIG_SIZE_MEMNUM
     if op == OP_MEMORY_START_PUSH
       zr_onig_push_mem_start(m, mem, s)
       return ONIG_OP_NEXT
@@ -898,7 +898,7 @@ module Zr::Kern
       p = Machine.ptr(OnigStk[stkp].b)
     end
     zr_onig_push_repeat_inc(m, si)
-    OnigMatch[m].p = p
+    OnigMatch[m].pc = p
     return ONIGERR_TIMEOUT if zr_onig_check_interrupt(m)
     ONIG_OP_NEXT
   end
@@ -927,7 +927,7 @@ module Zr::Kern
     elsif count == upper
       zr_onig_push_repeat_inc(m, si)
     end
-    OnigMatch[m].p = p
+    OnigMatch[m].pc = p
     return ONIGERR_TIMEOUT if zr_onig_check_interrupt(m)
     ONIG_OP_NEXT
   end
@@ -935,14 +935,14 @@ module Zr::Kern
   # OP_FAIL..OP_REPEAT_INC_NG_SG: control flow and repeats.
   #: (ptr, word) -> word
   def zr_onig_op_control(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     if op == OP_FAIL
       return ONIG_OP_FAIL
     end
     if op == OP_JUMP
       addr = zr_onig_get_i32(p)
-      OnigMatch[m].p = p + 4 + addr
+      OnigMatch[m].pc = p + 4 + addr
       return ONIGERR_TIMEOUT if zr_onig_check_interrupt(m)
       return ONIG_OP_NEXT
     end
@@ -953,7 +953,7 @@ module Zr::Kern
       return ONIG_OP_FAIL if r == 1
       return ONIG_OP_NEXT if r == 2
       zr_onig_push(m, STK_ALT, p + addr, s, OnigMatch[m].sprev, OnigMatch[m].pkeep)
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       return ONIG_OP_NEXT
     end
     if op == OP_POP
@@ -970,11 +970,11 @@ module Zr::Kern
       if Machine.load8(p, 0) == Machine.load8(s, 0)
         p = p + 1
         zr_onig_push(m, STK_ALT, p + addr, s, OnigMatch[m].sprev, OnigMatch[m].pkeep)
-        OnigMatch[m].p = p
+        OnigMatch[m].pc = p
         return ONIG_OP_NEXT
       end
       OnigMatch[m].num_fails = OnigMatch[m].num_fails + 1
-      OnigMatch[m].p = p + 1
+      OnigMatch[m].pc = p + 1
       return ONIG_OP_NEXT
     end
     if op == OP_REPEAT || op == OP_REPEAT_NG
@@ -995,7 +995,7 @@ module Zr::Kern
           p = p + addr
         end
       end
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       return ONIG_OP_NEXT
     end
     if op == OP_REPEAT_INC || op == OP_REPEAT_INC_NG
@@ -1028,11 +1028,11 @@ module Zr::Kern
     op = Machine.u8(Machine.load8(p, 0))
     p = p + 1
     if op == OP_JUMP || op == OP_PUSH
-      OnigMatch[m].p = p + ONIG_SIZE_RELADDR
+      OnigMatch[m].pc = p + ONIG_SIZE_RELADDR
       return ONIG_OP_NEXT
     end
     if op == OP_REPEAT_INC || op == OP_REPEAT_INC_NG || op == OP_REPEAT_INC_SG || op == OP_REPEAT_INC_NG_SG
-      OnigMatch[m].p = p + ONIG_SIZE_MEMNUM
+      OnigMatch[m].pc = p + ONIG_SIZE_MEMNUM
       return ONIG_OP_NEXT
     end
     ONIGERR_UNEXPECTED_BYTECODE
@@ -1041,11 +1041,11 @@ module Zr::Kern
   # OP_NULL_CHECK_START..OP_NULL_CHECK_END_MEMST_PUSH: empty-loop checks.
   #: (ptr, word) -> word
   def zr_onig_op_null_check(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     mem = zr_onig_get_memnum(p)
     p = p + ONIG_SIZE_MEMNUM
-    OnigMatch[m].p = p
+    OnigMatch[m].pc = p
     if op == OP_NULL_CHECK_START
       zr_onig_push_null_check_start(m, mem, s)
       return ONIG_OP_NEXT
@@ -1080,7 +1080,7 @@ module Zr::Kern
   # runs the atomic groups (OP_PUSH_STOP_BT, OP_POP_STOP_BT).
   #: (ptr, word) -> word
   def zr_onig_op_pos(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     e = OnigMatch[m].aend
     enc = OnigMatch[m].enc
@@ -1099,7 +1099,7 @@ module Zr::Kern
       addr = zr_onig_get_i32(p)
       p = p + 4
       zr_onig_push(m, STK_POS_NOT, p + addr, s, OnigMatch[m].sprev, OnigMatch[m].pkeep)
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       return ONIG_OP_NEXT
     end
     if op == OP_FAIL_POS
@@ -1111,7 +1111,7 @@ module Zr::Kern
       p = p + 4
       s = zr_onig_step_back(enc, str, s, e, tlen)
       return ONIG_OP_FAIL if s == 0
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = s
       OnigMatch[m].sprev = zr_onig_prev_char_head(enc, str, s, e)
       return ONIG_OP_NEXT
@@ -1124,11 +1124,11 @@ module Zr::Kern
       if q == 0
         # The text is too short, so the check succeeds.
         # Example: /(?<!XXX)a/.match("a")
-        OnigMatch[m].p = p + addr
+        OnigMatch[m].pc = p + addr
         return ONIG_OP_NEXT
       end
       zr_onig_push(m, STK_LOOK_BEHIND_NOT, p + addr, s, OnigMatch[m].sprev, OnigMatch[m].pkeep)
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       OnigMatch[m].s = q
       OnigMatch[m].sprev = zr_onig_prev_char_head(enc, str, q, e)
       return ONIG_OP_NEXT
@@ -1143,7 +1143,7 @@ module Zr::Kern
   # OP_PUSH_ABSENT_POS..OP_ABSENT_END: absent operator (?~...).
   #: (ptr, word) -> word
   def zr_onig_op_absent(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     s = OnigMatch[m].s
     e = OnigMatch[m].aend
     enc = OnigMatch[m].enc
@@ -1175,11 +1175,11 @@ module Zr::Kern
         return ONIG_OP_FAIL if s > aend
         # All possible points were found. Try matching after (?~...).
         return ONIG_OP_FAIL if s > e
-        OnigMatch[m].p = p + addr
+        OnigMatch[m].pc = p + addr
       elsif s == e
         # At the end of the string, match there.
         return ONIG_OP_FAIL if s > e
-        OnigMatch[m].p = p + addr
+        OnigMatch[m].pc = p + addr
       else
         zr_onig_push(m, STK_ALT, p + addr, s, sprev, pkeep)
         n = zr_onig_enclen(enc, s, e)
@@ -1187,7 +1187,7 @@ module Zr::Kern
         zr_onig_push(m, STK_ALT, selfp, s + n, s, pkeep)
         zr_onig_push_type(m, STK_ABSENT)
         OnigMatch[m].aend = aend
-        OnigMatch[m].p = p
+        OnigMatch[m].pc = p
       end
       return ONIG_OP_NEXT
     end
@@ -1206,16 +1206,16 @@ module Zr::Kern
   # OP_CALL, OP_RETURN, OP_CONDITION.
   #: (ptr, word) -> word
   def zr_onig_op_call(m, op)
-    p = OnigMatch[m].p
+    p = OnigMatch[m].pc
     if op == OP_CALL
       addr = zr_onig_get_i32(p)
       p = p + 4
       zr_onig_push_call_frame(m, p)
-      OnigMatch[m].p = OnigMatch[m].code + addr
+      OnigMatch[m].pc = OnigMatch[m].code + addr
       return ONIG_OP_NEXT
     end
     if op == OP_RETURN
-      OnigMatch[m].p = zr_onig_stack_return(m)
+      OnigMatch[m].pc = zr_onig_stack_return(m)
       zr_onig_push_type(m, STK_RETURN)
       return ONIG_OP_NEXT
     end
@@ -1226,7 +1226,7 @@ module Zr::Kern
       if mem > OnigMatch[m].num_mem || zr_onig_mem_end(m, mem) == ONIG_INVALID_STACK_INDEX || zr_onig_mem_start(m, mem) == ONIG_INVALID_STACK_INDEX
         p = p + addr
       end
-      OnigMatch[m].p = p
+      OnigMatch[m].pc = p
       return ONIG_OP_NEXT
     end
     ONIGERR_UNDEFINED_BYTECODE
@@ -1304,18 +1304,18 @@ module Zr::Kern
     OnigMatch[m].s = sstart
     OnigMatch[m].pkeep = sstart
     OnigMatch[m].sprev = sprev
-    OnigMatch[m].p = OnigMatch[m].code
+    OnigMatch[m].pc = OnigMatch[m].code
     OnigMatch[m].aend = OnigMatch[m].text_end
     result = ONIG_MISMATCH
     while true
-      p = OnigMatch[m].p
+      p = OnigMatch[m].pc
       op = Machine.u8(Machine.load8(p, 0))
-      OnigMatch[m].p = p + 1
+      OnigMatch[m].pc = p + 1
       r = zr_onig_step(m, op)
       if r == ONIG_OP_FAIL
         zr_onig_stack_pop(m)
         stk = OnigMatch[m].stk
-        OnigMatch[m].p = Machine.ptr(OnigStk[stk].a)
+        OnigMatch[m].pc = Machine.ptr(OnigStk[stk].a)
         OnigMatch[m].s = Machine.ptr(OnigStk[stk].b)
         OnigMatch[m].sprev = Machine.ptr(OnigStk[stk].c)
         OnigMatch[m].pkeep = Machine.ptr(OnigStk[stk].d)

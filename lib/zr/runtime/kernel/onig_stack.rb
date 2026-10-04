@@ -80,7 +80,7 @@ module Zr::Kern
     attr_accessor :counter #: word
     attr_accessor :end_time #: word
     attr_accessor :limit #: word
-    attr_accessor :p #: ptr
+    attr_accessor :pc #: ptr
     attr_accessor :s #: ptr
     attr_accessor :sprev #: ptr
     attr_accessor :pkeep #: ptr

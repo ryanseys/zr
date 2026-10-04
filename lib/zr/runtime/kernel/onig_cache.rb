@@ -486,7 +486,7 @@ module Zr::Kern
   # CHECK_MATCH_CACHE at the opcode `pbegin`, with the match at
   # OnigMatch.s. Returns 0 to continue (after it pushes a cache point, if
   # there is one), 1 to fail, or 2 to continue at the look-around's match
-  # address, which is in OnigMatch.p.
+  # address, which is in OnigMatch.pc.
   # Each push of the match loop runs it, and the cache is almost always
   # off, so that test is inline.
   #: (ptr, ptr) -> word
@@ -518,7 +518,7 @@ module Zr::Kern
         return 1
       end
       if zr_onig_check_extended_cache_point(buf, index, mask)
-        OnigMatch[m].p = OnigCacheOp[row].match_addr
+        OnigMatch[m].pc = OnigCacheOp[row].match_addr
         return 2
       end
       return 1
