@@ -305,7 +305,10 @@ module Zr
           def hash_pattern(node, subject, line)
             steps = constant_test(node, subject, line)
             keys = node.elements.map { |e| e.key.unescaped.to_sym }
-            asked = node.rest.nil? && !node.elements.empty? ? ArrayLit.new(keys.map { |k| Literal.new(k, line) }, line) : Literal.new(nil, line)
+            # A bare `**` asks for the keys, as no rest does. `**rest` and
+            # `**nil` ask for every key (nil).
+            bare = node.rest.nil? || (node.rest.is_a?(Prism::AssocSplatNode) && node.rest.value.nil?)
+            asked = bare && !node.elements.empty? ?ArrayLit.new(keys.map { |k| Literal.new(k, line) }, line) : Literal.new(nil, line)
             d = @b.temp(:pairs)
             responds = @b.send_to(@b.read(subject, line), :respond_to?, [Literal.new(:deconstruct_keys, line)], line)
             steps << failing(responds, Interp.new([inspect_of(subject, line), Literal.new(" does not respond to #deconstruct_keys", line)], line), line)

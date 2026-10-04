@@ -907,7 +907,7 @@ module Zr
         return Params.new([], [], nil, [], [], nil, nil) if node.nil?
 
         required = node.requireds.map { |p| name_of(p) }
-        optional = node.optionals.map { |p| [p.name, expr(p.value)] }
+        optional = node.optionals.map { |p| optional_param(p) }
         rest = node.rest && rest_name(node.rest)
         post = node.posts.map { |p| name_of(p) }
         keywords = node.keywords.map do |k|
@@ -932,7 +932,7 @@ module Zr
       # value is kept in a hidden local next to the destructured names.
       #: (untyped param) -> param
       def name_of(param)
-        return param.name unless param.is_a?(Prism::MultiTargetNode)
+        return repeat_name(param) || param.name unless param.is_a?(Prism::MultiTargetNode)
 
         target = multi_target(param)
         target.whole = temp(:arg)
@@ -985,13 +985,34 @@ module Zr
         (node.arguments&.arguments || []).map { |a| a.is_a?(Prism::SplatNode) ? splat(a, line) : expr(a) }
       end
 
+      # A hidden local for a parameter that repeats a name (`def m(_, _)`),
+      # or nil. The name binds the first; a bare super passes each one,
+      # as ruby keeps the others in hidden slots.
+      #: (untyped param) -> Symbol?
+      def repeat_name(param)
+        temp(:arg) if param.respond_to?(:repeated_parameter?) && param.repeated_parameter?
+      end
+
+      # An optional parameter's name and default. A repeated name's default
+      # goes to the name, which binds the first, and its hidden slot stays
+      # nil, as CRuby assigns it (`def m(_, _ = 9) = super; m(1)` passes
+      # 9 and nil).
+      #: (Prism::OptionalParameterNode param) -> [Symbol, node]
+      def optional_param(param)
+        hidden = repeat_name(param)
+        return [param.name, expr(param.value)] unless hidden
+
+        line = param.location.start_line
+        [hidden, Seq.new([set(param.name, expr(param.value), line), Literal.new(nil, line)], line)]
+      end
+
       # A rest parameter's name. `|a, |` has an implicit rest that binds
       # nothing.
       #: (Prism::node node) -> Symbol
       def rest_name(node)
         case node
         when Prism::ImplicitRestNode then :implicit
-        when Prism::RestParameterNode then node.name || ANONYMOUS[:rest]
+        when Prism::RestParameterNode then repeat_name(node) || node.name || ANONYMOUS[:rest]
         when Prism::KeywordRestParameterNode then node.name || ANONYMOUS[:kwrest]
         when Prism::ForwardingParameterNode then ANONYMOUS[:kwrest]
         when Prism::NoKeywordsParameterNode then :nokey

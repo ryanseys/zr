@@ -1,0 +1,10 @@
+[:a, :b]
+:bare
+nil
+{b: 2}
+nil
+[:a]
+:plain
+nil
+nil
+{a: 1, b: 2}

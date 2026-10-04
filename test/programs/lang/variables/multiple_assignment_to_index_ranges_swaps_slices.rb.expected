@@ -1,0 +1,4 @@
+[3, 4, 1, 2]
+"wrong number of arguments (given 3, expected 2)"
+[1, 2, 3, :x]
+[4, :y]

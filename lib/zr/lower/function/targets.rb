@@ -282,13 +282,15 @@ module Zr
             argc, argv = imm(target.args.size + 1), @f.iadd(@rec, imm(value_offset(slot + 1)))
           end
           at_node(target)
-          return checked(opt_send(target, recv, argc, argv)) if target.opt
-
-          # An explicit receiver cannot call a private writer. `self` can.
-          # The site's form counts the value too: the cell's shapes and
-          # its direct entry read the argument count from the node.
+          # The site's form counts the value too: the cell's shapes, its
+          # direct entry and the inline Array path read the argument count
+          # from the node, and `a[0, 2], b = ...` writes a range, not the
+          # element `a[0]`.
           site = target.dup
           site.args = target.args + [Hir::Literal.new(nil, target.line)]
+          return checked(opt_send(site, recv, argc, argv)) if target.opt
+
+          # An explicit receiver cannot call a private writer. `self` can.
           checked(cached_send(site, recv, argc, argv, @qnil))
         end
       end
