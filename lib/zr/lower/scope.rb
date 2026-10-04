@@ -84,7 +84,9 @@ module Zr
           top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + keyword_slots(node.kwargs)
           [top, staging(node.kwargs, top), staging(node.block, top), *node.args.map { |a| staging(a, top) }].max
         when Hir::Lambda then base
-        when Hir::Autoload then [base + 2, staging(node.recv, base)].max
+        # autoload_unit reserves its two slots, then reads the receiver
+        # above them.
+        when Hir::Autoload then staging(node.recv, base + 2)
         when Hir::Splat, Hir::HashSplat, Hir::BlockPass, Hir::Using then staging(node.value, base)
         when Hir::KwSplatElement then staging(node.pairs, base)
         when Hir::Once then staging(node.body, base)
