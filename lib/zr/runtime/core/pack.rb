@@ -240,8 +240,7 @@ module Packing
   # The result is US-ASCII while every directive writes ASCII (`m`, `M`,
   # `u` and none at all), UTF-8 once a `U` widens that, and binary as
   # soon as one directive writes arbitrary bytes.
-  def self.pack(items, template)
-    out = "".b
+  def self.pack(items, template, out = "".b)
     at = 0
     associates = nil
     list = directives(template, "pack", check: false)
@@ -263,15 +262,16 @@ module Packing
 
         out = out.byteslice(0, out.bytesize - n)
       when "@"
-        n = count == :all ? 0 : (count || 0)
+        # As every directive, `@` with no count counts 1.
+        n = count == :all ? 0 : (count || 1)
         out = n <= out.bytesize ? out.byteslice(0, n) : out + "\0" * (n - out.bytesize)
       when "a", "A", "Z"
         raise ArgumentError, +"too few arguments" if at >= items.size
 
         item = items[at]
         at += 1
-        item = +"" if item.nil?
-        raise TypeError, "no implicit conversion of #{conversion_name(item)} into String" unless item.is_a?(String)
+        # StringValue: nil is an empty String, anything else goes through to_str.
+        item = item.nil? ? +"" : Primitive.zr_str_operand(item)
 
         out << pack_text(item.b, c, count)
       when "H", "h", "B", "b"
@@ -294,7 +294,10 @@ module Packing
 
         item = items[at]
         at += 1
-        out << quoted_printable(item.to_s.b, count)
+        # rb_obj_as_string: a to_s that gives no String gives the default one.
+        text = item.to_s
+        text = Kernel.instance_method(:to_s).bind_call(item) unless text.is_a?(String)
+        out << quoted_printable(text.b, count)
       when "u"
         raise ArgumentError, +"too few arguments" if at >= items.size
 
@@ -369,13 +372,17 @@ module Packing
     return Integer(item) if item.is_a?(Numeric)
     raise TypeError, "no implicit conversion of #{item.nil? ? 'nil' : item.class} into Integer" if item.nil? || !item.respond_to?(:to_int)
 
-    item.to_int
+    int = item.to_int
+    return int if int.is_a?(Integer)
+
+    raise TypeError, "can't convert #{item.class} to Integer (#{item.class}#to_int gives #{int.class})"
   end
 
   # rb_to_float: a Numeric as a Float, and nothing else.
   def self.float_item(item)
     return item if item.is_a?(Float)
-    return item.to_f if item.is_a?(Numeric)
+    # A Numeric that has no to_f of its own falls to the TypeError.
+    return item.to_f if item.is_a?(Numeric) && item.respond_to?(:to_f)
 
     shown = item.nil? || item == true || item == false ? item.inspect : item.class
     raise TypeError, "can't convert #{shown} into Float"
@@ -870,12 +877,19 @@ class Array
     Primitive.attr! :ruby
     # A plain copy, so the directives read the elements as the C does and
     # never through a subclass's size or [].
-    result = Packing.pack(Array.new(self), Primitive.zr_str_operand(fmt))
+    # With a buffer, packing starts at its bytes, so `@` counts from its
+    # start, as CRuby packs into it; it keeps its encoding.
+    unless buffer.nil?
+      raise TypeError, "buffer must be String, not #{buffer.class}" unless buffer.is_a?(String)
+      raise FrozenError.new("can't modify frozen String: #{buffer.inspect}", receiver: buffer) if buffer.frozen?
+    end
+    result = Packing.pack(Array.new(self), Primitive.zr_str_operand(fmt), buffer ? buffer.b : "".b)
     return result unless buffer
 
     associates = Packing.associated(result)
     Packing.associate(buffer, associates) if associates
-    buffer << result
+    encoding = buffer.encoding
+    buffer.replace(result).force_encoding(encoding)
   end
 end
 
