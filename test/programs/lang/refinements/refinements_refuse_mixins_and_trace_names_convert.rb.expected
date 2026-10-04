@@ -1,0 +1,8 @@
+1: TypeError: no implicit conversion of Integer into Symbol
+2: TypeError: can't convert Object to Symbol (Object#to_sym gives Integer)
+3: TracePoint
+4: TypeError: Refinement#include has been removed
+5: TypeError: Refinement#prepend has been removed
+6: TypeError: Cannot extend object with refinement
+7: [:import_methods]
+8: false

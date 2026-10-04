@@ -26,6 +26,8 @@ class Module
 
   def mixin(modules, splice, hook)
     Primitive.attr! :hidden
+    # rb_mod_include: a refinement mixes in nothing any more.
+    raise TypeError, "Refinement##{splice == :append_features ? 'include' : 'prepend'} has been removed" if is_a?(Refinement)
     n = Primitive.zr_ary_len_m(modules)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if n == 0
 
@@ -300,6 +302,9 @@ class Refinement
     self
   end
   private :import_methods
+
+  # Ruby 3.2 took these away from a refinement.
+  undef_method :append_features, :prepend_features, :extend_object
 end
 
 # main's own, on the toplevel object's singleton class, as CRuby puts it.

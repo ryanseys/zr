@@ -66,8 +66,14 @@ class TracePoint
 
     # symbol2event_flag.
     def flag(event)
-      name = event.is_a?(Symbol) ? event : String.try_convert(event)&.to_sym
-      raise TypeError, "#{event.inspect} is not a symbol nor a string" if name.nil?
+      # rb_to_symbol_type: a Symbol, or what to_sym gives.
+      name = event
+      unless name.is_a?(Symbol)
+        raise TypeError, "no implicit conversion of #{conversion_name(event)} into Symbol" unless event.respond_to?(:to_sym)
+
+        name = event.to_sym
+        raise TypeError, "can't convert #{conversion_name(event)} to Symbol (#{conversion_name(event)}#to_sym gives #{conversion_name(name)})" unless name.is_a?(Symbol)
+      end
 
       EVENTS.fetch(name) { raise ArgumentError, "unknown event: #{name}" }
     end

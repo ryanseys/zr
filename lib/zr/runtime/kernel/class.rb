@@ -538,6 +538,10 @@ module Zr::Kern
       m = Machine.value(Machine.load64(argv + (i * 8), 0))
       r = zr_check_module(m)
       return r if r == QUNDEF
+      # rb_extend_object refuses a refinement.
+      if zr_type(m) == T_MODULE && ClassExt[RClass[m].ext].refined != QNIL
+        return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("Cannot extend object with refinement"), 36)
+      end
       slot = Machine.slot(8)
       Machine.store64(slot, 0, Machine.word(recv))
       r = zr_send(m, Machine.id(:extend_object), 1, slot)
