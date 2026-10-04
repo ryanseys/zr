@@ -9,8 +9,10 @@ module Zr
   module Dev
     COMMANDS = {
       "gen" => ["Write a generated file again, or check it", -> { require_relative "gen"; Gen }],
-      "rubyspec" => ["Run ruby/spec in ruby and in a zr binary, and list the gaps",
+      "rubyspec" => ["Run ruby/spec in ruby and in zr binaries, and compare each example",
                      -> { require_relative "rubyspec"; RubySpec }],
+      "cruby-test" => ["Run CRuby's test-all in ruby and in zr binaries, and compare each test",
+                       -> { require_relative "cruby_test"; CRubyTest }],
       "probe" => ["Run Ruby files under ruby and as zr binaries, and show the differences",
                   -> { require_relative "probe"; Probe }],
       "expect" => ["Write the expected output of program tests from ruby 4.0.7", -> { require_relative "expect"; Expect }],

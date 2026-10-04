@@ -1,0 +1,13 @@
+fails:The defined? keyword when called with a method name in a void context does not execute the receiver
+fails:The defined? keyword when called with a method name in a void context warns about the void context when parsing it
+fails:The defined? keyword for variables when a String matches a Regexp returns 'global-variable' for $&
+fails:The defined? keyword for variables when a String matches a Regexp returns 'global-variable' for $`
+fails:The defined? keyword for variables when a String matches a Regexp returns 'global-variable' for $'
+fails:The defined? keyword for variables when a String matches a Regexp returns 'global-variable' for $+
+fails:The defined? keyword for variables when a String matches a Regexp returns 'global-variable' for the capture references
+fails:The defined? keyword for variables when a Regexp matches a String returns 'global-variable' for $&
+fails:The defined? keyword for variables when a Regexp matches a String returns 'global-variable' for $`
+fails:The defined? keyword for variables when a Regexp matches a String returns 'global-variable' for $'
+fails:The defined? keyword for variables when a Regexp matches a String returns 'global-variable' for $+
+fails:The defined? keyword for variables when a Regexp matches a String returns 'global-variable' for the capture references
+fails:The defined? keyword for a scoped constant returns nil when a constant is scoped to an undefined constant

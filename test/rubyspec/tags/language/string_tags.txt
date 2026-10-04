@@ -1,0 +1,2 @@
+fails:Ruby String interpolation returns a string with the source encoding by default
+fails:Ruby String interpolation returns a string with the source encoding, even if the components have another encoding

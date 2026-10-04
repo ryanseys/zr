@@ -1,0 +1,2 @@
+TestComparable#test_equal	fail
+TestComparable#test_err	fail

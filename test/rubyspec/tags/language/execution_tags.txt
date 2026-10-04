@@ -1,0 +1,2 @@
+fails:`` can be redefined and receive a frozen string as argument
+fails:%x can be redefined and receive a frozen string as argument

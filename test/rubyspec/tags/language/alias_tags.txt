@@ -1,0 +1,1 @@
+fails:The alias keyword is not allowed against Integer or String instances

@@ -1,0 +1,5 @@
+fails:Hash literal checks duplicated keys on initialization
+fails:Hash literal checks duplicated float keys on initialization
+fails:Hash literal expands an '**{}' or '**obj' element with the last key/value pair taking precedence
+fails:Hash literal expands an '**{}' and warns when finding an additional duplicate key afterwards
+fails:Hash literal merges multiple nested '**obj' in Hash literals

@@ -1,0 +1,1 @@
+fails:Keyword arguments delegation works with yield(*ruby2_keyword_args)

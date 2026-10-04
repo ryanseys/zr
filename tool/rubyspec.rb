@@ -1,76 +1,98 @@
 # frozen_string_literal: true
 
 require "fileutils"
-require "open3"
+require "json"
 require "rbconfig"
-require "tmpdir"
 require_relative "lib/zr/dev"
+require_relative "lib/zr/dev/suite"
 
 module Zr
   module Dev
     # Runs ruby/spec, the specs of ruby 4.0.7's own checkout, under ruby
-    # and in a zr binary, and lists each example that passes in ruby and
-    # fails in the binary.
+    # and in zr binaries, and compares each example.
     #
     #   zr-dev rubyspec language                    one area
     #   zr-dev rubyspec core                        each directory of core/
-    #   zr-dev rubyspec core/array library/json     some areas
     #   zr-dev rubyspec core/array -f pop_spec.rb   the files that match
+    #   zr-dev rubyspec --all [--shard 2/4]         every area, or a share
+    #   zr-dev rubyspec core/array --update-tags    write the tags again
     #
-    # zr's own specs test what zr's authors thought of. ruby/spec tests
-    # what ruby's authors thought of, so it finds the other gaps.
+    # An area's spec files go into binaries of 20 files each, built one
+    # at a time. A chunk that does not build is split in two until the
+    # file that does not build is alone. Each file then runs in its own
+    # process, under ruby and in its binary, with a time limit. ruby's
+    # results are kept by the file's digest (`tmp/rubyspec/ruby/`), so
+    # ruby runs each file once.
     #
-    # For each area, the tool writes one program that runs the area's
-    # spec files through mspec, and builds it once. Each require in it is
-    # a literal, so zr compiles every spec file into the binary. The
-    # program runs only the files that its arguments name, so each file
-    # runs in its own process, under ruby and in the binary, with a time
-    # limit. An example that ruby fails too is not a gap: some specs need
-    # a build of ruby that the host does not have.
+    # The examples that zr fails on purpose are tags, in mspec's own form,
+    # in `test/rubyspec/tags/<path>_tags.txt`:
     #
-    # The report of an area goes to `tmp/rubyspec/<area>.txt`, and a line
-    # for each area to `tmp/rubyspec/summary.tsv`. The binary is deleted
-    # after the run.
+    #   fails:<describe> <it>     zr fails the example
+    #   hangs:<describe> <it>     zr stops or loops in it; its run skips it
+    #   fails(build):             the file does not build
+    #   fails(load):              the file raises as it loads
+    #
+    # A run writes `tmp/rubyspec/results/<area>.json` and the summary
+    # `test/rubyspec/summary.tsv`. `--update-tags` writes the tags of each
+    # file that ran from its results. The ratchet
+    # (test/unit/rubyspec_ratchet_test.rb) reads the results and the tags.
     class RubySpec < Command
-      summary "Run ruby/spec in ruby and in a zr binary, and list the gaps"
-      usage "<area>... [-f PATTERN] [-j JOBS] [--keep]"
+      summary "Run ruby/spec in ruby and in zr binaries, and compare each example"
+      usage "<area>... | --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]"
       host_ruby!
 
       # Seconds for one spec file. A file that does not end in this time
       # is a gap: zr loops where ruby raises, or is much slower.
-      LIMIT = 60
+      LIMIT = 120
 
-      # The areas that need a feature a compiled program has on purpose
-      # in another form (the command line, the C API), or that start ruby.
-      SKIPPED = %w[command_line optional security].freeze
+      # The areas that test what only CRuby has, and why.
+      CRUBY_ONLY = {
+        "command_line" => "ruby's own switches and their errors; test/unit/ruby_mode_test.rb compares zr's",
+        "optional/capi" => "ruby's C API, which a compiled program does not have",
+        "security" => "CVE checks of CRuby's C code"
+      }.freeze
+
+      # The order of `--all`: the language first, then core, then the library.
+      ORDER = %w[language core library].freeze
 
       OUT = Dev.path("tmp/rubyspec")
+      TAGS = Dev.path("test/rubyspec/tags")
+      SUMMARY = Dev.path("test/rubyspec/summary.tsv")
+
+      # The form of the program and of ruby's kept results.
+      VERSION = 1
 
       def defaults
         @filter = nil
-        @jobs = nil
+        @jobs = 2
         @keep = false
+        @all = false
+        @shard = nil
+        @update = false
       end
 
       def options(o)
         o.on("-f PATTERN", "only the spec files whose path matches") { |v| @filter = Regexp.new(v) }
-        o.on("-j JOBS", Integer, "files to run at once (default 4)") { |v| @jobs = v }
+        o.on("-j JOBS", Integer, "files to run at once (default 2)") { |v| @jobs = v }
+        o.on("--all", "every area, in the order language, core, library") { @all = true }
+        o.on("--shard I/N", "with --all: the I-th of N equal shares of the areas") { |v| @shard = v.split("/").map(&:to_i) }
+        o.on("--update-tags", "write the tags of each file that ran") { @update = true }
         o.on("--keep", "keep the binaries") { @keep = true }
       end
 
       def run(argv)
         Dev.pinned!(name)
-        fail!("give an area, such as language, core or core/array") if argv.empty?
+        fail!("give an area (language, core, core/array) or --all") if argv.empty? && !@all
         root = checkout!
-        areas = argv.flat_map { |a| areas_of(root, a) }
-        FileUtils.mkdir_p(OUT)
-        gaps = areas.sum do |area|
-          RubySpec::Area.new(root, area, filter: @filter, jobs: @jobs || 4, keep: @keep).run
-        rescue StandardError => e
-          warn "#{area}: #{e.class}: #{e.message}"
-          0
+        areas = @all ? ORDER.flat_map { |a| areas_of(root, a) } : argv.flat_map { |a| areas_of(root, a) }
+        areas = shard(areas) if @shard
+        Suite.lock! do
+          gaps = areas.sum do |area|
+            Area.new(root, area, filter: @filter, jobs: @jobs, keep: @keep, update: @update).run
+          end
+          Suite.write_summary(OUT, SUMMARY)
+          puts "#{gaps} gap(s) in #{areas.size} area(s); see #{Dev.rel(OUT)} and #{Dev.rel(SUMMARY)}"
         end
-        puts "#{gaps} gap(s) in #{areas.size} area(s); see #{Dev.rel(OUT)}"
         true
       end
 
@@ -82,216 +104,161 @@ module Zr
         File.join(src, "spec")
       end
 
-      # `core` is each of its directories; any other word is one area.
+      # `core` and `library` are each of their directories; any other word
+      # is one area.
       def areas_of(root, word)
         word = word.delete_suffix("/")
+        fail!("#{word} is CRuby's alone: #{CRUBY_ONLY[word]}") if CRUBY_ONLY.key?(word)
         dir = File.join(root, "ruby", word)
         fail!("no area #{word} in #{root}/ruby") unless File.directory?(dir)
-        return [word] if Dir.glob("#{dir}/*_spec.rb").any? || !%w[core library].include?(word)
+        return [word] if Dir.glob("#{dir}/*_spec.rb").any? || !%w[core library optional].include?(word)
 
         Dir.children(dir).sort.filter_map do |d|
           area = "#{word}/#{d}"
-          area if File.directory?(File.join(dir, d)) && !SKIPPED.include?(d)
+          area if File.directory?(File.join(dir, d)) && !CRUBY_ONLY.key?(area)
         end
       end
 
-      # One area: its program, its binary and its report.
-      class Area
-        Result = Struct.new(:failed, :examples, :status, :timed_out, :tail, :messages)
+      def shard(areas)
+        index, count = @shard
+        fail!("--shard takes I/N with 1 <= I <= N") unless count.to_i.positive? && index.to_i.between?(1, count)
+        areas.select.with_index { |_, i| i % count == index - 1 }
+      end
 
-        def initialize(root, area, filter:, jobs:, keep:)
-          @root = root
-          @area = area
-          @jobs = jobs
-          @keep = keep
-          @files = Dir.glob(File.join(root, "ruby", area, "**", "*_spec.rb")).sort
-          @files.select! { |f| f.match?(filter) } if filter
-          @work = File.join(OUT, "work", area.tr("/", "-"))
-        end
+      # The tags of one spec file, as { name => kind }: an example's name
+      # is its describe and its sentence, and the file's own tag is under
+      # "" (`build` or `load`).
+      def self.tags(rel)
+        path = tags_path(rel)
+        return {} unless File.file?(path)
 
-        # The count of gaps.
-        def run
-          return 0 if @files.empty?
-
-          FileUtils.rm_rf(@work)
-          FileUtils.mkdir_p(@work)
-          program = File.join(@work, "main.rb")
-          File.write(program, source)
-          started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          binary = build(program)
-          seconds = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-          report = binary ? compare(program, binary) : { refused: File.read("#{program}.build") }
-          write(report, seconds)
-        ensure
-          FileUtils.rm_rf(@work) unless @keep
-        end
-
-        # The program: mspec, the spec helper, then each file behind a
-        # test of the arguments. A file that raises as it loads is
-        # reported, and the next one runs.
-        def source
-          mspec = File.join(@root, "mspec/lib")
-          lines = [
-            "# frozen_string_literal: false",
-            'ENV["MSPEC_RUNNER"] = "1"',
-            "$LOAD_PATH.unshift(#{mspec.inspect})",
-            'require "mspec"',
-            'require "mspec/utils/script"',
-            'require "mspec/runner/formatters/specdoc"',
-            "require #{File.join(@root, "ruby/spec_helper.rb").inspect}",
-            "SpecdocFormatter.new.register",
-            "MSpec.register_files ARGV",
-            "MSpec.actions :start",
-            "MSpec.setup_env"
-          ]
-          @files.each do |f|
-            lines << "if ARGV.include?(#{f.inspect})"
-            lines << "  MSpec.store :file, #{f.inspect}"
-            lines << "  MSpec.actions :load"
-            lines << "  begin"
-            lines << "    require #{f.inspect}"
-            lines << "  rescue Exception => e"
-            lines << "    puts \"LOADFAIL \#{e.class}: \#{e.message.lines.first}\""
-            lines << "  end"
-            lines << "  MSpec.actions :unload"
-            lines << "end"
-          end
-          lines << "MSpec.actions :finish"
-          lines << "exit MSpec.exit_code"
-          lines.join("\n") << "\n"
-        end
-
-        # A build that saw a source of zr change (Zr::SourceChanged) runs
-        # once more.
-        def build(program, again: true)
-          binary = File.join(@work, "main")
-          out, status = Open3.capture2e(Dev.ruby, Dev.path("exe/zr"), "build", program, "-o", binary)
-          return build(program, again: false) if !status.success? && again && out.include?("changed while this build ran")
-
-          File.write("#{program}.build", out)
-          status.success? ? binary : nil
-        end
-
-        # Runs each file under ruby and in the binary, `@jobs` at once.
-        def compare(program, binary)
-          pairs = Dev.parallel_map(@files, jobs: @jobs) { |file| [run_one([Dev.ruby, program, file]), run_one([binary, file])] }
-          @files.zip(pairs).to_h
-        end
-
-        # Runs one spec file in a temporary directory, and reads the
-        # examples that failed.
-        def run_one(argv)
-          Dir.mktmpdir("rubyspec") do |dir|
-            env = { "RUBY_EXE" => RbConfig.ruby, "RUBYOPT" => nil, "SPEC_TEMP_DIR" => File.join(dir, "tmp") }
-            out, timed_out, status = capture(env, argv, dir)
-            failed, examples = parse(out)
-            Result.new(failed, examples, status, timed_out, out.lines.last(12).join, messages(out))
+        File.readlines(path, chomp: true).each_with_object({}) do |line, tags|
+          case line
+          when /\Afails\((build|load)\):\z/ then tags[""] = ::Regexp.last_match(1)
+          when /\A(fails|hangs):(.+)\z/ then tags[::Regexp.last_match(2)] = ::Regexp.last_match(1)
           end
         end
+      end
 
-        def capture(env, argv, dir)
-          reader, writer = IO.pipe
-          pid = Process.spawn(env, *argv, chdir: dir, in: File::NULL, out: writer, err: writer, pgroup: true)
-          writer.close
-          out = +""
-          collector = Thread.new { out << reader.read }
-          timed_out = collector.join(LIMIT).nil?
-          if timed_out
-            kill(pid)
-            collector.join(5)
-          end
-          _, status = Process.wait2(pid)
-          [out.force_encoding(Encoding::BINARY), timed_out, status]
-        ensure
-          reader&.close
+      # `core/array/pop_spec.rb` has its tags in `core/array/pop_tags.txt`,
+      # as mspec looks for them.
+      def self.tags_path(rel) = File.join(TAGS, rel.sub(/_spec\.rb\z/, "_tags.txt"))
+
+      # One area of ruby/spec (`Suite::Area` runs it).
+      class Area < Suite::Area
+        def initialize(spec, area, filter:, **)
+          @spec = spec
+          files = Dir.glob(File.join(spec, "ruby", area, "**", "*_spec.rb")).sort
+          files.select! { |f| f.match?(filter) } if filter
+          super(out: OUT, root: File.join(spec, "ruby"), area: area, files: files, filtered: !filter.nil?, **)
         end
 
-        # The spec's process group, or the spec alone when the group is
-        # gone: a spec can start its own session (`Process.setsid`).
-        def kill(pid)
-          %w[TERM KILL].each do |signal|
-            begin
-              Process.kill("-#{signal}", pid)
-            rescue Errno::ESRCH, Errno::EPERM
-              Process.kill(signal, pid)
-            end
-            sleep 1
-          end
-        rescue Errno::ESRCH
-          nil
+        def version = VERSION
+        def limit = LIMIT
+        def program(files) = RubySpec.program(@spec, files)
+        def arguments(file, zr:) = [file]
+        def read(out) = RubySpec.read(out)
+        def tags(rel) = RubySpec.tags(rel)
+
+        # zr's run skips the examples tagged `hangs`; ruby runs them all.
+        # mspec's ruby_exe runs the interpreter of the run.
+        def env(dir, zr:)
+          super.merge("RUBY_EXE" => zr ? Dev.path("exe/zr") : RbConfig.ruby, "SPEC_TEMP_DIR" => File.join(dir, "tmp"),
+                      "SPEC_SKIP_HANGS" => ("1" if zr))
         end
 
-        # Each example that failed, as its describe and its sentence, and
-        # the count of examples the run finished. SpecdocFormatter prints
-        # a describe line, then each example as `- sentence`, marked
-        # `(FAILED - n)` or `(ERROR - n)` when it failed.
-        def parse(out)
-          failed = []
-          examples = 0
-          header = nil
-          out.each_line do |line|
-            line = line.chomp.scrub
-            if line.start_with?("- ")
-              examples += 1
-              failed << "#{header} #{::Regexp.last_match(1)}" if line =~ /\A- (.*) \((?:FAILED|ERROR) - \d+\)\z/
-            elsif line.start_with?("LOADFAIL ")
-              failed << line
-            elsif !line.empty?
-              header = line
-            end
-          end
-          [failed, examples]
+        def write_tags(rel, result)
+          lines = tags_from(result, tags(rel)).map { |name, kind| name.empty? ? "fails(#{kind}):" : "#{kind}:#{name}" }
+          path = RubySpec.tags_path(rel)
+          return FileUtils.rm_f(path) if lines.empty?
+
+          FileUtils.mkdir_p(File.dirname(path))
+          File.write(path, lines.join("\n") << "\n")
         end
+      end
 
-        # The first line of each failure's message, by the example's full
-        # sentence. After the examples, mspec prints `n)`, then the sentence
-        # with FAILED or ERROR, then the message.
-        def messages(out)
-          lines = out.lines.map { |l| l.chomp.scrub }
-          found = {}
-          lines.each_with_index do |line, i|
-            next unless line.match?(/\A\d+\)\z/) && (head = lines[i + 1])
-
-            found[head.sub(/ (?:FAILED|ERROR)\z/, "")] = lines[i + 2].to_s[0, 160]
-          end
-          found
+      # The program of `files`: mspec, the spec helper, a report of each
+      # example, then each file behind a test of the arguments, so one
+      # binary runs any one of its files. A file that raises as it loads is
+      # reported, and the run goes on.
+      def self.program(root, files)
+        mspec = File.join(root, "mspec/lib")
+        tags = "#{TAGS}/"
+        lines = [
+          "# frozen_string_literal: false",
+          'ENV["MSPEC_RUNNER"] = "1"',
+          "$LOAD_PATH.unshift(#{mspec.inspect})",
+          'require "mspec"',
+          'require "mspec/utils/script"',
+          "require #{File.join(root, "ruby/spec_helper.rb").inspect}",
+          REPORT,
+          "ZrSpecReport.new.register",
+          'if ENV["SPEC_SKIP_HANGS"]',
+          "  MSpec.register_tags_patterns([[%r{\\A#{Regexp.escape("#{root}/ruby/")}}, #{tags.inspect}], [/_spec\\.rb\\z/, \"_tags.txt\"]])",
+          '  TagFilter.new(:exclude, "hangs").register',
+          "end",
+          "MSpec.register_files ARGV",
+          "MSpec.actions :start",
+          "MSpec.setup_env"
+        ]
+        files.each do |f|
+          lines << "if ARGV.include?(#{f.inspect})"
+          lines << "  MSpec.store :file, #{f.inspect}"
+          lines << "  MSpec.actions :load"
+          lines << "  begin"
+          lines << "    require #{f.inspect}"
+          lines << "  rescue Exception => e"
+          lines << "    STDOUT.puts \"ZRSPEC\\tload\\t\#{e.class}: \#{e.message.lines.first.to_s.chomp}\""
+          lines << "  end"
+          lines << "  MSpec.actions :unload"
+          lines << "end"
         end
+        lines << "MSpec.actions :finish"
+        lines << 'STDOUT.puts "ZRSPEC\tend"'
+        lines << "exit MSpec.exit_code"
+        lines.join("\n") << "\n"
+      end
 
-        def write(report, seconds)
-          path = File.join(OUT, "#{@area.tr("/", "-")}.txt")
-          gaps = 0
-          timeouts = 0
-          examples = 0
-          File.open(path, "w") do |f|
-            f.puts "# #{@area}: ruby/spec at ruby #{RUBY}, #{@files.size} file(s), built in #{seconds.round}s"
-            if report[:refused]
-              f.puts "", "BUILD FAILED", report[:refused].lines.first(30).join
-              gaps = 1
-            else
-              report.sort.each do |file, (ruby, zr)|
-                examples += ruby.examples
-                rel = file.delete_prefix("#{@root}/ruby/")
-                lost = zr.failed - ruby.failed
-                short = zr.examples < ruby.examples
-                next if lost.empty? && !short && !zr.timed_out
-
-                timeouts += 1 if zr.timed_out
-                gaps += lost.size + (short && lost.empty? ? 1 : 0)
-                f.puts "", "## #{rel}#{" (TIMEOUT)" if zr.timed_out}"
-                f.puts "ran #{zr.examples} of #{ruby.examples} examples, #{zr.status}" if short || zr.timed_out
-                lost.each do |ex|
-                  f.puts "- #{ex}"
-                  f.puts "    #{zr.messages[ex]}" if zr.messages[ex]
-                end
-                f.puts zr.tail.gsub(/^/, "    ") if short || zr.timed_out
-              end
-            end
+      # The mspec action that prints a line for each example: its status,
+      # its name and the first line of its failure.
+      REPORT = <<~'RUBY'
+        class ZrSpecReport
+          def register
+            MSpec.register :exception, self
+            MSpec.register :after, self
           end
-          line = [@area, @files.size, examples, gaps, timeouts, seconds.round].join("\t")
-          File.open(File.join(OUT, "summary.tsv"), "a") { |f| f.puts line }
-          puts format("%-28s %4d files %6d examples %4d gaps %3d timeouts", @area, @files.size, examples, gaps, timeouts)
-          gaps
+
+          def exception(state)
+            @failure ||= state
+          end
+
+          def after(state)
+            failure = @failure
+            @failure = nil
+            status = failure.nil? ? "pass" : (failure.failure? ? "fail" : "error")
+            message = failure ? failure.message.to_s.lines.first.to_s.chomp[0, 200] : ""
+            STDOUT.puts ["ZRSPEC", status, state.description.tr("\t\n", "  "), message.tr("\t", " ")].join("\t")
+            STDOUT.flush
+          end
         end
+      RUBY
+
+      # The examples of a report, in the order they ran.
+      def self.read(out)
+        examples = {}
+        load = nil
+        ended = false
+        out.each_line do |line|
+          kind, status, name, message = line.chomp.force_encoding(Encoding::UTF_8).scrub.split("\t", 4)
+          next unless kind == "ZRSPEC"
+
+          case status
+          when "end" then ended = true
+          when "load" then load = name
+          else examples[name] = [status, message.to_s.empty? ? nil : message].compact
+          end
+        end
+        { examples: examples, load: load, ended: ended }
       end
     end
   end

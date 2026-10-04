@@ -1,0 +1,327 @@
+# frozen_string_literal: true
+
+require "digest"
+require "fileutils"
+require "json"
+require "open3"
+require "tmpdir"
+
+module Zr
+  module Dev
+    # What the two suites of ruby's own tests share: `zr-dev rubyspec`
+    # (ruby/spec) and `zr-dev cruby-test` (CRuby's test-all). Each runs
+    # every example under ruby and in a zr binary, writes the results of
+    # an area to `tmp/<suite>/results/<area>.json`, and keeps the examples
+    # that zr fails on purpose as tags in `test/<suite>/tags/`. The ratchet
+    # tests read the results and the tags (`Suite.problems`); they never
+    # compile.
+    module Suite
+      # The lock that keeps a second suite from starting while one runs:
+      # each suite builds large binaries and runs them in parallel.
+      LOCK = Dev.path("tmp/suite.lock")
+
+      # Bumped when the form of a results file changes, so that a ratchet
+      # skips the old files.
+      FORMAT = 1
+
+      module_function
+
+      # Runs the block while this process holds the lock, or stops.
+      def lock!
+        FileUtils.mkdir_p(File.dirname(LOCK))
+        File.open(LOCK, File::RDWR | File::CREAT) do |f|
+          abort "zr-dev: another suite runs (#{f.read.strip}); run one suite at a time" unless f.flock(File::LOCK_EX | File::LOCK_NB)
+
+          f.truncate(0)
+          f.write("pid #{Process.pid}: #{$PROGRAM_NAME} #{ARGV.join(" ")}")
+          f.flush
+          yield
+        end
+      end
+
+      # The version of zr that a run tested: the commit, and a digest of
+      # the changes that are not committed.
+      def zr_version
+        head = Dev.git("rev-parse", "HEAD").to_s.strip
+        diff = Dev.git("diff", "HEAD").to_s
+        diff.empty? ? head : "#{head}+#{Digest::SHA256.hexdigest(diff)[0, 12]}"
+      end
+
+      # One area's results: for each file, how its run ended (`state`:
+      # "ran", "build" or "load") and each example by name, with ruby's
+      # status, zr's status and zr's message. A status is "pass", "fail",
+      # "error", "skip" or "missing" (the run ended before the example).
+      def write_results(dir, area, files)
+        path = File.join(dir, "results", "#{area.tr("/", "-")}.json")
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, JSON.pretty_generate({ "format" => FORMAT, "revision" => RUBY_REVISION, "zr" => zr_version,
+                                                "area" => area, "files" => files }))
+        path
+      end
+
+      # The results files of a suite that this ruby revision and FORMAT
+      # wrote, by area.
+      def results(dir)
+        Dir[File.join(dir, "results", "*.json")].sort.filter_map do |path|
+          data = JSON.parse(File.read(path))
+          [data["area"], data] if data["format"] == FORMAT && data["revision"] == RUBY_REVISION
+        end.to_h
+      end
+
+      # What a ratchet reports for one area. `tags` gives a file's tags as
+      # { name => kind }, a kind being "fails" or "hangs"; the file's own
+      # tag is under the name "" ("build" or "load").
+      #
+      # - a regression: an example that ruby passes and zr does not, with
+      #   no tag;
+      # - a stale tag: an example tagged `fails` that zr now passes, or a
+      #   file tagged `build` or `load` that now builds and loads;
+      # - a file that does not build or load, with no tag that says so.
+      def problems(data, tags)
+        data["files"].flat_map do |file, run|
+          tagged = tags.call(file)
+          own = tagged[""]
+          state = run["state"]
+          next ["#{file}: does not #{state}, and has no fails(#{state}) tag"] if %w[build load].include?(state) && own != state
+          next ["#{file}: stale fails(#{own}) tag: the file #{own}s now"] if %w[build load].include?(own) && state == "ran"
+          next [] if %w[build load].include?(state)
+
+          run["examples"].flat_map do |name, (ruby, zr)|
+            kind = tagged[name]
+            if ruby == "pass" && zr != "pass" && kind.nil?
+              ["#{file}: #{name}: zr #{zr == "missing" ? "never ran it" : "fails it"}, ruby passes, and it has no tag"]
+            elsif kind == "fails" && zr == "pass"
+              ["#{file}: #{name}: stale tag, zr passes it now"]
+            else
+              []
+            end
+          end
+        end
+      end
+
+      # The counts of one area for the summary: files, the examples that
+      # ruby passes, the ones zr passes too, and the files that do not
+      # build or load in zr.
+      def counts(data)
+        runs = data["files"].values
+        passing = runs.flat_map { |run| run["examples"].values }.select { |statuses| statuses.first == "pass" }
+        [runs.size, passing.size, passing.count { |_, zr| zr == "pass" },
+         runs.count { |run| run["state"] == "build" }, runs.count { |run| run["state"] == "load" }]
+      end
+
+      # Writes the summary of a suite again, in full, from every results
+      # file: one row for each area, and a total.
+      def write_summary(dir, path)
+        rows = results(dir).map { |area, data| [area, *counts(data)] }
+        total = ["total", *(rows.empty? ? [0] * 5 : rows.transpose.drop(1).map(&:sum))]
+        header = %w[area files ruby_passes zr_passes no_build no_load]
+        FileUtils.mkdir_p(File.dirname(path))
+        File.write(path, [header, *rows, total].map { |row| row.join("\t") }.join("\n") << "\n")
+      end
+
+      # Runs `argv` in `dir` with a time limit, and returns its standard
+      # output and whether the limit stopped it.
+      def capture(env, argv, dir, limit)
+        reader, writer = IO.pipe
+        pid = Process.spawn(env, *argv, chdir: dir, in: File::NULL, out: writer, err: File::NULL, pgroup: true)
+        writer.close
+        out = +""
+        collector = Thread.new { out << reader.read }
+        timed_out = collector.join(limit).nil?
+        if timed_out
+          kill(pid)
+          collector.join(5)
+        end
+        Process.wait(pid)
+        [out.force_encoding(Encoding::BINARY), timed_out]
+      ensure
+        reader&.close
+      end
+
+      # The process group, or the process alone when the group is gone: a
+      # test can start its own session (`Process.setsid`).
+      def kill(pid)
+        %w[TERM KILL].each do |signal|
+          begin
+            Process.kill("-#{signal}", pid)
+          rescue Errno::ESRCH, Errno::EPERM
+            Process.kill(signal, pid)
+          end
+          sleep 1
+        end
+      rescue Errno::ESRCH
+        nil
+      end
+
+      # One area of a suite: its binaries, its runs, its results and its
+      # tags. A subclass gives the program of some files (`program`), how
+      # to read a run's output (`read`), and the tags (`tags`,
+      # `write_tags`).
+      #
+      # The files go into binaries of `chunk` files each, built one at a
+      # time. A chunk that does not build is split in two until the file
+      # that does not build is alone. Each file then runs in its own
+      # process, under ruby and in its binary, `jobs` at once. ruby's
+      # results are kept by the file's digest, so ruby runs each file once.
+      class Area
+        def initialize(out:, root:, area:, files:, jobs:, keep:, update:, filtered:)
+          @out = out
+          @root = root
+          @area = area
+          @files = files
+          @jobs = jobs
+          @keep = keep
+          @update = update
+          @filtered = filtered
+          @work = File.join(out, "work", area.tr("/", "-"))
+        end
+
+        # The count of examples that ruby passes and zr does not.
+        def run
+          return 0 if @files.empty?
+
+          FileUtils.rm_rf(@work)
+          FileUtils.mkdir_p(@work)
+          started = now
+          results = {}
+          chunks.each do |chunk|
+            bisect(chunk).each do |files, binary, error|
+              next files.each { |f| results[rel(f)] = { "state" => "build", "error" => error, "examples" => {} } } unless binary
+
+              Dev.parallel_map(files, jobs: @jobs) { |f| [rel(f), compare(f, binary)] }.each { |r, result| results[r] = result }
+              FileUtils.rm_f(binary) unless @keep
+            end
+          end
+          # A run of some files keeps the results of the others.
+          earlier = (Suite.results(@out).dig(@area, "files") if @filtered) || {}
+          results = earlier.merge(results).sort.to_h
+          Suite.write_results(@out, @area, results)
+          results.each { |r, result| write_tags(r, result) } if @update
+          report(results, now - started)
+        ensure
+          FileUtils.rm_rf(@work) unless @keep
+        end
+
+        def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+        # A file's path below the suite's root, as results and tags name it.
+        def rel(file) = file.delete_prefix("#{@root}/")
+
+        # The chunks to build: the files that built last time, `chunk` at a
+        # time, then each file that did not, alone.
+        def chunks
+          broken, fine = @files.partition { |f| tags(rel(f))[""] == "build" }
+          fine.each_slice(chunk).to_a + broken.each_slice(1).to_a
+        end
+
+        def chunk = 20
+
+        # [[files, binary, error]]: a chunk that builds is one entry; one
+        # that does not is split until the file that does not build is alone.
+        def bisect(files)
+          binary, error = build(files)
+          return [[files, binary, error]] if binary || files.size == 1
+
+          half = files.size / 2
+          bisect(files.take(half)) + bisect(files.drop(half))
+        end
+
+        # Builds the program of `files`. A build that saw a source of zr
+        # change (Zr::SourceChanged) runs once more.
+        def build(files, again: true)
+          name = "chunk-#{Digest::SHA256.hexdigest(files.join("\n"))[0, 12]}"
+          source = File.join(@work, "#{name}.rb")
+          binary = File.join(@work, name)
+          File.write(source, program(files))
+          out, status = Open3.capture2e(Dev.ruby, Dev.path("exe/zr"), "build", source, "-o", binary)
+          return build(files, again: false) if !status.success? && again && out.include?("changed while this build ran")
+          return [binary, nil] if status.success?
+
+          [nil, out.lines.first(20).join]
+        end
+
+        # The results of one file: ruby's and the binary's, example by
+        # example.
+        def compare(file, binary)
+          ruby = ruby_run(file)
+          zr = run_one([binary, *arguments(file, zr: true)], zr: true)
+          names = ruby[:examples].keys | zr[:examples].keys
+          examples = names.to_h do |n|
+            zr_status, message = zr[:examples][n] || ["missing", nil]
+            [n, [ruby[:examples].dig(n, 0) || "missing", zr_status, message].compact]
+          end
+          { "state" => zr[:load] ? "load" : "ran", "ended" => zr[:ended], "timed_out" => zr[:timed_out],
+            "error" => zr[:load], "examples" => examples }
+        end
+
+        # ruby's run of `file`, from the cache when this file at this
+        # revision ran before.
+        def ruby_run(file)
+          key = Digest::SHA256.hexdigest([self.class.name, version, RUBY_REVISION, rel(file), File.binread(file)].join("\0"))
+          path = File.join(@out, "ruby", "#{key}.json")
+          return JSON.parse(File.read(path), symbolize_names: true).tap { |r| r[:examples].transform_keys!(&:to_s) } if File.file?(path)
+
+          source = File.join(@work, "ruby-#{key[0, 12]}.rb")
+          File.write(source, program([file]))
+          result = run_one([Dev.ruby, source, *arguments(file, zr: false)], zr: false)
+          FileUtils.mkdir_p(File.dirname(path))
+          File.write(path, JSON.generate(result))
+          result
+        end
+
+        # Runs one file with the time limit, in a directory of its own, and
+        # reads its output: { examples: { name => [status, message] },
+        # load:, ended:, timed_out: }.
+        def run_one(argv, zr:)
+          Dir.mktmpdir("zr-suite-") do |dir|
+            out, timed_out = Suite.capture(env(dir, zr: zr), argv, dir, limit)
+            read(out).merge(timed_out: timed_out)
+          end
+        end
+
+        # The environment of a run: no bundler of the tools' own.
+        def env(_dir, zr:) = { "RUBYOPT" => nil, "RUBYLIB" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil }
+
+        # The tags of one file from its results: each example that ruby
+        # passes and zr does not. When zr's run stopped early, the first
+        # example that it did not reach is the one that stopped it: it
+        # `hangs`, so the next run skips it and gets further. A hang that
+        # the run skipped stays.
+        def tags_from(result, old)
+          return { "" => result["state"] } if %w[build load].include?(result["state"])
+
+          first = true
+          result["examples"].each_with_object({}) do |(name, (ruby, zr)), tags|
+            next tags[name] = "hangs" if old[name] == "hangs"
+            next unless ruby == "pass" && zr != "pass"
+
+            tags[name] = zr == "missing" && first ? "hangs" : "fails"
+            first = false if zr == "missing"
+          end
+        end
+
+        # The report of the area, `<out>/<area>.txt`: each example that
+        # ruby passes and zr does not, with zr's message.
+        def report(results, seconds)
+          path = File.join(@out, "#{@area.tr("/", "-")}.txt")
+          gaps = 0
+          File.open(path, "w") do |f|
+            f.puts "# #{@area}: #{results.size} file(s) at ruby #{RUBY}, #{seconds.round}s"
+            results.each do |r, result|
+              lost = result["examples"].select { |_, (ruby, zr)| ruby == "pass" && zr != "pass" }
+              next if lost.empty? && result["state"] == "ran" && !result["timed_out"]
+
+              gaps += [lost.size, 1].max
+              f.puts "", "## #{r} (#{result["state"]}#{", timed out" if result["timed_out"]})"
+              f.puts result["error"].to_s.gsub(/^/, "    ") if result["error"]
+              lost.each { |name, (_, zr, message)| f.puts "- #{name} [#{zr}]", ("    #{message}" if message) }
+            end
+          end
+          files, passes, zr_passes, no_build, no_load = Suite.counts({ "files" => results })
+          puts format("%-28s %4d files %6d examples %6d pass in zr %3d no build %3d no load", @area, files, passes, zr_passes, no_build, no_load)
+          gaps
+        end
+      end
+    end
+  end
+end
