@@ -421,7 +421,7 @@ module Zr
         # spots; Coverage's tables), and the files the program was built
         # with, by path, each with its toplevel, where a require of a
         # computed name finds its file (`zr_unit_for`).
-        TEXTS = %w[roots missing preloaded ext spots coverable branches defs sources manifest].freeze
+        TEXTS = %w[roots missing preloaded ext spots coverable branches defs sources manifest redirects].freeze
 
         #: (Hir::Program hir, Target target) -> void
         def spotted(hir, target)

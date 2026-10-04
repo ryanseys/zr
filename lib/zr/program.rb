@@ -85,7 +85,7 @@ module Zr
       rt = Runtime.for(target)
       support = EvalSupport.for(target)
       hir = Timing.phase("hir built") { Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate) }
-      gem_conflicts!(hir, support, gem_set, target) if hir.evals && gem_set && !gem_set.empty?
+      redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
       # source takes seconds to lower.
       GcTuning.heavy!(restart: false) if source.bytesize + hir.units.sum { |u| u.source.to_s.bytesize } > HEAVY_SOURCE
@@ -110,34 +110,36 @@ module Zr
       tables = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
-                              manifest: Manifest.bytes(gems, target))
+                              manifest: Manifest.bytes(gems, target), redirects: redirects)
       new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
     end
 
-    # A program with eval carries eval support, which has zr's own copy of
-    # some libraries (fileutils, pp, irb, reline, rubygems and others). A
-    # file of a gem in the GemSet with the same feature name would load a
-    # second copy beside it, where ruby loads one. So such a build stops.
-    #: (Hir::Program hir, EvalSupport support, GemSet gem_set, Target target) -> void
-    def self.gem_conflicts!(hir, support, gem_set, target)
+    # Eval support has zr's own copy of some libraries (fileutils, pp, irb,
+    # reline, json and others). A program with eval carries it, and every
+    # program shares its prebuilt files, such as the json port's C half,
+    # whose `require "json/common"` names the copy. When the program loads
+    # one of these libraries from a gem in the GemSet, a require of the copy
+    # runs the gem's file instead
+    # (`zr_require_redirect`), so one copy loads, as in ruby. The result
+    # maps the path of each such copy to the gem's file.
+    #: (Hir::Program hir, EvalSupport support, GemSet gem_set, Target target) -> Hash[String, String]
+    def self.gem_redirects(hir, support, gem_set, target)
       stdlib = Library::Roots.stdlib(target)
       carried = support.units.keys.filter_map do |path|
         root = stdlib.find { |dir| path.start_with?("#{dir}/") }
-        path.delete_prefix("#{root}/") if root
-      end.to_h { |feature| [feature, true] }
+        [path.delete_prefix("#{root}/"), path] if root
+      end.to_h
+      redirects = {} #: Hash[String, String]
       hir.units.each do |unit|
         next unless unit.file
 
         gem_set.gems.each do |gem|
           root = gem.roots.find { |dir| unit.file.start_with?("#{dir}/") } or next
-          feature = unit.file.delete_prefix("#{root}/")
-          next unless carried[feature]
-
-          raise Refused, "#{feature} of #{gem.name} #{gem.version} (#{gem.source}): this program uses eval, so it carries " \
-                         "zr's own #{feature}, and ruby loads only one copy. Use ruby #{RUBY}'s #{gem.name} " \
-                         "(remove the override), or remove the eval"
+          copy = carried[unit.file.delete_prefix("#{root}/")]
+          redirects[copy] = unit.file if copy && copy != unit.file
         end
       end
+      redirects
     end
 
     # The path and digest of each file that `hir` was built from: `file`,
@@ -172,6 +174,6 @@ module Zr
       false
     end
 
-    private_class_method :gem_conflicts!, :built_from, :run_time_require?
+    private_class_method :gem_redirects, :built_from, :run_time_require?
   end
 end

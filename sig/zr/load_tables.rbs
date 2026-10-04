@@ -11,14 +11,17 @@ module Zr
     attr_reader target: Target
     attr_reader gem_roots: Array[String]
     attr_reader manifest: String?
+    attr_reader redirects: Hash[String, String]
 
     def self.new: (?evals: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
                    ?branches: Hash[String, Array[Array[untyped]]], ?defs: Hash[String, Array[Array[untyped]]],
-                   ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?) -> instance
+                   ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
+                   ?redirects: Hash[String, String]) -> instance
 
     def initialize: (?evals: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
                      ?branches: Hash[String, Array[Array[untyped]]], ?defs: Hash[String, Array[Array[untyped]]],
-                     ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?) -> void
+                     ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
+                     ?redirects: Hash[String, String]) -> void
 
     def data: (?Array[[String, String]] units) -> Array[Obj::Datum]
     def texts: () -> Array[Array[String]]

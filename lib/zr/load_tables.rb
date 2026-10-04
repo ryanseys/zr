@@ -19,7 +19,8 @@ module Zr
   #   Coverage's tables;
   # - for a program with eval, the digest of each eval support file
   #   (`sources`, path to SHA-256). It keys its parse cache on these;
-  # - the gem manifest.
+  # - the gem manifest;
+  # - for a program with a GemSet, the redirects.
   # Nothing here comes from the build machine: a binary contains no path
   # or flag of the ruby that compiled it.
   #
@@ -27,17 +28,24 @@ module Zr
   # searches them right after ruby's own library, as its build did, so a
   # computed require finds the same gem.
   #
-  # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. It is the
-  # last text. `zr inspect` finds it in the binary, and rubygems in the
-  # program reads its gems (lib/zr/runtime/lib/zr/gem_manifest.rb).
-  LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest)
+  # `manifest` is the gem manifest (lib/zr/manifest.rb), or nil. `zr
+  # inspect` finds it in the binary, and rubygems in the program reads its
+  # gems (lib/zr/runtime/lib/zr/gem_manifest.rb).
+  #
+  # `redirects` maps a file of eval support to the file of a gem that the
+  # program loads for the same feature. Eval support carries its own copy
+  # of some libraries (json, irb, reline, fileutils, pp...), and every
+  # program shares its prebuilt files (a port's `require "json/common"`).
+  # A require of such a copy runs the gem's file instead (`zr_require_redirect`), so
+  # one copy loads, as in ruby.
+  LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects)
 
   # The methods are in a reopened class, not in the block of
   # `Data.define`, so that the type check (sig/zr/load_tables.rbs) sees
   # them in the class that they belong to.
   class LoadTables
     def initialize(evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
-                   manifest: nil)
+                   manifest: nil, redirects: {})
       super
     end
 
@@ -111,6 +119,7 @@ module Zr
       names << defs.map { |file, rows| "#{shown[file]}\t#{rows.map { |row| row.join(",") }.join("\t")}" }
       names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
       names << [manifest.to_s.chomp]
+      names << redirects.map { |copy, gem_file| "#{shown[copy]}\t#{shown[gem_file]}" }.sort
     end
   end
 end

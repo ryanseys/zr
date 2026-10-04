@@ -588,8 +588,45 @@ module Zr::Kern
     zr_require_run(path, Machine.ptr(zr_fix2long(fn)), zr_fix2long(kind), false)
   end
 
+  # Eval support's own copy of a library that the program loads from a
+  # gem instead: the path of the gem's file, which a require of the copy
+  # runs in its place, so one copy loads, as in ruby. A require reaches a
+  # copy from eval support's own files, and from the prebuilt files that
+  # every program shares with it (a port's `require "json/common"`)
+  # (`LoadTables#redirects`, one `copy<TAB>gem file` line each). nil for
+  # any other path.
+  #: (value) -> value
+  def zr_require_redirect(path)
+    t = zr_load_table()
+    text = LoadTable[t].redirects
+    size = LoadTable[t].redirects_len
+    at = 0
+    while at < size
+      tab = at
+      while tab < size && Machine.load8(text + tab, 0) != 9
+        tab += 1
+      end
+      eol = tab
+      while eol < size && Machine.load8(text + eol, 0) != 10
+        eol += 1
+      end
+      if eol > tab && zr_bytes_eq(text + at, tab - at, RString[path].ptr, RString[path].len)
+        return zr_str_new(text + tab + 1, eol - tab - 1)
+      end
+      at = eol + 1
+    end
+    Machine.value(QNIL)
+  end
+
   #: (value, ptr, word, bool) -> value
   def zr_require_run(path, fn, kind, framed)
+    if kind != 2
+      gem_file = zr_require_redirect(path)
+      if gem_file != QNIL
+        path = gem_file
+        fn = Machine.ptr(zr_fix2long(zr_unit_for(gem_file)))
+      end
+    end
     # A file that is not compiled into the program has no toplevel to run.
     if Machine.word(fn) == 0
       return zr_load_error_in(kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require)), RString[path].ptr, RString[path].len)
@@ -714,6 +751,8 @@ module Zr::Kern
     attr_accessor :sources_len #: word
     attr_accessor :manifest #: ptr
     attr_accessor :manifest_len #: word
+    attr_accessor :redirects #: ptr
+    attr_accessor :redirects_len #: word
   end
 
   #: () -> ptr
@@ -747,6 +786,7 @@ module Zr::Kern
   # 7: the def and block spans that identify a method entry. 8: the digest
   # of each source file of the compiler that the program links in, each
   # after a path and a tab. 9: the gem manifest (lib/zr/manifest.rb).
+  # The last text, the redirects, is read only by `zr_require_redirect`.
   #: (value) -> value
   def zr_load_names(which)
     t = zr_load_table()
