@@ -1151,7 +1151,7 @@ class String
     n = args.size
     raise ArgumentError, "wrong number of arguments (given #{n}, expected 2..5)" unless (2..5).cover?(n)
     raise ArgumentError, "wrong number of arguments (given #{n}, expected 2, 3, or 5)" if n == 4
-  
+
     if n == 2 || (n == 3 && !args[0].is_a?(Integer))
       start, length = splice_range(args[0], Primitive.zr_str_bytesize(self))
       text = Primitive.zr_str_operand(args[1])
@@ -1168,12 +1168,12 @@ class String
     unless encoding == text.encoding
       common = Encoding.compatible?(self, text)
       raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.shown(encoding)} and #{Encoding.shown(text.encoding)}" unless common
-  
+
       force_encoding(common)
     end
     Primitive.zr_str_splice(self, start, length, text.byteslice(from, count))
   end
-  
+
   def self.try_convert(object)
     return object if String === object
 
@@ -2729,18 +2729,18 @@ class String
   def splice_range(range, size)
     Primitive.attr! :hidden
     raise TypeError, "wrong argument type #{range.class} (expected Range)" unless range.is_a?(Range)
-  
+
     first = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)
     last = range.end.nil? ? size : Primitive.zr_index_operand_m(range.end)
     first += size if first < 0
     last += size if last < 0
     raise RangeError, "#{range} out of range" if first < 0 || first > size
-  
+
     last += 1 unless range.exclude_end? || range.end.nil?
     last = size if last > size
     [first, [last - first, 0].max]
   end
-  
+
   # str_check_beg_len: a negative length, then an index outside the
   # string, raise; a length past the end is cut; both ends must fall on
   # character boundaries.
@@ -2749,15 +2749,15 @@ class String
     size = Primitive.zr_str_bytesize(self)
     raise IndexError, "negative length #{length}" if length.negative?
     raise IndexError, "index #{start} out of string" if start > size || start + size < 0
-  
+
     start += size if start.negative?
     length = size - start if length > size - start
     raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
     raise IndexError, "offset #{start + length} does not land on character boundary" unless char_boundary?(start + length)
-  
+
     [start, length]
   end
-  
+
   def byte_range(range)
     Primitive.attr! :hidden
     first = range.begin || 0

@@ -81,21 +81,21 @@ module Kernel
       entry = entry.to_s
       dirs ||= $LOAD_PATH.to_h { |dir| [load_dir(dir), true] }
       return entry if feature_entry?(entry, name, dirs)
-  
+
       listed = :bare if partial.any? { |n| feature_entry?(entry, n, dirs) }
     end
     listed
   end
-  
+
   # Whether `entry` of $LOADED_FEATURES is `name`, or one of `dirs` joined
   # to it.
   def self.feature_entry?(entry, name, dirs)
     Primitive.attr! :hidden
     return true if entry == name
-  
+
     entry.end_with?(name) && entry[-name.size - 1] == "/" && dirs.key?(entry[0, entry.size - name.size - 1])
   end
-  
+
   # A $LOAD_PATH entry as ruby searches it: expanded, and by its real path,
   # so the file that a symlinked directory holds is stored under the
   # directory it names.
@@ -104,7 +104,7 @@ module Kernel
     dir = File.expand_path(File.path(dir))
     File.directory?(dir) ? File.realpath(dir) : dir
   end
-  
+
   # syntax_suggest's detailed_message loads its search, which needs
   # prism, for each SyntaxError. The search reads only an error with a
   # path, which a program without the compiler cannot get, so there the
