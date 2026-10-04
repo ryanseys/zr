@@ -177,8 +177,8 @@ end
 
 module Kernel
   # The scope of this call.
-  def binding = Primitive.zr_binding
+  def binding = Primitive.zr_ruby_binding
 
   # The names in the caller's scope, which are the names of its Binding.
-  def local_variables = Primitive.zr_binding.local_variables
+  def local_variables = Primitive.zr_local_binding.local_variables
 end

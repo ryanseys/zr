@@ -32,24 +32,30 @@ module Zr
       OPEN_FORMS = %i[eval binding local_variables].freeze
 
       # The sends that take a method name as their first argument, so
-      # `send(:binding)` opens the scope as `binding` does.
-      BY_NAME = %i[send __send__ public_send method public_method].freeze
+      # `send(:binding)` and `instance_method(:local_variables).bind_call`
+      # open the scope as `binding` does.
+      BY_NAME = %i[send __send__ public_send method public_method instance_method public_instance_method].freeze
 
       # Whether this scope's own body `node` calls one of those. The
       # receiver is ignored: `Kernel.binding` and `self.binding` open this
       # scope as the bare form does. A scope that contains a block already
       # has an Env, so this does not walk a block body; the block is
       # checked separately.
-      #: (untyped node) -> bool
-      def opens_locals?(node)
+      #
+      # With `computed`, a BY_NAME send whose name is not a literal opens
+      # the scope too, since the name can be `binding`. The core passes
+      # false: a core frame is a C frame to ruby, so `binding` raises
+      # there and `local_variables` skips it (kernel/binding.rb).
+      #: (untyped node, ?computed: bool) -> bool
+      def opens_locals?(node, computed: true)
         case node
         when Send
-          OPEN_FORMS.include?(node.name) || (STRING_EVALS.include?(node.name) && !node.args.empty?) || named_open_form?(node) ||
-            node.to_a.any? { |v| opens_locals?(v) }
+          OPEN_FORMS.include?(node.name) || (STRING_EVALS.include?(node.name) && !node.args.empty?) ||
+            named_open_form?(node, computed) || node.to_a.any? { |v| opens_locals?(v, computed:) }
         when Block, Lambda, ClassDef, ModuleDef, nil then false
-        when Def then opens_locals?(node.receiver)
-        when SingletonClassDef then opens_locals?(node.target)
-        when Node, Array then Hir.each_child(node).any? { |v| opens_locals?(v) }
+        when Def then opens_locals?(node.receiver, computed:)
+        when SingletonClassDef then opens_locals?(node.target, computed:)
+        when Node, Array then Hir.each_child(node).any? { |v| opens_locals?(v, computed:) }
         else false
         end
       end
@@ -103,14 +109,17 @@ module Zr
         found.values
       end
 
-      # `send(:binding)` and the rest of BY_NAME, when the name is a
-      # literal symbol.
-      #: (Send node) -> bool
-      def named_open_form?(node)
+      # `send(:binding)`, `send("binding")` and the rest of BY_NAME. A name
+      # that is not a literal counts when `computed` is set.
+      #: (Send node, bool computed) -> bool
+      def named_open_form?(node, computed)
         return false unless BY_NAME.include?(node.name)
 
         first = node.args.first
-        first.is_a?(Literal) && OPEN_FORMS.include?(first.value)
+        return computed && !first.nil? unless first.is_a?(Literal)
+
+        name = first.value
+        (name.is_a?(Symbol) || name.is_a?(String)) && OPEN_FORMS.include?(name.to_sym)
       end
     end
   end

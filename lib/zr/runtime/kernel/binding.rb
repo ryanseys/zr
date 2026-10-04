@@ -156,7 +156,31 @@ module Zr::Kern
   # TOPLEVEL_BINDING, which ruby reports as `<main>` line 0.
   #: () -> value
   def zr_binding
+    zr_binding_at(zr_caller_frame())
+  end
+
+  # `Kernel#binding` as the program calls it. A core method between
+  # (`Method#call`, `UnboundMethod#bind_call`) is a caller with no Ruby
+  # scope, and ruby raises for a C caller.
+  #: () -> value
+  def zr_ruby_binding
     rec = zr_caller_frame()
+    kind = FrameMeta[Frame[rec].meta].kind
+    if kind == KIND_BUILTIN || kind == KIND_HIDDEN
+      return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("Cannot create Binding object for non-Ruby caller"), 48)
+    end
+    zr_binding_at(rec)
+  end
+
+  # `Kernel#local_variables`: the scope of the nearest frame written in
+  # Ruby. A core method between is skipped, as ruby skips a C frame.
+  #: () -> value
+  def zr_local_binding
+    zr_binding_at(zr_eval_frame())
+  end
+
+  #: (ptr) -> value
+  def zr_binding_at(rec)
     blk = zr_block_proc(Frame[rec].blk)
     b = zr_binding_of(Frame[rec].meta, zr_frame_env(rec), Frame[rec].self, Frame[rec].cref)
     RProc[b].blk = blk

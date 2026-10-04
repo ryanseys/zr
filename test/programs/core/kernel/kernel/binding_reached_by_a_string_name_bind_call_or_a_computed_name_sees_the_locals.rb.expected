@@ -1,0 +1,8 @@
+1
+[:b]
+[:c]
+RuntimeError: Cannot create Binding object for non-Ruby caller
+[:name, :d]
+4
+NoMethodError: private method 'local_variables' called for main
+true

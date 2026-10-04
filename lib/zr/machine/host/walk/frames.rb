@@ -167,7 +167,7 @@ module Zr
 
             defaults = [] #: Array[Hir::node?]
             defaults = params.optional.map(&:last) + params.keywords.filter_map(&:last) if params
-            [node.body, *defaults].any? { |b| Hir::Locals.holds_block?(b) || Hir::Locals.opens_locals?(b) }
+            [node.body, *defaults].any? { |b| Hir::Locals.holds_block?(b) || Hir::Locals.opens_locals?(b, computed: !unit.internal) }
           end
 
           # Runs the block in a new frame of the scope `s`: a record in the

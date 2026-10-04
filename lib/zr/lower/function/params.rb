@@ -137,7 +137,7 @@ module Zr
         def raw_block?(p)
           name = p.block or return false
 
-          !@l.traced? && !Hir::Locals.opens_locals?(@body) && Hir::Escape.raw_block?([@body, *default_expressions], name)
+          !@l.traced? && !Hir::Locals.opens_locals?(@body, computed: !@l.internal?) && Hir::Escape.raw_block?([@body, *default_expressions], name)
         end
 
         # A block with no parameters accepts any arguments. A lambda

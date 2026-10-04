@@ -183,8 +183,9 @@ module Zr
         @writes = []
         # A traced program's hooks can read a Binding of any frame, and
         # only an Env gives one.
-        @has_env = %i[eval main].include?(@kind) || Hir::Locals.holds_block?(body) || Hir::Locals.opens_locals?(body) ||
-                   default_expressions.any? { |d| Hir::Locals.holds_block?(d) || Hir::Locals.opens_locals?(d) } ||
+        computed = !lower.internal?
+        @has_env = %i[eval main].include?(@kind) || Hir::Locals.holds_block?(body) || Hir::Locals.opens_locals?(body, computed:) ||
+                   default_expressions.any? { |d| Hir::Locals.holds_block?(d) || Hir::Locals.opens_locals?(d, computed:) } ||
                    (lower.traced? && !lower.internal? && %i[def block top].include?(@kind))
         @raw_block = nil
         # A def's scope has a Def, and a block's a Block.
