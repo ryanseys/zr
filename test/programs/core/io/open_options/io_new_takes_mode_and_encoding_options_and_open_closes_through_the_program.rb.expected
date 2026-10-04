@@ -1,0 +1,15 @@
+false
+false
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+#<Encoding:IBM866>
+:block
+:called
+[RuntimeError, "from close"]
+2
+:file
+:io
+:direct
+:mine
+:file
+true

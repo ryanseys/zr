@@ -55,8 +55,8 @@ class IO
     begin
       yield reader, writer
     ensure
-      reader.close unless reader.closed?
-      writer.close unless writer.closed?
+      closing(reader)
+      closing(writer)
     end
   end
 
@@ -182,10 +182,19 @@ class IO
     if options.key?(:encoding) || options.key?(:external_encoding) || options.key?(:internal_encoding)
       raise ArgumentError, +"encoding specified twice" if named
 
-      if options.key?(:encoding)
-        first, second = options[:encoding].to_s.split(":", 2)
-        external = spec(first)
-        internal = spec(second)
+      # rb_io_extract_encoding_option: :encoding goes through to_str, and
+      # :external_encoding or :internal_encoding wins over it, with a warning.
+      if options.key?(:encoding) && !options[:encoding].nil?
+        given = options[:encoding]
+        given = String.try_convert(given) || given unless given.is_a?(Encoding)
+        if options.key?(:external_encoding) || options.key?(:internal_encoding)
+          used = options.key?(:external_encoding) ? "external_encoding" : "internal_encoding"
+          warn("Ignoring encoding parameter '#{given}': #{used} is used", uplevel: 0) unless $VERBOSE.nil?
+        else
+          first, second = given.to_s.split(":", 2)
+          external = spec(first)
+          internal = spec(second)
+        end
       end
       # A name an argument gives goes through rb_to_encoding, which
       # raises where a spec warns.
@@ -354,9 +363,22 @@ class IO
     begin
       yield io
     ensure
-      io.close unless io.closed?
+      closing(io)
     end
   end
+
+  # io_close, after a block: the program's own closed? and close, as
+  # rb_check_funcall sends them, and an IOError that says the stream is
+  # already closed is no error.
+  def self.closing(io)
+    Primitive.attr! :hidden
+    return if io.__send__(:closed?)
+
+    io.__send__(:close)
+  rescue IOError => e
+    raise unless e.message == "closed stream"
+  end
+  private_class_method :closing
 
   # The raw descriptor for a path, which a program that wants to wrap it
   # in its own IO requests: rb_sysopen, with the permissions that a

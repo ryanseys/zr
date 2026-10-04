@@ -1,0 +1,2 @@
+core/io/open_options/io_new_takes_mode_and_encoding_options_and_open_closes_through_the_program.rb:16: warning: Ignoring encoding parameter 'iso-8859-1:iso-8859-1': external_encoding is used
+core/io/open_options/io_new_takes_mode_and_encoding_options_and_open_closes_through_the_program.rb:17: warning: Ignoring encoding parameter 'iso-8859-1:iso-8859-1': internal_encoding is used

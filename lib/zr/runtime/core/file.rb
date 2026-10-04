@@ -1011,12 +1011,14 @@ class File < IO
       if mode.is_a?(Integer)
         # A singleton method's scope does not reach what the class
         # includes, so the flags are named through their module.
-        append, rdwr, trunc, creat, wronly = Constants::APPEND, Constants::RDWR, Constants::TRUNC, Constants::CREAT, Constants::WRONLY
+        append, rdwr, trunc, wronly = Constants::APPEND, Constants::RDWR, Constants::TRUNC, Constants::WRONLY
         return +"a+" if mode & append != 0 && mode & rdwr == rdwr
         return +"a" if mode & append != 0
         return +"w+" if mode & rdwr == rdwr && mode & trunc != 0
         return +"r+" if mode & rdwr == rdwr
-        return mode & trunc != 0 || mode & creat != 0 ? +"w" : +"r" if mode & wronly != 0
+        # rb_io_oflags_fmode: O_WRONLY writes, with or without O_TRUNC; the
+        # flags themselves, not this text, open the file.
+        return +"w" if mode & wronly != 0
 
         return +"r"
       end
