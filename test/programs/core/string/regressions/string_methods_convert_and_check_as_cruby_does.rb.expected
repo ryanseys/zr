@@ -1,0 +1,45 @@
+1: RangeError: -1 out of char range
+2: RangeError: -1 out of char range
+3: 3
+4: 3
+5: 3
+6: "l"
+7: TypeError: no implicit conversion from nil to integer
+8: TypeError: no implicit conversion from nil to integer
+9: TypeError: no implicit conversion of Range into Integer
+10: true
+11: true
+12: true
+13: [true, ["a", "b"]]
+to_str
+14: "ello"
+to_str
+15: nil
+16: TypeError: no implicit conversion of Object into String
+17: TypeError: wrong argument type Object (expected Regexp)
+18: TypeError: no implicit conversion of Object into String
+19: #<MatchData "l">
+20: #<Encoding:US-ASCII>
+21: #<Encoding:US-ASCII>
+22: ArgumentError: invalid byte sequence in US-ASCII
+23: ["l", "l"]
+24: 3
+25: 3
+26: 3
+27: "l"
+28: "lo"
+29: "e"
+30: RangeError: integer 2147483648 too big to convert to 'int'
+31: Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+32: Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+33: ["\xDE\xA0\x00\x00\x00\x00\x00"]
+34: ["abcDEF"]
+35: ["abcDEF"]
+36: ArgumentError: invalid byte sequence in UTF-8
+37: ArgumentError: invalid byte sequence in UTF-8
+38: Encoding::CompatibilityError: incompatible character encodings: UTF-8 and UTF-16BE
+39: Encoding::CompatibilityError: incompatible character encodings: EUC-JP and ISO-2022-JP
+40: "e"
+41: "heylo"
+42: RuntimeError: string modified
+43: #<MatchData "h">

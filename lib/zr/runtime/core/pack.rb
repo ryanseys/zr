@@ -217,21 +217,40 @@ module Packing
     (value.zero? ? 0x60 : value + 0x20).chr
   end
 
+  # pack.c's 'u': each line's length character, then groups of four
+  # characters, until a byte that is no length character. A short group
+  # reads as zeros; a checksum byte and the line end are skipped.
   def self.uudecode(text)
+    send = text.bytesize
+    room = send * 3 / 4
     out = "".b
-    text.each_line do |line|
-      want = (line.getbyte(0).to_i - 0x20) & 63
-      break if want.zero?
-
-      body = line.byteslice(1, line.bytesize - 1).delete("\n")
-      j = 0
-      while j < body.bytesize && out.bytesize < want
-        values = (0..3).map { |k| ((body.getbyte(j + k) || 0x60) - 0x20) & 63 }
-        [(values[0] << 2) | (values[1] >> 4), ((values[1] & 15) << 4) | (values[2] >> 2), ((values[2] & 3) << 6) | values[3]].each do |byte|
-          out << byte.chr if out.bytesize < want
-        end
-        j += 4
+    total = 0
+    s = 0
+    uu = ->(byte) { byte && byte >= 0x20 && byte < 0x61 }
+    while s < send && (c = text.getbyte(s)) > 0x20 && c < 0x61
+      len = (c - 0x20) & 63
+      s += 1
+      total += len
+      if total > room
+        len -= total - room
+        total = room
       end
+      while len > 0
+        mlen = len > 3 ? 3 : len
+        a, b, c2, d = Array.new(4) do
+          byte = s < send ? text.getbyte(s) : nil
+          next 0 unless uu.(byte)
+
+          s += 1
+          (byte - 0x20) & 63
+        end
+        hunk = [((a << 2) | (b >> 4)) & 0xff, ((b << 4) | (c2 >> 2)) & 0xff, ((c2 << 6) | d) & 0xff]
+        hunk.first(mlen).each { |byte| out << byte }
+        len -= mlen
+      end
+      s += 1 if s < send && text.getbyte(s) != 13 && text.getbyte(s) != 10
+      s += 1 if s < send && text.getbyte(s) == 13
+      s += 1 if s < send && text.getbyte(s) == 10
     end
     out
   end

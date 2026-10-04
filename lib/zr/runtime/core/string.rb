@@ -55,7 +55,10 @@ class String
     return to_enum(:each_char) { Primitive.zr_str_length_m(self) } unless block_given?
     # rb_str_each_char walks a frozen copy, so the block can change the
     # receiver.
-    return String.new(self).freeze.each_char { |c| yield c } unless frozen?
+    unless frozen?
+      String.new(self).freeze.each_char { |c| yield c }
+      return self
+    end
 
     i = 0
     while i < Primitive.zr_str_bytesize(self)
@@ -108,7 +111,15 @@ class String
     byte
   end
 
-  def ord = Primitive.zr_str_ord(self)
+  def ord
+    # rb_enc_codepoint_len: a byte above 127 is no US-ASCII character.
+    if Encoding::US_ASCII.equal?(Encoding.at(Primitive.zr_str_encoding_index_m(self))) && Primitive.zr_str_bytesize(self) > 0 &&
+       Primitive.zr_str_byte_at(self, 0) > 127
+      raise ArgumentError, +"invalid byte sequence in US-ASCII"
+    end
+
+    Primitive.zr_str_ord(self)
+  end
 
   # The arguments are walked without Array's own methods: the runtime
   # itself calls these two, so a program that redefines Array#each must
@@ -158,11 +169,18 @@ class String
   def slice!(*args)
     # str_modify_keep_cr: a frozen String raises, though nothing would change.
     Primitive.zr_frozen_error(self) if frozen?
+    unless args[0].is_a?(String) || args[0].is_a?(Regexp) || args[0].is_a?(Range)
+      args[0] = Primitive.zr_index_operand_m(args[0])
+      args[1] = Primitive.zr_index_operand_m(args[1]) if args.size == 2
+    end
     part = OWN[:[]].bind_call(self, *args)
     return nil if part.nil?
 
     start = if args[0].is_a?(String) then byte_index(args[0], 0)
-            elsif args[0].is_a?(Regexp) then $~.byteoffset(args[1] || 0)[0]
+            elsif args[0].is_a?(Regexp)
+              group = args[1] || 0
+              group += $~.size if group.is_a?(Integer) && group.negative?
+              $~.byteoffset(group)[0]
             elsif args[0].is_a?(Range) then Primitive.zr_str_char_offset_m(self, range_span(args[0], Primitive.zr_str_length_m(self)).first)
             else
               Primitive.zr_str_char_offset_m(self, args[0])
@@ -300,6 +318,14 @@ class String
     return wide_stripped(true, false) if Primitive.zr_str_unit_m(self) != 0
 
     start = Primitive.zr_str_space_end(self, 0, true)
+    # lstrip_offset reads the first character that is not a space, which
+    # must be a whole one in a multibyte encoding.
+    if !Primitive.zr_str_valid_p(self) && start < Primitive.zr_str_bytesize(self)
+      enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+      if Regexp.encoder(enc).max_len > 1 && !byteslice_of(start, Primitive.zr_str_char_len_at_m(self, start)).valid_encoding?
+        raise ArgumentError, "invalid byte sequence in #{enc}"
+      end
+    end
     byteslice_of(start, Primitive.zr_str_bytesize(self) - start)
   end
 
@@ -689,11 +715,18 @@ class String
       end
     end
 
+    # NUM2INT: the bounds are written out, because Integer#** reaches
+    # Rational, which the core does not have when its first split runs.
     limit = Primitive.zr_index_operand_m(limit)
+    raise RangeError, "integer #{limit} too big to convert to 'int'" if limit > 2_147_483_647
+    raise RangeError, "integer #{limit} too small to convert to 'int'" if limit < -2_147_483_648
     if limit == 1
       return block_given? ? (yield copied; self) : ((Primitive.zr_str_bytesize(self) == 0) ? [] : [copied])
     end
-    pattern = $; if pattern.nil?
+    if pattern.nil? && !$;.nil?
+      Warning.send(:deprecated, "$; is set to non-nil value")
+      pattern = $;
+    end
     pattern = Primitive.zr_str_operand(pattern) if !pattern.nil? && !pattern.is_a?(String) && !pattern.is_a?(Regexp) && pattern.respond_to?(:to_str)
     # A split by words, characters or a String reads every character.
     raise ArgumentError, "invalid byte sequence in #{Encoding.at(Primitive.zr_str_encoding_index_m(self))}" unless pattern.is_a?(Regexp) || Primitive.zr_str_valid_p(self)
@@ -714,35 +747,45 @@ class String
   # `sub`: replaces the first match with `replacement` (with its `\1`,
   # `\k<name>`, `\0` and `\&` filled in), with the Hash's entry for the
   # match, or with the block's return value (with `$~` set).
-  def sub(pattern, replacement = nil, &block)
+  def sub(pattern, replacement = nil, &block) = subbed(pattern, replacement, false, &block)
+
+  # rb_str_sub_bang: a replacement that is not a Hash converts to a
+  # String first. `sub` works on a copy, so a block that changes the
+  # receiver does not change the result; `sub!` raises for that.
+  def subbed(pattern, replacement, bang, &block)
+    Primitive.attr! :hidden
     raise ArgumentError, +"wrong number of arguments (given 1, expected 2)" if replacement.nil? && block.nil?
 
+    replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless replacement.nil? || replacement.is_a?(String)
     match = first_match(pattern, 0)
     Primitive.zr_backref_set(match)
     return copied unless match
 
     from = match.send(:begin_at, 0)
-
     to = match.send(:end_at, 0)
-    repl = replacement_for(match, replacement, pattern.is_a?(Regexp) ? pattern : nil, &block)
     size = Primitive.zr_str_bytesize(self)
-    # rb_str_sub_bang: the encoding the text and the replacement share, or
-    # the replacement's own where the text around the match is plain ASCII.
+    head = byteslice_of(0, from).b
+    tail = byteslice_of(to, size - to).b
+    own = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    repl = replacement_for(match, replacement, pattern.is_a?(Regexp) ? pattern : nil, &block)
+    modified_check(size) if bang && !replacement.is_a?(String)
+    # The encoding the text and the replacement share, or the
+    # replacement's own where the text around the match is plain ASCII.
     enc = Encoding.compatible?(self, repl)
     unless enc
-      own = Encoding.at(Primitive.zr_str_encoding_index_m(self))
-      unless own.ascii_compatible? && byteslice_of(0, from).b.ascii_only? && byteslice_of(to, size - to).b.ascii_only?
+      unless own.ascii_compatible? && head.ascii_only? && tail.ascii_only?
         buf_incompatible(own, Encoding.at(Primitive.zr_str_encoding_index_m(repl)))
       end
       enc = Encoding.at(Primitive.zr_str_encoding_index_m(repl))
     end
-    out = byteslice_of(0, from).b << OWN[:b].bind_call(repl) << byteslice_of(to, size - to).b
+    out = head << OWN[:b].bind_call(repl) << tail
     OWN[:force_encoding].bind_call(out, enc)
   end
 
   def gsub(pattern, replacement = nil, &block)
     return to_enum(:gsub, pattern) if replacement.nil? && block.nil?
 
+    replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless replacement.nil? || replacement.is_a?(String)
     regexp = pattern.is_a?(Regexp) ? pattern : nil
     # str_gsub: the text between matches and each replacement join onto a
     # buffer in the receiver's encoding, as rb_enc_str_buf_cat joins them.
@@ -790,7 +833,7 @@ class String
   # text comes out the same; `$~` tells whether there was one.
   def sub!(pattern, replacement = nil, &block)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    result = OWN[:sub].bind_call(self, pattern, replacement, &block)
+    result = subbed(pattern, replacement, true, &block)
     $~ ? replaced(result) : nil
   end
 
@@ -950,7 +993,12 @@ class String
   # codepoint.
   def succ
     index = Primitive.zr_str_encoding_index_m(self)
-    return Primitive.zr_str_succ_ascii(self) if index <= 2 && Primitive.zr_str_ascii_only_m(self)
+    if index <= 2 && Primitive.zr_str_ascii_only_m(self)
+      out = Primitive.zr_str_succ_ascii(self)
+      return out if Primitive.zr_str_encoding_index_m(out) == index
+
+      return OWN[:force_encoding].bind_call(out, Encoding.at(index))
+    end
 
     enc = Encoding.at(index)
     bytes = OWN[:b].bind_call(self)
@@ -1119,11 +1167,13 @@ class String
 
   def delete_prefix!(prefix)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    prefix = Primitive.zr_str_operand(prefix)
     OWN[:start_with?].bind_call(self, prefix) ? mutate(delete_prefix(prefix)) : nil
   end
 
   def delete_suffix!(suffix)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    suffix = Primitive.zr_str_operand(suffix)
     OWN[:end_with?].bind_call(self, suffix) ? mutate(delete_suffix(suffix)) : nil
   end
 
@@ -1206,6 +1256,8 @@ class String
     return to_enum(:upto, last, exclusive) unless block
 
     last = Primitive.zr_str_operand(last)
+    # rb_str_upto_each: rb_enc_check of the two ends.
+    Encoding.send(:incompatible, self, last) unless Encoding.compatible?(self, last)
     if Primitive.zr_str_bytesize(self) == 1 && last.bytesize == 1
       b = Primitive.zr_str_byte_at(self, 0)
       finish = last.getbyte(0)
@@ -1287,8 +1339,13 @@ class String
     bits > 0 ? total & ((1 << bits) - 1) : total
   end
 
-  def byteslice(start, length = nil)
+  def byteslice(start, length = (one = true; nil))
     size = Primitive.zr_str_bytesize(self)
+    # str_byteslice: with two arguments, each is a C long, a Range too.
+    unless one
+      start = Primitive.zr_index_operand_m(start)
+      length = Primitive.zr_index_operand_m(length)
+    end
     if start.is_a?(Range)
       from, count = range_span(start, size)
       return from && byteslice_of(from, count)
@@ -2072,6 +2129,7 @@ class String
 
     if needle.is_a?(Regexp)
       match = needle.send(:search, self, start, true)
+      Primitive.zr_backref_set(match)
       return match && match.send(:begin_at, 0)
     end
     needle = joined(Primitive.zr_str_operand(needle))
@@ -2119,7 +2177,12 @@ class String
 
   # A byte that is in no character is a cluster by itself. An encoding
   # that is not Unicode has only characters.
-  def grapheme_clusters
+  def grapheme_clusters(&block)
+    if block
+      OWN[:grapheme_clusters].bind_call(self).each(&block)
+      return self
+    end
+
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     return characters unless Primitive.zr_table_member_p(GRAPHEMES, encoding.name)
     return wide_clusters unless encoding.ascii_compatible? && encoding.name != +"CESU-8"

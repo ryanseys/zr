@@ -117,7 +117,13 @@ module Kernel
 end
 
 class String
-  def to_f = Primitive.zr_str_to_f(self)
+  # rb_str_to_dbl: the text must be ASCII-compatible.
+  def to_f
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{enc}" unless enc.ascii_compatible?
+
+    Primitive.zr_str_to_f(self)
+  end
 end
 
 # The libm functions, over doubles; an Integer argument converts.

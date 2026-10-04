@@ -518,6 +518,10 @@ end
 class String
   # The longest leading text that reads as a Complex; 0 when none does.
   def to_c
+    # rb_must_asciicompat.
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{enc}" unless enc.ascii_compatible?
+
     head = Complex.send(:leading, self)
     (head && Complex.send(:parse, head, false)) || Complex.send(:build, 0, 0)
   end
