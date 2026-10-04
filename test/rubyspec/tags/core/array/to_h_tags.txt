@@ -1,2 +1,0 @@
-fails:Array#to_h calls #to_ary on contents
-fails:Array#to_h with block coerces returned pair to Array with #to_ary

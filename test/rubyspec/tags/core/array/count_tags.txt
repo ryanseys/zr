@@ -1,1 +1,0 @@
-fails:Array#count ignores the block if there is an argument

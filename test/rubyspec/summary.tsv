@@ -1,6 +1,6 @@
 area	files	ruby_passes	zr_passes	no_build	no_load
 core/argf	34	147	144	0	0
-core/array	128	2701	2671	0	0
+core/array	128	2701	2683	0	0
 core/basicobject	14	170	157	0	0
 core/binding	9	58	53	0	0
 core/builtin_constants	1	15	15	0	0
@@ -21,7 +21,7 @@ core/file	112	932	901	0	0
 core/filetest	24	90	89	0	0
 core/float	50	325	322	0	0
 core/gc	17	32	32	0	0
-core/hash	69	620	605	0	0
+core/hash	69	620	615	0	0
 core/integer	67	599	584	0	0
 core/io	94	1519	1383	0	0
 core/kernel	117	2731	2675	0	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	25436	1	0
+total	2174	26314	25458	1	0
