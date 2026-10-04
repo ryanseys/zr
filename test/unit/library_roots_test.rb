@@ -25,6 +25,20 @@ class LibraryRootsTest < Minitest::Test
     assert_equal [], found
   end
 
+  # A compiled compiler with eval support reads its library roots from
+  # its load tables (`LoadTables#texts`, the first text), also when the
+  # build had a GemSet: ruby's library, then the bundled gems.
+  def test_the_load_tables_carry_ruby_lib_and_the_bundled_gems
+    require "zr/load_tables"
+    shown = Library::Roots.bundled_roots.map { |root| Zr::Paths.shown(root) }
+
+    found = [[], ["/gems/a/lib"]].map do |gem_roots|
+      Library::Roots.from_load_names(Zr::LoadTables.new(evals: true, gem_roots: gem_roots).texts.first)
+    end
+
+    assert_equal [[Zr::Paths.shown(Library::Roots.pure), shown]] * 2, found
+  end
+
   def test_each_bundled_gem_is_installed_in_its_own_directory
     held = Library::Stdlib::BUNDLED.zip(Library::Roots.bundled_roots).reject do |(name, version), dir|
       dir.end_with?("/gems/#{name}-#{version}/lib") && File.file?(File.join(dir, "..", "..", "..", "specifications", "#{name}-#{version}.gemspec"))

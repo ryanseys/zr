@@ -59,15 +59,24 @@ module Zr
 
       # A program that includes the compiler uses the directories from its
       # build, because it can run on a machine with no zr. Only a build
-      # with eval support writes them (`LoadTables`): the roots of
-      # `Roots.stdlib`, ruby's library first and the bundled gems
-      # last. Other compiled compilers find vendor/ruby beside themselves.
+      # with eval support writes them (`LoadTables`). Other compiled
+      # compilers find vendor/ruby beside themselves.
       #: () -> [String, Array[String]]?
       def carried
         return nil unless Host.compiled? && defined?(::Zr::Eval::Runtime)
 
-        names = ::Zr::Eval::Runtime.library_roots
-        names.size > Stdlib::BUNDLED.size ? [names.first, names.last(Stdlib::BUNDLED.size)] : nil
+        from_load_names(::Zr::Eval::Runtime.library_roots)
+      end
+
+      # `[pure, bundled_roots]` from the roots line of the load tables
+      # (`LoadTables#texts`): the native roots, an empty line, then the
+      # GemSet's roots and the rest of `stdlib`, which ends with ruby's
+      # library and the bundled gems. nil when the line has no such part.
+      #: (Array[String] names) -> [String, Array[String]]?
+      def from_load_names(names)
+        later = names.drop((names.index("") || return) + 1)
+        count = Stdlib::BUNDLED.size
+        later.size > count ? [later[-count - 1], later.last(count)] : nil
       end
 
       # The library roots for `target`, in search order. zr's own code
