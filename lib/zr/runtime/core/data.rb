@@ -167,7 +167,10 @@ class Data
   def hash = [Primitive.zr_real_class(self), values_store].hash
 
   def inspect
-    name = Primitive.zr_real_class(self).name
+    # rb_data_inspect: the class path, unless it is a temporary one;
+    # the class's own `name` is not called.
+    path = Primitive.zr_class_path(Primitive.zr_real_class(self))
+    name = path unless path.start_with?("#")
     head = name ? "#<data #{name}" : +"#<data"
     return Primitive.zr_obj_form("#{head}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 

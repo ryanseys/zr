@@ -338,8 +338,12 @@ class Enumerator::ArithmeticSequence < Enumerator
     seq
   end
 
-  # Only the core makes these: rb_undef_alloc_func and no `new`.
-  def self.allocate = raise(TypeError, "allocator undefined for #{self}")
+  # Only the core makes these: rb_undef_alloc_func and no `new`. The
+  # core allocates through the kernel, past this method.
+  def self.allocate
+    Primitive.attr! :hidden
+    raise TypeError, "allocator undefined for #{self}"
+  end
 
   class << self
     undef_method :new

@@ -40,10 +40,13 @@ class Hash
       Primitive.zr_hash_foreach(given) { |k, v| Primitive.zr_hash_aset_m(out, k, v) }
       return out
     end
-    if args.size == 1 && args[0].is_a?(Array)
+    # rb_hash_s_create: one argument that converts with to_ary is the
+    # pairs, each converted the same way.
+    if args.size == 1 && (list = Array.try_convert(args[0]))
       out = allocate
-      args[0].each do |pair|
-        raise ArgumentError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
+      list.each_with_index do |item, i|
+        pair = Array.try_convert(item)
+        raise ArgumentError, "wrong element type #{item.class} at #{i} (expected array)" unless pair
         raise ArgumentError, "invalid number of elements (#{pair.size} for 1..2)" unless pair.size.between?(1, 2)
 
         Primitive.zr_hash_aset_m(out, pair[0], pair[1])
@@ -150,8 +153,10 @@ class Hash
 
     out = {}
     Primitive.zr_hash_foreach(self) do |k, v|
-      pair = yield(k, v)
-      raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
+      given = yield(k, v)
+      # rb_check_array_type: a pair that converts with to_ary.
+      pair = Array.try_convert(given)
+      raise TypeError, "wrong element type #{given.class} (expected array)" unless pair
       raise ArgumentError, "element has wrong array length (expected 2, was #{pair.size})" unless pair.size == 2
 
       out[pair[0]] = pair[1]

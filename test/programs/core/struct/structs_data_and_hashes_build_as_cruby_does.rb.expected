@@ -1,0 +1,17 @@
+1: true
+2: "Struct::Probe"
+3: "MyStruct::Sub"
+4: #<struct K a=1, b=2>
+5: true
+6: false
+7: "#<data x=1>"
+8: "#<data x=1>"
+9: "#<data x=1>"
+10: #<data x=2>
+11: {1 => 2}
+12: true
+13: true
+14: {k: :v}
+16: {k: :v}
+17: Enumerator
+18: ["HOME"]

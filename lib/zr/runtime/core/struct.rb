@@ -10,7 +10,10 @@ class Struct
 
   class << self
     def new(*members, keyword_init: nil, &body)
+      # rb_struct_s_def: a first argument that is no Symbol is the name,
+      # or nil for none.
       name = class_name(members.shift) unless members.empty? || members.first.is_a?(Symbol)
+      keyword_init = keyword_init ? true : false unless keyword_init.nil?
       members = members.map { |m| member_name(m) }
       dup = members.find { |m| members.count(m) > 1 }
       raise ArgumentError, "duplicate member: #{dup}" if dup
@@ -21,7 +24,15 @@ class Struct
       # (zr_struct_row).
       Primitive.zr_hidden_set(klass, :__members__, members.freeze)
       Primitive.zr_hidden_set(klass, :__keyword_init__, keyword_init)
-      Struct.const_set(name, klass) if name
+      # new_struct: the constant goes under the receiver, a subclass of
+      # Struct too, and replaces one already there with a warning.
+      if name
+        if const_defined?(name, false)
+          warn("redefining constant #{self}::#{name}")
+          send(:remove_const, name)
+        end
+        const_set(name, klass)
+      end
       klass.define_singleton_method(:new, Class.instance_method(:new))
       klass.define_singleton_method(:[], Class.instance_method(:new))
       klass.define_singleton_method(:members) { Primitive.zr_struct_members(self).dup }
@@ -51,7 +62,8 @@ class Struct
     # that is the name of a constant under Struct.
     def class_name(arg)
       return nil if arg.nil?
-      raise TypeError, "no implicit conversion of #{conversion_name(arg)} into String" unless arg.is_a?(String)
+
+      arg = Primitive.zr_str_operand(arg)
       raise NameError, "identifier #{arg} needs to be constant" unless arg.getbyte(0).between?(65, 90)
 
       arg
@@ -94,6 +106,12 @@ class Struct
       args << keywords
       keywords = {}
       given += 1
+    end
+    # rb_struct_initialize_m: with keyword_init, one positional Hash is
+    # the keywords.
+    if keyword_init && given == 1 && Primitive.zr_hash_len_m(keywords) == 0 && args[0].is_a?(Hash)
+      keywords = args.pop
+      given = 0
     end
     if keyword_init || (given == 0 && Primitive.zr_hash_len_m(keywords) > 0)
       raise ArgumentError, "wrong number of arguments (given #{given + (keywords.empty? ? 0 : 1)}, expected 0)" unless given == 0
