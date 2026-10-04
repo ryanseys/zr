@@ -1,1 +1,0 @@
-fails:Thread#[] converts a key that is neither String nor Symbol with #to_str

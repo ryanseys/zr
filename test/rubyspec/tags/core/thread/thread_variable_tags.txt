@@ -1,4 +1,3 @@
-fails:Thread#thread_variable? converts a key that is neither String nor Symbol with #to_str
 fails:Thread#thread_variable? does not raise FrozenError if the thread is frozen
 fails:Thread#thread_variable? raises a TypeError if the key is neither Symbol nor String when thread variables are already set
 fails:Thread#thread_variable? raises a TypeError if the key is neither Symbol nor String when no thread variables are set

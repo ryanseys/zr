@@ -50,7 +50,7 @@ core/string	139	3641	3583	0	0
 core/struct	30	180	174	0	0
 core/symbol	29	323	321	0	0
 core/systemexit	2	6	6	0	0
-core/thread	53	373	324	0	0
+core/thread	53	373	339	0	0
 core/threadgroup	5	8	8	0	0
 core/time	66	777	768	0	0
 core/tracepoint	19	75	65	0	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	25327	1	0
+total	2174	26314	25342	1	0
