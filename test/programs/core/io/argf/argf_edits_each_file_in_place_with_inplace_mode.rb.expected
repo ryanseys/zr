@@ -1,0 +1,8 @@
+nil
+".bak"
+["ONE\nTWO\n2\n", "one\ntwo\n", "THREE\n3\n", "three\n"]
+"640"
+""
+["\nENO\nOWT\n2", ["a.txt", "a.txt.bak", "b.txt", "b.txt.bak"]]
+nil
+#<TypeError: no implicit conversion of Integer into String>

@@ -30,11 +30,35 @@ stream = Class.new do
     @binmode = false
     @encodings = nil
     @inplace_mode = nil
+    @write_io = nil
+    self
+  end
+
+  attr_reader :argv, :lineno
+
+  # argf_inplace_mode_get: nil when ARGF does not edit in place, "" when
+  # it edits with no backup, or the backup's extension.
+  def inplace_mode = @inplace_mode&.dup
+
+  # argf_inplace_mode_set: a false value stops the edit in place.
+  def inplace_mode=(ext)
+    unless ext
+      @inplace_mode = nil
+      return
+    end
+
+    text = String.try_convert(ext)
+    raise TypeError, "no implicit conversion of #{conversion_name(ext)} into String" if text.nil?
+    raise ArgumentError, +"string contains null byte" if text.include?("    @inplace_mode = nil
     self
   end
 
   attr_reader :argv, :lineno
   attr_accessor :inplace_mode
+")
+
+    @inplace_mode = text.dup.freeze
+  end
 
   def lineno=(n)
     @lineno = Integer.send(:int_operand, n)
@@ -63,7 +87,7 @@ stream = Class.new do
   def to_write_io
     raise IOError, +"not opened for writing" unless @current
 
-    @current
+    @write_io || @current
   end
 
   def to_s = +"ARGF"
@@ -127,7 +151,7 @@ stream = Class.new do
 
   # argf_getline: a file that runs out closes, and the next one goes on.
   def gets(*args, **options)
-    loop do
+    while true
       return nil unless next_argv
 
       line = @current.gets(*args, **options)
@@ -163,7 +187,7 @@ stream = Class.new do
       buffer.clear
     end
     text = buffer
-    loop do
+    while true
       return text unless next_argv
 
       want = length && (length - (text ? text.bytesize : 0))
@@ -310,27 +334,72 @@ stream = Class.new do
     end
     if @next == 1
       close_current if @init == 1
-      if @argv.empty?
-        @next = 1
-        return false
+      # Not `loop`, whose frame a backtrace would show.
+      opened = false
+      until opened
+        if @argv.empty?
+          @next = 1
+          return false
+        end
+        name = File.send(:path_of, @argv.shift)
+        @filename = name
+        if name == +"-"
+          @current = $stdin
+          opened = !@inplace_mode
+          Primitive.zr_warn_here_m(+"Can't do inplace edit for stdio; skipping") unless opened
+        else
+          @current = File.open(name, "r")
+          opened = !@inplace_mode || edit_in_place(name)
+        end
       end
-      name = File.send(:path_of, @argv.shift)
-      @filename = name
-      @current = name == +"-" ? $stdin : File.open(name, "r")
       @current.binmode if @binmode && !generic?
       @current.set_encoding(*@encodings) if @encodings && !generic?
       @next = 0
     elsif @next == -1
       @current = $stdin
       @filename = +"-"
+      if @inplace_mode
+        Primitive.zr_warn_here_m(+"Can't do inplace edit for stdio")
+        $stdout = STDOUT
+      end
     end
     @init = 1 if @init == -1
     true
   end
 
-  # argf_close: the current file closes; standard input stays open.
+  # The file that ARGF opened, `name`, edited in place (-i): it moves to
+  # its backup name, or goes when there is no backup, and $stdout writes a
+  # new file of that name, with the old file's mode. The file that
+  # $stdout wrote before closes. Warns and returns false to skip a file
+  # that cannot move.
+  def edit_in_place(name)
+    Primitive.attr! :hidden
+    out = $stdout
+    out.close if out.is_a?(IO) && !out.equal?(STDOUT) && !out.closed?
+    mode = @current.stat.mode
+    begin
+      if @inplace_mode.empty?
+        File.unlink(name)
+      else
+        File.rename(name, name + @inplace_mode)
+      end
+    rescue SystemCallError => e
+      why = @inplace_mode.empty? ? "Can't remove #{name}" : "Can't rename #{name} to #{name + @inplace_mode}"
+      Primitive.zr_warn_here_m("#{why}: #{e.message.sub(/ @ .*\z/m, "")}, skipping file")
+      @current.close
+      return false
+    end
+    write = File.open(name, File::WRONLY | File::CREAT | File::TRUNC, 0o666)
+    write.chmod(mode)
+    $stdout = @write_io = write
+    true
+  end
+
+  # argf_close: the current file closes; standard input stays open. The
+  # file that an edit in place writes stays $stdout until the next file.
   def close_current
     Primitive.attr! :hidden
+    @write_io = nil
     return if @current.nil? || @current.equal?($stdin)
 
     @current.close unless @current.closed?
@@ -340,7 +409,7 @@ stream = Class.new do
   # A read of one character or byte, which moves on at a file's end.
   def each_read(name)
     Primitive.attr! :hidden
-    loop do
+    while true
       return nil unless next_argv
 
       got = @current.public_send(name)
