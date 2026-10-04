@@ -444,14 +444,17 @@ class Thread
   alias exit kill
   alias terminate kill
 
-  def raise(*args)
-    exception = args.empty? ? RuntimeError.new(+"unhandled exception") : make_exception(*args)
-    return Kernel.raise(exception) if equal?(Thread.current)
-    return self if @status == :dead
+  # The exception is made here, with its cause from this thread's `$!`
+  # (rb_exception_setup), and raised in the thread. A dead thread ignores
+  # it. The value is nil, as ruby's.
+  def raise(*args, **opts)
+    return nil if @status == :dead
 
+    exception = Exception.send(:setup, args, opts)
+    Kernel.raise(exception) if equal?(Thread.current)
     @pending = exception
     wakeup
-    self
+    nil
   end
 
   def wakeup
@@ -843,13 +846,6 @@ class Thread
     @timed_out = true
   end
 
-  def make_exception(klass, message = nil, backtrace = nil)
-    Primitive.attr! :hidden
-    exception = klass.is_a?(String) ? RuntimeError.new(klass) : (message.nil? ? klass.exception : klass.exception(message))
-    exception.set_backtrace(backtrace) if backtrace
-    exception
-  end
-
   send(:boot)
 end
 
@@ -1113,18 +1109,6 @@ class Fiber
       Kernel.throw(Primitive.zr_hidden_get(current, :__kill__)) if action == :kill
       Kernel.raise(action)
     end
-
-    # The exception that `Fiber#raise` raises, as `rb_make_exception`
-    # builds it.
-    def make_exception(args)
-      Primitive.attr! :hidden
-      return RuntimeError.new(+"unhandled exception") if args.empty?
-
-      klass, message, backtrace = args
-      exception = klass.is_a?(String) ? RuntimeError.new(klass) : (message.nil? ? klass.exception : klass.exception(message))
-      exception.set_backtrace(backtrace) if backtrace
-      exception
-    end
   end
 
   # `kill`: the fiber leaves where it yielded, running every ensure on
@@ -1160,8 +1144,8 @@ class Fiber
 
   # `raise`: the exception arrives in the fiber where it yielded, and
   # the return value is what the fiber does next.
-  def raise(*args)
-    exception = Fiber.send(:make_exception, args)
+  def raise(*args, **opts)
+    exception = Exception.send(:setup, args, opts)
     Kernel.raise FiberError, +"cannot raise exception on unborn fiber" if Primitive.zr_fiber_unborn_p(self)
     return Kernel.raise(exception) if equal?(Fiber.current)
 
@@ -1206,10 +1190,12 @@ class Fiber
   private
 
   # fiber_raise: the action reaches the fiber this one resumed, if any;
-  # a fiber that transferred away is transferred to, and one that
-  # yielded is resumed.
+  # the current fiber raises it, a fiber that transferred away is
+  # transferred to, and one that yielded is resumed.
   def deliver(action)
     Primitive.attr! :hidden
+    return Kernel.raise(action) if equal?(Fiber.current)
+
     resumed = Primitive.zr_fiber_resuming_m(self)
     return resumed.send(:deliver, action) if resumed
 

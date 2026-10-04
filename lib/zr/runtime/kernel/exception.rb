@@ -454,26 +454,8 @@ module Zr::Kern
         e = zr_exc_new(zr_global(G_RUNTIME_ERROR), zr_str_new(Machine.bytes(""), 0))
       end
     else
-      if argc > 3
-        return zr_wrong_arity_range(argc, 0, 3)
-      end
-      first = Machine.value(Machine.load64(argv, 0))
-      if !zr_special_p(first) && zr_type(first) == T_STRING && argc == 1
-        e = zr_exc_new(zr_global(G_RUNTIME_ERROR), first)
-      else
-        if zr_find_method(zr_class_of(first), Machine.id(:exception)) == 0
-          return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception class/object expected"), 31)
-        end
-        e = zr_send(first, Machine.id(:exception), argc > 1 ? 1 : 0, argv + 8)
-        return e if e == QUNDEF
-        if zr_special_p(e) || zr_type(e) != T_EXCEPTION
-          return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
-        end
-      end
-      if argc == 3
-        r = zr_exc_set_backtrace_value(e, Machine.value(Machine.load64(argv, 16)))
-        return r if r == QUNDEF
-      end
+      e = zr_make_exception(argc, argv)
+      return e if e == QUNDEF
     end
     # The cause is checked once the exception is made, as rb_f_raise
     # reads the first argument first.
@@ -486,6 +468,62 @@ module Zr::Kern
       RException[e].cause = cause == e ? Machine.value(QNIL) : cause
     end
     zr_raise_from(e, top)
+  end
+
+  # rb_make_exception: the exception of `raise`'s 1 to 3 arguments. A
+  # String alone is a RuntimeError's message; any other first argument
+  # makes it with `exception`, and a third is its backtrace.
+  #: (word, ptr) -> value
+  def zr_make_exception(argc, argv)
+    if argc > 3
+      return zr_wrong_arity_range(argc, 0, 3)
+    end
+    first = Machine.value(Machine.load64(argv, 0))
+    if !zr_special_p(first) && zr_type(first) == T_STRING && argc == 1
+      return zr_exc_new(zr_global(G_RUNTIME_ERROR), first)
+    end
+    if zr_find_method(zr_class_of(first), Machine.id(:exception)) == 0
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception class/object expected"), 31)
+    end
+    e = zr_send(first, Machine.id(:exception), argc > 1 ? 1 : 0, argv + 8)
+    return e if e == QUNDEF
+    if zr_special_p(e) || zr_type(e) != T_EXCEPTION
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
+    end
+    if argc == 3
+      r = zr_send(e, Machine.id(:assign_backtrace), 1, argv + 16)
+      return r if r == QUNDEF
+    end
+    e
+  end
+
+  # rb_exception_setup, for Thread#raise and Fiber#raise: the exception
+  # of `args`, with its cause resolved now, from `cause` when `given`, else
+  # from this thread's `$!`. So the thread or fiber that raises it later
+  # adds no cause of its own. With no arguments it is a new RuntimeError,
+  # not `$!` again.
+  #: (value, value, value) -> value
+  def zr_exception_setup_m(args, cause, given)
+    argc = RArray[args].len
+    if argc == 0
+      if given != QFALSE
+        return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("only cause is given with no arguments"), 37)
+      end
+      e = zr_exc_new(zr_global(G_RUNTIME_ERROR), zr_str_new(Machine.bytes(""), 0))
+    else
+      e = zr_make_exception(argc, RArray[args].ptr)
+      return e if e == QUNDEF
+    end
+    if given == QFALSE
+      cause = Task[zr_task()].errinfo
+    elsif cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
+    elsif cause != QNIL
+      r = zr_exc_check_cause(e, cause)
+      return r if r == QUNDEF
+    end
+    RException[e].cause = cause == e ? Machine.value(QNIL) : cause
+    e
   end
 
   # Raises `circular causes` when `e` is in the cause list of `cause`.

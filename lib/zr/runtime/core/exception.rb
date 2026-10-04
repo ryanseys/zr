@@ -15,6 +15,18 @@ class Exception
   # Whether the report an uncaught error prints goes to a terminal.
   def self.to_tty? = Primitive.zr_io_tty_p(2)
 
+  # rb_exception_setup: the exception of `raise(*args, **opts)`, with its
+  # cause resolved now (Thread#raise and Fiber#raise). `cause:` is the
+  # cause; any other keyword goes to `exception` in one Hash.
+  def self.setup(args, opts)
+    Primitive.attr! :hidden
+    given = opts.key?(:cause)
+    rest = given ? opts.except(:cause) : opts
+    args += [rest] unless rest.empty?
+    Primitive.zr_exception_setup_m(args, opts[:cause], given)
+  end
+  private_class_method :setup
+
   def message = to_s
 
   def to_s = Primitive.zr_exc_to_s(self)
@@ -79,7 +91,13 @@ class Exception
 
   # An Array of Locations sets the locations as well as the strings, as
   # exc_set_backtrace does.
-  def set_backtrace(backtrace)
+  def set_backtrace(backtrace) = assign_backtrace(backtrace)
+
+  # rb_exc_set_backtrace: Strings, or Locations, which the exception
+  # keeps for backtrace_locations. `raise`'s third argument comes here
+  # too, and not through a set_backtrace that the program wrote.
+  def assign_backtrace(backtrace)
+    Primitive.attr! :hidden
     locations = backtrace.is_a?(Array) && !backtrace.empty? && backtrace.all?(Thread::Backtrace::Location)
     rows = Primitive.zr_exc_set_backtrace_value(self, locations ? backtrace.map(&:to_s) : backtrace)
     @locations = locations ? backtrace.dup : nil
