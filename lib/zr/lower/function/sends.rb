@@ -563,7 +563,9 @@ module Zr
                  elsif explicit?(node) && !@funcalls&.key?(node) then 2
                  else 0
                  end
-          mode |= SEND_CORE if core_send?(node.name)
+          # A literal `send` in the core is rb_funcall: the program's own
+          # method answers it, as any send from CRuby's C does.
+          mode |= SEND_CORE if core_send?(node.name) && !@funcalls&.key?(node)
           node.using ? mode | SEND_USING : mode
         end
 
