@@ -1,0 +1,21 @@
+1
+1
+true
+[TypeError, "1 is not a symbol nor a string"]
+49
+true
+[TypeError, "123 is not a symbol nor a string"]
+[TypeError, "123 is not a symbol nor a string"]
+true
+[FrozenError, "can't modify frozen thread locals"]
+[FrozenError, "can't modify frozen thread locals"]
+nil
+nil
+[:good, :in_thread]
+ThreadError
+1
+[ArgumentError, "tried to create Proc object without a block"]
+[ThreadError, "must be called with a block"]
+3
+-3
+[TypeError, "no implicit conversion of String into Integer"]

@@ -43,17 +43,28 @@ class Thread
 
     def main = equal?(Thread) ? @main : Thread.main
 
+    # thread_s_new: initialize runs (a subclass's can give its own block to
+    # super), and then the thread must have been set up.
     def new(*args, &block)
-      raise ThreadError, +"must be called with a block" unless block
-
       thread = Primitive.zr_class_build(self)
       thread.send(:initialize, *args, &block)
+      raise ThreadError, "uninitialized thread - check #{self}#initialize" unless thread.send(:initialized?)
+
       thread.send(:start, caller(1, 1)&.first)
       thread
     end
 
-    alias start new
-    alias fork new
+    # thread_start: no initialize of a subclass runs.
+    def start(*args, &block)
+      raise ArgumentError, +"tried to create Proc object without a block" unless block
+
+      thread = Primitive.zr_class_build(self)
+      Thread.instance_method(:initialize).bind_call(thread, *args, &block)
+      thread.send(:start, caller(1, 1)&.first)
+      thread
+    end
+
+    alias fork start
 
     def list = equal?(Thread) ? @threads.dup : Thread.list
 
@@ -484,6 +495,7 @@ class Thread
   # A nil value removes the key, as rb_thread_local_aset does.
   def []=(key, value)
     key = local_key(key)
+    Kernel.raise FrozenError.new("can't modify frozen thread locals", receiver: self) if frozen?
     return @locals[local_fiber]&.delete(key) && nil if value.nil?
 
     (@locals[local_fiber] ||= {})[key] = value
@@ -514,21 +526,34 @@ class Thread
   def thread_variable_get(key) = @variables[local_key(key)]
 
   def thread_variable_set(key, value)
-    @variables[local_key(key)] = value
+    key = local_key(key)
+    Kernel.raise FrozenError.new("can't modify frozen thread locals", receiver: self) if frozen?
+
+    @variables[key] = value
   end
 
   # True for a key whose value is not nil.
   def thread_variable?(key) = !@variables[local_key(key)].nil?
 
-  # A Symbol, or a String as its Symbol; any other key is a TypeError.
+  # rb_check_id: a Symbol, a String or what to_str gives, as its Symbol;
+  # any other key is a TypeError.
   def local_key(key)
     Primitive.attr! :hidden
     return key if key.is_a?(Symbol)
-    return key.to_sym if key.is_a?(String)
 
-    raise TypeError, "#{key.inspect} is not a symbol nor a string"
+    text = key.is_a?(String) ? key : String.try_convert(key)
+    Kernel.raise TypeError, "#{key.inspect} is not a symbol nor a string" if text.nil?
+
+    text.to_sym
   end
   private :local_key
+
+  # Whether initialize set the thread up (Thread.new checks).
+  def initialized?
+    Primitive.attr! :hidden
+    !@block.nil?
+  end
+  private :initialized?
 
   def thread_variables = @variables.keys
 
@@ -545,10 +570,9 @@ class Thread
   # priority is a number the thread keeps and the scheduler ignores.
   def priority = @priority || 0
 
+  # rb_thread_priority_set: NUM2INT, clamped to -3..3.
   def priority=(value)
-    raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into Integer" unless value.is_a?(Numeric)
-
-    @priority = value.to_int
+    @priority = Primitive.zr_index_operand_m(value).clamp(-3, 3)
   end
 
   def group = @group || ThreadGroup::Default
