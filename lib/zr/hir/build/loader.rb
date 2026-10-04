@@ -739,8 +739,9 @@ module Zr
           return false unless node.is_a?(Prism::CallNode)
           return node.receiver.nil? && node.arguments.nil? if node.name == :__dir__
 
+          args = node.arguments&.arguments || [] #: Array[Prism::node]
           node.name == :dirname && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File &&
-            node.arguments&.arguments&.size == 1 && node.arguments.arguments[0].is_a?(Prism::SourceFileNode)
+            args.size == 1 && args[0].is_a?(Prism::SourceFileNode)
         end
       end
     end

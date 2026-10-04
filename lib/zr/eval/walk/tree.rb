@@ -228,9 +228,9 @@ module Zr
           when Hir::Once then once(node, ctx)
           when Hir::Stop then raise ::NotImplementedError, "#{@file}:#{node.line}: #{node.what}"
           when Hir::Require then refuse(node, "require of #{node.feature.inspect}")
-          when Hir::Autoload then autoload(node, ctx)
+          when Hir::Autoload then autoload_node(node, ctx)
           when Hir::BackRef then backref(node, ctx)
-          when Hir::RegexpOnce then (@regexps ||= {}.compare_by_identity)[node] ||= walk(node.value, ctx)
+          when Hir::RegexpOnce then regexps[node] ||= walk(node.value, ctx)
           when Hir::Using, Hir::UsingDefaults then refuse(node, "using")
           else refuse(node, node.class.name.split("::").last)
           end
@@ -262,9 +262,15 @@ module Zr
         # A Regexp literal is one frozen object for its site, as ruby
         # makes it once when it compiles the string.
         #: (Hir::RegexpLit node) -> Regexp
-        def regexp(node)
-          made = @regexps ||= {}.compare_by_identity #: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]
-          made[node] ||= ::Regexp.new(node.source, node.options).freeze
+        def regexp(node) = regexps[node] ||= ::Regexp.new(node.source, node.options).freeze
+
+        # The Regexp of each literal site that ran, by node.
+        #: () -> Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]
+        def regexps
+          @regexps ||= begin
+            made = {} #: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]
+            made.compare_by_identity
+          end
         end
 
         # Only `false` and `nil` are false.
@@ -340,7 +346,7 @@ module Zr
 
         # `autoload :Name, "feature"`: on the receiver, or on the module of
         # the lexical scope, as Kernel#autoload does.
-        def autoload(node, ctx)
+        def autoload_node(node, ctx)
           owner = node.recv ? walk(node.recv, ctx) : World.cref_klass(ctx.cref)
           owner.autoload(node.name, node.feature)
         end
@@ -620,16 +626,17 @@ module Zr
         # and `$_` of this frame, so the frame takes them from the walked
         # code's cell first and gives them back after. A block sees each
         # match that the method makes before it yields (`gsub { $1 }`).
-        # @rbs return: untyped
+        #: (untyped recv, Symbol name, Array[untyped] args, Hash[Symbol, untyped]? kwargs, untyped block, bool private, untyped cell) -> untyped
         def svar_send(recv, name, args, kwargs, block, private, cell)
           $~ = cell[0]
           $_ = cell[1]
           if block
             inner = block
+            # The method gives the arguments, so Steep cannot type them.
             block = proc do |*values, **options, &passed|
               cell[0] = $~
               cell[1] = $_
-              inner.call(*values, **options, &passed)
+              inner.call(*values, **options, &passed) # steep:ignore
             end
           end
           if kwargs.nil? || kwargs.empty?
@@ -886,13 +893,14 @@ module Zr
         # In a method that the string defines, `super` starts after that
         # method's owner. Elsewhere it belongs to the method of the frame
         # that called eval.
-        #: (untyped node, Ctx ctx, Array[untyped] args, Hash[Symbol, untyped]? kwargs, Proc? block) -> untyped
+        #: (untyped node, Ctx ctx, Array[untyped] args, Hash[Symbol, untyped]? kwargs, (^(*untyped) -> untyped)? block) -> untyped
         def call_super(_node, ctx, args, kwargs, block)
           name, owner = super_of(ctx)
           raise ::NoMethodError, "super called outside of method" unless name && owner
 
           method = super_method(ctx.self_, name, owner) or
-            raise ::NoMethodError.new("super: no superclass method '#{name}' for #{receiver_text(ctx.self_)}", name, receiver: ctx.self_)
+            # Ruby keeps the Symbol as NameError#name; RBS types it as a String.
+            raise ::NoMethodError.new("super: no superclass method '#{name}' for #{receiver_text(ctx.self_)}", name, receiver: ctx.self_) # steep:ignore ArgumentTypeMismatch
           if kwargs.nil? || kwargs.empty?
             method.bind_call(ctx.self_, *args, &block)
           else

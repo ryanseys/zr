@@ -35,7 +35,9 @@ module Zr
 
     # Walks `source` in `scope` (`Walk.evaluate`).
     #: (untyped source, untyped file, _ToInt line, Binding scope, untyped self_, untyped cref, untyped block, ?add: bool) -> untyped
-    def run(source, file, line, scope, self_, cref, block, add: false) = Walk.evaluate(source, file, line, scope, self_, cref, block, add: add)
+    def run(source, file, line, scope, self_, cref, block, add: false)
+      Walk.evaluate(source, scope, file: file, line: line, self_: self_, cref: cref, block: block, add: add)
+    end
 
     # A file that is not compiled into the program. The eval compiler
     # returns the address of its toplevel, and the kernel calls it. The

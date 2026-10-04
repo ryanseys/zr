@@ -31,7 +31,7 @@ module Zr
       # Walks `source` as `eval(source, scope)` would, under `nesting`.
       #: (String source, Binding scope, ?nesting: Array[Module], ?block: Proc?, ?file: String, ?line: Integer) -> untyped
       def self.eval(source, scope, nesting: [], block: nil, file: "(eval)", line: 1)
-        Eval::Walk.evaluate(source, file, line, scope, scope.receiver, cref(nesting), block)
+        Eval::Walk.evaluate(source, scope, file: file, line: line, self_: scope.receiver, cref: cref(nesting), block: block)
       end
 
       # A `return` of a walked string, which `in_method` catches as the

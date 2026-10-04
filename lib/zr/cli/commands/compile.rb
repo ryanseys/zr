@@ -60,7 +60,10 @@ module Zr
           end
           # Only `zr build` notes a require that will raise LoadError when it
           # runs; `run` and `diff` print the program's output alone.
-          gate = opts[:runtime_require] ? false : (name == "build" ? :warn : true) #: bool | :warn
+          gate = if opts[:runtime_require] then false
+                 elsif name == "build" then :warn
+                 else true
+                 end #: bool | :warn
           program = lower(input, target, assemble: emit.nil?, gem_set: gems, gate: gate, trace: trace)
           status = Paths.tmpdir("zr-build-") do |work|
             out = name == "run" ? File.join(work, "program") : File.expand_path(opts[:output])

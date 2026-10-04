@@ -52,7 +52,7 @@ class GemRedirectTest < Minitest::Test
       program = File.join(dir, "main.rb")
       File.write(program, source)
       out, err, status = Open3.capture3(EXE, "run", "--gem", "jsonfix=#{gem}", program)
-      assert status.success?, err
+      assert_predicate status, :success?, err
       [out, err]
     end
   end

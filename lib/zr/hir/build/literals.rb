@@ -211,7 +211,7 @@ module Zr
           value.low = frozen_literal(node.left, value.low, line) if node.left
           value.high = frozen_literal(node.right, value.high, line) if node.right
         when Prism::StringNode, Prism::SourceFileNode
-          text = (value.is_a?(PathLiteral) ? value.literal : value).value
+          text = (value.is_a?(PathLiteral) ? value.literal : value).value #: String
           return FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
         end
         value
