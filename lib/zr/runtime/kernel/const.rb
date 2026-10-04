@@ -735,12 +735,15 @@ module Zr::Kern
 
   # `private_constant(*names)`, `public_constant(*names)` and
   # `deprecate_constant(*names)` set a flag on the module's own entries.
-  # A constant that the runtime's own code makes private is a helper of
-  # the runtime that ruby does not have, so the program cannot see it.
+  # A constant that the runtime's own code (the core and zr's ports, whose
+  # frames name no file) makes private is a helper of the runtime that
+  # ruby does not have, so the program cannot see it. An upstream library
+  # that eval support also carries, such as json's
+  # `private_constant :ParserOptions`, keeps the constant as ruby does.
   #: (value, word, ptr, word) -> value
   def zr_mod_constant_visibility(recv, argc, argv, private)
     asking = zr_asking_frame()
-    core = asking == 0 || FrameMeta[Frame[asking].meta].hidden != 0
+    core = asking == 0 || FrameMeta[Frame[asking].meta].file_len == 0
     i = 0
     while i < argc
       slot = Machine.slot(8)
