@@ -254,6 +254,13 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-F:", "-ane", "p $F, [$-a, $-l, $-p]", stdin: "a:b\n")
   end
 
+  def test_the_loop_switches_define_chomp_chop_sub_and_gsub_on_the_last_line
+    same_as_ruby("-n", "-e", "chomp; chop; sub(/b/, 'X'); gsub(/c/) { 'Y' }; p $_", stdin: "abc1\nbcd2\n")
+    same_as_ruby("-n", "-e", "p Kernel.private_method_defined?(:chomp)", stdin: "\n")
+    same_as_ruby("-n", "-e", "Kernel.chomp; Kernel.chop; p $_", stdin: "abc\n")
+    same_as_ruby("-e", "p Kernel.private_method_defined?(:chomp)")
+  end
+
   def test_warning_switches_set_verbose_and_the_categories
     same_as_ruby("-w", "x.rb")
     same_as_ruby("-W0", "-e", "p $VERBOSE; warn 'shown'")

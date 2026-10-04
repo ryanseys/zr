@@ -174,6 +174,8 @@ module Zr
         lines << "$; = Regexp.new(#{@field_separator.inspect})" if @field_separator
         lines << "$-i = ARGF.inplace_mode = #{@inplace.inspect}" if @inplace
         lines << "$-p = true" if @print
+        # ruby.c defines chomp, chop, sub and gsub on $_ for -n and -p.
+        lines << "Kernel.send(:line_methods)" if @print || @loop
         lines << "$-l = true" if @line
         lines << "$-a = true" if @split
         @requires.each { |feature| lines << "require #{feature.inspect}" }

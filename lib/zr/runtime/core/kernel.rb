@@ -540,9 +540,9 @@ module Kernel
     return 0 if status == true
     return 1 if status == false
     return status if status.is_a?(Integer)
-    raise TypeError, +"no implicit conversion from nil to integer" if status.nil?
 
-    raise TypeError, "no implicit conversion of #{conversion_name(status)} into Integer"
+    # NUM2INT: a Float truncates, anything else goes through to_int.
+    Primitive.zr_index_operand_m(status)
   end
 
   # The strict form: whitespace around, a sign, a `0x`, `0b`, `0o` or
@@ -912,7 +912,7 @@ module Kernel
   end
 
   def exit!(status = false)
-    Primitive.zr_exit_now(status == true ? 0 : (status == false ? 1 : status))
+    Primitive.zr_exit_now(exit_status(status))
   end
 
   def !~(other) = !(self =~ other)
@@ -956,5 +956,38 @@ class Class
     raise TypeError, "'#{inspect}' is not a singleton class" if object.nil?
 
     object
+  end
+end
+
+module Kernel
+  # chomp, chop, sub and gsub on the caller's `$_`, which ruby.c defines
+  # only for `ruby -n` and `ruby -p`: such a program's prelude calls
+  # Kernel.line_methods, which copies them in as private methods.
+  module LineMethods
+    def chomp(*args) = Primitive.zr_lastline_set(LineMethods.uscore.chomp(*args))
+
+    def chop = Primitive.zr_lastline_set(LineMethods.uscore.chop)
+
+    def sub(*args, &block) = Primitive.zr_lastline_set(LineMethods.uscore.sub(*args, &block))
+
+    def gsub(*args, &block) = Primitive.zr_lastline_set(LineMethods.uscore.gsub(*args, &block))
+
+    # uscore_get: `$_`, which must be a String.
+    def self.uscore
+      line = Primitive.zr_lastline_get
+      raise TypeError, "$_ value need to be String (#{line.nil? ? "nil" : line.class} given)" unless line.is_a?(String)
+
+      line
+    end
+  end
+  private_constant :LineMethods
+
+  def self.line_methods
+    Primitive.attr! :hidden
+    %i[chomp chop sub gsub].each do |name|
+      # rb_define_global_function: a private method and Kernel.name.
+      define_method(name, LineMethods.instance_method(name))
+      module_function name
+    end
   end
 end
