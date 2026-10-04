@@ -440,7 +440,7 @@ class Integer
       same = case other
              when Integer then Integer.send(:big_cmp, self, other) == 0
              when Float then Integer.send(:big_cmp_float, self, other) == 0
-             else other == self
+             else (other == self) ? true : false
              end
       op == :== ? same : !same
     when :+, :-, :*, :/, :%, :<<, :>>, :&, :|, :^, :<, :<=, :>, :>=

@@ -1338,12 +1338,26 @@ module Zr::Kern
     zr_fix(n < 0 ? 0 : n)
   end
 
+  # Whether an upto or downto stop is no Integer and no Float.
+  #: (value) -> bool
+  def zr_int_unsized_stop_p(other)
+    !zr_fixnum_p(other) && !zr_float_p(other) && !zr_big_p(other)
+  end
+
   #: (value, word, ptr, value, value) -> value
   def zr_int_upto(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
       return zr_big_route_blk(recv, Machine.id(:upto), argc, argv, blk)
     end
     if blk == QNIL
+      # A stop that is not a number gets a size that compares the two
+      # ends when it is asked for, as ruby_num_interval_step_size does.
+      if argc == 1 && zr_int_unsized_stop_p(Machine.value(Machine.load64(argv, 0)))
+        slot = Machine.slot(16)
+        Machine.store64(slot, 0, Machine.word(zr_sym(Machine.id(:upto))))
+        Machine.store64(slot, 8, Machine.load64(argv, 0))
+        return zr_send(recv, Machine.id(:interval_enum), 2, slot)
+      end
       return zr_enum_for(recv, Machine.id(:upto), argc, argv, zr_int_step_size(recv, argc, argv, 1))
     end
     out = Machine.slot(8)
@@ -1365,6 +1379,14 @@ module Zr::Kern
       return zr_big_route_blk(recv, Machine.id(:downto), argc, argv, blk)
     end
     if blk == QNIL
+      # A stop that is not a number gets a size that compares the two
+      # ends when it is asked for, as ruby_num_interval_step_size does.
+      if argc == 1 && zr_int_unsized_stop_p(Machine.value(Machine.load64(argv, 0)))
+        slot = Machine.slot(16)
+        Machine.store64(slot, 0, Machine.word(zr_sym(Machine.id(:downto))))
+        Machine.store64(slot, 8, Machine.load64(argv, 0))
+        return zr_send(recv, Machine.id(:interval_enum), 2, slot)
+      end
       return zr_enum_for(recv, Machine.id(:downto), argc, argv, zr_int_step_size(recv, argc, argv, 0 - 1))
     end
     out = Machine.slot(8)

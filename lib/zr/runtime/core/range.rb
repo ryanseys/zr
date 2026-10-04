@@ -37,9 +37,9 @@ class Range
     out
   end
 
-  def last(n = nil)
+  def last(n = (none = true; nil))
     raise RangeError, +"cannot get the last element of endless range" if @end.nil?
-    return @end if n.nil?
+    return @end if none
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"negative array size" if n < 0
@@ -173,7 +173,8 @@ class Range
   # Integer ends count down without an Array, which a beginless range
   # needs; anything else walks the Array.
   def reverse_each(&block)
-    return to_enum(:reverse_each) { size } unless block
+    # An endless range has no end to start from, also for its size.
+    return to_enum(:reverse_each) { @end.nil? ? raise(TypeError, "can't iterate from #{@end.class}") : size } unless block
     raise TypeError, "can't iterate from #{@end.class}" if @end.nil?
     # Only an Integer end counts down, so a beginless range with any
     # other end walks from its begin, which is nil.
@@ -269,14 +270,33 @@ class Range
   private_class_method :r_less
 
   # A String range covers single characters by order and walks the rest.
+  # range_include_internal: a range of numbers (or of values that
+  # convert with to_int) covers; a range of Strings compares single
+  # ASCII bytes, else walks; any other range walks, as
+  # Enumerable#include? does.
   def include?(v)
-    return covers_value?(v) unless @begin.is_a?(String) || @end.is_a?(String)
-    raise TypeError, +"cannot determine inclusion in beginless/endless ranges" if @begin.nil? || @end.nil?
-    return covers_value?(v) if v.is_a?(String) && v.size == 1 && (@begin.nil? || @begin.size == 1) && (@end.nil? || @end.size == 1)
-    return false unless v.is_a?(String)
+    unless @begin.is_a?(String) || @end.is_a?(String)
+      return covers_value?(v) if linear?(@begin) || linear?(@end) || Integer.try_convert(@begin) || Integer.try_convert(@end)
 
+      return super
+    end
+    raise TypeError, +"cannot determine inclusion in beginless/endless ranges" if @begin.nil? || @end.nil?
+
+    v = String.try_convert(v)
+    return false if v.nil?
+
+    if @begin.bytesize == 1 && @end.bytesize == 1 && @begin.ascii_only? && @end.ascii_only?
+      return false unless v.bytesize == 1
+      return covers_value?(v) if v.ascii_only?
+    end
     each { |x| return true if x == v }
     false
+  end
+
+  # linear_object_p: a number, or a Time.
+  def linear?(value)
+    Primitive.attr! :hidden
+    value.is_a?(Numeric) || value.is_a?(Time)
   end
   alias member? include?
   def ===(v) = covers_value?(v)
@@ -400,6 +420,10 @@ class Range
   end
 
   def bsearch(&block)
+    # range_bsearch refuses ends it cannot search, block or not.
+    unless [@begin, @end].all? { |e| e.nil? || e.is_a?(Integer) || e.is_a?(Float) }
+      raise TypeError, "can't do binary search for #{(@begin.nil? ? @end : @begin).class}"
+    end
     return to_enum(:bsearch) unless block
     return float_bsearch(&block) if @begin.is_a?(Float) || @end.is_a?(Float)
     raise TypeError, "can't do binary search for #{@begin.class}" unless (@begin.nil? || @begin.is_a?(Integer)) && (@end.nil? || @end.is_a?(Integer))

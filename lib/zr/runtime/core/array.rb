@@ -294,8 +294,10 @@ class Array
     Primitive.attr! :hidden
     c = block ? block.call(a, b) : (a <=> b)
     Primitive.zr_cmperr(a, b) if c.nil?
+    return c if c.is_a?(Integer)
 
-    c
+    # rb_cmpint: anything else answers `> 0`, then `< 0`.
+    c > 0 ? 1 : (c < 0 ? -1 : 0)
   end
 
   def rotate!(n = 1)

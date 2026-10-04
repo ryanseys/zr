@@ -273,6 +273,21 @@ module Zr::Kern
   def zr_flo_cmp(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if !zr_fixnum_p(other) && !zr_float_p(other) && !zr_big_p(other)
+      # flo_cmp: an infinite receiver asks the other value's infinite?.
+      a = zr_float_value(recv)
+      positive = a > Machine.to_f64(0)
+      if zr_inf_p(a) && zr_check_funcall(other, Machine.id(:infinite?)) == QTRUE
+        i = zr_send(other, Machine.id(:infinite?), 0, 0)
+        return i if i == QUNDEF
+        if i == QNIL || i == QFALSE
+          return zr_fix(positive ? 1 : 0 - 1)
+        end
+        j = zr_fixnum_p(i) ? zr_fix2long(i) : 1
+        if positive
+          return zr_fix(j > 0 ? 0 : 1)
+        end
+        return zr_fix(j < 0 ? 0 : 0 - 1)
+      end
       return zr_num_coerce(recv, other, Machine.id(:<=>), 2)
     end
     c = zr_float_cmp_value(recv, other)

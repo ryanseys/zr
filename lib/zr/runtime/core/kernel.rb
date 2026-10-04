@@ -526,7 +526,11 @@ module Kernel
     raise TypeError, +"no implicit conversion from nil to integer" if value.nil?
     raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.respond_to?(:to_int)
 
-    value.to_int
+    # rb_to_int: what to_int gives must be an Integer.
+    converted = value.to_int
+    return converted if converted.is_a?(Integer)
+
+    raise TypeError, "can't convert #{conversion_name(value)} to Integer (#{conversion_name(value)}#to_int gives #{conversion_name(converted)})"
   end
 
   # rb_to_int: an Integer, or what `to_int` makes one, where nil is a

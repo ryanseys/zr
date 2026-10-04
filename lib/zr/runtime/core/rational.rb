@@ -47,13 +47,17 @@ class Rational < Numeric
 
         raise TypeError, +"can't convert nil into Rational"
       else
-        if value.respond_to?(:to_r)
-          value.to_r
-        else
+        # rb_check_convert_type_with_id: to_r as rb_check_funcall finds
+        # it, a BasicObject's too, and it must give a Rational.
+        converted = Primitive.zr_check_call(value, :to_r)
+        if converted.nil?
           return nil unless exception
 
           raise TypeError, "can't convert #{conversion_name(value)} into Rational"
         end
+        raise TypeError, "can't convert #{conversion_name(value)} to Rational (#{conversion_name(value)}#to_r gives #{conversion_name(converted)})" unless converted.is_a?(Rational)
+
+        converted
       end
     end
     private :convert
@@ -266,6 +270,15 @@ class Rational < Numeric
 
   def **(other)
     other = other.numerator if other.is_a?(Rational) && other.denominator == 1
+    # nurat_expt: 0 and 1 to an exact power, before any Float.
+    if other.is_a?(Rational) && denominator == 1
+      return Rational.send(:build, 1, 1) if numerator == 1
+      if numerator == 0
+        raise ZeroDivisionError, +"divided by 0" if other.negative?
+
+        return Rational.send(:build, 0, 1)
+      end
+    end
     case other
     when Integer
       if other >= 0

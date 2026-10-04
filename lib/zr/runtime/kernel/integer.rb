@@ -281,10 +281,10 @@ module Zr::Kern
   def zr_num_coerce(recv, other, mid, kind)
     if kind != 3 && !zr_special_p(other)
       slot = Machine.slot(8)
-      Machine.store64(slot, 0, Machine.word(Machine.value(zr_sym(Machine.id(:coerce)))))
-      responds = zr_send(other, Machine.id(:respond_to?), 1, slot)
+      # do_coerce: rb_check_funcall finds a private coerce too.
+      responds = zr_check_funcall(other, Machine.id(:coerce))
       return responds if responds == QUNDEF
-      if responds != QNIL && responds != QFALSE
+      if responds == QTRUE
         Machine.store64(slot, 0, Machine.word(recv))
         pair = zr_send(other, Machine.id(:coerce), 1, slot)
         return pair if pair == QUNDEF

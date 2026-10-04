@@ -231,6 +231,11 @@ class Integer
 
       return Primitive.zr_str_set_index_m(Primitive.zr_str_from_byte(self), index)
     end
+    # int_chr: a code past 255 is a character of the default internal
+    # encoding, when there is one.
+    if self > 255 && self <= 0xFFFF_FFFF && (internal = Encoding.default_internal)
+      return chr(internal)
+    end
     raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 255
 
     Primitive.zr_str_set_index_m(Primitive.zr_str_from_byte(self), self < 128 ? Encoding::US_ASCII.index : Encoding::BINARY.index)
@@ -255,7 +260,8 @@ class Integer
     end
     return self / other if other.is_a?(Integer)
 
-    (Primitive.zr_num_coerce_m(self, other, :/, 0)).floor
+    # int_idiv: rb_num_coerce_bin with div itself.
+    Primitive.zr_num_coerce_m(self, other, :div, 0)
   end
 
   def modulo(other) = self % other
@@ -498,13 +504,31 @@ class Numeric
   # CRuby's rule: the modulo, moved back by the divisor when the signs
   # differ, so the remainder takes the receiver's sign.
   # An operand that is no Numeric coerces first, as num_remainder does.
+  # num_remainder: an operand that is no Numeric coerces, and the pair
+  # it gives goes on in place of the two.
   def remainder(other)
-    return Primitive.zr_num_coerce_m(self, other, :remainder, 0) unless other.is_a?(Numeric)
+    x = self
+    y = other
+    unless other.is_a?(Numeric)
+      unless other.respond_to?(:coerce, true)
+        shown = other.nil? || other == true || other == false ? other.inspect : other.class
+        raise TypeError, "#{shown} can't be coerced into #{self.class}"
+      end
 
-    z = self % other
+      pair = other.coerce(self)
+      raise TypeError, +"coerce must return [x, y]" unless pair.is_a?(Array) && pair.size == 2
+
+      x, y = pair
+    end
+    z = x % y
     return z if z == 0
 
-    (self < 0 && other > 0) || (self > 0 && other < 0) ? z - other : z
+    if (x < 0 && y > 0) || (x > 0 && y < 0)
+      return x if y.is_a?(Float) && y.infinite?
+
+      return z - y
+    end
+    z
   end
 
   def nonzero? = zero? ? nil : self
@@ -546,7 +570,15 @@ class Numeric
 
   def divmod(other) = [div(other), modulo(other)]
 
-  def quo(other) = other.is_a?(Float) ? to_f / other : to_r / other
+  # num_quo: a Float divides as a Float; otherwise to_r must give a Rational.
+  def quo(other)
+    return to_f / other if other.is_a?(Float)
+
+    r = to_r
+    raise TypeError, "can't convert #{conversion_name(self)} to Rational (#{conversion_name(self)}#to_r gives #{conversion_name(r)})" unless r.is_a?(Rational)
+
+    r / other
+  end
 
   def fdiv(other) = to_f / other
 
@@ -569,6 +601,18 @@ class Numeric
 
     [Float(other), Float(self)]
   end
+
+  # int_upto_size and int_downto_size over a stop that is no number:
+  # the two ends compare when the size is asked for, which most such
+  # stops refuse.
+  def interval_enum(name, stop)
+    Primitive.attr! :hidden
+    to_enum(name, stop) do
+      up = name == :upto
+      (up ? self > stop : self < stop) ? 0 : (up ? stop - self : self - stop) + 1
+    end
+  end
+  private :interval_enum
 
   # The `half:` keyword as one of :up, :even, :down.
   def self.half_mode(half)
