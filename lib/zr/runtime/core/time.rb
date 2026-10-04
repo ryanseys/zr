@@ -41,9 +41,12 @@ class Time
       Primitive.attr! :ruby
       zone = Primitive.arg!(:in)
       if time.is_a?(Time)
-        raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" unless subsec == false
+        # time_s_at: with a second argument the Time must be a number.
+        raise TypeError, +"can't convert Time into an exact number" unless subsec == false
 
-        t = time.dup
+        # An instance of the receiver, a subclass too.
+        t = allocate
+        t.send(:set, time.send(:ns), time.send(:kind))
         return zone.nil? ? t : t.localtime(zone)
       end
 
@@ -76,7 +79,9 @@ class Time
 
     def at_ns(ns, zone)
       t = allocate
-      t.send(:set, ns, zone.nil? ? :local : parse_zone(zone))
+      kind = zone.nil? ? :local : parse_zone(zone)
+      needs!(kind, :utc_to_local)
+      t.send(:set, ns, kind)
       t
     end
 
@@ -113,6 +118,10 @@ class Time
     # A zone argument: a fixed offset, `:utc`, or a local zone with
     # the offset the calendar time resolves to.
     def parse_zone(zone)
+      # A timezone object (one with local_to_utc or utc_to_local) is its
+      # own kind: it gives the offset at each instant.
+      return zone if zone_object?(zone)
+
       case zone
       when :utc then :utc
       when Integer
@@ -121,7 +130,12 @@ class Time
         zone
       when String
         offset = zone_offset(zone)
-        raise ArgumentError, "\"+HH:MM\", \"-HH:MM\", \"UTC\" or \"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset: #{zone}" if offset.nil?
+        # find_timezone: a class that names zones finds one for a name.
+        if offset.nil? && respond_to?(:find_timezone)
+          found = find_timezone(zone)
+          return found if zone_object?(found)
+        end
+        raise ArgumentError, "\"+HH:MM\", \"-HH:MM\", \"UTC\" or \"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset: #{zone.encoding.ascii_compatible? ? zone : zone.inspect}" if offset.nil?
         raise ArgumentError, +"utc_offset out of range" if offset.is_a?(Integer) && offset.abs >= 86400
 
         offset
@@ -136,6 +150,68 @@ class Time
 
         seconds
       end
+    end
+
+    # A timezone object that lacks the method a use calls is read as a
+    # number of seconds, as CRuby falls back to num_exact.
+    def needs!(zone, method)
+      return unless zone_object?(zone) && !zone.respond_to?(method)
+
+      raise TypeError, "can't convert #{zone.class} into an exact number"
+    end
+
+    # Whether `zone` is a timezone object: not a name or a number, and with
+    # local_to_utc or utc_to_local.
+    def zone_object?(zone)
+      return false if zone.nil? || zone.is_a?(String) || zone.is_a?(Integer) || zone.is_a?(Rational) || zone.is_a?(Symbol)
+
+      zone.respond_to?(:local_to_utc) || zone.respond_to?(:utc_to_local)
+    end
+
+    # The Time that a timezone object's methods take: UTC, with no
+    # subsecond, at `secs`.
+    def zone_tm(secs)
+      t = Time.allocate
+      t.send(:set, secs * NS, :utc)
+      t
+    end
+
+    # zone_localtime: the offset in seconds that `zone` gives at the instant
+    # `secs`, from the wall clock that its utc_to_local returns.
+    def zone_offset_at(zone, secs)
+      offset = if zone.respond_to?(:utc_to_local)
+                 zone_wall(zone.utc_to_local(zone_tm(secs))) - secs
+               else
+                 # Only local_to_utc: the wall clock less the instant it names.
+                 result = zone.local_to_utc(zone_tm(secs))
+                 secs - (result.is_a?(Integer) ? result : result.to_i)
+               end
+      raise ArgumentError, +"utc_offset out of range" if offset.abs >= 86400
+
+      offset
+    end
+
+    # A wall clock as local seconds: an Integer as it is, a Time by its own
+    # fields, any other value by its year to sec, or by to_i.
+    def zone_wall(local)
+      return local if local.is_a?(Integer)
+      return local.to_i + local.utc_offset if local.is_a?(Time)
+      return local.to_i unless local.respond_to?(:year)
+
+      (days_from_civil(local.year, local.mon, local.mday) * 86400) + (local.hour * 3600) + (local.min * 60) + local.sec
+    end
+
+    # zone_timelocal: the instant whose wall clock in `zone` reads `local`
+    # seconds. local_to_utc gives a Time (its instant counts) or anything
+    # with to_i.
+    def zone_utc_seconds(zone, local)
+      return local - zone_offset_at(zone, local) unless zone.respond_to?(:local_to_utc)
+
+      result = zone.local_to_utc(zone_tm(local))
+      utc = result.is_a?(Integer) ? result : result.to_i
+      raise ArgumentError, +"utc_offset out of range" if (local - utc).abs >= 86400
+
+      utc
     end
 
     # utc_offset_arg: "Z" or a military letter, "UTC" in any case, or a
@@ -313,6 +389,7 @@ class Time
     # This moment, and the kind a zone argument names: what `Time.now`
     # and a bare `Time.new` both seat.
     def now_parts(zone)
+      needs!(zone, :utc_to_local)
       [Primitive.zr_clock_ns(Process.send(:clock_id, Process::CLOCK_REALTIME, "clock_gettime")), zone.nil? ? :local : parse_zone(zone)]
     end
 
@@ -350,22 +427,27 @@ class Time
       unless usec.nil?
         raise ArgumentError, +"subsecx out of range" if usec < 0 || usec >= 1_000_000
 
-        sec_ns += exact_ns(usec, 1000)
+        # time_arg: with microseconds given, the seconds' fraction is dropped.
+        sec_ns = exact_ns(usec, 1000)
       end
 
       days = days_from_civil(year, month, day)
       local_ns = ((days * 86400 + hour * 3600 + min * 60 + sec) * NS) + sec_ns
       kind = zone.nil? ? :local : parse_zone(zone)
+      needs!(kind, :local_to_utc)
       case kind
       when :utc then [local_ns, :utc]
       when Integer, Rational then [local_ns - (kind * NS), kind]
-      else [local_ns - local_offset_for(local_ns.div(NS)) * NS, :local]
+      when :local then [local_ns - local_offset_for(local_ns.div(NS)) * NS, :local]
+      else [(zone_utc_seconds(kind, local_ns.div(NS)) * NS) + (local_ns % NS), kind]
       end
     end
 
     def month_arg(month)
       return 1 if month.nil?
 
+      # month_arg: anything with to_str reads as a String.
+      month = String.try_convert(month) || month unless month.is_a?(Integer)
       if month.is_a?(String)
         index = MONTHS.index(month.downcase)
         return index + 1 if index
@@ -458,12 +540,13 @@ class Time
     else
       zone = Primitive.arg!(:in)
     end
-    return set(*Time.send(:now_parts, zone)) if now
+    # The receiver's class parses the zone, so its find_timezone names one.
+    return set(*self.class.send(:now_parts, zone)) if now
 
     text = str && String.try_convert(str)
-    return set(*Time.send(:string_parts, text, zone, precision)) if text
+    return set(*self.class.send(:string_parts, text, zone, precision)) if text
 
-    set(*Time.send(:civil_parts, year, mon, mday, hour, min, sec, zone))
+    set(*self.class.send(:civil_parts, year, mon, mday, hour, min, sec, zone))
   end
 
   def year = fields[0]
@@ -498,8 +581,8 @@ class Time
   def utc_offset
     case kind
     when :utc then 0
-    when :local then local_offset
-    else kind
+    when Integer, Rational then kind
+    else local_offset
     end
   end
 
@@ -547,7 +630,9 @@ class Time
   def localtime(zone = nil)
     return self if zone.nil? && kind == :local
 
-    set(ns, zone.nil? ? :local : Time.send(:parse_zone, zone))
+    kind = zone.nil? ? :local : self.class.send(:parse_zone, zone)
+    Time.send(:needs!, kind, :utc_to_local)
+    set(ns, kind)
     self
   end
 
@@ -565,8 +650,24 @@ class Time
     shifted(ns - Time.send(:exact_ns, other, NS))
   end
 
+  # rb_invcmp: a value that is no Time answers `other <=> self`, turned
+  # around.
   def <=>(other)
-    return nil unless other.is_a?(Time)
+    unless other.is_a?(Time)
+      return nil if other.is_a?(Numeric) || !other.respond_to?(:<=>)
+      # invcmp_recursive: a value whose <=> asks this Time again gets nil.
+      return nil if Primitive.zr_recursive_enter(self, :<=>)
+
+      begin
+        cmp = other <=> self
+      ensure
+        Primitive.zr_recursive_leave(self, :<=>)
+      end
+      return nil if cmp.nil?
+      return -1 if cmp > 0
+
+      return cmp < 0 ? 1 : 0
+    end
 
     theirs = other.send(:ns)
     ns < theirs ? -1 : (ns > theirs ? 1 : 0)
@@ -707,6 +808,11 @@ class Time
       Primitive.zr_hidden_set(self, :__offset__, offset)
       Primitive.zr_hidden_set(self, :__dst__, dst)
       Primitive.zr_hidden_set(self, :__zone__, name&.dup&.force_encoding(Encoding::US_ASCII))
+    elsif Time.send(:zone_object?, of_kind)
+      # zone_localtime: the object gives the offset; `zone` is the object.
+      Primitive.zr_hidden_set(self, :__offset__, Time.send(:zone_offset_at, of_kind, at.div(NS)))
+      Primitive.zr_hidden_set(self, :__dst__, false)
+      Primitive.zr_hidden_set(self, :__zone__, of_kind)
     else
       Primitive.zr_hidden_set(self, :__offset__, nil)
       Primitive.zr_hidden_set(self, :__dst__, false)
@@ -715,9 +821,22 @@ class Time
     self
   end
 
+  # A new Time, never the subclass, with the same kind of zone (+, -,
+  # round, floor, ceil).
+  # strftime's %Z for a zone that is no name: the timezone object's
+  # abbr, else its name, else the object as text.
+  def zone_abbreviation
+    Primitive.attr! :hidden
+    shown = zone
+    return shown.to_s if shown.nil? || shown.is_a?(String)
+    return shown.abbr(self).to_s if shown.respond_to?(:abbr)
+
+    shown.respond_to?(:name) ? shown.name.to_s : shown.to_s
+  end
+
   def shifted(at)
     Primitive.attr! :hidden
-    t = dup
+    t = Time.allocate
     t.send(:set, at, kind)
     t
   end
@@ -823,7 +942,7 @@ class Time
     when "B" then put_word(out, MONTH_NAMES[month - 1], width, padding, left, (:up if upper || swap))
     when "p" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, swap ? :down : (:up if upper))
     when "P" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, upper ? :up : (:down unless swap))
-    when "Z" then put_word(out, utc? ? "UTC" : zone.to_s, width, padding, left, swap ? :down : (:up if upper))
+    when "Z" then put_word(out, utc? ? "UTC" : zone_abbreviation, width, padding, left, swap ? :down : (:up if upper))
     when "d" then put_number(out, day, "0", 2, width, padding, left)
     when "e" then put_number(out, day, " ", 2, width, padding, left)
     when "H" then put_number(out, hour, "0", 2, width, padding, left)
@@ -1009,7 +1128,10 @@ class Time
     end
     Marshal.send(:extra_set, out, :submicro, submicro_bytes(whole % 1000)) unless (whole % 1000).zero?
     Marshal.send(:extra_set, out, :offset, utc_offset) unless utc?
-    Marshal.send(:extra_set, out, :zone, zone)
+    # A timezone object is written by its name, as time_mdump does.
+    shown = zone
+    shown = shown.name.to_s unless shown.nil? || shown.is_a?(String)
+    Marshal.send(:extra_set, out, :zone, shown)
     out
   end
 
@@ -1068,6 +1190,11 @@ class Time
                  ((second >> 20) & 0x3f) + Rational(nano, NS))
     unless ((word >> 30) & 1) == 1
       moment.localtime(extras[:offset] || zone_at(moment.to_i).first)
+      # A class that finds zones by name rebuilds the zone object.
+      if extras[:zone] && respond_to?(:find_timezone) && zone_object?(found = find_timezone(extras[:zone]))
+        moment.localtime(found)
+        extras = extras.except(:zone)
+      end
       # The zone name that was dumped stays, as time_mload sets it.
       Primitive.zr_hidden_set(moment, :__zone__, (+extras[:zone].to_s).force_encoding(Encoding::US_ASCII)) if extras[:zone]
     end
