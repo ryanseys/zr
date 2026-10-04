@@ -1,0 +1,4 @@
+core/kernel/kernel/a_later_exit_handler_sees_an_earlier_handlers_error.rb:7:in 'block in <main>': first (RuntimeError)
+core/kernel/kernel/a_later_exit_handler_sees_an_earlier_handlers_error.rb:6:in 'block in <main>': second (RuntimeError)
+END: second
+at_exit: second

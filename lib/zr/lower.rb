@@ -604,9 +604,10 @@ module Zr
     # @rbs twin: String?
     # @rbs owns_backref: bool
     # @rbs frameless: bool
+    # @rbs blocks: Integer
     # @rbs return: String
     def meta(fn, kind, line, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
-             captures: false, node: 0, cover: nil, twin: nil, owns_backref: false, frameless: false)
+             captures: false, node: 0, cover: nil, twin: nil, owns_backref: false, frameless: false, blocks: 0)
       layout = layout("FrameMeta")
       file = file_bytes
       bytes = ("\0" * layout.size).b
@@ -625,6 +626,7 @@ module Zr
       word.call("hidden", @unit_hidden ? 1 : 0)
       word.call("owns_backref", owns_backref ? 1 : 0)
       word.call("frameless", frameless ? 1 : 0)
+      word.call("blocks", blocks)
       relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
       relocs << Obj::Reloc.new(layout.fields.fetch("name").first, :symid, name.to_s) if !name.is_a?(Integer) && !fixed_id(name)
       relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent

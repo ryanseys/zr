@@ -101,6 +101,9 @@ module Zr::Kern
 
   # Handles the result `r` of an exit handler. A SystemExit that it raised
   # sets the status. Any other error is printed and sets the status to 1.
+  # The next handlers see it as `$!`, as rb_ec_exec_end_proc sets errinfo.
+  # Its cause is the `$!` it saw, which has its own report, so the report
+  # stops there.
   #: (value, word, value) -> word
   def zr_program_end_hook(r, status, exc)
     if r != QUNDEF
@@ -108,10 +111,12 @@ module Zr::Kern
     end
     raised = Task[zr_task()].pending
     Task[zr_task()].pending = Machine.value(QNIL)
+    seen = zr_errinfo()
+    zr_errinfo_set(raised)
     if zr_system_exit_p(raised)
       return zr_exit_status(raised)
     end
-    zr_error_print_upto(raised, exc)
+    zr_error_print_upto(raised, seen == QNIL ? exc : seen)
     1
   end
 

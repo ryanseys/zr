@@ -1,0 +1,7 @@
+lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:8: warning: the block passed to 'Object#m' defined at lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:7 may be ignored
+lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:11: warning: the block passed to 'Foo#k' defined at lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:10 may be ignored
+lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:12: warning: the block passed to 'Foo.s' defined at lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:10 may be ignored
+lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:14: warning: the block passed to 'Foo#g' defined at lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:10 may be ignored
+lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:16: warning: the block passed to 'z' defined at lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:16 may be ignored
+lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:17: warning: the block passed to 'Object#l' defined at lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:17 may be ignored
+lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:27: warning: the block passed to 'Object#q' defined at lang/methods/a_method_that_ignores_its_block_warns_once_under_verbose.rb:26 may be ignored

@@ -276,7 +276,8 @@ module Zr
             exit REFUSED
           end
           warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if name == "build"
-          Program.build("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target)
+          # The -r requires still run before it, and their exit handlers after.
+          Program.build("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target, gem_set: gem_set, switches: switches)
         end
 
         private

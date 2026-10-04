@@ -1,0 +1,10 @@
+[:times, "unexpected return", :return, 1]
+[:yield, "unexpected return", 3]
+:not_executed
+nil
+:executed
+nil
+nil
+nil
+nil
+"constant"

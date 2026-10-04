@@ -138,9 +138,13 @@ module Zr
           clauses = @f.label
           @f.brif(@f.icmp("eq", exc, qundef), landing, clauses)
           switch(clauses)
+          # The clauses' classes are read with the raise as `$!`, so a
+          # raise there has it as its cause.
+          kernel("zr_errinfo_set", exc)
           handlers = node.rescues.map do |clause|
             [rescue_test(clause, exc_at), clause] #: [String, Hir::Rescue]
           end
+          kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at))
           kernel("zr_rescue_miss", @f.fetch("i64", @rec, exc_at))
           @f.jump(landing)
 

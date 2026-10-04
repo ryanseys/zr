@@ -886,9 +886,12 @@ module Zr::Kern
 
   # Makes the singleton class of the class `klass`. Its superclass is the
   # superclass's singleton class, or Class for a root. From now on it is
-  # `klass`'s class.
+  # `klass`'s class. Its own class is the singleton class of `klass`'s
+  # class before, as in CRuby's make_metaclass: `#<Class:Class>` for the
+  # singleton class of a plain class. Class's own chain is its own class.
   #: (value) -> value
   def zr_make_metaclass(klass)
+    old = RBasic[klass].klass
     sup = RClass[klass].superclass
     while sup != QNIL && zr_type(sup) == T_ICLASS
       sup = RClass[sup].superclass
@@ -903,7 +906,44 @@ module Zr::Kern
     RBasic[meta].flags = RBasic[meta].flags | FL_SINGLETON | (RBasic[klass].flags & FL_FREEZE)
     RClass[meta].attached = klass
     RBasic[klass].klass = meta
+    if old == klass
+      RBasic[meta].klass = meta
+    elsif !zr_special_p(old)
+      zr_meta_class_later(meta, old)
+    end
     meta
+  end
+
+  # The metaclasses whose class is still to be set, with the class whose
+  # singleton class it is, in pairs. A metaclass of Class's own chain is
+  # made on the way, so the outermost call sets them all after the
+  # superclass chain is complete.
+  G_META_CLASSES = 66
+
+  #: (value, value) -> void
+  def zr_meta_class_later(meta, old)
+    list = zr_global_list(G_META_CLASSES)
+    zr_ary_push(list, meta)
+    zr_ary_push(list, old)
+    busy = Machine.static(:meta_classes_busy, 8)
+    if Machine.load64(busy, 0) != 0
+      return
+    end
+    Machine.store64(busy, 0, 1)
+    i = 0
+    while i < RArray[list].len
+      zr_meta_class_set(zr_ary_at(list, i), zr_ary_at(list, i + 1))
+      i += 2
+    end
+    RArray[list].len = 0
+    Machine.store64(busy, 0, 0)
+  end
+
+  #: (value, value) -> void
+  def zr_meta_class_set(meta, old)
+    c = zr_singleton_class(old)
+    RBasic[meta].klass = c
+    zr_write_barrier(meta, c)
   end
 
   # Whether `v` can have no singleton class: an Integer, a Float, a
@@ -933,7 +973,10 @@ module Zr::Kern
     if zr_type(v) == T_CLASS
       return zr_make_metaclass(v)
     end
-    s = zr_class_alloc(T_CLASS, k, zr_global(G_CLASS))
+    # Its class is the singleton class of the object's class, as in
+    # CRuby's make_singleton_class, so it answers that class's methods.
+    c = zr_singleton_class(zr_real_class(v))
+    s = zr_class_alloc(T_CLASS, k, c)
     RBasic[s].flags = RBasic[s].flags | FL_SINGLETON | (RBasic[v].flags & FL_FREEZE)
     RClass[s].attached = v
     RBasic[v].klass = s
@@ -1305,6 +1348,9 @@ module Zr::Kern
     end
     FrameMeta[meta].name = mid
     FrameMeta[meta].owner = klass
+    if FrameMeta[meta].blocks == BLOCKS_USED
+      zr_block_name_used(mid)
+    end
     modfn = cref != QNIL && RCref[cref].modfn != 0
     core = !zr_program_started_p() || zr_internal_meta_p(meta) ? ROW_CORE : 0
     if modfn
@@ -1324,6 +1370,61 @@ module Zr::Kern
     return r if r == QUNDEF || !modfn
 
     zr_method_added(zr_singleton_class(klass), mid)
+  end
+
+  # The names of the program's methods that use their block, as a Hash of
+  # Symbols. Outside the strict_unused_block category, ruby does not warn
+  # for a method whose name another such method has (iseq_set_use_block).
+  G_BLOCK_NAMES = 65
+
+  #: (word) -> void
+  def zr_block_name_used(mid)
+    names = zr_global(G_BLOCK_NAMES)
+    if zr_special_p(names)
+      names = zr_hash_new()
+      zr_set_global(G_BLOCK_NAMES, names)
+    end
+    zr_hash_store(names, zr_sym(mid), Machine.value(QTRUE))
+  end
+
+  # The method of the frame `rec` does not use its block and got one:
+  # `file:line: warning: the block passed to 'C#m' defined at file:line
+  # may be ignored`, once for each method, as warn_unused_block does. The
+  # line is the caller's. Warning decides whether to show it. The caller's
+  # keyword flag waits for the method, so it is kept.
+  #: (ptr) -> void
+  def zr_unused_block(rec)
+    meta = Frame[rec].meta
+    if FrameMeta[meta].blocks != BLOCKS_UNUSED
+      return
+    end
+    FrameMeta[meta].blocks = BLOCKS_WARNED
+    names = zr_global(G_BLOCK_NAMES)
+    relaxed = !zr_special_p(names) && zr_hash_lookup(names, zr_sym(FrameMeta[meta].name)) != QUNDEF
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    caller = zr_frame_with_file(Frame[rec].prev)
+    if caller != 0
+      zr_buf_push(b, FrameMeta[Frame[caller].meta].file, FrameMeta[Frame[caller].meta].file_len)
+      zr_buf_byte(b, 58)
+      zr_buf_long(b, zr_frame_line(caller))
+      zr_buf_push(b, Machine.bytes(": "), 2)
+    end
+    zr_buf_push(b, Machine.bytes("warning: the block passed to '"), 30)
+    zr_buf_label(b, zr_frame_label_meta(rec))
+    zr_buf_push(b, Machine.bytes("' defined at "), 13)
+    zr_buf_push(b, FrameMeta[meta].file, FrameMeta[meta].file_len)
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, FrameMeta[meta].line)
+    zr_buf_push(b, Machine.bytes(" may be ignored\n"), 16)
+    t = zr_task()
+    kw = Task[t].kw
+    slot = Machine.slot(24)
+    Machine.store64(slot, 0, Machine.word(zr_buf_take(b)))
+    Machine.store64(slot, 8, Machine.word(relaxed ? Machine.value(QTRUE) : Machine.value(QFALSE)))
+    Machine.store64(slot, 16, Machine.word(zr_sym(FrameMeta[meta].name)))
+    zr_send(zr_const_get_at(zr_global(G_OBJECT), Machine.id(:Warning)), Machine.id(:unused_block), 3, slot)
+    Task[t].kw = kw
   end
 
   # `meta` as the method of `owner` shows it: the module function's copy

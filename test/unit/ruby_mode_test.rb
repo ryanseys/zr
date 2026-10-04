@@ -224,7 +224,8 @@ class RubyModeTest < Minitest::Test
     "xs.txt" => "garbage\n#!ruby -l\np __LINE__\nputs 'hi'\n",
     "sub/y.rb" => "p Dir.pwd.end_with?('sub')\n",
     "lib/foo.rb" => "module Foo; end\n",
-    "bad.rb" => "def x\n  p (\nend\n"
+    "bad.rb" => "def x\n  p (\nend\n",
+    "handler.rb" => "at_exit { puts 'handler ran' }\n"
   }.freeze
 
   def test_e_code_runs_as_the_file_dash_e
@@ -306,6 +307,8 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-c", "-e", "p 1")
     same_as_ruby("-c", "bad.rb")
     same_as_ruby("-e", "p (")
+    # The -r libraries load before the report, and their exit handlers run.
+    same_as_ruby("-r./handler.rb", "-e", "{")
   end
 
   def test_errors_before_the_program_runs

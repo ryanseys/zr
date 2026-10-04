@@ -359,6 +359,16 @@ module Zr
         GvarRead.new(gvar_name(name), line)
       end
 
+      # The read of `$name ||= value`, which ruby tests with `defined?`
+      # first, so an unset global gives no warning under -w.
+      #: (Symbol name, Integer line) -> node
+      def quiet_gvar_read(name, line)
+        read = gvar_read(name, line)
+        return read unless read.is_a?(GvarRead) && !SPECIAL_GVARS.include?(read.name)
+
+        If.new(Defined.new(:gvar, read.name, line), read, Literal.new(nil, line), line)
+      end
+
       # `$name = value`: a write through an alias of a frame global goes to
       # that global, and keeps the program's name for error messages.
       # Every back reference is read-only, as `$&` is.
@@ -654,7 +664,7 @@ module Zr
         # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`. The
         # write occurs only if necessary. A frozen receiver, a global's
         # setter and a constant's redefinition warning can see this.
-        when Prism::GlobalVariableOrWriteNode then Or.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
+        when Prism::GlobalVariableOrWriteNode then Or.new(quiet_gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
         when Prism::GlobalVariableAndWriteNode then And.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
         when Prism::ClassVariableReadNode then CvarRead.new(node.name, line)
         when Prism::ClassVariableWriteNode then CvarWrite.new(node.name, expr(node.value), line)
@@ -662,7 +672,8 @@ module Zr
           CvarWrite.new(node.name, Send.of(CvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line), line)
         when Prism::ClassVariableOrWriteNode
           If.new(Defined.new(:cvar, node.name, line), Or.new(CvarRead.new(node.name, line), CvarWrite.new(node.name, expr(node.value), line), line), CvarWrite.new(node.name, expr(node.value), line), line)
-        when Prism::DefinedNode then defined(node.value, line)
+        # Ruby compiles nothing for a `defined?` whose value is not used.
+        when Prism::DefinedNode then taken ? defined(node.value, line) : Literal.new(nil, line)
         when Prism::ClassVariableAndWriteNode then And.new(CvarRead.new(node.name, line), CvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::ConstantOrWriteNode then ConstOrWrite.new(nil, node.name, expr(node.value), line)
         when Prism::ConstantPathOrWriteNode
@@ -1182,7 +1193,7 @@ module Zr
         recv = node.receiver && expr(node.receiver)
         # A refinement is active inside its own block, so a sibling
         # refined method can be called there by bare name.
-        blk = node.block ? in_refine(node.name) { block(node.block) } : forwarded
+        blk = node.block ? in_refine(node) { block(node.block) } : forwarded
         safe = node.call_operator == "&."
         # Both branches of a safe call have the call's location, as CRuby
         # records. `branch_covers` returns nils if nothing is measured, and
@@ -1192,18 +1203,26 @@ module Zr
                  blk, kwargs, safe, node.attribute_write?, nil, covers&.first && covers)
       end
 
-      #: [T] (Symbol name) { () -> T } -> T
-      def in_refine(name)
-        return yield unless name == :refine
+      # The calls whose block runs with a cref of its own, so a `using` in
+      # the block applies to the block alone and not to the rest of the file.
+      CREF_BLOCKS = %i[class_eval module_eval class_exec module_exec instance_eval instance_exec].freeze
 
+      #: [T] (Prism::CallNode node) { () -> T } -> T
+      def in_refine(node)
         was = @using
-        @using = :owner
+        own = node.name == :refine
+        return yield unless own || CREF_BLOCKS.include?(node.name) || (node.name == :new && %i[Module Class].include?(constant_name(node.receiver)))
+
+        @using = :owner if own
         begin
           yield
         ensure
           @using = was
         end
       end
+
+      #: (Prism::node? node) -> Symbol?
+      def constant_name(node) = node.is_a?(Prism::ConstantReadNode) ? node.name : nil
 
       # A call's line is its name's line, which can differ from the
       # receiver's if the receiver has several lines.

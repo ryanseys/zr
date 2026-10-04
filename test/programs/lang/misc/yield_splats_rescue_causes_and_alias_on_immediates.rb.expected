@@ -1,0 +1,17 @@
+[[], {a: 1}]
+[[], {a: 1}]
+[[], {a: 1}]
+[[], {a: 1}]
+[[], {a: 1}]
+[[], {a: 1}]
+[[1], {a: 1}]
+[[1], {a: 1}]
+["test command", true]
+["test command", true]
+"can't define singleton"
+"can't define singleton"
+["from rescue expression", "from block"]
+nil
+"can't define singleton"
+[nil, 1]
+true

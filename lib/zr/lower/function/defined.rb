@@ -109,15 +109,18 @@ module Zr
         end
 
         # A constant: looked up through its scope if the scope is an
-        # expression. If the scope fails, the result is nil.
+        # expression. As compile.c's defined_expr for `A::B`, the scope is
+        # tested first, so an undefined `A` is nil and never reaches
+        # const_missing. If the scope raises, the result is nil.
         #: (Hir::ConstRead read) -> String
         def const_defined(read)
           outer = read.scope
           if outer.nil?
             truthy(kernel("zr_const_defined", @cref, sym_word(read.name)))
+          elsif outer.is_a?(Symbol)
+            truthy(kernel("zr_const_defined_at", global("G_OBJECT"), sym_word(read.name)))
           else
-            scope = outer.is_a?(Symbol) ? global("G_OBJECT") : expr(outer)
-            truthy(kernel("zr_const_defined_at", scope, sym_word(read.name)))
+            all_defined([outer]) { truthy(kernel("zr_const_defined_at", expr(outer), sym_word(read.name))) }
           end
         end
 

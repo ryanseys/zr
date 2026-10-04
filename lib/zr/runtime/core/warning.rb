@@ -82,6 +82,31 @@ module Warning
     emit("#{Primitive.zr_warn_position}warning: Redefining '#{klass}##{name}' disables interpreter and JIT optimizations\n", :performance)
   end
 
+  # The names of ruby's own methods written in Ruby that use their block.
+  # Outside the strict_unused_block category, ruby does not warn for a
+  # method with one of these names (iseq_set_use_block).
+  CORE_BLOCK_NAMES = %i[
+    _require allow_reentry ascend basename binread binwrite descend disable downto each each_child each_entry
+    each_filename each_line enable expand_path fetch_values fnmatch fnmatch? freeze glob initialize irb loop map
+    mkdir new open opendir read readlines realdirpath realpath require select send shareable_lambda shareable_proc
+    store_if_absent sub synchronize sysopen tap then times to_set trace unpack with_jit write
+  ].freeze
+  private_constant :CORE_BLOCK_NAMES
+
+  # The runtime's way in when a method `name` that never uses its block
+  # gets one (lib/zr/runtime/kernel/class.rb, zr_unused_block). Ruby shows
+  # it under a true $VERBOSE or the strict_unused_block category;
+  # `relaxed` tells that another method of the program with the name uses
+  # its block, which only the category ignores.
+  def self.unused_block(message, relaxed, name)
+    Primitive.attr! :hidden
+    strict = self[:strict_unused_block]
+    return nil if (relaxed || CORE_BLOCK_NAMES.include?(name)) && !strict
+    return nil unless strict || $VERBOSE
+
+    warn(message)
+  end
+
   # The runtime's way in when a program redefines a method of the core
   # (lib/zr/runtime/kernel/class.rb, zr_warn_core_redefined): false where ruby
   # gives no warning, nil for a warning that names no line, the

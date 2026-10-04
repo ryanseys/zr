@@ -429,7 +429,8 @@ module Zr
             ary = gather(parts, slot)
             at_node(node)
             argc = array_len(ary)
-            argc = kernel("zr_kw_argc_yield", argc, array_ptr(ary)) if node.kwargs
+            # As a call's, a splat's last element can be a ruby2_keywords Hash.
+            argc = node.kwargs ? kernel("zr_kw_argc_yield", argc, array_ptr(ary)) : kernel("zr_kw_ruby2_out", argc, array_ptr(ary))
             r = checked(block_call(argc, array_ptr(ary)))
             @sp = slot
             return r
@@ -483,6 +484,10 @@ module Zr
               at_node(node)
               checked(kernel("zr_return", @proc, v))
             end
+          elsif @kind == :class || @kind == :module
+            # Only an inlined block's `return` is in a body.
+            at_node(node)
+            leave(through_ensures(checked(kernel("zr_body_return", @rec, v))), line: node.line)
           else
             leave(through_ensures(v), line: node.line)
           end

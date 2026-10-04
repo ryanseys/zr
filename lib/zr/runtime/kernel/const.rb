@@ -59,6 +59,16 @@ module Zr::Kern
     RCref[cref].klass
   end
 
+  # The class that `alias` and `undef` change: the cref's class. Under
+  # `1.instance_eval` there is none, as in CRuby's singleton_class_for_eval.
+  #: (value) -> value
+  def zr_cref_definee(cref)
+    if RCref[cref].eval == EVAL_NO_DEF
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't define singleton"), 22)
+    end
+    zr_cref_klass(cref)
+  end
+
   #: (value, value) -> value
   def zr_cref_push_eval(klass, outer)
     c = zr_cref_push(klass, outer)
@@ -558,6 +568,13 @@ module Zr::Kern
     zr_private_constant(CEntry[e].owner, id)
   end
 
+  # Whether `v`'s method `id` is one that the program defined.
+  #: (value, word) -> bool
+  def zr_program_method_p(v, id)
+    e = zr_find_method(zr_class_of(v), id)
+    e != 0 && MEntry[e].core == 0
+  end
+
   #: (value, word) -> value
   def zr_uninitialized_constant(scope, id)
     home = scope == QNIL ? zr_global(G_OBJECT) : scope
@@ -566,7 +583,17 @@ module Zr::Kern
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("uninitialized constant "), 23)
     if scope != QNIL && scope != zr_global(G_OBJECT) && zr_class_of(scope) != zr_global(G_BOX)
-      zr_buf_class(b, scope)
+      # A program's own `name` or `inspect` names the scope, as ruby's
+      # name_err_mesg_receiver_name calls them.
+      if zr_program_method_p(scope, Machine.id(:name)) || zr_program_method_p(scope, Machine.id(:inspect))
+        slot = Machine.slot(8)
+        Machine.store64(slot, 0, Machine.word(scope))
+        shown = zr_send(zr_global(G_MODULE), Machine.id(:const_scope_shown), 1, slot)
+        return shown if shown == QUNDEF
+        zr_buf_str(b, shown)
+      else
+        zr_buf_class(b, scope)
+      end
       zr_buf_push(b, Machine.bytes("::"), 2)
     end
     zr_buf_sym(b, id)
@@ -1039,7 +1066,11 @@ module Zr::Kern
       return false
     end
     c = Machine.u8(Machine.load8(p, 0))
-    if c < 65 || c > 90
+    if c >= 128
+      if !zr_const_lead_p(p, n)
+        return false
+      end
+    elsif c < 65 || c > 90
       return false
     end
     i = 1
@@ -1052,6 +1083,16 @@ module Zr::Kern
       i += 1
     end
     true
+  end
+
+  # Whether a name that starts past ASCII starts with an uppercase or a
+  # titlecase letter, as rb_sym_constant_char_p tests. The core's Unicode
+  # tables answer.
+  #: (ptr, word) -> bool
+  def zr_const_lead_p(p, n)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(zr_str_new(p, n)))
+    zr_send(zr_global(G_MODULE), Machine.id(:const_lead?), 1, slot) == QTRUE
   end
 
   # Returns the constant entry for one segment of a `const_get` path. The

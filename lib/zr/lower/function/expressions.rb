@@ -405,15 +405,20 @@ module Zr
         #: (Hir::Undef node) -> String
         def undef_methods(node)
           at_node(node)
-          node.names.each { |name| checked(kernel("zr_undef", cref_class, sym_word(name))) }
+          node.names.each { |name| checked(kernel("zr_undef", definee, sym_word(name))) }
           @qnil
         end
 
         #: (Hir::Alias node) -> String
         def alias_method(node)
           at_node(node)
-          checked(kernel("zr_alias", cref_class, sym_word(node.new_name), sym_word(node.old_name)))
+          checked(kernel("zr_alias", definee, sym_word(node.new_name), sym_word(node.old_name)))
         end
+
+        # The cref's class, for `alias` and `undef`, or the raise when it
+        # can have no methods.
+        #: () -> String
+        def definee = checked(kernel("zr_cref_definee", @cref))
 
         # `/#{x}/o` runs its site once. The regexp stays in the literal
         # table, and every later run reads it from there.
@@ -441,7 +446,7 @@ module Zr
         def alias_value(node)
           staged([node.new_name, node.old_name]) do |slots, _base|
             at_node(node)
-            checked(kernel("zr_alias_value", cref_class, @f.fetch("i64", slots), @f.fetch("i64", slots, 8)))
+            checked(kernel("zr_alias_value", definee, @f.fetch("i64", slots), @f.fetch("i64", slots, 8)))
           end
         end
 

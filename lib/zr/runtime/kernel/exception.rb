@@ -49,7 +49,16 @@ module Zr::Kern
     attr_accessor :twin #: ptr
     attr_accessor :owns_backref #: word
     attr_accessor :frameless #: word
+    attr_accessor :blocks #: word
   end
+
+  # FrameMeta `blocks` of a program's method: whether it uses the block it
+  # gets (a block parameter, `yield`, `super` or `...`), as CRuby's
+  # use_block flag. A method that does not warns once when it gets one.
+  BLOCKS_UNKNOWN = 0
+  BLOCKS_UNUSED = 1
+  BLOCKS_USED = 2
+  BLOCKS_WARNED = 3
 
   KIND_MAIN = 0
   KIND_DEF = 1
@@ -230,6 +239,12 @@ module Zr::Kern
       end
       exc = zr_send(exc, Machine.id(:dup), 0, 0)
       return exc if exc == QUNDEF
+    end
+    if RException[exc].bt == QFALSE
+      zr_xfree(RException[exc].rows)
+      RException[exc].rows = 0
+      RException[exc].nrows = 0
+      RException[exc].bt = Machine.value(QNIL)
     end
     if RException[exc].rows == 0 && RException[exc].bt == QNIL
       zr_backtrace_capture(exc, top)
@@ -661,6 +676,9 @@ module Zr::Kern
   # that the raise captured, or nil before the raise.
   #: (value, word, ptr, value, value) -> value
   def zr_exc_backtrace(recv, argc, argv, cref, blk)
+    if RException[recv].bt == QFALSE
+      return Machine.value(QNIL)
+    end
     if RException[recv].bt != QNIL
       return RException[recv].bt
     end
@@ -880,8 +898,11 @@ module Zr::Kern
   # `set_backtrace`: an Array of Strings, one String, or nil.
   #: (value, value) -> value
   def zr_exc_set_backtrace_value(exc, bt)
+    # nil after a raise makes `backtrace` nil while the captured frames
+    # stay for `backtrace_locations`; false marks this. The next raise
+    # captures new frames.
     if bt == QNIL
-      RException[exc].bt = bt
+      RException[exc].bt = RException[exc].rows != 0 ? Machine.value(QFALSE) : bt
       return bt
     end
     if !zr_special_p(bt) && zr_type(bt) == T_STRING

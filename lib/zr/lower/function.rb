@@ -72,6 +72,7 @@ module Zr
       # @rbs @task_addr: String
       # @rbs @prev: String
       # @rbs @meta: String
+      # @rbs @blocks: Integer
       # @rbs @line: Integer?
       # @rbs @proc: String
       # @rbs @qnil: String
@@ -208,6 +209,7 @@ module Zr
         @task_addr = nil #: untyped
         @prev = nil #: untyped
         @meta = nil #: untyped
+        @blocks = 0
         @line = nil
         @proc = nil #: untyped
         @qnil = nil #: untyped
@@ -425,13 +427,15 @@ module Zr
         params = own_params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
         node_id = d ? @l.node_id(d) : 0
+        @blocks = block_use
         @meta = if @twin_of
                   "zr_meta_#{@twin_of}"
                 else
                   @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
                                              env: @has_env, ruby: attributes.include?(:ruby),
                                              captures: true, node: node_id, cover: method_cover, twin: @twin,
-                                             owns_backref: owns_backref?, frameless: attributes.include?(:frameless))
+                                             owns_backref: owns_backref?, frameless: attributes.include?(:frameless),
+                                             blocks: @blocks)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = line | (node_id << 32)
@@ -483,6 +487,7 @@ module Zr
         skip = direct_params.map { |name| slot_of(name) }
         (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) unless skip.include?(i) }
         @f.store(@rec, @task_addr, off(@task, "top"))
+        unused_block if @blocks == @l.const("BLOCKS_UNUSED")
         return unless @has_env
 
         parent = @kind == :block ? proc_field("env") : @qnil
@@ -503,6 +508,45 @@ module Zr
       # `slots` first.
       #: () -> bool
       def stack_env? = @has_env && %i[def block].include?(@kind)
+
+      # FrameMeta `blocks` for this scope: only a program's method has
+      # one. A method named initialize counts as one that uses its block,
+      # as in CRuby.
+      #: () -> Integer
+      def block_use
+        d = @def
+        return @l.const("BLOCKS_UNKNOWN") unless @kind == :def && d.is_a?(Hir::Def) && !@l.internal? && !hidden_def?
+
+        used = d.name == :initialize || d.params.block || uses_block?(d.body) || [*d.params.optional, *d.params.keywords].any? { |_, v| uses_block?(v) }
+        @l.const(used ? "BLOCKS_USED" : "BLOCKS_UNUSED")
+      end
+
+      # Whether code of this method, its blocks included, uses the method's
+      # block: a `yield`, `defined?(yield)`, or a `super` that passes it on.
+      #: (untyped node) -> bool
+      def uses_block?(node)
+        case node
+        when Hir::Yield, Hir::ZSuper then true
+        when Hir::Super then !node.block.is_a?(Hir::Block) || Hir.each_child(node).any? { |c| uses_block?(c) }
+        when Hir::Defined then node.kind == :yield
+        when Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then false
+        when Hir::Node, Array then Hir.each_child(node).any? { |c| uses_block?(c) }
+        else false
+        end
+      end
+
+      # A method that does not use its block gets one: the kernel warns
+      # once, as vm_callee_setup_arg does.
+      #: () -> void
+      def unused_block
+        some = @f.cold(@f.label)
+        done = @f.label
+        @f.brif(@f.icmp("ne", @blk, @qnil), some, done)
+        switch(some)
+        kernel("zr_unused_block", @rec)
+        @f.jump(done)
+        switch(done)
+      end
 
       #: (String parent) -> String
       def env_image(parent)

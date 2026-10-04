@@ -1,0 +1,12 @@
+true
+true
+false
+true
+[:ἍBB]
+1
+"wrong constant name éB"
+"uninitialized constant ModuleName::DOES_NOT_EXIST"
+"uninitialized constant <unusable info>::DOES_NOT_EXIST"
+"uninitialized constant <unusable info>::NOPE"
+2
+"wrong constant name ⅰx"

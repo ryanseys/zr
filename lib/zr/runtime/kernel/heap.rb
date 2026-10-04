@@ -683,7 +683,7 @@ module Zr::Kern
   G_FALSE = 10
   G_MAIN = 11
   G_NUMERIC = 13
-  G_COUNT = 65
+  G_COUNT = 67
 
   #: () -> ptr
   def zr_globals

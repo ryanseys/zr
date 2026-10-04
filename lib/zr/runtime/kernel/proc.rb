@@ -1111,10 +1111,33 @@ module Zr::Kern
     # A block in a `class << self` body leaves the method around the body,
     # as a `return` in the body itself does. The body catches no return.
     home = RProc[p].ret_home
-    if FrameMeta[Frame[home].meta].kind == KIND_SCLASS
+    kind = FrameMeta[Frame[home].meta].kind
+    if kind == KIND_SCLASS
       return zr_return_out(home, v)
     end
+    if kind == KIND_CLASS || kind == KIND_MODULE
+      v = zr_body_return(home, v)
+      return v if v == QUNDEF
+    end
     zr_signal(PENDING_RETURN, v, home, 0)
+  end
+
+  # `return v` from a block in the class or module body of the frame `rec`.
+  # A body is no method to leave: when the bodies around it reach the
+  # toplevel of a file, there is none, and ruby raises LocalJumpError.
+  # Otherwise the value is `v`, and the body ends with it. A body runs in
+  # the frame of the code that holds it, so the frames below it are the
+  # scopes around it.
+  #: (ptr, value) -> value
+  def zr_body_return(rec, v)
+    up = Frame[rec].prev
+    while up != 0 && (FrameMeta[Frame[up].meta].kind == KIND_CLASS || FrameMeta[Frame[up].meta].kind == KIND_MODULE)
+      up = Frame[up].prev
+    end
+    if up == 0 || FrameMeta[Frame[up].meta].kind == KIND_MAIN || FrameMeta[Frame[up].meta].kind == KIND_TOP
+      return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
+    end
+    v
   end
 
   # At a call site with a block: returns the value of the pending break

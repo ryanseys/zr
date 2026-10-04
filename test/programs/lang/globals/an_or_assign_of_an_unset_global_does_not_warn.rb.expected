@@ -1,0 +1,4 @@
+42
+42
+lang/globals/an_or_assign_of_an_unset_global_does_not_warn.rb:7: warning: global variable '$unset_g' not initialized
+nil

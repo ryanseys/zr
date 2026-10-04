@@ -468,13 +468,14 @@ module Zr
         # The script encoding that `__ENCODING__` answers. Prism's
         # result gives the source String's own encoding when the text is
         # not ASCII, so the magic comment is read again here, where ruby
-        # reads it: line 1, or line 2 after a shebang.
-        #: (Prism::ParseResult result, String source) -> Encoding
-        def source_encoding(result, source)
+        # reads it: line 1, or line 2 after a shebang. With no comment, an
+        # eval's code has the encoding of its String, as rb_parser does.
+        #: (Prism::ParseResult result, String source, bool eval) -> Encoding
+        def source_encoding(result, source, eval)
           lines = source.b.lines.first(2)
           lines = lines.first(1) unless lines.first&.start_with?("#!")
           name = lines.filter_map { |line| line[/\A\s*#.*?coding[:=][ \t]*([\w.-]+)/i, 1] }.first
-          return result.encoding unless name
+          return eval && source.encoding.ascii_compatible? ? source.encoding : result.encoding unless name
 
           ::Encoding.find(name) #: Encoding
         rescue ArgumentError
@@ -504,7 +505,7 @@ module Zr
           @traces ||= !Library::Roots.runtime_file?(file) && TRACE_NAMES.match?(source.b) && names_tracing?(result.value)
           @covers ||= !Library::Roots.runtime_file?(file) && COVERAGE_NAMES.match?(source.b) && names_coverage?(result.value)
           @coverable[file] = [source.lines.size, []] if @trace && !Library::Roots.runtime_file?(file)
-          build = Build.new(file, self, source_encoding(result, source), shadowed: shadowed(result.value), root: result.value,
+          build = Build.new(file, self, source_encoding(result, source, !scopes.nil?), shadowed: shadowed(result.value), root: result.value,
                                                                          eval: !scopes.nil?)
           build.within_method(method, scopes) if scopes && method
           # An activation entry belongs to the program, not the file, so

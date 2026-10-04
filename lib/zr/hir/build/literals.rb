@@ -45,6 +45,8 @@ module Zr
         text = node.unescaped
         if node.forced_utf8_encoding? then text.dup.force_encoding(Encoding::UTF_8)
         elsif node.forced_binary_encoding? then text.dup.force_encoding(Encoding::BINARY)
+        # Prism reads ASCII text as UTF-8, whatever an eval's String says.
+        elsif text.encoding != @encoding && text.ascii_only? then text.dup.force_encoding(@encoding)
         else text
         end
       end
@@ -257,16 +259,24 @@ module Zr
       #: (untyped node) -> Integer
       def regexp_options(node)
         (node.ignore_case? ? 1 : 0) | (node.extended? ? 2 : 0) | (node.multi_line? ? 4 : 0) |
-          (regexp_encoding(node) ? 16 : 0) | (node.ascii_8bit? ? 32 : 0)
+          (flag_encoding(node) ? 16 : 0) | (node.ascii_8bit? ? 32 : 0)
       end
 
       # The encoding that a flag letter sets for the pattern, or nil.
       #: (untyped node) -> Encoding?
-      def regexp_encoding(node)
+      def flag_encoding(node)
         if node.euc_jp? then ::Encoding::EUC_JP
         elsif node.windows_31j? then ::Encoding::Windows_31J
         elsif node.utf_8? then ::Encoding::UTF_8
         end
+      end
+
+      # The encoding the pattern is read in: a flag letter's, else the
+      # source's when it is not UTF-8, as a file with `# encoding: binary`
+      # has it. nil reads it as UTF-8.
+      #: (untyped node) -> Encoding?
+      def regexp_encoding(node)
+        flag_encoding(node) || (@encoding == ::Encoding::UTF_8 ? nil : @encoding)
       end
 
       # Ruby checks the pattern. A pattern that ruby refuses is also a
@@ -370,9 +380,10 @@ module Zr
           else unsupported(part, "#{Refused.form_of(part)} in a string")
           end
         end
-        # A single embedded part is joined to an empty literal, which gives
-        # the result's start encoding, as ruby's compiler does.
-        parts.unshift(Literal.new(+"", line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
+        # A single embedded part is joined to an empty literal in the
+        # source's encoding, which gives the result's start encoding, as
+        # ruby's compiler does.
+        parts.unshift(Literal.new(String.new(encoding: @encoding), line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
         # If refinements are active, each part gets `to_s` at its own site,
         # which does the lookup with them. Ruby folds a String or Symbol
         # part into the text first, and a String or Symbol value skips the

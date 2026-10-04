@@ -183,9 +183,13 @@ class Module
   end
 
   # What a constant lookup reaches when no scope has the name. A
-  # program overrides it to supply a value.
+  # program overrides it to supply a value. The message names the scope
+  # by its `name`, or by its `inspect` when that is nil, as ruby's
+  # name_err_mesg_receiver_name does; a program's override counts.
   def const_missing(name)
-    raise NameError.new("uninitialized constant #{self == Object ? name : "#{self}::#{name}"}", name, receiver: self)
+    return raise(NameError.new("uninitialized constant #{name}", name, receiver: self)) if equal?(Object)
+
+    raise NameError.new("uninitialized constant #{Module.const_scope_shown(self)}::#{name}", name, receiver: self)
   end
 
   # `refine C do ... end`: the methods go in a holder module, never on
@@ -316,6 +320,23 @@ class << self
   end
 
   private :using
+end
+
+class << Module
+  # zr_const_lead_p (lib/zr/runtime/kernel/const.rb): whether a name that
+  # starts past ASCII starts with an uppercase or titlecase letter.
+  def const_lead?(name)
+    Primitive.attr! :hidden
+    name.valid_encoding? && name.match?(/\A[\p{Lu}\p{Lt}]/)
+  end
+
+  # How an `uninitialized constant` message names the scope `mod`: its
+  # `name`, or its `inspect` when that is nil, as a String.
+  def const_scope_shown(mod)
+    Primitive.attr! :hidden
+    shown = mod.__send__(:name)
+    (shown.nil? ? mod.__send__(:inspect) : shown).to_s
+  end
 end
 
 # A module is made by Module.new alone: ruby undefines allocate on
