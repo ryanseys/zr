@@ -1,1 +1,0 @@
-fails:Enumerable#slice_after when given a block and an argument raises an ArgumentError

@@ -1,3 +1,0 @@
-fails:Enumerable#tally with a hash calls #to_hash to convert argument to Hash implicitly if passed not a Hash
-fails:Enumerable#tally with a hash ignores the default value
-fails:Enumerable#tally with a hash ignores the default proc

@@ -11,7 +11,7 @@ core/conditionvariable	4	11	9	0	0
 core/data	13	82	71	0	0
 core/dir	33	338	327	0	0
 core/encoding	45	630	609	0	0
-core/enumerable	61	575	536	0	0
+core/enumerable	61	575	558	0	0
 core/enumerator	81	447	415	0	0
 core/env	44	237	228	0	0
 core/exception	39	243	225	1	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	25305	1	0
+total	2174	26314	25327	1	0
