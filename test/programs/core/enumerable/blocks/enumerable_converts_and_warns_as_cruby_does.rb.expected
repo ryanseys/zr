@@ -1,0 +1,22 @@
+true
+false
+true
+true
+1
+1
+true
+[8, 9, 2]
+1
+[TypeError, "can't convert Object to Array (Object#to_ary gives Integer)"]
+6
+16
+6
+{"a" => 2, "b" => 1}
+{"a" => 2, "b" => 1}
+{k: :v}
+{k: :v}
+[[7], [6, 5], [4, 3], [2, 1]]
+[[7, 6, 5, 4]]
+[[7], [6, 5]]
+[ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+[ArgumentError, "both pattern and block are given"]

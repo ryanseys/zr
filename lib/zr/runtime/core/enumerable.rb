@@ -59,6 +59,8 @@ module Enumerable
 
   def any?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    # rb_warn: a pattern and a block, and the block is not used.
+    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     if !pattern.empty?
       Primitive.zr_enum_each(self, nil) do |x|
         return true if pattern[0] === x
@@ -80,6 +82,8 @@ module Enumerable
 
   def all?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    # rb_warn: a pattern and a block, and the block is not used.
+    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     if !pattern.empty?
       Primitive.zr_enum_each(self, nil) do |x|
         return false unless pattern[0] === x
@@ -101,6 +105,8 @@ module Enumerable
 
   def none?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    # rb_warn: a pattern and a block, and the block is not used.
+    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     if !pattern.empty?
       Primitive.zr_enum_each(self, nil) do |x|
         return false if pattern[0] === x
@@ -121,6 +127,7 @@ module Enumerable
   end
 
   def count(item = (none = true), &blk)
+    Primitive.zr_warn_here_m("given block not used") if blk && !none
     n = 0
     if !none
       Primitive.zr_enum_each(self, nil) do |x|
@@ -202,7 +209,9 @@ module Enumerable
 
     out = []
     Primitive.zr_enum_each_values(self, nil, blk) do |_, v|
-      v.is_a?(Array) ? out.concat(v) : out << v
+      # flat_map_i: rb_check_array_type, so to_ary counts and nil appends.
+      array = v.is_a?(Array) ? v : Array.try_convert(v)
+      array ? out.concat(array) : out << v
       nil
     end
     out
@@ -539,6 +548,8 @@ module Enumerable
 
   def one?(*pattern, &blk)
     raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    # rb_warn: a pattern and a block, and the block is not used.
+    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     # A second match ends the walk, as one_iter_i breaks.
     seen = 0
     if !pattern.empty?
@@ -562,11 +573,12 @@ module Enumerable
 
   def tally(counts = nil)
     unless counts.nil?
-      raise TypeError, "no implicit conversion of #{conversion_name(counts)} into Hash" unless counts.is_a?(Hash)
+      counts = Hash.try_convert(counts) || raise(TypeError, "no implicit conversion of #{conversion_name(counts)} into Hash")
       Primitive.zr_frozen_error(counts) if counts.frozen?
 
       Primitive.zr_enum_each(self, nil) do |x|
-        counts[x] = (counts[x] || 0) + 1
+        # The Hash's default value or proc does not count.
+        counts[x] = counts.fetch(x, 0) + 1
         nil
       end
       return counts
@@ -614,6 +626,8 @@ module Enumerable
 
   def find_index(v = (omitted = true; nil), &blk)
     return to_enum(:find_index) if omitted && !blk
+
+    Primitive.zr_warn_here_m("given block not used") if blk && !omitted
 
     i = 0
     if omitted
@@ -718,9 +732,16 @@ module Enumerable
   def injected(args, block)
     Primitive.attr! :hidden
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" if args.size > 2 || (args.empty? && !block)
-    if args.size == 2 && !args.last.is_a?(Symbol) && !args.last.is_a?(String)
-      raise TypeError, "#{args.last.inspect} is not a symbol nor a string"
+    # The operator name goes through to_str (rb_check_id); two arguments
+    # leave the block unused.
+    if (args.size == 2 || (args.size == 1 && !block)) && !args.last.is_a?(Symbol)
+      name = args.last.is_a?(String) ? args.last : String.try_convert(args.last)
+      raise TypeError, "#{args.last.inspect} is not a symbol nor a string" if name.nil?
+
+      args = args[0...-1] + [name.to_sym]
     end
+    # rb_warning: only under a true $VERBOSE.
+    Primitive.zr_warn_here_m("given block not used") if block && args.size == 2 && $VERBOSE
 
     acc = args.empty? ? nil : args.first
     op = args.size == 2 ? args.last : (args.size == 1 && !block ? args.first : nil)
@@ -819,6 +840,7 @@ module Enumerable
   def to_h(*args, &block)
     out = {}
     add = lambda do |pair|
+      pair = Array.try_convert(pair) || pair unless pair.is_a?(Array)
       raise TypeError, "wrong element type #{pair.class} (expected array)" unless pair.is_a?(Array)
       raise ArgumentError, "element has wrong array length (expected 2, was #{pair.size})" unless pair.size == 2
 
@@ -957,10 +979,11 @@ module Enumerable
     sliced { |before, x| block.call(before, x) }
   end
 
-  def slice_before(pattern = nil, &block)
-    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
+  def slice_before(pattern = (omitted = true; nil), &block)
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if omitted && block.nil?
+    raise ArgumentError, +"wrong number of arguments (given 1, expected 0)" if !omitted && block
 
-    test = pattern ? ->(x) { pattern === x } : block
+    test = omitted ? block : ->(x) { pattern === x }
     source = self
     Enumerator.new do |y|
       slice = nil
@@ -977,10 +1000,11 @@ module Enumerable
     end
   end
 
-  def slice_after(pattern = nil, &block)
-    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if pattern.nil? && block.nil?
+  def slice_after(pattern = (omitted = true; nil), &block)
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if omitted && block.nil?
+    raise ArgumentError, +"both pattern and block are given" if !omitted && block
 
-    test = pattern ? ->(x) { pattern === x } : block
+    test = omitted ? block : ->(x) { pattern === x }
     source = self
     Enumerator.new do |y|
       slice = nil
