@@ -1,0 +1,54 @@
+[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of Range into Integer"]
+[TypeError, "no implicit conversion from nil to integer"]
+"e"
+String
+[FrozenError, "can't modify frozen String: \"x\""]
+[FrozenError, "can't modify frozen String: \"x\""]
+2
+nil
+2
+3
+[TypeError, "no implicit conversion from nil to integer"]
+nil
+"l"
+nil
+"hlello"
+[TypeError, "no implicit conversion of Integer into String"]
+0
+"hello"
+"he"
+["he", "l", "lo"]
+["hel", "l", "o"]
+[TypeError, "wrong argument type Integer (expected Range)"]
+[ArgumentError, "wrong number of arguments (given 1, expected 2..5)"]
+"hxxlo"
+"hxxlo"
+"hylo"
+"hylo"
+[IndexError, "index -6 out of string"]
+[IndexError, "index 6 out of string"]
+[IndexError, "negative length -1"]
+[IndexError, "index 4 out of string"]
+[IndexError, "negative length -1"]
+[IndexError, "index -4 out of string"]
+[RangeError, "-7..1 out of range"]
+[RangeError, "-5..1 out of range"]
+[ArgumentError, "wrong number of arguments (given 4, expected 2, 3, or 5)"]
+[TypeError, "wrong argument type Integer (expected Range)"]
+"yz"
+"xy"
+FrozenError
+[IndexError, "offset 2 does not land on character boundary"]
+"あxうえ"
+[IndexError, "offset 7 does not land on character boundary"]
+"あxうえ"
+"あx"
+"あきうえ"
+[IndexError, "offset 2 does not land on character boundary"]
+[IndexError, "offset 5 does not land on character boundary"]
+"あいxうえ"
+[ArgumentError, "wrong number of arguments (given 4, expected 2, 3, or 5)"]
+"あxうえ"
+[Encoding::CompatibilityError, "incompatible character encodings: UTF-8 and BINARY (ASCII-8BIT)"]

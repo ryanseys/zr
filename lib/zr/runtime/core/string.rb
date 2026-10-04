@@ -7,11 +7,14 @@
 class String
   include Comparable
 
-  def [](index, length = nil)
+  # rb_str_aref_m: with two arguments, anything but a Regexp converts
+  # both through to_int (a Range raises there); a nil length is given.
+  def [](index, length = (absent = true; nil))
+    index = Primitive.zr_index_operand_m(index) unless absent || index.is_a?(Integer) || index.is_a?(Regexp)
     case index
     when Integer
       index = Primitive.zr_index_operand_m(index) unless Primitive.zr_fixnum_p_m(index)
-      if length
+      unless absent
         # Both convert first, as NUM2LONG reads them. An index past the
         # fixnum range lies past either end, and a length past the end
         # reads to the end.
@@ -34,13 +37,14 @@ class String
       match = index.send(:search, self, 0, false)
       Primitive.zr_backref_set(match)
       return nil unless match
-      return match[0] if length.nil?
+      return match[0] if absent
 
       match[length]
     when String
-      OWN[:include?].bind_call(self, index) ? index.dup : nil
+      # str_duplicate(rb_cString, indx): a String, whatever its class.
+      OWN[:include?].bind_call(self, index) ? String.new(index) : nil
     else
-      OWN[:[]].bind_call(self, Primitive.zr_index_operand_m(index), *[length].compact)
+      OWN[:[]].bind_call(self, Primitive.zr_index_operand_m(index))
     end
   end
   alias slice []
@@ -138,14 +142,22 @@ class String
     false
   end
 
-  def delete_prefix(prefix) = OWN[:start_with?].bind_call(self, prefix) ? byteslice_of(prefix.bytesize, Primitive.zr_str_bytesize(self) - prefix.bytesize) : copied
+  def delete_prefix(prefix)
+    prefix = Primitive.zr_str_operand(prefix)
+    OWN[:start_with?].bind_call(self, prefix) ? byteslice_of(prefix.bytesize, Primitive.zr_str_bytesize(self) - prefix.bytesize) : copied
+  end
 
-  def delete_suffix(suffix) = OWN[:end_with?].bind_call(self, suffix) ? byteslice_of(0, Primitive.zr_str_bytesize(self) - suffix.bytesize) : copied
+  def delete_suffix(suffix)
+    suffix = Primitive.zr_str_operand(suffix)
+    OWN[:end_with?].bind_call(self, suffix) ? byteslice_of(0, Primitive.zr_str_bytesize(self) - suffix.bytesize) : copied
+  end
 
   def replace(other) = Primitive.zr_str_replace(self, Primitive.zr_str_operand(other))
 
   # `slice!`: removes the part that `[]` returns from the receiver.
   def slice!(*args)
+    # str_modify_keep_cr: a frozen String raises, though nothing would change.
+    Primitive.zr_frozen_error(self) if frozen?
     part = OWN[:[]].bind_call(self, *args)
     return nil if part.nil?
 
@@ -218,6 +230,8 @@ class String
   def prepend(*others) = Primitive.zr_str_replace(self, others.map { |other| Primitive.zr_str_operand(other) }.join + self)
 
   def insert(index, other)
+    index = Primitive.zr_index_operand_m(index)
+    other = Primitive.zr_str_operand(other)
     count = Primitive.zr_str_length_m(self)
     index += count + 1 if index < 0
     raise IndexError, "index #{index} out of string" if index < 0 || index > count
@@ -776,8 +790,11 @@ class String
   def include?(other) = !byte_index(other, 0).nil?
 
   def index(needle, start = 0)
+    start = Primitive.zr_index_operand_m(start)
     count = Primitive.zr_str_length_m(self)
     start += count if start < 0
+    # rb_str_index_m: a start outside the string clears $~ for a Regexp.
+    return Primitive.zr_backref_set(nil) if (start < 0 || start > count) && needle.is_a?(Regexp)
     return nil if start < 0 || start > count
 
     from = Primitive.zr_str_char_offset_m(self, start)
@@ -791,8 +808,11 @@ class String
   end
 
   def rindex(needle, start = Primitive.zr_str_length_m(self))
+    start = Primitive.zr_index_operand_m(start)
+    needle = Primitive.zr_str_operand(needle) unless needle.is_a?(Regexp)
     count = Primitive.zr_str_length_m(self)
     start += count if start < 0
+    return Primitive.zr_backref_set(nil) if start < 0 && needle.is_a?(Regexp)
     return nil if start < 0
 
     from = Primitive.zr_str_char_offset_m(self, [start, count].min)
@@ -1123,38 +1143,37 @@ class String
 
   # The bytes from `start` (`length` of them, or a Range) replaced by
   # `text`'s, in place; the ends must sit on character boundaries.
+  # rb_str_bytesplice: (range, str), (range, str, str_range),
+  # (index, length, str) or (index, length, str, str_index, str_length).
+  # Both sides are checked as str_check_beg_len checks them, on character
+  # boundaries of each string.
   def bytesplice(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..5)" unless (2..5).cover?(args.size)
-
-    if args[0].is_a?(Range)
-      start, length = byte_range(args[0])
-      text = args[1]
-      rest = args[2..]
+    n = args.size
+    raise ArgumentError, "wrong number of arguments (given #{n}, expected 2..5)" unless (2..5).cover?(n)
+    raise ArgumentError, "wrong number of arguments (given #{n}, expected 2, 3, or 5)" if n == 4
+  
+    if n == 2 || (n == 3 && !args[0].is_a?(Integer))
+      start, length = splice_range(args[0], Primitive.zr_str_bytesize(self))
+      text = Primitive.zr_str_operand(args[1])
+      from, count = n == 2 ? [0, text.bytesize] : splice_range(args[2], text.bytesize)
     else
-      start, length, text = args[0], args[1], args[2]
-      rest = args[3..]
-      raise IndexError, "index #{start} out of string" if start > Primitive.zr_str_bytesize(self) || start < -Primitive.zr_str_bytesize(self)
-      start += Primitive.zr_str_bytesize(self) if start < 0
-      raise IndexError, "negative length #{length}" if length < 0
-      length = Primitive.zr_str_bytesize(self) - start if start + length > Primitive.zr_str_bytesize(self)
+      start = Primitive.zr_index_operand_m(args[0])
+      length = Primitive.zr_index_operand_m(args[1])
+      text = Primitive.zr_str_operand(args[2])
+      from, count = n == 3 ? [0, text.bytesize] : [Primitive.zr_index_operand_m(args[3]), Primitive.zr_index_operand_m(args[4])]
     end
-    text = Primitive.zr_str_operand(text)
-    unless rest.empty?
-      if rest[0].is_a?(Range)
-        from, count = text.send(:byte_range, rest[0])
-      else
-        from, count = rest[0], rest[1]
-        from += text.bytesize if from < 0
-        count = text.bytesize - from if from + count > text.bytesize
-      end
-      text = text.byteslice(from, count)
+    start, length = splice_bounds(start, length)
+    from, count = text.send(:splice_bounds, from, count)
+    Primitive.zr_frozen_error(self) if frozen?
+    unless encoding == text.encoding
+      common = Encoding.compatible?(self, text)
+      raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.shown(encoding)} and #{Encoding.shown(text.encoding)}" unless common
+  
+      force_encoding(common)
     end
-    raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
-    raise IndexError, "offset #{start + length} does not land on character boundary" unless char_boundary?(start + length)
-
-    Primitive.zr_str_splice(self, start, length, text)
+    Primitive.zr_str_splice(self, start, length, text.byteslice(from, count))
   end
-
+  
   def self.try_convert(object)
     return object if String === object
 
@@ -1210,6 +1229,7 @@ class String
   end
 
   def partition(sep)
+    sep = Primitive.zr_str_operand(sep) unless sep.is_a?(Regexp)
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, 0, false)
       Primitive.zr_backref_set(match)
@@ -1225,6 +1245,7 @@ class String
   end
 
   def rpartition(sep)
+    sep = Primitive.zr_str_operand(sep) unless sep.is_a?(Regexp)
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, Primitive.zr_str_bytesize(self), true)
       Primitive.zr_backref_set(match)
@@ -1243,6 +1264,7 @@ class String
   end
 
   def sum(bits = 16)
+    bits = Primitive.zr_index_operand_m(bits)
     total = 0
     OWN[:each_byte].bind_call(self) { |b| total += b }
     bits > 0 ? total & ((1 << bits) - 1) : total
@@ -2006,19 +2028,26 @@ class String
   end
 
   def byteindex(needle, start = 0)
+    start = Primitive.zr_index_operand_m(start)
+    needle = Primitive.zr_str_operand(needle) unless needle.is_a?(Regexp)
     start += Primitive.zr_str_bytesize(self) if start < 0
+    return Primitive.zr_backref_set(nil) if (start < 0 || start > Primitive.zr_str_bytesize(self)) && needle.is_a?(Regexp)
     return nil if start < 0 || start > Primitive.zr_str_bytesize(self)
     raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
 
     if needle.is_a?(Regexp)
       match = needle.send(:search, self, start, false)
+      Primitive.zr_backref_set(match)
       return match && match.send(:begin_at, 0)
     end
     byte_index(needle, start)
   end
 
   def byterindex(needle, start = Primitive.zr_str_bytesize(self))
+    start = Primitive.zr_index_operand_m(start)
+    needle = Primitive.zr_str_operand(needle) unless needle.is_a?(Regexp)
     start += Primitive.zr_str_bytesize(self) if start < 0
+    return Primitive.zr_backref_set(nil) if start < 0 && needle.is_a?(Regexp)
     return nil if start < 0
 
     start = Primitive.zr_str_bytesize(self) if start > Primitive.zr_str_bytesize(self)
@@ -2694,6 +2723,41 @@ class String
 
   # The byte offset of `needle` at or after byte `start`, or nil.
   # A Range of byte offsets as [start, length] within the text.
+  # rb_range_beg_len with err 2, for bytesplice: a Range's start and
+  # length in `size` bytes, a RangeError past the ends, and a TypeError
+  # for any other value.
+  def splice_range(range, size)
+    Primitive.attr! :hidden
+    raise TypeError, "wrong argument type #{range.class} (expected Range)" unless range.is_a?(Range)
+  
+    first = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)
+    last = range.end.nil? ? size : Primitive.zr_index_operand_m(range.end)
+    first += size if first < 0
+    last += size if last < 0
+    raise RangeError, "#{range} out of range" if first < 0 || first > size
+  
+    last += 1 unless range.exclude_end? || range.end.nil?
+    last = size if last > size
+    [first, [last - first, 0].max]
+  end
+  
+  # str_check_beg_len: a negative length, then an index outside the
+  # string, raise; a length past the end is cut; both ends must fall on
+  # character boundaries.
+  def splice_bounds(start, length)
+    Primitive.attr! :hidden
+    size = Primitive.zr_str_bytesize(self)
+    raise IndexError, "negative length #{length}" if length.negative?
+    raise IndexError, "index #{start} out of string" if start > size || start + size < 0
+  
+    start += size if start.negative?
+    length = size - start if length > size - start
+    raise IndexError, "offset #{start} does not land on character boundary" unless char_boundary?(start)
+    raise IndexError, "offset #{start + length} does not land on character boundary" unless char_boundary?(start + length)
+  
+    [start, length]
+  end
+  
   def byte_range(range)
     Primitive.attr! :hidden
     first = range.begin || 0
