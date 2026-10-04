@@ -1,2 +1,0 @@
-fails:Time#- does not return a subclass instance
-fails:Time#- zone is a timezone object preserves time zone

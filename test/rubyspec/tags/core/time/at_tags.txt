@@ -1,3 +1,0 @@
-fails:Time.at passed Time returns a subclass instance
-fails:Time.at passed [Time, Integer] raises a TypeError
-fails:Time.at :in keyword argument could be a timezone object

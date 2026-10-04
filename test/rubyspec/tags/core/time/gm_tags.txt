@@ -1,3 +1,0 @@
-fails:Time.gm coerces the month with #to_str
-fails:Time.gm ignores fractional seconds if a passed whole number of microseconds
-fails:Time.gm ignores fractional seconds if a passed fractional number of microseconds

@@ -1,2 +1,1 @@
-fails:Time#floor returns an instance of Time, even if #floor is called on a subclass
 fails:Time#floor copies own timezone to the returning value

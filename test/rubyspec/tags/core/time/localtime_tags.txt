@@ -1,2 +1,0 @@
-fails:Time#localtime raises ArgumentError if the String argument is not in an ASCII-compatible encoding
-fails:Time#localtime with an argument that responds to #utc_to_local coerces using #utc_to_local
