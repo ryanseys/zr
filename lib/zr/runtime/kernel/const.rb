@@ -1322,7 +1322,10 @@ module Zr::Kern
 
   #: (value, word, value, ptr, value, word, value) -> value
   def zr_autoload(mod, id, feature, fn, cref, kind, path)
-    if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL)
+    # Kernel#autoload (from main, from Kernel, or from a method whose self
+    # is not a module) declares on the lexical class, as rb_f_autoload
+    # reads rb_vm_cbase. Module#autoload declares on its receiver.
+    if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL) || zr_special_p(mod) || (zr_type(mod) != T_CLASS && zr_type(mod) != T_MODULE)
       mod = zr_cref_klass(zr_cref_lexical(cref))
     end
     # A name that already has a value stays, as `autoload_synchronized`
@@ -1590,7 +1593,22 @@ module Zr::Kern
     slot = Machine.slot(8)
     r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
-    zr_autoload_feature(recv, Machine.load64(slot, 0))
+    id = Machine.load64(slot, 0)
+    # rb_autoload_at_p: with `inherit` (the default), the first ancestor,
+    # included modules too, that has an autoload of the name answers.
+    inherit = argc < 2 ? Machine.value(QTRUE) : Machine.value(Machine.load64(argv, 8))
+    if inherit == QNIL || inherit == QFALSE
+      return zr_autoload_feature(recv, id)
+    end
+    k = recv
+    while k != QNIL
+      mod = zr_type(k) == T_ICLASS ? RClass[k].attached : k
+      if zr_autoload_pending(mod, id) >= 0
+        return zr_autoload_feature(mod, id)
+      end
+      k = RClass[k].superclass
+    end
+    Machine.value(QNIL)
   end
 
   # The tree-walking interpreter (lib/zr/eval/walk.rb) reads and writes
