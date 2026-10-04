@@ -29,7 +29,8 @@ class CompilerDigestTest < Minitest::Test
   # a listing, a diff, `zr-dev vendor` and the IR interpreter load the rest
   # on demand.
   LOADED_BY_SOME_BUILDS = %w[
-    backend/aarch64/listing.rb diff.rb eval.rb eval/walk.rb eval/walk/tree.rb gem_set.rb gem_set/resolve.rb
+    backend/aarch64/listing.rb diff.rb eval.rb eval/walk.rb eval/walk/evaluate.rb eval/walk/tree.rb gem_set.rb
+    gem_set/resolve.rb
     ir/interp.rb library.rb library/vendor.rb
   ].map { |name| File.join(LIB, "zr", name) }.freeze
 
