@@ -18,7 +18,8 @@ class IO
   # the class IO::ConsoleMode and keeps the bytes hidden.
   # Only IO#console_mode makes one: console.c undefines its initialize.
   class ConsoleMode
-    undef_method :initialize
+    # As rb_undef_method, a second load of this file undefines nothing.
+    undef_method :initialize if private_method_defined?(:initialize)
 
     def initialize_copy(other)
       Primitive.zr_hidden_set(self, :__mode__, other.__send__(:mode_bytes).dup)

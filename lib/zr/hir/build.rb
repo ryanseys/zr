@@ -1130,7 +1130,7 @@ module Zr
         feature = literal_feature(node)
         return send unless feature
 
-        send.args = [Literal.new(File.expand_path(feature, File.dirname(@file)), send.line)]
+        send.args = [Literal.new(File.expand_path(feature, File.dirname(Loader.real_path(@file))), send.line)]
         send
       end
 

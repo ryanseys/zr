@@ -765,7 +765,9 @@ module OpenSSL
       alias ssl_timeout timeout
       alias ssl_timeout= timeout=
 
-      undef_method :initialize_copy
+      # As rb_undef_method, a second load of this file undefines nothing.
+
+      undef_method :initialize_copy if private_method_defined?(:initialize_copy)
 
       def min_version=(version)
         Ossl.check_frozen(self)
@@ -964,7 +966,9 @@ module OpenSSL
         super()
       end
 
-      undef_method :initialize_copy
+      # As rb_undef_method, a second load of this file undefines nothing.
+
+      undef_method :initialize_copy if private_method_defined?(:initialize_copy)
 
       def connect
         Ossl.ssl_setup(self)

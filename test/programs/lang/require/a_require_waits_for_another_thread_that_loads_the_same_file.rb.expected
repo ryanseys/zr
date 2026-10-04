@@ -1,0 +1,4 @@
+true
+[:self]
+[true, false, [:pre, :post, :t2_post, :t1_post]]
+["boom", true, [:pre, :pre, :post, :t2_post, :t1_post]]

@@ -639,11 +639,18 @@ module Zr
         #: (String? path, ?String? feature) -> String?
         def refused_gem(path, feature = nil) = @gem_set&.refusal(path, feature)
 
+        # A file's real path, as ruby's rb_current_realfilepath, or the path
+        # as given when no file is there. A require_relative starts from it,
+        # so a file loaded through a symlink requires relative to the file
+        # that the link names.
+        #: (String path) -> String
+        def self.real_path(path) = File.exist?(path) ? File.realpath(path) : path
+
         # The file for `feature`, required from `from`, or nil.
         #: (Symbol kind, String feature, String from) -> String?
         def resolve(kind, feature, from)
           if kind == :require_relative
-            candidate(File.expand_path(feature, File.dirname(from)))
+            candidate(File.expand_path(feature, File.dirname(Loader.real_path(from))))
           elsif feature.start_with?("/", "./", "../", "~")
             # A path relative to the working directory, as ruby reads it:
             # never relative to the requiring file.

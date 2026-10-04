@@ -152,7 +152,9 @@ module OpenSSL
         self
       end
 
-      undef_method :initialize_copy
+      # As rb_undef_method, a second load of this file undefines nothing.
+
+      undef_method :initialize_copy if private_method_defined?(:initialize_copy)
 
       def verify_callback=(callback)
         store = Ossl.x509store(self)
@@ -257,7 +259,9 @@ module OpenSSL
         self
       end
 
-      undef_method :initialize_copy
+      # As rb_undef_method, a second load of this file undefines nothing.
+
+      undef_method :initialize_copy if private_method_defined?(:initialize_copy)
 
       def verify
         ctx = Ossl::X509_STORE_CTX.fetch(self)

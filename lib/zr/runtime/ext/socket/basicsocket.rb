@@ -5,7 +5,8 @@
 # EAGAIN rather than waiting, so each call that would wait waits here
 # first, which lets another green thread run in the meantime.
 class BasicSocket < IO
-  undef_method :initialize
+  # As rb_undef_method, a second load of this file undefines nothing.
+  undef_method :initialize if private_method_defined?(:initialize)
 
   class << self
     # rsock_do_not_reverse_lookup, one flag for every socket class.

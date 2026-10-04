@@ -331,13 +331,101 @@ module Zr::Kern
   end
 
   # The real paths of the files that the program required, as in CRuby's
-  # loaded_features_realpaths. A file found again through a symlink or a
-  # different spelling of its directory does not run a second time.
+  # loaded_features_realpaths: pairs of the real path and the path that
+  # the require stored in $LOADED_FEATURES. A file found again through a
+  # symlink or a different spelling of its directory does not run a
+  # second time while that path is in $LOADED_FEATURES. CRuby rebuilds its
+  # list from $LOADED_FEATURES when the program changes the Array, so a
+  # file that the program took out runs again.
   G_REAL_FEATURES = 60
 
   #: () -> value
   def zr_real_features
     zr_global_list(G_REAL_FEATURES)
+  end
+
+  # The files that a require is running now: pairs of the path and the
+  # task that runs it, as CRuby's loading table. A require of one of
+  # these files from another thread waits until it ends. From the same
+  # thread it is a circular require.
+  G_LOADING_FEATURES = 64
+
+  # The task that is running a require of `path` now, as a Fixnum of its
+  # address, or nil.
+  #: (value) -> value
+  def zr_feature_loader(path)
+    rows = zr_global_list(G_LOADING_FEATURES)
+    i = 0
+    while i < RArray[rows].len
+      if zr_string_of(zr_ary_at(rows, i), path)
+        return zr_ary_at(rows, i + 1)
+      end
+      i += 2
+    end
+    Machine.value(QNIL)
+  end
+
+  #: (value) -> void
+  def zr_feature_loaded(path)
+    rows = zr_global_list(G_LOADING_FEATURES)
+    i = 0
+    while i < RArray[rows].len
+      if zr_string_of(zr_ary_at(rows, i), path)
+        zr_ary_splice(rows, zr_fix(i), zr_fix(2), zr_ary_new(0))
+        return
+      end
+      i += 2
+    end
+  end
+
+  # A require of `path`, which is in $LOADED_FEATURES: false when it is
+  # loaded, else QNIL once the other thread that loads it is done (the
+  # caller then looks again: the file is loaded, or that load failed and
+  # this require runs it). From the thread that loads it, it is a
+  # circular require: a warning under $VERBOSE, and false.
+  #: (value) -> value
+  def zr_feature_wait(path)
+    owner = zr_feature_loader(path)
+    if owner == QNIL
+      return Machine.value(QFALSE)
+    end
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(path))
+    Machine.store64(args, 8, Machine.word(zr_bool(owner == zr_fix(Machine.word(zr_task())))))
+    zr_send(zr_global(G_KERNEL), Machine.id(:feature_busy), 2, args)
+  end
+
+  # Whether a file whose real path is `real` is loaded: a pair has it,
+  # and its stored path is in $LOADED_FEATURES (`visible`).
+  #: (value, value) -> bool
+  def zr_real_feature_p(visible, real)
+    rows = zr_real_features()
+    i = 0
+    while i < RArray[rows].len
+      if zr_string_of(zr_ary_at(rows, i), real) && zr_ary_has_string(visible, zr_ary_at(rows, i + 1))
+        return true
+      end
+      i += 2
+    end
+    false
+  end
+
+  # Records that `path` loaded the file at `real`. A pair for the same
+  # real path takes the new path, so the list does not grow when a
+  # program loads a file again after it took the path out.
+  #: (value, value) -> void
+  def zr_real_feature_add(real, path)
+    rows = zr_real_features()
+    i = 0
+    while i < RArray[rows].len
+      if zr_string_of(zr_ary_at(rows, i), real)
+        zr_ary_store(rows, i + 1, path)
+        return
+      end
+      i += 2
+    end
+    zr_ary_push(rows, real)
+    zr_ary_push(rows, path)
   end
 
   # Returns the Array in the global `g`. The first read makes it.
@@ -584,7 +672,7 @@ module Zr::Kern
   def zr_feature_reveal(path)
     visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
     zr_ary_push(visible, path)
-    zr_ary_push(zr_real_features(), zr_feature_real_path(path))
+    zr_real_feature_add(zr_feature_real_path(path), path)
     rows = zr_hidden_features()
     ids = zr_ary_at(rows, zr_hidden_row(path) + 2)
     i = 0
@@ -692,6 +780,10 @@ module Zr::Kern
     visible = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
     real = Machine.value(QNIL)
     if kind != 2
+      while !hidden && zr_ary_has_string(visible, path)
+        r = zr_feature_wait(path)
+        return r if r != QNIL
+      end
       if zr_ary_has_string(visible, path) || (hidden && zr_hidden_p(path))
         return Machine.value(QFALSE)
       end
@@ -704,10 +796,10 @@ module Zr::Kern
           return Machine.value(QTRUE)
         end
         real = zr_feature_real_path(path)
-        if zr_ary_has_string(zr_real_features(), real)
+        if zr_real_feature_p(visible, real)
           return Machine.value(QFALSE)
         end
-        zr_ary_push(zr_real_features(), real)
+        zr_real_feature_add(real, path)
         zr_ary_push(visible, path)
       end
     end
@@ -728,7 +820,13 @@ module Zr::Kern
     if framed
       mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
     end
+    loading = kind != 2 && !hidden
+    if loading
+      zr_ary_push(zr_global_list(G_LOADING_FEATURES), path)
+      zr_ary_push(zr_global_list(G_LOADING_FEATURES), zr_fix(Machine.word(zr_task())))
+    end
     r = zr_run_top(fn, mid)
+    zr_feature_loaded(path) if loading
     Machine.store64(zr_loading(), 0, outer)
     Machine.store64(zr_hidden_loader(), 0, outer_hidden)
     if r == QUNDEF
@@ -737,9 +835,6 @@ module Zr::Kern
         zr_hidden_forget(path)
       elsif kind != 2
         zr_ary_delete_string(visible, path)
-      end
-      if real != QNIL
-        zr_ary_delete_string(zr_real_features(), real)
       end
       return r
     end

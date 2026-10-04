@@ -53,9 +53,58 @@ module Kernel
     feature = File.path(name)
     return false if preloaded?(feature) || parserless?(feature)
 
-    load_file(feature_path(feature), feature, 0)
+    # A listed file that a require is running now goes on, so the
+    # kernel waits for that require.
+    listed = feature_listed(feature)
+    return false if listed.is_a?(String) && Primitive.zr_feature_loader(listed).nil?
+
+    path = feature_path(feature)
+    return false if path.nil? && listed == :bare
+
+    load_file(path, feature, 0)
   end
 
+  # CRuby's rb_feature_p for the name as it was written, before any file
+  # is found. The entry of $LOADED_FEATURES that is the name (a name with
+  # no extension with `.rb`), or a $LOAD_PATH directory joined to it. Else
+  # :bare when the list has a name with no extension as it is, or with the
+  # native extension: ruby then looks only for a `.rb` file, which still
+  # loads, and no file is not an error. Else nil.
+  def self.feature_listed(feature)
+    Primitive.attr! :hidden
+    bare = File.extname(feature).empty?
+    name = bare ? "#{feature}.rb" : feature
+    partial = bare ? [feature, "#{feature}.#{RbConfig::CONFIG["DLEXT"]}"] : []
+    dirs = feature.start_with?("/", "./", "../", "~") ? {} : nil
+    listed = nil
+    $LOADED_FEATURES.each do |entry|
+      entry = entry.to_s
+      dirs ||= $LOAD_PATH.to_h { |dir| [load_dir(dir), true] }
+      return entry if feature_entry?(entry, name, dirs)
+  
+      listed = :bare if partial.any? { |n| feature_entry?(entry, n, dirs) }
+    end
+    listed
+  end
+  
+  # Whether `entry` of $LOADED_FEATURES is `name`, or one of `dirs` joined
+  # to it.
+  def self.feature_entry?(entry, name, dirs)
+    Primitive.attr! :hidden
+    return true if entry == name
+  
+    entry.end_with?(name) && entry[-name.size - 1] == "/" && dirs.key?(entry[0, entry.size - name.size - 1])
+  end
+  
+  # A $LOAD_PATH entry as ruby searches it: expanded, and by its real path,
+  # so the file that a symlinked directory holds is stored under the
+  # directory it names.
+  def self.load_dir(dir)
+    Primitive.attr! :hidden
+    dir = File.expand_path(File.path(dir))
+    File.directory?(dir) ? File.realpath(dir) : dir
+  end
+  
   # syntax_suggest's detailed_message loads its search, which needs
   # prism, for each SyntaxError. The search reads only an error with a
   # path, which a program without the compiler cannot get, so there the
@@ -65,11 +114,15 @@ module Kernel
     feature == "syntax_suggest/api" && !defined?(::Zr::Eval) && Primitive.zr_caller_file&.end_with?("/syntax_suggest/core_ext.rb")
   end
 
-  # The name is taken from the directory of the file that calls.
+  # The name is taken from the directory of the file that calls, by its
+  # real path, as ruby's rb_current_realfilepath: a file loaded through a
+  # symlink requires relative to the file the link names. A compiled-in
+  # file that is not there now keeps the path it was loaded by.
   def require_relative(name)
     file = Primitive.zr_caller_file
     raise LoadError, +"cannot infer basepath" if file.nil?
 
+    file = File.realpath(file) if File.exist?(file)
     path = File.expand_path(File.path(name), File.dirname(file))
     Kernel.load_file(Kernel.feature_path(path), path, 1)
   end
@@ -83,7 +136,7 @@ module Kernel
   # its self is a clone of main that the module extends.
   def load(name, wrap = false)
     feature = File.path(name)
-    path = Kernel.search(feature) || (Primitive.zr_path_kind(feature) == 2 && File.expand_path(feature))
+    path = Kernel.search(feature) || (Primitive.zr_path_kind(feature) == 2 && File.readable?(feature) && File.expand_path(feature))
     return Kernel.load_file(path, feature, 2) unless wrap
 
     Kernel.missing(feature, 2) unless path
@@ -126,16 +179,31 @@ module Kernel
     cut = lines.index("") || lines.size
     dirs = lines[0, cut] + $LOAD_PATH.map { |dir| File.path(dir) } + (lines[cut + 1..] || [])
     dirs.each do |dir|
-      path = found(File.expand_path(name, dir))
+      path = found_in(dir, name)
       return path if path
     end
     nil
   end
 
-  # `path`, when the program was compiled with that file or it is there.
+  # `name` under the directory `dir`, by the directory's real path as
+  # ruby stores it. A file compiled into the program under the path as
+  # written is found there too, so it never needs a compile at run time.
+  def self.found_in(dir, name)
+    Primitive.attr! :hidden
+    plain = File.expand_path(name, dir)
+    real = File.expand_path(name, load_dir(dir))
+    return real if Primitive.zr_unit_for(real)
+    return plain if Primitive.zr_unit_for(plain)
+
+    found(real)
+  end
+
+  # `path`, when the program was compiled with that file or it is there
+  # and readable. Ruby skips a file that it cannot read, as rb_find_file
+  # does, so a require of it is a LoadError.
   def self.found(path)
     Primitive.attr! :hidden
-    path if Primitive.zr_unit_for(path) || Primitive.zr_path_kind(path) == 2
+    path if Primitive.zr_unit_for(path) || (Primitive.zr_path_kind(path) == 2 && File.readable?(path))
   end
 
   # Whether ruby loaded `feature` before the program, by any of its names.
@@ -182,7 +250,9 @@ module Kernel
     # pending. This is the same check, done once, where both the name
     # and its resolved file are available.
     Primitive.zr_autoload_provided(feature, path) if kind != 2
-    return false if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, path)
+    # A file that a require is running now goes on to the kernel, which
+    # waits for that require as ruby does.
+    return false if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, path) && Primitive.zr_feature_loader(path).nil?
 
     Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
   end
@@ -199,10 +269,25 @@ module Kernel
       return builtin_extension(name) if row && name.start_with?("enc/")
 
       Primitive.zr_unloadable(row.split("\t", 2)[1] || "require of #{feature.inspect}") if row
+      # A C extension that is there but does not load: ruby's error is
+      # dlopen's, with no path.
+      native = native_file(feature)
+      raise LoadError, "#{native}: a C extension, which zr cannot load" if native
     end
     error = LoadError.new("cannot load such file -- #{feature}")
     error.instance_variable_set(:@path, feature)
     raise error
+  end
+
+  # The C extension file that a require of `feature` finds, or nil: the
+  # name with the native extension (for `.so` too, as ruby maps it).
+  def self.native_file(feature)
+    Primitive.attr! :hidden
+    dlext = ".#{RbConfig::CONFIG["DLEXT"]}"
+    ext = File.extname(feature)
+    return nil unless ext.empty? || ext == ".so" || ext == dlext
+
+    search(ext.empty? ? "#{feature}#{dlext}" : feature.delete_suffix(ext) + dlext)
   end
 
   # An encoding or transcoder extension of ruby's, which this runtime has
@@ -215,6 +300,24 @@ module Kernel
 
     $LOADED_FEATURES << path
     true
+  end
+
+  # A require of `path` while a require runs it. From the thread that
+  # runs it (`same`), it is a circular require: ruby warns under $VERBOSE,
+  # with the backtrace, and returns false. From another thread, it waits,
+  # asleep as ruby waits on the file's lock, and returns nil, so the
+  # kernel looks again.
+  def self.feature_busy(path, same)
+    Primitive.attr! :hidden
+    unless same
+      sleep 0.001
+      return nil
+    end
+    if $VERBOSE
+      Primitive.zr_warn_here_m("loading in progress, circular require considered harmful - #{path}")
+      caller(1).each { |line| $stderr.write("\tfrom #{line}\n") }
+    end
+    false
   end
 
   # A file that the program was not compiled with, compiled by the
