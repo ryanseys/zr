@@ -151,6 +151,7 @@ class Thread
     def seconds(limit)
       Primitive.attr! :hidden
       raise TypeError, +"no implicit conversion to float from string" if limit.is_a?(String)
+      raise TypeError, "no implicit conversion to float from #{limit}" if limit == true || limit == false
       raise TypeError, "can't convert #{limit.nil? ? 'nil' : limit.class} into Float" unless limit.is_a?(Numeric)
 
       # A NaN limit waits for nothing, as Queue#pop and Thread#join take it.
@@ -1340,6 +1341,10 @@ class Thread::ConditionVariable
   # The value that Mutex#sleep returns: the seconds slept, or nil on the timeout.
   def wait(mutex, timeout = nil)
     Primitive.attr! :ruby
+    # rb_condvar_wait sends sleep(timeout) to what it is given; a Mutex
+    # of the core is waited on here.
+    return mutex.__send__(:sleep, timeout) unless mutex.is_a?(Thread::Mutex)
+
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
     deadline = timeout.nil? ? nil : started + (Thread.send(:interval, timeout) * 1e9).to_i
     mutex.unlock
@@ -1401,8 +1406,9 @@ class Thread::Queue
 
     deadline = timeout.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, timeout) * 1e9).to_i
     while items.empty?
-      return nil if closed?
+      # queue_do_pop: a pop that may not wait fails before a closed queue's nil.
       raise ThreadError, +"queue empty" if non_block
+      return nil if closed?
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
       Thread.current.send(:wait_on, waiters, deadline, true)
@@ -1468,7 +1474,8 @@ end
 
 class Thread::SizedQueue < Thread::Queue
   def initialize(max)
-    raise ArgumentError, +"queue size must be positive" unless max.is_a?(Integer) && max > 0
+    max = Primitive.zr_index_operand_m(max)
+    raise ArgumentError, +"queue size must be positive" unless max > 0
 
     super()
     @max = max
@@ -1479,7 +1486,8 @@ class Thread::SizedQueue < Thread::Queue
   def max = @max || 0
 
   def max=(value)
-    raise ArgumentError, +"queue size must be positive" unless value.is_a?(Integer) && value > 0
+    value = Primitive.zr_index_operand_m(value)
+    raise ArgumentError, +"queue size must be positive" unless value > 0
 
     @max = value
     Thread.send(:rouse, pushers.dup)

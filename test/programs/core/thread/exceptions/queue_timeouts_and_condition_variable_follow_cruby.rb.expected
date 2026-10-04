@@ -1,0 +1,13 @@
+[TypeError, "no implicit conversion to float from true"]
+[TypeError, "no implicit conversion to float from false"]
+[TypeError, "no implicit conversion to float from true"]
+[ThreadError, "queue empty"]
+[ThreadError, "queue empty"]
+nil
+[TypeError, "no implicit conversion of Object into Integer"]
+1
+[TypeError, "no implicit conversion of String into Integer"]
+[:slept, 1234]
+[:slept, nil]
+:r
+:r
