@@ -129,6 +129,7 @@ class Module
   # computed one is required when the constant is first read.
   def autoload(name, feature)
     path = File.path(feature)
+    raise ArgumentError, +"empty feature name" if path.empty?
     Primitive.zr_autoload_computed(self, autoload_name(name), path, nil,
                                    Kernel.loaded_feature?(path), Kernel.feature_file(path))
   end
@@ -257,6 +258,7 @@ module Kernel
   # On the class where the call is, as rb_f_autoload registers.
   def autoload(name, feature)
     path = File.path(feature)
+    raise ArgumentError, +"empty feature name" if path.empty?
     Primitive.zr_autoload_computed(Kernel, Module.instance_method(:autoload_name).bind_call(Kernel, name), path,
                                    Primitive.zr_eval_cref, Kernel.loaded_feature?(path), Kernel.feature_file(path))
   end

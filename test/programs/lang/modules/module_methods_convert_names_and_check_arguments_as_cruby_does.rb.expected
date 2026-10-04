@@ -1,0 +1,29 @@
+[:nm, :nm=]
+[:nm, :nm=]
+[TypeError, "can't convert Object to String (Object#to_str gives Integer)"]
+[TypeError, "1 is not a symbol nor a string"]
+1
+1
+true
+5
+5
+true
+true
+:nm
+7
+[TypeError, "#<Object:X> is not a symbol nor a string"]
+[:a, :b, :c=, :d, :d=]
+[:e, :e=]
+[:f]
+[:e, :e=, :f]
+[ArgumentError, "empty feature name"]
+lang/modules/module_methods_convert_names_and_check_arguments_as_cruby_does.rb:52: warning: Skipping set of ruby2_keywords flag for kw (method accepts keywords or post arguments or method does not accept argument splat)
+nil
+lang/modules/module_methods_convert_names_and_check_arguments_as_cruby_does.rb:52: warning: Skipping set of ruby2_keywords flag for post (method accepts keywords or post arguments or method does not accept argument splat)
+nil
+lang/modules/module_methods_convert_names_and_check_arguments_as_cruby_does.rb:52: warning: Skipping set of ruby2_keywords flag for nosplat (method accepts keywords or post arguments or method does not accept argument splat)
+nil
+nil
+[NameError, "undefined method 'not_existing' for module '#<Module:X>'"]
+true
+[TypeError, "1 is not a symbol nor a string"]

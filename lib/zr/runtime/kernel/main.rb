@@ -295,6 +295,7 @@ module Zr::Kern
     zr_builtin(zr_global(G_MODULE), Machine.id(:attr_reader), Machine.addr(:zr_mod_attr_reader), 0 - 1)
     zr_builtin(zr_global(G_MODULE), Machine.id(:attr_writer), Machine.addr(:zr_mod_attr_writer), 0 - 1)
     zr_builtin(zr_global(G_MODULE), Machine.id(:attr_accessor), Machine.addr(:zr_mod_attr_accessor), 0 - 1)
+    zr_builtin(zr_global(G_MODULE), Machine.id(:attr), Machine.addr(:zr_mod_attr), 0 - 1)
     zr_builtin(zr_global(G_INTEGER), Machine.id(:to_s), Machine.addr(:zr_int_to_s), 0 - 1)
     zr_builtin(zr_global(G_INTEGER), Machine.id(:+), Machine.addr(:zr_int_plus), 1)
     zr_builtin(zr_global(G_INTEGER), Machine.id(:-), Machine.addr(:zr_int_minus), 1)

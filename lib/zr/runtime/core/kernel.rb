@@ -805,8 +805,18 @@ class << self
 end
 
 class Module
+  # rb_mod_ruby2_keywords: only a method that takes a rest and no post
+  # arguments or keywords is flagged; any other one warns.
   def ruby2_keywords(*names)
-    names.each { |name| Primitive.zr_ruby2_mark_m(self, name) }
+    names.each do |name|
+      kinds = instance_method(name).parameters.map(&:first)
+      rest = kinds.index(:rest)
+      if rest && kinds[(rest + 1)..].none?(:req) && (kinds & %i[key keyreq keyrest nokey]).empty?
+        Primitive.zr_ruby2_mark_m(self, name)
+      else
+        warn("Skipping set of ruby2_keywords flag for #{name} (method accepts keywords or post arguments or method does not accept argument splat)", uplevel: 0)
+      end
+    end
     nil
   end
   private :ruby2_keywords
@@ -917,8 +927,6 @@ module Kernel
 end
 
 class Module
-  alias attr attr_reader
-
   def set_temporary_name(name)
     if name.nil?
       Primitive.zr_mod_set_temporary_name(self, nil)

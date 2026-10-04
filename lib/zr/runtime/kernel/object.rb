@@ -1681,6 +1681,20 @@ module Zr::Kern
     zr_attr(recv, argc, argv, 3)
   end
 
+  # `attr`: attr_reader, but for the old form `attr name, true` (an
+  # accessor) or `attr name, false` (a reader), as rb_mod_attr reads it.
+  # Its warning is in the deprecated category, which is off by default.
+  #: (value, word, ptr, value, value) -> value
+  def zr_mod_attr(recv, argc, argv, cref, blk)
+    if argc == 2
+      flag = Machine.value(Machine.load64(argv, 8))
+      if flag == QTRUE || flag == QFALSE
+        return zr_attr(recv, 1, argv, flag == QTRUE ? 3 : 1)
+      end
+    end
+    zr_attr(recv, argc, argv, 1)
+  end
+
   # Continues `dig` into `v` with `rest`. CRuby's rb_obj_dig continues only
   # into an Array, Hash, Struct or an object with a public `dig`.
   #: (value, value) -> value

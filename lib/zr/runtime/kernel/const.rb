@@ -1322,6 +1322,10 @@ module Zr::Kern
 
   #: (value, word, value, ptr, value, word, value) -> value
   def zr_autoload(mod, id, feature, fn, cref, kind, path)
+    # rb_autoload_str: an empty feature name is an error.
+    if RString[feature].len == 0
+      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)
+    end
     # Kernel#autoload (from main, from Kernel, or from a method whose self
     # is not a module) declares on the lexical class, as rb_f_autoload
     # reads rb_vm_cbase. Module#autoload declares on its receiver.

@@ -6,6 +6,13 @@ module Zr::Kern
   # and writes the id to `out`.
   #: (value, ptr) -> value
   def zr_name_id(name, out)
+    # rb_check_id: any other object that has to_str converts through it,
+    # and a to_str that gives no String raises its own TypeError.
+    if !zr_special_p(name) && zr_type(name) != T_STRING && !zr_symbol_p(name) &&
+       zr_find_method(zr_class_of(name), Machine.id(:to_str)) != 0
+      name = zr_str_operand(name)
+      return name if name == QUNDEF
+    end
     if !zr_special_p(name) && zr_type(name) == T_STRING
       name = zr_sym(zr_intern(RString[name].ptr, RString[name].len))
     end
@@ -485,12 +492,14 @@ module Zr::Kern
   # table.
   #: (value, word, ptr, value, value) -> value
   def zr_mod_remove_method(recv, argc, argv, cref, blk)
-    r = zr_class_modify_check(recv)
-    return r if r == QUNDEF
     i = 0
     while i < argc
       slot = Machine.slot(8)
       r = zr_name_id(Machine.value(Machine.load64(argv + (i * 8), 0)), slot)
+      return r if r == QUNDEF
+      # rb_mod_remove_method: each name converts first, then the module is
+      # checked, so no name checks nothing.
+      r = zr_class_modify_check(recv)
       return r if r == QUNDEF
       mid = Machine.load64(slot, 0)
       klass = zr_origin(recv)
