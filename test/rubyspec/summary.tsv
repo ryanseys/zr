@@ -16,7 +16,7 @@ core/enumerator	81	447	415	0	0
 core/env	44	237	228	0	0
 core/exception	39	243	225	1	0
 core/false	9	13	13	0	0
-core/fiber	11	158	127	0	0
+core/fiber	11	158	154	0	0
 core/file	112	932	891	0	0
 core/filetest	24	90	89	0	0
 core/float	50	325	322	0	0
@@ -24,7 +24,7 @@ core/gc	17	32	32	0	0
 core/hash	69	620	605	0	0
 core/integer	67	599	584	0	0
 core/io	94	1519	1331	0	0
-core/kernel	117	2731	2623	0	0
+core/kernel	117	2731	2624	0	0
 core/main	7	27	26	0	0
 core/marshal	6	617	557	0	0
 core/matchdata	29	185	184	0	0
@@ -50,7 +50,7 @@ core/string	139	3641	3519	0	0
 core/struct	30	180	174	0	0
 core/symbol	29	323	317	0	0
 core/systemexit	2	6	6	0	0
-core/thread	53	373	278	0	0
+core/thread	53	373	324	0	0
 core/threadgroup	5	8	8	0	0
 core/time	66	777	708	0	0
 core/tracepoint	19	75	65	0	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	24815	1	0
+total	2174	26314	24889	1	0

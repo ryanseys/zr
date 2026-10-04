@@ -1,6 +1,2 @@
 hangs:Thread#[]= raises a FrozenError if the thread is frozen
-fails:Thread#[]= accepts Strings and Symbols
 fails:Thread#[]= converts a key that is neither String nor Symbol with #to_str
-fails:Thread#[]= raises exceptions on the wrong type of keys
-fails:Thread#[]= is not shared across fibers
-fails:Thread#[]= stores a local in another thread when in a fiber

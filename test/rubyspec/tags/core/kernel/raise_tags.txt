@@ -1,2 +1,1 @@
 fails:Kernel#raise re-raises a previously rescued exception without overwriting the cause when it's explicitly specified with :cause option and has nil value
-fails:Kernel#raise allows Exception, message, and backtrace_locations parameters
