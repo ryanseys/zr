@@ -10,6 +10,12 @@ module Marshal
   def dump(obj, io = nil, limit = -1)
     io, limit = nil, io if io.is_a?(Integer)
     limit = -1 if limit.nil?
+    # marshal_dump: a port must write, and is put in binmode first.
+    unless io.nil?
+      raise TypeError, +"instance of IO needed" unless io.respond_to?(:write)
+
+      io.binmode if io.respond_to?(:binmode)
+    end
     out = Writer.new(limit).run(obj)
     return out if io.nil?
 
@@ -147,14 +153,14 @@ module Marshal
     end
 
     def refuse(obj)
-      raise TypeError, "can't dump #{obj.class}" if obj.is_a?(IO)
-      return unless obj.class.ancestors.any? { |kind| Primitive.zr_table_member_p(UNDUMPABLE, MODULE_NAME.bind_call(kind)) }
+      raise TypeError, "can't dump #{Primitive.zr_real_class(obj)}" if IO === obj
+      return unless Primitive.zr_real_class(obj).ancestors.any? { |kind| Primitive.zr_table_member_p(UNDUMPABLE, MODULE_NAME.bind_call(kind)) }
 
-      raise TypeError, "no _dump_data is defined for class #{obj.class}"
+      raise TypeError, "no _dump_data is defined for class #{Primitive.zr_real_class(obj)}"
     end
 
     def body(obj, limit)
-      return set(obj, limit) if obj.is_a?(Set)
+      return set(obj, limit) if Set === obj
 
       ivars = ivars_of(obj)
       wrapped = !ivars.empty? && !plain_object?(obj)
@@ -169,10 +175,10 @@ module Marshal
       when Regexp then uclass(obj, Regexp) << "/" << bytes(obj.source) << (obj.options & 0xff).chr
       when Array then array(obj, limit)
       when Hash then hash(obj, limit)
-      when Range then object_body(class_path(obj.class), range_parts(obj), limit)
-      when Exception then object_body(class_path(obj.class), exception_parts(obj), limit)
+      when Range then object_body(class_path(Primitive.zr_real_class(obj)), range_parts(obj), limit)
+      when Exception then object_body(class_path(Primitive.zr_real_class(obj)), exception_parts(obj), limit)
       when Struct, Data then struct(obj, limit)
-      else object_body(class_path(obj.class), ivars, limit)
+      else object_body(class_path(Primitive.zr_real_class(obj)), ivars, limit)
       end
       write_ivars(ivars, limit) if wrapped
     end
@@ -184,7 +190,7 @@ module Marshal
       ivars = ivars_of(obj)
       @out << "I" unless ivars.empty?
       extended(obj)
-      object_body(class_path(obj.class), [[:@hash, obj.send(:marshal_hash)]], limit)
+      object_body(class_path(Primitive.zr_real_class(obj)), [[:@hash, obj.send(:marshal_hash)]], limit)
       write_ivars(ivars, limit) unless ivars.empty?
     end
 
@@ -214,9 +220,9 @@ module Marshal
     # and value. A Data value has no `[]`, so its values come as it keeps
     # them.
     def struct(obj, limit)
-      members = obj.class.members
-      values = obj.is_a?(Data) ? obj.send(:values_store) : members.map { |name| obj[name] }
-      @out << "S" << symbol_bytes(class_path(obj.class).to_sym) << long(members.size)
+      members = Primitive.zr_real_class(obj).members
+      values = Data === obj ? obj.send(:values_store) : members.map { |name| obj[name] }
+      @out << "S" << symbol_bytes(class_path(Primitive.zr_real_class(obj)).to_sym) << long(members.size)
       members.each_index do |i|
         @out << symbol_bytes(members[i])
         write(values[i], limit)
@@ -246,7 +252,7 @@ module Marshal
 
     # `C` gives the subclass of a String, Array, Hash or Regexp.
     def uclass(obj, base)
-      @out << "C" << symbol_bytes(class_path(obj.class).to_sym) if obj.class != base
+      @out << "C" << symbol_bytes(class_path(Primitive.zr_real_class(obj)).to_sym) if Primitive.zr_real_class(obj) != base
       @out
     end
 
@@ -256,13 +262,15 @@ module Marshal
     # class itself includes. An object with no singleton class has none,
     # and the walk does not make one.
     def extended(obj)
-      return if obj.is_a?(Numeric) || obj.is_a?(Module)
+      return if Numeric === obj || Module === obj
 
       own = Primitive.zr_class_of(obj)
       return unless own.singleton_class?
-      raise TypeError, "singleton can't be dumped" unless (own.instance_methods(false) + own.private_instance_methods(false)).empty?
+      # w_extended: a singleton class with methods or instance variables
+      # of its own has no form on the wire.
+      raise TypeError, "singleton can't be dumped" unless (own.instance_methods(false) + own.private_instance_methods(false)).empty? && own.instance_variables.empty?
 
-      held = obj.class.ancestors
+      held = Primitive.zr_real_class(obj).ancestors
       own.ancestors.drop(1).take_while { |mod| !held.include?(mod) }.each do |mod|
         next unless mod.instance_of?(Module)
         # A module with no name cannot be named on the wire, and w_extended
@@ -277,7 +285,7 @@ module Marshal
     def user_marshal(obj, limit)
       remember(obj)
       value = obj.send(:marshal_dump)
-      @out << "U" << symbol_bytes(class_path(obj.class).to_sym)
+      @out << "U" << symbol_bytes(class_path(Primitive.zr_real_class(obj)).to_sym)
       write(value, limit)
     end
 
@@ -286,7 +294,7 @@ module Marshal
       raise TypeError, +"_dump() must return string" unless text.is_a?(String)
       ivars = ivars_of(text) + Marshal.send(:extras_of, text)
       @out << "I" unless ivars.empty?
-      @out << "u" << symbol_bytes(class_path(obj.class).to_sym) << bytes(text)
+      @out << "u" << symbol_bytes(class_path(Primitive.zr_real_class(obj)).to_sym) << bytes(text)
       write_ivars(ivars, limit) unless ivars.empty?
       remember(obj)
     end
@@ -302,14 +310,14 @@ module Marshal
     def ivars_of(obj)
       # A class or module is written by its name alone, with the name's
       # encoding when it is not ASCII.
-      if obj.is_a?(Module)
+      if Module === obj
         path = class_path(obj)
         return path.ascii_only? ? [] : encoding_ivar(path.encoding)
       end
 
       names = obj.respond_to?(:instance_variables) ? obj.instance_variables : []
       parts = names.map { |name| [name, obj.instance_variable_get(name)] }
-      obj.is_a?(String) || obj.is_a?(Regexp) ? encoding_ivar(obj.encoding) + parts : parts
+      String === obj || Regexp === obj ? encoding_ivar(obj.encoding) + parts : parts
     end
 
     # An encoding writes only its name, and the name takes a link slot of
@@ -343,10 +351,10 @@ module Marshal
     # A Range and a plain object write their parts as the object body, so
     # the wrapper must not write them twice.
     def plain_object?(obj)
-      return false if obj.is_a?(Class) || obj.is_a?(Module) || obj.is_a?(Struct) || obj.is_a?(Data)
+      return false if Class === obj || Module === obj || Struct === obj || Data === obj
 
-      obj.is_a?(Range) || !(obj.is_a?(String) || obj.is_a?(Regexp) || obj.is_a?(Array) ||
-                            obj.is_a?(Hash) || obj.is_a?(Float) || obj.is_a?(Integer))
+      Range === obj || !(String === obj || Regexp === obj || Array === obj ||
+                            Hash === obj || Float === obj || Integer === obj)
     end
 
     def class_path(mod)
@@ -373,7 +381,15 @@ module Marshal
       # A binary name has no encoding to write, as w_symbol has it.
       return +":".b << bytes(text) if text.ascii_only? || text.encoding == Encoding::BINARY
 
-      +"I".b << ":" << bytes(text) << long(1) << symbol_bytes(:E) << (text.encoding == Encoding::UTF_8 ? "T" : "F")
+      if text.encoding == Encoding::UTF_8 || text.encoding == Encoding::US_ASCII
+        return +"I".b << ":" << bytes(text) << long(1) << symbol_bytes(:E) << (text.encoding == Encoding::UTF_8 ? "T" : "F")
+      end
+
+      # w_encoding: any other encoding is named by a String, which takes an
+      # object's place in the links.
+      head = +"I".b << ":" << bytes(text) << long(1) << symbol_bytes(:encoding)
+      @count += 1
+      head << "\"" << bytes(text.encoding.name.b)
     end
 
     # Ruby keeps `i` for what fits in four bytes and writes every wider
@@ -785,6 +801,11 @@ module Marshal
       tag = byte
       return @symbols.fetch(long) if tag == SYMLINK
       return new_symbol(text) if tag == SYMBOL
+      # r_symbol: an encoded name comes with its ivars.
+      need(1) if tag == IVARS
+      if tag == IVARS && @bytes.getbyte(@pos) == SYMBOL
+        return encoded_symbol
+      end
 
       raise ArgumentError, "dump format error for symbol(0x#{tag.to_s(16)})"
     end

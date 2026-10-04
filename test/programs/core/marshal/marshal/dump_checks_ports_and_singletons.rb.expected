@@ -1,0 +1,7 @@
+2: TypeError: singleton can't be dumped
+3: TypeError: singleton can't be dumped
+4: 14
+5: TypeError: instance of IO needed
+binmode
+6: :ok
+7: [:@é]
