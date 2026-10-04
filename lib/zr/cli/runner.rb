@@ -46,8 +46,9 @@ module Zr
 
         # A status with no exit code is signaled, and has a signal number.
         signo = status.termsig #: Integer
+        # SIGKILL and SIGSTOP keep their default action, and trap refuses them.
         begin
-          Signal.trap(signo, "SYSTEM_DEFAULT")
+          Signal.trap(signo, "SYSTEM_DEFAULT") unless [Signal.list["KILL"], Signal.list["STOP"]].include?(signo)
         rescue ArgumentError
           # ruby keeps SIGSEGV, SIGBUS, SIGILL, SIGFPE and SIGVTALRM for
           # itself, and its own handler would print a ruby bug report. The

@@ -254,6 +254,14 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-F:", "-ane", "p $F, [$-a, $-l, $-p]", stdin: "a:b\n")
   end
 
+  def test_a_program_that_kills_itself_dies_of_the_signal
+    in_dir do |dir|
+      _, err, status = Open3.capture3(ENV_OF_BOTH, EXE, "-e", "Process.kill(:KILL, $$); sleep 1", chdir: dir)
+
+      assert_equal ["", Signal.list["KILL"]], [err, status.termsig]
+    end
+  end
+
   def test_the_loop_switches_define_chomp_chop_sub_and_gsub_on_the_last_line
     same_as_ruby("-n", "-e", "chomp; chop; sub(/b/, 'X'); gsub(/c/) { 'Y' }; p $_", stdin: "abc1\nbcd2\n")
     same_as_ruby("-n", "-e", "p Kernel.private_method_defined?(:chomp)", stdin: "\n")
