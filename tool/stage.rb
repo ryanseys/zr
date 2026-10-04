@@ -29,14 +29,18 @@ module Zr
 
       ZR = Dev.path("exe/zr")
 
-      # Prints `what`, runs the block, then prints the time it took, so that
-      # a long step does not look like a hung one.
+      # Each build prints a line to stderr as each of its phases ends
+      # (`Zr::Timing`), so a long self-compile shows where it is.
+      BUILD_ENV = { "ZR_TIMING" => "1", "RUBYOPT" => nil, "RUBYLIB" => nil }.freeze
+
+      # Prints `what`, runs the block, then prints the time it took. The
+      # build's phase lines come between the two.
       def step(what)
         $stdout.sync = true
-        print "#{what} ... "
+        puts "#{what} ..."
         began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         result = yield
-        puts format("%.1fs", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
+        puts format("#{what}: %.1fs", Process.clock_gettime(Process::CLOCK_MONOTONIC) - began)
         result
       end
 
@@ -54,7 +58,7 @@ module Zr
         cache = File.join(work, "cache")
         FileUtils.mkdir_p(cache)
         out = File.join(work, "zr.o")
-        env = { "ZR_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil }
+        env = BUILD_ENV.merge("ZR_CACHE" => cache)
         step("self-compile -> #{out}") do
           system(env, Dev.ruby, ZR, "build", ZR, "-o", out, "--emit", "obj", chdir: ROOT) or
             fail!("the self-compile failed; its work is in #{work}")
@@ -88,7 +92,7 @@ module Zr
           FileUtils.mkdir_p(File.join(dir, "cache"))
           File.join(dir, "zr")
         end
-        caches = stages.map { |path| { "ZR_CACHE" => File.join(File.dirname(path), "cache") } }
+        caches = stages.map { |path| BUILD_ENV.merge("ZR_CACHE" => File.join(File.dirname(path), "cache")) }
 
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         step("stage 1: ruby compiles the compiler -> #{stages[0]}") do
