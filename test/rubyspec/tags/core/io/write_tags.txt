@@ -1,8 +1,1 @@
-fails:IO#write on a file does not check if the file is writable if writing zero bytes
-fails:IO.write uses an :open_args option
-fails:IO.write disregards other options if :open_args is given
-fails:IO.write requires mode to be specified in :open_args
-fails:IO.write requires mode to be specified in :open_args even if flags option passed
-fails:IO#write writes to the current position after IO#read
-fails:IO#write advances the file position by the count of given bytes
 fails:IO#write on STDOUT raises SignalException SIGPIPE if the stream is closed instead of Errno::EPIPE like other IOs

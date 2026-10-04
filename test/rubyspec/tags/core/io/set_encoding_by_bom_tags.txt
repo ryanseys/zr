@@ -1,1 +1,0 @@
-fails:IO#set_encoding_by_bom returns nil if not readable

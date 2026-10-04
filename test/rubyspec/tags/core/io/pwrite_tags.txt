@@ -1,3 +1,0 @@
-fails:IO#pwrite does not advance the pointer in the file
-fails:IO#pwrite calls #to_int on the offset
-fails:IO#pwrite raises a TypeError if the offset cannot be converted to an Integer

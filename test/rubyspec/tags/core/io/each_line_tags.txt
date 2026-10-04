@@ -1,1 +1,0 @@
-fails:IO#each_line with limit does not accept Integers that don't fit in a C off_t

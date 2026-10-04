@@ -1,6 +1,0 @@
-fails:IO#internal_encoding with 'r' mode when Encoding.default_internal != Encoding.default_external returns nil when Encoding.default_external is BINARY and the internal encoding is not set
-fails:IO#internal_encoding with 'r+' mode when Encoding.default_internal != Encoding.default_external returns nil when Encoding.default_external is BINARY and the internal encoding is not set
-fails:IO#internal_encoding with 'w' mode when Encoding.default_internal != Encoding.default_external returns nil when Encoding.default_external is BINARY and the internal encoding is not set
-fails:IO#internal_encoding with 'w+' mode when Encoding.default_internal != Encoding.default_external returns nil when Encoding.default_external is BINARY and the internal encoding is not set
-fails:IO#internal_encoding with 'a' mode when Encoding.default_internal != Encoding.default_external returns nil when Encoding.default_external is BINARY and the internal encoding is not set
-fails:IO#internal_encoding with 'a+' mode when Encoding.default_internal != Encoding.default_external returns nil when Encoding.default_external is BINARY and the internal encoding is not set

@@ -1,5 +1,0 @@
-fails:IO.read disregards other options if :open_args is given
-fails:IO.read doesn't require mode to be specified in :open_args
-fails:IO.read doesn't require mode to be specified in :open_args even if flags option passed
-fails:IO.read raises an ArgumentError when not passed a valid offset
-fails:IO#read coerces the second argument to string and uses it as a buffer

@@ -1,1 +1,0 @@
-fails:IO::Buffer#free with a slice of a buffer nullifies buffer, invalidating the slice

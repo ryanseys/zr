@@ -1,2 +1,0 @@
-fails:IO::Buffer#readonly? with a String-backed buffer created with .for is true for a buffer created with a block from a frozen string
-fails:IO::Buffer#readonly? with a slice of a buffer created with .for is true when slicing a buffer created with a block from a frozen string

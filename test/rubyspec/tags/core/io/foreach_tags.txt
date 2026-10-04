@@ -1,3 +1,0 @@
-fails:IO.foreach sets $_ to nil
-fails:IO.foreach when passed name, object when the object is an Integer does not accept Integers that don't fit in a C off_t
-fails:IO.foreach when passed name, object, keyword arguments when the first object is not a String or Integer uses the keyword arguments as options
