@@ -978,9 +978,9 @@ module Enumerable
   # rb_reg_match_p, which leaves $~ as it was.
   def grep(pattern)
     out = []
-    quiet = !block_given? && pattern.is_a?(Regexp)
+    quiet = !block_given? && Regexp === pattern
     Primitive.zr_enum_each(self, nil) do |x|
-      if quiet && (x.is_a?(String) || x.is_a?(Symbol)) ? pattern.match?(x) : pattern === x
+      if quiet ? grep_quiet_match?(pattern, x) : pattern === x
         out << (block_given? ? yield(x) : x)
       end
       nil
@@ -990,15 +990,24 @@ module Enumerable
 
   def grep_v(pattern)
     out = []
-    quiet = !block_given? && pattern.is_a?(Regexp)
+    quiet = !block_given? && Regexp === pattern
     Primitive.zr_enum_each(self, nil) do |x|
-      unless quiet && (x.is_a?(String) || x.is_a?(Symbol)) ? pattern.match?(x) : pattern === x
+      unless quiet ? grep_quiet_match?(pattern, x) : pattern === x
         out << (block_given? ? yield(x) : x)
       end
       nil
     end
     out
   end
+
+  # grep_regexp_i: a Symbol or what to_str makes of the element, matched
+  # without touching `$~`; anything else does not match.
+  def grep_quiet_match?(pattern, x)
+    Primitive.attr! :hidden
+    text = Symbol === x ? x.to_s : String.try_convert(x)
+    !text.nil? && pattern.match?(text)
+  end
+  private :grep_quiet_match?
 
   # The slicing methods stream: each returns an enumerator that reads
   # its source as it runs, so an endless source still gives its first
@@ -1024,7 +1033,8 @@ module Enumerable
     Enumerator.new do |y|
       slice = nil
       Primitive.zr_enum_each(source, nil) do |x|
-        if slice.nil? || test.call(x)
+        # slicebefore_ii asks about every element, the first one too.
+        if test.call(x) || slice.nil?
           y << slice if slice
           slice = [x]
         else

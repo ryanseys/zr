@@ -878,6 +878,9 @@ module Zr::Kern
       if r == QNIL || r == QFALSE
         return Machine.value(QFALSE)
       end
+      # The program said yes: the call goes ahead, to method_missing if
+      # no method answers, as check_funcall_respond_to lets it.
+      return Machine.value(QTRUE)
     end
     if zr_find_method(klass, mid) != 0
       return Machine.value(QTRUE)
@@ -892,6 +895,46 @@ module Zr::Kern
     r = zr_send(v, Machine.id(:respond_to_missing?), 2, argv)
     return r if r == QUNDEF
     zr_bool(r != QNIL && r != QFALSE)
+  end
+
+  # rb_check_funcall for an implicit conversion (`to_str`, `to_int`):
+  # true with the result at `out`, false when `v` does not convert, or
+  # undef for a raise. A program's respond_to? or method_missing answers,
+  # as in ruby; a method_missing that raises NoMethodError converts nothing.
+  #: (value, word, ptr) -> value
+  def zr_convert_call(v, mid, out)
+    klass = zr_class_of(v)
+    found = zr_find_method(klass, mid) != 0
+    unless found
+      asks = zr_find_method(klass, Machine.id(:respond_to?))
+      missing = zr_find_method(klass, Machine.id(:method_missing))
+      # The core's own methods alone: nothing to ask, as before.
+      if (asks == 0 || MEntry[asks].core != 0) && (missing == 0 || MEntry[missing].core != 0)
+        return Machine.value(QFALSE)
+      end
+      responds = zr_check_funcall(v, mid)
+      return responds if responds == QUNDEF
+      if responds != QTRUE
+        answers = zr_find_method(klass, Machine.id(:respond_to_missing?))
+        if (answers != 0 && MEntry[answers].core == 0) || (asks != 0 && MEntry[asks].core == 0)
+          return Machine.value(QFALSE)
+        end
+      end
+      if missing == 0 || MEntry[missing].core != 0
+        return Machine.value(QFALSE)
+      end
+    end
+    r = zr_send(v, mid, 0, 0)
+    if r == QUNDEF
+      exc = zr_rescuable()
+      if !found && exc != QUNDEF && zr_is_a(exc, zr_global(G_NO_METHOD_ERROR))
+        Task[zr_task()].pending = Machine.value(QNIL)
+        return Machine.value(QFALSE)
+      end
+      return r
+    end
+    Machine.store64(out, 0, Machine.word(r))
+    Machine.value(QTRUE)
   end
 
   # rb_check_funcall with no arguments: the result of `name`, or nil when

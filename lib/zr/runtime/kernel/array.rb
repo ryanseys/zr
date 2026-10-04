@@ -467,9 +467,12 @@ module Zr::Kern
   # Integer that its to_int returns, else CRuby's TypeError.
   #: (value) -> value
   def zr_to_int(v)
-    if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
-      r = zr_send(v, Machine.id(:to_int), 0, 0)
-      return r if r == QUNDEF || zr_fixnum_p(r) || zr_big_p(r)
+    out = Machine.slot(8)
+    converted = zr_special_p(v) ? Machine.value(QFALSE) : zr_convert_call(v, Machine.id(:to_int), out)
+    return converted if converted == QUNDEF
+    if converted == QTRUE
+      r = Machine.value(Machine.load64(out, 0))
+      return r if zr_fixnum_p(r) || zr_big_p(r)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("can't convert "), 14)

@@ -3049,8 +3049,10 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  # Appends each holder that `mod` refines to `list`. `Module#refinements`
-  # returns them, so a module written in Ruby also works.
+  # Appends each holder that `mod` and the modules it includes refine to
+  # `list`, an included module's first, as using_module_recursive walks
+  # the ancestors. `Module#refinements` returns them, so a module written
+  # in Ruby also works.
   #: (value, value) -> value
   def zr_using_holders(list, mod)
     if zr_special_p(mod) || zr_type(mod) != T_MODULE
@@ -3061,9 +3063,16 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
-    found = zr_send(mod, Machine.id(:refinements), 0, 0)
-    return found if found == QUNDEF
-    zr_ary_splat(list, found)
+    ancestors = zr_send(mod, Machine.id(:ancestors), 0, 0)
+    return ancestors if ancestors == QUNDEF
+    i = RArray[ancestors].len - 1
+    while i >= 0
+      found = zr_send(zr_ary_at(ancestors, i), Machine.id(:refinements), 0, 0)
+      return found if found == QUNDEF
+      zr_ary_splat(list, found)
+      i -= 1
+    end
+    list
   end
 
   # The class that an activation entry's element refines, or nil for

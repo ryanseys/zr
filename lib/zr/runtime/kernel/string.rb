@@ -247,9 +247,11 @@ module Zr::Kern
   #: (value) -> value
   def zr_str_operand(v)
     if zr_special_p(v) || zr_type(v) != T_STRING
-      if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_str)) != 0
-        s = zr_send(v, Machine.id(:to_str), 0, 0)
-        return s if s == QUNDEF
+      out = Machine.slot(8)
+      converted = zr_special_p(v) ? Machine.value(QFALSE) : zr_convert_call(v, Machine.id(:to_str), out)
+      return converted if converted == QUNDEF
+      if converted == QTRUE
+        s = Machine.value(Machine.load64(out, 0))
         if !zr_special_p(s) && zr_type(s) == T_STRING
           return s
         end
