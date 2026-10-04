@@ -1,0 +1,26 @@
+""
+"keep"
+"ob"
+"foo"
+[TypeError, "no implicit conversion of Object into Integer"]
+[TypeError, "no implicit conversion of Object into Integer"]
+[ArgumentError, "negative string size (or size too big)"]
+[Errno::EINVAL, "Invalid argument"]
+[EOFError, "end of file reached"]
+[TypeError, "no implicit conversion of Object into String"]
+[IOError, "not opened for reading"]
+[IOError, "closed stream"]
+["a", "\n", "b\n", "c", "\n", "\n"]
+[["x", "\n"], ["y", "\n"]]
+[["BOM|UTF-8"], #<Encoding:UTF-8>, nil, nil, nil]
+[["UTF-8:ISO-8859-1"], #<Encoding:UTF-8>, #<Encoding:ISO-8859-1>, nil, nil]
+[["BOM|UTF-8:ISO-8859-1"], #<Encoding:UTF-8>, #<Encoding:ISO-8859-1>, nil, nil]
+[["UTF-8", "UTF-16BE"], #<Encoding:UTF-8>, #<Encoding:UTF-16BE>, nil, nil]
+[[#<Encoding:UTF-8>], #<Encoding:UTF-8>, nil, nil, nil]
+#<Encoding:UTF-8>
+SubIO
+SubIO
+2
+[239, 187, 191, 104, 105]
+#<Encoding:UTF-8>
+[104, 105]

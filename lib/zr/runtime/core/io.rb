@@ -37,7 +37,9 @@ class IO
   # Both ends are instances of the class it is called on, as rb_io_s_pipe
   # makes them.
   def self.pipe(external = nil, internal = nil, **options)
-    reader, writer = pipe_ends.map.with_index { |fd, i| new(fd, i.zero? ? +"r" : +"w") }
+    # rb_class_new_instance: the class allocates and its initialize runs; a
+    # `new` that the program wrote is not called.
+    reader, writer = pipe_ends.map.with_index { |fd, i| allocate.tap { |io| io.send(:initialize, fd, i.zero? ? +"r" : +"w") } }
     binmode = options.delete(:binmode)
     reader.set_encoding(external, internal, **options) if external
     [reader, writer].each(&:binmode) if binmode
@@ -1091,7 +1093,16 @@ class IO
   # `pread` and `pwrite` leave the descriptor's own offset alone.
   # pread(2) and pwrite(2) name a file position and leave the stream's
   # own where it was, buffer included.
+  # rb_io_pread: the arguments convert first, and a length of 0 returns
+  # the buffer as it is, or an empty String, before the IO is checked.
   def pread(length, offset, buffer = nil)
+    length = Primitive.zr_index_operand_m(length)
+    offset = Primitive.zr_index_operand_m(offset)
+    raise ArgumentError, +"negative string size (or size too big)" if length.negative?
+
+    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
+    return buffer || +"".b if length.zero?
+
     check_readable
     IO.send(:room_for!, length)
     text = if (scheduler = IO.send(:scheduler_taking, :io_pread))
@@ -1154,7 +1165,6 @@ class IO
   # an encoding given alone must exist.
   def set_encoding(external, internal = (one = true; nil), **options)
     check_open
-    bom = false
     if !one && !internal.nil?
       from = IO.send(:found_encoding, external)
       to = String.try_convert(internal) == +"-" ? from : IO.send(:found_encoding, internal)
@@ -1168,7 +1178,7 @@ class IO
     elsif external.nil?
       internal = nil
     elsif (text = String.try_convert(external)) && text.encoding.ascii_compatible?
-      external, internal, bom = IO.send(:mode_encodings, text)
+      external, internal, = IO.send(:mode_encodings, text)
     else
       external = IO.send(:found_encoding, external)
       internal = nil
@@ -1181,7 +1191,8 @@ class IO
     converting(conversion)
     # What is already buffered reads as the new encoding too.
     @buffer.force_encoding(read_encoding)
-    strip_bom if bom && @readable
+    # Only an open mode reads a BOM: set_encoding takes `bom|` off the name
+    # and reads nothing, as io_encoding_set does.
     self
   end
 
@@ -1267,6 +1278,12 @@ class IO
   # One String is the common call: its bytes, then a newline unless it
   # ends in one, with no line walk between.
   def puts(*objects)
+    # A `write` that the program wrote gets every piece, as CRuby's
+    # rb_io_writev sends it; the core's own writes the bytes here.
+    unless Primitive.zr_basic_method_m(self, :write)
+      IO.each_line_of(objects) { |*parts| IO.writev(self, parts) }
+      return nil
+    end
     if Primitive.zr_ary_len_m(objects) == 1 && (text = Primitive.zr_ary_at_m(objects, 0)).is_a?(String)
       check_writable
       write_bytes(converted(text))
@@ -1274,6 +1291,18 @@ class IO
       return nil
     end
     IO.each_line_of(objects) { |*parts| write(*parts) }
+    nil
+  end
+
+  # rb_io_writev: the pieces in one `write`, or one `write` each when the
+  # method takes one argument (with a deprecation warning under
+  # $VERBOSE, except for $stderr).
+  def self.writev(out, parts)
+    Primitive.attr! :hidden
+    return out.write(*parts) unless parts.size > 1 && out.method(:write).arity == 1
+
+    warn("#{out.class.inspect}#write is outdated interface which accepts just one argument", category: :deprecated) if $VERBOSE && !out.equal?($stderr)
+    parts.each { |part| out.write(part) }
     nil
   end
 
@@ -2439,7 +2468,7 @@ module Kernel
     out = $stdout
     return out.puts(*objects) if out.is_a?(IO)
 
-    IO.send(:each_line_of, objects) { |*parts| out.write(*parts) }
+    IO.send(:each_line_of, objects) { |*parts| IO.send(:writev, out, parts) }
     nil
   end
 
