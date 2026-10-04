@@ -511,7 +511,7 @@ class Time
   def zone
     case kind
     when :utc then (+"UTC").force_encoding(Encoding::US_ASCII)
-    when :local then local_zone
+    else local_zone
     end
   end
 
@@ -995,6 +995,8 @@ class Time
            ((moment.month - 1) << 10) | (moment.day << 5) | moment.hour
     second = (moment.min << 26) | (moment.sec << 20) | (whole / 1000)
     out = +"".b
+    # rb_copy_generic_ivar: the Time's own ivars go on the payload first.
+    instance_variables.each { |name| out.instance_variable_set(name, instance_variable_get(name)) }
     4.times { |i| out << ((word >> (8 * i)) & 0xff) }
     4.times { |i| out << ((second >> (8 * i)) & 0xff) }
     out << year_tail(tail) if tail
@@ -1064,9 +1066,13 @@ class Time
     nano = (nano * 1000) + sub_nanoseconds(extras)
     moment = utc(year, month + 1, (word >> 5) & 0x1f, word & 0x1f, (second >> 26) & 0x3f,
                  ((second >> 20) & 0x3f) + Rational(nano, NS))
-    return moment if ((word >> 30) & 1) == 1
-
-    moment.localtime(extras[:offset] || zone_at(moment.to_i).first)
+    unless ((word >> 30) & 1) == 1
+      moment.localtime(extras[:offset] || zone_at(moment.to_i).first)
+      # The zone name that was dumped stays, as time_mload sets it.
+      Primitive.zr_hidden_set(moment, :__zone__, (+extras[:zone].to_s).force_encoding(Encoding::US_ASCII)) if extras[:zone]
+    end
+    text.instance_variables.each { |name| moment.instance_variable_set(name, text.instance_variable_get(name)) }
+    moment
   end
 
   private_class_method :_load

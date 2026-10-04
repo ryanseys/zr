@@ -43,6 +43,14 @@ module Marshal
                   Thread Thread::Mutex Thread::Queue Thread::SizedQueue Thread::ConditionVariable].freeze
   private_constant :UNDUMPABLE
 
+  # Module#name, as CRuby's class2path reads a class's name: a `name`
+  # that the program wrote for a class does not change what is dumped.
+  MODULE_NAME = Module.instance_method(:name)
+  private_constant :MODULE_NAME
+
+  FREEZE = Kernel.instance_method(:freeze)
+  private_constant :FREEZE
+
   # The packed integer: one byte for a small number, else a length byte
   # and the bytes of the number, least significant first. A `_dump` that
   # writes a count of its own uses the same spelling.
@@ -140,7 +148,7 @@ module Marshal
 
     def refuse(obj)
       raise TypeError, "can't dump #{obj.class}" if obj.is_a?(IO)
-      return unless obj.class.ancestors.any? { |kind| Primitive.zr_table_member_p(UNDUMPABLE, kind.name) }
+      return unless obj.class.ancestors.any? { |kind| Primitive.zr_table_member_p(UNDUMPABLE, MODULE_NAME.bind_call(kind)) }
 
       raise TypeError, "no _dump_data is defined for class #{obj.class}"
     end
@@ -161,7 +169,7 @@ module Marshal
       when Regexp then uclass(obj, Regexp) << "/" << bytes(obj.source) << (obj.options & 0xff).chr
       when Array then array(obj, limit)
       when Hash then hash(obj, limit)
-      when Range then object_body("Range", range_parts(obj), limit)
+      when Range then object_body(class_path(obj.class), range_parts(obj), limit)
       when Exception then object_body(class_path(obj.class), exception_parts(obj), limit)
       when Struct, Data then struct(obj, limit)
       else object_body(class_path(obj.class), ivars, limit)
@@ -189,6 +197,7 @@ module Marshal
     # to its instance variables, under names of its own.
     def exception_parts(exception)
       parts = [[:mesg, Primitive.zr_exc_raw_message(exception)], [:bt, exception.backtrace]]
+      parts << [:cause, exception.cause] if Primitive.zr_exc_cause_set_p(exception)
       parts << [:errno, exception.errno] if exception.is_a?(SystemCallError)
       parts + exception.instance_variables.map { |name| [name, exception.instance_variable_get(name)] }
     end
@@ -258,9 +267,10 @@ module Marshal
         next unless mod.instance_of?(Module)
         # A module with no name cannot be named on the wire, and w_extended
         # says "class" wherever it says this.
-        raise TypeError, "can't dump anonymous class #{mod.inspect}" if mod.name.nil?
+        name = MODULE_NAME.bind_call(mod)
+        raise TypeError, "can't dump anonymous class #{mod.inspect}" if name.nil?
 
-        @out << "e" << symbol_bytes(mod.name.to_sym)
+        @out << "e" << symbol_bytes(name.to_sym)
       end
     end
 
@@ -273,6 +283,7 @@ module Marshal
 
     def user_dump(obj, limit)
       text = obj.send(:_dump, limit)
+      raise TypeError, +"_dump() must return string" unless text.is_a?(String)
       ivars = ivars_of(text) + Marshal.send(:extras_of, text)
       @out << "I" unless ivars.empty?
       @out << "u" << symbol_bytes(class_path(obj.class).to_sym) << bytes(text)
@@ -289,8 +300,12 @@ module Marshal
     # What an object has next to its parts: its instance variables, and
     # for a String, a Regexp or a Symbol the name of its encoding.
     def ivars_of(obj)
-      # A class or module is written by its name alone.
-      return [] if obj.is_a?(Module)
+      # A class or module is written by its name alone, with the name's
+      # encoding when it is not ASCII.
+      if obj.is_a?(Module)
+        path = class_path(obj)
+        return path.ascii_only? ? [] : encoding_ivar(path.encoding)
+      end
 
       names = obj.respond_to?(:instance_variables) ? obj.instance_variables : []
       parts = names.map { |name| [name, obj.instance_variable_get(name)] }
@@ -337,7 +352,8 @@ module Marshal
     def class_path(mod)
       raise TypeError, "singleton class can't be dumped" if mod.singleton_class?
 
-      name = mod.name
+      # The class's own name: a `name` that the program wrote does not count.
+      name = MODULE_NAME.bind_call(mod)
       raise TypeError, "can't dump anonymous #{mod.is_a?(Class) ? "class" : "module"} #{mod.inspect}" if name.nil?
 
       name
@@ -449,6 +465,9 @@ module Marshal
       @pos = 0
       @handler = handler
       @freeze = freeze
+      # The values that the proc saw whole, for a link to one of them.
+      @whole = {}.compare_by_identity
+      @partial = {}.compare_by_identity
       @objects = []
       @symbols = []
       # The class or module that each name resolved to: a tree of a
@@ -479,11 +498,32 @@ module Marshal
         @pos += 1
         return @symbols.fetch(long)
       end
+      # r_object's TYPE_LINK: an object already read takes no freeze, and
+      # the proc sees it only once it is whole.
+      if @bytes.getbyte(@pos) == LINK
+        @pos += 1
+        value = @objects.fetch(long)
+        return @handler && @whole.key?(value) ? @handler.call(value) : value
+      end
       leave(read_value)
     end
 
+    # r_leave: with freeze, a String is the interned one, so equal Strings
+    # are one object, and any other value freezes without a `freeze` that
+    # the program wrote.
     def leave(value)
-      value.freeze if @freeze && !value.is_a?(Module)
+      if @freeze && !value.is_a?(Module)
+        if value.instance_of?(String)
+          # A link to the String reads the interned one too.
+          interned = -value
+          at = @objects.rindex { |o| o.equal?(value) }
+          @objects[at] = interned if at
+          value = interned
+        else
+          FREEZE.bind_call(value)
+        end
+      end
+      @whole[value] = true if @handler && !@partial.key?(value)
       # r_post_proc: what the proc returns takes the place of the value.
       @handler ? @handler.call(value) : value
     end
@@ -544,6 +584,8 @@ module Marshal
       options = tag == REGEXP ? byte : nil
       each_ivar { |name, item| apply_ivar(payload, name, item) }
       built = tag == REGEXP ? Regexp.new(payload, options) : loaded(klass, payload)
+      # A Regexp takes the ivars that were dumped with it.
+      payload.instance_variables.each { |name| built.instance_variable_set(name, payload.instance_variable_get(name)) } if tag == REGEXP
       @objects[here] = built
       built
     end
@@ -662,6 +704,9 @@ module Marshal
     # after all of them are read.
     def object
       klass = constant(symbol_or_link, Class)
+      # r_object: an `o` must allocate a plain object, not a core kind.
+      raise ArgumentError, "dump format error" if [IO, String, Array, Hash, Regexp, Struct, Proc, Method, Thread, MatchData].any? { |kind| klass <= kind }
+
       here = @objects.size
       built = Primitive.zr_class_allocate(klass)
       @objects << built
@@ -696,19 +741,25 @@ module Marshal
       when :bt then built.set_backtrace(value) unless value.nil?
       when :errno then Primitive.zr_hidden_set(built, :__errno__, value)
       when :bt_locations then nil
+      when :cause then Primitive.zr_exc_cause_set(built, value)
       else built.instance_variable_set(name, value)
       end
     end
 
+    # What `_load` or `marshal_load` builds with no ivars around it stays
+    # partial, as r_leave leaves it: a link to it does not call the proc.
     def user_dump
       klass = constant(symbol_or_link, Class)
-      keep(loaded(klass, text))
+      built = keep(loaded(klass, text))
+      @partial[built] = true
+      built
     end
 
     def user_marshal
       klass = constant(symbol_or_link, Class)
       built = keep(Primitive.zr_class_allocate(klass))
       built.send(:marshal_load, read)
+      @partial[built] = true
       built
     end
 
@@ -754,15 +805,19 @@ module Marshal
 
     # The class or module that `path` gives, a String or a Symbol. A name
     # that was looked up before returns the same result, kind included.
+    # A module (`m`, `e`) is a Module that is not a Class, as path2module
+    # requires.
     def constant(path, kind)
       found = @constants[path]
-      return found if found && found.is_a?(kind)
+      return found if found && module_kind?(found, kind)
 
       value = namespace(path.to_s)
-      raise ArgumentError, "#{path} does not refer to #{kind == Class ? "class" : "module"}" unless value.is_a?(kind)
+      raise ArgumentError, "#{path} does not refer to #{kind == Class ? "class" : "module"}" unless module_kind?(value, kind)
 
       @constants[path] = value
     end
+
+    def module_kind?(value, kind) = kind == Module ? value.instance_of?(Module) : value.is_a?(kind)
 
     # `rb_path_to_class` (variable.c): the path walked from Object one
     # component at a time. A component that names nothing stops with the

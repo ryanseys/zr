@@ -896,6 +896,20 @@ module Zr::Kern
     zr_exc_set_backtrace_value(recv, Machine.value(Machine.load64(argv, 0)))
   end
 
+  # Whether a raise set the cause (to nil too), as CRuby's cause ivar is
+  # defined. Marshal writes the cause only then.
+  #: (value) -> value
+  def zr_exc_cause_set_p(e)
+    zr_bool(RException[e].cause != QUNDEF)
+  end
+
+  # Marshal.load's cause of an exception that it rebuilds.
+  #: (value, value) -> value
+  def zr_exc_cause_set(e, cause)
+    RException[e].cause = cause
+    cause
+  end
+
   #: (value, word, ptr, value, value) -> value
   def zr_exc_cause(recv, argc, argv, cref, blk)
     c = RException[recv].cause

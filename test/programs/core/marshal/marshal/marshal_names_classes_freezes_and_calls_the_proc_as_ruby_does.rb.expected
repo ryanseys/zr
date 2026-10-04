@@ -1,0 +1,32 @@
+"\x04\bc\nNamed"
+"\x04\bm\rNamedMod"
+"\x04\bIc\x1AMultibyte\xE3\x81\x81\xE3\x81\x82\xE3\x81\x83\xE3\x81\x84\x06:\x06ET"
+"\x04\bo:\nNamed\x00"
+"\x04\bIC:\vStrSub\"\x00\x06:\x06ET"
+"\x04\bS:\x06S\x06:\x06aI\"\x06m\x06:\x06ET"
+[TypeError, "can't dump anonymous class #<Class:X>"]
+[TypeError, "singleton can't be dumped"]
+"a"
+true
+true
+true
+true
+true
+[10, [20, "x"]]
+["1", "2", "true", "\"x\"", "[20, \"x\"]", "[10, [20, \"x\"]]"]
+["1", "[1, [...]]"]
+"bar"
+-14400
+nil
+true
+[:@regexp_ivar]
+[ArgumentError, "String does not refer to module"]
+[ArgumentError, "undefined class/module Compar"]
+true
+true
+[false, 5, "hi", 10, "hi", "hi", 0.0, false, "none", #<struct Struct::Brittle a=0.0>, :b, :c, 2, [:a, :b, :c], false, "ant", ["hi", 10, "hi", "hi", #<struct Struct::Brittle a=0.0>, [:a, :b, :c]]]
+[true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+[FalseClass, UD, UD, Array]
+[ArgumentError, "dump format error"]
+[TypeError, "_dump() must return string"]
+[UserDefined, UserDefinedWithIvar, Array]

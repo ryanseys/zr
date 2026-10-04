@@ -480,7 +480,9 @@ module Zr::Kern
     if klass == QUNDEF
       return zr_mr_bail(r)
     end
-    if zr_alloc_kind(klass) != ALLOC_OBJECT || zr_class_inherits(klass, zr_global(G_RANGE)) || zr_mr_set_p(klass)
+    # An IO is no plain object in ruby, so the Ruby reader refuses it.
+    if zr_alloc_kind(klass) != ALLOC_OBJECT || zr_class_inherits(klass, zr_global(G_RANGE)) || zr_mr_set_p(klass) ||
+       zr_class_inherits(klass, zr_core_class(Machine.id(:IO)))
       return zr_mr_bail(r)
     end
     built = zr_class_allocate(klass)
