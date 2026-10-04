@@ -136,20 +136,29 @@ cannot see the files of eval support. Without this, a constant that a
 string defines on Object would be hidden as if a file of eval support
 defined it.
 
+The interpreter reads the frame that called eval through its Binding:
+`$~` and `$_` are that frame's (a match in the string sets them there,
+and a method that the string defines keeps its own), a `return` leaves
+that frame's method as compiled eval code does (`zr_binding_return`),
+and `super` outside a `def` of the string calls that method's super.
+
+The tests run the interpreter on CRuby, over a `World` of plain Ruby
+(`test/support/walk_world.rb`, `test/unit/eval_walk_test.rb`), so a
+change to it is checked in a fraction of a second with no build.
+
 The tree-walking interpreter refuses these forms, with a message that
 gives the form:
 
-- `$~`, `$_`, `$&` and the numbered groups. They belong to the frame
-  that matched last, and the interpreter has no frame of its own for
-  them.
-- `return` from an eval inside a method. The interpreter cannot unwind
-  the compiled frame that called it.
-- `super` at the top level of an eval, not inside a `def` of the eval.
 - `using`, and a call under a refinement.
+- `caller` and `caller_locations` written in the string.
+- `defined?` of an Array or Hash literal.
 - A `require` of a file that zr did not compile into the program. It
   needs a top-level address that the interpreter does not have.
 - `RubyVM::InstructionSequence.compile`, which asks for code to run
   later.
+
+`binding` in the string copies the string's own locals: a later write
+in the string does not reach that Binding.
 
 Backtraces give the interpreter's own files, not the line of the
 string.

@@ -1145,7 +1145,12 @@ module Zr::Kern
   # The same, for a `return` in the scope of the frame `rec`.
   #: (ptr, value) -> value
   def zr_return_out(rec, v)
-    meta = FrameMeta[Frame[rec].meta].parent
+    zr_return_scope(Frame[rec].prev, FrameMeta[Frame[rec].meta].parent, v)
+  end
+
+  # A `return` in the scope `meta`, whose frame runs at or below `rec`.
+  #: (ptr, ptr, value) -> value
+  def zr_return_scope(rec, meta, v)
     in_block = false
     while meta != 0 && FrameMeta[meta].kind != KIND_DEF
       kind = FrameMeta[meta].kind
@@ -1159,7 +1164,7 @@ module Zr::Kern
       in_block = in_block || kind != KIND_EVAL
       meta = FrameMeta[meta].parent
     end
-    if meta != 0 && !zr_meta_running(Frame[rec].prev, meta)
+    if meta != 0 && !zr_meta_running(rec, meta)
       return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
     end
     zr_signal(PENDING_RETURN, v, 0, 0)

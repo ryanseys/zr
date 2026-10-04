@@ -74,6 +74,17 @@ module Zr
       def binding_cref(b) = Primitive.zr_binding_cref(b)
       def binding_parameters(b) = Primitive.zr_binding_parameters(b)
 
+      # What the walk reads of the frame that called eval, through its
+      # Binding: the `[$~, $_]` cell, a `return` from its method, and that
+      # method's name and owner (`[name, owner]`, or nil).
+      def binding_svars(b) = Primitive.zr_binding_svars(b)
+      def binding_return(b, v) = Primitive.zr_binding_return(b, v)
+      def binding_method(b) = Primitive.zr_binding_method(b)
+
+      # `Module.nesting` under `cref`, and a String literal's chill.
+      def nesting(cref) = Primitive.zr_cref_nesting(cref)
+      def chill(string) = Primitive.zr_str_chill(string)
+
       # A bare constant under `cref`, and `scope::Name`.
       def const_get(cref, name) = Primitive.zr_const_get_m(cref, name)
       def const_defined?(cref, name) = Primitive.zr_const_defined_m(cref, name)

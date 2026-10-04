@@ -343,7 +343,12 @@ module Zr::Kern
   # matches leave it.
   #: () -> ptr
   def zr_backref_home
-    rec = Task[zr_task()].top
+    zr_backref_home_from(Task[zr_task()].top)
+  end
+
+  # The same, for code that runs in the frame `rec`.
+  #: (ptr) -> ptr
+  def zr_backref_home_from(rec)
     while rec != 0
       meta = Frame[rec].meta
       if meta == 0

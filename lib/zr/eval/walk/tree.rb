@@ -23,7 +23,10 @@ module Zr
       # it does not support, with a message that gives the form and the line.
       class Tree
         # @rbs @file: String
+        # @rbs @frame: Binding
         # @rbs @once: Hash[Hir::Once, untyped]?
+        # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
+        # @rbs @svars: untyped
 
         # A form that the interpreter does not support yet, with its
         # location. The contract lets zr refuse, but not guess.
@@ -147,13 +150,18 @@ module Zr
         # `super` starts from, and the arguments that a bare `super` passes
         # again. `tag` marks the innermost block or loop, which `break`,
         # `next` and `redo` leave. `home` marks the method that a `return`
-        # leaves; it is nil when there is no such method.
+        # leaves; it is nil when there is no such method. `svars` is the
+        # `[$~, $_]` cell of a method or body that the string defines; nil
+        # is the cell of the frame that called eval.
         # @rbs skip -- typed in sig/zr/eval/walk/tree.rbs
-        Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home)
+        Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home, :svars)
 
-        #: (String file) -> void
-        def initialize(file)
+        # `frame` is the Binding of the frame that called eval: the scope
+        # that a `return`, `$~` and `binding` of the string belong to.
+        #: (String file, Binding frame) -> void
+        def initialize(file, frame)
           @file = file
+          @frame = frame
         end
 
         # Runs `hir` in `ctx` and returns the value of its body.
@@ -164,7 +172,7 @@ module Zr
           case node
           when nil then nil
           when Hir::Seq then node.stmts.map { |s| walk(s, ctx) }.last
-          when Hir::Literal then node.value.is_a?(::String) ? node.value.dup : node.value
+          when Hir::Literal then literal(node)
           when Hir::FrozenString then node.value
           when Hir::SelfRef then ctx.self_
           when Hir::Trace then nil
@@ -181,10 +189,10 @@ module Zr
           when Hir::KwSplatElement then kwsplat_element(node, ctx)
           when Hir::RangeLit then ::Range.new(walk(node.low, ctx), walk(node.high, ctx), node.exclusive)
           when Hir::Interp then interp(node, ctx)
-          when Hir::RegexpLit then ::Regexp.new(node.source, node.options)
+          when Hir::RegexpLit then regexp(node)
           when Hir::IvarRead then ctx.self_.instance_variable_get(node.name)
           when Hir::IvarWrite then ivar_write(node, ctx)
-          when Hir::GvarRead then gvar_read(node)
+          when Hir::GvarRead then gvar_read(node, ctx)
           when Hir::GvarWrite then gvar_write(node, ctx)
           when Hir::GvarAlias then World.gvar_alias(node.new_name, node.old_name)
           when Hir::CvarRead then World.cvar_get(ctx.cref, node.name)
@@ -219,9 +227,9 @@ module Zr
           when Hir::Once then once(node, ctx)
           when Hir::Stop then raise ::NotImplementedError, "#{@file}:#{node.line}: #{node.what}"
           when Hir::Require then refuse(node, "require of #{node.feature.inspect}")
-          when Hir::Autoload then refuse(node, "autoload of #{node.name}")
-          when Hir::BackRef then refuse(node, backref_name(node))
-          when Hir::RegexpOnce then refuse(node, "a /#{node.value.is_a?(Hir::RegexpLit) ? node.value.source : "..."}/o literal")
+          when Hir::Autoload then autoload(node, ctx)
+          when Hir::BackRef then backref(node, ctx)
+          when Hir::RegexpOnce then (@regexps ||= {}.compare_by_identity)[node] ||= walk(node.value, ctx)
           when Hir::Using, Hir::UsingDefaults then refuse(node, "using")
           else refuse(node, node.class.name.split("::").last)
           end
@@ -229,13 +237,33 @@ module Zr
 
         private
 
-        # `return`. A block returns from the method that contains it. An
-        # eval outside a method has no such method. An eval in a method
-        # cannot unwind the compiled frame that called it. Thus both refuse.
+        # `return`. In a method that the string defines, it leaves that
+        # method. Elsewhere it belongs to the frame that called eval: the
+        # runtime returns from that frame's method, or from the file at the
+        # top level, or raises LocalJumpError, as for compiled eval code.
         def return_node(node, ctx)
-          refuse(node, "return from an eval") unless ctx.home
+          value = walk(node.value, ctx)
+          raise Returning.new(value, ctx.home) if ctx.home
 
-          raise Returning.new(walk(node.value, ctx), ctx.home)
+          World.binding_return(@frame, value)
+        end
+
+        # A String literal is a new String each time, chilled as a literal
+        # of the program is (`# frozen_string_literal` gives a
+        # FrozenString node instead).
+        def literal(node)
+          value = node.value
+          return value unless value.is_a?(::String)
+
+          node.chilled ? World.chill(value.dup) : value.dup
+        end
+
+        # A Regexp literal is one frozen object for its site, as ruby
+        # makes it once when it compiles the string.
+        #: (Hir::RegexpLit node) -> Regexp
+        def regexp(node)
+          made = @regexps ||= {}.compare_by_identity #: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]
+          made[node] ||= ::Regexp.new(node.source, node.options).freeze
         end
 
         # Only `false` and `nil` are false.
@@ -267,25 +295,53 @@ module Zr
           value
         end
 
-        # `$~` and `$_` belong to the frame that last matched; they are not
-        # entries in the global table. The interpreter has no frame of its
-        # own for them: a match sets them in the interpreter's Ruby frame
-        # that made the send. A read from the global table would return a
-        # wrong value, which is worse than a refusal.
-        FRAME_GLOBALS = { :$~ => "$~", :$_ => "$_" }.freeze
+        # `$~` and `$_` belong to a frame, not to the global table: the
+        # frame that called eval, or a method that the string defines. The
+        # walk keeps them in that frame's cell (`svars`), which a send that
+        # matches or reads a line fills (`svar_call`).
+        FRAME_GLOBALS = { :$~ => 0, :$_ => 1 }.freeze
 
-        def gvar_read(node)
-          refuse(node, FRAME_GLOBALS[node.name]) if FRAME_GLOBALS.key?(node.name)
+        # The `[$~, $_]` cell of the code that `ctx` runs.
+        def svars(ctx) = ctx.svars || (@svars ||= World.binding_svars(@frame))
+
+        def gvar_read(node, ctx)
+          slot = FRAME_GLOBALS[node.name]
+          return svars(ctx)[slot] if slot
 
           World.gvar_get(node.name)
         end
 
         def gvar_write(node, ctx)
-          refuse(node, "#{FRAME_GLOBALS[node.name]} =") if FRAME_GLOBALS.key?(node.name)
-
           value = walk(node.value, ctx)
-          World.gvar_set(node.shown || node.name, node.name, value)
+          slot = FRAME_GLOBALS[node.name]
+          if slot
+            raise ::TypeError, "wrong argument type #{value.class} (expected MatchData)" if slot.zero? && !value.nil? && !value.is_a?(::MatchData)
+
+            svars(ctx)[slot] = value
+          else
+            World.gvar_set(node.shown || node.name, node.name, value)
+          end
           value
+        end
+
+        # `$1`, `$&`, `` $` ``, `$'` and `$+`: a part of the last match.
+        def backref(node, ctx)
+          match = svars(ctx)[0] or return nil
+
+          case node.kind
+          when :nth then match[node.number]
+          when :pre then match.pre_match
+          when :post then match.post_match
+          else (match.size - 1).downto(1).each { |i| return match[i] if match.begin(i) }
+               nil
+          end
+        end
+
+        # `autoload :Name, "feature"`: on the receiver, or on the module of
+        # the lexical scope, as Kernel#autoload does.
+        def autoload(node, ctx)
+          owner = node.recv ? walk(node.recv, ctx) : World.cref_klass(ctx.cref)
+          owner.autoload(node.name, node.feature)
         end
 
         # A `while` or `until`. Its value is nil, or the value of a `break`.
@@ -433,8 +489,8 @@ module Zr
         # in frames of its own files, not of the string, so a usual call
         # would return data for `tree.rb`. `frame_method` returns what the
         # context knows (FROM_THE_FRAME) and refuses the rest (NO_FRAME).
-        FROM_THE_FRAME = %i[block_given? iterator? __method__ __callee__ local_variables].freeze
-        NO_FRAME = %i[binding caller caller_locations __dir__].freeze
+        FROM_THE_FRAME = %i[block_given? iterator? __method__ __callee__ local_variables binding __dir__].freeze
+        NO_FRAME = %i[caller caller_locations].freeze
 
         # The words that set the default visibility of a body. It is in
         # the cref, not in a frame. Without arguments, they change the
@@ -445,9 +501,8 @@ module Zr
           refuse(node, "a call under a refinement") if node.using
           return frame_method(node, ctx) if bare?(node) && (FROM_THE_FRAME.include?(node.name) || NO_FRAME.include?(node.name))
           return body_visibility(node, ctx) if bare?(node) && (VISIBILITY.key?(node.name) || node.name == :module_function)
-          refuse(node, "Module.nesting") if node.name == :nesting && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Module
-
           recv = node.recv ? walk(node.recv, ctx) : ctx.self_
+          return World.nesting(ctx.cref) if node.name == :nesting && recv.equal?(::Module) && node.args.empty? && node.block.nil?
           return nil if node.safe && recv.nil?
           return recv if node.interp && (String === recv || Symbol === recv)
 
@@ -455,7 +510,22 @@ module Zr
           kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil
           block = block_for(node.block, ctx)
           call(recv, node.name, args, kwargs, block, private: private_call?(node), vcall: node.vcall,
-                                                     breaks: node.block.is_a?(Hir::Block) && node.block)
+                                                     breaks: node.block.is_a?(Hir::Block) && node.block,
+                                                     svars: (svars(ctx) if svar_send?(recv, node.name)))
+        end
+
+        # The core methods that set or read their caller's `$~` or `$_`. In
+        # ruby they are C functions, which see the frame of their caller.
+        # Most are methods of String, Symbol and Regexp, so an Array's `[]`
+        # does not pay for them; a line read and `print` go to any receiver.
+        TEXT_SVAR_SENDS = %i[=~ !~ === ~ match scan sub sub! gsub gsub! index rindex byteindex byterindex [] slice slice!
+                             start_with? partition rpartition last_match].to_h { |name| [name, true] }.freeze
+        LINE_SVAR_SENDS = %i[gets readline print].to_h { |name| [name, true] }.freeze
+
+        def svar_send?(recv, name)
+          return true if LINE_SVAR_SENDS.key?(name)
+
+          TEXT_SVAR_SENDS.key?(name) && (::String === recv || ::Symbol === recv || ::Regexp === recv || recv.equal?(::Regexp))
         end
 
         # A call can reach a private method when it has no receiver or its
@@ -470,8 +540,23 @@ module Zr
           when :block_given?, :iterator? then !ctx.block.nil?
           when :__method__, :__callee__ then ctx.name
           when :local_variables then ctx.chain.flat_map(&:names).uniq
+          when :binding then scope_binding(ctx)
+          when :__dir__ then @file.start_with?("(eval") ? nil : ::File.dirname(@file)
           else refuse(node, node.name.to_s)
           end
+        end
+
+        # `binding` in the string: the caller's Binding, with the locals
+        # that the string's own scopes hold. It copies their values: a later
+        # write in the string does not reach it.
+        def scope_binding(ctx)
+          scope = @frame.dup
+          ctx.chain.each do |held|
+            next unless held.is_a?(Scope)
+
+            held.names.each { |name| scope.local_variable_set(name, held.get(name)) unless scope.local_variable_defined?(name) }
+          end
+          scope
         end
 
         def body_visibility(node, ctx)
@@ -508,10 +593,13 @@ module Zr
         # @rbs private: bool
         # @rbs vcall: bool
         # @rbs breaks: Hir::Block | false | nil
+        # @rbs svars: untyped
         # @rbs return: untyped
-        def call(recv, name, args, kwargs, block, private:, vcall: false, breaks: nil)
+        def call(recv, name, args, kwargs, block, private:, vcall: false, breaks: nil, svars: nil)
           tag = breaks && breaks.__id__
-          if kwargs.nil? || kwargs.empty?
+          if svars
+            svar_send(recv, name, args, kwargs, block, private, svars)
+          elsif kwargs.nil? || kwargs.empty?
             private ? recv.__send__(name, *args, &block) : recv.public_send(name, *args, &block)
           else
             private ? recv.__send__(name, *args, **kwargs, &block) : recv.public_send(name, *args, **kwargs, &block)
@@ -525,6 +613,32 @@ module Zr
 
           # Ruby keeps the Symbol as NameError#name; RBS types it as a String.
           raise ::NameError.new("undefined local variable or method '#{name}' for #{recv.inspect}", name, receiver: recv) # steep:ignore ArgumentTypeMismatch
+        end
+
+        # A send that `svar_send?` picks. The method sets and reads the `$~`
+        # and `$_` of this frame, so the frame takes them from the walked
+        # code's cell first and gives them back after. A block sees each
+        # match that the method makes before it yields (`gsub { $1 }`).
+        # @rbs return: untyped
+        def svar_send(recv, name, args, kwargs, block, private, cell)
+          $~ = cell[0]
+          $_ = cell[1]
+          if block
+            inner = block
+            block = proc do |*values, **options, &passed|
+              cell[0] = $~
+              cell[1] = $_
+              inner.call(*values, **options, &passed)
+            end
+          end
+          if kwargs.nil? || kwargs.empty?
+            private ? recv.__send__(name, *args, &block) : recv.public_send(name, *args, &block)
+          else
+            private ? recv.__send__(name, *args, **kwargs, &block) : recv.public_send(name, *args, **kwargs, &block)
+          end
+        ensure
+          cell[0] = $~
+          cell[1] = $_
         end
 
         # Blocks. A block is a Proc whose body the interpreter walks.
@@ -611,7 +725,7 @@ module Zr
           tag = node.__id__
           scope = Scope.new(node.locals)
           ctx = Ctx.new(self_: self_, cref: cref, chain: [scope], block: blk,
-                        name: node.name, owner: owner, args: args, kwargs: kwargs, tag: tag, home: tag)
+                        name: node.name, owner: owner, args: args, kwargs: kwargs, tag: tag, home: tag, svars: [nil, nil])
           bind(node.params, scope, args, kwargs, blk, ctx, strict: true, spread: false)
           begin
             walk(node.body, ctx)
@@ -645,7 +759,7 @@ module Zr
         # self, and a lexical scope one level inside the enclosing scope.
         def run_body(node, mod, ctx)
           inner = Ctx.new(self_: mod, cref: World.cref_push(mod, ctx.cref), chain: [Scope.new(node.locals)],
-                          block: nil, name: nil, owner: nil, args: nil, kwargs: nil, tag: node.__id__, home: nil)
+                          block: nil, name: nil, owner: nil, args: nil, kwargs: nil, tag: node.__id__, home: nil, svars: [nil, nil])
           walk(node.body, inner)
         end
 
@@ -695,7 +809,10 @@ module Zr
             return splat_array(walk(value.value, ctx)).any? { |v| subject ? truthy?(v === subject.first) : truthy?(v) }
           end
           v = walk(value, ctx)
-          subject ? truthy?(v === subject.first) : truthy?(v)
+          return truthy?(v) unless subject
+          return truthy?(svar_send(v, :===, [subject.first], nil, nil, false, svars(ctx))) if v.is_a?(::Regexp)
+
+          truthy?(v === subject.first)
         end
 
         # `a, (b, *c), *d, e = value`.
@@ -765,10 +882,16 @@ module Zr
           call_super(node, ctx, ctx.args || [], ctx.kwargs, block_for(node.block, ctx) || ctx.block)
         end
 
+        # In a method that the string defines, `super` starts after that
+        # method's owner. Elsewhere it belongs to the method of the frame
+        # that called eval.
         #: (untyped node, Ctx ctx, Array[untyped] args, Hash[Symbol, untyped]? kwargs, Proc? block) -> untyped
-        def call_super(node, ctx, args, kwargs, block)
-          refuse(node, "super outside a method") unless ctx.name && ctx.owner
-          method = super_method(node, ctx)
+        def call_super(_node, ctx, args, kwargs, block)
+          name, owner = super_of(ctx)
+          raise ::NoMethodError, "super called outside of method" unless name && owner
+
+          method = super_method(ctx.self_, name, owner) or
+            raise ::NoMethodError.new("super: no superclass method '#{name}' for #{receiver_text(ctx.self_)}", name, receiver: ctx.self_)
           if kwargs.nil? || kwargs.empty?
             method.bind_call(ctx.self_, *args, &block)
           else
@@ -776,14 +899,32 @@ module Zr
           end
         end
 
-        def super_method(_node, ctx)
-          chain = ctx.self_.class.ancestors
-          chain = ctx.self_.singleton_class.ancestors if ctx.self_.singleton_class.ancestors.include?(ctx.owner)
-          at = chain.index(ctx.owner)
-          found = at && chain[(at + 1)..].find { |m| m.method_defined?(ctx.name, false) || m.private_method_defined?(ctx.name, false) }
-          found or raise ::NoMethodError.new("super: no superclass method '#{ctx.name}'", ctx.name, receiver: ctx.self_)
+        # The receiver as ruby's NoMethodError message names it.
+        def receiver_text(obj)
+          case obj
+          when nil, true, false then obj.inspect
+          when ::Module then "#{obj.is_a?(::Class) ? "class" : "module"} #{obj.inspect}"
+          else obj.equal?(::TOPLEVEL_BINDING.receiver) ? "main" : "an instance of #{obj.class}"
+          end
+        end
 
-          found.instance_method(ctx.name)
+        # The name and the owner that `super` starts from, or nil.
+        #: (Ctx ctx) -> [Symbol, Module]?
+        def super_of(ctx)
+          return [ctx.name, ctx.owner] if ctx.name && ctx.owner
+
+          World.binding_method(@frame)
+        end
+
+        # The next method `name` after `owner` in the ancestors of `self_`,
+        # or nil.
+        #: (untyped self_, Symbol name, Module owner) -> UnboundMethod?
+        def super_method(self_, name, owner)
+          chain = self_.class.ancestors
+          chain = self_.singleton_class.ancestors if self_.singleton_class.ancestors.include?(owner)
+          at = chain.index(owner) or return nil
+          found = chain[(at + 1)..]&.find { |m| m.method_defined?(name, false) || m.private_method_defined?(name, false) }
+          found&.instance_method(name)
         end
 
         # `defined?(...)`: the same string that ruby returns, or nil.
@@ -801,7 +942,11 @@ module Zr
           when :cvar then truthy?(World.cvar_defined?(ctx.cref, node.target)) ? "class variable" : nil
           when :const then defined_const(node, ctx)
           when :method then defined_method(node, ctx)
+          when :attrasgn then defined_method(node, ctx)
           when :expression then defined_expression(node, ctx)
+          when :global then "global-variable"
+          when :backref then walk(node.target, ctx).nil? ? nil : "global-variable"
+          when :super then defined_super(ctx)
           else refuse(node, "defined?(#{node.kind})")
           end
         end
@@ -820,6 +965,11 @@ module Zr
           nil
         rescue ::StandardError
           nil
+        end
+
+        def defined_super(ctx)
+          name, owner = super_of(ctx)
+          name && owner && super_method(ctx.self_, name, owner) ? "super" : nil
         end
 
         # All other forms are expressions. `defined?` returns "expression"

@@ -1,0 +1,15 @@
+:early
+["b", "b", "a"]
+["d", "d"]
+"aBc"
+"ll"
+[true, 1]
+["a1", "a1"]
+["q", "r"]
+"hi bo!"
+nil
+[Outer::Inner, Outer]
+[1, 2]
+nil
+"/tmp/somewhere"
+NoMethodError

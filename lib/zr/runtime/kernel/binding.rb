@@ -213,6 +213,72 @@ module Zr::Kern
     b
   end
 
+  # The tree-walking interpreter (lib/zr/eval/walk/tree.rb) reads the
+  # frame that called eval through its Binding, where compiled eval code
+  # has the frame itself.
+
+  # The `$~` and `$_` cell of the Binding's frame: the nearest running
+  # frame of its scope, or a cell of its own when the frame has
+  # returned. A block's cell is its method's.
+  #: (value) -> value
+  def zr_binding_svars(b)
+    rec = Task[zr_task()].top
+    while rec != 0 && Frame[rec].meta != RProc[b].meta
+      rec = Frame[rec].prev
+    end
+    home = rec
+    if rec != 0
+      home = zr_backref_home_from(rec)
+    end
+    if home == 0
+      cell = zr_ary_new(2)
+      zr_ary_push(cell, Machine.value(QNIL))
+      zr_ary_push(cell, Machine.value(QNIL))
+      return cell
+    end
+    zr_svars(home)
+  end
+
+  # `return` in a string evaluated in the Binding's scope: it returns from
+  # the scope's method, or raises LocalJumpError, as zr_return_here does
+  # for compiled eval code.
+  #: (value, value) -> value
+  def zr_binding_return(b, v)
+    zr_return_scope(Task[zr_task()].top, RProc[b].meta, v)
+  end
+
+  # The name and the owner of the method that holds the Binding's scope,
+  # through its blocks, or nil outside a method.
+  #: (value) -> value
+  def zr_binding_method(b)
+    meta = RProc[b].meta
+    while meta != 0 && (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL)
+      meta = FrameMeta[meta].parent
+    end
+    if meta == 0 || FrameMeta[meta].kind != KIND_DEF
+      return Machine.value(QNIL)
+    end
+    out = zr_ary_new(2)
+    zr_ary_push(out, zr_sym(FrameMeta[meta].name))
+    zr_ary_push(out, FrameMeta[meta].owner)
+    out
+  end
+
+  # `Module.nesting` under `cref`: its modules, innermost first, without
+  # the crefs of evals.
+  #: (value) -> value
+  def zr_cref_nesting(cref)
+    out = zr_ary_new(4)
+    c = cref
+    while c != QNIL && c != zr_global(G_TOP_CREF)
+      if RCref[c].eval == 0
+        zr_ary_push(out, zr_cref_klass(c))
+      end
+      c = RCref[c].next
+    end
+    out
+  end
+
   #: (ptr, value, value, value) -> value
   def zr_binding_of(meta, env, self_, cref)
     b = zr_alloc(T_PROC, zr_core_class(Machine.id(:Binding)), RProc.size)

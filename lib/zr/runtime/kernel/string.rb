@@ -1998,6 +1998,13 @@ module Zr::Kern
     s
   end
 
+  # Chills the new String `s`, as a literal of the program is.
+  #: (value) -> value
+  def zr_str_chill(s)
+    RBasic[s].flags = RBasic[s].flags | FL_CHILLED
+    s
+  end
+
   #: (value) -> bool
   def zr_str_chilled_p(s)
     !zr_special_p(s) && zr_type(s) == T_STRING && (RBasic[s].flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0

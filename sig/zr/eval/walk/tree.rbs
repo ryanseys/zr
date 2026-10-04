@@ -16,6 +16,7 @@ module Zr
           attr_reader kwargs: Hash[Symbol, untyped]?
           attr_reader tag: Integer?
           attr_reader home: Integer?
+          attr_reader svars: untyped
 
           def self.new: (*untyped) -> instance
                       | (**untyped) -> instance
