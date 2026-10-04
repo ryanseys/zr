@@ -2735,8 +2735,9 @@ module Kernel
   # rb_f_open: an object that responds to `to_open` opens itself, and
   # the block's stream closes after the block. Any other object is a
   # file name, a leading `|` included.
+  # rb_f_open: an object without to_open is a path, converted as one.
   def open(path, *rest, **options, &block)
-    return File.open(path, *rest, **options, &block) unless path.respond_to?(:to_open)
+    return File.open(File.send(:path_of, path), *rest, **options, &block) unless path.respond_to?(:to_open)
 
     io = path.to_open(*rest, **options)
     return io unless block

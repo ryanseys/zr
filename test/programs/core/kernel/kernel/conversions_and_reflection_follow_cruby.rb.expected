@@ -1,0 +1,20 @@
+[3, 4]
+[TypeError, "can't convert Object to Hash (Object#to_hash gives String)"]
+message
+[SystemExit, "message"]
+0
+true
+[TypeError, "no implicit conversion of Integer into String"]
+[TypeError, "no implicit conversion of nil into String"]
+"# Kernel: Array calls a private to_a, Hash checks what to_hash gives,\n"
+{freeze: true}
+{}
+[ArgumentError, "wrong number of arguments (given 2, expected 1)"]
+asked hidden false
+false
+[NameError, "undefined method 'handled_privately' for class 'ViaMissing'"]
+"Error 1"
+[ArgumentError, "string contains null byte"]
+nil
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[TypeError, "not a real"]

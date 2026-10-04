@@ -163,6 +163,15 @@ module Zr::Kern
   # and `instance_method`, but only when the method is public.
   #: (value, value, word) -> value
   def zr_public_method_new(recv, klass, mid)
+    # mnew_missing asks respond_to_missing? with include_all false.
+    if recv != QUNDEF && zr_find_method(klass, mid) == 0
+      r = zr_respond_to_missing(recv, mid, Machine.value(QFALSE))
+      return r if r == QUNDEF
+      if r == QTRUE
+        return zr_method_missing_new(recv, klass, mid)
+      end
+      return zr_undefined_method(klass, mid, VIS_PUBLIC)
+    end
     m = zr_method_new(recv, klass, mid)
     return m if m == QUNDEF
     vis = RMethod[m].entry.vis

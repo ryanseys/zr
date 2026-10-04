@@ -303,7 +303,17 @@ module Zr::Kern
     end
     slot = Machine.slot(16)
     Machine.store64(slot, 0, Machine.word(recv))
-    r = zr_send(copy, Machine.id(:initialize_clone), 1, slot)
+    # rb_obj_clone_setup: a freeze: given to clone goes on to
+    # initialize_clone as a keyword.
+    if freeze == QNIL
+      r = zr_send(copy, Machine.id(:initialize_clone), 1, slot)
+    else
+      h = zr_hash_new()
+      zr_hash_store(h, zr_sym(Machine.id(:freeze)), freeze)
+      Machine.store64(slot, 8, Machine.word(h))
+      zr_kw_pass()
+      r = zr_send(copy, Machine.id(:initialize_clone), 2, slot)
+    end
     return r if r == QUNDEF
     if freeze == QTRUE || (freeze == QNIL && zr_frozen_p(recv))
       RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE

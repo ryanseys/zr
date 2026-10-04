@@ -913,7 +913,11 @@ module Zr::Kern
     if MEntry[e].fn == Machine.addr(:zr_f_notimplement)
       return Machine.value(QFALSE)
     end
-    zr_bool(all || MEntry[e].vis == VIS_PUBLIC)
+    if all || MEntry[e].vis == VIS_PUBLIC
+      return Machine.value(QTRUE)
+    end
+    # method_boundp finds no public method, so respond_to_missing? answers.
+    zr_respond_to_missing(recv, zr_sym2id(m), Machine.value(QFALSE))
   end
 
   # Writes `#<Name:0x...` with sixteen hex digits into `b`.

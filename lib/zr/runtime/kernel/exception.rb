@@ -462,7 +462,13 @@ module Zr::Kern
     if cause != QUNDEF && cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
     end
-    if cause != QUNDEF
+    # exc_setup_cause: an explicit nil keeps a cause the exception has,
+    # and stops `$!` from becoming the cause of one that has none.
+    if cause == QNIL
+      if RException[e].cause == QUNDEF
+        RException[e].cause = Machine.value(QNIL)
+      end
+    elsif cause != QUNDEF
       r = zr_exc_check_cause(e, cause)
       return r if r == QUNDEF
       RException[e].cause = cause == e ? Machine.value(QNIL) : cause
@@ -516,7 +522,14 @@ module Zr::Kern
     end
     if given == QFALSE
       cause = Task[zr_task()].errinfo
-    elsif cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
+    elsif cause == QNIL
+      # exc_setup_cause: an explicit nil sets nothing, so an exception
+      # raised again keeps the cause it has.
+      if RException[e].cause == QUNDEF
+        RException[e].cause = Machine.value(QNIL)
+      end
+      return e
+    elsif zr_special_p(cause) || zr_type(cause) != T_EXCEPTION
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
     elsif cause != QNIL
       r = zr_exc_check_cause(e, cause)

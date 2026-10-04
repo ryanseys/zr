@@ -211,6 +211,8 @@ class File < IO
       perm = options[:perm]
     end
     options = options.except(:mode, :perm)
+    # A nil mode is the default one, as rb_io_extract_modeenc reads it.
+    mode = +"r" if mode.nil? && !options.key?(:flags)
     # rb_io_extract_modeenc: flags when `to_int` returns a value, else a mode string.
     mode = Integer.try_convert(mode) || mode unless mode.nil? || mode.is_a?(String)
     perm = perm.nil? ? 0o666 : implicit_integer(perm)

@@ -35,8 +35,8 @@ module Kernel
   def abort(*args)
     raise SystemExit.new(1, +"exit") if args.empty?
 
-    message = args[0]
-    raise TypeError, "no implicit conversion of #{conversion_name(message)} into String" unless message.is_a?(String)
+    # rb_f_abort: StringValue of the message.
+    message = Primitive.zr_str_operand(args[0])
 
     Primitive.zr_warn_line(message)
     raise SystemExit.new(1, message)
@@ -435,11 +435,12 @@ module Kernel
     converted = Array.try_convert(value)
     return converted if converted
 
-    if value.respond_to?(:to_a)
-      converted = value.to_a
-      return converted if converted.is_a?(Array)
-      raise TypeError, "can't convert #{conversion_name(value)} to Array (#{conversion_name(value)}#to_a gives #{conversion_name(converted)})" unless converted.nil?
-    end
+    # rb_check_to_array: to_a as rb_check_funcall finds it, a private
+    # one too.
+    converted = Primitive.zr_check_call(value, :to_a)
+    return converted if converted.is_a?(Array)
+    raise TypeError, "can't convert #{conversion_name(value)} to Array (#{conversion_name(value)}#to_a gives #{conversion_name(converted)})" unless converted.nil?
+
     [value]
   end
 
@@ -452,6 +453,12 @@ module Kernel
       began = Process.clock_gettime(Process::CLOCK_REALTIME, :second)
       forever ? scheduler.kernel_sleep : scheduler.kernel_sleep(duration)
       return Process.clock_gettime(Process::CLOCK_REALTIME, :second) - began
+    end
+    # time_timespec: an object that is not a Numeric gives its seconds
+    # and their fraction from divmod(1).
+    if !duration.nil? && !duration.is_a?(Numeric) && duration.respond_to?(:divmod)
+      pair = Array.try_convert(duration.divmod(1))
+      duration = Integer.send(:int_operand, pair[0]) + Float(pair[1]) if pair
     end
     unless duration.nil?
       raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
@@ -912,8 +919,10 @@ module Kernel
 
   def Hash(value)
     return {} if value.nil? || (value.is_a?(Array) && value.empty?)
-    return value if value.is_a?(Hash)
-    return value.to_hash if value.respond_to?(:to_hash)
+
+    # rb_check_hash_type: to_hash must give a Hash.
+    converted = Hash.try_convert(value)
+    return converted if converted
 
     raise TypeError, "can't convert #{value.class} into Hash"
   end

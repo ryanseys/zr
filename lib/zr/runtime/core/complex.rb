@@ -64,6 +64,11 @@ class Complex < Numeric
       when Complex then value
       when Integer, Float, Rational then build(value, 0)
       when String then parse(value, exception)
+      # nucomp_convert: a Numeric that is not real is already complex.
+      when Numeric
+        return value unless value.real?
+
+        value.to_c
       when nil
         return nil unless exception
 
@@ -104,6 +109,13 @@ class Complex < Numeric
     def parse(text, exception)
       Primitive.attr! :hidden
       Primitive.attr! :own_backref
+      # string_to_c_strict: the text is ASCII-compatible, with no NUL.
+      raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{text.encoding}" unless text.encoding.ascii_compatible?
+      if text.include?("\0")
+        return nil unless exception
+
+        raise ArgumentError, +"string contains null byte"
+      end
       body = text.strip
       if (m = forms[:polar].match(body))
         return polar(real_part(m[1]), real_part(m[2]))
@@ -445,11 +457,11 @@ module Kernel
     return real if real.is_a?(Complex) && exact_zero.(imag)
     return real + imag * Complex::I if real.is_a?(Numeric) && imag.is_a?(Numeric) && (!realish.(real) || !realish.(imag))
 
-    begin
-      Complex.rectangular(real, imag)
-    rescue TypeError
-      raise if exception
-    end
+    # With exception: false, an imaginary part that is not a real number
+    # gives nil; a real part that is not one raises "not a real" anyway.
+    return nil if !exception && !(imag.is_a?(Numeric) && imag.real?) && real.is_a?(Numeric) && real.real?
+
+    Complex.rectangular(real, imag)
   end
   private :Complex
   module_function :Complex
