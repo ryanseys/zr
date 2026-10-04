@@ -23,6 +23,7 @@ AllCops:
     - "vendor/**/*"       # third-party code
     - "benchmark/**/*"    # programs that zr compiles
     - "test/programs/**/*"
+    - "test/gaps/**/*"    # programs compared with ruby's output, as above
     - "test/fixtures/**/*"
     - "test/runtime/**/*"
     - "test/machine/**/*"
