@@ -1,2 +1,0 @@
-fails:SizedQueue#<< with a timeout raise TypeError if timeout is not a valid numeric
-fails:SizedQueue operations with timeout fails if boolean is provided

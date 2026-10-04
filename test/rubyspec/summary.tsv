@@ -7,7 +7,7 @@ core/builtin_constants	1	15	15	0	0
 core/class	8	54	53	0	0
 core/comparable	7	44	43	0	0
 core/complex	43	182	169	0	0
-core/conditionvariable	4	11	9	0	0
+core/conditionvariable	4	11	10	0	0
 core/data	13	82	71	0	0
 core/dir	33	338	327	0	0
 core/encoding	45	630	609	0	0
@@ -37,7 +37,7 @@ core/numeric	46	338	320	0	0
 core/objectspace	29	113	95	0	0
 core/proc	23	302	298	0	0
 core/process	92	386	362	0	0
-core/queue	15	88	79	0	0
+core/queue	15	88	88	0	0
 core/random	10	83	82	0	0
 core/range	32	453	437	0	0
 core/rational	32	154	150	0	0
@@ -45,7 +45,7 @@ core/refinement	8	24	11	0	0
 core/regexp	24	260	248	0	0
 core/set	54	179	175	0	0
 core/signal	3	52	52	0	0
-core/sizedqueue	16	129	112	0	0
+core/sizedqueue	16	129	129	0	0
 core/string	139	3641	3583	0	0
 core/struct	30	180	174	0	0
 core/symbol	29	323	321	0	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	25409	1	0
+total	2174	26314	25436	1	0
