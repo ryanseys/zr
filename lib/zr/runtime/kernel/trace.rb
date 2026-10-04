@@ -282,7 +282,9 @@ module Zr::Kern
         home = Frame[home].prev
       end
       zr_ary_push(row, zr_sym(home == 0 || zr_frame_mid(home) == 0 ? FrameMeta[method].name : zr_frame_mid(home)))
-      zr_ary_push(row, FrameMeta[method].owner)
+      # A module function's copy names the singleton class, as its
+      # backtrace label does.
+      zr_ary_push(row, FrameMeta[home == 0 ? method : zr_frame_label_meta(home)].owner)
     elsif entry != 0
       # A define_method body runs as a block, under its method's name.
       zr_ary_push(row, zr_sym(MEntry[entry].mid))
