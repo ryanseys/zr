@@ -24,7 +24,7 @@ core/gc	17	32	32	0	0
 core/hash	69	620	605	0	0
 core/integer	67	599	584	0	0
 core/io	94	1519	1383	0	0
-core/kernel	117	2731	2633	0	0
+core/kernel	117	2731	2675	0	0
 core/main	7	27	26	0	0
 core/marshal	6	617	598	0	0
 core/matchdata	29	185	184	0	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	25342	1	0
+total	2174	26314	25384	1	0
