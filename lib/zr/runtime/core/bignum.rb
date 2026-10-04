@@ -372,9 +372,9 @@ class Integer
     # zero can go, as CRuby's rb_int_lshift decides.
     def big_shift(x, n, left)
       Primitive.attr! :hidden
+      return 0 if x.zero?
       unless Primitive.zr_fixnum_p_m(n)
         return x.negative? ? -1 : 0 if left == n.negative?
-        return 0 if x.zero?
 
         raise RangeError, +"shift width too big"
       end

@@ -444,49 +444,55 @@ module Zr::Kern
         end
         return zr_raise_msg(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long'"), 37)
       end
-      if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
-        r = zr_send(v, Machine.id(:to_int), 0, 0)
-        return r if r == QUNDEF
-        if zr_fixnum_p(r)
-          Machine.store64(out, 0, zr_fix2long(r))
-          return Machine.value(QNIL)
-        end
-        if zr_big_p(r)
-          if zr_big_to_long(r, out)
-            return Machine.value(QNIL)
-          end
-          return zr_raise_msg(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long'"), 37)
-        end
-        b = Machine.slot(Buf.size)
-        zr_buf_init(b)
-        zr_buf_push(b, Machine.bytes("can't convert "), 14)
-        zr_buf_class_of(b, v)
-        zr_buf_push(b, Machine.bytes(" to Integer ("), 13)
-        zr_buf_class_of(b, v)
-        zr_buf_push(b, Machine.bytes("#to_int gives "), 14)
-        zr_buf_class_of(b, r)
-        zr_buf_push(b, Machine.bytes(")"), 1)
-        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+      r = zr_to_int(v)
+      return r if r == QUNDEF
+      if zr_fixnum_p(r)
+        Machine.store64(out, 0, zr_fix2long(r))
+        return Machine.value(QNIL)
       end
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      if v == QNIL
-        zr_buf_push(b, Machine.bytes("no implicit conversion from nil to integer"), 42)
-        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+      if zr_big_to_long(r, out)
+        return Machine.value(QNIL)
       end
-      zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-      if v == QTRUE || v == QFALSE
-        s = zr_inspect(v)
-        return s if s == QUNDEF
-        zr_buf_str(b, s)
-      else
-        zr_buf_class_of(b, v)
-      end
-      zr_buf_push(b, Machine.bytes(" into Integer"), 13)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+      return zr_raise_msg(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long'"), 37)
     end
     Machine.store64(out, 0, zr_fix2long(v))
     Machine.value(QNIL)
+  end
+
+  # CRuby's rb_to_int for a value that is not an Integer or a Float: the
+  # Integer that its to_int returns, else CRuby's TypeError.
+  #: (value) -> value
+  def zr_to_int(v)
+    if !zr_special_p(v) && zr_find_method(zr_class_of(v), Machine.id(:to_int)) != 0
+      r = zr_send(v, Machine.id(:to_int), 0, 0)
+      return r if r == QUNDEF || zr_fixnum_p(r) || zr_big_p(r)
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+      zr_buf_class_of(b, v)
+      zr_buf_push(b, Machine.bytes(" to Integer ("), 13)
+      zr_buf_class_of(b, v)
+      zr_buf_push(b, Machine.bytes("#to_int gives "), 14)
+      zr_buf_class_of(b, r)
+      zr_buf_push(b, Machine.bytes(")"), 1)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    if v == QNIL
+      zr_buf_push(b, Machine.bytes("no implicit conversion from nil to integer"), 42)
+      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    end
+    zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+    if v == QTRUE || v == QFALSE
+      s = zr_inspect(v)
+      return s if s == QUNDEF
+      zr_buf_str(b, s)
+    else
+      zr_buf_class_of(b, v)
+    end
+    zr_buf_push(b, Machine.bytes(" into Integer"), 13)
+    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
 
   # `a[beg, len]`: a new Array of the elements from `beg`, or nil after

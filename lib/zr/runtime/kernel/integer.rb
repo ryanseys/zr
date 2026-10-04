@@ -249,7 +249,11 @@ module Zr::Kern
       return Machine.value(QUNDEF) if Machine.value(Machine.load64(count, 0)) == QUNDEF
       return zr_int_operand(recv, count, out, mid, 0)
     end
-    zr_index_operand(other, out)
+    # A bignum from to_int goes to the core as a bignum count does.
+    count = Machine.slot(8)
+    Machine.store64(count, 0, Machine.word(zr_to_int(other)))
+    return Machine.value(QUNDEF) if Machine.value(Machine.load64(count, 0)) == QUNDEF
+    zr_int_operand(recv, count, out, mid, 0)
   end
 
   # Writes the operand of an Integer operator into `out` when it is an
@@ -494,6 +498,8 @@ module Zr::Kern
     return r if r != QNIL
     n = Machine.load64(out, 0)
     a = zr_fix2long(recv)
+    # Zero stays zero at any width, as CRuby's rb_fix_lshift returns early.
+    return zr_fix(0) if a == 0
     if n < 0
       # The hardware uses the shift count mod 64, but ruby shifts all bits
       # out.
@@ -536,6 +542,7 @@ module Zr::Kern
     return r if r != QNIL
     n = Machine.load64(out, 0)
     a = zr_fix2long(recv)
+    return zr_fix(0) if a == 0
     if n < 0
       # As in zr_int_lshift: the bits shifted out and the new sign bit
       # must all be copies of the sign.
