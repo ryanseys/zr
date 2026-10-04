@@ -348,9 +348,11 @@ module Zr
         emitter.unit(ir, data, raw: code, export: export) do |all, defined|
           next cached(all, defined, emitter, cache, jobs, floor, known) if cache
 
-          Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f| #$ IR::Function, Obj::Code
-            IR::Passes.prepare(f)
-            emitter.assemble(f, defined)
+          Timing.phase("unit assembled (#{all.size} functions)") do
+            Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f| #$ IR::Function, Obj::Code
+              IR::Passes.prepare(f)
+              emitter.assemble(f, defined)
+            end
           end
         end
       end

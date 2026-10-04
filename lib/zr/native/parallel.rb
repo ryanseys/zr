@@ -33,7 +33,12 @@ module Zr
         # The workers' answers come back through Marshal.
         answers = Array.new(items.size) #: Array[untyped]
         warmed
+        asked = jobs
         jobs = afforded(jobs)
+        if Config.current.timing?
+          warn format("zr: %d items in %d of %d workers%s", items.size, jobs, asked,
+                      jobs < asked ? " (the free memory allows no more)" : "")
+        end
         queue, feed = IO.pipe
         feeder = fed(feed, weights)
         workers = Array.new(jobs) { started(items, queue, feed, work) }
