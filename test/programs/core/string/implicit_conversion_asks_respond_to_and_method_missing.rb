@@ -17,3 +17,12 @@ s = +"hello"; p s.slice!(i), s
 s = +"hello"; p s.slice!(i, i), s
 s = +"hello"; p s.slice!(i..i), s
 p (("a" << -1) rescue $!.class), (("a".dup.concat(-1)) rescue $!.class)
+
+# A yes from respond_to? with no method and no method_missing does not
+# convert.
+liar = Object.new
+class << liar
+  undef_method :to_s
+  def respond_to?(name, all = false) = name == :to_s || super
+end
+p((String(liar) rescue $!.class))

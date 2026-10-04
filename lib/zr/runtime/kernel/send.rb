@@ -948,11 +948,16 @@ module Zr::Kern
     mid = zr_sym2id(name)
     responds = zr_check_funcall(v, mid)
     return responds if responds == QUNDEF
-    if responds == QTRUE
-      return zr_send(v, mid, 0, 0)
-    end
     klass = zr_class_of(v)
     missing = zr_find_method(klass, Machine.id(:method_missing))
+    if responds == QTRUE
+      # check_funcall_missing: with no method and the core's
+      # method_missing, the call does not happen.
+      if zr_find_method(klass, mid) == 0 && (missing == 0 || MEntry[missing].core != 0)
+        return Machine.value(QNIL)
+      end
+      return zr_send(v, mid, 0, 0)
+    end
     if missing == 0 || MEntry[missing].core != 0
       return Machine.value(QNIL)
     end

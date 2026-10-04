@@ -18,3 +18,4 @@ true
 "helo"
 RangeError
 RangeError
+TypeError
