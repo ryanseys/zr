@@ -592,7 +592,13 @@ module Zr::Kern
         # With the name and the receiver, which did_you_mean reads.
       return zr_undefined_method(klass, old_id, VIS_PUBLIC)
     end
-    zr_method_copy(klass, new_id, e, MEntry[e].meta, MEntry[e].vis, true)
+    # An alias named initialize, initialize_copy and the like is private,
+    # whatever the original's visibility, as rb_method_entry_make makes it.
+    vis = MEntry[e].vis
+    if zr_definition_vis(new_id, Machine.value(QNIL)) == VIS_PRIVATE
+      vis = VIS_PRIVATE
+    end
+    zr_method_copy(klass, new_id, e, MEntry[e].meta, vis, true)
     zr_method_added(klass, new_id)
   end
 
@@ -626,8 +632,17 @@ module Zr::Kern
       return zr_frozen_error(klass)
     end
     if zr_find_method(klass, id) == 0
-      # With the name and the receiver, which did_you_mean reads.
-      return zr_undefined_method(klass, id, VIS_PUBLIC)
+      # With the name and the receiver, which did_you_mean reads. The
+      # message of a metaclass names its class, as rb_method_name_error
+      # names it.
+      shown = klass
+      if zr_singleton_p(klass)
+        attached = RClass[klass].attached
+        if !zr_special_p(attached) && (zr_type(attached) == T_CLASS || zr_type(attached) == T_MODULE)
+          shown = attached
+        end
+      end
+      return zr_undefined_method_in(klass, shown, id, VIS_PUBLIC)
     end
     zr_method_add(klass, id, 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
     zr_method_undefined(klass, id)

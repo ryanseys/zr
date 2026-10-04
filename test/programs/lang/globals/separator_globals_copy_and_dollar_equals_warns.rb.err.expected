@@ -1,0 +1,3 @@
+lang/globals/separator_globals_copy_and_dollar_equals_warns.rb:17: warning: variable $= is no longer effective
+lang/globals/separator_globals_copy_and_dollar_equals_warns.rb:19: warning: variable $= is no longer effective; ignored
+lang/globals/separator_globals_copy_and_dollar_equals_warns.rb:20: warning: variable $= is no longer effective

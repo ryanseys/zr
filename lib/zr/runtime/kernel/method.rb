@@ -57,6 +57,13 @@ module Zr::Kern
   # not, it is `method 'x' for class 'C' is private` or protected.
   #: (value, word, word) -> value
   def zr_undefined_method(klass, mid, vis)
+    zr_undefined_method_in(klass, klass, mid, vis)
+  end
+
+  # The same NameError, which names `shown` in its message and keeps
+  # `klass` as its receiver.
+  #: (value, value, word, word) -> value
+  def zr_undefined_method_in(klass, shown, mid, vis)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     if vis == VIS_PUBLIC
@@ -65,12 +72,12 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("method '"), 8)
     end
     zr_buf_sym(b, mid)
-    if zr_type(klass) == T_MODULE
+    if zr_type(shown) == T_MODULE
       zr_buf_push(b, Machine.bytes("' for module '"), 14)
     else
       zr_buf_push(b, Machine.bytes("' for class '"), 13)
     end
-    s = zr_inspect(klass)
+    s = zr_inspect(shown)
     return s if s == QUNDEF
     zr_buf_str(b, s)
     zr_buf_byte(b, 39)

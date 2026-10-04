@@ -151,7 +151,15 @@ module Process
         return add_limit(key, value) if key.start_with?("rlimit_")
 
         raise ArgumentError, "wrong exec option symbol: #{key}"
-      else descriptors(key).each { |fd| redirect(fd, value) }
+      else
+        fds = descriptors(key)
+        # Several descriptors to one file share one open of it.
+        if fds.size > 1 && (value.is_a?(String) || (value.is_a?(Array) && value.first != :child))
+          redirect(fds.first, value)
+          fds.drop(1).each { |fd| dup2(fd, fds.first) }
+        else
+          fds.each { |fd| redirect(fd, value) }
+        end
       end
     end
 
@@ -197,7 +205,10 @@ module Process
       when IO then dup2(fd, value.fileno)
       when String then open_file(fd, value, nil, nil)
       when Array then from_array(fd, value)
-      else raise ArgumentError, +"wrong exec redirect action"
+      else
+        # check_exec_redirect: an object that converts with to_io is that IO.
+        io = IO.try_convert(value) or raise ArgumentError, +"wrong exec redirect action"
+        dup2(fd, io.fileno)
       end
     end
 
@@ -487,13 +498,14 @@ module Process
   def self.replaced(args, options)
     Primitive.attr! :hidden
     env, args, options = exec_args(args, options)
-    words = command_words(args)
+    words, argv0 = command_line(args)
     IO.send(:flush_std)
     redirects = Redirects.new(options)
     environment = environment(env, options)
-    path = executable(words.first)
+    path = executable(words.first, search_path(env))
+    argv = argv0 ? [argv0, *words.drop(1)] : words
     result = if path.nil? then -Errno::ENOENT::Errno
-             else Primitive.zr_exec_with(path, words, environment, redirects.to_a)
+             else Primitive.zr_exec_with(path, argv, environment, redirects.to_a)
              end
     redirects.opened.each(&:close)
     raise SystemCallError.new(words.first, -result)
@@ -626,12 +638,16 @@ module Process
 
   def self.spawn_command(args, options)
     env, args, options = exec_args(args, options)
-    words = command_words(args)
+    words, argv0 = command_line(args)
     IO.send(:flush_std)
     redirects = Redirects.new(options)
-    pid = if redirects.forked?
-            path = executable(words.first)
-            path ? forked_spawn(path, words, environment(env, options), redirects) : -Errno::ENOENT::Errno
+    search = search_path(env)
+    # A child of its own argv[0], or one that searches its own PATH,
+    # starts from the path found here.
+    pid = if redirects.forked? || argv0 || search
+            path = executable(words.first, search)
+            argv = argv0 ? [argv0, *words.drop(1)] : words
+            path ? forked_spawn(path, argv, environment(env, options), redirects) : -Errno::ENOENT::Errno
           else
             Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
           end
@@ -665,11 +681,11 @@ module Process
   # The file that a command word runs: the word itself when it is a
   # path, else the first executable file of that name on PATH, as
   # execvp searches.
-  def self.executable(word)
+  def self.executable(word, search = nil)
     Primitive.attr! :hidden
     return word if word.include?("/")
 
-    ENV.fetch("PATH", "/usr/bin:/bin").split(":", -1).each do |dir|
+    (search || ENV.fetch("PATH", "/usr/bin:/bin")).split(":", -1).each do |dir|
       path = File.join(dir.empty? ? "." : dir, word)
       return path if Primitive.zr_path_kind(path) == 2 && Primitive.zr_path_access(path, 1)
     end
@@ -678,7 +694,11 @@ module Process
 
   # The program and its arguments. One string goes through the shell
   # when it contains shell syntax; a list is the argument vector itself.
-  def self.command_words(args)
+  def self.command_words(args) = command_line(args).first
+
+  # The words of the command, and the argv[0] that a [program, argv0]
+  # pair gives, else nil.
+  def self.command_line(args)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
 
     # rb_exec_getargs: a first argument with to_ary is [program, argv0],
@@ -687,7 +707,9 @@ module Process
     if first
       raise ArgumentError, +"wrong first argument" unless first.size == 2
 
-      first.each { |part| String.try_convert(part) or raise TypeError, "no implicit conversion of #{conversion_name(part)} into String" }
+      first = first.map { |part| String.try_convert(part) or raise TypeError, "no implicit conversion of #{conversion_name(part)} into String" }
+      raise ArgumentError, +"string contains null byte" if first[1].include?("\0")
+
       args = [[first[0]]] + args.drop(1)
     end
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
@@ -700,7 +722,14 @@ module Process
     words.each do |word|
       raise ArgumentError, +"string contains null byte" if word.include?("\0")
     end
-    words
+    [words, first&.last]
+  end
+
+  # The PATH the child searches: the one its environment gives, else
+  # this process's.
+  def self.search_path(env)
+    Primitive.attr! :hidden
+    env.is_a?(Hash) && env.key?("PATH") ? env["PATH"] : nil
   end
 
   def self.shell_words(command)
@@ -747,7 +776,7 @@ module Process
     table.map { |key, value| "#{key}=#{value}" }
   end
 
-  private_class_method :spawn_command, :start_error, :command_words, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
+  private_class_method :spawn_command, :start_error, :command_words, :command_line, :search_path, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
 end
 
 # The ids a process runs as. Process::Sys makes the system calls by

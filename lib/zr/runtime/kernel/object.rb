@@ -1637,10 +1637,14 @@ module Zr::Kern
         ivar = zr_intern(Buf[b].ptr + 1, Buf[b].len - 1)
       end
       # The scope's visibility keyword applies only inside this class's own
-      # body. From any other place, the attribute is public.
-      cref = Frame[caller].cref
-      if cref != QNIL && zr_cref_klass(zr_cref_lexical(cref)) != klass
-        cref = Machine.value(QNIL)
+      # body, or a block that runs with the class as self and definee (as
+      # `Class.new { }` runs). From any other place, the attribute is public.
+      cref = zr_cref_in_context(caller, klass)
+      if cref == QNIL
+        cref = Frame[caller].cref
+        if cref != QNIL && zr_cref_klass(zr_cref_lexical(cref)) != klass
+          cref = Machine.value(QNIL)
+        end
       end
       if which != 2
         r = zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), cref)
@@ -1689,6 +1693,9 @@ module Zr::Kern
     if argc == 2
       flag = Machine.value(Machine.load64(argv, 8))
       if flag == QTRUE || flag == QFALSE
+        if zr_send(zr_global(G_KERNEL), Machine.id(:obsolete_attr_flag), 0, 0) == QUNDEF
+          return Machine.value(QUNDEF)
+        end
         return zr_attr(recv, 1, argv, flag == QTRUE ? 3 : 1)
       end
     end

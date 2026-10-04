@@ -343,6 +343,11 @@ module Zr
 
           # `$<` is the real ARGF, even if a program redefines ARGF.
           return kernel("zr_core_class", sym_word(:ARGF)) if node.name == :$<
+          # `$=` does nothing any more: a read warns and gives false.
+          if node.name == :$= && !@l.internal?
+            at_node(node)
+            return checked(kernel("zr_gvar_ignorecase"))
+          end
 
           # Outside the main ractor, a program's global read raises unless
           # CRuby keeps that global per ractor. The core reads without this
@@ -354,7 +359,7 @@ module Zr
         # for a read-only name. The core library writes them unchecked.
         HOOKED_GVARS = %i[
           $! $@ $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W
-          $; $, $/ $\\ $stdout $stderr $0 $VERBOSE $.
+          $; $, $/ $\\ $stdout $stderr $0 $VERBOSE $. $=
         ].to_set.freeze #: Set[Symbol]
 
         # `$~` and `$_` are in the frame. The others are globals, and a

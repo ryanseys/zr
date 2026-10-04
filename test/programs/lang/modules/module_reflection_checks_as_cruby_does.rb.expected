@@ -1,0 +1,21 @@
+[NoMethodError, "protected method 'foo' called for an instance of #<Class:0xADDR>"]
+[NoMethodError, "private method 'bar=' called for an instance of #<Class:0xADDR>"]
+[NoMethodError, "private method 'baz' called for an instance of #<Class:0xADDR>"]
+[:foo]
+[:bar=, :baz, :baz=]
+[:initialize, :respond_to_missing?]
+"name"
+"Template['foo.rb']"
+"a::B"
+"A::b"
+"A::B::"
+"A::::B"
+"A="
+[ArgumentError, "the temporary name must not be a constant path to avoid confusion"]
+[ArgumentError, "the temporary name must not be a constant path to avoid confusion"]
+[ArgumentError, "the temporary name must not be a constant path to avoid confusion"]
+[ArgumentError, "the temporary name must not be a constant path to avoid confusion"]
+[TypeError, "Cannot include refinement"]
+[TypeError, "Cannot prepend refinement"]
+[NameError, "undefined method 'not_exist' for class 'String'"]
+[NameError, "undefined method 'not_exist' for class '#<Class:#<String:0xADDR>>'"]

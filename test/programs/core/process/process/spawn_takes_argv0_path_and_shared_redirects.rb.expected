@@ -1,0 +1,5 @@
+say-name hi
+argv_zero
+"string contains null byte"
+"glarkbang"
+"wrapped\n"

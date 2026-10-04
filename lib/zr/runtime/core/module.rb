@@ -33,6 +33,8 @@ class Module
     while i < n
       mod = modules[i]
       raise TypeError, "wrong argument type #{conversion_name(mod)} (expected Module)" unless mod.is_a?(Module) && !mod.is_a?(Class)
+      # ensure_includable: a refinement is never spliced into a chain.
+      raise TypeError, "Cannot #{splice == :append_features ? 'include' : 'prepend'} refinement" if mod.is_a?(Refinement)
 
       i += 1
     end

@@ -740,7 +740,12 @@ module Kernel
         separator(shown, value)
       when :$/
         separator(shown, value)
-        return value.frozen? || value == +"\n" ? value : value.dup.freeze unless value.nil?
+        # rb_str_new_frozen: a plain frozen String, without the subclass
+        # or the ivars of the one assigned.
+        return value.frozen? && value.instance_of?(String) ? value : String.new(value).freeze unless value.nil?
+      when :$=
+        Warning.send(:deprecated, "variable $= is no longer effective; ignored")
+        return false
       when :$stdout, :$stderr
         raise TypeError, "#{shown} must have write method, #{value.class} given" unless value.respond_to?(:write)
       when :$0
@@ -754,6 +759,19 @@ module Kernel
         return Integer.send(:int_operand, value)
       end
       value
+    end
+
+    # rb_mod_attr: the boolean form warns under $VERBOSE, in the
+    # deprecated category.
+    def obsolete_attr_flag
+      Primitive.attr! :hidden
+      Warning.send(:deprecated, "optional boolean argument is obsoleted") if $VERBOSE
+    end
+
+    # ignorecase_getter's warning.
+    def ignorecase_read
+      Primitive.attr! :hidden
+      Warning.send(:deprecated, "variable $= is no longer effective")
     end
 
     # rb_deprecated_str_setter: a String or nil, and a warning for a
@@ -934,7 +952,10 @@ class Module
     end
     name = name.to_str
     raise ArgumentError, +"empty class/module name" if name.empty?
-    raise ArgumentError, +"the temporary name must not be a constant path to avoid confusion" if name.split("::").all? { |part| constant_name?(part) }
+    # is_constant_path: constant names joined by `::`, maybe with a
+    # leading `::`; an empty part or a trailing `::` is not one.
+    parts = name.delete_prefix("::").split("::", -1)
+    raise ArgumentError, +"the temporary name must not be a constant path to avoid confusion" if parts.all? { |part| constant_name?(part) }
     raise RuntimeError, +"can't change permanent name" unless Primitive.zr_mod_set_temporary_name(self, -name)
 
     self

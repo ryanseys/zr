@@ -972,6 +972,16 @@ module Zr::Kern
     IvEntry[e].value
   end
 
+  # A program's `$=` read: ruby's ignorecase_getter warns under the
+  # deprecated category and gives false.
+  #: () -> value
+  def zr_gvar_ignorecase
+    if zr_send(zr_global(G_KERNEL), Machine.id(:ignorecase_read), 0, 0) == QUNDEF
+      return Machine.value(QUNDEF)
+    end
+    Machine.value(QFALSE)
+  end
+
   # A program's `$name` read. Outside the main ractor it is refused, unless
   # CRuby keeps the global for each ractor.
   #: (word) -> value
