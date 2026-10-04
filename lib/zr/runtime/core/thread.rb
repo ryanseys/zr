@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
-# Threads are green: each one runs on a fiber of its own, and control
-# moves between them only where a thread blocks (join, sleep, a Queue,
-# a Mutex, Thread.stop, Thread.pass). A thread runs until it blocks or
-# ends; nothing preempts it. The class keeps the running thread, the
-# run queue, and the sleepers with a deadline.
+# Threads are green: each one runs on a fiber of its own, all on one OS
+# thread. Control moves between them where a thread blocks (join,
+# sleep, a Queue, a Mutex, Thread.stop, Thread.pass), and at a safe
+# point of compiled code once the timer has fired: every 100 ms after a
+# second thread starts (lib/zr/runtime/kernel/send.rb, zr_preempt). The
+# core library's own Ruby has no safe points, so each of its methods
+# runs whole. The class keeps the running thread, the run queue, and
+# the sleepers with a deadline.
 class Thread
   @report_on_exception = true
   @abort_on_exception = false
