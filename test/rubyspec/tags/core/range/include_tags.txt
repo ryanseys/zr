@@ -1,0 +1,4 @@
+fails:Range#include? does not include U+9995 in the range U+0999..U+9999
+fails:Range#include? with weird succ when included end value returns false if other is not matched by element.succ
+fails:Range#include? with weird succ when included end value returns false if other is equal as last element but not matched by element.succ
+fails:Range#include? with weird succ when excluded end value returns false if other is not matched by element.succ

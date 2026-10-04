@@ -1,0 +1,1 @@
+fails:Enumerable#count ignores the block when given an argument

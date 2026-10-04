@@ -1,0 +1,2 @@
+fails:Thread#priority= when set with an integer clamps the priority to -3..3
+fails:Thread#priority= when set with a non-integer raises a type error

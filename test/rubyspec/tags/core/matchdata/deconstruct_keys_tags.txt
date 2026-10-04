@@ -1,0 +1,1 @@
+fails:MatchData#deconstruct_keys it raises error when argument is neither nil nor array

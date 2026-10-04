@@ -1,0 +1,4 @@
+fails:Enumerable#slice_before when given an argument and no block calls === on the argument to determine when to yield
+fails:Enumerable#slice_before when given an argument and no block doesn't yield an empty array if the filter matches the first entry or the last entry
+fails:Enumerable#slice_before when given an argument and no block uses standard boolean as a test
+fails:Enumerable#slice_before when given a block does not accept arguments

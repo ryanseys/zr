@@ -1,0 +1,3 @@
+fails:String#unpack with format 'u' decodes the complete string ignoring newlines when given a single directive
+fails:String#unpack with format 'u' appends empty string to the array for directives exceeding the input size
+fails:String#unpack with format 'u' ignores the count or '*' modifier and decodes the entire string

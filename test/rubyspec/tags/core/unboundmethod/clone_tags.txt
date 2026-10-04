@@ -1,0 +1,1 @@
+fails:UnboundMethod#clone copies the finalizer

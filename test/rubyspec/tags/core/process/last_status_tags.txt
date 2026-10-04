@@ -1,0 +1,1 @@
+fails:Process#last_status returns nil if no child process has been ever executed in the current thread

@@ -1,0 +1,10 @@
+fails:IO.open ignores the :encoding option when the :external_encoding option is present
+fails:IO.open ignores the :encoding option when the :internal_encoding option is present
+fails:IO.open coerces mode with #to_int
+fails:IO.open coerces mode with #to_int when passed in options
+fails:IO.open coerces :encoding option with #to_str
+fails:IO.open calls #close after yielding to the block
+fails:IO.open propagate an exception in the block after calling #close
+fails:IO.open propagates an exception raised by #close that is not a StandardError
+fails:IO.open propagates an exception raised by #close that is a StandardError
+fails:IO.open does not propagate an IOError with 'closed stream' message raised by #close

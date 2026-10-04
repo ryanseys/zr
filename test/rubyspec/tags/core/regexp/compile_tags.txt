@@ -1,0 +1,4 @@
+fails:Regexp.compile given a String does not try to convert the second argument to Integer with #to_int method call
+fails:Regexp.compile given a String warns any non-Integer, non-nil, non-false second argument
+fails:Regexp.compile given a non-String/Regexp calls #to_str method for non-String/Regexp argument
+fails:Regexp.compile given a non-String/Regexp raises TypeError if #to_str returns non-String value

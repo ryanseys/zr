@@ -1,0 +1,3 @@
+fails:Thread#status reports aborting on a killed thread
+fails:Thread#status reports aborting on a killed thread after sleep
+fails:Thread#status reports aborting on an externally killed thread that sleeps

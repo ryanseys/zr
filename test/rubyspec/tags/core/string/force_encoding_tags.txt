@@ -1,0 +1,1 @@
+fails:String#force_encoding with a special encoding name defaults to BINARY if special encoding name is not set

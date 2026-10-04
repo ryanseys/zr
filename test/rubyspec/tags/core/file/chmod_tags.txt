@@ -1,0 +1,4 @@
+fails:File#chmod raises RangeError with too large values
+fails:File#chmod invokes to_int on non-integer argument
+fails:File.chmod raises RangeError with too large values
+fails:File.chmod invokes to_int on non-integer argument

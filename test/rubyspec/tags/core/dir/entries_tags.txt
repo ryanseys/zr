@@ -1,0 +1,1 @@
+fails:Dir.entries returns entries transcoded to the default internal encoding

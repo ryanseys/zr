@@ -1,0 +1,1 @@
+fails:UnboundMethod#dup copies the finalizer

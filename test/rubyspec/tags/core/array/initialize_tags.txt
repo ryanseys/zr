@@ -1,0 +1,1 @@
+fails:Array#initialize with no arguments does not use the given block

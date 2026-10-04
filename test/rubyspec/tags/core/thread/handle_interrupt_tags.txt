@@ -1,0 +1,3 @@
+fails:Thread.handle_interrupt with :on_blocking defers interrupts until the next blocking call
+fails:Thread.handle_interrupt with :immediate immediately runs pending interrupts, before the block
+fails:Thread.handle_interrupt also works with suspended Fibers and does not duplicate interrupts

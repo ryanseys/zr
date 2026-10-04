@@ -1,0 +1,2 @@
+fails:Symbol#[] with an Integer index and length and a nil length raises a TypeError
+fails:Symbol#[] with a Regex slice with a capture index raises a TypeError if the index is nil

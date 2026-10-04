@@ -1,0 +1,2 @@
+fails:Enumerable#to_h calls #to_ary on contents
+fails:Enumerable#to_h with block coerces returned pair to Array with #to_ary

@@ -1,0 +1,2 @@
+fails:String#match tries to convert pattern to a string via to_str
+fails:String#match calls match on the regular expression

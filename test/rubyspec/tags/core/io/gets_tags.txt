@@ -1,0 +1,3 @@
+fails:IO#gets does not accept limit that doesn't fit in a C off_t
+fails:IO#gets overwrites the default external encoding with the IO object's own external encoding
+fails:IO#gets ignores the internal encoding if the default external encoding is BINARY

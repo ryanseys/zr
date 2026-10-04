@@ -1,0 +1,3 @@
+fails:IO::Buffer#null? is false for a 0-length String-backed buffer created with .for
+fails:IO::Buffer#null? is false for a 0-length String-backed buffer created with .string
+fails:IO::Buffer#null? is false for a 0-length slice of a buffer with size > 0

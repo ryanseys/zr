@@ -1,0 +1,2 @@
+fails:TracePoint.new converts given event name as string into symbol using to_sym
+fails:TracePoint.new raises a TypeError when the given object is not a string/symbol

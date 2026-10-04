@@ -1,0 +1,4 @@
+fails:Process.exec (environment variables) coerces environment argument using to_hash
+fails:Process.exec with a command array uses the first element as the command name and the second as the argv[0] value
+fails:Process.exec with a command array coerces the argument using to_ary
+fails:Process.exec with a command array raises an ArgumentError if the Array does not have exactly two elements

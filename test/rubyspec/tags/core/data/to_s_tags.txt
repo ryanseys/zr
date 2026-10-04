@@ -1,0 +1,5 @@
+fails:Data#to_s returns a string representation without the class name for structs nested in anonymous classes
+fails:Data#to_s returns a string representation without the class name for structs nested in anonymous modules
+fails:Data#to_s does not call #name method
+fails:Data#to_s does not call #name method when struct is anonymous
+fails:Data#to_s recursive structure returns string representation with recursive attribute replaced with ... when an anonymous class

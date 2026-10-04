@@ -1,0 +1,5 @@
+fails:Module#set_temporary_name can assign a temporary name which is not a valid constant path
+fails:Module#set_temporary_name can't assign a constant path as a temporary name
+fails:Module#set_temporary_name also updates a name of a nested module
+fails:Module#set_temporary_name keeps temporary name when assigned in an anonymous module
+fails:Module#set_temporary_name keeps temporary name when assigned in an anonymous module and nested before

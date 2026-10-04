@@ -1,0 +1,1 @@
+fails:Range#last raises a TypeError when passed nil

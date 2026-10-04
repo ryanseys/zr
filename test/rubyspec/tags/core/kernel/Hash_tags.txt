@@ -1,0 +1,2 @@
+fails:Kernel.Hash raises a TypeError if #to_hash does not return an Hash
+fails:Kernel#Hash raises a TypeError if #to_hash does not return an Hash

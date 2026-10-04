@@ -1,0 +1,3 @@
+fails:Time.utc coerces the month with #to_str
+fails:Time.utc ignores fractional seconds if a passed whole number of microseconds
+fails:Time.utc ignores fractional seconds if a passed fractional number of microseconds

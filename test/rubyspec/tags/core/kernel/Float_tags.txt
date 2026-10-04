@@ -1,0 +1,10 @@
+fails:Kernel.Float for hexadecimal literals does not accept _ before, after or inside the 0x prefix
+fails:Kernel.Float for hexadecimal literals with binary exponent raises an exception if there's a leading _ on either side of the 'p'
+fails:Kernel.Float for hexadecimal literals with binary exponent raises an exception if there's a trailing _ on either side of the 'p'
+fails:Kernel.Float for hexadecimal literals with binary exponent raises an exception if there's a leading _ on either side of the 'P'
+fails:Kernel.Float for hexadecimal literals with binary exponent raises an exception if there's a trailing _ on either side of the 'P'
+fails:Kernel#Float for hexadecimal literals does not accept _ before, after or inside the 0x prefix
+fails:Kernel#Float for hexadecimal literals with binary exponent raises an exception if there's a leading _ on either side of the 'p'
+fails:Kernel#Float for hexadecimal literals with binary exponent raises an exception if there's a trailing _ on either side of the 'p'
+fails:Kernel#Float for hexadecimal literals with binary exponent raises an exception if there's a leading _ on either side of the 'P'
+fails:Kernel#Float for hexadecimal literals with binary exponent raises an exception if there's a trailing _ on either side of the 'P'

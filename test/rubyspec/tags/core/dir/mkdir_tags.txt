@@ -1,0 +1,2 @@
+fails:Dir.mkdir calls #to_int on non-Integer permissions argument
+fails:Dir.mkdir raises TypeError if non-Integer permissions argument does not have #to_int method

@@ -1,0 +1,1 @@
+fails:Proc#parameters returns all parameters defined with the name _ as _

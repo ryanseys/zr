@@ -1,0 +1,3 @@
+fails:IO#syswrite on a file writes to the actual file position when called after buffered IO#read
+fails:IO#syswrite on a pipe returns the written bytes if the fd is in nonblock mode and write would block
+fails:IO#syswrite writes to the current position after IO#read

@@ -1,0 +1,2 @@
+fails:Enumerator::Product#initialize_copy does nothing if the argument is the same as the receiver
+fails:Enumerator::Product#initialize_copy raises ArgumentError if the argument is not initialized yet

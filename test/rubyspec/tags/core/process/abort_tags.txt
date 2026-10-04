@@ -1,0 +1,1 @@
+fails:Process.abort coerces the argument with #to_str

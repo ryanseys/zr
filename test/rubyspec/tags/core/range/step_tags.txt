@@ -1,0 +1,4 @@
+fails:Range#step calls #coerce to coerce step to an Integer
+fails:Range#step with inclusive end and String values calls #+ on begin and each element returned by #+
+fails:Range#step with inclusive end and String values iterates backward if the step is decreasing values, and the range is backward
+fails:Range#step with inclusive end and String values does no iteration of the direction of the range and of the step don't match

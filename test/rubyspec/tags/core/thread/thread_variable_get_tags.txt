@@ -1,0 +1,5 @@
+fails:Thread#thread_variable_get converts a key that is neither String nor Symbol with #to_str
+fails:Thread#thread_variable_get does not raise FrozenError if the thread is frozen
+fails:Thread#thread_variable_get raises a TypeError if the key is neither Symbol nor String when thread variables are already set
+fails:Thread#thread_variable_get raises a TypeError if the key is neither Symbol nor String when no thread variables are set
+fails:Thread#thread_variable_get raises a TypeError if the key is neither Symbol nor String without calling #to_sym

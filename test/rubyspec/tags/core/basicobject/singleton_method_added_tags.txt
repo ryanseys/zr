@@ -1,0 +1,3 @@
+fails:BasicObject#singleton_method_added when singleton_method_added is undefined raises NoMethodError for a metaclass
+fails:BasicObject#singleton_method_added when singleton_method_added is undefined raises NoMethodError for a singleton instance
+fails:BasicObject#singleton_method_added when singleton_method_added is undefined calls #method_missing

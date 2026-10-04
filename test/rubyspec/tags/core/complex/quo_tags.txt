@@ -1,0 +1,2 @@
+fails:Complex#quo with a Numeric which responds to #real? with true returns Complex(real.quo(other), imag.quo(other))
+fails:Complex#quo with a Numeric which responds to #real? with false coerces the passed argument to Complex and divides the resulting elements

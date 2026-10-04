@@ -1,0 +1,1 @@
+fails:Proc#curry produces Procs that raise ArgumentError for #binding

@@ -1,0 +1,3 @@
+fails:Enumerable#inject converts non-Symbol method name argument to String with #to_str if two arguments
+fails:Enumerable#inject ignores the block if two arguments
+fails:Enumerable#inject converts non-Symbol method name argument to String with #to_str

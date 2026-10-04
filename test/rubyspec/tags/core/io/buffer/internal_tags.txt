@@ -1,0 +1,1 @@
+fails:IO::Buffer#internal? with a buffer created with .new is false for a mapped buffer

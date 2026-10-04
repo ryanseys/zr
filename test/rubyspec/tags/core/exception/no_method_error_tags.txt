@@ -1,0 +1,3 @@
+fails:NoMethodError#message uses #name when receiver is a class
+fails:NoMethodError#message uses #name when receiver is a module
+fails:NoMethodError#message uses class #name when receiver is an ordinary object

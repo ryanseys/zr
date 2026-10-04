@@ -1,0 +1,3 @@
+fails:Float#<=> returns 0 when self is Infinity and other is infinite?=1
+fails:Float#<=> returns 1 when self is Infinity and other is infinite?=-1
+fails:Float#<=> returns 1 when self is Infinity and other is infinite?=nil (which means finite)

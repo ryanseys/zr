@@ -1,0 +1,2 @@
+fails:Array#* tries to convert the passed argument to a String using #to_str
+fails:Array#* converts the passed argument to a String rather than an Integer

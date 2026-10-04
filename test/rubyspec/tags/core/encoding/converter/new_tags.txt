@@ -1,0 +1,1 @@
+fails:Encoding::Converter.new calls #to_str to convert the replacement object to a String

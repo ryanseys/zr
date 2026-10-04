@@ -1,0 +1,1 @@
+fails:Array#[] returns the same elements as [m..n] and [m...n] with Range subclasses

@@ -1,0 +1,1 @@
+fails:Set#=== member equality is checked using both #hash and #eql?

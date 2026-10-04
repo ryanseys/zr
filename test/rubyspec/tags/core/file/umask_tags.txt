@@ -1,0 +1,2 @@
+fails:File.umask invokes to_int on non-integer argument
+fails:File.umask raises RangeError with too large values

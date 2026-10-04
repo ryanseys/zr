@@ -1,0 +1,2 @@
+fails:String#delete_suffix calls to_str on its argument
+fails:String#delete_suffix! calls to_str on its argument

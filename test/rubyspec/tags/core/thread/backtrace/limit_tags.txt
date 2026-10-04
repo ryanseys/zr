@@ -1,0 +1,1 @@
+fails:Thread::Backtrace.limit returns maximum backtrace length set by --backtrace-limit command-line option

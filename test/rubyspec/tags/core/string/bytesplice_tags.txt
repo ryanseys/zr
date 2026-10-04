@@ -1,0 +1,31 @@
+fails:String#bytesplice raises TypeError when integer index is provided without length argument
+fails:String#bytesplice raises IndexError when str_index is less than -bytesize
+hangs:String#bytesplice raises IndexError when str_index is greater than bytesize
+fails:String#bytesplice raises IndexError for negative str length
+fails:String#bytesplice replaces with integer str indices
+fails:String#bytesplice raises RangeError when str range left boundary is less than -bytesize
+fails:String#bytesplice replaces with str ranges
+fails:String#bytesplice raises ArgumentError when integer str index is provided without str length argument
+fails:String#bytesplice replaces on an empty string with str index/length
+fails:String#bytesplice mutates self with substring and str index/length
+fails:String#bytesplice raises when string is frozen and str index/length
+fails:String#bytesplice replaces on an empty string with str range
+fails:String#bytesplice mutates self with substring and str range
+fails:String#bytesplice raises when string is frozen and str range
+fails:String#bytesplice with multibyte characters raises IndexError when index is out of byte size boundary
+fails:String#bytesplice with multibyte characters raises IndexError when index is not on a codepoint boundary
+fails:String#bytesplice with multibyte characters raises IndexError when length is not matching the codepoint boundary
+fails:String#bytesplice with multibyte characters replaces with integer indices
+fails:String#bytesplice with multibyte characters replaces with range
+fails:String#bytesplice with multibyte characters treats negative length for range as 0
+fails:String#bytesplice with multibyte characters raises when ranges not match codepoint boundaries
+fails:String#bytesplice with multibyte characters deals with a different encoded argument
+fails:String#bytesplice with multibyte characters raises IndexError when str_index is out of byte size boundary
+fails:String#bytesplice with multibyte characters raises IndexError when str_index is not on a codepoint boundary
+fails:String#bytesplice with multibyte characters raises IndexError when str_length is not matching the codepoint boundary
+fails:String#bytesplice with multibyte characters replaces with integer str indices
+fails:String#bytesplice with multibyte characters replaces with str range
+fails:String#bytesplice with multibyte characters treats negative length for str range as 0
+fails:String#bytesplice with multibyte characters raises when ranges not match codepoint boundaries in str
+fails:String#bytesplice with multibyte characters deals with a different encoded argument with str index/length
+fails:String#bytesplice with multibyte characters deals with a different encoded argument with str range

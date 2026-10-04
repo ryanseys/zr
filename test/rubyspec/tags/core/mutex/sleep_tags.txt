@@ -1,0 +1,1 @@
+fails:Mutex#sleep when not locked by the current thread raises an ArgumentError if passed a negative duration

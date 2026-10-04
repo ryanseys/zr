@@ -1,0 +1,1 @@
+fails:Enumerable#all? when given a pattern argument ignores the block if there is an argument

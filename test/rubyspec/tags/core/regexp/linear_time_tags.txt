@@ -1,0 +1,1 @@
+fails:Regexp.linear_time? warns about flags being ignored for regexp arguments

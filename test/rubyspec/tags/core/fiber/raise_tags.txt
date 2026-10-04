@@ -1,0 +1,27 @@
+fails:Fiber#raise raises RuntimeError if no exception class is given
+fails:Fiber#raise raises a TypeError when passed a non-Exception object
+fails:Fiber#raise raises a TypeError when passed true
+fails:Fiber#raise raises a TypeError when passed false
+fails:Fiber#raise raises a TypeError when passed nil
+fails:Fiber#raise raises a TypeError when passed a message and an extra argument
+fails:Fiber#raise raises TypeError when passed a non-Exception object but it responds to #exception method that doesn't return an instance of Exception class
+fails:Fiber#raise allows cause keyword argument
+fails:Fiber#raise raises an ArgumentError when only cause is given
+fails:Fiber#raise raises an ArgumentError when only cause is given and is nil
+fails:Fiber#raise raises a TypeError when given cause is not an instance of Exception
+fails:Fiber#raise doesn't set given cause when it equals the raised exception
+fails:Fiber#raise accepts cause equal an exception
+fails:Fiber#raise rejects circular causes
+fails:Fiber#raise supports exception class with message and cause
+fails:Fiber#raise supports exception class with message, backtrace and cause
+fails:Fiber#raise supports automatic cause chaining
+fails:Fiber#raise with cause keyword argument uses the cause from the calling context
+fails:Fiber#raise with cause keyword argument accepts a cause keyword argument that overrides the last exception
+fails:Fiber#raise with cause keyword argument supports automatic cause chaining from calling context
+fails:Fiber#raise with cause keyword argument supports explicit cause: nil to prevent cause chaining
+fails:Fiber#raise with cause keyword argument raises TypeError when cause is not an Exception
+fails:Fiber#raise with cause keyword argument raises ArgumentError when only cause is given with no arguments
+fails:Fiber#raise does not accept array of backtrace information only
+fails:Fiber#raise does not accept integer
+fails:Fiber#raise does not accept only error message and backtrace information
+fails:Fiber#raise should raise on parent fiber

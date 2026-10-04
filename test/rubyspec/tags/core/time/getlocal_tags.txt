@@ -1,0 +1,5 @@
+fails:Time#getlocal raises ArgumentError if the String argument is not in an ASCII-compatible encoding
+fails:Time#getlocal with a timezone argument returns a Time in the timezone
+fails:Time#getlocal with a timezone argument accepts timezone argument that must have #local_to_utc and #utc_to_local methods
+fails:Time#getlocal with a timezone argument does not raise exception if timezone does not implement #local_to_utc method
+fails:Time#getlocal with a timezone argument subject's class implements .find_timezone method calls .find_timezone to build a time object if passed zone name as a timezone argument

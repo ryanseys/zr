@@ -1,0 +1,2 @@
+fails:Module#prepend raises a TypeError when the argument is a refinement
+fails:Module#prepend uses only new module when dupping the module

@@ -1,0 +1,1 @@
+fails:Process::Status#== returns true when compared to the integer status of a terminated child

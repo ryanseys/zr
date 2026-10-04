@@ -1,0 +1,1 @@
+fails:Fiber#kill kills a resumed fiber from a child

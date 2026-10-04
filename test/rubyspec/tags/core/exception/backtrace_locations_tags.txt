@@ -1,0 +1,1 @@
+fails:Exception#backtrace_locations returns an Array that can be updated

@@ -1,0 +1,2 @@
+fails:Thread.each_caller_location raises LocalJumpError when called without a block
+fails:Thread.each_caller_location doesn't accept keyword arguments

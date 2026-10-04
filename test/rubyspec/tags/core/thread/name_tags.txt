@@ -1,0 +1,1 @@
+fails:Thread#name= raises an ArgumentError if the name includes a null byte

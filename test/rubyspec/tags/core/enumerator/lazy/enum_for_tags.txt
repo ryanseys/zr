@@ -1,0 +1,2 @@
+fails:Enumerator::Lazy#enum_for generates a lazy enumerator from the given name
+fails:Enumerator::Lazy#enum_for works with an infinite enumerable

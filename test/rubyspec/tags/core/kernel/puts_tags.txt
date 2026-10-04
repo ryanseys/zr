@@ -1,0 +1,1 @@
+fails:Kernel#puts delegates to $stdout.puts

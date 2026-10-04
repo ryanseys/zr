@@ -1,0 +1,6 @@
+fails:Array#pack with format 'J' ignores whitespace in the format string
+fails:Array#pack with format 'J' ignores comments in the format string
+fails:Array#pack with format 'J' raise ArgumentError when a directive is unknown
+fails:Array#pack with format 'j' ignores whitespace in the format string
+fails:Array#pack with format 'j' ignores comments in the format string
+fails:Array#pack with format 'j' raise ArgumentError when a directive is unknown

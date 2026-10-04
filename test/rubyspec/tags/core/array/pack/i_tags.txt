@@ -1,0 +1,6 @@
+fails:Array#pack with format 'I' ignores whitespace in the format string
+fails:Array#pack with format 'I' ignores comments in the format string
+fails:Array#pack with format 'I' raise ArgumentError when a directive is unknown
+fails:Array#pack with format 'i' ignores whitespace in the format string
+fails:Array#pack with format 'i' ignores comments in the format string
+fails:Array#pack with format 'i' raise ArgumentError when a directive is unknown

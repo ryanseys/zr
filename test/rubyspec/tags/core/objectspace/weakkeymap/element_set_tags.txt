@@ -1,0 +1,1 @@
+fails:ObjectSpace::WeakKeyMap#[]= requires the keys to implement #hash

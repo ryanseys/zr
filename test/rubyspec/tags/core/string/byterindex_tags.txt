@@ -1,0 +1,7 @@
+fails:String#byterindex with object tries to convert obj to a string via to_str
+fails:String#byterindex with object calls #to_int to convert the second argument
+fails:String#byterindex with object with global variables sets $~ to MatchData of match and nil when there's none
+fails:String#byterindex with String tries to convert start_offset to an integer via to_int
+fails:String#byterindex with String raises a TypeError when given offset is nil
+fails:String#byterindex with Regexp tries to convert start_offset to an integer
+fails:String#byterindex with Regexp raises a TypeError when given offset is nil

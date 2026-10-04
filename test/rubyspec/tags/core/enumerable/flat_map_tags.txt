@@ -1,0 +1,3 @@
+fails:Enumerable#flat_map concatenates the result of calling #to_ary if it returns an Array
+fails:Enumerable#flat_map appends an element that defines #to_ary that returns nil
+fails:Enumerable#flat_map raises a TypeError if an element defining #to_ary does not return an Array or nil

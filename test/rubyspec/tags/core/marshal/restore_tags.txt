@@ -1,0 +1,18 @@
+fails:Marshal.restore loads an array containing objects having _dump method, and with proc
+fails:Marshal.restore loads an array containing objects having marshal_dump method, and with proc
+fails:Marshal.restore when called with freeze: true does not call freeze method
+fails:Marshal.restore when called with freeze: true returns frozen object even if object does not respond to freeze method
+fails:Marshal.restore when called with freeze: true deep freezing deduplicates frozen strings
+fails:Marshal.restore when called with a proc calls the proc for recursively visited data
+fails:Marshal.restore when called on objects with custom _dump methods does not set instance variables of an object with user-defined _dump/_load
+fails:Marshal.restore for a String sets binmode if it is loading through StringIO stream
+fails:Marshal.restore for an Object loads an Object with a non-US-ASCII instance variable
+fails:Marshal.restore for an Object raises ArgumentError if the object from an 'o' stream is not dumpable as 'o' type user class
+fails:Marshal.restore for a Regexp restore the regexp instance variables
+fails:Marshal.restore for a Time loads serialized instance variables
+fails:Marshal.restore for a Time loads Time objects stored as links
+fails:Marshal.restore for a Time keeps the local zone
+fails:Marshal.restore for a Time keeps the zone
+fails:Marshal.restore for a Module raises ArgumentError if given the name of a non-Class
+fails:Marshal.restore for a wrapped C pointer loads
+fails:Marshal.restore for a wrapped C pointer raises TypeError when the local class is missing _load_data

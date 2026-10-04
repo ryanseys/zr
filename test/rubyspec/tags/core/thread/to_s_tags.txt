@@ -1,0 +1,2 @@
+fails:Thread#to_s reports aborting on a killed thread
+fails:Thread#to_s reports aborting on a killed thread after sleep

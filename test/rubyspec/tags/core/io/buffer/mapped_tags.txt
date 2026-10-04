@@ -1,0 +1,2 @@
+fails:IO::Buffer#mapped? with a slice of a buffer created with .new is false when slicing a mapped buffer
+fails:IO::Buffer#mapped? with a slice of a buffer created with .map is false

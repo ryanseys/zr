@@ -1,0 +1,1 @@
+fails:Module#const_source_location autoload returns the real constant location as soon as it is defined

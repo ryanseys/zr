@@ -1,0 +1,3 @@
+fails:Module.used_refinements returns empty array if does not have any refinements imported
+fails:Module.used_refinements ignores refinements imported in a module that is included into the current one
+fails:Module.used_refinements returns refinements even not defined directly in a module refinements are imported from

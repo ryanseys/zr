@@ -1,0 +1,2 @@
+fails:Time#ceil returns an instance of Time, even if #ceil is called on a subclass
+fails:Time#ceil copies own timezone to the returning value

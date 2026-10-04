@@ -1,0 +1,2 @@
+fails:String#split with String raises a RangeError when the limit is larger than int
+fails:String#split with String when $; is not nil warns

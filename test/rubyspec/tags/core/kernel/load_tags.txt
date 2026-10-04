@@ -1,0 +1,11 @@
+fails:Kernel#load (path resolution) with an unreadable file raises a LoadError
+fails:Kernel#load loads a file that recursively requires itself
+fails:Kernel#load loads a file that has been loaded by #require
+fails:Kernel#load does not cause #require with the same path to fail
+fails:Kernel#load (shell expansion) expands a tilde to the HOME environment variable as the path to load
+fails:Kernel.load (path resolution) does not require file twice after $LOAD_PATH change
+fails:Kernel.load (path resolution) with an unreadable file raises a LoadError
+fails:Kernel.load loads a file that recursively requires itself
+fails:Kernel.load loads a file that has been loaded by #require
+fails:Kernel.load does not cause #require with the same path to fail
+fails:Kernel.load (shell expansion) expands a tilde to the HOME environment variable as the path to load

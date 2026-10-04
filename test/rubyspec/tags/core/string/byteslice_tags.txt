@@ -1,0 +1,2 @@
+fails:String#byteslice with index, length raises a TypeError when the given index or the given length is nil
+fails:String#byteslice with Range raises a type error if a range is passed with a length

@@ -1,0 +1,1 @@
+fails:Module#include raises a TypeError when the argument is a refinement

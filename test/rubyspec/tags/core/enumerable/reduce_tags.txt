@@ -1,0 +1,3 @@
+fails:Enumerable#reduce converts non-Symbol method name argument to String with #to_str if two arguments
+fails:Enumerable#reduce ignores the block if two arguments
+fails:Enumerable#reduce converts non-Symbol method name argument to String with #to_str

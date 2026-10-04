@@ -1,0 +1,1 @@
+fails:Integer#pow two arguments are passed raises TypeError for non-numeric value

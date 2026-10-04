@@ -1,0 +1,4 @@
+fails:Kernel#warn does not call Warning.warn if self is the Warning module
+fails:Kernel#warn avoids recursion if Warning#warn is redefined and calls super
+fails:Kernel#warn :uplevel keyword argument shows the caller of #require and not #require itself with RubyGems loaded
+fails:Kernel#warn :uplevel keyword argument skips <internal: core library methods defined in Ruby

@@ -1,0 +1,3 @@
+fails:Dir.children returns children transcoded to the default internal encoding
+fails:Dir#children returns children encoded with the specified encoding
+fails:Dir#children returns children transcoded to the default internal encoding

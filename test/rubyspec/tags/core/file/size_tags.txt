@@ -1,0 +1,1 @@
+fails:File.size calls #to_io to convert the argument to an IO

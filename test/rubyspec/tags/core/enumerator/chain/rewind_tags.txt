@@ -1,0 +1,2 @@
+fails:Enumerator::Chain#rewind does nothing if receiver has not been iterated
+fails:Enumerator::Chain#rewind calls rewind only for objects that have actually been iterated on

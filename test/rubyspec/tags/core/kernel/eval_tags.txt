@@ -1,0 +1,10 @@
+fails:Kernel#eval returns from the scope calling #eval when evaluating 'return'
+fails:Kernel#eval unwinds through a Proc-style closure and returns from a lambda-style closure in the closure chain
+fails:Kernel#eval parameter forwarding allows anonymous rest parameter forwarding
+fails:Kernel#eval parameter forwarding allows anonymous keyword parameters forwarding
+fails:Kernel#eval parameter forwarding allows anonymous block parameter forwarding
+fails:Kernel#eval parameter forwarding allows ... forwarding
+fails:Kernel#eval with a magic encoding comment ignores the magic encoding comment if it is after a frozen_string_literal magic comment
+fails:Kernel#eval with a magic encoding comment ignores the frozen_string_literal magic comment if it appears after a token and warns if $VERBOSE is true
+fails:Kernel#eval with refinements activates refinements from the eval scope
+fails:Kernel#eval with refinements activates refinements from the binding

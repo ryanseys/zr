@@ -1,0 +1,1 @@
+fails:Enumerator::Generator#each appends given arguments to receiver.each

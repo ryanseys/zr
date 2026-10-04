@@ -1,0 +1,1 @@
+fails:SizedQueue#max= raises a TypeError when given a non-numeric value

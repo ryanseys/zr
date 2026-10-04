@@ -1,0 +1,1 @@
+fails:Enumerator::Chain#inspect returns a not initialized representation if #initialized is not called yet

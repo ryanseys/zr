@@ -1,0 +1,5 @@
+fails:IO.new ignores the :encoding option when the :external_encoding option is present
+fails:IO.new ignores the :encoding option when the :internal_encoding option is present
+fails:IO.new coerces mode with #to_int
+fails:IO.new coerces mode with #to_int when passed in options
+fails:IO.new coerces :encoding option with #to_str

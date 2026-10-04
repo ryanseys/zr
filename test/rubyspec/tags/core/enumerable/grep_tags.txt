@@ -1,0 +1,3 @@
+fails:Enumerable#grep does not set $~ when given no block
+fails:Enumerable#grep does not modify Regexp.last_match without block
+fails:Enumerable#grep correctly handles non-string elements

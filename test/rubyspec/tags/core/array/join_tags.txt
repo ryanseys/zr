@@ -1,0 +1,2 @@
+fails:Array#join attempts coercion via #to_ary second
+fails:Array#join attempts coercion via #to_s third
