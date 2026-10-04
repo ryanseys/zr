@@ -126,7 +126,11 @@ class Thread
     end
 
     # Each frame outward from the caller's caller, as a Location.
-    def each_caller_location(start = 1, length = nil)
+    # Takes no keywords, and needs a block before it walks.
+    def each_caller_location(start = 1, length = nil, **keywords)
+      raise ArgumentError, "unknown keyword#{'s' if keywords.size > 1}: #{keywords.keys.map(&:inspect).join(', ')}" unless keywords.empty?
+      raise LocalJumpError, +"no block given" unless block_given?
+
       caller_locations(start + 1, length)&.each { |location| yield location }
       nil
     end
@@ -402,8 +406,12 @@ class Thread
   end
   attr_reader :name
 
+  # StringValueCStr: no NUL byte in the name.
   def name=(name)
-    @name = name.nil? ? nil : name.to_str
+    @name = name.nil? ? nil : Primitive.zr_str_operand(name)
+    Kernel.raise ArgumentError, +"string contains null byte" if @name&.include?("\0")
+
+    name
   end
 
   def alive? = @status != :dead

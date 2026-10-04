@@ -26,6 +26,7 @@ class File < IO
 
   def self.dirname(path, level = 1)
     path = path_of(path)
+    level = Primitive.zr_index_operand_m(level)
     raise ArgumentError, "negative level: #{level}" if level < 0
 
     level.times do
@@ -750,9 +751,25 @@ class File < IO
   end
   private_class_method :realpath_walk, :realpath_names
 
-  def self.chmod(mode, *paths) = each_path(paths) { |path| Primitive.zr_chmod_m(path, mode) }
+  def self.chmod(mode, *paths)
+    mode = mode_operand(mode)
+    each_path(paths) { |path| Primitive.zr_chmod_m(path, mode) }
+  end
 
-  def self.lchmod(mode, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(9, path, mode, 0) }
+  def self.lchmod(mode, *paths)
+    mode = mode_operand(mode)
+    each_path(paths) { |path| Primitive.zr_fs_call(9, path, mode, 0) }
+  end
+
+  # NUM2MODET: to_int, an unsigned long that keeps the bits of a mode_t.
+  def self.mode_operand(mode)
+    Primitive.attr! :hidden
+    mode = Primitive.zr_index_operand_m(mode) unless mode.is_a?(Integer)
+    raise RangeError, +"bignum too big to convert into 'unsigned long'" if mode > 18_446_744_073_709_551_615
+
+    mode & 0xFFFF
+  end
+  private_class_method :mode_operand
 
   def self.chown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(0, path, owner || -1, group || -1) }
 
@@ -852,13 +869,14 @@ class File < IO
 
   def self.truncate(path, length)
     file = path_of(path)
+    length = IO.send(:offset_of, length)
     result = without_gvl { Primitive.zr_fs_call(5, file, length, 0) }
     raise SystemCallError.new(path, -result, +"rb_file_s_truncate") if result < 0
 
     0
   end
 
-  def self.umask(mask = nil) = Primitive.zr_umask_m(mask)
+  def self.umask(mask = nil) = Primitive.zr_umask_m(mask.nil? ? nil : mode_operand(mask))
 
   def self.birthtime(path) = Stat.of(path_of(path), "rb_file_s_birthtime").birthtime
 
@@ -969,6 +987,7 @@ class File < IO
   def birthtime = stat.birthtime
 
   def chmod(mode)
+    mode = File.send(:mode_operand, mode)
     result = Primitive.zr_fs_call(7, "", fileno, mode)
     raise SystemCallError.new(path, -result, +"rb_file_chmod") if result < 0
 
@@ -981,6 +1000,7 @@ class File < IO
   end
 
   def truncate(length)
+    length = IO.send(:offset_of, length)
     send(:check_writable)
     result = Primitive.zr_fs_call(6, "", fileno, length)
     raise SystemCallError.new(path, -result, +"rb_file_truncate") if result < 0
@@ -1014,12 +1034,13 @@ class File < IO
         # A singleton method's scope does not reach what the class
         # includes, so the flags are named through their module.
         append, rdwr, trunc, wronly = Constants::APPEND, Constants::RDWR, Constants::TRUNC, Constants::WRONLY
+        # rb_io_oflags_fmode: the access bits decide reading and writing;
+        # O_APPEND on its own reads. The flags themselves, not this text,
+        # open the file.
         return +"a+" if mode & append != 0 && mode & rdwr == rdwr
-        return +"a" if mode & append != 0
         return +"w+" if mode & rdwr == rdwr && mode & trunc != 0
         return +"r+" if mode & rdwr == rdwr
-        # rb_io_oflags_fmode: O_WRONLY writes, with or without O_TRUNC; the
-        # flags themselves, not this text, open the file.
+        return +"a" if mode & append != 0 && mode & wronly != 0
         return +"w" if mode & wronly != 0
 
         return +"r"
@@ -1147,7 +1168,8 @@ class Dir
     end
   end
 
-  attr_reader :path
+  # A Dir's path, a new String each time, as dir_path dups it.
+  def path = @path&.dup
   alias to_path path
 
   def inspect = Primitive.zr_obj_form("#<Dir:#{@path}>")
@@ -1191,7 +1213,8 @@ class Dir
   end
 
   def each(&block)
-    return to_enum(:each) { open_names.size } unless block
+    # dir_each's Enumerator has no size, as CRuby's has none.
+    return to_enum(:each) unless block
 
     rewind
     while (name = read)
@@ -1203,7 +1226,7 @@ class Dir
   def children = open_names.reject { |name| name == +"." || name == +".." }
 
   def each_child(&block)
-    return to_enum(:each_child) { children.size } unless block
+    return to_enum(:each_child) unless block
 
     children.each(&block)
     self
@@ -1245,6 +1268,7 @@ class Dir
 
   def self.mkdir(path, mode = 0o777)
     path = File.send(:path_of, path)
+    mode = File.send(:mode_operand, mode)
     result = File.send(:without_gvl) { Primitive.zr_io_mkdir(path, mode) }
     raise SystemCallError.new(path, -result, +"dir_s_mkdir") if result < 0
 
@@ -1817,7 +1841,7 @@ class Dir
     user = Primitive.zr_str_operand(user) unless user.nil?
     user = nil if user&.empty?
     return Primitive.zr_home_dir(nil) if user.nil? && ENV["HOME"].nil?
-    return ENV["HOME"] if user.nil?
+    return ENV["HOME"].dup if user.nil?
 
     Primitive.zr_home_dir(user) || raise(ArgumentError, "user #{user} doesn't exist")
   end

@@ -878,7 +878,8 @@ class IO
     @lineno
   end
 
-  def path = @path || @name
+  # rb_io_path: a new String each time.
+  def path = (@path || @name)&.dup
 
   def sync
     check_open

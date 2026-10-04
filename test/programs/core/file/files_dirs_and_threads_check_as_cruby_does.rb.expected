@@ -1,0 +1,40 @@
+1: LocalJumpError: no block given
+2: ArgumentError: unknown keyword: :foo
+3: FrozenError: can't modify frozen thread locals
+4: FrozenError: can't modify frozen thread locals
+5: nil
+6: false
+7: TypeError: 123 is not a symbol nor a string
+8: TypeError: 123 is not a symbol nor a string
+11: ArgumentError: string contains null byte
+12: 1
+13: RangeError: bignum too big to convert into 'unsigned long'
+14: 0
+15: RangeError: bignum too big to convert into 'unsigned long'
+16: 420
+17: "/a/b"
+18: "a/b"
+19: File
+20: "hello"
+21: "hello"
+22: IOError: not opened for writing
+23: false
+24: false
+25: 5
+26: ["/a", "b"]
+27: ["/a", "b"]
+28: TypeError: no implicit conversion from string
+29: TypeError: no implicit conversion from string
+30: 2
+33: ["bad", Object]
+34: ["bad", Object]
+35: [:@@nope, Object]
+36: "undefined method 'nope' for class CustomName"
+37: "undefined method 'nope' for an instance of CustomName"
+38: 0
+39: TypeError: no implicit conversion of Object into Integer
+40: nil
+41: nil
+42: false
+43: ArgumentError: unexpected value for freeze: Integer
+44: nil

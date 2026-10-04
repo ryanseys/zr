@@ -31,8 +31,9 @@ module Zr::Kern
 
   # Raises `'x' is not allowed as an instance variable name`, or the class
   # variable form, when the name does not start with its sigil.
-  #: (word, ptr, word, ptr, word) -> value
-  def zr_bad_variable_name(id, sigil, siglen, kind, kindlen)
+  # The NameError has the name as it was given and the receiver.
+  #: (value, value, word, ptr, word, ptr, word) -> value
+  def zr_bad_variable_name(recv, name, id, sigil, siglen, kind, kindlen)
     p = zr_symbol_name_ptr(id)
     n = zr_symbol_name_len(id)
     if n > siglen && zr_bytes_eq(p, siglen, sigil, siglen) && zr_ident_p(p + siglen, n - siglen)
@@ -45,7 +46,10 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes("' is not allowed as "), 20)
     zr_buf_push(b, kind, kindlen)
     zr_buf_push(b, Machine.bytes(" variable name"), 14)
-    zr_raise_buf(zr_global(G_NAME_ERROR), b)
+    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    zr_exc_detail(exc, Machine.id(:name), name)
+    zr_exc_detail(exc, Machine.id(:receiver), recv)
+    zr_raise(exc)
   end
 
   # Whether the bytes are an identifier: a letter, an underscore or a
@@ -67,14 +71,14 @@ module Zr::Kern
     true
   end
 
-  #: (word) -> value
-  def zr_check_ivar_name(id)
-    zr_bad_variable_name(id, Machine.bytes("@"), 1, Machine.bytes("an instance"), 11)
+  #: (value, value, word) -> value
+  def zr_check_ivar_name(recv, name, id)
+    zr_bad_variable_name(recv, name, id, Machine.bytes("@"), 1, Machine.bytes("an instance"), 11)
   end
 
-  #: (word) -> value
-  def zr_check_cvar_name(id)
-    zr_bad_variable_name(id, Machine.bytes("@@"), 2, Machine.bytes("a class"), 7)
+  #: (value, value, word) -> value
+  def zr_check_cvar_name(recv, name, id)
+    zr_bad_variable_name(recv, name, id, Machine.bytes("@@"), 2, Machine.bytes("a class"), 7)
   end
 
   # Adds the names in a variable table to `out` as Symbols, with no
@@ -109,7 +113,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_ivar_name(id)
+    r = zr_check_ivar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     r = zr_ractor_guard(recv)
     return r if r == QUNDEF
@@ -122,7 +126,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_ivar_name(id)
+    r = zr_check_ivar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     r = zr_ractor_guard(recv)
     return r if r == QUNDEF
@@ -135,7 +139,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_ivar_name(id)
+    r = zr_check_ivar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     zr_ivar_defined(recv, id)
   end
@@ -164,7 +168,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_cvar_name(id)
+    r = zr_check_cvar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     owner = zr_cvar_target(recv, id)
     return owner if owner == QUNDEF
@@ -175,7 +179,10 @@ module Zr::Kern
       zr_buf_sym(b, id)
       zr_buf_push(b, Machine.bytes(" in "), 4)
       zr_buf_class(b, recv)
-      return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
+      zr_exc_detail(exc, Machine.id(:receiver), recv)
+      return zr_raise(exc)
     end
     zr_ivtab_get(Machine.ptr(ClassExt[RClass[owner].ext].cv), id)
   end
@@ -186,7 +193,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_cvar_name(id)
+    r = zr_check_cvar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     owner = zr_cvar_target(recv, id)
     return owner if owner == QUNDEF
@@ -209,7 +216,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_cvar_name(id)
+    r = zr_check_cvar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     r = zr_class_modify_check(recv)
     return r if r == QUNDEF
@@ -242,7 +249,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_cvar_name(id)
+    r = zr_check_cvar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     zr_bool(zr_cvar_owner(recv, id) != QNIL)
   end
@@ -569,7 +576,7 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    r = zr_check_ivar_name(id)
+    r = zr_check_ivar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
     if zr_modify_frozen_p(recv)
       return zr_frozen_error(recv)

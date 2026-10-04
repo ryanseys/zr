@@ -330,7 +330,10 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("false"), 5)
     elsif !zr_special_p(recv) && (zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE)
       zr_buf_push(b, zr_type(recv) == T_CLASS ? Machine.bytes("class ") : Machine.bytes("module "), zr_type(recv) == T_CLASS ? 6 : 7)
-      s = zr_inspect(recv)
+      s = zr_own_module_name(recv)
+      if s == QNIL
+        s = zr_inspect(recv)
+      end
       return s if s == QUNDEF
       zr_buf_str(b, s)
     elsif !zr_special_p(recv) && zr_singleton_p(RBasic[recv].klass)
@@ -338,9 +341,34 @@ module Zr::Kern
       zr_buf_byte(b, 62)
     else
       zr_buf_push(b, Machine.bytes("an instance of "), 15)
-      zr_buf_class_of(b, recv)
+      s = zr_own_module_name(zr_real_class(recv))
+      if s == QNIL
+        zr_buf_class_of(b, recv)
+      else
+        zr_buf_str(b, s)
+      end
     end
     Machine.value(QNIL)
+  end
+
+  # name_err_mesg_receiver_name: the String a program's own `name` gives
+  # for a class or a module, or nil where the core's `name` answers, the
+  # call raises, or it gives no String.
+  #: (value) -> value
+  def zr_own_module_name(mod)
+    e = zr_find_method(zr_class_of(mod), Machine.id(:name))
+    if e == 0 || MEntry[e].core != 0
+      return Machine.value(QNIL)
+    end
+    s = zr_send(mod, Machine.id(:name), 0, 0)
+    if s == QUNDEF
+      Task[zr_task()].pending = Machine.value(QNIL)
+      return Machine.value(QNIL)
+    end
+    if zr_special_p(s) || zr_type(s) != T_STRING
+      return Machine.value(QNIL)
+    end
+    s
   end
 
   # Whether a call from the top frame can call `e` with `mode`. `mode` is 0

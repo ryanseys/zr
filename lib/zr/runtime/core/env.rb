@@ -267,7 +267,12 @@ class << ENV
   # ENV is the process environment itself, so there is nothing to copy
   # or to hold still.
   def dup = raise(TypeError, +"Cannot dup ENV, use ENV.to_h to get a copy of ENV as a hash")
-  def clone(freeze: nil) = raise(TypeError, +"Cannot clone ENV, use ENV.to_h to get a copy of ENV as a hash")
+  # env_clone: the freeze: keyword is checked first.
+  def clone(freeze: nil)
+    raise ArgumentError, "unexpected value for freeze: #{conversion_name(freeze)}" unless freeze.nil? || freeze == true || freeze == false
+
+    raise TypeError, +"Cannot clone ENV, use ENV.to_h to get a copy of ENV as a hash"
+  end
   def freeze = raise(TypeError, +"cannot freeze ENV")
 
   private
