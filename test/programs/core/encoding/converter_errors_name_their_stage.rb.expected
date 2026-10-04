@@ -1,0 +1,15 @@
+[Encoding::UndefinedConversionError, "U+00E9 to Big5 in conversion from ISO-8859-1 to UTF-8 to Big5", "UTF-8", "Big5", "é"]
+[:undefined_conversion, "UTF-8", "Big5", "\xC3\xA9", ""]
+[Encoding::InvalidByteSequenceError, "incomplete \"\\xA4\" on EUC-JP", "EUC-JP", "UTF-8", "\xA4"]
+[:incomplete_input, "EUC-JP", "UTF-8", "\xA4", ""]
+[Encoding::UndefinedConversionError, "U+9899 from UTF-8 to ISO-8859-1", "UTF-8", "ISO-8859-1", "颙"]
+[:undefined_conversion, "UTF-8", "ISO-8859-1", "\xE9\xA2\x99", ""]
+[Encoding::InvalidByteSequenceError, "\"\\x00\\xD8\" followed by \"a\\x00\" on UTF-16LE", "UTF-16LE", "UTF-8", "\x00\xD8"]
+[:invalid_byte_sequence, "UTF-16LE", "UTF-8", "\x00\xD8", "a\x00"]
+[Encoding::UndefinedConversionError, "U+3042 to ISO-8859-1 in conversion from EUC-JP to UTF-8 to ISO-8859-1", "UTF-8", "ISO-8859-1", "あ"]
+[:undefined_conversion, "UTF-8", "ISO-8859-1", "\xE3\x81\x82", ""]
+:invalid_byte_sequence
+[:invalid_byte_sequence, "UTF-8", "ISO-8859-1", "\xF1", "a"]
+:finished
+"ab"
+"?"

@@ -187,6 +187,9 @@ class Encoding
     # far it got, in ruby's own words. Both Strings are changed in place,
     # as CRuby changes them.
     def primitive_convert(source, destination, offset = nil, size = nil, flags = nil, **options)
+      # econv_primitive_convert: the offset and the size are C longs.
+      offset = Primitive.zr_index_operand_m(offset) unless offset.nil?
+      size = Primitive.zr_index_operand_m(size) unless size.nil?
       raise ArgumentError, +"negative output_byteoffset" if offset&.negative?
       raise ArgumentError, +"output_byteoffset too big" if offset && offset > destination.bytesize
       raise ArgumentError, +"negative output_bytesize" if size&.negative?
@@ -229,7 +232,8 @@ class Encoding
         return
       end
       Encoding.send(:check_options, options)
-      @replacement = options[:replace]
+      # econv_opts: the replacement converts with to_str.
+      @replacement = options[:replace].nil? ? nil : Primitive.zr_str_operand(options[:replace])
       @flags |= INVALID_REPLACE if options[:invalid] == :replace
       @flags |= UNDEF_REPLACE if options[:undef] == :replace
       case options[:xml]
@@ -408,20 +412,38 @@ class Encoding
       [bytes.byteslice(at, k - unit), bytes.byteslice(at + k - unit, unit)]
     end
 
+    # The stage of the path where an error happens, as the transcoder that
+    # found it names its two ends: a broken source byte in the first
+    # stage, a character the destination lacks in the last.
+    def stage(undefined)
+      Primitive.attr! :hidden
+      return [@source, @destination] if @path.size < 2
+
+      undefined ? [@path[-2], @path[-1]] : [@path[0], @path[1]]
+    end
+
+    def stage_names(undefined)
+      Primitive.attr! :hidden
+      from, to = stage(undefined)
+      [from&.name || @source_name, to&.name || @destination_name]
+    end
+
     def incomplete_error(tail)
       Primitive.attr! :hidden
-      Encoding.send(:byte_error, "incomplete #{tail.dump} on #{@source_name}", @source, @destination, tail, nil, true)
+      from, to = stage(false)
+      Encoding.send(:byte_error, "incomplete #{tail.dump} on #{stage_names(false)[0]}", from, to, tail, nil, true)
     end
 
     def invalid_error(error, again = +"".b)
       Primitive.attr! :hidden
       followed = again.empty? ? +"" : " followed by #{again.dump}"
-      Encoding.send(:byte_error, "#{error.dump}#{followed} on #{@source_name}", @source, @destination, error, again.empty? ? nil : again, false)
+      from, to = stage(false)
+      Encoding.send(:byte_error, "#{error.dump}#{followed} on #{stage_names(false)[0]}", from, to, error, again.empty? ? nil : again, false)
     end
 
     def stop(symbol, error, bytes, again = +"".b)
       Primitive.attr! :hidden
-      @errinfo = [symbol, @source_name, @destination_name, bytes.b, again.b]
+      @errinfo = [symbol, *stage_names(symbol == :undefined_conversion), bytes.b, again.b]
       @last_error = error
       symbol
     end
@@ -455,8 +477,10 @@ class Encoding
       Encoding.send(:convert, piece, Encoding::UTF_8, {}).ord
     rescue UndefinedConversionError
       @rest = +"".b
+      from, to = stage(false)
+      names = stage_names(false)
       stop(:undefined_conversion,
-           Encoding.send(:char_error, "#{piece.dump} from #{@source_name} to #{@destination_name}", @source, @destination, piece),
+           Encoding.send(:char_error, "#{piece.dump} from #{names[0]} to #{names[1]}", from, to, piece),
            piece)
     end
 
@@ -553,10 +577,15 @@ class Encoding
       return written(replacement) if @flags & UNDEF_REPLACE != 0
 
       @rest = +"".b
-      stop(:undefined_conversion,
-           Encoding.send(:char_error, "#{shown} from #{@source_name} to #{@destination_name}", @source, @destination,
-                         point.chr(Encoding::UTF_8)),
-           point.chr(Encoding::UTF_8))
+      # A path of several stages names them all, as rb_econv_open_exc does.
+      from, to = stage(true)
+      names = stage_names(true)
+      message = if @path.size > 2
+                  "#{shown} to #{names[1]} in conversion from #{@path.map(&:name).join(' to ')}"
+                else
+                  "#{shown} from #{names[0]} to #{names[1]}"
+                end
+      stop(:undefined_conversion, Encoding.send(:char_error, message, from, to, point.chr(Encoding::UTF_8)), point.chr(Encoding::UTF_8))
     end
 
     # `text` in the destination's own bytes.
