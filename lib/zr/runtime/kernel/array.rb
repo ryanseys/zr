@@ -302,6 +302,10 @@ module Zr::Kern
     end
     RArray[recv].len = 0
     if argc == 0
+      # rb_warning: under $VERBOSE, a block with no size is not used.
+      if blk != QNIL && zr_gvar_get(Machine.id(:$VERBOSE)) == QTRUE
+        zr_warn_here(Machine.bytes("given block not used"), 20)
+      end
       return recv
     end
     first = Machine.value(Machine.load64(argv, 0))
@@ -576,7 +580,8 @@ module Zr::Kern
     if argc != 1
       return zr_wrong_arity_range(argc, 1, 2)
     end
-    if !zr_special_p(first) && zr_class_of(first) == zr_global(G_RANGE)
+    # A Range subclass slices as a Range, as rb_range_beg_len reads it.
+    if !zr_special_p(first) && zr_is_a(first, zr_global(G_RANGE))
       r = zr_range_beg_len(first, RArray[recv].len, out)
       return r if r == QUNDEF
       if r == QFALSE

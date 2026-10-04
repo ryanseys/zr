@@ -1,0 +1,30 @@
+1: 0
+2: [2, 3]
+3: ArgumentError: wrong number of arguments (given 0, expected 1..3)
+4: TypeError: no implicit conversion of Range into Integer
+5: ArgumentError: bad value for range
+6: TypeError: no implicit conversion of String into Integer
+core/array/arrays_and_enumerables_check_as_cruby_does.rb:20: warning: given block not used
+7: 0
+8: [1, 2]
+9: true
+core/array/arrays_and_enumerables_check_as_cruby_does.rb:26: warning: given block not used
+11: []
+12: ArgumentError: bad value for range
+13: ArgumentError: bad value for range
+14: [1, :a, :b, 2]
+15: 1
+16: TypeError: can't convert Object to Array (Object#to_ary gives Integer)
+17: :ok
+18: "z"
+19: "z"
+20: ["match"]
+21: [:a]
+22: [[7], [6, 5], [4, 3], [2, 1]]
+23: [[7], [6, 5], [4, 3], [2, 1]]
+core/array/arrays_and_enumerables_check_as_cruby_does.rb:42: warning: passing arguments to Enumerable#to_set is deprecated
+24: Set
+core/array/arrays_and_enumerables_check_as_cruby_does.rb:43: warning: passing arguments to Enumerable#to_set is deprecated
+25: Set
+26: RuntimeError: no
+27: [[1, 9]]

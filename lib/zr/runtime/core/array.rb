@@ -1198,15 +1198,19 @@ class Array
   # `fill(value)`, `fill(value, start [, length])`, `fill(value, range)`,
   # each with a block in place of the value.
   def fill(*args)
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1..3)" if args.empty? && !block_given?
+
     value = block_given? ? nil : args.shift
     raise ArgumentError, "wrong number of arguments (given #{args.size + (block_given? ? 0 : 1)}, expected #{block_given? ? '0..2' : '1..3'})" if args.size > 2
 
-    if args[0].is_a?(Range)
-      first = args[0].begin || 0
+    # rb_ary_fill: a Range alone is a span, its ends converted with
+    # to_int; a Range with a length is a start that must be an Integer.
+    if args.size == 1 && args[0].is_a?(Range)
+      first = args[0].begin.nil? ? 0 : Primitive.zr_index_operand_m(args[0].begin)
       first += Primitive.zr_ary_len_m(self) if first < 0
       raise RangeError, "#{args[0]} out of range" if first < 0
 
-      last = args[0].end.nil? ? Primitive.zr_ary_len_m(self) - 1 : args[0].end
+      last = args[0].end.nil? ? Primitive.zr_ary_len_m(self) - 1 : Primitive.zr_index_operand_m(args[0].end)
       last += Primitive.zr_ary_len_m(self) if last < 0
       last -= 1 if args[0].exclude_end? && !args[0].end.nil?
       stop = last + 1
@@ -1261,6 +1265,7 @@ class Array
   def find_index(v = (omitted = true; nil))
     return to_enum(:find_index) if omitted && !block_given?
 
+    Primitive.zr_warn_here_m("given block not used") if block_given? && !omitted
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       x = Primitive.zr_ary_aref1_m(self, i)
@@ -1293,7 +1298,8 @@ class Array
   end
 
   def cycle(n = (omitted = true; nil))
-    return to_enum(:cycle, *([n] unless omitted)) { n.nil? ? ((Primitive.zr_ary_len_m(self) == 0) ? 0 : Float::INFINITY) : Primitive.zr_ary_len_m(self) * n } unless block_given?
+    # rb_ary_cycle_size: no rounds, or a count of 0 or less, is 0.
+    return to_enum(:cycle, *([n] unless omitted)) { n.nil? ? ((Primitive.zr_ary_len_m(self) == 0) ? 0 : Float::INFINITY) : ((k = Primitive.zr_index_operand_m(n)) <= 0 ? 0 : Primitive.zr_ary_len_m(self) * k) } unless block_given?
 
     # rb_ary_cycle: each round starts only while the array is not empty,
     # so a block that empties it ends the cycle.

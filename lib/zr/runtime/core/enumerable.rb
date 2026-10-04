@@ -593,8 +593,38 @@ module Enumerable
     out
   end
 
+  # enum_zip: arguments that all convert with to_ary zip as Arrays; else
+  # each must respond to each, and is read through to_enum(:each) and
+  # next, nil once it ends.
   def zip(*others, &block)
-    elements.zip(*others, &block)
+    arrays = others.map { |other| Array.try_convert(other) }
+    return elements.zip(*arrays, &block) if arrays.all?
+
+    enums = others.map do |other|
+      raise TypeError, "wrong argument type #{other.class} (must respond to :each)" unless other.respond_to?(:each)
+
+      # By name, as rb_funcallv sends it: a program may define its own.
+      other.__send__(:to_enum, :each)
+    end
+    ended = Array.new(enums.size, false)
+    out = block ? nil : []
+    Primitive.zr_enum_each(self, nil) do |x|
+      row = [x]
+      enums.each_with_index do |e, i|
+        value = nil
+        unless ended[i]
+          begin
+            value = e.next
+          rescue StopIteration
+            ended[i] = true
+          end
+        end
+        row << value
+      end
+      block ? yield(row) : out << row
+      nil
+    end
+    out
   end
 
   def take(n)
@@ -944,10 +974,13 @@ module Enumerable
     [min, max]
   end
 
+  # grep_i: without a block, a Regexp tests a String or a Symbol with
+  # rb_reg_match_p, which leaves $~ as it was.
   def grep(pattern)
     out = []
+    quiet = !block_given? && pattern.is_a?(Regexp)
     Primitive.zr_enum_each(self, nil) do |x|
-      if pattern === x
+      if quiet && (x.is_a?(String) || x.is_a?(Symbol)) ? pattern.match?(x) : pattern === x
         out << (block_given? ? yield(x) : x)
       end
       nil
@@ -957,8 +990,9 @@ module Enumerable
 
   def grep_v(pattern)
     out = []
+    quiet = !block_given? && pattern.is_a?(Regexp)
     Primitive.zr_enum_each(self, nil) do |x|
-      unless pattern === x
+      unless quiet && (x.is_a?(String) || x.is_a?(Symbol)) ? pattern.match?(x) : pattern === x
         out << (block_given? ? yield(x) : x)
       end
       nil
@@ -1082,8 +1116,14 @@ module Enumerable
   def lazy = Enumerator::Lazy.from(self)
 
   # CRuby writes this one in Ruby, so it returns its own parameters.
+  # A class argument is the Set to build, which Ruby 4.0 deprecates.
   def to_set(*args, &block)
     Primitive.attr! :ruby
-    Set.new(self, *args, &block)
+    klass = Set
+    unless args.empty?
+      warn("passing arguments to Enumerable#to_set is deprecated", uplevel: 1)
+      klass = args.shift
+    end
+    klass.new(self, *args, &block)
   end
 end
