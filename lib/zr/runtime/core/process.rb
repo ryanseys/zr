@@ -603,10 +603,13 @@ module Process
   # (then `$?` says exit 127).
   # `rb_exec_getargs`: a leading Hash is the environment and a trailing
   # Hash is the options, written as arguments rather than as keywords.
+  # A leading value with to_hash is the environment; a trailing Hash is
+  # always the options, so env and options with no command raise.
   def self.exec_args(args, options)
     args = args.dup
-    env = args.first.is_a?(Hash) ? args.shift : nil
-    options = options.merge(args.pop) if args.size > 1 && args.last.is_a?(Hash)
+    env = args.empty? || args.first.is_a?(String) ? nil : Hash.try_convert(args.first)
+    args.shift if env
+    options = options.merge(args.pop) if !args.empty? && args.last.is_a?(Hash)
     [env, args, options]
   end
 
@@ -678,6 +681,15 @@ module Process
   def self.command_words(args)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
 
+    # rb_exec_getargs: a first argument with to_ary is [program, argv0],
+    # exactly two Strings.
+    first = args.first.is_a?(String) ? nil : Array.try_convert(args.first)
+    if first
+      raise ArgumentError, +"wrong first argument" unless first.size == 2
+
+      first.each { |part| String.try_convert(part) or raise TypeError, "no implicit conversion of #{conversion_name(part)} into String" }
+      args = [[first[0]]] + args.drop(1)
+    end
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
     words = words.map do |word|
       string = String.try_convert(word)
@@ -722,10 +734,14 @@ module Process
     table = options[:unsetenv_others] ? {} : ENV.to_h
     env&.each do |key, value|
       key = String.try_convert(key) or raise TypeError, "no implicit conversion of #{conversion_name(key)} into String"
+      # check_exec_env: no = in a name, and no NUL in a name or a value.
+      raise ArgumentError, +"string contains null byte" if key.include?("\0")
+      raise ArgumentError, "environment name contains a equal : #{key}" if key.include?("=")
       if value.nil?
         table.delete(key)
       else
         table[key] = String.try_convert(value) or raise TypeError, "no implicit conversion of #{conversion_name(value)} into String"
+        raise ArgumentError, +"string contains null byte" if table[key].include?("\0")
       end
     end
     table.map { |key, value| "#{key}=#{value}" }

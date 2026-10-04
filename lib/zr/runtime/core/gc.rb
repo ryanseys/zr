@@ -272,11 +272,21 @@ end
 module Process
   def pid = Primitive.zr_process_id
 
+  # An emulated clock (EMULATED_CLOCKS) reads its real clock to its own
+  # resolution, as CRuby's fallbacks read gettimeofday, time and getrusage.
   def clock_gettime(id, unit = :float_second)
+    if (emulated = Process.send(:emulated_clock, id))
+      real, step = emulated
+      return Process.send(:in_unit, (Primitive.zr_clock_ns(real) / step) * step, unit)
+    end
+
     Process.send(:in_unit, Primitive.zr_clock_ns(Process.send(:clock_id, id, "clock_gettime")), unit)
   end
 
   def clock_getres(id, unit = :float_second)
+    emulated = Process.send(:emulated_clock, id)
+    return Process.send(:in_unit, emulated.last, unit) if emulated
+
     Process.send(:in_unit, Primitive.zr_clock_res_ns(Process.send(:clock_id, id, "clock_getres")), unit)
   end
 
@@ -301,10 +311,23 @@ module Process
     clock_id(const_get(id), verb)
   end
 
+  # The real clock and the resolution in nanoseconds of each clock that
+  # CRuby emulates, or nil for any other id.
+  def self.emulated_clock(id)
+    Primitive.attr! :hidden
+    case id
+    when :GETTIMEOFDAY_BASED_CLOCK_REALTIME then [CLOCK_REALTIME, 1000]
+    when :TIME_BASED_CLOCK_REALTIME then [CLOCK_REALTIME, 1_000_000_000]
+    when :GETRUSAGE_BASED_CLOCK_PROCESS_CPUTIME_ID, :CLOCK_BASED_CLOCK_PROCESS_CPUTIME_ID then [CLOCK_PROCESS_CPUTIME_ID, 1000]
+    when :TIMES_BASED_CLOCK_PROCESS_CPUTIME_ID then [CLOCK_PROCESS_CPUTIME_ID, 10_000_000]
+    end
+  end
+  private_class_method :emulated_clock
+
   def self.in_unit(ns, unit)
     Primitive.attr! :hidden
     case unit
-    when :float_second then ns.to_f / 1e9
+    when nil, :float_second then ns.to_f / 1e9
     when :float_millisecond then ns.to_f / 1e6
     when :float_microsecond then ns.to_f / 1e3
     when :second then ns / 1_000_000_000

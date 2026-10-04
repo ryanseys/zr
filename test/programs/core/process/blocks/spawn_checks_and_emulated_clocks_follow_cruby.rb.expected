@@ -1,0 +1,17 @@
+[ArgumentError, "environment name contains a equal : A=B"]
+[ArgumentError, "string contains null byte"]
+[ArgumentError, "string contains null byte"]
+[ArgumentError, "wrong number of arguments (given 0, expected 1+)"]
+[ArgumentError, "wrong number of arguments (given 0, expected 1+)"]
+[0]
+"7\n"
+[0]
+[ArgumentError, "wrong first argument"]
+[ArgumentError, "wrong first argument"]
+[TypeError, "no implicit conversion of Integer into String"]
+[:GETTIMEOFDAY_BASED_CLOCK_REALTIME, 1000, Float, 0]
+[:TIME_BASED_CLOCK_REALTIME, 1000000000, Float, 0]
+[:GETRUSAGE_BASED_CLOCK_PROCESS_CPUTIME_ID, 1000, Float, 0]
+[:TIMES_BASED_CLOCK_PROCESS_CPUTIME_ID, 10000000, Float, 0]
+[:CLOCK_BASED_CLOCK_PROCESS_CPUTIME_ID, 1000, Float, 0]
+Float
