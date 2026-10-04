@@ -1,3 +1,2 @@
 fails:Module#define_method raises a TypeError when a Method from a singleton class is defined on another class
 fails:Module#define_method raises a TypeError when an UnboundMethod from a singleton class is defined on another class
-fails:Module#define_method when passed a Proc object and a method is defined inside defines the nested method in the default definee where the Proc was created

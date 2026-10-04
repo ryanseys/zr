@@ -1,1 +1,0 @@
-fails:Regexps with escape characters supports \x (hex characters)

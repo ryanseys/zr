@@ -1,1 +1,0 @@
-fails:Instance variables global variable when global variable is uninitialized doesn't warn at lazy initialization

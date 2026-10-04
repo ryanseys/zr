@@ -1,5 +1,0 @@
-fails:A singleton class is a subclass of Class's singleton class
-fails:A singleton class is a subclass of the same level of Class's singleton class
-fails:Class methods of a singleton class include ones of the object's class
-fails:Class methods of a singleton class for a singleton class include instance methods of the singleton class of Class
-fails:Class methods of a singleton class for a singleton class include class methods of the singleton class of Class

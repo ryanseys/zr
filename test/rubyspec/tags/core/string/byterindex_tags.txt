@@ -1,3 +1,0 @@
-fails:String#byterindex with object tries to convert obj to a string via to_str
-fails:String#byterindex with String tries to convert start_offset to an integer via to_int
-fails:String#byterindex with Regexp tries to convert start_offset to an integer

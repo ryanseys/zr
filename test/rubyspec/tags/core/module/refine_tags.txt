@@ -1,4 +1,0 @@
-fails:Module#refine applies refinements to calls in the refine block
-fails:Module#refine and alias aliases a method within a refinement module, but not outside it
-fails:Module#refine and alias_method aliases a method within a refinement module, but not outside it
-fails:Module#refine and instance_methods returns a list of methods including those of the refined module

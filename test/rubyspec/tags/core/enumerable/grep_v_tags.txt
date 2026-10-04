@@ -1,2 +1,0 @@
-fails:Enumerable#grep_v correctly handles non-string elements
-fails:Enumerable#grep_v without block returns an Array of matched elements

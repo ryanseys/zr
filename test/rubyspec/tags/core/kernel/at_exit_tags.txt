@@ -1,2 +1,0 @@
-fails:Kernel.at_exit gives access to an exception raised in a previous handler
-fails:Kernel.at_exit runs handlers even if the main script fails to parse

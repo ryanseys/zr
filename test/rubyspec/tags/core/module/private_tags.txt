@@ -1,3 +1,1 @@
 fails:Module#private continues to allow a prepended module method to call super
-fails:Module#private with argument does not clone method from the ancestor when setting to the same visibility in a child
-fails:Module#private without arguments does not affect method definitions when itself is inside an eval and method definitions are outside

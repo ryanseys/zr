@@ -1,3 +1,0 @@
-fails:Literal (A::X) constant resolution uses the module or class #name to craft the error message
-fails:Literal (A::X) constant resolution uses the module or class #inspect to craft the error message if they are anonymous
-fails:Allowed characters allows not ASCII upcased characters at the beginning

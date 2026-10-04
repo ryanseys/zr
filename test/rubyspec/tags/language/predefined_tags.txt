@@ -1,4 +1,3 @@
-fails:Predefined global $@ accepts nil
 fails:Execution variable $: default $LOAD_PATH entries until sitelibdir included have @gem_prelude_index set
 fails:Global variable $? is thread-local
 fails:Global variable $0 actually sets the program name

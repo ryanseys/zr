@@ -1,2 +1,0 @@
-fails:ObjectSpace.each_object walks a class and its normal descendants when passed the class's singleton class
-fails:ObjectSpace.each_object on singleton classes walks singleton classes

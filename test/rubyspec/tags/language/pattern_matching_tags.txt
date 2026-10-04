@@ -1,4 +1,0 @@
-fails:Pattern matching Ruby 3.1 improvements can omit parentheses in one line pattern matching
-fails:Pattern matching Ruby 3.1 improvements supports pinning expressions in array pattern
-fails:Pattern matching Ruby 3.1 improvements supports pinning expressions in hash pattern
-fails:Pattern matching value in pattern returns true if the pattern matches

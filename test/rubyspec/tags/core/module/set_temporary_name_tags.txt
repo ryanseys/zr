@@ -1,3 +1,0 @@
-fails:Module#set_temporary_name also updates a name of a nested module
-fails:Module#set_temporary_name keeps temporary name when assigned in an anonymous module
-fails:Module#set_temporary_name keeps temporary name when assigned in an anonymous module and nested before

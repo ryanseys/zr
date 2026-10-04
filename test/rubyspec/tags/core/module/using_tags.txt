@@ -1,5 +1,0 @@
-fails:Module#using returns self
-fails:Module#using scope of refinement is active until the end of current class/module
-fails:Module#using scope of refinement is not active before the `using` call
-fails:Module#using scope of refinement is not active if `using` call is not evaluated
-fails:Module#using scope of refinement is not active when class/module reopens

@@ -1,2 +1,0 @@
-fails:The END keyword gives access to an exception raised in a previous handler
-fails:The END keyword runs handlers even if the main script fails to parse

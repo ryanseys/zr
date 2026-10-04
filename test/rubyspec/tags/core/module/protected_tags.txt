@@ -1,2 +1,0 @@
-fails:Module#protected with argument does not clone method from the ancestor when setting to the same visibility in a child
-fails:Module#protected without arguments does not affect method definitions when itself is inside an eval and method definitions are outside
