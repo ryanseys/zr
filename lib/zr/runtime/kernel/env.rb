@@ -5,6 +5,8 @@ module Zr::Kern
   G_ARGV = 36
   G_AT_EXIT = 37
   G_ARGV0 = 53
+  # The working directory as the program started (`zr_start_dir`).
+  G_START_DIR = 15
 
   # Makes `ARGV` from the C arguments, without the program's name.
   #: (i32, ptr) -> void
@@ -152,10 +154,21 @@ module Zr::Kern
   #: (ptr, word, word) -> void
   def zr_program_start(file, len, traced)
     Machine.store64(Machine.static(:trace_built, 8), 0, traced)
+    zr_set_global(G_START_DIR, zr_getcwd())
     name = zr_str_new(file, len)
     RBasic[name].flags = RBasic[name].flags | FL_FREEZE
     zr_set_global(G_ARGV0, name)
     zr_gvar_set(Machine.id(:$0), name)
+  end
+
+  # The working directory as the program started: where its relative
+  # file names are read from. A host run (lib/zr/machine/host/walk.rb)
+  # loads the core in one directory and starts the program in another.
+  # Before the program starts, it is the directory now.
+  #: () -> value
+  def zr_start_dir
+    dir = zr_global(G_START_DIR)
+    dir == QNIL || dir == 0 ? zr_getcwd() : dir
   end
 
   #: () -> value
