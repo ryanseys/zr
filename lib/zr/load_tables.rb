@@ -49,6 +49,16 @@ module Zr
       super
     end
 
+    # The files that eval support carries (`carried`, by path) and the
+    # program has its own unit of, as a traced build gives it
+    # (`Loader#own_copy?`). Each redirects to itself: the table row of the
+    # path is the program's unit, so eval support's require of the file
+    # runs that unit, and one copy loads.
+    #: (Hash[String, Hir::entry] entries, Hash[String, untyped] carried) -> Hash[String, String]
+    def self.own_copies(entries, carried)
+      entries.filter_map { |path, entry| [path, path] if entry.is_a?(Integer) && carried.key?(path) }.to_h
+    end
+
     # The data objects of the tables, with the files `units`: `[path,
     # entry]` pairs. A unit that only stops has no path.
     def data(units = [])
