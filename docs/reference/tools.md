@@ -213,7 +213,7 @@ See [How to measure performance](../how-to/measure-performance.md).
 
 | Command | Does |
 |---|---|
-| `zr-dev stage 1` | Compiles the compiler (`exe/zr`) two times, in two processes with two caches, and compares the compiler objects and the runtime objects byte for byte. |
+| `zr-dev stage 1` | Compiles the compiler (`exe/zr`) to an object once, with a cache of its own, and passes if the build has no refusal. |
 | `zr-dev stage 2` | Builds `exe/zr` with ruby, then builds it again with that binary (`tmp/stage1/zr build exe/zr`), and compares the two binaries. It takes about ten minutes and 5 GB of memory. |
 
 See [Bootstrapping](../explanation/bootstrapping.md).

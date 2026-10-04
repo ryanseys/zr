@@ -29,15 +29,15 @@ does not use stage 1: ruby runs every command of `exe/zr`.
 
 ## What `stage 1` checks
 
-`zr-dev stage 1` runs stage 0 two times, in two processes with two
-caches, and compiles the compiler to an object each time. It compares
-the two compiler objects and the two runtime objects byte for byte.
+`zr-dev stage 1` runs stage 0 once, with a cache of its own, and
+compiles the compiler to an object. It checks that zr compiles its own
+source with no refusal, without a compiled binary, so it is fast
+enough to run after any change to the compiler.
 
-This checks that the compiler is deterministic. A build must not
-depend on hash order, object addresses, the time, or the order in
-which a directory lists its files. If a build depends on one of these,
-two builds can be different, and a bug can come and go between them.
-`zr-dev stage 1` is fast enough to run after any change to the compiler.
+Stage 1 does not compare bytes. Stage 2 does: if a build depended on
+hash order, object addresses, the time, or the order in which a
+directory lists its files, the binary that stage 1 builds would not
+be the binary that ruby builds.
 
 ## What `stage 2` checks
 

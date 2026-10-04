@@ -8,12 +8,13 @@ module Zr
   module Dev
     # The self-compile stages. zr compiles `exe/zr`, the same compiler that
     # a user runs (no special version for these checks). These two checks
-    # check that the compiler gives the same output as itself.
+    # check that the compiler compiles itself, and gives the same output
+    # as itself.
     #
-    #   zr-dev stage 1   ruby compiles the compiler twice, to the same bytes
+    #   zr-dev stage 1   ruby compiles the compiler, with no refusals
     #   zr-dev stage 2   the compiler compiled by itself is a fixed point
     class Stage < Command
-      summary "Check that zr compiles itself to the same bytes (stage 1 or 2)"
+      summary "Check that zr compiles itself (stage 1), to the same bytes (stage 2)"
       usage "1|2"
 
       def run(argv)
@@ -39,58 +40,28 @@ module Zr
         result
       end
 
-      # zr under ruby compiles the compiler twice, in two processes, each with
-      # its own cache. The bytes must be the same. This checks that the
-      # self-compile is deterministic and has no refusals, without a compiled
-      # binary. It compares the compiler object and the runtime object. The
-      # stage 2 test needs a stage 1 binary that runs.
+      # zr under ruby compiles the compiler once, to an object, with its own
+      # cache. This checks that the self-compile has no refusals, without
+      # a compiled binary. Stage 2 checks the bytes: the compiled compiler
+      # must build the same binary as ruby, which a build that depended on
+      # hash order or the time would not.
       def one
         Dev.tune!
-        # After a failure, the work directory stays, so you can compare the
-        # two objects and their caches. After a pass, the task removes it.
+        # After a failure, the work directory stays, so you can look at the
+        # object and the cache. After a pass, the task removes it.
         work = Dir.mktmpdir("zr-stage1-")
         puts "work (kept if this fails): #{work}"
-
-        # The two self-compiles run one after the other (2 x 66 s), each
-        # with its own cache and output. At the same time, they swapped a
-        # 16 GB machine that had other work: each uses 1-2 GB under ruby,
-        # and its workers use the same again.
-        outs = %w[a b].map do |n|
-          cache = File.join(work, "#{n}-cache")
-          FileUtils.mkdir_p(cache)
-          out = File.join(work, "#{n}.o")
-          puts "self-compile #{n} -> #{out}"
-          env = { "ZR_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil }
+        cache = File.join(work, "cache")
+        FileUtils.mkdir_p(cache)
+        out = File.join(work, "zr.o")
+        env = { "ZR_CACHE" => cache, "RUBYOPT" => nil, "RUBYLIB" => nil }
+        step("self-compile -> #{out}") do
           system(env, Dev.ruby, ZR, "build", ZR, "-o", out, "--emit", "obj", chdir: ROOT) or
-            fail!("self-compile #{n} failed; its work is in #{work}")
-          digest = runtime_digest(File.join(work, "#{n}-cache"))
-          runtime = File.join(work, "#{n}-cache", "store", "object", digest[0, 2], "#{digest}.o")
-          fail!("the runtime object was not cached; the work is in #{work}") unless File.file?(runtime)
-
-          [File.binread(File.join(work, "#{n}.o")), File.binread(runtime)]
+            fail!("the self-compile failed; its work is in #{work}")
         end
-
-        a, b = outs
-        %w[compiler runtime].each_with_index do |what, i|
-          next if a[i] == b[i]
-
-          at = a[i].bytes.zip(b[i].bytes).index { |x, y| x != y } || [a[i].bytesize, b[i].bytesize].min
-          fail!("the two #{what} objects differ: #{a[i].bytesize} and #{b[i].bytesize} bytes, " \
-                "first at #{at}; both are kept in #{work}")
-        end
-        puts "stage 1 passes: #{a[0].bytesize} bytes of compiler and #{a[1].bytesize} of runtime, the same twice"
+        puts "stage 1 passes: #{File.size(out)} bytes of compiler"
         FileUtils.rm_rf(work)
         puts "nothing is kept: #{work} is gone"
-      end
-
-      # The runtime digest of the self-compile whose cache is `cache`: the
-      # name of the one runtime symbol table there. The digest contains the
-      # gem prelude's files, which only the self-compile's cache lists.
-      def runtime_digest(cache)
-        tables = Dir[File.join(cache, "store", "meta", "*", "*-symbols.json")]
-        fail!("#{cache} has #{tables.size} runtime symbol tables, not one") unless tables.size == 1
-
-        File.basename(tables.first, "-symbols.json")
       end
 
       # Stage 1 is the compiler compiled by zr under ruby. Stage 2 is the same
