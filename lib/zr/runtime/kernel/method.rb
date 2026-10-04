@@ -741,7 +741,16 @@ module Zr::Kern
       end
       zr_buf_byte(b, RMethod[recv].recv == QUNDEF ? 35 : 46)
     else
-      while zr_singleton_p(klass) || zr_type(klass) == T_ICLASS
+      # method_inspect: a metaclass (the singleton class of a class or a
+      # module) shows as itself; the singleton class of any other object
+      # shows as the class above it.
+      if zr_singleton_p(klass)
+        attached = RClass[klass].attached
+        if zr_special_p(attached) || (zr_type(attached) != T_CLASS && zr_type(attached) != T_MODULE)
+          klass = RClass[klass].superclass
+        end
+      end
+      while zr_type(klass) == T_ICLASS
         klass = RClass[klass].superclass
       end
       defined = zr_method_defined_in(recv)

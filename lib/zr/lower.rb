@@ -676,7 +676,9 @@ module Zr
     # for each parameter (0 for no name).
     #: (String fn, Hir::Params params) -> String
     def param_table(fn, params)
-      rows = params.rows.flat_map { |kind, name| [PARAM_KINDS.fetch(kind), name] }
+      # A repeated `_` binds a hidden local (Build#repeat_name), and
+      # shows as `_`, as CRuby lists it.
+      rows = params.rows.flat_map { |kind, name| [PARAM_KINDS.fetch(kind), name.is_a?(Symbol) && name.start_with?("%arg") ? :_ : name] }
       id_table("zr_params_#{fn}", [params.rows.size, *rows])
     end
 

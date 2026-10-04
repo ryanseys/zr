@@ -351,7 +351,9 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_method_super_method(recv, argc, argv, cref, blk)
     owner = RMethod[recv].owner
-    mid = RMethod[recv].entry.mid
+    # An alias searches on under its original name, as CRuby's
+    # method_super_method reads def->original_id.
+    mid = zr_method_original_id(Machine.ptr(RMethod[recv].entry))
     k = RMethod[recv].klass
     while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass[k].attached == owner))
       k = RClass[k].superclass
