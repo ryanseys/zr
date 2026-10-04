@@ -36,7 +36,7 @@ core/nil	18	27	27	0	0
 core/numeric	46	338	320	0	0
 core/objectspace	29	113	95	0	0
 core/proc	23	302	298	0	0
-core/process	92	386	337	0	0
+core/process	92	386	362	0	0
 core/queue	15	88	79	0	0
 core/random	10	83	82	0	0
 core/range	32	453	437	0	0
@@ -58,4 +58,4 @@ core/true	9	13	13	0	0
 core/unboundmethod	19	103	94	0	0
 core/warning	4	30	29	0	0
 language	79	2873	2796	0	0
-total	2174	26314	25384	1	0
+total	2174	26314	25409	1	0
