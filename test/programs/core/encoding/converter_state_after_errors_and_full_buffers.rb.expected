@@ -1,0 +1,12 @@
+:invalid_byte_sequence
+:finished
+nil
+[:finished, nil, nil, nil, nil]
+:invalid_byte_sequence
+"bcd"
+[:invalid_byte_sequence, "UTF-8", "ISO-8859-1", "\xF1", "a"]
+:finished
+""
+"abcd"
+:destination_buffer_full
+[:destination_buffer_full, nil, nil, nil, nil]
