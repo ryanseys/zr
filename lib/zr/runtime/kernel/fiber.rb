@@ -334,6 +334,19 @@ module Zr::Kern
     f
   end
 
+  # In a forked child, the fiber that forked is the root fiber, as
+  # rb_fiber_atfork makes it: a transferred fiber that ends, there or in a
+  # fiber it makes, comes back to it, and it has no resumer of its own.
+  #: () -> value
+  def zr_fiber_after_fork
+    f = zr_fiber_current()
+    RFiber[f].home = f
+    RFiber[f].prev = Machine.value(QNIL)
+    RFiber[f].transferred = 0
+    Machine.store64(Machine.static(:root_fiber, 8), 0, Machine.word(f))
+    Machine.value(QNIL)
+  end
+
   #: () -> value
   def zr_fiber_root
     Machine.value(Machine.load64(Machine.static(:root_fiber, 8), 0))
