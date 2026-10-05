@@ -226,6 +226,7 @@ class Socket < BasicSocket
       result = Primitive.zr_sock_listen(socket.__send__(:descriptor), backlog)
       Socket.syserr_fail(-result, "listen(2)") if result.negative?
 
+      Primitive.zr_hidden_set(socket, :__listening__, true)
       0
     end
 

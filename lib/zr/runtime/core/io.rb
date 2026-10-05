@@ -1974,11 +1974,12 @@ class IO
     raise IOError, +"closed stream" if @closed
   end
 
-  # The wait before a read(2). A socket overrides it: a listening socket
-  # reads nothing and read(2) fails at once.
+  # The wait before a read(2). A listening socket (the socket library
+  # marks it) reads nothing: read(2) fails at once with ENOTCONN, so no
+  # wait comes first. Net::FTP reads its listener after it accepts.
   def park_to_read
     Primitive.attr! :hidden
-    park_until(READABLE)
+    park_until(READABLE) unless Primitive.zr_hidden_get(self, :__listening__)
   end
 
   # A system call on a descriptor that is not ready would stop every

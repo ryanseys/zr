@@ -150,6 +150,7 @@ class UNIXSocket < BasicSocket
       close
       Socket.syserr_fail_path(-result, "listen(2)", path)
     end
+    Primitive.zr_hidden_set(self, :__listening__, true)
     @path = path.dup.freeze
     self
   end

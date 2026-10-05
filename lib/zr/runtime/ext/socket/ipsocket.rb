@@ -119,6 +119,7 @@ class IPSocket < BasicSocket
           opened = false
           Socket.syserr_fail(-result, "listen(2)")
         end
+        Primitive.zr_hidden_set(self, :__listening__, true)
       end
       opened = false
       self
