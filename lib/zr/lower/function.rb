@@ -585,8 +585,8 @@ module Zr
         switch(@landing, open: true)
         # A block frame also catches one: an unwind whose home is this
         # frame belongs to it. This occurs when the block is a lambda and
-        # a block inside it returned.
-        if %i[def main top eval block].include?(@kind) && @has_env
+        # a block inside it, or in a class body inside it, returned.
+        if %i[def main top eval block].include?(@kind) && (@has_env || Hir::Locals.body_holds_block?(@body))
           take(kernel("zr_catch_return", @rec))
         end
         # A `return` in an eval straight in a file's toplevel ends the file.

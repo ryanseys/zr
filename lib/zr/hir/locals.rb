@@ -26,6 +26,19 @@ module Zr
         end
       end
 
+      # Whether a class or module body of this scope holds a block. A
+      # `return` in that block leaves this scope (the body is no method),
+      # so this scope's frame catches it.
+      #: (untyped node) -> bool
+      def body_holds_block?(node)
+        case node
+        when ClassDef, ModuleDef then holds_block?(node.body) || body_holds_block?(node.body)
+        when Def, Lambda, Block, nil then false
+        when Node, Array then Hir.each_child(node).any? { |v| body_holds_block?(v) }
+        else false
+        end
+      end
+
       # The sends that make a scope keep its locals in an Env: an eval
       # reads and writes them there, a Binding keeps them after the frame
       # is gone, and `local_variables` lists them.
