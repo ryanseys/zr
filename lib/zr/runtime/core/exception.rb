@@ -80,13 +80,16 @@ class Exception
 
   # The backtrace entries that the raise saw, as Location objects: nil
   # before a raise, and unchanged when set_backtrace replaces the
-  # strings. Locations given to set_backtrace are used for both.
+  # strings. Locations given to set_backtrace are used for both. Each
+  # call returns the same Array, as ruby keeps the one it made.
   def backtrace_locations
-    return @locations.dup if @locations
+    kept = Primitive.zr_hidden_get(self, :__locations__)
+    return kept if kept
 
     rows = Primitive.zr_exc_raise_rows(self) or return nil
 
-    rows.zip(Primitive.zr_exc_raise_nodes(self)).map { |row, node| Thread::Backtrace::Location.new(row, node) }
+    locations = rows.zip(Primitive.zr_exc_raise_nodes(self)).map { |row, node| Thread::Backtrace::Location.new(row, node) }
+    Primitive.zr_hidden_set(self, :__locations__, locations)
   end
 
   # An Array of Locations sets the locations as well as the strings, as
@@ -100,7 +103,7 @@ class Exception
     Primitive.attr! :hidden
     locations = backtrace.is_a?(Array) && !backtrace.empty? && backtrace.all?(Thread::Backtrace::Location)
     rows = Primitive.zr_exc_set_backtrace_value(self, locations ? backtrace.map(&:to_s) : backtrace)
-    @locations = locations ? backtrace.dup : nil
+    Primitive.zr_hidden_set(self, :__locations__, locations ? backtrace.dup : nil)
     locations ? backtrace : rows
   end
 
@@ -252,13 +255,10 @@ class Exception
     out << "#{RESET}#{BOLD}" if highlight
     out << ")"
     out << RESET if highlight
-    return out if sep.empty?
+    return out if sep.empty? || rest.empty?
 
-    out << "\n"
-    out << BOLD if highlight
-    out << rest
-    out << RESET if highlight
-    out
+    # Each later line is bold on its own, as rb_decorate_message writes it.
+    out << "\n" << (highlight ? rest.gsub(/^(.+)$/) { "#{BOLD}#{::Regexp.last_match(1)}#{RESET}" } : rest)
   end
 
   # setup_exception under $DEBUG: each raise tells $stderr the class,

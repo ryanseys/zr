@@ -15,7 +15,7 @@ core/encoding	45	630	627	0	0
 core/enumerable	61	575	575	0	0
 core/enumerator	81	447	447	0	0
 core/env	44	237	237	0	0
-core/exception	39	243	239	1	0
+core/exception	39	243	241	1	0
 core/false	9	13	13	0	0
 core/fiber	11	158	156	0	0
 core/file	112	932	932	0	0

@@ -1,1 +1,0 @@
-fails:Exception#full_message highlights the entire message when the message contains multiple lines
