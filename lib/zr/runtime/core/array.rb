@@ -466,7 +466,7 @@ class Array
       # rb_ary_repeated_combination walks a private copy when k > 1, so
       # the block can change the receiver.
       reentry_checked("repeated combination") do |check|
-        (k == 1 ? self : Array.new(self)).__send__(:pick_repeated, k, 0, []) { |c| yield c; check.call }
+        (k == 1 ? self : Array.new(self)).__send__(:pick_repeated, k) { |c| yield c; check.call }
       end
     end
     self
@@ -487,7 +487,7 @@ class Array
       yield []
     elsif k > 0 && !(Primitive.zr_ary_len_m(self) == 0)
       reentry_checked("repeated permute") do |check|
-        (k == 1 ? self : Array.new(self)).__send__(:place_repeated, k, []) { |c| yield c; check.call }
+        (k == 1 ? self : Array.new(self)).__send__(:place_repeated, k) { |c| yield c; check.call }
       end
     end
     self
@@ -1552,27 +1552,42 @@ class Array
     f + c
   end
 
-  def pick_repeated(k, from, chosen, &block)
+  # rcombinate0: the indices of each pick never fall, and the last one
+  # moves first. A loop, not a recursion, so a long pick needs no stack.
+  def pick_repeated(k)
     Primitive.attr! :hidden
-    return yield(chosen.dup) if chosen.size == k
-
-    (from...Primitive.zr_ary_len_m(self)).each do |i|
-      chosen << Primitive.zr_ary_aref1_m(self, i)
-      pick_repeated(k, i, chosen, &block)
-      chosen.pop
+    picks = Array.new(k, 0)
+    while true
+      yield picks.map { |i| Primitive.zr_ary_aref1_m(self, i) }
+      i = k - 1
+      while i >= 0
+        picks[i] += 1
+        if picks[i] < Primitive.zr_ary_len_m(self)
+          picks.fill(picks[i], i + 1)
+          break
+        end
+        i -= 1
+      end
+      return if i < 0
     end
   end
 
-  def place_repeated(k, chosen, &block)
+  # rpermute0: every index runs through the whole array, the last one
+  # first, as the digits of a counter do.
+  def place_repeated(k)
     Primitive.attr! :hidden
-    return yield(chosen.dup) if chosen.size == k
+    places = Array.new(k, 0)
+    while true
+      yield places.map { |i| Primitive.zr_ary_aref1_m(self, i) }
+      i = k - 1
+      while i >= 0
+        places[i] += 1
+        break if places[i] < Primitive.zr_ary_len_m(self)
 
-    i = 0
-    while i < Primitive.zr_ary_len_m(self)
-      chosen << Primitive.zr_ary_aref1_m(self, i)
-      place_repeated(k, chosen, &block)
-      chosen.pop
-      i += 1
+        places[i] = 0
+        i -= 1
+      end
+      return if i < 0
     end
   end
 
