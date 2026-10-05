@@ -1888,9 +1888,10 @@ class Dir
     raise RuntimeError, +"conflicting chdir during another chdir block" unless Thread.current.equal?(@chdir_thread)
     return if block || $VERBOSE.nil?
 
-    Primitive.zr_warn_here_m("conflicting chdir during another chdir block")
+    # One warning holds both lines, as dir_chdir0 gives them to rb_warn.
     where = @chdir_where.last
-    Warning.warn("#{where.path}:#{where.lineno}: note: previous chdir was here\n") if where
+    note = where ? "\n#{where.path}:#{where.lineno}: note: previous chdir was here" : ""
+    Primitive.zr_warn_here_m("conflicting chdir during another chdir block#{note}")
   end
 
   def self.chdir_block(where)
