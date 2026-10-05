@@ -35,19 +35,25 @@ $LOAD_PATH = []
 
 # The kind of file that a require of `feature` would read, and its real
 # path, or nil when no directory on the path contains it. A name that
-# already ends in `.rb` is looked for as it is.
+# already ends in `.rb` is looked for as it is. The library that the
+# program was compiled with counts as on the path, as require finds it
+# there; a port of a C extension is the `.so` kind, under the name that
+# ruby's own extension has.
 def $LOAD_PATH.resolve_feature_path(feature)
   name = String.try_convert(feature)
   raise TypeError, "no implicit conversion of #{conversion_name(feature)} into String" if name.nil?
 
-  suffixes = name.end_with?(".rb") ? [["", :rb]] : [[".rb", :rb], [".bundle", :so]]
-  each do |dir|
-    suffixes.each do |suffix, kind|
-      path = File.expand_path("#{name}#{suffix}", dir.to_s)
-      return [kind, File.realpath(path)] if Primitive.zr_path_kind(path) == 2
-    end
+  path = Kernel.send(:search, name.end_with?(".rb") ? name : "#{name}.rb")
+  unless path
+    return nil if name.end_with?(".rb")
+
+    native = map { |dir| File.expand_path("#{name}.bundle", dir.to_s) }.find { |file| Primitive.zr_path_kind(file) == 2 }
+    return native && [:so, File.realpath(native)]
   end
-  nil
+  ext = Primitive.zr_load_names(3)
+  return [:so, "#{path.delete_suffix('.rb')}.bundle"] if !name.end_with?(".rb") && path.start_with?("#{ext}/")
+
+  [:rb, path]
 end
 # What ruby loads before the program, spelled as ruby records it.
 $LOADED_FEATURES = %w[enumerator.so thread.rb fiber.so rational.so complex.so pathname.so ruby2_keywords.rb set.rb]
@@ -368,7 +374,13 @@ $LOAD_PATH.concat(
     arch = RUBY_PLATFORM
     %W[site_ruby/4.0.0 site_ruby/4.0.0/#{arch} site_ruby
        vendor_ruby/4.0.0 vendor_ruby/4.0.0/#{arch} vendor_ruby
-       4.0.0 4.0.0/#{arch}].map { |dir| "#{lib}/#{dir}" }
+       4.0.0 4.0.0/#{arch}].map do |dir|
+      # ruby_init_loadpath marks each default entry with itself, which
+      # rubygems reads to put gem paths in front of them.
+      path = "#{lib}/#{dir}"
+      path.instance_variable_set(:@gem_prelude_index, path)
+      path
+    end
   end.call
 )
 
