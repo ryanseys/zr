@@ -1,0 +1,4 @@
+caught: warning: already initialized constant C::X定数
+caught: warning: previous definition of X定数 was here
+caught: warning: already initialized constant Y
+caught: warning: previous definition of Y was here
