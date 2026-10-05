@@ -22,10 +22,25 @@ module Zr::Kern
     zr_set_global(G_ARGV, args)
     cell = zr_args_cell()
     Machine.store64(cell, 0, Machine.word(table))
-    Machine.store64(cell, 8, table == 0 ? 0 : i)
+    Machine.store64(cell, 8, table == 0 ? 0 : zr_args_room(table, i))
   end
 
-  # The C arguments, as main received them, and their count: the memory
+  # The bytes that the program's arguments take, argv[0] and each one
+  # that follows it with no gap, less the last NUL: the room for a title.
+  # It is measured once, before any title shortens argv[0].
+  #: (ptr, word) -> word
+  def zr_args_room(table, n)
+    start = Machine.ptr(Machine.load64(table, 0))
+    stop = start + zr_cstr_len(start) + 1
+    i = 1
+    while i < n && Machine.ptr(Machine.load64(table + (i * 8), 0)) == stop
+      stop = stop + zr_cstr_len(stop) + 1
+      i += 1
+    end
+    stop - start - 1
+  end
+
+  # The C arguments, as main received them, and the room in them: the memory
   # that `setproctitle` writes over.
   #: () -> ptr
   def zr_args_cell
@@ -39,18 +54,11 @@ module Zr::Kern
   def zr_proc_title_set(title)
     cell = zr_args_cell()
     table = Machine.ptr(Machine.load64(cell, 0))
-    n = Machine.load64(cell, 8)
-    if table == 0 || n == 0
+    room = Machine.load64(cell, 8)
+    if table == 0
       return Machine.value(QNIL)
     end
     start = Machine.ptr(Machine.load64(table, 0))
-    stop = start + zr_cstr_len(start) + 1
-    i = 1
-    while i < n && Machine.ptr(Machine.load64(table + (i * 8), 0)) == stop
-      stop = stop + zr_cstr_len(stop) + 1
-      i += 1
-    end
-    room = stop - start - 1
     len = RString[title].len
     if len > room
       len = room
