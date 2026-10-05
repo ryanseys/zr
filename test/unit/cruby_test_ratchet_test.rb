@@ -19,8 +19,9 @@ class CRubyTestRatchetTest < Minitest::Test
     assert_empty problems, "run zr-dev cruby-test <dir> --update-tags after a fix, and commit the tags"
   end
 
-  # The runner's report of a run: the tests that ended, and the ones that
-  # failed, with the first line of the message.
+  # The runner's report of a run: the tests that ended, the ones that
+  # failed, with the first line of the message, and the one that started
+  # and did not end.
   def test_a_run_reads_as_its_tests
     out = <<~OUT
       [1/3] TestX#test_b = 0.00 s
@@ -37,6 +38,6 @@ class CRubyTestRatchetTest < Minitest::Test
     OUT
     expected = { "TestX#test_b" => ["error", "RuntimeError: boom"], "TestX#test_a" => ["fail", "<1> expected but was"] }
 
-    assert_equal({ examples: expected, load: nil, ended: false }, Zr::Dev::CRubyTest.read(out.dup))
+    assert_equal({ examples: expected, load: nil, ended: false, hung: "TestX#test_c" }, Zr::Dev::CRubyTest.read(out.dup))
   end
 end

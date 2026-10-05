@@ -81,7 +81,7 @@ module Zr
       SUMMARY = Dev.path("test/cruby/summary.tsv")
 
       # The form of the program and of ruby's kept results.
-      VERSION = 1
+      VERSION = 2
 
       def defaults
         @filter = nil
@@ -223,7 +223,9 @@ module Zr
           "# frozen_string_literal: false",
           "$LOAD_PATH.unshift(#{File.join(src, "tool/lib").inspect}, #{File.join(src, "test/lib").inspect}, #{dirs.map(&:inspect).join(", ")})",
           "file = ARGV.shift",
-          'ARGV.replace(["-v", "--tty=no", *ARGV])',
+          # --show-skip lists each test that called omit, so it reads as a
+          # skip, not a pass.
+          'ARGV.replace(["-v", "--tty=no", "--show-skip", *ARGV])',
           'require "test/unit"',
           "case file"
         ]
