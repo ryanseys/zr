@@ -118,7 +118,7 @@ module Zr
       tables = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
-                              manifest: Manifest.bytes(gems, target), redirects: redirects)
+                              manifest: Manifest.bytes(gems, target), redirects: redirects, gems: switches.gems)
       new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
     end
 

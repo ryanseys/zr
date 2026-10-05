@@ -982,6 +982,8 @@ module Zr::Kern
     attr_accessor :manifest_len #: word
     attr_accessor :redirects #: ptr
     attr_accessor :redirects_len #: word
+    attr_accessor :gems_off #: ptr
+    attr_accessor :gems_off_len #: word
   end
 
   #: () -> ptr
@@ -1040,6 +1042,12 @@ module Zr::Kern
       return zr_str_new(LoadTable[t].manifest, LoadTable[t].manifest_len)
     end
     zr_str_new(LoadTable[t].ext, LoadTable[t].ext_len)
+  end
+
+  # Whether the program asked for no gem prelude (`--disable-gems`).
+  #: () -> bool
+  def zr_gems_off_p
+    LoadTable[zr_load_table()].gems_off_len != 0
   end
 
   # Whether `e` is a String with the same bytes as the String `s`.

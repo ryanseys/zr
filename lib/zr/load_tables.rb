@@ -38,14 +38,14 @@ module Zr
   # program shares its prebuilt files (a port's `require "json/common"`).
   # A require of such a copy runs the gem's file instead (`zr_require_redirect`), so
   # one copy loads, as in ruby.
-  LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects)
+  LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects, :gems)
 
   # The methods are in a reopened class, not in the block of
   # `Data.define`, so that the type check (sig/zr/load_tables.rbs) sees
   # them in the class that they belong to.
   class LoadTables
     def initialize(evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
-                   manifest: nil, redirects: {})
+                   manifest: nil, redirects: {}, gems: true)
       super
     end
 
@@ -120,6 +120,10 @@ module Zr
       names << sources.map { |path, digest| [shown[path], digest] }.sort.map { |path, digest| "#{path}\t#{digest}" }
       names << [manifest.to_s.chomp]
       names << redirects.map { |copy, gem_file| "#{shown[copy]}\t#{shown[gem_file]}" }.sort
+      # `--disable-gems`: boot skips the gem prelude, as ruby skips its
+      # gem_prelude.rb, so error_highlight, did_you_mean and
+      # syntax_suggest do not load.
+      names << (gems ? [] : ["off"])
     end
   end
 end

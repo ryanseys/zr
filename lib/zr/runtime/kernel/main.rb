@@ -505,9 +505,11 @@ module Zr::Kern
     # The libraries that ruby loads before a program: error_highlight,
     # did_you_mean and syntax_suggest's core extension. The fast paths
     # replace the operators as they are after these libraries load.
-    r = Libc.zr_gem_prelude()
-    if r == QUNDEF
-      zr_report(Task[zr_task()].pending)
+    if !zr_gems_off_p()
+      r = Libc.zr_gem_prelude()
+      if r == QUNDEF
+        zr_report(Task[zr_task()].pending)
+      end
     end
     zr_gates_snapshot()
     r = Libc.zr_toplevel()
