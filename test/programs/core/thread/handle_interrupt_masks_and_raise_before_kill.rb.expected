@@ -1,0 +1,8 @@
+[:deferred]
+[:interrupted]
+[:deferred]
+[:interrupted]
+true
+"interrupt immediate"
+false
+#<RuntimeError: before kill>
