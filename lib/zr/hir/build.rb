@@ -607,7 +607,7 @@ module Zr
         when Prism::RationalNode then Send.of(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line)
         when Prism::ImaginaryNode then Send.of(Core.new(:Kernel, line), :Complex, [Literal.new(0, line), expr(node.numeric)], line)
         when Prism::StringNode then literal_string(node, unescaped(node), line)
-        when Prism::SymbolNode then Literal.new(node.unescaped.to_sym, line)
+        when Prism::SymbolNode then literal_symbol(node, line)
         when Prism::NilNode then Literal.new(nil, line)
         when Prism::TrueNode then Literal.new(true, line)
         when Prism::FalseNode then Literal.new(false, line)

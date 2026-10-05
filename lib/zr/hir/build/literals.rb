@@ -12,6 +12,17 @@ module Zr
       #: (Prism::StringNode | Prism::SourceFileNode node, String text, Integer line) -> (Literal | FrozenString)
       def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
 
+      # A Symbol literal. The static symbols are all UTF-8, so a name in
+      # another encoding (`:il_était` in a binary source) is interned
+      # from its String when it runs.
+      #: (Prism::SymbolNode node, Integer line) -> node
+      def literal_symbol(node, line)
+        text = unescaped(node)
+        return Literal.new(text.to_sym, line) if text.ascii_only? || text.encoding == ::Encoding::UTF_8
+
+        Send.of(frozen_literal_string(text, line), :to_sym, [], line)
+      end
+
       # `__FILE__`: the file's shown name. In the main file it is a path
       # from the command line, which ruby gives the locale's encoding.
       #: (Prism::SourceFileNode node, Integer line) -> node
