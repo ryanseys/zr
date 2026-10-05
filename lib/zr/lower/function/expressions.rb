@@ -363,7 +363,7 @@ module Zr
         # for a read-only name. The core library writes them unchecked.
         HOOKED_GVARS = %i[
           $! $@ $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W
-          $; $, $/ $\\ $stdout $stderr $0 $VERBOSE $. $=
+          $; $, $/ $\ $stdout $stderr $0 $VERBOSE $. $= $-i
         ].to_set.freeze #: Set[Symbol]
 
         # `$~` and `$_` are in the frame. The others are globals, and a

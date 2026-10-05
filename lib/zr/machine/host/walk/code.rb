@@ -573,7 +573,7 @@ module Zr
 
           HOOKED_GVARS = %i[
             $! $@ $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W
-            $; $, $/ $\\ $stdout $stderr $0 $VERBOSE $.
+            $; $, $/ $\ $stdout $stderr $0 $VERBOSE $. $-i
           ].to_set.freeze
 
           # The code that stores a Value into the gvar `name`: `$~` and `$_`

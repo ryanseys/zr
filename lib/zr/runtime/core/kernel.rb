@@ -870,8 +870,14 @@ module Kernel
         return text.frozen? ? text : text.dup.freeze
       when :$VERBOSE
         return value ? true : value
+      when :$-i
+        # opt_i_set: the edit in place of ARGF.
+        ARGF.inplace_mode = value
       when :$.
-        return Integer.send(:int_operand, value)
+        # argf_lineno_setter: the line number of ARGF changes with `$.`.
+        n = Integer.send(:int_operand, value)
+        ARGF.send(:lineno_assigned, n)
+        return n
       end
       value
     end

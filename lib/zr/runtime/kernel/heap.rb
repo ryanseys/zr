@@ -969,6 +969,10 @@ module Zr::Kern
     if id == Machine.id(:$FILENAME)
       return zr_send(zr_core_class(Machine.id(:ARGF)), Machine.id(:filename), 0, 0)
     end
+    # `$-i` is ARGF's edit in place (opt_i_get).
+    if id == Machine.id(:$-i)
+      return zr_send(zr_core_class(Machine.id(:ARGF)), Machine.id(:inplace_mode), 0, 0)
+    end
     b = zr_box_current()
     if b != QNIL
       v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))

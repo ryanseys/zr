@@ -49,20 +49,33 @@ stream = Class.new do
 
     text = String.try_convert(ext)
     raise TypeError, "no implicit conversion of #{conversion_name(ext)} into String" if text.nil?
-    raise ArgumentError, +"string contains null byte" if text.include?("    @inplace_mode = nil
-    self
-  end
-
-  attr_reader :argv, :lineno
-  attr_accessor :inplace_mode
-")
+    # StringValueCStr: a NUL character, which in UTF-16 or UTF-32 is not
+    # a NUL byte alone.
+    nul = Encoding.wide?(text.encoding) ? text.each_char.any? { |c| c.ord.zero? } : text.b.include?("\0")
+    raise ArgumentError, +"string contains null byte" if nul
 
     @inplace_mode = text.dup.freeze
   end
 
+  # argf_initialize_copy: a copy reads on its own, from a copy of the
+  # names that are left.
+  def initialize_copy(orig)
+    super
+    @argv = @argv.dup
+  end
+
+  # argf_set_lineno: `$.` is the program's ARGF's last line number, so
+  # another ARGF leaves it alone.
   def lineno=(n)
     @lineno = Integer.send(:int_operand, n)
-    $. = @lineno
+    $. = @lineno if equal?(ARGF)
+  end
+
+  # argf_lineno_setter: an assignment to `$.` sets the line number of the
+  # program's ARGF too.
+  def lineno_assigned(n)
+    Primitive.attr! :hidden
+    @lineno = n
   end
 
   def filename
@@ -220,6 +233,8 @@ stream = Class.new do
 
     while next_argv
       counted = @current.lineno
+      current = @current
+      broke = false
       @current.each_line(*args, **options) do |line|
         # The program's ARGF counts the lines its file counts; another
         # counts every piece, and leaves `$.` alone.
@@ -231,8 +246,14 @@ stream = Class.new do
           $. = @lineno
         end
         yield line
+        # argf_block_call_i: a block that closed or skipped the file, or
+        # moved ARGF to another, ends this file's walk.
+        if @init == -1 || !current.equal?(@current)
+          broke = true
+          break
+        end
       end
-      @next = 1
+      @next = 1 unless broke
     end
     self
   end
@@ -300,8 +321,8 @@ stream = Class.new do
 
     before = @current.lineno
     result = @current.rewind
+    # The program's ARGF keeps `$.`; another ARGF never sets it.
     @lineno -= before
-    $. = @lineno unless equal?(ARGF)
     result
   end
 
@@ -381,10 +402,10 @@ stream = Class.new do
       if @inplace_mode.empty?
         File.unlink(name)
       else
-        File.rename(name, name + @inplace_mode)
+        File.rename(name, backup_name(name))
       end
     rescue SystemCallError => e
-      why = @inplace_mode.empty? ? "Can't remove #{name}" : "Can't rename #{name} to #{name + @inplace_mode}"
+      why = @inplace_mode.empty? ? "Can't remove #{name}" : "Can't rename #{name} to #{backup_name(name)}"
       Primitive.zr_warn_here_m("#{why}: #{e.message.sub(/ @ .*\z/m, "")}, skipping file")
       @current.close
       return false
@@ -393,6 +414,18 @@ stream = Class.new do
     write.chmod(mode)
     $stdout = @write_io = write
     true
+  end
+
+  # The backup's name: the suffix converted to the name's encoding, as
+  # rb_str_cat_conv_enc_opts appends it, or its bytes when it cannot be.
+  def backup_name(name)
+    Primitive.attr! :hidden
+    suffix = begin
+      @inplace_mode.encode(name.encoding)
+    rescue EncodingError
+      @inplace_mode.b
+    end
+    name.b + suffix.b
   end
 
   # argf_close: the current file closes; standard input stays open. The
@@ -428,8 +461,18 @@ stream = Class.new do
     return to_enum(name) unless block
 
     while next_argv
-      @current.public_send(name, &block)
-      @next = 1
+      current = @current
+      broke = false
+      @current.public_send(name) do |part|
+        yield part
+        # argf_block_call_i: a block that closed or skipped the file, or
+        # moved ARGF to another, ends this file's walk.
+        if @init == -1 || !current.equal?(@current)
+          broke = true
+          break
+        end
+      end
+      @next = 1 unless broke
     end
     self
   end
