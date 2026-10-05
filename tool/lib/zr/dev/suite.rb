@@ -119,9 +119,19 @@ module Zr
         File.write(path, [header, *rows, total].map { |row| row.join("\t") }.join("\n") << "\n")
       end
 
+      # A suite started in the background inherits SIGINT ignored, and a
+      # program keeps an ignored signal, as ruby does. The programs run as
+      # from a terminal, with SIGINT at its default, so a spec that sends
+      # itself SIGINT sees an Interrupt.
+      def foreground_signals!
+        old = Signal.trap("INT", "DEFAULT")
+        Signal.trap("INT", old) unless old == "IGNORE"
+      end
+
       # Runs `argv` in `dir` with a time limit, and returns its standard
       # output and whether the limit stopped it.
       def capture(env, argv, dir, limit)
+        foreground_signals!
         reader, writer = IO.pipe
         pid = Process.spawn(env, *argv, chdir: dir, in: File::NULL, out: writer, err: File::NULL, pgroup: true)
         writer.close
