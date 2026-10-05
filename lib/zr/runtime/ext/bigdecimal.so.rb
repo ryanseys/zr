@@ -564,7 +564,7 @@ def product(other)
   BigDecimal.from_int(@sign * them.sign_bit, digits, digits.to_s.length + point + them.point)
 end
 
-def setup(sign, digits, exponent, special)
+  def setup(sign, digits, exponent, special)
     @sign = sign
     @digits = digits
     @exp = exponent

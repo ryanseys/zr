@@ -40,7 +40,7 @@ class InvalidRegexpTest < Minitest::Test
   # $stderr and $VERBOSE from all threads of the program.
   def test_run_time_compile_warning_goes_to_stderr
     program = nil
-    said = capturing_stderr { program = build("x = /(?:a?)*b/\n") }
+    said = capturing_stderr { program = build("p(/(?:a?)*b/)\n") }
 
     assert_includes said, "nested repeat operator"
     assert_empty program.warnings

@@ -210,8 +210,10 @@ class CliParseTest < Minitest::Test
                  "wasm32-wasi\nRun 'zr help build' for usage.\n", err
   end
 
+  # `-v` prints the description of the ruby that zr matches, as ruby -v
+  # does; `--version` names zr.
   def test_version_names_the_ruby_that_zr_matches
-    assert_equal "zr #{Zr::VERSION} (for ruby #{Zr::RUBY})\n", capture_io { CLI.start(%w[-v]) }.first
+    assert_equal "#{Zr.ruby_description(Zr::Target.default.ruby_platform)}\n", capture_io { CLI.start(%w[-v]) }.first
   end
 
   # With a terminal for standard input. Otherwise zr reads the program
