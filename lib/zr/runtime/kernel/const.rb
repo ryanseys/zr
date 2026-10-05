@@ -520,13 +520,36 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes(" was here"), 9)
   end
 
+  # The class or module whose constants the ancestor list node `node`
+  # holds, or nil. A class with a prepended module keeps its constants,
+  # but answers at its origin, after the module, as rb_const_search_from
+  # reads it (Bug #17887). Its own node then holds none, unless the
+  # lookup starts there (`first`).
+  #: (value, bool) -> value
+  def zr_const_holder(node, first)
+    if !first && RClass[node].origin != QNIL && RClass[node].origin != node
+      return Machine.value(QNIL)
+    end
+    if zr_type(node) == T_ICLASS
+      a = RClass[node].attached
+      o = zr_origin(a)
+      if o != a && RClass[o].ext == RClass[node].ext
+        return a
+      end
+    end
+    node
+  end
+
   # Returns the constant entry for `id` on `klass` or an ancestor, or 0.
   # `skip_object` leaves out Object's own constants, as `A::X` does.
   #: (value, word, bool) -> ptr
   def zr_const_row_in(klass, id, skip_object)
+    first = true
     while klass != QNIL
-      unless skip_object && klass == zr_global(G_OBJECT)
-        e = zr_const_row(klass, id)
+      holder = zr_const_holder(klass, first)
+      first = false
+      unless holder == QNIL || (skip_object && holder == zr_global(G_OBJECT))
+        e = zr_const_row(holder, id)
         if e != 0
           return e
         end
@@ -544,9 +567,12 @@ module Zr::Kern
   # entry and returns false. Thus a read and `const_defined?` differ here.
   #: (value, word, bool) -> ptr
   def zr_const_row_read_in(klass, id, skip_object)
+    first = true
     while klass != QNIL
-      unless skip_object && klass == zr_global(G_OBJECT)
-        e = zr_const_row(klass, id)
+      holder = zr_const_holder(klass, first)
+      first = false
+      unless holder == QNIL || (skip_object && holder == zr_global(G_OBJECT))
+        e = zr_const_row(holder, id)
         if e != 0 && !zr_const_declared_only(e)
           return e
         end
