@@ -129,7 +129,7 @@ module Zr
         # A compile at run time while Coverage measures methods (`def_base`)
         # records its def sites whether or not the file names Coverage.
         evals = false
-        covers = !def_base.nil?
+        covers = !def_base.nil? #: bool
         external = nil #: untyped
         loader, main, switched = built.call(external, trace, evals, covers)
         preludes = eval_support ? Build.preludes(loader, target) : [] #: Array[node]

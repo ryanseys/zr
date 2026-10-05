@@ -430,7 +430,8 @@ module Zr
       # name, as casecmp compares them.
       #: (String name) -> void
       def external_once!(name)
-        raise Invalid, "default_external already set to #{@external_name}" if @external_name && !@external_name.casecmp?(name)
+        given = @external_name
+        raise Invalid, "default_external already set to #{given}" if given && !given.casecmp?(name)
 
         @external_name = name
         @external = known_encoding(name)
@@ -438,7 +439,8 @@ module Zr
 
       #: (String name) -> void
       def internal_once!(name)
-        raise Invalid, "default_internal already set to #{@internal_name}" if @internal_name && !@internal_name.casecmp?(name)
+        given = @internal_name
+        raise Invalid, "default_internal already set to #{given}" if given && !given.casecmp?(name)
 
         @internal_name = name
         @internal = known_encoding(name)

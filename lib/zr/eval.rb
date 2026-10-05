@@ -161,9 +161,11 @@ module Zr
       # true` it counts the eval's lines as lines of the eval's file. Ruby
       # gives the file as many lines as the code has newlines, after the
       # lines before the eval's first one.
-      unless hir.coverable.empty?
+      coverable = hir.coverable
+      if coverable && !coverable.empty?
         size = string(source).count("\n") + line.to_int - 1
-        coverage&.send(:compiled_lines!, hir.coverable.transform_values { |(_, lines)| [size, lines] }, {}, true)
+        no_defs = {} #: Hash[String, Array[Array[Integer]]]
+        coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, no_defs, true)
       end
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)

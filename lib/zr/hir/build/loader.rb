@@ -566,20 +566,24 @@ module Zr
         # prism allows.
         #: (Prism::node root, String file) -> SyntaxError?
         def class_yields(root, file)
-          found = [] #: Array[Prism::YieldNode]
-          walk = lambda do |node, inside|
-            case node
-            when Prism::DefNode then next
-            when Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode then inside = true
-            when Prism::YieldNode then found << node if inside
-            end
-            node.compact_child_nodes.each { |child| walk.call(child, inside) }
-          end
-          walk.call(root, false)
+          found = class_yield_nodes(root, false, [])
           return nil if found.empty?
 
           message = found.map { |node| "#{file}:#{node.location.start_line}: Invalid yield" }.join("\n")
           Hir.syntax_error(message, file).tap { |exc| exc.set_backtrace([file]) }
+        end
+
+        # The `yield`s under `node` that a class, module or singleton class
+        # body holds (`inside`), outside any `def`.
+        #: (Prism::node node, bool inside, Array[Prism::YieldNode] found) -> Array[Prism::YieldNode]
+        def class_yield_nodes(node, inside, found)
+          case node
+          when Prism::DefNode then return found
+          when Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode then inside = true
+          when Prism::YieldNode then found << node if inside
+          end
+          node.compact_child_nodes.each { |child| class_yield_nodes(child, inside, found) }
+          found
         end
 
         # The definees for which this file defines its own `require`,
