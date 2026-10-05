@@ -1,0 +1,13 @@
+[TypeError, "expected IO or #fileno, String given"]
+[TypeError, "no implicit conversion of Object into String"]
+[ArgumentError, "Specified offset+length is bigger than the buffer size!"]
+[ArgumentError, "The given offset is bigger than the buffer size!"]
+[ArgumentError, "Offset can't be negative!"]
+[IO::Buffer::InvalidatedError, "Buffer is invalid!"]
+[IO::Buffer::InvalidatedError, "Buffer has been invalidated!"]
+"0120123456"
+0
+0
+[ArgumentError, "Specified offset+length is bigger than the buffer size!"]
+"Ciao! World"
+[IO::Buffer::AccessError, "Buffer is not writable!"]

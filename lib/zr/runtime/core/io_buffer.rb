@@ -98,6 +98,7 @@ class IO
     # `for` shares the String's bytes. Without a block the window is
     # read-only; with one it is writable for the length of the block.
     def self.for(string)
+      string = Primitive.zr_str_operand(string)
       buffer = allocate
       buffer.send(:external, string, !block_given? || string.frozen?)
       return buffer unless block_given?
@@ -121,6 +122,9 @@ class IO
     # the file at once, and a private one keeps its changes to itself.
     def self.map(file, size = nil, offset = 0, flags = 0)
       announce
+      unless file.is_a?(IO) || file.respond_to?(:fileno)
+        raise TypeError, "expected IO or #fileno, #{Primitive.zr_class_name_of(file)} given"
+      end
       file_size = file.size
       raise ArgumentError, +"Invalid negative or zero file size!" if file_size <= 0
 
@@ -248,6 +252,10 @@ class IO
     end
 
     def get_string(offset = 0, length = nil, encoding = Encoding::BINARY)
+      # The encoding converts first: its conversion may free this buffer.
+      encoding = Encoding.find(Primitive.zr_str_operand(encoding)) unless encoding.is_a?(Encoding)
+      raise ArgumentError, +"The given offset is bigger than the buffer size!" if length.nil? && offset > @size
+
       length = @size - offset if length.nil?
       bounds(offset, length)
       return "".b.force_encoding(encoding) if @bytes.nil?
@@ -258,11 +266,16 @@ class IO
     def set_string(string, offset = 0, length = nil, source_offset = 0)
       string = Primitive.zr_str_operand(string)
       length = string.bytesize - source_offset if length.nil?
-      writable
       bounds(offset, length)
+      writable(length)
+      return 0 if length.zero?
+
+      # The bytes are read first, so a source that overlaps this buffer
+      # copies as memmove does.
+      part = string.byteslice(source_offset, length)
       i = 0
       while i < length
-        @bytes.setbyte(@start + offset + i, string.getbyte(source_offset + i))
+        @bytes.setbyte(@start + offset + i, part.getbyte(i))
         i += 1
       end
       written(offset, length)
@@ -308,10 +321,11 @@ class IO
     private :integer_value
 
     def set_value(type, offset, value)
-      width, _signed, host, float = Buffer.send(:row, type)
+      width, signed, host, float = Buffer.send(:row, type)
+      # The value converts first: its conversion may free this buffer.
+      value = float ? [value.to_f].pack(width == 4 ? "g" : "G").unpack1(width == 4 ? "N" : "Q>") : integer_value(value.to_int, width, signed)
       writable
       bounds(offset, width, type)
-      value = float ? [value.to_f].pack(width == 4 ? "g" : "G").unpack1(width == 4 ? "N" : "Q>") : integer_value(value.to_int, width, _signed)
       i = 0
       while i < width
         @bytes.setbyte(@start + offset + (host ? i : width - 1 - i), (value >> (i * 8)) & 0xff)
@@ -682,11 +696,13 @@ class IO
       Buffer.allocate
     end
 
-    def writable
+    # A String this buffer is a window on is not writable once frozen. A
+    # null buffer takes a write of no bytes.
+    def writable(length = 1)
       Primitive.attr! :hidden
-      raise AccessError, +"Buffer is not writable!" if readonly?
+      raise AccessError, +"Buffer is not writable!" if readonly? || (@source.is_a?(String) && @source.frozen?)
       raise InvalidatedError, +"Buffer is invalid!" unless valid?
-      raise InvalidatedError, +"Buffer has been invalidated!" if null?
+      raise InvalidatedError, +"Buffer has been invalidated!" if null? && length.positive?
     end
 
     def bounds(offset, length, type = nil)
