@@ -88,14 +88,18 @@ module Zr::Kern
     if a == b
       return KEY_SAME
     end
-    if zr_special_p(a) || zr_special_p(b)
-      if zr_float_p(a) && zr_float_p(b)
-        return zr_float_value(a) == zr_float_value(b) ? KEY_SAME : KEY_DIFFERENT
-      end
+    # rb_eql(a, b): the key looked up decides. A Float, an immediate, a
+    # String, an Array and a Regexp answer by their builtin eql?, which
+    # is false for a key of another type; any other key's own eql? runs,
+    # whatever the stored key is.
+    if zr_float_p(a)
+      return zr_float_p(b) && zr_float_value(a) == zr_float_value(b) ? KEY_SAME : KEY_DIFFERENT
+    end
+    if zr_special_p(a)
       return KEY_DIFFERENT
     end
     t = zr_type(a)
-    if t != zr_type(b)
+    if (t == T_STRING || t == T_ARRAY || t == T_REGEXP) && (zr_special_p(b) || t != zr_type(b))
       return KEY_DIFFERENT
     end
     if t == T_STRING
@@ -219,26 +223,40 @@ module Zr::Kern
 
   # The code of a value that needs no Ruby code, as zr_key_code gives it
   # to a table that compares by value.
+  # It is the mix of the value's `hash`, as the table mixes the `hash` of
+  # any other key, so an object whose `hash` returns a key's hash (and
+  # whose eql? agrees) finds that key, as in CRuby.
   #: (value) -> word
   def zr_value_code(key)
+    zr_hash_mix(zr_value_hash(key))
+  end
+
+  # What `hash` returns for a value that needs no Ruby code: a fixnum,
+  # Symbol or special constant and a Float (with -0.0 as 0.0) with the
+  # run's seed, a String by its bytes, and a Regexp by its parts. The
+  # result is in the fixnum range.
+  #: (value) -> word
+  def zr_value_hash(key)
+    mask = 4611686018427387903
     if zr_float_p(key)
       d = zr_float_value(key)
       if d == Machine.f64(0)
         d = Machine.f64(0)
       end
-      return zr_hash_mix(Machine.word(Machine.ptr(Machine.bits(d))))
+      return zr_hash_mix(Machine.word(Machine.ptr(Machine.bits(d))) ^ zr_hash_seed_word()) & mask
     end
     if zr_special_p(key)
-      return zr_hash_mix(Machine.word(key))
+      return zr_hash_mix(Machine.word(key) ^ zr_hash_seed_word()) & mask
     end
     t = zr_type(key)
     if t == T_STRING
-      return zr_hash_mix(zr_str_bytes_hash(key) ^ (zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1))
+      # rb_str_hash: an ASCII-only or empty text hashes with no encoding.
+      return zr_hash_mix(zr_str_bytes_hash(key) ^ (RString[key].len == 0 || zr_str_ascii_only(key) ? 0 : zr_str_encoding_index(key) + 1)) & mask
     end
     if t == T_REGEXP
-      return zr_hash_mix(zr_value_code(RRegexp[key].source) + RRegexp[key].options)
+      return zr_hash_mix(zr_value_code(RRegexp[key].source) + RRegexp[key].options) & mask
     end
-    zr_hash_mix(Machine.word(key))
+    zr_hash_mix(Machine.word(key)) & mask
   end
 
   # CRuby's rb_hash: a Symbol, a fixnum, true, false, nil, a String, a
@@ -259,7 +277,7 @@ module Zr::Kern
       if !zr_special_p(v) && !zr_float_p(v) && zr_type(v) != T_STRING
         return Machine.value(QNIL)
       end
-      h = ((h * 31) + (zr_value_code(v) & mask)) & mask
+      h = ((h * 31) + (zr_value_hash(v) & mask)) & mask
       i += 1
     end
     zr_fix(h)
@@ -271,7 +289,7 @@ module Zr::Kern
       return zr_big_hash(v)
     end
     if zr_special_p(v) || zr_float_p(v) || zr_type(v) == T_STRING
-      return zr_fix(zr_value_code(v) & 4611686018427387903)
+      return zr_fix(zr_value_hash(v))
     end
     r = zr_send(v, Machine.id(:hash), 0, 0)
     # rb_hash: a hash that is not a Fixnum is reduced: a bignum by its own
@@ -300,6 +318,14 @@ module Zr::Kern
   #: () -> ptr
   def zr_hash_seed
     Machine.static(:hash_seed, 8)
+  end
+
+  # The seed as a word. A fixnum, Symbol, special constant or Float
+  # hashes with it, as rb_hash_start mixes CRuby's seed in, so these
+  # hashes too are different in each run.
+  #: () -> word
+  def zr_hash_seed_word
+    Machine.load64(zr_hash_seed(), 0)
   end
 
   #: () -> void
@@ -568,13 +594,18 @@ module Zr::Kern
       zr_write_barrier(h, value)
       return value
     end
-    if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && (RBasic[h].flags & (FL_IDENTITY | FL_WEAKKEY)) == 0
+    # RHASH_STRING_KEY_P and rb_hash_key_str: an unfrozen key of class
+    # String (a singleton class too) is stored as a frozen copy -- the
+    # fstring of its bytes when it is bare (no singleton class, no
+    # ivars). A key of a subclass is stored as it is.
+    if !zr_special_p(key) && zr_type(key) == T_STRING && !zr_frozen_p(key) && zr_real_class(key) == zr_global(G_STRING) && (RBasic[h].flags & (FL_IDENTITY | FL_WEAKKEY)) == 0
       copy = zr_str_copy_encoding(zr_str_new(RString[key].ptr, RString[key].len), key)
-      # The frozen copy keeps the key's subclass, as CRuby's
-      # rb_str_new_frozen does.
-      RBasic[copy].klass = zr_real_class(key)
-      key = copy
-      RBasic[key].flags = RBasic[key].flags | FL_FREEZE
+      if RBasic[key].klass == zr_global(G_STRING) && (RBasic[key].flags & FL_EXIVAR) == 0
+        key = zr_str_intern(copy)
+      else
+        key = copy
+        RBasic[key].flags = RBasic[key].flags | FL_FREEZE
+      end
     end
     zr_hash_append(h, key, code, value)
   end
@@ -682,7 +713,14 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("key not found: "), 15)
-    zr_buf_str(b, s)
+    # rb_str_ellipsize(desc, 65): a long key shows its first 62
+    # characters and "...".
+    if zr_str_char_count(s) > 65
+      zr_buf_push(b, RString[s].ptr, zr_str_char_offset(s, 62))
+      zr_buf_push(b, Machine.bytes("..."), 3)
+    else
+      zr_buf_str(b, s)
+    end
     e = zr_exc_new(zr_global(G_KEY_ERROR), zr_buf_take(b))
     zr_exc_detail(e, Machine.id(:key), key)
     zr_exc_detail(e, Machine.id(:receiver), recv)
@@ -1421,6 +1459,20 @@ module Zr::Kern
     end
     RBasic[h].flags = RBasic[h].flags | FL_IDENTITY
     zr_hash_recode(h)
+    h
+  end
+
+  # An iteration of `h` that is not a walk of its table: the block of
+  # `update`, which runs inside the update of the receiver.
+  #: (value) -> value
+  def zr_hash_iter_enter(h)
+    RHash[h].iter = RHash[h].iter + 1
+    h
+  end
+
+  #: (value) -> value
+  def zr_hash_iter_leave(h)
+    RHash[h].iter = RHash[h].iter - 1
     h
   end
 

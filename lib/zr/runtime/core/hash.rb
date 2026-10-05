@@ -72,6 +72,16 @@ class Hash
     Primitive.zr_hash_identity_p(self) ? out.compare_by_identity : out
   end
 
+  # hash_dup_with_compare_by_id: a plain Hash with a copy of the table
+  # and compare_by_identity, and no default. The keys are not hashed
+  # again.
+  def table_copy
+    Primitive.attr! :hidden
+    out = Primitive.zr_hash_copy_from({}, self)
+    out.default = nil
+    out
+  end
+
   def each_key
     return to_enum(:each_key) { size } unless block_given?
 
@@ -91,8 +101,7 @@ class Hash
 
     # rb_hash_select walks a copy and deletes from it, so the block can
     # change the receiver.
-    out = identity_shaped
-    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
+    out = table_copy
     Primitive.zr_hash_foreach(out) { |k, v| Primitive.zr_hash_delete_m(out, k) unless yield(k, v) }
     out
   end
@@ -101,8 +110,7 @@ class Hash
   def reject
     return to_enum(:reject) { size } unless block_given?
 
-    out = identity_shaped
-    Primitive.zr_hash_foreach(self) { |k, v| out[k] = v }
+    out = table_copy
     Primitive.zr_hash_foreach(out) { |k, v| Primitive.zr_hash_delete_m(out, k) if yield(k, v) }
     out
   end
@@ -194,7 +202,14 @@ class Hash
     hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
     Primitive.zr_hash_foreach(hash) do |k, v|
       if block_given? && Primitive.zr_hash_key_p_m(self, k)
-        v = yield(k, Primitive.zr_hash_fetch_m(self, k, nil), v)
+        # rb_hash_update_block_i: the block runs inside the update of the
+        # receiver, which counts as an iteration of it.
+        Primitive.zr_hash_iter_enter(self)
+        begin
+          v = yield(k, Primitive.zr_hash_fetch_m(self, k, nil), v)
+        ensure
+          Primitive.zr_hash_iter_leave(self)
+        end
       end
       Primitive.zr_hash_aset_m(self, k, v)
     end
@@ -231,7 +246,12 @@ class Hash
     return to_enum(:transform_values!) { size } unless block_given?
 
     Primitive.zr_frozen_error(self) if frozen?
-    Primitive.zr_hash_foreach(self) { |k, v| Primitive.zr_hash_store(self, k, yield(v)) }
+    Primitive.zr_hash_foreach(self) do |k, v|
+      v = yield(v)
+      # The block may freeze the receiver; the store then raises.
+      Primitive.zr_frozen_error(self) if frozen?
+      Primitive.zr_hash_store(self, k, v)
+    end
     self
   end
 
@@ -417,7 +437,10 @@ class Hash
   # recursion, which gives equal, as rb_exec_recursive_paired does.
   def eql?(other)
     return true if equal?(other)
-    return false unless other.is_a?(Hash) && Primitive.zr_hash_len_m(self) == Primitive.zr_hash_len_m(other)
+    # hash_equal: an object that is not a Hash but responds to to_hash
+    # answers by its own eql?.
+    return Kernel === other && other.respond_to?(:to_hash) && !!other.eql?(self) unless Hash === other
+    return false unless Primitive.zr_hash_len_m(self) == Primitive.zr_hash_len_m(other)
     return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
     begin
@@ -435,7 +458,8 @@ class Hash
   # back, so the walk ends.
   def hash
     Kernel.send(:outer_hash, self, (Primitive.zr_hash_len_m(self) * 31) + 2) do
-      total = Primitive.zr_hash_len_m(self)
+      # rb_hash_start: an empty Hash does not hash to 0.
+      total = Primitive.zr_hash_len_m(self) + 0x2545F4914F6CDD
       Primitive.zr_hash_foreach(self) { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
       total
     end

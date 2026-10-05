@@ -323,7 +323,7 @@ class Struct
       h = seed
       i = 0
       while i < Primitive.zr_ary_len_m(values)
-        h = (h * 31 + (Primitive.zr_rb_hash(Primitive.zr_ary_aref1_m(values, i)) & mask)) & mask
+        h = (h * 31 + (Kernel.send(:element_hash, Primitive.zr_ary_aref1_m(values, i)) & mask)) & mask
         i += 1
       end
       h

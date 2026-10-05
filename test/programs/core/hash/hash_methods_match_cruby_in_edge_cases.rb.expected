@@ -1,0 +1,22 @@
+true
+true
+true
+true
+false
+true
+false
+true
+false
+false
+true
+true
+"{あ: 1}"
+"{a: 1, a!: 1, \"0\": 1, \"@a\": 1, \"a=\": 1, \"[]\": 1, \"a\\\"b\": 1}"
+[FrozenError, "can't modify frozen Hash: {a: 2, b: 2, c: 3, d: 4}"]
+{a: 2, b: 2, c: 3, d: 4}
+[RuntimeError, "rehash during iteration"]
+true
+"key not found: \"gumbygumbygumbygumbygumbygumbygumbygumbygumbygumbygumbygumbyg..."
+true
+[]
+1

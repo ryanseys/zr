@@ -750,7 +750,7 @@ module Zr::Kern
     # containers use for it, so `[1].hash` and an element whose hash is
     # `1.hash` agree.
     if zr_fixnum_p(recv)
-      return zr_fix(zr_value_code(recv) & 4611686018427387903)
+      return zr_fix(zr_value_hash(recv))
     end
     if !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_INTEGER)
       return zr_big_hash(recv)
@@ -764,7 +764,7 @@ module Zr::Kern
   #: (value) -> word
   def zr_obj_id_code(obj)
     if zr_special_p(obj)
-      return zr_hash_mix(Machine.word(obj))
+      return zr_hash_mix(Machine.word(obj) ^ zr_hash_seed_word())
     end
     zr_hash_mix(zr_fix2long(zr_obj_object_id(obj, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))))
   end
@@ -788,11 +788,9 @@ module Zr::Kern
   # that are not comparable have different codes.
   #: (value, word, ptr, value, value) -> value
   def zr_str_hash(recv, argc, argv, cref, blk)
-    h = zr_str_bytes_hash(recv)
-    if !zr_str_ascii_only(recv)
-      h = Machine.mul_wrap(h ^ zr_str_encoding_index(recv), 1099511628211)
-    end
-    zr_fix(h & 4611686018427387903)
+    # The value the table hashes a String key by, so an object whose
+    # `hash` is a String's finds that String key.
+    zr_fix(zr_value_hash(recv))
   end
 
   # `Object#send`: calls the method that the first argument gives, with

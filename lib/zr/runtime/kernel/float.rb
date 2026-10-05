@@ -568,12 +568,8 @@ module Zr::Kern
   # `hash`: the bits, with -0.0 as 0.0, so equal Floats have the same hash.
   #: (value, word, ptr, value, value) -> value
   def zr_flo_hash(recv, argc, argv, cref, blk)
-    d = zr_float_value(recv)
-    if d == Machine.f64(0)
-      d = Machine.f64(0)
-    end
-    bits = Machine.ptr(Machine.bits(d))
-    zr_fix(Machine.word((bits ^ (bits >> 29)) & 4611686018427387903))
+    # With -0.0 as 0.0 and the run's seed, as the table hashes it.
+    zr_fix(zr_value_hash(recv))
   end
 
   #: (value, word, ptr, value, value) -> value

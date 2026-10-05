@@ -37,7 +37,27 @@ module Kernel
     end
   end
 
-  def <=>(other) = equal?(other) || self == other ? 0 : nil
+# rb_hash of one element inside outer_hash: a `hash` that may call
+# back runs under a guard of the element, as obj_any_hash runs it
+# under rb_exec_recursive_outer, so two objects whose own `hash`
+# methods hash each other end the walk. The guard has its own key,
+# so an Array element still meets its own outer_hash.
+def self.element_hash(x)
+  Primitive.attr! :hidden
+  return Primitive.zr_rb_hash(x) if Integer === x || String === x || Symbol === x || Float === x || NilClass === x
+
+  tag = Primitive.zr_hidden_get(Fiber.current, :__hash_outer__)
+  return Primitive.zr_rb_hash(x) unless tag
+  throw tag if Primitive.zr_recursive_enter(x, :hash_element)
+
+  begin
+    Primitive.zr_rb_hash(x)
+  ensure
+    Primitive.zr_recursive_leave(x, :hash_element)
+  end
+end
+
+def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   def loop
     return to_enum(:loop) { Float::INFINITY } unless block_given?
