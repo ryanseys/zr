@@ -1,1 +1,0 @@
-fails:ObjectSpace::WeakKeyMap#[] supports keys with private #hash method

@@ -1,1 +1,0 @@
-fails:Time#<=> returns nil when compared to an Integer because Time does not respond to #coerce

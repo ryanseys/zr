@@ -1,1 +1,0 @@
-fails:BasicObject#__id__ returns a different value for two numbers near the 64 bit Fixnum limit

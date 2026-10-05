@@ -1,2 +1,0 @@
-fails:Module#deprecate_constant when accessing the deprecated module warns with a message
-fails:Module#deprecate_constant when removing the deprecated module warns with a message
