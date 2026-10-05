@@ -319,7 +319,8 @@ module Zr::Kern
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     inherit = argc < 2 || (Machine.value(Machine.load64(argv, 8)) != QFALSE && Machine.value(Machine.load64(argv, 8)) != QNIL)
-    e = inherit ? zr_search_method(recv, Machine.load64(slot, 0)) : zr_find_method_at(recv, Machine.load64(slot, 0))
+    # A class with a prepended module keeps its own methods in its origin.
+    e = inherit ? zr_search_method(recv, Machine.load64(slot, 0)) : zr_find_method_at(zr_origin(recv), Machine.load64(slot, 0))
     if e == 0 || MEntry[e].kind == KIND_UNDEF || zr_entry_hidden_p(e) || MEntry[e].fn == Machine.addr(:zr_f_notimplement)
       return Machine.value(QFALSE)
     end

@@ -1,0 +1,6 @@
+[0, [true, true, true]]
+[1, [true, true, true]]
+[2, [false, false, true]]
+[:const_defined, EncodingError, "invalid symbol in encoding UTF-8 :\"\\xC3\""]
+[:const_get, EncodingError, "invalid symbol in encoding UTF-8 :\"\\xC3\""]
+[:deprecate, FrozenError, "can't modify frozen Class: "]

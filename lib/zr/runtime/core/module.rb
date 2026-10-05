@@ -231,12 +231,18 @@ class Module
   private
 
   # A Symbol, a String, or what to_str makes of the name.
+  # rb_to_id: bytes that make no Symbol raise as String#to_sym does.
   def const_name(name)
     Primitive.attr! :hidden
-    return name if name.is_a?(Symbol) || name.is_a?(String)
+    return name if name.is_a?(Symbol)
 
-    String.try_convert(name) or raise TypeError, "no implicit conversion of #{conversion_name(name)} into String"
+    name = String.try_convert(name) or raise TypeError, "no implicit conversion of #{conversion_name(name)} into String"
+    STRING_TO_SYM.bind_call(name) unless name.valid_encoding?
+    name
   end
+
+  STRING_TO_SYM = String.instance_method(:to_sym)
+  private_constant :STRING_TO_SYM
 
   # Each segment of the path `name`, resolved by the block from the
   # scope before it, with a flag that tells whether an earlier segment

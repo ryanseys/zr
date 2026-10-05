@@ -843,6 +843,9 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_deprecate_constant(recv, argc, argv, cref, blk)
+    if zr_modify_frozen_p(recv)
+      return zr_frozen_error(recv)
+    end
     zr_mod_constant_visibility(recv, argc, argv, 0 - 1)
   end
 
