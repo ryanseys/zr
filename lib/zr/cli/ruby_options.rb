@@ -205,7 +205,13 @@ module Zr
         lines << "Kernel.send(:line_methods)" if @print || @loop
         lines << "$-l = true" if @line
         lines << "$-a = true" if @split
-        @requires.each { |feature| lines << "require #{feature.inspect}" }
+        # ruby runs -r before it reads the main script, so a required file
+        # sees none of the script's locals in TOPLEVEL_BINDING.
+        unless @requires.empty?
+          lines << "Primitive.zr_hidden_set(TOPLEVEL_BINDING, :__before_main__, true)"
+          @requires.each { |feature| lines << "require #{feature.inspect}" }
+          lines << "Primitive.zr_hidden_set(TOPLEVEL_BINDING, :__before_main__, nil)"
+        end
         lines << S_FLAG if @sflag
         lines << "Encoding.default_external = #{@external.inspect}" if @external
         lines << "Encoding.default_internal = #{@internal.inspect}" if @internal

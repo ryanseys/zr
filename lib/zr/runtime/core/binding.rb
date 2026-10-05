@@ -160,7 +160,10 @@ class Binding
   # The names in each scope, innermost first, with hidden ones dropped.
   def scopes
     Primitive.attr! :hidden
-    Primitive.zr_binding_scopes(self).map { |names| names.map { |n| named?(n) ? n : nil } }
+    list = Primitive.zr_binding_scopes(self)
+    # Before the main script runs (-r), its own scope has no names yet.
+    list = list[0...-1] if Primitive.zr_hidden_get(self, :__before_main__)
+    list.map { |names| names.map { |n| named?(n) ? n : nil } }
   end
 
   # Whether `name` has the form of a local: a lowercase or non-ASCII letter
