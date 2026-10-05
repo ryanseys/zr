@@ -12,12 +12,19 @@ module Zr
       # The calls that set or read the caller's `$~` or `$_`.
       BACKREF_PRIMITIVES = %i[zr_backref_set zr_backref_get zr_lastline_set zr_lastline_get].freeze #: Array[Symbol]
 
+      # The operators that a def marked `:sends_ops` sends by name, as
+      # complex.c's f_add, f_sub, f_mul, f_quo and rb_funcall do: the
+      # program's redefinition answers them.
+      SENT_OPS = %i[+ - * / % ** -@ +@ quo fdiv].freeze #: Array[Symbol]
+
       # The sends that match, for an extension's def.
       MATCH_SENDS = %i[match =~ !~ scan sub gsub sub! gsub! partition rpartition].freeze #: Array[Symbol]
 
       # The leading `Primitive.attr! :name` statements of a def's body.
       # `:hidden` marks a helper that has no CRuby method; it has no
       # backtrace entry. `:ruby` marks a method that CRuby writes in Ruby.
+      # `:sends_ops` marks a method whose operators on its values send by
+      # name, so a redefined Integer#+ applies.
       # `:frameless` marks a method that ruby runs as an instruction: it is
       # listed as any method is, and has no backtrace entry.
       #: (node? body) -> Array[Symbol]

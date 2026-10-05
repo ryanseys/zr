@@ -3,7 +3,13 @@
 # Complex: a real and an imaginary part, each an Integer, Float or
 # Rational, kept in hidden ivars as in CRuby's hidden fields.
 class Complex < Numeric
+  # f_add, f_mul and the others: the parts' operators send by name when a
+  # program redefines them.
+  Primitive.attr! :sends_ops
+
   class << self
+    Primitive.attr! :sends_ops
+
     undef_method :new, :allocate
 
     def build(real, imag)

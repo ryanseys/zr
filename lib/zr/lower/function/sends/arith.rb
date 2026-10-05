@@ -415,7 +415,8 @@ module Zr
         # Whether the fast paths ignore the gates. The core library and
         # the compiler that eval carries are ruby's C, which compares and
         # counts its own values natively whatever a program redefines. A
-        # method that CRuby writes in Ruby (`:ruby`) sends as Ruby does.
+        # method that CRuby writes in Ruby (`:ruby`) sends as Ruby does, and
+        # so does one whose C sends its operators by name (`:sends_ops`).
         #: () -> bool
         def native_operators?
           # Nil only until the first call sets it.
@@ -429,7 +430,7 @@ module Zr
             fn = up
           end
           # False, not nil, for a program's code, so the memo holds.
-          @native_operators = @l.internal? || @l.support? ? !fn.attributes.include?(:ruby) : false
+          @native_operators = @l.internal? || @l.support? ? !fn.attributes.intersect?(%i[ruby sends_ops]) : false
         end
 
         # Whether `each` finds the core's own method. Ruby's C walks its

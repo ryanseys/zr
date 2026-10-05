@@ -596,11 +596,13 @@ module Zr
         end
 
         # Whether a send of `name` finds the core's own method: in the
-        # core library and eval's compiler, for any name but PROTOCOL, and
-        # for `each` as CRuby's C sends it (`native_each?`).
+        # core library and eval's compiler, for any name but PROTOCOL, for
+        # `each` as CRuby's C sends it (`native_each?`), and for an operator
+        # as CRuby's C sends it (`native_operators?`).
         #: (Symbol name) -> bool
         def core_send?(name)
           return false unless @l.internal? || @l.support?
+          return native_operators? if Hir::CoreDef::SENT_OPS.include?(name)
 
           name == :each ? native_each? : !PROTOCOL.include?(name)
         end
