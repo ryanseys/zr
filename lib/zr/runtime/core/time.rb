@@ -613,7 +613,15 @@ class Time
     end
   end
 
-  def dst? = kind == :local && local_dst
+  # zone_set_dst: a timezone object answers through its own dst?, which
+  # takes the time in UTC; one without dst? is never daylight time.
+  def dst?
+    zone = kind
+    return local_dst if zone == :local
+    return false unless Time.send(:zone_object?, zone) && zone.respond_to?(:dst?)
+
+    zone.dst?(Time.send(:zone_tm, ns.div(NS))) ? true : false
+  end
   alias isdst dst?
 
   def to_a = [sec, min, hour, day, month, year, wday, yday, dst?, zone]
@@ -1220,8 +1228,14 @@ class Time
                  ((second >> 20) & 0x3f) + Rational(nano, NS))
     unless ((word >> 30) & 1) == 1
       moment.localtime(extras[:offset] || zone_at(moment.to_i).first)
-      # A class that finds zones by name rebuilds the zone object.
-      if extras[:zone] && respond_to?(:find_timezone) && zone_object?(found = find_timezone(extras[:zone]))
+      # A class that finds zones by name rebuilds the zone object. A name
+      # it does not know stays a String, as mload_zone rescues it.
+      found = begin
+        find_timezone(extras[:zone]) if extras[:zone] && respond_to?(:find_timezone)
+      rescue StandardError
+        nil
+      end
+      if found && zone_object?(found)
         moment.localtime(found)
         extras = extras.except(:zone)
       end
