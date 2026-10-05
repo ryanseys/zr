@@ -281,6 +281,13 @@ class Time
         zone = found unless found.empty?
       end
       mon, mday, hour, min, sec = parts
+      # time_init_parse checks each field's range before the fields
+      # become a time.
+      raise ArgumentError, +"mon out of range" if mon && !mon.between?(1, 12)
+      raise ArgumentError, +"mday out of range" if mday && !mday.between?(1, 31)
+      raise ArgumentError, +"hour out of range" if hour && hour > 24
+      raise ArgumentError, +"min out of range" if min && min > 59
+      raise ArgumentError, +"sec out of range" if sec && sec >= 61
       civil_parts(year, mon || 1, mday || 1, hour || 0, min || 0, sec || 0, zone)
     end
 
@@ -383,6 +390,11 @@ class Time
         return civil(year, month, day, hour, min, sec, zone, dst: dst ? true : false)
       end
       year, month, day, hour, min, sec, usec = args
+      # time_arg: the seventh is microseconds only when there are seven;
+      # of eight it is a zone, which is ignored. usec2subsecx reads a
+      # String as decimal digits.
+      usec = nil unless args.size == 7
+      usec = Integer(usec, 10) if usec.is_a?(String)
       civil(year, month, day, hour, min, sec, zone, usec)
     end
 
@@ -730,9 +742,16 @@ class Time
 
   # ISO 8601: `Z` for UTC, the offset otherwise, and `digits` places of
   # the fraction when requested.
+  # Past nine digits the fraction comes from the exact subsecond, as
+  # time_xmlschema writes it.
   def iso8601(digits = 0)
     text = strftime("%Y-%m-%dT%H:%M:%S")
-    text = "#{text}.#{format("%09d", nsec)[0, digits]}" if digits > 0
+    if digits > 9
+      places = digits.to_i
+      text = "#{text}.#{(subsec * (10**places)).floor.to_s.rjust(places, '0')}"
+    elsif digits > 0
+      text = "#{text}.#{format("%09d", nsec)[0, digits]}"
+    end
     "#{text}#{utc? ? 'Z' : strftime('%:z')}".force_encoding(Encoding::US_ASCII)
   end
   alias xmlschema iso8601
@@ -872,10 +891,14 @@ class Time
     shown.respond_to?(:name) ? shown.name.to_s : shown.to_s
   end
 
+  # TZMODE_COPY: a fixed offset keeps its zone name too.
   def shifted(at)
     Primitive.attr! :hidden
     t = Time.allocate
     t.send(:set, at, kind)
+    if kind.is_a?(Integer) || kind.is_a?(Rational)
+      Primitive.zr_hidden_set(t, :__zone__, Primitive.zr_hidden_get(self, :__zone__))
+    end
     t
   end
 
@@ -1227,20 +1250,28 @@ class Time
     moment = utc(year, month + 1, (word >> 5) & 0x1f, word & 0x1f, (second >> 26) & 0x3f,
                  ((second >> 20) & 0x3f) + Rational(nano, NS))
     unless ((word >> 30) & 1) == 1
-      moment.localtime(extras[:offset] || zone_at(moment.to_i).first)
+      # time_mload keeps an offset that validate_utc_offset takes and a
+      # zone that is a C string; it drops anything else.
+      offset = extras[:offset]
+      offset = nil unless offset.is_a?(Numeric) && offset > -86_400 && offset < 86_400
+      name = extras[:zone]
+      name = nil unless name.is_a?(String) && !name.include?("\0")
+      # With no offset the time is plain local time, whose zone the TZ
+      # names.
+      offset.nil? ? moment.localtime : moment.localtime(offset)
       # A class that finds zones by name rebuilds the zone object. A name
       # it does not know stays a String, as mload_zone rescues it.
       found = begin
-        find_timezone(extras[:zone]) if extras[:zone] && respond_to?(:find_timezone)
+        find_timezone(name) if name && respond_to?(:find_timezone)
       rescue StandardError
         nil
       end
       if found && zone_object?(found)
         moment.localtime(found)
-        extras = extras.except(:zone)
+      elsif name && offset
+        # The zone name that was dumped stays, as time_mload sets it.
+        Primitive.zr_hidden_set(moment, :__zone__, (+name).force_encoding(Encoding::US_ASCII))
       end
-      # The zone name that was dumped stays, as time_mload sets it.
-      Primitive.zr_hidden_set(moment, :__zone__, (+extras[:zone].to_s).force_encoding(Encoding::US_ASCII)) if extras[:zone]
     end
     text.instance_variables.each { |name| moment.instance_variable_set(name, text.instance_variable_get(name)) }
     moment
