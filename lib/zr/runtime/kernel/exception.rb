@@ -649,7 +649,7 @@ module Zr::Kern
 
   # Writes `Owner#name`, or `Owner.name` for a singleton method of a
   # class, or the name only for a singleton method of an object or for an
-  # anonymous owner.
+  # owner with no permanent name (rb_gen_method_name).
   #: (ptr, value, word) -> void
   def zr_buf_method_label(b, owner, name)
     if zr_type(owner) == T_ICLASS
@@ -658,11 +658,11 @@ module Zr::Kern
     if zr_singleton_p(owner)
       attached = RClass[owner].attached
       t = zr_type(attached)
-      if (t == T_CLASS || t == T_MODULE) && RClass[attached].name != QNIL
+      if (t == T_CLASS || t == T_MODULE) && RClass[attached].name != QNIL && (RBasic[attached].flags & FL_TEMP_NAME) == 0
         zr_buf_str(b, RClass[attached].name)
         zr_buf_byte(b, 46)
       end
-    elsif RClass[owner].name != QNIL
+    elsif RClass[owner].name != QNIL && (RBasic[owner].flags & FL_TEMP_NAME) == 0
       zr_buf_str(b, RClass[owner].name)
       zr_buf_byte(b, 35)
     end
@@ -1098,6 +1098,11 @@ module Zr::Kern
         zr_buf_long(b, limit)
         zr_buf_byte(b, 41)
         return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+      end
+      # ec_backtrace_to_ary: a count of 0 is an empty list, whatever the
+      # level.
+      if limit == 0
+        return zr_ary_new(0)
       end
     end
     out = zr_ary_new(8)
