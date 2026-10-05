@@ -89,10 +89,11 @@ module Zr
         # @rbs gate: bool | Symbol
         # @rbs description: (^() -> String?)?
         # @rbs switches: Switches
+        # @rbs def_base: Integer
         # @rbs return: void
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
-                       gate: false, description: nil, switches: Switches::NONE)
+                       gate: false, description: nil, switches: Switches::NONE, def_base: 0)
           @deferred = deferred
           @switches = switches
           @modules = {}
@@ -115,7 +116,7 @@ module Zr
           @branches = {}
           @branch_count = 0
           @defs = {}
-          @def_count = 0
+          @def_count = def_base
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @stopped = []

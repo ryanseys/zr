@@ -22,6 +22,8 @@ module Coverage
 
     mode = mode_of(args)
     Primitive.zr_hidden_set(self, :__mode__, mode)
+    Primitive.zr_coverage_evals_set(mode[:eval] ? true : false)
+    Primitive.zr_hidden_set(self, :__eval_lines__, {})
     shift(:suspended)
     nil
   end
@@ -62,22 +64,12 @@ module Coverage
       clear = options[:clear] ? true : false
     end
     if stop && !clear
-      warn "stop implies clear"
+      warn "stop implies clear", uplevel: 0
       clear = true
     end
     answer = measured(clear)
     shift(:idle) if stop
     answer
-  end
-
-  # A string that eval compiles is not a file that the build read, so no
-  # line of it is measurable. An eval while `eval: true` measures is a
-  # refusal, not a result that leaves the eval out. A program that asks
-  # for eval coverage and never calls eval gets the same result as ruby.
-  def self.eval_compiled!
-    Primitive.attr! :hidden
-    mode = Primitive.zr_hidden_get(self, :__mode__)
-    Primitive.zr_unimplemented("Coverage of eval") if running? && mode && mode[:eval]
   end
 
   def self.state = Primitive.zr_hidden_get(self, :__state__) || :idle
@@ -212,15 +204,48 @@ module Coverage
 
     # The file's line array: a count for each line that runs a :line
     # event, nil for every other line.
+    # An eval's lines under `eval: true` join those of its file.
     def lines_of(path, counts)
       count, executable = coverable[path]
+      if (count_of_eval, eval = eval_lines[path])
+        count = [count || 0, count_of_eval].max
+        executable = (executable || Set.new) | eval
+      end
       return counts.map { |n| n.zero? ? nil : n } if count.nil?
 
       Array.new(count) { |i| executable.include?(i + 1) ? counts[i] || 0 : nil }
     end
 
+    def eval_lines
+      Primitive.zr_hidden_get(self, :__eval_lines__) || Primitive.zr_hidden_set(self, :__eval_lines__, {})
+    end
+
     def coverable
       Primitive.zr_hidden_get(self, :__coverable__) || Primitive.zr_hidden_set(self, :__coverable__, compiled_lines)
+    end
+
+    # The lines and the def sites of a file that a require compiled while
+    # the program ran: `{path => [line count, [line, ...]]}` and
+    # `{path => [[id, *span], ...]}`. An eval's lines (`eval`) count only
+    # under `eval: true`, and only until coverage stops.
+    def compiled_lines!(rows, defs, eval = false)
+      return if eval && !Primitive.zr_hidden_get(self, :__mode__)&.fetch(:eval, false)
+
+      table = eval ? eval_lines : coverable
+      rows.each do |path, (count, lines)|
+        was_count, was = table[path] || [0, Set.new]
+        table[path] = [[was_count, count].max, was | lines]
+      end
+      sites = def_table
+      defs.each { |path, list| list.each { |id, *span| sites[id] = [path, span] } }
+    end
+
+    # The first def-site id that no compiled scope has, for the next
+    # compile at run time; nil while Coverage does not measure.
+    def next_def_site
+      return nil if state == :idle
+
+      (def_table.keys.max || -1) + 1
     end
 
     def compiled_lines

@@ -95,9 +95,10 @@ module Zr
       # @rbs gate: bool | Symbol
       # @rbs switches: Switches
       # @rbs using: Integer?
+      # @rbs def_base: Integer?
       # @rbs return: Program
       def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
-                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil)
+                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil, def_base: nil)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
@@ -107,7 +108,7 @@ module Zr
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
-                              gate: gate, description: Library::Roots.description(target), switches: switches)
+                              gate: gate, description: Library::Roots.description(target), switches: switches, def_base: def_base || 0)
           loader.main!(file)
           loader.eval_using = using
           # Built before the main file, so that the main file's requires
@@ -125,18 +126,21 @@ module Zr
         # fileutils, and fileutils evals). So the build repeats: read, add
         # the preludes, and build again while any fact changed. Each fact
         # can only change from false to true, so the loop ends.
-        evals = covers = false
+        # A compile at run time while Coverage measures methods (`def_base`)
+        # records its def sites whether or not the file names Coverage.
+        evals = false
+        covers = !def_base.nil?
         external = nil #: untyped
         loader, main, switched = built.call(external, trace, evals, covers)
         preludes = eval_support ? Build.preludes(loader, target) : [] #: Array[node]
         loop do
           over = loader.evals? ? prebuilt : nil
-          break if over.equal?(external) && (loader.traces? || trace) == trace && loader.covers? == covers
+          break if over.equal?(external) && (loader.traces? || trace) == trace && (loader.covers? || !def_base.nil?) == covers
 
           evals = loader.evals?
           external = over
           trace ||= loader.traces?
-          covers = loader.covers?
+          covers = loader.covers? || !def_base.nil?
           loader, main, switched = built.call(external, trace, evals, covers)
           preludes = eval_support ? Build.preludes(loader, target) : []
         end
@@ -150,7 +154,9 @@ module Zr
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
-        coverable = loader.covers? ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
+        # A compile at run time gives its lines to a Coverage that runs
+        # already, whether or not the file names Coverage.
+        coverable = loader.covers? || !eval_support ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
         Program.new(main.file, main.locals, body, loader.units, main_warnings(main.warnings, switches.verbose), eval_support && loader.evals?, loader.entries, loader.tracing?,
                     main.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
                     loader.covers? ? loader.defs : {})

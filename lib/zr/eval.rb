@@ -86,12 +86,6 @@ module Zr
     # @rbs using: Integer?
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
     def compile(source, file, line = 1, scopes = [], method = nil, using: nil)
-      # Coverage cannot measure eval'd code, so it stops with a message.
-      # Coverage is there only when the program loads it. It is reached by
-      # a symbol: a constant that names it in code arms the trace events of
-      # the build (`Loader#names_of?`), and this code only reports to it.
-      coverage = Object.const_defined?(:Coverage) && Object.const_get(:Coverage) #: untyped
-      coverage.send(:eval_compiled!) if coverage && coverage.respond_to?(:eval_compiled!, true)
       Eval.plainly { compiled(source, file, line, scopes, method, using: using) }
     rescue Hir::Invalid => e
       # Ruby reads a regexp literal when it compiles the string around it,
@@ -120,7 +114,13 @@ module Zr
       Eval.plainly do
         @count += 1
         name = "zr_load_#{@count}"
-        hir = Hir.build(File.read(path), path, eval_support: false)
+        # While Coverage measures, the file gets its :line events and its
+        # def sites, and Coverage learns which of its lines can run and where
+        # each of its methods is.
+        coverage = covering
+        base = coverage&.send(:next_def_site)
+        hir = Hir.build(File.read(path), path, eval_support: false, trace: @runtime.tracing?, def_base: base)
+        coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
         ext = Library::Roots.internal_library?(path)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
         Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
@@ -128,6 +128,15 @@ module Zr
     end
 
     private
+
+    # The Coverage module, when the program loaded it. It is reached by a
+    # symbol: a constant that names it in code arms the trace events of the
+    # build (`Loader#names_of?`), and this code only reports to it.
+    #: () -> untyped
+    def covering
+      coverage = Object.const_defined?(:Coverage) && Object.const_get(:Coverage) #: untyped
+      coverage.respond_to?(:compiled_lines!, true) ? coverage : nil
+    end
 
     # @rbs source: untyped
     # @rbs file: untyped
@@ -137,6 +146,7 @@ module Zr
     # @rbs using: Integer?
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
     def compiled(source, file, line, scopes, method, using:)
+      coverage = covering
       @count += 1
       name = "zr_eval_#{@count}"
       # A `using` entry is a slot in one table that the whole program
@@ -147,6 +157,14 @@ module Zr
       hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
                                                     activations: @runtime.activations, trace: @runtime.tracing?, using: using)
       @runtime.take_activations(hir.activations)
+      # Coverage is there only when the program loads it. Under `eval:
+      # true` it counts the eval's lines as lines of the eval's file. Ruby
+      # gives the file as many lines as the code has newlines, after the
+      # lines before the eval's first one.
+      unless hir.coverable.empty?
+        size = string(source).count("\n") + line.to_int - 1
+        coverage&.send(:compiled_lines!, hir.coverable.transform_values { |(_, lines)| [size, lines] }, {}, true)
+      end
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values

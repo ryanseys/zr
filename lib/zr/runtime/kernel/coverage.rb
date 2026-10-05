@@ -55,6 +55,13 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # `eval: true`: the code that eval compiles is measured too.
+  #: (value) -> value
+  def zr_coverage_evals_set(on)
+    Machine.store64(Machine.static(:coverage_evals, 8), 0, on == QTRUE ? 1 : 0)
+    on
+  end
+
   #: (ptr) -> void
   def zr_coverage_forget(c)
     i = 0
@@ -133,7 +140,9 @@ module Zr::Kern
     if FrameMeta[meta].file_len == 0
       return
     end
-    row = zr_coverage_row(c, FrameMeta[meta].file, FrameMeta[meta].file_len, FrameMeta[meta].kind == KIND_TOP)
+    kind = FrameMeta[meta].kind
+    toplevel = kind == KIND_TOP || (kind == KIND_EVAL && Machine.load64(Machine.static(:coverage_evals, 8), 0) != 0)
+    row = zr_coverage_row(c, FrameMeta[meta].file, FrameMeta[meta].file_len, toplevel)
     line = zr_frame_line(rec)
     if CovRow[row].measured == 0 || Coverage[c].running == 0 || line <= 0
       return
