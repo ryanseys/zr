@@ -1,1 +1,0 @@
-hangs:Net::FTP#put (binary mode) sends the STOR command to the server

@@ -1,1 +1,0 @@
-hangs:Net::FTP#dir when passed no block returns an Array containing a list of files in the passed dir
