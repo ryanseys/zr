@@ -1,0 +1,3 @@
+fails:IO#wait [events, timeout] passed raises ArgumentError when events is not positive
+fails:IO#wait [timeout, mode] passed accepts :rw, :read_write, :readable_writable mode to check READABLE and WRITABLE events
+fails:IO#wait [timeout, mode] passed raises ArgumentError when several Integer arguments passed

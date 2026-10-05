@@ -1,0 +1,5 @@
+fails:RbConfig::CONFIG ['rubylibdir'] returns the directory containing Ruby standard libraries
+fails:RbConfig::CONFIG ['archdir'] returns the directory containing standard libraries C extensions
+fails:RbConfig::CONFIG contains no frozen strings even with --enable-frozen-string-literal
+fails:RbConfig::CONFIG ['LIBRUBY'] is the same as LIBRUBY_SO if and only if ENABLE_SHARED
+fails:RbConfig::TOPDIR either returns nil (if not installed) or the prefix

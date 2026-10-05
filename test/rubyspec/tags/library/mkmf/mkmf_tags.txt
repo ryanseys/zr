@@ -1,0 +1,1 @@
+fails:mkmf can be required with --enable-frozen-string-literal
