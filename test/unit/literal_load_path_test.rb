@@ -14,7 +14,8 @@ class LiteralLoadPathTest < Minitest::Test
     %($LOAD_PATH.unshift File.join(File.dirname(__FILE__), "lib")),
     %($LOAD_PATH.unshift File.expand_path("lib", File.dirname(__FILE__))),
     %($LOAD_PATH << "\#{__dir__}/lib"),
-    %($: << "\#{File.dirname(__FILE__)}/lib")
+    %($: << "\#{File.dirname(__FILE__)}/lib"),
+    %($LOAD_PATH.unshift("/app/lib".freeze))
   ].freeze
 
   def test_a_literal_path_links_no_compiler
@@ -23,6 +24,17 @@ class LiteralLoadPathTest < Minitest::Test
 
   def test_a_computed_path_links_the_compiler
     assert evals?(%($LOAD_PATH.unshift ENV.fetch("LIB", "lib")))
+  end
+
+  # ruby mode writes -I's directories into its prelude as frozen
+  # literals, and the requires of the main file resolve under them.
+  def test_the_prelude_of_dash_i_adds_its_directories_as_roots
+    loader = Zr::Hir::Build::Loader.new([])
+    node = Prism.parse(%($LOAD_PATH.unshift("/a/lib".freeze, "/b".freeze))).value
+
+    roots = loader.send(:load_path_roots, node, "<zr>/ruby_switches.rb")
+
+    assert_equal [[true, ["/a/lib", "/b"]]], roots
   end
 
   private

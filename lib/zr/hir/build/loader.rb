@@ -780,7 +780,7 @@ module Zr
           roots
         end
 
-        # The absolute path of a literal: a String, `File.expand_path(str,
+        # The absolute path of a literal: a String (frozen or not), `File.expand_path(str,
         # __dir__)`, `File.expand_path(str, __FILE__)` or `File.join(__dir__,
         # str...)`, where `File.dirname(__FILE__)` can stand for `__dir__`.
         # nil for all others.
@@ -796,6 +796,8 @@ module Zr
 
             File.expand_path(dir + parts[1].unescaped)
           when Prism::CallNode
+            # `"lib".freeze`, as the prelude of `-I` writes each directory.
+            return literal_path(node.receiver, file) if node.name == :freeze && node.receiver && node.arguments.nil? && node.block.nil?
             return nil unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File && node.arguments
 
             args = node.arguments.arguments #: untyped
