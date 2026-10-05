@@ -1,0 +1,10 @@
+false
+["ab\n", "cd"]
+["ab\n", "cd"]
+"AB\nCD"
+5
+"xb\ncd"
+true
+false
+"ab\ncd"
+"bind argument must be an instance of String"

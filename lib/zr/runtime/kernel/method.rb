@@ -510,7 +510,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_method_bind_to(m, obj)
     owner = RMethod[m].owner
-    if zr_type(owner) != T_MODULE && !zr_is_a(obj, owner)
+    if zr_type(owner) != T_MODULE && !zr_is_a(obj, owner) && !zr_core_binds_copy(owner, obj)
       if zr_singleton_p(owner)
         return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("singleton method called for a different object"), 46)
       end
@@ -526,6 +526,20 @@ module Zr::Kern
     RMethod[bound].owner = owner
     zr_memcpy(Machine.ptr(RMethod[bound].entry), Machine.ptr(RMethod[m].entry), MEntry.size)
     bound
+  end
+
+  # Whether the core's own code binds a method of the builtin class
+  # `owner` to `obj`, an instance of a copy of that class (`String.clone`).
+  # The object has the builtin type of the class, which is all that
+  # CRuby's C function needs; a program's own bind still raises.
+  #: (value, value) -> bool
+  def zr_core_binds_copy(owner, obj)
+    kind = zr_alloc_kind(owner)
+    if kind == ALLOC_OBJECT || zr_special_p(obj) || zr_alloc_kind(zr_class_of(obj)) != kind
+      return false
+    end
+    caller = Frame[Task[zr_task()].top].prev
+    caller != 0 && FrameMeta[Frame[caller].meta].file_len == 0
   end
 
   #: (value, word, ptr, value, value) -> value
