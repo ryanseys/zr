@@ -268,10 +268,16 @@ class Encoding
     def run(text, out, room, partial)
       Primitive.attr! :hidden
       @rest = +"".b
+      # Each step reports its own end: a step that ends well clears the
+      # error of the one before it, as ruby keeps only the last result.
+      @last_error = nil
+      @errinfo = [:destination_buffer_full, nil, nil, nil, nil]
       return :destination_buffer_full unless drain(out, room)
 
-      bytes = @buffer + (text ? text.b : +"".b)
+      # The bytes that an error left to read again come first.
+      bytes = @buffer + @readagain + (text ? text.b : +"".b)
       @buffer = +"".b
+      @readagain = +"".b
       tagged = @source ? bytes.dup.force_encoding(@source) : bytes
       at = 0
       while at < bytes.bytesize
@@ -320,6 +326,7 @@ class Encoding
         next unless @flags & AFTER_OUTPUT != 0 && !made.empty?
 
         @rest = bytes.byteslice(at, bytes.bytesize - at)
+        @errinfo = [:after_output, nil, nil, nil, nil]
         return :after_output
       end
       @errinfo = [partial ? :source_buffer_empty : :finished, nil, nil, nil, nil]
