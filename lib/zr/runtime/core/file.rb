@@ -29,11 +29,15 @@ class File < IO
     level = Primitive.zr_index_operand_m(level)
     raise ArgumentError, "negative level: #{level}" if level < 0
 
+    # rb_file_dirname_n: each level drops the last name and the
+    # separators before it. The separators inside the rest stay as they
+    # were, and a run of them at the start is one root.
     level.times do
-      parts = path.split("/").reject(&:empty?)
-      parts.pop
-      path = if parts.empty? then path.start_with?("/") ? +"/" : +"."
-             else (path.start_with?("/") ? "/" : "") + parts.join("/")
+      root = path.start_with?("/")
+      body = path.sub(%r{\A/+}, "").sub(%r{/+\z}, "")
+      cut = body.rindex("/")
+      path = if cut then (root ? +"/" : +"") << body[0, cut].sub(%r{/+\z}, "")
+             else root ? +"/" : +"."
              end
     end
     path
@@ -49,7 +53,11 @@ class File < IO
     name[dot..]
   end
 
-  def self.split(path) = [dirname(path), basename(path)]
+  # The path converts once, for both parts.
+  def self.split(path)
+    path = path_of(path)
+    [dirname(path), basename(path)]
+  end
 
   # `DATA`: the main program's text after its `__END__` line, as a File
   # at that byte. ruby reads it from the script that it keeps open. A
@@ -275,7 +283,9 @@ class File < IO
   private :fifo_fd
 
   def self.size(path)
-    return stat_io(path).stat.size if stat_io(path)
+    # rb_file_s_size: to_io is asked once.
+    io = stat_io(path)
+    return io.stat.size if io
 
     path = path_of(path)
     result = without_gvl { Primitive.zr_io_file_size(path) }
@@ -409,7 +419,7 @@ class File < IO
     def setgid? = (@mode & 0o2000) != 0
     def sticky? = (@mode & 0o1000) != 0
     def owned? = @uid == Process.uid
-    def grpowned? = @gid == Process.gid
+    def grpowned? = File.send(:group_member?, @gid)
     def world_readable? = (@mode & 0o004) != 0 ? @mode & 0o777 : nil
     def world_writable? = (@mode & 0o002) != 0 ? @mode & 0o777 : nil
     def readable_real? = readable?
@@ -783,6 +793,7 @@ class File < IO
     Primitive.attr! :hidden
     mode = Primitive.zr_index_operand_m(mode) unless mode.is_a?(Integer)
     raise RangeError, +"bignum too big to convert into 'unsigned long'" if mode > 18_446_744_073_709_551_615
+    raise RangeError, +"bignum out of range of unsigned long" if mode < -9_223_372_036_854_775_808
 
     mode & 0xFFFF
   end
@@ -943,7 +954,21 @@ class File < IO
   private_class_method :mode_set?
 
   def self.owned?(path) = stat_field(path, 4) == Process.uid
-  def self.grpowned?(path) = stat_field(path, 5) == Process.gid
+  def self.grpowned?(path)
+    gid = stat_field(path, 5)
+    !gid.nil? && group_member?(gid)
+  end
+
+  # rb_group_member: the effective group, or one of the supplementary
+  # groups.
+  def self.group_member?(gid)
+    Primitive.attr! :hidden
+    return true if gid == Process.egid
+
+    groups = Primitive.zr_proc_groups
+    groups.is_a?(Array) && groups.include?(gid)
+  end
+  private_class_method :group_member?
 
   def self.stat_field(path, index)
     Primitive.attr! :hidden
@@ -1160,6 +1185,8 @@ class Dir
     raise SystemCallError.new(@path, -fd, +"dir_initialize") if fd < 0
 
     take_names(@path, names, fd)
+    @encoding = encoding.nil? ? nil : Encoding.find(encoding)
+    self
   end
 
   # A directory contains its names, a cursor over them, and the descriptor
@@ -1198,7 +1225,9 @@ class Dir
   end
 
   def read
-    open_names[@pos].tap { @pos += 1 if @pos < open_names.size }
+    name = open_names[@pos]
+    @pos += 1 if @pos < open_names.size
+    name && Dir.send(:external_name, name, @encoding)
   end
 
   # The cursor is the index of the next name. CRuby returns the value of
@@ -1240,7 +1269,7 @@ class Dir
     self
   end
 
-  def children = open_names.reject { |name| name == +"." || name == +".." }
+  def children = open_names.reject { |name| name == +"." || name == +".." }.map { |name| Dir.send(:external_name, name, @encoding) }
 
   def each_child(&block)
     return to_enum(:each_child) unless block
@@ -1310,10 +1339,30 @@ class Dir
     path = File.send(:path_of, path)
     names = File.send(:without_gvl) { Primitive.zr_io_dir_names(path) }
     raise SystemCallError.new(path, -names, +"dir_initialize") if names.is_a?(Integer)
-    return names unless encoding
 
-    names.map { |name| name.dup.force_encoding(encoding) }
+    encoding = Encoding.find(encoding) unless encoding.nil?
+    names.map { |name| external_name(name, encoding) }
   end
+
+  # rb_external_str_new_with_enc: a name in the given encoding, else the
+  # file system's, transcoded to Encoding.default_internal when that is
+  # set. A name that does not transcode stays as it is.
+  def self.external_name(name, encoding)
+    Primitive.attr! :hidden
+    text = name.dup.force_encoding(encoding || Encoding.find("filesystem"))
+    own = text.encoding
+    internal = Encoding.default_internal
+    return text if internal.nil? || internal == own || own == Encoding::BINARY
+    return text if own == Encoding::US_ASCII && !text.ascii_only?
+    return text.force_encoding(internal) if text.ascii_only? && internal.ascii_compatible?
+
+    begin
+      text.encode(internal)
+    rescue EncodingError
+      text
+    end
+  end
+  private_class_method :external_name
 
   def self.children(path, encoding: nil)
     entries(path, encoding: encoding).reject { |name| name == +"." || name == +".." }

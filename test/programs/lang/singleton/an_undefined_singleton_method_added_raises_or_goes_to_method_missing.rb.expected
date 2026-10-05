@@ -1,0 +1,3 @@
+"undefined method 'singleton_method_added'"
+NoMethodError
+[[:singleton_method_added, :method_missing], [:singleton_method_added, :baz]]

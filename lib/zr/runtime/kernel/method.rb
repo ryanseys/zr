@@ -389,7 +389,16 @@ module Zr::Kern
       if RProc[recv].fn == Machine.addr(:zr_method_block)
         return zr_fix(zr_method_arity_of(RProc[recv].self))
       end
-      return zr_fix(0 - 2)
+      if RProc[recv].fn == Machine.addr(:zr_symbol_block)
+        return zr_fix(0 - 2)
+      end
+      # collect_i takes the arity of the program's block
+      # (rb_block_min_max_arity); the other iterators of the core are
+      # ifuncs of any arity.
+      if RProc[recv].fn == Machine.addr(:zr_enum_collect_block)
+        return zr_proc_arity(zr_ary_at(RProc[recv].self, 1), 0, argv, cref, blk)
+      end
+      return zr_fix(0 - 1)
     end
     if RProc[recv].lambda != 0
       return zr_fix(FrameMeta[meta].arity)

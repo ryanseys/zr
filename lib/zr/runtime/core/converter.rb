@@ -231,9 +231,11 @@ class Encoding
         BITS.each { |name, bit| @decorators << name if flags & bit != 0 }
         return
       end
+      # econv_opts: the replacement converts with to_str, once, before the
+      # options are checked.
+      options = options.merge(replace: Primitive.zr_str_operand(options[:replace])) unless options[:replace].nil? || options[:replace].is_a?(String)
       Encoding.send(:check_options, options)
-      # econv_opts: the replacement converts with to_str.
-      @replacement = options[:replace].nil? ? nil : Primitive.zr_str_operand(options[:replace])
+      @replacement = options[:replace]
       @flags |= INVALID_REPLACE if options[:invalid] == :replace
       @flags |= UNDEF_REPLACE if options[:undef] == :replace
       case options[:xml]

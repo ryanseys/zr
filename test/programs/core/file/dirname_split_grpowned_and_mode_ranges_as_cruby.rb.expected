@@ -1,0 +1,22 @@
+["/home/jason", "/home", "/"]
+["/holy///schnikies//w00t.bin", "/holy///schnikies", "/holy"]
+["poot.txt", ".", "."]
+["/", "/", "/"]
+["//", "/", "/"]
+["//////", "/", "/"]
+["//foo//", "/", "/"]
+["./b/./", "./b", "."]
+["/foo/../.", "/foo/..", "/foo"]
+["/.", "/", "/"]
+["..", ".", "."]
+["../", ".", "."]
+["a//b//", "a", "."]
+["/a/b/c", "/a/b", "/a"]
+["/a", "b"]
+1
+#<RangeError: bignum too big to convert into 'unsigned long'>
+#<RangeError: bignum out of range of unsigned long>
+#<RangeError: bignum out of range of unsigned long>
+true
+true
+false

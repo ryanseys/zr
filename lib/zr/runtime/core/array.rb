@@ -781,7 +781,8 @@ class Array
         part = Primitive.zr_ary_aref1_m(self, start)
         return nil if part.nil?
 
-        from = start.begin || 0
+        # rb_range_beg_len: the ends convert with to_int.
+        from = start.begin.nil? ? 0 : Primitive.zr_index_operand_m(start.begin)
         from += Primitive.zr_ary_len_m(self) if from < 0
         Primitive.zr_ary_splice(self, from, part.size, [])
         return part
@@ -955,11 +956,12 @@ class Array
     indexes.each do |i|
       next out << Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(i)) unless i.is_a?(Range)
 
-      first = i.begin || 0
+      # rb_range_beg_len: the ends convert with to_int.
+      first = i.begin.nil? ? 0 : Primitive.zr_index_operand_m(i.begin)
       first += Primitive.zr_ary_len_m(self) if first < 0
       raise RangeError, "#{i} out of range" if first < 0
 
-      last = i.end || Primitive.zr_ary_len_m(self) - 1
+      last = i.end.nil? ? Primitive.zr_ary_len_m(self) - 1 : Primitive.zr_index_operand_m(i.end)
       last += Primitive.zr_ary_len_m(self) if last < 0
       last -= 1 if i.exclude_end? && i.end
       (first..last).each { |j| out << Primitive.zr_ary_aref1_m(self, j) }

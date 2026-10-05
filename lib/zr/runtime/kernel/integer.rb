@@ -288,16 +288,21 @@ module Zr::Kern
         Machine.store64(slot, 0, Machine.word(recv))
         pair = zr_send(other, Machine.id(:coerce), 1, slot)
         return pair if pair == QUNDEF
-        if zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray[pair].len != 2
+        bad = zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray[pair].len != 2
+        # do_coerce with err false: a comparison treats a bad pair as no
+        # coerce at all.
+        if bad && kind != 1 && kind != 2
           return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("coerce must return [x, y]"), 25)
         end
-        first = zr_ary_at(pair, 0)
-        second = zr_ary_at(pair, 1)
-        # A bit operator (`kind` 4) accepts only Integers, as CRuby's
-        # bit_coerce checks. Any other result fails as the operand fails.
-        if kind != 4 || ((zr_fixnum_p(first) || zr_big_p(first)) && (zr_fixnum_p(second) || zr_big_p(second)))
-          Machine.store64(slot, 0, Machine.word(second))
-          return zr_send(first, mid, 1, slot)
+        if !bad
+          first = zr_ary_at(pair, 0)
+          second = zr_ary_at(pair, 1)
+          # A bit operator (`kind` 4) accepts only Integers, as CRuby's
+          # bit_coerce checks. Any other result fails as the operand fails.
+          if kind != 4 || ((zr_fixnum_p(first) || zr_big_p(first)) && (zr_fixnum_p(second) || zr_big_p(second)))
+            Machine.store64(slot, 0, Machine.word(second))
+            return zr_send(first, mid, 1, slot)
+          end
         end
       end
     end

@@ -446,6 +446,8 @@ module Zr::Kern
   # methods. The core's `prepend` calls it for each module, then `prepended`.
   #: (value, word, ptr, value, value) -> value
   def zr_mod_prepend_features(recv, argc, argv, cref, blk)
+    r = zr_module_recv_check(recv)
+    return r if r == QUNDEF
     base = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(base) || (zr_type(base) != T_CLASS && zr_type(base) != T_MODULE)
       b = Machine.slot(Buf.size)
@@ -507,6 +509,8 @@ module Zr::Kern
   # core's `include` calls it for each module, then `included`.
   #: (value, word, ptr, value, value) -> value
   def zr_mod_append_features(recv, argc, argv, cref, blk)
+    r = zr_module_recv_check(recv)
+    return r if r == QUNDEF
     base = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(base) || (zr_type(base) != T_CLASS && zr_type(base) != T_MODULE)
       b = Machine.slot(Buf.size)
@@ -555,8 +559,26 @@ module Zr::Kern
 
   # `Module#extend_object`: adds the module to the object's singleton
   # class. A module can override it to see each object that it extends.
+  # Check_Type(module, T_MODULE): a method of Module that only a module
+  # runs refuses a Class that it was bound to. Returns undef after the
+  # raise, or nil.
+  #: (value) -> value
+  def zr_module_recv_check(recv)
+    if zr_type(recv) == T_MODULE
+      return Machine.value(QNIL)
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    zr_buf_class_of(b, recv)
+    zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
+    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+
   #: (value, word, ptr, value, value) -> value
   def zr_mod_extend_object(recv, argc, argv, cref, blk)
+    r = zr_module_recv_check(recv)
+    return r if r == QUNDEF
     obj = Machine.value(Machine.load64(argv, 0))
     s = zr_singleton_class(obj)
     return s if s == QUNDEF
@@ -1526,7 +1548,11 @@ module Zr::Kern
       recv = klass
       hook = Machine.id(:method_added)
     end
-    if zr_find_method(zr_class_of(recv), hook) == 0
+    # BasicObject and Module define both hooks, so a program that finds
+    # none undefined it, and the call goes to method_missing as
+    # rb_funcall sends it. Before the program starts the core may not
+    # have defined them yet.
+    if zr_find_method(zr_class_of(recv), hook) == 0 && !zr_program_started_p()
       return Machine.value(QNIL)
     end
     zr_hook(recv, hook, zr_sym(mid))
@@ -2132,7 +2158,9 @@ module Zr::Kern
   def zr_set_method_visibility(klass, mid, vis, modfn)
     frozen = zr_class_modify_check(klass)
     return frozen if frozen == QUNDEF
-    e = zr_find_method(klass, mid)
+    # rb_export_method searches from the origin, so a prepended module's
+    # method of the name is not the one that changes.
+    e = zr_find_method(zr_origin(klass), mid)
     if e == 0 && !zr_special_p(klass) && zr_type(klass) == T_MODULE
       # A module looks in Object too, as rb_export_method does:
       # `module Kernel; public :m; end` for an m that Object defines.
@@ -2193,6 +2221,10 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_module_function(recv, argc, argv, cref, blk)
+    # rb_mod_modfunc: a Class that this method was bound to refuses.
+    if zr_type(recv) != T_MODULE
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("module_function must be called for modules"), 42)
+    end
     zr_set_visibility(recv, argc, argv, blk, VIS_PRIVATE, 1)
   end
 

@@ -921,8 +921,15 @@ module Process
     pid = Integer.send(:int_operand, pid)
     waiter = Primitive.zr_class_build(Waiter)
     Primitive.zr_hidden_set(waiter, :pid, pid)
-    waiter.send(:initialize) { Process.wait2(pid)&.last }
+    # detach_process_watcher: a pid that is no child ends the thread
+    # with nil, and the thread keeps the pid as its :pid thread-local.
+    waiter.send(:initialize) do
+      Process.wait2(pid)&.last
+    rescue Errno::ECHILD
+      nil
+    end
     waiter.send(:start, nil)
+    waiter[:pid] = pid
     waiter
   end
   module_function :detach

@@ -476,8 +476,9 @@ module Kernel
     return real + imag * Complex::I if real.is_a?(Numeric) && imag.is_a?(Numeric) && (!realish.(real) || !realish.(imag))
 
     # With exception: false, an imaginary part that is not a real number
-    # gives nil; a real part that is not one raises "not a real" anyway.
-    return nil if !exception && !(imag.is_a?(Numeric) && imag.real?) && real.is_a?(Numeric) && real.real?
+    # gives nil, whatever the real part is; a real part that is not one
+    # raises "not a real" anyway.
+    return nil if !exception && !(imag.is_a?(Numeric) && imag.real?)
 
     Complex.rectangular(real, imag)
   end

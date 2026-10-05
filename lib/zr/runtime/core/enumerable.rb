@@ -225,7 +225,9 @@ module Enumerable
 
     out = []
     Primitive.zr_enum_each_values(self, nil, blk) do |_, v|
-      v.is_a?(Array) ? out.concat(v) : out << v
+      # flat_map_i: rb_check_array_type, so to_ary counts and nil appends.
+      array = v.is_a?(Array) ? v : Array.try_convert(v)
+      array ? out.concat(array) : out << v
       nil
     end
     out

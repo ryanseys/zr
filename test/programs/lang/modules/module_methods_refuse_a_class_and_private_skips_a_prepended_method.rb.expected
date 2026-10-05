@@ -1,0 +1,8 @@
+"wrong argument type Class (expected Module)"
+"wrong argument type Class (expected Module)"
+"wrong argument type Class (expected Module)"
+"module_function must be called for modules"
+"can't bind singleton method to a different class"
+"can't bind singleton method to a different class"
+2
+true

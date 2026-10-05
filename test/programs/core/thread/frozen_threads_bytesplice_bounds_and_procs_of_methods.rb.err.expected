@@ -1,0 +1,22 @@
+core/thread/frozen_threads_bytesplice_bounds_and_procs_of_methods.rb: --> core/thread/frozen_threads_bytesplice_bounds_and_procs_of_methods.rb
+
+unexpected 'rescue' modifier; expected a `)` to close the arguments
+unexpected ')', expecting end-of-input
+unexpected ')', ignoring it
+
+  4  Thread.new do
+> 5    th = Thread.current
+> 6    th.freeze
+> 7    p((th[:foo] = "bar") rescue $!)
+  8  end.join
+
+core/thread/frozen_threads_bytesplice_bounds_and_procs_of_methods.rb:7: syntax errors found (SyntaxError)
+  5 |   th = Thread.current
+  6 |   th.freeze
+> 7 |   p((th[:foo] = "bar") rescue $!)
+    |                        ^~~~~~ unexpected 'rescue' modifier; expected a `)` to close the arguments
+    |                                 ^ unexpected ')', ignoring it
+    |                                 ^ unexpected ')', expecting end-of-input
+  8 | end.join
+  9 | p(("hello".bytesplice(2, 1, "HELLO", 6, 0) rescue $!), ("abc".bytesplice(0, 1, "", 0, -2) rescue $!))
+

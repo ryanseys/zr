@@ -747,16 +747,16 @@ class String
   # `sub`: replaces the first match with `replacement` (with its `\1`,
   # `\k<name>`, `\0` and `\&` filled in), with the Hash's entry for the
   # match, or with the block's return value (with `$~` set).
-  def sub(pattern, replacement = nil, &block) = subbed(pattern, replacement, false, &block)
+  def sub(pattern, replacement = (none = true; nil), &block) = subbed(pattern, replacement, false, none, &block)
 
   # rb_str_sub_bang: a replacement that is not a Hash converts to a
-  # String first. `sub` works on a copy, so a block that changes the
+  # String first, nil too when it was given (`none` when it was not). `sub` works on a copy, so a block that changes the
   # receiver does not change the result; `sub!` raises for that.
-  def subbed(pattern, replacement, bang, &block)
+  def subbed(pattern, replacement, bang, none, &block)
     Primitive.attr! :hidden
-    raise ArgumentError, +"wrong number of arguments (given 1, expected 2)" if replacement.nil? && block.nil?
+    raise ArgumentError, +"wrong number of arguments (given 1, expected 2)" if none && block.nil?
 
-    replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless replacement.nil? || replacement.is_a?(String)
+    replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless none || replacement.is_a?(String)
     match = first_match(pattern, 0)
     Primitive.zr_backref_set(match)
     return copied unless match
@@ -782,10 +782,11 @@ class String
     OWN[:force_encoding].bind_call(out, enc)
   end
 
-  def gsub(pattern, replacement = nil, &block)
-    return to_enum(:gsub, pattern) if replacement.nil? && block.nil?
+  def gsub(pattern, replacement = (none = true; nil), &block)
+    return to_enum(:gsub, pattern) if none && block.nil?
 
-    replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless replacement.nil? || replacement.is_a?(String)
+    # A replacement that was given converts, nil too, as in sub.
+    replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless none || replacement.is_a?(String)
     regexp = pattern.is_a?(Regexp) ? pattern : nil
     # str_gsub: the text between matches and each replacement join onto a
     # buffer in the receiver's encoding, as rb_enc_str_buf_cat joins them.
@@ -831,17 +832,17 @@ class String
 
   # A match makes the receiver the result and returns it, even when the
   # text comes out the same; `$~` tells whether there was one.
-  def sub!(pattern, replacement = nil, &block)
+  def sub!(pattern, replacement = (none = true; nil), &block)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    result = subbed(pattern, replacement, true, &block)
+    result = subbed(pattern, replacement, true, none, &block)
     $~ ? replaced(result) : nil
   end
 
-  def gsub!(pattern, replacement = nil, &block)
-    return to_enum(:gsub!, pattern) if replacement.nil? && block.nil?
+  def gsub!(pattern, replacement = (none = true; nil), &block)
+    return to_enum(:gsub!, pattern) if none && block.nil?
 
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    result = gsub(pattern, replacement, &block)
+    result = none ? gsub(pattern, &block) : gsub(pattern, replacement, &block)
     $~ ? replaced(result) : nil
   end
 
@@ -1379,6 +1380,8 @@ class String
   # which can read `$~`. Otherwise only the last match gets one, which
   # `$~` keeps.
   def scan(pattern)
+    # get_pat_quoted: the pattern converts once, before the walk.
+    pattern = Primitive.zr_str_operand(pattern) unless pattern.is_a?(Regexp) || pattern.is_a?(String) || !pattern.respond_to?(:to_str)
     found = []
     last = nil
     at = 0
@@ -1397,11 +1400,8 @@ class String
       end
       at = to == from ? to + (to < Primitive.zr_str_bytesize(self) ? Primitive.zr_str_char_len_at_m(self, to) : 1) : to
     end
-    if !block_given?
-      Primitive.zr_backref_set(last && MatchData.send(:for, pattern, self, last))
-    elsif last.nil?
-      Primitive.zr_backref_set(nil)
-    end
+    # The last match is $~ again after the block, as rb_str_scan sets it.
+    Primitive.zr_backref_set(last && MatchData.send(:for, pattern, self, last))
     block_given? ? self : found
   end
 
@@ -1785,7 +1785,9 @@ class String
     other =~ self
   end
 
-  def match(pattern, pos = 0, &block) = String.send(:pattern_of, pattern).match(self, pos, &block)
+  # rb_str_match_m: a call of the pattern's own `match`, which a program
+  # may define.
+  def match(pattern, pos = 0, &block) = String.send(:pattern_of, pattern).__send__(:match, self, pos, &block)
 
   def match?(pattern, pos = 0) = String.send(:pattern_of, pattern).match?(self, pos)
 

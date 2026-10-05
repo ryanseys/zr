@@ -1,0 +1,9 @@
+#<ArgumentError: comparison of Integer with Object failed>
+#<ArgumentError: comparison of Integer with Object failed>
+#<TypeError: coerce must return [x, y]>
+nil
+nil
+nil
+nil
+nil
+#<TypeError: not a real>

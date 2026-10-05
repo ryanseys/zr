@@ -203,7 +203,7 @@ module Zr::Kern
         owner = FrameMeta[MEntry[e].meta].owner
         if MEntry[e].meta != 0 && owner != recv && zr_type(owner) != T_MODULE && !zr_class_inherits(recv, owner)
           if zr_singleton_p(owner)
-            return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't bind singleton method to a different class"), 47)
+            return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't bind singleton method to a different class"), 48)
           end
           b = Machine.slot(Buf.size)
           zr_buf_init(b)

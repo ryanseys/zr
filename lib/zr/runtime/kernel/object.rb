@@ -745,9 +745,11 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_obj_hash(recv, argc, argv, cref, blk)
-    # An Integer hashes by its value, so a fixnum is its own code.
+    # A fixnum hashes by its value, with the code that rb_hash and the
+    # containers use for it, so `[1].hash` and an element whose hash is
+    # `1.hash` agree.
     if zr_fixnum_p(recv)
-      return recv
+      return zr_fix(zr_value_code(recv) & 4611686018427387903)
     end
     if !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_INTEGER)
       return zr_big_hash(recv)
