@@ -445,12 +445,20 @@ class File < IO
     end
 
     def inspect
-      Primitive.zr_obj_form("#<File::Stat dev=0x#{@dev.to_s(16)}, ino=#{@ino}, mode=0#{@mode.to_s(8)}, nlink=#{@nlink}, uid=#{@uid}, gid=#{@gid}, " \
-                            "rdev=0x#{@rdev.to_s(16)}, size=#{@size}, blksize=#{@blksize}, blocks=#{@blocks}, " \
+      Primitive.zr_obj_form("#<File::Stat dev=0x#{hex_device(@dev)}, ino=#{@ino}, mode=0#{@mode.to_s(8)}, nlink=#{@nlink}, uid=#{@uid}, gid=#{@gid}, " \
+                            "rdev=0x#{hex_device(@rdev)}, size=#{@size}, blksize=#{@blksize}, blocks=#{@blocks}, " \
                             "atime=#{atime.inspect}, mtime=#{mtime.inspect}, ctime=#{ctime.inspect}, birthtime=#{birthtime.inspect}>")
     end
 
     private
+
+    # A device number in hex, as stat_inspect prints a dev_t: unsigned.
+    # On macOS a dev_t is a signed 32-bit int, so a large one reads as
+    # negative.
+    def hex_device(dev)
+      Primitive.attr! :hidden
+      (dev.negative? ? dev + (1 << 32) : dev).to_s(16)
+    end
 
     def stat(path, site)
       Primitive.attr! :hidden
