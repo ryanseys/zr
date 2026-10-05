@@ -274,9 +274,9 @@ module Zr
                 "Report it at #{ISSUES_URL}."
         rescue SyntaxError => e
           # For a program that does not parse, ruby prints a report and exits
-          # 1. The binary does the same, with ruby's own report. In ruby, a
-          # required file that does not parse raises when the require runs.
-          # zr does not support this, so it refuses.
+          # 1. The binary does the same, with ruby's own report. A required
+          # file that does not parse raises when the require runs
+          # (`Loader#parsed_unit`).
           # A program with no file: ruby's report has no syntax_suggest part.
           given = !File.file?(input) && e.respond_to?(:path) && e.path == input
           report = given ? Refusals.syntax_text(input, e) : Refusals.syntax_report(input)

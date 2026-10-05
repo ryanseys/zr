@@ -650,9 +650,20 @@ module Zr
                       elsif path == Library::Roots::SWITCHES
                         unit(path, @switches.prelude || raise(ArgumentError, "the build has no switches' prelude"))
                       else
-                        unit(path)
+                        parsed_unit(path)
                       end
           i
+        end
+
+        # A required file, or, when it does not parse, a unit that raises
+        # its SyntaxError where the require runs, as ruby's require does.
+        #: (String path) -> Unit
+        def parsed_unit(path)
+          unit(path)
+        rescue SyntaxError => e
+          raise if main?(path)
+
+          unit(path, "raise ::SyntaxError.new(#{e.message.inspect}).tap { |error| error.instance_variable_set(:@path, #{path.inspect}) }\n")
         end
 
         # A unit that stops with a message when it runs. An autoload of a
