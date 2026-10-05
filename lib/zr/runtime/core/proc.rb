@@ -163,11 +163,8 @@ class Method
     Primitive.zr_proc_anonymous(lambda { |*args, **kwargs, &block| other.call(first.call(*args, **kwargs, &block)) })
   end
 
-  def <<(other)
-    other = Proc.callable(other)
-    last = self
-    Primitive.zr_proc_anonymous(lambda { |*args, **kwargs, &block| last.call(other.call(*args, **kwargs, &block)) })
-  end
+  # As Proc#<<: the composition is a lambda unless `other` is a proc.
+  def <<(other) = to_proc << other
 
   def curry(arity = nil) = to_proc.curry(arity)
 end

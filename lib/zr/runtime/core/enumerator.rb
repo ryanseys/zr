@@ -610,7 +610,7 @@ class Enumerator::Lazy < Enumerator
 
   def lazy = self
 
-  def force(*) = to_a
+  def force(*) = to_a(*)
 
   def eager
     Enumerator.for(self, :each, [], {}, proc { size })
@@ -764,9 +764,11 @@ class Enumerator::Lazy < Enumerator
       @kwargs = kwargs
     end
 
-    # Any arguments a caller adds are ignored, as CRuby's generator
-    # ignores them.
-    def each(*, &)
+    # Arguments a caller adds go to the source's `each`, as
+    # lazy_init_block_i passes them; a later stage ignores them.
+    def each(*extra, &)
+      return @receiver.each(*extra, &) if @runner == :run_each
+
       __send__(@runner, &)
     end
 
@@ -783,7 +785,17 @@ class Enumerator::Lazy < Enumerator
       nil
     end
 
+    # lazy_use_super_method: on a lazy receiver, the lazy methods walk as
+    # Enumerable's own (Enumerator's for with_index), which iterate.
+    EAGER = %i[map collect flat_map collect_concat select find_all filter filter_map reject grep grep_v zip
+               take take_while drop drop_while uniq with_index].freeze
+    private_constant :EAGER
+
     def run_send
+      if @receiver.is_a?(Enumerator::Lazy) && EAGER.include?(@method)
+        owner = @method == :with_index ? Enumerator : Enumerable
+        return owner.instance_method(@method).bind_call(@receiver, *@args, **@kwargs) { |*values| yield(*values); nil }
+      end
       @receiver.__send__(@method, *@args, **@kwargs) { |*values| yield(*values); nil }
     end
 

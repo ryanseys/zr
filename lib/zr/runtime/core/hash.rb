@@ -434,7 +434,7 @@ class Hash
   # A hash that contains itself uses a fixed value for the reference
   # back, so the walk ends.
   def hash
-    Kernel.send(:outer_hash, self, Primitive.zr_hash_len_m(self)) do
+    Kernel.send(:outer_hash, self, (Primitive.zr_hash_len_m(self) * 31) + 2) do
       total = Primitive.zr_hash_len_m(self)
       Primitive.zr_hash_foreach(self) { |k, v| total = (total + [k, v].hash) & 0x3FFFFFFFFFFFFFFF }
       total
@@ -473,7 +473,7 @@ class Hash
 
   def to_proc
     h = self
-    Primitive.zr_proc_anonymous(lambda { |k| Primitive.zr_hash_aref_m(h, k) })
+    Primitive.zr_proc_anonymous1(lambda { |k| Primitive.zr_hash_aref_m(h, k) })
   end
 
   def deconstruct_keys(keys) = self

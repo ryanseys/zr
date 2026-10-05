@@ -147,7 +147,11 @@ class Data
   def with(**kwargs)
     return self if kwargs.empty?
 
-    Primitive.zr_real_class(self).new(**to_h.merge(kwargs))
+    # rb_data_with: a new object of the class gets `initialize`, and the
+    # class's own `new` is not called.
+    copy = Primitive.zr_class_allocate(Primitive.zr_real_class(self))
+    copy.send(:initialize, **to_h.merge(kwargs))
+    copy
   end
 
   def ==(other)
@@ -172,7 +176,8 @@ class Data
     path = Primitive.zr_class_path(Primitive.zr_real_class(self))
     name = path unless path.start_with?("#")
     head = name ? "#<data #{name}" : +"#<data"
-    return Primitive.zr_obj_form("#{head}:...>") if Primitive.zr_recursive_enter(self, :inspect)
+    # The marker of a recursion always names the class, as Struct's does.
+    return Primitive.zr_obj_form("#<data #{path}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
       pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }

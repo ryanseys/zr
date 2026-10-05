@@ -1,0 +1,9 @@
+true
+true
+true
+false
+false
+true
+true
+#<data amount=42, unit="m">
+"#<data amount=42, unit=#<data #<Class:XX>:...>>"

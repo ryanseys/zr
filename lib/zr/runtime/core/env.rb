@@ -90,6 +90,8 @@ class << ENV
 
   # The value removed; a block gives the value for a name that was not set.
   def delete(name)
+    # The name converts once, as env_delete_m converts it.
+    name = variable_name(name)
     value = self[name]
     return yield(name) if value.nil? && block_given?
 
@@ -167,9 +169,26 @@ class << ENV
     pair = to_h.find { |_, held| held == value }
     pair && [pair[0], value]
   end
-  def select(&block) = to_h.select(&block)
-  alias filter select
-  def reject(&block) = to_h.reject(&block)
+
+  # Without a block, an Enumerator that reads the variables when it runs.
+  def select(&block)
+    return to_enum(:select) { size } unless block
+
+    to_h.select(&block)
+  end
+
+  def filter(&block)
+    return to_enum(:filter) { size } unless block
+
+    to_h.select(&block)
+  end
+
+  def reject(&block)
+    return to_enum(:reject) { size } unless block
+
+    to_h.reject(&block)
+  end
+
   def update(*others)
     others.each do |given|
       other = Hash.try_convert(given) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into Hash"

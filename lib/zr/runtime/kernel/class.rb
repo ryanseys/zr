@@ -784,7 +784,10 @@ module Zr::Kern
       zr_buf_sym(b, id)
       zr_buf_push(b, Machine.bytes(" in "), 4)
       zr_buf_class(b, base)
-      return zr_raise_buf(zr_global(G_NAME_ERROR), b)
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
+      zr_exc_detail(exc, Machine.id(:receiver), base)
+      return zr_raise(exc)
     end
     r = zr_ractor_cvar_check(owner, id)
     return r if r == QUNDEF
@@ -2785,6 +2788,7 @@ module Zr::Kern
     elsif t == T_EXCEPTION
       zr_mark(RException[v].message)
       zr_mark(RException[v].bt)
+      zr_mark(RException[v].strs)
       if RException[v].cause != QUNDEF
         zr_mark(RException[v].cause)
       end

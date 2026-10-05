@@ -97,6 +97,9 @@ module Zr::Kern
     attr_accessor :nrows #: word
     attr_accessor :bt #: value
     attr_accessor :cause #: value
+    # The Strings of the captured frames once `backtrace` made them,
+    # so each call returns the same Array, which a dup shares.
+    attr_accessor :strs #: value
   end
 
   T_EXCEPTION = 24
@@ -225,6 +228,7 @@ module Zr::Kern
     RException[e].nrows = 0
     RException[e].bt = Machine.value(QNIL)
     RException[e].cause = Machine.value(QUNDEF)
+    RException[e].strs = Machine.value(QNIL)
     e
   end
 
@@ -247,6 +251,7 @@ module Zr::Kern
       RException[exc].rows = 0
       RException[exc].nrows = 0
       RException[exc].bt = Machine.value(QNIL)
+      RException[exc].strs = Machine.value(QNIL)
     end
     if RException[exc].rows == 0 && RException[exc].bt == QNIL
       zr_backtrace_capture(exc, top)
@@ -255,6 +260,7 @@ module Zr::Kern
       zr_xfree(RException[exc].rows)
       RException[exc].rows = 0
       RException[exc].nrows = 0
+      RException[exc].strs = Machine.value(QNIL)
     end
     t = zr_task()
     if RException[exc].cause == QUNDEF
@@ -684,7 +690,13 @@ module Zr::Kern
     if RException[recv].bt != QNIL
       return RException[recv].bt
     end
-    zr_exc_raise_rows(recv)
+    if RException[recv].strs != QNIL
+      return RException[recv].strs
+    end
+    strs = zr_exc_raise_rows(recv)
+    RException[recv].strs = strs
+    zr_write_barrier(recv, strs)
+    strs
   end
 
   # Returns the frames that the raise captured, one `file:line:in 'label'`

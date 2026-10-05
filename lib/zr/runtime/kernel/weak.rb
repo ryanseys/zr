@@ -122,6 +122,31 @@ module Zr::Kern
     end
   end
 
+  # rb_gc_copy_finalizer: a dup or a clone gets the original's
+  # finalizers, under its own id. The table compares by identity, so
+  # the lookup runs no Ruby code.
+  #: (value, value) -> void
+  def zr_copy_finalizers(copy, orig)
+    t = zr_global(G_FINALIZERS)
+    if zr_special_p(t) || RHash[t].live == 0
+      return
+    end
+    e = zr_hash_entry(t, orig)
+    if e == 0 || e == HASH_RAISED
+      return
+    end
+    row = HEntry[e].value
+    n = RArray[row].len
+    fresh = zr_ary_new(n)
+    zr_ary_push(fresh, zr_obj_object_id(copy, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+    i = 1
+    while i < n
+      zr_ary_push(fresh, Machine.value(Machine.load64(RArray[row].ptr + (i * 8), 0)))
+      i += 1
+    end
+    zr_hash_store(t, copy, fresh)
+  end
+
   # The finalizer table: object => [object_id, proc, ...], with weak keys.
   #: () -> value
   def zr_finalizers

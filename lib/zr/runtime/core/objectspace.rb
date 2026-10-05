@@ -161,6 +161,7 @@ module ObjectSpace
   end
 
   def undefine_finalizer(obj)
+    Primitive.zr_frozen_error(obj) if obj.frozen?
     Primitive.zr_finalizers_m.delete(obj)
     obj
   end

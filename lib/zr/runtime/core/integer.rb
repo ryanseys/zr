@@ -122,8 +122,8 @@ class Integer
     x.bit_length * y > (1 << 34)
   end
 
-  def pow(exponent, modulus = nil)
-    return self**exponent if modulus.nil?
+  def pow(exponent, modulus = (omitted = true; nil))
+    return self**exponent if omitted
     raise TypeError, +"Integer#pow() 2nd argument not allowed unless a 1st argument is integer" unless exponent.is_a?(Integer)
     raise TypeError, +"Integer#pow() 2nd argument not allowed unless all arguments are integers" unless modulus.is_a?(Integer)
     raise ZeroDivisionError, +"divided by 0" if modulus.zero?

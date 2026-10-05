@@ -587,7 +587,9 @@ module Zr::Kern
     # A method from `define_method` keeps its body in the entry's cref.
     # Two different bodies are two different methods.
     zr_bool(RMethod[recv].recv == RMethod[other].recv && zr_owners_related(RMethod[recv].owner, RMethod[other].owner) && zr_entry_body(a) == zr_entry_body(b) && MEntry[a].kind == MEntry[b].kind &&
-            (MEntry[a].kind != KIND_BMETHOD || MEntry[a].cref == MEntry[b].cref))
+            (MEntry[a].kind != KIND_BMETHOD || MEntry[a].cref == MEntry[b].cref) &&
+            # method_missing answers each name on its own.
+            (MEntry[a].kind != KIND_MISSING || MEntry[a].mid == MEntry[b].mid))
   end
 
   # Whether `a` is `b` or in its ancestor chain, or the other way round.

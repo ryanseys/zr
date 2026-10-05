@@ -284,14 +284,28 @@ class Struct
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    Primitive.zr_struct_values(self) == Primitive.zr_struct_values(other)
+    # rb_exec_recursive_paired: the same pair met again is equal.
+    return true if Primitive.zr_recursive_enter_paired(self, other, :==)
+
+    begin
+      Primitive.zr_struct_values(self) == Primitive.zr_struct_values(other)
+    ensure
+      Primitive.zr_recursive_leave(self, :==)
+    end
   end
 
   def eql?(other)
     return true if equal?(other)
     return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
 
-    Primitive.zr_struct_values(self).eql?(Primitive.zr_struct_values(other))
+    # rb_exec_recursive_paired: the same pair met again is equal.
+    return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
+
+    begin
+      Primitive.zr_struct_values(self).eql?(Primitive.zr_struct_values(other))
+    ensure
+      Primitive.zr_recursive_leave(self, :eql?)
+    end
   end
 
   # The class's hash, then each value's, as Array#hash joins them, with
@@ -303,9 +317,9 @@ class Struct
     seed = Primitive.zr_rb_hash(Primitive.zr_real_class(self)) & mask
     leaf = Primitive.zr_ary_leaf_hash(values, seed)
     return leaf if leaf
-    return 7 if Primitive.zr_recursive_enter(self, :hash)
 
-    begin
+    # A struct met inside itself hashes as its class alone.
+    Kernel.send(:outer_hash, self, seed) do
       h = seed
       i = 0
       while i < Primitive.zr_ary_len_m(values)
@@ -313,8 +327,6 @@ class Struct
         i += 1
       end
       h
-    ensure
-      Primitive.zr_recursive_leave(self, :hash)
     end
   end
 

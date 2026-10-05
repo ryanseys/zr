@@ -308,9 +308,9 @@ module Zr::Kern
   end
 
   # `&:name`: a Proc that sends `name` to its first argument, as a call
-  # with a receiver, so it cannot call a private method (the public call of
-  # rb_sym_proc_call). The block function reads the Symbol from the self of
-  # the Proc. A Proc made where refinements are active keeps their list in
+  # with a receiver and as public_send, so it calls neither a private nor
+  # a protected method (the public call of rb_sym_proc_call). The block
+  # function reads the Symbol from the self of the Proc. A Proc made where refinements are active keeps their list in
   # its cref. Its send looks up the name under them wherever the Proc is
   # called, as ruby's refined Symbol#to_proc does.
   #: (value, word, ptr, value) -> value
@@ -321,11 +321,11 @@ module Zr::Kern
     if RProc[p].cref != QNIL
       t = zr_task()
       Task[t].refine = RProc[p].cref
-      r = zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 2, blk)
+      r = zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 3, blk)
       Task[t].refine = Machine.value(QNIL)
       return r
     end
-    zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 2, blk)
+    zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 3, blk)
   end
 
   # Returns the Proc of `sym` under the refinements that are active in the
@@ -598,8 +598,8 @@ module Zr::Kern
   LAZY_FILTER_MAP = 3
 
   # One stage of a lazy enumerator. It calls `each` on `recv` and yields
-  # each value directly to `blk`, so a block of one parameter sees the
-  # first value when `each` yielded several, as ruby's lazy does. The
+  # each value directly to `blk`, so a map block of one parameter sees
+  # the first value when `each` yielded several, as ruby's lazy does. The
   # values that the stage keeps go to `out`, the block of the next stage.
   #
   # This is here and not in Ruby because a `|*values|` block allocates that
@@ -629,9 +629,22 @@ module Zr::Kern
   #: (value, word, ptr, value) -> value
   def zr_lazy_stage_block(p, argc, argv, blk)
     kept = RProc[p].self
-    v = zr_yield(zr_ary_at(kept, 1), argc, argv)
-    return v if v == QUNDEF
     kind = zr_fix2long(zr_ary_at(kept, 0))
+    # select and reject call their block with one value, several yielded
+    # values packed in an Array (lazy_select_proc); map and filter_map
+    # pass the values on as they came.
+    if argc > 1 && (kind == LAZY_SELECT || kind == LAZY_REJECT)
+      packed = zr_ary_new(argc)
+      i = 0
+      while i < argc
+        zr_ary_push(packed, Machine.value(Machine.load64(argv + (i * 8), 0)))
+        i += 1
+      end
+      v = zr_yield1(zr_ary_at(kept, 1), packed)
+    else
+      v = zr_yield(zr_ary_at(kept, 1), argc, argv)
+    end
+    return v if v == QUNDEF
     out = zr_ary_at(kept, 2)
     if kind == LAZY_MAP
       r = zr_yield1(out, v)
@@ -1645,6 +1658,31 @@ module Zr::Kern
   #: (value) -> value
   def zr_proc_anonymous(p)
     RProc[p].meta = zr_anonymous_meta()
+    p
+  end
+
+  # The frame data of a lambda that the core makes over one argument, as
+  # rb_func_lambda_new(fn, obj, 1, 1) makes Hash#to_proc's: arity 1, one
+  # unnamed required parameter, and no source location.
+  #: () -> ptr
+  def zr_anonymous_meta1
+    meta = Machine.static(:anonymous_meta1, FrameMeta.size)
+    if FrameMeta[meta].params == 0
+      table = zr_xmalloc(24)
+      Machine.store64(table, 0, 1)
+      Machine.store64(table, 8, PARAM_REQ)
+      Machine.store64(table, 16, 0)
+      FrameMeta[meta].params = table
+      FrameMeta[meta].arity = 1
+      FrameMeta[meta].kind = KIND_BLOCK
+      FrameMeta[meta].owner = Machine.value(QNIL)
+    end
+    meta
+  end
+
+  #: (value) -> value
+  def zr_proc_anonymous1(p)
+    RProc[p].meta = zr_anonymous_meta1()
     p
   end
 

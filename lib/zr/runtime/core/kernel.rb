@@ -2,11 +2,12 @@
 
 # Kernel's conversion and convenience methods.
 module Kernel
-  # rb_exec_recursive_outer for Array#hash and Hash#hash: the block's hash
-  # of `obj`, unless the walk meets an object that it is inside of. Then
-  # the outermost call gives a hash of its size alone, so equal recursive
-  # structures hash the same.
-  def self.outer_hash(obj, size)
+  # rb_exec_recursive_outer for Array#hash, Hash#hash and Struct#hash: the
+  # block's hash of `obj`, unless the walk meets an object that it is
+  # inside of. Then the outermost call gives `recursed`, a hash that the
+  # caller makes without the elements, so equal recursive structures hash
+  # the same.
+  def self.outer_hash(obj, recursed)
     Primitive.attr! :hidden
     fiber = Fiber.current
     tag = Primitive.zr_hidden_get(fiber, :__hash_outer__)
@@ -29,7 +30,7 @@ module Kernel
         met = false
         v
       end
-      met ? (size * 31) + (obj.is_a?(Hash) ? 2 : 1) : value
+      met ? recursed : value
     ensure
       Primitive.zr_recursive_leave(obj, :hash)
       Primitive.zr_state_set(fiber, :__hash_outer__, nil)

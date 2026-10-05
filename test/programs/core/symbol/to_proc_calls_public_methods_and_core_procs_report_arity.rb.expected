@@ -1,0 +1,16 @@
+Pp
+"protected method 'pro'"
+"private method 'pri'"
+1
+1
+[[:req]]
+true
+nil
+1
+TypeError
+TypeError
+32
+4
+#<RangeError: bignum out of char range>
+#<RangeError: bignum out of char range>
+#<RangeError: bignum out of char range>

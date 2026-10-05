@@ -580,7 +580,8 @@ class Array
 
   def eql?(other)
     return false unless other.is_a?(Array) && Primitive.zr_ary_len_m(self) == other.size
-    return true if equal?(other) || Primitive.zr_recursive_enter(self, :eql?)
+    # rb_exec_recursive_paired: only the same pair met again is equal.
+    return true if equal?(other) || Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
     begin
       i = 0
@@ -602,7 +603,7 @@ class Array
     leaf = Primitive.zr_ary_leaf_hash(self, 7)
     return leaf if leaf
 
-    Kernel.send(:outer_hash, self, Primitive.zr_ary_len_m(self)) do
+    Kernel.send(:outer_hash, self, (Primitive.zr_ary_len_m(self) * 31) + 1) do
       h = 7
       i = 0
       while i < Primitive.zr_ary_len_m(self)

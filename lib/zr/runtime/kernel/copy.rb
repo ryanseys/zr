@@ -265,6 +265,7 @@ module Zr::Kern
     return r if r == QUNDEF
     copy = zr_copy_cell(recv)
     return copy if copy == QUNDEF
+    zr_copy_finalizers(copy, recv)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(recv))
     r = zr_send(copy, Machine.id(:initialize_dup), 1, slot)
@@ -302,6 +303,7 @@ module Zr::Kern
       return r if r == QUNDEF
       copy = zr_copy_cell(recv)
       return copy if copy == QUNDEF
+      zr_copy_finalizers(copy, recv)
       if zr_singleton_p(RBasic[recv].klass)
         zr_include_singleton(copy, RBasic[recv].klass)
       end

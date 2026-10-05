@@ -900,6 +900,10 @@ module Zr::Kern
       return zr_str_concat_codepoint(recv, zr_fix2long(Machine.value(Machine.load64(argv, 0))))
     end
     other = Machine.value(Machine.load64(argv, 0))
+    if zr_big_p(other)
+      # rb_str_concat: no code point is that wide.
+      return zr_raise_msg(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum out of char range"), 24)
+    end
     if zr_special_p(other) || zr_type(other) != T_STRING
       other = zr_str_operand(other)
       return other if other == QUNDEF

@@ -147,6 +147,10 @@ class Exception
   # rb_get_detailed_message: a String, or nil.
   def report_message(exc, opt)
     Primitive.attr! :hidden
+    # rb_get_detailed_message: rb_check_funcall, so no method means no
+    # message, and the report shows the class name alone.
+    return nil unless exc.respond_to?(:detailed_message, true)
+
     text = exc.detailed_message(**opt)
     text.is_a?(String) ? text : String.try_convert(text)
   end
@@ -194,7 +198,9 @@ class Exception
       out << pos
     end
     if emesg.nil? || emesg.empty?
-      name = Primitive.zr_class_of_is(exc, RuntimeError) ? +"unhandled exception" : exc.class.to_s
+      # No message at all (no detailed_message) shows the class; an
+      # empty one from a RuntimeError says so.
+      name = !emesg.nil? && Primitive.zr_class_of_is(exc, RuntimeError) ? +"unhandled exception" : exc.class.to_s
       out << (highlight ? "#{UNDERLINE}#{name}#{RESET}" : name) << "\n"
     else
       out << emesg << "\n"

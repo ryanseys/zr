@@ -361,6 +361,12 @@ module Zr::Kern
     if k == QNIL
       return Machine.value(QNIL)
     end
+    # An alias or a visibility copy searches on after the node of its
+    # original, as CRuby resolves the zsuper or alias entry first.
+    from = MEntry[Machine.ptr(RMethod[recv].entry)].from
+    if from != QNIL
+      k = from
+    end
     sup = RClass[k].superclass
     if sup == QNIL
       return Machine.value(QNIL)
