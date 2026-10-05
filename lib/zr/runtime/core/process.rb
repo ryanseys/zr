@@ -112,7 +112,7 @@ module Process
     STREAMS = { in: 0, out: 1, err: 2 }.freeze
     private_constant :STREAMS
 
-    attr_reader :dups, :closes, :opened, :chdir, :pgroup, :umask, :limits
+    attr_reader :dups, :closes, :opened, :chdir, :pgroup, :umask, :limits, :close_others
 
     def initialize(options)
       # The standard streams go into the child. All other descriptors of
@@ -123,6 +123,7 @@ module Process
       @closes = []
       @opened = []
       @chdir = nil
+      @close_others = false
       # -1 leaves the process group and the umask as they are.
       @pgroup = -1
       @umask = -1
@@ -143,7 +144,8 @@ module Process
     def add(key, value)
       case key
       when :chdir then @chdir = path_of(value)
-      when :unsetenv_others, :close_others then nil
+      when :unsetenv_others then nil
+      when :close_others then @close_others = value ? true : false
       when :pgroup then @pgroup = pgroup_of(value)
       when :umask then @umask = Integer.send(:int_operand, value)
       when Symbol
@@ -650,7 +652,7 @@ module Process
             argv = argv0 ? [argv0, *words.drop(1)] : words
             path ? forked_spawn(path, argv, environment(env, options), redirects) : -Errno::ENOENT::Errno
           else
-            Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
+            Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir, redirects.close_others)
           end
     redirects.opened.each(&:close)
     Process.send(:status!, Status.new(0, 127 << 8)) if pid.negative?

@@ -292,6 +292,8 @@ module Zr::Kern
     def self.posix_spawn_file_actions_addclose(p, i) = Machine.import
     #: (ptr, ptr) -> i32
     def self.posix_spawn_file_actions_addchdir_np(p1, p2) = Machine.import
+    #: (ptr, i32) -> i32
+    def self.posix_spawn_file_actions_addinherit_np(p, i) = Machine.import
     #: (ptr) -> i32
     def self.posix_spawn_file_actions_destroy(p) = Machine.import
     #: (ptr) -> i32

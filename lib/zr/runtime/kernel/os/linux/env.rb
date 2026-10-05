@@ -99,9 +99,16 @@ module Zr::Kern
   SPAWN_ACTIONS_LEN = 80
   SPAWN_ATTR_LEN = 336
 
-  #: (value, value, value, value, value) -> value
-  def zr_os_spawn(words, dups, closes, env, chdir)
+  #: (value, value, value, value, value, value) -> value
+  def zr_os_spawn(words, dups, closes, env, chdir, close_others)
     zr_posix_spawn(words, dups, closes, env, chdir, 0)
+  end
+
+  # A descriptor that the child keeps although it is close-on-exec: a
+  # dup2 of it to itself clears the flag in the child.
+  #: (ptr, word) -> void
+  def zr_os_spawn_keep(actions, fd)
+    Libc.posix_spawn_file_actions_adddup2(actions, Machine.i32(fd), Machine.i32(fd))
   end
 
   # Calls the function that sets a single id, given by its Symbol. Returns

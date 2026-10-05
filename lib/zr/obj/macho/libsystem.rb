@@ -155,6 +155,7 @@ module Zr
           posix_spawn_file_actions_addchdir_np
           posix_spawn_file_actions_addclose
           posix_spawn_file_actions_adddup2
+          posix_spawn_file_actions_addinherit_np
           posix_spawn_file_actions_destroy
           posix_spawn_file_actions_init
           posix_spawnattr_destroy

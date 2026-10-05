@@ -192,9 +192,14 @@ module Zr::Kern
   SPAWN_ACTIONS_LEN = 16
   SPAWN_ATTR_LEN = 16
 
-  #: (value, value, value, value, value) -> value
-  def zr_os_spawn(words, dups, closes, env, chdir)
+  #: (value, value, value, value, value, value) -> value
+  def zr_os_spawn(words, dups, closes, env, chdir, close_others)
     zr_notimplement(Machine.bytes("spawn"), 5)
+  end
+
+  # No spawn, so no descriptor to keep.
+  #: (ptr, word) -> void
+  def zr_os_spawn_keep(actions, fd)
   end
 
   #: (value, value) -> value

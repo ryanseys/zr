@@ -41,7 +41,8 @@
 #   zr_os_random         [] => Word
 #   zr_os_passwd_row     [Ptr] => Value
 #   zr_os_passwd_dir     [Ptr] => Ptr
-#   zr_os_spawn          [Value, Value, Value, Value, Value] => Value
+#   zr_os_spawn          [Value, Value, Value, Value, Value, Value] => Value
+#   zr_os_spawn_keep     [Ptr, Word] => Void
 #   zr_os_setid          [Value, Value] => Value
 #   zr_os_issetugid      [] => Value
 #   zr_os_sigaction      [I32, Word, Ptr] => I32

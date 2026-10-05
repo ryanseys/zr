@@ -40,7 +40,15 @@ module Zr::Kern
     n = RArray[dups].len
     i = 0
     while i < n
-      Libc.posix_spawn_file_actions_adddup2(actions, Machine.i32(zr_fix2long(zr_ary_at(dups, i + 1))), Machine.i32(zr_fix2long(zr_ary_at(dups, i))))
+      from = zr_fix2long(zr_ary_at(dups, i + 1))
+      to = zr_fix2long(zr_ary_at(dups, i))
+      # A descriptor redirected to itself goes to the child even when it
+      # is close-on-exec, as ruby clears the flag for it.
+      if from == to && to > 2
+        zr_os_spawn_keep(actions, to)
+      else
+        Libc.posix_spawn_file_actions_adddup2(actions, Machine.i32(from), Machine.i32(to))
+      end
       # A child's standard stream blocks, as ruby makes it: a pipe from
       # IO.pipe is non-blocking, and a child that reads it before the
       # parent writes would get EAGAIN. The flag is on the open file, so

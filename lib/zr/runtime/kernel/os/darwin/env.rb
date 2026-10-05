@@ -95,17 +95,24 @@ module Zr::Kern
   UTSNAME_FIELD = 256
 
   # POSIX_SPAWN_CLOEXEC_DEFAULT: the child gets none of the parent's
-  # descriptors, only those from the file actions. CRuby gets the same
-  # result when it opens each descriptor close-on-exec.
+  # descriptors, only those from the file actions (`close_others: true`).
   SPAWN_CLOEXEC_DEFAULT = 16384
   # posix_spawn_file_actions_t and posix_spawnattr_t. Each one is a
   # pointer on darwin, and the slot has more space than necessary.
   SPAWN_ACTIONS_LEN = 16
   SPAWN_ATTR_LEN = 16
 
-  #: (value, value, value, value, value) -> value
-  def zr_os_spawn(words, dups, closes, env, chdir)
-    zr_posix_spawn(words, dups, closes, env, chdir, SPAWN_CLOEXEC_DEFAULT)
+  # The child gets each descriptor that is not close-on-exec, as ruby's
+  # does, unless `close_others` asks for none but the redirected ones.
+  #: (value, value, value, value, value, value) -> value
+  def zr_os_spawn(words, dups, closes, env, chdir, close_others)
+    zr_posix_spawn(words, dups, closes, env, chdir, close_others == QTRUE ? SPAWN_CLOEXEC_DEFAULT : 0)
+  end
+
+  # A descriptor that the child keeps although it is close-on-exec.
+  #: (ptr, word) -> void
+  def zr_os_spawn_keep(actions, fd)
+    Libc.posix_spawn_file_actions_addinherit_np(actions, Machine.i32(fd))
   end
 
   # Calls the function that sets a single id, given by its Symbol. Returns
