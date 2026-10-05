@@ -1,2 +1,0 @@
-fails:The TOPLEVEL_BINDING constant has no local variables in files required before the main script
-fails:The TOPLEVEL_BINDING constant merges local variables of the main script with dynamically-defined Binding variables

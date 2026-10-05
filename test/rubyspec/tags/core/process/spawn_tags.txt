@@ -1,3 +1,0 @@
-fails:Process.spawn redirects non-default file descriptor to itself
-fails:Process.spawn defaults :close_others to false
-fails:Process.spawn when passed close_others: false does not close file descriptors >= 3 in the child process if fds are set close_on_exec=false
