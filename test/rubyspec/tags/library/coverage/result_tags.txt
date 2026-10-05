@@ -1,1 +1,0 @@
-fails:Coverage.result does not include the file starting coverage since it is not tracked
