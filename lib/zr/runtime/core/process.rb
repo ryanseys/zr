@@ -256,7 +256,7 @@ module Process
     child, raw = result
     return nil if child == 0
 
-    $? = Status.new(child, raw)
+    Process.send(:status!, Status.new(child, raw))
     child
   end
 
@@ -271,7 +271,7 @@ module Process
 
   # Every child that is left, reaped: `[pid, status]` each.
   def waitall
-    $? = nil
+    Process.send(:status!, nil)
     children = []
     loop do
       result = Process.send(:reap, -1, 0)
@@ -280,7 +280,7 @@ module Process
 
         raise SystemCallError.new(nil, -result)
       end
-      $? = Status.new(*result)
+      Process.send(:status!, Status.new(*result))
       children << [result[0], $?]
     end
     children
@@ -652,7 +652,7 @@ module Process
             Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir)
           end
     redirects.opened.each(&:close)
-    $? = Status.new(0, 127 << 8) if pid.negative?
+    Process.send(:status!, Status.new(0, 127 << 8)) if pid.negative?
     pid
   end
 
@@ -885,6 +885,18 @@ module Process
 
   class << self
     private
+
+    # `$?`: each thread keeps the status of the last child that it
+    # waited for (rb_last_status_get). The kernel reads it here.
+    def status
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(Thread.current, :__last_status__)
+    end
+
+    def status!(status)
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_set(Thread.current, :__last_status__, status)
+    end
 
     def sys_set(call, value, group)
       Primitive.attr! :hidden

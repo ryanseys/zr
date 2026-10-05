@@ -961,6 +961,10 @@ module Zr::Kern
 
   #: (word) -> value
   def zr_gvar_get(id)
+    # `$?` is the current thread's own (core/process.rb, `status`).
+    if zr_gvar_resolve(id) == Machine.id(:$?)
+      return zr_send(zr_core_class(Machine.id(:Process)), Machine.id(:status), 0, 0)
+    end
     b = zr_box_current()
     if b != QNIL
       v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))
