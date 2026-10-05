@@ -455,12 +455,26 @@ class IO
   # The raw descriptor for a path, which a program that wants to wrap it
   # in its own IO requests: rb_sysopen, with the permissions that a
   # creation takes, minus the umask.
+  # rb_gc_for_fd: a call that finds no free descriptor collects, which
+  # closes the descriptors of the streams that the program dropped
+  # (Closer), and tries once more. The block returns its result, or a
+  # negated errno.
+  def self.gc_for_fd
+    Primitive.attr! :hidden
+    result = yield
+    return result unless result.is_a?(Integer) && (-result == Errno::EMFILE::Errno || -result == Errno::ENFILE::Errno)
+
+    Primitive.zr_gc_start
+    yield
+  end
+  private_class_method :gc_for_fd
+
   def self.sysopen(path, mode = +"r", perm = nil)
     path = File.send(:path_of, path)
     mode = +"r" if mode.nil?
     flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, File.send(:open_mode, mode))
     perm = perm.nil? ? 0o666 : Integer(perm)
-    fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(File.send(:os_path, path), flags, perm) }
+    fd = IO.send(:gc_for_fd) { Fiber.send(:offloaded) { Primitive.zr_io_open_flags(File.send(:os_path, path), flags, perm) } }
     raise SystemCallError.new(path, -fd, +"rb_sysopen") if fd < 0
 
     fd

@@ -261,7 +261,7 @@ class File < IO
       return
     end
 
-    fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(File.send(:os_path, path), flags, perm) }
+    fd = IO.send(:gc_for_fd) { Fiber.send(:offloaded) { Primitive.zr_io_open_flags(File.send(:os_path, path), flags, perm) } }
     raise SystemCallError.new(path, -fd, +"rb_sysopen") if fd < 0
 
     super(fd, mode, **options, path: path)
@@ -1210,10 +1210,10 @@ class Dir
   def initialize(name, encoding: nil)
     Primitive.attr! :ruby
     @path = File.path(name)
-    names = Primitive.zr_io_dir_names(@path)
+    names = IO.send(:gc_for_fd) { Primitive.zr_io_dir_names(@path) }
     raise SystemCallError.new(@path, -names, +"dir_initialize") if names.is_a?(Integer)
 
-    fd = Primitive.zr_io_open_flags(@path, File::RDONLY, 0)
+    fd = IO.send(:gc_for_fd) { Primitive.zr_io_open_flags(@path, File::RDONLY, 0) }
     raise SystemCallError.new(@path, -fd, +"dir_initialize") if fd < 0
 
     take_names(@path, names, fd)
@@ -1789,7 +1789,7 @@ class Dir
     # The entries of a directory, each against every part.
     def walk(path, baselen, namelen, dirsep, parts, flags, _recursive)
       where = path.empty? ? ".".b : path
-      entries = Primitive.zr_io_dir_kinds(where.dup.force_encoding(@enc))
+      entries = IO.send(:gc_for_fd) { Primitive.zr_io_dir_kinds(where.dup.force_encoding(@enc)) }
       return opendir_failed(where, -entries) if entries.is_a?(Integer)
 
       flags |= File::FNM_CASEFOLD if @real_basename && Primitive.zr_io_pathconf(where, 11) == 0

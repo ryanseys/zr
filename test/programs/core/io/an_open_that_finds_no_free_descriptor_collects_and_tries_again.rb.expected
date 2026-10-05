@@ -1,0 +1,4 @@
+Errno::EMFILE
+["a", "b", "c", "d", "e"]
+false
+5
