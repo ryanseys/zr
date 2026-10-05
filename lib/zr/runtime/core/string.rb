@@ -3677,6 +3677,10 @@ class Encoding
     from = text.encoding
     target.send(:load)
     return text.dup.force_encoding(target) if from.equal?(target)
+    # The stateless form of ISO-2022-JP converts on the paths of ruby's own
+    # transcoders, which a converter takes one step at a time. (Its steps
+    # never convert stateless text back through here.)
+    return Converter.send(:transcode, text, target, options) if stateless?(from) || stateless?(target)
     return stateful_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if stateful?(target)
     if stateful?(from)
       text = stateful_read(text, options)
@@ -3695,6 +3699,12 @@ class Encoding
     text = from_utf8(text, target, path, options) unless target.equal?(UTF_8)
     text
   end
+
+  def self.stateless?(encoding)
+    Primitive.attr! :hidden
+    encoding.name == "stateless-ISO-2022-JP"
+  end
+  private_class_method :stateless?
 
   # An encoding with no table gets past here, and so does a pair ruby
   # itself refuses to convert between. Plain ASCII crosses that second

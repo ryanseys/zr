@@ -786,6 +786,19 @@ class Encoding
     end
     private_class_method :arguments
 
+    # transcode_loop: `text` converted whole into `target`, with the
+    # options of String#encode; the error that stops it is raised.
+    def self.transcode(text, target, options)
+      Primitive.attr! :hidden
+      converter = new(text.encoding, target, **options.except(:fallback))
+      out = +""
+      result = converter.primitive_convert(text.b, out, nil, nil, 0)
+      raise converter.last_error unless result == :finished
+
+      out.force_encoding(target)
+    end
+    private_class_method :transcode
+
     # The encoding this one meets ASCII in, or nil where it is ASCII
     # compatible already, or no encoding at all.
     def self.asciicompat_encoding(name)

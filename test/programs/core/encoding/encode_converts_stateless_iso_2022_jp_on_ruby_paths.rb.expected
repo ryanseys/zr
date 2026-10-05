@@ -1,0 +1,6 @@
+"\x92\xFE\xFE"
+true
+"\x3F\x78"
+#<Encoding::InvalidByteSequenceError: "\x92\xA1" followed by "x" on stateless-ISO-2022-JP>
+"あ"
+"\x92\xA4\xA2"
