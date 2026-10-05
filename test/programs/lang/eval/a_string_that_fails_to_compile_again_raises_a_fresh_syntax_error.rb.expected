@@ -1,0 +1,8 @@
+[SyntaxError, "(eval):1: premature end of char-class: /[/", ":5:in", true]
+[SyntaxError, "(eval):1: premature end of char-class: /[/", ":5:in", true]
+[SyntaxError, "(eval):1: premature end of char-class: /[/", ":5:in", true]
+[SyntaxError, "(eval):1: syntax errors found", ":5:in", true]
+[SyntaxError, "(eval):1: syntax errors found", ":5:in", true]
+false
+true
+:done

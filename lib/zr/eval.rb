@@ -20,7 +20,7 @@ module Zr
     # @rbs @symbols: Machine::Symbols
     # @rbs @host: Obj::_JITHost
     # @rbs @count: Integer
-    # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer]]]
+    # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer]] | Exception]
 
     # The compiler loads at the first eval, not when the program boots.
     # Most programs that can eval never do. Loading it makes about
@@ -94,7 +94,9 @@ module Zr
       # so an invalid pattern is a syntax error, not a run-time error. A
       # build exits with status 3 and gives the line. Here the program is
       # running, so it gets an error that it can rescue.
-      raise SyntaxError.new(e.message).tap { |syntax| syntax.set_backtrace(caller_locations(1)) }
+      syntax = SyntaxError.new(e.message)
+      syntax.set_backtrace(caller_locations(1))
+      raise syntax
     rescue SyntaxError => e
       # The backtrace starts at the eval call, unless the error refers
       # only to the string (for example, a stray `yield`).
@@ -154,11 +156,16 @@ module Zr
       coverage = covering
       # The machine code of an eval is never freed, so a string that runs
       # again, in a scope of the same shape, runs the code that its first
-      # compile made. TracePoint and Coverage change the code, so under
-      # them each eval compiles. So does an eval that takes `using` entries.
+      # compile made, or raises a copy of the error that its first compile
+      # raised. TracePoint and Coverage change the code, so under them each
+      # eval compiles. So does an eval that takes `using` entries.
       key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using]
       reuse = coverage.nil? && !@runtime.tracing?
-      return @compiled.fetch(key) if reuse && @compiled.key?(key)
+      if reuse && (kept = @compiled[key])
+        raise kept.dup if kept.is_a?(Exception)
+
+        return kept
+      end
 
       taken = @runtime.activations
       @count += 1
@@ -168,8 +175,13 @@ module Zr
       # in use before the first line runs. So an eval takes the next free
       # entries, and takes them now, because no other code runs before
       # the next compile.
-      hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
-                                                    activations: @runtime.activations, trace: @runtime.tracing?, using: using)
+      begin
+        hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
+                                                      activations: @runtime.activations, trace: @runtime.tracing?, using: using)
+      rescue Hir::Invalid, SyntaxError => e
+        @compiled[key] = e.dup if reuse
+        raise
+      end
       @runtime.take_activations(hir.activations)
       # Coverage is there only when the program loads it. Under `eval:
       # true` it counts the eval's lines as lines of the eval's file. Ruby
