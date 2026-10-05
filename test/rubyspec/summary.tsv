@@ -15,7 +15,7 @@ core/encoding	45	630	630	0	0
 core/enumerable	61	575	575	0	0
 core/enumerator	81	447	447	0	0
 core/env	44	237	237	0	0
-core/exception	39	243	239	1	0
+core/exception	39	243	241	1	0
 core/false	9	13	13	0	0
 core/fiber	11	158	156	0	0
 core/file	112	932	932	0	0
@@ -51,7 +51,7 @@ core/string	139	3641	3641	0	0
 core/struct	30	180	180	0	0
 core/symbol	29	323	323	0	0
 core/systemexit	2	6	6	0	0
-core/thread	53	373	369	0	0
+core/thread	53	373	373	0	0
 core/threadgroup	5	8	8	0	0
 core/time	66	777	777	0	0
 core/tracepoint	19	75	75	0	0
@@ -118,4 +118,4 @@ library/weakref	5	9	9	0	0
 library/win32ole	74	0	0	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3723	33141	33081	1	0
+total	3723	33141	33087	1	0
