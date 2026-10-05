@@ -1,0 +1,31 @@
+["a", "c\xE3\x81\x82def", :destination_buffer_full]
+["ab", "\xE3\x81\x82def", :destination_buffer_full]
+["abc", "def", :destination_buffer_full]
+["abc\xA4", "def", :destination_buffer_full]
+["abc\xA4\xA2", "ef", :destination_buffer_full]
+["a", "bc\xFFdef", :after_output]
+["ab", "c\xFFdef", :after_output]
+["abc", "\xFFdef", :after_output]
+["abc", "def", :invalid_byte_sequence]
+["abcd", "ef", :after_output]
+["ab", "cdefg", :destination_buffer_full]
+["abcd", "efg", :destination_buffer_full]
+["", "", :invalid_byte_sequence]
+[:invalid_byte_sequence, "UTF-16BE", "UTF-8", "\xD8\x00", "\x02"]
+:invalid_byte_sequence
+"\x00"
+"\x21"
+["a", "", :source_buffer_empty]
+["a\n", "", :finished]
+["amp_escape", "&amp;<>\"'", ""]
+["xml_text_escape", "&amp;&lt;&gt;\"'", ""]
+["xml_attr_content_escape", "&amp;&lt;&gt;&quot;&apos;", ""]
+["xml_attr_quote", "\"&<>\"'", "\""]
+"\"\""
+["universal_newline", [#<Encoding:ISO-8859-1>, #<Encoding:UTF-8>], [#<Encoding:UTF-8>, #<Encoding:EUC-JP>], "universal_newline"]
+[[#<Encoding:UTF-16BE>, #<Encoding:UTF-8>], "universal_newline", [#<Encoding:UTF-8>, #<Encoding:UTF-16LE>]]
+[[#<Encoding:ISO-8859-1>, #<Encoding:UTF-8>], "universal_newline", [#<Encoding:UTF-8>, #<Encoding:UTF-32BE>]]
+"\e$B!!\e(B???"
+"\e$B$O\e(B&#x2665;\e$B!#"
+"\e(B"
+"&#x4EA4;: n&#xD7;m"
