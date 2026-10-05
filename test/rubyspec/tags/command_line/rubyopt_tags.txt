@@ -1,6 +1,0 @@
-fails:Processing RUBYOPT adds the -I path to $LOAD_PATH
-fails:Processing RUBYOPT sets $DEBUG to true for '-d'
-fails:Processing RUBYOPT sets $VERBOSE to true for '-w'
-fails:Processing RUBYOPT sets $VERBOSE to true for '-W'
-fails:Processing RUBYOPT sets $VERBOSE to nil for '-W0'
-fails:Processing RUBYOPT sets $VERBOSE to true for '-W2'

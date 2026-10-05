@@ -1,6 +1,0 @@
-fails:The RUBYLIB environment variable adds a directory to $LOAD_PATH
-fails:The RUBYLIB environment variable adds a File::PATH_SEPARATOR-separated list of directories to $LOAD_PATH
-fails:The RUBYLIB environment variable adds the directory at the front of $LOAD_PATH
-fails:The RUBYLIB environment variable adds the directory after directories added by -I
-fails:The RUBYLIB environment variable adds the directory after directories added by -I within RUBYOPT
-fails:The RUBYLIB environment variable keeps spaces in the value

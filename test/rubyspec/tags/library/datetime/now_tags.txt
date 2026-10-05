@@ -1,1 +1,0 @@
-fails:DateTime.now sets the current time

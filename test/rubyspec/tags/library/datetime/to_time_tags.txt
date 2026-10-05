@@ -1,2 +1,0 @@
-fails:DateTime#to_time returns a Time representing the same instant before Gregorian
-fails:DateTime#to_time preserves the same time regardless of local time or zone

@@ -1,8 +1,0 @@
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::BINARY with -Ka
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::BINARY with -KA
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::BINARY with -Kn
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::BINARY with -KN
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::EUC_JP with -Ke
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::EUC_JP with -KE
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::Windows_31J with -Ks
-fails:The -K command line option sets __ENCODING__ and Encoding.default_external to Encoding::Windows_31J with -KS

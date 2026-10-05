@@ -1,1 +1,0 @@
-fails:OpenSSL::KDF.scrypt requires length to be not negative

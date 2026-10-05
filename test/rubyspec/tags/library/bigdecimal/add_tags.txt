@@ -1,3 +1,0 @@
-fails:BigDecimal#add favors the precision specified in the second argument over the global limit
-fails:BigDecimal#add raises TypeError when precision parameter is nil
-fails:BigDecimal#add raises ArgumentError when precision parameter is negative

@@ -1,1 +1,0 @@
-fails:Etc.getgrnam only accepts strings as argument

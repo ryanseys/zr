@@ -1,4 +1,0 @@
-fails:BasicSocket#read_nonblock using IPv4 returned data is binary encoded regardless of the external encoding
-fails:BasicSocket#read_nonblock using IPv4 sets the IO in nonblock mode
-fails:BasicSocket#read_nonblock using IPv6 returned data is binary encoded regardless of the external encoding
-fails:BasicSocket#read_nonblock using IPv6 sets the IO in nonblock mode
