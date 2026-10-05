@@ -354,7 +354,7 @@ class String
     start = lstrip_start
     broken_tail!
     stop = Primitive.zr_str_space_start(self, Primitive.zr_str_bytesize(self), true)
-    byteslice_of(start, [stop - start, 0].max)
+    byteslice_of(start, stop > start ? stop - start : 0)
   end
 
   def lstrip(*selectors)
