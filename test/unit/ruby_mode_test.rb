@@ -11,7 +11,8 @@ require_relative "../../lib/zr/cli"
 class RubyOptionsTest < Minitest::Test
   RubyOptions = Zr::CLI::RubyOptions
 
-  def parse(*argv) = RubyOptions.parse(argv)
+# The test's own environment (bundler's RUBYOPT) must not count.
+def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
 
   def test_the_script_ends_the_switches_and_the_rest_is_argv
     options = parse("-w", "app.rb", "-x", "--", "y")
@@ -59,7 +60,7 @@ class RubyOptionsTest < Minitest::Test
     prelude = parse("-W0", "-d", "-I/l", "-rjson", "-l", "-s", "-Eascii-8bit:utf-8", "s.rb").prelude.to_s.lines(chomp: true)
 
     assert_equal ["$VERBOSE = true", "$DEBUG = true"], prelude.first(2)
-    assert_includes prelude, '$LOAD_PATH.unshift("/l")'
+    assert_includes prelude, '$LOAD_PATH.unshift("/l".freeze)'
     assert_includes prelude, '$\\ = "\n"'
     assert_operator prelude.index('require "json"'), :<, prelude.index('Encoding.default_external = "ASCII-8BIT"')
     assert_includes prelude, 'Encoding.default_internal = "UTF-8"'
@@ -86,7 +87,7 @@ class RubyOptionsTest < Minitest::Test
   end
 
   def test_zero_sets_the_record_separator_as_proc_0_option
-    { "-0" => '$/ = "\x00".b', "-00" => '$/ = ""', "-0777" => "$/ = nil", "-012" => '$/ = "\n".b' }.each do |switch, line|
+    { "-0" => '$/ = "\x00".b.freeze', "-00" => '$/ = "".freeze', "-0777" => "$/ = nil", "-012" => '$/ = "\n".b.freeze' }.each do |switch, line|
       assert_equal line, parse(switch, "x.rb").prelude.to_s.chomp, switch
     end
   end
@@ -122,6 +123,49 @@ class RubyOptionsTest < Minitest::Test
     assert_includes options.prelude.to_s, "$VERBOSE = true"
     assert options.sflag
     assert_nil plain.prelude
+  end
+
+  def test_rubyopt_adds_its_switches_after_the_command_lines
+    options = parse("-I/a", "-e", "1", env: { "RUBYOPT" => " -w  Ib -rjson " })
+
+    assert_equal ["/a", "b"], options.includes
+    assert_equal ["json"], options.requires
+    assert_equal "$VERBOSE = true", options.prelude.to_s.lines.first.chomp
+    assert_nil parse("--disable=rubyopt", "-e", "1", env: { "RUBYOPT" => "-w" }).prelude
+  end
+
+  def test_rubyopt_takes_only_the_switches_that_change_how_a_program_runs
+    assert_equal "invalid switch in RUBYOPT: -e", assert_raises(RubyOptions::Invalid) { parse("x.rb", env: { "RUBYOPT" => "-e" }) }.message
+    assert_equal "invalid switch in RUBYOPT: --version",
+                 assert_raises(RubyOptions::Invalid) { parse("x.rb", env: { "RUBYOPT" => "--version" }) }.message
+  end
+
+  def test_rubylib_comes_after_the_include_directories_as_given_and_frozen
+    prelude = parse("-I/inc", "x.rb", env: { "RUBYLIB" => "/a: b :" }).prelude.to_s
+
+    assert_includes prelude, '$LOAD_PATH.unshift("/inc".freeze, "/a".freeze, " b ".freeze)'
+  end
+
+  def test_k_sets_the_source_encoding_and_the_external_one
+    options = parse("-Ke", "x.rb")
+
+    assert_equal ["EUC-JP", "EUC-JP"], [options.switches.source_encoding, options.external]
+    assert_equal "EUC-JP", options.switches.parse_options(true)[:encoding]
+    assert_nil options.switches.parse_options(false)[:encoding]
+  end
+
+  def test_an_encoding_set_twice_must_be_the_same
+    assert_equal "UTF-8", parse("-U", "-U", "-E:utf-8", "x.rb").internal
+    assert_equal "default_internal already set to UTF-8", assert_raises(RubyOptions::Invalid) { parse("-U", "-E:ascii", "x.rb") }.message
+    assert_equal "default_internal already set to ascii", assert_raises(RubyOptions::Invalid) { parse("-Eascii:ascii", "-U", "x.rb") }.message
+    assert_equal "default_external already set to EUC-JP", assert_raises(RubyOptions::Invalid) { parse("-Ke", "-Eascii", "x.rb") }.message
+  end
+
+  def test_backtrace_limit_sets_the_limit_and_did_you_mean_can_be_disabled
+    assert_includes parse("--backtrace-limit=2", "x.rb").prelude.to_s, "Primitive.zr_backtrace_limit_set(2)"
+    assert_includes parse("--backtrace-limit", "-1", "x.rb").prelude.to_s, "Primitive.zr_backtrace_limit_set(-1)"
+    assert_raises(RubyOptions::Invalid) { parse("--backtrace-limit=-2", "x.rb") }
+    assert_includes parse("--disable=did_you_mean", "x.rb").prelude.to_s, "Object.send(:remove_const, :DidYouMean)"
   end
 
   def test_zrs_own_flags_go_to_zr
@@ -225,7 +269,9 @@ class RubyModeTest < Minitest::Test
     "sub/y.rb" => "p Dir.pwd.end_with?('sub')\n",
     "lib/foo.rb" => "module Foo; end\n",
     "bad.rb" => "def x\n  p (\nend\n",
-    "handler.rb" => "at_exit { puts 'handler ran' }\n"
+    "handler.rb" => "at_exit { puts 'handler ran' }\n",
+    "hybrid.sh" => "#!/usr/bin/env bash\necho error && exit 1\n#!ruby\nputs 'success'\n",
+    "bt.rb" => "def a = raise('oops')\ndef b = a\ndef c = b\ndef d = c\nbegin\n  d\nrescue => e\n  puts e.full_message(highlight: false)\nend\nd\n"
   }.freeze
 
   def test_e_code_runs_as_the_file_dash_e
@@ -301,6 +347,16 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-l", "-00", "-e", "p [$/, $\\]")
     same_as_ruby("-E", "ISO-8859-1:UTF-8", "-e", "p [Encoding.default_external, Encoding.default_internal]")
     same_as_ruby("--disable-gems", "--enable=frozen-string-literal", "-e", "p defined?(Gem), 'a'.frozen?")
+    same_as_ruby("-072", "-e", "p $/, $/.frozen?, $-0.frozen?")
+    same_as_ruby("-Ke", "-e", "p [__ENCODING__, Encoding.default_external, Encoding.default_internal]")
+    same_as_ruby("-U", "-KS", "-e", "p [__ENCODING__, Encoding.default_internal]")
+    same_as_ruby("-U", "-E:ascii", "-e", "1")
+  end
+
+  def test_a_launcher_script_and_the_backtrace_limit
+    same_as_ruby("hybrid.sh")
+    same_as_ruby("--backtrace-limit=1", "bt.rb")
+    same_as_ruby("--disable=did_you_mean", "--backtrace-limit=0", "-e", "p defined?(DidYouMean), Thread::Backtrace.limit")
   end
 
   def test_syntax_check_and_syntax_errors

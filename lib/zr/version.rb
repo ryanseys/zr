@@ -21,6 +21,10 @@ module Zr
   # (`test/unit/layout_test.rb` checks that they agree).
   RUBY_RELEASE_DATE = "2026-09-15"
   RUBY_REVISION = "229531a6cfbf07e3caef30dbac24a2a3f3fed482"
+
+  # RUBY_DESCRIPTION of a program built for `platform`, which `zr -v`
+  # prints as ruby does (lib/zr/runtime/core/env.rb).
+  def self.ruby_description(platform) = "ruby #{RUBY} (#{RUBY_RELEASE_DATE} revision #{RUBY_REVISION[0, 10]}) +PRISM [#{platform}]"
 end
 
 module Zr

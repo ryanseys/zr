@@ -6,8 +6,8 @@ require_relative "../../version"
 module Zr
   module CLI
     module Commands
-      # `zr version`, `zr --version` and `zr -v`: zr's version and the ruby
-      # version that it matches.
+      # `zr version` and `zr --version`: zr's version and the ruby version
+      # that it matches. `zr -v` is ruby's -v (`Compile#ruby`).
       class Version < Command
         LINE = "zr #{VERSION} (for ruby #{RUBY})".freeze
 

@@ -10,6 +10,11 @@
 # builds the program (lib/zr/server.rb). A compile starts ruby again with
 # the collector limits at its first step of heavy work (lib/zr/gc_tuning.rb).
 # `CLI.guard` turns an error into one line and an exit status.
+#
+# RUBYOPT is for the program, which ruby mode reads it for
+# (lib/zr/cli/ruby_options.rb). Its -w and -d must not change how zr runs.
+$VERBOSE = false
+$DEBUG = false
 require_relative "../lib/zr/cli"
 Zr::CLI.guard do
   # A bad setting stops here, before the server gets the command.

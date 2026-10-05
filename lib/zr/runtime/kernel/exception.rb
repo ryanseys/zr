@@ -848,16 +848,26 @@ module Zr::Kern
       zr_buf_byte(b, 10)
     end
     skip_at = 0 - 1
+    skip = 0
+    limit = zr_backtrace_limit()
+    if limit >= 0 && n > limit + 2
+      skip_at = limit + 1
+      skip = n - skip_at
+    end
     if zr_class_of(exc) == zr_global(G_SYSTEM_STACK_ERROR) && n > 18
       skip_at = 9
+      skip = n - 13
     end
     i = 0
     while i < n
       if i == skip_at
         zr_buf_push(b, Machine.bytes("\t ... "), 6)
-        zr_buf_long(b, n - 13)
+        zr_buf_long(b, skip)
         zr_buf_push(b, Machine.bytes(" levels...\n"), 11)
-        i += n - 13
+        i += skip
+        if i >= n
+          break
+        end
       end
       row = rows + (i * BtRow.size)
       if i == 0
@@ -876,6 +886,24 @@ module Zr::Kern
   end
 
   G_SYSTEM_STACK_ERROR = 35
+
+  # `--backtrace-limit`: the frames an error report shows under its first
+  # one, or -1 for all. The word keeps the limit plus one, so 0 is unset.
+  #: () -> word
+  def zr_backtrace_limit
+    Machine.load64(Machine.static(:backtrace_limit, 8), 0) - 1
+  end
+
+  #: () -> value
+  def zr_backtrace_limit_m
+    zr_fix(zr_backtrace_limit())
+  end
+
+  #: (value) -> value
+  def zr_backtrace_limit_set(n)
+    Machine.store64(Machine.static(:backtrace_limit, 8), 0, zr_fix2long(n) + 1)
+    n
+  end
 
   # Raises for a Ruby frame that starts below the stack limit of the task.
   # rb_protect: calls the block, and any unwind out of it (a raise, a

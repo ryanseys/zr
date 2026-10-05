@@ -20,7 +20,8 @@ module Zr
     # every file without the magic comment (true or false), or nil for
     # ruby's own default. `gems` is false when rubygems must not load
     # before the program. `inline` is true for -e: such a program has no
-    # DATA.
+    # DATA. `source_encoding` is the encoding of -K, which the main file
+    # is read in when it has no magic comment.
     class Switches
       attr_reader :prelude #: String?
       attr_reader :command_line #: String
@@ -28,10 +29,20 @@ module Zr
       attr_reader :gems #: bool
       attr_reader :inline #: bool
       attr_reader :verbose #: bool | Symbol | nil
+      attr_reader :source_encoding #: String?
 
-      #: (?prelude: String?, ?command_line: String, ?frozen_string_literal: bool?, ?gems: bool, ?inline: bool, ?verbose: bool | Symbol | nil) -> void
-      def initialize(prelude: nil, command_line: "", frozen_string_literal: nil, gems: true, inline: false, verbose: :runtime)
+      # @rbs prelude: String?
+      # @rbs command_line: String
+      # @rbs frozen_string_literal: bool?
+      # @rbs gems: bool
+      # @rbs inline: bool
+      # @rbs verbose: bool | Symbol | nil
+      # @rbs source_encoding: String?
+      # @rbs return: void
+      def initialize(prelude: nil, command_line: "", frozen_string_literal: nil, gems: true, inline: false, verbose: :runtime,
+                     source_encoding: nil)
         @prelude = prelude
+        @source_encoding = source_encoding
         @command_line = command_line
         @frozen_string_literal = frozen_string_literal
         @gems = gems
@@ -49,13 +60,14 @@ module Zr
         options = {} #: Hash[Symbol, untyped]
         options[:command_line] = command_line if main && !command_line.empty?
         options[:frozen_string_literal] = frozen_string_literal unless frozen_string_literal.nil?
+        options[:encoding] = source_encoding if main && source_encoding
         options
       end
 
       # What a cache key needs: two builds with other switches are other
       # programs.
       #: () -> String
-      def key = [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect].join("\0")
+      def key = [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect, source_encoding.to_s].join("\0")
     end
   end
 end

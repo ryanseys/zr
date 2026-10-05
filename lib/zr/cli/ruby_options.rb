@@ -30,6 +30,11 @@ module Zr
       # @rbs @print: bool
       # @rbs @split: bool
       # @rbs @line: bool
+      # @rbs @envopt: bool
+      # @rbs @rubylib: Array[String]
+      # @rbs @backtrace_limit: Integer?
+      # @rbs @external_name: String?
+      # @rbs @internal_name: String?
 
       # A command line that ruby rejects. ruby raises a RuntimeError and
       # exits 1: `zr: invalid option -q  (-h will show valid options)
@@ -53,6 +58,8 @@ module Zr
       attr_reader :xflag, :sflag, :search, :check, :debug, :version, :version_only, :copyright #: bool
       # The encodings of -E, -U, -K and --encoding, or nil.
       attr_reader :external, :internal #: String?
+      # The source encoding of -K, or nil.
+      attr_reader :source_encoding #: String?
       # The words of zr's own flags, for `Options.parse("run", ...)`.
       attr_reader :zr #: Array[String]
       # A switch that zr does not support, and why, or nil.
@@ -71,10 +78,10 @@ module Zr
       # The encodings of -K.
       KCODES = { "e" => "EUC-JP", "s" => "Windows-31J", "u" => "UTF-8", "n" => "ASCII-8BIT", "a" => "ASCII-8BIT" }.freeze
 
-      # The options of `argv`. Raises Invalid for a command line that ruby
-      # rejects.
-      #: (Array[String] argv) -> RubyOptions
-      def self.parse(argv) = new.tap { |options| options.parse!(argv.dup) }
+      # The options of `argv`, then those of RUBYOPT and RUBYLIB in `env`.
+      # Raises Invalid for a command line that ruby rejects.
+      #: (Array[String] argv, ?Hash[String, String?] env) -> RubyOptions
+      def self.parse(argv, env = ENV.to_h) = new.tap { |options| options.parse!(argv.dup, env) }
 
       #: () -> void
       def initialize
@@ -85,7 +92,10 @@ module Zr
         @requires = []
         @chdirs = []
         @loop = @print = @split = @line = @xflag = @sflag = @search = @check = @debug = @version = @version_only = @copyright = false
-        @external = @internal = nil
+        @external = @internal = @external_name = @internal_name = @source_encoding = nil
+        @envopt = false
+        @rubylib = []
+        @backtrace_limit = nil
         @zr = []
         @refused = nil
         @warnings = []
@@ -101,12 +111,20 @@ module Zr
       end
 
       # Reads the switches, then the script's name and its arguments.
-      #: (Array[String] argv) -> void
-      def parse!(argv)
+      #: (Array[String] argv, ?Hash[String, String?] env) -> void
+      def parse!(argv, env = ENV.to_h)
         switches!(argv)
         @script = argv.shift if @inline.empty?
         @args = argv
+        rubyopt!(env["RUBYOPT"]) unless @features["rubyopt"] == false
+        # ruby_init_loadpath: RUBYLIB's directories, as given, after -I's.
+        @rubylib = env["RUBYLIB"].to_s.split(File::PATH_SEPARATOR).reject(&:empty?)
       end
+
+      # A script whose first line is a `#!` line that does not name ruby
+      # runs as with -x: from its first `#!` line that names ruby.
+      #: () -> void
+      def xflag! = @xflag = true
 
       # The switches on a script's first line, `#!/usr/bin/env ruby -w`,
       # as ruby reads them: after the first " -" of a line that names
@@ -152,7 +170,8 @@ module Zr
         # a file (a regexp literal in a condition).
         command_line << "e" unless @inline.empty?
         Hir::Switches.new(prelude: prelude, command_line: command_line, frozen_string_literal: @features["frozen_string_literal"],
-                          gems: @features.fetch("gems", true), inline: !@inline.empty?, verbose: (verbose = @verbose) ? verbose.first : false)
+                          gems: @features.fetch("gems", true), inline: !@inline.empty?, verbose: (verbose = @verbose) ? verbose.first : false,
+                          source_encoding: @source_encoding)
       end
 
       # The ruby that sets what the switches set, in ruby's order: the
@@ -167,9 +186,17 @@ module Zr
         lines << "$VERBOSE = #{verbose.first.inspect}" if verbose
         lines << "$DEBUG = true" if @debug
         @warning_categories.each { |name, on| lines << "Warning[#{name.inspect}] = #{on}" }
-        lines << "$LOAD_PATH.unshift(#{@includes.map { |dir| File.expand_path(dir).inspect }.join(", ")})" unless @includes.empty?
-        # A separator of one byte is binary, as ruby makes it.
-        lines << "$/ = #{record_separator.first.inspect}#{".b" if record_separator.first&.size == 1}" if record_separator
+        # -I's directories, expanded, then RUBYLIB's as given, each frozen.
+        dirs = @includes.map { |dir| File.expand_path(dir) } + @rubylib
+        lines << "$LOAD_PATH.unshift(#{dirs.map { |dir| "#{dir.inspect}.freeze" }.join(", ")})" unless dirs.empty?
+        # A separator of one byte is binary, as ruby makes it, and frozen.
+        if record_separator
+          text = record_separator.first
+          lines << "$/ = #{text.nil? ? "nil" : "#{text.inspect}#{".b" if text.size == 1}.freeze"}"
+        end
+        lines << "Primitive.zr_backtrace_limit_set(#{@backtrace_limit})" if @backtrace_limit
+        # --disable=did_you_mean: no DidYouMean, and so no suggestion.
+        lines << "Object.send(:remove_const, :DidYouMean)" if @features["did_you_mean"] == false
         lines << "$\\ = #{@output_separator.inspect}" if @line
         lines << "$; = Regexp.new(#{@field_separator.inspect})" if @field_separator
         lines << "$-i = ARGF.inplace_mode = #{@inplace.inspect}" if @inplace
@@ -207,6 +234,25 @@ module Zr
 
       private
 
+      # The switches of RUBYOPT, after the command line's: only those that
+      # change how a program runs (ruby.c's moreswitches with envopt). A
+      # word without its "-" gets one.
+      #: (String? text) -> void
+      def rubyopt!(text)
+        return if text.nil?
+
+        @envopt = true
+        text.split.each do |word|
+          word = "-#{word}" unless word.start_with?("-")
+          switches!([word])
+        end
+      ensure
+        @envopt = false
+      end
+
+      # The letters that RUBYOPT can give.
+      ENV_LETTERS = "dEIKrUvwW"
+
       # proc_options: the switches up to the script's name.
       #: (Array[String] argv) -> void
       def switches!(argv)
@@ -232,6 +278,8 @@ module Zr
         until s.empty?
           c = s[0].to_s
           s = s[1..].to_s
+          raise Invalid, "invalid switch in RUBYOPT: -#{c}" if @envopt && !ENV_LETTERS.include?(c)
+
           case c
           when "a" then @split = true
           when "p" then @print = @loop = true
@@ -287,11 +335,14 @@ module Zr
             raise Invalid, "missing argument for -E" if text.nil?
 
             return encoding!(text, "-E")
-          when "U" then @internal ||= "UTF-8"
+          when "U" then internal_once!("UTF-8")
           when "K"
             kcode = s[0].to_s
             s = s[1..].to_s
-            @external ||= KCODES[kcode.downcase]
+            if (name = KCODES[kcode.downcase])
+              external_once!(name)
+              @source_encoding = name
+            end
           when "0" then s = record_separator!("0#{s}")
           when "\r" then return
           else
@@ -365,8 +416,26 @@ module Zr
         external, internal, extra = text.split(":", 3)
         raise Invalid, "extra argument for #{name}: #{extra}" if extra && !extra.empty?
 
-        @external ||= known_encoding(external) unless external.to_s.empty?
-        @internal ||= known_encoding(internal) unless internal.to_s.empty?
+        external_once!(external.to_s) unless external.to_s.empty?
+        internal_once!(internal.to_s) unless internal.to_s.empty?
+      end
+
+      # set_option_encoding_once: an encoding set twice must be the same
+      # name, as casecmp compares them.
+      #: (String name) -> void
+      def external_once!(name)
+        raise Invalid, "default_external already set to #{@external_name}" if @external_name && !@external_name.casecmp?(name)
+
+        @external_name = name
+        @external = known_encoding(name)
+      end
+
+      #: (String name) -> void
+      def internal_once!(name)
+        raise Invalid, "default_internal already set to #{@internal_name}" if @internal_name && !@internal_name.casecmp?(name)
+
+        @internal_name = name
+        @internal = known_encoding(name)
       end
 
       #: (String? name) -> String
@@ -382,6 +451,7 @@ module Zr
       def long!(s, argv)
         name, given = s.split("=", 2)
         name = name.to_s
+        raise Invalid, "invalid switch in RUBYOPT: --#{name}" if @envopt && !ENV_LONG.match?(name)
         if OWN_FLAGS.key?("--#{name}")
           @zr << "--#{name}"
           @zr << (given || argv.shift || raise(Invalid, "missing argument for --#{name}")) if OWN_FLAGS.fetch("--#{name}")
@@ -403,15 +473,19 @@ module Zr
         when "jit", "yjit", "zjit", /\A[yz]jit-/ then nil # zr compiles ahead of time.
         when "crash-report" then nil
         when "encoding" then encoding!(argument(name, given, argv), "--encoding")
-        when "external-encoding" then @external ||= known_encoding(argument(name, given, argv))
-        when "internal-encoding" then @internal ||= known_encoding(argument(name, given, argv))
+        when "external-encoding" then external_once!(argument(name, given, argv))
+        when "internal-encoding" then internal_once!(argument(name, given, argv))
         when "parser"
           parser = argument(name, given, argv)
           refuse("--parser=parse.y (zr parses with prism)") if parser == "parse.y"
           raise Invalid, "unknown parser #{parser}" unless %w[prism parse.y].include?(parser)
         when "dump" then refuse("--dump")
         when "yydebug" then nil
-        when "backtrace-limit" then refuse("--backtrace-limit")
+        when "backtrace-limit"
+          limit = argument(name, given, argv)
+          raise Invalid, "wrong limit for backtrace length" unless limit.match?(/\A-?\d+\z/) && limit.to_i >= -1
+
+          @backtrace_limit = limit.to_i
         when /\A(enable|disable)(?:-(.+))?\z/
           on = $1 == "enable"
           words = $2 || argument($1.to_s, given, argv)
@@ -420,6 +494,9 @@ module Zr
           raise Invalid, "invalid option --#{s}  (-h will show valid options)"
         end
       end
+
+      # The long switches that RUBYOPT can give.
+      ENV_LONG = /\A(?:debug|enable|disable|encoding|external-encoding|internal-encoding|backtrace-limit|crash-report|[yz]?jit)(?:-|\z)/
 
       # The value of a long option: after "=", or the next word.
       #: (String name, String? given, Array[String] argv) -> String

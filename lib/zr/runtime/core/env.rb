@@ -356,6 +356,22 @@ module Kernel
   end
 end
 
+# ruby_init_loadpath: the site, vendor and library directories of the
+# install layout (lib/zr/runtime/ext/rbconfig.rb), in ruby's order. None
+# of them needs to exist. ENV reads through Dir, which is not loaded yet,
+# so the prefix comes from the environment directly.
+$LOAD_PATH.concat(
+  lambda do
+    home = Primitive.zr_environment_get("HOME") || "/tmp"
+    prefix = Primitive.zr_environment_get("ZR_PREFIX") || "#{home}/.zr"
+    lib = "#{prefix}/lib/ruby"
+    arch = RUBY_PLATFORM
+    %W[site_ruby/4.0.0 site_ruby/4.0.0/#{arch} site_ruby
+       vendor_ruby/4.0.0 vendor_ruby/4.0.0/#{arch} vendor_ruby
+       4.0.0 4.0.0/#{arch}].map { |dir| "#{lib}/#{dir}" }
+  end.call
+)
+
 # CRuby's module functions of Kernel: the same methods, public on
 # Kernel itself.
 module Kernel

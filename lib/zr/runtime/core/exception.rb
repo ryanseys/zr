@@ -215,12 +215,14 @@ class Exception
 
     len = errat.size
     width = (len - 1).to_s.size
-    skip_start = exc.instance_of?(SystemStackError) && len > 18 ? 9 : -1
+    limit = Thread::Backtrace.limit
+    skip_start, skip = limit >= 0 && len > limit + 2 ? [limit + 1, len - limit - 1] : [-1, 0]
+    skip_start, skip = [9, len - 13] if exc.instance_of?(SystemStackError) && len > 18
     i = 1
     while i < len
       if i == skip_start
-        out << "\t ... #{len - 13} levels...\n"
-        i += len - 13
+        out << "\t ... #{skip} levels...\n"
+        i += skip
         break if i >= len
       end
       line = errat[bottom ? len - i : i]
@@ -499,8 +501,8 @@ end
 
 class Thread
   class Backtrace
-    # `--backtrace-limit`, which zr does not take: every row shows.
-    def self.limit = -1
+    # `--backtrace-limit`, or -1 when no limit was given.
+    def self.limit = Primitive.zr_backtrace_limit_m
 
     # One row of `caller_locations`, parsed from its `file:line:in
     # 'label'` form.

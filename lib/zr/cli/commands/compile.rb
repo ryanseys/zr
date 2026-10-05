@@ -61,7 +61,9 @@ module Zr
             warn "zr: #{why}"
             exit REFUSED
           end
-          puts Version::LINE if options.version || options.version_only
+          # -v gives ruby's description, as ruby does; --version gives zr's.
+          puts Zr.ruby_description(Target.default.ruby_platform) if options.version
+          puts Version::LINE if options.version_only
           puts RUBY_COPYRIGHT if options.copyright
           return unless options.runs?($stdin.tty?)
 
@@ -94,6 +96,10 @@ module Zr
                            path = options.search ? searched(name) : name
                            [File.read(path), path]
                          end
+          # A first `#!` line that does not name ruby is a launcher, and the
+          # script runs as with -x.
+          first = source.each_line.first.to_s
+          options.xflag! if name && first.start_with?("#!") && !first.include?("ruby")
           line = options.xflag ? source.each_line.find { |text| text.start_with?("#!") && text.include?("ruby") } : source
           fatal("no Ruby script found in input (LoadError)", prefix: file) unless line
           options.shebang!(line)
