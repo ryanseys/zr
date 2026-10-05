@@ -45,8 +45,15 @@ module Zr
       LIMIT = 600
 
       # Seconds with no output after which a test counts as hung. A test
-      # that starts zr builds a program first, which prints nothing.
-      IDLE = 180
+      # that starts zr builds a program first, which prints nothing, and
+      # one test can start several.
+      IDLE = 300
+
+      # The runner's scale for the time limits of the rubies a test starts
+      # (EnvUtil.apply_timeout_scale), as CRuby's CI sets it for slow
+      # platforms: in zr, each one builds its program first, for 8 s or
+      # more, where ruby's limit is often 10 s.
+      TIMEOUT_SCALE = "10"
 
       # The directories of test/ that test what only CRuby has, and why.
       CRUBY_ONLY = {
@@ -186,7 +193,9 @@ module Zr
         end
 
         # A test that starts a ruby starts the interpreter of the run.
-        def env(dir, zr:) = super.merge("RUBY" => zr ? Suite.zr : RbConfig.ruby, "TMPDIR" => dir)
+        def env(dir, zr:)
+          super.merge("RUBY" => zr ? Suite.zr : RbConfig.ruby, "TMPDIR" => dir, "RUBY_TEST_TIMEOUT_SCALE" => (TIMEOUT_SCALE if zr))
+        end
 
         def write_tags(rel, result)
           old = CRubyTest.reasons(rel)
