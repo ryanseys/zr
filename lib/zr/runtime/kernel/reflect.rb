@@ -428,7 +428,7 @@ module Zr::Kern
       meta = FrameMeta[meta].parent
     end
     # A def in the core library runs with a builtin's FrameMeta.
-    if FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BMETHOD && FrameMeta[meta].kind != KIND_BUILTIN
+    if FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN
       return Machine.value(QNIL)
     end
     zr_sym(FrameMeta[meta].name)
@@ -456,7 +456,7 @@ module Zr::Kern
     end
     # A runtime method written in Ruby runs as a builtin. An alias can call
     # it, as for a method of the program.
-    if FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BMETHOD && FrameMeta[meta].kind != KIND_BUILTIN
+    if FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN
       return Machine.value(QNIL)
     end
     mid = zr_frame_mid(rec)
