@@ -1653,6 +1653,40 @@ module Zr::Kern
     meta
   end
 
+  # The FrameMeta of a method that `define_method` or an attribute defines
+  # at the current position of the frame `rec`. Frames and backtrace rows
+  # point to a FrameMeta, so none is ever freed. A definition at the same
+  # place, with the same name, for the same owner, takes the FrameMeta that
+  # the last one made, so a loop of definitions does not grow.
+  # G_SITE_METAS maps the place and the name, as the bytes of a String, to
+  # that FrameMeta.
+  G_SITE_METAS = 69
+
+  #: (ptr, word, value) -> ptr
+  def zr_meta_site(rec, mid, owner)
+    key = Machine.slot(32)
+    Machine.store64(key, 0, Machine.word(FrameMeta[Frame[rec].meta].file))
+    Machine.store64(key, 8, zr_frame_line(rec))
+    Machine.store64(key, 16, zr_frame_node_id(rec))
+    Machine.store64(key, 24, mid)
+    k = zr_str_new(key, 32)
+    table = zr_global(G_SITE_METAS)
+    if zr_special_p(table)
+      table = zr_hash_new()
+      zr_set_global(G_SITE_METAS, table)
+    end
+    found = zr_hash_lookup(table, k)
+    if found != QUNDEF
+      meta = Machine.ptr(zr_fix2long(found))
+      if FrameMeta[meta].owner == zr_origin(owner)
+        return meta
+      end
+    end
+    meta = zr_meta_at(rec)
+    zr_hash_store(table, k, zr_fix(Machine.word(meta)))
+    meta
+  end
+
   # `attr_reader`, `attr_writer`, `attr_accessor`: one method entry for
   # each name, with the class body's current visibility. Returns the
   # defined names.
@@ -1684,7 +1718,7 @@ module Zr::Kern
       # themselves, read hidden fields: the runtime keeps these instance
       # variables without the `@`. A call that a builtin makes for the
       # program, as in `each(&method(:attr_reader))`, is the program's call.
-      if zr_internal_meta_p(zr_meta_at(caller)) && Frame[caller].self == klass
+      if FrameMeta[Frame[caller].meta].file_len == 0 && Frame[caller].self == klass
         ivar = zr_intern(Buf[b].ptr + 1, Buf[b].len - 1)
       end
       # The scope's visibility keyword applies only inside this class's own
@@ -1698,7 +1732,7 @@ module Zr::Kern
         end
       end
       if which != 2
-        r = zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_at(caller), cref)
+        r = zr_define_method(klass, id, Machine.ptr(ivar), 0, KIND_ATTR_READER, zr_meta_site(caller, id, klass), cref)
         if r == QUNDEF
           zr_buf_free(b)
           return r
@@ -1708,7 +1742,7 @@ module Zr::Kern
       if which != 1
         zr_buf_byte(b, 61)
         setter = zr_intern(Buf[b].ptr + 1, Buf[b].len - 1)
-        r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_at(caller), cref)
+        r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_site(caller, setter, klass), cref)
         if r == QUNDEF
           zr_buf_free(b)
           return r

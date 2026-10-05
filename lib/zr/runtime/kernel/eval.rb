@@ -238,7 +238,7 @@ module Zr::Kern
     elsif blk == QNIL
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
     end
-    r = zr_define_bmethod(recv, mid, zr_meta_at(caller), body, home)
+    r = zr_define_bmethod(recv, mid, zr_meta_site(caller, mid, recv), body, home)
     return r if r == QUNDEF
     zr_sym(mid)
   end
