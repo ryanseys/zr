@@ -387,10 +387,9 @@ module Process
   # was.
   def argv0 = Primitive.zr_program_name
 
-  # The title that `ps` shows. Darwin gives a process no way to set one,
-  # and ruby returns the title whether or not the change worked.
+  # The title that `ps` shows, written over the program's arguments.
   def setproctitle(title)
-    Process.send(:c_string, title)
+    Primitive.zr_proc_title_set(Process.send(:c_string, title))
     title
   end
 

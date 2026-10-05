@@ -803,6 +803,7 @@ module Kernel
         text = String.try_convert(value)
         raise TypeError, "no implicit conversion of #{conversion_name(value)} into String" if text.nil?
 
+        Process.setproctitle(text)
         return text.frozen? ? text : text.dup.freeze
       when :$VERBOSE
         return value ? true : value

@@ -20,6 +20,48 @@ module Zr::Kern
       i += 1
     end
     zr_set_global(G_ARGV, args)
+    cell = zr_args_cell()
+    Machine.store64(cell, 0, Machine.word(table))
+    Machine.store64(cell, 8, table == 0 ? 0 : i)
+  end
+
+  # The C arguments, as main received them, and their count: the memory
+  # that `setproctitle` writes over.
+  #: () -> ptr
+  def zr_args_cell
+    Machine.static(:args_cell, 16)
+  end
+
+  # setproctitle as ruby does it: the title goes over the memory of the
+  # program's arguments, which `ps` reads. The memory is the strings that
+  # follow argv[0] with no gap. A longer title is cut to fit.
+  #: (value) -> value
+  def zr_proc_title_set(title)
+    cell = zr_args_cell()
+    table = Machine.ptr(Machine.load64(cell, 0))
+    n = Machine.load64(cell, 8)
+    if table == 0 || n == 0
+      return Machine.value(QNIL)
+    end
+    start = Machine.ptr(Machine.load64(table, 0))
+    stop = start + zr_cstr_len(start) + 1
+    i = 1
+    while i < n && Machine.ptr(Machine.load64(table + (i * 8), 0)) == stop
+      stop = stop + zr_cstr_len(stop) + 1
+      i += 1
+    end
+    room = stop - start - 1
+    len = RString[title].len
+    if len > room
+      len = room
+    end
+    zr_memcpy(start, RString[title].ptr, len)
+    k = len
+    while k <= room
+      Machine.store8(start + k, 0, Machine.i8(0))
+      k += 1
+    end
+    Machine.value(QNIL)
   end
 
   #: (ptr) -> word
