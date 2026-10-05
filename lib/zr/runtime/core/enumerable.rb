@@ -272,11 +272,12 @@ module Enumerable
   # otherwise the given rounds (a round count of zero or less is none).
   def cycle_size(rounds, endless)
     Primitive.attr! :hidden
+    # enum_cycle_size: the count converts before the size is asked for.
+    rounds = Primitive.zr_index_operand_m(rounds) unless endless || rounds.nil?
     total = enumerable_size
     return total if total.nil? || total == 0
     return Float::INFINITY if endless || rounds.nil?
 
-    rounds = Primitive.zr_index_operand_m(rounds)
     rounds <= 0 ? 0 : total * rounds
   end
 
@@ -1125,7 +1126,7 @@ module Enumerable
     end
   end
 
-  def chain(*others) = Enumerator::Chain.new(self, *others)
+  def chain(*others) = Enumerator::Chain.send(:of, [self, *others])
 
   def lazy = Enumerator::Lazy.from(self)
 

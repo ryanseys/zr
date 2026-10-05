@@ -1,0 +1,33 @@
+2
+2
+2
+2
+Infinity
+Infinity
+0
+1
+nil
+Enumerator::Chain
+[]
+true
+Enumerator::Lazy
+[12, 21, 27]
+Enumerator::Lazy
+0
+0
+Infinity
+#<ArgumentError: unknown keywords: :foo, :bar>
+10
+5
+nil
+Infinity
+[1, 2, 3]
+#<ArgumentError: unknown keywords: :a, :b>
+#<TypeError: no implicit conversion of String into Integer>
+3
+Infinity
+#<TypeError: no implicit conversion of String into Integer>
+:foo
+FrozenError
+#<TypeError: wrong argument type Integer (expected Proc)>
+#<LocalJumpError: no block given>

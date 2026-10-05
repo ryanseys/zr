@@ -38,8 +38,17 @@ class Enumerator
   class Generator
     include Enumerable
 
-    def initialize(&block)
-      raise LocalJumpError, +"no block given" unless block
+    # generator_initialize: the block, or a Proc given in its place.
+    def initialize(*args, &block)
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+
+      if args.empty?
+        raise LocalJumpError, +"no block given" unless block
+      else
+        block = args[0]
+        raise TypeError, "wrong argument type #{block.class} (expected Proc)" unless block.is_a?(Proc)
+      end
+      raise FrozenError.new("can't modify frozen #{self.class}: #{inspect}", receiver: self) if frozen?
 
       Primitive.zr_hidden_set(self, :__block__, block)
       self
@@ -68,7 +77,7 @@ class Enumerator
     @method = :each
     @args = []
     @kwargs = {}
-    @size = size
+    @size = Enumerator.send(:feasible_size, size)
     self
   end
 
@@ -99,12 +108,27 @@ class Enumerator
     end
   end
 
-  def self.produce(*initial, &block)
-    raise ArgumentError, "wrong number of arguments (given #{initial.size}, expected 0..1)" if initial.size > 1
+  # enumerator_s_produce: `size:` is the only keyword, and the size is
+  # endless unless it says otherwise.
+  def self.produce(*initial, **options, &block)
     raise ArgumentError, +"no block given" unless block
+    raise ArgumentError, "wrong number of arguments (given #{initial.size}, expected 0..1)" if initial.size > 1
 
-    Producer.new(initial[0], !initial.empty?, block).to_enum(:each) { Float::INFINITY }
+    unknown = options.keys - [:size]
+    raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}" unless unknown.empty?
+
+    size = options.key?(:size) ? feasible_size(options[:size]) : Float::INFINITY
+    Producer.new(initial[0], !initial.empty?, block).to_enum(:each) { size.nil? || size.is_a?(Numeric) ? size : size.call }
   end
+
+  # convert_to_feasible_size_value: nil, a callable, Infinity, or an Integer.
+  def self.feasible_size(size)
+    Primitive.attr! :hidden
+    return size if size.nil? || size.respond_to?(:call) || size == Float::INFINITY
+
+    Integer.try_convert(size) || raise(TypeError, "no implicit conversion of #{conversion_name(size)} into Integer")
+  end
+  private_class_method :feasible_size
 
   # `to_enum(:method, *args, **kwargs)`, with a size or a proc that
   # returns it.
@@ -123,7 +147,8 @@ class Enumerator
       return self if extra.empty?
 
       copy = dup
-      copy.send(:enumerate, @receiver, @method, @args + extra, @kwargs, @size)
+      # enumerator_each: added arguments leave the size unknown.
+      copy.send(:enumerate, @receiver, @method, @args + extra, @kwargs, nil)
       return copy
     end
 
@@ -320,6 +345,10 @@ module Kernel
   # last.
   private def enum_with_size(method, *args, size)
     Primitive.attr! :hidden
+    if size == :__length__
+      receiver = self
+      size = receiver.is_a?(Hash) ? -> { Primitive.zr_hash_len_m(receiver) } : -> { Primitive.zr_ary_len_m(receiver) }
+    end
     Enumerator.for(self, method, args, {}, size)
   end
 end
@@ -1051,17 +1080,27 @@ class Enumerator::Chain < Enumerator
   end
 
 
-  undef_method :next, :peek, :next_values, :peek_values, :with_object
+  undef_method :feed, :next, :next_values, :peek, :peek_values
+
+  # new_enum_chain: a chain with a lazy part is lazy.
+  def self.of(enums)
+    Primitive.attr! :hidden
+    chain = new(*enums)
+    enums.any?(Enumerator::Lazy) ? chain.lazy : chain
+  end
+  private_class_method :of
 end
 
 class Enumerator
-  def +(other) = Enumerator::Chain.new(self, other)
+  def +(other) = Enumerator::Chain.send(:of, [self, other])
 end
 
 # `Enumerator.product(a, b)`: every combination, the last enumerable
 # varying fastest.
 class Enumerator::Product < Enumerator
-  def initialize(*enums)
+  def initialize(*enums, **options)
+    raise ArgumentError, "unknown keyword#{"s" if options.size > 1}: #{options.keys.map(&:inspect).join(", ")}" unless options.empty?
+
     @enums = enums
     self
   end
@@ -1075,16 +1114,18 @@ class Enumerator::Product < Enumerator
 
   # enum_product_total_size: nil or an infinity ends the count; any
   # other size that is no Integer makes it nil.
+  # enum_product_total_size: an empty enumerable makes the product
+  # empty, before any size that is unknown or endless counts.
   def size
-    total = 1
-    @enums.each do |e|
-      n = e.respond_to?(:size) ? e.size : nil
+    sizes = @enums.map { |e| e.respond_to?(:size) ? e.size : nil }
+    return 0 if sizes.any? { |n| n.is_a?(Integer) && n.zero? }
+
+    sizes.reduce(1) do |total, n|
       return n if n.nil? || (n.is_a?(Float) && n.infinite?)
       return nil unless n.is_a?(Integer)
 
-      total *= n
+      total * n
     end
-    total
   end
 
   # enum_product_rewind: each enumerable, in order.
@@ -1128,6 +1169,8 @@ class Enumerator::Product < Enumerator
       picked.pop
     end
   end
+
+  undef_method :feed, :next, :next_values, :peek, :peek_values
 end
 
 class Enumerator

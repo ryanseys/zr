@@ -1367,6 +1367,15 @@ module Zr::Kern
     if !zr_fixnum_p(other) && !zr_float_p(other)
       return Machine.value(QNIL)
     end
+    # ruby_float_step_size: an infinite stop ahead never ends, and one
+    # behind runs nothing.
+    if zr_float_p(other) && zr_inf_p(zr_float_value(other))
+      d = zr_float_value(other)
+      if (dir > 0) == (d > Machine.f64(0))
+        return zr_float_new(dir > 0 ? d : Machine.f64(0) - d)
+      end
+      return zr_fix(0)
+    end
     out = Machine.slot(8)
     r = zr_int_bound(recv, argv, out, dir)
     return r if r == QUNDEF
@@ -1440,7 +1449,9 @@ module Zr::Kern
 
   # A builtin iterator called with no block: returns
   # `to_enum(:name, *args)`, with the count of values that it would yield,
-  # or nil when that count is unknown.
+  # or nil when that count is unknown. A `size` of :__length__ is the
+  # length of the Array or Hash at the time it is asked for
+  # (ary_enum_length, hash_enum_size).
   #: (value, word, word, ptr, value) -> value
   def zr_enum_for(recv, mid, argc, argv, size)
     # A builtin called through an alias (`filter` for `select`, `each_pair`
@@ -1466,7 +1477,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_ary_each(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RArray[recv].len))
+      return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     i = 0
     while i < RArray[recv].len
@@ -1537,7 +1548,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_ary_each_with_index(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:each_with_index), argc, argv, zr_fix(RArray[recv].len))
+      return zr_enum_for(recv, Machine.id(:each_with_index), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     i = 0
     while i < RArray[recv].len
@@ -1551,7 +1562,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_ary_each_index(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:each_index), argc, argv, zr_fix(RArray[recv].len))
+      return zr_enum_for(recv, Machine.id(:each_index), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     i = 0
     while i < RArray[recv].len
@@ -1567,7 +1578,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_ary_map(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:map), argc, argv, zr_fix(RArray[recv].len))
+      return zr_enum_for(recv, Machine.id(:map), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     out = zr_ary_new(RArray[recv].len)
     i = 0
@@ -1585,7 +1596,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_ary_collect(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:collect), argc, argv, zr_fix(RArray[recv].len))
+      return zr_enum_for(recv, Machine.id(:collect), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     zr_ary_map(recv, argc, argv, cref, blk)
   end
@@ -1610,7 +1621,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_ary_select(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:select), argc, argv, zr_fix(RArray[recv].len))
+      return zr_enum_for(recv, Machine.id(:select), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     zr_ary_filter(recv, blk, true)
   end
@@ -1618,7 +1629,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_ary_reject(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:reject), argc, argv, zr_fix(RArray[recv].len))
+      return zr_enum_for(recv, Machine.id(:reject), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     zr_ary_filter(recv, blk, false)
   end

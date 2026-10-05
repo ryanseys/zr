@@ -832,7 +832,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_hash_each(recv, argc, argv, cref, blk)
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_fix(RHash[recv].live))
+      return zr_enum_for(recv, Machine.id(:each), argc, argv, zr_sym(Machine.id(:__length__)))
     end
     pairless = zr_block_takes_pair(blk)
     RHash[recv].iter = RHash[recv].iter + 1
