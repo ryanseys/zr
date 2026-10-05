@@ -45,6 +45,9 @@ module OpenSSL
       r = Ossl.uint64(r)
       p = Ossl.uint64(p)
       length = Ossl.long(length)
+      # rb_str_new refuses a negative size before OpenSSL sees it.
+      raise ArgumentError, "negative string size (or size too big)" if length.negative?
+
       out = Lib.buffer(length)
       # OpenSSL's default of 32 MB, for a zero, is too small: the other
       # parameters bound the memory, and malloc inside OpenSSL fails past it.
