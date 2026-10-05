@@ -279,13 +279,11 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # runtime contains it already or an earlier require read it.
   # `autoload` calls this: ruby keeps no entry for such a feature and
   # declares only the name. A name that matches no file is not loaded,
-  # so it keeps its entry and raises where the constant is read.
-  def self.loaded_feature?(feature)
+  # so it keeps its entry and raises where the constant is read. `file` is
+  # the file that a require of it would read (`feature_file`), or nil.
+  def self.loaded_feature?(feature, file)
     Primitive.attr! :hidden
-    return true if preloaded?(feature)
-
-    path = feature_file(feature)
-    !path.nil? && Primitive.zr_table_member_p($LOADED_FEATURES, path)
+    preloaded?(feature) || (!file.nil? && Primitive.zr_table_member_p($LOADED_FEATURES, file))
   end
 
   # The path that a require of `feature` would read, or nil when no file
