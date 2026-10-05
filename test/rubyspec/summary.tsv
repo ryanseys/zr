@@ -17,7 +17,7 @@ core/enumerator	81	447	447	0	0
 core/env	44	237	237	0	0
 core/exception	39	243	241	1	0
 core/false	9	13	13	0	0
-core/fiber	11	158	156	0	0
+core/fiber	11	158	158	0	0
 core/file	112	932	932	0	0
 core/filetest	24	90	90	0	0
 core/float	50	325	325	0	0
@@ -26,7 +26,7 @@ core/hash	69	620	620	0	0
 core/integer	67	599	599	0	0
 core/io	94	1519	1517	0	0
 core/kernel	117	2731	2726	0	0
-core/main	7	27	26	0	0
+core/main	7	27	27	0	0
 core/marshal	6	617	615	0	0
 core/matchdata	29	185	185	0	0
 core/math	27	225	225	0	0
@@ -118,4 +118,4 @@ library/weakref	5	9	9	0	0
 library/win32ole	74	0	0	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3723	33141	33096	1	0
+total	3723	33141	33099	1	0
