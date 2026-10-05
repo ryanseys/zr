@@ -164,7 +164,8 @@ module Zr
       # Runs `argv` in `dir` with a time limit, and returns its standard
       # output and whether a limit stopped it: `limit` seconds in all, or
       # `idle` seconds with no output (a test that hangs).
-      def capture(env, argv, dir, limit, idle: nil)
+      # `live`, when given, gets each whole line of the output as it comes.
+      def capture(env, argv, dir, limit, idle: nil, live: nil)
         foreground_signals!
         reader, writer = IO.pipe
         pid = Process.spawn(env, *argv, chdir: dir, in: File::NULL, out: writer, err: File::NULL, pgroup: true)
@@ -173,9 +174,14 @@ module Zr
         clock = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
         heard = clock.call
         collector = Thread.new do
+          told = 0
           loop do
             out << reader.readpartial(65_536)
             heard = clock.call
+            next unless live && (last = out.rindex("\n", -1)) && last >= told
+
+            out.byteslice(told, last + 1 - told).each_line { |line| live.call(line.chomp) }
+            told = last + 1
           end
         rescue EOFError, IOError
           nil
@@ -231,7 +237,8 @@ module Zr
           @keep = keep
           @update = update
           @filtered = filtered
-          @work = File.join(out, "work", area.tr("/", "-"))
+          # The binaries stay in tmp/: they are large, and a run makes them again.
+          @work = Dev.path("tmp", File.basename(out), "work", area.tr("/", "-"))
         end
 
         # The count of examples that ruby passes and zr does not.
@@ -241,7 +248,11 @@ module Zr
           FileUtils.rm_rf(@work)
           FileUtils.mkdir_p(@work)
           FileUtils.mkdir_p(File.dirname(issues))
+          FileUtils.mkdir_p(File.dirname(tests_log))
           File.write(issues, "")
+          @tests = File.open(tests_log, "w")
+          @tests.sync = true
+          @tests_lock = Mutex.new
           started = now
           results = {}
           chunks.each do |chunk|
@@ -263,6 +274,7 @@ module Zr
           File.open(issues, "a") { |io| io.puts JSON.generate({ done: true, area: @area, files: results.size }) }
           report(results, now - started)
         ensure
+          @tests&.close
           FileUtils.rm_rf(@work) unless @keep
         end
 
@@ -293,6 +305,15 @@ module Zr
         # its tag, if any; or a file that did not build, load or end, with
         # the name "*". The last line of a run that ended is {"done":true}.
         def issues = File.join(@out, "issues", "#{@area.tr("/", "-")}.jsonl")
+
+        # The live log of zr's runs, `<out>/tests/<area>.log`: each line of
+        # output as it comes, after the time and the file, so `tail -f`
+        # shows each test start and end, and the one that hangs.
+        def tests_log = File.join(@out, "tests", "#{@area.tr("/", "-")}.log")
+
+        def tested(file, line)
+          @tests_lock.synchronize { @tests.puts("#{Time.now.strftime("%H:%M:%S")} #{rel(file)}: #{line}") }
+        end
 
         def log_issues(file, result)
           r = rel(file)
@@ -374,7 +395,7 @@ module Zr
           hung = []
           result = nil
           loop do
-            run = run_one([binary, *arguments(file, zr: true, skip: hung)], zr: true)
+            run = run_one([binary, *arguments(file, zr: true, skip: hung)], zr: true, file: file)
             result = result ? result.merge(run, examples: result[:examples].merge(run[:examples])) : run
             break hung << run[:hung] if run[:timed_out] && run[:hung] && hung.size >= RESUMES
             break if !run[:timed_out] || run[:hung].nil? || hung.include?(run[:hung])
@@ -402,9 +423,10 @@ module Zr
         # Runs one file with the time limit, in a directory of its own, and
         # reads its output: { examples: { name => [status, message] },
         # load:, ended:, timed_out: }.
-        def run_one(argv, zr:)
+        def run_one(argv, zr:, file: nil)
           Dir.mktmpdir("zr-suite-") do |dir|
-            out, timed_out = Suite.capture(env(dir, zr: zr), argv, dir, limit, idle: idle)
+            live = (->(line) { tested(file, line) } if file)
+            out, timed_out = Suite.capture(env(dir, zr: zr), argv, dir, limit, idle: idle, live: live)
             read(out).merge(timed_out: timed_out)
           end
         end

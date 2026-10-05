@@ -41,4 +41,13 @@ class SuiteTest < Minitest::Test
 
     assert_equal [2, 2, 1, 1, 0], Zr::Dev::Suite.counts("files" => files)
   end
+
+  def test_capture_gives_each_whole_line_as_it_comes
+    lines = []
+    script = "$stdout.sync = true; print %(one\ntw); sleep 0.2; print %(o\nthree)"
+    out, timed_out = Zr::Dev::Suite.capture({}, [RbConfig.ruby, "-e", script], Dir.pwd, 30, live: ->(line) { lines << line })
+
+    assert_equal ["one\ntwo\nthree", false], [out, timed_out]
+    assert_equal %w[one two], lines
+  end
 end
