@@ -21,30 +21,30 @@ module Etc
   module_function
 
   def getpwnam(name)
-    row = Primitive.zr_pw_name(String(name))
+    row = Primitive.zr_pw_name(Etc.send(:string_arg, name))
     raise ArgumentError, "can't find user for #{name}" unless row
 
     Passwd.new(*row)
   end
 
-  def getpwuid(uid = nil)
-    uid = Process.uid if uid.nil?
-    row = Primitive.zr_pw_uid(Integer(uid))
+  def getpwuid(uid = (given = false; nil))
+    uid = Process.uid if given == false
+    row = Primitive.zr_pw_uid(Integer.send(:int_operand, uid))
     raise ArgumentError, "can't find user for #{uid}" unless row
 
     Passwd.new(*row)
   end
 
   def getgrnam(name)
-    row = Primitive.zr_gr_name(String(name))
+    row = Primitive.zr_gr_name(Etc.send(:string_arg, name))
     raise ArgumentError, "can't find group for #{name}" unless row
 
     Group.new(*row)
   end
 
-  def getgrgid(gid = nil)
-    gid = Process.gid if gid.nil?
-    row = Primitive.zr_gr_gid(Integer(gid))
+  def getgrgid(gid = (given = false; nil))
+    gid = Process.gid if given == false
+    row = Primitive.zr_gr_gid(Integer.send(:int_operand, gid))
     raise ArgumentError, "can't find group for #{gid}" unless row
 
     Group.new(*row)
@@ -92,20 +92,44 @@ module Etc
     %i[sysname nodename release version machine].zip(names).to_h
   end
 
-  def confstr(name) = Primitive.zr_confstr(Integer(name))
-  def sysconf(name) = Primitive.zr_sysconf(Integer(name))
+  def confstr(name) = Etc.send(:checked, "confstr", Primitive.zr_confstr(Integer.send(:int_operand, name)))
+  def sysconf(name) = Etc.send(:checked, "sysconf", Primitive.zr_sysconf(Integer.send(:int_operand, name)))
 
+  # A walk of the table inside another walk of it raises, as etc.c's
+  # passwd_blocking and group_blocking do.
   def each_row(reader)
-    __send__(reader == :getpwent ? :setpwent : :setgrent)
-    while (row = __send__(reader))
-      yield row
+    table = reader == :getpwent ? "passwd" : "group"
+    raise RuntimeError, "parallel #{table} iteration" if Etc.instance_variable_get(:"@#{table}_walking")
+
+    begin
+      Etc.instance_variable_set(:"@#{table}_walking", true)
+      __send__(reader == :getpwent ? :setpwent : :setgrent)
+      while (row = __send__(reader))
+        yield row
+      end
+      nil
+    ensure
+      __send__(reader == :getpwent ? :endpwent : :endgrent)
+      Etc.instance_variable_set(:"@#{table}_walking", false)
     end
-    nil
-  ensure
-    __send__(reader == :getpwent ? :endpwent : :endgrent)
   end
-  private :each_row
-  private_class_method :each_row
+
+  # StringValue: a String, or an object that converts to one.
+  def string_arg(name)
+    return name if name.is_a?(String)
+    raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" unless name.respond_to?(:to_str)
+
+    name.to_str
+  end
+
+  # A negative Integer is the errno of a failed call.
+  def checked(call, got)
+    raise SystemCallError.new(call, -got) if got.is_a?(Integer) && got.negative?
+
+    got
+  end
+  private :each_row, :string_arg, :checked
+  private_class_method :each_row, :string_arg, :checked
 end
 
 class IO

@@ -1278,21 +1278,24 @@ module Zr::Kern
   # Returns a sysconf or pathconf value, or nil when the name has no limit.
   #: (value) -> value
   def zr_sysconf(name)
+    zr_clear_errno()
     got = Libc.sysconf(Machine.i32(zr_fix2long(name)))
     if got == 0 - 1
-      return Machine.value(QNIL)
+      return zr_errno() == 0 ? Machine.value(QNIL) : zr_fix(0 - zr_errno())
     end
     zr_fix(got)
   end
 
   # Returns a confstr value. The first call gets the length, which confstr
-  # returns when the buffer is empty.
+  # returns when the buffer is empty. A length of 0 is no value, or the
+  # negated errno if the call set one.
   #: (value) -> value
   def zr_confstr(name)
     which = Machine.i32(zr_fix2long(name))
+    zr_clear_errno()
     len = Libc.confstr(which, Machine.ptr(0), 0)
     if len == 0
-      return Machine.value(QNIL)
+      return zr_errno() == 0 ? Machine.value(QNIL) : zr_fix(0 - zr_errno())
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
