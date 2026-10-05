@@ -1014,6 +1014,18 @@ module Zr::Kern
     s
   end
 
+  # rb_singleton_class: the singleton class of a class that the program
+  # sees gets its own singleton class too (ENSURE_EIGENCLASS). So it
+  # answers the methods of its superclass's singleton class.
+  #: (value) -> value
+  def zr_singleton_class_shown(v)
+    s = zr_singleton_class(v)
+    if s != QUNDEF && !zr_special_p(v) && zr_type(v) == T_CLASS
+      zr_singleton_class(s)
+    end
+    s
+  end
+
   # Checks before a change to a class's own tables: its own frozen flag,
   # never its origin's. The error for a frozen singleton class shows the
   # object it belongs to, as CRuby's rb_class_modify_check does.

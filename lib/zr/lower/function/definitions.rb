@@ -63,7 +63,7 @@ module Zr
         def singleton_class_body(node)
           fn = @l.body(node, self)
           at_node(node)
-          klass = checked(kernel("zr_singleton_class", expr(node.target)))
+          klass = checked(kernel("zr_singleton_class_shown", expr(node.target)))
           cref = kernel("zr_cref_push", klass, @cref)
           checked(@f.call_val(@f.callee(fn, ABI.fetch(:sclass), "i64"), [klass, cref]))
         end

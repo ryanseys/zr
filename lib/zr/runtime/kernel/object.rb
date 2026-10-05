@@ -716,7 +716,7 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_obj_singleton_class(recv, argc, argv, cref, blk)
-    zr_singleton_class(recv)
+    zr_singleton_class_shown(recv)
   end
 
   #: (value, word, ptr, value, value) -> value
