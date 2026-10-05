@@ -179,7 +179,15 @@ module Kernel
     return Primitive.zr_unimplemented(+"load with a wrap module") unless defined?(::Zr::Eval)
 
     code = ::Zr::Eval.current.compile(File.read(path), path, 1, [], false)
-    Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver.clone.extend(mod), Primitive.zr_wrap_cref(mod), nil, nil)
+    top = TOPLEVEL_BINDING.receiver.clone.extend(mod)
+    # top_include: main's `include` in a wrapped load goes into the
+    # wrapper module, not Object.
+    top.define_singleton_method(:include) do |*modules|
+      warn("main.include in the wrapped load is effective only in wrapper module", uplevel: 1) if $VERBOSE
+      mod.include(*modules)
+    end
+    top.singleton_class.send(:private, :include)
+    Primitive.zr_eval_run(code, top, Primitive.zr_wrap_cref(mod), nil, nil)
     true
   end
 
