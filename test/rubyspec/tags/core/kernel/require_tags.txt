@@ -1,2 +1,1 @@
-fails:Kernel#require complex, enumerator, fiber, rational, thread, ruby2_keywords, set, pathname are already required
 hangs:Kernel.require ($LOADED_FEATURES) unicode_normalize is part of core and not $LOADED_FEATURES
