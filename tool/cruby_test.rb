@@ -97,6 +97,7 @@ module Zr
         dirs = @all ? all_dirs(root) : argv.map { |d| dir!(root, d) }
         dirs = shard(dirs) if @shard
         Suite.lock! do
+          Suite.pin!
           gaps = dirs.sum do |dir|
             Area.new(root, dir, filter: @filter, jobs: @jobs, keep: @keep, update: @update).run
           end
@@ -179,7 +180,7 @@ module Zr
         end
 
         # A test that starts a ruby starts the interpreter of the run.
-        def env(dir, zr:) = super.merge("RUBY" => zr ? Dev.path("exe/zr") : RbConfig.ruby, "TMPDIR" => dir)
+        def env(dir, zr:) = super.merge("RUBY" => zr ? Suite.zr : RbConfig.ruby, "TMPDIR" => dir)
 
         def write_tags(rel, result)
           old = CRubyTest.reasons(rel)

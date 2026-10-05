@@ -39,9 +39,42 @@ module Zr
         end
       end
 
-      # The version of zr that a run tested: the commit, and a digest of
-      # the changes that are not committed.
-      def zr_version
+      # The copy of zr that a suite runs. `pin!` copies the checkout's
+      # zr into it when the suite starts, so the checkout can change while
+      # the suite runs: its builds and the zr that its tests start read
+      # only this copy.
+      PIN = Dev.path("tmp/suite/zr")
+
+      # What zr reads below its root: the command, the compiler with its
+      # runtime, and the vendored libraries.
+      PINNED = %w[exe lib vendor].freeze
+
+      # Copies the checkout's zr, with the changes that are not committed,
+      # to PIN, and records its version. The lock holds, so no other suite
+      # uses the copy.
+      def pin!
+        @version = checkout_version
+        FileUtils.rm_rf(PIN)
+        FileUtils.mkdir_p(PIN)
+        PINNED.each { |dir| FileUtils.cp_r(Dev.path(dir), File.join(PIN, dir)) }
+        puts "zr-dev: the suite runs a copy of zr at #{@version[0, 19]} (#{Dev.rel(PIN)}); the checkout may change"
+      end
+
+      # The zr command of the copy.
+      def zr = File.join(PIN, "exe/zr")
+
+      # The environment of the copy. It is not a checkout, so its cache
+      # is named: the checkout's, whose entries are keyed by digests. It
+      # trims nothing, and builds alone, as the build server builds from
+      # the checkout.
+      def zr_env = { "ZR_CACHE" => Dev.path("tmp/cache"), "ZR_CACHE_MAX_GB" => "0", "ZR_SERVER" => "0" }
+
+      # The version of zr that a run tested: the one `pin!` copied.
+      def zr_version = @version || checkout_version
+
+      # The checkout's version: the commit, and a digest of the changes
+      # that are not committed.
+      def checkout_version
         head = Dev.git("rev-parse", "HEAD").to_s.strip
         diff = Dev.git("diff", "HEAD").to_s
         diff.empty? ? head : "#{head}+#{Digest::SHA256.hexdigest(diff)[0, 12]}"
@@ -192,13 +225,18 @@ module Zr
 
           FileUtils.rm_rf(@work)
           FileUtils.mkdir_p(@work)
+          FileUtils.mkdir_p(File.dirname(issues))
+          File.write(issues, "")
           started = now
           results = {}
           chunks.each do |chunk|
             bisect(chunk).each do |files, binary, error|
-              next files.each { |f| results[rel(f)] = { "state" => "build", "error" => error, "examples" => {} } } unless binary
+              unless binary
+                files.each { |f| results[rel(f)] = progress(f, started) { { "state" => "build", "error" => error, "examples" => {} } } }
+                next
+              end
 
-              Dev.parallel_map(files, jobs: @jobs) { |f| [rel(f), compare(f, binary)] }.each { |r, result| results[r] = result }
+              Dev.parallel_map(files, jobs: @jobs) { |f| [rel(f), progress(f, started) { compare(f, binary) }] }.each { |r, result| results[r] = result }
               FileUtils.rm_f(binary) unless @keep
             end
           end
@@ -207,12 +245,56 @@ module Zr
           results = earlier.merge(results).sort.to_h
           Suite.write_results(@out, @area, results)
           results.each { |r, result| write_tags(r, result) } if @update
+          File.open(issues, "a") { |io| io.puts JSON.generate({ done: true, area: @area, files: results.size }) }
           report(results, now - started)
         ensure
           FileUtils.rm_rf(@work) unless @keep
         end
 
         def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+        # The result of one file, with a line when it ends, so a log shows
+        # how far a long run is: the count of files that ended, the file,
+        # the examples that ruby and zr pass, and the time.
+        def progress(file, started)
+          began = now
+          result = yield
+          @done = (@done || 0) + 1
+          examples = result["examples"].values
+          ruby = examples.count { |statuses| statuses.first == "pass" }
+          zr = examples.count { |rb, z| rb == "pass" && z == "pass" }
+          ending = result["timed_out"] ? ", timed out" : (result["state"] == "ran" ? "" : ", #{result["state"]}")
+          $stdout.puts format("[%d/%d] %s: %d/%d pass in zr (%ds%s; %dm in all)", @done, @files.size, rel(file), zr, ruby,
+                              now - began, ending, (now - started) / 60)
+          $stdout.flush
+          log_issues(file, result)
+          result
+        end
+
+        # The live list of the area's gaps, `<out>/issues/<area>.jsonl`,
+        # which another process (an agent that fixes them) may read while
+        # the run goes on. Each line is one JSON object: an example that
+        # ruby passes and zr does not, with zr's status and message and
+        # its tag, if any; or a file that did not build, load or end, with
+        # the name "*". The last line of a run that ended is {"done":true}.
+        def issues = File.join(@out, "issues", "#{@area.tr("/", "-")}.jsonl")
+
+        def log_issues(file, result)
+          r = rel(file)
+          tagged = tags(r)
+          lines = result["examples"].filter_map do |name, (ruby, zr, message)|
+            next unless ruby == "pass" && zr != "pass"
+
+            { area: @area, file: r, name: name, zr: zr, message: message, tag: tagged[name] }
+          end
+          unless result["state"] == "ran" && !result["timed_out"]
+            why = result["timed_out"] ? "timeout" : result["state"]
+            lines.unshift({ area: @area, file: r, name: "*", zr: why, message: result["error"], tag: tagged[""] })
+          end
+          return if lines.empty?
+
+          File.open(issues, "a") { |io| io.write(lines.map { |line| JSON.generate(line) << "\n" }.join) }
+        end
 
         # A file's path below the suite's root, as results and tags name it.
         def rel(file) = file.delete_prefix("#{@root}/")
@@ -243,7 +325,7 @@ module Zr
           source = File.join(@work, "#{name}.rb")
           binary = File.join(@work, name)
           File.write(source, program(files))
-          out, status = Open3.capture2e(Dev.ruby, Dev.path("exe/zr"), "build", source, "-o", binary)
+          out, status = Open3.capture2e(Suite.zr_env, Dev.ruby, Suite.zr, "build", source, "-o", binary)
           return build(files, again: false) if !status.success? && again && out.include?("changed while this build ran")
           return [binary, nil] if status.success?
 
@@ -290,7 +372,12 @@ module Zr
         end
 
         # The environment of a run: no bundler of the tools' own.
-        def env(_dir, zr:) = { "RUBYOPT" => nil, "RUBYLIB" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil }
+        # zr's run gets the environment of the pinned copy, for the zr that
+        # its tests start.
+        def env(_dir, zr:)
+          base = { "RUBYOPT" => nil, "RUBYLIB" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil }
+          zr ? base.merge(Suite.zr_env) : base
+        end
 
         # The tags of one file from its results: each example that ruby
         # passes and zr does not. When zr's run stopped early, the first

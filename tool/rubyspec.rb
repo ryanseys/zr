@@ -86,6 +86,7 @@ module Zr
         areas = @all ? ORDER.flat_map { |a| areas_of(root, a) } : argv.flat_map { |a| areas_of(root, a) }
         areas = shard(areas) if @shard
         Suite.lock! do
+          Suite.pin!
           gaps = areas.sum do |area|
             Area.new(root, area, filter: @filter, jobs: @jobs, keep: @keep, update: @update).run
           end
@@ -162,7 +163,7 @@ module Zr
         # zr's run skips the examples tagged `hangs`; ruby runs them all.
         # mspec's ruby_exe runs the interpreter of the run.
         def env(dir, zr:)
-          super.merge("RUBY_EXE" => zr ? Dev.path("exe/zr") : RbConfig.ruby, "SPEC_TEMP_DIR" => File.join(dir, "tmp"),
+          super.merge("RUBY_EXE" => zr ? Suite.zr : RbConfig.ruby, "SPEC_TEMP_DIR" => File.join(dir, "tmp"),
                       "SPEC_SKIP_HANGS" => ("1" if zr))
         end
 
