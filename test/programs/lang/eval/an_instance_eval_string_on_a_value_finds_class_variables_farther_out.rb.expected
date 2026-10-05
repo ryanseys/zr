@@ -1,0 +1,14 @@
+[13, 13, true]
+[13, 13, true]
+[13, 13, true]
+[13, 13, true]
+[13, 13, true]
+[13, 13, true]
+[13, 13, true]
+[13, 13, true]
+4
+[1, "can't define singleton"]
+[:s, "can't define singleton"]
+[nil, 1]
+Integer
+Comparable

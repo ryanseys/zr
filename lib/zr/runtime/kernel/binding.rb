@@ -77,8 +77,16 @@ module Zr::Kern
   # then a constant lookup reads the object's class there.
   #: (value, value) -> value
   def zr_eval_cref_lazy(obj, outer)
+    # A value with no singleton class of its own (nil's is NilClass) gets
+    # its class, which an eval pushed, so a class variable is found farther
+    # out, as vm_get_cvar_base passes over it. A value that cannot have one
+    # also cannot take a `def`.
     if zr_special_p(obj) || zr_singleton_refused_p(obj)
-      return zr_cref_push(zr_class_of(obj), outer)
+      c = zr_cref_push_eval(zr_class_of(obj), outer)
+      if zr_singleton_refused_p(obj)
+        RCref[c].eval = EVAL_NO_DEF
+      end
+      return c
     end
     k = RBasic[obj].klass
     c = zr_cref_push(k, outer)
