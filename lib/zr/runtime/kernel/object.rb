@@ -1237,6 +1237,17 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_byte(b, 58)
+    # A name that is not ASCII-compatible is quoted as its String inspects,
+    # character by character (rb_str_inspect).
+    if !zr_enc_ascii_compat_p(zr_symbol_encoding_index(id))
+      s = zr_inspect(zr_sym_to_s(sym, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL)))
+      if s == QUNDEF
+        zr_buf_free(b)
+        return s
+      end
+      zr_buf_str(b, s)
+      return zr_buf_take(b)
+    end
     if zr_symbol_tag(id) == 0 && zr_symname_plain_p(p, n)
       zr_buf_push(b, p, n)
       # A plain name keeps the symbol's encoding: US-ASCII for plain ASCII.

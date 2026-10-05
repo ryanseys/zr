@@ -232,8 +232,10 @@ module Zr::Kern
   def zr_sym_to_s(recv, argc, argv, cref, blk)
     id = zr_sym2id(recv)
     s = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
-    # An ASCII-only name is US-ASCII, as in ruby.
-    zr_str_set_index(s, zr_str_ascii_only(s) ? ENC_USASCII : zr_symbol_encoding_index(id))
+    # An ASCII-only name is US-ASCII, as in ruby, when its encoding holds
+    # ASCII text; a name in UTF-16, UTF-32 or a dummy encoding keeps it.
+    index = zr_symbol_encoding_index(id)
+    zr_str_set_index(s, zr_enc_ascii_compat_p(index) && zr_str_ascii_only(s) ? ENC_USASCII : index)
     RBasic[s].flags = RBasic[s].flags | FL_CHILLED_SYMBOL
     s
   end

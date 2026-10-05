@@ -1,0 +1,12 @@
+#<Encoding:UTF-16BE>
+false
+":\"\\u6161\\u6161\""
+#<Encoding:UTF-32LE>
+#<Encoding:ISO-2022-JP (dummy)>
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16BE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: ISO-2022-JP"]
+255
+15
+[ArgumentError, "invalid encoding name (non ASCII)"]
+#<Encoding:UTF-8>

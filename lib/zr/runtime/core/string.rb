@@ -379,6 +379,17 @@ class String
     byteslice_of(0, Primitive.zr_str_space_start(self, Primitive.zr_str_bytesize(self), true))
   end
 
+  # rb_must_asciicompat: the methods that read ASCII digits refuse text
+  # in UTF-16, UTF-32 or a dummy encoding. An ASCII-only text is in an
+  # ASCII-compatible encoding.
+  def ascii_compatible!
+    Primitive.attr! :hidden
+    return if Primitive.zr_str_ascii_only_m(self)
+
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{enc}" unless enc.ascii_compatible?
+  end
+
   # rb_str_check_dummy_enc, as rstrip_offset calls it.
   def dummy_check!
     Primitive.attr! :hidden
@@ -1790,9 +1801,15 @@ class String
     point.chr(Encoding::UTF_8).b
   end
 
-  def hex = lenient_integer(16)
+  def hex
+    ascii_compatible!
+    lenient_integer(16)
+  end
 
-  def oct = lenient_integer(-8)
+  def oct
+    ascii_compatible!
+    lenient_integer(-8)
+  end
 
   def center(width, pad = (nopad = true)) = justify(width, nopad ? nil : pad, :center)
 
@@ -1801,12 +1818,7 @@ class String
   def rjust(width, pad = (nopad = true)) = justify(width, nopad ? nil : pad, :right)
 
   def to_i(base = 10)
-    # rb_must_asciicompat, before the base is read. An ASCII-only text
-    # is in an ASCII-compatible encoding.
-    unless Primitive.zr_str_ascii_only_m(self)
-      enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
-      raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{enc}" unless enc.ascii_compatible?
-    end
+    ascii_compatible!
     base = Primitive.zr_index_operand_m(base)
     raise ArgumentError, "invalid radix #{base}" if base < 0 || base == 1 || base > 36
     if base == 10
@@ -4359,6 +4371,8 @@ class Encoding
 
     text = String.try_convert(name)
     raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
+    # rb_to_encoding_index: a name must be in an ASCII-compatible encoding.
+    raise ArgumentError, +"invalid encoding name (non ASCII)" unless text.encoding.ascii_compatible?
     if text.ascii_only?
       key = text.upcase(:ascii)
       # These follow the defaults: each is whatever its default is, nil too.
