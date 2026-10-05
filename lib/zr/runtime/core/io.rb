@@ -2236,9 +2236,14 @@ class IO
 
   def checked_write(result)
     Primitive.attr! :hidden
-    raise SystemCallError.new(label, -result, +"rb_sys_fail_on_write") if result < 0
+    return result unless result.negative?
 
-    result
+    error = SystemCallError.new(label, -result, +"rb_sys_fail_on_write")
+    # rb_sys_fail_on_write: a closed pipe on standard output or error
+    # carries SIGPIPE, so a program that does not rescue it ends by that
+    # signal, quietly, as with no handler for it.
+    Primitive.zr_hidden_set(error, :__signo__, 13) if -result == Errno::EPIPE::Errno && (@fd == 1 || @fd == 2)
+    raise error
   end
 
   # The result of a read, into `buffer` when one was given. The end of

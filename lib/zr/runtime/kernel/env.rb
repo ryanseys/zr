@@ -170,10 +170,18 @@ module Zr::Kern
     1
   end
 
-  # Returns the POSIX signal number of an uncaught SignalException, or 0.
+  # Returns the POSIX signal number of an uncaught SignalException, or of
+  # an error that carries one (EPIPE on standard output), or 0.
   #: (value) -> word
   def zr_signal_of(exc)
-    if zr_special_p(exc) || !zr_is_a(exc, zr_core_class(Machine.id(:SignalException)))
+    if zr_special_p(exc)
+      return 0
+    end
+    carried = zr_hidden_get(exc, zr_sym(Machine.id(:__signo__)))
+    if zr_fixnum_p(carried)
+      return zr_fix2long(carried)
+    end
+    if !zr_is_a(exc, zr_core_class(Machine.id(:SignalException)))
       return 0
     end
     n = zr_send(exc, Machine.id(:signo), 0, 0)
