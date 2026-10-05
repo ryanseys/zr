@@ -1,0 +1,8 @@
+true
+[NotImplementedError, "not a StandardError"]
+[StandardError, "plain"]
+[ArgumentError, "comparison of String with 0 failed"]
+[ArgumentError, "comparison of String with 0 failed"]
+[ArgumentError, "comparison of Float with Labeledエ failed"]
+[ArgumentError, "comparison of Integer with Labeledエ failed"]
+[ArgumentError, "comparison of Float with nil failed"]

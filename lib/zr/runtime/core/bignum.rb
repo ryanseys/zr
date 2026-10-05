@@ -472,8 +472,8 @@ class Integer
         return false if c.nil?
 
         op == :< ? c < 0 : (op == :<= ? c <= 0 : (op == :> ? c > 0 : c >= 0))
-      # A bit operator coerces, then takes Integers alone, as CRuby's
-      # bit_coerce does.
+      # A bit operator coerces, then calls the operator of the first of
+      # the pair, as rb_num_coerce_bit does.
       when :&, :|, :^ then Primitive.zr_num_coerce_m(self, other, op, 4)
       else raise TypeError, +"no implicit conversion from Float"
       end

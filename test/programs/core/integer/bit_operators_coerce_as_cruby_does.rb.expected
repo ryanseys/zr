@@ -1,0 +1,7 @@
+2
+11
+9
+1180591620717411303424
+[TypeError, "1.5 can't be coerced into Integer"]
+[TypeError, "Object can't be coerced into Integer"]
+[TypeError, "Plain can't be coerced into Integer"]

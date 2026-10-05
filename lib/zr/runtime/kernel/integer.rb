@@ -297,9 +297,12 @@ module Zr::Kern
         if !bad
           first = zr_ary_at(pair, 0)
           second = zr_ary_at(pair, 1)
-          # A bit operator (`kind` 4) accepts only Integers, as CRuby's
-          # bit_coerce checks. Any other result fails as the operand fails.
-          if kind != 4 || ((zr_fixnum_p(first) || zr_big_p(first)) && (zr_fixnum_p(second) || zr_big_p(second)))
+          # A bit operator (`kind` 4) runs only when the first of the pair
+          # has it, as num_funcall_bit_1's rb_check_funcall finds it. If
+          # not, it fails as the operand fails.
+          answers = kind == 4 ? zr_check_funcall(first, mid) : Machine.value(QTRUE)
+          return answers if answers == QUNDEF
+          if answers == QTRUE
             Machine.store64(slot, 0, Machine.word(second))
             return zr_send(first, mid, 1, slot)
           end
@@ -323,7 +326,14 @@ module Zr::Kern
       return s if s == QUNDEF
       zr_buf_str(b, s)
     else
-      zr_buf_class_of(b, other)
+      # rb_obj_class written with PRIsVALUE: the class's own to_s.
+      s = zr_send(zr_real_class(other), Machine.id(:to_s), 0, 0)
+      return s if s == QUNDEF
+      if !zr_special_p(s) && zr_type(s) == T_STRING
+        zr_buf_str(b, s)
+      else
+        zr_buf_class_of(b, other)
+      end
     end
     if kind == 1
       zr_buf_push(b, Machine.bytes(" failed"), 7)
