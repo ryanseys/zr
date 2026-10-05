@@ -1,0 +1,7 @@
+[:plain, [:sub, :base]]
+[:plain_direct, [:sub, :base]]
+[:single, "x#<Module"]
+[:single_eval, "x#<Module"]
+[:single_feature, :ok]
+[:single_private, :ok]
+[:defined_check, ["super", nil]]

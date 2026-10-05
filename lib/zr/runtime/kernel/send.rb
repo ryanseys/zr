@@ -475,7 +475,7 @@ module Zr::Kern
       owner = FrameMeta[meta].owner
       mid = FrameMeta[meta].name
     end
-    k = zr_super_from(rec, recv, owner)
+    k = zr_super_from(rec, recv, owner, entry != 0)
     # The site's cache entry is valid for the node and name that it was
     # filled for, under the method stamp, as for a send. The callee reads
     # the keywords that the site set.
@@ -570,7 +570,7 @@ module Zr::Kern
       owner = FrameMeta[meta].owner
       mid = FrameMeta[meta].name
     end
-    k = zr_super_from(rec, Frame[rec].self, owner)
+    k = zr_super_from(rec, Frame[rec].self, owner, entry != 0)
     if k == QNIL
       return Machine.value(QFALSE)
     end
@@ -581,10 +581,11 @@ module Zr::Kern
   # the method frame's defining node when that node represents `owner` (a
   # module included twice has two nodes). Otherwise it is the first node
   # of `owner` in the receiver's ancestor list. Returns nil when there is
-  # none.
-  #: (ptr, value, value) -> value
-  def zr_super_from(rec, recv, owner)
-    k = zr_frame_defined(rec)
+  # none. A method from `define_method` (`bmethod`) runs a block whose
+  # lexical def is not its method, so only its owner counts.
+  #: (ptr, value, value, bool) -> value
+  def zr_super_from(rec, recv, owner, bmethod)
+    k = bmethod ? Machine.value(QNIL) : zr_frame_defined(rec)
     # A plain module (not a proxy in a list) is where a bound method was
     # called from (`bind_call`): the search starts from the receiver.
     if k != QNIL && !(zr_type(k) == T_MODULE && ClassExt[RClass[k].ext].refined == QNIL)
