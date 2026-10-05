@@ -118,14 +118,16 @@ class Date
     def commercial_jd(cwyear, cweek, cwday, start)
       Primitive.attr! :hidden
       first = first_day_jd(cwyear, start) + 3
-      (first - jd_wday(first) - 7) + (7 * cweek) + cwday
+      (first - (first % 7)) + (7 * (cweek - 1)) + (cwday - 1)
     end
 
     def valid_commercial_jd(cwyear, cweek, cwday, start)
       Primitive.attr! :hidden
       cwday += 8 if cwday.negative?
-      cweek += jd_commercial(commercial_jd(cwyear + 1, 1, 1, start) - 1, start)[1] + 1 if cweek.negative?
-      return nil unless (1..7).cover?(cwday) && cweek.positive?
+      if cweek.negative?
+        year, cweek, = jd_commercial(commercial_jd(cwyear + 1, 1, 1, start) + (cweek * 7), start)
+        return nil unless year == cwyear
+      end
 
       jd = commercial_jd(cwyear, cweek, cwday, start)
       jd_commercial(jd, start) == [cwyear, cweek, cwday] ? jd : nil
@@ -525,7 +527,11 @@ class Date
     self + (jd - self.jd)
   end
 
-  def <<(months) = self >> -months
+def <<(months)
+  raise TypeError, "expected numeric" unless months.is_a?(Numeric)
+
+  self >> -months
+end
 
   def next_day(count = 1) = self + count
 
@@ -611,9 +617,17 @@ class Date
     DateTime.send(:at, jd, 0, 0, of, sg)
   end
 
-  def to_time = Time.new(year, mon, mday)
+  # d_lite_to_time: a Julian date turns Gregorian first.
+  def to_time
+    date = julian? ? gregorian : self
+    Time.local(date.year, date.mon, date.mday)
+  end
 
   def deconstruct_keys(keys)
+    unless keys.nil? || keys.is_a?(Array)
+      raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)"
+    end
+
     all = { year: year, month: mon, day: mday, yday: yday, wday: wday }
     keys.nil? ? all : all.slice(*keys)
   end
@@ -653,19 +667,41 @@ end
 
 # DateTime: the same value, with the time of day and the offset shown.
 class DateTime < Date
-  def self.new(year = -4712, month = 1, day = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-    start = send(:valid_start, start)
-    of = send(:seconds_of, offset)
-    second = send(:numeric, second, "second")
-    minute = send(:numeric, minute, "minute")
-    hour = send(:numeric, hour, "hour")
-    day = send(:numeric, day, "day").floor
-    month = send(:numeric, month, "month").to_i
-    jd = send(:valid_civil_jd, send(:integer, send(:numeric, year, "year")), month, day, start)
+  def self.new(*args)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..8)" if args.size > 8
+
+    year, month, day, hour, minute, second, offset, start = args
+    argc = args.size
+    start = argc > 7 ? send(:valid_start, start) : Date::ITALY
+    of = argc > 6 ? send(:seconds_of, offset) : 0
+    fraction = 0
+    second, fraction = send(:whole_part, second, "second", 86_400, true, fraction) if argc > 5
+    minute, fraction = send(:whole_part, minute, "minute", 1440, argc == 5, fraction) if argc > 4
+    hour, fraction = send(:whole_part, hour, "hour", 24, argc == 4, fraction) if argc > 3
+    day, fraction = send(:whole_part, day, "day", 1, argc == 3, fraction) if argc > 2
+    month = argc > 1 ? send(:numeric, month, "month").to_i : 1
+    year = argc.positive? ? send(:numeric, year, "year") : -4712
+    jd = send(:valid_civil_jd, send(:integer, year), month, day || 1, start)
     raise Date::Error, "invalid date" unless jd
 
-    df, sf = send(:time_of_day, hour, minute, second)
-    send(:at, jd, df - of, sf, of, start).send(:carry)
+    df, fraction = send(:time_of_day, hour || 0, minute || 0, second || 0, fraction)
+    nanoseconds = (((jd * DAY) + df - of) * NANOSECOND) + (fraction * DAY * NANOSECOND)
+    jd, rest = nanoseconds.divmod(DAY * NANOSECOND)
+    df, sf = rest.divmod(NANOSECOND)
+    sf = sf.to_i if sf.is_a?(Rational) && sf.denominator == 1
+    send(:at, jd, df.to_i, sf, of, start)
+  end
+
+  # num2int_with_frac: the whole part, and the fraction as a part of a
+  # day. Only the last part given may have a fraction.
+  private_class_method def self.whole_part(value, name, per_day, last, fraction)
+    Primitive.attr! :hidden
+    value = numeric(value, name)
+    return [value.to_i, fraction] if value.integer? || (value.finite? && value == value.floor)
+
+    raise Date::Error, "invalid fraction" unless last
+
+    [value.floor, Rational(value - value.floor) / per_day]
   end
 
   class << self
@@ -674,44 +710,39 @@ class DateTime < Date
 
   # The second of the day and its nanosecond, with a negative part
   # counting back from the end of the hour, minute or day.
-  private_class_method def self.time_of_day(hour, minute, second)
+  # c_valid_time_p. Hour 24 is midnight of the next day.
+  private_class_method def self.time_of_day(hour, minute, second, fraction)
     Primitive.attr! :hidden
     hour += 24 if hour.negative?
     minute += 60 if minute.negative?
     second += 60 if second.negative?
-    raise Date::Error, "invalid date" unless (0..24).cover?(hour) && (0..59).cover?(minute) && (0..59).cover?(second)
+    valid = hour.between?(0, 24) && minute.between?(0, 59) && second.between?(0, 59)
+    raise Date::Error, "invalid date" unless valid && (hour < 24 || (minute.zero? && second.zero?))
 
-    whole = second.to_i
-    fraction = ((second - whole) * 1_000_000_000).round
-    [(hour.to_i * 3600) + (minute.to_i * 60) + whole, fraction]
-  end
 
-  # A day number and second put back in range after the offset moved it.
-  def carry
-    Primitive.attr! :hidden
-    jd, df, sf, of, sg = parts
-    self.class.send(:at, jd + df.div(86_400), df % 86_400, sf, of, sg)
+    [(hour * 3600) + (minute * 60) + second, fraction]
   end
-  private :carry
 
   def self.now(start = Date::ITALY)
     now = Time.now
     new(now.year, now.month, now.day, now.hour, now.min, now.sec + Rational(now.nsec, 1_000_000_000), Rational(now.utc_offset, 86_400), start)
   end
 
-  def self.jd(jd = 0, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-    date = Date.jd(send(:numeric, jd, "jd").floor, start)
-    new(date.year, date.mon, date.mday, hour, minute, second, offset, start)
+  # The time parts after the day keep their positions, so the fraction
+  # rule of `new` sees the same last part.
+  def self.jd(jd = 0, *rest)
+    date = Date.jd(send(:numeric, jd, "jd").floor, rest.size > 4 ? rest[4] : Date::ITALY)
+    new(date.year, date.mon, date.mday, *rest)
   end
 
-  def self.ordinal(year = -4712, yday = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-    date = Date.ordinal(year, yday, start)
-    new(date.year, date.mon, date.mday, hour, minute, second, offset, start)
+  def self.ordinal(year = -4712, yday = 1, *rest)
+    date = Date.ordinal(year, yday, rest.size > 4 ? rest[4] : Date::ITALY)
+    new(date.year, date.mon, date.mday, *rest)
   end
 
-  def self.commercial(cwyear = -4712, cweek = 1, cwday = 1, hour = 0, minute = 0, second = 0, offset = 0, start = Date::ITALY)
-    date = Date.commercial(cwyear, cweek, cwday, start)
-    new(date.year, date.mon, date.mday, hour, minute, second, offset, start)
+  def self.commercial(cwyear = -4712, cweek = 1, cwday = 1, *rest)
+    date = Date.commercial(cwyear, cweek, cwday, rest.size > 4 ? rest[4] : Date::ITALY)
+    new(date.year, date.mon, date.mday, *rest)
   end
 
   def hour = clock[0]
@@ -741,11 +772,18 @@ class DateTime < Date
 
   def to_datetime = self
 
+  # datetime_to_time: a Julian date turns Gregorian first, and the
+  # offset goes to Time.new in seconds.
   def to_time
-    Time.new(year, mon, mday, hour, min, sec + sec_fraction, offset)
+    date = julian? ? gregorian : self
+    Time.new(date.year, date.mon, date.mday, date.hour, date.min, date.sec + date.sec_fraction, date.send(:offset_seconds))
   end
 
   def deconstruct_keys(keys)
+    unless keys.nil? || keys.is_a?(Array)
+      raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)"
+    end
+
     all = super(nil).merge(hour: hour, min: min, sec: sec, sec_fraction: sec_fraction, zone: zone)
     keys.nil? ? all : all.slice(*keys)
   end

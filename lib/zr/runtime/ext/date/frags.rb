@@ -124,14 +124,15 @@ class Date
       end
     end
 
-    # A leap second reads as the last second of the minute.
+    # A leap second reads as the last second of the minute. A DateTime of
+    # a civil date takes only 60 as one, as dt_new_by_frags does.
     def complete_time(found, leap)
       Primitive.attr! :hidden
       found[:hour] ||= 0
       found[:min] ||= 0
       if found[:sec].nil?
         found[:sec] = 0
-      elsif found[:sec] > leap - 1
+      elsif leap == 60 ? found[:sec] == 60 : found[:sec] > 59
         found[:sec] = 59
       end
     end
@@ -237,9 +238,12 @@ class DateTime < Date
       found = found.dup
       jd = frags_jd(found, start, true) or return nil
 
-      df, sf = time_of_day(found[:hour], found[:min], found[:sec] + Rational(found[:sec_fraction] || 0))
+      df, = time_of_day(found[:hour], found[:min], found[:sec], 0)
       of = offset_seconds(found[:offset])
-      at(jd, df - of, sf, of, start).send(:carry)
+      total = (((jd * 86_400) + df - of) * 1_000_000_000) + (Rational(found[:sec_fraction] || 0) * 1_000_000_000)
+      jd, rest = total.divmod(86_400 * 1_000_000_000)
+      df, sf = rest.divmod(1_000_000_000)
+      at(jd, df.to_i, sf.denominator == 1 ? sf.to_i : sf, of, start)
     end
 
     # An offset past a whole day is no offset at all.
