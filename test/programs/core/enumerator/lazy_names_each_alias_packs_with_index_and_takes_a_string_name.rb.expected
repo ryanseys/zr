@@ -1,0 +1,7 @@
+#<Enumerator::Lazy: #<Enumerator::Lazy: #<Enumerator::Lazy: #<Enumerator::Lazy: #<Enumerator::Lazy: #<Enumerator::Lazy: #<Enumerator::Lazy: #<Enumerator::Lazy: 1..10>:map>:collect>:flat_map>:collect_concat>:select>:find_all>:filter>
+[[-1, 2], [0, 3]]
+[[0, 2], [1, 3]]
+["with_index", [[1, 0], [2, 1]], [[1, 0], [2, 1]]]
+["map", [1, 2], [1, 2]]
+["select", [1, 2], [1, 2]]
+[[1, 10], [2, 11]]

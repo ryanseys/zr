@@ -653,24 +653,21 @@ class Enumerator::Lazy < Enumerator
 
   alias enum_for to_enum
 
-  def map(&block)
-    step(:map, :run_map, block, sized: true)
-  end
+  # Each alias has a definition of its own, so `inspect` shows the name
+  # that made the lazy, as CRuby's lazy_add_method records it.
+  def map(&block) = step(:map, :run_map, block, sized: true)
 
-  alias collect map
+  def collect(&block) = step(:collect, :run_map, block, sized: true)
 
-  def flat_map(&block)
-    step(:flat_map, :run_flat_map, block)
-  end
+  def flat_map(&block) = step(:flat_map, :run_flat_map, block)
 
-  alias collect_concat flat_map
+  def collect_concat(&block) = step(:collect_concat, :run_flat_map, block)
 
-  def select(&block)
-    step(:select, :run_select, block)
-  end
+  def select(&block) = step(:select, :run_select, block)
 
-  alias filter select
-  alias find_all select
+  def filter(&block) = step(:filter, :run_select, block)
+
+  def find_all(&block) = step(:find_all, :run_select, block)
 
   def filter_map(&block)
     step(:filter_map, :run_filter_map, block)
@@ -825,9 +822,11 @@ class Enumerator::Lazy < Enumerator
     # The block's value goes back to the method, as enumerator_block_call
     # passes it: `lazy.to_enum(:chunk).each { ... }` chunks by it.
     def run_send(&)
-      if @receiver.is_a?(Enumerator::Lazy) && EAGER.include?(@method)
-        owner = @method == :with_index ? Enumerator : Enumerable
-        return owner.instance_method(@method).bind_call(@receiver, *@args, **@kwargs, &)
+      # The name may be a String, as rb_to_id takes either.
+      name = @method.is_a?(String) ? @method.to_sym : @method
+      if @receiver.is_a?(Enumerator::Lazy) && EAGER.include?(name)
+        owner = name == :with_index ? Enumerator : Enumerable
+        return owner.instance_method(name).bind_call(@receiver, *@args, **@kwargs, &)
       end
       @receiver.__send__(@method, *@args, **@kwargs, &)
     end
@@ -995,8 +994,9 @@ class Enumerator::Lazy < Enumerator
 
     def run_with_index
       i = @args[0]
+      # lazy_with_index_proc packs the value and its index: two values.
       @receiver.each do |*values|
-        yield [Primitive.zr_enum_value(values), i]
+        yield Primitive.zr_enum_value(values), i
         i = implicit_integer(i) + 1
         nil
       end
