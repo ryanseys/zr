@@ -1,0 +1,8 @@
+[TypeError, "self has wrong type to call super in this context: Object (expected Sub)"]
+[TypeError, "self has wrong type to call super in this context: Object (expected Sub2)"]
+[TypeError, "self has wrong type to call super in this context: Object (expected Sub2)"]
+[TypeError, "self has wrong type to call super in this context: Object (expected Sub3)"]
+[TypeError, "self has wrong type to call super in this context: Integer (expected Sub4)"]
+[TypeError, "self has wrong type to call super in this context: Object (expected Sub5)"]
+[:sup, Fine]
+[:bound, [:sup, Sup]]

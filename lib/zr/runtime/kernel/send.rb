@@ -476,6 +476,11 @@ module Zr::Kern
       mid = FrameMeta[meta].name
     end
     k = zr_super_from(rec, recv, owner, entry != 0)
+    checked = zr_super_self_check(rec, recv, owner, k, entry != 0)
+    if checked == QUNDEF
+      zr_kw_take()
+      return checked
+    end
     # The site's cache entry is valid for the node and name that it was
     # filled for, under the method stamp, as for a send. The callee reads
     # the keywords that the site set.
@@ -514,6 +519,64 @@ module Zr::Kern
     r
   end
 
+  # vm_search_super_method: `self` must still be a kind of the method's
+  # class, which an instance_eval in the method can change. That class is
+  # the node `k` where the method was found (a clone's singleton class or
+  # a dup's copy, which the meta's owner is not), else the owner. The
+  # message names a module's method by the class that includes it. A
+  # refinement, and a module's method that bind_call runs (its class is
+  # the module, not a proxy), make no check. Returns undef after the
+  # raise, else nil.
+  #: (ptr, value, value, value, bool) -> value
+  def zr_super_self_check(rec, recv, owner, k, bmethod)
+    cls = k == QNIL ? owner : k
+    if zr_type(cls) == T_ICLASS
+      cls = RClass[cls].attached
+    end
+    # The common case first: it needs no walk of the frames.
+    if zr_is_a(recv, cls)
+      return Machine.value(QNIL)
+    end
+    defined = Machine.value(QNIL)
+    if zr_type(cls) == T_MODULE
+      if ClassExt[RClass[cls].ext].refined != QNIL || bmethod
+        return Machine.value(QNIL)
+      end
+      defined = zr_frame_defined(rec)
+      if defined == QNIL || zr_type(defined) != T_ICLASS
+        return Machine.value(QNIL)
+      end
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("self has wrong type to call super in this context: "), 51)
+    zr_buf_class_of(b, recv)
+    zr_buf_push(b, Machine.bytes(" (expected "), 11)
+    zr_buf_class(b, zr_type(cls) == T_MODULE ? zr_super_includer(rec, defined) : cls)
+    zr_buf_byte(b, 41)
+    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+  end
+
+  # The class whose ancestor list holds the module proxy `node`, read from
+  # the receiver that the method frame was called on (RCLASS_INCLUDER).
+  #: (ptr, value) -> value
+  def zr_super_includer(rec, node)
+    meta = zr_method_meta_of(rec)
+    r = rec
+    while r != 0 && Frame[r].meta != meta
+      r = Frame[r].prev
+    end
+    k = zr_class_of(Frame[r].self)
+    last = k
+    while k != QNIL && k != node
+      if zr_type(k) != T_ICLASS
+        last = k
+      end
+      k = RClass[k].superclass
+    end
+    last
+  end
+
   # Returns the ancestor list node where the lookup found the frame's
   # method (through its blocks). Returns nil for a frame that the kernel
   # pushed.
@@ -531,14 +594,18 @@ module Zr::Kern
   end
 
   # Returns the method entry of the `define_method` method that the frame
-  # runs in, or 0.
+  # runs in, or 0. An instance_eval in that method pushes its own cref
+  # in front of the method's.
   #: (ptr) -> ptr
   def zr_bmethod_entry(rec)
     cref = Frame[rec].cref
-    if cref == QNIL || RCref[cref].eval == 0
-      return 0
+    while cref != QNIL && RCref[cref].eval != 0
+      if RCref[cref].entry != 0
+        return RCref[cref].entry
+      end
+      cref = RCref[cref].next
     end
-    RCref[cref].entry
+    0
   end
 
   # Returns the meta of the def that contains the frame, through its
