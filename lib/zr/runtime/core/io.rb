@@ -854,6 +854,13 @@ class IO
     strip_bom if conversion[:bom] && @readable
   end
 
+  # rb_io_check_byte_readable: a stream that converts what it reads keeps
+  # characters, not bytes, once a character read has buffered them.
+  def check_byte_readable
+    Primitive.attr! :hidden
+    raise IOError, +"byte oriented read for character buffered IO" if buffered? && (@universal || @internal)
+  end
+
   # The newline decorators and the options that a stream's conversions
   # take. A read turns line ends into "\n" only with the universal
   # decorator; a write takes crlf, cr or lf, never universal.
@@ -1344,6 +1351,9 @@ class IO
       external, internal = from.nil? ? [to, nil] : [from, to]
     elsif external.nil?
       external, internal = IO.send(:default_encodings, nil)
+      # A binary stream drops its BINARY too: it reads in the default
+      # external encoding, as io_read_encoding gives with none set.
+      external ||= Encoding.default_external if @binmode
     elsif (text = String.try_convert(external)) && text.encoding.ascii_compatible?
       external, internal, = IO.send(:mode_encodings, text)
       external, internal = IO.send(:default_encodings, external) if internal.nil? && !external.nil?
@@ -1436,6 +1446,12 @@ class IO
     check_writable
     text = Primitive.zr_obj_as_string(text)
     Primitive.zr_warn_here_m("syswrite for buffered IO") unless @wbuf.empty?
+    # A descriptor that cannot wait gets one write(2), which can take
+    # only part of the text, as rb_io_syswrite makes it.
+    if @nonblock && !IO.send(:scheduler_taking, :io_write)
+      return checked_write(Primitive.zr_io_write_some(@twin || @fd, text.b, 0, text.bytesize))
+    end
+
     write_now(text.b)
   end
 
@@ -1626,7 +1642,10 @@ class IO
     end
   end
 
-  def readpartial(length, buffer = nil) = filled(read_some(length), buffer)
+  def readpartial(length, buffer = nil)
+    check_byte_readable
+    filled(read_some(length), buffer)
+  end
 
   # CRuby writes these three in Ruby (its io.rb), so they return their
   # own parameters, under CRuby's names.
@@ -1635,6 +1654,7 @@ class IO
     raise ArgumentError, "negative length #{len} given" if len < 0
 
     check_readable
+    check_byte_readable
     set_nonblock(true) unless nonblock_flag?
     if !buffered? && !len.zero? && would_block?(READABLE)
       return :wait_readable unless exception
@@ -2445,13 +2465,19 @@ class IO
 
   # check_getline_args: a separator in another encoding than the
   # stream's is an error, except ruby's own default, which is written in
-  # the stream's encoding.
+  # the stream's encoding. A stream that converts reads in its internal
+  # encoding, which io_read_encoding gives then.
   def stream_separator(separator)
     Primitive.attr! :hidden
-    enc = read_encoding
+    enc = @internal || read_encoding
     return separator if separator.nil? || separator.encoding == enc
     return separator if separator.ascii_only? && (separator.empty? || enc.ascii_compatible?)
-    return "\n".encode(enc) if separator.equal?(String.default_rs)
+    # rb_str_buf_cat_ascii writes the dummy UTF-16 and UTF-32 big-endian,
+    # with no byte order mark.
+    if separator.equal?(String.default_rs)
+      unit = { Encoding::UTF_16 => Encoding::UTF_16BE, Encoding::UTF_32 => Encoding::UTF_32BE }.fetch(enc, enc)
+      return "\n".encode(unit).force_encoding(enc)
+    end
 
     raise ArgumentError, "encoding mismatch: #{enc} IO with #{separator.encoding} RS"
   end

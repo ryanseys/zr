@@ -965,6 +965,10 @@ module Zr::Kern
     if zr_gvar_resolve(id) == Machine.id(:$?)
       return zr_send(zr_core_class(Machine.id(:Process)), Machine.id(:status), 0, 0)
     end
+    # `$FILENAME` is ARGF's current file (argf_filename_getter).
+    if id == Machine.id(:$FILENAME)
+      return zr_send(zr_core_class(Machine.id(:ARGF)), Machine.id(:filename), 0, 0)
+    end
     b = zr_box_current()
     if b != QNIL
       v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))

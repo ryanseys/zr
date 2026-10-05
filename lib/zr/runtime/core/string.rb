@@ -1487,10 +1487,11 @@ class String
 
   # A UTF-16 or UTF-32 String inspected as ruby writes one: ASCII as it
   # is, every other character as \u, and bytes that make no character
-  # as \x. A dummy name has no characters to show, so every byte is \x.
+  # as \x. A dummy name has no characters to show, so every byte is \x,
+  # except a control byte that has its own escape, such as \n.
   def unit_inspect
     Primitive.attr! :hidden
-    return "\"#{OWN[:each_byte].bind_call(self).map { |byte| format('\\x%02X', byte) }.join}\"" unless Encoding.wide?(Encoding.at(Primitive.zr_str_encoding_index_m(self)))
+    return "\"#{OWN[:each_byte].bind_call(self).map { |byte| byte < 32 && DUMP_ESCAPES[byte] || format('\x%02X', byte) }.join}\"" unless Encoding.wide?(Encoding.at(Primitive.zr_str_encoding_index_m(self)))
 
     chars = characters.to_a
     out = +"\""
