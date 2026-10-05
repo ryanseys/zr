@@ -714,10 +714,14 @@ module Enumerable
 
   def first(n = (none = true))
     if none
+      # The block breaks out, as first_i calls rb_iter_break: a call of the
+      # block after `first` ends raises "unexpected break".
+      found = nil
       Primitive.zr_enum_each(self, nil) do |x|
-        return x
+        found = x
+        break
       end
-      return nil
+      return found
     end
 
     n = Primitive.zr_index_operand_m(n)

@@ -1066,6 +1066,12 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_break(p, v)
     unless (RBasic[p].flags & FL_ISOLATED) == 0 && zr_frame_live(RProc[p].home, RProc[p].serial) && zr_block_call_live(p)
+      # A block of the core library is a C block in CRuby, whose break
+      # (rb_iter_break) gives this message when its call has ended.
+      meta = RProc[p].meta
+      if meta != 0 && FrameMeta[meta].file_len == 0
+        return zr_local_jump_error(Machine.bytes("unexpected break"), 16, Machine.id(:break), v)
+      end
       return zr_local_jump_error(Machine.bytes("break from proc-closure"), 23, Machine.id(:break), v)
     end
     zr_signal(PENDING_BREAK, v, RProc[p].home, RProc[p].site)
