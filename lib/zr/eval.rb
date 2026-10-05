@@ -20,6 +20,7 @@ module Zr
     # @rbs @symbols: Machine::Symbols
     # @rbs @host: Obj::_JITHost
     # @rbs @count: Integer
+    # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer]]]
 
     # The compiler loads at the first eval, not when the program boots.
     # Most programs that can eval never do. Loading it makes about
@@ -66,6 +67,7 @@ module Zr
       @symbols = Machine::Symbols.new(runtime.symbol_names, sites: runtime.sites, intern: runtime.method(:intern))
       @host = Obj::JIT.host
       @count = 0
+      @compiled = {}
     end
 
     # Compiles `source`. Returns the toplevel's address, its FrameMeta
@@ -147,6 +149,15 @@ module Zr
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
     def compiled(source, file, line, scopes, method, using:)
       coverage = covering
+      # The machine code of an eval is never freed, so a string that runs
+      # again, in a scope of the same shape, runs the code that its first
+      # compile made. TracePoint and Coverage change the code, so under
+      # them each eval compiles. So does an eval that takes `using` entries.
+      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using]
+      reuse = coverage.nil? && !@runtime.tracing?
+      return @compiled.fetch(key) if reuse && @compiled.key?(key)
+
+      taken = @runtime.activations
       @count += 1
       name = "zr_eval_#{@count}"
       # A `using` entry is a slot in one table that the whole program
@@ -170,7 +181,9 @@ module Zr
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
-      [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas]
+      code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas] #: [Integer, Integer, Integer, Integer, Array[Integer]]
+      @compiled[key] = code if reuse && hir.activations == taken
+      code
     end
 
     # The Outer chain for `scopes`, innermost first, in lowering order:

@@ -1,0 +1,16 @@
+["abcd", "abcd", "abcd"]
+false
+2
+11
+10
+2
+5
+:none
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+["f.rb", 7]
+9
+1
+2
+"boom.rb:3:in 'block in <main>'"
+true
