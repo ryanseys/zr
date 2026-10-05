@@ -1,0 +1,6 @@
+[1, ArgumentError, "width too big"]
+[2, ArgumentError, "prec too big"]
+[3, ArgumentError, "width too big"]
+[4, RangeError, "integer 2147483648 too big to convert to 'int'"]
+[5, "-1 "]
+[6, ArgumentError, "width too big"]

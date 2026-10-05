@@ -136,6 +136,8 @@ module Kernel
             flags |= FMINUS
             fl << "-"
             width = -width
+            # An int has no room for -INT_MIN.
+            raise ArgumentError, +"width too big" if width > 2_147_483_647
           end
         elsif b == 46
           raise ArgumentError, +"precision given twice" if flags & FPREC0 != 0
@@ -144,7 +146,8 @@ module Kernel
           prec = 0
           i += 1
           if @spec.getbyte(i) == 42
-            prec, i = aster(i, "precision")
+            # GETASTER names it by its variable.
+            prec, i = aster(i, "prec")
             flags &= ~FPREC if prec < 0
           else
             prec, i = get_num(i, "precision")
