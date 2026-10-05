@@ -1,0 +1,7 @@
+"#<Module:>::N"
+"fake_name_under_M"
+nil
+["fake_name", "fake_name::N", "fake_name::N::O"]
+[nil, nil, nil]
+["tmp_a", "tmp_a::B"]
+["Named", "Named::B", "Named::B"]

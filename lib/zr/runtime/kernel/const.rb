@@ -952,22 +952,38 @@ module Zr::Kern
   end
 
   # `mod` just got the temporary name `name`, or lost it (nil). Each class
-  # or module that it contains with a temporary name takes its path under
-  # the new name, or none, recursively, as set_sub_temporary_name does.
+  # or module that it contains with no permanent name takes its path under
+  # the new name, or none, recursively, as set_sub_temporary_name does. A
+  # module on the path that is being renamed keeps its name, so a constant
+  # that refers back up the path ends the walk.
   #: (value, value) -> void
   def zr_rename_nested(mod, name)
+    mid = Machine.id(:set_temporary_name)
+    if zr_guard_enter(mod, mid)
+      return
+    end
+    zr_rename_children(mod, mid)
+    zr_guard_leave(mod, mid)
+  end
+
+  #: (value, word) -> void
+  def zr_rename_children(mod, mid)
     ext = RClass[mod].ext
     i = 0
     while i < ClassExt[ext].clen
       e = ClassExt[ext].ctab + (i * CEntry.size)
       v = CEntry[e].value
-      if v != QUNDEF && !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) && (RBasic[v].flags & FL_TEMP_NAME) != 0 && v != mod
-        if name == QNIL
+      if v != QUNDEF && !zr_special_p(v) && (zr_type(v) == T_CLASS || zr_type(v) == T_MODULE) &&
+         (RClass[v].name == QNIL || (RBasic[v].flags & FL_TEMP_NAME) != 0) && !zr_guard_enter(v, mid)
+        if RClass[mod].name == QNIL
           RClass[v].name = Machine.value(QNIL)
+          RBasic[v].flags = RBasic[v].flags & (0 - (FL_TEMP_NAME + 1))
         else
           RClass[v].name = zr_class_name_under(mod, CEntry[e].id)
+          RBasic[v].flags = RBasic[v].flags | FL_TEMP_NAME
         end
-        zr_rename_nested(v, RClass[v].name)
+        zr_rename_children(v, mid)
+        zr_guard_leave(v, mid)
       end
       i += 1
     end
