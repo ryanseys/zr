@@ -1213,8 +1213,13 @@ module Zr::Kern
     # A name with a non-ASCII character is shown or escaped by that
     # character's category, and that table is in Ruby. The Ruby code calls
     # back here for a name that needs no escape.
-    if zr_symbol_tag(id) == 0 && !zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
-      return zr_send(recv, Machine.id(:utf8_inspect), 0, 0)
+    if !zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+      if zr_symbol_tag(id) == 0
+        return zr_send(recv, Machine.id(:utf8_inspect), 0, 0)
+      end
+      if zr_enc_mb_p(zr_symbol_encoding_index(id)) && zr_enc_ascii_compat_p(zr_symbol_encoding_index(id))
+        return zr_send(recv, Machine.id(:mb_inspect), 0, 0)
+      end
     end
     zr_sym_inspect_bytes(recv)
   end
@@ -1394,31 +1399,35 @@ module Zr::Kern
 
   # rb_str_inspect returns its text in default_internal, else in
   # default_external, else in US-ASCII when that is not ASCII-compatible.
-  # Then no character prints as itself, and the result is US-ASCII.
+  # A character prints as itself only in a String of that encoding, so
+  # text with such a character is already in it.
   #: (value, word, ptr, value, value) -> value
   def zr_str_inspect(recv, argc, argv, cref, blk)
     r = zr_str_inspect_text(recv)
-    if r != QUNDEF && zr_inspect_usascii_p() && zr_str_ascii_only(r)
-      zr_str_set_index(r, ENC_USASCII)
+    if r != QUNDEF && zr_str_ascii_only(r)
+      zr_str_set_index(r, zr_inspect_index())
     end
     r
   end
 
-  #: () -> bool
-  def zr_inspect_usascii_p
-    Machine.load64(Machine.static(:inspect_usascii, 8), 0) != 0
+  # The static keeps the index as the String flags do, so zero is UTF-8.
+  #: () -> word
+  def zr_inspect_index
+    i = Machine.load64(Machine.static(:inspect_index, 8), 0)
+    i < 2 ? 1 - i : i
   end
 
   #: () -> value
-  def zr_inspect_usascii_m
-    zr_bool(zr_inspect_usascii_p())
+  def zr_inspect_index_m
+    zr_fix(zr_inspect_index())
   end
 
   # Set by Encoding.default_external= and default_internal=.
   #: (value) -> value
-  def zr_inspect_usascii_set(flag)
-    Machine.store64(Machine.static(:inspect_usascii, 8), 0, flag == QTRUE ? 1 : 0)
-    flag
+  def zr_inspect_index_set(index)
+    i = zr_fix2long(index)
+    Machine.store64(Machine.static(:inspect_index, 8), 0, i < 2 ? 1 - i : i)
+    index
   end
 
   #: (value) -> value

@@ -1630,7 +1630,7 @@ class String
     Primitive.attr! :hidden
     # A character prints as itself only in the encoding that inspect
     # returns; UTF8-MAC and the carriers' UTF-8 show its code point.
-    own = Encoding.at(Primitive.zr_str_encoding_index_m(self)).equal?(Encoding::UTF_8) && !Primitive.zr_inspect_usascii_m
+    own = Primitive.zr_str_encoding_index_m(self) == Primitive.zr_inspect_index_m
     out = +"\""
     i = 0
     while i < Primitive.zr_str_bytesize(self)
@@ -1963,8 +1963,12 @@ class String
   # one. CESU-8's characters are Unicode's, and print as Unicode's.
   def mb_inspect
     Primitive.attr! :hidden
-    cesu = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name == +"CESU-8"
-    out = +"\""
+    index = Primitive.zr_str_encoding_index_m(self)
+    encoding = Encoding.at(index)
+    cesu = encoding.name == +"CESU-8"
+    # In the result encoding, a printable character prints as itself.
+    own = index == Primitive.zr_inspect_index_m
+    out = own ? (+"\"").force_encoding(encoding) : +"\""
     run = +"".b
     OWN[:each_char].bind_call(self) do |char|
       if char.bytesize == 1 && char.getbyte(0) < 128
@@ -1973,7 +1977,9 @@ class String
       end
       out << ascii_escaped(run, cesu)
       run = +"".b
-      out << if !char.valid_encoding?
+      out << if own && char.valid_encoding? && char.match?(/[[:print:]]/)
+               char
+             elsif !char.valid_encoding?
                char.bytes.map { |byte| "\\x#{format('%02X', byte)}" }.join
              elsif cesu
                point = char.ord
@@ -3241,6 +3247,39 @@ class Symbol
     ":#{shown}"
   end
 
+  # A name with a character outside ASCII in an encoding other than
+  # UTF-8. It is bare only when its String prints as itself and the name
+  # is plain with each such character taken as a letter
+  # (rb_enc_symname_type).
+  def mb_inspect
+    Primitive.attr! :hidden
+    text = to_s
+    shown = text.inspect
+    if shown.byteslice(1, shown.bytesize - 2) == text
+      letters = text.each_char.map { |char| char.ascii_only? ? char : "a" }.join
+      return ":#{text}" unless Primitive.zr_sym_inspect_bytes(letters.to_sym).start_with?(":\"")
+    end
+    ":#{shown}"
+  end
+
+  # The last characters that make Hash#inspect quote a key, as
+  # symbol_key_needs_quote lists them.
+  KEY_QUOTED_ENDS = %w[+ - * / ` % ^ & | \] < = > ~ @].freeze
+  private_constant :KEY_QUOTED_ENDS
+
+  # This symbol as Hash#inspect writes a key with a name outside ASCII:
+  # bare when the name is plain, else quoted as its String inspects.
+  def key_inspect
+    Primitive.attr! :hidden
+    shown = inspect
+    text = to_s
+    if shown.start_with?(":\"") || text.start_with?("@", "$", "!") || KEY_QUOTED_ENDS.include?(text[-1])
+      text.inspect
+    else
+      shown.byteslice(1, shown.bytesize - 1)
+    end
+  end
+
   def to_sym = self
 
   def intern = self
@@ -4464,10 +4503,13 @@ class Encoding
     encoding
   end
 
-  # Tells the kernel whether inspect's text is US-ASCII (rb_str_inspect).
+  # Tells the kernel rb_str_inspect's result encoding: default_internal,
+  # else default_external, and US-ASCII when that is not ASCII compatible.
+  # A character prints as itself only when its String is in this encoding.
   def self.inspect_target
     Primitive.attr! :hidden
-    Primitive.zr_inspect_usascii_set(!(default_internal || default_external).ascii_compatible?)
+    target = default_internal || default_external
+    Primitive.zr_inspect_index_set((target.ascii_compatible? ? target : US_ASCII).index)
   end
 
   # The names that follow the defaults, rather than one encoding.

@@ -928,16 +928,26 @@ module Zr::Kern
           zr_buf_push(b, Machine.bytes(", "), 2)
         end
         key = HEntry[e].key
-        if zr_symbol_p(key)
-          id = zr_sym2id(key)
-          name_ascii = zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
-          name_index = name_ascii ? ENC_USASCII : zr_symbol_encoding_index(id)
-          if first
-            index = name_index
-          elsif zr_symbol_name_len(id) > 0
-            index = zr_enc_append(index, ascii, Buf[b].len, name_index, name_ascii)
+        id = zr_symbol_p(key) ? zr_sym2id(key) : 0
+        # A name outside ASCII is plain only in inspect's encoding, by its
+        # characters; that check is in Ruby.
+        if zr_symbol_p(key) && !zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+          s = zr_send(key, Machine.id(:key_inspect), 0, 0)
+          if s == QUNDEF
+            zr_buf_free(b)
+            zr_guard_leave(recv, Machine.id(:inspect))
+            return s
           end
-          ascii = ascii && name_ascii
+          index = first ? zr_str_encoding_index(s) : zr_enc_append_str(index, ascii, Buf[b].len, s)
+          ascii = ascii && zr_str_ascii_bytes_p(s)
+          zr_buf_str(b, s)
+          zr_buf_push(b, Machine.bytes(": "), 2)
+        elsif zr_symbol_p(key)
+          if first
+            index = ENC_USASCII
+          elsif zr_symbol_name_len(id) > 0
+            index = zr_enc_append(index, ascii, Buf[b].len, ENC_USASCII, true)
+          end
           if zr_symbol_key_simple_p(key)
             zr_buf_sym(b, zr_sym2id(key))
           else
