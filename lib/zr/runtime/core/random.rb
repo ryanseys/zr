@@ -648,10 +648,11 @@ class Array
   def shuffled!(random)
     Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if frozen?
-    i = Primitive.zr_ary_len_m(self)
+    len = i = Primitive.zr_ary_len_m(self)
     while i > 0
       j = Random.send(:limited_for, random, i - 1)
       i -= 1
+      raise RuntimeError, +"modified during shuffle" if Primitive.zr_ary_len_m(self) != len
       held = Primitive.zr_ary_aref1_m(self, i)
       Primitive.zr_ary_aset_at(self, i, Primitive.zr_ary_aref1_m(self, j))
       Primitive.zr_ary_aset_at(self, j, held)
@@ -667,7 +668,9 @@ class Array
     if none
       return nil if len == 0
 
-      return Primitive.zr_ary_aref1_m(self, Random.send(:limited_for, random, len - 1))
+      # rb_ary_sample draws only for two or more, and reads the element
+      # with a bounds check, as the draw may change the Array.
+      return Primitive.zr_ary_aref1_m(self, len < 2 ? 0 : Random.send(:limited_for, random, len - 1))
     end
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"negative sample number" if n < 0
@@ -679,6 +682,13 @@ class Array
       while i < n
         draws << Random.send(:limited_for, random, len - i - 1)
         i += 1
+      end
+      # A draw that changed the Array: a draw past its new end samples
+      # nothing.
+      if Primitive.zr_ary_len_m(self) < len
+        len = Primitive.zr_ary_len_m(self)
+        return [] if draws.any? { |d| d >= len }
+        n = len if n > len
       end
     end
     case n

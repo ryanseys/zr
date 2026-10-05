@@ -271,7 +271,11 @@ module Packing
         encoding = Encoding::BINARY
       end
     end
+    # pack_pack: a conversion that changes the template stops the pack.
+    template_size = template.bytesize
     list.each do |c, count, big|
+      raise RuntimeError, +"format string modified" if template.bytesize != template_size
+
       case c
       when "x"
         out << "\0" * (count == :all ? 0 : (count || 1))

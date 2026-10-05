@@ -158,6 +158,12 @@ class Array
     return Primitive.zr_str_usascii(+"") if (Primitive.zr_ary_len_m(self) == 0)
 
     sep = sep.nil? ? +"" : Primitive.zr_str_operand(sep)
+    # rb_ary_join: the first element that is not a String gets its
+    # to_str before the join starts, and the join then reads the
+    # elements again, as that to_str may change them.
+    i = 0
+    i += 1 while i < Primitive.zr_ary_len_m(self) && Primitive.zr_ary_aref1_m(self, i).is_a?(String)
+    String.try_convert(Primitive.zr_ary_aref1_m(self, i)) if i < Primitive.zr_ary_len_m(self)
     raise ArgumentError, +"recursive array join" if Primitive.zr_recursive_enter(self, :join)
 
     begin
@@ -165,9 +171,10 @@ class Array
       i = 0
       while i < Primitive.zr_ary_len_m(self)
         s << sep if i > 0
-        part = join_part(Primitive.zr_ary_aref1_m(self, i))
+        x = Primitive.zr_ary_aref1_m(self, i)
+        part = join_part(x)
         if part.is_a?(Array)
-          s << part.join(sep)
+          s << joined_part(x, part, sep)
         else
           s << part
           s.force_encoding(part.encoding) if i.zero?
@@ -177,6 +184,21 @@ class Array
       s
     ensure
       Primitive.zr_recursive_leave(self, :join)
+    end
+  end
+
+  # The text of an Array element of `join`. An element that converts
+  # to an Array is guarded as itself, as rb_exec_recursive guards the
+  # element, so a to_ary that returns a new Array that holds it stops.
+  def joined_part(x, part, sep)
+    Primitive.attr! :hidden
+    return part.join(sep) if part.equal?(x)
+    raise ArgumentError, +"recursive array join" if Primitive.zr_recursive_enter(x, :join)
+
+    begin
+      part.join(sep)
+    ensure
+      Primitive.zr_recursive_leave(x, :join)
     end
   end
 
@@ -607,7 +629,7 @@ class Array
       h = 7
       i = 0
       while i < Primitive.zr_ary_len_m(self)
-        h = (h * 31 + (Primitive.zr_rb_hash(Primitive.zr_ary_aref1_m(self, i)) & mask)) & mask
+        h = (h * 31 + (Kernel.send(:element_hash, Primitive.zr_ary_aref1_m(self, i)) & mask)) & mask
         i += 1
       end
       h
@@ -732,6 +754,8 @@ class Array
   def clear = Primitive.zr_ary_clear(self, nil)
 
   def replace(other)
+    # rb_ary_replace: the frozen check comes before the conversion.
+    Primitive.zr_frozen_error(self) if frozen?
     array = Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
     replaced(array)
   end
@@ -770,6 +794,8 @@ class Array
       end
     end
     items = value.is_a?(Array) ? value : (value.respond_to?(:to_ary) ? value.to_ary : [value])
+    # rb_ary_splice: a start past the end that leaves no room to grow.
+    raise IndexError, "index #{start} too big" if start > Primitive.zr_ary_len_m(self) && start >= Primitive.zr_ary_max_size - items.size
     Primitive.zr_ary_splice(self, start, len, items)
     value
   end

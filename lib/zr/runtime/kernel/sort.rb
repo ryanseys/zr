@@ -560,6 +560,11 @@ module Zr::Kern
     end
     tmp = zr_ary_sort_copy(zr_ary_of(RArray[recv].len, RArray[recv].ptr), blk)
     return tmp if tmp == QUNDEF
+    # sort_returned: a comparison that froze the Array leaves it as it
+    # is. CRuby checks after each comparison; the copy is what changes.
+    if zr_modify_frozen_p(recv)
+      return zr_raise_msg(zr_global(G_FROZEN_ERROR), Machine.bytes("array frozen during sort"), 24)
+    end
     n = RArray[tmp].len
     zr_ary_reserve(recv, n)
     zr_memcpy(RArray[recv].ptr, RArray[tmp].ptr, n * 8)

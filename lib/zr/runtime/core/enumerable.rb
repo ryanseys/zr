@@ -632,6 +632,7 @@ module Enumerable
   def take(n)
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"attempt to take negative size" if n < 0
+    raise ArgumentError, +"array size too big" if n > Primitive.zr_ary_max_size
 
     out = []
     return out if n == 0
@@ -713,6 +714,7 @@ module Enumerable
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"attempt to take negative size" if n < 0
+    raise ArgumentError, +"array size too big" if n > Primitive.zr_ary_max_size
 
     out = []
     return out if n == 0
