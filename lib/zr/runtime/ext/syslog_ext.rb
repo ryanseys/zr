@@ -61,7 +61,8 @@ module Syslog
       Primitive.attr! :hidden
       raise RuntimeError, "must open syslog before setting log mask" unless @opened
 
-      @mask_bits = Integer(mask)
+      # NUM2INT: a Float is cut to an Integer, a String is refused.
+      @mask_bits = Integer.send(:int_operand, mask)
       Primitive.zr_syslog_mask(@mask_bits)
     end
 
