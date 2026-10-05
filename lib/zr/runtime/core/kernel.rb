@@ -542,7 +542,8 @@ module Kernel
         level = implicit_integer(uplevel)
         raise ArgumentError, "negative level (#{level})" if level.negative?
 
-        at = caller_locations(level + 1, 1)&.first
+        # Frames of `<internal:` code do not count, as rb_warn_m skips them.
+        at = caller_locations(1).reject { |frame| frame.path&.start_with?("<internal:") }[level]
         text << (at&.path ? "#{at.path}:#{at.lineno}: warning: " : "warning: ")
       end
       IO.send(:each_line_of, msgs) { |*parts| text.concat(*parts) }
