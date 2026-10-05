@@ -353,9 +353,10 @@ class Ractor
   # Whether every object reachable from `obj` is frozen. A number, a
   # symbol, a class and the three singletons are shareable as they are.
   # So is a Ractor, because its contents belong to the runtime. A husk
-  # left by a move accepts no message, so it is shareable.
+  # left by a move accepts no message, so it is shareable. ENV is too:
+  # the process's environment is one for all ractors, as CRuby marks it.
   def self.shareable?(obj)
-    return true if moved?(obj) || immutable?(obj) || obj.is_a?(Ractor)
+    return true if moved?(obj) || immutable?(obj) || obj.is_a?(Ractor) || obj.equal?(ENV)
 
     obj.frozen? && each_reachable(obj) { |ref| return false unless shareable?(ref) }
   end

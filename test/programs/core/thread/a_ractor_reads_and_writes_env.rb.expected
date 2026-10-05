@@ -1,0 +1,5 @@
+true
+false
+[nil, "foo", TypeError, true]
+"foo"
+true
