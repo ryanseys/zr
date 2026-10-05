@@ -1,0 +1,11 @@
+"a"
+true
+"bbb"
+"ccc"
+#<SocketError: unknown IPv6 control message: RIGHTS>
+true
+"hello"
+" world"
+true
+true
+"x"

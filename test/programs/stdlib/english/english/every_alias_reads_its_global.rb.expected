@@ -1,0 +1,26 @@
+ARGF.class
+true
+true
+"o w"
+"hell"
+"orld"
+"w"
+#<MatchData "o w" 1:"w">
+#<RuntimeError: x>
+Array
+"line"
+true
+true
+true
+true
+nil
+"\n"
+nil
+nil
+"\n"
+nil
+nil
+true
+0
+Process::Status
+nil

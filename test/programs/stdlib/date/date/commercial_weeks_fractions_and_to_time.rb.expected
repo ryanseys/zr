@@ -1,0 +1,29 @@
+53
+1
+[2003, 12, 29, 2004]
+#<Date: 2004-12-27 ((2453367j,0s,0n),+0s,2299161j)>
+Date::Error
+Date::Error
+#<Date: 2003-12-22 ((2452996j,0s,0n),+0s,2299161j)>
+Date::Error
+true
+true
+false
+#<TypeError: wrong argument type Integer (expected Array or nil)>
+#<TypeError: wrong argument type Integer (expected Array or nil)>
+#<TypeError: expected numeric>
+#<Date::Error: invalid fraction>
+#<Date::Error: invalid fraction>
+#<DateTime: 2001-02-03T01:30:00+00:00 ((2451944j,5400s,0n),+0s,2299161j)>
+59
+#<DateTime: 2001-02-04T00:00:00+00:00 ((2451945j,0s,0n),+0s,2299161j)>
+#<Date::Error: invalid date>
+#<DateTime: 2012-11-08T15:43:59+00:00 ((2456240j,56639s,0n),+0s,2299161j)>
+"999999999999"
+true
+1582-10-14 23:58:59 UTC
+10800
+true
+#<DateTime: 2001-02-03T01:30:00+00:00 ((2451944j,5400s,0n),+0s,2299161j)>
+#<DateTime: 2001-02-03T04:05:06+00:00 ((2451944j,14706s,500000000n),+0s,2299161j)>
+#<DateTime: 2001-02-03T04:05:06+07:00 ((2451943j,75906s,0n),+25200s,2299161j)>

@@ -1,0 +1,35 @@
+NaN
+Infinity
+-Infinity
+false
+-1
+[:ceil, [], FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
+[:ceil, [], FloatDomainError, "Computation results in 'Infinity'"]
+[:floor, [], FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
+[:floor, [], FloatDomainError, "Computation results in 'Infinity'"]
+[:truncate, [], FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
+[:truncate, [], FloatDomainError, "Computation results in 'Infinity'"]
+[:round, [], FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
+[:round, [], FloatDomainError, "Computation results in 'Infinity'"]
+[:round, [2], NaN]
+[:round, [2], Infinity]
+[:ceil, [1], NaN]
+[:ceil, [1], Infinity]
+[1, "Infinity", 10, 0]
+[-1, "Infinity", 10, 0]
+[0, "NaN", 10, 0]
+#<TypeError: no implicit conversion from nil to integer>
+#<ArgumentError: negative precision>
+0.9e0
+0.888e0
+0.888e0
+0.89e0
+0.9e0
+1
+-1
+nil
+Infinity
+Infinity
+0.0
+"cheese"
+"0.4444e2"

@@ -1,0 +1,7 @@
+{"cov_fix.rb" => [nil, 1, 1, 1, nil, nil, 1]}
+{"cov_fix.rb" => [nil, 1, 1, 1, nil, nil, 1]}
+{"cov_fix.rb" => {lines: [nil, 1, 1, 1, nil, nil, 1], branches: {}, methods: {[CovFix, :run, 3, 2, 5, 5] => 1}}}
+{"cov_fix.rb" => {lines: [nil, 0, 0, 0, nil, nil, 0], branches: {}, methods: {[CovFix, :run, 3, 2, 5, 5] => 0}}}
+{"cov_eval.rb" => {lines: [1, nil, 1, nil, 1, 1, nil, nil, nil, nil, 1]}}
+{"cov_eval.rb" => {lines: [1, nil, 1, nil, 1, nil, nil, nil, nil, nil, 1]}}
+{"test.rb" => {lines: [1, 1, 1]}, "other.rb" => {lines: [nil, nil, 1]}}

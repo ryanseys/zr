@@ -1,0 +1,11 @@
+Errno::EINVAL
+Errno::EINVAL
+TypeError
+TypeError
+TypeError
+TypeError
+TypeError
+true
+#<RuntimeError: parallel group iteration>
+#<RuntimeError: parallel passwd iteration>
+1
