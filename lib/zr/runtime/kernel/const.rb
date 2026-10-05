@@ -1666,11 +1666,14 @@ module Zr::Kern
   #: (ptr, ptr) -> value
   def zr_const_loaded(e, gone)
     v = CEntry[e].value
-    if v != QUNDEF
-      return v
-    end
     mod = CEntry[e].owner
     id = CEntry[e].id
+    # While another task reads the autoload file of the name, a value that
+    # the file set is that task's own: CRuby keeps it in the autoload's
+    # record (autoload_const) until the file ends, so this read waits.
+    if v != QUNDEF && !zr_autoload_busy(mod, id)
+      return v
+    end
     if zr_autoload_busy(mod, id)
       args = Machine.slot(16)
       Machine.store64(args, 0, Machine.word(Machine.value(QNIL)))
