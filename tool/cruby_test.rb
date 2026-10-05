@@ -44,6 +44,10 @@ module Zr
       # their code with zr, so this is longer than ruby/spec's limit.
       LIMIT = 600
 
+      # Seconds with no output after which a test counts as hung. A test
+      # that starts zr builds a program first, which prints nothing.
+      IDLE = 180
+
       # The directories of test/ that test what only CRuby has, and why.
       CRUBY_ONLY = {
         "dtrace" => "dtrace probes of CRuby's C code",
@@ -168,13 +172,15 @@ module Zr
 
         def version = VERSION
         def limit = LIMIT
+        def idle = IDLE
         def tags(rel) = CRubyTest.tags(rel)
         def program(files) = CRubyTest.program(@src, files)
         def read(out) = CRubyTest.read(out)
 
-        # The runner's options: zr's run skips the tests tagged `timeout`.
-        def arguments(file, zr:)
-          hung = zr ? tags(rel(file)).select { |_, kind| kind == "hangs" }.keys : []
+        # The runner's options: zr's run skips the tests tagged `timeout`,
+        # and those in `skip`, which hung in this run.
+        def arguments(file, zr:, skip: [])
+          hung = zr ? tags(rel(file)).select { |_, kind| kind == "hangs" }.keys | skip : []
           skip = hung.empty? ? [] : ["-n", "/./", "-n", "!/\\A(?:#{hung.map { |n| Regexp.escape(n) }.join("|")})\\z/"]
           [file, *skip]
         end
@@ -244,7 +250,12 @@ module Zr
             load = line.split("\t", 3).last
           end
         end
-        { examples: examples, load: load, ended: lines.any? { |l| l.start_with?("Finished tests in") } }
+        ended = lines.any? { |l| l.start_with?("Finished tests in") }
+        # The test that started and did not end: `[i/n] Class#test` with no
+        # time after it, on the last line of its kind.
+        started = lines.reverse_each.find { |l| l.match?(/\A\[\s*\d+\/\d+\] \S+#\S+/) }
+        hung = started[/\A\[\s*\d+\/\d+\] (\S+#\S+)/, 1] if started && !ended && !started.match?(/ = [\d.]+ s/)
+        { examples: examples, load: load, ended: ended, hung: hung }
       end
     end
   end

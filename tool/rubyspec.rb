@@ -156,7 +156,7 @@ module Zr
         def version = VERSION
         def limit = LIMIT
         def program(files) = RubySpec.program(@spec, files)
-        def arguments(file, zr:) = [file]
+        def arguments(file, zr:, skip: []) = [file]
         def read(out) = RubySpec.read(out)
         def tags(rel) = RubySpec.tags(rel)
 

@@ -162,18 +162,33 @@ module Zr
       end
 
       # Runs `argv` in `dir` with a time limit, and returns its standard
-      # output and whether the limit stopped it.
-      def capture(env, argv, dir, limit)
+      # output and whether a limit stopped it: `limit` seconds in all, or
+      # `idle` seconds with no output (a test that hangs).
+      def capture(env, argv, dir, limit, idle: nil)
         foreground_signals!
         reader, writer = IO.pipe
         pid = Process.spawn(env, *argv, chdir: dir, in: File::NULL, out: writer, err: File::NULL, pgroup: true)
         writer.close
         out = +""
-        collector = Thread.new { out << reader.read }
-        timed_out = collector.join(limit).nil?
-        if timed_out
+        clock = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
+        heard = clock.call
+        collector = Thread.new do
+          loop do
+            out << reader.readpartial(65_536)
+            heard = clock.call
+          end
+        rescue EOFError, IOError
+          nil
+        end
+        deadline = clock.call + limit
+        timed_out = false
+        until collector.join(1)
+          next unless clock.call > deadline || (idle && clock.call - heard > idle)
+
+          timed_out = true
           kill(pid)
           collector.join(5)
+          break
         end
         Process.wait(pid)
         [out.force_encoding(Encoding::BINARY), timed_out]
@@ -287,6 +302,7 @@ module Zr
 
             { area: @area, file: r, name: name, zr: zr, message: message, tag: tagged[name] }
           end
+          result["hung"]&.each { |name| lines << { area: @area, file: r, name: name, zr: "hang", message: nil, tag: tagged[name] } }
           unless result["state"] == "ran" && !result["timed_out"]
             why = result["timed_out"] ? "timeout" : result["state"]
             lines.unshift({ area: @area, file: r, name: "*", zr: why, message: result["error"], tag: tagged[""] })
@@ -336,14 +352,34 @@ module Zr
         # example.
         def compare(file, binary)
           ruby = ruby_run(file)
-          zr = run_one([binary, *arguments(file, zr: true)], zr: true)
+          zr = resumed(file, binary)
           names = ruby[:examples].keys | zr[:examples].keys
           examples = names.to_h do |n|
             zr_status, message = zr[:examples][n] || ["missing", nil]
             [n, [ruby[:examples].dig(n, 0) || "missing", zr_status, message].compact]
           end
           { "state" => zr[:load] ? "load" : "ran", "ended" => zr[:ended], "timed_out" => zr[:timed_out],
-            "error" => zr[:load], "examples" => examples }
+            "error" => zr[:load], "hung" => zr[:hung], "examples" => examples }.compact
+        end
+
+        # The most times a run that hung starts again.
+        RESUMES = 5
+
+        # zr's run of `file`. When a test hangs and the suite can name it
+        # (`read` gives `hung`), the run starts again without it, so the
+        # tests after it still run; `hung` lists each one.
+        def resumed(file, binary)
+          hung = []
+          result = nil
+          loop do
+            run = run_one([binary, *arguments(file, zr: true, skip: hung)], zr: true)
+            result = result ? result.merge(run, examples: result[:examples].merge(run[:examples])) : run
+            break hung << run[:hung] if run[:timed_out] && run[:hung] && hung.size >= RESUMES
+            break if !run[:timed_out] || run[:hung].nil? || hung.include?(run[:hung])
+
+            hung << run[:hung]
+          end
+          result.merge(hung: hung.empty? ? nil : hung)
         end
 
         # ruby's run of `file`, from the cache when this file at this
@@ -366,10 +402,13 @@ module Zr
         # load:, ended:, timed_out: }.
         def run_one(argv, zr:)
           Dir.mktmpdir("zr-suite-") do |dir|
-            out, timed_out = Suite.capture(env(dir, zr: zr), argv, dir, limit)
+            out, timed_out = Suite.capture(env(dir, zr: zr), argv, dir, limit, idle: idle)
             read(out).merge(timed_out: timed_out)
           end
         end
+
+        # Seconds with no output that end a run as hung; nil: only `limit`.
+        def idle = nil
 
         # The environment of a run: no bundler of the tools' own.
         # zr's run gets the environment of the pinned copy, for the zr that
@@ -387,9 +426,12 @@ module Zr
         def tags_from(result, old)
           return { "" => result["state"] } if %w[build load].include?(result["state"])
 
-          first = true
+          # The tests that the run saw hang, or else the first that it did
+          # not reach.
+          hung = result["hung"]
+          first = hung.nil?
           result["examples"].each_with_object({}) do |(name, (ruby, zr)), tags|
-            next tags[name] = "hangs" if old[name] == "hangs"
+            next tags[name] = "hangs" if old[name] == "hangs" || hung&.include?(name)
             next unless ruby == "pass" && zr != "pass"
 
             tags[name] = zr == "missing" && first ? "hangs" : "fails"
