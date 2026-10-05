@@ -507,7 +507,7 @@ module Zr
           if (marker = result.data_loc) && !(@switches.inline && main?(file))
             @data[file] = source.byteindex("\n", marker.start_offset)&.succ || source.bytesize
           end
-          stray = scopes && method.nil? && invalid_yields(source, file, line) #: SyntaxError?
+          stray = scopes && (method.nil? ? invalid_yields(source, file, line) : class_yields(result.value, file)) #: SyntaxError?
           raise stray if stray
 
           load_path_roots(result.value, file).each do |front, paths|
@@ -557,6 +557,28 @@ module Zr
           return nil if yields.empty?
 
           message = yields.map { |e| "#{file}:#{e.location.start_line}: #{e.message}" }.join("\n")
+          Hir.syntax_error(message, file).tap { |exc| exc.set_backtrace([file]) }
+        end
+
+        # The SyntaxError for a `yield` in a class, module or singleton
+        # class body of an eval string, outside any `def` in it: ruby's
+        # compiler refuses it even when the eval runs in a method, which
+        # prism allows.
+        #: (Prism::node root, String file) -> SyntaxError?
+        def class_yields(root, file)
+          found = [] #: Array[Prism::YieldNode]
+          walk = lambda do |node, inside|
+            case node
+            when Prism::DefNode then next
+            when Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode then inside = true
+            when Prism::YieldNode then found << node if inside
+            end
+            node.compact_child_nodes.each { |child| walk.call(child, inside) }
+          end
+          walk.call(root, false)
+          return nil if found.empty?
+
+          message = found.map { |node| "#{file}:#{node.location.start_line}: Invalid yield" }.join("\n")
           Hir.syntax_error(message, file).tap { |exc| exc.set_backtrace([file]) }
         end
 
