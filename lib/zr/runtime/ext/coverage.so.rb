@@ -116,6 +116,7 @@ module Coverage
       end
       runs = mode[:branches] ? Primitive.zr_coverage_branch_counts(clear) : nil
       claims = mode[:methods] ? claimed(Primitive.zr_coverage_method_counts(clear)) : nil
+      untracked.each { |path| totals.delete(path) }
       totals.to_h do |path, counts|
         lines = lines_of(path, counts)
         next [path, lines.freeze] if mode.empty?
@@ -216,6 +217,10 @@ module Coverage
       Array.new(count) { |i| executable.include?(i + 1) ? counts[i] || 0 : nil }
     end
 
+    def untracked
+      Primitive.zr_hidden_get(self, :__untracked__) || Primitive.zr_hidden_set(self, :__untracked__, Set.new)
+    end
+
     def eval_lines
       Primitive.zr_hidden_get(self, :__eval_lines__) || Primitive.zr_hidden_set(self, :__eval_lines__, {})
     end
@@ -230,6 +235,14 @@ module Coverage
     # under `eval: true`, and only until coverage stops.
     def compiled_lines!(rows, defs, eval = false)
       return if eval && !Primitive.zr_hidden_get(self, :__mode__)&.fetch(:eval, false)
+
+      # A file compiled before coverage starts is not measured, even when
+      # it starts coverage itself, until a later compile of it.
+      unless eval
+        idle = state == :idle
+        rows.each_key { |path| idle ? untracked << path : untracked.delete(path) }
+        return if idle
+      end
 
       table = eval ? eval_lines : coverable
       rows.each do |path, (count, lines)|
