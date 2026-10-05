@@ -2753,10 +2753,16 @@ class IO
   # One read(2) past the buffer, or a pread(2) at `offset`; nil at the end.
   def copy_read(size, offset)
     Primitive.attr! :hidden
-    chunk = offset.negative? ? Primitive.zr_io_read(@fd, size) : Primitive.zr_io_pread(@fd, size, offset)
-    raise SystemCallError.new(offset.negative? ? +"read" : +"pread", -chunk) if chunk.is_a?(Integer)
+    # nogvl_copy_stream_read_write waits on a descriptor that is not
+    # ready, also on one that is non-blocking.
+    loop do
+      park_until(READABLE)
+      chunk = offset.negative? ? Primitive.zr_io_read(@fd, size) : Primitive.zr_io_pread(@fd, size, offset)
+      return chunk unless chunk.is_a?(Integer)
+      raise SystemCallError.new(offset.negative? ? +"read" : +"pread", -chunk) unless -chunk == Errno::EAGAIN::Errno
 
-    chunk
+      wait_again(READABLE)
+    end
   end
 
   # The line without its separator, as rb_io_getline_0 cuts it: a "\n"
