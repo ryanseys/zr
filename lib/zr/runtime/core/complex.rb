@@ -71,12 +71,13 @@ class Complex < Numeric
     end
     private :real_numeric?
 
-    def convert(value, exception)
+    def convert_one(value, exception)
       Primitive.attr! :hidden
       case value
       when Complex then value
       when Integer, Float, Rational then build(value, 0)
-      when String then parse(value, exception)
+      # string_to_c_strict: a Complex, whatever the receiver.
+      when String then Complex.send(:parse, value, exception)
       # nucomp_convert: a Numeric that is not real is already complex.
       when Numeric
         return value unless value.real?
@@ -104,7 +105,50 @@ class Complex < Numeric
         end
       end
     end
+    private :convert_one
+
+    # nucomp_s_convert: Kernel#Complex for the receiver's class, which
+    # always raises.
+    def convert(real, *rest)
+      raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
+
+      convert_parts(real, rest, true)
+    end
     private :convert
+
+    # nucomp_convert: one part, or a real and an imaginary part.
+    def convert_parts(real, rest, exception)
+      Primitive.attr! :hidden
+      return convert_one(real, exception) if rest.empty?
+
+      # nucomp_convert with two parts.
+      imag = rest.first
+      if real.nil? || imag.nil?
+        return nil unless exception
+
+        raise TypeError, +"can't convert nil into Complex"
+      end
+      real = convert_one(real, exception) if real.is_a?(String)
+      imag = convert_one(imag, exception) if imag.is_a?(String)
+      return nil if real.nil? || imag.nil?
+
+      # An exact zero imaginary part unwraps here; a Float zero one counts as
+      # real below, and nucomp_real_check unwraps it at the end.
+      exact_zero = ->(x) { x == 0 && !x.is_a?(Float) }
+      realish = ->(x) { x.is_a?(Complex) ? x.imaginary.zero? : x.real? }
+      real = real.real if real.is_a?(Complex) && exact_zero.(real.imaginary)
+      imag = imag.real if imag.is_a?(Complex) && exact_zero.(imag.imaginary)
+      return real if real.is_a?(Complex) && exact_zero.(imag)
+      return real + imag * Complex::I if real.is_a?(Numeric) && imag.is_a?(Numeric) && (!realish.(real) || !realish.(imag))
+
+      # With exception: false, an imaginary part that is not a real number
+      # gives nil, whatever the real part is; a real part that is not one
+      # raises "not a real" anyway.
+      return nil if !exception && !(imag.is_a?(Numeric) && imag.real?)
+
+      rectangular(real, imag)
+    end
+    private :convert_parts
 
     # A real number's text, as a pattern piece (a String, so the core
     # loads without the regexp engine). read_num takes ".5" but not "5.";
@@ -240,26 +284,26 @@ class Complex < Numeric
 
   def polar = [abs, arg]
 
-  def conjugate = Complex.send(:build, real, -imaginary)
+  def conjugate = with_parts(real, -imaginary)
 
   alias conj conjugate
 
-  def -@ = Complex.send(:build, -real, -imaginary)
+  def -@ = with_parts(-real, -imaginary)
 
   def +(other)
     case other
-    when Complex then Complex.send(:build, real + other.real, imaginary + other.imaginary)
-    when Integer, Float, Rational then Complex.send(:build, real + other, imaginary)
+    when Complex then with_parts(real + other.real, imaginary + other.imaginary)
+    when Integer, Float, Rational then with_parts(real + other, imaginary)
     # rb_complex_plus: any real Numeric adds to the real part.
-    else Complex.send(:real_numeric?, other) ? Complex.send(:build, real + other, imaginary) : Primitive.zr_num_coerce_m(self, other, :+, 0)
+    else Complex.send(:real_numeric?, other) ? with_parts(real + other, imaginary) : Primitive.zr_num_coerce_m(self, other, :+, 0)
     end
   end
 
   def -(other)
     case other
-    when Complex then Complex.send(:build, real - other.real, imaginary - other.imaginary)
-    when Integer, Float, Rational then Complex.send(:build, real - other, imaginary)
-    else Complex.send(:real_numeric?, other) ? Complex.send(:build, real - other, imaginary) : Primitive.zr_num_coerce_m(self, other, :-, 0)
+    when Complex then with_parts(real - other.real, imaginary - other.imaginary)
+    when Integer, Float, Rational then with_parts(real - other, imaginary)
+    else Complex.send(:real_numeric?, other) ? with_parts(real - other, imaginary) : Primitive.zr_num_coerce_m(self, other, :-, 0)
     end
   end
 
@@ -276,10 +320,10 @@ class Complex < Numeric
       aiz = ai.zero?
       brz = br.zero?
       biz = bi.zero?
-      Complex.send(:build, Complex.send(:safe_mul, ar, br, arz, brz) - Complex.send(:safe_mul, ai, bi, aiz, biz),
+      with_parts(Complex.send(:safe_mul, ar, br, arz, brz) - Complex.send(:safe_mul, ai, bi, aiz, biz),
                    Complex.send(:safe_mul, ar, bi, arz, biz) + Complex.send(:safe_mul, ai, br, aiz, brz))
-    when Integer, Float, Rational then Complex.send(:build, real * other, imaginary * other)
-    else Complex.send(:real_numeric?, other) ? Complex.send(:build, real * other, imaginary * other) : Primitive.zr_num_coerce_m(self, other, :*, 0)
+    when Integer, Float, Rational then with_parts(real * other, imaginary * other)
+    else Complex.send(:real_numeric?, other) ? with_parts(real * other, imaginary * other) : Primitive.zr_num_coerce_m(self, other, :*, 0)
     end
   end
 
@@ -300,13 +344,13 @@ class Complex < Numeric
         x = (real * r + imaginary).quo(n)
         y = (imaginary * r - real).quo(n)
       end
-      Complex.send(:build, floating ? x : canonical(x), floating ? y : canonical(y))
+      with_parts(floating ? x : canonical(x), floating ? y : canonical(y))
     when Integer, Float, Rational
-      Complex.send(:build, canonical(real.quo(other)), canonical(imaginary.quo(other)))
+      with_parts(canonical(real.quo(other)), canonical(imaginary.quo(other)))
     # f_divide: a real Numeric divides each part with quo; any other
     # coerces and divides with quo.
     else
-      return Complex.send(:build, real.quo(other), imaginary.quo(other)) if Complex.send(:real_numeric?, other)
+      return with_parts(real.quo(other), imaginary.quo(other)) if Complex.send(:real_numeric?, other)
 
       Primitive.zr_num_coerce_m(self, other, :quo, 0)
     end
@@ -322,13 +366,13 @@ class Complex < Numeric
       if c.abs > d.abs
         r = d.fdiv(c)
         n = c * (1 + (r * r))
-        return Complex.send(:build, (a + (b * r)).fdiv(n), (b - (a * r)).fdiv(n))
+        return with_parts((a + (b * r)).fdiv(n), (b - (a * r)).fdiv(n))
       end
       r = c.fdiv(d)
       n = d * (1 + (r * r))
-      return Complex.send(:build, ((a * r) + b).fdiv(n), ((b * r) - a).fdiv(n))
+      return with_parts(((a * r) + b).fdiv(n), ((b * r) - a).fdiv(n))
     end
-    return Complex.send(:build, real.fdiv(other), imaginary.fdiv(other)) if Complex.send(:real_numeric?, other)
+    return with_parts(real.fdiv(other), imaginary.fdiv(other)) if Complex.send(:real_numeric?, other)
 
     Primitive.zr_num_coerce_m(self, other, :fdiv, 0)
   end
@@ -338,9 +382,9 @@ class Complex < Numeric
     other = other.numerator if other.is_a?(Rational) && other.denominator == 1
     case other
     when Integer
-      return Complex.send(:build, 1, 0) if other == 0
+      return with_parts(1, 0) if other == 0
 
-      base = other > 0 ? self : Complex.send(:build, 1, 0) / self
+      base = other > 0 ? self : with_parts(1, 0) / self
       n = other.abs
       result = nil
       while n > 0
@@ -350,17 +394,17 @@ class Complex < Numeric
       end
       result
     when Float, Rational
-      return Complex.send(:build, 1, 0) if other == 0 && !other.is_a?(Float)
+      return with_parts(1, 0) if other == 0 && !other.is_a?(Float)
 
       radius, theta = polar
-      Complex.polar(radius**other, theta * other)
+      Primitive.zr_class_of(self).polar(radius**other, theta * other)
     when Complex
       radius, theta = polar
       ore, oim = other.real, other.imaginary
       log = Math.log(radius)
       r = Math.exp(ore * log - oim * theta)
       t = theta * ore + oim * log
-      Complex.polar(r, t)
+      Primitive.zr_class_of(self).polar(r, t)
     else Primitive.zr_num_coerce_m(self, other, :**, 0)
     end
   end
@@ -392,11 +436,11 @@ class Complex < Numeric
   def coerce(other)
     case other
     when Complex then [other, self]
-    when Integer, Float, Rational then [Complex.send(:build, other, 0), self]
+    when Integer, Float, Rational then [with_parts(other, 0), self]
     else
       raise TypeError, "#{other.class} can't be coerced into Complex" unless Complex.send(:real_numeric?, other)
 
-      [Complex.send(:build, other, 0), self]
+      [with_parts(other, 0), self]
     end
   end
 
@@ -405,7 +449,7 @@ class Complex < Numeric
 
   def numerator
     d = denominator
-    Complex.send(:build, real.numerator * (d / real.denominator), imaginary.numerator * (d / imaginary.denominator))
+    with_parts(real.numerator * (d / real.denominator), imaginary.numerator * (d / imaginary.denominator))
   end
 
   def finite? = !(real.is_a?(Float) && !real.finite?) && !(imaginary.is_a?(Float) && !imaginary.finite?)
@@ -480,6 +524,13 @@ class Complex < Numeric
     !imaginary.is_a?(Float) && imaginary == 0
   end
 
+  # f_complex_new2(CLASS_OF(self), ...): a result of the receiver's class,
+  # so a subclass keeps its own.
+  def with_parts(real, imag)
+    Primitive.attr! :hidden
+    Primitive.zr_class_of(self).send(:build, real, imag)
+  end
+
   # k_exact_zero_p: not a Float, and == 0.
   def exact_zero?(x)
     Primitive.attr! :hidden
@@ -497,35 +548,7 @@ module Kernel
   def Complex(real, *rest, exception: true)
     raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
 
-    exception = exception_flag(exception)
-    return Complex.send(:convert, real, exception) if rest.empty?
-
-    # nucomp_convert with two parts.
-    imag = rest.first
-    if real.nil? || imag.nil?
-      return nil unless exception
-
-      raise TypeError, +"can't convert nil into Complex"
-    end
-    real = Complex.send(:convert, real, exception) if real.is_a?(String)
-    imag = Complex.send(:convert, imag, exception) if imag.is_a?(String)
-    return nil if real.nil? || imag.nil?
-
-    # An exact zero imaginary part unwraps here; a Float zero one counts as
-    # real below, and nucomp_real_check unwraps it at the end.
-    exact_zero = ->(x) { x == 0 && !x.is_a?(Float) }
-    realish = ->(x) { x.is_a?(Complex) ? x.imaginary.zero? : x.real? }
-    real = real.real if real.is_a?(Complex) && exact_zero.(real.imaginary)
-    imag = imag.real if imag.is_a?(Complex) && exact_zero.(imag.imaginary)
-    return real if real.is_a?(Complex) && exact_zero.(imag)
-    return real + imag * Complex::I if real.is_a?(Numeric) && imag.is_a?(Numeric) && (!realish.(real) || !realish.(imag))
-
-    # With exception: false, an imaginary part that is not a real number
-    # gives nil, whatever the real part is; a real part that is not one
-    # raises "not a real" anyway.
-    return nil if !exception && !(imag.is_a?(Numeric) && imag.real?)
-
-    Complex.rectangular(real, imag)
+    Complex.send(:convert_parts, real, rest, exception_flag(exception))
   end
   private :Complex
   module_function :Complex
