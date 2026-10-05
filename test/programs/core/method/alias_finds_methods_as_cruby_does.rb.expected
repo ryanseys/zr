@@ -1,0 +1,5 @@
+true
+[NameError, "undefined method 'class' for module '#<Module:0x>'"]
+[NameError, "undefined method 'class' for module '#<Module:0x>'"]
+:xyz
+2

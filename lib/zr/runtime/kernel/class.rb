@@ -613,20 +613,44 @@ module Zr::Kern
     if e == 0 && zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
       e = zr_find_method(ClassExt[RClass[klass].ext].refined, old_id)
     end
-      # A module's ancestor list is only the module, so the lookup then
-      # tries Object's methods (and Kernel's), as rb_alias does.
+    # A module's ancestor list is only the module, so the lookup then
+    # tries Object's methods (and Kernel's), as rb_alias does.
     if e == 0 && zr_type(klass) == T_MODULE
       e = zr_find_method(zr_global(G_OBJECT), old_id)
     end
     if e == 0
-        # With the name and the receiver, which did_you_mean reads.
+      # With the name and the receiver, which did_you_mean reads.
       return zr_undefined_method(klass, old_id, VIS_PUBLIC)
+    end
+    vis = MEntry[e].vis
+    # A copy that `private :m` made of an ancestor's method (CRuby's
+    # ZSUPER entry) is not the method: the search goes on above the class
+    # that holds it, with the copy's visibility. A module has nothing
+    # above it, so its alias of such a copy finds nothing.
+    holder = Task[zr_task()].found
+    # An include node of a module stands for the module.
+    owner = !zr_special_p(holder) && zr_type(holder) == T_ICLASS ? RClass[holder].attached : holder
+    if MEntry[e].from != QNIL && !zr_special_p(holder) && zr_vis_copy_p(owner, old_id)
+      above = RClass[holder].superclass
+      e = zr_special_p(above) ? Machine.ptr(0) : zr_find_method(above, old_id)
+      if e == 0
+        return zr_undefined_method(klass, old_id, VIS_PUBLIC)
+      end
     end
     # An alias named initialize, initialize_copy and the like is private,
     # whatever the original's visibility, as rb_method_entry_make makes it.
-    vis = MEntry[e].vis
     if zr_definition_vis(new_id, Machine.value(QNIL)) == VIS_PRIVATE
       vis = VIS_PRIVATE
+    end
+    # `alias m m` of the class's own entry changes nothing but marks it
+    # aliased, so neither it nor a later def of m warns of a redefinition
+    # (CRuby counts the aliases of a def). The hook still runs.
+    if new_id == old_id && vis == MEntry[e].vis && zr_find_method_at(zr_origin(klass), new_id) == e
+      if MEntry[e].from == QNIL
+        MEntry[e].from = holder
+        zr_write_barrier(klass, holder)
+      end
+      return zr_method_added(klass, new_id)
     end
     zr_method_copy(klass, new_id, e, MEntry[e].meta, vis, true)
     zr_method_added(klass, new_id)
@@ -1713,6 +1737,24 @@ module Zr::Kern
   # there, which calls the ancestor's method as it is at the call; a
   # copy takes the ancestor's new body when that method is defined again.
   G_VIS_COPIES = 67
+
+  # Whether `holder`'s own entry for `mid` is a copy that a visibility
+  # call made of an ancestor's method (G_VIS_COPIES).
+  #: (value, word) -> bool
+  def zr_vis_copy_p(holder, mid)
+    list = zr_global(G_VIS_COPIES)
+    if zr_special_p(list)
+      return false
+    end
+    i = 0
+    while i < RArray[list].len
+      if zr_ary_at(list, i) == holder && zr_sym2id(zr_ary_at(list, i + 1)) == mid
+        return true
+      end
+      i += 2
+    end
+    false
+  end
 
   # The copies of `mid` whose body was the entry `meta` of `klass`'s
   # table take the body that `e` has now.
