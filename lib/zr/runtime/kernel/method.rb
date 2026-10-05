@@ -214,8 +214,14 @@ module Zr::Kern
   # that ancestor.
   #: (value, word, ptr, value) -> value
   def zr_method_invoke(m, argc, argv, blk)
-    zr_find_method(RMethod[m].klass, RMethod[m].entry.mid)
-    zr_invoke(Machine.ptr(RMethod[m].entry), RMethod[m].recv, argc, argv, blk, zr_kw_take())
+    e = Machine.ptr(RMethod[m].entry)
+    found = zr_find_method(RMethod[m].klass, RMethod[m].entry.mid)
+    # A module's method bound to a class that does not include the module
+    # is not what the lookup finds: its `super` starts from its owner.
+    if found == 0 || MEntry[found].meta != MEntry[e].meta || MEntry[found].cref != MEntry[e].cref
+      Task[zr_task()].found = RMethod[m].owner
+    end
+    zr_invoke(e, RMethod[m].recv, argc, argv, blk, zr_kw_take())
   end
 
   #: (value, word, ptr, value, value) -> value

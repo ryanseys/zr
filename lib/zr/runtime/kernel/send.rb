@@ -585,12 +585,25 @@ module Zr::Kern
   #: (ptr, value, value) -> value
   def zr_super_from(rec, recv, owner)
     k = zr_frame_defined(rec)
-    if k != QNIL
+    # A plain module (not a proxy in a list) is where a bound method was
+    # called from (`bind_call`): the search starts from the receiver.
+    if k != QNIL && !(zr_type(k) == T_MODULE && ClassExt[RClass[k].ext].refined == QNIL)
       return k
     end
     k = zr_class_of(recv)
     while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass[k].attached == owner))
       k = RClass[k].superclass
+    end
+    # A module's method bound to an object whose class does not include
+    # the module (`bind_call`) goes on from the object's class, as through
+    # the proxy that umethod_bind puts on it (rb_include_class_new).
+    if k == QNIL && !zr_special_p(owner) && zr_type(owner) == T_MODULE
+      k = zr_alloc(T_ICLASS, owner, RClass.size)
+      RClass[k].name = Machine.value(QNIL)
+      RClass[k].superclass = zr_class_of(recv)
+      RClass[k].ext = RClass[owner].ext
+      RClass[k].attached = owner
+      RClass[k].origin = Machine.value(QNIL)
     end
     k
   end
