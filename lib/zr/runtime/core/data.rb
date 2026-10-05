@@ -22,6 +22,8 @@ class Data
 
       klass = Class.new(self)
       Primitive.zr_define_alloc(klass)
+      # setup_data: a defined class does not define again.
+      klass.singleton_class.undef_method(:define)
       Primitive.zr_hidden_set(klass, :__members__, members.freeze)
       Primitive.zr_data_constructors(klass)
       klass.define_singleton_method(:members) { Primitive.zr_struct_members(self).dup }
@@ -30,7 +32,6 @@ class Data
       klass.class_eval(&body) if body
       klass
     end
-
   end
 
 
