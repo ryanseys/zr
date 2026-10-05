@@ -586,6 +586,11 @@ module Zr::Kern
   #: (ptr, value, value, bool) -> value
   def zr_super_from(rec, recv, owner, bmethod)
     k = bmethod ? Machine.value(QNIL) : zr_frame_defined(rec)
+    # A class with a prepended module holds its methods in its origin. An
+    # alias made before the prepend still names the class itself.
+    if k != QNIL && zr_type(k) == T_CLASS
+      k = zr_origin(k)
+    end
     # A plain module (not a proxy in a list) is where a bound method was
     # called from (`bind_call`): the search starts from the receiver.
     if k != QNIL && !(zr_type(k) == T_MODULE && ClassExt[RClass[k].ext].refined == QNIL)

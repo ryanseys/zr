@@ -1,0 +1,5 @@
+[:private_extended, "Object#bar"]
+[:private_extended_obj, "Object#bar"]
+[:private_included, "Object#bar"]
+[:alias_before, "BA"]
+[:alias_after, "PBA"]

@@ -2197,6 +2197,11 @@ module Zr::Kern
     from = MEntry[e].from
     if found && from == QNIL
       from = Task[zr_task()].found
+      # A module's own ancestor list is not the receiver's: a node in it
+      # stands for its module, which `super` finds again in the receiver's.
+      if zr_type(klass) == T_MODULE && !zr_special_p(from) && zr_type(from) == T_ICLASS
+        from = RClass[from].attached
+      end
     end
     cover = MEntry[e].cover
     direct = MEntry[e].direct
