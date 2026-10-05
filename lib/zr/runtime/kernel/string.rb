@@ -2186,19 +2186,33 @@ module Zr::Kern
 
   G_FSTRINGS = 44
 
-  # CRuby's fstring table: returns the one frozen String of these bytes. A
-  # String not yet in the table is frozen and added. A String that is not
-  # UTF-8 is frozen but not shared, because the table uses only bytes as keys.
+  # The fstring tables of the encodings other than UTF-8, by encoding
+  # index: a lookup compares Strings with eql?, which takes two ASCII-only
+  # Strings of different encodings as equal, so each encoding has its own.
+  G_FSTRINGS_OTHER = 70
+
+  # CRuby's fstring table: returns the one frozen String of these bytes in
+  # this encoding. A String not yet in the table is frozen and added.
   #: (value) -> value
   def zr_str_intern(s)
-    if !zr_str_wide_p(s)
-      RBasic[s].flags = RBasic[s].flags | FL_FREEZE
-      return s
-    end
-    table = zr_global(G_FSTRINGS)
-    if zr_special_p(table)
-      table = zr_hash_new()
-      zr_set_global(G_FSTRINGS, table)
+    if zr_str_wide_p(s)
+      table = zr_global(G_FSTRINGS)
+      if zr_special_p(table)
+        table = zr_hash_new()
+        zr_set_global(G_FSTRINGS, table)
+      end
+    else
+      tables = zr_global(G_FSTRINGS_OTHER)
+      if zr_special_p(tables)
+        tables = zr_hash_new()
+        zr_set_global(G_FSTRINGS_OTHER, tables)
+      end
+      index = zr_fix(zr_str_encoding_index(s))
+      table = zr_hash_lookup(tables, index)
+      if table == QUNDEF
+        table = zr_hash_new()
+        zr_hash_store(tables, index, table)
+      end
     end
     found = zr_hash_lookup(table, s)
     if found != QUNDEF
