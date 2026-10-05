@@ -309,6 +309,17 @@ module Kernel
 
                # A surrogate is written as its three bytes, as mbcput does.
                n >= 0xD800 && n <= 0xDFFF ? [0xED, 0xA0 | ((n >> 6) & 0x1F), 0x80 | (n & 0x3F)].pack("C*").force_encoding(enc) : n.chr(enc)
+             elsif Regexp.encoder(enc).max_len > 1
+               # rb_enc_codelen: a code that makes no character of a
+               # multibyte encoding has no length.
+               char = begin
+                 n.chr(enc)
+               rescue RangeError
+                 nil
+               end
+               raise ArgumentError, +"invalid character" unless char&.valid_encoding?
+
+               char
              else
                n.chr(enc)
              end

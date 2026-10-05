@@ -262,6 +262,8 @@ class String
       raise IndexError, "negative length #{length}" if length < 0
 
       value = Primitive.zr_str_operand(value)
+      # rb_str_update checks the encodings before the index.
+      buf_incompatible(Encoding.at(Primitive.zr_str_encoding_index_m(self)), Encoding.at(Primitive.zr_str_encoding_index_m(value))) unless Encoding.compatible?(self, value)
       start = index < 0 ? index + count : index
       raise IndexError, "index #{index} out of string" if start < 0 || start > count
 
@@ -270,6 +272,7 @@ class String
       case index
       when Integer
         value = Primitive.zr_str_operand(value)
+        buf_incompatible(Encoding.at(Primitive.zr_str_encoding_index_m(self)), Encoding.at(Primitive.zr_str_encoding_index_m(value))) unless Encoding.compatible?(self, value)
         start = index < 0 ? index + count : index
         raise IndexError, "index #{index} out of string" if start < 0 || start > count
 
@@ -347,26 +350,34 @@ class String
     dummy_check!
     return wide_stripped(true, true) if Primitive.zr_str_unit_m(self) != 0
 
+    # rb_str_strip finds the start first, so its check comes first.
+    start = lstrip_start
     broken_tail!
     stop = Primitive.zr_str_space_start(self, Primitive.zr_str_bytesize(self), true)
-    start = stop.zero? ? 0 : Primitive.zr_str_space_end(self, 0, true)
-    byteslice_of(start, stop - start)
+    byteslice_of(start, [stop - start, 0].max)
   end
 
   def lstrip(*selectors)
     return stripped(selectors, true, false) unless selectors.empty?
     return wide_stripped(true, false) if Primitive.zr_str_unit_m(self) != 0
 
+    start = lstrip_start
+    byteslice_of(start, Primitive.zr_str_bytesize(self) - start)
+  end
+
+  # lstrip_offset: the byte after the leading spaces. It reads the first
+  # character that is not a space, which must be a whole one in a
+  # multibyte encoding.
+  def lstrip_start
+    Primitive.attr! :hidden
     start = Primitive.zr_str_space_end(self, 0, true)
-    # lstrip_offset reads the first character that is not a space, which
-    # must be a whole one in a multibyte encoding.
     if !Primitive.zr_str_valid_p(self) && start < Primitive.zr_str_bytesize(self)
       enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
       if Regexp.encoder(enc).max_len > 1 && !byteslice_of(start, Primitive.zr_str_char_len_at_m(self, start)).valid_encoding?
         raise ArgumentError, "invalid byte sequence in #{enc}"
       end
     end
-    byteslice_of(start, Primitive.zr_str_bytesize(self) - start)
+    start
   end
 
   def rstrip(*selectors)
@@ -2498,13 +2509,21 @@ class String
     !(Primitive.zr_str_bytesize(self) == 0) && OWN[:each_byte].bind_call(self).all? { |b| b >= 48 && b <= 57 }
   end
 
+  # The bytes that ISSPACE takes as space.
+  SPACE_BYTES = [9, 10, 11, 12, 13, 32].freeze
+  private_constant :SPACE_BYTES
+
   # An Integer read the way `hex` and `oct` read one: whitespace, a
   # sign, a base prefix, digits with single underscores, and nothing
   # past the first stray byte. A negative base means the prefix picks
   # the base.
   def lenient_integer(base)
     Primitive.attr! :hidden
-    text = OWN[:lstrip].bind_call(self)
+    # rb_int_parse_cstr skips ASCII space bytes only, so bytes that make
+    # no character after them are just not digits.
+    start = 0
+    start += 1 while start < Primitive.zr_str_bytesize(self) && SPACE_BYTES.include?(Primitive.zr_str_byte_at(self, start))
+    text = byteslice_of(start, Primitive.zr_str_bytesize(self) - start)
     i = 0
     sign = 1
     if text.getbyte(i) == 45 || text.getbyte(i) == 43
@@ -2704,6 +2723,9 @@ class String
 
       pattern = Primitive.zr_str_operand(pattern)
     end
+    # get_pat_quoted refuses a String that is not valid in its encoding,
+    # with the error of the Regexp that it would make.
+    Regexp.new(pattern) unless Primitive.zr_str_valid_p(pattern)
 
     at = byte_index(pattern, start)
     at && [at, at, at + pattern.bytesize]
@@ -3002,12 +3024,15 @@ class String
     # UTF8-MAC and the carriers' UTF-8 hold the same bytes UTF-8 does.
     return copied.force_encoding(Encoding::UTF_8).send(:mapped_case, kind, options).force_encoding(encoding) if Encoding.send(:utf8_like?, encoding)
     return recoded_case(kind, options) if Encoding.cased?(encoding) && !Primitive.zr_str_ascii_only_m(self)
+    # The case-map pass reads every character of a multibyte encoding,
+    # and says so of bytes that make none; ASCII mode reads none past
+    # ASCII.
+    unless mode == :ascii || Primitive.zr_str_valid_p(self) || Regexp.encoder(encoding).max_len == 1
+      raise ArgumentError, +"input string invalid"
+    end
     # An encoding with no case table of its own maps ASCII letters and
-    # leaves every other byte, whatever the bytes make (rb_str_ascii_casemap).
+    # leaves every other byte (rb_str_ascii_casemap).
     return ascii_cased(kind, encoding) unless encoding.equal?(Encoding::UTF_8) || Encoding.cased?(encoding)
-    # The case-fold pass reads every character, and says so of bytes
-    # that make none; ASCII mode reads none past ASCII.
-    raise ArgumentError, +"input string invalid" unless mode == :ascii || Primitive.zr_str_valid_p(self)
     return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
 
     out = empty_like
