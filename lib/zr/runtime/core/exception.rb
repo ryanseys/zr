@@ -146,10 +146,14 @@ class Exception
     out
   end
 
-  # rb_get_backtrace: the backtrace, from an override when there is one.
+  # rb_get_backtrace: the backtrace, from an override when there is one,
+  # which must give what rb_check_backtrace takes.
   def report_backtrace(exc)
     Primitive.attr! :hidden
-    exc.backtrace
+    bt = exc.backtrace
+    return bt if bt.nil? || (bt.is_a?(Array) && (bt.all?(String) || bt.all?(Thread::Backtrace::Location)))
+
+    raise TypeError, "backtrace must be an Array of String or an Array of Thread::Backtrace::Location"
   end
 
   # rb_get_detailed_message: a String, or nil.
