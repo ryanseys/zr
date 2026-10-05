@@ -88,8 +88,13 @@ class Exception
 
     rows = Primitive.zr_exc_raise_rows(self) or return nil
 
+    # The Array made for these rows, until a raise records new ones.
+    made = Primitive.zr_hidden_get(self, :__made_locations__)
+    return made[1] if made && made[0] == rows
+
     locations = rows.zip(Primitive.zr_exc_raise_nodes(self)).map { |row, node| Thread::Backtrace::Location.new(row, node) }
-    Primitive.zr_hidden_set(self, :__locations__, locations)
+    Primitive.zr_hidden_set(self, :__made_locations__, [rows, locations])
+    locations
   end
 
   # An Array of Locations sets the locations as well as the strings, as
