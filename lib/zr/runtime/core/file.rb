@@ -261,7 +261,7 @@ class File < IO
       return
     end
 
-    fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(path, flags, perm) }
+    fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(File.send(:os_path, path), flags, perm) }
     raise SystemCallError.new(path, -fd, +"rb_sysopen") if fd < 0
 
     super(fd, mode, **options, path: path)
@@ -1026,6 +1026,18 @@ class File < IO
     path
   end
   private_class_method :path_of
+
+  # rb_str_encode_ospath: on macOS a path in an encoding other than
+  # binary or UTF-8 goes to the system as UTF-8, where it converts.
+  def self.os_path(path)
+    Primitive.attr! :hidden
+    return path if !RUBY_PLATFORM.include?("darwin") || path.encoding == Encoding::BINARY || path.encoding == Encoding::UTF_8
+
+    path.encode(Encoding::UTF_8)
+  rescue EncodingError
+    path
+  end
+  private_class_method :os_path
 
   # rb_file_size: fstat(2) on the stream's own descriptor.
   def size

@@ -438,7 +438,7 @@ class IO
     mode = +"r" if mode.nil?
     flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, File.send(:open_mode, mode))
     perm = perm.nil? ? 0o666 : Integer(perm)
-    fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(path, flags, perm) }
+    fd = Fiber.send(:offloaded) { Primitive.zr_io_open_flags(File.send(:os_path, path), flags, perm) }
     raise SystemCallError.new(path, -fd, +"rb_sysopen") if fd < 0
 
     fd
