@@ -1,5 +1,5 @@
 hangs:RbConfig::CONFIG ['rubylibdir'] returns the directory containing Ruby standard libraries
-fails:RbConfig::CONFIG ['archdir'] returns the directory containing standard libraries C extensions
+hangs:RbConfig::CONFIG ['archdir'] returns the directory containing standard libraries C extensions
 fails:RbConfig::CONFIG ['sitelibdir'] is set and is part of $LOAD_PATH
 fails:RbConfig::CONFIG libdir/LIBRUBY_SO is the path to libruby and it exists if and only if ENABLE_SHARED
 fails:RUBY_DESCRIPTION contains version
