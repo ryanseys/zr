@@ -32,8 +32,12 @@ module Zr::Kern
   end
 
   # All live objects that a program can get, only of `mod` if it is not nil.
+  # A major collection runs first: a dead cell that a minor collection left
+  # can point at a cell that a later one freed, and the walk must not give
+  # it back to the program.
   #: (value) -> value
   def zr_objspace_objects(mod)
+    zr_collect_kind(SIZE_CLASSES, true)
     out = zr_ary_new(1024)
     a = 0
     while a < Heap[zr_heap()].arenas
@@ -269,6 +273,9 @@ module Zr::Kern
       n += zr_ary_embedded_p(v) ? 0 : RArray[v].capa * 8
     elsif t == T_HASH
       n += (RHash[v].cap * HEntry.size) + (RHash[v].nbins * 8)
+    elsif t == T_OBJECT
+      iv = Machine.ptr(RObject[v].iv)
+      n += zr_ivtab_embedded_p(iv) ? 0 : IvTab[iv].cap * IvEntry.size
     end
     zr_fix(n)
   end
