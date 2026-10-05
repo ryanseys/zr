@@ -2220,7 +2220,12 @@ module Zr::Kern
   #: (value, word, ptr, value, word, word) -> value
   def zr_set_visibility(klass, argc, argv, blk, vis, modfn)
     if argc == 0
-      cref = Frame[Frame[Task[zr_task()].top].prev].cref
+      up = Frame[Task[zr_task()].top].prev
+      # scope_visibility_check: a method body has no later defs for this.
+      if up != 0 && FrameMeta[Frame[up].meta].kind == KIND_DEF
+        zr_warn_bare_visibility(vis, modfn)
+      end
+      cref = Frame[up].cref
       if cref == QNIL
         return Machine.value(QNIL)
       end
@@ -2251,6 +2256,26 @@ module Zr::Kern
       return Machine.value(Machine.load64(argv, 0))
     end
     zr_ary_of(argc, argv)
+  end
+
+  # Warns that `private` (or the call that `vis` and `modfn` name)
+  # without arguments in a method changes nothing that follows.
+  #: (word, word) -> void
+  def zr_warn_bare_visibility(vis, modfn)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("calling "), 8)
+    if modfn != 0
+      zr_buf_push(b, Machine.bytes("module_function"), 15)
+    elsif vis == VIS_PRIVATE
+      zr_buf_push(b, Machine.bytes("private"), 7)
+    elsif vis == VIS_PROTECTED
+      zr_buf_push(b, Machine.bytes("protected"), 9)
+    else
+      zr_buf_push(b, Machine.bytes("public"), 6)
+    end
+    zr_buf_push(b, Machine.bytes(" without arguments inside a method may not have the intended effect"), 67)
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
   end
 
   #: (value, word, word, word) -> value

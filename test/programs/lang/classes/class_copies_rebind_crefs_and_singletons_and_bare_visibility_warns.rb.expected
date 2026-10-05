@@ -1,0 +1,14 @@
+[:C1, :C2]
+TypeError
+TypeError
+TypeError
+"warning: calling private without arguments inside a method may not have the intended effect\n"
+"warning: calling protected without arguments inside a method may not have the intended effect\n"
+"warning: calling private without arguments inside a method may not have the intended effect\n"
+[[], []]
+[:s2, :s2]
+[[:s2_method], [:s2_method]]
+true
+true
+true
+true

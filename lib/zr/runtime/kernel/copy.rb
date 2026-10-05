@@ -215,6 +215,9 @@ module Zr::Kern
     if orig == zr_global(G_BASIC_OBJECT)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy the root class"), 25)
     end
+    if zr_singleton_p(orig)
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy singleton class"), 26)
+    end
     klass = zr_type(orig) == T_CLASS ? zr_global(G_CLASS) : zr_global(G_MODULE)
     copy = zr_class_alloc(zr_type(orig), RClass[orig].superclass, klass)
     from = RClass[orig].ext
@@ -226,6 +229,7 @@ module Zr::Kern
       ClassExt[ext].mlen = ClassExt[from].mlen
       zr_methods_changed()
       ClassExt[ext].mcap = ClassExt[from].mlen
+      zr_crefs_rebound(tab, ClassExt[ext].mlen, orig, copy)
     end
     if ClassExt[from].clen > 0
       tab = zr_xmalloc(ClassExt[from].clen * CEntry.size)
@@ -250,6 +254,22 @@ module Zr::Kern
       zr_include_singleton(copy, RBasic[orig].klass)
     end
     copy
+  end
+
+  # rb_vm_rewrite_cref: a copied method whose body was written in the
+  # original reads constants and class variables through the copy, so
+  # `def foo = TEST` in a clone finds the clone's own TEST.
+  #: (ptr, word, value, value) -> void
+  def zr_crefs_rebound(tab, len, orig, copy)
+    i = 0
+    while i < len
+      e = tab + (i * MEntry.size)
+      cref = MEntry[e].cref
+      if !zr_special_p(cref) && zr_type(cref) == T_CREF && RCref[cref].klass == orig
+        MEntry[e].cref = zr_cref_push(copy, RCref[cref].next)
+      end
+      i += 1
+    end
   end
 
   # rb_mod_init_copy for a class or module with prepends: the copy gets
@@ -309,7 +329,15 @@ module Zr::Kern
       return recv
     end
     if zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE
-      return zr_class_copy(recv)
+      # The copy is whole before initialize_dup runs, so the hook sees its
+      # ancestors (Bug #21538).
+      copy = zr_class_copy(recv)
+      return copy if copy == QUNDEF
+      slot = Machine.slot(8)
+      Machine.store64(slot, 0, Machine.word(recv))
+      r = zr_send(copy, Machine.id(:initialize_dup), 1, slot)
+      return r if r == QUNDEF
+      return copy
     end
     r = zr_copy_allocatable(recv)
     return r if r == QUNDEF
@@ -410,6 +438,12 @@ module Zr::Kern
     while i >= 0
       zr_include_module(own, zr_ary_at(mods, i))
       i -= 1
+    end
+    # rb_singleton_class_clone clones the singleton class's own singleton
+    # class too, with its methods.
+    outer = RBasic[meta].klass
+    if zr_singleton_p(outer) && RClass[outer].attached == meta
+      zr_include_singleton(own, outer)
     end
   end
 end
