@@ -185,21 +185,29 @@ module Marshal
       wrapped = !ivars.empty? && !plain_object?(obj)
       @out << "I" if wrapped
       extended(obj)
+      # A String, Regexp, Array or Hash writes by its builtin type, which an
+      # instance of a copy of one of them (`String.clone`) keeps.
+      builtin = Primitive.zr_builtin_class_m(obj)
+      if builtin.equal?(String) then uclass(obj, String) << '"' << bytes(obj)
+      elsif builtin.equal?(Regexp) then uclass(obj, Regexp) << "/" << bytes(obj.source) << (obj.options & 0xff).chr
+      elsif builtin.equal?(Array) then array(obj, limit)
+      elsif builtin.equal?(Hash) then hash(obj, limit)
+      else typed_body(obj, ivars, limit)
+      end
+      write_ivars(ivars, limit) if wrapped
+    end
+
+    def typed_body(obj, ivars, limit)
       case obj
       when Class then @out << "c" << bytes(class_path(obj))
       when Module then @out << "m" << bytes(class_path(obj))
       when Float then @out << "f" << bytes(float_text(obj))
       when Integer then @out << "l" << bignum(obj)
-      when String then uclass(obj, String) << '"' << bytes(obj)
-      when Regexp then uclass(obj, Regexp) << "/" << bytes(obj.source) << (obj.options & 0xff).chr
-      when Array then array(obj, limit)
-      when Hash then hash(obj, limit)
       when Range then object_body(class_path(Primitive.zr_real_class(obj)), range_parts(obj), limit)
       when Exception then object_body(class_path(Primitive.zr_real_class(obj)), exception_parts(obj), limit)
       when Struct, Data then struct(obj, limit)
       else object_body(class_path(Primitive.zr_real_class(obj)), ivars, limit)
       end
-      write_ivars(ivars, limit) if wrapped
     end
 
     # A Set writes as the pure-Ruby Set of Ruby 3 did: an object whose
@@ -336,7 +344,8 @@ module Marshal
 
       names = obj.respond_to?(:instance_variables) ? obj.instance_variables : []
       parts = names.map { |name| [name, obj.instance_variable_get(name)] }
-      String === obj || Regexp === obj ? encoding_ivar(obj.encoding) + parts : parts
+      builtin = Primitive.zr_builtin_class_m(obj)
+      builtin.equal?(String) || builtin.equal?(Regexp) ? encoding_ivar(obj.encoding) + parts : parts
     end
 
     # An encoding writes only its name, and the name takes a link slot of
@@ -372,8 +381,7 @@ module Marshal
     def plain_object?(obj)
       return false if Class === obj || Module === obj || Struct === obj || Data === obj
 
-      Range === obj || !(String === obj || Regexp === obj || Array === obj ||
-                            Hash === obj || Float === obj || Integer === obj)
+      Range === obj || (Primitive.zr_builtin_class_m(obj).nil? && !(Float === obj || Integer === obj))
     end
 
     def class_path(mod)
@@ -682,7 +690,7 @@ module Marshal
       built = Primitive.zr_class_allocate(klass)
       # The user class must make a value of the same type as the record.
       base = [String, Array, Hash, Regexp].find { |type| value.is_a?(type) }
-      raise ArgumentError, "dump format error (user class)" unless base && built.is_a?(base)
+      raise ArgumentError, "dump format error (user class)" unless base && Primitive.zr_builtin_class_m(built).equal?(base)
 
       case value
       when String then built.replace(value)

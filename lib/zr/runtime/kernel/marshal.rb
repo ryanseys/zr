@@ -38,6 +38,27 @@ module Zr::Kern
   MR_USRDEF = 0x75
   MR_BIGNUM = 0x6c
 
+  # The builtin class whose type `obj` has, as w_object reads
+  # BUILTIN_TYPE: String, Array, Hash or Regexp, also for an instance of a
+  # copy of one (`String.clone`), which is no kind of it; else nil.
+  #: (value) -> value
+  def zr_builtin_class_m(obj)
+    if zr_special_p(obj)
+      return Machine.value(QNIL)
+    end
+    t = zr_type(obj)
+    if t == T_STRING
+      return zr_global(G_STRING)
+    elsif t == T_ARRAY
+      return zr_core_class(Machine.id(:Array))
+    elsif t == T_HASH
+      return zr_core_class(Machine.id(:Hash))
+    elsif t == T_REGEXP
+      return zr_core_class(Machine.id(:Regexp))
+    end
+    Machine.value(QNIL)
+  end
+
   # `Marshal.load(bytes)` for a String. It returns nil when the Ruby
   # reader must read the document: another format version, a truncated
   # document, or a kind that this reader leaves to Ruby. Then
