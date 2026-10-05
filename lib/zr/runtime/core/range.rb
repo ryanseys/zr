@@ -435,8 +435,18 @@ class Range
     self
   end
 
+  # range_eq: a pair of ranges met again inside their own comparison is
+  # equal (rb_exec_recursive_paired), so a range that holds itself ends.
   def ==(other)
-    other.is_a?(Range) && @begin == other.begin && @end == other.end && @excl == other.exclude_end?
+    return true if equal?(other)
+    return false unless other.is_a?(Range)
+    return true if Primitive.zr_recursive_enter_paired(self, other, :==)
+
+    begin
+      @begin == other.begin && @end == other.end && @excl == other.exclude_end?
+    ensure
+      Primitive.zr_recursive_leave(self, :==)
+    end
   end
 
   # Whether some value lies in both ranges; an empty range overlaps
@@ -504,7 +514,15 @@ class Range
   end
 
   def eql?(other)
-    other.is_a?(Range) && @begin.eql?(other.begin) && @end.eql?(other.end) && @excl == other.exclude_end?
+    return true if equal?(other)
+    return false unless other.is_a?(Range)
+    return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
+
+    begin
+      @begin.eql?(other.begin) && @end.eql?(other.end) && @excl == other.exclude_end?
+    ensure
+      Primitive.zr_recursive_leave(self, :eql?)
+    end
   end
 
   def hash = [@begin, @end, @excl].hash
@@ -616,11 +634,18 @@ class Range
   # An endless or beginless range leaves that side blank; only a range
   # with neither end spells its nils. A blank beginning is an empty
   # binary String, as inspect_range starts one.
+  # A range inside its own inspect shows as `(... .. ...)`.
   def inspect
-    text = @begin.nil? && !@end.nil? ? String.new : Primitive.zr_inspect(@begin).dup
-    text << dots
-    text << Primitive.zr_inspect(@end) unless @end.nil? && !@begin.nil?
-    text
+    return +"(... #{dots} ...)" if Primitive.zr_recursive_enter(self, :inspect)
+
+    begin
+      text = @begin.nil? && !@end.nil? ? String.new : Primitive.zr_inspect(@begin).dup
+      text << dots
+      text << Primitive.zr_inspect(@end) unless @end.nil? && !@begin.nil?
+      text
+    ensure
+      Primitive.zr_recursive_leave(self, :inspect)
+    end
   end
 
   private
