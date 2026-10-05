@@ -300,6 +300,8 @@ module Zr::Kern
       RFiber[to].value = zr_fiber_transfer_value(argc, argv)
     end
     RFiber[to].status = FIBER_RESUMED
+    # A fiber that runs again no longer waits as a transfer left it.
+    RFiber[to].transferred = 0
     zr_fiber_switch(from, to)
     v = RFiber[from].value
     RFiber[from].value = Machine.value(QNIL)
@@ -328,6 +330,7 @@ module Zr::Kern
     while RFiber[f].resuming != QNIL
       f = RFiber[f].resuming
     end
+    RFiber[f].transferred = 0
     f
   end
 

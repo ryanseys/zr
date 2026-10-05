@@ -1272,6 +1272,12 @@ class Fiber
     return Kernel.raise(action) if equal?(Fiber.current)
 
     resumed = Primitive.zr_fiber_resuming_m(self)
+    # A kill of a fiber that resumed another ends that one first; this one
+    # ends as control comes back to it.
+    if resumed && action == :kill
+      Primitive.zr_hidden_set(self, :__action__, :kill)
+      return resumed.kill
+    end
     return resumed.send(:deliver, action) if resumed
 
     Primitive.zr_hidden_set(self, :__action__, action)
