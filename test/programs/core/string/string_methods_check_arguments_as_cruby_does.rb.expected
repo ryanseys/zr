@@ -1,0 +1,32 @@
+[Encoding::CompatibilityError, "incompatible encoding with this operation: ISO-2022-JP"]
+[Encoding::CompatibilityError, "incompatible encoding with this operation: ISO-2022-JP"]
+"あ"
+[FrozenError, "can't modify frozen String: \"\""]
+[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]
+[TypeError, "wrong argument type BasicObject (expected Regexp)"]
+["a", "b"]
+[["00", #<Encoding:US-ASCII>], ["01", #<Encoding:US-ASCII>], ["02", #<Encoding:US-ASCII>], ["03", #<Encoding:US-ASCII>]]
+"あ"
+"\x{955C}"
+"\xFE"
+"\xBE"
+"\xFE"
+"llo"
+true
+1
+[ArgumentError, "wide char encoding: UTF-16LE"]
+[ArgumentError, "wide char encoding: UTF-32BE"]
+"foobarbaz"
+[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]
+"bar"
+#<Encoding:US-ASCII>
+#<Encoding:UTF-8>
+"XYC"
+true
+"foo#<Object:0x>baz"
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16BE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: ISO-2022-JP"]
+12
+[]
+["a b"]
+[RuntimeError, "string modified"]
