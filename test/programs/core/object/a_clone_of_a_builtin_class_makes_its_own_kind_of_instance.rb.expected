@@ -1,0 +1,13 @@
+"ab"
+StrClone
+2
+true
+true
+"AB"
+"abc"
+[1, 2]
+AryClone
+2
+1
+{k: 1}
+HashClone

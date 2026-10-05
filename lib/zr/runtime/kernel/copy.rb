@@ -242,6 +242,9 @@ module Zr::Kern
     zr_write_barrier_all(copy)
     if zr_type(orig) == T_CLASS
       zr_make_metaclass(copy)
+      # rb_class_init_copy: the copy allocates as the original does, so a
+      # copy of String makes Strings.
+      ClassExt[ext].alloc = zr_alloc_kind(orig)
     end
     if zr_singleton_p(RBasic[orig].klass)
       zr_include_singleton(copy, RBasic[orig].klass)
