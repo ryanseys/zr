@@ -336,8 +336,9 @@ module Zr::Kern
   end
 
   # Returns the frame record whose `$~` the running code sees. A block
-  # uses the record of its method, an eval uses the scope that called it,
-  # and a core method uses the record of its caller, unless it matches
+  # uses the record of its method (a block of the core library too), an
+  # eval uses the scope that called it, and a core method uses the record
+  # of its caller, unless it matches
   # for its own work (`owns_backref`): then the match stays in its own
   # record and the program's `$~` is left alone, as a C function's
   # matches leave it.
@@ -354,12 +355,12 @@ module Zr::Kern
       if meta == 0
         return rec
       end
-      if FrameMeta[meta].file_len == 0
-        if FrameMeta[meta].owns_backref != 0
-          return rec
-        end
-        rec = Frame[rec].prev
-      elsif (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL) && FrameMeta[meta].parent != 0
+      if FrameMeta[meta].file_len == 0 && FrameMeta[meta].owns_backref != 0
+        return rec
+      end
+      # A block, the core's own included, uses the record of the method it
+      # is written in, whoever calls it.
+      if (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL) && FrameMeta[meta].parent != 0
         parent = FrameMeta[meta].parent
         up = Frame[rec].prev
         while up != 0 && Frame[up].meta != parent
@@ -374,6 +375,8 @@ module Zr::Kern
           end
         end
         rec = up
+      elsif FrameMeta[meta].file_len == 0
+        rec = Frame[rec].prev
       else
         return rec
       end
