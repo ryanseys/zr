@@ -22,7 +22,8 @@ class Socket < BasicSocket
     def cmsg_is?(level, type)
       family = self.family
       level = Socket.level_arg(family, level)
-      self.level == level && self.type == Socket.cmsg_type_arg(family, level, type)
+      type = Socket.cmsg_type_arg(family, level, type)
+      self.level == level && self.type == type
     end
 
     def int

@@ -1635,6 +1635,7 @@ class IO
     raise ArgumentError, "negative length #{len} given" if len < 0
 
     check_readable
+    set_nonblock(true) unless nonblock_flag?
     if !buffered? && !len.zero? && would_block?(READABLE)
       return :wait_readable unless exception
 
@@ -1649,6 +1650,7 @@ class IO
   def write_nonblock(buf, exception: true)
     Primitive.attr! :ruby
     check_writable
+    set_nonblock(true) unless nonblock_flag?
     text = buf.is_a?(String) ? buf : buf.to_s
     if would_block?(WRITABLE)
       return :wait_writable unless exception
@@ -2226,9 +2228,13 @@ class IO
     IO.send(:room_for!, length)
 
     # io_getpartial: with nothing buffered, one read of the requested
-    # length, which a scheduler's io_read takes.
-    if @buffer.empty? && IO.send(:scheduler_taking, :io_read)
+    # length, so a datagram socket loses the rest of its message as it
+    # does in ruby. A scheduler's io_read takes the read.
+    if @buffer.empty?
+      return nil if @eof
+
       loop do
+        park_until(READABLE) unless IO.send(:scheduler_taking, :io_read)
         chunk = read_memory(length)
         return chunk&.b unless chunk.is_a?(Integer)
 
@@ -2237,8 +2243,6 @@ class IO
         wait_again(READABLE)
       end
     end
-    fill if @buffer.empty? && !@eof
-    return nil if @buffer.empty?
 
     take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
   end
