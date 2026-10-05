@@ -107,6 +107,9 @@ class Thread
 
       current.send(:push_mask, mask)
       begin
+        # An exception that waits and that the new mask lets through
+        # arrives before the block runs (rb_thread_s_handle_interrupt).
+        current.send(:interrupted)
         yield
       ensure
         current.send(:pop_mask)
@@ -475,6 +478,7 @@ class Thread
 
     exception = Exception.send(:setup, args, opts)
     Kernel.raise(exception) if equal?(Thread.current)
+    @raised_first = !@killed
     @pending = exception
     wakeup
     nil
@@ -691,13 +695,14 @@ class Thread
   end
 
   # Whether an exception waits rather than arrives: the innermost mask
-  # that includes its class decides.
+  # that includes its class decides. `:on_blocking` lets it through while
+  # the thread waits in a blocking call.
   def masked?(exception)
     Primitive.attr! :hidden
     return false if @masks.nil?
 
     @masks.reverse_each do |mask|
-      mask.each { |klass, how| return how != :immediate if klass === exception }
+      mask.each { |klass, how| return !(how == :immediate || (how == :on_blocking && @blocking)) if klass === exception }
     end
     false
   end
@@ -821,12 +826,14 @@ class Thread
     Primitive.attr! :hidden
     return unless @armed
 
-    kill_here if @killed && !@aborting
-    if @pending && !masked?(@pending)
+    # The interrupts arrive in the order they were sent: an exception
+    # sent before a kill ends the thread as that exception.
+    if @pending && !masked?(@pending) && (!@killed || @raised_first)
       e = @pending
       @pending = nil
       Kernel.raise e
     end
+    kill_here if @killed && !@aborting
   end
 
   # Sleep until `wakeup`, or until `deadline` nanoseconds on the
@@ -838,8 +845,10 @@ class Thread
     @timed_out = false
     Thread.send(:sleep_until, self, deadline) if deadline
     begin
+      @blocking = true
       Thread.send(:switch, deadly && deadline.nil?)
     ensure
+      @blocking = false
       # Still asleep: a signal's handler raised while this thread waited.
       if @status == :sleep
         @status = :run
