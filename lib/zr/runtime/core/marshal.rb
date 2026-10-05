@@ -797,8 +797,22 @@ module Marshal
       when :bt then built.set_backtrace(value) unless value.nil?
       when :errno then Primitive.zr_hidden_set(built, :__errno__, value)
       when :bt_locations then nil
-      when :cause then Primitive.zr_exc_cause_set(built, value)
+      when :cause then cause!(built, value)
       else built.instance_variable_set(name, value)
+      end
+    end
+
+    # A loaded cause that leads back to the exception, itself included,
+    # is refused, as rb_exc_check_circular_cause refuses it.
+    def cause!(built, cause)
+      Primitive.zr_exc_cause_set(built, cause)
+      seen = {}.compare_by_identity
+      link = cause
+      while link.is_a?(Exception)
+        raise ArgumentError, "circular causes" if link.equal?(built) || seen.key?(link)
+
+        seen[link] = true
+        link = link.cause
       end
     end
 

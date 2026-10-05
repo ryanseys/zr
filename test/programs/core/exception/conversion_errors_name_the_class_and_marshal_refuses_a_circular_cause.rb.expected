@@ -1,0 +1,9 @@
+[TypeError, "can't convert Ex to Array (Ex#to_a gives Integer)"]
+[ArgumentError, "circular causes"]
+[TypeError, "no implicit conversion of C䀲 into Integer"]
+[TypeError, "can't convert C䀲 to Array (C䀲#to_a gives C䀲)"]
+[TypeError, "wrong argument type C🗿 (expected Module)"]
+[:warn]
+true
+[TypeError, "can't convert Ex to Array (Ex#to_ary gives Integer)"]
+["outer", "inner", nil]

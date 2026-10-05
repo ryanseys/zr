@@ -272,9 +272,26 @@ module Zr::Kern
       return a
     end
     if zr_special_p(r) || zr_type(r) != T_ARRAY
-      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't convert to Array (to_a gives something else)"), 50)
+      return zr_raise_gives_array(v, Machine.bytes("#to_a gives "), 12, r)
     end
     r
+  end
+
+  # Raises convert_type_with_id's TypeError for a conversion of `obj` to
+  # an Array whose method (`#to_a gives `) returned `got`:
+  # "can't convert Foo to Array (Foo#to_a gives Integer)".
+  #: (value, ptr, word, value) -> value
+  def zr_raise_gives_array(obj, gives, len, got)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("can't convert "), 14)
+    zr_buf_class_of(b, obj)
+    zr_buf_push(b, Machine.bytes(" to Array ("), 11)
+    zr_buf_class_of(b, obj)
+    zr_buf_push(b, gives, len)
+    zr_buf_class_of(b, got)
+    zr_buf_push(b, Machine.bytes(")"), 1)
+    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
 
   # Adds the elements of the splat `*v` to the Array `a`.
@@ -986,7 +1003,7 @@ module Zr::Kern
         return a
       end
       if a != QNIL
-        return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't convert to Array (to_ary gives something else)"), 52)
+        return zr_raise_gives_array(v, Machine.bytes("#to_ary gives "), 14, a)
       end
     end
     a = zr_ary_new(1)
