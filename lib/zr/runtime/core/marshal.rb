@@ -43,11 +43,18 @@ module Marshal
     alias restore load
   end
 
-  # Objects that contain a task, a lock, a descriptor or compiled code,
-  # which no wire format can contain.
-  UNDUMPABLE = %w[Proc Method UnboundMethod Binding Enumerator Fiber Dir MatchData Ractor StringIO
-                  Thread Thread::Mutex Thread::Queue Thread::SizedQueue Thread::ConditionVariable].freeze
-  private_constant :UNDUMPABLE
+  # The classes whose objects CRuby keeps as T_DATA: a task, a lock, a
+  # descriptor, compiled code or C state. Only a `_dump_data` writes one
+  # (`d`), and only a `_load_data` reads one.
+  DATA_KINDS = %w[Proc Method UnboundMethod Binding Enumerator Fiber Dir Ractor StringIO Thread Thread::Mutex
+                  Thread::Queue Thread::SizedQueue Thread::ConditionVariable Time Random Encoding::Converter
+                  ObjectSpace::WeakMap ObjectSpace::WeakKeyMap].freeze
+  private_constant :DATA_KINDS
+
+  # Whether CRuby keeps the objects of `klass` as T_DATA.
+  def self.data_kind?(klass)
+    klass.ancestors.any? { |kind| Primitive.zr_table_member_p(DATA_KINDS, MODULE_NAME.bind_call(kind)) }
+  end
 
   # Module#name, as CRuby's class2path reads a class's name: a `name`
   # that the program wrote for a class does not change what is dumped.
@@ -104,7 +111,7 @@ module Marshal
     value
   end
 
-  private_class_method :long_bytes, :read_long_bytes, :extras_of, :extra_set
+  private_class_method :long_bytes, :read_long_bytes, :extras_of, :extra_set, :data_kind?
 
   # The tags, by the character each one writes.
   class Writer
@@ -147,16 +154,28 @@ module Marshal
       return user_dump(obj, limit) if obj.respond_to?(:_dump, true)
 
 
-      refuse(obj)
+      data = data?(obj)
       remember(obj)
-      body(obj, limit)
+      data ? data_dump(obj, limit) : body(obj, limit)
     end
 
-    def refuse(obj)
-      raise TypeError, "can't dump #{Primitive.zr_real_class(obj)}" if IO === obj
-      return unless Primitive.zr_real_class(obj).ancestors.any? { |kind| Primitive.zr_table_member_p(UNDUMPABLE, MODULE_NAME.bind_call(kind)) }
+    # Whether `obj` is written as T_DATA, which takes a `_dump_data`. An
+    # IO and a MatchData have no form on the wire at all.
+    def data?(obj)
+      raise TypeError, "can't dump #{Primitive.zr_real_class(obj)}" if IO === obj || MatchData === obj
+      return false unless Marshal.send(:data_kind?, Primitive.zr_real_class(obj))
+      return true if obj.respond_to?(:_dump_data, true)
 
       raise TypeError, "no _dump_data is defined for class #{Primitive.zr_real_class(obj)}"
+    end
+
+    # w_object's T_DATA: the extended modules, `d`, the class, then what
+    # `_dump_data` returns.
+    def data_dump(obj, limit)
+      payload = obj.__send__(:_dump_data)
+      extended(obj)
+      @out << "d" << symbol_bytes(class_path(Primitive.zr_real_class(obj)).to_sym)
+      write(payload, limit)
     end
 
     def body(obj, limit)
@@ -477,6 +496,8 @@ module Marshal
     # stopped.
     def initialize(source, handler, freeze)
       @io = source.respond_to?(:read) ? source : nil
+      # rb_marshal_load_with_proc: a port is put in binmode first.
+      @io.__send__(:binmode) if @io.respond_to?(:binmode, true)
       @bytes = @io ? +"".b : Primitive.zr_str_operand(source)
       @pos = 0
       @handler = handler
@@ -783,18 +804,20 @@ module Marshal
       built
     end
 
-    # `d`, what CRuby's `_dump_data` writes for a T_DATA object. The name
-    # comes first, so an absent class raises the same error as for every
-    # other tag. Then marshal.c allocates the class and refuses unless the
-    # result is T_DATA.
-    #
-    # Only a C extension makes a T_DATA object, and this runtime has no C.
-    # So that check refuses every `d` that a program can give this reader,
-    # as ruby does with the same bytes: `_load_data` is unreachable in
-    # both. The payload is left unread, as marshal.c leaves it.
+    # `d`, what `_dump_data` writes for a T_DATA object. marshal.c
+    # allocates the class, refuses one that is not T_DATA, takes the link
+    # slot, and gives the payload to `_load_data`.
     def data
-      constant(symbol_or_link, Class)
-      raise ArgumentError, "dump format error"
+      name = symbol_or_link
+      klass = constant(name, Class)
+      built = Primitive.zr_class_allocate(klass)
+      raise ArgumentError, +"dump format error" unless Marshal.send(:data_kind?, Primitive.zr_real_class(built))
+
+      keep(built)
+      raise TypeError, "class #{name} needs to have instance method '_load_data'" unless built.respond_to?(:_load_data, true)
+
+      built.__send__(:_load_data, read)
+      built
     end
 
     def symbol_or_link

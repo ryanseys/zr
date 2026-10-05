@@ -243,6 +243,14 @@ module Zr::Kern
   # line.
   #: (value) -> value
   def zr_proc_binding(p)
+    # proc_binding of a Method's Proc: an empty scope (an empty iseq in
+    # CRuby) whose self is the method's receiver.
+    if RProc[p].fn == Machine.addr(:zr_method_block)
+      meta = Machine.static(:method_binding_meta, FrameMeta.size)
+      FrameMeta[meta].kind = KIND_TOP
+      FrameMeta[meta].owner = Machine.value(QNIL)
+      return zr_binding_of(meta, Machine.value(QNIL), RMethod[RProc[p].self].recv, zr_global(G_TOP_CREF))
+    end
     # The core's anonymous Procs (curry, Hash#to_proc) are C functions in
     # CRuby, and have no binding either.
     if RProc[p].meta == 0 || RProc[p].meta == zr_anonymous_meta()

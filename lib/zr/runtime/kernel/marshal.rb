@@ -61,15 +61,7 @@ module Zr::Kern
     if MReader[r].bail != 0
       return Machine.value(QNIL)
     end
-    if v == QUNDEF
-      return v
-    end
-    # The Ruby reader also handles bytes after the value, so that the
-    # result is the same as ruby's.
-    if MReader[r].pos != MReader[r].len
-      zr_mr_bail(r)
-      return Machine.value(QNIL)
-    end
+    # Bytes after the value are left unread, as marshal.c leaves them.
     v
   end
 
@@ -317,11 +309,16 @@ module Zr::Kern
   # `u`: a class's `_load` on the bytes that it dumped. For an Encoding,
   # the payload is its name, and the reader finds the encoding by name, as
   # the Ruby reader does. A payload with its own ivars goes to the Ruby
-  # reader.
+  # reader. So does a `_load` of the program: a later bail would read the
+  # document again and call it twice.
   #: (ptr, value, value) -> value
   def zr_mr_user_dump(r, objects, symbols)
     klass = zr_mr_named_class(r, symbols)
     if klass == QUNDEF
+      return zr_mr_bail(r)
+    end
+    e = zr_find_method(zr_class_of(klass), Machine.id(:_load))
+    if klass != zr_core_class(Machine.id(:Encoding)) && (e == 0 || MEntry[e].meta == 0 || FrameMeta[MEntry[e].meta].kind != KIND_BUILTIN)
       return zr_mr_bail(r)
     end
     payload = zr_mr_string(r)

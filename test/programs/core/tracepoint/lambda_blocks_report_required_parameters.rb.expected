@@ -1,0 +1,8 @@
+[:b_call, []]
+[:b_call, [[:req, :x], [:req, :y], [:req, :z]]]
+[:b_return, [[:req, :x], [:req, :y], [:req, :z]]]
+[:b_call, [[:opt, :a], [:opt, :b]]]
+[:b_return, [[:opt, :a], [:opt, :b]]]
+[:b_call, [[:req, :q], [:opt, :r], [:rest, :s]]]
+[:b_return, [[:req, :q], [:opt, :r], [:rest, :s]]]
+[:b_return, []]

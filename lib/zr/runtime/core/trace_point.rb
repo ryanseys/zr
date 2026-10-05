@@ -370,7 +370,7 @@ class TracePoint
     # the others: an event that the machine fires is in no method and has none.
     return nil if %i[thread_begin thread_end fiber_switch].include?(event)
 
-    Primitive.zr_trace_parameters(row[9], row[10])
+    Primitive.zr_trace_parameters(row[9], row[10], row[11])
   end
 
   # The string that this code was compiled from, or nil when it came from

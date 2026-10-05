@@ -1,0 +1,6 @@
+Enumerator::Lazy
+[[true, [nil, 1, [1, 2], nil, []]]]
+[[true, [1, 2, 3]]]
+[[true, [1]], [false, [2]], [true, [3]]]
+[2, 4, 6]
+[2, 3]

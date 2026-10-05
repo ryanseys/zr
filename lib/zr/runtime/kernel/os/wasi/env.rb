@@ -202,6 +202,11 @@ module Zr::Kern
     zr_fix(0 - WASI_ENOSYS)
   end
 
+  #: (word, ptr) -> word
+  def zr_os_getgroups(n, list)
+    Machine.sword(Libc.getgroups(Machine.i32(n), list))
+  end
+
   #: () -> value
   def zr_os_issetugid
     Machine.value(QFALSE)

@@ -1377,8 +1377,37 @@ module Zr::Kern
     end
   end
 
+  # rb_str_inspect returns its text in default_internal, else in
+  # default_external, else in US-ASCII when that is not ASCII-compatible.
+  # Then no character prints as itself, and the result is US-ASCII.
   #: (value, word, ptr, value, value) -> value
   def zr_str_inspect(recv, argc, argv, cref, blk)
+    r = zr_str_inspect_text(recv)
+    if r != QUNDEF && zr_inspect_usascii_p() && zr_str_ascii_only(r)
+      zr_str_set_index(r, ENC_USASCII)
+    end
+    r
+  end
+
+  #: () -> bool
+  def zr_inspect_usascii_p
+    Machine.load64(Machine.static(:inspect_usascii, 8), 0) != 0
+  end
+
+  #: () -> value
+  def zr_inspect_usascii_m
+    zr_bool(zr_inspect_usascii_p())
+  end
+
+  # Set by Encoding.default_external= and default_internal=.
+  #: (value) -> value
+  def zr_inspect_usascii_set(flag)
+    Machine.store64(Machine.static(:inspect_usascii, 8), 0, flag == QTRUE ? 1 : 0)
+    flag
+  end
+
+  #: (value) -> value
+  def zr_str_inspect_text(recv)
     # UTF-16 and UTF-32 inspect by characters, and their dummy encodings by
     # bytes. That code is in Ruby.
     index = zr_str_encoding_index(recv)

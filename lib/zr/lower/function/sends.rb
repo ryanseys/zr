@@ -474,7 +474,7 @@ module Zr
         # A traced program sends every operator, so a :c_call sees it.
         #: (Hir::Send node, String recv, String argv, String argc) -> String
         def send_staged(node, recv, argv, argc)
-          note_eval_using(node) if EVAL_USING.include?(node.name)
+          note_eval_using(node) if eval_using?(node)
           if node.block && iterator_template?(node)
             iterate(node, recv, argv, argc)
           elsif node.block
@@ -497,6 +497,18 @@ module Zr
         # The calls whose string runs under the refinements of the call
         # site, or whose Binding keeps them for an eval.
         EVAL_USING = %i[eval instance_eval class_eval module_eval binding].freeze
+        SENDS = %i[send __send__ public_send].freeze
+
+        # A call of one of EVAL_USING, by its name or through a `send`
+        # whose name is not a literal of another method.
+        #: (Hir::Send node) -> bool
+        def eval_using?(node)
+          return true if EVAL_USING.include?(node.name)
+          return false unless SENDS.include?(node.name) && !node.args.empty?
+
+          name = node.args.first
+          !name.is_a?(Hir::Literal) || EVAL_USING.include?(name.value)
+        end
 
         # Tells the eval or binding call the `using` entry in force here
         # (the entry plus one; 0 for none). Every such call writes it, so

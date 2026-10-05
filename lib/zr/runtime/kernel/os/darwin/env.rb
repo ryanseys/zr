@@ -132,4 +132,21 @@ module Zr::Kern
   def zr_os_issetugid
     zr_bool(Libc.issetugid() != Machine.i32(0))
   end
+
+  # Darwin's getgroups(2) with no NGROUPS_MAX (16) limit, which CRuby
+  # calls (unistd.h aliases it from 10.6 on). Plain `getgroups` stops at
+  # 16 groups.
+  module GetgroupsCall
+    #: (ptr, i32, ptr) -> i32
+    def self.call(fn, i, p) = Machine.indirect
+  end
+
+  #: (word, ptr) -> word
+  def zr_os_getgroups(n, list)
+    cell = Machine.static(:getgroups_fn, 8)
+    if Machine.load64(cell, 0) == 0
+      Machine.store64(cell, 0, Machine.word(Libc.dlsym(Machine.ptr(RTLD_DEFAULT), Machine.bytes("getgroups$DARWIN_EXTSN\0"))))
+    end
+    Machine.sword(GetgroupsCall.call(Machine.ptr(Machine.load64(cell, 0)), Machine.i32(n), list))
+  end
 end

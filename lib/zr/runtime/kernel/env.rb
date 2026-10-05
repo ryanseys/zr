@@ -286,6 +286,21 @@ module Zr::Kern
     zr_meta_file(meta)
   end
 
+  # Whether the frame that called the current core method runs code of
+  # an eval: the eval's own scope, or a block inside it.
+  #: () -> value
+  def zr_caller_eval_p
+    rec = zr_frame_with_file(Frame[Task[zr_task()].top].prev)
+    if rec == 0
+      return Machine.value(QFALSE)
+    end
+    meta = Frame[rec].meta
+    while meta != 0 && FrameMeta[meta].kind == KIND_BLOCK
+      meta = FrameMeta[meta].parent
+    end
+    zr_bool(meta != 0 && FrameMeta[meta].kind == KIND_EVAL)
+  end
+
   #: () -> value
   def zr_process_id
     zr_fix(Machine.u32(Libc.getpid()))

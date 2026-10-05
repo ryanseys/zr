@@ -379,8 +379,8 @@ class Time
     # `Time#to_a` gives, which name the same instant backwards.
     def from_fields(args, zone)
       if args.size == 10
-        sec, min, hour, day, month, year = args
-        return civil(year, month, day, hour, min, sec, zone)
+        sec, min, hour, day, month, year, _wday, _yday, dst = args
+        return civil(year, month, day, hour, min, sec, zone, dst: dst ? true : false)
       end
       year, month, day, hour, min, sec, usec = args
       civil(year, month, day, hour, min, sec, zone, usec)
@@ -393,15 +393,15 @@ class Time
       [Primitive.zr_clock_ns(Process.send(:clock_id, Process::CLOCK_REALTIME, "clock_gettime")), zone.nil? ? :local : parse_zone(zone)]
     end
 
-    def civil(year, month, day, hour, min, sec, zone, usec = nil)
+    def civil(year, month, day, hour, min, sec, zone, usec = nil, dst: false)
       t = allocate
-      t.send(:set, *civil_parts(year, month, day, hour, min, sec, zone, usec))
-      t
+      t.send(:set, *civil_parts(year, month, day, hour, min, sec, zone, usec, dst:))
+      t.send(:local_filled)
     end
 
     # The nanoseconds and the kind a civil date names, which the caller
     # seats in whichever Time it is filling.
-    def civil_parts(year, month, day, hour, min, sec, zone, usec = nil)
+    def civil_parts(year, month, day, hour, min, sec, zone, usec = nil, dst: false)
       # obj2vint: a String reads as decimal digits, anything else as to_int.
       year = year.is_a?(String) ? Integer(year, 10) : to_integer(year)
       month = month_arg(month)
@@ -438,7 +438,7 @@ class Time
       case kind
       when :utc then [local_ns, :utc]
       when Integer, Rational then [local_ns - (kind * NS), kind]
-      when :local then [local_ns - local_offset_for(local_ns.div(NS)) * NS, :local]
+      when :local then [local_ns - local_offset_for(local_ns.div(NS), dst) * NS, :local]
       else [(zone_utc_seconds(kind, local_ns.div(NS)) * NS) + (local_ns % NS), kind]
       end
     end
@@ -472,12 +472,15 @@ class Time
 
     # The local offset for a calendar time `secs` (its fields read as
     # if UTC): the one whose zone gives that calendar time back; when
-    # two do, or none does, the smaller offset.
-    def local_offset_for(secs)
+    # two do, or none does, the smaller offset. find_time_t takes the
+    # daylight one of two that fit when `dst` (Time#to_a's isdst) is set.
+    def local_offset_for(secs, dst = false)
       offsets = [secs - 86_400, secs, secs + 86_400].map { |at| zone_at(at)[0] }.uniq
       return offsets[0] if offsets.size == 1
 
       fitting = offsets.select { |offset| zone_at(secs - offset)[0] == offset }
+      return fitting.max if dst && fitting.size > 1
+
       (fitting.empty? ? offsets : fitting).min
     end
 
@@ -549,10 +552,10 @@ class Time
       # count wraps to no limit.
       digits = precision.nil? ? nil : Primitive.zr_index_operand_m(precision)
       digits = nil if digits&.negative?
-      return set(*self.class.send(:string_parts, text, zone, digits))
+      return set(*self.class.send(:string_parts, text, zone, digits)).send(:local_filled)
     end
 
-    set(*self.class.send(:civil_parts, year, mon, mday, hour, min, sec, zone))
+    set(*self.class.send(:civil_parts, year, mon, mday, hour, min, sec, zone)).send(:local_filled)
   end
 
   def year = fields[0]
@@ -634,7 +637,7 @@ class Time
   # time_localtime returns a local Time as it is; with a zone,
   # time_zonelocal changes it, and a frozen one refuses.
   def localtime(zone = nil)
-    return self if zone.nil? && kind == :local
+    return local_filled if zone.nil? && kind == :local
 
     kind = zone.nil? ? :local : self.class.send(:parse_zone, zone)
     Time.send(:needs!, kind, :utc_to_local)
@@ -774,17 +777,34 @@ class Time
 
   def local_offset
     Primitive.attr! :hidden
+    local_filled
     Primitive.zr_hidden_get(self, :__offset__)
   end
 
   def local_dst
     Primitive.attr! :hidden
+    local_filled
     Primitive.zr_hidden_get(self, :__dst__)
   end
 
   def local_zone
     Primitive.attr! :hidden
+    local_filled
     Primitive.zr_hidden_get(self, :__zone__)
+  end
+
+  # A local Time from `now`, `at` or arithmetic finds its offset and zone
+  # name when one is first read (tm_got), with the TZ of that moment. The
+  # fill is a memo, so a frozen Time fills too.
+  def local_filled
+    Primitive.attr! :hidden
+    return self unless Primitive.zr_hidden_get(self, :__offset__).nil? && kind == :local
+
+    offset, dst, name = Time.send(:zone_at, ns.div(NS))
+    Primitive.zr_state_set(self, :__offset__, offset)
+    Primitive.zr_state_set(self, :__dst__, dst)
+    Primitive.zr_state_set(self, :__zone__, name&.dup&.force_encoding(Encoding::US_ASCII))
+    self
   end
 
   # `to_s` shows an offset as hours and minutes; `inspect` shows the
@@ -812,12 +832,7 @@ class Time
     Primitive.zr_hidden_set(self, :__ns__, Time.send(:canonical, at))
     Primitive.zr_hidden_set(self, :__kind__, of_kind)
     Primitive.zr_hidden_set(self, :__fields__, nil)
-    if of_kind == :local
-      offset, dst, name = Time.send(:zone_at, at.div(NS))
-      Primitive.zr_hidden_set(self, :__offset__, offset)
-      Primitive.zr_hidden_set(self, :__dst__, dst)
-      Primitive.zr_hidden_set(self, :__zone__, name&.dup&.force_encoding(Encoding::US_ASCII))
-    elsif Time.send(:zone_object?, of_kind)
+    if Time.send(:zone_object?, of_kind)
       # zone_localtime: the object gives the offset; `zone` is the object.
       Primitive.zr_hidden_set(self, :__offset__, Time.send(:zone_offset_at, of_kind, at.div(NS)))
       Primitive.zr_hidden_set(self, :__dst__, false)

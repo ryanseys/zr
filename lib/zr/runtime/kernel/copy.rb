@@ -236,6 +236,9 @@ module Zr::Kern
     end
     zr_ivtab_copy(Machine.ptr(ClassExt[ext].iv), Machine.ptr(ClassExt[from].iv), Machine.value(QNIL))
     zr_ivtab_copy(Machine.ptr(ClassExt[ext].cv), Machine.ptr(ClassExt[from].cv), Machine.value(QNIL))
+    if RClass[orig].origin != QNIL
+      zr_class_copy_prepends(copy, orig)
+    end
     zr_write_barrier_all(copy)
     if zr_type(orig) == T_CLASS
       zr_make_metaclass(copy)
@@ -244,6 +247,50 @@ module Zr::Kern
       zr_include_singleton(copy, RBasic[orig].klass)
     end
     copy
+  end
+
+  # rb_mod_init_copy for a class or module with prepends: the copy gets
+  # an origin of its own with the original origin's methods, and a proxy
+  # of its own for each module between the original and its origin. A
+  # proxy of a module that has an origin gets the copy of that origin.
+  #: (value, value) -> void
+  def zr_class_copy_prepends(copy, orig)
+    oo = RClass[orig].origin
+    RClass[copy].superclass = RClass[oo].superclass
+    zr_ensure_origin(copy)
+    co = RClass[copy].origin
+    from = RClass[oo].ext
+    ext = RClass[co].ext
+    if ClassExt[from].mlen > 0
+      tab = zr_xmalloc(ClassExt[from].mlen * MEntry.size)
+      zr_memcpy(tab, ClassExt[from].mtab, ClassExt[from].mlen * MEntry.size)
+      ClassExt[ext].mtab = tab
+      ClassExt[ext].mlen = ClassExt[from].mlen
+      ClassExt[ext].mcap = ClassExt[from].mlen
+    end
+    # Pairs of [the copy of a proxy, the original origin of that proxy].
+    waiting = zr_ary_new(2)
+    prev = copy
+    p = RClass[orig].superclass
+    while p != oo && p != QNIL
+      ic = zr_iclass_new(p, Machine.value(QNIL))
+      RClass[prev].superclass = ic
+      if RClass[p].origin != QNIL && RClass[p].origin != p
+        zr_ary_push(waiting, ic)
+        zr_ary_push(waiting, RClass[p].origin)
+      end
+      i = 0
+      while i < RArray[waiting].len
+        if zr_ary_at(waiting, i + 1) == p
+          RClass[zr_ary_at(waiting, i)].origin = ic
+        end
+        i += 2
+      end
+      prev = ic
+      p = RClass[p].superclass
+    end
+    RClass[prev].superclass = co
+    zr_methods_changed()
   end
 
   # `clone` for a class that has its own `clone` method entry and takes no

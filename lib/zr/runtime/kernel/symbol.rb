@@ -294,7 +294,12 @@ module Zr::Kern
   # ids in its compiled code agree with the ids of this program.
   #: (value) -> value
   def zr_intern_id(name)
-    zr_fix(zr_intern(RString[name].ptr, RString[name].len))
+    # A name that is not ASCII keeps its encoding: an eval of a BINARY
+    # String names BINARY symbols and constants, as rb_str_intern keys them.
+    if zr_str_ascii_bytes_p(name)
+      return zr_fix(zr_intern(RString[name].ptr, RString[name].len))
+    end
+    zr_fix(zr_intern_tagged(RString[name].ptr, RString[name].len, (RBasic[name].flags >> FL_ENC_SHIFT) & 255))
   end
 
   # The number of regexp literal sites in the program, so that the sites

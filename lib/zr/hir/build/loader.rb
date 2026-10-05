@@ -494,6 +494,9 @@ module Zr
         # @rbs return: Unit
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           options = @switches.parse_options(main?(file) && scopes.nil?)
+          # An eval's code starts in the encoding of its String, as
+          # rb_parser reads it, until a magic comment on its first line.
+          options = options.merge(encoding: source.encoding) if scopes && source.encoding.ascii_compatible?
           result = if scopes
                      Zr.parse(source, filepath: file, line: line, scopes: Loader.prism_scopes(scopes), **options)
                    else

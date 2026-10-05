@@ -1544,7 +1544,7 @@ class String
     Primitive.attr! :hidden
     # A character prints as itself only in the encoding that inspect
     # returns; UTF8-MAC and the carriers' UTF-8 show its code point.
-    own = Encoding.at(Primitive.zr_str_encoding_index_m(self)).equal?(Encoding::UTF_8)
+    own = Encoding.at(Primitive.zr_str_encoding_index_m(self)).equal?(Encoding::UTF_8) && !Primitive.zr_inspect_usascii_m
     out = +"\""
     i = 0
     while i < Primitive.zr_str_bytesize(self)
@@ -4333,13 +4333,21 @@ class Encoding
 
     DEFAULTS[0] = find(encoding)
     follow_paths
+    inspect_target
     encoding
   end
 
   def self.default_internal=(encoding)
     Warning.warn("#{Primitive.zr_warn_position}warning: setting Encoding.default_internal\n") if $VERBOSE
     DEFAULTS[1] = encoding.nil? ? nil : find(encoding)
+    inspect_target
     encoding
+  end
+
+  # Tells the kernel whether inspect's text is US-ASCII (rb_str_inspect).
+  def self.inspect_target
+    Primitive.attr! :hidden
+    Primitive.zr_inspect_usascii_set(!(default_internal || default_external).ascii_compatible?)
   end
 
   # The names that follow the defaults, rather than one encoding.

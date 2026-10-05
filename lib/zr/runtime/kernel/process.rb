@@ -347,12 +347,18 @@ module Zr::Kern
     zr_io_failed(Machine.sword(Libc.setsid()))
   end
 
-  # Returns the supplementary groups as an Array of ids.
+  # Returns the supplementary groups as an Array of ids, all of them: the
+  # count comes first, as proc_getgroups asks getgroups(0, NULL).
   #: () -> value
   def zr_proc_groups
-    list = Machine.slot(256)
-    n = Machine.sword(Libc.getgroups(Machine.i32(64), list))
+    n = zr_os_getgroups(0, Machine.ptr(0))
     if n < 0
+      return zr_fix(0 - zr_errno())
+    end
+    list = zr_xmalloc((n + 1) * 4)
+    n = zr_os_getgroups(n, list)
+    if n < 0
+      zr_xfree(list)
       return zr_fix(0 - zr_errno())
     end
     out = zr_ary_new(n)
@@ -361,6 +367,7 @@ module Zr::Kern
       zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(list + (i * 4), 0))))
       i += 1
     end
+    zr_xfree(list)
     out
   end
 

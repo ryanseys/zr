@@ -1,0 +1,17 @@
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+#<Encoding:BINARY (ASCII-8BIT)>
+true
+#<Encoding:BINARY (ASCII-8BIT)>
+false
+[:"V\xCF\x80"]
+#<Encoding:BINARY (ASCII-8BIT)>
+1
+["bar", "bar", "bar", "bar", "bar", "bar", "bar"]
+NoMethodError
+"."
+"foo"
+"/abs"
+nil
+["a"]
+true

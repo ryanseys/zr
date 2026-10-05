@@ -333,6 +333,9 @@ module Kernel
     # An eval with no file has no directory (rb_f_dir).
     return nil if file.nil? || file.start_with?("(eval at ")
     return +"." if file == +"-e"
+    # An eval given a file name has that name as its path and no real
+    # path, so rb_current_realfilepath gives the name as it is.
+    return File.dirname(file) if Primitive.zr_caller_eval_p
 
     # The directory is in the encoding of the file's name: the main
     # file's is a path from the command line (`zr_meta_file`).

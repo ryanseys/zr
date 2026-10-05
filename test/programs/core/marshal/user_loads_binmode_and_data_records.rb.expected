@@ -1,0 +1,22 @@
+true
+true
+[:load, ":\f"]
+U
+nil
+nil
+1
+[1]
+#<RuntimeError: binmode>
+:symbol
+"\x04\bd:\x10DumpableDirI\"\x06.\x06:\x06ET"
+DumpableDir
+"."
+#<TypeError: class UnloadableDumpableDir needs to have instance method '_load_data'>
+#<ArgumentError: dump format error>
+#<TypeError: class Time needs to have instance method '_load_data'>
+#<TypeError: class Mutex needs to have instance method '_load_data'>
+#<ArgumentError: dump format error>
+#<TypeError: allocator undefined for Proc>
+#<TypeError: can't dump MatchData>
+#<TypeError: no _dump_data is defined for class Thread::Mutex>
+#<TypeError: no _dump_data is defined for class Encoding::Converter>

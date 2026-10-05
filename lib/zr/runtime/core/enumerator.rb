@@ -791,12 +791,14 @@ class Enumerator::Lazy < Enumerator
                take take_while drop drop_while uniq with_index].freeze
     private_constant :EAGER
 
-    def run_send
+    # The block's value goes back to the method, as enumerator_block_call
+    # passes it: `lazy.to_enum(:chunk).each { ... }` chunks by it.
+    def run_send(&)
       if @receiver.is_a?(Enumerator::Lazy) && EAGER.include?(@method)
         owner = @method == :with_index ? Enumerator : Enumerable
-        return owner.instance_method(@method).bind_call(@receiver, *@args, **@kwargs) { |*values| yield(*values); nil }
+        return owner.instance_method(@method).bind_call(@receiver, *@args, **@kwargs, &)
       end
-      @receiver.__send__(@method, *@args, **@kwargs) { |*values| yield(*values); nil }
+      @receiver.__send__(@method, *@args, **@kwargs, &)
     end
 
     # The four stages that keep no state go through the kernel's

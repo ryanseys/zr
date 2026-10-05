@@ -993,6 +993,10 @@ module Zr::Kern
     if zr_special_p(v)
       return zr_class_of(v)
     end
+    # singleton_class_of: a chilled String warns, as its first change does.
+    if zr_type(v) == T_STRING && (RBasic[v].flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+      zr_str_unchill(v)
+    end
     k = RBasic[v].klass
     if zr_singleton_p(k) && RClass[k].attached == v
       return k

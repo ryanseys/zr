@@ -24,6 +24,9 @@ module Zr::Kern
   # Fires when a string of Ruby, or a file that a require loads, is
   # compiled and is about to run.
   TRACE_SCRIPT_COMPILED = 8192
+  # A block's :b_call and :b_return carry this bit when the block is a
+  # lambda, which its parameters show (rb_tracearg_parameters).
+  TRACE_LAMBDA = 1 << 32
 
   # Sets the union of the events of all enabled TracePoints. While a C
   # event is on, no send site uses its inline cache: each send goes to
@@ -272,7 +275,7 @@ module Zr::Kern
   # frame: a rescue clause fires from its own line.
   #: (ptr, word, value, word) -> value
   def zr_trace_send_at(rec, event, value, line)
-    row = zr_trace_row(event, value, Frame[rec].meta, line)
+    row = zr_trace_row(event & (TRACE_LAMBDA - 1), value, Frame[rec].meta, line)
     method = zr_method_meta_of(rec)
     entry = zr_bmethod_entry(rec)
     if method != 0 && FrameMeta[method].kind == KIND_DEF
@@ -299,6 +302,7 @@ module Zr::Kern
     zr_ary_push(row, zr_fix(zr_frame_serial(rec)))
     zr_ary_push(row, zr_fix(Machine.word(Frame[rec].meta)))
     zr_ary_push(row, zr_fix(entry))
+    zr_ary_push(row, zr_bool((event & TRACE_LAMBDA) != 0))
     zr_trace_run(row)
   end
 
@@ -520,10 +524,10 @@ module Zr::Kern
 
   # TracePoint#parameters for an event record. A C method gets them from
   # its arity. A define_method body gets them as a method does. All other
-  # code gets them from the FrameMeta of the record, and a block gets them
-  # as a proc does.
-  #: (value, value) -> value
-  def zr_trace_parameters(meta_word, entry_word)
+  # code gets them from the FrameMeta of the record, and a block that is
+  # no lambda gets them as a proc does.
+  #: (value, value, value) -> value
+  def zr_trace_parameters(meta_word, entry_word, lambda)
     e = Machine.ptr(zr_fix2long(entry_word))
     if e != 0 && MEntry[e].kind == KIND_BMETHOD
       return zr_param_rows(FrameMeta[RProc[MEntry[e].cref].meta].params, false)
@@ -535,7 +539,7 @@ module Zr::Kern
     if meta == 0 || FrameMeta[meta].params == 0
       return zr_ary_new(0)
     end
-    zr_param_rows(FrameMeta[meta].params, FrameMeta[meta].kind == KIND_BLOCK)
+    zr_param_rows(FrameMeta[meta].params, FrameMeta[meta].kind == KIND_BLOCK && lambda != QTRUE)
   end
 
   # Whether the code of `meta_word` is `target` or is inside it, as a

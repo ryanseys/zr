@@ -125,6 +125,11 @@ module Zr::Kern
     zr_notimplement(Machine.bytes("setrgid"), 7)
   end
 
+  #: (word, ptr) -> word
+  def zr_os_getgroups(n, list)
+    Machine.sword(Libc.getgroups(Machine.i32(n), list))
+  end
+
   #: () -> value
   def zr_os_issetugid
     zr_bool(Libc.issetugid() != Machine.i32(0))

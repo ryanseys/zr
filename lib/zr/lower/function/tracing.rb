@@ -21,6 +21,7 @@ module Zr
         # fires when it leaves (also when a raise unwinds it).
         OPENING = { def: :call, block: :b_call, class: :class, module: :class, sclass: :class }.freeze #: Hash[Symbol, Symbol]
         CLOSING = { def: :return, block: :b_return, class: :end, module: :end, sclass: :end }.freeze #: Hash[Symbol, Symbol]
+        LAMBDA = 1 << 32
 
         private
 
@@ -78,7 +79,7 @@ module Zr
           merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           @f.brif(armed?(event), on, off)
           switch(on)
-          @f.jump(merge, [kernel("zr_trace_fire", imm(EVENTS.fetch(event)), value)])
+          @f.jump(merge, [kernel("zr_trace_fire", event_word(event), value)])
           switch(off)
           @f.jump(merge, [value])
           switch(merge)
@@ -91,9 +92,19 @@ module Zr
           off = @f.label
           @f.brif(armed?(event), on, off)
           switch(on)
-          checked(kernel("zr_trace_fire", imm(EVENTS.fetch(event)), @qnil))
+          checked(kernel("zr_trace_fire", event_word(event), @qnil))
           @f.jump(off)
           switch(off)
+        end
+
+        # The event's bit. A block's event also carries whether the block
+        # is a lambda (the kernel's TRACE_LAMBDA).
+        #: (Symbol event) -> String
+        def event_word(event)
+          bit = EVENTS.fetch(event)
+          return imm(bit) unless @kind == :block
+
+          @f.csel(lambda?, imm(bit | LAMBDA), imm(bit))
         end
 
         # Whether an enabled TracePoint listens for `event`.
