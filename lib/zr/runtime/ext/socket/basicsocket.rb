@@ -249,6 +249,21 @@ class BasicSocket < IO
     received(from, data, sockaddr, buffer)
   end
 
+  # A read of a listening socket fails at once with ENOTCONN, as read(2)
+  # does in ruby: it must not wait for data that never comes. Net::FTP
+  # reads its listener after it accepts (`sock.read rescue nil`).
+  def park_to_read
+    Primitive.attr! :hidden
+    park_until(IO::READABLE) unless listening?
+  end
+
+  # SO_ACCEPTCONN: whether the socket listens.
+  def listening?
+    Primitive.attr! :hidden
+    got = Primitive.zr_sock_getsockopt(descriptor, Socket::SOL_SOCKET, Socket::SO_ACCEPTCONN)
+    got.is_a?(String) && got.unpack1("i") != 0
+  end
+
   # rsock_s_accept: the connection waiting on this server, as a socket
   # of `klass` or, with none, its descriptor; and the peer's address.
   def accept_as(klass)

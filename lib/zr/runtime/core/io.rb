@@ -1586,7 +1586,7 @@ class IO
     Primitive.attr! :hidden
     text = +"".b
     while text.bytesize < length
-      park_until(READABLE)
+      park_to_read
       chunk = read_memory(length - text.bytesize)
       break if chunk.nil?
 
@@ -1616,7 +1616,7 @@ class IO
     raise IOError, +"sysread for buffered IO" unless @buffer.empty?
 
     IO.send(:room_for!, length)
-    park_until(READABLE) unless IO.send(:scheduler_taking, :io_read)
+    park_to_read unless IO.send(:scheduler_taking, :io_read)
     loop do
       chunk = read_memory(length)
       return filled(chunk&.b, buffer) unless chunk.is_a?(Integer)
@@ -1954,6 +1954,13 @@ class IO
     raise IOError, +"closed stream" if @closed
   end
 
+  # The wait before a read(2). A socket overrides it: a listening socket
+  # reads nothing and read(2) fails at once.
+  def park_to_read
+    Primitive.attr! :hidden
+    park_until(READABLE)
+  end
+
   # A system call on a descriptor that is not ready would stop every
   # green thread. So a task that shares the process with others yields
   # to the scheduler until the descriptor is ready. A single task waits
@@ -2234,7 +2241,7 @@ class IO
       return nil if @eof
 
       loop do
-        park_until(READABLE) unless IO.send(:scheduler_taking, :io_read)
+        park_to_read unless IO.send(:scheduler_taking, :io_read)
         chunk = read_memory(length)
         return chunk&.b unless chunk.is_a?(Integer)
 
@@ -2286,7 +2293,7 @@ class IO
   # More bytes into the buffer; none marks the end.
   def fill
     Primitive.attr! :hidden
-    park_until(READABLE) unless IO.send(:scheduler_taking, :io_read)
+    park_to_read unless IO.send(:scheduler_taking, :io_read)
     chunk = read_memory(8192)
     if chunk.nil?
       @eof = true
