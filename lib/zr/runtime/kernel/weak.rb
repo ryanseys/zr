@@ -205,7 +205,8 @@ module Zr::Kern
   end
 
   # A proc that raises gets ruby's warning, `prog: warning: Exception in
-  # finalizer #<Proc...>` (unless $VERBOSE is nil), then its error.
+  # finalizer #<Proc...>`, then its error. Under a nil $VERBOSE it gets
+  # neither.
   #: (value) -> value
   def zr_finalizer_row_run(row)
     slot = Machine.slot(8)
@@ -227,8 +228,8 @@ module Zr::Kern
           end
           zr_buf_byte(b, 10)
           zr_warning_write(zr_buf_take(b))
+          zr_error_print(raised)
         end
-        zr_error_print(raised)
       end
       i += 1
     end
@@ -236,16 +237,19 @@ module Zr::Kern
   end
 
   # At the end of the program, each finalizer that is still registered
-  # runs, in registration order.
+  # runs, in registration order. One that a finalizer registers on the
+  # way runs too.
   #: () -> void
   def zr_finalizers_at_exit
     t = zr_global(G_FINALIZERS)
     if zr_special_p(t)
       return
     end
-    n = RHash[t].len
+    # The error that ends the program is not `$!` in a finalizer, so an
+    # error that one raises has no cause.
+    Task[zr_task()].errinfo = Machine.value(QNIL)
     i = 0
-    while i < n
+    while i < RHash[t].len
       e = RHash[t].entries + (i * HEntry.size)
       if HEntry[e].live != 0
         row = HEntry[e].value
