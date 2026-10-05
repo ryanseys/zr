@@ -163,7 +163,13 @@ module ObjectSpace
 
   def undefine_finalizer(obj)
     Primitive.zr_frozen_error(obj) if obj.frozen?
-    Primitive.zr_finalizers_m.delete(obj)
+    table = Primitive.zr_finalizers_m
+    row = table.delete(obj)
+    # A stream's Closer is the stream's own, not one that the program
+    # defined, so it stays.
+    closer = IO.const_get(:Closer, false)
+    kept = row&.drop(1)&.select { |callable| closer === callable }
+    table[obj] = [row.first, *kept] unless kept.nil? || kept.empty?
     obj
   end
 

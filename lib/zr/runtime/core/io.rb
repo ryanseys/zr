@@ -19,6 +19,28 @@ class IO
   PENDING = []
   private_constant :PENDING
 
+  # The descriptor of a stream that owns it and has it open. The stream's
+  # finalizer closes it when the collector frees the stream, as CRuby's
+  # fptr_finalize does. A stream with buffered bytes is in PENDING, so the
+  # collector never frees one that still has bytes to write. At the end
+  # of the program the descriptors stay open: the program's own
+  # finalizers run then, and they may still write.
+  class Closer
+    attr_writer :fd
+
+    def initialize(fd)
+      @fd = fd
+    end
+
+    def call(_id)
+      Primitive.attr! :hidden
+      fd = @fd
+      @fd = nil
+      Primitive.zr_io_close(fd) if fd && !Primitive.zr_finalizing_at_exit
+    end
+  end
+  private_constant :Closer
+
   # The wait flags stay IO's own; the seek flags are the OS's.
   READABLE = 1
   PRIORITY = 2
@@ -839,6 +861,7 @@ class IO
     @name = options[:name]
     @pid = options[:pid]
     @closed = false
+    own_descriptor
     @sync = false
     # O_NONBLOCK as this stream set it. A query to the descriptor here
     # would cost an fcntl for every stream that a program opens, including
@@ -932,6 +955,7 @@ class IO
 
     write_pending
     @closed = true
+    own_descriptor
     Thread.send(:fd_closed, @fd) if Primitive.zr_threaded
     if @twin
       twin = @twin
@@ -969,6 +993,8 @@ class IO
     @wbuf = +"".b
     @tty = Primitive.zr_io_tty_p(fd)
     @closed = false
+    @closer = nil
+    own_descriptor
     self
   end
 
@@ -991,6 +1017,7 @@ class IO
       opened.autoclose = false
       @closed = false
       @autoclose = @fd > 2
+      own_descriptor
     else
       write_pending
       dup_from(opened.fileno, other)
@@ -1219,6 +1246,7 @@ class IO
   def autoclose=(flag)
     check_open
     @autoclose = flag ? true : false
+    own_descriptor
     flag
   end
 
@@ -1965,6 +1993,21 @@ class IO
   def mark_closed
     Primitive.attr! :hidden
     @closed = true
+    own_descriptor
+  end
+
+  # Points the stream's Closer at its descriptor while the stream owns it
+  # and has it open, and at none otherwise. The first descriptor that the
+  # stream owns registers the Closer as a finalizer.
+  def own_descriptor
+    Primitive.attr! :hidden
+    owned = @autoclose && !@closed ? @fd : nil
+    if @closer
+      @closer.fd = owned
+    elsif owned
+      @closer = Closer.new(owned)
+      (Primitive.zr_finalizers_m[self] ||= [__id__]) << @closer
+    end
   end
 
   # rb_io_check_closed: an allocated stream has no descriptor to check.

@@ -236,11 +236,19 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Whether the end of the program runs the finalizers now. A stream does
+  # not close its descriptor then (IO::Closer).
+  #: () -> value
+  def zr_finalizing_at_exit
+    zr_bool(Machine.load64(Machine.static(:finalizing_at_exit, 8), 0) != 0)
+  end
+
   # At the end of the program, each finalizer that is still registered
   # runs, in registration order. One that a finalizer registers on the
   # way runs too.
   #: () -> void
   def zr_finalizers_at_exit
+    Machine.store64(Machine.static(:finalizing_at_exit, 8), 0, 1)
     t = zr_global(G_FINALIZERS)
     if zr_special_p(t)
       return
