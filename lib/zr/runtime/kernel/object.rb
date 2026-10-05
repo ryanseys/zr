@@ -212,11 +212,17 @@ module Zr::Kern
 
   # `defined?(recv.name)`: whether the call can reach a method. A private
   # method with an explicit receiver does not count, and a protected
-  # method from outside the owner does not count.
+  # method from outside the owner does not count. The refinements that the
+  # site put in use count, as for its send.
   #: (value, word, bool) -> value
   def zr_method_defined(recv, id, explicit)
-    e = zr_find_method(zr_box_view(zr_class_of(recv)), id)
+    klass = zr_box_view(zr_class_of(recv))
+    e = Task[zr_task()].refine != QNIL ? zr_refined_search(klass, id) : zr_find_method(klass, id)
     if e == 0
+      # check_respond_to_missing calls respond_to_missing? through
+      # rb_check_funcall, so a program's respond_to? answers first.
+      asked = zr_check_funcall(recv, Machine.id(:respond_to_missing?))
+      return asked if asked == QUNDEF || asked != QTRUE
       return zr_bool(zr_respond_to_missing_p(recv, id))
     end
     if explicit && MEntry[e].vis == VIS_PRIVATE

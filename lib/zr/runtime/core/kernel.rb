@@ -307,18 +307,24 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   def self.load_file(path, feature, kind)
     Primitive.attr! :hidden
     return missing(feature, kind) unless path
-    # An autoload of this feature stops waiting however the file arrives
-    # here: through this require, or through an earlier one. Ruby calls
-    # `rb_feature_provided` again each time it checks whether an entry is
-    # pending. This is the same check, done once, where both the name
-    # and its resolved file are available.
-    Primitive.zr_autoload_provided(feature, path) if kind != 2
-    # A file that a require is running now goes on to the kernel, which
-    # waits for that require as ruby does.
-    return false if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, path) && Primitive.zr_feature_loader(path).nil?
+
+    # An autoload of this feature stops waiting however the file arrives:
+    # through an earlier require, or through this one once it ends. Ruby
+    # calls `rb_feature_provided` again each time it checks whether an
+    # entry is pending. This is the same check, done once, where both the
+    # name and its resolved file are available. A file that is still
+    # loading is not provided yet.
+    if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, path) && Primitive.zr_feature_loader(path).nil?
+      Primitive.zr_autoload_provided(feature, path)
+      return false
+    end
 
     real_path!(path)
-    Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
+    # A file that a require is running now goes on to the kernel, which
+    # waits for that require as ruby does.
+    loaded = Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
+    Primitive.zr_autoload_provided(feature, path) if kind != 2
+    loaded
   end
 
   # The real path of each file that a require or a load ran, by the path
@@ -398,6 +404,27 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
     $LOADED_FEATURES << path
     true
+  end
+
+  # vm_respond_to for a program's own respond_to?: whether `obj` responds
+  # to `name`. A respond_to? that takes one parameter gets one, and ruby
+  # warns that the signature is deprecated; one that takes more than two
+  # is an error.
+  def self.respond_to_asked(obj, name)
+    Primitive.attr! :hidden
+    asks = Kernel.instance_method(:method).bind_call(obj, :respond_to?)
+    arity = asks.arity
+    raise ArgumentError, "respond_to? must accept 1 or 2 arguments (requires #{arity})" if arity > 2
+    return obj.respond_to?(name, true) unless arity == 1
+
+    if !$VERBOSE.nil? && Warning[:deprecated]
+      shown = asks.owner.singleton_class? ? "#{obj}." : "#{asks.owner}#"
+      Primitive.zr_warn_here_m("#{shown}respond_to?(:#{name}) uses the deprecated method signature, which takes one parameter")
+      if (path, line = asks.source_location)
+        Warning.warn("#{path}:#{line}: warning: respond_to? is defined here\n", category: :deprecated)
+      end
+    end
+    obj.respond_to?(name)
   end
 
   # A require of `path` while a require runs it. From the thread that

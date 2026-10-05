@@ -217,6 +217,7 @@ class Thread
       @sleepers = []
       @io_waiters = []
       @main = @current
+      Primitive.zr_autoload_after_fork
     end
 
     def boot

@@ -894,12 +894,23 @@ module Zr::Kern
         zr_ary_push(visible, path)
       end
     end
+    # The loading row goes in with the feature, before anything that can
+    # switch threads. Otherwise another thread sees the feature listed with
+    # no loader, and its require returns false before the file runs.
+    loading = kind != 2 && !hidden
+    if loading
+      zr_ary_push(zr_global_list(G_LOADING_FEATURES), path)
+      zr_ary_push(zr_global_list(G_LOADING_FEATURES), zr_fix(Machine.word(zr_task())))
+    end
     # The file is compiled and about to run, where ruby fires
     # `:script_compiled`. A file that only the runtime loads is hidden from
     # the program, so it fires nothing.
     if !hidden
       r = zr_trace_required(path, kind)
-      return r if r == QUNDEF
+      if r == QUNDEF
+        zr_feature_loaded(path) if loading
+        return r
+      end
     end
     outer = Machine.load64(zr_loading(), 0)
     outer_hidden = Machine.load64(zr_hidden_loader(), 0)
@@ -910,11 +921,6 @@ module Zr::Kern
     mid = 0
     if framed
       mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
-    end
-    loading = kind != 2 && !hidden
-    if loading
-      zr_ary_push(zr_global_list(G_LOADING_FEATURES), path)
-      zr_ary_push(zr_global_list(G_LOADING_FEATURES), zr_fix(Machine.word(zr_task())))
     end
     r = zr_run_top(fn, mid)
     zr_feature_loaded(path) if loading

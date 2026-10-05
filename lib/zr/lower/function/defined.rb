@@ -66,6 +66,7 @@ module Zr
             const_defined(read)
           when :method, :attrasgn
             send = target #: Hir::Send
+            at_node(node)
             method_defined(send)
           when :list
             parts = target #: Array[Hir::node]
@@ -83,6 +84,7 @@ module Zr
         def part_defined(node)
           case node
           when Hir::Send then defined_test(Hir::Defined.new(:method, node, node.line))
+          when Hir::Splat then part_defined(node.value)
           when Hir::ArrayLit then all_defined(node.elements) { imm_bool(true) }
           when Hir::HashLit then all_defined(node.pairs.compact.map { |p| p.is_a?(Hir::HashSplat) ? p.value : p }) { imm_bool(true) }
           when Hir::ConstRead then const_defined(node)
@@ -124,7 +126,7 @@ module Zr
           end
         end
 
-        # A method: its receiver and arguments must be defined. Then the
+        # A method: its receiver and arguments, keywords too, must be defined. Then the
         # receiver is evaluated and its class is checked.
         #
         # Any receiver, also `self`, makes the call explicit. `defined?`
@@ -137,15 +139,25 @@ module Zr
         # slot that gets the receiver's value, for a caller that sends to it.
         #: (Hir::Send send, ?Integer? keep) -> String
         def method_defined(send, keep = nil)
-          all_defined(send.args.compact) do
+          all_defined([*send.args, send.kwargs].compact) do
             receiver = send.recv
-            next truth(kernel("zr_method_defined", @self, sym_word(send.name), imm_bool(false))) unless receiver
+            next refined_test(send) { kernel("zr_method_defined", @self, sym_word(send.name), imm_bool(false)) } unless receiver
 
             with_receiver(receiver) do |recv|
               @f.store(recv, @rec, value_offset(keep)) if keep
-              truth(kernel("zr_method_defined", recv, sym_word(send.name), imm_bool(true)))
+              refined_test(send) { kernel("zr_method_defined", recv, sym_word(send.name), imm_bool(true)) }
             end
           end
+        end
+
+        # The block's test, with the refinements of the site in use, as for
+        # the send itself.
+        #: (Hir::Send send) { () -> String } -> String
+        def refined_test(send)
+          activate(send)
+          found = checked(yield)
+          deactivate(send)
+          truth(found)
         end
 
         # If the receiver `node` is defined, returns the block's value for

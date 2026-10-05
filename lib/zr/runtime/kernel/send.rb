@@ -884,9 +884,9 @@ module Zr::Kern
     asks = zr_find_method(klass, Machine.id(:respond_to?))
     if asks != 0 && MEntry[asks].core == 0
       argv = Machine.slot(16)
-      Machine.store64(argv, 0, Machine.word(zr_sym(mid)))
-      Machine.store64(argv, 8, QTRUE)
-      r = zr_send(v, Machine.id(:respond_to?), 2, argv)
+      Machine.store64(argv, 0, Machine.word(v))
+      Machine.store64(argv, 8, Machine.word(zr_sym(mid)))
+      r = zr_send(zr_global(G_KERNEL), Machine.id(:respond_to_asked), 2, argv)
       return r if r == QUNDEF
       if r == QNIL || r == QFALSE
         return Machine.value(QFALSE)

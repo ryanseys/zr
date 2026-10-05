@@ -1303,13 +1303,17 @@ module Zr
           end
         when Prism::YieldNode then Defined.new(:yield, nil, line)
         when Prism::SuperNode, Prism::ForwardingSuperNode then Defined.new(:super, nil, line)
-        # An Array or Hash literal is defined if every part is defined.
+        # An Array or Hash literal is defined if every part is defined. A
+        # splat's part is its value.
         when Prism::ArrayNode
-          node.elements.any?(Prism::SplatNode) ? Defined.new(:expression, nil, line) : Defined.new(:list, node.elements.map { |e| expr(e) }, line)
+          Defined.new(:list, node.elements.map { |e| e.is_a?(Prism::SplatNode) ? splat(e, line) : expr(e) }, line)
         when Prism::HashNode then Defined.new(:list, [HashLit.new(hash_pairs(node.elements), line)], line)
-        # `(x)` tests `x`, and `()` or an empty `begin` is nil.
+        # `(x)` tests `x`, and `()` or an empty `begin` is nil. A `;` makes
+        # more than one statement, even an empty one: `(;x)` is an
+        # expression.
         when Prism::ParenthesesNode
           return Defined.new(:nil, nil, line) if node.body.nil?
+          return Defined.new(:expression, nil, line) if node.multiple_statements?
 
           inner = node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 ? node.body.body.first : nil
           inner ? defined(inner, line) : Defined.new(:expression, nil, line)

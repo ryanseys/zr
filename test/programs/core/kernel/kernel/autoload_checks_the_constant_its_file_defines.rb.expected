@@ -1,0 +1,7 @@
+[NameError, "private constant PrivateAfterLoad::ZZZ referenced"]
+"core/kernel/kernel/autoload_checks_the_constant_its_file_defines.rb:30: warning: constant DeprecatedAfterLoad::ZZZ is deprecated\n"
+Elsewhere
+"core/kernel/kernel/autoload_checks_the_constant_its_file_defines.rb:35: warning: Expected DIR/autoload_checks/elsewhere to define Namespace::Elsewhere but it didn't\n"
+[SlowToLoad, SlowToLoad, SlowToLoad]
+[true, true]
+0

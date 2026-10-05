@@ -1,0 +1,2 @@
+lang/methods/defined_tests_splats_keywords_void_statements_and_refinements.rb:42: warning: x.respond_to?(:respond_to_missing?) uses the deprecated method signature, which takes one parameter
+lang/methods/defined_tests_splats_keywords_void_statements_and_refinements.rb:39: warning: respond_to? is defined here

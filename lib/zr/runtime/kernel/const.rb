@@ -626,8 +626,11 @@ module Zr::Kern
       end
       r = zr_const_deprecated(e, id)
       return r if r == QUNDEF
+      waited = CEntry[e].value == QUNDEF
       v = zr_const_searched(e, gone)
-      if Machine.load64(gone, 0) == 0
+      # After an autoload, rb_const_search reads the name again, so a
+      # private or deprecated constant that the file defined is checked.
+      if Machine.load64(gone, 0) == 0 && (v == QUNDEF || !waited)
         return v
       end
     end
@@ -699,6 +702,10 @@ module Zr::Kern
   #: (ptr) -> bool
   def zr_const_declared_only(e)
     if CEntry[e].value != QUNDEF
+      return false
+    end
+    # Another task reads the file now, and the name waits for it.
+    if zr_autoload_busy(CEntry[e].owner, CEntry[e].id)
       return false
     end
     rows = zr_global(G_AUTOLOADS)
@@ -874,8 +881,10 @@ module Zr::Kern
       end
       r = zr_const_deprecated(e, id)
       return r if r == QUNDEF
+      waited = CEntry[e].value == QUNDEF
       v = zr_const_searched(e, gone)
-      if Machine.load64(gone, 0) == 0
+      # After an autoload, the name is read again, as in zr_const_get.
+      if Machine.load64(gone, 0) == 0 && (v == QUNDEF || !waited)
         return v
       end
     end
@@ -1409,6 +1418,12 @@ module Zr::Kern
   # farther out. A record gets this kind where it is registered, or where
   # `zr_autoload_provided` finds the require that provided its feature.
   AUTOLOAD_DECLARED = 5
+  # The autoloads whose file a task reads now, as rows of the task (a
+  # Fixnum of its address) and the autoload's own record. A read of the
+  # name from another task waits until the row goes, as
+  # autoload_load_needed waits on the autoload's mutex.
+  G_AUTOLOADING = 68
+  AUTOLOADING_ROW = AUTOLOAD_ROW + 1
 
   #: (value, word, value, ptr, value, word, value) -> value
   def zr_autoload(mod, id, feature, fn, cref, kind, path)
@@ -1522,7 +1537,13 @@ module Zr::Kern
   # where it was registered or by `zr_autoload_provided`.
   #: (value, word) -> bool
   def zr_autoload_waiting(rows, i)
-    zr_fix2long(zr_ary_at(rows, i + 4)) != AUTOLOAD_DECLARED
+    if zr_fix2long(zr_ary_at(rows, i + 4)) == AUTOLOAD_DECLARED
+      return false
+    end
+    # The file is loading in this task, and defines the name as it runs, as
+    # autoload_load_needed declines for the thread that loads the feature.
+    # For another task, the record waits until that load ends.
+    zr_feature_loader(zr_ary_at(rows, i + 5)) != zr_fix(Machine.word(zr_task()))
   end
 
   # Returns the index of the autoload record for `mod` and `id` when a file
@@ -1646,6 +1667,27 @@ module Zr::Kern
     if v != QUNDEF
       return v
     end
+    mod = CEntry[e].owner
+    id = CEntry[e].id
+    if zr_autoload_busy(mod, id)
+      args = Machine.slot(16)
+      Machine.store64(args, 0, Machine.word(Machine.value(QNIL)))
+      Machine.store64(args, 8, Machine.word(Machine.value(QFALSE)))
+      while zr_autoload_busy(mod, id)
+        r = zr_send(zr_global(G_KERNEL), Machine.id(:feature_busy), 2, args)
+        return r if r == QUNDEF
+      end
+      e = zr_const_row(mod, id)
+      if e == 0
+        Machine.store64(gone, 0, Machine.word(mod))
+        Machine.store64(gone, 8, id)
+        return Machine.value(QNIL)
+      end
+      v = CEntry[e].value
+      if v != QUNDEF
+        return v
+      end
+    end
     rows = zr_global(G_AUTOLOADS)
     i = 0
     while i < RArray[rows].len
@@ -1661,7 +1703,11 @@ module Zr::Kern
         kind = zr_fix2long(zr_ary_at(rows, i + 4))
         path = zr_ary_at(rows, i + 5)
         zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
+        busy = zr_global_list(G_AUTOLOADING)
+        zr_ary_push(busy, zr_fix(Machine.word(zr_task())))
+        zr_autoload_push(busy, mod, id, feature, fn, kind, path)
         r = kind == AUTOLOAD_REQUIRE ? zr_autoload_require(feature) : zr_require(path, fn, kind)
+        zr_autoload_done(mod, id)
         # If the file did not load, the entry stays, so the next read of the name
         # does the same check again.
         if r == QUNDEF
@@ -1671,6 +1717,9 @@ module Zr::Kern
         e = zr_const_row(mod, id)
         if e == 0 || CEntry[e].value == QUNDEF
           zr_const_remove(mod, id)
+          if r == QTRUE
+            zr_warn_autoload_undefined(mod, id, feature)
+          end
           Machine.store64(gone, 0, Machine.word(mod))
           Machine.store64(gone, 8, id)
           return Machine.value(QNIL)
@@ -1680,6 +1729,96 @@ module Zr::Kern
       i += AUTOLOAD_ROW
     end
     zr_uninitialized_constant(Machine.value(QNIL), CEntry[e].id)
+  end
+
+  # Whether a task other than this one reads the file of the autoload of
+  # `mod` and `id` now.
+  #: (value, word) -> bool
+  def zr_autoload_busy(mod, id)
+    rows = zr_global(G_AUTOLOADING)
+    if zr_special_p(rows)
+      return false
+    end
+    i = 0
+    while i < RArray[rows].len
+      if zr_ary_at(rows, i + 1) == mod && zr_ary_at(rows, i + 2) == zr_sym(id) && zr_ary_at(rows, i) != zr_fix(Machine.word(zr_task()))
+        return true
+      end
+      i += AUTOLOADING_ROW
+    end
+    false
+  end
+
+  # This task's read of the file of the autoload of `mod` and `id` ended.
+  #: (value, word) -> void
+  def zr_autoload_done(mod, id)
+    rows = zr_global(G_AUTOLOADING)
+    task = zr_fix(Machine.word(zr_task()))
+    i = 0
+    while i < RArray[rows].len
+      if zr_ary_at(rows, i + 1) == mod && zr_ary_at(rows, i + 2) == zr_sym(id) && zr_ary_at(rows, i) == task
+        zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOADING_ROW), zr_ary_new(0))
+        return
+      end
+      i += AUTOLOADING_ROW
+    end
+  end
+
+  # In a forked child, only this task lives. A file that another task was
+  # reading never ends here, so its autoload waits again, and the next read
+  # of the name reads the file in the child, as CRuby takes over a lock
+  # whose thread is gone. The same holds for that task's requires.
+  #: () -> value
+  def zr_autoload_after_fork
+    task = zr_fix(Machine.word(zr_task()))
+    rows = zr_global(G_AUTOLOADING)
+    if !zr_special_p(rows)
+      i = 0
+      while i < RArray[rows].len
+        if zr_ary_at(rows, i) == task
+          i += AUTOLOADING_ROW
+        else
+          zr_autoload_push(zr_global_list(G_AUTOLOADS), zr_ary_at(rows, i + 1), zr_sym2id(zr_ary_at(rows, i + 2)), zr_ary_at(rows, i + 3),
+                           Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 4))), zr_fix2long(zr_ary_at(rows, i + 5)), zr_ary_at(rows, i + 6))
+          zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOADING_ROW), zr_ary_new(0))
+        end
+      end
+    end
+    rows = zr_global(G_LOADING_FEATURES)
+    if !zr_special_p(rows)
+      i = 0
+      while i < RArray[rows].len
+        if zr_ary_at(rows, i + 1) == task
+          i += 2
+        else
+          # zr_require lists a file in $LOADED_FEATURES before it runs.
+          zr_ary_delete_string(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), zr_ary_at(rows, i))
+          zr_ary_splice(rows, zr_fix(i), zr_fix(2), zr_ary_new(0))
+        end
+      end
+    end
+    Machine.value(QNIL)
+  end
+
+  # Under `$VERBOSE` true, warns that the autoload's `feature` left the
+  # name undefined, as autoload_try_load does.
+  #: (value, word, value) -> void
+  def zr_warn_autoload_undefined(mod, id, feature)
+    if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE
+      return
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("Expected "), 9)
+    zr_buf_str(b, feature)
+    zr_buf_push(b, Machine.bytes(" to define "), 11)
+    if mod != zr_global(G_OBJECT)
+      zr_buf_str(b, zr_class_to_s(mod, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
+      zr_buf_push(b, Machine.bytes("::"), 2)
+    end
+    zr_buf_sym(b, id)
+    zr_buf_push(b, Machine.bytes(" but it didn't"), 14)
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
   end
 
   #: (value, word, ptr, value, value) -> value

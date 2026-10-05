@@ -1,0 +1,9 @@
+[nil, nil, "expression", "method"]
+[nil, nil, nil, nil]
+[nil, nil, nil, nil, nil]
+["expression", "expression", "expression", "method", "method", "method"]
+["expression", "expression", nil]
+["expression", "expression", "local-variable"]
+[nil, nil, "method", "method"]
+nil
+nil
