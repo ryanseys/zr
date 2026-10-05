@@ -1,0 +1,17 @@
+1
+[StopIteration, "iteration reached an end"]
+[StopIteration, "iteration reached an end"]
+1
+[StopIteration, "iteration reached an end"]
+[10, 8]
+[10, 8, 6]
+[StopIteration, "iteration reached an end"]
+[1, (1+1i), (1+2i)]
+[1, (1+1.0i), (1+2.0i)]
+[0.0, (0.0+1.0i), (0.0+2.0i)]
+[(0+0.0i), (0+1.0i), (0+2.0i)]
+[ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+[ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+[ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+[ArgumentError, "wrong number of arguments (given 1, expected 2)"]
+[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]

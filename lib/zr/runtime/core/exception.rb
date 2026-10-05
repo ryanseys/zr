@@ -469,8 +469,10 @@ class SignalException
 
   # A number gives its first signal in Signal.list; a name keeps its own
   # spelling, including an alias.
-  def initialize(sig = nil, message = nil)
+  def initialize(sig = nil, message = nil, *rest)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if sig.nil? && instance_of?(SignalException)
+    # esignal_init: a number takes a message too, a name does not.
+    raise ArgumentError, "wrong number of arguments (given #{2 + rest.size}, expected #{sig.is_a?(Integer) ? "1..2" : "1"})" unless rest.empty?
 
     signals = Signal.list
     if sig.is_a?(Integer)

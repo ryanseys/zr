@@ -184,8 +184,9 @@ module Zr::Kern
   def zr_mod_define_method(recv, argc, argv, cref, blk)
     r = zr_class_modify_check(recv)
     return r if r == QUNDEF
-    if argc == 0
-      return zr_wrong_arity_range(0, 1, 2)
+    # rb_mod_define_method: the count of arguments is checked first.
+    if argc == 0 || argc > 2
+      return zr_wrong_arity_range(argc, 1, 2)
     end
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)

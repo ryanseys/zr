@@ -192,7 +192,8 @@ class Enumerator
     # so. `enumerator_rewind` calls it with rb_check_funcall, which
     # reaches a method that the object keeps private and ignores an
     # object with no such method.
-    @receiver.__send__(:rewind) if @receiver.respond_to?(:rewind, true)
+    # An arithmetic sequence is its own receiver.
+    @receiver.__send__(:rewind) if !@receiver.equal?(self) && @receiver.respond_to?(:rewind, true)
     @fiber = nil
     @lookahead = nil
     @stop = nil
@@ -514,7 +515,8 @@ class Enumerator::ArithmeticSequence < Enumerator
 
   def float?
     Primitive.attr! :hidden
-    @begin.is_a?(Float) || @end.is_a?(Float) || @step.is_a?(Float)
+    # arith_seq_each: a Complex step never walks as Floats do.
+    !@step.is_a?(Complex) && (@begin.is_a?(Float) || @end.is_a?(Float) || @step.is_a?(Float))
   end
 
   # The last element a whole walk would reach: `begin` plus as many whole
