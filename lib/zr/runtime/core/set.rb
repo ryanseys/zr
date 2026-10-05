@@ -23,7 +23,13 @@ class Set
     return self if enum.nil?
 
     if enum.is_a?(Array)
-      Primitive.zr_ary_len_m(enum).times { |i| item = Primitive.zr_ary_at_m(enum, i); into[block ? yield(item) : item] = true }
+      # The length is read again each time: an element's hash may change it.
+      i = 0
+      while i < Primitive.zr_ary_len_m(enum)
+        item = Primitive.zr_ary_at_m(enum, i)
+        into[block ? yield(item) : item] = true
+        i += 1
+      end
     else
       enum.__send__(Set.send(:enum_method, enum)) { |item| into[block ? yield(item) : item] = true }
     end
@@ -251,17 +257,14 @@ class Set
     replace(flatten)
   end
 
-  # A Set that contains itself hashes once: the inner visit adds a
-  # constant, as rb_exec_recursive does.
+  # A Set that a walk meets inside itself hashes as rb_hash does under
+  # rb_exec_recursive_outer: the outermost set gives a hash of its size
+  # alone, so equal recursive sets hash the same.
   def hash
-    return 3 if Primitive.zr_recursive_enter(self, :hash)
-
-    begin
+    Kernel.send(:outer_hash, self, (table.size * 31) + 3) do
       sum = table.size
       walk { |item| sum ^= item.hash }
       sum
-    ensure
-      Primitive.zr_recursive_leave(self, :hash)
     end
   end
 
@@ -849,7 +852,12 @@ class Set
     if other.is_a?(Set)
       other.send(:walk) { |item| into[item] = true }
     elsif other.is_a?(Array)
-      Primitive.zr_ary_len_m(other).times { |i| into[Primitive.zr_ary_at_m(other, i)] = true }
+      # The length is read again each time: an element's hash may change it.
+      i = 0
+      while i < Primitive.zr_ary_len_m(other)
+        into[Primitive.zr_ary_at_m(other, i)] = true
+        i += 1
+      end
     else
       other.__send__(Set.send(:enum_method, other)) { |item| into[item] = true }
     end
