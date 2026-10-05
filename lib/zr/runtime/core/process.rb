@@ -737,7 +737,9 @@ module Process
     text = String.try_convert(command)
     raise TypeError, "no implicit conversion of #{conversion_name(command)} into String" if text.nil?
 
-    command = text
+    # The command is bytes to the shell: one that is not valid in its
+    # encoding is read as bytes, as rb_exec_fillarg reads it.
+    command = text.valid_encoding? ? text : text.b
 
     # An `=` inside the first word makes it an assignment, which only a
     # shell can do, as rb_exec_fillarg reads it.
