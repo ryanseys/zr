@@ -312,6 +312,10 @@ module Marshal
     def user_marshal(obj, limit)
       remember(obj)
       value = obj.send(:marshal_dump)
+      # A value of the same class would dump itself again without end.
+      klass = Primitive.zr_real_class(obj)
+      raise RuntimeError, "#{klass}#marshal_dump returned same class instance" if Primitive.zr_real_class(value).equal?(klass)
+
       @out << "U" << symbol_bytes(class_path(Primitive.zr_real_class(obj)).to_sym)
       write(value, limit)
     end
