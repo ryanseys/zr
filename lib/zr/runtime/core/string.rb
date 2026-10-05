@@ -3352,8 +3352,11 @@ class Encoding
     @index = index
     @dummy = dummy
     @ascii = ascii
-    @loaded = loaded
+    Primitive.zr_state_set(self, :__loaded__, loaded)
     @bytewise = bytewise
+    # An encoding is frozen, as CRuby makes each one. Reading its table
+    # later is state that freeze does not lock (zr_state_set).
+    freeze
   end
 
   # Ruby's own index for this encoding in `Encoding.list`. A String
@@ -3392,23 +3395,23 @@ class Encoding
   # table a fresh ruby has not read, in that order, as enc_inspect writes them.
   def inspect
     shown = @names[1] == +"BINARY" ? +"BINARY (ASCII-8BIT)" : name
-    "#<Encoding:#{shown}#{" (dummy)" if @dummy}#{" (autoload)" unless @loaded}>".force_encoding(US_ASCII)
+    "#<Encoding:#{shown}#{" (dummy)" if @dummy}#{" (autoload)" unless Primitive.zr_hidden_get(self, :__loaded__)}>".force_encoding(US_ASCII)
   end
 
   def ascii_compatible?
-    @loaded = true
+    Primitive.zr_state_set(self, :__loaded__, true)
     @ascii
   end
 
   def dummy?
-    @loaded = true
+    Primitive.zr_state_set(self, :__loaded__, true)
     @dummy
   end
 
   # A lookup of an encoding by name reads its table.
   def load
     Primitive.attr! :hidden
-    @loaded = true
+    Primitive.zr_state_set(self, :__loaded__, true)
     self
   end
 
@@ -3666,7 +3669,7 @@ class Encoding
   # themselves in every encoding that has a table.
   def points
     Primitive.attr! :hidden
-    @points ||= HIGH.fetch(name).scan(/..../).map { |hex| hex == +"----" ? nil : hex.to_i(16) }
+    Primitive.zr_hidden_get(self, :__points__) || Primitive.zr_state_set(self, :__points__, HIGH.fetch(name).scan(/..../).map { |hex| hex == +"----" ? nil : hex.to_i(16) })
   end
 
   # `text` written in `target`. UTF-8 is the meeting point, so a pair

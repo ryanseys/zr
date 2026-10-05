@@ -420,7 +420,7 @@ class Ractor
   def self.immutable?(obj)
     Primitive.attr! :hidden
     case obj
-    when Integer, Float, Symbol, Module, NilClass, TrueClass, FalseClass then true
+    when Integer, Float, Symbol, Module, Encoding, NilClass, TrueClass, FalseClass then true
     else false
     end
   end
