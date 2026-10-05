@@ -479,21 +479,20 @@ module Process
   end
 
   # `fork`: the child's pid in the parent. In the child, nil, or with a
-  # block the block runs and the child ends there.
-  def self.forked
+  # block the block runs and the child ends there. A `break`, `return` or
+  # `throw` that leaves the block ends the child as an error at the call of
+  # `fork`, as rb_protect around the block and error_handle do.
+  def self.forked(&block)
     Primitive.attr! :hidden
     # A send, not a call that the compiler binds: a program that replaces
     # `_fork` sees the fork.
     pid = Process.__send__(:_fork)
     return pid unless pid.zero?
-    return nil unless block_given?
+    return nil unless block
 
-    begin
-      yield
-    rescue Exception => e # rubocop:disable Lint/RescueException
-      Primitive.zr_proc_child_exit(e)
-    end
-    Primitive.zr_proc_child_exit(nil)
+    # The frames of `fork` are hidden, so the first is the call.
+    site = caller_locations(0, 1).first
+    Primitive.zr_proc_child_run(block, "#{site.path}:#{site.lineno}:in 'fork': ")
   end
 
   # The process becomes the command, with its environment and options

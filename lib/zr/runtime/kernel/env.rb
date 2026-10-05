@@ -105,8 +105,9 @@ module Zr::Kern
   # handler's error is printed and sets the status to 1. A handler's `exit`
   # sets the status. Then the uncaught exception `exc`, if there is one, is
   # printed, unless it is a SystemExit or a POSIX signal other than
-  # Interrupt. An uncaught SignalException ends the process by its POSIX
-  # signal.
+  # Interrupt. An uncaught SignalException, or one that the last failed
+  # handler raised, ends the process by its POSIX signal, as rb_ec_cleanup
+  # checks both errors.
   #: (value) -> word
   def zr_program_end(exc)
     status = 0
@@ -126,6 +127,7 @@ module Zr::Kern
         status = zr_program_end_hook(zr_yield(blk, 0, 0), status, exc)
       end
     end
+    last = zr_errinfo()
     # The other threads end after the exit handlers, as ruby_cleanup ends
     # them.
     if zr_send(zr_core_class(Machine.id(:Thread)), Machine.id(:terminate_all), 0, 0) == QUNDEF
@@ -137,6 +139,9 @@ module Zr::Kern
       if signo == 0 || zr_is_a(exc, zr_core_class(Machine.id(:Interrupt)))
         zr_error_print(exc)
       end
+    end
+    if signo == 0 && last != exc
+      signo = zr_signal_of(last)
     end
     # Flush all stream buffers, as CRuby's teardown does. `exit!` skips
     # all of this.
@@ -171,7 +176,11 @@ module Zr::Kern
     if zr_system_exit_p(raised)
       return zr_exit_status(raised)
     end
-    zr_error_print_upto(raised, seen == QNIL ? exc : seen)
+    # error_handle prints no POSIX signal other than Interrupt.
+    signo = zr_signal_of(raised)
+    if signo == 0 || zr_is_a(raised, zr_core_class(Machine.id(:Interrupt)))
+      zr_error_print_upto(raised, seen == QNIL ? exc : seen)
+    end
     1
   end
 

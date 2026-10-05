@@ -474,4 +474,35 @@ module Zr::Kern
     Libc.exit(Machine.i32(zr_program_end(exc == QNIL ? Machine.value(QUNDEF) : exc)))
     Machine.value(QNIL)
   end
+
+  # Runs the fork block `blk` in the child, then ends the child. A jump
+  # out of the block (a `break`, `return` or `throw`) has no frame to go
+  # to in the child. The exit handlers run, then the jump is reported
+  # after `site` and the child exits 1, as rb_ec_cleanup does for a
+  # TAG_BREAK.
+  #: (value, value) -> value
+  def zr_proc_child_run(blk, site)
+    if zr_yield(blk, 0, 0) != QUNDEF
+      return zr_proc_child_exit(Machine.value(QNIL))
+    end
+    t = zr_task()
+    kind = Task[t].pending_kind
+    pending = Task[t].pending
+    Task[t].pending_kind = PENDING_RAISE
+    Task[t].pending = Machine.value(QNIL)
+    if kind == PENDING_RAISE
+      return zr_proc_child_exit(pending)
+    end
+    zr_program_end(Machine.value(QUNDEF))
+    zr_write_stderr(site)
+    if kind == PENDING_BREAK
+      zr_write_stderr(zr_str_new(Machine.bytes("unexpected break\n"), 17))
+    elsif kind == PENDING_RETURN
+      zr_write_stderr(zr_str_new(Machine.bytes("unexpected return\n"), 18))
+    else
+      zr_write_stderr(zr_str_new(Machine.bytes("unexpected throw\n"), 17))
+    end
+    Libc.exit(1)
+    Machine.value(QNIL)
+  end
 end

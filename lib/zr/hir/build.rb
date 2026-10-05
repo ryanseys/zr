@@ -467,7 +467,7 @@ module Zr
         if hoist
           body = body.flat_map { |s| hoisted_from_loop(s) }
           early, rest = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
-          body = early + rest #: Array[Prism::node]
+          body = early.flat_map { |s| pre_executions(s) } + rest #: Array[Prism::node]
         end
         last = body.size - 1
         Seq.new(body.each_with_index.map { |s, i| statement(s, taken: taken && i == last) }, node.location.start_line)
@@ -484,6 +484,19 @@ module Zr
 
         early, rest = inner.body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
         early.empty? ? [node] : [*early, node.copy(statements: inner.copy(body: rest))]
+      end
+
+      # A `BEGIN { }` in a BEGIN block runs before the block that holds it,
+      # as ruby adds each block to its list when the parser closes it.
+      #: (Prism::node node) -> Array[Prism::node]
+      def pre_executions(node)
+        body = node.is_a?(Prism::PreExecutionNode) && node.statements&.body
+        return [node] unless body
+
+        nested, rest = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
+        return [node] if nested.empty?
+
+        [*nested.flat_map { |s| pre_executions(s) }, node.copy(statements: node.statements&.copy(body: rest))]
       end
 
       # One statement. Each send in it gets the activation that is active

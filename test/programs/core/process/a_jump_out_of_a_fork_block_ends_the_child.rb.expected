@@ -1,0 +1,7 @@
+["NilClass\nFILE:16:in 'fork': unexpected break\n", 1, nil]
+["FILE:24:in 'fork': unexpected return\n", 1, nil]
+["FILE:33:in 'fork': unexpected break\n", 1, nil]
+["after\n", nil, 15]
+["", nil, 15]
+["", nil, 15]
+["FILE:66:in 'block (3 levels) in <main>': y (RuntimeError)\n\tfrom FILE:64:in 'Kernel#fork'\n\tfrom FILE:64:in 'block in <main>'\n\tfrom FILE:7:in 'Object#child'\n\tfrom FILE:63:in '<main>'\n", 1, nil]
