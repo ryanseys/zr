@@ -228,6 +228,10 @@ module Zr
       # process, under ruby and in its binary, `jobs` at once. ruby's
       # results are kept by the file's digest, so ruby runs each file once.
       class Area
+        # Where the binaries of a run go: under tmp/, as they are large and a
+        # run makes them again.
+        attr_reader :work
+
         def initialize(out:, root:, area:, files:, jobs:, keep:, update:, filtered:)
           @out = out
           @root = root
@@ -237,8 +241,7 @@ module Zr
           @keep = keep
           @update = update
           @filtered = filtered
-          # The binaries stay in tmp/: they are large, and a run makes them again.
-          @work = Dev.path("tmp", File.basename(out), "work", area.tr("/", "-"))
+          @work = Dev.path(File.join("tmp", File.basename(out), "work", area.tr("/", "-")))
         end
 
         # The count of examples that ruby passes and zr does not.

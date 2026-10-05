@@ -42,6 +42,13 @@ class SuiteTest < Minitest::Test
     assert_equal [2, 2, 1, 1, 0], Zr::Dev::Suite.counts("files" => files)
   end
 
+  def test_an_area_builds_its_binaries_under_tmp
+    area = Zr::Dev::Suite::Area.new(out: Zr::Dev.path("log/cruby-test"), root: "test", area: "ruby/enc", files: [],
+                                    jobs: 1, keep: false, update: false, filtered: false)
+
+    assert_equal Zr::Dev.path("tmp/cruby-test/work/ruby-enc"), area.work
+  end
+
   def test_capture_gives_each_whole_line_as_it_comes
     lines = []
     script = "$stdout.sync = true; print %(one\ntw); sleep 0.2; print %(o\nthree)"
