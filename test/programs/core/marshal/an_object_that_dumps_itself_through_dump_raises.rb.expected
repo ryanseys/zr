@@ -1,0 +1,2 @@
+[RuntimeError, "can't dump recursive object using _dump()"]
+[4, 4]

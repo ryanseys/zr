@@ -122,6 +122,8 @@ module Marshal
       @symbols = {}
       @encodings = {}
       @count = 0
+      # The objects whose `_dump` is still being written.
+      @dumping = {}.compare_by_identity
     end
 
     def run(obj)
@@ -320,7 +322,12 @@ module Marshal
       write(value, limit)
     end
 
+    # The object is remembered only after its instance variables, so one
+    # that holds itself would be dumped again without end.
     def user_dump(obj, limit)
+      raise RuntimeError, +"can't dump recursive object using _dump()" if @dumping.key?(obj)
+
+      @dumping[obj] = true
       text = obj.send(:_dump, limit)
       raise TypeError, +"_dump() must return string" unless text.is_a?(String)
       ivars = ivars_of(text) + Marshal.send(:extras_of, text)
@@ -328,6 +335,8 @@ module Marshal
       @out << "u" << symbol_bytes(class_path(Primitive.zr_real_class(obj)).to_sym) << bytes(text)
       write_ivars(ivars, limit) unless ivars.empty?
       remember(obj)
+    ensure
+      @dumping.delete(obj)
     end
 
     def remember(obj)
