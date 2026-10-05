@@ -1598,13 +1598,14 @@ class Dir
 
     def step(bytes, i) = i + @onig.mbclen(bytes, i)
 
-    # find_dirsep: the slash that ends a part, outside a `[...]`.
+    # find_dirsep: the slash that ends a part, outside a `[...]` or a
+    # `{...}`, so a brace with a slash in it stays one part (Bug #19042).
     def find_dirsep(bytes, p)
       open = false
       while (c = at(bytes, p)) != 0
         case c
-        when 0x5B then open = true
-        when 0x5D then open = false
+        when 0x5B, 0x7B then open = true
+        when 0x5D, 0x7D then open = false
         when 0x2F then return p unless open
         when 0x5C
           if @escape
@@ -1842,12 +1843,15 @@ class Dir
       end
     end
 
-    # remove_backslashes.
+    # remove_backslashes: each backslash goes, one at the end too.
     def unescaped(bytes)
       out = +"".b
       i = 0
       while i < bytes.bytesize
-        i += 1 if bytes.getbyte(i) == 0x5C && i + 1 < bytes.bytesize
+        if bytes.getbyte(i) == 0x5C
+          i += 1
+          break if i == bytes.bytesize
+        end
         n = @onig.mbclen(bytes, i)
         out << bytes.byteslice(i, n)
         i += n
