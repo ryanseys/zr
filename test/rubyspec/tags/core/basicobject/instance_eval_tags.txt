@@ -1,1 +1,0 @@
-hangs:BasicObject#instance_eval evaluates procs originating from methods

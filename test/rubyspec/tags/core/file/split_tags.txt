@@ -1,2 +1,0 @@
-fails:File.split coerces the argument with to_str if it is not a String type
-fails:File.split accepts an object that has a #to_path method

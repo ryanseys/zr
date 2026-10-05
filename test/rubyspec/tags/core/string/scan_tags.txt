@@ -1,2 +1,0 @@
-fails:String#scan tries to convert pattern to a string via to_str
-fails:String#scan with pattern and block restores $~ after leaving the block

@@ -1,2 +1,0 @@
-fails:Module#define_method raises a TypeError when a Method from a singleton class is defined on another class
-fails:Module#define_method raises a TypeError when an UnboundMethod from a singleton class is defined on another class

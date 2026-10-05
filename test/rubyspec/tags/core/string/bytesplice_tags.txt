@@ -1,2 +1,0 @@
-hangs:String#bytesplice raises IndexError when str_index is greater than bytesize
-hangs:String#bytesplice raises IndexError for negative str length

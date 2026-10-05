@@ -1,1 +1,0 @@
-hangs:IO.pipe accepts 'bom|' prefix for external encoding when specifying 'external:internal'

@@ -1,1 +1,0 @@
-fails:Kernel.Complex() when passed exception: false and [anything, non-Numeric] argument swallows an error

@@ -1,3 +1,0 @@
-fails:Enumerable#collect_concat concatenates the result of calling #to_ary if it returns an Array
-fails:Enumerable#collect_concat appends an element that defines #to_ary that returns nil
-fails:Enumerable#collect_concat raises a TypeError if an element defining #to_ary does not return an Array or nil

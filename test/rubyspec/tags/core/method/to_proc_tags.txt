@@ -1,2 +1,1 @@
-hangs:Method#to_proc returns a Proc which does not depends on the value of self
 fails:Method#to_proc returns a proc whose binding has the same receiver as the method

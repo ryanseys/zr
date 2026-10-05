@@ -1,1 +1,0 @@
-fails:Enumerable#map reports the same arity as the given block

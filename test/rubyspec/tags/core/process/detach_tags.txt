@@ -1,3 +1,0 @@
-fails:Process.detach sets the :pid thread-local to the PID
-fails:Process.detach tolerates not existing child process pid
-fails:Process.detach calls #to_int to implicitly convert non-Integer pid to Integer

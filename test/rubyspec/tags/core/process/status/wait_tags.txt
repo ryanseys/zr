@@ -1,0 +1,2 @@
+hangs:Process::Status.wait doesn't block if no child is available when WNOHANG is used
+hangs:Process::Status.wait always accepts flags=0

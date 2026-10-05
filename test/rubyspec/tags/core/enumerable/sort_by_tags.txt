@@ -1,1 +1,0 @@
-fails:Enumerable#sort_by calls #each to iterate over the elements to be sorted

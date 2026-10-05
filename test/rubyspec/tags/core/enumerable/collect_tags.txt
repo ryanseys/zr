@@ -1,1 +1,0 @@
-fails:Enumerable#collect reports the same arity as the given block
