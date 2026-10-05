@@ -533,15 +533,12 @@ class Thread
         cut ? name[cut + 1..] : name
       end
 
+      # The real path of the frame's file, as ruby fixed it when the file
+      # loaded; nil for -e and for an eval's own file name.
       def absolute_path
-        return @path if @path.start_with?("/")
         return nil if @path == +"-e"
 
-        cwd = Primitive.zr_getcwd
-        return @path if cwd.is_a?(Integer)
-
-        parts = "#{cwd}/#{@path}".split("/").reject { |part| part.empty? || part == +"." }
-        "/" + parts.join("/")
+        Kernel.send(:real_path_of, @path)
       end
       def to_s = @row
       def inspect = @row.inspect

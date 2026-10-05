@@ -289,7 +289,42 @@ module Kernel
     # waits for that require as ruby does.
     return false if kind != 2 && Primitive.zr_table_member_p($LOADED_FEATURES, path) && Primitive.zr_feature_loader(path).nil?
 
+    real_path!(path)
     Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
+  end
+
+  # The real path of each file that a require or a load ran, by the path
+  # that its frames show. Ruby fixes it as the file loads, so a later
+  # chdir, or the removal of a symlink, does not change it.
+  REAL_PATHS = {}
+  private_constant :REAL_PATHS
+
+  def self.real_path!(path)
+    Primitive.attr! :hidden
+    REAL_PATHS[path] ||= begin
+      File.realpath(path)
+    rescue SystemCallError
+      path
+    end
+  end
+
+  # The real path of the file that a frame shows as `path`: the one that a
+  # load fixed, else that of a file the program was compiled with, from
+  # the starting directory. A name that no file has (an eval's own) has
+  # none.
+  def self.real_path_of(path)
+    Primitive.attr! :hidden
+    return REAL_PATHS[path] if REAL_PATHS.key?(path)
+
+    start = Primitive.zr_start_dir
+    full = File.expand_path(path, start.is_a?(String) ? start : "/")
+    return nil unless path.start_with?("/") || Primitive.zr_path_kind(full) == 2
+
+    REAL_PATHS[path] = begin
+      File.realpath(full)
+    rescue SystemCallError
+      full
+    end
   end
 
   # A name that matches no file: ruby's LoadError, a built-in extension,
