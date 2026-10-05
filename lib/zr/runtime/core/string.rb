@@ -1894,7 +1894,10 @@ class String
   def match(*args, &block)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1..2)" if args.empty?
 
-    String.send(:pattern_of, args[0]).__send__(:match, self, *args.drop(1), &block)
+    # rb_str_match_m calls the pattern's match with no block, then yields
+    # what it returns.
+    result = String.send(:pattern_of, args[0]).__send__(:match, self, *args.drop(1))
+    block && !result.nil? ? yield(result) : result
   end
 
   def match?(pattern, pos = 0) = String.send(:pattern_of, pattern).match?(self, pos)
