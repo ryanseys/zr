@@ -28,7 +28,8 @@ class Struct
       # Struct too, and replaces one already there with a warning.
       if name
         if const_defined?(name, false)
-          warn("redefining constant #{self}::#{name}")
+          # rb_warn: with the caller's position, unless $VERBOSE is nil.
+          Warning.warn("#{Primitive.zr_warn_position}warning: redefining constant #{self}::#{name}\n") unless $VERBOSE.nil?
           send(:remove_const, name)
         end
         const_set(name, klass)
@@ -45,13 +46,14 @@ class Struct
       klass
     end
 
-    # A member that inspects as a bare name: letters, digits and
-    # underscores, not starting with a digit.
+    # A member that inspects as a bare name, a local or a constant name:
+    # letters (any character past ASCII is one), digits and underscores,
+    # not starting with a digit.
     def plain_member?(name)
       text = name.to_s
       return false if text.empty? || text.getbyte(0) >= 48 && text.getbyte(0) <= 57
 
-      text.each_byte.all? { |b| (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95 }
+      text.each_byte.all? { |b| (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95 || b >= 128 }
     end
 
     private :plain_member?
@@ -69,11 +71,15 @@ class Struct
       arg
     end
 
+    # rb_is_attrset_sym: a setter's name (`x=`) is no member.
     def member_name(m)
-      return m if m.is_a?(Symbol)
-      return m.to_sym if m.is_a?(String)
+      raise TypeError, "#{m.inspect} is not a symbol nor a string" unless m.is_a?(Symbol) || m.is_a?(String)
 
-      raise TypeError, "#{m.inspect} is not a symbol nor a string"
+      m = m.to_sym
+      text = m.name
+      raise ArgumentError, "invalid struct member: #{m}" if text.end_with?("=") && plain_member?(text.delete_suffix("="))
+
+      m
     end
   end
 

@@ -1,0 +1,7 @@
+[:attrset, ArgumentError, "invalid struct member: x="]
+[:attrset2, #<Class:0xADDR>]
+[:bad_name, #<Class:0xADDR>]
+[:const, true]
+[:inspect, "#<struct Struct::Résumé résumé=42>"]
+core/struct/a_member_name_is_checked_and_inspects_as_ruby_shows_it.rb:17: warning: redefining constant Struct::Résumé
+[:ops, [:a?, :b!]]
