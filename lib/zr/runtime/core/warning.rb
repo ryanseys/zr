@@ -50,10 +50,11 @@ module Warning
   end
 
   # rb_warn_category: a Warning.warn that takes one argument gets the
-  # text alone, else the text and its category.
+  # text alone, else the text and its category. With no Warning.warn, the
+  # call raises NoMethodError, as rb_funcall does.
   def self.emit(text, category)
     Primitive.attr! :hidden
-    method(:warn).arity == 1 ? warn(text) : warn(text, category: category)
+    respond_to?(:warn, true) && method(:warn).arity == 1 ? warn(text) : warn(text, category: category)
   end
 
   # The runtime's own way in, for a warning it raises with a category.
