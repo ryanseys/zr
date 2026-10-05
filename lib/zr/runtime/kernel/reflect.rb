@@ -402,7 +402,13 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_mod_nesting(recv, argc, argv, cref, blk)
     out = zr_ary_new(4)
-    c = Frame[Frame[Task[zr_task()].top].prev].cref
+    # rb_vm_cref reads the nearest frame of Ruby code. A call from the
+    # core (`Fiber.new(&Module.method(:nesting))`) has none: no nesting.
+    rec = zr_frame_with_file(Frame[Task[zr_task()].top].prev)
+    if rec == 0
+      return out
+    end
+    c = Frame[rec].cref
     while c != QNIL && c != zr_global(G_TOP_CREF)
       if RCref[c].eval == 0
         zr_ary_push(out, zr_cref_klass(c))
