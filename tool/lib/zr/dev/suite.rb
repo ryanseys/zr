@@ -299,6 +299,8 @@ module Zr
           tagged = tags(r)
           lines = result["examples"].filter_map do |name, (ruby, zr, message)|
             next unless ruby == "pass" && zr != "pass"
+            # A test that hung is listed once, as a hang.
+            next if result["hung"]&.include?(name)
 
             { area: @area, file: r, name: name, zr: zr, message: message, tag: tagged[name] }
           end
