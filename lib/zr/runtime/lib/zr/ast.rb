@@ -41,10 +41,11 @@ module Zr
           Primitive.attr! :hidden
           raise TypeError, "allocator undefined for RubyVM::AbstractSyntaxTree::Location"
         end
+        alias allocate new
 
         def build(first_lineno, first_column, last_lineno, last_column)
           Primitive.attr! :hidden
-          location = allocate
+          location = Class.instance_method(:allocate).bind_call(self)
           location.send(:setup, first_lineno, first_column, last_lineno, last_column)
           location
         end
@@ -94,12 +95,13 @@ module Zr
           Primitive.attr! :hidden
           raise TypeError, "allocator undefined for RubyVM::AbstractSyntaxTree::Node"
         end
+        alias allocate new
 
         # Makes a node; `spans` contains the node's own span and then its keyword
         # spans, each [first_lineno, first_column, last_lineno, last_column] or nil.
         def build(type, spans, children, node_id, tree)
           Primitive.attr! :hidden
-          node = allocate
+          node = Class.instance_method(:allocate).bind_call(self)
           node.send(:setup, type, spans, children, node_id, tree)
           node
         end
@@ -346,6 +348,9 @@ module Zr
         source = source.to_str
         result = prism_parse(source)
         raise SyntaxError, syntax_error_message(source, result) if result.failure? && !error_tolerant
+        if !error_tolerant && (node = retry_in_postexe(result.value))
+          raise SyntaxError, caret_message(source, node.location, "Invalid retry without rescue")
+        end
 
         lines = keep_script_lines ? script_lines_of(source, result) : nil
         tokens = keep_tokens ? Tokens.new(source, result).to_a : nil
@@ -363,7 +368,7 @@ module Zr
       private
 
       def prism_parse(source)
-        Prism.parse(source, version: "4.0")
+        Prism.parse(source, version: "4.0", encoding: source.encoding)
       rescue ArgumentError
         Prism.parse(source)
       end
@@ -375,6 +380,32 @@ module Zr
         line = source.byteslice(location.start_offset - location.start_column, source.bytesize)
         line = line.b[/\A[^\n]*/n].force_encoding(source.encoding)
         "syntax error, #{error.message}\n#{line}\n#{' ' * location.start_column}^\n"
+      end
+
+      # parse.y's message shape: the complaint, the source line, and a caret
+      # with a tilde under each further byte of the node.
+      def caret_message(source, location, text)
+        line = source.byteslice(location.start_offset - location.start_column, source.bytesize)
+        line = line.b[/\A[^\n]*/n].force_encoding(source.encoding)
+        "#{text}\n#{line}\n#{' ' * location.start_column}^#{'~' * (location.length - 1)}\n"
+      end
+
+      # The first retry in an END block with no rescue of its own. prism
+      # takes it, as the retry is in a rescue clause outside the block;
+      # parse.y does not.
+      def retry_in_postexe(node, inside = false)
+        case node
+        when Prism::RetryNode then return node if inside
+        when Prism::PostExecutionNode then inside = true
+        when Prism::RescueNode, Prism::DefinedNode then inside = false
+        when Prism::RescueModifierNode
+          return retry_in_postexe(node.expression, inside) || retry_in_postexe(node.rescue_expression)
+        end
+        node.compact_child_nodes.each do |child|
+          found = retry_in_postexe(child, inside)
+          return found if found
+        end
+        nil
       end
 
       # The lines parse.y read: through an `__END__` line, and no further.

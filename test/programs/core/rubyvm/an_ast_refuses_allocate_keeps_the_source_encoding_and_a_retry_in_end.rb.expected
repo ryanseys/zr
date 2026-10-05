@@ -1,0 +1,13 @@
+TypeError: allocator undefined for RubyVM::AbstractSyntaxTree::Node
+#<Encoding:EUC-JP>
+#<Encoding:EUC-JP>
+#<Encoding:EUC-JP>
+SyntaxError: END {retry} Invalid retry without rescue
+SyntaxError: begin rescue; END {retry}; end Invalid retry without rescue
+ok: begin rescue; retry; end
+TypeError: allocator undefined for RubyVM::AbstractSyntaxTree::Location
+"Invalid retry without rescue\nbegin rescue; END {retry}; end\n                   ^~~~~\n"
+ok: nil rescue retry
+ok: begin rescue; ensure; p defined?(retry); end
+ok: END { begin; rescue; retry; end }
+:SCOPE
