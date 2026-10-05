@@ -1709,6 +1709,19 @@ class Dir
       NOENT
     end
 
+    # do_opendir: a name that is gone or no directory is no match, a
+    # directory that may not be read warns under $VERBOSE (rb_glob_error's
+    # glob_func_warning), and any other error, such as EMFILE, raises.
+    def opendir_failed(path, errno)
+      return if errno == Errno::ENOENT::Errno || errno == Errno::ENOTDIR::Errno
+
+      path = path.dup.force_encoding(@enc)
+      raise SystemCallError.new(path, errno) unless errno == Errno::EACCES::Errno
+      return unless $VERBOSE
+
+      Primitive.zr_warn_here_m("#{path}: #{SystemCallError.new(nil, errno).message}")
+    end
+
     def emit(path)
       @found << path.force_encoding(@enc)
     end
@@ -1756,7 +1769,7 @@ class Dir
     def walk(path, baselen, namelen, dirsep, parts, flags, _recursive)
       where = path.empty? ? ".".b : path
       entries = Primitive.zr_io_dir_kinds(where.dup.force_encoding(@enc))
-      return if entries.is_a?(Integer)
+      return opendir_failed(where, -entries) if entries.is_a?(Integer)
 
       flags |= File::FNM_CASEFOLD if @real_basename && Primitive.zr_io_pathconf(where, 11) == 0
       pairs = Array.new(entries.size / 2) { |i| [entries[2 * i].b, entries[(2 * i) + 1]] }
@@ -1849,7 +1862,13 @@ class Dir
       dir = "/".b if dir.empty? && base == 1
       name = path.byteslice(base, path.bytesize - base)
       entries = Primitive.zr_io_dir_kinds((dir.empty? ? ".".b : dir).dup.force_encoding(@enc))
-      return [path, NOENT] if entries.is_a?(Integer)
+      if entries.is_a?(Integer)
+        # getattrlist needs no descriptor. When the directory does not
+        # open for another reason (EMFILE), the name stays as written,
+        # and the walk reports the error.
+        gone = -entries == Errno::ENOENT::Errno || -entries == Errno::ENOTDIR::Errno
+        return [path, gone ? NOENT : UNKNOWN]
+      end
 
       # getattrlist gives the name and the kind of the entry together.
       pairs = Array.new(entries.size / 2) { |i| [entries[2 * i].b, [EXIST, DIRECTORY, SYMLINK, OTHER][entries[(2 * i) + 1]]] }
