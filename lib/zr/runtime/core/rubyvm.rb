@@ -73,7 +73,14 @@ class RubyVM
       alias new compile
 
       def compile_file(file, options = nil)
-        iseq = compile(File.read(file), file, File.expand_path(file))
+        file = String.try_convert(file) or raise TypeError, "no implicit conversion of #{conversion_name(file)} into String"
+        source = begin
+          File.read(file)
+        rescue SystemCallError => e
+          # pm_load_file: the error names the path alone.
+          raise SystemCallError.new(file, e.errno)
+        end
+        iseq = compile(source, file, File.expand_path(file))
         Primitive.zr_hidden_set(iseq, :__label__, +"<main>")
         Primitive.zr_hidden_set(iseq, :__base_label__, +"<main>")
         iseq
