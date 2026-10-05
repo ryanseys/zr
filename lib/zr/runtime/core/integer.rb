@@ -75,9 +75,10 @@ class Integer
     return Rational(self, 1)**other if other.is_a?(Rational)
     return Complex(self, 0)**other if other.is_a?(Complex)
     return Primitive.zr_num_coerce_m(self, other, :**, 0) unless other.is_a?(Integer)
-    return Rational(1, 1) / (self**-other) if other < 0
+    # int_pow: 1 and -1 stay Integers, under a negative exponent too.
     return 1 if self == 1 || other == 0
     return other.odd? ? -1 : 1 if self == -1
+    return Rational(1, 1) / (self**-other) if other < 0
     return 0 if self == 0
     raise ArgumentError, +"exponent is too large" if pow_too_large?(other)
 
@@ -621,6 +622,8 @@ class Numeric
 
     name = half.is_a?(String) ? half : half.to_s
     raise ArgumentError, "invalid rounding mode: #{half}" unless half.is_a?(Symbol) || half.is_a?(String)
+    # rb_must_asciicompat: a String in a wide encoding is no name.
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{name.encoding}" unless name.encoding.ascii_compatible?
     return name.to_sym if %w[up even down].include?(name)
 
     raise ArgumentError, "invalid rounding mode: #{half}"

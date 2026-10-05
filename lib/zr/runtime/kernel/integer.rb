@@ -665,7 +665,8 @@ module Zr::Kern
 
   # Compares an Integer with a double exactly. Returns -1, 0, 1, or 2 for
   # NaN. If the integer part of the double does not fit a fixnum, its sign
-  # gives the result.
+  # gives the result. The fixnums are -2**62 up to 2**62 - 1, so -2**62
+  # itself compares as a value.
   #: (word, f64) -> word
   def zr_int_float_cmp(n, d)
     if zr_nan_p(d)
@@ -674,7 +675,7 @@ module Zr::Kern
     if d >= Machine.f64(4886405595696988160)
       return 0 - 1
     end
-    if d <= -Machine.f64(4886405595696988160)
+    if d < -Machine.f64(4886405595696988160)
       return 1
     end
     t = Machine.trunc(d)
