@@ -27,6 +27,7 @@ module Zr
       # `Zr::Cache`.
       class Compile < Command
         # @rbs @missed: Zr::Cache::Run?
+        # @rbs @exec: String?
         # @rbs @served: (^(String, Array[String], bool) -> Object?)?
         # @rbs @options: RubyOptions?
         # @rbs @given: [String, String]?
@@ -188,6 +189,8 @@ module Zr
           print Gems.table(program.gems) if opts[:print_gems]
           require_relative "../../cache/janitor"
           Zr::Cache::Janitor.trim
+          kept = @exec
+          exec(Runner.program_env, [kept, kept], *opts[:args]) if kept
           Runner.exit_as(status) if status.is_a?(Process::Status)
         end
 
@@ -336,6 +339,10 @@ module Zr
           kept = cache&.keep(out, program, work)
           served = @served
           return served.call(kept || out, rest, kept.nil?) if served
+          # A kept binary outlives the build directory: zr execs it once the
+          # build is gone, so the program has zr's pid, as a ruby script has
+          # ruby's.
+          return @exec = kept if kept
 
           Runner.run_binary(out, rest)
         end
@@ -384,7 +391,7 @@ module Zr
           digest = RuntimeSources.for(target).runtime_digest or return nil
           cache = yield(digest)
           kept = cache.hit
-          Runner.exit_as(Runner.run_binary(kept, args)) if kept
+          exec(Runner.program_env, [kept, kept], *args) if kept
           cache
         end
       end
