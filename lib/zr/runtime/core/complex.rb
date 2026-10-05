@@ -82,7 +82,15 @@ class Complex < Numeric
         raise TypeError, +"can't convert nil into Complex"
       else
         if value.respond_to?(:to_c)
-          value.to_c
+          # nucomp_convert: with exception: false, rb_protect takes any
+          # error of to_c, and the answer is nil.
+          return value.to_c if exception
+
+          begin
+            value.to_c
+          rescue Exception # rubocop:disable Lint/RescueException
+            nil
+          end
         else
           return nil unless exception
 
@@ -93,9 +101,11 @@ class Complex < Numeric
     private :convert
 
     # A real number's text, as a pattern piece (a String, so the core
-    # loads without the regexp engine).
-    NUMBER = "[-+]?(?:\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?(?:[eE][-+]?\\d+)?(?:\\/\\d+(?:_\\d+)*)?)"
-    private_constant :NUMBER
+    # loads without the regexp engine). read_num takes ".5" but not "5.";
+    # the second part of a pair has no sign of its own.
+    UNSIGNED = "(?:(?:\\d+(?:_\\d+)*(?:\\.\\d+(?:_\\d+)*)?|\\.\\d+(?:_\\d+)*)(?:[eE][-+]?\\d+)?(?:\\/\\d+(?:_\\d+)*)?)"
+    NUMBER = "[-+]?#{UNSIGNED}"
+    private_constant :UNSIGNED, :NUMBER
 
     # The forms in which a Complex is written (the imaginary unit is any
     # of i, I, j and J, as read_comp takes it), compiled on first use (a
@@ -104,10 +114,10 @@ class Complex < Numeric
       Primitive.attr! :hidden
       @forms ||= {
         polar: Regexp.new("\\A(#{NUMBER})@(#{NUMBER})\\z"),
-        pair: Regexp.new("\\A(#{NUMBER})?([-+])?(#{NUMBER})?[iIjJ]\\z"),
+        pair: Regexp.new("\\A(#{NUMBER})?(?:([-+])(#{UNSIGNED})?|(#{NUMBER}))?[iIjJ]\\z"),
         imaginary: Regexp.new("\\A(#{NUMBER})[iIjJ]\\z"),
         real: Regexp.new("\\A(#{NUMBER})\\z"),
-        leading: Regexp.new("\\A\\s*(?:#{NUMBER}@#{NUMBER}|#{NUMBER}?[-+]#{NUMBER}?[iIjJ]|#{NUMBER}[iIjJ]|[-+]?[iIjJ]|#{NUMBER})")
+        leading: Regexp.new("\\A\\s*(?:#{NUMBER}@#{NUMBER}|#{NUMBER}?[-+]#{UNSIGNED}?[iIjJ]|#{NUMBER}[iIjJ]|[-+]?[iIjJ]|#{NUMBER})")
       }
     end
     private :forms
@@ -127,9 +137,10 @@ class Complex < Numeric
       if (m = forms[:polar].match(body))
         return polar(real_part(m[1]), real_part(m[2]))
       end
-      if (m = forms[:pair].match(body)) && (m[2] || m[1].nil?) && !(m[1].nil? && m[2].nil? && m[3].nil? && !%w[i I j J].include?(body))
+      # A sign and an unsigned part, or (with no real part) a signed one.
+      if (m = forms[:pair].match(body)) && (m[2] || (m[1].nil? && (m[4] || %w[i I j J].include?(body))))
         real = m[1] ? real_part(m[1]) : 0
-        imag = m[3] ? real_part(m[3]) : 1
+        imag = m[3] || m[4] ? real_part(m[3] || m[4]) : 1
         imag = -imag if m[2] == +"-"
         return build(real, imag)
       end
@@ -297,7 +308,24 @@ class Complex < Numeric
 
   alias quo /
 
-  def fdiv(other) = Complex.send(:build, real.to_f / other, imaginary.to_f / other)
+  # f_divide with fdiv: by a Complex, the parts divide by the larger part
+  # of the divisor, so nothing overflows on the way.
+  def fdiv(other)
+    if other.is_a?(Complex)
+      a, b, c, d = real, imaginary, other.real, other.imaginary
+      if c.abs > d.abs
+        r = d.fdiv(c)
+        n = c * (1 + (r * r))
+        return Complex.send(:build, (a + (b * r)).fdiv(n), (b - (a * r)).fdiv(n))
+      end
+      r = c.fdiv(d)
+      n = d * (1 + (r * r))
+      return Complex.send(:build, ((a * r) + b).fdiv(n), ((b * r) - a).fdiv(n))
+    end
+    return Complex.send(:build, real.fdiv(other), imaginary.fdiv(other)) if Complex.send(:real_numeric?, other)
+
+    Primitive.zr_num_coerce_m(self, other, :fdiv, 0)
+  end
 
   def **(other)
     other = other.real if other.is_a?(Complex) && other.imaginary == 0 && !other.imaginary.is_a?(Float)
@@ -339,13 +367,15 @@ class Complex < Numeric
     end
   end
 
+  # nucomp_cmp: a value that is not a Numeric, or one that is not real,
+  # coerces.
   def <=>(other)
-    return nil unless imaginary == 0 && !imaginary.is_a?(Float) || (imaginary.is_a?(Float) && imaginary == 0)
+    return Primitive.zr_num_coerce_m(self, other, :<=>, 2) unless other.is_a?(Numeric)
+    return nil unless imaginary.zero?
+    return other.imaginary.zero? ? real <=> other.real : nil if other.is_a?(Complex)
+    return real <=> other if other.real?
 
-    case other
-    when Complex then other.imaginary == 0 ? real <=> other.real : nil
-    when Integer, Float, Rational then real <=> other
-    end
+    Primitive.zr_num_coerce_m(real, other, :<=>, 2)
   end
 
   # nucomp_eql_p: the parts' classes and ==, not their eql?.
@@ -392,9 +422,12 @@ class Complex < Numeric
   end
 
   # nucomp_to_r: unlike to_f and to_i, a Float zero imaginary part is real.
+  # Another imaginary part must be an exact zero, itself or as its to_r.
   def to_r
-    raise RangeError, "can't convert #{self} into Rational" unless imaginary == 0
-
+    unless (imaginary.is_a?(Float) && imaginary.zero?) || exact_zero?(imaginary)
+      exact = imaginary.respond_to?(:to_r) ? imaginary.to_r : nil
+      raise RangeError, "can't convert #{self} into Rational" unless exact.is_a?(Rational) && exact_zero?(exact)
+    end
     real.to_r
   end
 
@@ -439,6 +472,12 @@ class Complex < Numeric
   def exact_real?
     Primitive.attr! :hidden
     !imaginary.is_a?(Float) && imaginary == 0
+  end
+
+  # k_exact_zero_p: not a Float, and == 0.
+  def exact_zero?(x)
+    Primitive.attr! :hidden
+    !x.is_a?(Float) && x == 0
   end
 
   # A Rational that is whole becomes its Integer.

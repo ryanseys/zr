@@ -752,7 +752,10 @@ module Marshal
       built = Primitive.zr_class_allocate(klass)
       @objects << built
       n = long
-      if klass <= Range || klass <= Set
+      # An old Complex or Rational dump is an object with two ivars, which
+      # the compat loaders read: @real and @image (nucomp_loader), and
+      # @numerator and @denominator (nurat_loader).
+      if klass <= Range || klass <= Set || klass <= Complex || klass <= Rational
         parts = {}
         while n > 0
           name = symbol_or_link
@@ -761,6 +764,10 @@ module Marshal
         end
         if klass <= Range
           built = klass.new(parts[:begin], parts[:end], parts[:excl])
+        elsif klass <= Complex
+          built.send(:marshal_load, [parts[:@real], parts[:@image]])
+        elsif klass <= Rational
+          built.send(:marshal_load, [parts[:@numerator], parts[:@denominator]])
         else
           built.send(:marshal_load_hash, parts[:@hash])
         end

@@ -477,9 +477,11 @@ module Zr::Kern
     if klass == QUNDEF
       return zr_mr_bail(r)
     end
-    # An IO is no plain object in ruby, so the Ruby reader refuses it.
+    # An IO is no plain object in ruby, so the Ruby reader refuses it. An
+    # old Complex or Rational dump goes to the Ruby reader's compat loader.
     if zr_alloc_kind(klass) != ALLOC_OBJECT || zr_class_inherits(klass, zr_global(G_RANGE)) || zr_mr_set_p(klass) ||
-       zr_class_inherits(klass, zr_core_class(Machine.id(:IO)))
+       zr_class_inherits(klass, zr_core_class(Machine.id(:IO))) ||
+       zr_class_inherits(klass, zr_core_class(Machine.id(:Complex))) || zr_class_inherits(klass, zr_core_class(Machine.id(:Rational)))
       return zr_mr_bail(r)
     end
     built = zr_class_allocate(klass)
