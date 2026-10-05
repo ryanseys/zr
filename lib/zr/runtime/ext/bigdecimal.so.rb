@@ -50,7 +50,10 @@ class BigDecimal < Numeric
   # As many digits as a Float has, which is the number that a division
   # adds to the wider operand before it stops.
   DOUBLE_FIG = 16
-  private_constant :DOUBLE_FIG
+  # The widest exponent a value keeps: past it a value is infinite, and
+  # below its negative a value is zero.
+  EXPONENT_MAX = (2**63) - 1
+  private_constant :DOUBLE_FIG, :EXPONENT_MAX
 
   class << self
     # `mode(ROUND_MODE)` reads or writes the rounding; every other
@@ -207,6 +210,9 @@ class BigDecimal < Numeric
       while (digits % 10).zero?
         digits /= 10
       end
+      return infinity_result(sign, "in") if exponent > EXPONENT_MAX
+      return build(sign, 0, 0) if exponent < -EXPONENT_MAX
+
       build(sign, digits, exponent)
     end
 
@@ -214,8 +220,9 @@ class BigDecimal < Numeric
     # no precision given, those are the digits it gives.
     def from_float(value, precision)
       Primitive.attr! :hidden
-      raise TypeError, "can't convert #{value} into BigDecimal" if value.nan? || value.infinite?
       raise ArgumentError, "negative precision" if precision.negative?
+      return value.positive? ? INFINITY : -INFINITY if value.infinite?
+      return NAN if value.nan?
       raise ArgumentError, "precision too large." if precision > DOUBLE_FIG
       return read(value.to_s, false) if precision.zero?
 
@@ -286,14 +293,7 @@ class BigDecimal < Numeric
 
   def -(other) = limited(combine(other, :-))
 
-  def *(other)
-    them = cast(other)
-    return coerced(other, :*) unless them
-    return product_special(them) if @special || them.special
-
-    product = @digits * them.digits
-    limited(BigDecimal.from_int(@sign * them.sign_bit, product, product.to_s.length + point + them.point))
-  end
+  def *(other) = limited(product(other))
 
   def /(other) = divide(other, 0)
 
@@ -345,13 +345,24 @@ class BigDecimal < Numeric
   def >(other) = related(other, :>) { |c| c.positive? }
   def >=(other) = related(other, :>=) { |c| !c.negative? }
 
+  # BigDecimalCmp: another kind of value compares through its coerce.
   def <=>(other)
     them = cast(other)
-    return nil if them.nil? || nan? || them.nan?
-    return infinite_compare(them) unless finite? && them.finite?
-    return @sign <=> them.sign_bit if !zero? && !them.zero? && @sign != them.sign_bit
+    if them.nil?
+      return nil unless other.respond_to?(:coerce)
 
-    align(them) { |mine, theirs, _| mine <=> theirs }
+      a, b = other.coerce(self)
+      return a <=> b
+    end
+    return nil if nan? || them.nan?
+    return infinite_compare(them) unless finite? && them.finite?
+return @sign <=> them.sign_bit if !zero? && !them.zero? && @sign != them.sign_bit
+return zero? ? (them.zero? ? 0 : -them.sign_bit) : @sign if zero? || them.zero?
+# Two values of one sign with different exponents compare by the
+# exponent alone, so no power of ten as wide as the gap is built.
+return (@exp <=> them.exp) * @sign if @exp != them.exp
+
+align(them) { |mine, theirs, _| mine <=> theirs }
   end
 
   def ==(other)
@@ -413,6 +424,7 @@ class BigDecimal < Numeric
     mode = BigDecimal.mode(ROUND_MODE) if mode.nil?
     mode = BigDecimal.send(:rounding, mode)
     place = whole ? 0 : Integer.send(:int_operand, digits)
+    raise FloatDomainError, BigDecimal.send(:refused, self) if !finite? && whole && plain && plain_half
     return self unless finite?
 
     answer = round_to(place, mode)
@@ -431,16 +443,24 @@ class BigDecimal < Numeric
 
   def fix = finite? ? truncate(0) : self
 
-  def add(other, digits) = digits.zero? ? self + other : (self + other).round_significant(digits)
+  # A precision given here wins over the global limit; 0 keeps the limit.
+  def add(other, digits) = with_precision(digits) { combine(other, :+) }
 
-  def sub(other, digits) = digits.zero? ? self - other : (self - other).round_significant(digits)
+  def sub(other, digits) = with_precision(digits) { combine(other, :-) }
 
-  def mult(other, digits) = digits.zero? ? self * other : (self * other).round_significant(digits)
+  def mult(other, digits) = with_precision(digits) { product(other) }
 
   # BigDecimal_to_s: a leading space or `+` for the sign, then digits for
   # the group size, up to the first other character, which is `F` for the
   # plain form. The text is US-ASCII; `inspect` is the same bytes, binary.
-  def to_s(format = (none = true; nil))
+  def to_s(format = (none = true; nil)) = shown(format, none)
+
+  # BigDecimal_inspect writes the value itself; it never calls to_s.
+  def inspect = shown(nil, true).b
+
+  # The text of to_s and inspect.
+  def shown(format, none)
+    Primitive.attr! :hidden
     return (nan? ? +"NaN" : "#{@sign.negative? ? '-' : ''}Infinity").force_encoding(Encoding::US_ASCII) unless finite?
 
     plus = nil
@@ -468,8 +488,6 @@ class BigDecimal < Numeric
     "#{lead}#{plain ? plain_body(groups) : exponent_body(groups)}".force_encoding(Encoding::US_ASCII)
   end
 
-  def inspect = to_s.b
-
   def dup = self
 
   alias clone dup
@@ -482,6 +500,7 @@ class BigDecimal < Numeric
 
   def split
     return [0, "NaN", 10, 0] if nan?
+return [@sign, "Infinity", 10, 0] unless finite?
 
     [@sign, @digits.to_s, 10, @exp]
   end
@@ -522,7 +541,30 @@ class BigDecimal < Numeric
 
   private
 
-  def setup(sign, digits, exponent, special)
+  # VpGetPrecisionInt: the precision of add, sub and mult.
+def with_precision(digits)
+  raise TypeError, "no implicit conversion from nil to integer" if digits.nil?
+
+  digits = Integer.send(:int_operand, digits)
+  raise ArgumentError, "negative precision" if digits.negative?
+
+  answer = yield
+  return limited(answer) if digits.zero? || !answer.is_a?(BigDecimal)
+
+  answer.round_significant(digits)
+end
+
+# The exact product, before the global limit.
+def product(other)
+  them = cast(other)
+  return coerced(other, :*) unless them
+  return product_special(them) if @special || them.special
+
+  digits = @digits * them.digits
+  BigDecimal.from_int(@sign * them.sign_bit, digits, digits.to_s.length + point + them.point)
+end
+
+def setup(sign, digits, exponent, special)
     @sign = sign
     @digits = digits
     @exp = exponent
@@ -667,6 +709,7 @@ class BigDecimal < Numeric
   # `floor`, `ceil` and `truncate`: an Integer with no place named, a
   # decimal at the place named.
   def shortened(digits, mode)
+    raise FloatDomainError, BigDecimal.send(:refused, self) if !finite? && digits.nil?
     return self unless finite?
     return round_to(digits.to_int, mode) if digits
 
