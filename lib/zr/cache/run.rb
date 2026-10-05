@@ -18,7 +18,9 @@ module Zr
     # An entry is found by a digest of what a build reads before it knows
     # which files the program requires: zr's version, the runtime and link
     # digests, the target, the path root, the settings that change a
-    # build's bytes, the link arguments, the program's path and bytes, and
+    # build's bytes, the link arguments, the program's path (both as given,
+    # which the binary shows as `__FILE__` and in backtraces, and expanded)
+    # and bytes, and
     # its ruby switches (`Hir::Switches`). A program from -e or standard
     # input has no file: its text is in the key.
     # The entry then lists every file that the build compiled, with the
@@ -62,7 +64,7 @@ module Zr
         @target = target
         @key = Store.key(VERSION, Zr::VERSION, digest, Digests.link, target.triple, Paths.root.to_s,
                          config.linker, config.eval_walk?, config.verify?, trace, *link, "\0", gems && !gems.empty? ? gems.digest : "",
-                         @input, source&.b || File.binread(@input), switches&.key.to_s)
+                         input, @input, source&.b || File.binread(@input), switches&.key.to_s)
       end
 
       # The path of the kept binary when every file it was built from is as
