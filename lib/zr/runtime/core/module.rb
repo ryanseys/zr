@@ -179,6 +179,9 @@ class Module
     scope = walk_const_path(name, scopes) do |inner, segment, later|
       Primitive.zr_mod_const_get_m(inner, segment, inherit, later)
     end
+    # rb_mod_const_source_location names the whole path.
+    raise TypeError, "#{name} does not refer to class/module" unless scope.is_a?(Module)
+
     Primitive.zr_mod_const_source_location_m(scope, last, inherit, scopes.any? { |s| !s.empty? })
   end
 
@@ -252,7 +255,8 @@ class Module
         # rb_mod_const_get: a "::" that ends the path is wrong before the
         # name in front of it is looked up.
         raise NameError.new("wrong constant name #{name}", name, receiver: self) if i == segments.size - 2 && segments.last.empty?
-        raise TypeError, "#{scope.inspect} does not refer to class/module" unless scope.is_a?(Module)
+        # rb_mod_const_get names the whole path.
+        raise TypeError, "#{name} does not refer to class/module" unless scope.is_a?(Module)
 
         scope = yield(scope, segment, seen.positive?)
         seen += 1
