@@ -465,7 +465,9 @@ class Array
     elsif k > 0 && !(Primitive.zr_ary_len_m(self) == 0)
       # rb_ary_repeated_combination walks a private copy when k > 1, so
       # the block can change the receiver.
-      (k == 1 ? self : Array.new(self)).__send__(:pick_repeated, k, 0, []) { |c| yield c }
+      reentry_checked("repeated combination") do |check|
+        (k == 1 ? self : Array.new(self)).__send__(:pick_repeated, k, 0, []) { |c| yield c; check.call }
+      end
     end
     self
   end
@@ -484,7 +486,9 @@ class Array
     if k == 0
       yield []
     elsif k > 0 && !(Primitive.zr_ary_len_m(self) == 0)
-      (k == 1 ? self : Array.new(self)).__send__(:place_repeated, k, []) { |c| yield c }
+      reentry_checked("repeated permute") do |check|
+        (k == 1 ? self : Array.new(self)).__send__(:place_repeated, k, []) { |c| yield c; check.call }
+      end
     end
     self
   end
@@ -496,7 +500,9 @@ class Array
     if k == 0
       yield []
     elsif k > 0 && k <= Primitive.zr_ary_len_m(self)
-      (k == 1 ? self : Array.new(self)).__send__(:combine, k, 0, []) { |c| yield c }
+      reentry_checked("combination") do |check|
+        (k == 1 ? self : Array.new(self)).__send__(:combine, k, 0, []) { |c| yield c; check.call }
+      end
     end
     self
   end
@@ -508,7 +514,9 @@ class Array
     if k == 0
       yield []
     elsif k > 0 && k <= Primitive.zr_ary_len_m(self)
-      (k == 1 ? self : Array.new(self)).__send__(:permute, k, [], Array.new(Primitive.zr_ary_len_m(self), false)) { |c| yield c }
+      reentry_checked("permute") do |check|
+        (k == 1 ? self : Array.new(self)).__send__(:permute, k, [], Array.new(Primitive.zr_ary_len_m(self), false)) { |c| yield c; check.call }
+      end
     end
     self
   end
@@ -518,6 +526,19 @@ class Array
     raise ArgumentError, +"attempt to take negative size" if n < 0
 
     Primitive.zr_ary_aref2_m(self, 0, n)
+  end
+
+  # An iterator whose walk keeps state, run with a check that its block
+  # calls after each yield: a continuation that brings the block back
+  # after the iterator returned raises "<name> reentered", as CRuby's
+  # iterators find their hidden Array of state released. The flag is on
+  # the heap, which a continuation does not restore.
+  def reentry_checked(name)
+    Primitive.attr! :hidden
+    done = [false]
+    yield -> { raise RuntimeError, "#{name} reentered" if done[0] }
+  ensure
+    done[0] = true if done
   end
 
   def drop(n)
@@ -898,11 +919,15 @@ class Array
   # converts.
   def flattened(level)
     Primitive.attr! :hidden
+    # flatten keeps its walk in hidden Arrays: a continuation that brings a
+    # to_ary back after the walk ended raises.
+    done = [false]
     count = Primitive.zr_ary_len_m(self)
     i = 0
     tmp = nil
     while i < count
       tmp = Array.try_convert(Primitive.zr_ary_at_m(self, i))
+      raise RuntimeError, +"flatten reentered" if done[0]
       break unless tmp.nil?
 
       i += 1
@@ -928,6 +953,7 @@ class Array
           next
         end
         tmp = Array.try_convert(elt)
+        raise RuntimeError, +"flatten reentered" if done[0]
         if tmp.nil?
           result << elt
         else
@@ -948,6 +974,8 @@ class Array
       ary = stack.pop
     end
     result
+  ensure
+    done[0] = true if done
   end
 
   def reverse_each
@@ -1188,7 +1216,19 @@ class Array
 
       i += 1
     end
-    result = [] unless block_given?
+    if block_given?
+      reentry_checked("product") { |check| product_walk(arrays) { |combo| yield combo; check.call } }
+      return self
+    end
+    result = []
+    product_walk(arrays) { |combo| result << combo }
+    result
+  end
+
+  # The combinations of `arrays`, the last one turning fastest. Returns
+  # nil after the last one.
+  def product_walk(arrays)
+    Primitive.attr! :hidden
     counters = Array.new(arrays.size, 0)
     while true
       combo = Array.new(arrays.size)
@@ -1197,7 +1237,7 @@ class Array
         combo[i] = arrays[i][counters[i]]
         i += 1
       end
-      block_given? ? yield(combo) : result << combo
+      yield combo
       i = arrays.size - 1
       while i >= 0
         counters[i] += 1
@@ -1206,7 +1246,7 @@ class Array
         counters[i] = 0
         i -= 1
       end
-      return block_given? ? self : result if i < 0
+      return if i < 0
     end
   end
 
