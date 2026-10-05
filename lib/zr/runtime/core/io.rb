@@ -1054,7 +1054,7 @@ class IO
     return self if equal?(other)
 
     write_pending
-    pos = other.pos if other.send(:mode_state)[1]
+    pos = tell_or_nil(other) if other.send(:mode_state)[1]
     other.send(:write_pending)
     adopt_mode(other.send(:mode_state))
     @pid = other.pid
@@ -1070,6 +1070,15 @@ class IO
     clear_buffer
     @eof = false
     Primitive.zr_exc_set_class(self, other.class)
+  end
+
+  # io_tell as io_reopen reads it: a stream with no position, as a pipe,
+  # gives none, and the reopen does not seek.
+  def tell_or_nil(io)
+    Primitive.attr! :hidden
+    io.pos
+  rescue SystemCallError
+    nil
   end
 
   # rb_cloexec_dup2: a descriptor above the standard three keeps
