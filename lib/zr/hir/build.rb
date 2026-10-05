@@ -1513,12 +1513,14 @@ module Zr
       # node's first line, and `taken` is the flag of `built`.
       private
 
+      # The block starts at its `{` or `do`, the line that ruby gives as
+      # the lambda's source_location.
       #: (Prism::LambdaNode node, Integer line) -> Lambda
       def lambda_literal(node, line)
         in_block do
           params, extra = block_params(node.parameters)
           body = node.body ? expr(node.body) : Literal.new(nil, line)
-          Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
+          Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, node.opening_loc.start_line,
                                      node.location.end_line, method_cover(node)), node), line)
         end
       end
