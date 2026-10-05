@@ -431,6 +431,12 @@ class Time
         sec_ns = exact_ns(usec, 1000)
       end
 
+      # time_init_vtm: :dst and :std name local time, and which of two
+      # fitting offsets to take.
+      if zone == :dst || zone == :std
+        dst = zone == :dst
+        zone = nil
+      end
       days = days_from_civil(year, month, day)
       local_ns = ((days * 86400 + hour * 3600 + min * 60 + sec) * NS) + sec_ns
       kind = zone.nil? ? :local : parse_zone(zone)
