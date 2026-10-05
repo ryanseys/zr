@@ -11,7 +11,7 @@ module Zr
     # What the two suites of ruby's own tests share: `zr-dev rubyspec`
     # (ruby/spec) and `zr-dev cruby-test` (CRuby's test-all). Each runs
     # every example under ruby and in a zr binary, writes the results of
-    # an area to `tmp/<suite>/results/<area>.json`, and keeps the examples
+    # an area to `log/<suite>/results/<area>.json`, and keeps the examples
     # that zr fails on purpose as tags in `test/<suite>/tags/`. The ratchet
     # tests read the results and the tags (`Suite.problems`); they never
     # compile.

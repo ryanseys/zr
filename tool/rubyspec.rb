@@ -21,7 +21,7 @@ module Zr
     # at a time. A chunk that does not build is split in two until the
     # file that does not build is alone. Each file then runs in its own
     # process, under ruby and in its binary, with a time limit. ruby's
-    # results are kept by the file's digest (`tmp/rubyspec/ruby/`), so
+    # results are kept by the file's digest (`log/rubyspec/ruby/`), so
     # ruby runs each file once.
     #
     # The examples that zr fails on purpose are tags, in mspec's own form,
@@ -32,7 +32,7 @@ module Zr
     #   fails(build):             the file does not build
     #   fails(load):              the file raises as it loads
     #
-    # A run writes `tmp/rubyspec/results/<area>.json` and the summary
+    # A run writes `log/rubyspec/results/<area>.json` and the summary
     # `test/rubyspec/summary.tsv`. `--update-tags` writes the tags of each
     # file that ran from its results. The ratchet
     # (test/unit/rubyspec_ratchet_test.rb) reads the results and the tags.
@@ -54,7 +54,7 @@ module Zr
       # The order of `--all`: the language first, then core, then the library.
       ORDER = %w[language core library].freeze
 
-      OUT = Dev.path("tmp/rubyspec")
+      OUT = Dev.path("log/rubyspec")
       TAGS = Dev.path("test/rubyspec/tags")
       SUMMARY = Dev.path("test/rubyspec/summary.tsv")
 

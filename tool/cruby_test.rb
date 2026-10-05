@@ -33,7 +33,7 @@ module Zr
     #
     # Another reason (`ractor`, `rubyvm`, `spawns`) is a `fail` that says
     # why; `--update-tags` keeps it. A run writes
-    # `tmp/cruby-test/results/<dir>.json` and `test/cruby/summary.tsv`;
+    # `log/cruby-test/results/<dir>.json` and `test/cruby/summary.tsv`;
     # test/unit/cruby_test_ratchet_test.rb reads them.
     class CRubyTest < Command
       summary "Run CRuby's test-all in ruby and in zr binaries, and compare each test"
@@ -76,7 +76,7 @@ module Zr
       # The order of `--all`: test/ruby first, then the libraries.
       FIRST = %w[ruby].freeze
 
-      OUT = Dev.path("tmp/cruby-test")
+      OUT = Dev.path("log/cruby-test")
       TAGS = Dev.path("test/cruby/tags")
       SUMMARY = Dev.path("test/cruby/summary.tsv")
 

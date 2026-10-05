@@ -6,7 +6,7 @@ require_relative "../../tool/cruby_test"
 # CRuby's test-all under zr (`zr-dev cruby-test`): each test that ruby
 # passes and zr does not has a tag in test/cruby/tags, and no tag is
 # stale. The test reads the results of the last run of each directory in
-# tmp/cruby-test/results; it never compiles. A directory with no results
+# log/cruby-test/results; it never compiles. A directory with no results
 # for this ruby is not checked.
 class CRubyTestRatchetTest < Minitest::Test
   def test_each_directory_that_ran_matches_its_tags

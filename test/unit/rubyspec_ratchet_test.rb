@@ -6,7 +6,7 @@ require_relative "../../tool/rubyspec"
 # ruby/spec under zr (`zr-dev rubyspec`): each example that ruby passes
 # and zr does not has a tag in test/rubyspec/tags, and no tag is stale.
 # The test reads the results of the last run of each area in
-# tmp/rubyspec/results; it never compiles. An area with no results for
+# log/rubyspec/results; it never compiles. An area with no results for
 # this ruby is not checked.
 class RubySpecRatchetTest < Minitest::Test
   def test_each_area_that_ran_matches_its_tags
