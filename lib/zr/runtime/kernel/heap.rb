@@ -989,6 +989,10 @@ module Zr::Kern
   def zr_gvar_read(id)
     r = zr_ractor_gvar_check(id)
     return r if r == QUNDEF
+    # An alias of `$<` (English's $DEFAULT_INPUT) is ARGF, as `$<` is.
+    if zr_gvar_resolve(id) == Machine.id(:$<)
+      return zr_core_class(Machine.id(:ARGF))
+    end
     # rb_gvar_undef_getter: under $VERBOSE, a global that was never set warns.
     if zr_box_current() == QNIL && zr_gvar_row(zr_gvar_resolve(id)) == 0 && zr_gvar_get(Machine.id(:$VERBOSE)) == QTRUE
       b = Machine.slot(Buf.size)
