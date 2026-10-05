@@ -351,7 +351,7 @@ class Regexp
         elsif regexp.fixed_encoding? then fixed = agree.call(fixed, encoding)
         else ascii_only = true
         end
-        text = regexp.to_s
+        text = regexp.send(:unterminated_s)
       else
         pattern = Primitive.zr_str_operand(pattern)
         encoding = pattern.encoding
@@ -463,6 +463,14 @@ class Regexp
   def hash = [source, options & ~NOENCODING].hash
 
   def to_s = Pattern.str_with_term(pattern, encoding, options, "/")
+
+  # rb_reg_str_with_term with no terminator, as Regexp.union writes each
+  # part: a `/` keeps no backslash.
+  def unterminated_s
+    Primitive.attr! :hidden
+    Pattern.str_with_term(pattern, encoding, options, nil)
+  end
+  private :unterminated_s
 
   def inspect
     return Object.instance_method(:to_s).bind_call(self) unless Primitive.zr_regexp_source(self)
@@ -608,13 +616,26 @@ class Regexp
     raise TypeError, "can't convert #{seconds.class} into Float" unless seconds.is_a?(Numeric)
     raise ArgumentError, "invalid timeout: #{seconds}" unless seconds.to_f.positive?
 
-    (seconds.to_f * 1e9).to_i.clamp(0, (2**62) - 1)
+    # double2hrtime saturates; Infinity has no Integer.
+    nanoseconds = seconds.to_f * 1e9
+    nanoseconds >= LIMIT_MAX ? LIMIT_MAX : nanoseconds.to_i
   end
 
   def self.seconds(nanoseconds)
     Primitive.attr! :hidden
-    nanoseconds.zero? ? nil : nanoseconds / 1e9
+    return nil if nanoseconds.zero?
+    # The kernel keeps a Fixnum, so its largest limit stands for ruby's.
+    return HRTIME_MAX / 1e9 if nanoseconds == LIMIT_MAX
+
+    nanoseconds / 1e9
   end
+
+  # The largest limit the kernel keeps (2**62 - 1), and the largest that
+  # ruby's rb_hrtime_t holds (2**64 - 1). They are literals: this file
+  # loads before Integer#** can reach Rational.
+  LIMIT_MAX = 0x3FFF_FFFF_FFFF_FFFF
+  HRTIME_MAX = 0xFFFF_FFFF_FFFF_FFFF
+  private_constant :LIMIT_MAX, :HRTIME_MAX
   private_class_method :nanoseconds, :seconds
 
   private

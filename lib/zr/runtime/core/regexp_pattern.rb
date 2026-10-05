@@ -226,7 +226,9 @@ class Regexp
     # reader, a character that is not printable and not a space as \xHH,
     # and the others as they are. "Printable" and "space" are the
     # encoding's own classes. The result is bytes; the caller sets the encoding.
+    # A nil `term` escapes nothing for it.
     def expr_str(text, enc, resenc, term)
+      term_byte = term ? term.ord : -1
       bytes = text.b
       onig = Onig::Enc.reader(enc)
       compat = enc.ascii_compatible?
@@ -238,7 +240,7 @@ class Regexp
         if c >= 0x80
           need_escape = true unless enc == resenc
           i += onig.mbclen(bytes, i)
-        elsif c != term.ord && onig.code_ctype?(c, Onig::CType::PRINT)
+        elsif c != term_byte && onig.code_ctype?(c, Onig::CType::PRINT)
           i += 1
         else
           need_escape = true
@@ -265,7 +267,7 @@ class Regexp
           else
             out << bytes.byteslice(i, clen)
           end
-        elsif c == term.ord
+        elsif c == term_byte
           out << "\\" << bytes.byteslice(i, clen)
         elsif onig.code_ctype?(c, Onig::CType::PRINT)
           out << bytes.byteslice(i, clen)
