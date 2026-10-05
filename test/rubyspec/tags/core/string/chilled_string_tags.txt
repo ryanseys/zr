@@ -1,2 +1,0 @@
-fails:chilled String chilled string literals mutation emits a warning on singleton_class creation
-fails:chilled String chilled strings returned by Symbol#to_s mutation emits a warning on singleton_class creation

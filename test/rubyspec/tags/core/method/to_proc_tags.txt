@@ -1,1 +1,0 @@
-fails:Method#to_proc returns a proc whose binding has the same receiver as the method

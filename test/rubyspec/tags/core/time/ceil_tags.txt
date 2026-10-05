@@ -1,1 +1,0 @@
-fails:Time#ceil copies own timezone to the returning value

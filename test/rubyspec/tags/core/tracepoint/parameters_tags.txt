@@ -1,1 +1,0 @@
-fails:TracePoint#parameters returns the parameters of lambda block

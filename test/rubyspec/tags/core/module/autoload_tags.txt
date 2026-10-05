@@ -7,3 +7,4 @@ fails:Module#autoload during the autoload after the constant is assigned returns
 fails:Module#autoload after autoloading searches for the constant like the original lookup warns once in verbose mode if the constant was defined in a parent scope
 fails:Module#autoload (concurrently) blocks a second thread while a first is doing the autoload
 fails:Module#autoload (concurrently) blocks others threads while doing an autoload
+fails:Module#autoload (concurrently) raises a LoadError in each thread if the file does not exist

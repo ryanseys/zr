@@ -1,1 +1,0 @@
-fails:Time#floor copies own timezone to the returning value
