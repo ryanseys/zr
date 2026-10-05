@@ -14,7 +14,7 @@ module Zr
               | And | Or | Not | Core | Once | ClassDef | ModuleDef | SingletonClassDef | ConstRead | ConstWrite | IvarRead
               | GvarRead | GvarWrite | CvarRead | CvarWrite | ConstOrWrite | Alias | GvarAlias | Undef | AliasValue
               | UndefValue | Defined | Case | IvarWrite | ArrayLit | KwSplatElement | HashLit | BackRef | RangeLit | Interp
-              | RegexpOnce | RegexpLit | FrozenString | Begin | Rescue | Retry | Redo
+              | RegexpOnce | RegexpLit | FrozenString | Begin | Rescue | Retry | Redo | RedoPoint
 
     # The scope of a constant: nil for a bare name, :top for `::Name`.
     type scope = node | :top | nil
@@ -558,6 +558,10 @@ module Zr
     end
 
     class Redo < Node
+      attr_accessor line: Integer
+    end
+
+    class RedoPoint < Node
       attr_accessor line: Integer
     end
   end

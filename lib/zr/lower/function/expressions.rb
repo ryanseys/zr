@@ -97,6 +97,7 @@ module Zr
           when Hir::Begin then protect(node)
           when Hir::Retry then retry_region(node)
           when Hir::Redo then redo_body(node)
+          when Hir::RedoPoint then redo_point
           else @l.unsupported(node)
           end
         end

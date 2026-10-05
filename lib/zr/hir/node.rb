@@ -398,5 +398,8 @@ module Zr
     # `redo`: the loop body or block body again, without a new test or
     # new arguments.
     Redo = Node.new(:line)
+    # Where a block's `redo` starts again: after the binding of a `for`
+    # loop's variable, which `redo` does not do again.
+    RedoPoint = Node.new(:line)
   end
 end

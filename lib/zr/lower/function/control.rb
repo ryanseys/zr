@@ -558,6 +558,21 @@ module Zr
           @qnil
         end
 
+        # A block's `redo` starts again here (`Hir::RedoPoint`): in the
+        # block's own function, or in the loop that a call inlines it into.
+        #: () -> String
+        def redo_point
+          label = @f.label
+          @f.jump(label)
+          switch(label)
+          if (loop = @loops.last)
+            @loops[-1] = loop.with(body: label)
+          else
+            @body_label = label
+          end
+          @qnil
+        end
+
         # `break`/`next`: leave the innermost loop if one encloses the
         # statement, else leave the block.
         #: (Hir::Break | Hir::Next node, Symbol kind) -> String

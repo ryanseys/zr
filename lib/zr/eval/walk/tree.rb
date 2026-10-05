@@ -216,6 +216,7 @@ module Zr
           when Hir::Break then raise Breaking.new(walk(node.value, ctx), ctx.tag)
           when Hir::Next then raise Nexting.new(walk(node.value, ctx), ctx.tag)
           when Hir::Redo then raise Redoing.new(ctx.tag)
+          when Hir::RedoPoint then nil
           when Hir::Retry then raise Retrying.new
           when Hir::Defined then defined_node(node, ctx)
           when Hir::IndexOpAssign then index_op_assign(node, ctx)

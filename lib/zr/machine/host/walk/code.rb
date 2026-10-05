@@ -102,6 +102,7 @@ module Zr
             when Hir::Activations then activations(node)
             when Hir::Retry then ->(_) { raise RetryJump }
             when Hir::Redo then redo_node(s)
+            when Hir::RedoPoint then constant(@qnil)
             when Hir::Require then require_unit(node, s)
             when Hir::Autoload then autoload_unit(node, s)
             else unsupported("#{s.unit.file}:#{line_of(node)}: the walker does not run a #{node.class.name.split("::").last}")

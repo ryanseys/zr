@@ -819,7 +819,7 @@ module Zr
         args = arguments&.arguments || []
         return Literal.new(nil, line) if args.empty?
 
-        elements = args.map { |a| a.is_a?(Prism::SplatNode) ? splat(a, line) : expr(a) }
+        elements = args.map { |a| array_element(a, line) }
         return elements.first if elements.size == 1 && !elements.first.is_a?(Splat)
 
         ArrayLit.new(elements, line)
@@ -1307,7 +1307,7 @@ module Zr
         # An Array or Hash literal is defined if every part is defined. A
         # splat's part is its value.
         when Prism::ArrayNode
-          Defined.new(:list, node.elements.map { |e| e.is_a?(Prism::SplatNode) ? splat(e, line) : expr(e) }, line)
+          Defined.new(:list, node.elements.map { |e| array_element(e, line) }, line)
         when Prism::HashNode then Defined.new(:list, [HashLit.new(hash_pairs(node.elements), line)], line)
         # `(x)` tests `x`, and `()` or an empty `begin` is nil. A `;` makes
         # more than one statement, even an empty one: `(;x)` is an
@@ -1340,7 +1340,14 @@ module Zr
       #: (Prism::ForNode node) -> Send
       def for_loop(node)
         line = node.location.start_line
-        target = deepen(target(node.index), 0)
+        index = node.index
+        # `for *x in o` assigns as `*x = value` does.
+        target = if index.is_a?(Prism::SplatNode)
+                   MultiTarget.new([], index.expression ? target(index.expression) : :implicit, [], line)
+                 else
+                   target(index)
+                 end
+        target = deepen(target, 0)
         body = node.statements ? deepen(seq(node.statements), 0) : Literal.new(nil, line)
         value = Local.new(:"*for", 0, line)
         if target.is_a?(MultiTarget)
@@ -1355,7 +1362,7 @@ module Zr
           bind = target.is_a?(Send) ? target.tap { |t| t.args << value } : target.tap { |t| t.value = value }
           params = Params.new([:"*for"], [], nil, [], [], nil, nil)
         end
-        block = Block.new(params, [:"*for"], Seq.new([bind, body], line), line)
+        block = Block.new(params, [:"*for"], Seq.new([bind, RedoPoint.new(line), body], line), line)
         Send.of(expr(node.collection), :each, [], line, block: block)
       end
 
