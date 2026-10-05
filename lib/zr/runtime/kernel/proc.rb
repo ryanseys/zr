@@ -470,15 +470,30 @@ module Zr::Kern
     zr_yield2(RProc[p].self, x, r)
   end
 
+  # The values of one `each` step, packed as rb_enum_values_pack packs
+  # them, and whether there were several (enum_yield reads that, through
+  # zr_yield_packed). Two values always go, so a block of `|x, many|`
+  # never spreads a single Array.
   #: (value, word, ptr, value) -> value
   def zr_enum_each_block(p, argc, argv, blk)
     if argc == 1
-      return zr_yield1(RProc[p].self, Machine.value(Machine.load64(argv, 0)))
+      return zr_yield2(RProc[p].self, Machine.value(Machine.load64(argv, 0)), Machine.value(QFALSE))
     end
     if argc == 0
-      return zr_yield1(RProc[p].self, Machine.value(QNIL))
+      return zr_yield2(RProc[p].self, Machine.value(QNIL), Machine.value(QFALSE))
     end
-    zr_yield1(RProc[p].self, zr_ary_of(argc, argv))
+    zr_yield2(RProc[p].self, zr_ary_of(argc, argv), Machine.value(QTRUE))
+  end
+
+  # enum_yield: values that `each` yielded several at a time go to a
+  # lambda of more than one positional parameter spread
+  # (rb_yield_force_blockarg); any other block gets them packed.
+  #: (value, value, value) -> value
+  def zr_yield_packed(blk, x, many)
+    if many == QTRUE && RProc[blk].lambda != 0 && RProc[blk].meta != 0 && zr_params_positional(FrameMeta[RProc[blk].meta].params) > 1
+      return zr_yield(blk, RArray[x].len, RArray[x].ptr)
+    end
+    zr_yield1(blk, x)
   end
 
   # Calls `each` on `recv`, yields each value directly to `blk`, and keeps

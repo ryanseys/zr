@@ -12,23 +12,23 @@ module Enumerable
     Primitive.zr_enum_collect(self, nil, blk)
   end
 
-  def select
+  def select(&block)
     return to_enum(__callee__) { enumerable_size } unless block_given?
 
     out = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      out << x if yield(x)
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      out << x if Primitive.zr_yield_packed(block, x, many)
       nil
     end
     out
   end
 
-  def reject
+  def reject(&block)
     return to_enum(:reject) { enumerable_size } unless block_given?
 
     out = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      out << x unless yield(x)
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      out << x unless Primitive.zr_yield_packed(block, x, many)
       nil
     end
     out
@@ -157,12 +157,12 @@ module Enumerable
     Primitive.zr_ary_sort_copy(out, blk)
   end
 
-  def sort_by
+  def sort_by(&block)
     return to_enum(:sort_by) { enumerable_size } unless block_given?
 
     pairs = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      pairs << yield(x) << x
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      pairs << Primitive.zr_yield_packed(block, x, many) << x
       nil
     end
     Primitive.zr_sort_by(pairs)
@@ -181,13 +181,13 @@ module Enumerable
     out
   end
 
-  def drop_while
+  def drop_while(&block)
     return to_enum(:drop_while) unless block_given?
 
     out = []
     dropping = true
-    Primitive.zr_enum_each(self, nil) do |x|
-      dropping = false if dropping && !yield(x)
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      dropping = false if dropping && !Primitive.zr_yield_packed(block, x, many)
       out << x unless dropping
       nil
     end
@@ -233,25 +233,25 @@ module Enumerable
     out
   end
 
-  def group_by
+  def group_by(&block)
     return to_enum(:group_by) { enumerable_size } unless block_given?
 
     out = {}
-    Primitive.zr_enum_each(self, nil) do |x|
-      k = yield(x)
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      k = Primitive.zr_yield_packed(block, x, many)
       (out[k] ||= []) << x
       nil
     end
     out
   end
 
-  def partition
+  def partition(&block)
     return to_enum(:partition) { enumerable_size } unless block_given?
 
     yes = []
     no = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      (yield(x) ? yes : no) << x
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      (Primitive.zr_yield_packed(block, x, many) ? yes : no) << x
       nil
     end
     [yes, no]
@@ -321,11 +321,10 @@ module Enumerable
     self
   end
 
-  def each_entry(*args)
-    return to_enum(:each_entry, *args) { enumerable_size } unless block_given?
+  def each_entry(*args, &block)    return to_enum(:each_entry, *args) { enumerable_size } unless block_given?
 
-    Primitive.zr_enum_each(self, args) do |x|
-      yield x
+    Primitive.zr_enum_each(self, args) do |x, many|
+      Primitive.zr_yield_packed(block, x, many)
       nil
     end
     self
@@ -338,8 +337,8 @@ module Enumerable
     best = nil
     key = nil
     first = true
-    Primitive.zr_enum_each(self, nil) do |x|
-      k = yield(x)
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      k = Primitive.zr_yield_packed(block, x, many)
       if first || compared(k, key) < 0
         best = x
         key = k
@@ -357,8 +356,8 @@ module Enumerable
     best = nil
     key = nil
     first = true
-    Primitive.zr_enum_each(self, nil) do |x|
-      k = yield(x)
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      k = Primitive.zr_yield_packed(block, x, many)
       if first || compared(k, key) > 0
         best = x
         key = k
@@ -576,8 +575,9 @@ module Enumerable
     seen == 1
   end
 
-  def tally(counts = nil)
-    unless counts.nil?
+  # enum_tally: a given Hash, nil included, must convert.
+  def tally(counts = (none = true; nil))
+    unless none
       counts = Hash.try_convert(counts) || raise(TypeError, "no implicit conversion of #{conversion_name(counts)} into Hash")
       Primitive.zr_frozen_error(counts) if counts.frozen?
 
@@ -601,7 +601,14 @@ module Enumerable
   # next, nil once it ends.
   def zip(*others, &block)
     arrays = others.map { |other| Array.try_convert(other) }
-    return elements.zip(*arrays, &block) if arrays.all?
+    if arrays.all?
+      rows = elements.zip(*arrays)
+      return rows unless block
+
+      # zip_ary: each row goes to the block as enum_yield_array gives it.
+      rows.each { |row| Primitive.zr_yield_packed(block, row, row.size > 1) }
+      return nil
+    end
 
     enums = others.map do |other|
       raise TypeError, "wrong argument type #{other.class} (must respond to :each)" unless other.respond_to?(:each)
@@ -624,7 +631,7 @@ module Enumerable
         end
         row << value
       end
-      block ? yield(row) : out << row
+      block ? Primitive.zr_yield_packed(block, row, row.size > 1) : out << row
       nil
     end
     out
@@ -728,8 +735,13 @@ module Enumerable
     out
   end
 
-  def to_a(*args)
+  def to_a(*args, **kwargs)
     out = []
+    # enum_to_a passes the keywords it was given on to each.
+    unless kwargs.empty?
+      __send__(:each, *args, **kwargs) { |*x| out << (x.size > 1 ? x : x[0]) }
+      return out
+    end
     Primitive.zr_enum_each(self, args) do |x|
       out << x
       nil
@@ -908,8 +920,7 @@ module Enumerable
     self
   end
 
-  def cycle(n = (endless = true; nil))
-    return to_enum(:cycle, *([n] unless endless)) { cycle_size(n, endless) } unless block_given?
+  def cycle(n = (endless = true; nil), &block)    return to_enum(:cycle, *([n] unless endless)) { cycle_size(n, endless) } unless block_given?
 
     # enum_cycle: the first round yields each element as it comes and
     # keeps it; the later rounds walk what it kept.
@@ -917,19 +928,19 @@ module Enumerable
     return nil if !n.nil? && rounds <= 0
 
     items = []
-    Primitive.zr_enum_each(self, nil) do |x|
-      items << x
-      yield x
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      items << x << many
+      Primitive.zr_yield_packed(block, x, many)
       nil
     end
     return nil if items.empty?
 
     if rounds < 0
       while true
-        items.each { |x| yield x }
+        items.each_slice(2) { |x, many| Primitive.zr_yield_packed(block, x, many) }
       end
     else
-      (rounds - 1).times { items.each { |x| yield x } }
+      (rounds - 1).times { items.each_slice(2) { |x, many| Primitive.zr_yield_packed(block, x, many) } }
       nil
     end
   end
@@ -937,13 +948,13 @@ module Enumerable
   # One pass, as enum_minmax_by makes it: the elements in pairs, the
   # pair's keys compared once, then the low against the low so far and
   # the high against the high.
-  def minmax_by
+  def minmax_by(&block)
     return to_enum(:minmax_by) { enumerable_size } unless block_given?
 
     min = max = min_key = max_key = last = last_key = nil
     seen = held = false
-    Primitive.zr_enum_each(self, nil) do |x|
-      key = yield(x)
+    Primitive.zr_enum_each(self, nil) do |x, many|
+      key = Primitive.zr_yield_packed(block, x, many)
       unless held
         last = x
         last_key = key
@@ -981,24 +992,22 @@ module Enumerable
 
   # grep_i: without a block, a Regexp tests a String or a Symbol with
   # rb_reg_match_p, which leaves $~ as it was.
-  def grep(pattern)
-    out = []
-    quiet = !block_given? && Regexp === pattern
-    Primitive.zr_enum_each(self, nil) do |x|
+  def grep(pattern, &block)    out = []
+    quiet = !block_given? && Regexp === pattern && pattern.method(:===).owner.equal?(Regexp)
+    Primitive.zr_enum_each(self, nil) do |x, many|
       if quiet ? grep_quiet_match?(pattern, x) : pattern === x
-        out << (block_given? ? yield(x) : x)
+        out << (block_given? ? Primitive.zr_yield_packed(block, x, many) : x)
       end
       nil
     end
     out
   end
 
-  def grep_v(pattern)
-    out = []
-    quiet = !block_given? && Regexp === pattern
-    Primitive.zr_enum_each(self, nil) do |x|
+  def grep_v(pattern, &block)    out = []
+    quiet = !block_given? && Regexp === pattern && pattern.method(:===).owner.equal?(Regexp)
+    Primitive.zr_enum_each(self, nil) do |x, many|
       unless quiet ? grep_quiet_match?(pattern, x) : pattern === x
-        out << (block_given? ? yield(x) : x)
+        out << (block_given? ? Primitive.zr_yield_packed(block, x, many) : x)
       end
       nil
     end
