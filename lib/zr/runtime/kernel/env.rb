@@ -126,6 +126,11 @@ module Zr::Kern
         status = zr_program_end_hook(zr_yield(blk, 0, 0), status, exc)
       end
     end
+    # The other threads end after the exit handlers, as ruby_cleanup ends
+    # them.
+    if zr_send(zr_core_class(Machine.id(:Thread)), Machine.id(:terminate_all), 0, 0) == QUNDEF
+      Task[zr_task()].pending = Machine.value(QNIL)
+    end
     signo = 0
     if exc != QUNDEF && !zr_system_exit_p(exc)
       signo = zr_signal_of(exc)

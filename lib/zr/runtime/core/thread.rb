@@ -192,6 +192,21 @@ class Thread
       @native_ids = (@native_ids || Primitive.zr_process_id) + 1
     end
 
+    # rb_thread_terminate_all: as the program ends, each other thread is
+    # killed and runs the ensure clauses of its current fiber; a fiber it
+    # left suspended never runs again.
+    def terminate_all
+      Primitive.attr! :hidden
+      others = @threads.reject { |thread| thread.equal?(@current) || !thread.alive? }
+      others.each(&:kill)
+      others.each do |thread|
+        thread.join
+      rescue Exception # rubocop:disable Lint/RescueException
+        nil
+      end
+      nil
+    end
+
     # A forked child has only the thread that forked, which is its main
     # thread after the fork; all other threads stay in the parent.
     def after_fork
