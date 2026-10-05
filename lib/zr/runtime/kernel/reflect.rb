@@ -484,7 +484,7 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_meta_file(meta))
+    zr_ary_push(out, zr_meta_path(meta))
     zr_ary_push(out, zr_fix(FrameMeta[meta].line))
     out
   end

@@ -280,6 +280,13 @@ module Zr::Kern
     zr_main_file_p(FrameMeta[meta].file, FrameMeta[meta].file_len) ? zr_path_str(s) : s
   end
 
+  # The same, as the one frozen String of its bytes, as CRuby gives the
+  # path of an iseq: two methods from one file return the same String.
+  #: (ptr) -> value
+  def zr_meta_path(meta)
+    zr_str_intern(zr_meta_file(meta))
+  end
+
   # The working directory as the program started: where its relative
   # file names are read from. A host run (lib/zr/machine/host/walk.rb)
   # loads the core in one directory and starts the program in another.

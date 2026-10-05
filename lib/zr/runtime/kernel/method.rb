@@ -596,7 +596,7 @@ module Zr::Kern
       return zr_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:builtin_source), 1, arg)
     end
     out = zr_ary_new(2)
-    zr_ary_push(out, zr_meta_file(meta))
+    zr_ary_push(out, zr_meta_path(meta))
     zr_ary_push(out, zr_fix(FrameMeta[meta].line))
     out
   end

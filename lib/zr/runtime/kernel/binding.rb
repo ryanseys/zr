@@ -400,7 +400,7 @@ module Zr::Kern
     if FrameMeta[meta].file_len == 0
       return Machine.value(QNIL)
     end
-    zr_meta_file(meta)
+    zr_meta_path(meta)
   end
 
   #: (value) -> value

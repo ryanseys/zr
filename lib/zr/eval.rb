@@ -148,6 +148,9 @@ module Zr
     # @rbs using: Integer?
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
     def compiled(source, file, line, scopes, method, using:)
+      # eval_make_iseq: a source that is not ASCII compatible cannot be read.
+      raise ArgumentError, "invalid source encoding" unless string(source).encoding.ascii_compatible?
+
       coverage = covering
       # The machine code of an eval is never freed, so a string that runs
       # again, in a scope of the same shape, runs the code that its first
