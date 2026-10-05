@@ -480,7 +480,9 @@ module Process
   # block the block runs and the child ends there.
   def self.forked
     Primitive.attr! :hidden
-    pid = Process._fork
+    # A send, not a call that the compiler binds: a program that replaces
+    # `_fork` sees the fork.
+    pid = Process.__send__(:_fork)
     return pid unless pid.zero?
     return nil unless block_given?
 
