@@ -1,1 +1,0 @@
-fails:NameError#name returns a class variable name as a symbol

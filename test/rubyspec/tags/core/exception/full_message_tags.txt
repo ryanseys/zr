@@ -1,2 +1,1 @@
 fails:Exception#full_message highlights the entire message when the message contains multiple lines
-fails:Exception#full_message uses class name if exception object doesn't respond to #detailed_message

@@ -1,2 +1,0 @@
-fails:Exception#backtrace returns an Array that can be updated
-fails:Exception#backtrace returns the same array after duping

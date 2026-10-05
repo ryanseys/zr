@@ -1,2 +1,0 @@
-fails:UnboundMethod#super_method after changing an inherited methods visibility returns the expected super_method
-fails:UnboundMethod#super_method after aliasing an inherited method returns the expected super_method

@@ -1,1 +1,0 @@
-fails:Method#<< composition is a lambda
