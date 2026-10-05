@@ -306,11 +306,12 @@ class RubyVM
 
     # The AST of the code that `body` runs. Every ISEQ here is prism's, so
     # a body written in Ruby refuses as ast_s_of refuses one. A method or a
-    # Proc that the runtime includes has no ISEQ and returns nil.
+    # Proc that the runtime includes, and an attribute, have no ISEQ and
+    # return nil.
     def self.of(body, keep_script_lines: RubyVM.keep_script_lines, error_tolerant: false, keep_tokens: false)
       written = case body
                 when Thread::Backtrace::Location then true
-                when Proc, Method, UnboundMethod then !body.source_location.nil?
+                when Proc, Method, UnboundMethod then Primitive.zr_iseq_p(body)
                 else raise TypeError, "wrong argument type #{body.class} (expected method)"
                 end
       raise RuntimeError, +"cannot get AST for ISEQ compiled by prism" if written
