@@ -1,0 +1,1 @@
+fails:English aliases $DEFAULT_INPUT to $<

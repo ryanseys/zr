@@ -1,0 +1,16 @@
+fails:Coverage.result gives the covered files as a hash with arrays of count or nil
+fails:Coverage.result returns results for each mode separately when enabled :all modes
+fails:Coverage.result returns results for each mode separately when enabled any mode explicitly
+fails:Coverage.result does not include the file starting coverage since it is not tracked
+fails:Coverage.result returns the correct results when eval coverage is enabled
+fails:Coverage.result returns the correct results when eval coverage is disabled
+fails:Coverage.result disables coverage measurement when stop: true option is specified
+fails:Coverage.result disables coverage measurement when stop: true and clear: false specified
+fails:Coverage.result resets counters (remove them) when stop: true specified but clear option is not specified
+fails:Coverage.result resets counters (remove them) when stop: true and clear: false specified
+fails:Coverage.result clears counters (sets 0 values) when stop is not specified but clear: true specified
+fails:Coverage.result does not clear counters when stop is not specified but clear: false specified
+fails:Coverage.result does not clear counters when stop: false and clear is not specified
+fails:Coverage.result clears counters (sets 0 values) when stop: false and clear: true specified
+fails:Coverage.result does not clear counters when stop: false and clear: false specified
+fails:Coverage.result covers 100% lines with begin

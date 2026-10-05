@@ -1,0 +1,1 @@
+fails:Socket::AncillaryData#cmsg_is? using :INET, :IP, :TTL as the family, level, and type raises SocketError when comparing with :IPV6 and :RIGHTS

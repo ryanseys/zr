@@ -1,0 +1,1 @@
+fails:ObjectSpace.memsize_of is larger if the Object has more instance variables

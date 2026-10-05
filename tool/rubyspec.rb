@@ -47,7 +47,6 @@ module Zr
 
       # The areas that test what only CRuby has, and why.
       CRUBY_ONLY = {
-        "command_line" => "ruby's own switches and their errors; test/unit/ruby_mode_test.rb compares zr's",
         "optional/capi" => "ruby's C API, which a compiled program does not have",
         "security" => "CVE checks of CRuby's C code"
       }.freeze

@@ -1,0 +1,4 @@
+fails:ObjectSpace.dump_all dumps Ruby heap to a temporary file when passed output: :file
+fails:ObjectSpace.dump_all dumps Ruby heap to a temporary file when :output not specified
+fails:ObjectSpace.dump_all dumps Ruby heap to a temporary file when passed output: :nil
+fails:ObjectSpace.dump_all dumps Ruby heap to provided IO when passed output: IO

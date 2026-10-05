@@ -1,0 +1,1 @@
+fails:The -x command line option behaves as -x was set when non-ruby shebang is encountered on first line

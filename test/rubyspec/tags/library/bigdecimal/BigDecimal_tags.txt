@@ -1,0 +1,3 @@
+fails:Kernel#BigDecimal does not call to_s when calling inspect
+fails:Kernel#BigDecimal accepts NaN and [+-]Infinity as Float values works without an explicit precision
+fails:Kernel#BigDecimal accepts NaN and [+-]Infinity as Float values works with an explicit precision
