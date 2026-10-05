@@ -504,7 +504,8 @@ class Regexp
   def match?(text, pos = 0)
     return false if text.nil?
 
-    text = text.to_s if text.is_a?(Symbol)
+    # rb_reg_match_p: a Symbol's name, else StringValue.
+    text = text.is_a?(Symbol) ? text.to_s : Primitive.zr_str_operand(text)
     pos = implicit_integer(pos)
     # From the start, no character of the text needs a count.
     return !Primitive.zr_regexp_search(self, program_for(text), text, 0, false).nil? if pos == 0
