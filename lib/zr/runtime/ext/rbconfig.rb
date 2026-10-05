@@ -114,7 +114,8 @@ module RbConfig
     "localstatedir" => "/var",
 
     # Feature flags rubygems consults.
-    "ENABLE_SHARED" => +"yes",
+    # zr has no libruby: a program is one static binary.
+    "ENABLE_SHARED" => "no",
     "host_os_version" => os.sub(/\A\D*/, ""),
     "CC" => ENV["CC"] || "cc",
     "CXX" => ENV["CXX"] || "c++",
@@ -178,7 +179,9 @@ module RbConfig
     "COMMON_HEADERS" => "",
     "COMMON_MACROS" => "",
     "COMMON_LIBS" => "",
-    "RUBY_PROGRAM_VERSION" => RUBY_VERSION,
+    "RUBY_PROGRAM_VERSION" => RUBY_VERSION.dup,
+    "UNICODE_VERSION" => "17.0.0",
+    "UNICODE_EMOJI_VERSION" => "17.0",
     "UNIVERSAL_ARCHNAMES" => "",
     "universal" => "",
   }
@@ -188,7 +191,9 @@ module RbConfig
   # is the same table with every reference already resolved, which is what
   # `expand` below does.
   MAKEFILE_CONFIG = CONFIG.dup
-  TOPDIR = CONFIG["topdir"]
+  # The prefix of an installed layout, as ruby gives it, or nil when the
+  # layout is not there.
+  TOPDIR = File.directory?(CONFIG["rubylibdir"]) ? prefix : nil
 
   # `RbConfig.ruby` -- the full path to the running interpreter, which is
   # zr: the `zr` that ran the program (`ZR_RUBY`, which `zr run` and `zr
