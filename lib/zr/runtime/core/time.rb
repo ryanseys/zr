@@ -642,7 +642,7 @@ class Time
     kind = zone.nil? ? :local : self.class.send(:parse_zone, zone)
     Time.send(:needs!, kind, :utc_to_local)
     set(ns, kind)
-    self
+    kind == :local ? local_filled : self
   end
 
   def getlocal(zone = nil) = dup.localtime(zone)
