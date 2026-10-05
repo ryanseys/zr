@@ -405,7 +405,7 @@ stream = Class.new do
         File.rename(name, backup_name(name))
       end
     rescue SystemCallError => e
-      why = @inplace_mode.empty? ? "Can't remove #{name}" : "Can't rename #{name} to #{backup_name(name)}"
+      why = @inplace_mode.empty? ? "Can't remove #{name}" : "Can't rename #{name} to #{backup_name(name).dup.force_encoding(name.encoding)}"
       Primitive.zr_warn_here_m("#{why}: #{e.message.sub(/ @ .*\z/m, "")}, skipping file")
       @current.close
       return false
@@ -423,9 +423,9 @@ stream = Class.new do
     suffix = begin
       @inplace_mode.encode(name.encoding)
     rescue EncodingError
-      @inplace_mode.b
+      return name.b + @inplace_mode.b
     end
-    name.b + suffix.b
+    (name.b + suffix.b).force_encoding(name.encoding)
   end
 
   # argf_close: the current file closes; standard input stays open. The
