@@ -1807,7 +1807,9 @@ class String
 
   def force_encoding(encoding)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    Primitive.zr_str_set_index_m(self, Encoding.carried(Encoding.find(encoding)))
+    # Encoding.find gives nil only for "internal" while it is unset, an
+    # alias of BINARY to force_encoding (enc_set_default_encoding).
+    Primitive.zr_str_set_index_m(self, Encoding.carried(Encoding.find(encoding) || Encoding::BINARY))
   end
 
   # A copy of the receiver's characters written in `target`. Every pair
@@ -2096,6 +2098,8 @@ class String
   # a stray one is a character of its own.
   def char_boundary?(at)
     Primitive.attr! :hidden
+    head = Primitive.zr_str_char_head_m(self, at)
+    return head unless head.nil?
     return true if at >= Primitive.zr_str_bytesize(self) || (Primitive.zr_str_byte_at(self, at) & 0xC0) != 0x80
 
     lead = at - 1

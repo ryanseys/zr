@@ -660,7 +660,8 @@ class Time
   # around.
   def <=>(other)
     unless other.is_a?(Time)
-      return nil if other.is_a?(Numeric) || !other.respond_to?(:<=>)
+      # rb_invcmp, a Numeric too: its <=> asks this Time for coerce.
+      return nil unless other.respond_to?(:<=>)
       # invcmp_recursive: a value whose <=> asks this Time again gets nil.
       return nil if Primitive.zr_recursive_enter(self, :<=>)
 

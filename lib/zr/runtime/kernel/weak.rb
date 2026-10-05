@@ -124,7 +124,9 @@ module Zr::Kern
 
   # rb_gc_copy_finalizer: a dup or a clone gets the original's
   # finalizers, under its own id. The table compares by identity, so
-  # the lookup runs no Ruby code.
+  # the lookup runs no Ruby code. A finalizer that the core library's
+  # own code defined (a block with no file) frees native state, as a
+  # T_DATA's dfree does in CRuby, which no copy gets.
   #: (value, value) -> void
   def zr_copy_finalizers(copy, orig)
     t = zr_global(G_FINALIZERS)
@@ -141,10 +143,25 @@ module Zr::Kern
     zr_ary_push(fresh, zr_obj_object_id(copy, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
     i = 1
     while i < n
-      zr_ary_push(fresh, Machine.value(Machine.load64(RArray[row].ptr + (i * 8), 0)))
+      v = Machine.value(Machine.load64(RArray[row].ptr + (i * 8), 0))
+      if !zr_core_finalizer_p(v)
+        zr_ary_push(fresh, v)
+      end
       i += 1
     end
-    zr_hash_store(t, copy, fresh)
+    if RArray[fresh].len > 1
+      zr_hash_store(t, copy, fresh)
+    end
+  end
+
+  # Whether `v` is a block of the core library's own code.
+  #: (value) -> bool
+  def zr_core_finalizer_p(v)
+    if zr_special_p(v) || zr_type(v) != T_PROC
+      return false
+    end
+    meta = RProc[v].meta
+    meta != 0 && FrameMeta[meta].file_len == 0
   end
 
   # The finalizer table: object => [object_id, proc, ...], with weak keys.

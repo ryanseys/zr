@@ -1156,6 +1156,13 @@ module Zr::Kern
     if e == 0
       return zr_uninitialized_constant(recv, id)
     end
+    # rb_const_get warns for a deprecated constant, a private one too.
+    r = zr_const_deprecated(e, id)
+    return r if r == QUNDEF
+    e = zr_const_row_segment(recv, id, inherit, later)
+    if e == 0
+      return zr_uninitialized_constant(recv, id)
+    end
     zr_const_value(e)
   end
 
@@ -1241,6 +1248,15 @@ module Zr::Kern
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       zr_exc_detail(exc, Machine.id(:receiver), recv)
       return zr_raise(exc)
+    end
+    # rb_const_remove warns for a deprecated constant first.
+    r = zr_const_deprecated(e, id)
+    return r if r == QUNDEF
+    # The warning can run a program's Warning.warn, which can move the
+    # table.
+    e = zr_const_row(recv, id)
+    if e == 0
+      return Machine.value(QNIL)
     end
     v = CEntry[e].value
     zr_const_remove(recv, id)

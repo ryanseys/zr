@@ -428,9 +428,17 @@ module Zr::Kern
   # when a program has a descriptor and no path.
   #: (value) -> value
   def zr_io_dir_names_fd(fd)
-    d = Libc.fdopendir(Machine.i32(zr_fix2long(fd)))
-    if d == 0
+    # closedir closes the descriptor it reads, so it reads a copy: the
+    # Dir keeps its own until Dir#close, as fdopendir gives it.
+    copy = Libc.dup(Machine.i32(zr_fix2long(fd)))
+    if copy < Machine.i32(0)
       return zr_fix(0 - zr_errno())
+    end
+    d = Libc.fdopendir(copy)
+    if d == 0
+      e = zr_errno()
+      Libc.close(copy)
+      return zr_fix(0 - e)
     end
     out = zr_ary_new(8)
     e = Libc.readdir(d)

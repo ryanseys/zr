@@ -51,7 +51,7 @@ module Zr
     # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
     # need code to run later. The interpreter cannot make such code.
     # @rbs skip
-    def compile(_source, file, line = 1, _scopes = [], _method = nil)
+    def compile(_source, file, line = 1, _scopes = [], _method = nil, using: nil)
       raise Walk::Tree::Refused, "#{file}:#{line}: compiling a string to code that runs later is not walked yet"
     end
   end

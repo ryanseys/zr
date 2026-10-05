@@ -92,7 +92,7 @@ module Zr
       # the build (`Loader#names_of?`), and this code only reports to it.
       coverage = Object.const_defined?(:Coverage) && Object.const_get(:Coverage) #: untyped
       coverage.send(:eval_compiled!) if coverage && coverage.respond_to?(:eval_compiled!, true)
-      Eval.plainly { compiled(source, file, line, scopes, method, using) }
+      Eval.plainly { compiled(source, file, line, scopes, method, using: using) }
     rescue Hir::Invalid => e
       # Ruby reads a regexp literal when it compiles the string around it,
       # so an invalid pattern is a syntax error, not a run-time error. A
@@ -136,7 +136,7 @@ module Zr
     # @rbs method: untyped
     # @rbs using: Integer?
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
-    def compiled(source, file, line, scopes, method, using)
+    def compiled(source, file, line, scopes, method, using:)
       @count += 1
       name = "zr_eval_#{@count}"
       # A `using` entry is a slot in one table that the whole program

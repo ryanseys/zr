@@ -412,19 +412,31 @@ class File < IO
     def blockdev? = ftype == +"blockSpecial"
     def size? = @size.zero? ? nil : @size
     def zero? = @size.zero?
-    def readable? = (@mode & 0o444) != 0
-    def writable? = (@mode & 0o222) != 0
-    def executable? = (@mode & 0o111) != 0
+    # rb_stat_r, rb_stat_w, rb_stat_x: root may, except to run a file
+    # with no x bit; else the owner's, the group's or the others' bit.
+    def readable? = permitted?(0o400, Process.euid)
+    def writable? = permitted?(0o200, Process.euid)
+    def executable? = permitted?(0o100, Process.euid)
     def setuid? = (@mode & 0o4000) != 0
     def setgid? = (@mode & 0o2000) != 0
     def sticky? = (@mode & 0o1000) != 0
-    def owned? = @uid == Process.uid
+    def owned? = @uid == Process.euid
     def grpowned? = File.send(:group_member?, @gid)
     def world_readable? = (@mode & 0o004) != 0 ? @mode & 0o777 : nil
     def world_writable? = (@mode & 0o002) != 0 ? @mode & 0o777 : nil
-    def readable_real? = readable?
-    def writable_real? = writable?
-    def executable_real? = executable?
+    def readable_real? = permitted?(0o400, Process.uid)
+    def writable_real? = permitted?(0o200, Process.uid)
+    def executable_real? = permitted?(0o100, Process.uid)
+
+    def permitted?(owner_bit, uid)
+      Primitive.attr! :hidden
+      return owner_bit != 0o100 || (@mode & 0o111) != 0 || directory? if uid == 0
+      return (@mode & owner_bit) != 0 if @uid == uid
+      return (@mode & (owner_bit >> 3)) != 0 if File.send(:group_member?, @gid)
+
+      (@mode & (owner_bit >> 6)) != 0
+    end
+    private :permitted?
 
     def <=>(other)
       return nil unless other.is_a?(Stat)
@@ -435,7 +447,7 @@ class File < IO
     def inspect
       Primitive.zr_obj_form("#<File::Stat dev=0x#{@dev.to_s(16)}, ino=#{@ino}, mode=0#{@mode.to_s(8)}, nlink=#{@nlink}, uid=#{@uid}, gid=#{@gid}, " \
                             "rdev=0x#{@rdev.to_s(16)}, size=#{@size}, blksize=#{@blksize}, blocks=#{@blocks}, " \
-                            "atime=#{atime}, mtime=#{mtime}, ctime=#{ctime}, birthtime=#{birthtime}>")
+                            "atime=#{atime.inspect}, mtime=#{mtime.inspect}, ctime=#{ctime.inspect}, birthtime=#{birthtime.inspect}>")
     end
 
     private
@@ -1218,9 +1230,12 @@ class Dir
 
   def inspect = Primitive.zr_obj_form("#<Dir:#{@path}>")
 
+  # closedir: a descriptor that another Dir closed fails with EBADF.
   def close
-    Primitive.zr_io_close(@fd) if @names && @fd
+    result = Primitive.zr_io_close(@fd) if @names && @fd
     @names = nil
+    raise SystemCallError.new(+"closedir", -result) if result.is_a?(Integer) && result < 0
+
     nil
   end
 

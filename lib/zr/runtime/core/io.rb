@@ -2687,9 +2687,11 @@ alias $PROGRAM_NAME $0
 # is an IO, else through its `write`, as CRuby does with any object
 # put there.
 module Kernel
+  # rb_f_puts: a call of $stdout's own puts, which a program may
+  # define; when $stdout is the receiver, its write takes the lines.
   def puts(*objects)
     out = $stdout
-    return out.puts(*objects) if out.is_a?(IO)
+    return out.__send__(:puts, *objects) unless out.equal?(self)
 
     IO.send(:each_line_of, objects) { |*parts| IO.send(:writev, out, parts) }
     nil
@@ -2727,7 +2729,8 @@ module Kernel
 
   # A bare read reads ARGF: the files ARGV names, and standard input
   # where it names none.
-  def gets(*args, **options) = ARGF.gets(*args, **options)
+  # rb_f_gets: a call of ARGF's own gets, which a program may redefine.
+  def gets(*args, **options) = ARGF.__send__(:gets, *args, **options)
 
   def readline(*args, **options) = ARGF.readline(*args, **options)
 

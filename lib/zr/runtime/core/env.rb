@@ -60,7 +60,8 @@ class << ENV
 
   # env_str_new: what the environment gives is frozen.
   def [](name)
-    Primitive.zr_environment_get(variable_name(name))&.force_encoding(Encoding.find("locale"))&.freeze
+    value = Primitive.zr_environment_get(variable_name(name))
+    value && external(value)
   end
 
   def fetch(*args)
@@ -127,10 +128,9 @@ class << ENV
   end
 
   def to_h(&block)
-    locale = Encoding.find("locale")
     hash = Primitive.zr_environment_list.to_h do |entry|
       i = entry.index("=") || entry.bytesize
-      [entry[0, i].force_encoding(locale).freeze, (entry[i + 1..] || +"").force_encoding(locale).freeze]
+      [external(entry[0, i]), external(entry[i + 1..] || +"")]
     end
     block ? hash.to_h(&block) : hash
   end
@@ -298,6 +298,10 @@ class << ENV
 
   # A name or a value as the environment stores it: a String with no NUL
   # byte, because the C environment cannot contain one.
+  # env_str_new: the locale's encoding, transcoded to
+  # Encoding.default_internal when that is set, and frozen.
+  def external(text) = Dir.send(:external_name, text, Encoding.find("locale")).freeze
+
   def variable_name(value, role = +"name")
     unless value.is_a?(String)
       raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into String" unless value.respond_to?(:to_str)

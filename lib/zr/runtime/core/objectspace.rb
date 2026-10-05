@@ -97,8 +97,9 @@ module ObjectSpace
     def [](key) = @table[key]
 
     def []=(key, value)
-      # wkmap_aset hashes the key first, which a BasicObject cannot.
-      key.hash
+      # wkmap_aset hashes the key first (rb_any_hash, which a private hash
+      # answers), which a BasicObject cannot.
+      key.__send__(:hash)
       raise ArgumentError, +"WeakKeyMap keys must be garbage collectable" if UNCOLLECTABLE.any? { |kind| kind === key }
 
       @table[key] = value

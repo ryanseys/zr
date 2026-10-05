@@ -7,3 +7,5 @@ nil
 nil
 nil
 #<TypeError: not a real>
+#<TypeError: coerce must return [x, y]>
+#<TypeError: coerce must return [x, y]>

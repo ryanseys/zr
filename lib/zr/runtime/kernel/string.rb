@@ -1166,6 +1166,26 @@ module Zr::Kern
     len == 0 ? 1 : len
   end
 
+  # Whether byte `at` starts a character, as rb_enc_left_char_head finds
+  # it, for a String that is not UTF-8: always in a single-byte encoding,
+  # else by a walk over the characters before it. nil for UTF-8, which the
+  # core checks by its continuation bytes.
+  #: (value, value) -> value
+  def zr_str_char_head_m(s, at)
+    if zr_str_wide_p(s)
+      return Machine.value(QNIL)
+    end
+    off = zr_fix2long(at)
+    if off >= RString[s].len || (RBasic[s].flags & FL_ASCII) != 0 || (zr_str_unit(s) == 0 && !zr_str_mb_p(s))
+      return Machine.value(QTRUE)
+    end
+    i = 0
+    while i < off
+      i += zr_str_char_len_at(s, i)
+    end
+    zr_bool(i == off)
+  end
+
   #: (value) -> word
   def zr_str_char_count(s)
     n = RString[s].len

@@ -1,0 +1,19 @@
+core/range/reverse_each_sizes_and_a_time_compared_with_a_number.rb: --> core/range/reverse_each_sizes_and_a_time_compared_with_a_number.rb
+
+unexpected 'rescue' modifier; expected a `)` to close the arguments
+unexpected ')', expecting end-of-input
+unexpected ')', ignoring it
+
+> 4  p (..3).reverse_each.size, (1..3).reverse_each.size, ('a'..'z').reverse_each.size
+> 5  p((1..).reverse_each.size rescue $!)
+
+core/range/reverse_each_sizes_and_a_time_compared_with_a_number.rb:5: syntax errors found (SyntaxError)
+  3 | # for coerce.
+  4 | p (..3).reverse_each.size, (1..3).reverse_each.size, ('a'..'z').reverse_each.size
+> 5 | p((1..).reverse_each.size rescue $!)
+    |                           ^~~~~~ unexpected 'rescue' modifier; expected a `)` to close the arguments
+    |                                    ^ unexpected ')', ignoring it
+    |                                    ^ unexpected ')', expecting end-of-input
+  6 | t = Time.at(1)
+  7 | def t.respond_to?(*) = (($r ||= 0); $r += 1; false)
+

@@ -174,7 +174,8 @@ class Range
   # needs; anything else walks the Array.
   def reverse_each(&block)
     # An endless range has no end to start from, also for its size.
-    return to_enum(:reverse_each) { @end.nil? ? raise(TypeError, "can't iterate from #{@end.class}") : size } unless block
+    # A beginless range down from an Integer has no end to its walk.
+    return to_enum(:reverse_each) { reverse_size } unless block
     raise TypeError, "can't iterate from #{@end.class}" if @end.nil?
     # Only an Integer end counts down, so a beginless range with any
     # other end walks from its begin, which is nil.
@@ -191,6 +192,14 @@ class Range
 
     to_a.reverse.each(&block)
     self
+  end
+
+  def reverse_size
+    Primitive.attr! :hidden
+    raise TypeError, "can't iterate from #{@end.class}" if @end.nil?
+    return Float::INFINITY if @begin.nil? && @end.is_a?(Integer)
+
+    size
   end
 
   def to_a

@@ -289,9 +289,9 @@ module Zr::Kern
         pair = zr_send(other, Machine.id(:coerce), 1, slot)
         return pair if pair == QUNDEF
         bad = zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray[pair].len != 2
-        # do_coerce with err false: a comparison treats a bad pair as no
-        # coerce at all.
-        if bad && kind != 1 && kind != 2
+        # do_coerce with err false: a comparison treats a nil from coerce
+        # as no coerce at all; any other result that is no pair raises.
+        if bad && !(pair == QNIL && (kind == 1 || kind == 2))
           return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("coerce must return [x, y]"), 25)
         end
         if !bad

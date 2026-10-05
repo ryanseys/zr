@@ -1,0 +1,6 @@
+42
+core/objectspace/weak_key_maps_deprecated_constants_and_dir_close.rb:18: warning: constant M::PUBLIC1 is deprecated
+core/objectspace/weak_key_maps_deprecated_constants_and_dir_close.rb:19: warning: constant M::PRIVATE is deprecated
+NameError
+core/objectspace/weak_key_maps_deprecated_constants_and_dir_close.rb:21: warning: constant M::PUBLIC1 is deprecated
+#<Errno::EBADF: Bad file descriptor - closedir>

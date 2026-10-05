@@ -283,7 +283,8 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_obj_object_id(recv, argc, argv, cref, blk)
     if zr_fixnum_p(recv)
-      return zr_fix((zr_fix2long(recv) * 2) + 1)
+      # 2n+1, which leaves the fixnum range near its ends.
+      return zr_int_from_word((zr_fix2long(recv) * 2) + 1)
     end
     if recv == QNIL
       return zr_fix(4)
