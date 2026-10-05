@@ -1659,6 +1659,10 @@ module Zr::Kern
     # program, as an FFI attach does, is the program's.
     conceal = !core && zr_program_started_p() && zr_loading_hidden() && (RBasic[klass].flags & FL_CONCEALED) == 0
     conceal = conceal && (e == 0 || MEntry[e].concealed != 0)
+    old_meta = Machine.ptr(0)
+    if e != 0
+      old_meta = MEntry[e].meta
+    end
     if e == 0
       n = ClassExt[ext].mlen
       if n == ClassExt[ext].mcap
@@ -1698,8 +1702,45 @@ module Zr::Kern
     if conceal
       zr_hidden_defined_method(klass, mid)
     end
+    if old_meta != 0 && !core
+      zr_vis_copies_follow(klass, mid, old_meta, e)
+    end
     zr_gates_recheck(mid)
   end
+
+  # The visibility copies that `public :m` (and its kin) made of an
+  # ancestor's method, as [class, name] pairs. Ruby makes a zsuper entry
+  # there, which calls the ancestor's method as it is at the call; a
+  # copy takes the ancestor's new body when that method is defined again.
+  G_VIS_COPIES = 67
+
+  # The copies of `mid` whose body was the entry `meta` of `klass`'s
+  # table take the body that `e` has now.
+  #: (value, word, ptr, ptr) -> void
+  def zr_vis_copies_follow(klass, mid, meta, e)
+    list = zr_global(G_VIS_COPIES)
+    if zr_special_p(list)
+      return
+    end
+    i = 0
+    while i < RArray[list].len
+      if zr_sym2id(zr_ary_at(list, i + 1)) == mid
+        copy = zr_find_method_at(zr_ary_at(list, i), mid)
+        if copy != 0 && copy != e && MEntry[copy].meta == meta && zr_chain_includes(zr_ary_at(list, i), klass)
+          MEntry[copy].fn = MEntry[e].fn
+          MEntry[copy].arity = MEntry[e].arity
+          MEntry[copy].kind = MEntry[e].kind
+          MEntry[copy].meta = MEntry[e].meta
+          MEntry[copy].cref = MEntry[e].cref
+          zr_write_barrier(zr_ary_at(list, i), MEntry[e].cref)
+          MEntry[copy].direct = MEntry[e].direct
+          zr_methods_changed()
+        end
+      end
+      i += 2
+    end
+  end
+
 
   # Whether `mid` on `klass` is one of CRuby's basic operators, which the
   # interpreter and the JITs run inline while the core's entry is in place
@@ -2202,6 +2243,9 @@ module Zr::Kern
     end
     if copied
       zr_method_copy(zr_origin(klass), mid, e, MEntry[e].meta, vis, true)
+      copies = zr_global_list(G_VIS_COPIES)
+      zr_ary_push(copies, zr_origin(klass))
+      zr_ary_push(copies, zr_sym(mid))
     else
       MEntry[e].vis = vis
       zr_methods_changed()
