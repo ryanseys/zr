@@ -2898,21 +2898,32 @@ end
 class IO
   EVENT_NAMES = { read: POLL_IN, readable: POLL_IN, r: POLL_IN,
                   write: POLL_OUT, writable: POLL_OUT, w: POLL_OUT,
-                  priority: POLL_PRI, rw: POLL_IN | POLL_OUT }.freeze
+                  priority: POLL_PRI, rw: POLL_IN | POLL_OUT, read_write: POLL_IN | POLL_OUT,
+                  readable_writable: POLL_IN | POLL_OUT }.freeze
   private_constant :EVENT_NAMES
 
+  # io_wait: two arguments that are not Symbols are an event mask and a
+  # timeout, and the result is the events that came ready. Any other form
+  # takes event names and at most one timeout, and returns the stream.
   def wait(*args)
-    if args.size == 2 && args.all? { |arg| arg.is_a?(Numeric) }
-      ready = poll_once(args[0].to_int, args[1])
+    if args.size == 2 && args.none?(Symbol)
+      events = Integer.send(:int_operand, args[0])
+      raise ArgumentError, +"Events must be positive integer!" unless events.positive?
+
+      ready = poll_once(events, args[1])
       return ready.zero? ? nil : ready
     end
     events = 0
-    timeout = nil
+    timeout = given = nil
     args.each do |arg|
-      case arg
-      when Symbol then events |= EVENT_NAMES.fetch(arg) { raise ArgumentError, "unsupported mode: #{arg}" }
-      when Numeric, nil then timeout = arg
-      else raise TypeError, "can't convert #{conversion_name(arg)} into time interval"
+      if arg.is_a?(Symbol)
+        events |= EVENT_NAMES.fetch(arg) { raise ArgumentError, "unsupported mode: #{arg}" }
+      elsif given
+        raise ArgumentError, +"timeout given more than once"
+      else
+        IO.send(:time_interval, arg)
+        timeout = arg
+        given = true
       end
     end
     poll_once(events.zero? ? POLL_IN : events, timeout).zero? ? nil : self
