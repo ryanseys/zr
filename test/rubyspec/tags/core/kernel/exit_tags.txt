@@ -1,4 +1,0 @@
-hangs:Kernel.exit raises the SystemExit in the main thread if it reaches the top-level handler of another thread
-hangs:Kernel#exit! exits when called from a fiber
-hangs:Kernel#exit! skips at_exit handlers
-hangs:Kernel#exit! skips ensure clauses

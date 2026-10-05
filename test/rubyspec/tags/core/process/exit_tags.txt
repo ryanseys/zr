@@ -1,1 +1,0 @@
-hangs:Process.exit! exits when called from a fiber

@@ -1,2 +1,2 @@
-hangs:Process.wait doesn't block if no child is available when WNOHANG is used
-hangs:Process.wait always accepts flags=0
+fails:Process.wait doesn't block if no child is available when WNOHANG is used
+fails:Process.wait always accepts flags=0

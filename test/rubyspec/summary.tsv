@@ -15,7 +15,7 @@ core/encoding	45	630	630	0	0
 core/enumerable	61	575	575	0	0
 core/enumerator	81	447	447	0	0
 core/env	44	237	237	0	0
-core/exception	39	243	241	1	0
+core/exception	39	243	239	1	0
 core/false	9	13	13	0	0
 core/fiber	11	158	156	0	0
 core/file	112	932	932	0	0
@@ -25,7 +25,7 @@ core/gc	17	32	32	0	0
 core/hash	69	620	620	0	0
 core/integer	67	599	599	0	0
 core/io	94	1519	1516	0	0
-core/kernel	117	2731	2722	0	0
+core/kernel	117	2731	2726	0	0
 core/main	7	27	26	0	0
 core/marshal	6	617	615	0	0
 core/matchdata	29	185	185	0	0
@@ -37,7 +37,7 @@ core/nil	18	27	27	0	0
 core/numeric	46	338	338	0	0
 core/objectspace	29	113	113	0	0
 core/proc	23	302	302	0	0
-core/process	92	386	375	0	0
+core/process	92	386	376	0	0
 core/queue	15	88	88	0	0
 core/random	10	83	83	0	0
 core/range	32	453	453	0	0
@@ -51,7 +51,7 @@ core/string	139	3641	3641	0	0
 core/struct	30	180	180	0	0
 core/symbol	29	323	323	0	0
 core/systemexit	2	6	6	0	0
-core/thread	53	373	362	0	0
+core/thread	53	373	369	0	0
 core/threadgroup	5	8	8	0	0
 core/time	66	777	777	0	0
 core/tracepoint	19	75	75	0	0
@@ -77,7 +77,7 @@ library/expect	1	6	6	0	0
 library/fiddle	1	1	1	0	0
 library/find	2	3	3	0	0
 library/getoptlong	10	31	31	0	0
-library/io-wait	3	28	25	0	0
+library/io-wait	3	28	28	0	0
 library/ipaddr	6	29	29	0	0
 library/irb	1	1	1	0	0
 library/logger	14	55	55	0	0
@@ -96,7 +96,7 @@ library/pathname	19	68	68	0	0
 library/pp	1	3	3	0	0
 library/prime	11	57	57	0	0
 library/random	1	8	8	0	0
-library/rbconfig	5	29	22	0	0
+library/rbconfig	5	29	23	0	0
 library/readline	25	0	0	0	0
 library/resolv	4	6	6	0	0
 library/ripper	2	2	1	0	0
@@ -107,7 +107,7 @@ library/singleton	7	14	14	0	0
 library/socket	188	1804	1804	0	0
 library/stringio	64	675	675	0	0
 library/stringscanner	44	248	248	0	0
-library/syslog	20	52	51	0	0
+library/syslog	20	52	52	0	0
 library/tempfile	10	46	46	0	0
 library/thread	2	2	2	0	0
 library/time	6	8	8	0	0
@@ -118,4 +118,4 @@ library/weakref	5	9	9	0	0
 library/win32ole	74	0	0	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3723	33141	33066	1	0
+total	3723	33141	33081	1	0
