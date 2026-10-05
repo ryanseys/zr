@@ -1,1 +1,0 @@
-fails:IO#set_encoding when passed nil, nil with 'rb' mode returns Encoding.default_external

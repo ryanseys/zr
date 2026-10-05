@@ -1,2 +1,0 @@
-fails:Kernel#warn :uplevel keyword argument shows the caller of #require and not #require itself with RubyGems loaded
-fails:Kernel#warn :uplevel keyword argument skips <internal: core library methods defined in Ruby

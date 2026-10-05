@@ -1,6 +1,6 @@
 area	files	ruby_passes	zr_passes	no_build	no_load
 command_line	32	163	161	0	0
-core/argf	34	147	145	0	0
+core/argf	34	147	147	0	0
 core/array	128	2701	2701	0	0
 core/basicobject	14	170	170	0	0
 core/binding	9	58	58	0	0
@@ -11,7 +11,7 @@ core/complex	43	182	182	0	0
 core/conditionvariable	4	11	10	0	0
 core/data	13	82	82	0	0
 core/dir	33	338	338	0	0
-core/encoding	45	630	627	0	0
+core/encoding	45	630	630	0	0
 core/enumerable	61	575	575	0	0
 core/enumerator	81	447	447	0	0
 core/env	44	237	237	0	0
@@ -24,8 +24,8 @@ core/float	50	325	325	0	0
 core/gc	17	32	32	0	0
 core/hash	69	620	620	0	0
 core/integer	67	599	599	0	0
-core/io	94	1519	1512	0	0
-core/kernel	117	2731	2718	0	0
+core/io	94	1519	1516	0	0
+core/kernel	117	2731	2720	0	0
 core/main	7	27	26	0	0
 core/marshal	6	617	615	0	0
 core/matchdata	29	185	185	0	0
@@ -35,9 +35,9 @@ core/module	83	1063	1051	0	0
 core/mutex	7	32	32	0	0
 core/nil	18	27	27	0	0
 core/numeric	46	338	338	0	0
-core/objectspace	29	113	111	0	0
+core/objectspace	29	113	113	0	0
 core/proc	23	302	302	0	0
-core/process	92	386	374	0	0
+core/process	92	386	375	0	0
 core/queue	15	88	88	0	0
 core/random	10	83	83	0	0
 core/range	32	453	453	0	0
@@ -58,7 +58,7 @@ core/tracepoint	19	75	75	0	0
 core/true	9	13	13	0	0
 core/unboundmethod	19	103	101	0	0
 core/warning	4	30	30	0	0
-language	79	2873	2864	0	0
+language	79	2873	2867	0	0
 library/English	2	26	26	0	0
 library/base64	6	25	25	0	0
 library/bigdecimal	57	382	382	0	0
@@ -103,4 +103,4 @@ library/uri	105	204	204	0	0
 library/weakref	5	9	9	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3583	33003	32711	1	0
+total	3583	33003	32728	1	0

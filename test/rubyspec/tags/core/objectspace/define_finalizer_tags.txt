@@ -1,2 +1,0 @@
-fails:ObjectSpace.define_finalizer calls a finalizer defined in a finalizer running at exit
-fails:ObjectSpace.define_finalizer when $VERBOSE is nil does not warn even if an exception is raised in finalizer
