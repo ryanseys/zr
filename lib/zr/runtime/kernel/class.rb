@@ -2448,6 +2448,10 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_private_class_method(recv, argc, argv, cref, blk)
+    if argc == 0
+      zr_warn_no_argument(Machine.id(:private_class_method))
+      return recv
+    end
     r = zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PRIVATE, 0)
     return r if r == QUNDEF
     # rb_mod_private_method returns the receiver, whatever it was given.
@@ -2456,6 +2460,10 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_public_class_method(recv, argc, argv, cref, blk)
+    if argc == 0
+      zr_warn_no_argument(Machine.id(:public_class_method))
+      return recv
+    end
     r = zr_set_visibility(zr_singleton_class(recv), argc, argv, blk, VIS_PUBLIC, 0)
     return r if r == QUNDEF
     recv

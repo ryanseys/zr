@@ -815,6 +815,12 @@ module Zr::Kern
   # `private_constant :ParserOptions`, keeps the constant as ruby does.
   #: (value, word, ptr, word) -> value
   def zr_mod_constant_visibility(recv, argc, argv, private)
+    # rb_mod_private_constant and the others: no name is a warning under
+    # $VERBOSE true, and nothing else.
+    if argc == 0
+      zr_warn_no_argument(private == 1 ? Machine.id(:private_constant) : (private == 0 ? Machine.id(:public_constant) : Machine.id(:deprecate_constant)))
+      return recv
+    end
     asking = zr_asking_frame()
     core = asking == 0 || FrameMeta[Frame[asking].meta].file_len == 0
     i = 0
@@ -873,6 +879,21 @@ module Zr::Kern
       return zr_frozen_error(recv)
     end
     zr_mod_constant_visibility(recv, argc, argv, 0 - 1)
+  end
+
+  # A visibility call with no name does nothing, and under $VERBOSE true
+  # it says so (rb_warning).
+  #: (word) -> void
+  def zr_warn_no_argument(mid)
+    if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE
+      return
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_sym(b, mid)
+    zr_buf_push(b, Machine.bytes(" with no argument is just ignored"), 33)
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
+    zr_buf_free(b)
   end
 
   # Raises TypeError unless `scope` is a class or a module, as the scope of

@@ -1,0 +1,4 @@
+lang/modules/a_visibility_call_with_no_name_warns_under_verbose.rb:6: warning: private_constant with no argument is just ignored
+lang/modules/a_visibility_call_with_no_name_warns_under_verbose.rb:7: warning: public_constant with no argument is just ignored
+lang/modules/a_visibility_call_with_no_name_warns_under_verbose.rb:8: warning: private_class_method with no argument is just ignored
+lang/modules/a_visibility_call_with_no_name_warns_under_verbose.rb:9: warning: public_class_method with no argument is just ignored
