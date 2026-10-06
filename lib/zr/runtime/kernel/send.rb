@@ -553,10 +553,20 @@ module Zr::Kern
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
+    # Both classes show through their own to_s, as %PRIsVALUE writes them.
     zr_buf_push(b, Machine.bytes("self has wrong type to call super in this context: "), 51)
-    zr_buf_class_of(b, recv)
+    shown = zr_buf_class_shown(b, recv)
+    if shown == QUNDEF
+      zr_buf_free(b)
+      return shown
+    end
     zr_buf_push(b, Machine.bytes(" (expected "), 11)
-    zr_buf_class(b, zr_type(cls) == T_MODULE ? zr_super_includer(rec, defined) : cls)
+    shown = zr_obj_as_string(zr_type(cls) == T_MODULE ? zr_super_includer(rec, defined) : cls)
+    if shown == QUNDEF
+      zr_buf_free(b)
+      return shown
+    end
+    zr_buf_str(b, shown)
     zr_buf_byte(b, 41)
     zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
