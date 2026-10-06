@@ -1,0 +1,5 @@
+["c-return", "set_trace_func_hears_the_return_of_its_own_call.rb", 4, :set_trace_func, NilClass, Kernel]
+[["c-return", 7, :set_trace_func, NilClass, Thread], ["line", 8, nil, Binding, nil], ["c-call", 8, :set_trace_func, NilClass, Thread]]
+[["c-return", 11, :add_trace_func, Thread], ["line", 12, nil, nil], ["c-call", 12, :set_trace_func, Thread]]
+[]
+nil

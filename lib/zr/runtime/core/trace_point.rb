@@ -101,7 +101,7 @@ class TracePoint
     # Thread#add_trace_func: a TracePoint over every event a hook takes,
     # for every thread (`thread` nil) or for one. A set removes the hooks
     # set before for the same threads.
-    def trace_func(hook, thread, adding)
+    def trace_func(hook, thread, adding, site)
       Primitive.attr! :hidden
       unless adding
         funcs.select { |point| Primitive.zr_hidden_get(point, :__hook_thread__).equal?(thread) }.each do |point|
@@ -121,7 +121,13 @@ class TracePoint
       funcs << point
       # A hook is C's, so no TracePoint#enable runs for a trace to see.
       Primitive.zr_hidden_set(point, :__thread__, thread)
-      point.send(:switch, true)
+      # The hook hears the return of the C method that set it, which
+      # returns once the hook is in place. It runs untraced, as every
+      # hook does, and may remove itself.
+      if thread.nil? || thread.equal?(Thread.current)
+        hook.call(+"c-return", site.path, site.lineno, adding ? :add_trace_func : :set_trace_func, nil, thread ? Thread : Kernel)
+      end
+      point.send(:switch, true) if funcs.include?(point)
       hook
     end
 

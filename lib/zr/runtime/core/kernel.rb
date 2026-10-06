@@ -843,7 +843,7 @@ module Kernel
   end
 
   # A hook every thread's events reach, which replaces the one before.
-  def set_trace_func(hook) = TracePoint.send(:trace_func, hook, nil, false)
+  def set_trace_func(hook) = TracePoint.send(:trace_func, hook, nil, false, caller_locations(1, 1).first)
 
   # Ruby's own globals, in the order ruby lists them, then the ones the
   # program assigned or aliased, then `$1`, `$2`... for each group of the
