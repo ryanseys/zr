@@ -11,11 +11,23 @@ class RubyVM
   end
 
   OPTS = ["direct threaded code", "operands unification", "inline method cache"]
+
+  # vm_default_params_setup's get_param: the size an environment variable
+  # gives (as atol reads it), at least `least`, rounded up to a page; else
+  # the default.
+  def self.param(name, default, least)
+    Primitive.attr! :hidden
+    text = Primitive.zr_environment_get(name) or return default
+    size = [text.to_i, least].max
+    (size + 4095) / 4096 * 4096
+  end
+  private_class_method :param
+
   DEFAULT_PARAMS = {
-    thread_vm_stack_size: 1_048_576,
-    thread_machine_stack_size: 1_048_576,
-    fiber_vm_stack_size: 131_072,
-    fiber_machine_stack_size: 524_288
+    thread_vm_stack_size: param("RUBY_THREAD_VM_STACK_SIZE", 1_048_576, 16_384),
+    thread_machine_stack_size: param("RUBY_THREAD_MACHINE_STACK_SIZE", 1_048_576, 131_072),
+    fiber_vm_stack_size: param("RUBY_FIBER_VM_STACK_SIZE", 131_072, 16_384),
+    fiber_machine_stack_size: param("RUBY_FIBER_MACHINE_STACK_SIZE", 524_288, 131_072)
   }.freeze
   INSTRUCTION_NAMES = [].freeze
 

@@ -1,0 +1,1 @@
+{thread_vm_stack_size: 1048576, thread_machine_stack_size: 1048576, fiber_vm_stack_size: 131072, fiber_machine_stack_size: 524288}
