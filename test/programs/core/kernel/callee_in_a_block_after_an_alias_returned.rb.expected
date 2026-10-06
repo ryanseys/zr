@@ -1,0 +1,3 @@
+[:alias_foo, :foo]
+[:other_foo, :foo]
+[:foo, :foo]

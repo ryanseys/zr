@@ -1,8 +1,7 @@
 # A raise and then a kill: the exception arrives first, and ruby clears
 # the thread's interrupt flag with it, so the kill waits in the queue for
 # the thread's next blocking call. A thread that only computes runs on
-# until the program ends. zr delivers the kill at the thread's next
-# switch, so its ensure clause runs during the join.
+# until the program ends, and its ensure clause has not run.
 log = []
 started = false
 t = Thread.new do
