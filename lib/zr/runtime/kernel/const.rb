@@ -1710,14 +1710,27 @@ module Zr::Kern
     0 - 1
   end
 
-  # `autoload?(name)`: returns the feature still to load, or nil.
+  # `autoload?(name)`: returns the feature still to load, or nil. While
+  # another task reads the file, the name still waits for this one, so it
+  # returns the feature; the task that reads it gets nil.
   #: (value, word) -> value
   def zr_autoload_feature(mod, id)
     i = zr_autoload_pending(mod, id)
-    if i < 0
+    if i >= 0
+      return zr_ary_at(zr_global(G_AUTOLOADS), i + 2)
+    end
+    rows = zr_global(G_AUTOLOADING)
+    if zr_special_p(rows)
       return Machine.value(QNIL)
     end
-    zr_ary_at(zr_global(G_AUTOLOADS), i + 2)
+    i = 0
+    while i < RArray[rows].len
+      if zr_ary_at(rows, i + 1) == mod && zr_ary_at(rows, i + 2) == zr_sym(id) && zr_ary_at(rows, i) != zr_fix(Machine.word(zr_task()))
+        return zr_ary_at(rows, i + 3)
+      end
+      i += AUTOLOADING_ROW
+    end
+    Machine.value(QNIL)
   end
 
   # Returns the value of a constant entry. An autoload's file runs first,
@@ -1953,8 +1966,9 @@ module Zr::Kern
     k = recv
     while k != QNIL
       mod = zr_type(k) == T_ICLASS ? RClass[k].attached : k
-      if zr_autoload_pending(mod, id) >= 0
-        return zr_autoload_feature(mod, id)
+      feature = zr_autoload_feature(mod, id)
+      if feature != QNIL
+        return feature
       end
       k = RClass[k].superclass
     end
