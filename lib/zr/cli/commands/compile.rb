@@ -96,7 +96,7 @@ module Zr
           source, file = if name.nil? || name == "-"
                            [$stdin.read.to_s, "-"]
                          else
-                           path = options.search ? searched(name) : name
+                           path = options.search ? searched(name, verbose: options.switches.verbose == true) : name
                            [File.read(path), path]
                          end
           # A first `#!` line that does not name ruby is a launcher, and the
@@ -112,15 +112,63 @@ module Zr
           fatal("#{e.message.sub(/ @ .*\z/m, "")} -- #{name} (LoadError)")
         end
 
-        # -S: the script in RUBYPATH's directories, then PATH's, as ruby's
-        # dln_find_file_r. A name with a "/" is a path already.
-        #: (String name) -> String
-        def searched(name)
-          return name if name.include?("/")
+        # -S: the script in RUBYPATH's directories, then PATH's (the current
+        # directory with no PATH), as ruby's dln_find_file_r searches them.
+        # A name that starts with "/", "./" or "../" is a path already.
+        #: (String name, ?verbose: bool) -> String
+        def searched(name, verbose: false)
+          return name if name.match?(%r{\A\.{0,2}/})
 
-          dirs = [ENV.fetch("RUBYPATH", nil), ENV.fetch("PATH", nil)].compact.flat_map { |list| list.split(File::PATH_SEPARATOR) }
-          dirs.map { |dir| File.join(dir, name) }.find { |path| File.file?(path) } || name
+          rubypath = ENV.fetch("RUBYPATH", nil)
+          (rubypath && found_in(name, rubypath, verbose)) || found_in(name, ENV.fetch("PATH", "."), verbose) || name
         end
+
+        # MAXPATHLEN, the buffer that dln_find_1 builds each path in.
+        SEARCH_BUFFER = 1024
+
+        # The first regular file `name` in the directories of `list`, or
+        # nil, as dln_find_1 builds each path: a directory "~" or "~/..."
+        # starts at HOME, an empty one is the current directory, and a path
+        # that does not fit the buffer is skipped, with ruby's warning under
+        # -w that shows what fit.
+        #: (String name, String list, bool verbose) -> String?
+        def found_in(name, list, verbose)
+          if name.bytesize >= SEARCH_BUFFER
+            warn "zr: warning: openpath: pathname too long (ignored)\n\tFile #{clip(name)}\n\n" if verbose
+            return nil
+          end
+          list.split(File::PATH_SEPARATOR, -1).each do |dir|
+            path = +""
+            fits = lambda do |part|
+              next true if path.bytesize + part.bytesize <= SEARCH_BUFFER - 2
+
+              warn "zr: warning: openpath: pathname too long (ignored)\n\tDirectory #{clip(path)}\n\tFile #{clip(name)}\n\n" if verbose
+              false
+            end
+            unless dir.empty?
+              if dir.match?(%r{\A~(?:/|\z)})
+                home = ENV.fetch("HOME", nil)
+                next if home && !fits.call(home)
+
+                path << home.to_s
+                dir = dir[1..].to_s
+              end
+              next unless fits.call(dir)
+
+              path << dir
+              path << "/" unless path.end_with?("/")
+            end
+            next unless fits.call(name)
+
+            candidate = path + name
+            return candidate if File.file?(candidate)
+          end
+          nil
+        end
+
+        # dln_find_1 shows at most 100 bytes of a name, then "...".
+        #: (String text) -> String
+        def clip(text) = "\"#{text.byteslice(0, 100)}\"#{"..." if text.bytesize > 100}"
 
         # -c: "Syntax OK", or ruby's report of the syntax error and status 1.
         #: (String source, String file, RubyOptions options) -> void

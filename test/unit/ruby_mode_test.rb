@@ -471,6 +471,19 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("--debug=frozen-string-literal", "-e", "p $DEBUG")
   end
 
+  # -S looks in RUBYPATH, then PATH, as dln_find_1 does: "~" is HOME, an
+  # empty entry is the current directory, and a path too long for the
+  # buffer is skipped, with a warning under -w.
+  def test_s_searches_rubypath_then_path
+    same_as_ruby("-S", "x.rb", env: { "RUBYPATH" => "~", "HOME" => "DIR" })
+    same_as_ruby("-S", "y.rb", env: { "RUBYPATH" => "/nope:~/sub", "HOME" => "DIR" })
+    same_as_ruby("-S", "x.rb", env: { "RUBYPATH" => ":/nope" })
+    same_as_ruby("-S", "sub/y.rb", env: { "RUBYPATH" => "DIR" })
+    same_as_ruby("-S", "-w", "nothing_here", env: { "RUBYPATH" => "~", "HOME" => "/foo" * 1024 })
+    same_as_ruby("-S", "-w", "nothing_here", env: { "RUBYPATH" => "~#{"/foo" * 1024}", "HOME" => "/foo" })
+    same_as_ruby("-S", "nothing_here", env: { "RUBYPATH" => "~", "HOME" => "/foo" * 1024 })
+  end
+
   def test_errors_before_the_program_runs
     same_as_ruby("nope.rb")
     same_as_ruby("no/such/script")
@@ -501,10 +514,13 @@ class RubyModeTest < Minitest::Test
   # Runs `argv` under ruby and under zr in a directory with FILES, and
   # checks that both give the same output, errors and status.
   #: (*String argv, ?stdin: String) -> void
-  def same_as_ruby(*argv, stdin: "")
+  # `env` is more of the environment, where "DIR" stands for the
+  # directory that both run in.
+  def same_as_ruby(*argv, stdin: "", env: {})
     in_dir do |dir|
-      ruby = Open3.capture3(ENV_OF_BOTH, RbConfig.ruby, *argv, stdin_data: stdin, chdir: dir)
-      zr = Open3.capture3(ENV_OF_BOTH, EXE, *argv, stdin_data: stdin, chdir: dir)
+      given = ENV_OF_BOTH.merge(env.transform_values { |value| value.gsub("DIR", dir) })
+      ruby = Open3.capture3(given, RbConfig.ruby, *argv, stdin_data: stdin, chdir: dir)
+      zr = Open3.capture3(given, EXE, *argv, stdin_data: stdin, chdir: dir)
       expected = [ruby[0], ruby[1].gsub(/^#{Regexp.escape(RbConfig.ruby)}:|^ruby:/, "zr:"), ruby[2].exitstatus]
 
       assert_equal expected, [zr[0], zr[1], zr[2].exitstatus], argv.inspect
