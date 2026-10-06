@@ -312,6 +312,11 @@ module Zr::Kern
   #: (value) -> value
   def zr_method_rows(m)
     e = Machine.ptr(RMethod[m].entry)
+    # A method made from a Symbol's Proc (`define_method(:m, &:sym)`) has
+    # that Proc's parameters, as its body is the Proc.
+    if MEntry[e].kind == KIND_BMETHOD && RProc[MEntry[e].cref].fn == Machine.addr(:zr_symbol_block)
+      return zr_proc_param_rows(MEntry[e].cref, Machine.value(QFALSE))
+    end
     meta = zr_method_meta(e)
     # A core def returns what C returns, unless CRuby also writes that
     # method in Ruby. A define_method body, also in the core, returns its
