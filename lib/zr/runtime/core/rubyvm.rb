@@ -61,7 +61,7 @@ class RubyVM
         path = file if path.nil?
         return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence.compile") unless defined?(::Zr::Eval)
 
-        code = ::Zr::Eval.current.compile(source, file, line, [])
+        code = ::Zr::Eval.current.compile(source, file, line, [], warn_now: true)
         Primitive.zr_box_compiled(code[1])
         iseq = made(nil, code, "<compiled>", "<compiled>", file, line)
         Primitive.zr_hidden_set(iseq, :__source__, source)

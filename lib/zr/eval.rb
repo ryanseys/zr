@@ -86,9 +86,10 @@ module Zr
     # @rbs scopes: Array[Array[Symbol]]
     # @rbs method: untyped
     # @rbs using: Integer?
+    # @rbs warn_now: bool
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
-    def compile(source, file, line = 1, scopes = [], method = nil, using: nil)
-      Eval.plainly { compiled(source, file, line, scopes, method, using: using) }
+    def compile(source, file, line = 1, scopes = [], method = nil, using: nil, warn_now: false)
+      Eval.plainly { compiled(source, file, line, scopes, method, using: using, warn_now: warn_now) }
     rescue Hir::Invalid => e
       # Ruby reads a regexp literal when it compiles the string around it,
       # so an invalid pattern is a syntax error, not a run-time error. A
@@ -148,8 +149,9 @@ module Zr
     # @rbs scopes: Array[Array[Symbol]]
     # @rbs method: untyped
     # @rbs using: Integer?
+    # @rbs warn_now: bool
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
-    def compiled(source, file, line, scopes, method, using:)
+    def compiled(source, file, line, scopes, method, using:, warn_now:)
       # eval_make_iseq: a source that is not ASCII compatible cannot be read.
       raise ArgumentError, "invalid source encoding" unless string(source).encoding.ascii_compatible?
 
@@ -159,7 +161,7 @@ module Zr
       # compile made, or raises a copy of the error that its first compile
       # raised. TracePoint and Coverage change the code, so under them each
       # eval compiles. So does an eval that takes `using` entries.
-      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using]
+      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now]
       reuse = coverage.nil? && !@runtime.tracing?
       if reuse && (kept = @compiled[key])
         raise kept.dup if kept.is_a?(Exception)
@@ -183,6 +185,12 @@ module Zr
         raise
       end
       @runtime.take_activations(hir.activations)
+      # RubyVM::InstructionSequence.compile: the parser warns as it reads,
+      # not when the code runs.
+      if warn_now
+        hir.warnings.each { |text| parse_warning(text) }
+        hir.warnings.clear
+      end
       # Coverage is there only when the program loads it. Under `eval:
       # true` it counts the eval's lines as lines of the eval's file. Ruby
       # gives the file as many lines as the code has newlines, after the
@@ -199,6 +207,16 @@ module Zr
       code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas] #: [Integer, Integer, Integer, Integer, Array[Integer]]
       @compiled[key] = code if reuse && hir.activations == taken
       code
+    end
+
+    # A warning of the parser, as zr_parse_warning writes it: one that
+    # only a true $VERBOSE prints starts with VERBOSE_WARNING.
+    #: (String text) -> void
+    def parse_warning(text)
+      verbose = text.start_with?(Hir::Build::Loader::VERBOSE_WARNING)
+      return if $VERBOSE.nil? || (verbose && !$VERBOSE)
+
+      Warning.warn("#{verbose ? text[1..] : text}\n")
     end
 
     # The Outer chain for `scopes`, innermost first, in lowering order:
