@@ -1,2 +1,0 @@
-fails:IO.popen with a leading Array argument accepts a trailing Hash of Process.exec options
-fails:IO.popen with a leading Array argument accepts an IO mode argument following the Array

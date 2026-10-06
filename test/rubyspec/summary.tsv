@@ -24,7 +24,7 @@ core/float	50	325	325	0	0
 core/gc	17	32	32	0	0
 core/hash	69	620	620	0	0
 core/integer	67	599	599	0	0
-core/io	94	1519	1517	0	0
+core/io	94	1519	1519	0	0
 core/kernel	117	2731	2729	0	0
 core/main	7	27	27	0	0
 core/marshal	6	617	617	0	0
@@ -118,4 +118,4 @@ library/weakref	5	9	9	0	0
 library/win32ole	74	0	0	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3723	33144	33125	0	0
+total	3723	33144	33127	0	0
