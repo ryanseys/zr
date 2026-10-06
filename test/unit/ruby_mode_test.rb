@@ -521,6 +521,14 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-x", stdin: "junk\n#!ruby -w\r\np 2\r\n")
   end
 
+  # Without gems, the libraries of ruby's gem prelude are not there.
+  def test_no_gems_means_no_gem_prelude_libraries
+    code = "p [defined?(ErrorHighlight), defined?(SyntaxSuggest), defined?(DidYouMean), defined?(Gem)]; foo rescue p $!.message"
+    same_as_ruby("--disable=gems", "-e", code)
+    same_as_ruby("--disable-did_you_mean", "-e", code)
+    same_as_ruby("--disable=gems", "-e", "nil.foo")
+  end
+
   def test_errors_before_the_program_runs
     same_as_ruby("nope.rb")
     same_as_ruby("no/such/script")

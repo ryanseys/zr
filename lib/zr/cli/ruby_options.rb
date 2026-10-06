@@ -199,8 +199,14 @@ module Zr
           lines << "$/ = #{text.nil? ? "nil" : "#{text.inspect}#{".b" if text.size == 1}.freeze"}"
         end
         lines << "Primitive.zr_backtrace_limit_set(#{@backtrace_limit})" if @backtrace_limit
-        # --disable=did_you_mean: no DidYouMean, and so no suggestion.
-        lines << "Object.send(:remove_const, :DidYouMean)" if @features["did_you_mean"] == false
+        # --disable=gems: ruby's gem prelude loads none of error_highlight,
+        # did_you_mean and syntax_suggest, so their constants are not there.
+        # --disable=did_you_mean takes DidYouMean too. (The runtime's gem
+        # prelude ran already: error_highlight and syntax_suggest hook into
+        # the errors, so only a build without gems can drop them.)
+        { "did_you_mean" => :DidYouMean, "error_highlight" => :ErrorHighlight, "syntax_suggest" => :SyntaxSuggest }.each do |feature, name|
+          lines << "Object.send(:remove_const, :#{name})" if @features["gems"] == false || (feature == "did_you_mean" && @features[feature] == false)
+        end
         lines << "$\\ = #{@output_separator.inspect}" if @line
         lines << "$; = Regexp.new(#{@field_separator.inspect})" if @field_separator
         lines << "$-i = ARGF.inplace_mode = #{@inplace.inspect}" if @inplace
