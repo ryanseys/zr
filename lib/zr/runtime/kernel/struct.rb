@@ -34,9 +34,11 @@ module Zr::Kern
     while i < RArray[members].len
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
-      zr_buf_sym(b, zr_sym2id(zr_ary_at(members, i)))
+      id = zr_sym2id(zr_ary_at(members, i))
+      zr_buf_sym(b, id)
       zr_buf_byte(b, 61)
-      setter = zr_intern(Buf[b].ptr, Buf[b].len)
+      # The writer is named in the encoding of the member.
+      setter = zr_intern_tagged(Buf[b].ptr, Buf[b].len, zr_symbol_tag(id))
       zr_buf_free(b)
       r = zr_define_method_as(klass, setter, Machine.ptr(i), 1, KIND_STRUCT_ASET, 0, Machine.value(QNIL), VIS_PUBLIC)
       return r if r == QUNDEF

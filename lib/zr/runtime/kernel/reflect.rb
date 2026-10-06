@@ -13,8 +13,11 @@ module Zr::Kern
       name = zr_str_operand(name)
       return name if name == QUNDEF
     end
+    # A name is its bytes and their encoding, as String#to_sym interns it;
+    # bytes that are invalid in it raise EncodingError (sym_check_asciionly).
     if !zr_special_p(name) && zr_type(name) == T_STRING
-      name = zr_sym(zr_intern(RString[name].ptr, RString[name].len))
+      name = zr_str_to_sym(name, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+      return name if name == QUNDEF
     end
     unless zr_symbol_p(name)
       b = Machine.slot(Buf.size)

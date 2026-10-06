@@ -901,7 +901,8 @@ module Zr::Kern
     end
     m = Machine.value(Machine.load64(argv, 0))
     if !zr_special_p(m) && zr_type(m) == T_STRING
-      m = zr_sym(zr_intern(RString[m].ptr, RString[m].len))
+      m = zr_str_to_sym(m, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+      return m if m == QUNDEF
     end
     unless zr_symbol_p(m)
       b = Machine.slot(Buf.size)
@@ -1721,14 +1722,16 @@ module Zr::Kern
       end
       zr_buf_byte(b, 64)
       zr_buf_sym(b, id)
-      ivar = zr_intern(Buf[b].ptr, Buf[b].len)
+      # The ivar and the writer are named in the encoding of the name.
+      tag = zr_symbol_tag(id)
+      ivar = zr_intern_tagged(Buf[b].ptr, Buf[b].len, tag)
       caller = Frame[Task[zr_task()].top].prev
       # The runtime's own attributes, which its class bodies define on
       # themselves, read hidden fields: the runtime keeps these instance
       # variables without the `@`. A call that a builtin makes for the
       # program, as in `each(&method(:attr_reader))`, is the program's call.
       if FrameMeta[Frame[caller].meta].file_len == 0 && Frame[caller].self == klass
-        ivar = zr_intern(Buf[b].ptr + 1, Buf[b].len - 1)
+        ivar = zr_intern_tagged(Buf[b].ptr + 1, Buf[b].len - 1, tag)
       end
       # The scope's visibility keyword applies only inside this class's own
       # body, or a block that runs with the class as self and definee (as
@@ -1750,7 +1753,7 @@ module Zr::Kern
       end
       if which != 1
         zr_buf_byte(b, 61)
-        setter = zr_intern(Buf[b].ptr + 1, Buf[b].len - 1)
+        setter = zr_intern_tagged(Buf[b].ptr + 1, Buf[b].len - 1, tag)
         r = zr_define_method(klass, setter, Machine.ptr(ivar), 1, KIND_ATTR_WRITER, zr_meta_site(caller, setter, klass), cref)
         if r == QUNDEF
           zr_buf_free(b)

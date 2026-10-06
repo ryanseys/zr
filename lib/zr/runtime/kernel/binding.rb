@@ -442,7 +442,7 @@ module Zr::Kern
   def zr_binding_add(b, name)
     table = zr_xmalloc(16)
     Machine.store64(table, 0, 1)
-    Machine.store64(table, 8, zr_intern(RString[name].ptr, RString[name].len))
+    Machine.store64(table, 8, zr_fix2long(zr_intern_id(name)))
     RProc[b].env = zr_env_new(RProc[b].env, 1, table)
     Machine.value(QNIL)
   end
