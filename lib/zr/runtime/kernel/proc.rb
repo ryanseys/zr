@@ -1321,14 +1321,15 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_int_times(recv, argc, argv, cref, blk)
+    # A redefined Integer#< or Integer#succ runs for a Bignum too.
+    if blk != QNIL && (Machine.gates & (GATE_LT | GATE_SUCC)) != 0
+      return zr_int_times_sent(recv, blk)
+    end
     if !zr_fixnum_p(recv)
       return zr_big_route_blk(recv, Machine.id(:times), argc, argv, blk)
     end
     if blk == QNIL
       return zr_enum_for(recv, Machine.id(:times), argc, argv, recv)
-    end
-    if (Machine.gates & (GATE_LT | GATE_SUCC)) != 0
-      return zr_int_times_sent(recv, blk)
     end
     n = zr_fix2long(recv)
     i = 0
