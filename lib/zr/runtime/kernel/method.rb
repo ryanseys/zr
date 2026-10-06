@@ -246,11 +246,13 @@ module Zr::Kern
   def zr_send_for_caller(recv, mid, argc, argv, blk)
     top = Task[zr_task()].top
     rec = top
-    while rec != 0 && !zr_trace_program_frame_p(rec)
+    # The core's frames have no file. Eval support's own code (the
+    # compiler) has one, and is not the program: its calls fire nothing.
+    while rec != 0 && (Frame[rec].meta == 0 || FrameMeta[Frame[rec].meta].file_len == 0)
       rec = Frame[rec].prev
     end
     # With the program's frame on top, the send fires the events itself.
-    if zr_trace_sends_p() && rec != top && zr_trace_program_frame_p(rec)
+    if zr_trace_sends_p() && rec != top && rec != 0 && zr_trace_program_frame_p(rec)
       e = zr_find_method(zr_box_view(zr_class_of(recv)), mid)
       if e != 0 && zr_trace_c_entry_p(e)
         return zr_trace_send_invoke(e, recv, mid, argc, argv, blk, zr_kw_take(), TRACE_C_CALL)

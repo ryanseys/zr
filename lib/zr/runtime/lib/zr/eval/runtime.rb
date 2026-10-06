@@ -20,10 +20,17 @@ module Zr
       #: () -> Integer
       def activations = Primitive.zr_activations_count
 
-      # An eval compiles its string with TracePoint's events armed when one
-      # is enabled, as ruby's instructions fire them.
+      # An eval compiles its string with TracePoint's events when one is
+      # enabled, as ruby's instructions fire them, and always in a program
+      # built with them: a TracePoint enabled later sees the eval's code
+      # as it sees the program's.
       #: () -> bool
-      def tracing? = Primitive.zr_trace_armed_m
+      def tracing? = Primitive.zr_trace_armed_m || Primitive.zr_trace_built_m
+
+      # Whether an eval's code depends on a TracePoint enabled now, so a
+      # later eval of the same string compiles again.
+      #: () -> bool
+      def traced_for_now? = Primitive.zr_trace_armed_m && !Primitive.zr_trace_built_m
       #: (Integer? count) -> void
       def take_activations(count) = Primitive.zr_activations_reserve_m(count)
 

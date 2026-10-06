@@ -128,13 +128,14 @@ module Zr
     #
     # The machine code of a file is never freed, so a file that a program
     # loads again with the same source runs the code of its first compile.
-    # Under TracePoint or Coverage the code differs, so each load compiles.
+    # Under Coverage, or a TracePoint in a program built without trace
+    # events, the code differs, so each load compiles.
     #: (String path) -> Integer
     def compile_file(path)
       Eval.plainly do
         source = File.read(path)
         coverage = covering
-        reuse = coverage.nil? && !@runtime.tracing?
+        reuse = coverage.nil? && !@runtime.traced_for_now?
         key = [-path, -source] #: [String, String]
         next @files.fetch(key) if reuse && @files.key?(key)
 
@@ -182,11 +183,12 @@ module Zr
       # The machine code of an eval is never freed, so a string that runs
       # again, in a scope of the same shape, runs the code that its first
       # compile made, or raises a copy of the error that its first compile
-      # raised. TracePoint and Coverage change the code, so under them each
-      # eval compiles. So does an eval that takes `using` entries.
+      # raised. Coverage changes the code, and so does a TracePoint enabled
+      # in a program built without trace events, so under them each eval
+      # compiles. So does an eval that takes `using` entries.
       plain_new = plain_new?
       key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now, debug_frozen, plain_new]
-      reuse = coverage.nil? && !@runtime.tracing?
+      reuse = coverage.nil? && !@runtime.traced_for_now?
       if reuse && (kept = @compiled[key])
         raise kept.dup if kept.is_a?(Exception)
 
