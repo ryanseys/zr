@@ -311,6 +311,8 @@ class String
   def insert(index, other)
     index = Primitive.zr_index_operand_m(index)
     other = Primitive.zr_str_operand(other)
+    # rb_str_update: the encodings are checked before the index.
+    Encoding.compatible?(self, other) || Encoding.incompatible(self, other)
     count = Primitive.zr_str_length_m(self)
     index += count + 1 if index < 0
     raise IndexError, "index #{index} out of string" if index < 0 || index > count
@@ -777,7 +779,7 @@ class String
   def split(pattern = nil, limit = 0)
     # The common splits, by a String's bytes or on blanks with no
     # limit, call nothing on the pattern on the way to the kernel.
-    if Primitive.zr_fixnum_p_m(limit) && limit == 0 && Primitive.zr_str_valid_p(self) && Primitive.zr_str_unit_m(self) == 0 && (!(String === pattern) || Primitive.zr_str_unit_m(pattern) == 0)
+    if Primitive.zr_fixnum_p_m(limit) && limit == 0 && Primitive.zr_str_valid_p(self) && Primitive.zr_str_unit_m(self) == 0 && (!(String === pattern) || (Primitive.zr_str_unit_m(pattern) == 0 && Primitive.zr_str_valid_p(pattern)))
       out = if Primitive.zr_str_plain_sep_p(pattern) then split_by_string(pattern, 0)
             elsif Primitive.zr_str_blank_sep_p(pattern) || (NilClass === pattern && $;.nil?) then Primitive.zr_str_split_words(self, 0)
             end
@@ -812,7 +814,9 @@ class String
 
       pattern = text
     end
-    # A split by words, characters or a String reads every character.
+    # mustnot_broken: a String pattern first, then the receiver, which a
+    # split by words, characters or a String reads character by character.
+    raise ArgumentError, "invalid byte sequence in #{pattern.encoding}" if pattern.is_a?(String) && !Primitive.zr_str_valid_p(pattern)
     raise ArgumentError, "invalid byte sequence in #{Encoding.at(Primitive.zr_str_encoding_index_m(self))}" unless pattern.is_a?(Regexp) || Primitive.zr_str_valid_p(self)
 
     out = if NilClass === pattern || (pattern.is_a?(String) && awk_pattern?(pattern)) then split_words(limit)
@@ -1038,6 +1042,9 @@ class String
   # The runs of characters kept are copied whole: a delete that keeps
   # most of the text copies it in a few pieces.
   def delete(*sets)
+    # rb_str_delete_bang: an empty String is done before the arguments
+    # are counted or read.
+    return String.new(self) if Primitive.zr_str_bytesize(self) == 0
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if sets.empty?
 
     member = charset_test(sets)
@@ -1065,22 +1072,16 @@ class String
     end
   end
 
-  def tr(from, to) = translate(from, to, false)
-
-  # nil when no character of `from` occurs, even if nothing changed.
-  def tr!(from, to)
-    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    return nil unless OWN[:count].bind_call(self, from) > 0
-
-    Primitive.zr_str_replace(self, translate(from, to, false))
+  # rb_str_tr: a copy, which tr_trans changes.
+  def tr(from, to)
+    copy = String.new(self)
+    copy.send(:tr_trans, from, to, false)
+    copy
   end
 
-  def tr_s!(from, to)
-    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    return nil unless OWN[:count].bind_call(self, from) > 0
+  def tr!(from, to) = tr_trans(from, to, false) ? self : nil
 
-    Primitive.zr_str_replace(self, translate(from, to, true))
-  end
+  def tr_s!(from, to) = tr_trans(from, to, true) ? self : nil
 
   # The next string: the rightmost run of letters or digits counts up
   # with carries, a carry past its start adds a first letter or digit;
@@ -1091,9 +1092,13 @@ class String
     index = Primitive.zr_str_encoding_index_m(self)
     if index <= 2 && Primitive.zr_str_ascii_only_m(self)
       out = Primitive.zr_str_succ_ascii(self)
-      return out if Primitive.zr_str_encoding_index_m(out) == index
+      # US-ASCII has no byte past 0x7f, so "\x7f" carries there, as the
+      # walk below does.
+      unless Encoding.at(index) == Encoding::US_ASCII && !Primitive.zr_str_ascii_only_m(out)
+        return out if Primitive.zr_str_encoding_index_m(out) == index
 
-      return OWN[:force_encoding].bind_call(out, Encoding.at(index))
+        return OWN[:force_encoding].bind_call(out, Encoding.at(index))
+      end
     end
 
     enc = Encoding.at(index)
@@ -1350,7 +1355,11 @@ class String
     converted
   end
 
-  def tr_s(from, to) = translate(from, to, true)
+  def tr_s(from, to)
+    copy = String.new(self)
+    copy.send(:tr_trans, from, to, true)
+    copy
+  end
 
   def upto(last, exclusive = false, &block)
     return to_enum(:upto, last, exclusive) unless block
@@ -1481,6 +1490,11 @@ class String
   def scan(pattern)
     # get_pat_quoted: the pattern converts once, before the walk.
     pattern = Primitive.zr_str_operand(pattern) unless pattern.is_a?(Regexp) || pattern.is_a?(String) || !pattern.respond_to?(:to_str)
+    raise TypeError, "wrong argument type #{conversion_name(pattern)} (expected Regexp)" unless pattern.is_a?(Regexp) || pattern.is_a?(String)
+    # get_pat_quoted refuses a broken String pattern with its Regexp's
+    # error; then mustnot_broken refuses a broken receiver.
+    Regexp.new(pattern) if pattern.is_a?(String) && !Primitive.zr_str_valid_p(pattern)
+    raise ArgumentError, "invalid byte sequence in #{Encoding.at(Primitive.zr_str_encoding_index_m(self))}" unless Primitive.zr_str_valid_p(self)
     found = []
     last = nil
     at = 0
@@ -2478,43 +2492,188 @@ class String
     ranges.last.end
   end
 
-  # tr: each character in `from` becomes the character at the same
-  # place in `to`, the last one standing in for the rest; a negated
-  # `from` maps every other character to the last of `to`. `squeeze`
-  # collapses runs of one translated character.
-  def translate(from, to, squeeze)
+  # tr_trans, as CRuby runs it: each character of `src` maps to the
+  # character at the same place in `repl` (trnext reads both, with ranges
+  # and `\` escapes), the last of `repl` standing in for the rest, and a
+  # `^` first maps every other character to the last of `repl`. With
+  # `sflag`, a run of one replacement becomes one character. The receiver
+  # changes in place. Returns whether it changed.
+  def tr_trans(src, repl, sflag)
     Primitive.attr! :hidden
-    source, negated = charset(joined(Primitive.zr_str_operand(from)))
-    to = joined(Primitive.zr_str_operand(to))
-    target, = charset(to)
-    # tr_trans: the result takes the encoding that rb_enc_check gives the
-    # receiver and the replacement, so an ASCII-only receiver can take
-    # the replacement's.
-    enc = Encoding.compatible?(self, to) || Encoding.at(Primitive.zr_str_encoding_index_m(self))
-    out = OWN[:force_encoding].bind_call(+"", enc)
-    last = nil
-    changed = false
-    OWN[:each_char].bind_call(self) do |c|
-      at = charset_index(source, c.ord)
-      unless at.nil? == negated
-        out << c
-        last = nil
-        next
-      end
-      changed = true
-      if target.empty?
-        last = nil
-        next
-      end
-      mapped = negated ? target.last.end : charset_at(target, at)
-      out << char_of(mapped, enc) unless squeeze && mapped == last
-      last = mapped
-    end
-    # tr_trans changes nothing when no character matched, so the copy
-    # keeps the receiver's encoding.
-    return copied unless changed
+    src = Primitive.zr_str_operand(src)
+    repl = Primitive.zr_str_operand(repl)
+    return false if Primitive.zr_str_bytesize(self) == 0
+    return !mutate(OWN[:delete].bind_call(self, src)).nil? if Primitive.zr_str_bytesize(repl) == 0
 
-    OWN[:force_encoding].bind_call(out, enc)
+    e1 = Encoding.compatible?(self, src) || Encoding.incompatible(self, src)
+    e2 = Encoding.compatible?(self, repl) || Encoding.incompatible(self, repl)
+    enc = e1 == e2 ? e1 : (Encoding.compatible?(src, repl) || Encoding.incompatible(src, repl))
+    coder = Regexp.encoder(enc)
+    from = OWN[:b].bind_call(src)
+    to = OWN[:b].bind_call(repl)
+    singlebyte = Primitive.zr_str_ascii_only_m(self) || Regexp.encoder(Encoding.at(Primitive.zr_str_encoding_index_m(self))).max_len == 1
+    cflag = false
+    trsrc = [0, false, 0, 0]
+    if from.bytesize > 1 && (lead = coder.ascget(from, 0, enc.ascii_compatible?)) && lead[0] == 0x5E && lead[1] < from.bytesize
+      cflag = true
+      trsrc[0] = lead[1]
+    end
+    trrepl = [0, false, 0, 0]
+    trans = Array.new(256)
+    hash = nil
+    last = 0
+    if cflag
+      trans.fill(1)
+      while (c = trnext(trsrc, from, coder, enc))
+        if c < 256
+          trans[c] = nil
+        else
+          (hash ||= {})[c] = true
+        end
+      end
+      nil while trnext(trrepl, to, coder, enc)
+      last = trrepl[2]
+      trans.map! { |t| t.nil? ? nil : last }
+    else
+      while (c = trnext(trsrc, from, coder, enc))
+        r = trnext(trrepl, to, coder, enc) || trrepl[2]
+        if c < 256
+          trans[c] = r
+          singlebyte = false if tr_codelen(r, coder, enc) != 1
+        else
+          (hash ||= {})[c] = r
+        end
+      end
+    end
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    text = OWN[:b].bind_call(self)
+    source = Regexp.encoder(e1)
+    modify = false
+    if !sflag && (coder.max_len == 1 || (singlebyte && hash.nil?))
+      out = text.dup
+      i = 0
+      while i < text.bytesize
+        c = text.getbyte(i)
+        unless trans[c].nil?
+          out.setbyte(i, (cflag ? last : trans[c]) & 0xFF)
+          modify = true
+        end
+        i += 1
+      end
+    else
+      out = "".b
+      save = nil
+      s = 0
+      while s < text.bytesize
+        clen = source.precise_mbclen(text, s)
+        raise ArgumentError, "invalid byte sequence in #{e1}" if clen <= 0
+
+        c0 = source.mbc_to_code(text, s, text.bytesize)
+        c = if c0 < 256 then trans[c0]
+            elsif hash
+              found = hash[c0]
+              if found.nil? then cflag ? last : nil
+              elsif cflag then nil
+              else found
+              end
+            else cflag && !sflag ? last : nil
+            end
+        s += clen if sflag
+        if c.nil?
+          save = nil
+          piece = enc == e1 ? text.byteslice(sflag ? s - clen : s, clen) : tr_mbcput(c0, coder)
+          modify = true if enc != e1 && text.byteslice(s, piece.bytesize) != piece
+        else
+          next if sflag && save == c
+
+          save = c
+          piece = tr_mbcput(c, coder)
+          modify = true
+        end
+        out << piece
+        s += clen unless sflag
+      end
+    end
+    return false unless modify
+
+    Primitive.zr_str_replace(self, OWN[:force_encoding].bind_call(out, enc))
+    true
+  end
+
+  # trnext: the next character code of a tr set, or nil at its end.
+  # `t` is [position, generating, now, max]: a range `a-z` hands out its
+  # codes one at a time, and skips each that is no character of `enc`.
+  def trnext(t, bytes, coder, enc)
+    Primitive.attr! :hidden
+    compat = enc.ascii_compatible?
+    loop do
+      if t[1]
+        t[2] += 1
+        t[2] += 1 while coder.code_to_mbclen(t[2]) <= 0 && t[2] != t[3]
+        if t[2] < t[3]
+          return t[2]
+        end
+
+        # At the end of the range: its last code, unless that is no
+        # character, when the next part of the set follows.
+        t[1] = false
+        return t[3] if coder.code_to_mbclen(t[3]) > 0
+
+        next
+      end
+      return nil if t[0] == bytes.bytesize
+
+      ascii = coder.ascget(bytes, t[0], compat)
+      t[0] += ascii[1] if ascii && ascii[0] == 0x5C && t[0] + ascii[1] < bytes.bytesize
+      t[2] = tr_codepoint(bytes, t, coder, enc)
+      dash = coder.ascget(bytes, t[0], compat)
+      if dash && dash[0] == 0x2D && t[0] + dash[1] < bytes.bytesize
+        t[0] += dash[1]
+        c = tr_codepoint(bytes, t, coder, enc)
+        if t[2] > c
+          raise ArgumentError, "invalid range \"#{t[2].chr}-#{c.chr}\" in string transliteration" if t[2] < 0x80 && c < 0x80
+
+          raise ArgumentError, +"invalid range in string transliteration"
+        elsif t[2] < c
+          t[1] = true
+          t[3] = c
+        end
+      end
+      return t[2]
+    end
+  end
+
+  # rb_enc_codepoint_len: the code of the character at t's position,
+  # which moves past it.
+  def tr_codepoint(bytes, t, coder, enc)
+    Primitive.attr! :hidden
+    n = coder.precise_mbclen(bytes, t[0])
+    raise ArgumentError, "invalid byte sequence in #{enc}" if n <= 0
+
+    c = coder.mbc_to_code(bytes, t[0], bytes.bytesize)
+    t[0] += n
+    c
+  end
+
+  # rb_enc_codelen: the byte length of code `c`, an error only where the
+  # encoding gives none at all.
+  def tr_codelen(c, coder, enc)
+    Primitive.attr! :hidden
+    n = coder.code_to_mbclen(c)
+    raise ArgumentError, "invalid codepoint 0x#{c.to_s(16)} in #{enc}" if n == 0
+
+    n
+  end
+
+  # rb_enc_mbcput: the bytes of code `c`, as the encoding writes them.
+  def tr_mbcput(c, coder)
+    Primitive.attr! :hidden
+    bytes = coder.respond_to?(:raw_code_to_mbc) ? coder.raw_code_to_mbc(c) : coder.code_to_mbc(c)
+    return bytes.b unless bytes.is_a?(Integer)
+
+    out = "".b
+    out.prepend((c & 0xFF).chr) && (c >>= 8) while c > 0
+    out.empty? ? "\0".b : out
   end
 
   def char_of(cp, enc)
@@ -2712,7 +2871,43 @@ class String
     raise ArgumentError, "invalid byte sequence in #{pattern.encoding}" unless Primitive.zr_str_valid_p(pattern)
     return wide_split_by(pattern, limit) if Primitive.zr_str_unit_m(self) != 0
 
+    # ASCII text has a character at each byte, so only other text needs
+    # the walk by character heads.
+    unless Primitive.zr_str_ascii_only_m(self)
+      enc = Encoding.compatible?(self, pattern) || Encoding.incompatible(self, pattern)
+      if enc != Encoding::UTF_8 && (coder = Regexp.encoder(enc)).max_len > 1
+        return headed_split_by(pattern, limit, coder)
+      end
+    end
+
     Primitive.zr_str_split_by(self, pattern, limit)
+  end
+
+  # rb_str_split_m by a String in a multibyte encoding other than UTF-8,
+  # where a match need not start a character: one that does not moves the
+  # search on to the next character head, and the last piece starts where
+  # the search stopped, as the C does.
+  def headed_split_by(pattern, limit, coder)
+    Primitive.attr! :hidden
+    bytes = OWN[:b].bind_call(self)
+    sep = OWN[:b].bind_call(pattern)
+    out = []
+    ptr = start = 0
+    count = 1
+    while ptr < bytes.bytesize && (found = bytes.byteindex(sep, ptr))
+      head = coder.right_adjust_char_head(bytes, ptr, found, bytes.bytesize)
+      if head != found
+        ptr = head
+        next
+      end
+      out << byteslice_of(start, found - start)
+      ptr = start = found + sep.bytesize
+      break if limit > 0 && limit <= (count += 1)
+    end
+    split_tail(out, ptr, limit)
+    # With no limit, empty pieces at the end are dropped.
+    out.pop while limit == 0 && !out.empty? && out.last.empty?
+    out
   end
 
   # rb_str_split_m by a String in UTF-16 or UTF-32: the bytes of the
