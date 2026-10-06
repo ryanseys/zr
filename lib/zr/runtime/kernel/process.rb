@@ -17,6 +17,22 @@ module Zr::Kern
     vector
   end
 
+  # The argv of /bin/sh running the file `path` with the arguments after
+  # the first of the `n` words in `argv`: "sh", the path, then those.
+  #: (value, ptr, word) -> ptr
+  def zr_shell_vector(path, argv, n)
+    vector = zr_xmalloc((n + 2) * 8)
+    Machine.store64(vector, 0, Machine.word(Machine.bytes("sh\0")))
+    Machine.store64(vector, 8, Machine.word(RString[path].ptr))
+    i = 1
+    while i < n
+      Machine.store64(vector + ((i + 1) * 8), 0, Machine.load64(argv + (i * 8), 0))
+      i += 1
+    end
+    Machine.store64(vector + ((n + 1) * 8), 0, 0)
+    vector
+  end
+
   # Starts child processes through posix_spawn (which is not variadic) on
   # an OS that has it. `zr_os_spawn` calls this with the OS's flags.
 
@@ -187,6 +203,7 @@ module Zr::Kern
     zr_io_cloexec(zr_fix(Machine.u32(reader)))
     zr_io_cloexec(zr_fix(Machine.u32(writer)))
     argv = zr_spawn_vector(words)
+    shell = zr_shell_vector(path, argv, RArray[words].len)
     envp = zr_os_environ()
     if env != QNIL
       envp = zr_spawn_vector(env)
@@ -197,6 +214,12 @@ module Zr::Kern
       if err == 0
         Libc.execve(RString[path].ptr, argv, envp)
         err = zr_errno()
+        # proc_exec_cmd: a file that is no executable format, such as a
+        # script with no `#!` line, runs under /bin/sh.
+        if err == ENOEXEC
+          Libc.execve(Machine.bytes("/bin/sh\0"), shell, envp)
+          err = zr_errno()
+        end
       end
       word = Machine.slot(8)
       Machine.store64(word, 0, err)
@@ -213,6 +236,7 @@ module Zr::Kern
       Libc.close(Machine.i32(zr_fix2long(zr_ary_at(zr_ary_at(options, 6), 1))))
     end
     zr_xfree(argv)
+    zr_xfree(shell)
     if env != QNIL
       zr_xfree(envp)
     end

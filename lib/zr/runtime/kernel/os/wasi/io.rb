@@ -16,6 +16,7 @@ module Zr::Kern
 
   EINTR = 27
   EBADF = 8
+  ENOEXEC = 45
 
   # The *at calls' directory for the working directory, and their flag
   # for a link itself, as wasi-libc defines them.

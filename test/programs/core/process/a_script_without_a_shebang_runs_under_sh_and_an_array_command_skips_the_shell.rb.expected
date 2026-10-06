@@ -1,0 +1,9 @@
+"A=B\n"
+[Errno::ENOENT, "No such file or directory - echo bar"]
+"a\n"
+"a\n0\n"
+"0\na\n"
+"b\n"
+"c\n"
+true
+true

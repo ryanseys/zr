@@ -668,6 +668,8 @@ class IO
       words = words[0...-1]
       options = extra.merge(options)
     end
+    # An Array command runs with no shell, also one of a single word.
+    words = [[words.first, words.first]] if command.is_a?(Array) && words.size == 1 && words.first.is_a?(String)
     pid = Process.send(:spawn_command, env ? [env, *words] : words, plan.merge(options))
     Primitive.zr_io_close(theirs)
     Primitive.zr_io_close(child_in) if child_in
