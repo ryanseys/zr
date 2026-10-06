@@ -1,0 +1,20 @@
+[]
+[]
+["RUBY_API_VERSION", "4.0"]
+["RUBY_VERSION_NAME", "ruby-4.0.0"]
+["THREAD_MODEL", "pthread"]
+["LIBPATHENV", "DYLD_LIBRARY_PATH"]
+["PRELOADENV", "DYLD_INSERT_LIBRARIES"]
+["SYMBOL_PREFIX", "_"]
+["modular_gc_dir", ""]
+["CROSS_COMPILING", "no"]
+["PACKAGE", "ruby"]
+["SHELL", "/bin/sh"]
+["RM", "rm -f"]
+["MKDIR_P", "mkdir -p"]
+["GNU_LD", "no"]
+["COROUTINE_TYPE", "arm64"]
+["ruby_pc", "ruby-4.0.pc"]
+true
+true
+true
