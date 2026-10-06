@@ -28,7 +28,10 @@ module Zr
           meta = @f.symbol_value(@f.symbol("zr_meta_#{fn}"))
           checked_arity = node.params.plain? ? node.params.required.size : -1
           at_node(node)
-          entry = node.receiver || inside_method? ? "zr_define_method_public" : "zr_define_method"
+          entry = if node.receiver then "zr_define_method_public"
+                  elsif inside_method? then kind == :block ? "zr_define_method_nested" : "zr_define_method_public"
+                  else "zr_define_method"
+                  end
           if direct
             # The generic entry is the kernel's. It checks what a direct
             # site proves, then calls the body. The body is the direct entry.
@@ -45,8 +48,9 @@ module Zr
           symbol(node.name)
         end
 
-        # A def in a method body (or in a block in one) is public, whatever
-        # the class body's visibility was.
+        # A def in a method body is public, whatever the class body's
+        # visibility was; so is one in a block in a method, unless an eval
+        # gave the block a scope of its own (zr_define_method_nested).
         #: () -> bool
         def inside_method?
           fn = self #: Function

@@ -1,0 +1,5 @@
+[:prot]
+[:priv]
+[:hidden]
+[:via_eval, :x]
+[:made, :maker]

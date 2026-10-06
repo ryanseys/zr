@@ -42,7 +42,10 @@ module Zr
             fn = def_fn(node, s.unit)
             word = line_word(node, s)
             arity = node.params.plain? ? node.params.required.size : -1
-            entry = node.receiver || s.def_node ? :zr_define_method_public : :zr_define_method
+            entry = if node.receiver then :zr_define_method_public
+                    elsif s.def_node then s.kind == :block ? :zr_define_method_nested : :zr_define_method_public
+                    else :zr_define_method
+                    end
             name = id(node.name)
             m = @metas.fetch(node)
             symbol = sym(node.name)

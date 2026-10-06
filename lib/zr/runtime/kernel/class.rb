@@ -1359,6 +1359,25 @@ module Zr::Kern
     zr_define_method_public(klass, mid, fn, arity, kind, meta, cref)
   end
 
+  # A def in a block that runs in a method. It is public, as a def in
+  # the method is, unless an eval gave the block a scope of its own
+  # (`class_eval`, `Class.new`): then the scope's visibility and
+  # module_function apply, as vm_scope_visibility_get reads them. A
+  # define_method body's scope is its method's.
+  #: (value, word, ptr, word, word, ptr, value) -> value
+  def zr_define_method_nested(klass, mid, fn, arity, kind, meta, cref)
+    if cref != QNIL && RCref[cref].eval == 1 && RCref[cref].entry == 0
+      return zr_define_method(klass, mid, fn, arity, kind, meta, cref)
+    end
+    zr_define_method_public(klass, mid, fn, arity, kind, meta, cref)
+  end
+
+  #: (value, word, ptr, ptr, word, word, ptr, value) -> value
+  def zr_define_method_nested_direct(klass, mid, fn, direct, arity, kind, meta, cref)
+    Machine.store64(zr_direct_pending(), 0, Machine.word(direct))
+    zr_define_method_nested(klass, mid, fn, arity, kind, meta, cref)
+  end
+
   #: () -> ptr
   def zr_direct_pending
     Machine.static(:direct_pending, 8)
