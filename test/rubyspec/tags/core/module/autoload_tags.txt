@@ -1,3 +1,2 @@
-fails:Module#autoload shares the autoload request across dup'ed copies of modules
 fails:Module#autoload during the autoload after the constant is assigned returns the real constant location in autoload thread and returns the autoload location in other threads for Module#const_source_location
 fails:Module#autoload (concurrently) blocks others threads while doing an autoload
