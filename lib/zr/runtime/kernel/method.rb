@@ -237,6 +237,37 @@ module Zr::Kern
     zr_invoke(e, RMethod[m].recv, argc, argv, blk, zr_kw_take())
   end
 
+  # A send that a core method makes for the program that called it, as
+  # rb_funcall makes it in C: Class#new sends `initialize`, include sends
+  # `append_features`, and the hooks. A C method that it reaches fires
+  # :c_call and :c_return, as vm_call0 fires them, when the program
+  # called the core method.
+  #: (value, word, word, ptr, value) -> value
+  def zr_send_for_caller(recv, mid, argc, argv, blk)
+    top = Task[zr_task()].top
+    rec = top
+    while rec != 0 && !zr_trace_program_frame_p(rec)
+      rec = Frame[rec].prev
+    end
+    # With the program's frame on top, the send fires the events itself.
+    if zr_trace_sends_p() && rec != top && zr_trace_program_frame_p(rec)
+      e = zr_find_method(zr_box_view(zr_class_of(recv)), mid)
+      if e != 0 && zr_trace_c_entry_p(e)
+        return zr_trace_send_invoke(e, recv, mid, argc, argv, blk, zr_kw_take(), TRACE_C_CALL)
+      end
+    end
+    zr_send_blk(recv, mid, argc, argv, blk)
+  end
+
+  # `Primitive.zr_funcall_m(recv, name, arg)`: the core's send of one
+  # argument by name, as rb_funcall makes it (zr_send_for_caller).
+  #: (value, value, value) -> value
+  def zr_funcall_m(recv, name, arg)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(arg))
+    zr_send_for_caller(recv, zr_sym2id(name), 1, slot, Machine.value(QNIL))
+  end
+
   # Where `super` in a Method's body starts: its owner, except for a
   # refinement's method, whose owner is the refined class once bound. Its
   # `super` finds the method that the refinement overrides.

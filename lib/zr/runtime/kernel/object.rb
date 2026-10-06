@@ -728,7 +728,7 @@ module Zr::Kern
   def zr_class_new_instance(recv, argc, argv, cref, blk)
     o = zr_class_new_object(recv)
     return o if o == QUNDEF
-    r = zr_send_blk(o, Machine.id(:initialize), argc, argv, blk)
+    r = zr_send_for_caller(o, Machine.id(:initialize), argc, argv, blk)
     return r if r == QUNDEF
     o
   end
@@ -740,7 +740,7 @@ module Zr::Kern
   def zr_class_new_program(klass, args)
     o = zr_class_new_object(klass)
     return o if o == QUNDEF
-    r = zr_send_blk(o, Machine.id(:initialize), RArray[args].len, RArray[args].ptr, Machine.value(QNIL))
+    r = zr_send_for_caller(o, Machine.id(:initialize), RArray[args].len, RArray[args].ptr, Machine.value(QNIL))
     return r if r == QUNDEF
     o
   end
@@ -1114,7 +1114,7 @@ module Zr::Kern
       zr_buf_byte(b, 62)
       return zr_buf_take_at(b, ENC_BINARY)
     end
-    filter = zr_send(recv, Machine.id(:instance_variables_to_inspect), 0, 0)
+    filter = zr_send_for_caller(recv, Machine.id(:instance_variables_to_inspect), 0, 0, Machine.value(QNIL))
     if filter == QUNDEF
       zr_buf_free(b)
       return filter

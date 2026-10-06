@@ -44,9 +44,9 @@ class Module
     while i >= 0
       # By name, as rb_funcall calls them: a module with a `send` of its
       # own (REXML::Functions) does not intercept the hooks.
-      modules[i].__send__(splice, self)
+      Primitive.zr_funcall_m(modules[i], splice, self)
       Primitive.zr_warn_prepended_operators(self) if splice == :prepend_features
-      modules[i].__send__(hook, self)
+      Primitive.zr_funcall_m(modules[i], hook, self)
       i -= 1
     end
     self

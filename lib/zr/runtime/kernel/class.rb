@@ -478,7 +478,7 @@ module Zr::Kern
     end
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(arg))
-    zr_send(recv, mid, 1, slot)
+    zr_send_for_caller(recv, mid, 1, slot, Machine.value(QNIL))
   end
 
   # Whether the method that answers hook `mid` on `recv` is the program's
@@ -550,7 +550,7 @@ module Zr::Kern
       end
       slot = Machine.slot(8)
       Machine.store64(slot, 0, Machine.word(recv))
-      r = zr_send(m, Machine.id(:extend_object), 1, slot)
+      r = zr_send_for_caller(m, Machine.id(:extend_object), 1, slot, Machine.value(QNIL))
       return r if r == QUNDEF
       r = zr_hook(m, Machine.id(:extended), recv)
       return r if r == QUNDEF

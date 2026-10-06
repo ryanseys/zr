@@ -151,8 +151,14 @@ module Zr::Kern
   # The event after the call has nil when the call raises.
   #: (ptr, value, word, word, ptr, value, word, word) -> value
   def zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, before)
+    zr_trace_owned_invoke(e, zr_method_owner(zr_box_view(zr_class_of(recv)), mid), recv, argc, argv, blk, kw, before)
+  end
+
+  # The same, for an entry of `owner`, which `super` finds above the
+  # receiver's own method.
+  #: (ptr, value, value, word, ptr, value, word, word) -> value
+  def zr_trace_owned_invoke(e, owner, recv, argc, argv, blk, kw, before)
     after = before * 2
-    owner = zr_method_owner(zr_box_view(zr_class_of(recv)), mid)
     events = Machine.load64(Machine.static(:trace_events, 8), 0)
     if (events & before) != 0
       r = zr_trace_c_send(before, e, owner, recv, Machine.value(QNIL))
@@ -163,6 +169,12 @@ module Zr::Kern
       return value
     end
     t = zr_task()
+    # A `raise` fired its :c_return before it raised (zr_trace_raise_jump).
+    jumped = Machine.static(:raise_jumped, 16)
+    if value == QUNDEF && Machine.load64(jumped, 0) == Machine.word(t) && Machine.load64(jumped, 8) == Machine.word(Task[t].top)
+      Machine.store64(jumped, 0, 0)
+      return value
+    end
     kind = Task[t].pending_kind
     pending = Task[t].pending
     r = zr_trace_c_send(after, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value)

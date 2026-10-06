@@ -526,7 +526,44 @@ module Zr::Kern
       return r if r == QUNDEF
       RException[e].cause = cause == e ? Machine.value(QNIL) : cause
     end
+    r = zr_trace_raise_jump(e)
+    return r if r == QUNDEF
     zr_raise_from(e, top)
+  end
+
+  # rb_raise_jump: a `raise` that the program called leaves its own frame
+  # before it raises, so its :c_return fires before the :raise event, and
+  # rb_get_backtrace fires :c_call and :c_return of `backtrace` between
+  # them. The unwind then fires no second :c_return (zr_trace_send_invoke).
+  #: (value) -> value
+  def zr_trace_raise_jump(e)
+    t = zr_task()
+    rec = Task[t].top
+    if !zr_trace_sends_p() || rec == 0 || !zr_trace_program_frame_p(Frame[rec].prev)
+      return Machine.value(QNIL)
+    end
+    entry = Frame[rec].entry
+    events = Machine.load64(Machine.static(:trace_events, 8), 0)
+    if (events & TRACE_C_RETURN) != 0
+      owner = zr_method_owner(zr_box_view(zr_class_of(Frame[rec].self)), MEntry[entry].mid)
+      r = zr_trace_c_send(TRACE_C_RETURN, entry, owner, Frame[rec].self, Machine.value(QNIL))
+      return r if r == QUNDEF
+    end
+    Machine.store64(Machine.static(:raise_jumped, 16), 0, Machine.word(t))
+    Machine.store64(Machine.static(:raise_jumped, 16), 8, Machine.word(Frame[rec].prev))
+    bt = zr_find_method(zr_class_of(e), Machine.id(:backtrace))
+    if bt != 0 && MEntry[bt].core != 0 && zr_trace_c_entry_p(bt)
+      owner = zr_method_owner(zr_class_of(e), Machine.id(:backtrace))
+      if (events & TRACE_C_CALL) != 0
+        r = zr_trace_c_send(TRACE_C_CALL, bt, owner, e, Machine.value(QNIL))
+        return r if r == QUNDEF
+      end
+      if (events & TRACE_C_RETURN) != 0
+        r = zr_trace_c_send(TRACE_C_RETURN, bt, owner, e, Machine.value(QNIL))
+        return r if r == QUNDEF
+      end
+    end
+    Machine.value(QNIL)
   end
 
   # rb_make_exception: the exception of `raise`'s 1 to 3 arguments. A
@@ -538,13 +575,19 @@ module Zr::Kern
       return zr_wrong_arity_range(argc, 0, 3)
     end
     first = Machine.value(Machine.load64(argv, 0))
+    # A String alone is the message of a new RuntimeError, which
+    # rb_exc_new_str makes with `new`, so its `initialize` runs.
     if !zr_special_p(first) && zr_type(first) == T_STRING && argc == 1
-      return zr_exc_new(zr_global(G_RUNTIME_ERROR), first)
+      e = zr_class_new_object(zr_global(G_RUNTIME_ERROR))
+      return e if e == QUNDEF
+      r = zr_send_for_caller(e, Machine.id(:initialize), 1, argv, Machine.value(QNIL))
+      return r if r == QUNDEF
+      return e
     end
     if zr_find_method(zr_class_of(first), Machine.id(:exception)) == 0
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception class/object expected"), 31)
     end
-    e = zr_send(first, Machine.id(:exception), argc > 1 ? 1 : 0, argv + 8)
+    e = zr_send_for_caller(first, Machine.id(:exception), argc > 1 ? 1 : 0, argv + 8, Machine.value(QNIL))
     return e if e == QUNDEF
     if zr_special_p(e) || zr_type(e) != T_EXCEPTION
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)

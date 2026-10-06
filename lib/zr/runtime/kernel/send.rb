@@ -585,7 +585,8 @@ module Zr::Kern
     # filled for, under the method stamp, as for a send. The callee reads
     # the keywords that the site set.
     t = zr_task()
-    if cc != 0 && k != QNIL && SuperCache[cc].node == k && SuperCache[cc].mid == mid && SuperCache[cc].stamp == Machine.load64(Machine.static(:mcache_stamp, 8), 0) && Task[t].refine == QNIL
+    traced = zr_trace_sends_p() && zr_trace_program_frame_p(rec)
+    if cc != 0 && !traced && k != QNIL && SuperCache[cc].node == k && SuperCache[cc].mid == mid && SuperCache[cc].stamp == Machine.load64(Machine.static(:mcache_stamp, 8), 0) && Task[t].refine == QNIL
       return Method.call(SuperCache[cc].fn, recv, argc, argv, SuperCache[cc].entry, blk, SuperCache[cc].found)
     end
     kw = zr_kw_take()
@@ -612,7 +613,17 @@ module Zr::Kern
       SuperCache[cc].found = zr_entry_found(e)
       SuperCache[cc].fn = zr_entry_fn(e)
     end
-    r = zr_invoke(e, recv, argc, argv, blk, kw)
+    # A super from the program into a C method fires :c_call and
+    # :c_return, with the class that has the method.
+    if traced && zr_trace_c_entry_p(e)
+      above = Task[t].found
+      if !zr_special_p(above) && zr_type(above) == T_ICLASS
+        above = RClass[above].attached
+      end
+      r = zr_trace_owned_invoke(e, above, recv, argc, argv, blk, kw, TRACE_C_CALL)
+    else
+      r = zr_invoke(e, recv, argc, argv, blk, kw)
+    end
     # The site activated the refinements for this super only.
     Task[t].refine = Machine.value(QNIL)
     r
