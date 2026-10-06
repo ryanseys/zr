@@ -1,0 +1,12 @@
+[ArgumentError, "wrong exec option symbol: rlimit_NOFILE"]
+[ArgumentError, "wrong exec rlimit option"]
+[ArgumentError, "cyclic child fd redirection from 1"]
+[ArgumentError, "cyclic child fd redirection from 4"]
+[ArgumentError, "child fd 3 is not redirected"]
+[ArgumentError, "fd 1 specified twice"]
+[ArgumentError, "fd 0 specified twice"]
+""
+[ArgumentError, "duplex IO redirection"]
+[ArgumentError, "duplex IO redirection"]
+"A=B\n"
+"errout"

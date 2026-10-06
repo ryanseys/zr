@@ -121,6 +121,8 @@ module Process
       # one of the three comes later and wins.
       @dups = [0, 0, 1, 1, 2, 2]
       @child_dups = []
+      # The child's descriptors that an option names, each at most once.
+      @named = []
       @closes = []
       @opened = []
       @chdir = nil
@@ -130,7 +132,7 @@ module Process
       @umask = -1
       @limits = []
       options.each { |key, value| add(key, value) }
-      @dups = ordered(@dups) + @child_dups
+      @dups = ordered(@dups) + children
     end
 
     # Whether an option needs what only a forked child can do before
@@ -180,8 +182,9 @@ module Process
 
     # rb_execarg_addopt_rlimit: one limit for both, or [soft, hard].
     def add_limit(key, value)
-      name = key.name.delete_prefix("rlimit_").upcase
-      resource = RLIMITS.fetch(name) { raise ArgumentError, "wrong exec option symbol: #{key}" }
+      lower = key.name.delete_prefix("rlimit_")
+      # rlimit_type_by_lname: the name is in lower case.
+      resource = (RLIMITS[lower.upcase] if lower == lower.downcase) or raise ArgumentError, "wrong exec option symbol: #{key}"
       limits = Array.try_convert(value)
       soft, hard = if limits.nil? then [value, value]
                    elsif limits.size == 1 then [limits[0], limits[0]]
@@ -196,7 +199,7 @@ module Process
       case key
       when Integer then [key]
       when Symbol then [STREAMS.fetch(key) { raise ArgumentError, "wrong exec option symbol: #{key.inspect}" }]
-      when IO then [key.fileno]
+      when IO then [undivided(key).fileno]
       when Array then key.map { |one| descriptors(one) }.flatten(1)
       else raise ArgumentError, "wrong exec option: #{key.inspect}"
       end
@@ -207,7 +210,7 @@ module Process
       when Integer then dup2(fd, value)
       when :close then @closes << fd
       when Symbol then dup2(fd, STREAMS.fetch(value) { raise ArgumentError, "wrong exec redirect symbol: #{value.inspect}" })
-      when IO then dup2(fd, value.fileno)
+      when IO then dup2(fd, undivided(value).fileno)
       when String then open_file(fd, value, nil, nil)
       when Array then from_array(fd, value)
       else
@@ -221,13 +224,49 @@ module Process
     # redirects, so these pairs come last, in the order the options list
     # them (run_exec_dup2_child).
     def from_array(fd, value)
-      return @child_dups << fd << descriptors(value[1]).first if value.first == :child
+      return @child_dups << named(fd) << descriptors(value[1]).first if value.first == :child
 
       open_file(fd, value[0], value[1], value[2])
     end
 
     def dup2(fd, source)
-      @dups << fd << source
+      @dups << named(fd) << source
+    end
+
+    # check_exec_redirect_fd: an option names each child descriptor once.
+    def named(fd)
+      raise ArgumentError, "fd #{fd} specified twice" if @named.include?(fd)
+
+      @named << fd
+      fd
+    end
+
+    # A duplex popen stream has two descriptors, so it names none.
+    def undivided(io)
+      raise ArgumentError, +"duplex IO redirection" if Primitive.zr_hidden_get(io, :twin)
+
+      io
+    end
+
+    # check_exec_fds: a `[:child, fd]` pair copies what the child's `fd`
+    # ends as, through a chain of them, after the other pairs. A chain
+    # that comes back is cyclic, and one that ends at a descriptor no
+    # other option names copies nothing.
+    def children
+      chains = @child_dups.each_slice(2).to_h
+      chains.flat_map do |to, first|
+        from = first
+        seen = [to]
+        while chains.key?(from)
+          raise ArgumentError, "cyclic child fd redirection from #{first}" if seen.include?(from)
+
+          seen << from
+          from = chains[from]
+        end
+        raise ArgumentError, "child fd #{from} is not redirected" unless @named.include?(from) && !chains.key?(from)
+
+        [to, from]
+      end
     end
 
     # run_exec_dup2: the pairs in an order where no dup2 replaces a
