@@ -253,10 +253,13 @@ class Thread
     # the thread is finishing: queued, it would come back alive. Nor is
     # one that lands after a wait began and before its switch: the
     # thread sleeps already, and queued it would run with its deadline
-    # still standing.
+    # still standing. The finalizers that a collection queued run here,
+    # past these checks, since one may wait for another thread; one that
+    # finds a check failing waits for the timer's next tick.
     def preempt
       return nil if @switching || @atomic || Primitive.zr_hidden_get(@current, :status) != :run
 
+      Primitive.zr_finalizers_due
       wake_due
       return nil if @queue.empty?
 

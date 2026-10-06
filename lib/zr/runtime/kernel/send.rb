@@ -1016,9 +1016,11 @@ module Zr::Kern
   end
 
   # Runs a requested safe point. It resets the poll word and the count,
-  # runs the handlers of POSIX signals that arrived, and runs the
-  # finalizers that a collection queued. Then, if a second thread set up
-  # preemption, it yields to the scheduler.
+  # and runs the handlers of POSIX signals that arrived. Then, if a
+  # second thread set up preemption, it yields to the scheduler, which
+  # runs the finalizers that a collection queued where a thread may
+  # switch: a finalizer can wait for another thread. Else it runs them
+  # here.
   #: () -> value
   def zr_preempt_expired
     Machine.store64(zr_poll_slot(), 0, 0)
@@ -1026,14 +1028,20 @@ module Zr::Kern
     if zr_trap_check() == QUNDEF
       return Machine.value(QUNDEF)
     end
-    if WeakList[zr_finalizer_queue()].len > 0 && zr_finalizers_run() == QUNDEF
-      return Machine.value(QUNDEF)
-    end
     mid = Machine.load64(Machine.static(:preempt_mid, 8), 0)
     if mid == 0
-      return Machine.value(QNIL)
+      return zr_finalizers_due()
     end
     zr_preempt_send(mid)
+  end
+
+  # Runs the finalizers that a collection queued, if any.
+  #: () -> value
+  def zr_finalizers_due
+    if WeakList[zr_finalizer_queue()].len > 0
+      return zr_finalizers_run()
+    end
+    Machine.value(QNIL)
   end
 
   # Yields to the scheduler through the receiver that Thread set. It never
