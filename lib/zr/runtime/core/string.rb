@@ -4820,12 +4820,24 @@ class Encoding
   end
 
   def self.find(name)
+    found = lookup(name) { |message| message }
+    raise ArgumentError, found if found.is_a?(String)
+
+    found
+  end
+
+  # The encoding that `name` names. For a name that names none, the block
+  # gets the message of find's ArgumentError and gives the result, so the
+  # core asks about a name without a raise (which a trace would see).
+  def self.lookup(name)
+    Primitive.attr! :hidden
     return name if name.is_a?(Encoding)
 
     text = String.try_convert(name)
     raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
     # rb_to_encoding_index: a name must be in an ASCII-compatible encoding.
-    raise ArgumentError, +"invalid encoding name (non ASCII)" unless text.encoding.ascii_compatible?
+    return yield(+"invalid encoding name (non ASCII)") unless text.encoding.ascii_compatible?
+
     if text.ascii_only?
       key = text.upcase(:ascii)
       # These follow the defaults: each is whatever its default is, nil too.
@@ -4842,8 +4854,9 @@ class Encoding
     end
     return found.send(:load) if found
 
-    raise ArgumentError, "unknown encoding name - #{text}"
+    yield "unknown encoding name - #{text}"
   end
+  private_class_method :lookup
 
   # Each name of an encoding, as written and upper-cased, mapped to the
   # first encoding in the list that has it. This makes a lookup by an
@@ -4865,11 +4878,7 @@ class Encoding
   # finds none.
   def self.pair(source, target)
     Primitive.attr! :hidden
-    ends = [source, target].map do |name|
-      find(name)
-    rescue ArgumentError
-      nil
-    end
+    ends = [source, target].map { |name| lookup(name) { nil } }
     return ends if ends.all?
 
     names = [source, target].zip(ends).map { |name, found| found ? found.name : name.to_s }

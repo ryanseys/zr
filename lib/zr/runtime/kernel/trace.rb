@@ -272,19 +272,31 @@ module Zr::Kern
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_RAISE) == 0 || top == 0
       return Machine.value(QNIL)
     end
+    # The core's frames have no file. The one that the program called
+    # (`outer`) is the C method that raised, as CRuby's raise event names
+    # it, with the program's file and line.
     rec = top
-    if FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN
+    outer = Machine.ptr(0)
+    while rec != 0 && (Frame[rec].meta == 0 || FrameMeta[Frame[rec].meta].file_len == 0)
       # A method that CRuby writes in Ruby raises from its own file, which
       # is not a program file.
-      if FrameMeta[Frame[rec].meta].ruby != 0
+      if Frame[rec].meta != 0 && FrameMeta[Frame[rec].meta].ruby != 0
         return Machine.value(QNIL)
       end
+      outer = rec
       rec = Frame[rec].prev
     end
-    if rec == 0 || FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN
+    if rec == 0 || FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN || FrameMeta[Frame[rec].meta].hidden != 0
       return Machine.value(QNIL)
     end
-    zr_trace_send(rec, TRACE_RAISE, exc)
+    # Kernel#raise leaves its own frame before it raises (rb_raise_jump),
+    # so its event is the caller's.
+    e = outer == 0 ? Machine.ptr(0) : Frame[outer].entry
+    if e == 0 || MEntry[e].fn == Machine.addr(:zr_kernel_raise)
+      return zr_trace_send(rec, TRACE_RAISE, exc)
+    end
+    self_ = Frame[outer].self
+    zr_trace_c_send(TRACE_RAISE, e, zr_method_owner(zr_box_view(zr_class_of(self_)), MEntry[e].mid), self_, exc)
   end
 
   # Fires `:rescue` when a rescue clause starts, from the frame of the
@@ -451,7 +463,8 @@ module Zr::Kern
   # handlers run, as in zr_trace_fire, and is restored after them.
   #: (value, value, word) -> value
   def zr_trace_fiber_switched(v, recv, mid)
-    if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_FIBER_SWITCH) == 0
+    events = Machine.load64(Machine.static(:trace_events, 8), 0)
+    if (events & (TRACE_FIBER_SWITCH | TRACE_RAISE)) == 0
       return v
     end
     t = zr_task()
@@ -460,8 +473,17 @@ module Zr::Kern
     if v == QUNDEF
       Task[t].pending = Machine.value(QNIL)
     end
-    r = zr_trace_fiber_switch(recv, mid)
-    return r if r == QUNDEF
+    if (events & TRACE_FIBER_SWITCH) != 0
+      r = zr_trace_fiber_switch(recv, mid)
+      return r if r == QUNDEF
+    end
+    # An exception that comes with the switch (Fiber#raise, or the end of
+    # a fiber that raised) raises again in the fiber that gets control,
+    # which fires :raise there.
+    if v == QUNDEF && kind == PENDING_RAISE
+      r = zr_trace_raise(pending, Task[t].top)
+      return r if r == QUNDEF
+    end
     if v == QUNDEF
       Task[t].pending_kind = kind
       Task[t].pending = pending

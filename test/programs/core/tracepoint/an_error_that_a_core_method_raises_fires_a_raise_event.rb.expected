@@ -1,0 +1,13 @@
+[IndexError, 8, :fetch]
+[KeyError, 9, :fetch]
+[RuntimeError, 10, nil]
+[Encoding::ConverterNotFoundError, 11, :encode]
+[StopIteration, 12, nil]
+[StopIteration, 14, :next]
+[:fiber_switch, :f]
+[:fiber_switch, :main]
+[:fiber_switch, :f]
+[:raise, :f]
+[:fiber_switch, :main]
+[:raise, :main]
+:rescued

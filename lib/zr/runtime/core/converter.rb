@@ -680,9 +680,7 @@ class Encoding
       return value.name if value.is_a?(Encoding)
 
       text = Converter.send(:string_of, value)
-      Encoding.find(text).name
-    rescue ArgumentError
-      text
+      Encoding.send(:lookup, text) { return text }.name
     end
 
     def self.string_of(value)
@@ -696,9 +694,7 @@ class Encoding
     # The encoding called `name`, or nil (make_encobj).
     def self.encoding_named(name)
       Primitive.attr! :hidden
-      Encoding.find(name)
-    rescue ArgumentError
-      nil
+      Encoding.send(:lookup, name) { nil }
     end
 
     # econv_description.
