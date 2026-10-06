@@ -18,6 +18,9 @@ class Thread
   # which the scheduler polls when no thread can run.
   @io_waiters = []
   Primitive.zr_undef_alloc(self)
+  # rb_uninterruptible's mask: every interrupt waits.
+  UNINTERRUPTIBLE = { Object => :never }.freeze
+  private_constant :UNINTERRUPTIBLE
 
   # The scheduler's state is Thread's own: a subclass that reads it
   # reads Thread's.
@@ -123,6 +126,21 @@ class Thread
     end
 
     def pending_interrupt?(error = nil) = current.pending_interrupt?(error)
+
+    # rb_uninterruptible: the block runs with every interrupt held back,
+    # and after it only those that need no blocking call arrive.
+    def uninterruptible
+      Primitive.attr! :hidden
+      return yield unless Primitive.zr_threaded
+
+      thread = current
+      thread.send(:push_mask, UNINTERRUPTIBLE)
+      begin
+        yield
+      ensure
+        thread.send(:pop_mask)
+      end
+    end
 
     # Where a call that can block starts, as blocking_region_begin: an
     # exception that waits for a blocking call (:on_blocking) arrives.

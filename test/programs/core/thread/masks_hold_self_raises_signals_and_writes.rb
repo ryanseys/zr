@@ -99,3 +99,25 @@ begin
 rescue Interrupt => x
   p x.class
 end
+
+# ... but `p` is uninterruptible, so it is no blocking point.
+waiting = true
+started = Thread::Queue.new
+t = Thread.new do
+  Thread.current.report_on_exception = false
+  Thread.handle_interrupt(RuntimeError => :on_blocking) do
+    started << true
+    nil while waiting
+    p :written
+    p :written_too
+  end
+end
+started.pop
+t.raise RuntimeError, "after p"
+waiting = false
+p(begin
+  t.join
+  :no_raise
+rescue RuntimeError => x
+  x.message
+end)

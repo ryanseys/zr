@@ -1651,6 +1651,20 @@ class IO
   #
   # One `write` per object, with the object as it is: `write` calls its
   # `to_s`, so an object whose `to_s` raises stops the rest after what came before.
+  # Each object's inspect (or each line, `inspect` false) on its own
+  # line, then a flush, as `p` writes.
+  def self.p_to(out, objects, inspect)
+    Primitive.attr! :hidden
+    i = 0
+    while i < Primitive.zr_ary_len_m(objects)
+      line = Primitive.zr_ary_at_m(objects, i)
+      out.write(inspect ? line.inspect : line, "\n")
+      i += 1
+    end
+    out.send(:flushed) if out.is_a?(IO)
+  end
+  private_class_method :p_to
+
   def self.print_to(out, objects)
     Primitive.attr! :hidden
     objects = [$_] if objects.empty?
@@ -3000,14 +3014,16 @@ module Kernel
   # Alone among the writers, `p` flushes: CRuby's rb_f_p ends with
   # `rb_io_flush` when `$stdout` is an IO, so what `p` wrote survives
   # an `exit!` while what `puts` or `print` wrote does not.
+  # rb_f_p: the writes and the flush are uninterruptible, so `p` is no
+  # blocking point for handle_interrupt.
   def p(*objects)
-    out = $stdout
-    i = 0
-    while i < Primitive.zr_ary_len_m(objects)
-      out.write(Primitive.zr_ary_at_m(objects, i).inspect, "\n")
-      i += 1
+    if Primitive.zr_threaded
+      # Only the writes are held back; each inspect runs before them.
+      shown = objects.map(&:inspect)
+      Thread.send(:uninterruptible) { IO.send(:p_to, $stdout, shown, false) }
+    else
+      IO.send(:p_to, $stdout, objects, true)
     end
-    out.send(:flushed) if out.is_a?(IO)
     Primitive.zr_ary_len_m(objects) <= 1 ? Primitive.zr_ary_at_m(objects, 0) : objects
   end
 
