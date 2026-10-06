@@ -470,15 +470,12 @@ module Marshal
       linked(n, 0)
     end
 
+    # The magnitude as 16-bit words, the lowest first: its hexadecimal
+    # digits, packed and turned, in time linear in its length.
     def bignum(n)
-      words = []
-      rest = n.abs
-      while rest > 0
-        words << (rest & 0xffff)
-        rest >>= 16
-      end
-      words << 0 if words.empty?
-      (n < 0 ? "-" : "+") + long(words.size) + words.pack("v*")
+      hex = n.abs.to_s(16)
+      words = [hex.rjust((hex.bytesize + 3) / 4 * 4, "0")].pack("H*").reverse
+      (n < 0 ? "-" : "+") + long(words.bytesize / 2) + words
     end
 
     def bytes(text)
@@ -1216,11 +1213,15 @@ module Marshal
       value
     end
 
+    # The words, turned and read as hexadecimal digits.
     def bignum
       sign = byte.chr
-      words = length
-      value = 0
-      words.times { |i| value |= (byte | (byte << 8)) << (16 * i) }
+      size = length * 2
+      need(size) if @io
+      words = @bytes.byteslice(@pos, size)
+      short! if words.nil? || words.bytesize < size
+      @pos += size
+      value = words.reverse.unpack1("H*").to_i(16)
       sign == "-" ? -value : value
     end
 

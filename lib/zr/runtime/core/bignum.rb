@@ -34,6 +34,8 @@ class Integer
       Primitive.attr! :hidden
       neg = text.start_with?("-")
       digits = text.delete("-+_")
+      return big_parse_bits(digits, base, neg) if (base & (base - 1)).zero?
+
       chunk = 1
       per = 0
       while chunk * base < LIMB_BASE
@@ -51,6 +53,31 @@ class Integer
         mag = big_add_mag(big_mul_small_mag(mag, chunk), big_limbs_of(digits[i, per].to_i(base)))
         i += per
       end
+      big_build(neg, mag)
+    end
+
+    # The limbs of digits in a base that is a power of two, from the last
+    # digit's bits up: linear in the length, where a product for each
+    # chunk takes the square of it.
+    def big_parse_bits(digits, base, neg)
+      Primitive.attr! :hidden
+      width = base.bit_length - 1
+      mag = []
+      acc = 0
+      held = 0
+      i = digits.bytesize - 1
+      while i >= 0
+        b = digits.getbyte(i)
+        acc |= (b <= 57 ? b - 48 : (b | 32) - 87) << held
+        held += width
+        if held >= LIMB_BITS
+          mag << (acc & LIMB_MASK)
+          acc >>= LIMB_BITS
+          held -= LIMB_BITS
+        end
+        i -= 1
+      end
+      mag << acc if acc.positive?
       big_build(neg, mag)
     end
 
@@ -425,7 +452,7 @@ class Integer
     end
   end
 
-  private_class_method :big_from_word, :big_from_float, :big_parse, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_mul, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_to_f, :big_shift, :big_cmp_float
+  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_mul, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
 
   # The kernel's route for a fixnum builtin whose receiver or operand
   # is a bignum: `op` is the builtin's name, `args` its arguments.

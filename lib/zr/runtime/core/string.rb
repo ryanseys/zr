@@ -2740,6 +2740,8 @@ class String
     end
     base = -base if base < 0
     value = 0
+    count = 0
+    from = i
     seen = false
     while i < text.bytesize
       b = text.getbyte(i)
@@ -2754,10 +2756,13 @@ class String
               end
       break if digit >= base
 
-      value = value * base + digit
+      value = value * base + digit if (count += 1) <= 15
       seen = true
       i += 1
     end
+    # A long run of digits converts at once: a product for each digit
+    # would take the square of the length.
+    value = Integer.send(:big_parse, text.byteslice(from, i - from), base) if count > 15
     sign * value
   end
 
