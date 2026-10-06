@@ -119,7 +119,15 @@ module Zr::Kern
     # end. Then the EXIT trap runs, because rb_vm_trap_exit runs before
     # the at_exit handlers.
     status = zr_program_end_hook(zr_send(zr_global(G_FIBER), Machine.id(:finalize_scheduler), 0, 0), status, exc)
-    status = zr_program_end_hook(zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:exit_trap), 0, 0), status, exc)
+    # An error in the trap is the program's error from then on: it is
+    # printed after the handlers, as errinfo is at the end of
+    # rb_ec_cleanup.
+    if zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:exit_trap), 0, 0) == QUNDEF
+      exc = Task[zr_task()].pending
+      Task[zr_task()].pending = Machine.value(QNIL)
+      status = zr_system_exit_p(exc) ? zr_exit_status(exc) : 1
+      zr_errinfo_set(exc)
+    end
     hooks = zr_global(G_AT_EXIT)
     if !zr_special_p(hooks)
       while RArray[hooks].len > 0
@@ -178,6 +186,14 @@ module Zr::Kern
     end
     # error_handle prints no POSIX signal other than Interrupt.
     signo = zr_signal_of(raised)
+    if zr_is_a(raised, zr_core_class(Machine.id(:LocalJumpError)))
+      text = zr_send(raised, Machine.id(:exit_report), 0, 0)
+      if text != QUNDEF && !zr_special_p(text) && zr_type(text) == T_STRING
+        zr_write_stderr(text)
+        return 1
+      end
+      Task[zr_task()].pending = Machine.value(QNIL)
+    end
     if signo == 0 || zr_is_a(raised, zr_core_class(Machine.id(:Interrupt)))
       zr_error_print_upto(raised, seen == QNIL ? exc : seen)
     end

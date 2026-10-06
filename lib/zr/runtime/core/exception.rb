@@ -553,6 +553,16 @@ class LocalJumpError
   def exit_value = Primitive.zr_hidden_get(self, :@exit_value)
 
   def reason = Primitive.zr_hidden_get(self, :@reason)
+
+  # error_handle: a `return` that leaves an END block or an at_exit
+  # handler is no exception in ruby (TAG_RETURN), and ruby reports it as
+  # the file and "unexpected return". Any other jump is nil.
+  def exit_report
+    Primitive.attr! :hidden
+    return unless reason == :return
+
+    "#{backtrace_locations&.first&.path}: unexpected return\n"
+  end
 end
 
 class SignalException

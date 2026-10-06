@@ -1,0 +1,5 @@
+core/kernel/a_return_in_an_end_block_is_reported_as_unexpected.rb: unexpected return
+core/kernel/a_return_in_an_end_block_is_reported_as_unexpected.rb:3:in 'block (2 levels) in <main>': undefined local variable or method 'n' for main (NameError)
+
+END { n }
+      ^

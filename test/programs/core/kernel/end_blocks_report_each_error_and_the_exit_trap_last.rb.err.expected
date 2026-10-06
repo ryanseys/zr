@@ -1,0 +1,3 @@
+core/kernel/end_blocks_report_each_error_and_the_exit_trap_last.rb:5:in 'block (2 levels) in <main>': END2 (RuntimeError)
+core/kernel/end_blocks_report_each_error_and_the_exit_trap_last.rb:4:in 'block (2 levels) in <main>': END1 (RuntimeError)
+core/kernel/end_blocks_report_each_error_and_the_exit_trap_last.rb:3:in 'block in <main>': EXIT (RuntimeError)

@@ -452,6 +452,12 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     ::Zr::Eval.current.compile_file(path)
   end
 
+  # `END { }` runs this block once, and it registers the body.
+  def self.post_exe
+    Primitive.attr! :hidden
+    yield
+  end
+
   def at_exit(&block)
     raise ArgumentError, +"called without a block" unless block
 
