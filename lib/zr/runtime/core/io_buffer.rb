@@ -98,20 +98,26 @@ class IO
     # `for` shares the String's bytes. Without a block the window is
     # read-only; with one it is writable for the length of the block.
     def self.for(string)
+      announce
       string = Primitive.zr_str_operand(string)
       buffer = allocate
       buffer.send(:external, string, !block_given? || string.frozen?)
       return buffer unless block_given?
 
+      # io_buffer_for_yield: the String is locked while the block has it.
+      locked = !string.frozen?
+      Primitive.zr_str_locktmp_m(string) if locked
       begin
         yield buffer
       ensure
         buffer.free
+        Primitive.zr_str_unlocktmp_m(string) if locked
       end
     end
 
     # The String a block filled, which is how ruby builds one.
     def self.string(length)
+      announce
       text = "\0".b * length
       self.for(text) { |buffer| yield buffer }
       text

@@ -1,0 +1,1 @@
+core/io/a_string_that_io_buffer_for_lends_is_locked.rb:15: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!

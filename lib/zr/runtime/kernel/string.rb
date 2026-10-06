@@ -264,6 +264,10 @@ module Zr::Kern
   # Raises `can't modify frozen String: "abc"`.
   #: (value) -> value
   def zr_frozen_error(v)
+    # str_modifiable: a locked String that is not frozen says so.
+    if !zr_special_p(v) && (RBasic[v].flags & (FL_LOCKED | FL_FREEZE)) == FL_LOCKED && (RBasic[v].flags & T_MASK) == T_STRING
+      return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("can't modify string; temporarily locked"), 39)
+    end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("can't modify frozen "), 20)
@@ -2099,7 +2103,7 @@ module Zr::Kern
   def zr_modify_frozen_p(v)
     if zr_special_p(v)
       true
-    elsif (RBasic[v].flags & T_MASK) == T_STRING && (RBasic[v].flags & (FL_CHILLED | FL_CHILLED_SYMBOL | FL_SNAPSHOT)) != 0
+    elsif (RBasic[v].flags & T_MASK) == T_STRING && (RBasic[v].flags & (FL_CHILLED | FL_CHILLED_SYMBOL | FL_SNAPSHOT | FL_LOCKED)) != 0
       zr_str_modify_marked_p(v)
     else
       (RBasic[v].flags & FL_FREEZE) != 0
@@ -2119,7 +2123,29 @@ module Zr::Kern
     if (flags & FL_SNAPSHOT) != 0
       RBasic[v].flags = flags & FL_SNAPSHOT_CLEAR
     end
-    (flags & FL_FREEZE) != 0
+    (flags & (FL_FREEZE | FL_LOCKED)) != 0
+  end
+
+  # STR_TMPLOCK: a String that IO::Buffer.for lends to its block (as
+  # rb_str_locktmp marks it) refuses every change until the block ends.
+  FL_LOCKED = 1 << 35
+
+  #: (value) -> value
+  def zr_str_locktmp_m(s)
+    if (RBasic[s].flags & FL_LOCKED) != 0
+      return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("temporal locking already locked string"), 38)
+    end
+    RBasic[s].flags = RBasic[s].flags | FL_LOCKED
+    s
+  end
+
+  #: (value) -> value
+  def zr_str_unlocktmp_m(s)
+    if (RBasic[s].flags & FL_LOCKED) == 0
+      return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("temporal unlocking already unlocked string"), 42)
+    end
+    RBasic[s].flags = RBasic[s].flags & (0 - FL_LOCKED - 1)
+    s
   end
 
   #: (value) -> value

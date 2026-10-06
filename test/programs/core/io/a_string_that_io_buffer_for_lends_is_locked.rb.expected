@@ -1,0 +1,12 @@
+[]=: RuntimeError: can't modify string; temporarily locked
+<<: RuntimeError: can't modify string; temporarily locked
+replace: RuntimeError: can't modify string; temporarily locked
+upcase!: RuntimeError: can't modify string; temporarily locked
+clear: RuntimeError: can't modify string; temporarily locked
+concat: RuntimeError: can't modify string; temporarily locked
+force_encoding: RuntimeError: can't modify string; temporarily locked
+[false, "Hello"]
+"hello World"
+"Frozen"
+true
+"abc"
