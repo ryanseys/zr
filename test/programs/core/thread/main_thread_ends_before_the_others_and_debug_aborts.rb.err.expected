@@ -1,0 +1,2 @@
+Exception 'RuntimeError' at core/thread/main_thread_ends_before_the_others_and_debug_aborts.rb:8 - in thread
+Exception 'RuntimeError' at core/thread/main_thread_ends_before_the_others_and_debug_aborts.rb:13 - in thread

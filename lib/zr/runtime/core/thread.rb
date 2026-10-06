@@ -200,7 +200,7 @@ class Thread
       atomically do
         waiters.each do |thread|
           break if woken >= count
-          next unless thread.status == +"sleep"
+          next unless thread.send(:sleeping?)
 
           thread.wakeup
           woken += 1
@@ -222,6 +222,8 @@ class Thread
     def terminate_all
       Primitive.attr! :hidden
       others = @threads.reject { |thread| thread.equal?(@current) || !thread.alive? }
+      # The main thread is done, as the others' ensure clauses see it.
+      Primitive.zr_hidden_set(@main, :ended, true) if @current.equal?(@main)
       others.each(&:kill)
       others.each do |thread|
         thread.join
@@ -348,11 +350,11 @@ class Thread
       ready = Primitive.zr_io_wait_fds(waiters.map { |fd, _, _| fd }, waiters.map { |_, events, _| events }, left || -1)
       if ready.is_a?(Integer)
         # A descriptor closed under its waiter: every waiter looks again.
-        waiters.each { |_, _, thread| thread.wakeup if thread.status == +"sleep" }
+        waiters.each { |_, _, thread| thread.wakeup if thread.send(:sleeping?) }
         return
       end
       waiters.zip(ready).each do |(_, _, thread), events|
-        thread.wakeup if events.positive? && thread.status == +"sleep"
+        thread.wakeup if events.positive? && thread.send(:sleeping?)
       end
     end
 
@@ -482,13 +484,23 @@ class Thread
     name
   end
 
-  def alive? = @status != :dead
+  # The main thread that has ended its program reads as dead, though it
+  # still waits for the other threads to end (`terminate_all`).
+  def alive? = @status != :dead && !@ended
 
-  def stop? = @status == :dead || @status == :sleep
+  def stop? = @status == :dead || @status == :sleep || @ended == true
+
+  # Whether the scheduler parks this thread, whatever `status` shows.
+  def sleeping?
+    Primitive.attr! :hidden
+    @status == :sleep
+  end
 
   # A killed thread that still runs its ensure clauses is aborting, unless
   # it sleeps there.
   def status
+    return false if @ended
+
     case @status
     when :dead then @exception ? nil : false
     when :sleep then +"sleep"
@@ -858,9 +870,9 @@ class Thread
     # A thread that forked is the child's main thread, so its end ends the
     # child, as the main thread's end does.
     Primitive.zr_proc_child_exit(@exception) if equal?(Thread.main)
-    # thread_do_start: a SystemExit, or any exception under abort_on_exception,
-    # goes on in the main thread.
-    Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception || @exception.is_a?(SystemExit))
+    # thread_do_start: a SystemExit, or any exception under abort_on_exception
+    # or $DEBUG, goes on in the main thread.
+    Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception || $DEBUG || @exception.is_a?(SystemExit))
     Thread.send(:switch)
     Primitive.zr_unimplemented(+"a finished thread that runs again")
   end

@@ -67,7 +67,7 @@ module Process
     return if count == @told_count
 
     @told_count = count
-    waiters.each { |waiter| waiter.wakeup if !waiter.equal?(Thread.current) && waiter.status == +"sleep" }
+    waiters.each { |waiter| waiter.wakeup if !waiter.equal?(Thread.current) && waiter.send(:sleeping?) }
   end
   private_class_method :tell_waiters
 

@@ -279,13 +279,11 @@ module Zr::Kern
     t = zr_task()
     debug = zr_gvar_get(Machine.id(:$DEBUG))
     if debug != QNIL && debug != QFALSE && !zr_is_a(exc, zr_core_class(Machine.id(:SystemExit)))
-      # A backtrace set by hand, or none at all, does not tell where the
-      # raise is.
-      at = exc
-      if RException[exc].rows == 0
-        at = zr_exc_new(zr_core_class(Machine.id(:Exception)), Machine.value(QNIL))
-        zr_backtrace_capture(at, top)
-      end
+      # The report names where this raise is, as rb_source_location does,
+      # not the exception's own backtrace: one raised again elsewhere, or
+      # one sent from another thread, has one from before.
+      at = zr_exc_new(zr_core_class(Machine.id(:Exception)), Machine.value(QNIL))
+      zr_backtrace_capture(at, top)
       arg = Machine.slot(8)
       Machine.store64(arg, 0, Machine.word(at))
       r = zr_send(exc, Machine.id(:debug_report), 1, arg)
