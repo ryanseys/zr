@@ -1,0 +1,1 @@
+core/fiber/a_fork_in_a_fiber_ends_the_child_when_the_fiber_ends.rb:20:in 'block in <main>': boom in child (RuntimeError)

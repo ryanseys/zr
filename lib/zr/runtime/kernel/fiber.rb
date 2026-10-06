@@ -404,6 +404,17 @@ module Zr::Kern
       r = zr_yield(RFiber[cur].blk, RArray[args].len, RArray[args].ptr)
     end
     to = zr_fiber_return_to(cur, 1)
+    # In a forked child the fiber that forked is the root of its thread
+    # (zr_fiber_after_fork). When it ends, the program ends, as the end of
+    # CRuby's root fiber ends the main thread.
+    if to == cur
+      exc = Machine.value(QNIL)
+      if r == QUNDEF
+        exc = Task[zr_task()].pending
+        Task[zr_task()].pending = Machine.value(QNIL)
+      end
+      zr_proc_child_exit(exc)
+    end
     if r == QUNDEF
       t = zr_task()
       Task[RFiber[to].task].pending = Task[t].pending

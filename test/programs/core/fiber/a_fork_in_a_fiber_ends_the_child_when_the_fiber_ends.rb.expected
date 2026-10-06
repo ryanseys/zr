@@ -1,0 +1,13 @@
+ensure in fiber
+at_exit in child
+ensure in fiber
+[:parent, 0]
+at_exit in child
+[:parent2, 1]
+at_exit in child
+[:parent3, 7]
+[:inner, :done]
+:transferred
+at_exit in child
+[:parent4, 0]
+at_exit in parent
