@@ -540,6 +540,7 @@ module Zr::Kern
       r = zr_class_modify_check(recv)
       return r if r == QUNDEF
       mid = Machine.load64(slot, 0)
+      zr_warn_removing(mid)
       klass = zr_origin(recv)
       e = zr_find_method_at(klass, mid)
       if e == 0 || MEntry[e].kind == KIND_UNDEF

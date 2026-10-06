@@ -2037,7 +2037,7 @@ module Zr::Kern
 
   # rb_method_entry_make's warnings about names that ruby itself depends
   # on, whatever $VERBOSE says unless it is nil: four names on Object, and
-  # a def of object_id or __send__ over one that exists.
+  # a def of object_id, __id__ or __send__ over one that exists.
   #: (value, word, word) -> void
   def zr_warn_dangerous(owner, mid, kind)
     # An extension's Ruby part is C in ruby, whose definitions do not warn.
@@ -2054,7 +2054,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" may cause infinite loop"), 24)
       zr_warn_here(Buf[b].ptr, Buf[b].len)
     else
-      if kind == KIND_UNDEF && (mid == Machine.id(:object_id) || mid == Machine.id(:__send__) || mid == Machine.id(:initialize))
+      if kind == KIND_UNDEF && zr_serious_name_p(mid, true)
         # rb_undef warns for the names that ruby itself depends on, then
         # adds its undef entry as any new entry is added.
         zr_buf_push(b, Machine.bytes("undefining '"), 12)
@@ -2063,7 +2063,7 @@ module Zr::Kern
         zr_warn_here(Buf[b].ptr, Buf[b].len)
         Buf[b].len = 0
       end
-      if (mid == Machine.id(:object_id) || mid == Machine.id(:__send__)) && zr_find_method(owner, mid) != 0
+      if zr_serious_name_p(mid, false) && zr_find_method(owner, mid) != 0
         # Any new entry over one of them warns: a def, a reader, a
         # define_method, a Struct member, an alias or an undef.
         zr_buf_push(b, Machine.bytes("redefining '"), 12)
@@ -2072,6 +2072,28 @@ module Zr::Kern
         zr_warn_here(Buf[b].ptr, Buf[b].len)
       end
     end
+    zr_buf_free(b)
+  end
+
+  # The names that ruby itself depends on: object_id, __id__ and
+  # __send__, and initialize where `init` is true (undef and remove).
+  #: (word, bool) -> bool
+  def zr_serious_name_p(mid, init)
+    mid == Machine.id(:object_id) || mid == Machine.id(:__id__) || mid == Machine.id(:__send__) || (init && mid == Machine.id(:initialize))
+  end
+
+  # rb_remove_method_id warns before it looks the name up.
+  #: (word) -> void
+  def zr_warn_removing(mid)
+    if !zr_serious_name_p(mid, true)
+      return
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("removing '"), 10)
+    zr_buf_sym(b, mid)
+    zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
     zr_buf_free(b)
   end
 

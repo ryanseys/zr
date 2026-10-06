@@ -1,0 +1,7 @@
+lang/methods/removing_or_redefining_a_name_ruby_needs_warns.rb:5: warning: removing 'object_id' may cause serious problems
+lang/methods/removing_or_redefining_a_name_ruby_needs_warns.rb:5: warning: removing '__id__' may cause serious problems
+lang/methods/removing_or_redefining_a_name_ruby_needs_warns.rb:5: warning: removing '__send__' may cause serious problems
+lang/methods/removing_or_redefining_a_name_ruby_needs_warns.rb:5: warning: removing 'initialize' may cause serious problems
+lang/methods/removing_or_redefining_a_name_ruby_needs_warns.rb:9: warning: redefining 'object_id' may cause serious problems
+lang/methods/removing_or_redefining_a_name_ruby_needs_warns.rb:10: warning: redefining '__id__' may cause serious problems
+lang/methods/removing_or_redefining_a_name_ruby_needs_warns.rb:11: warning: redefining '__send__' may cause serious problems
