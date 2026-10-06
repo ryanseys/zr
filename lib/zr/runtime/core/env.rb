@@ -330,6 +330,23 @@ end
 Primitive.zr_hidden_set(ENV, :__zr_ruby__, Primitive.zr_environment_get(+"ZR_RUBY"))
 Primitive.zr_environment_set(+"ZR_RUBY", nil)
 
+# The install prefix of RbConfig and $LOAD_PATH, fixed at start as ruby's
+# is: ZR_PREFIX when the user gives one, else ZR_HOME, the home of the zr
+# that runs the program (its vendored ruby tree, laid out as an installed
+# ruby's prefix, as JRuby and TruffleRuby use their home), else ~/.zr.
+# RbConfig::TOPDIR is the prefix only when its library directory exists
+# (ext/rbconfig.rb), so a program that no zr ran has none, as a ruby that
+# is not installed has none. Like ZR_RUBY, ZR_HOME leaves the program's
+# environment.
+Primitive.zr_hidden_set(ENV, :__zr_home__, Primitive.zr_environment_get(+"ZR_HOME"))
+Primitive.zr_environment_set(+"ZR_HOME", nil)
+Primitive.zr_hidden_set(ENV, :__zr_home__, nil) if Primitive.zr_hidden_get(ENV, :__zr_home__)&.empty?
+Primitive.zr_hidden_set(
+  ENV, :__zr_prefix__,
+  Primitive.zr_environment_get(+"ZR_PREFIX") || Primitive.zr_hidden_get(ENV, :__zr_home__) ||
+    "#{Primitive.zr_environment_get(+"HOME") || "/tmp"}/.zr"
+)
+
 # Paths that the system gives take the locale's encoding from the start.
 Encoding.send(:follow_paths) unless Encoding.locale_charmap == +"UTF-8"
 
@@ -371,13 +388,10 @@ end
 
 # ruby_init_loadpath: the site, vendor and library directories of the
 # install layout (lib/zr/runtime/ext/rbconfig.rb), in ruby's order. None
-# of them needs to exist. ENV reads through Dir, which is not loaded yet,
-# so the prefix comes from the environment directly.
+# of them needs to exist.
 $LOAD_PATH.concat(
   lambda do
-    home = Primitive.zr_environment_get("HOME") || "/tmp"
-    prefix = Primitive.zr_environment_get("ZR_PREFIX") || "#{home}/.zr"
-    lib = "#{prefix}/lib/ruby"
+    lib = "#{Primitive.zr_hidden_get(ENV, :__zr_prefix__)}/lib/ruby"
     arch = RUBY_PLATFORM
     %W[site_ruby/4.0.0 site_ruby/4.0.0/#{arch} site_ruby
        vendor_ruby/4.0.0 vendor_ruby/4.0.0/#{arch} vendor_ruby

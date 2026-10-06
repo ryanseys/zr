@@ -28,8 +28,21 @@ unless rows.empty?
     [name, spec]
   end
 
-  Gem::Specification.all = specs.values
-  Gem.post_reset { Gem::Specification.all = specs.values }
+  # As bundler's setup adds them (Bundler::RubygemsIntegration#add_default_gems_to),
+  # the default gems of the ruby tree that runs the program stand beside its
+  # gems, so Gem.bin_path finds bundler's `bundle`. They stay stubs, which
+  # read a gemspec only when something asks for the whole spec. A program
+  # that no zr ran has no such tree, and no default gems.
+  install = lambda do
+    defaults = Gem::Specification.default_stubs.reject { |stub| specs.key?(stub.name) }
+    record = Gem::Specification.specification_record
+    record.all = specs.values
+    record.instance_variable_set(:@stubs, specs.values + defaults)
+    record.instance_variable_set(:@stubs_by_name, record.stubs.group_by(&:name))
+    record.instance_variable_set(:@all, nil) unless defaults.empty?
+  end
+  install.call
+  Gem.post_reset(&install)
   Gem.singleton_class.send(:define_method, :finish_resolve) { |*| [] }
   Gem.discover_gems_on_require = false
 

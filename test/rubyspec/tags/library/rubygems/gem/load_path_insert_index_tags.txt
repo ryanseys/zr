@@ -1,1 +1,0 @@
-fails(a zr binary is not an installed ruby, so RbConfig::TOPDIR is nil and the spec guard leaves this out):Gem.load_path_insert_index is set for an installed Ruby

@@ -77,11 +77,22 @@ class RunnerTest < Minitest::Test
       was = $PROGRAM_NAME
       $PROGRAM_NAME = Runner::EXE
       assert_equal Runner.pinned_launcher(Runner::EXE), Runner.program_env["ZR_RUBY"]
+      assert_equal Runner::HOME, Runner.program_env["ZR_HOME"]
       $PROGRAM_NAME = File.join(File.dirname(Runner::EXE), "zr-dev")
       refute Runner.program_env.key?("ZR_RUBY"), "only zr itself names a ruby"
+      refute Runner.program_env.key?("ZR_HOME"), "only zr itself names a home"
     ensure
       $PROGRAM_NAME = was
     end
+  end
+
+  # zr's home is its ruby tree, laid out as an installed ruby's prefix, so
+  # a program that zr runs has an RbConfig::TOPDIR, rubylibdir and gem
+  # directory that exist.
+  def test_the_home_is_an_installed_ruby_layout
+    assert_equal File.realpath(Runner::HOME), Runner::HOME
+    assert File.file?(File.join(Runner::HOME, "lib/ruby/4.0.0/fileutils.rb"))
+    assert File.directory?(File.join(Runner::HOME, "lib/ruby/gems/4.0.0/specifications"))
   end
 
   # A child ruby runs the steps, since a test must not move this

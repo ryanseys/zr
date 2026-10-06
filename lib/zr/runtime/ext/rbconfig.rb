@@ -37,12 +37,17 @@ module RbConfig
   # The two linkers spell `DLDFLAGS` differently -- see the key below.
   undefined_flag = darwin ? "-Wl,-undefined,dynamic_lookup" : "-Wl,--allow-shlib-undefined"
 
-  # The install layout is zr's own: a directory under the home
-  # directory that zr owns, which rubygems can create, unless the
-  # environment gives another. It is never the layout of the ruby that
-  # compiled the program: a binary contains nothing read from the machine
-  # that built it, so the same source builds the same bytes anywhere.
-  prefix = ENV["ZR_PREFIX"] || File.join(ENV["HOME"] || "/tmp", ".zr")
+  # The install layout is the one that the program found at start
+  # (core/env.rb): ZR_PREFIX, else the home of the zr that runs it (its
+  # vendored ruby tree, which has an installed ruby's layout), else a
+  # directory under the home directory that zr owns, which rubygems can
+  # create. It is never the layout of the ruby that compiled the program:
+  # a binary contains nothing read from the machine that built it, so the
+  # same source builds the same bytes anywhere. A home that zr cannot
+  # write is no problem: rubygems then installs to Gem.user_dir, as it
+  # does for a system ruby.
+  prefix = Primitive.zr_hidden_get(ENV, :__zr_prefix__).dup
+  zr_home = Primitive.zr_hidden_get(ENV, :__zr_home__)
 
   # Where MRI's headers live for a C extension build. zr builds no C
   # extension yet, so these name the cache a later one would fill.
@@ -50,8 +55,9 @@ module RbConfig
   archhdrdir = ENV["ZR_CEXT_ARCHHDRDIR"] || "#{hdrdir}/#{RUBY_PLATFORM}"
 
   # `RbConfig.ruby` is `bindir` plus `ruby_install_name`, and rubygems
-  # spawns exactly that string. The interpreter is zr.
-  zr_bindir = ENV["ZR_BINDIR"] || "#{prefix}/bin"
+  # spawns exactly that string. The interpreter is zr: under a zr home
+  # (`<zr>/vendor/ruby`) it is `<zr>/exe/zr`.
+  zr_bindir = ENV["ZR_BINDIR"] || (zr_home && !ENV["ZR_PREFIX"] ? File.expand_path("../../exe", zr_home) : "#{prefix}/bin")
   zr_ruby_name = ENV["ZR_RUBY_INSTALL_NAME"] || "zr"
 
   # The staging root of `make install`, empty for an installed ruby.

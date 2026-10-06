@@ -31,7 +31,9 @@ module Zr
       # limits that zr set for itself go (`GcTuning.program_env`), and
       # `ZR_RUBY` names this `zr`, so the program's `RbConfig.ruby` is the zr
       # that ran it (lib/zr/runtime/ext/rbconfig.rb), as a ruby program's is
-      # the ruby that ran it.
+      # the ruby that ran it. `ZR_HOME` names this zr's ruby tree, which the
+      # program's RbConfig and $LOAD_PATH take as their prefix, as a ruby
+      # program's are the prefix of the ruby that ran it.
       #
       # The program also starts in the directory that zr started in, when
       # zr had to build from another one (`keep_lost_cwd`).
@@ -43,7 +45,7 @@ module Zr
         launcher = $PROGRAM_NAME
         return env unless File.basename(launcher) == "zr" && File.file?(launcher)
 
-        env.merge("ZR_RUBY" => pinned_launcher(EXE))
+        env.merge("ZR_RUBY" => pinned_launcher(EXE), "ZR_HOME" => HOME)
       end
 
       # A ruby may start in a directory that is gone; its program finds
@@ -63,6 +65,11 @@ module Zr
 
       # The launcher that this copy of zr starts from.
       EXE = File.expand_path("../../../exe/zr", __dir__)
+
+      # This copy of zr's ruby tree: the standard library and the bundled
+      # gems, laid out as an installed ruby's prefix. Its real path, as ruby
+      # gives its own prefix.
+      HOME = File.realpath(File.expand_path("../../../vendor/ruby", __dir__))
 
       # A ruby binary runs with any environment, so `RbConfig.ruby` names
       # one that does. `exe` starts with `#!/usr/bin/env ruby`, which needs

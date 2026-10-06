@@ -136,8 +136,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   def self.archdir
     Primitive.attr! :hidden
-    prefix = ENV["ZR_PREFIX"] || File.join(ENV["HOME"] || "/tmp", ".zr")
-    "#{prefix}/lib/ruby/4.0.0/#{RUBY_PLATFORM}"
+    "#{Primitive.zr_hidden_get(ENV, :__zr_prefix__)}/lib/ruby/4.0.0/#{RUBY_PLATFORM}"
   end
 
   # CRuby's rb_feature_p for the name as it was written, before any file

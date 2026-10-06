@@ -1,6 +1,1 @@
-fails(a zr binary is not an installed ruby, so RbConfig::TOPDIR is nil and the spec guard leaves this out):RbConfig::CONFIG ['rubylibdir'] returns the directory containing Ruby standard libraries
-fails(a zr binary is not an installed ruby, so RbConfig::TOPDIR is nil and the spec guard leaves this out):RbConfig::CONFIG ['archdir'] returns the directory containing standard libraries C extensions
-fails(a zr binary is not an installed ruby, so RbConfig::TOPDIR is nil and the spec guard leaves this out):RbConfig::CONFIG ['sitelibdir'] is set and is part of $LOAD_PATH
-fails(a zr binary is not an installed ruby, so RbConfig::TOPDIR is nil and the spec guard leaves this out):RbConfig::CONFIG libdir/LIBRUBY_SO is the path to libruby and it exists if and only if ENABLE_SHARED
-fails(a zr binary is not an installed ruby, so RbConfig::TOPDIR is nil and the spec guard leaves this out):RUBY_DESCRIPTION contains version
-fails(a zr binary is not an installed ruby, so RbConfig::TOPDIR is nil and the spec guard leaves this out):RUBY_DESCRIPTION contains RUBY_PLATFORM
+fails(zr compiles its C extension ports into each program, so archdir holds no etc.bundle):RbConfig::CONFIG ['archdir'] returns the directory containing standard libraries C extensions

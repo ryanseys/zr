@@ -76,6 +76,10 @@ module Zr
       # the checkout.
       def zr_env = { "ZR_CACHE" => Dev.path("tmp/cache"), "ZR_CACHE_MAX_GB" => "0", "ZR_SERVER" => "0" }
 
+      # The ruby tree of the copy, which a program that the copy runs gets as
+      # its home (ZR_HOME, `CLI::Runner.program_env`).
+      def zr_home = File.realpath(File.join(PIN, "vendor/ruby"))
+
       # The version of zr that a run tested: the one `pin!` copied.
       def zr_version = @version || checkout_version
       # rubocop:enable ThreadSafety/ClassInstanceVariable
@@ -469,10 +473,10 @@ module Zr
 
         # The environment of a run: no bundler of the tools' own.
         # zr's run gets the environment of the pinned copy, for the zr that
-        # its tests start.
+        # its tests start, and the copy's home, as a program that zr runs.
         def env(_dir, zr:)
           base = { "RUBYOPT" => nil, "RUBYLIB" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil }
-          zr ? base.merge(Suite.zr_env) : base
+          zr ? base.merge(Suite.zr_env, "ZR_HOME" => Suite.zr_home) : base
         end
 
         # The tags of one file from its results: each example that ruby
