@@ -463,8 +463,19 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
       return nil
     end
     if $VERBOSE
-      Primitive.zr_warn_here_m("loading in progress, circular require considered harmful - #{path}")
-      caller(1).each { |line| $stderr.write("\tfrom #{line}\n") }
+      # load.c: one warning with the backtrace in it, each frame the oldest
+      # first as rb_backtrace_each writes it (two spaces after `in`, the
+      # method's own name), and rb_warning puts the warning's prefix
+      # before the whole text again.
+      locations = caller_locations(0)
+      frames = locations.reverse.map { |at| [at.path, at.lineno, at.label.sub(/(\A|in )\S*?[#.](?=\S+\z)/) { $1 }] }
+      # A require that the compiler bound has no frame of its own: its
+      # frame is at the line that wrote it.
+      site = locations.first
+      frames << [site.path, site.lineno, "require"] if site && !site.label.end_with?("require")
+      text = +"#{Primitive.zr_warn_position}warning: loading in progress, circular require considered harmful - #{path}"
+      frames.each { |file, line, name| text << "\n\tfrom #{file}:#{line}:in  '#{name}'" }
+      Primitive.zr_warn_here_m("#{text}\n")
     end
     false
   end

@@ -1,0 +1,11 @@
+[:inner, false]
+true
+1
+2
+"loading in progress, circular require considered harmful - DIR/circ_me.rb"
+	from MAIN:12:in  '<main>'
+	from DIR/circ_me.rb:1:in  '<top (required)>'
+true
+[:two, false]
+true
+[]
