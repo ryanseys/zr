@@ -204,7 +204,7 @@ class File < IO
     end
 
     path = path_of(path)
-    without_gvl { Primitive.zr_path_kind(path) }
+    without_gvl { Primitive.zr_path_kind(os_path(path)) }
   end
 
   # rb_stat: an IO, or an object whose `to_io` gives one, is asked with
@@ -226,10 +226,11 @@ class File < IO
 
   # A path, with a mode string ("r", "w+", "ab", ...) or open(2) flags;
   # or, as rb_file_initialize reads one or two arguments, a descriptor.
-  def initialize(path, mode = (no_mode = true; +"r"), perm = (no_perm = true; 0o666), **options)
+  def initialize(path = (no_path = true; nil), mode = (no_mode = true; +"r"), perm = (no_perm = true; 0o666), **options)
     # A File that has a descriptor is not opened again, as CRuby's
-    # rb_file_initialize refuses.
-    raise RuntimeError, "reinitializing #{self.class}" unless Primitive.zr_hidden_get(self, :fd).nil?
+    # rb_file_initialize refuses before it counts the arguments.
+    raise RuntimeError, +"reinitializing File" unless Primitive.zr_hidden_get(self, :fd).nil?
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1..3)" if no_path
 
     if no_perm && (fd = Integer.try_convert(path))
       return super(fd, no_mode ? nil : mode, **options)
@@ -286,7 +287,7 @@ class File < IO
     Primitive.attr! :hidden
     flags = File.send(:open_flags, text) | File::NONBLOCK
     loop do
-      fd = Primitive.zr_io_open_flags(path, flags, 0o666)
+      fd = Primitive.zr_io_open_flags(File.send(:os_path, path), flags, 0o666)
       return fd if fd >= 0
       raise SystemCallError.new(path, -fd, +"rb_sysopen") unless -fd == Errno::ENXIO::Errno
 
@@ -301,7 +302,7 @@ class File < IO
     return io.stat.size if io
 
     path = path_of(path)
-    result = without_gvl { Primitive.zr_io_file_size(path) }
+    result = without_gvl { Primitive.zr_io_file_size(os_path(path)) }
     raise SystemCallError.new(path, -result, +"rb_file_s_size") if result < 0
 
     result
@@ -314,7 +315,7 @@ class File < IO
     end
 
     path = path_of(path)
-    result = without_gvl { Primitive.zr_io_file_size(path) }
+    result = without_gvl { Primitive.zr_io_file_size(os_path(path)) }
     result <= 0 ? nil : result
   end
 
@@ -322,7 +323,7 @@ class File < IO
     return stat_io(path).stat.size.zero? if stat_io(path)
 
     path = path_of(path)
-    without_gvl { Primitive.zr_io_file_size(path) }.zero?
+    without_gvl { Primitive.zr_io_file_size(os_path(path)) }.zero?
   end
 
   def self.empty?(path) = zero?(path)
@@ -335,18 +336,18 @@ class File < IO
   def self.accessible?(path, mode)
     Primitive.attr! :hidden
     path = path_of(path)
-    without_gvl { Primitive.zr_path_access(path, mode) }
+    without_gvl { Primitive.zr_path_access(os_path(path), mode) }
   end
   private_class_method :accessible?
 
-  def self.delete(*paths) = each_path(paths) { |path| Primitive.zr_io_unlink(path) }
+  def self.delete(*paths) = each_path(paths) { |path| Primitive.zr_io_unlink(os_path(path)) }
 
   def self.unlink(*paths) = delete(*paths)
 
   def self.rename(from, to)
     from = path_of(from)
     to = path_of(to)
-    result = without_gvl { Primitive.zr_io_rename(from, to) }
+    result = without_gvl { Primitive.zr_io_rename(os_path(from), os_path(to)) }
     fail2(-result, "rb_file_s_rename", from, to) if result < 0
 
     0
@@ -476,7 +477,7 @@ class File < IO
     def stat(path, site)
       Primitive.attr! :hidden
       path = File.send(:path_of, path)
-      fields = Primitive.zr_stat_m(path, true)
+      fields = Primitive.zr_stat_m(File.send(:os_path, path), true)
       raise SystemCallError.new(path, -fields, site) if fields.is_a?(Integer)
 
       take(fields)
@@ -747,7 +748,7 @@ class File < IO
   def self.stat_fields(path, follow = true)
     Primitive.attr! :hidden
     path = path_of(path)
-    without_gvl { Primitive.zr_stat_m(path, follow) }
+    without_gvl { Primitive.zr_stat_m(os_path(path), follow) }
   end
   private_class_method :stat_fields
 
@@ -757,7 +758,7 @@ class File < IO
   def self.realpath(path, dir = nil)
     path = path_of(path)
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
-    result = Primitive.zr_realpath_m(path)
+    result = Primitive.zr_realpath_m(os_path(path))
     return result unless result.is_a?(Integer)
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
@@ -813,12 +814,12 @@ class File < IO
 
   def self.chmod(mode, *paths)
     mode = mode_operand(mode)
-    each_path(paths) { |path| Primitive.zr_chmod_m(path, mode) }
+    each_path(paths) { |path| Primitive.zr_chmod_m(os_path(path), mode) }
   end
 
   def self.lchmod(mode, *paths)
     mode = mode_operand(mode)
-    each_path(paths) { |path| Primitive.zr_fs_call(9, path, mode, 0) }
+    each_path(paths) { |path| Primitive.zr_fs_call(9, os_path(path), mode, 0) }
   end
 
   # NUM2MODET: to_int, an unsigned long that keeps the bits of a mode_t.
@@ -832,23 +833,23 @@ class File < IO
   end
   private_class_method :mode_operand
 
-  def self.chown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(0, path, owner || -1, group || -1) }
+  def self.chown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(0, os_path(path), owner || -1, group || -1) }
 
-  def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, path, owner || -1, group || -1) }
+  def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, os_path(path), owner || -1, group || -1) }
 
   # utime takes its times in seconds, as Integers, Floats or Times, to
   # the nanosecond. Both times nil are now, as utimensat(2) takes no
   # times.
   def self.utime(atime, mtime, *paths)
     times = timespecs(atime, mtime)
-    each_path(paths) { |path| Primitive.zr_utimens_m(path, times, false) }
+    each_path(paths) { |path| Primitive.zr_utimens_m(os_path(path), times, false) }
   end
 
   # A link takes its own times, rather than passing them on to what it
   # points at.
   def self.lutime(atime, mtime, *paths)
     times = timespecs(atime, mtime)
-    each_path(paths) { |path| Primitive.zr_utimens_m(path, times, true) }
+    each_path(paths) { |path| Primitive.zr_utimens_m(os_path(path), times, true) }
   end
 
   def self.timespecs(atime, mtime)
@@ -889,14 +890,14 @@ class File < IO
   private_class_method :each_path
 
   def self.link(from, to)
-    result = Primitive.zr_fs_call(2, path_of(from), path_of(to), 0)
+    result = Primitive.zr_fs_call(2, os_path(path_of(from)), os_path(path_of(to)), 0)
     fail2(-result, "rb_file_s_link", from, to) if result < 0
 
     0
   end
 
   def self.symlink(from, to)
-    result = Primitive.zr_fs_call(3, path_of(from), path_of(to), 0)
+    result = Primitive.zr_fs_call(3, os_path(path_of(from)), os_path(path_of(to)), 0)
     fail2(-result, "rb_file_s_symlink", from, to) if result < 0
 
     0
@@ -914,7 +915,7 @@ class File < IO
 
   def self.readlink(path)
     link = path_of(path)
-    result = without_gvl { Primitive.zr_readlink_m(link) }
+    result = without_gvl { Primitive.zr_readlink_m(os_path(link)) }
     raise SystemCallError.new(path, -result, +"rb_readlink") if result.is_a?(Integer)
 
     result
@@ -922,7 +923,7 @@ class File < IO
 
   def self.mkfifo(path, mode = 0o666)
     fifo = path_of(path)
-    result = without_gvl { Primitive.zr_fs_call(4, fifo, mode, 0) }
+    result = without_gvl { Primitive.zr_fs_call(4, os_path(fifo), mode, 0) }
     raise SystemCallError.new(path, -result, +"rb_file_s_mkfifo") if result < 0
 
     0
@@ -931,7 +932,7 @@ class File < IO
   def self.truncate(path, length)
     file = path_of(path)
     length = IO.send(:offset_of, length)
-    result = without_gvl { Primitive.zr_fs_call(5, file, length, 0) }
+    result = without_gvl { Primitive.zr_fs_call(5, os_path(file), length, 0) }
     raise SystemCallError.new(path, -result, +"rb_file_s_truncate") if result < 0
 
     0
@@ -956,7 +957,7 @@ class File < IO
   # itself.
   def self.mode_kind_now?(path, kind)
     Primitive.attr! :hidden
-    fields = Primitive.zr_stat_m(path, true)
+    fields = Primitive.zr_stat_m(os_path(path), true)
     fields.is_a?(Array) && (fields[2] & 0o170000) == kind
   end
   private_class_method :mode_kind?, :mode_kind_now?
@@ -1207,7 +1208,7 @@ class Dir
 
   def self.chroot(path)
     path = File.send(:path_of, path)
-    result = Primitive.zr_io_chroot(path)
+    result = Primitive.zr_io_chroot(File.send(:os_path, path))
     raise SystemCallError.new(path, -result, +"dir_s_chroot") if result < 0
 
     0
@@ -1223,10 +1224,10 @@ class Dir
   def initialize(name, encoding: nil)
     Primitive.attr! :ruby
     @path = File.path(name)
-    names = IO.send(:gc_for_fd) { Primitive.zr_io_dir_names(@path) }
+    names = IO.send(:gc_for_fd) { Primitive.zr_io_dir_names(File.send(:os_path, @path)) }
     raise SystemCallError.new(@path, -names, +"dir_initialize") if names.is_a?(Integer)
 
-    fd = IO.send(:gc_for_fd) { Primitive.zr_io_open_flags(@path, File::RDONLY, 0) }
+    fd = IO.send(:gc_for_fd) { Primitive.zr_io_open_flags(File.send(:os_path, @path), File::RDONLY, 0) }
     raise SystemCallError.new(@path, -fd, +"dir_initialize") if fd < 0
 
     take_names(@path, names, fd)
@@ -1363,7 +1364,7 @@ class Dir
   def self.mkdir(path, mode = 0o777)
     path = File.send(:path_of, path)
     mode = File.send(:mode_operand, mode)
-    result = File.send(:without_gvl) { Primitive.zr_io_mkdir(path, mode) }
+    result = File.send(:without_gvl) { Primitive.zr_io_mkdir(File.send(:os_path, path), mode) }
     raise SystemCallError.new(path, -result, +"dir_s_mkdir") if result < 0
 
     0
@@ -1371,7 +1372,7 @@ class Dir
 
   def self.rmdir(path)
     path = File.send(:path_of, path)
-    result = File.send(:without_gvl) { Primitive.zr_io_rmdir(path) }
+    result = File.send(:without_gvl) { Primitive.zr_io_rmdir(File.send(:os_path, path)) }
     raise SystemCallError.new(path, -result, +"dir_s_rmdir") if result < 0
 
     0
@@ -1385,7 +1386,7 @@ class Dir
   # in one encoding, so the names are tagged with it.
   def self.entries(path, encoding: nil)
     path = File.send(:path_of, path)
-    names = File.send(:without_gvl) { Primitive.zr_io_dir_names(path) }
+    names = File.send(:without_gvl) { Primitive.zr_io_dir_names(File.send(:os_path, path)) }
     raise SystemCallError.new(path, -names, +"dir_initialize") if names.is_a?(Integer)
 
     encoding = Encoding.find(encoding) unless encoding.nil?
@@ -1436,8 +1437,8 @@ class Dir
     path = File.path(path)
     # nogvl_dir_empty_p: one call that may block.
     names = File.send(:without_gvl) do
-      kind = Primitive.zr_path_kind(path)
-      kind.zero? || kind == 1 ? Primitive.zr_io_dir_names(path) : false
+      kind = Primitive.zr_path_kind(File.send(:os_path, path))
+      kind.zero? || kind == 1 ? Primitive.zr_io_dir_names(File.send(:os_path, path)) : false
     end
     return false if names == false
     raise SystemCallError.new(path, -names, +"rb_dir_s_empty_p") if names.is_a?(Integer)
@@ -1966,7 +1967,7 @@ class Dir
   def self.move_to(path, site = +"chdir_path")
     Primitive.attr! :hidden
     path = File.send(:path_of, path)
-    result = File.send(:without_gvl) { Primitive.zr_io_chdir(path) }
+    result = File.send(:without_gvl) { Primitive.zr_io_chdir(File.send(:os_path, path)) }
     raise SystemCallError.new(path, -result, site) if result < 0
 
     0

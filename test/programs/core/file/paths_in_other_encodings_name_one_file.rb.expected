@@ -1,0 +1,20 @@
+["EUC-JP", true, true, 1, 1, false]
+["x", 1, true, true]
+384
+0
+"x"
+[false, true]
+[true, false, true]
+false
+["Shift_JIS", true, true, 1, 1, false]
+["x", 1, true, true]
+384
+0
+"x"
+[false, true]
+[true, false, true]
+false
+[true, true, true, [".", ".."]]
+[["f"], false]
+"1"
+false
