@@ -120,6 +120,7 @@ module Process
       # cannot keep the child's own read open. An option that refers to
       # one of the three comes later and wins.
       @dups = [0, 0, 1, 1, 2, 2]
+      @child_dups = []
       @closes = []
       @opened = []
       @chdir = nil
@@ -129,6 +130,7 @@ module Process
       @umask = -1
       @limits = []
       options.each { |key, value| add(key, value) }
+      @dups = ordered(@dups) + @child_dups
     end
 
     # Whether an option needs what only a forked child can do before
@@ -158,7 +160,8 @@ module Process
         # Several descriptors to one file share one open of it.
         if fds.size > 1 && (value.is_a?(String) || (value.is_a?(Array) && value.first != :child))
           redirect(fds.first, value)
-          fds.drop(1).each { |fd| dup2(fd, fds.first) }
+          opened = @dups.last
+          fds.drop(1).each { |fd| dup2(fd, opened) }
         else
           fds.each { |fd| redirect(fd, value) }
         end
@@ -214,16 +217,42 @@ module Process
       end
     end
 
-    # `[:child, :out]` is the child's own descriptor, so the pair is
-    # applied in the order the options list them.
+    # `[:child, :out]` is the child's own descriptor after the other
+    # redirects, so these pairs come last, in the order the options list
+    # them (run_exec_dup2_child).
     def from_array(fd, value)
-      return dup2(fd, descriptors(value[1]).first) if value.first == :child
+      return @child_dups << fd << descriptors(value[1]).first if value.first == :child
 
       open_file(fd, value[0], value[1], value[2])
     end
 
     def dup2(fd, source)
       @dups << fd << source
+    end
+
+    # run_exec_dup2: the pairs in an order where no dup2 replaces a
+    # descriptor that a later pair still reads. In a cycle, one pair reads
+    # its source through a copy that the parent makes and closes after the
+    # spawn.
+    def ordered(flat)
+      pending = flat.each_slice(2).to_a
+      done = []
+      until pending.empty?
+        at = pending.each_index.find do |i|
+          to = pending[i].first
+          # A pair onto itself only clears close-on-exec: it reads nothing.
+          pending.each_with_index.none? { |(other, from), j| j != i && from == to && other != from }
+        end
+        if at
+          done << pending.delete_at(at)
+        else
+          to, from = pending.first
+          copy = IO.for_fd(Primitive.zr_io_dup(from), autoclose: true)
+          @opened << copy
+          pending[0] = [to, copy.fileno]
+        end
+      end
+      done.flatten
     end
 
     # A file that does not open closes the ones opened before it, and
