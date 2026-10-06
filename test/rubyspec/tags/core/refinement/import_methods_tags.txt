@@ -1,3 +1,2 @@
 fails:Refinement#import_methods imports methods from multiple modules so that methods see other's module's methods
 fails:Refinement#import_methods imports methods from module so that methods can see each other
-fails:Refinement#import_methods when methods are defined in Ruby code still imports methods of modules listed before a module that contains method not defined in Ruby
