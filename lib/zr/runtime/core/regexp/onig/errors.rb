@@ -198,6 +198,18 @@ class Regexp
       end
     end
 
+    # A failed compile with the warnings that the parser gave before it
+    # failed, which ruby has printed by then (onig_syntax_warn writes as
+    # the parser goes). Regexp raises a plain RegexpError after them.
+    class Failure < ::RegexpError
+      attr_reader :warnings
+
+      def initialize(message, warnings)
+        @warnings = warnings
+        super(message)
+      end
+    end
+
     # The warnings the parser gives. Each is text CRuby writes through
     # rb_warn, with the pattern appended as onig_vsnprintf_with_pattern
     # appends it; `verbose` marks those given only when $VERBOSE is true

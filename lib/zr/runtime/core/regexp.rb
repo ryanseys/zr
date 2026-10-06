@@ -128,6 +128,10 @@ class Regexp
     Primitive.zr_state_set(re, :encoding, encoding)
     warn_of(warnings) if warns
     re
+  rescue Onig::Failure => e
+    # The parser's warnings before the error print first.
+    warn_of(warning_rows(e.warnings)) if warns
+    raise RegexpError, e.message
   end
   private_class_method :seat
 

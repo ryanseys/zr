@@ -49,7 +49,10 @@ class Regexp
       compiled, warnings = Onig.compile(text, fixed_bits & ENGINE_OPTIONS, engine_for(encoding))
       [encoding, fixed_bits, compiled, warnings]
     rescue RegexpError => e
-      raise RegexpError, error_desc(e.message, source, source.encoding, bits)
+      message = error_desc(e.message, source, source.encoding, bits)
+      raise Onig::Failure.new(message, e.warnings) if e.is_a?(Onig::Failure)
+
+      raise RegexpError, message
     end
 
     # The encoding a pattern read in `enc` takes when its preprocess

@@ -50,7 +50,13 @@ class Regexp
       pattern = pattern.b
       parser = Parser.new(reg, pattern, warnings)
       scan_env = parser.env
-      root = parser.parse_make_tree
+      root = begin
+        parser.parse_make_tree
+      rescue Error => e
+        raise Failure.new(e.message, warnings) unless warnings.empty?
+
+        raise
+      end
 
       # mixed use named group and no-named group
       if scan_env.num_named > 0 && Syntax.bv?(Syntax::CAPTURE_ONLY_NAMED_GROUP) && (reg.options & Option::CAPTURE_GROUP) == 0
