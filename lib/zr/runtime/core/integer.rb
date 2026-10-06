@@ -524,7 +524,7 @@ class Numeric
         raise TypeError, "#{shown} can't be coerced into #{self.class}"
       end
 
-      x, y = coerced(other, self)
+      x, y = coerce_pair(other, self)
     end
     z = x % y
     return z if z == 0
@@ -537,8 +537,9 @@ class Numeric
     z
   end
 
-  # do_coerce: `target.coerce(value)`, which must give a pair.
-  def coerced(target, value)
+  # do_coerce: `target.coerce(value)`, which must give a pair. Its name
+  # is not `coerced`, which Rational has for a helper of its own.
+  def coerce_pair(target, value)
     Primitive.attr! :hidden
     pair = target.coerce(value)
     raise TypeError, +"coerce must return [x, y]" unless pair.is_a?(Array) && pair.size == 2
@@ -555,7 +556,7 @@ class Numeric
     num.__send__(op, 0)
   end
 
-  private :coerced, :compare_with_zero
+  private :coerce_pair, :compare_with_zero
 
   def nonzero? = zero? ? nil : self
 
@@ -567,7 +568,7 @@ class Numeric
 
   # num_uminus: zero minus the receiver, after the receiver coerces zero.
   def -@
-    zero, own = coerced(self, 0)
+    zero, own = coerce_pair(self, 0)
     zero - own
   end
 
