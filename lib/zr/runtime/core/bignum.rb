@@ -362,7 +362,9 @@ class Integer
       top = big_build(false, big_shr_mag(mag[(drop / LIMB_BITS)..], drop % LIMB_BITS))
       sticky = mag[0, drop / LIMB_BITS].any? { |l| l != 0 } || (mag[drop / LIMB_BITS] & ((1 << (drop % LIMB_BITS)) - 1)) != 0
       top |= 1 if sticky
-      f = top.to_f * (2.0**drop)
+      # top fits a fixnum, and `top * 1.0` converts it natively: a
+      # program's Integer#to_f may itself convert a Bignum.
+      f = (top * 1.0) * (2.0**drop)
       Primitive.zr_warn_here_m("Integer out of Float range") if f.infinite? && $VERBOSE
       big_neg?(x) ? -f : f
     end
