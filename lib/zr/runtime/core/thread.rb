@@ -351,6 +351,9 @@ class Thread
       end
       @switching = false
       to.send(:take_over, from) unless to.equal?(from)
+      # A signal that came while another thread ran waits for the main
+      # thread, which runs its command at its next safe point.
+      Primitive.zr_trap_rearm if from.equal?(@main)
       from.send(:interrupted)
     end
 

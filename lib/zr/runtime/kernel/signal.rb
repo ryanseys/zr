@@ -194,6 +194,16 @@ module Zr::Kern
     zr_bool(Machine.load64(Machine.static(:signal_pending, 8), 0) != 0)
   end
 
+  # A signal whose handler has not run asks the next safe point again, for
+  # the main thread, which runs the commands.
+  #: () -> value
+  def zr_trap_rearm
+    if Machine.load64(Machine.static(:signal_pending, 8), 0) != 0
+      zr_poll_set()
+    end
+    Machine.value(QNIL)
+  end
+
   # A safe point: runs the Ruby handlers of all received POSIX signals.
   # Returns QUNDEF if a handler raised.
   #: () -> value
