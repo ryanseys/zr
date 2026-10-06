@@ -142,6 +142,9 @@ module Signal
     def deliver
       Primitive.attr! :hidden
       return nil if Primitive.zr_hidden_get(self, :__delivering__)
+      # The commands run in the main thread, as rb_signal_exec runs them:
+      # another thread that reaches a safe point wakes it.
+      return Thread.main.send(:signalled) unless Thread.current.equal?(Thread.main)
 
       Primitive.zr_hidden_set(self, :__delivering__, true)
       begin

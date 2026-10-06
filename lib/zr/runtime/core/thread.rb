@@ -90,7 +90,7 @@ class Thread
 
       raise ThreadError, +"stopping only thread\n\tnote: use sleep to stop forever" if @threads.size <= 1
 
-      @current.send(:wait, nil, true)
+      @current.send(:wait, nil, true, resume: true)
       nil
     end
 
@@ -906,7 +906,7 @@ class Thread
   # Sleep until `wakeup`, or until `deadline` nanoseconds on the
   # monotonic clock. A deadly wait counts toward a deadlock.
   # Sleeps until woken or the deadline; returns false on the deadline.
-  def wait(deadline, deadly)
+  def wait(deadline, deadly, resume: false)
     Primitive.attr! :hidden
     @status = :sleep
     @timed_out = false
@@ -922,7 +922,26 @@ class Thread
         Thread.send(:awake, self)
       end
     end
+    # Woken for a signal: its commands run here. A sleep then goes on
+    # sleeping; any other wait returns, and its caller checks again what
+    # it waits for.
+    if @signalled
+      @signalled = false
+      Signal.send(:deliver)
+      return wait(deadline, deadly, resume: true) if resume && !@timed_out
+    end
     !@timed_out
+  end
+
+  # A signal came while another thread ran: the main thread runs its
+  # commands, so it wakes if it sleeps.
+  def signalled
+    Primitive.attr! :hidden
+    return nil unless @status == :sleep
+
+    @signalled = true
+    wakeup
+    nil
   end
 
   # rb_thread_wait_for_single_fd: the events of `events` that `fd` came

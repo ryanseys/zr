@@ -598,7 +598,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # minus time(2) before, as rb_f_sleep counts them.
     began = Process.clock_gettime(Process::CLOCK_REALTIME, :second)
     deadline = duration.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (duration * 1e9).to_i
-    Thread.current.send(:wait, deadline, false)
+    Thread.current.send(:wait, deadline, false, resume: true)
     Process.clock_gettime(Process::CLOCK_REALTIME, :second) - began
   end
 
