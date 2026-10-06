@@ -115,6 +115,8 @@ module Zr
       def parse!(argv, env = ENV.to_h)
         switches!(argv)
         @script = argv.shift if @inline.empty?
+        # process_options: an empty name is standard input, as "-" is.
+        @script = "-" if @script&.empty?
         @args = argv
         rubyopt!(env["RUBYOPT"]) unless @features["rubyopt"] == false
         # ruby_init_loadpath: RUBYLIB's directories, as given, after -I's.

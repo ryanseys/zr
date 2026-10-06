@@ -236,6 +236,12 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     assert parse("--debug", "x.rb").debug
   end
 
+  def test_an_empty_script_name_is_standard_input
+    assert_equal "-", parse("").script
+    assert_equal "-", parse("-w", "", "a").script
+    assert_equal ["a"], parse("", "a").args
+  end
+
   def test_a_dos_line_end_after_a_switch_switches_nothing
     assert_equal ["1"], parse("-\r", "-e", "1").inline
   end
@@ -270,6 +276,7 @@ class RubyModeDispatchTest < Minitest::Test
                    [%w[app.rb], %w[-e 1], %w[-], %w[-- build], [script], %w[-w]].map { |argv| CLI.ruby_mode?(argv, tty: true) }
       refute CLI.ruby_mode?(%w[biuld], tty: true)
       assert CLI.ruby_mode?(%w[/no/such/script], tty: true)
+      assert CLI.ruby_mode?([""], tty: true)
       assert CLI.ruby_mode?(%w[sub/missing], tty: true)
     end
   end
@@ -436,6 +443,7 @@ class RubyModeTest < Minitest::Test
   def test_errors_before_the_program_runs
     same_as_ruby("nope.rb")
     same_as_ruby("no/such/script")
+    same_as_ruby("", "a", stdin: "p ARGV, $0")
     # A first line that runs another interpreter makes the script run as
     # with -x, from standard input too.
     same_as_ruby(stdin: "#! /bin/not_the_interpreter\r\np 1\r\n")

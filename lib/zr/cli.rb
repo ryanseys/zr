@@ -116,16 +116,17 @@ module Zr
     end
 
     # Whether `argv` runs zr as a ruby: its first word names no command and
-    # is a switch, `-`, a file, a path or a name that ends in `.rb`; a
-    # script that is not there stops as ruby stops for it. With no word,
-    # zr reads the program from standard input, unless it is a terminal.
+    # is a switch, `-`, empty (standard input), a file, a path or a name
+    # that ends in `.rb`; a script that is not there stops as ruby stops
+    # for it. With no word, zr reads the program from standard input,
+    # unless it is a terminal.
     #: (Array[String] argv, ?tty: bool) -> bool
     def ruby_mode?(argv, tty: $stdin.tty?)
       word = argv.first
       return !tty if word.nil?
       return false if COMMANDS.key?(word) || ALIASES.key?(word) || Help::FLAGS.include?(word) || word == "--version"
 
-      word.start_with?("-") || word.end_with?(".rb") || word.include?("/") || File.file?(word)
+      word.empty? || word.start_with?("-") || word.end_with?(".rb") || word.include?("/") || File.file?(word)
     end
 
     # Runs zr as a ruby (`Commands::Compile#ruby`). A command line that
