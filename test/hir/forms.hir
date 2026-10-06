@@ -283,6 +283,7 @@
       (seq
         (assign i ^1
           (local *for))
+        (redo-point)
         (seq
           (assign last ^1
             (local i ^1))))))
@@ -312,6 +313,7 @@
               (local *for)
               (int 0))
             (local *for)))
+        (redo-point)
         (seq
           (send self p
             (array
@@ -326,6 +328,7 @@
         (seq
           (assign q ^1
             (local *for))
+          (redo-point)
           (seq
             (if
               (send ==
@@ -347,4 +350,5 @@
           (seq
             (assign z ^1
               (local *for))
+            (redo-point)
             (const nil)))))))

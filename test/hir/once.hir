@@ -3,12 +3,15 @@
     (send self p
       (sym :first)))
   (once
-    (send at_exit
+    (send post_exe
       (core Kernel)
       (block () locals ()
-        (seq
-          (send self p
-            (sym :last))))))
+        (send at_exit
+          (core Kernel)
+          (block () locals ()
+            (seq
+              (send self p
+                (sym :last))))))))
   (def match (pattern subject) locals (pattern subject)
     (seq
       (send =~

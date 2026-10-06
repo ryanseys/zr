@@ -81,6 +81,8 @@ module Zr
           lines << "#{pad}(retry)"
         when Redo
           lines << "#{pad}(redo)"
+        when RedoPoint
+          lines << "#{pad}(redo-point)"
         when Return
           lines << "#{pad}(return"
           node(n.value, depth + 1, lines)
