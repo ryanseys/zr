@@ -36,3 +36,12 @@ class RefineInUsing
   def self.test = new.call_foo
 end
 p RefineInUsing.test
+module RefineScoping
+  refine String do
+    def foo = "foo"
+    def RefineScoping.call_in_refine_block = "".foo
+  end
+  def self.call_outside_refine_block = "".foo
+end
+p RefineScoping.call_in_refine_block
+p((RefineScoping.call_outside_refine_block rescue $!.class))

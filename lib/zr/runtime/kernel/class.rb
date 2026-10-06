@@ -3229,7 +3229,7 @@ module Zr::Kern
     holder = Machine.value(QNIL)
     if meta != 0
       owner = FrameMeta[meta].owner
-      if !zr_special_p(owner) && (zr_type(owner) == T_MODULE || zr_type(owner) == T_CLASS)
+      if !zr_special_p(owner) && (zr_type(owner) == T_MODULE || zr_type(owner) == T_CLASS) && ClassExt[RClass[owner].ext].active != QNIL
         holder = owner
       end
     end
