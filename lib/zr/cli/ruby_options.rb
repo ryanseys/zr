@@ -307,7 +307,7 @@ module Zr
           when "p" then @print = @loop = true
           when "n" then @loop = true
           when "d"
-            @debug = true
+            @debug = @debug_frozen = true
             @verbose = [true]
           when "y" then nil # parse.y's debug output: ruby with prism prints none.
           when "v"
@@ -512,7 +512,7 @@ module Zr
           # --debug=frozen-string-literal, --debug-frozen-string-literal and
           # the like are CRuby's own checks.
           unless given || name != "debug"
-            @debug = true
+            @debug = @debug_frozen = true
             @verbose = [true]
           end
           @debug_frozen = true if given == "frozen-string-literal" || name == "debug-frozen-string-literal"

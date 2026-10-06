@@ -469,6 +469,10 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-W:deprecated", "--debug=frozen-string-literal", "chilled.rb")
     same_as_ruby("-W:deprecated", "chilled.rb")
     same_as_ruby("--debug=frozen-string-literal", "-e", "p $DEBUG")
+    # -d and --debug turn every debug feature on, this one too.
+    same_as_ruby("--disable-gems", "-d", "frozen.rb")
+    same_as_ruby("--disable-gems", "--debug", "frozen.rb")
+    same_as_ruby("--disable-gems", "--enable-frozen-string-literal", "--debug", "-e", "'foo' << 'bar'")
   end
 
   # -S looks in RUBYPATH, then PATH, as dln_find_1 does: "~" is HOME, an
