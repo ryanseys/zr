@@ -1,0 +1,13 @@
+stdout: TypeError: $stdout must have write method, Integer given
+gt: TypeError: $> must have write method, Object given
+stderr: TypeError: $stderr must have write method, NilClass given
+alias: TypeError: $out must have write method, Integer given
+true
+true
+[through writer
+]true
+ors: TypeError: value of $\ must be String
+ofs: TypeError: value of $, must be String
+rs: TypeError: value of $/ must be String
+with ors!
+[nil, nil]

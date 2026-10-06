@@ -903,7 +903,7 @@ module Kernel
       when :$=
         Warning.send(:deprecated, "variable $= is no longer effective; ignored")
         return false
-      when :$stdout, :$stderr
+      when :$stdout, :$stderr, :$>
         raise TypeError, "#{shown} must have write method, #{value.class} given" unless value.respond_to?(:write)
       when :$0
         text = String.try_convert(value)
