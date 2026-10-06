@@ -383,15 +383,37 @@ module Zr
       #: (untyped node, Encoding? pinned) -> void
       def check_fragments(node, pinned)
         joined = nil #: String?
+        text_part = false
         node.parts.each do |part|
           text = fragment_text(node, part, pinned)
           if text
             check_fragment(node, text)
-            joined = joined ? joined + text : text
+            if joined
+              both = joined_fragment(node, joined, text, text_part || part.is_a?(Prism::StringNode))
+              check_fragment(node, both)
+              joined = both
+            else
+              joined = text
+            end
+            text_part ||= part.is_a?(Prism::StringNode)
           else
             joined = nil
+            text_part = false
           end
         end
+      end
+
+      # Two literal fragments that follow each other, as one text. Two
+      # String literals of encodings that do not mix raise as a join of
+      # Strings does; with text of the pattern among them, a byte past
+      # ASCII next to a UTF-8 character is the parser's error.
+      #: (untyped node, String joined, String text, bool text_part) -> String
+      def joined_fragment(node, joined, text, text_part)
+        joined + text
+      rescue ::Encoding::CompatibilityError
+        raise unless text_part
+
+        invalid(node, "non ASCII character in UTF-8 regexp")
       end
 
       # The text of a literal fragment, or nil for an interpolation.
