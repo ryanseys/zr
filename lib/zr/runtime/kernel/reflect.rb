@@ -480,6 +480,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_kernel_callee(recv, argc, argv, cref, blk)
     rec = Frame[Task[zr_task()].top].prev
+    start = rec
     e = zr_bmethod_entry(rec)
     if e != 0
       return zr_sym(MEntry[e].mid)
@@ -492,12 +493,16 @@ module Zr::Kern
         rec = Frame[rec].prev
       end
       if rec == 0
-        # The method has returned, and its name for the call with it. The
-        # name of its def is left.
+        # The method has returned. Its Env, which the block keeps, has the
+        # name that the call used; else the name of its def is left.
         while (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL) && FrameMeta[meta].parent != 0
           meta = FrameMeta[meta].parent
         end
-        return FrameMeta[meta].kind == KIND_DEF ? zr_sym(FrameMeta[meta].name) : Machine.value(QNIL)
+        if FrameMeta[meta].kind != KIND_DEF
+          return Machine.value(QNIL)
+        end
+        kept = zr_env_callee(start)
+        return zr_sym(kept != 0 ? kept : FrameMeta[meta].name)
       end
     end
     # A runtime method written in Ruby runs as a builtin. An alias can call
@@ -510,6 +515,23 @@ module Zr::Kern
       return zr_sym(FrameMeta[meta].name)
     end
     zr_sym(mid)
+  end
+
+  # The name that the call of a returned method used, from the Env at the
+  # root of the Env chain of the block frame `rec`, or 0.
+  #: (ptr) -> word
+  def zr_env_callee(rec)
+    if !zr_block_frame_p(rec) || Frame[rec].entry == 0
+      return 0
+    end
+    env = RProc[Frame[rec].entry].env
+    if env == QNIL
+      return 0
+    end
+    while REnv[env].parent != QNIL
+      env = REnv[env].parent
+    end
+    REnv[env].mid
   end
 
   #: (value, word, ptr, value, value) -> value

@@ -36,6 +36,9 @@ module Zr::Kern
     attr_accessor :names #: ptr
     attr_accessor :cell #: value
     attr_accessor :home #: ptr
+    # A method's cell: the name that the call used, as `__callee__` reads
+    # it in a block that outlives the method; 0 for any other scope.
+    attr_accessor :mid #: word
   end
 
   class RProc < Layout
@@ -92,6 +95,7 @@ module Zr::Kern
     REnv[e].slots = slots
     REnv[e].cell = Machine.value(QNIL)
     REnv[e].home = 0
+    REnv[e].mid = 0
     e
   end
 
@@ -110,6 +114,9 @@ module Zr::Kern
     n = REnv[env].nslots
     e = zr_env_new(parent, n, REnv[env].names)
     zr_memcpy(REnv[e].slots, REnv[env].slots, n * 8)
+    if REnv[env].home != 0
+      REnv[e].mid = zr_frame_mid(REnv[env].home)
+    end
     # A `&b` parameter bound to the block it was given is a Proc on the
     # stack of its caller (Params#raw_block?). The cell lives longer than
     # that frame.

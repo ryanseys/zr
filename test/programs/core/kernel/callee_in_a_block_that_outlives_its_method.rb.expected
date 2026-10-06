@@ -1,0 +1,10 @@
+:alias_foo
+:foo
+:bar
+:foo
+[:foo, :baz]
+:qux
+[:two, :one]
+[:remake, 1]
+:dm2
+nil
