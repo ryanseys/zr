@@ -1136,7 +1136,7 @@ module Zr::Kern
     r = zr_name_id(name, out)
     return r if r == QUNDEF
     id = Machine.load64(out, 0)
-    unless zr_const_name_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+    unless zr_const_name_p(id)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("wrong constant name "), 20)
@@ -1149,24 +1149,32 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  #: (ptr, word) -> bool
-  def zr_const_name_p(p, n)
+  # Whether the symbol `id` names a constant: a capital letter first, then
+  # letters, digits and `_`. A name with a byte past ASCII is read by
+  # character, in its own encoding.
+  #: (word) -> bool
+  def zr_const_name_p(id)
+    p = zr_symbol_name_ptr(id)
+    n = zr_symbol_name_len(id)
     if n == 0
       return false
     end
-    c = Machine.u8(Machine.load8(p, 0))
-    if c >= 128
-      if !zr_const_lead_p(p, n)
-        return false
+    i = 0
+    while i < n
+      if Machine.u8(Machine.load8(p + i, 0)) >= 128
+        return zr_const_wide_name_p(id)
       end
-    elsif c < 65 || c > 90
+      i += 1
+    end
+    c = Machine.u8(Machine.load8(p, 0))
+    if c < 65 || c > 90
       return false
     end
     i = 1
     while i < n
       c = Machine.u8(Machine.load8(p + i, 0))
       alpha = (c >= 65 && c <= 90) || (c >= 97 && c <= 122)
-      unless alpha || (c >= 48 && c <= 57) || c == 95 || c >= 128
+      unless alpha || (c >= 48 && c <= 57) || c == 95
         return false
       end
       i += 1
@@ -1174,14 +1182,15 @@ module Zr::Kern
     true
   end
 
-  # Whether a name that starts past ASCII starts with an uppercase or a
-  # titlecase letter, as rb_sym_constant_char_p tests. The core's Unicode
-  # tables answer.
-  #: (ptr, word) -> bool
-  def zr_const_lead_p(p, n)
+  # Whether a name with a character past ASCII names a constant, as
+  # rb_enc_symname_type reads it. The core's Unicode tables answer.
+  #: (word) -> bool
+  def zr_const_wide_name_p(id)
+    name = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+    zr_str_set_index(name, zr_symbol_encoding_index(id))
     slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(zr_str_new(p, n)))
-    zr_send(zr_global(G_MODULE), Machine.id(:const_lead?), 1, slot) == QTRUE
+    Machine.store64(slot, 0, Machine.word(name))
+    zr_send(zr_global(G_MODULE), Machine.id(:const_name?), 1, slot) == QTRUE
   end
 
   # Returns the constant entry for one segment of a `const_get` path. The
@@ -1372,7 +1381,7 @@ module Zr::Kern
       id = CEntry[e].id
       name = zr_sym(id)
       visible = CEntry[e].private == 0 && (CEntry[e].concealed == 0 || zr_const_sees_reflectively())
-      if visible && zr_const_name_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id)) && zr_ary_index_of(out, name) < 0
+      if visible && zr_const_name_p(id) && zr_ary_index_of(out, name) < 0
         zr_ary_push(out, name)
       end
       i += 1
@@ -1541,7 +1550,7 @@ module Zr::Kern
     r = zr_name_id(name, slot)
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
-    unless zr_const_name_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+    unless zr_const_name_p(id)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("autoload must be constant name: "), 32)

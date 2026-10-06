@@ -334,11 +334,27 @@ class << self
 end
 
 class << Module
-  # zr_const_lead_p (lib/zr/runtime/kernel/const.rb): whether a name that
-  # starts past ASCII starts with an uppercase or titlecase letter.
-  def const_lead?(name)
+  # zr_const_wide_name_p (lib/zr/runtime/kernel/const.rb): whether a name
+  # with a character past ASCII names a constant, read by character in
+  # its own encoding (ISO-8859-15, Shift_JIS or EUC-JP too): an uppercase
+  # or titlecase letter first, then letters, digits, `_` and characters
+  # past ASCII. A character that has no Unicode form is no letter.
+  def const_name?(name)
     Primitive.attr! :hidden
-    name.valid_encoding? && name.match?(/\A[\p{Lu}\p{Lt}]/)
+    return false unless name.valid_encoding?
+
+    lead, *rest = name.chars
+    return false unless lead.ascii_only? ? lead.match?(/\A[A-Z]\z/) : capital?(lead)
+
+    rest.all? { |char| !char.ascii_only? || char.match?(/\A\w\z/) }
+  end
+
+  def capital?(char)
+    Primitive.attr! :hidden
+    char = char.encode(Encoding::UTF_8) unless char.encoding == Encoding::UTF_8
+    char.match?(/\A[\p{Lu}\p{Lt}]\z/)
+  rescue EncodingError
+    false
   end
 
   # How an `uninitialized constant` message names the scope `mod`: its
