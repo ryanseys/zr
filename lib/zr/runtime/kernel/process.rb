@@ -113,12 +113,18 @@ module Zr::Kern
     end
   end
 
+  # Where a pty's [master, slave] comes in the options of zr_exec_options,
+  # after the eight that every spawn has.
+  EXEC_TTY = 8
+
   # Applies to this process the options that posix_spawn cannot take, in
   # the order of rb_execarg_run_options: the process group (`pgroup` -1
   # keeps it, 0 makes a new one), the resource limits (`limits` contains
   # resource, soft, hard triples), the umask (-1 keeps it), the
-  # descriptors, and the directory. `options` is [dups, closes, chdir,
-  # pgroup, umask, limits]; `dups` and `closes` are as for zr_posix_spawn.
+  # descriptors, the directory, then the group and the user (-1 keeps
+  # each). `options` is [dups, closes, chdir, pgroup, umask, limits, uid,
+  # gid], and a pty's [master, slave] after them; `dups` and `closes` are
+  # as for zr_posix_spawn.
   # Returns 0 or the errno. It allocates nothing, so a forked child can run
   # it before its exec.
   #: (value) -> word
@@ -132,8 +138,8 @@ module Zr::Kern
     # A pty child starts its own session, with the slave as its
     # controlling terminal and its standard streams, as pty.c's chfunc
     # does. This occurs before all other options.
-    if RArray[options].len > 6
-      zr_exec_tty(zr_ary_at(options, 6))
+    if RArray[options].len > EXEC_TTY
+      zr_exec_tty(zr_ary_at(options, EXEC_TTY))
     end
     group = zr_fix2long(pgroup)
     if group >= 0 && Libc.setpgid(Machine.i32(0), Machine.i32(group)) < Machine.i32(0)
@@ -175,6 +181,12 @@ module Zr::Kern
       i += 1
     end
     if chdir != QNIL && Libc.chdir(RString[chdir].ptr) < Machine.i32(0)
+      return zr_errno()
+    end
+    if zr_fix2long(zr_ary_at(options, 7)) >= 0 && zr_os_setid(zr_sym(Machine.id(:setgid)), zr_ary_at(options, 7)) != zr_fix(0)
+      return zr_errno()
+    end
+    if zr_fix2long(zr_ary_at(options, 6)) >= 0 && zr_os_setid(zr_sym(Machine.id(:setuid)), zr_ary_at(options, 6)) != zr_fix(0)
       return zr_errno()
     end
     0
@@ -243,8 +255,8 @@ module Zr::Kern
     # after its fork, not after the child's exec: on darwin a slave that
     # this process still holds when the child exits loses what the child
     # wrote.
-    if RArray[options].len > 6
-      Libc.close(Machine.i32(zr_fix2long(zr_ary_at(zr_ary_at(options, 6), 1))))
+    if RArray[options].len > EXEC_TTY
+      Libc.close(Machine.i32(zr_fix2long(zr_ary_at(zr_ary_at(options, EXEC_TTY), 1))))
     end
     zr_xfree(argv)
     zr_xfree(shell)

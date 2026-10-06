@@ -155,16 +155,19 @@ module Process
       @pgroup = -1
       @umask = -1
       @limits = []
+      # -1 leaves the user and the group as they are.
+      @uid = -1
+      @gid = -1
       options.each { |key, value| add(key, value) }
       @dups = ordered(@dups) + children
     end
 
     # Whether an option needs what only a forked child can do before
     # its exec.
-    def forked? = @pgroup >= 0 || @umask >= 0 || !@limits.empty?
+    def forked? = @pgroup >= 0 || @umask >= 0 || !@limits.empty? || @uid >= 0 || @gid >= 0
 
     # What zr_exec_options applies, in the order it reads them.
-    def to_a = [@dups, @closes, @chdir, @pgroup, @umask, @limits]
+    def to_a = [@dups, @closes, @chdir, @pgroup, @umask, @limits, @uid, @gid]
 
     private
 
@@ -176,6 +179,8 @@ module Process
       when :close_others then @close_others = value ? true : false
       when :pgroup then @pgroup = pgroup_of(value)
       when :umask then @umask = Integer.send(:int_operand, value)
+      when :uid then @uid = id_option(value, false)
+      when :gid then @gid = id_option(value, true)
       when Symbol
         return redirect(descriptor(key), value) if STREAMS.key?(key)
         return add_limit(key, value) if key.start_with?("rlimit_")
@@ -192,6 +197,13 @@ module Process
           fds.each { |fd| redirect(fd, value) }
         end
       end
+    end
+
+    # The user or group the child becomes before its exec: a number or a
+    # name, which no UID.switch or GID.switch block may change.
+    def id_option(value, group)
+      Process.send(:switching!, group)
+      Process.send(:id_of, value, group)
     end
 
     def pgroup_of(value)
