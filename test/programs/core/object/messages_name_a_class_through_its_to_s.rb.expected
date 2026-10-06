@@ -1,0 +1,3 @@
+"can't modify frozen Cテスト: #<#<Class:0xADDR>:0xADDR>"
+"unexpected value for freeze: Cテスト"
+"can't modify frozen Object: #<Object:0xADDR>"

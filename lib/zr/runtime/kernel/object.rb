@@ -933,6 +933,12 @@ module Zr::Kern
   def zr_buf_obj_head(b, obj)
     zr_buf_push(b, Machine.bytes("#<"), 2)
     zr_buf_class_of(b, obj)
+    zr_buf_obj_address(b, obj)
+  end
+
+  # Appends `:0x` and the object's address in sixteen hex digits.
+  #: (ptr, value) -> void
+  def zr_buf_obj_address(b, obj)
     zr_buf_push(b, Machine.bytes(":0x"), 3)
     w = Machine.word(obj)
     i = 0
@@ -962,6 +968,17 @@ module Zr::Kern
   #: (ptr, value) -> void
   def zr_buf_class_of(b, v)
     zr_buf_str(b, zr_class_name_of(v))
+  end
+
+  # Appends `v`'s class as a message's `%"PRIsVALUE` writes it: through
+  # the class's own `to_s` (rb_obj_as_string of rb_obj_class). Returns
+  # undef when `to_s` raised.
+  #: (ptr, value) -> value
+  def zr_buf_class_shown(b, v)
+    s = zr_obj_as_string(zr_real_class(v))
+    return s if s == QUNDEF
+    zr_buf_str(b, s)
+    Machine.value(QNIL)
   end
 
   # `#<Name:0x...>`, rb_any_to_s.

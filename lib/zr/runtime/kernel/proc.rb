@@ -787,7 +787,16 @@ module Zr::Kern
   def zr_proc_inspect(recv, argc, argv, cref, blk)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    zr_buf_obj_head(b, recv)
+    # rb_block_to_s names the class through its own to_s, and the text
+    # takes the encoding of a name that is not ASCII.
+    zr_buf_push(b, Machine.bytes("#<"), 2)
+    shown = zr_obj_as_string(zr_real_class(recv))
+    if shown == QUNDEF
+      zr_buf_free(b)
+      return shown
+    end
+    zr_buf_str(b, shown)
+    zr_buf_obj_address(b, recv)
     if !zr_buf_block_where(b, recv)
       zr_buf_free(b)
       return Machine.value(QUNDEF)
@@ -796,7 +805,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" (lambda)"), 9)
     end
     zr_buf_byte(b, 62)
-    zr_buf_take_at(b, ENC_BINARY)
+    zr_buf_take_at(b, zr_str_ascii_only(shown) ? ENC_BINARY : zr_str_encoding_index(shown))
   end
 
   #: (value, word, ptr, value, value) -> value

@@ -220,7 +220,11 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("can't modify frozen "), 20)
-    zr_buf_class_of(b, v)
+    shown = zr_buf_class_shown(b, v)
+    if shown == QUNDEF
+      zr_buf_free(b)
+      return shown
+    end
     zr_buf_push(b, Machine.bytes(": "), 2)
     # An `inspect` that writes to its own frozen receiver comes back here for
     # the same object. That second error shows ` ...` and does not call

@@ -360,7 +360,11 @@ module Zr::Kern
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("unexpected value for freeze: "), 29)
-      zr_buf_class_of(b, freeze)
+      shown = zr_buf_class_shown(b, freeze)
+      if shown == QUNDEF
+        zr_buf_free(b)
+        return shown
+      end
       return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
     end
     if zr_special_p(recv)
