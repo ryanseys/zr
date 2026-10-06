@@ -1,0 +1,10 @@
+set: FrozenError: can't modify frozen Module: #<Module:0xADDR>
+eval set: FrozenError: can't modify frozen Module: #<Module:0xADDR>
+get: 1
+singleton: []
+singleton get: NameError: uninitialized class variable @@rule in #<Class:#<Class:0xADDR>>
+singleton after set: [:@@foo]
+singleton get after set: 1
+subclass singleton: [:@@foo]
+object singleton: [:@@rule]
+object singleton get: "Zeus"

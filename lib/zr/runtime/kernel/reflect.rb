@@ -157,7 +157,7 @@ module Zr::Kern
     while k != QNIL
       zr_ivtab_names(Machine.ptr(ClassExt[RClass[k].ext].cv), out, 64)
       if inherit
-        k = RClass[k].superclass
+        k = k == recv ? zr_cvar_front(recv) : RClass[k].superclass
       else
         k = Machine.value(QNIL)
       end
@@ -203,7 +203,7 @@ module Zr::Kern
     if owner == QNIL
       owner = recv
     end
-    r = zr_class_modify_check(owner)
+    r = zr_class_modify_check(zr_cvar_holder(owner))
     return r if r == QUNDEF
     v = Machine.value(Machine.load64(argv, 8))
     zr_ivtab_set(Machine.ptr(ClassExt[RClass[owner].ext].cv), id, v)

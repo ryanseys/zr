@@ -747,9 +747,31 @@ module Zr::Kern
       if zr_ivtab_row(Machine.ptr(ClassExt[RClass[k].ext].cv), id) != 0
         return k
       end
-      k = RClass[k].superclass
+      k = k == klass ? zr_cvar_front(klass) : RClass[k].superclass
     end
     Machine.value(QNIL)
+  end
+
+  # cvar_front_klass: what comes after `klass` in a class variable lookup.
+  # After the singleton class of a class or module comes that class or
+  # module, and not the singleton class's own ancestors.
+  #: (value) -> value
+  def zr_cvar_front(klass)
+    if zr_type(klass) == T_CLASS && zr_singleton_p(klass)
+      attached = RClass[klass].attached
+      if !zr_special_p(attached) && (zr_type(attached) == T_CLASS || zr_type(attached) == T_MODULE)
+        return attached
+      end
+    end
+    RClass[klass].superclass
+  end
+
+  # The module whose class variable table holds a class variable: an
+  # included module's proxy writes to the module, which must not be
+  # frozen.
+  #: (value) -> value
+  def zr_cvar_holder(owner)
+    zr_type(owner) == T_ICLASS ? RClass[owner].attached : owner
   end
 
   # Whether Refinement#import_methods can copy `name` from `mod`: true for
@@ -785,7 +807,7 @@ module Zr::Kern
         end
         target = k
       end
-      k = RClass[k].superclass
+      k = k == klass ? zr_cvar_front(klass) : RClass[k].superclass
     end
     if front == QNIL || target == front
       return target
@@ -875,7 +897,7 @@ module Zr::Kern
     end
     r = zr_ractor_cvar_check(owner, id)
     return r if r == QUNDEF
-    frozen = zr_class_modify_check(owner)
+    frozen = zr_class_modify_check(zr_cvar_holder(owner))
     return frozen if frozen == QUNDEF
     zr_ivtab_set(Machine.ptr(ClassExt[RClass[owner].ext].cv), id, v)
     zr_write_barrier(owner, v)
