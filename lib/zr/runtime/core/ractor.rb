@@ -436,7 +436,12 @@ class Ractor
     raise IsolationError, "Proc's self is not shareable: #{obj.inspect}" if obj.is_a?(Proc) && !shareable?(Primitive.zr_proc_self_m(obj))
 
     seen[obj] = true
-    obj.freeze
+    # make_shareable_check_shareable_freeze: the program's #freeze runs,
+    # and one that leaves the object unfrozen is an error.
+    unless obj.frozen?
+      obj.send(:freeze)
+      raise Error, +"#freeze does not freeze object correctly" unless obj.frozen?
+    end
     each_reachable(obj) { |ref| deep_freeze(ref, seen) }
   end
 
