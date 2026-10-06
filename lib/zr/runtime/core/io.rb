@@ -524,7 +524,7 @@ class IO
     deadline = if rows.any? { |_, stream, event| event == POLL_IN && stream.send(:buffered?) } then now
                elsif timeout then now + (timeout * 1e9).to_i
                end
-    ready = Thread.current.send(:wait_fds, rows.map { |_, stream, _| stream.fileno }, rows.map { |_, _, event| event }, deadline)
+    ready = Thread.current.send(:wait_fds, rows.map { |_, stream, _| stream.fileno }, rows.map { |_, _, event| event }, deadline, gives_way: true)
     raise SystemCallError.new(nil, -ready, +"select") if ready.is_a?(Integer)
 
     chosen = rows.zip(ready).select { |(_, stream, event), got| got.positive? || (event == POLL_IN && stream.send(:buffered?)) }
@@ -3306,7 +3306,7 @@ class IO
       return ready.is_a?(Integer) ? ready & events : 0
     end
     deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).round
-    ready = Thread.current.send(:wait_io, fileno, events, deadline)
+    ready = Thread.current.send(:wait_io, fileno, events, deadline, gives_way: true)
     raise SystemCallError.new(label, -ready, +"io_wait") if ready.negative?
 
     ready & events

@@ -445,6 +445,12 @@ class Thread
 
     def address(thread) = Primitive.zr_obj_head(thread)[/0x\h+/]
 
+    # Whether a thread other than the current one waits for its turn.
+    def others_ready?
+      Primitive.attr! :hidden
+      !@queue.empty?
+    end
+
     def enqueue(thread)
       atomically { @queue << thread unless @queue.include?(thread) }
     end
@@ -1057,9 +1063,9 @@ class Thread
   # rb_thread_wait_for_single_fd: the events of `events` that `fd` came
   # ready for, 0 once `deadline` (nanoseconds on the monotonic clock)
   # passes, or the negated errno.
-  def wait_io(fd, events, deadline)
+  def wait_io(fd, events, deadline, gives_way: false)
     Primitive.attr! :hidden
-    ready = wait_fds([fd], [events], deadline)
+    ready = wait_fds([fd], [events], deadline, gives_way:)
     ready.is_a?(Integer) ? ready : ready.first
   end
 
@@ -1067,9 +1073,12 @@ class Thread
   # `events`; all zero once `deadline` passes; or the negated errno. A
   # thread alone waits in the system call itself; among others it parks,
   # and the scheduler polls for it while no thread can run. A wakeup
-  # does not end the wait; a raise or a kill does.
-  def wait_fds(fds, events, deadline)
+  # does not end the wait; a raise or a kill does. A wait that the
+  # program asks for by name (IO.select, IO#wait) is a blocking region,
+  # which `gives_way`; the check before a read or a write is not.
+  def wait_fds(fds, events, deadline, gives_way: false)
     Primitive.attr! :hidden
+    give_way(fds, events) if gives_way && Primitive.zr_threaded
     loop do
       left = deadline && [((deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)) / 1_000_000.0).ceil, 0].max
       alone = !Primitive.zr_threaded || Thread.send(:alone?)
@@ -1077,13 +1086,31 @@ class Thread
       return ready if ready.is_a?(Integer) || ready.any?(&:positive?) || left&.zero?
       next if alone
 
-      fds.zip(events) { |fd, wanted| Thread.send(:watch, fd, wanted, self) }
-      begin
-        wait(deadline, false)
-      ensure
-        Thread.send(:unwatch, self)
-      end
+      watching(fds, events) { wait(deadline, false) }
     end
+  end
+
+  # blocking_region_begin: a thread that starts a blocking call gives up
+  # the GVL, so each other thread that can run takes its turn first, and
+  # sees this one asleep while it does; a close of a descriptor it waits
+  # on reaches it then too. Either way, an interrupt that waits for a
+  # blocking call arrives here.
+  def give_way(fds, events)
+    Primitive.attr! :hidden
+    return at_blocking unless Thread.send(:others_ready?)
+
+    Thread.send(:enqueue, self)
+    watching(fds, events) { wait(nil, false) }
+  end
+
+  # The scheduler polls each descriptor for its events while the block
+  # runs, and a close of one raises in this thread.
+  def watching(fds, events)
+    Primitive.attr! :hidden
+    fds.zip(events) { |fd, wanted| Thread.send(:watch, fd, wanted, self) }
+    yield
+  ensure
+    Thread.send(:unwatch, self)
   end
 
   # One park on `fd`: it ends when the scheduler finds `fd` ready, or when
@@ -1091,10 +1118,7 @@ class Thread
   # waits for.
   def park_io(fd, events)
     Primitive.attr! :hidden
-    Thread.send(:watch, fd, events, self)
-    wait(nil, false)
-  ensure
-    Thread.send(:unwatch, self)
+    watching([fd], [events]) { wait(nil, false) }
   end
 
   # Wait on a list whose owner wakes its members. A non-blocking fiber
