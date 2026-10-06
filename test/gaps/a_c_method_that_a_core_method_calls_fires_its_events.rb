@@ -1,15 +1,17 @@
 # ruby fires :c_call and :c_return for a C method that another C method
-# calls (rb_funcall): Class#new's initialize, and the method_missing that
-# a Ruby method_missing reaches with super. zr's core methods fire no
-# events for the calls they make.
+# calls (rb_funcall). zr fires them for the calls that stand for C's
+# rb_funcall in Class#new, include, extend, the hooks, raise, super and
+# inspect. The NoMethodError that the base method_missing makes fires
+# no `exception` or `backtrace`, and `p` fires no `inspect`.
 class Plain; end
 class Answering
   def method_missing(name, *) = name == :hello ? :hi : super
   def respond_to_missing?(*) = true
 end
 events = []
-TracePoint.new(:c_call, :c_return) { |tp| events << [tp.event, tp.method_id] }.enable do
+TracePoint.new(:c_call, :c_return) { |tp| events << [tp.event, tp.method_id] if tp.path == __FILE__ }.enable do
   Plain.new { }
   Answering.new.nope rescue nil
+  p 1
 end
 events.each { p _1 }

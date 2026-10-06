@@ -1,3 +1,4 @@
+1
 [:c_call, :new]
 [:c_call, :initialize]
 [:c_return, :initialize]
@@ -14,3 +15,7 @@
 [:c_return, :backtrace]
 [:c_call, :===]
 [:c_return, :===]
+[:c_call, :p]
+[:c_call, :to_s]
+[:c_return, :to_s]
+[:c_return, :p]
