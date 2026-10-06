@@ -191,8 +191,10 @@ module Zr
       # Every program test that contains the word `constant`.
       def programs_naming(constant) = programs_matching(/\b#{Regexp.escape(constant)}\b/)
 
+      # A program can be in another encoding than UTF-8 (a magic comment says
+      # so), and the patterns are ASCII, so each file is read as bytes.
       def programs_matching(pattern)
-        Dir[File.join(PROGRAMS, "**/*.rb")].select { |path| !path.include?(".rb.files/") && File.read(path).match?(pattern) }
+        Dir[File.join(PROGRAMS, "**/*.rb")].select { |path| !path.include?(".rb.files/") && File.binread(path).match?(pattern) }
       end
 
       # The test paths to run for `files`, or :all.
