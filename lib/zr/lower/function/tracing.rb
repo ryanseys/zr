@@ -19,8 +19,9 @@ module Zr
         EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze #: Hash[Symbol, Integer]
         # The event that a scope fires when it starts, and the one that it
         # fires when it leaves (also when a raise unwinds it).
-        OPENING = { def: :call, block: :b_call, class: :class, module: :class, sclass: :class }.freeze #: Hash[Symbol, Symbol]
-        CLOSING = { def: :return, block: :b_return, class: :end, module: :end, sclass: :end }.freeze #: Hash[Symbol, Symbol]
+        # A `class << obj` body fires neither :class nor :end, as in ruby.
+        OPENING = { def: :call, block: :b_call, class: :class, module: :class }.freeze #: Hash[Symbol, Symbol]
+        CLOSING = { def: :return, block: :b_return, class: :end, module: :end }.freeze #: Hash[Symbol, Symbol]
         LAMBDA = 1 << 32
 
         private

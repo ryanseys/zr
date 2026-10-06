@@ -187,7 +187,7 @@ module Zr
         computed = !lower.internal?
         @has_env = %i[eval main].include?(@kind) || Hir::Locals.holds_block?(body) || Hir::Locals.opens_locals?(body, computed:) ||
                    default_expressions.any? { |d| Hir::Locals.holds_block?(d) || Hir::Locals.opens_locals?(d, computed:) } ||
-                   (lower.traced? && !lower.internal? && %i[def block top].include?(@kind))
+                   (lower.traced? && !lower.internal? && %i[def block top class module sclass].include?(@kind))
         @raw_block = nil
         # A def's scope has a Def, and a block's a Block.
         @raw_block = raw_block?(node.params) ? node.params.block : nil if node.is_a?(Hir::Def) || node.is_a?(Hir::Block)
