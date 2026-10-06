@@ -84,8 +84,10 @@ module Zr::Kern
   # malloc'd payload bytes (zr_xmalloc, zr_xfree) and the limit that starts
   # the collector, whether an allocation takes the slow path
   # (zr_heap_slow_update), the collection counts and times by kind, whether
-  # ZR_GC_TRACE is on, and the collection number and freed bytes of the
-  # last major.
+  # ZR_GC_TRACE is on, the collection number and freed bytes of the last
+  # major, what started the last collection and why it was major
+  # (`last_info`, GC_INFO_*), and the weak references that its prune saw
+  # and kept.
   class Heap < Layout
     attr_accessor :collections #: word
     attr_accessor :stress #: word
@@ -108,7 +110,22 @@ module Zr::Kern
     attr_accessor :trace #: word
     attr_accessor :last_major #: word
     attr_accessor :reclaimed #: word
+    attr_accessor :last_info #: word
+    attr_accessor :weak_refs #: word
+    attr_accessor :weak_kept #: word
   end
+
+  # The bits of Heap#last_info, which GC.latest_gc_info reads: GC.start
+  # ran the collection (1), the payload was over its limit (2), GC.start
+  # asked for no immediate sweep (4), and why a major ran, in the bits
+  # from 8 up: GC.start asked for it, the old objects grew, or a minor
+  # freed too little. A minor has no reason.
+  GC_INFO_METHOD = 1
+  GC_INFO_MALLOC = 2
+  GC_INFO_LAZY = 4
+  GC_INFO_FORCE = 8
+  GC_INFO_OLDGEN = 16
+  GC_INFO_NOFREE = 24
 
   # The rows that GC::Profiler reads: while `on`, each collection appends
   # PROFILE_ROW words to the malloc'd `rows` (`zr_gc_profile_push`).
@@ -1333,8 +1350,10 @@ module Zr::Kern
   #: (word) -> void
   def zr_collect(wanting)
     h = zr_heap()
-    major = Heap[h].live > Heap[h].old_limit || Heap[h].minors >= zr_major_every()
+    major = zr_major_due()
+    by = Heap[h].malloced > Heap[h].malloc_limit ? GC_INFO_MALLOC : 0
     zr_collect_kind(wanting, major)
+    Heap[h].last_info = major ? by | GC_INFO_OLDGEN : by
     # If a minor left the class that ran out still short, the dead objects
     # were not young, and only a major collection can free them. CRuby
     # forces a major for the same reason (GPR_FLAG_MAJOR_BY_NOFREE). The
@@ -1344,11 +1363,20 @@ module Zr::Kern
     short = zr_heap_short(wanting)
     if !major && short && Heap[h].collections - Heap[h].last_major >= MAJOR_AGE
       zr_collect_kind(wanting, true)
+      Heap[h].last_info = by | GC_INFO_NOFREE
       short = zr_heap_short(wanting)
     end
     zr_heap_grow(wanting, short)
     zr_malloc_limit_set()
     zr_heap_slow_update()
+  end
+
+  # Whether the next collection must be major: the old objects grew past
+  # their limit, or the minors before a major are done.
+  #: () -> bool
+  def zr_major_due
+    h = zr_heap()
+    Heap[h].live > Heap[h].old_limit || Heap[h].minors >= zr_major_every()
   end
 
   # Whether the cells are at their share of the machine.
@@ -1855,11 +1883,46 @@ module Zr::Kern
   # grows when the cells run out, as CRuby's does.
   #: () -> value
   def zr_gc_start
-    zr_collect_kind(SIZE_CLASSES, true)
+    zr_gc_start_m(Machine.value(QTRUE), Machine.value(QTRUE))
+  end
+
+  # GC.start: a major collection, or with `full_mark` false a minor one,
+  # unless a major is due anyway. Every sweep here is immediate, so
+  # `immediate_sweep` only shows in GC.latest_gc_info.
+  #: (value, value) -> value
+  def zr_gc_start_m(full_mark, immediate_sweep)
+    h = zr_heap()
+    full = full_mark != QFALSE && full_mark != QNIL
+    due = zr_major_due()
+    zr_collect_kind(SIZE_CLASSES, full || due)
+    info = GC_INFO_METHOD
+    if full
+      info = info | GC_INFO_FORCE
+    elsif due
+      info = info | GC_INFO_OLDGEN
+    end
+    if immediate_sweep == QFALSE || immediate_sweep == QNIL
+      info = info | GC_INFO_LAZY
+    end
+    Heap[h].last_info = info
     zr_heap_grow(SIZE_CLASSES, false)
     zr_malloc_limit_set()
     zr_heap_slow_update()
     zr_finalizers_run()
+  end
+
+  # GC.latest_gc_info's numbers: the last collection's GC_INFO_* bits,
+  # whether the next must be major, and the weak references that its
+  # prune saw and kept.
+  #: () -> value
+  def zr_gc_info
+    h = zr_heap()
+    out = zr_ary_new(4)
+    zr_ary_push(out, zr_fix(Heap[h].last_info))
+    zr_ary_push(out, zr_bool(zr_major_due()))
+    zr_ary_push(out, zr_fix(Heap[h].weak_refs))
+    zr_ary_push(out, zr_fix(Heap[h].weak_kept))
+    out
   end
 
   #: () -> value

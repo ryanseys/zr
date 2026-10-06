@@ -6,7 +6,8 @@
 module GC
   def self.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
     Primitive.attr! :ruby
-    Primitive.zr_gc_start
+    Primitive.zr_gc_start_m(full_mark, immediate_sweep)
+    nil
   end
 
   def self.count = Primitive.zr_gc_count
@@ -82,18 +83,32 @@ module GC
   end
   private_class_method :counter
 
-  # The one collector here runs a full mark and sweep every time.
+  # What the last collection was, in CRuby's words: why it was major (nil
+  # for a minor), whether the next must be, and what started it. Every
+  # sweep here finishes at once, so the state is always :none.
   def self.latest_gc_info(hash_or_key = nil)
     Primitive.attr! :ruby
+    bits, due, weak, kept = Primitive.zr_gc_info
     info = {
-      major_by: :force, need_major_by: nil, gc_by: :method, have_finalizer: false,
-      immediate_sweep: true, state: :none, weak_references_count: 0, retained_weak_references_count: 0
+      major_by: MAJOR_BY[bits >> 3], need_major_by: (:oldgen if due),
+      gc_by: if bits.anybits?(1) then :method
+             elsif bits.anybits?(2) then :malloc
+             else :newobj
+             end,
+      have_finalizer: false, immediate_sweep: bits.nobits?(4), state: :none,
+      weak_references_count: weak, retained_weak_references_count: kept
     }
-    return info if hash_or_key.nil?
-    return info.fetch(hash_or_key) if info.key?(hash_or_key)
-
-    raise ArgumentError, "unknown key: #{hash_or_key}"
+    case hash_or_key
+    when nil then info
+    when Hash then hash_or_key.merge!(info)
+    when Symbol then info.fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
+    else raise TypeError, +"non-hash or symbol given"
+    end
   end
+
+  # Heap#last_info's reason for a major, by its bits from 8 up.
+  MAJOR_BY = [nil, :force, :oldgen, :nofree].freeze
+  private_constant :MAJOR_BY
 
   # One record per collection while the profiler is enabled, as CRuby's
   # gc_profile_record: the collector appends the numbers
@@ -265,7 +280,8 @@ module GC
 
   def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true)
     Primitive.attr! :ruby
-    Primitive.zr_gc_start
+    Primitive.zr_gc_start_m(full_mark, immediate_sweep)
+    nil
   end
 end
 

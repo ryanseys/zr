@@ -175,7 +175,8 @@ module ObjectSpace
 
   def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true)
     Primitive.attr! :ruby
-    Primitive.zr_gc_start
+    Primitive.zr_gc_start_m(full_mark, immediate_sweep)
+    nil
   end
 
   def each_object(mod = nil)

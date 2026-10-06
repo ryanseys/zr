@@ -75,6 +75,9 @@ module Zr::Kern
   def zr_weak_prune
     l = zr_weak_list()
     finalizers = zr_global(G_FINALIZERS)
+    heap = zr_heap()
+    Heap[heap].weak_refs = 0
+    Heap[heap].weak_kept = 0
     i = 0
     kept = 0
     while i < WeakList[l].len
@@ -89,14 +92,26 @@ module Zr::Kern
     WeakList[l].len = kept
   end
 
+  # Drops the entries of weak table `h` whose weak key or value died. The
+  # weak references of a program's table count for GC.latest_gc_info: a
+  # key, and a value too where it is weak.
   #: (value, bool) -> void
   def zr_weak_prune_table(h, finalizer)
     both = (RBasic[h].flags & FL_WEAK) != 0
+    refs = both ? 2 : 1
+    heap = zr_heap()
     n = RHash[h].len
     i = 0
     while i < n
       e = RHash[h].entries + (i * HEntry.size)
-      if HEntry[e].live != 0 && (zr_dead_p(HEntry[e].key) || (both && zr_dead_p(HEntry[e].value)))
+      dead = HEntry[e].live != 0 && (zr_dead_p(HEntry[e].key) || (both && zr_dead_p(HEntry[e].value)))
+      if HEntry[e].live != 0 && !finalizer
+        Heap[heap].weak_refs = Heap[heap].weak_refs + refs
+        if !dead
+          Heap[heap].weak_kept = Heap[heap].weak_kept + refs
+        end
+      end
+      if dead
         if finalizer
           zr_weak_list_push(zr_finalizer_queue(), HEntry[e].value)
           # It runs at the next safe point.
