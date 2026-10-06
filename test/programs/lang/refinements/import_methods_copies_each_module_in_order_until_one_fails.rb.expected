@@ -1,0 +1,6 @@
+[ArgumentError, "Can't import method which is not defined with Ruby code: Kernel#"]
+"   foo"
+"HI!"
+"hi"
+"private method 'whisper' called for an instance of String"
+"wrong argument type Class (expected Module)"

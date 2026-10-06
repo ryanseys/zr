@@ -320,21 +320,22 @@ class Refinement
     modules.each do |mod|
       raise TypeError, "wrong argument type #{conversion_name(mod)} (expected Module)" unless mod.instance_of?(Module)
     end
+    # rb_mod_import_methods warns for each module first, then copies the
+    # methods one at a time, so the ones before a method that cannot be
+    # copied stay. Only a method written as a `def` in Ruby can be copied,
+    # not a C method, an attr, a define_method or an alias.
     modules.each do |mod|
-      # refinement_import_methods: only a method written as a `def` in Ruby
-      # can be copied, not a C method, an attr, a define_method or an alias.
       warn "#{mod.inspect} has ancestors, but Refinement#import_methods doesn't import their methods", uplevel: 1 if mod.ancestors.size > 1
-      (mod.instance_methods(false) + mod.private_instance_methods(false)).each do |name|
+    end
+    modules.each do |mod|
+      private_names = mod.private_instance_methods(false)
+      (mod.instance_methods(false) + private_names).each do |name|
         ok = Primitive.zr_mod_import_ok_p(mod, name)
         ok = TracePoint.const_get(:BUILTIN_LINES, false).key?("#{mod}##{name}") if ok.nil?
         raise ArgumentError, "Can't import method which is not defined with Ruby code: #{mod}##{name}" unless ok
-      end
-    end
-    modules.each do |mod|
-      mod.instance_methods(false).each { |name| define_method(name, mod.instance_method(name)) }
-      mod.private_instance_methods(false).each do |name|
+
         define_method(name, mod.instance_method(name))
-        private name
+        private name if private_names.include?(name)
       end
     end
     self
