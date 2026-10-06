@@ -54,9 +54,12 @@ module Zr
       attr_reader :requires #: Array[String]
       # The directories of -C, in order (each from the one before).
       attr_reader :chdirs #: Array[String]
-      # -x, -s, -S, -c, -d, -v, --version and --copyright. (-n, -p, -a
-      # and -l go to prism, in `switches`.)
-      attr_reader :xflag, :sflag, :search, :check, :debug, :version, :version_only, :copyright #: bool
+      # -x, -s, -S, -d, -v, --version and --copyright. (-n, -p, -a and -l
+      # go to prism, in `switches`.)
+      attr_reader :xflag, :sflag, :search, :debug, :version, :version_only, :copyright #: bool
+      # What -c, -y, --yydebug and --dump ask to print in place of a run:
+      # :yydebug, :syntax and :parsetree, in ruby's order.
+      attr_reader :dumps #: Array[Symbol]
       # The encodings of -E, -U, -K and --encoding, or nil.
       attr_reader :external, :internal #: String?
       # The source encoding of -K, or nil.
@@ -76,6 +79,13 @@ module Zr
       FEATURES = %w[gems error_highlight did_you_mean syntax_suggest rubyopt frozen_string_literal yjit zjit].freeze
       # -W:name categories.
       CATEGORIES = %w[deprecated experimental performance strict_unused_block].freeze
+      # The items of --dump, in ruby.c's order (EACH_DUMPS), and the
+      # options that can follow one after a "+".
+      DUMPS = %w[version copyright usage help yydebug syntax parsetree insns].freeze
+      DUMP_OPTIONS = %w[error_tolerant comment optimize].freeze
+      # The items that print in place of a run, in the order ruby prints them.
+      DUMP_EXITS = %i[yydebug syntax parsetree].freeze
+
       # The encodings of -K.
       KCODES = { "e" => "EUC-JP", "s" => "Windows-31J", "u" => "UTF-8", "n" => "ASCII-8BIT", "a" => "ASCII-8BIT" }.freeze
 
@@ -92,7 +102,8 @@ module Zr
         @includes = []
         @requires = []
         @chdirs = []
-        @loop = @print = @split = @line = @xflag = @sflag = @search = @check = @debug = @version = @version_only = @copyright = false
+        @loop = @print = @split = @line = @xflag = @sflag = @search = @debug = @version = @version_only = @copyright = false
+        @dumps = []
         @debug_frozen = false
         @external = @internal = @external_name = @internal_name = @source_encoding = nil
         @envopt = false
@@ -157,6 +168,10 @@ module Zr
 
         !(@version || tty)
       end
+
+      # Whether ruby prints a dump of the program in place of its run.
+      #: () -> bool
+      def dumps? = !@dumps.empty?
 
       # -h or --help: zr's usage.
       #: () -> bool
@@ -325,7 +340,7 @@ module Zr
           when "d"
             @debug = @debug_frozen = true
             @verbose = [true]
-          when "y" then nil # parse.y's debug output: ruby with prism prints none.
+          when "y" then dump_item!(:yydebug)
           when "v"
             next if @version || @verbose_option
 
@@ -333,7 +348,7 @@ module Zr
             verbose!
           when "w" then verbose!
           when "W" then s = warning!(s)
-          when "c" then @check = true
+          when "c" then dump_item!(:syntax)
           when "s" then @sflag = true
           when "h"
             @help = true
@@ -542,10 +557,8 @@ module Zr
           parser = argument(name, given, argv)
           refuse("--parser=parse.y (zr parses with prism)") if parser == "parse.y"
           raise Invalid, "unknown parser #{parser}" unless %w[prism parse.y].include?(parser)
-        when "dump"
-          argument(name, given, argv)
-          refuse("--dump")
-        when "yydebug" then nil
+        when "dump" then argument(name, given, argv).split(/[\s,]+/).each { |word| dump!(word) unless word.empty? }
+        when "yydebug" then dump_item!(:yydebug)
         when "backtrace-limit"
           limit = argument(name, given, argv)
           # strtol: a long, no less than -1.
@@ -559,6 +572,61 @@ module Zr
         else
           raise Invalid, "invalid option --#{s}  (-h will show valid options)"
         end
+      end
+
+      # dump_option: one word of --dump, an item and its options after "+",
+      # or "+name" or "-name" alone to set or clear an option. An unknown
+      # item only warns.
+      #: (String word) -> void
+      def dump!(word)
+        return dump_option!(word[1..].to_s, word.start_with?("+")) if word.start_with?("+", "-")
+
+        name, *options = word.split("+", -1)
+        item = DUMPS.find { |known| name_match?("#{known}-", name.to_s) }
+        unless item
+          @warnings << "zr: warning: don't know how to dump '#{word}',"
+          @warnings << "zr: warning: but only [#{DUMPS.join(", ")}]."
+          return
+        end
+        dump_item!(item.to_sym)
+        options.each { |option| dump_additional!(option) }
+      end
+
+      # The items that do not print a dump: --version, --copyright and the
+      # usage. zr has no instruction sequences to print for insns.
+      #: (Symbol item) -> void
+      def dump_item!(item)
+        case item
+        when :version then @version_only = true
+        when :copyright then @copyright = true
+        when :usage, :help then @help = true
+        when :insns then refuse("--dump=insns (zr compiles to machine code, not to YARV instructions)")
+        else @dumps = DUMP_EXITS & [*@dumps, item]
+        end
+      end
+
+      # dump_additional_option: one option after a "+": "name", "+name",
+      # "-name", "with-name" or "without-name". As in ruby, "with" and
+      # "without" keep their "-", so no option has the name after them.
+      #: (String text) -> void
+      def dump_additional!(text)
+        return dump_option!(text[1..].to_s, text.start_with?("+")) if text.start_with?("+", "-")
+
+        prefix = text[/\A[^-]*(?=-)/]
+        return dump_option!(text, true) if prefix.nil?
+        return dump_option!(text.delete_prefix(prefix), true) if name_match?("with", prefix)
+        return dump_option!(text.delete_prefix(prefix), false) if name_match?("without", prefix)
+
+        dump_option!(text, true)
+      end
+
+      # dump_additional_option_flag: the options change nothing that prism
+      # prints, so only an unknown one shows, as a warning.
+      #: (String name, bool on) -> void
+      def dump_option!(name, on)
+        return if DUMP_OPTIONS.any? { |known| name_match?(known, name) }
+
+        @warnings << "zr: warning: don't know how to dump with#{"out" unless on} '#{name}'"
       end
 
       # The long switches that RUBYOPT can give.

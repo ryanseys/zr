@@ -112,11 +112,14 @@ script's first line when that line starts with `#!` and names ruby
 | `-x[dir]` | The program starts at the first line that starts with `#!` and names ruby. |
 | `-C dir`, `-X dir` | zr changes to `dir` before it reads the script, and the program runs there. |
 | `-S` | Searches `RUBYPATH`, then `PATH`, for the script. |
-| `-c` | Prints `Syntax OK`, or ruby's syntax error and status 1, and runs nothing. |
+| `-c`, `--dump=syntax` | Prints `Syntax OK`, or ruby's syntax error and status 1, and runs nothing. |
+| `--dump=parsetree` | Prints prism's tree of the program, as ruby prints it, and runs nothing. |
+| `-y`, `--yydebug`, `--dump=yydebug` | Parses the program and runs nothing. With prism, as in ruby, this prints nothing. |
+| `--backtrace-limit=n` | Shows at most `n` lines of each backtrace. |
 | `--enable`/`--disable` `gems`, `frozen-string-literal`, `all` | `--disable-gems` does not load rubygems as the program starts. `frozen-string-literal` is the default of every file without the magic comment. |
-| `--jit`, `--yjit`, `--zjit`, `-y`, `--parser=prism`, `--crash-report` | No effect: zr compiles the program ahead of time, with prism. |
-| `--dump`, `--parser=parse.y`, `--backtrace-limit` | Exit status 3: zr does not support them. |
-| `-h`, `--help`, `--version` | zr's help and version. |
+| `--jit`, `--yjit`, `--zjit`, `--parser=prism`, `--crash-report` | No effect: zr compiles the program ahead of time, with prism. |
+| `--dump=insns`, `--parser=parse.y` | Exit status 3: zr compiles to machine code with prism, so it has no YARV instructions and no parse.y. |
+| `-h`, `--help`, `--version`, `--dump=usage`, `--dump=help`, `--dump=version` | zr's help and version. |
 
 zr's own flags `--trace`, `--gem`, `--gemfile` and
 `--allow-runtime-require` can come before the script. A switch that ruby

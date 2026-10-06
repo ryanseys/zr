@@ -49,7 +49,7 @@ module Zr
 
         # `zr` as a ruby (`CLI.start`): runs the program of -e, of a script
         # or of standard input, with ruby's switches, as `ruby` would. What
-        # acts before the build is done here: -v, -C, -S, -x and -c.
+        # acts before the build is done here: -v, -C, -S, -x, -c and --dump.
         # Raises RubyOptions::Invalid for a command line that ruby rejects.
         #: (Array[String] argv) -> void
         def ruby(argv)
@@ -71,7 +71,7 @@ module Zr
           return unless options.runs?($stdin.tty?)
 
           source, file = @given || given(options)
-          return syntax_check(source, file, options) if options.check
+          return dump(source, file, options) if options.dumps?
 
           opts = Options.parse("run", [*options.zr, "--", file, *options.args])
           compile(opts, source, file, options.switches)
@@ -184,16 +184,33 @@ module Zr
         #: (String text) -> String
         def clip(text) = "\"#{text.byteslice(0, 100)}\"#{"..." if text.bytesize > 100}"
 
-        # -c: "Syntax OK", or ruby's report of the syntax error and status 1.
+        # -c, -y and --dump: the program is parsed, not run. A syntax error
+        # gets ruby's report and status 1. Else -y prints nothing (prism
+        # has no parser trace), -c and --dump=syntax print "Syntax OK", and
+        # --dump=parsetree prints prism's tree.
         #: (String source, String file, RubyOptions options) -> void
-        def syntax_check(source, file, options)
+        def dump(source, file, options)
           require_relative "../../parse"
           require_relative "../../hir/syntax_report"
           result = Zr.parse(source, filepath: file, **options.switches.parse_options(true))
-          return puts("Syntax OK") if result.errors.empty?
+          unless result.errors.empty?
+            $stderr.write(Refusals.syntax_text("zr", Hir::SyntaxReport.error(result, file)))
+            exit 1
+          end
+          tree = parse_tree(result) if options.dumps.include?(:parsetree)
+          syntax = options.dumps.include?(:syntax)
+          # ruby prints "Syntax OK" with C's printf and the tree through
+          # $stdout, which it flushes. So a terminal shows "Syntax OK" first,
+          # and a pipe or a file gets it last, when C's buffer is flushed.
+          puts "Syntax OK" if syntax && $stdout.tty?
+          $stdout.write(tree) if tree
+          puts "Syntax OK" if syntax && !$stdout.tty?
+        end
 
-          $stderr.write(Refusals.syntax_text("zr", Hir::SyntaxReport.error(result, file)))
-          exit 1
+        #: (Prism::ParseResult result) -> String
+        def parse_tree(result)
+          require_relative "../parse_tree"
+          ParseTree.text(result.value)
         end
 
         # Prints the line of an error before the program runs, as ruby
@@ -437,7 +454,7 @@ module Zr
         #: (Array[String] argv) -> [Hash[Symbol, untyped], String, String, Hir::Switches]?
         def kept_ruby(argv)
           options = RubyOptions.parse(argv)
-          return nil if options.refused || options.check || options.version || options.version_only || options.copyright || options.help?
+          return nil if options.refused || options.dumps? || options.version || options.version_only || options.copyright || options.help?
           return nil unless options.runs?($stdin.tty?)
 
           # ruby warns as it reads the switches, before the program runs.

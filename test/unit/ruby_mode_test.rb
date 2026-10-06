@@ -229,11 +229,49 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
   end
 
   def test_what_zr_cannot_do_is_refused_and_what_changes_nothing_is_taken
-    assert_equal "--dump is not supported", parse("--dump=insns", "x.rb").refused
+    assert_equal "--dump=insns (zr compiles to machine code, not to YARV instructions) is not supported", parse("--dump=parsetree,i", "x.rb").refused
     assert_nil parse("-y", "--jit", "--yjit-call-threshold=1", "--crash-report=x", "--parser=prism", "x.rb").refused
     assert_nil parse("--debug-frozen-string-literal", "--debug=frozen-string-literal", "x.rb").refused
     refute parse("--debug-frozen-string-literal", "x.rb").debug
     assert parse("--debug", "x.rb").debug
+  end
+
+  # -c, -y, --yydebug and --dump set the items that print in place of a
+  # run, in ruby's order; an item's name can be the start of it.
+  def test_the_dump_items_print_in_place_of_a_run
+    assert_equal %i[syntax], parse("-c", "-e", "1").dumps
+    assert_equal %i[yydebug], parse("-y", "x.rb").dumps
+    assert_equal %i[yydebug], parse("--yydebug", "x.rb").dumps
+    assert_equal %i[yydebug syntax parsetree], parse("--dump=p,s", "--dump", "y", "x.rb").dumps
+    assert_equal %i[parsetree], parse("--dump=PARSETREE+comment", "x.rb").dumps
+    refute_predicate parse("x.rb"), :dumps?
+  end
+
+  # The items that are not dumps are the switches of the same name.
+  def test_the_version_copyright_and_usage_items_are_their_switches
+    assert parse("--dump=version", "x.rb").version_only
+    assert parse("--dump=copyright").copyright
+    assert_predicate parse("--dump=usage"), :help?
+    assert_predicate parse("--dump=h"), :help?
+  end
+
+  # An unknown item or option only warns, and the program still runs. As in
+  # ruby, "with-" and "without-" keep their "-", so they name no option.
+  def test_an_unknown_dump_item_or_option_warns
+    only = "zr: warning: but only [version, copyright, usage, help, yydebug, syntax, parsetree, insns]."
+
+    assert_equal ["zr: warning: don't know how to dump 'parsetree-x',", only], parse("--dump=parsetree-x", "x.rb").warnings
+    assert_equal ["zr: warning: don't know how to dump with 'bogus'"], parse("--dump=syntax+bogus", "x.rb").warnings
+    assert_equal ["zr: warning: don't know how to dump without 'bogus'"], parse("--dump=-bogus", "x.rb").warnings
+    assert_equal ["zr: warning: don't know how to dump with '-comment'"], parse("--dump=p+with-comment", "x.rb").warnings
+    assert_equal ["zr: warning: don't know how to dump without '-comment'"], parse("--dump=p+without-comment", "x.rb").warnings
+    assert_empty parse("--dump=p+comment+-optimize+error-tolerant", "--dump=-comment", "x.rb").warnings
+    assert_empty parse("--dump=parsetree-x", "x.rb").dumps
+  end
+
+  def test_dump_needs_an_item
+    error = assert_raises(RubyOptions::Invalid) { parse("--dump=", "-e", "1") }
+    assert_equal "missing argument for --dump", error.message
   end
 
   def test_an_empty_script_name_is_standard_input
@@ -463,6 +501,20 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-w", "unparsed.rb")
     same_as_ruby("-W0", "unparsed.rb")
     same_as_ruby("--disable-gems", "unparsed.rb")
+  end
+
+  # -y and --dump print in place of the run; prism's tree prints as ruby's
+  # C printer prints it.
+  def test_dump_prints_the_syntax_check_and_the_tree
+    same_as_ruby("-y", "-e", "p 1")
+    same_as_ruby("--dump=syntax,parsetree", "x.rb")
+    same_as_ruby("--disable-gems", "--dump=parsetree", "-e", "%I[foo bar]")
+    same_as_ruby("--dump", "p", "-e", "def m(a, *b, k: 1, **o, &blk) = yield\nm(1) { |q| \"\\x01\#{q}\" }; x = -2**64; 1e400")
+    same_as_ruby("--dump=parsetree", "bad.rb")
+    same_as_ruby("--dump=syntax", "missing.rb")
+    same_as_ruby("--dump=foo,-bar,syntax+baz", "-e", "p 1")
+    same_as_ruby("--dump=foo", "x.rb")
+    same_as_ruby("--dump=copyright,syntax", "-e", "p 1")
   end
 
   # --debug=frozen-string-literal: a literal keeps where it was made, which

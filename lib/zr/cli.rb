@@ -152,7 +152,7 @@ module Zr
       return COMPILE.include?(ALIASES.fetch(argv.first.to_s, argv.first.to_s)) unless ruby_mode?(argv)
 
       options = RubyOptions.parse(argv)
-      options.runs?($stdin.tty?) && !options.check && options.chdirs.empty? && !(options.inline.empty? && [nil, "-"].include?(options.script))
+      options.runs?($stdin.tty?) && !options.dumps? && options.chdirs.empty? && !(options.inline.empty? && [nil, "-"].include?(options.script))
     rescue RubyOptions::Invalid
       false
     end
