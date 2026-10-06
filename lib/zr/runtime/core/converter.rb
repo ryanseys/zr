@@ -329,47 +329,47 @@ class Encoding
         bom.include?(bytes) ? :char : :invalid
       end
 
-        # A UTF-16 character breaks at the first byte that no character
-        # continues with: a low surrogate first, or a high one followed by
-        # anything but a low one. `big` puts the high byte of a unit first.
-        def utf16(bytes, big)
-          high = ->(at) { bytes.getbyte(big ? at : at + 1) }
-          case bytes.bytesize
-          when 1 then :more
-          when 2
-            if high.call(0).between?(0xD8, 0xDB) then :more
-            elsif high.call(0).between?(0xDC, 0xDF) then :invalid
-            else :char
-            end
-          when 3 then !big || high.call(2).between?(0xDC, 0xDF) ? :more : :invalid
-          else high.call(2).between?(0xDC, 0xDF) ? :char : :invalid
+      # A UTF-16 character breaks at the first byte that no character
+      # continues with: a low surrogate first, or a high one followed by
+      # anything but a low one. `big` puts the high byte of a unit first.
+      def utf16(bytes, big)
+        high = ->(at) { bytes.getbyte(big ? at : at + 1) }
+        case bytes.bytesize
+        when 1 then :more
+        when 2
+          if high.call(0).between?(0xD8, 0xDB) then :more
+          elsif high.call(0).between?(0xDC, 0xDF) then :invalid
+          else :char
           end
-        end
-
-        # A UTF-32 character is one code point up to U+10FFFF and outside the
-        # surrogates. The bytes are known high first when `big`, low first
-        # otherwise.
-        def utf32(bytes, big)
-          count = bytes.bytesize
-          byte = ->(rank) { bytes.getbyte(big ? rank : 3 - rank) }
-          known = ->(rank) { big ? rank < count : 3 - rank < count }
-          return :invalid if known.call(0) && byte.call(0) != 0
-          return :invalid if known.call(1) && byte.call(1) > 0x10
-          return :invalid if known.call(1) && known.call(2) && byte.call(1).zero? && byte.call(2).between?(0xD8, 0xDF)
-
-          count < 4 ? :more : :char
-        end
-
-        # stateless-ISO-2022-JP: ASCII, or 0x90 or 0x92 and two bytes of the set.
-        def stateless(bytes)
-          first = bytes.getbyte(0)
-          return :char if bytes.bytesize == 1 && first < 0x80
-          return :invalid unless first == 0x90 || first == 0x92
-          return :invalid if bytes.bytesize > 1 && !bytes.getbyte(bytes.bytesize - 1).between?(0xA1, 0xFE)
-
-          bytes.bytesize == 3 ? :char : :more
+        when 3 then !big || high.call(2).between?(0xDC, 0xDF) ? :more : :invalid
+        else high.call(2).between?(0xDC, 0xDF) ? :char : :invalid
         end
       end
+
+      # A UTF-32 character is one code point up to U+10FFFF and outside the
+      # surrogates. The bytes are known high first when `big`, low first
+      # otherwise.
+      def utf32(bytes, big)
+        count = bytes.bytesize
+        byte = ->(rank) { bytes.getbyte(big ? rank : 3 - rank) }
+        known = ->(rank) { big ? rank < count : 3 - rank < count }
+        return :invalid if known.call(0) && byte.call(0) != 0
+        return :invalid if known.call(1) && byte.call(1) > 0x10
+        return :invalid if known.call(1) && known.call(2) && byte.call(1).zero? && byte.call(2).between?(0xD8, 0xDF)
+
+        count < 4 ? :more : :char
+      end
+
+      # stateless-ISO-2022-JP: ASCII, or 0x90 or 0x92 and two bytes of the set.
+      def stateless(bytes)
+        first = bytes.getbyte(0)
+        return :char if bytes.bytesize == 1 && first < 0x80
+        return :invalid unless first == 0x90 || first == 0x92
+        return :invalid if bytes.bytesize > 1 && !bytes.getbyte(bytes.bytesize - 1).between?(0xA1, 0xFE)
+
+        bytes.bytesize == 3 ? :char : :more
+      end
+    end
 
     # A decorator: a step from no encoding, which reads one byte at a time.
     class Decorator < Step

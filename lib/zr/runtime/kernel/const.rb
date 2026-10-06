@@ -1879,8 +1879,8 @@ module Zr::Kern
       Machine.store64(args, 0, Machine.word(Machine.value(QNIL)))
       Machine.store64(args, 8, Machine.word(Machine.value(QFALSE)))
       while zr_autoload_busy(mod, id)
-        r = zr_send(zr_global(G_KERNEL), Machine.id(:feature_busy), 2, args)
-        return r if r == QUNDEF
+        waited = zr_send(zr_global(G_KERNEL), Machine.id(:feature_busy), 2, args)
+        return waited if waited == QUNDEF
       end
       e = zr_const_row(mod, id)
       if e == 0
