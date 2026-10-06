@@ -1,0 +1,1 @@
+core/kernel/a_curried_lambda_warns_of_a_block_given_too_early.rb:4: warning: given block not used

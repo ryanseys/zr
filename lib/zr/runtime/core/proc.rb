@@ -99,7 +99,11 @@ class Proc
     original = self
     body = proc do |*args, &blk|
       all = collected + args
-      all.size >= arity ? original.call(*all, &blk) : original.send(:curried, arity, all)
+      next original.call(*all, &blk) if all.size >= arity
+
+      # curry: a block given before the last argument is dropped.
+      Primitive.zr_warn_here_m("given block not used") if blk
+      original.send(:curried, arity, all)
     end
     Primitive.zr_proc_anonymous(lambda? ? Primitive.zr_proc_lambda(body) : body)
   end
