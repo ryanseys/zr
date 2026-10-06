@@ -575,7 +575,9 @@ module Zr
           # Proc#call and Proc#yield pass a `**h` on to the block as a yield
           # does, also an empty one (vm_call_opt_call).
           return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_argc_yield" : "zr_kw_argc", argc, argv) if node.kwargs
-          return kernel("zr_kw_ruby2_out", argc, argv) if node.args.any?(Hir::Splat)
+          if node.args.any?(Hir::Splat)
+            return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_ruby2_out_yield" : "zr_kw_ruby2_out", argc, argv)
+          end
 
           argc
         end

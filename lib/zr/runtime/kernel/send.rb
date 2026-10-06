@@ -212,17 +212,38 @@ module Zr::Kern
   # keywords, in a new Hash without the flag.
   #: (word, ptr) -> word
   def zr_kw_ruby2_out(argc, argv)
-    if argc == 0
+    if !zr_kw_ruby2_tail(argc, argv)
       return argc
+    end
+    zr_kw_argc(argc, argv)
+  end
+
+  # The same for a yield, where an empty flagged Hash still counts as
+  # keywords given, so a block that takes keywords spreads no lone Array
+  # (zr_kw_argc_yield, Bug #19759).
+  #: (word, ptr) -> word
+  def zr_kw_ruby2_out_yield(argc, argv)
+    if !zr_kw_ruby2_tail(argc, argv)
+      return argc
+    end
+    zr_kw_argc_yield(argc, argv)
+  end
+
+  # Whether the last of `argc` arguments is a flagged Hash; if so, it is
+  # replaced with a copy without the flag.
+  #: (word, ptr) -> bool
+  def zr_kw_ruby2_tail(argc, argv)
+    if argc == 0
+      return false
     end
     h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
     if zr_special_p(h) || zr_type(h) != T_HASH || (RBasic[h].flags & FL_RUBY2) == 0
-      return argc
+      return false
     end
     copy = zr_hash_new()
     zr_hash_update(copy, h)
     Machine.store64(argv + ((argc - 1) * 8), 0, Machine.word(copy))
-    zr_kw_argc(argc, argv)
+    true
   end
 
   #: () -> word

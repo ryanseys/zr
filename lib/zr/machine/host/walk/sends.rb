@@ -110,6 +110,7 @@ module Zr
             # Proc#call and Proc#yield pass a `**h` on to the block as a
             # yield does, also an empty one (`Lower::Function::Sends`).
             kw_argc = %i[call yield].include?(node.name) ? :zr_kw_argc_yield : :zr_kw_argc
+            ruby2_out = %i[call yield].include?(node.name) ? :zr_kw_ruby2_out_yield : :zr_kw_ruby2_out
             safe = node.safe
             covers = node.covers
             interp = node.interp
@@ -172,7 +173,7 @@ module Zr
                 av = argv(f, values)
                 argc = values.size
                 argc = @kern.public_send(kw_argc, argc, av) if kw
-                argc = @kern.zr_kw_ruby2_out(argc, av) if splat && !kw
+                argc = @kern.public_send(ruby2_out, argc, av) if splat && !kw
                 line!(f, word)
                 activate(using, f) if using
                 answer = dispatch.call(r, argc, av, blk)
@@ -531,6 +532,7 @@ module Zr
                 av = argv(f, values)
                 argc = values.size
                 argc = @kern.zr_kw_argc_yield(argc, av) if kw
+                argc = @kern.zr_kw_ruby2_out_yield(argc, av) if list && !kw
                 line!(f, word)
                 if internal || f.blk == @qnil
                   check(@kern.zr_yield(f.blk, argc, av))

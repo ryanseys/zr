@@ -430,7 +430,7 @@ module Zr
             at_node(node)
             argc = array_len(ary)
             # As a call's, a splat's last element can be a ruby2_keywords Hash.
-            argc = node.kwargs ? kernel("zr_kw_argc_yield", argc, array_ptr(ary)) : kernel("zr_kw_ruby2_out", argc, array_ptr(ary))
+            argc = node.kwargs ? kernel("zr_kw_argc_yield", argc, array_ptr(ary)) : kernel("zr_kw_ruby2_out_yield", argc, array_ptr(ary))
             r = checked(block_call(argc, array_ptr(ary)))
             @sp = slot
             return r
