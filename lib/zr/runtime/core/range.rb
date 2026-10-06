@@ -45,8 +45,9 @@ class Range
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"negative array size" if n < 0
     # rb_int_range_last: an Integer end counts back from it, with no begin
-    # or an Integer one, and no Array of the whole range.
-    if @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer))
+    # or an Integer one, and no Array of the whole range, while Range's
+    # each is the core's own.
+    if @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer)) && Primitive.zr_basic_method_m(self, :each)
       high = @excl ? @end - 1 : @end
       low = high - n + 1
       low = @begin if !@begin.nil? && @begin > low
@@ -554,7 +555,7 @@ class Range
 
       cmp_end = c.is_a?(Integer) ? c <=> 0 : (c > 0 ? 1 : (c < 0 ? -1 : 0))
     else
-      cmp_end = @end.nil? ? 1 : ordered(@end, v.end)
+      cmp_end = range_less(@end, v.end)
     end
     return cmp_end >= 0 if @excl == v.exclude_end?
     return cmp_end > 0 if @excl

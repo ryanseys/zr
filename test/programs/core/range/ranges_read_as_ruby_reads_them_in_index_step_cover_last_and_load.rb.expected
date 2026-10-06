@@ -11,3 +11,8 @@ beginless symbol step: ArgumentError: #step for non-numeric beginless ranges is 
 cover: [false, true, false]
 last: [[8, 9, 10], [7, 8, 9], [8, 9, 10], [8, 9, 10]]
 load: [false, nil]
+endless cover: [false, true, true]
+beginless step to_a to_i: TypeError: nil can't be coerced into Integer
+beginless step to_a to_r: TypeError: nil can't be coerced into Rational
+beginless step to_a to_f: TypeError: no implicit conversion to float from nil
+last with each: [[8, 9, 10], 1]

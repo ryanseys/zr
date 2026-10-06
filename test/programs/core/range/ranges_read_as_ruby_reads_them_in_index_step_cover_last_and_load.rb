@@ -34,3 +34,14 @@ t("cover") { [(..2).cover?(.."2"), (..2).cover?(..2), (...2).cover?(..2)] }
 t("last") { [(nil..10).last(3), (nil...10).last(3), (0..10).last(3), (8..10).last(5)] }
 r = Marshal.load(Marshal.dump(Range.allocate))
 t("load") { [r.frozen?, r.instance_eval { initialize(5, 6) }] }
+t("endless cover") { [(2...).cover?(2..), (2..).cover?(2...), (2..).cover?(2..)] }
+%i[to_i to_r to_f].each { |type| t("beginless step to_a #{type}") { (..10.send(type)).step(2.send(type)).to_a } }
+class Range
+  alias_method :plain_each, :each
+  def each(&) = plain_each(&)
+end
+$each = 0
+class Range
+  def each(&b) = ($each += 1; plain_each(&b))
+end
+t("last with each") { [(0..10).last(3), $each] }

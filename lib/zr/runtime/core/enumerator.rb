@@ -563,14 +563,26 @@ class Enumerator::ArithmeticSequence < Enumerator
     q.is_a?(Integer) ? q : q.floor
   end
 
+  # NUM2DBL: a number's Float. nil, true, false and a String are no
+  # number, so a beginless sequence of Floats has no first value.
+  def num2dbl(x)
+    Primitive.attr! :hidden
+    case x
+    when Float then x
+    when nil, true, false then raise TypeError, "no implicit conversion to float from #{x.inspect}"
+    when String then raise TypeError, +"no implicit conversion to float from string"
+    else x.to_f
+    end
+  end
+
   # ruby_float_step_size: the count allows for rounding in the last
   # value. NaN and infinity travel through, so the walk reads them as
   # nothing to do and forever, and `size` reports them as ruby does.
   def float_count
     Primitive.attr! :hidden
-    first = @begin.to_f
-    unit = @step.to_f
-    last = @end.nil? ? (unit < 0 ? -Float::INFINITY : Float::INFINITY) : @end.to_f
+    first = num2dbl(@begin)
+    unit = num2dbl(@step)
+    last = @end.nil? ? (unit < 0 ? -Float::INFINITY : Float::INFINITY) : num2dbl(@end)
     return Float::INFINITY if unit == 0
     return (unit > 0 ? first <= last : first >= last) ? 1.0 : 0.0 if unit.infinite?
 
@@ -599,9 +611,9 @@ class Enumerator::ArithmeticSequence < Enumerator
   # the end.
   def float_walk(count)
     Primitive.attr! :hidden
-    first = @begin.to_f
-    unit = @step.to_f
-    last = @end.nil? ? (unit < 0 ? -Float::INFINITY : Float::INFINITY) : @end.to_f
+    first = num2dbl(@begin)
+    unit = num2dbl(@step)
+    last = @end.nil? ? (unit < 0 ? -Float::INFINITY : Float::INFINITY) : num2dbl(@end)
     if unit.infinite?
       yield first if count.positive?
     elsif unit == 0
