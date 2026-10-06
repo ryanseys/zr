@@ -492,7 +492,12 @@ module Zr::Kern
         rec = Frame[rec].prev
       end
       if rec == 0
-        return Machine.value(QNIL)
+        # The method has returned, and its name for the call with it. The
+        # name of its def is left.
+        while (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL) && FrameMeta[meta].parent != 0
+          meta = FrameMeta[meta].parent
+        end
+        return FrameMeta[meta].kind == KIND_DEF ? zr_sym(FrameMeta[meta].name) : Machine.value(QNIL)
       end
     end
     # A runtime method written in Ruby runs as a builtin. An alias can call
