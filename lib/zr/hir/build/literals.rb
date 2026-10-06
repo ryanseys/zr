@@ -17,7 +17,8 @@ module Zr
         debug = @loader&.debug_frozen_strings?
         return (debug ? FrozenString.new(text, line, :debug) : frozen_literal_string(text, line)) if node.frozen?
 
-        Literal.new(text, line, node.mutable? ? false : (debug ? :debug : true))
+        chilled = debug ? :debug : true
+        Literal.new(text, line, node.mutable? ? false : chilled)
       end
 
       # A Symbol literal. The static symbols are all UTF-8, so a name in
@@ -269,6 +270,7 @@ module Zr
       #: (Prism::ConstantPathNode target) -> String
       def constant_path_written(target)
         parts = [target.name.to_s]
+        # @type var current: Prism::node?
         current = target.parent
         while current.is_a?(Prism::ConstantPathNode)
           parts.unshift(current.name.to_s)
@@ -385,13 +387,14 @@ module Zr
       # The text of a literal fragment, or nil for an interpolation.
       #: (untyped node, Prism::node part, Encoding? pinned) -> String?
       def fragment_text(node, part, pinned)
-        if part.is_a?(Prism::EmbeddedStatementsNode) && part.statements&.body&.size == 1 && part.statements.body[0].is_a?(Prism::StringNode)
-          part = part.statements.body[0]
+        if part.is_a?(Prism::EmbeddedStatementsNode) && (body = part.statements&.body) && body.size == 1 && body[0].is_a?(Prism::StringNode)
+          part = body[0]
         end
         return unless part.is_a?(Prism::StringNode)
 
         text = unescaped(part).dup
-        text.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : pinned) if node.ascii_8bit? || pinned
+        encoding = node.ascii_8bit? ? ::Encoding::BINARY : pinned
+        text.force_encoding(encoding) if encoding
         text
       end
 
@@ -438,7 +441,7 @@ module Zr
           $stderr = written # steep:ignore IncompatibleAssignment
           $VERBOSE = false
           Regexp.new(held, options)
-          written.scan(/warning: (.*)$/).map { |(message)| [false, message] }
+          written.scan(/warning: (.*)$/).map { |(message)| [false, message.to_s] } #: Array[[bool, String]]
         ensure
           $stderr = stderr
           $VERBOSE = verbose
@@ -450,7 +453,7 @@ module Zr
       # its own warnings.
       #: (String held, Integer options) -> Array[[bool, String]]
       def compiled_warnings(held, options)
-        rows = Regexp.send(:compiled, held, Regexp.send(:option_bits, options))[4] # steep:ignore NoMethod
+        rows = Regexp.send(:compiled, held, Regexp.send(:option_bits, options))[4]
         rows.map { |verbose, text| [verbose, text.to_s] }
       rescue NoMethodError
         Regexp.new(held, options)

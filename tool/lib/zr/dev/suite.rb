@@ -53,6 +53,7 @@ module Zr
       # Copies the checkout's zr, with the changes that are not committed,
       # to PIN, and records its version. The lock holds, so no other suite
       # uses the copy.
+      # rubocop:disable ThreadSafety/ClassInstanceVariable -- one suite runs at a time (the lock)
       def pin!
         @version = checkout_version
         FileUtils.rm_rf(PIN)
@@ -77,6 +78,7 @@ module Zr
 
       # The version of zr that a run tested: the one `pin!` copied.
       def zr_version = @version || checkout_version
+      # rubocop:enable ThreadSafety/ClassInstanceVariable
 
       # The checkout's version: the commit, and a digest of the changes
       # that are not committed.
@@ -189,7 +191,7 @@ module Zr
             out.byteslice(told, last + 1 - told).each_line { |line| live.call(line.chomp) }
             told = last + 1
           end
-        rescue EOFError, IOError
+        rescue IOError
           nil
         end
         deadline = clock.call + limit
@@ -271,7 +273,8 @@ module Zr
                 next
               end
 
-              Dev.parallel_map(files, jobs: @jobs) { |f| [rel(f), progress(f, started) { compare(f, binary) }] }.each { |r, result| results[r] = result }
+              rows = Dev.parallel_map(files, jobs: @jobs) { |f| [rel(f), progress(f, started) { compare(f, binary) }] }
+              rows.each { |r, result| results[r] = result }
               FileUtils.rm_f(binary) unless @keep
             end
           end
@@ -299,7 +302,10 @@ module Zr
           examples = result["examples"].values
           ruby = examples.count { |statuses| statuses.first == "pass" }
           zr = examples.count { |rb, z| rb == "pass" && z == "pass" }
-          ending = result["timed_out"] ? ", timed out" : (result["state"] == "ran" ? "" : ", #{result["state"]}")
+          ending = if result["timed_out"] then ", timed out"
+                   elsif result["state"] == "ran" then ""
+                   else ", #{result["state"]}"
+                   end
           $stdout.puts format("[%d/%d] %s: %d/%d pass in zr (%ds%s; %dm in all)", @done, @files.size, rel(file), zr, ruby,
                               now - began, ending, (now - started) / 60)
           $stdout.flush

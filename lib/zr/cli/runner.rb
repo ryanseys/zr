@@ -9,6 +9,8 @@ module Zr
   module CLI
     # Runs the binary that `zr run` built, and ends zr as the program ended.
     module Runner
+      # @rbs @lost_cwd: Dir?
+
       module_function
 
       # Runs a binary with the arguments after the program's path, and
@@ -35,7 +37,8 @@ module Zr
       # zr had to build from another one (`keep_lost_cwd`).
       #: () -> Hash[String, String?]
       def program_env
-        Dir.fchdir(@lost_cwd.fileno) if @lost_cwd # rubocop:disable ThreadSafety/ClassInstanceVariable
+        lost = @lost_cwd # rubocop:disable ThreadSafety/ClassInstanceVariable
+        Dir.fchdir(lost.fileno) if lost
         env = GcTuning.program_env
         launcher = $PROGRAM_NAME
         return env unless File.basename(launcher) == "zr" && File.file?(launcher)
@@ -71,14 +74,16 @@ module Zr
       #: (String exe, ?ruby: String, ?flags: Array[String]) -> String
       def pinned_launcher(exe, ruby: RbConfig.ruby, flags: pinned_flags)
         exe = File.realpath(exe)
-        dir = File.join(Paths.cache, "launcher", Digest::SHA256.hexdigest([ruby, exe, *flags].join("\0"))[0, 16])
+        cache = Paths.cache or return exe
+        key = Digest::SHA256.hexdigest([ruby, exe, *flags].join("\0"))[0, 16] #: String
+        dir = File.join(cache, "launcher", key)
         twin = File.join(dir, "zr")
         return twin if File.file?(twin)
 
         Paths.mkdir_p(dir)
         draft = "#{twin}.#{Process.pid}"
         given = "ARGV.unshift(#{flags.map(&:dump).join(", ")})\n" unless flags.empty?
-        File.write(draft, "#!#{ruby}\n# frozen_string_literal: true\n\n#{given}load #{exe.dump}\n", perm: 0o755)
+        File.open(draft, "w", 0o755) { |file| file.write("#!#{ruby}\n# frozen_string_literal: true\n\n#{given}load #{exe.dump}\n") }
         File.rename(draft, twin)
         twin
       rescue SystemCallError

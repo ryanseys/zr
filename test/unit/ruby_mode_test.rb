@@ -336,9 +336,11 @@ class RubyModeTest < Minitest::Test
     "bad.rb" => "def x\n  p (\nend\n",
     "handler.rb" => "at_exit { puts 'handler ran' }\n",
     "unparsed.rb" => "x = 1\nif true\n  1 +\n",
-    "frozen.rb" => "# frozen_string_literal: true\ns = 'abc'\nbegin; s << 'x'; rescue => e; p e.message; end\nt = [\n  'lit']\nbegin; t[0].upcase!; rescue => e; p e.message; end\n",
+    "frozen.rb" => "# frozen_string_literal: true\ns = 'abc'\nbegin; s << 'x'; rescue => e; p e.message; end\n" \
+                   "t = [\n  'lit']\nbegin; t[0].upcase!; rescue => e; p e.message; end\n",
     "chilled.rb" => "s = 'c'\ns << 'x'\np s\n",
-    "detail.rb" => "class SyntaxError\n  def detailed_message(**)\n    Thread.new {}.join\n    \"<\#{super}>\n<\#{File.basename(__FILE__)}>\"\n  end\nend\n",
+    "detail.rb" => "class SyntaxError\n  def detailed_message(**)\n    Thread.new {}.join\n" \
+                   "    \"<\#{super}>\n<\#{File.basename(__FILE__)}>\"\n  end\nend\n",
     "showpath.rb" => "class SyntaxError\n  def detailed_message(**) = \"path=\#{path}\n\#{super}\"\nend\n",
     "hybrid.sh" => "#!/usr/bin/env bash\necho error && exit 1\n#!ruby\nputs 'success'\n",
     "bt.rb" => "def a = raise('oops')\ndef b = a\ndef c = b\ndef d = c\nbegin\n  d\nrescue => e\n  puts e.full_message(highlight: false)\nend\nd\n"
@@ -431,7 +433,8 @@ class RubyModeTest < Minitest::Test
     # the default encodings, and a write converts to the external one.
     streams = "p [$stdin, $stdout, $stderr].map { [_1.external_encoding, _1.internal_encoding] }"
     ["-E:utf-8", "-Eeuc-jp:utf-8", "-U", "-Eutf-8"].each { |switch| same_as_ruby(switch, "-e", streams) }
-    same_as_ruby("-Eutf-8:cp932", "-e", 'puts "\x82\xa0".dup.force_encoding("cp932"); $stderr = $stdout; raise "\x82\xa0".dup.force_encoding("cp932")')
+    same_as_ruby("-Eutf-8:cp932", "-e",
+                 'puts "\x82\xa0".dup.force_encoding("cp932"); $stderr = $stdout; raise "\x82\xa0".dup.force_encoding("cp932")')
     same_as_ruby("-e", "Encoding.default_internal = 'utf-8'; #{streams}")
     # -E sets the encodings with no warning, even when -w or -v asks for them.
     same_as_ruby("-w", "-Eutf-8:Windows-31J", "-e", "p [Encoding.default_external, Encoding.default_internal]")

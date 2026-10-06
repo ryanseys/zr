@@ -72,7 +72,10 @@ module Zr
       # What a cache key needs: two builds with other switches are other
       # programs.
       #: () -> String
-      def key = [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect, source_encoding.to_s, debug_frozen_string_literal].join("\0")
+      def key
+        [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect, source_encoding.to_s,
+         debug_frozen_string_literal].join("\0")
+      end
     end
   end
 end

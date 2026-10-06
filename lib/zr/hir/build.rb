@@ -225,7 +225,10 @@ module Zr
       # The `using` entry in force at the end of the toplevel, or nil. An
       # eval in a Binding leaves it there for the next eval.
       #: () -> Integer?
-      def top_using = @using.is_a?(Integer) ? @using : nil
+      def top_using
+        using = @using
+        using.is_a?(Integer) ? using : nil
+      end
 
       # An eval's string runs inside a method. A bare `super` passes the
       # parameters in `rows`, each read from the scope in `scopes`
@@ -500,13 +503,13 @@ module Zr
       # as ruby adds each block to its list when the parser closes it.
       #: (Prism::node node) -> Array[Prism::node]
       def pre_executions(node)
-        body = node.is_a?(Prism::PreExecutionNode) && node.statements&.body
-        return [node] unless body
+        return [node] unless node.is_a?(Prism::PreExecutionNode)
 
-        nested, rest = body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
+        statements = node.statements or return [node]
+        nested, rest = statements.body.partition { |s| s.is_a?(Prism::PreExecutionNode) }
         return [node] if nested.empty?
 
-        [*nested.flat_map { |s| pre_executions(s) }, node.copy(statements: node.statements&.copy(body: rest))]
+        [*nested.flat_map { |s| pre_executions(s) }, node.copy(statements: statements.copy(body: rest))]
       end
 
       # One statement. Each send in it gets the activation that is active

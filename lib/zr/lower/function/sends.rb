@@ -1029,7 +1029,8 @@ module Zr
           activate(node)
           # ruby's opt_new takes no block: a traced program sends `new` with
           # one, so a :c_call sees Class#new.
-          catching_break(site) { node.name == :new && !traced? && !@l.plain_new? ? new_send(node, recv, argc, argv, block) : cached_send(node, recv, argc, argv, block) }
+          inline_new = node.name == :new && !traced? && !@l.plain_new?
+          catching_break(site) { inline_new ? new_send(node, recv, argc, argv, block) : cached_send(node, recv, argc, argv, block) }
         end
 
         # `recv.new(...)`, with its block if it has one: the kernel's

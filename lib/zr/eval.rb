@@ -229,7 +229,8 @@ module Zr
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
-      code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas, hir.using] #: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
+      code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"),
+              metas, hir.using] #: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
       @compiled[key] = code if reuse && hir.activations == taken
       code
     end

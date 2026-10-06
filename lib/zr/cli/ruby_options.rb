@@ -33,6 +33,7 @@ module Zr
       # @rbs @envopt: bool
       # @rbs @rubylib: Array[String]
       # @rbs @backtrace_limit: Integer?
+      # @rbs @debug_frozen: bool
       # @rbs @external_name: String?
       # @rbs @internal_name: String?
 
@@ -117,7 +118,7 @@ module Zr
         switches!(argv)
         @script = argv.shift if @inline.empty?
         # process_options: an empty name is standard input, as "-" is.
-        @script = "-" if @script&.empty?
+        @script = "-" if @script == ""
         @args = argv
         rubyopt!(env["RUBYOPT"]) unless @features["rubyopt"] == false
         # ruby_init_loadpath: RUBYLIB's directories, as given, after -I's.
@@ -260,14 +261,21 @@ module Zr
 
         # moreswitches: what the command line set stays; RUBYOPT sets only
         # the rest.
-        kept = [@external_name, @external, @internal_name, @internal, @source_encoding, @features.dup, @warning_categories.dup, @backtrace_limit, @verbose]
+        external_name = @external_name
+        external = @external
+        internal_name = @internal_name
+        internal = @internal
+        source_encoding = @source_encoding
+        features = @features.dup
+        categories = @warning_categories.dup
+        limit = @backtrace_limit
+        verbose = @verbose
         @external_name = @external = @internal_name = @internal = @source_encoding = nil
         @envopt = true
         text.split.each do |word|
           word = "-#{word}" unless word.start_with?("-")
           switches!([word])
         end
-        external_name, external, internal_name, internal, source_encoding, features, categories, limit, verbose = kept
         @external_name, @external = external_name, external if external_name
         @internal_name, @internal = internal_name, internal if internal_name
         @source_encoding = source_encoding if source_encoding

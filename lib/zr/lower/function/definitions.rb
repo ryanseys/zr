@@ -9,6 +9,7 @@ module Zr
         # @rbs @cref: String
         # @rbs @f: IR::Function
         # @rbs @l: Lower
+        # @rbs @kind: Function::kind
 
         private
 

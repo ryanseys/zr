@@ -334,7 +334,7 @@ module Zr
 
         # A String literal under --debug=frozen-string-literal: the kernel
         # function `fn` gives it the file and line of `node`.
-        #: (Hir::Node node, String s, String fn, *String site) -> String
+        #: (Hir::Literal | Hir::FrozenString node, String s, String fn, *String site) -> String
         def debug_literal(node, s, fn, *site)
           file = @f.symbol_value(@f.symbol(@l.file_bytes))
           kernel(fn, *site, s, file, imm(@l.shown_file.bytesize), imm(node.line))

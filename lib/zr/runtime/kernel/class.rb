@@ -1798,10 +1798,6 @@ module Zr::Kern
     # program, as an FFI attach does, is the program's.
     conceal = !core && zr_program_started_p() && zr_loading_hidden() && (RBasic[klass].flags & FL_CONCEALED) == 0
     conceal = conceal && (e == 0 || MEntry[e].concealed != 0)
-    old_meta = Machine.ptr(0)
-    if e != 0
-      old_meta = MEntry[e].meta
-    end
     if e == 0
       n = ClassExt[ext].mlen
       if n == ClassExt[ext].mcap

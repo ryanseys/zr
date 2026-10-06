@@ -33,7 +33,7 @@ module Zr
       # The root of the gem that holds the file `path`, as given or as its
       # real path, or nil: a require finds a file through a symlinked
       # directory by the real path (`Loader#real_root`).
-      def root_of(path)
+      def root_of(path) # steep:ignore UndeclaredMethodDefinition
         roots.each do |root|
           real = File.directory?(root) ? File.realpath(root) : root
           [root, real].each { |dir| return dir if path.start_with?("#{dir}/") }
@@ -41,7 +41,10 @@ module Zr
         nil
       end
 
-      def holds?(path) = !root_of(path).nil?
+      def holds?(path) # steep:ignore UndeclaredMethodDefinition
+        # @type self: Entry
+        !root_of(path).nil?
+      end
     end
 
     # The set cannot be resolved: a gem is not installed, a flag names no

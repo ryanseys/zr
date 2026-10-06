@@ -760,8 +760,8 @@ module Zr
         # The real path of directory `root`, or `root` when it is not there.
         #: (String root) -> String
         def real_root(root)
-          @real_roots ||= {} #: Hash[String, String]
-          @real_roots[root] ||= File.directory?(root) ? File.realpath(root) : root
+          roots = @real_roots ||= {} #: Hash[String, String]
+          roots[root] ||= File.directory?(root) ? File.realpath(root) : root
         end
 
         # A native extension's name: `strscan.so`, `date.bundle`.
