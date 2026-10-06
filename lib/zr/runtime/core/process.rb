@@ -132,7 +132,9 @@ module Process
   # to close after the child has copies of them.
   class Redirects
     STREAMS = { in: 0, out: 1, err: 2 }.freeze
-    private_constant :STREAMS
+    # fcntl's command for a copy at or above a number, on every target.
+    F_DUPFD = 0
+    private_constant :STREAMS, :F_DUPFD
 
     attr_reader :dups, :closes, :opened, :chdir, :pgroup, :umask, :limits, :close_others
 
@@ -296,21 +298,25 @@ module Process
     # run_exec_dup2: the pairs in an order where no dup2 replaces a
     # descriptor that a later pair still reads. In a cycle, one pair reads
     # its source through a copy that the parent makes and closes after the
-    # spawn.
+    # spawn. The copy's number is above every descriptor a pair names, so
+    # no pair writes over it, and the program that the child runs does
+    # not get it.
     def ordered(flat)
       pending = flat.each_slice(2).to_a
+      above = flat.max + 1
       done = []
       until pending.empty?
-        at = pending.each_index.find do |i|
-          to = pending[i].first
-          # A pair onto itself only clears close-on-exec: it reads nothing.
-          pending.each_with_index.none? { |(other, from), j| j != i && from == to && other != from }
+        # A pair onto itself only clears close-on-exec: it changes no
+        # descriptor that another pair reads, and it reads nothing.
+        at = pending.index do |to, from|
+          to == from || pending.none? { |other, read| read == to && other != read }
         end
         if at
           done << pending.delete_at(at)
         else
           to, from = pending.first
-          copy = IO.for_fd(Primitive.zr_io_dup(from), autoclose: true)
+          copy = IO.for_fd(Process.send(:checked, Primitive.zr_io_fcntl(from, F_DUPFD, above)), autoclose: true)
+          Primitive.zr_io_cloexec(copy.fileno)
           @opened << copy
           pending[0] = [to, copy.fileno]
         end
