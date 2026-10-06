@@ -246,12 +246,23 @@ module Coverage
 
       table = eval ? eval_lines : coverable
       rows.each do |path, (count, lines)|
+        # rb_iseq_new_eval makes the line array of an eval's file only when
+        # the file has none. A later eval counts into it, each of its lines
+        # from zero again, and its lines past the end count nowhere.
+        if eval && (known = known_size(path))
+          count = known
+          lines = lines.select { |line| line <= known }
+          Primitive.zr_coverage_reset(path, lines.to_a)
+        end
         was_count, was = table[path] || [0, Set.new]
         table[path] = [[was_count, count].max, was | lines]
       end
       sites = def_table
       defs.each { |path, list| list.each { |id, *span| sites[id] = [path, span] } }
     end
+
+    # The size of the line array that an earlier eval gave `path`, or nil.
+    def known_size(path) = eval_lines[path]&.first
 
     # The first def-site id that no compiled scope has, for the next
     # compile at run time; nil while Coverage does not measure.

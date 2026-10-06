@@ -208,6 +208,30 @@ module Zr::Kern
     out
   end
 
+  # A later eval into the file `path` was compiled: each line in `lines`
+  # (an Array of Fixnums) starts from zero again, in every record of the
+  # file, as CRuby's compiler sets the line's count to 0.
+  #: (value, value) -> value
+  def zr_coverage_reset(path, lines)
+    c = zr_coverage()
+    i = 0
+    while i < Coverage[c].len
+      row = Coverage[c].rows + (i * CovRow.size)
+      if zr_bytes_eq(CovRow[row].file, CovRow[row].file_len, RString[path].ptr, RString[path].len)
+        j = 0
+        while j < RArray[lines].len
+          line = zr_fix2long(zr_ary_at(lines, j))
+          if line > 0 && line <= CovRow[row].size
+            Machine.store64(CovRow[row].counts + ((line - 1) * 8), 0, 0)
+          end
+          j += 1
+        end
+      end
+      i += 1
+    end
+    Machine.value(QNIL)
+  end
+
   # Each measured file as `[path, counts]`, with a count for each line from
   # 1 to the last line that ran. If `clear` is set, this sets the counts to
   # zero after it reads them.
