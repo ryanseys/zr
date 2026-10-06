@@ -1280,6 +1280,11 @@ module Zr::Kern
     r = zr_const_name_id(recv, name, slot)
     return r if r == QUNDEF
     e = zr_const_row_segment(recv, Machine.load64(slot, 0), inherit, later)
+    # A name whose autoload file this task reads now is not defined for
+    # it yet, but its place is still where `autoload` declared it.
+    if e == 0
+      e = zr_const_row(recv, Machine.load64(slot, 0))
+    end
     if e == 0
       return Machine.value(QNIL)
     end
