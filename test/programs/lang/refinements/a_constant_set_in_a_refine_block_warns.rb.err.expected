@@ -1,0 +1,2 @@
+lang/refinements/a_constant_set_in_a_refine_block_warns.rb:5: warning: not defined at the refinement, but at the outer class/module
+lang/refinements/a_constant_set_in_a_refine_block_warns.rb:6: warning: not defined at the refinement, but at the outer class/module

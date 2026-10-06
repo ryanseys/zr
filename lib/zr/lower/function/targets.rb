@@ -258,10 +258,12 @@ module Zr
           when Hir::GvarWrite then gvar_write(target, v)
           when Hir::CvarWrite
             at_node(target)
+            refinement_self_check
             checked(kernel("zr_cvar_set", @cref, sym_word(target.name), v))
           when Hir::ConstWrite
             scope = prepared.key?(target) ? @f.fetch("i64", @rec, value_offset(prepared[target])) : scope_class(target.scope)
             at_node(target)
+            refinement_self_check
             checked(kernel("zr_const_set", scope, sym_word(target.name), v))
           when Hir::MultiTarget then destructure(target, v, prepared)
           when Hir::Send

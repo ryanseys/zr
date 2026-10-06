@@ -182,8 +182,17 @@ module Zr
           scope = scope_class(node.scope)
           v = expr(node.value)
           at_node(node)
+          refinement_self_check
           checked(kernel("zr_const_set", scope, sym_word(node.name), v))
           v
+        end
+
+        # In a block, `self` can be a refinement (in a refine block). A
+        # constant or a class variable written there warns, as setconstant
+        # and setclassvariable do.
+        #: () -> void
+        def refinement_self_check
+          kernel("zr_refinement_self_warn") if @kind == :block
         end
       end
     end

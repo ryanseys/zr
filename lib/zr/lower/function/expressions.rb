@@ -472,6 +472,7 @@ module Zr
         def cvar_write(node)
           v = expr(node.value)
           at_node(node)
+          refinement_self_check
           checked(kernel("zr_cvar_set", @cref, sym_word(node.name), v))
         end
 
@@ -493,6 +494,7 @@ module Zr
           @f.jump(merge, [current])
           switch(set)
           v = expr(node.value)
+          refinement_self_check
           checked(kernel("zr_const_set", scope_class(node.scope), sym_word(node.name), v))
           @f.jump(merge, [v])
           switch(merge)

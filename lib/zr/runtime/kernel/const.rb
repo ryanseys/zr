@@ -344,6 +344,17 @@ module Zr::Kern
     0
   end
 
+  # vm_ensure_not_refinement_module: a constant or a class variable that
+  # code whose self is a refinement writes goes to the class or module
+  # around the refine block, with a warning.
+  #: () -> void
+  def zr_refinement_self_warn
+    s = Frame[Task[zr_task()].top].self
+    if !zr_special_p(s) && zr_type(s) == T_MODULE && ClassExt[RClass[s].ext].refined != QNIL
+      zr_warn_here(Machine.bytes("not defined at the refinement, but at the outer class/module"), 60)
+    end
+  end
+
   # Stores a constant under `klass`, then calls the `const_added` hook. An
   # anonymous class or module gets the name of the constant. Returns `v`,
   # or undef when the store or the hook raises.
