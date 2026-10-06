@@ -1,0 +1,8 @@
+"cannot load such file -- appears_later"
+:appeared
+true
+:one
+true
+:two
+true
+"cannot load such file -- relative_one"

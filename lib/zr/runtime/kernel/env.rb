@@ -1050,17 +1050,26 @@ module Zr::Kern
 
   # Returns the compiled toplevel of the program's file at `path`, as an
   # Integer address, or nil. Each entry is (path bytes, length, toplevel),
-  # so a require with a computed name can find a compiled-in file.
+  # so a require with a computed name can find a compiled-in file. The
+  # rows are in byte order of their paths (LoadTables#data), so this is a
+  # binary search: a program with eval support has thousands of them.
   #: (value) -> value
   def zr_unit_for(path)
     t = zr_load_table()
-    i = 0
-    while i < LoadTable[t].units
-      row = LoadTable[t].rows + (i * 24)
-      if zr_bytes_eq(Machine.ptr(Machine.load64(row, 0)), Machine.load64(row, 8), RString[path].ptr, RString[path].len)
+    lo = 0
+    hi = LoadTable[t].units
+    while lo < hi
+      mid = (lo + hi) >> 1
+      row = LoadTable[t].rows + (mid * 24)
+      c = zr_bytes_cmp(Machine.ptr(Machine.load64(row, 0)), Machine.load64(row, 8), RString[path].ptr, RString[path].len)
+      if c == 0
         return zr_fix(Machine.load64(row, 16))
       end
-      i += 1
+      if c < 0
+        lo = mid + 1
+      else
+        hi = mid
+      end
     end
     Machine.value(QNIL)
   end

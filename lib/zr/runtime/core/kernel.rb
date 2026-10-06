@@ -178,10 +178,30 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # A $LOAD_PATH entry as ruby searches it: expanded, and by its real path,
   # so the file that a symlinked directory holds is stored under the
   # directory it names.
+  #
+  # Ruby keeps the expanded load path and the real path of each entry
+  # (load_path_check_cache), so a search does not resolve them again; a
+  # name that is no directory yet is resolved again next time.
   def self.load_dir(dir)
     Primitive.attr! :hidden
-    dir = File.expand_path(File.path(dir))
-    File.directory?(dir) ? File.realpath(dir) : dir
+    load_dirs(dir).last
+  end
+
+  # `[expanded, real]` for the $LOAD_PATH entry `dir`. An absolute entry
+  # that is a directory keeps its pair; a relative one depends on the
+  # working directory, and a missing one may appear.
+  def self.load_dirs(dir)
+    Primitive.attr! :hidden
+    dir = File.path(dir)
+    kept = Primitive.zr_hidden_get(self, :load_dirs) || Primitive.zr_state_set(self, :load_dirs, {})
+    found = kept[dir]
+    return found if found
+
+    plain = File.expand_path(dir)
+    real = File.realpath(plain) if File.directory?(plain)
+    pair = [plain, real || plain].freeze
+    kept[dir] = pair if real && dir.start_with?("/")
+    pair
   end
 
   # syntax_suggest's detailed_message loads its search, which needs
@@ -267,9 +287,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # rubygems activates has a C part that no program here can load. The
     # others come after it, as ruby's own library does, so a directory the
     # program adds can shadow them.
-    lines = Primitive.zr_load_names(0).split("\n")
-    cut = lines.index("") || lines.size
-    dirs = lines[0, cut] + $LOAD_PATH.map { |dir| File.path(dir) } + (lines[cut + 1..] || [])
+    ports, libraries = library_roots
+    dirs = ports + $LOAD_PATH.map { |dir| File.path(dir) } + libraries
     dirs.each do |dir|
       path = found_in(dir, name)
       return path if path
@@ -277,17 +296,36 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     nil
   end
 
+  # The roots that the build lists, split once: the ports of C, then the
+  # other libraries.
+  def self.library_roots
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :library_roots) || begin
+      lines = Primitive.zr_load_names(0).split("\n")
+      cut = lines.index("") || lines.size
+      Primitive.zr_state_set(self, :library_roots, [lines[0, cut].freeze, (lines[cut + 1..] || []).freeze].freeze)
+    end
+  end
+
   # `name` under the directory `dir`, by the directory's real path as
   # ruby stores it. A file compiled into the program under the path as
   # written is found there too, so it never needs a compile at run time.
   def self.found_in(dir, name)
     Primitive.attr! :hidden
-    plain = File.expand_path(name, dir)
-    real = File.expand_path(name, load_dir(dir))
+    plain_dir, real_dir = load_dirs(dir)
+    real = under(real_dir, name)
     return real if Primitive.zr_unit_for(real)
-    return plain if Primitive.zr_unit_for(plain)
+
+    plain = plain_dir == real_dir ? real : under(plain_dir, name)
+    return plain if !plain.equal?(real) && Primitive.zr_unit_for(plain)
 
     found(real)
+  end
+
+  # File.expand_path(name, dir) for an expanded `dir`.
+  def self.under(dir, name)
+    Primitive.attr! :hidden
+    name.start_with?("/", "~") ? File.expand_path(name, dir) : File.send(:normalized, "#{dir}/#{name}")
   end
 
   # `path`, when the program was compiled with that file or it is there
