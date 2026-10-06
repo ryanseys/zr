@@ -25,42 +25,144 @@ class Rational < Numeric
     end
     private :build
 
-    # A value of any numeric kind as a Rational, as Kernel#Rational reads
-    # it; nil when `exception` is false and it cannot be.
-    def convert(value, exception)
+    # nurat_s_convert: Kernel#Rational for this class, private.
+    def convert(num, *den)
+      raise ArgumentError, "wrong number of arguments (given #{den.size + 1}, expected 1..2)" if den.size > 1
+
+      converted(num, den, true)
+    end
+    private :convert
+
+    # nurat_convert: `num`, over the one element of `den` if it has one,
+    # as a Rational of this class; nil when `exception` is false and a
+    # part cannot be read.
+    def converted(num, den, exception)
       Primitive.attr! :hidden
-      case value
-      when Integer then build(value, 1)
-      when Rational then value
-      when Float
-        raise FloatDomainError, value.to_s unless value.finite?
-
-        value.to_r
-      when String then parse(value, exception)
-      when Complex
-        # A zero imaginary part, exact or not, leaves the real part.
-        raise RangeError, "can't convert #{value} into Rational" unless value.imaginary == 0
-
-        convert(value.real, exception)
-      when nil
+      given = !den.empty?
+      den = den.first
+      if NilClass === num || (given && NilClass === den)
         return nil unless exception
 
         raise TypeError, +"can't convert nil into Rational"
-      else
-        # rb_check_convert_type_with_id: to_r as rb_check_funcall finds
-        # it, a BasicObject's too, and it must give a Rational.
-        converted = Primitive.zr_check_call(value, :to_r)
-        if converted.nil?
-          return nil unless exception
+      end
+      num = num.real if Complex === num && exact_zero?(num.imaginary)
+      den = den.real if Complex === den && exact_zero?(den.imaginary)
+      num = readable(num, exception)
+      return nil if NilClass === num
 
-          raise TypeError, "can't convert #{conversion_name(value)} into Rational"
+      if given
+        den = readable(den, exception)
+        return nil if NilClass === den
+      end
+      return num if Rational === num && (!given || exact_one?(den))
+
+      if !given
+        unless Integer === num
+          return to_rational(num) if exception
+
+          return begin
+            to_rational(num)
+          rescue StandardError
+            nil
+          end
         end
-        raise TypeError, "can't convert #{conversion_name(value)} to Rational (#{conversion_name(value)}#to_r gives #{conversion_name(converted)})" unless converted.is_a?(Rational)
+      else
+        unless Numeric === num
+          num = exception ? checked_rational(num) : (to_rational(num) rescue (return nil))
+        end
+        unless Numeric === den
+          den = exception ? checked_rational(den) : (to_rational(den) rescue (return nil))
+        end
+        if Numeric === num && Numeric === den && !(Integer === num && Integer === den)
+          num = begin
+            to_rational(num)
+          rescue StandardError
+            num
+          end
+          return num / den
+        end
+      end
+      num = int_value(num)
+      if !given
+        den = 1
+      elsif !(Integer === den) && !exception
+        return nil
+      else
+        den = int_value(den)
+      end
+      build(num, den)
+    end
 
-        converted
+    # One part as nurat_convert reads it first: a Float or a String as
+    # a Rational, an object with no to_r through to_int if it has one.
+    # nil only for a String that does not read, when `exception` is false.
+    def readable(value, exception)
+      Primitive.attr! :hidden
+      case value
+      when Integer, Rational then value
+      when Float then value.to_r
+      when String then parse(value, exception)
+      else
+        # rb_respond_to; a BasicObject has no respond_to? to ask.
+        responds = begin
+          value.respond_to?(:to_r)
+        rescue NoMethodError
+          false
+        end
+        return value if responds
+
+        int = begin
+          Primitive.zr_check_call(value, :to_int)
+        rescue StandardError
+          nil
+        end
+        int.is_a?(Integer) ? int : value
       end
     end
-    private :convert
+
+    # to_rational: rb_convert_type_with_id with to_r.
+    def to_rational(value)
+      Primitive.attr! :hidden
+      converted = Primitive.zr_check_call(value, :to_r)
+      raise TypeError, "can't convert #{conversion_name(value)} into Rational" if converted.nil?
+
+      checked_type(value, converted)
+    end
+
+    # rb_check_convert_type_with_id: to_r as rb_check_funcall finds it, a
+    # BasicObject's too, or nil when there is none. It must give a Rational.
+    def checked_rational(value)
+      Primitive.attr! :hidden
+      converted = Primitive.zr_check_call(value, :to_r)
+      converted.nil? ? nil : checked_type(value, converted)
+    end
+
+    def checked_type(value, converted)
+      Primitive.attr! :hidden
+      return converted if Rational === converted
+
+      raise TypeError, "can't convert #{conversion_name(value)} to Rational (#{conversion_name(value)}#to_r gives #{conversion_name(converted)})"
+    end
+
+    # nurat_int_value: only an Integer is an integer here.
+    def int_value(value)
+      Primitive.attr! :hidden
+      raise TypeError, +"not an integer" unless Integer === value
+
+      value
+    end
+
+    # k_exact_zero_p and k_exact_one_p: any value but a Float, equal to it.
+    def exact_zero?(value)
+      Primitive.attr! :hidden
+      !(Float === value) && value == 0
+    end
+
+    def exact_one?(value)
+      Primitive.attr! :hidden
+      !(Float === value) && value == 1
+    end
+    private :converted, :readable, :to_rational, :checked_rational, :checked_type, :int_value, :exact_zero?, :exact_one?
 
     # parse_rat: a sign, a number with a fraction and an exponent, and an
     # optional `/` and a second such number. `strict` (Rational()) wants
@@ -91,7 +193,11 @@ class Rational < Numeric
         if d.nil?
           return fail.() if strict
         else
-          raise ZeroDivisionError, +"divided by 0" if d.zero?
+          if d.zero?
+            return nil if exception == false
+
+            raise ZeroDivisionError, +"divided by 0"
+          end
 
           s = after
           return fail.() if strict && skip_space(text, s) != text.bytesize
@@ -216,16 +322,16 @@ class Rational < Numeric
 
   def negative? = numerator < 0
 
-  def abs = numerator < 0 ? Rational.send(:build, -numerator, denominator) : self
+  def abs = numerator < 0 ? made(-numerator, denominator) : self
 
   alias magnitude abs
 
-  def -@ = Rational.send(:build, -numerator, denominator)
+  def -@ = made(-numerator, denominator)
 
   def +(other)
     case other
-    when Integer then Rational.send(:build, numerator + other * denominator, denominator)
-    when Rational then Rational.send(:build, numerator * other.denominator + other.numerator * denominator, denominator * other.denominator)
+    when Integer then made(numerator + other * denominator, denominator)
+    when Rational then made(numerator * other.denominator + other.numerator * denominator, denominator * other.denominator)
     when Float then to_f + other
     else coerced(other, :+)
     end
@@ -233,8 +339,8 @@ class Rational < Numeric
 
   def -(other)
     case other
-    when Integer then Rational.send(:build, numerator - other * denominator, denominator)
-    when Rational then Rational.send(:build, numerator * other.denominator - other.numerator * denominator, denominator * other.denominator)
+    when Integer then made(numerator - other * denominator, denominator)
+    when Rational then made(numerator * other.denominator - other.numerator * denominator, denominator * other.denominator)
     when Float then to_f - other
     else coerced(other, :-)
     end
@@ -242,8 +348,8 @@ class Rational < Numeric
 
   def *(other)
     case other
-    when Integer then Rational.send(:build, numerator * other, denominator)
-    when Rational then Rational.send(:build, numerator * other.numerator, denominator * other.denominator)
+    when Integer then made(numerator * other, denominator)
+    when Rational then made(numerator * other.numerator, denominator * other.denominator)
     when Float then to_f * other
     else coerced(other, :*)
     end
@@ -254,11 +360,11 @@ class Rational < Numeric
     when Integer
       raise ZeroDivisionError, +"divided by 0" if other == 0
 
-      Rational.send(:build, numerator, denominator * other)
+      made(numerator, denominator * other)
     when Rational
       raise ZeroDivisionError, +"divided by 0" if other.numerator == 0
 
-      Rational.send(:build, numerator * other.denominator, denominator * other.numerator)
+      made(numerator * other.denominator, denominator * other.numerator)
     when Float then to_f / other
     else coerced(other, :/)
     end
@@ -269,24 +375,31 @@ class Rational < Numeric
   def fdiv(other) = to_f / other
 
   def **(other)
+    # rb_rational_pow: an exact zero power is one.
+    return made(1, 1) if other.is_a?(Numeric) && Rational.send(:exact_zero?, other)
+
     other = other.numerator if other.is_a?(Rational) && other.denominator == 1
-    # nurat_expt: 0 and 1 to an exact power, before any Float.
-    if other.is_a?(Rational) && denominator == 1
-      return Rational.send(:build, 1, 1) if numerator == 1
+    # 0, 1 and -1 to an exact power, before any Float.
+    if (other.is_a?(Integer) || other.is_a?(Rational)) && denominator == 1
+      return made(1, 1) if numerator == 1
+      return made(other.odd? ? -1 : 1, 1) if numerator == -1 && other.is_a?(Integer)
       if numerator == 0
         raise ZeroDivisionError, +"divided by 0" if other.negative?
 
-        return Rational.send(:build, 0, 1)
+        return made(0, 1)
       end
     end
     case other
     when Integer
+      # A Bignum power is too large for any result.
+      raise ArgumentError, +"exponent is too large" unless other.bit_length < 63
+
       if other >= 0
-        Rational.send(:build, numerator**other, denominator**other)
+        made(numerator**other, denominator**other)
       else
         raise ZeroDivisionError, +"divided by 0" if numerator == 0
 
-        Rational.send(:build, denominator**-other, numerator**-other)
+        made(denominator**-other, numerator**-other)
       end
     when Float, Rational then to_f**other
     else coerced(other, :**)
@@ -316,7 +429,7 @@ class Rational < Numeric
     when Integer then [Rational.send(:build, other, 1), self]
     when Float then [other, to_f]
     when Rational then [other, self]
-    when Complex then other.imaginary == 0 ? [Rational.send(:convert, other.real, true), self] : [other, Complex(self)]
+    when Complex then other.imaginary == 0 ? [Rational.send(:converted, other.real, [], true), self] : [other, Complex(self)]
     else raise TypeError, "#{other.class} can't be coerced into Rational"
     end
   end
@@ -352,8 +465,8 @@ class Rational < Numeric
   # The fraction with the smallest denominator in [a, b].
   def self.simplest(a, b)
     Primitive.attr! :hidden
-    a = Rational.send(:convert, a, true)
-    b = Rational.send(:convert, b, true)
+    a = Rational.send(:converted, a, [], true)
+    b = Rational.send(:converted, b, [], true)
     return a if a == b
 
     p0 = 0
@@ -401,25 +514,19 @@ class Rational < Numeric
     Primitive.attr! :hidden
     Primitive.zr_num_coerce_m(self, other, op, 0)
   end
+
+  # A result of this Rational's own class, as CLASS_OF(self) gives it.
+  def made(n, d)
+    Primitive.attr! :hidden
+    Primitive.zr_real_class(self).send(:build, n, d)
+  end
 end
 
 module Kernel
   def Rational(a, *rest, exception: true)
     raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
 
-    exception = exception_flag(exception)
-    if rest.empty?
-      Rational.send(:convert, a, exception)
-    else
-      b = rest.first
-      x = Rational.send(:convert, a, exception)
-      y = Rational.send(:convert, b, exception)
-      return nil if x.nil? || y.nil?
-      raise ZeroDivisionError, +"divided by 0" if y == 0
-
-      r = x / y
-      r.is_a?(Rational) ? r : Rational.send(:convert, r, exception)
-    end
+    Rational.send(:converted, a, rest, exception_flag(exception))
   end
   private :Rational
   module_function :Rational
@@ -497,11 +604,18 @@ class Rational
 
   def marshal_load(pair)
     Primitive.attr! :hidden
+    raise FrozenError.new("can't modify frozen #{Primitive.zr_real_class(self)}: #{inspect}", receiver: self) if frozen?
     raise TypeError, "wrong argument type #{Primitive.zr_real_class(pair)} (expected Array)" unless pair.is_a?(Array)
     raise ArgumentError, "marshaled rational must have an array whose length is 2 but #{pair.size}" unless pair.size == 2
 
-    Primitive.zr_hidden_set(self, :__num__, pair[0])
-    Primitive.zr_hidden_set(self, :__den__, pair[1])
+    # nurat_int_check, then nurat_canonicalize: the sign moves to the
+    # numerator, and a zero denominator is a division by zero.
+    num, den = pair.map { |part| Rational.send(:int_value, part) }
+    raise ZeroDivisionError, +"divided by 0" if den.zero?
+
+    num, den = -num, -den if den.negative?
+    Primitive.zr_hidden_set(self, :__num__, num)
+    Primitive.zr_hidden_set(self, :__den__, den)
     freeze
   end
 

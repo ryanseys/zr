@@ -71,7 +71,7 @@ class Integer
 
   def **(other)
     return to_f**other if other.is_a?(Float)
-    other = other.numerator if other.is_a?(Rational) && other.denominator == 1
+    # fix_pow coerces a Rational, so the result stays a Rational.
     return Rational(self, 1)**other if other.is_a?(Rational)
     return Complex(self, 0)**other if other.is_a?(Complex)
     return Primitive.zr_num_coerce_m(self, other, :**, 0) unless other.is_a?(Integer)
@@ -506,9 +506,22 @@ class Numeric
 
   def <=>(other) = equal?(other) ? 0 : nil
 
-  # num_eql: a number of the same type, then rb_equal, which sends a
-  # redefined `==`.
-  def eql?(other) = self.class.equal?(other.class) && Primitive.zr_rb_equal(self, other)
+  # num_eql: a number of the same builtin type, then rb_equal, which sends
+  # a redefined `==`. An instance of a subclass of Rational has the type
+  # of a Rational.
+  def eql?(other) = Numeric.send(:builtin_type, self).equal?(Numeric.send(:builtin_type, other)) && Primitive.zr_rb_equal(self, other)
+
+  # The core number class whose type `value` has, or nil for any other.
+  def self.builtin_type(value)
+    Primitive.attr! :hidden
+    case value
+    when Integer then Integer
+    when Float then Float
+    when Rational then Rational
+    when Complex then Complex
+    end
+  end
+  private_class_method :builtin_type
 
   # CRuby's rule: the modulo, moved back by the divisor when the signs
   # differ, so the remainder takes the receiver's sign.
