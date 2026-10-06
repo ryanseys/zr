@@ -39,27 +39,38 @@ module GC
       counted = counter(hash_or_key)
       return counted unless counted.nil?
     end
-    total, free = Primitive.zr_objspace_census
     pages = Primitive.zr_gc_arenas
-    live = total - free
-    allocated = Primitive.zr_gc_allocated
     count = Primitive.zr_gc_count
     majors, marking, sweeping = Primitive.zr_gc_phases
     stats = {
       count: count, time: Primitive.zr_gc_nanoseconds / 1_000_000,
       marking_time: marking / 1_000_000, sweeping_time: sweeping / 1_000_000,
-      heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_slots: 0, heap_available_slots: total,
-      heap_live_slots: live, heap_free_slots: free, heap_final_slots: 0, heap_marked_slots: 0, heap_eden_pages: pages,
-      total_allocated_pages: pages, total_freed_pages: 0, total_allocated_objects: allocated,
-      total_freed_objects: [allocated - live, 0].max, malloc_increase_bytes: Primitive.zr_gc_malloced,
+      heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_slots: 0, heap_available_slots: 0,
+      heap_live_slots: 0, heap_free_slots: 0, heap_final_slots: 0, heap_marked_slots: 0, heap_eden_pages: pages,
+      total_allocated_pages: pages, total_freed_pages: 0, total_allocated_objects: 0,
+      total_freed_objects: 0, malloc_increase_bytes: Primitive.zr_gc_malloced,
       malloc_increase_bytes_limit: Primitive.zr_gc_malloc_limit,
       minor_gc_count: count - majors, major_gc_count: majors, compact_count: 0, read_barrier_faults: 0, total_moved_objects: 0,
       remembered_wb_unprotected_objects: 0, remembered_wb_unprotected_objects_limit: 0, old_objects: 0,
       old_objects_limit: 0, oldmalloc_increase_bytes: 0, oldmalloc_increase_bytes_limit: 16 * 1024 * 1024
     }
+    # The census comes after every allocation of this call, so the slot
+    # counts agree with ObjectSpace.count_objects, as CRuby's stat
+    # allocates nothing.
+    total, free = Primitive.zr_objspace_census
+    live = total - free
+    allocated = Primitive.zr_gc_allocated
+    stats[:heap_available_slots] = total
+    stats[:heap_live_slots] = live
+    stats[:heap_free_slots] = free
+    stats[:total_allocated_objects] = allocated
+    stats[:total_freed_objects] = allocated > live ? allocated - live : 0
     case hash_or_key
     when nil then stats
-    when Hash then hash_or_key.merge!(stats)
+    when Hash
+      # Pair by pair, as rb_hash_aset, so nothing is allocated after the census.
+      Primitive.zr_hash_foreach(stats) { |key, value| Primitive.zr_hash_aset_m(hash_or_key, key, value) }
+      hash_or_key
     when Symbol
       stats.fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
     else

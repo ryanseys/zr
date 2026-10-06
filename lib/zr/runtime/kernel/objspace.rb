@@ -133,8 +133,9 @@ module Zr::Kern
   #: () -> value
   def zr_objspace_census
     counts = Machine.slot(32 * 8)
-    live_cells = zr_objspace_tally(counts)
+    # The result is made before the tally, which counts it.
     out = zr_ary_new(34)
+    live_cells = zr_objspace_tally(counts)
     zr_ary_push(out, zr_fix(zr_heap_cells()))
     zr_ary_push(out, zr_fix(zr_heap_cells() - live_cells))
     t = 0
