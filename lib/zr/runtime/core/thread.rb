@@ -440,6 +440,10 @@ class Thread
     @killed = false
     @aborting = false
     @pending = nil
+    # thread_create_core: the creator's handle_interrupt masks hold in the
+    # new thread too, until it pushes its own.
+    creator_masks = creator && Primitive.zr_hidden_get(creator, :masks)
+    @masks = creator_masks.dup if creator_masks
     @kill_tag = Object.new
     @waiters = []
   end
@@ -897,8 +901,10 @@ class Thread
     return unless @armed
 
     # The interrupts arrive in the order they were sent: an exception
-    # sent before a kill ends the thread as that exception.
-    if @pending && !masked?(@pending) && (!@killed || @raised_first)
+    # sent before a kill ends the thread as that exception. One sent while
+    # the kill unwinds replaces it, as an exception raised in an ensure
+    # replaces the error that ran it.
+    if @pending && !masked?(@pending) && (!@killed || @raised_first || @aborting)
       e = @pending
       @pending = nil
       Kernel.raise e
