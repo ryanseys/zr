@@ -18,8 +18,10 @@ class Thread
   # which the scheduler polls when no thread can run.
   @io_waiters = []
   Primitive.zr_undef_alloc(self)
-  # rb_uninterruptible's mask: every interrupt waits.
-  UNINTERRUPTIBLE = { Object => :never }.freeze
+  # rb_uninterruptible's mask: every interrupt waits. A mask is read as
+  # pairs; a Hash keyed by Object would hash the class, which gives it an
+  # object id before the program asks for one.
+  UNINTERRUPTIBLE = [[Object, :never]].freeze
   private_constant :UNINTERRUPTIBLE
 
   # The scheduler's state is Thread's own: a subclass that reads it
@@ -1094,10 +1096,11 @@ class Thread
   # the GVL, so each other thread that can run takes its turn first, and
   # sees this one asleep while it does; a close of a descriptor it waits
   # on reaches it then too. Either way, an interrupt that waits for a
-  # blocking call arrives here.
+  # blocking call arrives here. A thread with a fiber scheduler keeps its
+  # turn: its fibers move by transfer, which a switch here would cut into.
   def give_way(fds, events)
     Primitive.attr! :hidden
-    return at_blocking unless Thread.send(:others_ready?)
+    return at_blocking unless Thread.send(:others_ready?) && @scheduler.nil?
 
     Thread.send(:enqueue, self)
     watching(fds, events) { wait(nil, false) }
@@ -1213,6 +1216,9 @@ class Fiber
     end
 
     def status = @woken ? +"run" : +"sleep"
+
+    # As Thread#sleeping?, which the lists that wake their waiters ask.
+    def sleeping? = !@woken
 
     def woken? = @woken
 
