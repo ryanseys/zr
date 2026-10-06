@@ -1,0 +1,7 @@
+[1, "exit", false]
+[1, "exit", false]
+[1, "exit", false]
+[1, "own message", false]
+[1, "plain", false]
+"wrong number of arguments (given 2, expected 0..1)"
+"no implicit conversion of Symbol into String"

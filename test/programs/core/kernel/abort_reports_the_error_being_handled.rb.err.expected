@@ -1,0 +1,14 @@
+core/kernel/abort_reports_the_error_being_handled.rb:11:in 'block in <main>': being handled (RuntimeError)
+	from core/kernel/abort_reports_the_error_being_handled.rb:4:in 'Object#aborting'
+	from core/kernel/abort_reports_the_error_being_handled.rb:10:in '<main>'
+core/kernel/abort_reports_the_error_being_handled.rb:19:in 'block in <main>': the error (RuntimeError)
+	from core/kernel/abort_reports_the_error_being_handled.rb:4:in 'Object#aborting'
+	from core/kernel/abort_reports_the_error_being_handled.rb:15:in '<main>'
+core/kernel/abort_reports_the_error_being_handled.rb:17:in 'block in <main>': the cause (ArgumentError)
+
+    raise ArgumentError, "the cause"
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+	from core/kernel/abort_reports_the_error_being_handled.rb:4:in 'Object#aborting'
+	from core/kernel/abort_reports_the_error_being_handled.rb:15:in '<main>'
+own message
+plain

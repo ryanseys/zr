@@ -88,9 +88,14 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   # The message goes to stderr immediately; the SystemExit contains it.
   def abort(*args)
-    raise SystemExit.new(1, +"exit") if args.empty?
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
-    # rb_f_abort: StringValue of the message.
+    # rb_f_abort: with no message, the error being handled is reported.
+    if args.empty?
+      Primitive.zr_error_print_m($!) if $!
+      raise SystemExit.new(1, +"exit")
+    end
+
     message = Primitive.zr_str_operand(args[0])
 
     Primitive.zr_warn_line(message)
