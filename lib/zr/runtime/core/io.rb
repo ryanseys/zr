@@ -719,6 +719,7 @@ class IO
     begin
       from = copy_end(src, File::RDONLY, opened)
       from&.send(:check_readable)
+      from&.send(:check_byte_readable)
       to = copy_end(dst, File::WRONLY | File::CREAT | File::TRUNC, opened)
       to&.send(:check_writable)
       dst = to if to
@@ -897,10 +898,12 @@ class IO
   end
 
   # rb_io_check_byte_readable: a stream that converts what it reads keeps
-  # characters, not bytes, once a character read has buffered them.
+  # characters, not bytes, while an ungetc has put some back at the head
+  # of the buffer (CRuby's cbuf). A character read takes all it cooks, as
+  # CRuby's converter stops after its first output.
   def check_byte_readable
     Primitive.attr! :hidden
-    raise IOError, +"byte oriented read for character buffered IO" if buffered? && (@universal || @internal)
+    raise IOError, +"byte oriented read for character buffered IO" if (@universal || @internal) && @char_front.positive?
   end
 
   # The newline decorators and the options that a stream's conversions
@@ -911,8 +914,10 @@ class IO
     lines = conversion[:lines]
     @universal = lines.include?(:universal_newline)
     # Bytes at the head of the buffer that the universal decorator has
-    # already read, so each byte is cooked once.
+    # already read, so each byte is cooked once; the first `@char_front`
+    # of them are characters that ungetc put back.
     @cooked = 0
+    @char_front = 0
     written = (lines - [:universal_newline]).first
     @read_options = conversion[:encode].except(:xml)
     @write_options = conversion[:encode].dup
@@ -1527,7 +1532,9 @@ class IO
     end
     return text.encode(target, **options) if target.ascii_compatible?
 
-    text = text.encode(Encoding::UTF_8, **options.except(:newline, :xml)) unless source == Encoding::UTF_8
+    # The hop to UTF-8 only handles errors; the decorators work once, on
+    # the way to the target.
+    text = text.encode(Encoding::UTF_8, **options.slice(:invalid, :undef, :replace)) unless source == Encoding::UTF_8
     return stateful_converted(text, target, options) if stateful?(target)
 
     once_marked(text.encode(target, **options))
@@ -1540,14 +1547,20 @@ class IO
     encoding.name.start_with?("ISO-2022-JP", "CP5022", "stateless-ISO-2022-JP")
   end
 
-  # One converter takes every write to a stateful encoding, so the shift
-  # state goes on from one write to the next, as make_writeconv's
-  # converter keeps it. The close writes the converter's finish.
+  # make_writeconv's double conversion for a stateful encoding: each
+  # write goes first into the encoding's ASCII-compatible form with every
+  # option but the quote, then through one converter that keeps the shift
+  # state, and the quote of xml: :attr, from one write to the next. The
+  # close writes that converter's finish.
   def stateful_converted(text, target, options)
     Primitive.attr! :hidden
-    @write_converter ||= Encoding::Converter.new(Encoding::UTF_8, target, **options)
+    common = Encoding::Converter.asciicompat_encoding(target)
+    attr = options[:xml] == :attr
+    @write_converter ||= Encoding::Converter.new(common, target, attr ? Encoding::Converter::XML_ATTR_QUOTE_DECORATOR : 0)
+    text = text.encode(common, **options)
+    text = text.byteslice(1, text.bytesize - 2) if attr
     out = +""
-    result = @write_converter.primitive_convert(text.dup, out, nil, nil, partial_input: true)
+    result = @write_converter.primitive_convert(text, out, nil, nil, partial_input: true)
     raise @write_converter.last_error unless result == :source_buffer_empty
 
     out
@@ -1737,6 +1750,8 @@ class IO
 
     buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
     check_readable
+    # io_read: a read of a length takes bytes.
+    check_byte_readable if length
 
     IO.send(:room_for!, length)
     # A scheduler's io_read gets the same byte count that io.c requests.
@@ -1802,6 +1817,7 @@ class IO
     return buffer || +"".b if length.zero?
 
     check_readable
+    check_byte_readable
     raise IOError, +"sysread for buffered IO" unless @buffer.empty?
 
     IO.send(:room_for!, length)
@@ -1994,12 +2010,15 @@ class IO
              Primitive.zr_str_operand(text)
            end
     push_back(text)
+    @char_front += text.bytesize
+    nil
   end
 
   # rb_io_ungetbyte: nil puts back nothing, and an Integer is one byte,
   # modulo 256.
   def ungetbyte(byte)
     check_readable
+    check_byte_readable
     return nil if byte.nil?
 
     push_back(byte.is_a?(Integer) ? (byte % 256).chr : Primitive.zr_str_operand(byte))
@@ -2082,6 +2101,7 @@ class IO
   def each_byte
     return to_enum(:each_byte) unless block_given?
 
+    check_byte_readable
     while (b = getbyte)
       yield b
     end
@@ -2598,6 +2618,7 @@ class IO
     Primitive.attr! :hidden
     @buffer = fresh_buffer
     @cooked = 0
+    @char_front = 0
   end
 
   # What is read arrives in the stream's own encoding: binary where the
@@ -2633,7 +2654,10 @@ class IO
   # converter's finish gives.
   def decoded(chunk)
     Primitive.attr! :hidden
-    @read_converter ||= Encoding::Converter.new(@external || Encoding.default_external, @internal, **@read_options)
+    # The universal newline decorator works inside the converter, where
+    # the text is ASCII-compatible, not on the wide text it gives.
+    options = @universal ? @read_options.merge(universal_newline: true) : @read_options
+    @read_converter ||= Encoding::Converter.new(@external || Encoding.default_external, @internal, **options)
     if chunk.nil?
       tail = @read_converter.finish
       @buffer << tail.force_encoding(@buffer.encoding) unless tail.empty?
@@ -2676,7 +2700,7 @@ class IO
   # stops after its first output, so a later binmode reads the rest raw.
   def cook(budget = nil)
     Primitive.attr! :hidden
-    return unless @universal && @cooked < @buffer.bytesize
+    return unless @universal && @cooked < @buffer.bytesize && !decoding?
 
     # A character read cooks only when nothing at the head is cooked: a
     # character's bytes past a cooked head hold no CR.
@@ -2710,10 +2734,16 @@ class IO
     Primitive.attr! :hidden
     enc = read_encoding
     onig = Regexp.encoder(enc)
-    cook(onig.max_len)
-    fill_cooked(onig.max_len) if @buffer.empty? && !@eof
+    cook(char_budget(onig))
+    if @buffer.empty? && !@eof
+      fill
+      cook(char_budget(onig))
+    end
     # A CR that the universal decorator holds waits for the next byte.
-    fill_cooked(onig.max_len) while @universal && !@eof && @cooked.zero? && !@buffer.empty?
+    while @universal && !@eof && @cooked.zero? && !@buffer.empty?
+      fill
+      cook(char_budget(onig))
+    end
     return nil if @buffer.empty?
 
     n = onig.precise_mbclen(@buffer, 0)
@@ -2726,10 +2756,22 @@ class IO
         n += 1
         break unless onig.precise_mbclen(@buffer.byteslice(0, n), 0) < -1
       end
+      # A converting stream's character buffer ends inside a character:
+      # its bytes come one unit at a time (rb_enc_mbclen).
+      n = [onig.min_len, n].min if (@universal || @internal) && onig.precise_mbclen(@buffer.byteslice(0, n), 0) < -1
     elsif n < 0
       n = @internal && !decoding? ? unreadable_length(enc) : 1
     end
     take(n).force_encoding(enc)
+  end
+
+  # The bytes that a character read cooks: the first character's, as
+  # CRuby's converter stops after its first output; all a character may
+  # take where the head is no whole character yet.
+  def char_budget(onig)
+    Primitive.attr! :hidden
+    n = @buffer.empty? ? -1 : onig.precise_mbclen(@buffer, 0)
+    n.positive? ? n : onig.max_len
   end
 
   # A converting stream reads an invalid character as its converter does:
@@ -2979,6 +3021,7 @@ class IO
     taken = Primitive.zr_str_shift_front(@buffer, n)
     cooked = @cooked - taken.bytesize
     @cooked = cooked.negative? ? 0 : cooked
+    @char_front = [@char_front - taken.bytesize, 0].max if @char_front.positive?
     taken
   end
 

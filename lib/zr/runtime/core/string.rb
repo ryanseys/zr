@@ -1958,7 +1958,11 @@ class String
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
     options = Encoding.send(:one_newline, options, from, target)
     Encoding.send(:check_replacement, self, from, target, options)
-    text = escaped(source.nil? ? plain : copied.force_encoding(from), options)
+    # A conversion to or from stateless ISO-2022-JP runs on a converter,
+    # whose own decorators escape and quote for `xml:`.
+    through_converter = Encoding.send(:stateless?, from) || Encoding.send(:stateless?, target)
+    text = source.nil? ? plain : copied.force_encoding(from)
+    text = escaped(text, options) unless through_converter
     # No conversion, but an `invalid: :replace` the caller wrote still
     # takes out the bytes that make no character; the one an encode with
     # no target implies does not (str_transcode0's
@@ -1969,12 +1973,12 @@ class String
     # The quotes around an attribute are characters of the text, so
     # they convert to the target with it. If they were written after the
     # conversion, they would contain the source's own bytes.
-    text = "\"#{text}\"" if options[:xml] == :attr
+    text = "\"#{text}\"" if options[:xml] == :attr && !through_converter
     # ruby's newline decorators work on the ASCII side of the
     # conversion: before it when the source is ASCII-compatible, after
     # it when only the target is, and through UTF-8 between two wide
     # encodings.
-    return Encoding.convert(text, target, options) unless options[:newline]
+    return Encoding.convert(text, target, options) unless options[:newline] && !through_converter
     return Encoding.convert(newlines(text, options), target, options) if text.encoding.ascii_compatible?
     return newlines(Encoding.convert(text, target, options), options) if target.ascii_compatible?
 
