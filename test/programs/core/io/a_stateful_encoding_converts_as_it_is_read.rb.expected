@@ -1,0 +1,9 @@
+#<Encoding:EUC-JP>
+true
+"\x{A3B0}"
+"\x{A3B1}"
+nil
+"before \x{A3B0}"
+"0\x{A3B1} after"
+"before \x{A3B0}\x{A3B1} after"
+#<Encoding:EUC-JP>

@@ -927,6 +927,7 @@ class IO
     # A stateful encoding's converter, which lives from the first write
     # to the close.
     @write_converter = nil
+    @read_converter = nil
   end
 
   def lineno
@@ -2455,6 +2456,7 @@ class IO
     Primitive.attr! :hidden
     park_to_read unless IO.send(:scheduler_taking, :io_read)
     chunk = read_memory(8192)
+    chunk = decoded(chunk) if decoding? && !chunk.is_a?(Integer)
     if chunk.nil?
       @eof = true
     elsif chunk.is_a?(Integer)
@@ -2508,7 +2510,7 @@ class IO
   # with both ends given requests this.
   def transcoded(text)
     Primitive.attr! :hidden
-    return text if text.nil? || @internal.nil?
+    return text if text.nil? || @internal.nil? || decoding?
 
     text.encode(@internal, @external || Encoding.default_external, **@read_options)
   rescue Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError
@@ -2544,7 +2546,36 @@ class IO
   # io_read_encoding: the encoding that the stream's bytes are in.
   def read_encoding
     Primitive.attr! :hidden
+    return @internal if decoding?
+
     @external || (@binmode ? Encoding::BINARY : Encoding.default_external)
+  end
+
+  # A stream that reads a stateful encoding, such as ISO-2022-JP, and
+  # converts it: no byte of the raw text can be read alone, so the fill
+  # converts as it reads, as CRuby's character buffer does, and the
+  # buffer holds the internal encoding.
+  def decoding?
+    Primitive.attr! :hidden
+    !@internal.nil? && stateful?(@external || Encoding.default_external)
+  end
+
+  # One raw chunk converted with the stream's read converter, whose state
+  # goes on to the next chunk; at the end, nil after what the
+  # converter's finish gives.
+  def decoded(chunk)
+    Primitive.attr! :hidden
+    @read_converter ||= Encoding::Converter.new(@external || Encoding.default_external, @internal, **@read_options)
+    if chunk.nil?
+      tail = @read_converter.finish
+      @buffer << tail.force_encoding(@buffer.encoding) unless tail.empty?
+      return nil
+    end
+    out = +""
+    result = @read_converter.primitive_convert(chunk, out, nil, nil, partial_input: true)
+    raise @read_converter.last_error unless result == :source_buffer_empty
+
+    out
   end
 
   # The universal newline decorator over the bytes read so far: CRLF and
@@ -2606,7 +2637,7 @@ class IO
         break unless onig.precise_mbclen(@buffer.byteslice(0, n), 0) < -1
       end
     elsif n < 0
-      n = @internal ? unreadable_length(enc) : 1
+      n = @internal && !decoding? ? unreadable_length(enc) : 1
     end
     take(n).force_encoding(enc)
   end
@@ -2821,7 +2852,7 @@ class IO
   # its byte order mark, which no line of the stream has, as in ruby.
   def buffered_separator(separator)
     Primitive.attr! :hidden
-    return separator if @internal.nil? || @internal.dummy? || separator.encoding != @internal
+    return separator if @internal.nil? || decoding? || @internal.dummy? || separator.encoding != @internal
 
     separator.encode(@external || Encoding.default_external)
   rescue EncodingError
