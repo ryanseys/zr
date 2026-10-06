@@ -148,6 +148,18 @@ class Module
   end
   private :autoload_name
 
+  # rb_define_module_under, as an extension ported to Ruby starts: a
+  # constant `name` that holds something other than a module stops it,
+  # with the C API's message, before its `module` opens.
+  def native_module(name)
+    Primitive.attr! :hidden
+    return unless const_defined?(name, false)
+
+    value = const_get(name, false)
+    raise TypeError, "#{name} is not a module (#{value.class})" unless value.is_a?(Module) && !value.is_a?(Class)
+  end
+  private :native_module
+
   # A String name may be a `::` path, a leading `::` starting at Object;
   # each segment after the first is read without Object's constants.
   def const_get(name, inherit = true)

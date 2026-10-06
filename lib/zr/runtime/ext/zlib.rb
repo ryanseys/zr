@@ -5,6 +5,7 @@
 # is `struct zstream`, the z_stream and the buffers around it, and
 # GzFile is `struct gzfile`, a stream and the gzip container's fields. A Deflate, an Inflate or a GzipFile keeps its own
 # in a hidden slot, as a TypedData object keeps its struct.
+Object.send(:native_module, :Zlib)
 module Zlib
   VERSION = "3.2.3"
   ZLIB_VERSION = "1.3.1"

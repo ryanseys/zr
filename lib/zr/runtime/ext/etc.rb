@@ -1,6 +1,7 @@
 # The user, group and system tables the C library keeps. Ruby ships this
 # as an extension; the rows come from getpwnam and its family.
 require "rbconfig"
+Object.send(:native_module, :Etc)
 require "etc_names"
 
 module Etc
