@@ -1,0 +1,5 @@
+true
+#<ThreadError: can't start a new thread (frozen ThreadGroup)>
+#<ThreadError: can't move to the frozen thread group>
+#<ThreadError: can't move from the frozen thread group>
+true

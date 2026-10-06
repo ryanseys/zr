@@ -399,6 +399,15 @@ class Thread
     Kernel.raise ThreadError, "already initialized thread - #{@block.source_location&.join(":")}" if @block
     Kernel.raise ThreadError, +"must be called with a block" unless block
 
+    # thread_create_core: a thread starts in its creator's group, which
+    # must not be frozen. A thread with none set is in the default group,
+    # which this leaves unnamed: a program that never names ThreadGroup
+    # does not have it.
+    creator = Thread.current
+    group = creator && Primitive.zr_hidden_get(creator, :group)
+    Kernel.raise ThreadError, +"can't start a new thread (frozen ThreadGroup)" if group&.frozen?
+
+    @group = group
     @block = block
     @args = args
     @status = :created
@@ -981,8 +990,10 @@ end
 class ThreadGroup
   def add(thread)
     raise TypeError, "wrong argument type #{conversion_name(thread)} (expected VM/thread)" unless thread.is_a?(Thread)
-    raise ThreadError, +"can't move from the enclosed thread group" if thread.group.enclosed?
+    raise ThreadError, +"can't move to the frozen thread group" if frozen?
     raise ThreadError, +"can't move to the enclosed thread group" if enclosed?
+    raise ThreadError, +"can't move from the frozen thread group" if thread.group.frozen?
+    raise ThreadError, +"can't move from the enclosed thread group" if thread.group.enclosed?
 
     Primitive.zr_hidden_set(thread, :group, self)
     self
