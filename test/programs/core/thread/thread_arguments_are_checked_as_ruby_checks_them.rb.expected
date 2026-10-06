@@ -1,0 +1,17 @@
+#<ArgumentError: string contains null byte>
+#<ArgumentError: ASCII incompatible encoding (UTF-32BE)>
+#<TypeError: wrong argument type nil (expected VM/thread)>
+#<TypeError: wrong argument type Object (expected VM/thread)>
+#<ArgumentError: block is needed.>
+#<ArgumentError: unknown mask signature>
+#<TypeError: no implicit conversion of Array into Hash>
+"foo"
+2
+1
+KeyError
+"key not found: :qux"
+:qux
+true
+#<TypeError: can't convert Symbol into Float>
+true
+"foo"

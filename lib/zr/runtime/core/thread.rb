@@ -94,7 +94,11 @@ class Thread
       nil
     end
 
-    def kill(thread) = thread.kill
+    def kill(thread)
+      raise TypeError, "wrong argument type #{conversion_name(thread)} (expected VM/thread)" unless thread.is_a?(Thread)
+
+      thread.kill
+    end
 
     def exit = current.kill
 
@@ -102,8 +106,10 @@ class Thread
     # an exception of a class the mask names waits; it arrives when
     # the mask goes.
     def handle_interrupt(mask)
-      raise ArgumentError, +"unknown mask signature" unless mask.is_a?(Hash)
-      raise LocalJumpError, +"no block given" unless block_given?
+      raise ArgumentError, +"block is needed." unless block_given?
+
+      mask = Hash.try_convert(given = mask) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into Hash"
+      raise ArgumentError, +"unknown mask signature" unless mask.each_value.all? { |v| %i[immediate on_blocking never].include?(v) }
 
       current.send(:push_mask, mask)
       begin
@@ -159,8 +165,16 @@ class Thread
       Primitive.attr! :hidden
       raise TypeError, +"no implicit conversion to float from string" if limit.is_a?(String)
       raise TypeError, "no implicit conversion to float from #{limit}" if limit == true || limit == false
-      raise TypeError, "can't convert #{limit.nil? ? 'nil' : limit.class} into Float" unless limit.is_a?(Numeric)
+      raise TypeError, +"can't convert nil into Float" if limit.nil?
 
+      # rb_num2dbl: an object that is no Numeric converts with to_f.
+      unless limit.is_a?(Numeric)
+        converted = Primitive.zr_check_call(limit, :to_f)
+        raise TypeError, "can't convert #{conversion_name(limit)} into Float" if converted.nil?
+        raise TypeError, "can't convert #{conversion_name(limit)} to Float (#{conversion_name(limit)}#to_f gives #{conversion_name(converted)})" unless converted.is_a?(Float)
+
+        limit = converted
+      end
       # A NaN limit waits for nothing, as Queue#pop and Thread#join take it.
       limit = limit.to_f
       limit.nan? ? 0.0 : limit
@@ -416,7 +430,8 @@ class Thread
     @exception = nil
     @locals = {}
     @variables = {}
-    @name = nil
+    # A subclass's initialize may name the thread before it calls super.
+    @name = nil unless defined?(@name)
     @report_on_exception = Thread.report_on_exception
     @abort_on_exception = false
     @killed = false
@@ -437,11 +452,16 @@ class Thread
   end
   attr_reader :name
 
-  # StringValueCStr: no NUL byte in the name.
+  # rb_thread_setname: StringValueCStr allows no NUL character, then the
+  # name must be ASCII compatible.
   def name=(name)
-    @name = name.nil? ? nil : Primitive.zr_str_operand(name)
-    Kernel.raise ArgumentError, +"string contains null byte" if @name&.include?("\0")
-
+    unless name.nil?
+      text = Primitive.zr_str_operand(name)
+      compatible = text.encoding.ascii_compatible?
+      Kernel.raise ArgumentError, +"string contains null byte" if compatible ? text.include?("\0") : text.codepoints.include?(0)
+      Kernel.raise ArgumentError, "ASCII incompatible encoding (#{text.encoding})" unless compatible
+    end
+    @name = name.nil? ? nil : text
     name
   end
 
@@ -575,6 +595,8 @@ class Thread
     key = local_key(args.first)
     default = args.drop(1)
     locals = @locals[local_fiber] || {}
+    # rb_thread_fetch: the KeyError's receiver is the thread.
+    Kernel.raise KeyError.new("key not found: #{key.inspect}", receiver: self, key: key) unless block_given? || default.any? || locals.key?(key)
     return locals.fetch(key, *default) unless block_given?
 
     Primitive.zr_warn_here_m("block supersedes default value argument") unless default.empty?
