@@ -1,0 +1,9 @@
+[1, 1, 1]
+[0, 0, 0]
+[:child_q, :child_sq, 0, 0]
+:child_done
+true
+[:thq, :thsq]
+[0, 1]
+:parent_done
+true

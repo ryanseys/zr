@@ -257,6 +257,7 @@ class Thread
     # thread after the fork; all other threads stay in the parent.
     def after_fork
       Primitive.attr! :hidden
+      @forks = forks + 1
       @threads.each { |thread| Primitive.zr_hidden_set(thread, :status, :dead) unless thread.equal?(@current) }
       @threads = [@current]
       @queue = []
@@ -266,6 +267,14 @@ class Thread
       Primitive.zr_fiber_after_fork
       Primitive.zr_autoload_after_fork
       Primitive.zr_poll_after_fork
+    end
+
+    # The forks that led to this process. A queue or condition variable
+    # that saw fewer has waiters from the parent's threads, which this
+    # process does not have (queue_fork_check).
+    def forks
+      Primitive.attr! :hidden
+      @forks || 0
     end
 
     def boot
@@ -1654,7 +1663,7 @@ class Thread::ConditionVariable
     deadline = timeout.nil? ? nil : started + (Thread.send(:interval, timeout) * 1e9).to_i
     mutex.unlock
     begin
-      woken = Thread.current.send(:wait_on, @waiters, deadline, true)
+      woken = Thread.current.send(:wait_on, waiters, deadline, true)
     ensure
       mutex.lock
     end
@@ -1662,13 +1671,27 @@ class Thread::ConditionVariable
   end
 
   def signal
-    Thread.send(:rouse, @waiters, 1)
+    Thread.send(:rouse, waiters, 1)
     self
   end
 
   def broadcast
-    Thread.send(:rouse, @waiters.dup)
+    Thread.send(:rouse, waiters.dup)
     self
+  end
+
+  private
+
+  # The threads that wait, none in a forked child. A frozen condition
+  # variable still waits, so the list is state that freeze does not lock.
+  def waiters
+    Primitive.attr! :hidden
+    forks = Thread.send(:forks)
+    unless Primitive.zr_hidden_get(self, :forks) == forks
+      Primitive.zr_state_set(self, :forks, forks)
+      Primitive.zr_state_set(self, :waiters, [])
+    end
+    @waiters
   end
 end
 
@@ -1760,9 +1783,14 @@ class Thread::Queue
     @items or raise TypeError, "#{inspect} not initialized"
   end
 
+  # The threads that wait to pop, none in a forked child.
   def waiters
     Primitive.attr! :hidden
-    @waiters ||= []
+    if @forks != Thread.send(:forks)
+      @forks = Thread.send(:forks)
+      @waiters = []
+    end
+    @waiters
   end
 end
 
@@ -1849,9 +1877,14 @@ class Thread::SizedQueue < Thread::Queue
 
   private
 
+  # The threads that wait to push, none in a forked child.
   def pushers
     Primitive.attr! :hidden
-    @pushers ||= []
+    if @pusher_forks != Thread.send(:forks)
+      @pusher_forks = Thread.send(:forks)
+      @pushers = []
+    end
+    @pushers
   end
 end
 
