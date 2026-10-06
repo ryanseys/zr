@@ -46,11 +46,13 @@ class Regexp
                   target_empty_info head_exact next_head_exact is_referred type regnum option call_addr
                   min_len max_len char_len opt_count back_num backs nest_level car cdr
                   group_num name unset_addr_list].freeze
+      # Each field with its writer, named once at boot.
+      ACCESSORS = FIELDS.map { |field| [field, :"#{field}="] }.freeze
 
       # The C's struct copy: every field of `other`, its kind included.
       # Field by field: the compiled core keeps no ivar table to reflect on.
       def copy_from!(other)
-        FIELDS.each { |field| send(:"#{field}=", other.send(field)) }
+        ACCESSORS.each { |field, writer| send(writer, other.send(field)) }
         self
       end
 

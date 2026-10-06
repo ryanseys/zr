@@ -3492,26 +3492,36 @@ class Symbol
              .to_h { |name| [name, String.instance_method(name)] }.freeze
   private_constant :STRING
 
-  def [](*args) = STRING[:[]].bind_call(to_s, *args)
+  # The name as the core reads it, as rb_sym2str gives it: a `to_s` that
+  # the program writes changes interpolation, not Symbol's own methods.
+  TO_S = instance_method(:to_s)
+  private_constant :TO_S
+
+  def own_text
+    Primitive.attr! :hidden
+    TO_S.bind_call(self)
+  end
+
+  def [](*args) = STRING[:[]].bind_call(own_text, *args)
   alias slice []
 
-  def length = STRING[:length].bind_call(to_s)
+  def length = STRING[:length].bind_call(own_text)
   alias size length
 
-  def =~(other) = to_s =~ other
-  def match(*args, &block) = to_s.match(*args, &block)
-  def match?(*args) = to_s.match?(*args)
+  def =~(other) = own_text =~ other
+  def match(*args, &block) = own_text.match(*args, &block)
+  def match?(*args) = own_text.match?(*args)
 
-  def upcase(*options) = STRING[:upcase].bind_call(to_s, *options).to_sym
-  def downcase(*options) = STRING[:downcase].bind_call(to_s, *options).to_sym
-  def capitalize(*options) = STRING[:capitalize].bind_call(to_s, *options).to_sym
-  def swapcase(*options) = STRING[:swapcase].bind_call(to_s, *options).to_sym
-  def succ = STRING[:succ].bind_call(to_s).to_sym
+  def upcase(*options) = STRING[:upcase].bind_call(own_text, *options).to_sym
+  def downcase(*options) = STRING[:downcase].bind_call(own_text, *options).to_sym
+  def capitalize(*options) = STRING[:capitalize].bind_call(own_text, *options).to_sym
+  def swapcase(*options) = STRING[:swapcase].bind_call(own_text, *options).to_sym
+  def succ = STRING[:succ].bind_call(own_text).to_sym
   alias next succ
 
-  def start_with?(*prefixes) = STRING[:start_with?].bind_call(to_s, *prefixes)
-  def end_with?(*suffixes) = STRING[:end_with?].bind_call(to_s, *suffixes)
-  def empty? = STRING[:empty?].bind_call(to_s)
+  def start_with?(*prefixes) = STRING[:start_with?].bind_call(own_text, *prefixes)
+  def end_with?(*suffixes) = STRING[:end_with?].bind_call(own_text, *suffixes)
+  def empty? = STRING[:empty?].bind_call(own_text)
 end
 
 class Symbol
@@ -3522,7 +3532,7 @@ class Symbol
   # writes it. If one needs an escape, the name is quoted and escaped.
   def utf8_inspect
     Primitive.attr! :hidden
-    text = to_s
+    text = own_text
     shown = text.utf8_inspect
     plain = shown == "\"#{text}\""
     # sym_printable takes NEL as printable; String#inspect alone escapes
@@ -3541,7 +3551,7 @@ class Symbol
   # (rb_enc_symname_type).
   def mb_inspect
     Primitive.attr! :hidden
-    text = to_s
+    text = own_text
     shown = text.inspect
     if shown.byteslice(1, shown.bytesize - 2) == text
       letters = text.each_char.map { |char| char.ascii_only? ? char : "a" }.join
@@ -3560,7 +3570,7 @@ class Symbol
   def key_inspect
     Primitive.attr! :hidden
     shown = inspect
-    text = to_s
+    text = own_text
     if shown.start_with?(":\"") || text.start_with?("@", "$", "!") || KEY_QUOTED_ENDS.include?(text[-1])
       text.inspect
     else
@@ -3572,14 +3582,14 @@ class Symbol
 
   def intern = self
 
-  def casecmp(other) = other.is_a?(Symbol) ? STRING[:casecmp].bind_call(to_s, other.to_s) : nil
+  def casecmp(other) = other.is_a?(Symbol) ? STRING[:casecmp].bind_call(own_text, other.own_text) : nil
 
-  def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(to_s, other.to_s) : nil
+  def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(own_text, other.own_text) : nil
   alias id2name to_s
 
   # Ruby keeps one frozen name String per symbol, so `name` returns the
   # same object each time.
-  NAMES = Hash.new { |cache, symbol| cache[symbol] = symbol.to_s.freeze }
+  NAMES = Hash.new { |cache, symbol| cache[symbol] = symbol.own_text.freeze }
   private_constant :NAMES
 
   def name = NAMES[self]
@@ -5104,7 +5114,7 @@ class Encoding
 end
 
 class Symbol
-  def encoding = to_s.encoding
+  def encoding = own_text.encoding
 end
 
 # An empty namespace at boot, as CRuby defines it; ruby's normalize.rb

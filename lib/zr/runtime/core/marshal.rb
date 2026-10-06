@@ -72,6 +72,11 @@ module Marshal
   FREEZE = Kernel.instance_method(:freeze)
   private_constant :FREEZE
 
+  # Symbol#name, as w_symbol reads a Symbol's text: a `to_s` that the
+  # program wrote does not change what is dumped.
+  SYMBOL_NAME = Symbol.instance_method(:name)
+  private_constant :SYMBOL_NAME
+
   # The packed integer: one byte for a small number, else a length byte
   # and the bytes of the number, least significant first. A `_dump` that
   # writes a count of its own uses the same spelling.
@@ -455,7 +460,7 @@ module Marshal
       return +";".b << long(index) if index
 
       @symbols[sym] = @symbols.size
-      text = sym.to_s
+      text = SYMBOL_NAME.bind_call(sym)
       # A binary name has no encoding to write, as w_symbol has it.
       return +":".b << bytes(text) if text.ascii_only? || text.encoding == Encoding::BINARY
 
@@ -773,7 +778,7 @@ module Marshal
         Primitive.zr_ruby2_hash_mark(value)
       # A name with no `@` is one the C API set on the payload itself,
       # which only a `_load` reads: Time writes its zone this way.
-      else name.to_s.getbyte(0) == 0x40 ? value.instance_variable_set(name, item) : Marshal.send(:extra_set, value, name, item)
+      else SYMBOL_NAME.bind_call(name).getbyte(0) == 0x40 ? value.instance_variable_set(name, item) : Marshal.send(:extra_set, value, name, item)
       end
     end
 
@@ -783,7 +788,7 @@ module Marshal
     # other, so they pass down to the next `e`.
     def extended(modules = [])
       path = symbol_or_link
-      found = namespace(path.to_s)
+      found = namespace(SYMBOL_NAME.bind_call(path))
       if found.is_a?(Class)
         value = read_value
         klass = Primitive.zr_class_of(value)
@@ -1008,7 +1013,7 @@ module Marshal
       when :bt_locations then nil
       when :cause then cause!(built, value)
       else
-        if name.to_s.getbyte(0) == 0x40 then built.instance_variable_set(name, value)
+        if SYMBOL_NAME.bind_call(name).getbyte(0) == 0x40 then built.instance_variable_set(name, value)
         elsif built.is_a?(Exception) then built.send(:marshal_part_set, name, value)
         end
       end
@@ -1115,7 +1120,7 @@ module Marshal
       found = @constants[path]
       return found if found && module_kind?(found, kind)
 
-      value = namespace(path.to_s)
+      value = namespace(path.is_a?(Symbol) ? SYMBOL_NAME.bind_call(path) : path)
       raise ArgumentError, "#{path} does not refer to #{kind == Class ? "class" : "module"}" unless module_kind?(value, kind)
 
       @constants[path] = value

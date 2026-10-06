@@ -1,0 +1,9 @@
+87
+:sym
+:üñí
+:inner
+#<struct Point x=1, y=:two>
+true
+{k: :v}
+:again
+false

@@ -50,7 +50,7 @@ class Struct
     # letters (any character past ASCII is one), digits and underscores,
     # not starting with a digit.
     def plain_member?(name)
-      text = name.to_s
+      text = name.is_a?(Symbol) ? name.own_text : name.to_s
       return false if text.empty? || text.getbyte(0) >= 48 && text.getbyte(0) <= 57
 
       text.each_byte.all? { |b| (b >= 48 && b <= 57) || (b >= 65 && b <= 90) || (b >= 97 && b <= 122) || b == 95 || b >= 128 }
@@ -347,7 +347,7 @@ class Struct
     head = name ? "#<struct #{name}" : +"#<struct"
 
     begin
-      pairs = member_names.zip(Primitive.zr_struct_values(self)).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = member_names.zip(Primitive.zr_struct_values(self)).map { |m, v| "#{Struct.send(:plain_member?, m) ? m.own_text : m.inspect}=#{v.inspect}" }
       Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)

@@ -181,7 +181,7 @@ class Data
     return Primitive.zr_obj_form("#<data #{path}:...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m : m.inspect}=#{v.inspect}" }
+      pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m.own_text : m.inspect}=#{v.inspect}" }
       Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)

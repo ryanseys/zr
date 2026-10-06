@@ -982,9 +982,9 @@ class MatchData
 end
 
 class Symbol
-  def =~(pattern) = to_s =~ pattern
+  def =~(pattern) = own_text =~ pattern
 
-  def match(*args, &block) = to_s.match(*args, &block)
+  def match(*args, &block) = own_text.match(*args, &block)
 
-  def match?(*args) = to_s.match?(*args)
+  def match?(*args) = own_text.match?(*args)
 end
