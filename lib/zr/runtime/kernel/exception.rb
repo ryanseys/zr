@@ -54,11 +54,11 @@ module Zr::Kern
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it
   # gets (a block parameter, `yield`, `super` or `...`), as CRuby's
-  # use_block flag. A method that does not warns once when it gets one.
+  # use_block flag. A method that does not warns when it gets one, once
+  # at each call site.
   BLOCKS_UNKNOWN = 0
   BLOCKS_UNUSED = 1
   BLOCKS_USED = 2
-  BLOCKS_WARNED = 3
 
   KIND_MAIN = 0
   KIND_DEF = 1

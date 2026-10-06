@@ -507,6 +507,17 @@ module Zr::Kern
   # def's frame keeps the def's name.
   #: (ptr, ptr, word, ptr, value) -> value
   def zr_super(cc, rec, argc, argv, blk)
+    if blk == QNIL
+      return zr_super_call(cc, rec, argc, argv, blk)
+    end
+    before = zr_unwarned_call_from(rec)
+    r = zr_super_call(cc, rec, argc, argv, blk)
+    zr_unwarned_call_end(before)
+    r
+  end
+
+  #: (ptr, ptr, word, ptr, value) -> value
+  def zr_super_call(cc, rec, argc, argv, blk)
     recv = Frame[rec].self
     entry = zr_bmethod_entry(rec)
     if entry != 0

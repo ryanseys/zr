@@ -1505,6 +1505,41 @@ module Zr::Kern
     zr_method_added(zr_singleton_class(klass), mid)
   end
 
+  # The frame `rec` makes a call through send or super, which does not
+  # warn of an unused block (VM_CALL_OPT_SEND, VM_CALL_SUPER). Returns the
+  # frame marked before, for zr_unwarned_call_end.
+  #: (ptr) -> word
+  def zr_unwarned_call_from(rec)
+    s = Machine.static(:unwarned_call_from, 8)
+    before = Machine.load64(s, 0)
+    Machine.store64(s, 0, Machine.word(rec))
+    before
+  end
+
+  #: (word) -> void
+  def zr_unwarned_call_end(before)
+    Machine.store64(Machine.static(:unwarned_call_from, 8), 0, before)
+  end
+
+  # Whether the method `meta` got an unused block of the call kind `kind`
+  # for the first time. The pair is recorded. CRuby keys its table by the
+  # caller's pc, which it saves for each kind of block (a literal one, a
+  # passed one, one from a builtin) and not for each call.
+  #: (ptr, word) -> bool
+  def zr_unused_block_site_new(meta, kind)
+    sites = zr_global(G_UNUSED_BLOCK_SITES)
+    if zr_special_p(sites)
+      sites = zr_hash_new()
+      zr_set_global(G_UNUSED_BLOCK_SITES, sites)
+    end
+    key = zr_fix(zr_hash_mix(zr_hash_mix(Machine.word(meta)) ^ kind) & 4611686018427387903)
+    if zr_hash_lookup(sites, key) != QUNDEF
+      return false
+    end
+    zr_hash_store(sites, key, Machine.value(QTRUE))
+    true
+  end
+
   # The names of the program's methods that use their block, as a Hash of
   # Symbols. Outside the strict_unused_block category, ruby does not warn
   # for a method whose name another such method has (iseq_set_use_block).
@@ -1520,23 +1555,35 @@ module Zr::Kern
     zr_hash_store(names, zr_sym(mid), Machine.value(QTRUE))
   end
 
+  # The pairs of a method that does not use its block and a kind of call
+  # that gave it one (zr_unused_block_site_new): warn_unused_block's table.
+  G_UNUSED_BLOCK_SITES = 71
+
   # The method of the frame `rec` does not use its block and got one:
   # `file:line: warning: the block passed to 'C#m' defined at file:line
-  # may be ignored`, once for each method, as warn_unused_block does. The
-  # line is the caller's. Warning decides whether to show it. The caller's
-  # keyword flag waits for the method, so it is kept.
+  # may be ignored`, once for each method and kind of call, as
+  # warn_unused_block does. The line is the caller's. Warning decides
+  # whether to show it. The caller's keyword flag waits for the method,
+  # so it is kept.
   #: (ptr) -> void
   def zr_unused_block(rec)
     meta = Frame[rec].meta
     if FrameMeta[meta].blocks != BLOCKS_UNUSED
       return
     end
-    FrameMeta[meta].blocks = BLOCKS_WARNED
+    # A call through send or super does not warn.
+    if Machine.word(Frame[rec].prev) == Machine.load64(Machine.static(:unwarned_call_from, 8), 0)
+      return
+    end
+    caller = zr_frame_with_file(Frame[rec].prev)
+    kind = RProc[Frame[rec].blk].passed + (caller == Frame[rec].prev ? 0 : 2)
+    if !zr_unused_block_site_new(meta, kind)
+      return
+    end
     names = zr_global(G_BLOCK_NAMES)
     relaxed = !zr_special_p(names) && zr_hash_lookup(names, zr_sym(FrameMeta[meta].name)) != QUNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    caller = zr_frame_with_file(Frame[rec].prev)
     if caller != 0
       zr_buf_push(b, FrameMeta[Frame[caller].meta].file, FrameMeta[Frame[caller].meta].file_len)
       zr_buf_byte(b, 58)

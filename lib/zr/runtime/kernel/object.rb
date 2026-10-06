@@ -853,7 +853,14 @@ module Zr::Kern
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
-    zr_send_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
+    if blk == QNIL
+      return zr_send_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
+    end
+    # send is frameless: the frame on top is its caller's.
+    before = zr_unwarned_call_from(Task[zr_task()].top)
+    r = zr_send_blk(recv, Machine.load64(slot, 0), argc - 1, argv + 8, blk)
+    zr_unwarned_call_end(before)
+    r
   end
 
   # `public_send`: the same as `send`, with visibility applied.

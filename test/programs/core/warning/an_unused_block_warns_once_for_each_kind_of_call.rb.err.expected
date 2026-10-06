@@ -1,0 +1,4 @@
+core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:6: warning: the block passed to 'Object#foo' defined at core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:5 may be ignored
+core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:10: warning: the block passed to 'Object#foo' defined at core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:5 may be ignored
+core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:14: warning: the block passed to 'Object#foo' defined at core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:5 may be ignored
+core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:26: warning: the block passed to 'Object#baz' defined at core/warning/an_unused_block_warns_once_for_each_kind_of_call.rb:25 may be ignored
