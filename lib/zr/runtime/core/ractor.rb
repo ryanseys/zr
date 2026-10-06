@@ -267,6 +267,24 @@ class Ractor
 
   def self.main? = current.equal?(main)
 
+  # rb_ractor_require: a non-main ractor's require runs on the main ractor,
+  # which may read what the ractor cannot; its value or its error comes
+  # back to the ractor.
+  def self.on_main
+    Primitive.attr! :hidden
+    thread = Thread.current
+    was = thread.thread_variable_get(:__ractor__)
+    marked = Primitive.zr_ractor_leave_m == 1
+    thread.thread_variable_set(:__ractor__, nil)
+    begin
+      yield
+    ensure
+      thread.thread_variable_set(:__ractor__, was)
+      Primitive.zr_ractor_enter_m if marked
+    end
+  end
+  private_class_method :on_main
+
   # A message from this ractor's own port.
   def self.receive = current.default_port.receive
 

@@ -1,0 +1,1 @@
+core/thread/a_require_in_a_ractor_runs_on_the_main_ractor.rb:10: warning: Ractor API is experimental and may change in future versions of Ruby.

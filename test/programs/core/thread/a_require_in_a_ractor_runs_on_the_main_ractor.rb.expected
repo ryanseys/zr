@@ -1,0 +1,8 @@
+[RuntimeError, "uh oh"]
+[true, [true, true], false]
+["rq_ok.rb"]
+false
+[LoadError, "rq_missing_feature"]
+SyntaxError
+[false, false]
+[]

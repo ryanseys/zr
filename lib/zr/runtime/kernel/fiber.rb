@@ -81,6 +81,16 @@ module Zr::Kern
     Task[t].eval_using = 0
   end
 
+  # Ends the current task's ractor marking for a time, as a ractor's
+  # require runs on the main ractor. Returns 1 when it was marked, else 0.
+  #: () -> value
+  def zr_ractor_leave_m
+    t = zr_task()
+    was = Task[t].ractor
+    Task[t].ractor = 0
+    zr_fix(was)
+  end
+
   # Marks the current task as a ractor task. After this, the task refuses
   # the program's reads and writes of instance variables of a shareable
   # object, as CRuby refuses them outside the main ractor.
