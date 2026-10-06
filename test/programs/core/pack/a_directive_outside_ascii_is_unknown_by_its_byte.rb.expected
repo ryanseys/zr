@@ -1,0 +1,11 @@
+["unknown pack directive '\\xe3' in 'あ'", "UTF-8"]
+["unknown pack directive ',' in ','", "ASCII-8BIT"]
+["unknown pack directive '\\x7f' in '\\c?'", "ASCII-8BIT"]
+["unknown pack directive '\\xa4' in '\\x{A4A2}'", "ASCII-8BIT"]
+["unknown pack directive '\\xc3' in 'Cé'", "UTF-8"]
+"unknown unpack directive '\\xe3' in 'あ'"
+"x"
+"\x01\x02"
+"x outside of string"
+"unknown unpack directive '\\xc3' in 'Cé'"
+120

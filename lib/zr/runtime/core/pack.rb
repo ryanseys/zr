@@ -49,7 +49,8 @@ module Packing
         next
       end
 
-      c = template[i - 1]
+      # The directive's byte: a byte of a multibyte character is no directive.
+      c = template.byteslice(i - 1, 1)
       big = nil
       native = false
       # pack_modifiers checks each modifier against the directive first.
@@ -98,10 +99,13 @@ module Packing
   # and DEL as `\c?`.
   def self.unknown_directive(kind, byte, template)
     shown = byte.between?(32, 126) ? byte.chr : format("\\x%02x", byte)
-    if template.each_char.any? { |ch| !ch.match?(/[[:print:]]/) }
+    # A template in an encoding that a message cannot show is quoted too.
+    foreign = !template.ascii_only? && template.encoding != (Encoding.default_internal || Encoding.default_external)
+    if foreign || template.each_char.any? { |ch| !ch.match?(/[[:print:]]/) }
       template = template.inspect[1..-2].split("\\u0000", -1).join("\\0").split("\\u007F", -1).join("\\c?")
     end
-    "unknown #{kind} directive '#{shown}' in '#{template}'"
+    message = "unknown #{kind} directive '#{shown}' in '#{template}'"
+    message.ascii_only? ? message.b : message
   end
 
   def self.quoted_printable(bytes, count)
@@ -618,7 +622,9 @@ module Packing
   def self.unpack(bytes, template, single, associates = nil, base = 0, padded: true)
     out = []
     at = base
-    directives(template, "unpack").each do |c, count, big|
+    # pack_unpack_internal reads the template as it goes: an unknown
+    # directive raises where it is, and unpack1 stops before a later one.
+    directives(template, "unpack", check: false).each do |c, count, big|
       case c
       when "x"
         n = count == :all ? bytes.bytesize - at : (count || 1)
@@ -723,6 +729,8 @@ module Packing
         unpad(out, bytes, at, 4, count) unless padded
         at += 4 * (count == :all ? (bytes.bytesize - at) / 4 : (count || 1))
       else
+        raise ArgumentError, unknown_directive("unpack", c.getbyte(0), template) unless INTEGERS.key?(c)
+
         size, signed, order = INTEGERS.fetch(c)
         big = order == :big if order
         n = count == :all ? (bytes.bytesize - at) / size : (count || 1)
