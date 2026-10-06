@@ -28,6 +28,8 @@ module Zr::Kern
   # `saved` contains `slen` method entries: the core library's entries that
   # a program overwrote or removed. The core library's own sends still find
   # them (see zr_find_core_method).
+  # `autoloads` is the autoload table of a module: an Array of records
+  # (zr_autoload), or false for none. A copy shares its original's.
   class ClassExt < Layout
     attr_accessor :mtab #: ptr
     attr_accessor :mlen #: word
@@ -52,6 +54,7 @@ module Zr::Kern
     attr_accessor :midx #: ptr
     attr_accessor :mbins #: word
     attr_accessor :obj_bytes #: word
+    attr_accessor :autoloads #: value
   end
   # `orig` is the name of the first definition of the method, which an
   # alias keeps. `from` is the ancestor list node where an alias or a
@@ -183,6 +186,7 @@ module Zr::Kern
     ClassExt[ext].midx = 0
     ClassExt[ext].mbins = 0
     ClassExt[ext].obj_bytes = RObject.size
+    ClassExt[ext].autoloads = Machine.value(QFALSE)
     counter = Machine.static(:class_serial, 8)
     Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
     ClassExt[ext].serial = Machine.load64(counter, 0)
@@ -397,6 +401,7 @@ module Zr::Kern
     ClassExt[ext].cbins = 0
     zr_ivtab_init(Machine.ptr(ClassExt[ext].iv))
     zr_ivtab_init(Machine.ptr(ClassExt[ext].cv))
+    ClassExt[ext].autoloads = Machine.value(QFALSE)
     RClass[o].ext = ext
     ClassExt[RClass[klass].ext].mtab = 0
     ClassExt[RClass[klass].ext].mlen = 0
@@ -3180,6 +3185,7 @@ module Zr::Kern
       zr_mark(ClassExt[ext].active)
       zr_mark(ClassExt[ext].boxed)
       zr_mark(ClassExt[ext].shadow)
+      zr_mark(ClassExt[ext].autoloads)
     elsif t == T_EXCEPTION
       zr_mark(RException[v].message)
       zr_mark(RException[v].bt)

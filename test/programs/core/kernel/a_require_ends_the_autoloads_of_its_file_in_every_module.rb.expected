@@ -1,0 +1,15 @@
+["shared_feature", "shared_feature", "shared_feature"]
+"shared_feature"
+[true, true, true]
+1
+[nil, nil, nil]
+nil
+"missing_feature"
+[false, false, false]
+true
+nil
+false
+"uninitialized constant M::Thing"
+1
+2000
+"nothing_1234"
