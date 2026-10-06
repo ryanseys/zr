@@ -2057,7 +2057,8 @@ class String
             end
     pattern = /[#{Regexp.escape(marks.keys.join)}]/
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(text))
-    return text.gsub(pattern, marks) unless encoding.ascii_compatible?
+    # A wide encoding's text escapes in UTF-8, where the marks are.
+    return text.encode(Encoding::UTF_8).gsub(pattern, marks).encode(encoding) unless encoding.ascii_compatible?
 
     # The escape reads bytes, as the converter does: a byte that is in no
     # character goes through as it is.
@@ -3989,7 +3990,14 @@ class Encoding
     # transcoders, which a converter takes one step at a time. (Its steps
     # never convert stateless text back through here.)
     return Converter.send(:transcode, text, target, options) if stateless?(from) || stateless?(target)
-    return stateful_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if stateful?(target)
+    if stateful?(target)
+      # The multibyte encoding a stateful one is made from converts to it
+      # directly; another goes through UTF-8, replacing with the target's
+      # own replacement.
+      direct = from.equal?(UTF_8) || from.name == STATEFUL.fetch(target.name).first
+      text = convert(text, UTF_8, { **options, replace: replacement(target, options) }) unless direct
+      return stateful_write(text, target, options)
+    end
     if stateful?(from)
       text = stateful_read(text, options)
       return target.equal?(UTF_8) ? text : convert(text, target, options)
@@ -3997,6 +4005,7 @@ class Encoding
     return ebcdic_write(from.equal?(UTF_8) ? text : convert(text, UTF_8, options), target, options) if target.name == +"IBM037"
     return convert(ebcdic_read(text), target, options) if from.name == +"IBM037"
 
+    return jis_direct(text, from, target, options) if jis_pair?(from, target)
     return hub_convert(text, from, target, options) if MB_HUBS.key?(from.name) || MB_HUBS.key?(target.name)
     # The carriers exchange their emoji with each other in one step.
     return exchange(text, target, [from, target], options) if carrier?(from) && carrier?(target)
@@ -4472,6 +4481,111 @@ class Encoding
     "stateless-ISO-2022-JP-KDDI" => %w[stateless-ISO-2022-JP-KDDI UTF8-KDDI]
   }.freeze
   private_constant :HUB_NAMES
+
+  # Whether ruby converts between the two directly (japanese.trans).
+  def self.jis_pair?(from, target)
+    Primitive.attr! :hidden
+    names = [from.name, target.name]
+    names == %w[EUC-JP Shift_JIS] || names == %w[Shift_JIS EUC-JP]
+  end
+  private_class_method :jis_pair?
+
+  # japanese.trans: EUC-JP and Shift_JIS convert to each other by
+  # arithmetic on the JIS row and cell, not through Unicode, so a code
+  # that Unicode has no character for still converts.
+  def self.jis_direct(text, from, target, options)
+    Primitive.attr! :hidden
+    bytes = text.b
+    euc = from.name == "EUC-JP"
+    out = +"".b
+    at = 0
+    while at < bytes.bytesize
+      byte = bytes.getbyte(at)
+      if byte < 0x80
+        out << byte
+        at += 1
+        next
+      end
+      kind, size, written, again = euc ? euc_to_sjis(bytes, at) : sjis_to_euc(bytes, at)
+      case kind
+      when :ok then out << written
+      when :undef
+        piece = bytes.byteslice(at, size)
+        unless options[:undef] == :replace
+          raise char_error("#{piece.dump} from #{from.name} to #{target.name}", from, target, piece.force_encoding(from))
+        end
+
+        out << (options[:replace] || +"?").encode(target).b
+      else
+        unless options[:invalid] == :replace
+          invalid(bytes.byteslice(at, size).bytes, again && [again], kind == :incomplete, from.name, target)
+        end
+
+        out << (options[:replace] || +"?").encode(target).b
+      end
+      at += size
+    end
+    out.force_encoding(target)
+  end
+  private_class_method :jis_direct
+
+  # One EUC-JP character from `at`, as fun_so_eucjp2sjis writes it:
+  # [:ok, size, bytes], [:undef, size], or the error with the byte read
+  # again after it.
+  def self.euc_to_sjis(bytes, at)
+    Primitive.attr! :hidden
+    lead = bytes.getbyte(at)
+    trail = ->(i) { bytes.getbyte(at + i) }
+    euc_byte = ->(b) { b&.between?(0xA1, 0xFE) }
+    case lead
+    when 0x8E
+      return [:incomplete, 1] if trail.(1).nil?
+      return [:invalid, 1, nil, trail.(1)] unless euc_byte.(trail.(1))
+
+      trail.(1) <= 0xDF ? [:ok, 2, trail.(1).chr] : [:undef, 2]
+    when 0x8F
+      return [:incomplete, 1] if trail.(1).nil?
+      return [:invalid, 1, nil, trail.(1)] unless euc_byte.(trail.(1))
+      return [:incomplete, 2] if trail.(2).nil?
+      return [:invalid, 2, nil, trail.(2)] unless euc_byte.(trail.(2))
+
+      [:undef, 3]
+    when 0xA1..0xFE
+      return [:incomplete, 1] if trail.(1).nil?
+      return [:invalid, 1, nil, trail.(1)] unless euc_byte.(trail.(1))
+
+      odd = lead & 1
+      high = ((lead + odd) >> 1) + (lead < 0xDF ? 0x30 : 0x70)
+      low = trail.(1) - (odd * 94) - 3
+      low += 1 if low >= 0x7F
+      [:ok, 2, [high, low].pack("C2")]
+    else [:invalid, 1]
+    end
+  end
+  private_class_method :euc_to_sjis
+
+  # One Shift_JIS character from `at`, as fun_so_sjis2eucjp writes it.
+  def self.sjis_to_euc(bytes, at)
+    Primitive.attr! :hidden
+    lead = bytes.getbyte(at)
+    return [:ok, 1, [0x8E, lead].pack("C2")] if lead.between?(0xA1, 0xDF)
+    return [:invalid, 1] unless lead.between?(0x81, 0x9F) || lead.between?(0xE0, 0xFC)
+
+    low = bytes.getbyte(at + 1)
+    return [:incomplete, 1] if low.nil?
+    return [:invalid, 1, nil, low] unless low.between?(0x40, 0x7E) || low.between?(0x80, 0xFC)
+    return [:undef, 2] if lead >= 0xF0
+
+    high = lead >= 0xE0 ? lead - 64 : lead
+    low += low < 0x80 ? 0x61 : 0x60
+    high = (high * 2) - 0x61
+    if low > 0xFE
+      low -= 94
+      high += 1
+    end
+    [:ok, 2, [high, low].pack("C2")]
+  end
+  private_class_method :sjis_to_euc
 
   # A carrier's Shift_JIS or JIS reads into the carrier's own UTF-8 and
   # writes out of it, as ruby's converters do: the carrier's emoji are

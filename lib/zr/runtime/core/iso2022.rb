@@ -51,11 +51,21 @@ class Encoding
     # the text takes first.
     hub = MB_HUBS[base_name] && find(MB_HUBS[base_name])
     path = [UTF_8, hub, base, stateless_name && step, target].compact
-    text = fullwidth(text) if kana == :fullwidth
-    bytes = if hub
-              send(:hub_write, send(:exchange, text, hub, path, options), hub, base, path, options).b
+    bytes = if text.encoding.equal?(base)
+              # The multibyte encoding converts to its stateful one directly
+              # (eucjp_to_stateless_iso2022jp, cp50221_encoder).
+              path = [base, stateless_name && step, target].compact
+              unless text.valid_encoding?
+                # A byte that makes no character is replaced, or raises as
+                # the multibyte encoding's reader raises it.
+                text.encode(UTF_8) unless options[:invalid] == :replace
+                text = text.scrub(options[:replace] || +"?")
+              end
+              kana == :fullwidth ? fullwidth_runs(text.b, base) : text.b
+            elsif hub
+              send(:hub_write, send(:exchange, kana == :fullwidth ? fullwidth(text) : text, hub, path, options), hub, base, path, options).b
             else
-              send(:from_utf8, text, base, path, options).b
+              send(:from_utf8, kana == :fullwidth ? fullwidth(text) : text, base, path, options).b
             end
     out = +"".b
     mode = :ascii
@@ -74,7 +84,7 @@ class Encoding
         shift.call(:kanji)
         out << (bytes.getbyte(at + 1) & 0x7F) << (bytes.getbyte(at + 2) & 0x7F)
         at += 3
-      elsif byte == 0x8E && kana == :set
+      elsif byte == 0x8E && kana
         shift.call(:kana)
         out << (bytes.getbyte(at + 1) & 0x7F)
         at += 2
@@ -125,14 +135,23 @@ class Encoding
       begin
         if byte == 0x1B
           mode, at = escape_at(bytes, at, from, step, kana)
+        elsif byte == 0x0E || byte == 0x0F
+          # cp50221_decoder: SO designates the katakana, SI ASCII; the
+          # ISO-2022-JP decoder has neither.
+          stateful_invalid([byte], nil, false, from, step) unless kana
+          mode = byte == 0x0E ? :kana : :ascii
+          at += 1
         elsif mode == :ascii
           # The multibyte encoding reads an eight-bit byte when no
-          # stateless encoding is between the two.
+          # stateless encoding is between the two; CP5022x reads A1-DF as
+          # a katakana and has no 93-A0 or E0-FF.
           stateful_invalid([byte], nil, false, from, step) if byte >= 0x80 && (stateless_name || led)
+          stateful_invalid([byte], nil, false, from, step) if kana && (byte.between?(0x93, 0xA0) || byte >= 0xE0)
+          out << 0x8E if kana && byte.between?(0xA1, 0xDF)
           out << byte
           at += 1
         elsif mode == :kana
-          stateful_invalid([byte], nil, false, from, step) unless byte.between?(0x21, 0x5F)
+          stateful_invalid([byte], nil, false, from, step) unless (byte & 0x7F).between?(0x21, 0x5F)
           out << 0x8E << (byte | 0x80)
           at += 1
         else
@@ -163,7 +182,7 @@ class Encoding
     Primitive.attr! :hidden
     sequence = bytes.byteslice(at, 3)
     mode = ESCAPES[sequence]
-    return [mode, at + 3] if mode && (mode != :kana || kana == :set)
+    return [mode, at + 3] if mode && (mode != :kana || kana)
 
     # The longest start of an escape the bytes make, and the byte that
     # stops it there.
@@ -178,6 +197,13 @@ class Encoding
   def self.stateful_invalid(error, again, ended, from, step)
     Primitive.attr! :hidden
     send(:invalid, error, again, ended, from.name, step)
+  end
+
+  # CP50220's halfwidth katakana in CP51932 bytes, each run as its
+  # fullwidth characters; a katakana byte past DF stays one.
+  def self.fullwidth_runs(bytes, base)
+    Primitive.attr! :hidden
+    bytes.gsub(/(?:\x8E[\xA1-\xDF])+/n) { |run| send(:from_utf8, fullwidth(send(:mb_to_utf8, run.force_encoding(base), base, [base, UTF_8], {})), base, [UTF_8, base], {}).b }
   end
 
   # CP50220's halfwidth katakana, each as its fullwidth one.
