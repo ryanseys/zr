@@ -1139,7 +1139,7 @@ module Zr::Kern
   #: (value) -> value
   def zr_math_sqrt_fast(x)
     d = Machine.f64(0)
-    if zr_fixnum_p(x)
+    if zr_fixnum_p(x) && (Machine.gates & GATE_INT_TO_F) == 0
       d = Machine.to_f64(zr_fix2long(x))
     elsif zr_float_p(x)
       d = zr_float_value(x)
@@ -1159,8 +1159,11 @@ module Zr::Kern
   # functions with no domain check try this first.
   #: (value, value) -> value
   def zr_math_call_fast(which, x)
-    if zr_fixnum_p(x)
+    if zr_fixnum_p(x) && (Machine.gates & GATE_INT_TO_F) == 0
       return zr_math_call(which, zr_float_new(Machine.to_f64(zr_fix2long(x))), Machine.value(QNIL))
+    end
+    if zr_fixnum_p(x)
+      return Machine.value(QNIL)
     end
     if !zr_float_p(x)
       return Machine.value(QNIL)

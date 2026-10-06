@@ -1226,7 +1226,7 @@ module Zr::Kern
     attr_accessor :vis #: word
   end
 
-  GATE_ROWS = 56
+  GATE_ROWS = 57
 
   #: (word, word, word, word) -> word
   def zr_gate_row(i, klass, mid, bit)
@@ -1302,7 +1302,8 @@ module Zr::Kern
     i = zr_gate_row(i, G_FLOAT, Machine.id(:-@), GATE_FLO_UMINUS)
     i = zr_gate_row(i, G_INTEGER, Machine.id(:<=>), GATE_CMP)
     i = zr_gate_row(i, G_SYMBOL, Machine.id(:===), GATE_SYM_EQQ)
-    zr_gate_row(i, G_RANGE, Machine.id(:each), GATE_RANGE_EACH)
+    i = zr_gate_row(i, G_RANGE, Machine.id(:each), GATE_RANGE_EACH)
+    zr_gate_row(i, G_INTEGER, Machine.id(:to_f), GATE_INT_TO_F)
     Machine.store64(Machine.static(:gates_taken, 8), 0, 1)
   end
 

@@ -82,6 +82,9 @@ module Zr::Kern
   # task: no task can be a ractor's. After, every one goes to the kernel,
   # which applies the ractor rule for the task that runs.
   GATE_RACTOR = 1 << 53
+  # Integer#to_f: Math converts a fixnum natively while it is ruby's own,
+  # and sends a program's to_f once one replaces it (rb_to_float).
+  GATE_INT_TO_F = 1 << 54
 
   # Writes the decimal digits of `n` into `buf` and returns the number of
   # bytes. `buf` must have 24 bytes.

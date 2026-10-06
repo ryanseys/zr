@@ -145,6 +145,11 @@ module Math
   PI = 3.141592653589793
   E = 2.718281828459045
 
+  # The doublings that a wide Bignum's logarithm counts convert as C
+  # doubles do, never through a program's Integer#to_f.
+  INT_TO_F = Integer.instance_method(:to_f)
+  private_constant :INT_TO_F
+
   # Each function is a private method too, for `include Math`.
   module_function
 
@@ -194,7 +199,7 @@ module Math
     if plain
       return -Float::INFINITY if x == 0.0
 
-      return Primitive.zr_math_fma(bits.to_f, 0.6931471805599453, Primitive.zr_math_call(12, x, 0.0))
+      return Primitive.zr_math_fma(INT_TO_F.bind_call(bits), 0.6931471805599453, Primitive.zr_math_call(12, x, 0.0))
     end
 
     base, base_bits = split(base)
@@ -206,7 +211,7 @@ module Math
     log2_base = Primitive.zr_math_call(13, base, 0.0)
     wide = bits - base_bits
     wide += 1 << 64 if wide < 0
-    (Primitive.zr_math_call(13, x, 0.0) / log2_base) + (wide.to_f / log2_base)
+    (Primitive.zr_math_call(13, x, 0.0) / log2_base) + (INT_TO_F.bind_call(wide) / log2_base)
   end
 
   def log2(x)
