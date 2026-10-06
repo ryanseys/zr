@@ -39,6 +39,7 @@ module Zr
       # @rbs @using: using
       # @rbs @usings: Integer
       # @rbs @in_def: bool
+      # @rbs @in_method_body: bool
       # @rbs @in_sclass: bool
       # @rbs @dead: Integer
       # @rbs @activations: Integer
@@ -203,6 +204,9 @@ module Zr
         # reads it to know if a search of its new statement can find one.
         @usings = 0
         @in_def = false
+        # In a def's own body, not in a class body that a def holds, where
+        # `using` is permitted.
+        @in_method_body = false
         @in_sclass = false
         @dead = 0
         @activations = -1
@@ -546,7 +550,7 @@ module Zr
       # is used.
       #: (Prism::node node) -> Using?
       def using_activation(node)
-        return nil if @in_def
+        return nil if @in_method_body
         return nil unless node.is_a?(Prism::CallNode) && node.name == :using && node.block.nil?
         return nil unless node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode)
 
@@ -868,6 +872,7 @@ module Zr
         in_definee(nil, !receiver.nil?) do
           was = @in_def
           @in_def = true
+          @in_method_body = true
           begin
             in_scope do
               params = parameters(node.parameters)
@@ -931,8 +936,10 @@ module Zr
         was = @singleton
         using = @using
         marks = @body_marks
+        in_method_body = @in_method_body
         @singleton = singleton
         @body_marks = []
+        @in_method_body = false
         begin
           yield
         ensure
@@ -940,6 +947,7 @@ module Zr
           @singleton = was
           @using = using
           @body_marks = marks
+          @in_method_body = in_method_body
         end
       end
 
