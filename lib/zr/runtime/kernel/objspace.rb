@@ -312,6 +312,47 @@ module Zr::Kern
     s
   end
 
+  # The facts about `v`'s cell that ObjectSpace.dump writes, as bits:
+  # DUMP_EMBEDDED when a String, an Array or an object keeps its contents
+  # in the cell, DUMP_FSTRING for a String in the fstring table,
+  # DUMP_CHILLED for a chilled String, and DUMP_OLD when the cell lived
+  # through a collection.
+  DUMP_EMBEDDED = 1
+  DUMP_FSTRING = 2
+  DUMP_CHILLED = 4
+  DUMP_OLD = 8
+
+  #: (value) -> value
+  def zr_objspace_dump_bits(v)
+    if zr_special_p(v)
+      return zr_fix(0)
+    end
+    t = RBasic[v].flags & T_MASK
+    bits = zr_old_p(v) ? DUMP_OLD : 0
+    if t == T_STRING
+      bits = bits | (zr_str_embedded_p(v) ? DUMP_EMBEDDED : 0)
+      bits = bits | ((RBasic[v].flags & FL_FSTR) != 0 ? DUMP_FSTRING : 0)
+      bits = bits | (zr_str_chilled_p(v) ? DUMP_CHILLED : 0)
+    elsif t == T_ARRAY
+      bits = bits | (zr_ary_embedded_p(v) ? DUMP_EMBEDDED : 0)
+    elsif t == T_OBJECT
+      bits = bits | (zr_ivtab_embedded_p(Machine.ptr(RObject[v].iv)) ? DUMP_EMBEDDED : 0)
+    end
+    zr_fix(bits)
+  end
+
+  # The bytes that String `s` has room for, not counting the NUL.
+  #: (value) -> value
+  def zr_objspace_str_capa(s)
+    zr_fix(RString[s].capa)
+  end
+
+  # The size of `v`'s cell, which ObjectSpace.dump calls its slot size.
+  #: (value) -> value
+  def zr_objspace_slot_size(v)
+    zr_special_p(v) ? zr_fix(0) : zr_fix(zr_cell_bytes(v))
+  end
+
   # The bytes that `v` uses: its cell, and the buffer that a String, an
   # Array or a Hash keeps outside the cell. An immediate uses none.
   #: (value) -> value
@@ -412,7 +453,8 @@ module Zr::Kern
   end
 
   # Records a new `cell`: the file and line of the top Ruby frame, and the
-  # C method that made it, if the top frame is a C method.
+  # method that runs: the C method that made it, or else the method of the
+  # Ruby frame (rb_tracearg_method_id), none at the top level.
   #: (ptr) -> void
   def zr_alloc_trace_record(cell)
     top = Task[zr_task()].top
@@ -431,7 +473,7 @@ module Zr::Kern
     AllocRow[row].file = FrameMeta[meta].file
     AllocRow[row].file_len = FrameMeta[meta].file_len
     AllocRow[row].line = zr_frame_line(rec)
-    AllocRow[row].meta = top == rec ? 0 : zr_method_meta_of(top)
+    AllocRow[row].meta = zr_method_meta_of(top)
     AllocRow[row].generation = Heap[zr_heap()].collections
   end
 
@@ -487,7 +529,7 @@ module Zr::Kern
     zr_ary_push(out, zr_fix(AllocRow[row].line))
     meta = AllocRow[row].meta
     if meta != 0 && !zr_special_p(FrameMeta[meta].owner)
-      zr_ary_push(out, zr_class_path(FrameMeta[meta].owner))
+      zr_ary_push(out, zr_alloc_class_path(FrameMeta[meta].owner))
       zr_ary_push(out, zr_sym(FrameMeta[meta].name))
     else
       zr_ary_push(out, Machine.value(QNIL))
@@ -495,6 +537,16 @@ module Zr::Kern
     end
     zr_ary_push(out, zr_fix(AllocRow[row].generation))
     out
+  end
+
+  # The name of the class that owns the method, as the tracer keeps it: an
+  # anonymous class, a singleton class and a frozen class give nil.
+  #: (value) -> value
+  def zr_alloc_class_path(owner)
+    if (RBasic[owner].flags & FL_FREEZE) != 0
+      return Machine.value(QNIL)
+    end
+    RClass[owner].name
   end
 
   # Keeps a helper class of the core library out of ObjectSpace and out of

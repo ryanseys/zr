@@ -2,8 +2,8 @@
 
 # `objspace.so`: the C half of ext/objspace, over the kernel's walk of the
 # heap (lib/zr/runtime/kernel/objspace.rb). The Ruby half, objspace.rb, is ruby's own.
-# Sizes are this runtime's: a cell is 128 bytes, and what a String, an
-# Array or a Hash keeps outside its cell counts with it.
+# Sizes are this runtime's: a cell is 32 to 256 bytes, and what a String,
+# an Array or a Hash keeps outside its cell counts with it.
 module ObjectSpace
   # What reachable_objects_from returns for a cell that no program can
   # reach: the cell seen from outside, as its address and its type.
@@ -32,7 +32,16 @@ module ObjectSpace
   ].freeze
   # The types in the order of CRuby's tags.
   TYPE_ORDER = %w[OBJECT CLASS MODULE FLOAT STRING REGEXP ARRAY HASH STRUCT BIGNUM FILE DATA MATCH COMPLEX RATIONAL SYMBOL].freeze
-  private_constant :HEAP_TYPES, :TYPE_ORDER
+  # The bits of zr_objspace_dump_bits.
+  EMBEDDED = 1
+  FSTRING = 2
+  CHILLED = 4
+  OLD = 8
+  # How dump writes the bytes of a JSON string (dump_append_string_value):
+  # each byte as it is, but these escapes and other control bytes as \u00XX.
+  JSON_ESCAPES = { "\\" => "\\\\", '"' => '\\"', "\b" => "\\b", "\t" => "\\t", "\f" => "\\f",
+                   "\n" => "\\n", "\r" => "\\r", "\x7f" => "\\u007f" }.freeze
+  private_constant :HEAP_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :JSON_ESCAPES
 
   module_function
 
@@ -172,23 +181,109 @@ module ObjectSpace
       "#{dumped_cell(obj)}\n"
     end
 
+    # The fields of one heap object, in the order of CRuby's dump_object:
+    # the header, the fields of its type, the objects it refers to, where
+    # it was allocated, its size and its GC flags. This runtime has no
+    # shapes, so each shape_id is 0.
     def dumped_cell(obj)
-      fields = { address: address(obj), type: heap_type(obj), class: address(Primitive.zr_real_class(obj)) }
+      bits = Primitive.zr_objspace_dump_bits(obj)
+      klass = Primitive.zr_real_class(obj)
+      fields = { address: address(obj), type: heap_type(obj), shape_id: 0,
+                 slot_size: Primitive.zr_objspace_slot_size(obj), class: address(klass) }
       fields[:frozen] = true if obj.frozen?
-      case obj
-      when String
-        fields.update(bytesize: obj.bytesize, value: obj, encoding: obj.encoding.name)
-      when Symbol
-        fields.update(bytesize: obj.name.bytesize, value: obj)
-      when Float
-        fields[:value] = format("%#g", obj)
-      when Array, Hash
-        fields[:length] = obj.size
-      when Module
-        fields[:name] = obj.name if obj.name
-      end
-      fields[:memsize] = Primitive.zr_objspace_memsize(obj)
+      type_fields(obj, bits, fields)
+      references = reachable_objects_from(obj).reject { |ref| ref.equal?(klass) }
+      fields[:references] = references.map { |ref| address(ref) } unless references.empty?
+      allocation_fields(obj, fields)
+      memsize = Primitive.zr_objspace_memsize(obj)
+      fields[:memsize] = memsize if memsize.positive?
+      fields[:flags] = gc_flags(obj, bits)
       "{#{fields.map { |key, value| "#{key.to_s.dump}:#{json(value)}" }.join(', ')}}"
+    end
+
+    def type_fields(obj, bits, fields)
+      case obj
+      when String then string_fields(obj, bits, fields)
+      when Symbol then string_content(obj.name, EMBEDDED, fields)
+      when Float then fields[:value] = format("%#g", obj)
+      when Hash
+        fields[:size] = obj.size
+        fields[:default] = address(obj.default_proc) if obj.default_proc
+      when Array
+        fields[:length] = obj.size
+        fields[:embedded] = true if bits.anybits?(EMBEDDED)
+      when Module then module_fields(obj, fields)
+      when IO then fields[:fd] = obj.fileno unless obj.closed?
+      else object_fields(obj, bits, fields) if heap_type(obj) == "OBJECT"
+      end
+    end
+
+    def string_fields(str, bits, fields)
+      fields[:embedded] = true if bits.anybits?(EMBEDDED)
+      fields[:fstring] = true if bits.anybits?(FSTRING)
+      fields[:chilled] = true if bits.anybits?(CHILLED)
+      string_content(str, bits, fields)
+      fields[:encoding] = str.encoding.name unless str.encoding == Encoding::BINARY
+      fields[:coderange] = coderange(str)
+      fields[:broken] = true if fields[:coderange] == "broken"
+    end
+
+    # The size of a String's bytes, its room when that is more, and its
+    # value when the bytes are 7-bit text, as dump_append_string_content
+    # writes them.
+    def string_content(str, bits, fields)
+      fields[:bytesize] = str.bytesize
+      unless bits.anybits?(EMBEDDED)
+        capacity = Primitive.zr_objspace_str_capa(str)
+        fields[:capacity] = capacity unless capacity == str.bytesize
+      end
+      fields[:value] = str if !str.empty? && str.encoding.ascii_compatible? && str.ascii_only?
+    end
+
+    def coderange(str)
+      if str.ascii_only? then "7bit"
+      elsif str.valid_encoding? then "valid"
+      else "broken"
+      end
+    end
+
+    def module_fields(mod, fields)
+      fields[:variation_count] = 0 if mod.is_a?(Class)
+      superclass = mod.is_a?(Class) ? mod.superclass : nil
+      fields[:superclass] = address(superclass) if superclass
+      if mod.name
+        fields[:name] = mod.name
+      elsif mod.singleton_class?
+        real = mod
+        real = real.superclass while real&.singleton_class?
+        fields[:real_class_name] = real.name if real&.name
+      end
+      fields[:singleton] = true if mod.singleton_class?
+    end
+
+    def object_fields(obj, bits, fields)
+      fields[:embedded] = true if bits.anybits?(EMBEDDED)
+      fields[:ivars] = obj.instance_variables.size
+    end
+
+    def allocation_fields(obj, fields)
+      file, line, _, method, generation = Primitive.zr_alloc_trace_info(obj)
+      return if generation.nil?
+
+      fields[:file] = file if file
+      fields[:line] = line if line
+      fields[:method] = method.to_s if method
+      fields[:generation] = generation
+    end
+
+    # The flags of the GC that CRuby writes. Every store here goes through
+    # the write barrier, a cell that lived through a collection is old,
+    # and fstrings and modules are shareable.
+    def gc_flags(obj, bits)
+      flags = { wb_protected: true, age: bits.anybits?(OLD) ? 3 : 0 }
+      flags[:old] = true if bits.anybits?(OLD)
+      flags[:shareable] = true if bits.anybits?(FSTRING) || obj.is_a?(Module)
+      flags
     end
 
     # "%p": the address in hex, without the zeros in front.
@@ -197,8 +292,15 @@ module ObjectSpace
     def json(value)
       case value
       when Integer, true, false then value.to_s
-      else value.to_s.encode("UTF-8", invalid: :replace, undef: :replace).dump
+      when Array then "[#{value.map { |item| json(item) }.join(', ')}]"
+      when Hash then "{#{value.map { |key, item| "#{key.to_s.dump}:#{json(item)}" }.join(', ')}}"
+      else json_string(value.to_s)
       end
+    end
+
+    def json_string(text)
+      escaped = text.b.gsub(/[\x00-\x1f"\\\x7f]/n) { |byte| JSON_ESCAPES[byte] || format('\\u%04x', byte.ord) }
+      "\"#{escaped}\"".force_encoding(Encoding::UTF_8)
     end
 
     def written(out, text)

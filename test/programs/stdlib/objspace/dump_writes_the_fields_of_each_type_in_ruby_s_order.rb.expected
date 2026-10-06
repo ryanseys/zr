@@ -1,0 +1,38 @@
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "frozen":true, "embedded":true, "fstring":true, "bytesize":3, "value":"abc", "encoding":"UTF-8", "coderange":"7bit"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "bytesize":100, "value":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "encoding":"UTF-8", "coderange":"7bit"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "chilled":true, "bytesize":3, "value":"lit", "encoding":"UTF-8", "coderange":"7bit"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "chilled":true, "bytesize":1, "encoding":"UTF-8", "coderange":"broken", "broken":true
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "bytesize":1, "value":"a", "coderange":"7bit"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "bytesize":1, "coderange":"valid"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "frozen":true, "embedded":true, "fstring":true, "bytesize":2, "value":"z1", "encoding":"UTF-8", "coderange":"7bit"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "chilled":true, "bytesize":3, "value":"abc", "encoding":"US-ASCII", "coderange":"7bit"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "chilled":true, "bytesize":2, "encoding":"UTF-8", "coderange":"valid"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "bytesize":2, "encoding":"UTF-16LE", "coderange":"valid"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "chilled":true, "bytesize":0, "encoding":"UTF-8", "coderange":"7bit"
+{"address":"ADDR", "type":"STRING", "shape_id":N, "slot_size":N, "class":"ADDR", "frozen":true, "embedded":true, "fstring":true, "bytesize":6, "value":"a\u001b\"\\\u007f\n", "encoding":"UTF-8", "coderange":"7bit"
+{"address":"ADDR", "type":"ARRAY", "shape_id":N, "slot_size":N, "class":"ADDR", "length":2, "embedded":true
+{"address":"ADDR", "type":"HASH", "shape_id":N, "slot_size":N, "class":"ADDR", "size":1
+{"address":"ADDR", "type":"HASH", "shape_id":N, "slot_size":N, "class":"ADDR", "size":0, "default":"ADDR"
+{"address":"ADDR", "type":"OBJECT", "shape_id":N, "slot_size":N, "class":"ADDR", "embedded":true, "ivars":1
+{"address":"ADDR", "type":"CLASS", "shape_id":N, "slot_size":N, "class":"ADDR", "variation_count":N, "superclass":"ADDR", "real_class_name":"Object", "singleton":true
+{"address":"ADDR", "type":"MODULE", "shape_id":N, "slot_size":N, "class":"ADDR", "name":"Comparable"
+{"address":"ADDR", "type":"MODULE", "shape_id":N, "slot_size":N, "class":"ADDR"
+{"address":"ADDR", "type":"CLASS", "shape_id":N, "slot_size":N, "class":"ADDR", "variation_count":N, "superclass":"ADDR", "name":"String"
+{"address":"ADDR", "type":"FLOAT", "shape_id":N, "slot_size":N, "class":"ADDR", "frozen":true, "value":"1.50000e+301"
+{"type":"SYMBOL", "value":"abc"}
+null
+1
+1.50000
+#<Encoding:UTF-8>
+true
+false
+true
+true
+false
+true
+true
+true
+"\"method\":\"made_here\""
+true
+true
+true
