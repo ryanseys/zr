@@ -201,7 +201,7 @@ module RbConfig
   # first `zr` on PATH, else `~/.zr/bin/zr`. So `system(RbConfig.ruby,
   # "-e", ...)` runs zr, as it runs ruby in a ruby program.
   def self.ruby
-    given = ENV["ZR_RUBY"]
+    given = Primitive.zr_hidden_get(ENV, :__zr_ruby__)
     return given unless given.nil? || given.empty?
 
     name = CONFIG["ruby_install_name"] + CONFIG["EXEEXT"]

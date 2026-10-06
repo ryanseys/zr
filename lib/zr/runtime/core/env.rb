@@ -323,6 +323,12 @@ class << ENV
   end
 end
 
+# `zr run` names the zr that runs the program in ZR_RUBY, for RbConfig.ruby
+# (ext/rbconfig.rb). The program's environment does not have it, as a ruby
+# program's environment has no such variable.
+Primitive.zr_hidden_set(ENV, :__zr_ruby__, Primitive.zr_environment_get(+"ZR_RUBY"))
+Primitive.zr_environment_set(+"ZR_RUBY", nil)
+
 # Paths that the system gives take the locale's encoding from the start.
 Encoding.send(:follow_paths) unless Encoding.locale_charmap == +"UTF-8"
 
