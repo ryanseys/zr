@@ -622,7 +622,7 @@ module Zr
             checked(kernel("zr_opt_block_call", recv, sym_word(:call), argc, argv, imm(send_mode(node))))
           elsif math_call?(node)
             checked(math_send(node, recv, argc, argv))
-          elsif node.name == :new
+          elsif node.name == :new && !@l.plain_new?
             checked(new_send(node, recv, argc, argv, @qnil))
           else
             checked(cached_send(node, recv, argc, argv, @qnil))
@@ -1029,7 +1029,7 @@ module Zr
           activate(node)
           # ruby's opt_new takes no block: a traced program sends `new` with
           # one, so a :c_call sees Class#new.
-          catching_break(site) { node.name == :new && !traced? ? new_send(node, recv, argc, argv, block) : cached_send(node, recv, argc, argv, block) }
+          catching_break(site) { node.name == :new && !traced? && !@l.plain_new? ? new_send(node, recv, argc, argv, block) : cached_send(node, recv, argc, argv, block) }
         end
 
         # `recv.new(...)`, with its block if it has one: the kernel's

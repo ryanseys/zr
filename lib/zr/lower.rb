@@ -21,6 +21,7 @@ module Zr
     # @rbs @units: Cache::Unit?
     # @rbs @entry: String
     # @rbs @internal: bool
+    # @rbs @plain_new: bool
     # @rbs @ext: bool
     # @rbs @unit_internal: bool?
     # @rbs @unit_hidden: bool?
@@ -136,6 +137,12 @@ module Zr
     # True in the core library and in an extension's Ruby part. Both are
     # runtime code, so `Primitive` resolves there.
     #: () -> bool?
+    # Whether `new` is a send of Class#new, as CRuby compiles it without
+    # its specialized instructions (opt_new): an eval compiled while
+    # RubyVM::InstructionSequence.compile_option turns them off.
+    #: () -> bool
+    def plain_new? = @plain_new
+
     def internal?
       @internal || @unit_internal
     end
@@ -190,9 +197,11 @@ module Zr
     # @rbs target: Target
     # @rbs fixed: Hash[String, Integer] | Hash[String?, Integer] | nil
     # @rbs units: Cache::Unit?
+    # @rbs plain_new: bool
     # @rbs return: void
     def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil,
-                   target: Target.default, fixed: nil, units: nil)
+                   target: Target.default, fixed: nil, units: nil, plain_new: false)
+      @plain_new = plain_new
       @program = program
       @ids = program.node_ids
       @kernel = kernel

@@ -106,16 +106,60 @@ class RubyVM
       end
       alias compile_file_prism compile_file
 
-      # The options CRuby's compiler starts with. Nothing here reads
-      # them: a string compiles to machine code.
+      # The options CRuby's compiler starts with. A string compiles to
+      # machine code, so only `specialized_instruction` changes what an
+      # eval compiles: without it, `new` is a send of Class#new.
       COMPILE_OPTION = {
         inline_const_cache: true, peephole_optimization: true, tailcall_optimization: false,
         specialized_instruction: true, operands_unification: true, instructions_unification: false,
         debug_frozen_string_literal: false, coverage_enabled: true, debug_level: 0, frozen_string_literal: nil
       }.freeze
 
-      def compile_option = COMPILE_OPTION.dup
-      def compile_option=(options); end
+      # What `compile_option = true` and `= false` give at 4.0.7.
+      COMPILE_OPTION_TRUE = COMPILE_OPTION.merge(
+        peephole_optimization: false, specialized_instruction: false, operands_unification: false,
+        coverage_enabled: false, debug_level: 1, frozen_string_literal: false
+      ).freeze
+      COMPILE_OPTION_FALSE = COMPILE_OPTION.to_h { |key, value| [key, value == true ? false : value] }.freeze
+      private_constant :COMPILE_OPTION_TRUE, :COMPILE_OPTION_FALSE
+
+      def compile_option = current_compile_option.dup
+
+      # A Hash sets the options it names, true or false sets them all,
+      # and nil changes nothing, as rb_iseq_compile_option_set does.
+      def compile_option=(options)
+        option = case options
+                 when Hash then compile_option_from(options)
+                 when true then COMPILE_OPTION_TRUE
+                 when false then COMPILE_OPTION_FALSE
+                 when nil then current_compile_option
+                 else raise TypeError, "Compile option must be Hash/true/false/nil"
+                 end
+        Primitive.zr_state_set(self, :compile_option, option)
+      end
+
+      def current_compile_option
+        Primitive.attr! :hidden
+        Primitive.zr_hidden_get(self, :compile_option) || COMPILE_OPTION
+      end
+      private :current_compile_option
+
+      # set_compile_option_from_hash: a known key takes the truth of its
+      # value, debug_level an Integer; other keys are ignored.
+      def compile_option_from(options)
+        Primitive.attr! :hidden
+        current_compile_option.to_h do |key, value|
+          next [key, value] unless options.key?(key)
+
+          given = options[key]
+          case key
+          when :debug_level then [key, Integer(given)]
+          when :frozen_string_literal then [key, given.nil? ? nil : (given ? true : false)]
+          else [key, given ? true : false]
+          end
+        end.freeze
+      end
+      private :compile_option_from
 
       def disasm(body) = of(body)&.disasm
       alias disassemble disasm

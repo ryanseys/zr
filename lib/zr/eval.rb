@@ -184,7 +184,8 @@ module Zr
       # compile made, or raises a copy of the error that its first compile
       # raised. TracePoint and Coverage change the code, so under them each
       # eval compiles. So does an eval that takes `using` entries.
-      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now, debug_frozen]
+      plain_new = plain_new?
+      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now, debug_frozen, plain_new]
       reuse = coverage.nil? && !@runtime.tracing?
       if reuse && (kept = @compiled[key])
         raise kept.dup if kept.is_a?(Exception)
@@ -225,12 +226,20 @@ module Zr
         no_defs = {} #: Hash[String, Array[Array[Integer]]]
         coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, no_defs, true)
       end
-      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
+      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
       code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas, hir.using] #: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
       @compiled[key] = code if reuse && hir.activations == taken
       code
+    end
+
+    # Whether the program turned off CRuby's specialized instructions
+    # (RubyVM::InstructionSequence.compile_option), so `new` is a send.
+    #: () -> bool
+    def plain_new?
+      vm = Object.const_get(:RubyVM) #: untyped
+      vm::InstructionSequence.compile_option[:specialized_instruction] == false
     end
 
     # A warning of the parser, as zr_parse_warning writes it: one that

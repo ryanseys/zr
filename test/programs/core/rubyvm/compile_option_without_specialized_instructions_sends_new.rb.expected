@@ -1,0 +1,22 @@
+false
+true
+[false, false, 2]
+false
+2
+["c-return", 1, :set_trace_func, Kernel]
+["line", 2, nil, nil]
+["c-call", 2, :new, Class]
+["c-return", 2, :new, Class]
+["line", 3, nil, nil]
+["c-call", 3, :new, Class]
+["c-return", 3, :new, Class]
+["line", 4, nil, nil]
+["c-call", 4, :set_trace_func, Kernel]
+true
+["c-return", 1, :set_trace_func, Kernel]
+["line", 2, nil, nil]
+["line", 3, nil, nil]
+["c-call", 3, :set_trace_func, Kernel]
+{inline_const_cache: false, peephole_optimization: false, tailcall_optimization: false, specialized_instruction: false, operands_unification: false, instructions_unification: false, debug_frozen_string_literal: false, coverage_enabled: false, debug_level: 0, frozen_string_literal: nil}
+{inline_const_cache: true, peephole_optimization: false, tailcall_optimization: false, specialized_instruction: false, operands_unification: false, instructions_unification: false, debug_frozen_string_literal: false, coverage_enabled: false, debug_level: 1, frozen_string_literal: false}
+#<TypeError: Compile option must be Hash/true/false/nil>
