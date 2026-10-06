@@ -11,6 +11,7 @@ class Range
 
     bound(low, high, exclude_end ? true : false)
     freeze if instance_of?(Range)
+    nil
   end
 
   def begin = @begin
@@ -43,6 +44,14 @@ class Range
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"negative array size" if n < 0
+    # rb_int_range_last: an Integer end counts back from it, with no begin
+    # or an Integer one, and no Array of the whole range.
+    if @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer))
+      high = @excl ? @end - 1 : @end
+      low = high - n + 1
+      low = @begin if !@begin.nil? && @begin > low
+      return low > high ? [] : (low..high).to_a
+    end
 
     to_a.last(n)
   end
@@ -334,7 +343,7 @@ class Range
 
     sequence = numeric && ((@begin.is_a?(Numeric) && (@end.nil? || @end.is_a?(Numeric))) || (@begin.nil? && @end.is_a?(Numeric)))
     return Enumerator::ArithmeticSequence.for(self, name, args, {}, @begin, @end, n, @excl) if sequence && !block
-    return stepped(n, name, &block) if textual || (@begin.nil? && (@end.is_a?(String) || @end.is_a?(Symbol)))
+    return stepped(n, name, &block) if textual
     raise ArgumentError, +"#step for non-numeric beginless ranges is meaningless" if @begin.nil? && !block
     raise ArgumentError, +"#step iteration for beginless ranges is meaningless" if @begin.nil?
     return added(n, name, &block) unless sequence
@@ -538,7 +547,15 @@ class Range
     return false if !v.begin.nil? && !v.end.nil? && ordered(v.begin, v.end) > (v.exclude_end? ? -1 : 0)
     return false if !v.begin.nil? && !cover?(v.begin)
 
-    cmp_end = @end.nil? ? 1 : ordered(@end, v.end)
+    # Two ends that do not compare: no cover.
+    if !@end.nil? && !v.end.nil?
+      c = @end <=> v.end
+      return false if c.nil?
+
+      cmp_end = c.is_a?(Integer) ? c <=> 0 : (c > 0 ? 1 : (c < 0 ? -1 : 0))
+    else
+      cmp_end = @end.nil? ? 1 : ordered(@end, v.end)
+    end
     return cmp_end >= 0 if @excl == v.exclude_end?
     return cmp_end > 0 if @excl
     return true if cmp_end >= 0

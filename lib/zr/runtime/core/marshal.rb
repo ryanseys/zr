@@ -917,7 +917,9 @@ module Marshal
       end
       @readable += 2
       if klass <= Range
-        Range.instance_method(:initialize).bind_call(built, *values)
+        # range_loader: a Range dumped before its initialize (no excl)
+        # loads as one that is still to be initialized.
+        Range.instance_method(:initialize).bind_call(built, *values) unless values[2].nil?
       elsif klass <= Data
         # A Data value is frozen, as `new` leaves it.
         values.freeze
@@ -960,9 +962,11 @@ module Marshal
           n -= 1
         end
         # range_loader: the bounds are set on the object already linked,
-        # without the subclass's initialize.
+        # without the subclass's initialize. A Range dumped before its
+        # initialize (no excl) loads as one that is still to be
+        # initialized.
         if klass <= Range
-          Range.instance_method(:initialize).bind_call(built, parts[:begin], parts[:end], parts[:excl])
+          Range.instance_method(:initialize).bind_call(built, parts[:begin], parts[:end], parts[:excl]) unless parts[:excl].nil?
         elsif klass <= Complex
           built.send(:marshal_load, [parts[:@real], parts[:@image]])
         elsif klass <= Rational

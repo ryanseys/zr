@@ -1,0 +1,13 @@
+string: "bc"
+array: [2]
+no begin: TypeError: no implicit conversion of Object into Integer
+no exclude_end?: TypeError: no implicit conversion of Object into Integer
+index: nil
+set: RangeError: #<Object:0xADDR @begin=-10, @end=0> out of range
+private: [0]
+beginless string step: ArgumentError: #step for non-numeric beginless ranges is meaningless
+beginless string step block: ArgumentError: #step iteration for beginless ranges is meaningless
+beginless symbol step: ArgumentError: #step for non-numeric beginless ranges is meaningless
+cover: [false, true, false]
+last: [[8, 9, 10], [7, 8, 9], [8, 9, 10], [8, 9, 10]]
+load: [false, nil]
