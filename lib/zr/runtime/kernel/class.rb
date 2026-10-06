@@ -993,9 +993,9 @@ module Zr::Kern
     end
     # The superclass's metaclass sets the class of its own metaclass to the
     # singleton class of its class. In Class's chain that is `klass`, which
-    # then has its metaclass already.
+    # then got its metaclass on the way.
     made = RBasic[klass].klass
-    if zr_singleton_p(made) && RClass[made].attached == klass
+    if made != old && zr_singleton_p(made) && RClass[made].attached == klass
       return made
     end
     meta = zr_class_alloc(T_CLASS, msup, zr_global(G_CLASS))
