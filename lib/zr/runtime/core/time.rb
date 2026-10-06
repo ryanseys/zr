@@ -483,6 +483,10 @@ class Time
     # digits or from to_int.
     def ubits(value, bits)
       value = value.is_a?(String) ? Integer(value, 10) : implicit_integer(value)
+      # NUM2INT: a long first, then an int.
+      raise RangeError, +"bignum too big to convert into 'long'" if value.bit_length > 63
+      raise RangeError, "integer #{value} too big to convert to 'int'" if value > 2_147_483_647
+      raise RangeError, "integer #{value} too small to convert to 'int'" if value < -2_147_483_648
       raise ArgumentError, +"argument out of range" unless value >= 0 && value < (1 << bits)
 
       value
