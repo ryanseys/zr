@@ -976,6 +976,17 @@ class Thread
     end
   end
 
+  # One park on `fd`: it ends when the scheduler finds `fd` ready, or when
+  # another thread wakes this one. The caller checks again what it
+  # waits for.
+  def park_io(fd, events)
+    Primitive.attr! :hidden
+    Thread.send(:watch, fd, events, self)
+    wait(nil, false)
+  ensure
+    Thread.send(:unwatch, self)
+  end
+
   # Wait on a list whose owner wakes its members. A non-blocking fiber
   # waits through its scheduler, which hears what it waits on.
   def wait_on(list, deadline, deadly, blocker = list)

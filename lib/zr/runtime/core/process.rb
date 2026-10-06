@@ -23,6 +23,9 @@ module Process
   # others parks on the pipe SIGCHLD writes to between WNOHANG tries,
   # so its siblings run while the child does; the signal count taken
   # before each try tells a signal that came since from one drained.
+  # Each wakeup ends the park, and the thread that drains the pipe
+  # wakes the other waiters, so a signal that one thread drained still
+  # sends every waiter back to its try.
   def self.reap(pid, flags)
     Primitive.attr! :hidden
     pid = Integer.send(:int_operand, pid)
@@ -38,16 +41,35 @@ module Process
     fd = Primitive.zr_chld_fd(Signal.list.fetch(+"CHLD"))
     return Primitive.zr_proc_wait(pid, flags) if fd.negative?
 
-    loop do
-      seen = Primitive.zr_chld_count
-      result = Primitive.zr_proc_wait(pid, flags | WNOHANG)
-      return result if result.is_a?(Integer) || !result[0].zero?
+    waiters = (@child_waiters ||= [])
+    waiters << Thread.current
+    begin
+      loop do
+        seen = Primitive.zr_chld_count
+        result = Primitive.zr_proc_wait(pid, flags | WNOHANG)
+        return result if result.is_a?(Integer) || !result[0].zero?
 
-      Thread.current.send(:wait_io, fd, IO::READABLE, nil) if Primitive.zr_chld_count == seen
-      Primitive.zr_chld_drain
+        Thread.current.send(:park_io, fd, IO::READABLE) if Primitive.zr_chld_count == seen
+        Primitive.zr_chld_drain
+        tell_waiters(waiters)
+      end
+    ensure
+      Thread.send(:atomically) { waiters.delete(Thread.current) }
     end
   end
   private_class_method :reap
+
+  # Wakes each other thread that waits for a child, once for each new
+  # count of SIGCHLD: the pipe that would wake them is drained.
+  def self.tell_waiters(waiters)
+    Primitive.attr! :hidden
+    count = Primitive.zr_chld_count
+    return if count == @told_count
+
+    @told_count = count
+    waiters.each { |waiter| waiter.wakeup if !waiter.equal?(Thread.current) && waiter.status == +"sleep" }
+  end
+  private_class_method :tell_waiters
 
   # The value that waitpid returned for a child.
   class Status
