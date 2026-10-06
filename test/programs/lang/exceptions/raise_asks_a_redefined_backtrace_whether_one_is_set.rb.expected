@@ -1,0 +1,5 @@
+true
+"hello"
+false
+[["custom:1"], nil]
+[TypeError, "y"]

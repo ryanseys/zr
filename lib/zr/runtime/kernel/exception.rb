@@ -253,7 +253,10 @@ module Zr::Kern
       RException[exc].bt = Machine.value(QNIL)
       RException[exc].strs = Machine.value(QNIL)
     end
-    if RException[exc].rows == 0 && RException[exc].bt == QNIL
+    # rb_get_backtrace: a program's own `backtrace` says whether the
+    # exception has one already; nil lets the raise capture it.
+    custom = zr_exc_backtrace_custom(exc)
+    if RException[exc].rows == 0 && RException[exc].bt == QNIL && (custom == QUNDEF || custom == QNIL)
       zr_backtrace_capture(exc, top)
     end
     if RException[exc].bt != QNIL && RException[exc].rows != 0
@@ -270,6 +273,25 @@ module Zr::Kern
       RException[exc].cause = cause == exc ? Machine.value(QNIL) : cause
     end
     zr_raise_as_is(exc, top)
+  end
+
+  # What a program's own Exception#backtrace returns for `exc`, or QUNDEF
+  # when the core's method answers. setup_exception calls it under its
+  # own tag, so an error in it is dropped.
+  #: (value) -> value
+  def zr_exc_backtrace_custom(exc)
+    e = zr_find_method(zr_class_of(exc), Machine.id(:backtrace))
+    if e == 0 || MEntry[e].core != 0
+      return Machine.value(QUNDEF)
+    end
+    r = zr_send(exc, Machine.id(:backtrace), 0, 0)
+    if r == QUNDEF
+      t = zr_task()
+      Task[t].pending_kind = PENDING_RAISE
+      Task[t].pending = Machine.value(QNIL)
+      return Machine.value(QNIL)
+    end
+    r
   end
 
   # The end of a raise: the $DEBUG report, the `:raise` event, then the
