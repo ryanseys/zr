@@ -1,0 +1,16 @@
+fatal
+No live threads left. Deadlock?
+2 threads, 2 sleeps current:X main thread:X
+* #<Thread:X sleep_forever>
+   rb_thread_t:X native:X int:0
+   deadlock_reports_each_thread_and_where_it_waits.rb:14:in 'Thread#join'
+   deadlock_reports_each_thread_and_where_it_waits.rb:14:in 'block in <main>'
+   deadlock_reports_each_thread_and_where_it_waits.rb:8:in 'Object#frame_for_deadlock_test_2'
+   deadlock_reports_each_thread_and_where_it_waits.rb:14:in '<main>'
+* #<Thread:X deadlock_reports_each_thread_and_where_it_waits.rb:12 sleep_forever>
+   rb_thread_t:X native:X int:0
+    depended by: tb_thread_id:X
+   deadlock_reports_each_thread_and_where_it_waits.rb:12:in 'Thread::Queue#pop'
+   deadlock_reports_each_thread_and_where_it_waits.rb:12:in 'block (2 levels) in <main>'
+   deadlock_reports_each_thread_and_where_it_waits.rb:4:in 'Object#frame_for_deadlock_test_1'
+   deadlock_reports_each_thread_and_where_it_waits.rb:12:in 'block in <main>'

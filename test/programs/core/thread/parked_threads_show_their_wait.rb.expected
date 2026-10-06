@@ -1,0 +1,20 @@
+["parked_threads_show_their_wait.rb:9:in 'Thread::Queue#pop'", "parked_threads_show_their_wait.rb:9:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:9 sleep_forever>
+["parked_threads_show_their_wait.rb:8:in 'Thread::Queue#pop'", "parked_threads_show_their_wait.rb:8:in 'Object#inner'", "parked_threads_show_their_wait.rb:9:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:9 sleep_forever>
+["parked_threads_show_their_wait.rb:9:in 'Kernel#sleep'", "parked_threads_show_their_wait.rb:9:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:9 sleep>
+["parked_threads_show_their_wait.rb:9:in 'Kernel#sleep'", "parked_threads_show_their_wait.rb:9:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:9 sleep>
+["parked_threads_show_their_wait.rb:10:in 'Thread::Mutex#lock'", "parked_threads_show_their_wait.rb:10:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:10 sleep_forever>
+["parked_threads_show_their_wait.rb:10:in 'IO#read'", "parked_threads_show_their_wait.rb:10:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:10 sleep>
+["parked_threads_show_their_wait.rb:10:in 'Thread.stop'", "parked_threads_show_their_wait.rb:10:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:10 sleep_forever>
+["parked_threads_show_their_wait.rb:11:in 'Thread::ConditionVariable#wait'", "parked_threads_show_their_wait.rb:11:in 'block (2 levels) in <main>'", "parked_threads_show_their_wait.rb:11:in 'Thread::Mutex#synchronize'", "parked_threads_show_their_wait.rb:11:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:11 sleep_forever>
+["parked_threads_show_their_wait.rb:11:in 'Thread::ConditionVariable#wait'", "parked_threads_show_their_wait.rb:11:in 'block (2 levels) in <main>'", "parked_threads_show_their_wait.rb:11:in 'Thread::Mutex#synchronize'", "parked_threads_show_their_wait.rb:11:in 'block in <main>'"]
+#<Thread:X parked_threads_show_their_wait.rb:11 sleep>
+0
+[true]

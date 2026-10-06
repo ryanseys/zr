@@ -394,12 +394,30 @@ class Thread
     end
 
     def deadlock
-      error = Primitive.zr_fatal_class.new(+"No live threads left. Deadlock?\n")
+      error = Primitive.zr_fatal_class.new(+"No live threads left. Deadlock?" << deadlock_report)
       raise error if @current.equal?(@main)
 
       @main.raise(error)
       switch
     end
+
+    # debug_deadlock_check: each live thread, the threads that join it,
+    # and where it waits.
+    def deadlock_report
+      Primitive.attr! :hidden
+      live = @threads.select(&:alive?)
+      out = +"\n#{live.size} threads, #{live.count { |t| t.send(:sleeping?) }} sleeps " \
+             "current:#{address(@current)} main thread:#{address(@main)}\n"
+      live.each do |thread|
+        out << "* #{thread.inspect}\n   rb_thread_t:#{address(thread)} native:N/A int:0"
+        thread.send(:joiners).each { |joiner| out << "\n    depended by: tb_thread_id:#{address(joiner)}" }
+        frames = Primitive.zr_fiber_backtrace_m(thread.send(:local_fiber), 0, -1)
+        out << "\n   " << frames.to_a.join("\n   ") << "\n"
+      end
+      out
+    end
+
+    def address(thread) = Primitive.zr_obj_head(thread)[/0x\h+/]
 
     def enqueue(thread)
       atomically { @queue << thread unless @queue.include?(thread) }
@@ -682,11 +700,19 @@ class Thread
     Primitive.zr_hidden_get(self, :__frozen__) == true
   end
 
+  # A wait that only another thread can end, which counts toward a
+  # deadlock, shows as sleep_forever (thread_status_name's detail).
   def inspect
     head = Primitive.zr_obj_head(self)
     head = "#{head}@#{@name}" if @name
     head = "#{head} #{@site}" if @site
-    "#{head} #{status || 'dead'}>"
+    "#{head} #{@forever && sleeping? && !@ended ? 'sleep_forever' : status || 'dead'}>"
+  end
+
+  # The threads that wait in a join of this one.
+  def joiners
+    Primitive.attr! :hidden
+    @waiters.dup
   end
 
   alias to_s inspect
@@ -950,6 +976,7 @@ class Thread
   def wait(deadline, deadly, resume: false)
     Primitive.attr! :hidden
     @status = :sleep
+    @forever = deadly && deadline.nil?
     @timed_out = false
     Thread.send(:sleep_until, self, deadline) if deadline
     begin
@@ -1474,6 +1501,8 @@ class Thread::Mutex
     raise ThreadError, +"Attempt to unlock a mutex which is locked by another thread/fiber" unless owned?
 
     Primitive.zr_state_set(self, :__owner__, nil)
+    # A forked child keeps the parent's waiters, which are dead in it.
+    waiters.reject! { |waiter| waiter.is_a?(Thread) && !waiter.alive? }
     waiters.first&.wakeup
     self
   end
