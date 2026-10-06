@@ -231,6 +231,11 @@ module Zr
           # skip, not a pass.
           'ARGV.replace(["-v", "--tty=no", "--show-skip", *ARGV])',
           'require "test/unit"',
+          # tool/test/init.rb, minus its checkers of CRuby internals: experimental
+          # warnings are off, and iseq_loader_checker loads tempfile (and with it
+          # tmpdir), which some tests use without a require.
+          "Warning[:experimental] = false",
+          'require "tempfile"',
           "case file"
         ]
         files.each do |f|

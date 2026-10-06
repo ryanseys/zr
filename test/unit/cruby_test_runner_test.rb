@@ -14,6 +14,16 @@ class CRubyTestRunnerTest < Minitest::Test
     assert_includes program, %(ARGV.replace(["-v", "--tty=no", "--show-skip", *ARGV]))
   end
 
+  # tool/test/init.rb's checkers stay out, but not what they load: tests
+  # call Dir.mktmpdir with no require, as tempfile loads tmpdir.
+  def test_the_program_sets_up_as_init_rb_does
+    program = Zr::Dev::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
+
+    assert_includes program, %(Warning[:experimental] = false\n)
+    assert_includes program, %(require "tempfile"\n)
+    assert_operator program.index("tempfile"), :<, program.index("case file")
+  end
+
   def test_the_stand_ins_come_last_on_the_load_path
     program = Zr::Dev::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
     load_path = program.lines.grep(/\$LOAD_PATH.unshift/).first
