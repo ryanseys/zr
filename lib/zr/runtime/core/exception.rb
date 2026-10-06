@@ -417,7 +417,6 @@ class NoMatchingPatternKeyError < NoMatchingPatternError
     when :key
       Primitive.zr_hidden_set(self, :__given__, true)
       Primitive.zr_hidden_set(self, :__key__, value)
-    else super
     end
   end
 end
@@ -459,7 +458,7 @@ class NameError
 
   def marshal_part_set(name, value)
     Primitive.attr! :hidden
-    name == :name ? @name = value : super
+    @name = value if name == :name
   end
 end
 
@@ -478,15 +477,15 @@ class NoMethodError
 
   def marshal_parts
     Primitive.attr! :hidden
-    super + [[:args, @args], [:private_call?, @private_call]]
+    [[:name, @name], [:args, @args], [:private_call?, @private_call]]
   end
 
   def marshal_part_set(name, value)
     Primitive.attr! :hidden
     case name
+    when :name then @name = value
     when :args then @args = value
     when :private_call? then @private_call = value
-    else super
     end
   end
 end
@@ -525,7 +524,6 @@ class KeyError
     case name
     when :receiver then @receiver = value
     when :key then @key = value
-    else super
     end
   end
 end

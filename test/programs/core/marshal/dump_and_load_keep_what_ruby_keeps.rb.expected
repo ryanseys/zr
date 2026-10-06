@@ -18,3 +18,9 @@ regexp kept escape: /\\u/
 regexp lone u: /u/
 regexp encoded u: /u/
 regexp utf-8 escape: /a\u3042/
+no method error parts: [:no_such_method_here, [1], false]
+key error parts: [1, 2]
+non-ascii class: true
+ARGF: TypeError: no _dump_data is defined for class ARGF.class
+old module tag names a class: Object
+flag named in another encoding: false

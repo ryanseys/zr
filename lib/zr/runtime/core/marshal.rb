@@ -46,7 +46,7 @@ module Marshal
   # The classes whose objects CRuby keeps as T_DATA: a task, a lock, a
   # descriptor, compiled code or C state. Only a `_dump_data` writes one
   # (`d`), and only a `_load_data` reads one.
-  DATA_KINDS = %w[Proc Method UnboundMethod Binding Enumerator Fiber Dir Ractor StringIO Thread Thread::Mutex
+  DATA_KINDS = %w[ARGF.class Proc Method UnboundMethod Binding Enumerator Fiber Dir Ractor StringIO Thread Thread::Mutex
                   Thread::Queue Thread::SizedQueue Thread::ConditionVariable Time Random Encoding::Converter
                   ObjectSpace::WeakMap ObjectSpace::WeakKeyMap].freeze
   private_constant :DATA_KINDS
@@ -644,7 +644,9 @@ module Marshal
       elsif tag == EXTENDED then extended
       elsif tag == REGEXP then keep(regexp)
       elsif tag == CLASS then keep(constant(text, Class))
-      elsif tag == MODULE || tag == MODULE_OLD then keep(constant(text, Module))
+      elsif tag == MODULE then keep(constant(text, Module))
+      # The old `M` takes a class or a module (rb_path_to_class).
+      elsif tag == MODULE_OLD then keep(namespace(text))
       elsif tag == DATA then data
       else raise ArgumentError, "dump format error(0x#{tag.to_s(16)})"
       end
@@ -657,10 +659,33 @@ module Marshal
       tag = @bytes.getbyte(@pos)
       return deferred(tag) if tag == REGEXP || tag == USRDEF
       return encoded_symbol if tag == SYMBOL
+      return named_module(tag) if tag == CLASS || tag == MODULE || tag == MODULE_OLD
 
       value = read_value
       each_ivar(value) { |name, item| apply_ivar(value, name, item) }
       value
+    end
+
+    # `c`, `m` or `M` with ivars: the first may give the encoding of the
+    # name (r_encname); a class or a module takes no other.
+    def named_module(tag)
+      @pos += 1
+      path = text
+      n = long
+      if n > 0
+        name = symbol_or_link
+        item = read
+        if name == :E || name == :encoding
+          apply_ivar(path, name, item)
+          n -= 1
+        end
+      end
+      found = tag == MODULE_OLD ? namespace(path) : constant(path, tag == CLASS ? Class : Module)
+      if n > 0
+        kind = { CLASS => "class", MODULE => "module", MODULE_OLD => "class/module" }.fetch(tag)
+        raise TypeError, "can't override instance variable of #{kind} '#{path}'"
+      end
+      keep(found)
     end
 
     # r_object's TYPE_LINK: an object whose record is still being read (a
@@ -740,7 +765,7 @@ module Marshal
         Primitive.zr_ruby2_hash_mark(value)
       # A name with no `@` is one the C API set on the payload itself,
       # which only a `_load` reads: Time writes its zone this way.
-      else name.start_with?("@") ? value.instance_variable_set(name, item) : Marshal.send(:extra_set, value, name, item)
+      else name.to_s.getbyte(0) == 0x40 ? value.instance_variable_set(name, item) : Marshal.send(:extra_set, value, name, item)
       end
     end
 
@@ -965,7 +990,7 @@ module Marshal
       when :bt_locations then nil
       when :cause then cause!(built, value)
       else
-        if name.start_with?("@") then built.instance_variable_set(name, value)
+        if name.to_s.getbyte(0) == 0x40 then built.instance_variable_set(name, value)
         elsif built.is_a?(Exception) then built.send(:marshal_part_set, name, value)
         end
       end

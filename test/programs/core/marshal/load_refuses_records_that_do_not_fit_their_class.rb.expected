@@ -20,3 +20,4 @@ long bignum: ArgumentError: marshal data too short
 negative array length: ArgumentError: negative length
 bad link: ArgumentError: dump format error (bad link)
 broken symbol: ArgumentError: invalid byte sequence in UTF-16LE: "\x4B"
+old module tag ivar: TypeError: can't override instance variable of class/module 'Klass'

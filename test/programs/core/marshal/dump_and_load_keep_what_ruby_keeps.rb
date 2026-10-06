@@ -94,3 +94,22 @@ t("regexp kept escape") { Marshal.load("\004\b/\b\\\\u\000") }
 t("regexp lone u") { Marshal.load("\004\b/\a\\u\000") }
 t("regexp encoded u") { Marshal.load("\004\bI/\a\\u\000\006:\016@encoding\"\vEUC-JP") }
 t("regexp utf-8 escape") { Marshal.load(Marshal.dump(/a\u3042/)) }
+
+begin
+  nil.no_such_method_here(1)
+rescue NoMethodError => e
+  copy = Marshal.load(Marshal.dump(e))
+  t("no method error parts") { [copy.name, copy.args, copy.private_call?] }
+end
+t("key error parts") { c = Marshal.load(Marshal.dump(KeyError.new("m", receiver: 1, key: 2))); [c.receiver, c.key] }
+
+utf8 = eval("class R\u{e9}sum\u{e9}; self; end")
+t("non-ascii class") { Marshal.load(Marshal.dump(utf8)).equal?(utf8) }
+t("ARGF") { Marshal.dump(ARGF) }
+t("old module tag names a class") { Marshal.load("\x04\bM\x0bObject") }
+
+def r2k2(*args) = args.last
+ruby2_keywords :r2k2
+data = Marshal.dump(r2k2(key: 42))
+utf7 = data.sub(/:\x06K(?=T\z)/) { "I#{$&}\x06:\x0dencoding\"\x0aUTF-7" }
+t("flag named in another encoding") { Hash.ruby2_keywords_hash?(Marshal.load(utf7)) }

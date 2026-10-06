@@ -50,3 +50,4 @@ t("long bignum") { Marshal.load("\x04\x08l+\x04\x00\x00\x00\x40") }
 t("negative array length") { Marshal.load("\x04\x08[\xfa") }
 t("bad link") { Marshal.load("\x04\bI/\x05\x00\x06:\x06E{\x06@\x05T") }
 t("broken symbol") { Marshal.load("\x04\bI:\x06K\x06:\x0dencoding\"\x0dUTF-16LE") }
+t("old module tag ivar") { Marshal.load("\x04\x08IM\x0aKlass\x06:\x0e@ivar_bug\"\x08bug") }
