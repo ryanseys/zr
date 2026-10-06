@@ -759,6 +759,8 @@ class File < IO
     path = path_of(path)
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
     result = Primitive.zr_realpath_m(os_path(path))
+    # rb_check_realpath_internal gives the path back in its own encoding.
+    return result.encode(path.encoding) if result.is_a?(String) && result.encoding != path.encoding && path.encoding != Encoding::US_ASCII
     return result unless result.is_a?(Integer)
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 

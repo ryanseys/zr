@@ -148,6 +148,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # loads, and no file is not an error. Else nil.
   def self.feature_listed(feature)
     Primitive.attr! :hidden
+    # The list holds names in the file system's encoding.
+    feature = File.send(:os_path, feature)
     bare = File.extname(feature).empty?
     name = bare ? "#{feature}.rb" : feature
     # IS_SOEXT: a native name is .so or .o, or the platform DLEXT.
@@ -300,7 +302,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # FIFO or a device loads too, and its read waits as any read does.
   def self.loadable?(path)
     Primitive.attr! :hidden
-    Primitive.zr_path_kind(path) > 1 && File.readable?(path)
+    Primitive.zr_path_kind(File.send(:os_path, path)) > 1 && File.readable?(path)
   end
 
   # Whether ruby loaded `feature` before the program, by any of its names.
@@ -340,6 +342,9 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     Primitive.attr! :hidden
     return missing(feature, kind) unless path
 
+    # rb_get_path gives the file to the system in its encoding (UTF-8
+    # here), and that is the name the file runs and is listed under.
+    path = File.send(:os_path, path)
     # An autoload of this feature stops waiting however the file arrives:
     # through an earlier require, or through this one once it ends. Ruby
     # calls `rb_feature_provided` again each time it checks whether an
