@@ -1,0 +1,12 @@
+"one\n\n"
+"two\n"
+"three|"
+#<Encoding:UTF-32BE>
+"one\n\n"
+"two\n"
+"three|"
+#<Encoding:UTF-16LE>
+"one\n\n"
+"two\n"
+"three|"
+#<Encoding:UTF-8>

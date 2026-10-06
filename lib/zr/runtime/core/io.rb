@@ -2726,7 +2726,7 @@ class IO
       return take(n)
     end
     paragraph = separator.empty?
-    separator = +"\n\n" if paragraph
+    separator = paragraph ? +"\n\n" : buffered_separator(separator)
     skip_newlines if paragraph
     return limited_line(separator, limit, paragraph) if limit
     from = 0
@@ -2760,6 +2760,19 @@ class IO
     return nil if @buffer.empty?
 
     take(@buffer.bytesize)
+  end
+
+  # The separator as the buffer holds it. The buffer has the bytes before
+  # the read conversion, so a separator in the internal encoding is
+  # encoded back to the external one. A dummy encoding's separator keeps
+  # its byte order mark, which no line of the stream has, as in ruby.
+  def buffered_separator(separator)
+    Primitive.attr! :hidden
+    return separator if @internal.nil? || @internal.dummy? || separator.encoding != @internal
+
+    separator.encode(@external || Encoding.default_external)
+  rescue EncodingError
+    separator
   end
 
   # A limit that ends inside a character reads on, one byte at a time
