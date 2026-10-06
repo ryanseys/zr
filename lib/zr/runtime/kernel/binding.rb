@@ -177,6 +177,29 @@ module Zr::Kern
     false
   end
 
+  # The locals of the scope of `meta` and, for a block or an eval, of the
+  # scopes around it, innermost first.
+  #: (ptr) -> value
+  def zr_reachable_local_names(meta)
+    out = zr_ary_new(0)
+    while meta != 0
+      table = FrameMeta[meta].locals
+      if table != 0
+        i = 0
+        while i < Machine.load64(table, 0)
+          zr_ary_push(out, zr_sym(Machine.load64(table + 8 + (i * 8), 0)))
+          i += 1
+        end
+      end
+      kind = FrameMeta[meta].kind
+      if kind != KIND_BLOCK && kind != KIND_EVAL && kind != KIND_HIDDEN
+        return out
+      end
+      meta = FrameMeta[meta].parent
+    end
+    out
+  end
+
   # The names of all scopes that the calling frame can reach, innermost
   # first: its own, then one Array for each Env along the parent list.
   #: () -> value

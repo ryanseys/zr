@@ -26,12 +26,12 @@ module Zr::Kern
     if !vcall
       zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
     end
-    # Keep the locals of the Ruby scope that contains the send, for
-    # NameError#local_variables. CRuby's name_err_init_attr keeps the
-    # frame's ISEQ for the same purpose.
+    # Keep the locals of the Ruby scope that contains the send and of the
+    # scopes around a block, for NameError#local_variables. CRuby's
+    # name_err_init_attr keeps the frame's ISEQ for the same purpose.
     source = zr_frame_with_file(Task[zr_task()].top)
     if source != 0
-      zr_exc_detail(e, Machine.id(:local_variables), zr_local_names(FrameMeta[Frame[source].meta].locals))
+      zr_exc_detail(e, Machine.id(:local_variables), zr_reachable_local_names(Frame[source].meta))
     end
     zr_raise(e)
   end
