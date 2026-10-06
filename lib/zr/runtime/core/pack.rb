@@ -21,9 +21,10 @@ module Packing
   NATIVE = "sSiIlLqQjJ".freeze
   MODIFIERS = [60, 62, 95, 33].freeze     # < > _ !
   STAR = 42
+  LONG_MAX = 0x7FFF_FFFF_FFFF_FFFF
   DIGIT_0 = 48
   DIGIT_9 = 57
-  private_constant :KNOWN, :SPACE, :NATIVE, :MODIFIERS, :STAR, :DIGIT_0, :DIGIT_9
+  private_constant :KNOWN, :SPACE, :NATIVE, :MODIFIERS, :STAR, :LONG_MAX, :DIGIT_0, :DIGIT_9
 
   # The template as [directive, count, big?] triples; count is nil
   # for none, :all for `*`. `check` off keeps an unknown directive, so
@@ -78,6 +79,8 @@ module Packing
           count = (count * 10) + (template.getbyte(i) - DIGIT_0)
           i += 1
         end
+        # STRTOUL into a long: a count past LONG_MAX is out of range.
+        raise RangeError, +"pack length too big" if count > LONG_MAX
       end
       out << [c, count, big]
     end
@@ -289,84 +292,84 @@ module Packing
         n = count == :all ? 0 : (count || 1)
         out = n <= out.bytesize ? out.byteslice(0, n) : out + "\0" * (n - out.bytesize)
       when "a", "A", "Z"
-        raise ArgumentError, +"too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
-        item = items[at]
+        item = Primitive.zr_ary_at_m(items, at)
         at += 1
         # StringValue: nil is an empty String, anything else goes through to_str.
         item = item.nil? ? +"" : Primitive.zr_str_operand(item)
 
         out << pack_text(item.b, c, count)
       when "H", "h", "B", "b"
-        raise ArgumentError, +"too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
         # A String alone, or nil as an empty one, as CRuby's StringValue
         # takes it; `m` and `u` refuse nil too, and only `M` takes to_s.
-        item = items[at]
+        item = Primitive.zr_ary_at_m(items, at)
         item = Primitive.zr_str_operand(item.nil? ? +"" : item)
         at += 1
         out << (c == +"H" || c == +"h" ? pack_hex(item, c == +"H", count) : pack_bits(item, c == +"B", count))
       when "m"
-        raise ArgumentError, +"too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
-        item = items[at]
+        item = Primitive.zr_ary_at_m(items, at)
         at += 1
         out << base64(Primitive.zr_str_operand(item).b, count)
       when "M"
-        raise ArgumentError, +"too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
-        item = items[at]
+        item = Primitive.zr_ary_at_m(items, at)
         at += 1
         # rb_obj_as_string: a to_s that gives no String gives the default one.
         text = item.to_s
         text = Kernel.instance_method(:to_s).bind_call(item) unless text.is_a?(String)
         out << quoted_printable(text.b, count)
       when "u"
-        raise ArgumentError, +"too few arguments" if at >= items.size
+        raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
-        item = items[at]
+        item = Primitive.zr_ary_at_m(items, at)
         at += 1
         out << uuencode(Primitive.zr_str_operand(item).b, count)
       when "p", "P"
         # `P`'s count is the least width of the one String it points at.
         if c == +"P"
-          raise ArgumentError, +"too few arguments" if at >= items.size
+          raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
           width = count.is_a?(Integer) ? count : 1
-          text = items[at].nil? ? nil : Primitive.zr_str_operand(items[at])
+          text = Primitive.zr_ary_at_m(items, at).nil? ? nil : Primitive.zr_str_operand(Primitive.zr_ary_at_m(items, at))
           raise ArgumentError, "too short buffer for P(#{text.bytesize} for #{width})" if text && text.bytesize < width
         end
-        n = c == +"P" ? 1 : count == :all ? items.size - at : (count || 1)
+        n = c == +"P" ? 1 : count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
         n.times do
-          raise ArgumentError, +"too few arguments" if at >= items.size
+          raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
-          text = items[at].nil? ? nil : Primitive.zr_str_operand(items[at])
+          text = Primitive.zr_ary_at_m(items, at).nil? ? nil : Primitive.zr_str_operand(Primitive.zr_ary_at_m(items, at))
           at += 1
           (associates ||= []) << text
           push_integer(out, text.nil? ? 0 : Primitive.zr_str_bytes_address(text), 8, false)
         end
       when "U"
         each_item(items, at, count) { |item| out << utf8(integer_item(item)) }
-        at += count == :all ? items.size - at : (count || 1)
+        at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       when "w"
         each_item(items, at, count) { |item| out << ber(integer_item(item)) }
-        at += count == :all ? items.size - at : (count || 1)
+        at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       when "d", "D", "E", "G"
         each_item(items, at, count) { |item| out << pack_double(float_item(item), c == +"G") }
-        at += count == :all ? items.size - at : (count || 1)
+        at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       when "f", "F", "e", "g"
         each_item(items, at, count) { |item| out << pack_single(float_item(item), c == +"g") }
-        at += count == :all ? items.size - at : (count || 1)
+        at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       else
         raise ArgumentError, unknown_directive("pack", c.getbyte(0), template) unless INTEGERS.key?(c)
 
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
-        n = count == :all ? items.size - at : (count || 1)
-        raise ArgumentError, +"too few arguments" if at + n > items.size
+        n = count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
+        raise ArgumentError, +"too few arguments" if at + n > Primitive.zr_ary_len_m(items)
 
         done = Primitive.zr_pack_ints(out, items, at, n, size, big == true)
-        (at + done...at + n).each { |i| push_integer(out, integer_item(items[i]), size, big) }
+        (at + done...at + n).each { |i| push_integer(out, integer_item(Primitive.zr_ary_at_m(items, i)), size, big) }
         at += n
       end
     end
@@ -423,10 +426,13 @@ module Packing
   end
 
   def self.each_item(items, at, count)
-    n = count == :all ? items.size - at : (count || 1)
-    raise ArgumentError, +"too few arguments" if at + n > items.size
+    n = count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
+    n.times do |i|
+      # An element's conversion may shorten the Array.
+      raise ArgumentError, +"too few arguments" if at + i >= Primitive.zr_ary_len_m(items)
 
-    n.times { |i| yield items[at + i] }
+      yield Primitive.zr_ary_at_m(items, at + i)
+    end
   end
 
   # The low `size` bytes of n in two's complement, appended to `out`; a
@@ -606,7 +612,10 @@ module Packing
 
   # From byte `base` on; `@` and `X` count from the String's start, as
   # CRuby's do whatever the offset.
-  def self.unpack(bytes, template, single, associates = nil, base = 0)
+  # `padded` false leaves out the nils that stand for a value the bytes
+  # run out before, as unpack with a block leaves them out
+  # (PACK_ITEM_ADJUST).
+  def self.unpack(bytes, template, single, associates = nil, base = 0, padded: true)
     out = []
     at = base
     directives(template, "unpack").each do |c, count, big|
@@ -707,20 +716,32 @@ module Packing
         end
       when "d", "D", "E", "G"
         each_slot(bytes, at, 8, count, out) { |chunk| unpack_double(chunk, c == +"G") }
+        unpad(out, bytes, at, 8, count) unless padded
         at += 8 * (count == :all ? (bytes.bytesize - at) / 8 : (count || 1))
       when "f", "F", "e", "g"
         each_slot(bytes, at, 4, count, out) { |chunk| single_value(unpack_integer(chunk, false, c == +"g")) }
+        unpad(out, bytes, at, 4, count) unless padded
         at += 4 * (count == :all ? (bytes.bytesize - at) / 4 : (count || 1))
       else
         size, signed, order = INTEGERS.fetch(c)
         big = order == :big if order
         n = count == :all ? (bytes.bytesize - at) / size : (count || 1)
         Primitive.zr_unpack_ints(out, bytes, at, n, size, signed, big == true)
+        unpad(out, bytes, at, size, count) unless padded
         at += size * n
       end
       break if single && !out.empty?
     end
     out
+  end
+
+  # Drops the nils that a fixed count of `size`-byte values pushed past
+  # the end of the bytes.
+  def self.unpad(out, bytes, at, size, count)
+    return if count == :all
+
+    short = (count || 1) - [(bytes.bytesize - at) / size, 0].max
+    out.pop(short) if short > 0
   end
 
   def self.each_slot(bytes, at, size, count, out)
@@ -898,15 +919,15 @@ end
 class Array
   def pack(fmt, buffer: nil)
     Primitive.attr! :ruby
-    # A plain copy, so the directives read the elements as the C does and
-    # never through a subclass's size or [].
+    # The directives read the elements as the C does, never through a
+    # subclass's size or [], and see a conversion that changes the Array.
     # With a buffer, packing starts at its bytes, so `@` counts from its
     # start, as CRuby packs into it; it keeps its encoding.
     unless buffer.nil?
       raise TypeError, "buffer must be String, not #{buffer.class}" unless buffer.is_a?(String)
       raise FrozenError.new("can't modify frozen String: #{buffer.inspect}", receiver: buffer) if buffer.frozen?
     end
-    result = Packing.pack(Array.new(self), Primitive.zr_str_operand(fmt), buffer ? buffer.b : "".b)
+    result = Packing.pack(self, Primitive.zr_str_operand(fmt), buffer ? buffer.b : "".b)
     return result unless buffer
 
     associates = Packing.associated(result)
@@ -922,7 +943,7 @@ class String
   def unpack(fmt, offset: 0)
     Primitive.attr! :ruby
     bytes = plain
-    values = Packing.unpack(bytes, Primitive.zr_str_operand(fmt), false, Packing.associated(self), Packing.from(bytes, offset))
+    values = Packing.unpack(bytes, Primitive.zr_str_operand(fmt), false, Packing.associated(self), Packing.from(bytes, offset), padded: !block_given?)
     return values unless block_given?
 
     values.each { |value| yield value }
