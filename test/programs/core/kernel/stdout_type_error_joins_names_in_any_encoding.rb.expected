@@ -1,0 +1,7 @@
+"$標準出力 must have write method, Xほげ given"
+#<Encoding:UTF-8>
+#<Encoding:EUC-JP>
+43
+"$> must have write method, Integer given"
+"$stderr must have write method, Object given"
+true

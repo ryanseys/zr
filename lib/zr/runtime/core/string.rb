@@ -1346,6 +1346,19 @@ class String
     Primitive.zr_str_splice(self, start, length, text.byteslice(from, count))
   end
 
+  # rb_sprintf's %"PRIsVALUE": each part joins the message in an encoding
+  # that both share, and a part that shares none is converted into the
+  # message's encoding, with a mark for what it cannot hold
+  # (ruby__sfvextra).
+  def self.message(*parts)
+    Primitive.attr! :hidden
+    parts.each_with_object(+"") do |part, out|
+      part = part.to_s
+      out << (Encoding.compatible?(out, part) ? part : part.encode(out.encoding, invalid: :replace, undef: :replace))
+    end
+  end
+  private_class_method :message
+
   def self.try_convert(object)
     return object if String === object
 

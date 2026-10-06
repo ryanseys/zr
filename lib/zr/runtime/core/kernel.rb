@@ -904,7 +904,7 @@ module Kernel
         Warning.send(:deprecated, "variable $= is no longer effective; ignored")
         return false
       when :$stdout, :$stderr, :$>
-        raise TypeError, "#{shown} must have write method, #{value.class} given" unless value.respond_to?(:write)
+        raise TypeError, String.send(:message, shown, " must have write method, ", value.class, " given") unless value.respond_to?(:write)
       when :$0
         text = String.try_convert(value)
         raise TypeError, "no implicit conversion of #{conversion_name(value)} into String" if text.nil?
