@@ -522,7 +522,7 @@ module Zr
         # all of the new statement, for every statement of every file.
         # Almost no file has a `using`.
         made = @usings
-        traced = line_event(node)
+        traced = line_event(node) unless !taken && silent?(node)
         out = using_activation(node) || assigned_using(node) || expr(node, taken: taken)
         out = Seq.new([traced, out], traced.line) if traced
         mark_using(out, {}) if @using
@@ -1567,7 +1567,16 @@ module Zr
         then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
         If.new(predicate,
                covered(then_cover, node.statements && dead(chosen == false) { seq(node.statements, taken: taken && chosen != false) }, line),
-               covered(else_cover, node.subsequent && dead(chosen == true) { expr(node.subsequent, taken: taken && chosen != true) }, line), line)
+               covered(else_cover, node.subsequent && dead(chosen == true) { subsequent(node.subsequent, taken: taken && chosen != true) }, line), line)
+      end
+
+      # The `else` or `elsif` of an `if`. An `elsif` that starts a line
+      # fires its :line event before its predicate, as a statement does.
+      #: (Prism::ElseNode | Prism::IfNode node, taken: bool) -> node
+      def subsequent(node, taken:)
+        traced = line_event(node) if node.is_a?(Prism::IfNode)
+        built = expr(node, taken: taken)
+        traced ? Seq.new([traced, built], traced.line) : built
       end
 
       #: (Prism::UnlessNode node, Integer line, taken: bool) -> If

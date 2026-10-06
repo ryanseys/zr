@@ -26,6 +26,32 @@ module Zr
         Trace.new(:line, line)
       end
 
+      # Plain values that CRuby's compiler drops when nothing uses them.
+      SILENT = [
+        Prism::IntegerNode, Prism::FloatNode, Prism::RationalNode, Prism::ImaginaryNode, Prism::StringNode, Prism::SymbolNode,
+        Prism::RegularExpressionNode, Prism::NilNode, Prism::TrueNode, Prism::FalseNode, Prism::SelfNode, Prism::SourceFileNode,
+        Prism::SourceLineNode, Prism::SourceEncodingNode, Prism::LocalVariableReadNode, Prism::InstanceVariableReadNode,
+        Prism::ClassVariableReadNode, Prism::DefinedNode
+      ].freeze
+
+      # Whether a statement whose value nothing uses compiles to no
+      # instruction, so it fires no :line event: a plain value, a static
+      # Array, or a Hash, Range or parentheses of such values.
+      #: (Prism::node? node) -> bool
+      def silent?(node)
+        case node
+        when nil then true
+        when *SILENT then true
+        when Prism::ArrayNode then node.static_literal?
+        when Prism::HashNode then node.elements.all? { |e| e.is_a?(Prism::AssocNode) && silent?(e.key) && silent?(e.value) }
+        when Prism::RangeNode then silent?(node.left) && silent?(node.right)
+        when Prism::ParenthesesNode
+          body = node.body
+          body.is_a?(Prism::StatementsNode) ? body.body.all? { |s| silent?(s) } : silent?(body)
+        else false
+        end
+      end
+
       # The id of the def-site entry that a `def` or a block uses when it
       # makes a method, or nil if coverage is not measured.
       #: (Prism::node node) -> Integer?
