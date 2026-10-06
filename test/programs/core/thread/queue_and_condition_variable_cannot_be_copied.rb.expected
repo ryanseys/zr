@@ -1,0 +1,6 @@
+"undefined method 'initialize_copy' for an instance of Thread::Queue"
+"can't dump Thread::Queue"
+"undefined method 'initialize_copy' for an instance of Thread::SizedQueue"
+"can't dump Thread::SizedQueue"
+"undefined method 'initialize_copy' for an instance of Thread::ConditionVariable"
+"can't dump Thread::ConditionVariable"
