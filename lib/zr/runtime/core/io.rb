@@ -1764,7 +1764,8 @@ class IO
     i = 0
     while i < Primitive.zr_ary_len_m(objects)
       line = Primitive.zr_ary_at_m(objects, i)
-      out.write(inspect ? line.inspect : line, "\n")
+      # rb_p writes rb_inspect of each object.
+      out.write(inspect ? Primitive.zr_inspect(line) : line, "\n")
       i += 1
     end
     out.send(:flushed) if out.is_a?(IO)
@@ -3246,7 +3247,7 @@ module Kernel
   def p(*objects)
     if Primitive.zr_threaded
       # Only the writes are held back; each inspect runs before them.
-      shown = objects.map(&:inspect)
+      shown = objects.map { |object| Primitive.zr_inspect(object) }
       Thread.send(:uninterruptible) { IO.send(:p_to, $stdout, shown, false) }
     else
       IO.send(:p_to, $stdout, objects, true)
@@ -3325,6 +3326,7 @@ class SystemCallError
     end
     super(text)
     Primitive.zr_hidden_set(self, :__errno__, errno)
+    self
   end
 
   # A rescue of an Errno class catches the errors with its errno, as

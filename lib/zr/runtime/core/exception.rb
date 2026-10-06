@@ -394,6 +394,7 @@ class NoMatchingPatternKeyError < NoMatchingPatternError
     Primitive.zr_hidden_set(self, :__matchee__, options[:matchee]) if options.key?(:matchee)
     Primitive.zr_hidden_set(self, :__key__, options[:key]) if options.key?(:key)
     Primitive.zr_hidden_set(self, :__given__, options.key?(:key))
+    self
   end
 
   def matchee
@@ -444,6 +445,7 @@ class NameError
     super(message)
     @name = name
     @receiver = receiver unless receiver.equal?(UNSET)
+    self
   end
 
   def receiver
@@ -476,6 +478,7 @@ class NoMethodError
     super(message, name, receiver: receiver)
     @args = args
     @private_call = private_call ? true : false
+    self
   end
 
   def private_call? = @private_call == true
@@ -502,6 +505,7 @@ class KeyError
     super(message)
     @receiver = receiver unless receiver.equal?(UNSET)
     @key = key unless key.equal?(UNSET)
+    self
   end
 
   def key
@@ -539,6 +543,7 @@ class FrozenError
   def initialize(message = nil, receiver: UNSET)
     super(message)
     @receiver = receiver unless receiver.equal?(UNSET)
+    self
   end
 
   def receiver

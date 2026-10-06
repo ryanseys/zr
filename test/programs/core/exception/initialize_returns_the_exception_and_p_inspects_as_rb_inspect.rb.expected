@@ -1,0 +1,65 @@
+Exception: true
+StandardError: true
+RuntimeError: true
+ArgumentError: true
+NameError: true
+NoMethodError: true
+KeyError: true
+FrozenError: true
+NoMatchingPatternKeyError: true
+StopIteration: true
+SystemExit: true
+SignalException: true
+Interrupt: true
+SyntaxError: true
+LocalJumpError: true
+IOError: true
+EOFError: true
+TypeError: true
+ZeroDivisionError: true
+FloatDomainError: true
+RangeError: true
+RegexpError: true
+ThreadError: true
+FiberError: true
+EncodingError: true
+Encoding::CompatibilityError: true
+NotImplementedError: true
+ScriptError: true
+LoadError: true
+SecurityError: true
+SystemStackError: true
+NoMemoryError: true
+IndexError: true
+UncaughtThrowError: true
+ClosedQueueError: true
+Errno::ENOENT
+true
+"é"
+"\xFF"
+"\u00E9"
+:é
+custom
+1
+"x"
+1
+:s
+"x"
+[:c_call, :p, nil]
+[:c_call, :to_s, nil]
+[:c_return, :to_s, String]
+[:c_return, :p, Integer]
+[:c_call, :p, nil]
+[:c_call, :inspect, nil]
+[:c_return, :inspect, String]
+[:c_call, :inspect, nil]
+[:c_return, :inspect, String]
+[:c_return, :p, Array]
+[:c_call, :raise, nil]
+[:c_call, :initialize, nil]
+[:c_return, :initialize, RuntimeError]
+[:c_return, :raise, NilClass]
+[:c_call, :backtrace, nil]
+[:c_return, :backtrace, NilClass]
+[:c_call, :===, nil]
+[:c_return, :===, TrueClass]

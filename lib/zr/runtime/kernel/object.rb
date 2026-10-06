@@ -1092,7 +1092,7 @@ module Zr::Kern
   # these calls raised.
   #: (value) -> value
   def zr_inspect(v)
-    s = zr_send(v, Machine.id(:inspect), 0, 0)
+    s = zr_send_for_caller(v, Machine.id(:inspect), 0, 0, Machine.value(QNIL))
     return s if s == QUNDEF
     s = zr_obj_as_string(s)
     return s if s == QUNDEF
@@ -1747,7 +1747,8 @@ module Zr::Kern
     if argc > 0
       RException[recv].message = Machine.value(Machine.load64(argv, 0))
     end
-    Machine.value(QNIL)
+    # exc_initialize returns the exception.
+    recv
   end
 
   # `p`: writes each argument's inspect on its own line. Returns the
