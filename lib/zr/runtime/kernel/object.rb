@@ -1078,16 +1078,17 @@ module Zr::Kern
   end
 
   # rb_inspect: the result of `inspect`, made a String by
-  # rb_obj_as_string. Non-ASCII text in an encoding other than UTF-8 (the
-  # default external encoding) is escaped, so all results are compatible
-  # with each other. Returns undef when one of these calls raised.
+  # rb_obj_as_string. Non-ASCII text in an encoding other than the default
+  # internal one (else the default external one) is escaped, so all
+  # results are compatible with each other. Returns undef when one of
+  # these calls raised.
   #: (value) -> value
   def zr_inspect(v)
     s = zr_send(v, Machine.id(:inspect), 0, 0)
     return s if s == QUNDEF
     s = zr_obj_as_string(s)
     return s if s == QUNDEF
-    if zr_str_encoding_index(s) == ENC_UTF8 || zr_str_ascii_bytes_p(s)
+    if zr_str_encoding_index(s) == zr_inspect_index() || zr_str_ascii_bytes_p(s)
       return s
     end
     zr_send(s, Machine.id(:escape), 0, 0)

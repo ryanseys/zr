@@ -284,10 +284,17 @@ module Zr
 
       # The encoding the pattern is read in: a flag letter's, else the
       # source's when it is not UTF-8, as a file with `# encoding: binary`
-      # has it. nil reads it as UTF-8.
+      # has it. A pattern with an escaped byte past ASCII in a source that
+      # is not UTF-8 is binary, as Prism marks it (reg_fragment_setenc).
+      # nil reads it as UTF-8.
       #: (untyped node) -> Encoding?
       def regexp_encoding(node)
-        flag_encoding(node) || (@encoding == ::Encoding::UTF_8 ? nil : @encoding)
+        flag = flag_encoding(node)
+        return flag if flag
+        return nil if @encoding == ::Encoding::UTF_8
+        return ::Encoding::BINARY if node.forced_binary_encoding?
+
+        @encoding
       end
 
       # What rb_reg_preprocess says of the escapes and the multibyte

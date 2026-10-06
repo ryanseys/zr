@@ -1,0 +1,5 @@
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:US-ASCII>
+#<Encoding:EUC-JP>
+"[\"\xB4\xC1\xBB\xFA\"]"
+"[\"\\x{B4C1}\\x{BBFA}\"]"
