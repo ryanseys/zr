@@ -129,11 +129,16 @@ module Zr::Kern
   # because CRuby uses primitives, so its sends also fire nothing.
   #: () -> bool
   def zr_trace_c_caller_p
-    top = Task[zr_task()].top
-    if top == 0
+    zr_trace_program_frame_p(Task[zr_task()].top)
+  end
+
+  # Whether the frame `rec` is the program's, not the core library's.
+  #: (ptr) -> bool
+  def zr_trace_program_frame_p(rec)
+    if rec == 0
       return true
     end
-    meta = Frame[top].meta
+    meta = Frame[rec].meta
     kind = FrameMeta[meta].kind
     kind != KIND_BUILTIN && kind != KIND_HIDDEN && FrameMeta[meta].hidden == 0
   end

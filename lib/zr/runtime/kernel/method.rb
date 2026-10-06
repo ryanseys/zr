@@ -228,6 +228,12 @@ module Zr::Kern
     if found == 0 || MEntry[found].meta != MEntry[e].meta || MEntry[found].cref != MEntry[e].cref || MEntry[found].from != MEntry[e].from
       Task[zr_task()].found = zr_method_super_start(m, e)
     end
+    # A C method that the program calls through a Method fires :c_call
+    # and :c_return, as vm_call0 fires them under Method#call.
+    top = Task[zr_task()].top
+    if zr_trace_sends_p() && zr_trace_c_entry_p(e) && top != 0 && zr_trace_program_frame_p(Frame[top].prev)
+      return zr_trace_send_invoke(e, RMethod[m].recv, MEntry[e].mid, argc, argv, blk, zr_kw_take(), TRACE_C_CALL)
+    end
     zr_invoke(e, RMethod[m].recv, argc, argv, blk, zr_kw_take())
   end
 
