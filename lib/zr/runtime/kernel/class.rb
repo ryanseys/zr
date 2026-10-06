@@ -86,6 +86,7 @@ module Zr::Kern
     attr_accessor :cover #: word
     attr_accessor :direct #: ptr
     attr_accessor :concealed #: word
+    attr_accessor :body #: ptr
   end
 
   class CEntry < Layout
@@ -1836,6 +1837,7 @@ module Zr::Kern
     MEntry[e].direct = Machine.ptr(Machine.load64(zr_direct_pending(), 0))
     MEntry[e].ivar.index = 0
     MEntry[e].concealed = conceal ? 1 : 0
+    MEntry[e].body = 0
     if conceal
       zr_hidden_defined_method(klass, mid)
     end
@@ -2342,9 +2344,11 @@ module Zr::Kern
     end
     cover = MEntry[e].cover
     direct = MEntry[e].direct
+    body = MEntry[e].body
     zr_method_add_vis(klass, mid, MEntry[e].fn, MEntry[e].arity, MEntry[e].kind, meta, MEntry[e].cref, vis)
     e = zr_find_method_at(zr_origin(klass), mid)
     MEntry[e].orig = orig
+    MEntry[e].body = body
     MEntry[e].from = from
     # An alias or a visibility copy of a def with a direct entry keeps it.
     MEntry[e].direct = direct
