@@ -64,8 +64,9 @@ module Zr
     # `branches` contains each measured file's branch records, by file
     # name, in Coverage's order. `defs` contains each file's def and
     # block spans; a definition uses its span to become a method entry.
+    # `using` is the `using` entry in force at the end of an eval's toplevel.
     Program = Node.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots,
-                       :coverable, :activations, :branches, :defs)
+                       :coverable, :activations, :branches, :defs, :using)
     # `hidden` if the unit loads only for the runtime's own use, as the
     # eval support files do.
     # `source` is the bytes that the unit was built from. `activates`

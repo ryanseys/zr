@@ -160,7 +160,7 @@ module Zr
         coverable = loader.covers? || !eval_support ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
         Program.new(main.file, main.locals, body, loader.units, main_warnings(main.warnings, switches.verbose), eval_support && loader.evals?, loader.entries, loader.tracing?,
                     main.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
-                    loader.covers? ? loader.defs : {})
+                    loader.covers? ? loader.defs : {}, loader.eval_using_after)
       end
 
       # The main file's parse-time warnings under the -W level it was
@@ -221,6 +221,11 @@ module Zr
         # whose parameters are in its own scope.
         @def_depths = nil
       end
+
+      # The `using` entry in force at the end of the toplevel, or nil. An
+      # eval in a Binding leaves it there for the next eval.
+      #: () -> Integer?
+      def top_using = @using.is_a?(Integer) ? @using : nil
 
       # An eval's string runs inside a method. A bare `super` passes the
       # parameters in `rows`, each read from the scope in `scopes`

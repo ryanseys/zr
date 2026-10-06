@@ -19,7 +19,7 @@ module Kernel
       code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(binding), Primitive.zr_binding_parameters(binding),
                                       using: Primitive.zr_hidden_get(binding, :__using__))
       Primitive.zr_trace_script_compiled(source, name, line)
-      return Primitive.zr_binding_run(code, binding)
+      return Binding.send(:run_using, code, binding)
     end
     name = file || Primitive.zr_eval_source_name
     code = Zr::Eval.current.compile(source, name, line, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters, using: using)
@@ -41,8 +41,18 @@ class Binding
     code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(self), Primitive.zr_binding_parameters(self),
                                     using: Primitive.zr_hidden_get(self, :__using__))
     Primitive.zr_trace_script_compiled(source, name, line)
-    Primitive.zr_binding_run(code, self)
+    Binding.send(:run_using, code, self)
   end
+
+  # Runs `code` in `binding`. A `using` at the toplevel of the string
+  # stays in the Binding, as it changes the Binding's cref in ruby, so the
+  # next eval in it sees the refinement.
+  def self.run_using(code, binding)
+    result = Primitive.zr_binding_run(code, binding)
+    Primitive.zr_hidden_set(binding, :__using__, code[5]) if code[5]
+    result
+  end
+  private_class_method :run_using
 end
 
 class Module

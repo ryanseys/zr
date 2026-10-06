@@ -20,7 +20,7 @@ module Zr
     # @rbs @symbols: Machine::Symbols
     # @rbs @host: Obj::_JITHost
     # @rbs @count: Integer
-    # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer]] | Exception]
+    # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
     # @rbs @files: Hash[[String, String], Integer]
 
     # Two threads can eval at the same time. Only one of them loads the
@@ -98,7 +98,7 @@ module Zr
     # @rbs using: Integer?
     # @rbs warn_now: bool
     # @rbs debug_frozen: bool
-    # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
+    # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
     def compile(source, file, line = 1, scopes = [], method = nil, using: nil, warn_now: false, debug_frozen: false)
       Eval.plainly { compiled(source, file, line, scopes, method, using: using, warn_now: warn_now, debug_frozen: debug_frozen) }
     rescue Hir::Invalid => e
@@ -173,7 +173,7 @@ module Zr
     # @rbs using: Integer?
     # @rbs warn_now: bool
     # @rbs debug_frozen: bool
-    # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
+    # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
     def compiled(source, file, line, scopes, method, using:, warn_now:, debug_frozen: false)
       # eval_make_iseq: a source that is not ASCII compatible cannot be read.
       raise ArgumentError, "invalid source encoding" unless string(source).encoding.ascii_compatible?
@@ -228,7 +228,7 @@ module Zr
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes)).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
-      code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas] #: [Integer, Integer, Integer, Integer, Array[Integer]]
+      code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"), metas, hir.using] #: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
       @compiled[key] = code if reuse && hir.activations == taken
       code
     end

@@ -247,6 +247,8 @@ module Zr
         # The `using` entry in force where an eval runs, which its code
         # starts under, or nil.
         attr_accessor :eval_using #: Integer?
+        # The `using` entry in force at the end of an eval's toplevel.
+        attr_reader :eval_using_after #: Integer?
 
         #: () -> Integer
         def next_activation = @activations.tap { @activations += 1 }
@@ -535,6 +537,7 @@ module Zr
           # the unit cache cannot keep a file that takes one.
           rows = @activations
           body = build.seq(result.value.statements, hoist: true)
+          @eval_using_after = build.top_using if scopes
           unless @eval || @hiding || file.start_with?("<") || Library::Roots.runtime_file?(file)
             spots = Spots.for(result, source, { filepath: file, line: line })
           end

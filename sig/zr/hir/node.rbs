@@ -55,6 +55,7 @@ module Zr
       attr_accessor activations: Integer?
       attr_accessor branches: Hash[String, Array[Array[Symbol | Integer | nil]]]?
       attr_accessor defs: Hash[String, Array[Array[Integer]]]?
+      attr_accessor using: Integer?
     end
 
     # The lowering releases `body`, `locals`, `source` and `node_ids`
