@@ -323,7 +323,14 @@ module Zr::Kern
     row = zr_trace_row(event & (TRACE_LAMBDA - 1), value, Frame[rec].meta, line)
     method = zr_method_meta_of(rec)
     entry = zr_bmethod_entry(rec)
-    if method != 0 && FrameMeta[method].kind == KIND_DEF
+    if entry != 0 && zr_trace_in_bmethod_body(Frame[rec].meta, RProc[MEntry[entry].cref].meta)
+      # A define_method body runs as a block, under its method's name:
+      # the name it was defined with, and the name of the call. The def
+      # that the block is written in is not the method.
+      zr_ary_push(row, zr_sym(MEntry[entry].orig))
+      zr_ary_push(row, zr_sym(MEntry[entry].mid))
+      zr_ary_push(row, FrameMeta[MEntry[entry].meta].owner)
+    elsif method != 0 && FrameMeta[method].kind == KIND_DEF
       zr_ary_push(row, zr_sym(FrameMeta[method].name))
       home = rec
       while home != 0 && Frame[home].meta != method
@@ -331,12 +338,6 @@ module Zr::Kern
       end
       zr_ary_push(row, zr_sym(home == 0 || zr_frame_mid(home) == 0 ? FrameMeta[method].name : zr_frame_mid(home)))
       zr_ary_push(row, zr_trace_defined_class(home, method))
-    elsif entry != 0
-      # A define_method body runs as a block, under its method's name:
-      # the name it was defined with, and the name of the call.
-      zr_ary_push(row, zr_sym(MEntry[entry].orig))
-      zr_ary_push(row, zr_sym(MEntry[entry].mid))
-      zr_ary_push(row, FrameMeta[MEntry[entry].meta].owner)
     else
       zr_ary_push(row, Machine.value(QNIL))
       zr_ary_push(row, Machine.value(QNIL))
@@ -348,6 +349,23 @@ module Zr::Kern
     zr_ary_push(row, zr_fix(entry))
     zr_ary_push(row, zr_bool((event & TRACE_LAMBDA) != 0))
     zr_trace_run(row)
+  end
+
+  # Whether code of `meta` is written in the define_method body `body`,
+  # and in no def inside that body.
+  #: (ptr, ptr) -> bool
+  def zr_trace_in_bmethod_body(meta, body)
+    m = meta
+    while m != 0
+      if m == body
+        return true
+      end
+      if FrameMeta[m].kind == KIND_DEF
+        return false
+      end
+      m = FrameMeta[m].parent
+    end
+    false
   end
 
   # The class of the method that frame `home` runs: where the call found

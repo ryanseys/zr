@@ -1,0 +1,5 @@
+[[:b_return, :m, :alias_m], [:return, :m, :alias_m]]
+[[:b_return, :m, :alias_m], [:b_return, :m, :alias_m], [:b_return, :go, :go]]
+[[:line, :go, :go], [:line, :m, :alias_m], [:line, :m, :alias_m], [:b_return, :m, :alias_m], [:b_return, :m, :alias_m], [:b_return, :go, :go]]
+[[:call, :m, :m], [:call, :inner, :inner], [:return, :inner, :inner], [:return, :m, :m]]
+[[:b_call, nil], [:call, :pm], [:b_call, :pm], [:b_return, :pm], [:return, :pm], [:b_call, nil], [:b_return, nil], [:b_return, nil]]
