@@ -102,6 +102,17 @@ module Zr::Kern
     zr_fix(Machine.u32(Machine.load32(pid, 0)))
   end
 
+  # Stores a limit that Process checked to fit an rlim_t, a Fixnum or a
+  # Bignum such as RLIM_INFINITY, without an allocation.
+  #: (word, value) -> void
+  def zr_rlim_store(out, limit)
+    if zr_fixnum_p(limit)
+      Machine.store64(out, 0, zr_fix2long(limit))
+    else
+      zr_big_to_long(limit, out)
+    end
+  end
+
   # Applies to this process the options that posix_spawn cannot take, in
   # the order of rb_execarg_run_options: the process group (`pgroup` -1
   # keeps it, 0 makes a new one), the resource limits (`limits` contains
@@ -131,8 +142,8 @@ module Zr::Kern
     pair = Machine.slot(16)
     i = 0
     while i < RArray[limits].len
-      Machine.store64(pair, 0, zr_fix2long(zr_ary_at(limits, i + 1)))
-      Machine.store64(pair, 8, zr_fix2long(zr_ary_at(limits, i + 2)))
+      zr_rlim_store(pair, zr_ary_at(limits, i + 1))
+      zr_rlim_store(pair + 8, zr_ary_at(limits, i + 2))
       if Libc.setrlimit(Machine.i32(zr_fix2long(zr_ary_at(limits, i))), pair) < Machine.i32(0)
         return zr_errno()
       end

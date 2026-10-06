@@ -213,7 +213,9 @@ module Process
                    elsif limits.size == 2 then limits
                    else raise ArgumentError, +"wrong exec rlimit option"
                    end
-      @limits.push(resource, Process.send(:signed, Integer.send(:int_operand, soft)), Process.send(:signed, Integer.send(:int_operand, hard)))
+      # NUM2RLIM: a limit fills an rlim_t, so RLIM_INFINITY fits.
+      soft, hard = [soft, hard].map { |limit| Process.send(:signed, Process.send(:unsigned, limit, 64, +"unsigned long long")) }
+      @limits.push(resource, soft, hard)
     end
 
     # The child's descriptors one option key names.
@@ -645,8 +647,9 @@ module Process
                Integer.try_convert(value) || raise(TypeError, "no implicit conversion of #{conversion_name(value)} into Integer")
              end
     wide = bits == 64 ? type : +"unsigned long"
+    # rb_big2ull: a magnitude past 64 bits is too big whatever its sign.
+    raise RangeError, "bignum too big to convert into '#{wide}'" if number.abs >= 2**64
     raise RangeError, "bignum out of range of #{wide}" if number < -2**63
-    raise RangeError, "bignum too big to convert into '#{wide}'" if number >= 2**64
     return number % 2**64 if bits == 64
 
     raise RangeError, "integer #{number} too small to convert to '#{type}'" if number < -2**(bits - 1)
