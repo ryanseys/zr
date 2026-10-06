@@ -64,7 +64,11 @@ class IO
     reader, writer = pipe_ends.map.with_index { |fd, i| allocate.tap { |io| io.send(:initialize, fd, i.zero? ? +"r" : +"w") } }
     binmode = options.delete(:binmode)
     reader.set_encoding(external, internal, **options) if external
-    [reader, writer].each(&:binmode) if binmode
+    # rb_io_s_pipe: `binmode:` with an encoding sets binary mode only, and
+    # the encoding stays; with none, both ends read and write binary.
+    if binmode
+      [reader, writer].each { |io| external ? io.send(:binary_mode_flag) : io.binmode }
+    end
     # rb_io_synchronized: the write end of a pipe buffers nothing, so a
     # reader of the other end sees each write immediately.
     writer.sync = true
@@ -1168,6 +1172,12 @@ class IO
     nil
   end
 
+  # FMODE_BINMODE alone: no newline conversion, and the encodings stay.
+  def binary_mode_flag
+    Primitive.attr! :hidden
+    @binmode = true
+  end
+
   # Binary mode: all that is read after this is binary, and so are the
   # bytes already in the buffer.
   def binmode
@@ -1640,8 +1650,9 @@ class IO
         fill_cooked until @eof
         text = @buffer
       end
-      out = transcoded(text)
+      # A conversion that stops pushes back what follows the bad byte.
       clear_buffer
+      out = transcoded(text)
     else
       if scheduled
         text = bufread(length)
@@ -2456,6 +2467,21 @@ class IO
     return text if text.nil? || @internal.nil?
 
     text.encode(@internal, @external || Encoding.default_external, **@read_options)
+  rescue Encoding::InvalidByteSequenceError, Encoding::UndefinedConversionError
+    stopped_conversion(text)
+  end
+
+  # rb_econv_convert stops at a byte it cannot convert: the text that
+  # this read made is dropped, the bytes after the error stay for the
+  # next read, and the read raises the converter's error.
+  def stopped_conversion(text)
+    Primitive.attr! :hidden
+    from = @external || Encoding.default_external
+    converter = Encoding::Converter.new(from, @internal, **@read_options)
+    rest = text.dup.force_encoding(from)
+    converter.primitive_convert(rest, +"")
+    push_back(rest) unless rest.empty?
+    raise converter.last_error
   end
 
   def clear_buffer
@@ -2525,9 +2551,19 @@ class IO
         break unless onig.precise_mbclen(@buffer.byteslice(0, n), 0) < -1
       end
     elsif n < 0
-      n = 1
+      n = @internal ? unreadable_length(enc) : 1
     end
     take(n).force_encoding(enc)
+  end
+
+  # A converting stream reads an invalid character as its converter does:
+  # the error bytes are one character, and what follows is read again.
+  def unreadable_length(enc)
+    Primitive.attr! :hidden
+    converter = Encoding::Converter.new(enc, @internal)
+    converter.primitive_convert(@buffer.dup.force_encoding(enc), +"")
+    error = converter.primitive_errinfo[3]
+    error ? [error.bytesize, 1].max : 1
   end
 
   # Bytes in front of the buffer, for ungetc and ungetbyte to hand back.

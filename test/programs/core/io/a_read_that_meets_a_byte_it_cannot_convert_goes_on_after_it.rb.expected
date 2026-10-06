@@ -1,0 +1,14 @@
+[Encoding::InvalidByteSequenceError, "\x80"]
+true
+[Encoding::InvalidByteSequenceError, "\x80"]
+true
+true
+true
+[Encoding::InvalidByteSequenceError, "\x00\xD8"]
+true
+true
+"a?b"
+Encoding::InvalidByteSequenceError
+"b"
+[Encoding::InvalidByteSequenceError, "\xE3\x81"]
+"a"
