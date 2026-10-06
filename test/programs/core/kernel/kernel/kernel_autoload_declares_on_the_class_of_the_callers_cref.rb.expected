@@ -1,0 +1,12 @@
+[:class_eval_block, ["A"]]
+[:class_eval_string, ["A"]]
+[:instance_eval_block, ["B"]]
+[:instance_eval_with_singleton, ["C"]]
+[:class_new_block, [], "k5"]
+[:module_singleton_method, [], "k6"]
+[:method_in_class, ["A"]]
+[:define_method, ["Object"]]
+["k7", "k1", nil]
+["k3", nil]
+"k8"
+["bogus", "bogus"]

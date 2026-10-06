@@ -1557,10 +1557,15 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)
     end
     # Kernel#autoload (from main, from Kernel, or from a method whose self
-    # is not a module) declares on the lexical class, as rb_f_autoload
-    # reads rb_vm_cbase. Module#autoload declares on its receiver.
+    # is not a module) declares on the class of the caller's cref, as
+    # rb_f_autoload reads rb_vm_cbase. A cref that class_exec or
+    # instance_eval pushed counts too, and for instance_eval the class is
+    # the object's real class. Module#autoload declares on its receiver.
     if mod == zr_global(G_MAIN) || mod == zr_global(G_KERNEL) || zr_special_p(mod) || (zr_type(mod) != T_CLASS && zr_type(mod) != T_MODULE)
-      mod = zr_cref_klass(zr_cref_lexical(cref))
+      mod = zr_cref_lookup_class(cref)
+      while zr_singleton_p(mod) || zr_type(mod) == T_ICLASS
+        mod = RClass[mod].superclass
+      end
     end
     # A name that already has a value stays, as `autoload_synchronized`
     # (variable.c:2913) returns false for it. A name with no value (undefined,

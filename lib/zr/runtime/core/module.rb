@@ -303,7 +303,8 @@ module Kernel
     Primitive.zr_autoload_computed(Kernel, Module.instance_method(:autoload_name).bind_call(Kernel, name), path,
                                    Primitive.zr_eval_cref, Kernel.loaded_feature?(path, file), file)
   end
-  def autoload?(name, inherit = true) = Object.autoload?(name)
+  # rb_f_autoload_p: the class of the caller's cref, as `autoload` uses.
+  def autoload?(name, inherit = true) = Primitive.zr_cref_lookup_class(Primitive.zr_eval_cref).autoload?(name, inherit)
   private :autoload, :autoload?
 end
 
