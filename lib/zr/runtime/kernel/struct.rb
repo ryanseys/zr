@@ -155,12 +155,14 @@ module Zr::Kern
   end
 
   # Makes the values of a struct that has none: one nil for each member of
-  # its class, in `__values__`.
+  # its class, in `__values__`. CRuby makes them with the object, so they
+  # are state that a freeze does not lock: a frozen struct whose
+  # initialize set none still has them.
   #: (value) -> value
   def zr_struct_values_new(recv)
     values = zr_struct_values_of(RArray[zr_struct_members(zr_real_class(recv))].len, 0, Machine.ptr(0))
-    r = zr_ivar_set(recv, Machine.id(:__values__), values)
-    r == QUNDEF ? r : values
+    zr_state_set(recv, zr_sym(Machine.id(:__values__)), values)
+    values
   end
 
   # Returns the values of a struct, and makes them first if it has none.

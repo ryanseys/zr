@@ -218,7 +218,8 @@ module Zr::Kern
     if zr_singleton_p(orig)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy singleton class"), 26)
     end
-    klass = zr_type(orig) == T_CLASS ? zr_global(G_CLASS) : zr_global(G_MODULE)
+    # The copy is of the original's own class, a subclass of Module too.
+    klass = zr_real_class(orig)
     copy = zr_class_alloc(zr_type(orig), RClass[orig].superclass, klass)
     from = RClass[orig].ext
     ext = RClass[copy].ext
