@@ -375,9 +375,21 @@ class TracePoint
     # return, refuses for the events above, and falls through to nil for
     # the others: an event that the machine fires is in no method and has none.
     return nil if %i[thread_begin thread_end fiber_switch].include?(event)
+    return c_parameters if %i[c_call c_return].include?(event)
 
     Primitive.zr_trace_parameters(row[9], row[10], row[11])
   end
+
+  # rb_unnamed_parameters: a C method's parameters, as its arity gives
+  # them.
+  def c_parameters
+    Primitive.attr! :hidden
+    klass = defined_class or return []
+    klass.instance_method(method_id).parameters
+  rescue NameError
+    []
+  end
+  private :c_parameters
 
   # The string that this code was compiled from, or nil when it came from
   # a file, as rb_tracearg_eval_script returns nil for an iseq alone.
