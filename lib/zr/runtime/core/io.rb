@@ -971,14 +971,16 @@ class IO
     raise IOError, +"uninitialized stream" if @fd.nil?
     return nil if @closed
 
+    # rb_io_close_m checks no freeze: a frozen stream closes too. A core
+    # ivar has no `@` in its name.
     write_pending
-    @closed = true
+    Primitive.zr_state_set(self, :closed, true)
     own_descriptor
     Thread.send(:fd_closed, @fd) if Primitive.zr_threaded
     if @twin
       twin = @twin
       Fiber.send(:offloaded) { Primitive.zr_io_close(twin) }
-      @twin = nil
+      Primitive.zr_state_set(self, :twin, nil)
     end
     if @autoclose
       # A non-blocking fiber's scheduler may close the descriptor itself;
@@ -1002,7 +1004,7 @@ class IO
   private def reap_child
     Primitive.attr! :hidden
     pid = @pid
-    @pid = nil
+    Primitive.zr_state_set(self, :pid, nil)
     Process.send(:status!, nil)
     Process.wait(pid)
   rescue Errno::ECHILD
