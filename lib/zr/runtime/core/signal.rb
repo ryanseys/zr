@@ -138,10 +138,13 @@ module Signal
     end
 
     # A safe point: every signal that came runs its command. A signal
-    # that comes while a command runs waits for it to end.
+    # that comes while a command runs waits for it to end, and one that
+    # comes while the scheduler changes its lists waits for the next safe
+    # point: a block that the scheduler's own loops call is one, and a
+    # command run there would change those lists under them.
     def deliver
       Primitive.attr! :hidden
-      return nil if Primitive.zr_hidden_get(self, :__delivering__)
+      return nil if Primitive.zr_hidden_get(self, :__delivering__) || Thread.send(:busy?)
       # The commands run in the main thread, as rb_signal_exec runs them:
       # another thread that reaches a safe point wakes it.
       return Thread.main.send(:signalled) unless Thread.current.equal?(Thread.main)

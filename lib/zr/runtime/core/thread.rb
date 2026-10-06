@@ -390,6 +390,14 @@ class Thread
     # whole, as ruby's C runs under its lock. The core's own Array methods
     # are compiled Ruby, and a preemption in the middle of one would let
     # another thread change the same list.
+    # Whether the scheduler chooses a thread or changes one of its lists
+    # now: Ruby that a safe point would run in the middle, a signal's
+    # command, must wait.
+    def busy?
+      Primitive.attr! :hidden
+      @switching || @atomic
+    end
+
     def atomically
       Primitive.attr! :hidden
       return yield if @atomic
