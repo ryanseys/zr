@@ -1,0 +1,4 @@
+[:wait, :kill, ["sleep", true], false, false]
+[:wait, :raise, ["sleep", ArgumentError, true, false], false, false]
+[:sleep, :kill, ["sleep", true], false, false]
+[:sleep, :raise, ["sleep", ArgumentError, true, false], false, false]

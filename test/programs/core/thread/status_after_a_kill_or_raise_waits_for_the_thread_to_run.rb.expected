@@ -1,0 +1,8 @@
+[:kill_sleep, "sleep"]
+[:raise_sleep, "sleep"]
+"x"
+[:wakeup_sleep, "run"]
+[:kill_pop, "sleep"]
+[:kill_lock, "sleep"]
+[:after, false]
+[:kill_running, "run"]

@@ -572,13 +572,19 @@ class Thread
 
   # A killed thread that still runs its ensure clauses is aborting, unless
   # it sleeps there.
+  # A kill or an exception that another thread sends changes nothing here
+  # until this thread runs: one that slept still shows "sleep", and one
+  # shows "aborting" only once it unwinds for the kill (th->to_kill).
   def status
     return false if @ended
 
     case @status
     when :dead then @exception ? nil : false
     when :sleep then +"sleep"
-    else @killed ? +"aborting" : +"run"
+    else
+      return +"sleep" if @interrupted_asleep
+
+      @aborting ? +"aborting" : +"run"
     end
   end
 
@@ -627,7 +633,7 @@ class Thread
       kill_here
     else
       @killed = true
-      wakeup
+      interrupt
     end
     self
   end
@@ -647,7 +653,7 @@ class Thread
     Kernel.raise(exception) if equal?(Thread.current) && !masked?(exception)
     @raised_first = !@killed
     @pending = exception
-    wakeup
+    interrupt
     nil
   end
 
@@ -666,6 +672,14 @@ class Thread
     wakeup
     Thread.pass
     self
+  end
+
+  # Wakes this thread for a kill or an exception that another thread
+  # sent. Until it runs, it still shows the status it had.
+  private def interrupt
+    Primitive.attr! :hidden
+    @interrupted_asleep = true if @status == :sleep
+    wakeup
   end
 
   # Fiber-local storage, keyed by the fiber this thread runs, which is
@@ -1012,6 +1026,7 @@ class Thread
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(Thread, :current, self)
     @status = :run
+    @interrupted_asleep = false
     @ticks = 0
     Primitive.zr_hidden_set(from, :fiber, Fiber.current)
     Primitive.zr_fiber_scheduler_switch(@fiber)
@@ -1021,7 +1036,7 @@ class Thread
   # takes effect now.
   def interrupted
     Primitive.attr! :hidden
-    return unless @armed
+    return unless @armed && !@relocking
 
     # The interrupts arrive in the order they were sent: an exception
     # sent before a kill ends the thread as that exception. One sent while
@@ -1142,6 +1157,21 @@ class Thread
   def park_io(fd, events)
     Primitive.attr! :hidden
     watching([fd], [events]) { wait(nil, false) }
+  end
+
+  # Takes `mutex` back after Mutex#sleep or ConditionVariable#wait, as
+  # mutex_lock_uninterruptible does: a kill or an exception that another
+  # thread sends meanwhile waits until this thread has the lock, and then
+  # takes effect.
+  def relock(mutex)
+    Primitive.attr! :hidden
+    @relocking = true
+    begin
+      mutex.lock
+    ensure
+      @relocking = false
+    end
+    interrupted
   end
 
   # Wait on a list whose owner wakes its members. A non-blocking fiber
@@ -1620,7 +1650,7 @@ class Thread::Mutex
       woken = scheduler ? (scheduler.kernel_sleep(timeout); true) : Thread.current.send(:wait, deadline, true)
       woken ? ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round : nil
     ensure
-      lock
+      Thread.current.send(:relock, self)
     end
   end
 
@@ -1668,7 +1698,7 @@ class Thread::ConditionVariable
     begin
       woken = Thread.current.send(:wait_on, waiters, deadline, true)
     ensure
-      mutex.lock
+      Thread.current.send(:relock, mutex)
     end
     woken ? ((Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) - started) / 1e9).round : nil
   end
