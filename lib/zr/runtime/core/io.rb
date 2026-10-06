@@ -251,17 +251,22 @@ class IO
         if options.key?(:external_encoding) || options.key?(:internal_encoding)
           used = options.key?(:external_encoding) ? "external_encoding" : "internal_encoding"
           warn("Ignoring encoding parameter '#{given}': #{used} is used", uplevel: 0) unless $VERBOSE.nil?
+        elsif given.is_a?(Encoding)
+          external = given
         else
-          first, second = given.to_s.split(":", 2)
-          external = spec(first)
-          internal = spec(second)
+          # parse_mode_enc, as for a mode string: `bom|` and the warnings.
+          external, internal, bom = mode_encodings(given.to_s)
         end
       end
       # A name an argument gives goes through rb_to_encoding, which
       # raises where a spec warns.
-      external, internal = encodings(options.fetch(:external_encoding, external), options.fetch(:internal_encoding, internal))
+      if options.key?(:external_encoding) || options.key?(:internal_encoding)
+        external, internal = encodings(options.fetch(:external_encoding, external), options.fetch(:internal_encoding, internal))
+      end
     end
-    internal = nil if !internal.nil? && !external.nil? && internal.name == external.name
+    # With a byte order mark, the mark may change the external encoding,
+    # so an internal one that repeats it stays.
+    internal = nil if !bom && !internal.nil? && !external.nil? && internal.name == external.name
     internal = nil if Encoding::BINARY.equal?(external)
     readable = !text.start_with?("w", "a") || text.include?("+")
     conversion = conversion_options(options, readable && textual && !binary)
@@ -390,23 +395,6 @@ class IO
     raise ArgumentError, +"newline decorator with binary mode" if binary && !conversion[:lines].empty?
   end
 
-  # An encoding name from an `encoding:` string, as parse_mode_enc reads
-  # it. A name that matches no encoding warns and leaves the slot at its
-  # default. A `-` means no transcoding.
-  def self.spec(name)
-    Primitive.attr! :hidden
-    return name if name.nil? || name.is_a?(Encoding)
-    return nil if name == +"-" || name == +""
-
-    text = name.start_with?("bom|", "BOM|") ? name[4..] : name
-    begin
-      Encoding.find(text)
-    rescue ArgumentError
-      Primitive.zr_warn_here_m("Unsupported encoding #{name} ignored")
-      nil
-    end
-  end
-
   # What a pair of names means. A `-` in the internal position means no
   # transcoding and no encoding to look up. An internal encoding that
   # repeats the external one also gives no internal encoding.
@@ -432,7 +420,7 @@ class IO
 
     rest.include?("+") ? "#{first}+" : first
   end
-  private_class_method :open_options, :encodings, :spec, :access_mode, :mode_encodings, :binmode_options,
+  private_class_method :open_options, :encodings, :access_mode, :mode_encodings, :binmode_options,
                        :conversion_options, :check_binmode, :found_encoding, :c_int
 
   # `IO.open` is `new` with a block that closes the stream after it; the
