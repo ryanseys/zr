@@ -1037,6 +1037,9 @@ class Thread
       Signal.send(:deliver)
       return wait(deadline, deadly, resume: true) if resume && !@timed_out
     end
+    # A signal that came while the scheduler chose this thread waited for
+    # it (Signal.deliver); its command runs now, before the wait returns.
+    Primitive.zr_trap_check
     !@timed_out
   end
 
