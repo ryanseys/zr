@@ -1823,7 +1823,7 @@ class IO
       end
       # io_bufread: what the buffer holds, then the rest with no buffer.
       text = take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
-      text << read_direct(length - text.bytesize) if text.bytesize < length
+      text << locking(buffer) { read_direct(length - text.bytesize) } if text.bytesize < length
       # At the end, the buffer is emptied, as io_read does.
       return buffer&.clear && nil if text.empty? && length > 0
 
@@ -1869,21 +1869,24 @@ class IO
     raise IOError, +"sysread for buffered IO" unless @buffer.empty?
 
     IO.send(:room_for!, length)
-    park_to_read unless IO.send(:scheduler_taking, :io_read)
-    loop do
-      chunk = read_memory(length)
-      return filled(chunk&.b, buffer) unless chunk.is_a?(Integer)
-      raise SystemCallError.new(label, -chunk, +"sysread") unless -chunk == Errno::EAGAIN::Errno
+    chunk = locking(buffer) do
+      park_to_read unless IO.send(:scheduler_taking, :io_read)
+      loop do
+        chunk = read_memory(length)
+        break chunk unless chunk.is_a?(Integer)
+        raise SystemCallError.new(label, -chunk, +"sysread") unless -chunk == Errno::EAGAIN::Errno
 
-      wait_again(READABLE)
+        wait_again(READABLE)
+      end
     end
+    filled(chunk&.b, buffer)
   end
 
   def readpartial(length, buffer = nil)
     # io_setstrbuf: the buffer converts before the stream is read.
     buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
     check_byte_readable
-    filled(read_some(length), buffer)
+    filled(locking(buffer) { read_some(length) }, buffer)
   end
 
   # CRuby writes these three in Ruby (its io.rb), so they return their
@@ -2552,6 +2555,22 @@ class IO
     end
 
     take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
+  end
+
+  # rb_str_locktmp_ensure: while a read waits to fill the caller's
+  # buffer, the String is locked, so another thread that changes it
+  # raises. The buffer must be one that can change (io_setstrbuf).
+  def locking(buffer)
+    Primitive.attr! :hidden
+    return yield if buffer.nil?
+
+    Primitive.zr_frozen_error(buffer) if Primitive.zr_modify_frozen_m(buffer)
+    Primitive.zr_str_locktmp_m(buffer)
+    begin
+      yield
+    ensure
+      Primitive.zr_str_unlocktmp_m(buffer)
+    end
   end
 
   # The bytes a read took, in the caller's buffer where there is one,

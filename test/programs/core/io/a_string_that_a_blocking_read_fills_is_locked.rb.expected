@@ -1,0 +1,16 @@
+[:sysread, "RuntimeError: can't modify string; temporarily locked", "RuntimeError: can't modify string; temporarily locked", 10]
+10
+false
+11
+[:readpartial, "RuntimeError: can't modify string; temporarily locked", "RuntimeError: can't modify string; temporarily locked", 10]
+10
+false
+11
+[:read, "RuntimeError: can't modify string; temporarily locked", "RuntimeError: can't modify string; temporarily locked", 10]
+10
+false
+11
+"FrozenError: can't modify frozen String: \"x\""
+"FrozenError: can't modify frozen String: \"x\""
+"abc"
+nil
