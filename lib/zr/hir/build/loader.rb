@@ -408,6 +408,11 @@ module Zr
         # `--disable-gems`, where `Gem` is a name like any other.
         #: () -> bool
         def boots_gems? = @switches.gems
+
+        # Whether each String literal keeps where it was made
+        # (--debug=frozen-string-literal).
+        #: () -> bool
+        def debug_frozen_strings? = @switches.debug_frozen_string_literal
         GEM_NAMES = %i[Gem Bundler].freeze
 
         # rubygems evals when it loads, so a program that includes it also

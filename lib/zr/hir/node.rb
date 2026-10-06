@@ -246,7 +246,8 @@ module Zr
     Next = Node.new(:value, :line)
     # An Integer, String, Symbol, nil, true or false.
     # `chilled` marks a String literal in a file with no
-    # frozen_string_literal: its String warns at its first change.
+    # frozen_string_literal: its String warns at its first change, and
+    # with `:debug` it knows where it was made.
     Literal = Node.new(:value, :line, :chilled)
     # `__FILE__` in the program's main file, whose name came from the
     # command line: a path in the encoding of the locale.
@@ -380,7 +381,8 @@ module Zr
     # shareable constant or under a frozen_string_literal comment: the
     # shared String with no send, as the compiler's own fstring. `false`
     # means the same for a text that is not UTF-8: frozen with no send,
-    # but not shared.
+    # but not shared. `:debug` (--debug=frozen-string-literal) is the
+    # site's own frozen String, which knows where it was made.
     FrozenString = Node.new(:value, :line, :shared)
     # `begin body rescue ... else else_body ensure ensure_body end`. The
     # else branch runs after a body that raised nothing. The ensure branch

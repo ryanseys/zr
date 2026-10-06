@@ -9,8 +9,16 @@ module Zr
       # A string literal as prism flags it: frozen if the file's magic
       # comment says so (as CRuby reads the comment), and then the one
       # frozen String of its text, as CRuby interns it.
+      # Under --debug=frozen-string-literal each literal keeps where it was
+      # made (`:debug`): a frozen one is its site's own String, not the
+      # interned one, as CRuby compiles it.
       #: (Prism::StringNode | Prism::SourceFileNode node, String text, Integer line) -> (Literal | FrozenString)
-      def literal_string(node, text, line) = node.frozen? ? frozen_literal_string(text, line) : Literal.new(text, line, !node.mutable?)
+      def literal_string(node, text, line)
+        debug = @loader&.debug_frozen_strings?
+        return (debug ? FrozenString.new(text, line, :debug) : frozen_literal_string(text, line)) if node.frozen?
+
+        Literal.new(text, line, node.mutable? ? false : (debug ? :debug : true))
+      end
 
       # A Symbol literal. The static symbols are all UTF-8, so a name in
       # another encoding (`:il_était` in a binary source) is interned

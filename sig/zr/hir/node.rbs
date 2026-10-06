@@ -247,7 +247,7 @@ module Zr
     class Literal < Node
       attr_accessor value: literal
       attr_accessor line: Integer
-      attr_accessor chilled: bool?
+      attr_accessor chilled: bool | :debug | nil
     end
 
     class PathLiteral < Node
@@ -535,7 +535,7 @@ module Zr
     class FrozenString < Node
       attr_accessor value: String
       attr_accessor line: Integer
-      attr_accessor shared: bool
+      attr_accessor shared: bool | :debug | nil
     end
 
     class Begin < Node

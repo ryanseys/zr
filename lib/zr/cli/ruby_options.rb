@@ -92,6 +92,7 @@ module Zr
         @requires = []
         @chdirs = []
         @loop = @print = @split = @line = @xflag = @sflag = @search = @check = @debug = @version = @version_only = @copyright = false
+        @debug_frozen = false
         @external = @internal = @external_name = @internal_name = @source_encoding = nil
         @envopt = false
         @rubylib = []
@@ -174,7 +175,7 @@ module Zr
         command_line << "e" unless @inline.empty?
         Hir::Switches.new(prelude: prelude, command_line: command_line, frozen_string_literal: @features["frozen_string_literal"],
                           gems: @features.fetch("gems", true), inline: !@inline.empty?, verbose: (verbose = @verbose) ? verbose.first : false,
-                          source_encoding: @source_encoding)
+                          source_encoding: @source_encoding, debug_frozen_string_literal: @debug_frozen)
       end
 
       # The ruby that sets what the switches set, in ruby's order: the
@@ -514,6 +515,7 @@ module Zr
             @debug = true
             @verbose = [true]
           end
+          @debug_frozen = true if given == "frozen-string-literal" || name == "debug-frozen-string-literal"
         when "jit", "yjit", "zjit", /\A[yz]jit-/ then nil # zr compiles ahead of time.
         when "crash-report" then nil
         when "encoding" then encoding!(argument(name, given, argv), "--encoding")

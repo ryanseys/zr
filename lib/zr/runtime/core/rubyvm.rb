@@ -75,10 +75,12 @@ class RubyVM
         path = file if path.nil?
         return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence.compile") unless defined?(::Zr::Eval)
 
-        frozen = (options || {}).merge(keywords)[:frozen_string_literal]
+        given = (options || {}).merge(keywords)
+        frozen = given[:frozen_string_literal]
         # The option as a magic comment, on a line before the source's first.
         magic = "# frozen_string_literal: #{frozen ? true : false}\n" unless frozen.nil? || source.match?(/^#.*frozen[-_]string[-_]literal:/i)
-        code = ::Zr::Eval.current.compile("#{magic}#{source}", file, magic ? line - 1 : line, [], warn_now: true)
+        code = ::Zr::Eval.current.compile("#{magic}#{source}", file, magic ? line - 1 : line, [], warn_now: true,
+                                                                                         debug_frozen: given[:debug_frozen_string_literal] ? true : false)
         Primitive.zr_box_compiled(code[1])
         iseq = made(nil, code, "<compiled>", "<compiled>", file, line)
         Primitive.zr_hidden_set(iseq, :__source__, source)

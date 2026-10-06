@@ -334,6 +334,8 @@ class RubyModeTest < Minitest::Test
     "bad.rb" => "def x\n  p (\nend\n",
     "handler.rb" => "at_exit { puts 'handler ran' }\n",
     "unparsed.rb" => "x = 1\nif true\n  1 +\n",
+    "frozen.rb" => "# frozen_string_literal: true\ns = 'abc'\nbegin; s << 'x'; rescue => e; p e.message; end\nt = [\n  'lit']\nbegin; t[0].upcase!; rescue => e; p e.message; end\n",
+    "chilled.rb" => "s = 'c'\ns << 'x'\np s\n",
     "detail.rb" => "class SyntaxError\n  def detailed_message(**)\n    Thread.new {}.join\n    \"<\#{super}>\n<\#{File.basename(__FILE__)}>\"\n  end\nend\n",
     "showpath.rb" => "class SyntaxError\n  def detailed_message(**) = \"path=\#{path}\n\#{super}\"\nend\n",
     "hybrid.sh" => "#!/usr/bin/env bash\necho error && exit 1\n#!ruby\nputs 'success'\n",
@@ -456,6 +458,17 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-w", "unparsed.rb")
     same_as_ruby("-W0", "unparsed.rb")
     same_as_ruby("--disable-gems", "unparsed.rb")
+  end
+
+  # --debug=frozen-string-literal: a literal keeps where it was made, which
+  # a FrozenError and the chilled String's warning name.
+  def test_debug_frozen_string_literal_names_where_a_string_was_made
+    same_as_ruby("--debug=frozen-string-literal", "frozen.rb")
+    same_as_ruby("--debug-frozen-string-literal", "frozen.rb")
+    same_as_ruby("frozen.rb")
+    same_as_ruby("-W:deprecated", "--debug=frozen-string-literal", "chilled.rb")
+    same_as_ruby("-W:deprecated", "chilled.rb")
+    same_as_ruby("--debug=frozen-string-literal", "-e", "p $DEBUG")
   end
 
   def test_errors_before_the_program_runs

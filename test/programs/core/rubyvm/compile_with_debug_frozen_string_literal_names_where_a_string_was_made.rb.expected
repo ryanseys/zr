@@ -1,0 +1,8 @@
+["foo-1", true]
+"can't modify frozen String: \"foo-1\", created at test.rb:1"
+["foo", true]
+"can't modify frozen String: \"foo\", created at test.rb:1"
+"can't modify frozen String: \"a\", created at two.rb:6"
+"can't modify frozen String: \"b\", created at two.rb:7"
+true
+"can't modify frozen String: \"bar\""

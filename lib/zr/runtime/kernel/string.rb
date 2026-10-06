@@ -214,6 +214,53 @@ module Zr::Kern
     (RBasic[v].flags & FL_FREEZE) != 0
   end
 
+  # --debug=frozen-string-literal: where String literal `s` was made, as
+  # CRuby's debug_created_info keeps it, a file and a line.
+  #: (value, ptr, word, word) -> value
+  def zr_str_created(s, file, len, line)
+    info = zr_ary_new(2)
+    zr_ary_push(info, zr_str_frozen(file, len))
+    zr_ary_push(info, zr_fix(line))
+    zr_state_set(s, zr_sym(Machine.id(:__created__)), info)
+    s
+  end
+
+  # A frozen String literal under --debug=frozen-string-literal: one String
+  # for the site, with the place where it was made, which the first run of
+  # the site keeps.
+  #: (word, value, ptr, word, word) -> value
+  def zr_str_debug_frozen(index, s, file, len, line)
+    found = zr_site_literal(G_DEBUG_STRINGS, index)
+    if found != QNIL
+      return found
+    end
+    zr_str_created(s, file, len, line)
+    RBasic[s].flags = RBasic[s].flags | FL_FREEZE
+    zr_site_literal_set(G_DEBUG_STRINGS, index, s)
+    s
+  end
+
+  G_DEBUG_STRINGS = 72
+
+  # The `file:line` where String `s` was made, or nil when no
+  # --debug=frozen-string-literal literal made it.
+  #: (value) -> value
+  def zr_str_created_at(s)
+    if zr_special_p(s) || zr_type(s) != T_STRING
+      return Machine.value(QNIL)
+    end
+    info = zr_ivar_get(s, Machine.id(:__created__))
+    if info == QNIL
+      return Machine.value(QNIL)
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_str(b, zr_ary_at(info, 0))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, zr_fix2long(zr_ary_at(info, 1)))
+    zr_buf_take(b)
+  end
+
   # Raises `can't modify frozen String: "abc"`.
   #: (value) -> value
   def zr_frozen_error(v)
@@ -240,6 +287,11 @@ module Zr::Kern
         return s
       end
       zr_buf_str(b, s)
+    end
+    created = zr_str_created_at(v)
+    if created != QNIL
+      zr_buf_push(b, Machine.bytes(", created at "), 13)
+      zr_buf_str(b, created)
     end
     e = zr_exc_new(zr_global(G_FROZEN_ERROR), zr_buf_take(b))
     zr_exc_detail(e, Machine.id(:receiver), v)
@@ -2096,7 +2148,15 @@ module Zr::Kern
       zr_buf_push(b, RString[s].ptr, RString[s].len)
       zr_buf_push(b, Machine.bytes(".to_s will be frozen in the future"), 34)
     else
-      zr_buf_push(b, Machine.bytes("literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)"), 105)
+      created = zr_str_created_at(s)
+      if created == QNIL
+        zr_buf_push(b, Machine.bytes("literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)"), 105)
+      else
+        # rb_warn_unchilled_literal: a second line names the place.
+        zr_buf_push(b, Machine.bytes("literal string will be frozen in the future\n"), 44)
+        zr_buf_str(b, created)
+        zr_buf_push(b, Machine.bytes(": info: the string was created here"), 35)
+      end
     end
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_buf_take(b)))

@@ -21,7 +21,9 @@ module Zr
     # ruby's own default. `gems` is false when rubygems must not load
     # before the program. `inline` is true for -e: such a program has no
     # DATA. `source_encoding` is the encoding of -K, which the main file
-    # is read in when it has no magic comment.
+    # is read in when it has no magic comment. `debug_frozen_string_literal`
+    # (--debug=frozen-string-literal) gives each String literal the place
+    # where it was made, which a FrozenError and the chilled warning name.
     class Switches
       attr_reader :prelude #: String?
       attr_reader :command_line #: String
@@ -30,6 +32,7 @@ module Zr
       attr_reader :inline #: bool
       attr_reader :verbose #: bool | Symbol | nil
       attr_reader :source_encoding #: String?
+      attr_reader :debug_frozen_string_literal #: bool
 
       # @rbs prelude: String?
       # @rbs command_line: String
@@ -38,9 +41,10 @@ module Zr
       # @rbs inline: bool
       # @rbs verbose: bool | Symbol | nil
       # @rbs source_encoding: String?
+      # @rbs debug_frozen_string_literal: bool
       # @rbs return: void
       def initialize(prelude: nil, command_line: "", frozen_string_literal: nil, gems: true, inline: false, verbose: :runtime,
-                     source_encoding: nil)
+                     source_encoding: nil, debug_frozen_string_literal: false)
         @prelude = prelude
         @source_encoding = source_encoding
         @command_line = command_line
@@ -48,6 +52,7 @@ module Zr
         @gems = gems
         @inline = inline
         @verbose = verbose
+        @debug_frozen_string_literal = debug_frozen_string_literal
         freeze
       end
 
@@ -67,7 +72,7 @@ module Zr
       # What a cache key needs: two builds with other switches are other
       # programs.
       #: () -> String
-      def key = [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect, source_encoding.to_s].join("\0")
+      def key = [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect, source_encoding.to_s, debug_frozen_string_literal].join("\0")
     end
   end
 end

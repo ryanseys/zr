@@ -69,7 +69,8 @@ module Zr
                            imm(node.pinned ? ENCODING_INDEX.fetch(node.pinned) : -1)))
           when Hir::IvarRead then ivar_read(node)
           when Hir::FrozenString
-            if node.shared then shared_literal(node.value)
+            if node.shared == :debug && !@l.internal? then debug_literal(node, string_literal(node.value, "zr_str_new"), "zr_str_debug_frozen", site_word)
+            elsif node.shared then shared_literal(node.value)
             else checked(string_literal(node.value, node.shared == false ? "zr_str_frozen" : "zr_str_literal_freeze"))
             end
           when Hir::GvarRead then gvar_read(node)
@@ -260,7 +261,9 @@ module Zr
             end
           when Float then float_literal(v)
           when Symbol then symbol(v)
-          when String then string_literal(v, node.chilled && !@l.internal? ? "zr_str_new_chilled" : "zr_str_new")
+          when String
+            s = string_literal(v, node.chilled && !@l.internal? ? "zr_str_new_chilled" : "zr_str_new")
+            node.chilled == :debug && !@l.internal? ? debug_literal(node, s, "zr_str_created") : s
           when nil then @qnil
           when true then imm(@l.const("QTRUE"))
           when false then imm(@l.const("QFALSE"))
@@ -327,6 +330,14 @@ module Zr
           return kernel(fn, bytes, imm(text.bytesize)) if index == ENCODING_INDEX.fetch(::Encoding::UTF_8)
 
           kernel("#{fn}_at", bytes, imm(text.bytesize), imm(index))
+        end
+
+        # A String literal under --debug=frozen-string-literal: the kernel
+        # function `fn` gives it the file and line of `node`.
+        #: (Hir::Node node, String s, String fn, *String site) -> String
+        def debug_literal(node, s, fn, *site)
+          file = @f.symbol_value(@f.symbol(@l.file_bytes))
+          kernel(fn, *site, s, file, imm(@l.shown_file.bytesize), imm(node.line))
         end
 
         # ruby's own index for an encoding. A String contains this index

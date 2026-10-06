@@ -78,7 +78,9 @@ module Zr
     # innermost first. zr parses the string one scope inside them. A
     # write to a name that they contain goes to their Env. A new name
     # stays in the eval's own Env. `method` is the parameters of the
-    # enclosing method, or nil outside a method.
+    # enclosing method, or nil outside a method. `debug_frozen` is
+    # RubyVM::InstructionSequence.compile's debug_frozen_string_literal:
+    # each String literal keeps where it was made.
     #
     # @rbs source: untyped
     # @rbs file: untyped
@@ -87,9 +89,10 @@ module Zr
     # @rbs method: untyped
     # @rbs using: Integer?
     # @rbs warn_now: bool
+    # @rbs debug_frozen: bool
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
-    def compile(source, file, line = 1, scopes = [], method = nil, using: nil, warn_now: false)
-      Eval.plainly { compiled(source, file, line, scopes, method, using: using, warn_now: warn_now) }
+    def compile(source, file, line = 1, scopes = [], method = nil, using: nil, warn_now: false, debug_frozen: false)
+      Eval.plainly { compiled(source, file, line, scopes, method, using: using, warn_now: warn_now, debug_frozen: debug_frozen) }
     rescue Hir::Invalid => e
       # Ruby reads a regexp literal when it compiles the string around it,
       # so an invalid pattern is a syntax error, not a run-time error. A
@@ -150,8 +153,9 @@ module Zr
     # @rbs method: untyped
     # @rbs using: Integer?
     # @rbs warn_now: bool
+    # @rbs debug_frozen: bool
     # @rbs return: [Integer, Integer, Integer, Integer, Array[Integer]]
-    def compiled(source, file, line, scopes, method, using:, warn_now:)
+    def compiled(source, file, line, scopes, method, using:, warn_now:, debug_frozen: false)
       # eval_make_iseq: a source that is not ASCII compatible cannot be read.
       raise ArgumentError, "invalid source encoding" unless string(source).encoding.ascii_compatible?
 
@@ -161,7 +165,7 @@ module Zr
       # compile made, or raises a copy of the error that its first compile
       # raised. TracePoint and Coverage change the code, so under them each
       # eval compiles. So does an eval that takes `using` entries.
-      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now]
+      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now, debug_frozen]
       reuse = coverage.nil? && !@runtime.tracing?
       if reuse && (kept = @compiled[key])
         raise kept.dup if kept.is_a?(Exception)
@@ -179,7 +183,8 @@ module Zr
       # the next compile.
       begin
         hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
-                                                      activations: @runtime.activations, trace: @runtime.tracing?, using: using)
+                                                      activations: @runtime.activations, trace: @runtime.tracing?, using: using,
+                                                      switches: debug_frozen ? Hir::Switches.new(debug_frozen_string_literal: true) : Hir::Switches::NONE)
       rescue Hir::Invalid, SyntaxError => e
         @compiled[key] = e.dup if reuse
         raise
