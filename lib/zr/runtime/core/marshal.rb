@@ -207,6 +207,9 @@ module Marshal
       when Integer then @out << "l" << bignum(obj)
       when Range then object_body(class_path(Primitive.zr_real_class(obj)), range_parts(obj), limit)
       when Exception then object_body(class_path(Primitive.zr_real_class(obj)), exception_parts(obj), limit)
+      # A status keeps its word and pid as ivars of its own, which ruby
+      # writes before the program's.
+      when Process::Status then object_body(class_path(Primitive.zr_real_class(obj)), [[:status, obj.to_i], [:pid, obj.pid]] + ivars, limit)
       when Struct, Data then struct(obj, limit)
       else object_body(class_path(Primitive.zr_real_class(obj)), ivars, limit)
       end
@@ -995,6 +998,8 @@ module Marshal
       when :mesg then Primitive.zr_exc_set_message(built, value)
       when :bt then built.set_backtrace(value) unless value.nil?
       when :errno then Primitive.zr_hidden_set(built, :__errno__, value)
+      when :status then Primitive.zr_hidden_set(built, :to_i, value) if built.is_a?(Process::Status)
+      when :pid then Primitive.zr_hidden_set(built, :pid, value) if built.is_a?(Process::Status)
       when :bt_locations then nil
       when :cause then cause!(built, value)
       else
