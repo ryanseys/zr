@@ -446,8 +446,8 @@ module Zr
           @f.jump(merge, [cached])
           switch(make)
           made = expr(node.value)
-          kernel("zr_regexp_once_set", index, made)
-          @f.jump(merge, [made]) unless @f.terminated?
+          kept = kernel("zr_regexp_once_set", index, made)
+          @f.jump(merge, [kept]) unless @f.terminated?
           switch(merge)
           result
         end

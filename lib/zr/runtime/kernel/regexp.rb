@@ -292,8 +292,16 @@ module Zr::Kern
     zr_site_literal(G_REGEXP_LITERALS, index)
   end
 
+  # Keeps the regexp that the site made, and returns the site's regexp.
+  # Two threads can run the site at once; the first to finish keeps its
+  # regexp, and the other gets it too, so the site gives one regexp, as
+  # vm_once_dispatch makes the second thread wait for the first.
   #: (word, value) -> value
   def zr_regexp_once_set(index, re)
+    kept = zr_site_literal(G_REGEXP_LITERALS, index)
+    if kept != QNIL
+      return kept
+    end
     zr_site_literal_set(G_REGEXP_LITERALS, index, re)
     re
   end
