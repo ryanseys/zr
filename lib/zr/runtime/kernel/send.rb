@@ -978,6 +978,18 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # A forked child has no timer thread: fork copies only the thread that
+  # called it. A child of a parent that had one starts its own.
+  #: () -> value
+  def zr_poll_after_fork
+    started = Machine.static(:poll_started, 8)
+    if Machine.load64(started, 0) != 0
+      Machine.store64(started, 0, 0)
+      zr_os_poll_start()
+    end
+    Machine.value(QNIL)
+  end
+
   # Requests action at the next safe point, for a POSIX signal, a
   # finalizer, or the timer.
   #: () -> void

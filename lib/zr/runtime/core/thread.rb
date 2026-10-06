@@ -219,6 +219,7 @@ class Thread
       @main = @current
       Primitive.zr_fiber_after_fork
       Primitive.zr_autoload_after_fork
+      Primitive.zr_poll_after_fork
     end
 
     def boot
