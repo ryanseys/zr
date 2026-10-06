@@ -1,0 +1,13 @@
+Integer: + - * / % == === < <= > >= << >> [] size succ -@ & | <=>
+Float: + - * / % == === < <= > >= -@ hash <=>
+String: + * % == === << [] []= length size empty? succ =~ freeze -@ hash <=>
+Array: + - * == << [] []= length size empty? freeze max min hash & | <=> pack include?
+Hash: == < <= > >= [] []= length size empty? freeze hash default
+Symbol: == === [] length size empty? succ =~ <=>
+Regexp: == === =~ hash
+NilClass: === =~ & | nil?
+TrueClass: === & |
+FalseClass: === & |
+Proc: == === << [] hash call
+Range: 
+Object: 

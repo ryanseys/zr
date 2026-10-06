@@ -1974,53 +1974,60 @@ module Zr::Kern
 
 
   # Whether `mid` on `klass` is one of CRuby's basic operators, which the
-  # interpreter and the JITs run inline while the core's entry is in place
-  # (vm_init_redefined_flag at 4.0.7).
+  # interpreter and the JITs run inline while the core's entry is in place.
+  # As CRuby boots, every C method named as a basic operator joins the
+  # table (add_opt_method_entry at 4.0.7), not only the ones that
+  # vm_init_redefined_flag lists, and a redefinition warns in the classes
+  # that vm_redefinition_check_flag names.
   #: (value, word) -> bool
   def zr_basic_operator_p(klass, mid)
-    int = klass == zr_global(G_INTEGER)
-    flo = klass == zr_global(G_FLOAT)
-    str = klass == zr_global(G_STRING)
-    ary = klass == zr_global(G_ARRAY)
-    hsh = klass == zr_global(G_HASH)
-    sym = klass == zr_global(G_SYMBOL)
-    if mid == Machine.id(:+)
-      return int || flo || str || ary
-    elsif mid == Machine.id(:-) || mid == Machine.id(:*) || mid == Machine.id(:/) || mid == Machine.id(:%) ||
-          mid == Machine.id(:<) || mid == Machine.id(:<=) || mid == Machine.id(:>) || mid == Machine.id(:>=)
-      return int || flo
-    elsif mid == Machine.id(:==)
-      return int || flo || str || sym
-    elsif mid == Machine.id(:===)
-      return int || flo || sym || str || klass == zr_global(G_NIL) || klass == zr_global(G_TRUE) || klass == zr_global(G_FALSE)
-    elsif mid == Machine.id(:<<)
-      return str || ary
-    elsif mid == Machine.id(:>>) || mid == Machine.id(:&) || mid == Machine.id(:|)
-      return int
-    elsif mid == Machine.id(:[])
-      return ary || hsh || int
-    elsif mid == Machine.id(:[]=)
-      return ary || hsh
-    elsif mid == Machine.id(:length) || mid == Machine.id(:size) || mid == Machine.id(:empty?)
-      return ary || str || hsh
-    elsif mid == Machine.id(:succ)
-      return int || str
-    elsif mid == Machine.id(:=~)
-      return klass == zr_global(G_REGEXP) || str
-    elsif mid == Machine.id(:freeze)
-      return str || ary || hsh
-    elsif mid == Machine.id(:-@)
-      return str
-    elsif mid == Machine.id(:max) || mid == Machine.id(:min) || mid == Machine.id(:hash) || mid == Machine.id(:include?)
-      return ary
-    elsif mid == Machine.id(:call)
-      return klass == zr_global(G_PROC)
-    elsif mid == Machine.id(:nil?)
-      return klass == zr_global(G_NIL)
-    elsif mid == Machine.id(:<=>)
-      return int || flo || str
-    elsif mid == Machine.id(:default)
-      return hsh
+    if klass == zr_global(G_INTEGER)
+      return mid == Machine.id(:+) || mid == Machine.id(:-) || mid == Machine.id(:*) || mid == Machine.id(:/) ||
+        mid == Machine.id(:%) || mid == Machine.id(:==) || mid == Machine.id(:===) || mid == Machine.id(:<) ||
+        mid == Machine.id(:<=) || mid == Machine.id(:>) || mid == Machine.id(:>=) || mid == Machine.id(:<<) ||
+        mid == Machine.id(:>>) || mid == Machine.id(:[]) || mid == Machine.id(:size) || mid == Machine.id(:succ) ||
+        mid == Machine.id(:-@) || mid == Machine.id(:&) || mid == Machine.id(:|) || mid == Machine.id(:<=>)
+    elsif klass == zr_global(G_FLOAT)
+      return mid == Machine.id(:+) || mid == Machine.id(:-) || mid == Machine.id(:*) || mid == Machine.id(:/) ||
+        mid == Machine.id(:%) || mid == Machine.id(:==) || mid == Machine.id(:===) || mid == Machine.id(:<) ||
+        mid == Machine.id(:<=) || mid == Machine.id(:>) || mid == Machine.id(:>=) || mid == Machine.id(:-@) ||
+        mid == Machine.id(:hash) || mid == Machine.id(:<=>)
+    elsif klass == zr_global(G_STRING)
+      return mid == Machine.id(:+) || mid == Machine.id(:*) || mid == Machine.id(:%) || mid == Machine.id(:==) ||
+        mid == Machine.id(:===) || mid == Machine.id(:<<) || mid == Machine.id(:[]) ||
+        mid == Machine.id(:[]=) || mid == Machine.id(:length) || mid == Machine.id(:size) ||
+        mid == Machine.id(:empty?) || mid == Machine.id(:succ) || mid == Machine.id(:=~) ||
+        mid == Machine.id(:freeze) || mid == Machine.id(:-@) || mid == Machine.id(:hash) ||
+        mid == Machine.id(:<=>)
+    elsif klass == zr_global(G_ARRAY)
+      return mid == Machine.id(:+) || mid == Machine.id(:-) || mid == Machine.id(:*) || mid == Machine.id(:==) ||
+        mid == Machine.id(:<<) || mid == Machine.id(:[]) || mid == Machine.id(:[]=) ||
+        mid == Machine.id(:length) || mid == Machine.id(:size) || mid == Machine.id(:empty?) ||
+        mid == Machine.id(:freeze) || mid == Machine.id(:max) || mid == Machine.id(:min) ||
+        mid == Machine.id(:hash) || mid == Machine.id(:&) || mid == Machine.id(:|) ||
+        mid == Machine.id(:<=>) || mid == Machine.id(:pack) || mid == Machine.id(:include?)
+    elsif klass == zr_global(G_HASH)
+      return mid == Machine.id(:==) || mid == Machine.id(:<) || mid == Machine.id(:<=) || mid == Machine.id(:>) ||
+        mid == Machine.id(:>=) || mid == Machine.id(:[]) || mid == Machine.id(:[]=) ||
+        mid == Machine.id(:length) || mid == Machine.id(:size) || mid == Machine.id(:empty?) ||
+        mid == Machine.id(:freeze) || mid == Machine.id(:hash) || mid == Machine.id(:default)
+    elsif klass == zr_global(G_SYMBOL)
+      return mid == Machine.id(:==) || mid == Machine.id(:===) || mid == Machine.id(:[]) ||
+        mid == Machine.id(:length) || mid == Machine.id(:size) || mid == Machine.id(:empty?) ||
+        mid == Machine.id(:succ) || mid == Machine.id(:=~) || mid == Machine.id(:<=>)
+    elsif klass == zr_global(G_REGEXP)
+      return mid == Machine.id(:==) || mid == Machine.id(:===) || mid == Machine.id(:=~) ||
+        mid == Machine.id(:hash)
+    elsif klass == zr_global(G_NIL)
+      return mid == Machine.id(:===) || mid == Machine.id(:=~) || mid == Machine.id(:&) || mid == Machine.id(:|) ||
+        mid == Machine.id(:nil?)
+    elsif klass == zr_global(G_TRUE)
+      return mid == Machine.id(:===) || mid == Machine.id(:&) || mid == Machine.id(:|)
+    elsif klass == zr_global(G_FALSE)
+      return mid == Machine.id(:===) || mid == Machine.id(:&) || mid == Machine.id(:|)
+    elsif klass == zr_global(G_PROC)
+      return mid == Machine.id(:==) || mid == Machine.id(:===) || mid == Machine.id(:<<) ||
+        mid == Machine.id(:[]) || mid == Machine.id(:hash) || mid == Machine.id(:call)
     end
     false
   end
@@ -2089,6 +2096,7 @@ module Zr::Kern
     zr_warn_prepended_operator(klass, Machine.id(:<=>))
     zr_warn_prepended_operator(klass, Machine.id(:default))
     zr_warn_prepended_operator(klass, Machine.id(:include?))
+    zr_warn_prepended_operator(klass, Machine.id(:pack))
     Machine.value(QNIL)
   end
 
