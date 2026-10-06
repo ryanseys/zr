@@ -199,6 +199,7 @@ class Module
   # C itself, so they stay invisible until a `using` of this module.
   def refine(target, &block)
     raise ArgumentError, +"no block given" unless block
+    raise ArgumentError, +"can't pass a Proc as a block to Module#refine" if Primitive.zr_proc_passed_p_m(block)
     raise TypeError, "wrong argument type #{conversion_name(target)} (expected Class or Module)" unless target.is_a?(Module)
 
     table = (@__refinements__ ||= {})

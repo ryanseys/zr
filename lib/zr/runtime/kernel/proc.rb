@@ -862,6 +862,13 @@ module Zr::Kern
     p
   end
 
+  # Whether the Proc came to the call as `&proc`, and so is no literal
+  # block.
+  #: (value) -> value
+  def zr_proc_passed_p_m(p)
+    zr_bool(!zr_special_p(p) && zr_type(p) == T_PROC && RProc[p].passed != 0)
+  end
+
   # `&value` at a call: nil passes no block. A Proc passes itself, marked as
   # passed (it is not a literal block, which `lambda` refuses). A Symbol
   # passes its Proc. Any other value must respond to `to_proc`.

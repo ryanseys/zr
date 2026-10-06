@@ -2310,6 +2310,11 @@ module Zr::Kern
     # rb_export_method searches from the origin, so a prepended module's
     # method of the name is not the one that changes.
     e = zr_find_method(zr_origin(klass), mid)
+    # A refinement's superclass is the class it refines, so `public :m`
+    # in `refine C` finds C#m, as it does in CRuby.
+    if e == 0 && !zr_special_p(klass) && zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
+      e = zr_find_method(ClassExt[RClass[klass].ext].refined, mid)
+    end
     if e == 0 && !zr_special_p(klass) && zr_type(klass) == T_MODULE
       # A module looks in Object too, as rb_export_method does:
       # `module Kernel; public :m; end` for an m that Object defines.

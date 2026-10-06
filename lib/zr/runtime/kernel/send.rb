@@ -252,7 +252,9 @@ module Zr::Kern
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
-    e = zr_find_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
+    # A refined method_missing does not answer a miss: ruby looks it up
+    # without the refinements in use.
+    e = zr_search_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
     if e == 0 || MEntry[e].fn == Machine.addr(:zr_obj_method_missing)
       return zr_miss_error(recv, mid, reason, argc, argv)
     end
@@ -389,6 +391,10 @@ module Zr::Kern
     end
     if MEntry[e].vis == VIS_PROTECTED && mode != 3
       owner = FrameMeta[MEntry[e].meta].owner
+      # A refinement's protected method checks the class it refines.
+      if !zr_special_p(owner) && zr_type(owner) == T_MODULE && ClassExt[RClass[owner].ext].refined != QNIL
+        owner = ClassExt[RClass[owner].ext].refined
+      end
       caller = Task[zr_task()].top
       if caller != 0 && zr_is_a(Frame[caller].self, owner)
         return 0

@@ -1,0 +1,7 @@
+public in refine: "Moo"
+refine with proc: ArgumentError: can't pass a Proc as a block to Module#refine
+refined method_missing: NoMethodError: undefined method 'foo' for an instance of Foo
+refined protected: :foo
+bind other class: TypeError: bind argument must be an instance of #<Class:0xADDR>
+bind refined class: true
+bound owner: false

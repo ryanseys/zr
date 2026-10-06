@@ -219,9 +219,24 @@ module Zr::Kern
     # A module's method bound to a class that does not include the module
     # is not what the lookup finds: its `super` starts from its owner.
     if found == 0 || MEntry[found].meta != MEntry[e].meta || MEntry[found].cref != MEntry[e].cref
-      Task[zr_task()].found = RMethod[m].owner
+      Task[zr_task()].found = zr_method_super_start(m, e)
     end
     zr_invoke(e, RMethod[m].recv, argc, argv, blk, zr_kw_take())
+  end
+
+  # Where `super` in a Method's body starts: its owner, except for a
+  # refinement's method, whose owner is the refined class once bound. Its
+  # `super` finds the method that the refinement overrides.
+  #: (value, ptr) -> value
+  def zr_method_super_start(m, e)
+    meta = zr_method_meta(e)
+    if meta != 0
+      defined = FrameMeta[meta].owner
+      if !zr_special_p(defined) && zr_type(defined) == T_MODULE && ClassExt[RClass[defined].ext].refined != QNIL
+        return defined
+      end
+    end
+    RMethod[m].owner
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -515,6 +530,11 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_method_bind_to(m, obj)
     owner = RMethod[m].owner
+    # A refinement's method binds to an instance of the class it refines,
+    # which is then its owner.
+    if zr_type(owner) == T_MODULE && ClassExt[RClass[owner].ext].refined != QNIL
+      owner = ClassExt[RClass[owner].ext].refined
+    end
     if zr_type(owner) != T_MODULE && !zr_is_a(obj, owner) && !zr_core_binds_copy(owner, obj)
       if zr_singleton_p(owner)
         return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("singleton method called for a different object"), 46)
