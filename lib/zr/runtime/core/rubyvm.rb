@@ -167,7 +167,31 @@ class RubyVM
     def disasm = Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#disasm")
     alias disassemble disasm
 
-    def to_a = Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#to_a")
+    # The array of ruby's iseq_data_to_ary: its header, then the facts of
+    # this code that the parse gives. zr compiles to machine code, so the
+    # stack size, the catch table and the instruction list are empty.
+    def to_a
+      node = syntax
+      locals = node.respond_to?(:locals) ? node.locals : []
+      location = node&.location
+      misc = { arg_size: 0, local_size: locals.size, stack_max: 0 }
+      misc[:node_id] = node.node_id if node
+      misc[:code_location] = [location.start_line, location.start_column, location.end_line, location.end_column] if location
+      misc[:parser] = :prism
+      ["YARVInstructionSequence/SimpleDataFormat", 4, 0, 1, misc, label, path, absolute_path, first_lineno, code_type, locals, {}, [], []]
+    end
+
+    # :top for a compiled string, :method for a method's code and :block
+    # for a block's.
+    def code_type
+      Primitive.attr! :hidden
+      case Primitive.zr_hidden_get(self, :__body__)
+      when Method, UnboundMethod then :method
+      when Proc then :block
+      else :top
+      end
+    end
+    private :code_type
     # The :line events of this code: each statement that starts a line,
     # as prism flags it, outside the methods, blocks and class bodies in
     # it, which are code of their own.

@@ -1,0 +1,11 @@
+["YARVInstructionSequence/SimpleDataFormat", 4, 0, 1]
+:prism
+[1, 0, 1, 0]
+["<compiled>", "<compiled>", "<compiled>", 1, :top, []]
+{local_size: 1, code_location: [3, 0, 4, 3], parser: :prism}
+["<compiled>", "f.rb", "/x/f.rb", 3, :top, [:a]]
+"YARVInstructionSequence/SimpleDataFormat"
+:block
+:prism
+:method
+"m"
