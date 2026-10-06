@@ -1,0 +1,15 @@
+:force
+false
+4
+0
+true
+false
+[true, true]
+true
+[:rgengc_allow_full_mark, :implementation]
+"Attempting to set read-only key \"Implementation\""
+"wrong argument type String (expected Symbol)"
+"ArgumentError"
+{rgengc_allow_full_mark: true, implementation: "default"}
+{rgengc_allow_full_mark: false, implementation: "default"}
+{rgengc_allow_full_mark: true, implementation: "default"}

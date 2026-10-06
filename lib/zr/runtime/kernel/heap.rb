@@ -113,6 +113,7 @@ module Zr::Kern
     attr_accessor :last_info #: word
     attr_accessor :weak_refs #: word
     attr_accessor :weak_kept #: word
+    attr_accessor :unmeasured #: word
   end
 
   # The bits of Heap#last_info, which GC.latest_gc_info reads: GC.start
@@ -120,6 +121,12 @@ module Zr::Kern
   # asked for no immediate sweep (4), and why a major ran, in the bits
   # from 8 up: GC.start asked for it, the old objects grew, or a minor
   # freed too little. A minor has no reason.
+  # Heap#stress: off (0), on with minor collections (ZR_GC_STRESS, or a
+  # GC.stress number with CRuby's "no major" bit), or on with a full mark
+  # each time, as GC.stress = true is in CRuby.
+  STRESS_MINOR = 1
+  STRESS_FULL = 2
+
   GC_INFO_METHOD = 1
   GC_INFO_MALLOC = 2
   GC_INFO_LAZY = 4
@@ -747,7 +754,7 @@ module Zr::Kern
   def zr_heap_env
     h = zr_heap()
     if Libc.getenv(Machine.bytes("ZR_GC_STRESS\0")) != 0
-      Heap[h].stress = 1
+      Heap[h].stress = STRESS_MINOR
     end
     if Libc.getenv(Machine.bytes("ZR_GC_VERIFY\0")) != 0
       Heap[h].verify = 1
@@ -1350,10 +1357,15 @@ module Zr::Kern
   #: (word) -> void
   def zr_collect(wanting)
     h = zr_heap()
-    major = zr_major_due()
+    forced = Heap[h].stress == STRESS_FULL
+    major = forced || zr_major_due()
     by = Heap[h].malloced > Heap[h].malloc_limit ? GC_INFO_MALLOC : 0
     zr_collect_kind(wanting, major)
-    Heap[h].last_info = major ? by | GC_INFO_OLDGEN : by
+    if forced
+      Heap[h].last_info = by | GC_INFO_FORCE
+    else
+      Heap[h].last_info = major ? by | GC_INFO_OLDGEN : by
+    end
     # If a minor left the class that ran out still short, the dead objects
     # were not young, and only a major collection can free them. CRuby
     # forces a major for the same reason (GPR_FLAG_MAJOR_BY_NOFREE). The
@@ -1460,10 +1472,15 @@ module Zr::Kern
     # sweep walks all arenas for both kinds. The prunes read the marks, so
     # their time counts as trace time.
     marked = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
-    Heap[h].marking = Heap[h].marking + (marked - started)
+    measured = Heap[h].unmeasured == 0
+    if measured
+      Heap[h].marking = Heap[h].marking + (marked - started)
+    end
     zr_sweep()
     swept = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
-    Heap[h].sweeping = Heap[h].sweeping + (swept - marked)
+    if measured
+      Heap[h].sweeping = Heap[h].sweeping + (swept - marked)
+    end
     live = zr_live_bytes()
     Heap[h].live = live
     if major
@@ -1471,7 +1488,9 @@ module Zr::Kern
       Heap[h].old_limit = limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit
       Heap[h].reclaimed = was > live ? was - live : 0
     end
-    Heap[h].nanoseconds = Heap[h].nanoseconds + (swept - started)
+    if measured
+      Heap[h].nanoseconds = Heap[h].nanoseconds + (swept - started)
+    end
     if Heap[h].trace != 0
       zr_gc_trace(why, major, was, marked - started, swept - marked)
     end
@@ -1911,6 +1930,14 @@ module Zr::Kern
     zr_finalizers_run()
   end
 
+  # GC.measure_total_time=: while it is off, collections add nothing to
+  # the times that GC.stat reports.
+  #: (value) -> value
+  def zr_gc_measure_set(flag)
+    Heap[zr_heap()].unmeasured = flag == QFALSE || flag == QNIL ? 1 : 0
+    flag
+  end
+
   # GC.latest_gc_info's numbers: the last collection's GC_INFO_* bits,
   # whether the next must be major, and the weak references that its
   # prune saw and kept.
@@ -1996,7 +2023,13 @@ module Zr::Kern
   #: (value) -> value
   def zr_gc_set_stress(flag)
     h = zr_heap()
-    Heap[h].stress = flag == QNIL || flag == QFALSE ? 0 : 1
+    if flag == QNIL || flag == QFALSE
+      Heap[h].stress = 0
+    elsif zr_fixnum_p(flag) && (zr_fix2long(flag) & 1) != 0
+      Heap[h].stress = STRESS_MINOR
+    else
+      Heap[h].stress = STRESS_FULL
+    end
     zr_heap_slow_update()
     flag
   end

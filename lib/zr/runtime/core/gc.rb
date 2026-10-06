@@ -218,9 +218,11 @@ module GC
 
   def self.measure_total_time = @measure_total_time
 
+  # While it is off, the collector does not time its collections.
   def self.measure_total_time=(flag)
     Primitive.attr! :ruby
-    @measure_total_time = flag
+    @measure_total_time = flag ? true : false
+    Primitive.zr_gc_measure_set(flag)
   end
 
   CONFIG = { rgengc_allow_full_mark: true }
@@ -231,6 +233,10 @@ module GC
     Primitive.attr! :ruby
     raise ArgumentError, +"ArgumentError" unless hash.nil? || hash.is_a?(Hash)
 
+    hash&.each_key do |key|
+      raise TypeError, "wrong argument type #{key.class} (expected Symbol)" unless key.is_a?(Symbol)
+      raise ArgumentError, +'Attempting to set read-only key "Implementation"' if key == :implementation
+    end
     CONFIG[:rgengc_allow_full_mark] = hash[:rgengc_allow_full_mark] ? true : false if hash&.key?(:rgengc_allow_full_mark)
     { **CONFIG, implementation: +"default" }
   end
