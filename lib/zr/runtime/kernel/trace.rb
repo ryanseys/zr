@@ -330,9 +330,7 @@ module Zr::Kern
         home = Frame[home].prev
       end
       zr_ary_push(row, zr_sym(home == 0 || zr_frame_mid(home) == 0 ? FrameMeta[method].name : zr_frame_mid(home)))
-      # A module function's copy names the singleton class, as its
-      # backtrace label does.
-      zr_ary_push(row, FrameMeta[home == 0 ? method : zr_frame_label_meta(home)].owner)
+      zr_ary_push(row, zr_trace_defined_class(home, method))
     elsif entry != 0
       # A define_method body runs as a block, under its method's name:
       # the name it was defined with, and the name of the call.
@@ -350,6 +348,26 @@ module Zr::Kern
     zr_ary_push(row, zr_fix(entry))
     zr_ary_push(row, zr_bool((event & TRACE_LAMBDA) != 0))
     zr_trace_run(row)
+  end
+
+  # The class of the method that frame `home` runs: where the call found
+  # it, since one compiled def can be defined on several classes (an eval
+  # of the same string that runs again). Else its def's owner, and for a
+  # module function's copy the singleton class, as its backtrace label
+  # names it.
+  #: (ptr, ptr) -> value
+  def zr_trace_defined_class(home, method)
+    if home == 0
+      return FrameMeta[method].owner
+    end
+    found = Frame[home].defined
+    if !zr_special_p(found) && zr_type(found) == T_ICLASS
+      found = RClass[found].attached
+    end
+    if !zr_special_p(found) && (zr_type(found) == T_CLASS || zr_type(found) == T_MODULE)
+      return found
+    end
+    FrameMeta[zr_frame_label_meta(home)].owner
   end
 
   # Makes the start of an event record: the event, the value, the file of
