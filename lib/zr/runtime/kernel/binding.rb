@@ -463,10 +463,66 @@ module Zr::Kern
   # The Binding keeps the table, so zr never frees it.
   #: (value, value) -> value
   def zr_binding_add(b, name)
+    id = zr_fix2long(zr_intern_id(name))
+    env = RProc[b].env
+    # Later names go into the scope that the first one made, as CRuby
+    # extends the binding's own env, so a lookup does not go through one
+    # scope per name.
+    if env != QNIL && zr_ivar_get(b, Machine.id(:__own_env__)) == env
+      n = REnv[env].nslots
+      table = zr_xmalloc((n + 2) * 8)
+      zr_memcpy(table, REnv[env].names, (n + 1) * 8)
+      Machine.store64(table, 0, n + 1)
+      Machine.store64(table + ((n + 1) * 8), 0, id)
+      slots = zr_xmalloc((n + 1) * 8)
+      zr_memcpy(slots, REnv[env].slots, n * 8)
+      Machine.store64(slots + (n * 8), 0, QNIL)
+      old_names = REnv[env].names
+      old_slots = REnv[env].slots
+      REnv[env].names = table
+      REnv[env].slots = slots
+      REnv[env].nslots = n + 1
+      zr_xfree(old_names)
+      zr_xfree(old_slots)
+      return Machine.value(QNIL)
+    end
     table = zr_xmalloc(16)
     Machine.store64(table, 0, 1)
-    Machine.store64(table, 8, zr_fix2long(zr_intern_id(name)))
-    RProc[b].env = zr_env_new(RProc[b].env, 1, table)
+    Machine.store64(table, 8, id)
+    RProc[b].env = zr_env_new(env, 1, table)
+    zr_ivar_set(b, Machine.id(:__own_env__), RProc[b].env)
+    Machine.value(QNIL)
+  end
+
+  # Where the local `name` is in the Binding's scopes, innermost first, as
+  # [depth, index], or nil. `outer` false leaves out the outermost scope
+  # (the main script's, before it runs).
+  #: (value, value, value) -> value
+  def zr_binding_place(b, name, outer)
+    id = zr_sym2id(name)
+    env = RProc[b].env
+    depth = 0
+    while env != QNIL
+      if outer == QFALSE && REnv[env].parent == QNIL
+        return Machine.value(QNIL)
+      end
+      t = REnv[env].names
+      if t != 0
+        n = Machine.load64(t, 0)
+        i = 0
+        while i < n
+          if Machine.load64(t + 8 + (i * 8), 0) == id
+            pair = zr_ary_new(2)
+            zr_ary_push(pair, zr_fix(depth))
+            zr_ary_push(pair, zr_fix(i))
+            return pair
+          end
+          i += 1
+        end
+      end
+      env = REnv[env].parent
+      depth += 1
+    end
     Machine.value(QNIL)
   end
 

@@ -31,8 +31,11 @@ class Binding
   # inside the one it represents, as in ruby.
   def local_variable_set(name, value)
     name = local_name(name)
-    Primitive.zr_binding_add(self, name.to_s) unless place(name)
     at = place(name)
+    unless at
+      Primitive.zr_binding_add(self, name.to_s)
+      at = place(name)
+    end
     Primitive.zr_binding_set(self, at[0], at[1], value)
   end
 
@@ -150,11 +153,7 @@ class Binding
   # local of the lowering keeps its slot but has no name.
   def place(name)
     Primitive.attr! :hidden
-    scopes.each_index do |depth|
-      i = scopes[depth].index(name)
-      return [depth, i] if i
-    end
-    nil
+    Primitive.zr_binding_place(self, name, !Primitive.zr_hidden_get(self, :__before_main__))
   end
 
   # The names in each scope, innermost first, with hidden ones dropped.
