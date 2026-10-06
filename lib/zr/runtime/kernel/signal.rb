@@ -182,6 +182,12 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The largest signal number a SignalException takes (NSIG).
+  #: () -> value
+  def zr_signal_limit
+    zr_fix(NSIG)
+  end
+
   # Whether a signal came whose handler has not run yet.
   #: () -> value
   def zr_trap_pending

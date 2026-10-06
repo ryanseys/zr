@@ -1,0 +1,32 @@
+[:none, ArgumentError, "wrong number of arguments (given 0, expected 1)"]
+[:neg, ArgumentError, "invalid signal number (-1)"]
+[:bad_sym, ArgumentError, "unsupported signal 'SIGXXXXXXXXXX'"]
+[:jp, ArgumentError, "unsupported signal 'SIGルビー'"]
+[:sigexit, ArgumentError, "negative signal name: -SIGEXIT"]
+[:exit, ArgumentError, "unsupported signal 'SIGEXIT'"]
+[:big, ArgumentError, "invalid signal number (1000)"]
+{}
+"SIGINT"
+"SIGINT"
+"SIGINT"
+"custom"
+[:name_and_msg, ArgumentError, "wrong number of arguments (given 2, expected 1)"]
+"Interrupt"
+2
+[:minus_int, ArgumentError, "negative signal name: -INT"]
+[:minus_sym, ArgumentError, "negative signal name: -INT"]
+[:null, ArgumentError, "signal name with null byte"]
+[:obj, ArgumentError, "bad signal type Object"]
+[:float, #<SignalException: SIGINT>]
+"SIGIOT"
+6
+"SIGINT"
+#<SignalException: SIGINT>
+#<SignalException: m>
+#<ArgumentError: bad signal type NilClass>
+#<SignalException: SIGTERM>
+#<SignalException: SIGINT>
+#<ArgumentError: invalid signal number (99)>
+"SIGEXIT"
+#<ArgumentError: wrong number of arguments (given 3, expected 1..2)>
+#<ArgumentError: wrong number of arguments (given 2, expected 1)>

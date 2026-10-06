@@ -570,19 +570,19 @@ class SignalException
 
   # A number gives its first signal in Signal.list; a name keeps its own
   # spelling, including an alias.
-  def initialize(sig = nil, message = nil, *rest)
-    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if sig.nil? && instance_of?(SignalException)
+  def initialize(sig = (none = true; nil), message = nil, *rest)
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if none && instance_of?(SignalException)
     # esignal_init: a number takes a message too, a name does not.
-    raise ArgumentError, "wrong number of arguments (given #{2 + rest.size}, expected #{sig.is_a?(Integer) ? "1..2" : "1"})" unless rest.empty?
+    raise ArgumentError, "wrong number of arguments (given #{2 + rest.size}, expected #{Integer.try_convert(sig) ? "1..2" : "1"})" unless rest.empty?
 
-    signals = Signal.list
-    if sig.is_a?(Integer)
-      name = signals.key(sig)
-      raise ArgumentError, "invalid signal number (#{sig})" unless name
+    number = Integer.try_convert(sig) unless none
+    if number
+      # A number up to NSIG names its signal, or SIG and the number.
+      raise ArgumentError, "invalid signal number (#{number})" unless number.between?(0, Primitive.zr_signal_limit)
 
-      Primitive.zr_hidden_set(self, :signo, sig)
-      super(message || "SIG#{name}")
-    elsif sig.nil?
+      Primitive.zr_hidden_set(self, :signo, number)
+      super(message || "SIG#{Signal.list.key(number) || number}")
+    elsif none
       Primitive.zr_hidden_set(self, :signo, 2)
       super(message)
     else
@@ -590,11 +590,11 @@ class SignalException
       # too many.
       raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" unless message.nil?
 
-      name = sig.to_s.delete_prefix("SIG")
-      raise ArgumentError, "unsupported signal 'SIG#{name}'" unless signals.key?(name)
-
-      Primitive.zr_hidden_set(self, :signo, signals[name])
-      super("SIG#{name}")
+      # signm2signo checks the name: no minus, no null byte, a known
+      # signal other than EXIT.
+      signo = Signal.send(:number, sig)
+      Primitive.zr_hidden_set(self, :signo, signo)
+      super("SIG#{(sig.is_a?(Symbol) ? sig.name : String.try_convert(sig)).delete_prefix("SIG")}")
     end
   end
 
