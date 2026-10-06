@@ -101,7 +101,17 @@ class Rational < Numeric
       case value
       when Integer, Rational then value
       when Float then value.to_r
-      when String then parse(value, exception)
+      when String
+        parsed = parse(value, exception)
+        # string_to_r_strict: the zero of a tiny exponent is a Rational,
+        # the infinity of a huge one is an error.
+        if parsed.is_a?(Float)
+          return parsed.to_r if parsed.zero?
+          return nil unless exception
+
+          raise FloatDomainError, +"Infinity"
+        end
+        parsed
       else
         # rb_respond_to; a BasicObject has no respond_to? to ask.
         responds = begin
@@ -207,6 +217,12 @@ class Rational < Numeric
         end
       elsif strict && skip_space(text, s) != text.bytesize
         return fail.()
+      end
+      # An exponent past a fixnum gives a Float, as parse_rat returns one:
+      # a zero for a tiny value, an infinity for a huge one.
+      unless Primitive.zr_fixnum_p_m(nexp)
+        value = nexp.positive? ? 0.0 : Float::INFINITY
+        return sign == 45 ? -value : value
       end
       if nexp < 0
         num *= 10**-nexp
@@ -585,7 +601,14 @@ class Float
 end
 
 class String
-  def to_r = Rational.send(:parse, plain, :loose)
+  # string_to_r: the zero of a tiny exponent stays a Float, and the
+  # infinity of a huge one is an error.
+  def to_r
+    parsed = Rational.send(:parse, plain, :loose)
+    raise FloatDomainError, +"Infinity" if parsed.is_a?(Float) && !parsed.zero?
+
+    parsed
+  end
 end
 
 class NilClass
