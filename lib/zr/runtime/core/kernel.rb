@@ -1085,7 +1085,7 @@ module Kernel
   end
 
   def singleton_method(name)
-    raise NameError.new("undefined singleton method '#{name}' for '#{inspect}'", name) unless singleton_methods.include?(name.to_sym)
+    raise NameError.new("undefined singleton method '#{name}' for '#{inspect}'", name) unless Primitive.zr_singleton_method_names_m(self).include?(name.to_sym)
 
     method(name)
   end

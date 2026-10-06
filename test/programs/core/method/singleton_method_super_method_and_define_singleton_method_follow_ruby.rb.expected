@@ -1,0 +1,11 @@
+bar: :bar
+baz: :baz
+quux: :quux
+t: NameError: undefined singleton method 't' for '#<Class:0xADDR>'
+subclass bar: NameError: undefined singleton method 'bar' for '#<Class:0xADDR>'
+subclass baz: NameError: undefined singleton method 'baz' for '#<Class:0xADDR>'
+subclass quux: NameError: undefined singleton method 'quux' for '#<Class:0xADDR>'
+extend self: :foo
+super_method: [true, true]
+define_singleton_method: :dsm
+def O.d: :d

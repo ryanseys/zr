@@ -182,6 +182,14 @@ module Zr::Kern
   # body.
   #: (value, word, ptr, value, value) -> value
   def zr_mod_define_method(recv, argc, argv, cref, blk)
+    zr_define_method_scoped(recv, argc, argv, blk, true)
+  end
+
+  # define_method's work. Where `scoped`, a call from the body of `recv`
+  # takes its default visibility. define_singleton_method is not scoped:
+  # its method is public, as rb_obj_define_method passes a public scope.
+  #: (value, word, ptr, value, bool) -> value
+  def zr_define_method_scoped(recv, argc, argv, blk, scoped)
     r = zr_class_modify_check(recv)
     return r if r == QUNDEF
     # rb_mod_define_method: the count of arguments is checked first.
@@ -196,7 +204,7 @@ module Zr::Kern
     caller = Frame[Task[zr_task()].top].prev
     # The visibility comes from the caller's frame, not from the cref
     # that the call passes.
-    home = zr_cref_in_context(caller, recv)
+    home = scoped ? zr_cref_in_context(caller, recv) : Machine.value(QNIL)
     if argc > 1
       body = Machine.value(Machine.load64(argv, 8))
       if !zr_special_p(body) && zr_type(body) == T_METHOD
@@ -278,7 +286,7 @@ module Zr::Kern
     end
     s = zr_singleton_class(recv)
     return s if s == QUNDEF
-    zr_mod_define_method(s, argc, argv, cref, blk)
+    zr_define_method_scoped(s, argc, argv, blk, false)
   end
 
   # Calls a method that `define_method` made. It runs the block as a

@@ -267,6 +267,22 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
+    zr_singleton_names(recv, all, all)
+  end
+
+  # The names that `singleton_method` finds: the singleton class's own,
+  # and those of the modules that it prepends or that extend the object,
+  # but not those of a superclass's singleton class (Bug #20620).
+  #: (value) -> value
+  def zr_singleton_method_names_m(recv)
+    zr_singleton_names(recv, true, false)
+  end
+
+  # The singleton class's own names, then with `modules` those of the
+  # modules in its list, and with `inherited` those of the superclasses'
+  # singleton classes too.
+  #: (value, bool, bool) -> value
+  def zr_singleton_names(recv, modules, inherited)
     out = zr_ary_new(4)
     seen = zr_ary_new(4)
     if zr_special_p(recv)
@@ -282,9 +298,9 @@ module Zr::Kern
     end
     origin = zr_origin(k)
     zr_level_method_names(origin, out, seen, 0 - 1)
-    if all
+    if modules
       k = RClass[k].superclass
-      while k != QNIL && (zr_type(k) == T_ICLASS || zr_singleton_p(k))
+      while k != QNIL && (zr_type(k) == T_ICLASS || k == origin || (inherited && zr_singleton_p(k)))
         if k != origin
           zr_level_method_names(k, out, seen, 0 - 1)
         end
@@ -374,6 +390,11 @@ module Zr::Kern
     end
     if k == QNIL
       return Machine.value(QNIL)
+    end
+    # A class with a prepended module keeps its methods in its origin, and
+    # the search goes on above that.
+    if zr_type(k) != T_ICLASS
+      k = zr_origin(k)
     end
     # A visibility copy (a zsuper entry) searches on after the node of its
     # original. So does an alias of a module's method, whose entry keeps
