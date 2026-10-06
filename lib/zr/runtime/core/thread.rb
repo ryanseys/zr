@@ -970,6 +970,7 @@ class Thread
     # is where thread_start_func_2 fires it, whether the body ended or
     # raised.
     TracePoint.send(:thread_event, :thread_end, self)
+    TracePoint.send(:remove_trace_funcs, self)
     finish
     # A thread that forked is the child's main thread, so its end ends the
     # child, as the main thread's end does.

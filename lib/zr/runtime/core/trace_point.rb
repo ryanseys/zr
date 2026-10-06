@@ -103,16 +103,20 @@ class TracePoint
     # set before for the same threads.
     def trace_func(hook, thread, adding, site)
       Primitive.attr! :hidden
-      unless adding
-        funcs.select { |point| Primitive.zr_hidden_get(point, :__hook_thread__).equal?(thread) }.each do |point|
-          funcs.delete(point)
-          point.disable
-        end
-      end
+      remove_trace_funcs(thread) unless adding
       return nil if hook.nil?
       raise TypeError, +"trace_func needs to be Proc" unless hook.is_a?(Proc)
 
+      setter = adding ? :add_trace_func : :set_trace_func
+      own_return = true
       point = new(*HOOK_NAMES.keys) do |tp|
+        # The hook already heard the return of its setter (below). When
+        # something traced that call, its own c-return comes too, as the
+        # first event: that one is dropped.
+        first = own_return
+        own_return = false
+        next if first && tp.event == :c_return && tp.method_id == setter
+
         klass = tp.defined_class
         klass = klass.attached_object if klass.is_a?(Class) && klass.singleton_class?
         hook.call(HOOK_NAMES.fetch(tp.event), tp.path, tp.lineno, tp.method_id, tp.binding, klass)
@@ -125,10 +129,20 @@ class TracePoint
       # returns once the hook is in place. It runs untraced, as every
       # hook does, and may remove itself.
       if thread.nil? || thread.equal?(Thread.current)
-        hook.call(+"c-return", site.path, site.lineno, adding ? :add_trace_func : :set_trace_func, nil, thread ? Thread : Kernel)
+        hook.call(+"c-return", site.path, site.lineno, setter, nil, thread ? Thread : Kernel)
       end
       point.send(:switch, true) if funcs.include?(point)
       hook
+    end
+
+    # The hooks of `thread`, or the global ones for nil, stop. A thread's
+    # own hooks stop when it ends, as thread_start_func_2 removes them.
+    def remove_trace_funcs(thread)
+      Primitive.attr! :hidden
+      funcs.select { |point| Primitive.zr_hidden_get(point, :__hook_thread__).equal?(thread) }.each do |point|
+        funcs.delete(point)
+        point.disable
+      end
     end
 
     def funcs

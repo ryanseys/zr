@@ -1,0 +1,6 @@
+[["c-return", 6, :set_trace_func], ["line", 7, :record], ["c-call", 7, :+], ["c-return", 7, :+], ["line", 8, :record], ["c-call", 8, :set_trace_func]]
+[["c-return", 6, :set_trace_func], ["line", 7, :record], ["c-call", 7, :+], ["c-return", 7, :+], ["line", 8, :record], ["c-call", 8, :set_trace_func]]
+[["c-return", 6, :set_trace_func], ["line", 7, :record], ["c-call", 7, :+], ["c-return", 7, :+], ["line", 8, :record], ["c-call", 8, :set_trace_func]]
+:ok
+true
+[["c-return", 6, :set_trace_func], ["line", 7, :record], ["c-call", 7, :+], ["c-return", 7, :+], ["line", 8, :record], ["c-call", 8, :set_trace_func]]
