@@ -21,6 +21,7 @@ module Zr
     # @rbs @host: Obj::_JITHost
     # @rbs @count: Integer
     # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer]] | Exception]
+    # @rbs @files: Hash[[String, String], Integer]
 
     # Two threads can eval at the same time. Only one of them loads the
     # compiler, and the other waits until the load is complete.
@@ -74,6 +75,7 @@ module Zr
       @host = Obj::JIT.host
       @count = 0
       @compiled = {}
+      @files = {}
     end
 
     # Compiles `source`. Returns the toplevel's address, its FrameMeta
@@ -123,21 +125,32 @@ module Zr
     # file: its own scope, under main and Object. A file in the extensions
     # (`Library::Layout::EXT`) is part of the runtime, where `Primitive`
     # resolves.
+    #
+    # The machine code of a file is never freed, so a file that a program
+    # loads again with the same source runs the code of its first compile.
+    # Under TracePoint or Coverage the code differs, so each load compiles.
     #: (String path) -> Integer
     def compile_file(path)
       Eval.plainly do
+        source = File.read(path)
+        coverage = covering
+        reuse = coverage.nil? && !@runtime.tracing?
+        key = [-path, -source] #: [String, String]
+        next @files.fetch(key) if reuse && @files.key?(key)
+
         @count += 1
         name = "zr_load_#{@count}"
         # While Coverage measures, the file gets its :line events and its
         # def sites, and Coverage learns which of its lines can run and where
         # each of its methods is.
-        coverage = covering
         base = coverage&.send(:next_def_site)
-        hir = Hir.build(File.read(path), path, eval_support: false, trace: @runtime.tracing?, def_base: base)
+        hir = Hir.build(source, path, eval_support: false, trace: @runtime.tracing?, def_base: base)
         coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
         ext = Library::Roots.internal_library?(path)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
-        Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
+        top = Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
+        @files[key] = top if reuse
+        top
       end
     end
 

@@ -1,0 +1,2 @@
+lang/require/a_file_required_again_runs_again_each_time.rb:27: warning: character class has duplicated range: /[aa]/
+lang/require/a_file_required_again_runs_again_each_time.rb:28: warning: character class has duplicated range: /[aa]/

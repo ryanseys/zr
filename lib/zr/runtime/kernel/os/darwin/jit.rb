@@ -18,10 +18,12 @@ module Zr::Kern
   # Reserves a region of `size` bytes with no access, where the JIT puts
   # its code and data at addresses that it selects. The code and the data
   # must be within the 4 GiB range of adrp, and a hint alone does not keep
-  # them that near.
+  # them that near. The code also reaches the program's own statics with
+  # adrp, so the hint is this program's code: the kernel takes the first
+  # free range from there, not one that each new region pushes farther.
   #: (value) -> value
   def zr_os_jit_reserve(size)
-    at = Libc.mmap(Machine.ptr(0), zr_fix2long(size), Machine.i32(PROT_NONE), Machine.i32(MAP_ANON_PRIVATE), Machine.i32(0 - 1), 0)
+    at = Libc.mmap(Machine.ptr(Machine.addr(:zr_os_jit_reserve)), zr_fix2long(size), Machine.i32(PROT_NONE), Machine.i32(MAP_ANON_PRIVATE), Machine.i32(0 - 1), 0)
     if Machine.word(at) == 0 || Machine.word(at) == 0 - 1
       return Machine.value(QNIL)
     end

@@ -147,11 +147,24 @@ class Regexp
       return [Encoding.at(index), bits, program.freeze, names, warnings]
     end
 
+    # A program that builds the same pattern again and again (Regexp.new
+    # in a loop) compiles it once. The result is frozen and shared, and
+    # holds the warnings, which print again for each Regexp.
+    key = [source, source.encoding, bits].freeze
+    programs = Primitive.zr_hidden_get(self, :programs) || Primitive.zr_state_set(self, :programs, {})
+    found = programs[key]
+    return found if found
+
     encoding, bits, compiled, warnings = Pattern.compile(source, bits)
     names = compiled.name_table.to_a.map { |name, entry| [name, entry.back_refs] }
-    [encoding, bits, Onig::Program.pack(compiled), names, warning_rows(warnings)]
+    programs.shift if programs.size >= PROGRAMS_KEPT
+    programs[key] = [encoding, bits, Onig::Program.pack(compiled).freeze, names.freeze, warning_rows(warnings).freeze].freeze
   end
   private_class_method :compiled
+
+  # How many compiled patterns `compiled` keeps; the oldest goes first.
+  PROGRAMS_KEPT = 256
+  private_constant :PROGRAMS_KEPT
 
   # A Regexp of this class over `source`: the husk and its pattern in
   # one step, which the literal table and the copies use.
@@ -394,7 +407,8 @@ class Regexp
     converted
   end
 
-  def source = pattern
+  # rb_reg_source: a new String each call, which the caller may change.
+  def source = pattern.dup
 
   def options
     pattern
