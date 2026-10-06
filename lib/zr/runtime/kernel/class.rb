@@ -3195,28 +3195,52 @@ module Zr::Kern
   end
 
   # In a `refine` block, the refinement that it defines is in use, so a
-  # sibling method is available by its bare name.
+  # sibling method is available by its bare name. The refinements in use
+  # where `refine` was called come after it, as CRuby searches each cref
+  # out from the block's.
   #: (ptr) -> value
   def zr_activate_owner(rec)
     meta = zr_method_meta_of(rec)
-    list = Machine.value(QNIL)
+    holder = Machine.value(QNIL)
     if meta != 0
       owner = FrameMeta[meta].owner
       if !zr_special_p(owner) && (zr_type(owner) == T_MODULE || zr_type(owner) == T_CLASS)
-        list = ClassExt[RClass[owner].ext].active
+        holder = owner
       end
     end
     # The refine block's own code, outside any method: the refinement it
     # defines is its cref.
     cref = Frame[rec].cref
-    if list == QNIL && cref != QNIL && RCref[cref].lazy == QNIL
+    if holder == QNIL && cref != QNIL && RCref[cref].lazy == QNIL
       k = RCref[cref].klass
       if !zr_special_p(k) && (zr_type(k) == T_MODULE || zr_type(k) == T_CLASS)
-        list = ClassExt[RClass[k].ext].active
+        holder = k
+      end
+    end
+    list = Machine.value(QNIL)
+    if holder != QNIL
+      list = ClassExt[RClass[holder].ext].active
+      outer = zr_ivar_get(holder, Machine.id(:__outer__))
+      if list != QNIL && !zr_special_p(outer) && zr_type(outer) == T_ARRAY
+        both = zr_ary_new(RArray[outer].len + RArray[list].len)
+        zr_ary_splat(both, outer)
+        zr_ary_splat(both, list)
+        list = both
       end
     end
     Task[zr_task()].refine = list
     Machine.value(QNIL)
+  end
+
+  # `Module#refine`: a builtin, so it reads the refinements that its
+  # call's site uses before a ruby frame clears them. The core's
+  # refine_under keeps them for the block.
+  #: (value, word, ptr, value, value) -> value
+  def zr_mod_refine(recv, argc, argv, cref, blk)
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(Task[zr_task()].refine))
+    Machine.store64(args, 8, Machine.load64(argv, 0))
+    zr_send_blk(recv, Machine.id(:refine_under), 2, args, blk)
   end
 
   # The table of activation entries, long enough to contain entry `id`.

@@ -258,9 +258,11 @@ module Zr::Kern
     zr_fix(order)
   end
 
+  # `Symbol#to_proc` sees no refinements of its caller, as in ruby 4.0
+  # (Bug #21265). Only `&:name` at a site uses the site's refinements.
   #: (value, word, ptr, value, value) -> value
   def zr_sym_to_proc_m(recv, argc, argv, cref, blk)
-    zr_sym_to_proc_here(recv)
+    zr_sym_to_proc(recv)
   end
 
   # All symbols interned until now, static names first.

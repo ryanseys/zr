@@ -422,6 +422,7 @@ module Zr::Kern
     zr_builtin_private(zr_global(G_KERNEL), Machine.id(:__method__), Machine.addr(:zr_kernel_method_name), 0)
     zr_builtin(zr_global(G_PROC), Machine.id(:source_location), Machine.addr(:zr_proc_source_location), 0)
     zr_builtin(zr_global(G_MODULE), Machine.id(:remove_method), Machine.addr(:zr_mod_remove_method), 0 - 1)
+    zr_builtin(zr_global(G_MODULE), Machine.id(:refine), Machine.addr(:zr_mod_refine), 1)
     zr_builtin(zr_global(G_MODULE), Machine.id(:private_constant), Machine.addr(:zr_mod_private_constant), 0 - 1)
     zr_builtin(zr_global(G_MODULE), Machine.id(:public_constant), Machine.addr(:zr_mod_public_constant), 0 - 1)
     zr_builtin(zr_global(G_MODULE), Machine.id(:deprecate_constant), Machine.addr(:zr_mod_deprecate_constant), 0 - 1)

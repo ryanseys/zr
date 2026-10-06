@@ -518,9 +518,8 @@ module Zr::Kern
     refined = false
     if k != QNIL && zr_type(k) == T_MODULE && ClassExt[RClass[k].ext].refined != QNIL
       # `super` in a refined method finds the method that the refinement
-      # overrides. It searches the refined class's ancestor list with no
-      # refinements, because the refinement would otherwise find itself.
-      e = zr_search_method(ClassExt[RClass[k].ext].refined, mid)
+      # overrides (zr_refined_super_search).
+      e = zr_refined_super_search(ClassExt[RClass[k].ext].refined, mid)
       refined = true
     elsif k != QNIL
       e = zr_find_method(RClass[k].superclass, mid)
@@ -542,6 +541,35 @@ module Zr::Kern
     # The site activated the refinements for this super only.
     Task[t].refine = Machine.value(QNIL)
     r
+  end
+
+  # `super` in a refinement's method: the refined class's own methods
+  # first, up to its origin, with no refinement, because the refinement
+  # would otherwise find itself. Above them, the refinements that the
+  # super site uses apply, as search_refined_method goes on to the
+  # superclass.
+  #: (value, word) -> ptr
+  def zr_refined_super_search(refined, mid)
+    origin = zr_origin(refined)
+    k = refined
+    while k != QNIL
+      e = zr_find_method_at(k, mid)
+      if e != 0
+        if MEntry[e].kind == KIND_UNDEF
+          return 0
+        end
+        Task[zr_task()].found = k
+        return e
+      end
+      if k == origin
+        break
+      end
+      k = RClass[k].superclass
+    end
+    if RClass[origin].superclass == QNIL
+      return 0
+    end
+    zr_find_method(RClass[origin].superclass, mid)
   end
 
   # vm_search_super_method: `self` must still be a kind of the method's

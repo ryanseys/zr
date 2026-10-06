@@ -197,7 +197,11 @@ class Module
 
   # `refine C do ... end`: the methods go in a holder module, never on
   # C itself, so they stay invisible until a `using` of this module.
-  def refine(target, &block)
+  # `refine` is a builtin (zr_mod_refine), which reads the refinements in
+  # use at its call before a ruby frame clears them. They also apply in
+  # the block, after the block's own.
+  def refine_under(outer, target, &block)
+    Primitive.attr! :hidden
     raise ArgumentError, +"no block given" unless block
     raise ArgumentError, +"can't pass a Proc as a block to Module#refine" if Primitive.zr_proc_passed_p_m(block)
     raise TypeError, "wrong argument type #{conversion_name(target)} (expected Class or Module)" unless target.is_a?(Module)
@@ -209,6 +213,7 @@ class Module
       Primitive.zr_hidden_set(holder, :__origin__, self)
       table[target] = holder
     end
+    Primitive.zr_hidden_set(holder, :__outer__, outer) if outer
     Primitive.zr_refine_body(block, holder)
     holder
   end
@@ -218,8 +223,12 @@ class Module
   def refinements = @__refinements__ ? @__refinements__.values : []
 
   # `using` does its work where it is written, which the compiler sees;
-  # anywhere else it is the refusal.
+  # anywhere else it is the refusal. A block, where ruby permits it,
+  # reaches this too, and an argument that is no Module is the TypeError
+  # of rb_using_module.
   def using(mod)
+    raise TypeError, "wrong argument type #{Primitive.zr_class_name_of(mod)} (expected Module)" unless mod.is_a?(Module)
+
     raise RuntimeError, +"Module#using is not permitted in methods"
   end
   private :using
@@ -328,6 +337,8 @@ class << self
   # Only the compiler activates a refinement, where the source writes
   # the `using`; the method itself is the refusal every other spot gets.
   def using(mod)
+    raise TypeError, "wrong argument type #{Primitive.zr_class_name_of(mod)} (expected Module)" unless mod.is_a?(Module)
+
     raise RuntimeError, +"main.using is permitted only at toplevel"
   end
 
