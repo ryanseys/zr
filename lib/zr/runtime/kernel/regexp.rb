@@ -286,18 +286,72 @@ module Zr::Kern
   end
 
   # `/#{x}/o`: the regexp of the site, made once. It is nil until the
-  # site runs.
+  # site runs, and then the caller makes it. As in vm_once_dispatch, the
+  # first fiber to run the site claims it: another fiber that runs the
+  # site meanwhile waits for the regexp. The claim names the fiber and
+  # the frame that runs the site. A frame that leaves before it makes the
+  # regexp (a throw out of the interpolation) ends its claim, and the
+  # next run makes the regexp again.
   #: (word) -> value
   def zr_regexp_once(index)
-    zr_site_literal(G_REGEXP_LITERALS, index)
+    while true
+      kept = zr_site_literal(G_REGEXP_LITERALS, index)
+      if kept != QNIL
+        return kept
+      end
+      claim = zr_site_literal(G_REGEXP_LITERALS, zr_regexp_once_claim_key(index))
+      if claim == QNIL || zr_ary_at(claim, 0) == zr_fiber_current() || !zr_regexp_once_making_p(claim)
+        break
+      end
+      # Thread.pass would leave a sleeping maker asleep: a tick of sleep
+      # lets the scheduler wake it.
+      tick = Machine.slot(8)
+      Machine.store64(tick, 0, Machine.word(zr_float_new(Machine.f64(ONCE_WAIT_BITS))))
+      r = zr_send(zr_fiber_current(), Machine.id(:sleep), 1, tick)
+      return r if r == QUNDEF
+    end
+    top = Task[zr_task()].top
+    claim = zr_ary_new(3)
+    zr_ary_push(claim, zr_fiber_current())
+    zr_ary_push(claim, zr_fix(Machine.word(top)))
+    zr_ary_push(claim, zr_fix(zr_frame_serial(top)))
+    zr_site_literal_set(G_REGEXP_LITERALS, zr_regexp_once_claim_key(index), claim)
+    Machine.value(QNIL)
   end
 
-  # Keeps the regexp that the site made, and returns the site's regexp.
-  # Two threads can run the site at once; the first to finish keeps its
-  # regexp, and the other gets it too, so the site gives one regexp, as
-  # vm_once_dispatch makes the second thread wait for the first.
+  # 0.001, the seconds that a fiber waits for a claim at a time.
+  ONCE_WAIT_BITS = 0x3F50624DD2F1A9FC
+
+  # The literal table keeps a site's claim at the negative key of the site.
+  #: (word) -> word
+  def zr_regexp_once_claim_key(index)
+    0 - 1 - index
+  end
+
+  # Whether the frame of a claim is still on its fiber's stack.
+  #: (value) -> bool
+  def zr_regexp_once_making_p(claim)
+    t = RFiber[zr_ary_at(claim, 0)].task
+    if t == 0
+      return false
+    end
+    frame = Machine.ptr(zr_fix2long(zr_ary_at(claim, 1)))
+    serial = zr_fix2long(zr_ary_at(claim, 2))
+    rec = Task[t].top
+    while rec != 0
+      if rec == frame
+        return Frame[rec].serial == serial
+      end
+      rec = Frame[rec].prev
+    end
+    false
+  end
+
+  # Keeps the regexp that the site made, ends the claim, and returns the
+  # site's regexp.
   #: (word, value) -> value
   def zr_regexp_once_set(index, re)
+    zr_site_literal_set(G_REGEXP_LITERALS, zr_regexp_once_claim_key(index), Machine.value(QNIL))
     kept = zr_site_literal(G_REGEXP_LITERALS, index)
     if kept != QNIL
       return kept

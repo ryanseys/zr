@@ -433,11 +433,12 @@ module Zr
         def definee = checked(kernel("zr_cref_definee", @cref))
 
         # `/#{x}/o` runs its site once. The regexp stays in the literal
-        # table, and every later run reads it from there.
+        # table, and every later run reads it from there. A thread that
+        # reaches the site while another makes it waits, which can raise.
         #: (Hir::RegexpOnce node) -> String
         def regexp_once(node)
           index = site_word
-          cached = kernel("zr_regexp_once", index)
+          cached = checked(kernel("zr_regexp_once", index))
           make = @f.label
           have = @f.label
           merge, (result,) = @f.block(["i64"]) #: [String, [String]]
