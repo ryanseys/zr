@@ -23,6 +23,9 @@ module Zr::Kern
     list = Task[t].guards
     if list == QNIL
       list = zr_ary_new(GUARD_ROW * 4)
+      # Its rows hold undef for a guard with no pair, which no program can
+      # read, so ObjectSpace does not give it out (a hidden object).
+      RBasic[list].flags = RBasic[list].flags | FL_CONCEALED
       Task[t].guards = list
     end
     name = zr_sym(mid)

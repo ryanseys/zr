@@ -9,6 +9,8 @@ module Zr::Kern
     list = Task[t].catches
     if list == QNIL
       list = zr_ary_new(8)
+      # The runtime's own list, which ObjectSpace does not give out.
+      RBasic[list].flags = RBasic[list].flags | FL_CONCEALED
       Task[t].catches = list
     end
     list
