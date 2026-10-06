@@ -4,9 +4,10 @@
 module Zr::Kern
   # Raises the error for a miss, with CRuby's message. A bare identifier
   # (`vcall`) raises NameError and shows main as `main`. A `super` with no
-  # method above it has its own message.
-  #: (value, word, bool, bool, word, ptr) -> value
-  def zr_no_method_from(recv, mid, vcall, from_super, argc, argv)
+  # method above it has its own message. `private_call?` is true for a call
+  # with no receiver or `self` (`implicit`), as for `super`.
+  #: (value, word, bool, bool, bool, word, ptr) -> value
+  def zr_no_method_from(recv, mid, vcall, from_super, implicit, argc, argv)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     if from_super
@@ -25,6 +26,9 @@ module Zr::Kern
     zr_exc_detail(e, Machine.id(:receiver), recv)
     if !vcall
       zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))
+      if implicit || from_super
+        zr_exc_detail(e, Machine.id(:private_call), Machine.value(QTRUE))
+      end
     end
     # Keep the locals of the Ruby scope that contains the send and of the
     # scopes around a block, for NameError#local_variables. CRuby's
@@ -305,9 +309,9 @@ module Zr::Kern
       return zr_hidden_method(recv, mid, VIS_PROTECTED, argc, argv)
     end
     if reason == MISS_SUPER
-      return zr_no_method_from(recv, mid, false, true, argc, argv)
+      return zr_no_method_from(recv, mid, false, true, false, argc, argv)
     end
-    zr_no_method(recv, mid, reason == MISS_VCALL, argc, argv)
+    zr_no_method_from(recv, mid, reason == MISS_VCALL, false, reason == MISS_IMPLICIT, argc, argv)
   end
 
   # `BasicObject#method_missing`: raises the NoMethodError for a miss.
@@ -329,15 +333,14 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" is given"), 9)
       return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
     end
-    t = zr_task()
-    reason = Task[t].missing
-    Task[t].missing = 0
-    zr_miss_error(recv, zr_sym2id(m), reason, argc - 1, argv + 8)
+    # The reason stays, as ec->method_missing_reason does in CRuby: a
+    # direct call of method_missing reports the last miss's kind.
+    zr_miss_error(recv, zr_sym2id(m), Task[zr_task()].missing, argc - 1, argv + 8)
   end
 
   #: (value, word, bool, word, ptr) -> value
   def zr_no_method(recv, mid, vcall, argc, argv)
-    zr_no_method_from(recv, mid, vcall, false, argc, argv)
+    zr_no_method_from(recv, mid, vcall, false, false, argc, argv)
   end
 
   # Raises `private method 'x' called for ...`, or the protected form.

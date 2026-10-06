@@ -1,0 +1,25 @@
+true
+true
+true
+true
+true
+[:basic_fcall, true]
+[:basic_fcall0, true]
+[:basic_call, false]
+[:basic_in_method, true]
+[:basic_self, true]
+[:super, true]
+[:mm_fcall, true]
+[:mm_call, false]
+[:send, true]
+[:public_send, false]
+[:__send__, true]
+[:direct_method_missing, true]
+[:integer_self, true]
+[:safe_nav, false]
+[:op_assign, false]
+[:index, false]
+[:attr_set, false]
+[:self_attr_set, true]
+[NameError, false]
+[NameError, :qq]
