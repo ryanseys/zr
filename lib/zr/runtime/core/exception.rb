@@ -624,9 +624,10 @@ class Thread
         Primitive.zr_hidden_set(self, :__node_id__, node_id)
         at = row.index(":in '")
         head = row[0, at]
-        colon = head.rindex(":")
-        @path = head[0, colon]
-        @lineno = head[colon + 1..].to_i
+        # A frame at line 0 shows no line, as location_format writes it.
+        line = head[/:(-?\d+)\z/, 1]
+        @path = line ? head.byteslice(0, head.bytesize - line.bytesize - 1) : head
+        @lineno = line.to_i
         @label = row[at + 5...-1]
         @row = row
       end

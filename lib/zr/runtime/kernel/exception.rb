@@ -667,12 +667,15 @@ module Zr::Kern
     zr_buf_sym(b, name)
   end
 
-  # Writes `file:line:in 'label'` for one backtrace frame.
+  # Writes `file:line:in 'label'` for one backtrace frame; a frame at line
+  # 0 has no line, as location_format writes it.
   #: (ptr, ptr) -> void
   def zr_buf_row(b, row)
     zr_buf_push(b, BtRow[row].file, BtRow[row].file_len)
-    zr_buf_byte(b, 58)
-    zr_buf_long(b, BtRow[row].line)
+    if BtRow[row].line != 0
+      zr_buf_byte(b, 58)
+      zr_buf_long(b, BtRow[row].line)
+    end
     zr_buf_push(b, Machine.bytes(":in '"), 5)
     zr_buf_label(b, BtRow[row].meta)
     zr_buf_byte(b, 39)
@@ -1026,8 +1029,11 @@ module Zr::Kern
     source = zr_frame_with_file(rec)
     if source != 0
       zr_buf_push(b, FrameMeta[Frame[source].meta].file, FrameMeta[Frame[source].meta].file_len)
-      zr_buf_byte(b, 58)
-      zr_buf_long(b, zr_frame_line(source))
+      line = zr_frame_line(source)
+      if line != 0
+        zr_buf_byte(b, 58)
+        zr_buf_long(b, line)
+      end
     end
     zr_buf_push(b, Machine.bytes(":in '"), 5)
     zr_buf_label(b, zr_frame_label_meta(rec))

@@ -1,0 +1,6 @@
+"f.rb:in '<main>'"
+["f.rb", 0, "<main>", "f.rb:in '<main>'"]
+"g.rb:1:in '<main>'"
+1
+0
+[0, 0]
