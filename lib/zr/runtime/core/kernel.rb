@@ -210,7 +210,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # its self is a clone of main that the module extends.
   def load(name, wrap = false)
     feature = File.path(name)
-    path = Kernel.search(feature) || (Primitive.zr_path_kind(feature) == 2 && File.readable?(feature) && File.expand_path(feature))
+    path = Kernel.search(feature) || (Kernel.loadable?(feature) && File.expand_path(feature))
     return Kernel.load_file(path, feature, 2) unless wrap
 
     Kernel.missing(feature, 2) unless path
@@ -285,7 +285,14 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # does, so a require of it is a LoadError.
   def self.found(path)
     Primitive.attr! :hidden
-    path if Primitive.zr_unit_for(path) || (Primitive.zr_path_kind(path) == 2 && File.readable?(path))
+    path if Primitive.zr_unit_for(path) || loadable?(path)
+  end
+
+  # rb_file_load_ok: a path that is there, readable and no directory; a
+  # FIFO or a device loads too, and its read waits as any read does.
+  def self.loadable?(path)
+    Primitive.attr! :hidden
+    Primitive.zr_path_kind(path) > 1 && File.readable?(path)
   end
 
   # Whether ruby loaded `feature` before the program, by any of its names.

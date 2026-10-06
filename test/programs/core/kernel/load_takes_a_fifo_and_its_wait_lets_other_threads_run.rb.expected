@@ -1,0 +1,5 @@
+"stopped 0"
+"stopped 1"
+"stopped 2"
+:from_fifo
+LoadError
