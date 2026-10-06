@@ -51,9 +51,17 @@ module Marshal
                   ObjectSpace::WeakMap ObjectSpace::WeakKeyMap].freeze
   private_constant :DATA_KINDS
 
+  # A copy of one of these classes (`Class#dup`) keeps the allocator, so
+  # its objects are T_DATA too. The copy keeps the class's hidden mark.
+  DATA_KINDS.each do |name|
+    Primitive.zr_hidden_set(Object.const_get(name), :__data_kind__, true) if !name.include?(".") && Object.const_defined?(name)
+  end
+
   # Whether CRuby keeps the objects of `klass` as T_DATA.
   def self.data_kind?(klass)
-    klass.ancestors.any? { |kind| Primitive.zr_table_member_p(DATA_KINDS, MODULE_NAME.bind_call(kind)) }
+    klass.ancestors.any? do |kind|
+      Primitive.zr_hidden_get(kind, :__data_kind__) || Primitive.zr_table_member_p(DATA_KINDS, MODULE_NAME.bind_call(kind))
+    end
   end
 
   # Module#name, as CRuby's class2path reads a class's name: a `name`

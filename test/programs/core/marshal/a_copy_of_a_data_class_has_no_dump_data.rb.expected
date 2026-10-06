@@ -1,0 +1,6 @@
+"can't dump Thread::ConditionVariable"
+"no _dump_data is defined for class DumpableCV"
+"no _dump_data is defined for class DumpableQ"
+"no _dump_data is defined for class DumpableM"
+"can't dump C"
+1
