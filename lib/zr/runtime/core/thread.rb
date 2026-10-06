@@ -453,7 +453,7 @@ class Thread
     Kernel.raise ThreadError, +"Target thread must not be current thread" if equal?(Thread.current)
     Kernel.raise ThreadError, +"Target thread must not be main thread" if equal?(Thread.main) && !Thread.current.equal?(Thread.main)
 
-    deadline = limit.nil? ? nil : Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (Thread.send(:seconds, limit) * 1e9).to_i
+    deadline = join_deadline(limit)
     while alive?
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
@@ -462,6 +462,20 @@ class Thread
     Kernel.raise @exception if @exception
     self
   end
+
+  # thread_join_m: no limit, or one past what a timespec holds, waits
+  # without end; a limit of zero or less waits for nothing.
+  private def join_deadline(limit)
+    return nil if limit.nil?
+
+    seconds = Thread.send(:seconds, limit)
+    return nil if seconds >= TIMESPEC_SECONDS_MAX
+
+    Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (seconds.clamp(0.0, nil) * 1e9).to_i
+  end
+
+  TIMESPEC_SECONDS_MAX = 9.223372036854775807e18
+  private_constant :TIMESPEC_SECONDS_MAX
 
   def value
     join
