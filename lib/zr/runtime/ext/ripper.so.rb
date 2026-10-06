@@ -111,6 +111,46 @@ class Ripper
   end
   private_constant :Cursor
 
+  # Finds the `)` that closes a def's parenthesized parameters: after
+  # `def`, the name, and at most one space, a `(` opens them.
+  class DefParams
+    def initialize
+      @phase = nil
+      @depth = 0
+    end
+
+    # Whether the token before this one closed the parameters. Then it
+    # reads this token.
+    def closed_before?(event, text)
+      closed = @phase == :closed
+      @phase = nil if closed
+      read(event, text)
+      closed
+    end
+
+    private
+
+    def read(event, text)
+      case @phase
+      when :def then @phase = :name unless event == :on_sp
+      when :name then @phase = event == :on_sp ? :gap : @phase
+      when :gap then @phase = nil unless event == :on_lparen
+      when :params
+        @depth += 1 if event == :on_lparen
+        @depth -= 1 if event == :on_rparen
+        @phase = :closed if @depth.zero?
+        return
+      end
+      if event == :on_kw && text == "def"
+        @phase = :def
+      elsif event == :on_lparen && %i[name gap].include?(@phase)
+        @phase = :params
+        @depth = 1
+      end
+    end
+  end
+  private_constant :DefParams
+
   # prism's walk of the tree, which calls each event on the Ripper that
   # requested the parse.
   class Events < Prism::Translation::Ripper
@@ -126,10 +166,14 @@ class Ripper
     def parse
       lexed = Prism.lex_compat(@cursor.source, filepath: @cursor.filename, line: @cursor.first_lineno, version: "current").value
       before = nil
+      params = DefParams.new
       lexed.each do |(line, col), event, text, lex_state|
         # parse.y leaves the state after a heredoc's body as it was, where
         # prism's lexer moves it on.
         lex_state = before if event == :on_heredoc_end && before
+        # parse.y's rule for a def's parenthesized parameters sets the state
+        # to BEG before the lexer reads on; prism's token keeps ENDFN.
+        lex_state = EXPR_BEG if params.closed_before?(event, text) && event == :on_sp
         before = lex_state
         @cursor.at(line, col, lex_state.to_i, text)
         @tokens[[line, event]] << [col, @ripper.__send__(event, text)]
