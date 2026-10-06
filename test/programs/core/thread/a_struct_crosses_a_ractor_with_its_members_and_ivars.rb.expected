@@ -1,0 +1,14 @@
+[S, "member", "ivar", false, false]
+[false, true]
+[#<data D a=[1], b="x">, true, false, false]
+[true, true]
+[#<struct K x=[1], y=2>, false]
+[true, false]
+[true, true, true, true]
+false
+false
+false
+[true, true, true]
+[["z"], true]
+#<struct K x=[1, 2], y=3>
+Ractor::MovedError

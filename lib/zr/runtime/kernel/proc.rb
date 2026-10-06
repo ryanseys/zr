@@ -207,6 +207,18 @@ module Zr::Kern
     RProc[p].self
   end
 
+  # Whether `p` is one of the Procs the core makes in C in CRuby (an
+  # ifunc): a Method's, a Hash's, a curry. A Symbol's Proc is a block of
+  # its own kind there, so it is not one.
+  #: (value) -> value
+  def zr_proc_c_level_m(p)
+    meta = RProc[p].meta
+    if meta == 0
+      return zr_bool(RProc[p].fn != Machine.addr(:zr_symbol_block))
+    end
+    zr_bool(meta == zr_anonymous_meta() || meta == zr_anonymous_meta1())
+  end
+
   # Returns the same block with a different self, which is what a Ractor
   # runs. The body of the block runs with the ractor as self, and no frame
   # is between the call and the body where a report would show one.

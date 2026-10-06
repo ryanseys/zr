@@ -603,6 +603,8 @@ module Process
   # out first, so the child does not write them again; in the child only
   # the thread that forked lives on.
   def self._fork
+    raise Ractor::IsolationError, +"can not fork from non-main Ractors" unless Ractor.main?
+
     $stdout.flush
     $stderr.flush
     pid = checked(Primitive.zr_proc_fork)

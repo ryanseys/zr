@@ -1,0 +1,7 @@
+true
+["can not access non-shareable objects in constant ThreadGroup::Default by non-main Ractor.", true, ThreadGroup, 1]
+false
+[false, false]
+true
+[Ractor::IsolationError, "can not fork from non-main Ractors"]
+[Ractor::IsolationError, "can not fork from non-main Ractors"]

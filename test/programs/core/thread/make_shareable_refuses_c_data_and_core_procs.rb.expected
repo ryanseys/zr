@@ -1,0 +1,48 @@
+Hash#to_proc: RuntimeError: not supported yet
+frozen Hash#to_proc: RuntimeError: not supported yet
+Method#to_proc: RuntimeError: not supported yet
+Kernel#method to_proc: RuntimeError: not supported yet
+curry: RuntimeError: not supported yet
+lambda curry: RuntimeError: not supported yet
+Symbol#to_proc: true
+proc with an unshareable self: Ractor::IsolationError: Proc's self is not shareable: #<Proc:0xX core/thread/make_shareable_refuses_c_data_and_core_procs.rb:20>
+nil self proc: true
+Integer method: true
+frozen String method: true
+String method: Ractor::Error: can not make shareable object for #<Method: String#to_s()> because it refers unshareable objects
+Method in an Array: Ractor::Error: can not make shareable object for #<Method: String#to_s()> because it refers unshareable objects
+UnboundMethod: true
+make_shareable freezes the Method: true
+the receiver stays unfrozen: [false, false]
+a frozen Method: true
+shareable? of a frozen Method: false
+shareable? of an unfrozen Method: false
+shareable? of a Method with an unshareable receiver: false
+singleton to_s: Ractor::Error: can not make shareable object for #<Method: String#to_s()> because it refers unshareable objects
+Thread: Ractor::Error: can not make shareable object for #<Thread:0xX run>
+Mutex: Ractor::Error: can not make shareable object for #<Thread::Mutex:0xX>
+Queue: Ractor::Error: can not make shareable object for #<Thread::Queue:0xX>
+SizedQueue: Ractor::Error: can not make shareable object for #<Thread::SizedQueue:0xX>
+ConditionVariable: Ractor::Error: can not make shareable object for #<Thread::ConditionVariable:0xX>
+ThreadGroup: Ractor::Error: can not make shareable object for #<ThreadGroup:0xX>
+Enumerator: Ractor::Error: can not make shareable object for #<Enumerator: [1]:each>
+Lazy: Ractor::Error: can not make shareable object for #<Enumerator::Lazy: [1]>
+Chain: Ractor::Error: can not make shareable object for #<Enumerator::Chain: [#<Enumerator: [1]:each>, [2]]>
+ArithmeticSequence: Ractor::Error: can not make shareable object for (1.step(10, 2))
+Binding refuses: Ractor::Error: can not make shareable object for #<Binding:0xX>
+Random: Ractor::Error: can not make shareable object for #<Random:0xX>
+WeakMap: Ractor::Error: can not make shareable object for #<ObjectSpace::WeakMap:0xX>
+TracePoint: Ractor::Error: can not make shareable object for #<TracePoint:disabled>
+IO::Buffer: Ractor::Error: can not make shareable object for #<IO::Buffer 0xX+4 INTERNAL>
+Dir: Ractor::Error: can not make shareable object for #<Dir:.>
+Encoding::Converter: Ractor::Error: can not make shareable object for #<Encoding::Converter: UTF-8 to EUC-JP>
+Time: true
+IO: true
+Set: true
+Port: true
+Regexp: true
+MatchData: true
+Complex: true
+Exception: true
+Struct: true
+Data: true

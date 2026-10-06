@@ -373,8 +373,10 @@ class Ractor
   # So is a Ractor, because its contents belong to the runtime. A husk
   # left by a move accepts no message, so it is shareable. ENV is too:
   # the process's environment is one for all ractors, as CRuby marks it.
+  # A Method is shareable only after make_shareable (freeze_method).
   def self.shareable?(obj)
     return true if moved?(obj) || immutable?(obj) || obj.is_a?(Ractor) || obj.equal?(ENV)
+    return Primitive.zr_hidden_get(obj, :__shareable__) == true if obj.is_a?(Method)
 
     obj.frozen? && each_reachable(obj) { |ref| return false unless shareable?(ref) }
   end
@@ -449,11 +451,11 @@ class Ractor
     return if immutable?(obj) || moved?(obj) || obj.is_a?(Ractor) || seen.key?(obj)
 
     raise Error, "can not make shareable object for #{obj.inspect}" if unshareable?(obj)
-    # A Proc keeps its self wherever it runs, so the self must be
-    # shareable first.
-    raise IsolationError, "Proc's self is not shareable: #{obj.inspect}" if obj.is_a?(Proc) && !shareable?(Primitive.zr_proc_self_m(obj))
 
     seen[obj] = true
+    return freeze_method(obj) if obj.is_a?(Method)
+
+    shareable_proc!(obj) if obj.is_a?(Proc)
     # make_shareable_check_shareable_freeze: the program's #freeze runs,
     # and one that leaves the object unfrozen is an error.
     unless obj.frozen?
@@ -463,10 +465,37 @@ class Ractor
     each_reachable(obj) { |ref| deep_freeze(ref, seen) }
   end
 
+  # rb_proc_ractor_make_shareable: a Proc that the core makes (a Method's,
+  # a Hash's, a curry) is C in CRuby and cannot be made shareable. Any
+  # other keeps its self wherever it runs, so the self must be shareable.
+  def self.shareable_proc!(obj)
+    Primitive.attr! :hidden
+    raise RuntimeError, +"not supported yet" if Primitive.zr_proc_c_level_m(obj)
+    raise IsolationError, "Proc's self is not shareable: #{obj.inspect}" unless shareable?(Primitive.zr_proc_self_m(obj))
+  end
+
+  # A Method refers to its receiver but does not make it shareable
+  # (RUBY_TYPED_FROZEN_SHAREABLE_NO_REC): the receiver must be shareable
+  # already, and only the Method is frozen. It is shareable from then on,
+  # but a Method that was only frozen is not.
+  def self.freeze_method(obj)
+    Primitive.attr! :hidden
+    raise Error, "can not make shareable object for #{obj.inspect} because it refers unshareable objects" unless shareable?(obj.receiver)
+
+    obj.send(:freeze) unless obj.frozen?
+    Primitive.zr_state_set(obj, :__shareable__, true)
+    nil
+  end
+
+  # The objects that CRuby keeps as C data that is not shareable when
+  # frozen: a task, a lock, a handle on the system, or a scope.
   def self.unshareable?(obj)
     Primitive.attr! :hidden
     case obj
-    when Thread, Thread::Mutex, Thread::Queue, Thread::SizedQueue, Thread::ConditionVariable then true
+    when Thread, Thread::Mutex, Thread::Queue, Thread::SizedQueue, Thread::ConditionVariable, ThreadGroup, Monitor,
+         Enumerator, Binding, Fiber, Random, TracePoint, Thread::Backtrace::Location, ObjectSpace::WeakMap,
+         ObjectSpace::WeakKeyMap, IO::Buffer, Dir, File::Stat, Encoding::Converter
+      true
     else false
     end
   end
@@ -486,7 +515,7 @@ class Ractor
     when Range
       yield obj.begin
       yield obj.end
-    when Struct then Primitive.zr_struct_values(obj).each { |part| yield part }
+    when Struct, Data then struct_values(obj).each { |part| yield part }
     end
     obj.instance_variables.each { |name| yield obj.instance_variable_get(name) }
     true
@@ -503,7 +532,7 @@ class Ractor
     return value if immutable?(value) || (!deeply && shareable?(value))
     return seen[value] if seen.key?(value)
 
-    copy = value.class.allocate
+    copy = Primitive.zr_class_allocate(Primitive.zr_real_class(value))
     seen[value] = copy
     given << value if given
     fill(value, copy, seen, deeply, given)
@@ -526,10 +555,22 @@ class Ractor
       copy.compare_by_identity if value.compare_by_identity?
       Primitive.zr_hash_foreach(value) { |key, part| copy[cross(key, seen, deeply, given)] = cross(part, seen, deeply, given) }
       copy.default = cross(value.default, seen, deeply, given) unless value.default.nil?
+    when Struct, Data
+      values = struct_values(value)
+      parts = Array.new(Primitive.zr_ary_len_m(values)) { |i| cross(Primitive.zr_ary_at_m(values, i), seen, deeply, given) }
+      Primitive.zr_hidden_set(copy, :__values__, values.frozen? ? parts.freeze : parts)
     end
     nil
   end
   private_class_method :fill
+
+  # The values of a Struct or a Data, as the object stores them: none
+  # yet for one that was only allocated.
+  def self.struct_values(obj)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(obj, :__values__) || []
+  end
+  private_class_method :struct_values
 
   # A value that the sender gives up: the receiver gets the graph, and
   # every node of it that the sender still points at becomes a husk. A
@@ -693,6 +734,9 @@ class Ractor
     task = Thread.new do
       Primitive.zr_ractor_enter_m
       Thread.current.thread_variable_set(:__ractor__, self)
+      # The ractor has a default thread group of its own, which its
+      # threads start in.
+      Primitive.zr_hidden_set(Thread.current, :group, ThreadGroup.new)
       begin
         answer = body.call(*args)
         Primitive.zr_hidden_set(self, :__token__, :exited)
