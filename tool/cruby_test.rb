@@ -217,11 +217,15 @@ module Zr
       # test of the first argument, so one binary runs any one of its
       # files. The other arguments go to the runner. A file that raises as
       # it loads is reported.
+      # Stand-ins for the C extensions that only CRuby's own tests load
+      # (ext/-test-/*), last on the load path.
+      STAND_INS = File.expand_path("lib/zr/dev/cruby_test", __dir__)
+
       def self.program(src, files)
-        dirs = files.map { |f| File.dirname(f) }.uniq
+        load_path = [File.join(src, "tool/lib"), File.join(src, "test/lib"), *files.map { |f| File.dirname(f) }.uniq, STAND_INS]
         lines = [
           "# frozen_string_literal: false",
-          "$LOAD_PATH.unshift(#{File.join(src, "tool/lib").inspect}, #{File.join(src, "test/lib").inspect}, #{dirs.map(&:inspect).join(", ")})",
+          "$LOAD_PATH.unshift(#{load_path.map(&:inspect).join(", ")})",
           "file = ARGV.shift",
           # --show-skip lists each test that called omit, so it reads as a
           # skip, not a pass.
