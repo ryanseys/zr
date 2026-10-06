@@ -115,18 +115,21 @@ module Zr
       handler.run(args)
     end
 
-    # Whether `argv` runs zr as a ruby: its first word names no command and
-    # is a switch, `-`, empty (standard input), a file, a path or a name
-    # that ends in `.rb`; a script that is not there stops as ruby stops
-    # for it. With no word, zr reads the program from standard input,
-    # unless it is a terminal.
+    # Whether `argv` runs zr as a ruby: its first word names no command,
+    # so ruby reads it as a switch, `-`, empty (standard input) or the
+    # script. A script that is not there stops as ruby stops for it. Only
+    # a word that is one letter away from a command, and is not a file,
+    # a path or a name that ends in `.rb`, is a mistyped command. With no
+    # word, zr reads the program from standard input, unless it is a
+    # terminal.
     #: (Array[String] argv, ?tty: bool) -> bool
     def ruby_mode?(argv, tty: $stdin.tty?)
       word = argv.first
       return !tty if word.nil?
       return false if COMMANDS.key?(word) || ALIASES.key?(word) || Help::FLAGS.include?(word) || word == "--version"
 
-      word.empty? || word.start_with?("-") || word.end_with?(".rb") || word.include?("/") || File.file?(word)
+      word.empty? || word.start_with?("-") || word.end_with?(".rb") || word.include?("/") || File.file?(word) ||
+        COMMANDS.keys.none? { |name| Help.near?(word, name) }
     end
 
     # Runs zr as a ruby (`Commands::Compile#ruby`). A command line that

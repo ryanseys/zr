@@ -163,10 +163,11 @@ class CliParseTest < Minitest::Test
     end
   end
 
-  def test_an_unknown_command_exits_2
-    _, err = assert_exit(2) { CLI.start(%w[frobnicate app.rb]) }
+  # A word that names no command is the script, as for ruby.
+  def test_a_word_that_is_no_command_is_a_missing_script
+    _, err = assert_exit(1) { CLI.start(%w[frobnicate app.rb]) }
 
-    assert_equal "zr: unknown command 'frobnicate'\nRun 'zr help' for usage.\n", err
+    assert_equal "zr: No such file or directory -- frobnicate (LoadError)\n", err
   end
 
   # An option is ruby's (lib/zr/cli/ruby_options.rb), and ruby rejects an
@@ -193,8 +194,8 @@ class CliParseTest < Minitest::Test
 
   def test_machine_and_targets_are_not_commands
     %w[machine targets].each do |word|
-      _, err = assert_exit(2) { CLI.start([word]) }
-      assert_match(/\Azr: unknown command '#{word}'/, err)
+      _, err = assert_exit(1) { CLI.start([word]) }
+      assert_equal "zr: No such file or directory -- #{word} (LoadError)\n", err
     end
   end
 

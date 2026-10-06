@@ -275,6 +275,8 @@ class RubyModeDispatchTest < Minitest::Test
       assert_equal [true, true, true, true, true, true],
                    [%w[app.rb], %w[-e 1], %w[-], %w[-- build], [script], %w[-w]].map { |argv| CLI.ruby_mode?(argv, tty: true) }
       refute CLI.ruby_mode?(%w[biuld], tty: true)
+      assert CLI.ruby_mode?(%w[does_not_exist], tty: true)
+      assert CLI.ruby_mode?(%w[script_name arg], tty: true)
       assert CLI.ruby_mode?(%w[/no/such/script], tty: true)
       assert CLI.ruby_mode?([""], tty: true)
       assert CLI.ruby_mode?(%w[sub/missing], tty: true)

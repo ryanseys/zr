@@ -75,10 +75,13 @@ with exit status 2 and a line that names the flag:
 
 ## `zr` as a ruby
 
-`zr` takes ruby's command line when its first word names no command and
-is a switch, `-`, a file, or a name that ends in `.rb`. With no words,
-it reads the program from standard input, unless standard input is a
-terminal (then it prints the usage and exits with status 2).
+`zr` takes ruby's command line when its first word names no command.
+A script that is not there stops as ruby stops for it
+(`zr: No such file or directory -- name (LoadError)`, status 1). Only
+a word one letter away from a command name (`zr biuld`) is a mistyped
+command, unless it is a file, a path or a name that ends in `.rb`. With
+no words, zr reads the program from standard input, unless standard
+input is a terminal (then it prints the usage and exits with status 2).
 
 ```sh
 zr app.rb a b                        # the same as `zr run app.rb a b`
