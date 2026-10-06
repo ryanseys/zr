@@ -224,7 +224,7 @@ module Zr
       # lines before the eval's first one.
       coverable = hir.coverable
       if coverable && !coverable.empty?
-        size = string(source).count("\n") + line.to_int - 1
+        size = string(source).b.count("\n") + line.to_int - 1
         no_defs = {} #: Hash[String, Array[Array[Integer]]]
         coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, no_defs, true)
       end
