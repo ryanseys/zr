@@ -226,12 +226,17 @@ class File < IO
 
   # A path, with a mode string ("r", "w+", "ab", ...) or open(2) flags;
   # or, as rb_file_initialize reads one or two arguments, a descriptor.
-  def initialize(path = (no_path = true; nil), mode = (no_mode = true; +"r"), perm = (no_perm = true; 0o666), **options)
+  def initialize(*args, **options)
     # A File that has a descriptor is not opened again, as CRuby's
     # rb_file_initialize refuses before it counts the arguments.
     raise RuntimeError, +"reinitializing File" unless Primitive.zr_hidden_get(self, :fd).nil?
-    raise ArgumentError, +"wrong number of arguments (given 0, expected 1..3)" if no_path
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
 
+    path, mode, perm = args
+    no_mode = args.size < 2
+    no_perm = args.size < 3
+    mode = +"r" if no_mode
+    perm = 0o666 if no_perm
     if no_perm && (fd = Integer.try_convert(path))
       return super(fd, no_mode ? nil : mode, **options)
     end
