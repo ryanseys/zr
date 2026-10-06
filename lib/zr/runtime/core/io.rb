@@ -988,7 +988,19 @@ class IO
       end
     end
 
-    Process.wait(@pid) if @pid
+    reap_child if @pid
+    nil
+  end
+
+  # rb_syswait: the child that a popen started is waited for, and `$?`
+  # takes its status. A child that the program already waited for leaves
+  # `$?` cleared, with no error.
+  private def reap_child
+    pid = @pid
+    @pid = nil
+    Process.send(:status!, nil)
+    Process.wait(pid)
+  rescue Errno::ECHILD
     nil
   end
 
