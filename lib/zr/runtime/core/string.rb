@@ -2707,8 +2707,32 @@ class String
     Primitive.attr! :hidden
     pattern = joined(Primitive.zr_str_operand(pattern))
     raise ArgumentError, "invalid byte sequence in #{pattern.encoding}" unless Primitive.zr_str_valid_p(pattern)
+    return wide_split_by(pattern, limit) if Primitive.zr_str_unit_m(self) != 0
 
     Primitive.zr_str_split_by(self, pattern, limit)
+  end
+
+  # rb_str_split_m by a String in UTF-16 or UTF-32: the bytes of the
+  # pattern match only where a code unit starts, so "\0" does not match
+  # the high byte of one character and the low byte of the next.
+  def wide_split_by(pattern, limit)
+    Primitive.attr! :hidden
+    unit = Primitive.zr_str_unit_m(self)
+    bytes = OWN[:b].bind_call(self)
+    sep = OWN[:b].bind_call(pattern)
+    out = []
+    beg = at = 0
+    while (found = bytes.byteindex(sep, at))
+      if found % unit != 0
+        at = found + 1
+        next
+      end
+      break if limit > 0 && limit <= out.size + 1
+
+      out << byteslice_of(beg, found - beg)
+      beg = at = found + sep.bytesize
+    end
+    split_tail(out, beg, limit)
   end
 
   # The text after the last piece: kept under a limit, or when it is
