@@ -22,18 +22,24 @@ module Zr
     # @rbs @count: Integer
     # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer]] | Exception]
 
+    # Two threads can eval at the same time. Only one of them loads the
+    # compiler, and the other waits until the load is complete.
+    LOADING = Thread::Mutex.new
+
     # The compiler loads at the first eval, not when the program boots.
     # Most programs that can eval never do. Loading it makes about
     # 100,000 objects, and about 90,000 stay live for the rest of the run.
     #: () -> Eval
     def self.current
-      @current ||= plainly do
-        require_relative "hir"
-        require_relative "lower"
-        require_relative "backend/aarch64"
-        require_relative "obj/jit"
-        require "zr_description"
-        new(Runtime.new)
+      @current || LOADING.synchronize do
+        @current ||= plainly do
+          require_relative "hir"
+          require_relative "lower"
+          require_relative "backend/aarch64"
+          require_relative "obj/jit"
+          require "zr_description"
+          new(Runtime.new)
+        end
       end
     end
 
