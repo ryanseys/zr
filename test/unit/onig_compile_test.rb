@@ -42,6 +42,9 @@ class OnigCompileTest < Minitest::Test
       got = begin
         _, _, reg, = Pattern.compile(source.dup.freeze, options)
         reg
+      rescue Regexp::Onig::Failure => e
+        # Regexp raises the compiler's failure as a plain RegexpError.
+        [RegexpError, e.message.b]
       rescue RegexpError, ArgumentError => e
         [e.class, e.message.b]
       end

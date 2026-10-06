@@ -27,9 +27,12 @@ module Zr
       LIMIT_NS = 2_000_000_000
 
       # An exception as the runner compares it: its class, its message
-      # bytes, and the message encoding when the message is not ASCII.
+      # bytes, and the message encoding when the message is not ASCII. The
+      # core's compiler fails with a RegexpError that carries its warnings
+      # (Onig::Failure), which Regexp raises as a plain RegexpError.
       def self.shown_error(e)
-        text = "#{e.class}: #{e.message.b.inspect[1..-2]}"
+        kind = e.instance_of?(Regexp::Onig::Failure) ? RegexpError : e.class
+        text = "#{kind}: #{e.message.b.inspect[1..-2]}"
         e.message.ascii_only? ? text : "#{text} (#{e.message.encoding})"
       end
 
