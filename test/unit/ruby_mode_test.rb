@@ -62,8 +62,8 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     assert_equal ["$VERBOSE = true", "$DEBUG = true"], prelude.first(2)
     assert_includes prelude, '$LOAD_PATH.unshift("/l".freeze)'
     assert_includes prelude, '$\\ = "\n"'
-    assert_operator prelude.index('require "json"'), :<, prelude.index('Encoding.default_external = "ASCII-8BIT"')
-    assert_includes prelude, 'Encoding.default_internal = "UTF-8"'
+    assert_operator prelude.index('require "json"'), :<, prelude.index('Encoding.send(:store_default, 0, "ASCII-8BIT")')
+    assert_includes prelude, 'Encoding.send(:store_default, 1, "UTF-8")'
   end
 
   def test_no_switch_that_sets_anything_gives_no_prelude
@@ -351,6 +351,10 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-Ke", "-e", "p [__ENCODING__, Encoding.default_external, Encoding.default_internal]")
     same_as_ruby("-U", "-KS", "-e", "p [__ENCODING__, Encoding.default_internal]")
     same_as_ruby("-U", "-E:ascii", "-e", "1")
+    # -E sets the encodings with no warning, even when -w or -v asks for them.
+    same_as_ruby("-w", "-Eutf-8:Windows-31J", "-e", "p [Encoding.default_external, Encoding.default_internal]")
+    same_as_ruby("-W2", "-U", "-e", "p Encoding.default_internal")
+    same_as_ruby("-w", "-e", "Encoding.default_internal = 'EUC-JP'; p Encoding.default_internal")
   end
 
   def test_a_launcher_script_and_the_backtrace_limit

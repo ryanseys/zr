@@ -4873,18 +4873,24 @@ class Encoding
     Warning.warn("#{Primitive.zr_warn_position}warning: setting Encoding.default_external\n") if $VERBOSE
     raise ArgumentError, +"default external can not be nil" if encoding.nil?
 
-    DEFAULTS[0] = find(encoding)
-    follow_paths
-    inspect_target
-    encoding
+    store_default(0, encoding)
   end
 
   def self.default_internal=(encoding)
     Warning.warn("#{Primitive.zr_warn_position}warning: setting Encoding.default_internal\n") if $VERBOSE
-    DEFAULTS[1] = encoding.nil? ? nil : find(encoding)
+    store_default(1, encoding)
+  end
+
+  # enc_set_default_encoding: the setters' work, which ruby's -E option
+  # also does, with no warning.
+  def self.store_default(slot, encoding)
+    Primitive.attr! :hidden
+    DEFAULTS[slot] = encoding.nil? ? nil : find(encoding)
+    follow_paths if slot.zero?
     inspect_target
     encoding
   end
+  private_class_method :store_default
 
   # Tells the kernel rb_str_inspect's result encoding: default_internal,
   # else default_external, and US-ASCII when that is not ASCII compatible.

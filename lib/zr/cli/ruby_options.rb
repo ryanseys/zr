@@ -213,8 +213,8 @@ module Zr
           lines << "Primitive.zr_hidden_set(TOPLEVEL_BINDING, :__before_main__, nil)"
         end
         lines << S_FLAG if @sflag
-        lines << "Encoding.default_external = #{@external.inspect}" if @external
-        lines << "Encoding.default_internal = #{@internal.inspect}" if @internal
+        lines << "Encoding.send(:store_default, 0, #{@external.inspect})" if @external
+        lines << "Encoding.send(:store_default, 1, #{@internal.inspect})" if @internal
         lines.empty? ? nil : "#{lines.join("\n")}\n"
       end
 
