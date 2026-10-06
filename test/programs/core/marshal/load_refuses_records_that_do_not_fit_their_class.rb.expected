@@ -1,0 +1,22 @@
+class ivar: TypeError: can't override instance variable of class 'Klass'
+module ivar: TypeError: can't override instance variable of module 'Mod'
+linked class ivar: TypeError: can't override instance variable of class 'Klass'
+false
+fewer members: TypeError: struct Pair not compatible (struct size differs)
+other member: TypeError: struct Pair not compatible (:bar for :baz)
+not a struct: TypeError: class Pair not a struct
+range as struct: TypeError: struct Range not compatible (:a for :begin)
+no _load: TypeError: class Dumped needs to have method '_load'
+no marshal_load: TypeError: instance of Kept needs to have method 'marshal_load'
+complex 0: ArgumentError: marshaled complex must have an array whose length is 2 but 0
+complex 1: ArgumentError: marshaled complex must have an array whose length is 2 but 1
+complex 2: (1+2i)
+complex 3: ArgumentError: marshaled complex must have an array whose length is 2 but 3
+rational 1: ArgumentError: marshaled rational must have an array whose length is 2 but 1
+rational 2: (1/2)
+rational 3: ArgumentError: marshaled rational must have an array whose length is 2 but 3
+negative bignum length: ArgumentError: negative length
+long bignum: ArgumentError: marshal data too short
+negative array length: ArgumentError: negative length
+bad link: ArgumentError: dump format error (bad link)
+broken symbol: ArgumentError: invalid byte sequence in UTF-16LE: "\x4B"

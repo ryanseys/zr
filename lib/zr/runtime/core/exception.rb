@@ -310,6 +310,21 @@ class Exception
   private :method_missing
 
   def respond_to_missing?(name, include_private) = super
+
+  # The parts that CRuby keeps as hidden ivars of an exception, which
+  # Marshal writes after the message and the backtrace under CRuby's
+  # names, and gives back to the loaded exception.
+  def marshal_parts
+    Primitive.attr! :hidden
+    []
+  end
+
+  def marshal_part_set(_name, _value)
+    Primitive.attr! :hidden
+    nil
+  end
+
+  private :marshal_parts, :marshal_part_set
 end
 
 class ScriptError < Exception; end
@@ -385,6 +400,26 @@ class NoMatchingPatternKeyError < NoMatchingPatternError
 
     Primitive.zr_hidden_get(self, :__key__)
   end
+
+  private
+
+  def marshal_parts
+    Primitive.attr! :hidden
+    return [] unless Primitive.zr_hidden_get(self, :__given__)
+
+    [[:matchee, Primitive.zr_hidden_get(self, :__matchee__)], [:key, Primitive.zr_hidden_get(self, :__key__)]]
+  end
+
+  def marshal_part_set(name, value)
+    Primitive.attr! :hidden
+    case name
+    when :matchee then Primitive.zr_hidden_set(self, :__matchee__, value)
+    when :key
+      Primitive.zr_hidden_set(self, :__given__, true)
+      Primitive.zr_hidden_set(self, :__key__, value)
+    else super
+    end
+  end
 end
 class RangeError < StandardError; end
 class FloatDomainError < RangeError; end
@@ -414,6 +449,18 @@ class NameError
   # The locals of the scope the error was raised in; the lowering's own
   # have no name a program can spell.
   def local_variables = (@local_variables || []).select { |name| name.match?(/\A[a-z_][A-Za-z0-9_]*\z/) }
+
+  private
+
+  def marshal_parts
+    Primitive.attr! :hidden
+    [[:name, @name]]
+  end
+
+  def marshal_part_set(name, value)
+    Primitive.attr! :hidden
+    name == :name ? @name = value : super
+  end
 end
 
 class NoMethodError
@@ -426,6 +473,22 @@ class NoMethodError
   end
 
   def private_call? = @private_call == true
+
+  private
+
+  def marshal_parts
+    Primitive.attr! :hidden
+    super + [[:args, @args], [:private_call?, @private_call]]
+  end
+
+  def marshal_part_set(name, value)
+    Primitive.attr! :hidden
+    case name
+    when :args then @args = value
+    when :private_call? then @private_call = value
+    else super
+    end
+  end
 end
 
 class KeyError
@@ -445,6 +508,25 @@ class KeyError
     raise ArgumentError, +"no receiver is available" unless defined?(@receiver)
 
     @receiver
+  end
+
+  private
+
+  def marshal_parts
+    Primitive.attr! :hidden
+    parts = []
+    parts << [:receiver, @receiver] if defined?(@receiver)
+    parts << [:key, @key] if defined?(@key)
+    parts
+  end
+
+  def marshal_part_set(name, value)
+    Primitive.attr! :hidden
+    case name
+    when :receiver then @receiver = value
+    when :key then @key = value
+    else super
+    end
   end
 end
 

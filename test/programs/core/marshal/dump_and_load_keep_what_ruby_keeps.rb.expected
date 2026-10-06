@@ -1,0 +1,20 @@
+limit 1 utf-8: "あ"
+limit 2 nested: ArgumentError: exceed depth limit
+limit 3 nested: [[[]]]
+array changed during dump: RuntimeError: array modified during dump
+flag kept: true
+flag dumped: true
+flag on non-hash: ArgumentError: ruby2_keywords flag is given but [] is not a Hash
+name error name: :undefined_name_here
+name error message: true
+symlink in symbol ivars: :Kernel
+range subclass: [MyRange, 5..8, 4]
+cyclic range: [CyclicRange, true, true]
+prepended singleton: [42, [Mod1, :singleton, Holder]]
+singleton with a method: TypeError: singleton can't be dumped
+singleton holding a class: [TypeError, TypeError]
+regexp escapes of 1.8: /au3042/
+regexp kept escape: /\\u/
+regexp lone u: /u/
+regexp encoded u: /u/
+regexp utf-8 escape: /a\u3042/

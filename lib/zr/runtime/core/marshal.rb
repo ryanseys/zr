@@ -232,6 +232,7 @@ module Marshal
     # to its instance variables, under names of its own.
     def exception_parts(exception)
       parts = [[:mesg, Primitive.zr_exc_raw_message(exception)], [:bt, exception.backtrace]]
+      parts.concat(exception.send(:marshal_parts))
       parts << [:cause, exception.cause] if Primitive.zr_exc_cause_set_p(exception)
       parts << [:errno, exception.errno] if exception.is_a?(SystemCallError)
       parts + exception.instance_variables.map { |name| [name, exception.instance_variable_get(name)] }
@@ -258,9 +259,15 @@ module Marshal
       end
     end
 
+    # w_object's T_ARRAY: an element whose dump changes the Array's size
+    # stops the dump.
     def array(obj, limit)
-      uclass(obj, Array) << "[" << long(obj.size)
-      obj.each { |item| write(item, limit) }
+      size = obj.size
+      uclass(obj, Array) << "[" << long(size)
+      obj.each do |item|
+        write(item, limit)
+        raise RuntimeError, +"array modified during dump" unless obj.size == size
+      end
     end
 
     def hash(obj, limit)
@@ -299,8 +306,16 @@ module Marshal
       # of its own has no form on the wire.
       raise TypeError, "singleton can't be dumped" unless (own.instance_methods(false) + own.private_instance_methods(false)).empty? && own.instance_variables.empty?
 
-      held = Primitive.zr_real_class(obj).ancestors
-      own.ancestors.drop(1).take_while { |mod| !held.include?(mod) }.each do |mod|
+      real = Primitive.zr_real_class(obj)
+      held = real.ancestors
+      chain = own.ancestors.take_while { |mod| !held.include?(mod) }
+      chain.each do |mod|
+        # A singleton class with prepended modules writes the object's
+        # class after them, where its origin is in the chain.
+        if mod.equal?(own)
+          @out << "e" << symbol_bytes(class_path(real).to_sym) unless chain.first.equal?(own)
+          next
+        end
         next unless mod.instance_of?(Module)
         # A module with no name cannot be named on the wire, and w_extended
         # says "class" wherever it says this.
@@ -358,7 +373,11 @@ module Marshal
       names = obj.respond_to?(:instance_variables) ? obj.instance_variables : []
       parts = names.map { |name| [name, obj.instance_variable_get(name)] }
       builtin = Primitive.zr_builtin_class_m(obj)
-      builtin.equal?(String) || builtin.equal?(Regexp) ? encoding_ivar(obj.encoding) + parts : parts
+      return encoding_ivar(obj.encoding) + parts if builtin.equal?(String) || builtin.equal?(Regexp)
+      # w_ivar: a Hash that a ruby2_keywords method took writes the flag K.
+      return [[:K, true]] + parts if builtin.equal?(Hash) && Hash.ruby2_keywords_hash?(obj)
+
+      parts
     end
 
     # An encoding writes only its name, and the name takes a link slot of
@@ -381,20 +400,27 @@ module Marshal
       end
     end
 
+    # w_encoding and w_ivar: the encoding (`E`) and the ruby2_keywords flag
+    # (`K`) are one level deeper than the depth limit allows for the value
+    # they belong to.
     def write_ivars(ivars, limit)
       @out << long(ivars.size)
       ivars.each do |name, value|
         @out << symbol_bytes(name)
-        value.is_a?(Encoding) ? encoding_name(value.name) : write(value, limit)
+        if value.is_a?(Encoding) then encoding_name(value.name)
+        elsif name == :E || name == :K then write(value, limit.negative? ? limit : limit + 1)
+        else write(value, limit)
+        end
       end
     end
 
-    # A Range and a plain object write their parts as the object body, so
-    # the wrapper must not write them twice.
+    # A plain object writes its ivars as the object body, so the wrapper
+    # must not write them twice. A Range writes its own parts there, and
+    # its ivars in the wrapper.
     def plain_object?(obj)
-      return false if Class === obj || Module === obj || Struct === obj || Data === obj
+      return false if Class === obj || Module === obj || Struct === obj || Data === obj || Range === obj
 
-      Range === obj || (Primitive.zr_builtin_class_m(obj).nil? && !(Float === obj || Integer === obj))
+      Primitive.zr_builtin_class_m(obj).nil? && !(Float === obj || Integer === obj)
     end
 
     def class_path(mod)
@@ -402,7 +428,8 @@ module Marshal
 
       # The class's own name: a `name` that the program wrote does not count.
       name = MODULE_NAME.bind_call(mod)
-      raise TypeError, "can't dump anonymous #{mod.is_a?(Class) ? "class" : "module"} #{mod.inspect}" if name.nil?
+      # must_not_be_anonymous: a temporary name starts with `#`.
+      raise TypeError, "can't dump anonymous #{mod.is_a?(Class) ? "class" : "module"} #{name || mod.inspect}" if name.nil? || name.start_with?("#")
 
       name
     end
@@ -528,6 +555,9 @@ module Marshal
       @partial = {}.compare_by_identity
       @objects = []
       @symbols = []
+      # How many more bytes the counts read so far promise, which a stream
+      # may read ahead (arg->readable).
+      @readable = 0
       # The class or module that each name resolved to: a tree of a
       # thousand nodes refers to its few classes a thousand times.
       @constants = {}
@@ -560,7 +590,7 @@ module Marshal
       # the proc sees it only once it is whole.
       if @bytes.getbyte(@pos) == LINK
         @pos += 1
-        value = @objects.fetch(long)
+        value = link
         return @handler && @whole.key?(value) ? @handler.call(value) : value
       end
       leave(read_value)
@@ -571,7 +601,9 @@ module Marshal
     # the program wrote.
     def leave(value)
       if @freeze && !value.is_a?(Module)
-        if value.instance_of?(String)
+        # rb_fstring: only a bare String, with no ivars and no singleton
+        # class, is interned; any other is frozen in place.
+        if value.instance_of?(String) && value.instance_variables.empty? && !Primitive.zr_class_of(value).singleton_class?
           # A link to the String reads the interned one too.
           interned = -value
           at = @objects.rindex { |o| o.equal?(value) }
@@ -599,7 +631,7 @@ module Marshal
       elsif tag == ARRAY then array(Array)
       elsif tag == TRUE then true
       elsif tag == FALSE then false
-      elsif tag == LINK then @objects.fetch(long)
+      elsif tag == LINK then link
       elsif tag == SYMBOL then new_symbol(text)
       elsif tag == HASH then hash(Hash, false)
       elsif tag == HASH_DEF then hash(Hash, true)
@@ -627,7 +659,16 @@ module Marshal
       return encoded_symbol if tag == SYMBOL
 
       value = read_value
-      each_ivar { |name, item| apply_ivar(value, name, item) }
+      each_ivar(value) { |name, item| apply_ivar(value, name, item) }
+      value
+    end
+
+    # r_object's TYPE_LINK: an object whose record is still being read (a
+    # regexp before its ivars) has no value to link to yet.
+    def link
+      value = @objects.fetch(long) { raise ArgumentError, +"dump format error (unlinked)" }
+      raise ArgumentError, +"dump format error (bad link)" if value.equal?(self)
+
       value
     end
 
@@ -638,12 +679,17 @@ module Marshal
     def deferred(tag)
       @pos += 1
       here = @objects.size
-      @objects << nil if tag == REGEXP
-      klass = tag == USRDEF ? constant(symbol_or_link, Class) : nil
+      # The reader itself holds a regexp's place until it is built.
+      @objects << self if tag == REGEXP
+      klass = tag == USRDEF ? loader(constant(symbol_or_link, Class)) : nil
       payload = text
       options = tag == REGEXP ? byte : nil
-      each_ivar { |name, item| apply_ivar(payload, name, item) }
-      built = tag == REGEXP ? Regexp.new(payload, options) : loaded(klass, payload)
+      encoded = false
+      each_ivar do |name, item|
+        encoded ||= name == :E || name == :encoding
+        apply_ivar(payload, name, item)
+      end
+      built = tag == REGEXP ? Regexp.new(encoded ? payload : old_escapes(payload), options) : loaded(klass, payload)
       # A Regexp takes the ivars that were dumped with it.
       payload.instance_variables.each { |name| built.instance_variable_set(name, payload.instance_variable_get(name)) } if tag == REGEXP
       return keep(built) unless tag == REGEXP
@@ -659,9 +705,21 @@ module Marshal
       klass == Encoding ? Encoding.find(built) : built
     end
 
-    # The ivars a record lists: each name and its value, as they come.
-    def each_ivar
+    # A class whose `_load` reads a `u` record.
+    def loader(klass)
+      raise TypeError, "class #{klass.name} needs to have method '_load'" unless klass.respond_to?(:_load, true)
+
+      klass
+    end
+
+    # The ivars a record lists: each name and its value, as they come. A
+    # class or a module takes none (r_ivar).
+    def each_ivar(owner = nil)
       n = long
+      if n > 0 && owner.is_a?(Module)
+        kind = owner.is_a?(Class) ? "class" : "module"
+        raise TypeError, "can't override instance variable of #{kind} '#{MODULE_NAME.bind_call(owner)}'"
+      end
       while n > 0
         name = symbol_or_link
         yield name, read
@@ -675,16 +733,44 @@ module Marshal
       # a String takes one from a record.
       when :E then value.force_encoding(item ? Encoding::UTF_8 : Encoding::US_ASCII) if value.is_a?(String)
       when :encoding then value.force_encoding(item) if value.is_a?(String)
+      # The flag that a ruby2_keywords method set on the Hash it took.
+      when :K
+        raise ArgumentError, "ruby2_keywords flag is given but #{value.inspect} is not a Hash" unless value.is_a?(Hash)
+
+        Primitive.zr_ruby2_hash_mark(value)
       # A name with no `@` is one the C API set on the payload itself,
       # which only a `_load` reads: Time writes its zone this way.
       else name.start_with?("@") ? value.instance_variable_set(name, item) : Marshal.send(:extra_set, value, name, item)
       end
     end
 
-    def extended
-      mod = constant(symbol_or_link, Module)
-      value = read_value
-      value.extend(mod)
+    # `e`: a module that the next value was extended with, or the value's
+    # own class, which w_extended writes after the modules prepended to
+    # its singleton class. The modules of one value come one after the
+    # other, so they pass down to the next `e`.
+    def extended(modules = [])
+      path = symbol_or_link
+      found = namespace(path.to_s)
+      if found.is_a?(Class)
+        value = read_value
+        klass = Primitive.zr_class_of(value)
+        raise ArgumentError, "prepended class #{path} differs from class #{klass.name}" unless klass.equal?(found)
+
+        single = value.singleton_class
+        single.prepend(modules.pop) until modules.empty?
+        return value
+      end
+      raise ArgumentError, "#{path} does not refer to module" unless found.instance_of?(Module)
+
+      modules << found
+      need(1)
+      value = if @bytes.getbyte(@pos) == EXTENDED
+        @pos += 1
+        extended(modules)
+      else
+        read_value
+      end
+      value.extend(modules.pop) until modules.empty?
       value
     end
 
@@ -717,61 +803,126 @@ module Marshal
       built
     end
 
+    # A regexp with no ivars has no encoding of its own.
     def regexp
       source = text
-      Regexp.new(source, byte)
+      Regexp.new(old_escapes(source), byte)
+    end
+
+    # The escapes that ruby 1.8 did not have.
+    OLD_ESCAPES = "ghijklmopquyEFHIJKLNOPQRSTUVXY"
+
+    # r_object's TYPE_REGEXP, for 1.8 compatibility: a pattern dumped with
+    # no encoding drops the backslash of an escape that 1.8 did not have,
+    # so `\u` reads as `u`. An escaped backslash stays.
+    def old_escapes(source)
+      out = source.byteslice(0, 0)
+      backslashes = 0
+      source.each_char do |char|
+        if char == "\\"
+          backslashes += 1
+        else
+          out.chop! if backslashes.odd? && OLD_ESCAPES.include?(char)
+          backslashes = 0
+        end
+        out << char
+      end
+      out
+    end
+
+    # A count of values, which no record writes negative.
+    def length
+      n = long
+      raise ArgumentError, +"negative length" if n.negative?
+
+      n
     end
 
     def array(klass)
+      size = length
       out = keep(klass == Array ? [] : Primitive.zr_class_allocate(klass))
-      long.times { out << read }
+      @readable += size - 1
+      size.times do
+        out << read
+        @readable -= 1
+      end
+      @readable += 1
       out
     end
 
     def hash(klass, defaulted, identity: false)
+      size = length
       out = keep(klass == Hash ? {} : Primitive.zr_class_allocate(klass))
       out.compare_by_identity if identity
-      long.times do
+      @readable += (size - 1) * 2
+      size.times do
         key = read
         out[key] = read
+        @readable -= 2
       end
+      @readable += 2
       out.default = read if defaulted
       out
     end
 
+    # r_object's TYPE_STRUCT: the class must make a Struct, a Data value or
+    # a Range, whose members are the record's, in the same order. The
+    # values are kept as they come, without the member writers.
     def struct
-      klass = constant(symbol_or_link, Class)
-      values = {}
+      # r_prepare: the link slot comes before the class's name.
       here = @objects.size
-      @objects << nil
-      long.times do
-        member = symbol_or_link
-        values[member] = read
-      end
+      @objects << self
+      klass = constant(symbol_or_link, Class)
+      size = length
       built = Primitive.zr_class_allocate(klass)
-      # A Data value has no writers: its values are set as they are kept,
-      # and it is frozen, as `new` leaves it.
-      if klass <= Data
-        Primitive.zr_hidden_set(built, :__values__, klass.members.map { |member| values[member] }.freeze)
-        built.freeze
-      else
-        values.each { |member, value| built.__send__(:"#{member}=", value) }
-      end
+      members = struct_members(klass)
+      raise TypeError, "class #{klass.name} not a struct" if members.nil?
+      raise TypeError, "struct #{klass.name} not compatible (struct size differs)" unless members.size == size
+
       @objects[here] = built
+      values = Array.new(size)
+      Primitive.zr_hidden_set(built, :__values__, values) unless klass <= Range
+      @readable += (size - 1) * 2
+      members.each_with_index do |member, i|
+        slot = symbol_or_link
+        raise TypeError, "struct #{klass.name} not compatible (:#{slot} for :#{member})" unless slot == member
+
+        values[i] = read
+        @readable -= 2
+      end
+      @readable += 2
+      if klass <= Range
+        Range.instance_method(:initialize).bind_call(built, *values)
+      elsif klass <= Data
+        # A Data value is frozen, as `new` leaves it.
+        values.freeze
+        built.freeze
+      end
       built
+    end
+
+    # The members of a class that CRuby keeps as T_STRUCT, or nil.
+    def struct_members(klass)
+      return %i[begin end excl] if klass <= Range
+      return nil unless klass <= Struct || klass <= Data
+
+      klass.members
     end
 
     # A plain object takes each ivar as it is read, which is the order
     # in which ruby sets them. A Range or a Set is built from its parts
     # after all of them are read.
     def object
+      # r_prepare: the object's link slot comes before its class's name,
+      # whose encoding may take a slot of its own.
+      here = @objects.size
+      @objects << self
       klass = constant(symbol_or_link, Class)
       # r_object: an `o` must allocate a plain object, not a core kind.
       raise ArgumentError, "dump format error" if [IO, String, Array, Hash, Regexp, Struct, Proc, Method, Thread, MatchData].any? { |kind| klass <= kind }
 
-      here = @objects.size
       built = Primitive.zr_class_allocate(klass)
-      @objects << built
+      @objects[here] = built
       n = long
       # An old Complex or Rational dump is an object with two ivars, which
       # the compat loaders read: @real and @image (nucomp_loader), and
@@ -783,8 +934,10 @@ module Marshal
           parts[name] = read
           n -= 1
         end
+        # range_loader: the bounds are set on the object already linked,
+        # without the subclass's initialize.
         if klass <= Range
-          built = klass.new(parts[:begin], parts[:end], parts[:excl])
+          Range.instance_method(:initialize).bind_call(built, parts[:begin], parts[:end], parts[:excl])
         elsif klass <= Complex
           built.send(:marshal_load, [parts[:@real], parts[:@image]])
         elsif klass <= Rational
@@ -811,7 +964,10 @@ module Marshal
       when :errno then Primitive.zr_hidden_set(built, :__errno__, value)
       when :bt_locations then nil
       when :cause then cause!(built, value)
-      else built.instance_variable_set(name, value)
+      else
+        if name.start_with?("@") then built.instance_variable_set(name, value)
+        elsif built.is_a?(Exception) then built.send(:marshal_part_set, name, value)
+        end
       end
     end
 
@@ -832,16 +988,28 @@ module Marshal
     # What `_load` or `marshal_load` builds with no ivars around it stays
     # partial, as r_leave leaves it: a link to it does not call the proc.
     def user_dump
-      klass = constant(symbol_or_link, Class)
+      klass = loader(constant(symbol_or_link, Class))
       built = keep(loaded(klass, text))
       @partial[built] = true
       built
     end
 
+    # r_object's TYPE_USRMARSHAL: after marshal_load, the object takes the
+    # ivars of its data that it did not set itself (r_copy_ivar).
     def user_marshal
       klass = constant(symbol_or_link, Class)
       built = keep(Primitive.zr_class_allocate(klass))
-      built.send(:marshal_load, read)
+      # rb_marshal_define_compat: Complex and Rational load through a
+      # loader that reflection does not show.
+      unless built.respond_to?(:marshal_load, true) || built.is_a?(Complex) || built.is_a?(Rational)
+        raise TypeError, "instance of #{klass.name} needs to have method 'marshal_load'"
+      end
+
+      data = read
+      built.send(:marshal_load, data)
+      data.instance_variables.each do |name|
+        built.instance_variable_set(name, data.instance_variable_get(name)) unless built.instance_variable_defined?(name)
+      end
       @partial[built] = true
       built
     end
@@ -881,9 +1049,12 @@ module Marshal
     def encoded_symbol
       @pos += 1
       here = @symbols.size
-      @symbols << nil
       name = text
-      each_ivar { |key, item| apply_ivar(name, key, item) }
+      # The name takes its link slot before its ivars, which may name it.
+      @symbols << name.to_sym
+      each_ivar { |key, item| apply_ivar(name, key, item) if key == :E || key == :encoding }
+      raise ArgumentError, "invalid byte sequence in #{name.encoding}: #{name.inspect}" unless name.valid_encoding?
+
       @symbols[here] = name.to_sym
     end
 
@@ -949,11 +1120,20 @@ module Marshal
     end
 
     # `count` more bytes available, when a stream can still give them.
+    # A stream gives one byte with getbyte while the counts read so far
+    # promise no more (r_byte), and else reads as many as they promise,
+    # so it never reads past the value.
     def need(count)
       return if @io.nil? || @pos + count <= @bytes.bytesize
 
-      more = @io.read(@pos + count - @bytes.bytesize)
-      @bytes << more.b if more
+      missing = @pos + count - @bytes.bytesize
+      if missing == 1 && @readable <= 0 && @io.respond_to?(:getbyte)
+        b = @io.getbyte
+        @bytes << b.chr if b
+      else
+        more = @io.read([missing, @readable].max)
+        @bytes << more.b if more
+      end
     end
 
     # A stream that runs out has reached its end; bytes that run out are
@@ -1000,7 +1180,7 @@ module Marshal
 
     def bignum
       sign = byte.chr
-      words = long
+      words = length
       value = 0
       words.times { |i| value |= (byte | (byte << 8)) << (16 * i) }
       sign == "-" ? -value : value

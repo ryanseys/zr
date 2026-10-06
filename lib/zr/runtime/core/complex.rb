@@ -623,6 +623,9 @@ class Complex
 
   def marshal_load(pair)
     Primitive.attr! :hidden
+    raise TypeError, "wrong argument type #{Primitive.zr_real_class(pair)} (expected Array)" unless pair.is_a?(Array)
+    raise ArgumentError, "marshaled complex must have an array whose length is 2 but #{pair.size}" unless pair.size == 2
+
     Primitive.zr_hidden_set(self, :__real__, pair[0])
     Primitive.zr_hidden_set(self, :__imag__, pair[1])
     freeze

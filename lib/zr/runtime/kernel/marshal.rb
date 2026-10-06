@@ -556,8 +556,8 @@ module Zr::Kern
 
   # `S`: a struct. The reader stores its values by member without the
   # member writers, as marshal.c does. A Data value is frozen and is built
-  # in a different way, and a member that the class does not have is an
-  # error. Both cases go to the Ruby reader.
+  # in a different way, and members that differ from the class's, in
+  # number or in order, are an error. These cases go to the Ruby reader.
   #: (ptr, value, value) -> value
   def zr_mr_struct(r, objects, symbols)
     klass = zr_mr_named_class(r, symbols)
@@ -578,7 +578,7 @@ module Zr::Kern
       return values
     end
     n = zr_mr_long(r)
-    if n < 0
+    if n != RArray[members].len
       return zr_mr_bail(r)
     end
     i = 0
@@ -588,7 +588,7 @@ module Zr::Kern
         return zr_mr_bail(r)
       end
       at = zr_mr_member_index(members, id)
-      if at < 0
+      if at != i
         return zr_mr_bail(r)
       end
       v = zr_mr_value(r, objects, symbols)
