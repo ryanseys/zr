@@ -877,7 +877,12 @@ module Zr::Kern
       RProc[v].passed = 1
       return v
     end
-    if zr_find_method(zr_class_of(v), Machine.id(:to_proc)) == 0
+    # rb_check_funcall: a method_missing of the program can answer for
+    # to_proc, as it does for the other conversions.
+    slot = Machine.slot(8)
+    converted = zr_convert_call(v, Machine.id(:to_proc), slot)
+    return converted if converted == QUNDEF
+    if converted == QFALSE
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
@@ -885,8 +890,8 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" into Proc"), 10)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
-    pr = zr_send(v, Machine.id(:to_proc), 0, 0)
-    if pr == QUNDEF || (!zr_special_p(pr) && zr_type(pr) == T_PROC)
+    pr = Machine.value(Machine.load64(slot, 0))
+    if !zr_special_p(pr) && zr_type(pr) == T_PROC
       return pr
     end
     b = Machine.slot(Buf.size)
