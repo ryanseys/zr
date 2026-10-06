@@ -617,6 +617,16 @@ module Zr::Kern
         return zr_send(recv, Machine.id(:stride_slice), 1, argv)
       end
     end
+    # Any object that answers begin, end and exclude_end? slices as a
+    # Range of them.
+    if !zr_special_p(first) && !zr_float_p(first)
+      duck = zr_range_duck(first)
+      return duck if duck == QUNDEF
+      if duck != QNIL
+        Machine.store64(argv, 0, Machine.word(duck))
+        return zr_ary_aref(recv, 1, argv, cref, blk)
+      end
+    end
     r = zr_index_operand(first, out)
     return r if r == QUNDEF
     zr_ary_at(recv, Machine.load64(out, 0))

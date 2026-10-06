@@ -797,9 +797,13 @@ class Array
     case args.size
     when 2
       index, value = args
+      # rb_range_values: an object that answers begin, end and exclude_end?
+      # sets as a Range, and an error names the object.
+      shown = index
+      index = Primitive.zr_range_duck_m(index) || index unless index.is_a?(Integer) || index.is_a?(Range)
       return Primitive.zr_ary_aset_at(self, index, value) unless index.is_a?(Range)
 
-      start, len = range_span(index)
+      start, len = range_span(index, shown)
     when 3
       start, len, value = args
       start = Primitive.zr_index_operand_m(start)
@@ -1629,14 +1633,14 @@ class Array
 
   # A Range over this Array's indexes as a start and a length; a start
   # before the first element is out of range.
-  def range_span(range)
+  def range_span(range, shown = range)
     Primitive.attr! :hidden
     start = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)
     stop = range.end.nil? ? nil : Primitive.zr_index_operand_m(range.end)
 
     n = Primitive.zr_ary_len_m(self)
     start += n if start < 0
-    raise RangeError, "#{range.inspect} out of range" if start < 0
+    raise RangeError, "#{shown.inspect} out of range" if start < 0
 
     if stop.nil?
       stop = n

@@ -478,6 +478,48 @@ module Zr::Kern
     r
   end
 
+  # rb_range_values for an object that is no Range: one that answers
+  # begin, end and exclude_end? (a private method too) reads as a Range of
+  # what they return. Returns that Range, nil for any other object, or
+  # undef after a raise. A Range itself and an ArithmeticSequence are for
+  # the caller, which checks them first.
+  #: (value) -> value
+  def zr_range_duck(v)
+    if zr_special_p(v)
+      return Machine.value(QNIL)
+    end
+    values = Machine.slot(24)
+    names = Machine.slot(24)
+    Machine.store64(names, 0, Machine.id(:begin))
+    Machine.store64(names, 8, Machine.id(:end))
+    Machine.store64(names, 16, Machine.id(:exclude_end?))
+    i = 0
+    while i < 3
+      mid = Machine.load64(names + (i * 8), 0)
+      responds = zr_check_funcall(v, mid)
+      return responds if responds == QUNDEF
+      if responds != QTRUE
+        return Machine.value(QNIL)
+      end
+      x = zr_send(v, mid, 0, 0)
+      return x if x == QUNDEF
+      Machine.store64(values + (i * 8), 0, Machine.word(x))
+      i += 1
+    end
+    r = zr_obj_alloc(zr_global(G_RANGE))
+    zr_ivar_set(r, Machine.id(:begin), Machine.value(Machine.load64(values, 0)))
+    zr_ivar_set(r, Machine.id(:end), Machine.value(Machine.load64(values, 8)))
+    excl = Machine.value(Machine.load64(values, 16))
+    zr_ivar_set(r, Machine.id(:excl), zr_bool(excl != QNIL && excl != QFALSE))
+    RBasic[r].flags = RBasic[r].flags | FL_FREEZE
+    r
+  end
+
+  #: (value) -> value
+  def zr_range_duck_m(v)
+    zr_range_duck(v)
+  end
+
   # `Class#allocate`: returns an uninitialized object of the type that the
   # class's builtin ancestor gives. Raises CRuby's TypeError for a class
   # whose allocator is undefined.

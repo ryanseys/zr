@@ -11,6 +11,9 @@ class String
   # both through to_int (a Range raises there); a nil length is given.
   def [](index, length = (absent = true; nil))
     index = Primitive.zr_index_operand_m(index) unless absent || index.is_a?(Integer) || index.is_a?(Regexp)
+    # rb_range_values: an object that answers begin, end and exclude_end?
+    # reads as a Range.
+    index = Primitive.zr_range_duck_m(index) || index if absent && !(Integer === index || Range === index || Regexp === index || String === index)
     case index
     when Integer
       index = Primitive.zr_index_operand_m(index) unless Primitive.zr_fixnum_p_m(index)
