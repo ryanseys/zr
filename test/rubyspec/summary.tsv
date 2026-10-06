@@ -42,7 +42,7 @@ core/queue	15	88	88	0	0
 core/random	10	83	83	0	0
 core/range	32	453	453	0	0
 core/rational	32	154	154	0	0
-core/refinement	8	24	22	0	0
+core/refinement	8	24	24	0	0
 core/regexp	24	260	260	0	0
 core/set	54	179	179	0	0
 core/signal	3	52	52	0	0
@@ -118,4 +118,4 @@ library/weakref	5	9	9	0	0
 library/win32ole	74	0	0	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3723	33144	33132	0	0
+total	3723	33144	33134	0	0

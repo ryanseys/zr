@@ -273,6 +273,12 @@ module Zr::Kern
   # the arguments. The base `method_missing` raises as a plain miss does.
   #: (value, word, word, ptr, value, word, word) -> value
   def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
+    if reason != MISS_PRIVATE && reason != MISS_PROTECTED && reason != MISS_SUPER
+      e = zr_imported_refined_method(recv, mid)
+      if e != 0
+        return zr_invoke(e, recv, argc, argv, blk, kw)
+      end
+    end
     if kw > 1
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
@@ -300,6 +306,31 @@ module Zr::Kern
     r = zr_invoke(e, recv, argc + 1, args, blk, kw)
     zr_xfree(args)
     r
+  end
+
+  # A method that Refinement#import_methods copied runs with its
+  # refinement active, as the cref of CRuby's copy has it. Its body was
+  # compiled outside the `refine`, so its sends do not name the
+  # refinement. Thus a send that misses in a method that runs as a
+  # refinement's method looks again with that refinement active. Returns
+  # the entry, or 0.
+  #: (value, word) -> ptr
+  def zr_imported_refined_method(recv, mid)
+    t = zr_task()
+    top = Task[t].top
+    if top == 0 || Task[t].refine != QNIL
+      return 0
+    end
+    r = Frame[top].defined
+    if zr_special_p(r) || zr_type(r) != T_MODULE || ClassExt[RClass[r].ext].refined == QNIL
+      return 0
+    end
+    list = zr_ary_new(1)
+    zr_ary_push(list, r)
+    Task[t].refine = list
+    e = zr_refined_search(zr_box_view(zr_class_of(recv)), mid)
+    Task[t].refine = Machine.value(QNIL)
+    e
   end
 
   #: (value, word, word, word, ptr) -> value

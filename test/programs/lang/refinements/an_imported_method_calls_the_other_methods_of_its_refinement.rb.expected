@@ -1,0 +1,5 @@
+"   foo."
+"  foo!"
+"X x"
+NoMethodError
+"undefined local variable or method 'nope' for an instance of String"
