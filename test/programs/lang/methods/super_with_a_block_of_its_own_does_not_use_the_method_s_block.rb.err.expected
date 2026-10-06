@@ -1,0 +1,4 @@
+lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:32: warning: the block passed to 'C1#f4' defined at lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:18 may be ignored
+lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:33: warning: the block passed to 'C1#f5' defined at lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:19 may be ignored
+lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:34: warning: the block passed to 'C1#f6' defined at lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:20 may be ignored
+lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:36: warning: the block passed to 'C1#f8' defined at lang/methods/super_with_a_block_of_its_own_does_not_use_the_method_s_block.rb:22 may be ignored

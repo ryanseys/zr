@@ -523,12 +523,13 @@ module Zr
       end
 
       # Whether code of this method, its blocks included, uses the method's
-      # block: a `yield`, `defined?(yield)`, or a `super` that passes it on.
+      # block: a `yield`, `defined?(yield)`, or a `super` that passes it on
+      # because it gives no block of its own (a literal or `&value`).
       #: (untyped node) -> bool
       def uses_block?(node)
         case node
-        when Hir::Yield, Hir::ZSuper then true
-        when Hir::Super then !node.block.is_a?(Hir::Block) || Hir.each_child(node).any? { |c| uses_block?(c) }
+        when Hir::Yield then true
+        when Hir::ZSuper, Hir::Super then node.block.nil? || Hir.each_child(node).any? { |c| uses_block?(c) }
         when Hir::Defined then node.kind == :yield
         when Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then false
         when Hir::Node, Array then Hir.each_child(node).any? { |c| uses_block?(c) }
