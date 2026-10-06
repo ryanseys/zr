@@ -1051,17 +1051,15 @@ module Zr::Kern
     zr_send(s, Machine.id(:escape), 0, 0)
   end
 
-  # `#<Name:0x... @a=1, @b=2>`. The `inspect` of an ivar value can run
-  # Ruby, so the table is read again after each one.
+  # `#<Name:0x... @a=1, @b=2>`. As in rb_obj_inspect, an object of any
+  # type shows its instance variables, and one with none (a fixnum, when a
+  # redefined Integer#inspect calls super) is the address form.
   #: (value, word, ptr, value, value) -> value
   def zr_obj_inspect(recv, argc, argv, cref, blk)
-    # As in rb_obj_inspect, only a plain object shows its instance
-    # variables. All others (for example a fixnum, when a redefined
-    # Integer#inspect calls super) use the address form.
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_obj_head(b, recv)
-    if zr_special_p(recv) || zr_type(recv) != T_OBJECT
+    if zr_special_p(recv)
       zr_buf_byte(b, 62)
       return zr_buf_take_at(b, ENC_BINARY)
     end
@@ -1078,43 +1076,96 @@ module Zr::Kern
       zr_buf_class_of(m, filter)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), m)
     end
+    pairs = zr_ivar_pairs(recv, filter)
     # An object found again inside its own inspect shows ` ...` in place
     # of its instance variables (rb_exec_recursive).
-    if zr_guard_enter(recv, Machine.id(:inspect))
+    if RArray[pairs].len > 0 && zr_guard_enter(recv, Machine.id(:inspect))
       zr_buf_push(b, Machine.bytes(" ...>"), 5)
       return zr_buf_take_at(b, ENC_BINARY)
     end
-    r = zr_buf_ivars(b, recv, filter)
-    zr_guard_leave(recv, Machine.id(:inspect))
+    enc = Machine.slot(8)
+    Machine.store64(enc, 0, zr_bytes_ascii_only_p(Buf[b].ptr, Buf[b].len) ? ENC_BINARY : ENC_UTF8)
+    r = zr_buf_ivars(b, pairs, enc)
+    if RArray[pairs].len > 0
+      zr_guard_leave(recv, Machine.id(:inspect))
+    end
     if r == QUNDEF
       zr_buf_free(b)
       return r
     end
     zr_buf_byte(b, 62)
-    zr_buf_take_at(b, ENC_BINARY)
+    if Machine.load64(enc, 0) == ENC_BINARY
+      return zr_buf_take_at(b, ENC_BINARY)
+    end
+    zr_str_set_index(zr_buf_take(b), Machine.load64(enc, 0))
   end
 
-  # Writes ` @a=1, @b=2` into `b`: the visible instance variables that
-  # `filter` accepts (nil accepts all), each value inspected. Returns undef
-  # when an inspect raised.
-  #: (ptr, value, value) -> value
-  def zr_buf_ivars(b, recv, filter)
+  # The visible instance variables that `filter` accepts (nil accepts
+  # all), as name, value, name, value. inspect works from this copy, so an
+  # inspect of one value that removes the others does not hide them.
+  #: (value, value) -> value
+  def zr_ivar_pairs(recv, filter)
+    names = zr_ary_new(4)
+    t = zr_ivtab(recv)
+    if t != 0
+      zr_ivtab_names(t, names, 64)
+    end
+    pairs = zr_ary_new(RArray[names].len * 2)
     i = 0
-    shown = 0
-    while i < RObject[recv].iv.len
-      e = RObject[recv].iv.rows + (i * IvEntry.size)
-      i += 1
-      if zr_ivar_id_visible_p(IvEntry[e].id) && (filter == QNIL || zr_ary_index_of(filter, zr_sym(IvEntry[e].id)) >= 0)
-        zr_buf_push(b, shown == 0 ? Machine.bytes(" ") : Machine.bytes(", "), shown == 0 ? 1 : 2)
-        shown += 1
-        zr_buf_sym(b, IvEntry[e].id)
-        zr_buf_byte(b, 61)
-        s = zr_inspect(IvEntry[e].value)
-        return s if s == QUNDEF
-        zr_buf_str(b, s)
+    while i < RArray[names].len
+      name = zr_ary_at(names, i)
+      if filter == QNIL || zr_ary_index_of(filter, name) >= 0
+        zr_ary_push(pairs, name)
+        zr_ary_push(pairs, zr_ivar_get(recv, zr_sym2id(name)))
       end
+      i += 1
+    end
+    pairs
+  end
+
+  # Writes ` @a=1, @b=2` into `b` from `pairs`, each value inspected. The
+  # text takes the encoding of the first name that is not ASCII, and a
+  # later name in another encoding is converted to it, as %PRIsVALUE does
+  # (ruby__sfvextra). `enc` holds the encoding index, binary while the
+  # text is ASCII. Returns undef when an inspect raised.
+  #: (ptr, value, ptr) -> value
+  def zr_buf_ivars(b, pairs, enc)
+    i = 0
+    while i < RArray[pairs].len
+      zr_buf_push(b, i == 0 ? Machine.bytes(" ") : Machine.bytes(", "), i == 0 ? 1 : 2)
+      id = zr_sym2id(zr_ary_at(pairs, i))
+      index = zr_symbol_encoding_index(id)
+      if zr_bytes_ascii_only_p(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+        zr_buf_sym(b, id)
+      elsif Machine.load64(enc, 0) == ENC_BINARY || Machine.load64(enc, 0) == index
+        Machine.store64(enc, 0, index)
+        zr_buf_sym(b, id)
+      else
+        name = zr_ivar_name_in(id, Machine.load64(enc, 0))
+        return name if name == QUNDEF
+        zr_buf_str(b, name)
+      end
+      zr_buf_byte(b, 61)
+      s = zr_inspect(zr_ary_at(pairs, i + 1))
+      return s if s == QUNDEF
+      zr_buf_str(b, s)
+      i += 2
     end
     Machine.value(QNIL)
+  end
+
+  # A name converted to the encoding `index`.
+  #: (word, word) -> value
+  def zr_ivar_name_in(id, index)
+    name = zr_str_new(zr_symbol_name_ptr(id), zr_symbol_name_len(id))
+    zr_str_set_index(name, zr_symbol_encoding_index(id))
+    target = zr_str_new(Machine.bytes(""), 0)
+    zr_str_set_index(target, index)
+    to = zr_send(target, Machine.id(:encoding), 0, 0)
+    return to if to == QUNDEF
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(to))
+    zr_send(name, Machine.id(:encode), 1, slot)
   end
 
   #: (value, word, ptr, value, value) -> value
