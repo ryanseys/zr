@@ -1,0 +1,23 @@
+[nil, nil]
+{check2: nil, check1: nil}
+["foo", "foo"]
+[nil, nil]
+{check2: nil, check1: nil}
+["foo", "foo"]
+[nil, nil]
+{check2: nil, check1: nil}
+["foo", "foo"]
+[["foo", nil]]
+nil
+[["foo", nil]]
+"f"
+{check2: nil, check1: nil}
+"z"
+{check2: nil, check1: nil}
+"oo"
+[["a", nil, ["y"], "y"], [nil, "c", ["y"], "y"]]
+"y"
+[#<MatchData "y" 1:"y">]
+#<MatchData "y" 1:"y">
+[]
+nil

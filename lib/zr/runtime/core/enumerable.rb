@@ -996,10 +996,12 @@ module Enumerable
 
   # grep_i: without a block, a Regexp tests a String or a Symbol with
   # rb_reg_match_p, which leaves $~ as it was.
-  def grep(pattern, &block)    out = []
+  def grep(pattern, &block)
+    out = []
     quiet = !block_given? && Regexp === pattern && pattern.method(:===).owner.equal?(Regexp)
+    scope = Primitive.zr_backref_scope_m unless quiet
     Primitive.zr_enum_each(self, nil) do |x, many|
-      if quiet ? grep_quiet_match?(pattern, x) : pattern === x
+      if quiet ? grep_quiet_match?(pattern, x) : grep_match?(scope, pattern, x)
         out << (block_given? ? Primitive.zr_yield_packed(block, x, many) : x)
       end
       nil
@@ -1007,10 +1009,12 @@ module Enumerable
     out
   end
 
-  def grep_v(pattern, &block)    out = []
+  def grep_v(pattern, &block)
+    out = []
     quiet = !block_given? && Regexp === pattern && pattern.method(:===).owner.equal?(Regexp)
+    scope = Primitive.zr_backref_scope_m unless quiet
     Primitive.zr_enum_each(self, nil) do |x, many|
-      unless quiet ? grep_quiet_match?(pattern, x) : pattern === x
+      unless quiet ? grep_quiet_match?(pattern, x) : grep_match?(scope, pattern, x)
         out << (block_given? ? Primitive.zr_yield_packed(block, x, many) : x)
       end
       nil
@@ -1026,6 +1030,16 @@ module Enumerable
     !text.nil? && pattern.match?(text)
   end
   private :grep_quiet_match?
+
+  # grep_i: `pattern === x`, whose match sets `$~` of the scope that
+  # called grep, even when the block runs after grep returned.
+  def grep_match?(scope, pattern, x)
+    Primitive.attr! :hidden
+    matched = pattern === x
+    Primitive.zr_backref_forward_m(scope)
+    matched
+  end
+  private :grep_match?
 
   # The slicing methods stream: each returns an enumerator that reads
   # its source as it runs, so an endless source still gives its first

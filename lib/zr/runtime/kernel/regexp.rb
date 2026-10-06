@@ -465,6 +465,66 @@ module Zr::Kern
     0
   end
 
+  # The `$~` and `$_` of the scope that called the core method that runs
+  # now, as CRuby's ifunc keeps them in `svar_lep` when the method makes
+  # its block. A block of the core library can run after its method
+  # returned (an `each` that keeps the block calls it later). Then its
+  # matches still set `$~` of that scope, through the Array this returns.
+  # A block on another stack (a Fiber's or a Thread's) uses the record of
+  # the frame that made it, while that frame lives.
+  #: () -> value
+  def zr_backref_scope_m
+    home = zr_backref_home()
+    while home != 0 && zr_block_frame_p(home) && Frame[home].entry != 0
+      p = Machine.value(Frame[home].entry)
+      maker = RProc[p].home
+      if maker == 0 || !zr_frame_live_near(maker, RProc[p].serial)
+        break
+      end
+      home = zr_backref_home_from(maker)
+    end
+    home == 0 ? Machine.value(QNIL) : zr_svars(home)
+  end
+
+  # A match that a core block made sets the `$~` of the scope that
+  # zr_backref_scope_m gave, as well as its own.
+  #: (value) -> value
+  def zr_backref_forward_m(svars)
+    if svars != QNIL
+      zr_ary_store(svars, 0, zr_backref_get())
+    end
+    Machine.value(QNIL)
+  end
+
+  # Whether the frame `rec` with `serial` is on a stack that waits for
+  # this one: this task's, the stack of each fiber that resumed this
+  # fiber, or the main task's. Their records stay mapped while they wait.
+  #: (ptr, word) -> bool
+  def zr_frame_live_near(rec, serial)
+    if zr_frame_live(rec, serial)
+      return true
+    end
+    fiber = RFiber[zr_fiber_current()].prev
+    while !zr_special_p(fiber)
+      if zr_frame_on_stack(Task[RFiber[fiber].task].top, rec, serial)
+        return true
+      end
+      fiber = RFiber[fiber].prev
+    end
+    zr_frame_on_stack(Task[Machine.static(:task, Task.size)].top, rec, serial)
+  end
+
+  #: (ptr, ptr, word) -> bool
+  def zr_frame_on_stack(top, rec, serial)
+    while top != 0
+      if top == rec
+        return Frame[top].serial == serial
+      end
+      top = Frame[top].prev
+    end
+    false
+  end
+
   # The `$~` and `$_` of the frame, in an Array that is made at the first
   # write of one of them.
   #: (ptr) -> value
