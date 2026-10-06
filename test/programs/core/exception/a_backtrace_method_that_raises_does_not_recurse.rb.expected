@@ -1,0 +1,5 @@
+"hello"
+:ok
+[:dollar_at, TypeError]
+[:full_message, TypeError]
+[true, "outer"]

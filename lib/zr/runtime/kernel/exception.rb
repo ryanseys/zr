@@ -277,16 +277,25 @@ module Zr::Kern
 
   # What a program's own Exception#backtrace returns for `exc`, or QUNDEF
   # when the core's method answers. setup_exception calls it under its
-  # own tag, so an error in it is dropped.
+  # own tag, so an error in it is dropped. A raise inside that call does
+  # not call it again (rb_ec_set_raised), or a `backtrace` that raises
+  # would recurse until the stack ends.
   #: (value) -> value
   def zr_exc_backtrace_custom(exc)
     e = zr_find_method(zr_class_of(exc), Machine.id(:backtrace))
     if e == 0 || MEntry[e].core != 0
       return Machine.value(QUNDEF)
     end
+    asking = Machine.static(:backtrace_asking, 8)
+    t = zr_task()
+    if Machine.load64(asking, 0) == Machine.word(t)
+      return Machine.value(QUNDEF)
+    end
+    was = Machine.load64(asking, 0)
+    Machine.store64(asking, 0, Machine.word(t))
     r = zr_send(exc, Machine.id(:backtrace), 0, 0)
+    Machine.store64(asking, 0, was)
     if r == QUNDEF
-      t = zr_task()
       Task[t].pending_kind = PENDING_RAISE
       Task[t].pending = Machine.value(QNIL)
       return Machine.value(QNIL)
