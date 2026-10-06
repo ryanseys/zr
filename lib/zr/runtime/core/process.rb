@@ -731,17 +731,30 @@ module Process
 
   # Runs the command; the child's pid, or nil when it could not start
   # (then `$?` says exit 127).
-  # `rb_exec_getargs`: a leading Hash is the environment and a trailing
-  # Hash is the options, written as arguments rather than as keywords.
-  # A leading value with to_hash is the environment; a trailing Hash is
-  # always the options, so env and options with no command raise.
+  # `rb_exec_getargs`: a trailing Hash is the options, written as
+  # arguments rather than as keywords, and then a leading Hash is the
+  # environment. A value with to_hash counts as a Hash, unless it is a
+  # String or an Array, so env and options with no command raise.
   def self.exec_args(args, options)
     args = args.dup
-    env = args.empty? || args.first.is_a?(String) ? nil : Hash.try_convert(args.first)
+    last = hash_argument(args.last) unless args.empty?
+    args.pop if last
+    options = options.merge(last) if last
+    env = hash_argument(args.first) unless args.empty?
     args.shift if env
-    options = options.merge(args.pop) if !args.empty? && args.last.is_a?(Hash)
     [env, args, options]
   end
+
+  # check_hash: an argument converts to a Hash unless it is a String, an
+  # Array or an immediate, whose to_hash a spawn never calls.
+  def self.hash_argument(arg)
+    Primitive.attr! :hidden
+    case arg
+    when String, Array, Integer, Float, Symbol, nil, true, false then nil
+    else Hash.try_convert(arg)
+    end
+  end
+  private_class_method :hash_argument
 
   # The error of a command that did not start, named by its program as
   # rb_exec_fail names it: after the environment and options come off.

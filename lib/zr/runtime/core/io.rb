@@ -564,7 +564,8 @@ class IO
       args.pop
       options = last
     end
-    env = args.first.is_a?(Hash) ? args.shift : nil
+    env = Hash.try_convert(args.first) if args.size > 1
+    args.shift if env
     command, mode = args
     mode = Primitive.zr_str_operand(mode) unless mode.nil? || mode.is_a?(Integer)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
@@ -663,8 +664,9 @@ class IO
       plan[twin] = :close
     end
     words = Array(command)
-    # A Hash at the end of the command Array is more exec options.
-    if words.size > 1 && (extra = Hash.try_convert(words.last))
+    # A Hash at the end of the command Array is more exec options; its
+    # words are read as a spawn reads them (check_hash).
+    if words.size > 1 && (extra = Process.send(:hash_argument, words.last))
       words = words[0...-1]
       options = extra.merge(options)
     end
