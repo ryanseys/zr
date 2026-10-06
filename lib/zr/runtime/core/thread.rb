@@ -291,7 +291,7 @@ class Thread
 
       Primitive.zr_finalizers_due
       wake_due
-      return nil if @queue.empty?
+      return nil if @queue.empty? || !@current.send(:quantum_spent?)
 
       @queue << @current
       switch
@@ -492,6 +492,8 @@ class Thread
     # new thread too, until it pushes its own.
     creator_masks = creator && Primitive.zr_hidden_get(creator, :masks)
     @masks = creator_masks.dup if creator_masks
+    # ... and its priority.
+    @priority = creator.priority if creator
     @kill_tag = Object.new
     @waiters = []
   end
@@ -735,9 +737,17 @@ class Thread
 
   alias to_s inspect
 
-  # Every thread is a green task on the one native thread, so the
-  # priority is a number the thread keeps and the scheduler ignores.
+  # The priority scales a thread's turn, as CRuby's time quantum shifts by
+  # it: a thread of priority n > 0 keeps its turn for 2**n timer ticks.
+  # A tick is the shortest turn, so a negative priority runs as 0.
   def priority = @priority || 0
+
+  # A timer tick of this thread's turn: whether its quantum is spent.
+  def quantum_spent?
+    Primitive.attr! :hidden
+    @ticks = (@ticks || 0) + 1
+    @ticks >= 1 << priority.clamp(0, 3)
+  end
 
   # rb_thread_priority_set: NUM2INT, clamped to -3..3.
   def priority=(value)
@@ -966,6 +976,7 @@ class Thread
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(Thread, :current, self)
     @status = :run
+    @ticks = 0
     Primitive.zr_hidden_set(from, :fiber, Fiber.current)
     Primitive.zr_fiber_scheduler_switch(@fiber)
   end
