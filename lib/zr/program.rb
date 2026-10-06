@@ -142,7 +142,7 @@ module Zr
         next unless unit.file
 
         gem_set.gems.each do |gem|
-          root = gem.roots.find { |dir| unit.file.start_with?("#{dir}/") } or next
+          root = gem.root_of(unit.file) or next
           copy = carried[unit.file.delete_prefix("#{root}/")]
           redirects[copy] = unit.file if copy && copy != unit.file
         end

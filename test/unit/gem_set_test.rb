@@ -224,7 +224,8 @@ class GemSetTest < Minitest::Test
 
     hir = Zr::Hir.build(%(require "csv"\n), main, gem_set: set(name: "csv", version: "9.0.0", roots: [lib]))
 
-    assert_equal [File.join(lib, "csv.rb")], hir.units.map(&:file)
+    # A require finds the file by the real path of its directory.
+    assert_equal [File.join(File.realpath(lib), "csv.rb")], hir.units.map(&:file)
   end
 
   def test_a_require_of_a_refused_gem_stops_the_build_at_its_line

@@ -29,7 +29,20 @@ module Zr
     # One gem: its name, version, where it came from (`Gemfile.lock` or
     # the flag), its require roots, and why a build cannot use it, or nil.
     # @rbs skip -- typed in sig/zr/gem_set.rbs
-    Entry = Struct.new(:name, :version, :source, :roots, :refusal, keyword_init: true)
+    Entry = Struct.new(:name, :version, :source, :roots, :refusal, keyword_init: true) do
+      # The root of the gem that holds the file `path`, as given or as its
+      # real path, or nil: a require finds a file through a symlinked
+      # directory by the real path (`Loader#real_root`).
+      def root_of(path)
+        roots.each do |root|
+          real = File.directory?(root) ? File.realpath(root) : root
+          [root, real].each { |dir| return dir if path.start_with?("#{dir}/") }
+        end
+        nil
+      end
+
+      def holds?(path) = !root_of(path).nil?
+    end
 
     # The set cannot be resolved: a gem is not installed, a flag names no
     # directory, or the Gemfile does not parse.
@@ -76,7 +89,7 @@ module Zr
       @gems.each do |gem|
         next unless gem.refusal
 
-        return gem.refusal if path && gem.roots.any? { |root| path.start_with?("#{root}/") }
+        return gem.refusal if path && gem.holds?(path)
         next unless gem.roots.empty? && !name.empty?
 
         return gem.refusal if [gem.name, gem.name.tr("-", "/")].any? { |base| name == base || name.start_with?("#{base}/") }

@@ -104,7 +104,7 @@ module Zr
 
     #: (String file, GemSet? gem_set) -> Row?
     def row_for(file, gem_set)
-      gem = gem_set&.gems&.find { |g| g.roots.any? { |root| file.start_with?("#{root}/") } }
+      gem = gem_set&.gems&.find { |g| g.holds?(file) }
       return Row.new(gem.name, gem.version, source_of(gem)) if gem
 
       Library::Ports::ALL.each do |name, port|
