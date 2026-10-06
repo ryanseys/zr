@@ -753,7 +753,25 @@ module Zr::Kern
     HEntry[e].key = Machine.value(QNIL)
     HEntry[e].value = Machine.value(QNIL)
     RHash[recv].live = RHash[recv].live - 1
+    if RHash[recv].live == 0 && RHash[recv].iter == 0
+      zr_hash_release(recv)
+    end
     v
+  end
+
+  # A Hash that a delete empties gives its table back, as an st table that
+  # deletes its last entry shrinks; the next insert makes a new one. One
+  # that an iteration walks keeps it until the walk ends.
+  #: (value) -> void
+  def zr_hash_release(h)
+    zr_sized_xfree(RHash[h].entries, RHash[h].cap * HEntry.size)
+    zr_sized_xfree(RHash[h].bins, RHash[h].nbins * 8)
+    RHash[h].entries = 0
+    RHash[h].len = 0
+    RHash[h].cap = 0
+    RHash[h].bins = 0
+    RHash[h].nbins = 0
+    RHash[h].gen = RHash[h].gen + 1
   end
 
   #: (value, word, ptr, value, value) -> value
