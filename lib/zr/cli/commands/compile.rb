@@ -281,17 +281,35 @@ module Zr
           # (`Loader#parsed_unit`).
           # A program with no file: ruby's report has no syntax_suggest part.
           given = !File.file?(input) && e.respond_to?(:path) && e.path == input
-          report = given ? Refusals.syntax_text(input, e) : Refusals.syntax_report(input)
+          report = given ? Refusals.syntax_text(input, e) : Refusals.syntax_report(input, verbose: switches.verbose)
           unless report
             warn "zr: a required file does not parse: #{e.message.lines.first.chomp}"
             exit REFUSED
           end
           warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if name == "build"
           # The -r requires still run before it, and their exit handlers after.
-          Program.build("$stderr.write(#{report.inspect})\nexit 1\n", input, target: target, gem_set: gem_set, switches: switches)
+          Program.build(syntax_error_program(input, e, report), input, target: target, gem_set: gem_set, switches: switches)
         end
 
         private
+
+        # The program that ends as ruby does for a script that does not
+        # parse, after the -r requires ran: the parse's warnings, then the
+        # error as error_print writes it, through SyntaxError#detailed_message,
+        # which syntax_suggest (and the program) may extend. The api of
+        # syntax_suggest is required here, as its detailed_message requires
+        # it by a name that the build cannot see.
+        #: (String input, SyntaxError error, String report) -> String
+        def syntax_error_program(input, error, report)
+          warned = report[0, report.index("#{input}: ") || 0]
+          <<~RUBY
+            require "syntax_suggest/api" if defined?(SyntaxSuggest)
+            error = SyntaxError.new(#{error.message.inspect})
+            error.instance_variable_set(:@path, #{input.inspect})
+            $stderr.write(#{warned.inspect}, #{input.inspect}, ": ", error.detailed_message(highlight: false), "\\n")
+            exit 1
+          RUBY
+        end
 
         # `zr run --emit wasm` runs the module with wasmtime. Without it, stop
         # before the build.

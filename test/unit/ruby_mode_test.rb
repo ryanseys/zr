@@ -333,6 +333,9 @@ class RubyModeTest < Minitest::Test
     "lib/foo.rb" => "module Foo; end\n",
     "bad.rb" => "def x\n  p (\nend\n",
     "handler.rb" => "at_exit { puts 'handler ran' }\n",
+    "unparsed.rb" => "x = 1\nif true\n  1 +\n",
+    "detail.rb" => "class SyntaxError\n  def detailed_message(**)\n    Thread.new {}.join\n    \"<\#{super}>\n<\#{File.basename(__FILE__)}>\"\n  end\nend\n",
+    "showpath.rb" => "class SyntaxError\n  def detailed_message(**) = \"path=\#{path}\n\#{super}\"\nend\n",
     "hybrid.sh" => "#!/usr/bin/env bash\necho error && exit 1\n#!ruby\nputs 'success'\n",
     "bt.rb" => "def a = raise('oops')\ndef b = a\ndef c = b\ndef d = c\nbegin\n  d\nrescue => e\n  puts e.full_message(highlight: false)\nend\nd\n"
   }.freeze
@@ -444,6 +447,15 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-e", "p (")
     # The -r libraries load before the report, and their exit handlers run.
     same_as_ruby("-r./handler.rb", "-e", "{")
+    # The report goes through SyntaxError#detailed_message, which a library
+    # may redefine, and the error has the script's path.
+    same_as_ruby("-r./detail.rb", "unparsed.rb")
+    same_as_ruby("-r./showpath.rb", "unparsed.rb")
+    same_as_ruby("-r./detail.rb", "-", stdin: "1+\n")
+    # The parse warns at the program's level, before the report.
+    same_as_ruby("-w", "unparsed.rb")
+    same_as_ruby("-W0", "unparsed.rb")
+    same_as_ruby("--disable-gems", "unparsed.rb")
   end
 
   def test_errors_before_the_program_runs

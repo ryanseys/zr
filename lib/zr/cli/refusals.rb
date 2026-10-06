@@ -131,11 +131,14 @@ module Zr
 
       # ruby's report for `input`, which does not parse, or nil when it
       # parses (then a file that it requires did not). The host ruby writes
-      # it, without gems, so no other version of syntax_suggest is loaded.
-      #: (String input) -> String?
-      def syntax_report(input)
+      # it, without gems, so no other version of syntax_suggest is loaded,
+      # and at the program's warning level (`verbose`, $VERBOSE as -w, -W0
+      # or neither set it), so the parse warns as the program's would.
+      #: (String input, ?verbose: bool | Symbol | nil) -> String?
+      def syntax_report(input, verbose: false)
         require_relative "../library/roots"
-        argv = [Config.current.host_ruby, "--disable-gems", "-e", SYNTAX_REPORT, File.join(Library::Roots.pure, "syntax_suggest"), input]
+        level = { true => "-W2", nil => "-W0" }.fetch(verbose, "-W1")
+        argv = [Config.current.host_ruby, "--disable-gems", level, "-e", SYNTAX_REPORT, File.join(Library::Roots.pure, "syntax_suggest"), input]
         out = IO.popen(argv, err: File::NULL, &:read)
         # `IO.popen` with a block waits for the child, so `$?` is set.
         status = $? #: Process::Status
