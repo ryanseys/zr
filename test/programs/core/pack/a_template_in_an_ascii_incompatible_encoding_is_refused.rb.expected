@@ -1,0 +1,20 @@
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-32BE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-32BE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-32BE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-32BE"]
+"\x00"
+[97]
+97
+"\u0000"
+"\x00"
+[97]
+97
+"\u0000"
+"\x00"
+[97]
+97
+"\u0000"

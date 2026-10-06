@@ -36,6 +36,9 @@ module Packing
   # packs the same short template again and again -- one build of the
   # compiler packs 555,616 times, mostly with `L<` and `Q<`.
   def self.directives(template, kind, check: true)
+    # pack_pack and pack_unpack read the template as ASCII.
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{template.encoding}" unless template.encoding.ascii_compatible?
+
     out = []
     i = 0
     size = template.bytesize
