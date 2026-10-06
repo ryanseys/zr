@@ -1493,11 +1493,29 @@ class IO
     total
   end
 
-  # do_writeconv: what is written goes out in the external encoding the
-  # stream names, unless that is binary. An encoding that is not
-  # ASCII-compatible is reached through UTF-8, as the converter
-  # make_writeconv sets up reaches it.
+  # do_writeconv: the bytes that a write puts out. `xml: :attr` quotes
+  # the stream as a whole, as make_writeconv's converter keeps the quote
+  # as its state: each write's own quotes go, the first bytes open the
+  # stream's quote, and the close ends it (finish_writing). A converter
+  # that keeps state across writes quotes the stream itself.
   def converted(text)
+    Primitive.attr! :hidden
+    out = encoded(text)
+    return out unless @write_options[:xml] == :attr && @write_converter.nil?
+
+    quote = Primitive.zr_str_bytesize("\"".encode(out.encoding))
+    body = out.byteslice(quote, out.bytesize - (2 * quote))
+    return body if body.empty? || @xml_quote
+
+    @xml_quote = out.byteslice(0, quote)
+    @xml_quote + body
+  end
+
+  # What is written goes out in the external encoding the stream names,
+  # unless that is binary. An encoding that is not ASCII-compatible is
+  # reached through UTF-8, as the converter make_writeconv sets up
+  # reaches it.
+  def encoded(text)
     Primitive.attr! :hidden
     options = @write_options
     source = Encoding.at(Primitive.zr_str_encoding_index_m(text))
@@ -1535,9 +1553,14 @@ class IO
     out
   end
 
-  # finish_writeconv: the bytes that end a stateful encoding's stream.
+  # finish_writeconv: the bytes that end the stream: the closing quote of
+  # an xml: :attr stream, or a stateful encoding's shift back.
   def finish_writing
     Primitive.attr! :hidden
+    if @xml_quote
+      write_bytes(@xml_quote)
+      @xml_quote = nil
+    end
     converter = @write_converter or return
     @write_converter = nil
     tail = converter.finish
