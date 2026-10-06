@@ -758,10 +758,12 @@ module Zr::Kern
   # Whether a cache entry can contain the value of constant entry `e`. The
   # value must be set (not an autoload still to run), not deprecated (each
   # read warns), and read outside a box (a box sees its own constant
-  # entries and classes).
+  # entries and classes). While a task reads the name's autoload file, a
+  # value that the file set is that task's own, and other tasks wait for
+  # the file, so no site keeps it yet.
   #: (ptr) -> bool
   def zr_const_cacheable(e)
-    CEntry[e].value != QUNDEF && CEntry[e].deprecated == 0 && zr_box_current() == QNIL
+    CEntry[e].value != QUNDEF && CEntry[e].deprecated == 0 && zr_box_current() == QNIL && !zr_autoload_running(CEntry[e].owner, CEntry[e].id)
   end
 
   # `stamp` is the value read before the lookup. Thus, a change that the

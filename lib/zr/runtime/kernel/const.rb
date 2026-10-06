@@ -1849,6 +1849,23 @@ module Zr::Kern
     false
   end
 
+  # Whether any task reads the file of the autoload of `mod` and `id` now.
+  #: (value, word) -> bool
+  def zr_autoload_running(mod, id)
+    rows = zr_global(G_AUTOLOADING)
+    if zr_special_p(rows)
+      return false
+    end
+    i = 0
+    while i < RArray[rows].len
+      if zr_ary_at(rows, i + 1) == mod && zr_ary_at(rows, i + 2) == zr_sym(id)
+        return true
+      end
+      i += AUTOLOADING_ROW
+    end
+    false
+  end
+
   # This task's read of the file of the autoload of `mod` and `id` ended.
   #: (value, word) -> void
   def zr_autoload_done(mod, id)
