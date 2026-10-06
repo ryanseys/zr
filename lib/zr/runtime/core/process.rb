@@ -566,8 +566,27 @@ module Process
     $stdout.flush
     $stderr.flush
     pid = checked(Primitive.zr_proc_fork)
-    Thread.send(:after_fork) if pid.zero?
+    if pid.zero?
+      $$ = Primitive.zr_process_id
+      Thread.send(:after_fork)
+    end
     pid
+  end
+
+  # rb_call_proc__fork: `_fork` through a send, so a program that wraps
+  # it sees every fork, and its result as a pid (NUM2PIDT). A wrapper
+  # that raises in the child ends the child with the error, as
+  # ruby_stop does; in the parent the error goes on up.
+  def self.call_fork
+    Primitive.attr! :hidden
+    parent = Primitive.zr_process_id
+    begin
+      Integer.send(:int_operand, Process.__send__(:_fork))
+    rescue Exception => e # rubocop:disable Lint/RescueException
+      raise if Primitive.zr_process_id == parent
+
+      Primitive.zr_proc_child_exit(e)
+    end
   end
 
   # `fork`: the child's pid in the parent. In the child, nil, or with a
@@ -576,9 +595,7 @@ module Process
   # `fork`, as rb_protect around the block and error_handle do.
   def self.forked(&block)
     Primitive.attr! :hidden
-    # A send, not a call that the compiler binds: a program that replaces
-    # `_fork` sees the fork.
-    pid = Process.__send__(:_fork)
+    pid = call_fork
     return pid unless pid.zero?
     return nil unless block
 
@@ -604,7 +621,7 @@ module Process
     redirects.opened.each(&:close)
     raise SystemCallError.new(words.first, -result)
   end
-  private_class_method :forked, :replaced
+  private_class_method :forked, :replaced, :call_fork
 
   # A result that is a failure raises as `rb_sys_fail(0)` does, with
   # no text added to the error's own message.

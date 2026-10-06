@@ -1,0 +1,7 @@
+fork: parent [:before, :parent], child [:before, :child] true
+Process.fork: parent [:before, :parent], child [:before, :child]
+fork no block: parent [:before, :parent], child [:before, :child] true
+Process._fork: parent [:before, :parent], child true
+popen: [:before, :child] [:before, :parent]
+[TypeError, "no implicit conversion of String into Integer"]
+parent 1 [:before, :parent]

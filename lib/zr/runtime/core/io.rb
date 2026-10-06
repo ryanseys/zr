@@ -593,7 +593,7 @@ class IO
 
     output = pipe_ends if reading
     input = pipe_ends if duplex || !reading
-    pid = Process._fork
+    pid = Process.send(:call_fork)
     if pid.zero?
       Primitive.zr_io_dup2(output[1], 1) if output
       Primitive.zr_io_dup2(input[0], 0) if input
