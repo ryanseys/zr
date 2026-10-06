@@ -252,6 +252,12 @@ module Zr::Kern
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
+    # A call of a method_missing that the class undefined: the arguments
+    # name the missing method, as raise_method_missing reads them.
+    if mid == Machine.id(:method_missing)
+      Task[zr_task()].missing = reason
+      return zr_obj_method_missing(recv, argc, argv, Machine.value(QNIL), blk)
+    end
     # A refined method_missing does not answer a miss: ruby looks it up
     # without the refinements in use.
     e = zr_search_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
@@ -289,7 +295,16 @@ module Zr::Kern
     end
     m = Machine.value(Machine.load64(argv, 0))
     unless zr_symbol_p(m)
-      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("no id given"), 11)
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("method name must be a Symbol but "), 33)
+      shown = zr_buf_class_shown(b, m)
+      if shown == QUNDEF
+        zr_buf_free(b)
+        return shown
+      end
+      zr_buf_push(b, Machine.bytes(" is given"), 9)
+      return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
     end
     t = zr_task()
     reason = Task[t].missing

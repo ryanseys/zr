@@ -1,0 +1,5 @@
+ArgumentError: no method name given
+NoMethodError: undefined method 'foo' for an instance of #<Class:0xADDR>
+ArgumentError: method name must be a Symbol but Integer is given
+ArgumentError: method name must be a Symbol but Integer is given
+NoMethodError: undefined method 'method_missing' for an instance of Integer
