@@ -146,6 +146,13 @@ class Exception
     out
   end
 
+  # `$@`: the backtrace of `$!`, nil without one, checked as
+  # errat_getter checks it.
+  def self.errat(exc)
+    Primitive.attr! :hidden
+    exc&.send(:report_backtrace, exc)
+  end
+
   # rb_get_backtrace: the backtrace, from an override when there is one,
   # which must give what rb_check_backtrace takes.
   def report_backtrace(exc)
