@@ -185,13 +185,14 @@ module Zr::Kern
   # frozen error. A Ractor keeps its own state in hidden slots, which have
   # no `@` and no program can refer to. Thus each instance variable of a
   # Ractor here belongs to the program and follows the program's rule.
+  # ENV is shareable and not frozen too, and keeps no state in ivars.
   #: (value) -> value
   def zr_ractor_guard(obj)
     t = zr_task()
-    if Task[t].ractor == 0
+    if Task[t].ractor == 0 || zr_frozen_p(obj)
       return Machine.value(QNIL)
     end
-    if zr_frozen_p(obj) || zr_class_of(obj) != zr_core_class(Machine.id(:Ractor))
+    if zr_class_of(obj) != zr_core_class(Machine.id(:Ractor)) && obj != zr_const_get_at(zr_global(G_OBJECT), Machine.id(:ENV))
       return Machine.value(QNIL)
     end
     zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:isolation!), 0, 0)
