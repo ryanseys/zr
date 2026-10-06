@@ -146,6 +146,25 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     assert_includes prelude, '$LOAD_PATH.unshift("/inc".freeze, "/a".freeze, " b ".freeze)'
   end
 
+  def test_rubylib_takes_bytes_that_are_no_text
+    prelude = parse("x.rb", env: { "RUBYLIB" => "/a:\xFF:/b".b }).prelude.to_s
+
+    assert_includes prelude, '"/a".freeze, "\xFF".freeze, "/b".freeze'
+  end
+
+  def test_rubyopt_sets_only_what_the_command_line_did_not
+    options = parse("-Eutf-8", "-KU", "x.rb", env: { "RUBYOPT" => "-Eus-ascii -KN" })
+
+    assert_equal ["UTF-8", "UTF-8"], [options.external, options.switches.source_encoding]
+    options = parse("--enable-frozen-string-literal", "--backtrace-limit=1", "x.rb",
+                    env: { "RUBYOPT" => "--disable-frozen-string-literal --backtrace-limit=5 -W:no-deprecated" })
+
+    assert options.switches.frozen_string_literal
+    assert_includes options.prelude.to_s, "Primitive.zr_backtrace_limit_set(1)"
+    assert_includes options.prelude.to_s, "Warning[:deprecated] = false"
+    assert_includes parse("x.rb", env: { "RUBYOPT" => "-Eascii" }).external, "ASCII"
+  end
+
   def test_k_sets_the_source_encoding_and_the_external_one
     options = parse("-Ke", "x.rb")
 
@@ -161,10 +180,25 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     assert_equal "default_external already set to EUC-JP", assert_raises(RubyOptions::Invalid) { parse("-Ke", "-Eascii", "x.rb") }.message
   end
 
+  def test_k_sets_the_external_encoding_only_where_nothing_set_it
+    options = parse("-Eus-ascii", "-KN", "x.rb")
+
+    assert_equal ["US-ASCII", "ASCII-8BIT"], [options.external, options.switches.source_encoding]
+    assert_equal "EUC-JP", parse("-Ks", "-Ke", "x.rb").switches.source_encoding
+    assert_equal "Windows-31J", parse("-Ks", "-Ke", "x.rb").external
+  end
+
+  def test_k_warns_under_w_only
+    assert_equal ["zr: warning: -K is specified; it is for 1.8 compatibility and may cause odd behavior"], parse("-wKe", "x.rb").warnings
+    assert_empty parse("-Ke", "x.rb").warnings
+    assert_empty parse("-Ke", "-W0", "x.rb").warnings
+  end
+
   def test_backtrace_limit_sets_the_limit_and_did_you_mean_can_be_disabled
     assert_includes parse("--backtrace-limit=2", "x.rb").prelude.to_s, "Primitive.zr_backtrace_limit_set(2)"
     assert_includes parse("--backtrace-limit", "-1", "x.rb").prelude.to_s, "Primitive.zr_backtrace_limit_set(-1)"
     assert_raises(RubyOptions::Invalid) { parse("--backtrace-limit=-2", "x.rb") }
+    assert_equal "missing argument for --backtrace-limit", assert_raises(RubyOptions::Invalid) { parse("--backtrace-limit=", "1") }.message
     assert_includes parse("--disable=did_you_mean", "x.rb").prelude.to_s, "Object.send(:remove_const, :DidYouMean)"
   end
 
@@ -179,7 +213,15 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
       %w[-e] => "no code specified for -e",
       %w[-E] => "missing argument for -E",
       %w[-E bogus] => "unknown encoding name - bogus",
-      %w[--encoding] => "missing argument for --encoding"
+      %w[--encoding] => "missing argument for --encoding",
+      %w[--encoding=] => "missing argument for --encoding",
+      %w[--dump] => "missing argument for --dump",
+      %w[-0 --dump] => "missing argument for --dump",
+      ["-\rx"] => "invalid option -\\r  (-h will show valid options)",
+      ["-\x01"] => "invalid option -\\x01  (-h will show valid options)",
+      ["-\e"] => "invalid option -\\e  (-h will show valid options)",
+      ["-\x7f"] => "invalid option -\\c?  (-h will show valid options)",
+      ["-é"] => "invalid option -é  (-h will show valid options)"
     }.each do |argv, message|
       error = assert_raises(RubyOptions::Invalid, argv.inspect) { parse(*argv) }
       assert_equal message, error.message
@@ -189,6 +231,18 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
   def test_what_zr_cannot_do_is_refused_and_what_changes_nothing_is_taken
     assert_equal "--dump is not supported", parse("--dump=insns", "x.rb").refused
     assert_nil parse("-y", "--jit", "--yjit-call-threshold=1", "--crash-report=x", "--parser=prism", "x.rb").refused
+    assert_nil parse("--debug-frozen-string-literal", "--debug=frozen-string-literal", "x.rb").refused
+    refute parse("--debug-frozen-string-literal", "x.rb").debug
+    assert parse("--debug", "x.rb").debug
+  end
+
+  def test_a_dos_line_end_after_a_switch_switches_nothing
+    assert_equal ["1"], parse("-\r", "-e", "1").inline
+  end
+
+  def test_x_reads_no_script_from_e_code
+    assert_equal "e", parse("-x", "-e", "1").switches.command_line
+    assert_equal "x", parse("-x", "x.rb").switches.command_line
   end
 
   def test_a_program_runs_unless_only_the_version_is_asked
@@ -215,6 +269,8 @@ class RubyModeDispatchTest < Minitest::Test
       assert_equal [true, true, true, true, true, true],
                    [%w[app.rb], %w[-e 1], %w[-], %w[-- build], [script], %w[-w]].map { |argv| CLI.ruby_mode?(argv, tty: true) }
       refute CLI.ruby_mode?(%w[biuld], tty: true)
+      assert CLI.ruby_mode?(%w[/no/such/script], tty: true)
+      assert CLI.ruby_mode?(%w[sub/missing], tty: true)
     end
   end
 
@@ -351,6 +407,12 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-Ke", "-e", "p [__ENCODING__, Encoding.default_external, Encoding.default_internal]")
     same_as_ruby("-U", "-KS", "-e", "p [__ENCODING__, Encoding.default_internal]")
     same_as_ruby("-U", "-E:ascii", "-e", "1")
+    same_as_ruby("-wKe", "-e", "p __ENCODING__.name")
+    same_as_ruby("-W0", "-e", "p $-W")
+    same_as_ruby("-W1", "-e", "p $-W")
+    same_as_ruby("-W", "-e", "p $-W")
+    same_as_ruby("-e", "p $-W, defined?($-W)")
+    same_as_ruby("-Wx", "-e", "p $-W")
     # -E sets the encodings with no warning, even when -w or -v asks for them.
     same_as_ruby("-w", "-Eutf-8:Windows-31J", "-e", "p [Encoding.default_external, Encoding.default_internal]")
     same_as_ruby("-W2", "-U", "-e", "p Encoding.default_internal")
@@ -373,6 +435,13 @@ class RubyModeTest < Minitest::Test
 
   def test_errors_before_the_program_runs
     same_as_ruby("nope.rb")
+    same_as_ruby("no/such/script")
+    # A first line that runs another interpreter makes the script run as
+    # with -x, from standard input too.
+    same_as_ruby(stdin: "#! /bin/not_the_interpreter\r\np 1\r\n")
+    same_as_ruby(stdin: "#! /bin/not_the_interpreter\np 1\n#!ruby\np 2\n")
+    same_as_ruby("--disable-gems", "-e", "begin; require 'no_such_feature_zr'; rescue LoadError => e; p e.message; end")
+    same_as_ruby("-v", "-e", "p 1")
     same_as_ruby("-q")
     same_as_ruby("-C", "nodir", "-e", "1")
     same_as_ruby("-e", "exit 7")

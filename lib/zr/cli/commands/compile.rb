@@ -66,6 +66,8 @@ module Zr
           puts Zr.ruby_description(Target.default.ruby_platform) if options.version
           puts Version::LINE if options.version_only
           puts RUBY_COPYRIGHT if options.copyright
+          # The program replaces this process, which writes its lines first.
+          $stdout.flush
           return unless options.runs?($stdin.tty?)
 
           source, file = @given || given(options)
@@ -98,9 +100,9 @@ module Zr
                            [File.read(path), path]
                          end
           # A first `#!` line that does not name ruby is a launcher, and the
-          # script runs as with -x.
+          # script runs as with -x, also from standard input.
           first = source.each_line.first.to_s
-          options.xflag! if name && first.start_with?("#!") && !first.include?("ruby")
+          options.xflag! if first.start_with?("#!") && !first.include?("ruby")
           line = options.xflag ? source.each_line.find { |text| text.start_with?("#!") && text.include?("ruby") } : source
           fatal("no Ruby script found in input (LoadError)", prefix: file) unless line
           options.shebang!(line)

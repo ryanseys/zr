@@ -118,7 +118,8 @@ module Zr
         @args = argv
         rubyopt!(env["RUBYOPT"]) unless @features["rubyopt"] == false
         # ruby_init_loadpath: RUBYLIB's directories, as given, after -I's.
-        @rubylib = env["RUBYLIB"].to_s.split(File::PATH_SEPARATOR).reject(&:empty?)
+        @rubylib = env["RUBYLIB"].to_s.b.split(File::PATH_SEPARATOR).reject(&:empty?).map { |dir| dir.force_encoding(::Encoding::UTF_8) }
+        @warnings << "zr: warning: -K is specified; it is for 1.8 compatibility and may cause odd behavior" if @source_encoding && @verbose == [true]
       end
 
       # A script whose first line is a `#!` line that does not name ruby
@@ -165,7 +166,7 @@ module Zr
         command_line << "n" if @loop
         command_line << "a" if @split
         command_line << "l" if @line
-        command_line << "x" if @xflag
+        command_line << "x" if @xflag && @inline.empty?
         # -e's code: prism leaves out the warnings that ruby gives only for
         # a file (a regexp literal in a condition).
         command_line << "e" unless @inline.empty?
@@ -247,11 +248,22 @@ module Zr
       def rubyopt!(text)
         return if text.nil?
 
+        # moreswitches: what the command line set stays; RUBYOPT sets only
+        # the rest.
+        kept = [@external_name, @external, @internal_name, @internal, @source_encoding, @features.dup, @warning_categories.dup, @backtrace_limit]
+        @external_name = @external = @internal_name = @internal = @source_encoding = nil
         @envopt = true
         text.split.each do |word|
           word = "-#{word}" unless word.start_with?("-")
           switches!([word])
         end
+        external_name, external, internal_name, internal, source_encoding, features, categories, limit = kept
+        @external_name, @external = external_name, external if external_name
+        @internal_name, @internal = internal_name, internal if internal_name
+        @source_encoding = source_encoding if source_encoding
+        @features.merge!(features)
+        @warning_categories.merge!(categories)
+        @backtrace_limit = limit if limit
       ensure
         @envopt = false
       end
@@ -345,16 +357,36 @@ module Zr
           when "K"
             kcode = s[0].to_s
             s = s[1..].to_s
+            # proc_K_option: the source encoding, and the external one where
+            # nothing set that yet.
             if (name = KCODES[kcode.downcase])
-              external_once!(name)
               @source_encoding = name
+              unless @external_name
+                @external_name = name
+                @external = known_encoding(name)
+              end
             end
           when "0" then s = record_separator!("0#{s}")
-          when "\r" then return
+          when "\r"
+            # A word that ends in a DOS line end's "\r" switches nothing.
+            return if s.empty?
+
+            raise Invalid, invalid_option(c)
           else
-            raise Invalid, "invalid option -#{c}  (-h will show valid options)"
+            raise Invalid, invalid_option(c)
           end
         end
+      end
+
+      # How ruby shows a switch that it does not know: a visible character
+      # as it is, a control character as its escape, else its byte in hex.
+      ESCAPED = { "\0" => "\\0", "\n" => "\\n", "\r" => "\\r", "\t" => "\\t", "\f" => "\\f", "\v" => "\\v",
+                  "\b" => "\\b", "\a" => "\\a", "\e" => "\\e", "\x7f" => "\\c?" }.freeze
+
+      #: (String c) -> String
+      def invalid_option(c)
+        shown = c.match?(/\A[[:graph:]]\z/) ? c : ESCAPED.fetch(c) { format("\\x%.2x", c.getbyte(0).to_i) }
+        "invalid option -#{shown}  (-h will show valid options)"
       end
 
       # The rest of the word, or the next word, given to `block`.
@@ -472,9 +504,10 @@ module Zr
           @verbose_option = true
           @verbose = [true]
         when "help" then @help = true
-        when "debug"
-          # --debug=frozen-string-literal and the like are CRuby's own checks.
-          unless given
+        when "debug", /\Adebug-/
+          # --debug=frozen-string-literal, --debug-frozen-string-literal and
+          # the like are CRuby's own checks.
+          unless given || name != "debug"
             @debug = true
             @verbose = [true]
           end
@@ -487,7 +520,9 @@ module Zr
           parser = argument(name, given, argv)
           refuse("--parser=parse.y (zr parses with prism)") if parser == "parse.y"
           raise Invalid, "unknown parser #{parser}" unless %w[prism parse.y].include?(parser)
-        when "dump" then refuse("--dump")
+        when "dump"
+          argument(name, given, argv)
+          refuse("--dump")
         when "yydebug" then nil
         when "backtrace-limit"
           limit = argument(name, given, argv)
@@ -506,9 +541,15 @@ module Zr
       # The long switches that RUBYOPT can give.
       ENV_LONG = /\A(?:debug|enable|disable|encoding|external-encoding|internal-encoding|backtrace-limit|crash-report|[yz]?jit)(?:-|\z)/
 
-      # The value of a long option: after "=", or the next word.
+      # The value of a long option: after "=", or the next word. A "=" with
+      # nothing after it is a missing value too.
       #: (String name, String? given, Array[String] argv) -> String
-      def argument(name, given, argv) = given || argv.shift || raise(Invalid, "missing argument for --#{name}")
+      def argument(name, given, argv)
+        value = given || argv.shift
+        raise Invalid, "missing argument for --#{name}" if value.nil? || value.empty?
+
+        value
+      end
 
       # feature_option: a name, or the start of one, of FEATURES, or
       # "all". An unknown name only warns.
