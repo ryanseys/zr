@@ -924,6 +924,9 @@ class IO
     # A UTF-16 or UTF-32 stream writes its byte order mark once, before
     # its first character.
     @bom_written = false
+    # A stateful encoding's converter, which lives from the first write
+    # to the close.
+    @write_converter = nil
   end
 
   def lineno
@@ -978,6 +981,7 @@ class IO
 
     # rb_io_close_m checks no freeze: a frozen stream closes too. A core
     # ivar has no `@` in its name.
+    finish_writing
     write_pending
     Primitive.zr_state_set(self, :closed, true)
     own_descriptor
@@ -1507,7 +1511,38 @@ class IO
     return text.encode(target, **options) if target.ascii_compatible?
 
     text = text.encode(Encoding::UTF_8, **options.except(:newline, :xml)) unless source == Encoding::UTF_8
+    return stateful_converted(text, target, options) if stateful?(target)
+
     once_marked(text.encode(target, **options))
+  end
+
+  # An encoding with shift states, such as ISO-2022-JP, whose converter
+  # writes an escape to end the stream.
+  def stateful?(encoding)
+    Primitive.attr! :hidden
+    encoding.name.start_with?("ISO-2022-JP", "CP5022", "stateless-ISO-2022-JP")
+  end
+
+  # One converter takes every write to a stateful encoding, so the shift
+  # state goes on from one write to the next, as make_writeconv's
+  # converter keeps it. The close writes the converter's finish.
+  def stateful_converted(text, target, options)
+    Primitive.attr! :hidden
+    @write_converter ||= Encoding::Converter.new(Encoding::UTF_8, target, **options)
+    out = +""
+    result = @write_converter.primitive_convert(text.dup, out, nil, nil, partial_input: true)
+    raise @write_converter.last_error unless result == :source_buffer_empty
+
+    out
+  end
+
+  # finish_writeconv: the bytes that end a stateful encoding's stream.
+  def finish_writing
+    Primitive.attr! :hidden
+    converter = @write_converter or return
+    @write_converter = nil
+    tail = converter.finish
+    write_bytes(tail) unless tail.empty?
   end
 
   # A dummy UTF-16 or UTF-32 target writes a byte order mark before each
