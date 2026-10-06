@@ -1,2 +1,0 @@
-fails:Kernel#eval returns from the scope calling #eval when evaluating 'return'
-fails:Kernel#eval unwinds through a Proc-style closure and returns from a lambda-style closure in the closure chain
