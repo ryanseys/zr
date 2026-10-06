@@ -821,8 +821,15 @@ module Kernel
   def set_trace_func(hook) = TracePoint.send(:trace_func, hook, nil, false)
 
   # Ruby's own globals, in the order ruby lists them, then the ones the
-  # program assigned or aliased.
-  def global_variables = Kernel.send(:builtin_globals) | Primitive.zr_global_variables
+  # program assigned or aliased, then `$1`, `$2`... for each group of the
+  # caller's `$~` that matched (rb_f_global_variables).
+  def global_variables
+    names = Kernel.send(:builtin_globals) | Primitive.zr_global_variables
+    match = $~
+    return names if match.nil?
+
+    names + (1...match.size).filter_map { |i| :"$#{i}" unless match.begin(i).nil? }
+  end
 
   module_function :trace_var, :untrace_var, :set_trace_func
 
