@@ -49,6 +49,23 @@ class SuiteTest < Minitest::Test
     assert_equal Zr::Dev.path("tmp/cruby-test/work/ruby-enc"), area.work
   end
 
+  # The summary counts an area again only from complete results. A run of
+  # some files, or of some areas, keeps every other row as it was.
+  def test_the_summary_keeps_each_row_that_no_complete_result_covers
+    Zr::Paths.tmpdir("zr-suite-") do |dir|
+      summary = File.join(dir, "summary.tsv")
+      File.write(summary, "area\tfiles\truby_passes\tzr_passes\tno_build\tno_load\n" \
+                          "a\t10\t100\t90\t0\t0\nb\t5\t50\t50\t0\t0\nc\t2\t20\t10\t1\t0\ntotal\t17\t170\t150\t1\t0\n")
+      Zr::Dev::Suite.write_results(dir, "a", { "f" => ran("x" => %w[pass pass]) }, complete: false)
+      Zr::Dev::Suite.write_results(dir, "c", { "f" => ran("x" => %w[pass pass], "y" => %w[pass pass]) }, complete: true)
+      Zr::Dev::Suite.write_results(dir, "d", { "f" => ran("x" => %w[pass fail]) }, complete: true)
+      Zr::Dev::Suite.write_summary(dir, summary)
+
+      assert_equal ["a\t10\t100\t90\t0\t0", "b\t5\t50\t50\t0\t0", "c\t1\t2\t2\t0\t0", "d\t1\t1\t0\t0\t0", "total\t17\t153\t142\t0\t0"],
+                   File.readlines(summary, chomp: true).drop(1)
+    end
+  end
+
   # A run that stopped early hangs on the first example that it did not
   # reach. In a run that ended, a missing example is one that a guard left
   # out, so it fails.

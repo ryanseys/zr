@@ -92,11 +92,13 @@ module Zr
       # "ran", "build" or "load") and each example by name, with ruby's
       # status, zr's status and zr's message. A status is "pass", "fail",
       # "error", "skip" or "missing" (the run ended before the example).
-      def write_results(dir, area, files)
+      # `complete` says that the files are all the files of the area, so the
+      # summary can count the area from them.
+      def write_results(dir, area, files, complete:)
         path = File.join(dir, "results", "#{area.tr("/", "-")}.json")
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, JSON.pretty_generate({ "format" => FORMAT, "revision" => RUBY_REVISION, "zr" => zr_version,
-                                                "area" => area, "files" => files }))
+                                                "area" => area, "complete" => complete, "files" => files }))
         path
       end
 
@@ -150,14 +152,29 @@ module Zr
          runs.count { |run| run["state"] == "build" }, runs.count { |run| run["state"] == "load" }]
       end
 
-      # Writes the summary of a suite again, in full, from every results
-      # file: one row for each area, and a total.
+      # Writes the summary of a suite again: one row for each area, and a
+      # total. An area whose results are complete gets its row from them.
+      # Every other area keeps the row that the summary had, so a run of
+      # some files or of some areas never drops or shrinks a row.
       def write_summary(dir, path)
-        rows = results(dir).map { |area, data| [area, *counts(data)] }
+        kept = summary_rows(path)
+        results(dir).each { |area, data| kept[area] = counts(data) if data["complete"] }
+        rows = kept.sort.map { |area, counts| [area, *counts] }
         total = ["total", *(rows.empty? ? [0] * 5 : rows.transpose.drop(1).map(&:sum))]
         header = %w[area files ruby_passes zr_passes no_build no_load]
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, [header, *rows, total].map { |row| row.join("\t") }.join("\n") << "\n")
+      end
+
+      # The rows of the summary at `path`, by area, without the header and
+      # the total.
+      def summary_rows(path)
+        return {} unless File.file?(path)
+
+        File.readlines(path, chomp: true).drop(1).each_with_object({}) do |line, rows|
+          area, *counts = line.split("\t")
+          rows[area] = counts.map { |n| Integer(n) } unless area == "total"
+        end
       end
 
       # A suite started in the background inherits SIGINT ignored, and a
@@ -278,10 +295,11 @@ module Zr
               FileUtils.rm_f(binary) unless @keep
             end
           end
-          # A run of some files keeps the results of the others.
-          earlier = (Suite.results(@out).dig(@area, "files") if @filtered) || {}
-          results = earlier.merge(results).sort.to_h
-          Suite.write_results(@out, @area, results)
+          # A run of some files keeps the results of the others, and its
+          # results are complete when the earlier ones were.
+          earlier = (Suite.results(@out)[@area] if @filtered) || {}
+          results = earlier.fetch("files", {}).merge(results).sort.to_h
+          Suite.write_results(@out, @area, results, complete: !@filtered || earlier["complete"] == true)
           results.each { |r, result| write_tags(r, result) } if @update
           File.open(issues, "a") { |io| io.puts JSON.generate({ done: true, area: @area, files: results.size }) }
           report(results, now - started)
