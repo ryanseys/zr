@@ -147,6 +147,12 @@ class TracePoint
 
       line = Primitive.zr_hidden_get(point, :__target_line__)
       return false unless line.nil? || (row[0] == EVENTS[:line] && row[3] == line)
+      # A define_method's call and return belong to its own entry, as the
+      # hooks of a bmethod do: another method with the same block fires
+      # only the block's events.
+      if (row[0] & (EVENTS[:call] | EVENTS[:return])).nonzero? && (target.is_a?(Method) || target.is_a?(UnboundMethod)) && Primitive.zr_method_bmethod_p(target)
+        return false unless row[5] == target.name
+      end
 
       Primitive.zr_trace_within(row[9], target) == true
     end

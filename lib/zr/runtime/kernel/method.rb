@@ -682,6 +682,13 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Whether Method or UnboundMethod `m` is a define_method's, whose body
+  # is a block that other methods may share.
+  #: (value) -> value
+  def zr_method_bmethod_p(m)
+    zr_bool(MEntry[Machine.ptr(RMethod[m].entry)].kind == KIND_BMETHOD)
+  end
+
   # Whether `a` is `b` or in its ancestor chain, or the other way round.
   #: (value, value) -> bool
   def zr_owners_related(a, b)

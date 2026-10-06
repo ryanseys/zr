@@ -1,0 +1,3 @@
+[[:call, :one], [:b_call, :one], [:b_return, :one], [:return, :one], [:b_call, :two], [:b_return, :two]]
+[[:b_call, :one], [:b_return, :one], [:call, :two], [:b_call, :two], [:b_return, :two], [:return, :two]]
+[[:call, :m, :m], [:return, :m, :m], [:call, :m, :m2], [:return, :m, :m2]]
