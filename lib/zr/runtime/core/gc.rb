@@ -285,9 +285,11 @@ module Process
 
   def clock_getres(id, unit = :float_second)
     emulated = Process.send(:emulated_clock, id)
-    return Process.send(:in_unit, emulated.last, unit) if emulated
+    ns = emulated ? emulated.last : Primitive.zr_clock_res_ns(Process.send(:clock_id, id, "clock_getres"))
+    # :hertz is the ticks per second, the reciprocal of :float_second.
+    return 1e9 / ns if unit == :hertz
 
-    Process.send(:in_unit, Primitive.zr_clock_res_ns(Process.send(:clock_id, id, "clock_getres")), unit)
+    Process.send(:in_unit, ns, unit)
   end
 
   def uid = Primitive.zr_process_ids(0)
