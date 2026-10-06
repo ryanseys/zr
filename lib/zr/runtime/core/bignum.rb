@@ -46,14 +46,28 @@ class Integer
       i = 0
       head = digits.size % per
       if head > 0
-        mag = big_limbs_of(digits[0, head].to_i(base))
+        mag = big_limbs_of(big_chunk(digits, 0, head, base))
         i = head
       end
       while i < digits.size
-        mag = big_add_mag(big_mul_small_mag(mag, chunk), big_limbs_of(digits[i, per].to_i(base)))
+        mag = big_add_mag(big_mul_small_mag(mag, chunk), big_limbs_of(big_chunk(digits, i, per, base)))
         i += per
       end
       big_build(neg, mag)
+    end
+
+    # The value of the `count` digits at `from`, which fit one limb. It
+    # reads the bytes, since String#to_i hands a long run back here.
+    def big_chunk(digits, from, count, base)
+      Primitive.attr! :hidden
+      value = 0
+      stop = from + count
+      while from < stop
+        b = digits.getbyte(from)
+        value = value * base + (b <= 57 ? b - 48 : (b | 32) - 87)
+        from += 1
+      end
+      value
     end
 
     # The limbs of digits in a base that is a power of two, from the last
