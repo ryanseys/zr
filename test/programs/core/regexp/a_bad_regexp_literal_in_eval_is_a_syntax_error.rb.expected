@@ -1,0 +1,13 @@
+no-encoding unicode: SyntaxError: (eval):1: incompatible character encoding: /\u{6666}/
+euc unicode: SyntaxError: (eval):1: incompatible character encoding: /\u{6666}/
+sjis unicode: SyntaxError: (eval):1: incompatible character encoding: /\u{6666}/
+utf-8 unicode: "\\u{6666}"
+short tail: SyntaxError: (eval):1: too short escaped multibyte character: /\xc2/
+short head: SyntaxError: (eval):1: too short escaped multibyte character: /\xc2/
+split escape: SyntaxError: (eval):1: too short escaped multibyte character: /\xc2/
+whole escape: "\\xc2\\xa1"
+sjis short: SyntaxError: (eval):1: too short escaped multibyte character: /\x81/
+euc short: SyntaxError: (eval):1: too short escaped multibyte character: /\xc2/
+string literal piece: SyntaxError: (eval):1: invalid multibyte character: /\xCD/
+open group: "(1)"
+runtime pieces: ArgumentError: invalid multibyte character

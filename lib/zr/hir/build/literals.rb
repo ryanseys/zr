@@ -290,6 +290,16 @@ module Zr
         flag_encoding(node) || (@encoding == ::Encoding::UTF_8 ? nil : @encoding)
       end
 
+      # What rb_reg_preprocess says of the escapes and the multibyte
+      # characters of a pattern, before the engine compiles it.
+      PREPROCESS_ERRORS = [
+        "too short escaped multibyte character", "too short escape sequence", "invalid hex escape",
+        "duplicate meta escape", "too short meta escape", "too short control escape", "duplicate control escape",
+        "unexpected escape sequence", "invalid escape code", "invalid multibyte escape",
+        "escaped non ASCII character in UTF-8 regexp", "invalid Unicode range", "UTF-8 character in non UTF-8 regexp",
+        "invalid Unicode list", "invalid Unicode escape", "invalid multibyte character", "non ASCII character in UTF-8 regexp"
+      ].freeze
+
       # Ruby checks the pattern. A pattern that ruby refuses is also a
       # syntax error here.
       #: (Prism::InterpolatedRegularExpressionNode | Prism::InterpolatedMatchLastLineNode node, Integer line) -> node
@@ -297,10 +307,53 @@ module Zr
         # Each fragment is a separate String: ruby reads each one in its
         # own encoding before it joins them, so only a flag letter pins one.
         pinned = flag_encoding(node)
+        check_fragments(node, pinned)
         fragments = ArrayLit.new(interpolation(node, line).parts.map { |part| Interp.new([part], line) }, line)
         args = [fragments, Literal.new(regexp_options(node), line), Literal.new(pinned && ::Encoding.list.index(pinned), line)]
         made = Send.of(ConstRead.new(nil, :Regexp, line), :interpolated, args, line)
         node.once? ? RegexpOnce.new(made, line) : made
+      end
+
+      # pm_interpolated_node_compile: ruby's compiler reads the escapes and
+      # the multibyte characters of each literal fragment, and of a String
+      # literal that is all of an interpolation, before the program runs
+      # (parse_regexp_string_part). It joins the fragments that follow
+      # each other, which raises for two encodings that do not mix.
+      #: (untyped node, Encoding? pinned) -> void
+      def check_fragments(node, pinned)
+        joined = nil #: String?
+        node.parts.each do |part|
+          text = fragment_text(node, part, pinned)
+          if text
+            check_fragment(node, text)
+            joined = joined ? joined + text : text
+          else
+            joined = nil
+          end
+        end
+      end
+
+      # The text of a literal fragment, or nil for an interpolation.
+      #: (untyped node, Prism::node part, Encoding? pinned) -> String?
+      def fragment_text(node, part, pinned)
+        if part.is_a?(Prism::EmbeddedStatementsNode) && part.statements&.body&.size == 1 && part.statements.body[0].is_a?(Prism::StringNode)
+          part = part.statements.body[0]
+        end
+        return unless part.is_a?(Prism::StringNode)
+
+        text = unescaped(part).dup
+        text.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : pinned) if node.ascii_8bit? || pinned
+        text
+      end
+
+      # The engine reads the escapes before it compiles anything, so its
+      # error for a fragment is one of rb_reg_preprocess's, or none: a
+      # fragment alone is often no whole pattern (`(`), which is no error.
+      #: (untyped node, String text) -> void
+      def check_fragment(node, text)
+        Regexp.new(text, regexp_options(node) & 2)
+      rescue RegexpError => e
+        invalid(node, e.message) if PREPROCESS_ERRORS.any? { |known| e.message.start_with?(known) }
       end
 
       # Used in place of $stderr while a check compiles a pattern. It keeps
@@ -371,7 +424,7 @@ module Zr
         # `n` reads the pattern as bytes, so a non-ASCII escape is valid
         # only there. The check must read it the same way.
         held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
-        written = read_pattern(held, regexp_options(node) & 7)
+        written = read_pattern(held, regexp_options(node))
         written.scan(/warning: (.*)$/) { |(message)| @warnings << "#{Paths.shown(@file)}:#{line}: warning: #{message}" }
         RegexpLit.new(node.unescaped, regexp_options(node), pinned, line)
       rescue RegexpError => e

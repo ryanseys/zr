@@ -1,0 +1,3 @@
+string pieces: Encoding::CompatibilityError: incompatible character encodings: UTF-8 and Windows-31J
+unicode then sjis: RegexpError: encoding mismatch in dynamic regexp : UTF-8 and Windows-31J
+sjis then unicode: RegexpError: encoding mismatch in dynamic regexp : Windows-31J and UTF-8
