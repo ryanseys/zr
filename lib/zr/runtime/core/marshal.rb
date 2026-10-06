@@ -908,12 +908,16 @@ module Marshal
       values = Array.new(size)
       Primitive.zr_hidden_set(built, :__values__, values) unless klass <= Range
       @readable += (size - 1) * 2
-      members.each_with_index do |member, i|
+      # r_object's loop is C, which sends no `each` that a program defined.
+      i = 0
+      while i < size
+        member = members[i]
         slot = symbol_or_link
         raise TypeError, "struct #{klass.name} not compatible (:#{slot} for :#{member})" unless slot == member
 
         values[i] = read
         @readable -= 2
+        i += 1
       end
       @readable += 2
       if klass <= Range
