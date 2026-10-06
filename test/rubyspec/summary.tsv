@@ -1,5 +1,5 @@
 area	files	ruby_passes	zr_passes	no_build	no_load
-command_line	32	163	161	0	0
+command_line	32	163	163	0	0
 core/argf	34	147	147	0	0
 core/array	128	2701	2701	0	0
 core/basicobject	14	170	170	0	0
@@ -118,4 +118,4 @@ library/weakref	5	9	9	0	0
 library/win32ole	74	0	0	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3723	33144	33108	0	0
+total	3723	33144	33110	0	0
