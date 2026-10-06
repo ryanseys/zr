@@ -279,7 +279,9 @@ module Zr::Kern
     end
     # A call of a method_missing that the class undefined: the arguments
     # name the missing method, as raise_method_missing reads them.
-    if mid == Machine.id(:method_missing)
+    # A private or protected method_missing that is called by name is
+    # refused as any such method is, by its own name.
+    if mid == Machine.id(:method_missing) && reason != MISS_PRIVATE && reason != MISS_PROTECTED
       Task[zr_task()].missing = reason
       return zr_obj_method_missing(recv, argc, argv, Machine.value(QNIL), blk)
     end
