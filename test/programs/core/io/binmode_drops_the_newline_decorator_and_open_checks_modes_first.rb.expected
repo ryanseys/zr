@@ -1,0 +1,20 @@
+"a"
+"\n"
+["b", "\r", "\n", "c", "\r", "\n", nil]
+"a"
+"\n"
+["b", "\r", "\n", "c", "\r", "\n", nil]
+"\xE3\x81\x82\r\n"
+#<Encoding:BINARY (ASCII-8BIT)>
+#<ArgumentError: both textmode and binmode specified>
+#<ArgumentError: both textmode and binmode specified>
+#<ArgumentError: both textmode and binmode specified>
+#<ArgumentError: both textmode and binmode specified>
+#<ArgumentError: both textmode and binmode specified>
+#<ArgumentError: invalid encoding name (non ASCII)>
+#<ArgumentError: invalid encoding name (non ASCII)>
+#<ArgumentError: ASCII incompatible encoding needs binmode>
+#<Encoding:ISO-2022-JP (dummy)>
+#<Encoding:ISO-2022-JP (dummy)>
+:ok
+#<ArgumentError: binmode specified twice>

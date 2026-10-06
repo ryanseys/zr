@@ -337,10 +337,15 @@ class IO
     return value if value.is_a?(Encoding)
 
     name = Primitive.zr_str_operand(value)
-    Encoding.find(name)
-  rescue ArgumentError
-    Primitive.zr_warn_here_m("Unsupported encoding #{name} ignored")
-    nil
+    # A name that is not ASCII is an error, not a name to ignore.
+    raise ArgumentError, +"invalid encoding name (non ASCII)" unless name.encoding.ascii_compatible?
+
+    begin
+      Encoding.find(name)
+    rescue ArgumentError
+      Primitive.zr_warn_here_m("Unsupported encoding #{name} ignored")
+      nil
+    end
   end
 
   # extract_binmode: `textmode:` and `binmode:` each once, and never both.
@@ -1186,9 +1191,11 @@ class IO
     check_open
     @binmode = true
     # Binary mode sets the stream's encoding, whatever encoding it was
-    # opened with.
+    # opened with, and drops the newline decorators (rb_io_binmode).
     @external = nil
     @internal = nil
+    @universal = false
+    @write_options&.delete(:newline)
     @buffer.force_encoding(Encoding::BINARY)
     self
   end
@@ -2509,23 +2516,34 @@ class IO
   # a lone CR become LF. A CR at the end waits for the next byte, unless
   # the stream has ended. Only reads of characters and lines, and a read
   # of the whole stream, see the decorated bytes; read(length) does not.
-  def cook
+  # A character read cooks at most `budget` bytes, as CRuby's converter
+  # stops after its first output, so a later binmode reads the rest raw.
+  def cook(budget = nil)
     Primitive.attr! :hidden
     return unless @universal && @cooked < @buffer.bytesize
 
-    raw = @buffer.byteslice(@cooked, @buffer.bytesize - @cooked).b
-    held = !@eof && raw.end_with?("\r") ? 1 : 0
+    # A character read cooks only when nothing at the head is cooked: a
+    # character's bytes past a cooked head hold no CR.
+    return if budget && @cooked.positive?
+
+    left = @buffer.bytesize - @cooked
+    size = budget ? [budget, left].min : left
+
+    # A CR at the end of the budget takes the byte after it along.
+    size += 1 if size < left && @buffer.getbyte(@cooked + size - 1) == 13
+    raw = @buffer.byteslice(@cooked, size).b
+    held = size == left && !@eof && raw.end_with?("\r") ? 1 : 0
     done = raw.byteslice(0, raw.bytesize - held).gsub(/\r\n?/n, "\n")
-    done << "\r" if held == 1
-    @buffer = (@buffer.byteslice(0, @cooked).b << done).force_encoding(@buffer.encoding)
-    @cooked = @buffer.bytesize - held
+    rest = @buffer.byteslice(@cooked + size - held, left - size + held).b
+    @buffer = (@buffer.byteslice(0, @cooked).b << done << rest).force_encoding(@buffer.encoding)
+    @cooked += done.bytesize
   end
 
   # A fill that the universal decorator reads.
-  def fill_cooked
+  def fill_cooked(budget = nil)
     Primitive.attr! :hidden
     fill
-    cook
+    cook(budget)
   end
 
   # One character off the buffer, as io_getc takes it: a whole character
@@ -2534,14 +2552,14 @@ class IO
   # time until it is whole or broken, or the stream ends.
   def read_char
     Primitive.attr! :hidden
-    cook
-    fill_cooked if @buffer.empty? && !@eof
-    # A CR that the universal decorator holds waits for the next byte.
-    fill_cooked while @universal && !@eof && @cooked.zero? && !@buffer.empty?
-    return nil if @buffer.empty?
-
     enc = read_encoding
     onig = Regexp.encoder(enc)
+    cook(onig.max_len)
+    fill_cooked(onig.max_len) if @buffer.empty? && !@eof
+    # A CR that the universal decorator holds waits for the next byte.
+    fill_cooked(onig.max_len) while @universal && !@eof && @cooked.zero? && !@buffer.empty?
+    return nil if @buffer.empty?
+
     n = onig.precise_mbclen(@buffer, 0)
     if n < -1
       n = @buffer.bytesize

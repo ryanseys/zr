@@ -256,6 +256,10 @@ class File < IO
     # rb_sysopen: open(2) with the flags the mode names and the
     # permissions a creation takes. The mode and the options go on to IO,
     # which reads the encodings they name.
+    # rb_io_extract_modeenc checks the binary and text modes before
+    # rb_sysopen opens anything.
+    head = mode.is_a?(String) ? mode.split(":", 2).first : +""
+    IO.send(:binmode_options, options, head.include?("b"), head.include?("t"))
     text = File.send(:open_mode, mode)
     flags = mode.is_a?(Integer) ? mode : File.send(:open_flags, text)
     flags |= File::EXCL if mode.is_a?(String) && mode.split(":", 2).first.include?("x")
