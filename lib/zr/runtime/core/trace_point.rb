@@ -161,6 +161,9 @@ class TracePoint
 
       line = Primitive.zr_hidden_get(point, :__target_line__)
       return false unless line.nil? || (row[0] == EVENTS[:line] && row[3] == line)
+      # A core method that CRuby writes in Ruby (Integer#times) fires its
+      # call at its caller, but is never the target's own code.
+      return false if Primitive.zr_trace_core_entry_m(row[10])
       # A define_method's call and return belong to its own entry, as the
       # hooks of a bmethod do: another method with the same block fires
       # only the block's events.

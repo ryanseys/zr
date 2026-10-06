@@ -1,0 +1,4 @@
+[[:call, :target1], [:return, :target1], [:call, :target1], [:return, :target1]]
+[[:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:return, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:line, :target1], [:return, :target1]]
+[[:b_call, :target1], [:b_call, :target1], [:return, :target1], [:b_call, :target1], [:b_call, :target1], [:return, :target1]]
+[[:return, :target1], [:return, :target1]]

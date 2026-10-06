@@ -388,6 +388,14 @@ module Zr::Kern
     FrameMeta[zr_frame_label_meta(home)].owner
   end
 
+  # Whether an event record's method entry (its address as a Fixnum, or
+  # 0) is a method of the core library.
+  #: (value) -> value
+  def zr_trace_core_entry_m(entry)
+    e = Machine.ptr(zr_fix2long(entry))
+    zr_bool(e != 0 && MEntry[e].core != 0)
+  end
+
   # Makes the start of an event record: the event, the value, the file of
   # `meta`, and `line`.
   #: (word, value, ptr, word) -> value
