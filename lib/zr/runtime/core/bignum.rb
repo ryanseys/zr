@@ -9,7 +9,9 @@ class Integer
   LIMB_BITS = 30
   LIMB_BASE = 1 << LIMB_BITS
   LIMB_MASK = LIMB_BASE - 1
-  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK
+  # The digits of every base to 36.
+  DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
+  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK, :DIGITS
 
   class << self
     # A bignum from a 64-bit word split as `high << 32 | low` by the
@@ -330,9 +332,12 @@ class Integer
     end
 
     # Digits in `base`, by repeated division with the largest power of
-    # the base below the limb base.
+    # the base below the limb base; a base that is a power of two reads
+    # the bits instead.
     def big_to_s(x, base)
       Primitive.attr! :hidden
+      return big_to_s_bits(x, base) if (base & (base - 1)).zero?
+
       chunk = base
       per = 1
       while chunk * base < LIMB_BASE
@@ -349,6 +354,31 @@ class Integer
       text = parts[0].to_s(base)
       (1...parts.size).each { |i| text << parts[i].to_s(base).rjust(per, "0") }
       text = "-#{text}" if big_neg?(x)
+      text.force_encoding(Encoding::US_ASCII)
+    end
+
+    # The digits of a base that is a power of two, the lowest first from
+    # the limbs' bits, then turned: linear in the length, where division
+    # takes the square of it.
+    def big_to_s_bits(x, base)
+      Primitive.attr! :hidden
+      width = base.bit_length - 1
+      text = +""
+      acc = 0
+      held = 0
+      big_mag(x).each do |limb|
+        acc |= limb << held
+        held += LIMB_BITS
+        while held >= width
+          text << DIGITS.getbyte(acc & (base - 1))
+          acc >>= width
+          held -= width
+        end
+      end
+      text << DIGITS.getbyte(acc) if acc.positive?
+      text.reverse!
+      text.sub!(/\A0+/, "")
+      text.prepend("-") if big_neg?(x)
       text.force_encoding(Encoding::US_ASCII)
     end
 

@@ -121,6 +121,21 @@ Random::Base.extend(Random::Formatter)
 # the stream a draw reads, as try_get_rnd finds it, or nil.
 class Random
   class << self
+    # The 32-bit words of a non-negative Integer, the lowest first, none
+    # for zero. The hexadecimal digits split it in linear time, where a
+    # shift copies it once a word.
+    def words32(n)
+      Primitive.attr! :hidden
+      return [] if n.zero?
+
+      hex = n.to_s(16)
+      Array.new((hex.bytesize + 7) / 8) do |i|
+        stop = hex.bytesize - (8 * i)
+        hex.byteslice([stop - 8, 0].max...stop).to_i(16)
+      end
+    end
+    private :words32
+
     private
 
     def generator_of(obj)
@@ -188,7 +203,7 @@ class Random
 
       words = (limit.bit_length + 31) / 32
       mask = 0xffffffff >> ((words * 32) - limit.bit_length)
-      tops = Array.new(words) { |i| (limit >> (32 * (words - 1 - i))) & 0xffffffff }
+      tops = Random.send(:words32, limit).reverse
       loop do
         draws = bytes_of(obj, words * 4).unpack("V*")
         draws[0] &= mask
@@ -376,12 +391,7 @@ class Random::Base
     seed = Primitive.zr_index_operand_m(seed) unless seed.is_a?(Integer)
 
     Primitive.zr_hidden_set(self, :__seed__, seed)
-    key = []
-    v = seed.abs
-    while v > 0
-      key << (v & 0xffffffff)
-      v >>= 32
-    end
+    key = Random.send(:words32, seed.abs)
     # CRuby decides by the words the seed packs into: one or none seed
     # init_genrand, more seed init_by_array, less a top word of one, its
     # packer's leading-zero guard.
@@ -460,12 +470,7 @@ class Random::Base
   # still sit on the limit's own, taken once one falls below.
   def big_limited(limit)
     Primitive.attr! :hidden
-    words = []
-    v = limit
-    while v > 0
-      words << (v & 0xffffffff)
-      v >>= 32
-    end
+    words = Random.send(:words32, limit)
     while true
       mask = 0
       boundary = true
