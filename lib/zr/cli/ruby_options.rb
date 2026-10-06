@@ -218,6 +218,7 @@ module Zr
         lines << S_FLAG if @sflag
         lines << "Encoding.send(:store_default, 0, #{@external.inspect})" if @external
         lines << "Encoding.send(:store_default, 1, #{@internal.inspect})" if @internal
+        lines << "IO.send(:stdio_encodings)" if @internal
         lines.empty? ? nil : "#{lines.join("\n")}\n"
       end
 

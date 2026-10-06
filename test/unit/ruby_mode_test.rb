@@ -420,6 +420,12 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-W", "-e", "p $-W")
     same_as_ruby("-e", "p $-W, defined?($-W)")
     same_as_ruby("-Wx", "-e", "p $-W")
+    # An internal encoding that a switch sets gives the standard streams
+    # the default encodings, and a write converts to the external one.
+    streams = "p [$stdin, $stdout, $stderr].map { [_1.external_encoding, _1.internal_encoding] }"
+    ["-E:utf-8", "-Eeuc-jp:utf-8", "-U", "-Eutf-8"].each { |switch| same_as_ruby(switch, "-e", streams) }
+    same_as_ruby("-Eutf-8:cp932", "-e", 'puts "\x82\xa0".dup.force_encoding("cp932"); $stderr = $stdout; raise "\x82\xa0".dup.force_encoding("cp932")')
+    same_as_ruby("-e", "Encoding.default_internal = 'utf-8'; #{streams}")
     # -E sets the encodings with no warning, even when -w or -v asks for them.
     same_as_ruby("-w", "-Eutf-8:Windows-31J", "-e", "p [Encoding.default_external, Encoding.default_internal]")
     same_as_ruby("-W2", "-U", "-e", "p Encoding.default_internal")

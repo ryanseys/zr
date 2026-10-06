@@ -1186,6 +1186,17 @@ class IO
     nil
   end
 
+  # rb_stdio_set_default_encoding: as the program starts, the standard
+  # streams take the default encodings that the command line set. With no
+  # internal one they stay as they are: a stream that writes keeps none.
+  def self.stdio_encodings
+    Primitive.attr! :hidden
+    internal = Encoding.default_internal or return
+    external = Encoding.default_external
+    [STDIN, STDOUT, STDERR].each { |io| io.set_encoding(external, internal == external ? nil : internal) }
+    nil
+  end
+
   # CRuby flushes the two standard streams before it starts a child, so
   # that the parent's buffered bytes cannot arrive after the child's output.
   def self.flush_std
