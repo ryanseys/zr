@@ -82,6 +82,14 @@ class Integer
     return 0 if self == 0
     raise ArgumentError, +"exponent is too large" if pow_too_large?(other)
 
+    # A power of two is a shift: 4**40000000 is one, where squaring a
+    # number of millions of bits is not.
+    magnitude = abs
+    if (magnitude & (magnitude - 1)).zero?
+      shifted = 1 << ((magnitude.bit_length - 1) * other)
+      return negative? && other.odd? ? -shifted : shifted
+    end
+
     result = 1
     base = self
     n = other
