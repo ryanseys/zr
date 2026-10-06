@@ -991,6 +991,13 @@ module Zr::Kern
     else
       msup = zr_singleton_class(sup)
     end
+    # The superclass's metaclass sets the class of its own metaclass to the
+    # singleton class of its class. In Class's chain that is `klass`, which
+    # then has its metaclass already.
+    made = RBasic[klass].klass
+    if zr_singleton_p(made) && RClass[made].attached == klass
+      return made
+    end
     meta = zr_class_alloc(T_CLASS, msup, zr_global(G_CLASS))
     # A singleton class is frozen when its object is frozen.
     RBasic[meta].flags = RBasic[meta].flags | FL_SINGLETON | (RBasic[klass].flags & FL_FREEZE)
