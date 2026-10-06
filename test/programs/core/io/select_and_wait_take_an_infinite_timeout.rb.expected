@@ -1,0 +1,13 @@
+nil
+nil
+true
+true
+true
+[:wait_readable, "Inf out of Time range"]
+[:wait_writable, "Inf out of Time range"]
+[:wait, "Inf out of Time range"]
+[ArgumentError, "time interval must not be negative"]
+[ArgumentError, "time interval must not be negative"]
+[ArgumentError, "time interval must not be negative"]
+[RangeError, "NaN out of Time range"]
+[TypeError, "can't convert String into time interval"]

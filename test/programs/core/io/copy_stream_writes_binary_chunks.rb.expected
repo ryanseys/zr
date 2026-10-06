@@ -1,0 +1,5 @@
+[16384, 1]
+[#<Encoding:BINARY (ASCII-8BIT)>]
+true
+["h\xC3\xA9llo"]
+[#<Encoding:BINARY (ASCII-8BIT)>]

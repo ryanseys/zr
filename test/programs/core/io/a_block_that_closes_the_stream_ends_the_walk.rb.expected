@@ -1,0 +1,4 @@
+[:each_codepoint, [97, 98, 10], "closed stream"]
+[:each_char, ["a", "b", "c", " "], "closed stream"]
+[:each_codepoint, [97, 98, 99, 32], "closed stream"]
+5

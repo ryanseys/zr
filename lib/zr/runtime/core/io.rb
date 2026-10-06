@@ -516,6 +516,8 @@ class IO
     return scheduler.io_select(readers, writers, priority, timeout) if scheduler.respond_to?(:io_select)
 
     timeout = time_interval(timeout)
+    # An infinite timeout waits as none does.
+    timeout = nil if timeout == Float::INFINITY
     rows = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).flat_map do |list, event|
       select_list(list).map { |io| [io, select_stream(io), event] }
     end
@@ -1027,13 +1029,9 @@ class IO
   # `dup` and `clone` open a fresh descriptor onto the same file, so a
   # close or a reopen of one leaves the other where it was.
   def initialize_copy(other)
-    fd = Primitive.zr_io_dup(other.fileno)
-    raise SystemCallError.new(nil, -fd) if fd < 0
-
-    @fd = fd
-    # rb_cloexec_dup: the copy closes on exec, and closes its descriptor.
-    flags = Primitive.zr_io_fcntl(fd, F_GETFD, 0)
-    Primitive.zr_io_fcntl(fd, F_SETFD, flags | FD_CLOEXEC) unless flags.negative?
+    @fd = fd = cloexec_dup(other.fileno)
+    # rb_io_init_copy: a duplex handle's write end is copied too.
+    @twin = cloexec_dup(@twin) if @twin
     @autoclose = true
     clear_buffer
     @wbuf = +"".b
@@ -1042,6 +1040,17 @@ class IO
     @closer = nil
     own_descriptor
     self
+  end
+
+  # rb_cloexec_dup: a copy of `fd` that closes on exec.
+  def cloexec_dup(fd)
+    Primitive.attr! :hidden
+    copy = Primitive.zr_io_dup(fd)
+    raise SystemCallError.new(nil, -copy) if copy < 0
+
+    flags = Primitive.zr_io_fcntl(copy, F_GETFD, 0)
+    Primitive.zr_io_fcntl(copy, F_SETFD, flags | FD_CLOEXEC) unless flags.negative?
+    copy
   end
 
   # `reopen`: this stream's descriptor number comes to refer to the other
@@ -1085,7 +1094,9 @@ class IO
     other.send(:check_open)
     return self if equal?(other)
 
-    write_pending
+    # flush_before_seek: what this stream read ahead goes back first, so
+    # an offset that the two descriptors share is where its reader is.
+    @writable ? write_pending : unread
     pos = tell_or_nil(other) if other.send(:mode_state)[1]
     other.send(:write_pending)
     adopt_mode(other.send(:mode_state))
@@ -1251,6 +1262,11 @@ class IO
     # argument, after the message; a stream with no path gives neither.
     raise SystemCallError.new(path, -result, +"finish_narg") if result < 0
 
+    # rb_cloexec_fcntl_dupfd: a copy above the standard three closes on exec.
+    if command == F_DUPFD && result > 2
+      flags = Primitive.zr_io_fcntl(result, F_GETFD, 0)
+      Primitive.zr_io_fcntl(result, F_SETFD, flags | FD_CLOEXEC) unless flags.negative?
+    end
     result
   end
 
@@ -1274,8 +1290,18 @@ class IO
     # rb_io_close_read: a closed stream has nothing left to close.
     return nil if closed?
     raise IOError, +"closing non-duplex IO for reading" if @mode.start_with?("w", "a") && !@mode.include?("+")
+    return close unless @twin
 
-    close
+    # A duplex handle's write end takes the stream's place, with the
+    # child, and the stream writes on.
+    clear_buffer
+    result = Primitive.zr_io_close(@fd)
+    @fd = @twin
+    @twin = nil
+    @readable = false
+    raise SystemCallError.new(nil, -result) if result < 0
+
+    nil
   end
 
   # A duplex handle really half-closes: the twin closes and the child
@@ -1315,10 +1341,11 @@ class IO
 
   # FD_CLOEXEC on the descriptor, and on the twin that a duplex popen
   # writes to, as rb_io_close_on_exec_p reads both.
+  F_DUPFD = 0
   F_GETFD = 1
   F_SETFD = 2
   FD_CLOEXEC = 1
-  private_constant :F_GETFD, :F_SETFD, :FD_CLOEXEC
+  private_constant :F_DUPFD, :F_GETFD, :F_SETFD, :FD_CLOEXEC
 
   def close_on_exec?
     check_open
@@ -1350,6 +1377,8 @@ class IO
       raise ArgumentError, "invalid byte sequence in #{char.encoding}" unless char.valid_encoding?
 
       yield char.ord
+      # A block that closed the stream ends the walk.
+      check_open
     end
     self
   end
@@ -1483,7 +1512,12 @@ class IO
   def write(*objects)
     if Primitive.zr_ary_len_m(objects) == 1
       text = Primitive.zr_obj_as_string(Primitive.zr_ary_at_m(objects, 0))
-      return 0 if text.empty?
+      # io_write: an empty write needs a stream that was initialized, not
+      # one that is still open.
+      if text.empty?
+        check_initialized
+        return 0
+      end
 
       check_writable
       return write_bytes(converted(text))
@@ -1678,28 +1712,29 @@ class IO
     return yield(+"\n") if objects.empty?
 
     objects.each do |object|
-      # rb_check_array_type: a String is a line as it is; anything else
-      # that converts with #to_ary is its items.
-      object = Array.try_convert(object) || object unless String === object
-      if object.is_a?(Array)
-        # An array that contains itself shows the marker in its own
-        # place, so the walk does not go on for ever.
+      # A String is a line as it is. Anything else marks the walk before
+      # its #to_ary runs (rb_exec_recursive), so an object whose items
+      # contain it shows the marker in its own place, and the walk does
+      # not go on for ever.
+      unless String === object
         next yield(+"[...]", +"\n") if Primitive.zr_recursive_enter(object, :puts)
 
         begin
-          each_line_of(object, &block) unless object.empty?
+          # rb_check_array_type: an object that converts is its items.
+          items = Array.try_convert(object)
+          each_line_of(items, &block) unless items.nil? || items.empty?
         ensure
           Primitive.zr_recursive_leave(object, :puts)
         end
+        next if items
+      end
+      text = Primitive.zr_obj_as_string(object)
+      if text.empty?
+        yield(+"\n")
+      elsif ends_line?(text)
+        yield text
       else
-        text = Primitive.zr_obj_as_string(object)
-        if text.empty?
-          yield(+"\n")
-        elsif ends_line?(text)
-          yield text
-        else
-          yield text, +"\n"
-        end
+        yield text, +"\n"
       end
     end
   end
@@ -1832,6 +1867,8 @@ class IO
   end
 
   def readpartial(length, buffer = nil)
+    # io_setstrbuf: the buffer converts before the stream is read.
+    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
     check_byte_readable
     filled(read_some(length), buffer)
   end
@@ -1840,6 +1877,7 @@ class IO
   # own parameters, under CRuby's names.
   def read_nonblock(len, buf = nil, exception: true)
     Primitive.attr! :ruby
+    exception = exception_flag(exception)
     raise ArgumentError, "negative length #{len} given" if len < 0
 
     check_readable
@@ -1858,6 +1896,7 @@ class IO
 
   def write_nonblock(buf, exception: true)
     Primitive.attr! :ruby
+    exception = exception_flag(exception)
     check_writable
     set_nonblock(true) unless nonblock_flag?
     text = buf.is_a?(String) ? buf : buf.to_s
@@ -2094,6 +2133,7 @@ class IO
     check_readable
     while (char = transcoded(read_char))
       yield char
+      check_open
     end
     self
   end
@@ -2184,8 +2224,15 @@ class IO
   # rb_io_check_closed: an allocated stream has no descriptor to check.
   def check_open
     Primitive.attr! :hidden
-    raise IOError, +"uninitialized stream" if @fd.nil?
+    check_initialized
     raise IOError, +"closed stream" if @closed
+  end
+
+  # rb_io_check_initialized: a stream that IO.allocate made and no
+  # initialize has opened.
+  def check_initialized
+    Primitive.attr! :hidden
+    raise IOError, +"uninitialized stream" if @fd.nil?
   end
 
   # The wait before a read(2). A listening socket (the socket library
@@ -2519,8 +2566,7 @@ class IO
   end
 
   # rb_io_check_writable: a write after a buffered read goes where the
-  # reader is, so io_unread gives the bytes it read ahead back to the
-  # file. A pipe cannot seek, and keeps them.
+  # reader is.
   def check_writable
     Primitive.attr! :hidden
     check_open
@@ -2528,14 +2574,35 @@ class IO
 
     # A write takes the stream's write lock, which is a blocking point.
     Thread.send(:blocking_point)
+    unread
+  end
+
+  # io_unread: the bytes read ahead go back to the file, so its offset is
+  # where the reader is. A pipe cannot seek, and keeps them.
+  def unread
+    Primitive.attr! :hidden
     return if @buffer.empty? || @universal
 
     clear_buffer unless Primitive.zr_io_seek(@fd, -@buffer.bytesize, SEEK_CUR).negative?
   end
 
+  # CRuby's read buffer has a fixed size, set as it is first made: 8192
+  # bytes (IO_RBUF_CAPA_MIN), 128 KiB for a stream that converts
+  # (IO_CBUF_CAPA_MIN), or the first push back where that is larger.
+  # A push back that does not fit is an error.
+  RBUF_CAPA = 8192
+  CBUF_CAPA = 131_072
+  private_constant :RBUF_CAPA, :CBUF_CAPA
+
+  def buffer_capa
+    Primitive.attr! :hidden
+    decoding? ? CBUF_CAPA : RBUF_CAPA
+  end
+
   # More bytes into the buffer; none marks the end.
   def fill
     Primitive.attr! :hidden
+    @capa ||= buffer_capa
     park_to_read unless IO.send(:scheduler_taking, :io_read)
     return if decoding? && decoded_rest
 
@@ -2787,6 +2854,9 @@ class IO
   # Bytes in front of the buffer, for ungetc and ungetbyte to hand back.
   def push_back(text)
     Primitive.attr! :hidden
+    @capa ||= [text.bytesize, buffer_capa].max
+    raise IOError, decoding? ? +"ungetc failed" : +"ungetbyte failed" if @capa < text.bytesize + @buffer.bytesize
+
     @buffer = text.b.force_encoding(@buffer.encoding) + @buffer
     @cooked += text.bytesize
     nil
@@ -2870,11 +2940,15 @@ class IO
   # last byte with no whole separator leaves 0, which appendline takes as
   # no limit, so the line reads on to the next separator: ruby's own
   # quirk. A limit inside a character reads on, a byte at a time, to its
-  # end, at most 16 bytes.
+  # end, at most 16 bytes. In an encoding whose characters are wider than
+  # a byte, search_delim finds the separator's last character, whole and
+  # at a character's start, not its last byte.
   def limited_line(separator, limit, paragraph)
     Primitive.attr! :hidden
     newline = separator.getbyte(separator.bytesize - 1)
     size = separator.bytesize
+    wide = Regexp.encoder(read_encoding).min_len > 1
+    last = separator[-1].b if wide
     pos = 0
     left = limit
     extra = 16
@@ -2887,13 +2961,13 @@ class IO
         byte = @buffer.getbyte(pos)
         pos += 1
         left -= 1
-        break if byte == newline || left == 0
+        break if (wide ? ends_with?(last, pos) : byte == newline) || left == 0
 
         byte = nil
       end
       return(pos.zero? ? nil : take(pos)) if byte.nil? && pos >= @buffer.bytesize && @eof
 
-      if byte == newline
+      if wide ? ends_with?(last, pos) : byte == newline
         next if pos < size || !char_boundary?(pos - size)
 
         if @buffer.byteslice(pos - size, size) == separator
@@ -2914,6 +2988,13 @@ class IO
     end
   end
 
+  # Whether the buffer's first `pos` bytes end with the character `last`,
+  # which starts on a character's start.
+  def ends_with?(last, pos)
+    Primitive.attr! :hidden
+    pos >= last.bytesize && char_boundary?(pos - last.bytesize) && @buffer.byteslice(pos - last.bytesize, last.bytesize).b == last
+  end
+
   # Paragraph mode's newlines before a paragraph, read as they arrive: a
   # fresh stream's buffer is empty until it is filled.
   def skip_newlines
@@ -2932,6 +3013,7 @@ class IO
     Primitive.attr! :hidden
     @cut = false
     cook
+    limit = external_limit(limit) if limit && @internal && !decoding?
     if separator.nil?
       fill_cooked until @eof
       return nil if @buffer.empty?
@@ -2976,6 +3058,30 @@ class IO
     return nil if @buffer.empty?
 
     take(@buffer.bytesize)
+  end
+
+  # rb_io_getline: a stream that converts what it reads counts the limit
+  # in bytes of the internal encoding. Its buffer holds the external
+  # bytes, so the limit becomes the external bytes of the characters
+  # whose conversion reaches it.
+  def external_limit(limit)
+    Primitive.attr! :hidden
+    from = @external || Encoding.default_external
+    at = 0
+    size = 0
+    while size < limit
+      fill_cooked while !@eof && @buffer.bytesize < at + 16
+      break if at >= @buffer.bytesize
+
+      char = @buffer.byteslice(at, 16).force_encoding(from)[0]
+      size += begin
+        char.encode(@internal, from, **@read_options).bytesize
+      rescue EncodingError
+        char.bytesize
+      end
+      at += char.bytesize
+    end
+    at
   end
 
   # The separator as the buffer holds it. The buffer has the bytes before
@@ -3039,7 +3145,8 @@ class IO
     loop do
       park_until(READABLE)
       chunk = offset.negative? ? Primitive.zr_io_read(@fd, size) : Primitive.zr_io_pread(@fd, size, offset)
-      return chunk unless chunk.is_a?(Integer)
+      # The bytes copied are binary, as the destination's `write` sees them.
+      return chunk && Primitive.zr_str_set_binary(chunk) unless chunk.is_a?(Integer)
       raise SystemCallError.new(offset.negative? ? +"read" : +"pread", -chunk) unless -chunk == Errno::EAGAIN::Errno
 
       wait_again(READABLE)
@@ -3305,6 +3412,9 @@ class IO
       ready = scheduler.io_wait(self, events, timeout)
       return ready.is_a?(Integer) ? ready & events : 0
     end
+    # rb_timeout_to_hrtime: a wait takes no infinite timeout, where select does.
+    raise RangeError, +"Inf out of Time range" if timeout == Float::INFINITY
+
     deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).round
     ready = Thread.current.send(:wait_io, fileno, events, deadline, gives_way: true)
     raise SystemCallError.new(label, -ready, +"io_wait") if ready.negative?

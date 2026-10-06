@@ -1,0 +1,9 @@
+[:print, "uninitialized stream"]
+[:write, "uninitialized stream"]
+[:puts, "uninitialized stream"]
+[:<<, "uninitialized stream"]
+[:syswrite, "uninitialized stream"]
+"uninitialized stream"
+"#<IO:X>"
+0
+"closed stream"

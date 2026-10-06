@@ -1,0 +1,15 @@
+"expected true or false as exception: 1"
+"expected true or false as exception: 1"
+"expected true or false as exception: nil"
+"expected true or false as exception: nil"
+"expected true or false as exception: \"yes\""
+"expected true or false as exception: \"yes\""
+"expected true or false as exception: :no"
+"expected true or false as exception: :no"
+:wait_readable
+"x"
+1
+"y"
+"no implicit conversion of Hash into String"
+"wrong number of arguments (given 3, expected 1..2)"
+"."

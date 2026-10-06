@@ -1,0 +1,14 @@
+false
+true
+9
+"not opened for reading"
+nil
+true
+nil
+"abc"
+true
+"foo\nbar\n"
+""
+true
+"closing non-duplex IO for reading"
+true
