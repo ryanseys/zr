@@ -466,9 +466,10 @@ module Zr
         @f.store(@blk, @rec, off(@frame, "blk"))
         # A block's frame keeps its call's block in `defined` (a def's
         # frame keeps the node where it was found). A `define_method` body
-        # finds there the block that a `break` leaves through.
+        # finds there the block that a `break` leaves through. In `entry` it
+        # keeps its Proc, so a `return` in an eval in it sees a lambda.
         unless @kind == :def
-          @f.store(imm(0), @rec, off(@frame, "entry"))
+          @f.store(@kind == :block && !@twin_of ? @proc : imm(0), @rec, off(@frame, "entry"))
           @f.store(@kind == :block ? call_block : @qnil, @rec, off(@frame, "defined"))
         end
         # The serial is set when something first needs it

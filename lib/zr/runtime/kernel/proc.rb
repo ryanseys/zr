@@ -1043,11 +1043,20 @@ module Zr::Kern
   end
 
   # Returns the name that called the method frame `rec`, or 0 for a frame
-  # that is not a method or whose name is the name in its meta.
+  # that is not a method or whose name is the name in its meta. A block
+  # frame keeps its Proc in `entry`, or 0 for a twin.
   #: (ptr) -> word
   def zr_frame_mid(rec)
     e = Frame[rec].entry
-    e == 0 ? 0 : MEntry[e].mid
+    if e == 0 || zr_block_frame_p(rec)
+      return 0
+    end
+    MEntry[e].mid
+  end
+
+  #: (ptr) -> bool
+  def zr_block_frame_p(rec)
+    Frame[rec].meta != 0 && FrameMeta[Frame[rec].meta].kind == KIND_BLOCK
   end
 
   # Whether the frame `home` with `serial` is still on the stack.
@@ -1238,6 +1247,13 @@ module Zr::Kern
       if kind != KIND_BLOCK && kind != KIND_SCLASS && kind != KIND_EVAL
         return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
       end
+      # A lambda is the scope that the return leaves.
+      if kind == KIND_BLOCK
+        home = zr_meta_frame(rec, meta)
+        if home != 0 && Frame[home].entry != 0 && RProc[Machine.value(Frame[home].entry)].lambda != 0
+          return zr_signal(PENDING_RETURN, v, home, 0)
+        end
+      end
       in_block = in_block || kind != KIND_EVAL
       meta = FrameMeta[meta].parent
     end
@@ -1245,6 +1261,15 @@ module Zr::Kern
       return zr_local_jump_error(Machine.bytes("unexpected return"), 17, Machine.id(:return), v)
     end
     zr_signal(PENDING_RETURN, v, 0, 0)
+  end
+
+  # The nearest frame from `rec` down that runs the function of `meta`.
+  #: (ptr, ptr) -> ptr
+  def zr_meta_frame(rec, meta)
+    while rec != 0 && Frame[rec].meta != meta
+      rec = Frame[rec].prev
+    end
+    rec
   end
 
   # Whether a frame from `rec` down runs the function of `meta`.

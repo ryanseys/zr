@@ -1,0 +1,5 @@
+:ok
+LocalJumpError
+[:from_lambda, :after]
+10
+:from_method
