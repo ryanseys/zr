@@ -1025,7 +1025,9 @@ module Zr
           at_node(node)
           argc = keyword_argc(node, argc, argv)
           activate(node)
-          catching_break(site) { node.name == :new ? new_send(node, recv, argc, argv, block) : cached_send(node, recv, argc, argv, block) }
+          # ruby's opt_new takes no block: a traced program sends `new` with
+          # one, so a :c_call sees Class#new.
+          catching_break(site) { node.name == :new && !traced? ? new_send(node, recv, argc, argv, block) : cached_send(node, recv, argc, argv, block) }
         end
 
         # `recv.new(...)`, with its block if it has one: the kernel's

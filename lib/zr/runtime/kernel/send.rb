@@ -283,6 +283,8 @@ module Zr::Kern
     # without the refinements in use.
     e = zr_search_method(zr_box_view(zr_class_of(recv)), Machine.id(:method_missing))
     if e == 0 || MEntry[e].fn == Machine.addr(:zr_obj_method_missing)
+      traced = zr_trace_c_popped(recv, Machine.id(:method_missing))
+      return traced if traced == QUNDEF
       return zr_miss_error(recv, mid, reason, argc, argv)
     end
     args = zr_xmalloc((argc + 1) * 8)

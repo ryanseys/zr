@@ -629,6 +629,8 @@ module Zr::Kern
   def zr_uninitialized_constant(scope, id)
     home = scope == QNIL ? zr_global(G_OBJECT) : scope
     return zr_send_const_missing(home, id) if zr_own_const_missing_p(home)
+    traced = zr_trace_c_popped(home, Machine.id(:const_missing))
+    return traced if traced == QUNDEF
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("uninitialized constant "), 23)

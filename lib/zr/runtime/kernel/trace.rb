@@ -169,6 +169,31 @@ module Zr::Kern
     value
   end
 
+  # The :c_call and the :c_return of a C method that pops its own frame
+  # before it raises, as ruby's method_missing and const_missing do
+  # (rb_vm_pop_cfunc_frame): both fire, then the raise. Returns undef
+  # when a handler raises.
+  #: (value, word) -> value
+  def zr_trace_c_popped(recv, mid)
+    if !zr_trace_c_p() || !zr_trace_c_caller_p()
+      return Machine.value(QNIL)
+    end
+    e = zr_find_method(zr_class_of(recv), mid)
+    if e == 0
+      return Machine.value(QNIL)
+    end
+    owner = zr_method_owner(zr_box_view(zr_class_of(recv)), mid)
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_CALL) != 0
+      r = zr_trace_c_send(TRACE_C_CALL, e, owner, recv, Machine.value(QNIL))
+      return r if r == QUNDEF
+    end
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_RETURN) != 0
+      r = zr_trace_c_send(TRACE_C_RETURN, e, owner, recv, Machine.value(QNIL))
+      return r if r == QUNDEF
+    end
+    Machine.value(QNIL)
+  end
+
   #: (word, ptr, value, value, value) -> value
   def zr_trace_c_send(event, e, owner, recv, value)
     rec = zr_frame_with_file(Task[zr_task()].top)
