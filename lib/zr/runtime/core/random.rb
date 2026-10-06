@@ -16,7 +16,9 @@ class Random < random_base
     other.is_a?(Random) && seed == other.seed && mti == other.send(:mti) && mt == other.send(:mt)
   end
 
-  def self.new_seed = Primitive.zr_random_seed
+  # random_seed: DEFAULT_SEED_CNT words of 32 bits from the system, 128
+  # bits in all.
+  def self.new_seed = (Primitive.zr_random_seed << 64) | Primitive.zr_random_seed
 
   private
 
@@ -76,6 +78,14 @@ class Random < random_base
     Primitive.attr! :hidden
     @default ||= new
   end
+
+  # rb_reset_random_seed: a forked child draws from a seed of its own, not
+  # the parent's stream.
+  def self.reseed
+    Primitive.attr! :hidden
+    @default = nil
+  end
+  private_class_method :reseed
 
   # random_s_rand
   def self.rand(*args) = Random.send(:checked, Random.send(:rand_random, Random, args), args)
@@ -382,6 +392,8 @@ class Random::Base
   private_constant :N, :M, :MATRIX_A, :UPPER, :LOWER
 
   def initialize(seed = Random.new_seed)
+    # rand_init: a frozen generator takes no seed (rb_check_copyable).
+    raise FrozenError.new("can't modify frozen #{self.class}: #{inspect}", receiver: self) if frozen?
     # rb_to_int: a Float truncates; a Rational or a real Complex converts.
     seed = seed.to_i if seed.is_a?(Float)
     seed = seed.to_i if seed.is_a?(Rational) || seed.is_a?(Complex)

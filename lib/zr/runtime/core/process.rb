@@ -608,6 +608,7 @@ module Process
     pid = checked(Primitive.zr_proc_fork)
     if pid.zero?
       $$ = Primitive.zr_process_id
+      Random.send(:reseed)
       Thread.send(:after_fork)
     end
     pid
