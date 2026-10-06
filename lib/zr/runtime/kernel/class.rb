@@ -2441,6 +2441,11 @@ module Zr::Kern
         zr_level_method_names(k, out, seen, vis)
         k = RClass[k].superclass
       end
+      # class_instance_method_list: the object's class keeps its own
+      # methods in its origin when a module is prepended to it.
+      if all == 0 && k != QNIL
+        k = zr_origin(k)
+      end
     end
     while k != QNIL
       zr_level_method_names(k, out, seen, vis)

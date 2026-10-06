@@ -258,9 +258,12 @@ module Zr::Kern
   end
 
   # `Object#singleton_methods`: the public and protected methods of the
-  # singleton class. With `all`, it also includes the methods of the
-  # modules that extend it and, for a class, the methods of the singleton
-  # classes of its superclasses.
+  # singleton class, which its origin holds when a module is prepended to
+  # it. With `all`, it also includes the methods of the modules that
+  # extend it and, for a class, the methods of the singleton classes of
+  # its superclasses. A singleton class gets its own singleton class
+  # first, so it does not list the one it shares with its class
+  # (rb_obj_singleton_methods).
   #: (value, word, ptr, value, value) -> value
   def zr_obj_singleton_methods(recv, argc, argv, cref, blk)
     all = argc == 0 || (Machine.value(Machine.load64(argv, 0)) != QFALSE && Machine.value(Machine.load64(argv, 0)) != QNIL)
@@ -269,15 +272,22 @@ module Zr::Kern
     if zr_special_p(recv)
       return out
     end
+    if zr_type(recv) == T_CLASS && zr_singleton_p(recv)
+      made = zr_singleton_class(recv)
+      return made if made == QUNDEF
+    end
     k = zr_box_view(zr_class_of(recv))
     if !zr_singleton_p(k)
       return out
     end
-    zr_level_method_names(k, out, seen, 0 - 1)
+    origin = zr_origin(k)
+    zr_level_method_names(origin, out, seen, 0 - 1)
     if all
       k = RClass[k].superclass
       while k != QNIL && (zr_type(k) == T_ICLASS || zr_singleton_p(k))
-        zr_level_method_names(k, out, seen, 0 - 1)
+        if k != origin
+          zr_level_method_names(k, out, seen, 0 - 1)
+        end
         k = RClass[k].superclass
       end
     end
