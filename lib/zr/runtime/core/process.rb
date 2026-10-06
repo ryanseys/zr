@@ -177,7 +177,7 @@ module Process
       when :pgroup then @pgroup = pgroup_of(value)
       when :umask then @umask = Integer.send(:int_operand, value)
       when Symbol
-        return descriptors(key).each { |fd| redirect(fd, value) } if STREAMS.key?(key)
+        return redirect(descriptor(key), value) if STREAMS.key?(key)
         return add_limit(key, value) if key.start_with?("rlimit_")
 
         raise ArgumentError, "wrong exec option symbol: #{key}"
@@ -220,15 +220,37 @@ module Process
       @limits.push(resource, soft, hard)
     end
 
-    # The child's descriptors one option key names.
+    # rb_execarg_addopt: the child's descriptors that an option key names,
+    # a Fixnum, an IO or an Array of descriptors.
     def descriptors(key)
       case key
-      when Integer then [key]
-      when Symbol then [STREAMS.fetch(key) { raise ArgumentError, "wrong exec option symbol: #{key.inspect}" }]
-      when IO then [undivided(key).fileno]
-      when Array then key.map { |one| descriptors(one) }.flatten(1)
-      else raise ArgumentError, "wrong exec option: #{key.inspect}"
+      when Array then key.map { |one| descriptor(one) }
+      when IO then [descriptor(key)]
+      when Integer
+        # A Bignum is no descriptor at all.
+        raise ArgumentError, +"wrong exec option" unless key.bit_length < 63
+
+        [descriptor(key)]
+      else raise ArgumentError, +"wrong exec option"
       end
+    end
+
+    # check_exec_redirect_fd: one descriptor, as a Fixnum that fits an int,
+    # :in, :out or :err, or an IO or what converts to one.
+    def descriptor(value)
+      fd = case value
+           when Symbol then STREAMS.fetch(value) { raise ArgumentError, +"wrong exec redirect" }
+           when Integer
+             raise ArgumentError, +"wrong exec redirect" unless value.bit_length < 63
+
+             Integer.send(:int_operand, value)
+           else
+             io = IO.try_convert(value) or raise ArgumentError, +"wrong exec redirect"
+             undivided(io).fileno
+           end
+      raise ArgumentError, +"negative file descriptor" if fd.negative?
+
+      fd
     end
 
     def redirect(fd, value)
@@ -250,7 +272,7 @@ module Process
     # redirects, so these pairs come last, in the order the options list
     # them (run_exec_dup2_child).
     def from_array(fd, value)
-      return @child_dups << named(fd) << descriptors(value[1]).first if value.first == :child
+      return @child_dups << named(fd) << descriptor(value[1]) if value.first == :child
 
       open_file(fd, value[0], value[1], value[2])
     end
