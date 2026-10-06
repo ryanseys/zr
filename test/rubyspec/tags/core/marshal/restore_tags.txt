@@ -1,1 +1,0 @@
-fails:Marshal.restore when called with freeze: true deep freezing deduplicates frozen strings

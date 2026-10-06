@@ -1,1 +1,0 @@
-fails:Marshal.load when called with freeze: true deep freezing deduplicates frozen strings
