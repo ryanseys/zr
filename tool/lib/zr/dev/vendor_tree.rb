@@ -190,7 +190,9 @@ module Zr
       def left_out?(rel) = Library::Vendor::LEFT_OUT.each_key.any? { |entry| entry.end_with?("/") ? rel.start_with?(entry) : rel == entry }
 
       # The default gems of this ruby: each specification as its install
-      # has it, and each gem's license files from its .gem.
+      # has it, each gem's license files from its .gem, and its executables,
+      # which are the only files that ruby's install keeps in the gem's own
+      # directory (Gem.bin_path finds `bundle` there).
       def default_gems
         Dir[File.join(Gem.default_specifications_dir, "*.gemspec")].sort.filter_map do |spec_path|
           spec = Gem::Specification.load(spec_path) or @fail.call("#{spec_path} does not load")
@@ -200,6 +202,12 @@ module Zr
           package = @gems.fetch(spec.name, spec.version.to_s)
           @entries << Entry.new("default", spec.name, spec.version.to_s, GemSource.url(spec.name, spec.version), @gems.sha(spec.name, spec.version))
           licenses(package) { |rel, bytes| add(File.join(Library::Layout::LICENSES, spec.name, rel), bytes) }
+          contents = @gems.contents(package)
+          spec.executables.each do |exe|
+            rel = File.join(spec.bindir, exe)
+            bytes = contents[rel] or @fail.call("#{spec.full_name}: its .gem has no #{rel}")
+            add(File.join(Library::Layout.gem_root(spec.name, spec.version.to_s), rel), bytes)
+          end
           [spec.name, spec.version.to_s]
         end.to_h
       end

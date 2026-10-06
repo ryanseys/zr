@@ -976,6 +976,8 @@ bf3d56d47f8dfcaf3640e1287b2297bf7b310fe1226d6269a5380bbd868d8a42 ruby/lib/ruby/g
 8082b79c7a2b984a14a385a0e739c34de815089265c32cc6dcadd6f86e5758d0 ruby/lib/ruby/gems/4.0.0/gems/bigdecimal-4.1.2/lib/bigdecimal/math.rb
 7c0f19abb6037bc06e117b6bcb0c4ee96909b79b783f0e6da7d14b075a4774ce ruby/lib/ruby/gems/4.0.0/gems/bigdecimal-4.1.2/lib/bigdecimal/newton.rb
 c5b7840e94bd5047c7f177ae314ca77f3a60e54cbe77955b7957f91168b3e2bf ruby/lib/ruby/gems/4.0.0/gems/bigdecimal-4.1.2/lib/bigdecimal/util.rb
+c5728c2e7b3f01193180eca21b1e9514ee5289d96e362c9bd3a1a430e1a03975 ruby/lib/ruby/gems/4.0.0/gems/bundler-4.0.20/exe/bundle
+c0e892502457a81accae26e1317f575c236d5312e6f074bb428fa4fa4dd91dc2 ruby/lib/ruby/gems/4.0.0/gems/bundler-4.0.20/exe/bundler
 c5c4bd3e35643f7dd61d7e0532430ac854621fb1ed6e487118884b2158685398 ruby/lib/ruby/gems/4.0.0/gems/csv-3.3.5/LICENSE.txt
 ee826adc984d130cf1a1ffa595f7ab14ee0bf2e489fb38a7d694bc1ecd08fe5e ruby/lib/ruby/gems/4.0.0/gems/csv-3.3.5/lib/csv.rb
 722d1b485a055813c5ac652b8a93f96d7c495a1c92fc723ce37dd2d46f62f1a8 ruby/lib/ruby/gems/4.0.0/gems/csv-3.3.5/lib/csv/core_ext/array.rb
@@ -1001,6 +1003,7 @@ cf39a2351ffdce7073c5bf5a39ec1c9a0eef4f863557f8d2e1b36e1817f9c5ae ruby/lib/ruby/g
 fd62d9518557bc7fed7bd93d6a7d433fbbe149f3e008255236d6ad4a72e55201 ruby/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/unix.rb
 450b1c9d3e7dcf6131f0ae1cd474874a2e3486ccc6f5a4d438d217c82b2d5eac ruby/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/version.rb
 1096e58ad13741774675587153aa4f549b6bf433e0119c5266d796188b91518b ruby/lib/ruby/gems/4.0.0/gems/drb-2.2.3/lib/drb/weakidconv.rb
+992f103c6775f43dfdfdaa3ae795ac284c96fa9a78339becaf0012916bd880e6 ruby/lib/ruby/gems/4.0.0/gems/erb-6.0.7/libexec/erb
 27c69b029b6269e126f73c9f7b077fb432f5694aeeaff6341511f6e0125fa04a ruby/lib/ruby/gems/4.0.0/gems/ffi-1.17.4/COPYING
 bb343aa812eaaddbaf97814edaf86977b18d3cc5ced3122d43bddf96cf0443dd ruby/lib/ruby/gems/4.0.0/gems/ffi-1.17.4/LICENSE
 19811daba7c403768b93cad47abae8afa8bf34a027478aedaf63903672272e0c ruby/lib/ruby/gems/4.0.0/gems/ffi-1.17.4/LICENSE.SPECS
@@ -1554,6 +1557,7 @@ ad71489a3ad66032c3663fd4aeb6f4fc5a1cfc119b940a6d9aa16adb61ab23f4 ruby/lib/ruby/g
 a0608a74aea08b40a2c8a62a9d9fe1931cff78e1d8c044af1b8bbe69924032b6 ruby/lib/ruby/gems/4.0.0/gems/rss-0.3.2/lib/rss/xml.rb
 8f7e91f83b15b7644157dac8dee9b4d946bb4efe10fead7eb92fe25879655fce ruby/lib/ruby/gems/4.0.0/gems/rss-0.3.2/lib/rss/xmlparser.rb
 d93808bdfc38cc3d4a2c706fe1beff92e80f39c7723f4688d2bc7823c06b5ab1 ruby/lib/ruby/gems/4.0.0/gems/rss-0.3.2/lib/rss/xmlscanner.rb
+c4f7b425da6f791c4706e7872c74dbc65548520e27ebb211b7a312f7b276c364 ruby/lib/ruby/gems/4.0.0/gems/syntax_suggest-2.0.3/exe/syntax_suggest
 36a9a6e7347214bbba599a412617204e65bff065dcbe5c46f5cb454c80de9eb0 ruby/lib/ruby/gems/4.0.0/gems/syslog-0.4.0/BSDL
 967586d538a28955ec2541910cf63c5ac345fcdea94bfb1f1705a1f6eb36bcbb ruby/lib/ruby/gems/4.0.0/gems/syslog-0.4.0/COPYING
 13c60c958020d9e1d37689ce71d43b18bc06c421353e59e2f256c8604993af0c ruby/lib/ruby/gems/4.0.0/gems/syslog-0.4.0/lib/syslog.rb
