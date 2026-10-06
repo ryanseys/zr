@@ -914,7 +914,11 @@ module Zr::Kern
           return Machine.value(QFALSE)
         end
         zr_real_feature_add(real, path)
-        zr_ary_push(visible, path)
+        # A frozen list takes no entry; the file runs, then the require
+        # raises where ruby's rb_provide_feature does.
+        if !zr_frozen_p(visible)
+          zr_ary_push(visible, path)
+        end
       end
     end
     # The loading row goes in with the feature, before anything that can
@@ -968,6 +972,9 @@ module Zr::Kern
       # provides the feature when the file ends, so it goes last, after
       # what the file itself added.
       if !hidden
+        if zr_frozen_p(visible)
+          return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("$LOADED_FEATURES is frozen; cannot append feature"), 49)
+        end
         zr_ary_delete_string(visible, path)
         zr_ary_push(visible, path)
       end

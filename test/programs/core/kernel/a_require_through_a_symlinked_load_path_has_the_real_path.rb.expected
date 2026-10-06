@@ -1,0 +1,6 @@
+["TMP/real/linked_lib.rb", "TMP/real"]
+"TMP/real/linked_lib.rb"
+"TMP/link/rel_lib.rb"
+"TMP/link/loaded_lib.rb"
+ran
+"$LOADED_FEATURES is frozen; cannot append feature"

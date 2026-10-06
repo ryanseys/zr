@@ -40,6 +40,7 @@ module Zr
         # @rbs @pretty_prints: bool
         # @rbs @irbs: bool
         # @rbs @load_path_computed: bool?
+        # @rbs @real_roots: Hash[String, String]?
         # @rbs @asts: bool
         # @rbs @configures: bool
         # @rbs @activations: Integer
@@ -738,8 +739,12 @@ module Zr
             # (`Runtime#carried_text`); no root holds it.
             Library::Roots::DESCRIPTION
           else
+            # A $LOAD_PATH directory is searched by its real path, as ruby
+            # expands the load path, so a file found through a symlinked
+            # directory has the path of the file the link names.
             @roots.each do |root|
-              found = candidate(File.join(root, feature)) || native(root, feature)
+              real = real_root(root)
+              found = candidate(File.join(real, feature)) || native(root, feature)
               return found if found
             end
             # rb_f_load: a name that no root has is a path from the working
@@ -747,6 +752,13 @@ module Zr
             here = File.expand_path(feature)
             kind == :load && File.file?(here) ? here : nil
           end
+        end
+
+        # The real path of directory `root`, or `root` when it is not there.
+        #: (String root) -> String
+        def real_root(root)
+          @real_roots ||= {} #: Hash[String, String]
+          @real_roots[root] ||= File.directory?(root) ? File.realpath(root) : root
         end
 
         # A native extension's name: `strscan.so`, `date.bundle`.
