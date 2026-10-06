@@ -1,0 +1,8 @@
+"cannot assign unshareable object to ...::C"
+["a", "b"]
+true
+true
+NameError
+true
+3
+"cannot assign unshareable object to ...::H"

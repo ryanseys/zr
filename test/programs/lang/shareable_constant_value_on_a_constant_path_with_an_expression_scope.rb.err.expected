@@ -1,0 +1,2 @@
+lang/shareable_constant_value_on_a_constant_path_with_an_expression_scope.rb:21: warning: already initialized constant B::G
+lang/shareable_constant_value_on_a_constant_path_with_an_expression_scope.rb:20: warning: previous definition of G was here

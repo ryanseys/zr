@@ -94,7 +94,8 @@ module Zr
       # already be shareable, as in ruby.
       #: (Prism::ShareableConstantNode node, Integer line) -> node
       def shareable_constant(node, line)
-        write = expr(node.write) #: untyped
+        built = expr(node.write)
+        write = written_constant(built) #: untyped
         ractor = ConstRead.new(nil, :Ractor, line)
         write.value =
           if node.literal?
@@ -104,7 +105,19 @@ module Zr
           else
             Send.of(ractor, :make_shareable, [write.value], line)
           end
-        write
+        built
+      end
+
+      # The write that a constant write builds: the node itself, or the
+      # one after the scope that an expression gives (`expr::C ||= v`), or
+      # the one that `&&=` guards.
+      #: (node built) -> node
+      def written_constant(built)
+        case built
+        when Seq then written_constant(built.stmts.last)
+        when And then written_constant(built.right)
+        else built
+        end
       end
 
       # `literal`'s value, as prism_compile.c's
