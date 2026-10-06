@@ -238,6 +238,12 @@ module Zr::Kern
       ClassExt[ext].ctab = tab
       ClassExt[ext].clen = ClassExt[from].clen
       ClassExt[ext].ccap = ClassExt[from].clen
+      i = 0
+      while i < ClassExt[ext].clen
+        CEntry[tab + (i * CEntry.size)].owner = copy
+        i += 1
+      end
+      zr_autoload_copy(orig, copy)
     end
     zr_ivtab_copy(Machine.ptr(ClassExt[ext].iv), Machine.ptr(ClassExt[from].iv), Machine.value(QNIL))
     zr_ivtab_copy(Machine.ptr(ClassExt[ext].cv), Machine.ptr(ClassExt[from].cv), Machine.value(QNIL))

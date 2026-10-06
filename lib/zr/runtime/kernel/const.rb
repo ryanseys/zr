@@ -1648,6 +1648,29 @@ module Zr::Kern
     zr_feature_loader(zr_ary_at(rows, i + 5)) != zr_fix(Machine.word(zr_task()))
   end
 
+  # rb_mod_init_copy: the copy of a module shares the autoloads that its
+  # original still waits for, so each gets the same record for the copy.
+  #: (value, value) -> void
+  def zr_autoload_copy(orig, copy)
+    rows = zr_global(G_AUTOLOADS)
+    if zr_special_p(rows)
+      return
+    end
+    n = RArray[rows].len
+    i = 0
+    while i < n
+      if zr_ary_at(rows, i) == orig
+        zr_ary_push(rows, copy)
+        j = 1
+        while j < AUTOLOAD_ROW
+          zr_ary_push(rows, zr_ary_at(rows, i + j))
+          j += 1
+        end
+      end
+      i += AUTOLOAD_ROW
+    end
+  end
+
   # Returns the index of the autoload record for `mod` and `id` when a file
   # is still to come, or -1. Most callers use this. The three callers that
   # need the record in all cases (a second `autoload`, a value written on
