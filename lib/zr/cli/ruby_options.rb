@@ -254,20 +254,22 @@ module Zr
 
         # moreswitches: what the command line set stays; RUBYOPT sets only
         # the rest.
-        kept = [@external_name, @external, @internal_name, @internal, @source_encoding, @features.dup, @warning_categories.dup, @backtrace_limit]
+        kept = [@external_name, @external, @internal_name, @internal, @source_encoding, @features.dup, @warning_categories.dup, @backtrace_limit, @verbose]
         @external_name = @external = @internal_name = @internal = @source_encoding = nil
         @envopt = true
         text.split.each do |word|
           word = "-#{word}" unless word.start_with?("-")
           switches!([word])
         end
-        external_name, external, internal_name, internal, source_encoding, features, categories, limit = kept
+        external_name, external, internal_name, internal, source_encoding, features, categories, limit, verbose = kept
         @external_name, @external = external_name, external if external_name
         @internal_name, @internal = internal_name, internal if internal_name
         @source_encoding = source_encoding if source_encoding
         @features.merge!(features)
         @warning_categories.merge!(categories)
         @backtrace_limit = limit if limit
+        # A level of -w, -W or -v on the command line wins too.
+        @verbose = verbose if verbose
       ensure
         @envopt = false
       end
@@ -508,14 +510,15 @@ module Zr
           @verbose_option = true
           @verbose = [true]
         when "help" then @help = true
-        when "debug", /\Adebug-/
-          # --debug=frozen-string-literal, --debug-frozen-string-literal and
-          # the like are CRuby's own checks.
-          unless given || name != "debug"
+        when "debug", /\Adebug-./
+          # --debug alone (or with an empty value) is -d; --debug=NAMES and
+          # --debug-NAME name ruby's debug features, of which there is one.
+          words = name == "debug" ? given.to_s : name.delete_prefix("debug-")
+          if words.empty?
             @debug = @debug_frozen = true
             @verbose = [true]
           end
-          @debug_frozen = true if given == "frozen-string-literal" || name == "debug-frozen-string-literal"
+          words.split(/[\s,]+/).each { |word| debug_feature!(word) }
         when "jit", "yjit", "zjit", /\A[yz]jit-/ then nil # zr compiles ahead of time.
         when "crash-report" then nil
         when "encoding" then encoding!(argument(name, given, argv), "--encoding")
@@ -531,7 +534,8 @@ module Zr
         when "yydebug" then nil
         when "backtrace-limit"
           limit = argument(name, given, argv)
-          raise Invalid, "wrong limit for backtrace length" unless limit.match?(/\A-?\d+\z/) && limit.to_i >= -1
+          # strtol: a long, no less than -1.
+          raise Invalid, "wrong limit for backtrace length" unless limit.match?(/\A-?\d+\z/) && limit.to_i.between?(-1, (2**63) - 1)
 
           @backtrace_limit = limit.to_i
         when /\A(enable|disable)(?:-(.+))?\z/
@@ -570,6 +574,17 @@ module Zr
           @warnings << "zr: warning: unknown argument for --#{on ? "enable" : "disable"}: '#{word}'"
           @warnings << "zr: warning: features are [#{FEATURES.join(", ")}]."
         end
+      end
+
+      # One name of --debug: frozen_string_literal, the only debug feature,
+      # or a warning.
+      #: (String word) -> void
+      def debug_feature!(word)
+        return if word.empty?
+        return @debug_frozen = true if name_match?("frozen_string_literal", word)
+
+        @warnings << "zr: warning: unknown argument for --debug: '#{word}'"
+        @warnings << "zr: warning: debug features are [frozen_string_literal]."
       end
 
       # The characters between the words of a name.

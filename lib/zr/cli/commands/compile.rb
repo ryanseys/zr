@@ -106,10 +106,24 @@ module Zr
           line = options.xflag ? source.each_line.find { |text| text.start_with?("#!") && text.include?("ruby") } : source
           fatal("no Ruby script found in input (LoadError)", prefix: file) unless line
           options.shebang!(line)
+          shebang_warning(source, line, file, options)
           [source, file]
         rescue SystemCallError => e
           # strerror's words, without what ruby's message adds after them.
           fatal("#{e.message.sub(/ @ .*\z/m, "")} -- #{name} (LoadError)")
+        end
+
+        # load_file: a shebang line that names ruby and ends with "\r\n"
+        # warns at its line, unless $VERBOSE is nil. Under -x the parse's
+        # own warnings, which the program prints, have it already.
+        #: (String source, String line, String file, RubyOptions options) -> void
+        def shebang_warning(source, line, file, options)
+          shebang = line.each_line.first.to_s
+          return if options.xflag || options.switches.verbose.nil?
+          return unless shebang.start_with?("#!") && shebang.include?("ruby") && shebang.end_with?("\r\n")
+
+          number = source.each_line.find_index { |text| text.equal?(shebang) || text == shebang }.to_i + 1
+          warn "#{file}:#{number}: warning: shebang line ending with \\r may cause problems"
         end
 
         # -S: the script in RUBYPATH's directories, then PATH's (the current

@@ -488,6 +488,39 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-S", "nothing_here", env: { "RUBYPATH" => "~", "HOME" => "/foo" * 1024 })
   end
 
+  # --debug names ruby's debug features, by prefix and in any case; an
+  # unknown name warns, and --debug- alone is no option.
+  def test_debug_switch_names
+    same_as_ruby("--debug=frozen", "-e", "p $DEBUG")
+    same_as_ruby("--debug=FROZEN-STRING-LITERAL,bar", "-e", "p $DEBUG")
+    same_as_ruby("--debug-foo", "-e", "p $DEBUG")
+    same_as_ruby("--debug-", "-e", "p $DEBUG")
+    same_as_ruby("--disable-gems", "--debug=", "-e", "p $DEBUG")
+  end
+
+  # The backtrace limit is a long; a larger one is refused.
+  def test_backtrace_limit_takes_a_long
+    same_as_ruby("--backtrace-limit=9223372036854775807", "-e", "p Thread::Backtrace.limit")
+    same_as_ruby("--backtrace-limit=9223372036854775808", "-e", "p Thread::Backtrace.limit")
+    same_as_ruby("--backtrace-limit=4611686018427387904", "-e", "p Thread::Backtrace.limit; raise 'x'")
+  end
+
+  # The command line's warning level wins over RUBYOPT's.
+  def test_the_command_line_level_wins_over_rubyopt
+    same_as_ruby("-W1", "-e", "p $VERBOSE", env: { "RUBYOPT" => "-w" })
+    same_as_ruby("-W0", "-e", "p $VERBOSE", env: { "RUBYOPT" => "-w" })
+    same_as_ruby("-w", "-e", "p $VERBOSE", env: { "RUBYOPT" => "-W0" })
+    same_as_ruby("-e", "p $VERBOSE", env: { "RUBYOPT" => "-w" })
+  end
+
+  # A shebang line that ends with "\r\n" warns, once, unless -W0.
+  def test_a_shebang_line_with_a_carriage_return_warns
+    same_as_ruby(stdin: "#!ruby -KU -Eutf-8\r\np \"あ\"\r\n")
+    same_as_ruby("-W0", stdin: "#!ruby\r\np 1\r\n")
+    same_as_ruby("-w", stdin: "#!ruby\r\np 1\r\n")
+    same_as_ruby("-x", stdin: "junk\n#!ruby -w\r\np 2\r\n")
+  end
+
   def test_errors_before_the_program_runs
     same_as_ruby("nope.rb")
     same_as_ruby("no/such/script")

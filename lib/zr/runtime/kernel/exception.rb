@@ -874,7 +874,7 @@ module Zr::Kern
     skip_at = 0 - 1
     skip = 0
     limit = zr_backtrace_limit()
-    if limit >= 0 && n > limit + 2
+    if limit >= 0 && n - 2 > limit
       skip_at = limit + 1
       skip = n - skip_at
     end
@@ -920,12 +920,22 @@ module Zr::Kern
 
   #: () -> value
   def zr_backtrace_limit_m
-    zr_fix(zr_backtrace_limit())
+    zr_int_from_word(zr_backtrace_limit())
   end
 
+  # The limit is a long, as ruby's: LONG_MAX plus one wraps to the word
+  # below zero, and the read takes the one back.
   #: (value) -> value
   def zr_backtrace_limit_set(n)
-    Machine.store64(Machine.static(:backtrace_limit, 8), 0, zr_fix2long(n) + 1)
+    v = 0
+    if zr_fixnum_p(n)
+      v = zr_fix2long(n)
+    else
+      out = Machine.slot(8)
+      zr_big_to_long(n, out)
+      v = Machine.load64(out, 0)
+    end
+    Machine.store64(Machine.static(:backtrace_limit, 8), 0, v + 1)
     n
   end
 
