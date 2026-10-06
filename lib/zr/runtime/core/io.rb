@@ -11,7 +11,11 @@ class IO
   # new text together, as CRuby's io_binwrite does.
   WBUF_CAPA = 8192
   NEWLINE = "\n".freeze
-  private_constant :WBUF_CAPA, :NEWLINE
+  # The encodings whose characters take more than one byte each: the
+  # size of their code unit and where a newline's byte is in it.
+  WIDE_UNITS = { "UTF-16BE" => [2, 1], "UTF-16LE" => [2, 0], "UTF-32BE" => [4, 3], "UTF-32LE" => [4, 0],
+                 "UTF-16" => [2, 1], "UTF-32" => [4, 3] }.freeze
+  private_constant :WBUF_CAPA, :NEWLINE, :WIDE_UNITS
 
   # The streams that contain bytes not yet written. The end of the
   # program writes them. `exit!` never does, because _exit(2) discards
@@ -1591,7 +1595,7 @@ class IO
     if Primitive.zr_ary_len_m(objects) == 1 && (text = Primitive.zr_ary_at_m(objects, 0)).is_a?(String)
       check_writable
       write_bytes(converted(text))
-      write_bytes(converted(NEWLINE)) unless Primitive.zr_str_byte_at(text, Primitive.zr_str_bytesize(text) - 1) == 10
+      write_bytes(converted(NEWLINE)) unless IO.send(:ends_line?, text)
       return nil
     end
     IO.each_line_of(objects) { |*parts| write(*parts) }
@@ -1615,6 +1619,24 @@ class IO
   # already written, as ruby's does. Each one's to_s, then a newline as a
   # second argument unless it ends in one; nil is an empty line; an Array
   # is its items, an empty one nothing; no objects is one empty line.
+  # rb_str_end_with_asciichar(text, "\n"): whether the last character is
+  # a newline, read in the text's own encoding. In a wide encoding the
+  # last code unit holds it, and a newline byte inside a wider character
+  # is no newline.
+  def self.ends_line?(text)
+    Primitive.attr! :hidden
+    size = Primitive.zr_str_bytesize(text)
+    return false if size.zero?
+
+    unit, at = WIDE_UNITS[Encoding.at(Primitive.zr_str_encoding_index_m(text)).name]
+    return Primitive.zr_str_byte_at(text, size - 1) == 10 if unit.nil?
+    return false if size % unit != 0
+
+    start = size - unit
+    (0...unit).all? { |i| Primitive.zr_str_byte_at(text, start + i) == (i == at ? 10 : 0) }
+  end
+  private_class_method :ends_line?
+
   def self.each_line_of(objects, &block)
     Primitive.attr! :hidden
     return yield(+"\n") if objects.empty?
@@ -1637,7 +1659,7 @@ class IO
         text = Primitive.zr_obj_as_string(object)
         if text.empty?
           yield(+"\n")
-        elsif text.end_with?("\n")
+        elsif ends_line?(text)
           yield text
         else
           yield text, +"\n"
