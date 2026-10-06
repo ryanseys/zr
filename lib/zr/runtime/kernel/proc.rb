@@ -441,6 +441,10 @@ module Zr::Kern
     if Machine.load64(Machine.static(:eval_task, 8), 0) == Machine.load64(zr_current_task_slot(), 0)
       mode = SEND_CORE
     end
+    # A traced program sees the `each` that its Enumerable call sends.
+    if mode == 0 && zr_trace_sends_p()
+      return zr_send_for_caller(recv, Machine.id(:each), argc, argv, p)
+    end
     zr_dispatch(0, recv, Machine.id(:each), argc, argv, mode, p)
   end
 
