@@ -44,7 +44,21 @@ class Float
 
   def truncate(digits = 0) = self > 0 ? floor(digits) : ceil(digits)
   def fdiv(other) = self / other
-  def quo(other) = self / other
+
+  # flo_quo: `/` under a guard, as num_funcall1 sends it, so a `/` that
+  # comes back here (`alias / quo`) raises NameError and no
+  # SystemStackError.
+  def quo(other)
+    raise NameError.new("#{self}/#{other}", :/) if Primitive.zr_recursive_enter_paired(self, other, :quo)
+
+    begin
+      # A program's `/` runs, as num_funcall1 sends it; the core's own
+      # `__send__` would call the core's `/`.
+      public_send(:/, other)
+    ensure
+      Primitive.zr_recursive_leave(self, :quo)
+    end
+  end
 
   # The quotient and the modulo, as CRuby's flodivmod pairs them. An
   # unknown operand coerces, as flo_divmod passes it on.

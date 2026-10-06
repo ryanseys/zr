@@ -977,7 +977,53 @@ module Zr::Kern
       zr_buf_free(b)
       return zr_float_new(Machine.f64(0))
     end
+    zr_float_second_pass(s, n, b)
     zr_float_new(zr_buf_strtod(b))
+  end
+
+  # The length of a mantissa that rb_cstr_to_dbl's buffer holds,
+  # DBL_DIG * 4.
+  FLOAT_MANTISSA_MAX = 60
+
+  # rb_cstr_to_dbl reads the text with strtod, and reads it again when
+  # strtod stops before its end (at an underscore or a trailing
+  # character, the first `n` bytes being the number). The second pass
+  # copies the number into a buffer: leading zeros become one, and the
+  # mantissa keeps at most FLOAT_MANTISSA_MAX bytes, so a longer one
+  # loses its last digits.
+  #: (value, word, ptr) -> void
+  def zr_float_second_pass(s, n, b)
+    p = RString[s].ptr
+    second = n < RString[s].len
+    i = 0
+    while !second && i < n
+      second = Machine.u8(Machine.load8(p + i, 0)) == 95
+      i += 1
+    end
+    unless second
+      return
+    end
+    q = Buf[b].ptr
+    len = Buf[b].len
+    mantissa = 0
+    while mantissa < len && Machine.u8(Machine.load8(q + mantissa, 0)) != 101
+      mantissa += 1
+    end
+    start = mantissa > 0 && (Machine.u8(Machine.load8(q, 0)) == 45 || Machine.u8(Machine.load8(q, 0)) == 43) ? 1 : 0
+    zeros = 0
+    while start + zeros < mantissa && Machine.u8(Machine.load8(q + start + zeros, 0)) == 48
+      zeros += 1
+    end
+    if zeros > 1
+      zr_memmove(q + start + 1, q + start + zeros, len - start - zeros)
+      len -= zeros - 1
+      mantissa -= zeros - 1
+    end
+    if mantissa > FLOAT_MANTISSA_MAX
+      zr_memmove(q + FLOAT_MANTISSA_MAX, q + mantissa, len - mantissa)
+      len -= mantissa - FLOAT_MANTISSA_MAX
+    end
+    Buf[b].len = len
   end
 
   # `Float(text)`: all the text, except whitespace, must be a number.
@@ -1004,7 +1050,19 @@ module Zr::Kern
       zr_buf_free(b)
       return Machine.value(QNIL)
     end
+    zr_float_second_pass(s, zr_float_number_end(s), b)
     zr_float_new(zr_buf_strtod(b))
+  end
+
+  # The bytes of `s` that its number spans, before any trailing space.
+  #: (value) -> word
+  def zr_float_number_end(s)
+    p = RString[s].ptr
+    n = RString[s].len
+    while n > 0 && (Machine.u8(Machine.load8(p + n - 1, 0)) == 32 || (Machine.u8(Machine.load8(p + n - 1, 0)) >= 9 && Machine.u8(Machine.load8(p + n - 1, 0)) <= 13))
+      n -= 1
+    end
+    n
   end
 
   #: (word) -> bool
