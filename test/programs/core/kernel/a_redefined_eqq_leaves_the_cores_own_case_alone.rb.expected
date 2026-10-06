@@ -1,0 +1,15 @@
+[:inspect, "[1, nil, :a, \"s\", 1.5, true]"]
+[:hash, "{a: nil, \"b\" => 1.0}"]
+[:format, " 1 2.5"]
+[:interp, "a1.5"]
+[:integer, 13.5]
+[:struct, [nil]]
+[:sort, 3]
+[:case_in, true]
+[:exception, "x"]
+[:string_ops, "A-B"]
+[:array_new, [nil, nil]]
+[:object_new, Object]
+[:kernel, [[], "1", (1/2)]]
+nil
+:nil_eqq

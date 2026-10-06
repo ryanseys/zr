@@ -198,9 +198,18 @@ module Zr
             at_node(value)
             match = Hir::Send.of(value, :===, [subject], value.line, using: node.using)
             activate(match)
-            mode = match.using ? Sends::SEND_USING : 0
+            mode = eqq_mode(value) | (match.using ? Sends::SEND_USING : 0)
             truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: mode)).tap { deactivate(match) })
           end
+        end
+
+        # The core's own `when nil` or `when Float` is a type test in ruby's
+        # C, which no program's `===` answers: its send finds the core's
+        # own method. A value that the core was given is sent as any.
+        #: (Hir::node value) -> Integer
+        def eqq_mode(value)
+          fixed = value.is_a?(Hir::Literal) || value.is_a?(Hir::ConstRead) || value.is_a?(Hir::Core)
+          fixed && (@l.internal? || @l.support?) ? Sends::SEND_CORE : 0
         end
 
         # Whether a `case` compares its subject with symbols only
@@ -354,7 +363,7 @@ module Zr
               cond = staged([value, Hir::Slot.new(base, value.line)], evaluate: read) do |slots|
                 at_node(value)
                 match = Hir::Send.of(value, :===, [tested_node], value.line)
-                truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: 0)))
+                truthy(checked(cached_send(match, @f.fetch("i64", slots), imm(1), @f.iadd(slots, imm(8)), @qnil, mode: eqq_mode(value))))
               end
               @f.brif(cond, chosen, miss)
               switch(chosen)
