@@ -685,7 +685,7 @@ module Zr::Kern
     if zr_modify_frozen_p(klass)
       return zr_frozen_error(klass)
     end
-    if zr_find_method(klass, id) == 0
+    if zr_find_method(klass, id) == 0 && !zr_refined_has_method_p(klass, id)
       # With the name and the receiver, which did_you_mean reads. The
       # message of a metaclass names its class, as rb_method_name_error
       # names it.
@@ -699,7 +699,24 @@ module Zr::Kern
       return zr_undefined_method_in(klass, shown, id, VIS_PUBLIC)
     end
     zr_method_add(klass, id, 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
+    # An undef in `refine C` closes the gate of the name on C, as a def
+    # there does (zr_define_method_as).
+    if zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
+      Machine.gates_set(Machine.gates | zr_gate_bit(ClassExt[RClass[klass].ext].refined, id))
+    end
     zr_method_undefined(klass, id)
+  end
+
+  # Whether `klass` is a refinement whose refined class has `id`: ruby's
+  # search goes on from a refinement into the class it refines, so a
+  # refinement can undef that class's method.
+  #: (value, word) -> bool
+  def zr_refined_has_method_p(klass, id)
+    if zr_type(klass) != T_MODULE || ClassExt[RClass[klass].ext].refined == QNIL
+      return false
+    end
+    e = zr_search_method(ClassExt[RClass[klass].ext].refined, id)
+    e != 0 && MEntry[e].kind != KIND_UNDEF
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -3431,6 +3448,10 @@ module Zr::Kern
     while k != QNIL
       e = zr_refined_entry_at(zr_type(k) == T_ICLASS ? RClass[k].attached : k, mid)
       if e != 0
+        # A refinement's undef hides the method.
+        if MEntry[e].kind == KIND_UNDEF
+          return 0
+        end
         return e
       end
       e = zr_find_method_at(k, mid)
@@ -3447,7 +3468,8 @@ module Zr::Kern
   end
 
   # The entry that a refinement in use gives for `mid` on `target` itself,
-  # newest first, or 0.
+  # newest first, or 0. An undef in a refinement is an entry here, which
+  # hides the refined class's method.
   #: (value, word) -> ptr
   def zr_refined_entry_at(target, mid)
     list = Task[zr_task()].refine
@@ -3458,9 +3480,14 @@ module Zr::Kern
     while i >= 0
       h = zr_ary_at(list, i)
       if !zr_special_p(h) && zr_type(h) == T_MODULE && ClassExt[RClass[h].ext].refined == target
-        e = zr_search_method(h, mid)
-        if e != 0
-          return e
+        k = h
+        while k != QNIL
+          e = zr_find_method_at(k, mid)
+          if e != 0
+            Task[zr_task()].found = k
+            return e
+          end
+          k = RClass[k].superclass
         end
       end
       i -= 1
