@@ -63,23 +63,33 @@ module Zr
 
       # A ruby binary runs with any environment, so `RbConfig.ruby` names
       # one that does. `exe` starts with `#!/usr/bin/env ruby`, which needs
-      # the PATH to find this ruby; its twin in the cache names this ruby
-      # itself. One twin serves each pair of ruby and launcher. Without a
+      # the PATH to find a ruby; its twin in the cache names `ruby` itself.
+      # The twin is the zr that ran the program, so it keeps zr's own cache
+      # directory, as a flag: the program's environment stays the
+      # program's. One twin serves each ruby, launcher and cache. Without a
       # cache to write to, the launcher stands as it is.
-      #: (String exe) -> String
-      def pinned_launcher(exe)
+      #: (String exe, ?ruby: String, ?flags: Array[String]) -> String
+      def pinned_launcher(exe, ruby: RbConfig.ruby, flags: pinned_flags)
         exe = File.realpath(exe)
-        dir = File.join(Paths.cache, "launcher", Digest::SHA256.hexdigest("#{RbConfig.ruby}\0#{exe}")[0, 16])
+        dir = File.join(Paths.cache, "launcher", Digest::SHA256.hexdigest([ruby, exe, *flags].join("\0"))[0, 16])
         twin = File.join(dir, "zr")
         return twin if File.file?(twin)
 
         Paths.mkdir_p(dir)
         draft = "#{twin}.#{Process.pid}"
-        File.write(draft, "#!#{RbConfig.ruby}\n# frozen_string_literal: true\n\nload #{exe.dump}\n", perm: 0o755)
+        given = "ARGV.unshift(#{flags.map(&:dump).join(", ")})\n" unless flags.empty?
+        File.write(draft, "#!#{ruby}\n# frozen_string_literal: true\n\n#{given}load #{exe.dump}\n", perm: 0o755)
         File.rename(draft, twin)
         twin
       rescue SystemCallError
         exe
+      end
+
+      # The settings that the twin keeps: a cache directory zr was given.
+      #: () -> Array[String]
+      def pinned_flags
+        cache = Config.current.cache
+        cache ? ["--cache-dir=#{File.expand_path(cache)}"] : []
       end
 
       # The end of `zr run`, once the build is gone: the program's status.

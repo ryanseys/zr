@@ -194,7 +194,7 @@ module Zr
 
         # A test that starts a ruby starts the interpreter of the run.
         def env(dir, zr:)
-          super.merge("RUBY" => zr ? Suite.zr : RbConfig.ruby, "TMPDIR" => dir, "RUBY_TEST_TIMEOUT_SCALE" => (TIMEOUT_SCALE if zr))
+          super.merge("RUBY" => zr ? Suite.zr_ruby : RbConfig.ruby, "TMPDIR" => dir, "RUBY_TEST_TIMEOUT_SCALE" => (TIMEOUT_SCALE if zr))
         end
 
         def write_tags(rel, result)

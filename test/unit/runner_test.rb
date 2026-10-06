@@ -43,6 +43,26 @@ class RunnerTest < Minitest::Test
     end
   end
 
+  def test_the_twin_keeps_the_cache_that_zr_was_given_as_a_flag
+    in_cache do |dir|
+      exe = launcher(dir, "puts ARGV.inspect, ENV.key?('ZR_CACHE')")
+      out = IO.popen([Runner.pinned_launcher(exe), "-e", "1", unsetenv_others: true], &:read)
+      assert_equal "#{["--cache-dir=#{File.join(dir, "cache")}", "-e", "1"].inspect}\nfalse\n", out,
+                   "the flag goes before the words; the program's environment gets no setting"
+    end
+  end
+
+  def test_each_ruby_and_cache_gets_its_own_twin
+    in_cache do |dir|
+      exe = launcher(dir, "")
+      plain = Runner.pinned_launcher(exe, flags: [])
+      refute_equal plain, Runner.pinned_launcher(exe, flags: ["--cache-dir=/elsewhere"])
+      refute_equal plain, Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: [])
+      assert_equal "#!/opt/other/ruby", File.readlines(Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: []), chomp: true).first
+      refute_includes File.read(plain), "ARGV", "no flags, no words added"
+    end
+  end
+
   def test_with_no_cache_to_write_to_the_launcher_stands
     Zr::Paths.tmpdir("zr-runner-") do |dir|
       blocked = File.join(dir, "file")
