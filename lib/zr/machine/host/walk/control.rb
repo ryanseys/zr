@@ -233,7 +233,7 @@ module Zr
           def when_test(value, node, s, subject)
             if value.is_a?(Hir::Splat)
               list = code(value.value, s)
-              return ->(f, v) { truthy?(check(@kern.zr_case_any(v, list.call(f)))) } if subject
+              return ->(f, v) { truthy?(check(@kern.zr_case_any(v, list.call(f), 0))) } if subject
 
               return ->(f, _) { truthy?(check(@kern.zr_any_truthy(list.call(f)))) }
             end

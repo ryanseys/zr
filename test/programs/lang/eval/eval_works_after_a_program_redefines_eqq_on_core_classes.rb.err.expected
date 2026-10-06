@@ -1,0 +1,7 @@
+(eval at lang/eval/eval_works_after_a_program_redefines_eqq_on_core_classes.rb:6):1: warning: Redefining 'NilClass#===' disables interpreter and JIT optimizations
+(eval at lang/eval/eval_works_after_a_program_redefines_eqq_on_core_classes.rb:6):1: warning: Redefining 'TrueClass#===' disables interpreter and JIT optimizations
+(eval at lang/eval/eval_works_after_a_program_redefines_eqq_on_core_classes.rb:6):1: warning: Redefining 'FalseClass#===' disables interpreter and JIT optimizations
+(eval at lang/eval/eval_works_after_a_program_redefines_eqq_on_core_classes.rb:6):1: warning: Redefining 'Float#===' disables interpreter and JIT optimizations
+(eval at lang/eval/eval_works_after_a_program_redefines_eqq_on_core_classes.rb:6):1: warning: Redefining 'Symbol#===' disables interpreter and JIT optimizations
+(eval at lang/eval/eval_works_after_a_program_redefines_eqq_on_core_classes.rb:6):1: warning: Redefining 'String#===' disables interpreter and JIT optimizations
+(eval at lang/eval/eval_works_after_a_program_redefines_eqq_on_core_classes.rb:6):1: warning: Redefining 'Integer#===' disables interpreter and JIT optimizations

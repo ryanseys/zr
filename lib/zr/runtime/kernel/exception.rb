@@ -371,16 +371,17 @@ module Zr::Kern
     Machine.value(QFALSE)
   end
 
-  # `when *list`: whether `=== subject` is truthy for an element.
-  #: (value, value) -> value
-  def zr_case_any(subject, list)
+  # `when *list`: whether `=== subject` is truthy for an element. `mode`
+  # is the send's (SEND_CORE in eval's compiler, which ruby writes in C).
+  #: (value, value, word) -> value
+  def zr_case_any(subject, list, mode)
     list = zr_splat_to_a(list)
     return list if list == QUNDEF
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(subject))
     i = 0
     while i < RArray[list].len
-      r = zr_send(zr_ary_at(list, i), Machine.id(:===), 1, slot)
+      r = zr_dispatch(0, zr_ary_at(list, i), Machine.id(:===), 1, slot, mode, Machine.value(QNIL))
       return r if r == QUNDEF
       if r != QNIL && r != QFALSE
         return r

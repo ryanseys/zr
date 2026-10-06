@@ -1953,13 +1953,15 @@ module Zr::Kern
 
   # `Redefining 'C#m' disables interpreter and JIT optimizations`, under
   # `Warning[:performance]`, where rb_vm_check_redefinition_opt_method
-  # warns. Entry `e` of `klass` is the core's own, under its own name, for
-  # a basic operator, and a program is about to overwrite it, remove it,
-  # undefine it or put a prepended entry before it. The core's entry goes
-  # with the first of these, so a second one gives no warning.
+  # warns. Entry `e` of `klass` is the core's own for a basic operator
+  # (also where the core shares one body under two names, as Integer#===
+  # and #==, which CRuby defines apart), and a program is about to
+  # overwrite it, remove it, undefine it or put a prepended entry before
+  # it. The core's entry goes with the first of these, so a second one
+  # gives no warning.
   #: (value, word, ptr) -> void
   def zr_warn_operator(klass, mid, e)
-    if !zr_program_started_p() || MEntry[e].core == 0 || MEntry[e].orig != mid || !zr_basic_operator_p(klass, mid)
+    if !zr_program_started_p() || MEntry[e].core == 0 || !zr_basic_operator_p(klass, mid)
       return
     end
     slot = Machine.slot(16)

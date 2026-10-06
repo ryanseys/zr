@@ -162,7 +162,7 @@ module Zr
               miss = @f.label
               cond = if value.is_a?(Hir::Splat) && node.subject
                        at_node(value)
-                       truthy(checked(kernel("zr_case_any", @f.fetch("i64", @rec, subject_at), expr(value.value))))
+                       truthy(checked(kernel("zr_case_any", @f.fetch("i64", @rec, subject_at), expr(value.value), imm(eqq_mode(value.value)))))
                      elsif value.is_a?(Hir::Splat)
                        at_node(value)
                        truthy(checked(kernel("zr_any_truthy", expr(value.value))))
@@ -205,11 +205,15 @@ module Zr
 
         # The core's own `when nil` or `when Float` is a type test in ruby's
         # C, which no program's `===` answers: its send finds the core's
-        # own method. A value that the core was given is sent as any.
+        # own method, also for a String, Regexp or Range literal. A value
+        # that the core was given is sent as any. In
+        # eval's compiler every `when` is the core's, as ruby's compiler is C.
         #: (Hir::node value) -> Integer
         def eqq_mode(value)
-          fixed = value.is_a?(Hir::Literal) || value.is_a?(Hir::ConstRead) || value.is_a?(Hir::Core)
-          fixed && (@l.internal? || @l.support?) ? Sends::SEND_CORE : 0
+          return Sends::SEND_CORE if @l.support?
+
+          fixed = [Hir::Literal, Hir::FrozenString, Hir::RegexpLit, Hir::RangeLit, Hir::ConstRead, Hir::Core].any? { |kind| value.is_a?(kind) }
+          fixed && @l.internal? ? Sends::SEND_CORE : 0
         end
 
         # Whether a `case` compares its subject with symbols only
