@@ -806,6 +806,9 @@ class Thread
     # raised.
     TracePoint.send(:thread_event, :thread_end, self)
     finish
+    # A thread that forked is the child's main thread, so its end ends the
+    # child, as the main thread's end does.
+    Primitive.zr_proc_child_exit(@exception) if equal?(Thread.main)
     # thread_do_start: a SystemExit, or any exception under abort_on_exception,
     # goes on in the main thread.
     Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception || @exception.is_a?(SystemExit))

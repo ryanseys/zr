@@ -1,0 +1,5 @@
+child
+at_exit in child
+3
+["child of popen\nat_exit in child\n", true]
+at_exit in parent
