@@ -24,6 +24,7 @@ $\ = nil
 $VERBOSE = false
 $DEBUG = false
 $-w = false
+$-W = 1
 $FILENAME = +"-"
 $? = nil
 $-a = false

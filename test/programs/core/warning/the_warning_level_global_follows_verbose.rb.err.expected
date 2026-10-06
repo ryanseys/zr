@@ -1,0 +1,1 @@
+core/warning/the_warning_level_global_follows_verbose.rb:16: warning: Ractor API is experimental and may change in future versions of Ruby.

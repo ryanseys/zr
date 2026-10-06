@@ -124,6 +124,20 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     load_file(path, feature, 0)
   end
 
+  # RbConfig's DLEXT and rubyarchdir, which a require needs also where no
+  # library has loaded rbconfig (--disable-gems). ext/rbconfig.rb gives
+  # them from the same facts.
+  def self.dlext
+    Primitive.attr! :hidden
+    RUBY_PLATFORM.include?("darwin") ? "bundle" : "so"
+  end
+
+  def self.archdir
+    Primitive.attr! :hidden
+    prefix = ENV["ZR_PREFIX"] || File.join(ENV["HOME"] || "/tmp", ".zr")
+    "#{prefix}/lib/ruby/4.0.0/#{RUBY_PLATFORM}"
+  end
+
   # CRuby's rb_feature_p for the name as it was written, before any file
   # is found. The entry of $LOADED_FEATURES that is the name (a name with
   # no extension with `.rb`), or a $LOAD_PATH directory joined to it. Else
@@ -134,7 +148,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     Primitive.attr! :hidden
     bare = File.extname(feature).empty?
     name = bare ? "#{feature}.rb" : feature
-    partial = bare ? [feature, "#{feature}.#{RbConfig::CONFIG["DLEXT"]}"] : []
+    partial = bare ? [feature, "#{feature}.#{dlext}"] : []
     dirs = feature.start_with?("/", "./", "../", "~") ? {} : nil
     listed = nil
     $LOADED_FEATURES.each do |entry|
@@ -390,7 +404,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # name with the native extension (for `.so` too, as ruby maps it).
   def self.native_file(feature)
     Primitive.attr! :hidden
-    dlext = ".#{RbConfig::CONFIG["DLEXT"]}"
+    dlext = ".#{Kernel.dlext}"
     ext = File.extname(feature)
     return nil unless ext.empty? || ext == ".so" || ext == dlext
 
@@ -402,7 +416,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # first time, and lists the file where ruby has it.
   def self.builtin_extension(name)
     Primitive.attr! :hidden
-    path = "#{RbConfig::CONFIG["rubyarchdir"]}/#{name}.#{RbConfig::CONFIG["DLEXT"]}"
+    path = "#{archdir}/#{name}.#{dlext}"
     return false if $LOADED_FEATURES.include?(path)
 
     $LOADED_FEATURES << path
@@ -871,6 +885,14 @@ module Kernel
         $stdin $stdout $> $stderr $VERBOSE $-v $, $/ $-0 $\\ $-W $_ $~ $< $! $. $FILENAME $-i $* $$
       ]
     end
+
+    # `$-W`: the warning level that `$VERBOSE` gives, 0 for nil, 1 for
+    # false and 2 for true, as ruby's getter of `$-W` reads it.
+    def warning_level
+      Primitive.attr! :hidden
+      $VERBOSE.nil? ? 0 : $VERBOSE ? 2 : 1
+    end
+    public :warning_level
 
     # The globals ruby refuses to assign.
     READ_ONLY_GLOBALS = %i[$! $& $` $' $+ $$ $? $* $< $FILENAME $LOAD_PATH $LOADED_FEATURES $-a $-l $-p $-W].freeze

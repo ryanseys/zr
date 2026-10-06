@@ -377,6 +377,7 @@ module Zr
         end
         return expr(aliased) if aliased
         return Send.of(Core.new(:Exception, line), :errat, [GvarRead.new(:$!, line)], line) if name == :$@
+        return Send.of(Core.new(:Kernel, line), :warning_level, [], line) if name == :$-W
 
         GvarRead.new(gvar_name(name), line)
       end

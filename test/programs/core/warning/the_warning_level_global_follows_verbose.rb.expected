@@ -1,0 +1,11 @@
+1
+[nil, 0]
+[false, 1]
+[true, 2]
+[1, 2]
+["x", 2]
+"global-variable"
+true
+[NameError, "$-W is a read-only variable", :$-W]
+1
+0
