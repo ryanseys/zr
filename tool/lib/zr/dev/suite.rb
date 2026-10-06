@@ -461,14 +461,15 @@ module Zr
         # passes and zr does not. When zr's run stopped early, the first
         # example that it did not reach is the one that stopped it: it
         # `hangs`, so the next run skips it and gets further. A hang that
-        # the run skipped stays.
+        # the run skipped stays. An example missing from a run that ended
+        # is one that a guard left out in zr: it `fails`.
         def tags_from(result, old)
           return { "" => result["state"] } if %w[build load].include?(result["state"])
 
           # The tests that the run saw hang, or else the first that it did
           # not reach.
           hung = result["hung"]
-          first = hung.nil?
+          first = hung.nil? && !result["ended"]
           result["examples"].each_with_object({}) do |(name, (ruby, zr)), tags|
             next tags[name] = "hangs" if old[name] == "hangs" || hung&.include?(name)
             next unless ruby == "pass" && zr != "pass"

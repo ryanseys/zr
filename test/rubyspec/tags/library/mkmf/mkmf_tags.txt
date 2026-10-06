@@ -1,1 +1,1 @@
-fails:mkmf can be required with --enable-frozen-string-literal
+fails(zr refuses mkmf, which makes C extensions that a compiled program cannot load):mkmf can be required with --enable-frozen-string-literal

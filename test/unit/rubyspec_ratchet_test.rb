@@ -19,6 +19,16 @@ class RubySpecRatchetTest < Minitest::Test
     assert_empty problems, "run zr-dev rubyspec <area> --update-tags after a fix, and commit the tags"
   end
 
+  # A tag that gives a reason (`fails(why):`) is a `fails` tag, and a
+  # rewrite of the tags keeps its reason.
+  def test_a_tag_with_a_reason_fails_and_keeps_the_reason
+    rel = "library/mkmf/mkmf_spec.rb"
+    name = "mkmf can be required with --enable-frozen-string-literal"
+
+    assert_equal({ name => "fails" }, Zr::Dev::RubySpec.tags(rel))
+    assert_match(/\Azr refuses mkmf/, Zr::Dev::RubySpec.reasons(rel)[name])
+  end
+
   # mspec reads a spec file's tags from the path that `tags_path` gives.
   def test_the_tags_of_a_spec_file_are_where_mspec_looks
     assert_equal File.join(Zr::Dev::RubySpec::TAGS, "core/array/pop_tags.txt"), Zr::Dev::RubySpec.tags_path("core/array/pop_spec.rb")

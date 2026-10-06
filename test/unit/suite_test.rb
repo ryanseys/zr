@@ -49,6 +49,18 @@ class SuiteTest < Minitest::Test
     assert_equal Zr::Dev.path("tmp/cruby-test/work/ruby-enc"), area.work
   end
 
+  # A run that stopped early hangs on the first example that it did not
+  # reach. In a run that ended, a missing example is one that a guard left
+  # out, so it fails.
+  def test_a_missing_example_hangs_only_when_the_run_stopped_early
+    area = Zr::Dev::Suite::Area.new(out: Zr::Dev.path("log/cruby-test"), root: "test", area: "ruby/enc", files: [],
+                                    jobs: 1, keep: false, update: false, filtered: false)
+    examples = { "x" => %w[pass missing], "y" => %w[pass missing], "z" => %w[pass fail] }
+
+    assert_equal({ "x" => "hangs", "y" => "fails", "z" => "fails" }, area.tags_from(ran(examples), {}))
+    assert_equal({ "x" => "fails", "y" => "fails", "z" => "fails" }, area.tags_from(ran(examples).merge("ended" => true), {}))
+  end
+
   def test_capture_gives_each_whole_line_as_it_comes
     lines = []
     script = "$stdout.sync = true; print %(one\ntw); sleep 0.2; print %(o\nthree)"

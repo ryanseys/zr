@@ -28,6 +28,7 @@ module Zr
     # in `test/rubyspec/tags/<path>_tags.txt`:
     #
     #   fails:<describe> <it>     zr fails the example
+    #   fails(why):<describe> <it>  zr differs on purpose, for the reason given
     #   hangs:<describe> <it>     zr stops or loops in it; its run skips it
     #   fails(build):             the file does not build
     #   fails(load):              the file raises as it loads
@@ -135,8 +136,19 @@ module Zr
         File.readlines(path, chomp: true).each_with_object({}) do |line, tags|
           case line
           when /\Afails\((build|load)\):\z/ then tags[""] = ::Regexp.last_match(1)
-          when /\A(fails|hangs):(.+)\z/ then tags[::Regexp.last_match(2)] = ::Regexp.last_match(1)
+          when /\A(fails|hangs)(?:\([^)]*\))?:(.+)\z/ then tags[::Regexp.last_match(2)] = ::Regexp.last_match(1)
           end
+        end
+      end
+
+      # The reason of each tag that gives one (`fails(why):`), by name: a
+      # rewrite of the tags keeps it. A file's own tag has no name.
+      def self.reasons(rel)
+        path = tags_path(rel)
+        return {} unless File.file?(path)
+
+        File.readlines(path, chomp: true).each_with_object({}) do |line, reasons|
+          reasons[::Regexp.last_match(2)] = ::Regexp.last_match(1) if line =~ /\A(?:fails|hangs)\(([^)]+)\):(.+)\z/
         end
       end
 
@@ -168,7 +180,12 @@ module Zr
         end
 
         def write_tags(rel, result)
-          lines = tags_from(result, tags(rel)).map { |name, kind| name.empty? ? "fails(#{kind}):" : "#{kind}:#{name}" }
+          reasons = RubySpec.reasons(rel)
+          lines = tags_from(result, tags(rel)).map do |name, kind|
+            next "fails(#{kind}):" if name.empty?
+
+            reasons[name] ? "#{kind}(#{reasons[name]}):#{name}" : "#{kind}:#{name}"
+          end
           path = RubySpec.tags_path(rel)
           return FileUtils.rm_f(path) if lines.empty?
 
