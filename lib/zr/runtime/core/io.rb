@@ -996,6 +996,7 @@ class IO
   # takes its status. A child that the program already waited for leaves
   # `$?` cleared, with no error.
   private def reap_child
+    Primitive.attr! :hidden
     pid = @pid
     @pid = nil
     Process.send(:status!, nil)

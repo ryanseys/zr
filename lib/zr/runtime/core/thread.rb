@@ -466,6 +466,7 @@ class Thread
   # thread_join_m: no limit, or one past what a timespec holds, waits
   # without end; a limit of zero or less waits for nothing.
   private def join_deadline(limit)
+    Primitive.attr! :hidden
     return nil if limit.nil?
 
     seconds = Thread.send(:seconds, limit)
