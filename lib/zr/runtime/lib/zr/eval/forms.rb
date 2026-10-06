@@ -48,6 +48,7 @@ class Binding
   # stays in the Binding, as it changes the Binding's cref in ruby, so the
   # next eval in it sees the refinement.
   def self.run_using(code, binding)
+    Primitive.attr! :hidden
     result = Primitive.zr_binding_run(code, binding)
     Primitive.zr_hidden_set(binding, :__using__, code[5]) if code[5]
     result
