@@ -338,10 +338,18 @@ class Thread
         elsif (to = next_sleeper)
           break
         end
+        signal_wakes_main
       end
       @switching = false
       to.send(:take_over, from) unless to.equal?(from)
       from.send(:interrupted)
+    end
+
+    # A signal that came while every thread waited cut the wait short, and
+    # no safe point ran its command: the main thread wakes to run it.
+    def signal_wakes_main
+      Primitive.attr! :hidden
+      Thread.main.send(:signalled) if Primitive.zr_trap_pending
     end
 
     # The sleeper whose deadline comes first, once it passes; nil when a

@@ -182,6 +182,12 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Whether a signal came whose handler has not run yet.
+  #: () -> value
+  def zr_trap_pending
+    zr_bool(Machine.load64(Machine.static(:signal_pending, 8), 0) != 0)
+  end
+
   # A safe point: runs the Ruby handlers of all received POSIX signals.
   # Returns QUNDEF if a handler raised.
   #: () -> value
