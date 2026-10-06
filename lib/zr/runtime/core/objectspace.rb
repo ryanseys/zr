@@ -133,7 +133,7 @@ module ObjectSpace
   def define_finalizer(obj, callable = nil, &block)
     callable ||= block
     raise ArgumentError, +"tried to create Proc object without a block" if callable.nil?
-    raise ArgumentError, "wrong type argument #{callable.class} (should be callable)" unless callable.respond_to?(:call)
+    raise ArgumentError, "wrong type argument #{callable.class} (should be callable)" unless callable.respond_to?(:call, true)
     raise ArgumentError, "cannot define finalizer for #{obj.class}" if Primitive.zr_special_p_m(obj)
 
     Primitive.zr_frozen_error(obj) if obj.frozen?
