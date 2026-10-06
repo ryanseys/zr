@@ -1,0 +1,8 @@
+"[]: [] length mismatch (given 0, expected 1+)"
+"[0]: [0] does not match to find pattern"
+"0: 0 does not respond to #deconstruct"
+nil
+[:a, :b]
+[:a]
+nil
+[]

@@ -17,9 +17,13 @@ class File < IO
     name = path.split("/").reject(&:empty?).last || +""
     return name if suffix.nil? || name == suffix
 
+    # ruby_enc_find_basename: the extension is past the leading dots, so
+    # ".." and ".bashrc" keep their whole name.
     if suffix == +".*"
+      lead = 0
+      lead += 1 while lead < name.size && name[lead] == +"."
       dot = name.rindex(".")
-      return dot && dot > 0 ? name[0, dot] : name
+      return dot && dot >= lead ? name[0, dot] : name
     end
     name.end_with?(suffix) ? name[0, name.size - suffix.size] : name
   end
@@ -81,10 +85,12 @@ class File < IO
   def self.join(*parts) = joined(parts, {}.compare_by_identity)
 
   # rb_file_join: an Array in the parts is joined first, and an Array
-  # that contains itself is refused.
+  # that contains itself is refused. The result is binary with no parts;
+  # else it starts in the first part's encoding and takes the encoding
+  # of each part it joins (fs_enc_check).
   def self.joined(parts, joining)
     Primitive.attr! :hidden
-    out = +""
+    out = +"".b
     joining[parts] = true
     parts.each_index do |i|
       part = parts[i]
@@ -99,14 +105,17 @@ class File < IO
         raise Encoding::CompatibilityError, "path name must be ASCII-compatible (#{part.encoding}): #{part.inspect}"
       end
       raise ArgumentError, +"string contains null byte" if nul_char?(part)
-      if i.positive?
-        if part.start_with?("/")
-          out.sub!(%r{/+\z}, "")
-        elsif !out.end_with?("/")
-          out << "/"
-        end
+      if i.zero?
+        out.force_encoding(part.encoding)
+      elsif part.start_with?("/")
+        out.sub!(%r{/+\z}, "")
+      elsif !out.end_with?("/")
+        out << "/"
       end
+      encoding = Encoding.compatible?(out, part)
+      encoding = out.encoding == Encoding::US_ASCII ? part.encoding : out.encoding if encoding == Encoding::US_ASCII
       out << part
+      out.force_encoding(encoding) if encoding
     end
     joining.delete(parts)
     out
