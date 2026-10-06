@@ -964,6 +964,13 @@ module Zr::Kern
     # comes here and not to `Kernel.load_file`. A computed require also
     # gives the name that it used, in `Kernel.load_file`.
     if kind != 2
+      # The entry has stood for the running file since it started. ruby
+      # provides the feature when the file ends, so it goes last, after
+      # what the file itself added.
+      if !hidden
+        zr_ary_delete_string(visible, path)
+        zr_ary_push(visible, path)
+      end
       zr_autoload_provided(Machine.value(QNIL), path)
     end
     Machine.value(QTRUE)

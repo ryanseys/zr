@@ -150,7 +150,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     Primitive.attr! :hidden
     bare = File.extname(feature).empty?
     name = bare ? "#{feature}.rb" : feature
-    partial = bare ? [feature, "#{feature}.#{dlext}"] : []
+    # IS_SOEXT: a native name is .so or .o, or the platform DLEXT.
+    partial = bare ? [feature, "#{feature}.so", "#{feature}.o", "#{feature}.#{dlext}"].uniq : []
     dirs = feature.start_with?("/", "./", "../", "~") ? {} : nil
     listed = nil
     $LOADED_FEATURES.each do |entry|
@@ -221,13 +222,18 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
     code = ::Zr::Eval.current.compile(File.read(path), path, 1, [], false)
     top = TOPLEVEL_BINDING.receiver.clone.extend(mod)
-    # top_include: main's `include` in a wrapped load goes into the
-    # wrapper module, not Object.
-    top.define_singleton_method(:include) do |*modules|
-      warn("main.include in the wrapped load is effective only in wrapper module", uplevel: 1) if $VERBOSE
-      mod.include(*modules)
+    # rb_top_main_class: main's `include`, `public`, `private` and
+    # `define_method` in a wrapped load act on the wrapper module, not
+    # Object. With no names, `public` and `private` stay main's own.
+    %i[include public private define_method].each do |name|
+      top.define_singleton_method(name) do |*args, &block|
+        return super(*args, &block) if args.empty? && name != :include
+
+        warn("main.#{name} in the wrapped load is effective only in wrapper module", uplevel: 0) if $VERBOSE
+        mod.send(name, *args, &block)
+      end
+      top.singleton_class.send(:private, name)
     end
-    top.singleton_class.send(:private, :include)
     Primitive.zr_eval_run(code, top, Primitive.zr_wrap_cref(mod), nil, nil)
     true
   end
