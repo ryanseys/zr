@@ -334,8 +334,9 @@ module Zr::Kern
       # backtrace label does.
       zr_ary_push(row, FrameMeta[home == 0 ? method : zr_frame_label_meta(home)].owner)
     elsif entry != 0
-      # A define_method body runs as a block, under its method's name.
-      zr_ary_push(row, zr_sym(MEntry[entry].mid))
+      # A define_method body runs as a block, under its method's name:
+      # the name it was defined with, and the name of the call.
+      zr_ary_push(row, zr_sym(MEntry[entry].orig))
       zr_ary_push(row, zr_sym(MEntry[entry].mid))
       zr_ary_push(row, FrameMeta[MEntry[entry].meta].owner)
     else
@@ -533,7 +534,7 @@ module Zr::Kern
       Task[t].pending = Machine.value(QNIL)
     end
     row = zr_trace_row(event, value == QUNDEF ? Machine.value(QNIL) : value, meta, FrameMeta[meta].line)
-    zr_ary_push(row, zr_sym(MEntry[e].mid))
+    zr_ary_push(row, zr_sym(MEntry[e].orig))
     zr_ary_push(row, zr_sym(MEntry[e].mid))
     zr_ary_push(row, FrameMeta[MEntry[e].meta].owner)
     zr_ary_push(row, recv)

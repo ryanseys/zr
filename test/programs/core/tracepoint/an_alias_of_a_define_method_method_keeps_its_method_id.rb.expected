@@ -1,0 +1,16 @@
+[:b_call, nil, nil]
+[:call, :m, :alias_m]
+[:b_call, :m, :alias_m]
+[:b_return, :m, :alias_m]
+[:return, :m, :alias_m]
+[:call, :m, :m]
+[:b_call, :m, :m]
+[:b_return, :m, :m]
+[:return, :m, :m]
+[:call, :m, :am2]
+[:b_call, :m, :am2]
+[:b_return, :m, :am2]
+[:return, :m, :am2]
+[:b_return, nil, nil]
+:alias_m
+:m
