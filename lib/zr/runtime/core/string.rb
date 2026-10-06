@@ -2096,7 +2096,11 @@ class String
 
   # Replaces every invalid byte with `replacement` (U+FFFD, or the
   # block's return value for the bad bytes).
+  # enc_str_scrub: a block and a replacement together are refused first,
+  # also for valid text, and a block that changes the String stops the
+  # scrub (str_mod_check).
   def scrub(replacement = nil)
+    raise ArgumentError, +"both of block and replacement given" if block_given? && !replacement.nil?
     return copied if Primitive.zr_str_valid_p(self)
 
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
@@ -2111,8 +2115,9 @@ class String
     end
     mb = Encoding.mb?(encoding)
     out = empty_like
+    size = Primitive.zr_str_bytesize(self)
     i = 0
-    while i < Primitive.zr_str_bytesize(self)
+    while i < size
       step = Primitive.zr_str_char_len_at_m(self, i)
       piece = byteslice(i, step)
       if piece.valid_encoding?
@@ -2123,7 +2128,14 @@ class String
         elsif encoding.equal?(Encoding::UTF_8)
           piece = byteslice(i, step = utf8_scrub_len(i))
         end
-        out << (block_given? ? scrub_replacement(yield(piece), encoding) : replacement)
+        if block_given?
+          given = yield(piece)
+          raise RuntimeError, +"string modified" unless Primitive.zr_str_bytesize(self) == size
+
+          out << scrub_replacement(given, encoding)
+        else
+          out << replacement
+        end
       end
       i += step
     end

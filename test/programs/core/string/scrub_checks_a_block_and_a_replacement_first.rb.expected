@@ -1,0 +1,7 @@
+[ArgumentError, "both of block and replacement given"]
+[ArgumentError, "both of block and replacement given"]
+"a<81>c"
+[ArgumentError, "replacement must be valid byte sequence '\"\\x81\"'"]
+[RuntimeError, "string modified"]
+"\x00\xD8"
+"?あ"
