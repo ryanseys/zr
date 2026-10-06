@@ -1,1 +1,0 @@
-fails:Ripper.lex lexes a simple method declaration

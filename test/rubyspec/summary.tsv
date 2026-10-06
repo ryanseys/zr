@@ -99,7 +99,7 @@ library/random	1	8	8	0	0
 library/rbconfig	5	29	23	0	0
 library/readline	25	0	0	0	0
 library/resolv	4	6	6	0	0
-library/ripper	2	2	1	0	0
+library/ripper	2	2	2	0	0
 library/rubygems	2	2	1	0	0
 library/securerandom	5	40	40	0	0
 library/shellwords	1	7	7	0	0
@@ -118,4 +118,4 @@ library/weakref	5	9	9	0	0
 library/win32ole	74	0	0	0	0
 library/yaml	9	61	61	0	0
 library/zlib	41	148	148	0	0
-total	3723	33144	33131	0	0
+total	3723	33144	33132	0	0
