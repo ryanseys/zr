@@ -2037,7 +2037,9 @@ module Zr::Kern
     end
     if e == 0 || (MEntry[e].core & 1) != 0
       known = true
-      if e == 0 || (MEntry[e].kind != KIND_UNDEF && !zr_entry_hidden_p(e) && !zr_program_aliased_p(ext, e, mid))
+      # An entry that `alias m m` marked, or a visibility copy, is an alias
+      # or a ZSUPER entry in ruby, whose redefinition does not warn.
+      if e == 0 || (MEntry[e].kind != KIND_UNDEF && !zr_entry_hidden_p(e) && MEntry[e].from == QNIL && !zr_program_aliased_p(ext, e, mid))
         known = zr_warn_core_redefined(owner, mid)
       end
       if known || e == 0

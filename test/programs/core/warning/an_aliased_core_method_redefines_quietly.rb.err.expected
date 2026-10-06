@@ -1,0 +1,2 @@
+core/warning/an_aliased_core_method_redefines_quietly.rb:18: warning: method redefined; discarding old length
+core/warning/an_aliased_core_method_redefines_quietly.rb:22: warning: method redefined; discarding old size
