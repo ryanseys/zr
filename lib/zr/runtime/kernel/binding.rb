@@ -309,7 +309,7 @@ module Zr::Kern
     end
     # The core's anonymous Procs (curry, Hash#to_proc) are C functions in
     # CRuby, and have no binding either.
-    if RProc[p].meta == 0 || RProc[p].meta == zr_anonymous_meta()
+    if RProc[p].meta == 0 || RProc[p].meta == zr_anonymous_meta() || RProc[p].meta == zr_anonymous_meta1()
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("Can't create Binding from C level Proc"), 38)
     end
     if (RBasic[p].flags & FL_ISOLATED) != 0

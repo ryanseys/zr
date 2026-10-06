@@ -794,7 +794,8 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("#<"), 2)
-    zr_buf_class(b, zr_class_of(recv))
+    # rb_obj_class: a Method with a singleton class still shows its class.
+    zr_buf_class(b, zr_real_class(recv))
     zr_buf_push(b, Machine.bytes(": "), 2)
     owner = RMethod[recv].owner
     klass = RMethod[recv].klass

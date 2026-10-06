@@ -1,0 +1,9 @@
+#<Method: Integer#+(_)>
+false
+Method
+#<UnboundMethod: Integer#+(_)>
+[#<Method: String#upcase(*)>, :noted]
+"Can't create Binding from C level Proc"
+"Can't create Binding from C level Proc"
+1
+[1, true, nil]
