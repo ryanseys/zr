@@ -1,0 +1,2 @@
+pattern.rb:7: warning: character class has duplicated range: /\A[[:alpha\:]]\z/
+two.rb:2: warning: character class has duplicated range: /\A[[:^alpha:]0]\z/

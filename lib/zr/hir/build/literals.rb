@@ -368,21 +368,17 @@ module Zr
       #: () -> bool
       def keeps_warnings? = !@loader&.eval?
 
-      # What the engine wrote to $stderr while it read `held`. The read is
-      # also the check: an invalid pattern raises.
+      # The engine's warnings for `held`, as [verbose, message] rows. The
+      # read is also the check: an invalid pattern raises.
       #
-      # The only way to keep those warnings is to replace $stderr and
-      # $VERBOSE. A build can do this, because it forks and nothing else
-      # in that process writes. An eval compile runs inside the program,
-      # where all threads share the two, and where ruby lets the engine
-      # warn on the program's stderr (as `eval("/(?:a?)*b/")` does). So
-      # there, the pattern is read with no redirection.
-      #: (String held, Integer options) -> String
+      # A build replaces $stderr and $VERBOSE to keep them, because it
+      # forks and nothing else in that process writes. An eval compile runs
+      # inside the program, where all threads share the two. There, zr's
+      # own Regexp compiler gives the rows, and the program's toplevel
+      # prints them at the literal's file and line, as ruby's parser does.
+      #: (String held, Integer options) -> Array[[bool, String]]
       def read_pattern(held, options)
-        unless keeps_warnings?
-          Regexp.new(held, options)
-          return ""
-        end
+        return compiled_warnings(held, options) unless keeps_warnings?
 
         written = Written.new
         stderr = $stderr
@@ -393,11 +389,23 @@ module Zr
           $stderr = written # steep:ignore IncompatibleAssignment
           $VERBOSE = false
           Regexp.new(held, options)
-          written
+          written.scan(/warning: (.*)$/).map { |(message)| [false, message] }
         ensure
           $stderr = stderr
           $VERBOSE = verbose
         end
+      end
+
+      # The rows of zr's own Regexp compiler. CRuby, which runs an eval
+      # compile on the host, has no such compiler: there the engine prints
+      # its own warnings.
+      #: (String held, Integer options) -> Array[[bool, String]]
+      def compiled_warnings(held, options)
+        rows = Regexp.send(:compiled, held, Regexp.send(:option_bits, options))[4] # steep:ignore NoMethod
+        rows.map { |verbose, text| [verbose, text.to_s] }
+      rescue NoMethodError
+        Regexp.new(held, options)
+        []
       end
 
       # The branch that a literal condition always selects, or nil if the
@@ -424,8 +432,9 @@ module Zr
         # `n` reads the pattern as bytes, so a non-ASCII escape is valid
         # only there. The check must read it the same way.
         held = node.unescaped.dup.force_encoding(node.ascii_8bit? ? ::Encoding::BINARY : (pinned || node.unescaped.encoding))
-        written = read_pattern(held, regexp_options(node))
-        written.scan(/warning: (.*)$/) { |(message)| @warnings << "#{Paths.shown(@file)}:#{line}: warning: #{message}" }
+        read_pattern(held, regexp_options(node)).each do |verbose, message|
+          @warnings << "#{Loader::VERBOSE_WARNING if verbose}#{Paths.shown(@file)}:#{line}: warning: #{message}"
+        end
         RegexpLit.new(node.unescaped, regexp_options(node), pinned, line)
       rescue RegexpError => e
         invalid(node, "#{e.message.sub(/: \/.*\z/m, "")}: /#{node.unescaped}/")

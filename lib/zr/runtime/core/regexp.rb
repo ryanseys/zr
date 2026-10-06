@@ -559,11 +559,13 @@ class Regexp
     !backref?(regexp.source, Primitive.zr_regexp_captures(regexp))
   end
 
-  # The linear matcher gives up on a backreference, a subexpression call
-  # or the absent operator. Inside a `[...]` class `\1` is an octal
-  # escape and `\k` is a literal k, so a class contains none of them.
+  # The linear matcher gives up on a backreference, a subexpression call,
+  # the absent operator, or a capture inside a lookahead. Inside a `[...]`
+  # class `\1` is an octal escape and `\k` is a literal k, so a class
+  # contains none of them.
   def self.backref?(source, captures)
     in_class = false
+    groups = []
     i = 0
     while i < source.size
       c = source[i]
@@ -575,14 +577,32 @@ class Regexp
         in_class = true
       elsif c == +"]"
         in_class = false
-      elsif c == +"(" && !in_class && source[i, 3] == +"(?~"
-        return true
+      elsif c == +"(" && !in_class
+        return true if source[i, 3] == +"(?~"
+
+        kind = group_kind(source, i)
+        return true if kind == :capture && groups.include?(:ahead)
+
+        groups << kind
+      elsif c == +")" && !in_class
+        groups.pop
       end
       i += 1
     end
     false
   end
   private_class_method :backref?
+
+  # What the group that opens at `i` is: a lookahead, a capture (plain or
+  # named), or any other group.
+  def self.group_kind(source, i)
+    return :capture unless source[i + 1] == +"?"
+    return :ahead if source[i + 2] == +"=" || source[i + 2] == +"!"
+    return :capture if source[i + 2] == +"'" || (source[i + 2] == +"<" && source[i + 3] != +"=" && source[i + 3] != +"!")
+
+    :other
+  end
+  private_class_method :group_kind
 
   # `\k<n>`, `\k'n'`, `\g<n>`, `\g'n'`, and a digit run that refers to a
   # group of the pattern. A run past the last group, or one that starts
