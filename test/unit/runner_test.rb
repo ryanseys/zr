@@ -64,6 +64,37 @@ class RunnerTest < Minitest::Test
     end
   end
 
+  # A child ruby runs the steps, since a test must not move this
+  # process's directory.
+  def test_a_lost_directory_is_left_for_the_build_and_given_back_to_the_program
+    Zr::Paths.tmpdir("zr-runner-") do |dir|
+      gone = File.join(dir, "gone")
+      Dir.mkdir(gone)
+      script = <<~RUBY
+        require "zr/cli/runner"
+        Dir.chdir(ARGV[0])
+        Dir.rmdir(ARGV[0])
+        Zr::CLI::Runner.keep_lost_cwd
+        puts Dir.pwd
+        Zr::CLI::Runner.program_env
+        begin
+          Dir.pwd
+        rescue Errno::ENOENT => e
+          puts e.class
+        end
+      RUBY
+      out = IO.popen([RbConfig.ruby, "-I", File.expand_path("../../lib", __dir__), "-e", script, gone], &:read)
+      assert_equal "/\nErrno::ENOENT\n", out, "zr builds from /, and the program is back in the lost directory"
+    end
+  end
+
+  def test_a_directory_that_is_there_stays
+    out = IO.popen([RbConfig.ruby, "-I", File.expand_path("../../lib", __dir__), "-e",
+                    "require 'zr/cli/runner'; Zr::CLI::Runner.keep_lost_cwd; Zr::CLI::Runner.program_env; puts Dir.pwd"],
+                   chdir: __dir__, &:read)
+    assert_equal "#{File.realpath(__dir__)}\n", out
+  end
+
   private
 
   def in_cache

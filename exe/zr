@@ -17,6 +17,7 @@ $VERBOSE = false
 $DEBUG = false
 require_relative "../lib/zr/cli"
 Zr::CLI.guard do
+  Zr::CLI::Runner.keep_lost_cwd
   # A bad setting stops here, before the server gets the command.
   argv = Zr::CLI.settings!(ARGV)
   Zr::Config.current

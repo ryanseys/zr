@@ -30,13 +30,32 @@ module Zr
       # `ZR_RUBY` names this `zr`, so the program's `RbConfig.ruby` is the zr
       # that ran it (lib/zr/runtime/ext/rbconfig.rb), as a ruby program's is
       # the ruby that ran it.
+      #
+      # The program also starts in the directory that zr started in, when
+      # zr had to build from another one (`keep_lost_cwd`).
       #: () -> Hash[String, String?]
       def program_env
+        Dir.fchdir(@lost_cwd.fileno) if @lost_cwd # rubocop:disable ThreadSafety/ClassInstanceVariable
         env = GcTuning.program_env
         launcher = $PROGRAM_NAME
         return env unless File.basename(launcher) == "zr" && File.file?(launcher)
 
         env.merge("ZR_RUBY" => pinned_launcher(EXE))
+      end
+
+      # A ruby may start in a directory that is gone; its program finds
+      # that out only when it asks for the directory. zr reads paths while
+      # it builds, so it builds from "/" and keeps a handle on the lost
+      # directory, which `program_env` goes back to.
+      # It runs once, at the start, while zr has one thread.
+      #: () -> void
+      def keep_lost_cwd
+        Dir.pwd
+      rescue Errno::ENOENT
+        # rubocop:disable ThreadSafety/ClassInstanceVariable, ThreadSafety/DirChdir
+        @lost_cwd = Dir.new(".")
+        Dir.chdir("/")
+        # rubocop:enable ThreadSafety/ClassInstanceVariable, ThreadSafety/DirChdir
       end
 
       # The launcher that this copy of zr starts from.
