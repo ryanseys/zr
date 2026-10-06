@@ -1,0 +1,10 @@
+[:before, [:waits, true]]
+[:after_a_read, [:waits, true], true]
+[:declared_after, [:waits, true]]
+[NameError, "uninitialized constant Shared2"]
+[:after_its_own_read, [nil, false], false]
+[:file_deleted, [:waits, true]]
+[:after_require, [nil, false]]
+[:declared_after_require, [nil, false]]
+[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]
+10

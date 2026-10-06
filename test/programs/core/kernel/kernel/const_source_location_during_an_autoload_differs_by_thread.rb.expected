@@ -1,0 +1,4 @@
+Module#const_source_location: [["const_source_location_during_an_autoload_differs_by_thread.rb", 8], ["assigned.rb", 2], ["const_source_location_during_an_autoload_differs_by_thread.rb", 8], ["assigned.rb", 2]]
+Object.const_source_location with a path: [["const_source_location_during_an_autoload_differs_by_thread.rb", 8], ["assigned.rb", 2], ["const_source_location_during_an_autoload_differs_by_thread.rb", 8], ["assigned.rb", 2]]
+:pending
+nil

@@ -18,6 +18,37 @@ Dir.mktmpdir do |dir|
     p e.class
   end
   p mod2.autoload?(:T), mod2.constants
+  
+  # When the copy reads first, the file defines the name in the original
+  # only. The copy loses the name, and the original keeps no autoload.
+  File.write(File.join(dir, "u_file.rb"), "DupHolder::S2::U = :autoload_u\n")
+  first = Module.new { autoload :U, File.join(dir, "u_file") }
+  DupHolder::S2 = first
+  copy = first.dup
+  begin
+    copy::U
+  rescue NameError => e
+    p e.message.sub(/#<Module:0x\h+>/, "M")
+  end
+  p [first.autoload?(:U), first.constants, copy.autoload?(:U), copy.constants]
+  p first::U
+  
+  # Another module with an autoload of the same file still waits for it
+  # after the read, and its own read then finds the name undefined.
+  File.write(File.join(dir, "v_file.rb"), "DupHolder::S3::V = :autoload_v\n")
+  v_path = File.join(dir, "v_file")
+  orig = Module.new { autoload :V, v_path }
+  DupHolder::S3 = orig
+  twin = orig.dup
+  other = Module.new { autoload :V, v_path }
+  p orig::V
+  p [twin.autoload?(:V) ? :waits : nil, twin.constants, other.autoload?(:V) ? :waits : nil, other.constants]
+  begin
+    other::V
+  rescue NameError => e
+    p e.message.sub(/#<Module:0x\h+>/, "M")
+  end
+  p other.constants
 
   # A loaded constant is the copy's own, and the copy's constants are its own.
   m3 = Module.new { const_set(:Y, 2) }

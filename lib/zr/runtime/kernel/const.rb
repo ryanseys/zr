@@ -447,10 +447,7 @@ module Zr::Kern
     elsif v != QUNDEF
       # A value set on a name that still waits for its autoload file stays,
       # and the autoload stops waiting for the file.
-      i = zr_autoload_row(klass, id)
-      if i >= 0
-        zr_ary_splice(zr_global(G_AUTOLOADS), zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
-      end
+      zr_autoload_forget(klass, id)
     end
     CEntry[e].value = v
     zr_write_barrier(klass, v)
@@ -1288,6 +1285,19 @@ module Zr::Kern
     if e == 0
       return Machine.value(QNIL)
     end
+    # While another task reads the autoload file, the constant that the
+    # file assigned is not visible here, so its place is the autoload's.
+    i = zr_autoload_busy_row(CEntry[e].owner, CEntry[e].id)
+    if i >= 0
+      place = zr_ary_at(zr_global(G_AUTOLOADING), i + AUTOLOADING_PLACE)
+      return zr_ary_subseq(place, 0, RArray[place].len)
+    end
+    zr_const_place(e)
+  end
+
+  # `[file, line]` of entry `e`, or `[]` when it has no file.
+  #: (ptr) -> value
+  def zr_const_place(e)
     out = zr_ary_new(2)
     if CEntry[e].file_len > 0
       zr_ary_push(out, zr_str_new(CEntry[e].file, CEntry[e].file_len))
@@ -1374,10 +1384,7 @@ module Zr::Kern
     # A name that still waits for its file also forgets the file, and
     # returns nil, as CRuby's rb_const_remove does.
     if v == QUNDEF
-      i = zr_autoload_row(recv, id)
-      if i >= 0
-        zr_ary_splice(zr_global(G_AUTOLOADS), zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
-      end
+      zr_autoload_forget(recv, id)
       return Machine.value(QNIL)
     end
     v
@@ -1504,13 +1511,18 @@ module Zr::Kern
   # Each record of G_AUTOLOADS has AUTOLOAD_ROW words: the module, the
   # name, the feature as the program wrote it, the function of the unit as
   # a fixnum, the require kind (zr_require's: 0, or 3 for eval support's
-  # own files), and the resolved path of the feature. A require of the same
-  # file records that path. A feature that the program computed has no
-  # unit. Its kind is AUTOLOAD_REQUIRE, and the first read of the constant
-  # calls `require` on main with it, as ruby's autoload does.
+  # own files), the resolved path of the feature, and the module whose
+  # autoload table holds the record. A require of the same file records
+  # that path. A feature that the program computed has no unit. Its kind
+  # is AUTOLOAD_REQUIRE, and the first read of the constant calls
+  # `require` on main with it, as ruby's autoload does.
   # `Kernel#autoload` and `Kernel.autoload` register on the class of the
   # caller, as CRuby's rb_f_autoload does.
-  AUTOLOAD_ROW = 6
+  #
+  # The table is the module itself, except for a copy: rb_mod_init_copy
+  # gives the copy its original's table, so a value set on the name in the
+  # original, or its removal, ends the record of the copy too.
+  AUTOLOAD_ROW = 7
   AUTOLOAD_REQUIRE = 4
   # The kind of a record whose feature a require would not read, because
   # the program contains it or a require already read it. The record stays, as ruby keeps its
@@ -1521,11 +1533,22 @@ module Zr::Kern
   # `zr_autoload_provided` finds the require that provided its feature.
   AUTOLOAD_DECLARED = 5
   # The autoloads whose file a task reads now, as rows of the task (a
-  # Fixnum of its address) and the autoload's own record. A read of the
-  # name from another task waits until the row goes, as
-  # autoload_load_needed waits on the autoload's mutex.
+  # Fixnum of its address), the autoload's own record, and the place where
+  # `autoload` declared the name. A read of the name from another task
+  # waits until the row goes, as autoload_load_needed waits on the
+  # autoload's mutex.
   G_AUTOLOADING = 68
-  AUTOLOADING_ROW = AUTOLOAD_ROW + 1
+  AUTOLOADING_ROW = AUTOLOAD_ROW + 2
+  # The features (as the program wrote them) that a read of an autoload
+  # has loaded. ruby shares one autoload record among all the names of a
+  # feature, and the first read gives it a mutex that stays. From then on,
+  # `check_autoload_required` (variable.c) counts each of these names as
+  # waiting, whether or not $LOADED_FEATURES has the file. So a require of
+  # the file does not make them declared only.
+  G_AUTOLOAD_READ = 73
+  # The place in a row of G_AUTOLOADING. Until the file ends, other tasks
+  # see this place, not the one where the file assigns the constant.
+  AUTOLOADING_PLACE = AUTOLOAD_ROW + 1
 
   #: (value, word, value, ptr, value, word, value) -> value
   def zr_autoload(mod, id, feature, fn, cref, kind, path)
@@ -1565,7 +1588,8 @@ module Zr::Kern
     # no file. ruby keeps no record for that, and only declares the name.
     # The compiler does the same check for a feature that the runtime
     # contains, which is in no table that a program can read.
-    if kind != AUTOLOAD_DECLARED && zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString[path].ptr, RString[path].len)
+    if kind != AUTOLOAD_DECLARED && !zr_autoload_read(feature) &&
+       zr_ary_has_bytes(zr_gvar_get(Machine.id(:$LOADED_FEATURES)), RString[path].ptr, RString[path].len)
       kind = AUTOLOAD_DECLARED
     end
     # The name is declared and the entry exists before the hook runs. Thus
@@ -1578,7 +1602,7 @@ module Zr::Kern
     # keeps a record for a feature that is already provided, but does not
     # count it. A second `autoload` of the same name replaces this record,
     # and a read of the name gets its feature from it.
-    zr_autoload_push(rows, mod, id, feature, fn, kind, path)
+    zr_autoload_push(rows, mod, id, feature, fn, kind, path, mod)
     r = zr_const_announce(mod, id)
     return r if r == QUNDEF
     Machine.value(QNIL)
@@ -1608,18 +1632,41 @@ module Zr::Kern
     if RString[feature].len == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)
     end
-    zr_autoload(mod, id, feature, Machine.ptr(0), cref, loaded == QTRUE ? AUTOLOAD_DECLARED : AUTOLOAD_REQUIRE,
+    zr_autoload(mod, id, feature, Machine.ptr(0), cref, loaded == QTRUE && !zr_autoload_read(feature) ? AUTOLOAD_DECLARED : AUTOLOAD_REQUIRE,
                 zr_special_p(file) ? feature : file)
   end
 
-  #: (value, value, word, value, ptr, word, value) -> void
-  def zr_autoload_push(rows, mod, id, feature, fn, kind, path)
+  #: (value, value, word, value, ptr, word, value, value) -> void
+  def zr_autoload_push(rows, mod, id, feature, fn, kind, path, table)
     zr_ary_push(rows, mod)
     zr_ary_push(rows, zr_sym(id))
     zr_ary_push(rows, feature)
     zr_ary_push(rows, zr_fix(Machine.word(fn)))
     zr_ary_push(rows, zr_fix(kind))
     zr_ary_push(rows, path)
+    zr_ary_push(rows, table)
+  end
+
+  # A value was set on the name `id` of `mod`, or the name was removed:
+  # autoload_delete removes the name from the autoload table of `mod`, so
+  # each record of that table for the name goes, a copy's too.
+  #: (value, word) -> void
+  def zr_autoload_forget(mod, id)
+    rows = zr_global(G_AUTOLOADS)
+    i = zr_autoload_row(mod, id)
+    if i < 0
+      table = mod
+    else
+      table = zr_ary_at(rows, i + 6)
+    end
+    i = 0
+    while !zr_special_p(rows) && i < RArray[rows].len
+      if zr_ary_at(rows, i + 1) == zr_sym(id) && zr_ary_at(rows, i + 6) == table
+        zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
+      else
+        i += AUTOLOAD_ROW
+      end
+    end
   end
 
   # The first read of a constant whose feature the program computed. It
@@ -1648,8 +1695,9 @@ module Zr::Kern
     zr_feature_loader(zr_ary_at(rows, i + 5)) != zr_fix(Machine.word(zr_task()))
   end
 
-  # rb_mod_init_copy: the copy of a module shares the autoloads that its
-  # original still waits for, so each gets the same record for the copy.
+  # rb_mod_init_copy: the copy of a module shares the autoload table of its
+  # original, so each record of the original gets a twin for the copy in
+  # the same table.
   #: (value, value) -> void
   def zr_autoload_copy(orig, copy)
     rows = zr_global(G_AUTOLOADS)
@@ -1702,12 +1750,30 @@ module Zr::Kern
     end
     i = 0
     while i < RArray[rows].len
-      if zr_autoload_names(zr_ary_at(rows, i + 2), feature) || zr_autoload_names(zr_ary_at(rows, i + 5), path)
+      kept = zr_ary_at(rows, i + 2)
+      if (zr_autoload_names(kept, feature) || zr_autoload_names(zr_ary_at(rows, i + 5), path)) && !zr_autoload_read(kept)
         zr_ary_store(rows, i + 4, zr_fix(AUTOLOAD_DECLARED))
       end
       i += AUTOLOAD_ROW
     end
     Machine.value(QNIL)
+  end
+
+  # Whether a read of an autoload has loaded `feature` (G_AUTOLOAD_READ).
+  #: (value) -> bool
+  def zr_autoload_read(feature)
+    read = zr_global(G_AUTOLOAD_READ)
+    if zr_special_p(read)
+      return false
+    end
+    i = 0
+    while i < RArray[read].len
+      if zr_autoload_names(zr_ary_at(read, i), feature)
+        return true
+      end
+      i += 1
+    end
+    false
   end
 
   # Whether the `kept` string of the record is `asked`. A record registered
@@ -1747,16 +1813,9 @@ module Zr::Kern
     if i >= 0
       return zr_ary_at(zr_global(G_AUTOLOADS), i + 2)
     end
-    rows = zr_global(G_AUTOLOADING)
-    if zr_special_p(rows)
-      return Machine.value(QNIL)
-    end
-    i = 0
-    while i < RArray[rows].len
-      if zr_ary_at(rows, i + 1) == mod && zr_ary_at(rows, i + 2) == zr_sym(id) && zr_ary_at(rows, i) != zr_fix(Machine.word(zr_task()))
-        return zr_ary_at(rows, i + 3)
-      end
-      i += AUTOLOADING_ROW
+    i = zr_autoload_busy_row(mod, id)
+    if i >= 0
+      return zr_ary_at(zr_global(G_AUTOLOADING), i + 3)
     end
     Machine.value(QNIL)
   end
@@ -1843,16 +1902,21 @@ module Zr::Kern
         fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
         kind = zr_fix2long(zr_ary_at(rows, i + 4))
         path = zr_ary_at(rows, i + 5)
+        table = zr_ary_at(rows, i + 6)
         zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
+        if !zr_autoload_read(feature)
+          zr_ary_push(zr_global_list(G_AUTOLOAD_READ), feature)
+        end
         busy = zr_global_list(G_AUTOLOADING)
         zr_ary_push(busy, zr_fix(Machine.word(zr_task())))
-        zr_autoload_push(busy, mod, id, feature, fn, kind, path)
+        zr_autoload_push(busy, mod, id, feature, fn, kind, path, table)
+        zr_ary_push(busy, zr_const_place(e))
         r = kind == AUTOLOAD_REQUIRE ? zr_autoload_require(feature) : zr_require(path, fn, kind)
         zr_autoload_done(mod, id)
         # If the file did not load, the entry stays, so the next read of the name
         # does the same check again.
         if r == QUNDEF
-          zr_autoload_push(rows, mod, id, feature, fn, kind, path)
+          zr_autoload_push(rows, mod, id, feature, fn, kind, path, table)
           return r
         end
         e = zr_const_row(mod, id)
@@ -1876,18 +1940,26 @@ module Zr::Kern
   # `mod` and `id` now.
   #: (value, word) -> bool
   def zr_autoload_busy(mod, id)
+    zr_autoload_busy_row(mod, id) >= 0
+  end
+
+  # The index in G_AUTOLOADING of the row of another task that reads the
+  # file of the autoload of `mod` and `id` now, or -1.
+  #: (value, word) -> word
+  def zr_autoload_busy_row(mod, id)
     rows = zr_global(G_AUTOLOADING)
     if zr_special_p(rows)
-      return false
+      return 0 - 1
     end
+    task = zr_fix(Machine.word(zr_task()))
     i = 0
     while i < RArray[rows].len
-      if zr_ary_at(rows, i + 1) == mod && zr_ary_at(rows, i + 2) == zr_sym(id) && zr_ary_at(rows, i) != zr_fix(Machine.word(zr_task()))
-        return true
+      if zr_ary_at(rows, i + 1) == mod && zr_ary_at(rows, i + 2) == zr_sym(id) && zr_ary_at(rows, i) != task
+        return i
       end
       i += AUTOLOADING_ROW
     end
-    false
+    0 - 1
   end
 
   # Whether any task reads the file of the autoload of `mod` and `id` now.
@@ -1937,7 +2009,8 @@ module Zr::Kern
           i += AUTOLOADING_ROW
         else
           zr_autoload_push(zr_global_list(G_AUTOLOADS), zr_ary_at(rows, i + 1), zr_sym2id(zr_ary_at(rows, i + 2)), zr_ary_at(rows, i + 3),
-                           Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 4))), zr_fix2long(zr_ary_at(rows, i + 5)), zr_ary_at(rows, i + 6))
+                           Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 4))), zr_fix2long(zr_ary_at(rows, i + 5)), zr_ary_at(rows, i + 6),
+                           zr_ary_at(rows, i + 7))
           zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOADING_ROW), zr_ary_new(0))
         end
       end

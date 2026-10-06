@@ -4,6 +4,13 @@ true
 NameError
 nil
 [:T]
+"uninitialized constant M::U"
+[nil, [:U], nil, []]
+:autoload_u
+:autoload_v
+[nil, [:V], :waits, [:V]]
+"uninitialized constant M::V"
+[]
 [:Y]
 [:Z]
 2
