@@ -186,7 +186,9 @@ module Signal
 
     def interrupt(exception)
       Primitive.attr! :hidden
-      Thread.current.equal?(Thread.main) ? Kernel.raise(exception) : Thread.main.raise(exception)
+      # rb_threadptr_signal_raise: the main thread's handle_interrupt
+      # masks may hold the exception back.
+      Thread.main.raise(exception)
     end
 
     # The EXIT trap, run once as the program ends and before its at_exit

@@ -2446,6 +2446,9 @@ class IO
     Primitive.attr! :hidden
     check_open
     raise IOError, +"not opened for writing" unless @writable
+
+    # A write takes the stream's write lock, which is a blocking point.
+    Thread.send(:blocking_point)
     return if @buffer.empty? || @universal
 
     clear_buffer unless Primitive.zr_io_seek(@fd, -@buffer.bytesize, SEEK_CUR).negative?

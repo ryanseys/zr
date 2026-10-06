@@ -1,0 +1,9 @@
+[:went_on, "self"]
+"now"
+[:main, "from ensure"]
+:ok
+[:thread, "in sleep"]
+"before the write"
+outer
+false
+Interrupt

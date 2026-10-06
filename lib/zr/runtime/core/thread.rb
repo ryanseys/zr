@@ -124,6 +124,16 @@ class Thread
 
     def pending_interrupt?(error = nil) = current.pending_interrupt?(error)
 
+    # Where a call that can block starts, as blocking_region_begin: an
+    # exception that waits for a blocking call (:on_blocking) arrives.
+    def blocking_point
+      Primitive.attr! :hidden
+      return unless Primitive.zr_threaded
+
+      thread = current
+      thread.send(:at_blocking) if thread.pending_interrupt?
+    end
+
     # Whether a deadlock goes unreported: every thread then waits for
     # good, where a signal's handler may still wake one.
     def ignore_deadlock = equal?(Thread) ? @ignore_deadlock == true : Thread.ignore_deadlock
@@ -546,7 +556,9 @@ class Thread
     return nil if @status == :dead
 
     exception = Exception.send(:setup, args, opts)
-    Kernel.raise(exception) if equal?(Thread.current)
+    # A thread that raises on itself queues the exception too, so a mask
+    # may hold it back.
+    Kernel.raise(exception) if equal?(Thread.current) && !masked?(exception)
     @raised_first = !@killed
     @pending = exception
     wakeup
@@ -753,6 +765,14 @@ class Thread
     throw tag
   end
 
+  def at_blocking
+    Primitive.attr! :hidden
+    @blocking = true
+    interrupted
+  ensure
+    @blocking = false
+  end
+
   def push_mask(mask)
     Primitive.attr! :hidden
     (@masks ||= []) << mask
@@ -922,6 +942,8 @@ class Thread
     Thread.send(:sleep_until, self, deadline) if deadline
     begin
       @blocking = true
+      # An exception held for a blocking call arrives as the wait starts.
+      interrupted if @pending
       Thread.send(:switch, deadly && deadline.nil?)
     ensure
       @blocking = false
