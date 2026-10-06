@@ -1,0 +1,4 @@
+lang/variables/or_assignment_writes_only_when_it_has_to.rb:31: warning: already initialized constant K
+lang/variables/or_assignment_writes_only_when_it_has_to.rb:30: warning: previous definition of K was here
+lang/variables/or_assignment_writes_only_when_it_has_to.rb:36: warning: already initialized constant Holder::X
+lang/variables/or_assignment_writes_only_when_it_has_to.rb:33: warning: previous definition of X was here

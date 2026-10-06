@@ -1,0 +1,2 @@
+core/file/dir_chdir_warns_for_a_chdir_inside_a_chdir_block_and_dir_hom.rb:8: warning: conflicting chdir during another chdir block
+core/file/dir_chdir_warns_for_a_chdir_inside_a_chdir_block_and_dir_hom.rb:7: note: previous chdir was here

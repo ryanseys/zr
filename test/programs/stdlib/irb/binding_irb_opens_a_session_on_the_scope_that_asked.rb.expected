@@ -1,0 +1,13 @@
+
+From: stdlib/irb/binding_irb_opens_a_session_on_the_scope_that_asked.rb @ line 2 :
+
+    1: x = 41
+ => 2: binding.irb
+    3: puts "after #{x}"
+
+Switch to inspect mode.
+p x + 1
+42
+42
+exit
+after 41

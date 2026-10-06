@@ -1,0 +1,5 @@
+compiler/fusion/an_unresolved_constant_in_extend_raises_nameerror_from_the_c.rb:5:in '<module:Sock>': uninitialized constant Sock::FFI (NameError)
+
+  extend FFI
+         ^^^
+	from compiler/fusion/an_unresolved_constant_in_extend_raises_nameerror_from_the_c.rb:4:in '<main>'

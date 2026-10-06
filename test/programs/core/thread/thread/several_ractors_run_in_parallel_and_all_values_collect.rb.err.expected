@@ -1,1 +1,0 @@
-core/thread/thread/several_ractors_run_in_parallel_and_all_values_collect.rb:1: warning: Ractor API is experimental and may change in future versions of Ruby.

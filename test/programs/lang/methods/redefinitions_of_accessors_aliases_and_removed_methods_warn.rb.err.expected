@@ -1,0 +1,13 @@
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:4: warning: method redefined; discarding old a
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:4: warning: previous definition of a was here
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:4: warning: method redefined; discarding old b
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:6: warning: method redefined; discarding old puts
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:7: warning: method redefined; discarding old +
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:8: warning: method redefined; discarding old <
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:10: warning: method redefined; discarding old x
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:10: warning: previous definition of x was here
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:13: warning: redefining 'object_id' may cause serious problems
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:13: warning: redefining '__send__' may cause serious problems
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:14: warning: redefining Object#initialize may cause infinite loop
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:18: warning: method redefined; discarding old puts
+lang/methods/redefinitions_of_accessors_aliases_and_removed_methods_warn.rb:21: warning: redefining Object#respond_to_missing? may cause infinite loop

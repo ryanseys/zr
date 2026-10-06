@@ -1,0 +1,2 @@
+core/array/join_warns_when_is_set_and_the_deprecated_category_is_on.rb:2: warning: non-nil '$,' is deprecated
+core/array/join_warns_when_is_set_and_the_deprecated_category_is_on.rb:3: warning: $, is set to non-nil value

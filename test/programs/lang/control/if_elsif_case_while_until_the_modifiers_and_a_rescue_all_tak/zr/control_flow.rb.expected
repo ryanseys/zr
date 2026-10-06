@@ -1,0 +1,39 @@
+4950
+3628800
+nil
+3
+yes
+not four
+nil
+A
+B
+C
+F
+10
+nil
+2
+very negative
+negative
+zero
+small
+big
+{k: 2}
+"caught RuntimeError: boom"
+"listed ArgumentError"
+"listed TypeError"
+"standard"
+42
+:fine
+"inner"
+"outer"
+"outer"
+"inner"
+nil
+"fussy"
+Fussy
+["lang/control/if_elsif_case_while_until_the_modifiers_and_a_rescue_all_tak/zr/control_flow.rb:152:in 'Object#deep'", "lang/control/if_elsif_case_while_until_the_modifiers_and_a_rescue_all_tak/zr/control_flow.rb:154:in 'Object#shallow'"]
+"returned x"
+nil
+[1, "e2", 3]
+:stopped
+[0, "e", 2]

@@ -1,0 +1,1 @@
+core/exception/a_frozen_exception_raises_as_it_is_with_no_backtrace.rb: frozen one (RuntimeError)

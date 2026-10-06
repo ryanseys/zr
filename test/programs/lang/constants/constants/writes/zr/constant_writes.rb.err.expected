@@ -1,8 +1,0 @@
-lang/constants/constants/writes/zr/constant_writes.rb:14: warning: already initialized constant EMPTY
-lang/constants/constants/writes/zr/constant_writes.rb:13: warning: previous definition of EMPTY was here
-lang/constants/constants/writes/zr/constant_writes.rb:18: warning: already initialized constant BOTH
-lang/constants/constants/writes/zr/constant_writes.rb:17: warning: previous definition of BOTH was here
-lang/constants/constants/writes/zr/constant_writes.rb:25: warning: already initialized constant Holder::COUNT
-lang/constants/constants/writes/zr/constant_writes.rb:22: warning: previous definition of COUNT was here
-lang/constants/constants/writes/zr/constant_writes.rb:31: warning: already initialized constant Holder::COUNT
-lang/constants/constants/writes/zr/constant_writes.rb:25: warning: previous definition of COUNT was here

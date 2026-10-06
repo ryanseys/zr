@@ -1,6 +1,0 @@
-["core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:16:in 'Holder#boom'", "core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:40:in '<main>'"]
-["core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:22:in 'Holder#wboom'", "core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:41:in '<main>'"]
-["core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:28:in 'Holder#bboom'", "core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:42:in '<main>'"]
-["core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:34:in 'Holder#hand'", "core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:43:in '<main>'"]
-["wrong number of arguments (given 1, expected 0)", "core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:44:in '<main>'"]
-["core/tracepoint/tracepoint/attr_reader_call_backtrace_line.rb:46:in '<main>'"]

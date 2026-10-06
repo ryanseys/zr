@@ -1,2 +1,0 @@
-stdlib/zlib/zlib/zlib_refuses_a_constant_that_is_not_a_module.rb:8: warning: already initialized constant Zlib
-stdlib/zlib/zlib/zlib_refuses_a_constant_that_is_not_a_module.rb:2: warning: previous definition of Zlib was here

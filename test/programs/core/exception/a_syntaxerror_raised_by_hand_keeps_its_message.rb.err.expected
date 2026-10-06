@@ -1,0 +1,1 @@
+core/exception/a_syntaxerror_raised_by_hand_keeps_its_message.rb:6:in '<main>': msg (SyntaxError)

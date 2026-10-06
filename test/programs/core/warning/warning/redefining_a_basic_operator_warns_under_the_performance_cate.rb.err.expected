@@ -1,7 +1,0 @@
-performance: core/warning/warning/redefining_a_basic_operator_warns_under_the_performance_cate.rb:9: warning: Redefining 'Integer#+' disables interpreter and JIT optimizations
-performance: core/warning/warning/redefining_a_basic_operator_warns_under_the_performance_cate.rb:13: warning: Redefining 'String#length' disables interpreter and JIT optimizations
-performance: core/warning/warning/redefining_a_basic_operator_warns_under_the_performance_cate.rb:16: warning: Redefining 'Array#empty?' disables interpreter and JIT optimizations
-performance: core/warning/warning/redefining_a_basic_operator_warns_under_the_performance_cate.rb:19: warning: Redefining 'Hash#size' disables interpreter and JIT optimizations
-performance: core/warning/warning/redefining_a_basic_operator_warns_under_the_performance_cate.rb:22: warning: Redefining 'Float#<' disables interpreter and JIT optimizations
-performance: core/warning/warning/redefining_a_basic_operator_warns_under_the_performance_cate.rb:26: warning: Redefining 'Symbol#==' disables interpreter and JIT optimizations
-performance: core/warning/warning/redefining_a_basic_operator_warns_under_the_performance_cate.rb:35: warning: Redefining 'NilClass#nil?' disables interpreter and JIT optimizations

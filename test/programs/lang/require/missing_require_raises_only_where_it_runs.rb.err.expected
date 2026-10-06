@@ -1,0 +1,2 @@
+lang/require/missing_require_raises_only_where_it_runs.rb:18:in 'Kernel#require_relative': cannot load such file -- lang/require/zz_missing_relative_file (LoadError)
+	from lang/require/missing_require_raises_only_where_it_runs.rb:18:in '<main>'

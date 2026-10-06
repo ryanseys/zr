@@ -1,0 +1,15 @@
+lang/syntax/program_that_does_not_parse_prints_rubys_report.rb: --> lang/syntax/program_that_does_not_parse_prints_rubys_report.rb
+
+Unmatched keyword, missing `end' ?
+
+> 3  puts "never printed"
+> 4  class O; def s=(v) = @s = v; end
+
+lang/syntax/program_that_does_not_parse_prints_rubys_report.rb:4: syntax error found (SyntaxError)
+  2 | # running any of it.
+  3 | puts "never printed"
+> 4 | class O; def s=(v) = @s = v; end
+    |              ^~ invalid method name; a setter method cannot be defined in an endless method definition
+  5 | # The two lines after the error are in the report, so the recording
+  6 | # below never is.
+

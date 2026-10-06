@@ -1,0 +1,8 @@
+["core/tracepoint/frozen_error_backtrace_extra_frame.rb:7:in '<main>'"]
+["core/tracepoint/frozen_error_backtrace_extra_frame.rb:13:in '<main>'"]
+["core/tracepoint/frozen_error_backtrace_extra_frame.rb:19:in '<main>'"]
+["core/tracepoint/frozen_error_backtrace_extra_frame.rb:25:in '<main>'"]
+"core/tracepoint/frozen_error_backtrace_extra_frame.rb:32:in 'String#[]='"
+"core/tracepoint/frozen_error_backtrace_extra_frame.rb:38:in 'String#concat'"
+"core/tracepoint/frozen_error_backtrace_extra_frame.rb:44:in 'Array#sort!'"
+"core/tracepoint/frozen_error_backtrace_extra_frame.rb:51:in 'Sink#<<'"

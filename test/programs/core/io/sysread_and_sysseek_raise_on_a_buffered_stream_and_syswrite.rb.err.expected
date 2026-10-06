@@ -1,0 +1,1 @@
+core/io/sysread_and_sysseek_raise_on_a_buffered_stream_and_syswrite.rb:10: warning: syswrite for buffered IO

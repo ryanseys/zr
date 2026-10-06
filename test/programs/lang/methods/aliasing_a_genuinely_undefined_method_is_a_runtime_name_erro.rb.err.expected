@@ -1,0 +1,3 @@
+lang/methods/aliasing_a_genuinely_undefined_method_is_a_runtime_name_erro.rb:10:in '<class:Foo>': undefined method 'undefined_method' for class 'Foo' (NameError)
+Did you mean?  undef_method
+	from lang/methods/aliasing_a_genuinely_undefined_method_is_a_runtime_name_erro.rb:9:in '<main>'

@@ -1,2 +1,0 @@
-lang/exceptions/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_na.rb:10:in 'Box#check': MyError (MyError)
-	from lang/exceptions/exceptions/raise_with_a_bare_class_defaults_the_message_to_the_class_na.rb:13:in '<main>'

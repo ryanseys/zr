@@ -1,0 +1,23 @@
+["stdlib/objspace/objspace_traces_allocations.rb", 11, nil, nil, Integer]
+["stdlib/objspace/objspace_traces_allocations.rb", 7, "String", :*, Integer]
+["stdlib/objspace/objspace_traces_allocations.rb", 13, "Array", :map, Integer]
+["stdlib/objspace/objspace_traces_allocations.rb", 13, "Integer", :to_s, Integer]
+nil
+nil
+nil
+nil
+nil
+Integer
+true
+[:T_OBJECT, :T_CLASS, :T_MODULE]
+:TOTAL
+true
+[:mortal_dynamic_symbol, :immortal_dynamic_symbol, :immortal_static_symbol, :immortal_symbol]
+Hash
+Hash
+String
+"\"type\":\"STRING\""
+"\"value\":\"abc\""
+"null"
+"7"
+"true"

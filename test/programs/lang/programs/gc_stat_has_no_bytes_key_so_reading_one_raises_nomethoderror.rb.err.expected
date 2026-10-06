@@ -1,0 +1,4 @@
+lang/programs/gc_stat_has_no_bytes_key_so_reading_one_raises_nomethoderror.rb:7:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+puts s["bytes"] >= 0
+                ^^

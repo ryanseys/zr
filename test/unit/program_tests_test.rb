@@ -107,10 +107,10 @@ class ProgramTestsTest < Minitest::Test
   end
 
   def test_zr_programs_picks_the_tests_below_its_paths
-    picked = Programs.cases("core/gc/gc, lang/blocks").map(&:rel)
+    picked = Programs.cases("core/gc, lang/blocks").map(&:rel)
 
     refute_empty picked
-    assert(picked.all? { |rel| rel.start_with?("core/gc/gc/", "lang/blocks/") })
+    assert(picked.all? { |rel| rel.start_with?("core/gc/", "lang/blocks/") })
     assert_raises(ArgumentError) { Programs.cases("no/such/area") }
   end
 end

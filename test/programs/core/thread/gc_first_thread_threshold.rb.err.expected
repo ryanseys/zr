@@ -1,0 +1,4 @@
+core/thread/gc_first_thread_threshold.rb:25:in '<main>': undefined method '>=' for nil (NoMethodError)
+
+p after >= before
+        ^^

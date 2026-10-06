@@ -1,4 +1,0 @@
-lang/constants/constants/masgn_constpath_target.rb:8: warning: already initialized constant M::X
-lang/constants/constants/masgn_constpath_target.rb:5: warning: previous definition of X was here
-lang/constants/constants/masgn_constpath_target.rb:10: warning: already initialized constant M::Y
-lang/constants/constants/masgn_constpath_target.rb:6: warning: previous definition of Y was here

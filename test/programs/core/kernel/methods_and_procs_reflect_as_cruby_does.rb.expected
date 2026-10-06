@@ -1,0 +1,13 @@
+1: "#<Method: #<Class:String>(Module)#include(*)>"
+2: "#<Method: Object(#<Module:X>)#bar() core/kernel/methods_and_procs_reflect_as_cruby_does.rb:10>"
+3: true
+4: true
+5: [[:req, :_], [:req, :_]]
+6: [[:opt, :_], [:opt, :_]]
+7: true
+8: true
+9: A
+10: #<Method: A#foo() core/kernel/methods_and_procs_reflect_as_cruby_does.rb:23>
+11: A
+12: true
+14: ArgumentError: Can't create Binding from C level Proc

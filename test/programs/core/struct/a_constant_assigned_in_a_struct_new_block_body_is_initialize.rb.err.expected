@@ -1,0 +1,4 @@
+core/struct/a_constant_assigned_in_a_struct_new_block_body_is_initialize.rb:20:in '<main>': uninitialized constant Line::FLAGS (NameError)
+
+puts Line::FLAGS[:TWOSIDED]
+         ^^^^^^^

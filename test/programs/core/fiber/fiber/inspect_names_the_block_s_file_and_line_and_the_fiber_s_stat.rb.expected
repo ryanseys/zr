@@ -1,9 +1,0 @@
-#<Fiber:X core/fiber/fiber/inspect_names_the_block_s_file_and_line_and_the_fiber_s_stat.rb:8 (created)>
-#<Fiber:X (suspended by resuming)>
-#<Fiber:X core/fiber/fiber/inspect_names_the_block_s_file_and_line_and_the_fiber_s_stat.rb:8 (suspended by resuming)>
-#<Fiber:X core/fiber/fiber/inspect_names_the_block_s_file_and_line_and_the_fiber_s_stat.rb:9 (suspended)>
-#<Fiber:X core/fiber/fiber/inspect_names_the_block_s_file_and_line_and_the_fiber_s_stat.rb:8 (terminated)>
-true
-#<Fiber:X(&:itself) (created)>
-false
-true

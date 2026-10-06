@@ -51,7 +51,7 @@ baseline that passes fails the run, so these lists are current.
 
 | Test | Why |
 |---|---|
-| `stdlib/ffi/ffi/a_thread_runs_off_the_process_main_thread.rb` | a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it |
+| `stdlib/ffi/a_thread_runs_off_the_process_main_thread.rb` | a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it |
 
 ### aarch64-linux-musl
 
@@ -61,12 +61,12 @@ None.
 
 | Test | Why |
 |---|---|
-| `stdlib/ffi/ffi/toplevel_runs_on_the_process_main_thread.rb` | the program runs on a ruby thread with a big stack, not on the process main thread, whose stack the OS sizes |
-| `stdlib/digest/digest/big5_and_euc_jp_encode_exactly.rb` | too slow for the walker: encoding every code point to U+2FFFF twice runs past the 120 s host limit |
-| `stdlib/json/json/a_document_handed_straight_to_parse_stays_rooted_for_the_who.rb` | too slow for the walker: parsing an 80,000-record document (sized so the parse collects) runs past the 120 s host limit |
-| `stdlib/json/json/tens_of_thousands_of_generated_documents_each_answer_or_rais.rb` | too slow for the walker: parsing tens of thousands of generated documents runs past the 120 s host limit |
-| `stdlib/zlib/zlib/deflate_flush_modes_and_chunks.rb` | too slow for the walker: deflating 100 KB in one-byte chunks (100,000 deflate calls) runs past the 120 s host limit |
-| `compiler/builtins/builtins/marshal_private_surfaces.rb` | too slow for the walker: Random's Mersenne Twister state is Integer work that the walker does in bignum kernel code, about 115 s alone, and past the 120 s host limit under a test run's load |
+| `stdlib/ffi/toplevel_runs_on_the_process_main_thread.rb` | the program runs on a ruby thread with a big stack, not on the process main thread, whose stack the OS sizes |
+| `stdlib/digest/big5_and_euc_jp_encode_exactly.rb` | too slow for the walker: encoding every code point to U+2FFFF twice runs past the 120 s host limit |
+| `stdlib/json/a_document_handed_straight_to_parse_stays_rooted_for_the_who.rb` | too slow for the walker: parsing an 80,000-record document (sized so the parse collects) runs past the 120 s host limit |
+| `stdlib/json/tens_of_thousands_of_generated_documents_each_answer_or_rais.rb` | too slow for the walker: parsing tens of thousands of generated documents runs past the 120 s host limit |
+| `stdlib/zlib/deflate_flush_modes_and_chunks.rb` | too slow for the walker: deflating 100 KB in one-byte chunks (100,000 deflate calls) runs past the 120 s host limit |
+| `compiler/builtins/marshal_private_surfaces.rb` | too slow for the walker: Random's Mersenne Twister state is Integer work that the walker does in bignum kernel code, about 115 s alone, and past the 120 s host limit under a test run's load |
 | `core/regexp/encoding/every_string_method_taking_a_pattern_reads_wide_and_legacy_t.rb` | too slow for the walker: Onigmo's matcher runs as kernel Ruby over every String method and encoding, about 125 s alone, past the 120 s host limit |
 | `core/regexp/encoding/a_pattern_over_chinese_or_korean_text_reads_whole_characters.rb` | too slow for the walker: Onigmo's matcher runs as kernel Ruby over large multibyte texts, about 122 s alone, past the 120 s host limit |
 
@@ -86,15 +86,15 @@ None.
 | `cli/stdlib/bundler/bundler_resolves_a_gemfile.rb` | the build holds more than 2048 MB |
 | `cli/stdlib/bundler/require_bundler.rb` | the build holds more than 3072 MB |
 | `cli/stdlib/socket/socket_loopback.rb` | cannot load such file -- socket/constants |
-| `core/array/array/float_round_digits_cruby.rb` | pow has no wasm form |
-| `core/array/array/float_round_ndigits_return_type.rb` | pow has no wasm form |
-| `core/array/array/float_round_truncate_ndigits.rb` | pow has no wasm form |
-| `core/array/array/ivar_array_filled_from_outside.rb` | pow has no wasm form |
+| `core/array/float_round_digits_cruby.rb` | pow has no wasm form |
+| `core/array/float_round_ndigits_return_type.rb` | pow has no wasm form |
+| `core/array/float_round_truncate_ndigits.rb` | pow has no wasm form |
+| `core/array/ivar_array_filled_from_outside.rb` | pow has no wasm form |
 | `lang/methods/dispatch/a_user_to_f_beside_the_builtin_one_widens_the_call_s_return.rb` | strtod has no wasm form |
 | `core/hash/regressions/any_none_one_and_count_take_a_pair_argument_and_a_hash_serve.rb` | fmod has no wasm form |
-| `lang/methods/methods/class_method_site_stays_correct_when_the_class_changes.rb` | hypot has no wasm form |
-| `core/hash/hash/thread_value_hash_tail.rb` | can't allocate fiber stack: Function not implemented |
+| `lang/methods/class_method_site_stays_correct_when_the_class_changes.rb` | hypot has no wasm form |
+| `core/hash/thread_value_hash_tail.rb` | can't allocate fiber stack: Function not implemented |
 | `core/hash/enumeration/a_blockless_each_or_each_pair_is_an_enumerator_over_the_pair.rb` | can't allocate fiber stack: Function not implemented |
 | `core/hash/formatting/eql_compares_by_value_and_replace_widens_the_receiver_to_hol.rb` | can't allocate fiber stack: Function not implemented |
-| `core/hash/hash/dir_chdir_block_form_restores_the_previous_directory.rb` | chdir has no wasm form |
-| `lang/methods/methods/eval_return_belongs_to_the_enclosing_method.rb` | return from an eval is not walked yet |
+| `core/hash/dir_chdir_block_form_restores_the_previous_directory.rb` | chdir has no wasm form |
+| `lang/methods/eval_return_belongs_to_the_enclosing_method.rb` | return from an eval is not walked yet |

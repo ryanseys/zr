@@ -1,0 +1,5 @@
+[20, :eval, "Kernel", "main", "1 + 1", "(eval at core/tracepoint/fires_script_compiled_for_each_string_a_program_evaluates.rb:20)", "<compiled>", 1]
+[21, :instance_eval, "BasicObject", "1", "2", "(eval at core/tracepoint/fires_script_compiled_for_each_string_a_program_evaluates.rb:21)", "<compiled>", 1]
+[22, :class_eval, "Module", "String", "3", "(eval at core/tracepoint/fires_script_compiled_for_each_string_a_program_evaluates.rb:22)", "<compiled>", 1]
+[23, :module_eval, "Module", "String", "4", "(eval at core/tracepoint/fires_script_compiled_for_each_string_a_program_evaluates.rb:23)", "<compiled>", 1]
+[24, :eval, "Kernel", "main", "6", "given.rb", "<compiled>", 40]

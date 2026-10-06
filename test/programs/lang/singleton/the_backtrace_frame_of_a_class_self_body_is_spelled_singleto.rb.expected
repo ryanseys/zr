@@ -1,0 +1,3 @@
+lang/singleton/the_backtrace_frame_of_a_class_self_body_is_spelled_singleto.rb:7:in 'block (2 levels) in singleton class'
+boom
+lang/singleton/the_backtrace_frame_of_a_class_self_body_is_spelled_singleto.rb:21:in 'Config.direct'

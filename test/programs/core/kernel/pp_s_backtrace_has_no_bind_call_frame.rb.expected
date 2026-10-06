@@ -1,0 +1,3 @@
+core/kernel/pp_s_backtrace_has_no_bind_call_frame.rb:2:in 'Bad#pretty_print'
+core/kernel/pp_s_backtrace_has_no_bind_call_frame.rb:5:in 'Kernel#pp'
+core/kernel/pp_s_backtrace_has_no_bind_call_frame.rb:5:in '<main>'

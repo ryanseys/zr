@@ -1,0 +1,7 @@
+core/numeric/numeric_i_over_a_subclass_raises_ruby_s_argumenterror_naming.rb:27:in 'Comparable#<': comparison of Deg with 0 failed (ArgumentError)
+
+  p n.i
+    ^^^
+	from core/numeric/numeric_i_over_a_subclass_raises_ruby_s_argumenterror_naming.rb:27:in 'Complex#inspect'
+	from core/numeric/numeric_i_over_a_subclass_raises_ruby_s_argumenterror_naming.rb:27:in 'Kernel#p'
+	from core/numeric/numeric_i_over_a_subclass_raises_ruby_s_argumenterror_naming.rb:27:in '<main>'

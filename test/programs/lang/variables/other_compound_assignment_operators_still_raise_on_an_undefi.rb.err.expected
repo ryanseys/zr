@@ -1,0 +1,1 @@
+lang/variables/other_compound_assignment_operators_still_raise_on_an_undefi.rb:8:in '<main>': uninitialized constant UNDEF (NameError)

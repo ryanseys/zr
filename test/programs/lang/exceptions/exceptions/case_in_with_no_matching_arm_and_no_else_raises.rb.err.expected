@@ -1,1 +1,0 @@
-lang/exceptions/exceptions/case_in_with_no_matching_arm_and_no_else_raises.rb:4:in '<main>': 5: String === 5 does not return true (NoMatchingPatternError)

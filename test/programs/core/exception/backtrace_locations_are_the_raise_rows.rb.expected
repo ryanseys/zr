@@ -1,0 +1,16 @@
+Array
+3
+[Thread::Backtrace::Location]
+3
+"Object#inner"
+"inner"
+"core/exception/backtrace_locations_are_the_raise_rows.rb"
+"core/exception/backtrace_locations_are_the_raise_rows.rb:3:in 'Object#inner'"
+"\"core/exception/backtrace_locations_are_the_raise_rows.rb:3:in 'Object#inner'\""
+true
+true
+nil
+nil
+["a.rb:1:in 'm'"]
+1
+["b.rb:2"]

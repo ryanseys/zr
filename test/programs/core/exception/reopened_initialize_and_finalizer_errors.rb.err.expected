@@ -1,0 +1,2 @@
+core/exception/reopened_initialize_and_finalizer_errors.rb: warning: Exception in finalizer #<Proc:0xADDR core/exception/reopened_initialize_and_finalizer_errors.rb:28>
+core/exception/reopened_initialize_and_finalizer_errors.rb:28:in 'block in <main>': ignored (RuntimeError)

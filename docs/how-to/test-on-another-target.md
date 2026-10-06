@@ -35,7 +35,7 @@ and the reason. The key is the path of the program below
 ```
 # wasi has no processes and no signals.
 cli/core/process/process_spawn.rb	spawn() is unimplemented on wasi
-core/hash/hash/dir_chdir_block_form_restores_the_previous_directory.rb	chdir has no wasm form
+core/hash/dir_chdir_block_form_restores_the_previous_directory.rb	chdir has no wasm form
 ```
 
 The program tests read the baseline of the target that they run

@@ -1,0 +1,4 @@
+lang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches.rb:7: warning: already initialized constant MAX
+lang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches.rb:6: warning: previous definition of MAX was here
+lang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches.rb:9: warning: already initialized constant MAX
+lang/variables/compound_assignment_on_a_plain_non_class_constant_dispatches.rb:7: warning: previous definition of MAX was here

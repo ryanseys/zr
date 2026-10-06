@@ -1,0 +1,6 @@
+"core/exception/full_message_passes_its_keywords_on_and_follows_rb_error_wri.rb:5:in 'full_message': m {foo: 1} false\n"
+"core/exception/full_message_passes_its_keywords_on_and_follows_rb_error_wri.rb:6:in 'full_message': m {order: :top, bar: 2} false\n"
+"core/exception/full_message_passes_its_keywords_on_and_follows_rb_error_wri.rb:7:in 'full_message': unhandled exception\n"
+"core/exception/full_message_passes_its_keywords_on_and_follows_rb_error_wri.rb:8:in 'full_message': \e[1;4mArgumentError\e[m\n"
+"Traceback (most recent call last):\n\t2: from c:3\n\t1: from b:2\na:1: r (RuntimeError)\n"
+"over:1: b (B)\n\tfrom over:2\n"

@@ -1,9 +1,0 @@
-["core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:6:in 'Kernel#Integer'", "core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:6:in '<main>'"]
-["core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:12:in 'Kernel#Hash'", "core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:12:in '<main>'"]
-"core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:18:in 'Kernel#Float'"
-"core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:24:in 'Kernel#Rational'"
-"core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:30:in 'Kernel#Integer'"
-["core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:38:in 'Kernel#Integer'", "core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:38:in '<main>'"]
-"core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:44:in 'Kernel#Integer'"
-["core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:49:in 'Kernel#Integer'", "core/tracepoint/tracepoint/kernel_conversion_backtrace_frame.rb:49:in 'Object#wrapped'"]
-[nil, nil]

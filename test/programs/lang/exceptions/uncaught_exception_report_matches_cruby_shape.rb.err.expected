@@ -1,0 +1,3 @@
+lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:4:in 'Object#inner': boom (RuntimeError)
+	from lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:5:in 'Object#outer'
+	from lang/exceptions/uncaught_exception_report_matches_cruby_shape.rb:6:in '<main>'

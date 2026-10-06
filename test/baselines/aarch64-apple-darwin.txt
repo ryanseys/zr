@@ -6,4 +6,4 @@
 # test that passes fails the run, with a message to remove it from this
 # file. Thus the file cannot become out of date.
 
-stdlib/ffi/ffi/a_thread_runs_off_the_process_main_thread.rb	a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it
+stdlib/ffi/a_thread_runs_off_the_process_main_thread.rb	a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it

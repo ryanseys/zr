@@ -1,5 +1,0 @@
-#<Thread:0xADDR core/thread/thread/a_deadlock_after_queues_mutexes_and_condition_variables_rais.rb:70 run> terminated with exception (report_on_exception is true):
-core/thread/thread/a_deadlock_after_queues_mutexes_and_condition_variables_rais.rb:70:in 'block (2 levels) in <main>': rep (ArgumentError)
-
-t(:roe_output) { th = Thread.new { raise ArgumentError, "rep" }; sleep 0.01 while th.alive?; th.join rescue $!.message }
-                                         ^^^^^^^^^^^^^^^^^^^^

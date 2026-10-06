@@ -1,4 +1,0 @@
-compiler/guards/guards/scaffolded_extension_constant_resolves_but_is_a_name_error_w.rb:5:in '<main>': uninitialized constant JSON (NameError)
-
-puts JSON.generate([1])
-     ^^^^

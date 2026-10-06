@@ -35,22 +35,22 @@ cli/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants
 
 # A WASI module has no libm. The WASI layer defines frexp and ldexp only
 # (lib/zr/runtime/kernel/os/wasi/libm.rb).
-core/array/array/float_round_digits_cruby.rb	pow has no wasm form
-core/array/array/float_round_ndigits_return_type.rb	pow has no wasm form
-core/array/array/float_round_truncate_ndigits.rb	pow has no wasm form
-core/array/array/ivar_array_filled_from_outside.rb	pow has no wasm form
+core/array/float_round_digits_cruby.rb	pow has no wasm form
+core/array/float_round_ndigits_return_type.rb	pow has no wasm form
+core/array/float_round_truncate_ndigits.rb	pow has no wasm form
+core/array/ivar_array_filled_from_outside.rb	pow has no wasm form
 lang/methods/dispatch/a_user_to_f_beside_the_builtin_one_widens_the_call_s_return.rb	strtod has no wasm form
 core/hash/regressions/any_none_one_and_count_take_a_pair_argument_and_a_hash_serve.rb	fmod has no wasm form
-lang/methods/methods/class_method_site_stays_correct_when_the_class_changes.rb	hypot has no wasm form
+lang/methods/class_method_site_stays_correct_when_the_class_changes.rb	hypot has no wasm form
 
 # wasi cannot allocate a fiber stack: no Thread, and no external
 # Enumerator (`next`).
-core/hash/hash/thread_value_hash_tail.rb	can't allocate fiber stack: Function not implemented
+core/hash/thread_value_hash_tail.rb	can't allocate fiber stack: Function not implemented
 core/hash/enumeration/a_blockless_each_or_each_pair_is_an_enumerator_over_the_pair.rb	can't allocate fiber stack: Function not implemented
 core/hash/formatting/eql_compares_by_value_and_replace_widens_the_receiver_to_hol.rb	can't allocate fiber stack: Function not implemented
 
 # WASI has no working directory to change.
-core/hash/hash/dir_chdir_block_form_restores_the_previous_directory.rb	chdir has no wasm form
+core/hash/dir_chdir_block_form_restores_the_previous_directory.rb	chdir has no wasm form
 
 # The tree-walking interpreter (lib/zr/eval/walk.rb) does not run every form yet.
-lang/methods/methods/eval_return_belongs_to_the_enclosing_method.rb	return from an eval is not walked yet
+lang/methods/eval_return_belongs_to_the_enclosing_method.rb	return from an eval is not walked yet

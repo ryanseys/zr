@@ -1,1 +1,0 @@
-core/objectspace/objectspace/define_finalizer_warns_and_keeps_one_of_equal_finalizers.rb:5: warning: finalizer references object to be finalized

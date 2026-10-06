@@ -1,4 +1,0 @@
-w
-direct
-a
-core/io/io/moved_stderr_takes_warnings_and_the_report.rb:10:in '<main>': boom (RuntimeError)
