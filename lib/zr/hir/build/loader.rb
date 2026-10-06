@@ -473,13 +473,18 @@ module Zr
         # The script encoding that `__ENCODING__` answers. Prism's
         # result gives the source String's own encoding when the text is
         # not ASCII, so the magic comment is read again here, where ruby
-        # reads it: line 1, or line 2 after a shebang. With no comment, an
-        # eval's code has the encoding of its String, as rb_parser does.
+        # reads it: line 1, or line 2 after a shebang, with spaces before the
+        # `:` or `=` as well. A UTF-8 byte order mark reads as UTF-8. With
+        # no comment, an eval's code has the encoding of its String, as
+        # rb_parser does.
         #: (Prism::ParseResult result, String source, bool eval) -> Encoding
         def source_encoding(result, source, eval)
-          lines = source.b.lines.first(2)
+          bytes = source.b
+          return ::Encoding::UTF_8 if bytes.start_with?("\xEF\xBB\xBF".b)
+
+          lines = bytes.lines.first(2)
           lines = lines.first(1) unless lines.first&.start_with?("#!")
-          name = lines.filter_map { |line| line[/\A\s*#.*?coding[:=][ \t]*([\w.-]+)/i, 1] }.first
+          name = lines.filter_map { |line| line[/\A\s*#.*?coding\s*[:=][ \t]*([\w.-]+)/i, 1] }.first
           return eval && source.encoding.ascii_compatible? ? source.encoding : result.encoding unless name
 
           ::Encoding.find(name) #: Encoding
