@@ -381,12 +381,14 @@ class TracePoint
   end
 
   # rb_unnamed_parameters: a C method's parameters, as its arity gives
-  # them.
+  # them. The entry that was called answers: an alias still has them
+  # after its original name is removed.
   def c_parameters
     Primitive.attr! :hidden
     klass = defined_class or return []
-    klass.instance_method(method_id).parameters
-  rescue NameError
+    [callee_id, method_id].uniq.each do |name|
+      return klass.instance_method(name).parameters if klass.method_defined?(name, false) || klass.private_method_defined?(name, false)
+    end
     []
   end
   private :c_parameters
