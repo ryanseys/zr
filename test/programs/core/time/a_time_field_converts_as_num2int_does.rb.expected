@@ -7,3 +7,7 @@
 [-8589934592, RangeError, "integer -8589934592 too small to convert to 'int'"]
 [-1, ArgumentError, "argument out of range"]
 [61, ArgumentError, "sec out of range"]
+[TypeError, "can't convert Object into an exact number"]
+[1, (1/2)]
+5
+[TypeError, "can't convert Object into an exact number"]

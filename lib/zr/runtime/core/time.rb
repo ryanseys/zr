@@ -423,6 +423,8 @@ class Time
       hour = hour.nil? ? 0 : ubits(hour, 5)
       min = min.nil? ? 0 : ubits(min, 6)
       sec_ns = 0
+      # obj2subsecx: any other object is read with num_exact.
+      sec = exact_number(sec) unless sec.nil? || sec.is_a?(Integer) || sec.is_a?(Float) || sec.is_a?(Rational) || sec.is_a?(String)
       if sec.nil?
         sec = 0
       elsif sec.is_a?(Float) || sec.is_a?(Rational)
@@ -477,6 +479,18 @@ class Time
       raise ArgumentError, +"mon out of range" if month < 1 || month > 12
 
       month
+    end
+
+    # num_exact: an Integer or a Rational from to_r, which an object must
+    # also answer to_int to use; else what to_int gives.
+    def exact_number(value)
+      if value.respond_to?(:to_r)
+        exact = value.to_r
+        return exact if value.respond_to?(:to_int) && (exact.is_a?(Integer) || exact.is_a?(Rational))
+      elsif value.respond_to?(:to_int)
+        return implicit_integer(value)
+      end
+      raise TypeError, "can't convert #{value.class} into an exact number"
     end
 
     # obj2ubits: a field that fits in `bits` bits, read from decimal
