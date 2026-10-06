@@ -59,11 +59,55 @@ module Zr::Kern
     out
   end
 
-  # The heap by type: the total cells, the free cells, then the live cells
-  # of each of the 32 type tags.
-  #: () -> value
-  def zr_objspace_census
+  # `ObjectSpace.count_objects(result)`: stores in `result` the total
+  # cells, the free cells and the live cells of each kind, under CRuby's
+  # names, in CRuby's order, leaving out a kind with none. It makes no
+  # object, so two counts around some code differ only by what that code
+  # made. The caller has emptied `result`.
+  #: (value) -> value
+  def zr_objspace_count_into(result)
     counts = Machine.slot(32 * 8)
+    total = zr_objspace_tally(counts)
+    zr_hash_store(result, zr_sym(Machine.id(:TOTAL)), zr_fix(zr_heap_cells()))
+    zr_hash_store(result, zr_sym(Machine.id(:FREE)), zr_fix(zr_heap_cells() - total))
+    # This runtime gives a tag of its own to some objects that CRuby keeps
+    # as one of its types: tags 27, 29 and 30 count as T_DATA, 25 and 26
+    # as T_IMEMO, and a tag with no CRuby name (an exception's) as
+    # T_OBJECT.
+    named = 0
+    t = 0
+    while t < 32
+      if t == 2 || t == 3 || t == 4 || t == 5 || t == 31 || t == 7 || t == 8 || t == 27 || t == 29 || t == 30 || t == 25 || t == 26 || t == 28
+        named += Machine.load64(counts + (t * 8), 0)
+      end
+      t += 1
+    end
+    objects = total - named
+    zr_census_store(result, Machine.id(:T_OBJECT), objects)
+    zr_census_store(result, Machine.id(:T_CLASS), Machine.load64(counts + (2 * 8), 0))
+    zr_census_store(result, Machine.id(:T_MODULE), Machine.load64(counts + (3 * 8), 0))
+    zr_census_store(result, Machine.id(:T_FLOAT), Machine.load64(counts + (4 * 8), 0))
+    zr_census_store(result, Machine.id(:T_STRING), Machine.load64(counts + (5 * 8), 0))
+    zr_census_store(result, Machine.id(:T_REGEXP), Machine.load64(counts + (31 * 8), 0))
+    zr_census_store(result, Machine.id(:T_ARRAY), Machine.load64(counts + (7 * 8), 0))
+    zr_census_store(result, Machine.id(:T_HASH), Machine.load64(counts + (8 * 8), 0))
+    zr_census_store(result, Machine.id(:T_DATA), Machine.load64(counts + (27 * 8), 0) + Machine.load64(counts + (29 * 8), 0) + Machine.load64(counts + (30 * 8), 0))
+    zr_census_store(result, Machine.id(:T_IMEMO), Machine.load64(counts + (25 * 8), 0) + Machine.load64(counts + (26 * 8), 0))
+    zr_census_store(result, Machine.id(:T_ICLASS), Machine.load64(counts + (28 * 8), 0))
+    result
+  end
+
+  #: (value, word, word) -> void
+  def zr_census_store(result, id, n)
+    if n > 0
+      zr_hash_store(result, zr_sym(id), zr_fix(n))
+    end
+  end
+
+  # Counts the live cells of each of the 32 type tags into `counts`, and
+  # returns the number of live cells.
+  #: (ptr) -> word
+  def zr_objspace_tally(counts)
     Libc.memset(counts, Machine.i32(0), 32 * 8)
     live_cells = 0
     a = 0
@@ -81,6 +125,15 @@ module Zr::Kern
       end
       a += 1
     end
+    live_cells
+  end
+
+  # The heap by type: the total cells, the free cells, then the live cells
+  # of each of the 32 type tags.
+  #: () -> value
+  def zr_objspace_census
+    counts = Machine.slot(32 * 8)
+    live_cells = zr_objspace_tally(counts)
     out = zr_ary_new(34)
     zr_ary_push(out, zr_fix(zr_heap_cells()))
     zr_ary_push(out, zr_fix(zr_heap_cells() - live_cells))

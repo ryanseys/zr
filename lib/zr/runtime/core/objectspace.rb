@@ -187,30 +187,18 @@ module ObjectSpace
     objects.size
   end
 
-  # CRuby's type names for the heap's type tags. This runtime gives a
-  # separate tag to some objects that CRuby keeps as an object's own
-  # type (an exception, a Proc), and the census counts them under CRuby's name.
-  TYPE_NAMES = {
-    1 => :T_OBJECT, 2 => :T_CLASS, 3 => :T_MODULE, 4 => :T_FLOAT, 5 => :T_STRING, 31 => :T_REGEXP,
-    7 => :T_ARRAY, 8 => :T_HASH, 24 => :T_OBJECT, 27 => :T_DATA, 29 => :T_DATA, 30 => :T_DATA,
-    25 => :T_IMEMO, 26 => :T_IMEMO, 28 => :T_ICLASS
-  }.freeze
-  CENSUS_ORDER = %i[T_OBJECT T_CLASS T_MODULE T_FLOAT T_STRING T_REGEXP T_ARRAY T_HASH T_DATA T_IMEMO T_ICLASS].freeze
   # The ids of false, nil and true.
   SPECIAL_IDS = { 0 => false, 4 => nil, 20 => true }.freeze
-  private_constant :TYPE_NAMES, :CENSUS_ORDER, :SPECIAL_IDS
+  private_constant :SPECIAL_IDS
 
+  # The kernel fills the Hash and makes no object while it counts
+  # (zr_objspace_count_into), as CRuby's C makes none.
   def count_objects(result = {})
     raise TypeError, +"non-hash given" unless result.is_a?(Hash)
 
-    total, free, *by_type = Primitive.zr_objspace_census
-    counts = Hash.new(0)
-    by_type.each_index { |tag| counts[TYPE_NAMES.fetch(tag, :T_OBJECT)] += by_type[tag] if by_type[tag].positive? }
-    result.clear
-    result[:TOTAL] = total
-    result[:FREE] = free
-    CENSUS_ORDER.each { |name| result[name] = counts[name] if counts.key?(name) }
-    result
+    # Each key that it already has counts 0, as set_zero leaves it.
+    result.each_key { |key| result[key] = 0 }
+    Primitive.zr_objspace_count_into(result)
   end
 
   # id2ref: an id that is a special constant's own word gives that
