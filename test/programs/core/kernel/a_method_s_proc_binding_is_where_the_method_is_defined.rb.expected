@@ -1,2 +1,8 @@
-["a_method_s_proc_binding_is_where_the_method_is_defined.rb", 3, true, []]
+["a_method_s_proc_binding_is_where_the_method_is_defined.rb", 4, true, []]
 ["(binding)", 1]
+[]
+"Const_D"
+NameError
+123
+456
+[:bar, :foo]

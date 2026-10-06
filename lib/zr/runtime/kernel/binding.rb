@@ -296,7 +296,14 @@ module Zr::Kern
         FrameMeta[meta].file_len = FrameMeta[defined].file_len
         line = FrameMeta[defined].line
       end
-      b = zr_binding_of(meta, Machine.value(QNIL), RMethod[RProc[p].self].recv, zr_global(G_TOP_CREF))
+      # Its constants are the method's own: a def's cref (vm_cref_new_toplevel
+      # otherwise).
+      entry = Machine.ptr(RMethod[RProc[p].self].entry)
+      scope = zr_global(G_TOP_CREF)
+      if MEntry[entry].kind == KIND_DEF && MEntry[entry].cref != QNIL
+        scope = MEntry[entry].cref
+      end
+      b = zr_binding_of(meta, Machine.value(QNIL), RMethod[RProc[p].self].recv, scope)
       RProc[b].serial = line
       return b
     end
