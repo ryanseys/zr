@@ -1,0 +1,2 @@
+[[:popen_sync, true], [:stdout_sync, true], [:epipe_at_print, "Broken pipe @ rb_sys_fail_on_write - <STDOUT>"]]
+[false, false, true]

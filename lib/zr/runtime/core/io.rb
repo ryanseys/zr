@@ -1100,6 +1100,8 @@ class IO
     pos = tell_or_nil(other) if other.send(:mode_state)[1]
     other.send(:write_pending)
     adopt_mode(other.send(:mode_state))
+    # The other stream's mode word, FMODE_SYNC with it.
+    @sync = other.sync
     @pid = other.pid
     @lineno = other.send(:mode_state)[1] ? other.lineno : 0
     @path = other.path if other.path
