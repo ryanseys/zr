@@ -1,0 +1,7 @@
+minus without a pair: TypeError: coerce must return [x, y]
+compare without a pair: nil
+minus with a pair: -1
+quo without to_r: TypeError: can't convert Numeric into Rational
+quo with to_r: (2/1)
+remainder without <: ArgumentError: comparison of #<Class:0xADDR> with 0 failed
+remainder of integers: [1, -1, 4.0]

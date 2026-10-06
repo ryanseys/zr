@@ -516,21 +516,38 @@ class Numeric
         raise TypeError, "#{shown} can't be coerced into #{self.class}"
       end
 
-      pair = other.coerce(self)
-      raise TypeError, +"coerce must return [x, y]" unless pair.is_a?(Array) && pair.size == 2
-
-      x, y = pair
+      x, y = coerced(other, self)
     end
     z = x % y
     return z if z == 0
 
-    if (x < 0 && y > 0) || (x > 0 && y < 0)
+    if (compare_with_zero(x, :<) && compare_with_zero(y, :>)) || (compare_with_zero(x, :>) && compare_with_zero(y, :<))
       return x if y.is_a?(Float) && y.infinite?
 
       return z - y
     end
     z
   end
+
+  # do_coerce: `target.coerce(value)`, which must give a pair.
+  def coerced(target, value)
+    Primitive.attr! :hidden
+    pair = target.coerce(value)
+    raise TypeError, +"coerce must return [x, y]" unless pair.is_a?(Array) && pair.size == 2
+
+    pair
+  end
+
+  # rb_num_compare_with_zero: `num < 0` or `num > 0`, and the comparison
+  # error when `num` has no such operator.
+  def compare_with_zero(num, op)
+    Primitive.attr! :hidden
+    raise ArgumentError, "comparison of #{conversion_name(num)} with 0 failed" unless num.respond_to?(op, true)
+
+    num.__send__(op, 0)
+  end
+
+  private :coerced, :compare_with_zero
 
   def nonzero? = zero? ? nil : self
 
@@ -540,8 +557,9 @@ class Numeric
   # operators and conversions the subclass defines.
   def abs = self < 0 ? -self : self
 
+  # num_uminus: zero minus the receiver, after the receiver coerces zero.
   def -@
-    zero, own = coerce(0)
+    zero, own = coerced(self, 0)
     zero - own
   end
 
@@ -574,6 +592,7 @@ class Numeric
   # num_quo: a Float divides as a Float; otherwise to_r must give a Rational.
   def quo(other)
     return to_f / other if other.is_a?(Float)
+    raise TypeError, "can't convert #{conversion_name(self)} into Rational" unless respond_to?(:to_r, true)
 
     r = to_r
     raise TypeError, "can't convert #{conversion_name(self)} to Rational (#{conversion_name(self)}#to_r gives #{conversion_name(r)})" unless r.is_a?(Rational)
