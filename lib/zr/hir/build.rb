@@ -431,7 +431,8 @@ module Zr
       # `a..b` in a condition is a flip-flop: it is true from the run where
       # the left side is true to the run where the right side is true. The
       # state is a hidden local of the enclosing def, so a block shares its
-      # method's state, as in ruby.
+      # method's state, as in ruby. A thread or a fiber whose block was
+      # written in the def keeps a state of its own (`zr_flip_flop_get`).
       #: (Prism::FlipFlopNode node, Integer line) -> If
       def flip_flop(node, line)
         state = flip_flop_state
@@ -462,7 +463,7 @@ module Zr
       #: () -> Symbol
       def flip_flop_state
         @flip_flops = (@flip_flops || 0) + 1
-        name = :"%flip_flop#{@flip_flops}"
+        name = :"#{FLIP_FLOP}#{@flip_flops}"
         @scopes.last << name
         name
       end

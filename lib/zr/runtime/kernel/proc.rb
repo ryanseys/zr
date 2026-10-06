@@ -178,6 +178,64 @@ module Zr::Kern
     v
   end
 
+  # Flip-flop states. A flip-flop keeps its state in a hidden local of the
+  # scope it is written in, as CRuby keeps it with `$~` in that scope's
+  # special variables. A thread or a fiber whose block was written in the
+  # same scope keeps its own states instead (lep_svar, vm.c), so a
+  # flip-flop in a block reads and writes them here: slot `i` of the
+  # scope's Env `env`, or the task's own slot `i`.
+  #: (value, word) -> value
+  def zr_flip_flop_get(env, i)
+    if zr_flip_flop_owned(env) != 0
+      store = Task[zr_task()].flip_flops
+      return store == QNIL ? Machine.value(QNIL) : zr_ary_at(store, i)
+    end
+    zr_env_get(env, i)
+  end
+
+  #: (value, word, value) -> value
+  def zr_flip_flop_set(env, i, v)
+    if zr_flip_flop_owned(env) == 0
+      return zr_env_set(env, i, v)
+    end
+    t = zr_task()
+    if Task[t].flip_flops == QNIL
+      Task[t].flip_flops = zr_ary_new(i + 1)
+    end
+    zr_ary_store(Task[t].flip_flops, i, v)
+  end
+
+  # 1 if the scope of `env` is the one that the current task's block was
+  # written in.
+  #: (value) -> word
+  def zr_flip_flop_owned(env)
+    root = Task[zr_task()].root_env
+    if root == QNIL
+      return 0
+    end
+    if (RBasic[env].flags & FL_STACK) != 0
+      env = REnv[env].cell
+    end
+    env == root ? 1 : 0
+  end
+
+  # Called as a thread or a fiber starts its block: the task keeps the
+  # outermost Env of the block's scope, and has no flip-flop states yet.
+  #: (value) -> value
+  def zr_task_root(blk)
+    env = Machine.value(QNIL)
+    if !zr_special_p(blk) && zr_type(blk) == T_PROC && !zr_special_p(RProc[blk].env) && zr_type(RProc[blk].env) == T_ENV
+      env = zr_env_escape(RProc[blk].env)
+      while env != QNIL && REnv[env].parent != QNIL
+        env = REnv[env].parent
+      end
+    end
+    t = zr_task()
+    Task[t].root_env = env
+    Task[t].flip_flops = Machine.value(QNIL)
+    blk
+  end
+
   #: (value) -> void
   def zr_mark_env(e)
     zr_mark(REnv[e].parent)

@@ -80,6 +80,8 @@ module Zr::Kern
     Task[t].ractor = 0
     Task[t].eval_using = 0
     Task[t].pending_from = 0
+    Task[t].root_env = Machine.value(QNIL)
+    Task[t].flip_flops = Machine.value(QNIL)
   end
 
   # Ends the current task's ractor marking for a time, as a ractor's

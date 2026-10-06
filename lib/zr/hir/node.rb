@@ -10,6 +10,13 @@ module Zr
     # `parameters` and `local_variables` leave it out, as CRuby does.
     IT = :"%it"
 
+    # The hidden locals of flip-flop states are named with this prefix and
+    # a number.
+    FLIP_FLOP = "%flip_flop"
+
+    # Whether the local `name` is the state of a flip-flop.
+    def self.flip_flop?(name) = name&.start_with?(FLIP_FLOP) || false
+
     # The evals that run a string, with a different self. A program that
     # calls one with an argument compiles ruby at run time, and the
     # string reads the locals of the scope, as `eval` does. The block

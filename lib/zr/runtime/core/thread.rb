@@ -953,6 +953,7 @@ class Thread
           throw @kill_tag if @killed
           Kernel.raise @pending if @pending
           begin
+            Primitive.zr_task_root(@block)
             @value = @block.call(*@args)
           ensure
             close_scheduler
@@ -1296,7 +1297,10 @@ class Fiber
     # The first resume's keywords reach the block as keywords.
     # Only keywords given go on: an empty `**` would keep a lone Array
     # whole.
-    __make__ { |*args, **kw| Primitive.zr_catch(tag, proc { kw.empty? ? block.call(*args) : block.call(*args, **kw) }) }
+    __make__ do |*args, **kw|
+      Primitive.zr_task_root(block)
+      Primitive.zr_catch(tag, proc { kw.empty? ? block.call(*args) : block.call(*args, **kw) })
+    end
     Primitive.zr_hidden_set(self, :__kill__, tag)
     Primitive.zr_hidden_set(self, :__block__, block)
     Primitive.zr_hidden_set(self, :__storage__, table)

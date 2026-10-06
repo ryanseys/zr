@@ -693,6 +693,11 @@ module Zr::Kern
     attr_accessor :ractor #: word
     attr_accessor :eval_using #: word
     attr_accessor :pending_from #: ptr
+    # The outermost Env of the block that the thread or fiber started
+    # with, and the flip-flop states that the task keeps for that scope
+    # (`zr_flip_flop_get`).
+    attr_accessor :root_env #: value
+    attr_accessor :flip_flops #: value
   end
 
   # The runtime's own roots: the core classes and the main object.
@@ -1207,6 +1212,8 @@ module Zr::Kern
     zr_mark(Task[t].throw_tag)
     zr_mark(Task[t].found)
     zr_mark(Task[t].refine)
+    zr_mark(Task[t].root_env)
+    zr_mark(Task[t].flip_flops)
     rec = Task[t].top
     while rec != 0
       Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))

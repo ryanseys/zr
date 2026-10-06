@@ -4,6 +4,7 @@
 module Zr
   module Hir
     IT: Symbol
+    FLIP_FLOP: String
     STRING_EVALS: Array[Symbol]
 
     # A node that can be a child of another node: every node class with a
@@ -32,6 +33,7 @@ module Zr
     type owner = Def | Block | ClassDef | ModuleDef | SingletonClassDef
 
     def self.node?: (untyped value) -> bool
+    def self.flip_flop?: (Symbol? name) -> bool
     def self.each_child: (untyped node) { (untyped) -> void } -> Array[untyped]
                        | (untyped node) -> Array[untyped]
 

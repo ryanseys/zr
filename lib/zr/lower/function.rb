@@ -852,6 +852,7 @@ module Zr
         end
         capture(name, depth, write: false)
         return @f.fetch("i64", @rec, value_offset(i)) if depth.zero? && !@has_env
+        return kernel("zr_flip_flop_get", env_at(depth), imm(i)) if depth.positive? && Hir.flip_flop?(name)
 
         @f.fetch("i64", @f.fetch("i64", env_at(depth), off(@env_layout, "slots")), 8 * i)
       end
@@ -868,6 +869,8 @@ module Zr
         capture(name, depth, write: true)
         if depth.zero? && !@has_env
           @f.store(v, @rec, value_offset(i))
+        elsif depth.positive? && Hir.flip_flop?(name)
+          kernel("zr_flip_flop_set", env_at(depth), imm(i), v)
         else
           env = env_at(depth)
           @f.store(v, @f.fetch("i64", env, off(@env_layout, "slots")), 8 * i)
