@@ -235,10 +235,13 @@ module Zr::Kern
       pending = Task[t].pending
       Task[t].pending = Machine.value(QNIL)
     end
-    # A break or a return leaves with its value. A raise has no value.
+    # Only the block that breaks leaves with the break's value. The frames
+    # that a break, a return, a raise or a throw leaves on the way have
+    # none, as CRuby's hooks see nil there. The frame that a return
+    # returns from leaves as usual, with its value.
     shown = value
     if value == QUNDEF
-      shown = kind == PENDING_RAISE || kind == PENDING_THROW ? Machine.value(QNIL) : pending
+      shown = kind == PENDING_BREAK && Task[t].top == Task[t].pending_from ? pending : Machine.value(QNIL)
     end
     r = zr_trace_send(Task[t].top, event, shown)
     return r if r == QUNDEF

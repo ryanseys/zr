@@ -79,6 +79,7 @@ module Zr::Kern
     Task[t].refine = Machine.value(QNIL)
     Task[t].ractor = 0
     Task[t].eval_using = 0
+    Task[t].pending_from = 0
   end
 
   # Ends the current task's ractor marking for a time, as a ractor's

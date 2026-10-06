@@ -1091,6 +1091,9 @@ module Zr::Kern
     false
   end
 
+  # A break or a return starts to unwind: `pending_from` is the frame
+  # that runs it, which a trace shows as the one that leaves with the
+  # value (zr_trace_fire).
   #: (word, value, ptr, word) -> value
   def zr_signal(kind, value, home, site)
     t = zr_task()
@@ -1098,6 +1101,7 @@ module Zr::Kern
     Task[t].pending = value
     Task[t].pending_home = home
     Task[t].pending_site = site
+    Task[t].pending_from = Task[t].top
     Machine.value(QUNDEF)
   end
 
