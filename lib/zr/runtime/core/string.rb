@@ -1973,7 +1973,10 @@ class String
     # The quotes around an attribute are characters of the text, so
     # they convert to the target with it. If they were written after the
     # conversion, they would contain the source's own bytes.
-    text = "\"#{text}\"" if options[:xml] == :attr && !through_converter
+    if options[:xml] == :attr && !through_converter
+      quote = Encoding.at(Primitive.zr_str_encoding_index_m(text)).ascii_compatible? ? +"\"" : "\"".encode(text.encoding)
+      text = quote + text + quote
+    end
     # ruby's newline decorators work on the ASCII side of the
     # conversion: before it when the source is ASCII-compatible, after
     # it when only the target is, and through UTF-8 between two wide

@@ -46,3 +46,15 @@ t(:repl_s) { "\xf0\x40\x80\x82\xa0".encode("EUC-JP", "Shift_JIS", undef: :replac
 t(:convpath) { Encoding::Converter.new("EUC-JP", "Shift_JIS").convpath }
 t(:xml) { "<\xA4\xA2>".encode("Shift_JIS", "EUC-JP", xml: :attr).b }
 t(:nl) { "a\nb".encode("Shift_JIS", "EUC-JP", newline: :crlf).b }
+
+# xml: escapes between every pair of Unicode encodings.
+encodings = %w[UTF-8 UTF-16LE UTF-16BE UTF-32LE UTF-32BE]
+encodings.each do |s|
+  encodings.each do |d|
+    a = "<>".encode(s).encode(d, xml: :text).encode("UTF-8")
+    b = '<">'.encode(s).encode(d, xml: :attr).encode("UTF-8")
+    c = "<>".encode(s).force_encoding("UTF-8").encode(d, s, xml: :text).encode("UTF-8")
+    e = '<">'.encode(s).force_encoding("UTF-8").encode(d, s, xml: :attr).encode("UTF-8")
+    p [s, d, a, b, c, e]
+  end
+end
