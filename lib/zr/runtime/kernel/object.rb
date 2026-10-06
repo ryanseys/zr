@@ -780,7 +780,9 @@ module Zr::Kern
   #: (value) -> value
   def zr_big_hash(v)
     limbs = zr_hidden_get(v, zr_sym(Machine.id(:__limbs__)))
-    h = zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE ? 1 : 2
+    # The run's seed comes first, so a code differs from run to run, as
+    # rb_big_hash's does.
+    h = zr_hash_seed_word() ^ (zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE ? 1 : 2)
     i = 0
     while i < RArray[limbs].len
       h = zr_hash_mix(h ^ Machine.word(zr_ary_at(limbs, i)))
