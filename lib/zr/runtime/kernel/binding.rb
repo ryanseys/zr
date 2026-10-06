@@ -277,10 +277,28 @@ module Zr::Kern
     # proc_binding of a Method's Proc: an empty scope (an empty iseq in
     # CRuby) whose self is the method's receiver.
     if RProc[p].fn == Machine.addr(:zr_method_block)
-      meta = Machine.static(:method_binding_meta, FrameMeta.size)
-      FrameMeta[meta].kind = KIND_TOP
-      FrameMeta[meta].owner = Machine.value(QNIL)
-      return zr_binding_of(meta, Machine.value(QNIL), RMethod[RProc[p].self].recv, zr_global(G_TOP_CREF))
+      base = Machine.static(:method_binding_meta, FrameMeta.size)
+      FrameMeta[base].kind = KIND_TOP
+      FrameMeta[base].owner = Machine.value(QNIL)
+      # Its source_location is where the method is defined, as
+      # proc_binding reads the method's iseq, and "(binding)" line 1 for a
+      # builtin, which has none.
+      defined = zr_method_meta(Machine.ptr(RMethod[RProc[p].self].entry))
+      meta = zr_xmalloc(FrameMeta.size)
+      zr_memcpy(meta, base, FrameMeta.size)
+      line = 1
+      # A core method has no file of its own: CRuby writes most in C.
+      if defined == 0 || FrameMeta[defined].file_len == 0
+        FrameMeta[meta].file = Machine.bytes("(binding)")
+        FrameMeta[meta].file_len = 9
+      else
+        FrameMeta[meta].file = FrameMeta[defined].file
+        FrameMeta[meta].file_len = FrameMeta[defined].file_len
+        line = FrameMeta[defined].line
+      end
+      b = zr_binding_of(meta, Machine.value(QNIL), RMethod[RProc[p].self].recv, zr_global(G_TOP_CREF))
+      RProc[b].serial = line
+      return b
     end
     # The core's anonymous Procs (curry, Hash#to_proc) are C functions in
     # CRuby, and have no binding either.
