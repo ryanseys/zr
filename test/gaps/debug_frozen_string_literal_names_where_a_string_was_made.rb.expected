@@ -1,0 +1,2 @@
+true
+"can't modify frozen String: \"foo-1\", created at test.rb:1"
