@@ -149,8 +149,9 @@ class Regexp
 
     # A program that builds the same pattern again and again (Regexp.new
     # in a loop) compiles it once. The result is frozen and shared, and
-    # holds the warnings, which print again for each Regexp.
-    key = [source, source.encoding, bits].freeze
+    # holds the warnings, which print again for each Regexp. The key names
+    # the encoding: an Encoding as a key would take an object_id.
+    key = [source, source.encoding.name, bits].freeze
     programs = Primitive.zr_hidden_get(self, :programs) || Primitive.zr_state_set(self, :programs, {})
     found = programs[key]
     return found if found
