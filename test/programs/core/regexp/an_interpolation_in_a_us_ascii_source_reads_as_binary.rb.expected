@@ -1,0 +1,12 @@
+x80: ASCII-8BIT true
+xc2: ASCII-8BIT true
+a: US-ASCII false
+a x80: ASCII-8BIT true
+x80 twice: US-ASCII false
+literal x80: US-ASCII false
+utf8 x80: ArgumentError invalid multibyte escape
+utf8 xc2: UTF-8 true
+binary xc2: ASCII-8BIT true
+xc2 n: ASCII-8BIT true
+xc2 o: ASCII-8BIT true
+0

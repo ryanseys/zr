@@ -359,7 +359,17 @@ module Zr
         # own encoding before it joins them, so only a flag letter pins one.
         pinned = flag_encoding(node)
         check_fragments(node, pinned)
-        fragments = ArrayLit.new(interpolation(node, line).parts.map { |part| Interp.new([part], line) }, line)
+        parts = interpolation(node, line).parts
+        # A regexp of a US-ASCII source reads as binary (reg_fragment_setenc),
+        # so the empty start of `/#{x}/` is binary, and an escape past ASCII
+        # in `x` fixes the pattern to binary. A String literal in the braces
+        # is text of the pattern, which keeps the source's encoding.
+        first = parts.first
+        if !pinned && @encoding == ::Encoding::US_ASCII && node.parts.size == 1 && !fragment_text(node, node.parts[0], pinned) &&
+           first.is_a?(Literal) && first.value == ""
+          parts = [Literal.new(String.new(encoding: ::Encoding::BINARY), line), *parts.drop(1)]
+        end
+        fragments = ArrayLit.new(parts.map { |part| Interp.new([part], line) }, line)
         args = [fragments, Literal.new(regexp_options(node), line), Literal.new(pinned && ::Encoding.list.index(pinned), line)]
         made = Send.of(ConstRead.new(nil, :Regexp, line), :interpolated, args, line)
         node.once? ? RegexpOnce.new(made, line) : made
