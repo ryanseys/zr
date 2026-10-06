@@ -1,0 +1,5 @@
+[Ractor::IsolationError, "cannot assign unshareable object to B::C"]
+[Ractor::IsolationError, "cannot assign unshareable object to ::TOPC"]
+[Ractor::IsolationError, "cannot assign unshareable object to X"]
+[Ractor::IsolationError, "cannot assign unshareable object to ...::D"]
+[Ractor::Error, "#freeze does not freeze object correctly"]

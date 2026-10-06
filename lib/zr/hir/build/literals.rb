@@ -238,8 +238,29 @@ module Zr
           write.name.to_s
         when Prism::ConstantPathWriteNode, Prism::ConstantPathAndWriteNode, Prism::ConstantPathOrWriteNode,
              Prism::ConstantPathOperatorWriteNode
-          write.target.name.to_s
+          constant_path_written(write.target)
         end
+      end
+
+      # pm_constant_path_path: the names of the path as written. A path
+      # from the top starts with `::`, and one under an expression that is
+      # not a constant starts with `...`.
+      #: (Prism::ConstantPathNode target) -> String
+      def constant_path_written(target)
+        parts = [target.name.to_s]
+        current = target.parent
+        while current.is_a?(Prism::ConstantPathNode)
+          parts.unshift(current.name.to_s)
+          current = current.parent
+        end
+        parts.unshift(
+          case current
+          when nil then ""
+          when Prism::ConstantReadNode then current.name.to_s
+          else "..."
+          end
+        )
+        parts.join("::")
       end
 
       # Whether a value is built only of literals, so a freeze cannot

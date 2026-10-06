@@ -1,0 +1,3 @@
+invalid.rb:1: warning: invalid value for shareable_constant_value: invalid-option
+ignored.rb:1: warning: 'shareable_constant_value' is ignored unless in comment-only line
+ignored.rb:1: warning: possibly useless use of nil in void context
