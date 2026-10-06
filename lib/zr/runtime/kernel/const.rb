@@ -649,7 +649,14 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("::"), 2)
     end
     zr_buf_sym(b, id)
-    e = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    msg = zr_buf_take(b)
+    # rb_sprintf: a name in an encoding other than UTF-8 gives the message
+    # its encoding.
+    enc = zr_symbol_encoding_index(id)
+    if enc != ENC_UTF8 && enc != ENC_USASCII
+      zr_str_set_index(msg, enc)
+    end
+    e = zr_exc_new(zr_global(G_NAME_ERROR), msg)
     zr_exc_detail(e, Machine.id(:name), zr_sym(id))
     zr_exc_detail(e, Machine.id(:receiver), scope == QNIL ? zr_global(G_OBJECT) : scope)
     zr_raise(e)
