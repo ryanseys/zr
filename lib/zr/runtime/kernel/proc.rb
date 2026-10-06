@@ -1776,8 +1776,11 @@ module Zr::Kern
             RProc[recv].self == RProc[other].self && RProc[recv].lambda == RProc[other].lambda)
   end
 
+  # The parts that zr_proc_eq compares, but the lambda flag. A Symbol's
+  # Proc has the code and no scope of every other one, and its self.
   #: (value, word, ptr, value, value) -> value
   def zr_proc_hash(recv, argc, argv, cref, blk)
-    zr_fix(zr_hash_mix(Machine.word(RProc[recv].fn) ^ Machine.word(RProc[recv].env)) & 4611686018427387903)
+    h = zr_hash_mix(Machine.word(RProc[recv].fn) ^ Machine.word(RProc[recv].env))
+    zr_fix(zr_hash_mix(h ^ Machine.word(RProc[recv].self)) & 4611686018427387903)
   end
 end
