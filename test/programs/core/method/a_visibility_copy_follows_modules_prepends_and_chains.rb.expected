@@ -1,0 +1,27 @@
+"NoMethodError: private method 'm' called for an instance of X"
+:m
+[:m]
+:m2
+"NoMethodError: undefined method 'm' for an instance of X"
+[:m]
+:m3
+[:pre, :p0]
+[:pre, :p0]
+[:pre, :p0b]
+"NoMethodError: private method 's' called for #<S0>"
+[1, 2]
+[:new, 1]
+1
+:z0
+"NoMethodError: private method 'z' called for an instance of Z1"
+:z0b
+:z1
+:z1
+:z0b
+:z0b
+:own
+"NoMethodError: undefined method 'z' for an instance of Z1"
+:own
+:u
+:u
+:new_u

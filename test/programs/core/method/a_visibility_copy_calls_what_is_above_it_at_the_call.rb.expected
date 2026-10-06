@@ -1,0 +1,37 @@
+true
+B
+[[:opt, :arg]]
+"#<UnboundMethod: A#foo(arg=...)>"
+[[:opt, :arg]]
+1
+[:foo]
+[:foo]
+[]
+true
+true
+true
+"NameError: undefined method 'foo' for class 'B'"
+"NameError: undefined method 'foo' for class 'B'"
+"NoMethodError: undefined method 'foo' for an instance of B"
+"NoMethodError: undefined method 'foo' for an instance of B"
+"NoMethodError: super: no superclass method 'foo' for an instance of B"
+:back
+true
+B
+:private_again
+"NoMethodError: private method 'foo' called for an instance of B"
+[:foo]
+[:foo, :bar]
+C1
+[:foo, :bar]
+C2
+[:bar2]
+C2
+[:bar2]
+true
+[[:opt, :a]]
+true
+1
+D2
+0
+nil

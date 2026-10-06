@@ -97,6 +97,10 @@ module Zr::Kern
   #: (value, value, word) -> value
   def zr_method_new(recv, klass, mid)
     e = zr_find_method(klass, mid)
+    # A visibility copy with no method above it names nothing.
+    if e != 0 && MEntry[e].kind == KIND_MISSING
+      e = Machine.ptr(0)
+    end
     if e == 0
       if recv != QUNDEF && zr_respond_to_missing_p(recv, mid)
         return zr_method_missing_new(recv, klass, mid)
@@ -218,8 +222,10 @@ module Zr::Kern
     e = Machine.ptr(RMethod[m].entry)
     found = zr_find_method(RMethod[m].klass, RMethod[m].entry.mid)
     # A module's method bound to a class that does not include the module
-    # is not what the lookup finds: its `super` starts from its owner.
-    if found == 0 || MEntry[found].meta != MEntry[e].meta || MEntry[found].cref != MEntry[e].cref
+    # is not what the lookup finds: its `super` starts from its owner. So
+    # does a method that the lookup finds only as a subclass's visibility
+    # copy of it.
+    if found == 0 || MEntry[found].meta != MEntry[e].meta || MEntry[found].cref != MEntry[e].cref || MEntry[found].from != MEntry[e].from
       Task[zr_task()].found = zr_method_super_start(m, e)
     end
     zr_invoke(e, RMethod[m].recv, argc, argv, blk, zr_kw_take())

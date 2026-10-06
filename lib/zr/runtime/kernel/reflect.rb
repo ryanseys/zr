@@ -410,7 +410,8 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     e = zr_find_method(sup, mid)
-    if e == 0 || MEntry[e].kind == KIND_UNDEF
+    # A visibility copy with nothing above it names no method.
+    if e == 0 || MEntry[e].kind == KIND_UNDEF || MEntry[e].kind == KIND_MISSING
       return Machine.value(QNIL)
     end
     zr_method_new(RMethod[recv].recv, sup, mid)
@@ -613,6 +614,8 @@ module Zr::Kern
       ClassExt[ext].mlen = ClassExt[ext].mlen - 1
       zr_method_index_drop(ext)
       zr_methods_changed()
+      zr_vis_copies_drop(klass, mid)
+      zr_vis_copies_resolve(mid)
       zr_gates_recheck(mid)
       r = zr_method_removed(recv, mid)
       return r if r == QUNDEF

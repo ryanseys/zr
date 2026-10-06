@@ -331,6 +331,7 @@ module Zr::Kern
       m = RClass[m].superclass
     end
     zr_methods_changed()
+    zr_vis_copies_resolve(0)
     zr_gates_recheck(0)
   end
 
@@ -1841,16 +1842,18 @@ module Zr::Kern
     if conceal
       zr_hidden_defined_method(klass, mid)
     end
-    if old_meta != 0 && !core
-      zr_vis_copies_follow(klass, mid, old_meta, e)
+    if !core
+      zr_vis_copies_drop(klass, mid)
+      zr_vis_copies_resolve(mid)
     end
     zr_gates_recheck(mid)
   end
 
   # The visibility copies that `public :m` (and its kin) made of an
   # ancestor's method, as [class, name] pairs. Ruby makes a zsuper entry
-  # there, which calls the ancestor's method as it is at the call; a
-  # copy takes the ancestor's new body when that method is defined again.
+  # there, which calls the method that the search above the class finds
+  # at the call. A copy takes that method again after each change of the
+  # name (zr_vis_copies_resolve).
   G_VIS_COPIES = 67
 
   # Whether `holder`'s own entry for `mid` is a copy that a visibility
@@ -1863,7 +1866,7 @@ module Zr::Kern
     end
     i = 0
     while i < RArray[list].len
-      if zr_ary_at(list, i) == holder && zr_sym2id(zr_ary_at(list, i + 1)) == mid
+      if zr_origin(zr_ary_at(list, i)) == holder && zr_sym2id(zr_ary_at(list, i + 1)) == mid
         return true
       end
       i += 2
@@ -1871,31 +1874,101 @@ module Zr::Kern
     false
   end
 
-  # The copies of `mid` whose body was the entry `meta` of `klass`'s
-  # table take the body that `e` has now.
-  #: (value, word, ptr, ptr) -> void
-  def zr_vis_copies_follow(klass, mid, meta, e)
+  # Each copy of `mid` (of every name for 0) takes the method that the
+  # search above its class finds now, with the copy's visibility. With no
+  # method there, the copy stays listed, but a call goes to
+  # `method_missing` and `instance_method` raises, as a zsuper entry
+  # with nothing above it does. The walk leaves `Task.found` as it was.
+  #: (word) -> void
+  def zr_vis_copies_resolve(mid)
     list = zr_global(G_VIS_COPIES)
     if zr_special_p(list)
       return
     end
+    found = Task[zr_task()].found
     i = 0
     while i < RArray[list].len
-      if zr_sym2id(zr_ary_at(list, i + 1)) == mid
-        copy = zr_find_method_at(zr_ary_at(list, i), mid)
-        if copy != 0 && copy != e && MEntry[copy].meta == meta && zr_chain_includes(zr_ary_at(list, i), klass)
-          MEntry[copy].fn = MEntry[e].fn
-          MEntry[copy].arity = MEntry[e].arity
-          MEntry[copy].kind = MEntry[e].kind
-          MEntry[copy].meta = MEntry[e].meta
-          MEntry[copy].cref = MEntry[e].cref
-          zr_write_barrier(zr_ary_at(list, i), MEntry[e].cref)
-          MEntry[copy].direct = MEntry[e].direct
-          zr_methods_changed()
+      # A prepend after the copy moves it to the class's new origin.
+      holder = zr_origin(zr_ary_at(list, i))
+      name = zr_sym2id(zr_ary_at(list, i + 1))
+      copy = mid == 0 || name == mid ? zr_find_method_at(holder, name) : Machine.ptr(0)
+      if copy != 0 && MEntry[copy].from != QNIL
+        above = RClass[holder].superclass
+        # Above a refinement is the class that it refines.
+        if zr_type(holder) == T_MODULE && ClassExt[RClass[holder].ext].refined != QNIL
+          above = ClassExt[RClass[holder].ext].refined
+        end
+        e = zr_special_p(above) ? Machine.ptr(0) : zr_search_method(above, name)
+        if e == 0
+          zr_vis_copy_missing(copy)
+        else
+          zr_vis_copy_take(holder, copy, e)
         end
       end
       i += 2
     end
+    Task[zr_task()].found = found
+    zr_methods_changed()
+  end
+
+  # The copy `copy` in `holder` takes the body of `e`, which
+  # zr_search_method just found. `super` in it continues from the node of
+  # `e`, or from the node that `e` itself continues from.
+  #: (value, ptr, ptr) -> void
+  def zr_vis_copy_take(holder, copy, e)
+    from = MEntry[e].from
+    if from == QNIL
+      from = Task[zr_task()].found
+      if zr_type(holder) == T_MODULE && zr_type(from) == T_ICLASS
+        from = RClass[from].attached
+      end
+    end
+    MEntry[copy].fn = MEntry[e].fn
+    MEntry[copy].arity = MEntry[e].arity
+    MEntry[copy].kind = MEntry[e].kind
+    MEntry[copy].meta = MEntry[e].meta
+    MEntry[copy].cref = MEntry[e].cref
+    MEntry[copy].orig = MEntry[e].orig
+    MEntry[copy].direct = MEntry[e].direct
+    MEntry[copy].body = MEntry[e].body
+    MEntry[copy].cover = MEntry[e].cover
+    MEntry[copy].ivar.index = 0
+    MEntry[copy].from = from
+    zr_write_barrier(holder, MEntry[e].cref)
+    zr_write_barrier(holder, from)
+  end
+
+  # A copy with no method above its class: a call goes to
+  # `method_missing`, as for a name with no method.
+  #: (ptr) -> void
+  def zr_vis_copy_missing(copy)
+    MEntry[copy].fn = 0
+    MEntry[copy].arity = 0 - 1
+    MEntry[copy].kind = KIND_MISSING
+    MEntry[copy].direct = 0
+    MEntry[copy].body = 0
+    MEntry[copy].ivar.index = 0
+  end
+
+  # A definition, an alias or a removal of `mid` in `klass` itself ends
+  # the copy that a visibility call made there.
+  #: (value, word) -> void
+  def zr_vis_copies_drop(klass, mid)
+    list = zr_global(G_VIS_COPIES)
+    if zr_special_p(list)
+      return
+    end
+    kept = 0
+    i = 0
+    while i < RArray[list].len
+      if zr_origin(zr_ary_at(list, i)) != klass || zr_sym2id(zr_ary_at(list, i + 1)) != mid
+        zr_ary_store(list, kept, zr_ary_at(list, i))
+        zr_ary_store(list, kept + 1, zr_ary_at(list, i + 1))
+        kept += 2
+      end
+      i += 2
+    end
+    RArray[list].len = kept
   end
 
 
@@ -2466,6 +2539,7 @@ module Zr::Kern
       copies = zr_global_list(G_VIS_COPIES)
       zr_ary_push(copies, zr_origin(klass))
       zr_ary_push(copies, zr_sym(mid))
+      zr_vis_copies_resolve(mid)
     else
       MEntry[e].vis = vis
       zr_methods_changed()
