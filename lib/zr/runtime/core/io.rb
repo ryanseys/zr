@@ -916,6 +916,8 @@ class IO
     # to the close.
     @write_converter = nil
     @read_converter = nil
+    @read_error = nil
+    @read_rest = nil
   end
 
   def lineno
@@ -1894,6 +1896,12 @@ class IO
     take(mark.bytesize)
     @external = Encoding.find(name)
     @internal = nil if @internal.equal?(@external)
+    if decoding?
+      # The bytes after the mark are raw: they convert as a fill would.
+      raw = @buffer.b
+      clear_buffer
+      @buffer << decoded(raw).force_encoding(@buffer.encoding)
+    end
     @buffer.force_encoding(read_encoding)
     @external
   end
@@ -2443,6 +2451,8 @@ class IO
   def fill
     Primitive.attr! :hidden
     park_to_read unless IO.send(:scheduler_taking, :io_read)
+    return if decoding? && decoded_rest
+
     chunk = read_memory(8192)
     chunk = decoded(chunk) if decoding? && !chunk.is_a?(Integer)
     if chunk.nil?
@@ -2539,13 +2549,17 @@ class IO
     @external || (@binmode ? Encoding::BINARY : Encoding.default_external)
   end
 
-  # A stream that reads a stateful encoding, such as ISO-2022-JP, and
-  # converts it: no byte of the raw text can be read alone, so the fill
-  # converts as it reads, as CRuby's character buffer does, and the
-  # buffer holds the internal encoding.
+  # A stream that converts from a stateful encoding, such as ISO-2022-JP,
+  # or from one that is not ASCII compatible, such as UTF-16: its bytes
+  # cannot be read one at a time, so the fill converts as it reads, as
+  # CRuby's character buffer does. The buffer holds the internal
+  # encoding, and the newline decorator reads that.
   def decoding?
     Primitive.attr! :hidden
-    !@internal.nil? && stateful?(@external || Encoding.default_external)
+    return false if @internal.nil?
+
+    external = @external || Encoding.default_external
+    stateful?(external) || !external.ascii_compatible?
   end
 
   # One raw chunk converted with the stream's read converter, whose state
@@ -2561,9 +2575,31 @@ class IO
     end
     out = +""
     result = @read_converter.primitive_convert(chunk, out, nil, nil, partial_input: true)
-    raise @read_converter.last_error unless result == :source_buffer_empty
-
+    # The text before a byte the converter cannot take reads first. The
+    # error waits for the read that needs more, and the bytes after it
+    # convert at the fill after that.
+    unless result == :source_buffer_empty
+      @read_error = @read_converter.last_error
+      @read_rest = chunk
+    end
     out
+  end
+
+  # The fill of a converting stream that has met a byte it cannot take:
+  # the error, which drops what the read made so far, as
+  # rb_econv_convert's caller does; then the bytes after it. True when it
+  # did either, so the fill reads nothing new.
+  def decoded_rest
+    Primitive.attr! :hidden
+    if (error = @read_error)
+      @read_error = nil
+      clear_buffer
+      raise error
+    end
+    rest = @read_rest or return false
+    @read_rest = nil
+    @buffer << decoded(rest).force_encoding(@buffer.encoding)
+    true
   end
 
   # The universal newline decorator over the bytes read so far: CRLF and

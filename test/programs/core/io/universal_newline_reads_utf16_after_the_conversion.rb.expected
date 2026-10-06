@@ -1,0 +1,18 @@
+"a\nb\nc\n"
+"a\n"
+"b"
+["\n", "c\n"]
+"a\nb\nc\n"
+"a\n"
+"b"
+["\n", "c\n"]
+"a\nb\nc\n"
+"a\n"
+"b"
+["\n", "c\n"]
+"a\nb\nc\n"
+"a\n"
+"b"
+["\n", "c\n"]
+"a\nb\nc\n\x{C2A2}"
+"a\rb\r\nc\n\x{C2A2}"
