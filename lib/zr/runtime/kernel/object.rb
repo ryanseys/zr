@@ -906,10 +906,16 @@ module Zr::Kern
     zr_bool(recv == Machine.value(Machine.load64(argv, 0)))
   end
 
-  # `!=` calls `==`, so a class that defines `==` also gets `!=`.
+  # `!=` calls `==`, so a class that defines `==` also gets `!=`. Called
+  # by the program, the call is rb_funcall's, which a TracePoint sees.
   #: (value, word, ptr, value, value) -> value
   def zr_obj_ne(recv, argc, argv, cref, blk)
-    r = zr_send(recv, Machine.id(:==), 1, argv)
+    top = Task[zr_task()].top
+    if top != 0 && Frame[top].prev != 0 && zr_trace_program_frame_p(Frame[top].prev)
+      r = zr_send_for_caller(recv, Machine.id(:==), 1, argv, Machine.value(QNIL))
+    else
+      r = zr_send(recv, Machine.id(:==), 1, argv)
+    end
     return r if r == QUNDEF
     zr_bool(r == QNIL || r == QFALSE)
   end

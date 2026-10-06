@@ -373,7 +373,9 @@ module Zr::Kern
     Machine.store64(slot, 0, Machine.word(zr_str_frozen(bytes, len)))
     Machine.store64(slot, 8, Machine.word(zr_fix(options)))
     Machine.store64(slot, 16, Machine.word(pinned < 0 ? Machine.value(QNIL) : zr_fix(pinned)))
-    re = zr_send(zr_global(G_REGEXP), Machine.id(:literal), 3, slot)
+    # The compile is the core's own work, which ruby does as it parses:
+    # a core send, which no TracePoint sees.
+    re = zr_dispatch(0, zr_global(G_REGEXP), Machine.id(:literal), 3, slot, SEND_CORE, Machine.value(QNIL))
     return re if re == QUNDEF
     RBasic[re].flags = RBasic[re].flags | FL_FREEZE
     zr_site_literal_set(G_REGEXP_LITERALS, index, re)
