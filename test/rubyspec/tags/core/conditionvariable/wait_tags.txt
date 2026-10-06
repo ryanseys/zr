@@ -1,1 +1,0 @@
-fails:ConditionVariable#wait reacquires the lock even if the thread is killed after being signaled
