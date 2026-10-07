@@ -670,6 +670,14 @@ class IO
       plan[twin] = :close
     end
     words = Array(command)
+    # A Hash at the start of the command Array is the child's environment,
+    # under the one given before the command (rb_exec_getargs).
+    if command.is_a?(Array) && (first = Hash.try_convert(words.first))
+      words = words.drop(1)
+      raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if words.empty?
+
+      env = env ? first.merge(env) : first
+    end
     # A Hash at the end of the command Array is more exec options; its
     # words are read as a spawn reads them (check_hash).
     if words.size > 1 && (extra = Process.send(:hash_argument, words.last))

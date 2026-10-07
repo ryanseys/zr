@@ -1,0 +1,8 @@
+"1\n"
+"2\n"
+"3\n"
+"1b\n"
+"[]\n"
+Errno::ENOENT
+"wrong number of arguments (given 0, expected 1+)"
+"4 argv0\n"
