@@ -46,7 +46,29 @@ module Zr
           else
             checked(kernel(entry, owner, sym_word(node.name), addr, imm(checked_arity), imm(@l.const("KIND_DEF")), meta, @cref))
           end
+          # vm_define_method: a class's `initialize` tells how many instance
+          # variables its objects get, so they start with room for them.
+          kernel("zr_class_estimate_ivars", owner, imm(ivar_writes(node).size)) if node.name == :initialize && !node.receiver
           symbol(node.name)
+        end
+
+        # rb_estimate_iv_count: the distinct instance variables that a
+        # method's own code writes, its parameters' defaults included, and
+        # not its blocks' or the scopes that it defines.
+        #: (Hir::Def node) -> Set[Symbol]
+        def ivar_writes(node)
+          names = Set.new #: Set[Symbol]
+          Hir.each_child(node) { |child| collect_ivar_writes(child, names) }
+          names
+        end
+
+        #: (untyped node, Set[Symbol] names) -> void
+        def collect_ivar_writes(node, names)
+          case node
+          when Hir::Block, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then return
+          when Hir::IvarWrite then names << node.name
+          end
+          Hir.each_child(node) { |child| collect_ivar_writes(child, names) }
         end
 
         # A def in a method body is public, whatever the class body's

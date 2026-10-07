@@ -243,7 +243,28 @@ module Zr::Kern
       zr_memmove(e, e + IvEntry.size, last - e)
     end
     IvTab[t].len = IvTab[t].len - 1
+    zr_obj_ivtab_reembed(recv, t)
     v
+  end
+
+  # An object whose entries moved to the heap gets them back in its cell
+  # once they fit there again, as CRuby's shape goes back to an embedded
+  # one when a removal leaves few enough fields.
+  #: (value, ptr) -> void
+  def zr_obj_ivtab_reembed(o, t)
+    if zr_type(o) != T_OBJECT || zr_ivtab_embedded_p(t)
+      return
+    end
+    cap = (zr_cell_bytes(o) - RObject.size) / IvEntry.size
+    if IvTab[t].len > cap
+      return
+    end
+    rows = IvTab[t].rows
+    zr_memcpy(t + IvTab.size, rows, IvTab[t].len * IvEntry.size)
+    zr_sized_xfree(rows, IvTab[t].cap * IvEntry.size)
+    IvTab[t].rows = t + IvTab.size
+    IvTab[t].cap = cap
+    zr_write_barrier_all(o)
   end
 
   #: (value, word, ptr, value, value) -> value

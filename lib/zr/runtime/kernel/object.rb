@@ -145,6 +145,26 @@ module Zr::Kern
     end
   end
 
+  # `def initialize` in `klass` that writes `n` instance variables: the
+  # class's next plain objects get room for them and for those that its
+  # superclass's objects get, as vm_define_method sets max_iv_count from
+  # rb_estimate_iv_count. It replaces what the class learned before. A
+  # module, Object, and a class whose objects are not plain keep theirs.
+  #: (value, word) -> value
+  def zr_class_estimate_ivars(klass, n)
+    if zr_type(klass) != T_CLASS || klass == zr_global(G_OBJECT) || zr_alloc_kind(klass) != ALLOC_OBJECT
+      return Machine.value(QNIL)
+    end
+    count = n
+    sup = zr_real_superclass(klass)
+    if sup != QNIL
+      count += (ClassExt[RClass[sup].ext].obj_bytes - RObject.size) / IvEntry.size
+    end
+    bytes = RObject.size + (count * IvEntry.size)
+    ClassExt[RClass[klass].ext].obj_bytes = bytes > CELL_MAX ? CELL_MAX : bytes
+    Machine.value(QNIL)
+  end
+
   # Sets up an empty object table, with its ivar entries in the object's
   # own cell.
   #: (value) -> void
