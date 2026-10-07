@@ -14,6 +14,7 @@ RedCloth	4.3.4	rubygems	refused	cext:RedCloth	RedCloth 4.3.4 has a C extension (
 RubyInline	3.14.4	rubygems	builds			de2a842b7aa7	2026-10-07	9496849
 Selenium	1.1.14	rubygems	builds			de2a842b7aa7	2026-10-07	650605
 StreetAddress	2.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	5204593
+Text	1.1.3	rubygems	fails	no-entry	no Text.rb in lib; name the require in gems/Text.rb	f4bee47d68d1	2026-10-07	473583
 TimezoneParser	1.0.0	rubygems	refused	cext:sqlite3	sqlite3 2.9.6 has a C extension (ext/sqlite3/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	677052
 ZenTest	4.12.2	rubygems	builds			de2a842b7aa7	2026-10-07	13205779
 a9n	1.8.0	rubygems	builds			634a32900976	2026-10-07	585894
@@ -133,6 +134,7 @@ activerecord-multi-tenant	2.4.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 h
 activerecord-mysql-enum	2.4.2	rubygems	refused	cext:mysql2	mysql2 0.5.7 has a C extension (ext/mysql2/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	4633516
 activerecord-mysql-index-hint	0.0.4	rubygems	builds			de2a842b7aa7	2026-10-07	2426030
 activerecord-mysql-reconnect	0.5.0	rubygems	refused	cext:mysql2	mysql2 0.5.7 has a C extension (ext/mysql2/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2352595
+activerecord-mysql2-adapter	0.0.3	rubygems	refused	cext:mysql2	mysql2 0.5.7 has a C extension (ext/mysql2/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	477652
 activerecord-mysql2rgeo-adapter	8.0.4	rubygems	refused	cext:rgeo	rgeo 3.1.0 has a C extension (ext/geos_c_impl/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	613877
 activerecord-nulldb-adapter	1.2.2	rubygems	builds			de2a842b7aa7	2026-10-07	25126763
 activerecord-oracle_enhanced-adapter	8.1.4	rubygems	refused	cext:ruby-oci8	ruby-oci8 2.2.14 has a C extension (ext/oci8/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2975882
@@ -187,6 +189,7 @@ ae_declarative_authorization	2.5.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.
 ae_page_objects	6.5.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	622798
 ae_skip_asset_pipeline	1.5.0	rubygems	builds			634a32900976	2026-10-07	480118
 ae_test_coverage	2.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	1788005
+aead	1.8.1	rubygems	refused	cext:aead	aead 1.8.1 has a C extension (ext/openssl/cipher/aead/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	477958
 aes	0.5.1	rubygems	builds			de2a842b7aa7	2026-10-07	7130717
 aes_key_wrap	1.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	105071292
 afm	1.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	102371274
@@ -211,6 +214,7 @@ airrecord	1.0.12	rubygems	builds			de2a842b7aa7	2026-10-07	2663066
 airtable	0.0.9	rubygems	builds			de2a842b7aa7	2026-10-07	673245
 aitch	2.1.2	rubygems	refused	cext:cgi	cgi 0.5.2 has a C extension (ext/cgi/escape/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	563699
 ajax-datatables-rails	1.5.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	6505354
+akamai-edgeauth	0.2.1	rubygems	builds			f4bee47d68d1	2026-10-07	476217
 akami	1.4.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	103695570
 akismet	3.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	41818269
 alba	4.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	4599884
@@ -326,6 +330,7 @@ artifactory	3.0.17	rubygems	loads			72c4f2f0165c	2026-10-07	120153849
 aruba	2.4.1	rubygems	fails	memory	the build used more than 2048 MB	de2a842b7aa7	2026-10-07	5865301
 arvados	3.2.1	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	de2a842b7aa7	2026-10-07	2317628
 arvados-cli	3.2.1	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	de2a842b7aa7	2026-10-07	2439693
+as_deprecation_tracker	1.7.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	476483
 asana	2.0.3	rubygems	builds			de2a842b7aa7	2026-10-07	28587922
 ascii_charts	0.9.1	rubygems	builds			de2a842b7aa7	2026-10-07	692293
 asciidoctor	2.0.26	rubygems	loads			de2a842b7aa7	2026-10-07	56295011
@@ -381,6 +386,7 @@ authentication-zero	4.0.3	rubygems	builds			634a32900976	2026-10-07	499545
 authlete	1.40.0	rubygems	builds			634a32900976	2026-10-07	490855
 authlogic	6.6.0	rubygems	builds			de2a842b7aa7	2026-10-07	14237806
 authority	3.3.0	rubygems	builds			de2a842b7aa7	2026-10-07	8306844
+authorize-net	1.5.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	475865
 authorizenet	2.0.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	3564988
 authtrail	1.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	4455558
 authy	3.0.1	rubygems	builds			de2a842b7aa7	2026-10-07	17124585
@@ -1001,6 +1007,7 @@ bindata	3.0.1	rubygems	loads			5d276135b79e	2026-10-07	144744850
 bindex	0.8.1	rubygems	refused	cext:bindex	bindex 0.8.1 has a C extension (ext/skiptrace/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	165113978
 binding_ninja	0.2.3	rubygems	refused	cext:binding_ninja	binding_ninja 0.2.3 has a C extension (ext/binding_ninja/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	29367424
 binding_of_caller	2.0.0	rubygems	refused	cext:debug_inspector	debug_inspector 1.2.0 has a C extension (ext/debug_inspector/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	200847613
+birthday	0.3.1	rubygems	builds			f4bee47d68d1	2026-10-07	478208
 bit-struct	0.17	rubygems	builds			de2a842b7aa7	2026-10-07	3609009
 bitarray	1.3.2	rubygems	builds			de2a842b7aa7	2026-10-07	2957743
 bitcoin-ruby	0.0.20	rubygems	refused	cext:scrypt	scrypt 3.1.0 has a C extension (ext/scrypt/Rakefile), and zr has no port of it	de2a842b7aa7	2026-10-07	1692094
@@ -1063,6 +1070,7 @@ bourbon	7.3.0	rubygems	builds			de2a842b7aa7	2026-10-07	28998576
 bourne	1.6.0	rubygems	builds			de2a842b7aa7	2026-10-07	1858431
 bower-rails	0.12.0	rubygems	builds			de2a842b7aa7	2026-10-07	6040001
 boxr	1.24.0	rubygems	builds			de2a842b7aa7	2026-10-07	3974072
+brI18n	3.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	473358
 braintree	4.41.0	rubygems	builds			de2a842b7aa7	2026-10-07	28082295
 braintrust	0.6.0	rubygems	refused	cext:google-protobuf	google-protobuf 4.36.2 has a C extension (ext/google/protobuf_c/extconf.rb, ext/google/protobuf_c/Rakefile), and zr has no port of it	de2a842b7aa7	2026-10-07	2100409
 brakeman	8.1.0	rubygems	loads			5d276135b79e	2026-10-07	239316136
@@ -1113,11 +1121,13 @@ bullet_train	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C exten
 bullet_train-api	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	487336
 bullet_train-fields	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	495106
 bullet_train-has_uuid	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	480909
+bullet_train-outgoing_webhooks	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	473939
 bullet_train-roles	1.45.1	rubygems	builds			634a32900976	2026-10-07	504273
 bullet_train-scope_validator	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	479046
 bullet_train-super_scaffolding	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	541051
 bullet_train-themes	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	508513
 bullet_train-themes-light	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	489950
+bullet_train-themes-tailwind_css	1.45.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	474792
 bumbler	0.9.0	rubygems	builds			de2a842b7aa7	2026-10-07	4086426
 bump	0.10.0	rubygems	builds			de2a842b7aa7	2026-10-07	8783211
 bundle	0.0.1	rubygems	fails	no-entry	no bundle.rb in lib; name the require in gems/bundle.rb	de2a842b7aa7	2026-10-07	8887022
@@ -1143,6 +1153,7 @@ cable_ready	5.0.6	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extensi
 caboose-cms	1.0.2	rubygems	refused	cext:pg	pg 1.7.0 has a C extension (ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	3097580
 caboose-rets	0.1.214	rubygems	fails	resolve	Unable to resolve dependency: 'paperclip (>= 0)' requires 'mimemagic (= 0.3.0)'	de2a842b7aa7	2026-10-07	684820
 cache	0.4.1	rubygems	builds			de2a842b7aa7	2026-10-07	653595
+cacheable_flash	1.0.0	rubygems	builds			f4bee47d68d1	2026-10-07	475909
 cached_resource	9.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	2427141
 cairo	1.18.5	rubygems	refused	cext:cairo	cairo 1.18.5 has a C extension (ext/cairo/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2697721
 cairo-gobject	4.3.9	rubygems	refused	cext:cairo-gobject	cairo-gobject 4.3.9 has a C extension (ext/cairo-gobject/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2101499
@@ -1738,6 +1749,7 @@ descriptive-statistics	2.2.0	rubygems	builds			de2a842b7aa7	2026-10-07	3108187
 descriptive_statistics	2.5.1	rubygems	builds			de2a842b7aa7	2026-10-07	15107961
 desk_api	0.6.2	rubygems	builds			de2a842b7aa7	2026-10-07	4507794
 detect_timezone_rails	0.0.5	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	683628
+determinator	2.9.3	rubygems	builds			f4bee47d68d1	2026-10-07	475079
 dev	2.1.154	rubygems	builds			de2a842b7aa7	2026-10-07	1984559
 dev_tasks	1.0.44	rubygems	builds			634a32900976	2026-10-07	583048
 devfile	0.5.5	rubygems	builds			de2a842b7aa7	2026-10-07	21787566
@@ -1788,6 +1800,7 @@ discordrb-webhooks-blackst0ne	3.3.0	rubygems	fails	no-entry	no discordrb-webhook
 discourse-fonts	0.0.19	rubygems	builds			de2a842b7aa7	2026-10-07	739388
 discourse_api	2.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	5129781
 disposable	0.6.3	rubygems	builds			de2a842b7aa7	2026-10-07	10446573
+disqus_api	0.0.8	rubygems	builds			f4bee47d68d1	2026-10-07	476533
 distance_measures	0.0.6	rubygems	refused	cext:distance_measures	distance_measures 0.0.6 has a C extension (ext/core/extconf.rb, ext/euclidean_distance/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	600634
 distribute_reads	1.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	9977284
 distribution	0.8.0	rubygems	builds			de2a842b7aa7	2026-10-07	6264873
@@ -1959,6 +1972,7 @@ embulk-input-mysql	0.10.1	rubygems	builds			de2a842b7aa7	2026-10-07	2254257
 embulk-input-postgresql	0.10.1	rubygems	builds			634a32900976	2026-10-07	520191
 embulk-input-s3	0.3.5	rubygems	builds			634a32900976	2026-10-07	480130
 embulk-output-mysql	0.8.7	rubygems	builds			634a32900976	2026-10-07	536832
+embulk-output-redshift	0.8.7	rubygems	builds			f4bee47d68d1	2026-10-07	476586
 emoji_regex	15.0.0	rubygems	loads			5d276135b79e	2026-10-07	140146514
 encryptor	3.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	123652788
 endpoint-flux2	1.1.8	rubygems	builds			de2a842b7aa7	2026-10-07	11875173
@@ -2054,6 +2068,7 @@ faker-japanese	0.0.1	rubygems	builds			de2a842b7aa7	2026-10-07	3302616
 fakeredis	0.9.2	rubygems	builds			de2a842b7aa7	2026-10-07	25345655
 fakes3	2.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	4149982
 fakeweb	1.3.0	rubygems	builds			de2a842b7aa7	2026-10-07	5348150
+faktory_worker_ruby	2.2.0	rubygems	builds			f4bee47d68d1	2026-10-07	477597
 falcon	0.57.0	rubygems	refused	cext:io-event	io-event 1.22.1 has a C extension (ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2456553
 fancy_irb	2.1.3	rubygems	builds			de2a842b7aa7	2026-10-07	689135
 fancybox-rails	0.3.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2065339
@@ -2173,6 +2188,7 @@ fcm	2.0.3	rubygems	builds			de2a842b7aa7	2026-10-07	30983076
 fcmpush	1.6.0	rubygems	builds			de2a842b7aa7	2026-10-07	2864620
 fear	3.1.0	rubygems	builds			634a32900976	2026-10-07	535331
 feature	1.4.0	rubygems	builds			de2a842b7aa7	2026-10-07	3191432
+fedux_org-stdlib	0.11.18	rubygems	builds			f4bee47d68d1	2026-10-07	473312
 feedjira	4.0.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	7799039
 ferrum	0.18.0	rubygems	refused	cext:websocket-driver	websocket-driver 0.8.2 has a C extension (ext/websocket-driver/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	16397221
 ffaker	2.25.0	rubygems	loads			de2a842b7aa7	2026-10-07	73846425
@@ -2294,6 +2310,7 @@ fluent-plugin-http	1.1.0	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a
 fluent-plugin-http-healthcheck	0.1.0	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	761545
 fluent-plugin-ignore-filter	2.0.0	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	53917728
 fluent-plugin-input-gelf	0.3.2	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	3010493
+fluent-plugin-json-transform	0.0.2	rubygems	fails	no-entry	no fluent-plugin-json-transform.rb or fluent/plugin/json/transform.rb in lib; name the require in gems/fluent-plugin-json-transform.rb	f4bee47d68d1	2026-10-07	476233
 fluent-plugin-kafka	0.19.8	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	43530262
 fluent-plugin-kinesis	3.7.0	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	20934680
 fluent-plugin-kinesis-aggregation	0.4.1	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	51457298
@@ -3009,9 +3026,11 @@ ice_cube	0.17.0	rubygems	loads			de2a842b7aa7	2026-10-07	91765187
 ice_nine	0.11.2	rubygems	loads			5d276135b79e	2026-10-07	209749464
 icheck-rails	1.0.2.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	620501
 iconv	1.1.1	rubygems	refused	cext:iconv	iconv 1.1.1 has a C extension (ext/iconv/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	17325414
+idempotent-request	0.2.1	rubygems	refused	cext:oj	oj 3.17.7 has a C extension (ext/oj/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	478201
 identity_cache	1.6.5	rubygems	builds			de2a842b7aa7	2026-10-07	6787628
 idn-ruby	0.1.5	rubygems	refused	cext:idn-ruby	idn-ruby 0.1.5 has a C extension (ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	4189356
 ie_iframe_cookies	0.2.0	rubygems	builds			634a32900976	2026-10-07	576046
+iif-parser	2.2.0	rubygems	builds			f4bee47d68d1	2026-10-07	474268
 image_info	1.2.2	rubygems	builds			de2a842b7aa7	2026-10-07	731810
 image_optim	0.32.0	rubygems	builds			de2a842b7aa7	2026-10-07	9417124
 image_optim_pack	0.13.1.20260816	rubygems	builds			de2a842b7aa7	2026-10-07	6774081
@@ -3026,6 +3045,7 @@ imgkit	1.6.3	rubygems	builds			de2a842b7aa7	2026-10-07	6186670
 immigrant	0.3.6	rubygems	builds			de2a842b7aa7	2026-10-07	4419030
 immutable-ruby	0.2.0	rubygems	refused	cext:rbtree	rbtree 0.4.7 has a C extension (extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	4376484
 immutable-struct	2.5.0	rubygems	builds			de2a842b7aa7	2026-10-07	2862295
+imperium	0.5.2	rubygems	builds			f4bee47d68d1	2026-10-07	476290
 importmap-rails	2.2.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	61790371
 impressionist	2.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	4017309
 ims-lti	2.3.8	rubygems	refused	cext:cgi	cgi 0.5.2 has a C extension (ext/cgi/escape/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	4819926
@@ -3040,8 +3060,10 @@ inflecto	0.0.2	rubygems	builds			de2a842b7aa7	2026-10-07	36009348
 influxdb	0.8.1	rubygems	builds			de2a842b7aa7	2026-10-07	15306700
 influxdb-client	3.2.0	rubygems	builds			de2a842b7aa7	2026-10-07	23218849
 influxdb-rails	1.0.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	616392
+informed	1.1.1	rubygems	builds			f4bee47d68d1	2026-10-07	478609
 informers	1.3.0	rubygems	refused	cext:tokenizers	tokenizers 0.7.0 has a C extension (ext/tokenizers/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2556771
 infosimples-data	2.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	758848
+infrataster	0.3.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	473954
 inherited_resources	2.1.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	59585516
 inifile	3.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	39470202
 iniparse	1.5.0	rubygems	builds			de2a842b7aa7	2026-10-07	44392913
@@ -3252,8 +3274,10 @@ json-schema	6.2.1	rubygems	loads			5d276135b79e	2026-10-07	197833249
 json-schema-rspec	0.0.4	rubygems	builds			de2a842b7aa7	2026-10-07	688526
 json-stream	1.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	3720435
 json-streamer	2.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	1721515
+json2-rails	1.15.05.18	rubygems	builds			f4bee47d68d1	2026-10-07	477187
 json5	0.0.1	rubygems	builds			de2a842b7aa7	2026-10-07	1957642
 json_api_client	1.25.0	rubygems	builds			de2a842b7aa7	2026-10-07	11352677
+json_cve_2020_10663	1.0.0	rubygems	refused	port-range:json	json 2.2.0: zr implements the C part of json ~> 3.0.2 only	f4bee47d68d1	2026-10-07	475582
 json_expressions	0.9.0	rubygems	builds			de2a842b7aa7	2026-10-07	7819818
 json_logic	0.4.7	rubygems	builds			de2a842b7aa7	2026-10-07	2524378
 json_matchers	0.11.1	rubygems	builds			de2a842b7aa7	2026-10-07	11508541
@@ -3727,6 +3751,7 @@ memoist	0.16.2	rubygems	loads			5d276135b79e	2026-10-07	322349169
 memoist3	1.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	7138688
 memoizable	0.5.1	rubygems	loads			de2a842b7aa7	2026-10-07	60282939
 memoized	1.1.3	rubygems	builds			de2a842b7aa7	2026-10-07	670166
+memory	0.12.0	rubygems	refused	cext:msgpack	msgpack 1.8.5 has a C extension (ext/msgpack/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	477091
 memory-leak	0.10.3	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	de2a842b7aa7	2026-10-07	736013
 memory_profiler	1.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	108928120
 memosa	0.8.3	rubygems	builds			634a32900976	2026-10-07	506348
@@ -3766,6 +3791,7 @@ metro_2	1.2.7	rubygems	builds			de2a842b7aa7	2026-10-07	3994827
 metronome-sdk	3.10.0	rubygems	refused	cext:cgi	cgi 0.5.2 has a C extension (ext/cgi/escape/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	581979
 mickey_goldmill	0.1.41	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	515434
 micromachine	3.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	2993342
+microscope	1.1.1	rubygems	builds			f4bee47d68d1	2026-10-07	475923
 microsoft_kiota_abstractions	0.24.1	rubygems	builds			634a32900976	2026-10-07	595037
 microsoft_kiota_authentication_oauth	0.24.1	rubygems	builds			634a32900976	2026-10-07	584476
 middleman	4.6.3	rubygems	refused	cext:sassc	sassc 2.4.0 has a C extension (ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	6342390
@@ -3831,6 +3857,7 @@ minitest-silence	0.2.4	rubygems	fails	no-entry	no minitest-silence.rb or minites
 minitest-spec-rails	7.4.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	24115274
 minitest-stub-const	0.6	rubygems	builds			de2a842b7aa7	2026-10-07	9602507
 minitest-stub_any_instance	1.0.3	rubygems	builds			de2a842b7aa7	2026-10-07	10345007
+minitest-test	1.1.0	rubygems	builds			f4bee47d68d1	2026-10-07	475055
 minitest-vcr	1.4.0	rubygems	builds			634a32900976	2026-10-07	559433
 mission_control-jobs	1.3.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	6192703
 mix_tape	0.0.6	rubygems	builds			634a32900976	2026-10-07	608210
@@ -3908,6 +3935,7 @@ msgpack	1.8.5	rubygems	refused	cext:msgpack	msgpack 1.8.5 has a C extension (ext
 msgr	1.7.0	rubygems	refused	cext:rbtree	rbtree 0.4.7 has a C extension (extconf.rb), and zr has no port of it	634a32900976	2026-10-07	542172
 mtrc	0.0.4	rubygems	builds			de2a842b7aa7	2026-10-07	7309777
 muck-engine	3.5.0	rubygems	builds			634a32900976	2026-10-07	511825
+muck-users	3.2.25	rubygems	refused	cext:bcrypt	bcrypt 3.1.22 has a C extension (ext/mri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	474072
 multi_exiftool	0.19.0	rubygems	builds			de2a842b7aa7	2026-10-07	2739016
 multi_fetch_fragments	0.0.17	rubygems	builds			634a32900976	2026-10-07	593791
 multi_json	1.21.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1168755974
@@ -3958,6 +3986,7 @@ naturalsort	1.3.0	rubygems	builds			634a32900976	2026-10-07	528172
 naught	2.3.0	rubygems	builds			de2a842b7aa7	2026-10-07	31795286
 naughty_or_nice	2.1.2	rubygems	builds			de2a842b7aa7	2026-10-07	3949873
 nayutaya-msgpack-pure	0.0.2	rubygems	builds			634a32900976	2026-10-07	523103
+nbtfile	0.2.0	rubygems	builds			f4bee47d68d1	2026-10-07	476019
 neat	4.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	7845605
 neatjson	0.10.5	rubygems	builds			de2a842b7aa7	2026-10-07	6932579
 necromancer	0.7.0	rubygems	builds			de2a842b7aa7	2026-10-07	8452500
@@ -4365,6 +4394,7 @@ pdk	3.4.0	rubygems	fails	resolve	Unable to satisfy the following requirements: -
 peach	0.5.1	rubygems	builds			de2a842b7aa7	2026-10-07	1872988
 pedump	0.7.6	rubygems	builds			de2a842b7aa7	2026-10-07	6624791
 peek	1.1.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	36836211
+peek-git	1.0.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	474219
 percy-capybara	5.0.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	3527808
 perftools.rb	2.0.5	rubygems	refused	cext:perftools.rb	perftools.rb 2.0.5 has a C extension (ext/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	570700
 permalink_fu	1.0.0	rubygems	builds			634a32900976	2026-10-07	521426
@@ -4437,6 +4467,7 @@ pmckee11-redis-lock	0.1.1	rubygems	builds			de2a842b7aa7	2026-10-07	6225356
 png_quantizator	0.2.1	rubygems	builds			de2a842b7aa7	2026-10-07	33630459
 pngdefry	0.1.3	rubygems	refused	cext:pngdefry	pngdefry 0.1.3 has a C extension (ext/pngdefry/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	485880
 po_to_json	3.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	21852026
+pocketsphinx-ruby	0.4.0	rubygems	builds			f4bee47d68d1	2026-10-07	477214
 polaris_tokens	4.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	2095825
 poltergeist	1.18.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	39075780
 polyamorous	2.3.2	rubygems	builds			de2a842b7aa7	2026-10-07	38236252
@@ -4454,6 +4485,7 @@ postcodes_io	0.4.0	rubygems	builds			de2a842b7aa7	2026-10-07	760919
 postgres-copy	1.7.3	rubygems	refused	cext:pg	pg 1.7.0 has a C extension (ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2944801
 postgres-pr	0.7.0	rubygems	fails	no-entry	no postgres-pr.rb or postgres/pr.rb in lib; name the require in gems/postgres-pr.rb	de2a842b7aa7	2026-10-07	3894556
 postgres_ext	3.0.1	rubygems	refused	cext:pg_array_parser	pg_array_parser 0.0.9 has a C extension (ext/pg_array_parser/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	3730320
+postgresql	1.0.0	rubygems	refused	cext:pg	pg 1.7.0 has a C extension (ext/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	476700
 postgresql_cursor	0.6.11	rubygems	builds			de2a842b7aa7	2026-10-07	6042820
 posthog-ruby	3.26.2	rubygems	builds			de2a842b7aa7	2026-10-07	4423822
 postmark	1.25.1	rubygems	builds			de2a842b7aa7	2026-10-07	21690881
@@ -4513,6 +4545,7 @@ procore	1.3.1	rubygems	builds			de2a842b7aa7	2026-10-07	666006
 procore-sift	1.2.1	rubygems	builds			de2a842b7aa7	2026-10-07	2354199
 procto	0.0.3	rubygems	builds			de2a842b7aa7	2026-10-07	26648352
 profanity-filter	1.0	rubygems	builds			634a32900976	2026-10-07	507739
+profile-viewer	0.0.7	rubygems	fails	no-entry	no profile-viewer.rb or profile/viewer.rb in lib; name the require in gems/profile-viewer.rb	f4bee47d68d1	2026-10-07	476413
 progress	3.6.0	rubygems	builds			de2a842b7aa7	2026-10-07	10253341
 progress_bar	1.3.4	rubygems	builds			de2a842b7aa7	2026-10-07	24744828
 progress_job	0.0.4	rubygems	builds			634a32900976	2026-10-07	492543
@@ -4538,6 +4571,7 @@ pronto-reek	0.11.1	rubygems	refused	cext:rugged	rugged 1.9.6 has a C extension (
 pronto-rubocop	0.11.6	rubygems	refused	cext:rugged	rugged 1.9.6 has a C extension (ext/rugged/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	15687270
 property_sets	3.14.0	rubygems	builds			634a32900976	2026-10-07	525031
 prophet-rb	0.7.0	rubygems	refused	cext:numo-narray-alt	numo-narray-alt 0.11.2 has a C extension (ext/numo/narray/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	3619387
+props	1.2.0	rubygems	builds			f4bee47d68d1	2026-10-07	476338
 propshaft	1.3.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	33458986
 prorate	0.7.3	rubygems	builds			de2a842b7aa7	2026-10-07	765915
 prosopite	2.2.0	rubygems	builds			de2a842b7aa7	2026-10-07	10885277
@@ -4720,6 +4754,7 @@ rails	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ex
 rails-api	0.4.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	5201526
 rails-backbone	1.2.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	1759316
 rails-controller-testing	1.0.5	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	200887243
+rails-data-migrations	1.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	475496
 rails-deprecated_sanitizer	1.0.4	rubygems	loads			72c4f2f0165c	2026-10-07	101169218
 rails-dom-testing	2.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	687221340
 rails-erd	2.2.0	rubygems	builds			de2a842b7aa7	2026-10-07	48001857
@@ -4799,6 +4834,7 @@ rb-fchange	0.0.6	rubygems	builds			de2a842b7aa7	2026-10-07	4167455
 rb-fsevent	0.11.2	rubygems	loads			3a78a9dd8b36	2026-10-06	516296678
 rb-inotify		rubygems	skipped	skip	Linux only: it binds inotify with ffi, and macOS has no inotify	3a78a9dd8b36	2026-10-06	493898811
 rb-kqueue	0.2.8	rubygems	builds			de2a842b7aa7	2026-10-07	4508101
+rb-libsvm	1.4.4	rubygems	refused	cext:rb-libsvm	rb-libsvm 1.4.4 has a C extension (ext/libsvm/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	477765
 rb-readline	0.5.5	rubygems	loads			de2a842b7aa7	2026-10-07	54293605
 rb_heap	1.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	4589830
 rb_sys	0.9.130	rubygems	builds			de2a842b7aa7	2026-10-07	36757544
@@ -4845,6 +4881,7 @@ recurrence	1.3.0	rubygems	builds			de2a842b7aa7	2026-10-07	2143911
 recursive-open-struct	2.1.1	rubygems	loads			de2a842b7aa7	2026-10-07	71165080
 red-arrow	25.0.1	rubygems	refused	cext:red-arrow	red-arrow 25.0.1 has a C extension (ext/arrow/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2026943
 redacted_struct	2.0.0	rubygems	builds			634a32900976	2026-10-07	596061
+redactor-rails	0.5.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	478505
 redcarpet	3.6.1	rubygems	refused	cext:redcarpet	redcarpet 3.6.1 has a C extension (ext/redcarpet/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	136084607
 redic	1.5.3	rubygems	refused	cext:hiredis	hiredis 0.6.3 has a C extension (ext/hiredis_ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	5051026
 redirect_safely	1.0.1	rubygems	builds			de2a842b7aa7	2026-10-07	1811312
@@ -4896,16 +4933,19 @@ regexp_property_values	1.5.2	rubygems	refused	cext:regexp_property_values	regexp
 regstry	1.0.15	rubygems	builds			de2a842b7aa7	2026-10-07	2749460
 relation_to_struct	1.11.1	rubygems	builds			634a32900976	2026-10-07	626241
 relaton	2.1.0	rubygems	refused	port-range:psych	psych 5.2.6: zr implements the C part of psych ~> 5.3.1 only	de2a842b7aa7	2026-10-07	748212
+relaton-bipm	2.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	475907
 relaton-calconnect	2.1.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	507789
 relaton-cli	2.1.3	rubygems	refused	cext:yeptris	yeptris 0.6.30.1 has a C extension (ext/libyeptris/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	573823
 relaton-gb	2.1.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	542125
 relaton-iec	2.1.2	rubygems	refused	port-range:psych	psych 5.2.6: zr implements the C part of psych ~> 5.3.1 only	634a32900976	2026-10-07	578333
+relaton-ieee	2.1.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	473201
 relaton-ietf	2.1.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	638143
 relaton-iso	2.1.6	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	606643
 relaton-iso-bib	1.20.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	552275
 relaton-itu	2.1.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	598731
 relaton-nist	2.1.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	602747
 relaton-ogc	2.1.1	rubygems	refused	port-range:psych	psych 5.2.6: zr implements the C part of psych ~> 5.3.1 only	634a32900976	2026-10-07	528439
+relaton-w3c	2.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	475576
 relaxed-rubocop	2.5	rubygems	fails	no-entry	no relaxed-rubocop.rb or relaxed/rubocop.rb in lib; name the require in gems/relaxed-rubocop.rb	de2a842b7aa7	2026-10-07	5854134
 reline	0.7.0	rubygems	loads			5d276135b79e	2026-10-07	263054000
 remote_lock	1.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	646662
@@ -4943,6 +4983,7 @@ resolv	0.8.0	rubygems	refused	cext:resolv	resolv 0.8.0 has a C extension (ext/wi
 resolv-replace	0.2.0	rubygems	builds			de2a842b7aa7	2026-10-07	10241224
 resolve-hostname	0.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	4427435
 resource_kit	0.1.8	rubygems	builds			de2a842b7aa7	2026-10-07	2954427
+respec	1.0.0	rubygems	builds			f4bee47d68d1	2026-10-07	474218
 responders	3.2.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	338076574
 resque	3.1.0	rubygems	loads			de2a842b7aa7	2026-10-07	55037836
 resque-cleaner	0.4.1	rubygems	builds			de2a842b7aa7	2026-10-07	6487986
@@ -5169,6 +5210,7 @@ rubocop-faker	1.3.0	rubygems	fails	memory	the build used more than 2048 MB	de2a8
 rubocop-git	0.1.3	rubygems	fails	memory	the build used more than 2048 MB	de2a842b7aa7	2026-10-07	7339796
 rubocop-github	0.29.0	rubygems	fails	memory	the build used more than 2048 MB	de2a842b7aa7	2026-10-07	3148917
 rubocop-gitlab-security	0.1.1	rubygems	fails	memory	the build used more than 2048 MB	de2a842b7aa7	2026-10-07	18790972
+rubocop-gradual	0.4.0	rubygems	fails	memory	the build used more than 2048 MB	f4bee47d68d1	2026-10-07	478240
 rubocop-graphql	1.8.0	rubygems	fails	memory	the build used more than 2048 MB	de2a842b7aa7	2026-10-07	44936459
 rubocop-i18n	3.3.0	rubygems	fails	memory	the build used more than 2048 MB	de2a842b7aa7	2026-10-07	6872229
 rubocop-junit-formatter	0.1.4	rubygems	fails	no-entry	no rubocop-junit-formatter.rb or rubocop/junit/formatter.rb in lib; name the require in gems/rubocop-junit-formatter.rb	de2a842b7aa7	2026-10-07	3797412
@@ -5258,6 +5300,7 @@ ruby-string-match-scorer	0.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	3023971
 ruby-supervisor	0.0.2	rubygems	builds			de2a842b7aa7	2026-10-07	719477
 ruby-termios	1.1.0	rubygems	refused	cext:ruby-termios	ruby-termios 1.1.0 has a C extension (ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	686022
 ruby-trello	4.2.0	rubygems	builds			de2a842b7aa7	2026-10-07	6246025
+ruby-ulid	1.0.0	rubygems	builds			f4bee47d68d1	2026-10-07	477572
 ruby-units	4.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	4589712
 ruby-vips	2.3.0	rubygems	skipped	ruby-error	ruby: tmp/reference/gems/gems/ffi-1.17.4-arm64-darwin/lib/ffi/dynamic_library.rb:94:in 'FFI::DynamicLibrary.load_library': Could not open library 'vips.42': dlopen(vips.42, 0...	72c4f2f0165c	2026-10-07	135121745
 ruby-xslt	0.9.10	rubygems	refused	cext:ruby-xslt	ruby-xslt 0.9.10 has a C extension (ext/xslt_lib/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	582844
@@ -5321,6 +5364,7 @@ rush	0.6.8	rubygems	builds			de2a842b7aa7	2026-10-07	10394657
 rushover	0.3.0	rubygems	builds			634a32900976	2026-10-07	566271
 russian	1.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	2433993
 rutabaga	3.2.1	rubygems	builds			634a32900976	2026-10-07	514777
+ruumba	0.1.17	rubygems	builds			f4bee47d68d1	2026-10-07	477091
 rvm	1.11.3.9	rubygems	builds			de2a842b7aa7	2026-10-07	24305957
 rvm-capistrano	1.5.6	rubygems	builds			de2a842b7aa7	2026-10-07	5917931
 s3	0.3.29	rubygems	builds			de2a842b7aa7	2026-10-07	6320774
@@ -5357,6 +5401,7 @@ sassy-buttons	0.2.6	rubygems	builds			634a32900976	2026-10-07	525611
 sassy-maps	0.4.0	rubygems	builds			de2a842b7aa7	2026-10-07	1721953
 sassy-math	1.5.1	rubygems	builds			de2a842b7aa7	2026-10-07	746658
 sauce_whisk	0.3.2	rubygems	builds			de2a842b7aa7	2026-10-07	6388915
+saucy	0.16.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	473706
 savon	2.17.5	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	102413342
 savon-multipart	2.1.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	633269
 sawyer	0.9.3	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	3a78a9dd8b36	2026-10-06	402986464
@@ -5370,6 +5415,7 @@ schema_monkey	3.0.2	rubygems	builds			de2a842b7aa7	2026-10-07	1700405
 schema_plus_columns	1.0.1	rubygems	builds			de2a842b7aa7	2026-10-07	677435
 schema_plus_compatibility	1.0.1	rubygems	builds			634a32900976	2026-10-07	487274
 schema_plus_core	3.1.0	rubygems	fails	no-entry	no schema_plus_core.rb in lib; name the require in gems/schema_plus_core.rb	de2a842b7aa7	2026-10-07	1734850
+schema_plus_default_expr	1.0.1	rubygems	builds			f4bee47d68d1	2026-10-07	473812
 schema_plus_enums	1.0.0	rubygems	builds			634a32900976	2026-10-07	488101
 schema_plus_foreign_keys	1.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	736551
 schema_plus_views	1.0.1	rubygems	builds			634a32900976	2026-10-07	505507
@@ -5449,6 +5495,7 @@ sensu-plugins-memory-checks	4.1.1	rubygems	refused	port-range:json	json 2.21.2: 
 sensu-plugins-mysql	3.2.0	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	634a32900976	2026-10-07	554162
 sensu-plugins-network-checks	5.0.0	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	de2a842b7aa7	2026-10-07	6200016
 sensu-plugins-ntp	2.0.0	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	de2a842b7aa7	2026-10-07	1980771
+sensu-plugins-pagerduty	5.0.0	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	f4bee47d68d1	2026-10-07	473544
 sensu-plugins-postfix	2.0.0	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	634a32900976	2026-10-07	490174
 sensu-plugins-process-checks	4.2.1	rubygems	fails	resolve	Unable to resolve dependency: No match for 'sys-proctable (~> 0.9.8)' on this platform. Found: universal-aix-5, universal-darwin, universal-freebsd, universal-linux, universal-mingw32, universal-so...	de2a842b7aa7	2026-10-07	6658335
 sensu-plugins-puppet	3.0.0	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	634a32900976	2026-10-07	556204
@@ -5763,6 +5810,7 @@ spring-commands-testunit	1.0.1	rubygems	builds			634a32900976	2026-10-07	533050
 spring-watcher-listen	2.1.0	rubygems	loads			de2a842b7aa7	2026-10-07	86920880
 sprite-factory	1.7.1	rubygems	builds			de2a842b7aa7	2026-10-07	6131605
 sprockets	4.4.1	rubygems	loads			ea143b900c11	2026-10-07	625598153
+sprockets-derailleur	1.1.0	rubygems	builds			f4bee47d68d1	2026-10-07	473322
 sprockets-es6	0.9.2	rubygems	builds			de2a842b7aa7	2026-10-07	13533828
 sprockets-export	1.0.0	rubygems	builds			634a32900976	2026-10-07	579641
 sprockets-helpers	1.4.0	rubygems	builds			de2a842b7aa7	2026-10-07	4661659
@@ -5814,6 +5862,7 @@ state_machines-rspec	0.6.0	rubygems	builds			de2a842b7aa7	2026-10-07	7302239
 stateful_enum	0.9.0	rubygems	builds			de2a842b7aa7	2026-10-07	1900734
 stateoscope	0.1.3	rubygems	builds			de2a842b7aa7	2026-10-07	2364376
 statesman	13.3.0	rubygems	builds			de2a842b7aa7	2026-10-07	6858848
+statesman-events	1.0.0	rubygems	builds			f4bee47d68d1	2026-10-07	475183
 stathat	0.1.7	rubygems	builds			634a32900976	2026-10-07	565546
 static_holmes	0.7.11	rubygems	refused	cext:static_holmes	static_holmes 0.7.11 has a C extension (ext/charlock_holmes/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	2804713
 statistics2	0.54	rubygems	refused	cext:statistics2	statistics2 0.54 has a C extension (ext/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	3151146
@@ -5881,6 +5930,7 @@ sunspot_rails	2.7.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C exten
 sunspot_solr	2.7.1	rubygems	builds			de2a842b7aa7	2026-10-07	4577323
 sunspot_test	0.4.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	614798
 suo	0.4.0	rubygems	refused	cext:msgpack	msgpack 1.8.5 has a C extension (ext/msgpack/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	6934152
+sup	1.4	rubygems	refused	cext:sup	sup 1.4 has a C extension (ext/mkrf_conf_xapian.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	474803
 super_diff	0.19.0	rubygems	builds			de2a842b7aa7	2026-10-07	14893233
 support_table_data	1.7.0	rubygems	builds			de2a842b7aa7	2026-10-07	682579
 sus	0.38.0	rubygems	builds			634a32900976	2026-10-07	517721
@@ -5888,6 +5938,7 @@ suspenders	20260325.0	rubygems	builds			634a32900976	2026-10-07	556633
 susy	2.2.14	rubygems	builds			de2a842b7aa7	2026-10-07	3970423
 svg-graph	2.2.2	rubygems	builds			de2a842b7aa7	2026-10-07	717634
 svix	2.7.0	rubygems	builds			de2a842b7aa7	2026-10-07	3406847
+swaggard	4.2.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	477659
 swagger-blocks	3.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	15816281
 swagger-diff	2.0.0	rubygems	builds			634a32900976	2026-10-07	479969
 swagger-docs	0.2.9	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	4409390
@@ -6048,6 +6099,7 @@ tencentcloud-sdk-habo	3.0.1094	rubygems	builds			634a32900976	2026-10-07	606790
 tencentcloud-sdk-hcm	3.0.1169	rubygems	builds			634a32900976	2026-10-07	596798
 tencentcloud-sdk-iai	3.0.1195	rubygems	builds			634a32900976	2026-10-07	618796
 tencentcloud-sdk-ic	3.0.1094	rubygems	builds			634a32900976	2026-10-07	608369
+tencentcloud-sdk-icr	3.0.1094	rubygems	builds			f4bee47d68d1	2026-10-07	476764
 tencentcloud-sdk-ie	3.0.1094	rubygems	builds			634a32900976	2026-10-07	608489
 tencentcloud-sdk-iecp	3.0.1094	rubygems	builds			634a32900976	2026-10-07	580650
 tencentcloud-sdk-iir	3.0.1094	rubygems	builds			634a32900976	2026-10-07	601478
@@ -6179,6 +6231,7 @@ text-hyphen	1.5.0	rubygems	builds			de2a842b7aa7	2026-10-07	3141155
 text-table	1.2.4	rubygems	builds			de2a842b7aa7	2026-10-07	5848080
 text_helpers	1.2.0	rubygems	refused	cext:redcarpet	redcarpet 3.6.1 has a C extension (ext/redcarpet/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	661801
 textacular	5.7.0	rubygems	builds			de2a842b7aa7	2026-10-07	2838749
+textilize	0.0.4	rubygems	builds			f4bee47d68d1	2026-10-07	473363
 textutils	1.4.0	rubygems	builds			634a32900976	2026-10-07	637065
 theme-check	1.15.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	6537695
 therubyracer	0.12.3	rubygems	refused	cext:therubyracer	therubyracer 0.12.3 has a C extension (ext/v8/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	59626212
@@ -6296,6 +6349,7 @@ tros	1.7.6.4	rubygems	builds			de2a842b7aa7	2026-10-07	2215458
 truemail	3.3.1	rubygems	builds			de2a842b7aa7	2026-10-07	2934148
 truncate_html	0.9.3	rubygems	builds			de2a842b7aa7	2026-10-07	14684643
 truncato	0.7.13	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	39556757
+trusty-cms	8.1.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	f4bee47d68d1	2026-10-07	476949
 trusty-festivity-extension	2.6.3	rubygems	fails	resolve	Unable to resolve dependency: 'paperclip (~> 4.2)' requires 'mimemagic (= 0.3.0)'	de2a842b7aa7	2026-10-07	2301538
 try	0.5.0	rubygems	builds			de2a842b7aa7	2026-10-07	690169
 ts_routes	1.0.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	727246
@@ -6385,6 +6439,7 @@ unicorn-rails	2.2.1	rubygems	refused	cext:raindrops	raindrops 0.20.1 has a C ext
 unicorn-worker-killer	0.4.5	rubygems	refused	cext:raindrops	raindrops 0.20.1 has a C extension (ext/raindrops/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	31205951
 unidecoder	1.1.2	rubygems	builds			de2a842b7aa7	2026-10-07	2403498
 uniform_notifier	1.18.0	rubygems	loads			5d276135b79e	2026-10-07	184764731
+unimidi	0.5.1	rubygems	builds			f4bee47d68d1	2026-10-07	475957
 unix-crypt	1.3.2	rubygems	builds			de2a842b7aa7	2026-10-07	3779104
 unleash	6.7.1	rubygems	fails	resolve	Unable to resolve dependency: No match for 'yggdrasil-engine (~> 1.3.2)' on this platform. Found: aarch64-linux, aarch64-linux-musl, arm64-darwin, arm64-mingw32, universal-java-11, universal-java-1...	de2a842b7aa7	2026-10-07	38705696
 unobtainium	0.13.0	rubygems	builds			634a32900976	2026-10-07	636145
@@ -6421,6 +6476,7 @@ vagrant-aws	0.7.2	rubygems	refused	port-range:json	json 2.21.2: zr implements th
 vagrant-disksize	0.1.3	rubygems	builds			634a32900976	2026-10-07	480781
 vagrant-hostsupdater	1.2.4	rubygems	builds			de2a842b7aa7	2026-10-07	681940
 vagrant-libvirt	0.12.2	rubygems	refused	cext:ruby-libvirt	ruby-libvirt 0.8.4 has a C extension (ext/libvirt/extconf.rb), and zr has no port of it	de2a842b7aa7	2026-10-07	1933530
+vagrant-omnibus	1.5.0	rubygems	builds			f4bee47d68d1	2026-10-07	473174
 vagrant-scp	0.5.9	rubygems	builds			634a32900976	2026-10-07	503697
 vagrant-vbguest	0.32.0	rubygems	builds			de2a842b7aa7	2026-10-07	2703748
 vagrant-vsphere	1.15.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	627015
@@ -6582,6 +6638,7 @@ wkhtmltoimage-binary	0.12.5	rubygems	builds			de2a842b7aa7	2026-10-07	4523998
 wkhtmltopdf	0.1.2	rubygems	fails	no-entry	no wkhtmltopdf.rb in lib; name the require in gems/wkhtmltopdf.rb	634a32900976	2026-10-07	505901
 wkhtmltopdf-binary	0.12.6.10	rubygems	fails	no-entry	no wkhtmltopdf-binary.rb or wkhtmltopdf/binary.rb in .; name the require in gems/wkhtmltopdf-binary.rb	de2a842b7aa7	2026-10-07	72124237
 wkhtmltopdf-binary-edge	0.12.6.0	rubygems	builds			de2a842b7aa7	2026-10-07	9633900
+wkhtmltopdf-binary-edge-alpine	0.12.6.3	rubygems	builds			634a32900976	2026-10-07	478857
 wkhtmltopdf-heroku	3.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	7910974
 wkhtmltopdf-installer	0.12.6.3	rubygems	refused	cext:wkhtmltopdf-installer	wkhtmltopdf-installer 0.12.6.3 has a C extension (ext/extconf.rb), and zr has no port of it	634a32900976	2026-10-07	525934
 wmi-lite	1.0.7	rubygems	loads			de2a842b7aa7	2026-10-07	54185182
@@ -6665,6 +6722,7 @@ yard-activesupport-concern	0.0.1	rubygems	builds			de2a842b7aa7	2026-10-07	51276
 yard-cucumber	4.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	3325033
 yard-doctest	0.1.17	rubygems	builds			de2a842b7aa7	2026-10-07	4719899
 yard-rails	0.3.0	rubygems	builds			634a32900976	2026-10-07	567087
+yard-sitemap	1.0.1	rubygems	builds			f4bee47d68d1	2026-10-07	477916
 yard-solargraph	0.1.0	rubygems	builds			de2a842b7aa7	2026-10-07	5046987
 yard-sorbet	0.9.0	rubygems	builds			de2a842b7aa7	2026-10-07	29342110
 yarjuf	2.0.0	rubygems	builds			de2a842b7aa7	2026-10-07	2806068

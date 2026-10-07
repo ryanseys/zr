@@ -18,20 +18,20 @@ constant that the require defines. It runs the probe under ruby
 | refused | zr refuses the gem: it has a C extension that zr does not port, or it uses a form of Ruby that zr does not support. |
 | skipped | The tool did not try the gem: `gems/<name>.rb` skips it, or the probe fails under ruby too. |
 
-The results come from 4 zr commits, on 2026-09-29 to 2026-10-07.
+The results come from 9 zr commits, on 2026-10-06 to 2026-10-07.
 
 ## Summary
 
 | Tier | Gems |
 |---|---|
 | verified | 0 |
-| loads | 138 |
-| compiles | 5 |
-| builds | 0 |
-| fails | 7 |
-| refused | 41 |
-| skipped | 9 |
-| all | 200 |
+| loads | 721 |
+| compiles | 27 |
+| builds | 3575 |
+| fails | 471 |
+| refused | 1956 |
+| skipped | 24 |
+| all | 6774 |
 
 ## What stops the most gems
 
@@ -39,23 +39,23 @@ The results come from 4 zr commits, on 2026-09-29 to 2026-10-07.
 
 | Cause | Gems | Most downloaded |
 |---|---|---|
-| `cext:nokogiri` | 22 | nokogiri, actionpack, rails |
-| `memory` | 7 | bundler, aws-sdk-s3, rubocop |
-| `skip` | 5 | faraday-net_http, rubygems-update, simplecov-html |
-| `status-diff` | 4 | rubocop-ast, sawyer, rubocop-rspec |
-| `ruby-error` | 4 | faraday-em_synchrony, sinatra, faraday-httpclient |
-| `cext:byebug` | 2 | byebug, pry-byebug |
-| `cext:bcrypt` | 2 | bcrypt, devise |
-| `output-diff` | 1 | rubyzip |
-| `cext:nio4r` | 1 | nio4r |
-| `cext:websocket-driver` | 1 | websocket-driver |
-| `cext:puma` | 1 | puma |
-| `cext:unf_ext` | 1 | unf_ext |
-| `cext:msgpack` | 1 | msgpack |
-| `cext:unf` | 1 | unf |
-| `cext:pg` | 1 | pg |
+| `cext:nokogiri` | 802 | nokogiri, actionpack, rails |
+| `no-entry` | 175 | coffee-script-source, spring, stringio |
+| `resolve` | 167 | ddtrace, logstash-filter-translate, logstash-output-sqs |
+| `port-range:json` | 149 | fastlane, gherkin, fog |
+| `cext:google-protobuf` | 94 | google-protobuf, googleapis-common-protos-types, googleapis-common-protos |
+| `memory` | 93 | bundler, aws-sdk-s3, rubocop |
+| `cext:zstd-ruby` | 82 | fluent-plugin-s3, fluent-plugin-kubernetes_metadata_filter, fluent-plugin-record-modifier |
+| `port-range:bigdecimal` | 37 | ttfunk, pdf-reader, prawn |
+| `not-found` | 35 | sorbet-static, manticore, gitlab-security_report_schemas |
+| `cext:eventmachine` | 30 | eventmachine, em-websocket, faye-websocket |
+| `cext:stackprof` | 27 | stackprof, dependabot-omnibus, dependabot-terraform |
+| `cext:bson` | 24 | bson, mongo, mongoid |
+| `cext:io-event` | 22 | async, io-event, async-http |
+| `cext:ed25519` | 21 | ed25519, kamal, beaker-rspec |
+| `ruby-error` | 19 | faraday-em_synchrony, sinatra, faraday-httpclient |
 
-8 more causes are in `gems/compat.tsv`.
+302 more causes are in `gems/compat.tsv`.
 
 ## All gems
 
@@ -208,12 +208,12 @@ The most downloaded first.
 | timeout | 0.6.1 | loads |  |
 | faraday-em_synchrony | 1.0.1 | skipped | `ruby-error` |
 | capybara | 3.40.0 | refused | `cext:nokogiri` |
-| selenium-webdriver | 4.49.0 | loads |  |
+| selenium-webdriver | 4.50.0 | compiles | `output-diff` |
 | sinatra | 4.2.1 | skipped | `ruby-error` |
 | factory_bot | 6.6.0 | loads |  |
 | request_store | 1.7.0 | loads |  |
-| faraday-em_http | 2.0.1 | refused | `cext:http_parser.rb` |
 | rdoc | 8.1.0 | refused | `cext:rbs` |
+| faraday-em_http | 2.0.1 | refused | `cext:http_parser.rb` |
 | aws-sdk-sqs | 1.119.0 | loads |  |
 | faker | 3.8.0 | loads |  |
 | highline | 3.1.2 | loads |  |
@@ -225,41 +225,6615 @@ The most downloaded first.
 | faraday-patron | 2.0.2 | refused | `cext:patron` |
 | eventmachine | 1.2.7 | refused | `cext:eventmachine` |
 | rubocop-performance | 1.27.0 | fails | `memory` |
-| arel | 9.0.0 | loads |  |
-| net-smtp | 0.5.1 | loads |  |
+| net-smtp | 0.5.2 | loads |  |
 | faraday-rack | 2.1.3 | skipped | `ruby-error` |
-| rouge | 5.1.0 | loads |  |
+| arel | 9.0.0 | loads |  |
+| rouge | 5.1.0 | compiles | `exception-diff` |
 | memoist | 0.16.2 | loads |  |
 | daemons | 1.4.1 | loads |  |
 | jbuilder | 2.15.1 | refused | `cext:nokogiri` |
 | digest-crc | 0.7.0 | refused | `cext:digest-crc` |
 | jquery-rails | 4.6.1 | refused | `cext:nokogiri` |
-| childprocess | 5.1.0 | loads |  |
 | rubocop-rails | 2.38.0 | fails | `memory` |
+| childprocess | 5.1.0 | loads |  |
+| date | 3.5.1 | loads |  |
 | warden | 1.2.9 | loads |  |
 | oj | 3.17.7 | refused | `cext:oj` |
-| date | 3.5.1 | loads |  |
 | net-protocol | 0.4.0 | loads |  |
-| erubis | 2.7.0 | loads |  |
-| launchy | 3.1.1 | loads |  |
 | language_server-protocol | 3.17.0.6 | loads |  |
+| launchy | 3.1.1 | loads |  |
+| erubis | 2.7.0 | loads |  |
 | ethon | 0.18.0 | loads |  |
-| rubocop-rspec | 3.10.2 | compiles | `status-diff` |
+| rubocop-rspec | 3.10.2 | fails | `memory` |
 | devise | 5.0.4 | refused | `cext:bcrypt` |
 | mustermann | 4.0.0 | loads |  |
 | factory_bot_rails | 6.5.1 | refused | `cext:nokogiri` |
 | sass-rails | 6.0.0 | refused | `cext:nokogiri` |
 | uglifier | 4.2.1 | loads |  |
 | typhoeus | 1.6.0 | loads |  |
+| google-apis-core | 1.3.0 | loads |  |
+| orm_adapter | 0.5.0 | loads |  |
 | pry-byebug | 3.12.0 | refused | `cext:byebug` |
 | awesome_print | 1.9.2 | loads |  |
-| google-apis-core | 1.2.5 | loads |  |
-| orm_adapter | 0.5.0 | loads |  |
-| formatador | 1.2.3 | loads |  |
 | google-cloud-core | 1.9.0 | loads |  |
-| aws-sdk-ssm | 1.223.0 | loads |  |
-| http-accept | 2.2.2 | loads |  |
+| formatador | 1.2.3 | loads |  |
+| aws-sdk-ssm | 1.223.0 | fails | `memory` |
+| drb | 2.2.3 | loads |  |
 | oauth2 | 2.0.25 | compiles | `status-diff` |
+| http-accept | 2.2.2 | loads |  |
 | rack-cors | 3.0.0 | loads |  |
 | shoulda-matchers | 8.0.1 | loads |  |
 | rspec_junit_formatter | 0.6.0 | loads |  |
+| kaminari | 1.2.2 | refused | `cext:nokogiri` |
+| timecop | 0.9.11 | loads |  |
+| simplecov_json_formatter | 0.1.4 | loads |  |
+| google-cloud-errors | 1.7.0 | loads |  |
+| CFPropertyList | 4.0.0 | compiles | `status-diff` |
+| coffee-script-source | 1.12.2 | fails | `no-entry` |
+| aws-sdk-ec2 | 1.655.0 | fails | `memory` |
+| reline | 0.7.0 | loads |  |
+| spring | 4.7.0 | fails | `no-entry` |
+| uri | 1.1.1 | loads |  |
+| trailblazer-option | 0.1.2 | loads |  |
+| coffee-script | 2.4.1 | loads |  |
+| kramdown | 2.5.2 | loads |  |
+| temple | 0.10.7 | loads |  |
+| claide | 1.1.0 | loads |  |
+| irb | 1.18.0 | compiles | `output-diff` |
+| net-ntp | 2.1.3 | loads |  |
+| colored2 | 4.0.3 | loads |  |
+| net-pop | 0.1.2 | loads |  |
+| psych | 5.5.0 | refused | `port-range:psych` |
+| io-console | 0.9.4 | refused | `port-range:io-console` |
+| dry-core | 1.2.0 | loads |  |
+| htmlentities | 4.4.2 | loads |  |
+| tty-screen | 0.8.2 | loads |  |
+| mysql2 | 0.5.7 | refused | `cext:mysql2` |
+| google-cloud-storage | 1.62.1 | refused | `cext:digest-crc` |
+| securerandom | 0.4.1 | loads |  |
+| kaminari-core | 1.2.2 | skipped | `ruby-error` |
+| brakeman | 8.1.0 | loads |  |
+| benchmark | 0.5.0 | loads |  |
+| kaminari-activerecord | 1.2.2 | loads |  |
+| yard | 0.9.45 | compiles | `output-diff` |
+| kaminari-actionview | 1.2.2 | refused | `cext:nokogiri` |
+| coffee-rails | 5.0.0 | refused | `cext:nokogiri` |
+| dry-inflector | 1.3.1 | loads |  |
+| tty-cursor | 0.7.1 | loads |  |
+| net-scp | 4.1.0 | loads |  |
+| pry-rails | 0.3.11 | loads |  |
+| et-orbi | 1.4.2 | loads |  |
+| googleapis-common-protos-types | 1.23.0 | refused | `cext:google-protobuf` |
+| xcodeproj | 1.28.1 | loads |  |
+| omniauth | 2.1.4 | loads |  |
+| aws-sdk-kinesis | 1.109.0 | loads |  |
+| dry-types | 1.9.1 | loads |  |
+| dry-logic | 1.6.0 | loads |  |
+| database_cleaner | 2.1.0 | loads |  |
+| elasticsearch-api | 9.5.0 | loads |  |
+| fugit | 1.14.0 | loads |  |
+| elasticsearch | 9.5.0 | loads |  |
+| http | 6.0.4 | refused | `cext:llhttp` |
+| plist | 3.7.2 | loads |  |
+| fastlane | 2.240.1 | refused | `port-range:json` |
+| safe_yaml | 1.0.5 | loads |  |
+| fastimage | 2.4.1 | loads |  |
+| redis-namespace | 1.11.0 | loads |  |
+| aws-sdk-dynamodb | 1.175.0 | loads |  |
+| sassc | 2.4.0 | refused | `cext:sassc` |
+| net-http-persistent | 4.0.8 | loads |  |
+| mutex_m | 0.3.0 | loads |  |
+| raabro | 1.5.0 | loads |  |
+| chunky_png | 1.4.0 | loads |  |
+| google-apis-storage_v1 | 0.68.0 | loads |  |
+| ice_nine | 0.11.2 | loads |  |
+| git | 5.6.0 | loads |  |
+| grpc | 1.84.0 | refused | `cext:grpc` |
+| thin | 2.0.1 | refused | `cext:thin` |
+| rack-session | 2.1.2 | loads |  |
+| websocket | 1.2.11 | loads |  |
+| dotenv-rails | 3.2.0 | refused | `cext:nokogiri` |
+| haml | 7.5.1 | compiles | `output-diff` |
+| http-form_data | 3.0.1 | loads |  |
+| prism | 1.9.0 | compiles | `output-diff` |
+| csv | 3.3.6 | loads |  |
+| debug_inspector | 1.2.0 | refused | `cext:debug_inspector` |
+| graphql | 2.6.11 | loads |  |
+| net-http | 0.9.1 | loads |  |
+| google-apis-iamcredentials_v1 | 0.28.0 | loads |  |
+| timers | 4.4.0 | loads |  |
+| lograge | 0.15.1 | refused | `cext:nokogiri` |
+| rails-controller-testing | 1.0.5 | refused | `cext:nokogiri` |
+| binding_of_caller | 2.0.0 | refused | `cext:debug_inspector` |
+| stringio | 3.2.0 | fails | `no-entry` |
+| json-schema | 6.2.1 | loads |  |
+| sqlite3 | 2.9.6 | refused | `cext:sqlite3` |
+| fog-core | 2.6.0 | loads |  |
+| dry-configurable | 1.4.0 | loads |  |
+| mimemagic | 0.4.3 | refused | `cext:mimemagic` |
+| nap | 1.1.0 | loads |  |
+| omniauth-oauth2 | 1.9.0 | compiles | `status-diff` |
+| newrelic_rpm | 10.9.1 | loads |  |
+| web-console | 4.3.0 | refused | `cext:nokogiri` |
+| fog-json | 1.5.0 | loads |  |
+| bullet | 8.2.0 | fails | `memory` |
+| google-api-client | 0.53.0 | fails | `no-entry` |
+| rackup | 2.3.1 | loads |  |
+| ipaddress | 0.8.3 | loads |  |
+| uniform_notifier | 1.18.0 | loads |  |
+| state_machines | 0.202.0 | loads |  |
+| net-sftp | 4.0.0 | loads |  |
+| fog-xml | 0.1.5 | refused | `cext:nokogiri` |
+| css_parser | 3.2.0 | loads |  |
+| ffi-compiler | 1.4.2 | fails | `no-entry` |
+| sass-listen | 4.0.0 | loads |  |
+| matrix | 0.4.3 | loads |  |
+| http_parser.rb | 0.8.1 | refused | `cext:http_parser.rb` |
+| rack-proxy | 2.0.1 | loads |  |
+| unicode-emoji | 4.3.0 | loads |  |
+| nanaimo | 0.4.0 | loads |  |
+| xml-simple | 1.1.9 | loads |  |
+| fog-aws | 3.33.4 | refused | `cext:nokogiri` |
+| aws-sdk-sns | 1.121.0 | loads |  |
+| sassc-rails | 2.1.2 | refused | `cext:sassc` |
+| kramdown-parser-gfm | 1.1.0 | loads |  |
+| elasticsearch-transport | 7.17.11 | loads |  |
+| babosa | 2.1.0 | loads |  |
+| oauth | 1.1.8 | compiles | `status-diff` |
+| aws-sdk-cloudwatch | 1.149.0 | loads |  |
+| aws-sdk-cloudformation | 1.159.0 | loads |  |
+| aws-sdk-lambda | 1.196.0 | loads |  |
+| aws-sdk-secretsmanager | 1.136.0 | loads |  |
+| faraday-cookie_jar | 0.0.8 | skipped | `ruby-error` |
+| parallel_tests | 5.8.0 | loads |  |
+| colorize | 1.1.0 | loads |  |
+| activerecord-import | 2.3.0 | loads |  |
+| celluloid | 0.18.0 | loads |  |
+| vcr | 6.4.0 | loads |  |
+| ttfunk | 1.8.0 | refused | `port-range:bigdecimal` |
+| tty-spinner | 0.9.3 | loads |  |
+| ostruct | 0.6.3 | loads |  |
+| autoprefixer-rails | 10.6.1.0 | loads |  |
+| bindex | 0.8.1 | refused | `cext:bindex` |
+| rchardet | 1.10.2 | loads |  |
+| redis-client | 0.31.0 | loads |  |
+| atomos | 1.0.0 | loads |  |
+| fluent-plugin-s3 | 1.8.6 | refused | `cext:zstd-ruby` |
+| fluent-plugin-kubernetes_metadata_filter | 3.8.0 | refused | `cext:zstd-ruby` |
+| gh_inspector | 1.1.3 | loads |  |
+| colored | 1.2 | loads |  |
+| stackprof | 0.2.28 | refused | `cext:stackprof` |
+| google-apis-androidpublisher_v3 | 0.109.0 | loads |  |
+| slop | 4.10.1 | loads |  |
+| guard | 2.20.2 | loads |  |
+| lumberjack | 2.1.0 | loads |  |
+| rack-attack | 6.8.0 | loads |  |
+| aws-sdk-iam | 1.154.0 | loads |  |
+| sorbet-runtime | 0.6.13532 | loads |  |
+| sentry-ruby | 7.1.0 | loads |  |
+| sexp_processor | 4.17.6 | loads |  |
+| backports | 3.25.3 | loads |  |
+| open4 | 1.3.4 | loads |  |
+| commander | 6.0.0 | loads |  |
+| paper_trail | 17.0.0 | loads |  |
+| browser | 6.2.0 | loads |  |
+| bundler-audit | 0.9.3 | loads |  |
+| aws-sdk-ecr | 1.134.0 | loads |  |
+| xcpretty | 0.4.1 | compiles | `exception-diff` |
+| aws-sdk-cloudwatchlogs | 1.165.0 | loads |  |
+| version_gem | 1.1.15 | loads |  |
+| descendants_tracker | 0.0.4 | loads |  |
+| carrierwave | 3.1.4 | loads |  |
+| bindata | 3.0.1 | loads |  |
+| pp | 0.6.4 | loads |  |
+| climate_control | 1.2.0 | loads |  |
+| turbolinks | 5.2.1 | skipped | `ruby-error` |
+| useragent | 0.16.11 | loads |  |
+| rufus-scheduler | 3.9.2 | loads |  |
+| nenv | 0.3.0 | loads |  |
+| notiffany | 0.1.3 | loads |  |
+| rails-i18n | 8.1.0 | refused | `cext:nokogiri` |
+| ruby_parser | 3.22.0 | loads |  |
+| faraday-http-cache | 3.0.0 | loads |  |
+| cocoapods | 1.17.0 | fails | `memory` |
+| slack-notifier | 2.4.0 | loads |  |
+| rotp | 6.3.0 | loads |  |
+| unicode_utils | 1.4.0 | loads |  |
+| liquid | 5.14.0 | loads |  |
+| shellany | 0.0.1 | loads |  |
+| emoji_regex | 15.0.0 | loads |  |
+| aws-sdk-route53 | 1.139.0 | loads |  |
+| bootboot | 0.2.2 | skipped | `ruby-error` |
+| jaro_winkler | 1.7.0 | refused | `cext:jaro_winkler` |
+| active_model_serializers | 0.10.16 | refused | `cext:nokogiri` |
+| sanitize | 7.0.0 | refused | `cext:nokogiri` |
+| dogstatsd-ruby | 5.7.1 | fails | `no-entry` |
+| ruby-saml | 1.18.1 | refused | `cext:nokogiri` |
+| dry-container | 0.11.0 | loads |  |
+| dry-initializer | 3.2.0 | loads |  |
+| naturally | 2.3.0 | loads |  |
+| security | 0.3.0 | loads |  |
+| lint_roller | 1.1.0 | loads |  |
+| cocoapods-core | 1.17.0 | loads |  |
+| redis-store | 1.12.0 | loads |  |
+| terminal-notifier | 3.1.0 | loads |  |
+| spring-commands-rspec | 1.0.4 | loads |  |
+| redcarpet | 3.6.1 | refused | `cext:redcarpet` |
+| twilio-ruby | 7.11.3 | refused | `cext:nokogiri` |
+| guard-compat | 1.2.1 | loads |  |
+| simctl | 1.6.10 | compiles | `status-diff` |
+| chronic | 0.10.2 | loads |  |
+| optimist | 3.2.1 | loads |  |
+| money | 7.1.1 | loads |  |
+| database_cleaner-active_record | 2.2.2 | loads |  |
+| ruby-vips | 2.3.0 | skipped | `ruby-error` |
+| coercible | 1.0.0 | loads |  |
+| foreman | 0.90.0 | loads |  |
+| nori | 2.9.1 | loads |  |
+| ed25519 | 1.4.0 | refused | `cext:ed25519` |
+| celluloid-io | 0.17.3 | refused | `cext:nio4r` |
+| countries | 8.1.0 | loads |  |
+| equalizer | 1.0.0 | loads |  |
+| aws-sdk-ses | 1.104.0 | loads |  |
+| database_cleaner-core | 2.1.0 | loads |  |
+| virtus | 2.0.0 | loads |  |
+| rqrcode | 3.2.0 | loads |  |
+| snaky_hash | 2.0.7 | loads |  |
+| dalli | 5.2.2 | loads |  |
+| guard-rspec | 4.7.3 | loads |  |
+| image_processing | 2.2.0 | loads |  |
+| axiom-types | 0.1.1 | loads |  |
+| gyoku | 1.4.0 | loads |  |
+| xcpretty-travis-formatter | 1.0.1 | skipped | `ruby-error` |
+| aws-sdk-firehose | 1.114.0 | loads |  |
+| redis-rack | 3.0.0 | loads |  |
+| aws-sdk-elasticloadbalancing | 1.94.0 | loads |  |
+| premailer | 1.31.0 | loads |  |
+| danger | 9.6.1 | fails | `memory` |
+| rspec-retry | 0.6.2 | loads |  |
+| ruby-rc4 | 0.1.5 | loads |  |
+| redis-actionpack | 5.5.0 | refused | `cext:nokogiri` |
+| debug | 1.11.1 | refused | `cext:debug` |
+| tzinfo-data | 1.2026.5 | loads |  |
+| word_wrap | 1.0.0 | loads |  |
+| kgio | 2.11.4 | refused | `cext:kgio` |
+| tins | 1.60.0 | loads |  |
+| omniauth-google-oauth2 | 1.2.3 | compiles | `status-diff` |
+| raindrops | 0.20.1 | refused | `cext:raindrops` |
+| erb | 6.0.7 | refused | `cext:erb` |
+| prettyprint | 0.2.0 | loads |  |
+| dry-schema | 1.16.0 | loads |  |
+| deep_merge | 1.2.2 | loads |  |
+| encryptor | 3.0.0 | loads |  |
+| stripe | 20.0.0 | fails | `memory` |
+| optparse | 0.8.1 | loads |  |
+| get_process_mem | 1.0.0 | loads |  |
+| celluloid-supervision | 0.20.6 | skipped | `ruby-error` |
+| faraday_middleware-aws-sigv4 | 1.0.1 | fails | `no-entry` |
+| celluloid-pool | 0.20.5 | skipped | `ruby-error` |
+| debase-ruby_core_source | 4.0.1 | loads |  |
+| celluloid-essentials | 0.20.5 | skipped | `ruby-error` |
+| celluloid-extras | 0.20.5 | fails | `no-entry` |
+| celluloid-fsm | 0.20.5 | skipped | `ruby-error` |
+| statsd-ruby | 1.5.0 | loads |  |
+| sentry-rails | 7.1.0 | refused | `cext:nokogiri` |
+| aws-sdk-rds | 1.324.0 | fails | `memory` |
+| letter_opener | 1.10.0 | loads |  |
+| aws-sdk-cloudfront | 1.156.0 | loads |  |
+| google-apis-playcustomapp_v1 | 0.18.0 | loads |  |
+| declarative-option | 0.1.0 | loads |  |
+| artifactory | 3.0.17 | loads |  |
+| dry-validation | 1.11.1 | loads |  |
+| unicorn | 6.1.0 | refused | `cext:unicorn` |
+| bson | 5.2.0 | refused | `cext:bson` |
+| ransack | 5.0.2 | loads |  |
+| tty-color | 0.6.0 | loads |  |
+| cork | 0.3.0 | loads |  |
+| wisper | 3.0.0 | loads |  |
+| claide-plugins | 0.9.2 | loads |  |
+| pastel | 0.8.0 | loads |  |
+| nkf | 0.3.0 | loads |  |
+| roo | 3.0.0 | refused | `cext:nokogiri` |
+| gitlab | 6.1.0 | loads |  |
+| molinillo | 0.8.0 | loads |  |
+| doorkeeper | 5.9.9 | refused | `cext:nokogiri` |
+| pdf-reader | 2.16.0 | refused | `port-range:bigdecimal` |
+| aws-sdk-states | 1.113.0 | loads |  |
+| rubygems-bundler | 1.4.5 | refused | `cext:executable-hooks` |
+| eye | 0.10.0 | refused | `cext:nio4r` |
+| Ascii85 | 2.0.1 | loads |  |
+| aws-sdk-cloudwatchevents | 1.110.0 | loads |  |
+| aws-sdk-codecommit | 1.105.0 | loads |  |
+| dogapi | 1.45.0 | loads |  |
+| googleapis-common-protos | 1.10.0 | refused | `cext:google-protobuf` |
+| aws-sdk-autoscaling | 1.168.0 | loads |  |
+| ansi | 1.6.0 | loads |  |
+| aws-sdk-ecs | 1.248.0 | loads |  |
+| gli | 2.22.2 | loads |  |
+| sentry-raven | 3.1.2 | loads |  |
+| rack-timeout | 0.7.0 | loads |  |
+| cocoapods-downloader | 2.1 | loads |  |
+| premailer-rails | 1.12.0 | refused | `cext:nokogiri` |
+| pundit | 2.5.2 | loads |  |
+| kostya-sigar | 2.0.11 | refused | `cext:kostya-sigar` |
+| geocoder | 1.8.6 | loads |  |
+| httpi | 4.0.4 | loads |  |
+| systemu | 2.6.5 | loads |  |
+| better_errors | 2.10.1 | compiles | `exception-diff` |
+| bcrypt_pbkdf | 1.1.2 | refused | `cext:bcrypt_pbkdf` |
+| json-jwt | 1.17.2 | loads |  |
+| capybara-screenshot | 1.0.27 | refused | `cext:nokogiri` |
+| strscan | 3.1.8 | compiles | `output-diff` |
+| yajl-ruby | 1.4.3 | refused | `cext:yajl-ruby` |
+| ruby-macho | 7.0.0 | loads |  |
+| memory_profiler | 1.1.0 | loads |  |
+| diffy | 3.4.4 | loads |  |
+| will_paginate | 4.0.1 | loads |  |
+| logging | 2.4.0 | loads |  |
+| llhttp-ffi | 0.5.1 | refused | `cext:llhttp-ffi` |
+| aasm | 6.0.0 | loads |  |
+| powerpack | 0.1.3 | loads |  |
+| fuzzy_match | 2.1.0 | loads |  |
+| fluent-plugin-record-modifier | 2.2.1 | refused | `cext:zstd-ruby` |
+| wasabi | 5.2.0 | refused | `cext:nokogiri` |
+| little-plugger | 1.1.4 | loads |  |
+| turbolinks-source | 5.2.0 | loads |  |
+| prawn | 2.5.0 | refused | `port-range:bigdecimal` |
+| aes_key_wrap | 1.1.0 | loads |  |
+| mongo | 2.26.0 | refused | `cext:bson` |
+| aws-sdk-elasticloadbalancingv2 | 1.159.0 | loads |  |
+| reverse_markdown | 3.0.2 | refused | `cext:nokogiri` |
+| cucumber | 11.1.1 | loads |  |
+| hashery | 2.1.2 | loads |  |
+| rspec-its | 2.0.0 | loads |  |
+| jsonapi-renderer | 0.2.2 | loads |  |
+| cocoapods-trunk | 1.6.0 | loads |  |
+| akami | 1.4.0 | refused | `cext:nokogiri` |
+| unparser | 0.9.0 | compiles | `status-diff` |
+| rubocop-capybara | 3.0.0 | fails | `memory` |
+| ssrf_filter | 1.6.0 | loads |  |
+| savon | 2.17.5 | refused | `cext:nokogiri` |
+| afm | 1.0.0 | loads |  |
+| polyglot | 0.3.5 | loads |  |
+| aws-sdk-cognitoidentityprovider | 1.154.0 | loads |  |
+| tomlrb | 2.0.4 | loads |  |
+| rails-deprecated_sanitizer | 1.0.4 | loads |  |
+| aws-sdk-athena | 1.125.0 | loads |  |
+| ddtrace | 1.23.3 | fails | `resolve` |
+| i18n_data | 1.1.0 | loads |  |
+| rubocop-factory_bot | 2.28.0 | fails | `memory` |
+| uuidtools | 3.0.0 | loads |  |
+| aws-sdk-rekognition | 1.137.0 | loads |  |
+| pdf-core | 0.10.0 | loads |  |
+| sshkit | 1.25.1 | loads |  |
+| test-unit | 3.7.8 | loads |  |
+| simple_form | 5.4.1 | refused | `cext:nokogiri` |
+| openssl | 4.0.2 | loads |  |
+| escape | 0.0.4 | loads |  |
+| mocha | 3.1.0 | loads |  |
+| cocoapods-deintegrate | 1.0.5 | skipped | `ruby-error` |
+| aws-sdk-configservice | 1.158.0 | loads |  |
+| algoliasearch | 1.27.5 | loads |  |
+| cocoapods-try | 1.2.0 | loads |  |
+| sidekiq-cron | 2.4.0 | refused | `cext:unicode` |
+| aws-sdk-apigateway | 1.140.0 | loads |  |
+| aws-sdk-redshift | 1.168.0 | loads |  |
+| aws-sdk-glue | 1.280.0 | fails | `memory` |
+| commonmarker | 2.10.0 | refused | `cext:commonmarker` |
+| aws-sdk-elasticache | 1.152.0 | loads |  |
+| docker-api | 2.4.0 | loads |  |
+| fourflusher | 2.3.1 | loads |  |
+| cocoapods-search | 1.0.1 | loads |  |
+| activemodel-serializers-xml | 1.0.3 | loads |  |
+| jsonpath | 1.1.5 | loads |  |
+| flipper | 1.4.2 | loads |  |
+| term-ansicolor | 1.11.3 | loads |  |
+| webpacker | 5.4.4 | refused | `cext:nokogiri` |
+| cancancan | 3.6.1 | loads |  |
+| case_transform | 0.2 | loads |  |
+| aws-sdk-elasticsearchservice | 1.126.0 | loads |  |
+| cocoapods-plugins | 1.0.0 | loads |  |
+| graphql-client | 0.26.0 | loads |  |
+| aws-sdk-acm | 1.111.0 | loads |  |
+| aws-sdk-batch | 1.154.0 | loads |  |
+| aws-sdk-pinpoint | 1.127.0 | loads |  |
+| treetop | 1.6.18 | loads |  |
+| aws-sdk-cloudtrail | 1.128.0 | loads |  |
+| aws-sdk-mediaconvert | 1.195.0 | loads |  |
+| aws-sdk-organizations | 1.150.0 | loads |  |
+| fluent-plugin-elasticsearch | 6.0.0 | refused | `cext:zstd-ruby` |
+| redis-activesupport | 5.3.0 | loads |  |
+| require_all | 3.0.0 | loads |  |
+| mixlib-shellout | 3.4.10 | loads |  |
+| no_proxy_fix | 0.1.2 | loads |  |
+| aws-sdk-emr | 1.137.0 | loads |  |
+| aws-sdk-codedeploy | 1.106.0 | loads |  |
+| aws-sdk-xray | 1.104.0 | loads |  |
+| aws-sdk-databasemigrationservice | 1.151.0 | loads |  |
+| aws-sdk-efs | 1.115.0 | loads |  |
+| aws-sdk-sagemaker | 1.398.0 | fails | `memory` |
+| aws-sdk-applicationautoscaling | 1.127.0 | loads |  |
+| aws-sdk-dynamodbstreams | 1.96.0 | loads |  |
+| multi_test | 2.0.0 | loads |  |
+| rubyntlm | 0.6.8 | loads |  |
+| aws-sdk-codebuild | 1.179.0 | loads |  |
+| aws-sdk-elasticbeanstalk | 1.109.0 | loads |  |
+| ruby-prof | 2.0.5 | refused | `cext:ruby-prof` |
+| slack-ruby-client | 3.2.0 | loads |  |
+| sixarm_ruby_unaccent | 1.2.2 | loads |  |
+| aws-sdk-iot | 1.176.0 | fails | `memory` |
+| aws-sdk-codepipeline | 1.120.0 | loads |  |
+| aws-sdk-cloudhsmv2 | 1.96.0 | loads |  |
+| aws-sdk-servicecatalog | 1.134.0 | loads |  |
+| jquery-ui-rails | 8.0.1 | refused | `cext:nokogiri` |
+| tty-reader | 0.9.0 | loads |  |
+| tty-prompt | 0.23.1 | loads |  |
+| ice_cube | 0.17.0 | loads |  |
+| aws-sdk-polly | 1.129.0 | loads |  |
+| aws-sdk-cognitoidentity | 1.93.0 | loads |  |
+| recaptcha | 5.21.2 | loads |  |
+| aws-sdk-lightsail | 1.137.0 | loads |  |
+| aws-sdk-budgets | 1.113.0 | loads |  |
+| aws-sdk-route53domains | 1.100.0 | loads |  |
+| aws-sdk-waf | 1.98.0 | loads |  |
+| aws-sdk-workspaces | 1.167.0 | loads |  |
+| activeresource | 6.2.0 | loads |  |
+| rugged | 1.9.6 | refused | `cext:rugged` |
+| slim | 5.2.2 | loads |  |
+| aws-sdk-costandusagereportservice | 1.93.0 | loads |  |
+| aws-sdk-shield | 1.101.0 | loads |  |
+| capistrano | 3.20.1 | loads |  |
+| fog-google | 1.29.4 | refused | `cext:nokogiri` |
+| annotate | 3.2.0 | loads |  |
+| aws-sdk-cloudhsm | 1.90.0 | loads |  |
+| aws-sdk-applicationdiscoveryservice | 1.106.0 | loads |  |
+| aws-sdk-guardduty | 1.165.0 | loads |  |
+| aws-sdk-comprehend | 1.119.0 | loads |  |
+| benchmark-ips | 2.15.1 | loads |  |
+| aws-sdk-directoryservice | 1.108.0 | loads |  |
+| aws-sdk-directconnect | 1.118.0 | loads |  |
+| aws-sdk-storagegateway | 1.131.0 | loads |  |
+| aws-sdk-gamelift | 1.136.0 | loads |  |
+| aws-sdk-resourcegroupstaggingapi | 1.101.0 | loads |  |
+| aws-sdk-appstream | 1.143.0 | loads |  |
+| aws-sdk-cloudsearch | 1.93.0 | loads |  |
+| aws-sdk-devicefarm | 1.112.0 | loads |  |
+| aws-sdk-sagemakerruntime | 1.104.0 | loads |  |
+| aws-sdk-costexplorer | 1.156.0 | loads |  |
+| cucumber-core | 19.0.0 | loads |  |
+| cgi | 0.5.2 | refused | `cext:cgi` |
+| aws-sdk-medialive | 1.197.0 | fails | `memory` |
+| aws-sdk-transcribeservice | 1.146.0 | loads |  |
+| aws-sdk-lex | 1.98.0 | loads |  |
+| aws-sdk-opsworks | 1.79.0 | loads |  |
+| aws-sdk-sms | 1.77.0 | loads |  |
+| fog-local | 0.9.0 | loads |  |
+| aws-sdk-simpledb | 1.81.0 | loads |  |
+| aws-sdk-glacier | 1.98.0 | loads |  |
+| aws-sdk-dax | 1.91.0 | loads |  |
+| aws-sdk-marketplacemetering | 1.105.0 | loads |  |
+| aws-sdk-greengrass | 1.100.0 | loads |  |
+| aws-sdk-health | 1.105.0 | loads |  |
+| aws-sdk-lexmodelbuildingservice | 1.110.0 | loads |  |
+| aws-sdk-iotdataplane | 1.95.0 | loads |  |
+| aws-sdk-snowball | 1.107.0 | loads |  |
+| validate_url | 1.0.15 | loads |  |
+| aws-sdk-swf | 1.91.0 | loads |  |
+| aws-sdk-migrationhub | 1.92.0 | loads |  |
+| net-ldap | 0.20.0 | loads |  |
+| power_assert | 3.1.0 | loads |  |
+| aws-sdk-cloudsearchdomain | 1.76.0 | loads |  |
+| aws-sdk-machinelearning | 1.91.0 | loads |  |
+| turbo-rails | 2.0.23 | refused | `cext:nokogiri` |
+| aws-sdk-elastictranscoder | 1.80.0 | loads |  |
+| aws-sdk-translate | 1.101.0 | loads |  |
+| aws-sdk-marketplacecommerceanalytics | 1.93.0 | loads |  |
+| rack-mini-profiler | 5.0.0 | loads |  |
+| aws-sdk-wafregional | 1.99.0 | loads |  |
+| aws-sdk-inspector | 1.95.0 | loads |  |
+| aws-sdk-eks | 1.179.0 | loads |  |
+| aws-sdk-support | 1.97.0 | loads |  |
+| aws-sdk-mturk | 1.91.0 | loads |  |
+| aws-sdk-workdocs | 1.94.0 | loads |  |
+| aws-sdk-clouddirectory | 1.95.0 | loads |  |
+| aws-sdk-marketplaceentitlementservice | 1.91.0 | loads |  |
+| hike | 2.1.3 | loads |  |
+| aws-sdk-datapipeline | 1.87.0 | loads |  |
+| aws-sdk-kinesisanalytics | 1.91.0 | loads |  |
+| aws-sdk-cognitosync | 1.87.0 | loads |  |
+| aws-sdk-connect | 1.284.0 | fails | `memory` |
+| aws-sdk-appsync | 1.127.0 | loads |  |
+| rqrcode_core | 2.1.0 | loads |  |
+| aws-sdk-importexport | 1.76.0 | loads |  |
+| aws-sdk-mq | 1.102.0 | loads |  |
+| rbs | 4.2.0 | refused | `cext:rbs` |
+| spring-watcher-listen | 2.1.0 | loads |  |
+| ruby-ole | 1.2.13.1 | fails | `no-entry` |
+| aws-sdk-mediapackage | 1.108.0 | loads |  |
+| redis-rails | 5.0.2 | refused | `cext:nokogiri` |
+| sentry-sidekiq | 7.1.0 | loads |  |
+| wicked_pdf | 2.8.2 | loads |  |
+| webdrivers | 5.3.1 | refused | `cext:nokogiri` |
+| aws-sdk-opsworkscm | 1.89.0 | loads |  |
+| libddwaf | 1.30.0.0.2 | loads |  |
+| ruby-kafka | 1.5.0 | refused | `cext:digest-crc` |
+| grape | 4.0.1 | loads |  |
+| hiredis | 0.6.3 | refused | `cext:hiredis` |
+| aws-sdk-kinesisvideo | 1.99.0 | loads |  |
+| aws-sdk-servicediscovery | 1.106.0 | loads |  |
+| aws-sdk-pricing | 1.97.0 | loads |  |
+| aws-sdk-resourcegroups | 1.102.0 | loads |  |
+| aws-sdk-workmail | 1.103.0 | loads |  |
+| aws-sdk-mediastore | 1.92.0 | loads |  |
+| libdatadog | 44.0.1.1.0 | loads |  |
+| aws-sdk-kinesisvideoarchivedmedia | 1.94.0 | loads |  |
+| aws-sdk-serverlessapplicationrepository | 1.95.0 | loads |  |
+| aws-sdk-cloud9 | 1.107.0 | loads |  |
+| strong_migrations | 2.8.0 | loads |  |
+| parslet | 2.0.0 | loads |  |
+| attr_required | 1.0.2 | loads |  |
+| aws-sdk-acmpca | 1.115.0 | loads |  |
+| rack-oauth2 | 2.3.0 | loads |  |
+| aws-sdk-iotjobsdataplane | 1.85.0 | loads |  |
+| aws-sdk-mediastoredata | 1.88.0 | loads |  |
+| aws-sdk-kinesisvideomedia | 1.87.0 | loads |  |
+| aws-sdk-autoscalingplans | 1.91.0 | loads |  |
+| rack-accept | 0.4.5 | loads |  |
+| paranoia | 3.1.0 | loads |  |
+| spreadsheet | 1.3.5 | loads |  |
+| test-prof | 1.6.3 | compiles | `output-diff` |
+| aws-sdk-fms | 1.111.0 | loads |  |
+| whenever | 1.1.3 | loads |  |
+| hana | 1.3.7 | loads |  |
+| mustache | 1.1.3 | loads |  |
+| paperclip | 6.1.0 | refused | `cext:nokogiri` |
+| icalendar | 2.12.5 | loads |  |
+| numerizer | 0.2.0 | loads |  |
+| libv8 | 8.4.255.0.1 | refused | `cext:libv8` |
+| sdoc | 2.6.5 | compiles | `status-diff` |
+| attr_encrypted | 4.2.0 | loads |  |
+| aws-sdk-neptune | 1.110.0 | loads |  |
+| phonelib | 0.10.27 | skipped | `ruby-error` |
+| logstash-filter-translate | 3.5.1 | fails | `resolve` |
+| json_schemer | 2.5.0 | loads |  |
+| gapic-common | 1.5.0 | refused | `cext:google-protobuf` |
+| aws-sdk-lambdapreview | 1.50.0 | loads |  |
+| aws-sdk-mediatailor | 1.130.0 | loads |  |
+| aws-sdk-codestar | 1.59.0 | loads |  |
+| rspec-parameterized | 2.0.1 | refused | `cext:debug_inspector` |
+| logstash-output-sqs | 6.0.0 | fails | `resolve` |
+| socksify | 1.8.1 | loads |  |
+| proc_to_ast | 0.2.0 | compiles | `status-diff` |
+| amq-protocol | 2.9.0 | loads |  |
+| aws-sdk-pi | 1.100.0 | loads |  |
+| aws-sdk-dlm | 1.107.0 | loads |  |
+| aws-sdk-iotanalytics | 1.93.0 | loads |  |
+| aws-sdk-alexaforbusiness | 1.71.0 | loads |  |
+| aws-sdk-mobile | 1.55.0 | loads |  |
+| bunny | 3.4.0 | refused | `cext:rbtree` |
+| aws-sdk-kafka | 1.121.0 | loads |  |
+| dry-equalizer | 0.3.0 | loads |  |
+| aws-sdk-transfer | 1.148.0 | loads |  |
+| aws-sdk-s3control | 1.137.0 | loads |  |
+| aws-sigv2 | 1.3.1 | loads |  |
+| openid_connect | 2.5.0 | loads |  |
+| ruby_dep | 1.5.0 | loads |  |
+| faraday-follow_redirects | 0.5.0 | loads |  |
+| opentelemetry-api | 1.11.1 | loads |  |
+| aws-sdk-quicksight | 1.200.0 | fails | `memory` |
+| elasticsearch-model | 8.0.1 | loads |  |
+| bootstrap-sass | 3.4.1 | refused | `cext:sassc` |
+| terrapin | 1.1.1 | loads |  |
+| omniauth-rails_csrf_protection | 2.0.1 | refused | `cext:nokogiri` |
+| rollbar | 3.8.0 | loads |  |
+| mustermann-grape | 1.1.0 | loads |  |
+| aws-sdk-securityhub | 1.166.0 | fails | `memory` |
+| macaddr | 1.7.2 | compiles | `output-diff` |
+| grpc-google-iam-v1 | 1.12.0 | refused | `cext:google-protobuf` |
+| toml-rb | 6.0.0 | loads |  |
+| aws-sdk-signer | 1.89.0 | loads |  |
+| fluent-plugin-rewrite-tag-filter | 2.4.1 | refused | `cext:zstd-ruby` |
+| sorbet-static |  | fails | `not-found` |
+| ohai | 19.1.40 | refused | `cext:libyajl2` |
+| acts_as_list | 1.2.6 | loads |  |
+| aws-sdk-route53resolver | 1.105.0 | loads |  |
+| mixlib-cli | 2.1.8 | loads |  |
+| aws-sdk-ram | 1.93.0 | loads |  |
+| sequel | 5.109.0 | loads |  |
+| aws-sdk-chime | 1.122.0 | loads |  |
+| citrus | 3.0.2 | loads |  |
+| simpleidn | 0.3.0 | loads |  |
+| swd | 2.0.3 | loads |  |
+| monetize | 2.0.1 | loads |  |
+| webfinger | 2.1.3 | loads |  |
+| email_spec | 2.3.1 | skipped | `ruby-error` |
+| stimulus-rails | 1.3.4 | refused | `cext:nokogiri` |
+| ffaker | 2.25.0 | loads |  |
+| marginalia | 1.11.1 | refused | `cext:nokogiri` |
+| tsort | 0.2.0 | loads |  |
+| aws-sdk-iot1clickprojects | 1.65.0 | loads |  |
+| aws-sdk-iot1clickdevicesservice | 1.63.0 | loads |  |
+| aws-sdk-datasync | 1.129.0 | loads |  |
+| aws-sdk-fsx | 1.140.0 | loads |  |
+| aws-sdk-amplify | 1.108.0 | loads |  |
+| uuid | 2.3.9 | loads |  |
+| strings-ansi | 0.2.0 | loads |  |
+| aws-sdk-rdsdataservice | 1.92.0 | loads |  |
+| fuubar | 2.5.1 | loads |  |
+| arr-pm | 0.0.12 | loads |  |
+| aws-sdk-apigatewayv2 | 1.98.0 | loads |  |
+| rbtrace | 0.5.5 | refused | `cext:rbtrace` |
+| wkhtmltopdf-binary | 0.12.6.10 | fails | `no-entry` |
+| rbtree | 0.4.7 | refused | `cext:rbtree` |
+| ruby-graphviz | 1.2.5 | compiles | `status-diff` |
+| has_scope | 0.9.0 | refused | `cext:nokogiri` |
+| factory_girl | 4.9.0 | skipped | `ruby-error` |
+| aws-sdk-appmesh | 1.97.0 | loads |  |
+| aws-sdk-globalaccelerator | 1.97.0 | loads |  |
+| json_pure | 2.8.1 | fails | `no-entry` |
+| fast_gettext | 4.1.1 | loads |  |
+| mixlib-config | 3.0.27 | loads |  |
+| recursive-open-struct | 2.1.1 | loads |  |
+| lru_redux | 1.1.0 | loads |  |
+| aws-sdk-pinpointsmsvoice | 1.82.0 | loads |  |
+| aws-sdk-pinpointemail | 1.86.0 | loads |  |
+| acts-as-taggable-on | 13.0.0 | loads |  |
+| aws-sdk-textract | 1.97.0 | loads |  |
+| aws-sdk-licensemanager | 1.96.0 | loads |  |
+| aws-sdk-mediaconnect | 1.108.0 | loads |  |
+| aws-sdk-kinesisanalyticsv2 | 1.97.0 | loads |  |
+| aws-sdk-comprehendmedical | 1.87.0 | loads |  |
+| strings | 0.2.1 | loads |  |
+| pg_query | 6.2.5 | refused | `cext:pg_query` |
+| simplecov-cobertura | 4.0.0 | loads |  |
+| aws-sdk-backup | 1.119.0 | loads |  |
+| flipper-active_record | 1.4.2 | loads |  |
+| aws-sdk-docdb | 1.110.0 | loads |  |
+| state_machines-activemodel | 0.200.0 | loads |  |
+| sigdump | 0.2.5 | loads |  |
+| aws-sdk-robomaker | 1.92.0 | loads |  |
+| prometheus-client | 5.0.0 | loads |  |
+| aws-sdk-apigatewaymanagementapi | 1.79.0 | loads |  |
+| warning | 1.6.0 | loads |  |
+| sync | 0.5.0 | loads |  |
+| omniauth-facebook | 11.0.0 | compiles | `status-diff` |
+| bugsnag | 6.30.0 | loads |  |
+| aws-sdk-sesv2 | 1.111.0 | loads |  |
+| elasticsearch-rails | 8.0.1 | loads |  |
+| delayed_job | 4.2.0 | loads |  |
+| state_machines-activerecord | 0.200.0 | loads |  |
+| charlock_holmes | 0.7.9 | refused | `cext:charlock_holmes` |
+| mixlib-log | 3.2.3 | loads |  |
+| fluent-config-regexp-type | 1.0.0 | refused | `cext:zstd-ruby` |
+| gherkin | 9.0.0 | refused | `port-range:json` |
+| omniauth-saml | 2.2.5 | refused | `cext:nokogiri` |
+| aws-sdk-macie | 1.48.0 | loads |  |
+| aws-sdk-eventbridge | 1.105.0 | loads |  |
+| semantic_range | 3.1.1 | loads |  |
+| text | 1.3.1 | loads |  |
+| locale | 2.1.5 | loads |  |
+| terser | 1.2.8 | loads |  |
+| mini_portile | 0.6.2 | loads |  |
+| thrift | 0.25.0 | refused | `cext:thrift` |
+| gon | 8.0.0 | refused | `cext:nokogiri` |
+| aws-sdk-transcribestreamingservice | 1.107.0 | loads |  |
+| sys-filesystem | 1.6.0 | loads |  |
+| fluentd | 1.19.4 | refused | `cext:msgpack` |
+| trollop | 2.9.10 | loads |  |
+| jira-ruby | 3.2.2 | refused | `cext:cgi` |
+| font-awesome-rails | 4.7.0.9 | refused | `cext:nokogiri` |
+| formtastic | 6.0.0 | refused | `cext:nokogiri` |
+| view_component | 4.15.0 | refused | `cext:nokogiri` |
+| with_env | 1.1.0 | loads |  |
+| graphiql-rails | 1.10.5 | refused | `cext:nokogiri` |
+| fast_blank | 1.0.1 | refused | `cext:fast_blank` |
+| device_detector | 1.1.3 | loads |  |
+| grape-entity | 1.1.0 | loads |  |
+| hitimes | 3.2.0 | loads |  |
+| sorted_set | 1.1.0 | refused | `cext:rbtree` |
+| aws-sdk-personalize | 1.103.0 | loads |  |
+| logstash-output-statsd | 3.2.0 | fails | `resolve` |
+| escape_utils | 1.3.0 | refused | `cext:escape_utils` |
+| rack-cache | 1.17.0 | loads |  |
+| opentelemetry-sdk | 1.13.1 | loads |  |
+| fog-aliyun | 0.4.1 | refused | `cext:nokogiri` |
+| aws-sdk-mediapackagevod | 1.90.0 | loads |  |
+| aws-sdk-managedblockchain | 1.90.0 | loads |  |
+| sendgrid-ruby | 6.7.0 | loads |  |
+| draper | 4.0.6 | refused | `cext:nokogiri` |
+| aws-sdk-personalizeruntime | 1.88.0 | loads |  |
+| opentracing | 0.5.0 | loads |  |
+| importmap-rails | 2.2.3 | refused | `cext:nokogiri` |
+| em-websocket | 0.5.3 | refused | `cext:eventmachine` |
+| devise-two-factor | 6.4.1 | refused | `cext:nokogiri` |
+| gettext | 3.5.2 | loads |  |
+| dry-struct | 1.8.1 | loads |  |
+| opentelemetry-common | 0.25.2 | loads |  |
+| aws-sdk-ioteventsdata | 1.77.0 | loads |  |
+| aws-sdk-iotevents | 1.84.0 | loads |  |
+| aws-sdk-groundstation | 1.90.0 | loads |  |
+| delayed_job_active_record | 4.1.11 | loads |  |
+| aws-sdk-iotthingsgraph | 1.75.0 | loads |  |
+| aws-sdk-ec2instanceconnect | 1.76.0 | loads |  |
+| aws-sdk-personalizeevents | 1.81.0 | loads |  |
+| aws-sdk-applicationinsights | 1.85.0 | loads |  |
+| memoizable | 0.5.1 | loads |  |
+| aws-sdk-worklink | 1.55.0 | loads |  |
+| friendly_id | 5.7.0 | loads |  |
+| aws-sdk-v1 | 1.67.0 | refused | `cext:nokogiri` |
+| gemoji | 4.1.0 | loads |  |
+| vault | 0.20.1 | loads |  |
+| combine_pdf | 1.0.31 | loads |  |
+| fog | 2.3.0 | refused | `port-range:json` |
+| aws-sdk-forecastservice | 1.91.0 | loads |  |
+| therubyracer | 0.12.3 | refused | `cext:therubyracer` |
+| rspec-sidekiq | 5.3.0 | loads |  |
+| inherited_resources | 2.1.0 | refused | `cext:nokogiri` |
+| ruby_http_client | 3.6.0 | loads |  |
+| murmurhash3 | 0.1.7 | refused | `cext:murmurhash3` |
+| haml-rails | 3.1.0 | refused | `cext:nokogiri` |
+| opentelemetry-semantic_conventions | 1.44.0 | loads |  |
+| net-ssh-gateway | 2.0.0 | loads |  |
+| aws-sdk-servicequotas | 1.78.0 | loads |  |
+| aws-sdk-lakeformation | 1.95.0 | loads |  |
+| gssapi | 1.3.1 | loads |  |
+| config | 5.6.1 | compiles | `status-diff` |
+| tty-command | 0.10.1 | loads |  |
+| health_check | 3.1.0 | refused | `cext:nokogiri` |
+| restforce | 8.0.1 | loads |  |
+| gpgme | 2.0.26 | refused | `cext:gpgme` |
+| licensee | 10.1.0 | refused | `cext:nokogiri` |
+| opensearch-ruby | 3.4.0 | loads |  |
+| license_finder | 7.2.1 | loads |  |
+| rinku | 2.0.6 | refused | `cext:rinku` |
+| minitar | 1.1.0 | loads |  |
+| aws-sdk-forecastqueryservice | 1.73.0 | loads |  |
+| aws-sdk-appconfig | 1.87.0 | loads |  |
+| prawn-table | 0.2.2 | refused | `port-range:bigdecimal` |
+| chef-utils | 19.3.15 | loads |  |
+| einhorn | 1.1.1 | loads |  |
+| rmagick | 7.1.6 | refused | `cext:rmagick` |
+| aws-sdk-wafv2 | 1.139.0 | loads |  |
+| ffi-yajl | 3.0.1 | refused | `cext:ffi-yajl` |
+| chef-config | 19.3.15 | loads |  |
+| sorbet | 0.6.13532 | fails | `resolve` |
+| fluent-plugin-grafana-loki | 1.3.0 | refused | `cext:zstd-ruby` |
+| asciidoctor | 2.0.26 | loads |  |
+| clamp | 1.5.2 | loads |  |
+| cucumber-wire | 8.0.0 | skipped | `ruby-error` |
+| ref | 2.0.0 | loads |  |
+| aws-sdk-workmailmessageflow | 1.71.0 | loads |  |
+| aws-sdk-networkmanager | 1.84.0 | loads |  |
+| money-rails | 3.0.0 | refused | `cext:nokogiri` |
+| gems | 3.0.0 | loads |  |
+| fastlane-plugin-firebase_app_distribution | 1.0.0 | refused | `port-range:json` |
+| mock_redis | 0.55.0 | loads |  |
+| aws-sdk-kendra | 1.119.0 | loads |  |
+| babel-source | 5.8.35 | loads |  |
+| minitest-reporters | 1.8.0 | loads |  |
+| aws-sdk-accessanalyzer | 1.96.0 | loads |  |
+| http-parser | 1.2.3 | refused | `cext:http-parser` |
+| opentelemetry-registry | 0.6.3 | loads |  |
+| aws-sdk-marketplacecatalog | 1.87.0 | loads |  |
+| resque | 3.1.0 | loads |  |
+| libyajl2 | 2.1.0 | refused | `cext:libyajl2` |
+| arbre | 2.2.1 | loads |  |
+| aws-sdk-qldbsession | 1.62.0 | loads |  |
+| aws-sdk-frauddetector | 1.90.0 | loads |  |
+| sys-uname | 1.5.1 | loads |  |
+| aws-sdk-qldb | 1.67.0 | loads |  |
+| aws-sdk-codestarnotifications | 1.71.0 | loads |  |
+| aws-sdk-outposts | 1.112.0 | loads |  |
+| validate_email | 0.1.6 | loads |  |
+| rspec-collection_matchers | 1.2.1 | loads |  |
+| babel-transpiler | 0.7.0 | loads |  |
+| rb-readline | 0.5.5 | loads |  |
+| aws-sdk-savingsplans | 1.82.0 | loads |  |
+| mono_logger | 1.1.2 | loads |  |
+| wmi-lite | 1.0.7 | loads |  |
+| factory_girl_rails | 4.9.0 | refused | `cext:nokogiri` |
+| async | 2.46.0 | refused | `cext:io-event` |
+| capistrano-bundler | 2.2.0 | loads |  |
+| fluent-plugin-ignore-filter | 2.0.0 | refused | `cext:zstd-ruby` |
+| aws-sdk-dataexchange | 1.89.0 | loads |  |
+| derailed_benchmarks | 2.2.1 | loads |  |
+| caxlsx | 4.5.0 | refused | `cext:nokogiri` |
+| aws-sdk-computeoptimizer | 1.102.0 | loads |  |
+| aws-sdk-detective | 1.87.0 | loads |  |
+| html-pipeline | 3.2.4 | refused | `cext:selma` |
+| fluent-plugin-prometheus | 2.3.0 | refused | `cext:zstd-ruby` |
+| aws-sdk-imagebuilder | 1.113.0 | loads |  |
+| atlassian-jwt | 0.2.1 | loads |  |
+| aws-sdk-codegurureviewer | 1.84.0 | loads |  |
+| aws-sdk-augmentedairuntime | 1.73.0 | loads |  |
+| rubocop-rspec_rails | 2.33.0 | fails | `memory` |
+| fuzzyurl | 0.9.0 | loads |  |
+| aws-sdk-connectparticipant | 1.84.0 | loads |  |
+| shoulda-context | 2.0.0 | loads |  |
+| aws-sdk-iotsecuretunneling | 1.72.0 | loads |  |
+| rswag-ui | 2.17.0 | refused | `cext:nokogiri` |
+| aws-sdk-migrationhubconfig | 1.70.0 | loads |  |
+| aws-sdk-ebs | 1.78.0 | loads |  |
+| aws-sdk-codeguruprofiler | 1.73.0 | loads |  |
+| aws-sdk-schemas | 1.72.0 | loads |  |
+| console | 1.38.0 | loads |  |
+| omniauth-github | 2.0.1 | compiles | `status-diff` |
+| timeliness | 0.5.3 | loads |  |
+| pg_search | 2.4.0 | loads |  |
+| standard | 1.57.0 | fails | `memory` |
+| aws-sdk-kinesisvideosignalingchannels | 1.69.0 | loads |  |
+| better_html | 2.2.0 | refused | `cext:better_html` |
+| rswag-api | 2.17.0 | refused | `cext:nokogiri` |
+| set | 1.1.3 | builds |  |
+| aws-sdk-codestarconnections | 1.79.0 | builds |  |
+| heapy | 0.2.0 | builds |  |
+| activerecord-session_store | 2.3.0 | refused | `cext:nokogiri` |
+| debase | 0.2.9 | refused | `cext:debase` |
+| gitlab-labkit | 5.5.0 | refused | `cext:nokogiri` |
+| activeadmin | 3.5.2 | refused | `cext:nokogiri` |
+| fluent-plugin-kinesis-aggregation | 0.4.1 | refused | `cext:zstd-ruby` |
+| fpm | 1.18.0 | builds |  |
+| letter_opener_web | 3.0.0 | refused | `cext:nokogiri` |
+| facter | 4.10.0 | builds |  |
+| smart_properties | 1.17.0 | builds |  |
+| airbrussh | 1.6.2 | builds |  |
+| kubeclient | 4.13.0 | refused | `cext:llhttp-ffi` |
+| simplecov-lcov | 0.9.0 | builds |  |
+| table_print | 1.5.7 | builds |  |
+| seed-fu | 2.3.9 | builds |  |
+| base32 | 0.3.4 | builds |  |
+| haml_lint | 0.78.0 | fails | `memory` |
+| RedCloth | 4.3.4 | refused | `cext:RedCloth` |
+| gitlab-markup | 2.1.0 | refused | `cext:RedCloth` |
+| opentelemetry-exporter-otlp | 0.37.0 | refused | `cext:google-protobuf` |
+| pry-stack_explorer | 0.6.3 | refused | `cext:debug_inspector` |
+| airbrake | 13.0.5 | refused | `cext:rbtree3` |
+| formtastic_i18n | 0.7.0 | builds |  |
+| rswag-specs | 2.17.0 | refused | `cext:nokogiri` |
+| aws-sdk-synthetics | 1.89.0 | builds |  |
+| uri_template | 0.7.0 | builds |  |
+| e2mmap | 0.1.0 | builds |  |
+| aws-sdk-iotsitewise | 1.110.0 | builds |  |
+| aws-sdk-macie2 | 1.107.0 | builds |  |
+| ruby-statistics | 4.1.1 | builds |  |
+| semantic | 1.6.1 | builds |  |
+| flipper-active_support_cache_store | 1.4.2 | builds |  |
+| cucumber-messages | 34.2.1 | builds |  |
+| jaeger-client | 1.3.0 | refused | `cext:thrift` |
+| google-logging-utils | 0.2.0 | builds |  |
+| sidekiq-unique-jobs | 8.1.0 | builds |  |
+| fog-brightbox | 1.12.0 | builds |  |
+| apollo_upload_server | 2.1.8 | refused | `cext:nokogiri` |
+| specinfra | 2.95.2 | builds |  |
+| mongoid | 9.1.1 | refused | `cext:bson` |
+| opentelemetry-instrumentation-base | 0.27.0 | builds |  |
+| grpc-tools | 1.84.0 | fails | `no-entry` |
+| rspec-parameterized-core | 2.0.2 | builds |  |
+| aws-sdk-codeartifact | 1.80.0 | builds |  |
+| fiber-local | 1.1.0 | builds |  |
+| lockbox | 2.2.0 | builds |  |
+| cucumber-gherkin | 42.0.1 | builds |  |
+| choice | 0.2.0 | builds |  |
+| rspec-parameterized-table_syntax | 2.1.1 | refused | `cext:debug_inspector` |
+| select2-rails | 4.0.13 | builds |  |
+| sysexits | 1.2.0 | builds |  |
+| redlock | 2.1.0 | builds |  |
+| rubyXL | 3.4.38 | refused | `cext:nokogiri` |
+| omniauth-oauth | 1.2.1 | builds |  |
+| rails-erd | 2.2.0 | builds |  |
+| cocaine | 0.6.0 | builds |  |
+| compass | 1.0.3 | builds |  |
+| shoulda | 4.0.0 | builds |  |
+| opentelemetry-instrumentation-rack | 0.31.2 | builds |  |
+| ruby-openai | 8.3.0 | builds |  |
+| fiber-storage | 1.0.1 | builds |  |
+| cliver | 0.3.2 | builds |  |
+| google-cloud-pubsub | 3.5.0 | refused | `cext:google-protobuf` |
+| hamlit | 4.0.0 | refused | `cext:hamlit` |
+| aws-sdk-elasticinference | 1.53.0 | builds |  |
+| snowplow-tracker | 0.8.0 | builds |  |
+| holidays | 11.7.0 | builds |  |
+| aws-sdk-ivs | 1.93.0 | builds |  |
+| grape_logging | 3.0.1 | builds |  |
+| omniauth-auth0 | 3.2.0 | builds |  |
+| down | 5.6.0 | builds |  |
+| sidekiq-scheduler | 6.0.2 | builds |  |
+| slim-rails | 4.0.1 | refused | `cext:nokogiri` |
+| nokogumbo | 2.0.5 | refused | `cext:nokogumbo` |
+| valid_email | 0.2.1 | builds |  |
+| batch-loader | 2.0.6 | builds |  |
+| deprecation_toolkit | 2.4.0 | builds |  |
+| fog-softlayer | 1.1.4 | builds |  |
+| ecma-re-validator | 0.4.0 | builds |  |
+| serverspec | 2.43.0 | builds |  |
+| grape-swagger | 2.2.0 | builds |  |
+| faye-websocket | 0.12.0 | refused | `cext:eventmachine` |
+| dpl | 2.0.5.4 | builds |  |
+| train-core | 3.16.5 | refused | `port-range:json` |
+| logstash-event | 1.2.02 | builds |  |
+| aws-sdk-locationservice | 1.92.0 | builds |  |
+| aws-sdk-appflow | 1.96.0 | builds |  |
+| zendesk_api | 3.1.2 | builds |  |
+| scenic | 1.9.0 | refused | `cext:nokogiri` |
+| executable-hooks | 1.7.1 | refused | `cext:executable-hooks` |
+| fastlane-sirp | 1.1.0 | builds |  |
+| aws-sdk-redshiftdataapiservice | 1.81.0 | builds |  |
+| gettext_i18n_rails | 2.2.0 | builds |  |
+| aws-sdk-networkfirewall | 1.99.0 | builds |  |
+| pusher | 2.1.1 | builds |  |
+| analytics-ruby | 2.6.0 | builds |  |
+| aws-sdk-identitystore | 1.75.0 | builds |  |
+| chronic_duration | 0.10.6 | builds |  |
+| opentelemetry-instrumentation-action_pack | 0.18.1 | builds |  |
+| rubocop-rake | 0.7.1 | fails | `memory` |
+| fog-profitbricks | 4.1.1 | builds |  |
+| pagy | 43.7.0 | builds |  |
+| rubocop-graphql | 1.8.0 | fails | `memory` |
+| mini_histogram | 0.3.1 | builds |  |
+| aws-sdk-braket | 1.76.0 | builds |  |
+| aws-sdk-ssoadmin | 1.80.0 | builds |  |
+| inflection | 1.0.0 | builds |  |
+| sitemap_generator | 7.1.1 | builds |  |
+| cucumber-tag-expressions | 11.0.1 | fails | `no-entry` |
+| google-gax | 1.8.2 | refused | `cext:google-protobuf` |
+| doorkeeper-openid_connect | 2.0.0 | refused | `cext:nokogiri` |
+| fog-sakuracloud | 1.7.5 | builds |  |
+| cucumber-html-formatter | 24.2.0 | fails | `no-entry` |
+| cucumber-cucumber-expressions | 20.1.0 | fails | `no-entry` |
+| gitaly | 19.4.1 | refused | `cext:google-protobuf` |
+| iniparse | 1.5.0 | builds |  |
+| rly | 0.2.3 | builds |  |
+| fog-radosgw | 0.0.5 | refused | `cext:nokogiri` |
+| danger-gitlab | 10.0.0 | fails | `no-entry` |
+| fission | 0.5.0 | builds |  |
+| fog-openstack | 1.1.5 | builds |  |
+| jekyll | 4.4.1 | refused | `cext:http_parser.rb` |
+| pry-doc | 1.7.0 | builds |  |
+| prometheus-client-mmap | 1.6.1 | refused | `cext:prometheus-client-mmap` |
+| elastic-transport | 8.5.3 | builds |  |
+| vegas | 0.1.11 | builds |  |
+| user_agent_parser | 2.21.0 | builds |  |
+| fluent-plugin-kafka | 0.19.8 | refused | `cext:zstd-ruby` |
+| fog-vmfusion | 0.1.0 | builds |  |
+| devise_invitable | 2.0.14 | refused | `cext:nokogiri` |
+| fog-terremark | 0.1.0 | refused | `cext:nokogiri` |
+| invisible_captcha | 2.3.0 | refused | `cext:nokogiri` |
+| chartkick | 5.2.1 | builds |  |
+| fog-voxel | 0.1.0 | refused | `cext:nokogiri` |
+| cookiejar | 0.3.4 | builds |  |
+| simple_po_parser | 1.1.6 | builds |  |
+| serverengine | 2.4.0 | builds |  |
+| acme-client | 2.0.35 | builds |  |
+| fog-ecloud | 0.3.0 | refused | `cext:nokogiri` |
+| opentelemetry-instrumentation-sidekiq | 0.29.0 | builds |  |
+| fog-storm_on_demand | 0.1.1 | builds |  |
+| simple_oauth | 1.0.1 | builds |  |
+| aws-sdk-timestreamquery | 1.73.0 | builds |  |
+| aws-sdk-timestreamwrite | 1.68.0 | builds |  |
+| rack-contrib | 2.5.0 | builds |  |
+| opentelemetry-instrumentation-net_http | 0.29.2 | builds |  |
+| aws-sdk-s3outposts | 1.66.0 | builds |  |
+| aws-sdk-ecrpublic | 1.70.0 | builds |  |
+| retryable | 3.0.5 | builds |  |
+| aws-sdk-auditmanager | 1.87.0 | builds |  |
+| aws-sdk-devopsguru | 1.79.0 | builds |  |
+| watir | 7.3.0 | builds |  |
+| net-telnet | 0.2.0 | builds |  |
+| aws-sdk-appregistry | 1.68.0 | builds |  |
+| aws-sdk-iotwireless | 1.93.0 | builds |  |
+| sass-embedded | 1.105.1 | refused | `cext:sass-embedded` |
+| fog-atmos | 0.1.0 | refused | `cext:nokogiri` |
+| danger-plugin-api | 1.0.0 | builds |  |
+| aws-sdk-prometheusservice | 1.79.0 | builds |  |
+| fog-serverlove | 0.1.2 | builds |  |
+| opentelemetry-instrumentation-active_record | 0.13.0 | builds |  |
+| cbor | 0.5.10.3 | refused | `cext:cbor` |
+| mechanize | 2.14.1 | refused | `cext:nokogiri` |
+| google-apis-generator | 0.19.0 | builds |  |
+| aws-sdk-greengrassv2 | 1.76.0 | builds |  |
+| aws-sdk-customerprofiles | 1.96.0 | builds |  |
+| akismet | 3.0.0 | builds |  |
+| aws-sdk-mwaa | 1.81.0 | builds |  |
+| google-apis-discovery_v1 | 0.21.0 | builds |  |
+| aws-sdk-gluedatabrew | 1.74.0 | builds |  |
+| sysrandom | 1.0.5 | refused | `cext:sysrandom` |
+| aws-sdk-lexmodelsv2 | 1.98.0 | builds |  |
+| audited | 5.8.0 | builds |  |
+| gitlab-styles | 14.1.0 | refused | `port-range:json` |
+| sfl | 2.3 | builds |  |
+| aws-sdk-iotdeviceadvisor | 1.69.0 | builds |  |
+| aws-sdk-sagemakeredgemanager | 1.63.0 | builds |  |
+| capistrano-rails | 1.7.0 | builds |  |
+| rails-observers | 0.1.5 | builds |  |
+| aws-sdk-emrcontainers | 1.78.0 | builds |  |
+| net-http-digest_auth | 1.4.1 | builds |  |
+| curb | 1.4.0 | refused | `cext:curb` |
+| stringex | 2.8.6 | builds |  |
+| aws-sdk-wellarchitected | 1.75.0 | builds |  |
+| fog-riakcs | 0.1.0 | refused | `cext:nokogiri` |
+| js_regex | 3.14.0 | refused | `cext:character_set` |
+| opentelemetry-instrumentation-faraday | 0.33.0 | builds |  |
+| ox | 2.14.29 | refused | `cext:ox` |
+| fog-powerdns | 0.2.1 | refused | `cext:nokogiri` |
+| puma_worker_killer | 1.0.0 | refused | `cext:nio4r` |
+| em-http-request | 1.1.7 | refused | `cext:eventmachine` |
+| path_expander | 2.0.1 | builds |  |
+| cose | 1.3.1 | refused | `cext:cbor` |
+| groupdate | 6.8.0 | builds |  |
+| aws-sdk-amplifybackend | 1.68.0 | builds |  |
+| aws-sdk-lexruntimev2 | 1.73.0 | builds |  |
+| aws-sdk-healthlake | 1.72.0 | builds |  |
+| aws-sdk-appintegrationsservice | 1.75.0 | builds |  |
+| aws-sdk-sagemakerfeaturestoreruntime | 1.70.0 | builds |  |
+| openssl-signature_algorithm | 1.3.0 | builds |  |
+| after_commit_everywhere | 1.6.0 | builds |  |
+| em-socksify | 0.3.3 | refused | `cext:eventmachine` |
+| aws-sdk-connectcontactlens | 1.63.0 | builds |  |
+| honeybadger | 6.9.3 | builds |  |
+| benchmark-memory | 0.2.0 | builds |  |
+| ruby-next-core | 1.2.1 | fails | `no-entry` |
+| opentelemetry-instrumentation-active_support | 0.12.1 | builds |  |
+| dry-cli | 1.4.1 | builds |  |
+| i18n-js | 4.2.4 | builds |  |
+| webauthn | 3.4.3 | refused | `cext:cbor` |
+| aws-sdk-lookoutforvision | 1.57.0 | builds |  |
+| regexp_property_values | 1.5.2 | refused | `cext:regexp_property_values` |
+| opentelemetry-instrumentation-redis | 0.29.0 | builds |  |
+| io-event | 1.22.1 | refused | `cext:io-event` |
+| vite_ruby | 3.11.1 | builds |  |
+| tpm-key_attestation | 0.14.2 | builds |  |
+| metaclass | 0.0.4 | builds |  |
+| html2text | 0.5.0 | refused | `cext:nokogiri` |
+| email_reply_trimmer | 0.4.0 | builds |  |
+| datadog | 2.43.0 | refused | `cext:datadog` |
+| ltsv | 0.1.2 | builds |  |
+| reek | 6.6.0 | fails | `memory` |
+| solargraph | 0.60.4 | refused | `cext:jaro_winkler` |
+| omniauth-twitter | 1.5.0 | refused | `cext:cgi` |
+| android_key_attestation | 0.3.0 | builds |  |
+| pusher-signature | 0.1.8 | builds |  |
+| business_time | 0.13.0 | builds |  |
+| safety_net_attestation | 0.5.0 | builds |  |
+| character_set | 1.8.0 | refused | `cext:character_set` |
+| cocoon | 1.2.15 | builds |  |
+| ancestry | 5.1.0 | builds |  |
+| truncato | 0.7.13 | refused | `cext:nokogiri` |
+| rack-ssl | 1.4.1 | builds |  |
+| vmstat | 2.3.1 | refused | `cext:vmstat` |
+| inifile | 3.0.0 | builds |  |
+| rubocop-minitest | 0.41.0 | fails | `memory` |
+| kwalify | 0.7.2 | builds |  |
+| re2 | 2.28.0 | refused | `cext:re2` |
+| opentelemetry-instrumentation-action_view | 0.13.0 | builds |  |
+| poltergeist | 1.18.1 | refused | `cext:nokogiri` |
+| azure-storage-common | 2.0.4 | refused | `cext:nokogiri` |
+| aws-sdk-lookoutequipment | 1.69.0 | builds |  |
+| amazing_print | 3.0.0 | builds |  |
+| aws-sdk-mgn | 1.77.0 | builds |  |
+| pyu-ruby-sasl | 0.0.3.3 | builds |  |
+| aws-sdk-iotfleethub | 1.51.0 | builds |  |
+| opentelemetry-instrumentation-rails | 0.42.0 | builds |  |
+| react-rails | 3.3.1 | refused | `cext:nokogiri` |
+| flipper-ui | 1.4.2 | refused | `cext:nokogiri` |
+| mixlib-versioning | 1.2.12 | builds |  |
+| unleash | 6.7.1 | fails | `resolve` |
+| rubypants | 0.7.1 | builds |  |
+| aws-sdk-fis | 1.70.0 | builds |  |
+| jekyll-sass-converter | 3.1.0 | refused | `cext:google-protobuf` |
+| gitlab_omniauth-ldap | 2.3.0 | builds |  |
+| prime | 0.1.4 | builds |  |
+| phony | 3.0.7 | builds |  |
+| ruby-lsp | 0.26.11 | builds |  |
+| aws-sdk-apprunner | 1.77.0 | builds |  |
+| webrobots | 0.1.2 | builds |  |
+| vite_rails | 3.11.1 | refused | `cext:nokogiri` |
+| aws-sdk-lookoutmetrics | 1.61.0 | builds |  |
+| polyamorous | 2.3.2 | builds |  |
+| moneta | 1.6.0 | builds |  |
+| aws-sdk-finspacedata | 1.71.0 | builds |  |
+| version_sorter | 2.3.0 | refused | `cext:version_sorter` |
+| aws-sdk-ssmincidents | 1.71.0 | builds |  |
+| semantic_logger | 5.1.0 | builds |  |
+| sinatra-contrib | 4.2.1 | builds |  |
+| gitlab-license | 2.6.0 | builds |  |
+| asciidoctor-plantuml | 0.1.1 | builds |  |
+| pact-support | 2.0.0 | refused | `port-range:json` |
+| pkg-config | 1.6.5 | builds |  |
+| gitlab-dangerfiles | 4.12.0 | builds |  |
+| fog-rackspace | 0.1.6 | refused | `cext:nokogiri` |
+| email_validator | 2.2.4 | builds |  |
+| pact-mock_service | 4.0.0 | refused | `port-range:json` |
+| creole | 0.5.0 | builds |  |
+| aws-sdk-honeycode | 1.32.0 | builds |  |
+| pact | 2.1.0 | fails | `resolve` |
+| awrence | 5.0.0 | builds |  |
+| expression_parser | 0.9.0 | builds |  |
+| validates_hostname | 2.0.46 | builds |  |
+| org-ruby | 0.9.12 | builds |  |
+| deckar01-task_list | 2.3.4 | refused | `cext:nokogiri` |
+| momentjs-rails | 2.29.4.1 | refused | `cext:nokogiri` |
+| rails_stdout_logging | 0.0.5 | builds |  |
+| aws-sdk-finspace | 1.72.0 | builds |  |
+| sidekiq-failures | 1.1.0 | builds |  |
+| wikicloth | 0.8.3 | refused | `cext:unf_ext` |
+| aws-sdk-ssmcontacts | 1.66.0 | builds |  |
+| opentelemetry-instrumentation-http | 0.30.0 | builds |  |
+| scientist | 1.6.5 | builds |  |
+| settingslogic | 2.0.9 | builds |  |
+| zip-zip | 0.3 | builds |  |
+| mercenary | 0.4.0 | builds |  |
+| timfel-krb5-auth | 0.8.3 | refused | `cext:timfel-krb5-auth` |
+| rgeo | 3.1.0 | refused | `cext:rgeo` |
+| aws-sdk-applicationcostprofiler | 1.59.0 | builds |  |
+| rails_serve_static_assets | 0.0.5 | builds |  |
+| peek | 1.1.0 | refused | `cext:nokogiri` |
+| chef-handler-datadog | 0.16.0 | builds |  |
+| rb_sys | 0.9.130 | builds |  |
+| opentelemetry-instrumentation-active_job | 0.13.0 | builds |  |
+| find_a_port | 1.0.1 | builds |  |
+| grape-path-helpers | 2.1.0 | builds |  |
+| resque-scheduler | 5.0.0 | builds |  |
+| omniauth-oauth2-generic | 0.2.8 | builds |  |
+| rbnacl | 7.1.2 | builds |  |
+| omniauth-azure-activedirectory-v2 | 2.4.0 | builds |  |
+| opentelemetry-instrumentation-http_client | 0.29.1 | builds |  |
+| omniauth_openid_connect | 0.8.0 | builds |  |
+| azure-storage-blob | 2.0.3 | refused | `cext:nokogiri` |
+| aws-sdk-proton | 1.74.0 | builds |  |
+| inflecto | 0.0.2 | builds |  |
+| mini_racer | 0.22.1 | refused | `cext:mini_racer` |
+| parseconfig | 1.1.2 | builds |  |
+| opentelemetry-instrumentation-pg | 0.37.0 | builds |  |
+| backport | 1.2.0 | builds |  |
+| opentelemetry-instrumentation-concurrent_ruby | 0.25.0 | builds |  |
+| font-awesome-sass | 6.7.2 | refused | `cext:sassc` |
+| asciidoctor-include-ext | 0.4.0 | builds |  |
+| slack-messenger | 2.3.6 | refused | `cext:re2` |
+| gitlab_chronic_duration | 0.12.0 | builds |  |
+| datadog-ci | 1.41.0 | refused | `cext:datadog-ci` |
+| gitlab-mail_room | 1.1.0 | builds |  |
+| gitlab-net-dns | 0.15.0 | fails | `no-entry` |
+| pry-nav | 1.0.0 | builds |  |
+| anyway_config | 2.8.1 | builds |  |
+| graphql-docs | 6.0.0 | refused | `cext:commonmarker` |
+| active_record_query_trace | 1.9 | builds |  |
+| figaro | 1.3.0 | builds |  |
+| html2haml | 2.3.0 | refused | `cext:nokogiri` |
+| spoom | 1.8.10 | fails | `resolve` |
+| opentelemetry-instrumentation-ethon | 0.29.0 | builds |  |
+| ruby-fogbugz | 0.3.0 | builds |  |
+| fluent-plugin-cloudwatch-logs | 0.15.0 | refused | `cext:zstd-ruby` |
+| colorator | 1.1.0 | builds |  |
+| sorbet-static-and-runtime | 0.6.13532 | fails | `resolve` |
+| safely_block | 1.0.0 | builds |  |
+| gitlab-chronic | 0.10.6 | builds |  |
+| jekyll-watch | 2.2.1 | builds |  |
+| data_migrate | 11.3.1 | refused | `cext:nokogiri` |
+| mixlib-install | 3.19.2 | builds |  |
+| compass-import-once | 1.0.5 | builds |  |
+| gitlab-fog-azure-rm | 2.5.2 | refused | `cext:nokogiri` |
+| extended-markdown-filter | 0.7.0 | refused | `cext:nokogiri` |
+| rails_12factor | 0.0.3 | builds |  |
+| pry-remote | 0.1.8 | builds |  |
+| fiber-annotation | 0.2.0 | builds |  |
+| aws-sdk-chimesdkmessaging | 1.69.0 | builds |  |
+| tty-table | 0.12.0 | builds |  |
+| grape-swagger-entity | 0.7.1 | builds |  |
+| opentelemetry-instrumentation-graphql | 0.32.0 | builds |  |
+| dumb_delegator | 1.1.0 | builds |  |
+| cssbundling-rails | 1.4.3 | refused | `cext:nokogiri` |
+| rspec_profiling | 0.0.9 | refused | `cext:nokogiri` |
+| activerecord-explain-analyze | 0.1.0 | refused | `cext:pg` |
+| aws-sdk-opensearchservice | 1.111.0 | builds |  |
+| sentry-ruby-core | 7.1.0 | builds |  |
+| aws-sdk-account | 1.65.0 | builds |  |
+| http-2 | 1.2.3 | builds |  |
+| opentelemetry-instrumentation-aws_sdk | 0.13.0 | builds |  |
+| ruby-debug-ide | 0.7.5 | refused | `cext:ruby-debug-ide` |
+| dry-monads | 1.11.0 | builds |  |
+| circuitbox | 2.0.0 | builds |  |
+| i18n-tasks | 1.1.2 | refused | `cext:nokogiri` |
+| flay | 2.14.4 | builds |  |
+| fluent-plugin-opensearch | 1.1.8 | refused | `cext:zstd-ruby` |
+| compass-core | 1.0.3 | builds |  |
+| io-like | 0.4.0 | builds |  |
+| shoryuken | 7.0.4 | builds |  |
+| aws-sdk-route53recoverycluster | 1.62.0 | builds |  |
+| tapioca | 0.20.0 | fails | `resolve` |
+| aws-sdk-route53recoverycontrolconfig | 1.62.0 | builds |  |
+| gitlab-experiment | 2.0.0 | builds |  |
+| png_quantizator | 0.2.1 | builds |  |
+| aws-sdk-route53recoveryreadiness | 1.60.0 | builds |  |
+| fog-dynect | 0.5.0 | refused | `cext:nokogiri` |
+| koala | 3.7.0 | refused | `cext:cgi` |
+| airbrake-ruby | 6.2.2 | refused | `cext:rbtree3` |
+| propshaft | 1.3.2 | refused | `cext:nokogiri` |
+| discard | 2.0.0 | builds |  |
+| aws-sdk-chimesdkidentity | 1.62.0 | builds |  |
+| nested_form | 0.3.2 | builds |  |
+| omniauth-atlassian-oauth2 | 0.2.0 | builds |  |
+| aws-sdk-voiceid | 1.62.0 | builds |  |
+| cucumber-rails | 4.1.0 | refused | `cext:nokogiri` |
+| fastlane-plugin-appcenter | 2.1.3 | builds |  |
+| dante | 0.2.0 | builds |  |
+| aws-sdk-snowdevicemanagement | 1.56.0 | builds |  |
+| aws-sdk-chimesdkmeetings | 1.70.0 | builds |  |
+| aws-sdk-memorydb | 1.67.0 | builds |  |
+| google_drive | 3.0.7 | refused | `cext:nokogiri` |
+| google-apis-compute_v1 | 0.155.0 | fails | `memory` |
+| passenger | 6.2.0 | refused | `cext:passenger` |
+| bcrypt-ruby | 3.1.5 | refused | `cext:bcrypt` |
+| aws-sdk-connectwisdomservice | 1.67.0 | builds |  |
+| rbi | 0.4.3 | refused | `cext:rbs` |
+| google-apis-dns_v1 | 0.56.0 | builds |  |
+| coverband | 6.2.2 | builds |  |
+| bootstrap | 5.3.8 | builds |  |
+| mize | 0.6.1 | builds |  |
+| asciidoctor-kroki | 1.0.1 | builds |  |
+| google-apis-monitoring_v3 | 0.85.0 | builds |  |
+| popper_js | 2.11.8 | builds |  |
+| test_file_finder | 0.3.1 | builds |  |
+| opentelemetry-instrumentation-excon | 0.29.1 | builds |  |
+| google-apis-pubsub_v1 | 0.72.0 | builds |  |
+| roo-xls | 2.0.0 | refused | `cext:nokogiri` |
+| waterdrop | 2.10.5 | refused | `cext:karafka-rdkafka` |
+| benchmark-perf | 0.6.0 | builds |  |
+| graphlient | 0.9.0 | fails | `memory` |
+| undercover | 0.8.5 | refused | `cext:rugged` |
+| fluent-plugin-aws-elasticsearch-service | 2.4.1 | refused | `cext:zstd-ruby` |
+| secure_headers | 7.3.0 | refused | `cext:cgi` |
+| pathutil | 0.16.2 | builds |  |
+| amatch | 0.7.0 | refused | `cext:amatch` |
+| enumerize | 3.0.0 | builds |  |
+| netaddr | 2.0.6 | builds |  |
+| statsd-instrument | 4.0.1 | builds |  |
+| aws-sdk-kafkaconnect | 1.63.0 | builds |  |
+| google-apis-sqladmin_v1beta4 | 0.106.0 | builds |  |
+| aws-sdk-cloudcontrolapi | 1.58.0 | builds |  |
+| aws-sdk-nimblestudio | 1.41.0 | builds |  |
+| aws-sdk-managedgrafana | 1.68.0 | builds |  |
+| event_stream_parser | 1.0.0 | builds |  |
+| unaccent | 0.4.0 | builds |  |
+| hirb | 0.7.3 | builds |  |
+| benchmark-trend | 0.4.0 | builds |  |
+| aws-sdk-panorama | 1.59.0 | builds |  |
+| benchmark-malloc | 0.2.0 | builds |  |
+| naught | 2.3.0 | builds |  |
+| rspec-benchmark | 0.6.0 | builds |  |
+| forwardable-extended | 2.6.0 | builds |  |
+| aws-sdk-resiliencehub | 1.70.0 | builds |  |
+| journey | 1.0.4 | builds |  |
+| aws-sdk-rails | 5.2.0 | refused | `cext:nokogiri` |
+| imagen | 0.2.0 | builds |  |
+| ld-eventsource | 3.0.0 | refused | `cext:llhttp` |
+| fluent-plugin-gcloud-pubsub-custom | 1.6.0 | refused | `cext:zstd-ruby` |
+| aws-sdk-drs | 1.72.0 | builds |  |
+| with_advisory_lock | 7.6.0 | builds |  |
+| unicorn-worker-killer | 0.4.5 | refused | `cext:raindrops` |
+| ruby-magic | 0.6.0 | refused | `cext:ruby-magic` |
+| prometheus_exporter | 2.3.1 | builds |  |
+| pstore | 0.2.1 | builds |  |
+| rake-compiler | 1.3.1 | fails | `no-entry` |
+| github-markup | 6.0.0 | builds |  |
+| fcm | 2.0.3 | builds |  |
+| declarative_policy | 2.2.0 | builds |  |
+| flamegraph | 0.9.5 | builds |  |
+| puppet | 8.10.0 | fails | `resolve` |
+| cucumber-tag_expressions | 2.0.2 | builds |  |
+| google-apis-sheets_v4 | 0.49.0 | builds |  |
+| active_storage_validations | 4.1.1 | refused | `cext:nokogiri` |
+| sin_lru_redux | 2.5.3 | builds |  |
+| tanuki_emoji | 0.13.0 | builds |  |
+| pdfkit | 0.8.7.3 | builds |  |
+| aws-sdk-inspector2 | 1.84.0 | builds |  |
+| aws-sdk-migrationhubrefactorspaces | 1.59.0 | builds |  |
+| aws-sdk-appconfigdata | 1.56.0 | builds |  |
+| datadog-ruby_core_source | 3.5.5 | builds |  |
+| observer | 0.1.2 | builds |  |
+| discordrb-webhooks | 3.8.0 | builds |  |
+| cucumber-expressions | 8.3.0 | fails | `no-entry` |
+| geokit | 1.14.0 | builds |  |
+| aws-sdk-backupgateway | 1.58.0 | builds |  |
+| avro | 1.12.2 | builds |  |
+| contracts | 0.17.3 | builds |  |
+| spamcheck | 1.3.3 | refused | `cext:google-protobuf` |
+| fluent-plugin-grok-parser | 2.6.2 | refused | `cext:zstd-ruby` |
+| rubocop-sorbet | 0.16.0 | fails | `resolve` |
+| rbvmomi | 3.0.0 | refused | `port-range:json` |
+| hashids | 1.0.6 | builds |  |
+| standard-performance | 1.9.0 | fails | `memory` |
+| commander-fastlane | 4.4.6 | builds |  |
+| crystalball | 0.7.0 | builds |  |
+| google-apis-drive_v3 | 0.88.0 | builds |  |
+| aws-sdk-workspacesweb | 1.68.0 | builds |  |
+| aws-sdk-cloudwatchevidently | 1.53.0 | builds |  |
+| log4r | 1.1.10 | builds |  |
+| columnize | 0.9.0 | builds |  |
+| action_text-trix | 2.1.19 | refused | `cext:nokogiri` |
+| sd_notify | 0.1.1 | builds |  |
+| aws-sdk-migrationhubstrategyrecommendations | 1.58.0 | builds |  |
+| stud | 0.0.23 | fails | `no-entry` |
+| rubocop-rails-omakase | 1.1.0 | fails | `no-entry` |
+| launchdarkly-server-sdk | 8.18.1 | refused | `cext:llhttp` |
+| libxml-ruby | 6.0.0 | refused | `cext:libxml-ruby` |
+| aws-sdk-amplifyuibuilder | 1.62.0 | builds |  |
+| ssh_data | 2.0.0 | builds |  |
+| abbrev | 0.1.2 | builds |  |
+| aws-sdk-ssooidc | 1.25.0 | builds |  |
+| standard-custom | 1.0.2 | fails | `memory` |
+| country_select | 11.0.0 | builds |  |
+| google-apis-firebaseappdistribution_v1 | 0.22.0 | builds |  |
+| json_schema | 0.21.0 | builds |  |
+| redmine_crm | 0.0.63 | refused | `cext:nokogiri` |
+| geoip | 1.6.4 | builds |  |
+| aws-sdk-cloudwatchrum | 1.62.0 | builds |  |
+| aws-sdk-iottwinmaker | 1.60.0 | builds |  |
+| binding_ninja | 0.2.3 | refused | `cext:binding_ninja` |
+| yard-sorbet | 0.9.0 | builds |  |
+| promise.rb | 0.7.4 | builds |  |
+| pry-rescue | 1.6.0 | refused | `cext:interception` |
+| karafka | 2.6.1 | refused | `cext:karafka-rdkafka` |
+| aws-sdk-recyclebin | 1.59.0 | builds |  |
+| oga | 3.5 | refused | `cext:oga` |
+| graphql-batch | 0.6.1 | builds |  |
+| cucumber-ci-environment | 15.0.0 | fails | `no-entry` |
+| barby | 0.7.0 | builds |  |
+| atomic | 1.1.101 | refused | `cext:atomic` |
+| bourbon | 7.3.0 | builds |  |
+| searchkick | 6.1.2 | builds |  |
+| ruby-ll | 2.2.0 | refused | `cext:ruby-ll` |
+| faraday_middleware-multi_json | 0.0.6 | builds |  |
+| google-cloud-location | 1.5.1 | refused | `cext:google-protobuf` |
+| interception | 0.5 | refused | `cext:interception` |
+| asana | 2.0.3 | builds |  |
+| axe-core-api | 4.13.0 | fails | `no-entry` |
+| pry-shell | 0.7.0 | builds |  |
+| kamal | 2.12.0 | refused | `cext:ed25519` |
+| tty-markdown | 0.7.2 | builds |  |
+| rack-rewrite | 1.5.1 | builds |  |
+| scout_apm | 6.3.1 | refused | `cext:scout_apm` |
+| twitter | 8.3.2 | refused | `cext:llhttp` |
+| rspec-instafail | 1.0.0 | builds |  |
+| http_accept_language | 2.1.1 | builds |  |
+| chef-sugar | 5.1.12 | builds |  |
+| braintree | 4.41.0 | builds |  |
+| fluent-plugin-ec2-metadata | 0.1.3 | refused | `cext:zstd-ruby` |
+| bootstrap_form | 5.6.1 | refused | `cext:nokogiri` |
+| flog | 4.9.4 | builds |  |
+| posix-spawn | 0.3.15 | refused | `cext:posix-spawn` |
+| deep_cloneable | 3.2.2 | builds |  |
+| thwait | 0.2.0 | builds |  |
+| buftok | 1.0.1 | builds |  |
+| remotipart | 1.4.4 | builds |  |
+| opentelemetry-instrumentation-rake | 0.6.0 | builds |  |
+| thruster | 0.1.27 | builds |  |
+| cabin | 0.9.1 | builds |  |
+| adamantium | 0.2.0 | builds |  |
+| rgeo-activerecord | 8.1.0 | refused | `cext:rgeo` |
+| digest | 3.2.1 | builds |  |
+| inspec | 7.2.1 | refused | `port-range:json` |
+| dead_end | 4.0.0 | builds |  |
+| interactor | 3.2.0 | builds |  |
+| intercom | 4.2.2 | builds |  |
+| net-ftp | 0.3.9 | builds |  |
+| archive-zip | 0.13.1 | builds |  |
+| roadie | 5.3.1 | refused | `cext:nokogiri` |
+| expgen | 0.1.1 | builds |  |
+| hiera | 3.12.0 | builds |  |
+| mixlib-authentication | 3.0.10 | builds |  |
+| bundler-unload | 1.0.2 | builds |  |
+| abstract_type | 0.0.7 | builds |  |
+| aliyun-sdk | 0.8.0 | refused | `cext:aliyun-sdk` |
+| chef | 19.3.15 | refused | `port-range:json` |
+| aws-sdk-ivschat | 1.62.0 | builds |  |
+| aws-sdk-keyspaces | 1.62.0 | builds |  |
+| activerecord-postgis-adapter | 11.1.1 | refused | `cext:rgeo` |
+| spoon | 0.0.6 | builds |  |
+| aws-sdk-chimesdkmediapipelines | 1.59.0 | builds |  |
+| solid_queue | 1.7.0 | refused | `cext:nokogiri` |
+| overcommit | 0.73.0 | builds |  |
+| google-cloud-bigquery | 1.64.0 | builds |  |
+| zlib | 3.2.3 | fails | `no-entry` |
+| train | 3.16.5 | refused | `port-range:json` |
+| hocon | 1.4.0 | builds |  |
+| oauth-tty | 1.0.13 | builds |  |
+| procto | 0.0.3 | builds |  |
+| concord | 0.1.6 | builds |  |
+| diplomat | 2.6.6 | builds |  |
+| gitlab_quality-test_tooling | 3.22.0 | refused | `cext:amatch` |
+| aws-sdk-billingconductor | 1.64.0 | builds |  |
+| jsonb_accessor | 1.4.2 | refused | `cext:pg` |
+| aws-sdk-pinpointsmsvoicev2 | 1.65.0 | builds |  |
+| omniauth-alicloud | 3.0.0 | builds |  |
+| aws-sdk-emrserverless | 1.72.0 | builds |  |
+| king_konf | 1.0.1 | builds |  |
+| google-apis-firebaseappdistribution_v1alpha | 0.30.0 | builds |  |
+| fog-vsphere | 3.7.3 | refused | `cext:nokogiri` |
+| rails_semantic_logger | 5.2.0 | refused | `cext:nokogiri` |
+| karafka-rdkafka | 0.30.2 | refused | `cext:karafka-rdkafka` |
+| gem-release | 2.2.4 | builds |  |
+| gemojione | 4.3.3 | builds |  |
+| aws-sdk-redshiftserverless | 1.75.0 | builds |  |
+| ruby-enum | 1.2.1 | builds |  |
+| ci_reporter | 2.1.0 | fails | `no-entry` |
+| rspec-activemodel-mocks | 1.3.0 | builds |  |
+| ffi-libarchive | 1.1.14 | builds |  |
+| rabl | 0.17.0 | builds |  |
+| sshkey | 3.0.0 | builds |  |
+| karafka-core | 2.6.4 | refused | `cext:karafka-rdkafka` |
+| insist | 1.0.0 | builds |  |
+| aws-sdk-connectcampaignservice | 1.53.0 | builds |  |
+| asset_sync | 2.19.3 | refused | `cext:unf` |
+| aws-sdk-mainframemodernization | 1.56.0 | builds |  |
+| fakeredis | 0.9.2 | builds |  |
+| fog-xenserver | 1.0.0 | refused | `cext:nokogiri` |
+| inline_svg | 1.10.0 | refused | `cext:nokogiri` |
+| rails_autolink | 1.1.8 | refused | `cext:nokogiri` |
+| rolify | 6.0.1 | builds |  |
+| kt-paperclip | 8.0.0 | builds |  |
+| traces | 0.18.2 | builds |  |
+| pleaserun | 0.0.34 | fails | `no-entry` |
+| ms_rest_azure | 0.12.0 | builds |  |
+| unicode | 0.4.4.5 | refused | `cext:unicode` |
+| activerecord-nulldb-adapter | 1.2.2 | builds |  |
+| ms_rest | 0.7.6 | builds |  |
+| awesome_nested_set | 3.9.0 | builds |  |
+| dry-auto_inject | 1.2.1 | builds |  |
+| active_record_union | 1.4.0 | builds |  |
+| axe-core-rspec | 4.13.0 | builds |  |
+| site_prism | 6.0.1 | refused | `cext:nokogiri` |
+| retries | 0.0.5 | builds |  |
+| progress_bar | 1.3.4 | builds |  |
+| meta_request | 0.8.6 | refused | `cext:nokogiri` |
+| plaid | 52.0.0 | fails | `timeout` |
+| aws-sdk-rolesanywhere | 1.57.0 | builds |  |
+| gitlab-triage | 1.56.2 | builds |  |
+| jsbundling-rails | 1.3.1 | refused | `cext:nokogiri` |
+| maxminddb | 0.1.22 | builds |  |
+| transproc | 1.1.1 | builds |  |
+| composite_primary_keys | 14.0.10 | builds |  |
+| activemerchant | 1.137.0 | refused | `cext:nokogiri` |
+| logstash-logger | 1.0.0 | builds |  |
+| codecov | 0.6.0 | builds |  |
+| exception_notification | 5.0.1 | refused | `cext:nokogiri` |
+| opentelemetry-instrumentation-grape | 0.7.1 | builds |  |
+| opentelemetry-helpers-sql-obfuscation | 0.5.0 | builds |  |
+| options | 2.3.2 | builds |  |
+| rvm | 1.11.3.9 | builds |  |
+| rubocop-thread_safety | 0.8.0 | fails | `memory` |
+| capistrano-rvm | 0.1.2 | builds |  |
+| xmlrpc | 0.3.4 | builds |  |
+| minitest-spec-rails | 7.4.1 | refused | `cext:nokogiri` |
+| scss_lint | 0.60.0 | builds |  |
+| pdf-inspector | 1.3.0 | refused | `port-range:bigdecimal` |
+| aws-sdk-licensemanagerusersubscriptions | 1.56.0 | builds |  |
+| simplecov-json | 0.2.3 | builds |  |
+| db-query-matchers | 0.15.0 | builds |  |
+| time | 0.4.2 | builds |  |
+| sidekiq-status | 4.0.0 | builds |  |
+| default_value_for | 4.2.0 | builds |  |
+| clockwork | 4.0.1 | builds |  |
+| faraday-mashify | 1.0.3 | builds |  |
+| cvss-suite | 5.0.0 | builds |  |
+| winrm | 2.4.1 | builds |  |
+| jsonapi-serializer | 2.2.0 | builds |  |
+| dnsruby | 1.74.0 | builds |  |
+| opentelemetry-instrumentation-action_mailer | 0.8.1 | builds |  |
+| allure-ruby-commons | 2.29.1 | builds |  |
+| carmen | 1.1.3 | builds |  |
+| aws-sdk-supportapp | 1.51.0 | builds |  |
+| telesign | 4.1.1 | builds |  |
+| flipper-redis | 1.4.2 | builds |  |
+| solid_cache | 1.0.10 | refused | `cext:nokogiri` |
+| aws-sdk-controltower | 1.65.0 | builds |  |
+| hanami-utils | 3.0.1 | builds |  |
+| puppet-lint | 5.1.1 | builds |  |
+| influxdb-client | 3.2.0 | builds |  |
+| validates_timeliness | 8.0.0 | builds |  |
+| rbtree3 | 1.1.0 | refused | `cext:rbtree3` |
+| ntlm-http | 0.1.1 | fails | `no-entry` |
+| faraday-typhoeus | 2.0.0 | builds |  |
+| rdkafka | 0.30.0 | refused | `cext:rdkafka` |
+| chef-vault | 4.2.12 | builds |  |
+| fiddle | 1.1.8 | builds |  |
+| google-apis-cloudresourcemanager_v1 | 0.46.0 | builds |  |
+| forwardable | 1.4.0 | builds |  |
+| aws-sdk-iotfleetwise | 1.68.0 | builds |  |
+| jruby-openssl | 0.9.4 | builds |  |
+| counter_culture | 3.14.0 | builds |  |
+| sucker_punch | 3.3.0 | builds |  |
+| middleware | 0.1.0 | builds |  |
+| aws-sdk-bedrockruntime | 1.85.0 | builds |  |
+| guard-rubocop | 1.5.0 | builds |  |
+| oj-introspect | 0.9.0 | refused | `cext:oj-introspect` |
+| aws-sdk-connectcases | 1.73.0 | builds |  |
+| knapsack_pro | 10.0.1 | builds |  |
+| aws-sdk-scheduler | 1.51.0 | builds |  |
+| xcode-install | 2.8.1 | refused | `port-range:json` |
+| neighbor | 1.2.0 | builds |  |
+| aws-sdk-migrationhuborchestrator | 1.50.0 | builds |  |
+| constant_resolver | 0.3.0 | builds |  |
+| net-ssh-multi | 1.2.1 | builds |  |
+| telesignenterprise | 6.0.3 | builds |  |
+| roadie-rails | 3.4.0 | refused | `cext:nokogiri` |
+| chef-zero | 15.1.11 | refused | `cext:libyajl2` |
+| slather | 2.8.5 | refused | `cext:nokogiri` |
+| graphlyte | 1.0.0 | builds |  |
+| devise-security | 0.18.0 | refused | `cext:nokogiri` |
+| packwerk | 3.3.1 | refused | `cext:nokogiri` |
+| mixpanel-ruby | 3.4.0 | builds |  |
+| string-scrub | 0.1.1 | refused | `cext:string-scrub` |
+| gettext_i18n_rails_js | 3.2.0 | refused | `cext:nokogiri` |
+| app_store_connect | 0.38.0 | builds |  |
+| semver_dialects | 4.1.3 | builds |  |
+| google-apis-iam_v1 | 0.92.0 | builds |  |
+| opentelemetry-instrumentation-mysql2 | 0.34.0 | builds |  |
+| to_regexp | 0.2.1 | builds |  |
+| libv8-node | 24.12.0.1 | refused | `cext:libv8-node` |
+| semantic_puppet | 1.1.1 | builds |  |
+| busser | 0.9.3 | builds |  |
+| fluent-plugin-concat | 2.6.2 | refused | `cext:zstd-ruby` |
+| barnes | 1.0.1 | builds |  |
+| actionpack-action_caching | 1.2.2 | refused | `cext:nokogiri` |
+| filelock | 1.1.1 | builds |  |
+| less | 2.6.0 | builds |  |
+| po_to_json | 3.1.0 | builds |  |
+| roda | 3.108.0 | builds |  |
+| rqrcode-rails3 | 0.1.7 | builds |  |
+| caxlsx_rails | 0.7.2 | refused | `cext:nokogiri` |
+| devfile | 0.5.5 | builds |  |
+| sys-proctable | 1.3.0 | builds |  |
+| json_spec | 1.1.5 | builds |  |
+| postmark | 1.25.1 | builds |  |
+| prawn-svg | 0.40.4 | refused | `port-range:bigdecimal` |
+| meta-tags | 2.24.0 | refused | `cext:nokogiri` |
+| tty-which | 0.5.0 | builds |  |
+| gmail_xoauth | 0.4.3 | builds |  |
+| erb_lint | 0.9.0 | refused | `cext:nokogiri` |
+| filesize | 0.2.0 | builds |  |
+| phantomjs | 2.1.1.0 | builds |  |
+| fluent-plugin-out-http | 1.3.5 | refused | `cext:yajl-ruby` |
+| commonjs | 0.2.7 | builds |  |
+| duo_api | 1.6.0 | builds |  |
+| toml | 0.3.0 | builds |  |
+| ruby-hmac | 0.4.0 | builds |  |
+| ruby2ruby | 2.6.2 | builds |  |
+| google-apis-serviceusage_v1 | 0.81.0 | builds |  |
+| google-apis-container_v1 | 0.121.0 | builds |  |
+| google-apis-container_v1beta1 | 0.108.0 | builds |  |
+| google-apis-cloudbilling_v1 | 0.41.0 | builds |  |
+| rss | 0.3.3 | builds |  |
+| aws-record | 2.15.3 | builds |  |
+| aws-sdk-resourceexplorer2 | 1.56.0 | builds |  |
+| google-apis-bigquery_v2 | 0.107.0 | builds |  |
+| phony_rails | 0.15.0 | builds |  |
+| aws-sdk-chimesdkvoice | 1.62.0 | builds |  |
+| rspec-json_expectations | 2.2.0 | builds |  |
+| docker_registry2 | 1.19.0 | builds |  |
+| gserver | 0.0.1 | builds |  |
+| aws-sdk-ssmsap | 1.58.0 | builds |  |
+| jekyll-feed | 0.18.0 | refused | `port-range:json` |
+| aws-sdk-omics | 1.79.0 | builds |  |
+| attr_extras | 7.1.0 | builds |  |
+| smarter_csv | 1.19.0 | refused | `cext:smarter_csv` |
+| fluent-plugin-kinesis | 3.7.0 | refused | `cext:zstd-ruby` |
+| ipaddr | 1.2.9 | builds |  |
+| aws-sdk-codecatalyst | 1.54.0 | builds |  |
+| aws-sdk-pipes | 1.58.0 | builds |  |
+| aws-sdk-arczonalshift | 1.53.0 | builds |  |
+| aws-sdk-opensearchserverless | 1.64.0 | builds |  |
+| devise-i18n | 1.16.1 | refused | `cext:nokogiri` |
+| aws-sdk-securitylake | 1.59.0 | builds |  |
+| aws-sdk-docdbelastic | 1.50.0 | builds |  |
+| aws-sdk-oam | 1.54.0 | builds |  |
+| rails_best_practices | 1.23.4 | builds |  |
+| aws-sdk-sagemakergeospatial | 1.50.0 | builds |  |
+| allure-rspec | 2.29.1 | builds |  |
+| syntax_tree | 6.3.0 | builds |  |
+| hanami-cli | 3.0.0 | builds |  |
+| fluent-plugin-detect-exceptions | 0.0.16 | refused | `cext:zstd-ruby` |
+| dependabot-common | 0.399.0 | refused | `cext:commonmarker` |
+| aws-sdk-simspaceweaver | 1.49.0 | builds |  |
+| fluent-plugin-multi-format-parser | 1.1.0 | refused | `cext:zstd-ruby` |
+| solid_cable | 4.1.0 | refused | `cext:websocket-driver` |
+| puppet_forge | 6.2.0 | builds |  |
+| cocoapods-stats | 1.1.0 | builds |  |
+| proxifier | 1.0.3 | builds |  |
+| aws-sdk-privatenetworks | 1.33.0 | builds |  |
+| fog-cloudatcost | 0.4.0 | builds |  |
+| net-http2 | 0.19.0 | builds |  |
+| appsignal | 5.0.2 | refused | `cext:appsignal` |
+| cloudinary | 2.4.5 | builds |  |
+| less-rails | 5.0.0 | refused | `cext:nokogiri` |
+| active_hash | 4.1.0 | builds |  |
+| aws-sdk-sagemakermetrics | 1.51.0 | builds |  |
+| prettier_print | 1.2.1 | builds |  |
+| carrierwave-aws | 1.6.1 | fails | `memory` |
+| dependabot-omnibus | 0.399.0 | refused | `cext:stackprof` |
+| fileutils | 1.8.0 | builds |  |
+| semaphore_test_boosters | 2.7.1 | builds |  |
+| dependabot-terraform | 0.399.0 | refused | `cext:stackprof` |
+| axlsx | 2.0.1 | refused | `cext:nokogiri` |
+| fastlane-plugin-sentry | 2.8.0 | builds |  |
+| singleton | 0.3.0 | builds |  |
+| code_analyzer | 0.5.5 | builds |  |
+| dependabot-git_submodules | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-nuget | 0.399.0 | refused | `cext:stackprof` |
+| paint | 2.3.0 | builds |  |
+| dependabot-python | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-gradle | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-docker | 0.399.0 | refused | `cext:stackprof` |
+| dalli-elasticache | 2.0.2 | builds |  |
+| pghero | 4.0.1 | builds |  |
+| sort_alphabetical | 1.1.0 | builds |  |
+| bson_ext | 1.12.5 | refused | `cext:bson_ext` |
+| dependabot-cargo | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-elm | 0.399.0 | refused | `cext:stackprof` |
+| aws-sdk-kinesisvideowebrtcstorage | 1.50.0 | builds |  |
+| chromedriver-helper | 2.1.1 | refused | `cext:nokogiri` |
+| compass-rails | 4.0.0 | refused | `cext:nokogiri` |
+| dependabot-maven | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-composer | 0.399.0 | refused | `cext:stackprof` |
+| semaphore_cucumber_booster_config | 1.4.2 | builds |  |
+| state_machine | 1.2.0 | builds |  |
+| dependabot-hex | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-go_modules | 0.399.0 | refused | `cext:stackprof` |
+| aws-sdk-licensemanagerlinuxsubscriptions | 1.49.0 | builds |  |
+| dependabot-npm_and_yarn | 0.399.0 | refused | `cext:stackprof` |
+| rake-compiler-dock | 1.12.0 | builds |  |
+| gettext-setup | 1.1.1 | builds |  |
+| net-ping | 2.2.0 | builds |  |
+| gibbon | 4.0.0 | builds |  |
+| datadog_api_client | 2.60.0 | builds |  |
+| dependabot-bundler | 0.399.0 | refused | `cext:stackprof` |
+| strip_attributes | 2.0.1 | builds |  |
+| aws-sdk-cleanrooms | 1.81.0 | builds |  |
+| headless | 3.0.0 | builds |  |
+| opentelemetry-instrumentation-dalli | 0.30.0 | builds |  |
+| ruby-dbus | 0.25.0 | builds |  |
+| tailwindcss-rails | 4.6.0 | refused | `cext:nokogiri` |
+| aws-sdk-kendraranking | 1.50.0 | builds |  |
+| rack-utf8_sanitizer | 1.11.1 | builds |  |
+| mailgun-ruby | 1.4.5 | builds |  |
+| ejson | 1.5.3 | fails | `no-entry` |
+| async-http | 0.105.0 | refused | `cext:io-event` |
+| metrics | 0.15.0 | builds |  |
+| omniauth-shibboleth-redux | 2.0.0 | builds |  |
+| protocol-http | 0.72.0 | builds |  |
+| creek | 2.6.3 | refused | `cext:nokogiri` |
+| zstd-ruby | 2.0.10 | refused | `cext:zstd-ruby` |
+| async-io | 1.43.2 | refused | `cext:io-event` |
+| aws_cf_signer | 0.1.3 | builds |  |
+| content_disposition | 1.0.0 | builds |  |
+| errbase | 0.2.2 | builds |  |
+| page-object | 2.3.1 | builds |  |
+| pretender | 1.0.0 | refused | `cext:nokogiri` |
+| strptime | 0.2.5 | refused | `cext:strptime` |
+| jekyll-seo-tag | 2.9.1 | refused | `port-range:json` |
+| redis-cluster-client | 0.17.4 | builds |  |
+| aws-sdk-cloudtraildata | 1.48.0 | builds |  |
+| jquery-fileupload-rails | 1.0.0 | refused | `cext:nokogiri` |
+| hashie-forbidden_attributes | 0.1.1 | builds |  |
+| rubocop-gitlab-security | 0.1.1 | fails | `memory` |
+| heroics | 0.1.4 | builds |  |
+| elasticsearch-dsl | 0.1.10 | builds |  |
+| twitter_cldr | 6.14.0 | builds |  |
+| sensu-plugin | 4.0.0 | refused | `port-range:json` |
+| randexp | 0.1.7 | builds |  |
+| opentelemetry-instrumentation-resque | 0.9.0 | builds |  |
+| platform-api | 3.9.1 | builds |  |
+| google-cloud-profiler-v2 | 1.7.0 | refused | `cext:google-protobuf` |
+| diff_match_patch | 0.1.0 | builds |  |
+| stripe-ruby-mock | 5.0.0 | fails | `no-entry` |
+| zip_tricks | 5.6.0 | builds |  |
+| opentelemetry-instrumentation-ruby_kafka | 0.25.0 | builds |  |
+| redis-clustering | 6.0.0 | builds |  |
+| junit_merge | 0.1.2 | refused | `cext:nokogiri` |
+| dependabot-github_actions | 0.399.0 | refused | `cext:stackprof` |
+| currencies | 0.4.2 | builds |  |
+| semverse | 3.0.2 | builds |  |
+| syslog-logger | 1.6.8 | builds |  |
+| codeclimate-test-reporter | 1.0.9 | refused | `port-range:json` |
+| aws-sdk-internetmonitor | 1.57.0 | builds |  |
+| quiet_assets | 1.1.0 | refused | `cext:nokogiri` |
+| aws-sdk-tnb | 1.48.0 | builds |  |
+| gitlab-glfm-markdown | 0.0.45 | refused | `cext:gitlab-glfm-markdown` |
+| extlib | 0.9.16 | builds |  |
+| cldr-plurals-runtime-rb | 1.2.0 | fails | `no-entry` |
+| pagerduty | 4.0.1 | builds |  |
+| mixlib-archive | 1.3.6 | builds |  |
+| fastercsv | 1.5.5 | builds |  |
+| sidekiq-limit_fetch | 4.4.1 | builds |  |
+| hangouts-chat | 0.1.0 | builds |  |
+| shrine | 3.10.0 | builds |  |
+| process_executer | 4.1.1 | builds |  |
+| js-routes | 2.4.1 | refused | `cext:nokogiri` |
+| to_bool | 2.1.0 | builds |  |
+| securecompare | 1.0.0 | builds |  |
+| simplecov-rcov | 0.3.7 | builds |  |
+| camertron-eprun | 1.1.1 | builds |  |
+| site_prism-all_there | 3.0.10 | builds |  |
+| kas-grpc | 0.6.0 | refused | `cext:google-protobuf` |
+| scrypt | 3.1.0 | refused | `cext:scrypt` |
+| debugger-ruby_core_source | 1.3.8 | builds |  |
+| fluent-logger | 0.11.0 | refused | `cext:msgpack` |
+| opentelemetry-instrumentation-restclient | 0.28.0 | builds |  |
+| omniauth-azure-oauth2 | 0.0.10 | builds |  |
+| gitlab-sdk | 0.3.1 | builds |  |
+| sys-cpu | 1.3.0 | builds |  |
+| dbus-systemd | 1.1.2 | builds |  |
+| fluent-plugin-mongo | 1.6.3 | refused | `cext:zstd-ruby` |
+| fastlane-plugin-versioning | 0.7.1 | builds |  |
+| winrm-fs | 1.3.7 | builds |  |
+| rswag | 2.17.0 | refused | `cext:nokogiri` |
+| jekyll-sitemap | 1.4.0 | refused | `port-range:json` |
+| u2f | 1.0.0 | builds |  |
+| ar_transaction_changes | 1.1.11 | builds |  |
+| opentelemetry-instrumentation-trilogy | 0.69.0 | builds |  |
+| aws-sdk-ivsrealtime | 1.69.0 | builds |  |
+| puppetlabs_spec_helper | 9.0.0 | fails | `resolve` |
+| ruby-ip | 0.9.3 | builds |  |
+| thread | 0.2.2 | fails | `no-entry` |
+| google-cloud-pubsub-v1 | 1.18.0 | refused | `cext:google-protobuf` |
+| clipboard | 2.0.0 | builds |  |
+| opentelemetry-instrumentation-active_model_serializers | 0.25.0 | builds |  |
+| dpl-script | 1.10.16 | fails | `no-entry` |
+| humanize | 3.1.0 | builds |  |
+| coveralls | 0.8.23 | refused | `port-range:json` |
+| omniauth-gitlab | 4.1.0 | builds |  |
+| cri | 2.15.12 | builds |  |
+| test_after_commit | 1.2.2 | builds |  |
+| iconv | 1.1.1 | refused | `cext:iconv` |
+| rspec-puppet | 6.0.0 | builds |  |
+| rubocop-shopify | 3.1.0 | fails | `memory` |
+| deb_version | 1.0.3 | builds |  |
+| date_validator | 0.12.0 | builds |  |
+| protocol-http1 | 0.41.0 | builds |  |
+| flowdock | 0.7.1 | builds |  |
+| redis-objects | 2.0.0 | builds |  |
+| dependabot-pub | 0.399.0 | refused | `cext:stackprof` |
+| protocol-http2 | 0.29.1 | builds |  |
+| authy | 3.0.1 | builds |  |
+| rubycritic | 5.0.0 | fails | `memory` |
+| opentelemetry-instrumentation-delayed_job | 0.26.0 | builds |  |
+| scrolls | 0.9.6 | builds |  |
+| aws-sdk-vpclattice | 1.56.0 | builds |  |
+| gitlab-sidekiq-fetcher | 0.9.0 | builds |  |
+| pronto | 0.11.5 | refused | `cext:rugged` |
+| rack-mount | 0.8.3 | builds |  |
+| makara | 0.5.1 | builds |  |
+| tiny_tds | 3.4.0 | refused | `cext:tiny_tds` |
+| roxml | 4.2.0 | refused | `cext:nokogiri` |
+| intercom-rails | 1.1.1 | builds |  |
+| opentelemetry-metrics-api | 0.9.0 | builds |  |
+| rack_session_access | 0.2.0 | builds |  |
+| omniauth-salesforce | 1.0.5 | builds |  |
+| r10k | 5.0.3 | builds |  |
+| google-cloud-common | 1.10.0 | refused | `cext:google-protobuf` |
+| gelf | 3.1.0 | builds |  |
+| capistrano-rbenv | 2.2.0 | builds |  |
+| opensearch-api | 2.2.0 | builds |  |
+| puppet-syntax | 7.3.0 | fails | `memory` |
+| yaml | 0.4.0 | builds |  |
+| opensearch-transport | 2.1.0 | builds |  |
+| google-cloud-compute-v1 | 4.0.0 | refused | `cext:google-protobuf` |
+| color | 2.2.0 | builds |  |
+| write_xlsx | 1.15.1 | builds |  |
+| paper_trail-association_tracking | 2.4.1 | builds |  |
+| racecar | 2.12.0 | refused | `cext:rdkafka` |
+| timezone | 1.3.31 | builds |  |
+| dependabot-swift | 0.399.0 | refused | `cext:stackprof` |
+| google-cloud-artifact_registry-v1 | 1.14.1 | refused | `cext:google-protobuf` |
+| omniauth-shibboleth | 1.3.0 | builds |  |
+| ferrum | 0.18.0 | refused | `cext:websocket-driver` |
+| github-linguist | 9.7.0 | refused | `cext:github-linguist` |
+| dependabot-devcontainers | 0.399.0 | refused | `cext:stackprof` |
+| aws-sdk-osis | 1.55.0 | builds |  |
+| whois | 6.0.3 | builds |  |
+| brpoplpush-redis_script | 0.1.3 | builds |  |
+| exifr | 1.5.1 | builds |  |
+| rspec-html-matchers | 0.10.0 | refused | `cext:nokogiri` |
+| aws-sdk-backupstorage | 1.16.0 | builds |  |
+| omniauth-authentiq | 0.3.3 | builds |  |
+| fast_jsonapi | 1.5 | builds |  |
+| oily_png | 1.2.1 | refused | `cext:oily_png` |
+| xxhash | 0.7.0 | refused | `cext:xxhash` |
+| actionpack-xml_parser | 2.0.1 | refused | `cext:nokogiri` |
+| async-pool | 0.12.0 | refused | `cext:io-event` |
+| appraisal | 2.5.0 | builds |  |
+| gmail | 0.7.1 | builds |  |
+| iso_country_codes | 0.7.8 | builds |  |
+| aws-sdk-mediapackagev2 | 1.74.0 | builds |  |
+| swagger-blocks | 3.0.0 | builds |  |
+| hurley | 0.2 | builds |  |
+| cfn-nag | 0.8.10 | refused | `port-range:psych` |
+| opentelemetry-instrumentation-bunny | 0.25.0 | builds |  |
+| opentelemetry-instrumentation-mongo | 0.26.0 | builds |  |
+| dynamic_form | 1.3.1 | refused | `cext:nokogiri` |
+| fluent-plugin-tag-normaliser | 0.1.3 | refused | `cext:zstd-ruby` |
+| pronto-rubocop | 0.11.6 | refused | `cext:rugged` |
+| opentelemetry-instrumentation-all | 0.98.0 | builds |  |
+| rollout | 3.2.0 | builds |  |
+| aws-sdk-gamesparks | 1.13.0 | builds |  |
+| fattr | 2.4.0 | builds |  |
+| aws-sdk-verifiedpermissions | 1.70.0 | builds |  |
+| snappy | 0.5.1 | refused | `cext:snappy` |
+| sneakers | 2.12.0 | refused | `cext:rbtree` |
+| stripe_event | 2.15.0 | fails | `memory` |
+| protocol | 2.0.1 | builds |  |
+| syslog_protocol | 0.9.2 | builds |  |
+| google-iam-v1 | 1.8.0 | refused | `cext:google-protobuf` |
+| hpricot | 0.8.6 | refused | `cext:hpricot` |
+| hkdf | 1.0.0 | builds |  |
+| aws-sessionstore-dynamodb | 4.0.0 | builds |  |
+| minitest-hooks | 1.5.4 | builds |  |
+| opentelemetry-instrumentation-sinatra | 0.30.1 | builds |  |
+| telephone_number | 1.4.26 | builds |  |
+| htmlbeautifier | 1.4.3 | builds |  |
+| jasmine-core | 3.99.0 | builds |  |
+| influxdb | 0.8.1 | builds |  |
+| geokit-rails | 2.5.0 | refused | `cext:nokogiri` |
+| openapi_parser | 2.3.1 | builds |  |
+| aws-sdk-paymentcryptography | 1.62.0 | builds |  |
+| url | 0.3.2 | builds |  |
+| aws-sdk-paymentcryptographydata | 1.59.0 | builds |  |
+| xcresult | 0.2.5 | builds |  |
+| bootstrap-datepicker-rails | 1.10.0.1 | refused | `cext:nokogiri` |
+| cfn-model | 0.6.9 | refused | `port-range:psych` |
+| data_magic | 1.2 | builds |  |
+| centralized_ruby_logger | 0.0.18 | builds |  |
+| maxmind-db | 1.5.0 | builds |  |
+| jekyll-paginate | 1.1.0 | builds |  |
+| badge | 0.13.2 | refused | `port-range:json` |
+| aws-sdk-codegurusecurity | 1.49.0 | builds |  |
+| parlour | 9.1.2 | fails | `memory` |
+| descriptive_statistics | 2.5.1 | builds |  |
+| avro_turf | 1.20.2 | builds |  |
+| yml_reader | 0.7 | builds |  |
+| opentelemetry-instrumentation-que | 0.13.0 | builds |  |
+| active_link_to | 1.0.5 | refused | `cext:nokogiri` |
+| autoparse | 0.3.3 | builds |  |
+| aws-sdk-sts | 1.12.0 | builds |  |
+| aws-sdk-appfabric | 1.46.0 | builds |  |
+| fluent-plugin-geoip-filter | 1.0.0 | refused | `cext:zstd-ruby` |
+| eventmachine_httpserver | 0.2.1 | refused | `cext:eventmachine_httpserver` |
+| selectize-rails | 0.12.6 | builds |  |
+| shakapacker | 10.3.2 | refused | `cext:nokogiri` |
+| super_diff | 0.19.0 | builds |  |
+| iso8601 | 0.13.0 | builds |  |
+| azure-core | 0.1.15 | refused | `cext:nokogiri` |
+| cmdparse | 3.0.7 | builds |  |
+| opentelemetry-instrumentation-koala | 0.24.0 | builds |  |
+| handlebars_assets | 0.23.10 | builds |  |
+| opentelemetry-instrumentation-lmdb | 0.27.0 | builds |  |
+| redis-prescription | 2.6.0 | builds |  |
+| saml_idp | 1.0.0 | refused | `cext:nokogiri` |
+| ace-rails-ap | 4.5 | builds |  |
+| truncate_html | 0.9.3 | builds |  |
+| image_size | 3.6.0 | builds |  |
+| minitest-retry | 0.3.1 | builds |  |
+| american_date | 1.3.0 | builds |  |
+| protocol-hpack | 1.5.1 | builds |  |
+| resque-retry | 1.9.0 | builds |  |
+| guard-livereload | 2.5.2 | refused | `cext:http_parser.rb` |
+| cancan | 1.6.10 | builds |  |
+| equatable | 0.7.0 | builds |  |
+| aws-sdk-bedrock | 1.95.0 | builds |  |
+| annotaterb | 4.25.0 | builds |  |
+| patience_diff | 1.2.0 | builds |  |
+| non-stupid-digest-assets | 1.0.11 | builds |  |
+| aws-sdk-medicalimaging | 1.52.0 | builds |  |
+| cucumber-create-meta | 6.0.4 | fails | `no-entry` |
+| tinymce-rails | 8.9.3 | refused | `cext:nokogiri` |
+| globalize | 7.1.3 | builds |  |
+| page_navigation | 0.10 | builds |  |
+| request_store-sidekiq | 0.1.0 | builds |  |
+| aws-sdk-entityresolution | 1.55.0 | builds |  |
+| functions_framework | 1.7.0 | refused | `cext:nio4r` |
+| hexapdf | 1.11.1 | builds |  |
+| aws-sdk-managedblockchainquery | 1.48.0 | builds |  |
+| chef-handler-graphite | 1.2.0 | refused | `cext:unf_ext` |
+| devise-encryptable | 0.3.0 | refused | `cext:nokogiri` |
+| active_utils | 3.6.1 | builds |  |
+| authlogic | 6.6.0 | builds |  |
+| cool.io | 1.9.5 | refused | `cext:cool.io` |
+| ahoy_matey | 5.5.0 | refused | `cext:cgi` |
+| validates_email_format_of | 1.8.2 | builds |  |
+| activerecord-deprecated_finders | 1.0.4 | fails | `no-entry` |
+| xcov | 1.9.0 | refused | `port-range:json` |
+| sidekiq-throttled | 2.1.0 | builds |  |
+| warden-jwt_auth | 0.12.0 | builds |  |
+| pathspec | 2.1.0 | builds |  |
+| rubocop-faker | 1.3.0 | fails | `memory` |
+| mongoid-compatibility | 1.0.0 | refused | `cext:bson` |
+| hipchat | 1.6.0 | refused | `cext:nokogiri` |
+| rr | 3.1.2 | builds |  |
+| devise-jwt | 0.13.0 | refused | `cext:nokogiri` |
+| hamster | 3.0.0 | builds |  |
+| fluent-plugin-coralogix | 1.0.9 | fails | `no-entry` |
+| fabrication | 3.0.0 | builds |  |
+| xdan-datetimepicker-rails | 2.5.4 | refused | `cext:nokogiri` |
+| gitlab-kas-grpc | 19.4.1 | refused | `cext:google-protobuf` |
+| nilify_blanks | 1.4.0 | builds |  |
+| omniauth-cas3 | 1.1.4 | refused | `cext:nokogiri` |
+| ruby-openid | 2.9.2 | builds |  |
+| acts_as_paranoid | 0.11.0 | builds |  |
+| manticore |  | fails | `not-found` |
+| lightly | 0.4.0 | builds |  |
+| dependabot-dotnet_sdk | 0.399.0 | refused | `cext:stackprof` |
+| opentelemetry-instrumentation-rdkafka | 0.10.0 | builds |  |
+| dependabot-bun | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-uv | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-docker_compose | 0.399.0 | refused | `cext:stackprof` |
+| dependabot-helm | 0.399.0 | refused | `cext:stackprof` |
+| blueprinter | 1.3.0 | builds |  |
+| omniauth-dingtalk-oauth2 | 1.0.1 | builds |  |
+| dentaku | 4.0.2 | builds |  |
+| actionpack-page_caching | 1.2.5 | refused | `cext:nokogiri` |
+| syslog | 0.4.0 | builds |  |
+| minitest-rails | 8.1.0 | refused | `cext:nokogiri` |
+| typeprof | 0.33.2 | builds |  |
+| pr_geohash | 1.0.0 | builds |  |
+| karafka-web | 1.0.1 | refused | `cext:karafka-rdkafka` |
+| docx | 0.13.0 | refused | `cext:nokogiri` |
+| fssm | 0.2.10 | builds |  |
+| rgeo-geojson | 2.2.0 | refused | `cext:rgeo` |
+| seedbank | 0.5.0 | builds |  |
+| committee | 5.6.4 | builds |  |
+| sprockets-es6 | 0.9.2 | builds |  |
+| aws-sdk-neptunedata | 1.48.0 | builds |  |
+| aws-sdk-pcaconnectorad | 1.43.0 | builds |  |
+| fluent-plugin-datadog | 0.15.1 | refused | `cext:zstd-ruby` |
+| devise_token_auth | 1.3.0 | refused | `cext:nokogiri` |
+| webpush | 1.1.0 | builds |  |
+| doorkeeper-device_authorization_grant | 1.0.3 | refused | `cext:nokogiri` |
+| dry-events | 1.1.0 | builds |  |
+| fastlane-plugin-badge | 1.5.0 | refused | `port-range:json` |
+| public_activity | 3.0.2 | refused | `cext:nokogiri` |
+| rdiscount | 2.2.7.5 | refused | `cext:rdiscount` |
+| shopify_api | 16.3.0 | refused | `cext:oj` |
+| email_address | 0.2.9 | builds |  |
+| cloud_events | 0.9.0 | builds |  |
+| java-properties | 0.3.0 | builds |  |
+| snmp | 1.3.4 | builds |  |
+| tty-box | 0.7.0 | builds |  |
+| code_ownership | 2.2.0 | refused | `cext:code_ownership` |
+| rails_admin | 3.3.1 | refused | `cext:nokogiri` |
+| skylight | 7.1.1 | refused | `cext:skylight` |
+| enum_help | 0.0.20 | builds |  |
+| ZenTest | 4.12.2 | builds |  |
+| gene_pool | 1.5.0 | builds |  |
+| omniauth_crowd | 2.4.0 | refused | `cext:nokogiri` |
+| auth-sanitizer | 0.2.3 | builds |  |
+| minitest-focus | 1.4.1 | builds |  |
+| pmap | 1.1.1 | builds |  |
+| cronex | 0.15.0 | refused | `cext:unicode` |
+| bundle-audit | 0.2.0 | builds |  |
+| danger-swiftlint | 0.37.5 | refused | `cext:danger-swiftlint` |
+| apipie-rails | 1.5.1 | refused | `cext:nokogiri` |
+| xmlenc | 0.8.0 | refused | `cext:nokogiri` |
+| ruby_llm | 2.0.0 | refused | `port-range:json` |
+| ougai | 2.1.0 | refused | `cext:oj` |
+| gem-empty | 1.2.0 | builds |  |
+| dynamoid | 3.14.0 | fails | `memory` |
+| fog-digitalocean | 0.4.0 | refused | `cext:nokogiri` |
+| google-cloud-logging | 2.7.0 | refused | `cext:google-protobuf` |
+| react_on_rails | 17.1.0 | refused | `cext:nokogiri` |
+| valid_email2 | 7.1.0 | builds |  |
+| busser-serverspec | 0.6.3 | fails | `no-entry` |
+| fog-dnsimple | 3.0.0 | builds |  |
+| em-synchrony | 1.0.6 | refused | `cext:eventmachine` |
+| xmlmapper | 0.8.1 | refused | `cext:nokogiri` |
+| sorbet-coerce | 0.7.0 | builds |  |
+| jenkins_api_client | 2.3.0 | refused | `cext:nokogiri` |
+| ejs | 1.1.1 | builds |  |
+| wicked | 2.0.0 | refused | `cext:nokogiri` |
+| protected_attributes | 1.1.4 | builds |  |
+| delivery_boy | 1.3.1 | refused | `cext:digest-crc` |
+| api-pagination | 7.1.0 | builds |  |
+| concurrent-ruby-ext | 1.3.8 | refused | `cext:concurrent-ruby-ext` |
+| aws-sdk-datazone | 1.93.0 | fails | `memory` |
+| opentelemetry-instrumentation-racecar | 0.7.0 | builds |  |
+| simplecov-console | 0.9.5 | builds |  |
+| google-cloud-storage_transfer | 1.7.1 | refused | `cext:google-protobuf` |
+| google-cloud-storage_transfer-v1 | 1.11.1 | refused | `cext:google-protobuf` |
+| capybara-email | 3.0.2 | refused | `cext:nokogiri` |
+| tailwindcss-ruby | 4.3.3 | builds |  |
+| fluent-plugin-forest | 0.3.3 | refused | `cext:zstd-ruby` |
+| gitlab-security_report_schemas |  | fails | `not-found` |
+| ulid | 1.4.0 | builds |  |
+| active_attr | 0.17.2 | refused | `cext:nokogiri` |
+| terminal-notifier-guard | 1.7.0 | builds |  |
+| open_uri_redirections | 0.2.1 | builds |  |
+| rubocop-checkstyle_formatter | 0.7.0 | fails | `no-entry` |
+| fluent-plugin-rename-key | 0.4.1 | refused | `cext:zstd-ruby` |
+| inky-rb | 1.4.2.1 | refused | `cext:nokogiri` |
+| postmark-rails | 0.22.1 | refused | `cext:nokogiri` |
+| axlsx_rails | 0.6.1 | refused | `cext:nokogiri` |
+| okcomputer | 1.20.0 | builds |  |
+| html_tokenizer | 0.0.8 | refused | `cext:html_tokenizer` |
+| stackdriver-core | 1.8.0 | builds |  |
+| ranked-model | 0.4.11 | builds |  |
+| bootstrap3-datetimepicker-rails | 4.17.47 | refused | `cext:nokogiri` |
+| debugger-linecache | 1.2.0 | builds |  |
+| elasticsearch-extensions | 0.0.33 | builds |  |
+| packs-specification | 0.0.11 | builds |  |
+| ckeditor | 5.1.3 | builds |  |
+| rblineprof | 0.3.7 | refused | `cext:rblineprof` |
+| polyfill | 1.9.0 | builds |  |
+| safe_type | 1.1.1 | builds |  |
+| activeadmin_addons | 1.10.2 | refused | `cext:nokogiri` |
+| open3 | 0.2.1 | builds |  |
+| code_teams | 1.3.1 | builds |  |
+| active_material | 2.1.5 | builds |  |
+| stoplight | 6.0.0 | builds |  |
+| foundation_emails | 2.2.1.0 | builds |  |
+| configatron | 4.5.1 | builds |  |
+| breadcrumbs_on_rails | 4.1.0 | refused | `cext:nokogiri` |
+| ipecache | 0.0.16 | refused | `cext:nokogiri` |
+| httpx | 1.8.4 | builds |  |
+| omniauth-multipassword | 2.1.0 | builds |  |
+| aws-sdk-iotroborunner | 1.12.0 | builds |  |
+| omniauth-kerberos | 0.4.0 | refused | `cext:timfel-krb5-auth` |
+| endpoint-flux2 | 1.1.8 | builds |  |
+| resolv | 0.8.0 | refused | `cext:resolv` |
+| geom2d | 0.4.1 | builds |  |
+| yabeda | 0.16.0 | builds |  |
+| google-id-token | 1.4.2 | builds |  |
+| wisper-rspec | 1.1.0 | builds |  |
+| underscore-rails | 1.8.3 | builds |  |
+| json-diff | 0.4.1 | builds |  |
+| fx | 0.11.0 | refused | `cext:nokogiri` |
+| dry-matcher | 1.0.0 | builds |  |
+| chargebee | 2.80.0 | refused | `cext:cgi` |
+| logstash-input-beats | 3.0.4 | fails | `resolve` |
+| rspec-wait | 1.0.2 | builds |  |
+| google-ads-common | 3.0.0 | refused | `cext:nokogiri` |
+| wannabe_bool | 0.7.1 | builds |  |
+| simple_xlsx_reader | 5.1.0 | refused | `cext:nokogiri` |
+| json_matchers | 0.11.1 | builds |  |
+| cassandra-driver | 3.2.5 | refused | `cext:cassandra-driver` |
+| git_diff_parser | 4.0.0 | builds |  |
+| streamio-ffmpeg | 3.0.2 | builds |  |
+| right_aws | 3.1.0 | builds |  |
+| aws-sdk-bedrockagentruntime | 1.83.0 | builds |  |
+| opentelemetry-helpers-mysql | 0.6.0 | builds |  |
+| fluent-plugin-newrelic | 1.2.3 | refused | `cext:zstd-ruby` |
+| yui-compressor | 0.12.0 | builds |  |
+| json_api_client | 1.25.0 | builds |  |
+| twitter-bootstrap-rails | 5.4.0 | refused | `cext:nokogiri` |
+| numbers_and_words | 1.0.3 | builds |  |
+| right_http_connection | 1.5.1 | builds |  |
+| concurrent-ruby-edge | 0.7.2 | builds |  |
+| chroma | 0.2.0 | builds |  |
+| solve | 4.0.4 | builds |  |
+| cloudflare-rails | 7.0.0 | refused | `cext:nokogiri` |
+| rails-settings-cached | 2.10.0 | refused | `cext:nokogiri` |
+| next_rails | 1.7.0 | builds |  |
+| gitlab-cloud-connector | 1.54.0 | fails | `no-entry` |
+| avl_tree | 1.2.1 | refused | `cext:atomic` |
+| guard-bundler | 3.1.0 | builds |  |
+| minima | 2.5.2 | refused | `port-range:json` |
+| zookeeper | 1.5.5 | refused | `cext:zookeeper` |
+| fakefs | 3.2.1 | builds |  |
+| jasmine | 3.99.0 | builds |  |
+| fog-internet-archive | 0.0.2 | refused | `cext:nokogiri` |
+| winrm-elevated | 1.2.4 | builds |  |
+| google-ads-savon | 2.0.0 | refused | `cext:nokogiri` |
+| protobuf | 3.10.9 | builds |  |
+| session | 3.2.0 | builds |  |
+| pundit-matchers | 4.0.0 | builds |  |
+| rate_throttle_client | 0.1.2 | builds |  |
+| mysql | 2.9.1 | refused | `cext:mysql` |
+| docopt | 0.6.1 | builds |  |
+| puma-plugin-statsd | 2.8.0 | refused | `cext:nio4r` |
+| sax-machine | 1.3.2 | builds |  |
+| job-iteration | 1.15.1 | builds |  |
+| lookbook | 2.3.15 | refused | `cext:nokogiri` |
+| local_time | 3.0.3 | builds |  |
+| jekyll-redirect-from | 0.17.0 | refused | `port-range:json` |
+| acts_as_tree | 2.9.1 | builds |  |
+| event_emitter | 0.2.6 | builds |  |
+| aws-sdk-bedrockagent | 1.86.0 | builds |  |
+| angular_rails_csrf | 8.0.0 | refused | `cext:nokogiri` |
+| mcp | 1.7.0 | builds |  |
+| dig_rb | 1.0.1 | builds |  |
+| gitlab-gollum-lib | 4.2.7.9 | refused | `cext:rugged` |
+| license-acceptance | 2.1.13 | fails | `no-entry` |
+| jar-dependencies | 0.5.7 | builds |  |
+| prosopite | 2.2.0 | builds |  |
+| nats-pure | 2.6.0 | builds |  |
+| aws-sdk-cloudfrontkeyvaluestore | 1.41.0 | builds |  |
+| auto_strip_attributes | 3.0.0 | builds |  |
+| socketry | 0.7.0 | builds |  |
+| avatax | 26.9.0 | builds |  |
+| logstash-codec-multiline | 3.1.2 | fails | `resolve` |
+| fluent-plugin-record-reformer | 0.9.1 | refused | `cext:zstd-ruby` |
+| puppet-resource_api | 2.0.1 | builds |  |
+| gitlab-gollum-rugged_adapter | 0.4.4.2 | refused | `cext:rugged` |
+| memcache-client | 1.8.5 | fails | `no-entry` |
+| aws-sdk-launchwizard | 1.43.0 | builds |  |
+| hirefire-resource | 1.0.8 | builds |  |
+| sinatra-activerecord | 2.0.28 | builds |  |
+| email_reply_parser | 0.5.11 | builds |  |
+| twirp | 1.13.1 | refused | `cext:google-protobuf` |
+| fluent-plugin-splunk-hec | 1.3.3 | refused | `cext:zstd-ruby` |
+| aws-sdk-sso | 1.13.0 | builds |  |
+| elasticsearch-persistence | 8.0.1 | builds |  |
+| aws-sdk-trustedadvisor | 1.44.0 | builds |  |
+| deface | 1.9.0 | refused | `cext:nokogiri` |
+| blankslate | 3.1.3 | builds |  |
+| devise-async | 1.0.0 | refused | `cext:nokogiri` |
+| shoulda-callback-matchers | 1.1.4 | refused | `cext:shoulda-callback-matchers` |
+| fasterer | 0.11.0 | builds |  |
+| teaspoon | 1.4.0 | refused | `cext:nokogiri` |
+| rspec_api_documentation | 6.1.0 | builds |  |
+| spork | 0.9.2 | builds |  |
+| aws-sdk-inspectorscan | 1.41.0 | builds |  |
+| file_validators | 3.0.0 | builds |  |
+| voight_kampff | 2.0.0 | builds |  |
+| disposable | 0.6.3 | builds |  |
+| cuprite | 0.18 | refused | `cext:nokogiri` |
+| fastlane-plugin-increment_version_code | 0.4.3 | builds |  |
+| hiera-eyaml | 5.0.1 | fails | `no-entry` |
+| capistrano-sidekiq | 3.2.0 | builds |  |
+| rush | 0.6.8 | builds |  |
+| jrjackson | 0.3.8 | builds |  |
+| sslshake | 1.3.1 | builds |  |
+| rsolr | 3.0.0 | builds |  |
+| minitest-stub_any_instance | 1.0.3 | builds |  |
+| amoeba | 3.4.0 | builds |  |
+| logstash-mixin-aws | 5.1.0 | fails | `resolve` |
+| karafka-testing | 2.6.2 | refused | `cext:karafka-rdkafka` |
+| progress | 3.6.0 | builds |  |
+| ci_reporter_rspec | 1.0.0 | fails | `no-entry` |
+| mjml-rails | 5.0.0 | builds |  |
+| resolv-replace | 0.2.0 | builds |  |
+| faraday_middleware-aws-signers-v4 | 0.1.9 | builds |  |
+| seed_dump | 3.4.2 | builds |  |
+| sniffer | 0.5.0 | builds |  |
+| looker-sdk | 0.1.12 | builds |  |
+| rerun | 0.14.0 | builds |  |
+| redis-classy | 2.4.1 | builds |  |
+| reform | 2.6.2 | builds |  |
+| cuke_modeler | 3.31.0 | builds |  |
+| grape-swagger-rails | 2.0.0 | refused | `cext:nokogiri` |
+| origin | 2.3.1 | builds |  |
+| protected_attributes_continued | 1.9.0 | builds |  |
+| codeclimate-engine-rb | 0.4.2 | builds |  |
+| vcard | 0.4.0 | builds |  |
+| logstash-patterns-core | 4.3.4 | fails | `resolve` |
+| parse_packwerk | 0.28.0 | fails | `memory` |
+| aws-sdk-b2bi | 1.52.0 | builds |  |
+| callsite | 0.0.11 | builds |  |
+| iso-639 | 0.3.8 | builds |  |
+| time_difference | 0.7.0 | builds |  |
+| inspec-core | 7.2.1 | refused | `port-range:json` |
+| metadata-json-lint | 5.1.0 | builds |  |
+| distribute_reads | 1.1.0 | builds |  |
+| jose | 1.2.0 | refused | `cext:rbtree` |
+| logstash-input-tcp | 4.1.2 | fails | `resolve` |
+| scanf | 1.0.0 | builds |  |
+| redis-mutex | 4.0.2 | builds |  |
+| gitlab-license_finder | 6.14.2.1 | fails | `memory` |
+| logstash-filter-mutate | 3.6.0 | fails | `resolve` |
+| jekyll-gist | 1.5.0 | builds |  |
+| packs | 0.3.0 | refused | `cext:code_ownership` |
+| rack-pjax | 1.1.0 | refused | `cext:nokogiri` |
+| logstash-filter-geoip | 2.0.7 | fails | `resolve` |
+| astrolabe | 1.3.1 | builds |  |
+| rsync | 1.0.9 | builds |  |
+| archive-tar-minitar | 0.12 | builds |  |
+| fluent-plugin-gelf-hs | 1.0.8 | refused | `cext:zstd-ruby` |
+| cleanroom | 1.0.0 | builds |  |
+| rspec-github | 3.0.0 | builds |  |
+| blazer | 3.5.2 | refused | `cext:nokogiri` |
+| jwe | 1.1.1 | builds |  |
+| goldiloader | 6.0.0 | builds |  |
+| google-ads-googleads | 45.1.0 | refused | `cext:google-protobuf` |
+| webhdfs | 0.11.0 | builds |  |
+| aws-sdk-qconnect | 1.63.0 | builds |  |
+| facterdb | 4.5.0 | builds |  |
+| aws-sdk-qbusiness | 1.63.0 | builds |  |
+| easy_diff | 1.0.0 | builds |  |
+| aws-sdk-costoptimizationhub | 1.49.0 | builds |  |
+| aws-sdk-cleanroomsml | 1.52.0 | builds |  |
+| aws-sdk-bcmdataexports | 1.43.0 | builds |  |
+| logstash-output-elasticsearch | 3.0.0 | fails | `resolve` |
+| websocket-client-simple | 0.9.0 | builds |  |
+| aws-sdk-workspacesthinclient | 1.49.0 | builds |  |
+| tod | 3.1.2 | builds |  |
+| aws-sdk-freetier | 1.41.0 | builds |  |
+| aws-sdk-eksauth | 1.39.0 | builds |  |
+| march_hare |  | fails | `not-found` |
+| semian | 0.28.4 | refused | `cext:semian` |
+| oj_mimic_json | 1.0.1 | builds |  |
+| stomp | 1.4.10 | builds |  |
+| aws-sdk-marketplaceagreement | 1.46.0 | builds |  |
+| aws-sdk-repostspace | 1.41.0 | builds |  |
+| aws-sdk-marketplacedeployment | 1.39.0 | builds |  |
+| kaminari-mongoid | 1.0.2 | refused | `cext:bson` |
+| rbnacl-libsodium | 1.0.16 | refused | `cext:rbnacl-libsodium` |
+| rack-livereload | 0.6.1 | builds |  |
+| administrate | 1.0.0 | refused | `cext:nokogiri` |
+| packwerk-extensions | 0.4.0 | refused | `cext:nokogiri` |
+| unicorn-rails | 2.2.1 | refused | `cext:raindrops` |
+| wkhtmltopdf-binary-edge | 0.12.6.0 | builds |  |
+| github_api | 0.19.0 | builds |  |
+| hoe | 4.7.2 | builds |  |
+| protobuf-cucumber | 3.10.8 | builds |  |
+| rjb | 1.7.3 | refused | `cext:rjb` |
+| minitest-stub-const | 0.6 | builds |  |
+| aws-sdk-neptunegraph | 1.56.0 | builds |  |
+| ruby_event_store | 3.2.0 | builds |  |
+| rails-patch-json-encode | 0.2.0 | builds |  |
+| guard-minitest | 3.0.0 | builds |  |
+| logstash-output-amazon_es | 6.0.0 | fails | `resolve` |
+| logstash-input-http | 3.0.10 | fails | `resolve` |
+| fluent-plugin-throttle | 0.0.5 | refused | `cext:zstd-ruby` |
+| jquery-turbolinks | 2.1.0 | refused | `cext:nokogiri` |
+| xmldsig | 0.7.0 | refused | `cext:nokogiri` |
+| in_threads | 1.6.0 | builds |  |
+| logstash-codec-fluent | 3.0.0 | fails | `resolve` |
+| RubyInline | 3.14.4 | builds |  |
+| fluent-plugin-dedot_filter | 1.0.0 | refused | `cext:zstd-ruby` |
+| best_in_place | 4.0.0 | refused | `cext:nokogiri` |
+| repost | 0.5.2 | builds |  |
+| gitlab-omniauth-openid-connect | 0.10.1 | builds |  |
+| httplog | 1.8.0 | builds |  |
+| declarative-builder | 0.2.0 | builds |  |
+| fspath | 3.1.2 | builds |  |
+| devise_saml_authenticatable | 2.0.0 | refused | `cext:nokogiri` |
+| logstash-input-elasticsearch | 5.3.2 | fails | `resolve` |
+| io-wait | 1.0.0 | builds |  |
+| rubystats | 0.4.1 | builds |  |
+| dragonfly | 1.4.2 | builds |  |
+| aws-sdk-networkmonitor | 1.40.0 | builds |  |
+| logstash-filter-xml | 4.3.2 | fails | `resolve` |
+| high_voltage | 5.0.0 | builds |  |
+| image_optim | 0.32.0 | builds |  |
+| logstash-codec-es_bulk | 3.1.0 | fails | `resolve` |
+| hubspot-api-client | 20.0.0 | refused | `port-range:json` |
+| logstash-filter-clone | 4.2.0 | fails | `resolve` |
+| hiera-dyml | 0.0.4 | fails | `no-entry` |
+| fluent-plugin-sampling-filter | 1.2.0 | refused | `cext:zstd-ruby` |
+| algoliasearch-rails | 3.0.4 | builds |  |
+| elastic-apm | 4.9.0 | refused | `cext:llhttp` |
+| logstash-filter-dissect | 1.3.0 | fails | `resolve` |
+| test-kitchen | 4.1.5 | refused | `cext:bcrypt_pbkdf` |
+| xlsxtream | 3.1.0 | builds |  |
+| pony | 1.13.1 | builds |  |
+| logstash-filter-grok | 4.4.4 | fails | `resolve` |
+| lefthook | 2.1.17 | builds |  |
+| cap-ec2 | 1.1.2 | fails | `no-entry` |
+| activerecord-compatible_legacy_migration | 0.1.4 | builds |  |
+| daemon_controller | 3.0.2 | builds |  |
+| logstash-input-http_poller | 6.0.0 | fails | `resolve` |
+| mongoid-paperclip | 0.1.0 | refused | `cext:bson` |
+| logstash-input-generator | 3.1.0 | fails | `resolve` |
+| aggregate_root | 3.2.0 | builds |  |
+| equivalent-xml | 0.6.0 | refused | `cext:nokogiri` |
+| cli-ui | 2.7.0 | builds |  |
+| rails_event_store | 3.2.0 | builds |  |
+| edn | 1.1.1 | builds |  |
+| easy_translate | 0.5.2 | builds |  |
+| logstash-codec-plain | 3.1.0 | fails | `resolve` |
+| aws-sdk-supplychain | 1.45.0 | builds |  |
+| logstash-filter-date | 3.2.1 | fails | `resolve` |
+| rails_event_store_active_record | 2.19.3 | builds |  |
+| logstash-output-s3 | 4.4.1 | fails | `resolve` |
+| pond | 0.5.0 | builds |  |
+| simple-random | 1.0.5 | builds |  |
+| gitlab-secret_detection | 0.46.0 | refused | `cext:google-protobuf` |
+| danger-rubocop | 0.13.0 | fails | `no-entry` |
+| whois-parser | 2.0.0 | builds |  |
+| split | 4.0.5 | refused | `cext:cgi` |
+| customerio | 6.2.0 | builds |  |
+| with_model | 2.4.0 | builds |  |
+| sidekiq_alive | 2.5.0 | builds |  |
+| airborne | 0.3.7 | builds |  |
+| capistrano-passenger | 0.2.1 | builds |  |
+| ar-octopus | 0.10.2 | builds |  |
+| silencer | 2.0.0 | builds |  |
+| httmultiparty | 0.3.16 | refused | `cext:nokogiri` |
+| pdf-forms | 1.5.2 | builds |  |
+| referer-parser | 0.3.0 | builds |  |
+| capybara-webkit | 1.15.1 | refused | `cext:capybara-webkit` |
+| selenium-devtools | 0.154.0 | builds |  |
+| foreman-upstart-scaling | 0.5.0 | fails | `no-entry` |
+| sorbet-rails | 0.7.34 | builds |  |
+| fastlane-plugin-versioning_android | 0.1.1 | builds |  |
+| logstash-filter-useragent | 3.0.3 | fails | `resolve` |
+| redis-session-store | 0.11.6 | refused | `cext:nokogiri` |
+| fog-joyent | 0.0.1 | builds |  |
+| extlz4 | 0.3.5 | refused | `cext:extlz4` |
+| opentelemetry-instrumentation-gruf | 0.6.3 | builds |  |
+| logstash-filter-syslog_pri | 3.2.1 | fails | `resolve` |
+| Platform | 0.4.2 | builds |  |
+| unicode-version | 1.6.0 | builds |  |
+| ruby-protocol-buffers | 1.6.1 | builds |  |
+| github-pages | 232 | fails | `resolve` |
+| logstash-filter-aggregate | 2.11.0 | fails | `resolve` |
+| mandrill-api | 1.0.55 | refused | `port-range:json` |
+| link_header | 0.0.8 | builds |  |
+| logstash-filter-multiline | 3.0.4 | fails | `resolve` |
+| bundle | 0.0.1 | fails | `no-entry` |
+| safe_shell | 1.1.0 | builds |  |
+| buildkit | 1.6.2 | builds |  |
+| beefcake | 1.2.0 | builds |  |
+| jemoji | 0.13.0 | refused | `cext:nokogiri` |
+| ione | 1.3.0 | builds |  |
+| logstash-mixin-http_client | 7.5.0 | fails | `resolve` |
+| apnotic | 1.8.0 | builds |  |
+| logstash-input-syslog | 3.7.1 | fails | `resolve` |
+| hairtrigger | 1.3.1 | builds |  |
+| hubspot-ruby | 0.9.0 | builds |  |
+| fivemat | 1.3.7 | builds |  |
+| mailcatcher | 0.11.0 | refused | `cext:eventmachine` |
+| workflow | 3.1.1 | builds |  |
+| activerecord-multi-tenant | 2.4.0 | refused | `cext:nokogiri` |
+| pubnub | 6.1.1 | refused | `port-range:json` |
+| rpush | 9.2.0 | refused | `cext:nokogiri` |
+| bump | 0.10.0 | builds |  |
+| will_paginate-bootstrap | 1.0.2 | builds |  |
+| auth0 | 6.4.0 | fails | `memory` |
+| train-winrm | 0.4.3 | builds |  |
+| closure_tree | 9.8.0 | builds |  |
+| logstash-input-exec | 3.6.0 | fails | `resolve` |
+| prawn-templates | 0.1.2 | refused | `port-range:bigdecimal` |
+| versionist | 2.0.1 | refused | `cext:nokogiri` |
+| rack-ssl-enforcer | 0.2.9 | builds |  |
+| aws-sdk-artifact | 1.43.0 | builds |  |
+| azure_mgmt_resources | 0.18.2 | builds |  |
+| aws-sdk-chatbot | 1.44.0 | builds |  |
+| logstash-input-twitter | 4.1.1 | fails | `resolve` |
+| faraday-gzip | 3.1.0 | builds |  |
+| eco-source |  | fails | `not-found` |
+| good_job | 4.21.1 | refused | `cext:nokogiri` |
+| ruby-limiter | 2.3.0 | builds |  |
+| danger-junit | 1.0.2 | refused | `cext:ox` |
+| ruby_event_store-browser | 3.2.0 | builds |  |
+| arkency-command_bus | 0.4.1 | builds |  |
+| eco | 1.0.0 | fails | `resolve` |
+| jquery-datatables-rails | 3.4.0 | refused | `cext:nokogiri` |
+| spdx-licenses | 1.4.0 | builds |  |
+| logstash-input-pipe | 3.1.0 | fails | `resolve` |
+| angularjs-rails | 1.8.0 | builds |  |
+| jsonapi-resources | 0.10.7 | refused | `cext:nokogiri` |
+| rgen | 0.10.2 | fails | `no-entry` |
+| berkshelf | 8.1.23 | refused | `cext:unf_ext` |
+| angular-rails-templates | 1.4.0 | refused | `cext:nokogiri` |
+| logstash-filter-ruby | 3.1.8 | fails | `resolve` |
+| foundation-rails | 6.9.0.0 | refused | `cext:sassc` |
+| logstash-input-unix | 3.1.3 | fails | `resolve` |
+| roar | 1.2.0 | builds |  |
+| io-endpoint | 0.19.0 | builds |  |
+| rspec-sorbet | 1.9.2 | builds |  |
+| google-apis-calendar_v3 | 0.57.0 | builds |  |
+| carrierwave-base64 | 2.11.0 | builds |  |
+| jls-grok | 0.11.5 | fails | `no-entry` |
+| wirble | 0.1.3 | builds |  |
+| fog-ovirt | 2.0.3 | refused | `port-range:json` |
+| pry-theme | 1.3.1 | builds |  |
+| hashid-rails | 1.4.1 | builds |  |
+| hash_validator | 2.0.1 | builds |  |
+| ruby-odbc | 0.999993 | refused | `cext:ruby-odbc` |
+| devise-authy | 2.3.1 | refused | `cext:nokogiri` |
+| activerecord_json_validator | 3.1.0 | builds |  |
+| active_model_otp | 2.3.4 | builds |  |
+| logstash-filter-elasticsearch | 4.4.1 | fails | `resolve` |
+| html-proofer | 5.2.2 | refused | `cext:io-event` |
+| ruby-mysql | 4.2.1 | builds |  |
+| aws-sdk-timestreaminfluxdb | 1.49.0 | builds |  |
+| yabeda-puma-plugin | 0.9.0 | refused | `cext:nio4r` |
+| rspec-puppet-facts | 6.3.1 | fails | `memory` |
+| progressbar | 1.13.0 | builds |  |
+| woothee | 1.13.0 | builds |  |
+| jekyll-remote-theme | 0.6.2 | refused | `port-range:json` |
+| maruku | 0.7.3 | builds |  |
+| lob | 6.1.0 | builds |  |
+| railroady | 1.6.0 | builds |  |
+| ridley | 5.1.1 | refused | `cext:nio4r` |
+| sensu-plugins-disk-checks | 5.1.4 | refused | `port-range:json` |
+| necromancer | 0.7.0 | builds |  |
+| logstash-input-gelf | 3.4.0 | fails | `resolve` |
+| active_record_extended | 3.5.0 | refused | `cext:pg` |
+| logstash-filter-kv | 4.7.0 | fails | `resolve` |
+| after_commit_action | 1.1.0 | builds |  |
+| philiprehberger-http_client | 0.12.0 | builds |  |
+| google-adwords-api | 1.6.0 | refused | `cext:nokogiri` |
+| buildkite-test_collector | 2.16.0 | builds |  |
+| har | 0.1.5 | builds |  |
+| histogram | 0.2.4.1 | builds |  |
+| jschematic | 0.1.0 | builds |  |
+| jekyll-coffeescript | 2.0.0 | builds |  |
+| capistrano3-puma | 8.1.0 | refused | `cext:nio4r` |
+| logstash-codec-line | 3.1.1 | fails | `resolve` |
+| firebase | 0.2.8 | builds |  |
+| logstash-input-dead_letter_queue | 2.0.2 | fails | `resolve` |
+| cells | 4.1.8 | builds |  |
+| quantile | 0.2.1 | builds |  |
+| minitest-ci | 3.4.0 | builds |  |
+| aws-sdk-deadline | 1.62.0 | builds |  |
+| chewy | 8.4.1 | builds |  |
+| yabeda-prometheus | 0.9.1 | builds |  |
+| aws-sdk-codeconnections | 1.40.0 | builds |  |
+| authority | 3.3.0 | builds |  |
+| rack-openid | 1.4.2 | builds |  |
+| pusher-fake | 6.1.0 | refused | `cext:http_parser.rb` |
+| async-websocket | 0.30.1 | refused | `cext:io-event` |
+| parallel_split_test | 0.10.0 | builds |  |
+| logstash-input-s3 | 3.8.4 | fails | `resolve` |
+| logstash-output-http | 6.0.1 | fails | `resolve` |
+| aws-sdk-controlcatalog | 1.47.0 | builds |  |
+| acts_as_tenant | 2.1.0 | refused | `cext:nokogiri` |
+| nokogiri-happymapper | 0.10.1 | refused | `cext:nokogiri` |
+| logstash-output-lumberjack | 3.1.9 | fails | `resolve` |
+| delayed_job_web | 1.4.4 | builds |  |
+| require-hooks | 0.5.1 | builds |  |
+| getoptlong | 0.2.1 | builds |  |
+| logstash-input-snmptrap | 3.1.0 | fails | `resolve` |
+| yell | 2.2.2 | builds |  |
+| bootstrap-will_paginate | 1.0.0 | builds |  |
+| ridgepole | 3.2.5 | builds |  |
+| rufo | 0.18.2 | builds |  |
+| mobility | 1.3.2 | builds |  |
+| file-tail | 1.4.0 | builds |  |
+| logstash-codec-cef | 2.1.3 | fails | `resolve` |
+| simple_enum | 2.3.2 | builds |  |
+| ruby_llm-schema | 1.0.0 | builds |  |
+| jsonapi-parser | 0.1.1 | builds |  |
+| record_tag_helper | 1.0.1 | refused | `cext:nokogiri` |
+| logstash-input-imap | 3.2.2 | fails | `resolve` |
+| tender_hash | 0.0.3 | builds |  |
+| logstash-input-azure_event_hubs | 1.5.10 | fails | `resolve` |
+| logstash-output-tcp | 7.0.1 | fails | `resolve` |
+| logstash-input-file | 4.4.7 | fails | `resolve` |
+| fast-stemmer | 1.0.2 | refused | `cext:fast-stemmer` |
+| js_cookie_rails | 2.2.0 | refused | `cext:nokogiri` |
+| sendgrid-actionmailer | 3.2.0 | builds |  |
+| ruby-lsp-rspec | 0.1.29 | builds |  |
+| logstash-codec-json | 3.1.1 | fails | `resolve` |
+| anonymous_loader | 0.1.3 | builds |  |
+| jekyll-include-cache | 0.3.1 | refused | `port-range:json` |
+| action_policy | 0.7.7 | builds |  |
+| doorkeeper-jwt | 0.4.5 | refused | `cext:nokogiri` |
+| maxmind-geoip2 | 1.6.0 | refused | `cext:llhttp` |
+| logstash-input-stdin | 3.4.0 | fails | `resolve` |
+| logstash-codec-json_lines | 3.2.2 | fails | `resolve` |
+| metriks | 0.9.9.8 | refused | `cext:atomic` |
+| lodash-rails | 4.17.21 | refused | `cext:nokogiri` |
+| eventmachine-tail | 0.6.6 | refused | `cext:eventmachine` |
+| logstash-filter-dns | 3.2.0 | fails | `resolve` |
+| minitest-rg | 5.4.0 | builds |  |
+| interactor-rails | 2.3.0 | refused | `cext:nokogiri` |
+| dropzonejs-rails | 0.8.5 | refused | `cext:nokogiri` |
+| logstash-filter-fingerprint | 3.5.0 | fails | `resolve` |
+| aws-sdk-route53profiles | 1.39.0 | builds |  |
+| jruby-stdin-channel |  | fails | `not-found` |
+| mime | 0.4.4 | builds |  |
+| wkhtmltopdf-heroku | 3.0.0 | builds |  |
+| rounding | 1.0.1 | builds |  |
+| guid | 0.1.1 | builds |  |
+| namae | 1.2.0 | builds |  |
+| persistent_http | 2.0.3 | builds |  |
+| abstract | 1.0.0 | builds |  |
+| soap4r-ruby1.9 | 2.0.5 | fails | `no-entry` |
+| ruby-lsp-rails | 0.4.8 | builds |  |
+| gimei | 1.7.0 | builds |  |
+| cityhash | 0.9.0 | refused | `cext:cityhash` |
+| english | 0.8.1 | builds |  |
+| mailinator | 1.0.0 | builds |  |
+| role_model | 0.8.2 | builds |  |
+| neat | 4.0.0 | builds |  |
+| simple_command | 1.0.1 | builds |  |
+| aws-s3 | 0.6.3 | builds |  |
+| hash_diff | 1.1.1 | builds |  |
+| json_expressions | 0.9.0 | builds |  |
+| gitlab-qa | 15.9.0 | refused | `cext:llhttp-ffi` |
+| rails_same_site_cookie | 0.1.10 | builds |  |
+| xcpretty-json-formatter | 0.1.1 | builds |  |
+| skinny | 0.2.4 | refused | `cext:eventmachine` |
+| feedjira | 4.0.2 | refused | `cext:nokogiri` |
+| turnip | 4.4.1 | builds |  |
+| parse-cron | 0.1.4 | builds |  |
+| spring-commands-rubocop | 0.4.0 | builds |  |
+| canonical-rails | 0.2.17 | refused | `cext:nokogiri` |
+| anycable-rails | 1.6.2 | refused | `cext:google-protobuf` |
+| jgrep | 1.5.4 | builds |  |
+| cnvrg | 2.1.15 | fails | `resolve` |
+| logstash-filter-json_encode | 2.0.4 | fails | `resolve` |
+| io-stream | 0.14.0 | builds |  |
+| appium_lib | 16.3.2 | refused | `cext:nokogiri` |
+| activerecord-sqlserver-adapter | 8.1.3 | refused | `cext:tiny_tds` |
+| jekyll-github-metadata | 2.16.1 | refused | `port-range:json` |
+| httpauth | 0.2.1 | builds |  |
+| varia_model | 0.6.0 | builds |  |
+| chef-rewind | 0.0.9 | builds |  |
+| aws-sdk-mailmanager | 1.49.0 | builds |  |
+| ruby-mp3info | 0.8.10 | builds |  |
+| report_builder | 1.9 | builds |  |
+| chosen-rails | 1.10.0 | refused | `cext:nokogiri` |
+| sorcery | 0.18.0 | refused | `cext:bcrypt` |
+| zache | 0.15.2 | builds |  |
+| em-hiredis | 0.3.1 | refused | `cext:eventmachine` |
+| buff-extensions | 2.0.0 | builds |  |
+| logstash-codec-rubydebug | 3.1.0 | fails | `resolve` |
+| sendgrid-rails | 3.1.0 | refused | `cext:nokogiri` |
+| opentelemetry-helpers-sql | 0.4.0 | builds |  |
+| logstash-filter-json | 3.2.1 | fails | `resolve` |
+| google-cloud-trace | 0.46.0 | refused | `cext:google-protobuf` |
+| ovirt-engine-sdk | 4.6.1 | refused | `cext:ovirt-engine-sdk` |
+| ruby-filemagic | 0.7.3 | refused | `cext:ruby-filemagic` |
+| minitest-server | 1.0.10 | builds |  |
+| maintenance_tasks | 2.17.0 | refused | `cext:nokogiri` |
+| tiktoken_ruby | 0.0.17 | refused | `cext:tiktoken_ruby` |
+| bulk_insert | 1.9.0 | builds |  |
+| buff-shell_out | 1.1.0 | builds |  |
+| buff-ruby_engine | 1.0.0 | builds |  |
+| logstash-codec-netflow | 4.3.4 | fails | `resolve` |
+| logstash-output-sns | 4.0.8 | fails | `resolve` |
+| committee-rails | 0.10.1 | refused | `cext:nokogiri` |
+| buff-config | 2.0.0 | builds |  |
+| isolator | 1.2.1 | builds |  |
+| github-pages-health-check | 1.19.2 | builds |  |
+| logstash-input-snmp | 1.3.3 | fails | `resolve` |
+| logstash-output-file | 4.3.0 | fails | `resolve` |
+| fnv | 0.2.0 | builds |  |
+| allure-cucumber | 2.29.1 | builds |  |
+| opentelemetry-instrumentation-aws_lambda | 0.7.1 | builds |  |
+| logstash-filter-drop | 3.0.5 | fails | `resolve` |
+| logstash-filter-csv | 3.1.2 | fails | `resolve` |
+| gruf | 2.22.0 | refused | `cext:google-protobuf` |
+| yaml-lint | 0.1.2 | builds |  |
+| appium_lib_core | 13.1.4 | builds |  |
+| algolia | 3.45.0 | builds |  |
+| shortener | 1.0.2 | builds |  |
+| omniauth-linkedin-oauth2 | 1.0.1 | builds |  |
+| fluent-plugin-route | 1.0.0 | refused | `cext:zstd-ruby` |
+| opentelemetry-instrumentation-active_storage | 0.5.1 | builds |  |
+| logstash-codec-edn | 3.1.1 | fails | `resolve` |
+| forgery | 0.8.1 | builds |  |
+| logstash-codec-msgpack | 3.0.0 | fails | `resolve` |
+| logstash-codec-edn_lines | 3.1.1 | fails | `resolve` |
+| logstash-input-sqs | 3.3.2 | fails | `resolve` |
+| logstash-filter-http | 2.0.0 | fails | `resolve` |
+| logstash-codec-collectd | 3.1.1 | fails | `resolve` |
+| grpc_reflection | 0.5.0 | refused | `cext:google-protobuf` |
+| buff-ignore | 1.2.0 | builds |  |
+| logstash-codec-graphite | 3.0.6 | fails | `resolve` |
+| database_rewinder | 1.1.0 | builds |  |
+| jls-lumberjack | 0.0.26 | builds |  |
+| dry-monitor | 1.0.1 | builds |  |
+| riemann-client | 1.2.1 | builds |  |
+| capistrano-ext | 1.2.1 | fails | `no-entry` |
+| ruby-stemmer | 3.0.0 | refused | `cext:ruby-stemmer` |
+| paquet | 0.2.1 | builds |  |
+| logstash-output-cloudwatch | 3.1.0 | fails | `resolve` |
+| rubocop-git | 0.1.3 | fails | `memory` |
+| aws-sdk-taxsettings | 1.46.0 | builds |  |
+| docusign_esign | 7.0.0 | refused | `port-range:json` |
+| fluent-plugin-grafana-loki-licence-fix | 0.0.1 | refused | `cext:zstd-ruby` |
+| easypost | 7.7.0 | builds |  |
+| numo-narray | 0.9.2.1 | refused | `cext:numo-narray` |
+| romaji | 0.3.0 | builds |  |
+| gretel | 5.1.0 | refused | `cext:nokogiri` |
+| pygments.rb | 5.0.0 | builds |  |
+| mtrc | 0.0.4 | builds |  |
+| resque_spec | 0.18.1 | builds |  |
+| sequel_pg | 1.20.0 | refused | `cext:sequel_pg` |
+| state_machines-rspec | 0.6.0 | builds |  |
+| syslogger | 1.6.6 | builds |  |
+| sensu-plugins-memory-checks | 4.1.1 | refused | `port-range:json` |
+| trilogy | 2.13.1 | refused | `cext:trilogy` |
+| aws-ses | 0.7.1 | builds |  |
+| envyable | 1.2.0 | builds |  |
+| mdl | 0.18.1 | builds |  |
+| logstash-output-stdout | 3.1.4 | fails | `resolve` |
+| logstash-input-udp | 3.5.0 | fails | `resolve` |
+| jekyll-relative-links | 0.9.1 | refused | `port-range:json` |
+| logstash-input-redis | 3.7.1 | fails | `resolve` |
+| logstash-filter-metrics | 4.0.7 | fails | `resolve` |
+| logstash-output-null | 3.0.5 | fails | `resolve` |
+| utf8-cleaner | 2.0.1 | builds |  |
+| logstasher | 3.0.0 | builds |  |
+| logstash-codec-dots | 3.0.6 | fails | `resolve` |
+| yaml_extend | 1.3.5 | builds |  |
+| aws-sdk-applicationsignals | 1.48.0 | builds |  |
+| logstash-filter-split | 3.1.10 | fails | `resolve` |
+| clipboard-rails | 1.7.1 | builds |  |
+| package_json | 0.2.0 | builds |  |
+| logstash-filter-sleep | 3.0.7 | fails | `resolve` |
+| redmine_extensions | 2.0.0 | refused | `cext:nokogiri` |
+| ruby-xz | 1.0.3 | builds |  |
+| padrino-helpers | 0.16.1 | builds |  |
+| devise-token_authenticatable | 1.1.0 | refused | `cext:nokogiri` |
+| logstash-input-heartbeat | 3.1.1 | fails | `resolve` |
+| memoist3 | 1.0.0 | builds |  |
+| rspec-snapshot | 2.2.0 | builds |  |
+| logstash-output-redis | 5.2.0 | fails | `resolve` |
+| aes | 0.5.1 | builds |  |
+| go-duration | 0.1.4 | builds |  |
+| logstash-filter-throttle | 4.0.4 | fails | `resolve` |
+| aws-sdk-pcaconnectorscep | 1.35.0 | builds |  |
+| memcachier | 0.0.2 | builds |  |
+| her | 1.1.1 | builds |  |
+| syntax | 1.2.2 | builds |  |
+| logstash-output-udp | 3.3.0 | fails | `resolve` |
+| ruby-xxHash | 0.4.0.2 | builds |  |
+| logstash-filter-urldecode | 3.0.6 | fails | `resolve` |
+| licensed | 5.1.0 | refused | `cext:rugged` |
+| yabeda-rails | 0.11.0 | refused | `cext:nokogiri` |
+| reform-rails | 0.3.1 | builds |  |
+| active_decorator | 1.5.1 | builds |  |
+| jekyll-mentions | 1.6.0 | refused | `cext:nokogiri` |
+| linux-kstat | 0.1.0 | builds |  |
+| pathname-common_prefix | 0.0.2 | builds |  |
+| render_async | 2.1.11 | builds |  |
+| packs-rails | 0.1.0 | refused | `cext:nokogiri` |
+| logstash-output-csv | 3.0.11 | fails | `resolve` |
+| pwned | 2.4.1 | builds |  |
+| anycable-core | 1.6.4 | refused | `cext:google-protobuf` |
+| houston | 2.4.0 | builds |  |
+| anycable | 1.6.4 | refused | `cext:google-protobuf` |
+| danger-xcode_summary | 1.5.0 | builds |  |
+| logstash-input-ganglia | 3.1.4 | fails | `resolve` |
+| logstash-output-graphite | 3.1.6 | fails | `resolve` |
+| iostruct | 0.7.0 | builds |  |
+| chef-telemetry | 1.1.1 | builds |  |
+| ruby-duration | 3.2.3 | builds |  |
+| shotgun | 0.9.2 | builds |  |
+| logstash-input-graphite | 3.0.6 | fails | `resolve` |
+| moji | 1.6 | builds |  |
+| suo | 0.4.0 | refused | `cext:msgpack` |
+| neatjson | 0.10.5 | builds |  |
+| indefinite_article | 0.2.5 | builds |  |
+| nestful | 1.1.4 | builds |  |
+| noticed | 3.1.0 | refused | `cext:nokogiri` |
+| logstash-output-pipe | 4.0.0 | fails | `resolve` |
+| logstash-output-nagios | 3.0.7 | fails | `resolve` |
+| rendezvous | 0.1.3 | builds |  |
+| action-cable-testing | 0.6.1 | refused | `cext:websocket-driver` |
+| jekyll-titles-from-headings | 0.5.7 | refused | `port-range:json` |
+| fast_excel | 0.5.0 | refused | `cext:fast_excel` |
+| rubocop-i18n | 3.3.0 | fails | `memory` |
+| logstash-output-webhdfs | 3.0.6 | fails | `resolve` |
+| statesman | 13.3.0 | builds |  |
+| griddler | 1.6.0 | refused | `cext:nokogiri` |
+| iban-tools | 1.2.1 | builds |  |
+| blockenspiel | 0.5.0 | builds |  |
+| openssl_pkcs8_pure | 0.0.0.2 | builds |  |
+| activejob-uniqueness | 0.4.0 | builds |  |
+| aggregate | 0.2.4 | builds |  |
+| aws-sdk-qapps | 1.36.0 | builds |  |
+| csv-safe | 3.3.3 | builds |  |
+| identity_cache | 1.6.5 | builds |  |
+| jekyll-avatar | 0.8.0 | refused | `port-range:json` |
+| bootstrap-kaminari-views | 0.0.5 | refused | `cext:nokogiri` |
+| cypress-on-rails | 1.20.1 | builds |  |
+| deepsort | 0.5.0 | builds |  |
+| logstash-filter-truncate | 1.0.6 | fails | `resolve` |
+| image_optim_pack | 0.13.1.20260816 | builds |  |
+| prawn-icon | 4.1.0 | refused | `port-range:bigdecimal` |
+| danger-xcov | 0.5.0 | refused | `port-range:json` |
+| steep | 2.1.0 | refused | `cext:rbs` |
+| ruby_dig | 0.0.2 | builds |  |
+| jekyll-optional-front-matter | 0.3.4 | refused | `port-range:json` |
+| measured | 3.2.1 | builds |  |
+| url_safe_base64 | 0.2.2 | builds |  |
+| danger-android_lint | 0.0.12 | refused | `cext:ruby-ll` |
+| sunspot | 2.7.1 | builds |  |
+| jsonapi-serializable | 0.3.1 | builds |  |
+| fluent-plugin-parser-cri | 0.1.1 | refused | `cext:zstd-ruby` |
+| capybara-selenium | 0.0.6 | refused | `cext:nokogiri` |
+| fluent-plugin-systemd | 1.1.2 | refused | `cext:zstd-ruby` |
+| staccato | 0.5.3 | builds |  |
+| argon2-kdf | 1.0.0 | builds |  |
+| sensu-plugins-process-checks | 4.2.1 | fails | `resolve` |
+| pandoc-ruby | 2.1.10 | builds |  |
+| imgix | 4.1.1 | builds |  |
+| pusher-client | 0.6.2 | builds |  |
+| jekyll-default-layout | 0.2.1 | refused | `port-range:json` |
+| memery | 1.8.0 | builds |  |
+| capistrano-harrow | 0.5.3 | builds |  |
+| amqp | 1.8.0 | refused | `cext:eventmachine` |
+| secure_yaml | 2.0.2 | builds |  |
+| pedump | 0.7.6 | builds |  |
+| readline | 0.0.4 | builds |  |
+| map | 8.0.0 | builds |  |
+| omniauth-apple | 1.4.0 | builds |  |
+| jekyll-readme-index | 0.5.1 | refused | `port-range:json` |
+| jb | 0.8.2 | builds |  |
+| pg_party | 1.10.0 | builds |  |
+| specific_install | 0.3.8 | builds |  |
+| bitly | 3.1.0 | builds |  |
+| rdf | 3.3.4 | refused | `port-range:bigdecimal` |
+| paypal-sdk-rest | 1.7.6 | builds |  |
+| certifi | 2018.01.18 | builds |  |
+| rubysl-securerandom | 2.0.0 | builds |  |
+| padrino-support | 0.16.1 | builds |  |
+| aws-xray-sdk | 0.16.0 | builds |  |
+| aws-sdk-ssmquicksetup | 1.34.0 | builds |  |
+| subexec | 0.2.3 | builds |  |
+| travis | 1.14.0 | fails | `resolve` |
+| faye | 1.4.3 | refused | `cext:http_parser.rb` |
+| jekyll-theme-hacker | 0.2.0 | refused | `port-range:json` |
+| theme-check | 1.15.0 | refused | `cext:nokogiri` |
+| flag_shih_tzu | 1.0.6 | builds |  |
+| mailhandler | 1.0.72 | builds |  |
+| grover | 1.2.10 | refused | `cext:nokogiri` |
+| mongoid-history | 0.8.5 | refused | `cext:bson` |
+| dnsbl-client | 1.1.1 | builds |  |
+| phone | 1.2.3 | builds |  |
+| simple_calendar | 3.1.0 | refused | `cext:nokogiri` |
+| ruby_smb | 3.3.25 | refused | `cext:strptime` |
+| rkelly-remix | 0.0.7 | builds |  |
+| rash_alt | 0.4.12 | builds |  |
+| json-canonicalization | 1.0.0 | builds |  |
+| active_interaction | 5.5.0 | builds |  |
+| ajax-datatables-rails | 1.5.0 | refused | `cext:nokogiri` |
+| salesforce_bulk_query | 0.2.0 | refused | `port-range:json` |
+| certified | 1.0.0 | builds |  |
+| panko_serializer | 0.8.5 | refused | `cext:panko_serializer` |
+| jekyll-swiss | 1.0.0 | fails | `no-entry` |
+| resque-cleaner | 0.4.1 | builds |  |
+| puppet-strings | 5.1.0 | builds |  |
+| jekyll-theme-primer | 0.6.0 | refused | `port-range:json` |
+| arel-helpers | 2.17.0 | builds |  |
+| symmetric-encryption | 4.6.0 | builds |  |
+| wbconfigurator | 0.3.2 | builds |  |
+| light-service | 0.21.0 | builds |  |
+| algorithms | 1.1.0 | refused | `cext:algorithms` |
+| resque-pool | 0.8.0 | builds |  |
+| dotiw | 5.6.1 | builds |  |
+| slackistrano | 4.0.3 | builds |  |
+| acts_as_votable | 0.14.0 | builds |  |
+| jekyll-theme-cayman | 0.2.0 | refused | `port-range:json` |
+| jekyll-theme-minimal | 0.2.0 | refused | `port-range:json` |
+| ruby_event_store-rspec | 3.2.0 | builds |  |
+| snappy-jars |  | fails | `not-found` |
+| gelfd2 | 0.4.2 | builds |  |
+| clearbit | 0.3.3 | builds |  |
+| librato-metrics | 2.1.2 | builds |  |
+| jekyll-theme-architect | 0.2.0 | refused | `port-range:json` |
+| graphql-metrics | 6.0.0 | builds |  |
+| aws-sdk-pcs | 1.54.0 | builds |  |
+| jekyll-theme-modernist | 0.2.0 | refused | `port-range:json` |
+| windows_error | 0.1.6 | builds |  |
+| sendgrid | 1.2.4 | builds |  |
+| jekyll-theme-time-machine | 0.2.0 | refused | `port-range:json` |
+| jekyll-theme-slate | 0.2.0 | refused | `port-range:json` |
+| attribute_normalizer | 1.2.0 | builds |  |
+| htmlcompressor | 0.4.0 | builds |  |
+| jekyll-theme-midnight | 0.2.0 | refused | `port-range:json` |
+| jekyll-theme-tactile | 0.2.0 | refused | `port-range:json` |
+| jekyll-theme-merlot | 0.2.0 | refused | `port-range:json` |
+| jekyll-theme-dinky | 0.2.0 | refused | `port-range:json` |
+| jekyll-theme-leap-day | 0.2.0 | refused | `port-range:json` |
+| faraday-encoding | 0.0.6 | builds |  |
+| sauce_whisk | 0.3.2 | builds |  |
+| powerbar | 2.0.1 | builds |  |
+| teaspoon-jasmine | 2.9.1 | refused | `cext:nokogiri` |
+| apktools | 0.7.6 | fails | `no-entry` |
+| sunspot_rails | 2.7.1 | refused | `cext:nokogiri` |
+| store_model | 4.6.1 | builds |  |
+| facets | 4.0.0 | builds |  |
+| fastlane-plugin-bundletool | 1.1.2 | builds |  |
+| middleman | 4.6.3 | refused | `cext:sassc` |
+| azure_mgmt_storage | 0.23.0 | fails | `memory` |
+| web-push | 3.1.0 | builds |  |
+| s3 | 0.3.29 | builds |  |
+| mongoid-rspec | 4.2.0 | refused | `cext:bson` |
+| sensu-plugins-http | 6.1.0 | refused | `cext:oj` |
+| zhexdump | 0.3.0 | builds |  |
+| lograge-sql | 2.6.1 | refused | `cext:nokogiri` |
+| activeadmin_json_editor | 0.0.10 | refused | `cext:nokogiri` |
+| logstash-filter-cidr | 2.0.4 | fails | `resolve` |
+| paypal-sdk-core | 0.3.6 | builds |  |
+| jekyll-commonmark-ghpages | 0.5.1 | fails | `resolve` |
+| statsig | 2.9.4 | refused | `cext:llhttp-ffi` |
+| dry-transaction | 0.16.0 | builds |  |
+| distribution | 0.8.0 | builds |  |
+| highcharts-rails | 6.0.3 | refused | `cext:nokogiri` |
+| faraday-detailed_logger | 2.6.1 | builds |  |
+| spring-commands-cucumber | 1.0.1 | builds |  |
+| logstash-filter-de_dot | 1.2.0 | fails | `resolve` |
+| ruby-trello | 4.2.0 | builds |  |
+| pmckee11-redis-lock | 0.1.1 | builds |  |
+| twitter-text | 3.1.0 | refused | `cext:unf_ext` |
+| fastlane-plugin-aws_s3 | 2.1.0 | builds |  |
+| hiredis-client | 0.31.0 | refused | `cext:hiredis-client` |
+| hodel_3000_compliant_logger | 0.1.1 | builds |  |
+| trainer | 0.9.1 | refused | `port-range:json` |
+| sensu-plugins-network-checks | 5.0.0 | refused | `port-range:json` |
+| logstash-filter-anonymize | 3.0.8 | fails | `resolve` |
+| google-cloud-firestore | 3.2.0 | refused | `port-range:bigdecimal` |
+| mission_control-jobs | 1.3.1 | refused | `cext:nokogiri` |
+| librarian-puppet | 7.0.0 | builds |  |
+| yabeda-sidekiq | 0.12.0 | builds |  |
+| proxies | 0.2.3 | builds |  |
+| keystore | 0.3.0 | builds |  |
+| imgkit | 1.6.3 | builds |  |
+| zeus | 0.21.0 | builds |  |
+| ratelimit | 1.1.0 | builds |  |
+| xctest_list | 1.2.1 | builds |  |
+| fastlane-plugin-xcconfig | 2.1.0 | builds |  |
+| sprite-factory | 1.7.1 | builds |  |
+| data_uri | 0.1.0 | builds |  |
+| turnout | 2.5.0 | builds |  |
+| jsmin | 1.0.1 | builds |  |
+| graphql-schema_comparator | 1.2.1 | builds |  |
+| active_record_doctor | 2.1.0 | builds |  |
+| sinatra-flash | 0.3.0 | builds |  |
+| webpack-rails | 0.9.11 | refused | `cext:nokogiri` |
+| sensu-plugins-cpu-checks | 4.1.0 | fails | `resolve` |
+| array_stats | 0.6.0 | builds |  |
+| postgresql_cursor | 0.6.11 | builds |  |
+| bower-rails | 0.12.0 | builds |  |
+| contentful | 2.20.0 | refused | `cext:llhttp` |
+| fluent-plugin-remote_syslog | 1.1.0 | refused | `cext:zstd-ruby` |
+| logstash-output-email | 4.1.4 | fails | `resolve` |
+| splitclient-rb | 8.11.3 | refused | `cext:splitclient-rb` |
+| double-bag-ftps | 0.1.4 | builds |  |
+| grease | 0.3.2 | builds |  |
+| philiprehberger-phone | 0.10.0 | builds |  |
+| http_router | 0.11.2 | builds |  |
+| decent_exposure | 3.0.4 | builds |  |
+| ros-apartment | 3.4.4 | builds |  |
+| valvat | 2.0.1 | builds |  |
+| geckodriver-helper | 0.24.0 | builds |  |
+| god | 0.13.7 | refused | `cext:god` |
+| logstash-filter-memcached | 1.2.0 | fails | `resolve` |
+| servolux | 0.13.0 | builds |  |
+| remote_syslog_logger | 1.0.4 | builds |  |
+| patron | 0.13.4 | refused | `cext:patron` |
+| aws-sdk-directoryservicedata | 1.29.0 | builds |  |
+| nesty | 1.0.2 | builds |  |
+| ip3country | 0.2.1 | builds |  |
+| fastlane-plugin-browserstack | 0.3.4 | builds |  |
+| rinda | 0.2.0 | fails | `no-entry` |
+| acts_as_commentable_with_threading | 2.0.1 | builds |  |
+| show_me_the_cookies | 6.0.0 | refused | `cext:nokogiri` |
+| ruby-maven-libs | 3.9.9 | builds |  |
+| fastlane-plugin-test_center | 3.19.1 | builds |  |
+| jruby-jars | 10.1.2.0 | builds |  |
+| versionomy | 0.5.0 | builds |  |
+| aws-sdk-geoplaces | 1.29.0 | builds |  |
+| database_cleaner-redis | 2.0.0 | builds |  |
+| ruby-prof-flamegraph | 0.3.0 | refused | `cext:ruby-prof` |
+| salesforce_bulk_api | 1.3.0 | builds |  |
+| enumerable-statistics | 2.0.9 | refused | `cext:enumerable-statistics` |
+| simple_token_authentication | 1.18.1 | refused | `cext:nokogiri` |
+| net-http-pipeline | 1.0.1 | builds |  |
+| systemd-journal | 2.1.2 | refused | `cext:systemd-journal` |
+| philiprehberger-rate_limiter | 0.13.0 | builds |  |
+| rspec-sqlimit | 1.0.0 | builds |  |
+| cocoapods-check | 1.1.0 | builds |  |
+| rvm-capistrano | 1.5.6 | builds |  |
+| activerecord-jdbc-adapter | 51.0 | builds |  |
+| manpages | 0.7.0 | builds |  |
+| vernier | 1.11.0 | refused | `cext:vernier` |
+| line-bot-api | 2.11.0 | builds |  |
+| hellosign-ruby-sdk | 3.7.7 | builds |  |
+| statuscake | 0.1.2 | builds |  |
+| rbovirt | 0.1.7 | refused | `cext:nokogiri` |
+| fastlane-plugin-bugsnag | 3.1.3 | builds |  |
+| dartsass-rails | 0.5.1 | refused | `cext:nokogiri` |
+| repl_type_completor | 0.1.16 | builds |  |
+| aruba | 2.4.1 | fails | `memory` |
+| bond | 0.5.1 | refused | `cext:bond` |
+| relaxed-rubocop | 2.5 | fails | `no-entry` |
+| aws-sdk-socialmessaging | 1.33.0 | builds |  |
+| text-table | 1.2.4 | builds |  |
+| aws-sdk-marketplacereporting | 1.26.0 | builds |  |
+| chef-ruby-lvm-attrib | 0.7.2 | fails | `no-entry` |
+| jekyll-commonmark | 1.4.0 | fails | `resolve` |
+| guard-rails | 0.8.1 | builds |  |
+| recurly | 4.83.0 | builds |  |
+| standard-rails | 1.6.0 | fails | `memory` |
+| ruby-maven | 3.9.3 | builds |  |
+| doorkeeper-i18n | 5.2.9 | refused | `cext:nokogiri` |
+| oink | 0.10.1 | builds |  |
+| aws-sdk-georoutes | 1.30.0 | builds |  |
+| squasher | 0.8.0 | builds |  |
+| aws-sdk-geomaps | 1.31.0 | builds |  |
+| url_mount | 0.2.1 | builds |  |
+| optimizely-sdk | 5.3.0 | refused | `cext:murmurhash3` |
+| mailchimp-api | 2.0.7 | builds |  |
+| moped | 2.0.7 | refused | `cext:bson` |
+| sensu-plugins-load-checks | 5.1.0 | refused | `port-range:json` |
+| slim_lint | 0.37.0 | fails | `memory` |
+| gem-wrappers | 1.4.0 | refused | `cext:gem-wrappers` |
+| open-uri | 0.5.0 | builds |  |
+| two_factor_authentication | 3.0.0 | refused | `cext:nokogiri` |
+| ahoy_email | 4.0.0 | refused | `cext:nokogiri` |
+| sorbet-struct-comparable | 1.3.0 | builds |  |
+| activerecord-postgres_enum | 2.1.0 | refused | `cext:pg` |
+| database_cleaner-mongoid | 2.0.1 | refused | `cext:bson` |
+| dragonfly-s3_data_store | 1.3.0 | refused | `cext:nokogiri` |
+| lolcat | 100.0.1 | builds |  |
+| carrot-top | 0.0.7 | builds |  |
+| mini_exiftool | 2.14.0 | builds |  |
+| asciidoctor-pdf | 2.3.27 | fails | `memory` |
+| did_you_mean | 2.0.0 | builds |  |
+| mail_view | 2.0.4 | builds |  |
+| money-open-exchange-rates | 2.0.1 | fails | `no-entry` |
+| debugger | 1.6.8 | refused | `cext:debugger` |
+| oktakit | 1.0.0 | builds |  |
+| puppet-lint-unquoted_string-check | 4.1.0 | fails | `no-entry` |
+| facebookbusiness | 26.0.2 | refused | `port-range:json` |
+| libsaml | 3.14.0 | refused | `cext:nokogiri` |
+| middleman-core | 4.6.3 | refused | `cext:fast_blank` |
+| azure_mgmt_key_vault | 0.17.7 | builds |  |
+| ar_after_transaction | 1.1.0 | builds |  |
+| aws-sdk-apptest | 1.24.0 | builds |  |
+| fluent-plugin-script | 0.2.0 | refused | `cext:zstd-ruby` |
+| cpf_cnpj | 1.1.0 | builds |  |
+| google-cloud-error_reporting | 0.45.1 | refused | `cext:google-protobuf` |
+| foreigner | 1.7.4 | builds |  |
+| obscenity | 1.0.2 | builds |  |
+| aws-sdk-connectcampaignsv2 | 1.33.0 | builds |  |
+| brotli | 0.8.0 | refused | `cext:brotli` |
+| aws-sdk-billing | 1.35.0 | builds |  |
+| aws-sdk-partnercentralselling | 1.42.0 | builds |  |
+| fastlane-plugin-json | 1.1.7 | builds |  |
+| dbf | 5.5.0 | builds |  |
+| remote_syslog_sender | 1.2.4 | builds |  |
+| font_assets | 0.1.14 | builds |  |
+| redis-rack-cache | 2.2.1 | builds |  |
+| envlogic | 1.1.5 | builds |  |
+| git_diff | 0.4.3 | builds |  |
+| http_tools | 0.4.5 | builds |  |
+| bluecloth | 2.2.0 | refused | `cext:bluecloth` |
+| aws-sdk-bcmpricingcalculator | 1.34.0 | builds |  |
+| mongoid-grid_fs | 2.6.0 | refused | `cext:bson` |
+| sift | 4.7.0 | builds |  |
+| gooddata-dss-jdbc | 0.2.10 | fails | `no-entry` |
+| cosmonats | 0.7.0 | builds |  |
+| pronto-brakeman | 0.11.2 | refused | `cext:rugged` |
+| apollo-federation | 3.10.5 | refused | `cext:google-protobuf` |
+| launchdarkly_api | 24.0.0 | fails | `memory` |
+| aws-sdk-notifications | 1.27.0 | builds |  |
+| simple-graphite | 2.1.0 | builds |  |
+| aws-sdk-notificationscontacts | 1.24.0 | builds |  |
+| mqtt | 0.7.0 | builds |  |
+| aws-sdk-dsql | 1.35.0 | builds |  |
+| temping | 4.4.0 | builds |  |
+| google-cloud-trace-v2 | 1.5.1 | refused | `cext:google-protobuf` |
+| gh | 0.18.0 | builds |  |
+| aws-sdk-observabilityadmin | 1.41.0 | builds |  |
+| holiday_jp | 0.8.1 | builds |  |
+| cucumber_statistics | 3.0.0 | builds |  |
+| aws-sdk-networkflowmonitor | 1.30.0 | builds |  |
+| blind_index | 2.8.1 | builds |  |
+| aws-sdk-bedrockdataautomationruntime | 1.30.0 | builds |  |
+| rack-parser | 0.7.0 | builds |  |
+| cells-rails | 0.1.6 | refused | `cext:nokogiri` |
+| resque-status | 0.5.0 | refused | `refused` |
+| aws-sdk-bedrockdataautomation | 1.36.0 | builds |  |
+| aws-sdk-invoicing | 1.31.0 | builds |  |
+| aws-sdk-s3tables | 1.35.0 | builds |  |
+| librarianp | 1.2.0 | builds |  |
+| aws-sdk-securityir | 1.28.0 | builds |  |
+| nexmo | 7.2.1 | builds |  |
+| google_places | 2.0.0 | builds |  |
+| meddleware | 0.4.0 | builds |  |
+| tee_simple | 0.0.1 | builds |  |
+| carrierwave-mongoid | 1.5.0 | refused | `cext:bson` |
+| gmaps4rails | 2.1.2 | builds |  |
+| thor-zsh_completion | 0.1.10 | builds |  |
+| rubocop-packaging | 0.6.0 | fails | `memory` |
+| fakeweb | 1.3.0 | builds |  |
+| unicode_plot | 0.0.5 | refused | `cext:enumerable-statistics` |
+| api-auth | 2.6.0 | builds |  |
+| jruby-rack | 2.0.0 | builds |  |
+| rspec-repeat | 1.0.2 | builds |  |
+| frozen_record | 0.27.4 | builds |  |
+| glib2 | 4.3.9 | refused | `cext:glib2` |
+| ruby-debug-base | 0.10.4 | refused | `cext:ruby-debug-base` |
+| jquery-validation-rails | 1.19.0 | builds |  |
+| logstash-filter-prune | 3.0.4 | fails | `resolve` |
+| hash-deep-merge | 0.1.1 | builds |  |
+| fluent-plugin-sumologic_output | 1.10.0 | refused | `cext:zstd-ruby` |
+| google-cloud-translate | 3.9.1 | refused | `cext:google-protobuf` |
+| rubocop-daemon | 0.3.2 | fails | `memory` |
+| beaker | 7.8.3 | refused | `cext:bcrypt_pbkdf` |
+| invoca-utils | 0.7.0 | builds |  |
+| snitcher | 0.4.2 | builds |  |
+| rack-dev-mark | 0.8.2 | builds |  |
+| zonefile | 1.06 | builds |  |
+| license_scout | 2.6.10 | refused | `cext:libyajl2` |
+| apartment | 2.2.1 | builds |  |
+| phlex | 2.4.1 | builds |  |
+| cocoapods-art | 1.1.1 | builds |  |
+| damerau-levenshtein | 1.3.3 | refused | `cext:damerau-levenshtein` |
+| mongoid_paranoia | 0.7.0 | refused | `cext:bson` |
+| nakayoshi_fork | 0.0.4 | builds |  |
+| choria-mcorpc-support | 2.27.0 | builds |  |
+| chefspec | 9.3.8 | refused | `cext:unf_ext` |
+| ulid-ruby | 1.0.2 | builds |  |
+| StreetAddress | 2.0.0 | builds |  |
+| net-dns | 0.20.0 | builds |  |
+| rails-api | 0.4.1 | refused | `cext:nokogiri` |
+| tty-pager | 0.14.0 | builds |  |
+| cronitor | 5.3.0 | builds |  |
+| after_party | 2.1.0 | builds |  |
+| tempfile | 0.3.1 | builds |  |
+| resque_mailer | 2.4.3 | refused | `cext:nokogiri` |
+| rack-canonical-host | 1.3.0 | builds |  |
+| pg_array_parser | 0.0.9 | refused | `cext:pg_array_parser` |
+| logstash-codec-avro | 2.0.4 | fails | `resolve` |
+| html_to_plain_text | 1.1.0 | refused | `cext:nokogiri` |
+| pluck_to_hash | 1.0.2 | builds |  |
+| quickbooks-ruby | 2.0.7 | refused | `cext:nokogiri` |
+| discourse_api | 2.1.0 | builds |  |
+| yard-activesupport-concern | 0.0.1 | builds |  |
+| aws-sdk-backupsearch | 1.26.0 | builds |  |
+| jruby-jms | 1.0.0 | builds |  |
+| arproxy | 1.0.0 | builds |  |
+| client_side_validations | 25.0.0 | refused | `cext:regexp_property_values` |
+| pact_broker-client | 1.78.0 | builds |  |
+| time_diff | 0.3.0 | builds |  |
+| logstash-output-kafka | 8.1.0 | fails | `resolve` |
+| globalize-accessors | 0.3.0 | builds |  |
+| sidekiq-grouping | 1.3.0 | builds |  |
+| seccomp-tools | 1.7.1 | refused | `cext:seccomp-tools` |
+| exception_handling | 3.2.0 | builds |  |
+| monotonic_tick_count | 1.1.0 | builds |  |
+| libhoney | 2.4.0 | refused | `cext:llhttp-ffi` |
+| contextual_logger | 1.5.0 | builds |  |
+| puppet-lint-leading_zero-check | 3.0.0 | fails | `no-entry` |
+| puffing-billy | 4.0.4 | refused | `cext:cgi` |
+| fuzzy-string-match | 1.0.1 | builds |  |
+| process_settings | 0.21.0 | builds |  |
+| redic | 1.5.3 | refused | `cext:hiredis` |
+| sinatra-partial | 1.0.1 | builds |  |
+| yard-solargraph | 0.1.0 | builds |  |
+| gooddata_datawarehouse | 0.0.12 | builds |  |
+| metasploit-payloads | 2.0.254 | builds |  |
+| rubytree | 2.2.2 | refused | `port-range:json` |
+| fluent-plugin-flatten-hash | 0.5.1 | refused | `cext:zstd-ruby` |
+| dropbox_api | 0.1.21 | builds |  |
+| simple-navigation | 4.5.0 | builds |  |
+| datadog-lambda | 3.30.0 | builds |  |
+| omniauth-okta | 2.0.0 | builds |  |
+| json-ld | 3.3.2 | refused | `port-range:bigdecimal` |
+| fluent-plugin-google-cloud | 0.13.3 | refused | `cext:yajl-ruby` |
+| que | 2.4.1 | builds |  |
+| escalate | 0.3.0 | builds |  |
+| sqlite3-ruby | 1.3.3 | refused | `cext:sqlite3` |
+| growl | 1.0.3 | builds |  |
+| apple_id | 1.6.4 | builds |  |
+| danger-todoist | 2.0.1 | builds |  |
+| arrayfields | 4.9.2 | builds |  |
+| openssl-ccm | 1.3.0 | refused | `port-range:openssl` |
+| logstash-mixin-validator_support |  | fails | `not-found` |
+| gvltools | 0.5.0 | refused | `cext:gvltools` |
+| paypalhttp | 2.0.1 | builds |  |
+| omniauth-openid | 2.0.2 | builds |  |
+| jsonapi |  | fails | `not-found` |
+| philiprehberger-cron_kit | 0.9.0 | builds |  |
+| georuby | 2.5.2 | builds |  |
+| philiprehberger-task_queue | 0.8.0 | builds |  |
+| main | 6.4.0 | builds |  |
+| philiprehberger-password | 0.9.0 | builds |  |
+| philiprehberger-template | 0.6.0 | builds |  |
+| pronto-flay | 0.11.2 | refused | `cext:rugged` |
+| jsonapi-serializers | 1.0.1 | builds |  |
+| global_phone | 1.0.1 | builds |  |
+| model_attribute | 3.2.0 | builds |  |
+| dpl-heroku | 1.10.16 | fails | `no-entry` |
+| axe-matchers | 2.6.1 | builds |  |
+| ruby-pg-extras | 5.8.0 | refused | `cext:pg` |
+| logstop | 1.0.0 | builds |  |
+| agora_dynamic_key | 0.1.0 | builds |  |
+| logstash-mixin-ecs_compatibility_support |  | fails | `not-found` |
+| rubocop-changes | 0.8.1 | builds |  |
+| loofah-activerecord | 2.0.0 | refused | `cext:nokogiri` |
+| combustion | 1.5.0 | refused | `cext:nokogiri` |
+| scrub_rb | 1.0.1 | builds |  |
+| jumphash | 0.1.0 | refused | `cext:jumphash` |
+| ims-lti | 2.3.8 | refused | `cext:cgi` |
+| google-apis-gmail_v1 | 0.53.0 | builds |  |
+| jasmine-rails | 0.15.0 | refused | `cext:nokogiri` |
+| track_open_instances | 0.1.15 | builds |  |
+| sidekiq-batch | 0.2.0 | builds |  |
+| tracking_number | 3.0.0 | builds |  |
+| logstash-input-kafka | 9.1.0 | fails | `resolve` |
+| andand | 1.3.3 | builds |  |
+| delighted | 2.2.0 | builds |  |
+| activerecord-safer_migrations | 5.0.0 | builds |  |
+| azure | 0.7.10 | refused | `cext:nokogiri` |
+| ruby-oci8 | 2.2.14 | refused | `cext:ruby-oci8` |
+| rack-headers_filter | 0.0.1 | builds |  |
+| dartsass | 1.49.8 | builds |  |
+| judoscale-ruby | 1.13.3 | builds |  |
+| ziptz | 6.2.0 | refused | `cext:sqlite3` |
+| judoscale-rails | 1.13.3 | refused | `cext:nokogiri` |
+| jruby-launcher |  | fails | `not-found` |
+| di-ruby-lvm-attrib | 0.0.27 | fails | `no-entry` |
+| activerecord_sane_schema_dumper | 1.0 | refused | `cext:nokogiri` |
+| sassc-embedded | 1.80.10 | refused | `cext:google-protobuf` |
+| attr_comparable | 0.2.0 | builds |  |
+| watir-webdriver | 0.9.9 | builds |  |
+| google-cloud-trace-v1 | 1.6.1 | refused | `cext:google-protobuf` |
+| declare_schema | 4.1.0 | refused | `cext:nokogiri` |
+| browserstack-local | 1.5.1 | builds |  |
+| google-cloud-monitoring | 1.11.1 | refused | `cext:google-protobuf` |
+| yard-doctest | 0.1.17 | builds |  |
+| guard-shell | 0.7.2 | builds |  |
+| clavius | 1.0.4 | builds |  |
+| attr_default | 1.0.0 | refused | `cext:nokogiri` |
+| fig_leaf | 0.0.3 | builds |  |
+| rails-jquery-autocomplete | 1.0.5 | refused | `cext:nokogiri` |
+| pcaprub | 0.13.3 | refused | `cext:pcaprub` |
+| tzip | 0.0.4 | builds |  |
+| async-http-faraday | 0.24.0 | refused | `cext:io-event` |
+| ice_age | 0.2.0 | builds |  |
+| zip | 2.0.2 | builds |  |
+| lhm | 2.2.0 | builds |  |
+| gobject-introspection | 4.3.9 | refused | `cext:gobject-introspection` |
+| rufus-lua | 1.1.5 | builds |  |
+| sprockets-helpers | 1.4.0 | builds |  |
+| native-package-installer | 1.1.9 | builds |  |
+| google_maps_service | 0.4.2 | builds |  |
+| large_text_field | 1.3.0 | refused | `cext:nokogiri` |
+| redis-semaphore | 0.3.1 | builds |  |
+| nest | 3.2.0 | refused | `cext:hiredis` |
+| traceroute | 0.8.1 | refused | `cext:nokogiri` |
+| activerecord-mysql-enum | 2.4.2 | refused | `cext:mysql2` |
+| azure-storage |  | fails | `not-found` |
+| dpl-s3 | 1.10.16 | fails | `no-entry` |
+| exceptional_synchrony | 1.4.6 | refused | `cext:eventmachine` |
+| glob | 0.5.0 | builds |  |
+| lol_dba | 3.0.0 | refused | `cext:nokogiri` |
+| m | 1.7.0 | builds |  |
+| browsermob-proxy | 0.3.1 | builds |  |
+| fluent-plugin-secure-forward | 0.4.5 | refused | `cext:zstd-ruby` |
+| honeycomb-beeline | 3.1.0 | refused | `cext:llhttp-ffi` |
+| google-cloud-vision | 2.2.1 | refused | `cext:google-protobuf` |
+| logstash-integration-jdbc | 5.6.6 | fails | `resolve` |
+| jsonapi-rb | 0.5.0 | fails | `no-entry` |
+| alba | 4.0.0 | builds |  |
+| rgl | 0.6.7 | fails | `no-entry` |
+| logstash-input-rabbitmq | 6.0.4 | fails | `resolve` |
+| rb_heap | 1.1.0 | builds |  |
+| ruby-units | 4.1.0 | builds |  |
+| argon2 | 2.3.3 | refused | `cext:argon2` |
+| sunspot_solr | 2.7.1 | builds |  |
+| prometheus | 0.1.4 | builds |  |
+| parameter_substitution | 3.3.0 | builds |  |
+| google-cloud-firestore-v1 | 2.4.0 | refused | `cext:google-protobuf` |
+| fibered_mysql2 | 1.1.0 | refused | `cext:io-event` |
+| redmineup | 1.1.13 | refused | `cext:nokogiri` |
+| signature | 0.1.8 | builds |  |
+| derailed | 0.1.0 | builds |  |
+| application_insights | 0.5.6 | builds |  |
+| google-cloud-logging-v2 | 1.7.1 | refused | `cext:google-protobuf` |
+| mixpanel_client | 5.1.0 | builds |  |
+| datetime_picker_rails | 0.0.7 | refused | `cext:nokogiri` |
+| anycable-rails-core | 1.6.2 | refused | `cext:google-protobuf` |
+| wkhtmltoimage-binary | 0.12.5 | builds |  |
+| prawn-rails | 1.6.0 | refused | `port-range:bigdecimal` |
+| gio2 | 4.3.9 | refused | `cext:gio2` |
+| coolline | 0.5.0 | builds |  |
+| puppet-lint-absolute_classname-check | 5.0.0 | fails | `no-entry` |
+| rb-kqueue | 0.2.8 | builds |  |
+| desk_api | 0.6.2 | builds |  |
+| logstash-input-jdbc | 4.3.19 | fails | `resolve` |
+| strong_password | 0.0.10 | builds |  |
+| paypal-checkout-sdk | 1.0.6 | builds |  |
+| rails-pg-extras | 5.7.0 | refused | `cext:pg` |
+| opentelemetry-instrumentation-grpc | 0.5.3 | builds |  |
+| workers | 0.6.1 | builds |  |
+| jsobfu | 0.4.2 | builds |  |
+| rack-raw-upload | 1.1.1 | builds |  |
+| tty-progressbar | 0.18.3 | builds |  |
+| biz | 1.8.2 | builds |  |
+| logstash-integration-kafka |  | fails | `not-found` |
+| hologram | 1.4.0 | refused | `cext:redcarpet` |
+| metasm | 1.0.6 | builds |  |
+| jsonapi-deserializable | 0.2.0 | builds |  |
+| gibberish | 2.1.1 | builds |  |
+| logstash-output-rabbitmq | 0.1.0 | fails | `resolve` |
+| authtrail | 1.0.0 | refused | `cext:nokogiri` |
+| active_type | 2.8.0 | builds |  |
+| stream | 0.5.6 | builds |  |
+| rack-user_agent | 0.6.0 | builds |  |
+| logstash-input-jms |  | fails | `not-found` |
+| fastlane-plugin-load_json | 0.0.1 | builds |  |
+| resolve-hostname | 0.1.0 | builds |  |
+| rubocop-sequel | 0.4.1 | fails | `memory` |
+| posthog-ruby | 3.26.2 | builds |  |
+| faraday-decode_xml | 0.2.1 | builds |  |
+| logstash-mixin-rabbitmq_connection |  | fails | `not-found` |
+| hashr | 2.0.1 | builds |  |
+| immigrant | 0.3.6 | builds |  |
+| swagger-docs | 0.2.9 | refused | `cext:nokogiri` |
+| readthis | 2.2.0 | builds |  |
+| di-ruby-lvm | 0.2.1 | builds |  |
+| pluginator | 1.5.0 | builds |  |
+| chart-js-rails | 0.1.7 | refused | `cext:nokogiri` |
+| routing-filter | 0.7.0 | refused | `cext:nokogiri` |
+| sensu-plugins-filesystem-checks | 2.1.1 | refused | `port-range:json` |
+| flt | 1.5.4 | builds |  |
+| solargraph-rails | 1.3 | refused | `cext:nokogiri` |
+| sprockets-sass | 1.3.1 | builds |  |
+| discordrb-webhooks-blackst0ne | 3.3.0 | fails | `no-entry` |
+| ar_lazy_preload | 2.1.2 | builds |  |
+| berater | 0.15.1 | builds |  |
+| rrule | 0.8.0 | builds |  |
+| google-cloud-translate-v3 | 1.10.1 | refused | `cext:google-protobuf` |
+| immutable-ruby | 0.2.0 | refused | `cext:rbtree` |
+| webrat | 0.7.3 | refused | `cext:nokogiri` |
+| ledermann-rails-settings | 2.6.2 | builds |  |
+| rails-reverse-proxy | 0.13.0 | refused | `cext:nokogiri` |
+| i18n-country-translations | 2.3.2 | refused | `cext:nokogiri` |
+| logstash-filter-uuid | 3.0.5 | fails | `resolve` |
+| possessive | 1.0.1 | builds |  |
+| racksh | 1.0.1 | fails | `no-entry` |
+| rex-text | 0.2.64 | builds |  |
+| click_house | 2.1.2 | builds |  |
+| avromatic | 6.0.1 | builds |  |
+| logstash-output-pagerduty | 3.0.9 | fails | `resolve` |
+| i18n-active_record | 1.4.0 | builds |  |
+| ya2yaml | 0.31 | builds |  |
+| sentry-delayed_job | 7.1.0 | builds |  |
+| fluent-plugin-group-exceptions | 0.0.15 | refused | `cext:zstd-ruby` |
+| turbo_tests | 2.2.5 | builds |  |
+| net_http_unix | 0.2.2 | builds |  |
+| stripe-rails | 2.6.0 | refused | `cext:nokogiri` |
+| playwright-ruby-client | 1.63.0 | builds |  |
+| rex-socket | 0.1.71 | builds |  |
+| bugsnag-api | 3.0.1 | builds |  |
+| rack-reverse-proxy | 0.12.0 | builds |  |
+| serviceworker-rails | 0.7.1 | refused | `cext:nokogiri` |
+| pronto-reek | 0.11.1 | refused | `cext:rugged` |
+| axe-core-capybara | 4.13.0 | builds |  |
+| sysvmq | 0.2.4 | refused | `cext:sysvmq` |
+| logstash-input-google_pubsub | 1.4.3 | fails | `resolve` |
+| rex-core | 0.1.36 | builds |  |
+| test-unit-rr | 1.0.5 | builds |  |
+| fastlane-plugin-slack_bot | 1.5.2 | builds |  |
+| order_as_specified | 1.7 | builds |  |
+| google-apis-identitytoolkit_v3 | 0.19.0 | builds |  |
+| domainatrix | 0.0.11 | builds |  |
+| mongoid_rails_migrations | 1.6.2 | refused | `cext:bson` |
+| zaru | 1.1 | builds |  |
+| validates_overlap | 1.3.0 | builds |  |
+| working_hours | 1.5.0 | builds |  |
+| compact_index | 0.15.0 | builds |  |
+| validates_zipcode | 0.6.0 | builds |  |
+| spy | 1.0.5 | builds |  |
+| turbo-sprockets-rails3 | 0.3.14 | refused | `port-range:json` |
+| metainspector | 5.17.2 | refused | `cext:nokogiri` |
+| jsonapi.rb | 2.1.1 | builds |  |
+| puppet-lint-trailing_comma-check | 3.0.1 | fails | `no-entry` |
+| ey-hmac | 2.4.0 | builds |  |
+| smartystreets_ruby_sdk | 10.1.0 | builds |  |
+| database_cleaner-sequel | 2.0.2 | builds |  |
+| escape_code | 0.2 | builds |  |
+| fluent-plugin-grep | 0.3.4 | refused | `cext:zstd-ruby` |
+| zk | 1.10.0 | refused | `cext:zookeeper` |
+| avro_schema_registry-client | 0.6.0 | builds |  |
+| cld | 0.13.0 | refused | `cext:cld` |
+| ruby_event_store-sidekiq_scheduler | 0.2.0 | builds |  |
+| levenshtein-ffi | 1.1.0 | refused | `cext:levenshtein-ffi` |
+| test-queue | 0.12.0 | builds |  |
+| idn-ruby | 0.1.5 | refused | `cext:idn-ruby` |
+| gruff | 0.32.0 | refused | `cext:rmagick` |
+| active_admin_datetimepicker | 2.1.0 | refused | `cext:nokogiri` |
+| rack-throttle | 0.7.1 | builds |  |
+| structured_warnings | 0.5.0 | builds |  |
+| rb-fchange | 0.0.6 | builds |  |
+| azure_mgmt_compute | 0.22.0 | fails | `memory` |
+| packetfu | 2.0.0 | refused | `cext:pcaprub` |
+| activerecord-cte | 0.4.0 | builds |  |
+| logstash-output-jdbc | 5.4.0 | fails | `resolve` |
+| ruby_powerpoint | 1.4.4 | refused | `cext:nokogiri` |
+| database_consistency | 3.0.14 | builds |  |
+| fakes3 | 2.0.0 | builds |  |
+| dry-system | 1.2.5 | builds |  |
+| opentelemetry-helpers-sql-processor | 0.5.0 | builds |  |
+| hamlit-rails | 0.2.3 | refused | `cext:hamlit` |
+| fastthread | 1.0.7 | refused | `cext:fastthread` |
+| pycall | 1.5.3 | refused | `cext:pycall` |
+| syntax_tree-rbs | 1.0.0 | builds |  |
+| riddle | 2.4.3 | builds |  |
+| activerecord-typedstore | 1.6.0 | builds |  |
+| chef-sugar-ng | 5.1.12 | fails | `no-entry` |
+| chef-ruby-lvm | 0.4.4 | builds |  |
+| rubocop-md | 2.0.4 | builds |  |
+| paypal-sdk-merchant | 1.117.4 | builds |  |
+| jquery-minicolors-rails | 2.2.6.2 | refused | `cext:nokogiri` |
+| browser_sniffer | 2.4.0 | builds |  |
+| beaker-hostgenerator | 3.8.0 | builds |  |
+| judoscale-sidekiq | 1.13.3 | builds |  |
+| bumbler | 0.9.0 | builds |  |
+| avro-resolution_canonical_form | 0.7.0 | builds |  |
+| natural_sort | 1.0.0 | builds |  |
+| logstash-mixin-event_support |  | fails | `not-found` |
+| stringify-hash | 0.0.2 | builds |  |
+| normalize-rails | 8.0.1 | builds |  |
+| elftools | 2.2.0 | builds |  |
+| rqrcode_png | 0.1.5 | builds |  |
+| route_translator | 16.2.0 | refused | `cext:nokogiri` |
+| modernizr-rails | 2.7.1 | builds |  |
+| google-cloud-translate-v2 | 1.2.0 | refused | `cext:google-protobuf` |
+| d3-rails | 7.8.5 | refused | `cext:nokogiri` |
+| jsonapi-rails | 0.4.1 | builds |  |
+| openapi3_parser | 0.10.1 | refused | `cext:commonmarker` |
+| values | 1.8.0 | builds |  |
+| numbers_in_words | 1.0.1 | builds |  |
+| administrate-field-active_storage | 1.0.6 | refused | `cext:nokogiri` |
+| holiday_japan | 1.4.4 | builds |  |
+| avro-builder | 3.0.0 | builds |  |
+| minitest-autotest | 1.2.2 | builds |  |
+| rgeo-shapefile | 3.1.0 | refused | `cext:rgeo` |
+| corefoundation | 0.3.19 | builds |  |
+| gelfd | 0.2.0 | builds |  |
+| impressionist | 2.0.0 | refused | `cext:nokogiri` |
+| strongbox | 0.7.3 | builds |  |
+| zxcvbn-ruby | 2.0.1 | builds |  |
+| middleman-cli | 4.6.3 | builds |  |
+| sidekiq-statistic | 1.4.0 | builds |  |
+| grape_on_rails_routes | 0.3.2 | refused | `cext:nokogiri` |
+| taxjar-ruby | 3.0.4 | refused | `cext:llhttp` |
+| metro_2 | 1.2.7 | builds |  |
+| versioncake | 4.1.1 | refused | `cext:nokogiri` |
+| city-state | 1.1.0 | builds |  |
+| trailblazer-operation | 0.11.1 | builds |  |
+| vpim | 24.2.20 | builds |  |
+| rover-df | 1.1.0 | refused | `cext:numo-narray-alt` |
+| omniauth-shopify-oauth2 | 2.4.0 | builds |  |
+| data_objects | 0.10.17 | builds |  |
+| puppet-blacksmith | 9.1.0 | builds |  |
+| syntax_tree-haml | 4.0.3 | builds |  |
+| boxr | 1.24.0 | builds |  |
+| susy | 2.2.14 | builds |  |
+| asciidoctor-diagram | 3.2.1 | builds |  |
+| azure_mgmt_network | 0.26.1 | fails | `memory` |
+| app_profiler | 0.7.0 | refused | `cext:stackprof` |
+| bitmask_attributes | 1.0.0 | builds |  |
+| twitter-typeahead-rails | 0.11.1 | refused | `cext:nokogiri` |
+| circleci-parallel | 0.5.0 | builds |  |
+| fastly | 17.2.0 | fails | `memory` |
+| naughty_or_nice | 2.1.2 | builds |  |
+| render_anywhere | 0.0.12 | refused | `cext:nokogiri` |
+| swot | 1.0.0 | builds |  |
+| cookstyle | 9.0.0 | fails | `memory` |
+| google-style | 1.32.0 | fails | `no-entry` |
+| delayed_paperclip | 3.0.1 | refused | `cext:nokogiri` |
+| ImageResize | 0.0.5 | builds |  |
+| activeadmin-searchable_select | 1.9.0 | refused | `cext:nokogiri` |
+| simplecov-parallel | 0.4.0 | builds |  |
+| puppet-lint-variable_contains_upcase | 3.0.0 | fails | `no-entry` |
+| ipynbdiff | 0.4.7 | refused | `port-range:json` |
+| rails_param | 1.3.1 | refused | `cext:nokogiri` |
+| prettier | 4.0.4 | builds |  |
+| network_interface | 0.0.4 | refused | `cext:network_interface` |
+| git-version-bump | 0.19.1 | builds |  |
+| axlsx_styler | 1.2.0 | refused | `cext:nokogiri` |
+| logstash-input-couchdb_changes | 3.1.6 | fails | `resolve` |
+| recipient_interceptor | 0.3.3 | builds |  |
+| puppet-modulebuilder | 2.1.0 | builds |  |
+| opus-ruby | 1.0.1 | builds |  |
+| dm-core | 1.2.1 | builds |  |
+| trailblazer | 2.1.3 | builds |  |
+| azure_graph_rbac | 0.17.2 | builds |  |
+| logstash-input-kinesis |  | fails | `not-found` |
+| pronto-eslint_npm | 0.11.0 | refused | `cext:rugged` |
+| haml_coffee_assets | 1.28.0 | refused | `cext:nokogiri` |
+| xmpp4r | 0.5.6 | builds |  |
+| postgres-pr | 0.7.0 | fails | `no-entry` |
+| MailchimpMarketing | 3.0.80 | refused | `port-range:json` |
+| toxiproxy | 2.0.2 | builds |  |
+| cpf_faker | 1.3.0 | builds |  |
+| stackdriver | 1.0.0 | fails | `no-entry` |
+| active_record_upsert | 0.12.0 | refused | `cext:pg` |
+| rufus-lru | 1.1.0 | builds |  |
+| moment_timezone-rails | 0.5.47 | refused | `cext:nokogiri` |
+| url_regex | 0.0.4 | builds |  |
+| bluepill | 0.1.3 | fails | `memory` |
+| opensearch-aws-sigv4 | 1.3.0 | builds |  |
+| fluent-mixin-config-placeholders | 0.4.0 | refused | `cext:zstd-ruby` |
+| carrierwave-bombshelter | 0.2.2 | builds |  |
+| cane | 3.0.0 | builds |  |
+| puma-metrics | 1.5.0 | refused | `cext:nio4r` |
+| octicons | 19.40.0 | builds |  |
+| clamby | 1.6.11 | builds |  |
+| cybrid_api_organization_ruby | 0.129.1249 | builds |  |
+| beaker-rspec | 9.1.0 | refused | `cext:ed25519` |
+| active_median | 1.0.0 | builds |  |
+| allure-ruby-adaptor-api | 0.7.2 | refused | `cext:nokogiri` |
+| lhm-shopify | 4.5.1 | builds |  |
+| haversine | 0.3.2 | builds |  |
+| gitlab-crystalball | 1.1.3 | builds |  |
+| recog | 3.1.36 | refused | `cext:nokogiri` |
+| protobug_well_known_protos | 0.2.0 | builds |  |
+| protobug_googleapis_field_behavior_protos | 0.2.0 | builds |  |
+| protobug | 0.2.0 | builds |  |
+| sigstore | 0.2.3 | builds |  |
+| protobug_sigstore_protos | 0.2.0 | builds |  |
+| flexmock | 3.0.2 | builds |  |
+| rspec-rerun | 1.1.0 | fails | `no-entry` |
+| sigstore-cli | 0.2.3 | builds |  |
+| rack_csrf | 2.7.0 | fails | `no-entry` |
+| sidekiq-cloudwatchmetrics | 2.9.0 | builds |  |
+| metasploit_data_models | 6.0.19 | refused | `cext:nokogiri` |
+| rubocop-junit-formatter | 0.1.4 | fails | `no-entry` |
+| cybrid_api_id_ruby | 0.129.1249 | builds |  |
+| eu_central_bank | 2.0.0 | refused | `cext:nokogiri` |
+| opentelemetry-instrumentation-httpx | 0.8.0 | builds |  |
+| bootstrap-switch-rails | 3.3.5 | builds |  |
+| invoca-metrics | 0.0.2 | fails | `no-entry` |
+| unix-crypt | 1.3.2 | builds |  |
+| signer | 1.10.0 | refused | `cext:nokogiri` |
+| skylight-core | 4.3.2 | builds |  |
+| flipper-api | 1.4.2 | builds |  |
+| mailjet | 1.8.3 | refused | `cext:yajl-ruby` |
+| warbler | 2.1.2 | builds |  |
+| azure-storage-table | 2.0.4 | refused | `cext:nokogiri` |
+| smstools | 0.2.2 | builds |  |
+| coveralls_reborn | 1.0.0 | builds |  |
+| rails_autoscale_agent | 0.12.0 | builds |  |
+| fullcalendar-rails | 3.9.0.0 | refused | `cext:nokogiri` |
+| ach | 0.6.5 | builds |  |
+| rbhive | 1.0.0 | refused | `cext:thrift` |
+| postgres_ext | 3.0.1 | refused | `cext:pg_array_parser` |
+| rspec-watcher | 0.3.3 | builds |  |
+| emailage | 1.1.3 | refused | `port-range:json` |
+| business | 3.1.0 | builds |  |
+| cybrid_api_bank_ruby | 0.129.1249 | builds |  |
+| bolt | 4.0.0 | fails | `memory` |
+| json-stream | 1.0.0 | builds |  |
+| middleman-sprockets | 4.1.1 | refused | `cext:sassc` |
+| lita-slack | 1.8.0 | refused | `cext:eventmachine` |
+| rcov | 1.0.0 | refused | `cext:rcov` |
+| aws-sdk-gameliftstreams | 1.36.0 | builds |  |
+| rails_layout | 1.0.42 | builds |  |
+| gcm | 0.1.1 | builds |  |
+| dnsimple | 13.1.0 | builds |  |
+| aws-sdk-iotmanagedintegrations | 1.27.0 | builds |  |
+| activestorage-validator | 0.8.0 | refused | `cext:nokogiri` |
+| pry-coolline | 0.2.6 | builds |  |
+| git-pr-release | 2.6.0 | builds |  |
+| positioning | 0.4.8 | builds |  |
+| actionpack-cloudflare | 1.1.0 | refused | `cext:nokogiri` |
+| kitchen-vagrant | 2.4.1 | refused | `cext:ed25519` |
+| fastlane-plugin-appicon | 0.16.0 | builds |  |
+| anthropic | 1.76.0 | builds |  |
+| interpolator | 0.15 | builds |  |
+| metasploit_payloads-mettle | 1.0.48 | builds |  |
+| multipart_body | 0.2.1 | builds |  |
+| memcached | 1.8.0 | refused | `cext:memcached` |
+| n_plus_one_control | 0.8.0 | builds |  |
+| rumoji | 0.5.0 | builds |  |
+| nexpose | 7.3.0 | builds |  |
+| bot_framework | 0.1.0 | refused | `cext:nio4r` |
+| ringcentral-sdk | 1.1.3 | refused | `cext:websocket-driver` |
+| POpen4 | 0.1.4 | builds |  |
+| jazzy | 0.15.5 | refused | `cext:redcarpet` |
+| danger-checkstyle_format | 0.1.1 | refused | `cext:ox` |
+| minitest-chef-handler | 1.1.0 | builds |  |
+| amplitude-api | 0.4.2 | builds |  |
+| cf-uaa-lib | 4.0.11 | builds |  |
+| foodcritic | 16.3.0 | refused | `cext:nokogiri` |
+| cause | 0.1 | builds |  |
+| gist | 6.1.0 | builds |  |
+| minitest-bisect | 1.8.0 | builds |  |
+| jquery-slick-rails | 1.10.0 | refused | `cext:nokogiri` |
+| language | 0.6.0 | builds |  |
+| omniauth-discord | 1.2.0 | builds |  |
+| scenic-mysql_adapter | 1.1.0 | refused | `cext:nokogiri` |
+| slack-incoming-webhooks | 0.3.0 | builds |  |
+| cmdstan | 0.6.1 | builds |  |
+| treye-semaphore_cucumber_booster_config | 1.4.2 | builds |  |
+| sidekiq-cronitor | 3.9.0 | builds |  |
+| busser-rspec | 0.8.1 | fails | `no-entry` |
+| similar_text | 0.0.4 | refused | `cext:similar_text` |
+| prophet-rb | 0.7.0 | refused | `cext:numo-narray-alt` |
+| w3c_validators | 1.3.7 | refused | `cext:nokogiri` |
+| squeel | 1.2.3 | builds |  |
+| strong_parameters | 0.2.3 | refused | `port-range:json` |
+| kitchen-docker | 3.4.1 | refused | `cext:ed25519` |
+| bit-struct | 0.17 | builds |  |
+| enumerate_it | 4.2.0 | builds |  |
+| devise_masquerade | 2.1.6 | refused | `cext:nokogiri` |
+| zip_kit | 6.3.6 | builds |  |
+| code_owners | 2.0.1 | builds |  |
+| nylas | 6.8.1 | refused | `cext:yajl-ruby` |
+| geoip-c | 0.9.1 | refused | `cext:geoip-c` |
+| solidus_core | 4.7.1 | refused | `cext:nokogiri` |
+| mojinizer | 0.2.2 | builds |  |
+| graphql-c_parser | 1.1.4 | refused | `cext:graphql-c_parser` |
+| fantaskspec | 1.2.0 | builds |  |
+| logstash-output-elastic_app_search | 1.2.0 | fails | `resolve` |
+| fluent-plugin-slack | 0.6.7 | refused | `cext:zstd-ruby` |
+| csv-diff | 0.6.1 | builds |  |
+| mapbox-sdk | 2.3.3 | builds |  |
+| zengin_code | 1.0.1.20260824 | builds |  |
+| tty-tree | 0.4.0 | builds |  |
+| authorizenet | 2.0.2 | refused | `cext:nokogiri` |
+| opentok | 4.15.0 | builds |  |
+| treye-semaphore_test_boosters | 2.5.2 | builds |  |
+| opencensus | 0.5.0 | builds |  |
+| linecache | 1.3.1 | refused | `cext:linecache` |
+| heroku-api | 0.4.3 | builds |  |
+| autotest-suffix | 1.1.0 | builds |  |
+| protocol-url | 0.19.0 | builds |  |
+| d3_rails | 4.1.1 | refused | `cext:nokogiri` |
+| migration-lock-timeout | 2.0.0 | builds |  |
+| filestack | 3.0.0 | builds |  |
+| capistrano3-unicorn | 0.2.1 | builds |  |
+| devise-pwned_password | 0.2.0 | refused | `cext:nokogiri` |
+| turn | 0.9.7 | builds |  |
+| sinatra-cross_origin | 0.4.0 | builds |  |
+| win32ole | 1.9.3 | refused | `cext:win32ole` |
+| rack-mobile-detect | 0.4.0 | fails | `no-entry` |
+| percy-capybara | 5.0.1 | refused | `cext:nokogiri` |
+| mail_safe | 0.3.4 | refused | `cext:nokogiri` |
+| shared-mime-info | 0.2.5 | builds |  |
+| zipline | 2.2.0 | refused | `cext:nokogiri` |
+| griddler-sendgrid | 1.2.0 | refused | `cext:nokogiri` |
+| ruby-debug | 0.11.0 | fails | `resolve` |
+| finance | 2.0.0 | builds |  |
+| base58 | 0.2.3 | builds |  |
+| lazy_high_charts | 1.6.1 | builds |  |
+| mandrill_mailer | 1.8.0 | refused | `port-range:json` |
+| solidus_api | 4.7.1 | refused | `cext:nokogiri` |
+| fluent-plugin-rabbitmq | 0.1.5 | refused | `cext:zstd-ruby` |
+| cookbook-omnifetch | 0.12.2 | builds |  |
+| logstash-filter-jdbc_static | 1.1.0 | fails | `resolve` |
+| bcp47 | 0.3.3 | builds |  |
+| regex | 1.1.1 | builds |  |
+| nanoid | 2.0.0 | builds |  |
+| ffi-geos | 2.5.0 | builds |  |
+| ezcrypto | 0.7.2 | builds |  |
+| carrierwave-i18n | 3.1.0 | builds |  |
+| opentelemetry-instrumentation-anthropic | 0.5.0 | builds |  |
+| thinking-sphinx | 6.0.0 | builds |  |
+| aws | 2.10.2 | builds |  |
+| MailchimpTransactional | 1.4.1 | refused | `port-range:json` |
+| finishing_moves | 1.3 | builds |  |
+| chilkat |  | fails | `not-found` |
+| avo | 4.3.0 | refused | `cext:nokogiri` |
+| workos | 10.4.0 | builds |  |
+| cli-kit | 5.3.1 | builds |  |
+| credit_card_validations | 9.0.0 | builds |  |
+| urbanairship | 10.0.2 | builds |  |
+| google-cloud-error_reporting-v1beta1 | 0.17.1 | refused | `cext:google-protobuf` |
+| erbse | 0.1.4 | builds |  |
+| zip-codes | 0.3.7 | builds |  |
+| solidus_backend | 4.7.1 | refused | `cext:nokogiri` |
+| arctic_admin | 4.4.1 | refused | `cext:nokogiri` |
+| google_currency | 3.4.1 | fails | `no-entry` |
+| fluent-mixin-rewrite-tag-name | 0.1.0 | refused | `cext:zstd-ruby` |
+| guard-spork | 2.1.0 | builds |  |
+| fauxhai-ng | 9.3.0 | builds |  |
+| string-similarity | 2.1.0 | builds |  |
+| rubocop-packs | 0.1.0 | fails | `resolve` |
+| elasticsearch-xpack | 7.17.11 | builds |  |
+| test_xml | 0.1.8 | refused | `cext:nokogiri` |
+| dotenv-deployment | 0.3.0 | builds |  |
+| aws_config | 0.1.1 | builds |  |
+| svix | 2.7.0 | builds |  |
+| dm-migrations | 1.2.0 | builds |  |
+| databasedotcom | 1.3.5 | builds |  |
+| simple_segment | 1.6.0 | builds |  |
+| fluent-plugin-geoip | 1.3.2 | refused | `cext:zstd-ruby` |
+| yoginth | 0.0.55 | builds |  |
+| levenshtein | 0.2.2 | refused | `cext:levenshtein` |
+| libreconv | 0.9.5 | builds |  |
+| rspec-openapi | 0.34.0 | refused | `cext:nokogiri` |
+| dpl-pages | 1.10.16 | fails | `no-entry` |
+| ci-queue | 0.101.0 | builds |  |
+| logstash-filter-jdbc_streaming | 1.0.10 | fails | `resolve` |
+| rex-powershell | 0.1.105 | builds |  |
+| bibtex-ruby | 6.2.0 | builds |  |
+| metasploit-credential | 6.0.26 | refused | `cext:nokogiri` |
+| zeroclipboard-rails | 0.1.2 | refused | `cext:nokogiri` |
+| in-parallel | 1.0.1 | builds |  |
+| geoip2_c | 0.4.1 | refused | `cext:geoip2_c` |
+| couchrest | 2.0.1 | builds |  |
+| whatlanguage | 2.1.0 | builds |  |
+| etc | 1.4.6 | fails | `no-entry` |
+| wysiwyg-rails | 5.5.0 | refused | `cext:nokogiri` |
+| syck | 1.6.2 | refused | `cext:syck` |
+| delayed_job_mongoid | 3.0.0 | refused | `cext:bson` |
+| google-apis-oauth2_v2 | 0.20.0 | builds |  |
+| null-logger | 0.1.7 | builds |  |
+| google-cloud-recaptcha_enterprise-v1 | 1.12.2 | refused | `cext:google-protobuf` |
+| capistrano-composer | 0.0.6 | builds |  |
+| bootstrap-wysihtml5-rails | 0.3.3.8 | refused | `cext:nokogiri` |
+| apitome | 0.3.1 | refused | `cext:nokogiri` |
+| ruby-oembed | 0.18.1 | builds |  |
+| omniauth-trello | 0.0.4 | builds |  |
+| hutch | 2.0.0 | refused | `cext:rbtree` |
+| cld3 | 3.7.0 | refused | `cext:cld3` |
+| fluent-plugin-parser | 0.6.1 | refused | `cext:yajl-ruby` |
+| pgvector | 0.3.3 | builds |  |
+| gocardless_pro | 4.19.1 | builds |  |
+| console1984 | 0.2.4 | refused | `cext:nokogiri` |
+| lockfile | 2.1.3 | builds |  |
+| dot_hash | 1.1.8 | builds |  |
+| plucky | 0.8.0 | refused | `cext:bson` |
+| daru | 0.3 | builds |  |
+| yard-cucumber | 4.0.0 | builds |  |
+| patchelf | 1.7.0 | builds |  |
+| bootstrap-daterangepicker-rails | 3.0.4 | refused | `cext:nokogiri` |
+| sqreen | 1.25.1 | refused | `cext:libv8-node` |
+| standalone_migrations | 8.1.1 | refused | `cext:nokogiri` |
+| terraform_landscape | 0.3.4 | builds |  |
+| rubyforge | 2.0.4 | builds |  |
+| mongo_mapper | 0.17.0 | refused | `cext:bson` |
+| openssl-cmac | 2.1.0 | refused | `port-range:openssl` |
+| faker-japanese | 0.0.1 | builds |  |
+| solidus_sample | 4.7.1 | refused | `cext:nokogiri` |
+| jquery-atwho-rails | 1.5.4 | builds |  |
+| anima | 0.3.2 | builds |  |
+| resque-web | 0.0.12 | refused | `cext:nokogiri` |
+| awspec | 1.36.0 | fails | `memory` |
+| chemlab | 0.11.1 | builds |  |
+| localhost | 1.8.0 | builds |  |
+| async-dns | 1.4.1 | refused | `cext:io-event` |
+| closure-compiler | 1.1.14 | builds |  |
+| solidus | 4.7.1 | refused | `cext:nokogiri` |
+| mutations | 0.9.2 | builds |  |
+| phashion | 1.2.0 | refused | `cext:phashion` |
+| logstash-output-opensearch |  | fails | `not-found` |
+| sensu-plugins-sensu | 5.0.0 | refused | `port-range:json` |
+| nprogress-rails | 0.2.0.2 | builds |  |
+| gravtastic | 3.2.6 | builds |  |
+| clockwork-test | 0.5.1 | builds |  |
+| puppet-lint-param-docs | 3.0.0 | builds |  |
+| le | 2.7.6 | builds |  |
+| dm-do-adapter | 1.2.0 | builds |  |
+| td-client | 3.0.1 | refused | `cext:msgpack` |
+| barkick | 1.0.0 | builds |  |
+| opentelemetry-sdk-experimental | 0.6.1 | builds |  |
+| guard-cucumber | 3.0.0 | builds |  |
+| fluent-plugin-gcs | 0.5.0 | refused | `cext:zstd-ruby` |
+| cantor | 1.2.1 | builds |  |
+| rex-exploitation | 0.1.44 | builds |  |
+| metasploit-model | 5.0.6 | refused | `cext:nokogiri` |
+| string_pattern | 2.5.0 | builds |  |
+| capybara-lockstep | 2.3.2 | refused | `cext:nokogiri` |
+| fluent-plugin-serialize-nested-json | 0.0.4 | refused | `cext:zstd-ruby` |
+| chemlab-library-www-gitlab-com | 0.1.1 | builds |  |
+| ruby_event_store-active_record | 3.2.0 | builds |  |
+| delorean | 2.1.0 | builds |  |
+| avro-patches | 1.0.2 | builds |  |
+| xdr | 3.0.3 | builds |  |
+| gruf-rspec | 1.2.0 | refused | `cext:google-protobuf` |
+| sidekiq-worker-killer | 1.1.0 | fails | `no-entry` |
+| jdbc-mysql | 9.1.0.1 | builds |  |
+| icalendar-recurrence | 1.2.1 | builds |  |
+| heroku | 3.99.4 | refused | `cext:heroku` |
+| gitlab-grit | 2.8.3 | refused | `cext:charlock_holmes` |
+| minitar-cli | 1.0.0 | builds |  |
+| orderedhash | 0.0.6 | builds |  |
+| migration_data | 0.6.0 | builds |  |
+| puppet-lint-version_comparison-check | 3.0.0 | fails | `no-entry` |
+| createsend | 6.1.2 | builds |  |
+| phlex-rails | 2.4.0 | refused | `cext:nokogiri` |
+| cloudfront-signer | 3.0.2 | builds |  |
+| win32-process | 0.10.0 | builds |  |
+| github_changelog_generator | 1.18.0 | refused | `cext:io-event` |
+| generator_spec | 0.10.0 | refused | `cext:nokogiri` |
+| metasploit-concern | 5.0.7 | refused | `cext:nokogiri` |
+| feature | 1.4.0 | builds |  |
+| fluent-plugin-label-router | 0.5.0 | refused | `cext:yajl-ruby` |
+| differ | 0.1.2 | builds |  |
+| yaml_db | 0.7.0 | refused | `cext:nokogiri` |
+| capistrano-rails-console | 2.3.0 | builds |  |
+| whenever-test | 1.0.1 | builds |  |
+| rspec-json_matcher | 0.2.0 | builds |  |
+| solidus_auth_devise | 2.6.0 | refused | `cext:nokogiri` |
+| fastlane-plugin-emerge | 0.11.0 | builds |  |
+| OptionParser | 0.5.1 | builds |  |
+| smtpapi | 0.1.12 | builds |  |
+| request_store_rails | 3.0.0 | builds |  |
+| middleman-autoprefixer | 3.0.0 | refused | `cext:sassc` |
+| liferaft | 0.0.6 | builds |  |
+| playbook_ui | 18.0.0 | refused | `cext:nokogiri` |
+| transaction_isolation | 1.0.5 | builds |  |
+| opentelemetry-metrics-sdk | 0.20.0 | builds |  |
+| rex-java | 0.1.8 | builds |  |
+| danger-swiftformat | 0.9.0 | builds |  |
+| statistics2 | 0.54 | refused | `cext:statistics2` |
+| rex-struct2 | 0.1.5 | builds |  |
+| zhong | 0.3.0 | refused | `cext:msgpack` |
+| xcinvoke | 0.3.0 | builds |  |
+| rubocop-github | 0.29.0 | fails | `memory` |
+| solidus_frontend | 4.7.1 | refused | `cext:nokogiri` |
+| ruby_core_source | 0.1.5 | builds |  |
+| bunny-mock | 1.7.0 | refused | `cext:rbtree` |
+| exponent-server-sdk | 0.1.0 | builds |  |
+| sidekiq-history | 1.0.1 | builds |  |
+| text-hyphen | 1.5.0 | builds |  |
+| libwebsocket | 0.1.8 | builds |  |
+| activejob-retry | 0.6.3 | builds |  |
+| librato-rack | 2.0.5 | builds |  |
+| subroutine | 4.9.0 | builds |  |
+| xml-mapping | 0.10.1 | builds |  |
+| kms_encrypted | 1.8.1 | builds |  |
+| mina | 1.2.5 | builds |  |
+| http_connection | 1.4.4 | builds |  |
+| dimensions | 1.3.0 | builds |  |
+| rex-registry | 0.1.6 | builds |  |
+| jquery-migrate-rails | 1.2.1 | builds |  |
+| descriptive-statistics | 2.2.0 | builds |  |
+| capistrano-yarn | 2.0.2 | builds |  |
+| dry-transformer | 1.1.0 | builds |  |
+| train-aws | 0.2.44 | fails | `memory` |
+| aws-sdk-ssmguiconnect | 1.22.0 | builds |  |
+| caboose-cms | 1.0.2 | refused | `cext:pg` |
+| ronn | 0.7.3 | refused | `cext:hpricot` |
+| nessus_rest | 0.1.6 | builds |  |
+| opentelemetry-test-helpers | 0.9.2 | builds |  |
+| offsite_payments | 3.0.1 | refused | `cext:nokogiri` |
+| busser-rspec_datadog | 0.8.7 | fails | `no-entry` |
+| rubocop-rails_config | 1.17.7 | fails | `no-entry` |
+| zxcvbn | 1.0.0 | builds |  |
+| rex-arch | 0.1.20 | builds |  |
+| rex-random_identifier | 0.1.21 | builds |  |
+| polylines | 0.4.0 | builds |  |
+| summernote-rails | 0.8.12.0 | refused | `cext:nokogiri` |
+| engtagger | 0.4.5 | builds |  |
+| jekyll-assets | 3.0.12 | refused | `cext:nokogiri` |
+| resque-loner | 1.3.0 | refused | `refused` |
+| jp_prefecture | 1.2.0 | builds |  |
+| fix-db-schema-conflicts | 3.1.2 | builds |  |
+| consistent-hashing | 2.0.0 | refused | `cext:atomic` |
+| pg-hstore | 1.2.0 | builds |  |
+| patch_finder | 1.0.2 | fails | `no-entry` |
+| latex-decode | 0.4.2 | builds |  |
+| imgix-rails | 4.3.1 | builds |  |
+| packable | 1.3.18 | builds |  |
+| opentelemetry-exporter-otlp-metrics | 0.13.0 | refused | `cext:google-protobuf` |
+| onnxruntime | 0.11.7 | builds |  |
+| thinreports | 0.15.0 | refused | `port-range:bigdecimal` |
+| ptools | 1.5.2 | builds |  |
+| name_of_person | 1.1.3 | builds |  |
+| libmf | 0.5.0 | builds |  |
+| puppet_litmus | 2.8.1 | fails | `memory` |
+| logstash-integration-elastic_enterprise_search | 3.0.3 | fails | `resolve` |
+| shopify_app | 23.0.3 | refused | `cext:nokogiri` |
+| backticks | 1.0.6 | builds |  |
+| rex-mime | 0.1.12 | builds |  |
+| openvas-omp | 0.0.4 | builds |  |
+| lz4-ruby | 0.3.3 | refused | `cext:lz4-ruby` |
+| rex-bin_tools | 0.1.17 | builds |  |
+| pronto-fasterer | 0.11.3 | refused | `cext:rugged` |
+| rex-zip | 0.1.6 | builds |  |
+| ibandit | 1.36.0 | builds |  |
+| ruby-libvirt | 0.8.4 | refused | `cext:ruby-libvirt` |
+| rhcl | 0.1.0 | builds |  |
+| ruby-gmail | 0.3.1 | fails | `no-entry` |
+| fluent-plugin-sqs | 3.0.0 | refused | `cext:zstd-ruby` |
+| logstash-codec-protobuf | 1.2.5 | fails | `resolve` |
+| rails_config | 0.99.0 | builds |  |
+| contentful-management | 3.13.0 | refused | `cext:llhttp-ffi` |
+| rex-ole | 0.1.9 | builds |  |
+| classifier-reborn | 2.3.0 | refused | `cext:fast-stemmer` |
+| ruby-string-match-scorer | 0.1.0 | builds |  |
+| xero-ruby | 18.2.0 | refused | `port-range:json` |
+| adyen-ruby-api-library | 12.0.0 | builds |  |
+| parquet | 0.9.0 | refused | `cext:parquet` |
+| activerecord6-redshift-adapter | 1.3.0 | refused | `cext:pg` |
+| fast_stack | 0.2.0 | refused | `cext:fast_stack` |
+| scss-lint | 0.38.0 | refused | `cext:rainbow` |
+| fluent-plugin-input-gelf | 0.3.2 | refused | `cext:zstd-ruby` |
+| rex-rop_builder | 0.1.6 | builds |  |
+| kitchen-inspec | 3.1.0 | refused | `port-range:json` |
+| gitaly-proto | 1.39.0 | refused | `cext:google-protobuf` |
+| spree_core | 5.6.1 | refused | `cext:nokogiri` |
+| autotuner | 1.1.0 | builds |  |
+| mailboxer | 0.15.1 | refused | `cext:nokogiri` |
+| sql_enum | 2.0.0 | refused | `cext:mysql2` |
+| librato-rails | 2.1.0 | refused | `cext:nokogiri` |
+| grocer | 0.7.1 | builds |  |
+| micromachine | 3.0.0 | builds |  |
+| middleman-syntax | 3.6.2 | refused | `cext:sassc` |
+| train-habitat | 0.2.22 | builds |  |
+| cocoapods-keys | 2.3.1 | builds |  |
+| m3u8 | 1.9.0 | builds |  |
+| guard-rake | 1.0.0 | builds |  |
+| ruby-shadow | 2.5.1 | refused | `cext:ruby-shadow` |
+| rex-sslscan | 0.1.13 | builds |  |
+| logstash-mixin-deprecation_logger_support |  | fails | `not-found` |
+| readline-history-restore | 0.0.1 | builds |  |
+| memo_wise | 1.13.0 | builds |  |
+| teaspoon-mocha | 2.3.3 | refused | `cext:nokogiri` |
+| activerecord-oracle_enhanced-adapter | 8.1.4 | refused | `cext:ruby-oci8` |
+| opentelemetry-resource_detectors | 0.24.2 | builds |  |
+| rex-encoder | 0.1.10 | builds |  |
+| gem_bench | 2.0.5 | builds |  |
+| puppet-debugger | 1.6.0 | builds |  |
+| codemirror-rails | 5.16.0 | refused | `cext:nokogiri` |
+| rex-nop | 0.1.4 | builds |  |
+| sidekiq-datadog | 0.6.0 | builds |  |
+| heroku-deflater | 0.7.0 | builds |  |
+| http-2-next | 1.0.3 | builds |  |
+| bitarray | 1.3.2 | builds |  |
+| fastlane-plugin-datadog | 0.2.0 | builds |  |
+| kitchen-ec2 | 3.23.1 | refused | `cext:ed25519` |
+| droplet_kit | 3.22.0 | fails | `resolve` |
+| resource_kit | 0.1.8 | builds |  |
+| coffeelint | 1.16.1 | builds |  |
+| google-analytics-rails | 1.1.1 | builds |  |
+| onebox | 2.2.19 | refused | `cext:nokogiri` |
+| graph | 2.11.1 | builds |  |
+| postgres-copy | 1.7.3 | refused | `cext:pg` |
+| spree | 5.6.1 | refused | `cext:nokogiri` |
+| just-the-docs | 0.12.0 | refused | `port-range:json` |
+| win32api | 0.1.0 | builds |  |
+| truemail | 3.3.1 | builds |  |
+| fastlane-plugin-changelog | 0.16.0 | builds |  |
+| search_object | 1.2.5 | builds |  |
+| fastlane-plugin-get_version_name | 0.2.2 | builds |  |
+| newrelic-infinite_tracing | 10.9.1 | refused | `cext:google-protobuf` |
+| kaminari-grape | 1.0.1 | builds |  |
+| solidus_support | 0.15.0 | refused | `cext:nokogiri` |
+| mailgun_rails | 0.9.0 | refused | `cext:nokogiri` |
+| back_pressure | 1.0.0 | builds |  |
+| discordrb | 3.8.0 | builds |  |
+| google-cloud-secret_manager-v1 | 1.9.1 | refused | `cext:google-protobuf` |
+| faraday_middleware-parse_oj | 0.3.2 | refused | `cext:oj` |
+| mail_room | 0.11.1 | builds |  |
+| sequenced | 4.0.0 | builds |  |
+| optionable | 0.2.0 | builds |  |
+| webdriver-highlighter | 0.1.0 | builds |  |
+| sshkit-interactive | 0.3.0 | builds |  |
+| kaminari-i18n | 0.5.0 | refused | `cext:nokogiri` |
+| ruby-hl7 | 1.4.0 | builds |  |
+| date_time_precision | 0.8.1 | builds |  |
+| spree_api | 5.6.1 | refused | `cext:oj` |
+| google-apis-admin_directory_v1 | 0.82.0 | builds |  |
+| acts_as_commentable | 4.0.2 | builds |  |
+| therubyrhino | 2.1.2 | builds |  |
+| roar-rails | 1.2.0 | refused | `cext:nokogiri` |
+| xeroizer | 3.0.1 | refused | `cext:nokogiri` |
+| erd | 0.8.2 | refused | `cext:nokogiri` |
+| pronto-rails_best_practices | 0.11.0 | refused | `cext:rugged` |
+| yabeda-http_requests | 0.3.0 | builds |  |
+| handlebars-source | 4.7.10 | builds |  |
+| turbo_power | 0.8.0 | refused | `cext:nokogiri` |
+| cocoapods-whitelist | 0.6.2 | fails | `no-entry` |
+| embedly | 1.9.1 | builds |  |
+| fcmpush | 1.6.0 | builds |  |
+| immutable-struct | 2.5.0 | builds |  |
+| activeresource-response | 3.1.0 | builds |  |
+| churn | 1.0.8 | builds |  |
+| deepl-rb | 3.9.0 | fails | `no-entry` |
+| olive_branch | 4.0.1 | refused | `cext:nokogiri` |
+| forest_liana | 9.22.7 | fails | `resolve` |
+| workflow-activerecord | 6.0.1 | builds |  |
+| danger-jira | 0.9.1 | builds |  |
+| hooks | 0.4.1 | builds |  |
+| rspec-puppet-utils | 3.4.0 | fails | `memory` |
+| textacular | 5.7.0 | builds |  |
+| bootstrap-select-rails | 1.13.8 | builds |  |
+| samovar | 2.5.1 | builds |  |
+| chef-cleanroom | 1.0.5 | builds |  |
+| fauxhai | 7.4.0 | builds |  |
+| zurb-foundation | 4.3.2 | builds |  |
+| qonfig | 0.31.0 | builds |  |
+| jdbc-postgres | 42.7.11 | builds |  |
+| usagewatch | 0.0.7 | builds |  |
+| bcp47_spec | 0.2.1 | builds |  |
+| beaker-answers | 1.0.0 | builds |  |
+| audited-activerecord | 4.2.2 | builds |  |
+| sidekiq-logstash | 3.3.0 | builds |  |
+| message_bus | 5.0.0 | builds |  |
+| slowpoke | 1.0.0 | refused | `cext:nokogiri` |
+| rspec-cells | 0.3.10 | refused | `cext:nokogiri` |
+| shellwords | 0.2.2 | builds |  |
+| kredis | 1.8.0 | builds |  |
+| rumale-core | 2.2.0 | refused | `cext:numo-narray-alt` |
+| yarjuf | 2.0.0 | builds |  |
+| graphql-rails_logger | 1.2.5 | refused | `cext:nokogiri` |
+| static_holmes | 0.7.11 | refused | `cext:static_holmes` |
+| autodoc | 0.8.1 | refused | `cext:nokogiri` |
+| em-resolv-replace | 1.1.3 | builds |  |
+| fhir_models | 5.1.0 | refused | `cext:nokogiri` |
+| dartsass-sprockets | 3.2.1 | refused | `cext:nokogiri` |
+| puppet-lint-file_ensure-check | 3.0.0 | fails | `no-entry` |
+| diffend | 0.2.54 | builds |  |
+| pairing_heap | 3.1.1 | builds |  |
+| scss_lint_reporter_checkstyle | 0.2.0 | builds |  |
+| querystring | 0.1.0 | builds |  |
+| one_signal | 1.2.2 | builds |  |
+| fastlane_core | 1.0.0 | refused | `port-range:json` |
+| grape-kaminari | 0.4.5 | builds |  |
+| meta_search | 1.1.3 | builds |  |
+| netsuite | 0.9.3 | refused | `cext:nokogiri` |
+| anbt-sql-formatter | 0.1.2 | fails | `no-entry` |
+| haikunator | 1.1.1 | builds |  |
+| rails-properties | 4.0.0 | builds |  |
+| beaneater | 1.1.4 | builds |  |
+| gctime | 1.0.1 | refused | `cext:gctime` |
+| switch_user | 1.5.4 | builds |  |
+| net_http_timeout_errors | 1.2.0 | builds |  |
+| pry-debugger-jruby |  | fails | `not-found` |
+| activerecord-jdbcpostgresql-adapter | 50.0 | fails | `resolve` |
+| pickle | 0.9.0 | builds |  |
+| s3_direct_upload | 0.1.7 | refused | `cext:nokogiri` |
+| mustermann-contrib | 4.0.0 | fails | `no-entry` |
+| wash_out | 0.12.0 | builds |  |
+| subprocess | 1.5.7 | builds |  |
+| sanitize_email | 2.0.16 | builds |  |
+| gollum-lib | 6.1.0 | refused | `cext:rugged` |
+| regstry | 1.0.15 | builds |  |
+| mercurial-ruby | 0.7.12 | builds |  |
+| fixy | 0.0.9 | builds |  |
+| danger-jacoco-instacart | 0.1.17 | refused | `cext:nokogiri` |
+| aws-actionmailer-ses | 1.2.0 | refused | `cext:nokogiri` |
+| amazon-pricing | 0.1.144 | builds |  |
+| formulaic | 0.4.2 | refused | `cext:nokogiri` |
+| innertube | 1.1.0 | builds |  |
+| interactive_editor | 0.0.12 | builds |  |
+| browser-timezone-rails | 1.1.0 | refused | `cext:nokogiri` |
+| crawler_detect | 1.2.18 | builds |  |
+| filewatch | 0.9.0 | fails | `no-entry` |
+| kartograph | 0.2.8 | builds |  |
+| watchr | 0.7 | builds |  |
+| multi_exiftool | 0.19.0 | builds |  |
+| semver2 | 3.4.2 | fails | `no-entry` |
+| base32-crockford | 0.1.0 | builds |  |
+| materialize-sass | 1.0.0.1 | builds |  |
+| minitest-around | 0.6.0 | builds |  |
+| fast_xs | 0.8.0 | refused | `cext:fast_xs` |
+| danger-detekt-instacart | 0.0.5 | refused | `cext:ruby-ll` |
+| libddprof | 0.6.0.1.0 | builds |  |
+| rubydns | 2.1.1 | refused | `cext:io-event` |
+| sentry-resque | 7.1.0 | builds |  |
+| fastlane-plugin-yarn | 1.2 | builds |  |
+| sidekiq-superworker | 1.2.0 | builds |  |
+| zipruby | 0.3.6 | refused | `cext:zipruby` |
+| therubyrhino_jar | 1.7.9 | fails | `no-entry` |
+| fast-mcp | 1.6.0 | refused | `port-range:json` |
+| guard-brakeman | 1.0.0 | builds |  |
+| active_storage_base64 | 3.0.1 | refused | `cext:nokogiri` |
+| vagrant-vbguest | 0.32.0 | builds |  |
+| gemoji-parser | 1.3.1 | builds |  |
+| aws-kclrb | 3.1.1 | builds |  |
+| rails_email_validator | 0.1.4 | builds |  |
+| language_list | 1.2.1 | builds |  |
+| google-apis-secretmanager_v1 | 0.56.0 | builds |  |
+| aws-sdk-bedrockagentcore | 1.57.0 | builds |  |
+| cairo | 1.18.5 | refused | `cext:cairo` |
+| cells-erb | 0.1.0 | builds |  |
+| scimitar | 2.15.0 | refused | `cext:nokogiri` |
+| waitutil | 0.2.1 | builds |  |
+| rumale-clustering | 2.2.0 | refused | `cext:numo-narray-alt` |
+| logging-rails | 0.6.0 | builds |  |
+| mousetrap-rails | 1.4.6 | builds |  |
+| capybara-select-2 | 0.5.1 | builds |  |
+| fastlane-plugin-wpmreleasetoolkit | 15.1.0 | refused | `port-range:json` |
+| hansi | 0.2.1 | builds |  |
+| beaker-pe | 3.6.8 | refused | `cext:ed25519` |
+| mcollective-client | 2.12.5 | builds |  |
+| devise_zxcvbn | 6.0.0 | refused | `cext:nokogiri` |
+| aasm-diagram | 0.1.3 | builds |  |
+| hetchy | 1.0.0 | builds |  |
+| fog-libvirt | 0.15.0 | refused | `cext:nokogiri` |
+| logstash-integration-rabbitmq | 0.0.1 | fails | `resolve` |
+| orchestrator_client | 0.7.2 | builds |  |
+| ruby-handlebars | 0.4.1 | builds |  |
+| airrecord | 1.0.12 | builds |  |
+| transaction_retry | 1.0.3 | builds |  |
+| jekyll-archives | 2.3.0 | refused | `port-range:json` |
+| raygun4ruby | 4.0.2 | builds |  |
+| pragmatic_segmenter | 0.3.24 | builds |  |
+| citeproc-ruby | 2.2.0 | builds |  |
+| google-cloud-dialogflow-v2 | 1.18.0 | refused | `cext:google-protobuf` |
+| bitfields | 0.14.0 | builds |  |
+| capistrano-maintenance | 1.2.1 | builds |  |
+| train-rest | 0.5.0 | refused | `port-range:json` |
+| cable_ready | 5.0.6 | refused | `cext:nokogiri` |
+| pre-commit | 0.40.0 | builds |  |
+| wisper-sidekiq | 1.3.0 | builds |  |
+| instagram | 1.1.6 | builds |  |
+| fluent-plugin-bigquery | 3.3.2 | refused | `cext:zstd-ruby` |
+| iostreams | 2.1.0 | builds |  |
+| ruby-jmeter | 3.1.08 | refused | `cext:nokogiri` |
+| rest_client | 8.0.0 | fails | `no-entry` |
+| mandrill-api-json | 1.0.57 | builds |  |
+| onfido | 6.2.0 | fails | `memory` |
+| omniauth-stripe-connect | 2.10.1 | builds |  |
+| fastlane-plugin-huawei_appgallery_connect | 1.1.3 | refused | `cext:cgi` |
+| rails-healthcheck | 1.4.0 | refused | `cext:nokogiri` |
+| credit_card_validator | 1.3.2 | builds |  |
+| active_admin_theme | 3.1.1 | refused | `cext:nokogiri` |
+| omniauth-box-oauth2 | 0.1.0 | builds |  |
+| proxifier2 | 1.1.0 | builds |  |
+| awsecrets | 1.15.1 | fails | `memory` |
+| spruz | 0.2.13 | builds |  |
+| omniauth-microsoft_graph | 2.2.0 | builds |  |
+| activejob-traffic_control | 0.1.3 | refused | `cext:msgpack` |
+| will_paginate_mongoid | 2.0.1 | refused | `cext:bson` |
+| ember-source | 2.18.2 | builds |  |
+| dependency_checker | 1.0.2 | builds |  |
+| sidetiq | 0.7.2 | builds |  |
+| rubydex | 0.4.1 | refused | `cext:rubydex` |
+| resque-sentry | 1.2.0 | builds |  |
+| keccak | 1.3.3 | refused | `cext:keccak` |
+| prawn-qrcode | 0.6.0 | refused | `port-range:bigdecimal` |
+| base_app | 1.0.6 | builds |  |
+| jquery-tablesorter | 1.28.0 | refused | `cext:nokogiri` |
+| logfmt | 0.0.10 | builds |  |
+| aws-sdk-evs | 1.27.0 | builds |  |
+| browserify-rails | 4.4.0 | refused | `cext:nokogiri` |
+| kiba | 4.0.0 | builds |  |
+| capybara-playwright-driver | 0.5.12 | refused | `cext:nokogiri` |
+| omniauth-hubspot-full | 0.1.3 | builds |  |
+| shopify-money | 4.1.1 | builds |  |
+| dm-validations | 1.2.0 | builds |  |
+| csl | 2.4.0 | builds |  |
+| sensu-plugins-snmp | 3.0.0 | refused | `port-range:json` |
+| state_machines-audit_trail | 3.0.0 | builds |  |
+| rtesseract | 3.1.4 | builds |  |
+| rails-timeago | 2.20.0 | refused | `cext:nokogiri` |
+| heap-profiler | 0.9.0 | refused | `cext:heap-profiler` |
+| xml-object | 1.0.0 | builds |  |
+| informers | 1.3.0 | refused | `cext:tokenizers` |
+| mandrillus | 2.0.0 | refused | `port-range:json` |
+| mapping | 1.1.3 | builds |  |
+| rspec-request_describer | 0.8.0 | builds |  |
+| omniauth-linkedin | 0.2.0 | builds |  |
+| forecast_io | 2.0.2 | builds |  |
+| omniauth-asana | 0.0.2 | builds |  |
+| watchbuild | 0.5.0 | refused | `port-range:json` |
+| googlecharts | 1.6.12 | builds |  |
+| danger-dangermattic | 1.4.1 | builds |  |
+| fb_graph2 | 1.3.0 | builds |  |
+| digest-murmurhash | 1.1.1 | refused | `cext:digest-murmurhash` |
+| linguistics | 2.1.0 | builds |  |
+| devise_security_extension | 0.10.0 | refused | `cext:nokogiri` |
+| google-cloud-secret_manager | 2.2.3 | refused | `cext:google-protobuf` |
+| asciimath | 2.0.6 | builds |  |
+| active_shipping | 2.1.1 | refused | `cext:nokogiri` |
+| clamav-client | 3.2.0 | builds |  |
+| alias_scope | 0.0.1 | builds |  |
+| kaminari-bootstrap | 3.0.1 | refused | `cext:nokogiri` |
+| calabash-cucumber | 0.23.7 | builds |  |
+| pry-inline | 1.0.7 | refused | `cext:unicode` |
+| json_logic | 0.4.7 | builds |  |
+| watir-scroll | 0.4.0 | builds |  |
+| yabeda-prometheus-mmap | 0.4.0 | refused | `cext:prometheus-client-mmap` |
+| zxcvbn-js | 4.4.3 | builds |  |
+| sham_rack | 1.4.1 | builds |  |
+| omniauth-smartsheet | 0.0.2 | builds |  |
+| to_words | 1.1.1 | builds |  |
+| middleman-livereload | 3.5.0 | refused | `cext:sassc` |
+| password_strength | 1.1.4 | builds |  |
+| dropbox-sdk | 1.6.5 | builds |  |
+| aws-healthcheck | 2.0.0 | refused | `cext:nokogiri` |
+| grit | 2.5.0 | refused | `cext:posix-spawn` |
+| after_commit_queue | 1.3.0 | builds |  |
+| healthy_rack | 0.1.1 | builds |  |
+| rubycas-client | 2.3.9 | builds |  |
+| requirejs-rails | 1.0.1 | refused | `cext:nokogiri` |
+| mysql-binuuid-rails | 1.3.0 | builds |  |
+| has_secure_token | 1.0.0 | builds |  |
+| writeexcel | 1.0.9 | builds |  |
+| rack-health | 0.1.2 | builds |  |
+| mpxj | 16.10.0 | builds |  |
+| blingfire | 0.3.1 | builds |  |
+| filewatcher | 3.0.1 | builds |  |
+| elastic-app-search | 7.10.0 | builds |  |
+| grape-active_model_serializers | 2.0.1 | refused | `cext:nokogiri` |
+| jdbc-sqlite3 | 3.46.1.1 | builds |  |
+| tdiff | 0.4.0 | builds |  |
+| cfndsl | 1.9.5 | builds |  |
+| joiner | 0.6.0 | builds |  |
+| do_sqlite3 | 0.10.17 | refused | `cext:do_sqlite3` |
+| ri_cal | 0.8.8 | builds |  |
+| activerecord-jdbcmysql-adapter | 51.0 | builds |  |
+| ruby_audit | 3.1.0 | builds |  |
+| nokogiri-diff | 0.3.0 | refused | `cext:nokogiri` |
+| dm-timestamps | 1.2.0 | builds |  |
+| spree_sample | 5.3.6 | refused | `cext:nokogiri` |
+| sidekiq-prometheus-exporter | 0.4.0 | builds |  |
+| dm-aggregates | 1.2.0 | builds |  |
+| spinach | 0.12.0 | builds |  |
+| gem-licenses | 0.2.2 | builds |  |
+| google-authenticator-rails | 3.4.3 | refused | `cext:nokogiri` |
+| dm-serializer | 1.2.2 | refused | `port-range:json` |
+| video_info | 4.2.0 | refused | `cext:ruby-ll` |
+| backburner | 1.7.0 | builds |  |
+| thread-local | 1.1.0 | builds |  |
+| berkshelf-api-client | 4.0.1 | refused | `cext:unf_ext` |
+| aws-sdk-aiops | 1.21.0 | builds |  |
+| strong_json | 2.1.2 | builds |  |
+| falcon | 0.57.0 | refused | `cext:io-event` |
+| migration_comments | 0.4.1 | builds |  |
+| windows-pr | 1.2.6 | refused | `cext:win32-api` |
+| tool | 0.2.3 | fails | `no-entry` |
+| aws-sdk-mpa | 1.21.0 | builds |  |
+| json-emitter | 1.1.0 | builds |  |
+| roodi | 5.0.0 | builds |  |
+| trailblazer-activity | 0.17.0 | builds |  |
+| image_optimizer | 1.9.0 | builds |  |
+| beaker-hiera | 2.1.0 | refused | `cext:ed25519` |
+| delayed_cron_job | 0.9.0 | builds |  |
+| push_package | 1.1.0 | builds |  |
+| google-cloud-monitoring-v3 | 1.10.1 | refused | `cext:google-protobuf` |
+| arvados-cli | 3.2.1 | refused | `port-range:json` |
+| puppet-lint-resource_reference_syntax | 3.0.0 | fails | `no-entry` |
+| rubocop-airbnb | 8.1.0 | fails | `memory` |
+| google-apis-fcm_v1 | 0.38.0 | builds |  |
+| money-tree | 0.11.2 | refused | `port-range:openssl` |
+| hotwire-rails | 0.1.3 | refused | `cext:nokogiri` |
+| jquery-datatables | 1.10.20 | builds |  |
+| russian | 1.0.0 | builds |  |
+| rspec-activejob | 0.6.1 | fails | `no-entry` |
+| async-rest | 0.20.0 | refused | `cext:io-event` |
+| beaker-puppet_install_helper | 0.9.8 | refused | `cext:ed25519` |
+| LitleOnline | 11.0.0 | refused | `cext:libxml-ruby` |
+| cached_resource | 9.0.0 | builds |  |
+| activerecord-mysql-index-hint | 0.0.4 | builds |  |
+| dm-types | 1.2.2 | refused | `cext:bcrypt` |
+| blue-daemons | 1.1.11 | builds |  |
+| omniauth-identity | 3.2.1 | refused | `cext:bcrypt` |
+| aws-sdk-workspacesinstances | 1.22.0 | builds |  |
+| rbpdf | 1.21.4 | builds |  |
+| fluent-plugin-multiline-parser | 0.1.1 | refused | `cext:yajl-ruby` |
+| omniauth-mailchimp | 2.3.0 | builds |  |
+| fog-cloudstack | 0.1.0 | refused | `cext:nokogiri` |
+| guard-spring | 1.1.1 | builds |  |
+| action_policy-graphql | 0.6.0 | builds |  |
+| nameable | 1.1.4 | builds |  |
+| unread | 0.14.0 | builds |  |
+| boba | 0.3.0 | fails | `resolve` |
+| google-cloud-spanner | 2.36.0 | refused | `port-range:bigdecimal` |
+| unidecoder | 1.1.2 | builds |  |
+| yt | 0.34.1 | builds |  |
+| llhttp | 0.6.2 | refused | `cext:llhttp` |
+| google-cloud-vision-v1 | 1.7.1 | refused | `cext:google-protobuf` |
+| puppet-lint-strict_indent-check | 5.0.0 | fails | `no-entry` |
+| jsonlint | 0.4.0 | refused | `cext:oj` |
+| ldclient-rb | 5.5.6 | refused | `cext:ldclient-rb` |
+| crypt_keeper | 2.3.0 | builds |  |
+| ey_config | 0.0.8 | builds |  |
+| cocoapods-generate | 2.2.5 | builds |  |
+| trailblazer-context | 0.5.1 | builds |  |
+| gollum-grit_adapter | 2.0.0 | refused | `cext:posix-spawn` |
+| krane | 3.9.2 | refused | `cext:llhttp-ffi` |
+| aws-sdk-keyspacesstreams | 1.21.0 | builds |  |
+| private_address_check | 0.8.0 | builds |  |
+| jpmobile | 8.1.0 | builds |  |
+| rice | 4.12.0 | builds |  |
+| ar_outer_joins | 0.2.0 | builds |  |
+| nilio | 1.0.0 | builds |  |
+| fastlane-plugin-increment_version_name | 0.0.10 | builds |  |
+| fast_ignore | 0.17.4 | builds |  |
+| aws-sdk-odb | 1.30.0 | builds |  |
+| facebook-messenger | 2.1.2 | builds |  |
+| http_logger | 1.0.3 | builds |  |
+| extpp | 0.1.3 | builds |  |
+| geminabox | 4.0.1 | builds |  |
+| azure_mgmt_security | 0.19.0 | builds |  |
+| fluent-plugin-dynatrace | 0.2.0 | refused | `cext:zstd-ruby` |
+| venice | 0.6.0 | builds |  |
+| opencensus-stackdriver | 0.4.1 | refused | `cext:google-protobuf` |
+| stateoscope | 0.1.3 | builds |  |
+| sablon | 0.4.3 | refused | `cext:nokogiri` |
+| montrose | 0.18.0 | builds |  |
+| rails-perftest | 0.0.7 | builds |  |
+| rubocop-rubycw | 0.2.2 | fails | `memory` |
+| sib-api-v3-sdk | 9.1.0 | refused | `port-range:json` |
+| search_object_graphql | 1.0.5 | fails | `no-entry` |
+| prawn-layout | 0.8.4 | builds |  |
+| procore-sift | 1.2.1 | builds |  |
+| activesupport-json_encoder | 1.1.0 | builds |  |
+| activerecord-mysql-reconnect | 0.5.0 | refused | `cext:mysql2` |
+| ci_reporter_minitest | 1.0.0 | fails | `no-entry` |
+| mrkt | 1.2.2 | builds |  |
+| minitest-junit | 2.1.0 | refused | `cext:ox` |
+| version | 1.1.1 | builds |  |
+| doorkeeper-mongodb | 5.5.1 | refused | `cext:nokogiri` |
+| google-cloud-secret_manager-v1beta1 | 0.22.1 | refused | `cext:google-protobuf` |
+| fast_trie | 0.5.1 | refused | `cext:fast_trie` |
+| gherkin-ruby | 0.3.2 | builds |  |
+| ecdsa | 1.2.0 | builds |  |
+| openai | 0.101.0 | builds |  |
+| docker-compose | 1.1.13 | builds |  |
+| searchjoy | 1.5.0 | builds |  |
+| protocol-rack | 0.23.0 | builds |  |
+| safety_mailer | 0.1.0 | builds |  |
+| jeweler | 2.3.9 | refused | `cext:nokogiri` |
+| trailblazer-rails | 2.4.4 | refused | `cext:nokogiri` |
+| client_side_validations-simple_form | 19.0.0 | refused | `cext:nokogiri` |
+| google-cloud-kms | 2.12.1 | refused | `cext:google-protobuf` |
+| clearance | 2.12.0 | refused | `cext:bcrypt` |
+| arvados | 3.2.1 | refused | `port-range:json` |
+| fluent-plugin-logzio | 0.2.2 | refused | `cext:zstd-ruby` |
+| rails_email_preview | 2.2.3 | refused | `cext:nokogiri` |
+| google-cloud-recaptcha_enterprise | 2.2.0 | refused | `cext:google-protobuf` |
+| jekyll-paginate-v2 | 3.0.0 | refused | `port-range:json` |
+| gitlab-pg_query | 2.0.4 | refused | `cext:gitlab-pg_query` |
+| aws-sdk-bedrockagentcorecontrol | 1.77.0 | fails | `memory` |
+| sorbet-result | 1.4.0 | builds |  |
+| prawn-core | 0.8.4 | builds |  |
+| graphql-errors | 0.4.0 | builds |  |
+| fluent-plugin-filter_typecast | 0.0.3 | refused | `cext:zstd-ruby` |
+| padrino-core | 0.16.1 | builds |  |
+| route53 | 0.4.0 | refused | `cext:nokogiri` |
+| trusty-festivity-extension | 2.6.3 | fails | `resolve` |
+| aws-sdk-s3vectors | 1.23.0 | builds |  |
+| jquery-placeholder-rails | 2.1.2 | builds |  |
+| backup | 4.4.1 | refused | `cext:atomic` |
+| azure_mgmt_sql | 0.19.1 | fails | `memory` |
+| omniauth-wrike | 1.0.0 | builds |  |
+| base62 | 1.0.0 | builds |  |
+| elastic-enterprise-search | 8.19.0 | builds |  |
+| celluloid-pmap | 1.0.0 | builds |  |
+| opentelemetry-exporter-jaeger | 0.24.1 | refused | `cext:thrift` |
+| rlp | 0.7.3 | builds |  |
+| gds-api-adapters | 103.5.0 | builds |  |
+| credentials_manager | 1.0.0 | refused | `port-range:json` |
+| sinatra-param | 1.6.0 | builds |  |
+| rsa-pem-from-mod-exp | 0.1.0 | builds |  |
+| sha3 | 2.2.4 | refused | `cext:sha3` |
+| etcd | 0.3.0 | builds |  |
+| philiprehberger-time_ago | 0.7.0 | builds |  |
+| cocoapods-disable-podfile-validations | 0.2.0 | builds |  |
+| rghost | 0.9.9 | builds |  |
+| rbbt-util | 6.0.5 | builds |  |
+| activeadmin_quill_editor | 2.0.0 | refused | `cext:nokogiri` |
+| activerecord-jdbcsqlite3-adapter | 51.0 | builds |  |
+| classy_hash | 1.0.0 | builds |  |
+| async-container | 0.38.0 | refused | `cext:io-event` |
+| curses | 1.7.0 | refused | `cext:curses` |
+| era_ja | 1.3.0 | builds |  |
+| remove_emoji | 4.0.0 | builds |  |
+| bootbox-rails | 0.5.0 | builds |  |
+| sensu | 1.9.0 | refused | `cext:eventmachine` |
+| omnibus-ctl | 0.6.10 | builds |  |
+| jmx4r | 0.1.4 | builds |  |
+| active-fedora | 16.0.0 | refused | `port-range:bigdecimal` |
+| dm-constraints | 1.2.0 | builds |  |
+| capistrano3-delayed-job | 1.7.6 | builds |  |
+| jekyll-toc | 0.19.0 | refused | `port-range:json` |
+| embulk-input-mysql | 0.10.1 | builds |  |
+| chef-handler-slack | 0.1.0 | builds |  |
+| beaker-puppet | 4.4.3 | refused | `cext:ed25519` |
+| carrierwave_direct | 3.0.0 | refused | `cext:nokogiri` |
+| ceedling | 1.1.9 | builds |  |
+| cuke_sniffer | 1.1.0 | refused | `cext:nokogiri` |
+| rcsv | 0.3.1 | refused | `cext:rcsv` |
+| octicons_helper | 19.40.0 | refused | `cext:nokogiri` |
+| spring-commands-parallel-tests | 1.0.1 | builds |  |
+| zipkin-tracer | 0.48.0 | builds |  |
+| machinist | 2.0 | builds |  |
+| origami | 2.1.0 | builds |  |
+| timezone_finder | 1.5.7 | builds |  |
+| gooddata | 2.3.3 | refused | `cext:nokogiri` |
+| google-cloud-tasks | 3.2.1 | refused | `cext:google-protobuf` |
+| webmock-twirp | 0.6.0 | refused | `cext:google-protobuf` |
+| mandrill-rails | 1.5.0 | builds |  |
+| redis-elasticache | 0.2.0 | builds |  |
+| gitlab-flowdock-git-hook | 1.0.1 | refused | `cext:posix-spawn` |
+| rubygems-generate_index | 1.2.0 | fails | `no-entry` |
+| flutie | 2.2.1 | builds |  |
+| tros | 1.7.6.4 | builds |  |
+| image_voodoo | 0.9.3 | builds |  |
+| danger-auto_label | 1.3.1 | builds |  |
+| fork | 1.0.1 | builds |  |
+| generate_method | 1.0.0 | builds |  |
+| active_elastic_job | 3.3.0 | refused | `cext:cgi` |
+| font_awesome5_rails | 1.5.0 | refused | `cext:nokogiri` |
+| xray-rails | 0.3.3 | refused | `cext:nokogiri` |
+| breakpoint | 2.7.1 | builds |  |
+| prmd | 0.14.0 | builds |  |
+| simple-rss | 2.3.0 | builds |  |
+| danger-commit_lint | 0.0.7 | builds |  |
+| spree_backend | 4.8.4 | refused | `cext:nokogiri` |
+| grape-swagger-representable | 0.2.2 | builds |  |
+| mongrel | 1.1.5 | refused | `cext:mongrel` |
+| slackiq | 1.1.4 | builds |  |
+| mail_form | 1.11.0 | refused | `cext:nokogiri` |
+| cucumber-timecop | 0.0.6 | builds |  |
+| rspec-graphql_matchers | 1.4.0 | builds |  |
+| carmen-rails | 1.0.1 | refused | `cext:nokogiri` |
+| xdg | 10.4.0 | builds |  |
+| administrate-field-belongs_to_search | 0.10.0 | refused | `cext:nokogiri` |
+| comma | 5.1.0 | builds |  |
+| run_loop | 4.9.1 | builds |  |
+| knife-acl | 1.0.8 | fails | `no-entry` |
+| lita | 4.8.0 | refused | `cext:nio4r` |
+| sidekiq-middleware | 0.3.0 | builds |  |
+| av | 0.9.0 | builds |  |
+| toastr-rails | 1.0.3 | refused | `cext:nokogiri` |
+| chargehound | 2.5.0 | builds |  |
+| csl-styles | 2.1.0 | builds |  |
+| logstash-input-s3-sns-sqs | 2.2.4 | fails | `resolve` |
+| tinify | 1.8.0 | builds |  |
+| cf-uaac | 5.1.0 | builds |  |
+| ruby-geometry | 0.0.6 | builds |  |
+| json-compare | 0.1.8 | builds |  |
+| dm-transactions | 1.2.0 | builds |  |
+| prawn-markup | 1.1.0 | refused | `cext:nokogiri` |
+| stupidedi | 1.5.2 | fails | `memory` |
+| sepa_king | 0.14.0 | refused | `cext:nokogiri` |
+| rack-host-redirect | 1.3.0 | builds |  |
+| dependabot-dep | 0.158.0 | refused | `cext:nokogiri` |
+| citeproc | 1.3.0 | builds |  |
+| rack-app | 11.0.2 | builds |  |
+| multiverse | 0.2.2 | refused | `cext:nokogiri` |
+| devise-bootstrap-views | 1.1.0 | builds |  |
+| constructor | 2.0.0 | builds |  |
+| rspec-legacy_formatters | 1.0.2 | builds |  |
+| metric_fu | 4.13.0 | builds |  |
+| grpc_mock | 0.4.6 | refused | `cext:google-protobuf` |
+| capybara-inline-screenshot | 2.2.1 | refused | `cext:nokogiri` |
+| danger-kotlin_detekt | 0.0.3 | builds |  |
+| ruby-plsql | 0.9.9 | refused | `cext:ruby-oci8` |
+| prismic.io | 1.8.2 | builds |  |
+| recurrence | 1.3.0 | builds |  |
+| rgeo-proj4 | 5.0.0 | refused | `cext:rgeo-proj4` |
+| philiprehberger-email_validator | 0.7.0 | builds |  |
+| cucumber_priority | 1.1.0 | builds |  |
+| field_test | 1.0.0 | refused | `cext:field_test` |
+| coveralls-lcov | 1.7.0 | builds |  |
+| array_enum | 1.6.0 | builds |  |
+| fastlane-plugin-get_version_code | 0.2.0 | builds |  |
+| activerecord_where_assoc | 1.4.0 | builds |  |
+| bosh_common | 2.0.0 | fails | `no-entry` |
+| hrr_rb_ssh | 0.4.2 | builds |  |
+| rfc | 0.2.0 | builds |  |
+| web_translate_it | 3.3.0 | builds |  |
+| uk_postcode | 2.1.8 | builds |  |
+| vonage | 7.36.0 | builds |  |
+| color_diff | 0.2 | builds |  |
+| pagarme | 2.4.0 | builds |  |
+| digest-sha3 | 1.1.0 | refused | `cext:digest-sha3` |
+| mysql2-aurora | 0.5.2.1 | refused | `cext:mysql2` |
+| ruby-openid-apps-discovery | 1.2.0 | builds |  |
+| graphql-guard | 2.0.0 | builds |  |
+| ripl | 0.7.1 | refused | `cext:bond` |
+| puppeteer-ruby | 0.53.0 | refused | `cext:io-event` |
+| niceql | 0.6.2 | builds |  |
+| exponential-backoff | 0.0.4 | builds |  |
+| active_record_shards | 5.5.1 | builds |  |
+| gender_detector | 2.1.0 | builds |  |
+| validates_lengths_from_database | 0.8.0 | builds |  |
+| fluent-plugin-mail | 0.3.0 | refused | `cext:zstd-ruby` |
+| action_args | 2.7.3 | builds |  |
+| gemnasium-gitlab-service | 8.0.0 | fails | `no-entry` |
+| zoom_rb | 1.2.0 | builds |  |
+| logglier | 0.5.0 | builds |  |
+| fastlane-plugin-properties | 1.1.2 | builds |  |
+| gem_plugin | 0.2.3 | builds |  |
+| capistrano-npm | 1.0.3 | builds |  |
+| mlanett-redis-lock | 0.2.7 | builds |  |
+| pay | 12.3.0 | refused | `cext:nokogiri` |
+| package_cloud | 0.3.15 | refused | `port-range:json` |
+| grpc_fork_safety | 0.2.1 | refused | `cext:google-protobuf` |
+| sem_version | 2.0.1 | builds |  |
+| cairo-gobject | 4.3.9 | refused | `cext:cairo-gobject` |
+| etcd-rb | 1.1.0 | builds |  |
+| braintrust | 0.6.0 | refused | `cext:google-protobuf` |
+| inertia_rails | 3.22.0 | refused | `cext:nokogiri` |
+| p3p | 2.0.0 | builds |  |
+| insensitive_hash | 0.3.3 | builds |  |
+| polaris_tokens | 4.0.0 | builds |  |
+| social-share-button | 1.2.4 | refused | `cext:nokogiri` |
+| spree_cmd | 4.3.3 | builds |  |
+| minitest-fail-fast | 0.2.0 | fails | `no-entry` |
+| audits1984 | 0.1.7 | refused | `cext:nokogiri` |
+| aws-sdk-arcregionswitch | 1.25.0 | builds |  |
+| govuk_publishing_components | 70.2.1 | refused | `cext:nokogiri` |
+| paper_trail-globalid | 0.2.0 | builds |  |
+| mongoid-tree | 2.3.0 | refused | `cext:bson` |
+| ember-data-source | 3.0.2 | builds |  |
+| brow | 0.4.1 | builds |  |
+| spinach-rails | 0.2.1 | refused | `cext:nokogiri` |
+| clickhouse | 0.1.10 | builds |  |
+| uri-ssh_git | 2.0.0 | builds |  |
+| brass | 1.3.0 | builds |  |
+| resque-workers-lock | 3.0.0 | builds |  |
+| logstash-mixin-ca_trusted_fingerprint_support |  | fails | `not-found` |
+| google-cloud-vision-v1p3beta1 | 0.20.1 | refused | `cext:google-protobuf` |
+| attr_json | 2.6.0 | builds |  |
+| logster | 2.21.0 | builds |  |
+| fastlane-plugin-xchtmlreport | 0.1.1 | builds |  |
+| rbpdf-font | 1.19.1 | builds |  |
+| safe_attributes | 1.0.10 | builds |  |
+| fancybox-rails | 0.3.1 | refused | `cext:nokogiri` |
+| newrelic-redis | 2.0.2 | builds |  |
+| elastic-workplace-search | 0.4.1 | builds |  |
+| google-cloud-bigtable | 2.13.0 | refused | `cext:google-protobuf` |
+| paranoia_uniqueness_validator | 3.7.0 | builds |  |
+| openssl-oaep | 0.1.0 | builds |  |
+| prometheus-api-client | 0.6.4 | builds |  |
+| trailblazer-activity-dsl-linear | 1.2.6 | builds |  |
+| notifications-ruby-client | 6.5.1 | fails | `no-entry` |
+| rspec-given | 3.8.2 | builds |  |
+| gollum-rugged_adapter | 3.0 | refused | `cext:rugged` |
+| json_refs | 0.1.9 | builds |  |
+| less-rails-bootstrap | 3.3.5.0 | refused | `cext:nokogiri` |
+| hotwire-livereload | 2.1.1 | refused | `cext:nokogiri` |
+| fast-polylines | 2.2.2 | refused | `cext:fast-polylines` |
+| wheretz | 0.0.6 | builds |  |
+| spree_frontend | 4.8.1 | refused | `cext:cgi` |
+| bosh_cli | 1.3262.26.0 | builds |  |
+| litecable | 0.8.2 | builds |  |
+| rails_real_favicon | 0.1.1 | refused | `port-range:json` |
+| jekyll-octicons | 19.40.0 | refused | `port-range:json` |
+| pg_lock | 1.0.0 | builds |  |
+| fontcustom | 3.0.0 | refused | `port-range:ffi` |
+| sorbet-schema | 0.10.0 | builds |  |
+| rails_sortable | 1.6.0 | builds |  |
+| rom | 5.4.3 | builds |  |
+| em_pessimistic | 0.2.0 | refused | `cext:eventmachine` |
+| ohm | 3.1.1 | refused | `cext:hiredis` |
+| fluent-plugin-anonymizer | 1.0.0 | refused | `cext:zstd-ruby` |
+| opentelemetry-logs-api | 0.6.0 | builds |  |
+| prawn-security | 0.8.4 | builds |  |
+| red-arrow | 25.0.1 | refused | `cext:red-arrow` |
+| fork_break | 0.1.4 | builds |  |
+| unsplash | 3.1.1 | fails | `resolve` |
+| shopify-cli | 2.36.0 | refused | `cext:shopify-cli` |
+| puma-daemon | 0.5.0 | refused | `cext:nio4r` |
+| plissken | 5.0.0 | builds |  |
+| ffi-libc | 0.1.1 | builds |  |
+| trailblazer-macro | 2.1.16 | builds |  |
+| linkedin | 1.1.1 | builds |  |
+| excon-middleware-aws-exponential_backoff | 0.0.2 | builds |  |
+| fastlane-plugin-trainer | 0.4.1 | refused | `port-range:json` |
+| simple_uuid | 0.4.0 | builds |  |
+| redmine_plugin_kit | 1.0.10 | refused | `cext:nokogiri` |
+| omniauth-heroku | 1.1.0 | builds |  |
+| will_paginate-bootstrap4 | 0.2.2 | builds |  |
+| remote_syslog | 1.6.15 | refused | `cext:eventmachine` |
+| amplitude-experiment | 1.10.1 | builds |  |
+| async-http-cache | 0.4.6 | refused | `cext:io-event` |
+| fluent-plugin-parser-logfmt | 0.0.0 | refused | `cext:zstd-ruby` |
+| neovim | 0.10.0 | refused | `cext:msgpack` |
+| fixture_builder | 0.5.2 | builds |  |
+| spork-rails | 4.0.0 | refused | `cext:nokogiri` |
+| logidze | 1.4.1 | refused | `cext:nokogiri` |
+| aws-sdk-bcmrecommendedactions | 1.18.0 | builds |  |
+| click_house-client | 0.13.0 | refused | `port-range:json` |
+| actionview-encoded_mail_to | 1.0.9 | refused | `cext:nokogiri` |
+| wareki | 2.1.0 | builds |  |
+| blacklight | 9.2.1 | refused | `cext:nokogiri` |
+| ruby-lokalise-api | 10.2.1 | builds |  |
+| payjp | 1.1.7 | builds |  |
+| popen4 | 0.1.2 | builds |  |
+| kdtree | 0.5 | refused | `cext:kdtree` |
+| stronger_parameters | 2.23.1 | refused | `cext:nokogiri` |
+| break | 0.40.0 | builds |  |
+| webpacker-react | 0.3.2 | refused | `cext:nokogiri` |
+| grape-rabl | 0.5.0 | builds |  |
+| minitest-matchers_vaccine | 1.2.0 | builds |  |
+| cookies_eu | 1.7.8 | refused | `cext:nokogiri` |
+| iso | 0.4.0 | builds |  |
+| aws-sdk-bcmdashboards | 1.17.0 | builds |  |
+| transitions | 1.3.0 | builds |  |
+| jquery_mask_rails | 0.1.0 | builds |  |
+| datagrid | 2.0.9 | refused | `cext:nokogiri` |
+| solidus_gateway | 1.3.0 | refused | `cext:nokogiri` |
+| sorcerer | 2.0.1 | builds |  |
+| narray | 0.6.1.2 | refused | `cext:narray` |
+| fresolv | 0.0.2 | builds |  |
+| fastlane-plugin-teams | 0.2.0 | builds |  |
+| dev | 2.1.154 | builds |  |
+| mutant | 0.17.0 | builds |  |
+| sensu-plugins-ntp | 2.0.0 | refused | `port-range:json` |
+| eyes_selenium | 6.13.9 | refused | `cext:oj` |
+| timeout-interrupt | 0.4.0 | builds |  |
+| circleci | 2.1.0 | builds |  |
+| rails3-jquery-autocomplete | 1.0.15 | refused | `cext:nokogiri` |
+| loggability | 0.18.2 | builds |  |
+| google-cloud-language | 2.2.1 | refused | `cext:google-protobuf` |
+| json-ld-preloaded | 3.3.2 | refused | `port-range:bigdecimal` |
+| trix-rails | 2.4.0 | refused | `cext:nokogiri` |
+| sxp | 2.0.0 | refused | `port-range:bigdecimal` |
+| resque_solo | 0.5.0 | builds |  |
+| square.rb | 47.0.0.20260916 | refused | `cext:nokogiri` |
+| intuit-oauth | 1.0.3 | builds |  |
+| gravatar_image_tag | 1.2.0 | builds |  |
+| devise_ldap_authenticatable | 0.8.7 | refused | `cext:nokogiri` |
+| jekyll-scholar | 7.3.0 | refused | `port-range:json` |
+| newrelic-sidekiq-metrics | 1.6.2 | builds |  |
+| json5 | 0.0.1 | builds |  |
+| phraseapp-ruby | 3.2.0 | builds |  |
+| graphwerk | 1.3.0 | refused | `cext:nokogiri` |
+| trailblazer-developer | 0.1.0 | builds |  |
+| capistrano_colors | 0.5.5 | builds |  |
+| pulpcore_client | 3.121.0 | builds |  |
+| swearjar | 1.4.0 | builds |  |
+| graphql_playground-rails | 2.1.0 | refused | `cext:nokogiri` |
+| capybara-angular | 0.3.0 | refused | `cext:nokogiri` |
+| rodf | 1.3.0 | builds |  |
+| given_core | 3.8.2 | builds |  |
+| sprockets-svg | 1.3.0 | refused | `cext:nokogiri` |
+| tidy | 1.1.2 | builds |  |
+| eth | 0.5.18 | refused | `cext:keccak` |
+| active_skin | 0.0.13 | builds |  |
+| turbo-sprockets-rails4 | 1.2.5 | refused | `cext:nokogiri` |
+| twitty | 0.1.5 | builds |  |
+| gergich | 2.2.1 | refused | `cext:sqlite3` |
+| text-format | 1.0.0 | builds |  |
+| herb | 0.11.0 | refused | `cext:herb` |
+| string_undump | 0.1.1 | refused | `cext:string_undump` |
+| rambulance | 3.3.0 | refused | `cext:nokogiri` |
+| htmltoword | 1.1.1 | refused | `cext:nokogiri` |
+| buildr | 1.5.8 | refused | `cext:rjb` |
+| vagrant-libvirt | 0.12.2 | refused | `cext:ruby-libvirt` |
+| regexp-examples | 1.6.0 | refused | `cext:regexp_property_values` |
+| process-group | 1.2.4 | builds |  |
+| axe-core-cucumber | 4.13.0 | fails | `no-entry` |
+| qbo_api | 3.0.3 | refused | `cext:nokogiri` |
+| hanami-router | 3.0.0 | builds |  |
+| growthbook | 1.3.0 | builds |  |
+| beaker-docker | 3.1.3 | refused | `cext:ed25519` |
+| jsonapi-rspec | 0.0.11 | builds |  |
+| pry-debugger | 0.2.3 | refused | `cext:debugger` |
+| uuid7 | 0.2.0 | builds |  |
+| luhn | 3.0.0 | builds |  |
+| bootstrap-multiselect-rails | 0.9.9 | refused | `cext:nokogiri` |
+| allocations | 1.0.5 | refused | `cext:allocations` |
+| github | 0.7.2 | builds |  |
+| graphviz | 1.3.0 | builds |  |
+| slack-notify | 0.6.0 | builds |  |
+| standardrb | 1.0.1 | fails | `memory` |
+| azure-blob | 0.8.0 | refused | `cext:cgi` |
+| smart_todo | 1.11.0 | fails | `memory` |
+| rspec-sonarqube-formatter | 1.6.4 | builds |  |
+| daemons-rails | 1.2.1 | builds |  |
+| rspec-buildkite | 0.1.8 | builds |  |
+| actionmailer-text | 0.1.1 | refused | `cext:nokogiri` |
+| gnuplot | 2.6.2 | builds |  |
+| ya_kansuji | 1.3.0 | builds |  |
+| lolsoap | 0.11.0 | refused | `cext:nokogiri` |
+| scoped_search | 5.0.0 | builds |  |
+| requestjs-rails | 0.0.14 | refused | `cext:nokogiri` |
+| ebnf | 2.6.0 | refused | `port-range:bigdecimal` |
+| approvals | 0.1.7 | refused | `port-range:json` |
+| beaker-abs | 1.2.0 | refused | `cext:ed25519` |
+| knock | 2.1.1 | refused | `cext:nokogiri` |
+| pry-sorbet | 0.2.1 | builds |  |
+| stateful_enum | 0.9.0 | builds |  |
+| ruby_gntp | 0.3.4 | builds |  |
+| spaceship | 1.0.0 | refused | `port-range:json` |
+| translation | 1.41 | builds |  |
+| i18n-debug | 1.2.0 | builds |  |
+| fastlane-plugin-lizard | 1.3.3 | refused | `port-range:json` |
+| mutant-rspec | 0.17.0 | fails | `no-entry` |
+| presto-client | 0.6.6 | refused | `cext:msgpack` |
+| safe-pg-migrations | 5.1.0 | builds |  |
+| rspec-set | 0.1.3 | builds |  |
+| blobstore_client | 1.3262.24.0 | builds |  |
+| hijri | 0.6.0 | builds |  |
+| fluent-plugin-azurestorage | 0.1.0 | refused | `cext:zstd-ruby` |
+| active_scheduler | 0.7.0 | builds |  |
+| wdm | 0.2.0 | refused | `cext:wdm` |
+| browserslist_useragent | 0.2.0 | builds |  |
+| filterrific | 5.2.7 | builds |  |
+| schmooze | 0.2.0 | builds |  |
+| pgsync | 0.8.1 | refused | `cext:pg` |
+| calabash-android | 0.9.30 | builds |  |
+| carrierwave_backgrounder | 1.1.2 | refused | `cext:nokogiri` |
+| ffi-rzmq | 2.0.7 | builds |  |
+| tapp | 1.5.1 | builds |  |
+| peach | 0.5.1 | builds |  |
+| send_with_us | 4.5.0 | builds |  |
+| baran | 0.2.1 | builds |  |
+| tire | 0.6.2 | builds |  |
+| rom-repository | 5.4.3 | builds |  |
+| rom-sql | 3.7.0 | builds |  |
+| gridhook | 0.2.0 | refused | `cext:nokogiri` |
+| rcredstash | 2.0.0 | builds |  |
+| omniauth-microsoft-office365 | 0.0.8 | builds |  |
+| luhnacy | 0.2.2 | builds |  |
+| flagship | 0.7.0 | builds |  |
+| google-dfp-api | 4.6.0 | refused | `cext:nokogiri` |
+| fb_graph | 2.7.17 | builds |  |
+| trailblazer-macro-contract | 2.1.5 | builds |  |
+| switchman | 4.3.9 | refused | `cext:nokogiri` |
+| opentelemetry-logs-sdk | 0.8.0 | builds |  |
+| mprelude | 0.1.0 | builds |  |
+| wolverine | 0.3.5 | builds |  |
+| fluent-plugin-rewrite | 0.1.1 | refused | `cext:zstd-ruby` |
+| prerender_rails | 1.11.0 | builds |  |
+| bourne | 1.6.0 | builds |  |
+| yard-activerecord | 0.0.17 | builds |  |
+| prawn-emoji | 6.0.0 | refused | `port-range:bigdecimal` |
+| gabba | 1.0.1 | builds |  |
+| semantic-ui-sass | 2.4.4.0 | refused | `cext:sassc` |
+| fluent-plugin-kubernetes | 0.3.1 | refused | `cext:zstd-ruby` |
+| zencoder | 2.5.1 | builds |  |
+| yabeda-activerecord | 0.1.2 | builds |  |
+| csv_builder | 2.1.3 | refused | `cext:nokogiri` |
+| easymon | 1.6.6 | builds |  |
+| sourcemap | 0.1.1 | builds |  |
+| azure_mgmt_dns | 0.17.5 | builds |  |
+| socket.io-emitter | 1.0.0 | refused | `cext:msgpack` |
+| to-bool | 1.2.0 | builds |  |
+| sequel-rails | 1.2.4 | refused | `cext:nokogiri` |
+| azure_mgmt_traffic_manager | 0.17.4 | builds |  |
+| bootstrap4-kaminari-views | 1.0.1 | refused | `cext:nokogiri` |
+| dropbox-sign | 1.14.0 | builds |  |
+| intl-tel-input-rails | 12.3.0 | refused | `cext:nokogiri` |
+| carrierwave-imageoptimizer | 1.6.0 | builds |  |
+| store_base_sti_class | 3.6.0 | builds |  |
+| guard-sidekiq | 0.1.0 | builds |  |
+| chef-cli | 6.1.34 | refused | `cext:libyajl2` |
+| hstore_accessor | 1.1.1 | builds |  |
+| process-terminal | 0.2.0 | builds |  |
+| opentelemetry-exporter-otlp-logs | 0.6.0 | refused | `cext:google-protobuf` |
+| bootstrap-email | 1.8.1 | refused | `cext:nokogiri` |
+| leaflet-rails | 1.9.5 | refused | `cext:nokogiri` |
+| crockford32 | 1.1.0 | builds |  |
+| slack-api | 1.6.1 | refused | `cext:websocket-driver` |
+| rdf-normalize | 0.7.0 | refused | `port-range:bigdecimal` |
+| dice_bag | 1.6.1 | builds |  |
+| semver | 1.0.1 | builds |  |
+| codacy-coverage | 2.2.1 | builds |  |
+| bundler-leak | 0.3.0 | fails | `no-entry` |
+| error_highlight | 0.7.2 | builds |  |
+| process-pipeline | 1.0.2 | builds |  |
+| sentry-opentelemetry | 7.1.0 | builds |  |
+| sq_mini_racer | 0.3.1.0.6 | refused | `cext:sq_mini_racer` |
+| logstash-output-exec | 3.1.4 | fails | `resolve` |
+| compare-xml | 1.0.1 | refused | `cext:nokogiri` |
+| x-editable-rails | 1.5.5.1 | refused | `cext:nokogiri` |
+| css_splitter | 0.4.6 | builds |  |
+| twitter_oauth | 0.4.94 | builds |  |
+| daemon-spawn | 0.4.2 | builds |  |
+| toys | 0.24.0 | builds |  |
+| spreadsheet_architect | 5.1.1 | refused | `cext:nokogiri` |
+| front_matter_parser | 1.0.1 | builds |  |
+| libnotify | 0.9.4 | builds |  |
+| redirect_safely | 1.0.1 | builds |  |
+| graphiti | 2.1.1 | builds |  |
+| paperclip_database | 3.1.0 | refused | `cext:nokogiri` |
+| lita-default-handlers | 0.1.0 | builds |  |
+| ruby-readability | 0.7.3 | refused | `cext:nokogiri` |
+| brstring | 3.3.0 | builds |  |
+| remove_bg | 2.3.0 | builds |  |
+| prefixed_ids | 1.8.1 | refused | `cext:nokogiri` |
+| github-markdown | 0.6.9 | refused | `cext:github-markdown` |
+| capistrano-slackify | 2.10.3 | builds |  |
+| capistrano-locally | 0.3.0 | builds |  |
+| spring-commands-spinach | 1.1.0 | builds |  |
+| material_icons | 4.0.0 | refused | `cext:nokogiri` |
+| act-fluent-logger-rails | 0.6.4 | refused | `cext:msgpack` |
+| avatax-ruby | 0.1.0 | builds |  |
+| comfortable_mexican_sofa | 2.0.19 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-common | 3.0.1214 | builds |  |
+| methadone | 2.0.2 | builds |  |
+| stream-chat-ruby | 3.26.2 | builds |  |
+| zonebie | 0.6.1 | builds |  |
+| aspector | 0.14.0 | builds |  |
+| ae_test_coverage | 2.0.0 | builds |  |
+| sparkle_formation | 3.0.40 | builds |  |
+| flot-rails | 0.0.7 | refused | `cext:nokogiri` |
+| toys-core | 0.24.0 | builds |  |
+| paperclip-optimizer | 2.0.0 | refused | `cext:nokogiri` |
+| git_clone_url | 2.0.0 | builds |  |
+| rakismet | 1.5.4 | builds |  |
+| dpl-releases | 1.10.16 | fails | `no-entry` |
+| google-cloud-datastore | 2.14.0 | refused | `cext:google-protobuf` |
+| bosh-template | 2.4.0 | builds |  |
+| modis | 4.3.2 | refused | `cext:msgpack` |
+| lita-whois | 1.1.0 | refused | `cext:nio4r` |
+| prima-twig | 1.4.0 | refused | `cext:redcarpet` |
+| apartment-sidekiq | 1.2.0 | builds |  |
+| gitlab-pry-byebug | 3.9.0 | refused | `cext:byebug` |
+| google-cloud-speech | 2.2.1 | refused | `cext:google-protobuf` |
+| range_operators | 0.1.1 | builds |  |
+| simplecov-buildkite | 0.3.0 | builds |  |
+| errors | 0.0.2 | builds |  |
+| canvas-api | 1.1.1 | builds |  |
+| activeadmin_reorderable | 0.3.4 | builds |  |
+| rubrowser | 2.11 | refused | `cext:nio4r` |
+| spree_extension | 2.0.0 | builds |  |
+| ros-apartment-sidekiq | 1.2.0 | builds |  |
+| tailwind_merge | 1.5.6 | builds |  |
+| philiprehberger-retry_kit | 0.9.0 | builds |  |
+| csvlint | 1.5.0 | refused | `cext:escape_utils` |
+| rich_text_renderer | 0.3.3 | builds |  |
+| ruby-keychain | 0.4.0 | builds |  |
+| barber | 0.12.2 | builds |  |
+| nested_form_fields | 0.8.4 | refused | `cext:nokogiri` |
+| html2slim | 0.2.0 | refused | `cext:hpricot` |
+| rack-heartbeat | 1.1.0 | builds |  |
+| messagebird-rest | 5.0.0 | builds |  |
+| fluent-plugin-beats | 1.1.0 | refused | `cext:zstd-ruby` |
+| dm-sqlite-adapter | 1.2.0 | refused | `cext:do_sqlite3` |
+| trailblazer-loader | 0.1.2 | builds |  |
+| global | 3.0.0 | builds |  |
+| ruby-paseto | 0.2.0 | refused | `port-range:openssl` |
+| acts_as_api | 1.0.1 | builds |  |
+| flatpickr | 4.6.13.1 | builds |  |
+| luhn_checksum | 0.1.2 | builds |  |
+| rails-backbone | 1.2.0 | refused | `cext:nokogiri` |
+| tidewave | 0.9.0 | builds |  |
+| faraday_curl | 0.0.2 | builds |  |
+| alpha_omega | 1.5.15 | builds |  |
+| logstash-devutils |  | fails | `not-found` |
+| rspec-instrumentation-matcher | 0.0.9 | builds |  |
+| guess_html_encoding | 0.0.11 | builds |  |
+| win32-api | 1.10.1 | refused | `cext:win32-api` |
+| telegram-bot-ruby | 2.8.1 | fails | `no-entry` |
+| cheffish | 17.1.8 | refused | `cext:libyajl2` |
+| padrino-gen | 0.16.1 | builds |  |
+| tilt-jbuilder | 0.7.1 | refused | `cext:nokogiri` |
+| rails_warden | 0.6.0 | builds |  |
+| legato | 0.7.0 | builds |  |
+| minitest-metadata | 0.6.0 | builds |  |
+| cloudflare | 4.5.0 | refused | `cext:io-event` |
+| aaronh-chronic | 0.3.9 | builds |  |
+| xsv | 1.4.1 | builds |  |
+| active_scaffold | 4.4.0 | refused | `cext:nokogiri` |
+| data_mapper | 1.2.0 | refused | `port-range:json` |
+| padrino-mailer | 0.16.1 | builds |  |
+| rake-progressbar | 0.0.5 | builds |  |
+| ngannotate-rails | 1.2.2 | refused | `cext:nokogiri` |
+| padrino-admin | 0.16.1 | builds |  |
+| doorkeeper-grants_assertion | 0.3.1 | refused | `cext:nokogiri` |
+| geckodriver-bin | 0.28.0 | builds |  |
+| spinach-rerun-reporter | 1.0.1 | builds |  |
+| capistrano-file-permissions | 1.0.0 | builds |  |
+| data-confirm-modal | 1.6.3 | refused | `cext:nokogiri` |
+| schema_plus_core | 3.1.0 | fails | `no-entry` |
+| global_settings | 0.0.2 | builds |  |
+| cocoapods-acknowledgements | 1.3.0 | refused | `cext:redcarpet` |
+| vhd | 0.0.4 | builds |  |
+| command_line_reporter | 5.0.0 | builds |  |
+| i18n_yaml_sorter | 0.2.0 | builds |  |
+| pg-aws_rds_iam | 0.8.0 | refused | `cext:pg` |
+| convert_api | 3.0.0 | builds |  |
+| natto | 1.2.0 | builds |  |
+| animate-rails | 1.0.10 | refused | `cext:nokogiri` |
+| goodcheck | 3.1.0 | refused | `port-range:psych` |
+| logstash-mixin-normalize_config_support |  | fails | `not-found` |
+| paperclip-av-transcoder | 0.6.4 | refused | `cext:nokogiri` |
+| spreewald | 4.6.7 | refused | `cext:nokogiri` |
+| google-cloud-tasks-v2 | 1.7.0 | refused | `cext:google-protobuf` |
+| gem_publisher | 1.5.0 | builds |  |
+| cpf_validator | 0.2.1 | builds |  |
+| sassy-maps | 0.4.0 | builds |  |
+| active_record-acts_as | 5.2.0 | builds |  |
+| json-streamer | 2.1.0 | builds |  |
+| draper-cancancan | 1.1.1 | builds |  |
+| debride | 1.15.2 | builds |  |
+| daybreak | 0.3.0 | builds |  |
+| rack-uri_sanitizer | 0.0.2 | builds |  |
+| logstash-output-syslog | 3.1.0 | fails | `resolve` |
+| carrierwave-data-uri | 0.3.0 | builds |  |
+| oroku_saki | 1.1.2 | refused | `cext:oroku_saki` |
+| formtastic-bootstrap | 3.1.1 | refused | `cext:nokogiri` |
+| ansible-vault | 0.2.1 | refused | `cext:oroku_saki` |
+| tmuxinator | 3.4.1 | builds |  |
+| exiftool_vendored | 13.59.0 | builds |  |
+| jc-validates_timeliness | 3.1.1 | builds |  |
+| google-cloud-bigtable-admin-v2 | 1.22.0 | refused | `cext:google-protobuf` |
+| seed_migration | 1.2.3 | builds |  |
+| padrino | 0.16.1 | builds |  |
+| plivo | 4.63.4 | builds |  |
+| rforce | 0.15 | builds |  |
+| consul-rb | 0.0.10 | fails | `no-entry` |
+| bootstrap_colorpicker_rails | 1.0.2 | refused | `cext:nokogiri` |
+| puma-cloudwatch | 0.5.2 | builds |  |
+| fancybox2-rails | 0.2.8 | refused | `cext:nokogiri` |
+| rubocop-rspec-focused | 1.0.0 | fails | `memory` |
+| stub_env | 1.0.4 | builds |  |
+| graphql-anycable | 1.3.4 | refused | `cext:google-protobuf` |
+| fluent-plugin-suppress | 1.1.1 | refused | `cext:zstd-ruby` |
+| beaker-vmpooler | 1.4.0 | fails | `no-entry` |
+| freemail | 0.9.0 | builds |  |
+| html_page | 0.1.0 | builds |  |
+| i18n_generators | 2.2.2 | refused | `cext:nokogiri` |
+| schema_monkey | 3.0.2 | builds |  |
+| opentelemetry-propagator-jaeger | 0.25.2 | builds |  |
+| fluent-plugin-grepcounter | 0.6.0 | refused | `cext:zstd-ruby` |
+| rack-tracer | 0.9.0 | builds |  |
+| google-cloud-bigtable-v2 | 1.18.0 | refused | `cext:google-protobuf` |
+| async-service | 0.25.0 | refused | `cext:io-event` |
+| departure | 8.2.0 | refused | `cext:nokogiri` |
+| ipa_analyzer | 0.1.0 | builds |  |
+| aws-actionmailbox-ses | 0.2.0 | refused | `cext:nokogiri` |
+| bitcoin-ruby | 0.0.20 | refused | `cext:scrypt` |
+| spectrum-rails | 1.8.1 | refused | `cext:nokogiri` |
+| storext | 3.3.0 | builds |  |
+| osx_keychain | 1.0.2 | builds |  |
+| autotest | 5.0.0 | fails | `no-entry` |
+| nuggets | 1.6.1 | builds |  |
+| php-serialize | 1.4.1 | builds |  |
+| hirb-unicode | 0.0.5 | builds |  |
+| baby_squeel | 4.0.0 | builds |  |
+| symbolize | 4.5.2 | builds |  |
+| key_struct | 0.4.2 | builds |  |
+| upsert | 2.9.10 | builds |  |
+| verbs | 3.1.0 | builds |  |
+| twiglet | 3.18.1 | builds |  |
+| tokenizers | 0.7.0 | refused | `cext:tokenizers` |
+| fluent-plugin-amazon_sns | 0.1.0 | refused | `cext:zstd-ruby` |
+| lazyload-rails | 0.5.0 | refused | `cext:nokogiri` |
+| rspec-nc | 0.3.0 | fails | `no-entry` |
+| myslog | 0.1.1 | builds |  |
+| log_formatter | 0.8.2 | builds |  |
+| jeff | 2.0.2 | builds |  |
+| keen | 1.1.1 | builds |  |
+| dry-monads-sorbet | 1.1.7 | fails | `resolve` |
+| sidekiq_prometheus | 3.0.0 | builds |  |
+| prorate | 0.7.3 | builds |  |
+| ipcat | 2.0.23 | builds |  |
+| aws-flow | 3.1.0 | refused | `cext:nokogiri` |
+| cloudformation-ruby-dsl | 1.5.0 | builds |  |
+| tencentcloud-sdk-faceid | 3.0.1210 | builds |  |
+| telegram-bot | 0.17.0 | refused | `cext:nokogiri` |
+| ftpd | 2.1.0 | builds |  |
+| coupon_code | 0.0.3 | builds |  |
+| win32console | 1.3.2 | refused | `cext:win32console` |
+| sugarcube | 4.0.0 | builds |  |
+| ably | 1.2.8 | refused | `cext:eventmachine` |
+| riemann-tools | 2.0.0 | builds |  |
+| graphiti_spec_helpers | 1.2.3 | builds |  |
+| carrierwave-processing | 1.1.0 | builds |  |
+| accept_values_for | 0.9.6 | builds |  |
+| canvas_webex | 0.18.2 | refused | `cext:nokogiri` |
+| ipaddr_extensions | 1.0.2 | builds |  |
+| wavefront-sdk | 8.0.1 | builds |  |
+| six | 0.2.2 | builds |  |
+| aptible-auth | 1.5.0 | builds |  |
+| aftership | 6.0.0 | builds |  |
+| apimatic_core_interfaces | 0.2.3 | builds |  |
+| mongoid_migrations | 1.0.1 | refused | `cext:bson` |
+| sekrets | 1.14.0 | refused | `port-range:openssl` |
+| fluent-plugin-http-healthcheck | 0.1.0 | refused | `cext:zstd-ruby` |
+| gindex | 0.6.0 | refused | `cext:nokogiri` |
+| sord | 7.1.0 | builds |  |
+| allocation_tracer | 0.6.3 | refused | `cext:allocation_tracer` |
+| configparser | 0.1.7 | builds |  |
+| postcodes_io | 0.4.0 | builds |  |
+| websocket-eventmachine-client | 1.3.0 | refused | `cext:websocket-native` |
+| big-phoney | 0.1.4 | builds |  |
+| quiet_logger | 1.0.1 | builds |  |
+| ruby-egnyte | 0.1.6 | builds |  |
+| jslint_on_rails | 1.1.1 | builds |  |
+| zscheduler | 0.0.8 | refused | `cext:eventmachine` |
+| htmldiff | 0.0.1 | builds |  |
+| pdfjs_viewer-rails | 0.3.2 | refused | `cext:nokogiri` |
+| screengrab | 1.0.0 | refused | `port-range:json` |
+| infosimples-data | 2.0.0 | builds |  |
+| email_check | 1.0.2 | builds |  |
+| kicks | 3.4.0 | refused | `cext:rbtree` |
+| commands | 0.2.1 | refused | `cext:nokogiri` |
+| nokogiri-plist | 0.5.0 | refused | `cext:nokogiri` |
+| guard-coffeescript | 2.0.1 | builds |  |
+| wrest | 4.0.1 | refused | `cext:nokogiri` |
+| mobility-ransack | 1.2.2 | builds |  |
+| trackler | 2.2.1.180 | builds |  |
+| resque-metrics | 0.1.1 | refused | `refused` |
+| jsonapi-utils | 0.7.3 | refused | `cext:nokogiri` |
+| coerce | 0.0.8 | builds |  |
+| rest-assured | 4.0.0 | refused | `cext:eventmachine` |
+| capistrano-one_time_key | 0.3.0 | builds |  |
+| sequel-annotate | 1.7.0 | builds |  |
+| globalize3 | 0.3.1 | refused | `port-range:json` |
+| gitversion | 5.1.3 | builds |  |
+| fastlane-plugin-update_project_codesigning | 0.2.0 | builds |  |
+| json_translate | 4.0.1 | builds |  |
+| refraction | 0.2.0 | builds |  |
+| appbundle-updater | 1.0.36 | fails | `no-entry` |
+| file_exists | 0.2.0 | builds |  |
+| absolute_time | 1.0.0 | refused | `cext:absolute_time` |
+| mongoid-scroll | 2.0.0 | refused | `cext:bson` |
+| ezcater_rubocop | 11.0.0 | fails | `memory` |
+| rake_fly | 2.15.0 | builds |  |
+| wwtd | 1.4.1 | builds |  |
+| acts-as-taggable-array-on | 0.7.0 | builds |  |
+| html-attributes-utils | 1.0.2 | builds |  |
+| relaton | 2.1.0 | refused | `port-range:psych` |
+| kubernetes-health | 3.14.0 | refused | `cext:nokogiri` |
+| sparsify | 1.1.0 | builds |  |
+| extended_email_reply_parser | 0.5.1 | refused | `cext:charlock_holmes` |
+| confidante | 0.28.0 | refused | `cext:getsource` |
+| sassy-math | 1.5.1 | builds |  |
+| rspec-console | 0.6.1 | refused | `cext:bond` |
+| net-netrc | 0.2.2 | builds |  |
+| fastlane-plugin-upload_symbols_to_new_relic | 0.1.1 | builds |  |
+| sishen-rtranslate | 1.5 | builds |  |
+| duktape | 2.7.0.0 | refused | `cext:duktape` |
+| hanami-mailer | 3.0.0 | builds |  |
+| tencentcloud-sdk-thpc | 3.0.1206 | builds |  |
+| google-cloud-security-private_ca | 2.2.1 | refused | `cext:google-protobuf` |
+| simplecov-tailwindcss | 2.4.0 | builds |  |
+| fluent-plugin-ping-message | 1.0.0 | refused | `cext:zstd-ruby` |
+| r18n-core | 6.0.0 | builds |  |
+| dedup | 0.1.4 | refused | `cext:dedup` |
+| chozo | 0.6.1 | builds |  |
+| seven-zip | 1.4.2 | refused | `cext:seven-zip` |
+| es6-promise-rails | 3.2.1 | refused | `cext:nokogiri` |
+| acts_as_follower | 0.2.1 | builds |  |
+| swagger-ui_rails | 0.1.7 | builds |  |
+| bootstrap-tagsinput-rails | 0.4.2.1 | refused | `cext:nokogiri` |
+| soap4r-middleware | 0.8.7 | builds |  |
+| tty-pie | 0.4.0 | builds |  |
+| just-datetime-picker | 0.0.7 | refused | `cext:nokogiri` |
+| will-paginate-i18n | 0.1.15 | builds |  |
+| capistrano-shared_configs | 0.2.2 | builds |  |
+| ar-sequence | 0.2.1 | builds |  |
+| omnibus | 9.0.24 | refused | `cext:libyajl2` |
+| google-maps | 3.0.7 | builds |  |
+| actual_db_schema | 0.9.2 | builds |  |
+| ruby-measurement | 1.3.0 | builds |  |
+| xvfb | 1.0.4 | builds |  |
+| prawn-fast-png | 0.2.3 | refused | `port-range:bigdecimal` |
+| grape-forgery_protection | 0.0.2 | builds |  |
+| uploadcare-ruby | 5.1.0 | builds |  |
+| yrb | 0.0.1 | builds |  |
+| sensu-plugins-aws | 18.6.0 | refused | `port-range:json` |
+| buildkite-builder | 4.23.0 | builds |  |
+| foreman-tasks | 13.2.3 | refused | `cext:msgpack` |
+| reconnect_ar_rails | 0.1.1 | builds |  |
+| luminosity_contrast | 0.2.1 | builds |  |
+| open_exchange_rates | 0.6.1 | builds |  |
+| discourse-fonts | 0.0.19 | builds |  |
+| slugify | 1.0.7 | builds |  |
+| ritex | 1.0.1 | builds |  |
+| vanity | 4.0.4 | builds |  |
+| hive_geoip2 | 0.1.4 | refused | `cext:hive_geoip2` |
+| sinatra-support | 1.2.2 | builds |  |
+| usagewatch_ext | 0.2.1 | builds |  |
+| rodauth-rails | 2.2.2 | refused | `cext:nokogiri` |
+| mongoid_search | 0.5.0 | refused | `cext:fast-stemmer` |
+| cb-api | 23.2.1 | refused | `port-range:json` |
+| swagger_yard | 1.1.1 | builds |  |
+| testrailtagging | 0.3.8.7 | builds |  |
+| hanami-helpers | 1.3.3 | builds |  |
+| crontab_syntax_checker | 0.1.0 | builds |  |
+| statsample | 2.1.0 | builds |  |
+| chef_handler_foreman | 0.2.1 | builds |  |
+| schema_plus_foreign_keys | 1.1.0 | builds |  |
+| sterile | 1.0.26 | refused | `cext:nokogiri` |
+| nom-xml | 1.2.0 | refused | `cext:nokogiri` |
+| memory-leak | 0.10.3 | refused | `port-range:json` |
+| wine_bouncer | 1.0.4 | refused | `cext:nokogiri` |
+| message_block | 2.0.3 | refused | `cext:nokogiri` |
+| rubigen | 1.5.8 | builds |  |
+| singularitygs | 1.8.0 | builds |  |
+| active_snapshot | 1.2.2 | refused | `cext:nokogiri` |
+| karafka-sidekiq-backend | 1.4.9 | refused | `cext:digest-crc` |
+| tencentcloud-sdk-ccc | 3.0.1214 | builds |  |
+| null_logger | 0.0.1 | builds |  |
+| fluent-plugin-record_splitter | 0.2.1 | refused | `cext:zstd-ruby` |
+| danger-ios_logs | 0.1.2 | builds |  |
+| tencentcloud-sdk-cdb | 3.0.1214 | builds |  |
+| image_info | 1.2.2 | builds |  |
+| rails_or | 1.1.9 | builds |  |
+| color_conversion | 0.1.2 | builds |  |
+| requires | 1.1.0 | builds |  |
+| gtk2 | 3.4.3 | refused | `cext:gtk2` |
+| safe-enum | 0.3.1 | builds |  |
+| rollout-ui | 0.9.2 | builds |  |
+| invoker | 2.0.0 | refused | `cext:eventmachine` |
+| valcro | 0.2.1 | builds |  |
+| collapsium-config | 0.7.0 | builds |  |
+| onlyoffice_documentserver_testing_framework | 2.21.1 | fails | `memory` |
+| google-apis-indexing_v3 | 0.19.0 | builds |  |
+| puppet-module-posix-default-r2.7 | 1.1.1 | fails | `no-entry` |
+| google-apis-analytics_v3 | 0.17.0 | builds |  |
+| graphql-preload | 2.1.0 | builds |  |
+| tencentcloud-sdk-cam | 3.0.1211 | builds |  |
+| albino | 1.3.3 | refused | `cext:posix-spawn` |
+| rspec-default_http_header | 0.0.6 | refused | `cext:nokogiri` |
+| fastlane-plugin-telegram | 0.1.4 | builds |  |
+| ts_routes | 1.0.3 | refused | `cext:nokogiri` |
+| edmunds | 0.0.8 | builds |  |
+| htauth | 3.0.0 | refused | `cext:bcrypt` |
+| rails_apps_composer | 3.1.36 | builds |  |
+| rspec-virtus | 1.0.2 | builds |  |
+| beaker-module_install_helper | 2.0.0 | refused | `cext:ed25519` |
+| font-awesome-less | 4.7.0 | builds |  |
+| redis-browser | 0.5.1 | builds |  |
+| folio-pagination | 0.0.12 | builds |  |
+| open5 | 0.2 | builds |  |
+| fustigit | 0.3.0 | builds |  |
+| jquery-rails-cdn | 1.2.0 | refused | `cext:nokogiri` |
+| thor-scmversion | 1.7.0 | builds |  |
+| cli | 1.4.0 | builds |  |
+| paperclip-compression | 2.0.0 | refused | `cext:nokogiri` |
+| travis-lint | 2.0.0 | fails | `no-entry` |
+| ibsciss-middleware | 0.4.3 | builds |  |
+| fastlane-plugin-dropbox | 0.3.0 | builds |  |
+| jsonify | 0.4.1 | builds |  |
+| capistrano-rbenv-install | 1.2.0 | builds |  |
+| aws-es-transport | 0.1.4 | builds |  |
+| google-cloud-data_catalog | 2.3.1 | refused | `cext:google-protobuf` |
+| activeadmin-async_panel | 0.3.0 | refused | `cext:nokogiri` |
+| rake_docker | 2.21.0 | builds |  |
+| glyphicons | 1.0.2 | builds |  |
+| cent | 4.0.0 | builds |  |
+| occams-record | 1.16.2 | builds |  |
+| gridster-rails | 0.5.6.1 | refused | `cext:nokogiri` |
+| slimmer | 18.7.0 | refused | `cext:nokogiri` |
+| verse | 0.5.0 | builds |  |
+| drydock | 1.0.0 | builds |  |
+| rspec-testrail | 0.1.2 | builds |  |
+| apimatic_core | 0.3.21 | refused | `cext:nokogiri` |
+| rest-core | 4.0.1 | builds |  |
+| capistrano-git-with-submodules | 2.0.6 | fails | `no-entry` |
+| jquery-datetimepicker-rails | 2.4.1.0 | builds |  |
+| ruby-supervisor | 0.0.2 | builds |  |
+| compass-normalize | 1.5 | builds |  |
+| weakref | 0.1.4 | builds |  |
+| rack-p3p | 0.5.0 | builds |  |
+| administrate-field-nested_has_many | 2.1.0 | refused | `cext:nokogiri` |
+| amazon_pay | 2.6.1 | builds |  |
+| avatarly | 1.6.1 | refused | `cext:rmagick` |
+| oauth2-client | 2.0.0 | refused | `cext:bcrypt` |
+| puppet-lint-numericvariable | 1.0.3 | fails | `no-entry` |
+| brnumeros | 3.3.0 | builds |  |
+| extendmatrix | 0.4 | builds |  |
+| rspec-eventually | 0.2.2 | builds |  |
+| svg-graph | 2.2.2 | builds |  |
+| adal | 1.0.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-dlc | 3.0.1211 | builds |  |
+| switchery-rails | 0.8.2.0 | refused | `cext:nokogiri` |
+| fig_newton | 1.0 | builds |  |
+| beaker-aws | 1.0.0 | fails | `no-entry` |
+| gem-helper | 0.0.1 | builds |  |
+| link-header-parser | 7.0.1 | builds |  |
+| metanorma-standoc | 3.5.0 | refused | `cext:nokogiri` |
+| blockcypher-ruby | 0.2.7 | refused | `cext:scrypt` |
+| private_attr | 2.0.0 | builds |  |
+| motor-admin | 0.5.0 | refused | `cext:nokogiri` |
+| sunspot_matchers | 2.2.5.0 | builds |  |
+| lumberjack_data_dog_device | 1.1.0 | builds |  |
+| sqlite_extensions-uuid | 1.0.2 | refused | `cext:sqlite_extensions-uuid` |
+| trino-client | 2.2.6 | refused | `cext:msgpack` |
+| rbbt-rest | 2.0.1 | refused | `cext:sassc` |
+| secrets-manager | 1.1.0 | builds |  |
+| google-cloud-container-v1 | 1.18.0 | refused | `cext:google-protobuf` |
+| ultracart_api | 4.1.193 | fails | `memory` |
+| minitest-silence | 0.2.4 | fails | `no-entry` |
+| gazer | 0.3.19 | builds |  |
+| mercadopago-sdk | 3.5.0 | refused | `port-range:json` |
+| tencentcloud-sdk-mps | 3.0.1214 | builds |  |
+| krausefx-shenzhen | 0.14.11 | refused | `port-range:json` |
+| minimization | 0.2.5 | builds |  |
+| hati-config | 0.1.0 | refused | `port-range:bigdecimal` |
+| rroonga | 15.0.4 | refused | `cext:rroonga` |
+| rack-flash3 | 1.0.5 | builds |  |
+| tencentcloud-sdk-cfw | 3.0.1202 | builds |  |
+| capistrano-symfony | 2.0.0 | builds |  |
+| random_data | 1.6.0 | builds |  |
+| active_fulfillment | 3.2.11 | refused | `cext:nokogiri` |
+| google-cloud-container-v1beta1 | 0.57.1 | refused | `cext:google-protobuf` |
+| rubydraw | 0.3.2.5 | builds |  |
+| alphabetical_paginate | 2.3.4 | builds |  |
+| tencentcloud-sdk-trtc | 3.0.1214 | builds |  |
+| cql-rb | 2.0.5 | builds |  |
+| shog | 0.2.1 | refused | `cext:nokogiri` |
+| faraday_hal_middleware | 0.2.0 | builds |  |
+| public_uid | 2.2.0 | builds |  |
+| jwt_sessions | 3.2.4 | builds |  |
+| rainbows | 5.2.1 | refused | `cext:kgio` |
+| sfx-sidekiq-opentracing | 0.0.4 | builds |  |
+| ga_cookie_parser | 0.2.0 | builds |  |
+| zpng | 0.4.6 | builds |  |
+| honeypot-captcha | 1.0.1 | builds |  |
+| tencentcloud-sdk-ams | 3.0.1201 | builds |  |
+| bard | 3.1.0 | builds |  |
+| hackerrank | 0.2.0 | builds |  |
+| visualize_packwerk | 0.2.3 | refused | `cext:nokogiri` |
+| scale_down | 0.8.1 | refused | `cext:rmagick` |
+| measured-rails | 3.0.0 | builds |  |
+| minimal-mistakes-jekyll | 4.28.1 | refused | `port-range:json` |
+| totp | 2.0.0 | builds |  |
+| allison | 2.0.3 | builds |  |
+| activerecord_any_of | 2.0.2 | builds |  |
+| sequel_enum | 0.2.0 | builds |  |
+| jenkins | 0.6.8 | refused | `cext:hpricot` |
+| attr_vault | 2.1.2 | refused | `cext:pg` |
+| jsonapi_errorable | 0.9.4 | builds |  |
+| tencentcloud-sdk-ocr | 3.0.1214 | builds |  |
+| simple_form-tailwind | 0.2.0 | refused | `cext:nokogiri` |
+| acfs | 2.2.1 | refused | `cext:nokogiri` |
+| nats | 0.11.0 | refused | `cext:eventmachine` |
+| tencentcloud-sdk-live | 3.0.1214 | builds |  |
+| pkcs11 | 0.4.0 | refused | `cext:pkcs11` |
+| paypal-sdk-adaptivepayments | 1.117.3 | builds |  |
+| tencentcloud-sdk-tat | 3.0.1201 | builds |  |
+| photoswipe-rails | 4.1.2 | builds |  |
+| signalfx | 3.2.0 | refused | `cext:websocket-driver` |
+| gherkin_lint | 1.2.2 | refused | `port-range:json` |
+| jekyll-get-json | 1.0.0 | refused | `port-range:json` |
+| govspeak | 10.11.5 | refused | `cext:nokogiri` |
+| docopt_ng | 0.7.1 | builds |  |
+| find | 0.2.0 | builds |  |
+| engineyard-cloud-client | 2.1.1 | builds |  |
+| algebrick | 0.7.5 | builds |  |
+| lumberjack_capture_device | 2.1.0 | builds |  |
+| it-logica-application-backbone | 1.5.3 | refused | `cext:nokogiri` |
+| jekyll-imagemagick | 1.4.0 | refused | `port-range:json` |
+| tencentcloud-sdk-teo | 3.0.1214 | builds |  |
+| dm-mysql-adapter | 1.2.0 | refused | `cext:do_mysql` |
+| snowplow_ruby_duid | 1.2.2 | builds |  |
+| ruby-nmap | 1.0.3 | refused | `cext:nokogiri` |
+| fluent-plugin-papertrail | 0.2.8 | refused | `cext:zstd-ruby` |
+| jquery-easing-rails | 0.0.2 | refused | `cext:nokogiri` |
+| testrail_client | 0.0.1 | builds |  |
+| google_drive2 | 3.0.9 | refused | `cext:nokogiri` |
+| friendly_id-globalize |  | fails | `not-found` |
+| autotest-growl | 0.2.16 | builds |  |
+| pivot_table | 1.0.0 | builds |  |
+| webshims-rails | 1.16.0 | refused | `cext:nokogiri` |
+| churnalizer | 0.1.3 | builds |  |
+| random_bell | 0.2.0 | builds |  |
+| thinreports-rails | 0.5.0 | refused | `port-range:bigdecimal` |
+| danger-slack | 0.0.3 | builds |  |
+| shortuuid | 0.6.0 | builds |  |
+| aws-msk-iam-sasl-signer | 0.1.1 | builds |  |
+| fiscali | 2.4.4 | builds |  |
+| firecrawl-sdk | 1.17.4 | builds |  |
+| sinatra-asset-pipeline | 2.2.1 | fails | `no-entry` |
+| wistia-api | 0.2.3 | builds |  |
+| geocomplete_rails | 1.7.0 | refused | `cext:nokogiri` |
+| ruby_fly | 0.41.0 | builds |  |
+| puppet-module-posix-dev-r2.7 | 1.1.1 | refused | `cext:ed25519` |
+| tty | 0.10.0 | builds |  |
+| devise-secure_password | 2.2.3 | refused | `cext:nokogiri` |
+| ruby-pardot | 1.4.4 | builds |  |
+| minitest-bang | 1.0.4 | builds |  |
+| ascii_charts | 0.9.1 | builds |  |
+| reportbuilder | 1.4.2 | builds |  |
+| hprose | 1.4.13 | builds |  |
+| verdict | 0.16.1 | builds |  |
+| waterfall | 1.3.0 | builds |  |
+| sym | 3.0.2 | builds |  |
+| PoParser | 3.2.8 | builds |  |
+| minitest-matchers | 1.4.1 | builds |  |
+| transpec | 3.4.0 | refused | `cext:rainbow` |
+| searchlogic | 2.5.19 | builds |  |
+| rails_live_reload | 0.5.0 | refused | `cext:nokogiri` |
+| logstash-filter-range | 2.0.4 | fails | `resolve` |
+| logist | 0.2.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-cynosdb | 3.0.1214 | builds |  |
+| kmeans-clusterer | 0.11.4 | refused | `cext:narray` |
+| membrane | 1.1.0 | builds |  |
+| try | 0.5.0 | builds |  |
+| danger-regexp | 1.1.0 | builds |  |
+| socket.io-rails | 2.3.0 | refused | `cext:nokogiri` |
+| viewcumber | 0.3.1 | refused | `cext:nokogiri` |
+| rightsignature | 1.0.9 | builds |  |
+| rubber | 3.2.2 | refused | `port-range:json` |
+| googl | 0.7.1 | builds |  |
+| tencentcloud-sdk-essbasic | 3.0.1214 | builds |  |
+| secondbase | 2.2.0 | refused | `cext:nokogiri` |
+| fancy_irb | 2.1.3 | builds |  |
+| json-schema-rspec | 0.0.4 | builds |  |
+| mongoid_orderable | 6.0.5 | refused | `cext:bson` |
+| spring-commands-m | 1.0.1 | builds |  |
+| graphql-connections | 1.4.0 | builds |  |
+| aws-sdk-signerdata | 1.7.0 | builds |  |
+| active_model-better_errors | 1.6.7 | builds |  |
+| capng_c | 0.2.5 | refused | `cext:capng_c` |
+| prawn-disable_word_break | 2.3.1 | refused | `port-range:bigdecimal` |
+| test-spec | 0.10.0 | builds |  |
+| cppjieba_rb | 0.4.4 | refused | `cext:cppjieba_rb` |
+| parallelized_specs | 0.4.84 | builds |  |
+| watir-dom-wait | 0.4.0 | builds |  |
+| logjam_agent | 0.39.2 | builds |  |
+| meta_programming | 0.2.2 | builds |  |
+| factory_bot_any_instance | 1.0.0 | builds |  |
+| pry-git | 0.2.3 | refused | `cext:posix-spawn` |
+| ruby-termios | 1.1.0 | refused | `cext:ruby-termios` |
+| actionview_precompiler | 0.4.0 | refused | `cext:nokogiri` |
+| isbn | 2.0.11 | builds |  |
+| omniauth-azure-activedirectory | 1.0.0 | builds |  |
+| azure-storage-queue | 2.0.4 | refused | `cext:nokogiri` |
+| caboose-rets | 0.1.214 | fails | `resolve` |
+| xdo | 0.0.4 | builds |  |
+| tencentcloud-sdk-es | 3.0.1213 | builds |  |
+| google-cloud-language-v1beta2 | 0.18.0 | refused | `cext:google-protobuf` |
+| qr4r | 0.6.2 | builds |  |
+| detect_timezone_rails | 0.0.5 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-cls | 3.0.1209 | builds |  |
+| flatware | 2.4.0 | builds |  |
+| xml-fu | 0.2.0 | builds |  |
+| rVM | 0.0.17 | builds |  |
+| patir | 0.9.0 | fails | `no-entry` |
+| capistrano-git-copy | 1.5.6 | fails | `no-entry` |
+| support_table_data | 1.7.0 | builds |  |
+| em-postgres | 0.0.2 | refused | `cext:eventmachine` |
+| guard-rack | 2.2.1 | builds |  |
+| vagrant-hostsupdater | 1.2.4 | builds |  |
+| activerecord-pedantmysql2-adapter | 1.4.0 | refused | `cext:mysql2` |
+| dirty-memoize | 0.0.4 | builds |  |
+| slack-ruby-bot | 0.16.1 | builds |  |
+| fluent-plugin-loggly | 0.0.9 | refused | `cext:yajl-ruby` |
+| tencentcloud-sdk-domain | 3.0.1168 | builds |  |
+| ocean-rails | 8.2.0 | refused | `cext:nokogiri` |
+| awesome_nested_fields | 0.6.4 | refused | `cext:nokogiri` |
+| zsteg | 0.2.14 | builds |  |
+| calendar_date_select | 2.1.2 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tcaplusdb | 3.0.1187 | builds |  |
+| active_enum | 1.3.0 | builds |  |
+| traject | 3.9.1 | refused | `cext:nokogiri` |
+| klaviyo-api-sdk | 18.0.0 | fails | `memory` |
+| capistrano-multiconfig | 3.1.0 | builds |  |
+| instructure-happymapper | 0.5.10 | refused | `cext:nokogiri` |
+| async-container-supervisor | 0.10.1 | refused | `cext:io-event` |
+| http_accept | 0.1.6 | builds |  |
+| ibanizator | 0.4.15 | builds |  |
+| rspec-composable_json_matchers | 1.1.1 | refused | `port-range:json` |
+| guard-teaspoon | 0.8.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-cfs | 3.0.1207 | builds |  |
+| httpparty | 0.2.0 | builds |  |
+| kitchen-salt | 0.7.2 | refused | `cext:ed25519` |
+| ordinalize_full | 4.0.0 | builds |  |
+| inch | 0.8.0 | builds |  |
+| twiliolib | 2.0.7 | builds |  |
+| todo_or_die | 0.1.1 | builds |  |
+| schema_plus_columns | 1.0.1 | builds |  |
+| tencentcloud-sdk-cpdp | 3.0.1094 | builds |  |
+| aws-sdk-elementalinference | 1.13.0 | builds |  |
+| TimezoneParser | 1.0.0 | refused | `cext:sqlite3` |
+| refile-mini_magick | 0.2.0 | builds |  |
+| faraday-tracer | 0.7.0 | builds |  |
+| monkey-patch | 0.1.0 | builds |  |
+| splunk-sdk-ruby | 1.0.5 | builds |  |
+| application_seeds | 0.9.1 | refused | `cext:pg` |
+| carrierwave-video-thumbnailer | 0.1.4 | builds |  |
+| more_core_extensions | 4.7.0 | builds |  |
+| tencentcloud-sdk-ims | 3.0.1190 | builds |  |
+| google-apis-analyticsreporting_v4 | 0.17.0 | builds |  |
+| mongoid-simple-tags | 0.1.3 | refused | `cext:bson` |
+| cowsay | 0.3.0 | builds |  |
+| cuke_linter | 1.4.0 | builds |  |
+| bullet_train | 1.45.1 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tke | 3.0.1214 | builds |  |
+| tencentcloud-sdk-scf | 3.0.1198 | builds |  |
+| autotest-standalone | 4.5.11 | fails | `no-entry` |
+| airtable | 0.0.9 | builds |  |
+| danger-lock_dependency_versions | 0.0.3 | builds |  |
+| kitchen-puppet | 3.7.0 | refused | `cext:ed25519` |
+| istox | 0.3.9 | fails | `resolve` |
+| tencentcloud-sdk-chdfs | 3.0.1201 | builds |  |
+| google-cloud-document_ai-v1beta3 | 0.49.1 | refused | `cext:google-protobuf` |
+| spec | 5.3.4 | builds |  |
+| refining | 0.0.5.5 | builds |  |
+| rails_sql_prettifier | 7.0.7 | builds |  |
+| capistrano-gulp | 0.0.2 | builds |  |
+| tencentcloud-sdk-iotcloud | 3.0.1201 | builds |  |
+| rapporteur | 3.10.0 | builds |  |
+| dot-properties | 0.1.4 | builds |  |
+| memoized | 1.1.3 | builds |  |
+| tencentcloud-sdk-vpc | 3.0.1214 | builds |  |
+| gds-sso | 22.3.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-iotexplorer | 3.0.1210 | builds |  |
+| validators | 3.4.2 | builds |  |
+| beaker-openstack | 3.0.0 | refused | `cext:ed25519` |
+| capistrano-deploytags | 1.0.7 | builds |  |
+| server_metrics | 1.2.18 | builds |  |
+| mdb | 0.5.0 | builds |  |
+| tty-file | 0.10.0 | builds |  |
+| tencentcloud-sdk-mongodb | 3.0.1211 | builds |  |
+| conjur-api | 6.4.0 | builds |  |
+| fluent-plugin-kubernetes-parser | 0.1.0 | refused | `cext:zstd-ruby` |
+| tencentcloud-sdk-ckafka | 3.0.1186 | builds |  |
+| coffee-react | 4.0.1 | builds |  |
+| geo_coord | 0.2.0 | fails | `no-entry` |
+| activerecord-tableless | 2.0.0 | builds |  |
+| gemini-ai | 4.3.0 | builds |  |
+| tencentcloud-sdk-ecc | 3.0.1169 | builds |  |
+| rails_select_on_includes | 6.0.1 | builds |  |
+| sass-media_query_combiner | 0.0.7 | builds |  |
+| uncruft | 1.2.0 | refused | `cext:nokogiri` |
+| procore | 1.3.1 | builds |  |
+| jenkins_pipeline_builder | 1.10.0 | refused | `cext:nokogiri` |
+| code-scanning-rubocop | 0.6.1 | fails | `memory` |
+| sessionm-cassandra_object | 4.0.32 | builds |  |
+| rack-link_headers | 2.4.1 | builds |  |
+| kitchen-ansiblepush | 0.11.0 | refused | `cext:ed25519` |
+| komachi_heartbeat | 2.5.0 | refused | `cext:nokogiri` |
+| crocodoc-ruby | 0.0.1 | builds |  |
+| wait | 0.5.3 | builds |  |
+| tencentcloud-sdk-wss | 3.0.1094 | builds |  |
+| duckdb | 1.5.5.1 | refused | `cext:duckdb` |
+| fluent-plugin-azure-storage-append-blob | 0.2.1 | refused | `cext:nokogiri` |
+| shrine-google_cloud_storage | 3.3.0 | refused | `cext:digest-crc` |
+| tencentcloud-sdk-partners | 3.0.1186 | builds |  |
+| sisimai | 5.7.2 | refused | `cext:oj` |
+| pronto-erb_lint | 0.1.6 | refused | `cext:nokogiri` |
+| middleman-s3_sync | 4.8.0 | refused | `cext:sassc` |
+| text_helpers | 1.2.0 | refused | `cext:redcarpet` |
+| administrate-field-enum | 0.0.9 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-lighthouse | 3.0.1187 | builds |  |
+| brcobranca | 13.0.0 | refused | `cext:fast_blank` |
+| easyrsa | 1.0.0 | builds |  |
+| tencentcloud-sdk-cwp | 3.0.1199 | fails | `memory` |
+| bootstrap5-kaminari-views | 0.0.1 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-mariadb | 3.0.1210 | builds |  |
+| academic_benchmarks | 1.1.3 | builds |  |
+| tencentcloud-sdk-waf | 3.0.1214 | builds |  |
+| tencentcloud-sdk-cvm | 3.0.1210 | builds |  |
+| sensu-plugins-uptime-checks | 3.2.0 | refused | `port-range:json` |
+| glib-web | 7.0.1 | refused | `cext:nokogiri` |
+| asciidoctor-diagram-batik | 1.19 | fails | `no-entry` |
+| brcep | 3.3.0 | builds |  |
+| sinatra-health-check | 0.2.0 | builds |  |
+| acts_as_singleton | 0.0.8 | builds |  |
+| validated_object | 2.3.4 | builds |  |
+| colorls | 1.5.0 | refused | `cext:clocale` |
+| beaker-vmware | 3.0.1 | refused | `cext:ed25519` |
+| tencentcloud-sdk-tiia | 3.0.1094 | builds |  |
+| rusage | 0.2.0 | refused | `cext:rusage` |
+| luhn-ruby | 1.0.0 | builds |  |
+| tencentcloud-sdk-dbbrain | 3.0.1201 | builds |  |
+| guard-pow | 2.0.0 | builds |  |
+| mollie-api-ruby | 4.19.0 | builds |  |
+| render_parent | 0.1.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tts | 3.0.1212 | builds |  |
+| picky-generators | 4.31.3 | refused | `cext:url_escape` |
+| haproxy_log_parser | 2.1.0 | builds |  |
+| quarantine | 2.2.2 | builds |  |
+| apimatic_faraday_client_adapter | 0.1.6 | builds |  |
+| shelly | 0.5.7 | builds |  |
+| show_for | 0.9.0 | refused | `cext:nokogiri` |
+| google-apps-card-v1 | 1.2.0 | refused | `cext:google-protobuf` |
+| wikidata-client | 0.1.0 | builds |  |
+| google-apps-chat-v1 | 0.31.0 | refused | `cext:google-protobuf` |
+| beaker-google | 1.2.0 | fails | `no-entry` |
+| prawn-html | 0.7.1 | refused | `cext:ruby-ll` |
+| que-web | 0.10.0 | builds |  |
+| aweber | 1.6.1 | builds |  |
+| jekyll-theme-chirpy | 7.6.0 | refused | `port-range:json` |
+| guard-yard | 2.2.1 | builds |  |
+| obbistrano | 1.1.168 | builds |  |
+| tencentcloud-sdk-ticm | 3.0.1094 | builds |  |
+| call-me | 0.0.2.3 | fails | `no-entry` |
+| tencentcloud-sdk-mgobe | 3.0.1094 | builds |  |
+| nikkou | 0.0.5 | refused | `cext:nokogiri` |
+| cache | 0.4.1 | builds |  |
+| fastlane-plugin-firebase_test_lab_android | 1.1.0 | builds |  |
+| workato-connector-sdk | 1.3.19 | refused | `cext:charlock_holmes` |
+| active_delivery | 1.2.0 | builds |  |
+| fat_zebra | 3.3.3 | builds |  |
+| tencentcloud-sdk-vm | 3.0.1201 | builds |  |
+| demoji | 0.0.7 | builds |  |
+| transactional_capybara | 0.2.0 | refused | `cext:nokogiri` |
+| mina-sidekiq | 1.1.0 | builds |  |
+| tencentcloud-sdk-tmt | 3.0.1169 | builds |  |
+| brcpfcnpj | 3.3.0 | refused | `cext:nokogiri` |
+| embulk-filter-column | 0.7.1 | builds |  |
+| rucaptcha | 3.4.0 | refused | `cext:rucaptcha` |
+| Selenium | 1.1.14 | builds |  |
+| tlsmail | 0.0.1 | builds |  |
+| pdk | 3.4.0 | fails | `resolve` |
+| flatware-rspec | 2.4.0 | builds |  |
+| tencentcloud-sdk-redis | 3.0.1205 | builds |  |
+| sensu-plugins-ssl | 3.0.2 | refused | `port-range:json` |
+| google-cloud-data_catalog-lineage-v1 | 0.16.1 | refused | `cext:google-protobuf` |
+| ffi-extra | 0.1.0 | builds |  |
+| tencentcloud-sdk-tsw | 3.0.1201 | builds |  |
+| capistrano-newrelic | 0.10.1 | builds |  |
+| godaddy-api | 0.1.2 | builds |  |
+| lokalise_manager | 8.0.0 | builds |  |
+| garb | 0.9.8 | builds |  |
+| accountingjs-rails | 0.0.4 | builds |  |
+| activerecord-clean-db-structure | 0.4.3 | builds |  |
+| tencentcloud-sdk-gse | 3.0.1094 | builds |  |
+| bh | 6.10.1 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-apm | 3.0.1214 | builds |  |
+| swagger_ui_engine | 1.1.3 | refused | `cext:nokogiri` |
+| sensu-plugins-vmstats | 2.0.0 | refused | `port-range:json` |
+| refile-s3 | 0.2.0 | builds |  |
+| tencentcloud-sdk-soe | 3.0.1169 | builds |  |
+| deb-s3 | 26.1.0 | builds |  |
+| vgs_api_client | 0.0.38 | builds |  |
+| capistrano-pending | 0.2.0 | builds |  |
+| puppet_facts | 0.2.1 | builds |  |
+| ffi-inline | 0.0.4.3 | builds |  |
+| remote_lock | 1.1.0 | builds |  |
+| hotwire-spark | 0.1.13 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-emr | 3.0.1213 | builds |  |
+| tencentcloud-sdk-tione | 3.0.1214 | builds |  |
+| tencentcloud-sdk-organization | 3.0.1214 | builds |  |
+| rails_apps_pages | 0.6.7 | builds |  |
+| gemsurance | 0.10.0 | builds |  |
+| jira4r | 1.3.0 | builds |  |
+| bank-contact | 0.0.6 | builds |  |
+| tencentcloud-sdk-postgres | 3.0.1169 | builds |  |
+| tencentcloud-sdk-dts | 3.0.1177 | builds |  |
+| rspec-rebound | 0.2.1 | builds |  |
+| spice-html5-rails | 0.1.5 | refused | `cext:nokogiri` |
+| server_timing | 1.0.2 | refused | `cext:scout_apm` |
+| tencentcloud-sdk-tsf | 3.0.1210 | builds |  |
+| mysql_import | 0.5.5 | refused | `cext:mysql2` |
+| keynote | 2.0.3 | refused | `cext:nokogiri` |
+| activejob_arguments | 0.1.0 | builds |  |
+| sidekiq-benchmark | 0.7.3 | builds |  |
+| guard-standardrb | 0.2.4 | builds |  |
+| vedeu | 0.8.32 | builds |  |
+| tesseract-ocr | 0.1.8 | builds |  |
+| tencentcloud-sdk-ssl | 3.0.1214 | builds |  |
+| effective_orders | 6.32.4 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tem | 3.0.1185 | builds |  |
+| amalgalite | 2.0.0 | refused | `cext:amalgalite` |
+| nunes | 0.5.0 | builds |  |
+| extensions | 0.6.0 | fails | `no-entry` |
+| rbs-inline | 0.14.0 | refused | `cext:rbs` |
+| datejs-rails | 2.0.1 | refused | `cext:nokogiri` |
+| danger-ktlint | 0.0.9 | builds |  |
+| tencentcloud-sdk-oceanus | 3.0.1213 | builds |  |
+| ejson_wrapper | 0.5.0 | builds |  |
+| ransack-enum | 1.0.0 | builds |  |
+| six-updater | 0.22.5 | builds |  |
+| markerclustererplus-rails | 2.1.9 | builds |  |
+| tencentcloud-sdk-tdmq | 3.0.1207 | builds |  |
+| twine-rails | 2.0.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-cbs | 3.0.1209 | builds |  |
+| ruby_engine | 2.0.3 | builds |  |
+| tencentcloud-sdk-monitor | 3.0.1205 | builds |  |
+| sidekiq-bus | 3.0.0 | builds |  |
+| tencentcloud-sdk-bm | 3.0.1094 | builds |  |
+| tencentcloud-sdk-iotvideo | 3.0.1201 | builds |  |
+| rspec-http | 0.11.0 | builds |  |
+| tencentcloud-sdk-privatedns | 3.0.1192 | builds |  |
+| tencentcloud-sdk-mna | 3.0.1207 | builds |  |
+| schema_auto_foreign_keys | 1.1.0 | builds |  |
+| db_schema_checker | 0.2.1 | builds |  |
+| calendar_helper | 0.2.6 | builds |  |
+| belzebuth | 0.2.3 | builds |  |
+| ibm_db | 5.7.0 | refused | `cext:ibm_db` |
+| tencentcloud-sdk-tcb | 3.0.1213 | builds |  |
+| gdata_19 | 1.1.5 | builds |  |
+| kennel | 2.22.2 | builds |  |
+| irbtools | 4.2.0 | refused | `cext:looksee` |
+| servicenow-api | 0.4.0 | builds |  |
+| rocket_pants | 1.13.1 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-cmq | 3.0.1094 | builds |  |
+| magic_test | 0.1.0 | refused | `cext:debug_inspector` |
+| figgy | 1.3.0 | builds |  |
+| logstash-output-scalyr | 0.2.6 | fails | `resolve` |
+| after_do | 0.4.0 | builds |  |
+| inst-jobs-statsd | 4.0.2 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-captcha | 3.0.1094 | builds |  |
+| relaton-ietf | 2.1.3 | refused | `cext:nokogiri` |
+| mimetype-fu | 0.1.2 | builds |  |
+| google-cloud-data_catalog-lineage | 1.3.1 | refused | `cext:google-protobuf` |
+| tencentcloud-sdk-tag | 3.0.1197 | builds |  |
+| magic_frozen_string_literal | 1.2.0 | builds |  |
+| closeio | 3.19.0 | builds |  |
+| tencentcloud-sdk-clb | 3.0.1214 | builds |  |
+| jsonseq | 0.2.0 | builds |  |
+| lunar_blessing | 0.1.1 | builds |  |
+| textutils | 1.4.0 | builds |  |
+| traco | 6.0.0 | builds |  |
+| stack_master | 2.19.0 | refused | `cext:rbtree` |
+| ffi-hunspell | 0.6.1 | builds |  |
+| riemann-babbler | 2.8.5 | builds |  |
+| pincers | 1.0.0 | refused | `cext:nokogiri` |
+| opentelemetry-resource-detector-container | 0.4.0 | builds |  |
+| rest-client-components | 1.5.0 | fails | `no-entry` |
+| dry-logger | 1.2.2 | builds |  |
+| rodauth-model | 0.5.0 | builds |  |
+| pexels | 0.5.0 | builds |  |
+| unobtainium | 0.13.0 | builds |  |
+| govuk_frontend_toolkit | 9.0.1 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-cloudaudit | 3.0.1209 | builds |  |
+| tencentcloud-sdk-cme | 3.0.1187 | builds |  |
+| google-cloud-text_to_speech-v1 | 1.19.1 | refused | `cext:google-protobuf` |
+| beaker-vcloud | 2.2.0 | refused | `cext:ed25519` |
+| turnip_formatter | 0.8.0 | builds |  |
+| bootstrap_tokenfield_rails | 0.12.1 | builds |  |
+| tencentcloud-sdk-ump | 3.0.1094 | builds |  |
+| oa-oauth | 0.3.2 | builds |  |
+| tsubaki | 0.2.1 | builds |  |
+| azure_mgmt_cost_management | 0.17.1 | builds |  |
+| savon-multipart | 2.1.3 | refused | `cext:nokogiri` |
+| csv-importer | 0.8.2 | builds |  |
+| ruby-anthropic | 0.4.2 | builds |  |
+| mmap2 | 2.2.9 | refused | `cext:mmap2` |
+| maskmoney-rails | 3.0.2.0 | builds |  |
+| phcscriptcdnpro |  | fails | `not-found` |
+| tencentcloud-sdk-as | 3.0.1192 | builds |  |
+| tencentcloud-sdk-gs | 3.0.1209 | builds |  |
+| formatter-number | 0.1.0 | builds |  |
+| graphql-cache | 0.6.0 | builds |  |
+| journald-native | 1.0.12 | refused | `cext:journald-native` |
+| ish_manager | 0.1.8.513 | refused | `cext:nokogiri` |
+| pickadate-rails | 3.5.6.1 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-pds | 3.0.1094 | builds |  |
+| markdown-rails | 2.2.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tbaas | 3.0.1204 | builds |  |
+| load_data_infile2 | 0.2.4 | refused | `cext:mysql2` |
+| omniauth-bitbucket | 0.0.2 | builds |  |
+| tencentcloud-sdk-dtf | 3.0.1094 | builds |  |
+| mail-notify | 2.1.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-aai | 3.0.1094 | builds |  |
+| mini_suffix | 0.3.3 | builds |  |
+| danger-checkstyle_reports | 0.1.0 | builds |  |
+| minitest-power_assert | 0.3.1 | builds |  |
+| vericite_api | 1.5.3 | builds |  |
+| tencentcloud-sdk-kms | 3.0.1177 | builds |  |
+| tencentcloud-sdk-api | 3.0.1094 | builds |  |
+| logstash-output-kusto | 0.4.0 | fails | `resolve` |
+| tencentcloud-sdk-gme | 3.0.1212 | builds |  |
+| buttercms-ruby | 2.4 | builds |  |
+| bootstrap-generators | 3.3.4 | refused | `cext:nokogiri` |
+| aptible-resource | 1.1.4 | builds |  |
+| tencentcloud-sdk-asr | 3.0.1214 | builds |  |
+| princely | 2.1.0 | builds |  |
+| tencentcloud-sdk-btoe | 3.0.1201 | builds |  |
+| awesome_rails_console | 0.4.5 | refused | `cext:nokogiri` |
+| fluent-plugin-numeric-monitor | 1.0.4 | refused | `cext:zstd-ruby` |
+| picky-statistics | 4.31.3 | builds |  |
+| logstash-output-loggly | 6.0.0 | fails | `resolve` |
+| un | 0.3.0 | builds |  |
+| backlog | 0.41.4 | refused | `port-range:json` |
+| wrong | 0.7.1 | builds |  |
+| tux | 0.3.0 | refused | `cext:bond` |
+| tencentcloud-sdk-tcss | 3.0.1210 | builds |  |
+| piet-binary | 0.2.0 | builds |  |
+| google-apis-apikeys_v2 | 0.30.0 | builds |  |
+| tencentcloud-sdk-cdn | 3.0.1191 | builds |  |
+| tencentcloud-sdk-tic | 3.0.1094 | builds |  |
+| rinruby | 2.1.0 | builds |  |
+| grizzly_ber | 1.2.0 | builds |  |
+| stanford-mods | 3.3.11 | refused | `cext:nokogiri` |
+| codeclimate | 0.96.0 | refused | `cext:rainbow` |
+| apivore | 1.6.2 | refused | `cext:nokogiri` |
+| shoulda-kept-assign-to | 1.1.0 | builds |  |
+| vagrant-vsphere | 1.15.0 | refused | `cext:nokogiri` |
+| finapps | 6.13.1 | builds |  |
+| tencentcloud-sdk-gpm | 3.0.1094 | builds |  |
+| tencentcloud-sdk-mvj | 3.0.1094 | builds |  |
+| backport_new_renderer | 1.0.0 | refused | `cext:nokogiri` |
+| fluent-plugin-td | 1.2.0 | refused | `cext:zstd-ruby` |
+| relation_to_struct | 1.11.1 | builds |  |
+| csso-rails | 1.0.0 | builds |  |
+| cuke_slicer | 3.1.0 | builds |  |
+| tencentcloud-sdk-billing | 3.0.1211 | builds |  |
+| evalhook | 0.6.0 | builds |  |
+| tencentcloud-sdk-apigateway | 3.0.1169 | builds |  |
+| tencentcloud-sdk-tms | 3.0.1180 | builds |  |
+| normalizr | 0.6.1 | builds |  |
+| tencentcloud-sdk-tav | 3.0.1094 | builds |  |
+| tencentcloud-sdk-tbp | 3.0.1201 | builds |  |
+| oci | 2.24.0 | refused | `port-range:json` |
+| warden-hmac-authentication | 0.6.4 | fails | `no-entry` |
+| gsl | 2.1.0.3 | refused | `cext:gsl` |
+| tencentcloud-sdk-memcached | 3.0.1094 | builds |  |
+| tencentcloud-sdk-ape | 3.0.1094 | builds |  |
+| tencentcloud-sdk-afc | 3.0.1094 | builds |  |
+| tencentcloud-sdk-ecdn | 3.0.1112 | builds |  |
+| ops_manager_ui_drivers | 2.42.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-dcdb | 3.0.1178 | builds |  |
+| multipart-parser | 0.1.1 | fails | `no-entry` |
+| bhf | 0.10.17 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-bizlive | 3.0.1094 | builds |  |
+| rspotify | 2.12.4 | builds |  |
+| ae_page_objects | 6.5.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tse | 3.0.1212 | builds |  |
+| dpl-pypi | 1.10.16 | fails | `no-entry` |
+| progressrus | 1.1.0 | builds |  |
+| tencentcloud-sdk-sqlserver | 3.0.1178 | builds |  |
+| tencentcloud-sdk-tbm | 3.0.1094 | builds |  |
+| firespring_dev_commands | 3.2.2 | refused | `cext:ox` |
+| slack-ruby-bot-server-events | 0.4.0 | refused | `cext:io-event` |
+| omniauth-weibo-oauth2 | 0.5.3 | builds |  |
+| formatter-date | 0.1.1 | builds |  |
+| ibm_cloud_sdk_core | 1.4.0 | refused | `cext:llhttp-ffi` |
+| devise_lastseenable | 0.0.6 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-drm | 3.0.1094 | builds |  |
+| restpack_serializer | 0.6.19 | refused | `cext:nokogiri` |
+| work_queue | 2.5.4 | builds |  |
+| refills | 0.2.0 | builds |  |
+| aws-sdk-connecthealth | 1.12.0 | builds |  |
+| tencentcloud-sdk-facefusion | 3.0.1197 | builds |  |
+| tencentcloud-sdk-eis | 3.0.1201 | builds |  |
+| journald-logger | 3.1.0 | refused | `cext:journald-native` |
+| age_calculator | 2.0.0 | builds |  |
+| icheck-rails | 1.0.2.2 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tics | 3.0.1094 | builds |  |
+| minitest-distributed | 0.3.0 | builds |  |
+| tencentcloud-sdk-tiw | 3.0.1094 | builds |  |
+| active-triples | 1.2.0 | refused | `port-range:bigdecimal` |
+| tencentcloud-sdk-market | 3.0.1094 | builds |  |
+| tencentcloud-sdk-dnspod | 3.0.1186 | builds |  |
+| tencentcloud-sdk-iai | 3.0.1195 | builds |  |
+| eyes_universal | 4.71.0 | refused | `cext:eyes_universal` |
+| tencentcloud-sdk-wav | 3.0.1094 | builds |  |
+| tencentcloud-sdk-apcas | 3.0.1065 | builds |  |
+| tencentcloud-sdk-tci | 3.0.1094 | builds |  |
+| sensu-plugins-dns | 3.0.0 | refused | `port-range:json` |
+| tencentcloud-sdk-ssa | 3.0.1094 | builds |  |
+| tencentcloud-sdk-gaap | 3.0.1203 | builds |  |
+| tencentcloud-sdk-batch | 3.0.1169 | builds |  |
+| tencentcloud-sdk-yunjing | 3.0.1094 | builds |  |
+| tencentcloud-sdk-cis | 3.0.1094 | builds |  |
+| tencentcloud-sdk-iotvideoindustry | 3.0.1094 | builds |  |
+| rack-requestid | 0.2 | builds |  |
+| tencentcloud-sdk-af | 3.0.1094 | builds |  |
+| capistrano3-nginx | 3.0.4 | builds |  |
+| tencentcloud-sdk-ba | 3.0.1094 | builds |  |
+| attributor | 8.0.1 | builds |  |
+| ruby_rncryptor | 3.0.2 | builds |  |
+| tencentcloud-sdk-msp | 3.0.1094 | builds |  |
+| tencentcloud-sdk-yunsou | 3.0.1201 | builds |  |
+| mods | 3.0.5 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-rce | 3.0.1205 | builds |  |
+| generated-assets | 2.1.5 | refused | `cext:nokogiri` |
+| formatter | 0.1.0 | builds |  |
+| smock | 0.1.268 | builds |  |
+| tencentcloud-sdk-tia | 3.0.1094 | builds |  |
+| rake_commit | 1.4.0 | builds |  |
+| tencentcloud-sdk-bmeip | 3.0.1094 | builds |  |
+| dynamic_sitemaps | 2.0.0 | builds |  |
+| tencentcloud-sdk-tcex | 3.0.1094 | builds |  |
+| logstash-filter-alter | 3.0.3 | fails | `resolve` |
+| vmc | 0.5.1 | fails | `resolve` |
+| influxdb-rails | 1.0.3 | refused | `cext:nokogiri` |
+| fastlane-plugin-forsis | 0.5.0 | refused | `cext:nokogiri` |
+| aws-activejob-sqs | 1.2.0 | builds |  |
+| tencentcloud-sdk-taf | 3.0.1094 | builds |  |
+| tencentcloud-sdk-bmvpc | 3.0.1094 | builds |  |
+| rumouse | 0.0.7 | builds |  |
+| tencentcloud-sdk-ssm | 3.0.1202 | builds |  |
+| custom_error_message | 1.1.1 | builds |  |
+| puppet-lint-alias-check | 0.1.1 | fails | `no-entry` |
+| tencentcloud-sdk-iot | 3.0.1094 | builds |  |
+| tencentcloud-sdk-sts | 3.0.1123 | builds |  |
+| tencentcloud-sdk-rum | 3.0.1211 | builds |  |
+| brdinheiro | 3.3.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-npp | 3.0.1094 | builds |  |
+| will_paginate-foundation | 6.2.1 | builds |  |
+| sunspot_test | 0.4.2 | refused | `cext:nokogiri` |
+| outrigger | 3.2.0 | refused | `cext:nokogiri` |
+| appscms-tools-theme | 5.7.3 | refused | `cext:http_parser.rb` |
+| tencentcloud-sdk-smpn | 3.0.1094 | builds |  |
+| jasmine-headless-webkit | 0.8.4 | refused | `cext:jasmine-headless-webkit` |
+| hash_symbolizer | 1.0.1 | builds |  |
+| tencentcloud-sdk-cim | 3.0.1094 | builds |  |
+| km | 1.3.0 | builds |  |
+| tencentcloud-sdk-ses | 3.0.1212 | builds |  |
+| tencentcloud-sdk-ds | 3.0.1094 | builds |  |
+| picky-live | 4.31.3 | builds |  |
+| tencentcloud-sdk-eiam | 3.0.1094 | builds |  |
+| activerecord-mysql2rgeo-adapter | 8.0.4 | refused | `cext:rgeo` |
+| lograge_activejob | 0.3.2 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-antiddos | 3.0.1203 | builds |  |
+| tencentcloud-sdk-eb | 3.0.1161 | builds |  |
+| testingbot | 1.0.0 | builds |  |
+| tencentcloud-sdk-cds | 3.0.1094 | builds |  |
+| tencentcloud-sdk-nlp | 3.0.1209 | builds |  |
+| tencentcloud-sdk-ecm | 3.0.1094 | builds |  |
+| hiera-puppet-helper | 1.0.1 | builds |  |
+| dns-zone | 0.3.1 | builds |  |
+| apipie-params | 0.0.5 | builds |  |
+| awesome_spawn | 1.7.0 | builds |  |
+| tencentcloud-sdk-tkgdq | 3.0.1094 | builds |  |
+| logstash-output-gelf | 3.1.7 | fails | `resolve` |
+| simplecov-rcov-text | 0.0.3 | builds |  |
+| sql-maker | 1.0.0 | builds |  |
+| tencentcloud-sdk-mrs | 3.0.1169 | builds |  |
+| tencentcloud-sdk-asw | 3.0.1094 | builds |  |
+| tencentcloud-sdk-iottid | 3.0.1094 | builds |  |
+| cash-addr | 0.3.0 | builds |  |
+| y-rb | 0.7.0 | refused | `cext:y-rb` |
+| annex_29 | 0.2.1 | builds |  |
+| devise_cas_authenticatable | 2.0.2 | refused | `cext:nokogiri` |
+| pdd | 0.24.2 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-ame | 3.0.1094 | builds |  |
+| blade | 0.7.3 | refused | `cext:curses` |
+| ruby | 0.1.0 | builds |  |
+| fauxhai-chef | 9.4.22 | refused | `port-range:json` |
+| hati-jsonapi-error | 0.1.0 | builds |  |
+| tencentcloud-sdk-cloudhsm | 3.0.1174 | builds |  |
+| win32-ipc | 0.7.0 | builds |  |
+| tencentcloud-sdk-bda | 3.0.1161 | builds |  |
+| tencentcloud-sdk-tcr | 3.0.1213 | builds |  |
+| tencentcloud-sdk-tiems | 3.0.1094 | builds |  |
+| tencentcloud-sdk-cws | 3.0.1094 | builds |  |
+| yabeda-anycable | 0.1.2 | refused | `cext:google-protobuf` |
+| tencentcloud-sdk-ie | 3.0.1094 | builds |  |
+| tencentcloud-sdk-ic | 3.0.1094 | builds |  |
+| minfraud | 2.10.0 | refused | `cext:llhttp` |
+| tencentcloud-sdk-dayu | 3.0.1094 | builds |  |
+| katex | 0.11.0 | builds |  |
+| mix_tape | 0.0.6 | builds |  |
+| sidekiq-throttler | 0.5.1 | builds |  |
+| tencentcloud-sdk-ms | 3.0.1169 | builds |  |
+| tencentcloud-sdk-ft | 3.0.1094 | builds |  |
+| tencentcloud-sdk-cms | 3.0.1094 | builds |  |
+| tencentcloud-sdk-cii | 3.0.1201 | builds |  |
+| zaif | 0.0.2 | builds |  |
+| liquid-md5 | 0.0.3 | builds |  |
+| tencentcloud-sdk-sslpod | 3.0.1094 | builds |  |
+| tencentcloud-sdk-habo | 3.0.1094 | builds |  |
+| tencentcloud-sdk-fmu | 3.0.1094 | builds |  |
+| graphql_devise | 2.4.0 | refused | `cext:nokogiri` |
+| relaton-iso | 2.1.6 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-bri | 3.0.1094 | builds |  |
+| cocoapods-dependencies | 1.3.0 | builds |  |
+| right_support | 2.14.2 | builds |  |
+| shacl | 0.4.3 | refused | `port-range:bigdecimal` |
+| ratom-nokogiri | 0.10.11 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-youmall | 3.0.1094 | builds |  |
+| effective_bootstrap | 1.26.4 | refused | `cext:nokogiri` |
+| virtus_convert | 0.1.0 | builds |  |
+| ably-rest | 1.2.8 | refused | `cext:msgpack` |
+| neo4j-ruby-driver | 6.2.1 | builds |  |
+| merge_hris_client | 3.2.2 | builds |  |
+| quilt_rails | 3.6.0 | refused | `cext:nokogiri` |
+| more_possessive | 1.0.2 | builds |  |
+| tencentcloud-sdk-tdid | 3.0.1094 | builds |  |
+| sidekiq-client-cli | 0.1.7 | builds |  |
+| tencentcloud-sdk-cat | 3.0.1094 | builds |  |
+| robots | 0.10.1 | builds |  |
+| liquid-tag-parser | 2.0.2 | builds |  |
+| dpl-npm | 1.10.16 | fails | `no-entry` |
+| cpee | 2.1.135 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-dc | 3.0.1152 | builds |  |
+| relaton-nist | 2.1.1 | refused | `cext:nokogiri` |
+| gitlab-default_value_for | 3.1.1 | builds |  |
+| tencentcloud-sdk-ess | 3.0.1214 | builds |  |
+| tencentcloud-sdk-advisor | 3.0.1206 | builds |  |
+| linaro-jekyll-theme | 5.1.0 | fails | `resolve` |
+| timber | 3.0.1 | refused | `cext:msgpack` |
+| wongi-engine | 0.4.4 | builds |  |
+| tencentcloud-sdk-iir | 3.0.1094 | builds |  |
+| voxpupuli-acceptance | 4.4.0 | refused | `cext:bcrypt_pbkdf` |
+| tencentcloud-sdk-ivld | 3.0.1208 | builds |  |
+| srt | 0.1.5 | builds |  |
+| mailfactory | 1.4.0 | builds |  |
+| leptris | 1.9.317.0 | refused | `cext:leptris` |
+| distance_measures | 0.0.6 | refused | `cext:distance_measures` |
+| azure-armrest | 0.15.0 | refused | `port-range:json` |
+| cocoapods-blocklist | 0.1.4 | builds |  |
+| win32screenshot | 5.0.0 | fails | `resolve` |
+| will_paginate-bootstrap-style | 0.3.0 | builds |  |
+| j2119 | 0.4.0 | builds |  |
+| soundex | 0.1.2 | builds |  |
+| asset_cloud | 2.7.3 | builds |  |
+| simp-beaker-helpers | 3.1.2 | refused | `cext:ed25519` |
+| fluent-plugin-application-insights | 0.2.4 | refused | `cext:zstd-ruby` |
+| restrainer | 1.1.5 | builds |  |
+| decorators | 2.0.6 | refused | `cext:cgi` |
+| relaton-itu | 2.1.2 | refused | `cext:nokogiri` |
+| field_serializer | 0.3.0 | builds |  |
+| rack-flags | 0.3.1 | builds |  |
+| bacon | 1.2.0 | builds |  |
+| yabeda-activejob | 0.6.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-tcm | 3.0.1094 | builds |  |
+| tencentcloud-sdk-bmlb | 3.0.1094 | builds |  |
+| tencentcloud-sdk-vms | 3.0.1094 | builds |  |
+| tencentcloud-sdk-hcm | 3.0.1169 | builds |  |
+| ibm_watson | 2.2.0 | refused | `cext:eventmachine` |
+| cf | 5.4.7 | builds |  |
+| activesalesforce | 1.1.6 | refused | `cext:nokogiri` |
+| weighted_randomizer | 0.1.2 | builds |  |
+| telegraf | 3.3.0 | builds |  |
+| placeholder-gem | 3.0.2 | refused | `cext:nokogiri` |
+| ffi-aspell | 1.1.0 | builds |  |
+| omniauth-ultraauth | 0.0.2 | builds |  |
+| redacted_struct | 2.0.0 | builds |  |
+| ronn-ng | 0.10.1 | refused | `cext:nokogiri` |
+| capistrano-secrets-yml | 1.2.1 | builds |  |
+| to_xls-rails | 1.3.1 | builds |  |
+| rack-affiliates | 0.4.0 | builds |  |
+| json_schema_tools | 0.6.6 | builds |  |
+| fastlane-plugin-run_tests_firebase_testlab | 0.3.1 | builds |  |
+| microsoft_kiota_abstractions | 0.24.1 | builds |  |
+| geordi | 12.7.0 | builds |  |
+| haml_assets | 0.3.0 | builds |  |
+| multi_fetch_fragments | 0.0.17 | builds |  |
+| fastri | 0.3.1.1 | fails | `no-entry` |
+| tencentcloud-sdk-solar | 3.0.1094 | builds |  |
+| blacklight-gallery | 6.0.0 | refused | `cext:nokogiri` |
+| elasticity | 6.0.14 | refused | `cext:nokogiri` |
+| interact | 0.5.2 | builds |  |
+| rspec-multi-mock | 0.3.1 | builds |  |
+| cloudfiles | 1.5.0.3 | builds |  |
+| dpl-gcs | 1.10.16 | fails | `no-entry` |
+| typelizer | 0.14.0 | refused | `cext:nokogiri` |
+| aws-sdk-simpledbv2 | 1.7.0 | builds |  |
+| full-name-splitter | 0.1.2 | builds |  |
+| api_cache | 0.3.0 | builds |  |
+| psenv | 0.9.1 | builds |  |
+| rubocop-select | 2.0.0 | fails | `memory` |
+| timeliness-i18n | 0.12.1 | refused | `cext:nokogiri` |
+| async-rack | 0.5.1 | builds |  |
+| validate-rb | 1.1.0 | builds |  |
+| avo-icons | 0.2.2 | refused | `cext:nokogiri` |
+| blade-qunit_adapter | 2.0.1 | builds |  |
+| hati-rails-api |  | fails | `not-found` |
+| capistrano-log_with_awesome | 0.0.2 | builds |  |
+| epitools | 0.5.137 | builds |  |
+| r2 | 0.2.8 | builds |  |
+| fun_sftp | 1.1.3 | builds |  |
+| jnunemaker-validatable | 1.8.4 | builds |  |
+| html2markdown | 0.0.3 | refused | `cext:nokogiri` |
+| calculate-all | 0.4.0 | builds |  |
+| active_record_encryption | 1.0.0 | builds |  |
+| jekyll-link-attributes | 2.0.1 | builds |  |
+| twemoji | 3.1.8 | refused | `cext:nokogiri` |
+| neography | 1.8.0 | builds |  |
+| sentient_user | 0.4.0 | refused | `cext:nokogiri` |
+| solrizer | 4.1.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-rp | 3.0.1007 | builds |  |
+| a9n | 1.8.0 | builds |  |
+| armor | 0.0.3 | builds |  |
+| active_admin-sortable_tree | 2.1.0 | refused | `cext:nokogiri` |
+| unicode-name | 1.15.1 | builds |  |
+| active_scaffold_sortable | 3.6.2 | refused | `cext:nokogiri` |
+| dekiru | 1.3.0 | refused | `cext:nokogiri` |
+| microsoft_kiota_authentication_oauth | 0.24.1 | builds |  |
+| azure-storage-file | 2.0.4 | refused | `cext:nokogiri` |
+| fastlane-plugin-update_xcodeproj | 1.0.1 | builds |  |
+| use_packs | 0.0.21 | fails | `resolve` |
+| jekyll-multiple-languages-plugin | 1.8.0 | refused | `port-range:json` |
+| google-apps-chat | 1.3.1 | refused | `cext:google-protobuf` |
+| branch_io | 0.3.0 | builds |  |
+| graphite-api | 1.1.1 | builds |  |
+| chef-helpers | 0.1.1 | builds |  |
+| usps | 0.1.3 | refused | `cext:nokogiri` |
+| dev_tasks | 1.0.44 | builds |  |
+| nice_partials | 0.10.1 | refused | `cext:nokogiri` |
+| ruby-xslt | 0.9.10 | refused | `cext:ruby-xslt` |
+| rspec_around_all | 0.2.0 | builds |  |
+| routo | 0.0.4 | builds |  |
+| runeblog | 0.3.36 | refused | `cext:curses` |
+| fake_dynamo | 0.2.5 | builds |  |
+| metronome-sdk | 3.10.0 | refused | `cext:cgi` |
+| draftjs_exporter | 0.0.7 | refused | `cext:nokogiri` |
+| deep_pluck | 1.3.2 | builds |  |
+| hamlbars | 2.1.1 | builds |  |
+| logdna | 1.5.0 | refused | `port-range:json` |
+| graphql_schema | 0.1.8 | builds |  |
+| tencentcloud-sdk-iecp | 3.0.1094 | builds |  |
+| eip_validator | 0.8.2 | builds |  |
+| freezolite | 0.7.0 | builds |  |
+| praxis | 2.0.2 | builds |  |
+| simple_states | 2.0.1 | builds |  |
+| nsa | 0.3.0 | builds |  |
+| json-logic-rb | 0.4.0 | builds |  |
+| dag | 0.0.9 | builds |  |
+| sprockets-export | 1.0.0 | builds |  |
+| capybara-webmock | 0.7.0 | refused | `cext:nokogiri` |
+| origamindee | 4.0.2 | builds |  |
+| trinidad | 1.4.6 | builds |  |
+| hiera-eyaml-kms | 0.2 | fails | `no-entry` |
+| zold | 0.32.1 | refused | `port-range:json` |
+| shikashi | 0.6.0 | refused | `cext:getsource` |
+| relaton-iec | 2.1.2 | refused | `port-range:psych` |
+| access-granted | 1.3.3 | builds |  |
+| utils | 0.99.0 | refused | `cext:nokogiri` |
+| serialport | 1.4.0 | refused | `cext:serialport` |
+| fix_microsoft_links | 0.1.6 | builds |  |
+| tqdm | 0.4.1 | builds |  |
+| dress_code | 1.2.1 | refused | `cext:redcarpet` |
+| luffa | 2.1.0 | builds |  |
+| metanorma | 2.5.5 | refused | `port-range:bigdecimal` |
+| jquery-colorbox-rails | 1.7.8 | refused | `cext:nokogiri` |
+| strings-truncation | 0.1.0 | builds |  |
+| pact_broker | 2.122.0 | refused | `cext:redcarpet` |
+| hosted_graphite | 0.2.0 | builds |  |
+| capifony | 2.8.6 | builds |  |
+| ie_iframe_cookies | 0.2.0 | builds |  |
+| brhelper | 3.3.0 | refused | `cext:nokogiri` |
+| redis-sentinel | 1.5.0 | builds |  |
+| fastlane-plugin-aws_device_farm | 0.3.26 | builds |  |
+| social_security_number | 0.1.12 | builds |  |
+| crono | 2.1.0 | refused | `cext:nokogiri` |
+| bartt-ssl_requirement | 1.4.2 | fails | `no-entry` |
+| currencyapi | 1.0.0 | builds |  |
+| brdata | 3.3.0 | refused | `cext:nokogiri` |
+| rorvswild | 1.12.2 | builds |  |
+| chef-provisioning | 2.7.6 | refused | `cext:libyajl2` |
+| rhodes | 7.6.0 | refused | `cext:rhodes` |
+| apipie-bindings | 0.7.1 | builds |  |
+| fridge | 1.0.1 | builds |  |
+| inst-jobs-autoscaling | 2.1.1 | refused | `cext:nokogiri` |
+| lhs | 26.2.0 | builds |  |
+| relaton-cli | 2.1.3 | refused | `cext:yeptris` |
+| linux_process_memory | 1.0.1 | builds |  |
+| fast_interval_tree | 0.2.2 | builds |  |
+| solid_assert | 1.1.0 | builds |  |
+| wice_grid | 7.1.4 | refused | `cext:cgi` |
+| pry-highlight | 0.1.0 | refused | `cext:nokogiri` |
+| mackerel-client | 0.12.1 | builds |  |
+| attribute-kit | 0.2.0 | builds |  |
+| clocale | 0.0.4 | refused | `cext:clocale` |
+| faye-redis | 0.2.0 | refused | `cext:eventmachine` |
+| partialruby | 0.3.0 | builds |  |
+| paseto | 0.4.1 | builds |  |
+| testcentricity_web | 4.7.4 | refused | `cext:nokogiri` |
+| literal | 1.9.0 | builds |  |
+| nanoc-core | 4.14.8 | refused | `cext:rbtree` |
+| storable | 0.10.0 | builds |  |
+| sql_spy | 0.5.0 | builds |  |
+| request_id | 0.4.3 | builds |  |
+| correios-cep | 0.8.0 | refused | `cext:ox` |
+| sweetalert-rails | 1.1.3 | refused | `cext:nokogiri` |
+| librato-logreporter | 0.2.1 | builds |  |
+| chamber | 3.2.0 | builds |  |
+| sys-admin | 1.9.0 | builds |  |
+| perftools.rb | 2.0.5 | refused | `cext:perftools.rb` |
+| marked-rails | 9.1.2.0 | builds |  |
+| win32-event | 0.6.3 | builds |  |
+| fastlane-plugin-get_product_bundle_id | 0.1.4 | builds |  |
+| scout_statsd_rack | 0.1.7 | builds |  |
+| log4r-gelf | 1.1.0 | builds |  |
+| fluent-plugin-mutate_filter | 1.0.7 | refused | `cext:zstd-ruby` |
+| tencentcloud-sdk-lp | 3.0.1007 | builds |  |
+| global_phone_dbgen | 1.0.0 | refused | `cext:nokogiri` |
+| diy | 1.1.2 | builds |  |
+| selenium_remote_control | 1.0.4 | builds |  |
+| stub_server | 0.7.0 | builds |  |
+| rails_apps_testing | 0.3.13 | builds |  |
+| negative_captcha | 0.5 | refused | `cext:nokogiri` |
+| qr-to-otp | 0.1.0 | builds |  |
+| getsource | 0.2.2 | refused | `cext:getsource` |
+| google-spreadsheet-ruby | 0.3.1 | refused | `cext:nokogiri` |
+| simpacker | 1.3.0 | refused | `cext:nokogiri` |
+| rubygems-tasks | 0.3.0 | builds |  |
+| yard-rails | 0.3.0 | builds |  |
+| klaviyo | 2.4.0 | builds |  |
+| social_stream | 2.2.2 | fails | `resolve` |
+| webpurify | 1.0.2 | builds |  |
+| tiddle | 1.9.0 | refused | `cext:nokogiri` |
+| get_pomo | 1.0.0 | builds |  |
+| vertica | 1.0.3 | builds |  |
+| tencentcloud-sdk-rkp | 3.0.1007 | builds |  |
+| rushover | 0.3.0 | builds |  |
+| netsnmp | 0.7.1 | builds |  |
+| presto-metrics | 0.6.2 | builds |  |
+| linux_admin | 4.0.0 | refused | `cext:bcrypt_pbkdf` |
+| custom_configuration | 0.0.2 | refused | `cext:nokogiri` |
+| stathat | 0.1.7 | builds |  |
+| omniauth-jira | 0.2.0 | builds |  |
+| logstash-core-plugin-api |  | fails | `not-found` |
+| gritter | 1.2.0 | builds |  |
+| paco | 0.2.3 | builds |  |
+| disco | 1.0.0 | refused | `cext:numo-narray-alt` |
+| phcpresspro |  | fails | `not-found` |
+| google-apis-playintegrity_v1 | 0.36.0 | builds |  |
+| metanorma-iso | 3.5.0 | refused | `port-range:bigdecimal` |
+| aitch | 2.1.2 | refused | `cext:cgi` |
+| danger-textlint | 2.0.4 | builds |  |
+| punkt-segmenter | 0.9.1 | builds |  |
+| mem | 0.2.0 | builds |  |
+| tencentcloud-sdk-aa | 3.0.1002 | builds |  |
+| stduritemplate | 2.0.12 | builds |  |
+| fluent-plugin-filter_empty_keys | 0.0.4 | refused | `cext:zstd-ruby` |
+| deacon | 1.0.0 | builds |  |
+| acts_as_xlsx | 1.0.6 | refused | `cext:nokogiri` |
+| ean | 0.2.0 | builds |  |
+| caracal-rails | 1.0.3 | refused | `cext:nokogiri` |
+| query_track | 0.0.16 | builds |  |
+| business_calendar | 3.1.1 | builds |  |
+| rdf-ordered-repo | 3.3.0 | refused | `port-range:bigdecimal` |
+| maven-tools | 1.2.3 | builds |  |
+| aws-mfa-secure | 0.4.5 | builds |  |
+| rubypress | 1.2.2 | builds |  |
+| net-dhcp | 1.3.3 | builds |  |
+| pact-messages | 0.2.0 | builds |  |
+| right_api_client | 1.6.4 | refused | `port-range:json` |
+| one_sky | 2.1.0 | builds |  |
+| instrumental_agent | 3.0.0 | builds |  |
+| compass-colors | 0.9.0 | builds |  |
+| firebase_id_token | 4.1.0 | refused | `port-range:json` |
+| reportportal | 0.7 | refused | `port-range:json` |
+| guard-migrate | 2.0.0 | builds |  |
+| database_cleaner-mongo | 2.0.0 | refused | `cext:bson` |
+| plutus | 0.18 | refused | `cext:nokogiri` |
+| brazilian-rails | 3.3.0 | refused | `cext:nokogiri` |
+| minitest-vcr | 1.4.0 | builds |  |
+| cddl | 0.12.14 | builds |  |
+| promethee | 5.1.3 | refused | `cext:nokogiri` |
+| fastclick-rails | 1.0.1 | builds |  |
+| active_record_bulk_insert | 1.3.1 | builds |  |
+| fossil | 0.5.50 | refused | `cext:ruby-odbc` |
+| fastlane-plugin-cordova | 3.1.2 | builds |  |
+| eyes_appium | 6.7.57 | refused | `cext:oj` |
+| win32-open3-19 | 0.0.2 | fails | `no-entry` |
+| currency-in-words | 0.1.3 | refused | `cext:nokogiri` |
+| sensu-plugins-haproxy | 2.0.3 | refused | `port-range:json` |
+| steak | 2.0.0 | refused | `cext:nokogiri` |
+| zerobounce | 0.3.1 | builds |  |
+| ddplugin | 1.0.3 | builds |  |
+| chai-jquery-rails | 2.0.1 | refused | `cext:nokogiri` |
+| labelary | 0.6.0 | builds |  |
+| petrovich | 1.1.5 | builds |  |
+| rspec-validator_spec_helper | 1.0.0 | builds |  |
+| suspenders | 20260325.0 | builds |  |
+| hypernova | 2.0.0 | builds |  |
+| sensu-plugins-puppet | 3.0.0 | refused | `port-range:json` |
+| typesense | 5.0.0 | refused | `port-range:json` |
+| rails_weak_etags | 0.0.2 | refused | `cext:nokogiri` |
+| ruby-elf | 1.0.8 | fails | `no-entry` |
+| aarch64 | 3.0.0 | builds |  |
+| multiblock | 0.2.1 | builds |  |
+| google-cloud-speech-v1 | 1.8.1 | refused | `cext:google-protobuf` |
+| bootstrap-x-editable-rails | 1.5.1.1 | refused | `cext:nokogiri` |
+| sensu-plugins-mysql | 3.2.0 | refused | `port-range:json` |
+| oa-openid | 0.3.2 | builds |  |
+| aws-sdk-devopsagent | 1.16.0 | builds |  |
+| request_interceptor | 1.0.0 | fails | `memory` |
+| ruby-cute | 0.24 | builds |  |
+| aws-sdk-uxc | 1.6.0 | builds |  |
+| i18n-js-assets | 2.2.0 | refused | `cext:nokogiri` |
+| griddler-mandrill | 1.1.4 | refused | `cext:nokogiri` |
+| voxpupuli-test | 15.0.0 | fails | `no-entry` |
+| fake_braintree | 0.8.0 | refused | `cext:nokogiri` |
+| yajl | 0.3.4 | builds |  |
+| request_exception_handler | 0.5.0 | refused | `cext:nokogiri` |
+| relaton-iso-bib | 1.20.0 | refused | `cext:nokogiri` |
+| ruby-saml-mod | 0.3.8 | refused | `cext:nokogiri` |
+| ParseTree | 3.0.9 | builds |  |
+| copy_tuner_client | 2.5.0 | refused | `cext:nokogiri` |
+| tiny_segmenter | 0.0.6 | builds |  |
+| newrelic-rake | 1.4.1 | builds |  |
+| stigg-api-client | 6.21.1 | builds |  |
+| sequel_polymorphic | 0.5.0 | fails | `no-entry` |
+| interface | 1.2.0 | builds |  |
+| has_barcode | 0.2.3 | builds |  |
+| postrank-uri | 1.1 | refused | `cext:nokogiri` |
+| knockoutjs-rails | 3.5.1.1 | refused | `cext:nokogiri` |
+| figjam | 3.0.1 | builds |  |
+| sorbet-runtime-stub | 0.2.0 | builds |  |
+| async-rspec | 1.17.1 | builds |  |
+| js_assets | 0.1.2 | refused | `cext:nokogiri` |
+| activegraph | 12.0.0 | builds |  |
+| pp_sql | 2.3.0 | builds |  |
+| nido | 1.0.0 | builds |  |
+| valid_url | 0.0.4 | refused | `cext:nokogiri` |
+| litmus-instant | 0.3.1 | builds |  |
+| graticule | 2.7.2 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-lowcode | 3.0.1189 | builds |  |
+| itaiji | 1.0.0 | builds |  |
+| uservoice-ruby | 0.0.11 | builds |  |
+| vimeo | 1.5.4 | builds |  |
+| datamapper | 1.2.0 | refused | `port-range:json` |
+| logstash-output-influxdb | 5.0.6 | fails | `resolve` |
+| fluent-plugin-dogstatsd | 0.0.6 | refused | `cext:zstd-ruby` |
+| appointments | 1.3.3 | fails | `no-entry` |
+| flexible_polyline | 0.1.0 | builds |  |
+| jquery-ui-themes | 0.0.12 | builds |  |
+| contentful_middleman | 4.2.0 | refused | `cext:sassc` |
+| soft_deletion | 1.14.0 | builds |  |
+| tlb-cucumber | 0.3.3 | fails | `no-entry` |
+| logstash-filter-elastic_integration |  | fails | `not-found` |
+| searchlight | 4.1.0 | builds |  |
+| bare_coffee | 0.1.4 | builds |  |
+| iodine | 0.7.59 | refused | `cext:iodine` |
+| conjur-cli | 6.2.6 | builds |  |
+| rfc-822 | 0.4.1 | builds |  |
+| aws-sdk-securityagent | 1.20.0 | builds |  |
+| rack-unreloader | 2.1.0 | builds |  |
+| tlb-core | 0.3.3 | builds |  |
+| classnames-rails | 2.1.5 | builds |  |
+| mm_eager_includer | 0.0.5 | fails | `no-entry` |
+| jquery-form-rails | 1.0.1 | refused | `cext:nokogiri` |
+| wepay | 0.4.0 | builds |  |
+| merge_ruby_client | 2.1.0 | refused | `cext:io-event` |
+| decidim-core | 0.32.1 | refused | `cext:nokogiri` |
+| browse-everything | 1.6.0 | refused | `cext:nokogiri` |
+| tddium | 1.25.5 | builds |  |
+| kaltura-client | 19.3.0 | builds |  |
+| slack_mrkdwn | 2.2.1 | refused | `cext:redcarpet` |
+| ldp | 1.2.1 | refused | `port-range:bigdecimal` |
+| logstash-input-elastic_serverless_forwarder |  | fails | `not-found` |
+| msgr | 1.7.0 | refused | `cext:rbtree` |
+| relaton-gb | 2.1.0 | refused | `cext:nokogiri` |
+| naether | 0.15.11 | refused | `cext:naether` |
+| literate_randomizer | 0.4.0 | builds |  |
+| cow_proxy | 0.3.3 | builds |  |
+| utopia | 3.0.7 | refused | `port-range:json` |
+| sprockets-media_query_combiner | 1.0.1 | builds |  |
+| bullet_train-super_scaffolding | 1.45.1 | refused | `cext:nokogiri` |
+| jquery-countdown-rails | 2.0.2 | builds |  |
+| simple_captcha2 | 0.5.0 | refused | `cext:nokogiri` |
+| soda-ruby | 1.0.1 | fails | `no-entry` |
+| jade-rails | 1.11.0.1 | builds |  |
+| magic_encoding | 0.0.2 | builds |  |
+| danger-periphery | 0.5.0 | fails | `no-entry` |
+| data_miner | 3.0.0 | refused | `cext:nokogiri` |
+| rspec-hiera-puppet | 1.0.0 | builds |  |
+| dor-services | 9.6.2 | refused | `cext:nokogiri` |
+| time_zone_ext | 0.0.3 | builds |  |
+| twilio | 3.1.1 | builds |  |
+| activesupport-current_attributes | 0.0.2 | builds |  |
+| zendesk_apps_tools | 3.9.5 | refused | `cext:eventmachine` |
+| gtk3 | 4.3.9 | refused | `cext:gtk3` |
+| coderunner | 1.0.14 | refused | `cext:coderunner` |
+| logstash-output-datadog | 3.0.6 | fails | `resolve` |
+| chef-encrypted-attributes | 0.9.0 | builds |  |
+| granite | 1.1.0 | refused | `cext:nokogiri` |
+| flipper-cloud | 1.4.2 | builds |  |
+| rails_stats | 2.2.0 | builds |  |
+| rails_pwnerer | 0.7.12 | builds |  |
+| google-cloud-datastore-v1 | 1.8.1 | refused | `cext:google-protobuf` |
+| embulk-output-mysql | 0.8.7 | builds |  |
+| mbsy | 2.1.0 | refused | `port-range:json` |
+| constant_table_saver | 6.1.0 | builds |  |
+| daddy | 0.12.7 | refused | `port-range:json` |
+| aws-sdk-sustainability | 1.7.0 | builds |  |
+| yaji | 0.3.6 | refused | `cext:yaji` |
+| simplecov_html_inline | 0.1.0 | builds |  |
+| wraith | 4.2.4 | refused | `cext:nokogiri` |
+| wtf_lang | 0.4.0 | builds |  |
+| cuba | 4.0.3 | builds |  |
+| minidusen | 1.0.1 | builds |  |
+| ezcater_matchers | 0.5.0 | builds |  |
+| dependor | 1.0.1 | builds |  |
+| puppet-lint-package_ensure-check | 0.2.0 | fails | `no-entry` |
+| simp-rake-helpers | 7.0.0 | refused | `cext:nokogiri` |
+| fear | 3.1.0 | builds |  |
+| middleman-compass | 4.0.1 | refused | `cext:sassc` |
+| asciidoctor-jenkins-extensions | 0.10.0 | builds |  |
+| awful | 0.0.185 | builds |  |
+| gstreamer | 4.3.9 | refused | `cext:gstreamer` |
+| openseadragon | 1.0.17 | refused | `cext:nokogiri` |
+| madmin | 3.3.0 | refused | `cext:nokogiri` |
+| ohm-expire | 0.1.3.2 | refused | `cext:hiredis` |
+| ru_propisju | 2.6.0 | builds |  |
+| jekyll-compose | 0.12.0 | refused | `port-range:json` |
+| job_notifier | 3.0.0 | refused | `cext:nokogiri` |
+| guard-hologram | 1.0.0 | refused | `cext:redcarpet` |
+| useragents | 0.1.6 | refused | `cext:nokogiri` |
+| zendesk_apps_support | 4.52.0 | refused | `cext:sassc` |
+| multi_logger | 0.2.0 | refused | `cext:nokogiri` |
+| spring-commands-testunit | 1.0.1 | builds |  |
+| beanstalk-client | 1.1.1 | builds |  |
+| promise_pool | 0.9.2 | builds |  |
+| ltree_hierarchy | 2.0.0 | refused | `cext:pg` |
+| fastlane-plugin-flutter_version | 1.1.15 | builds |  |
+| cocoapods-pod-linkage | 0.0.1 | fails | `memory` |
+| om | 3.2.0 | refused | `cext:nokogiri` |
+| pkcs7-cryptographer | 1.1.1 | builds |  |
+| predicated | 0.2.6 | builds |  |
+| jbuilder_cache_multi | 0.1.0 | refused | `cext:nokogiri` |
+| no_cache_control | 1.0.0 | builds |  |
+| puppetdb-ruby | 1.2.0 | builds |  |
+| onering-client | 0.4.3 | builds |  |
+| every_day_irb | 2.3.0 | builds |  |
+| sidekiq-instrument | 0.9.2 | builds |  |
+| http-exceptions | 0.1.6 | builds |  |
+| pdf417 | 1.0.0 | refused | `cext:pdf417` |
+| methodfinder | 2.3.0 | builds |  |
+| dynomite | 2.0.3 | builds |  |
+| comfy_bootstrap_form | 4.0.9 | refused | `cext:nokogiri` |
+| autosize-rails | 1.18.17 | refused | `cext:nokogiri` |
+| commontator | 7.0.1 | refused | `cext:nokogiri` |
+| tzu | 1.1.0 | builds |  |
+| iruby | 0.8.3 | builds |  |
+| relaton-ogc | 2.1.1 | refused | `port-range:psych` |
+| marc-fastxmlwriter | 1.1.0 | refused | `cext:nokogiri` |
+| logstash-integration-logstash |  | fails | `not-found` |
+| ios-devices | 0.3.5 | builds |  |
+| naturalsort | 1.3.0 | builds |  |
+| puma-newrelic | 0.1.6 | refused | `cext:nio4r` |
+| carrierwave-magic | 0.0.4 | refused | `cext:ruby-filemagic` |
+| io-nonblock | 0.3.2 | refused | `cext:io-nonblock` |
+| stbaldricks | 12.15.0 | builds |  |
+| after_commit_exception_notification | 0.2.0 | builds |  |
+| bert | 1.1.6 | refused | `cext:bert` |
+| fastlane-plugin-settings_bundle | 1.3.2 | builds |  |
+| speedshop-cloudwatch | 0.2.2 | builds |  |
+| touchpunch-rails | 1.0.3 | refused | `cext:nokogiri` |
+| trestle-search | 0.5.1 | refused | `cext:nokogiri` |
+| slack_hook | 0.1.2 | builds |  |
+| resque-fanout | 0.6 | builds |  |
+| arabic-letter-connector | 0.1.1 | builds |  |
+| wkhtmltopdf-installer | 0.12.6.3 | refused | `cext:wkhtmltopdf-installer` |
+| rest-firebase | 1.1.0 | builds |  |
+| sprig | 0.3.1 | builds |  |
+| gem-path | 1.0.0 | builds |  |
+| rack-maintenance | 3.0.0 | builds |  |
+| sassy-buttons | 0.2.6 | builds |  |
+| jsonschema | 2.0.2 | builds |  |
+| sportradar-api | 0.20.2 | builds |  |
+| property_sets | 3.14.0 | builds |  |
+| upc | 1.1.1 | builds |  |
+| dato | 0.8.3 | builds |  |
+| square_connect | 2.20190724.1.334 | refused | `port-range:json` |
+| ip_ranger | 0.0.2 | builds |  |
+| uploadcare-api_struct | 1.2.0 | refused | `cext:llhttp-ffi` |
+| clean_pagination | 1.0.0 | builds |  |
+| should_not | 1.1.0 | builds |  |
+| rubocop-rails-accessibility | 1.0.1 | fails | `memory` |
+| rspec-block_is_expected | 1.0.6 | builds |  |
+| katello | 5.0.1 | fails | `resolve` |
+| fastlane-plugin-git_tags | 0.1.1 | builds |  |
+| decidim | 0.32.1 | fails | `resolve` |
+| nayutaya-msgpack-pure | 0.0.2 | builds |  |
+| administrate-field-image | 1.2.0 | refused | `cext:nokogiri` |
+| sinatra-advanced-routes | 0.5.3 | builds |  |
+| guard-foodcritic | 3.0.0 | refused | `cext:nokogiri` |
+| templater | 1.0.0 | builds |  |
+| fluent-plugin-dstat | 1.0.0 | refused | `cext:zstd-ruby` |
+| fluent-plugin-http | 1.1.0 | refused | `cext:zstd-ruby` |
+| sass-css-importer |  | fails | `not-found` |
+| omniauth-canvas | 2.0.0 | builds |  |
+| gotime-cassandra_object | 4.12.2 | refused | `cext:thrift` |
+| permalink_fu | 1.0.0 | builds |  |
+| gs2crmod | 0.12.17 | refused | `cext:gs2crmod` |
+| notification_center | 0.3.2 | builds |  |
+| google-apis-analyticsdata_v1beta | 0.42.0 | builds |  |
+| active-model-adapter-source | 2.1.1 | fails | `no-entry` |
+| simple_xlsx_writer | 0.5.3 | refused | `cext:fast_xs` |
+| ean13 | 2.0.2 | builds |  |
+| bb-ruby | 1.4.0 | builds |  |
+| fastlane-plugin-appmetrica | 0.3.0 | builds |  |
+| embulk-input-postgresql | 0.10.1 | builds |  |
+| active_admin_paranoia | 1.1.0 | refused | `cext:nokogiri` |
+| sendwithus_ruby_action_mailer | 1.0.0 | refused | `cext:nokogiri` |
+| maskedinput-rails | 1.4.1.0 | builds |  |
+| cheetah | 1.0.0 | builds |  |
+| stellar-base | 0.32.0 | refused | `cext:digest-crc` |
+| soundcloud | 0.3.7 | refused | `cext:nokogiri` |
+| mobylette | 3.5 | refused | `cext:nokogiri` |
+| cancancan-mongoid | 2.0.0 | builds |  |
+| slow_enumerator_tools | 1.1.0 | builds |  |
+| escpos | 0.0.10 | builds |  |
+| rest-builder | 0.9.2 | builds |  |
+| ddmetrics | 1.1.0 | builds |  |
+| flydata | 0.8.10.2 | fails | `resolve` |
+| blake3-rb | 1.8.3.0 | refused | `cext:blake3-rb` |
+| quality | 40.0.1 | refused | `port-range:json` |
+| gravatarify | 3.1.1 | builds |  |
+| nanoc-cli | 4.14.8 | refused | `cext:rbtree` |
+| tencentcloud-sdk-smh | 3.0.1126 | builds |  |
+| flutter_analyze_parser | 0.1.2 | builds |  |
+| taglib-ruby | 2.0.0 | refused | `cext:taglib-ruby` |
+| singed | 0.4.0 | refused | `cext:stackprof` |
+| tcr | 0.4.1 | builds |  |
+| sus | 0.38.0 | builds |  |
+| flagsmith | 4.3.0 | builds |  |
+| blather | 2.0.0 | refused | `cext:eventmachine` |
+| guard-cane | 0.2.1 | builds |  |
+| logstash-output-mongodb | 3.1.8 | fails | `resolve` |
+| omniauth-microsoft_v2_auth | 0.1.1 | builds |  |
+| knife-lastrun | 0.0.8 | builds |  |
+| bearcat | 1.7.1 | refused | `cext:nokogiri` |
+| search_flip | 3.9.1 | refused | `cext:llhttp` |
+| aws-sdk-s3files | 1.7.0 | builds |  |
+| certificate_authority | 1.1.0 | builds |  |
+| kitchen-terraform | 7.0.2 | refused | `port-range:bigdecimal` |
+| benchmark-ipsa | 0.2.0 | builds |  |
+| rspec_n | 2.1.0 | builds |  |
+| mickey_goldmill | 0.1.41 | refused | `cext:nokogiri` |
+| oddb2xml | 3.0.36 | refused | `cext:nokogiri` |
+| nickel | 0.1.6 | builds |  |
+| tencentcloud-sdk-cfg | 3.0.1205 | builds |  |
+| rutabaga | 3.2.1 | builds |  |
+| sparkpost_rails | 1.5.5 | refused | `cext:nokogiri` |
+| neo4j-rake_tasks | 0.7.19 | builds |  |
+| verhoeff | 2.1.0 | builds |  |
+| warden-oauth2 | 0.0.1 | builds |  |
+| jsonapi_spec_helpers | 0.4.10 | builds |  |
+| mediainfo | 1.5.0 | builds |  |
+| ruby18_source_location | 0.2 | refused | `cext:ruby18_source_location` |
+| gala | 0.5.0 | refused | `port-range:openssl` |
+| slimi | 0.9.0 | builds |  |
+| zip_folder | 0.1.0 | builds |  |
+| cloudsponge | 0.10.0 | builds |  |
+| gdk3 | 4.3.9 | refused | `cext:gdk3` |
+| ams_lazy_relationships | 0.4.0 | refused | `cext:nokogiri` |
+| capistrano-scm-none | 0.1.1 | builds |  |
+| spyke | 7.2.2 | builds |  |
+| psenv-rails | 0.9.1 | refused | `cext:nokogiri` |
+| fitbit_api | 1.1.0 | builds |  |
+| activerecord-postgres-json | 0.2.3 | refused | `port-range:json` |
+| isoics | 0.1.13 | builds |  |
+| pdfjs_rails | 0.0.1 | builds |  |
+| muck-engine | 3.5.0 | builds |  |
+| s3_uploader | 0.2.3 | refused | `cext:nokogiri` |
+| rails_cursor_pagination | 0.4.0 | builds |  |
+| seo_meta | 3.1.0 | refused | `cext:nokogiri` |
+| rescue_unique_constraint | 1.10.0 | builds |  |
+| time_bandits | 0.15.2 | builds |  |
+| docx_replace | 1.2.1 | builds |  |
+| redisk | 0.2.2 | builds |  |
+| azure_mgmt_commerce | 0.17.2 | builds |  |
+| rack-client | 0.4.2 | builds |  |
+| tencentcloud-sdk-tdcpg | 3.0.1094 | builds |  |
+| sane_patch | 1.0.0 | builds |  |
+| capistrano_rsync_with_remote_cache | 2.4.0 | fails | `no-entry` |
+| noid | 0.9.0 | builds |  |
+| spider | 0.8.0 | builds |  |
+| rspec-stubbed_env | 1.0.16 | builds |  |
+| http_signatures | 1.1.0 | builds |  |
+| blitline | 2.9.0 | builds |  |
+| anchored | 1.1.0 | builds |  |
+| capistrano_multiconfig_parallel | 2.8.1 | refused | `cext:websocket-driver` |
+| rspec-webservice_matchers | 4.13 | builds |  |
+| bashcov | 4.0.0 | builds |  |
+| mina-multistage | 1.0.4 | builds |  |
+| sham | 2.0.0 | builds |  |
+| bullet_train-themes | 1.45.1 | refused | `cext:nokogiri` |
+| trinidad_jars | 1.5.1 | fails | `no-entry` |
+| pronto-json | 0.2.0 | refused | `cext:rugged` |
+| rails_heroicon | 2.3.0 | refused | `cext:nokogiri` |
+| tzu_mock | 1.4.0 | refused | `cext:debug_inspector` |
+| origen | 0.64.1 | refused | `cext:nokogiri` |
+| relaton-calconnect | 2.1.3 | refused | `cext:nokogiri` |
+| profanity-filter | 1.0 | builds |  |
+| tencentcloud-sdk-cr | 3.0.931 | builds |  |
+| rack-accept-media-types | 0.9 | fails | `no-entry` |
+| assignable_values | 2.0.0 | builds |  |
+| logstash-integration-snmp |  | fails | `not-found` |
+| saharspec | 0.0.10 | builds |  |
+| rspec-logsplit | 0.1.3 | fails | `no-entry` |
+| watir-screenshot-stitch | 0.8.0 | refused | `cext:debug_inspector` |
+| cbor-diag | 0.11.8 | fails | `no-entry` |
+| memosa | 0.8.3 | builds |  |
+| flowcommerce | 0.3.9 | builds |  |
+| wkhtmltopdf | 0.1.2 | fails | `no-entry` |
+| rack-google-analytics | 1.2.0 | refused | `cext:nokogiri` |
+| ruby-lint | 2.3.1 | builds |  |
+| schema_plus_views | 1.0.1 | builds |  |
+| opengraph_parser | 0.2.5 | refused | `cext:nokogiri` |
+| google_timezone | 0.0.6 | builds |  |
+| attr_bitwise | 0.0.4 | builds |  |
+| community_cookbook_releaser | 1.2.0 | fails | `no-entry` |
+| jwt_signed_request | 4.1.0 | builds |  |
+| hometown | 0.2.5 | builds |  |
+| dmarc | 0.6.0 | builds |  |
+| rspec-autotest | 1.0.2 | builds |  |
+| google-cloud-text_to_speech-v1beta1 | 0.31.1 | refused | `cext:google-protobuf` |
+| jekyll-sanity | 1.6.0 | refused | `port-range:json` |
+| bullet_train-roles | 1.45.1 | builds |  |
+| rack-cas | 0.16.1 | refused | `cext:nokogiri` |
+| pidfile | 0.3.0 | builds |  |
+| rserve-simpler | 0.0.6 | builds |  |
+| spidr | 0.7.2 | refused | `cext:nokogiri` |
+| home_run | 1.0.9 | refused | `cext:home_run` |
+| danger-flutter_lint | 1.0.1 | builds |  |
+| vagrant-aws | 0.7.2 | refused | `port-range:json` |
+| letter_avatar | 0.3.9 | builds |  |
+| vagrant-scp | 0.5.9 | builds |  |
+| blade-sauce_labs_plugin | 0.7.3 | builds |  |
+| shorturl | 1.0.0 | builds |  |
+| u-attributes | 3.1.0 | builds |  |
+| chef-handler-updated-resources | 0.3.0 | fails | `no-entry` |
+| riddl | 1.0.17 | refused | `cext:nokogiri` |
+| sensu-cli | 0.11.0 | refused | `cext:rainbow` |
+| jekyll-tagging | 1.1.0 | builds |  |
+| dry-validation-matchers | 1.2.2 | builds |  |
+| cukeforker | 2.1.1 | builds |  |
+| covered | 0.30.0 | refused | `cext:msgpack` |
+| string_utf8 | 0.1.1 | builds |  |
+| active_admin_scoped_collection_actions | 2.1.0 | refused | `cext:nokogiri` |
+| system_timer | 1.2.4 | refused | `cext:system_timer` |
+| hanami-model | 1.3.3 | refused | `port-range:bigdecimal` |
+| hydra-editor | 7.1.0 | refused | `port-range:bigdecimal` |
+| sensu-plugins-consul | 3.0.0 | refused | `port-range:json` |
+| packnga | 1.0.4 | builds |  |
+| yt-support | 1.0.0 | builds |  |
+| wasmtime | 48.0.1 | refused | `cext:wasmtime` |
+| authentication-zero | 4.0.3 | builds |  |
+| acl9 | 3.2.1 | refused | `cext:nokogiri` |
+| worker_scoreboard | 0.0.5 | builds |  |
+| paginate-responder | 2.2.0 | refused | `cext:nokogiri` |
+| u-case | 5.7.1 | builds |  |
+| flatpickr_rails | 1.1.0 | refused | `cext:nokogiri` |
+| active_storage_svg_sanitizer | 0.1.0 | refused | `cext:nokogiri` |
+| kount_complete | 3.0.3 | builds |  |
+| rom-factory | 0.14.0 | builds |  |
+| kind | 6.0.1 | builds |  |
+| test-unit-activesupport | 1.1.2 | fails | `no-entry` |
+| vandal_ui | 0.4.5 | builds |  |
+| grape-jwt-authentication | 3.17.0 | refused | `cext:llhttp` |
+| nethttp-instrumentation | 0.1.3 | fails | `no-entry` |
+| activerecord-delay_touching | 1.1.0 | builds |  |
+| narou | 3.9.1 | refused | `cext:sassc` |
+| gb-agencies | 0.0.7 | builds |  |
+| vinbot | 3.0.0 | refused | `cext:sqlite3` |
+| git-smart | 0.1.12 | builds |  |
+| mods_display | 1.7.0 | refused | `cext:nokogiri` |
+| hydra-derivatives | 4.1.0 | refused | `port-range:bigdecimal` |
+| mail_extract | 0.1.4 | builds |  |
+| adsf | 1.5.3 | builds |  |
+| guard-consistency_fail | 0.1.1 | builds |  |
+| mailerlite | 1.17.0 | builds |  |
+| aws-sdk-marketplacediscovery | 1.10.0 | builds |  |
+| megam_api | 1.52.6 | refused | `cext:libyajl2` |
+| sysinfo | 0.10.0 | builds |  |
+| jekyll-target-blank | 2.0.2 | refused | `port-range:json` |
+| wukong | 4.0.0 | refused | `cext:eventmachine` |
+| aquarium | 0.7.3 | builds |  |
+| opentelemetry-processor-baggage | 0.6.0 | builds |  |
+| turbo-sprockets-rails5 | 1.0.0 | refused | `cext:nokogiri` |
+| enumerated_type | 0.5.0 | builds |  |
+| jcrop-rails-v2 | 0.9.12.3 | builds |  |
+| rails_cookie_overflow | 1.0.1 | refused | `cext:nokogiri` |
+| fastlane-plugin-instabug_official | 0.3.5 | builds |  |
+| rspec-bash | 0.3.0 | builds |  |
+| fastlane-plugin-property_file_read | 1.0.1 | builds |  |
+| rack-server_status | 0.0.4 | builds |  |
+| smart_listing | 1.2.3 | refused | `cext:nokogiri` |
+| bullet_train-fields | 1.45.1 | refused | `cext:nokogiri` |
+| heroku_san | 4.4.0 | builds |  |
+| earth | 1.2.1 | refused | `cext:nokogiri` |
+| ld-celluloid-eventsource | 0.11.0 | refused | `cext:nio4r` |
+| kojo | 0.4.4 | builds |  |
+| phoney | 0.2.1 | builds |  |
+| simplegeo | 0.5.3 | builds |  |
+| dor-rights-auth | 1.8.0 | refused | `cext:nokogiri` |
+| google-cloud-speech-v1p1beta1 | 0.30.1 | refused | `cext:google-protobuf` |
+| netsoft-danger | 0.8.0 | fails | `no-entry` |
+| html2doc | 1.12.0 | refused | `cext:nokogiri` |
+| n1_loader | 3.0.0 | builds |  |
+| grape-order | 0.1.2 | builds |  |
+| active_admin_importable | 1.1.2 | builds |  |
+| refinerycms-core | 4.1.0 | refused | `cext:nokogiri` |
+| rspec-files | 1.1.3 | builds |  |
+| progress_job | 0.0.4 | builds |  |
+| rack-respond_to | 0.9.8 | builds |  |
+| days360 | 0.3.2 | builds |  |
+| new_google_recaptcha | 1.4.0 | refused | `cext:nokogiri` |
+| athens | 0.4.2 | builds |  |
+| sql_query | 0.7.4 | builds |  |
+| skim | 0.11.0 | builds |  |
+| slick_rails | 1.5.9 | refused | `cext:nokogiri` |
+| kibana_url | 1.0.1 | builds |  |
+| qa | 5.17.0 | refused | `port-range:bigdecimal` |
+| authlete | 1.40.0 | builds |  |
+| pager_api | 0.3.2 | builds |  |
+| ae_declarative_authorization | 2.5.0 | refused | `cext:nokogiri` |
+| google-cloud-web_risk-v1 | 1.8.1 | refused | `cext:google-protobuf` |
+| conifer | 2.0.0 | builds |  |
+| prawn-print | 0.0.4 | refused | `port-range:bigdecimal` |
+| active-campaign-rails | 0.2.3 | builds |  |
+| cnccs | 0.1.6 | builds |  |
+| sensu-plugins-postfix | 2.0.0 | refused | `port-range:json` |
+| leftovers | 0.12.2 | builds |  |
+| bullet_train-themes-light | 1.45.1 | refused | `cext:nokogiri` |
+| lsof | 0.3.0 | builds |  |
+| autotest-fsevent | 0.3.2 | refused | `cext:autotest-fsevent` |
+| capistrano-bundle_rsync | 0.7.0 | builds |  |
+| kramdown-rfc2629 | 1.7.43 | builds |  |
+| tencentcloud-sdk-bsca | 3.0.1169 | builds |  |
+| gitlab-gkg-proto | 0.99.0 | refused | `cext:google-protobuf` |
+| em-eventsource | 0.3.2 | refused | `cext:eventmachine` |
+| uk_account_validator | 0.0.11 | builds |  |
+| omniauth-intercom | 0.1.10 | builds |  |
+| guard-process | 1.2.1 | builds |  |
+| sensu-plugins-mailer | 4.0.0 | refused | `port-range:json` |
+| librarian-chef | 0.0.4 | refused | `cext:unf_ext` |
+| oas_rails | 1.4.0 | builds |  |
+| schema_plus_enums | 1.0.0 | builds |  |
+| vin_bank | 3.1.0 | builds |  |
+| youtube_it | 2.4.2 | refused | `cext:nokogiri` |
+| fastlane-plugin-applivery | 2.5.0 | builds |  |
+| ruby2js | 5.1.2 | builds |  |
+| rack-statsd | 0.2.1 | builds |  |
+| rspec-memory | 1.0.4 | builds |  |
+| bullet_train-api | 1.45.1 | refused | `cext:nokogiri` |
+| schema_plus_compatibility | 1.0.1 | builds |  |
+| http-dump | 0.2.0 | builds |  |
+| filigree | 0.4.1 | builds |  |
+| confidence-check | 1.0.1 | builds |  |
+| representors | 0.0.5 | builds |  |
+| shortcode | 2.0.0 | builds |  |
+| incrdecr_cached_counts | 1.0.3 | refused | `cext:nokogiri` |
+| vnctools | 0.1.1 | builds |  |
+| pngdefry | 0.1.3 | refused | `cext:pngdefry` |
+| dejunk | 0.6.1 | builds |  |
+| boolean | 1.0.1 | builds |  |
+| pheme | 6.1.0 | refused | `cext:smarter_csv` |
+| spring-commands-sidekiq | 1.0.0 | builds |  |
+| marty | 14.3.0 | refused | `cext:websocket-driver` |
+| build-environment | 1.13.1 | builds |  |
+| rake_tasks | 5.1.1 | builds |  |
+| tencentcloud-sdk-cdc | 3.0.1208 | builds |  |
+| test-helpers | 2.0.5 | fails | `no-entry` |
+| hsluv | 1.0.2 | builds |  |
+| refinerycms-pages | 4.1.0 | refused | `cext:nokogiri` |
+| gaudi | 0.8.0 | builds |  |
+| stove | 7.1.6 | builds |  |
+| sidekiq-symbols | 0.2.0 | builds |  |
+| dor-services-client | 15.67.0 | refused | `cext:nokogiri` |
+| jdbc-derby | 10.12.1.1 | builds |  |
+| c21e | 2.0.0 | fails | `no-entry` |
+| horza | 1.0.3 | builds |  |
+| fastlane-plugin-android_change_package_identifier | 0.1.0 | builds |  |
+| date_range_formatter | 0.1.2 | builds |  |
+| active_record_replica | 3.0.0 | builds |  |
+| mini_fb | 2.4.0 | builds |  |
+| ory-client | 1.22.80 | builds |  |
+| cropper-rails | 2.3.2.1 | refused | `cext:nokogiri` |
+| aws-sdk-interconnect | 1.6.0 | builds |  |
+| git-revision | 1.0.0 | builds |  |
+| sensu-plugins-slack | 4.1.0 | refused | `port-range:json` |
+| tanker-core |  | fails | `not-found` |
+| apollo-tracing | 1.6.0 | builds |  |
+| puppet-lint-template_file_extension-check | 0.1.3 | fails | `no-entry` |
+| bosh_agent | 1.2652.0 | refused | `cext:eventmachine` |
+| xlsx_writer | 0.4.4 | refused | `cext:fast_xs` |
+| action_subscriber | 5.4.0 | refused | `cext:rbtree` |
+| metanorma-cli | 1.17.0 | refused | `cext:nokogiri` |
+| refinerycms-i18n | 5.1.0 | refused | `cext:nokogiri` |
+| bullet_train-has_uuid | 1.45.1 | refused | `cext:nokogiri` |
+| dashing | 1.3.7 | refused | `cext:eventmachine` |
+| vagrant-disksize | 0.1.3 | builds |  |
+| sidekiq-gelf | 1.3.0 | builds |  |
+| refinerycms-images | 4.1.0 | refused | `cext:nokogiri` |
+| outbound | 1.2.0 | builds |  |
+| jdoc | 0.5.0 | refused | `cext:redcarpet` |
+| mls | 1.9.0 | refused | `cext:rgeo` |
+| embulk-input-s3 | 0.3.5 | builds |  |
+| ae_skip_asset_pipeline | 1.5.0 | builds |  |
+| redis-reconnect_with_readonly | 1.0.0 | builds |  |
+| rollups | 0.6.0 | builds |  |
+| swagger-diff | 2.0.0 | builds |  |
+| middleman-gh-pages | 0.4.1 | builds |  |
+| doc_raptor | 0.5.0 | builds |  |
+| bullet_train-scope_validator | 1.45.1 | refused | `cext:nokogiri` |
+| readapt | 2.0.0 | refused | `cext:readapt` |
+| xmlhasher | 1.0.7 | refused | `cext:escape_utils` |
+| corn_starch | 1.9.59 | builds |  |
+| wkhtmltopdf-binary-edge-alpine | 0.12.6.3 | builds |  |
+| informed | 1.1.1 | builds |  |
+| redactor-rails | 0.5.0 | refused | `cext:nokogiri` |
+| rubocop-gradual | 0.4.0 | fails | `memory` |
+| birthday | 0.3.1 | builds |  |
+| idempotent-request | 0.2.1 | refused | `cext:oj` |
+| aead | 1.8.1 | refused | `cext:aead` |
+| yard-sitemap | 1.0.1 | builds |  |
+| rb-libsvm | 1.4.4 | refused | `cext:rb-libsvm` |
+| swaggard | 4.2.0 | refused | `cext:nokogiri` |
+| activerecord-mysql2-adapter | 0.0.3 | refused | `cext:mysql2` |
+| faktory_worker_ruby | 2.2.0 | builds |  |
+| ruby-ulid | 1.0.0 | builds |  |
+| pocketsphinx-ruby | 0.4.0 | builds |  |
+| json2-rails | 1.15.05.18 | builds |  |
+| memory | 0.12.0 | refused | `cext:msgpack` |
+| ruumba | 0.1.17 | builds |  |
+| trusty-cms | 8.1.0 | refused | `cext:nokogiri` |
+| tencentcloud-sdk-icr | 3.0.1094 | builds |  |
+| postgresql | 1.0.0 | refused | `cext:pg` |
+| embulk-output-redshift | 0.8.7 | builds |  |
+| disqus_api | 0.0.8 | builds |  |
+| as_deprecation_tracker | 1.7.0 | refused | `cext:nokogiri` |
+| profile-viewer | 0.0.7 | fails | `no-entry` |
+| props | 1.2.0 | builds |  |
+| imperium | 0.5.2 | builds |  |
+| fluent-plugin-json-transform | 0.0.2 | fails | `no-entry` |
+| akamai-edgeauth | 0.2.1 | builds |  |
+| nbtfile | 0.2.0 | builds |  |
+| unimidi | 0.5.1 | builds |  |
+| microscope | 1.1.1 | builds |  |
+| cacheable_flash | 1.0.0 | builds |  |
+| relaton-bipm | 2.1.4 | refused | `cext:nokogiri` |
+| authorize-net | 1.5.2 | refused | `cext:nokogiri` |
+| json_cve_2020_10663 | 1.0.0 | refused | `port-range:json` |
+| relaton-w3c | 2.1.4 | refused | `cext:nokogiri` |
+| rails-data-migrations | 1.3.0 | refused | `cext:nokogiri` |
+| statesman-events | 1.0.0 | builds |  |
+| determinator | 2.9.3 | builds |  |
+| minitest-test | 1.1.0 | builds |  |
+| sup | 1.4 | refused | `cext:sup` |
+| bullet_train-themes-tailwind_css | 1.45.1 | refused | `cext:nokogiri` |
+| iif-parser | 2.2.0 | builds |  |
+| peek-git | 1.0.2 | refused | `cext:nokogiri` |
+| respec | 1.0.0 | builds |  |
+| muck-users | 3.2.25 | refused | `cext:bcrypt` |
+| infrataster | 0.3.2 | refused | `cext:nokogiri` |
+| bullet_train-outgoing_webhooks | 1.45.1 | refused | `cext:nokogiri` |
+| schema_plus_default_expr | 1.0.1 | builds |  |
+| saucy | 0.16.1 | refused | `cext:nokogiri` |
+| Text | 1.1.3 | fails | `no-entry` |
+| sensu-plugins-pagerduty | 5.0.0 | refused | `port-range:json` |
+| textilize | 0.0.4 | builds |  |
+| brI18n | 3.3.0 | refused | `cext:nokogiri` |
+| sprockets-derailleur | 1.1.0 | builds |  |
+| fedux_org-stdlib | 0.11.18 | builds |  |
+| relaton-ieee | 2.1.3 | refused | `cext:nokogiri` |
+| vagrant-omnibus | 1.5.0 | builds |  |
