@@ -245,7 +245,7 @@ module Zr
           dump = Prism.dump(c.source, **c.options)
           again = begin
             result, facts = Recorder.load_parse(c.source, dump)
-            Prism::Ruby::Dump.parse(result, **facts)
+            Prism.const_get(:Ruby)::Dump.parse(result, **facts)
           rescue StandardError => e
             next [c.name, "#{e.class}: #{e.message}\n  #{e.backtrace.first(3).join("\n  ")}"]
           end
@@ -261,7 +261,7 @@ module Zr
         cases.filter_map do |c|
           expected = Prism.dump(c.source, **c.options)
           actual = begin
-            Prism::Ruby.dump(c.source, **c.options)
+            Prism.const_get(:Ruby).dump(c.source, **c.options)
           rescue StandardError, SystemStackError => e
             next [c.name, "#{e.class}: #{e.message}\n  #{e.backtrace.first(4).join("\n  ")}"]
           end
@@ -324,7 +324,7 @@ module Zr
       def api(cases, method, **extra)
         require File.join(ROOT, "lib/zr/runtime/ext/prism/ruby")
         cases.filter_map do |c|
-          why = call_difference(Prism, Prism::Ruby) { |receiver| receiver.public_send(method, c.source, **c.options, **extra) }
+          why = call_difference(Prism, Prism.const_get(:Ruby)) { |receiver| receiver.public_send(method, c.source, **c.options, **extra) }
           [c.name, why] if why
         end
       end
@@ -387,7 +387,7 @@ module Zr
             [token.type, token.location.start_offset, token.location.length, (state if states)]
           end
           actual = begin
-            Prism::Ruby.lex_tokens(c.source, **c.options).map { |type, start, length, state| [type, start, length, (state if states)] }
+            Prism.const_get(:Ruby).lex_tokens(c.source, **c.options).map { |type, start, length, state| [type, start, length, (state if states)] }
           rescue NotImplementedError
             unsupported += 1
             next

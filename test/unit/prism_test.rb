@@ -123,7 +123,7 @@ class PrismTest < Minitest::Test
 end
 b.rb" }, { scopes: [%i[a b]] }]
     failures = sources.product(options, %i[parse lex parse_lex parse_comments parse_success? dump profile]).filter_map do |source, keywords, method|
-      why = PrismDiff.call_difference(Prism, Prism::Ruby) { |prism| prism.public_send(method, source, **keywords) }
+      why = PrismDiff.call_difference(Prism, Prism.const_get(:Ruby)) { |prism| prism.public_send(method, source, **keywords) }
       "#{method} #{source.inspect} #{keywords}: #{why}" if why
     end
     bad = [[1, {}], ["x", { foo: 1 }], ["x", { version: "2.0" }], ["x", { version: 3 }], ["x", { encoding: 5 }],
@@ -133,7 +133,7 @@ z" }], ["x", { scopes: [1] }], ["x", { scopes: [["a"]] }],
            ["x", { scopes: [Prism::Scope.new([:a], [:x])] }], ["x", { line: "3" }], ["x", { line: 1.5 }], ["x", { line: 2**40 }],
            ["x", { line: 2**70 }], ["x", { line: Float::NAN }], ["x", { filepath: 3 }], ["x", { version: "3.4.99" }]]
     failures += bad.filter_map do |source, keywords|
-      why = PrismDiff.call_difference(Prism, Prism::Ruby) { |prism| prism.parse(source, **keywords) }
+      why = PrismDiff.call_difference(Prism, Prism.const_get(:Ruby)) { |prism| prism.parse(source, **keywords) }
       "parse #{source.inspect} #{keywords}: #{why}" if why
     end
     assert_empty failures.first(5)
@@ -150,12 +150,12 @@ end
 junk"), 5]
       methods = %i[parse_file lex_file parse_lex_file parse_file_comments parse_file_success? parse_file_failure? dump_file profile_file]
       failures = paths.product(methods, [{}, { freeze: true, filepath: "other.rb" }]).filter_map do |path, method, keywords|
-        why = PrismDiff.call_difference(Prism, Prism::Ruby) { |prism| prism.public_send(method, path, **keywords) }
+        why = PrismDiff.call_difference(Prism, Prism.const_get(:Ruby)) { |prism| prism.public_send(method, path, **keywords) }
         "#{method} #{path.inspect} #{keywords}: #{why}" if why
       end
       streams = ["x = 1\ny = 2\n", "foo(<<~EOS)\n  a\nEOS\nbar\n", "x = \"abc\ndef\"\nz\n", "a\n__END__\nb\n", "#{"x" * 5000}\n", ""]
       failures += streams.product([{}, { freeze: true }]).filter_map do |text, keywords|
-        why = PrismDiff.call_difference(Prism, Prism::Ruby) { |prism| prism.parse_stream(StringIO.new(text), **keywords) }
+        why = PrismDiff.call_difference(Prism, Prism.const_get(:Ruby)) { |prism| prism.parse_stream(StringIO.new(text), **keywords) }
         "parse_stream #{text[0, 20].inspect} #{keywords}: #{why}" if why
       end
       assert_empty failures.first(5)
@@ -169,7 +169,7 @@ junk"), 5]
     templates = Array.new(2000) { Array.new(random.rand(0..8)) { letters.sample(random: random) }.join }
     templates += ["", "C18446744073709551615", "C18446744073709551616", "C18446744073709551619", nil, 5]
     failures = templates.product(%i[pack unpack]).filter_map do |template, variant|
-      why = PrismDiff.call_difference(Prism::Pack, Prism::Ruby::Pack) { |pack| pack.parse(:v3_2_0, variant, template) }
+      why = PrismDiff.call_difference(Prism::Pack, Prism.const_get(:Ruby)::Pack) { |pack| pack.parse(:v3_2_0, variant, template) }
       "Pack.parse #{variant} #{template.inspect}: #{why}" if why
     end
     names = ["foo", "Foo", "foo?", "foo!", "foo=", "_1", "_0", "_12", "", "[]", "[]=", "<=>", "!", "a b", "é", "É", "Ωmega", "foo?x", "a
@@ -178,7 +178,7 @@ end
     encodings = [Encoding::UTF_8, Encoding::BINARY, Encoding::US_ASCII, Encoding::Shift_JIS, Encoding::EUC_JP, Encoding::UTF_16LE]
     failures += names.product(encodings, %i[local? constant? method_name?]).filter_map do |name, encoding, method|
       string = name.dup.force_encoding(encoding)
-      why = PrismDiff.call_difference(Prism::StringQuery, Prism::Ruby::StringQuery) { |query| query.public_send(method, string) }
+      why = PrismDiff.call_difference(Prism::StringQuery, Prism.const_get(:Ruby)::StringQuery) { |query| query.public_send(method, string) }
       "StringQuery.#{method} #{string.inspect}: #{why}" if why
     end
     assert_empty failures.first(5)

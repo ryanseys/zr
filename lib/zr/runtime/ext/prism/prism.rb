@@ -42,4 +42,9 @@ module Prism
 
     def self.parse(version, variant, source) = Ruby::Pack.parse(version, variant, source)
   end
+
+  # prism's C extension has its parser in C, so its Prism has no Ruby. The
+  # port's parser is zr's own, out of the program's sight: Prism.constants
+  # lists the C extension's names, and a read of Prism::Ruby fails.
+  private_constant :Ruby
 end
