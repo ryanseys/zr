@@ -126,10 +126,16 @@ module Zr::Kern
 
   # An object's table became too large for its cell. The class's next
   # instances get a cell with space for `n` ivar entries, or the largest
-  # cell.
+  # cell. Object and BasicObject keep the smallest cell, as CRuby's
+  # RCLASS_SET_MAX_IV_COUNT leaves them: one plain object with many ivars
+  # does not make each Object.new larger.
   #: (value, word) -> void
   def zr_obj_ivars_seen(o, n)
-    ext = RClass[zr_real_class(o)].ext
+    klass = zr_real_class(o)
+    if klass == zr_global(G_OBJECT) || klass == zr_global(G_BASIC_OBJECT)
+      return
+    end
+    ext = RClass[klass].ext
     bytes = RObject.size + (n * IvEntry.size)
     if bytes > CELL_MAX
       bytes = CELL_MAX
@@ -320,6 +326,20 @@ module Zr::Kern
     id
   end
 
+  # The number of entries in `t` whose names a program can see.
+  #: (ptr) -> word
+  def zr_ivtab_visible_len(t)
+    count = 0
+    i = 0
+    while i < IvTab[t].len
+      if zr_ivar_id_visible_p(IvEntry[IvTab[t].rows + (i * IvEntry.size)].id)
+        count += 1
+      end
+      i += 1
+    end
+    count
+  end
+
   # Whether an instance variable's name is visible: it starts with `@`.
   #: (word) -> bool
   def zr_ivar_id_visible_p(id)
@@ -367,11 +387,16 @@ module Zr::Kern
       rows = zr_xmalloc(cap * IvEntry.size)
       if IvTab[t].rows != 0
         zr_memcpy(rows, IvTab[t].rows, n * IvEntry.size)
-        # Entries in the cell stay where they are, and the class records
-        # that its objects need space for one more. Otherwise, the old
-        # entries are a heap block that the table no longer needs.
+        # Entries in the cell stay where they are, and a program's own
+        # ivar tells the class that its objects need space for one more.
+        # The runtime's hidden entries do not: CRuby keeps that state
+        # outside its objects, so it does not change their size (ENV is a
+        # plain Object with hidden entries). Otherwise, the old entries
+        # are a heap block that the table no longer needs.
         if owner != QNIL && zr_ivtab_embedded_p(t)
-          zr_obj_ivars_seen(owner, n + 1)
+          if zr_ivar_id_visible_p(id)
+            zr_obj_ivars_seen(owner, zr_ivtab_visible_len(t) + 1)
+          end
         else
           zr_sized_xfree(IvTab[t].rows, IvTab[t].cap * IvEntry.size)
         end
