@@ -11,9 +11,14 @@ module Zr::Kern
   TRACE_C_CALL = 32
   TRACE_C_RETURN = 64
   TRACE_C = 96
+  # A bit of `trace_events` alone, set while a TracePoint wants :line: a
+  # method that CRuby writes in Ruby fires the :line events of its own
+  # body, so its send goes through zr_dispatch as a :call does.
+  TRACE_BUILTIN_LINES = 17_179_869_184
   # The events that a send fires around the method that it calls: a
-  # method that CRuby writes in C, and a method that CRuby writes in Ruby.
-  TRACE_SENDS = 120
+  # method that CRuby writes in C, and a method that CRuby writes in Ruby
+  # (120 | TRACE_BUILTIN_LINES).
+  TRACE_SENDS = 17_179_869_304
   TRACE_RAISE = 128
   TRACE_RESCUE = 16384
   # Events that the machine fires, not a frame. The two thread events
@@ -46,6 +51,9 @@ module Zr::Kern
   def zr_trace_events_arm
     events = Machine.static(:trace_events, 8)
     mask = Machine.load64(Machine.static(:trace_points, 8), 0)
+    if (mask & TRACE_LINE) != 0
+      mask = mask | TRACE_BUILTIN_LINES
+    end
     if zr_coverage_setup_p()
       mask = mask | TRACE_LINE
     end
@@ -154,14 +162,31 @@ module Zr::Kern
     zr_trace_owned_invoke(e, zr_method_owner(zr_box_view(zr_class_of(recv)), mid), recv, argc, argv, blk, kw, before)
   end
 
+  # The shape of a call, which a :call row carries in its value: the
+  # argument count times 4, plus 2 for keywords and 1 for a block.
+  # TracePoint.fire picks the :line events of a body by it.
+  #: (word, word, value) -> value
+  def zr_trace_call_shape(argc, kw, blk)
+    shape = argc * 4
+    if kw != 0
+      shape = shape + 2
+    end
+    if blk != QNIL
+      shape = shape + 1
+    end
+    zr_fix(shape)
+  end
+
   # The same, for an entry of `owner`, which `super` finds above the
   # receiver's own method.
   #: (ptr, value, value, word, ptr, value, word, word) -> value
   def zr_trace_owned_invoke(e, owner, recv, argc, argv, blk, kw, before)
     after = before * 2
     events = Machine.load64(Machine.static(:trace_events, 8), 0)
-    if (events & before) != 0
-      r = zr_trace_c_send(before, e, owner, recv, Machine.value(QNIL))
+    # A :call goes to TracePoint.fire while :line is on, even when no
+    # TracePoint wants the :call itself, so the body fires its lines.
+    if (events & before) != 0 || (before == TRACE_CALL && (events & TRACE_BUILTIN_LINES) != 0)
+      r = zr_trace_c_send(before, e, owner, recv, before == TRACE_CALL ? zr_trace_call_shape(argc, kw, blk) : Machine.value(QNIL))
       return r if r == QUNDEF
     end
     value = zr_invoke(e, recv, argc, argv, blk, kw)

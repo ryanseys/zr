@@ -185,7 +185,7 @@ class TracePoint
       mask = 0
       enabled.each { |point| mask |= Primitive.zr_hidden_get(point, :__events__) }
       Primitive.zr_hidden_set(self, :__armed__, mask)
-      builtin_places if (mask & 0x78).nonzero?
+      builtin_places if (mask & 0x79).nonzero?
       Primitive.zr_trace_events_set(mask & ALL)
     end
 
@@ -247,6 +247,19 @@ class TracePoint
       places
     end
 
+    # The :line events that a builtin's body fires for a call of `shape`
+    # (the argument count times 4, plus 2 for keywords and 1 for a block),
+    # from what BUILTIN_LINES knows: a call of only the mandatory
+    # arguments runs the body that CRuby compiles for it alone
+    # (rb_check_overloaded_cme).
+    def body_lines(known, shape)
+      Primitive.attr! :hidden
+      return if known.nil?
+      return known[:only] if known[:only] && shape >> 2 == known[:lead] && shape.nobits?(2)
+
+      shape.odd? ? known[:block] : known[:bare]
+    end
+
     # The :return of the TracePoint#enable that started `point`'s trace,
     # which CRuby's hook sees as the method leaves.
     # The first enable in the process runs before any hook is in place
@@ -264,12 +277,19 @@ class TracePoint
       Primitive.attr! :hidden
       return nil unless current_row.nil?
 
+      lines = nil
       # A :call or :return around one of CRuby's own Ruby methods reports
       # the position of that method in CRuby's builtin sources.
       if (row[0] & 0x18).nonzero? && row[10].nonzero? && (place = builtin_places[row[6]]&.[](row[4]))
         row[2] = place[0]
         row[3] = row[0] == 0x8 ? place[1] : place[2]
         row[8] = nil
+        # The :line events of its body follow its :call, by the call's
+        # shape (zr_trace_call_shape), which the row carries in its value.
+        if row[0] == 0x8
+          lines = body_lines(place[4], row[1])
+          row[1] = nil
+        end
       end
 
       thread = Thread.current
@@ -293,6 +313,12 @@ class TracePoint
         end
       ensure
         Primitive.zr_hidden_set(fiber, :__trace_row__, nil)
+      end
+      lines&.each do |line|
+        line_row = row.dup
+        line_row[0] = EVENTS[:line]
+        line_row[3] = line
+        fire(line_row)
       end
       nil
     end

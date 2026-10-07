@@ -10,12 +10,126 @@ module Zr
       # and Method#source_location for the def. The key is `Owner#name`, or
       # `Owner.name` for a singleton method. The value is the
       # `<internal:file>` path, the line of the :call, the last line of the
-      # body (where ruby reports the return), and the line of the def.
+      # body (where ruby reports the return), the line of the def, and the
+      # :line events of the body (Lines) when a call with a block and one
+      # without each fire a sequence the build can know.
       class BuiltinLines < Generator
         writes "lib/zr/runtime/core/builtin_lines.rb"
 
         SOURCES = %w[ast dir gc numeric io marshal pack trace_point warning array hash kernel pathname_builtin ractor
                      symbol timev thread_sync nilclass prelude].freeze
+
+        # The :line events that a builtin's body fires, when the build can
+        # know them: each statement fires the line it starts on, so the
+        # sequence is known when every statement before the last makes no
+        # call and has no branch, and the last has no body of its own. A
+        # leading `unless defined?(yield)` (or `… unless block_given?`)
+        # guard gives a second sequence, for a call without a block.
+        module Lines
+          module_function
+
+          # The :line events of a call by its shape, or nil when none is known:
+          # `block:` for a call with a block, `bare:` for one without, and for a
+          # body split on `Primitive.mandatory_only?`, `only:` for a call of
+          # `lead:` plain arguments.
+          def of(node)
+            statements = statements_of(node.body)
+            return unless statements
+
+            known = {}
+            if (split = mandatory_split(statements))
+              only = statements_of(split.statements)&.then { sequence(_1) }
+              if only
+                known[:lead] = node.parameters&.requireds&.size || 0
+                known[:only] = only
+              end
+              statements = statements_of(split.subsequent&.statements)
+            end
+            known.merge!(by_block(statements)) if statements
+            known unless known.empty?
+          end
+
+          # A body's statements without its `Primitive.attr!`, or nil when it is
+          # empty or is not a plain list (a `rescue` or an `ensure`).
+          def statements_of(body)
+            return unless body.is_a?(Prism::StatementsNode)
+
+            statements = body.body.reject { primitive?(_1, :attr!) }
+            statements unless statements.empty?
+          end
+
+          def mandatory_split(statements)
+            first = statements.first
+            first if statements.one? && first.is_a?(Prism::IfNode) && primitive?(first.predicate, :mandatory_only?)
+          end
+
+          # The lines of a call with a block and of one without.
+          def by_block(statements)
+            guard = guarded(statements.first)
+            if guard.nil?
+              lines = sequence(statements)
+              return lines ? { block: lines, bare: lines } : {}
+            end
+
+            head = statements.first.location.start_line
+            rest = statements.drop(1)
+            block = rest.empty? ? [head] : sequence(rest)&.then { once([head, *_1]) }
+            { block:, bare: once([head, guard.location.start_line]) }.compact
+          end
+
+          # The statement that a guard runs when no block comes, or nil.
+          def guarded(node)
+            return unless node.is_a?(Prism::UnlessNode) && node.else_clause.nil? && block_test?(node.predicate)
+
+            inner = node.statements&.body
+            inner.first if inner&.one? && leaf?(inner.first)
+          end
+
+          def block_test?(node)
+            (node.is_a?(Prism::DefinedNode) && node.value.is_a?(Prism::YieldNode)) ||
+              (node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :block_given?)
+          end
+
+          def sequence(statements)
+            *before, last = statements
+            return unless before.all? { plain?(_1) } && leaf?(last)
+
+            once(statements.map { _1.location.start_line })
+          end
+
+          # Ruby fires one :line for statements that share a line.
+          def once(lines) = lines.chunk_while { _1 == _2 }.map(&:first)
+
+          # A statement with no call (but to Primitive), no yield and no branch.
+          def plain?(node) = leaf?(node) && each_node(node).none? { call?(_1) }
+
+          # A statement whose own line is the only :line it fires.
+          def leaf?(node)
+            each_node(node).none? do |n|
+              n.is_a?(Prism::StatementsNode) || n.is_a?(Prism::BlockNode) || n.is_a?(Prism::LambdaNode) ||
+                n.is_a?(Prism::IfNode) || n.is_a?(Prism::UnlessNode) || n.is_a?(Prism::CaseNode) ||
+                n.is_a?(Prism::WhileNode) || n.is_a?(Prism::UntilNode) || n.is_a?(Prism::BeginNode) ||
+                n.is_a?(Prism::RescueModifierNode) || n.is_a?(Prism::AndNode) || n.is_a?(Prism::OrNode)
+            end
+          end
+
+          def call?(node)
+            (node.is_a?(Prism::CallNode) && !primitive?(node)) ||
+              node.is_a?(Prism::YieldNode) || node.is_a?(Prism::SuperNode) || node.is_a?(Prism::ForwardingSuperNode)
+          end
+
+          def primitive?(node, name = nil)
+            node.is_a?(Prism::CallNode) && node.receiver.is_a?(Prism::ConstantReadNode) &&
+              node.receiver.name == :Primitive && (name.nil? || node.name == name)
+          end
+
+          def each_node(node)
+            return enum_for(__method__, node) unless block_given?
+
+            yield node
+            node.compact_child_nodes.each { each_node(_1) { |n| yield n } }
+          end
+        end
 
         # A visitor that finds the defs of one file, with the class and module
         # names around each. It is made on the first call, so that loading
@@ -56,7 +170,7 @@ module Zr
               owner = "Object" if owner.empty?
               singleton = @singleton || node.receiver.is_a?(Prism::SelfNode)
               key = "#{owner}#{singleton ? "." : "#"}#{node.name}"
-              @rows[key] ||= [@path, call_line(node), node.location.end_line, node.location.start_line]
+              @rows[key] ||= [@path, call_line(node), node.location.end_line, node.location.start_line, Lines.of(node)].compact
             end
 
             private
@@ -91,11 +205,12 @@ module Zr
           io.puts "# Generated by `zr-dev gen builtin_lines` from ruby 4.0.7's builtin sources. Do not edit."
           io.puts "#"
           io.puts "# Where CRuby's own Ruby methods stand: the path TracePoint names for"
-          io.puts "# one, the line its :call reports, the line its :return reports, and"
-          io.puts "# the line of its def."
+          io.puts "# one, the line its :call reports, the line its :return reports, the"
+          io.puts "# line of its def, and the lines its :line events report, with a block"
+          io.puts "# and without one, when they come before any call it makes."
           io.puts "class TracePoint"
           io.puts "  BUILTIN_LINES = {"
-          rows.sort.each { |key, (path, first, last, head)| io.puts "    #{key.inspect} => [#{path.inspect}, #{first}, #{last}, #{head}]," }
+          rows.sort.each { |key, row| io.puts "    #{key.inspect} => #{row.inspect}," }
           io.puts "  }.freeze"
           io.puts "  private_constant :BUILTIN_LINES"
           io.puts "end"

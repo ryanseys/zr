@@ -1,0 +1,1 @@
+TestSetTraceFunc#test_tracepoint_opt_invokebuiltin_delegate_leave	rubyvm
