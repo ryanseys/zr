@@ -79,6 +79,10 @@ module Zr
         # The unary Integer calls with an inline fixnum fast path, and
         # their gates.
         UNARY = { succ: "GATE_SUCC", :-@ => "GATE_UMINUS" }.freeze #: Hash[Symbol, String]
+        # A call with more arguments than this checks that ruby's VM stack
+        # would hold them (zr_vm_stack_args). The least VM stack that ruby
+        # takes holds 2,048 words.
+        MANY_ARGS = 1_024
         # The unary calls with a flonum path as well, and Float's gates.
         FLOAT_UNARY = { :-@ => "GATE_FLO_UMINUS" }.freeze #: Hash[Symbol, String]
         # The operators with a flonum path: the f64 instruction or the
@@ -159,6 +163,7 @@ module Zr
             end
           else
             staged([recv_node, *args]) do |slots|
+              checked(kernel("zr_vm_stack_args", imm(args.size + 1))) if args.size > MANY_ARGS
               r = send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size))
               node.write ? @f.fetch("i64", slots, 8 * node.args.size) : r
             end

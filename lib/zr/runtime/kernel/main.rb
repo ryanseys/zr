@@ -47,16 +47,14 @@ module Zr::Kern
   MAIN_STACK_FLOOR = 4194304
   MAIN_STACK_CEILING = 4294967296
 
-  # The size of the program's stack: MAIN_STACK_BYTES scaled by
-  # RUBY_THREAD_VM_STACK_SIZE against ruby's default, so a program recurses
-  # about as deep as ruby lets it. The value reads as atol reads its
-  # digits, is at least VM_STACK_LEAST and is rounded up to a page, as
-  # vm_default_params_setup does.
+  # The size of ruby's VM stack, RUBY_THREAD_VM_STACK_SIZE: the value reads
+  # as atol reads its digits, is at least VM_STACK_LEAST and is rounded up
+  # to a page, as vm_default_params_setup does; else VM_STACK_BYTES.
   #: () -> word
-  def zr_main_stack_bytes
+  def zr_vm_stack_size
     text = Libc.getenv(Machine.bytes("RUBY_THREAD_VM_STACK_SIZE\0"))
     if text == 0
-      return MAIN_STACK_BYTES
+      return VM_STACK_BYTES
     end
     size = 0
     i = 0
@@ -67,8 +65,27 @@ module Zr::Kern
     if size < VM_STACK_LEAST
       size = VM_STACK_LEAST
     end
-    size = (size + 4095) / 4096 * 4096
-    bytes = MAIN_STACK_BYTES / VM_STACK_BYTES * size
+    (size + 4095) / 4096 * 4096
+  end
+
+  # A call with `n` arguments written out, the receiver included: CRuby
+  # pushes them on its VM stack, so a call with more than the stack holds
+  # raises SystemStackError before the method runs. The lowering calls
+  # this only for a call with many arguments.
+  #: (word) -> value
+  def zr_vm_stack_args(n)
+    if n * 8 >= zr_vm_stack_size()
+      return zr_stack_overflow()
+    end
+    Machine.value(QNIL)
+  end
+
+  # The size of the program's stack: MAIN_STACK_BYTES scaled by
+  # RUBY_THREAD_VM_STACK_SIZE against ruby's default, so a program recurses
+  # about as deep as ruby lets it.
+  #: () -> word
+  def zr_main_stack_bytes
+    bytes = MAIN_STACK_BYTES / VM_STACK_BYTES * zr_vm_stack_size()
     if bytes < MAIN_STACK_FLOOR
       return MAIN_STACK_FLOOR
     end
