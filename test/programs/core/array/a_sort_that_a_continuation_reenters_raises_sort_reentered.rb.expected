@@ -1,0 +1,9 @@
+[RuntimeError, "sort reentered", false, false]
+[RuntimeError, "sort reentered", false, false]
+[1, 2, 3]
+false
+false
+:out
+:gone
+[2, 1]
+false

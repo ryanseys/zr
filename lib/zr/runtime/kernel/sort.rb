@@ -18,6 +18,8 @@ module Zr::Kern
     attr_accessor :blk #: value
     attr_accessor :failed #: word
     attr_accessor :plain #: word
+    # The Array that a block sort sorts, frozen while it runs, or nil.
+    attr_accessor :owner #: value
   end
 
   # Converts the result of `x <=> y` to -1, 0 or 1, as CRuby does. For an
@@ -170,6 +172,9 @@ module Zr::Kern
       r = zr_send(x, Machine.id(:<=>), 1, slot)
     else
       r = zr_yield2(Sort[st].blk, x, y)
+      if r != QUNDEF && (RBasic[Sort[st].owner].flags & FL_FREEZE) == 0
+        r = zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("sort reentered"), 14)
+      end
     end
     if r != QUNDEF
       r = zr_cmpint(r, x, y)
@@ -538,7 +543,14 @@ module Zr::Kern
     Sort[st].blk = blk
     Sort[st].failed = 0
     Sort[st].plain = blk == QNIL ? zr_sort_plain() : 0
+    # The copy that a block sorts is frozen while the sort runs, as CRuby
+    # hides its sort's temporary Array. A continuation that a block took
+    # can enter a comparison again after the sort returned; the copy is
+    # not frozen then, and the comparison raises (sort_reentered).
+    Sort[st].owner = blk == QNIL ? Machine.value(QNIL) : ary
+    RBasic[ary].flags = RBasic[ary].flags | FL_FREEZE
     zr_os_sort(st, n)
+    RBasic[ary].flags = RBasic[ary].flags & (0 - FL_FREEZE - 1)
     if Sort[st].failed != 0
       return Machine.value(QUNDEF)
     end
@@ -851,6 +863,7 @@ module Zr::Kern
       Sort[st].blk = Machine.value(QNIL)
       Sort[st].failed = 0
       Sort[st].plain = zr_sort_plain()
+      Sort[st].owner = Machine.value(QNIL)
       zr_os_sort(st, n)
       if Sort[st].failed != 0
         return Machine.value(QUNDEF)
