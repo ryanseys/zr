@@ -38,6 +38,27 @@ class GemCompatTest < Minitest::Test
     assert_includes error.message, "NAME=VERSION"
   end
 
+  # rubygems.org has gems whose names start with a dot or an underscore.
+  # A name of dots alone would name a directory above another.
+  def test_a_request_takes_every_name_that_rubygems_takes_but_dots_alone
+    assert_equal %w[.cat _x a.b], %w[.cat _x a.b].map { Gems::Request.parse(_1).name }
+    %w[. ..].each { |name| assert_raises(ArgumentError) { Gems::Request.parse(name) } }
+  end
+
+  def test_a_sweep_skips_a_name_of_the_top_list_that_it_cannot_take
+    top = File.join(@dir, "top.tsv")
+    Gems::Top.write({ "rack" => 3, ".." => 2, "cexty" => 1 }, top)
+    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    sweep.instance_variable_set(:@top, Zr::Dev::GemCompat::Sweep.ranks("3"))
+    sweep.define_singleton_method(:top_list) { Gems::Top.read(top) }
+
+    words, _ = nil
+    _, err = capture_io { words = sweep.words(["tiny"]) }
+
+    assert_equal %w[tiny rack cexty], words
+    assert_includes err, %(skipped ".." of gems/top.tsv)
+  end
+
   # Corpus
 
   def test_the_corpus_reads_the_markers_and_the_gemspec

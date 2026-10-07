@@ -41,12 +41,7 @@ module Zr
 
         def run(argv)
           $stdout.sync = true
-          words = argv.dup
-          if @top
-            top = Gems::Top.read
-            fail!("no gems/top.tsv; run `zr-dev gems top --refresh`") if top.empty?
-            words.concat(top.keys[@top] || [])
-          end
+          words = words(argv)
           fail!("give gems, or --top N") if words.empty?
           requests = words.uniq.map { |word| request(word) }
           reference!
@@ -93,6 +88,22 @@ module Zr
         end
 
         def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+        # The gems of `argv`, then those of `--top`'s ranks. A name in the
+        # list that no request can name is skipped, so it does not stop the
+        # gems around it.
+        def words(argv)
+          return argv.dup unless @top
+
+          top = top_list
+          fail!("no gems/top.tsv; run `zr-dev gems top --refresh`") if top.empty?
+          listed, odd = (top.keys[@top] || []).partition { |name| name.match?(Gems::NAME) }
+          odd.each { |name| warn "zr-dev #{self.name}: skipped #{name.inspect} of gems/top.tsv: not a gem name this tool takes" }
+          argv + listed
+        end
+
+        # The most downloaded gems, by rank (gems/top.tsv).
+        def top_list = Gems::Top.read
 
         # The indexes into gems/top.tsv of `--top`'s ranks, which count
         # from 1: "100" is the first 100, and "1001..2000" the next 1000.

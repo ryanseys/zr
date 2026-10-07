@@ -23,8 +23,9 @@ module Zr
       # The committed files: compat.tsv, top.tsv and the overrides.
       HOME = Dev.path("gems")
 
-      # The names that rubygems.org accepts.
-      NAME = /\A[A-Za-z0-9][A-Za-z0-9._-]*\z/
+      # The names that rubygems.org accepts (Gem::Specification::VALID_NAME_PATTERN),
+      # but one of dots alone, which would name a directory above another.
+      NAME = /\A(?!\.+\z)[A-Za-z0-9._-]+\z/
 
       # The tiers, from the worst to the best. A gem that the tool did not
       # try (an override skips it, or ruby itself fails) is `skipped`.
