@@ -16,10 +16,11 @@ module Kernel
       raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)
 
       name = file || Primitive.zr_eval_source_name
+      using = Primitive.zr_binding_using_m(binding)
       code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(binding), Primitive.zr_binding_parameters(binding),
-                                      using: Primitive.zr_hidden_get(binding, :__using__))
+                                      using: using)
       Primitive.zr_trace_script_compiled(source, name, line)
-      return Binding.send(:run_using, code, binding)
+      return Binding.send(:run_using, code, binding, using)
     end
     name = file || Primitive.zr_eval_source_name
     code = Zr::Eval.current.compile(source, name, line, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters, using: using)
@@ -38,19 +39,24 @@ class Binding
   # Ruby run in this binding's scope, as Kernel#eval given it runs.
   def eval(source, file = nil, line = 1)
     name = file || Primitive.zr_eval_source_name
+    using = Primitive.zr_binding_using_m(self)
     code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(self), Primitive.zr_binding_parameters(self),
-                                    using: Primitive.zr_hidden_get(self, :__using__))
+                                    using: using)
     Primitive.zr_trace_script_compiled(source, name, line)
-    Binding.send(:run_using, code, self)
+    Binding.send(:run_using, code, self, using)
   end
 
-  # Runs `code` in `binding`. A `using` at the toplevel of the string
-  # stays in the Binding, as it changes the Binding's cref in ruby, so the
-  # next eval in it sees the refinement.
-  def self.run_using(code, binding)
+  # Runs `code` in `binding`, which started under the `using` entry
+  # `using`. A `using` at the toplevel of the string stays in the Binding,
+  # as it changes the Binding's cref in ruby, so the next eval in it sees
+  # the refinement, and so does the rest of a toplevel that it runs in.
+  def self.run_using(code, binding, using)
     Primitive.attr! :hidden
     result = Primitive.zr_binding_run(code, binding)
-    Primitive.zr_hidden_set(binding, :__using__, code[5]) if code[5]
+    if code[5] && code[5] != using
+      Primitive.zr_hidden_set(binding, :__using__, code[5])
+      Primitive.zr_using_toplevel_m(binding, code[5])
+    end
     result
   end
   private_class_method :run_using

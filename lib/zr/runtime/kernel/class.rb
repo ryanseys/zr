@@ -92,6 +92,9 @@ module Zr::Kern
     attr_accessor :body #: ptr
     # 1 on a method that Refinement#import_methods copied (zr_imported_invoke).
     attr_accessor :imported #: word
+    # The `using` entry plus one of a def that a toplevel defined after an
+    # eval's `using` there, else 0 (zr_using_toplevel_m).
+    attr_accessor :using #: word
   end
 
   class CEntry < Layout
@@ -1858,6 +1861,7 @@ module Zr::Kern
     MEntry[e].concealed = conceal ? 1 : 0
     MEntry[e].body = 0
     MEntry[e].imported = 0
+    MEntry[e].using = core || meta == 0 ? 0 : zr_using_defined(meta)
     if conceal
       zr_hidden_defined_method(klass, mid)
     end
@@ -3381,6 +3385,124 @@ module Zr::Kern
   def zr_activate(id)
     Task[zr_task()].refine = zr_activation_row(zr_global(G_ACTIVATIONS), id)
     Machine.value(QNIL)
+  end
+
+  # The toplevels where an eval ran `using`: a Hash of each one's scope
+  # meta to the activation entry that the eval left (zr_using_toplevel_m).
+  # It stays unset in a program that never does this.
+  G_USING_TOPLEVEL = 74
+
+  # `using` at the toplevel of an eval that runs in `binding`, a Binding
+  # of a toplevel. Ruby's rb_mod_using gives that toplevel's
+  # frame a copy of its cref with the refinement, so the frame's own code
+  # from then on, and each later eval or Binding there, runs under it. zr
+  # notes entry `id` for the toplevel's scope, and drops the method
+  # caches, so each send there misses its cache and looks under the entry
+  # (zr_using_toplevel_refine).
+  #: (value, value) -> value
+  def zr_using_toplevel_m(binding, id)
+    scope = zr_backref_scope_meta(RProc[binding].meta)
+    if scope == 0 || (FrameMeta[scope].kind != KIND_MAIN && FrameMeta[scope].kind != KIND_TOP)
+      return Machine.value(QNIL)
+    end
+    table = zr_global(G_USING_TOPLEVEL)
+    if zr_special_p(table)
+      table = zr_hash_new()
+      zr_set_global(G_USING_TOPLEVEL, table)
+    end
+    zr_hash_store(table, zr_fix(scope), id)
+    zr_methods_changed()
+    Machine.value(QNIL)
+  end
+
+  # The later of `using`, an activation entry or nil, and the entry that
+  # an eval's `using` left for the toplevel of `meta`.
+  #: (value, ptr) -> value
+  def zr_using_latest(using, meta)
+    table = zr_global(G_USING_TOPLEVEL)
+    if zr_special_p(table)
+      return using
+    end
+    scope = zr_using_scope(meta)
+    if scope == 0
+      return using
+    end
+    left = zr_hash_lookup(table, zr_fix(scope))
+    if left == QUNDEF || (using != QNIL && zr_fix2long(using) >= zr_fix2long(left))
+      return using
+    end
+    left
+  end
+
+  # The toplevel whose cref the code of `meta` runs under: through its
+  # blocks, evals and class bodies, but not a def, whose cref is the one
+  # it was defined with (MEntry#using). 0 for none.
+  #: (ptr) -> ptr
+  def zr_using_scope(meta)
+    while meta != 0
+      kind = FrameMeta[meta].kind
+      if kind == KIND_MAIN || kind == KIND_TOP
+        return meta
+      end
+      if kind == KIND_DEF || kind == KIND_BUILTIN
+        return 0
+      end
+      meta = FrameMeta[meta].parent
+    end
+    0
+  end
+
+  # The `using` entry plus one that a def of `meta` takes: the entry that
+  # an eval's `using` left for the toplevel that runs the def, as the def
+  # takes that toplevel's cref then. 0 for none.
+  #: (ptr) -> word
+  def zr_using_defined(meta)
+    top = Task[zr_task()].top
+    if zr_special_p(zr_global(G_USING_TOPLEVEL)) || FrameMeta[meta].kind != KIND_DEF || top == 0
+      return 0
+    end
+    id = zr_using_latest(Machine.value(QNIL), Frame[top].meta)
+    id == QNIL ? 0 : zr_fix2long(id) + 1
+  end
+
+  # The refinements of a send from the frame on top that misses its
+  # cache, when an eval's `using` left an entry for the frame's toplevel,
+  # or for a def that the toplevel defined after it. They apply to this
+  # send only, which fills no cache entry (zr_dispatch). Returns whether
+  # they apply.
+  #: () -> bool
+  def zr_using_toplevel_refine
+    t = zr_task()
+    top = Task[t].top
+    if zr_special_p(zr_global(G_USING_TOPLEVEL)) || Task[t].refine != QNIL || top == 0
+      return false
+    end
+    id = zr_using_latest(Machine.value(QNIL), Frame[top].meta)
+    if id == QNIL
+      id = zr_using_of_def(top)
+    end
+    if id == QNIL
+      return false
+    end
+    Task[t].refine = zr_activation_row(zr_global(G_ACTIVATIONS), zr_fix2long(id))
+    true
+  end
+
+  # The entry that the def whose code runs in frame `rec`, in its own body
+  # or in a block there, took when it was defined (MEntry#using), or nil.
+  #: (ptr) -> value
+  def zr_using_of_def(rec)
+    scope = zr_backref_scope_meta(Frame[rec].meta)
+    if scope == 0 || FrameMeta[scope].kind != KIND_DEF
+      return Machine.value(QNIL)
+    end
+    while rec != 0 && (Frame[rec].meta == 0 || FrameMeta[Frame[rec].meta].kind != KIND_DEF || FrameMeta[Frame[rec].meta].locals != FrameMeta[scope].locals)
+      rec = Frame[rec].prev
+    end
+    if rec == 0 || Frame[rec].entry == 0 || MEntry[Frame[rec].entry].using == 0
+      return Machine.value(QNIL)
+    end
+    zr_fix(MEntry[Frame[rec].entry].using - 1)
   end
 
   # In a `refine` block, the refinement that it defines is in use, so a

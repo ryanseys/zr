@@ -242,6 +242,8 @@ module Zr
       # destructured one) cannot be passed, so neither `super` can.
       #: (Array[[Symbol, Symbol?]] rows, Array[Array[Symbol]] scopes) -> void
       def within_method(rows, scopes)
+        # `using` is a method call there, which ruby refuses.
+        @in_method_body = true
         return if rows.any? { |_, name| name.nil? || scopes.none? { |names| names.include?(name) } }
 
         # The first line returns if a name is nil.

@@ -266,7 +266,19 @@ module Zr::Kern
     t = zr_task()
     id = Task[t].eval_using
     Task[t].eval_using = 0
-    id == 0 ? Machine.value(QNIL) : zr_fix(id - 1)
+    using = id == 0 ? Machine.value(QNIL) : zr_fix(id - 1)
+    if zr_special_p(zr_global(G_USING_TOPLEVEL))
+      return using
+    end
+    zr_using_latest(using, Frame[zr_eval_frame()].meta)
+  end
+
+  # The `using` entry that an eval in `binding` starts under: the one in
+  # use where the Binding was made, or a later one that an eval's `using`
+  # left for its toplevel.
+  #: (value) -> value
+  def zr_binding_using_m(binding)
+    zr_using_latest(zr_hidden_get(binding, zr_sym(Machine.id(:__using__))), RProc[binding].meta)
   end
 
   # `Proc#binding`: the scope where the block was written, which the Proc

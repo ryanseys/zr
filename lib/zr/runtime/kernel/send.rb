@@ -573,11 +573,15 @@ module Zr::Kern
     if zr_imports_running_p()
       e = zr_imported_refined_method(recv, mid)
     end
+    refined = zr_using_toplevel_refine()
     if e == 0 && (mode & SEND_CORE) != 0 && zr_core_class_p(klass) && ClassExt[RClass[klass].ext].boxed == QNIL
       e = zr_find_core_method(klass, mid)
     end
     if e == 0
       e = zr_find_method(klass, mid)
+    end
+    if refined && (e == 0 || zr_visibility_refused(e, mode) != 0)
+      Task[zr_task()].refine = Machine.value(QNIL)
     end
     if e == 0
       how = mode & SEND_MODE
