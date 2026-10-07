@@ -92,8 +92,9 @@ class Exception
     made = Primitive.zr_hidden_get(self, :__made_locations__)
     return made[1] if made && made[0] == rows
 
-    places = Primitive.zr_exc_raise_places(self).each_slice(2)
-    locations = rows.zip(places).map { |row, (node, line)| Thread::Backtrace::Location.new(row, node, line) }
+    # Pairs of [node, line], one per row.
+    places = Primitive.zr_exc_raise_places(self)
+    locations = Array.new(rows.size) { |i| Thread::Backtrace::Location.new(rows[i], places[i * 2], places[(i * 2) + 1]) }
     Primitive.zr_hidden_set(self, :__made_locations__, [rows, locations])
     locations
   end
@@ -679,8 +680,9 @@ module Kernel
 
     rows = caller(start + 1, length) or return nil
 
-    places = Primitive.zr_caller_places(start + 1, length).each_slice(2)
-    rows.zip(places).map { |row, (node, line)| Thread::Backtrace::Location.new(row, node || 0, line) }
+    # Pairs of [node, line], one per row.
+    places = Primitive.zr_caller_places(start + 1, length)
+    Array.new(rows.size) { |i| Thread::Backtrace::Location.new(rows[i], places[i * 2] || 0, places[(i * 2) + 1]) }
   end
   private :caller_locations
 end
