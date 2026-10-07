@@ -13,3 +13,6 @@ test/*.tmp
 
 # Agent worktrees.
 /.claude/worktrees/
+
+# Local agent instructions.
+/CLAUDE.md
