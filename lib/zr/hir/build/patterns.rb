@@ -52,10 +52,15 @@ module Zr
           single = node.conditions.size == 1 && node.else_clause.nil?
           match = Match.new(self, single ? temp(:why) : nil, single ? temp(:key) : nil, single ? temp(:matchee) : nil)
           chain = node.else_clause ? expr(node.else_clause, taken: taken) : no_match(subject, match, line)
+          # A jump to the end follows each `in` body but the last, on the
+          # `in` line, and the `else`, on the `case` line (`jump_event`).
+          chain = jumping(chain, node.else_clause.statements, line, taken: taken) if node.else_clause
           chain = covered(covers.last, chain, line)
+          last = node.conditions.size - 1
           node.conditions.each_with_index.reverse_each do |clause, i|
             test = match.clause(clause.pattern, subject)
             body = clause.statements ? seq(clause.statements, taken: taken) : Literal.new(nil, clause.location.start_line)
+            body = jumping(body, clause.statements, clause.location.start_line, taken: taken) if i < last
             chain = If.new(test, covered(covers[i], body, clause.location.start_line), chain, clause.location.start_line)
           end
           Seq.new([set(subject, expr(node.predicate), line), *match.resets(line), chain], line)

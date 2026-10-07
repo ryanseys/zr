@@ -46,6 +46,8 @@ module Zr
       # @rbs @temps: Array[Array[Symbol]]
       # @rbs @scopes: Array[Array[Symbol]]
       # @rbs @last_lines: Array[Integer]
+      # @rbs @pending_events: Array[bool]
+      # @rbs @traced_lines: Array[Integer?]
       # @rbs @warnings: Array[String]
       # @rbs @def_depths: Hash[Symbol, Integer]?
       # @rbs @def_params: Params?
@@ -215,6 +217,8 @@ module Zr
         # The line of each scope's last `:line` event, in the compiler's
         # statement order (ruby's last_line).
         @last_lines = [-1]
+        @pending_events = [false]
+        @traced_lines = [nil]
         @warnings = []
         # The depth of each parameter of the method that an eval runs in,
         # outside the eval's own scope. nil inside a def of the file,
@@ -322,6 +326,8 @@ module Zr
         using = @using
         @temps.push([])
         @last_lines.push(-1)
+        @pending_events.push(false)
+        @traced_lines.push(nil)
         begin
           yield
         ensure
@@ -329,6 +335,8 @@ module Zr
           @using = using unless @path == [Object.name] && !@in_def
           @temps.pop
           @last_lines.pop
+          @pending_events.pop
+          @traced_lines.pop
         end
       end
 
@@ -344,6 +352,8 @@ module Zr
         @temps.push([])
         @scopes.push(@temps.last)
         @last_lines.push(-1)
+        @pending_events.push(false)
+        @traced_lines.push(nil)
         begin
           yield
         ensure
@@ -353,6 +363,8 @@ module Zr
           @temps.pop
           @scopes.pop
           @last_lines.pop
+          @pending_events.pop
+          @traced_lines.pop
         end
       end
 
@@ -523,8 +535,14 @@ module Zr
         # all of the new statement, for every statement of every file.
         # Almost no file has a `using`.
         made = @usings
-        traced = line_event(node) unless !taken && silent?(node)
+        if !taken && silent?(node)
+          silent_line(node)
+        else
+          traced = line_event(node, taken: taken)
+        end
         out = using_activation(node) || assigned_using(node) || expr(node, taken: taken)
+        # The statement's event found its instruction inside it.
+        @traced_lines[-1] = nil
         out = Seq.new([traced, out], traced.line) if traced
         mark_using(out, {}) if @using
         return out if out.is_a?(Using)
@@ -776,11 +794,14 @@ module Zr
       # body. A region's body and its `else` give the region's value, and
       # have its `taken`. An `ensure` runs only for its effect, so its
       # value is never used. A `rescue` body is different: ruby reads a
-      # regexp there even if the region's value is not used.
+      # regexp there even if the region's value is not used. So is the
+      # body before a `rescue`, which ruby compiles with its value kept for
+      # the clauses (pm_compile_rescue).
       #: (Prism::BeginNode node, ?taken: bool) -> node
       def protected_region(node, taken: true)
         line = node.location.start_line
-        body = guarded(node.rescue_clause) { node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line) }
+        kept = taken || !node.rescue_clause.nil?
+        body = guarded(node.rescue_clause) { node.statements ? seq(node.statements, taken: kept) : Literal.new(nil, line) }
         return body if node.rescue_clause.nil? && node.ensure_clause.nil?
 
         rescues = [] #: Array[Rescue]
@@ -1563,21 +1584,30 @@ module Zr
       #: (Prism::IfNode node, Integer line, taken: bool) -> If
       def if_branch(node, line, taken:)
         chosen = chooses?(node.predicate)
+        traced = line_event(node, taken: taken)
         # The predicate gets its number first, because ruby's compiler
         # writes it first. If ruby decides the predicate at compile time,
         # it drops the whole branch, and Coverage records nothing.
         predicate = expr(node.predicate)
         then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
-        If.new(predicate,
-               covered(then_cover, node.statements && dead(chosen == false) { seq(node.statements, taken: taken && chosen != false) }, line),
-               covered(else_cover, node.subsequent && dead(chosen == true) { subsequent(node.subsequent, taken: taken && chosen != true) }, line), line)
+        then_live, else_live = reaches(node.predicate)
+        # CRuby's jump over an `elsif` carries the event of a silent end of
+        # the branch (`jump_event`); an `else` it folds away.
+        then_body = node.statements && dead(!then_live) do
+          body = seq(node.statements, taken: taken && chosen != false)
+          node.subsequent.is_a?(Prism::IfNode) ? jumping(body, node.statements, line, taken: taken) : body
+        end
+        built = If.new(predicate,
+                       covered(then_cover, then_body, line),
+                       covered(else_cover, node.subsequent && dead(!else_live) { subsequent(node.subsequent, taken: taken && chosen != true) }, line), line)
+        traced ? Seq.new([traced, built], line) : built
       end
 
       # The `else` or `elsif` of an `if`. An `elsif` that starts a line
       # fires its :line event before its predicate, as a statement does.
       #: (Prism::ElseNode | Prism::IfNode node, taken: bool) -> node
       def subsequent(node, taken:)
-        traced = line_event(node) if node.is_a?(Prism::IfNode)
+        traced = line_event(node, taken: taken) if node.is_a?(Prism::IfNode)
         built = expr(node, taken: taken)
         traced ? Seq.new([traced, built], traced.line) : built
       end
@@ -1585,13 +1615,16 @@ module Zr
       #: (Prism::UnlessNode node, Integer line, taken: bool) -> If
       def unless_branch(node, line, taken:)
         chosen = chooses?(node.predicate)
+        traced = line_event(node, taken: taken)
         # Ruby lists an `unless`'s else before its then, and numbers them
         # in that order. The branch test is the same.
         predicate = expr(node.predicate)
         else_cover, then_cover = chosen.nil? ? branch_covers(:unless, span(node.location), unless_sides(node)) : [nil, nil]
-        If.new(predicate,
-               covered(else_cover, node.else_clause && dead(chosen == false) { seq(node.else_clause.statements, taken: taken && chosen != false) }, line),
-               covered(then_cover, node.statements && dead(chosen == true) { seq(node.statements, taken: taken && chosen != true) }, line), line)
+        true_live, false_live = reaches(node.predicate)
+        built = If.new(predicate,
+                       covered(else_cover, node.else_clause && dead(!true_live) { seq(node.else_clause.statements, taken: taken && chosen != false) }, line),
+                       covered(then_cover, node.statements && dead(!false_live) { seq(node.statements, taken: taken && chosen != true) }, line), line)
+        traced ? Seq.new([traced, built], line) : built
       end
 
       # A loop returns nil, so its body's value is not used.
@@ -1720,11 +1753,24 @@ module Zr
       #: (Prism::CaseNode node, Integer line, taken: bool) -> Case
       def case_when(node, line, taken:)
         covers = branch_covers(:case, span(node.location), case_sides(node, :when))
+        # CRuby puts the `else` first and the `when` bodies after it, so a
+        # jump to the end follows each body but the last (`jump_event`).
+        # The jumps are on the `when` lines, and the `else`'s on its first
+        # statement's; a `case` with no subject puts each on its own line.
+        last = node.conditions.size - 1
         clauses = node.conditions.map.with_index do |w, i|
           values = w.conditions.map { |c| c.is_a?(Prism::SplatNode) ? splat(c, line) : expr(c) }
-          [values, covered(covers[i], w.statements ? seq(w.statements, taken: taken) : Literal.new(nil, line), line)]
+          # With no subject, a `when` of literal tests that never pass is
+          # code that CRuby does not compile.
+          never = node.predicate.nil? && w.conditions.all? { |c| chooses?(c) == false }
+          body = w.statements ? dead(never) { seq(w.statements, taken: taken) } : Literal.new(nil, line)
+          body = jumping(body, w.statements, node.predicate ? w.location.start_line : line, taken: taken) if i < last
+          [values, covered(covers[i], body, line)]
         end
         other = node.else_clause && expr(node.else_clause, taken: taken)
+        if other && (statements = node.else_clause.statements)
+          other = jumping(other, statements, node.predicate ? statements.location.start_line : line, taken: taken)
+        end
         Case.new(node.predicate && expr(node.predicate), clauses, covered(covers.last, other, line), line)
       end
 

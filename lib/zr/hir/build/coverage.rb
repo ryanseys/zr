@@ -7,23 +7,79 @@ module Zr
     class Build
       # The `:line` event that ruby's compiler puts before a statement that
       # starts a line of its scope, or nil. This is pm_compile_node's rule,
-      # which reads prism's newline flag. A `begin` with no statements
-      # before its rescue is on the rescue's line.
-      #: (Prism::node node) -> Trace?
-      def line_event(node)
-        return nil unless @loader&.tracing? && node.newline? && !Library::Roots.runtime_file?(@file)
-        # A `begin` or parentheses start with the statement inside. Ruby
-        # merges their event into that statement's event.
-        return nil if node.is_a?(Prism::BeginNode) && node.statements
-        return nil if node.is_a?(Prism::ParenthesesNode) && node.body
+      # which reads prism's newline flag and skips a statement that starts
+      # on the line of the last one (`last_line`). The event goes to the
+      # next instruction and reports its line (`first_line`). A statement
+      # that compiles to nothing leaves its event to the next one that
+      # compiles something, even on the same line (`@pending_events`). A
+      # `begin` with no statements before its rescue is on the rescue's
+      # line. A statement whose first instruction is the one that the
+      # event of its enclosing statement waits for shares that event
+      # (`@traced_lines`), as CRuby gives one instruction one event: `x =
+      # if true` with its branch's first statement, or an `if` that starts
+      # a line inside an expression. `taken` says whether something uses
+      # the statement's value.
+      #: (Prism::node node, ?taken: bool) -> Trace?
+      def line_event(node, taken: true)
+        return nil unless traces_here?
+        # CRuby compiles no branch that a literal condition never takes.
+        return nil if @dead.positive?
 
-        line = node.location.start_line
-        line = node.rescue_clause.location.start_line if node.is_a?(Prism::BeginNode) && node.statements.nil? && node.rescue_clause
-        return nil if @last_lines.last == line
+        if node.newline?
+          # A `begin` or parentheses start with the statement inside. Ruby
+          # merges their event into that statement's event.
+          return nil if node.is_a?(Prism::BeginNode) && node.statements
+          return nil if node.is_a?(Prism::ParenthesesNode) && node.body
+          # A `BEGIN` block runs before the program, from its own code. Its
+          # line is the last, so a statement on it fires no event.
+          if node.is_a?(Prism::PreExecutionNode)
+            @last_lines[-1] = node.location.start_line
+            return nil
+          end
 
-        @last_lines[-1] = line
+          rescued = node.rescue_clause.location.start_line if node.is_a?(Prism::BeginNode) && node.statements.nil? && node.rescue_clause
+          start = rescued || node.location.start_line
+          fresh = @last_lines.last != start
+          @last_lines[-1] = start
+          @pending_events[-1] ||= fresh
+        end
+        return nil unless @pending_events.last
+
+        line = rescued || first_line(node, taken: taken)
+        return nil if line.nil?
+
+        if line == @traced_lines.last
+          @pending_events[-1] = false
+          return nil
+        end
+        traced(line)
+      end
+
+      # Whether this file's code fires :line events: the program traces,
+      # and the file is the program's, not the core library's.
+      #: () -> bool
+      def traces_here? = (@loader&.tracing? || false) && !Library::Roots.runtime_file?(@file)
+
+      # The event that waits for the next instruction, on `line`.
+      #: (Integer line) -> Trace
+      def traced(line)
+        @pending_events[-1] = false
+        @traced_lines[-1] = line
         @loader.line_event!(@file, line)
         Trace.new(:line, line)
+      end
+
+      # A statement whose value nothing uses and that compiles to nothing
+      # (`silent?`) starts its line, and its event waits for the next
+      # instruction (`line_event`, `jump_event`).
+      #: (Prism::node node) -> nil
+      def silent_line(node)
+        return nil unless traces_here? && node.newline? && @dead.zero?
+
+        start = node.location.start_line
+        @pending_events[-1] ||= @last_lines.last != start
+        @last_lines[-1] = start
+        nil
       end
 
       # Plain values that CRuby's compiler drops when nothing uses them.
@@ -34,6 +90,153 @@ module Zr
         Prism::ClassVariableReadNode, Prism::DefinedNode
       ].freeze
 
+      # The line of the first instruction that CRuby compiles for `node`,
+      # where it puts the node's :line event: a write's value comes before
+      # the write, a receiver before its call, an operand before its
+      # operator, and a first element before its Array or Hash, unless the
+      # whole literal is one static value. A `case` with no subject is a
+      # chain of tests, the first `when`'s first. An `if` with a literal
+      # condition compiles to its chosen branch alone. `taken` says whether
+      # something uses the value; when nothing does and nothing compiles,
+      # the line is nil.
+      #: (Prism::node? node, ?taken: bool) -> Integer?
+      def first_line(node, taken: true)
+        case node
+        when Prism::LocalVariableWriteNode, Prism::InstanceVariableWriteNode, Prism::GlobalVariableWriteNode,
+             Prism::ClassVariableWriteNode, Prism::ConstantWriteNode, Prism::MultiWriteNode
+          first_line(node.value)
+        when Prism::CallNode
+          # `[...].include?(x)` on one static Array runs `x` first
+          # (opt_duparray_send).
+          args = node.arguments&.arguments
+          if node.name == :include? && node.receiver.is_a?(Prism::ArrayNode) && node.receiver.static_literal? &&
+             args&.size == 1 && node.block.nil? && !args.first.is_a?(Prism::SplatNode)
+            return first_line(args.first)
+          end
+
+          node.receiver ? first_line(node.receiver) : node.location.start_line
+        when Prism::ArrayNode
+          first = node.elements.first
+          first = first.expression if first.is_a?(Prism::SplatNode)
+          first.nil? || node.static_literal? ? node.location.start_line : first_line(first)
+        when Prism::HashNode
+          # A run of static pairs at the start is one hidden Hash that the
+          # Hash's own instruction copies (pm_compile_hash_elements).
+          first = node.elements.first
+          first.is_a?(Prism::AssocNode) && !first.static_literal? ? first_line(first.key) : node.location.start_line
+        when Prism::InterpolatedStringNode, Prism::InterpolatedXStringNode, Prism::InterpolatedSymbolNode
+          # A literal part is on the string's own line; code runs on its own.
+          case (part = node.parts.first)
+          when Prism::EmbeddedStatementsNode then part.statements ? first_line(part.statements.body.first) : part.location.start_line
+          when Prism::EmbeddedVariableNode then part.location.start_line
+          else node.location.start_line
+          end
+        when Prism::ParenthesesNode
+          body = node.body
+          body.is_a?(Prism::StatementsNode) ? statements_line(body, taken) : node.location.start_line
+        when Prism::BeginNode then node.statements ? statements_line(node.statements, taken) : node.location.start_line
+        when Prism::IfNode, Prism::UnlessNode
+          tested = condition_line(node.predicate)
+          return tested if tested
+
+          can_be_true, = reaches(node.predicate)
+          taken_branch, other = node.is_a?(Prism::IfNode) ? [node.statements, node.subsequent] : [node.else_clause, node.statements]
+          branch_line(can_be_true ? taken_branch : other, node, taken)
+        when Prism::CaseNode then node.predicate ? first_line(node.predicate) : tests_line(node, taken)
+        when Prism::CaseMatchNode then first_line(node.predicate)
+        when Prism::AndNode, Prism::OrNode then first_line(node.left)
+        when Prism::RescueModifierNode then first_line(node.expression)
+        when Prism::ReturnNode
+          first = node.arguments&.arguments&.first
+          first ? first_line(first) : node.location.start_line
+        when nil then nil
+        else node.location.start_line
+        end
+      end
+
+      # The line of the first instruction of a condition, or nil when its
+      # literals decide it and it compiles to no test
+      # (compile_branch_condition): `false && x` jumps at once, and `true
+      # && x` tests `x` alone.
+      #: (Prism::node node) -> Integer?
+      def condition_line(node)
+        case node
+        when Prism::AndNode, Prism::OrNode
+          left = chooses?(node.left)
+          return first_line(node.left) if left.nil?
+
+          # The right side runs only where the left one decides nothing.
+          condition_line(node.right) if left == node.is_a?(Prism::AndNode)
+        else first_line(node) if chooses?(node).nil?
+        end
+      end
+
+      # The first line of the branch of `node` that a literal condition
+      # chooses. With no branch, the `if` is nil, which CRuby puts on the
+      # `if`'s line when something uses it.
+      #: (Prism::node? branch, Prism::node node, bool taken) -> Integer?
+      def branch_line(branch, node, taken)
+        case branch
+        when Prism::StatementsNode then statements_line(branch, taken)
+        when Prism::ElseNode then branch.statements ? statements_line(branch.statements, taken) : (node.location.start_line if taken)
+        when Prism::IfNode then first_line(branch, taken: taken)
+        else node.location.start_line if taken
+        end
+      end
+
+      # The first line of a `case` with no subject, a chain of tests: a
+      # literal test that never passes compiles to nothing, and one that
+      # always does to its body.
+      #: (Prism::CaseNode node, bool taken) -> Integer?
+      def tests_line(node, taken)
+        node.conditions.each do |clause|
+          clause.conditions.each do |test|
+            chosen = chooses?(test)
+            next if chosen == false
+            return first_line(test) if chosen.nil?
+
+            return clause.statements ? statements_line(clause.statements, taken) : (node.location.start_line if taken)
+          end
+        end
+        branch_line(node.else_clause, node, taken)
+      end
+
+      # The first line that `statements` compile to: a silent statement
+      # whose value nothing uses compiles to nothing (`silent?`).
+      #: (Prism::StatementsNode statements, bool taken) -> Integer?
+      def statements_line(statements, taken)
+        last = statements.body.size - 1
+        statements.body.each_with_index do |statement, i|
+          used = taken && i == last
+          next if !used && silent?(statement)
+
+          line = first_line(statement, taken: used)
+          return line if line
+        end
+        nil
+      end
+
+      # The :line event of a branch's jump to the end of its construct.
+      # When nothing uses the branch's value and its last statements
+      # compile to nothing, their event waits (`line_event`), and CRuby
+      # gives it to the next instruction: the jump, whose line is `line`
+      # (the `if`, `elsif`, `when` or `in`, or the `case`). The caller asks
+      # only for a branch that a jump ends, one that another branch's code
+      # follows.
+      #: (Prism::StatementsNode? statements, Integer line, taken: bool) -> Trace?
+      def jump_event(statements, line, taken:)
+        return nil if taken || statements.nil? || !traces_here? || !@pending_events.last || @dead.positive?
+
+        traced(line)
+      end
+
+      # The branch `body` with the event of the jump that ends it.
+      #: (node body, Prism::StatementsNode? statements, Integer line, taken: bool) -> node
+      def jumping(body, statements, line, taken:)
+        jump = jump_event(statements, line, taken: taken)
+        jump ? Seq.new([body, jump], line) : body
+      end
+
       # Whether a statement whose value nothing uses compiles to no
       # instruction, so it fires no :line event: a plain value, a static
       # Array, or a Hash, Range or parentheses of such values.
@@ -41,6 +244,10 @@ module Zr
       def silent?(node)
         case node
         when nil then true
+        # `x = x` of a local is nothing to do.
+        when Prism::LocalVariableWriteNode
+          value = node.value
+          value.is_a?(Prism::LocalVariableReadNode) && value.name == node.name && value.depth == node.depth
         when *SILENT then true
         when Prism::ArrayNode then node.static_literal?
         when Prism::HashNode then node.elements.all? { |e| e.is_a?(Prism::AssocNode) && silent?(e.key) && silent?(e.value) }

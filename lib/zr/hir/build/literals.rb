@@ -504,6 +504,27 @@ module Zr
         end
       end
 
+      # Whether a condition can be true, and whether it can be false, as
+      # CRuby's compiler knows them from its literals (compile_branch_condition):
+      # `x and false` is never true, and `x or true` never false. A branch
+      # that it cannot take is code that CRuby does not compile.
+      #: (Prism::node node) -> [bool, bool]
+      def reaches(node)
+        case node
+        when Prism::AndNode
+          left_true, left_false = reaches(node.left)
+          right_true, right_false = reaches(node.right)
+          [left_true && right_true, left_false || (left_true && right_false)]
+        when Prism::OrNode
+          left_true, left_false = reaches(node.left)
+          right_true, right_false = reaches(node.right)
+          [left_true || (left_false && right_true), left_false && right_false]
+        else
+          chosen = chooses?(node)
+          [chosen != false, chosen != true]
+        end
+      end
+
       #: (Prism::RegularExpressionNode | Prism::MatchLastLineNode node, Integer line, ?taken: bool) -> (RegexpLit | Seq)
       def regexp_literal(node, line, taken: true)
         # This literal's value is not used, so ruby never reads the
