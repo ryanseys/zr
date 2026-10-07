@@ -111,7 +111,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ lead: 1, only: [3], block: [5], bare: [5] }, known)
+    assert_equal({ lead: 1, only: [3], raise_only: 3, block: [5], bare: [5], raise: 5 }, known)
   end
 
   def test_a_branching_second_half_keeps_only_the_mandatory_lines
@@ -129,6 +129,42 @@ class BuiltinLinesTest < Minitest::Test
     RUBY
 
     assert_equal({ lead: 0, only: [4] }, known)
+  end
+
+  def test_an_error_raises_at_the_first_primitive_that_takes_a_parameter
+    known = lines_of(<<~RUBY)
+      def first n = unspecified = true
+        if Primitive.mandatory_only?
+          Primitive.cexpr! %q{ ary_first(self) }
+        else
+          if unspecified
+            Primitive.cexpr! %q{ ary_first(self) }
+          else
+            Primitive.cexpr! %q{ ary_take(self, NUM2LONG(n)) }
+          end
+        end
+      end
+    RUBY
+
+    assert_equal({ lead: 0, only: [3], raise: 8 }, known)
+  end
+
+  def test_a_primitive_in_the_test_of_a_branch_only_decides
+    known = lines_of(<<~RUBY)
+      def warn(*msgs, uplevel: nil, category: nil)
+        if Primitive.cexpr!("NIL_P(category)")
+          Primitive.rb_warn_m(msgs, uplevel, nil)
+        else
+          Primitive.rb_warn_m(msgs, uplevel, category)
+        end
+      end
+    RUBY
+
+    assert_equal({ raise: 3 }, known)
+  end
+
+  def test_a_method_without_parameters_raises_at_no_line_of_its_own
+    assert_nil lines_of("def f\n  x = 1\n  Primitive.g(x)\nend\n")&.dig(:raise)
   end
 
   def test_statements_on_one_line_fire_it_once

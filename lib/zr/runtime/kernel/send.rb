@@ -75,7 +75,28 @@ module Zr::Kern
       end
     end
     zr_buf_byte(b, 41)
+    zr_raise_arity(b)
+  end
+
+  # Raises the ArgumentError in `b` for the arguments of a call, and takes
+  # ownership of `b`. CRuby raises it as it sets up the callee's frame,
+  # before the frame is on the stack, so its :raise is the caller's
+  # (zr_trace_raise).
+  #: (ptr) -> value
+  def zr_raise_arity(b)
+    t = zr_task()
+    raised = Machine.static(:arity_raised, 16)
+    Machine.store64(raised, 0, Machine.word(t))
+    Machine.store64(raised, 8, Machine.word(Task[t].top))
     zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+  end
+
+  #: (ptr, word) -> value
+  def zr_raise_arity_msg(bytes, len)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, bytes, len)
+    zr_raise_arity(b)
   end
 
   #: (word, word) -> value

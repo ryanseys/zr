@@ -15,10 +15,14 @@ module Zr::Kern
   # method that CRuby writes in Ruby fires the :line events of its own
   # body, so its send goes through zr_dispatch as a :call does.
   TRACE_BUILTIN_LINES = 17_179_869_184
+  # A bit of `trace_events` alone, set while a TracePoint wants :raise: a
+  # method that CRuby writes in Ruby raises at a line of its own body,
+  # which TracePoint.fire picks by the shape of the send.
+  TRACE_BUILTIN_RAISE = 34_359_738_368
   # The events that a send fires around the method that it calls: a
   # method that CRuby writes in C, and a method that CRuby writes in Ruby
-  # (120 | TRACE_BUILTIN_LINES).
-  TRACE_SENDS = 17_179_869_304
+  # (120 | TRACE_BUILTIN_LINES | TRACE_BUILTIN_RAISE).
+  TRACE_SENDS = 51_539_607_672
   TRACE_RAISE = 128
   TRACE_RESCUE = 16384
   # Events that the machine fires, not a frame. The two thread events
@@ -53,6 +57,9 @@ module Zr::Kern
     mask = Machine.load64(Machine.static(:trace_points, 8), 0)
     if (mask & TRACE_LINE) != 0
       mask = mask | TRACE_BUILTIN_LINES
+    end
+    if (mask & TRACE_RAISE) != 0
+      mask = mask | TRACE_BUILTIN_RAISE
     end
     if zr_coverage_setup_p()
       mask = mask | TRACE_LINE
@@ -190,6 +197,15 @@ module Zr::Kern
       return r if r == QUNDEF
     end
     value = zr_invoke(e, recv, argc, argv, blk, kw)
+    # A method that CRuby writes in Ruby and that raised in its own body
+    # reports its :raise and its :return at the line that raised, which
+    # TracePoint.fire picks by the call's shape.
+    shape = Machine.value(QNIL)
+    if value == QUNDEF && before == TRACE_CALL && zr_trace_builtin_raised_p()
+      shape = zr_trace_call_shape(argc, kw, blk)
+      r = zr_trace_c_send_shaped(TRACE_RAISE, e, owner, recv, Task[zr_task()].pending, shape)
+      return r if r == QUNDEF
+    end
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & after) == 0
       return value
     end
@@ -202,7 +218,7 @@ module Zr::Kern
     end
     kind = Task[t].pending_kind
     pending = Task[t].pending
-    r = zr_trace_c_send(after, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value)
+    r = zr_trace_c_send_shaped(after, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value, shape)
     return r if r == QUNDEF
     if value == QUNDEF
       Task[t].pending_kind = kind
@@ -316,6 +332,57 @@ module Zr::Kern
 
   #: (word, ptr, value, value, value) -> value
   def zr_trace_c_send(event, e, owner, recv, value)
+    row = zr_trace_c_row(event, e, owner, recv, value)
+    if row == QNIL
+      return row
+    end
+    zr_trace_run(row)
+  end
+
+  # Whether the send that the program made of a method that CRuby writes
+  # in Ruby returns with an error that the method raised in its own body
+  # (zr_trace_raise), not one that passes through it.
+  #: () -> bool
+  def zr_trace_builtin_raised_p
+    t = zr_task()
+    raised = Machine.static(:builtin_raised, 16)
+    if Machine.load64(raised, 0) != Machine.word(t) || Machine.load64(raised, 8) != Machine.word(Task[t].top) || Task[t].pending_kind != PENDING_RAISE
+      return false
+    end
+    Machine.store64(raised, 0, 0)
+    true
+  end
+
+  # zr_trace_c_send for a row that ends with the shape of the send, when
+  # `shape` is not nil (TracePoint.fire). The pending unwind waits until
+  # the handlers finish. Returns undef when a handler raises.
+  #: (word, ptr, value, value, value, value) -> value
+  def zr_trace_c_send_shaped(event, e, owner, recv, value, shape)
+    if shape == QNIL
+      return zr_trace_c_send(event, e, owner, recv, value)
+    end
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & event) == 0
+      return Machine.value(QNIL)
+    end
+    t = zr_task()
+    kind = Task[t].pending_kind
+    pending = Task[t].pending
+    row = zr_trace_c_row(event, e, owner, recv, value)
+    if row == QNIL
+      return row
+    end
+    zr_ary_push(row, shape)
+    r = zr_trace_run(row)
+    return r if r == QUNDEF
+    Task[t].pending_kind = kind
+    Task[t].pending = pending
+    Machine.value(QNIL)
+  end
+
+  # The event row of a C method's event at the program's file and line,
+  # or nil when no frame of the program is on the stack.
+  #: (word, ptr, value, value, value) -> value
+  def zr_trace_c_row(event, e, owner, recv, value)
     rec = zr_frame_with_file(Task[zr_task()].top)
     if rec == 0
       return Machine.value(QNIL)
@@ -328,7 +395,7 @@ module Zr::Kern
     zr_ary_push(row, Machine.value(QNIL))
     zr_ary_push(row, zr_fix(Machine.word(Frame[rec].meta)))
     zr_ary_push(row, zr_fix(e))
-    zr_trace_run(row)
+    row
   end
 
   # Fires `event` for the traced frame, which leaves with `value`. `value`
@@ -372,7 +439,14 @@ module Zr::Kern
   # deeper in the runtime, for its own use, is not a program event.
   #: (value, ptr) -> value
   def zr_trace_raise(exc, top)
-    if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_RAISE) == 0 || top == 0
+    # An error in the arguments of a call is the caller's (zr_raise_arity).
+    arity = Machine.static(:arity_raised, 16)
+    if Machine.load64(arity, 0) == Machine.word(zr_task()) && Machine.load64(arity, 8) == Machine.word(top)
+      Machine.store64(arity, 0, 0)
+      top = Frame[top].prev
+    end
+    events = Machine.load64(Machine.static(:trace_events, 8), 0)
+    if (events & (TRACE_RAISE | TRACE_RETURN)) == 0 || top == 0
       return Machine.value(QNIL)
     end
     # The core's frames have no file. The one that the program called
@@ -380,11 +454,15 @@ module Zr::Kern
     # it, with the program's file and line.
     rec = top
     outer = Machine.ptr(0)
+    named = Machine.ptr(0)
+    ruby = false
+    inner_ruby = false
     while rec != 0 && (Frame[rec].meta == 0 || FrameMeta[Frame[rec].meta].file_len == 0)
-      # A method that CRuby writes in Ruby raises from its own file, which
-      # is not a program file.
-      if Frame[rec].meta != 0 && FrameMeta[Frame[rec].meta].ruby != 0
-        return Machine.value(QNIL)
+      inner_ruby = inner_ruby || ruby
+      ruby = Frame[rec].meta != 0 && FrameMeta[Frame[rec].meta].ruby != 0
+      e = Frame[rec].entry
+      if named == 0 && e != 0 && MEntry[e].fn != Machine.addr(:zr_kernel_raise) && zr_trace_c_entry_p(e)
+        named = rec
       end
       outer = rec
       rec = Frame[rec].prev
@@ -392,8 +470,23 @@ module Zr::Kern
     if rec == 0 || FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN || FrameMeta[Frame[rec].meta].hidden != 0
       return Machine.value(QNIL)
     end
+    # A method that CRuby writes in Ruby raises at a line of its own body,
+    # which the send that the program made of it knows by its shape
+    # (zr_trace_owned_invoke). Below a C method, one raises at a
+    # position that zr does not know.
+    if ruby
+      raised = Machine.static(:builtin_raised, 16)
+      Machine.store64(raised, 0, Machine.word(zr_task()))
+      Machine.store64(raised, 8, Machine.word(rec))
+      return Machine.value(QNIL)
+    elsif inner_ruby || (events & TRACE_RAISE) == 0
+      return Machine.value(QNIL)
+    end
     # Kernel#raise leaves its own frame before it raises (rb_raise_jump),
     # so its event is the caller's.
+    if named != 0
+      outer = named
+    end
     e = outer == 0 ? Machine.ptr(0) : Frame[outer].entry
     if e == 0 || MEntry[e].fn == Machine.addr(:zr_kernel_raise)
       return zr_trace_send(rec, TRACE_RAISE, exc)

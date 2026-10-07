@@ -185,7 +185,7 @@ class TracePoint
       mask = 0
       enabled.each { |point| mask |= Primitive.zr_hidden_get(point, :__events__) }
       Primitive.zr_hidden_set(self, :__armed__, mask)
-      builtin_places if (mask & 0x79).nonzero?
+      builtin_places if (mask & 0xf9).nonzero?
       Primitive.zr_trace_events_set(mask & ALL)
     end
 
@@ -260,6 +260,17 @@ class TracePoint
       shape.odd? ? known[:block] : known[:bare]
     end
 
+    # The line of an error that a builtin's body raises for a call of
+    # `shape`, or the line of its :call when BUILTIN_LINES knows none. A
+    # call of only the mandatory arguments raises in the body that CRuby
+    # compiles for it alone.
+    def raise_line(place, shape)
+      Primitive.attr! :hidden
+      known = place[4] || {}
+      line = known[:raise_only] if known[:lead] == shape >> 2 && shape.nobits?(2)
+      line || known[:raise] || place[1]
+    end
+
     # The :return of the TracePoint#enable that started `point`'s trace,
     # which CRuby's hook sees as the method leaves.
     # The first enable in the process runs before any hook is in place
@@ -278,9 +289,21 @@ class TracePoint
       return nil unless current_row.nil?
 
       lines = nil
+      # An event that ends with the shape of the call, where a program
+      # frame's row ends with its lambda flag, is the :raise of one of
+      # CRuby's own Ruby methods, or its :return after that raise
+      # (zr_trace_c_send_shaped). Both report the line that raised.
+      if row[11].is_a?(Integer)
+        shape = row.pop
+        place = builtin_places[row[6]]&.[](row[4])
+        return nil unless place
+
+        row[2] = place[0]
+        row[3] = raise_line(place, shape)
+        row[8] = nil
       # A :call or :return around one of CRuby's own Ruby methods reports
       # the position of that method in CRuby's builtin sources.
-      if (row[0] & 0x18).nonzero? && row[10].nonzero? && (place = builtin_places[row[6]]&.[](row[4]))
+      elsif (row[0] & 0x18).nonzero? && row[10].nonzero? && (place = builtin_places[row[6]]&.[](row[4]))
         row[2] = place[0]
         row[3] = row[0] == 0x8 ? place[1] : place[2]
         row[8] = nil

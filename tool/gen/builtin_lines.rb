@@ -31,22 +31,60 @@ module Zr
           # The :line events of a call by its shape, or nil when none is known:
           # `block:` for a call with a block, `bare:` for one without, and for a
           # body split on `Primitive.mandatory_only?`, `only:` for a call of
-          # `lead:` plain arguments.
+          # `lead:` plain arguments. `raise:` (and `raise_only:` for such a
+          # call) is the line of an error that the body raises.
           def of(node)
             statements = statements_of(node.body)
             return unless statements
 
+            params = parameter_names(node)
             known = {}
             if (split = mandatory_split(statements))
-              only = statements_of(split.statements)&.then { sequence(_1) }
-              if only
-                known[:lead] = node.parameters&.requireds&.size || 0
-                known[:only] = only
-              end
+              known[:lead] = node.parameters&.requireds&.size || 0
+              only = statements_of(split.statements)
+              known[:only] = only && sequence(only)
+              known[:raise_only] = raise_line(only, params)
               statements = statements_of(split.subsequent&.statements)
             end
             known.merge!(by_block(statements)) if statements
-            known unless known.empty?
+            known[:raise] = raise_line(statements, params)
+            known.compact!
+            known unless known.except(:lead).empty?
+          end
+
+          # The line of the first statement that gives one of the method's
+          # parameters to a Primitive: only such a call raises for what the
+          # caller passed. A Primitive in the test of a branch only decides.
+          def raise_line(statements, params)
+            return if statements.nil? || params.empty?
+
+            statements.each do |statement|
+              found = argument_primitives(statement).find { passes?(_1, params) }
+              return found.location.start_line if found
+            end
+            nil
+          end
+
+          def parameter_names(node)
+            node.parameters&.compact_child_nodes.to_a.flat_map { Array(_1) }.filter_map { _1.name if _1.respond_to?(:name) }
+          end
+
+          # The Primitive calls under `node`, but for those in the test of a
+          # branch or a loop.
+          def argument_primitives(node, found = [])
+            found << node if primitive?(node) && !primitive?(node, :attr!) && !primitive?(node, :mandatory_only?)
+            test = node.predicate if node.respond_to?(:predicate)
+            node.compact_child_nodes.each { argument_primitives(_1, found) unless _1.equal?(test) }
+            found
+          end
+
+          # Whether a Primitive call reads a parameter: as an argument, or by
+          # name in the C of a `cexpr!`.
+          def passes?(call, params)
+            each_node(call).any? do |n|
+              (n.is_a?(Prism::LocalVariableReadNode) && params.include?(n.name)) ||
+                (n.is_a?(Prism::StringNode) && params.any? { |p| n.unescaped.match?(/\b#{p}\b/) })
+            end
           end
 
           # A body's statements without its `Primitive.attr!`, or nil when it is

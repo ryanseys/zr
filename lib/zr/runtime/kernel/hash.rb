@@ -1150,7 +1150,7 @@ module Zr::Kern
       end
       i += 1
     end
-    zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    zr_raise_arity(b)
   end
 
   # `**nil`: raises for any keyword.
@@ -1159,7 +1159,7 @@ module Zr::Kern
     if hash == QNIL || RHash[hash].live == 0
       return Machine.value(QNIL)
     end
-    zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no keywords accepted"), 20)
+    zr_raise_arity_msg(Machine.bytes("no keywords accepted"), 20)
   end
 
   # Raises `unknown keyword: :x` or `unknown keywords: :x, :y` for the
@@ -1204,7 +1204,7 @@ module Zr::Kern
       end
       i += 1
     end
-    zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    zr_raise_arity(b)
   end
 
   # A call's keyword table (`zr_kw_pass`) has the count, then the ids.
@@ -1236,7 +1236,7 @@ module Zr::Kern
     r = zr_kw_missing_tab(tab, required, nreq)
     return r if r == QUNDEF
     if mode == 2 && Machine.load64(tab, 0) > 0
-      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("no keywords accepted"), 20)
+      return zr_raise_arity_msg(Machine.bytes("no keywords accepted"), 20)
     end
     if mode == 0
       r = zr_kw_unknown_tab(tab, ids, m)
@@ -1282,7 +1282,7 @@ module Zr::Kern
       end
       i += 1
     end
-    zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    zr_raise_arity(b)
   end
 
   # `zr_kw_unknown` for a table.
@@ -1321,7 +1321,7 @@ module Zr::Kern
       end
       i += 1
     end
-    zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
+    zr_raise_arity(b)
   end
 
   # `**rest` from a table: a Hash of the values in `vals` whose keywords
