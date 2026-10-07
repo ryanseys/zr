@@ -724,7 +724,7 @@ module Zr::Kern
     e = zr_exc_new(zr_global(G_KEY_ERROR), zr_buf_take(b))
     zr_exc_detail(e, Machine.id(:key), key)
     zr_exc_detail(e, Machine.id(:receiver), recv)
-    zr_raise(e)
+    zr_exc_raise(e)
   end
 
   #: (value, word, ptr, value, value) -> value

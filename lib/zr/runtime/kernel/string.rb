@@ -297,9 +297,10 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(", created at "), 13)
       zr_buf_str(b, created)
     end
-    e = zr_exc_new(zr_global(G_FROZEN_ERROR), zr_buf_take(b))
+    e = zr_exc_new_str(zr_global(G_FROZEN_ERROR), zr_buf_take(b))
+    return e if e == QUNDEF
     zr_exc_detail(e, Machine.id(:receiver), v)
-    zr_raise(e)
+    zr_exc_raise(e)
   end
 
   # Returns the String operand of a String method: a String, or the result

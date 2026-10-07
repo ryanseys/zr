@@ -52,7 +52,7 @@ module Zr::Kern
     exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
     zr_exc_detail(exc, Machine.id(:name), name)
     zr_exc_detail(exc, Machine.id(:receiver), recv)
-    zr_raise(exc)
+    zr_exc_raise(exc)
   end
 
   # Whether the bytes are an identifier: a letter, an underscore or a
@@ -185,7 +185,7 @@ module Zr::Kern
       exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       zr_exc_detail(exc, Machine.id(:receiver), recv)
-      return zr_raise(exc)
+      return zr_exc_raise(exc)
     end
     zr_ivtab_get(Machine.ptr(ClassExt[RClass[owner].ext].cv), id)
   end
@@ -235,7 +235,7 @@ module Zr::Kern
       exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       zr_exc_detail(exc, Machine.id(:receiver), recv)
-      return zr_raise(exc)
+      return zr_exc_raise(exc)
     end
     v = IvEntry[e].value
     last = IvTab[t].rows + ((IvTab[t].len - 1) * IvEntry.size)
@@ -623,7 +623,7 @@ module Zr::Kern
         exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
         zr_exc_detail(exc, Machine.id(:name), zr_sym(mid))
         zr_exc_detail(exc, Machine.id(:receiver), recv)
-        return zr_raise(exc)
+        return zr_exc_raise(exc)
       end
       zr_warn_operator(recv, mid, e)
       ext = RClass[klass].ext
@@ -699,7 +699,7 @@ module Zr::Kern
       exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       zr_exc_detail(exc, Machine.id(:receiver), recv)
-      return zr_raise(exc)
+      return zr_exc_raise(exc)
     end
     v = IvEntry[e].value
     last = IvTab[t].rows + ((IvTab[t].len - 1) * IvEntry.size)

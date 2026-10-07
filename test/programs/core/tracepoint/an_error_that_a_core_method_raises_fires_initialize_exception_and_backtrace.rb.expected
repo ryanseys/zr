@@ -1,0 +1,15 @@
+["Integer#/", "Exception#initialize", "Exception#exception", "Exception#backtrace", "Module#==="]
+["Array#fetch", "Exception#initialize", "Exception#exception", "Exception#backtrace", "Module#==="]
+["Hash#fetch", "Symbol#inspect", "Exception#exception", "Exception#backtrace", "Module#==="]
+["Module#==="]
+["String#*", "Exception#initialize", "Exception#exception", "Exception#backtrace", "Module#==="]
+["BasicObject#method_missing", "Exception#exception", "Exception#backtrace", "Module#==="]
+["Module#const_get", "Module#const_missing", "Exception#exception", "Exception#backtrace", "Module#==="]
+["Module#==="]
+["Kernel#raise", "#<Class:Exception>#exception", "Exception#initialize", "Exception#backtrace", "Module#==="]
+"zero: divided by 0"
+"index: index 3 outside of array bounds: 0...0"
+"negative array size"
+"type: [\"nil can't be coerced into Integer\"]"
+"type: [\"can't convert nil into Integer\"]"
+"key not found: :a"

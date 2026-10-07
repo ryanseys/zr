@@ -563,9 +563,14 @@ module Zr::Kern
       if e == QNIL
         e = zr_exc_new(zr_global(G_RUNTIME_ERROR), zr_str_new(Machine.bytes(""), 0))
       end
-    else
+    elsif zr_trace_program_frame_p(top)
       e = zr_make_exception(argc, argv)
       return e if e == QUNDEF
+    else
+      e = zr_make_core_exception(argc, argv)
+      return e if e == QUNDEF
+      r = zr_trace_core_raise(e)
+      return r if r == QUNDEF
     end
     # The cause is checked once the exception is made, as rb_f_raise
     # reads the first argument first.
@@ -723,13 +728,87 @@ module Zr::Kern
 
   #: (value, ptr, word) -> value
   def zr_raise_msg(klass, bytes, len)
-    zr_raise(zr_exc_new(klass, zr_str_new(bytes, len)))
+    zr_raise_new(klass, zr_str_new(bytes, len))
   end
 
   # Raises with the message in `b`, and takes ownership of `b`.
   #: (value, ptr) -> value
   def zr_raise_buf(klass, b)
-    zr_raise(zr_exc_new(klass, zr_buf_take(b)))
+    zr_raise_new(klass, zr_buf_take(b))
+  end
+
+  # rb_raise: a new error of `klass` with `message`, raised as
+  # rb_exc_raise raises it.
+  #: (value, value) -> value
+  def zr_raise_new(klass, message)
+    e = zr_exc_new_str(klass, message)
+    return e if e == QUNDEF
+    zr_exc_raise(e)
+  end
+
+  # rb_exc_new_str: a new error of `klass`, made with `initialize` and
+  # its message.
+  #: (value, value) -> value
+  def zr_exc_new_str(klass, message)
+    e = zr_exc_new(klass, message)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(message))
+    r = zr_exc_init(e, 1, slot)
+    return r if r == QUNDEF
+    e
+  end
+
+  # rb_class_new_instance's `initialize` of an error that a core method
+  # makes. Exception's own runs here directly, unless a TracePoint hears
+  # the call; any other goes through a send, so one that the program
+  # wrote for a core class runs.
+  #: (value, word, ptr) -> value
+  def zr_exc_init(e, argc, argv)
+    init = zr_find_method(zr_class_of(e), Machine.id(:initialize))
+    if init != 0 && MEntry[init].fn == Machine.addr(:zr_exc_initialize) && !(zr_trace_c_p() && zr_trace_c_heard_p())
+      return zr_exc_initialize(e, argc, argv, Machine.value(QNIL), Machine.value(QNIL))
+    end
+    zr_send_for_caller(e, Machine.id(:initialize), argc, argv, Machine.value(QNIL))
+  end
+
+  # rb_exc_raise of an error that a core method made: it fires the C
+  # events of `exception` and `backtrace` first (zr_trace_core_raise).
+  #: (value) -> value
+  def zr_exc_raise(e)
+    r = zr_trace_core_raise(e)
+    return r if r == QUNDEF
+    zr_raise(e)
+  end
+
+  # The error of a `raise` in a core method, made as the C function that
+  # CRuby has in its place makes it. rb_raise news the class with the
+  # message and does not send the class `exception`; an error made before
+  # goes as it is; a String alone is a RuntimeError's message. Any other
+  # form goes through rb_make_exception.
+  #: (word, ptr) -> value
+  def zr_make_core_exception(argc, argv)
+    first = Machine.value(Machine.load64(argv, 0))
+    if argc > 2 || zr_special_p(first)
+      return zr_make_exception(argc, argv)
+    end
+    type = zr_type(first)
+    if type == T_EXCEPTION && argc == 1
+      return first
+    end
+    klass = first
+    args = argv + 8
+    if type == T_STRING && argc == 1
+      klass = zr_global(G_RUNTIME_ERROR)
+      args = argv
+      argc = 2
+    elsif type != T_CLASS || !zr_class_inherits(first, zr_global(G_EXCEPTION))
+      return zr_make_exception(argc, argv)
+    end
+    e = zr_class_new_object(klass)
+    return e if e == QUNDEF
+    r = zr_exc_init(e, argc - 1, args)
+    return r if r == QUNDEF
+    e
   end
 
   # Returns a class of the core library, found by its constant name.
@@ -1100,7 +1179,9 @@ module Zr::Kern
 
   #: () -> value
   def zr_stack_overflow
-    zr_raise_msg(zr_global(G_SYSTEM_STACK_ERROR), Machine.bytes("stack level too deep"), 20)
+    # No `initialize` runs: the stack has no room for it, and CRuby raises
+    # an error it made at start.
+    zr_raise(zr_exc_new(zr_global(G_SYSTEM_STACK_ERROR), zr_str_new(Machine.bytes("stack level too deep"), 20)))
   end
 
   # `set_backtrace`: an Array of Strings, one String, or nil.

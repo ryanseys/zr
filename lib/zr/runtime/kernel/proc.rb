@@ -1186,10 +1186,11 @@ module Zr::Kern
   # `:noreason`) and the value of the jump.
   #: (ptr, word, word, value) -> value
   def zr_local_jump_error(bytes, len, reason, v)
-    exc = zr_exc_new(zr_global(G_LOCAL_JUMP_ERROR), zr_str_new(bytes, len))
+    exc = zr_exc_new_str(zr_global(G_LOCAL_JUMP_ERROR), zr_str_new(bytes, len))
+    return exc if exc == QUNDEF
     zr_ivar_set(exc, Machine.id(:@exit_value), v)
     zr_ivar_set(exc, Machine.id(:@reason), zr_sym(reason))
-    zr_raise(exc)
+    zr_exc_raise(exc)
   end
 
   # `break v` in the block `p`.

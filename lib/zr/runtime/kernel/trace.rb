@@ -217,7 +217,7 @@ module Zr::Kern
   # when a handler raises.
   #: (value, word) -> value
   def zr_trace_c_popped(recv, mid)
-    if !zr_trace_c_p() || !zr_trace_c_caller_p()
+    if !zr_trace_c_p() || !zr_trace_c_heard_p()
       return Machine.value(QNIL)
     end
     e = zr_find_method(zr_class_of(recv), mid)
@@ -251,12 +251,47 @@ module Zr::Kern
     if rec != 0 && Frame[rec].entry != 0 && MEntry[Frame[rec].entry].fn == Machine.addr(:zr_obj_method_missing) && zr_trace_program_frame_p(Frame[rec].prev)
       r = zr_trace_c_left(t, rec)
       return r if r == QUNDEF
-    elsif !zr_trace_c_caller_p()
+    elsif !zr_trace_c_heard_p()
       return Machine.value(QNIL)
     end
+    zr_trace_raise_pair(exc)
+  end
+  
+  # rb_exc_raise of an error that a core method made for the program,
+  # when a TracePoint hears the C calls of that method (zr_trace_c_heard_p).
+  # Returns undef when a handler raises.
+  #: (value) -> value
+  def zr_trace_core_raise(exc)
+    if !zr_trace_c_p() || !zr_trace_c_heard_p()
+      return Machine.value(QNIL)
+    end
+    zr_trace_raise_pair(exc)
+  end
+  
+  # The C events of rb_exc_raise: make_exception sends `exception` to the
+  # error, and rb_get_backtrace sends it `backtrace`.
+  #: (value) -> value
+  def zr_trace_raise_pair(exc)
     r = zr_trace_c_pair(exc, Machine.id(:exception))
     return r if r == QUNDEF
     zr_trace_c_pair(exc, Machine.id(:backtrace))
+  end
+  
+  # Whether a TracePoint hears the C calls that the core method on top
+  # makes: the nearest frame with a file is the program's, and no core
+  # frame above it is a method that CRuby writes in Ruby, whose calls fire
+  # at its <internal:...> path.
+  #: () -> bool
+  def zr_trace_c_heard_p
+    rec = Task[zr_task()].top
+    while rec != 0 && (Frame[rec].meta == 0 || FrameMeta[Frame[rec].meta].file_len == 0)
+      e = Frame[rec].entry
+      if e != 0 && (MEntry[e].core & MENTRY_CRUBY_RUBY) != 0
+        return false
+      end
+      rec = Frame[rec].prev
+    end
+    rec != 0 && zr_trace_program_frame_p(rec)
   end
 
   # :c_call and :c_return of the core method `mid` of `recv`, as a C

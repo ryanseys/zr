@@ -800,7 +800,7 @@ module Zr::Kern
     exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
     zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
     zr_exc_detail(exc, Machine.id(:receiver), scope)
-    zr_raise(exc)
+    zr_exc_raise(exc)
   end
 
   # Sends the warning for a deprecated constant to `Warning`, so that a
@@ -860,7 +860,7 @@ module Zr::Kern
         exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
         zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
         zr_exc_detail(exc, Machine.id(:receiver), recv)
-        return zr_raise(exc)
+        return zr_exc_raise(exc)
       end
       if private < 0
         CEntry[e].deprecated = 1
@@ -1184,7 +1184,7 @@ module Zr::Kern
       exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
       zr_exc_detail(exc, Machine.id(:name), name)
       zr_exc_detail(exc, Machine.id(:receiver), recv)
-      return zr_raise(exc)
+      return zr_exc_raise(exc)
     end
     Machine.value(QNIL)
   end
@@ -1370,7 +1370,7 @@ module Zr::Kern
       exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       zr_exc_detail(exc, Machine.id(:receiver), recv)
-      return zr_raise(exc)
+      return zr_exc_raise(exc)
     end
     # rb_const_remove warns for a deprecated constant first.
     r = zr_const_deprecated(e, id)
@@ -1638,7 +1638,7 @@ module Zr::Kern
       zr_buf_sym(b, id)
       exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
-      return zr_raise(exc)
+      return zr_exc_raise(exc)
     end
     if RString[feature].len == 0
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("empty feature name"), 18)

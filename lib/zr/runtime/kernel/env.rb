@@ -1196,9 +1196,11 @@ module Zr::Kern
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("cannot load such file -- "), 25)
     zr_buf_push(b, path, len)
-    exc = zr_exc_new(zr_core_class(Machine.id(:LoadError)), zr_buf_take(b))
-    zr_ivar_set(exc, Machine.id(:@path), zr_str_new(path, len))
-    r = zr_raise(exc)
+    r = zr_exc_new_str(zr_core_class(Machine.id(:LoadError)), zr_buf_take(b))
+    if r != QUNDEF
+      zr_ivar_set(r, Machine.id(:@path), zr_str_new(path, len))
+      r = zr_exc_raise(r)
+    end
     Task[t].top = Frame[rec].prev
     r
   end

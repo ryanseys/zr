@@ -103,7 +103,7 @@ module Zr::Kern
     e = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
     zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
     zr_exc_detail(e, Machine.id(:receiver), klass)
-    zr_raise(e)
+    zr_exc_raise(e)
   end
 
   # Returns the Method (with a receiver) or the UnboundMethod (`recv` is
