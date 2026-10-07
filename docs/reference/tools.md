@@ -126,11 +126,10 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev gems try GEM [--keep] [--save]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `gems/compat.tsv`. |
-| `zr-dev gems sweep [GEM...] [--top N] [--jobs N] [--save]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `gems/top.tsv`. The rows go into `tmp/gems/sweep-<time>.tsv`, or with `--save` into `gems/compat.tsv`. |
+| `zr-dev gems try GEM [--keep] [--save]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `gems/compat.tsv`. `--build-only` builds the program and runs nothing. |
+| `zr-dev gems sweep [GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--build-only]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `gems/top.tsv`, and `--top FIRST..LAST` those ranked FIRST to LAST. As each gem ends, its line goes into `log/gems/sweep-<time>.log` and its row into `log/gems/sweep-<time>.tsv`, and with `--save` into `gems/compat.tsv`. `--build-only` runs no gem code: it takes gems from rubygems.org only and stops after the build. |
 | `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
 | `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `gems/top.tsv` again from packages.ecosyste.ms. |
-| `zr-dev gems snapshot [REVISION] [--list] [--remove DIR]` | Makes a copy of zr at a commit (HEAD by default) in `tmp/gems/zr/<commit>`, a git worktree with its own cache, and builds its runtime, as `rake build` does. `try` and `sweep` take `--zr DIR` (or `ZR_GEMS_ZR`) to build with the copy, so zr can change in the checkout while a sweep runs. |
 
 ### Expected outputs
 

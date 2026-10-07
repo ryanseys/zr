@@ -131,4 +131,3 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |
 | `MKCONSTANTS` | `zr-dev gen tables` | the file in `RUBY_SRC` | The path of a copy of `ext/socket/mkconstants.rb` from the ruby 4.0.7 source. |
 | `ZR_GEM_CORPUS` | `zr-dev gems` | unset | A directory of unpacked gems, `<dir>/<name>`, that `zr-dev gems` looks in first, by name. It never lists the directory. The `--corpus` option has priority. |
-| `ZR_GEMS_ZR` | `zr-dev gems` | this checkout | A copy of zr that `zr-dev gems snapshot` made, to build with, so that a sweep runs while this checkout changes. The `--zr` option has priority. |
