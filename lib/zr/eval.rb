@@ -145,7 +145,11 @@ module Zr
         # def sites, and Coverage learns which of its lines can run and where
         # each of its methods is.
         base = coverage&.send(:next_def_site)
-        hir = Hir.build(source, path, eval_support: false, trace: @runtime.tracing?, def_base: base)
+        # The file's `using` entries come after every entry in use, as an
+        # eval's do (`compiled`): numbered from 0, they would take the
+        # entries of the program and of eval support (prism's parser).
+        hir = Hir.build(source, path, eval_support: false, trace: @runtime.tracing?, def_base: base, activations: @runtime.activations)
+        @runtime.take_activations(hir.activations)
         coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
         ext = Library::Roots.internal_library?(path)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
