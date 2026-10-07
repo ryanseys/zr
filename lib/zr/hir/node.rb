@@ -390,7 +390,9 @@ module Zr
     # shared String with no send, as the compiler's own fstring. `false`
     # means the same for a text that is not UTF-8: frozen with no send,
     # but not shared. `:debug` (--debug=frozen-string-literal) is the
-    # site's own frozen String, which knows where it was made.
+    # site's own frozen String, which knows where it was made. `:uminus`
+    # is `-"text"`: the same frozen String, or a send of `-@` if the
+    # program redefines that.
     FrozenString = Node.new(:value, :line, :shared)
     # `begin body rescue ... else else_body ensure ensure_body end`. The
     # else branch runs after a body that raised nothing. The ensure branch

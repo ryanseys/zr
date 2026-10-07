@@ -1227,6 +1227,8 @@ module Zr::Kern
       GATE_LTLT
     elsif klass == zr_global(G_STRING) && mid == Machine.id(:freeze)
       GATE_FREEZE
+    elsif klass == zr_global(G_STRING) && mid == Machine.id(:-@)
+      GATE_STR_UMINUS
     elsif klass == zr_global(G_STRING) && mid == Machine.id(:getbyte)
       GATE_GETBYTE
     elsif klass == zr_global(G_STRING) && mid == Machine.id(:setbyte)
@@ -1279,7 +1281,7 @@ module Zr::Kern
     attr_accessor :vis #: word
   end
 
-  GATE_ROWS = 57
+  GATE_ROWS = 58
 
   #: (word, word, word, word) -> word
   def zr_gate_row(i, klass, mid, bit)
@@ -1322,6 +1324,7 @@ module Zr::Kern
     i = zr_gate_row(i, G_ARRAY, Machine.id(:<<), GATE_LTLT)
     i = zr_gate_row(i, G_STRING, Machine.id(:<<), GATE_LTLT)
     i = zr_gate_row(i, G_STRING, Machine.id(:freeze), GATE_FREEZE)
+    i = zr_gate_row(i, G_STRING, Machine.id(:-@), GATE_STR_UMINUS)
     i = zr_gate_row(i, G_FLOAT, Machine.id(:+), GATE_FLO_PLUS)
     i = zr_gate_row(i, G_FLOAT, Machine.id(:-), GATE_FLO_MINUS)
     i = zr_gate_row(i, G_FLOAT, Machine.id(:*), GATE_FLO_MUL)

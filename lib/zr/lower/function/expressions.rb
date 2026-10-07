@@ -70,8 +70,9 @@ module Zr
           when Hir::IvarRead then ivar_read(node)
           when Hir::FrozenString
             if node.shared == :debug && !@l.internal? then debug_literal(node, string_literal(node.value, "zr_str_new"), "zr_str_debug_frozen", site_word)
+            elsif node.shared == :uminus then checked(string_literal(node.value, "zr_str_literal_uminus"))
             elsif node.shared then shared_literal(node.value)
-            else checked(string_literal(node.value, node.shared == false ? "zr_str_frozen" : "zr_str_literal_freeze"))
+            else checked(string_literal(node.value, node.shared == false ? "zr_str_literal_shared" : "zr_str_literal_freeze"))
             end
           when Hir::GvarRead then gvar_read(node)
           when Hir::BackRef then back_ref(node)

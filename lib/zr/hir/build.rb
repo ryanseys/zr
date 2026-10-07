@@ -1147,6 +1147,8 @@ module Zr
         @body_marks |= [mark] if mark
         return Not.new(expr(node.receiver), node.location.start_line) if node.name == :! && node.receiver && node.arguments.nil? && node.call_operator != "&."
         return FrozenString.new(unescaped(node.receiver), node.location.start_line) if node.name == :freeze && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
+        # `-"text"`: CRuby's opt_str_uminus, the fstring with no new String.
+        return FrozenString.new(unescaped(node.receiver), node.location.start_line, :uminus) if node.name == :-@ && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil? && node.block.nil?
         # The core's `+"text"` under its frozen_string_literal comment: a
         # new String, as its C makes, with no send of +@.
         return Literal.new(unescaped(node.receiver), node.location.start_line, false) if node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.block.nil? && Library::Roots.runtime_file?(@file)

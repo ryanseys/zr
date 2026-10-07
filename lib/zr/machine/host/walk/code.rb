@@ -205,7 +205,10 @@ module Zr
             bytes = node.value.b
             case node.shared
             when true then shared_literal(node, bytes)
-            when false then string_literal(node.value, :zr_str_frozen)
+            when false then string_literal(node.value, :zr_str_literal_shared)
+            when :uminus
+              literal = string_literal(node.value, :zr_str_literal_uminus)
+              ->(f) { check(literal.call(f)) }
             else
               literal = string_literal(node.value, :zr_str_literal_freeze)
               ->(f) { check(literal.call(f)) }

@@ -2211,7 +2211,7 @@ module Zr::Kern
     if (Machine.gates & GATE_FREEZE) != 0
       return zr_send(zr_str_new_at(bytes, len, index), Machine.id(:freeze), 0, 0)
     end
-    zr_str_frozen_at(bytes, len, index)
+    zr_str_literal_shared_at(bytes, len, index)
   end
 
   # `"lit".freeze`: the shared frozen String, unless the program redefined
@@ -2224,7 +2224,25 @@ module Zr::Kern
     zr_str_literal_shared(bytes, len)
   end
 
-  G_FROZEN_LITERALS = 52
+# `-"lit"`: the shared frozen String, unless the program redefined
+# String#-@, which then runs as any send does.
+#: (ptr, word) -> value
+def zr_str_literal_uminus(bytes, len)
+  if (Machine.gates & GATE_STR_UMINUS) != 0
+    return zr_send(zr_str_new(bytes, len), Machine.id(:-@), 0, 0)
+  end
+  zr_str_literal_shared(bytes, len)
+end
+
+#: (ptr, word, word) -> value
+def zr_str_literal_uminus_at(bytes, len, index)
+  if (Machine.gates & GATE_STR_UMINUS) != 0
+    return zr_send(zr_str_new_at(bytes, len, index), Machine.id(:-@), 0, 0)
+  end
+  zr_str_literal_shared_at(bytes, len, index)
+end
+
+G_FROZEN_LITERALS = 52
 
   # The one frozen String of a UTF-8 literal, kept under the address of
   # its bytes.
@@ -2248,19 +2266,40 @@ module Zr::Kern
   # address return the literal that is there now.
   #: (ptr, word) -> value
   def zr_str_literal_shared(bytes, len)
-    table = zr_global(G_FROZEN_LITERALS)
-    if zr_special_p(table)
-      table = zr_hash_new()
-      zr_set_global(G_FROZEN_LITERALS, table)
-    end
+    table = zr_frozen_literals()
     key = zr_fix(Machine.word(bytes))
     found = zr_hash_lookup(table, key)
     if found != QUNDEF && zr_bytes_eq(bytes, len, RString[found].ptr, RString[found].len)
       return found
     end
-    s = zr_str_frozen(bytes, len)
+    s = zr_str_fstring(bytes, len, ENC_UTF8)
     zr_hash_store(table, key, s)
     s
+  end
+
+  # The same for a literal in a file whose script encoding is not UTF-8
+  # (`# coding: us-ascii`). A hit must also have the literal's encoding.
+  #: (ptr, word, word) -> value
+  def zr_str_literal_shared_at(bytes, len, index)
+    table = zr_frozen_literals()
+    key = zr_fix(Machine.word(bytes))
+    found = zr_hash_lookup(table, key)
+    if found != QUNDEF && zr_str_encoding_index(found) == index && zr_bytes_eq(bytes, len, RString[found].ptr, RString[found].len)
+      return found
+    end
+    s = zr_str_fstring(bytes, len, index)
+    zr_hash_store(table, key, s)
+    s
+  end
+
+  #: () -> value
+  def zr_frozen_literals
+    table = zr_global(G_FROZEN_LITERALS)
+    if zr_special_p(table)
+      table = zr_hash_new()
+      zr_set_global(G_FROZEN_LITERALS, table)
+    end
+    table
   end
 
   # The same, kept in `cell`, the word of the literal site, which the site
@@ -2273,6 +2312,7 @@ module Zr::Kern
   end
 
   GATE_FREEZE = 32768
+  GATE_STR_UMINUS = 1 << 55
 
   G_FSTRINGS = 44
 
@@ -2285,25 +2325,7 @@ module Zr::Kern
   # this encoding. A String not yet in the table is frozen and added.
   #: (value) -> value
   def zr_str_intern(s)
-    if zr_str_wide_p(s)
-      table = zr_global(G_FSTRINGS)
-      if zr_special_p(table)
-        table = zr_hash_new()
-        zr_set_global(G_FSTRINGS, table)
-      end
-    else
-      tables = zr_global(G_FSTRINGS_OTHER)
-      if zr_special_p(tables)
-        tables = zr_hash_new()
-        zr_set_global(G_FSTRINGS_OTHER, tables)
-      end
-      index = zr_fix(zr_str_encoding_index(s))
-      table = zr_hash_lookup(tables, index)
-      if table == QUNDEF
-        table = zr_hash_new()
-        zr_hash_store(tables, index, table)
-      end
-    end
+    table = zr_fstring_table(s)
     found = zr_hash_lookup(table, s)
     if found != QUNDEF
       return found
@@ -2311,6 +2333,52 @@ module Zr::Kern
     RBasic[s].flags = RBasic[s].flags | FL_FREEZE | FL_FSTR
     zr_hash_store(table, s, s)
     s
+  end
+
+  # The fstring table for the encoding of `s`.
+  #: (value) -> value
+  def zr_fstring_table(s)
+    if zr_str_wide_p(s)
+      table = zr_global(G_FSTRINGS)
+      if zr_special_p(table)
+        table = zr_hash_new()
+        zr_set_global(G_FSTRINGS, table)
+      end
+      return table
+    end
+    tables = zr_global(G_FSTRINGS_OTHER)
+    if zr_special_p(tables)
+      tables = zr_hash_new()
+      zr_set_global(G_FSTRINGS_OTHER, tables)
+    end
+    index = zr_fix(zr_str_encoding_index(s))
+    table = zr_hash_lookup(tables, index)
+    if table == QUNDEF
+      table = zr_hash_new()
+      zr_hash_store(tables, index, table)
+    end
+    table
+  end
+
+  # The fstring of `len` bytes at `bytes` in the encoding `index`: the one
+  # in the table, else a new one. As rb_fstring_new does with its fake
+  # String, the lookup uses a String image on the stack, so bytes that the
+  # table has already cost no allocation. A T_STRING key is hashed and
+  # compared in the kernel, so no Ruby code sees the image.
+  #: (ptr, word, word) -> value
+  def zr_str_fstring(bytes, len, index)
+    probe = Machine.value(Machine.slot(RString.size))
+    RBasic[probe].flags = T_STRING | FL_STACK
+    RBasic[probe].klass = zr_global(G_STRING)
+    RString[probe].len = len
+    RString[probe].capa = len
+    RString[probe].ptr = bytes
+    zr_str_set_index(probe, index)
+    found = zr_hash_lookup(zr_fstring_table(probe), probe)
+    if found != QUNDEF
+      return found
+    end
+    zr_str_intern(zr_str_new_at(bytes, len, index))
   end
 
   # A String in the fstring table, which cannot have a singleton class
