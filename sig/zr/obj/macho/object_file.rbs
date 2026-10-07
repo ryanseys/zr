@@ -60,15 +60,14 @@ module Zr
           attr_accessor size: Integer
           attr_accessor align: Integer
           attr_accessor items: Array[[Code | Datum, Integer]]
-          # `[address, words]` groups while `laid_out` collects them, then
-          # the words.
-          attr_accessor relocs: Array[untyped]
+          # The words of its relocation_info entries.
+          attr_accessor relocs: Array[Integer]
           attr_accessor addr: Integer
           attr_accessor offset: Integer
           attr_accessor reloff: Integer
 
           def self.new: (name: String, seg: String, flags: Integer, bytes: String, size: Integer, align: Integer,
-                         items: Array[[Code | Datum, Integer]], relocs: Array[untyped], addr: Integer, offset: Integer,
+                         items: Array[[Code | Datum, Integer]], relocs: Array[Integer], addr: Integer, offset: Integer,
                          reloff: Integer) -> instance
         end
 
