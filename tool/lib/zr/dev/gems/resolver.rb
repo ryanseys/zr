@@ -75,7 +75,7 @@ module Zr
           sets = [Provided.new, (Local.new { |name| @corpus.find(name) } if @corpus),
                   (Local.new { |name| @store.versions(name) } if @offline), (@remote.set unless @offline)]
           resolver = Gem::Resolver.new(subject.gem_dependencies, Preferred.new(sets.compact))
-          requests = Resolver.ruby_platform { resolver.resolve }
+          requests = Resolver.ruby_platform { Resolver.requests(resolver) }
           requests.filter_map do |request|
             spec = request.spec
             next if spec.is_a?(Provided::Spec) || spec.name == subject.name
@@ -83,8 +83,23 @@ module Zr
 
             @store.unpack(@remote.download(spec, @store.downloads))
           end
+        end
+
+        # The requests that `resolver` (a Gem::Resolver) picks. A conflict
+        # is a Failure.
+        def self.requests(resolver)
+          resolver.resolve
         rescue Gem::DependencyError => e
           raise Failure.new("resolve", e.message.lines.first.chomp)
+        rescue NoMethodError => e
+          # RubyGems 4.0.7 fails as it makes the DependencyResolutionError
+          # of some conflicts (ddtrace's `datadog-ci ~> 0.8.1`):
+          # Conflict#conflicting_dependencies calls `request` on nil. The
+          # conflict itself is the cause.
+          conflict = e.cause
+          raise unless conflict.is_a?(Gem::Molinillo::ResolverError)
+
+          raise Failure.new("resolve", conflict.message.lines.map(&:strip).reject(&:empty?).join(" "))
         end
 
         # Runs the block with only the `ruby` platform installable.

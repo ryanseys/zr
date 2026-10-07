@@ -113,6 +113,12 @@ module Zr
           # A download, an unpack or a gemspec that fails.
           log << e.full_message(highlight: false)
           finish(request, subject, :fails, "resolve", "#{e.class}: #{e.message.lines.first&.chomp}", log)
+        rescue StandardError => e
+          # A defect of this tool, or of a library that it calls, on this
+          # gem. The gem fails, with the error in its log, and a sweep goes
+          # on to the next gem.
+          log << e.full_message(highlight: false)
+          finish(request, subject, :fails, "tool-error", "#{e.class}: #{e.message.lines.first&.chomp}", log)
         end
 
         # The feature that requires the gem: its name, its name with each

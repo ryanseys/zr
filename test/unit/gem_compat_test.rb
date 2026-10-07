@@ -95,6 +95,42 @@ class GemCompatTest < Minitest::Test
     assert_includes error.message, "helper"
   end
 
+  # A resolver whose resolve fails as RubyGems 4.0.7 does on ddtrace: a
+  # NoMethodError while it makes the error of a conflict.
+  class BrokenResolver
+    def initialize(cause) = @cause = cause
+
+    def resolve
+      raise @cause
+    rescue StandardError
+      nil.request
+    end
+  end
+
+  def test_a_conflict_that_rubygems_fails_to_report_fails_to_resolve
+    conflict = Gem::Molinillo::ResolverError.new("Unable to satisfy the following requirements:\n\n- `datadog-ci (~> 0.8.1)` required by `user`")
+
+    error = assert_raises(Gems::Failure) { Gems::Resolver.requests(BrokenResolver.new(conflict)) }
+
+    assert_equal "resolve", error.kind
+    assert_equal "Unable to satisfy the following requirements: - `datadog-ci (~> 0.8.1)` required by `user`", error.message
+  end
+
+  def test_another_no_method_error_of_the_resolver_is_not_a_conflict
+    assert_raises(NoMethodError) { Gems::Resolver.requests(BrokenResolver.new(ArgumentError.new("x"))) }
+  end
+
+  def test_an_error_of_the_tool_on_one_gem_fails_that_gem_and_not_the_sweep
+    resolver = Object.new
+    def resolver.resolve(_request) = nil.fetch
+    result = Gems::Trial.new(resolver: resolver, runner: Runner.new, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+                             work: File.join(@dir, "work"), reference: Reference).call(Gems::Request.parse("tiny"))
+
+    assert_equal [:fails, "tool-error"], [result.tier, result.kind]
+    assert_match(/\ANoMethodError: undefined method 'fetch' for nil/, result.detail)
+    assert_includes File.read(result.log), "gem_compat_test.rb", "the log keeps the backtrace"
+  end
+
   def test_the_resolver_goes_past_zrs_version_when_another_gem_needs_an_older_one
     corpus = gem_dir("corpus/minitest", "5.25.0")
     gem_dir("corpus/old", "1.0.0", "minitest" => "< 6")
