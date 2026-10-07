@@ -626,15 +626,20 @@ class Thread
       # `node_id` is the id of the prism node the row's line ran, which
       # RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location reads.
       # `line` is the frame's line when the kernel knows it: a row at line
-      # 0 shows none, so its whole head is the path, digits and all.
+      # 0 shows none, so its whole head is the path, digits and all. It is
+      # false for a C frame with no Ruby frame under it, which has no path
+      # and shows the program's name.
       def initialize(row, node_id = 0, line = nil)
         Primitive.attr! :hidden
         Primitive.zr_hidden_set(self, :__node_id__, node_id)
         at = row.index(":in '")
         head = row[0, at]
         # A frame at line 0 shows no line, as location_format writes it.
-        shown = head[/:(-?\d+)\z/, 1] unless line == 0
-        @path = shown ? head.byteslice(0, head.bytesize - shown.bytesize - 1) : head
+        shown = head[/:(-?\d+)\z/, 1] unless line == 0 || line == false
+        @path = if line == false then nil
+                elsif shown then head.byteslice(0, head.bytesize - shown.bytesize - 1)
+                else head
+                end
         @lineno = shown.to_i
         @label = row[at + 5...-1]
         @row = row
@@ -653,7 +658,7 @@ class Thread
       # The real path of the frame's file, as ruby fixed it when the file
       # loaded; nil for -e and for an eval's own file name.
       def absolute_path
-        return nil if @path == +"-e"
+        return nil if @path.nil? || @path == +"-e"
 
         Kernel.send(:real_path_of, @path)
       end

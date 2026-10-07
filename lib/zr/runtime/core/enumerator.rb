@@ -184,32 +184,21 @@ class Enumerator
 
   alias each_with_object with_object
 
+  # `next` and `peek` take the values as CRuby's C does, with no send of
+  # `next_values` that a backtrace would show or a program could redefine.
   def next
-    values = next_values
+    values = advance
     values.size <= 1 ? values[0] : values
   end
 
   def peek
-    values = peek_values
-    values.size <= 1 ? values[0] : values
+    values = look_ahead
+    values.size <= 1 ? values[0] : values.dup
   end
 
-  def next_values
-    initialized!
-    if @lookahead
-      values = @lookahead
-      @lookahead = nil
-      return values
-    end
+  def next_values = advance
 
-    take_next
-  end
-
-  def peek_values
-    initialized!
-    @lookahead ||= take_next
-    @lookahead.dup
-  end
+  def peek_values = look_ahead.dup
 
   def rewind
     initialized!
@@ -291,10 +280,30 @@ class Enumerator
   # yields every value set back as an array. When the iteration ends,
   # its return value becomes the StopIteration's result, and every later
   # `next` raises a new StopIteration caused by the first.
+  # The values of the next step, which moves the position on.
+  def advance
+    Primitive.attr! :hidden
+    initialized!
+    if @lookahead
+      values = @lookahead
+      @lookahead = nil
+      return values
+    end
+
+    take_next
+  end
+
+  # The values of the next step, which stay there for the next `next`.
+  def look_ahead
+    Primitive.attr! :hidden
+    initialized!
+    @lookahead ||= take_next
+  end
+
   def take_next
     Primitive.attr! :hidden
     raise_stop if @stop
-    @fiber = Fiber.new { run } unless @fiber&.alive?
+    @fiber = Fiber.new { Enumerator.send(:external, self) } unless @fiber&.alive?
     values = @fiber.resume
     if @stop
       @fiber = nil
@@ -304,15 +313,30 @@ class Enumerator
     values
   end
 
-  def run
+  # The body of the fiber of an external iteration over `enum`. A helper
+  # of the class, not of the enumerator, calls `each`, so the frame of
+  # `each` shows at the base of the fiber's backtraces, as the cfunc
+  # frame that CRuby's next_i pushes does.
+  def self.external(enum)
     Primitive.attr! :hidden
-    # next_ii: the value a feed set is what the paused yield returns, once.
-    result = each do |*values|
-      Fiber.yield(values)
-      fed = @feed
-      @feed = nil
-      fed&.first
-    end
+    result = enum.each { |*values| enum.send(:pause_with, values) }
+    enum.send(:stop_with, result)
+  end
+  private_class_method :external
+
+  # One step of an external iteration: the values go to `next`, and the
+  # value a feed set is what the paused yield returns, once (next_ii).
+  def pause_with(values)
+    Primitive.attr! :hidden
+    Fiber.yield(values)
+    fed = @feed
+    @feed = nil
+    fed&.first
+  end
+
+  # The end of an external iteration, with the value of `each`.
+  def stop_with(result)
+    Primitive.attr! :hidden
     @stop = StopIteration.new(+"iteration reached an end")
     Primitive.zr_hidden_set(@stop, :result, result)
     nil

@@ -1,1 +1,0 @@
-["test/gaps/a_raise_in_an_external_enumerator_shows_enumerator_each.rb:6:in 'Object#foo'", "test/gaps/a_raise_in_an_external_enumerator_shows_enumerator_each.rb:in 'Enumerator#each'"]

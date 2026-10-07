@@ -799,7 +799,11 @@ module Zr::Kern
   # 0 has no line, as location_format writes it.
   #: (ptr, ptr) -> void
   def zr_buf_row(b, row)
-    zr_buf_push(b, BtRow[row].file, BtRow[row].file_len)
+    if BtRow[row].file == 0
+      zr_buf_program_name(b)
+    else
+      zr_buf_push(b, BtRow[row].file, BtRow[row].file_len)
+    end
     if BtRow[row].line != 0
       zr_buf_byte(b, 58)
       zr_buf_long(b, BtRow[row].line)
@@ -857,7 +861,7 @@ module Zr::Kern
 
   # Returns the prism node id and the line of each frame that the raise
   # captured, two entries a frame, in the order of `zr_exc_raise_rows`,
-  # or nil before a raise.
+  # or nil before a raise. The line is false for a frame with no file.
   #: (value) -> value
   def zr_exc_raise_places(recv)
     rows = RException[recv].rows
@@ -870,7 +874,7 @@ module Zr::Kern
     while i < n
       row = rows + (i * BtRow.size)
       zr_ary_push(out, zr_fix(BtRow[row].node))
-      zr_ary_push(out, zr_fix(BtRow[row].line))
+      zr_ary_push(out, BtRow[row].file == 0 ? Machine.value(QFALSE) : zr_fix(BtRow[row].line))
       i += 1
     end
     out
@@ -878,7 +882,8 @@ module Zr::Kern
 
   # Returns the prism node id and the line of each frame that
   # `caller(start, limit)` would return for the caller, which is the Ruby
-  # method that calls this primitive: two entries a frame.
+  # method that calls this primitive: two entries a frame. The line is
+  # false for a frame with no file.
   #: (value, value) -> value
   def zr_caller_places(start, limit)
     skip = zr_fix2long(start)
@@ -893,7 +898,7 @@ module Zr::Kern
         else
           source = zr_frame_with_file(rec)
           zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_node_id(source)))
-          zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_level_line(source, skip)))
+          zr_ary_push(out, source == 0 ? Machine.value(QFALSE) : zr_fix(zr_frame_level_line(source, skip)))
           skip = 0
         end
       end
@@ -1179,10 +1184,23 @@ module Zr::Kern
         zr_buf_byte(b, 58)
         zr_buf_long(b, line)
       end
+    else
+      zr_buf_program_name(b)
     end
     zr_buf_push(b, Machine.bytes(":in '"), 5)
     zr_buf_label(b, zr_frame_label_meta(rec))
     zr_buf_byte(b, 39)
+  end
+
+  # Writes the program's name: the file of a C frame with no Ruby frame
+  # under it (the base of a fiber or of a thread), as location_to_str
+  # writes vm->progname.
+  #: (ptr) -> void
+  def zr_buf_program_name(b)
+    name = zr_program_name()
+    if name != QNIL && name != 0
+      zr_buf_str(b, name)
+    end
   end
 
   # Returns the meta that gives the backtrace label of the frame `rec`. A

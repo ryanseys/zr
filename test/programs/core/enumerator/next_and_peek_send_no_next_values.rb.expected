@@ -1,0 +1,15 @@
+["core/enumerator/next_and_peek_send_no_next_values.rb:9:in 'Enumerator#next'", "core/enumerator/next_and_peek_send_no_next_values.rb:9:in '<main>'"]
+nil
+["core/enumerator/next_and_peek_send_no_next_values.rb:15:in 'Enumerator#next'", "core/enumerator/next_and_peek_send_no_next_values.rb:15:in '<main>'"]
+["core/enumerator/next_and_peek_send_no_next_values.rb:9:in 'Enumerator#next'", "core/enumerator/next_and_peek_send_no_next_values.rb:9:in '<main>'"]
+["core/enumerator/next_and_peek_send_no_next_values.rb:20:in 'Enumerator#next'", "core/enumerator/next_and_peek_send_no_next_values.rb:20:in 'Object#m'", "core/enumerator/next_and_peek_send_no_next_values.rb:22:in '<main>'"]
+1
+1
+[[2, 3]]
+[[2, 3]]
+[]
+[]
+[4, 5, 6]
+[[4, 5, 6]]
+FrozenError
+7
