@@ -29,7 +29,7 @@ module Zr
         def run(argv)
           fail!("takes no gems") unless argv.empty?
           if @refresh
-            list = Gems::Top.fetch(@count || COUNT)
+            list = Gems::Top.fetch(@count || COUNT) { |got| warn "#{got} gems" if (got % 10_000).zero? }
             Gems::Top.write(list)
             puts "wrote #{Dev.rel(Gems::Top.path)}: #{list.size} gems"
             return true
