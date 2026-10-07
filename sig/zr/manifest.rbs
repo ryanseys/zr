@@ -5,8 +5,9 @@ module Zr
       attr_accessor name: String
       attr_accessor version: String
       attr_accessor source: String
+      attr_accessor dir: String?
 
-      def self.new: (String name, String version, String source) -> instance
+      def self.new: (String name, String version, String source, ?String? dir) -> instance
     end
   end
 end

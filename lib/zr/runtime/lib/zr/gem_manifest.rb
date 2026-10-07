@@ -17,13 +17,20 @@
 # call (lib/zr/runtime/core/kernel.rb) does the same.
 # A `--gem` directory with no gemspec has no version (null), and here
 # counts as version 0.
-rows = Primitive.zr_load_names(9).scan(/\{"name":"([^"]+)","version":(?:"([^"]+)"|null)/)
+rows = Primitive.zr_load_names(9).scan(/\{"name":"([^"]+)","version":(?:"([^"]+)"|null),"source":"[^"]*"(?:,"dir":"((?:[^"\\]|\\.)*)")?/)
 unless rows.empty?
   unversioned = rows.filter_map { |name, version| name unless version }
-  specs = rows.to_h do |name, version|
+  specs = rows.to_h do |name, version, dir|
     spec = Gem::Specification.new do |s|
       s.name = name
       s.version = version || "0"
+    end
+    # Where the build found the gem, as an installed gem's directory
+    # (lib/zr/manifest.rb). The JSON escapes only `"` and `\` in a path.
+    if dir
+      dir = dir.gsub(/\\(.)/, '\1')
+      spec.instance_variable_set(:@full_gem_path, dir)
+      spec.instance_variable_set(:@gem_dir, dir)
     end
     [name, spec]
   end

@@ -18,14 +18,20 @@ module Zr
   # part that zr ports, lib/zr/library/ports.rb), `Gemfile.lock` or `--gem`
   # (lib/zr/gem_set.rb). A file of ruby itself that no gem ships
   # (`pathname.rb`) is the row `ruby`. The program's own files have no row.
+  #
+  # A gem of the GemSet also names its directory (`dir`), which the
+  # program's Gem::Specification gives as `full_gem_path`, as an
+  # installed gem's does: a library such as anonymous_loader reads a
+  # gem's files from there. The directory is where the build found the
+  # gem, as the paths of its files in a backtrace are.
   module Manifest
     # @rbs skip
-    Row = Struct.new(:name, :version, :source)
+    Row = Struct.new(:name, :version, :source, :dir)
 
     # The fields are typed in sig/zr/manifest.rbs, the methods here.
     class Row
       #: () -> Hash[String, String]
-      def to_h = { "name" => name, "version" => version, "source" => source }
+      def to_h = { "name" => name, "version" => version, "source" => source, "dir" => dir }.compact
     end
 
     # The bytes before the manifest in a binary. A search for them finds
@@ -62,7 +68,7 @@ module Zr
     #: (Array[String] files, ?GemSet? gem_set, ?evals: bool) -> Array[Row]
     def of(files, gem_set = nil, evals: false)
       rows = files.filter_map { |file| row_for(File.expand_path(file), gem_set) }
-      rows += gem_set.gems.reject(&:refusal).map { |gem| Row.new(gem.name, gem.version, source_of(gem)) } if evals && gem_set
+      rows += gem_set.gems.reject(&:refusal).map { |gem| gem_row(gem) } if evals && gem_set
       rows.uniq.sort_by(&:name)
     end
 
@@ -102,10 +108,19 @@ module Zr
     #: (GemSet::Entry gem) -> String
     def source_of(gem) = gem.source.start_with?("--gem") ? "--gem" : gem.source
 
+    # The row of a GemSet gem: its directory is the parent of its `lib`
+    # root, or its root.
+    #: (GemSet::Entry gem) -> Row
+    def gem_row(gem)
+      root = gem.roots.first
+      dir = root && (File.basename(root) == "lib" ? File.dirname(root) : root)
+      Row.new(gem.name, gem.version, source_of(gem), dir)
+    end
+
     #: (String file, GemSet? gem_set) -> Row?
     def row_for(file, gem_set)
       gem = gem_set&.gems&.find { |g| g.holds?(file) }
-      return Row.new(gem.name, gem.version, source_of(gem)) if gem
+      return gem_row(gem) if gem
 
       Library::Ports::ALL.each do |name, port|
         return Row.new(name, port.version, "port") if port.vendored && file.start_with?("#{Library::Ports.lib(name)}/")
