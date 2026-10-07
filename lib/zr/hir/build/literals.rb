@@ -372,7 +372,12 @@ module Zr
         fragments = ArrayLit.new(parts.map { |part| Interp.new([part], line) }, line)
         args = [fragments, Literal.new(regexp_options(node), line), Literal.new(pinned && ::Encoding.list.index(pinned), line)]
         made = Send.of(ConstRead.new(nil, :Regexp, line), :interpolated, args, line)
-        node.once? ? RegexpOnce.new(made, line) : made
+        return made unless node.once?
+
+        # CRuby compiles the interpolation of a `/o` regexp as a block of
+        # its own (`once`), so a backtrace from inside it shows `block in`.
+        none = Params.new([], [], nil, [], [], nil, nil)
+        RegexpOnce.new(Send.of(Core.new(:Kernel, line), :post_exe, [], line, block: Block.new(none, [], deepen(made, 0), line)), line)
       end
 
       # pm_interpolated_node_compile: ruby's compiler reads the escapes and

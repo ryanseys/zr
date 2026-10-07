@@ -1,0 +1,11 @@
+4:in 'block in Object#make'
+4:in 'Object#make'
+7:in '<main>'
+"12:in 'block in Object#label'"
+[/6/, 6]
+[/6/, nil]
+[[/x1/], 1]
+[/1y/, /1y/]
+/abc/
+1
+"abc"

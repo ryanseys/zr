@@ -539,7 +539,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     ::Zr::Eval.current.compile_file(path)
   end
 
-  # `END { }` runs this block once, and it registers the body.
+  # `END { }` runs this block once, and it registers the body. The
+  # interpolation of a `/#{...}/o` regexp runs in it too, once.
   def self.post_exe
     Primitive.attr! :hidden
     yield
