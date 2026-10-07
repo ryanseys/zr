@@ -475,7 +475,9 @@ module Zr
             class Eval
               def self.current = @current ||= new
 
-              def compile(source, file, line = 1, scopes = [], method = nil)
+              # The keywords are Zr::Eval#compile's. The walker's eval
+              # takes the refinements of the program's table, not `using`.
+              def compile(source, file, line = 1, scopes = [], method = nil, using: nil, warn_now: false, debug_frozen: false)
                 Primitive.attr! :hidden
                 # String#+ converts as prism does: `eval(123)` is a TypeError.
                 Primitive.zr_host_eval_compile(+"" + source, file, line, scopes, method)
