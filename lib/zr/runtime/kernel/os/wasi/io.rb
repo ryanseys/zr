@@ -705,4 +705,13 @@ Capabilities insufficient
   def zr_os_shared_map(bytes)
     Machine.ptr(0)
   end
+
+  # WASI memory only grows: a page stays the program's.
+  #: (ptr, word) -> void
+  def zr_os_release_pages(at, bytes)
+  end
+
+  #: (ptr, word) -> void
+  def zr_os_reuse_pages(at, bytes)
+  end
 end

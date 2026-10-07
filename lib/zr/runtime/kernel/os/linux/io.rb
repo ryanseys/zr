@@ -237,4 +237,19 @@ module Zr::Kern
     end
     at
   end
+
+  # madvise's advice: the pages read as zeros at their next touch.
+  MADV_DONTNEED = 4
+
+  # Gives the whole pages of `bytes` at `at` back to the system. Their
+  # bytes are not kept.
+  #: (ptr, word) -> void
+  def zr_os_release_pages(at, bytes)
+    Libc.madvise(at, bytes, Machine.i32(MADV_DONTNEED))
+  end
+
+  # A released page comes back at its first touch.
+  #: (ptr, word) -> void
+  def zr_os_reuse_pages(at, bytes)
+  end
 end

@@ -39,7 +39,7 @@ module GC
       counted = counter(hash_or_key)
       return counted unless counted.nil?
     end
-    pages = Primitive.zr_gc_arenas
+    pages, freed_pages = Primitive.zr_gc_pages
     count = Primitive.zr_gc_count
     majors, marking, sweeping = Primitive.zr_gc_phases
     stats = {
@@ -47,10 +47,10 @@ module GC
       marking_time: marking / 1_000_000, sweeping_time: sweeping / 1_000_000,
       heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_slots: 0, heap_available_slots: 0,
       heap_live_slots: 0, heap_free_slots: 0, heap_final_slots: 0, heap_marked_slots: 0, heap_eden_pages: pages,
-      total_allocated_pages: pages, total_freed_pages: 0, total_allocated_objects: 0,
+      total_allocated_pages: pages + freed_pages, total_freed_pages: freed_pages, total_allocated_objects: 0,
       total_freed_objects: 0, malloc_increase_bytes: Primitive.zr_gc_malloced,
       malloc_increase_bytes_limit: Primitive.zr_gc_malloc_limit,
-      minor_gc_count: count - majors, major_gc_count: majors, compact_count: 0, read_barrier_faults: 0, total_moved_objects: 0,
+      minor_gc_count: count - majors, major_gc_count: majors, compact_count: COMPACTED[1], read_barrier_faults: 0, total_moved_objects: 0,
       remembered_wb_unprotected_objects: 0, remembered_wb_unprotected_objects_limit: 0, old_objects: 0,
       old_objects_limit: 0, oldmalloc_increase_bytes: 0, oldmalloc_increase_bytes_limit: 16 * 1024 * 1024
     }
@@ -90,6 +90,8 @@ module GC
     when :total_allocated_objects then Primitive.zr_gc_allocated
     when :malloc_increase_bytes then Primitive.zr_gc_malloced
     when :malloc_increase_bytes_limit then Primitive.zr_gc_malloc_limit
+    when :total_freed_pages then Primitive.zr_gc_pages[1]
+    when :compact_count then COMPACTED[1]
     end
   end
   private_class_method :counter
@@ -195,13 +197,15 @@ module GC
   }.freeze
 
   # Nothing moves here: a compaction considers each live object by its
-  # type, as CRuby's does, and moves none of them.
+  # type, as CRuby's does, and moves none of them. It counts as one.
   def self.compact
     considered = ObjectSpace.count_objects.reject { |type, count| type == :TOTAL || type == :FREE || count.zero? }
+    COMPACTED[1] += 1
     COMPACTED[0] = { considered: considered, moved: {}, moved_up: {}, moved_down: {} }
   end
 
-  COMPACTED = [{ considered: {}, moved: {}, moved_up: {}, moved_down: {} }]
+  # The last compaction's info, and the number of compactions.
+  COMPACTED = [{ considered: {}, moved: {}, moved_up: {}, moved_down: {} }, 0]
   private_constant :COMPACTED
 
   def self.latest_compact_info = COMPACTED[0]

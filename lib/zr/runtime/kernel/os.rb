@@ -57,6 +57,8 @@
 #   zr_os_stack_high     [] => Word
 #   zr_os_stack_map      [Word] => Ptr
 #   zr_os_shared_map     [Word] => Ptr
+#   zr_os_release_pages  [Ptr, Word] => Void
+#   zr_os_reuse_pages    [Ptr, Word] => Void
 #   zr_os_jit_reserve    [Value] => Value
 #   zr_os_jit_release    [Value, Value] => Value
 #   zr_os_jit_map        [Value, Value, Value] => Value

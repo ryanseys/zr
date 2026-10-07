@@ -28,6 +28,8 @@ module Zr::Kern
 
     #: (ptr, word, i32, i32, i32, word) -> ptr
     def self.mmap(p, n1, i1, i2, i3, n2) = Machine.import
+    #: (ptr, word, i32) -> i32
+    def self.madvise(p, n, i) = Machine.import
     #: (ptr, ptr) -> void
     def self.__clear_cache(p1, p2) = Machine.import
 

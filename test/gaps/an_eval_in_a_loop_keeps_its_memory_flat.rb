@@ -2,9 +2,11 @@
 # process flat in CRuby (test_method.rb, test_kwarg_eval_memory_leak).
 # zr reuses the machine code of the first compile, and its live objects
 # stay flat, but the first eval loads the compiler and grows the heap.
-# Allocation then touches the heap's free pages one by one until all are
-# resident (about 8,000 evals here), and zr gives no empty page back to
-# the system after a sweep, so the process grows by about 13 MB first.
+# Allocation then touches the free cells of arenas that also hold live
+# ones, page by page, until all are resident (about 8,000 evals here), so
+# the process grows by about 13 MB first. A collection gives back only
+# arenas with no live cell. CRuby's test-all checks this with
+# assert_no_memory_leak, which zr's test tooling lists as CRuby-only.
 def rss_kb = `ps -o rss= -p #{$$}`.to_i
 
 obj = Object.new

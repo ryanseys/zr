@@ -305,4 +305,24 @@ module Zr::Kern
     end
     at
   end
+
+  # A new private mapping over pages the process holds: MAP_FIXED,
+  # MAP_PRIVATE and MAP_ANON, read and write.
+  RELEASE_MAP_FLAGS = 4114
+  RELEASE_PROT = 3
+
+  # Gives the whole pages of `bytes` at `at` back to the system. Their
+  # bytes are not kept. Darwin's madvise leaves a freed page resident until
+  # the system needs memory, so a new mapping takes its place: the pages
+  # leave the process at once, and read as zeros at their next touch, as
+  # the munmap of CRuby's heap_page_free does.
+  #: (ptr, word) -> void
+  def zr_os_release_pages(at, bytes)
+    Libc.mmap(at, bytes, Machine.i32(RELEASE_PROT), Machine.i32(RELEASE_MAP_FLAGS), -1, 0)
+  end
+
+  # A released page comes back at its first touch.
+  #: (ptr, word) -> void
+  def zr_os_reuse_pages(at, bytes)
+  end
 end

@@ -527,9 +527,13 @@ module Process
     title
   end
 
-  # A hint to settle the heap before forking workers: one collection.
+  # A hint to settle the heap before forking workers, as
+  # rb_gc_prepare_heap does it: a major collection, which leaves each live
+  # object old and gives back the arenas it left empty, then a compaction.
+  # Strings keep the coderange that their scans found.
   def warmup
     GC.start
+    GC.compact
     true
   end
 

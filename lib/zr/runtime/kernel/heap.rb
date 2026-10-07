@@ -114,6 +114,8 @@ module Zr::Kern
     attr_accessor :weak_refs #: word
     attr_accessor :weak_kept #: word
     attr_accessor :unmeasured #: word
+    attr_accessor :released #: word
+    attr_accessor :freed_pages #: word
   end
 
   # The bits of Heap#last_info, which GC.latest_gc_info reads: GC.start
@@ -577,6 +579,14 @@ module Zr::Kern
     zr_arena_reserve(a)
   end
 
+  # ArenaHead#reserved of a reserved arena whose cells' pages went back to
+  # the system (zr_arenas_release), and of one that a major collection
+  # found reserved already and left in memory.
+  ARENA_RELEASED = 2
+  ARENA_IDLE = 3
+  # The page size that a release rounds to: the largest of the hosts'.
+  RELEASE_PAGE = 16384
+
   # Puts arena `a`, with all cells free, into its size class's reserve.
   #: (ptr) -> void
   def zr_arena_reserve(a)
@@ -645,9 +655,88 @@ module Zr::Kern
       return false
     end
     SizeClass[sc].reserve = ArenaHead[a].next
+    if ArenaHead[a].reserved == ARENA_RELEASED
+      zr_arena_pages(a, false)
+    end
     ArenaHead[a].reserved = 0
     zr_cursor_set(sc, a, zr_arena_allocated(a))
     true
+  end
+
+  # Gives the memory of reserved arenas back to the system after a major
+  # collection, as CRuby's heap_pages_free_unused_pages frees the pages
+  # that a sweep left empty. A size class keeps the arenas it needs for
+  # two times its live cells, and one arena more, so a release adds no
+  # collection and no growth. A released arena keeps its place in the
+  # table and its maps, so a walk of the arenas is not changed. Its cells
+  # come back when the cursor takes it.
+  #
+  # Unless `now` (GC.start), an arena goes back only when it was reserved
+  # at the major before this one too. An arena that a burst of short-lived
+  # objects empties and fills again between majors stays in memory: on
+  # the GC benchmark, a release at each major made the run 2.4% slower.
+  #: (bool) -> void
+  def zr_arenas_release(now)
+    c = 0
+    while c < SIZE_CLASSES
+      sc = zr_size_class(c)
+      capacity = SizeClass[sc].arenas * ARENA_CELLS
+      spare = capacity - ((capacity - SizeClass[sc].freed) * 2) - ARENA_CELLS
+      a = SizeClass[sc].reserve
+      while a != 0
+        state = ArenaHead[a].reserved
+        if spare < ARENA_CELLS
+          if state != ARENA_RELEASED
+            ArenaHead[a].reserved = ARENA_IDLE
+          end
+        elsif state == ARENA_IDLE || (now && state != ARENA_RELEASED)
+          zr_arena_pages(a, true)
+        elsif state != ARENA_RELEASED
+          ArenaHead[a].reserved = ARENA_IDLE
+        end
+        spare -= ARENA_CELLS
+        a = ArenaHead[a].next
+      end
+      c += 1
+    end
+  end
+
+  # Gives back (`release`) or takes back the whole pages of reserved arena
+  # `a`'s cells, and its generic ivar slots with them.
+  #: (ptr, bool) -> void
+  def zr_arena_pages(a, release)
+    h = zr_heap()
+    start = Machine.word(zr_arena_first(a))
+    start = (start + RELEASE_PAGE - 1) & (0 - RELEASE_PAGE)
+    stop = (Machine.word(a) + zr_arena_bytes(ArenaHead[a].index)) & (0 - RELEASE_PAGE)
+    if release
+      if ArenaHead[a].exivars != 0
+        zr_xfree(ArenaHead[a].exivars)
+        ArenaHead[a].exivars = 0
+      end
+      if stop > start
+        zr_os_release_pages(Machine.ptr(start), stop - start)
+      end
+      ArenaHead[a].reserved = ARENA_RELEASED
+      Heap[h].released = Heap[h].released + 1
+      Heap[h].freed_pages = Heap[h].freed_pages + 1
+    else
+      if stop > start
+        zr_os_reuse_pages(Machine.ptr(start), stop - start)
+      end
+      Heap[h].released = Heap[h].released - 1
+    end
+  end
+
+  # GC.stat's page counts: the arenas that hold memory, and the arenas
+  # whose memory went back to the system since the start.
+  #: () -> value
+  def zr_gc_pages
+    h = zr_heap()
+    out = zr_ary_new(2)
+    zr_ary_push(out, zr_fix(Heap[h].arenas - Heap[h].released))
+    zr_ary_push(out, zr_fix(Heap[h].freed_pages))
+    out
   end
 
   # The frame list that the collector walks: a frame record is a Frame
@@ -1485,6 +1574,9 @@ module Zr::Kern
       Heap[h].marking = Heap[h].marking + (marked - started)
     end
     zr_sweep()
+    if major
+      zr_arenas_release(false)
+    end
     swept = zr_fix2long(zr_clock_ns(zr_fix(CLOCK_MONOTONIC)))
     if measured
       Heap[h].sweeping = Heap[h].sweeping + (swept - marked)
@@ -1922,6 +2014,9 @@ module Zr::Kern
     full = full_mark != QFALSE && full_mark != QNIL
     due = zr_major_due()
     zr_collect_kind(SIZE_CLASSES, full || due)
+    if full || due
+      zr_arenas_release(true)
+    end
     info = GC_INFO_METHOD
     if full
       info = info | GC_INFO_FORCE
