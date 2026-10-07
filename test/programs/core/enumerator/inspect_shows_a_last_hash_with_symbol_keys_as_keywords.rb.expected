@@ -1,0 +1,16 @@
+#<Enumerator: 0..10:each_cons(2)>
+#<Enumerator: 0..10:each_with_object({})>
+#<Enumerator: 0..10:each_with_object(a: 1)>
+#<Enumerator: 0..10:each_with_object(a: 1)>
+#<Enumerator: 0..1:each_with_object(a: x)>
+#<Enumerator: 0..1:each_with_object({"s" => 1})>
+#<Enumerator: 0..1:each_with_object({a: 1, "s" => 2})>
+#<Enumerator: 0..1:each_with_object(a: , b: c)>
+#<Enumerator: [1]:each_slice(2)>
+#<Enumerator: o:each(1, k: [1, "y"])>
+#<Enumerator: o:each(a: 1)>
+#<Enumerator: o:each(1, {})>
+#<Enumerator: o:each(x y: 1)>
+#<Enumerator: o:each(1, b: 2)>
+[1, {b: 2}]
+#<Enumerator: [#<Enumerator: ...>]:each_with_object([#<Enumerator: ...>])>

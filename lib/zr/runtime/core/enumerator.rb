@@ -243,8 +243,7 @@ class Enumerator
     return Primitive.zr_obj_form("#<#{self.class}: ...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
-      parts = args.map(&:inspect) + kwargs.map { |k, v| "#{k}: #{v.inspect}" }
-      shown = parts.empty? ? +"" : "(#{parts.join(', ')})"
+      shown = shown_arguments(kwargs.empty? ? args : [*args, kwargs])
       Primitive.zr_obj_form("#<#{self.class}: #{receiver.inspect}#{":#{method}" if method}#{shown}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
@@ -252,6 +251,20 @@ class Enumerator
   end
 
   private
+
+  # append_method: the arguments in parentheses. A last argument that is a
+  # Hash, not empty, with only Symbol keys shows as keywords, each key and
+  # value as `to_s` gives it.
+  def shown_arguments(args)
+    Primitive.attr! :hidden
+    return +"" if args.empty?
+
+    last = args.last
+    keywords = last if last.is_a?(Hash) && !last.empty? && last.each_key.all?(Symbol)
+    parts = (keywords ? args[0...-1] : args).map(&:inspect)
+    keywords&.each { |key, value| parts << "#{key}: #{value}" }
+    "(#{parts.join(', ')})"
+  end
 
   # enumerator_ptr: an allocated enumerator has nothing to iterate.
   def initialized!
