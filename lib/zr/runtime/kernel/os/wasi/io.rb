@@ -699,4 +699,10 @@ Capabilities insufficient
     Machine.store8(buf, 1, Machine.i8(0))
     buf
   end
+
+  # WASI has no fork and no shared memory.
+  #: (word) -> ptr
+  def zr_os_shared_map(bytes)
+    Machine.ptr(0)
+  end
 end

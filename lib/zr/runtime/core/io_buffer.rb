@@ -52,6 +52,43 @@ class IO
     }.freeze
     private_constant :TYPES
 
+    # The bytes of a buffer that is MAPPED and SHARED: anonymous memory
+    # that mmap shares with a forked child (MAP_SHARED), so each side sees
+    # the other's writes. It reads and writes as the String that holds the
+    # bytes of any other buffer does. The memory goes back to the system
+    # when nothing holds it.
+    class SharedMemory
+      Primitive.attr! :hidden
+
+      # The memory, or nil where the host cannot share memory.
+      def self.map(size)
+        address = Primitive.zr_mem_shared_map(size) or return nil
+
+        memory = new(address, size)
+        ObjectSpace.define_finalizer(memory, unmapper(address, size))
+        memory
+      end
+
+      # A finalizer that holds no reference to the memory's object.
+      def self.unmapper(address, size) = proc { Primitive.zr_mem_unmap(address, size) }
+
+      def initialize(address, size)
+        @address = address
+        @size = size
+      end
+
+      def bytesize = @size
+      def getbyte(index) = Primitive.zr_mem_getbyte(@address + index)
+      def setbyte(index, byte) = Primitive.zr_mem_setbyte(@address + index, byte & 0xff)
+      def byteslice(start, length) = Primitive.zr_ffi_read(@address + start, length)
+
+      def bytesplice(start, length, bytes)
+        Primitive.zr_ffi_write(@address + start, bytes, 0, length)
+        self
+      end
+    end
+    private_constant :SharedMemory
+
     def self.size_of(type)
       return type.sum { |one| size_of(one) } if type.is_a?(Array)
 
@@ -654,7 +691,8 @@ class IO
       else
         raise AllocationError, +"Could not allocate buffer!" if (flags & (INTERNAL | MAPPED)).zero?
 
-        @bytes = "\0".b * size
+        shared = (flags & (MAPPED | SHARED)) == (MAPPED | SHARED)
+        @bytes = (SharedMemory.map(size) if shared) || ("\0".b * size)
       end
       @start = 0
       @size = size

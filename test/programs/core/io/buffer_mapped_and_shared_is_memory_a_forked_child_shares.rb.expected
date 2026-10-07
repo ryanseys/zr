@@ -1,0 +1,19 @@
+true
+true
+false
+"\x00\x00\x00\x00"
+"Hello World"
+"deadbeef"
+"tail"
+"xy"
+"\x00\x00\x00\x00\x00\x00"
+false
+"\x00\x00\x00\x00"
+"from parent"
+false
+128
+"Hello World"
+false
+true
+"H"
+true

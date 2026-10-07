@@ -291,4 +291,18 @@ module Zr::Kern
     zr_xfree(sets)
     zr_fix(ready)
   end
+
+  # PROT_READ | PROT_WRITE, and MAP_SHARED | MAP_ANON.
+  SHARED_PROT = 3
+  SHARED_MAP_FLAGS = 4097
+
+  # Maps `bytes` of zeroed memory that a fork shares. Returns 0 on failure.
+  #: (word) -> ptr
+  def zr_os_shared_map(bytes)
+    at = Libc.mmap(0, bytes, Machine.i32(SHARED_PROT), Machine.i32(SHARED_MAP_FLAGS), -1, 0)
+    if Machine.word(at) == 0 - 1
+      return Machine.ptr(0)
+    end
+    at
+  end
 end

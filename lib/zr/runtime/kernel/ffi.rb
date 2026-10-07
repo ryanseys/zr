@@ -117,6 +117,35 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Anonymous memory of `size` bytes that a forked child shares with its
+  # parent (MAP_SHARED), as CRuby gives an IO::Buffer that is MAPPED and
+  # SHARED. Returns its address, or nil where the host has no such memory.
+  #: (value) -> value
+  def zr_mem_shared_map(size)
+    at = zr_os_shared_map(zr_fix2long(size))
+    if Machine.word(at) == 0
+      return Machine.value(QNIL)
+    end
+    zr_ffi_addr(at)
+  end
+
+  #: (value, value) -> value
+  def zr_mem_unmap(addr, size)
+    Libc.munmap(zr_ffi_ptr(addr), zr_fix2long(size))
+    Machine.value(QNIL)
+  end
+
+  #: (value) -> value
+  def zr_mem_getbyte(addr)
+    zr_fix(Machine.u8(Machine.load8(zr_ffi_ptr(addr), 0)))
+  end
+
+  #: (value, value) -> value
+  def zr_mem_setbyte(addr, byte)
+    Machine.store8(zr_ffi_ptr(addr), 0, Machine.i8(zr_fix2long(byte)))
+    byte
+  end
+
   # Returns the number of bytes at `addr` before a NUL, and reads no more
   # than `max` bytes. Returns `max` if there is no NUL. With a nil `max`,
   # there is no limit.
