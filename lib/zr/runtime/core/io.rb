@@ -1544,7 +1544,14 @@ class IO
       return write_bytes(converted(text))
     end
     check_writable
-    write_parts(objects.map { |object| converted(Primitive.zr_obj_as_string(object)) })
+    # io_writev: a sync or tty stream converts every part first, then
+    # writes them at once. A buffered one converts and writes one part at a
+    # time, so what a part's to_s writes goes before that part. Strings run
+    # no code as they convert, so they go out at once there too.
+    if @sync || @tty || objects.all?(String)
+      return write_parts(objects.map { |object| converted(Primitive.zr_obj_as_string(object)) })
+    end
+    objects.sum { |object| write_bytes(converted(Primitive.zr_obj_as_string(object))) }
   end
 
   # io_writev: the bytes of `parts`, which are converted already, go out

@@ -24,3 +24,23 @@ w.sync = true
 p w.write("a", "b", 3, :c)
 p w.write
 w.close
+
+# A part that is not a String: a buffered stream converts and writes one
+# part at a time, so what its to_s writes goes before it. A sync stream
+# converts every part first, then writes them all.
+class Noisy
+  def initialize(io, n) = (@io, @n = io, n)
+
+  def to_s
+    @io.print("[c#{@n}]")
+    "<#{@n}>"
+  end
+end
+
+[false, true].each do |sync|
+  r, w = IO.pipe
+  w.sync = sync
+  p w.write(Noisy.new(w, 1), "s", Noisy.new(w, 2))
+  w.close
+  p [sync, r.read]
+end
