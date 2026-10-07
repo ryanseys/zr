@@ -1,2 +1,0 @@
-fails:Process.setrlimit when passed a Symbol coerces :STACK into RLIMIT_STACK
-fails:Process.setrlimit when passed a String coerces 'STACK' into RLIMIT_STACK

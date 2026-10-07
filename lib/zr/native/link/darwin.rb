@@ -15,11 +15,6 @@ module Zr
       # writes the binary. `cc` links only what it refuses, or every
       # program with `ZR_LINKER=cc`.
       module Darwin
-        # `ld` writes this value to `LC_MAIN.stacksize`.
-        # `Obj::MachO::Executable` writes that field from the same value, so
-        # the stack size is the same with both linkers.
-        STACK_FLAGS = ["-Wl,-stack_size,0x#{STACK.to_s(16)}"].freeze #: Array[String]
-
         # `cc` records the host's macOS as the oldest one unless it gets
         # the target's, which `Obj::MachO::Executable` writes.
         MIN_OS_FLAGS = ["-mmacosx-version-min=#{Target::AARCH64_DARWIN.min_os}"].freeze #: Array[String]
@@ -72,7 +67,7 @@ module Zr
           end
           obj = File.join(work, "unit.o")
           File.binwrite(obj, Obj::MachO::ObjectFile.write(image))
-          flags = STACK_FLAGS + MIN_OS_FLAGS + (strip ? strip_flags(link) : []) + link
+          flags = MIN_OS_FLAGS + (strip ? strip_flags(link) : []) + link
           flags += EVAL_EXPORTS if !strip && exports?(link)
           Link.run(objects + [obj], out, flags: flags, target: target)
         end

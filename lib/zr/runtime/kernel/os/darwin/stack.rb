@@ -1,18 +1,23 @@
 module Zr::Kern
-  # darwin machine stacks: the stack of the main thread, and how zr maps
-  # a fiber stack.
+  # darwin machine stacks: the program's own stack, and how zr maps a
+  # fiber stack.
 
-  # The program runs on the stack of the main thread. The linker sets its
-  # size to `Native::Link::STACK` bytes.
+  # The program runs on its own stack (zr_main_on_own_stack). The main
+  # thread keeps the stack that the system gave it, with no size in the
+  # binary, so Process.setrlimit(:STACK) works as in ruby.
   #: (i32, ptr) -> i32
   def zr_os_main(argc, argv)
-    zr_main(argc, argv)
+    zr_main_on_own_stack(argc, argv)
   end
 
-  # The lowest address of this thread's stack, or 0 if the host does not
-  # give it.
+  # The lowest address of the program's stack: its own, or this thread's
+  # when zr could not map one. 0 if the host does not give it.
   #: () -> word
   def zr_os_stack_low
+    low = zr_program_stack_low()
+    if low != 0
+      return low
+    end
     me = Libc.pthread_self()
     size = Libc.pthread_get_stacksize_np(me)
     top = Libc.pthread_get_stackaddr_np(me)
@@ -26,6 +31,10 @@ module Zr::Kern
   # the host does not give it.
   #: () -> word
   def zr_os_stack_high
+    high = zr_program_stack_high()
+    if high != 0
+      return high
+    end
     Machine.word(Libc.pthread_get_stackaddr_np(Libc.pthread_self()))
   end
 

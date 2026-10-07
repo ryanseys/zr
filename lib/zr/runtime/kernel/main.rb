@@ -33,6 +33,114 @@ module Zr::Kern
     zr_builtin(klass, Machine.id(:hash), Machine.addr(:zr_method_hash), 0)
   end
 
+  # The size of the stack that the program runs on by default, as a
+  # fiber's. Ruby frames are machine frames, and one with many locals,
+  # blocks and kernel calls takes some KiB, so the stack has room for at
+  # least the depth that ruby's VM stack gives.
+  MAIN_STACK_BYTES = 67108864
+  # ruby's default VM stack (RUBY_THREAD_VM_STACK_SIZE), which
+  # MAIN_STACK_BYTES matches, and the least size that ruby takes.
+  VM_STACK_BYTES = 1048576
+  VM_STACK_LEAST = 16384
+  # The smallest stack that leaves room for the runtime's boot, and the
+  # largest that zr maps.
+  MAIN_STACK_FLOOR = 4194304
+  MAIN_STACK_CEILING = 4294967296
+
+  # The size of the program's stack: MAIN_STACK_BYTES scaled by
+  # RUBY_THREAD_VM_STACK_SIZE against ruby's default, so a program recurses
+  # about as deep as ruby lets it. The value reads as atol reads its
+  # digits, is at least VM_STACK_LEAST and is rounded up to a page, as
+  # vm_default_params_setup does.
+  #: () -> word
+  def zr_main_stack_bytes
+    text = Libc.getenv(Machine.bytes("RUBY_THREAD_VM_STACK_SIZE\0"))
+    if text == 0
+      return MAIN_STACK_BYTES
+    end
+    size = 0
+    i = 0
+    while i < 12 && Machine.u8(Machine.load8(text + i, 0)) >= 48 && Machine.u8(Machine.load8(text + i, 0)) <= 57
+      size = (size * 10) + Machine.u8(Machine.load8(text + i, 0)) - 48
+      i += 1
+    end
+    if size < VM_STACK_LEAST
+      size = VM_STACK_LEAST
+    end
+    size = (size + 4095) / 4096 * 4096
+    bytes = MAIN_STACK_BYTES / VM_STACK_BYTES * size
+    if bytes < MAIN_STACK_FLOOR
+      return MAIN_STACK_FLOOR
+    end
+    bytes > MAIN_STACK_CEILING ? MAIN_STACK_CEILING : bytes
+  end
+
+  # The program's own stack, after it is mapped: its lowest address, then
+  # the arguments and the return value of the entry, then its size.
+  #: () -> ptr
+  def zr_program_stack_cell
+    Machine.static(:program_stack, 32)
+  end
+
+  # The contexts that the switch onto the program's stack and back saves.
+  #: () -> ptr
+  def zr_process_context
+    Machine.static(:process_context, CONTEXT_BYTES)
+  end
+
+  #: () -> ptr
+  def zr_program_context
+    Machine.static(:program_context, CONTEXT_BYTES)
+  end
+
+  # Runs zr_main on the program's stack, then switches back to the
+  # process's stack with its return value.
+  #: () -> void
+  def zr_own_stack_start
+    cell = zr_program_stack_cell()
+    r = zr_main(Machine.i32(Machine.load64(cell, 8)), Machine.ptr(Machine.load64(cell, 16)))
+    Machine.store64(cell, 8, Machine.u32(r))
+    zr_switch(zr_program_context(), zr_process_context())
+  end
+
+  # Runs the program on a stack of zr_main_stack_bytes that zr maps, as it
+  # maps a fiber's. The process keeps the stack that the system gave it,
+  # so the program can change RLIMIT_STACK, which darwin refuses to a
+  # binary that sets its own main stack size. If zr cannot map the
+  # stack, the program runs on the process's stack.
+  #: (i32, ptr) -> i32
+  def zr_main_on_own_stack(argc, argv)
+    bytes = zr_main_stack_bytes()
+    stack = zr_os_stack_map(bytes)
+    if stack == 0
+      return zr_main(argc, argv)
+    end
+    cell = zr_program_stack_cell()
+    Machine.store64(cell, 0, Machine.word(stack))
+    Machine.store64(cell, 8, Machine.u32(argc))
+    Machine.store64(cell, 16, Machine.word(argv))
+    Machine.store64(cell, 24, bytes)
+    zr_arch_context_start(zr_program_context(), Machine.addr(:zr_own_stack_start), Machine.word(stack) + bytes)
+    zr_switch(zr_process_context(), zr_program_context())
+    Machine.i32(Machine.load64(cell, 8))
+  end
+
+  # The lowest address of the program's own stack, or 0 when it runs on
+  # the process's stack.
+  #: () -> word
+  def zr_program_stack_low
+    Machine.load64(zr_program_stack_cell(), 0)
+  end
+
+  # The address immediately after the top of the program's own stack, or
+  # 0 when it runs on the process's stack.
+  #: () -> word
+  def zr_program_stack_high
+    cell = zr_program_stack_cell()
+    low = Machine.load64(cell, 0)
+    low == 0 ? 0 : low + Machine.load64(cell, 24)
+  end
+
   # The machine stack ends at this margin for Ruby frames. The margin above
   # the thread's guard page keeps space for the kernel's own frames and
   # the error report. A limit of zero, as under wasm, never fails.

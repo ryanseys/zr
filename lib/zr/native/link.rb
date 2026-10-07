@@ -9,10 +9,6 @@ module Zr
     # uses it only when zr's Mach-O linker refuses, or with
     # `ZR_LINKER=cc`. `Link::Static` uses it for every ELF binary.
     module Link
-      # The main thread's stack size. Ruby frames are native frames on this
-      # stack. `lib/zr/runtime/kernel/fiber.rb` sets the stack size of all other tasks.
-      STACK = 0x400_0000
-
       module_function
 
       # Returns nil, or the linker's message when it refused.

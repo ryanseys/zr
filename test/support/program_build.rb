@@ -39,7 +39,7 @@ module Zr
           built = cli?(test) ? cli(test, run, bin, runner) : in_process(test, run, bin, target)
           next built if built
 
-          command, env = runner.run(bin, test.args, test.env)
+          command, env = runner.run(bin, test.args, cli?(test) && !runner.wasm? ? zr_run_env.merge(test.env) : test.env)
           megabytes = [test.limits[:run_mb] || 0, Harness::Child::RUN_MB].max
           out, = Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: ProgramRun::LIMIT,
                                              megabytes: megabytes)
@@ -48,6 +48,13 @@ module Zr
       end
 
       def cli?(test) = test.rel.start_with?("cli/")
+
+      # What `zr run` gives the binary that it runs (CLI::Runner.program_env):
+      # RbConfig.ruby is zr, and zr's ruby tree is its home. A test below
+      # `cli/` runs as a user runs it.
+      def zr_run_env
+        { "ZR_RUBY" => CLI::Runner.pinned_launcher(CLI::Runner::EXE), "ZR_HOME" => CLI::Runner::HOME }
+      end
 
       # Builds in this process. Returns nil, or `[kind, why]`.
       def in_process(test, run, bin, target)

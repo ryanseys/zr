@@ -64,14 +64,14 @@ class ExeTest < Minitest::Test
     end
   end
 
-  # The writer must set `LC_MAIN.stacksize` itself. With the 8 MB
-  # default, a program can recurse only one eighth as deep. `ld` sets it
-  # from `-stack_size`, and this writer must set the same value.
-  def test_the_main_stack_is_the_size_the_build_asks_for
+  # Neither linker sets `LC_MAIN.stacksize`: the program runs on a stack
+  # that it maps itself, and darwin refuses an RLIMIT_STACK change to a
+  # binary that has its own main stack size.
+  def test_the_binary_leaves_the_main_stack_to_the_system
     functions, data = Zr::Native::Fixtures.build("hello")
     Dir.mktmpdir("zr-exe-") do |dir|
       bin = written(Zr::Native::Build.unit(functions, data), dir, "hello")
-      assert_equal Zr::Native::Link::STACK, stacksize(bin)
+      assert_equal 0, stacksize(bin)
       through_cc = File.join(dir, "hello-cc")
       assert_nil Zr::Native::Build.binary(functions, data, through_cc, work: dir, linker: "cc")
       assert_equal stacksize(bin), stacksize(through_cc), "the two linkers give different stack sizes"

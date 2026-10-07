@@ -116,7 +116,9 @@ module Zr
         _, status = Process.wait2(pid)
         return Zr::Diff::Answer.new("".b, Zr::Diff.unaddressed(File.binread(err)), status.exitstatus, status.termsig, false) unless status.success?
 
-        answer([bin], dir)
+        # The binary runs as `zr run` runs it: RbConfig.ruby is zr, and its
+        # home is zr's ruby tree (CLI::Runner.program_env).
+        answer([bin], dir, "ZR_RUBY" => CLI::Runner.pinned_launcher(CLI::Runner::EXE), "ZR_HOME" => CLI::Runner::HOME)
       ensure
         FileUtils.rm_rf(work) if work
       end

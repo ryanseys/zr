@@ -40,7 +40,6 @@ module Zr
       class Executable
         # @rbs @base: Prelink
         # @rbs @out: String
-        # @rbs @stack: Integer
         # @rbs @entry: String
         # @rbs @skeleton: String?
         # @rbs @top: Block
@@ -70,10 +69,6 @@ module Zr
         PAGE = Prelink::PAGE
         HASH_PAGE = Prelink::HASH_PAGE
         BASE = Prelink::BASE
-        # The main stack size. Ruby frames are native frames on this stack.
-        # `ld` writes this value from `-stack_size`. This linker writes the
-        # same value, so the stack size is the same with both linkers.
-        STACK = 0x400_0000
         # The oldest macOS that a binary loads on. The SDK version is the
         # same value, because this linker reads no SDK. The target holds it.
         MIN_MACOS = Target::AARCH64_DARWIN.min_os_parts.inject(0) { |version, part| (version << 8) | part }
@@ -149,14 +144,13 @@ module Zr
         # @rbs out: String
         # @rbs objects: Array[String | ObjectFile::Read]
         # @rbs prelink: Prelink?
-        # @rbs stack: Integer
         # @rbs entry: String
         # @rbs skeleton: String?
         # @rbs return: String?
-        def self.write(unit, out, objects: [], prelink: nil, stack: STACK, entry: "main", skeleton: nil)
+        def self.write(unit, out, objects: [], prelink: nil, entry: "main", skeleton: nil)
           prelink ||= Prelink.build(objects)
           linked = Timing.phase("link: reading the program", "link: program read") do
-            new(unit, prelink, out, stack: stack, entry: entry, skeleton: skeleton)
+            new(unit, prelink, out, entry: entry, skeleton: skeleton)
           end
           linked.write
         rescue Refused => e
@@ -169,11 +163,10 @@ module Zr
         #: (String name) -> bool
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
-        #: (Unit unit, Prelink prelink, String out, ?stack: Integer, ?entry: String, ?skeleton: String?) -> void
-        def initialize(unit, prelink, out, stack: STACK, entry: "main", skeleton: nil)
+        #: (Unit unit, Prelink prelink, String out, ?entry: String, ?skeleton: String?) -> void
+        def initialize(unit, prelink, out, entry: "main", skeleton: nil)
           @base = prelink
           @out = out
-          @stack = stack
           @entry = entry
           @skeleton = skeleton
           outside = prelink.empty? ? nil : ->(name) { prelink.global(name) } #: (^(String) -> Integer?)?
@@ -653,7 +646,10 @@ module Zr
           out << command(LC_BUILD_VERSION, [1, MIN_MACOS, SDK, 0].pack("L<4"))
           @uuid_at = 32 + out.sum(&:bytesize) + 8
           out << command(LC_UUID, "\0".b * 16)
-          out << command(LC_MAIN, [@entry_at, @stack].pack("Q<2"))
+          # A stacksize of 0: the main thread gets the system's stack, and the
+          # program runs on one that it maps (zr_main_on_own_stack). A binary
+          # with its own main stack size cannot change RLIMIT_STACK.
+          out << command(LC_MAIN, [@entry_at, 0].pack("Q<2"))
           out << command(LC_LOAD_DYLIB, [24, 0, 1 << 16, 1 << 16].pack("L<4") + "#{LIBSYSTEM}\0".b)
           out << command(LC_CODE_SIGNATURE, [@sig_at, signature_size].pack("L<2"))
           @ncmds = out.size
