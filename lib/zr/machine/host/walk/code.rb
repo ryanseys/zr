@@ -23,6 +23,7 @@ module Zr
           # @rbs @qtrue: Integer
           # @rbs @qfalse: Integer
           # @rbs @qundef: Integer
+          # @rbs @ensure_path: Symbol
           # @rbs @sites: Hash[untyped, Integer]
           # @rbs @cells: Hash[untyped, Hash[Symbol, Integer]]
           # @rbs @once: Hash[untyped, untyped]

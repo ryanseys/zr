@@ -819,8 +819,8 @@ module Zr
           clause = clause.subsequent
         end
         else_body = node.else_clause && (node.else_clause.statements ? seq(node.else_clause.statements, taken: taken) : Literal.new(nil, line))
-        ensure_body = node.ensure_clause && (node.ensure_clause.statements ? seq(node.ensure_clause.statements, taken: false) : Literal.new(nil, line))
-        ensure_body = silent_ensure(ensure_body, node.ensure_clause) if node.ensure_clause
+        ensure_clause = node.ensure_clause
+        ensure_body = ensure_clause && silent_ensure(ensure_clause.statements ? seq(ensure_clause.statements, taken: false) : Literal.new(nil, line), ensure_clause)
         Begin.new(body, rescues, else_body, ensure_body, line)
       end
 
@@ -1592,7 +1592,7 @@ module Zr
         Super.new(args, kwargs, node.block ? block(node.block) : forwarded, line)
       end
 
-      #: (Prism::IfNode node, Integer line, taken: bool) -> If
+      #: (Prism::IfNode node, Integer line, taken: bool) -> (If | Seq)
       def if_branch(node, line, taken:)
         chosen = chooses?(node.predicate)
         traced = line_event(node, taken: taken)
@@ -1623,7 +1623,7 @@ module Zr
         traced ? Seq.new([traced, built], traced.line) : built
       end
 
-      #: (Prism::UnlessNode node, Integer line, taken: bool) -> If
+      #: (Prism::UnlessNode node, Integer line, taken: bool) -> (If | Seq)
       def unless_branch(node, line, taken:)
         chosen = chooses?(node.predicate)
         traced = line_event(node, taken: taken)
@@ -1780,8 +1780,9 @@ module Zr
           body = jumping(body, w.statements, node.predicate ? w.location.start_line : line, taken: taken) if i < last
           [values, covered(covers[i], body, line)]
         end
-        other = node.else_clause && expr(node.else_clause, taken: taken)
-        if other && (statements = node.else_clause.statements)
+        else_clause = node.else_clause
+        other = else_clause && expr(else_clause, taken: taken)
+        if other && else_clause && (statements = else_clause.statements)
           other = jumping(other, statements, node.predicate ? statements.location.start_line : line, taken: taken)
         end
         Case.new(node.predicate && expr(node.predicate), clauses, covered(covers.last, other, line), line)

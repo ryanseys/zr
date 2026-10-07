@@ -114,13 +114,15 @@ module Zr
         def run_ensure(body, path = :jump, jump_line = nil)
           return body.call if body.is_a?(Proc)
 
-          was = [@ensure_path, @jump_line]
+          path_was = @ensure_path
+          line_was = @jump_line
           @ensure_path = path
           @jump_line = jump_line
           begin
             expr(body)
           ensure
-            @ensure_path, @jump_line = was
+            @ensure_path = path_was
+            @jump_line = line_was
           end
         end
 

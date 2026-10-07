@@ -410,10 +410,12 @@ module Zr
       #: () -> bool
       def scope_reads_backref?
         outer = @outer
-        return outer.scope_reads_backref? if @kind == :block && outer
+        return outer.scope_reads_backref? if @kind == :block && outer.is_a?(Function)
 
-        @scope_reads_backref = Function.backref_read?(@body) if @scope_reads_backref.nil?
-        @scope_reads_backref
+        known = @scope_reads_backref
+        return known unless known.nil?
+
+        @scope_reads_backref = Function.backref_read?(@body)
       end
       protected :scope_reads_backref?
 

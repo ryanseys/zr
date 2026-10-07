@@ -143,10 +143,11 @@ module Zr
         when Prism::CallNode
           # `[...].include?(x)` on one static Array runs `x` first
           # (opt_duparray_send).
-          args = node.arguments&.arguments
+          args = node.arguments&.arguments || []
+          arg = args.first
           if node.name == :include? && node.receiver.is_a?(Prism::ArrayNode) && node.receiver.static_literal? &&
-             args&.size == 1 && node.block.nil? && !args.first.is_a?(Prism::SplatNode)
-            return first_line(args.first)
+             args.size == 1 && node.block.nil? && arg && !arg.is_a?(Prism::SplatNode)
+            return first_line(arg)
           end
 
           node.receiver ? first_line(node.receiver) : node.location.start_line

@@ -18,6 +18,7 @@ module Zr
           # @rbs @qnil: Integer
           # @rbs @qundef: Integer
           # @rbs @poll: Integer
+          # @rbs @ensure_path: Symbol
 
           private
 
@@ -291,12 +292,15 @@ module Zr
           end
 
           # Runs an ensure body on `path`, as Lower::Function::Regions#run_ensure.
+          #: [T] (Symbol path) { () -> T } -> T
           def on_path(path)
             was = @ensure_path
             @ensure_path = path
-            yield
-          ensure
-            @ensure_path = was
+            begin
+              yield
+            ensure
+              @ensure_path = was
+            end
           end
 
           # The code of a region's body and its rescue clauses, a lambda of
