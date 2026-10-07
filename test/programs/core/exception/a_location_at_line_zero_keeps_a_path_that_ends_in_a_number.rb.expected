@@ -1,0 +1,10 @@
+"a:12:in '<main>'"
+["a:12:in '<main>'", "a:12", 0, "<main>"]
+["b:7:in '<main>'", "b:7", 0, "<main>"]
+["c:7:3:in '<main>'", "c:7", 3, "<main>"]
+["plain:in '<main>'", "plain", 0, "<main>"]
+["d:x:in '<main>'", "d:x", 0, "<main>"]
+[["e:5", 0]]
+[["e:5", 0], ["core/exception/a_location_at_line_zero_keeps_a_path_that_ends_in_a_number.rb", 18]]
+[["core/exception/a_location_at_line_zero_keeps_a_path_that_ends_in_a_number.rb", 18]]
+["core/exception/a_location_at_line_zero_keeps_a_path_that_ends_in_a_number.rb:20:in '<main>'", "core/exception/a_location_at_line_zero_keeps_a_path_that_ends_in_a_number.rb", 20, "<main>"]

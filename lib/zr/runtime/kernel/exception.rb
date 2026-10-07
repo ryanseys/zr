@@ -802,40 +802,44 @@ module Zr::Kern
     out
   end
 
-  # Returns the prism node id of each frame that the raise captured, in
-  # the order of `zr_exc_raise_rows`, or nil before a raise.
+  # Returns the prism node id and the line of each frame that the raise
+  # captured, two entries a frame, in the order of `zr_exc_raise_rows`,
+  # or nil before a raise.
   #: (value) -> value
-  def zr_exc_raise_nodes(recv)
+  def zr_exc_raise_places(recv)
     rows = RException[recv].rows
     if rows == 0
       return Machine.value(QNIL)
     end
     n = RException[recv].nrows
-    out = zr_ary_new(n)
+    out = zr_ary_new(n * 2)
     i = 0
     while i < n
-      zr_ary_push(out, zr_fix(BtRow[rows + (i * BtRow.size)].node))
+      row = rows + (i * BtRow.size)
+      zr_ary_push(out, zr_fix(BtRow[row].node))
+      zr_ary_push(out, zr_fix(BtRow[row].line))
       i += 1
     end
     out
   end
 
-  # Returns the prism node id of each frame that `caller(start, limit)`
-  # would return for the caller, which is the Ruby method that calls this
-  # primitive.
+  # Returns the prism node id and the line of each frame that
+  # `caller(start, limit)` would return for the caller, which is the Ruby
+  # method that calls this primitive: two entries a frame.
   #: (value, value) -> value
-  def zr_caller_nodes(start, limit)
+  def zr_caller_places(start, limit)
     skip = zr_fix2long(start)
     room = limit == QNIL ? 0 - 1 : zr_fix2long(limit)
     out = zr_ary_new(8)
     rec = Task[zr_task()].top
-    while rec != 0 && (room < 0 || RArray[out].len < room)
+    while rec != 0 && (room < 0 || RArray[out].len < room * 2)
       if zr_frame_shown_p(rec)
         if skip > 0
           skip -= 1
         else
           source = zr_frame_with_file(rec)
           zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_node_id(source)))
+          zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_line(source)))
         end
       end
       rec = Frame[rec].prev

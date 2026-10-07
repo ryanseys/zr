@@ -92,7 +92,8 @@ class Exception
     made = Primitive.zr_hidden_get(self, :__made_locations__)
     return made[1] if made && made[0] == rows
 
-    locations = rows.zip(Primitive.zr_exc_raise_nodes(self)).map { |row, node| Thread::Backtrace::Location.new(row, node) }
+    places = Primitive.zr_exc_raise_places(self).each_slice(2)
+    locations = rows.zip(places).map { |row, (node, line)| Thread::Backtrace::Location.new(row, node, line) }
     Primitive.zr_hidden_set(self, :__made_locations__, [rows, locations])
     locations
   end
@@ -624,15 +625,17 @@ class Thread
 
       # `node_id` is the id of the prism node the row's line ran, which
       # RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location reads.
-      def initialize(row, node_id = 0)
+      # `line` is the frame's line when the kernel knows it: a row at line
+      # 0 shows none, so its whole head is the path, digits and all.
+      def initialize(row, node_id = 0, line = nil)
         Primitive.attr! :hidden
         Primitive.zr_hidden_set(self, :__node_id__, node_id)
         at = row.index(":in '")
         head = row[0, at]
         # A frame at line 0 shows no line, as location_format writes it.
-        line = head[/:(-?\d+)\z/, 1]
-        @path = line ? head.byteslice(0, head.bytesize - line.bytesize - 1) : head
-        @lineno = line.to_i
+        shown = head[/:(-?\d+)\z/, 1] unless line == 0
+        @path = shown ? head.byteslice(0, head.bytesize - shown.bytesize - 1) : head
+        @lineno = shown.to_i
         @label = row[at + 5...-1]
         @row = row
       end
@@ -671,7 +674,8 @@ module Kernel
 
     rows = caller(start + 1, length) or return nil
 
-    rows.zip(Primitive.zr_caller_nodes(start + 1, length)).map { |row, node| Thread::Backtrace::Location.new(row, node || 0) }
+    places = Primitive.zr_caller_places(start + 1, length).each_slice(2)
+    rows.zip(places).map { |row, (node, line)| Thread::Backtrace::Location.new(row, node || 0, line) }
   end
   private :caller_locations
 end
