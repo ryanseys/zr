@@ -1,0 +1,1 @@
+core/tracepoint/a_tracepoint_fires_only_in_the_ractor_that_enabled_it.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.

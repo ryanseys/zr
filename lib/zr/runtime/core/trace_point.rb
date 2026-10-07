@@ -273,8 +273,10 @@ class TracePoint
       end
 
       thread = Thread.current
+      ractor = Ractor.current
       points = enabled.select do |point|
         (Primitive.zr_hidden_get(point, :__events__) & row[0]).nonzero? &&
+          Primitive.zr_hidden_get(point, :__ractor__).equal?(ractor) &&
           (Primitive.zr_hidden_get(point, :__thread__).nil? || Primitive.zr_hidden_get(point, :__thread__).equal?(thread)) &&
           targets?(point, row)
       end
@@ -486,6 +488,9 @@ class TracePoint
     points = TracePoint.send(:enabled)
     if on
       TracePoint.send(:untraced!)
+      # Hooks are Ractor-local: a point fires only in the Ractor that
+      # turned it on (vm_trace.c, connect_non_targeted_event_hook).
+      Primitive.zr_hidden_set(self, :__ractor__, Ractor.current)
       points << self unless points.include?(self)
     else
       points.delete(self)
