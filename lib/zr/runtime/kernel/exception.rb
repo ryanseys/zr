@@ -599,15 +599,9 @@ module Zr::Kern
     if !zr_trace_sends_p() || rec == 0 || !zr_trace_program_frame_p(Frame[rec].prev)
       return Machine.value(QNIL)
     end
-    entry = Frame[rec].entry
+    r = zr_trace_c_left(t, rec)
+    return r if r == QUNDEF
     events = Machine.load64(Machine.static(:trace_events, 8), 0)
-    if (events & TRACE_C_RETURN) != 0
-      owner = zr_method_owner(zr_box_view(zr_class_of(Frame[rec].self)), MEntry[entry].mid)
-      r = zr_trace_c_send(TRACE_C_RETURN, entry, owner, Frame[rec].self, Machine.value(QNIL))
-      return r if r == QUNDEF
-    end
-    Machine.store64(Machine.static(:raise_jumped, 16), 0, Machine.word(t))
-    Machine.store64(Machine.static(:raise_jumped, 16), 8, Machine.word(Frame[rec].prev))
     bt = zr_find_method(zr_class_of(e), Machine.id(:backtrace))
     if bt != 0 && MEntry[bt].core != 0 && zr_trace_c_entry_p(bt)
       owner = zr_method_owner(zr_class_of(e), Machine.id(:backtrace))
@@ -620,6 +614,24 @@ module Zr::Kern
         return r if r == QUNDEF
       end
     end
+    Machine.value(QNIL)
+  end
+
+  # The C method of frame `rec` leaves its frame before it raises
+  # (rb_raise_jump, rb_vm_pop_cfunc_frame): its :c_return fires now, and
+  # the unwind fires no second one (zr_trace_owned_invoke).
+  #: (ptr, ptr) -> value
+  def zr_trace_c_left(t, rec)
+    entry = Frame[rec].entry
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_RETURN) != 0
+      # The class that holds the entry: for a `super`, the one above the
+      # receiver's own method.
+      owner = zr_entry_holder(zr_box_view(zr_class_of(Frame[rec].self)), entry)
+      r = zr_trace_c_send(TRACE_C_RETURN, entry, owner, Frame[rec].self, Machine.value(QNIL))
+      return r if r == QUNDEF
+    end
+    Machine.store64(Machine.static(:raise_jumped, 16), 0, Machine.word(t))
+    Machine.store64(Machine.static(:raise_jumped, 16), 8, Machine.word(Frame[rec].prev))
     Machine.value(QNIL)
   end
 

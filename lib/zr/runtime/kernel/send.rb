@@ -37,6 +37,8 @@ module Zr::Kern
     if source != 0
       zr_exc_detail(e, Machine.id(:local_variables), zr_reachable_local_names(Frame[source].meta))
     end
+    traced = zr_trace_missing_raise(e)
+    return traced if traced == QUNDEF
     zr_raise(e)
   end
 
@@ -434,6 +436,8 @@ module Zr::Kern
     # `private_call?` is true when the call had no explicit receiver. A
     # call that finds a private or protected method always has one.
     zr_exc_detail(e, Machine.id(:private_call), Machine.value(QFALSE))
+    traced = zr_trace_missing_raise(e)
+    return traced if traced == QUNDEF
     zr_raise(e)
   end
 

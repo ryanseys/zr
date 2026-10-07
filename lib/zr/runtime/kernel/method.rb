@@ -52,6 +52,20 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The class or module among the ancestors of `klass` whose table holds
+  # the entry `e`, or nil.
+  #: (value, ptr) -> value
+  def zr_entry_holder(klass, e)
+    k = klass
+    while k != QNIL
+      if zr_find_method_at(k, MEntry[e].mid) == e
+        return zr_type(k) == T_ICLASS ? RClass[k].attached : k
+      end
+      k = RClass[k].superclass
+    end
+    Machine.value(QNIL)
+  end
+
   # Raises the NameError for `mid` on `klass`. When `vis` is public (no
   # such method), the message is `undefined method 'x' for class 'C'`. If
   # not, it is `method 'x' for class 'C' is private` or protected.

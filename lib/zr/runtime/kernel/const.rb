@@ -656,6 +656,8 @@ module Zr::Kern
     e = zr_exc_new(zr_global(G_NAME_ERROR), msg)
     zr_exc_detail(e, Machine.id(:name), zr_sym(id))
     zr_exc_detail(e, Machine.id(:receiver), scope == QNIL ? zr_global(G_OBJECT) : scope)
+    traced = zr_trace_missing_raise(e)
+    return traced if traced == QUNDEF
     zr_raise(e)
   end
 

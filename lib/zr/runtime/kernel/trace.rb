@@ -236,6 +236,49 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The C events of the error that the base method_missing or
+  # const_missing raises for the program after it popped its frame
+  # (zr_trace_c_popped): rb_exc_raise sends `exception` and `backtrace` to
+  # it. A method_missing that the program called itself (a `super` from
+  # its own) leaves its frame first. Returns undef when a handler raises.
+  #: (value) -> value
+  def zr_trace_missing_raise(exc)
+    if !zr_trace_c_p()
+      return Machine.value(QNIL)
+    end
+    t = zr_task()
+    rec = Task[t].top
+    if rec != 0 && Frame[rec].entry != 0 && MEntry[Frame[rec].entry].fn == Machine.addr(:zr_obj_method_missing) && zr_trace_program_frame_p(Frame[rec].prev)
+      r = zr_trace_c_left(t, rec)
+      return r if r == QUNDEF
+    elsif !zr_trace_c_caller_p()
+      return Machine.value(QNIL)
+    end
+    r = zr_trace_c_pair(exc, Machine.id(:exception))
+    return r if r == QUNDEF
+    zr_trace_c_pair(exc, Machine.id(:backtrace))
+  end
+
+  # :c_call and :c_return of the core method `mid` of `recv`, as a C
+  # function's rb_funcall of it fires them.
+  #: (value, word) -> value
+  def zr_trace_c_pair(recv, mid)
+    e = zr_find_method(zr_class_of(recv), mid)
+    if e == 0 || MEntry[e].core == 0 || !zr_trace_c_entry_p(e)
+      return Machine.value(QNIL)
+    end
+    owner = zr_method_owner(zr_box_view(zr_class_of(recv)), mid)
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_CALL) != 0
+      r = zr_trace_c_send(TRACE_C_CALL, e, owner, recv, Machine.value(QNIL))
+      return r if r == QUNDEF
+    end
+    if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_RETURN) != 0
+      r = zr_trace_c_send(TRACE_C_RETURN, e, owner, recv, recv)
+      return r if r == QUNDEF
+    end
+    Machine.value(QNIL)
+  end
+
   #: (word, ptr, value, value, value) -> value
   def zr_trace_c_send(event, e, owner, recv, value)
     rec = zr_frame_with_file(Task[zr_task()].top)
