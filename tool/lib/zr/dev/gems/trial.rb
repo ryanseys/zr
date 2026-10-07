@@ -16,6 +16,11 @@ module Zr
       # smoke program (gems/<name>.rb) runs the same way.
       #
       #   refused   zr refuses the gem, or a form in it
+      #
+      # A gem with a C extension that zr does not port builds but for its
+      # C part (`zr build` warns): its kind is `cext:<name>`, and its tier
+      # what the trial reached, `builds` or `compiles`, or `loads` when
+      # the probe gives ruby's output all the same.
       #   fails     the build fails
       #   builds    the build passes, and nothing ran (`run: false`)
       #   compiles  the binary runs, and its output is not ruby's
@@ -31,6 +36,10 @@ module Zr
         RUN_SECONDS = 60
         # zr's exit status for a refusal (Zr::CLI::REFUSED).
         REFUSED = 3
+
+        # zr build's warning for a gem whose C part it does not port
+        # (Hir::Build.program): the gem's name.
+        NATIVE = /^zr: warning: (\S+) \S+ \(.*?\) has a C extension, and zr has no port of it/
 
         PROBE = <<~'RUBY'
           before = Object.constants
@@ -156,7 +165,14 @@ module Zr
           built, limit = run(log, "zr build", [Dev.ruby, Dev.path("exe/zr"), "build", *flags, name, "-o", exe],
                              dir: dir, seconds: BUILD_SECONDS, megabytes: Harness::Child::BUILD_MB, env: { "BUNDLE_GEMFILE" => nil })
           raise build_failure(built, limit) unless built.status&.zero?
-          return unless @run
+
+          natives = built.stderr.to_s.scan(NATIVE).flatten.uniq
+          native = ->(detail, tier) { Failure.new("cext:#{natives.first}", detail, tier: tier) }
+          unless @run
+            raise native.call("#{natives.join(", ")}: zr has no port of the C part; the Ruby files built", :builds) if natives.any?
+
+            return
+          end
 
           say "running #{name} under ruby and as a zr binary"
           # A gem with a C extension here is one that zr ports. An unpacked
@@ -167,7 +183,11 @@ module Zr
           ruby, = run(log, "ruby", [Dev.ruby, *plain.flat_map(&:roots).flat_map { |root| ["-I", root] }, name],
                       dir: dir, seconds: RUN_SECONDS, megabytes: Harness::Child::RUN_MB, env: env)
           unless ruby.status&.zero?
-            raise Failure.new("ruby-error", "ruby: #{first_line(ruby.stderr) || ruby.status || "stopped"}", tier: :skipped)
+            detail = "ruby: #{first_line(ruby.stderr) || ruby.status || "stopped"}"
+            # The reference ruby has no built C of that gem either.
+            raise native.call(detail, :builds) if natives.any?
+
+            raise Failure.new("ruby-error", detail, tier: :skipped)
           end
 
           zr, limit = run(log, "zr binary", ["./#{exe}"], dir: dir, seconds: RUN_SECONDS, megabytes: Harness::Child::RUN_MB)
@@ -180,6 +200,8 @@ module Zr
           Diff::PARTS.each do |part|
             log << "--- #{part} (ruby, then zr)\n#{Diff.unified(ruby[part].to_s, zr[part].to_s)}" unless ruby[part] == zr[part]
           end
+          raise native.call(difference(ruby, zr), :compiles) if natives.any?
+
           raise Failure.new(kind == "crash" ? "zr-crash" : kind, difference(ruby, zr), tier: :compiles)
         end
 

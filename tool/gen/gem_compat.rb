@@ -18,7 +18,7 @@ module Zr
           compiles: "zr builds the probe, but the binary's output is not ruby's.",
           builds: "zr builds the probe. A sweep with `--build-only` runs no gem's code, so it does not run the probe.",
           fails: "The build fails, or the tool cannot find or resolve the gem.",
-          refused: "zr refuses the gem: it has a C extension that zr does not port, or it uses a form of Ruby that zr does not support.",
+          refused: "zr refuses the gem: zr ports its C part at other versions, or it uses a form of Ruby that zr does not support.",
           skipped: "The tool did not try the gem: `gems/<name>.rb` skips it, or the probe fails under ruby too."
         }.freeze
 

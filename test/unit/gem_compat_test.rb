@@ -211,10 +211,10 @@ class GemCompatTest < Minitest::Test
 
   # Rules
 
-  def test_a_gem_with_a_c_extension_is_refused
-    failure = Gems::Rules.refusal([CORPUS.find("tiny"), CORPUS.find("cexty")])
-
-    assert_equal ["cext:cexty", :refused], [failure.kind, failure.tier]
+  # zr builds a gem with a C extension that it does not port, but for its
+  # C part, so no rule refuses one before the build.
+  def test_a_gem_with_a_c_extension_is_not_refused_before_the_build
+    assert_nil Gems::Rules.refusal([CORPUS.find("tiny"), CORPUS.find("cexty")])
   end
 
   def test_a_port_outside_its_range_is_refused_and_inside_it_is_not
@@ -359,12 +359,38 @@ class GemCompatTest < Minitest::Test
     assert_empty runner.steps
   end
 
-  def test_a_refused_gem_is_never_built
-    runner = Runner.new
+  # `zr build`'s warning for a gem whose C part it does not port.
+  NATIVE_WARNING = "zr: warning: cexty 1.0.0 (--gem cexty=/c) has a C extension, and zr has no port of it. zr compiles only Ruby: " \
+                   "its Ruby files compile, and a require of its C part raises LoadError if it runs\n"
+
+  def test_a_gem_whose_c_part_zr_does_not_port_builds_and_names_it
+    runner = Runner.new(build: answer("", NATIVE_WARNING))
+    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+                             work: File.join(@dir, "work"), reference: Reference, run: false).call(Gems::Request.parse("cexty"))
+
+    assert_equal [:builds, "cext:cexty"], [result.tier, result.kind]
+    assert_equal [:build], runner.steps
+  end
+
+  def test_a_gem_whose_c_part_zr_does_not_port_loads_when_its_output_is_rubys
+    result = trial(Runner.new(build: answer("", NATIVE_WARNING))).call(Gems::Request.parse("cexty"))
+
+    assert_equal [:loads, nil], [result.tier, result.kind]
+  end
+
+  def test_a_gem_whose_c_part_zr_does_not_port_compiles_when_its_output_differs
+    runner = Runner.new(build: answer("", NATIVE_WARNING), zr: answer("", "LoadError\n", 1))
     result = trial(runner).call(Gems::Request.parse("cexty"))
 
-    assert_equal [:refused, "cext:cexty"], [result.tier, result.kind]
-    assert_empty runner.steps
+    assert_equal [:compiles, "cext:cexty"], [result.tier, result.kind]
+  end
+
+  def test_a_gem_whose_c_part_ruby_lacks_too_builds
+    runner = Runner.new(build: answer("", NATIVE_WARNING), ruby: answer("", "LoadError\n", 1))
+    result = trial(runner).call(Gems::Request.parse("cexty"))
+
+    assert_equal [:builds, "cext:cexty"], [result.tier, result.kind]
+    assert_equal %i[build ruby], runner.steps
   end
 
   def test_a_refusal_of_a_form_names_the_form

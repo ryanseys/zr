@@ -73,7 +73,7 @@ Each gem gets a tier, from the worst to the best:
 
 | Tier | Meaning |
 |---|---|
-| `refused` | zr refuses the gem: it has a C extension that zr does not port, or it uses a form of Ruby that zr does not support. |
+| `refused` | zr refuses the gem: zr ports its C part at other versions, or it uses a form of Ruby that zr does not support. |
 | `fails` | The build fails, or the tool cannot find or resolve the gem. |
 | `compiles` | zr builds the probe, but the binary's output is not ruby's. |
 | `builds` | zr builds the probe. A `--build-only` trial does not run it. |
@@ -85,7 +85,7 @@ A gem that stops below `loads` also gets a kind, the cause in one word:
 
 | Kind | Cause |
 |---|---|
-| `cext:<gem>` | The gem, or a gem that it needs, has a C extension, and zr has no port of it. The tool knows this from the gemspec, before it builds. |
+| `cext:<gem>` | The gem, or a gem that it needs, has a C extension, and zr has no port of it. zr builds the Ruby files, and its build says which gem lost its C part; the tier is what the trial reached without it (`builds` or `compiles`). |
 | `port-range:<gem>` | zr ports the gem's C, but not for this version (`lib/zr/library/ports.rb`). |
 | `refused:<form>` | zr refuses a form of Ruby in the gem ([What zr supports](../reference/support.md)). |
 | `missing-require:<feature>` | A `require` of the gem resolves to no file. |

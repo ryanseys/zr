@@ -8,9 +8,11 @@ module Zr
       # What zr refuses before any build, from the gems' metadata alone,
       # as `zr build` refuses it (lib/zr/gem_set/resolve.rb):
       #
-      #   cext:<name>        a gem with a C extension that zr has no port of
       #   port-range:<name>  a gem that zr ports, at a version outside the
       #                      versions whose C the port implements
+      #
+      # A gem with a C extension that zr has no port of builds but for its
+      # C part; the trial reads which from the build's warnings (`cext:`).
       module Rules
         module_function
 
@@ -24,10 +26,6 @@ module Zr
               return Failure.new("port-range:#{subject.name}",
                                  "#{subject}: zr implements the C part of #{subject.name} #{port.compat} only", tier: :refused)
             end
-            next unless subject.cext?
-
-            return Failure.new("cext:#{subject.name}",
-                               "#{subject} has a C extension (#{subject.extensions.join(", ")}), and zr has no port of it", tier: :refused)
           end
           nil
         end
