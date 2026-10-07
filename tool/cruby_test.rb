@@ -31,7 +31,7 @@ module Zr
     #   *<TAB>build                       the file does not build
     #   *<TAB>load                        the file raises as it loads
     #
-    # Another reason (`ractor`, `rubyvm`, `spawns`) is a `fail` that says
+    # Another reason (`cext`, `ractor`, `rubyvm`, `spawns`) is a `fail` that says
     # why; `--update-tags` keeps it. A run writes
     # `log/cruby-test/results/<dir>.json` and `test/cruby/summary.tsv`;
     # test/unit/cruby_test_ratchet_test.rb reads them.
