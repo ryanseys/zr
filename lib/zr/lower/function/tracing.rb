@@ -98,12 +98,12 @@ module Zr
           switch(off)
         end
 
-        # The event's bit. A block's event also carries whether the block
-        # is a lambda (the kernel's TRACE_LAMBDA).
+        # The event's bit. A block's :b_call and :b_return also carry
+        # whether the block is a lambda (the kernel's TRACE_LAMBDA).
         #: (Symbol event) -> String
         def event_word(event)
           bit = EVENTS.fetch(event)
-          return imm(bit) unless @kind == :block
+          return imm(bit) unless @kind == :block && (event == :b_call || event == :b_return)
 
           @f.csel(lambda?, imm(bit | LAMBDA), imm(bit))
         end
