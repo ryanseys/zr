@@ -896,7 +896,7 @@ module Zr::Kern
           zr_buf_label(b, zr_frame_label_meta(rec))
           zr_buf_byte(b, 39)
         else
-          zr_buf_frame(b, rec)
+          zr_buf_frame(b, rec, 0)
         end
         zr_ary_push(entry, zr_frame_text(b, rec))
         source = zr_frame_with_file(rec)

@@ -22,6 +22,7 @@ module Zr
         # @rbs @rec: String
         # @rbs @regions: Array[Regions::Region]
         # @rbs @retries: Array[[String, Integer, Integer]]
+        # @rbs @rescue_lines: Array[Integer]
         # @rbs @sp: Integer
         # @rbs @task: Machine::Layout
         # @rbs @task_addr: String
@@ -165,7 +166,11 @@ module Zr
             restore = -> { kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at)) }
             v = with_ensure(restore, errinfo: false) do
               @retries << [head, prev_at, @regions.size]
+              # CRuby runs a clause in a frame of its own, whose caller is
+              # the scope at the `begin` line (Lower#rescues_table).
+              @rescue_lines << node.line
               body = expr(clause.body)
+              @rescue_lines.pop
               @retries.pop
               body
             end

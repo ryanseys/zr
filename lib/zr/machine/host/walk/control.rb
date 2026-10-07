@@ -300,7 +300,7 @@ module Zr
 
             body = code(node.body, s)
             other = node.else_body && code(node.else_body, s)
-            clauses = node.rescues.map { |clause| rescue_clause(clause, s) }
+            clauses = node.rescues.map { |clause| rescue_clause(clause, s, node.line) }
             # @type var run: ^(Frame, Integer) -> untyped
             run = lambda do |f, saved|
               begin
@@ -335,8 +335,10 @@ module Zr
 
           # A rescue clause as `[matches, handler]`: whether it takes the
           # exception, and the code that binds it and runs the clause's body.
-          # `:rescue` fires at the clause's first statement (`Regions`).
-          def rescue_clause(clause, s)
+          # `:rescue` fires at the clause's first statement (`Regions`). The
+          # clause runs in a frame of its own in CRuby, whose caller is the
+          # scope at the region's `begin` line (`begun`).
+          def rescue_clause(clause, s, begun)
             classes = clause.classes.map do |klass|
               if klass.is_a?(Hir::Splat)
                 list = code(klass.value, s)
@@ -353,7 +355,7 @@ module Zr
                       end
             line = (clause.body || clause).line
             bind = clause.target && target_store(clause.target, s)
-            body = code(clause.body, s)
+            body = code(clause.body, s.rescuing(begun))
             handler = lambda do |f, exc|
               check(@kern.zr_trace_rescue(line))
               bind&.call(f, exc)

@@ -19,6 +19,7 @@ module Zr
           attr_reader blank: Array[Integer]
           attr_reader names: Integer
           attr_reader loops: Array[untyped]
+          attr_reader rescues: Array[Integer]
 
           def self.new: (*untyped) -> instance
                       | (**untyped) -> instance

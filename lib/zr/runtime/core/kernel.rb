@@ -723,8 +723,9 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
         level = implicit_integer(uplevel)
         raise ArgumentError, "negative level (#{level})" if level.negative?
 
-        # Frames of `<internal:` code do not count, as rb_warn_m skips them.
-        at = caller_locations(1).reject { |frame| frame.path&.start_with?("<internal:") }[level]
+        # rb_warn_m starts `level` levels above its caller, and the first
+        # frame there that is not `<internal:` code gives the position.
+        at = caller_locations(level + 1)&.find { |frame| !frame.path&.start_with?("<internal:") }
         text << (at&.path ? "#{at.path}:#{at.lineno}: warning: " : "warning: ")
       end
       IO.send(:each_line_of, msgs) { |*parts| text.concat(*parts) }

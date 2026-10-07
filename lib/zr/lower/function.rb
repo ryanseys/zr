@@ -63,6 +63,8 @@ module Zr
       # @rbs @loops: Array[Loop]
       # @rbs @regions: Array[Regions::Region]
       # @rbs @retries: Array[[String, Integer, Integer]]
+      # @rbs @rescue_lines: Array[Integer]
+      # @rbs @rescue_rows: Hash[Integer, Array[Integer]]
       # @rbs @f: IR::Function
       # @rbs @base: Integer
       # @rbs @nvalues: Integer
@@ -195,6 +197,11 @@ module Zr
         @loops = []
         @regions = []
         @retries = []
+        # The `begin` lines of the rescue clauses that the code being
+        # lowered runs in, outermost first, and the clauses of each node
+        # whose line the record stores there (Lower#rescues_table).
+        @rescue_lines = []
+        @rescue_rows = {}
         # Set for real in `lower` and `enter`, once this scope's IR
         # function exists. Nil here fixes this object's ivar order
         # before then, so every instance has the same shape
@@ -265,6 +272,7 @@ module Zr
         # After the body is lowered, its captures are known, so the
         # captures table that its meta refers to can be written.
         @l.captures_table(@name, capture_rows) unless @twin_of
+        @l.rescues_table(@name, @rescue_rows) unless @twin_of || @rescue_rows.empty?
         @l.functions << @f
         @f
       end
@@ -669,11 +677,18 @@ module Zr
         return if @inline
 
         word = (line & LINE_MASK) | (node_id << 32)
+        @rescue_rows[node_id] ||= @rescue_lines.reverse if node_id != 0 && !@rescue_lines.empty? && own_code?
         return if word == @line
 
         @line = word
         @f.store(imm(word), @line_rec || @rec, off(@frame, "line"))
       end
+
+      # Whether this is the program's code, not the core's or eval support's,
+      # which CRuby writes in C: only its rescue clauses take a level of a
+      # caller list (Lower#rescues_table).
+      #: () -> bool
+      def own_code? = !@l.internal? && !@l.support?
 
       # The same for `node`, with the id of the prism node it came from in
       # the word's high half, which node_id_for_backtrace_location reads.

@@ -48,6 +48,7 @@ module Zr
         # @rbs @metas: Hash[untyped, Integer]
         # @rbs @fns: Hash[untyped, untyped]
         # @rbs @tables: Hash[Array[Integer], Integer]
+        # @rbs @rescues: Hash[Integer, Hash[Integer, Array[Integer]]]
         # @rbs @once: Hash[untyped, untyped]
         # @rbs @scratch: Integer
         # @rbs @scratch_size: Integer
@@ -200,6 +201,7 @@ module Zr
           @fns = {} #: Hash[untyped, untyped]
           @fns.compare_by_identity
           @tables = {}
+          @rescues = {}
           @once = {} #: Hash[untyped, untyped]
           @once.compare_by_identity
           @spellings = {} #: Hash[untyped, Spelling]

@@ -16,12 +16,14 @@ module Zr
         # which its Env holds.
         # `loops` are the tags of the loops around the code being compiled,
         # innermost first: a `break`, `next` or `redo` throws one.
+        # `rescues` are the `begin` lines of the rescue clauses around it,
+        # outermost first (`Lower#rescues_table`).
         #
         # The fields of Scope and Frame are typed in
         # sig/zr/machine/host/walk/frames.rbs, the methods here.
         # @rbs skip
         Scope = Data.define(:node, :unit, :def_node, :kind, :scopes, :homes, :meta, :params, :open, :line, :values, :blank, :names,
-                            :loops)
+                            :loops, :rescues)
 
         class Scope
           #: () -> Array[Symbol]
@@ -33,6 +35,10 @@ module Zr
           # The scope inside a loop with `tags`: `[break, next, redo]`.
           #: (untyped tags) -> Scope
           def looping(tags) = with(loops: [tags, *loops])
+
+          # The scope inside a rescue clause of the region at `line`.
+          #: (Integer line) -> Scope
+          def rescuing(line) = with(rescues: [*rescues, line])
         end
 
         # One run of a scope: its record in the slot area, its Env (nil
@@ -57,6 +63,7 @@ module Zr
           # @rbs @qnil: Integer
           # @rbs @qundef: Integer
           # @rbs @metas: Hash[untyped, Integer]
+          # @rbs @rescues: Hash[Integer, Hash[Integer, Array[Integer]]]
           # @rbs @record: Integer
           # @rbs @line_at: Integer
           # @rbs @trace_events: Integer
@@ -90,9 +97,10 @@ module Zr
             m = k::FrameMeta
             values = open ? 1 : scopes.first.size
             loops = [] #: Array[untyped]
+            rescues = [] #: Array[Integer]
             Scope.new(node: node, unit: unit, def_node: def_node, kind: kind, scopes: scopes, homes: homes, meta: meta,
                       params: params, open: open, line: m[meta].line | (m[meta].node << 32), values: values,
-                      blank: Array.new([values, 1].max, @qnil).freeze, names: id_table(scopes.first), loops: loops)
+                      blank: Array.new([values, 1].max, @qnil).freeze, names: id_table(scopes.first), loops: loops, rescues: rescues)
           end
 
           # The FrameMeta of the scope `node`.
@@ -332,9 +340,27 @@ module Zr
           #: (Frame f, Integer word) -> void
           def line!(f, word) = Memory.set_word(f.rec + @line_at, word)
 
-          # The line word of `node` in the scope `s` (`line!`).
+          # The line word of `node` in the scope `s` (`line!`). A node in a
+          # rescue clause goes in its scope's rescues table as well.
           #: (untyped node, Scope s) -> Integer
-          def line_word(node, s) = (node.line || 0) | ((s.unit.node_ids&.[](node) || 0) << 32)
+          def line_word(node, s)
+            id = s.unit.node_ids&.[](node) || 0
+            add_rescue_row(s, id) unless id.zero? || s.rescues.empty? || s.internal? || s.unit.hidden
+            (node.line || 0) | (id << 32)
+          end
+
+          # Adds the node `id` to the rescues table of the scope `s`, with
+          # the `begin` lines of the clauses around it, innermost first, and
+          # writes the table again (`Lower#rescues_table`).
+          #: (Scope s, Integer id) -> void
+          def add_rescue_row(s, id)
+            rows = (@rescues[s.meta] ||= {})
+            return if rows.key?(id)
+
+            rows[id] = s.rescues.reverse
+            words = rows.sort.flat_map { |node, lines| lines.map { |line| (node << 32) | (line & 0xffffffff) } }
+            k::FrameMeta[s.meta].rescues = table([words.size, *words])
+          end
         end
       end
     end

@@ -30,6 +30,7 @@ module Zr
     # @rbs @file: String
     # @rbs @warnings: Array[String]
     # @rbs @data: Array[Obj::Datum]
+    # @rbs @metas: Hash[String, Obj::Datum]
     # @rbs @functions: Array[IR::Function]
     # @rbs @prefix: String
     # @rbs @next: Integer
@@ -218,6 +219,7 @@ module Zr
       @file = program.file
       @warnings = program.warnings || []
       @data = []
+      @metas = {}
       @functions = []
       open_unit
     end
@@ -648,8 +650,23 @@ module Zr
       relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
       relocs << Obj::Reloc.new(layout.fields.fetch("twin").first, :abs64, twin) if twin
       name = "zr_meta_#{fn}"
-      @data << Obj::Datum.new(name, :data, bytes, relocs: relocs, align: 8)
+      @data << (@metas[name] = Obj::Datum.new(name, :data, bytes, relocs: relocs, align: 8))
       name
+    end
+
+    # The rescue clauses that each node of `fn` runs in, as data that its
+    # FrameMeta `rescues` points at. CRuby runs a clause in a frame of its
+    # own, so a caller list counts one level for each clause, and the
+    # scope under it reports the line of the clause's `begin`
+    # (zr_frame_levels). The table has the count, then a word for each
+    # clause, innermost first for each node: the node id in the high half
+    # and the `begin` line in the low half, sorted by node.
+    #: (String fn, Hash[Integer, Array[Integer]] rows) -> void
+    def rescues_table(fn, rows)
+      words = rows.sort.flat_map { |node, lines| lines.map { |line| (node << 32) | (line & 0xffffffff) } }
+      table = id_table("zr_rescues_#{fn}", [words.size, *words])
+      offset = layout("FrameMeta").fields.fetch("rescues").first
+      @metas.fetch("zr_meta_#{fn}").relocs << Obj::Reloc.new(offset, :abs64, table)
     end
 
     # The scope's locals as data: the count, then one name id for each,

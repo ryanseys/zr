@@ -50,6 +50,7 @@ module Zr::Kern
     attr_accessor :owns_backref #: word
     attr_accessor :frameless #: word
     attr_accessor :blocks #: word
+    attr_accessor :rescues #: ptr
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it
@@ -138,6 +139,58 @@ module Zr::Kern
   #: (ptr) -> word
   def zr_frame_node_id(rec)
     Frame[rec].line >> 32
+  end
+
+  # The levels that the frame `rec` takes in a caller list. CRuby runs
+  # a rescue clause in a frame of its own, which shows the clause's line
+  # and hides the scope under it. So a scope in rescue clauses takes one
+  # level more for each (Lower#rescues_table): a list that starts there
+  # shows the clause, and one that starts a level further shows the
+  # scope at the line of the clause's `begin`.
+  #: (ptr) -> word
+  def zr_frame_levels(rec)
+    table = FrameMeta[Frame[rec].meta].rescues
+    if table == 0
+      return 1
+    end
+    node = zr_frame_node_id(rec)
+    n = Machine.load64(table, 0)
+    levels = 1
+    i = 0
+    while i < n
+      if (Machine.load64(table + 8 + (i * 8), 0) >> 32) == node
+        levels += 1
+      end
+      i += 1
+    end
+    levels
+  end
+
+  # The line that the frame `rec` shows at its own level `level`: its
+  # line at 0, then the `begin` line of each rescue clause it runs in,
+  # innermost first.
+  #: (ptr, word) -> word
+  def zr_frame_level_line(rec, level)
+    if level == 0
+      return zr_frame_line(rec)
+    end
+    table = FrameMeta[Frame[rec].meta].rescues
+    node = zr_frame_node_id(rec)
+    n = Machine.load64(table, 0)
+    seen = 0
+    i = 0
+    while i < n
+      word = Machine.load64(table + 8 + (i * 8), 0)
+      if (word >> 32) == node
+        seen += 1
+        if seen == level
+          line = word & 4294967295
+          return line >= 2147483648 ? line - 4294967296 : line
+        end
+      end
+      i += 1
+    end
+    zr_frame_line(rec)
   end
 
   # The nearest frame at or outside `rec` that has a file of its own.
@@ -834,12 +887,14 @@ module Zr::Kern
     rec = Task[zr_task()].top
     while rec != 0 && (room < 0 || RArray[out].len < room * 2)
       if zr_frame_shown_p(rec)
-        if skip > 0
-          skip -= 1
+        levels = zr_frame_levels(rec)
+        if skip >= levels
+          skip -= levels
         else
           source = zr_frame_with_file(rec)
           zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_node_id(source)))
-          zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_line(source)))
+          zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_level_line(source, skip)))
+          skip = 0
         end
       end
       rec = Frame[rec].prev
@@ -1112,13 +1167,14 @@ module Zr::Kern
     line
   end
 
-  # Writes `file:line:in 'label'` for the live frame `rec`.
-  #: (ptr, ptr) -> void
-  def zr_buf_frame(b, rec)
+  # Writes `file:line:in 'label'` for the live frame `rec`, at its own
+  # level `level` (zr_frame_levels).
+  #: (ptr, ptr, word) -> void
+  def zr_buf_frame(b, rec, level)
     source = zr_frame_with_file(rec)
     if source != 0
       zr_buf_push(b, FrameMeta[Frame[source].meta].file, FrameMeta[Frame[source].meta].file_len)
-      line = zr_frame_line(source)
+      line = zr_frame_level_line(source, level)
       if line != 0
         zr_buf_byte(b, 58)
         zr_buf_long(b, line)
@@ -1202,16 +1258,18 @@ module Zr::Kern
     rec = Frame[Task[zr_task()].top].prev
     while rec != 0
       if zr_frame_shown_p(rec)
-        if start > 0
-          start -= 1
+        levels = zr_frame_levels(rec)
+        if start >= levels
+          start -= levels
         else
           if limit >= 0 && RArray[out].len >= limit
             return out
           end
           b = Machine.slot(Buf.size)
           zr_buf_init(b)
-          zr_buf_frame(b, rec)
+          zr_buf_frame(b, rec, start)
           zr_ary_push(out, zr_frame_text(b, rec))
+          start = 0
         end
       end
       rec = Frame[rec].prev
@@ -1238,16 +1296,18 @@ module Zr::Kern
     rec = Task[t].top
     while rec != 0
       if zr_frame_shown_p(rec)
-        if skip > 0
-          skip -= 1
+        levels = zr_frame_levels(rec)
+        if skip >= levels
+          skip -= levels
         else
           if room >= 0 && RArray[out].len >= room
             return out
           end
           b = Machine.slot(Buf.size)
           zr_buf_init(b)
-          zr_buf_frame(b, rec)
+          zr_buf_frame(b, rec, skip)
           zr_ary_push(out, zr_frame_text(b, rec))
+          skip = 0
         end
       end
       rec = Frame[rec].prev
