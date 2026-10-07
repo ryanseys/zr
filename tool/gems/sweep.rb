@@ -21,7 +21,7 @@ module Zr
         summary "Many gems, one line each, into a table"
 
         LOG = Dev.path("log/gems")
-        usage "[GEM...] [--top N] [--jobs N] [--save] [--corpus DIR] [--offline]"
+        usage "[GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--corpus DIR] [--offline]"
 
         def defaults
           super
@@ -32,7 +32,9 @@ module Zr
 
         def options(o)
           super
-          o.on("--top N", Integer, "also the N most downloaded gems of gems/top.tsv") { |v| @top = v }
+          o.on("--top N|FIRST..LAST", "also the N most downloaded gems of gems/top.tsv, or those ranked FIRST to LAST") do |v|
+            @top = Sweep.ranks(v) or fail!("--top takes N or FIRST..LAST, as 100 or 1001..2000, not #{v}")
+          end
           o.on("--jobs N", Integer, "gems at a time (default 1)") { |v| @jobs = v }
           o.on("--save", "write the rows into gems/compat.tsv") { @save = true }
         end
@@ -43,7 +45,7 @@ module Zr
           if @top
             top = Gems::Top.read
             fail!("no gems/top.tsv; run `zr-dev gems top --refresh`") if top.empty?
-            words.concat(top.keys.first(@top))
+            words.concat(top.keys[@top] || [])
           end
           fail!("give gems, or --top N") if words.empty?
           requests = words.uniq.map { |word| request(word) }
@@ -91,6 +93,15 @@ module Zr
         end
 
         def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+        # The indexes into gems/top.tsv of `--top`'s ranks, which count
+        # from 1: "100" is the first 100, and "1001..2000" the next 1000.
+        def self.ranks(text)
+          case text
+          when /\A[1-9]\d*\z/ then 0...Integer(text)
+          when /\A([1-9]\d*)\.\.([1-9]\d*)\z/ then (Integer($1) - 1)...Integer($2) if Integer($1) <= Integer($2)
+          end
+        end
       end
     end
   end

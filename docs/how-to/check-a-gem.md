@@ -114,8 +114,9 @@ $ zr-dev gems sweep --top 100 --save
 100 of 100 gems: ...
 ```
 
-`sweep` takes gems by name, the top N of `gems/top.tsv` (`--top N`), or
-both. It tries one gem at a time; `--jobs N` tries N at a time, but
+`sweep` takes gems by name, the top N of `gems/top.tsv` (`--top N`), the
+gems ranked FIRST to LAST (`--top 1001..2000`), or both. `zr-dev gems top
+--refresh --count 11000` writes a longer `gems/top.tsv`. It tries one gem at a time; `--jobs N` tries N at a time, but
 each build can use 2 GB. Ctrl-C stops it.
 
 As each gem ends, the sweep writes its line into

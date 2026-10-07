@@ -379,6 +379,17 @@ class GemCompatTest < Minitest::Test
     assert_match %r{\A\[2/2\] refused +cexty 1\.0  cext:cexty }, lines.last
   end
 
+  def test_a_sweeps_top_ranks_are_a_count_or_a_range_from_one
+    ranks = Zr::Dev::GemCompat::Sweep.method(:ranks)
+    top = (1..30).map { "gem#{_1}" }
+
+    assert_equal %w[gem1 gem2 gem3], top[ranks.call("3")]
+    assert_equal %w[gem11 gem12], top[ranks.call("11..12")]
+    assert_equal %w[gem29 gem30], top[ranks.call("29..40")], "a range past the list ends with it"
+    assert_equal %w[gem7], top[ranks.call("7..7")]
+    assert_equal [nil] * 4, %w[0 5..4 0..3 x].map { ranks.call(_1) }
+  end
+
   def test_triage_ranks_the_causes_by_gems_then_downloads
     table = Gems::Table.new(File.join(@dir, "none.tsv"))
     table.add(result("a", :refused, "cext:a"), commit: "c", downloads: 5)
