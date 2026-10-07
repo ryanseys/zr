@@ -4,21 +4,31 @@
 # JSON::Ext::Parser.parse, and the walk both run. The walk is parser.c's
 # own: an explicit stack of the containers still open, a phase for what
 # the innermost one expects next, and the same error at the same byte.
+#
+# The port serves json 2.20 and 2.21 too, whose parser.c has 3.0's
+# interface: there a duplicate key and a comment, unless an option allows
+# or refuses them, give a deprecation warning (five at most in one parse)
+# where 3.0 raises, an unknown option is ignored, a lone trailing
+# surrogate is read as its bytes, and an error keeps no path.
 require "json/common"
 
 module JSON
   module Ext
     class ParserConfig
       # parser.c's JSON_ParserConfig, out of the program's sight as the C
-      # struct is.
+      # struct is. allow_comments and allow_duplicate_key are nil in json
+      # 2.x until an option sets them: JSON_DEPRECATED, which warns.
       Fields = Struct.new(:on_load_proc, :decimal_class, :decimal_method, :max_nesting, :allow_comments, :allow_duplicate_key,
                           :allow_nan, :allow_trailing_comma, :allow_control_characters, :allow_invalid_escape,
-                          :symbolize_names, :freeze)
-      private_constant :Fields
+                          :symbolize_names, :freeze, :json2)
+      # Whether the gem's own ruby is json 2.x's.
+      JSON2 = JSON::VERSION.to_i < 3
+      private_constant :Fields, :JSON2
 
       def self.fields_for(opts)
         Primitive.attr! :hidden
-        fields = Fields.new(nil, nil, nil, 100, false, false, false, false, false, false, false, false)
+        allow = JSON2 ? nil : false
+        fields = Fields.new(nil, nil, nil, 100, allow, allow, false, false, false, false, false, false, JSON2)
         return fields if opts.nil?
         raise TypeError, "wrong argument type #{conversion_name(opts)} (expected Hash)" unless opts.is_a?(Hash)
 
@@ -39,7 +49,7 @@ module JSON
           else unknown << key
           end
         end
-        return fields if unknown.empty?
+        return fields if unknown.empty? || JSON2
         raise ArgumentError, "unknown keyword: #{unknown[0]}" if unknown.size == 1
 
         raise ArgumentError, "unknown keywords: #{unknown.join(', ')}"
@@ -122,6 +132,7 @@ module JSON
         @heads = [0]
         @starts = [0]
         @nesting = 0
+        @warnings = 0
       end
 
       # convert_encoding: the source as UTF-8 bytes; binary is read as
@@ -422,11 +433,15 @@ module JSON
       end
 
       # raise_duplicate_key_error: the error's path ends at the key that
-      # the object has twice.
+      # the object has twice. json 2.x warns where no option says.
       def duplicate_key(pairs)
         return if @fields.allow_duplicate_key
 
         key = duplicated(pairs)
+        if @fields.allow_duplicate_key.nil?
+          return deprecated("detected duplicate key #{key.inspect} in JSON object. " \
+                            "This will raise an error in json 3.0 unless enabled via `allow_duplicate_key: true`")
+        end
         raise parse_error("duplicate key #{key.inspect}", 0, 0, key) if @resumable
 
         line, column = position
@@ -459,7 +474,7 @@ module JSON
       end
 
       def comment
-        syntax_error("unexpected token %s") unless @fields.allow_comments
+        syntax_error("unexpected token %s") if @fields.allow_comments == false
 
         start = @cursor
         @cursor += 1
@@ -485,6 +500,9 @@ module JSON
           suspend if at_end?
           syntax_error_at("unexpected token %s", start)
         end
+        return unless @fields.allow_comments.nil?
+
+        deprecated("Encountered comment in JSON. This will raise an error in json 3.0 unless enabled via `allow_comments: true`")
       end
 
       def keyword(word)
@@ -611,7 +629,7 @@ module JSON
               syntax_error_at("invalid surrogate pair at %s", p) unless (low & 0xFC00) == 0xDC00
               code = ((code & 0x3F) << 10) | ((((code >> 6) & 0xF) + 1) << 16) | (low & 0x3FF)
               pe += 5
-            elsif (code & 0xFC00) == 0xDC00
+            elsif (code & 0xFC00) == 0xDC00 && !@fields.json2
               syntax_error_at("unpaired trailing surrogate at %s", p)
             end
             out << [code].pack("U").b
@@ -672,8 +690,19 @@ module JSON
         error = ParserError.new(message)
         error.instance_variable_set(:@line, line)
         error.instance_variable_set(:@column, column)
-        error.instance_variable_set(:@json_path, json_path(duplicate))
+        error.instance_variable_set(:@json_path, json_path(duplicate)) unless @fields.json2
         error
+      end
+
+      # emit_parse_warning: json 2.x's deprecation, through
+      # JSON.deprecation_warning, with the cursor's line and column; the
+      # first five of a parse only.
+      def deprecated(message)
+        return if @warnings >= 5
+
+        @warnings += 1
+        message = "#{message} at line #{position.join(' column ')}" unless @resumable
+        JSON.deprecation_warning(message)
       end
 
       # json_path_new: for each open container, outermost first, the index

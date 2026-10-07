@@ -19,8 +19,9 @@ module Zr
     # not 2.18.0): docs/reference/differences-from-ruby.md lists them.
     module Ports
       # One port: the gem's version, the versions whose C interface the port
-      # implements (a rubygems requirement, read only when a build selects
-      # another version of the gem), and whether vendor/ holds the gem.
+      # implements (rubygems requirements, joined with ", ", read only when
+      # a build selects another version of the gem; Ports.requirement), and
+      # whether vendor/ holds the gem.
       # @rbs skip -- typed in sig/zr/library/ports.rbs
       Port = Struct.new(:version, :compat, :vendored, keyword_init: true)
 
@@ -30,7 +31,9 @@ module Zr
       ALL = {
         # A gem in vendor/, over a port in lib/zr/runtime/ext.
         "prism" => port("1.9.0"),
-        "json" => port("3.0.2"),
+        # json 2.20 and 2.21 have 3.0's C interface; the port acts as 2.x
+        # where 2.x deprecates what 3.0 refuses (ext/json/ext).
+        "json" => port("3.0.2", compat: ">= 2.20, < 3.1"),
         "psych" => port("5.3.1", vendored: false),
         "bigdecimal" => port("4.1.2"),
         "digest" => port("3.2.1", vendored: false),
@@ -50,6 +53,10 @@ module Zr
         "etc" => port("1.4.6", vendored: false),
         "fcntl" => port("1.3.0", vendored: false)
       }.freeze #: Hash[String, Port]
+
+      # The rubygems requirement of a port's `compat`.
+      #: (String compat) -> Gem::Requirement
+      def self.requirement(compat) = Gem::Requirement.new(*compat.split(", "))
 
       # The lib directory of each gem that vendor/ holds, in the order a
       # require searches them.

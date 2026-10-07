@@ -21,6 +21,9 @@ module Zr
     #                          `libssl`, or a platform (`macos`, `linux`)
     #   foo.rb.ruby            options for ruby only, such as -W:no-experimental
     #   foo.rb.limits          `build_mb=N` and `run_mb=N` lines
+    #   foo.rb.gems            `name version` lines: another version of a
+    #                          ported gem (Harness::Reference::PORTS), which
+    #                          ruby takes on -I and the build with --gem
     #   foo.rb.<platform>.expected   stdout on that platform, when it differs
     #
     # `root` is the directory that the program runs in; `rel` is the
@@ -67,6 +70,9 @@ module Zr
       def needs = lines("needs")
 
       def ruby_options = read("ruby")&.split || []
+
+      # `[[name, version]]` of foo.rb.gems.
+      def gems = lines("gems").map { |line| line.split(" ", 2) }
 
       def limits = lines("limits").to_h { |line| line.split("=", 2).then { |name, value| [name.to_sym, Integer(value)] } }
 

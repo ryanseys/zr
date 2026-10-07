@@ -20,6 +20,11 @@ module Zr
       GEMS = File.join(DIR, "gems")
       STAMP = File.join(DIR, "STAMP")
 
+      # The other versions of a ported gem that a program test runs with
+      # (foo.rb.gems), each in a GEM_HOME of its own below `ports/`, as
+      # GEMS holds one version of a gem.
+      PORTS = { "json" => %w[2.20.0 2.21.2] }.freeze
+
       module_function
 
       # `{ name => version }`: each gem that GEMS must hold.
@@ -40,7 +45,23 @@ module Zr
         end
       end
 
-      def stamp = gems.map { |name, version| "#{name} #{version}\n" }.join
+      def stamp = (gems.map { |name, version| "#{name} #{version}\n" } + ports.map { |name, version| "port #{name} #{version}\n" }).join
+
+      # `[[name, version]]` of each PORTS version.
+      def ports = PORTS.flat_map { |name, versions| versions.map { |version| [name, version] } }
+
+      # The GEM_HOME of a PORTS version.
+      def port_home(name, version) = File.join(DIR, "ports", "#{name}-#{version}")
+
+      # The unpacked gem of a PORTS version, which a zr build takes with
+      # --gem, and the directories that ruby needs on -I for it: its lib/
+      # and its compiled extension.
+      def port_gem(name, version) = File.join(port_home(name, version), "gems", "#{name}-#{version}")
+
+      def port_load_path(name, version)
+        [File.join(port_gem(name, version), "lib"),
+         *Dir[File.join(port_home(name, version), "extensions", "*", "*", "#{name}-#{version}")]]
+      end
 
       def ready? = File.file?(STAMP) && File.read(STAMP) == stamp
 

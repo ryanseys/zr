@@ -45,7 +45,17 @@ failed = wanted.reject { |gem, version| have.include?([gem, version]) }.reject d
   system(env, RbConfig.ruby, "-S", "gem", "install", gem, "-v", version, "--install-dir", Ref::GEMS,
          "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
 end
-failed.each_key { |gem| warn "#{gem} did not install" }
+# Each other version of a ported gem that a program test runs with goes
+# into a GEM_HOME of its own (Ref::PORTS).
+failed = failed.to_a + Ref.ports.reject do |gem, version|
+  home = Ref.port_home(gem, version)
+  next true if File.directory?(Ref.port_gem(gem, version))
+
+  puts "installing #{gem} #{version} into #{home}"
+  system(env.merge("GEM_HOME" => home, "GEM_PATH" => home), RbConfig.ruby, "-S", "gem", "install", gem, "-v", version,
+         "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
+end
+failed.each { |gem, _| warn "#{gem} did not install" }
 
 stale = installed.reject { |gem, version| wanted[gem] == version }
 stale.each do |gem, version|

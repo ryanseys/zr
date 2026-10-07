@@ -5,6 +5,11 @@
 # as it uses the C extension: JSON::Ext::Generator::State with
 # the fields that generator.c keeps in its struct, its accessors, and
 # the walk that writes a document.
+#
+# The port serves json 2.20 and 2.21 too, whose generator.c has 3.0's
+# interface and escape_slash besides: there a hash with a String and a
+# Symbol for one key warns, unless an option allows or refuses it, and
+# an unknown option is ignored.
 require "json/common"
 
 module JSON
@@ -42,8 +47,10 @@ module JSON
         ASCII_ONLY = /["\\\x00-\x1f]|[^\x00-\x7f]/
         ASCII_ONLY_SCRIPT_SAFE = %r{["\\/\x00-\x1f]|[^\x00-\x7f]}
         FBUFFER_INITIAL_LENGTH_DEFAULT = 1024
+        # Whether the gem's own ruby is json 2.x's.
+        JSON2 = JSON::VERSION.to_i < 3
         private_constant :Fields, :ESCAPES, :BASIC, :SCRIPT_SAFE, :ASCII_ONLY, :ASCII_ONLY_SCRIPT_SAFE,
-                         :FBUFFER_INITIAL_LENGTH_DEFAULT
+                         :FBUFFER_INITIAL_LENGTH_DEFAULT, :JSON2
 
         class << self
           # cState_from_state_s
@@ -79,7 +86,9 @@ module JSON
 
           def fresh_fields
             Primitive.attr! :hidden
-            Fields.new(false, false, false, false, false, false, 100, 0, FBUFFER_INITIAL_LENGTH_DEFAULT, false,
+            # allow_duplicate_key is nil in json 2.x until an option sets
+            # it: JSON_DEPRECATED, which warns.
+            Fields.new(false, false, false, false, false, false, 100, 0, FBUFFER_INITIAL_LENGTH_DEFAULT, JSON2 ? nil : false,
                        false, false, false, false, false, false)
           end
 
@@ -98,6 +107,7 @@ module JSON
 
             unknown = []
             Primitive.zr_hash_foreach(config) do |key, val|
+              key = :script_safe if JSON2 && key == :escape_slash
               case key
               when :indent then fields.indent = string_config(val)
               when :space then fields.space = string_config(val)
@@ -120,7 +130,7 @@ module JSON
               else unknown << key
               end
             end
-            return if unknown.empty?
+            return if unknown.empty? || JSON2
             raise ArgumentError, "unknown keyword: #{unknown[0]}" if unknown.size == 1
 
             raise ArgumentError, "unknown keywords: #{unknown.join(', ')}"
@@ -231,6 +241,12 @@ module JSON
         def script_safe=(enable)
           fields!.script_safe = enable ? true : false
           nil
+        end
+
+        if JSON2
+          alias escape_slash script_safe
+          alias escape_slash? script_safe
+          alias escape_slash= script_safe=
         end
 
         def strict = fields.strict
@@ -373,6 +389,14 @@ module JSON
               obj = call_as_json(obj, false)
               as_json_called = true
             end
+          end
+
+          # JSON.on_mixed_keys_hash, which in json 2.x also says whether to
+          # raise or to warn.
+          def mixed_keys(obj)
+            return JSON.send(:on_mixed_keys_hash, obj) unless JSON2
+
+            JSON.send(:on_mixed_keys_hash, obj, @fields.allow_duplicate_key == false)
           end
 
           def fragment(obj)
@@ -524,7 +548,7 @@ module JSON
               indent(depth)
               if (type == :string || type == :symbol) && first_type != type && !mixed
                 mixed = true
-                JSON.send(:on_mixed_keys_hash, obj) unless @fields.allow_duplicate_key
+                mixed_keys(obj) unless @fields.allow_duplicate_key
               end
               key(key, type)
               @out << @fields.space_before if @fields.space_before

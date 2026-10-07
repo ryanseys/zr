@@ -5,6 +5,7 @@ require "tmpdir"
 require_relative "program_case"
 require_relative "harness/answer"
 require_relative "harness/child"
+require_relative "harness/reference"
 
 module Zr
   module Test
@@ -59,7 +60,8 @@ module Zr
       # environment that it needs (the reference ruby's gems).
       def ruby(test, ruby:, env: {})
         within(test) do |run, rb|
-          argv = [*ruby, *test.ruby_options, test.rel, *test.args]
+          gems = test.gems.flat_map { |name, version| Harness::Reference.port_load_path(name, version).flat_map { ["-I", _1] } }
+          argv = [*ruby, *gems, *test.ruby_options, test.rel, *test.args]
           out, = Harness::Child.run(argv, cwd: run, stdin: test.stdin, env: env.merge(test.env),
                                           seconds: LIMIT * 2, megabytes: Harness::Child::RUN_MB)
           out.code.is_a?(Integer) ? Harness::Normalize.answer(out, rb, run) : nil

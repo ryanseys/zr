@@ -19,7 +19,7 @@ module Zr
           subjects.each do |subject|
             port = Library::Ports::ALL[subject.name]
             if port
-              next if Gem::Requirement.new(port.compat).satisfied_by?(Gem::Version.new(subject.version))
+              next if Library::Ports.requirement(port.compat).satisfied_by?(Gem::Version.new(subject.version))
 
               return Failure.new("port-range:#{subject.name}",
                                  "#{subject}: zr implements the C part of #{subject.name} #{port.compat} only", tier: :refused)

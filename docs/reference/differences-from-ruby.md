@@ -86,6 +86,11 @@ are those of the later version:
 | syslog | 0.4.0 | 0.3.0 (bundled gem) |
 | nkf | 0.3.0 | 0.2.0 (bundled gem) |
 
+A Gemfile.lock or `--gem` can select another version of a port's gem
+when the port implements its C interface: json 2.20 and 2.21 run on
+the json port, which then warns where json 2.x warns (a duplicate key, a
+comment) and takes `escape_slash`, as json 2.x's own C part does.
+
 ffi 1.17.4 is also a port; ruby 4.0.7 does not ship ffi. The other
 ports (psych, digest, openssl, fiddle, racc, date, stringio, strscan,
 zlib, io-console, etc, fcntl) are at ruby 4.0.7's versions.

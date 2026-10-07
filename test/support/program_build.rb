@@ -60,10 +60,11 @@ module Zr
       def in_process(test, run, bin, target)
         source = test.source
         files = test.files ? file_parts(test.files) : {}
+        files[".gems"] = test.read("gems") if test.gems.any?
         kept = Binaries.path(target, source, test.rel, files) if Binaries.wanted?(target)
         return nil if Binaries.take(kept, bin)
 
-        program = Dir.chdir(run) { lower(source, test.rel, target) }
+        program = Dir.chdir(run) { lower(source, test.rel, target, gem_set(test)) }
         return program if program.is_a?(Array)
 
         work = File.dirname(bin)
@@ -98,9 +99,17 @@ module Zr
         [:build, "`zr build` #{why(out, megabytes)}\n#{tail}"]
       end
 
+      # The gems of foo.rb.gems, as `--gem name=dir` gives them, or nil.
+      def gem_set(test)
+        return nil if test.gems.empty?
+
+        require_relative "../../lib/zr/gem_set"
+        GemSet.resolve(test.gems.map { |name, version| [name, Harness::Reference.port_gem(name, version)] })
+      end
+
       # Returns the program, or `[kind, why]` when zr does not build it.
-      def lower(source, rel, target)
-        compile(source, rel, target)
+      def lower(source, rel, target, gem_set = nil)
+        compile(source, rel, target, gem_set)
       rescue *REFUSALS => e
         [:refused, e.message]
       rescue Backend::Refused => e
@@ -116,8 +125,12 @@ module Zr
         compile("$stderr.write(#{report.inspect})\nexit 1\n", rel, target)
       end
 
-      def compile(source, rel, target)
-        target.link ? Native::Build.lower(source, rel, target: target) : Zr::Program.build(source, rel, target: target)
+      def compile(source, rel, target, gem_set = nil)
+        if target.link
+          Native::Build.lower(source, rel, target: target, gem_set: gem_set)
+        else
+          Zr::Program.build(source, rel, target: target, gem_set: gem_set)
+        end
       end
 
       # The answer of the binary, or `[kind, why]` when it does not count.

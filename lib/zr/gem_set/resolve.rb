@@ -39,7 +39,7 @@ module ZrGemSet
   def refusal(name, version, source, extensions, ports)
     compat = ports[name]
     if compat
-      return nil if version && Gem::Requirement.new(compat).satisfied_by?(Gem::Version.new(version))
+      return nil if version && Gem::Requirement.new(*compat.split(", ")).satisfied_by?(Gem::Version.new(version))
 
       fix = if source.start_with?("--gem")
               "Give a version in that range, or remove the flag"
