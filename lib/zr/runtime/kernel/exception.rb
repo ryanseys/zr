@@ -27,6 +27,9 @@ module Zr::Kern
   # program that does not trace: a second function of the same body with
   # the method signature, which a send calls directly (`zr_entry_fn`). It
   # makes the same frame as the block, with no Proc copy. Else it is 0.
+  # `reads_backref` is 1 on a program's block that reads `$~`, `$_` or a
+  # part of `$~`: a Proc made of it keeps the `$~` of its scope, so it
+  # sees that `$~` after its method returned or on another stack.
   class FrameMeta < Layout
     attr_accessor :name #: word
     attr_accessor :owner #: value
@@ -51,6 +54,7 @@ module Zr::Kern
     attr_accessor :frameless #: word
     attr_accessor :blocks #: word
     attr_accessor :rescues #: ptr
+    attr_accessor :reads_backref #: word
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it

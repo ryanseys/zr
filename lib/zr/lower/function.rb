@@ -93,6 +93,7 @@ module Zr
       # @rbs @inline_scope: Iterators::InlineScope?
       # @rbs @line_rec: String?
       # @rbs @inline: Inline::Site?
+      # @rbs @scope_reads_backref: bool?
       # @rbs @native_operators: bool?
       # @rbs @native_each: bool?
 
@@ -344,6 +345,23 @@ module Zr
         @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
       end
 
+      # Whether `node` reads `$~`, `$_`, a part of `$~` or
+      # `Regexp.last_match`, outside a def or class body in it.
+      #: (untyped node) -> bool
+      def self.backref_read?(node)
+        case node
+        when Hir::BackRef then true
+        when Hir::GvarRead then node.name == :$~ || node.name == :$_
+        when Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then false
+        when Hir::Send
+          return true if node.name == :last_match && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Regexp
+
+          Hir.each_child(node).any? { |child| backref_read?(child) }
+        when Hir::Node, Array then Hir.each_child(node).any? { |child| backref_read?(child) }
+        else false
+        end
+      end
+
       private
 
       # The program's toplevel gives its file to the runtime for `$0`.
@@ -380,6 +398,25 @@ module Zr
       # Whether this core def keeps its matches in its own `$~`
       # (`Hir::CoreDef.owns_backref?`).
       #: () -> bool
+      # Whether this is a program's block in a scope that reads `$~`, `$_`
+      # or a part of `$~` (FrameMeta `reads_backref`). The scope is the
+      # def, class body or file around the block: its blocks share one
+      # `$~`, so one block's match is what another one reads.
+      #: () -> bool
+      def reads_backref?
+        @kind == :block && !@l.internal? && scope_reads_backref?
+      end
+
+      #: () -> bool
+      def scope_reads_backref?
+        outer = @outer
+        return outer.scope_reads_backref? if @kind == :block && outer
+
+        @scope_reads_backref = Function.backref_read?(@body) if @scope_reads_backref.nil?
+        @scope_reads_backref
+      end
+      protected :scope_reads_backref?
+
       def owns_backref?
         return false unless @l.internal? && @kind == :def
 
@@ -446,7 +483,7 @@ module Zr
                   @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
                                              env: @has_env, ruby: attributes.include?(:ruby),
                                              captures: true, node: node_id, cover: method_cover, twin: @twin,
-                                             owns_backref: owns_backref?, frameless: attributes.include?(:frameless),
+                                             owns_backref: owns_backref?, reads_backref: reads_backref?, frameless: attributes.include?(:frameless),
                                              blocks: @blocks)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))

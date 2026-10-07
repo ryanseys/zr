@@ -381,7 +381,22 @@ module Zr::Kern
     RProc[p].blk = blk
     RProc[p].env = env
     RProc[p].self = self_
+    if RProc[p].meta != 0 && FrameMeta[RProc[p].meta].reads_backref != 0 && RProc[p].home != 0
+      zr_proc_keep_svars(p)
+    end
     p
+  end
+
+  # A Proc of a block that reads `$~` keeps the `$~` and `$_` of its
+  # scope, as CRuby keeps them in the scope's env: the block sees them
+  # after its method returned, and on another stack (zr_backref_home_from).
+  # The Array is the one that the scope's frame uses, made now.
+  #: (value) -> void
+  def zr_proc_keep_svars(p)
+    home = zr_backref_home_from(RProc[p].home)
+    if home != 0
+      zr_state_set(p, zr_sym(Machine.id(:__svars__)), zr_svars(home))
+    end
   end
 
   # `&:name`: a Proc that sends `name` to its first argument, as a call

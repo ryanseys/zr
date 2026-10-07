@@ -435,7 +435,7 @@ module Zr::Kern
           # $~ lives further out, as CRuby keeps it in the method's env.
           up = zr_backref_ancestor(rec, parent)
           if up == 0
-            return rec
+            return zr_backref_elsewhere(rec, parent)
           end
         end
         rec = up
@@ -446,6 +446,55 @@ module Zr::Kern
       end
     end
     0
+  end
+
+  # The frame whose `$~` a block frame `rec` uses when the scope of its
+  # parent `meta` is not on this stack. On the stack of a Thread or a
+  # Fiber whose own block is in the same scope, it is the `$~` of that
+  # stack, as CRuby's ec->root_svar. Else it is the `$~` that the block's
+  # Proc kept (zr_proc_keep_svars), or one of the block's own.
+  #: (ptr, ptr) -> ptr
+  def zr_backref_elsewhere(rec, meta)
+    # The stack's own block is its lowest block of a program: the core
+    # frames that start a Thread or a Fiber are below it.
+    root = Machine.ptr(0)
+    at = Frame[rec].prev
+    while at != 0
+      if zr_block_frame_p(at) && FrameMeta[Frame[at].meta].file_len != 0
+        root = at
+      end
+      at = Frame[at].prev
+    end
+    if root != 0 && zr_backref_scope_meta(FrameMeta[Frame[root].meta].parent) == zr_backref_scope_meta(meta)
+      return root
+    end
+    zr_backref_kept(rec)
+    rec
+  end
+
+  # The def, class body or file that the block or eval scope `meta` is in.
+  #: (ptr) -> ptr
+  def zr_backref_scope_meta(meta)
+    while meta != 0 && (FrameMeta[meta].kind == KIND_BLOCK || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].kind == KIND_EVAL)
+      meta = FrameMeta[meta].parent
+    end
+    meta
+  end
+
+  # A block frame uses the `$~` that its Proc kept, if it kept one.
+  #: (ptr) -> void
+  def zr_backref_kept(rec)
+    if Frame[rec].svars != QNIL || Frame[rec].entry == 0
+      return
+    end
+    p = Machine.value(Frame[rec].entry)
+    if zr_special_p(p) || (RBasic[p].flags & FL_STACK) != 0 || zr_type(p) != T_PROC
+      return
+    end
+    kept = zr_ivar_get(p, Machine.id(:__svars__))
+    if kept != QNIL
+      Frame[rec].svars = kept
+    end
   end
 
   # The nearest live frame of a scope outside the block scope `meta`,
