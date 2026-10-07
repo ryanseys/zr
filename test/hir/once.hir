@@ -17,16 +17,19 @@
       (send =~
         (local subject)
         (regexp-once
-          (send interpolated
-            (const Regexp)
-            (array
-              (interp
-                (str ""))
-              (interp
-                (seq
-                  (local pattern))))
-            (int 0)
-            (const nil))))))
+          (send post_exe
+            (core Kernel)
+            (block () locals ()
+              (send interpolated
+                (const Regexp)
+                (array
+                  (interp
+                    (str ""))
+                  (interp
+                    (seq
+                      (local pattern ^1))))
+                (int 0)
+                (const nil))))))))
   (send self p
     (send self match
       (str "a")
@@ -40,15 +43,18 @@
   (send self p
     (send source
       (regexp-once
-        (send interpolated
-          (const Regexp)
-          (array
-            (interp
-              (str ""))
-            (interp
-              (seq
-                (local x))))
-          (int 0)
-          (const nil)))))
+        (send post_exe
+          (core Kernel)
+          (block () locals ()
+            (send interpolated
+              (const Regexp)
+              (array
+                (interp
+                  (str ""))
+                (interp
+                  (seq
+                    (local x ^1))))
+              (int 0)
+              (const nil)))))))
   (send self p
     (sym :body)))

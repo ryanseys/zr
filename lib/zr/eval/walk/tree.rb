@@ -231,7 +231,7 @@ module Zr
           when Hir::Require then refuse(node, "require of #{node.feature.inspect}")
           when Hir::Autoload then autoload_node(node, ctx)
           when Hir::BackRef then backref(node, ctx)
-          when Hir::RegexpOnce then regexps[node] ||= walk(node.value, ctx)
+          when Hir::RegexpOnce then regexps[node] ||= regexp_once(node.value, ctx)
           when Hir::Using, Hir::UsingDefaults then refuse(node, "using")
           else refuse(node, node.class.name.split("::").last)
           end
@@ -264,6 +264,15 @@ module Zr
         # makes it once when it compiles the string.
         #: (Hir::RegexpLit node) -> Regexp
         def regexp(node) = regexps[node] ||= ::Regexp.new(node.source, node.options).freeze
+
+        # The first value of a `/.../o` literal. The build runs its
+        # interpolation in a block of its own, through the core's
+        # Kernel.post_exe, which the walker calls in place.
+        #: (Hir::node value, Ctx ctx) -> Regexp
+        def regexp_once(value, ctx)
+          block = value.block if value.is_a?(Hir::Send) && value.name == :post_exe && value.recv.is_a?(Hir::Core)
+          block.is_a?(Hir::Block) ? make_proc(block, ctx, lambda: false).call : walk(value, ctx)
+        end
 
         # The Regexp of each literal site that ran, by node.
         #: () -> Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]
