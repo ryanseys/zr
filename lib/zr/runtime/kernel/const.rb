@@ -1966,6 +1966,12 @@ module Zr::Kern
         feature = zr_ary_at(rows, i + 2)
         fn = Machine.ptr(zr_fix2long(zr_ary_at(rows, i + 3)))
         kind = zr_fix2long(zr_ary_at(rows, i + 4))
+        # A file that the runtime alone loaded made a hidden record (3). If
+        # the program has required that file since, the name is the
+        # program's to see, and so is the file that its autoload reads.
+        if kind == 3 && CEntry[e].concealed == 0
+          kind = 0
+        end
         path = zr_ary_at(rows, i + 5)
         table = zr_ary_at(rows, i + 6)
         zr_ary_splice(rows, zr_fix(i), zr_fix(AUTOLOAD_ROW), zr_ary_new(0))
