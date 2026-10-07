@@ -1,201 +1,546 @@
 gem	version	source	tier	kind	detail	zr_commit	date	downloads
+Ascii85	2.0.1	rubygems	loads			72c4f2f0165c	2026-10-07	114711183
+CFPropertyList	4.0.0	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	5d276135b79e	2026-10-07	272684342
+aasm	6.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	107017153
 actioncable	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	608755876
 actionmailbox	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	450301333
 actionmailer	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	778753177
 actionpack	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	831481115
 actiontext	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	450332526
 actionview	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	782446822
+active_model_serializers	0.10.16	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	138945903
+activeadmin	3.5.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	51485367
 activejob	8.1.4	rubygems	loads			ea143b900c11	2026-10-07	714217297
 activemodel	8.1.4	rubygems	loads			ea143b900c11	2026-10-07	903037804
 activerecord	8.1.4	rubygems	loads			ea143b900c11	2026-10-07	847063395
+activerecord-import	2.3.0	rubygems	loads			5d276135b79e	2026-10-07	168567619
+activerecord-session_store	2.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	52119691
 activestorage	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	545187172
 activesupport	8.1.4	rubygems	loads			3a78a9dd8b36	2026-10-06	1439815647
 addressable	2.9.0	rubygems	loads			ea143b900c11	2026-10-07	1277914671
-arel	9.0.0	rubygems	loads			ac3395d66248	2026-09-29	330392233
+aes_key_wrap	1.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	105071292
+afm	1.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	102371274
+akami	1.4.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	103695570
+ansi	1.6.0	rubygems	loads			72c4f2f0165c	2026-10-07	113059739
+arel	9.0.0	rubygems	loads			5d276135b79e	2026-10-07	330541421
+artifactory	3.0.17	rubygems	loads			72c4f2f0165c	2026-10-07	120153849
 ast	2.4.3	rubygems	loads			3a78a9dd8b36	2026-10-06	801984296
-awesome_print	1.9.2	rubygems	loads			ac3395d66248	2026-09-29	288177290
+atomos	1.0.0	rubygems	loads			5d276135b79e	2026-10-07	162785403
+autoprefixer-rails	10.6.1.0	rubygems	loads			5d276135b79e	2026-10-07	165292545
+awesome_print	1.9.2	rubygems	loads			5d276135b79e	2026-10-07	288796759
 aws-eventstream	1.4.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1366604331
 aws-partitions	1.1293.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1525521031
 aws-sdk	3.3.0	rubygems	fails	memory	the build used more than 2048 MB	e5f198887491	2026-10-06	384216971
+aws-sdk-athena	1.125.0	rubygems	loads			72c4f2f0165c	2026-10-07	100546415
+aws-sdk-autoscaling	1.168.0	rubygems	loads			72c4f2f0165c	2026-10-07	113361274
+aws-sdk-cloudformation	1.159.0	rubygems	loads			5d276135b79e	2026-10-07	170563468
+aws-sdk-cloudfront	1.156.0	rubygems	loads			72c4f2f0165c	2026-10-07	121098361
+aws-sdk-cloudwatch	1.149.0	rubygems	loads			5d276135b79e	2026-10-07	171100213
+aws-sdk-cloudwatchevents	1.110.0	rubygems	loads			72c4f2f0165c	2026-10-07	114022680
+aws-sdk-cloudwatchlogs	1.165.0	rubygems	loads			5d276135b79e	2026-10-07	145982657
+aws-sdk-codecommit	1.105.0	rubygems	loads			72c4f2f0165c	2026-10-07	113637842
+aws-sdk-codestarconnections	1.79.0	rubygems	builds			72c4f2f0165c	2026-10-07	52139893
+aws-sdk-cognitoidentityprovider	1.154.0	rubygems	loads			72c4f2f0165c	2026-10-07	101696822
 aws-sdk-core	3.257.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1759597732
+aws-sdk-dynamodb	1.175.0	rubygems	loads			5d276135b79e	2026-10-07	212870667
+aws-sdk-ec2	1.655.0	rubygems	fails	memory	the build used more than 2048 MB	5d276135b79e	2026-10-07	265558060
+aws-sdk-ecr	1.134.0	rubygems	loads			5d276135b79e	2026-10-07	147294770
+aws-sdk-ecs	1.248.0	rubygems	loads			72c4f2f0165c	2026-10-07	112964583
+aws-sdk-elasticloadbalancing	1.94.0	rubygems	loads			72c4f2f0165c	2026-10-07	128276934
+aws-sdk-elasticloadbalancingv2	1.159.0	rubygems	loads			72c4f2f0165c	2026-10-07	104947783
+aws-sdk-firehose	1.114.0	rubygems	loads			72c4f2f0165c	2026-10-07	128744754
+aws-sdk-iam	1.154.0	rubygems	loads			5d276135b79e	2026-10-07	154290683
+aws-sdk-kinesis	1.109.0	rubygems	loads			5d276135b79e	2026-10-07	224109647
 aws-sdk-kms	1.132.0	rubygems	loads			ea143b900c11	2026-10-07	1074307762
+aws-sdk-lambda	1.196.0	rubygems	loads			5d276135b79e	2026-10-07	170145469
+aws-sdk-rds	1.324.0	rubygems	fails	memory	the build used more than 2048 MB	72c4f2f0165c	2026-10-07	121615074
 aws-sdk-resources	3.275.0	rubygems	fails	memory	the build used more than 2048 MB	e5f198887491	2026-10-06	367087236
+aws-sdk-route53	1.139.0	rubygems	loads			5d276135b79e	2026-10-07	139974666
 aws-sdk-s3	1.233.2	rubygems	fails	memory	the build used more than 2048 MB	3a78a9dd8b36	2026-10-06	1111135734
-aws-sdk-sqs	1.119.0	rubygems	loads			ac3395d66248	2026-09-29	346672344
-aws-sdk-ssm	1.223.0	rubygems	loads			ac3395d66248	2026-09-29	280409385
+aws-sdk-secretsmanager	1.136.0	rubygems	loads			5d276135b79e	2026-10-07	170089588
+aws-sdk-ses	1.104.0	rubygems	loads			72c4f2f0165c	2026-10-07	131870805
+aws-sdk-sns	1.121.0	rubygems	loads			5d276135b79e	2026-10-07	177094916
+aws-sdk-sqs	1.119.0	rubygems	loads			5d276135b79e	2026-10-07	347353667
+aws-sdk-ssm	1.223.0	rubygems	fails	memory	the build used more than 2048 MB	5d276135b79e	2026-10-07	281275946
+aws-sdk-states	1.113.0	rubygems	loads			72c4f2f0165c	2026-10-07	115439455
 aws-sigv4	1.12.1	rubygems	loads			3a78a9dd8b36	2026-10-06	1562727482
+axiom-types	0.1.1	rubygems	loads			72c4f2f0165c	2026-10-07	129547484
+babosa	2.1.0	rubygems	loads			5d276135b79e	2026-10-07	174958536
+backports	3.25.3	rubygems	loads			5d276135b79e	2026-10-07	152597542
 base64	0.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	529614172
 bcrypt	3.1.22	rubygems	refused	cext:bcrypt	bcrypt 3.1.22 has a C extension (ext/mri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	416918513
+bcrypt_pbkdf	1.1.2	rubygems	refused	cext:bcrypt_pbkdf	bcrypt_pbkdf 1.1.2 has a C extension (ext/mri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	110769679
+benchmark	0.5.0	rubygems	loads			5d276135b79e	2026-10-07	238804305
+better_errors	2.10.1	rubygems	compiles	exception-diff	"stderr line 1: ruby """", zr ""lib/zr/hir/build/literals.rb:443: warning: regular expression has ']' without escape: /\\\\]/"""	72c4f2f0165c	2026-10-07	110829830
 bigdecimal	4.1.3	rubygems	loads			ea143b900c11	2026-10-07	514992289
+bindata	3.0.1	rubygems	loads			5d276135b79e	2026-10-07	144744850
+bindex	0.8.1	rubygems	refused	cext:bindex	bindex 0.8.1 has a C extension (ext/skiptrace/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	165113978
+binding_of_caller	2.0.0	rubygems	refused	cext:debug_inspector	debug_inspector 1.2.0 has a C extension (ext/debug_inspector/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	200847613
+bootboot	0.2.2	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/bootboot-0.2.2/lib/bootboot/ruby_source.rb:5:in '<class:RubySource>': uninitialized constant Bootboot::RubySource::Bundler (NameError)	5d276135b79e	2026-10-07	139817174
 bootsnap	1.26.0	rubygems	refused	cext:bootsnap	bootsnap 1.26.0 has a C extension (ext/bootsnap/extconf.rb), and zr has no port of it	e5f198887491	2026-10-06	379140846
+brakeman	8.1.0	rubygems	loads			5d276135b79e	2026-10-07	239316136
+browser	6.2.0	rubygems	loads			5d276135b79e	2026-10-07	147441405
+bson	5.2.0	rubygems	refused	cext:bson	bson 5.2.0 has a C extension (ext/bson/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	119165902
 builder	3.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	935875773
+bullet	8.2.0	rubygems	fails	memory	the build used more than 2048 MB	5d276135b79e	2026-10-07	185979170
 bundler	4.0.22	rubygems	fails	memory	the build used more than 2048 MB	3a78a9dd8b36	2026-10-06	3778187537
+bundler-audit	0.9.3	rubygems	loads			5d276135b79e	2026-10-07	147384736
 byebug	13.0.0	rubygems	refused	cext:byebug	byebug 13.0.0 has a C extension (ext/byebug/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	481610518
-capybara	3.40.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	360460808
-childprocess	5.1.0	rubygems	loads			ac3395d66248	2026-09-29	310387998
+capybara	3.40.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	361711773
+capybara-screenshot	1.0.27	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	110146184
+carrierwave	3.1.4	rubygems	loads			5d276135b79e	2026-10-07	144907458
+celluloid	0.18.0	rubygems	loads			5d276135b79e	2026-10-07	167855347
+celluloid-essentials	0.20.5	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/celluloid-essentials-0.20.5/lib/celluloid/essentials.rb:1:in '<top (required)>': uninitialized constant Celluloid (NameError)	72c4f2f0165c	2026-10-07	122893132
+celluloid-extras	0.20.5	rubygems	fails	no-entry	no celluloid-extras.rb or celluloid/extras.rb in lib; name the require in gems/celluloid-extras.rb	72c4f2f0165c	2026-10-07	122881001
+celluloid-fsm	0.20.5	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/celluloid-fsm-0.20.5/lib/celluloid/fsm.rb:1:in 'Kernel#require': cannot load such file -- celluloid (LoadError)	72c4f2f0165c	2026-10-07	122858694
+celluloid-io	0.17.3	rubygems	refused	cext:nio4r	nio4r 2.7.5 has a C extension (ext/nio4r/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	133412690
+celluloid-pool	0.20.5	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/celluloid-pool-0.20.5/lib/celluloid/pool.rb:1:in 'Kernel#require': cannot load such file -- celluloid (LoadError)	72c4f2f0165c	2026-10-07	122910357
+celluloid-supervision	0.20.6	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/celluloid-supervision-0.20.6/lib/celluloid/supervision.rb:1:in 'Kernel#require': cannot load such file -- celluloid (LoadError)	72c4f2f0165c	2026-10-07	123003867
+childprocess	5.1.0	rubygems	loads			5d276135b79e	2026-10-07	311221135
+chronic	0.10.2	rubygems	loads			72c4f2f0165c	2026-10-07	135758332
+chunky_png	1.4.0	rubygems	loads			5d276135b79e	2026-10-07	210188234
+claide	1.1.0	rubygems	loads			5d276135b79e	2026-10-07	255378847
+claide-plugins	0.9.2	rubygems	loads			72c4f2f0165c	2026-10-07	117501583
+climate_control	1.2.0	rubygems	loads			5d276135b79e	2026-10-07	143872381
+cocoapods	1.17.0	rubygems	fails	memory	the build used more than 2048 MB	5d276135b79e	2026-10-07	141493412
+cocoapods-core	1.17.0	rubygems	loads			72c4f2f0165c	2026-10-07	137175292
+cocoapods-downloader	2.1	rubygems	loads			72c4f2f0165c	2026-10-07	112353083
+cocoapods-trunk	1.6.0	rubygems	loads			72c4f2f0165c	2026-10-07	104138858
 coderay	1.1.3	rubygems	loads			3a78a9dd8b36	2026-10-06	642449194
+coercible	1.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	134720533
+coffee-rails	5.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	237315098
+coffee-script	2.4.1	rubygems	loads			5d276135b79e	2026-10-07	258282178
+coffee-script-source	1.12.2	rubygems	fails	no-entry	no coffee-script-source.rb or coffee/script/source.rb in lib; name the require in gems/coffee-script-source.rb	5d276135b79e	2026-10-07	266996210
+colored	1.2	rubygems	loads			5d276135b79e	2026-10-07	158969027
+colored2	4.0.3	rubygems	loads			5d276135b79e	2026-10-07	248644125
+colorize	1.1.0	rubygems	loads			5d276135b79e	2026-10-07	169125865
+commander	6.0.0	rubygems	loads			5d276135b79e	2026-10-07	151335644
 concurrent-ruby	1.3.8	rubygems	loads			ea143b900c11	2026-10-07	1386808098
 connection_pool	3.0.2	rubygems	loads			3a78a9dd8b36	2026-10-06	735103644
+cork	0.3.0	rubygems	loads			72c4f2f0165c	2026-10-07	117790164
+countries	8.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	133232459
 crack	1.0.1	rubygems	loads			ea143b900c11	2026-10-07	417942688
 crass	1.0.7	rubygems	loads			3a78a9dd8b36	2026-10-06	621219148
-daemons	1.4.1	rubygems	loads			ac3395d66248	2026-09-29	317056383
-date	3.5.1	rubygems	loads			ac3395d66248	2026-09-29	307701077
+css_parser	3.2.0	rubygems	loads			5d276135b79e	2026-10-07	182961234
+csv	3.3.6	rubygems	loads			5d276135b79e	2026-10-07	206265001
+cucumber	11.1.1	rubygems	loads			72c4f2f0165c	2026-10-07	104390062
+daemons	1.4.1	rubygems	loads			5d276135b79e	2026-10-07	317386577
+dalli	5.2.2	rubygems	loads			72c4f2f0165c	2026-10-07	130636145
+danger	9.6.1	rubygems	fails	memory	the build used more than 2048 MB	72c4f2f0165c	2026-10-07	126978956
+database_cleaner	2.1.0	rubygems	loads			5d276135b79e	2026-10-07	219644064
+database_cleaner-active_record	2.2.2	rubygems	loads			72c4f2f0165c	2026-10-07	135151269
+database_cleaner-core	2.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	131530095
+date	3.5.1	rubygems	loads			5d276135b79e	2026-10-07	310847104
+debase	0.2.9	rubygems	refused	cext:debase	debase 0.2.9 has a C extension (ext/extconf.rb, ext/attach/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	52046765
+debase-ruby_core_source	4.0.1	rubygems	loads			72c4f2f0165c	2026-10-07	122900121
+debug	1.11.1	rubygems	refused	cext:debug	debug 1.11.1 has a C extension (ext/debug/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	126798820
+debug_inspector	1.2.0	rubygems	refused	cext:debug_inspector	debug_inspector 1.2.0 has a C extension (ext/debug_inspector/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	205927603
 declarative	0.0.20	rubygems	loads			e5f198887491	2026-10-06	369122757
-devise	5.0.4	rubygems	refused	cext:bcrypt	bcrypt 3.1.22 has a C extension (ext/mri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	297408206
+declarative-option	0.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	120370046
+deep_merge	1.2.2	rubygems	loads			72c4f2f0165c	2026-10-07	123710160
+descendants_tracker	0.0.4	rubygems	loads			5d276135b79e	2026-10-07	145234925
+devise	5.0.4	rubygems	refused	cext:bcrypt	bcrypt 3.1.22 has a C extension (ext/mri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	298490893
 diff-lcs	2.0.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1236352793
-digest-crc	0.7.0	rubygems	refused	cext:digest-crc	digest-crc 0.7.0 has a C extension (ext/digest/Rakefile), and zr has no port of it	ac3395d66248	2026-09-29	312696403
+diffy	3.4.4	rubygems	loads			72c4f2f0165c	2026-10-07	108721006
+digest-crc	0.7.0	rubygems	refused	cext:digest-crc	digest-crc 0.7.0 has a C extension (ext/digest/Rakefile), and zr has no port of it	5d276135b79e	2026-10-07	314029080
 docile	1.4.1	rubygems	loads			3a78a9dd8b36	2026-10-06	503833251
+dogapi	1.45.0	rubygems	loads			72c4f2f0165c	2026-10-07	113590837
+dogstatsd-ruby	5.7.1	rubygems	fails	no-entry	no dogstatsd-ruby.rb or dogstatsd/ruby.rb in lib; name the require in gems/dogstatsd-ruby.rb	5d276135b79e	2026-10-07	138423490
 domain_name	0.6.20260921	rubygems	loads			3a78a9dd8b36	2026-10-06	677781600
+doorkeeper	5.9.9	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	115732530
 dotenv	3.2.0	rubygems	loads			3a78a9dd8b36	2026-10-06	552446495
+dotenv-rails	3.2.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	207442184
+drb	2.2.3	rubygems	loads			5d276135b79e	2026-10-07	280060281
+dry-configurable	1.4.0	rubygems	loads			5d276135b79e	2026-10-07	193990215
+dry-container	0.11.0	rubygems	loads			5d276135b79e	2026-10-07	137781947
+dry-core	1.2.0	rubygems	loads			5d276135b79e	2026-10-07	246191742
+dry-inflector	1.3.1	rubygems	loads			5d276135b79e	2026-10-07	234887919
+dry-initializer	3.2.0	rubygems	loads			5d276135b79e	2026-10-07	137625607
+dry-logic	1.6.0	rubygems	loads			5d276135b79e	2026-10-07	221593220
+dry-schema	1.16.0	rubygems	loads			72c4f2f0165c	2026-10-07	123774900
+dry-types	1.9.1	rubygems	loads			5d276135b79e	2026-10-07	222398553
+dry-validation	1.11.1	rubygems	loads			72c4f2f0165c	2026-10-07	119925107
+ed25519	1.4.0	rubygems	refused	cext:ed25519	ed25519 1.4.0 has a C extension (ext/ed25519_ref10/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	133474226
+elasticsearch	9.5.0	rubygems	loads			5d276135b79e	2026-10-07	218250901
+elasticsearch-api	9.5.0	rubygems	loads			5d276135b79e	2026-10-07	219306458
+elasticsearch-transport	7.17.11	rubygems	loads			5d276135b79e	2026-10-07	175193952
+emoji_regex	15.0.0	rubygems	loads			5d276135b79e	2026-10-07	140146514
+encryptor	3.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	123652788
+equalizer	1.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	131947051
+erb	6.0.7	rubygems	refused	cext:erb	erb 6.0.7 has a C extension (ext/erb/escape/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	124712324
 erubi	1.13.1	rubygems	loads			3a78a9dd8b36	2026-10-06	634060686
-erubis	2.7.0	rubygems	loads			ac3395d66248	2026-09-29	301832725
-ethon	0.18.0	rubygems	loads			ac3395d66248	2026-09-29	299551213
-eventmachine	1.2.7	rubygems	refused	cext:eventmachine	eventmachine 1.2.7 has a C extension (ext/extconf.rb, ext/fastfilereader/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	333191131
+erubis	2.7.0	rubygems	loads			5d276135b79e	2026-10-07	301832725
+et-orbi	1.4.2	rubygems	loads			5d276135b79e	2026-10-07	230563662
+ethon	0.18.0	rubygems	loads			5d276135b79e	2026-10-07	300819977
+eventmachine	1.2.7	rubygems	refused	cext:eventmachine	eventmachine 1.2.7 has a C extension (ext/extconf.rb, ext/fastfilereader/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	333925746
 excon	1.7.2	rubygems	loads			ea143b900c11	2026-10-07	713257754
 execjs	2.10.2	rubygems	loads			3a78a9dd8b36	2026-10-06	416314364
-factory_bot	6.6.0	rubygems	loads			ac3395d66248	2026-09-29	356390904
-factory_bot_rails	6.5.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	295718747
-faker	3.8.0	rubygems	loads			ac3395d66248	2026-09-29	344580521
+eye	0.10.0	rubygems	refused	cext:nio4r	nio4r 2.7.5 has a C extension (ext/nio4r/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	115003443
+factory_bot	6.6.0	rubygems	loads			5d276135b79e	2026-10-07	357945091
+factory_bot_rails	6.5.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	297090278
+faker	3.8.0	rubygems	loads			5d276135b79e	2026-10-07	345830674
 faraday	2.14.4	rubygems	loads			3a78a9dd8b36	2026-10-06	1266007152
-faraday-em_http	2.0.1	rubygems	refused	cext:http_parser.rb	http_parser.rb 0.8.1 has a C extension (ext/ruby_http_parser/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	351913650
-faraday-em_synchrony	1.0.1	rubygems	skipped	ruby-error	ruby: tmp/gems/src/faraday-em_synchrony-1.0.1/lib/faraday/em_synchrony.rb:3:in 'Kernel#require': cannot load such file -- faraday/em_http (LoadError)	ac3395d66248	2026-09-29	363468985
+faraday-cookie_jar	0.0.8	rubygems	skipped	ruby-error	ruby: probe.rb:4:in 'Kernel#require': cannot load such file -- sqlite3 (LoadError)	5d276135b79e	2026-10-07	169303402
+faraday-em_http	2.0.1	rubygems	refused	cext:http_parser.rb	http_parser.rb 0.8.1 has a C extension (ext/ruby_http_parser/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	352957343
+faraday-em_synchrony	1.0.1	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/faraday-em_synchrony-1.0.1/lib/faraday/em_synchrony.rb:3:in 'Kernel#require': cannot load such file -- faraday/em_http (LoadError)	5d276135b79e	2026-10-07	364622551
 faraday-excon	2.4.0	rubygems	loads			ea143b900c11	2026-10-07	402755502
-faraday-httpclient	2.0.2	rubygems	skipped	ruby-error	ruby: tmp/gems/src/faraday-httpclient-2.0.2/lib/faraday/httpclient.rb:10:in '<module:HTTPClient>': undefined method 'register_middleware' for class Faraday::Adapter (NoMethod...	ac3395d66248	2026-09-29	339736071
+faraday-http-cache	3.0.0	rubygems	loads			5d276135b79e	2026-10-07	142032726
+faraday-httpclient	2.0.2	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/faraday-httpclient-2.0.2/lib/faraday/httpclient.rb:10:in '<module:HTTPClient>': undefined method 'register_middleware' for class Faraday::Adapter (NoMetho...	5d276135b79e	2026-10-07	340815687
 faraday-multipart		rubygems	skipped	skip	a faraday plugin: it needs faraday loaded first	3a78a9dd8b36	2026-10-06	400893892
 faraday-net_http		rubygems	skipped	skip	a faraday plugin: it needs faraday loaded first, and its gemspec does not list faraday	3a78a9dd8b36	2026-10-06	757709256
 faraday-net_http_persistent	2.3.1	rubygems	loads			ea143b900c11	2026-10-07	398098390
-faraday-patron	2.0.2	rubygems	refused	cext:patron	patron 0.13.4 has a C extension (ext/patron/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	336236296
-faraday-rack	2.1.3	rubygems	skipped	ruby-error	ruby: tmp/gems/src/faraday-rack-2.1.3/lib/faraday/adapter/rack.rb:3:in 'Kernel#require': cannot load such file -- rack/test (LoadError)	ac3395d66248	2026-09-29	329899177
+faraday-patron	2.0.2	rubygems	refused	cext:patron	patron 0.13.4 has a C extension (ext/patron/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	337284003
+faraday-rack	2.1.3	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/faraday-rack-2.1.3/lib/faraday/adapter/rack.rb:3:in 'Kernel#require': cannot load such file -- rack/test (LoadError)	5d276135b79e	2026-10-07	330932419
 faraday-retry	2.4.0	rubygems	loads			ea143b900c11	2026-10-07	418227924
 faraday_middleware	1.2.1	rubygems	loads			ea143b900c11	2026-10-07	466242045
+faraday_middleware-aws-sigv4	1.0.1	rubygems	fails	no-entry	no faraday_middleware-aws-sigv4.rb or faraday_middleware/aws/sigv4.rb in lib; name the require in gems/faraday_middleware-aws-sigv4.rb	72c4f2f0165c	2026-10-07	122976226
+fastimage	2.4.1	rubygems	loads			5d276135b79e	2026-10-07	214039103
+fastlane	2.240.1	rubygems	refused	port-range:json	json 2.21.2: zr implements the C part of json ~> 3.0.2 only	5d276135b79e	2026-10-07	215147579
 ffi	1.17.4	rubygems	loads			3a78a9dd8b36	2026-10-06	1094257199
-formatador	1.2.3	rubygems	loads			ac3395d66248	2026-09-29	283998244
+ffi-compiler	1.4.2	rubygems	fails	no-entry	no ffi-compiler.rb or ffi/compiler.rb in lib; name the require in gems/ffi-compiler.rb	5d276135b79e	2026-10-07	181872827
+fluent-plugin-kinesis-aggregation	0.4.1	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	51457298
+fluent-plugin-kubernetes_metadata_filter	3.8.0	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	160776617
+fluent-plugin-record-modifier	2.2.1	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	105524117
+fluent-plugin-s3	1.8.6	rubygems	refused	cext:zstd-ruby	zstd-ruby 1.5.7.1 has a C extension (ext/zstdruby/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	161366055
+fog-aws	3.33.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	177210951
+fog-core	2.6.0	rubygems	loads			5d276135b79e	2026-10-07	196704255
+fog-json	1.5.0	rubygems	loads			5d276135b79e	2026-10-07	187113090
+fog-xml	0.1.5	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	182964350
+foreman	0.90.0	rubygems	loads			72c4f2f0165c	2026-10-07	134405781
+formatador	1.2.3	rubygems	loads			5d276135b79e	2026-10-07	284671638
+fugit	1.14.0	rubygems	loads			5d276135b79e	2026-10-07	218760994
+fuzzy_match	2.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	106143823
+geocoder	1.8.6	rubygems	loads			72c4f2f0165c	2026-10-07	111544484
+get_process_mem	1.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	123300010
+gh_inspector	1.1.3	rubygems	loads			5d276135b79e	2026-10-07	159380940
+git	5.6.0	rubygems	loads			5d276135b79e	2026-10-07	209724986
+gitlab	6.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	116342861
+gitlab-labkit	5.5.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	51652786
+gli	2.22.2	rubygems	loads			72c4f2f0165c	2026-10-07	112669259
 globalid	1.4.0	rubygems	loads			ea143b900c11	2026-10-07	672713712
-google-apis-core	1.2.5	rubygems	loads			ac3395d66248	2026-09-29	288065037
-google-cloud-core	1.9.0	rubygems	loads			ac3395d66248	2026-09-29	283273092
-google-cloud-env	2.4.0	rubygems	loads			ac3395d66248	2026-09-29	340645598
+google-api-client	0.53.0	rubygems	fails	no-entry	no google-api-client.rb or google/api/client.rb in lib, generated; name the require in gems/google-api-client.rb	5d276135b79e	2026-10-07	185612709
+google-apis-androidpublisher_v3	0.109.0	rubygems	loads			5d276135b79e	2026-10-07	158535245
+google-apis-core	1.3.0	rubygems	loads			5d276135b79e	2026-10-07	290486063
+google-apis-iamcredentials_v1	0.28.0	rubygems	loads			5d276135b79e	2026-10-07	203155262
+google-apis-playcustomapp_v1	0.18.0	rubygems	loads			72c4f2f0165c	2026-10-07	120893334
+google-apis-storage_v1	0.68.0	rubygems	loads			5d276135b79e	2026-10-07	209771220
+google-cloud-core	1.9.0	rubygems	loads			5d276135b79e	2026-10-07	285976187
+google-cloud-env	2.4.0	rubygems	loads			5d276135b79e	2026-10-07	342673718
+google-cloud-errors	1.7.0	rubygems	loads			5d276135b79e	2026-10-07	273142183
+google-cloud-storage	1.62.1	rubygems	refused	cext:digest-crc	digest-crc 0.7.0 has a C extension (ext/digest/Rakefile), and zr has no port of it	5d276135b79e	2026-10-07	242855108
 google-protobuf	4.36.2	rubygems	refused	cext:google-protobuf	google-protobuf 4.36.2 has a C extension (ext/google/protobuf_c/extconf.rb, ext/google/protobuf_c/Rakefile), and zr has no port of it	3a78a9dd8b36	2026-10-06	455566976
+googleapis-common-protos	1.10.0	rubygems	refused	cext:google-protobuf	google-protobuf 4.36.2 has a C extension (ext/google/protobuf_c/extconf.rb, ext/google/protobuf_c/Rakefile), and zr has no port of it	72c4f2f0165c	2026-10-07	113514036
+googleapis-common-protos-types	1.23.0	rubygems	refused	cext:google-protobuf	google-protobuf 4.36.2 has a C extension (ext/google/protobuf_c/extconf.rb, ext/google/protobuf_c/Rakefile), and zr has no port of it	5d276135b79e	2026-10-07	229505643
 googleauth	1.17.4	rubygems	loads			ea143b900c11	2026-10-07	516003832
+graphql	2.6.11	rubygems	loads			5d276135b79e	2026-10-07	205615823
+grpc	1.84.0	rubygems	refused	cext:grpc	grpc 1.84.0 has a C extension (src/ruby/ext/grpc/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	209252786
+guard	2.20.2	rubygems	loads			5d276135b79e	2026-10-07	155920351
+guard-compat	1.2.1	rubygems	loads			72c4f2f0165c	2026-10-07	135858620
+guard-rspec	4.7.3	rubygems	loads			72c4f2f0165c	2026-10-07	130473651
+gyoku	1.4.0	rubygems	loads			72c4f2f0165c	2026-10-07	129386240
+haml	7.5.1	rubygems	compiles	output-diff	"stdout line 11: ruby "" ASCIISource AliasGlobalVariableNode AliasMethodNode AlternationPatternNode AndNode ArgumentsNode ArgumentsNodeFlags ArrayNode ArrayNodeFlags ArrayPatternNode AssocNode AssocS..."	5d276135b79e	2026-10-07	207364479
 hashdiff	1.2.1	rubygems	loads			3a78a9dd8b36	2026-10-06	429498562
+hashery	2.1.2	rubygems	loads			72c4f2f0165c	2026-10-07	104333070
 hashie	5.1.0	rubygems	loads			ea143b900c11	2026-10-07	490951011
-highline	3.1.2	rubygems	loads			ac3395d66248	2026-09-29	342764593
-http-accept	2.2.2	rubygems	loads			ac3395d66248	2026-09-29	279151469
+heapy	0.2.0	rubygems	builds			72c4f2f0165c	2026-10-07	52134348
+highline	3.1.2	rubygems	loads			5d276135b79e	2026-10-07	344267905
+htmlentities	4.4.2	rubygems	loads			5d276135b79e	2026-10-07	244822818
+http	6.0.4	rubygems	refused	cext:llhttp	llhttp 0.6.2 has a C extension (ext/llhttp/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	215988539
+http-accept	2.2.2	rubygems	loads			5d276135b79e	2026-10-07	279151469
 http-cookie	1.1.6	rubygems	loads			3a78a9dd8b36	2026-10-06	689301262
+http-form_data	3.0.1	rubygems	loads			5d276135b79e	2026-10-07	207338931
+http_parser.rb	0.8.1	rubygems	refused	cext:http_parser.rb	http_parser.rb 0.8.1 has a C extension (ext/ruby_http_parser/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	181230195
 httparty	0.24.3	rubygems	loads			3a78a9dd8b36	2026-10-06	484146657
 httpclient	2.9.0	rubygems	loads			ea143b900c11	2026-10-07	541764457
+httpi	4.0.4	rubygems	loads			72c4f2f0165c	2026-10-07	111256789
 i18n	1.15.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1442899922
-jbuilder	2.15.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	314361227
+ice_nine	0.11.2	rubygems	loads			5d276135b79e	2026-10-07	209749464
+image_processing	2.2.0	rubygems	loads			72c4f2f0165c	2026-10-07	129727423
+io-console	0.9.4	rubygems	refused	port-range:io-console	io-console 0.9.4: zr implements the C part of io-console ~> 0.8.2 only	5d276135b79e	2026-10-07	246740238
+ipaddress	0.8.3	rubygems	loads			5d276135b79e	2026-10-07	185129674
+irb	1.18.0	rubygems	compiles	output-diff	"stdout line 18: ruby "" ASCIISource AliasGlobalVariableNode AliasMethodNode AlternationPatternNode AndNode ArgumentsNode ArgumentsNodeFlags ArrayNode ArrayNodeFlags ArrayPatternNode AssocNode AssocS..."	5d276135b79e	2026-10-07	251842035
+jaro_winkler	1.7.0	rubygems	refused	cext:jaro_winkler	jaro_winkler 1.7.0 has a C extension (ext/jaro_winkler/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	139213452
+jbuilder	2.15.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	315563393
 jmespath	1.6.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1445128064
-jquery-rails	4.6.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	312412070
+jquery-rails	4.6.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	313071999
 json	3.0.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1387809196
+json-jwt	1.17.2	rubygems	loads			72c4f2f0165c	2026-10-07	110694532
+json-schema	6.2.1	rubygems	loads			5d276135b79e	2026-10-07	197833249
+jsonapi-renderer	0.2.2	rubygems	loads			72c4f2f0165c	2026-10-07	104261035
 jwt	3.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	818471834
+kaminari	1.2.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	274746419
+kaminari-actionview	1.2.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	237356683
+kaminari-activerecord	1.2.2	rubygems	loads			5d276135b79e	2026-10-07	237889048
+kaminari-core	1.2.2	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/kaminari-core-1.2.2/lib/kaminari/helpers/paginator.rb:3:in 'Kernel#require': cannot load such file -- active_support/inflector (LoadError)	5d276135b79e	2026-10-07	242321133
+kgio	2.11.4	rubygems	refused	cext:kgio	kgio 2.11.4 has a C extension (ext/kgio/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	125265942
 knapsack	4.0.0	rubygems	loads			ea143b900c11	2026-10-07	389318234
-language_server-protocol	3.17.0.6	rubygems	loads			ac3395d66248	2026-09-29	300928508
-launchy	3.1.1	rubygems	loads			ac3395d66248	2026-09-29	300981801
+kostya-sigar	2.0.11	rubygems	refused	cext:kostya-sigar	kostya-sigar 2.0.11 has a C extension (bindings/ruby/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	111959179
+kramdown	2.5.2	rubygems	loads			5d276135b79e	2026-10-07	255384007
+kramdown-parser-gfm	1.1.0	rubygems	loads			5d276135b79e	2026-10-07	175211669
+language_server-protocol	3.17.0.6	rubygems	loads			5d276135b79e	2026-10-07	304128580
+launchy	3.1.1	rubygems	loads			5d276135b79e	2026-10-07	301944206
+letter_opener	1.10.0	rubygems	loads			72c4f2f0165c	2026-10-07	121336225
+lint_roller	1.1.0	rubygems	loads			5d276135b79e	2026-10-07	137218603
+liquid	5.14.0	rubygems	loads			5d276135b79e	2026-10-07	140730626
 listen	3.10.1	rubygems	loads			ea143b900c11	2026-10-07	404540175
+little-plugger	1.1.4	rubygems	loads			72c4f2f0165c	2026-10-07	105186913
+llhttp-ffi	0.5.1	rubygems	refused	cext:llhttp-ffi	llhttp-ffi 0.5.1 has a C extension (ext/Rakefile), and zr has no port of it	72c4f2f0165c	2026-10-07	107068221
 logger	1.7.0	rubygems	loads			ea143b900c11	2026-10-07	432207049
+logging	2.4.0	rubygems	loads			72c4f2f0165c	2026-10-07	107463499
+lograge	0.15.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	202843302
 loofah	2.25.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	751972721
+lumberjack	2.1.0	rubygems	loads			5d276135b79e	2026-10-07	155431366
 mail	2.9.1	rubygems	loads			ea143b900c11	2026-10-07	773024695
 marcel	2.1.0	rubygems	loads			3a78a9dd8b36	2026-10-06	488716148
-memoist	0.16.2	rubygems	loads			ac3395d66248	2026-09-29	322059968
+matrix	0.4.3	rubygems	loads			5d276135b79e	2026-10-07	181233003
+memoist	0.16.2	rubygems	loads			5d276135b79e	2026-10-07	322349169
+memory_profiler	1.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	108928120
 method_source	1.1.0	rubygems	loads			3a78a9dd8b36	2026-10-06	778230072
 mime-types	3.7.0	rubygems	loads			ea143b900c11	2026-10-07	934175290
 mime-types-data	3.2026.1006	rubygems	loads			3a78a9dd8b36	2026-10-06	746697278
+mimemagic	0.4.3	rubygems	refused	cext:mimemagic	mimemagic 0.4.3 has a C extension (ext/mimemagic/Rakefile), and zr has no port of it	5d276135b79e	2026-10-07	193510649
 mini_magick	5.4.0	rubygems	loads			ea143b900c11	2026-10-07	385234190
 mini_mime	1.1.5	rubygems	loads			3a78a9dd8b36	2026-10-06	889751663
 mini_portile2	2.8.9	rubygems	loads			3a78a9dd8b36	2026-10-06	614296232
 minitest	6.0.6	rubygems	loads			3a78a9dd8b36	2026-10-06	1306829988
+molinillo	0.8.0	rubygems	loads			72c4f2f0165c	2026-10-07	115946950
+money	7.1.1	rubygems	loads			72c4f2f0165c	2026-10-07	135164467
+mongo	2.26.0	rubygems	refused	cext:bson	bson 5.2.0 has a C extension (ext/bson/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	105035374
 msgpack	1.8.5	rubygems	refused	cext:msgpack	msgpack 1.8.5 has a C extension (ext/msgpack/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	522479726
 multi_json	1.21.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1168755974
 multi_xml	0.9.1	rubygems	loads			3a78a9dd8b36	2026-10-06	604878932
 multipart-post	2.4.1	rubygems	loads			3a78a9dd8b36	2026-10-06	928656920
-mustermann	4.0.0	rubygems	loads			ac3395d66248	2026-09-29	296466351
+mustermann	4.0.0	rubygems	loads			5d276135b79e	2026-10-07	297436348
+mutex_m	0.3.0	rubygems	loads			5d276135b79e	2026-10-07	210289668
+mysql2	0.5.7	rubygems	refused	cext:mysql2	mysql2 0.5.7 has a C extension (ext/mysql2/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	243821126
+nanaimo	0.4.0	rubygems	loads			5d276135b79e	2026-10-07	179970931
+nap	1.1.0	rubygems	loads			5d276135b79e	2026-10-07	190917909
+naturally	2.3.0	rubygems	loads			5d276135b79e	2026-10-07	137263468
+nenv	0.3.0	rubygems	loads			5d276135b79e	2026-10-07	142829622
+net-http	0.9.1	rubygems	loads			5d276135b79e	2026-10-07	203428233
+net-http-persistent	4.0.8	rubygems	loads			5d276135b79e	2026-10-07	210702400
 net-imap	0.6.7	rubygems	loads			e5f198887491	2026-10-06	383413321
-net-protocol	0.4.0	rubygems	loads			ac3395d66248	2026-09-29	302758946
-net-smtp	0.5.1	rubygems	loads			ac3395d66248	2026-09-29	330282738
+net-ntp	2.1.3	rubygems	loads			5d276135b79e	2026-10-07	249294609
+net-pop	0.1.2	rubygems	loads			5d276135b79e	2026-10-07	248325597
+net-protocol	0.4.0	rubygems	loads			5d276135b79e	2026-10-07	305880318
+net-scp	4.1.0	rubygems	loads			5d276135b79e	2026-10-07	233549136
+net-sftp	4.0.0	rubygems	loads			5d276135b79e	2026-10-07	183978452
+net-smtp	0.5.2	rubygems	loads			5d276135b79e	2026-10-07	332944195
 net-ssh	7.3.6	rubygems	loads			ea143b900c11	2026-10-07	390367763
 netrc	0.11.0	rubygems	loads			3a78a9dd8b36	2026-10-06	561723886
+newrelic_rpm	10.9.1	rubygems	loads			5d276135b79e	2026-10-07	187417163
 nio4r	2.7.5	rubygems	refused	cext:nio4r	nio4r 2.7.5 has a C extension (ext/nio4r/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	696360067
+nkf	0.3.0	rubygems	loads			72c4f2f0165c	2026-10-07	117277525
 nokogiri	1.19.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	1269876588
-oauth2	2.0.25	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	ac3395d66248	2026-09-29	278491242
+nori	2.9.1	rubygems	loads			72c4f2f0165c	2026-10-07	133974291
+notiffany	0.1.3	rubygems	loads			5d276135b79e	2026-10-07	142808856
+oauth	1.1.8	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	5d276135b79e	2026-10-07	171222127
+oauth2	2.0.25	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	5d276135b79e	2026-10-07	279544493
 octokit	10.0.0	rubygems	loads			ea143b900c11	2026-10-07	396718326
-oj	3.17.7	rubygems	refused	cext:oj	oj 3.17.7 has a C extension (ext/oj/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	307720251
-orm_adapter	0.5.0	rubygems	loads			ac3395d66248	2026-09-29	288049142
+oj	3.17.7	rubygems	refused	cext:oj	oj 3.17.7 has a C extension (ext/oj/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	308901969
+omniauth	2.1.4	rubygems	loads			5d276135b79e	2026-10-07	226776061
+omniauth-google-oauth2	1.2.3	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	72c4f2f0165c	2026-10-07	124951192
+omniauth-oauth2	1.9.0	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	5d276135b79e	2026-10-07	190321898
+open4	1.3.4	rubygems	loads			5d276135b79e	2026-10-07	151933820
+optimist	3.2.1	rubygems	loads			72c4f2f0165c	2026-10-07	135445116
+optparse	0.8.1	rubygems	loads			72c4f2f0165c	2026-10-07	123318902
+orm_adapter	0.5.0	rubygems	loads			5d276135b79e	2026-10-07	289316181
 os	1.1.4	rubygems	loads			3a78a9dd8b36	2026-10-06	472240603
+ostruct	0.6.3	rubygems	loads			5d276135b79e	2026-10-07	165454461
+paper_trail	17.0.0	rubygems	loads			5d276135b79e	2026-10-07	148944636
 parallel	2.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	830001160
+parallel_tests	5.8.0	rubygems	loads			5d276135b79e	2026-10-07	169224149
 parser	3.3.12.0	rubygems	loads			ea143b900c11	2026-10-07	850830298
+pastel	0.8.0	rubygems	loads			72c4f2f0165c	2026-10-07	117434100
+pdf-reader	2.16.0	rubygems	refused	port-range:bigdecimal	bigdecimal 3.3.1: zr implements the C part of bigdecimal ~> 4.1.2 only	72c4f2f0165c	2026-10-07	115524391
 pg	1.7.0	rubygems	refused	cext:pg	pg 1.7.0 has a C extension (ext/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	474258484
+plist	3.7.2	rubygems	loads			5d276135b79e	2026-10-07	215865451
+polyglot	0.3.5	rubygems	loads			72c4f2f0165c	2026-10-07	102318332
+powerpack	0.1.3	rubygems	loads			72c4f2f0165c	2026-10-07	106662105
+pp	0.6.4	rubygems	loads			5d276135b79e	2026-10-07	144200752
+prawn	2.5.0	rubygems	refused	port-range:bigdecimal	bigdecimal 3.3.1: zr implements the C part of bigdecimal ~> 4.1.2 only	72c4f2f0165c	2026-10-07	105095204
+premailer	1.31.0	rubygems	loads			72c4f2f0165c	2026-10-07	128120689
+premailer-rails	1.12.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	112168107
+prettyprint	0.2.0	rubygems	loads			72c4f2f0165c	2026-10-07	124633176
+prism	1.9.0	rubygems	compiles	output-diff	"stdout line 3: ruby "" ASCIISource AliasGlobalVariableNode AliasMethodNode AlternationPatternNode AndNode ArgumentsNode ArgumentsNodeFlags ArrayNode ArrayNodeFlags ArrayPatternNode AssocNode AssocSp..."	5d276135b79e	2026-10-07	206761249
 pry	0.16.0	rubygems	loads			3a78a9dd8b36	2026-10-06	636079728
-pry-byebug	3.12.0	rubygems	refused	cext:byebug	byebug 13.0.0 has a C extension (ext/byebug/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	288416050
+pry-byebug	3.12.0	rubygems	refused	cext:byebug	byebug 13.0.0 has a C extension (ext/byebug/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	289212187
+pry-rails	0.3.11	rubygems	loads			5d276135b79e	2026-10-07	231427907
+psych	5.5.0	rubygems	refused	port-range:psych	psych 5.5.0: zr implements the C part of psych ~> 5.3.1 only	5d276135b79e	2026-10-07	247679136
 public_suffix	7.0.5	rubygems	loads			3a78a9dd8b36	2026-10-06	1245257461
 puma	8.0.2	rubygems	refused	cext:puma	puma 8.0.2 has a C extension (ext/puma_http11/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	608988087
+pundit	2.5.2	rubygems	loads			72c4f2f0165c	2026-10-07	111969436
+raabro	1.5.0	rubygems	loads			5d276135b79e	2026-10-07	210288552
 racc	1.8.1	rubygems	loads			ea143b900c11	2026-10-07	744885124
 rack	3.2.7	rubygems	loads			3a78a9dd8b36	2026-10-06	1355400670
-rack-cors	3.0.0	rubygems	loads			ac3395d66248	2026-09-29	276823595
+rack-attack	6.8.0	rubygems	loads			5d276135b79e	2026-10-07	154534562
+rack-cors	3.0.0	rubygems	loads			5d276135b79e	2026-10-07	278007120
 rack-protection	4.2.1	rubygems	loads			3a78a9dd8b36	2026-10-06	520401098
+rack-proxy	2.0.1	rubygems	loads			5d276135b79e	2026-10-07	181165905
+rack-session	2.1.2	rubygems	loads			5d276135b79e	2026-10-07	208964344
 rack-test	2.2.0	rubygems	loads			3a78a9dd8b36	2026-10-06	816907085
+rack-timeout	0.7.0	rubygems	loads			72c4f2f0165c	2026-10-07	112474425
+rackup	2.3.1	rubygems	loads			5d276135b79e	2026-10-07	185155050
 rails	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	794120052
+rails-controller-testing	1.0.5	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	200887243
+rails-deprecated_sanitizer	1.0.4	rubygems	loads			72c4f2f0165c	2026-10-07	101169218
 rails-dom-testing	2.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	687221340
 rails-html-sanitizer	1.7.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	711890407
+rails-i18n	8.1.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	142796350
 railties	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	792940964
 rainbow	3.1.1	rubygems	loads			3a78a9dd8b36	2026-10-06	757152479
+raindrops	0.20.1	rubygems	refused	cext:raindrops	raindrops 0.20.1 has a C extension (ext/raindrops/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	124931893
 rake	13.4.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1423664976
+ransack	5.0.2	rubygems	loads			72c4f2f0165c	2026-10-07	119153417
 rb-fsevent	0.11.2	rubygems	loads			3a78a9dd8b36	2026-10-06	516296678
 rb-inotify		rubygems	skipped	skip	Linux only: it binds inotify with ffi, and macOS has no inotify	3a78a9dd8b36	2026-10-06	493898811
-rdoc	8.1.0	rubygems	refused	cext:rbs	rbs 4.2.0 has a C extension (ext/rbs_extension/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	350856485
+rchardet	1.10.2	rubygems	loads			5d276135b79e	2026-10-07	165049655
+rdoc	8.1.0	rubygems	refused	cext:rbs	rbs 4.2.0 has a C extension (ext/rbs_extension/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	354322996
+redcarpet	3.6.1	rubygems	refused	cext:redcarpet	redcarpet 3.6.1 has a C extension (ext/redcarpet/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	136084607
 redis	6.0.0	rubygems	loads			3a78a9dd8b36	2026-10-06	585556021
+redis-actionpack	5.5.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	126827051
+redis-client	0.31.0	rubygems	loads			5d276135b79e	2026-10-07	164577812
+redis-namespace	1.11.0	rubygems	loads			5d276135b79e	2026-10-07	213207900
+redis-rack	3.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	128550476
+redis-store	1.12.0	rubygems	loads			72c4f2f0165c	2026-10-07	136955348
 regexp_parser	2.13.1	rubygems	loads			3a78a9dd8b36	2026-10-06	672734224
+reline	0.7.0	rubygems	loads			5d276135b79e	2026-10-07	263054000
 representable	3.3.1	rubygems	loads			e5f198887491	2026-10-06	383228799
-request_store	1.7.0	rubygems	loads			ac3395d66248	2026-09-29	354396154
-responders	3.2.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	336643277
+request_store	1.7.0	rubygems	loads			5d276135b79e	2026-10-07	355840890
+responders	3.2.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	338076574
 rest-client	2.1.0	rubygems	loads			ea143b900c11	2026-10-07	487550811
 retriable	5.0.1	rubygems	loads			3a78a9dd8b36	2026-10-06	408535521
+reverse_markdown	3.0.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	104614149
 rexml	3.4.4	rubygems	loads			ea143b900c11	2026-10-07	836721452
-rouge	5.1.0	rubygems	loads			ac3395d66248	2026-09-29	328047311
+roo	3.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	116544548
+rotp	6.3.0	rubygems	loads			5d276135b79e	2026-10-07	141275130
+rouge	5.1.0	rubygems	compiles	exception-diff	"stderr line 1: ruby """", zr ""lib/zr/hir/build/literals.rb:443: warning: regular expression has ']' without escape: /\\\\]/"""	5d276135b79e	2026-10-07	329847109
+rqrcode	3.2.0	rubygems	loads			72c4f2f0165c	2026-10-07	131185041
 rspec	3.13.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1023890284
 rspec-core	3.13.6	rubygems	loads			3a78a9dd8b36	2026-10-06	1204651281
 rspec-expectations	3.13.5	rubygems	loads			3a78a9dd8b36	2026-10-06	1204077219
+rspec-its	2.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	104306140
 rspec-mocks	3.13.8	rubygems	loads			3a78a9dd8b36	2026-10-06	1198799797
 rspec-rails	8.0.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	410258753
+rspec-retry	0.6.2	rubygems	loads			72c4f2f0165c	2026-10-07	126865986
 rspec-support	3.13.7	rubygems	loads			3a78a9dd8b36	2026-10-06	1191357549
-rspec_junit_formatter	0.6.0	rubygems	loads			ac3395d66248	2026-09-29	274010393
+rspec_junit_formatter	0.6.0	rubygems	loads			5d276135b79e	2026-10-07	274974158
+rswag-api	2.17.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	52186897
 rubocop	1.91.0	rubygems	fails	memory	the build used more than 2048 MB	3a78a9dd8b36	2026-10-06	751927642
 rubocop-ast	1.50.0	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	3a78a9dd8b36	2026-10-06	568432841
-rubocop-performance	1.27.0	rubygems	fails	memory	the build used more than 2048 MB	ac3395d66248	2026-09-29	331293137
-rubocop-rails	2.38.0	rubygems	fails	memory	the build used more than 2048 MB	ac3395d66248	2026-09-29	310164339
-rubocop-rspec	3.10.2	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	ac3395d66248	2026-09-29	297923869
+rubocop-capybara	3.0.0	rubygems	fails	memory	the build used more than 2048 MB	72c4f2f0165c	2026-10-07	103107597
+rubocop-performance	1.27.0	rubygems	fails	memory	the build used more than 2048 MB	5d276135b79e	2026-10-07	333567769
+rubocop-rails	2.38.0	rubygems	fails	memory	the build used more than 2048 MB	5d276135b79e	2026-10-07	312214299
+rubocop-rspec	3.10.2	rubygems	fails	memory	the build used more than 2048 MB	5d276135b79e	2026-10-07	299477697
+ruby-macho	7.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	109786842
 ruby-progressbar	1.13.0	rubygems	loads			3a78a9dd8b36	2026-10-06	752162408
+ruby-rc4	0.1.5	rubygems	loads			72c4f2f0165c	2026-10-07	126839551
+ruby-saml	1.18.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	137879854
+ruby-vips	2.3.0	rubygems	skipped	ruby-error	ruby: tmp/reference/gems/gems/ffi-1.17.4-arm64-darwin/lib/ffi/dynamic_library.rb:94:in 'FFI::DynamicLibrary.load_library': Could not open library 'vips.42': dlopen(vips.42, 0...	72c4f2f0165c	2026-10-07	135121745
 ruby2_keywords	0.0.5	rubygems	loads			3a78a9dd8b36	2026-10-06	492880195
+ruby_parser	3.22.0	rubygems	loads			5d276135b79e	2026-10-07	142406987
+rubygems-bundler	1.4.5	rubygems	refused	cext:executable-hooks	executable-hooks 1.7.1 has a C extension (ext/wrapper_installer/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	115333608
 rubygems-update		rubygems	skipped	skip	it installs a new rubygems into ruby itself; it is not a library to require	3a78a9dd8b36	2026-10-06	623189322
 rubyzip	3.7.0	rubygems	compiles	output-diff	"stdout line 13: ruby ""RactorLocalSingleton Module"", zr ""Gem Module"""	3a78a9dd8b36	2026-10-06	792569109
+rufus-scheduler	3.9.2	rubygems	loads			5d276135b79e	2026-10-07	143103643
+safe_yaml	1.0.5	rubygems	loads			5d276135b79e	2026-10-07	214581338
+sanitize	7.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	138612440
 sass	3.7.4	rubygems	loads			e5f198887491	2026-10-06	367228698
-sass-rails	6.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	295431373
+sass-listen	4.0.0	rubygems	loads			5d276135b79e	2026-10-07	181312618
+sass-rails	6.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	295920559
+sassc	2.4.0	rubygems	refused	cext:sassc	sassc 2.4.0 has a C extension (ext/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	212778263
+sassc-rails	2.1.2	rubygems	refused	cext:sassc	sassc 2.4.0 has a C extension (ext/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	177005842
+savon	2.17.5	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	102413342
 sawyer	0.9.3	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	3a78a9dd8b36	2026-10-06	402986464
-selenium-webdriver	4.49.0	rubygems	loads			ac3395d66248	2026-09-29	359104062
-shoulda-matchers	8.0.1	rubygems	loads			ac3395d66248	2026-09-29	275000944
-sidekiq	8.1.7	rubygems	loads			ac3395d66248	2026-09-29	338094342
+securerandom	0.4.1	rubygems	loads			5d276135b79e	2026-10-07	242498233
+security	0.3.0	rubygems	loads			5d276135b79e	2026-10-07	137240912
+selenium-webdriver	4.50.0	rubygems	compiles	output-diff	"stdout line 28: ruby ""IPAddr Class"", zr ""Gem Module"""	5d276135b79e	2026-10-07	360292928
+sentry-rails	7.1.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	122322367
+sentry-raven	3.1.2	rubygems	loads			72c4f2f0165c	2026-10-07	112608159
+sentry-ruby	7.1.0	rubygems	loads			5d276135b79e	2026-10-07	153402656
+set	1.1.3	rubygems	builds			72c4f2f0165c	2026-10-07	52172090
+sexp_processor	4.17.6	rubygems	loads			5d276135b79e	2026-10-07	153004436
+shellany	0.0.1	rubygems	loads			5d276135b79e	2026-10-07	140698290
+shoulda-matchers	8.0.1	rubygems	loads			5d276135b79e	2026-10-07	276072736
+sidekiq	8.1.7	rubygems	loads			5d276135b79e	2026-10-07	339397153
 signet	0.22.0	rubygems	loads			3a78a9dd8b36	2026-10-06	502528981
+simctl	1.6.10	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	72c4f2f0165c	2026-10-07	135787328
 simplecov	1.3.2	rubygems	loads			3a78a9dd8b36	2026-10-06	504457143
 simplecov-html		rubygems	skipped	skip	a simplecov plugin: it needs simplecov loaded first, and its gemspec does not list simplecov	3a78a9dd8b36	2026-10-06	494892227
-sinatra	4.2.1	rubygems	skipped	ruby-error	ruby: Sinatra could not start, the required gems weren't found!	ac3395d66248	2026-09-29	358096531
+simplecov_json_formatter	0.1.4	rubygems	loads			5d276135b79e	2026-10-07	274574897
+sinatra	4.2.1	rubygems	skipped	ruby-error	ruby: Sinatra could not start, the required gems weren't found!	5d276135b79e	2026-10-07	358914705
+slack-notifier	2.4.0	rubygems	loads			5d276135b79e	2026-10-07	141432158
+slop	4.10.1	rubygems	loads			5d276135b79e	2026-10-07	158521739
+snaky_hash	2.0.7	rubygems	loads			72c4f2f0165c	2026-10-07	130711715
+sorbet-runtime	0.6.13532	rubygems	loads			5d276135b79e	2026-10-07	153736047
+spring	4.7.0	rubygems	fails	no-entry	no spring.rb in lib; name the require in gems/spring.rb	5d276135b79e	2026-10-07	261108385
+spring-commands-rspec	1.0.4	rubygems	loads			72c4f2f0165c	2026-10-07	136190556
 sprockets	4.4.1	rubygems	loads			ea143b900c11	2026-10-07	625598153
 sprockets-rails	3.5.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	564832853
+sqlite3	2.9.6	rubygems	refused	cext:sqlite3	sqlite3 2.9.6 has a C extension (ext/sqlite3/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	197220789
+ssrf_filter	1.6.0	rubygems	loads			72c4f2f0165c	2026-10-07	102694792
+stackprof	0.2.28	rubygems	refused	cext:stackprof	stackprof 0.2.28 has a C extension (ext/stackprof/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	158887157
+state_machines	0.202.0	rubygems	loads			5d276135b79e	2026-10-07	184195784
+statsd-ruby	1.5.0	rubygems	loads			72c4f2f0165c	2026-10-07	122762943
+stringio	3.2.0	rubygems	fails	no-entry	no stringio.rb in lib; name the require in gems/stringio.rb	5d276135b79e	2026-10-07	200541042
+stripe	20.0.0	rubygems	fails	memory	the build used more than 2048 MB	72c4f2f0165c	2026-10-07	123571299
+strscan	3.1.8	rubygems	compiles	output-diff	"stdout line 1: ruby ""ScanError Class"", zr ""StringScanner Class"""	72c4f2f0165c	2026-10-07	109969689
+systemu	2.6.5	rubygems	loads			72c4f2f0165c	2026-10-07	111046396
+temple	0.10.7	rubygems	loads			5d276135b79e	2026-10-07	255378854
+terminal-notifier	3.1.0	rubygems	loads			72c4f2f0165c	2026-10-07	136680637
 terminal-table	4.0.0	rubygems	loads			3a78a9dd8b36	2026-10-06	421973783
+thin	2.0.1	rubygems	refused	cext:thin	thin 2.0.1 has a C extension (ext/thin_parser/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	209200656
 thor	1.5.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1158052913
 thread_safe	0.3.6	rubygems	loads			3a78a9dd8b36	2026-10-06	612892959
 tilt	2.9.0	rubygems	loads			3a78a9dd8b36	2026-10-06	796537587
+timecop	0.9.11	rubygems	loads			5d276135b79e	2026-10-07	274638698
 timeout	0.6.1	rubygems	loads			e5f198887491	2026-10-06	365157539
-typhoeus	1.6.0	rubygems	loads			ac3395d66248	2026-09-29	291385377
+timers	4.4.0	rubygems	loads			5d276135b79e	2026-10-07	202960200
+tins	1.60.0	rubygems	loads			72c4f2f0165c	2026-10-07	125096963
+tomlrb	2.0.4	rubygems	loads			72c4f2f0165c	2026-10-07	101311671
+trailblazer-option	0.1.2	rubygems	loads			5d276135b79e	2026-10-07	259693906
+ttfunk	1.8.0	rubygems	refused	port-range:bigdecimal	bigdecimal 3.3.1: zr implements the C part of bigdecimal ~> 4.1.2 only	5d276135b79e	2026-10-07	166137930
+tty-color	0.6.0	rubygems	loads			72c4f2f0165c	2026-10-07	117922157
+tty-cursor	0.7.1	rubygems	loads			5d276135b79e	2026-10-07	233960748
+tty-screen	0.8.2	rubygems	loads			5d276135b79e	2026-10-07	244350697
+tty-spinner	0.9.3	rubygems	loads			5d276135b79e	2026-10-07	165914816
+turbolinks	5.2.1	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/turbolinks-5.2.1/lib/turbolinks/redirection.rb:3:in '<module:Redirection>': uninitialized constant Turbolinks::Redirection::ActiveSupport (NameError)	5d276135b79e	2026-10-07	143814536
+turbolinks-source	5.2.0	rubygems	loads			72c4f2f0165c	2026-10-07	105102331
+twilio-ruby	7.11.3	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	136052689
+typhoeus	1.6.0	rubygems	loads			5d276135b79e	2026-10-07	292590915
 tzinfo	2.0.6	rubygems	loads			ea143b900c11	2026-10-07	1329928098
+tzinfo-data	1.2026.5	rubygems	loads			72c4f2f0165c	2026-10-07	126290483
 uber	0.1.0	rubygems	loads			e5f198887491	2026-10-06	376633870
-uglifier	4.2.1	rubygems	loads			ac3395d66248	2026-09-29	295348078
+uglifier	4.2.1	rubygems	loads			5d276135b79e	2026-10-07	295739579
 unf	0.2.0	rubygems	refused	cext:unf	unf 0.2.0 has a C extension (ext/mkrf_conf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	509581485
 unf_ext	0.0.9.1	rubygems	refused	cext:unf_ext	unf_ext 0.0.9.1 has a C extension (ext/unf_ext/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	539885564
 unicode-display_width	3.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	991351990
-warden	1.2.9	rubygems	loads			ac3395d66248	2026-09-29	307992797
+unicode-emoji	4.3.0	rubygems	loads			5d276135b79e	2026-10-07	180765081
+unicode_utils	1.4.0	rubygems	loads			5d276135b79e	2026-10-07	141271935
+unicorn	6.1.0	rubygems	refused	cext:unicorn	unicorn 6.1.0 has a C extension (ext/unicorn_http/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	119622984
+uniform_notifier	1.18.0	rubygems	loads			5d276135b79e	2026-10-07	184764731
+unparser	0.9.0	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	72c4f2f0165c	2026-10-07	103234335
+uri	1.1.1	rubygems	loads			5d276135b79e	2026-10-07	259993327
+useragent	0.16.11	rubygems	loads			5d276135b79e	2026-10-07	143400406
+vcr	6.4.0	rubygems	loads			5d276135b79e	2026-10-07	167206317
+version_gem	1.1.15	rubygems	loads			5d276135b79e	2026-10-07	145579181
+virtus	2.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	131449729
+warden	1.2.9	rubygems	loads			5d276135b79e	2026-10-07	309142425
+wasabi	5.2.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	105340105
+web-console	4.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	187158963
 webmock	3.26.4	rubygems	loads			ea143b900c11	2026-10-07	428357695
 webrick	1.9.2	rubygems	loads			3a78a9dd8b36	2026-10-06	479427712
+websocket	1.2.11	rubygems	loads			5d276135b79e	2026-10-07	208381404
 websocket-driver	0.8.2	rubygems	refused	cext:websocket-driver	websocket-driver 0.8.2 has a C extension (ext/websocket-driver/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	647881968
 websocket-extensions	0.1.5	rubygems	loads			3a78a9dd8b36	2026-10-06	596502455
-xpath	3.2.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	342641182
+will_paginate	4.0.1	rubygems	loads			72c4f2f0165c	2026-10-07	108660392
+wisper	3.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	117669103
+word_wrap	1.0.0	rubygems	loads			72c4f2f0165c	2026-10-07	126204016
+xcodeproj	1.28.1	rubygems	loads			5d276135b79e	2026-10-07	226931962
+xcpretty	0.4.1	rubygems	compiles	exception-diff	"stderr line 1: ruby """", zr ""lib/zr/hir/build/literals.rb:443: warning: regular expression has ']' without escape: /\\\\]/"""	5d276135b79e	2026-10-07	146652570
+xcpretty-travis-formatter	1.0.1	rubygems	skipped	ruby-error	ruby: tmp/gems/gems/xcpretty-travis-formatter-1.0.1/lib/travis_formatter.rb:2:in '<top (required)>': uninitialized constant XCPretty (NameError)	72c4f2f0165c	2026-10-07	128988077
+xml-simple	1.1.9	rubygems	loads			5d276135b79e	2026-10-07	177960465
+xpath	3.2.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	5d276135b79e	2026-10-07	343891046
+yajl-ruby	1.4.3	rubygems	refused	cext:yajl-ruby	yajl-ruby 1.4.3 has a C extension (ext/yajl/extconf.rb), and zr has no port of it	72c4f2f0165c	2026-10-07	109806918
+yard	0.9.45	rubygems	compiles	output-diff	"stdout line 7: ruby ""Insertion Class"", zr ""Gem Module"""	5d276135b79e	2026-10-07	237549040
 zeitwerk	2.8.3	rubygems	loads			3a78a9dd8b36	2026-10-06	706391750
