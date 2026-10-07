@@ -438,9 +438,11 @@ module Zr
       # The engine reads the escapes before it compiles anything, so its
       # error for a fragment is one of rb_reg_preprocess's, or none: a
       # fragment alone is often no whole pattern (`(`), which is no error.
+      # Its warnings are dropped: ruby warns for the whole pattern, where a
+      # fragment's `]` can close a class that another fragment opened.
       #: (untyped node, String text) -> void
       def check_fragment(node, text)
-        Regexp.new(text, regexp_options(node) & 2)
+        read_pattern(text, regexp_options(node) & 2)
       rescue RegexpError => e
         invalid(node, e.message) if PREPROCESS_ERRORS.any? { |known| e.message.start_with?(known) }
       end
