@@ -133,7 +133,9 @@ module Zr
         # The feature that requires the gem: its name, its name with each
         # `-` as `/` (net-http as net/http), the .rb file at the top of its
         # require paths whose name is the gem's without `_` and `-`
-        # (activerecord as active_record), or the only such file.
+        # (activerecord as active_record), the only such file, or a file
+        # that the parts of its name spell below its top directory
+        # (`Trial.spelled`).
         def entry(subject)
           names = [subject.name, subject.name.tr("-", "/")].uniq
           roots = subject.roots.select { |root| File.directory?(root) }
@@ -144,8 +146,25 @@ module Zr
           return alike if alike
           return tops.first if tops.one?
 
+          spelled = Trial.spelled(subject.name).find { |name| roots.any? { |root| File.file?(File.join(root, "#{name}.rb")) } }
+          return spelled if spelled
+
           raise Failure.new("no-entry", "no #{names.map { |name| "#{name}.rb" }.join(" or ")} in #{subject.require_paths.join(", ")}; " \
                                         "name the require in gems/#{subject.name}.rb")
+        end
+
+        # The features that the parts of a gem's name spell, for a gem
+        # whose files are in a directory: from each part on, the parts
+        # with each `-` as `/` or `_`, and the first parts as directories
+        # of a file that joins the rest with `_`. So
+        # cucumber-tag-expressions gives cucumber/tag_expressions, and
+        # gitlab-net-dns net/dns.
+        def self.spelled(name)
+          parts = name.split("-")
+          (0...parts.size).flat_map do |start|
+            rest = parts.drop(start)
+            [rest.join("/"), rest.join("_"), *(1...rest.size).map { |i| "#{rest.first(i).join("/")}/#{rest.drop(i).join("_")}" }]
+          end.uniq - [name, name.tr("-", "/")]
         end
 
         private

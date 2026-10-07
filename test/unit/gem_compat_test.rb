@@ -273,6 +273,27 @@ class GemCompatTest < Minitest::Test
     assert_equal "active_record", trial(Runner.new).entry(Gems::Corpus.read(dir, source: "path"))
   end
 
+  # A gem whose files are all in a directory: the parts of its name spell
+  # the file below it.
+  def test_the_entry_can_be_spelled_by_the_parts_of_the_name
+    dir = gem_dir("cucumber-tag-expressions", "6.1.0")
+    FileUtils.mkdir_p(File.join(dir, "lib/cucumber/tag_expressions"))
+    File.write(File.join(dir, "lib/cucumber/tag_expressions.rb"), "")
+    File.write(File.join(dir, "lib/cucumber/tag_expressions/parser.rb"), "")
+    net = gem_dir("gitlab-net-dns", "0.9.2")
+    FileUtils.mkdir_p(File.join(net, "lib/net"))
+    File.write(File.join(net, "lib/net/dns.rb"), "")
+
+    assert_equal "cucumber/tag_expressions", trial(Runner.new).entry(Gems::Corpus.read(dir, source: "path"))
+    assert_equal "net/dns", trial(Runner.new).entry(Gems::Corpus.read(net, source: "path"))
+  end
+
+  # From the whole name to its last part; the name and the name with each
+  # `-` as `/` come first in `entry`, so they are not here.
+  def test_the_spelled_names_go_from_the_whole_name_to_its_last_part
+    assert_equal %w[a_b_c a/b_c b/c b_c c], Gems::Trial.spelled("a-b-c")
+  end
+
   def test_a_gem_with_no_entry_fails
     dir = File.join(@dir, "empty-1.0.0")
     FileUtils.mkdir_p(File.join(dir, "lib"))
