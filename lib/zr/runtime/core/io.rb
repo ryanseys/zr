@@ -1544,13 +1544,49 @@ class IO
       return write_bytes(converted(text))
     end
     check_writable
+    write_parts(objects.map { |object| converted(Primitive.zr_obj_as_string(object)) })
+  end
+
+  # io_writev: the bytes of `parts`, which are converted already, go out
+  # with nothing run between them, as CRuby's writev writes them at once.
+  # So no finalizer and no other thread writes between two parts: they go
+  # into the buffer one after the other when all fit, else out in one
+  # write. Returns their byte count.
+  def write_parts(parts)
+    Primitive.attr! :hidden
+    # Loops, not `each`: a yield is a safe point.
     total = 0
     i = 0
-    while i < Primitive.zr_ary_len_m(objects)
-      total += write_bytes(converted(Primitive.zr_obj_as_string(Primitive.zr_ary_at_m(objects, i))))
+    while i < Primitive.zr_ary_len_m(parts)
+      total += Primitive.zr_ary_at_m(parts, i).bytesize
       i += 1
     end
-    total
+    bytes = write_room?(total) ? @wbuf : "".b
+    PENDING << self if bytes.equal?(@wbuf) && @wbuf.empty?
+    i = 0
+    while i < Primitive.zr_ary_len_m(parts)
+      Primitive.zr_str_cat_bytes(bytes, Primitive.zr_ary_at_m(parts, i))
+      i += 1
+    end
+    bytes.equal?(@wbuf) ? total : write_bytes(bytes)
+  end
+
+  # The same for the two parts of a line that `puts` writes, its text and
+  # the newline, with no Array.
+  def write_pair(first, second)
+    Primitive.attr! :hidden
+    total = first.bytesize + second.bytesize
+    bytes = write_room?(total) ? @wbuf : "".b
+    PENDING << self if bytes.equal?(@wbuf) && @wbuf.empty?
+    Primitive.zr_str_cat_bytes(bytes, first)
+    Primitive.zr_str_cat_bytes(bytes, second)
+    bytes.equal?(@wbuf) ? total : write_bytes(bytes)
+  end
+
+  # Whether `size` more bytes stay in the write buffer.
+  def write_room?(size)
+    Primitive.attr! :hidden
+    !@sync && !@tty && @wbuf.bytesize + size < WBUF_CAPA
   end
 
   # do_writeconv: the bytes that a write puts out. `xml: :attr` quotes
@@ -1685,8 +1721,8 @@ class IO
     end
     if Primitive.zr_ary_len_m(objects) == 1 && (text = Primitive.zr_ary_at_m(objects, 0)).is_a?(String)
       check_writable
-      write_bytes(converted(text))
-      write_bytes(converted(NEWLINE)) unless IO.send(:ends_line?, text)
+      line = converted(text)
+      IO.send(:ends_line?, text) ? write_bytes(line) : write_pair(line, converted(NEWLINE))
       return nil
     end
     IO.each_line_of(objects) { |*parts| write(*parts) }
