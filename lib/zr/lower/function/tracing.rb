@@ -14,6 +14,8 @@ module Zr
         # @rbs @kind: Function::kind
         # @rbs @l: Lower
         # @rbs @qnil: String
+        # @rbs @ensure_path: Symbol
+        # @rbs @jump_line: Integer?
 
         # ruby's RUBY_EVENT_* bits.
         EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze #: Hash[Symbol, Integer]
@@ -32,9 +34,14 @@ module Zr
         end
 
         # `Hir::Trace`: the `:line` event, on the line the statement starts.
+        # The event of a silent ensure body fires only on its path
+        # (`Hir::Trace#line_on`).
         #: (Hir::Trace node) -> String
         def trace_line(node)
-          at_node(node)
+          line = node.line_on(@ensure_path, @jump_line)
+          return @qnil unless line
+
+          line == node.line ? at_node(node) : at_line(line)
           fire(:line) if traced?
           @qnil
         end

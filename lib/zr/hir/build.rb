@@ -48,6 +48,7 @@ module Zr
       # @rbs @last_lines: Array[Integer]
       # @rbs @pending_events: Array[bool]
       # @rbs @traced_lines: Array[Integer?]
+      # @rbs @ensure_exits: Array[Trace?]
       # @rbs @warnings: Array[String]
       # @rbs @def_depths: Hash[Symbol, Integer]?
       # @rbs @def_params: Params?
@@ -219,6 +220,7 @@ module Zr
         @last_lines = [-1]
         @pending_events = [false]
         @traced_lines = [nil]
+        @ensure_exits = [nil]
         @warnings = []
         # The depth of each parameter of the method that an eval runs in,
         # outside the eval's own scope. nil inside a def of the file,
@@ -328,6 +330,7 @@ module Zr
         @last_lines.push(-1)
         @pending_events.push(false)
         @traced_lines.push(nil)
+        @ensure_exits.push(nil)
         begin
           yield
         ensure
@@ -337,6 +340,7 @@ module Zr
           @last_lines.pop
           @pending_events.pop
           @traced_lines.pop
+          @ensure_exits.pop
         end
       end
 
@@ -354,6 +358,7 @@ module Zr
         @last_lines.push(-1)
         @pending_events.push(false)
         @traced_lines.push(nil)
+        @ensure_exits.push(nil)
         begin
           yield
         ensure
@@ -365,6 +370,7 @@ module Zr
           @last_lines.pop
           @pending_events.pop
           @traced_lines.pop
+          @ensure_exits.pop
         end
       end
 
@@ -543,6 +549,7 @@ module Zr
         out = using_activation(node) || assigned_using(node) || expr(node, taken: taken)
         # The statement's event found its instruction inside it.
         @traced_lines[-1] = nil
+        exit_event(node.location.start_line) unless node.is_a?(Prism::BeginNode)
         out = Seq.new([traced, out], traced.line) if traced
         mark_using(out, {}) if @using
         return out if out.is_a?(Using)
@@ -813,6 +820,7 @@ module Zr
         end
         else_body = node.else_clause && (node.else_clause.statements ? seq(node.else_clause.statements, taken: taken) : Literal.new(nil, line))
         ensure_body = node.ensure_clause && (node.ensure_clause.statements ? seq(node.ensure_clause.statements, taken: false) : Literal.new(nil, line))
+        ensure_body = silent_ensure(ensure_body, node.ensure_clause) if node.ensure_clause
         Begin.new(body, rescues, else_body, ensure_body, line)
       end
 
@@ -909,6 +917,7 @@ module Zr
               params = parameters(node.parameters)
               @def_params = params
               body = node.body ? expr(node.body) : Literal.new(nil, node.location.start_line)
+              exit_event(node.location.end_line)
               body = marked(body, marks, node.location.start_line) unless marks.empty?
               locals = with_temps(node.locals + (params.names - node.locals))
               Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line,
@@ -1133,6 +1142,7 @@ module Zr
         in_block do
           params, extra = block_params(node.parameters)
           body = node.body ? expr(node.body) : Literal.new(nil, line)
+          exit_event(node.location.end_line)
           noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
                           node.location.end_line, method_cover(node)), node)
         end
@@ -1562,6 +1572,7 @@ module Zr
         in_block do
           params, extra = block_params(node.parameters)
           body = node.body ? expr(node.body) : Literal.new(nil, line)
+          exit_event(node.location.end_line)
           Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, node.opening_loc.start_line,
                                      node.location.end_line, method_cover(node)), node), line)
         end
@@ -1650,6 +1661,7 @@ module Zr
         in_definee(node.constant_path.slice, false) do
           in_scope do
             body = node.body ? expr(node.body) : Literal.new(nil, line)
+            exit_event(node.location.end_line)
             ClassDef.new(scope, name, superclass, with_temps(node.locals), body, line, node.location.end_line)
           end
         end
@@ -1662,6 +1674,7 @@ module Zr
         in_definee(node.constant_path.slice, false) do
           in_scope do
             body = node.body ? expr(node.body) : Literal.new(nil, line)
+            exit_event(node.location.end_line)
             ModuleDef.new(scope, name, with_temps(node.locals), body, line, node.location.end_line)
           end
         end

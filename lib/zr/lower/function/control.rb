@@ -500,9 +500,9 @@ module Zr
           elsif @kind == :class || @kind == :module
             # Only an inlined block's `return` is in a body.
             at_node(node)
-            leave(through_ensures(checked(kernel("zr_body_return", @rec, v))), line: node.line)
+            leave(through_ensures(checked(kernel("zr_body_return", @rec, v)), line: node.line), line: node.line)
           else
-            leave(through_ensures(v), line: node.line)
+            leave(through_ensures(v, line: node.line), line: node.line)
           end
           @qnil
         end
@@ -592,7 +592,7 @@ module Zr
         def jump_out(node, kind)
           v = expr(node.value)
           if (loop = @loops.last)
-            v = through_ensures(v, loop.depth)
+            v = through_ensures(v, loop.depth, line: node.line)
             if kind == :break
               @f.jump(loop.done, [v])
             elsif loop.step

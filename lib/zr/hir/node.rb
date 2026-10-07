@@ -269,8 +269,34 @@ module Zr
     Local = Node.new(:name, :depth, :line)
     # A point where a traced program fires a TracePoint `event`: a
     # `:line` event, where ruby's compiler puts one (at a statement that
-    # starts a new line).
+    # starts a new line). The event of an ensure body whose statements
+    # compile to nothing depends on the path that runs the body, as CRuby
+    # compiles the body once per path: a `:raise_line` fires on a raise,
+    # and an `:exit_line` on the normal exit. An `:unused` one fires
+    # never.
     Trace = Node.new(:event, :line)
+
+    class Trace
+      # The line that the event fires on in an ensure body that runs on
+      # `path` (:exit, :raise or :jump), or outside one (:none), or nil
+      # when it does not fire. A local jump (`return`, or `break` out of
+      # a loop) that runs the body gives the event to its own instruction,
+      # on `jump_line`. One with no line of its own (a block's `next`)
+      # leaves it to the `end` of its block.
+      #: (Symbol path, Integer? jump_line) -> Integer?
+      def line_on(path, jump_line)
+        case event
+        when :raise_line
+          case path
+          when :raise then line
+          when :jump then jump_line
+          end
+        when :exit_line then line if path == :exit || (path == :jump && jump_line.nil?)
+        when :unused then nil
+        else line
+        end
+      end
+    end
     # Counts one run of branch `id` in a program that Coverage measures.
     # The id is unique in the program, not only in the file: all branches
     # of all files share one counter array, and `Program#branches` tells

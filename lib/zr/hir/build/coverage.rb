@@ -64,6 +64,7 @@ module Zr
       #: (Integer line) -> Trace
       def traced(line)
         @pending_events[-1] = false
+        @ensure_exits[-1] = nil
         @traced_lines[-1] = line
         @loader.line_event!(@file, line)
         Trace.new(:line, line)
@@ -80,6 +81,40 @@ module Zr
         @pending_events[-1] ||= @last_lines.last != start
         @last_lines[-1] = start
         nil
+      end
+
+      # An `ensure` body whose statements all compile to nothing leaves
+      # their event waiting. CRuby compiles the body twice. On the raise
+      # path the event goes to the `throw` at the `ensure` line. On the
+      # normal path it goes to what follows (`exit_event`): the next
+      # statement's own event, at the end of a method or block the
+      # `leave` at its `end`, and inside a statement the instruction that
+      # takes the value, such as the write of `x = begin`.
+      #: (node body, Prism::EnsureNode clause) -> node
+      def silent_ensure(body, clause)
+        statements = clause.statements
+        return body unless statements && traces_here? && @dead.zero? && @pending_events.last && statements_line(statements, false).nil?
+
+        raised = Trace.new(:raise_line, clause.ensure_keyword_loc.start_line)
+        @loader.line_event!(@file, raised.line)
+        left = Trace.new(:unused, raised.line)
+        @ensure_exits[-1] = left
+        Seq.new([body, raised, left], body.line)
+      end
+
+      # The event that a silent `ensure` body left waiting on its normal
+      # path goes to the next instruction, on `line`, when no statement
+      # took it first.
+      #: (Integer line) -> void
+      def exit_event(line)
+        left = @ensure_exits.last
+        return unless left && @pending_events.last
+
+        left.event = :exit_line
+        left.line = line
+        @loader.line_event!(@file, line)
+        @ensure_exits[-1] = nil
+        @pending_events[-1] = false
       end
 
       # Plain values that CRuby's compiler drops when nothing uses them.

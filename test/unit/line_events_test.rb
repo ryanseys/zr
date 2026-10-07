@@ -45,6 +45,20 @@ class LineEventsTest < Minitest::Test
     statements_on_one_line_after_nothing: "begin; 1.to_s if false; nil.to_a; rescue; end\n",
     parentheses_after_nothing: "w = (if true then \"yes\" else \"no\" end; \"after\")\n",
     begin_blocks: "BEGIN { puts 1 }\nBEGIN {\n  puts 2\n}\nputs 3\n",
+    ensure_of_a_block: "def f\n  [1].map do |w|\n    w.to_s\n  ensure\n    nil\n  end\nend\n",
+    ensure_of_a_method: "def f\n  1.to_s\nensure\n  nil\nend\n",
+    ensure_then_a_statement: "def f\n  begin\n    1.to_s\n  ensure\n    nil\n  end\n  2.to_s\nend\n",
+    ensure_last_in_a_method: "def f\n  begin\n    1.to_s\n  ensure\n    nil\n  end\nend\n",
+    ensure_in_a_written_value: "def f\n  x = begin\n    1.to_s\n  ensure\n    nil\n  end\n  x\nend\n",
+    ensure_of_a_block_statement: "def f\n  [1].each do |w|\n    w.to_s\n  ensure\n    nil\n  end\n  2.to_s\nend\n",
+    ensure_of_two_silent_statements: "def f\n  1.to_s\nensure\n  nil\n  :a\nend\n",
+    ensure_with_code: "def f\n  1.to_s\nensure\n  nil\n  2.to_s\nend\n",
+    ensure_at_the_top_level: "begin\n  1.to_s\nensure\n  nil\nend\n",
+    ensure_after_a_rescue: "def f\n  1.to_s\nrescue\n  2\nensure\n  nil\nend\n",
+    ensure_of_a_module: "module M\n  1.to_s\nensure\n  1\nend\n",
+    ensure_of_a_class: "class C\n  1.to_s\nensure\n  1\nend\n",
+    ensure_of_a_singleton_class: "class << self\n  1.to_s\nensure\n  1\nend\n",
+    ensure_of_a_lambda: "f = -> do\n  1.to_s\nensure\n  nil\nend\n",
     guarded_class: "class A\n  def b = 1\nend if 1.to_s\n"
   }.freeze
 

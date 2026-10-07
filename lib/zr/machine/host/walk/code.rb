@@ -351,6 +351,10 @@ module Zr
             word = line_word(node, s)
             traced = s.unit.traced
             lambda do |f|
+              # The walker knows no jump's line: a jump's event goes to
+              # the `end` (`Hir::Trace#line_on`).
+              next @qnil unless node.line_on(@ensure_path, nil)
+
               line!(f, word)
               fire(:line) if traced
               @qnil

@@ -280,14 +280,23 @@ module Zr
                 v
               rescue Unwind
                 left = false
-                ensured(f, ensure_body, saved)
+                on_path(:raise) { ensured(f, ensure_body, saved) }
                 raise
               ensure
-                ensure_body.call(f) if left
+                on_path(:jump) { ensure_body.call(f) } if left
               end
-              ensure_body.call(f)
+              on_path(:exit) { ensure_body.call(f) }
               value
             end
+          end
+
+          # Runs an ensure body on `path`, as Lower::Function::Regions#run_ensure.
+          def on_path(path)
+            was = @ensure_path
+            @ensure_path = path
+            yield
+          ensure
+            @ensure_path = was
           end
 
           # The code of a region's body and its rescue clauses, a lambda of

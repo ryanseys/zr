@@ -62,6 +62,8 @@ module Zr
       # @rbs @sites: Integer
       # @rbs @loops: Array[Loop]
       # @rbs @regions: Array[Regions::Region]
+      # @rbs @ensure_path: Symbol
+      # @rbs @jump_line: Integer?
       # @rbs @retries: Array[[String, Integer, Integer]]
       # @rbs @rescue_lines: Array[Integer]
       # @rbs @rescue_rows: Hash[Integer, Array[Integer]]
@@ -196,6 +198,8 @@ module Zr
         @sites = 0
         @loops = []
         @regions = []
+        @ensure_path = :none
+        @jump_line = nil
         @retries = []
         # The `begin` lines of the rescue clauses that the code being
         # lowered runs in, outermost first, and the clauses of each node

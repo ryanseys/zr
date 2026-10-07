@@ -21,6 +21,8 @@ module Zr
         # @rbs @qnil: String
         # @rbs @rec: String
         # @rbs @regions: Array[Regions::Region]
+        # @rbs @ensure_path: Symbol
+        # @rbs @jump_line: Integer?
         # @rbs @retries: Array[[String, Integer, Integer]]
         # @rbs @rescue_lines: Array[Integer]
         # @rbs @sp: Integer
@@ -82,7 +84,7 @@ module Zr
           @regions.pop
           unless @f.terminated?
             @f.store(v, @rec, value_at)
-            run_ensure(body)
+            run_ensure(body, :exit)
             @f.jump(merge, [@f.fetch("i64", @rec, value_at)]) unless @f.terminated?
           end
           switch(region.landing, open: true)
@@ -90,9 +92,9 @@ module Zr
           @f.store(kernel("zr_signal_take", signal), @rec, value_at)
           if errinfo
             dropped = -> { kernel("zr_errinfo_set", @f.fetch("i64", @rec, began_at)) }
-            with_ensure(dropped, errinfo: false) { run_ensure(body) }
+            with_ensure(dropped, errinfo: false) { run_ensure(body, :raise) }
           else
-            run_ensure(body)
+            run_ensure(body, :raise)
           end
           unless @f.terminated?
             kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at)) if errinfo
@@ -104,9 +106,22 @@ module Zr
           result
         end
 
-        #: (ensure_body body) -> String
-        def run_ensure(body)
-          body.is_a?(Proc) ? body.call : expr(body)
+        # Runs an ensure body on `path`: the normal exit (:exit), a raise
+        # (:raise), or a local jump out of the region (:jump), whose own
+        # instruction is on `jump_line`. A silent body's :line event
+        # depends on them (`Hir::Trace#line_on`).
+        #: (ensure_body body, ?Symbol path, ?Integer? jump_line) -> String
+        def run_ensure(body, path = :jump, jump_line = nil)
+          return body.call if body.is_a?(Proc)
+
+          was = [@ensure_path, @jump_line]
+          @ensure_path = path
+          @jump_line = jump_line
+          begin
+            expr(body)
+          ensure
+            @ensure_path, @jump_line = was
+          end
         end
 
         # The body in its rescue clauses, and the else branch after a body
@@ -239,9 +254,9 @@ module Zr
 
         # The ensure bodies between here and region depth `depth`,
         # innermost first. A `return` or a loop's jump runs them when it
-        # leaves.
-        #: (Integer depth) -> void
-        def unwind(depth)
+        # leaves, from its instruction on `line`.
+        #: (Integer depth, ?Integer? line) -> void
+        def unwind(depth, line = nil)
           left = [] #: Array[Region]
           inner_scope = @inline_scope
           inner_rec = @line_rec
@@ -253,7 +268,7 @@ module Zr
             if outer
               leave_inline(outer) if @regions.size > depth
             elsif body
-              run_ensure(body)
+              run_ensure(body, :jump, line)
             end
           end
           @inline_scope = inner_scope
@@ -273,14 +288,15 @@ module Zr
         end
 
         # Runs the ensure bodies down to region depth `depth`, then returns
-        # `v`. The record keeps `v` during the ensure bodies.
-        #: (String v, ?Integer depth) -> String
-        def through_ensures(v, depth = 0)
+        # `v`. The record keeps `v` during the ensure bodies. `line` is the
+        # line of the jump that leaves.
+        #: (String v, ?Integer depth, ?line: Integer?) -> String
+        def through_ensures(v, depth = 0, line: nil)
           return v if @regions.size <= depth
 
           at = value_offset(reserve(1))
           @f.store(v, @rec, at)
-          unwind(depth)
+          unwind(depth, line)
           @sp -= 1
           # An ensure body that returned or jumped ended the block. The code
           # after it is unreachable and goes in a new block.

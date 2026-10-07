@@ -283,6 +283,8 @@ module Zr
     class Trace < Node
       attr_accessor event: Symbol
       attr_accessor line: Integer
+
+      def line_on: (Symbol path, Integer? jump_line) -> Integer?
     end
 
     class Cover < Node
