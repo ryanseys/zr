@@ -90,6 +90,8 @@ module Zr::Kern
     attr_accessor :direct #: ptr
     attr_accessor :concealed #: word
     attr_accessor :body #: ptr
+    # 1 on a method that Refinement#import_methods copied (zr_imported_invoke).
+    attr_accessor :imported #: word
   end
 
   class CEntry < Layout
@@ -813,6 +815,18 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     Machine.value(QTRUE)
+  end
+
+  # Marks the method `name` that Refinement#import_methods copied into
+  # `refinement` (zr_imported_invoke).
+  #: (value, value) -> value
+  def zr_mod_import_mark(refinement, name)
+    e = zr_find_method_at(zr_origin(refinement), zr_sym2id(name))
+    if e != 0
+      MEntry[e].imported = 1
+      zr_methods_changed()
+    end
+    Machine.value(QNIL)
   end
 
   # rb_cvar_get's lookup: the value belongs to the farthest ancestor that
@@ -1843,6 +1857,7 @@ module Zr::Kern
     MEntry[e].ivar.index = 0
     MEntry[e].concealed = conceal ? 1 : 0
     MEntry[e].body = 0
+    MEntry[e].imported = 0
     if conceal
       zr_hidden_defined_method(klass, mid)
     end
@@ -2939,7 +2954,7 @@ module Zr::Kern
     s = Machine.static(:mcache_stamp, 8)
     stamp = Machine.load64(s, 0) + 1
     Machine.store64(s, 0, stamp)
-    if Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0
+    if Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0 && !zr_imports_running_p()
       Machine.store64(Machine.static(:site_stamp, 8), 0, stamp)
     end
     zr_consts_changed()

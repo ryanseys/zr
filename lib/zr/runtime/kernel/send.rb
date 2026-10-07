@@ -311,9 +311,10 @@ module Zr::Kern
   # A method that Refinement#import_methods copied runs with its
   # refinement active, as the cref of CRuby's copy has it. Its body was
   # compiled outside the `refine`, so its sends do not name the
-  # refinement. Thus a send that misses in a method that runs as a
-  # refinement's method looks again with that refinement active. Returns
-  # the entry, or 0.
+  # refinement. Thus while such a method runs (zr_imported_invoke), a send
+  # from a method that runs as a refinement's method looks with that
+  # refinement active first, and so does a send that misses. Returns the
+  # entry, or 0.
   #: (value, word) -> ptr
   def zr_imported_refined_method(recv, mid)
     t = zr_task()
@@ -321,7 +322,21 @@ module Zr::Kern
     if top == 0 || Task[t].refine != QNIL
       return 0
     end
-    r = Frame[top].defined
+    # The code that sends is in a def, or in a block in it. The nearest
+    # frame of that def tells where its method was found: in the
+    # refinement for the copy, elsewhere for the module's own method.
+    scope = zr_backref_scope_meta(Frame[top].meta)
+    if scope == 0 || FrameMeta[scope].kind != KIND_DEF
+      return 0
+    end
+    rec = top
+    while rec != 0 && (Frame[rec].meta == 0 || FrameMeta[Frame[rec].meta].kind != KIND_DEF || FrameMeta[Frame[rec].meta].locals != FrameMeta[scope].locals)
+      rec = Frame[rec].prev
+    end
+    if rec == 0
+      return 0
+    end
+    r = Frame[rec].defined
     if zr_special_p(r) || zr_type(r) != T_MODULE || ClassExt[RClass[r].ext].refined == QNIL
       return 0
     end
@@ -331,6 +346,32 @@ module Zr::Kern
     e = zr_refined_search(zr_box_view(zr_class_of(recv)), mid)
     Task[t].refine = Machine.value(QNIL)
     e
+  end
+
+  # Whether a method that Refinement#import_methods copied runs now.
+  #: () -> bool
+  def zr_imports_running_p
+    Machine.load64(Machine.static(:imports_running, 8), 0) != 0
+  end
+
+  # Calls a method that Refinement#import_methods copied. Its body's
+  # sends, which the module's own method shares, look up under the
+  # refinement while it runs (zr_imported_refined_method). So a new method
+  # stamp leaves each cache entry stale, and no entry is filled until it
+  # returns (zr_call_cache_fill). No cache entry holds such a method, so
+  # each call of it comes here.
+  #: (ptr, value, word, ptr, value) -> value
+  def zr_imported_invoke(e, recv, argc, argv, blk)
+    running = Machine.static(:imports_running, 8)
+    Machine.store64(running, 0, Machine.load64(running, 0) + 1)
+    Machine.store64(Machine.static(:site_stamp, 8), 0, 0 - 1)
+    zr_methods_changed()
+    r = Method.call(MEntry[e].fn, recv, argc, argv, e, blk, zr_entry_found(e))
+    Machine.store64(running, 0, Machine.load64(running, 0) - 1)
+    if Machine.load64(running, 0) == 0
+      zr_methods_changed()
+    end
+    r
   end
 
   #: (value, word, word, word, ptr) -> value
@@ -504,7 +545,10 @@ module Zr::Kern
     kw = zr_kw_take()
     klass = zr_box_view(zr_class_of(recv))
     e = 0
-    if (mode & SEND_CORE) != 0 && zr_core_class_p(klass) && ClassExt[RClass[klass].ext].boxed == QNIL
+    if zr_imports_running_p()
+      e = zr_imported_refined_method(recv, mid)
+    end
+    if e == 0 && (mode & SEND_CORE) != 0 && zr_core_class_p(klass) && ClassExt[RClass[klass].ext].boxed == QNIL
       e = zr_find_core_method(klass, mid)
     end
     if e == 0
@@ -605,7 +649,7 @@ module Zr::Kern
     if e == 0
       return zr_method_missing(recv, mid, argc, argv, blk, kw, MISS_SUPER)
     end
-    if cc != 0 && !refined && Task[t].refine == QNIL && Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0
+    if cc != 0 && !refined && Task[t].refine == QNIL && Machine.load64(Machine.static(:mcache_mode, 8), 0) == 0 && !zr_imports_running_p() && MEntry[e].imported == 0
       SuperCache[cc].node = k
       SuperCache[cc].mid = mid
       SuperCache[cc].stamp = Machine.load64(Machine.static(:mcache_stamp, 8), 0)
@@ -872,6 +916,9 @@ module Zr::Kern
         end
       end
       Task[zr_task()].kw = kw
+      if MEntry[e].imported != 0
+        return zr_imported_invoke(e, recv, argc, argv, blk)
+      end
       return Method.call(MEntry[e].fn, recv, argc, argv, e, blk, zr_entry_found(e))
     end
     # An accessor has no frame, so its arity error comes from the caller.

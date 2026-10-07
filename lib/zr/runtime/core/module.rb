@@ -335,6 +335,7 @@ class Refinement
         raise ArgumentError, "Can't import method which is not defined with Ruby code: #{mod}##{name}" unless ok
 
         define_method(name, mod.instance_method(name))
+        Primitive.zr_mod_import_mark(self, name)
         private name if private_names.include?(name)
       end
     end

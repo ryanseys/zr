@@ -172,6 +172,10 @@ module Zr::Kern
     if (Task[t].refine != QNIL && (mode & SEND_USING) == 0) || ClassExt[RClass[klass].ext].boxed != QNIL
       return
     end
+    # A copy of Refinement#import_methods runs through zr_imported_invoke.
+    if zr_imports_running_p() || MEntry[e].imported != 0
+      return
+    end
     # For a private or protected method with an explicit receiver, the
     # caller decides the result, not the class.
     if (mode & SEND_MODE) >= 2 && MEntry[e].vis != VIS_PUBLIC
