@@ -265,6 +265,18 @@ class GemCompatTest < Minitest::Test
     assert_equal ["helper-1.2.0.gemspec", "tiny-1.0.0.gemspec", CORPUS.find("helper").root, CORPUS.find("tiny").root], runner.homes.first
   end
 
+  def test_rubys_gem_path_holds_only_the_trials_gems_and_not_the_whole_store
+    store = Gems::FetchedGems.new(@dir)
+    packed = store.unpack(package("packed", "0.4.0", "lib/packed.rb" => ""))
+    store.unpack(package("other", "1.0.0", "lib/other.rb" => ""))
+    runner = Runner.new
+
+    trial(runner).call(Gems::Request.parse("packed"))
+
+    assert_equal ["packed-0.4.0.gemspec", packed.root], runner.homes.first,
+                 "a gem of the store whose C extension was never built makes ruby warn"
+  end
+
   def test_a_smoke_program_that_gives_rubys_output_verifies_the_gem
     runner = Runner.new
     result = trial(runner).call(Gems::Request.parse("tiny"))

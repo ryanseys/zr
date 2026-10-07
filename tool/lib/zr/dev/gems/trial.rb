@@ -173,15 +173,14 @@ module Zr
           raise Failure.new(kind == "crash" ? "zr-crash" : kind, difference(ruby, zr), tier: :compiles)
         end
 
-        # A gem home that holds `gems`, for ruby's GEM_PATH, so a gem that
-        # activates another one (`gem "parser", ">= 3.3"`, as rubocop-ast
-        # does) finds it. The store is one when it holds them all. A gem
-        # from a path or a corpus gets a home in `dir`: a specification
-        # and a link to each gem's files.
+        # A gem home in `dir` that holds `gems` and no other gem, for
+        # ruby's GEM_PATH, so a gem that activates another one (`gem
+        # "parser", ">= 3.3"`, as rubocop-ast does) finds it: a
+        # specification and a link to each gem's files. Not the store: it
+        # also holds gems with a C extension that was never built, and
+        # ruby warns "Ignoring json-3.0.2 because its extensions are not
+        # built" for each one, which the diff counts as zr's error.
         def gem_home(dir, gems)
-          store = @resolver.store
-          return store.dir if gems.all? { |gem| store.holds?(gem) }
-
           home = File.join(dir, "gem-home")
           FileUtils.rm_rf(home)
           FileUtils.mkdir_p([File.join(home, "gems"), File.join(home, "specifications")])

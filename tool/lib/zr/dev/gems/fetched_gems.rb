@@ -36,9 +36,6 @@ module Zr
         # The install directory that rubygems downloads into (its `cache/`).
         def downloads = @dir
 
-        # Whether `subject` is a gem of this store.
-        def holds?(subject) = File.dirname(subject.root) == gems
-
         # The unpacked `name` at `version`, or nil.
         def find(name, version) = read(File.join(gems, "#{name}-#{version}"))
 
