@@ -287,7 +287,7 @@ module ObjectSpace
     end
 
     # "%p": the address in hex, without the zeros in front.
-    def address(obj) = format("0x%x", Primitive.zr_any_to_s(obj)[/0x(\h+)/, 1].hex)
+    def address(obj) = format("0x%x", Primitive.zr_objspace_address(obj))
 
     def json(value)
       case value

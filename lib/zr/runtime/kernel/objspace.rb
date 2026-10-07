@@ -347,6 +347,12 @@ module Zr::Kern
     zr_fix(RString[s].capa)
   end
 
+  # The address of `v`'s cell, which ObjectSpace.dump writes.
+  #: (value) -> value
+  def zr_objspace_address(v)
+    zr_fix(Machine.word(v))
+  end
+
   # The size of `v`'s cell, which ObjectSpace.dump calls its slot size.
   #: (value) -> value
   def zr_objspace_slot_size(v)
