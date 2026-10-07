@@ -22,6 +22,7 @@ module Zr
         # @rbs @ahead: Array[String]
         # @rbs @booted: Array[String]
         # @rbs @gems: bool
+        # @rbs @native_gems: Array[GemSet::Entry]
         # @rbs @eval: bool
         # @rbs @trace: bool
         # @rbs @traces: bool
@@ -109,6 +110,7 @@ module Zr
           @ahead = ahead
           @booted = booted
           @gems = false
+          @native_gems = [] #: Array[GemSet::Entry]
           @eval = eval
           @trace = trace
           @traces = false
@@ -730,7 +732,14 @@ module Zr
         # Why a build cannot use the file at `path`: it is in a gem of the
         # GemSet that zr cannot compile (a C extension). Nil otherwise.
         #: (String? path, ?String? feature) -> String?
-        def refused_gem(path, feature = nil) = @gem_set&.refusal(path, feature)
+        def refused_gem(path, feature = nil) = @gem_set&.refused(path, feature)
+
+        # Each gem of the set that the program reaches whose C part zr does
+        # not port. The build says so once for each (`Build.program`).
+        #: (GemSet::Entry gem) -> void
+        def native_gem!(gem) = (@native_gems << gem unless @native_gems.include?(gem))
+
+        attr_reader :native_gems #: Array[GemSet::Entry]
 
         # A file's real path, as ruby's rb_current_realfilepath, or the path
         # as given when no file is there. A require_relative starts from it,

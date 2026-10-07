@@ -68,7 +68,8 @@ depend on where the gem is installed. `gem unpack` writes the gem to
 `vendor/<name>-<version>`.
 
 A gem that needs a C extension does not work this way: zr compiles no
-C, and a binary cannot load a C extension.
+C, and a binary cannot load a C extension. The rules below tell what
+zr does with one.
 
 ## Another version of a gem
 
@@ -123,12 +124,18 @@ zr compiles no C, so these rules apply to a gem with a C extension:
   version stops the build at the `require`:
 
   ```
-  zr: app.rb:1: require of "json": json 2.18.0 (Gemfile.lock): zr implements the C part of json ~> 3.0.2 only. Put a version in that range in the Gemfile, then run 'bundle install'.
+  zr: app.rb:1: require of "json": json 2.18.0 (Gemfile.lock): zr implements the C part of json >= 2.20, < 3.1 only. Put a version in that range in the Gemfile, then run 'bundle install'.
   ```
 
-- Any other gem with a C extension stops the build at its `require`,
-  with the gem's name. A gem that the program never requires does not
-  stop the build.
+- Any other gem with a C extension builds without its C part: zr
+  compiles its Ruby files, and a `require` of the C part raises
+  `LoadError` if it runs, as in a ruby where the extension did not
+  build. A gem whose Ruby has a fallback for that `LoadError` (cgi's
+  escape functions) works. The build says which gem lost its C part:
+
+  ```
+  zr: warning: cgi 0.5.2 (Gemfile.lock) has a C extension, and zr has no port of it. zr compiles only Ruby: its Ruby files compile, and a require of its C part raises LoadError if it runs
+  ```
 
 - A lock can name a default gem (a gem that ruby itself installs) at
   ruby's own version. zr then uses its standard library's copy of the

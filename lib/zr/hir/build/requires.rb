@@ -152,12 +152,18 @@ module Zr
       end
 
       # A require that reaches a file of a gem that zr cannot compile
-      # (`GemSet#refusal`) stops the build at the require's line: ruby
-      # would load the gem's C extension there.
+      # (`GemSet#refusal`) stops the build at the require's line. A gem
+      # whose C extension zr does not port (`GemSet::Entry#native`) is
+      # compiled but for that part: the build says so once, and a require
+      # of the C part, which no root holds, raises LoadError if it runs, as
+      # it does in a ruby where the extension did not build.
       #: (Prism::CallNode node, String? feature, String? path) -> void
       def gem_refusal(node, feature, path)
-        why = @loader.refused_gem(path, (feature unless node.name == :require_relative))
-        refuse(node, "require of #{feature.to_s.inspect}: #{why}") if why
+        gem = @loader.refused_gem(path, (feature unless node.name == :require_relative))
+        return unless gem
+        return @loader.native_gem!(gem) if gem.native
+
+        refuse(node, "require of #{feature.to_s.inspect}: #{gem.refusal}")
       end
 
       # The reason that a ruby library is not here, when the reason is a

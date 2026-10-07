@@ -112,6 +112,7 @@ class GemSetTest < Minitest::Test
 
     assert_match(/\Anative 1\.0\.0 \(--gem native=.+\) has a C extension, and zr has no port of it/, set.refusal(File.join(dir, "lib/native.rb")))
     assert_nil set.refusal(File.join(@dir, "other/lib/native.rb"))
+    assert set.gems.first.native, "only its C part is refused"
   end
 
   def test_a_port_outside_its_compat_range_is_refused_and_inside_is_used
@@ -120,6 +121,7 @@ class GemSetTest < Minitest::Test
     refusal = resolve([["json", old]], "BUNDLE_GEMFILE" => nil).gems.first.refusal
 
     assert_includes refusal, "zr implements the C part of json #{Zr::Library::Ports::ALL.fetch("json").compat} only"
+    refute resolve([["json", old]], "BUNDLE_GEMFILE" => nil).gems.first.native, "a port at another version is refused whole"
   end
 
   def test_a_port_inside_its_compat_range_uses_zrs_c
@@ -226,6 +228,24 @@ class GemSetTest < Minitest::Test
 
     # A require finds the file by the real path of its directory.
     assert_equal [File.join(File.realpath(lib), "csv.rb")], hir.units.map(&:file)
+  end
+
+  # A gem whose C extension zr does not port compiles but for its C part:
+  # a require of that part, which no root holds, raises LoadError if it
+  # runs, and the build says so once.
+  def test_a_gem_with_an_unported_c_extension_compiles_its_ruby_files
+    lib = File.join(gem_dir("native", "1.0.0"), "lib")
+    File.write(File.join(lib, "native.rb"), "begin\n  require \"native/native\"\nrescue LoadError\n  NATIVE = :fallback\nend\n")
+    main = File.join(@dir, "main.rb")
+    gems = set(name: "native", version: "1.0.0", roots: [lib], refusal: "native 1.0.0 (--gem) has a C extension, and zr has no port of it",
+               native: true)
+
+    hir = nil
+    _, err = capture_io { hir = Zr::Hir.build(%(require "native"\nrequire "native"\n), main, gem_set: gems) }
+
+    assert_equal [File.join(File.realpath(lib), "native.rb")], hir.units.map(&:file)
+    assert_equal 1, err.scan("native 1.0.0 (--gem) has a C extension").size
+    assert_includes err, "a require of its C part raises LoadError if it runs"
   end
 
   def test_a_require_of_a_refused_gem_stops_the_build_at_its_line

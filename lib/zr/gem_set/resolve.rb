@@ -32,7 +32,10 @@ module ZrGemSet
   #: (String name, String? version, String source, Array[String] roots, bool extensions, Hash[String, String] ports) -> Hash[String, untyped]
   def gem(name, version, source, roots, extensions, ports)
     refusal = refusal(name, version, source, extensions, ports)
-    { "name" => name, "version" => version, "source" => source, "roots" => roots, "refusal" => refusal }
+    # A C extension that zr does not port refuses only its C part
+    # (GemSet::Entry#native); a port's gem at another version refuses all.
+    native = !refusal.nil? && extensions && !ports.key?(name)
+    { "name" => name, "version" => version, "source" => source, "roots" => roots, "refusal" => refusal, "native" => native }
   end
 
   #: (String name, String? version, String source, bool extensions, Hash[String, String] ports) -> String?

@@ -155,6 +155,9 @@ module Zr
         # time starts after the last of them.
         preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.evals? && loader.activations.positive?
         preludes << switched if switched
+        loader.native_gems.each do |gem|
+          warn "zr: warning: #{gem.refusal}: its Ruby files compile, and a require of its C part raises LoadError if it runs"
+        end
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)
         body = Seq.new([data(main, loader.data_at(main.file)), body], 0) if loader.data_at(main.file)
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h

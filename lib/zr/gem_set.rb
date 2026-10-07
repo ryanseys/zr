@@ -28,8 +28,12 @@ module Zr
   class GemSet
     # One gem: its name, version, where it came from (`Gemfile.lock` or
     # the flag), its require roots, and why a build cannot use it, or nil.
+    # A gem whose refusal is `native` has a C extension that zr does not
+    # port: its Ruby files compile, and a require of its C part, which no
+    # root holds, raises LoadError if it runs, as in a ruby where the
+    # extension did not build. The build says so (`Hir::Build#gem_refusal`).
     # @rbs skip -- typed in sig/zr/gem_set.rbs
-    Entry = Struct.new(:name, :version, :source, :roots, :refusal, keyword_init: true) do
+    Entry = Struct.new(:name, :version, :source, :roots, :refusal, :native, keyword_init: true) do
       # The root of the gem that holds the file `path`, as given or as its
       # real path, or nil: a require finds a file through a symlinked
       # directory by the real path (`Loader#real_root`).
@@ -52,7 +56,7 @@ module Zr
     class Unresolved < StandardError; end
 
     RESOLVE = File.expand_path("gem_set/resolve.rb", __dir__) #: String
-    VERSION = 1
+    VERSION = 2
 
     # The environment of the child: the host's gems, without a bundle
     # that this process runs in.
@@ -87,17 +91,18 @@ module Zr
     # `feature` finds it by the gem's name: `json`, `json/ext`, and
     # `io/console` for io-console.
     #: (String? path, ?String? feature) -> String?
-    def refusal(path, feature = nil)
+    def refusal(path, feature = nil) = refused(path, feature)&.refusal
+
+    # The gem whose refusal `refusal` gives, or nil.
+    #: (String? path, ?String? feature) -> Entry?
+    def refused(path, feature = nil)
       name = feature.to_s.delete_suffix(".rb")
-      @gems.each do |gem|
-        next unless gem.refusal
+      @gems.find do |gem|
+        next false unless gem.refusal
+        next true if path && gem.holds?(path)
 
-        return gem.refusal if path && gem.holds?(path)
-        next unless gem.roots.empty? && !name.empty?
-
-        return gem.refusal if [gem.name, gem.name.tr("-", "/")].any? { |base| name == base || name.start_with?("#{base}/") }
+        gem.roots.empty? && !name.empty? && [gem.name, gem.name.tr("-", "/")].any? { |base| name == base || name.start_with?("#{base}/") }
       end
-      nil
     end
 
     # Names the set for a cache key: a build with other gems is another
@@ -136,6 +141,8 @@ module Zr
     #: (Array[[String, String]] flags, String? gemfile, RBS::Unnamed::ENVClass env) -> String
     def self.key(flags, gemfile, env)
       parts = [VERSION, Zr::VERSION, *flags.flatten, "\0", gemfile.to_s, *READS.map { |name| env[name].to_s }]
+      # The child refuses a port's gem outside the port's range.
+      parts.concat(Library::Ports::ALL.map { |name, port| "#{name} #{port.compat}" })
       if gemfile
         parts << read(gemfile) << read(lockfile(gemfile))
         parts << read(File.join(File.dirname(gemfile), ".bundle/config"))
