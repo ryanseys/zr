@@ -1,201 +1,201 @@
 gem	version	source	tier	kind	detail	zr_commit	date	downloads
-actioncable	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	608755876
-actionmailbox	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	450301333
-actionmailer	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	778753177
-actionpack	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	831481115
-actiontext	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	450332526
-actionview	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	782446822
-activejob	8.1.4	rubygems	loads			24776b6a8e96	2026-09-29	710944154
-activemodel	8.1.4	rubygems	loads			24776b6a8e96	2026-09-29	899522696
-activerecord	8.1.4	rubygems	loads			24776b6a8e96	2026-09-29	843626829
-activestorage	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	545187172
-activesupport	8.1.4	rubygems	loads			24776b6a8e96	2026-09-29	1439815647
-addressable	2.9.0	rubygems	loads			24776b6a8e96	2026-09-29	1272782254
+actioncable	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	608755876
+actionmailbox	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	450301333
+actionmailer	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	778753177
+actionpack	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	831481115
+actiontext	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	450332526
+actionview	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	782446822
+activejob	8.1.4	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	710944154
+activemodel	8.1.4	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	899522696
+activerecord	8.1.4	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	843626829
+activestorage	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	545187172
+activesupport	8.1.4	rubygems	loads			3a78a9dd8b36	2026-10-06	1439815647
+addressable	2.9.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring json-3.0.2 because its extensions are not built. Try: gem pristine json --version 3.0.2"", zr """""	3a78a9dd8b36	2026-10-06	1272782254
 arel	9.0.0	rubygems	loads			ac3395d66248	2026-09-29	330392233
-ast	2.4.3	rubygems	loads			24776b6a8e96	2026-09-29	801984296
+ast	2.4.3	rubygems	loads			3a78a9dd8b36	2026-10-06	801984296
 awesome_print	1.9.2	rubygems	loads			ac3395d66248	2026-09-29	288177290
-aws-eventstream	1.4.0	rubygems	loads			24776b6a8e96	2026-09-29	1366604331
-aws-partitions	1.1290.0	rubygems	loads			24776b6a8e96	2026-09-29	1525521031
-aws-sdk	3.3.0	rubygems	fails	memory	the build used more than 2048 MB	ac3395d66248	2026-09-29	384216971
-aws-sdk-core	3.257.0	rubygems	loads			24776b6a8e96	2026-09-29	1759597732
-aws-sdk-kms	1.132.0	rubygems	loads			24776b6a8e96	2026-09-29	1074307762
-aws-sdk-resources	3.274.0	rubygems	fails	timeout	the build ran longer than 600 s	ac3395d66248	2026-09-29	367087236
-aws-sdk-s3	1.232.3	rubygems	loads			24776b6a8e96	2026-09-29	1111135734
+aws-eventstream	1.4.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1366604331
+aws-partitions	1.1293.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1525521031
+aws-sdk	3.3.0	rubygems	fails	memory	the build used more than 2048 MB	e5f198887491	2026-10-06	384216971
+aws-sdk-core	3.257.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1759597732
+aws-sdk-kms	1.132.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	1074307762
+aws-sdk-resources	3.275.0	rubygems	fails	memory	the build used more than 2048 MB	e5f198887491	2026-10-06	367087236
+aws-sdk-s3	1.233.2	rubygems	fails	memory	the build used more than 2048 MB	3a78a9dd8b36	2026-10-06	1111135734
 aws-sdk-sqs	1.119.0	rubygems	loads			ac3395d66248	2026-09-29	346672344
 aws-sdk-ssm	1.223.0	rubygems	loads			ac3395d66248	2026-09-29	280409385
-aws-sigv4	1.12.1	rubygems	loads			24776b6a8e96	2026-09-29	1562727482
-base64	0.3.0	rubygems	loads			24776b6a8e96	2026-09-29	529614172
-bcrypt	3.1.22	rubygems	refused	cext:bcrypt	bcrypt 3.1.22 has a C extension (ext/mri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	416918513
-bigdecimal	4.1.3	rubygems	loads			24776b6a8e96	2026-09-29	508947636
-bootsnap	1.26.0	rubygems	refused	cext:bootsnap	bootsnap 1.26.0 has a C extension (ext/bootsnap/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	379140846
-builder	3.3.0	rubygems	loads			24776b6a8e96	2026-09-29	935875773
-bundler	4.0.21	rubygems	loads			24776b6a8e96	2026-09-29	3778187537
-byebug	13.0.0	rubygems	refused	cext:byebug	byebug 13.0.0 has a C extension (ext/byebug/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	481610518
+aws-sigv4	1.12.1	rubygems	loads			3a78a9dd8b36	2026-10-06	1562727482
+base64	0.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	529614172
+bcrypt	3.1.22	rubygems	refused	cext:bcrypt	bcrypt 3.1.22 has a C extension (ext/mri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	416918513
+bigdecimal	4.1.3	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bigdecimal-4.1.3 because its extensions are not built. Try: gem pristine bigdecimal --version 4.1.3"", zr """""	3a78a9dd8b36	2026-10-06	508947636
+bootsnap	1.26.0	rubygems	refused	cext:bootsnap	bootsnap 1.26.0 has a C extension (ext/bootsnap/extconf.rb), and zr has no port of it	e5f198887491	2026-10-06	379140846
+builder	3.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	935875773
+bundler	4.0.22	rubygems	fails	memory	the build used more than 2048 MB	3a78a9dd8b36	2026-10-06	3778187537
+byebug	13.0.0	rubygems	refused	cext:byebug	byebug 13.0.0 has a C extension (ext/byebug/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	481610518
 capybara	3.40.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	360460808
 childprocess	5.1.0	rubygems	loads			ac3395d66248	2026-09-29	310387998
-coderay	1.1.3	rubygems	loads			24776b6a8e96	2026-09-29	642449194
-concurrent-ruby	1.3.8	rubygems	loads			24776b6a8e96	2026-09-29	1380778911
-connection_pool	3.0.2	rubygems	loads			24776b6a8e96	2026-09-29	735103644
-crack	1.0.1	rubygems	loads			24776b6a8e96	2026-09-29	416206370
-crass	1.0.7	rubygems	loads			24776b6a8e96	2026-09-29	621219148
+coderay	1.1.3	rubygems	loads			3a78a9dd8b36	2026-10-06	642449194
+concurrent-ruby	1.3.8	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring json-3.0.2 because its extensions are not built. Try: gem pristine json --version 3.0.2"", zr """""	3a78a9dd8b36	2026-10-06	1380778911
+connection_pool	3.0.2	rubygems	loads			3a78a9dd8b36	2026-10-06	735103644
+crack	1.0.1	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	3a78a9dd8b36	2026-10-06	416206370
+crass	1.0.7	rubygems	loads			3a78a9dd8b36	2026-10-06	621219148
 daemons	1.4.1	rubygems	loads			ac3395d66248	2026-09-29	317056383
 date	3.5.1	rubygems	loads			ac3395d66248	2026-09-29	307701077
-declarative	0.0.20	rubygems	loads			ac3395d66248	2026-09-29	369122757
+declarative	0.0.20	rubygems	loads			e5f198887491	2026-10-06	369122757
 devise	5.0.4	rubygems	refused	cext:bcrypt	bcrypt 3.1.22 has a C extension (ext/mri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	297408206
-diff-lcs	2.0.0	rubygems	loads			24776b6a8e96	2026-09-29	1236352793
+diff-lcs	2.0.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1236352793
 digest-crc	0.7.0	rubygems	refused	cext:digest-crc	digest-crc 0.7.0 has a C extension (ext/digest/Rakefile), and zr has no port of it	ac3395d66248	2026-09-29	312696403
-docile	1.4.1	rubygems	loads			24776b6a8e96	2026-09-29	503833251
-domain_name	0.6.20260921	rubygems	loads			24776b6a8e96	2026-09-29	677781600
-dotenv	3.2.0	rubygems	loads			24776b6a8e96	2026-09-29	552446495
-erubi	1.13.1	rubygems	loads			ac3395d66248	2026-09-29	634060686
+docile	1.4.1	rubygems	loads			3a78a9dd8b36	2026-10-06	503833251
+domain_name	0.6.20260921	rubygems	loads			3a78a9dd8b36	2026-10-06	677781600
+dotenv	3.2.0	rubygems	loads			3a78a9dd8b36	2026-10-06	552446495
+erubi	1.13.1	rubygems	loads			3a78a9dd8b36	2026-10-06	634060686
 erubis	2.7.0	rubygems	loads			ac3395d66248	2026-09-29	301832725
 ethon	0.18.0	rubygems	loads			ac3395d66248	2026-09-29	299551213
 eventmachine	1.2.7	rubygems	refused	cext:eventmachine	eventmachine 1.2.7 has a C extension (ext/extconf.rb, ext/fastfilereader/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	333191131
-excon	1.7.2	rubygems	loads			24776b6a8e96	2026-09-29	710850773
-execjs	2.10.2	rubygems	loads			24776b6a8e96	2026-09-29	416314364
+excon	1.7.2	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	710850773
+execjs	2.10.2	rubygems	loads			3a78a9dd8b36	2026-10-06	416314364
 factory_bot	6.6.0	rubygems	loads			ac3395d66248	2026-09-29	356390904
 factory_bot_rails	6.5.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	295718747
 faker	3.8.0	rubygems	loads			ac3395d66248	2026-09-29	344580521
-faraday	2.14.4	rubygems	loads			24776b6a8e96	2026-09-29	1266007152
+faraday	2.14.4	rubygems	loads			3a78a9dd8b36	2026-10-06	1266007152
 faraday-em_http	2.0.1	rubygems	refused	cext:http_parser.rb	http_parser.rb 0.8.1 has a C extension (ext/ruby_http_parser/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	351913650
 faraday-em_synchrony	1.0.1	rubygems	skipped	ruby-error	ruby: tmp/gems/src/faraday-em_synchrony-1.0.1/lib/faraday/em_synchrony.rb:3:in 'Kernel#require': cannot load such file -- faraday/em_http (LoadError)	ac3395d66248	2026-09-29	363468985
-faraday-excon	2.4.0	rubygems	loads			24776b6a8e96	2026-09-29	401336759
+faraday-excon	2.4.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	3a78a9dd8b36	2026-10-06	401336759
 faraday-httpclient	2.0.2	rubygems	skipped	ruby-error	ruby: tmp/gems/src/faraday-httpclient-2.0.2/lib/faraday/httpclient.rb:10:in '<module:HTTPClient>': undefined method 'register_middleware' for class Faraday::Adapter (NoMethod...	ac3395d66248	2026-09-29	339736071
-faraday-multipart		rubygems	skipped	skip	a faraday plugin: it needs faraday loaded first	ac3395d66248	2026-09-29	400893892
-faraday-net_http		rubygems	skipped	skip	a faraday plugin: it needs faraday loaded first, and its gemspec does not list faraday	ac3395d66248	2026-09-29	757709256
-faraday-net_http_persistent	2.3.1	rubygems	loads			24776b6a8e96	2026-09-29	396767652
+faraday-multipart		rubygems	skipped	skip	a faraday plugin: it needs faraday loaded first	3a78a9dd8b36	2026-10-06	400893892
+faraday-net_http		rubygems	skipped	skip	a faraday plugin: it needs faraday loaded first, and its gemspec does not list faraday	3a78a9dd8b36	2026-10-06	757709256
+faraday-net_http_persistent	2.3.1	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	3a78a9dd8b36	2026-10-06	396767652
 faraday-patron	2.0.2	rubygems	refused	cext:patron	patron 0.13.4 has a C extension (ext/patron/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	336236296
 faraday-rack	2.1.3	rubygems	skipped	ruby-error	ruby: tmp/gems/src/faraday-rack-2.1.3/lib/faraday/adapter/rack.rb:3:in 'Kernel#require': cannot load such file -- rack/test (LoadError)	ac3395d66248	2026-09-29	329899177
-faraday-retry	2.4.0	rubygems	loads			24776b6a8e96	2026-09-29	415869312
-faraday_middleware	1.2.1	rubygems	loads			24776b6a8e96	2026-09-29	465295825
-ffi	1.17.4	rubygems	loads			24776b6a8e96	2026-09-29	1094257199
+faraday-retry	2.4.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	3a78a9dd8b36	2026-10-06	415869312
+faraday_middleware	1.2.1	rubygems	skipped	ruby-error	ruby: Ignoring bigdecimal-4.1.3 because its extensions are not built. Try: gem pristine bigdecimal --version 4.1.3	3a78a9dd8b36	2026-10-06	465295825
+ffi	1.17.4	rubygems	loads			3a78a9dd8b36	2026-10-06	1094257199
 formatador	1.2.3	rubygems	loads			ac3395d66248	2026-09-29	283998244
-globalid	1.4.0	rubygems	loads			24776b6a8e96	2026-09-29	669578273
+globalid	1.4.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	669578273
 google-apis-core	1.2.5	rubygems	loads			ac3395d66248	2026-09-29	288065037
 google-cloud-core	1.9.0	rubygems	loads			ac3395d66248	2026-09-29	283273092
 google-cloud-env	2.4.0	rubygems	loads			ac3395d66248	2026-09-29	340645598
-google-protobuf	4.36.2	rubygems	refused	cext:google-protobuf	google-protobuf 4.36.2 has a C extension (ext/google/protobuf_c/extconf.rb, ext/google/protobuf_c/Rakefile), and zr has no port of it	24776b6a8e96	2026-09-29	455566976
-googleauth	1.17.4	rubygems	loads			24776b6a8e96	2026-09-29	513630359
-hashdiff	1.2.1	rubygems	loads			24776b6a8e96	2026-09-29	429498562
-hashie	5.1.0	rubygems	loads			24776b6a8e96	2026-09-29	488914231
+google-protobuf	4.36.2	rubygems	refused	cext:google-protobuf	google-protobuf 4.36.2 has a C extension (ext/google/protobuf_c/extconf.rb, ext/google/protobuf_c/Rakefile), and zr has no port of it	3a78a9dd8b36	2026-10-06	455566976
+googleauth	1.17.4	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	513630359
+hashdiff	1.2.1	rubygems	loads			3a78a9dd8b36	2026-10-06	429498562
+hashie	5.1.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bigdecimal-4.1.3 because its extensions are not built. Try: gem pristine bigdecimal --version 4.1.3"", zr """""	3a78a9dd8b36	2026-10-06	488914231
 highline	3.1.2	rubygems	loads			ac3395d66248	2026-09-29	342764593
 http-accept	2.2.2	rubygems	loads			ac3395d66248	2026-09-29	279151469
-http-cookie	1.1.6	rubygems	loads			24776b6a8e96	2026-09-29	689301262
-httparty	0.24.2	rubygems	loads			24776b6a8e96	2026-09-29	484146657
-httpclient	2.9.0	rubygems	loads			24776b6a8e96	2026-09-29	539849293
-i18n	1.15.2	rubygems	loads			24776b6a8e96	2026-09-29	1442899922
+http-cookie	1.1.6	rubygems	loads			3a78a9dd8b36	2026-10-06	689301262
+httparty	0.24.3	rubygems	loads			3a78a9dd8b36	2026-10-06	484146657
+httpclient	2.9.0	rubygems	skipped	ruby-error	ruby: Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4	3a78a9dd8b36	2026-10-06	539849293
+i18n	1.15.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1442899922
 jbuilder	2.15.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	314361227
-jmespath	1.6.2	rubygems	loads			24776b6a8e96	2026-09-29	1445128064
+jmespath	1.6.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1445128064
 jquery-rails	4.6.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	312412070
-json	3.0.2	rubygems	loads			24776b6a8e96	2026-09-29	1387809196
-jwt	3.3.0	rubygems	loads			24776b6a8e96	2026-09-29	818471834
-knapsack	4.0.0	rubygems	loads			24776b6a8e96	2026-09-29	387695606
+json	3.0.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1387809196
+jwt	3.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	818471834
+knapsack	4.0.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	3a78a9dd8b36	2026-10-06	387695606
 language_server-protocol	3.17.0.6	rubygems	loads			ac3395d66248	2026-09-29	300928508
 launchy	3.1.1	rubygems	loads			ac3395d66248	2026-09-29	300981801
-listen	3.10.0	rubygems	loads			24776b6a8e96	2026-09-29	403083163
-logger	1.7.0	rubygems	loads			24776b6a8e96	2026-09-29	426905605
-loofah	2.25.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	751972721
-mail	2.9.1	rubygems	loads			24776b6a8e96	2026-09-29	769762555
-marcel	2.1.0	rubygems	loads			24776b6a8e96	2026-09-29	488716148
+listen	3.10.1	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	3a78a9dd8b36	2026-10-06	403083163
+logger	1.7.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bigdecimal-4.1.3 because its extensions are not built. Try: gem pristine bigdecimal --version 4.1.3"", zr """""	3a78a9dd8b36	2026-10-06	426905605
+loofah	2.25.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	751972721
+mail	2.9.1	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	769762555
+marcel	2.1.0	rubygems	loads			3a78a9dd8b36	2026-10-06	488716148
 memoist	0.16.2	rubygems	loads			ac3395d66248	2026-09-29	322059968
-method_source	1.1.0	rubygems	loads			24776b6a8e96	2026-09-29	778230072
-mime-types	3.7.0	rubygems	loads			24776b6a8e96	2026-09-29	932359453
-mime-types-data	3.2026.0922	rubygems	loads			24776b6a8e96	2026-09-29	746697278
-mini_magick	5.4.0	rubygems	loads			ac3395d66248	2026-09-29	382878998
-mini_mime	1.1.5	rubygems	loads			24776b6a8e96	2026-09-29	889751663
-mini_portile2	2.8.9	rubygems	loads			24776b6a8e96	2026-09-29	614296232
-minitest	6.0.6	rubygems	loads			24776b6a8e96	2026-09-29	1306829988
-msgpack	1.8.5	rubygems	refused	cext:msgpack	msgpack 1.8.5 has a C extension (ext/msgpack/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	522479726
-multi_json	1.21.2	rubygems	loads			24776b6a8e96	2026-09-29	1168755974
-multi_xml	0.9.1	rubygems	loads			24776b6a8e96	2026-09-29	604878932
-multipart-post	2.4.1	rubygems	loads			24776b6a8e96	2026-09-29	928656920
+method_source	1.1.0	rubygems	loads			3a78a9dd8b36	2026-10-06	778230072
+mime-types	3.7.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	932359453
+mime-types-data	3.2026.1006	rubygems	loads			3a78a9dd8b36	2026-10-06	746697278
+mini_magick	5.4.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	e5f198887491	2026-10-06	382878998
+mini_mime	1.1.5	rubygems	loads			3a78a9dd8b36	2026-10-06	889751663
+mini_portile2	2.8.9	rubygems	loads			3a78a9dd8b36	2026-10-06	614296232
+minitest	6.0.6	rubygems	loads			3a78a9dd8b36	2026-10-06	1306829988
+msgpack	1.8.5	rubygems	refused	cext:msgpack	msgpack 1.8.5 has a C extension (ext/msgpack/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	522479726
+multi_json	1.21.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1168755974
+multi_xml	0.9.1	rubygems	loads			3a78a9dd8b36	2026-10-06	604878932
+multipart-post	2.4.1	rubygems	loads			3a78a9dd8b36	2026-10-06	928656920
 mustermann	4.0.0	rubygems	loads			ac3395d66248	2026-09-29	296466351
-net-imap	0.6.7	rubygems	loads			ac3395d66248	2026-09-29	383413321
+net-imap	0.6.7	rubygems	loads			e5f198887491	2026-10-06	383413321
 net-protocol	0.4.0	rubygems	loads			ac3395d66248	2026-09-29	302758946
 net-smtp	0.5.1	rubygems	loads			ac3395d66248	2026-09-29	330282738
-net-ssh	7.3.3	rubygems	loads			24776b6a8e96	2026-09-29	388848730
-netrc	0.11.0	rubygems	loads			24776b6a8e96	2026-09-29	561723886
-nio4r	2.7.5	rubygems	refused	cext:nio4r	nio4r 2.7.5 has a C extension (ext/nio4r/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	696360067
-nokogiri	1.19.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	1269876588
+net-ssh	7.3.6	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr """""	3a78a9dd8b36	2026-10-06	388848730
+netrc	0.11.0	rubygems	loads			3a78a9dd8b36	2026-10-06	561723886
+nio4r	2.7.5	rubygems	refused	cext:nio4r	nio4r 2.7.5 has a C extension (ext/nio4r/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	696360067
+nokogiri	1.19.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	1269876588
 oauth2	2.0.25	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	ac3395d66248	2026-09-29	278491242
-octokit	10.0.0	rubygems	loads			24776b6a8e96	2026-09-29	395442756
+octokit	10.0.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bcrypt-3.1.22 because its extensions are not built. Try: gem pristine bcrypt --version 3.1.22"", zr ""To use retry middleware with Faraday v2.0+, install `faraday-retry`..."	3a78a9dd8b36	2026-10-06	395442756
 oj	3.17.7	rubygems	refused	cext:oj	oj 3.17.7 has a C extension (ext/oj/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	307720251
 orm_adapter	0.5.0	rubygems	loads			ac3395d66248	2026-09-29	288049142
-os	1.1.4	rubygems	loads			24776b6a8e96	2026-09-29	472240603
-parallel	2.2.0	rubygems	loads			24776b6a8e96	2026-09-29	830001160
-parser	3.3.12.0	rubygems	loads			24776b6a8e96	2026-09-29	846834249
-pg	1.6.3	rubygems	refused	cext:pg	pg 1.6.3 has a C extension (ext/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	474258484
-pry	0.16.0	rubygems	loads			24776b6a8e96	2026-09-29	636079728
+os	1.1.4	rubygems	loads			3a78a9dd8b36	2026-10-06	472240603
+parallel	2.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	830001160
+parser	3.3.12.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	846834249
+pg	1.7.0	rubygems	refused	cext:pg	pg 1.7.0 has a C extension (ext/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	474258484
+pry	0.16.0	rubygems	loads			3a78a9dd8b36	2026-10-06	636079728
 pry-byebug	3.12.0	rubygems	refused	cext:byebug	byebug 13.0.0 has a C extension (ext/byebug/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	288416050
-public_suffix	7.0.5	rubygems	loads			24776b6a8e96	2026-09-29	1245257461
-puma	8.0.2	rubygems	refused	cext:puma	puma 8.0.2 has a C extension (ext/puma_http11/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	608988087
-racc	1.8.1	rubygems	loads			ac3395d66248	2026-09-29	741097901
-rack	3.2.7	rubygems	loads			24776b6a8e96	2026-09-29	1355400670
+public_suffix	7.0.5	rubygems	loads			3a78a9dd8b36	2026-10-06	1245257461
+puma	8.0.2	rubygems	refused	cext:puma	puma 8.0.2 has a C extension (ext/puma_http11/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	608988087
+racc	1.8.1	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	741097901
+rack	3.2.7	rubygems	loads			3a78a9dd8b36	2026-10-06	1355400670
 rack-cors	3.0.0	rubygems	loads			ac3395d66248	2026-09-29	276823595
-rack-protection	4.2.1	rubygems	loads			24776b6a8e96	2026-09-29	520401098
-rack-test	2.2.0	rubygems	loads			24776b6a8e96	2026-09-29	816907085
-rails	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	794120052
-rails-dom-testing	2.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	687221340
-rails-html-sanitizer	1.7.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	711890407
-railties	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	792940964
-rainbow	3.1.1	rubygems	loads			24776b6a8e96	2026-09-29	757152479
-rake	13.4.2	rubygems	loads			24776b6a8e96	2026-09-29	1423664976
-rb-fsevent	0.11.2	rubygems	loads			24776b6a8e96	2026-09-29	516296678
-rb-inotify		rubygems	skipped	skip	Linux only: it binds inotify with ffi, and macOS has no inotify	ac3395d66248	2026-09-29	493898811
+rack-protection	4.2.1	rubygems	loads			3a78a9dd8b36	2026-10-06	520401098
+rack-test	2.2.0	rubygems	loads			3a78a9dd8b36	2026-10-06	816907085
+rails	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	794120052
+rails-dom-testing	2.3.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	687221340
+rails-html-sanitizer	1.7.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	711890407
+railties	8.1.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	792940964
+rainbow	3.1.1	rubygems	loads			3a78a9dd8b36	2026-10-06	757152479
+rake	13.4.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1423664976
+rb-fsevent	0.11.2	rubygems	loads			3a78a9dd8b36	2026-10-06	516296678
+rb-inotify		rubygems	skipped	skip	Linux only: it binds inotify with ffi, and macOS has no inotify	3a78a9dd8b36	2026-10-06	493898811
 rdoc	8.1.0	rubygems	refused	cext:rbs	rbs 4.2.0 has a C extension (ext/rbs_extension/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	350856485
-redis	6.0.0	rubygems	loads			24776b6a8e96	2026-09-29	585556021
-regexp_parser	2.13.1	rubygems	loads			24776b6a8e96	2026-09-29	672734224
-representable	3.3.1	rubygems	loads			ac3395d66248	2026-09-29	383228799
+redis	6.0.0	rubygems	loads			3a78a9dd8b36	2026-10-06	585556021
+regexp_parser	2.13.1	rubygems	loads			3a78a9dd8b36	2026-10-06	672734224
+representable	3.3.1	rubygems	loads			e5f198887491	2026-10-06	383228799
 request_store	1.7.0	rubygems	loads			ac3395d66248	2026-09-29	354396154
 responders	3.2.1	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	336643277
-rest-client	2.1.0	rubygems	loads			24776b6a8e96	2026-09-29	486505167
-retriable	5.0.1	rubygems	loads			24776b6a8e96	2026-09-29	408535521
-rexml	3.4.4	rubygems	loads			24776b6a8e96	2026-09-29	832081112
+rest-client	2.1.0	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring bigdecimal-4.1.3 because its extensions are not built. Try: gem pristine bigdecimal --version 4.1.3"", zr """""	3a78a9dd8b36	2026-10-06	486505167
+retriable	5.0.1	rubygems	loads			3a78a9dd8b36	2026-10-06	408535521
+rexml	3.4.4	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	832081112
 rouge	5.1.0	rubygems	loads			ac3395d66248	2026-09-29	328047311
-rspec	3.13.2	rubygems	loads			24776b6a8e96	2026-09-29	1023890284
-rspec-core	3.13.6	rubygems	loads			24776b6a8e96	2026-09-29	1204651281
-rspec-expectations	3.13.5	rubygems	loads			24776b6a8e96	2026-09-29	1204077219
-rspec-mocks	3.13.8	rubygems	loads			24776b6a8e96	2026-09-29	1198799797
-rspec-rails	8.0.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	410258753
-rspec-support	3.13.7	rubygems	loads			24776b6a8e96	2026-09-29	1191357549
+rspec	3.13.2	rubygems	loads			3a78a9dd8b36	2026-10-06	1023890284
+rspec-core	3.13.6	rubygems	loads			3a78a9dd8b36	2026-10-06	1204651281
+rspec-expectations	3.13.5	rubygems	loads			3a78a9dd8b36	2026-10-06	1204077219
+rspec-mocks	3.13.8	rubygems	loads			3a78a9dd8b36	2026-10-06	1198799797
+rspec-rails	8.0.4	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	410258753
+rspec-support	3.13.7	rubygems	loads			3a78a9dd8b36	2026-10-06	1191357549
 rspec_junit_formatter	0.6.0	rubygems	loads			ac3395d66248	2026-09-29	274010393
-rubocop	1.91.0	rubygems	fails	memory	the build used more than 2048 MB	24776b6a8e96	2026-09-29	751927642
-rubocop-ast	1.50.0	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	ac3395d66248	2026-09-29	568432841
+rubocop	1.91.0	rubygems	fails	memory	the build used more than 2048 MB	3a78a9dd8b36	2026-10-06	751927642
+rubocop-ast	1.50.0	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	3a78a9dd8b36	2026-10-06	568432841
 rubocop-performance	1.27.0	rubygems	fails	memory	the build used more than 2048 MB	ac3395d66248	2026-09-29	331293137
 rubocop-rails	2.38.0	rubygems	fails	memory	the build used more than 2048 MB	ac3395d66248	2026-09-29	310164339
 rubocop-rspec	3.10.2	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	ac3395d66248	2026-09-29	297923869
-ruby-progressbar	1.13.0	rubygems	loads			24776b6a8e96	2026-09-29	752162408
-ruby2_keywords	0.0.5	rubygems	loads			24776b6a8e96	2026-09-29	492880195
-rubygems-update		rubygems	skipped	skip	it installs a new rubygems into ruby itself; it is not a library to require	ac3395d66248	2026-09-29	623189322
-rubyzip	3.7.0	rubygems	loads			24776b6a8e96	2026-09-29	792569109
-sass	3.7.4	rubygems	loads			ac3395d66248	2026-09-29	367228698
+ruby-progressbar	1.13.0	rubygems	loads			3a78a9dd8b36	2026-10-06	752162408
+ruby2_keywords	0.0.5	rubygems	loads			3a78a9dd8b36	2026-10-06	492880195
+rubygems-update		rubygems	skipped	skip	it installs a new rubygems into ruby itself; it is not a library to require	3a78a9dd8b36	2026-10-06	623189322
+rubyzip	3.7.0	rubygems	compiles	output-diff	"stdout line 13: ruby ""RactorLocalSingleton Module"", zr ""Gem Module"""	3a78a9dd8b36	2026-10-06	792569109
+sass	3.7.4	rubygems	loads			e5f198887491	2026-10-06	367228698
 sass-rails	6.0.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	295431373
-sawyer	0.9.3	rubygems	compiles	memory	the binary used more than 1024 MB	24776b6a8e96	2026-09-29	402986464
+sawyer	0.9.3	rubygems	compiles	status-diff	ruby: exit 0; zr: exit 1	3a78a9dd8b36	2026-10-06	402986464
 selenium-webdriver	4.49.0	rubygems	loads			ac3395d66248	2026-09-29	359104062
 shoulda-matchers	8.0.1	rubygems	loads			ac3395d66248	2026-09-29	275000944
 sidekiq	8.1.7	rubygems	loads			ac3395d66248	2026-09-29	338094342
-signet	0.22.0	rubygems	loads			24776b6a8e96	2026-09-29	502528981
-simplecov	1.3.1	rubygems	compiles	output-diff	"stdout line 29: ruby ""Psych Module"", zr ""Prism Module"""	24776b6a8e96	2026-09-29	504457143
-simplecov-html		rubygems	skipped	skip	a simplecov plugin: it needs simplecov loaded first, and its gemspec does not list simplecov	ac3395d66248	2026-09-29	494892227
+signet	0.22.0	rubygems	loads			3a78a9dd8b36	2026-10-06	502528981
+simplecov	1.3.2	rubygems	loads			3a78a9dd8b36	2026-10-06	504457143
+simplecov-html		rubygems	skipped	skip	a simplecov plugin: it needs simplecov loaded first, and its gemspec does not list simplecov	3a78a9dd8b36	2026-10-06	494892227
 sinatra	4.2.1	rubygems	skipped	ruby-error	ruby: Sinatra could not start, the required gems weren't found!	ac3395d66248	2026-09-29	358096531
-sprockets	4.4.1	rubygems	loads			24776b6a8e96	2026-09-29	624124189
-sprockets-rails	3.5.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	564832853
-terminal-table	4.0.0	rubygems	loads			24776b6a8e96	2026-09-29	421973783
-thor	1.5.0	rubygems	loads			24776b6a8e96	2026-09-29	1158052913
-thread_safe	0.3.6	rubygems	loads			24776b6a8e96	2026-09-29	612892959
-tilt	2.9.0	rubygems	loads			24776b6a8e96	2026-09-29	796537587
-timeout	0.6.1	rubygems	loads			ac3395d66248	2026-09-29	365157539
+sprockets	4.4.1	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring ffi-1.17.4 because its extensions are not built. Try: gem pristine ffi --version 1.17.4"", zr """""	3a78a9dd8b36	2026-10-06	624124189
+sprockets-rails	3.5.2	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	564832853
+terminal-table	4.0.0	rubygems	loads			3a78a9dd8b36	2026-10-06	421973783
+thor	1.5.0	rubygems	loads			3a78a9dd8b36	2026-10-06	1158052913
+thread_safe	0.3.6	rubygems	loads			3a78a9dd8b36	2026-10-06	612892959
+tilt	2.9.0	rubygems	loads			3a78a9dd8b36	2026-10-06	796537587
+timeout	0.6.1	rubygems	loads			e5f198887491	2026-10-06	365157539
 typhoeus	1.6.0	rubygems	loads			ac3395d66248	2026-09-29	291385377
-tzinfo	2.0.6	rubygems	loads			24776b6a8e96	2026-09-29	1325144193
-uber	0.1.0	rubygems	loads			ac3395d66248	2026-09-29	376633870
+tzinfo	2.0.6	rubygems	compiles	exception-diff	"stderr line 1: ruby ""Ignoring json-3.0.2 because its extensions are not built. Try: gem pristine json --version 3.0.2"", zr """""	3a78a9dd8b36	2026-10-06	1325144193
+uber	0.1.0	rubygems	loads			e5f198887491	2026-10-06	376633870
 uglifier	4.2.1	rubygems	loads			ac3395d66248	2026-09-29	295348078
-unf	0.2.0	rubygems	refused	cext:unf	unf 0.2.0 has a C extension (ext/mkrf_conf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	509581485
-unf_ext	0.0.9.1	rubygems	refused	cext:unf_ext	unf_ext 0.0.9.1 has a C extension (ext/unf_ext/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	539885564
-unicode-display_width	3.3.0	rubygems	loads			24776b6a8e96	2026-09-29	991351990
+unf	0.2.0	rubygems	refused	cext:unf	unf 0.2.0 has a C extension (ext/mkrf_conf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	509581485
+unf_ext	0.0.9.1	rubygems	refused	cext:unf_ext	unf_ext 0.0.9.1 has a C extension (ext/unf_ext/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	539885564
+unicode-display_width	3.3.0	rubygems	loads			3a78a9dd8b36	2026-10-06	991351990
 warden	1.2.9	rubygems	loads			ac3395d66248	2026-09-29	307992797
-webmock	3.26.4	rubygems	loads			24776b6a8e96	2026-09-29	426583369
-webrick	1.9.2	rubygems	loads			24776b6a8e96	2026-09-29	479427712
-websocket-driver	0.8.2	rubygems	refused	cext:websocket-driver	websocket-driver 0.8.2 has a C extension (ext/websocket-driver/extconf.rb), and zr has no port of it	24776b6a8e96	2026-09-29	647881968
-websocket-extensions	0.1.5	rubygems	loads			24776b6a8e96	2026-09-29	596502455
+webmock	3.26.4	rubygems	skipped	ruby-error	ruby: Ignoring bigdecimal-4.1.3 because its extensions are not built. Try: gem pristine bigdecimal --version 4.1.3	3a78a9dd8b36	2026-10-06	426583369
+webrick	1.9.2	rubygems	loads			3a78a9dd8b36	2026-10-06	479427712
+websocket-driver	0.8.2	rubygems	refused	cext:websocket-driver	websocket-driver 0.8.2 has a C extension (ext/websocket-driver/extconf.rb), and zr has no port of it	3a78a9dd8b36	2026-10-06	647881968
+websocket-extensions	0.1.5	rubygems	loads			3a78a9dd8b36	2026-10-06	596502455
 xpath	3.2.0	rubygems	refused	cext:nokogiri	nokogiri 1.19.4 has a C extension (ext/nokogiri/extconf.rb), and zr has no port of it	ac3395d66248	2026-09-29	342641182
-zeitwerk	2.8.3	rubygems	loads			24776b6a8e96	2026-09-29	706391750
+zeitwerk	2.8.3	rubygems	loads			3a78a9dd8b36	2026-10-06	706391750
