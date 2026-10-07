@@ -163,19 +163,19 @@ class Module
   # A String name may be a `::` path, a leading `::` starting at Object;
   # each segment after the first is read without Object's constants.
   def const_get(name, inherit = true)
-    name = const_name(name)
+    name = Module.const_name(name)
     return Primitive.zr_mod_const_get_m(self, name, inherit, false) unless name.is_a?(String) && name.include?("::")
 
-    walk_const_path(name) do |scope, segment, later|
+    Module.walk_const_path(self, name) do |scope, segment, later|
       Primitive.zr_mod_const_get_m(scope, segment, inherit, later)
     end
   end
 
   def const_defined?(name, inherit = true)
-    name = const_name(name)
+    name = Module.const_name(name)
     return Primitive.zr_mod_const_defined_m(self, name, inherit, false) unless name.is_a?(String) && name.include?("::")
 
-    walk_const_path(name) do |scope, segment, later|
+    Module.walk_const_path(self, name) do |scope, segment, later|
       return false unless Primitive.zr_mod_const_defined_m(scope, segment, inherit, later)
 
       Primitive.zr_mod_const_get_m(scope, segment, inherit, later)
@@ -184,11 +184,11 @@ class Module
   end
 
   def const_source_location(name, inherit = true)
-    name = const_name(name)
+    name = Module.const_name(name)
     return Primitive.zr_mod_const_source_location_m(self, name, inherit, false) unless name.is_a?(String) && name.include?("::")
 
     *scopes, last = name.split("::", -1)
-    scope = walk_const_path(name, scopes) do |inner, segment, later|
+    scope = Module.walk_const_path(self, name, scopes) do |inner, segment, later|
       Primitive.zr_mod_const_get_m(inner, segment, inherit, later)
     end
     # rb_mod_const_source_location names the whole path.
@@ -249,49 +249,6 @@ class Module
   # (zr_mod_used_modules): a compiled ruby frame starts with no
   # refinements in use, so only a frame that the kernel pushes still has
   # the entry that the call site filled.
-
-  private
-
-  # A Symbol, a String, or what to_str makes of the name.
-  # rb_to_id: bytes that make no Symbol raise as String#to_sym does.
-  def const_name(name)
-    Primitive.attr! :hidden
-    return name if name.is_a?(Symbol)
-
-    name = String.try_convert(name) or raise TypeError, "no implicit conversion of #{conversion_name(name)} into String"
-    STRING_TO_SYM.bind_call(name) unless name.valid_encoding?
-    name
-  end
-
-  STRING_TO_SYM = String.instance_method(:to_sym)
-  private_constant :STRING_TO_SYM
-
-  # Each segment of the path `name`, resolved by the block from the
-  # scope before it, with a flag that tells whether an earlier segment
-  # resolved. The last value is the return value.
-  def walk_const_path(name, segments = name.split("::", -1))
-    Primitive.attr! :hidden
-    scope = self
-    seen = 0
-    segments.each_index do |i|
-      segment = segments[i]
-      if segment.empty?
-        raise NameError.new("wrong constant name #{name}", name, receiver: self) unless i.zero?
-
-        scope = Object
-      else
-        # rb_mod_const_get: a "::" that ends the path is wrong before the
-        # name in front of it is looked up.
-        raise NameError.new("wrong constant name #{name}", name, receiver: self) if i == segments.size - 2 && segments.last.empty?
-        # rb_mod_const_get names the whole path.
-        raise TypeError, "#{name} does not refer to class/module" unless scope.is_a?(Module)
-
-        scope = yield(scope, segment, seen.positive?)
-        seen += 1
-      end
-    end
-    scope
-  end
 end
 
 module Kernel
@@ -361,6 +318,52 @@ class << self
 end
 
 class << Module
+  # The helpers of Module#const_get, #const_defined? and
+  # #const_source_location are Module's own, not a module's: a module can
+  # define a method of the same name (the config gem's `const_name`),
+  # which a send to the module would reach, where ruby's C calls none.
+
+  STRING_TO_SYM = String.instance_method(:to_sym)
+  private_constant :STRING_TO_SYM
+
+  # A Symbol, a String, or what to_str makes of the name.
+  # rb_to_id: bytes that make no Symbol raise as String#to_sym does.
+  def const_name(name)
+    Primitive.attr! :hidden
+    return name if name.is_a?(Symbol)
+
+    name = String.try_convert(name) or raise TypeError, "no implicit conversion of #{conversion_name(name)} into String"
+    STRING_TO_SYM.bind_call(name) unless name.valid_encoding?
+    name
+  end
+
+  # Each segment of the path `name`, from `mod`, resolved by the block
+  # from the scope before it, with a flag that tells whether an earlier
+  # segment resolved. The last value is the return value.
+  def walk_const_path(mod, name, segments = name.split("::", -1))
+    Primitive.attr! :hidden
+    scope = mod
+    seen = 0
+    segments.each_index do |i|
+      segment = segments[i]
+      if segment.empty?
+        raise NameError.new("wrong constant name #{name}", name, receiver: mod) unless i.zero?
+
+        scope = Object
+      else
+        # rb_mod_const_get: a "::" that ends the path is wrong before the
+        # name in front of it is looked up.
+        raise NameError.new("wrong constant name #{name}", name, receiver: mod) if i == segments.size - 2 && segments.last.empty?
+        # rb_mod_const_get names the whole path.
+        raise TypeError, "#{name} does not refer to class/module" unless scope.is_a?(Module)
+
+        scope = yield(scope, segment, seen.positive?)
+        seen += 1
+      end
+    end
+    scope
+  end
+
   # zr_const_wide_name_p (lib/zr/runtime/kernel/const.rb): whether a name
   # with a character past ASCII names a constant, read by character in
   # its own encoding (ISO-8859-15, Shift_JIS or EUC-JP too): an uppercase
