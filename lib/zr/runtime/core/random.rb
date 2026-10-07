@@ -660,13 +660,13 @@ class Array
     shuffled!(random)
   end
 
-  # CRuby's walk: from the end, each slot swaps with a draw at or
-  # before it.
+  # CRuby's walk: from the end, each slot but the first swaps with a
+  # draw at or before it.
   def shuffled!(random)
     Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if frozen?
     len = i = Primitive.zr_ary_len_m(self)
-    while i > 0
+    while i > 1
       j = Random.send(:limited_for, random, i - 1)
       i -= 1
       raise RuntimeError, +"modified during shuffle" if Primitive.zr_ary_len_m(self) != len
