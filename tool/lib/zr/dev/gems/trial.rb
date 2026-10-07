@@ -17,6 +17,7 @@ module Zr
       #
       #   refused   zr refuses the gem, or a form in it
       #   fails     the build fails
+      #   builds    the build passes, and nothing ran (`run: false`)
       #   compiles  the binary runs, and its output is not ruby's
       #   loads     the probe gives ruby's output
       #   verified  the smoke program gives ruby's output too
@@ -63,7 +64,7 @@ module Zr
         attr_reader :work
 
         def initialize(resolver:, runner: Runner.new, overrides: HOME, logs: File.join(TMP, "logs"),
-                       work: File.join(TMP, "work"), keep: false, say: nil, reference: Harness::Reference)
+                       work: File.join(TMP, "work"), keep: false, say: nil, reference: Harness::Reference, run: true)
           @resolver = resolver
           @runner = runner
           @overrides = overrides
@@ -72,6 +73,7 @@ module Zr
           @keep = keep
           @say = say
           @reference = reference
+          @run = run
         end
 
         # The Result for `request`.
@@ -94,6 +96,7 @@ module Zr
           features = [entry(subject)] if features.nil? || features.empty?
           tier = in_work(subject) do |dir|
             check(dir, "probe.rb", Trial.probe(features), [subject, *deps], log)
+            next :builds unless @run
             next :loads unless override&.smoke?
 
             begin
@@ -147,6 +150,7 @@ module Zr
           built, limit = run(log, "zr build", [Dev.ruby, Dev.path("exe/zr"), "build", *flags, name, "-o", exe],
                              dir: dir, seconds: BUILD_SECONDS, megabytes: Harness::Child::BUILD_MB, env: { "BUNDLE_GEMFILE" => nil })
           raise build_failure(built, limit) unless built.status&.zero?
+          return unless @run
 
           say "running #{name} under ruby and as a zr binary"
           # A gem with a C extension here is one that zr ports. An unpacked

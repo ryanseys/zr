@@ -13,23 +13,25 @@ constant that the require defines. It runs the probe under ruby
 | verified | The probe and the gem's smoke program (`gems/<name>.rb`) give ruby's output. |
 | loads | The probe gives ruby's output. |
 | compiles | zr builds the probe, but the binary's output is not ruby's. |
+| builds | zr builds the probe. A sweep with `--build-only` runs no gem's code, so it does not run the probe. |
 | fails | The build fails, or the tool cannot find or resolve the gem. |
 | refused | zr refuses the gem: it has a C extension that zr does not port, or it uses a form of Ruby that zr does not support. |
 | skipped | The tool did not try the gem: `gems/<name>.rb` skips it, or the probe fails under ruby too. |
 
-The results come from zr commit 24776b6a8e96, on 2026-09-29.
+The results come from 4 zr commits, on 2026-09-29 to 2026-10-07.
 
 ## Summary
 
 | Tier | Gems |
 |---|---|
 | verified | 0 |
-| loads | 44 |
-| compiles | 0 |
-| fails | 0 |
-| refused | 6 |
-| skipped | 0 |
-| all | 50 |
+| loads | 138 |
+| compiles | 5 |
+| builds | 0 |
+| fails | 7 |
+| refused | 41 |
+| skipped | 9 |
+| all | 200 |
 
 ## What stops the most gems
 
@@ -37,7 +39,23 @@ The results come from zr commit 24776b6a8e96, on 2026-09-29.
 
 | Cause | Gems | Most downloaded |
 |---|---|---|
-| `cext:nokogiri` | 6 | nokogiri, actionpack, rails |
+| `cext:nokogiri` | 22 | nokogiri, actionpack, rails |
+| `memory` | 7 | bundler, aws-sdk-s3, rubocop |
+| `skip` | 5 | faraday-net_http, rubygems-update, simplecov-html |
+| `status-diff` | 4 | rubocop-ast, sawyer, rubocop-rspec |
+| `ruby-error` | 4 | faraday-em_synchrony, sinatra, faraday-httpclient |
+| `cext:byebug` | 2 | byebug, pry-byebug |
+| `cext:bcrypt` | 2 | bcrypt, devise |
+| `output-diff` | 1 | rubyzip |
+| `cext:nio4r` | 1 | nio4r |
+| `cext:websocket-driver` | 1 | websocket-driver |
+| `cext:puma` | 1 | puma |
+| `cext:unf_ext` | 1 | unf_ext |
+| `cext:msgpack` | 1 | msgpack |
+| `cext:unf` | 1 | unf |
+| `cext:pg` | 1 | pg |
+
+8 more causes are in `gems/compat.tsv`.
 
 ## All gems
 
@@ -45,10 +63,10 @@ The most downloaded first.
 
 | Gem | Version | Tier | Cause |
 |---|---|---|---|
-| bundler | 4.0.21 | loads |  |
+| bundler | 4.0.22 | fails | `memory` |
 | aws-sdk-core | 3.257.0 | loads |  |
 | aws-sigv4 | 1.12.1 | loads |  |
-| aws-partitions | 1.1290.0 | loads |  |
+| aws-partitions | 1.1293.0 | loads |  |
 | jmespath | 1.6.2 | loads |  |
 | i18n | 1.15.2 | loads |  |
 | activesupport | 8.1.4 | loads |  |
@@ -70,7 +88,7 @@ The most downloaded first.
 | rspec-support | 3.13.7 | loads |  |
 | multi_json | 1.21.2 | loads |  |
 | thor | 1.5.0 | loads |  |
-| aws-sdk-s3 | 1.232.3 | loads |  |
+| aws-sdk-s3 | 1.233.2 | fails | `memory` |
 | ffi | 1.17.4 | loads |  |
 | aws-sdk-kms | 1.132.0 | loads |  |
 | rspec | 3.13.2 | loads |  |
@@ -84,14 +102,164 @@ The most downloaded first.
 | activerecord | 8.1.4 | loads |  |
 | rexml | 3.4.4 | loads |  |
 | actionpack | 8.1.4 | refused | `cext:nokogiri` |
-| parallel | 2.2.0 | loads |  |
+| parallel | 2.3.0 | loads |  |
 | jwt | 3.3.0 | loads |  |
 | rack-test | 2.2.0 | loads |  |
 | ast | 2.4.3 | loads |  |
 | tilt | 2.9.0 | loads |  |
 | rails | 8.1.4 | refused | `cext:nokogiri` |
 | railties | 8.1.4 | refused | `cext:nokogiri` |
-| rubyzip | 3.7.0 | loads |  |
+| rubyzip | 3.7.0 | compiles | `output-diff` |
 | actionview | 8.1.4 | refused | `cext:nokogiri` |
 | actionmailer | 8.1.4 | refused | `cext:nokogiri` |
 | method_source | 1.1.0 | loads |  |
+| mail | 2.9.1 | loads |  |
+| faraday-net_http |  | skipped | `skip` |
+| rainbow | 3.1.1 | loads |  |
+| ruby-progressbar | 1.13.0 | loads |  |
+| loofah | 2.25.2 | refused | `cext:nokogiri` |
+| rubocop | 1.91.0 | fails | `memory` |
+| mime-types-data | 3.2026.1006 | loads |  |
+| racc | 1.8.1 | loads |  |
+| connection_pool | 3.0.2 | loads |  |
+| activejob | 8.1.4 | loads |  |
+| excon | 1.7.2 | loads |  |
+| rails-html-sanitizer | 1.7.1 | refused | `cext:nokogiri` |
+| zeitwerk | 2.8.3 | loads |  |
+| nio4r | 2.7.5 | refused | `cext:nio4r` |
+| http-cookie | 1.1.6 | loads |  |
+| rails-dom-testing | 2.3.0 | refused | `cext:nokogiri` |
+| domain_name | 0.6.20260921 | loads |  |
+| regexp_parser | 2.13.1 | loads |  |
+| globalid | 1.4.0 | loads |  |
+| websocket-driver | 0.8.2 | refused | `cext:websocket-driver` |
+| coderay | 1.1.3 | loads |  |
+| pry | 0.16.0 | loads |  |
+| erubi | 1.13.1 | loads |  |
+| sprockets | 4.4.1 | loads |  |
+| rubygems-update |  | skipped | `skip` |
+| crass | 1.0.7 | loads |  |
+| mini_portile2 | 2.8.9 | loads |  |
+| thread_safe | 0.3.6 | loads |  |
+| puma | 8.0.2 | refused | `cext:puma` |
+| actioncable | 8.1.4 | refused | `cext:nokogiri` |
+| multi_xml | 0.9.1 | loads |  |
+| websocket-extensions | 0.1.5 | loads |  |
+| redis | 6.0.0 | loads |  |
+| rubocop-ast | 1.50.0 | compiles | `status-diff` |
+| sprockets-rails | 3.5.2 | refused | `cext:nokogiri` |
+| netrc | 0.11.0 | loads |  |
+| dotenv | 3.2.0 | loads |  |
+| activestorage | 8.1.4 | refused | `cext:nokogiri` |
+| httpclient | 2.9.0 | loads |  |
+| unf_ext | 0.0.9.1 | refused | `cext:unf_ext` |
+| base64 | 0.3.0 | loads |  |
+| msgpack | 1.8.5 | refused | `cext:msgpack` |
+| rack-protection | 4.2.1 | loads |  |
+| rb-fsevent | 0.11.2 | loads |  |
+| googleauth | 1.17.4 | loads |  |
+| bigdecimal | 4.1.3 | loads |  |
+| unf | 0.2.0 | refused | `cext:unf` |
+| simplecov | 1.3.2 | loads |  |
+| docile | 1.4.1 | loads |  |
+| signet | 0.22.0 | loads |  |
+| simplecov-html |  | skipped | `skip` |
+| rb-inotify |  | skipped | `skip` |
+| ruby2_keywords | 0.0.5 | loads |  |
+| hashie | 5.1.0 | loads |  |
+| marcel | 2.1.0 | loads |  |
+| rest-client | 2.1.0 | loads |  |
+| httparty | 0.24.3 | loads |  |
+| byebug | 13.0.0 | refused | `cext:byebug` |
+| webrick | 1.9.2 | loads |  |
+| pg | 1.7.0 | refused | `cext:pg` |
+| os | 1.1.4 | loads |  |
+| faraday_middleware | 1.2.1 | loads |  |
+| google-protobuf | 4.36.2 | refused | `cext:google-protobuf` |
+| actiontext | 8.1.4 | refused | `cext:nokogiri` |
+| actionmailbox | 8.1.4 | refused | `cext:nokogiri` |
+| logger | 1.7.0 | loads |  |
+| hashdiff | 1.2.1 | loads |  |
+| webmock | 3.26.4 | loads |  |
+| terminal-table | 4.0.0 | loads |  |
+| faraday-retry | 2.4.0 | loads |  |
+| crack | 1.0.1 | loads |  |
+| bcrypt | 3.1.22 | refused | `cext:bcrypt` |
+| execjs | 2.10.2 | loads |  |
+| rspec-rails | 8.0.4 | refused | `cext:nokogiri` |
+| retriable | 5.0.1 | loads |  |
+| listen | 3.10.1 | loads |  |
+| sawyer | 0.9.3 | compiles | `status-diff` |
+| faraday-excon | 2.4.0 | loads |  |
+| faraday-multipart |  | skipped | `skip` |
+| faraday-net_http_persistent | 2.3.1 | loads |  |
+| octokit | 10.0.0 | loads |  |
+| net-ssh | 7.3.6 | loads |  |
+| knapsack | 4.0.0 | loads |  |
+| mini_magick | 5.4.0 | loads |  |
+| aws-sdk | 3.3.0 | fails | `memory` |
+| net-imap | 0.6.7 | loads |  |
+| representable | 3.3.1 | loads |  |
+| bootsnap | 1.26.0 | refused | `cext:bootsnap` |
+| uber | 0.1.0 | loads |  |
+| declarative | 0.0.20 | loads |  |
+| sass | 3.7.4 | loads |  |
+| aws-sdk-resources | 3.275.0 | fails | `memory` |
+| timeout | 0.6.1 | loads |  |
+| faraday-em_synchrony | 1.0.1 | skipped | `ruby-error` |
+| capybara | 3.40.0 | refused | `cext:nokogiri` |
+| selenium-webdriver | 4.49.0 | loads |  |
+| sinatra | 4.2.1 | skipped | `ruby-error` |
+| factory_bot | 6.6.0 | loads |  |
+| request_store | 1.7.0 | loads |  |
+| faraday-em_http | 2.0.1 | refused | `cext:http_parser.rb` |
+| rdoc | 8.1.0 | refused | `cext:rbs` |
+| aws-sdk-sqs | 1.119.0 | loads |  |
+| faker | 3.8.0 | loads |  |
+| highline | 3.1.2 | loads |  |
+| xpath | 3.2.0 | refused | `cext:nokogiri` |
+| google-cloud-env | 2.4.0 | loads |  |
+| faraday-httpclient | 2.0.2 | skipped | `ruby-error` |
+| sidekiq | 8.1.7 | loads |  |
+| responders | 3.2.1 | refused | `cext:nokogiri` |
+| faraday-patron | 2.0.2 | refused | `cext:patron` |
+| eventmachine | 1.2.7 | refused | `cext:eventmachine` |
+| rubocop-performance | 1.27.0 | fails | `memory` |
+| arel | 9.0.0 | loads |  |
+| net-smtp | 0.5.1 | loads |  |
+| faraday-rack | 2.1.3 | skipped | `ruby-error` |
+| rouge | 5.1.0 | loads |  |
+| memoist | 0.16.2 | loads |  |
+| daemons | 1.4.1 | loads |  |
+| jbuilder | 2.15.1 | refused | `cext:nokogiri` |
+| digest-crc | 0.7.0 | refused | `cext:digest-crc` |
+| jquery-rails | 4.6.1 | refused | `cext:nokogiri` |
+| childprocess | 5.1.0 | loads |  |
+| rubocop-rails | 2.38.0 | fails | `memory` |
+| warden | 1.2.9 | loads |  |
+| oj | 3.17.7 | refused | `cext:oj` |
+| date | 3.5.1 | loads |  |
+| net-protocol | 0.4.0 | loads |  |
+| erubis | 2.7.0 | loads |  |
+| launchy | 3.1.1 | loads |  |
+| language_server-protocol | 3.17.0.6 | loads |  |
+| ethon | 0.18.0 | loads |  |
+| rubocop-rspec | 3.10.2 | compiles | `status-diff` |
+| devise | 5.0.4 | refused | `cext:bcrypt` |
+| mustermann | 4.0.0 | loads |  |
+| factory_bot_rails | 6.5.1 | refused | `cext:nokogiri` |
+| sass-rails | 6.0.0 | refused | `cext:nokogiri` |
+| uglifier | 4.2.1 | loads |  |
+| typhoeus | 1.6.0 | loads |  |
+| pry-byebug | 3.12.0 | refused | `cext:byebug` |
+| awesome_print | 1.9.2 | loads |  |
+| google-apis-core | 1.2.5 | loads |  |
+| orm_adapter | 0.5.0 | loads |  |
+| formatador | 1.2.3 | loads |  |
+| google-cloud-core | 1.9.0 | loads |  |
+| aws-sdk-ssm | 1.223.0 | loads |  |
+| http-accept | 2.2.2 | loads |  |
+| oauth2 | 2.0.25 | compiles | `status-diff` |
+| rack-cors | 3.0.0 | loads |  |
+| shoulda-matchers | 8.0.1 | loads |  |
+| rspec_junit_formatter | 0.6.0 | loads |  |

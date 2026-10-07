@@ -76,6 +76,7 @@ Each gem gets a tier, from the worst to the best:
 | `refused` | zr refuses the gem: it has a C extension that zr does not port, or it uses a form of Ruby that zr does not support. |
 | `fails` | The build fails, or the tool cannot find or resolve the gem. |
 | `compiles` | zr builds the probe, but the binary's output is not ruby's. |
+| `builds` | zr builds the probe. A `--build-only` trial does not run it. |
 | `loads` | The probe gives ruby's output. |
 | `verified` | The probe and the gem's smoke program give ruby's output. |
 | `skipped` | The tool did not try the gem: an override skips it, or the probe fails under ruby too. |
@@ -129,6 +130,22 @@ committed. So a sweep that stops keeps every row so far, and
 replaces only the rows of the gems that it tried. Its columns are `gem`,
 `version`, `source`, `tier`, `kind`, `detail` (at most 200 characters),
 `zr_commit`, `date` and `downloads`.
+
+### Sweep gems without running their code
+
+A trial runs the gem's code: the probe requires the gem under ruby and
+as a zr binary. A gem from a path or a corpus also has its `.gemspec`
+evaluated. For gems that you do not trust, as the long tail of
+rubygems.org, sweep with `--build-only`:
+
+```
+$ zr-dev gems sweep --top 1001..50000 --build-only --save
+```
+
+A build-only trial takes gems from rubygems.org only (no path and no
+`--corpus`), reads their metadata with RubyGems' safe YAML load, and
+stops after the build. A gem that builds is `builds`; a build that
+fails or that zr refuses is `fails` or `refused`, as in other trials.
 
 ### Change zr after a sweep
 

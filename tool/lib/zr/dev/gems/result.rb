@@ -10,7 +10,9 @@ module Zr
         # The place of the tier in TIERS; a skipped gem is below them all.
         def rank = TIERS.index(tier) || -1
 
-        def passed? = rank >= TIERS.index(:loads)
+        # Whether the gem got as far as a trial can take it: it loads, or
+        # it builds in a trial that runs nothing.
+        def passed?(run: true) = rank >= TIERS.index(run ? :loads : :builds)
 
         # One line for a sweep: `loads     rack 3.1.8`.
         def line = format("%-9s %s %s%s", tier, name, version, kind ? "  #{kind}" : "")

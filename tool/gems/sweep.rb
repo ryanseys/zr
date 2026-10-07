@@ -21,7 +21,7 @@ module Zr
         summary "Many gems, one line each, into a table"
 
         LOG = Dev.path("log/gems")
-        usage "[GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--corpus DIR] [--offline]"
+        usage "[GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--corpus DIR] [--offline] [--build-only]"
 
         def defaults
           super

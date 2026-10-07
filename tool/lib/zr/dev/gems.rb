@@ -10,8 +10,13 @@ module Zr
     # it, runs the program under ruby and as a zr binary (Trial), and
     # keeps one row for each gem (Table).
     #
-    # The tool never runs a gem's code in its own process, and never runs
-    # `gem install`: it unpacks each gem in Ruby (FetchedGems).
+    # The tool never runs `gem install`: it unpacks each gem in Ruby
+    # (FetchedGems), and reads the metadata of a gem from rubygems.org
+    # with RubyGems' safe YAML load. A trial runs the gem's code when it
+    # runs the probe under ruby and as a binary. A gem from a path or a
+    # corpus also has its .gemspec evaluated, here (Corpus) and by `zr
+    # build`. `--build-only` (Trial's `run: false`) runs no gem code: it
+    # takes gems from rubygems.org only, and stops after the build.
     module Gems
       # The fetched gems, the logs, the sweeps and the work directories.
       TMP = Dev.path("tmp/gems")
@@ -23,7 +28,7 @@ module Zr
 
       # The tiers, from the worst to the best. A gem that the tool did not
       # try (an override skips it, or ruby itself fails) is `skipped`.
-      TIERS = %i[refused fails compiles loads verified].freeze
+      TIERS = %i[refused fails builds compiles loads verified].freeze
 
       # A gem that stops before its best tier: the tier that it got, the
       # kind of failure (`cext:ffi-yajl`, `build-error`), and a short

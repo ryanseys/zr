@@ -265,6 +265,35 @@ class GemCompatTest < Minitest::Test
     assert_equal ["helper-1.2.0.gemspec", "tiny-1.0.0.gemspec", CORPUS.find("helper").root, CORPUS.find("tiny").root], runner.homes.first
   end
 
+  def test_a_trial_that_runs_nothing_stops_after_the_build
+    runner = Runner.new
+    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+                             work: File.join(@dir, "work"), reference: Reference, run: false).call(Gems::Request.parse("tiny"))
+
+    assert_equal :builds, result.tier
+    assert_equal [:build], runner.steps, "neither ruby nor the binary runs, and no smoke program"
+    assert result.passed?(run: false)
+    refute_predicate result, :passed?
+  end
+
+  def test_a_trial_that_runs_nothing_still_fails_a_build_that_fails
+    runner = Runner.new(build: answer("", "zr: boom\n", 1))
+    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+                             work: File.join(@dir, "work"), reference: Reference, run: false).call(Gems::Request.parse("tiny"))
+
+    assert_equal :fails, result.tier
+    assert_equal [:build], runner.steps
+  end
+
+  def test_build_only_takes_no_path_and_no_corpus_whose_gemspec_would_run
+    sweep = ->(*argv) { Zr::Dev::GemCompat::Sweep.new("gems sweep").start(["--build-only", *argv]) }
+
+    _, err = capture_io { assert_raises(SystemExit) { sweep.call("./some/gem") } }
+    assert_includes err, "--build-only takes no path"
+    _, err = capture_io { assert_raises(SystemExit) { sweep.call("--corpus", FIXTURES, "tiny") } }
+    assert_includes err, "--build-only takes no corpus"
+  end
+
   def test_rubys_gem_path_holds_only_the_trials_gems_and_not_the_whole_store
     store = Gems::FetchedGems.new(@dir)
     packed = store.unpack(package("packed", "0.4.0", "lib/packed.rb" => ""))

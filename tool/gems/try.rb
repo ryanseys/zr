@@ -11,7 +11,7 @@ module Zr
       # Exit status: 0 when the gem loads (or is verified), else 1.
       class Try < Base
         summary "One gem: build a program that requires it, and compare it with ruby"
-        usage "GEM [--keep] [--save] [--corpus DIR] [--offline]"
+        usage "GEM [--keep] [--save] [--corpus DIR] [--offline] [--build-only]"
 
         def defaults
           super
@@ -40,7 +40,7 @@ module Zr
             record([Gems::Table.new(Gems::Table.compat)], result)
             puts "wrote #{Dev.rel(Gems::Table.compat)}"
           end
-          result.passed?
+          result.passed?(run: !@build_only)
         end
       end
     end

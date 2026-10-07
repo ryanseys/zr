@@ -16,6 +16,7 @@ module Zr
           verified: "The probe and the gem's smoke program (`gems/<name>.rb`) give ruby's output.",
           loads: "The probe gives ruby's output.",
           compiles: "zr builds the probe, but the binary's output is not ruby's.",
+          builds: "zr builds the probe. A sweep with `--build-only` runs no gem's code, so it does not run the probe.",
           fails: "The build fails, or the tool cannot find or resolve the gem.",
           refused: "zr refuses the gem: it has a C extension that zr does not port, or it uses a form of Ruby that zr does not support.",
           skipped: "The tool did not try the gem: `gems/<name>.rb` skips it, or the probe fails under ruby too."
