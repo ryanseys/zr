@@ -69,7 +69,8 @@ module Zr
         line = node.location.start_line
         # `call` makes this node only for a literal feature.
         feature = literal_feature(node) #: String
-        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) && @loader.own?(@file) &&
+        if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) &&
+           (@loader.own?(@file) || @loader.gem_file?(@file)) &&
            @loader.boots_gems?
           # The prelude loaded rubygems as the program booted.
           gems!(:Gem)

@@ -412,6 +412,12 @@ module Zr
         #: () -> bool
         def boots_gems? = @switches.gems
 
+        # Whether `Gem` is an autoload of rubygems: a program that compiles
+        # at run time, and does not load rubygems as it boots, can reach a
+        # file that uses Gem, which ruby has for every file.
+        #: () -> bool
+        def lazy_gems? = @evals && !@gems && boots_gems?
+
         # Whether each String literal keeps where it was made
         # (--debug=frozen-string-literal).
         #: () -> bool
@@ -705,6 +711,11 @@ module Zr
         def own!(path) = @own[File.expand_path(path)] = true
         #: (String path) -> bool
         def own?(path) = @own.key?(File.expand_path(path))
+
+        # Whether `path` is a file of one of the build's gems (`--gem` or
+        # the Gemfile.lock), not of zr's standard library.
+        #: (String path) -> bool
+        def gem_file?(path) = @gem_set&.gems&.any? { |gem| gem.holds?(path) } || false
 
         # The program's main file, whose name came from the command line.
         #: (String path) -> void

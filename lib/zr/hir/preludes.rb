@@ -24,18 +24,19 @@ module Zr
       # evals). So the table is walked again until a walk takes nothing.
       # The result is in table order, not in the order that the flags
       # were set.
-      #: (Loader loader, Target target) -> Array[Require]
+      #: (Loader loader, Target target) -> Array[node]
       def self.preludes(loader, target)
         asking = {
           configures?: -> { [rbconfig(loader)] },
           evals?: -> { [eval_require(loader, target)] },
           gems?: -> { rubygems(loader) },
+          lazy_gems?: -> { gem_autoloads },
           normalizes?: -> { [normalizer(loader)] },
           pretty_prints?: -> { [pretty_printer(loader)] },
           irbs?: -> { [irb_session(loader)] },
           asts?: -> { [ast_translator(loader)] }
-        } #: Hash[Symbol, ^() -> Array[Require]]
-        taken = {} #: Hash[Symbol, Array[Require]]
+        } #: Hash[Symbol, ^() -> Array[node]]
+        taken = {} #: Hash[Symbol, Array[node]]
         while (flag = asking.each_key.find { |name| !taken.key?(name) && loader.public_send(name) })
           taken[flag] = asking.fetch(flag).call
         end
@@ -53,6 +54,7 @@ module Zr
         Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target)).tap do |loader|
           eval_require(loader, target)
           rubygems(loader)
+          loader.add(LAZY_RUBYGEMS)
           rbconfig(loader)
           normalizer(loader)
           pretty_printer(loader)
@@ -72,6 +74,29 @@ module Zr
       # The files of rubygems' autoloads that its boot reads.
       #: () -> Array[String]
       def self.booted = %w[dependency path_support requirement util version].map { |name| File.join(Library::Roots.pure, "rubygems/#{name}.rb") }
+
+      # The file that loads rubygems, bundled_gems and the gem manifest as
+      # the prelude does. Eval support carries it and the files it requires.
+      LAZY_RUBYGEMS = File.join(Library::Layout::RUNTIME_LIB, "zr/rubygems.rb") #: String
+
+      # The constants that rubygems defines as it loads, which the
+      # program's other preludes do not define already.
+      LAZY_GEM_NAMES = %i[Gem RUBYGEMS_ACTIVATION_MONITOR].freeze
+
+      # ruby loads rubygems before a program's first line, so every file can
+      # use Gem. A zr program loads it as it boots only when one of its files
+      # uses Gem (`rubygems`). A program that compiles at run time can reach
+      # a file that uses Gem, so there each of LAZY_GEM_NAMES is an
+      # autoload of LAZY_RUBYGEMS, and the program pays for rubygems' boot
+      # only when it uses one. The main file makes the autoloads, as the
+      # program would: one that a runtime file made would hide the name
+      # from the program.
+      #: () -> Array[node]
+      def self.gem_autoloads
+        LAZY_GEM_NAMES.map do |name|
+          Send.of(Core.new(:Object, 0), :autoload, [Literal.new(name, 0), Literal.new("zr/rubygems", 0)], 0)
+        end
+      end
 
       # After them, the file that gives rubygems the program's gems, as
       # bundler's setup does.

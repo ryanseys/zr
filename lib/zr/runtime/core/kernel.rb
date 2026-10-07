@@ -114,6 +114,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
     feature = File.path(name)
     return false if preloaded?(feature) || parserless?(feature)
+    return gems_loaded if gems_lazy?(feature)
 
     # A listed file that a require is running now goes on, so the
     # kernel waits for that require.
@@ -122,6 +123,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
     path = feature_path(feature)
     return false if path.nil? && listed == :bare
+    return gems_booted(path) if feature == GEM_BOOT
 
     load_file(path, feature, 0)
   end
@@ -340,6 +342,38 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   def self.loadable?(path)
     Primitive.attr! :hidden
     Primitive.zr_path_kind(File.send(:os_path, path)) > 1 && File.readable?(path)
+  end
+
+  # The feature of Gem's autoload in a program that compiles at run time
+  # (Hir::Build.gem_autoload): it loads rubygems, bundled_gems and the
+  # program's gems.
+  GEM_BOOT = "zr/rubygems"
+  private_constant :GEM_BOOT
+
+  # ruby loads rubygems and bundled_gems before a program's first line, so
+  # a require of either returns false. Where Gem is still an autoload of
+  # GEM_BOOT, the require loads them as the first use of Gem would. A
+  # require that read rubygems.rb itself would run its `module Gem`, whose
+  # autoload would require rubygems again.
+  def self.gems_lazy?(feature)
+    Primitive.attr! :hidden
+    %w[rubygems bundled_gems].include?(feature.delete_suffix(".rb")) && Object.autoload?(:Gem) == GEM_BOOT
+  end
+
+  # The load of GEM_BOOT. While it runs, it is the autoload's file, so the
+  # `module Gem` of rubygems.rb defines Gem. It is a runtime file, so it
+  # leaves no entry in $LOADED_FEATURES, which has rubygems as ruby's has.
+  def self.gems_booted(path)
+    Primitive.attr! :hidden
+    loaded = load_file(path, GEM_BOOT, 0)
+    $LOADED_FEATURES.delete(path)
+    loaded
+  end
+
+  def self.gems_loaded
+    Primitive.attr! :hidden
+    Object.const_get(:Gem)
+    false
   end
 
   # Whether ruby loaded `feature` before the program, by any of its names.

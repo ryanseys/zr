@@ -20,7 +20,7 @@ class PreludesTest < Minitest::Test
   # as irb does: it requires fileutils, and fileutils defines ninety of
   # its methods with `module_eval`.
   class Loader
-    FLAGS = %i[configures? evals? gems? normalizes? pretty_prints? irbs? asts?].freeze
+    FLAGS = %i[configures? evals? gems? lazy_gems? normalizes? pretty_prints? irbs? asts?].freeze
 
     attr_reader :read
 
@@ -63,6 +63,15 @@ class PreludesTest < Minitest::Test
     assert_equal %w[rbconfig rubygems bundled_gems zr/gem_manifest zr/syntax_tree], asked
   end
 
+  # A program that compiles at run time, and boots no rubygems, gets
+  # rubygems' names as autoloads that the main file makes, so the program
+  # sees them as it sees ruby's.
+  def test_a_program_that_compiles_at_run_time_gets_rubygems_names_as_autoloads
+    asked = preludes(Loader.new(evals?: true, lazy_gems?: true))
+
+    assert_equal ["zr/eval", "autoload Gem zr/rubygems", "autoload RUBYGEMS_ACTIVATION_MONITOR zr/rubygems"], asked
+  end
+
   # The only eval of a program can come from the files of a prelude, so
   # the loop reads the flags again after each prelude. If it does not, the
   # compiler is not included, and `binding.irb` stops in fileutils with
@@ -77,6 +86,11 @@ class PreludesTest < Minitest::Test
 
   private
 
-  # The features that `loader` reads, in the order the program loads them.
-  def preludes(loader) = Build.preludes(loader, Zr::Target.default).map(&:feature)
+  # The features that `loader` reads, in the order the program loads them,
+  # and each autoload that the main file makes.
+  def preludes(loader)
+    Build.preludes(loader, Zr::Target.default).map do |node|
+      node.is_a?(Zr::Hir::Send) ? "#{node.name} #{node.args.map(&:value).join(" ")}" : node.feature
+    end
+  end
 end
