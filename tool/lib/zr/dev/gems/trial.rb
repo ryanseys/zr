@@ -194,9 +194,10 @@ module Zr
           end
 
           say "running #{name} under ruby and as a zr binary"
-          # A gem with a C extension here is one that zr ports. An unpacked
-          # copy has no compiled C, so ruby loads the reference's own copy.
-          plain = gems.reject(&:cext?)
+          # An unpacked copy of a gem that zr ports has no compiled C, so ruby
+          # loads the reference's own copy. A gem that zr does not port has
+          # no other copy: ruby takes its Ruby files, as zr does.
+          plain = gems.reject { |gem| gem.cext? && Library::Ports::ALL.key?(gem.name) }
           env = @reference.env
           env = env.merge("GEM_PATH" => [env["GEM_PATH"], gem_home(dir, plain)].compact.join(File::PATH_SEPARATOR))
           ruby, = run(log, "ruby", [Dev.ruby, *plain.flat_map(&:roots).flat_map { |root| ["-I", root] }, name],
