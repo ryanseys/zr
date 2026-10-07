@@ -286,7 +286,7 @@ module Zr
           text = segment("__TEXT", BASE, b.text_size, 0, READ | EXEC, 0, base_sections(%i[text stubs const]),
                          [[@header, nil, []], [b.blobs[:text], b.hashes[:text], []]])
           code = segment("__PROGRAM", code_at, code_size, after(text), READ | EXEC, 0, top_sections(%i[text stubs const]),
-                         [[top_bytes(%i[text stubs const], code_at, code_size), nil, []]])
+                         [[@top.image(%i[text stubs const], code_at, code_size), nil, []]])
           got = segment("__DATA_CONST", b.got_vm, b.got_size, after(code), READ | WRITE, SG_READ_ONLY,
                         base_sections(%i[got]), [[b.blobs[:got].dup, b.hashes[:got], []]])
           got.starts = b.starts[:got]
@@ -295,7 +295,7 @@ module Zr
           data.vmsize = b.data_vmsize
           data.starts = b.starts[:data]
           own = segment("__DATA_PROGRAM", data_at, data_filesize, after(data), READ | WRITE, 0,
-                        top_sections(%i[got dconst data bss]), [[top_bytes(%i[got dconst data], data_at, data_filesize), nil, []]])
+                        top_sections(%i[got dconst data bss]), [[@top.image(%i[got dconst data], data_at, data_filesize), nil, []]])
           own.vmsize = data_vmsize
           @segments = [text, code, got, data, own]
           @late = { got: got, data: data }
@@ -325,7 +325,7 @@ module Zr
           @top.addresses!
           @segments = placed.map do |name, parts, prot, flags, start, filesize, vmsize|
             s = segment(name, start, filesize, start - BASE, prot, flags, top_sections(parts),
-                        [[top_bytes(parts - [:bss], start, filesize), nil, []]])
+                        [[@top.image(parts - [:bss], start, filesize), nil, []]])
             s.vmsize = vmsize
             s
           end
@@ -375,19 +375,6 @@ module Zr
             name, flags = SECTIONS.fetch(part)
             Section.new(name, @top.at(part), @top.size(part), @top.align(part), flags)
           end
-        end
-
-        # Returns the program's `parts`, relocated, in `size` bytes from
-        # `start`. The parts are in address order, so this appends each one.
-        #: (Array[Symbol] parts, Integer start, Integer size) -> String
-        def top_bytes(parts, start, size)
-          out = parts.each_with_object(+"".b) do |part, bytes|
-            Bytes.pad(bytes, @top.at(part) - start)
-            relocated = @top.bytes(part) #: String
-            bytes << relocated
-          end
-          Bytes.pad(out, size)
-          out
         end
 
         # --- fixups --------------------------------------------------------

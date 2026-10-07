@@ -90,13 +90,7 @@ module Zr
 
           spans = { text: [%i[text stubs const], BASE + PAGE, text_size - PAGE], got: [%i[got], got_vm, got_size],
                     data: [%i[dconst data], data_vm, data_filesize] } #: Hash[Symbol, [Array[Symbol], Integer, Integer]]
-          blobs = spans.transform_values do |parts, start, size|
-            image = parts.each_with_object(+"".b) do |part, out|
-              bytes = block.bytes(part) #: String
-              Bytes.pad(out, block.at(part) - start) << bytes
-            end
-            Bytes.pad(image, size)
-          end
+          blobs = spans.transform_values { |parts, start, size| block.image(parts, start, size) }
           # A slot must be in the file bytes. The zero-fill tail has no slots.
           bounds = { got: [got_vm, got_size], data: [data_vm, data_filesize] } #: Hash[Symbol, [Integer, Integer]]
           rows = block.fixups.group_by do |slot, *|
