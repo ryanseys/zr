@@ -6,14 +6,21 @@ module Zr
   module Dev
     class GemCompat
       # `zr-dev gems sweep`: tries many gems, and writes one line for each
-      # gem as it ends, then the count in each tier. The rows go into a
-      # new tmp/gems/sweep-<time>.tsv, or with `--save` into
-      # gems/compat.tsv, where they replace the rows of the same gems.
+      # gem as it ends, then the count in each tier. As each gem ends, its
+      # line goes into log/gems/sweep-<time>.log and its row into
+      # log/gems/sweep-<time>.tsv, and with `--save` into gems/compat.tsv
+      # too, where it replaces the row of the same gem. So a sweep that
+      # stops keeps every row so far, and `tail -f` shows its progress.
       #
       # One gem at a time by default: a build can use 2 GB. `--jobs`
-      # raises it. Ctrl-C stops the children and keeps the rows so far.
+      # raises it. Ctrl-C stops the children.
+      #
+      # The trials build with this checkout, and a build fails when zr
+      # changes under it: change zr only after the sweep.
       class Sweep < Base
         summary "Many gems, one line each, into a table"
+
+        LOG = Dev.path("log/gems")
         usage "[GEM...] [--top N] [--jobs N] [--save] [--corpus DIR] [--offline]"
 
         def defaults
@@ -42,34 +49,48 @@ module Zr
           requests = words.uniq.map { |word| request(word) }
           reference!
 
-          table = Gems::Table.new(@save ? Gems::Table.compat : File.join(Gems::TMP, "sweep-#{Time.now.strftime("%Y%m%d-%H%M%S")}.tsv"))
-          results = []
-          begin
-            sweep(requests) do |result|
-              results << result
-              puts result.line
-            end
-          rescue Interrupt
-            Harness::Child.stop_all
-            warn "zr-dev #{name}: stopped after #{results.size} of #{requests.size} gems"
+          base = File.join(LOG, "sweep-#{Time.now.strftime("%Y%m%d-%H%M%S")}")
+          tables = [Gems::Table.new("#{base}.tsv")]
+          tables << Gems::Table.new(Gems::Table.compat) if @save
+          FileUtils.mkdir_p(LOG)
+          File.open("#{base}.log", "w") do |log|
+            log.sync = true
+            say = ->(line) { [$stdout, log].each { |io| io.puts line } }
+            say.call("#{requests.size} gems with zr #{Gems::Table.commit}; rows in #{tables.map { Dev.rel(_1.path) }.join(" and ")}")
+            say.call(summary(sweep(requests, tables, say), requests.size))
           end
-          summary(results)
-          record(table, results) unless results.empty?
           true
         end
 
-        # Tries each request on `@jobs` threads, and yields each result on
-        # this thread.
-        def sweep(requests)
+        # Tries each request on `@jobs` threads. On this thread, records
+        # each result as it ends and says its line. Returns the results.
+        def sweep(requests, tables, say)
           trial = trial()
-          Dev.parallel_map(requests, jobs: @jobs || 1, each: ->(result) { yield result }) { |request| trial.call(request) }
+          results = []
+          start = now
+          each = lambda do |(result, seconds)|
+            results << result
+            record(tables, result)
+            say.call(format("[%d/%d] %s (%ds; %dm in all)", results.size, requests.size, result.line, seconds, (now - start) / 60))
+          end
+          Dev.parallel_map(requests, jobs: @jobs || 1, each: each) do |request|
+            began = now
+            [trial.call(request), now - began]
+          end
+          results
+        rescue Interrupt
+          Harness::Child.stop_all
+          say.call("stopped after #{results.size} of #{requests.size} gems")
+          results
         end
 
-        def summary(results)
+        def summary(results, wanted)
           counts = results.map(&:tier).tally
           tiers = [*Gems::TIERS.reverse, :skipped].filter_map { |tier| "#{counts[tier]} #{tier}" if counts[tier] }
-          puts "#{results.size} gems: #{tiers.join(", ")}"
+          "#{results.size} of #{wanted} gems: #{tiers.join(", ")}"
         end
+
+        def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
     end
   end

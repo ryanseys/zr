@@ -105,40 +105,34 @@ each command, each output, and the diff.
 ```
 $ zr-dev gems top --refresh            # gems/top.tsv: the 1000 most downloaded gems
 $ zr-dev gems sweep --top 100 --save
-loads     bundler 4.0.21
-compiles  aws-sdk-core 3.257.0  output-diff
+100 gems with zr 3284ce3b3a1c; rows in log/gems/sweep-20261007-0900.tsv and gems/compat.tsv
+[1/100] loads     bundler 4.0.21 (9s; 0m in all)
+[2/100] compiles  aws-sdk-core 3.257.0  output-diff (95s; 1m in all)
 ...
-refused   nokogiri 1.19.4  cext:nokogiri
+[37/100] refused   nokogiri 1.19.4  cext:nokogiri (0s; 31m in all)
 ...
-100 gems: ...
-wrote gems/compat.tsv
+100 of 100 gems: ...
 ```
 
 `sweep` takes gems by name, the top N of `gems/top.tsv` (`--top N`), or
 both. It tries one gem at a time; `--jobs N` tries N at a time, but
-each build can use 2 GB. Ctrl-C stops it and keeps the rows so far.
+each build can use 2 GB. Ctrl-C stops it.
 
-Without `--save`, the rows go into a new `tmp/gems/sweep-<time>.tsv`.
-With `--save`, they go into `gems/compat.tsv`, which is committed. It
-has one row for each gem, sorted by name, and a sweep replaces only the
-rows of the gems that it tried. Its columns are `gem`, `version`,
-`source`, `tier`, `kind`, `detail` (at most 200 characters),
+As each gem ends, the sweep writes its line into
+`log/gems/sweep-<time>.log` and its row into `log/gems/sweep-<time>.tsv`.
+With `--save`, the row also goes into `gems/compat.tsv`, which is
+committed. So a sweep that stops keeps every row so far, and
+`tail -f log/gems/sweep-<time>.log` shows how far it is.
+
+`gems/compat.tsv` has one row for each gem, sorted by name, and a sweep
+replaces only the rows of the gems that it tried. Its columns are `gem`,
+`version`, `source`, `tier`, `kind`, `detail` (at most 200 characters),
 `zr_commit`, `date` and `downloads`.
 
-### Change zr while a sweep runs
+### Change zr after a sweep
 
-A build fails when zr changes under it. To change zr while a long
-sweep runs, sweep with a copy of zr:
-
-```
-$ dir=$(zr-dev gems snapshot)            # a copy of HEAD, with its runtime built
-$ zr-dev gems sweep --zr "$dir" --top 200 --save
-```
-
-The copy is a git worktree in `tmp/gems/zr/<commit>` with its own
-cache, so only committed work is in it. Each row names the copy's
-commit. `zr-dev gems snapshot --list` prints the copies, and
-`--remove DIR` removes one.
+The sweep builds with this checkout, and a build fails when zr changes
+under it. Change zr only after the sweep ends.
 
 ## Find what to fix next
 

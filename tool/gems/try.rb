@@ -36,7 +36,10 @@ module Zr
           puts result.line
           puts "  #{result.detail}" if result.detail
           puts "log: #{Dev.rel(result.log)}"
-          record(Gems::Table.new(Gems::Table.compat), [result]) if @save
+          if @save
+            record([Gems::Table.new(Gems::Table.compat)], result)
+            puts "wrote #{Dev.rel(Gems::Table.compat)}"
+          end
           result.passed?
         end
       end

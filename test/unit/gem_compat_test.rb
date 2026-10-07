@@ -2,6 +2,8 @@
 
 require "test_helper"
 require_relative "../../tool/lib/zr/dev/gems"
+require_relative "../../tool/gems"
+require_relative "../../tool/gems/sweep"
 
 # Tests the parts of `zr-dev gems` (tool/lib/zr/dev/gems/) on a corpus of
 # tiny gems in test/fixtures/gems. No test uses the network, builds a
@@ -272,20 +274,6 @@ class GemCompatTest < Minitest::Test
     assert_includes runner.argvs.first, "helper=#{CORPUS.find("helper").root}", "each dependency is a --gem"
   end
 
-  def test_a_trial_builds_with_the_zr_that_it_is_given
-    runner = Runner.new
-    Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
-                    work: File.join(@dir, "work"), reference: Reference, zr: "/copy/exe/zr").call(Gems::Request.parse("helper"))
-
-    assert_equal "/copy/exe/zr", runner.argvs.first[1]
-  end
-
-  def test_a_snapshot_is_a_directory_with_a_zr
-    error = assert_raises(ArgumentError) { Gems::Snapshot.new(@dir) }
-    assert_includes error.message, "no exe/zr"
-    assert_equal File.join(Zr::Dev::ROOT, "exe/zr"), Gems::Snapshot.new(Zr::Dev::ROOT).zr
-  end
-
   def test_an_override_skips_a_gem_before_it_is_found
     runner = Runner.new
     result = trial(runner).call(Gems::Request.parse("skipped"))
@@ -367,6 +355,28 @@ class GemCompatTest < Minitest::Test
 
   def test_a_long_detail_is_cut
     assert_equal 200, Gems::Table.clean("x" * 500).size
+  end
+
+  def test_a_sweep_writes_each_row_and_line_as_its_gem_ends
+    tables = %w[sweep.tsv compat.tsv].map { |name| Gems::Table.new(File.join(@dir, name)) }
+    lines = []
+    seen = []
+    answers = { "rack" => result("rack", :loads), "cexty" => result("cexty", :refused, "cext:cexty") }
+    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    sweep.define_singleton_method(:downloads) { { "rack" => 7 } }
+    sweep.define_singleton_method(:trial) { ->(request) { answers.fetch(request.name) } }
+    say = lambda do |line|
+      lines << line
+      seen << tables.map { |table| Gems::Table.new(table.path).map(&:gem) }
+    end
+
+    results = sweep.sweep(%w[rack cexty].map { Gems::Request.parse(_1) }, tables, say)
+
+    assert_equal %w[rack cexty], results.map(&:name)
+    assert_equal [[%w[rack], %w[rack]], [%w[cexty rack], %w[cexty rack]]], seen, "each line comes after its rows are on disk"
+    assert_equal "7", Gems::Table.new(tables.first.path)["rack"].downloads
+    assert_match %r{\A\[1/2\] loads +rack 1\.0 \(\d+s; 0m in all\)\z}, lines.first
+    assert_match %r{\A\[2/2\] refused +cexty 1\.0  cext:cexty }, lines.last
   end
 
   def test_triage_ranks_the_causes_by_gems_then_downloads
