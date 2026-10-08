@@ -631,14 +631,29 @@ module Zr
         end
 
         # `Zr::Eval#compile_file`: the toplevel of a file that the program
-        # was not built with, as a fixnum address.
+        # was not built with, as a fixnum address. As a binary compiles it,
+        # it fires TracePoint's events while a TracePoint is on or the
+        # program fires them, and a Coverage that measures learns its lines
+        # and its def sites.
         #: (Integer path) -> Integer
         def eval_file(path)
           name = text(path)
-          hir = Hir.build(File.read(name), name, eval_support: false)
-          unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids)
+          coverage = measuring_coverage
+          base = coverage && ruby(check(k.zr_send(coverage, id(:next_def_site), 0, 0)))
+          traced = @traced || ruby(k.zr_trace_armed_m)
+          hir = Hir.build(File.read(name), name, eval_support: false, trace: traced, def_base: base)
+          check(outside([value(hir.coverable), value(hir.defs)]) { |av| k.zr_send(coverage, id(:compiled_lines!), 2, av) }) if coverage
+          unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids, false, false, nil, hir.traced)
           fn = @host.callable(-> { toplevel(hir, unit, k::KIND_TOP) })
           (fn << 1) | 1
+        end
+
+        # The program's Coverage, when the program loaded it
+        # (`Zr::Eval#covering`); else nil.
+        #: () -> Integer?
+        def measuring_coverage
+          e = k.zr_const_row_in(k.zr_global(k::G_OBJECT), id(:Coverage), false)
+          e.zero? ? nil : k::CEntry[e].value
         end
 
         # A String's bytes as a Ruby String.
@@ -648,9 +663,9 @@ module Zr
         end
 
         # A plain Ruby value as a Value: nil, true, false, Integers of the
-        # fixnum range, Strings (their bytes) and Arrays of these. Each
-        # String and Array is pinned (`Host#pin`), so a collection while the
-        # rest is made keeps it.
+        # fixnum range, Strings (their bytes), and Arrays (a Set as one) and
+        # Hashes of these. Each String, Array and Hash is pinned
+        # (`Host#pin`), so a collection while the rest is made keeps it.
         #: (untyped x) -> Integer
         def value(x)
           case x
@@ -666,10 +681,14 @@ module Zr
             end
             Memory.write(@scratch, bytes)
             @host.pin(k.zr_str_new(@scratch, bytes.bytesize))
-          when Array
+          when Array, Set
             a = @host.pin(k.zr_ary_new(x.size))
             x.each { |e| k.zr_ary_push(a, value(e)) }
             a
+          when Hash
+            h = @host.pin(k.zr_hash_new)
+            x.each { |key, v| check(k.zr_hash_store(h, value(key), value(v))) }
+            h
           else raise ArgumentError, "a #{x.class} has no Value here"
           end
         end
