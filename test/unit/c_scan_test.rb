@@ -93,6 +93,24 @@ class CScanTest < Minitest::Test
     assert_equal ["rb_zr_scan_src", UNKNOWN], scan.missing
   end
 
+  # nokogiri's gumbo.c includes nokogiri_gumbo.h from gumbo-parser/src,
+  # which its extconf.rb adds.
+  def test_a_header_that_cc_does_not_find_is_looked_for_anywhere_in_the_gem
+    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "odd/far.h"\n#include "shared.h")))
+    write(subject.root, "vendor/parser/odd/far.h" => "int far(void);\n")
+
+    scan = @scanner.call(subject)
+
+    assert_predicate scan, :complete?, scan.error
+    assert_equal [UNKNOWN], scan.missing
+  end
+
+  def test_a_header_that_the_gem_does_not_have_still_fails
+    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "pg_config.h"\n#include "shared.h")))
+
+    assert_match(/'pg_config\.h' file not found/, @scanner.call(subject).error)
+  end
+
   def test_src_is_left_out_when_no_extconf_names_it
     subject = gem("scanned", "main.c" => MAIN, "extconf.rb" => "create_makefile('scanned')\n")
     write(subject.root, "src/other.c" => BROKEN)
@@ -115,6 +133,7 @@ class CScanTest < Minitest::Test
     scan = @scanner.call(gem("scanned", "broken.c" => BROKEN))
 
     assert_equal "scanned did not compile (0/1)", sweep.lacks(scan)
+    assert_equal "plain has no C files", sweep.lacks(scan.with(gem: "plain", sources: 0))
   end
 
   def test_only_the_c_extensions_that_zr_does_not_port_are_scanned

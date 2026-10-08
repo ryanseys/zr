@@ -145,6 +145,7 @@ module Zr
         # `nokogiri lacks 0 (35/36)`: the files that compiled when not all
         # did. A scan with no compiled file found nothing to count.
         def lacks(scan)
+          return "#{scan.gem} has no C files" if scan.sources.zero?
           return "#{scan.gem} did not compile (0/#{scan.sources})" if scan.compiled.zero?
 
           "#{scan.gem} lacks #{scan.missing.size}#{" (#{scan.compiled}/#{scan.sources})" unless scan.complete?}"

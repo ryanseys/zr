@@ -51,8 +51,9 @@ module Zr
         # The version of the scan. A kept scan that did not compile every
         # file is made again by a newer scanner, which may compile more.
         # 2: the headers of the gem's include/ and src/, and src/'s files
-        # when an extconf.rb names it.
-        SCANNER = 2
+        # when an extconf.rb names it. 3: a header that cc does not find is
+        # looked for anywhere in the gem.
+        SCANNER = 3
 
         SOURCES = %w[c cc cpp cxx].freeze
         # The most seconds that one file's compile takes.
@@ -139,7 +140,7 @@ module Zr
             error = nil
             files.each_with_index do |file, i|
               object = File.join(work, "#{i}.o")
-              failure = compile(file, object, work, headers)
+              failure = compile_finding_headers(subject, file, object, work, headers)
               failure ? (error ||= "#{File.basename(file)}: #{failure}") : objects << object
             end
             imports = objects.empty? ? [] : Ext::CApi.imports(*objects).uniq.sort
@@ -178,6 +179,35 @@ module Zr
           roots = HEADER_ROOTS.map { |name| File.join(subject.root, name) }.select { |dir| File.directory?(dir) }
           below = roots.flat_map { |root| files_below(root, HEADERS).map { |file| File.dirname(file) } }
           (roots + below).uniq.first(MAX_HEADER_DIRS)
+        end
+
+        # The most headers that one file's compile looks for in the gem.
+        MAX_FOUND_HEADERS = 8
+
+        # Compiles `file` as `compile` does. When cc does not find a header
+        # (`'nokogiri_gumbo.h' file not found`), it looks for that header
+        # anywhere in the gem, as an extconf.rb would add its directory,
+        # and compiles again with it. `headers` keeps what it found, for
+        # the gem's other files.
+        def compile_finding_headers(subject, file, object, work, headers)
+          MAX_FOUND_HEADERS.times do
+            failure = compile(file, object, work, headers)
+            wanted = failure&.[](/'([^']+)' file not found/, 1)
+            dir = wanted && header_dir(subject, wanted)
+            return failure unless dir && !headers.include?(dir)
+
+            headers << dir
+          end
+          compile(file, object, work, headers)
+        end
+
+        # The directory in the gem from which `#include "name"` finds a
+        # file, or nil: for `rbs/ast.h`, the parent of the rbs/ directory.
+        def header_dir(subject, name)
+          return nil if name.start_with?("/") || name.split("/").include?("..")
+
+          found = Dir.glob("**/#{name}", base: subject.root).min_by(&:size)
+          found && File.join(subject.root, found.delete_suffix(name)).chomp("/")
         end
 
         # Compiles `file` into `object`; the first error line, or nil.
