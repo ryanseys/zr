@@ -212,14 +212,23 @@ module Zr
             end
           end
 
+          # Whether a `new` runs with no frame of its own (the kernel's
+          # opt_new), as the lowering's `new_send` gives it: one with no
+          # block, any of the core's, as C makes it, and one with a block
+          # literal in a program that fires no events (a traced one sends
+          # Class#new, so a :c_call sees it).
+          def frameless_new?(node, s)
+            return true if node.block.nil? || s.internal?
+
+            node.block.is_a?(Hir::Block) && !s.unit.traced
+          end
+
           # The code that calls the method a send finds, with the receiver,
           # the argument count and vector, and the block.
           def dispatcher(node, s, mode)
             size = k::CallCache.size
             name = id(node.name)
-            if node.name == :new && node.block.nil?
-              # `new` with no block runs with no frame of its own, as in a
-              # binary.
+            if node.name == :new && frameless_new?(node, s)
               at = cell(node, :new, size * 8)
               return ->(r, argc, av, blk) { @kern.zr_new_cached(at, r, argc, av, blk, mode) }
             end
