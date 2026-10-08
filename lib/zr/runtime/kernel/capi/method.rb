@@ -472,12 +472,16 @@ module Zr::Kern
     zr_send_blk(recv, mid, argc, argv, blk)
   end
 
-  # rb_undef_method: `klass` has no method `name`, as `undef_method` makes
-  # it.
+  # rb_undef_method: `klass` has no method `name`. Unlike `undef_method`,
+  # a name that no ancestor has is no error, and no hook runs: ruby adds
+  # the undef entry as it is (rb_add_method).
   #: (value, ptr) -> void
   def rb_undef_method(klass, name)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_call1(klass, Machine.id(:undef_method), zr_sym(zr_intern(name, zr_cstr_len(name))))
+    if zr_modify_frozen_p(klass)
+      zr_c_result(zr_frozen_error(klass))
+    end
+    zr_method_add(klass, zr_intern(name, zr_cstr_len(name)), 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
   end
 end

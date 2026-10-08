@@ -262,6 +262,10 @@ class CExtMoreCApiTest < Minitest::Test
     Gone = Class.new { def gone = 1 }
     More.undef(Gone)
     show(:undef) { Gone.new.gone }
+    Quiet = Class.new { def self.method_undefined(name) = puts("undefined #{name}") }
+    show(:undef_missing) { More.undef(Quiet); [Quiet.instance_methods(false), Quiet.new.respond_to?(:gone)] }
+    Frozen = Class.new.freeze
+    show(:undef_frozen) { More.undef(Frozen) }
     show(:require) { More.require_set }
     show(:snprintf) { More.snprintf_calls }
     show(:tmp_buffer) { [More.tmp_buffer(10), More.tmp_buffer(100_000)] }
