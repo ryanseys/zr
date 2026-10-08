@@ -39,6 +39,14 @@ class ExtTest < Minitest::Test
     assert_equal "", makefile["UNSET"]
   end
 
+  # A rule gives a variable to the shell, which takes its quotes, as
+  # raindrops's `-DRB_..=\"x\"` reaches cc.
+  def test_a_variables_words_are_the_shells
+    quoted = Zr::Ext::Makefile.new(%(CPPFLAGS = -DNAME=\\"x\\" -DTWO='a b' -I. $(DEFS)\nDEFS = -DZ\n), dir: "/build")
+
+    assert_equal ["-DNAME=\"x\"", "-DTWO=a b", "-I.", "-DZ"], quoted.words("CPPFLAGS")
+  end
+
   def test_the_extension_has_its_feature_init_objects_and_libraries
     assert_equal "hello/hello", makefile.feature
     assert_equal "Init_hello_ext", makefile.init

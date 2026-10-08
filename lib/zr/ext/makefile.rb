@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "shellwords"
+
 module Zr
   module Ext
     # The Makefile that mkmf writes for a C extension, read for what zr
@@ -91,8 +93,10 @@ module Zr
         end
       end
 
+      # The words of the variable `name` as a rule gives them to the shell,
+      # which takes their quotes: `-DNAME=\"x\"` is the word `-DNAME="x"`.
       #: (String name) -> Array[String]
-      def words(name) = self[name].split
+      def words(name) = Shellwords.split(self[name])
 
       # Each source file with the object that it compiles to, in the
       # order of SRCS: `[srcdir/a.c, dir/a.o]`.
