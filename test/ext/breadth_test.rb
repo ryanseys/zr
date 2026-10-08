@@ -12,6 +12,8 @@ class CExtBreadthTest < Minitest::Test
     #include <ruby.h>
     #include <ruby/encoding.h>
     #include <ruby/re.h>
+    #include <ruby/io/buffer.h>
+    #include <string.h>
 
     static VALUE b_ranges(VALUE self, VALUE obj) {
       VALUE beg = Qundef, end = Qundef;
@@ -76,6 +78,26 @@ class CExtBreadthTest < Minitest::Test
                                   rb_big_plus(big, INT2FIX(1)), rb_big_minus(big, big), rb_big_mul(big, INT2FIX(2)),
                                   rb_dbl2big(1e20), rb_str2inum(rb_str_new_cstr("ff"), 16),
                                   INT2FIX(rb_num2short(INT2FIX(-7))), INT2FIX(rb_num2ushort(INT2FIX(65535))));
+    }
+    static VALUE b_pack(VALUE self, VALUE v, VALUE numwords, VALUE wordsize, VALUE flags) {
+      unsigned char buf[32] = { 0 };
+      int sign = rb_integer_pack(v, buf, NUM2SIZET(numwords), NUM2SIZET(wordsize), 0, NUM2INT(flags));
+      size_t n = NUM2SIZET(numwords) * NUM2SIZET(wordsize);
+      VALUE back = rb_integer_unpack(buf, NUM2SIZET(numwords), NUM2SIZET(wordsize), 0, NUM2INT(flags));
+      VALUE negative = rb_integer_unpack(buf, NUM2SIZET(numwords), NUM2SIZET(wordsize), 0,
+                                         (NUM2INT(flags) & ~INTEGER_PACK_2COMP) | INTEGER_PACK_NEGATIVE);
+      return rb_ary_new_from_args(4, INT2FIX(sign), rb_str_new((char *)buf, n), back, negative);
+    }
+    static VALUE b_buffer(VALUE self, VALUE buffer, VALUE text) {
+      const void *rbase;
+      size_t rsize;
+      rb_io_buffer_get_bytes_for_reading(buffer, &rbase, &rsize);
+      VALUE seen = rb_str_new(rbase, rsize);
+      void *wbase;
+      size_t wsize;
+      rb_io_buffer_get_bytes_for_writing(buffer, &wbase, &wsize);
+      memcpy(wbase, RSTRING_PTR(text), RSTRING_LEN(text) < (long)wsize ? RSTRING_LEN(text) : (long)wsize);
+      return rb_assoc_new(seen, SIZET2NUM(wsize));
     }
     static VALUE b_short(VALUE self, VALUE v) { return INT2FIX(rb_num2short(v)); }
     static VALUE b_to_int(VALUE self, VALUE v) { return rb_to_int(v); }
@@ -150,6 +172,8 @@ class CExtBreadthTest < Minitest::Test
       rb_define_module_function(m, "asciicompat", b_asciicompat, 1);
       rb_define_module_function(m, "numbers", b_numbers, 0);
       rb_define_module_function(m, "short", b_short, 1);
+      rb_define_module_function(m, "buffer", b_buffer, 2);
+      rb_define_module_function(m, "pack", b_pack, 4);
       rb_define_module_function(m, "to_int", b_to_int, 1);
       rb_define_module_function(m, "coerce", b_coerce, 2);
       rb_define_module_function(m, "relop_bad", b_relop_bad, 2);
@@ -218,6 +242,22 @@ class CExtBreadthTest < Minitest::Test
     show(:to_str_bad) { Breadth.to_str_bad(1) }
     show(:asciicompat) { [Breadth.asciicompat("ok"), (Breadth.asciicompat("x".encode("UTF-16LE")) rescue $!.message)] }
     show(:numbers) { Breadth.numbers }
+    show(:pack) do
+      little = 0x02 | 0x20
+      big = 0x01 | 0x10
+      [Breadth.pack(0x0102030405, 2, 4, little), Breadth.pack(0x0102030405, 2, 4, big), Breadth.pack(-2, 1, 4, little | 0x80),
+       Breadth.pack(-2, 1, 4, little), Breadth.pack(2**40, 1, 4, little), Breadth.pack(0, 1, 2, big), Breadth.pack(255, 1, 1, little | 0x80),
+       Breadth.pack(2**70 + 3, 2, 8, 0x02 | 0x40)].map { |sign, bytes, back, negative| [sign, bytes.unpack1("H*"), back, negative] }
+    end
+    show(:buffer) do
+      buffer = IO::Buffer.new(8)
+      buffer.set_string("abcdefgh")
+      seen = Breadth.buffer(buffer, "XY")
+      slice = buffer.slice(2, 3)
+      [seen, buffer.get_string, Breadth.buffer(slice, "123"), buffer.get_string, Breadth.buffer(IO::Buffer.new(0), "")]
+    end
+    show(:buffer_string) { s = +"hello"; IO::Buffer.for(s) { |b| Breadth.buffer(b, "J") }; s }
+    show(:buffer_readonly) { IO::Buffer.for("frozen".freeze) { |b| Breadth.buffer(b, "x") } }
     show(:short) { Breadth.short(40000) }
     show(:short_low) { Breadth.short(-40000) }
     show(:to_int) { [Breadth.to_int(3), Breadth.to_int(2**70), Breadth.to_int(2.9), Breadth.to_int(Point.new(1).method(:size).arity)] }

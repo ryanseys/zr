@@ -606,4 +606,98 @@ module Zr::Kern
     end
     n
   end
+
+  # rb_integer_pack's and rb_integer_unpack's flags (INTEGER_PACK_*): the
+  # order of the words and of the bytes in a word, two's complement, and
+  # a negative magnitude.
+  INTEGER_PACK_MSWORD_FIRST = 0x01
+  INTEGER_PACK_MSBYTE_FIRST = 0x10
+  INTEGER_PACK_2COMP = 0x80
+  INTEGER_PACK_NEGATIVE = 0x200
+
+  # rb_integer_pack: the Integer `val` into `numwords` words of `wordsize`
+  # bytes at `words`, in the order that `flags` gives: its magnitude, or
+  # its two's complement under INTEGER_PACK_2COMP. Returns its sign (-1,
+  # 0 or 1), or twice it when the words cannot hold it. zr packs whole
+  # bytes: `nails` must be 0.
+  #: (value, ptr, word, word, word, i32) -> i32
+  def rb_integer_pack(val, words, numwords, wordsize, nails, flags)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_no_nails(nails)
+    f = Machine.sword(flags)
+    n = zr_capi_to_int(val)
+    sign = zr_fix2long(zr_capi_call1(n, Machine.id(:<=>), zr_fix(0)))
+    total = numwords * wordsize
+    room = zr_capi_call1(zr_fix(1), Machine.id(:<<), zr_fix(total * 8))
+    magnitude = zr_c_result(zr_send(n, Machine.id(:abs), 0, Machine.ptr(0)))
+    if (f & INTEGER_PACK_2COMP) != 0 && sign < 0
+      magnitude = zr_capi_call1(room, Machine.id(:-), magnitude)
+    end
+    fits = zr_capi_call1(magnitude, Machine.id(:<), room) == QTRUE
+    digits = zr_capi_call1(zr_capi_call1(magnitude, Machine.id(:%), room), Machine.id(:digits), zr_fix(256))
+    i = 0
+    while i < total
+      byte = i < RArray[digits].len ? zr_fix2long(zr_ary_at(digits, i)) : 0
+      Machine.store8(zr_capi_packed_at(words, i, numwords, wordsize, f), 0, Machine.i8(byte))
+      i += 1
+    end
+    Machine.i32(fits ? sign : sign * 2)
+  end
+
+  # rb_integer_unpack: the Integer in the `numwords` words of `wordsize`
+  # bytes at `words`, read in the order that `flags` gives: a magnitude,
+  # negative under INTEGER_PACK_NEGATIVE, or a two's complement under
+  # INTEGER_PACK_2COMP.
+  #: (ptr, word, word, word, i32) -> value
+  def rb_integer_unpack(words, numwords, wordsize, nails, flags)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_no_nails(nails)
+    f = Machine.sword(flags)
+    total = numwords * wordsize
+    digits = zr_ary_new(total)
+    i = 0
+    while i < total
+      zr_ary_push(digits, zr_fix(Machine.u8(Machine.load8(zr_capi_packed_at(words, i, numwords, wordsize, f), 0))))
+      i += 1
+    end
+    n = zr_capi_from_digits(digits)
+    if (f & INTEGER_PACK_2COMP) != 0 && total > 0 && (zr_fix2long(zr_ary_at(digits, total - 1)) & 128) != 0
+      return zr_capi_call1(n, Machine.id(:-), zr_capi_call1(zr_fix(1), Machine.id(:<<), zr_fix(total * 8)))
+    end
+    (f & INTEGER_PACK_NEGATIVE) != 0 ? zr_c_result(zr_send(n, Machine.id(:-@), 0, Machine.ptr(0))) : n
+  end
+
+  # The address of the byte of significance `i` (0 the least) of the
+  # packed words: the word and the byte within it in the order of `flags`
+  # (native byte order is little-endian here).
+  #: (ptr, word, word, word, word) -> ptr
+  def zr_capi_packed_at(words, i, numwords, wordsize, flags)
+    w = i / wordsize
+    b = i % wordsize
+    if (flags & INTEGER_PACK_MSWORD_FIRST) != 0
+      w = numwords - 1 - w
+    end
+    if (flags & INTEGER_PACK_MSBYTE_FIRST) != 0
+      b = wordsize - 1 - b
+    end
+    words + ((w * wordsize) + b)
+  end
+
+  # The Integer of the base-256 `digits`, the least significant first.
+  #: (value) -> value
+  def zr_capi_from_digits(digits)
+    bytes = zr_capi_call1(zr_c_result(zr_send(digits, Machine.id(:reverse), 0, Machine.ptr(0))), Machine.id(:pack),
+                          zr_str_new(Machine.bytes("C*"), 2))
+    hex = zr_capi_call1(bytes, Machine.id(:unpack1), zr_str_new(Machine.bytes("H*"), 2))
+    zr_capi_call1(hex, Machine.id(:to_i), zr_fix(16))
+  end
+
+  #: (word) -> void
+  def zr_capi_no_nails(nails)
+    if nails != 0
+      zr_c_raise(zr_core_class(Machine.id(:NotImplementedError)), Machine.bytes("zr packs no nails"), 17)
+    end
+  end
 end

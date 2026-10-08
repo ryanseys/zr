@@ -77,6 +77,8 @@ class IO
         @size = size
       end
 
+      attr_reader :address
+
       def bytesize = @size
       def getbyte(index) = Primitive.zr_mem_getbyte(@address + index)
       def setbyte(index, byte) = Primitive.zr_mem_setbyte(@address + index, byte & 0xff)
@@ -669,6 +671,18 @@ class IO
       @flags = EXTERNAL | (readonly ? READONLY : 0)
       @source = string
       self
+    end
+
+    # The bytes that C reads or writes in place
+    # (rb_io_buffer_get_bytes_for_reading and _for_writing): the String
+    # that holds them, or the address of shared memory, then where the
+    # buffer starts in it and its size. C may not write a read-only
+    # buffer.
+    def c_window(writing)
+      Primitive.attr! :hidden
+      raise AccessError, +"Buffer is not writable!" if writing && readonly?
+
+      [@bytes.is_a?(SharedMemory) ? @bytes.address : @bytes, @start || 0, @size]
     end
 
     def window(bytes, start, size, flags, mapping = nil, source = nil)

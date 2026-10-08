@@ -113,6 +113,34 @@ module Zr::Kern
     zr_c_result(zr_send(scheduler, Machine.id(:unblock), 2, args))
   end
 
+  # rb_fiber_scheduler_blocking_operation_extract, _execute and _cancel:
+  # the C struct of a blocking operation that the VM gives a scheduler's
+  # blocking_operation_wait, which a C worker thread runs. zr's blocking
+  # operations are Ruby objects that only a Ruby thread can run
+  # (`Fiber.offloaded` in core/thread.rb), so none has such a struct:
+  # extract gives NULL, and the other two say -1, as for an operation
+  # that is not queued.
+  #: (value) -> ptr
+  def rb_fiber_scheduler_blocking_operation_extract(operation)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.ptr(0)
+  end
+
+  #: (ptr) -> i32
+  def rb_fiber_scheduler_blocking_operation_execute(operation)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(0 - 1)
+  end
+
+  #: (ptr) -> i32
+  def rb_fiber_scheduler_blocking_operation_cancel(operation)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(0 - 1)
+  end
+
   #: () -> value
   def zr_capi_fiber_class
     zr_core_class(Machine.id(:Fiber))

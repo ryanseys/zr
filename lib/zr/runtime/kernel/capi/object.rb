@@ -857,6 +857,11 @@ module Zr::Kern
   def rb_to_int(val)
     Machine.gates_enter
     zr_c_entered()
+    zr_capi_to_int(val)
+  end
+
+  #: (value) -> value
+  def zr_capi_to_int(val)
     if zr_fixnum_p(val) || zr_big_p(val)
       return val
     end
