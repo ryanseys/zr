@@ -167,12 +167,55 @@ module Zr::Kern
     zr_capi_set(Machine.global(:rb_mErrno), zr_core_class(Machine.id(:Errno)))
     zr_capi_set(Machine.global(:rb_mProcess), zr_core_class(Machine.id(:Process)))
     zr_capi_set(Machine.global(:rb_cMethod), zr_global(G_METHOD))
+    zr_capi_set(Machine.global(:rb_cUnboundMethod), zr_core_class(Machine.id(:UnboundMethod)))
+    zr_capi_set(Machine.global(:rb_cBinding), zr_core_class(Machine.id(:Binding)))
+    zr_capi_set(Machine.global(:rb_cDir), zr_core_class(Machine.id(:Dir)))
+    zr_capi_set(Machine.global(:rb_cEnumerator), zr_core_class(Machine.id(:Enumerator)))
+    zr_capi_set(Machine.global(:rb_cMatch), zr_core_class(Machine.id(:MatchData)))
+    zr_capi_set(Machine.global(:rb_cRactor), zr_core_class(Machine.id(:Ractor)))
+    zr_capi_set(Machine.global(:rb_cRefinement), zr_core_class(Machine.id(:Refinement)))
+    zr_capi_set(Machine.global(:rb_cSet), zr_core_class(Machine.id(:Set)))
+    zr_capi_set(Machine.global(:rb_cStat), zr_capi_nested(Machine.id(:File), Machine.id(:Stat)))
+    zr_capi_set(Machine.global(:rb_mFileTest), zr_core_class(Machine.id(:FileTest)))
+    zr_capi_set(Machine.global(:rb_mGC), zr_core_class(Machine.id(:GC)))
+    zr_capi_set(Machine.global(:rb_mMath), zr_core_class(Machine.id(:Math)))
+    zr_capi_set(Machine.global(:rb_mWaitReadable), zr_capi_nested(Machine.id(:IO), Machine.id(:WaitReadable)))
+    zr_capi_set(Machine.global(:rb_mWaitWritable), zr_capi_nested(Machine.id(:IO), Machine.id(:WaitWritable)))
+    zr_capi_set(Machine.global(:rb_eEncCompatError), zr_capi_nested(Machine.id(:Encoding), Machine.id(:CompatibilityError)))
+    zr_capi_set(Machine.global(:rb_eIOTimeoutError), zr_capi_nested(Machine.id(:IO), Machine.id(:TimeoutError)))
+    zr_capi_set(Machine.global(:rb_eLocalJumpError), zr_global(G_LOCAL_JUMP_ERROR))
+    zr_capi_set(Machine.global(:rb_eMathDomainError), zr_capi_nested(Machine.id(:Math), Machine.id(:DomainError)))
+    zr_capi_set(Machine.global(:rb_eNoMatchingPatternError), zr_core_class(Machine.id(:NoMatchingPatternError)))
+    zr_capi_set(Machine.global(:rb_eNoMatchingPatternKeyError), zr_core_class(Machine.id(:NoMatchingPatternKeyError)))
+    zr_capi_set(Machine.global(:rb_eRegexpError), zr_core_class(Machine.id(:RegexpError)))
+    zr_capi_set(Machine.global(:rb_eSystemExit), zr_core_class(Machine.id(:SystemExit)))
+    zr_capi_stdio_init()
     zr_capi_util_init()
+  end
+
+  # rb_stdin, rb_stdout and rb_stderr: the streams of $stdin, $stdout and
+  # $stderr, which an assignment to the global then updates
+  # (zr_gvar_mirror). The global objects are rooted as the globals' values.
+  #: () -> void
+  def zr_capi_stdio_init
+    words = Machine.static(:stdio_words, 24)
+    Machine.store64(words, 0, Machine.word(Machine.global(:rb_stdin)))
+    Machine.store64(words, 8, Machine.word(Machine.global(:rb_stdout)))
+    Machine.store64(words, 16, Machine.word(Machine.global(:rb_stderr)))
+    zr_capi_set(Machine.global(:rb_stdin), zr_gvar_get(Machine.id(:$stdin)))
+    zr_capi_set(Machine.global(:rb_stdout), zr_gvar_get(Machine.id(:$stdout)))
+    zr_capi_set(Machine.global(:rb_stderr), zr_gvar_get(Machine.id(:$stderr)))
   end
 
   #: (ptr, value) -> void
   def zr_capi_set(word, v)
     Machine.store64(word, 0, Machine.word(v))
+  end
+
+  # The constant `inner` of the core class `outer`: File::Stat.
+  #: (word, word) -> value
+  def zr_capi_nested(outer, inner)
+    zr_capi_call1(zr_core_class(outer), Machine.id(:const_get), zr_sym(inner))
   end
 
   # rb_set_end_proc: `fn(data)` runs at the program's end with the

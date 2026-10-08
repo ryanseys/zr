@@ -1284,7 +1284,27 @@ module Zr::Kern
     else
       IvEntry[e].value = v
     end
+    zr_gvar_mirror(target, v)
     v
+  end
+
+  # The words through which C reads $stdin, $stdout and $stderr, as
+  # CRuby's rb_stdin, rb_stdout and rb_stderr: their addresses, which the
+  # C API sets as it starts (capi/entry.rb), or 0 before. Each follows
+  # its global.
+  #: (word, value) -> void
+  def zr_gvar_mirror(id, v)
+    words = Machine.static(:stdio_words, 24)
+    if Machine.load64(words, 0) == 0
+      return
+    end
+    if id == Machine.id(:$stdin)
+      Machine.store64(Machine.ptr(Machine.load64(words, 0)), 0, Machine.word(v))
+    elsif id == Machine.id(:$stdout)
+      Machine.store64(Machine.ptr(Machine.load64(words, 8)), 0, Machine.word(v))
+    elsif id == Machine.id(:$stderr)
+      Machine.store64(Machine.ptr(Machine.load64(words, 16)), 0, Machine.word(v))
+    end
   end
 
   # `$name = v` from Ruby code. A name that `alias` made is in place of a
