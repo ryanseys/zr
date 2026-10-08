@@ -166,12 +166,13 @@ view costs nothing.
 | `Machine.static(:name, n)` | the address of `n` zeroed bytes that every def that uses `:name` shares |
 | `Machine.gates` | the gate word, from its register (`x28`; a global on wasm) |
 | `Machine.gates_set(w)` | sets the gate word to `w`: stores its static and sets its register, for all functions |
-| `Machine.gates_enter` | the first statement of a def that foreign code calls (`main`, a signal handler, the start of a thread, a C callback): loads the register from the static, and gives the caller's value back on return |
+| `Machine.gates_enter` | the first statement of a def that foreign code calls (`main`, a signal handler, the start of a thread, a C callback, a C-API function): loads the register from the static, and gives the caller's value back on return. The def saves every callee-saved register, so the collector's scan of C frames sees what C kept in them |
 | `Machine.bytes("text")` | the address of a read-only copy of the literal |
 | `Machine.bytesize("text")` | the size of the literal in bytes |
 | `Machine.id(:name)` | the symbol ID of `name` |
 | `Machine.addr(:name)` | the address of the def `name` |
 | `Machine.extern(:name)` | the address of a data object that another compilation unit defines |
+| `Machine.global(:name)` | the address of an exported, zeroed word named `name`, which C code reads by that name (`rb_cObject`) |
 
 ## Rules
 

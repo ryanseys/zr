@@ -79,6 +79,7 @@ module Zr
       # @rbs @sigs: Hash[String, Signature]
       # @rbs @next_bytes: Integer
       # @rbs @statics: Hash[String, Integer]
+      # @rbs @globals: Set[String]
       # @rbs @collectors: Array[String]
       # @rbs @collects: Set[String | Symbol]?
       # @rbs @inline: Hash[String, bool?]
@@ -112,6 +113,7 @@ module Zr
         @raw = []
         @next_bytes = 0
         @statics = {}
+        @globals = Set.new
         @collectors = []
         @collects = nil
         @inline = {}
@@ -827,6 +829,14 @@ module Zr
           @data << Obj::Datum.new("zr_static_#{name}", :bss, size, align: 16)
         end
         "zr_static_#{name}"
+      end
+
+      # An exported, zeroed word that C code reads by its own name, as a C
+      # extension reads `rb_cObject`: `Machine.global(:rb_cObject)`.
+      #: (String name) -> String
+      def global(name)
+        @data << Obj::Datum.new(name, :bss, 8, align: 8, linkage: :export) if @globals.add?(name)
+        name
       end
 
       #: (Prism::node? node, String message) -> bot

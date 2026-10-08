@@ -49,6 +49,8 @@ module Zr
       def self.addr: (Symbol name) -> ptr
       def self.slot: (word bytes) -> ptr
       def self.static: (Symbol name, word bytes) -> ptr
+      # The address of an exported word that C reads by its name.
+      def self.global: (Symbol name) -> ptr
 
       def self.load64: (ptr p, word offset) -> word
       def self.load32: (ptr p, word offset) -> i32
