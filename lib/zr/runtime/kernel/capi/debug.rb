@@ -69,13 +69,13 @@ module Zr::Kern
   end
 
   # The code of a Ruby frame as a RubyVM::InstructionSequence; nil for a
-  # C frame.
+  # C frame (Thread.frame_iseq reads the frame's row).
   #: (value, word) -> value
   def rb_debug_inspector_frame_iseq_get(dc, index)
     Machine.gates_enter
     zr_c_entered()
     argv = Machine.slot(64)
-    Machine.store64(argv, 0, Machine.word(zr_ary_at(zr_capi_debug_frame(dc, index), DEBUG_ROW_META)))
+    Machine.store64(argv, 0, Machine.word(zr_capi_debug_frame(dc, index)))
     zr_c_result(zr_trace_point_send(zr_core_class(Machine.id(:Thread)), Machine.id(:frame_iseq), 1, argv))
   end
 

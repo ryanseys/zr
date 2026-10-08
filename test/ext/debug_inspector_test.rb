@@ -179,6 +179,9 @@ class CExtDebugInspectorTest < Minitest::Test
     end
 
     show(:hook) { Inspect.watch { Walker.new.walk(5) }.map { |frames| frames.first(3) } }
+    # A core method that ruby writes in Ruby runs its :call hook in its
+    # own frame.
+    show(:core_hook) { Inspect.watch { [1, 2].first }.map { |frames| frames.first(2) } }
   RUBY
 
   def setup

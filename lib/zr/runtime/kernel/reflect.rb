@@ -914,14 +914,15 @@ module Zr::Kern
 
   # The data that rb_debug_inspector_open gives a debugger. It returns
   # each shown frame, from `rec` outward, as `[backtrace line, node id,
-  # self, binding, FrameMeta address, class]`. A frame that the runtime
-  # pushed for a C method has no binding, and its address is 0.
+  # self, binding, FrameMeta address, class, method entry address]`. A
+  # frame that the runtime pushed for a C method has no binding, and its
+  # address is 0.
   #: (ptr) -> value
   def zr_debug_frames_from(rec)
     out = zr_ary_new(16)
     while rec != 0
       if zr_frame_shown_p(rec)
-        entry = zr_ary_new(6)
+        entry = zr_ary_new(7)
         zr_ary_push(out, entry)
         meta = Frame[rec].meta
         native = zr_meta_native_p(meta)
@@ -952,6 +953,7 @@ module Zr::Kern
         end
         method = zr_method_meta_of(rec)
         zr_ary_push(entry, method == 0 ? Machine.value(QNIL) : FrameMeta[method].owner)
+        zr_ary_push(entry, zr_fix(Machine.word(Frame[rec].entry)))
       end
       rec = Frame[rec].prev
     end

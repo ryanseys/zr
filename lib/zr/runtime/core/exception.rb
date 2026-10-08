@@ -617,17 +617,38 @@ end
 class Thread
   # The location of each frame that the kernel gives a debugger
   # (zr_debug_frames_from), as rb_debug_inspector_backtrace_locations
-  # gives them: a C frame has no path and no line.
+  # gives them: a C frame has no path and no line. In a TracePoint's
+  # hook, the frame of the core method that CRuby writes in Ruby and whose
+  # event the hook handles (Kernel#class) is Ruby code at its place in
+  # CRuby's builtin sources (TracePoint.fire): its row takes the binding
+  # that the event gives, and the place and name of its code.
   def self.frame_locations(frames)
     Primitive.attr! :hidden
-    frames.map { |row, node, _receiver, _binding, meta| Backtrace::Location.new(row, node, meta.zero? ? false : nil) }
+    event = TracePoint.send(:current_row)
+    frames.map do |frame|
+      row, node, receiver, _binding, meta, _klass, entry = frame
+      unless event && event[8].is_a?(Array) && entry.nonzero? && entry == event[10]
+        next Backtrace::Location.new(row, node, meta.zero? ? false : nil)
+      end
+
+      path, line = event[8]
+      frame[3] = Primitive.zr_trace_builtin_binding(entry, receiver)
+      Primitive.zr_hidden_set(frame[3], :__source__, event[8])
+      frame << [path, line, event[4].to_s]
+      Backtrace::Location.new("#{path}:#{line}#{row[row.index(":in '")..]}", 0, line)
+    end
   end
 
-  # rb_debug_inspector_frame_iseq_get: the code of a frame's FrameMeta
-  # (`meta`, its address), or nil for a C frame, which has none.
-  def self.frame_iseq(meta)
+  # rb_debug_inspector_frame_iseq_get: the code of a frame, by its row: at
+  # the place that frame_locations gave it, or of its FrameMeta, or nil
+  # for a C frame, which has none.
+  def self.frame_iseq(frame)
     Primitive.attr! :hidden
-    RubyVM::InstructionSequence.send(:of_frame, meta) unless meta.zero?
+    if (place = frame[7])
+      path, line, label = place
+      return RubyVM::InstructionSequence.send(:made, nil, nil, label, label, path, line)
+    end
+    RubyVM::InstructionSequence.send(:of_frame, frame[4]) unless frame[4].zero?
   end
   private_class_method :frame_locations, :frame_iseq
 
