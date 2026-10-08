@@ -8,7 +8,8 @@ module Zr::Kern
   # the data word itself when it is a cell, so the collector keeps what C
   # handed over. Its `blk` is the block of the C method that made it:
   # rb_yield in the block function yields to that block, as the yield of
-  # an IFUNC does.
+  # an IFUNC does. rb_thread_create and rb_fiber_new make the same kind
+  # of Proc over another adapter.
 
   # rb_block_call: `obj.mid(*argv)` with a block that calls `bl_proc`
   # for each yield, or with the C method's own block when `bl_proc` is
@@ -183,18 +184,41 @@ module Zr::Kern
   # yield's values reach C as they were given.
   #: (ptr, word) -> value
   def zr_capi_cblock_new(fn, data)
+    zr_capi_native_proc(Machine.addr(:zr_capi_cblock), fn, data)
+  end
+
+  # A Proc whose `fn` is `adapter`, which calls the C function `fn` with
+  # its data word, both kept in its self (zr_capi_proc_fn and
+  # zr_capi_proc_data read them).
+  #: (ptr, ptr, word) -> value
+  def zr_capi_native_proc(adapter, fn, data)
+    # A data word that is a cell can be in no other root (a String that C
+    # made for the call), so it is a Value of this frame before anything
+    # allocates.
+    held = Machine.value(QNIL)
+    if zr_live_cell_p(data)
+      held = Machine.value(data)
+    end
     kept = zr_ary_new(3)
     RBasic[kept].flags = RBasic[kept].flags | FL_CONCEALED
     zr_ary_push(kept, zr_int_from_word(Machine.word(fn)))
     zr_ary_push(kept, zr_c_result(zr_int_from_word(data)))
-    if zr_live_cell_p(data)
-      zr_ary_push(kept, Machine.value(data))
-    end
-    p = zr_native_proc(Machine.addr(:zr_capi_cblock), kept)
+    zr_ary_push(kept, held)
+    p = zr_native_proc(adapter, kept)
     RProc[p].lambda = 0
     blk = zr_capi_block()
     RProc[p].blk = blk == QNIL ? blk : zr_block_proc(blk)
     p
+  end
+
+  #: (value) -> ptr
+  def zr_capi_proc_fn(p)
+    Machine.ptr(zr_fix2long(zr_ary_at(RProc[p].self, 0)))
+  end
+
+  #: (value) -> word
+  def zr_capi_proc_data(p)
+    zr_capi_ulong_of(zr_ary_at(RProc[p].self, 1), true)
   end
 
   #: (value) -> bool
@@ -208,10 +232,9 @@ module Zr::Kern
   # own whose block is the C method's, which no backtrace shows.
   #: (value, word, ptr, value) -> value
   def zr_capi_cblock(p, argc, argv, blk)
-    kept = RProc[p].self
     args = Machine.slot(64)
     Machine.store64(args, 0, argc > 0 ? Machine.load64(argv, 0) : QNIL)
-    Machine.store64(args, 8, zr_capi_ulong_of(zr_ary_at(kept, 1), true))
+    Machine.store64(args, 8, zr_capi_proc_data(p))
     Machine.store64(args, 16, argc)
     Machine.store64(args, 24, Machine.word(argv))
     Machine.store64(args, 32, Machine.word(blk == QNIL ? blk : zr_block_proc(blk)))
@@ -232,7 +255,7 @@ module Zr::Kern
     Frame[rec].svars = Machine.value(QNIL)
     Frame[rec].defined = Machine.value(QNIL)
     Task[t].top = rec
-    r = Machine.value(zr_call_c(Machine.ptr(zr_fix2long(zr_ary_at(kept, 0))), args, 5))
+    r = Machine.value(zr_call_c(zr_capi_proc_fn(p), args, 5))
     Task[zr_task()].top = Frame[rec].prev
     r
   end

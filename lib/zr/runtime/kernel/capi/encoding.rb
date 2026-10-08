@@ -376,4 +376,22 @@ module Zr::Kern
     zr_c_entered()
     zr_capi_encoding(zr_capi_to_enc_index(zr_str_new(Machine.bytes("filesystem"), 10)))
   end
+
+  # rb_enc_check: the encoding that `a` and `b` have together
+  # (Encoding.compatible?), else CRuby's Encoding::CompatibilityError.
+  #: (value, value) -> ptr
+  def rb_enc_check(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(a))
+    Machine.store64(args, 8, Machine.word(b))
+    enc = zr_c_result(zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:compatible?), 2, args))
+    if enc == QNIL
+      Machine.store64(args, 0, Machine.word(zr_c_result(zr_send(a, Machine.id(:encoding), 0, Machine.ptr(0)))))
+      Machine.store64(args, 8, Machine.word(zr_c_result(zr_send(b, Machine.id(:encoding), 0, Machine.ptr(0)))))
+      zr_c_result(zr_send(zr_str_new(Machine.bytes(""), 0), Machine.id(:buf_incompatible), 2, args))
+    end
+    zr_capi_encoding(zr_capi_to_enc_index(enc))
+  end
 end

@@ -263,4 +263,13 @@ module Zr::Kern
     zr_c_entered()
     zr_c_result(zr_send(zr_core_class(Machine.id(:GC)), Machine.id(:disable), 0, Machine.ptr(0)))
   end
+
+  # rb_during_gc: whether a collection runs, as 1 or 0: only a mark or a
+  # free function that it calls sees 1.
+  #: () -> i32
+  def rb_during_gc
+    Machine.gates_enter
+    zr_c_entered()
+    Heap[zr_heap()].collecting != 0 ? Machine.i32(1) : Machine.i32(0)
+  end
 end

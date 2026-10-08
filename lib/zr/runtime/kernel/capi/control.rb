@@ -75,7 +75,13 @@ module Zr::Kern
     zr_c_entered()
     argv = Machine.slot(64)
     Machine.store64(argv, 0, data)
-    r = Machine.value(zr_call_c(fn, argv, 1))
+    zr_capi_protected(Machine.value(zr_call_c(fn, argv, 1)), state)
+  end
+
+  # The result `r` of a protected call: undef parks its unwind, whose tag
+  # goes to `*state` (0 for none) and gives nil.
+  #: (value, ptr) -> value
+  def zr_capi_protected(r, state)
     tag = 0
     if r == QUNDEF
       tag = zr_capi_park()

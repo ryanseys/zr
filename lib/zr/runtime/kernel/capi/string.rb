@@ -565,4 +565,12 @@ module Zr::Kern
     end
     zr_capi_call1(str, Machine.id(:to_i), zr_fix(b == 0 ? 10 : b))
   end
+
+  # rb_str_equal: String#== of `a` and `b`, as Qtrue or Qfalse.
+  #: (value, value) -> value
+  def rb_str_equal(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(a, Machine.id(:==), b)
+  end
 end

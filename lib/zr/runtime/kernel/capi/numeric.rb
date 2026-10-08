@@ -433,4 +433,27 @@ module Zr::Kern
     Machine.store64(args, 8, Machine.word(den))
     zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:Rational), 2, args))
   end
+
+  # rb_to_float: `v` as a Float. A Float is itself, and any other
+  # Numeric gives its `to_f`. Any other value cannot convert: CRuby's
+  # TypeError names nil, true and false, and the class of the rest.
+  #: (value) -> value
+  def rb_to_float(v)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_float_p(v)
+      return v
+    end
+    if !zr_is_a(v, zr_core_class(Machine.id(:Numeric)))
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+      shown = v == QNIL || v == QTRUE || v == QFALSE ? v : zr_real_class(v)
+      zr_buf_str(b, zr_c_result(zr_inspect(shown)))
+      zr_buf_push(b, Machine.bytes(" into Float"), 11)
+      zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+    end
+    f = zr_c_result(zr_send(v, Machine.id(:to_f), 0, Machine.ptr(0)))
+    zr_capi_converted(v, f, T_FLOAT, Machine.bytes("Float"), 5, Machine.id(:to_f))
+  end
 end

@@ -750,4 +750,29 @@ module Zr::Kern
     end
     Machine.i32(zr_capi_call1(val, Machine.id(:<), zr_fix(0)) == QTRUE ? 0 - 1 : 0)
   end
+
+  # rb_any_to_s: `#<Name:0x...>`, as Kernel#to_s writes any object.
+  #: (value) -> value
+  def rb_any_to_s(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_any_to_s(obj)
+  end
+
+  # rb_obj_id: `obj.__id__`.
+  #: (value) -> value
+  def rb_obj_id(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(obj, Machine.id(:__id__), 0, Machine.ptr(0)))
+  end
+
+  # rb_class_attached_object: the object of the singleton class `klass`
+  # (Class#attached_object, which raises for any other class).
+  #: (value) -> value
+  def rb_class_attached_object(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(klass, Machine.id(:attached_object), 0, Machine.ptr(0)))
+  end
 end

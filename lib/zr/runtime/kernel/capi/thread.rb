@@ -358,4 +358,216 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
   end
+
+  # rb_thread_io_blocking_region: `fn(data)` without the GVL, as a read or
+  # a write of the stream `fptr` that blocks; an interrupt waits for it to
+  # return. (Before 4.0 it took the descriptor last, as kgio declares it.)
+  #: (ptr, ptr, ptr) -> value
+  def rb_thread_io_blocking_region(fptr, fn, data)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.value(zr_offload_call(fn, data, Machine.ptr(UBF_NONE), Machine.ptr(0)))
+  end
+
+  # --- Thread objects ------------------------------------------------------
+
+  # rb_thread_create: a Thread that runs `fn(arg)` and ends with its
+  # result.
+  #: (ptr, word) -> value
+  def rb_thread_create(fn, arg)
+    Machine.gates_enter
+    zr_c_entered()
+    body = zr_capi_native_proc(Machine.addr(:zr_capi_thread_body), fn, arg)
+    zr_c_result(zr_send_blk(zr_capi_thread_class(), Machine.id(:new), 0, Machine.ptr(0), body))
+  end
+
+  # The block of a Thread that C made: `fn(arg)`.
+  #: (value, word, ptr, value) -> value
+  def zr_capi_thread_body(p, argc, argv, blk)
+    args = Machine.slot(64)
+    Machine.store64(args, 0, zr_capi_proc_data(p))
+    Machine.value(zr_call_c(zr_capi_proc_fn(p), args, 1))
+  end
+
+  # rb_thread_alone: whether no other thread runs, as 1 or 0.
+  #: () -> i32
+  def rb_thread_alone
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(zr_capi_thread_class(), Machine.id(:alone?)) == QTRUE ? Machine.i32(1) : Machine.i32(0)
+  end
+
+  # rb_thread_main: Thread.main.
+  #: () -> value
+  def rb_thread_main
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(zr_capi_thread_class(), Machine.id(:main))
+  end
+
+  # rb_thread_stop: Thread.stop, which sleeps until another thread runs
+  # this one.
+  #: () -> value
+  def rb_thread_stop
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(zr_capi_thread_class(), Machine.id(:stop))
+  end
+
+  # rb_thread_run, rb_thread_wakeup, rb_thread_wakeup_alive and
+  # rb_thread_kill: Thread#run, #wakeup, #wakeup (which raises for a
+  # dead thread, as both do) and #kill.
+  #: (value) -> value
+  def rb_thread_run(thread)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(thread, Machine.id(:run))
+  end
+
+  #: (value) -> value
+  def rb_thread_wakeup(thread)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(thread, Machine.id(:wakeup))
+  end
+
+  #: (value) -> value
+  def rb_thread_wakeup_alive(thread)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(thread, Machine.id(:wakeup))
+  end
+
+  #: (value) -> value
+  def rb_thread_kill(thread)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(thread, Machine.id(:kill))
+  end
+
+  # rb_thread_local_aref and rb_thread_local_aset: the thread's fiber-local
+  # `thread[id]`.
+  #: (value, word) -> value
+  def rb_thread_local_aref(thread, id)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(thread, Machine.id(:[]), zr_sym(zr_capi_mid(id)))
+  end
+
+  #: (value, word, value) -> value
+  def rb_thread_local_aset(thread, id, v)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(zr_sym(zr_capi_mid(id))))
+    Machine.store64(args, 8, Machine.word(v))
+    zr_c_result(zr_send(thread, Machine.id(:[]=), 2, args))
+  end
+
+  # rb_thread_sleep_forever, rb_thread_sleep and rb_thread_wait_for: sleep
+  # until woken, for `sec` seconds, or for the timeval that C passes by
+  # value (its two words).
+  #: () -> void
+  def rb_thread_sleep_forever
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(zr_global(G_KERNEL), Machine.id(:sleep))
+  end
+
+  #: (i32) -> void
+  def rb_thread_sleep(sec)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(zr_global(G_KERNEL), Machine.id(:sleep), zr_fix(Machine.sword(sec)))
+  end
+
+  #: (word, word) -> void
+  def rb_thread_wait_for(sec, usec)
+    Machine.gates_enter
+    zr_c_entered()
+    total = zr_int_from_word((sec * 1000000) + Machine.sword(Machine.i32(usec)))
+    seconds = zr_capi_call1(total, Machine.id(:quo), zr_fix(1000000))
+    zr_capi_call1(zr_global(G_KERNEL), Machine.id(:sleep), seconds)
+  end
+
+  #: () -> value
+  def zr_capi_thread_class
+    zr_core_class(Machine.id(:Thread))
+  end
+
+  #: (value, word) -> value
+  def zr_capi_thread_send(recv, mid)
+    zr_c_result(zr_send(recv, mid, 0, Machine.ptr(0)))
+  end
+
+  # --- Mutexes -------------------------------------------------------------
+
+  # rb_mutex_new: Mutex.new.
+  #: () -> value
+  def rb_mutex_new
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(zr_core_class(Machine.id(:Mutex)), Machine.id(:new))
+  end
+
+  # rb_mutex_lock, rb_mutex_unlock, rb_mutex_trylock and
+  # rb_mutex_locked_p: Mutex#lock, #unlock, #try_lock and #locked?.
+  #: (value) -> value
+  def rb_mutex_lock(mutex)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(mutex, Machine.id(:lock))
+  end
+
+  #: (value) -> value
+  def rb_mutex_unlock(mutex)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(mutex, Machine.id(:unlock))
+  end
+
+  #: (value) -> value
+  def rb_mutex_trylock(mutex)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(mutex, Machine.id(:try_lock))
+  end
+
+  #: (value) -> value
+  def rb_mutex_locked_p(mutex)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(mutex, Machine.id(:locked?))
+  end
+
+  # rb_mutex_sleep: Mutex#sleep for `timeout` seconds (nil: until woken).
+  #: (value, value) -> value
+  def rb_mutex_sleep(mutex, timeout)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(mutex, Machine.id(:sleep), timeout)
+  end
+
+  # rb_mutex_synchronize: `fn(arg)` with the mutex locked, which it
+  # unlocks however the call ends.
+  #: (value, ptr, word) -> value
+  def rb_mutex_synchronize(mutex, fn, arg)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(mutex, Machine.id(:lock))
+    args = Machine.slot(64)
+    Machine.store64(args, 0, arg)
+    r = Machine.value(zr_call_c(fn, args, 1))
+    if r == QUNDEF
+      zr_capi_park()
+      left = Task[zr_task()].parked
+      Task[zr_task()].parked = Machine.value(QNIL)
+      zr_capi_thread_send(mutex, Machine.id(:unlock))
+      Task[zr_task()].parked = left
+      zr_capi_unpark()
+      zr_c_unwind()
+    end
+    zr_capi_thread_send(mutex, Machine.id(:unlock))
+    r
+  end
 end

@@ -261,4 +261,30 @@ module Zr::Kern
   def zr_capi_sys_fail(errno)
     zr_c_result(zr_raise(zr_capi_syserr(errno, Machine.value(QNIL))))
   end
+
+  # rb_file_open and rb_file_open_str: `File.open(path, mode)`, the mode
+  # a C string.
+  #: (ptr, ptr) -> value
+  def rb_file_open(path, mode)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_file_open(zr_str_new(path, zr_cstr_len(path)), mode)
+  end
+
+  #: (value, ptr) -> value
+  def rb_file_open_str(path, mode)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_file_open(path, mode)
+  end
+
+  #: (value, ptr) -> value
+  def zr_capi_file_open(path, mode)
+    # The mode String comes first: a word in `args` roots nothing.
+    flags = zr_str_new(mode, zr_cstr_len(mode))
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(path))
+    Machine.store64(args, 8, Machine.word(flags))
+    zr_c_result(zr_send(zr_core_class(Machine.id(:File)), Machine.id(:open), 2, args))
+  end
 end
