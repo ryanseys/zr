@@ -59,8 +59,8 @@ end
 class RString < Layout
   attr_reader :basic #: RBasic
   attr_accessor :len #: word
-  attr_accessor :capa #: word
   attr_accessor :ptr #: ptr
+  attr_accessor :capa #: word
 end
 
 class RArray < Layout

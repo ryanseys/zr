@@ -1,10 +1,12 @@
 module Zr::Kern
-  # Strings: a length, a capacity, and a buffer outside the arena.
+  # Strings: a length, a pointer to the bytes, and a capacity, in the
+  # order of CRuby 4.0's heap RString, so a C extension's inline
+  # RSTRING_LEN and RSTRING_PTR read them.
   class RString < Layout
     attr_reader :basic #: RBasic
     attr_accessor :len #: word
-    attr_accessor :capa #: word
     attr_accessor :ptr #: ptr
+    attr_accessor :capa #: word
   end
 
   # A String whose bytes are in its own cell, after the header, with as
