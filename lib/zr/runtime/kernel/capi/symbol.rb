@@ -1,16 +1,4 @@
 module Zr::Kern
-  # CRuby's ID, as C code holds it. An ID is zr's symbol id plus
-  # C_ID_BASE: so 0 stays "no ID", as rb_check_id answers it, and the
-  # codes below the base are free for an operator that C writes as its
-  # character (`rb_funcall(x, '+', 1, y)`), as CRuby's operator IDs are.
-  C_ID_BASE = 1024
-
-  # The C ID of zr's symbol id `id`.
-  #: (word) -> word
-  def zr_capi_id(id)
-    id + C_ID_BASE
-  end
-
   # zr's symbol id of the C ID `id`: an ID that this API gave, or a
   # character, which names the operator of that one character.
   #: (word) -> word
