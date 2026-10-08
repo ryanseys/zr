@@ -312,7 +312,7 @@ module Zr::Kern
     e = zr_const_row_kept(scope, id)
     if e != 0 && CEntry[e].concealed != 0
       if zr_hidden_now()
-        zr_hidden_defined(id)
+        zr_hidden_defined_in(scope, id)
       else
         CEntry[e].concealed = 0
         zr_consts_changed()
@@ -434,11 +434,7 @@ module Zr::Kern
       CEntry[e].concealed = 0
       if zr_hidden_now()
         CEntry[e].concealed = 1
-        if klass == zr_global(G_OBJECT)
-          zr_hidden_defined(id)
-        else
-          zr_hidden_defined_const(klass, id)
-        end
+        zr_hidden_defined_in(klass, id)
       end
       ClassExt[ext].clen = n + 1
       zr_const_index_add(ext, n)

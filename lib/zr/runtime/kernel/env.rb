@@ -783,6 +783,18 @@ module Zr::Kern
     zr_ary_push(defined, entry)
   end
 
+  # Records that the hidden file that is loading now defined or reopened
+  # the constant `id` of `klass`, so that a later require of the file
+  # reveals that constant and no other: Zr::Hir, not Object's Hir.
+  #: (value, word) -> void
+  def zr_hidden_defined_in(klass, id)
+    if klass == zr_global(G_OBJECT)
+      zr_hidden_defined(id)
+    else
+      zr_hidden_defined_const(klass, id)
+    end
+  end
+
   # The program required `path`, which the runtime loaded hidden. The file
   # and its constants become visible and go into $LOADED_FEATURES. The
   # same occurs for each file that it loaded, because one ruby require
