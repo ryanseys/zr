@@ -1,6 +1,8 @@
 module Zr::Kern
-  # The C API's st tables, which C uses for its own maps: numtables, whose
-  # keys are words compared as they are. A table has CRuby 4.0's public
+  # The C API's st tables, which C uses for its own maps. A table's type
+  # (st_hash_type) compares and hashes its keys: a numtable's keys are
+  # words compared as they are (type 0 here), a strtable's are C strings,
+  # and C can give a type of its own. A table has CRuby 4.0's public
   # header (st.h), so C reads `num_entries` inline; the rest is zr's own.
   # The entries are in insertion order, as st keeps them, for
   # st_foreach: each is a key, a value and a live word. An index of
@@ -24,6 +26,178 @@ module Zr::Kern
     attr_accessor :key #: word
     attr_accessor :value #: word
     attr_accessor :live #: word
+  end
+
+  # struct st_hash_type: `compare(a, b)`, 0 for equal keys, and `hash(key)`.
+  class StHashType < Layout
+    attr_accessor :compare #: ptr
+    attr_accessor :hash #: ptr
+  end
+
+  # rb_st_init_table and rb_st_init_table_with_size: a table whose keys
+  # the C functions of `type` compare and hash.
+  #: (ptr) -> ptr
+  def rb_st_init_table(type)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_typed(type, 8)
+  end
+
+  #: (ptr, word) -> ptr
+  def rb_st_init_table_with_size(type, size)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_typed(type, size)
+  end
+
+  # rb_st_init_strtable and rb_st_init_strcasetable (each also
+  # _with_size): a table whose keys are C strings, compared by their
+  # bytes or with ASCII letters folded.
+  #: () -> ptr
+  def rb_st_init_strtable
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_typed(zr_st_strtype(), 8)
+  end
+
+  #: (word) -> ptr
+  def rb_st_init_strtable_with_size(size)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_typed(zr_st_strtype(), size)
+  end
+
+  #: () -> ptr
+  def rb_st_init_strcasetable
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_typed(zr_st_strcasetype(), 8)
+  end
+
+  #: (word) -> ptr
+  def rb_st_init_strcasetable_with_size(size)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_typed(zr_st_strcasetype(), size)
+  end
+
+  #: (ptr, word) -> ptr
+  def zr_st_typed(type, size)
+    tab = zr_st_new(size)
+    StTable[tab].type = type
+    tab
+  end
+
+  # The types of a strtable and a strcasetable, made once. Their
+  # functions are the defs below, which C can call through the type too.
+  #: () -> ptr
+  def zr_st_strtype
+    type = Machine.static(:st_strtype, 16)
+    StHashType[type].compare = Machine.addr(:zr_capi_st_strcmp)
+    StHashType[type].hash = Machine.addr(:zr_capi_st_strhash)
+    type
+  end
+
+  #: () -> ptr
+  def zr_st_strcasetype
+    type = Machine.static(:st_strcasetype, 16)
+    StHashType[type].compare = Machine.addr(:zr_capi_st_strcasecmp)
+    StHashType[type].hash = Machine.addr(:zr_capi_st_strcasehash)
+    type
+  end
+
+  # A strtable's compare and hash: the bytes of two C strings, and FNV-1a
+  # over the bytes of one.
+  #: (ptr, ptr) -> i32
+  def zr_capi_st_strcmp(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    la = zr_cstr_len(a)
+    zr_bytes_eq(a, la, b, zr_cstr_len(b)) ? Machine.i32(0) : Machine.i32(1)
+  end
+
+  #: (ptr) -> word
+  def zr_capi_st_strhash(s)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_cstr_hash(s, false)
+  end
+
+  # A strcasetable's: the same with ASCII letters folded.
+  #: (ptr, ptr) -> i32
+  def zr_capi_st_strcasecmp(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_casecmp(a, b, 0 - 1) == 0 ? Machine.i32(0) : Machine.i32(1)
+  end
+
+  #: (ptr) -> word
+  def zr_capi_st_strcasehash(s)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_cstr_hash(s, true)
+  end
+
+  #: (ptr, bool) -> word
+  def zr_st_cstr_hash(s, fold)
+    hash = Machine.word(0xcbf29ce484222325)
+    at = s
+    while Machine.load8(at, 0) != Machine.i8(0)
+      c = Machine.word(Machine.u8(Machine.load8(at, 0)))
+      hash = Machine.mul_wrap(hash ^ (fold ? zr_capi_fold(c) : c), 0x100000001b3)
+      at += 1
+    end
+    hash
+  end
+
+  # The hash of `key` in `tab`, and whether two keys are one: a numtable
+  # reads the word; a typed table calls its type's functions.
+  #: (ptr, word) -> word
+  def zr_st_key_hash(tab, key)
+    type = StTable[tab].type
+    if type == 0
+      return zr_st_hash(key)
+    end
+    args = Machine.slot(64)
+    Machine.store64(args, 0, key)
+    zr_st_hash(zr_call_c(StHashType[type].hash, args, 1))
+  end
+
+  #: (ptr, word, word) -> bool
+  def zr_st_key_eq(tab, a, b)
+    type = StTable[tab].type
+    if a == b || type == 0
+      return a == b
+    end
+    args = Machine.slot(64)
+    Machine.store64(args, 0, a)
+    Machine.store64(args, 8, b)
+    Machine.i32(zr_call_c(StHashType[type].compare, args, 2)) == Machine.i32(0)
+  end
+
+  # rb_st_copy: a new table with the entries of `old`, and its type.
+  #: (ptr) -> ptr
+  def rb_st_copy(old)
+    Machine.gates_enter
+    zr_c_entered()
+    tab = zr_st_typed(StTable[old].type, StTable[old].room)
+    i = 0
+    while i < StTable[old].used
+      e = StTable[old].entries + (i * StEntry.size)
+      if StEntry[e].live != 0
+        zr_st_add(tab, StEntry[e].key, StEntry[e].value)
+      end
+      i += 1
+    end
+    tab
+  end
+
+  # rb_st_memsize: the bytes that the table holds.
+  #: (ptr) -> word
+  def rb_st_memsize(tab)
+    Machine.gates_enter
+    zr_c_entered()
+    StTable.size + (StTable[tab].room * StEntry.size) + (StTable[tab].nbins * 8)
   end
 
   # rb_st_init_numtable_with_size: a new numtable with room for `size`
@@ -233,14 +407,14 @@ module Zr::Kern
   #: (ptr, word) -> ptr
   def zr_st_find(tab, key)
     mask = StTable[tab].nbins - 1
-    at = zr_st_hash(key) & mask
+    at = zr_st_key_hash(tab, key) & mask
     while true
       slot = Machine.load64(StTable[tab].bins + (at * 8), 0)
       if slot == 0
         return Machine.ptr(0)
       end
       e = StTable[tab].entries + ((slot - 1) * StEntry.size)
-      if StEntry[e].live != 0 && StEntry[e].key == key
+      if StEntry[e].live != 0 && zr_st_key_eq(tab, StEntry[e].key, key)
         return e
       end
       at = (at + 1) & mask
@@ -300,7 +474,7 @@ module Zr::Kern
   #: (ptr, word) -> void
   def zr_st_place(tab, i)
     mask = StTable[tab].nbins - 1
-    at = zr_st_hash(StEntry[StTable[tab].entries + (i * StEntry.size)].key) & mask
+    at = zr_st_key_hash(tab, StEntry[StTable[tab].entries + (i * StEntry.size)].key) & mask
     while Machine.load64(StTable[tab].bins + (at * 8), 0) != 0
       at = (at + 1) & mask
     end
