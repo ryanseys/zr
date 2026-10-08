@@ -22,7 +22,8 @@ module Zr::Kern
       argc = zr_kw_undeclared(kw, argc, argv, 0)
       Task[t].c_keywords = 1
     end
-    meta = Frame[Task[t].top].meta
+    rec = Task[t].top
+    meta = Frame[rec].meta
     arity = FrameMeta[meta].arity
     # Self and up to fifteen arguments, at least the eight words that
     # zr_call_c reads.
@@ -54,7 +55,7 @@ module Zr::Kern
     end
     r = Machine.value(zr_call_c(FrameMeta[meta].fn, args, n))
     Task[zr_task()].c_keywords = keywords
-    r
+    zr_capi_trace_returned(rec, recv, r)
   end
 
   # rb_need_block's LocalJumpError, which CRuby's yield from C raises with

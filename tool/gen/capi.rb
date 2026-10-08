@@ -39,10 +39,13 @@ module Zr
             zr: foo.bundle: zr's C API has no rb_foo yet (`zr-dev ext imports foo.bundle` lists what it uses)
             ```
 
-            zr leaves out on purpose the C API of the debugger and the
-            profiler: `rb_tracepoint_*`, `rb_tracearg_*`,
-            `rb_debug_inspector_*`, `rb_profile_frame*` and `rb_iseq_*`. So
-            debug, byebug, stackprof and debug_inspector do not build.
+            A C TracePoint (`rb_tracepoint_new`) is a Ruby TracePoint whose
+            hook is a C function, and its trace arg answers as the
+            TracePoint's methods do. An extension that hooks trace events
+            makes zr build the program with them, as a program that names
+            TracePoint does. zr does not have yet `rb_debug_inspector_*`,
+            `rb_profile_frame*`, `rb_postponed_job_*` and `rb_iseq_*`, so
+            debug_inspector, byebug and stackprof do not build.
 
           MD
           files.each do |path, names|

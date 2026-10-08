@@ -864,4 +864,19 @@ module Zr::Kern
     end
     Machine.value(QFALSE)
   end
+
+  # Runs a C TracePoint's hook for the event its point handles:
+  # `func(point, data)`, from the two words of `hook`. Returns undef when
+  # the hook raised.
+  #: (value, value) -> value
+  def zr_trace_call_c(hook, point)
+    words = RString[hook].ptr
+    argv = Machine.slot(64)
+    Machine.store64(argv, 0, Machine.word(point))
+    Machine.store64(argv, 8, Machine.load64(words, 8))
+    if !zr_call_c_returned(Machine.ptr(Machine.load64(words, 0)), argv, 2)
+      return Machine.value(QUNDEF)
+    end
+    Machine.value(QNIL)
+  end
 end

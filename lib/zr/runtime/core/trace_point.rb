@@ -16,6 +16,8 @@ class TracePoint
   NAMES = EVENTS.first(15).to_h(&:reverse).freeze
   ALL = 0x7fff
   C_EVENTS = 0x60
+  # RUBY_INTERNAL_EVENT_NEWOBJ and FREEOBJ: only C points hear them.
+  INTERNAL_OBJECT_EVENTS = 0x300000
   # The events that a set_trace_func hook takes, by their names there.
   HOOK_NAMES = {
     line: "line", class: "class", end: "end", call: "call", return: "return",
@@ -23,7 +25,7 @@ class TracePoint
   }.freeze
   # The RubyVM object that `stat` keys its counts by, made at the first call.
   VM = [nil]
-  private_constant :EVENTS, :NAMES, :ALL, :C_EVENTS, :HOOK_NAMES, :VM
+  private_constant :EVENTS, :NAMES, :ALL, :C_EVENTS, :INTERNAL_OBJECT_EVENTS, :HOOK_NAMES, :VM
 
   Primitive.zr_undef_alloc(self)
 
@@ -42,6 +44,16 @@ class TracePoint
     end
 
     def trace(*events, &block) = new(*events, &block).tap(&:enable)
+
+    # rb_tracepoint_new: a point whose hook is C's, `hook` the words of its
+    # function and its data (kernel/capi/trace.rb).
+    def c_point(mask, hook)
+      Primitive.attr! :hidden
+      point = Primitive.zr_class_build(self)
+      Primitive.zr_hidden_set(point, :__events__, mask)
+      Primitive.zr_hidden_set(point, :__c_hook__, hook)
+      point
+    end
 
     # The enabled TracePoints of the one VM, by CRuby's key: its RubyVM
     # object, with the count of hooks and of deleted hooks.
@@ -331,7 +343,10 @@ class TracePoint
       begin
         i = points.size - 1
         while i >= 0
-          Primitive.zr_hidden_get(points[i], :__proc__).call(points[i])
+          # A point that C made (c_point) calls its C function.
+          point = points[i]
+          hook = Primitive.zr_hidden_get(point, :__c_hook__)
+          hook ? Primitive.zr_trace_call_c(hook, point) : Primitive.zr_hidden_get(point, :__proc__).call(point)
           i -= 1
         end
       ensure
@@ -492,6 +507,30 @@ class TracePoint
   def row
     Primitive.attr! :hidden
     TracePoint.send(:current_row) or raise RuntimeError, +"access from outside"
+  end
+
+  # rb_tracepoint_enable (`on` true) and rb_tracepoint_disable: C turns
+  # the point on or off, with no call of #enable for a trace to see.
+  def c_switch(on)
+    Primitive.attr! :hidden
+    raise ArgumentError, +"can't nest-enable a targeting TracePoint" if on && Primitive.zr_hidden_get(self, :__target__)
+
+    switch(on) unless on == enabled?
+  end
+
+  # rb_tracearg_event_flag: the event's bit, also an internal event's.
+  def event_flag
+    Primitive.attr! :hidden
+    row[0]
+  end
+
+  # rb_tracearg_object: the object of an internal event, NEWOBJ or
+  # FREEOBJ, which only a C hook hears.
+  def object
+    Primitive.attr! :hidden
+    raise RuntimeError, +"not supported by this event" if (row[0] & INTERNAL_OBJECT_EVENTS).zero?
+
+    row[1]
   end
 
   # rb_tracepoint_enable_for_target: the code the target runs, which

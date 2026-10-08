@@ -100,8 +100,12 @@ thread-local variables, or that links a library outside macOS.
 - `TYPE()` of an Exception, a Proc, a Method or a Fiber is not ruby's:
   zr keeps its own tags for them. C that reads them through functions
   (`rb_obj_is_proc`) gets ruby's answer.
-- The debugger and profiler C API is not there, so debug, byebug,
-  stackprof and debug_inspector do not build.
+- An extension that hooks trace events (`rb_tracepoint_new`, as
+  ruby-prof does) makes zr build the program with its trace events, as
+  `--trace` does. The program is then larger and slower.
+- The debugger and sampling profiler C API (`rb_debug_inspector_*`,
+  `rb_profile_frames`) is not there, so byebug, stackprof and
+  debug_inspector do not build.
 - zr runs C extensions on macOS on Apple silicon. Other targets use
   ports only.
 

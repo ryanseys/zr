@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 752 of its
+calls ruby 4.0's C API. zr's kernel gives 772 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -16,10 +16,13 @@ and the name, before anything runs:
 zr: foo.bundle: zr's C API has no rb_foo yet (`zr-dev ext imports foo.bundle` lists what it uses)
 ```
 
-zr leaves out on purpose the C API of the debugger and the
-profiler: `rb_tracepoint_*`, `rb_tracearg_*`,
-`rb_debug_inspector_*`, `rb_profile_frame*` and `rb_iseq_*`. So
-debug, byebug, stackprof and debug_inspector do not build.
+A C TracePoint (`rb_tracepoint_new`) is a Ruby TracePoint whose
+hook is a C function, and its trace arg answers as the
+TracePoint's methods do. An extension that hooks trace events
+makes zr build the program with them, as a program that names
+TracePoint does. zr does not have yet `rb_debug_inspector_*`,
+`rb_profile_frame*`, `rb_postponed_job_*` and `rb_iseq_*`, so
+debug_inspector, byebug and stackprof do not build.
 
 ## array
 
@@ -194,6 +197,12 @@ C that runs without the GVL: rb_thread_call_without_gvl and its kin.
 The C API's Times, made through Time.at.
 
 `rb_time_new`, `rb_time_nano_new`, `rb_time_timespec_new`, `rb_time_timespec`, `rb_time_timeval`, `rb_time_interval`, `rb_time_utc_offset`
+
+## trace
+
+The C API of ruby/debug.h for tracers: a C TracePoint is the Ruby TracePoint of core/trace_point.rb with a C function for its block, so the events, the masks, the order of the hooks and the stop of nested events are the same code for both.
+
+`rb_tracepoint_new`, `rb_tracepoint_enable`, `rb_tracepoint_disable`, `rb_tracepoint_enabled_p`, `rb_tracearg_from_tracepoint`, `rb_tracearg_event_flag`, `rb_tracearg_event`, `rb_tracearg_path`, `rb_tracearg_lineno`, `rb_tracearg_method_id`, `rb_tracearg_callee_id`, `rb_tracearg_defined_class`, `rb_tracearg_binding`, `rb_tracearg_self`, `rb_tracearg_return_value`, `rb_tracearg_raised_exception`, `rb_tracearg_parameters`, `rb_tracearg_eval_script`, `rb_tracearg_instruction_sequence`, `rb_tracearg_object`
 
 ## util
 
