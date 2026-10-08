@@ -444,6 +444,12 @@ module Zr
           return @exec = kept if kept
 
           Runner.run_binary(out, rest)
+        rescue Refusal => e
+          # A C extension that the link cannot take (a missing C API
+          # function, C++ exceptions in embed mode...): the message says
+          # what to change.
+          warn "zr: #{e.message}"
+          exit REFUSED
         end
 
         # Ruby mode's program for `kept!`: the options of `zr run`, the text,
