@@ -45,6 +45,7 @@ module Zr
         Kind.new(:kernel, :marshal, ".marshal", nil),   # the kernel's lowering (Cache::Kernel)
         Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend
         Kind.new(:run, :dir, "", 2),              # `zr run` binaries
+        Kind.new(:ext, :dir, "", nil),            # C extensions that zr built (Ext::Builder)
         Kind.new(:binary, :raw, "", nil),         # program test binaries; quota from ZR_TEST_BINARIES_GB
         Kind.new(:result, :raw, "", nil),         # host program tests that passed (test/support/result_cache.rb)
         Kind.new(:source, :raw, "", nil)          # a compiler file's digest without its comments (Digests.code)

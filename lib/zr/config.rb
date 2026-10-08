@@ -74,6 +74,7 @@ module Zr
       row("ZR_EXT_OBJECTS", "--ext-objects", :value, "PATH=OBJ,...", "C extensions to link: each a bundle's path, then its objects"),
       row("ZR_EXT", "--ext", :choice, EXT_MODES, "how a C extension runs: static (its objects; a bundle alone embeds), embed or dynamic"),
       row("ZR_NATIVE_EXT", "--native-ext", :value, "GEM[=VERSION],...", "gems whose installed C extension to link, not a port"),
+      row("ZR_EXT_CONFIG", "--ext-config", :value, "GEM=ARG ...", "build a gem's C extension with these extconf.rb arguments"),
       row("ZR_RUN_CACHE", "--run-cache", :switch, nil, "keep the binary of each run and run it again (on)"),
       row("ZR_TRACE", "--trace", :switch, nil, "arm the trace events in the program's code"),
       row("ZR_CODE_CACHE", "--code-cache", :choice, CODE_CACHES, "keep the runtime's machine code (1), not (0), or check it"),
@@ -112,6 +113,10 @@ module Zr
     # (`ZR_NATIVE_EXT`), by name, each with the version it asks for or nil
     # for the newest installed.
     attr_reader :native_ext #: Hash[String, String?]
+
+    # The gems whose C extension zr builds with arguments for its
+    # extconf.rb (`ZR_EXT_CONFIG`), by name.
+    attr_reader :ext_config #: Hash[String, Array[String]]
 
     # How a build runs a C extension (`ZR_EXT`): static, embed or dynamic.
     attr_reader :ext_mode #: String
@@ -152,10 +157,14 @@ module Zr
       @link = words(value("ZR_LINK_ARGS")).freeze
       # `ZR_EXT_OBJECTS`: shell words, each `bundle=object,object`.
       @ext_objects = words(value("ZR_EXT_OBJECTS")).to_h { |word| ext_object(word) }.freeze
+      @ext_mode = choice("ZR_EXT", EXT_MODES, "static")
       # `ZR_NATIVE_EXT`: gem names, split at commas and spaces, each
       # `name` or `name=version`.
-      @ext_mode = choice("ZR_EXT", EXT_MODES, "static")
       @native_ext = value("ZR_NATIVE_EXT").to_s.split(/[\s,]+/).reject(&:empty?).to_h { |word| native_gem(word) }.freeze
+      # `ZR_EXT_CONFIG`: shell words, each `gem=argument`; a gem's
+      # arguments in their order.
+      @ext_config = words(value("ZR_EXT_CONFIG")).map { |word| ext_argument(word) }
+                                                 .group_by(&:first).transform_values { |pairs| pairs.map(&:last) }.freeze
       @run_cache = switch?("ZR_RUN_CACHE", default: true)
       @trace = switch?("ZR_TRACE")
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
@@ -227,6 +236,17 @@ module Zr
       [File.expand_path(bundle.to_s), objects.to_s.split(",").map { |object| File.expand_path(object) }]
     end
     private :ext_object
+
+    # One word of `ZR_EXT_CONFIG`: a gem's name and one argument.
+    #: (String word) -> [String, String]
+    def ext_argument(word)
+      name, argument = word.split("=", 2)
+      return [name.to_s, argument.to_s] unless name.to_s.empty? || argument.to_s.empty?
+
+      source = source("ZR_EXT_CONFIG")
+      raise Invalid, "#{source} has #{word.inspect}. Give each argument as GEM=ARG, for example #{source}=nokogiri=--use-system-libraries."
+    end
+    private :ext_argument
 
     # One word of `ZR_NATIVE_EXT`: a gem's name, and its version or nil.
     #: (String word) -> [String, String?]

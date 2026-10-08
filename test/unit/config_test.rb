@@ -67,6 +67,21 @@ class ConfigTest < Minitest::Test
                  error.message
   end
 
+  # Each word is a gem and one argument for its extconf.rb; a gem's
+  # arguments keep their order, and an argument may hold `=`.
+  def test_ext_config_gives_each_gem_its_extconf_arguments
+    Zr::Config.with(ZR_EXT_CONFIG: "nokogiri=--use-system-libraries tiny=--with-tiny-dir=/opt/tiny nokogiri='--with-xml2-dir=/a b'") do |config|
+      assert_equal({ "nokogiri" => ["--use-system-libraries", "--with-xml2-dir=/a b"], "tiny" => ["--with-tiny-dir=/opt/tiny"] },
+                   config.ext_config)
+    end
+    Zr::Config.with(ZR_EXT_CONFIG: nil) { |config| assert_empty config.ext_config }
+    %w[nokogiri nokogiri= =--x].each do |word|
+      error = assert_raises(Zr::Config::Invalid) { Zr::Config.with(ZR_EXT_CONFIG: word) { |_| } }
+      assert_equal "ZR_EXT_CONFIG has #{word.inspect}. Give each argument as GEM=ARG, for example ZR_EXT_CONFIG=nokogiri=--use-system-libraries.",
+                   error.message
+    end
+  end
+
   def test_linker_defaults_to_auto_when_unset
     Zr::Config.with(ZR_LINKER: nil) { |config| assert_equal "auto", config.linker }
   end
@@ -114,6 +129,7 @@ class ConfigTest < Minitest::Test
       "ZR_EXT_OBJECTS" => [["--ext-objects", "/a.bundle=/a.o"], :ext_objects, { "/a.bundle" => ["/a.o"] }],
       "ZR_EXT" => [%w[--ext dynamic], :ext_mode, "dynamic"],
       "ZR_NATIVE_EXT" => [["--native-ext", "msgpack"], :native_ext, { "msgpack" => nil }],
+      "ZR_EXT_CONFIG" => [["--ext-config", "nokogiri=--use-system-libraries"], :ext_config, { "nokogiri" => ["--use-system-libraries"] }],
       "ZR_RUN_CACHE" => [%w[--no-run-cache], :run_cache?, false],
       "ZR_TRACE" => [%w[--trace], :trace?, true],
       "ZR_CODE_CACHE" => [%w[--code-cache verify], :code_cache, "verify"],

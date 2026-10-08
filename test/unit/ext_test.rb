@@ -46,6 +46,48 @@ class ExtTest < Minitest::Test
     assert_equal %w[-lfoo -lpthread -lm], makefile.libraries
   end
 
+  def test_each_source_compiles_to_its_object_in_the_build_directory
+    assert_equal [%w[/src/hello-1.0/ext/hello/a.c /build/ext/hello/a.o], %w[/src/hello-1.0/ext/hello/b.c /build/ext/hello/b.o],
+                  %w[/src/hello-1.0/ext/hello/extra.c /build/ext/hello/extra.o]], makefile.sources
+    sub = Zr::Ext::Makefile.new("srcdir = .\nSRCS = x.cpp sub/y.c\n", dir: "/b")
+    assert_equal [%w[/b/x.cpp /b/x.o], %w[/b/sub/y.c /b/sub/y.o]], sub.sources
+  end
+
+  # A library path or an archive in the build directory becomes absolute:
+  # the link of the bundle runs in another directory.
+  def test_the_libraries_take_mkmfs_library_path_and_absolute_archives
+    text = "LIBPATH = -L. -L/usr/lib -Lvendor/lib\nLOCAL_LIBS = vendor/libxml2.a /opt/libz.a\nLIBS = -lm -Wl,-x\n"
+    assert_equal %w[-L/b -L/usr/lib -L/b/vendor/lib /b/vendor/libxml2.a /opt/libz.a -lm -Wl,-x],
+                 Zr::Ext::Makefile.new(text, dir: "/b").libraries
+  end
+
+  # mkmf's template alone is standard, also with a depend file's header
+  # lines; a rule of the extconf's own is not.
+  def test_a_makefile_is_standard_when_its_rules_are_mkmfs
+    assert_predicate makefile, :standard?
+    headers = "#{MAKEFILE}a.o: $(HDRS) hello.h\n$(OBJS): $(ruby_headers)\n.c.o:\n\t$(CC) -c $<\n"
+    assert_predicate Zr::Ext::Makefile.new(headers, dir: "/b"), :standard?
+    own = "#{MAKEFILE}build-libffi $(LIBFFI_A):\n\t$(MAKE) -C libffi\n"
+    refute_predicate Zr::Ext::Makefile.new(own, dir: "/b"), :standard?
+  end
+
+  # The bundles that the host's install built, in the gem's extension
+  # directory, are found where a require under the gem's lib/ looks.
+  def test_an_install_without_objects_gives_the_bundles_that_it_built
+    Dir.mktmpdir do |root|
+      gem = File.join(root, "gem")
+      built = File.join(root, "extensions", "gem")
+      FileUtils.mkdir_p([File.join(gem, "ext", "hello"), File.join(built, "json", "ext"), File.join(built, "x.bundle.dSYM", "y")])
+      File.write(File.join(gem, "ext", "hello", "Makefile"), MAKEFILE)
+      %w[top.bundle json/ext/parser.bundle x.bundle.dSYM/y/x.bundle].each { |name| File.write(File.join(built, name), "") }
+      sources = Zr::Ext::Source.installed(gem, built)
+
+      assert_equal [["json/ext/parser.bundle", "Init_parser"], ["top.bundle", "Init_top"]],
+                   sources.map { |s| [s.bundle.delete_prefix("#{gem}/lib/"), s.init] }
+      assert_equal [File.join(built, "json/ext/parser.bundle"), :embed], [sources.first.library, sources.first.mode]
+    end
+  end
+
   def test_a_top_level_extension_has_no_prefix
     top = Zr::Ext::Makefile.new("TARGET = bare\ntarget_prefix =\nOBJS = bare.o\n", dir: "/x")
 

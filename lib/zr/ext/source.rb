@@ -27,10 +27,11 @@ module Zr
     class Source
       # The extensions of an installed gem: each directory under its ext/
       # with mkmf's Makefile and every object that the Makefile lists, as
-      # the host ruby's install left them; else each bundle that a
+      # the host ruby's install left them; else each bundle that the
+      # install built in `extension_dir` (`built`); else each bundle that a
       # precompiled gem ships for this ABI.
-      #: (String gem_dir) -> Array[Source]
-      def self.installed(gem_dir)
+      #: (String gem_dir, ?String? extension_dir) -> Array[Source]
+      def self.installed(gem_dir, extension_dir = nil)
         compiled = Dir[File.join(gem_dir, "ext", "**", "Makefile")].sort.filter_map do |path|
           makefile = Makefile.read(path)
           objects = makefile.objects
@@ -39,7 +40,22 @@ module Zr
           new(bundle: File.join(gem_dir, "lib", "#{makefile.feature}.bundle"), init: makefile.init, objects: objects,
               libraries: makefile.libraries, library: nil, mode: :static)
         end
-        compiled.empty? ? precompiled(gem_dir) : compiled
+        return compiled unless compiled.empty?
+
+        bundles = extension_dir ? built(gem_dir, extension_dir) : precompiled(gem_dir)
+        bundles.empty? ? precompiled(gem_dir) : bundles
+      end
+
+      # The bundles that the host ruby's install of a gem built, in the
+      # gem's extension directory (`Gem::Specification#extension_dir`):
+      # `<extension_dir>/json/ext/parser.bundle` is what `require
+      # "json/ext/parser"` loads, from the gem's lib/ for zr.
+      #: (String gem_dir, String extension_dir) -> Array[Source]
+      def self.built(gem_dir, extension_dir)
+        Dir.glob("**/*.bundle", base: extension_dir).sort.reject { |name| name.include?(".dSYM/") }.map do |name|
+          path = File.join(extension_dir, name)
+          new(bundle: File.join(gem_dir, "lib", name), init: init_of(path), objects: [], libraries: [], library: path, mode: :embed)
+        end
       end
 
       # The bundles of a precompiled gem for this ABI: `lib/x/4.0/x.bundle`
