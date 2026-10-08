@@ -1,6 +1,7 @@
 module Zr::Kern
-  # Values use CRuby's tagging. A fixnum is `n << 1 | 1`. false is 0, nil
-  # is 8, true is 0x14 and undef is 0x34. A static symbol is
+  # Values use CRuby 4.0's tagging, bit for bit, so a C extension reads
+  # them as ruby does. A fixnum is `n << 1 | 1`. false is 0, nil is 4,
+  # true is 0x14 and undef is 0x24. A static symbol is
   # `id << 8 | 0x0c`. All other values are pointers to a cell whose header
   # is an RBasic. `undef` never gets to Ruby: it means a pending unwind.
 
@@ -82,9 +83,9 @@ module Zr::Kern
   end
 
   QFALSE = 0
-  QNIL = 8
+  QNIL = 4
   QTRUE = 20
-  QUNDEF = 52
+  QUNDEF = 36
   SYMBOL_TAG = 12
 
   # Type tags, with CRuby's numbers, in the low five bits of the flags.

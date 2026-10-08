@@ -204,7 +204,7 @@ runs the HIR of a string node by node (`lib/zr/eval/walk.rb`).
 above each `def`, layouts as `class Name < Layout`, and imports in
 `module Libc`. CRuby runs it too. See [The kernel subset](kernel-subset.md).
 
-**Undef.** The Value `0x34`. A function returns it when an unwind is
+**Undef.** The Value `0x24`. A function returns it when an unwind is
 pending.
 
 **Unit test.** A minitest file in `test/unit/`.

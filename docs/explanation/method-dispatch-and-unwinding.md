@@ -122,7 +122,7 @@ lookup and stops at the first difference.
 ## Unwinding without unwind tables
 
 zr does not use the platform's unwinder. Every compiled function
-returns a `Value`, and the special value undef (`0x34`) means that an
+returns a `Value`, and the special value undef (`0x24`) means that an
 unwind is pending. The task records the kind: a raise, a `break`, a
 `return` or a `throw`.
 

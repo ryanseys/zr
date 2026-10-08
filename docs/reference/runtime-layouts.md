@@ -14,9 +14,9 @@ A `Value` is a 64-bit word with CRuby's tagging (`lib/zr/runtime/kernel/value.rb
 | Value | Encoding |
 |---|---|
 | `false` | `0x00` |
-| `nil` | `0x08` |
+| `nil` | `0x04` |
 | `true` | `0x14` |
-| undef | `0x34`: Ruby code never sees it; it means that an unwind is pending |
+| undef | `0x24`: Ruby code never sees it; it means that an unwind is pending |
 | Integer (fixnum) | `n << 1 \| 1` |
 | Float (flonum) | low bits `10`, CRuby's rotation |
 | Symbol (static) | `id << 8 \| 0x0c` |

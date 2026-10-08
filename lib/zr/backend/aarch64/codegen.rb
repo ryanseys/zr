@@ -943,7 +943,7 @@ module Zr
 
         # `cmp`, and the arm64 condition that reads its flags. A 12-bit
         # constant uses the immediate form and no register. The check that
-        # `Zr::Lower::Function#checked` makes after every call is `cmp x, #52`.
+        # `Zr::Lower::Function#checked` makes after every call is `cmp x, #36` (QUNDEF).
         # A constant on the left moves to the right, and the condition swaps.
         #: (IR::Inst i) -> Symbol
         def emit_compare(i)
