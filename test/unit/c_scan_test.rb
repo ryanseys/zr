@@ -16,6 +16,9 @@ class CScanTest < Minitest::Test
   # A function that no ruby has, so the C API lacks it.
   UNKNOWN = "rb_zr_scan_test_unknown"
 
+  # A ruby that has every function, so each one that zr lacks is a gap.
+  EVERY = Object.new.tap { |ruby| ruby.define_singleton_method(:include?) { |_name| true } }
+
   MAIN = <<~C.freeze
     #include "ruby.h"
     #include "extconf.h"
@@ -45,7 +48,7 @@ class CScanTest < Minitest::Test
     assert_equal [1, 1, nil], [scan.sources, scan.compiled, scan.error]
     assert_includes scan.imports, "rb_define_method"
     assert_includes scan.imports, "rb_funcall"
-    assert_equal [UNKNOWN], scan.missing
+    assert_equal [UNKNOWN], scan.missing(EVERY)
     refute(scan.imports.any? { |name| name.start_with?("_") || !Zr::Ext::CApi.ruby?(name) }, "only ruby's names, without the underscore")
   end
 
@@ -55,7 +58,7 @@ class CScanTest < Minitest::Test
     refute_predicate scan, :complete?
     assert_equal [2, 1], [scan.sources, scan.compiled]
     assert_match(/\Abroken\.c: .*error/, scan.error)
-    assert_equal [UNKNOWN], scan.missing
+    assert_equal [UNKNOWN], scan.missing(EVERY)
   end
 
   def test_a_scan_runs_no_gem_code
@@ -75,7 +78,7 @@ class CScanTest < Minitest::Test
     kept = @scanner.call(subject)
 
     assert_equal first, kept
-    assert_equal [UNKNOWN], kept.missing
+    assert_equal [UNKNOWN], kept.missing(EVERY)
   end
 
   # rbs keeps its headers in include/ and its parser in src/, which its
@@ -90,7 +93,7 @@ class CScanTest < Minitest::Test
 
     assert_predicate scan, :complete?, scan.error
     assert_equal 2, scan.sources
-    assert_equal ["rb_zr_scan_src", UNKNOWN], scan.missing
+    assert_equal ["rb_zr_scan_src", UNKNOWN], scan.missing(EVERY)
   end
 
   # nokogiri's gumbo.c includes nokogiri_gumbo.h from gumbo-parser/src,
@@ -102,7 +105,7 @@ class CScanTest < Minitest::Test
     scan = @scanner.call(subject)
 
     assert_predicate scan, :complete?, scan.error
-    assert_equal [UNKNOWN], scan.missing
+    assert_equal [UNKNOWN], scan.missing(EVERY)
   end
 
   def test_a_header_that_neither_the_gem_nor_the_system_has_still_fails
@@ -137,8 +140,8 @@ class CScanTest < Minitest::Test
     keep(partial, sources: 2, compiled: 1, imports: [])
     keep(whole, sources: 1, compiled: 1, imports: ["rb_zr_kept"])
 
-    assert_equal [1, 1, [UNKNOWN]], @scanner.call(partial).then { [_1.sources, _1.compiled, _1.missing] }
-    assert_equal ["rb_zr_kept"], @scanner.call(whole).missing
+    assert_equal [1, 1, [UNKNOWN]], @scanner.call(partial).then { [_1.sources, _1.compiled, _1.missing(EVERY)] }
+    assert_equal ["rb_zr_kept"], @scanner.call(whole).missing(EVERY)
   end
 
   def test_a_scan_that_compiled_nothing_says_so
@@ -153,9 +156,10 @@ class CScanTest < Minitest::Test
     sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
     scan = Gems::CScan::Scan.new(gem: "pg", version: "1.0", sources: 2, compiled: 2, imports: %w[rb_zr_one rb_zr_two], error: nil)
 
-    assert_equal "pg lacks 2: rb_zr_one rb_zr_two", sweep.lacks(scan)
-    assert_equal "pg lacks 2 (1/2): rb_zr_one rb_zr_two", sweep.lacks(scan.with(compiled: 1))
+    assert_equal "pg lacks 2: rb_zr_one rb_zr_two", sweep.lacks(scan, EVERY)
+    assert_equal "pg lacks 2 (1/2): rb_zr_one rb_zr_two", sweep.lacks(scan.with(compiled: 1), EVERY)
     assert_equal "pg lacks 0", sweep.lacks(scan.with(imports: []))
+    assert_equal "pg lacks 0; ruby lacks too: rb_zr_one rb_zr_two", sweep.lacks(scan), "this ruby has neither"
   end
 
   def test_only_the_c_extensions_that_zr_does_not_port_are_scanned
@@ -172,7 +176,7 @@ class CScanTest < Minitest::Test
     a = scan.call("ext-a", %w[rb_zr_one rb_zr_two])
     b = scan.call("ext-b", %w[rb_zr_two])
 
-    ranking = Gems::CScan.rank([["app", [a, b]], ["lib", [b]], ["web", [b]], ["plain", []]])
+    ranking = Gems::CScan.rank([["app", [a, b]], ["lib", [b]], ["web", [b]], ["plain", []]], ruby: EVERY)
 
     assert_equal [["rb_zr_two", %w[app lib web]], ["rb_zr_one", %w[app]]], ranking.functions
     assert_equal [["ext-b", %w[app lib web]], ["ext-a", %w[app]]], ranking.extensions.map { |gem, users, _| [gem, users] }
@@ -192,10 +196,22 @@ class CScanTest < Minitest::Test
     sweep.rank(rows.map { |row| [row.name, row.scans] }, File.join(@dir, "capi.txt"), ->(line) { lines << line })
 
     written = capi.string.lines.map { |line| JSON.parse(line) }
-    assert_equal [["app", [[UNKNOWN]]], ["plain", []]], written.map { |row| [row["name"], row["scans"].map { _1["missing"] }] }
-    assert_match(/\A\[1\/2\] C +app  C: scanned lacks 1: #{UNKNOWN} \(/o, lines[0])
+    # This ruby lacks UNKNOWN too, so it is no gap of zr's: the row and the
+    # line name it apart, and the ranking leaves it out.
+    assert_equal [["app", [[[], [UNKNOWN]]]], ["plain", []]],
+                 written.map { |row| [row["name"], row["scans"].map { [_1["missing"], _1["ruby_lacks"]] }] }
+    assert_match(/\A\[1\/2\] C +app  C: scanned lacks 0; ruby lacks too: #{UNKNOWN} \(/o, lines[0])
     assert_match(/\A\[2\/2\] no C +plain /, lines[1])
-    assert_match(/^ +1  #{UNKNOWN} +app$/o, File.read(File.join(@dir, "capi.txt")))
+    refute_includes File.read(File.join(@dir, "capi.txt")), UNKNOWN
+  end
+
+  # The ruby that runs the tool has its own functions, and not a name
+  # that no ruby has.
+  def test_the_host_ruby_has_its_own_functions_only
+    assert_includes Gems::CScan::RUBY, "rb_define_method"
+    assert_includes Gems::CScan::RUBY, "rb_thread_fd_select"
+    refute_includes Gems::CScan::RUBY, UNKNOWN
+    refute_includes Gems::CScan::RUBY, "rb_thread_select", "ruby 4.0 removed it"
   end
 
   private

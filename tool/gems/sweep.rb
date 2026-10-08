@@ -145,14 +145,18 @@ module Zr
         # `pg lacks 3: rb_copy_generic_ivar rb_gc_adjust_memory_usage
         # rb_locale_encindex`, or `nokogiri lacks 0 (35/36)`: the functions
         # that zr's C API lacks, and the files that compiled when not all
-        # did. A scan with no compiled file found nothing to count.
-        def lacks(scan)
+        # did. A function that `ruby` lacks too comes last, apart: it is no
+        # gap of zr's. A scan with no compiled file found nothing to count.
+        def lacks(scan, ruby = Gems::CScan::RUBY)
           return "#{scan.gem} has no C files" if scan.sources.zero?
           return "#{scan.gem} did not compile (0/#{scan.sources})" if scan.compiled.zero?
 
+          missing = scan.missing(ruby)
+          others = scan.ruby_lacks(ruby)
           files = " (#{scan.compiled}/#{scan.sources})" unless scan.complete?
-          names = ": #{scan.missing.join(" ")}" unless scan.missing.empty?
-          "#{scan.gem} lacks #{scan.missing.size}#{files}#{names}"
+          names = ": #{missing.join(" ")}" unless missing.empty?
+          foreign = "; ruby lacks too: #{others.join(" ")}" unless others.empty?
+          "#{scan.gem} lacks #{missing.size}#{files}#{names}#{foreign}"
         end
 
         # Writes the ranking of `rows` (CScan.rank) to `path` and says its

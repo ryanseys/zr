@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fiddle"
 require "json"
 require "fileutils"
 require "rbconfig"
@@ -41,12 +42,39 @@ module Zr
           # Whether every file compiled, so `imports` is the whole set.
           def complete? = sources.positive? && compiled == sources
 
-          # The imports that zr's C API lacks.
-          def missing = Ext::CApi.missing(imports)
+          # The imports that zr's C API lacks and `ruby` has: zr's gaps.
+          def missing(ruby = RUBY) = Ext::CApi.missing(imports).select { |name| ruby.include?(name) }
+
+          # The imports that `ruby` lacks too, as hiredis 0.x calls
+          # rb_thread_select, which ruby 4.0 removed: no ruby loads them.
+          def ruby_lacks(ruby = RUBY) = Ext::CApi.missing(imports).reject { |name| ruby.include?(name) }
 
           # A row of the sweep's .capi.jsonl.
-          def to_h = super.merge(missing: missing)
+          def to_h = super.merge(missing: missing, ruby_lacks: ruby_lacks)
         end
+
+        # The functions of the ruby that runs this tool, which the gems are
+        # compiled for (ruby 4.0.7): a name that this process exports.
+        class HostRuby
+          def initialize
+            @exports = {}
+          end
+
+          #: (String name) -> bool
+          def include?(name) = @exports.fetch(name) { @exports[name] = exported?(name) }
+
+          private
+
+          #: (String name) -> bool
+          def exported?(name)
+            Fiddle::Handle::DEFAULT[name]
+            true
+          rescue Fiddle::DLError
+            false
+          end
+        end
+
+        RUBY = HostRuby.new
 
         # The version of the scan. A kept scan that did not compile every
         # file is made again by a newer scanner, which may compile more.
@@ -92,7 +120,7 @@ module Zr
 
           scan = scan(subject)
           FileUtils.mkdir_p(@dir)
-          File.write("#{path}.tmp", JSON.generate(scan.to_h.except(:missing)))
+          File.write("#{path}.tmp", JSON.generate(scan.to_h.except(:missing, :ruby_lacks)))
           File.rename("#{path}.tmp", path)
           scan
         end
@@ -111,17 +139,17 @@ module Zr
 
         # What the swept gems wait on, from `rows`: pairs of a swept gem's
         # name and its scans. `functions` gives each function that the C
-        # API lacks with the swept gems that need it, most first;
-        # `extensions` gives each extension gem with the swept gems that
-        # need it and its scan, most first.
+        # API lacks and `ruby` has with the swept gems that need it, most
+        # first; `extensions` gives each extension gem with the swept gems
+        # that need it and its scan, most first.
         Ranking = Data.define(:functions, :extensions)
 
-        def self.rank(rows)
+        def self.rank(rows, ruby: RUBY)
           needers = Hash.new { |hash, function| hash[function] = Set.new }
           extensions = {}
           rows.each do |name, scans|
             scans.each do |scan|
-              scan.missing.each { |function| needers[function] << name }
+              scan.missing(ruby).each { |function| needers[function] << name }
               (extensions[scan.gem] ||= [scan, Set.new]).last << name
             end
           end
