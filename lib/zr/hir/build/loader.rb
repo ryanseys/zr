@@ -780,12 +780,18 @@ module Zr
           else
             # A $LOAD_PATH directory is searched by its real path, as ruby
             # expands the load path, so a file found through a symlinked
-            # directory has the path of the file the link names.
+            # directory has the path of the file the link names. A root of
+            # zr's ports gives way to the C extension that the build links
+            # for the feature (`--native-ext`).
+            linked = Ext.bundle_for(feature)
             @roots.each do |root|
+              next if linked && native_root?(root)
+
               real = real_root(root)
               found = candidate(File.join(real, feature)) || native(root, feature) || extension(real, feature)
               return found if found
             end
+            return linked if linked
             # rb_f_load: a name that no root has is a path from the working
             # directory, as it is written.
             here = File.expand_path(feature)

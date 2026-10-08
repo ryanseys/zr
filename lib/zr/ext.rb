@@ -31,6 +31,22 @@ module Zr
       end
     end
 
+    # The extensions of the build by the feature that requires each, its
+    # path under its gem's lib/ (`json/ext/parser`), made once.
+    FEATURES = ObjectSpace::WeakKeyMap.new #: ObjectSpace::WeakKeyMap[Config, Hash[String, String]]
+
+    # The bundle of the extension that the build links for `feature`
+    # (`json/ext/parser`, `stringio.so`), or nil. It wins over a port of
+    # the same C, which a library root holds: `--native-ext` asks for the
+    # gem's own C.
+    #: (String feature, ?Config config) -> String?
+    def bundle_for(feature, config = Config.current)
+      features = FEATURES[config] ||= bundles(config).each_key.to_h do |path|
+        [path[(path.rindex("/lib/").to_i + 5)..].to_s.delete_suffix(".bundle"), path]
+      end
+      features[feature.sub(/\.(?:so|bundle)\z/, "")]
+    end
+
     # Whether the build links a C extension under one of `roots`: the gem
     # whose roots they are has its C part.
     #: (Array[String] roots, ?Config config) -> bool
