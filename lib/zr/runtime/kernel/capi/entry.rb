@@ -167,6 +167,7 @@ module Zr::Kern
     zr_capi_set(Machine.global(:rb_mErrno), zr_core_class(Machine.id(:Errno)))
     zr_capi_set(Machine.global(:rb_mProcess), zr_core_class(Machine.id(:Process)))
     zr_capi_set(Machine.global(:rb_cMethod), zr_global(G_METHOD))
+    zr_capi_util_init()
   end
 
   #: (ptr, value) -> void
