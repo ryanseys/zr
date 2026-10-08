@@ -92,9 +92,11 @@ module Zr
            Raw.new("zr_cframe_call", %w[Ptr Ptr Ptr Word], "Word"),
            Raw.new("zr_cframe_leap", %w[Ptr], "Void"),
            Raw.new("zr_gc_call", %w[Ptr Ptr], "Word"),
-           # C's rb_time_timespec, which returns a struct in two registers;
-           # only C calls it.
-           Raw.new("rb_time_timespec", %w[Value], "Word")].to_h { |r| [r.name, r] }.freeze #: Hash[String, Raw]
+           # C's functions that return a struct in two registers
+           # (Stub::PAIR_RESULTS); only C calls them.
+           Raw.new("rb_time_timespec", %w[Value], "Word"),
+           Raw.new("rb_time_timeval", %w[Value], "Word"),
+           Raw.new("rb_time_interval", %w[Value], "Word")].to_h { |r| [r.name, r] }.freeze #: Hash[String, Raw]
     # A signature for `Machine.call`: `Machine.sig :name, [types] => type`.
     # @rbs skip
     Signature = Data.define(:name, :params, :ret)

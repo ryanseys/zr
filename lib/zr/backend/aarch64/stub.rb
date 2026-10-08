@@ -151,25 +151,30 @@ module Zr
           Obj::Code.new("zr_gc_call", a.to_binary, align: 4)
         end
 
-        # `rb_time_timespec(time: Value)`: C's `struct timespec`, which C
-        # gets by value in x0 (tv_sec) and x1 (tv_nsec). A kernel def
-        # returns one word, so the stub gives `zr_capi_time_timespec` 16
-        # bytes of its own frame to fill, then loads the two words.
-        #: (?assembler: singleton(Assembler)) -> Obj::Code
-        def time_timespec(assembler: Assembler)
+        # The C functions of one Value argument that return a two-word
+        # struct by value, in x0 and x1, and the kernel def that fills it
+        # for each: C's `struct timespec` and `struct timeval` of a Time.
+        PAIR_RESULTS = { "rb_time_timespec" => "zr_capi_time_timespec", "rb_time_timeval" => "zr_capi_time_timeval",
+                         "rb_time_interval" => "zr_capi_time_interval" }.freeze #: Hash[String, String]
+
+        # A C function of PAIR_RESULTS. A kernel def returns one word, so
+        # the stub gives its filler 16 bytes of its own frame after the
+        # argument, then loads the two words.
+        #: (String name, ?assembler: singleton(Assembler)) -> Obj::Code
+        def pair_result(name, assembler: Assembler)
           a = assembler.new
           a.sub SP, SP, 32
           a.stp X29, X30, [SP, 0]
           a.mov X29, SP
           a.add X1, SP, 16
           relocs = [] #: Array[Obj::Reloc]
-          a.patch_location { |at| relocs << Obj::Reloc.new(at, :branch26, "zr_capi_time_timespec") }
+          a.patch_location { |at| relocs << Obj::Reloc.new(at, :branch26, PAIR_RESULTS.fetch(name)) }
           a.bl 0
           a.ldp X0, X1, [SP, 16]
           a.ldp X29, X30, [SP, 0]
           a.add SP, SP, 32
           a.ret
-          Obj::Code.new("rb_time_timespec", a.to_binary, relocs: relocs, align: 4)
+          Obj::Code.new(name, a.to_binary, relocs: relocs, align: 4)
         end
 
         # Saves the callee-saved registers, x29, sp and d8..d15 in the
@@ -205,7 +210,7 @@ module Zr
           when "zr_cframe_call" then cframe_call
           when "zr_cframe_leap" then cframe_leap
           when "zr_gc_call" then gc_call
-          when "rb_time_timespec" then time_timespec
+          when *PAIR_RESULTS.keys then pair_result(name)
           else raise ArgumentError, "no raw function named #{name}"
           end
         end
