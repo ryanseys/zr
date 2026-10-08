@@ -655,12 +655,28 @@ module Zr::Kern
   # `meta`, and `line`.
   #: (word, value, ptr, word) -> value
   def zr_trace_row(event, value, meta, line)
-    row = zr_ary_new(9)
+    row = zr_trace_row_new(9)
     zr_ary_push(row, zr_fix(event))
     zr_ary_push(row, value)
     zr_ary_push(row, zr_meta_file(meta))
     zr_ary_push(row, zr_fix(line))
     row
+  end
+
+  # A new event row with room for `n` cells. From here until its
+  # zr_trace_run ends, the event is quiet: what it allocates (the row,
+  # its path, the hooks' own objects) is no NEWOBJ event, as ruby runs no
+  # hook while one runs (internal_events.rb).
+  #: (word) -> value
+  def zr_trace_row_new(n)
+    Machine.store64(zr_trace_quiet(), 0, 1)
+    zr_ary_new(n)
+  end
+
+  # Two words: whether an event is quiet, and how deep zr_trace_run is.
+  #: () -> ptr
+  def zr_trace_quiet
+    Machine.static(:trace_quiet, 16)
   end
 
   # Fires `:fiber_switch` where control arrives, as fiber_switch in cont.c
@@ -681,7 +697,7 @@ module Zr::Kern
     return this if this == QUNDEF
 
     rec = zr_frame_with_file(Task[zr_task()].top)
-    row = zr_ary_new(11)
+    row = zr_trace_row_new(11)
     zr_ary_push(row, zr_fix(TRACE_FIBER_SWITCH))
     zr_ary_push(row, Machine.value(QNIL))
     if rec == 0 || mid == 0
@@ -753,7 +769,7 @@ module Zr::Kern
   # the owner `owner`, and `this` as self.
   #: (ptr, value, value, word, value) -> value
   def zr_trace_compiled(rec, value, this, mid, owner)
-    row = zr_ary_new(11)
+    row = zr_trace_row_new(11)
     zr_ary_push(row, zr_fix(TRACE_SCRIPT_COMPILED))
     zr_ary_push(row, value)
     if rec == 0
@@ -821,9 +837,23 @@ module Zr::Kern
 
   #: (value) -> value
   def zr_trace_run(row)
+    # A hook of an internal event (internal_events.rb) hears no event of
+    # what its C calls, as no hook does: ruby-prof's NEWOBJ hook calls
+    # rb_fiber_current, which sends Fiber.current.
+    if Machine.load64(Machine.static(:internal_running, 8), 0) != 0
+      return Machine.value(QNIL)
+    end
     argv = Machine.slot(8)
     Machine.store64(argv, 0, Machine.word(row))
-    zr_dispatch(0, zr_core_class(Machine.id(:TracePoint)), Machine.id(:fire), 1, argv, SEND_CORE, Machine.value(QNIL))
+    quiet = zr_trace_quiet()
+    Machine.store64(quiet, 8, Machine.load64(quiet, 8) + 1)
+    r = zr_dispatch(0, zr_core_class(Machine.id(:TracePoint)), Machine.id(:fire), 1, argv, SEND_CORE, Machine.value(QNIL))
+    depth = Machine.load64(quiet, 8) - 1
+    Machine.store64(quiet, 8, depth)
+    if depth == 0
+      Machine.store64(quiet, 0, 0)
+    end
+    r
   end
 
   # Fires `:call` or `:return` around the body of a define_method method,

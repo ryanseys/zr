@@ -340,7 +340,14 @@ module Zr::Kern
     before = Machine.load64(Machine.static(:trace_events, 8), 0)
     argv = Machine.slot(64)
     Machine.store64(argv, 0, Machine.word(on))
-    zr_c_result(zr_trace_point_send(tp, Machine.id(:c_switch), 1, argv))
+    # The switch is the runtime's work, as ruby's allocates nothing: what
+    # it allocates is no NEWOBJ event (zr_trace_row_new).
+    quiet = zr_trace_quiet()
+    was = Machine.load64(quiet, 0)
+    Machine.store64(quiet, 0, 1)
+    r = zr_trace_point_send(tp, Machine.id(:c_switch), 1, argv)
+    Machine.store64(quiet, 0, was)
+    zr_c_result(r)
     zr_capi_trace_started(before)
     Machine.value(QUNDEF)
   end

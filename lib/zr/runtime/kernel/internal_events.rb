@@ -81,14 +81,17 @@ module Zr::Kern
   end
 
   # Calls each hook that hears `event` about `obj`, unless a hook runs
-  # already. A cell that the runtime keeps for itself has no class, and
-  # is no object of the program's, so it is no event. A hook of the
+  # already or an event is quiet (zr_trace_row_new): the objects of an
+  # event's own row are the runtime's. A cell that the runtime keeps for
+  # itself has no class, and is no object of the program's, so it is no
+  # event. A hook of the
   # event-hook form (`func(event, data, self, mid, klass)`) hears none:
   # a call from the sweep passes two words.
   #: (word, value) -> void
   def zr_trace_internal(event, obj)
     running = Machine.static(:internal_running, 8)
-    if !zr_trace_internal_armed(event) || Machine.load64(running, 0) != 0 || zr_special_p(Machine.value(Machine.load64(Machine.ptr(obj), 8)))
+    if !zr_trace_internal_armed(event) || Machine.load64(running, 0) != 0 || Machine.load64(zr_trace_quiet(), 0) != 0 ||
+       zr_special_p(Machine.value(Machine.load64(Machine.ptr(obj), 8)))
       return
     end
     Machine.store64(running, 0, 1)

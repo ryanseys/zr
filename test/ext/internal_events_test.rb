@@ -8,7 +8,10 @@ require_relative "../support/c_ext"
 # ruby-prof, allocation_tracer and vernier hear them: a C TracePoint on
 # RUBY_INTERNAL_EVENT_NEWOBJ hears each allocation with its class, place
 # and method, and one on FREEOBJ hears the sweep free an object, against
-# ruby's answers. A hook runs no Ruby and hears no event of its own.
+# ruby's answers. A hook runs no Ruby and hears no event of its own, nor
+# of what its C calls (ruby-prof's calls rb_fiber_current). The objects
+# of an event's own record, and of turning a point on or off, are no
+# NEWOBJ event.
 class CExtInternalEventsTest < Minitest::Test
   SOURCE = <<~'C'
     #include <ruby.h>
@@ -71,12 +74,39 @@ class CExtInternalEventsTest < Minitest::Test
 
     static VALUE al_after(VALUE self) { return LONG2NUM(made); }
 
+    /* A NEWOBJ hook that calls the C API, as ruby-prof's does, while a
+       point hears :c_call. */
+    static long busy, nested;
+
+    static void on_c_call(VALUE tp, void *data) {
+      rb_trace_arg_t *arg = rb_tracearg_from_tracepoint(tp);
+      if (rb_tracearg_method_id(arg) == ID2SYM(rb_intern("current"))) nested++;
+    }
+
+    static void on_new_busy(VALUE tp, void *data) {
+      rb_fiber_current();
+      busy++;
+    }
+
+    static VALUE al_busy(VALUE self) {
+      busy = nested = 0;
+      VALUE calls = rb_tracepoint_new(0, RUBY_EVENT_C_CALL, on_c_call, 0);
+      VALUE news = rb_tracepoint_new(0, RUBY_INTERNAL_EVENT_NEWOBJ, on_new_busy, 0);
+      rb_tracepoint_enable(calls);
+      rb_tracepoint_enable(news);
+      rb_yield(Qnil);
+      rb_tracepoint_disable(news);
+      rb_tracepoint_disable(calls);
+      return rb_ary_new_from_args(2, busy > 0 ? Qtrue : Qfalse, LONG2NUM(nested));
+    }
+
     void Init_alloc(void) {
       rb_global_variable(&watched);
       VALUE m = rb_define_module("Alloc");
       rb_define_module_function(m, "count", al_count, 1);
       rb_define_module_function(m, "frees", al_frees, 1);
       rb_define_module_function(m, "after", al_after, 0);
+      rb_define_module_function(m, "busy", al_busy, 0);
     }
   C
 
@@ -118,6 +148,22 @@ class CExtInternalEventsTest < Minitest::Test
       end
     end
     show(:alive) { Widget.new(5).instance_variable_get(:@n) }
+    show(:busy) { Alloc.busy { i = 0; while i < 3; [i]; i += 1; end } }
+    show(:traced) do
+      tp = TracePoint.new(:line, :call, :c_call) { |point| point.lineno }
+      tp.enable
+      made = Alloc.count(Array) do
+        i = 0
+        kept = nil
+        while i < 3
+          kept = [i, i]
+          i += 1
+        end
+        kept
+      end
+      tp.disable
+      made.values_at(0, 2)
+    end
   RUBY
 
   def setup
