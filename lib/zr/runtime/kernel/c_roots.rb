@@ -37,11 +37,22 @@ module Zr::Kern
   # Drops the last registration of `at`, if any.
   #: (ptr) -> void
   def zr_c_root_address_drop(at)
-    l = zr_c_root_addresses()
+    zr_c_root_drop(zr_c_root_addresses(), Machine.word(at))
+  end
+
+  # Drops the last keeping of the object `v`, if any (onig_free's).
+  #: (value) -> void
+  def zr_c_root_object_drop(v)
+    zr_c_root_drop(zr_c_root_objects(), Machine.word(v))
+  end
+
+  # Drops the last row of the list `l` that holds `w`.
+  #: (ptr, word) -> void
+  def zr_c_root_drop(l, w)
     i = WeakList[l].len
     while i > 0
       i -= 1
-      if Machine.ptr(Machine.load64(WeakList[l].ptr + (i * 8), 0)) == at
+      if Machine.load64(WeakList[l].ptr + (i * 8), 0) == w
         zr_memmove(WeakList[l].ptr + (i * 8), WeakList[l].ptr + ((i + 1) * 8), (WeakList[l].len - i - 1) * 8)
         WeakList[l].len = WeakList[l].len - 1
         return

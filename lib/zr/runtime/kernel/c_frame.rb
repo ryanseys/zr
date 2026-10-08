@@ -113,6 +113,13 @@ module Zr::Kern
     end
   end
 
+  # Marks the low end of the C frames of the innermost C call: a slot of
+  # this frame, which is below the frame of the def that C called.
+  #: () -> void
+  def zr_c_entered
+    zr_c_frames_end(Machine.slot(8))
+  end
+
   # Unwinds out of the innermost C call: its zr_call_c returns undef. A
   # C-API function calls this after the zr code that it called returned
   # undef, so the task's pending unwind is set, and no zr frame is

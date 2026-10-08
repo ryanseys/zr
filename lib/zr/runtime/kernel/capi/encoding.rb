@@ -44,7 +44,7 @@ module Zr::Kern
     if enc != 0
       return enc
     end
-    enc = zr_xmalloc(RbEncoding.size)
+    enc = zr_capi_encoding_struct(index)
     Libc.memset(enc, Machine.i32(0), RbEncoding.size)
     name = zr_c_result(zr_send(zr_capi_encoding_object(index), Machine.id(:name), 0, Machine.ptr(0)))
     copy = zr_xmalloc(RString[name].len + 1)
@@ -56,6 +56,24 @@ module Zr::Kern
     zr_capi_onig_attach(enc, zr_capi_encoding_object(index))
     Machine.store64(at, 0, Machine.word(enc))
     enc
+  end
+
+  # The memory of the struct of the encoding `index`. Ruby exports the
+  # structs of ASCII-8BIT, UTF-8 and US-ASCII as data, which
+  # ONIG_ENCODING_ASCII and its kin name (`&OnigEncodingASCII`), so
+  # theirs are those globals; zr_capi_init fills them before C runs.
+  #: (word) -> ptr
+  def zr_capi_encoding_struct(index)
+    if index == ENC_BINARY
+      return Machine.global(:OnigEncodingASCII, RbEncoding.size)
+    end
+    if index == ENC_UTF8
+      return Machine.global(:OnigEncodingUTF_8, RbEncoding.size)
+    end
+    if index == ENC_USASCII
+      return Machine.global(:OnigEncodingUS_ASCII, RbEncoding.size)
+    end
+    zr_xmalloc(RbEncoding.size)
   end
 
   # The index of the rb_encoding `enc`; 0 (ASCII-8BIT) for NULL, as

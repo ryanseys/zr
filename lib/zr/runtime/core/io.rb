@@ -203,6 +203,24 @@ class IO
     io
   end
 
+  # rb_io_open_descriptor: an IO of `klass` on `fd`, from the FMODE_*
+  # bits `fmode`, with the path, timeout and encodings that C gives (each
+  # may be nil). IO's own initialize runs, not `klass`'s.
+  def self.c_open_descriptor(klass, fd, fmode, path, timeout, external, internal)
+    Primitive.attr! :hidden
+    mode = if fmode.anybits?(0x40) then fmode.anybits?(1) ? +"a+" : +"a"
+           elsif fmode.allbits?(3) then +"r+"
+           elsif fmode.anybits?(2) then +"w"
+           else +"r"
+           end
+    mode << "b" if fmode.anybits?(4)
+    options = { path: path, external_encoding: external, internal_encoding: internal }.compact
+    io = klass.allocate
+    IO.instance_method(:initialize).bind_call(io, fd, mode, **options)
+    io.timeout = timeout unless timeout.nil?
+    io
+  end
+
   # io_strip_bom's marks, longest first where two share a head.
   BOMS = [["\xEF\xBB\xBF".b, "UTF-8"], ["\xFE\xFF".b, "UTF-16BE"], ["\xFF\xFE\x00\x00".b, "UTF-32LE"],
           ["\xFF\xFE".b, "UTF-16LE"], ["\x00\x00\xFE\xFF".b, "UTF-32BE"]].freeze

@@ -7,6 +7,19 @@ module Zr::Kern
     zr_smoothsort(st, n)
   end
 
+  # ruby_qsort: musl's qsort_r takes C's comparator, `cmp(a, b, data)`,
+  # as ruby gives it.
+  #: (ptr, word, word, ptr, word) -> void
+  def zr_os_c_qsort(base, nel, size, cmp, data)
+    Libc.qsort_r(base, nel, size, cmp, data)
+  end
+
+  # fdopen(3): a stdio FILE on the descriptor `fd`.
+  #: (i32, ptr) -> ptr
+  def zr_os_fdopen(fd, mode)
+    Libc.fdopen(fd, mode)
+  end
+
   # The usable size of a malloc'd block. The heap counts it as payload.
   #: (ptr) -> word
   def zr_os_malloc_size(p)

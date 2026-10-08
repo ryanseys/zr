@@ -278,6 +278,14 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # `name` looked for as ruby looks: a path that says where it starts is
   # taken from there; any other name under each $LOAD_PATH directory and
   # the library the program was compiled against.
+  # rb_backtrace: a `\tfrom <location>` line on standard error for each
+  # frame of the C method that calls it and of its callers.
+  def self.c_backtrace
+    Primitive.attr! :hidden
+    caller(1).each { |line| STDERR.write("\tfrom #{line}\n") }
+    nil
+  end
+
   def self.search(name)
     Primitive.attr! :hidden
     return found(File.expand_path(name)) if name.start_with?("/", "./", "../", "~")

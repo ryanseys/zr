@@ -52,4 +52,21 @@ module Zr::Kern
     Machine.store64(args, 8, Machine.word(zr_bool(Machine.sword(wrap) != 0)))
     zr_send(zr_global(G_MAIN), Machine.id(:load), 2, args)
   end
+
+  # ruby_script: `$0 = name`.
+  #: (ptr) -> void
+  def ruby_script(name)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_gvar_set(Machine.id(:$0), zr_str_new(name, zr_cstr_len(name))))
+  end
+
+  # rb_backtrace: the backtrace of the running method on standard error,
+  # as ruby prints it (Kernel.c_backtrace).
+  #: () -> void
+  def rb_backtrace
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:c_backtrace), 0, Machine.ptr(0)))
+  end
 end

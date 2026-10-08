@@ -456,4 +456,22 @@ class Regexp
     Primitive.attr! :hidden
     Onig::Enc.reader(encoding).descriptor
   end
+
+  # onig_new: a Regexp of `source` under ONIG_OPTION_* bits `options`,
+  # whose low three are Ruby's IGNORECASE, EXTENDED and MULTILINE; or,
+  # for a pattern that does not compile, the Onigmo code of its error,
+  # which the RegexpError's cause keeps.
+  def self.c_onig_new(source, options)
+    Primitive.attr! :hidden
+    new(source, options & (IGNORECASE | EXTENDED | MULTILINE))
+  rescue RegexpError => e
+    e = e.cause until e.nil? || e.is_a?(Onig::Error)
+    e ? e.code : Onig::Err::PARSER_BUG
+  end
+
+  # onig_error_code_to_str: Onigmo's text for the error `code`.
+  def self.c_onig_error(code)
+    Primitive.attr! :hidden
+    Onig::Err.text(code)
+  end
 end

@@ -54,6 +54,12 @@ module Zr::Kern
     #: (ptr) -> i32
     def self.pthread_mutex_lock(p) = Machine.import
     #: (ptr) -> i32
+    def self.pthread_mutex_destroy(p) = Machine.import
+    #: (i32, ptr) -> ptr
+    def self.fdopen(fd, mode) = Machine.import
+    #: (ptr, word, word, ptr, word) -> void
+    def self.qsort_r(base, nel, width, compar, arg) = Machine.import
+    #: (ptr) -> i32
     def self.pthread_mutex_unlock(p) = Machine.import
     #: (ptr, ptr) -> i32
     def self.pthread_cond_init(p1, p2) = Machine.import

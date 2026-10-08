@@ -15,9 +15,11 @@ module Zr::Kern
   end
 
   # The size of struct rb_io, and the offsets of the fields that zr fills:
-  # `self` (the IO), `fd` and `mode` (two ints), and `pathv`.
+  # `self` (the IO), `stdio_file` (rb_io_stdio_file's FILE), `fd` and
+  # `mode` (two ints), and `pathv`.
   RB_IO_BYTES = 208
   RB_IO_SELF = 0
+  RB_IO_STDIO = 8
   RB_IO_FD = 16
   RB_IO_MODE = 20
   RB_IO_PATHV = 32

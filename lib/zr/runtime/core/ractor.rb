@@ -353,6 +353,14 @@ class Ractor
 
   def self.[](key) = current.__send__(:local_get, key)
 
+  # rb_ractor_local_storage_value_lookup: whether the current Ractor
+  # holds `key` (a value of nil counts), and its value.
+  def self.c_local(key)
+    Primitive.attr! :hidden
+    locals = current.__send__(:locals)
+    [locals.key?(key), locals[key]]
+  end
+
   def self.[]=(key, value)
     current.__send__(:local_set, key, value)
   end

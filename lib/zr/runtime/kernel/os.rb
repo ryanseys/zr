@@ -50,6 +50,8 @@
 #   zr_os_sigaction      [I32, Word, Ptr] => I32
 #   zr_os_poll_start     [] => Void
 #   zr_os_malloc_size    [Ptr] => Word
+#   zr_os_c_qsort        [Ptr, Word, Word, Ptr, Word] => Void
+#   zr_os_fdopen         [I32, Ptr] => Ptr
 #   zr_os_machine_bytes  [] => Word
 #   zr_os_locale_charmap [] => Value
 #

@@ -359,6 +359,96 @@ module Zr::Kern
     zr_c_entered()
   end
 
+  # rb_ractor_local_storage_value_newkey: a key of Ractor-local storage.
+  # It is a word that holds a Symbol only C knows (`__c_key_<n>`), under
+  # which each Ractor keeps its value, as `Ractor[key]` does.
+  #: () -> ptr
+  def rb_ractor_local_storage_value_newkey
+    Machine.gates_enter
+    zr_c_entered()
+    count = Machine.static(:ractor_c_keys, 8)
+    n = Machine.load64(count, 0) + 1
+    Machine.store64(count, 0, n)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("__c_key_"), 8)
+    zr_buf_long(b, n)
+    id = zr_intern(Buf[b].ptr, Buf[b].len)
+    zr_buf_free(b)
+    key = zr_xmalloc(8)
+    Machine.store64(key, 0, Machine.word(zr_sym(id)))
+    key
+  end
+
+  # rb_ractor_local_storage_value_lookup: whether the current Ractor
+  # holds a value for `key`; if so, it goes to `*val`.
+  #: (ptr, ptr) -> i32
+  def rb_ractor_local_storage_value_lookup(key, val)
+    Machine.gates_enter
+    zr_c_entered()
+    found = zr_capi_ractor_local(key)
+    if zr_ary_at(found, 0) != QTRUE
+      return Machine.i32(0)
+    end
+    Machine.store64(val, 0, Machine.word(zr_ary_at(found, 1)))
+    Machine.i32(1)
+  end
+
+  # rb_ractor_local_storage_value: the current Ractor's value for `key`,
+  # or nil.
+  #: (ptr) -> value
+  def rb_ractor_local_storage_value(key)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_ary_at(zr_capi_ractor_local(key), 1)
+  end
+
+  #: (ptr) -> value
+  def zr_capi_ractor_local(key)
+    zr_capi_call1(zr_core_class(Machine.id(:Ractor)), Machine.id(:c_local), Machine.value(Machine.load64(key, 0)))
+  end
+
+  # rb_ractor_local_storage_value_set: the current Ractor's value for
+  # `key` is `v`.
+  #: (ptr, value) -> void
+  def rb_ractor_local_storage_value_set(key, v)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.load64(key, 0))
+    Machine.store64(args, 8, Machine.word(v))
+    zr_c_result(zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:[]=), 2, args))
+  end
+
+  # rb_nativethread_lock_*: rb_nativethread_lock_t is a pthread mutex.
+  #: (ptr) -> void
+  def rb_nativethread_lock_initialize(lock)
+    Machine.gates_enter
+    zr_c_entered()
+    Libc.pthread_mutex_init(lock, Machine.ptr(0))
+  end
+
+  #: (ptr) -> void
+  def rb_nativethread_lock_destroy(lock)
+    Machine.gates_enter
+    zr_c_entered()
+    Libc.pthread_mutex_destroy(lock)
+  end
+
+  #: (ptr) -> void
+  def rb_nativethread_lock_lock(lock)
+    Machine.gates_enter
+    zr_c_entered()
+    Libc.pthread_mutex_lock(lock)
+  end
+
+  #: (ptr) -> void
+  def rb_nativethread_lock_unlock(lock)
+    Machine.gates_enter
+    zr_c_entered()
+    Libc.pthread_mutex_unlock(lock)
+  end
+
   # rb_thread_io_blocking_region: `fn(data)` without the GVL, as a read or
   # a write of the stream `fptr` that blocks; an interrupt waits for it to
   # return. (Before 4.0 it took the descriptor last, as kgio declares it.)

@@ -97,4 +97,14 @@ module Zr::Kern
     Machine.store64(retlen, 0, at - str)
     Machine.word(value)
   end
+
+  # ruby_qsort: sorts `nel` records of `size` bytes at `base` with
+  # `cmp(a, b, data)`, with the C library's qsort_r as ruby does, so
+  # equal records end where they end in ruby (zr_os_c_qsort).
+  #: (ptr, word, word, ptr, word) -> void
+  def ruby_qsort(base, nel, size, cmp, data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_os_c_qsort(base, nel, size, cmp, data)
+  end
 end

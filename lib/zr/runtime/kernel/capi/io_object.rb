@@ -74,6 +74,7 @@ module Zr::Kern
 
   FMODE_READABLE = 1
   FMODE_WRITABLE = 2
+  FMODE_APPEND = 0x40
 
   #: (ptr, word, ptr, word) -> void
   def zr_capi_fptr_access(fptr, bit, message, len)
@@ -327,6 +328,80 @@ module Zr::Kern
     RbIoEnc[convconfig].enc2 = zr_capi_enc_of(zr_ary_at(r, 4))
     Machine.store32(convconfig + 16, 0, Machine.i32(0))
     RbIoEnc[convconfig].ecopts = Machine.value(QNIL)
+  end
+
+  # rb_io_stdio_file: a stdio FILE on the stream's descriptor, made once
+  # with the mode of the stream's access, as curses and curb want it. The
+  # FILE stays open: closing it would close the descriptor, which the IO
+  # owns.
+  #: (ptr) -> ptr
+  def rb_io_stdio_file(fptr)
+    Machine.gates_enter
+    zr_c_entered()
+    file = Machine.ptr(Machine.load64(fptr, RB_IO_STDIO))
+    if file == 0
+      zr_capi_fptr_fill(fptr)
+      fmode = Machine.sword(Machine.load32(fptr, RB_IO_MODE))
+      fd = Machine.load32(fptr, RB_IO_FD)
+      file = zr_os_fdopen(fd, zr_capi_stdio_mode(fmode))
+      if file == 0
+        errno = zr_os_errno()
+        zr_c_result(zr_raise(zr_capi_syserr(errno, zr_capi_cstr_or_nil(Machine.bytes("fdopen")))))
+      end
+      Machine.store64(fptr, RB_IO_STDIO, Machine.word(file))
+    end
+    file
+  end
+
+  # The fopen mode of a stream's FMODE_* bits, as rb_io_oflags_modestr
+  # gives it.
+  #: (word) -> ptr
+  def zr_capi_stdio_mode(fmode)
+    readable = (fmode & FMODE_READABLE) != 0
+    if (fmode & FMODE_APPEND) != 0
+      return readable ? Machine.bytes("a+") : Machine.bytes("a")
+    end
+    if (fmode & FMODE_WRITABLE) == 0
+      return Machine.bytes("r")
+    end
+    readable ? Machine.bytes("r+") : Machine.bytes("w")
+  end
+
+  # rb_io_open_descriptor: an IO of `klass` on the descriptor `fd`, with
+  # the FMODE_* bits `fmode`, the path, the timeout and the encodings
+  # that C gives (`encoding` may be NULL). As in ruby, the initialize of
+  # `klass` does not run.
+  #: (value, i32, i32, value, value, ptr) -> value
+  def rb_io_open_descriptor(klass, fd, fmode, path, timeout, encoding)
+    Machine.gates_enter
+    zr_c_entered()
+    external = Machine.value(QNIL)
+    internal = Machine.value(QNIL)
+    if encoding != 0
+      # enc2 is the external encoding when the stream converts, and enc
+      # the internal one; otherwise enc is the external one.
+      if RbIoEnc[encoding].enc2 == 0
+        external = zr_capi_enc_value(RbIoEnc[encoding].enc)
+      else
+        external = zr_capi_enc_value(RbIoEnc[encoding].enc2)
+        internal = zr_capi_enc_value(RbIoEnc[encoding].enc)
+      end
+    end
+    args = Machine.slot(56)
+    Machine.store64(args, 0, Machine.word(klass))
+    Machine.store64(args, 8, Machine.word(zr_fix(Machine.sword(fd))))
+    Machine.store64(args, 16, Machine.word(zr_fix(Machine.sword(fmode))))
+    Machine.store64(args, 24, Machine.word(path))
+    Machine.store64(args, 32, Machine.word(timeout))
+    Machine.store64(args, 40, Machine.word(external))
+    Machine.store64(args, 48, Machine.word(internal))
+    zr_c_result(zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:c_open_descriptor), 7, args))
+  end
+
+  # The Encoding of an rb_encoding, or nil for NULL.
+  #: (ptr) -> value
+  def zr_capi_enc_value(enc)
+    enc == 0 ? Machine.value(QNIL) : zr_capi_encoding_object(zr_capi_enc_index(enc))
   end
 
   # The rb_encoding of an Encoding, or NULL for nil.

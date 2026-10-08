@@ -8,6 +8,18 @@ module Zr::Kern
     zr_sort_range(st, 0, n)
   end
 
+  # ruby_qsort: a module runs no C extension.
+  #: (ptr, word, word, ptr, word) -> void
+  def zr_os_c_qsort(base, nel, size, cmp, data)
+    Libc.abort()
+  end
+
+  # fdopen(3): a module runs no C extension, which alone asks for one.
+  #: (i32, ptr) -> ptr
+  def zr_os_fdopen(fd, mode)
+    Machine.ptr(0)
+  end
+
   # The usable size of a malloc'd block, which the heap counts as payload.
   # It is 0 here. The module's allocator frees nothing (a bump heap), so
   # the count only increases, and the limit doubles with it.

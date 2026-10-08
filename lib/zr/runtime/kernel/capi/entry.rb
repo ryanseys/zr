@@ -12,13 +12,6 @@ module Zr::Kern
   # zr code that a def calls raises, the def gives the result to
   # zr_c_result, which unwinds out of C, as rb_raise longjmps.
 
-  # Marks the low end of the C frames of the innermost C call: a slot of
-  # this frame, which is below the frame of the def that C called.
-  #: () -> void
-  def zr_c_entered
-    zr_c_frames_end(Machine.slot(8))
-  end
-
   # The result of zr code that a C-API def called: `v`, or no return at
   # all when `v` is undef, because zr_c_unwind leaves the C frames.
   #: (value) -> value
@@ -191,11 +184,29 @@ module Zr::Kern
     zr_capi_set(Machine.global(:rb_eSystemExit), zr_core_class(Machine.id(:SystemExit)))
     zr_capi_stdio_init()
     zr_capi_util_init()
+    zr_capi_onig_init()
   end
 
+  # The Onigmo data that C names: the structs of the exported encodings
+  # (zr_capi_encoding_struct), and OnigDefaultSyntax, which points at
+  # OnigSyntaxRuby. zr compiles every pattern with Ruby's syntax, so the
+  # syntax's fields stay zero.
+  #: () -> void
+  def zr_capi_onig_init
+    zr_capi_encoding(ENC_BINARY)
+    zr_capi_encoding(ENC_UTF8)
+    zr_capi_encoding(ENC_USASCII)
+    Machine.store64(Machine.global(:OnigDefaultSyntax), 0, Machine.word(Machine.global(:OnigSyntaxRuby, ONIG_SYNTAX_BYTES)))
+  end
+
+  # The size of OnigSyntaxType: op, op2, behavior and options, then the
+  # six code points of its meta-character table.
+  ONIG_SYNTAX_BYTES = 40
+
   # The words of the globals that C reads (rb_stdin, rb_stdout,
-  # rb_stderr, rb_rs, rb_output_rs, rb_fs and rb_output_fs): each holds
-  # its global's value, and an assignment to the global updates it
+  # rb_stderr, rb_rs, rb_output_rs, rb_fs and rb_output_fs, and the words
+  # behind rb_ruby_debug_ptr and rb_ruby_verbose_ptr): each holds its
+  # global's value, and an assignment to the global updates it
   # (zr_gvar_mirror). The values are rooted as the globals' values.
   #: () -> void
   def zr_capi_stdio_init
@@ -206,10 +217,29 @@ module Zr::Kern
     zr_capi_mirror(4, Machine.id(:$\), Machine.global(:rb_output_rs))
     zr_capi_mirror(5, Machine.id(:$;), Machine.global(:rb_fs))
     zr_capi_mirror(6, Machine.id(:$,), Machine.global(:rb_output_fs))
+    zr_capi_mirror(7, Machine.id(:$DEBUG), Machine.global(:zr_capi_debug))
+    zr_capi_mirror(8, Machine.id(:$VERBOSE), Machine.global(:zr_capi_verbose))
     # rb_default_rs is "\n" whatever $/ says, kept as C's own roots are.
     rs = zr_c_result(zr_send(zr_str_new(Machine.bytes("\n"), 1), Machine.id(:-@), 0, Machine.ptr(0)))
     zr_weak_list_push(zr_c_root_objects(), rs)
     zr_capi_set(Machine.global(:rb_default_rs), rs)
+  end
+
+  # rb_ruby_debug_ptr and rb_ruby_verbose_ptr: the words that hold $DEBUG
+  # and $VERBOSE, which C's ruby_debug and ruby_verbose read. A store
+  # through them reaches C's later reads only, not the globals.
+  #: () -> ptr
+  def rb_ruby_debug_ptr
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.global(:zr_capi_debug)
+  end
+
+  #: () -> ptr
+  def rb_ruby_verbose_ptr
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.global(:zr_capi_verbose)
   end
 
   # Row `i` of the mirrors: the global `id` and its word.

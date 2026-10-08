@@ -118,6 +118,15 @@ module Zr::Kern
     zr_collect_kind(SIZE_CLASSES, true)
   end
 
+  # rb_obj_memsize_of: the bytes that `obj` uses, as
+  # ObjectSpace.memsize_of gives them.
+  #: (value) -> word
+  def rb_obj_memsize_of(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_fix2long(zr_objspace_memsize(obj))
+  end
+
   # ruby_xmalloc and its kin: the malloc that counts toward the
   # collector's payload limit, and stops with NoMemoryError's fatal
   # message when the system has no memory.

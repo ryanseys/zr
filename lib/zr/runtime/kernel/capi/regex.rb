@@ -372,4 +372,55 @@ module Zr::Kern
   def zr_capi_regex_names(re)
     zr_c_result(zr_send(re, Machine.id(:name_rows), 0, Machine.ptr(0)))
   end
+
+  # onig_new: compiles the pattern pattern...pattern_end in the encoding
+  # `enc` into `*reg`, a new Regexp that stays alive until onig_free; or
+  # gives the Onigmo error code of a pattern that does not compile. The
+  # syntax is Ruby's, and `einfo` names no bytes.
+  #: (ptr, ptr, ptr, i32, ptr, ptr, ptr) -> i32
+  def onig_new(reg, pattern, pattern_end, option, enc, syntax, einfo)
+    Machine.gates_enter
+    zr_c_entered()
+    source = zr_capi_str(pattern, Machine.word(pattern_end) - Machine.word(pattern), zr_capi_enc_index(enc))
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(source))
+    Machine.store64(args, 8, Machine.word(zr_fix(Machine.u32(option))))
+    re = zr_c_result(zr_send(zr_core_class(Machine.id(:Regexp)), Machine.id(:c_onig_new), 2, args))
+    if einfo != 0
+      Libc.memset(einfo, Machine.i32(0), 24)
+    end
+    if zr_fixnum_p(re)
+      return Machine.i32(zr_fix2long(re))
+    end
+    zr_weak_list_push(zr_c_root_objects(), re)
+    Machine.store64(reg, 0, Machine.word(re))
+    Machine.i32(0)
+  end
+
+  # onig_free: the Regexp of onig_new may die.
+  #: (word) -> void
+  def onig_free(reg)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_root_object_drop(Machine.value(reg))
+  end
+
+  # ONIG_MAX_ERROR_MESSAGE_LEN: the room that C gives the message.
+  ONIG_MAX_ERROR_MESSAGE_LEN = 90
+
+  # onig_error_code_to_str: Onigmo's message for the error `code` in the
+  # buffer `buf`, ended with a NUL; gives its length.
+  #: (ptr, word) -> i32
+  def onig_error_code_to_str(buf, code)
+    Machine.gates_enter
+    zr_c_entered()
+    text = zr_capi_call1(zr_core_class(Machine.id(:Regexp)), Machine.id(:c_onig_error), zr_fix(code))
+    n = RString[text].len
+    if n >= ONIG_MAX_ERROR_MESSAGE_LEN
+      n = ONIG_MAX_ERROR_MESSAGE_LEN - 1
+    end
+    zr_memcpy(buf, RString[text].ptr, n)
+    Machine.store8(buf + n, 0, Machine.i8(0))
+    Machine.i32(n)
+  end
 end

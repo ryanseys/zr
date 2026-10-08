@@ -39,6 +39,23 @@ module Zr::Kern
     zr_c_result(zr_raise(zr_c_result(zr_exc_new_str(klass, message))))
   end
 
+  # rb_name_error: raises NameError with the formatted message, for the
+  # name `id` (NameError#name).
+  #: (word, ptr) -> void
+  def rb_name_error(id, fmt)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_start(list, Machine.stack_args)
+    message = zr_c_result(zr_c_format(fmt, list))
+    name = zr_sym(zr_capi_mid(id))
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(message))
+    Machine.store64(args, 8, Machine.word(name))
+    error = zr_capi_new_instance(zr_global(G_NAME_ERROR), 2, args, Machine.i32(0))
+    zr_c_result(zr_raise(error))
+  end
+
   # rb_enc_raise: the same, with the message in the encoding `enc`.
   #: (ptr, value, ptr) -> void
   def rb_enc_raise(enc, klass, fmt)

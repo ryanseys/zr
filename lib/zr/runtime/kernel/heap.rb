@@ -1292,7 +1292,7 @@ module Zr::Kern
   # and the others): GVAR_MIRRORS pairs of a global's ID and the address
   # of its word, which the C API fills as it starts (capi/entry.rb); 0
   # before. Each word follows its global.
-  GVAR_MIRRORS = 8
+  GVAR_MIRRORS = 10
 
   #: (word, value) -> void
   def zr_gvar_mirror(id, v)
