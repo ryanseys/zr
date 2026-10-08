@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 742 of its
+calls ruby 4.0's C API. zr's kernel gives 752 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -67,7 +67,7 @@ CRuby's C API, for C extensions: each `rb_*` def here is the function of that na
 
 The C API's evaluation of Ruby source and its loads of files, each one the Kernel method of its name on the main object.
 
-`rb_eval_string`, `rb_eval_string_protect`, `rb_load`, `rb_load_protect`, `ruby_script`, `rb_backtrace`
+`rb_eval_string`, `rb_eval_string_protect`, `rb_load`, `rb_load_protect`, `ruby_script`, `rb_backtrace`, `rb_binding_new`, `rb_sourcefile`, `rb_sourceline`
 
 ## fiber
 
@@ -79,7 +79,7 @@ The C API of Fibers and of the fiber scheduler: each one the Fiber method of its
 
 The C API's view of the collector: marks from a T_DATA's mark function, the write barrier, registered roots, and ruby's malloc.
 
-`rb_gc_mark`, `rb_gc_mark_movable`, `rb_gc_mark_maybe`, `rb_gc_mark_locations`, `rb_gc_location`, `rb_gc_writebarrier`, `rb_gc_writebarrier_remember`, `rb_gc_writebarrier_unprotect`, `rb_gc_register_address`, `rb_global_variable`, `rb_gc_unregister_address`, `rb_gc_register_mark_object`, `rb_gc_start`, `rb_gc`, `rb_obj_memsize_of`, `ruby_xmalloc`, `ruby_xmalloc2`, `ruby_xcalloc`, `ruby_xrealloc`, `ruby_xrealloc2`, `ruby_xfree`, `ruby_malloc_size_overflow`, `ruby_strdup`, `rb_alloc_tmp_buffer_with_count`, `rb_free_tmp_buffer`, `rb_gc_enable`, `rb_gc_disable`, `rb_during_gc`, `rb_alloc_tmp_buffer`, `rb_gc_stat`, `rb_gc_latest_gc_info`
+`rb_gc_mark`, `rb_gc_mark_movable`, `rb_gc_mark_maybe`, `rb_gc_mark_locations`, `rb_gc_location`, `rb_gc_writebarrier`, `rb_gc_writebarrier_remember`, `rb_gc_writebarrier_unprotect`, `rb_gc_register_address`, `rb_global_variable`, `rb_gc_unregister_address`, `rb_gc_register_mark_object`, `rb_gc_start`, `rb_gc`, `rb_obj_memsize_of`, `ruby_xmalloc`, `ruby_xmalloc2`, `ruby_xcalloc`, `ruby_xrealloc`, `ruby_xrealloc2`, `ruby_xfree`, `ruby_malloc_size_overflow`, `ruby_strdup`, `rb_alloc_tmp_buffer_with_count`, `rb_free_tmp_buffer`, `rb_gc_enable`, `rb_gc_disable`, `rb_during_gc`, `rb_alloc_tmp_buffer`, `rb_gc_stat`, `rb_gc_latest_gc_info`, `rb_objspace_each_objects`
 
 ## hash
 
@@ -163,7 +163,7 @@ Waits of C on descriptors that no stream wraps, and ruby's sets of descriptors (
 
 The C API's st tables, which C uses for its own maps.
 
-`rb_st_init_table`, `rb_st_init_table_with_size`, `rb_st_init_strtable`, `rb_st_init_strtable_with_size`, `rb_st_init_strcasetable`, `rb_st_init_strcasetable_with_size`, `rb_st_copy`, `rb_st_memsize`, `rb_st_init_numtable_with_size`, `rb_st_init_numtable`, `rb_st_insert`, `rb_st_lookup`, `rb_st_delete`, `rb_st_foreach`, `rb_st_update`, `rb_st_clear`, `rb_st_free_table`, `rb_st_locale_insensitive_strcasecmp`, `rb_st_locale_insensitive_strncasecmp`, `rb_st_hash`, `rb_st_hash_start`, `rb_st_hash_uint`, `rb_st_hash_uint32`, `rb_st_hash_end`
+`rb_hash_tbl`, `rb_st_init_table`, `rb_st_init_table_with_size`, `rb_st_init_strtable`, `rb_st_init_strtable_with_size`, `rb_st_init_strcasetable`, `rb_st_init_strcasetable_with_size`, `rb_st_copy`, `rb_st_memsize`, `rb_st_init_numtable_with_size`, `rb_st_init_numtable`, `rb_st_insert`, `rb_st_lookup`, `rb_st_delete`, `rb_st_foreach`, `rb_st_update`, `rb_st_clear`, `rb_st_free_table`, `rb_st_locale_insensitive_strcasecmp`, `rb_st_locale_insensitive_strncasecmp`, `rb_st_hash`, `rb_st_hash_start`, `rb_st_hash_uint`, `rb_st_hash_uint32`, `rb_st_hash_end`
 
 ## string
 
@@ -187,7 +187,7 @@ CRuby's ID, as C code holds it.
 
 C that runs without the GVL: rb_thread_call_without_gvl and its kin.
 
-`rb_thread_call_without_gvl`, `rb_thread_call_without_gvl2`, `rb_nogvl`, `rb_thread_call_with_gvl`, `ruby_native_thread_p`, `ruby_thread_has_gvl_p`, `rb_thread_check_ints`, `rb_thread_current`, `rb_thread_schedule`, `rb_ext_ractor_safe`, `rb_ractor_local_storage_value_newkey`, `rb_ractor_local_storage_value_lookup`, `rb_ractor_local_storage_value`, `rb_ractor_local_storage_value_set`, `rb_nativethread_lock_initialize`, `rb_nativethread_lock_destroy`, `rb_nativethread_lock_lock`, `rb_nativethread_lock_unlock`, `rb_thread_io_blocking_region`, `rb_thread_create`, `rb_thread_alone`, `rb_thread_main`, `rb_thread_stop`, `rb_thread_run`, `rb_thread_wakeup`, `rb_thread_wakeup_alive`, `rb_thread_kill`, `rb_thread_local_aref`, `rb_thread_local_aset`, `rb_thread_sleep_forever`, `rb_thread_sleep`, `rb_thread_wait_for`, `rb_mutex_new`, `rb_mutex_lock`, `rb_mutex_unlock`, `rb_mutex_trylock`, `rb_mutex_locked_p`, `rb_mutex_sleep`, `rb_mutex_synchronize`
+`rb_thread_call_without_gvl`, `rb_thread_call_without_gvl2`, `rb_nogvl`, `rb_thread_call_with_gvl`, `ruby_native_thread_p`, `ruby_thread_has_gvl_p`, `rb_thread_check_ints`, `rb_thread_current`, `rb_thread_schedule`, `rb_ext_ractor_safe`, `rb_ractor_local_storage_value_newkey`, `rb_ractor_local_storage_value_lookup`, `rb_ractor_local_storage_value`, `rb_ractor_local_storage_value_set`, `rb_nativethread_lock_initialize`, `rb_nativethread_lock_destroy`, `rb_nativethread_lock_lock`, `rb_nativethread_lock_unlock`, `rb_thread_io_blocking_region`, `rb_thread_create`, `rb_thread_alone`, `rb_thread_main`, `rb_thread_stop`, `rb_thread_run`, `rb_thread_wakeup`, `rb_thread_wakeup_alive`, `rb_thread_kill`, `rb_thread_local_aref`, `rb_thread_local_aset`, `rb_thread_sleep_forever`, `rb_thread_sleep`, `rb_thread_wait_for`, `rb_mutex_new`, `rb_mutex_lock`, `rb_mutex_unlock`, `rb_mutex_trylock`, `rb_mutex_locked_p`, `rb_mutex_sleep`, `rb_mutex_synchronize`, `rb_internal_thread_add_event_hook`, `rb_internal_thread_remove_event_hook`, `rb_internal_thread_specific_key_create`, `rb_internal_thread_specific_get`, `rb_internal_thread_specific_set`
 
 ## time
 
