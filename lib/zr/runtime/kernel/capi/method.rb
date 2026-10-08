@@ -460,10 +460,16 @@ module Zr::Kern
   # says so.
   #: (value, word, word, ptr, i32) -> value
   def zr_capi_send_maybe_kw(recv, mid, argc, argv, kw_splat)
+    zr_capi_send_blk(recv, mid, argc, argv, kw_splat, Machine.value(QNIL))
+  end
+
+  # The same, with the block `blk`.
+  #: (value, word, word, ptr, i32, value) -> value
+  def zr_capi_send_blk(recv, mid, argc, argv, kw_splat, blk)
     if Machine.sword(kw_splat) != 0 && argc > 0
-      return zr_capi_send_kw(recv, mid, argc, argv)
+      argc = zr_kw_argc(argc, argv)
     end
-    zr_send(recv, mid, argc, argv)
+    zr_send_blk(recv, mid, argc, argv, blk)
   end
 
   # rb_undef_method: `klass` has no method `name`, as `undef_method` makes

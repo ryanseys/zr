@@ -48,6 +48,13 @@ module Zr::Kern
     Machine.store64(slot, 0, Machine.word(tag))
     r = zr_yield(blk, 1, slot)
     RArray[list].len = RArray[list].len - 1
+    zr_caught(r, tag)
+  end
+
+  # The result of a call made under a catch for `tag`: the thrown value
+  # when a throw to `tag` ended the call, else `r` as it is.
+  #: (value, value) -> value
+  def zr_caught(r, tag)
     t = zr_task()
     if r == QUNDEF && Task[t].pending_kind == PENDING_THROW && Task[t].throw_tag == tag
       r = Task[t].pending
