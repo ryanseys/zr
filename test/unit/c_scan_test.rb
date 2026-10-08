@@ -111,7 +111,8 @@ class CScanTest < Minitest::Test
   # A header that neither the gem nor the system has is one that an
   # extconf.rb writes (curb's curb_config.h): an empty one stands in.
   def test_a_header_that_an_extconf_writes_stands_in_empty
-    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "zr_scan_nowhere.h"\n#include "made/config.h"\n#include "shared.h")))
+    written = %(#include "zr_scan_nowhere.h"\n#include "made/config.h"\n#include "shared.h")
+    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), written))
 
     scan = @scanner.call(subject)
 

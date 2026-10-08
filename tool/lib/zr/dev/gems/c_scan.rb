@@ -248,15 +248,16 @@ module Zr
           compile(file, object, work, headers)
         end
 
-        # Writes an empty `name` in `work`, which the compile searches;
-        # false when it is there already or names a place outside it.
+        # Writes an empty `name` in `work`, which the compile searches, and
+        # returns its path; nil when it is there already or names a place
+        # outside it.
         def stand_in(work, name)
           path = File.join(work, name)
-          return false if name.start_with?("/") || name.split("/").include?("..") || File.exist?(path)
+          return nil if name.start_with?("/") || name.split("/").include?("..") || File.exist?(path)
 
           FileUtils.mkdir_p(File.dirname(path))
           File.write(path, "")
-          true
+          path
         end
 
         # The file of the macros that mkmf's checks would define.
