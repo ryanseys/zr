@@ -49,9 +49,9 @@ end
 | `T_MODULE` | 3 | `T_ENV` | 26 |
 | `T_FLOAT` | 4 | `T_PROC` | 27 |
 | `T_STRING` | 5 | `T_ICLASS` | 28 |
-| `T_ARRAY` | 7 | `T_METHOD` | 29 |
-| `T_HASH` | 8 | `T_FIBER` | 30 |
-| | | `T_REGEXP` | 31 |
+| `T_REGEXP` | 6 | `T_METHOD` | 29 |
+| `T_ARRAY` | 7 | `T_FIBER` | 30 |
+| `T_HASH` | 8 | | |
 
 ## Objects
 

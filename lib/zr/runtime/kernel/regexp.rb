@@ -50,7 +50,7 @@ module Zr::Kern
     attr_accessor :limit #: word
   end
 
-  T_REGEXP = 31
+  T_REGEXP = 6
   G_REGEXP = 42
   G_REGEXP_LITERALS = 43
 
