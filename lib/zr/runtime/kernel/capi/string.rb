@@ -4,9 +4,13 @@ module Zr::Kern
 
   # A new String of the `len` bytes at `bytes` in the encoding `index`. A
   # null `bytes` gives `len` zero bytes, which C then fills, as
-  # rb_str_new(NULL, len) does.
+  # rb_str_new(NULL, len) does. A negative `len` raises, as in ruby
+  # (strscan's peek(-1) asks for one).
   #: (ptr, word, word) -> value
   def zr_capi_str(bytes, len, index)
+    if len < 0
+      zr_c_result(zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative string size (or size too big)"), 38))
+    end
     s = Machine.value(QNIL)
     if bytes == 0
       s = zr_str_new(Machine.bytes(""), 0)

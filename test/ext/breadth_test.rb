@@ -152,6 +152,9 @@ class CExtBreadthTest < Minitest::Test
       const char *p = RSTRING_PTR(str), *e = RSTRING_END(str);
       return LONG2NUM(rb_enc_nth(p, e, NUM2LONG(n), rb_enc_get(str)) - p);
     }
+    static VALUE b_negative(VALUE self, VALUE which) {
+      return FIX2INT(which) ? rb_utf8_str_new(NULL, -5) : rb_str_new("x", -1);
+    }
     static VALUE b_utf8(VALUE self, VALUE code) {
       char buf[8];
       int n = rb_uv_to_utf8(buf, NUM2ULONG(code));
@@ -195,6 +198,7 @@ class CExtBreadthTest < Minitest::Test
       rb_define_module_function(m, "notimpl", b_notimpl, -1);
       rb_define_module_function(m, "nth", b_nth, 2);
       rb_define_module_function(m, "utf8", b_utf8, 1);
+      rb_define_module_function(m, "negative", b_negative, 1);
     }
   C
 
@@ -298,6 +302,8 @@ class CExtBreadthTest < Minitest::Test
     show(:notimpl) { Breadth.notimpl(1) }
     show(:nth) { [Breadth.nth("héllo", 2), Breadth.nth("héllo", 9), Breadth.nth("abc", 1)] }
     show(:utf8) { [Breadth.utf8(65), Breadth.utf8(0xE9), Breadth.utf8(0x1F600)] }
+    show(:negative) { Breadth.negative(0) }
+    show(:negative_null) { Breadth.negative(1) }
   RUBY
 
   def setup
