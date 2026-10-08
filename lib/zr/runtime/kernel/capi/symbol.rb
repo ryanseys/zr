@@ -23,7 +23,7 @@ module Zr::Kern
       Machine.store8(ch, 0, Machine.i8(id))
       return zr_intern(ch, 1)
     end
-    zr_bug(Machine.bytes("[BUG] a C extension gave an ID that no rb_intern made\n"), 55)
+    zr_bug(Machine.bytes("[BUG] a C extension gave an ID that no rb_intern made\n"), 54)
     0
   end
 

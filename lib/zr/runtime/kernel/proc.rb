@@ -254,7 +254,7 @@ module Zr::Kern
     zr_mark(RProc[p].cref)
     blk = RProc[p].blk
     if blk != QNIL && (RBasic[blk].flags & FL_STACK) != 0
-      zr_bug(Machine.bytes("a Proc holds a block descriptor of a stack: a keeper missed zr_block_proc\n"), 75)
+      zr_bug(Machine.bytes("a Proc holds a block descriptor of a stack: a keeper missed zr_block_proc\n"), 74)
     end
     zr_mark(blk)
   end

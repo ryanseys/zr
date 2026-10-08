@@ -93,7 +93,7 @@ module Zr::Kern
   #: (ptr, value) -> void
   def zr_buf_str(b, s)
     if zr_special_p(s) || (RBasic[s].flags & T_MASK) != T_STRING
-      zr_bug(Machine.bytes("zr_buf_str was given something that is not a String\n"), 53)
+      zr_bug(Machine.bytes("zr_buf_str was given something that is not a String\n"), 52)
     end
     zr_buf_push(b, RString[s].ptr, RString[s].len)
   end

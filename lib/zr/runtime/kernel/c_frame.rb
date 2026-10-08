@@ -107,7 +107,7 @@ module Zr::Kern
     t = zr_task()
     rec = Task[t].cframe
     if rec == 0
-      zr_bug(Machine.bytes("[BUG] an unwind out of C, with no C call to unwind to\n"), 55)
+      zr_bug(Machine.bytes("[BUG] an unwind out of C, with no C call to unwind to\n"), 54)
     end
     # A mark or free function runs in a collection, which an unwind would
     # leave half done.
