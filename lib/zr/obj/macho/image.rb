@@ -90,6 +90,8 @@ module Zr
         attr_reader :symbols #: Array[Nlist]
         attr_reader :uuid #: String?
         attr_reader :install_name #: String?
+        # The image's bytes: its arm64 slice of a fat file.
+        attr_reader :bytes #: String
 
         # Reads `bytes`, a thin arm64 image or a fat file with an arm64
         # slice.

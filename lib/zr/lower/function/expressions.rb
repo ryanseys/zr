@@ -324,15 +324,26 @@ module Zr
         end
 
         # A C extension's require: it runs the extension's Init function,
-        # which the link put in the binary, or which the binary finds in
-        # the bundle that it loads with dlopen (`Ext::Source#library`).
+        # which the link put in the binary, which it relinked into the
+        # binary with the bundle's initializers, or which the binary finds
+        # in the bundle that it loads with dlopen (`Ext::Source#mode`).
         #: (Hir::ExtInit node) -> String
         def ext_init(node)
-          library = node.library
-          return checked(kernel("zr_ext_init", @f.symbol_value(@f.symbol(node.init, colocated: false)))) unless library
-
-          checked(kernel("zr_ext_load", string_literal(library, "zr_str_literal_freeze"), string_literal(node.init, "zr_str_literal_freeze")))
+          case node.mode
+          when :embed
+            names = %w[zr_ext_ zr_ext_inits_ zr_ext_inits_end_ zr_ext_offsets_ zr_ext_offsets_end_ zr_ext_base_]
+            checked(kernel("zr_ext_embedded", *names.map { |prefix| symbol_address("#{prefix}#{node.init}") }))
+          when :dynamic
+            library = node.library.to_s
+            checked(kernel("zr_ext_load", string_literal(library, "zr_str_literal_freeze"), string_literal(node.init, "zr_str_literal_freeze")))
+          else checked(kernel("zr_ext_init", symbol_address(node.init)))
+          end
         end
+
+        # The address of the global `name`, which another unit or the link
+        # defines.
+        #: (String name) -> String
+        def symbol_address(name) = @f.symbol_value(@f.symbol(name, colocated: false))
 
         # A String literal, built by `fn` and tagged with the file's script
         # encoding. UTF-8 is the usual encoding and needs no number.

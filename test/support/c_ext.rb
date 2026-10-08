@@ -69,16 +69,19 @@ module Zr
       # The same, but runs the binary once in each of `binary_envs`: the
       # collector's switches (ZR_GC_STRESS), which ruby does not read.
       # Returns `[ruby, [zr...]]`; a failed build stands for every run.
-      #: (Built ext, String program, Array[Hash[String, String]] binary_envs, ?env: Hash[String, String]) -> [Output, Array[Output]]
-      def outputs_under(ext, program, binary_envs, env: {})
+      # `mode` is how the binary runs the extension (`ZR_EXT`): static
+      # links its object, and embed and dynamic take its bundle.
+      #: (Built ext, String program, Array[Hash[String, String]] binary_envs, ?env: Hash[String, String], ?mode: String) -> [Output, Array[Output]]
+      def outputs_under(ext, program, binary_envs, env: {}, mode: "static")
         source = "$LOAD_PATH.unshift(File.expand_path(\".\", __dir__))\n#{program}"
         path = File.join(ext.dir, "prog_#{Digest::SHA256.hexdigest(source)[0, 12]}.rb")
         File.write(path, source)
         ruby = run(env, RbConfig.ruby, path)
         # Each set of runs has its own binary: two tests of one program
         # build at the same time.
-        bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest(binary_envs.inspect)[0, 8]}"
-        zr_env = env.merge("ZR_EXT_OBJECTS" => "#{ext.bundle}=#{ext.object}")
+        bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest([binary_envs, mode].inspect)[0, 8]}"
+        given = mode == "static" ? "#{ext.bundle}=#{ext.object}" : ext.bundle
+        zr_env = env.merge("ZR_EXT_OBJECTS" => given, "ZR_EXT" => mode)
         built = run(zr_env, File.join(ROOT, "bin", "zr"), "build", path, "-o", bin)
         return [ruby, binary_envs.map { built }] unless built.status.zero?
 

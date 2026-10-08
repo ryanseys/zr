@@ -102,7 +102,7 @@ module Zr
     # The toplevel of a C extension's unit: it runs the extension's
     # `init` function (`Init_hello`), as ruby's require of `path` (a
     # bundle) runs it.
-    ExtInit = Node.new(:init, :path, :line, :library)
+    ExtInit = Node.new(:init, :path, :line, :library, :mode)
     # `autoload :Name, "feature"` on `recv` (nil for self): the file is
     # `path`, unit `unit`; it runs when the constant is first read.
     # `declared` is an autoload of a feature for which a require reads no

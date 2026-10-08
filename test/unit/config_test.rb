@@ -49,9 +49,10 @@ class ConfigTest < Minitest::Test
       assert_equal({ "/x/a.bundle" => ["/y/a.o", "/y/b.o"], "/x/c.bundle" => ["/y/c.o"] }, config.ext_objects)
     end
     Zr::Config.with(ZR_EXT_OBJECTS: nil) { |config| assert_empty config.ext_objects }
-    error = assert_raises(Zr::Config::Invalid) { Zr::Config.with(ZR_EXT_OBJECTS: "/x/a.bundle") { |_| } }
-    assert_equal 'ZR_EXT_OBJECTS has "/x/a.bundle". Give each extension as BUNDLE=OBJECT[,OBJECT...], for example ' \
-                 "ZR_EXT_OBJECTS=lib/hello.bundle=hello.o.", error.message
+    Zr::Config.with(ZR_EXT_OBJECTS: "/x/a.bundle") { |config| assert_equal({ "/x/a.bundle" => [] }, config.ext_objects) }
+    error = assert_raises(Zr::Config::Invalid) { Zr::Config.with(ZR_EXT_OBJECTS: "/x/a.bundle=") { |_| } }
+    assert_equal 'ZR_EXT_OBJECTS has "/x/a.bundle=". Give each extension as BUNDLE=OBJECT[,OBJECT...] or a BUNDLE alone, ' \
+                 "for example ZR_EXT_OBJECTS=lib/hello.bundle=hello.o.", error.message
   end
 
   # Each word is a gem, or a gem and its version, split at commas and
@@ -111,6 +112,7 @@ class ConfigTest < Minitest::Test
       "ZR_HOST_RUBY" => [%w[--host-ruby /bin/ruby], :host_ruby, "/bin/ruby"],
       "ZR_LINK_ARGS" => [["--link-args", "a.o -lz"], :link, %w[a.o -lz]],
       "ZR_EXT_OBJECTS" => [["--ext-objects", "/a.bundle=/a.o"], :ext_objects, { "/a.bundle" => ["/a.o"] }],
+      "ZR_EXT" => [%w[--ext dynamic], :ext_mode, "dynamic"],
       "ZR_NATIVE_EXT" => [["--native-ext", "msgpack"], :native_ext, { "msgpack" => nil }],
       "ZR_RUN_CACHE" => [%w[--no-run-cache], :run_cache?, false],
       "ZR_TRACE" => [%w[--trace], :trace?, true],

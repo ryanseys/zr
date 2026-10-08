@@ -1,0 +1,27 @@
+# The records of lib/zr/obj/macho/relink.rb. Its methods are inline.
+module Zr
+  module Obj
+    module MachO
+      class Relink
+        class Part < Data
+          attr_reader name: String
+          attr_reader vm: Integer
+          attr_reader vmsize: Integer
+          attr_reader bytes: String
+          attr_reader prot: Integer
+
+          def self.new: (name: String, vm: Integer, vmsize: Integer, bytes: String, prot: Integer) -> instance
+        end
+
+        class Fixup < Data
+          attr_reader address: Integer
+          attr_reader kind: :rebase | :bind | :null
+          attr_reader target: Integer | String
+          attr_reader addend: Integer
+
+          def self.new: (address: Integer, kind: :rebase | :bind | :null, target: Integer | String, addend: Integer) -> instance
+        end
+      end
+    end
+  end
+end

@@ -11,13 +11,17 @@ module Zr
 
     # One C extension that a build runs: the bundle path that `require`
     # finds it at (where ruby would load it, under the gem's lib/), the
-    # function that loads it, and either the objects that the link puts in
-    # the binary with the libraries that they need, or a precompiled bundle
-    # (`library`) that the binary loads with dlopen.
+    # function that loads it, the objects that the link can put in the
+    # binary with the libraries that they need, and a precompiled bundle
+    # (`library`), when there is one. `mode` says which the build uses:
+    #
+    # - :static links the objects in;
+    # - :embed relinks the bundle into the binary (`Obj::MachO::Relink`);
+    # - :dynamic loads the bundle with dlopen where the require runs.
     #
     # The record's fields are typed in sig/zr/ext/source.rbs.
     # @rbs skip
-    Source = Data.define(:bundle, :init, :objects, :libraries, :library)
+    Source = Data.define(:bundle, :init, :objects, :libraries, :library, :mode)
 
     class Source
       # The extensions of an installed gem: each directory under its ext/
@@ -32,7 +36,7 @@ module Zr
           next if objects.empty? || !objects.all? { |object| File.file?(object) }
 
           new(bundle: File.join(gem_dir, "lib", "#{makefile.feature}.bundle"), init: makefile.init, objects: objects,
-              libraries: makefile.libraries, library: nil)
+              libraries: makefile.libraries, library: nil, mode: :static)
         end
         compiled.empty? ? precompiled(gem_dir) : compiled
       end
@@ -44,23 +48,35 @@ module Zr
         lib = File.join(gem_dir, "lib")
         Dir[File.join(lib, "**", ABI, "*.bundle")].sort.map do |path|
           feature = File.join(File.dirname(path, 2), File.basename(path))
-          new(bundle: feature, init: init_of(path), objects: [], libraries: [], library: path)
+          new(bundle: feature, init: init_of(path), objects: [], libraries: [], library: path, mode: :embed)
         end
       end
 
       # An extension given as a bundle's path and its objects
-      # (`ZR_EXT_OBJECTS`): its Init function is named after the bundle.
+      # (`ZR_EXT_OBJECTS`), or as the bundle alone, which then embeds: its
+      # Init function is named after the bundle.
       #: (String bundle, Array[String] objects) -> Source
-      def self.given(bundle, objects) = new(bundle: bundle, init: init_of(bundle), objects: objects, libraries: [], library: nil)
+      def self.given(bundle, objects)
+        if objects.empty?
+          return new(bundle: bundle, init: init_of(bundle), objects: [], libraries: [], library: bundle, mode: :embed)
+        end
+
+        new(bundle: bundle, init: init_of(bundle), objects: objects, libraries: [], library: nil, mode: :static)
+      end
 
       # The Init function of the bundle at `path`: `Init_` and its name.
       #: (String path) -> String
       def self.init_of(path) = "Init_#{File.basename(path).sub(/\..*\z/, "")}"
 
-      # The Mach-O files whose imports the C API must have: the objects,
-      # or the precompiled bundle.
+      # The Mach-O files whose imports the C API must have: the objects, or
+      # the bundle.
       #: () -> Array[String]
-      def binaries = library ? [library] : objects
+      def binaries = mode == :static ? objects : [library].compact
+
+      # The same extension as the build `mode` (`ZR_EXT`) runs it: a bundle
+      # loads with dlopen under `dynamic`; objects stay static.
+      #: (String mode) -> Source
+      def for_mode(mode) = library && mode == "dynamic" ? with(mode: :dynamic) : self
     end
   end
 end

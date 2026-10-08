@@ -30,8 +30,10 @@ module Zr
         # @rbs linker: String
         # @rbs target: Target
         # @rbs link: Array[String]
+        # @rbs embeds: Array[Obj::MachO::Relink]
         # @rbs return: String?
-        def link(image, out, work:, objects:, strip:, linker:, target:, link: [])
+        def link(image, out, work:, objects:, strip:, linker:, target:, link: [], embeds: [])
+          return "an ELF binary cannot embed a Mach-O bundle" unless embeds.empty?
           return "ZR_LINKER=ruby: zr has no linker of its own for an ELF binary. Set ZR_LINKER=auto or cc" if linker == "ruby"
 
           obj = File.join(work, "unit.o")

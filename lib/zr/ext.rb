@@ -25,7 +25,7 @@ module Zr
       BUNDLES[config] ||= begin
         given = config.ext_objects.map { |bundle, objects| Source.given(bundle, objects) }
         installed = config.native_ext.flat_map { |name, version| installed(name, version) }
-        (given + installed).to_h { |source| [source.bundle, source] }.freeze
+        (given + installed).to_h { |source| [source.bundle, source.for_mode(config.ext_mode)] }.freeze
       end
     end
 

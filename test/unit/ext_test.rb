@@ -130,7 +130,11 @@ class ExtTest < Minitest::Test
 
       error = assert_raises(Zr::Refused) { Zr::Ext::CApi.check!([source]) }
       assert_match(/\Alacks\.bundle: zr's C API has no rb_not_a_function yet/, error.message)
-      Zr::Ext::CApi.check!([Zr::Ext::Source.given(source.bundle, [])])
+
+      # A bundle given alone is embedded: its own imports are checked.
+      system("cc", "-bundle", "-undefined", "dynamic_lookup", c, "-o", source.bundle, exception: true)
+      error = assert_raises(Zr::Refused) { Zr::Ext::CApi.check!([Zr::Ext::Source.given(source.bundle, [])]) }
+      assert_match(/\Alacks\.bundle: zr's C API has no rb_not_a_function yet/, error.message)
     end
   end
 end

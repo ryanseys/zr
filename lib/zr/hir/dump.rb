@@ -168,7 +168,7 @@ module Zr
         when Stop
           lines << "#{pad}(stop #{n.what.inspect})"
         when ExtInit
-          lines << "#{pad}(ext-init #{n.init}#{" #{n.library}" if n.library})"
+          lines << "#{pad}(ext-init #{n.init} #{n.mode}#{" #{n.library}" if n.mode == :dynamic})"
         when Using
           lines << "#{pad}(using #{n.id} from #{n.from}"
           node(n.value, depth + 1, lines)

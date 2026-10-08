@@ -7,9 +7,14 @@ module Zr
       attr_reader objects: Array[String]
       attr_reader libraries: Array[String]
       attr_reader library: String?
+      attr_reader mode: :static | :embed | :dynamic
 
-      def self.new: (String bundle, String init, Array[String] objects, Array[String] libraries, String? library) -> instance
-                  | (bundle: String, init: String, objects: Array[String], libraries: Array[String], library: String?) -> instance
+      def self.new: (String bundle, String init, Array[String] objects, Array[String] libraries, String? library,
+                     :static | :embed | :dynamic mode) -> instance
+                  | (bundle: String, init: String, objects: Array[String], libraries: Array[String], library: String?,
+                     mode: :static | :embed | :dynamic) -> instance
+
+      def with: (?mode: :static | :embed | :dynamic) -> instance
     end
   end
 end

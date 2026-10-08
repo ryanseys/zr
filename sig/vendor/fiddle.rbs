@@ -28,6 +28,7 @@ module Fiddle
   class Handle
     DEFAULT: Handle
 
+    def initialize: (?String? library, ?Integer flags) -> void
     def []: (String name) -> Integer
     def sym: (String name) -> Integer
   end

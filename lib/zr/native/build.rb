@@ -13,6 +13,7 @@ require_relative "../backend/wasm"
 require_relative "../obj/macho/object_file"
 require_relative "../obj/elf/object_file"
 require_relative "../obj/macho/prelink"
+require_relative "../obj/macho/relink"
 require_relative "../machine/lower"
 require_relative "../runtime"
 require_relative "../timing"
@@ -91,9 +92,10 @@ module Zr
       # @rbs jobs: Integer
       # @rbs link: Array[String]
       # @rbs return: String?
-      def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: Config.current.linker, target: Target.default, jobs: Build.jobs, link: [])
+      def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: Config.current.linker, target: Target.default, jobs: Build.jobs, link: [],
+                 embeds: [])
         image = unit(functions, data, raw: raw, assembled: assembled, export: !objects.empty?, target: target, jobs: jobs)
-        linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target, link: link)
+        linker(target).link(image, out, work: work, objects: objects, strip: strip, linker: linker, target: target, link: link, embeds: embeds)
       rescue Backend::Refused => e
         e.message
       end
@@ -110,15 +112,18 @@ module Zr
         root(program.runtime, objects, program.evals)
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) } #: [Array[IR::Function], Array[Obj::Code]]
         Timing.phase("writing and linking the program object", "program object written and linked") do
-          # The objects of the C extensions and their libraries go to the
-          # system linker, as `--link` words do, once the C API has all
-          # that they import.
+          # Once the C API has all that the C extensions import: a static
+          # one's objects and libraries go to the system linker, as `--link`
+          # words do; an embedded one's bundle goes into zr's linker
+          # (`Obj::MachO::Relink`); and a binary that loads one with dlopen
+          # exports the C API.
           sources = Ext.bundles.values
           Ext::CApi.check!(sources)
-          extensions = sources.flat_map { |source| source.objects + source.libraries }
-          extensions += exports(work) if sources.any?(&:library)
+          extensions = sources.select { |s| s.mode == :static }.flat_map { |s| s.objects + s.libraries }
+          extensions += exports(work) if sources.any? { |s| s.mode == :dynamic }
+          embeds = sources.select { |s| s.mode == :embed }.map { |s| Obj::MachO::Relink.new(File.binread(s.library.to_s), init: s.init) }
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
-                                                           target: program.runtime.target, jobs: jobs, link: link + extensions)
+                                                           target: program.runtime.target, jobs: jobs, link: link + extensions, embeds: embeds)
         end
       end
 

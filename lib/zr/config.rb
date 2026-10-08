@@ -31,6 +31,9 @@ module Zr
 
     # `ZR_CODE_CACHE`: on, off, or on with a check of each hit.
     CODE_CACHES = %w[1 0 verify].freeze
+    # How a build runs a C extension: linked in, its bundle relinked in,
+    # or its bundle loaded with dlopen (`Ext::Source#mode`).
+    EXT_MODES = %w[static embed dynamic].freeze
 
     # A `ZR_*` value or a setting's flag that zr cannot use. The message
     # names the variable or the flag, its value, and a value that works.
@@ -69,6 +72,7 @@ module Zr
       row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr starts for gems and syntax errors"),
       row("ZR_LINK_ARGS", "--link-args", :value, "WORDS", "words for the system linker, split as a shell does"),
       row("ZR_EXT_OBJECTS", "--ext-objects", :value, "PATH=OBJ,...", "C extensions to link: each a bundle's path, then its objects"),
+      row("ZR_EXT", "--ext", :choice, EXT_MODES, "how a C extension runs: static (its objects; a bundle alone embeds), embed or dynamic"),
       row("ZR_NATIVE_EXT", "--native-ext", :value, "GEM[=VERSION],...", "gems whose installed C extension to link, not a port"),
       row("ZR_RUN_CACHE", "--run-cache", :switch, nil, "keep the binary of each run and run it again (on)"),
       row("ZR_TRACE", "--trace", :switch, nil, "arm the trace events in the program's code"),
@@ -109,6 +113,9 @@ module Zr
     # for the newest installed.
     attr_reader :native_ext #: Hash[String, String?]
 
+    # How a build runs a C extension (`ZR_EXT`): static, embed or dynamic.
+    attr_reader :ext_mode #: String
+
     # The settings from `given` (by variable name, as `CLI.settings!`
     # reads the flags), and the rest from `env`.
     #: (?Hash[String, String] given, ?(Hash[String, String] | RBS::Unnamed::ENVClass) env) -> void
@@ -147,6 +154,7 @@ module Zr
       @ext_objects = words(value("ZR_EXT_OBJECTS")).to_h { |word| ext_object(word) }.freeze
       # `ZR_NATIVE_EXT`: gem names, split at commas and spaces, each
       # `name` or `name=version`.
+      @ext_mode = choice("ZR_EXT", EXT_MODES, "static")
       @native_ext = value("ZR_NATIVE_EXT").to_s.split(/[\s,]+/).reject(&:empty?).to_h { |word| native_gem(word) }.freeze
       @run_cache = switch?("ZR_RUN_CACHE", default: true)
       @trace = switch?("ZR_TRACE")
@@ -206,13 +214,15 @@ module Zr
     private :words
 
     # One word of `ZR_EXT_OBJECTS`: a bundle's path and its objects, with
-    # both made absolute.
+    # both made absolute; or a bundle's path alone, with no objects, for
+    # the bundle itself (`Ext::Source.given`).
     #: (String word) -> [String, Array[String]]
     def ext_object(word)
       bundle, objects = word.split("=", 2)
-      if bundle.to_s.empty? || objects.to_s.empty?
+      if bundle.to_s.empty? || objects&.empty?
         name = source("ZR_EXT_OBJECTS")
-        raise Invalid, "#{name} has #{word.inspect}. Give each extension as BUNDLE=OBJECT[,OBJECT...], for example #{name}=lib/hello.bundle=hello.o."
+        raise Invalid, "#{name} has #{word.inspect}. Give each extension as BUNDLE=OBJECT[,OBJECT...] or a BUNDLE alone, " \
+                       "for example #{name}=lib/hello.bundle=hello.o."
       end
       [File.expand_path(bundle.to_s), objects.to_s.split(",").map { |object| File.expand_path(object) }]
     end

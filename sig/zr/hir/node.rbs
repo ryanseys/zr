@@ -98,6 +98,7 @@ module Zr
       attr_accessor path: String
       attr_accessor line: Integer
       attr_accessor library: String?
+      attr_accessor mode: :static | :embed | :dynamic
     end
 
     class Autoload < Node

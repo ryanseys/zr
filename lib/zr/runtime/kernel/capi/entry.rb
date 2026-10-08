@@ -73,6 +73,29 @@ module Zr::Kern
     zr_ext_init(fn)
   end
 
+  # Runs a C extension that the link relinked into the binary
+  # (`Obj::MachO::Relink`): its initializers, which dyld does not run
+  # here (the function pointers from `inits` to `inits_end`, then the
+  # 32-bit offsets from `base` between `offsets` and `offsets_end`), then
+  # its Init function `init`, as dlopen would.
+  #: (ptr, ptr, ptr, ptr, ptr, ptr) -> value
+  def zr_ext_embedded(init, inits, inits_end, offsets, offsets_end, base)
+    zr_capi_init()
+    argv = Machine.slot(64)
+    Libc.memset(argv, Machine.i32(0), 64)
+    at = inits
+    while at < inits_end
+      zr_call_c(Machine.ptr(Machine.load64(at, 0)), argv, 0)
+      at += 8
+    end
+    at = offsets
+    while at < offsets_end
+      zr_call_c(base + Machine.u32(Machine.load32(at, 0)), argv, 0)
+      at += 4
+    end
+    zr_ext_init(init)
+  end
+
   # Sets the words that an extension reads as `rb_cObject` and the like,
   # once, before the first Init runs. They hold core classes, which their
   # constants keep alive.

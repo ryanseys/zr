@@ -48,8 +48,13 @@ module Zr
         # @rbs linker: String
         # @rbs target: Target
         # @rbs link: Array[String]
+        # @rbs embeds: Array[Obj::MachO::Relink]
         # @rbs return: String?
-        def link(image, out, work:, objects:, strip:, linker:, target:, link: [])
+        def link(image, out, work:, objects:, strip:, linker:, target:, link: [], embeds: [])
+          if !embeds.empty? && (linker == "cc" || !link.empty?)
+            return "an embedded C extension needs zr's own linker, which takes no --link word or static extension yet; " \
+                   "build with --ext=dynamic, or without ZR_LINKER=cc"
+          end
           unless link.empty?
             return "--link needs cc, and this host has no cc for #{target} (#{Target.cc_hint})" unless target.tool("cc")
 
@@ -57,11 +62,12 @@ module Zr
           end
           unless linker == "cc"
             why = begin
-              Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), skeleton: Build.skeleton(objects))
+              Obj::MachO::Executable.write(image, out, prelink: Build.prelink(objects), skeleton: Build.skeleton(objects), embeds: embeds)
             rescue Obj::MachO::Refused => e
               e.message
             end
             return nil unless why
+            return "zr's linker cannot embed the C extension: #{why}. Build with --ext=dynamic" unless embeds.empty?
             return "zr's linker cannot link this program: #{why}. Set ZR_LINKER=auto to link it with cc" if linker == "ruby"
             return "zr's linker cannot link this program: #{why}. cc can, and this host has no cc (#{Target.cc_hint})" unless target.tool("cc")
           end

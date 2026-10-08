@@ -6,6 +6,7 @@ require_relative "block"
 require_relative "prelink"
 require_relative "libsystem"
 require_relative "skeleton"
+require_relative "relink"
 require_relative "../../bytes"
 require_relative "../../timing"
 require_relative "../../target"
@@ -37,6 +38,11 @@ module Zr
       #
       # It refuses a symbol that no input and no libSystem entry defines,
       # because dyld cannot find it. The message gives the symbol.
+      #
+      # Embedded C extensions (`Relink`) go in segments of their own after
+      # the program's, at EMBED_GAP above the runtime's data, past any
+      # program's data and in reach of its code; their imports may come
+      # from the system dylibs that they load, each with its own ordinal.
       class Executable
         # @rbs @base: Prelink
         # @rbs @out: String
@@ -65,6 +71,11 @@ module Zr
         # @rbs @sig_at: Integer
         # @rbs @uuid_at: Integer
         # @rbs @ncmds: Integer
+        # @rbs @embeds: Array[Relink]
+        # @rbs @embed_symbols: Hash[String, Integer]
+        # @rbs @embed_fixups: Array[Relink::Fixup]
+        # @rbs @dylibs: Array[String]
+        # @rbs @import_dylib: Hash[String, Integer]
 
         PAGE = Prelink::PAGE
         HASH_PAGE = Prelink::HASH_PAGE
@@ -109,6 +120,8 @@ module Zr
 
         # The bytes of the load commands that are the same in every image.
         OTHER_COMMANDS = [16, 16, 24, 80, 32, 24, 24, 24, 56, 16].sum
+        # Where embedded C extensions start, above the runtime's data.
+        EMBED_GAP = 1 << 30
 
         # The section name and flags for each part.
         SECTIONS ={ text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
@@ -146,11 +159,12 @@ module Zr
         # @rbs prelink: Prelink?
         # @rbs entry: String
         # @rbs skeleton: String?
+        # @rbs embeds: Array[Relink]
         # @rbs return: String?
-        def self.write(unit, out, objects: [], prelink: nil, entry: "main", skeleton: nil)
+        def self.write(unit, out, objects: [], prelink: nil, entry: "main", skeleton: nil, embeds: [])
           prelink ||= Prelink.build(objects)
           linked = Timing.phase("link: reading the program", "link: program read") do
-            new(unit, prelink, out, entry: entry, skeleton: skeleton)
+            new(unit, prelink, out, entry: entry, skeleton: skeleton, embeds: embeds)
           end
           linked.write
         rescue Refused => e
@@ -163,13 +177,16 @@ module Zr
         #: (String name) -> bool
         def self.libsystem?(name) = LIBSYSTEM_NAMES.include?(name)
 
-        #: (Unit unit, Prelink prelink, String out, ?entry: String, ?skeleton: String?) -> void
-        def initialize(unit, prelink, out, entry: "main", skeleton: nil)
+        #: (Unit unit, Prelink prelink, String out, ?entry: String, ?skeleton: String?, ?embeds: Array[Relink]) -> void
+        def initialize(unit, prelink, out, entry: "main", skeleton: nil, embeds: [])
           @base = prelink
           @out = out
           @entry = entry
           @skeleton = skeleton
-          outside = prelink.empty? ? nil : ->(name) { prelink.global(name) } #: (^(String) -> Integer?)?
+          @embeds = embeds
+          @embed_symbols = place_embeds
+          symbols = @embed_symbols
+          outside = prelink.empty? ? nil : ->(name) { prelink.global(name) || symbols[name] } #: (^(String) -> Integer?)?
           @top = Block.new([ObjectFile.of(unit)], outside: outside)
         end
 
@@ -178,12 +195,16 @@ module Zr
           twice = defined_twice
           raise Refused, "#{twice.delete_prefix("_")} is defined twice" if twice
 
-          @imports = (@base.externals.reject { |name| @top.defines?("_#{name}") } + @top.externals).uniq.sort
-          outside = @imports.reject { |name| self.class.libsystem?(name) }
+          extra = embed_imports
+          @imports = (@base.externals.reject { |name| @top.defines?("_#{name}") } + @top.externals + extra.keys).uniq.sort
+          outside = @imports.reject { |name| self.class.libsystem?(name) || extra.key?(name) }
           raise Refused, "#{outside.first} is not libSystem's" unless outside.empty?
 
+          @dylibs = [LIBSYSTEM, *(extra.values.uniq - [LIBSYSTEM]).sort]
+          @import_dylib = @imports.to_h { |name| [name, extra.key?(name) ? @dylibs.index(extra[name]).to_i + 1 : 1] }
           @ordinal = @imports.each_with_index.to_h
           Timing.phase("link: laying out", "link: laid out") { @base.empty? ? plain : beside_base }
+          embed_segments!
           entry = @top.entry(@entry) || @base.global("_#{@entry}") or raise Refused, "nothing named #{@entry} to enter at"
           @entry_at = entry - BASE
           Timing.phase("link: filling", "link: filled") { fill }
@@ -259,6 +280,77 @@ module Zr
           @segments.drop(first).each { |s| s.pieces.each { |bytes, _, _| file.write(bytes) } }
           file.write(@linkedit)
           file.write(signed)
+        end
+
+        # --- embedded C extensions -------------------------------------------
+
+        # Places each embedded bundle at its own address, one after the
+        # other from EMBED_GAP above the runtime's data, and returns the
+        # names that the program's requires of them read.
+        #: () -> Hash[String, Integer]
+        def place_embeds
+          return {} if @embeds.empty?
+          raise Refused, "an embedded C extension needs the runtime's prelinked image" if @base.empty?
+
+          at = Bytes.align(@base.data_end + EMBED_GAP, PAGE)
+          placed = {} #: Hash[String, Integer]
+          @embeds.each_with_object(placed) do |embed, symbols|
+            embed.place!(at)
+            symbols.merge!(embed.symbols)
+            at += embed.span
+          end
+        end
+
+        # The embeds' fixups (in @embed_fixups), and their imports, each
+        # with its dylib. A bind to a name that the runtime defines, its C
+        # API, becomes a rebase to that definition.
+        #: () -> Hash[String, String]
+        def embed_imports
+          @embed_fixups = []
+          found = {} #: Hash[String, String]
+          @embeds.each_with_object(found) do |embed, imports|
+            fixups, theirs = embed.fixups(->(name) { @base.global(name) })
+            @embed_fixups.concat(fixups)
+            imports.merge!(theirs)
+          end
+        end
+
+        # Adds a segment for each segment of each embed, after the others.
+        #: () -> void
+        def embed_segments!
+          @embeds.each_with_index do |embed, n|
+            embed.parts(n).each do |part|
+              code = (part.prot & EXEC) != 0
+              section = Section.new(code ? "__text" : "__data", part.vm, part.bytes.bytesize, 14, code ? CODE : S_REGULAR)
+              s = segment(part.name, part.vm, part.bytes.bytesize, after(@segments.last), part.prot, 0, [section],
+                          [[part.bytes, nil, []]])
+              s.vmsize = part.vmsize
+              @segments << s
+            end
+          end
+        end
+
+        # Fills the embeds' slots, chained page by page in each of their
+        # writable segments.
+        #: () -> void
+        def fill_embeds
+          writable = @segments.select { |s| s.name.start_with?("__ZRD", "__ZRC") }
+          @embed_fixups.group_by { |f| writable.index { |s| f.address >= s.vm && f.address < s.vm + s.filesize } }.each do |n, rows|
+            raise Refused, "an embedded C extension's fixup outside its data" unless n
+
+            s = writable[n]
+            chained, null = rows.partition { |f| f.kind != :null }
+            s.starts, nexts = Chains.thread(chained.map(&:address), s.vm, s.filesize)
+            bytes = s.pieces.first[0]
+            chained.each do |f|
+              word = case f.target
+                     in Integer => address then Chains.rebase(address - BASE, nexts[f.address])
+                     in String => name then bound(name, f.addend, nexts[f.address])
+                     end
+              Chains.put(bytes, f.address - s.vm, word)
+            end
+            null.each { |f| Chains.put(bytes, f.address - s.vm, 0) }
+          end
         end
 
         # --- layout --------------------------------------------------------
@@ -410,7 +502,7 @@ module Zr
             dirty << (slot.offset / HASH_PAGE)
           end
           # Group by index, not by segment: a segment's hash hashes all its bytes.
-          own = @segments.select { |s| s.pieces.first[1].nil? && (s.prot & WRITE) != 0 }
+          own = @segments.select { |s| s.pieces.first[1].nil? && (s.prot & WRITE) != 0 && !s.name.start_with?("__ZR") }
           @top.fixups.group_by { |slot, *| own.index { |s| slot >= s.vm && slot < s.vm + s.filesize } }.each do |n, rows|
             raise Refused, "a fixup outside the data" unless n
 
@@ -422,6 +514,7 @@ module Zr
               Chains.put(bytes, slot - s.vm, word)
             end
           end
+          fill_embeds
         end
 
         #: (String name, Integer addend, Integer nxt) -> Integer
@@ -439,7 +532,7 @@ module Zr
           imports = @imports.map do |name|
             at = names.bytesize
             names << "_#{name}\0".b
-            1 | (at << 9)
+            @import_dylib.fetch(name) | (at << 9)
           end
           order = [nil, *@segments, nil]
           table = +"".b
@@ -650,7 +743,7 @@ module Zr
           # program runs on one that it maps (zr_main_on_own_stack). A binary
           # with its own main stack size cannot change RLIMIT_STACK.
           out << command(LC_MAIN, [@entry_at, 0].pack("Q<2"))
-          out << command(LC_LOAD_DYLIB, [24, 0, 1 << 16, 1 << 16].pack("L<4") + "#{LIBSYSTEM}\0".b)
+          @dylibs.each { |path| out << command(LC_LOAD_DYLIB, [24, 0, 1 << 16, 1 << 16].pack("L<4") + "#{path}\0".b) }
           out << command(LC_CODE_SIGNATURE, [@sig_at, signature_size].pack("L<2"))
           @ncmds = out.size
           out.join
