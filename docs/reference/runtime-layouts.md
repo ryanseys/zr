@@ -39,7 +39,7 @@ end
 | 5 | `FL_ALLOCATED` |
 | 10 | `FL_EXIVAR` |
 | 11 | `FL_FREEZE` |
-| 12 | `FL_SINGLETON` |
+| 13 | `FL_SINGLETON` |
 | 24-31 | the encoding index, where the object has an encoding |
 
 | Type | Number | Type | Number |

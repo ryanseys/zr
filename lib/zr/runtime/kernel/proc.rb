@@ -72,7 +72,7 @@ module Zr::Kern
   # A Proc from `Ractor.shareable_proc`: frozen, calls only what it copied,
   # and has no Binding that reaches its scope. A copy of it is an ordinary
   # Proc, so the copy does not get the bit.
-  FL_ISOLATED = 1 << 13
+  FL_ISOLATED = 1 << 37
   G_PROC = 28
   G_LOCAL_JUMP_ERROR = 29
   PENDING_RAISE = 0

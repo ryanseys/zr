@@ -108,8 +108,9 @@ module Zr::Kern
   # side table next to the arena, indexed by its cell.
   FL_EXIVAR = 1 << 10
   # A singleton class: it belongs to one object (`attached`), and it is
-  # before that object's class in the ancestor list.
-  FL_SINGLETON = 1 << 12
+  # before that object's class in the ancestor list. Bit 13 is CRuby's
+  # RUBY_FL_SINGLETON (FL_USER1).
+  FL_SINGLETON = 1 << 13
   # A module with a temporary name (`set_temporary_name`). A constant
   # assignment can still give it a permanent name.
   FL_TEMP_NAME = 1 << 14
