@@ -81,7 +81,9 @@ module Zr
         # 2: the headers of the gem's include/ and src/, and src/'s files
         # when an extconf.rb names it. 3: a header that cc does not find is
         # looked for anywhere in the gem. 4: then in the system's libraries.
-        SCANNER = 4
+        # 5: mkmf's HAVE_ macros for this ruby, an empty stand-in for a
+        # header that an extconf.rb writes, and C++17.
+        SCANNER = 5
 
         SOURCES = %w[c cc cpp cxx].freeze
         # The most seconds that one file's compile takes.
@@ -177,6 +179,7 @@ module Zr
           headers = header_dirs(subject)
           Dir.mktmpdir("zr-cscan-") do |work|
             File.write(File.join(work, "extconf.h"), "")
+            File.write(File.join(work, HAVE), ruby_defines)
             objects = []
             error = nil
             files.each_with_index do |file, i|
@@ -228,18 +231,51 @@ module Zr
         # Compiles `file` as `compile` does. When cc does not find a header
         # (`'nokogiri_gumbo.h' file not found`), it looks for that header
         # anywhere in the gem or the system's libraries (`header_dir`), as
-        # an extconf.rb would add its directory, and compiles again with it. `headers` keeps what it found, for
-        # the gem's other files.
+        # an extconf.rb would add its directory, and compiles again with it.
+        # `headers` keeps what it found, for the gem's other files. A header
+        # that is nowhere is one that an extconf.rb writes (curb_config.h,
+        # libev's config.h): an empty one stands in for it.
         def compile_finding_headers(subject, file, object, work, headers)
           MAX_FOUND_HEADERS.times do
             failure = compile(file, object, work, headers)
             wanted = failure&.[](/'([^']+)' file not found/, 1)
             dir = wanted && header_dir(subject, wanted)
+            next if wanted && dir.nil? && stand_in(work, wanted)
             return failure unless dir && !headers.include?(dir)
 
             headers << dir
           end
           compile(file, object, work, headers)
+        end
+
+        # Writes an empty `name` in `work`, which the compile searches;
+        # false when it is there already or names a place outside it.
+        def stand_in(work, name)
+          path = File.join(work, name)
+          return false if name.start_with?("/") || name.split("/").include?("..") || File.exist?(path)
+
+          FileUtils.mkdir_p(File.dirname(path))
+          File.write(path, "")
+          true
+        end
+
+        # The file of the macros that mkmf's checks would define.
+        HAVE = "zr_scan_have.h"
+
+        # The macros that an extconf.rb's mkmf checks define for this ruby,
+        # which an extension's C tests: HAVE_RUBY_IO_H for each of ruby's
+        # headers (have_header), and HAVE_RB_STR_SET_LEN for each function
+        # of them that this ruby has (have_func). Each file gets them, as
+        # mkmf gives its $defs to each.
+        def ruby_defines
+          @ruby_defines ||= begin
+            root = RbConfig::CONFIG["rubyhdrdir"]
+            files = Dir.glob("**/*.h", base: root)
+            headers = files.map { |file| "HAVE_#{file.upcase.gsub(/[^A-Z0-9]/, "_")}" }
+            names = files.flat_map { |file| File.read(File.join(root, file)).scan(/\b((?:rb|ruby)_\w+)\s*\(/).flatten }.uniq
+            functions = names.select { |name| RUBY.include?(name) }.map { |name| "HAVE_#{name.upcase}" }
+            (headers + functions).uniq.sort.map { |macro| "#ifndef #{macro}\n#define #{macro} 1\n#endif\n" }.join
+          end
         end
 
         # The directory from which `#include "name"` finds a file, or nil:
@@ -268,11 +304,12 @@ module Zr
         end
 
         # The host ruby's flags for an extension, its headers, the file's
-        # own directory and the stand-in extconf.h.
+        # own directory, the stand-in extconf.h and mkmf's macros. C++ is
+        # C++17, which the C++ of today's gems (re2, grpc) needs.
         def flags(file, work, cxx)
           config = RbConfig::CONFIG
           [*config["CPPFLAGS"].split, "-I#{config["rubyarchhdrdir"]}", "-I#{config["rubyhdrdir"]}", "-I#{File.dirname(file)}",
-           "-I#{work}", "-O3", "-fdeclspec", "-w", *(cxx ? [] : LENIENT)]
+           "-I#{work}", "-include", File.join(work, HAVE), "-O3", "-fdeclspec", "-w", *(cxx ? ["-std=gnu++17"] : LENIENT)]
         end
       end
     end

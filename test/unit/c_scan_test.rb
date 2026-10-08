@@ -108,10 +108,64 @@ class CScanTest < Minitest::Test
     assert_equal [UNKNOWN], scan.missing(EVERY)
   end
 
-  def test_a_header_that_neither_the_gem_nor_the_system_has_still_fails
-    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "zr_scan_nowhere.h"\n#include "shared.h")))
+  # A header that neither the gem nor the system has is one that an
+  # extconf.rb writes (curb's curb_config.h): an empty one stands in.
+  def test_a_header_that_an_extconf_writes_stands_in_empty
+    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "zr_scan_nowhere.h"\n#include "made/config.h"\n#include "shared.h")))
 
-    assert_match(/'zr_scan_nowhere\.h' file not found/, @scanner.call(subject).error)
+    scan = @scanner.call(subject)
+
+    assert_predicate scan, :complete?, scan.error
+    assert_equal [UNKNOWN], scan.missing(EVERY)
+  end
+
+  # mkmf's checks define HAVE_ macros for what ruby has (have_header,
+  # have_func), and the C tests them: the scan defines them too, in each
+  # file, so the code they guard is scanned. A function that ruby lacks
+  # has none.
+  def test_each_file_has_the_macros_of_mkmfs_checks_for_this_ruby
+    guarded = <<~C
+      #include "ruby.h"
+      extern VALUE rb_zr_scan_io(VALUE), rb_zr_scan_set_len(VALUE), rb_zr_scan_never(VALUE);
+      static VALUE guarded(VALUE self) {
+      #ifdef HAVE_RUBY_IO_H
+        rb_zr_scan_io(self);
+      #endif
+      #if HAVE_RB_STR_SET_LEN
+        rb_zr_scan_set_len(self);
+      #endif
+      #ifdef HAVE_RB_ZR_SCAN_TEST_UNKNOWN
+        rb_zr_scan_never(self);
+      #endif
+        return self;
+      }
+      void Init_scanned(void) { rb_define_method(rb_cObject, "guarded", guarded, 0); }
+    C
+
+    scan = @scanner.call(gem("scanned", "main.c" => guarded))
+
+    assert_predicate scan, :complete?, scan.error
+    assert_equal %w[rb_zr_scan_io rb_zr_scan_set_len], scan.missing(EVERY)
+  end
+
+  # Today's C++ gems (re2, grpc) need C++17.
+  def test_cpp_compiles_as_cpp17
+    cpp = <<~CPP
+      #include "ruby.h"
+      #include <optional>
+      extern "C" VALUE rb_zr_scan_cpp(VALUE);
+      static VALUE twice(VALUE self) {
+        std::optional<int> n = 2;
+        if constexpr (sizeof(int) >= 4) return rb_zr_scan_cpp(INT2FIX(*n));
+        return self;
+      }
+      extern "C" void Init_scanned(void) { rb_define_method(rb_cObject, "twice", RUBY_METHOD_FUNC(twice), 0); }
+    CPP
+
+    scan = @scanner.call(gem("scanned", "main.cpp" => cpp))
+
+    assert_predicate scan, :complete?, scan.error
+    assert_equal %w[rb_zr_scan_cpp], scan.missing(EVERY)
   end
 
   # pg includes pg_config.h, which libpq installs (Homebrew's
