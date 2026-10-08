@@ -55,6 +55,16 @@ failed = failed.to_a + Ref.ports.reject do |gem, version|
   system(env.merge("GEM_HOME" => home, "GEM_PATH" => home), RbConfig.ruby, "-S", "gem", "install", gem, "-v", version,
          "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
 end
+# Each gem whose C extension zr runs as it is goes into a GEM_HOME of its
+# own (Ref::NATIVE); its install compiles the extension.
+failed += Ref::NATIVE.reject do |gem, version|
+  home = Ref.native_home(gem, version)
+  next true if Dir[File.join(home, "specifications", "#{gem}-#{version}*.gemspec")].any?
+
+  puts "installing #{gem} #{version} into #{home}"
+  system(env.merge("GEM_HOME" => home, "GEM_PATH" => home), RbConfig.ruby, "-S", "gem", "install", gem, "-v", version,
+         "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
+end.to_a
 failed.each { |gem, _| warn "#{gem} did not install" }
 
 stale = installed.reject { |gem, version| wanted[gem] == version }

@@ -123,27 +123,32 @@ module Zr
       # Runs `program`, which requires the installed gem `name` at
       # `version`, under ruby and as a zr binary that links the gem's real
       # C extension (`--native-ext`), once in each of `binary_envs`. The
-      # build runs under `build_env` too (`ZR_EXT_CONFIG`).
+      # build runs under `build_env` too (`ZR_EXT_CONFIG`). `home` is a gem
+      # home that holds the gem, or nil for this ruby's own.
       # @rbs name: String
       # @rbs version: String
       # @rbs program: String
       # @rbs binary_envs: Array[Hash[String, String]]
       # @rbs build_env: Hash[String, String]
+      # @rbs home: String?
       # @rbs return: [Output, Array[Output]]
-      def gem_outputs(name, version, program, binary_envs, build_env: {})
+      def gem_outputs(name, version, program, binary_envs, build_env: {}, home: nil)
+        # The gem's home comes first; ruby's own gems stay, for zr itself
+        # and for the gem's dependencies.
+        env = home ? UNBUNDLED.merge("GEM_PATH" => [home, *Gem.path].join(File::PATH_SEPARATOR)) : UNBUNDLED
         dir = File.join(DIR, "gem-#{name}-#{version}")
         FileUtils.mkdir_p(dir)
         path = File.join(dir, "prog_#{Digest::SHA256.hexdigest(program)[0, 12]}.rb")
         File.write(path, program)
-        ruby = run(UNBUNDLED, RbConfig.ruby, path)
+        ruby = run(env, RbConfig.ruby, path)
         # Each set of runs has its own binary: two tests of one program
         # build at the same time.
-        bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest([binary_envs, build_env].inspect)[0, 8]}"
+        bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest([binary_envs, build_env, home].inspect)[0, 8]}"
         gem = "#{name}=#{version}"
-        built = run(UNBUNDLED.merge(build_env), File.join(ROOT, "bin", "zr"), "build", "--native-ext", gem, "--gem", gem, path, "-o", bin)
+        built = run(env.merge(build_env), File.join(ROOT, "bin", "zr"), "build", "--native-ext", gem, "--gem", gem, path, "-o", bin)
         return [ruby, binary_envs.map { built }] unless built.status.zero?
 
-        [ruby, binary_envs.map { |extra| run(UNBUNDLED.merge(extra), bin) }]
+        [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
       end
 
       #: (Hash[String, String] env, *String command) -> Output

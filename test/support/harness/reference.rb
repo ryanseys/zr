@@ -25,6 +25,14 @@ module Zr
       # GEMS holds one version of a gem.
       PORTS = { "json" => %w[2.20.0 2.21.2] }.freeze
 
+      # Gems with a C extension that zr runs as it is (`--native-ext`),
+      # among the ones that the most downloaded gems need
+      # (`zr-dev ext rank`), each in a GEM_HOME of its own below `native/`.
+      # Their install compiles the extension with this ruby, once.
+      NATIVE = { "bcrypt" => "3.1.22", "bson" => "5.2.0", "fast_blank" => "1.0.1", "http_parser.rb" => "0.8.1",
+                 "jaro_winkler" => "1.7.0", "puma" => "8.0.2", "redcarpet" => "3.6.1", "rinku" => "2.0.6",
+                 "yajl-ruby" => "1.4.3", "zstd-ruby" => "2.0.10" }.freeze
+
       module_function
 
       # `{ name => version }`: each gem that GEMS must hold.
@@ -45,7 +53,10 @@ module Zr
         end
       end
 
-      def stamp = (gems.map { |name, version| "#{name} #{version}\n" } + ports.map { |name, version| "port #{name} #{version}\n" }).join
+      def stamp
+        (gems.map { |name, version| "#{name} #{version}\n" } + ports.map { |name, version| "port #{name} #{version}\n" } +
+         NATIVE.map { |name, version| "native #{name} #{version}\n" }).join
+      end
 
       # `[[name, version]]` of each PORTS version.
       def ports = PORTS.flat_map { |name, versions| versions.map { |version| [name, version] } }
@@ -62,6 +73,9 @@ module Zr
         [File.join(port_gem(name, version), "lib"),
          *Dir[File.join(port_home(name, version), "extensions", "*", "*", "#{name}-#{version}")]]
       end
+
+      # The GEM_HOME of a NATIVE gem.
+      def native_home(name, version) = File.join(DIR, "native", "#{name}-#{version}")
 
       def ready? = File.file?(STAMP) && File.read(STAMP) == stamp
 
