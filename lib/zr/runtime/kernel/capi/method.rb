@@ -457,6 +457,28 @@ module Zr::Kern
     zr_c_result(zr_capi_send_maybe_kw(recv, zr_capi_mid(mid), Machine.sword(argc), argv, kw_splat))
   end
 
+  # rb_funcall_with_block: the public method `mid` of `recv` with the
+  # Proc `procval` (nil: none) as its block.
+  #: (value, word, i32, ptr, value) -> value
+  def rb_funcall_with_block(recv, mid, argc, argv, procval)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_dispatch(0, recv, zr_capi_mid(mid), Machine.sword(argc), argv, 2, procval))
+  end
+
+  # rb_funcall_with_block_kw: the same, with the keywords Hash last when
+  # `kw_splat` says so.
+  #: (value, word, i32, ptr, value, i32) -> value
+  def rb_funcall_with_block_kw(recv, mid, argc, argv, procval, kw_splat)
+    Machine.gates_enter
+    zr_c_entered()
+    n = Machine.sword(argc)
+    if Machine.sword(kw_splat) != 0 && n > 0
+      n = zr_kw_argc(n, argv)
+    end
+    zr_c_result(zr_dispatch(0, recv, zr_capi_mid(mid), n, argv, 2, procval))
+  end
+
   # A send with the keywords Hash last when `kw_splat` (RB_PASS_KEYWORDS)
   # says so.
   #: (value, word, word, ptr, i32) -> value

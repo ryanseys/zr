@@ -969,4 +969,34 @@ module Zr::Kern
     zr_buf_byte(b, 10)
     zr_bug(Buf[b].ptr, Buf[b].len)
   end
+
+  # rb_copy_generic_ivar: `dest` takes the instance variables of `obj`,
+  # the hidden ones too, when `obj` keeps them outside its cell: a String,
+  # an Array or a T_DATA, not a plain object or a class, whose variables
+  # are its own (`clone` copies them). A frozen `dest` raises.
+  #: (value, value) -> void
+  def rb_copy_generic_ivar(dest, obj)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_modify_frozen_p(dest)
+      zr_c_result(zr_frozen_error(dest))
+    end
+    if zr_special_p(obj)
+      return
+    end
+    type = zr_type(obj)
+    if type == T_OBJECT || type == T_CLASS || type == T_MODULE || type == T_ICLASS
+      return
+    end
+    t = zr_ivtab(obj)
+    if t == 0
+      return
+    end
+    i = 0
+    while i < IvTab[t].len
+      row = IvTab[t].rows + (i * IvEntry.size)
+      zr_c_result(zr_ivar_set(dest, IvEntry[row].id, IvEntry[row].value))
+      i += 1
+    end
+  end
 end

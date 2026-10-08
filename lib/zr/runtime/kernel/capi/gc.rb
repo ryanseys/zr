@@ -342,4 +342,20 @@ module Zr::Kern
       i += 1
     end
   end
+
+  # rb_gc_adjust_memory_usage: C's own memory grew by `diff` bytes (or
+  # shrank, below 0), which counts toward the next collection as the
+  # payload of objects does.
+  #: (word) -> void
+  def rb_gc_adjust_memory_usage(diff)
+    Machine.gates_enter
+    zr_c_entered()
+    h = zr_heap()
+    if diff < 0 && Heap[h].malloced < 0 - diff
+      Heap[h].malloced = 0
+    else
+      Heap[h].malloced = Heap[h].malloced + diff
+    end
+    zr_heap_slow_update()
+  end
 end

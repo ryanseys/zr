@@ -435,6 +435,14 @@ module Zr::Kern
     zr_capi_encoding(zr_capi_to_enc_index(zr_str_new(Machine.bytes("locale"), 6)))
   end
 
+  # rb_locale_encindex: the index of the locale's encoding.
+  #: () -> i32
+  def rb_locale_encindex
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(zr_capi_to_enc_index(zr_str_new(Machine.bytes("locale"), 6)))
+  end
+
   # rb_enc_copy: `dst` takes the encoding of `src`.
   #: (value, value) -> void
   def rb_enc_copy(dst, src)

@@ -241,6 +241,14 @@ module Zr::Kern
     zr_capi_call1(ary, Machine.id(:concat), other)
   end
 
+  # rb_ary_delete: `ary.delete(item)`, with no block.
+  #: (value, value) -> value
+  def rb_ary_delete(ary, item)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(ary, Machine.id(:delete), item)
+  end
+
   #: (value, word) -> value
   def rb_ary_delete_at(ary, pos)
     Machine.gates_enter

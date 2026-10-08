@@ -149,6 +149,29 @@ module Zr::Kern
     bytes
   end
 
+  # rb_absint_numwords: the words of `word_numbits` bits that `v`'s
+  # magnitude takes, and in `*nlz` the zero bits at the top of the last
+  # one; (size_t)-1 for words of no bits.
+  #: (value, word, ptr) -> word
+  def rb_absint_numwords(v, word_numbits, nlz)
+    Machine.gates_enter
+    zr_c_entered()
+    if word_numbits == 0
+      return 0 - 1
+    end
+    magnitude = zr_c_result(zr_send(v, Machine.id(:abs), 0, Machine.ptr(0)))
+    bits = zr_fix2long(zr_c_result(zr_send(magnitude, Machine.id(:bit_length), 0, Machine.ptr(0))))
+    words = bits / word_numbits
+    rest = bits % word_numbits
+    if rest != 0
+      words += 1
+    end
+    if nlz != 0
+      Machine.store64(nlz, 0, rest == 0 ? 0 : word_numbits - rest)
+    end
+    words
+  end
+
   # Whether the Integer or Float `v` is below 0.
   #: (value) -> bool
   def zr_capi_negative_p(v)

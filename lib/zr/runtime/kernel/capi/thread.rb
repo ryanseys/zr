@@ -661,6 +661,17 @@ module Zr::Kern
     r
   end
 
+  # rb_thread_lock_native_thread: keeps the thread that runs on its OS
+  # thread; whether it shared one before. Every thread runs on the main
+  # OS thread, which no other thread shares while C runs, so none did, as
+  # ruby answers for a thread that has its own.
+  #: () -> i32
+  def rb_thread_lock_native_thread
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(0)
+  end
+
   # rb_internal_thread_add_event_hook: `callback` gets each of `events`
   # that a thread has (kernel/thread_hooks.rb). Returns the hook, which
   # rb_internal_thread_remove_event_hook takes.
