@@ -16,7 +16,7 @@ module Zr
 
     module_function
 
-    def checks = [zr, ruby, host, *targets, wasmtime, openssl, gems, cache]
+    def checks = [zr, ruby, host, *targets, wasmtime, openssl, gems, extensions, cache]
 
     # Prints each check. Returns true when none failed.
     def run(out = $stdout)
@@ -86,6 +86,36 @@ module Zr
 
       count = Library::Stdlib::DEFAULT.size + Library::Stdlib::BUNDLED.size
       Check.new(:ok, "libraries", "stdlib of ruby #{RUBY} (#{count} gems), #{Library::Ports::ALL.size} ports")
+    end
+
+    # The real C extensions that `--native-ext` can put in a binary here:
+    # the host must be the darwin target, with cc to link an extension's
+    # objects or to build one, and make for an extconf.rb with rules of
+    # its own. Names each installed gem whose extensions import nothing
+    # that zr's C API lacks yet.
+    def extensions(triple = Target.host_triple, specs = Gem::Specification.latest_specs(true), cc: which("cc"), make: which("make"))
+      return Check.new(:ok, "C extensions", "not on #{triple}; zr's ports stand in for them") unless triple == Target::AARCH64_DARWIN.triple
+      return Check.new(:warn, "C extensions", "no cc, which --native-ext needs (#{Target.cc_hint})") unless cc
+
+      require_relative "ext"
+      # A precompiled gem lists no extensions: it ships a bundle for each ruby.
+      native = specs.select { |spec| !spec.extensions.empty? || !Ext::Source.precompiled(spec.gem_dir).empty? }
+      ready = native.select { |spec| ready?(spec) }.map(&:name).sort
+      detail = "#{ready.size} of #{native.size} installed gems with one need nothing more of zr's C API" \
+               "#{": #{ready.join(", ")}" unless ready.empty?}"
+      return Check.new(:ok, "C extensions", detail) if make
+
+      Check.new(:warn, "C extensions", "#{detail}; no make, which an extconf.rb with rules of its own needs")
+    end
+
+    # Whether the installed gem `spec` has a compiled C extension whose
+    # imports zr's C API has.
+    def ready?(spec)
+      require_relative "ext/c_api"
+      sources = Ext::Source.installed(spec.gem_dir, spec.extension_dir)
+      !sources.empty? && sources.all? { |source| Ext::CApi.missing(source.binaries.flat_map { |path| Ext::CApi.imports(path) }).empty? }
+    rescue StandardError # a bundle zr cannot read, or a Makefile it cannot: not ready
+      false
     end
 
     CACHE_FIX = "Set XDG_CACHE_HOME (or ZR_CACHE) to a directory that you can write to"

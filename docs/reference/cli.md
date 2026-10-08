@@ -245,6 +245,7 @@ ok    target             wasm32-wasi            wasm; this host: wasm
 ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
 ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
+ok    C extensions       3 of 34 installed gems with one need nothing more of zr's C API: msgpack, nokogiri, websocket-driver
 ok    cache              ~/Library/Caches/zr, 2703 MB
 ```
 
@@ -252,6 +253,12 @@ A `target` line gives a target, the outputs that zr makes for it, and
 after `this host:`, the outputs that this host can make now. The line
 is `warn` when this host cannot make one of the outputs: for example, a
 Linux binary needs a musl cross toolchain. See [Targets](targets.md).
+
+The `C extensions` line names the gems installed in this ruby whose
+real C extension `--native-ext` can put in a binary now: zr's C API has
+every function that their extensions call. The line is `warn` without
+`cc`, which links an extension's objects and builds one from source,
+or without `make`, which an `extconf.rb` with rules of its own needs.
 
 `warn` means that zr can do less on this host: for example, with no
 wasmtime, `zr run --emit wasm` does not work. Each `warn` and `fail`

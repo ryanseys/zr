@@ -140,4 +140,45 @@ class DoctorTest < Minitest::Test
       assert_includes err, "needs wasmtime, and it is not on the PATH"
     end
   end
+
+  # An installed gem as `Doctor.extensions` reads one.
+  Spec = Data.define(:name, :gem_dir, :extension_dir, :extensions)
+
+  DARWIN = Zr::Target::AARCH64_DARWIN.triple
+
+  def test_c_extensions_are_for_the_darwin_target_only
+    check = Zr::Doctor.extensions("aarch64-linux-musl", [])
+
+    assert_equal [:ok, "not on aarch64-linux-musl; zr's ports stand in for them"], [check.status, check.detail]
+  end
+
+  def test_c_extensions_without_cc_or_make_warn
+    assert_match(/\Ano cc, which --native-ext needs/, Zr::Doctor.extensions(DARWIN, [], cc: nil).detail)
+    check = Zr::Doctor.extensions(DARWIN, [], cc: "/usr/bin/cc", make: nil)
+
+    assert_equal [:warn, "0 of 0 installed gems with one need nothing more of zr's C API; no make, which an extconf.rb with rules of its own needs"],
+                 [check.status, check.detail]
+  end
+
+  # A gem whose bundle imports only what the C API has is ready; one that
+  # imports a function it lacks, or that has no compiled extension, is not.
+  def test_c_extensions_name_the_gems_that_the_c_api_covers
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    Dir.mktmpdir do |dir|
+      specs = { "ready" => "rb_intern", "lacking" => "rb_not_a_function" }.map do |name, import|
+        built = File.join(dir, name, "built")
+        FileUtils.mkdir_p(built)
+        c = File.join(dir, "#{name}.c")
+        File.write(c, "unsigned long #{import}(const char *);\nunsigned long Init_#{name}(void) { return #{import}(\"x\"); }\n")
+        system("cc", "-bundle", "-undefined", "dynamic_lookup", c, "-o", File.join(built, "#{name}.bundle"), exception: true)
+        Spec.new(name, File.join(dir, name), built, ["ext/#{name}/extconf.rb"])
+      end
+      unbuilt = Spec.new("unbuilt", File.join(dir, "unbuilt"), File.join(dir, "none"), ["ext/unbuilt/extconf.rb"])
+      ruby_only = Spec.new("plain", File.join(dir, "plain"), File.join(dir, "none"), [])
+
+      check = Zr::Doctor.extensions(DARWIN, [*specs, unbuilt, ruby_only], cc: "/usr/bin/cc", make: "/usr/bin/make")
+
+      assert_equal [:ok, "1 of 3 installed gems with one need nothing more of zr's C API: ready"], [check.status, check.detail]
+    end
+  end
 end
