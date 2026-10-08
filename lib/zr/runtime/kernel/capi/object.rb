@@ -405,6 +405,19 @@ module Zr::Kern
     t
   end
 
+  # The type that ruby gives `v` where zr's own tag differs: a Proc, a
+  # Method or a Fiber is T_DATA in ruby, and an Exception T_OBJECT. A
+  # conversion checks this (json's rb_convert_type(x, T_DATA, "Proc",
+  # "to_proc")); C still cannot read such an object as a T_DATA.
+  #: (value) -> word
+  def zr_capi_ruby_type(v)
+    t = zr_capi_builtin_type(v)
+    if t == T_PROC || t == T_METHOD || t == T_FIBER
+      return T_DATA
+    end
+    t == T_EXCEPTION ? T_OBJECT : t
+  end
+
   # rb_convert_type: `val` when it is of the builtin type `type`, else
   # what its conversion `method` (`to_str`) gives, which must be of that
   # type. Raises TypeError, with ruby's message, when `val` has no such
@@ -414,7 +427,7 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
     t = Machine.sword(type)
-    if zr_capi_builtin_type(val) == t
+    if zr_capi_ruby_type(val) == t
       return val
     end
     mid = zr_intern(method, zr_cstr_len(method))
@@ -449,7 +462,7 @@ module Zr::Kern
 
   #: (value, word, ptr, word, word) -> value
   def zr_capi_check_convert(val, t, tname, tlen, mid)
-    if zr_capi_builtin_type(val) == t && t != T_DATA
+    if zr_capi_ruby_type(val) == t && t != T_DATA
       return val
     end
     v = zr_capi_convert(val, tname, tlen, mid, false)
@@ -498,7 +511,7 @@ module Zr::Kern
   # ruby's TypeError, `can't convert X to Array (X#to_ary gives Y)`.
   #: (value, value, word, ptr, word, word) -> value
   def zr_capi_converted(val, v, t, tname, tlen, mid)
-    if zr_capi_builtin_type(v) == t
+    if zr_capi_ruby_type(v) == t
       return v
     end
     shown = zr_c_result(zr_inspect(zr_real_class(val)))

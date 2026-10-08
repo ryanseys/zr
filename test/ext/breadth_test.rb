@@ -152,6 +152,10 @@ class CExtBreadthTest < Minitest::Test
       const char *p = RSTRING_PTR(str), *e = RSTRING_END(str);
       return LONG2NUM(rb_enc_nth(p, e, NUM2LONG(n), rb_enc_get(str)) - p);
     }
+    /* json's State#as_json=: a Proc, a Method and a Fiber are T_DATA. */
+    static VALUE b_to_proc(VALUE self, VALUE v, VALUE check) {
+      return RTEST(check) ? rb_check_convert_type(v, T_DATA, "Proc", "to_proc") : rb_convert_type(v, T_DATA, "Proc", "to_proc");
+    }
     static VALUE b_negative(VALUE self, VALUE which) {
       return FIX2INT(which) ? rb_utf8_str_new(NULL, -5) : rb_str_new("x", -1);
     }
@@ -199,6 +203,7 @@ class CExtBreadthTest < Minitest::Test
       rb_define_module_function(m, "nth", b_nth, 2);
       rb_define_module_function(m, "utf8", b_utf8, 1);
       rb_define_module_function(m, "negative", b_negative, 1);
+      rb_define_module_function(m, "to_proc", b_to_proc, 2);
     }
   C
 
@@ -304,6 +309,11 @@ class CExtBreadthTest < Minitest::Test
     show(:utf8) { [Breadth.utf8(65), Breadth.utf8(0xE9), Breadth.utf8(0x1F600)] }
     show(:negative) { Breadth.negative(0) }
     show(:negative_null) { Breadth.negative(1) }
+    show(:to_proc) do
+      [Breadth.to_proc(:itself, false).class, Breadth.to_proc(:upcase, false).call("a"), Breadth.to_proc(-> { 1 }, false).lambda?,
+       Breadth.to_proc(1.method(:+), false).class, Breadth.to_proc(:itself, true).class, Breadth.to_proc(1, true)]
+    end
+    show(:to_proc_bad) { Breadth.to_proc(1, false) }
   RUBY
 
   def setup
