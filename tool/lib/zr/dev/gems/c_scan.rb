@@ -28,8 +28,12 @@ module Zr
       class CScan
         # One gem's scan. `sources` is the number of files it tried,
         # `compiled` the number that compiled, `imports` the ruby names that
-        # those import, and `error` the first error of a file that failed.
-        Scan = Data.define(:gem, :version, :sources, :compiled, :imports, :error) do
+        # those import, `error` the first error of a file that failed, and
+        # `scanner` the SCANNER that made it.
+        Scan = Data.define(:gem, :version, :sources, :compiled, :imports, :error, :scanner) do
+          # A scan kept before scans had a version is of the first scanner.
+          def initialize(scanner: 1, **) = super
+
           def self.from_h(hash) = new(**hash.transform_keys(&:to_sym))
 
           def full_name = "#{gem}-#{version}"
@@ -43,6 +47,12 @@ module Zr
           # A row of the sweep's .capi.jsonl.
           def to_h = super.merge(missing: missing)
         end
+
+        # The version of the scan. A kept scan that did not compile every
+        # file is made again by a newer scanner, which may compile more.
+        # 2: the headers of the gem's include/ and src/, and src/'s files
+        # when an extconf.rb names it.
+        SCANNER = 2
 
         SOURCES = %w[c cc cpp cxx].freeze
         # The most seconds that one file's compile takes.
@@ -63,7 +73,8 @@ module Zr
         # The Scan of `subject`'s C extensions, kept or made now.
         def call(subject)
           path = File.join(@dir, "#{subject.full_name}.json")
-          return Scan.from_h(JSON.parse(File.read(path))) if File.file?(path)
+          kept = Scan.from_h(JSON.parse(File.read(path))) if File.file?(path)
+          return kept if kept && (kept.complete? || kept.scanner >= SCANNER)
 
           scan = scan(subject)
           FileUtils.mkdir_p(@dir)
@@ -106,14 +117,15 @@ module Zr
                       gems.sort_by { |gem, users, _| [-users.size, gem] })
         end
 
-        # The C and C++ files below each extension's directory.
+        # The C and C++ files below each extension's directory, and those of
+        # the gem's src/ when an extension's extconf.rb names src (as rbs's
+        # adds ../../src to its sources). The extconf.rb is read as text;
+        # it does not run.
         def sources(subject)
-          subject.extensions.flat_map do |extension|
-            base = File.dirname(File.expand_path(extension, subject.root))
-            next [] unless base.start_with?(File.join(subject.root, "")) && File.directory?(base)
-
-            Dir.glob("**/*.{#{SOURCES.join(",")}}", base: base).sort.map { |file| File.join(base, file) }
-          end.uniq
+          dirs = extension_dirs(subject)
+          src = File.join(subject.root, "src")
+          dirs << src if File.directory?(src) && dirs.any? { |dir| extconf_names_src?(dir) }
+          dirs.flat_map { |dir| files_below(dir, SOURCES) }.uniq
         end
 
         private
@@ -132,21 +144,41 @@ module Zr
             end
             imports = objects.empty? ? [] : Ext::CApi.imports(*objects).uniq.sort
             Scan.new(gem: subject.name, version: subject.version, sources: files.size, compiled: objects.size,
-                     imports: imports, error: error)
+                     imports: imports, error: error, scanner: SCANNER)
           end
         end
 
-        # The directories below the gem's ext/ that hold headers: what an
-        # extconf.rb would add with `$INCFLAGS` or `dir_config`, at most
-        # MAX_HEADER_DIRS of them.
-        def header_dirs(subject)
-          ext = File.join(subject.root, "ext")
-          return [] unless File.directory?(ext)
-
-          Dir.glob("**/*.{h,hpp,hh}", base: ext).map { |file| File.join(ext, File.dirname(file)) }.uniq.sort.first(MAX_HEADER_DIRS)
+        # The directory of each extension, inside the gem.
+        def extension_dirs(subject)
+          subject.extensions.filter_map do |extension|
+            dir = File.dirname(File.expand_path(extension, subject.root))
+            dir if dir.start_with?(File.join(subject.root, "")) && File.directory?(dir)
+          end.uniq
         end
 
+        # Whether the extconf.rb in `dir` names a src directory.
+        def extconf_names_src?(dir)
+          extconf = File.join(dir, "extconf.rb")
+          File.file?(extconf) && File.read(extconf, encoding: Encoding::BINARY).match?(%r{\bsrc\b})
+        end
+
+        # The files below `dir` with one of `extensions`, sorted.
+        def files_below(dir, extensions) = Dir.glob("**/*.{#{extensions.join(",")}}", base: dir).sort.map { |file| File.join(dir, file) }
+
+        HEADERS = %w[h hpp hh].freeze
+        # The directories of a gem whose headers an extconf.rb adds with
+        # `$INCFLAGS` or `dir_config`.
+        HEADER_ROOTS = %w[ext include src].freeze
         MAX_HEADER_DIRS = 64
+
+        # The directories below the gem's ext/, include/ and src/ that hold
+        # headers, at most MAX_HEADER_DIRS of them. Each root itself comes
+        # first, so `#include "rbs/ast.h"` finds include/rbs/ast.h.
+        def header_dirs(subject)
+          roots = HEADER_ROOTS.map { |name| File.join(subject.root, name) }.select { |dir| File.directory?(dir) }
+          below = roots.flat_map { |root| files_below(root, HEADERS).map { |file| File.dirname(file) } }
+          (roots + below).uniq.first(MAX_HEADER_DIRS)
+        end
 
         # Compiles `file` into `object`; the first error line, or nil.
         def compile(file, object, work, headers)

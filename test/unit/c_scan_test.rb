@@ -78,6 +78,45 @@ class CScanTest < Minitest::Test
     assert_equal [UNKNOWN], kept.missing
   end
 
+  # rbs keeps its headers in include/ and its parser in src/, which its
+  # extconf.rb adds to the sources.
+  def test_a_scan_takes_the_headers_of_include_and_the_files_of_src_that_extconf_names
+    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "lib/parse.h"\n#include "shared.h")),
+                             "extconf.rb" => "$srcs = Dir['../../src/*.c']\n")
+    write(subject.root, "include/lib/parse.h" => "int parse(void);\n", "src/parse.c" => "#include \"ruby.h\"\n" \
+                                                                                      "int parse(void) { return (int)rb_zr_scan_src(); }\n")
+
+    scan = @scanner.call(subject)
+
+    assert_predicate scan, :complete?, scan.error
+    assert_equal 2, scan.sources
+    assert_equal ["rb_zr_scan_src", UNKNOWN], scan.missing
+  end
+
+  def test_src_is_left_out_when_no_extconf_names_it
+    subject = gem("scanned", "main.c" => MAIN, "extconf.rb" => "create_makefile('scanned')\n")
+    write(subject.root, "src/other.c" => BROKEN)
+
+    assert_equal 1, @scanner.call(subject).sources
+  end
+
+  def test_a_partial_scan_of_an_older_scanner_is_made_again_and_a_complete_one_is_kept
+    partial = gem("partial", "main.c" => MAIN)
+    whole = gem("whole", "main.c" => MAIN)
+    keep(partial, sources: 2, compiled: 1, imports: [])
+    keep(whole, sources: 1, compiled: 1, imports: ["rb_zr_kept"])
+
+    assert_equal [1, 1, [UNKNOWN]], @scanner.call(partial).then { [_1.sources, _1.compiled, _1.missing] }
+    assert_equal ["rb_zr_kept"], @scanner.call(whole).missing
+  end
+
+  def test_a_scan_that_compiled_nothing_says_so
+    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    scan = @scanner.call(gem("scanned", "broken.c" => BROKEN))
+
+    assert_equal "scanned did not compile (0/1)", sweep.lacks(scan)
+  end
+
   def test_only_the_c_extensions_that_zr_does_not_port_are_scanned
     c = gem("scanned", "main.c" => MAIN)
     ported = gem("json", "main.c" => MAIN)
@@ -130,5 +169,22 @@ class CScanTest < Minitest::Test
     files.each { |file, text| File.write(File.join(ext, file), text) }
     Gems::Subject.new(name: name, version: "1.0", root: root, require_paths: ["lib"], extensions: ["ext/#{name}/extconf.rb"],
                       dependencies: [], source: "path")
+  end
+
+  # Writes `files` (paths below `root`) with their text.
+  def write(root, files)
+    files.each do |file, text|
+      path = File.join(root, file)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, text)
+    end
+  end
+
+  # Keeps a scan of `subject` as the first scanner made it, with no
+  # version in its file.
+  def keep(subject, **fields)
+    FileUtils.mkdir_p(@scanner.dir)
+    File.write(File.join(@scanner.dir, "#{subject.full_name}.json"),
+               JSON.generate(gem: subject.name, version: subject.version, error: nil, **fields))
   end
 end
