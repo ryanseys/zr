@@ -287,7 +287,7 @@ module Zr::Kern
     hash = h ^ Machine.word(0xcbf29ce484222325)
     i = 0
     while i < len
-      hash = (hash ^ Machine.u8(Machine.load8(bytes + i, 0))) * 0x100000001b3
+      hash = Machine.mul_wrap(hash ^ Machine.u8(Machine.load8(bytes + i, 0)), 0x100000001b3)
       i += 1
     end
     hash
