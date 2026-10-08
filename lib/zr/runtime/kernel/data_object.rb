@@ -185,7 +185,7 @@ module Zr::Kern
       WeakList[q].len = n
       free = Machine.ptr(Machine.load64(WeakList[q].ptr + (n * 8), 0))
       Machine.store64(argv, 0, Machine.load64(WeakList[q].ptr + ((n + 1) * 8), 0))
-      if zr_call_c(free, argv, 1) == QUNDEF
+      if !zr_call_c_returned(free, argv, 1)
         Task[zr_task()].pending = Machine.value(QNIL)
       end
     end
@@ -298,8 +298,8 @@ module Zr::Kern
   def zr_c_end_proc(pair)
     argv = Machine.slot(64)
     Machine.store64(argv, 0, Machine.word(zr_ary_at(pair, 1)))
-    raised = zr_call_c(Machine.ptr(zr_fix2long(zr_ary_at(pair, 0))), argv, 1) == QUNDEF
-    Machine.value(raised ? QUNDEF : QNIL)
+    returned = zr_call_c_returned(Machine.ptr(zr_fix2long(zr_ary_at(pair, 0))), argv, 1)
+    Machine.value(returned ? QNIL : QUNDEF)
   end
 
   # Runs the functions of ruby_vm_at_exit, the last first.

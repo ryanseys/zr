@@ -221,7 +221,7 @@ module Zr::Kern
     if OffloadJob[job].ubf != Machine.ptr(UBF_NONE) && OffloadJob[job].ubf != 0
       argv = Machine.slot(64)
       Machine.store64(argv, 0, Machine.word(OffloadJob[job].ubf_data))
-      if zr_call_c(OffloadJob[job].ubf, argv, 1) == QUNDEF
+      if !zr_call_c_returned(OffloadJob[job].ubf, argv, 1)
         Task[zr_task()].pending = Machine.value(QNIL)
       end
     end

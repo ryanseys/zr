@@ -36,7 +36,10 @@ module Zr::Kern
   def zr_ext_init(init)
     zr_capi_init()
     argv = Machine.slot(64)
-    if zr_call_c(init, argv, 0) == QUNDEF
+    # Init is void: the word it leaves is that of the last function it
+    # called (bindex's ends in rb_tracepoint_enable's undef), so only an
+    # unwind says that it raised.
+    if !zr_call_c_returned(init, argv, 0)
       return Machine.value(QUNDEF)
     end
     Machine.value(QTRUE)
