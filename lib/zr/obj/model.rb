@@ -83,9 +83,15 @@ module Zr
         (@functions + @data).map(&:name)
       end
 
+      # A program has more than a million relocations, so this sees each
+      # name once, in a Hash, and makes no array of all of them.
       def imports
-        named = defined_names
-        (@functions + @data).flat_map { |d| d.relocs.map(&:symbol) }.uniq - named
+        named = (@functions + @data).to_h { |d| [d.name, true] }
+        found = {}
+        [@functions, @data].each do |items|
+          items.each { |d| d.relocs.each { |r| found[r.symbol] = true unless named.key?(r.symbol) } }
+        end
+        found.keys
       end
     end
   end

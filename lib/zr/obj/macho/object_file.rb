@@ -252,15 +252,17 @@ module Zr
           # Symbol index by the name in a relocation, without the leading `_`.
           index = {} #: Hash[String, Integer]
           symbols.each_with_index { |sym, i| index[sym.bare] = i }
+          # The words of all relocation_info entries: highest address
+          # first, each ADDEND entry before its paired entry. The items of a
+          # section do not overlap, so the words go from the last item to
+          # the first, and in each item from its last relocation. A program
+          # has more than a million of them, so this makes no array for each.
           sections.each do |s|
-            s.items.each do |item, at|
-              item.relocs.each do |r|
-                s.relocs << relocation(at + r.offset, r, index.fetch(r.symbol))
-              end
+            s.items.reverse_each do |item, at|
+              next if item.relocs.empty?
+
+              item.relocs.sort_by(&:offset).reverse_each { |r| relocation(s.relocs, at + r.offset, r, index.fetch(r.symbol)) }
             end
-            # The words of all relocation_info entries: highest address
-            # first, each ADDEND entry before its paired entry.
-            s.relocs = s.relocs.sort_by { |group| -group[0] }.flat_map { |group| group[1] }
           end
 
           segment_cmd = 72 + (80 * sections.size)
@@ -356,18 +358,16 @@ module Zr
           sums.each_with_object(item.bytes.dup) { |r, bytes| bytes[r.offset, 8] = [r.addend].pack("q<") }
         end
 
-        # Returns `[address, words]`: the relocation_info entries for one
-        # relocation, two 32-bit words each. An ADDEND entry comes first
-        # when the addend is not zero.
-        #: (Integer address, Reloc r, Integer symbol) -> [Integer, Array[Integer]]
-        def relocation(address, r, symbol)
+        # Appends to `words` the relocation_info entries for one relocation,
+        # two 32-bit words each. An ADDEND entry comes first when the addend
+        # is not zero.
+        #: (Array[Integer] words, Integer address, Reloc r, Integer symbol) -> void
+        def relocation(words, address, r, symbol)
           type, pcrel, length = RELOC.fetch(r.kind) { raise ArgumentError, "no arm64 relocation for #{r.kind}" }
-          rows = [] #: Array[Integer]
           if r.addend != 0 && r.kind != :abs64
-            rows << address << ((r.addend & 0xFFFFFF) | (ARM64_RELOC_ADDEND << 28))
+            words << address << ((r.addend & 0xFFFFFF) | (ARM64_RELOC_ADDEND << 28))
           end
-          rows << address << (symbol | (pcrel << 24) | (length << 25) | (1 << 27) | (type << 28))
-          [address, rows]
+          words << address << (symbol | (pcrel << 24) | (length << 25) | (1 << 27) | (type << 28))
         end
 
         #: (String s) -> String

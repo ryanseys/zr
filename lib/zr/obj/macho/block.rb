@@ -42,6 +42,10 @@ module Zr
         # @rbs @addr: Array[Array[Integer?]]
         # @rbs @stub_at: Hash[String, Integer]
         # @rbs @got_at: Hash[untyped, Integer]
+        # @rbs @far: Array[Integer]
+        # @rbs @islands: Array[Integer]
+        # @rbs @island_at: Hash[Integer, Integer]
+        # @rbs @code_size: Integer
 
         # <mach-o/nlist.h>: a symbol's type byte.
         N_STAB = 0xE0
@@ -52,6 +56,11 @@ module Zr
 
         # `adrp x16, got@PAGE; ldr x16, [x16, got@PAGEOFF]; br x16`
         STUB = 12
+        # `adrp x16, target@PAGE; add x16, x16, target@PAGEOFF; br x16`: a
+        # jump to an address that a branch cannot reach.
+        ISLAND = 12
+        # A branch reaches 128 MB before or after itself.
+        BRANCH_REACH = 1 << 27
 
         # The relocation kind for each arm64 relocation type in an object.
         KINDS = ObjectFile::RELOC.to_h { |kind, (type, _, _)| [type, kind] }.freeze #: Hash[Integer, reloc_kind]
@@ -90,6 +99,7 @@ module Zr
           resolve
           got_slots
           chunks
+          far_calls
         end
 
         #: () -> bool
@@ -102,8 +112,10 @@ module Zr
         #: (Symbol part) -> Integer
         def align(part) = @aligns.fetch(part)
 
+        # Placing the text decides its islands, so the text's size can grow.
         #: (Symbol part, Integer address) -> Integer
         def place(part, address)
+          islands(address) if part == :text
           @at[part] = address
         end
 
@@ -168,27 +180,21 @@ module Zr
           end
           @stub_at = @externals.each_with_index.to_h { |name, n| [name, at(:stubs) + (n * STUB)] }
           @got_at = @got.each_with_index.to_h { |key, n| [key, at(:got) + (n * 8)] }
+          @island_at = @islands.each_with_index.to_h { |target, n| [target, at(:text) + @code_size + (n * ISLAND)] }
         end
 
         # A part's bytes, relocated; nil for `bss`, which has none.
         #: (Symbol part) -> String?
-        def bytes(part)
-          case part
-          when :bss then nil
-          when :stubs then stub_bytes
-          when :got then got_bytes
-          else
-            out = +"".b
-            @chunks.fetch(part).each do |i, k, off|
-              Bytes.pad(out, off)
-              # Only a zero-fill section has no bytes, and `bss` holds it.
-              section_bytes = @inputs[i].sections[k].bytes #: String
-              out << section_bytes
-            end
-            Bytes.pad(out, size(part))
-            @chunks.fetch(part).each { |i, k, off| relocate(part, out, off, i, @inputs[i].sections[k].relocs) }
-            out
-          end
+        def bytes(part) = (write(part, +"".b) unless part == :bss)
+
+        # The bytes of `parts`, relocated, in `size` bytes from the address
+        # `start`. The parts are in address order. Each one is written into
+        # the one String, so a large program's code is not copied again.
+        #: (Array[Symbol] parts, Integer start, Integer size) -> String
+        def image(parts, start, size)
+          out = +"".b
+          parts.each { |part| write(part, Bytes.pad(out, at(part) - start)) }
+          Bytes.pad(out, size)
         end
 
         # Returns three values:
@@ -219,6 +225,27 @@ module Zr
         end
 
         private
+
+        # Appends the bytes of `part`, relocated, to `out`. Returns `out`.
+        #: (Symbol part, String out) -> String
+        def write(part, out)
+          case part
+          when :stubs then out << stub_bytes
+          when :got then out << got_bytes
+          else
+            start = out.bytesize
+            @chunks.fetch(part).each do |i, k, off|
+              Bytes.pad(out, start + off)
+              # Only a zero-fill section has no bytes, and `bss` holds it.
+              section_bytes = @inputs[i].sections[k].bytes #: String
+              out << section_bytes
+            end
+            island_bytes(out, start) if part == :text
+            Bytes.pad(out, start + size(part))
+            @chunks.fetch(part).each { |chunk| relocate(part, out, start, chunk) }
+            out
+          end
+        end
 
         # Collects the globals that each input defines, then resolves each
         # undefined symbol to `[input, symbol]` (another input's global), an
@@ -314,15 +341,75 @@ module Zr
           end
           @sizes[:stubs] = @externals.size * STUB
           @sizes[:got] = @got.size * 8
+          @code_size = @sizes[:text]
         end
 
-        # Applies the relocations of one input section to its bytes at `off`
-        # in `out`. A call to an external goes through its stub, and a GOT
-        # load goes through its GOT slot. All other relocations use the
+        # Each address outside the block that a branch in the text calls:
+        # the base's functions, which can be too far away for a branch.
+        #: () -> void
+        def far_calls
+          far = {} #: Hash[Integer, bool]
+          @inputs.each_with_index do |o, i|
+            o.sections.each_with_index do |section, k|
+              next unless @part_of[i][k] == :text
+
+              words = section.relocs
+              addend = 0
+              j = 1
+              while j < words.size
+                info = words[j]
+                j += 2
+                type = info >> 28
+                if type == ARM64_RELOC_ADDEND
+                  addend = ((info & 0xFF_FFFF) ^ 0x80_0000) - 0x80_0000
+                  next
+                end
+                to = @links[i][info & 0xFF_FFFF] if type == BRANCH26 && (info & EXTERN) != 0
+                far[to + addend] = true if to.is_a?(Integer)
+                addend = 0
+              end
+            end
+          end
+          @far = far.keys.sort
+          @islands = []
+        end
+
+        # With the text at `address`, the far calls that a branch at the
+        # far end of the text may not reach, each with an island after the
+        # code. The text holds one island for each.
+        #: (Integer address) -> void
+        def islands(address)
+          last = address + @code_size + (@far.size * ISLAND)
+          @islands = @far.select { |target| last - target >= BRANCH_REACH || target - address >= BRANCH_REACH }
+          @sizes[:text] = @code_size + (@islands.size * ISLAND)
+        end
+
+        # Appends the islands to the text's code in `out`, where the text
+        # starts at `start`.
+        #: (String out, Integer start) -> void
+        def island_bytes(out, start)
+          return if @islands.empty?
+
+          Bytes.pad(out, start + @code_size)
+          @islands.each_with_index do |target, n|
+            here = at(:text) + @code_size + (n * ISLAND)
+            page = ((target & ~0xFFF) - (here & ~0xFFF)) >> 12
+            out << [0x9000_0010 | ((page & 3) << 29) | (((page >> 2) & 0x7FFFF) << 5),
+                    0x9100_0210 | ((target & 0xFFF) << 10),
+                    0xD61F_0200].pack("L<3")
+          end
+        end
+
+        # Applies the relocations of one input section, the chunk `[input,
+        # section, offset in the part]`, to its bytes. The part starts at
+        # `start` in `out`. A call to an external goes through its stub,
+        # and a GOT load goes through its GOT slot. All other relocations use the
         # symbol's own address. An `abs64` slot becomes a fixup; its addend
         # is the value that the slot contained.
-        #: (Symbol part, String out, Integer off, Integer i, Array[Integer] words) -> void
-        def relocate(part, out, off, i, words)
+        #: (Symbol part, String out, Integer start, [Integer, Integer, Integer] chunk) -> void
+        def relocate(part, out, start, chunk)
+          i, k, off = chunk
+          words = @inputs[i].sections[k].relocs
           addr = @addr[i]
           base = at(part) + off
           addend = 0
@@ -332,7 +419,7 @@ module Zr
             at = words[j]
             info = words[j + 1]
             j += 2
-            here = off + at
+            here = start + off + at
             place = base + at
             type = info >> 28
             if type == ARM64_RELOC_ADDEND
@@ -359,6 +446,9 @@ module Zr
                 raise Refused, "#{@links[i][s]} has no place in the image"
               end
               patched = Relocs::Aarch64.encode(kind, word(out, here), target + addend, place)
+              if patched.nil? && type == BRANCH26 && (island = @island_at[target + addend])
+                patched = Relocs::Aarch64.encode(kind, word(out, here), island, place)
+              end
               raise Refused, "a #{kind} to #{@inputs[i].name(s).delete_prefix("_")} is out of reach" unless patched
 
               # One byte at a time, unrolled: a block would cost more than
