@@ -136,6 +136,7 @@ gives more examples.
 | Command | Does |
 |---|---|
 | `zr-dev ext imports [--all] <bundle-or-object>...` | Lists what a C extension takes from ruby that zr's C API (`lib/zr/runtime/kernel/capi/`) does not have yet: the ruby names among the undefined symbols of a bundle or an object file, read with zr's own Mach-O reader. `--all` lists every ruby import, `+` for those the C API has and `-` for the others. It fails when one is missing, as a build that links the extension refuses then. |
+| `zr-dev ext rank [--top N] [--build] [--only NAME,...] [--store DIR]` | Ranks the C extensions that keep the top N gems of `gems/top.tsv` (1000) from zr: each `cext:<name>` kind of `gems/compat.tsv`, by the number of those gems that it blocks, then by its own gem's downloads. `--build` builds each one, one at a time and for at most 10 minutes, from the gem that `zr-dev gems` unpacked in `--store` (`tmp/gems`) with `Ext::Builder`, which runs the gem's `extconf.rb`: gem code that a sweep never runs. It prints what each one lacks of zr's C API, then the functions to add, each with the number of top gems that wait on it. |
 
 ### Expected outputs
 

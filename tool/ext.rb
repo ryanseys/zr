@@ -2,6 +2,8 @@
 
 require_relative "lib/zr/dev"
 require_relative "../lib/zr/ext/c_api"
+require_relative "lib/zr/dev/ext_rank"
+require_relative "lib/zr/dev/gems/fetched_gems"
 
 module Zr
   module Dev
@@ -53,7 +55,66 @@ module Zr
         end
       end
 
-      commands("imports" => ["List a C extension's ruby imports that zr's C API lacks", -> { Imports }])
+      # Ranks the C extensions that block the most downloaded gems.
+      #
+      #   zr-dev ext rank                 the ranking of the top 1000 gems
+      #   zr-dev ext rank --top 300 --build
+      #   zr-dev ext rank --build --only zstd-ruby,bcrypt
+      #
+      # `--build` builds each extension from the gem that `zr-dev gems`
+      # unpacked (`--store`, tmp/gems by default), one at a time: this
+      # runs the gem's extconf.rb, gem code that a sweep never runs. It
+      # prints what each one lacks of the C API, then the functions to
+      # add, each with the number of top gems that wait on it.
+      class Rank < Command
+        summary "Rank the C extensions that block the top gems, and what they lack"
+        usage "[--top N] [--build] [--only NAME,...] [--store DIR]"
+
+        def defaults
+          @top = 1000
+          @build = false
+          @only = nil
+          @store = Gems::TMP
+        end
+
+        def options(o)
+          o.on("--top N", Integer, "the most downloaded N gems (1000)") { |n| @top = n }
+          o.on("--build", "build each extension and list what it lacks") { @build = true }
+          o.on("--only NAMES", "only these extensions, comma-separated") { |names| @only = names.split(",") }
+          o.on("--store DIR", "the gems that zr-dev gems fetched (tmp/gems)") { |dir| @store = File.expand_path(dir) }
+        end
+
+        def run(argv)
+          fail!("takes no arguments") unless argv.empty?
+
+          entries = ExtRank.ranked(Gems::Table.new(Gems::Table.compat), Gems::Top.read, @top)
+          entries = entries.select { |entry| @only.include?(entry.name) } if @only
+          return entries.each_with_index { |entry, i| puts line(i, entry, entry.blocked.first(4).join(", ")) } unless @build
+
+          fetched = Gems::FetchedGems.new(@store)
+          reports = entries.each_with_index.map do |entry, i|
+            report = ExtRank.build(entry, fetched)
+            puts line(i, entry, "#{report.version} #{summary(report)}")
+            report
+          end
+          puts "", "the C API's next functions (top gems that wait on each):"
+          ExtRank.worklist(reports).each { |name, count| puts format("%5d  %s", count, name) }
+          true
+        end
+
+        def line(i, entry, text) = format("%3d %4d  %-22s %s", i + 1, entry.blocked.size, entry.name, text)
+
+        def summary(report)
+          case report.status
+          when :ready then "ready"
+          when :lacks then "lacks #{report.missing.size}: #{report.missing.first(6).join(" ")}#{" ..." if report.missing.size > 6}"
+          else "failed: #{report.detail.tr("\n", " ")[0, 160]}"
+          end
+        end
+      end
+
+      commands("imports" => ["List a C extension's ruby imports that zr's C API lacks", -> { Imports }],
+               "rank" => ["Rank the C extensions that block the top gems, and what they lack", -> { Rank }])
     end
   end
 end
