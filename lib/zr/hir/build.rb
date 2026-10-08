@@ -219,6 +219,7 @@ module Zr
         @in_method_body = false
         @in_sclass = false
         @dead = 0
+        @elsewhere = 0
         @activations = -1
         @temps = [[]]
         @scopes = [@temps.first]
@@ -326,6 +327,44 @@ module Zr
         yield
       ensure
         @dead -= 1 if never
+      end
+
+      # Builds a branch that runs only on another ruby (`when "jruby"` of a
+      # `case RUBY_ENGINE`, `if RUBY_ENGINE == "truffleruby"`): zr's
+      # RUBY_ENGINE is "ruby". The branch compiles as any other, but what
+      # it would do to the whole program (an eval, a change of $LOAD_PATH)
+      # does not make the build link the compiler.
+      #: [T] (bool other) { () -> T } -> T
+      def elsewhere(other)
+        @elsewhere += 1 if other
+        yield
+      ensure
+        @elsewhere -= 1 if other
+      end
+
+      # The RUBY_ENGINE of a zr program (core/env.rb).
+      RUBY_ENGINE_NAME = "ruby"
+
+      # Whether `values`, compared with RUBY_ENGINE, name only other rubies.
+      #: (Array[Prism::node] values) -> bool
+      def other_engines?(values)
+        values.all? { |v| v.is_a?(Prism::StringNode) && v.unescaped != RUBY_ENGINE_NAME }
+      end
+
+      # Whether `node` reads RUBY_ENGINE.
+      #: (Prism::node? node) -> bool
+      def ruby_engine?(node)
+        (node.is_a?(Prism::ConstantReadNode) || (node.is_a?(Prism::ConstantPathNode) && node.parent.nil?)) && node.name == :RUBY_ENGINE
+      end
+
+      # Whether an `if` predicate is `RUBY_ENGINE == "other"` (either way
+      # round).
+      #: (Prism::node predicate) -> bool
+      def other_engine_test?(predicate)
+        return false unless predicate.is_a?(Prism::CallNode) && predicate.name == :== && predicate.arguments&.arguments&.size == 1
+
+        other = predicate.arguments.arguments[0]
+        (ruby_engine?(predicate.receiver) && other_engines?([other])) || (ruby_engine?(other) && other_engines?([predicate.receiver]))
       end
 
       # Builds `body` one block scope deeper. A `using` in a block at the
@@ -1274,9 +1313,9 @@ module Zr
         # `require` goes to that method (json's `JSON.load`), not Kernel's.
         kernel = compiles && ((node.receiver.nil? && !shadowed?(node.name)) ||
                               (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
-        @loader.evals!(node.name, args, kernel: kernel)
+        @loader.evals!(node.name, args, kernel: kernel) if @elsewhere.zero?
         gems!(:Gem) if node.name == :gem && node.receiver.nil?
-        @loader.load_path_changed!(node, @file)
+        @loader.load_path_changed!(node, @file) if @elsewhere.zero?
         @loader.normalizes!(node.name, args)
         # `&:name` calls that method, as a call with that name does.
         if node.block.is_a?(Prism::BlockArgumentNode) && node.block.expression.is_a?(Prism::SymbolNode)
@@ -1613,9 +1652,11 @@ module Zr
         then_live, else_live = reaches(node.predicate)
         # CRuby's jump over an `elsif` carries the event of a silent end of
         # the branch (`jump_event`); an `else` it folds away.
-        then_body = node.statements && dead(!then_live) do
-          body = seq(node.statements, taken: taken && chosen != false)
-          node.subsequent.is_a?(Prism::IfNode) ? jumping(body, node.statements, line, taken: taken) : body
+        then_body = node.statements && elsewhere(other_engine_test?(node.predicate)) do
+          dead(!then_live) do
+            body = seq(node.statements, taken: taken && chosen != false)
+            node.subsequent.is_a?(Prism::IfNode) ? jumping(body, node.statements, line, taken: taken) : body
+          end
         end
         built = If.new(predicate,
                        covered(then_cover, then_body, line),
@@ -1785,7 +1826,8 @@ module Zr
           # With no subject, a `when` of literal tests that never pass is
           # code that CRuby does not compile.
           never = node.predicate.nil? && w.conditions.all? { |c| chooses?(c) == false }
-          body = w.statements ? dead(never) { seq(w.statements, taken: taken) } : Literal.new(nil, line)
+          other = ruby_engine?(node.predicate) && other_engines?(w.conditions)
+          body = w.statements ? elsewhere(other) { dead(never) { seq(w.statements, taken: taken) } } : Literal.new(nil, line)
           body = jumping(body, w.statements, node.predicate ? w.location.start_line : line, taken: taken) if i < last
           [values, covered(covers[i], body, line)]
         end

@@ -49,6 +49,22 @@ class EvalDetectionTest < Minitest::Test
     refute carried?(%(require "json"\np JSON.name\n))
   end
 
+  # A branch for another ruby never runs in zr, whose RUBY_ENGINE is
+  # "ruby": what it would do there links no compiler. strscan 3.1.8 takes
+  # $LOAD_PATH apart only on truffleruby.
+  def test_a_branch_for_another_ruby_includes_no_eval_support
+    refute carried?(%(case RUBY_ENGINE\nwhen "ruby" then p 1\nwhen "truffleruby"\n  $LOAD_PATH.delete __dir__\nend\n))
+    refute carried?(%(if RUBY_ENGINE == "jruby"\n  eval("1")\nend\n))
+    refute carried?(%(if "truffleruby" == ::RUBY_ENGINE\n  $LOAD_PATH.delete __dir__\nend\n))
+  end
+
+  def test_a_branch_that_ruby_can_take_still_includes_eval_support
+    assert carried?(%(case RUBY_ENGINE\nwhen "ruby", "jruby"\n  eval("1")\nend\n))
+    assert carried?(%(if RUBY_ENGINE == "jruby"\n  p 1\nelse\n  eval("1")\nend\n))
+    assert carried?(%(if RUBY_ENGINE != "jruby"\n  eval("1")\nend\n))
+    assert carried?(%(case RUBY_ENGINE\nwhen "jruby" then p 1\nelse $LOAD_PATH.delete __dir__\nend\n))
+  end
+
   # Each `using` fills an entry in one refinement table for the whole
   # program, and the compiler gives each entry its id. Eval support has
   # its own `using` statements (the prism port uses one) and loads on
