@@ -20,6 +20,8 @@ Steps for a goal that you already have.
 - [How to install zr](how-to/install.md): get ruby 4.0.7, install
   zr, and fix the problems that an install can have
 - [How to use a library or a gem](how-to/use-a-library-or-gem.md)
+- [How to use a C extension](how-to/use-a-c-extension.md): run a gem's
+  real C extension in a binary (`--native-ext`)
 - [How to build for another target](how-to/build-for-another-target.md)
 - [How to run the tests](how-to/run-the-tests.md)
 - [How to add a program test](how-to/add-a-program-test.md)
@@ -43,6 +45,8 @@ Facts about commands, formats and layouts.
 - [Tools](reference/tools.md): `bin/setup`, `bin/minitest`, `bin/console`,
   the rake tasks and the `zr-dev` commands
 - [Environment variables](reference/environment-variables.md)
+- [The C API](reference/c-api.md): the functions of ruby's C API that a
+  C extension can call in zr
 - [Targets](reference/targets.md)
 - [Differences from ruby](reference/differences-from-ruby.md): what zr
   refuses on purpose, and the ruby bugs that zr does not copy

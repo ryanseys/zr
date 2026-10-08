@@ -35,7 +35,9 @@ because zr has a Ruby port of its C. Some ports are at a later version
 than ruby 4.0.7 ships, for example json 3.0.2; see
 [Library versions](../reference/differences-from-ruby.md#library-versions).
 To port another one, see
-[How to port a C extension](port-a-c-extension.md).
+[How to port a C extension](port-a-c-extension.md). On macOS, a binary
+can also run a gem's real C extension; see
+[How to use a C extension](use-a-c-extension.md).
 
 ## Your own files
 
@@ -67,9 +69,9 @@ or `<<`. You can copy the gem into your project (for example with
 depend on where the gem is installed. `gem unpack` writes the gem to
 `vendor/<name>-<version>`.
 
-A gem that needs a C extension does not work this way: zr compiles no
-C, and a binary cannot load a C extension. The rules below tell what
-zr does with one.
+A gem that needs a C extension does not work this way unless you give
+it to `--native-ext` ([How to use a C extension](use-a-c-extension.md)).
+The rules below tell what zr does with one.
 
 ## Another version of a gem
 
@@ -115,7 +117,8 @@ the build had rainbow at a version that matches, and raises
 `Gem::LoadError` otherwise. A `--gem` directory with no gemspec has no
 version, so `gem` accepts it only with no requirement.
 
-zr compiles no C, so these rules apply to a gem with a C extension:
+Unless you give it to `--native-ext`, these rules apply to a gem with
+a C extension:
 
 - A gem that zr ports (json, psych, bigdecimal and the others in
   [Library versions](../reference/differences-from-ruby.md#library-versions))
@@ -185,7 +188,8 @@ It has these limits:
 - A `wasm32-wasi` module refuses it: the tree-walking interpreter
   cannot run a file that zr did not compile into the module.
 - zr does not test a Gemfile of third-party gems. A pure-Ruby gem that
-  zr supports can work; a gem with a C extension does not.
+  zr supports can work; a gem with a C extension works only with
+  `--native-ext`.
   [Gem compatibility](../reference/gem-compat.md) lists how far each
   popular gem gets.
 

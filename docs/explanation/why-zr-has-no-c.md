@@ -65,12 +65,35 @@ Kernel code, such as the zlib port, does not run directly on CRuby.
 The tests compile it and load it into the test process; see
 [Running kernel code on the host](the-runtime.md#running-kernel-code-on-the-host).
 
+## zr has no C, and it runs your gems' C
+
+A gem's own C extension is not zr's C. On macOS, `--native-ext` puts
+a gem's real extension in the binary
+([How to use a C extension](../how-to/use-a-c-extension.md)). zr does
+not translate that C and does not emulate ruby for it. Instead, zr's
+objects have the same layout in memory as ruby 4.0's: nil and the other
+special values, the header of every object, Strings, Arrays and the
+structs of C data. So the extension's machine code reads zr's objects
+as it reads ruby's, at native speed.
+
+The functions that the extension calls, ruby's C API, are zr's kernel
+code: each one is a def in typed Ruby named after its C symbol, under
+`lib/zr/runtime/kernel/capi/` ([The C API](../reference/c-api.md)).
+Only a few stubs that C's calling convention needs are machine code,
+and zr's own assembler, in Ruby, makes them. The collector scans the
+C frames on the stack for the objects that C keeps there, and calls the
+extension's mark and free functions.
+
+So this rule still holds: zr itself has no C. The ports stay the
+default, and the C of a gem runs only when you ask for it.
+
 ## What is not Ruby
 
 zr uses some tools and libraries that are not Ruby, and that it does
 not own:
 
-- `cc`, to link a static Linux binary;
+- `cc`, to link a static Linux binary, and to compile a gem's C
+  extension for `--native-ext`;
 - libSystem on macOS, and musl on Linux;
 - wasmtime, to run modules;
 - libffi, which the `ffi` gem loads at run time.
