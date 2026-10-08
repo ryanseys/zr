@@ -152,11 +152,11 @@ module Zr
             else
               tag = s.loops.first[2]
             end
-            return ->(_) { throw tag } if s.internal?
+            return ->(_) { jump(nil) { throw tag } } if s.internal?
 
             lambda do |_|
               preempt
-              throw tag
+              jump(nil) { throw tag }
             end
           end
 
@@ -170,13 +170,13 @@ module Zr
                 v = value.call(f)
                 line!(f, word)
                 f.ret_line = line
-                throw f, v
+                jump(line) { throw f, v }
               end
             when :block
               lambda do |f|
                 v = value.call(f)
                 line!(f, word)
-                throw f, v if lambda_proc?(f.proc)
+                jump(nil) { throw f, v } if lambda_proc?(f.proc)
 
                 check(@kern.zr_return(f.proc, v))
               end
@@ -193,13 +193,17 @@ module Zr
             value = code(node.value, s)
             unless s.loops.empty?
               tag = s.loops.first[0]
-              return ->(f) { throw tag, value.call(f) }
+              line = node.line
+              return lambda do |f|
+                v = value.call(f)
+                jump(line) { throw tag, v }
+              end
             end
             return ->(_) { raise Unsupported, "a break outside a loop or block" } unless s.kind == :block
 
             lambda do |f|
               v = value.call(f)
-              throw f, v if lambda_proc?(f.proc)
+              jump(nil) { throw f, v } if lambda_proc?(f.proc)
 
               check(@kern.zr_break(f.proc, v))
             end
@@ -207,10 +211,30 @@ module Zr
 
           def do_next(node, s)
             value = code(node.value, s)
-            return ->(f) { throw f, value.call(f) } if s.loops.empty?
+            if s.loops.empty?
+              return lambda do |f|
+                v = value.call(f)
+                jump(nil) { throw f, v }
+              end
+            end
 
             tag = s.loops.first[1]
-            ->(f) { throw tag, value.call(f) }
+            line = node.line
+            lambda do |f|
+              v = value.call(f)
+              jump(line) { throw tag, v }
+            end
+          end
+
+          # Leaves through `throw`, from the jump's instruction on `line`
+          # (nil for one with no line of its own, as a block's `next`): an
+          # ensure body that the jump runs gives its silent :line event to
+          # that line (`Hir::Trace#line_on`), as the lowering's `unwind`
+          # does.
+          #: (Integer? line) { () -> void } -> void
+          def jump(line)
+            @jump_line = line
+            yield
           end
 
           def case_node(node, s)

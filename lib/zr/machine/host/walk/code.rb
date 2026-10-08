@@ -24,6 +24,7 @@ module Zr
           # @rbs @qfalse: Integer
           # @rbs @qundef: Integer
           # @rbs @ensure_path: Symbol
+          # @rbs @jump_line: Integer?
           # @rbs @sites: Hash[untyped, Integer]
           # @rbs @cells: Hash[untyped, Hash[Symbol, Integer]]
           # @rbs @once: Hash[untyped, untyped]
@@ -353,11 +354,12 @@ module Zr
             word = line_word(node, s)
             traced = s.unit.traced
             lambda do |f|
-              # The walker knows no jump's line: a jump's event goes to
-              # the `end` (`Hir::Trace#line_on`).
-              next @qnil unless node.line_on(@ensure_path, nil)
+              # A silent ensure body's event fires only on its path, on the
+              # line of the jump that runs it (`Hir::Trace#line_on`).
+              at = node.line_on(@ensure_path, @jump_line)
+              next @qnil unless at
 
-              line!(f, word)
+              line!(f, at == node.line ? word : at)
               fire(:line) if traced
               @qnil
             end
