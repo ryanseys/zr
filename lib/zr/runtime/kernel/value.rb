@@ -163,7 +163,7 @@ module Zr::Kern
   #: (value) -> bool
   def zr_special_p(v)
     w = Machine.word(v)
-    (w & 7) != 0 || w == 0 || w == 8
+    (w & 7) != 0 || w == QFALSE || w == QNIL
   end
 
   # CRuby's INT2FIX: a word outside the Fixnum range loses its top bit.

@@ -71,29 +71,30 @@ module Zr::Kern
     zr_hash_store(result, zr_sym(Machine.id(:TOTAL)), zr_fix(zr_heap_cells()))
     zr_hash_store(result, zr_sym(Machine.id(:FREE)), zr_fix(zr_heap_cells() - total))
     # This runtime gives a tag of its own to some objects that CRuby keeps
-    # as one of its types: tags 27, 29 and 30 count as T_DATA, 25 and 26
-    # as T_IMEMO, and a tag with no CRuby name (an exception's) as
-    # T_OBJECT.
+    # as one of its types: a Proc, a Method and a Fiber count as T_DATA,
+    # a cref and an env as T_IMEMO, and a tag with no CRuby name (an
+    # exception's) as T_OBJECT.
     named = 0
     t = 0
     while t < 32
-      if t == 2 || t == 3 || t == 4 || t == 5 || t == 31 || t == 7 || t == 8 || t == 27 || t == 29 || t == 30 || t == 25 || t == 26 || t == 28
+      if t == T_CLASS || t == T_MODULE || t == T_FLOAT || t == T_STRING || t == T_REGEXP || t == T_ARRAY || t == T_HASH ||
+         t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_CREF || t == T_ENV || t == T_ICLASS
         named += Machine.load64(counts + (t * 8), 0)
       end
       t += 1
     end
     objects = total - named
     zr_census_store(result, Machine.id(:T_OBJECT), objects)
-    zr_census_store(result, Machine.id(:T_CLASS), Machine.load64(counts + (2 * 8), 0))
-    zr_census_store(result, Machine.id(:T_MODULE), Machine.load64(counts + (3 * 8), 0))
-    zr_census_store(result, Machine.id(:T_FLOAT), Machine.load64(counts + (4 * 8), 0))
-    zr_census_store(result, Machine.id(:T_STRING), Machine.load64(counts + (5 * 8), 0))
-    zr_census_store(result, Machine.id(:T_REGEXP), Machine.load64(counts + (31 * 8), 0))
-    zr_census_store(result, Machine.id(:T_ARRAY), Machine.load64(counts + (7 * 8), 0))
-    zr_census_store(result, Machine.id(:T_HASH), Machine.load64(counts + (8 * 8), 0))
-    zr_census_store(result, Machine.id(:T_DATA), Machine.load64(counts + (27 * 8), 0) + Machine.load64(counts + (29 * 8), 0) + Machine.load64(counts + (30 * 8), 0))
-    zr_census_store(result, Machine.id(:T_IMEMO), Machine.load64(counts + (25 * 8), 0) + Machine.load64(counts + (26 * 8), 0))
-    zr_census_store(result, Machine.id(:T_ICLASS), Machine.load64(counts + (28 * 8), 0))
+    zr_census_store(result, Machine.id(:T_CLASS), Machine.load64(counts + (T_CLASS * 8), 0))
+    zr_census_store(result, Machine.id(:T_MODULE), Machine.load64(counts + (T_MODULE * 8), 0))
+    zr_census_store(result, Machine.id(:T_FLOAT), Machine.load64(counts + (T_FLOAT * 8), 0))
+    zr_census_store(result, Machine.id(:T_STRING), Machine.load64(counts + (T_STRING * 8), 0))
+    zr_census_store(result, Machine.id(:T_REGEXP), Machine.load64(counts + (T_REGEXP * 8), 0))
+    zr_census_store(result, Machine.id(:T_ARRAY), Machine.load64(counts + (T_ARRAY * 8), 0))
+    zr_census_store(result, Machine.id(:T_HASH), Machine.load64(counts + (T_HASH * 8), 0))
+    zr_census_store(result, Machine.id(:T_DATA), Machine.load64(counts + (T_PROC * 8), 0) + Machine.load64(counts + (T_METHOD * 8), 0) + Machine.load64(counts + (T_FIBER * 8), 0))
+    zr_census_store(result, Machine.id(:T_IMEMO), Machine.load64(counts + (T_CREF * 8), 0) + Machine.load64(counts + (T_ENV * 8), 0))
+    zr_census_store(result, Machine.id(:T_ICLASS), Machine.load64(counts + (T_ICLASS * 8), 0))
     result
   end
 

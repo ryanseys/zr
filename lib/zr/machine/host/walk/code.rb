@@ -128,7 +128,7 @@ module Zr
             v
           end
 
-          def truthy?(v) = (v & ~8) != 0
+          def truthy?(v) = (v & ~@qnil) != 0
           def bool(b) = b ? @qtrue : @qfalse
 
           # The pins after `mark` go: the Values that a statement held.
@@ -457,7 +457,7 @@ module Zr
 
           # Whether `v` is no cell (`zr_special_p`): a write barrier for it
           # has nothing to remember.
-          def immediate?(v) = v.anybits?(7) || v == 0 || v == 8
+          def immediate?(v) = v.anybits?(7) || v == @qfalse || v == @qnil
 
           # --- constants and variables ---
 

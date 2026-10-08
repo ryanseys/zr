@@ -24,10 +24,12 @@ module Zr
 
         private
 
-        # The condition a Value's truthiness gives: anything but nil and false.
+        # The condition a Value's truthiness gives: anything but nil and
+        # false. false is 0, so a Value is falsy when only nil's bits are
+        # set (CRuby's RTEST).
         #: (String v) -> String
         def truthy(v)
-          @f.icmp("ne", @f.band(v, imm(-9)), imm(0))
+          @f.icmp("ne", @f.band(v, imm(~@l.const("QNIL"))), imm(0))
         end
 
         # Lowers the test `node` as a branch: to `yes` if it is truthy,

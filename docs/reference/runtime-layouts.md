@@ -22,7 +22,7 @@ A `Value` is a 64-bit word with CRuby's tagging (`lib/zr/runtime/kernel/value.rb
 | Symbol (static) | `id << 8 \| 0x0c` |
 | any other object | a nonzero, 8-aligned pointer to a cell that starts with `RBasic` |
 
-`nil.object_id` is 8, and `1.0.equal?(1.0)` is true, as in CRuby.
+`nil.object_id` is 4 (as in ruby 4.0), and `1.0.equal?(1.0)` is true, as in CRuby.
 
 ## The object header
 
@@ -37,7 +37,6 @@ end
 |---|---|
 | 0-4 | the type (`T_MASK = 31`) |
 | 5 | `FL_ALLOCATED` |
-| 6 | `FL_MARK` |
 | 10 | `FL_EXIVAR` |
 | 11 | `FL_FREEZE` |
 | 12 | `FL_SINGLETON` |
