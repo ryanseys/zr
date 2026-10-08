@@ -161,11 +161,10 @@ module Zr
         # The exports trie of `LC_DYLD_EXPORTS_TRIE` or `LC_DYLD_INFO`.
         #: () -> Array[Export]
         def exports
-          @exports ||= if (trie = @exports_trie || (@dyld_info && dyld_info(4)))
-                         Trie.new(@bytes, trie).exports
-                       else
-                         []
-                       end
+          @exports ||= begin
+            trie = @exports_trie || (dyld_info(4) if @dyld_info)
+            trie ? Trie.new(@bytes, trie).exports : []
+          end
         end
 
         # The vm address of the image's first byte, its Mach header: where
@@ -201,7 +200,7 @@ module Zr
             when LC_SYMTAB then @symbols = symbol_table(at)
             when *DYLIB_COMMANDS then @dylibs << dylib_name(at)
             when LC_ID_DYLIB then @install_name = dylib_name(at)
-            when LC_UUID then @uuid = (@bytes.byteslice(at + 8, 16) || "").unpack1("H*") #: String
+            when LC_UUID then @uuid = (@bytes.byteslice(at + 8, 16) || "").unpack1("H*").to_s
             when LC_DYLD_INFO, LC_DYLD_INFO_ONLY then @dyld_info = at
             when LC_DYLD_EXPORTS_TRIE then @exports_trie = linkedit(at)
             when LC_DYLD_CHAINED_FIXUPS then @chained_fixups = linkedit(at)
@@ -220,12 +219,12 @@ module Zr
         #: (Integer at) -> Segment
         def segment(at)
           name = cstring(at + 8, limit: 16)
-          fields = @bytes.unpack("Q<4L<4", offset: at + 24) #: Array[Integer]
+          fields = @bytes.unpack("Q<4L<4", offset: at + 24) #: [Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer]
           vmaddr, vmsize, fileoff, filesize, maxprot, initprot, nsects, flags = fields
           sections = Array.new(nsects) do |i|
             s = at + 72 + (i * 80)
-            fields = @bytes.unpack("Q<2L<5", offset: s + 32) #: Array[Integer]
-            addr, size, offset, align, _reloff, _nreloc, sflags = fields
+            words = @bytes.unpack("Q<2L<5", offset: s + 32) #: [Integer, Integer, Integer, Integer, Integer, Integer, Integer]
+            addr, size, offset, align, _reloff, _nreloc, sflags = words
             Section.new(name: cstring(s, limit: 16), segment: cstring(s + 16, limit: 16), addr: addr, size: size, offset: offset,
                         align: align, flags: sflags)
           end
@@ -506,7 +505,7 @@ module Zr
           # weak definitions in the exports, not in a stream of their own.
           #: () -> [Array[Rebase], Array[Bind], Array[Bind]]
           def fixups
-            header = @bytes.unpack("L<7", offset: @at) #: Array[Integer]
+            header = @bytes.unpack("L<7", offset: @at) #: [Integer, Integer, Integer, Integer, Integer, Integer, Integer]
             _version, starts, imports_at, symbols_at, count, format, _symbols_format = header
             imports = imports(@at + imports_at, @at + symbols_at, count, format)
             rebases = [] #: Array[Rebase]
@@ -539,7 +538,7 @@ module Zr
           # segment.
           #: (Integer start) { (Integer, Integer) -> void } -> void
           def walk(start)
-            fields = @bytes.unpack("L<S<S<Q<L<S<", offset: start) #: Array[Integer]
+            fields = @bytes.unpack("L<S<S<Q<L<S<", offset: start) #: [Integer, Integer, Integer, Integer, Integer, Integer]
             _size, page_size, format, segment_offset, _max, page_count = fields
             raise ArgumentError, "chained pointer format #{format}" unless format == PTR_64 || format == PTR_64_OFFSET
 

@@ -30,6 +30,12 @@ module Zr
         # pending unwind.
         QUNDEF = 0x24
 
+        # The registers that a C frame record's context keeps, two at a
+        # time, and C's argument registers.
+        SAVED_PAIRS = [[X19, X20], [X21, X22], [X23, X24], [X25, X26]].freeze #: Array[[Registers::Register, Registers::Register]]
+        DOUBLE_PAIRS = [[D8, D9], [D10, D11], [D12, D13], [D14, D15]].freeze #: Array[[Registers::Register, Registers::Register]]
+        ARGUMENT_PAIRS = [[X0, X1], [X2, X3], [X4, X5], [X6, X7]].freeze #: Array[[Registers::Register, Registers::Register]]
+
         module_function
 
         # `zr_switch(from: Ptr, to: Ptr)`: saves this stack in `from`, and
@@ -101,7 +107,7 @@ module Zr
           a.subs X9, X9, 1
           a.b copy, cond: :ne
           a.put_label call
-          [[X0, X1], [X2, X3], [X4, X5], [X6, X7]].each_with_index { |(p, q), i| a.ldp p, q, [X17, 16 * i] }
+          ARGUMENT_PAIRS.each_with_index { |(p, q), i| a.ldp p, q, [X17, 16 * i] }
           a.blr X16
           a.ldr X9, [X19, CFRAME_CONTEXT + CONTEXT[:sp]]
           a.mov SP, X9
@@ -133,28 +139,27 @@ module Zr
 
         # Saves the callee-saved registers, x29, sp and d8..d15 in the
         # context at `base`, with `resume` as the x30 that a load returns to.
-        #: (Assembler a, Registers::Register base, Label resume) -> void
+        #: (Assembler a, Registers::Register base, Assembler::Label resume) -> void
         def save_context(a, base, resume)
-          [[X19, X20], [X21, X22], [X23, X24], [X25, X26]].each_with_index { |(p, q), i| a.stp p, q, [base, 16 * i] }
+          SAVED_PAIRS.each_with_index { |(p, q), i| a.stp p, q, [base, 16 * i] }
           a.str X27, [base, CONTEXT[:x27]]
           a.str X29, [base, CONTEXT[:x29]]
           a.adr X9, resume
           a.str X9, [base, CONTEXT[:x30]]
           a.mov X9, SP
           a.str X9, [base, CONTEXT[:sp]]
-          [[D8, D9], [D10, D11], [D12, D13], [D14, D15]].each_with_index { |(p, q), i| a.stp p, q, [base, CONTEXT[:d8] + (16 * i)] }
+          DOUBLE_PAIRS.each_with_index { |(p, q), i| a.stp p, q, [base, CONTEXT[:d8] + (16 * i)] }
         end
 
         # Loads what `save_context` saved from the context at `base`.
         #: (Assembler a, Registers::Register base) -> void
         def load_context(a, base)
-          [[X19, X20], [X21, X22], [X23, X24], [X25, X26], [X29, X30]].each_with_index do |(p, q), i|
-            a.ldp p, q, [base, i < 4 ? 16 * i : CONTEXT[:x29]]
-          end
+          SAVED_PAIRS.each_with_index { |(p, q), i| a.ldp p, q, [base, 16 * i] }
+          a.ldp X29, X30, [base, CONTEXT[:x29]]
           a.ldr X27, [base, CONTEXT[:x27]]
           a.ldr X9, [base, CONTEXT[:sp]]
           a.mov SP, X9
-          [[D8, D9], [D10, D11], [D12, D13], [D14, D15]].each_with_index { |(p, q), i| a.ldp p, q, [base, CONTEXT[:d8] + (16 * i)] }
+          DOUBLE_PAIRS.each_with_index { |(p, q), i| a.ldp p, q, [base, CONTEXT[:d8] + (16 * i)] }
         end
 
         # The machine code of the raw function `name` (`Machine::RAW`).
