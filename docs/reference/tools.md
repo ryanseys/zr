@@ -183,6 +183,7 @@ in `tool/gen/`.
 | `zr-dev gen builtin_lines` | `lib/zr/runtime/core/builtin_lines.rb` |
 | `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
 | `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. |
+| `zr-dev gen capi` | `docs/reference/c-api.md`: the functions and data of ruby's C API that the kernel gives C extensions, from `lib/zr/runtime/kernel/capi/*.rb` |
 
 #### Generated files that the unit tier tests
 
