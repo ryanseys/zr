@@ -137,6 +137,20 @@ module Zr
           Obj::Code.new("zr_cframe_leap", a.to_binary, align: 4)
         end
 
+        # `zr_gc_call(fn: Ptr, data: Ptr) -> Word`: calls the C function
+        # `fn` with `data` for the collector, a T_DATA's mark or free
+        # function. It is a tail call, so C returns to the caller. No
+        # unwind leaves such C (the kernel stops one), so it saves no
+        # context.
+        #: (?assembler: singleton(Assembler)) -> Obj::Code
+        def gc_call(assembler: Assembler)
+          a = assembler.new
+          a.mov X16, X0
+          a.mov X0, X1
+          a.br X16
+          Obj::Code.new("zr_gc_call", a.to_binary, align: 4)
+        end
+
         # Saves the callee-saved registers, x29, sp and d8..d15 in the
         # context at `base`, with `resume` as the x30 that a load returns to.
         #: (Assembler a, Registers::Register base, Assembler::Label resume) -> void
@@ -169,6 +183,7 @@ module Zr
           when "zr_switch" then switch
           when "zr_cframe_call" then cframe_call
           when "zr_cframe_leap" then cframe_leap
+          when "zr_gc_call" then gc_call
           else raise ArgumentError, "no raw function named #{name}"
           end
         end

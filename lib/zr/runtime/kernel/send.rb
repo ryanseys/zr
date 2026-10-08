@@ -1165,9 +1165,11 @@ module Zr::Kern
     zr_preempt_send(mid)
   end
 
-  # Runs the finalizers that a collection queued, if any.
+  # Runs the free functions and the finalizers that a collection queued,
+  # if any.
   #: () -> value
   def zr_finalizers_due
+    zr_data_frees_run()
     if WeakList[zr_finalizer_queue()].len > 0
       return zr_finalizers_run()
     end

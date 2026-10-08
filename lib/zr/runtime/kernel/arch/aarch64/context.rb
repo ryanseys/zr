@@ -33,4 +33,8 @@ module Zr::Kern
   # Resumes the context in `record`: its zr_cframe_call returns undef.
   #: (ptr) -> void
   def zr_cframe_leap(record) = Machine.raw
+
+  # Calls the C function `fn` with `data`, for the collector.
+  #: (ptr, ptr) -> word
+  def zr_gc_call(fn, data) = Machine.raw
 end

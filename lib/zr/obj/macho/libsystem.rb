@@ -175,6 +175,7 @@ module Zr
           read
           readdir
           readlink
+          realloc
           realpath
           recvfrom
           recvmsg

@@ -442,7 +442,7 @@ module Zr
           # foreign code enters saves all of them, x28 too: then the
           # values that C keeps in them are in this frame, where the
           # collector's scan of the C frames reads them
-          # (`zr_mark_cframes`).
+          # (`zr_mark_task`).
           @saved_at = {}
           saved = @reg.values.uniq.select { |r| Regalloc.callee?(r) }
           saved = (saved + Regalloc::CALLEE + [Regalloc::GATES]).uniq if @enters

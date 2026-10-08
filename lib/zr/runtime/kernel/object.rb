@@ -631,6 +631,9 @@ module Zr::Kern
     if kind == ALLOC_FIBER
       return zr_fiber_alloc(recv)
     end
+    if kind >= ALLOC_C_FUNCTION
+      return zr_alloc_by_c(recv, Machine.ptr(kind))
+    end
     if kind == ALLOC_ARRAY
       o = zr_ary_new(4)
     elsif kind == ALLOC_HASH
@@ -663,6 +666,24 @@ module Zr::Kern
   ALLOC_REGEXP = 9
   ALLOC_NONE = 10
   ALLOC_FIBER = 11
+  # A kind at or above this is the address of a C extension's allocation
+  # function (rb_define_alloc_func), which a subclass inherits as it
+  # inherits the others.
+  ALLOC_C_FUNCTION = 4096
+
+  # The object that the C allocation function `fn` makes for `klass`, or
+  # undef when it raised. Its class must be `klass`, as CRuby's
+  # class_call_alloc_func checks.
+  #: (value, ptr) -> value
+  def zr_alloc_by_c(klass, fn)
+    argv = Machine.slot(64)
+    Machine.store64(argv, 0, Machine.word(klass))
+    o = Machine.value(zr_call_c(fn, argv, 1))
+    if o != QUNDEF && zr_real_class(o) != klass
+      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("wrong instance allocation"), 25)
+    end
+    o
+  end
 
   # Whether a class of `kind` has no allocator that Ruby can call.
   # ALLOC_UNDEF is for a class that also has no `new` (Integer, Binding).

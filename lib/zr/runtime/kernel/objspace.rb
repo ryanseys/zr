@@ -78,7 +78,7 @@ module Zr::Kern
     t = 0
     while t < 32
       if t == T_CLASS || t == T_MODULE || t == T_FLOAT || t == T_STRING || t == T_REGEXP || t == T_ARRAY || t == T_HASH ||
-         t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_CREF || t == T_ENV || t == T_ICLASS
+         t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_DATA || t == T_CREF || t == T_ENV || t == T_ICLASS
         named += Machine.load64(counts + (t * 8), 0)
       end
       t += 1
@@ -92,7 +92,7 @@ module Zr::Kern
     zr_census_store(result, Machine.id(:T_REGEXP), Machine.load64(counts + (T_REGEXP * 8), 0))
     zr_census_store(result, Machine.id(:T_ARRAY), Machine.load64(counts + (T_ARRAY * 8), 0))
     zr_census_store(result, Machine.id(:T_HASH), Machine.load64(counts + (T_HASH * 8), 0))
-    zr_census_store(result, Machine.id(:T_DATA), Machine.load64(counts + (T_PROC * 8), 0) + Machine.load64(counts + (T_METHOD * 8), 0) + Machine.load64(counts + (T_FIBER * 8), 0))
+    zr_census_store(result, Machine.id(:T_DATA), Machine.load64(counts + (T_DATA * 8), 0) + Machine.load64(counts + (T_PROC * 8), 0) + Machine.load64(counts + (T_METHOD * 8), 0) + Machine.load64(counts + (T_FIBER * 8), 0))
     zr_census_store(result, Machine.id(:T_IMEMO), Machine.load64(counts + (T_CREF * 8), 0) + Machine.load64(counts + (T_ENV * 8), 0))
     zr_census_store(result, Machine.id(:T_ICLASS), Machine.load64(counts + (T_ICLASS * 8), 0))
     result

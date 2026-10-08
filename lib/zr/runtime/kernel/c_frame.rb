@@ -33,7 +33,7 @@ module Zr::Kern
   CFRAME_BYTES = 40 + CONTEXT_BYTES
 
   # C code can run the collector: it calls back into zr.
-  collects :zr_cframe_call
+  collects :zr_call_c
 
   # Calls the C function `fn` with the `argc` words at `argv`, which holds
   # at least eight words, and returns its result. It returns undef when a
@@ -42,6 +42,35 @@ module Zr::Kern
   #: (ptr, ptr, word) -> word
   def zr_call_c(fn, argv, argc)
     rec = Machine.slot(CFRAME_BYTES)
+    zr_cframe_push(rec)
+    r = zr_cframe_call(rec, fn, argv, argc)
+    zr_cframe_pop(rec)
+    # A callback can set a gate while C runs, and C gives back the x28 it
+    # got, so the gate word comes from its static again.
+    Machine.gates_set(Machine.load64(Machine.static(:gates, 8), 0))
+    r
+  end
+
+  # Calls `fn(data)` for the collector: a T_DATA's mark, free or size
+  # function (data_object.rb). The collector stops an allocation in it
+  # (zr_alloc_slow), so this call, unlike zr_call_c, cannot collect, and
+  # the collector's own frames keep no roots for it. No Ruby code runs in
+  # it, so no gate changes.
+  #: (ptr, ptr) -> word
+  def zr_call_c_in_gc(fn, data)
+    # The record bounds the C frames for a C-API function that this C
+    # calls (zr_c_entered); a leap from here stops (zr_c_unwind), so the
+    # call saves no context in it.
+    rec = Machine.slot(CFRAME_BYTES)
+    zr_cframe_push(rec)
+    r = zr_gc_call(fn, data)
+    zr_cframe_pop(rec)
+    r
+  end
+
+  # Links the C frame record `rec` into the task as its innermost.
+  #: (ptr) -> void
+  def zr_cframe_push(rec)
     t = zr_task()
     CFrame[rec].prev = Task[t].cframe
     # Nothing to scan until a C-API function marks the low end.
@@ -50,12 +79,12 @@ module Zr::Kern
     CFrame[rec].top = Task[t].top
     CFrame[rec].kroots = Machine.ptr(Machine.load64(zr_kroots(), 0))
     Task[t].cframe = rec
-    r = zr_cframe_call(rec, fn, argv, argc)
-    Task[t].cframe = CFrame[rec].prev
-    # A callback can set a gate while C runs, and C gives back the x28 it
-    # got, so the gate word comes from its static again.
-    Machine.gates_set(Machine.load64(Machine.static(:gates, 8), 0))
-    r
+  end
+
+  # Unlinks `rec` after its C call returned.
+  #: (ptr) -> void
+  def zr_cframe_pop(rec)
+    Task[zr_task()].cframe = CFrame[rec].prev
   end
 
   # The C frames of the innermost C call end at `low`, a slot below the
@@ -79,6 +108,11 @@ module Zr::Kern
     rec = Task[t].cframe
     if rec == 0
       zr_bug(Machine.bytes("[BUG] an unwind out of C, with no C call to unwind to\n"), 55)
+    end
+    # A mark or free function runs in a collection, which an unwind would
+    # leave half done.
+    if Heap[zr_heap()].collecting != 0
+      zr_bug(Machine.bytes("[BUG] an unwind out of C while the collector runs\n"), 50)
     end
     Task[t].top = CFrame[rec].top
     Machine.store64(zr_kroots(), 0, Machine.word(CFrame[rec].kroots))

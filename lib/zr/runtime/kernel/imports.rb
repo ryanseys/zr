@@ -264,6 +264,8 @@ module Zr::Kern
     def self.malloc(n) = Machine.import
     #: (ptr) -> void
     def self.free(p) = Machine.import
+    #: (ptr, word) -> ptr
+    def self.realloc(p, n) = Machine.import
     #: (ptr, ptr, word) -> ptr
     def self.memmove(p1, p2, n) = Machine.import
     #: () -> void

@@ -157,6 +157,7 @@ module Zr::Kern
       Task[zr_task()].pending = Machine.value(QNIL)
     end
     zr_finalizers_at_exit()
+    zr_data_free_all()
     # A finalizer's output also goes to a buffer, so flush again.
     if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
       Task[zr_task()].pending = Machine.value(QNIL)

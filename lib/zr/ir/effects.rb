@@ -53,13 +53,20 @@ module Zr
       PREFIX = "zr_static_"
       # The imports that can run zr code before they return.
       CALLBACKS = %w[pthread_create dlopen dlsym].freeze
+      # The raw call of C from the collector. That C cannot allocate or
+      # run Ruby, so it writes only what a pointer reaches, as an import.
+      COLLECTOR_C = %w[zr_gc_call].freeze
 
       module_function
 
       # The regions that a call of the import or raw function `symbol`
       # can write.
       #: (String symbol) -> Integer
-      def import(symbol) = symbol.start_with?("zr_") || CALLBACKS.include?(symbol) ? ALL : UNKNOWN
+      def import(symbol)
+        return UNKNOWN if COLLECTOR_C.include?(symbol)
+
+        symbol.start_with?("zr_") || CALLBACKS.include?(symbol) ? ALL : UNKNOWN
+      end
 
       # A nil `region` raises KeyError. The type takes nil, because a
       # caller passes `Inst#region` or `static_region` after a check that

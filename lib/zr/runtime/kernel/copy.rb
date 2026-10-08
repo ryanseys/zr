@@ -96,10 +96,28 @@ module Zr::Kern
   # caller decides to keep or drop the frozen bit and the singleton class.
   #: (value) -> value
   def zr_copy_cell(orig)
+    if zr_type(orig) == T_DATA
+      return zr_copy_data(orig)
+    end
     bytes = zr_cell_bytes(orig)
     copy = zr_alloc(zr_type(orig), zr_real_class(orig), bytes)
     zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(orig) + RBasic.size, bytes - RBasic.size)
     zr_copy_payload(copy, orig)
+  end
+
+  # A T_DATA's struct is the extension's, and only it can copy one: the
+  # copy is what the class's allocation function makes, with the ivars,
+  # and its `initialize_copy` fills it, as CRuby's rb_obj_dup does.
+  #: (value) -> value
+  def zr_copy_data(orig)
+    klass = zr_real_class(orig)
+    copy = zr_alloc_shape(klass, zr_alloc_kind(klass))
+    return copy if copy == QUNDEF
+    if (RBasic[orig].flags & FL_EXIVAR) != 0
+      zr_ivtab_copy(zr_exivar_tab_for_write(copy), zr_exivar_tab(orig), Machine.value(QNIL))
+      zr_write_barrier_all(copy)
+    end
+    copy
   end
 
   # A copy starts as `allocate` would make it, so a class with no

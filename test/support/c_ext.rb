@@ -62,6 +62,15 @@ module Zr
       # builds.
       #: (Built ext, String program, ?env: Hash[String, String]) -> [Output, Output]
       def outputs(ext, program, env: {})
+        ruby, runs = outputs_under(ext, program, [{}], env: env)
+        [ruby, runs.fetch(0)]
+      end
+
+      # The same, but runs the binary once in each of `binary_envs`: the
+      # collector's switches (ZR_GC_STRESS), which ruby does not read.
+      # Returns `[ruby, [zr...]]`; a failed build stands for every run.
+      #: (Built ext, String program, Array[Hash[String, String]] binary_envs, ?env: Hash[String, String]) -> [Output, Array[Output]]
+      def outputs_under(ext, program, binary_envs, env: {})
         source = "$LOAD_PATH.unshift(File.expand_path(\".\", __dir__))\n#{program}"
         path = File.join(ext.dir, "prog_#{Digest::SHA256.hexdigest(source)[0, 12]}.rb")
         File.write(path, source)
@@ -69,9 +78,9 @@ module Zr
         bin = path.delete_suffix(".rb")
         zr_env = env.merge("ZR_EXT_OBJECTS" => "#{ext.bundle}=#{ext.object}")
         built = run(zr_env, File.join(ROOT, "bin", "zr"), "build", path, "-o", bin)
-        return [ruby, built] unless built.status.zero?
+        return [ruby, binary_envs.map { built }] unless built.status.zero?
 
-        [ruby, run(env, bin)]
+        [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
       end
 
       #: (Hash[String, String] env, *String command) -> Output

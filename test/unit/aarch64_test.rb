@@ -160,7 +160,7 @@ class Aarch64Test < Minitest::Test
 
   def test_the_c_frame_stubs_encode_as_the_gem_does
     require "aarch64"
-    %i[cframe_call cframe_leap].each do |stub|
+    %i[cframe_call cframe_leap gc_call].each do |stub|
       ours = Zr::Backend::Aarch64::Stub.public_send(stub)
       theirs = Zr::Backend::Aarch64::Stub.public_send(stub, assembler: Gem)
       assert_equal theirs.bytes.unpack("H*"), ours.bytes.unpack("H*"), stub

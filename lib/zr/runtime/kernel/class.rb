@@ -3238,6 +3238,8 @@ module Zr::Kern
       zr_mark_fiber(v)
     elsif t == T_REGEXP
       zr_mark_regexp(v)
+    elsif t == T_DATA
+      zr_mark_data(v)
     end
   end
 
@@ -3310,6 +3312,8 @@ module Zr::Kern
       zr_release_regexp(v)
     elsif t == T_ENV
       zr_xfree(REnv[v].slots)
+    elsif t == T_DATA
+      zr_release_data(v)
     end
   end
 

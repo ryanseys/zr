@@ -30,4 +30,10 @@ module Zr::Kern
   def zr_cframe_leap(record)
     zr_bug(Machine.bytes("a wasm32 module cannot call native C\n"), 37)
   end
+
+  #: (ptr, ptr) -> word
+  def zr_gc_call(fn, data)
+    zr_bug(Machine.bytes("a wasm32 module cannot call native C\n"), 37)
+    0
+  end
 end
