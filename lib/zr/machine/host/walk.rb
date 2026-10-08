@@ -410,9 +410,12 @@ module Zr
                 k.zr_program_start(@host.bytes(file), file.bytesize, @traced ? 1 : 0)
                 k.zr_toplevel_binding(f.env, f.self_, f.cref, m)
               end
+              # Through Warning.warn and under $VERBOSE, as the lowering's
+              # `parse_warnings` gives them.
               Array(hir.warnings).each do |line|
-                text = "#{line}\n".b
-                k.zr_write_err(@host.bytes(text), text.bytesize)
+                verbose = line.start_with?(Hir::Build::Loader::VERBOSE_WARNING)
+                text = "#{verbose ? line[1..] : line}\n".b
+                k.zr_parse_warning(@host.bytes(text), text.bytesize, verbose ? 1 : 0)
               end
             end
             run_body(s, f, jumps) { body.call(f) }
