@@ -1,0 +1,88 @@
+# The records of lib/zr/obj/macho/image.rb. Their methods are inline.
+module Zr
+  module Obj
+    module MachO
+      class Image
+        @bytes: String
+        @dyld_info: Integer?
+        @exports_trie: Span?
+        @chained_fixups: Span?
+        @exports: Array[Export]?
+        @fixups: [Array[Rebase], Array[Bind], Array[Bind]]?
+
+        class Segment < Data
+          attr_reader name: String
+          attr_reader vmaddr: Integer
+          attr_reader vmsize: Integer
+          attr_reader fileoff: Integer
+          attr_reader filesize: Integer
+          attr_reader maxprot: Integer
+          attr_reader initprot: Integer
+          attr_reader flags: Integer
+          attr_reader sections: Array[Section]
+
+          def self.new: (name: String, vmaddr: Integer, vmsize: Integer, fileoff: Integer, filesize: Integer, maxprot: Integer,
+                         initprot: Integer, flags: Integer, sections: Array[Section]) -> instance
+        end
+
+        class Section < Data
+          attr_reader name: String
+          attr_reader segment: String
+          attr_reader addr: Integer
+          attr_reader size: Integer
+          attr_reader offset: Integer
+          attr_reader align: Integer
+          attr_reader flags: Integer
+
+          def self.new: (name: String, segment: String, addr: Integer, size: Integer, offset: Integer, align: Integer,
+                         flags: Integer) -> instance
+        end
+
+        class Nlist < Data
+          attr_reader name: String
+          attr_reader type: Integer
+          attr_reader sect: Integer
+          attr_reader desc: Integer
+          attr_reader value: Integer
+
+          def self.new: (name: String, type: Integer, sect: Integer, desc: Integer, value: Integer) -> instance
+        end
+
+        class Rebase < Data
+          attr_reader address: Integer
+          attr_reader target: Integer
+
+          def self.new: (address: Integer, target: Integer) -> instance
+        end
+
+        class Bind < Data
+          attr_reader address: Integer
+          attr_reader name: String
+          attr_reader library: Integer
+          attr_reader addend: Integer
+          attr_reader weak: bool
+          attr_reader lazy: bool
+
+          def self.new: (address: Integer, name: String, library: Integer, addend: Integer, weak: bool, lazy: bool) -> instance
+          def with: (?address: Integer, ?name: String, ?library: Integer, ?addend: Integer, ?weak: bool, ?lazy: bool) -> instance
+        end
+
+        class Span < Data
+          attr_reader offset: Integer
+          attr_reader size: Integer
+
+          def self.new: (offset: Integer, size: Integer) -> instance
+        end
+
+        class Export < Data
+          attr_reader name: String
+          attr_reader address: Integer?
+          attr_reader flags: Integer
+          attr_reader reexport: Integer?
+
+          def self.new: (name: String, address: Integer?, flags: Integer, reexport: Integer?) -> instance
+        end
+      end
+    end
+  end
+end
