@@ -227,4 +227,24 @@ module Zr::Kern
     zr_memcpy(copy, text, n)
     copy
   end
+
+  # rb_alloc_tmp_buffer_with_count: `size` bytes that C uses for a while
+  # (ALLOCV), kept by a binary String that `*store` holds, so the
+  # collector frees them once nothing holds the String.
+  #: (ptr, word, word) -> ptr
+  def rb_alloc_tmp_buffer_with_count(store, size, count)
+    Machine.gates_enter
+    zr_c_entered()
+    buffer = zr_capi_str(Machine.ptr(0), size, ENC_BINARY)
+    Machine.store64(store, 0, Machine.word(buffer))
+    RString[buffer].ptr
+  end
+
+  # rb_free_tmp_buffer: lets the collector free the buffer.
+  #: (ptr) -> void
+  def rb_free_tmp_buffer(store)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.store64(store, 0, 0)
+  end
 end

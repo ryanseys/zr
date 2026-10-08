@@ -288,4 +288,31 @@ module Zr::Kern
     end
     WeakList[l].len = kept
   end
+
+  # The most functions that ruby_vm_at_exit keeps.
+  CAPI_VM_AT_EXIT = 64
+
+  # Runs the end proc `pair` of rb_set_end_proc: undef when it raised,
+  # else nil.
+  #: (value) -> value
+  def zr_c_end_proc(pair)
+    argv = Machine.slot(64)
+    Machine.store64(argv, 0, Machine.word(zr_ary_at(pair, 1)))
+    raised = zr_call_c(Machine.ptr(zr_fix2long(zr_ary_at(pair, 0))), argv, 1) == QUNDEF
+    Machine.value(raised ? QUNDEF : QNIL)
+  end
+
+  # Runs the functions of ruby_vm_at_exit, the last first.
+  #: () -> void
+  def zr_c_vm_at_exit
+    list = Machine.static(:capi_vm_at_exit, CAPI_VM_AT_EXIT * 8 + 8)
+    argv = Machine.slot(64)
+    Machine.store64(argv, 0, 0)
+    n = Machine.load64(list, 0)
+    while n > 0
+      zr_call_c(Machine.ptr(Machine.load64(list + (n * 8), 0)), argv, 1)
+      n -= 1
+    end
+    Machine.store64(list, 0, 0)
+  end
 end

@@ -350,4 +350,12 @@ module Zr::Kern
     Libc.close(Machine.i32(OffloadJob[job].write_fd))
     zr_xfree(job)
   end
+
+  # rb_ext_ractor_safe: the extension says that its functions may run in
+  # any Ractor. zr runs C in the main Ractor only, so this changes nothing.
+  #: (i32) -> void
+  def rb_ext_ractor_safe(flag)
+    Machine.gates_enter
+    zr_c_entered()
+  end
 end

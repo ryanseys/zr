@@ -167,4 +167,38 @@ module Zr::Kern
   def zr_capi_set(word, v)
     Machine.store64(word, 0, Machine.word(v))
   end
+
+  # rb_set_end_proc: `fn(data)` runs at the program's end with the
+  # at_exit handlers, in their order: the list holds it as the pair
+  # `[fn, data]`, which zr_program_end runs (zr_c_end_proc).
+  #: (ptr, value) -> void
+  def rb_set_end_proc(fn, data)
+    Machine.gates_enter
+    zr_c_entered()
+    pair = zr_ary_new(2)
+    zr_ary_push(pair, zr_fix(Machine.word(fn)))
+    zr_ary_push(pair, data)
+    hooks = zr_global(G_AT_EXIT)
+    if zr_special_p(hooks)
+      hooks = zr_ary_new(4)
+      zr_set_global(G_AT_EXIT, hooks)
+    end
+    zr_ary_push(hooks, pair)
+  end
+
+  # ruby_vm_at_exit: `fn(vm)` runs once the program has ended, after the
+  # at_exit handlers and the free functions of T_DATA. `vm` is NULL: zr
+  # has no ruby_vm_t.
+  #: (ptr) -> void
+  def ruby_vm_at_exit(fn)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.static(:capi_vm_at_exit, CAPI_VM_AT_EXIT * 8 + 8)
+    n = Machine.load64(list, 0)
+    if n == CAPI_VM_AT_EXIT
+      zr_c_raise(zr_global(G_RUNTIME_ERROR), Machine.bytes("too many ruby_vm_at_exit functions"), 34)
+    end
+    Machine.store64(list + ((n + 1) * 8), 0, Machine.word(fn))
+    Machine.store64(list, 0, n + 1)
+  end
 end

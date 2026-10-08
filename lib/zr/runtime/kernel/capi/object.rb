@@ -329,4 +329,166 @@ module Zr::Kern
     end
     Machine.value(QNIL)
   end
+
+  # rb_attr_get: the instance variable `mid` (`@name`), or nil.
+  #: (value, word) -> value
+  def rb_attr_get(obj, mid)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_ivar_get(obj, zr_capi_mid(mid))
+  end
+
+  # rb_obj_is_proc: whether `obj` is a Proc, as Qtrue or Qfalse.
+  #: (value) -> value
+  def rb_obj_is_proc(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_bool(!zr_special_p(obj) && zr_is_a(obj, zr_global(G_PROC)))
+  end
+
+  # rb_class_new_instance_kw: `klass.new(*args)`, the last argument the
+  # keywords when `kw_splat` is not 0.
+  #: (i32, ptr, value, i32) -> value
+  def rb_class_new_instance_kw(argc, argv, klass, kw_splat)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_capi_send_maybe_kw(klass, Machine.id(:new), Machine.sword(argc), argv, kw_splat))
+  end
+
+  # rb_require: `require feature`, Qtrue or Qfalse.
+  #: (ptr) -> value
+  def rb_require(feature)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(zr_global(G_KERNEL), Machine.id(:require), zr_str_new(feature, zr_cstr_len(feature)))
+  end
+
+  # The builtin type of `v` that C's TYPE() reads (T_STRING, T_NIL...).
+  #: (value) -> word
+  def zr_capi_builtin_type(v)
+    if v == QNIL
+      return T_NIL
+    end
+    if v == QTRUE
+      return T_TRUE
+    end
+    if v == QFALSE
+      return T_FALSE
+    end
+    if zr_fixnum_p(v)
+      return T_FIXNUM
+    end
+    if zr_flonum_p(v)
+      return T_FLOAT
+    end
+    if zr_symbol_p(v)
+      return T_SYMBOL
+    end
+    RBasic[v].flags & T_MASK
+  end
+
+  # rb_convert_type: `val` when it is of the builtin type `type`, else
+  # what its conversion `method` (`to_str`) gives, which must be of that
+  # type. Raises TypeError, with ruby's message, when `val` has no such
+  # method or the method gives another type.
+  #: (value, i32, ptr, ptr) -> value
+  def rb_convert_type(val, type, tname, method)
+    Machine.gates_enter
+    zr_c_entered()
+    t = Machine.sword(type)
+    if zr_capi_builtin_type(val) == t
+      return val
+    end
+    mid = zr_intern(method, zr_cstr_len(method))
+    v = zr_capi_convert(val, tname, zr_cstr_len(tname), mid, true)
+    zr_capi_converted(val, v, t, tname, zr_cstr_len(tname), mid)
+  end
+
+  # rb_check_convert_type: the same, but nil when `val` has no such
+  # method or the method gives nil.
+  #: (value, i32, ptr, ptr) -> value
+  def rb_check_convert_type(val, type, tname, method)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_check_convert(val, Machine.sword(type), tname, zr_cstr_len(tname), zr_intern(method, zr_cstr_len(method)))
+  end
+
+  # rb_check_array_type: `val` as an Array through `to_ary`, or nil.
+  #: (value) -> value
+  def rb_check_array_type(val)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_check_convert(val, T_ARRAY, Machine.bytes("Array"), 5, Machine.id(:to_ary))
+  end
+
+  #: (value, word, ptr, word, word) -> value
+  def zr_capi_check_convert(val, t, tname, tlen, mid)
+    if zr_capi_builtin_type(val) == t && t != T_DATA
+      return val
+    end
+    v = zr_capi_convert(val, tname, tlen, mid, false)
+    if v == QNIL
+      return v
+    end
+    zr_capi_converted(val, v, t, tname, tlen, mid)
+  end
+
+  # `val.mid`: when `val` does not respond to it, a TypeError when
+  # `raise` says so, else nil. `tname` is the type's name, `tlen` bytes.
+  #: (value, ptr, word, word, bool) -> value
+  def zr_capi_convert(val, tname, tlen, mid, raise)
+    if zr_c_result(zr_check_funcall(val, mid)) == QTRUE
+      return zr_c_result(zr_send(val, mid, 0, Machine.ptr(0)))
+    end
+    if !raise
+      return Machine.value(QNIL)
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    if zr_capi_implicit_p(mid)
+      zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+    else
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+    end
+    if val == QNIL || val == QTRUE || val == QFALSE
+      zr_buf_str(b, zr_c_result(zr_inspect(val)))
+    else
+      zr_buf_str(b, zr_c_result(zr_inspect(zr_real_class(val))))
+    end
+    zr_buf_push(b, Machine.bytes(" into "), 6)
+    zr_buf_push(b, tname, tlen)
+    zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+  end
+
+  # Whether `mid` is one of ruby's implicit conversions, whose TypeError
+  # says `no implicit conversion`.
+  #: (word) -> bool
+  def zr_capi_implicit_p(mid)
+    mid == Machine.id(:to_int) || mid == Machine.id(:to_ary) || mid == Machine.id(:to_str) || mid == Machine.id(:to_sym) ||
+      mid == Machine.id(:to_hash) || mid == Machine.id(:to_proc) || mid == Machine.id(:to_io)
+  end
+
+  # `v`, which `val.mid` gave, when it is of the builtin type `t`; else
+  # ruby's TypeError, `can't convert X to Array (X#to_ary gives Y)`.
+  #: (value, value, word, ptr, word, word) -> value
+  def zr_capi_converted(val, v, t, tname, tlen, mid)
+    if zr_capi_builtin_type(v) == t
+      return v
+    end
+    shown = zr_c_result(zr_inspect(zr_real_class(val)))
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("can't convert "), 14)
+    zr_buf_str(b, shown)
+    zr_buf_push(b, Machine.bytes(" to "), 4)
+    zr_buf_push(b, tname, tlen)
+    zr_buf_push(b, Machine.bytes(" ("), 2)
+    zr_buf_str(b, shown)
+    zr_buf_byte(b, 35)
+    zr_buf_str(b, zr_c_result(zr_send(zr_sym(mid), Machine.id(:to_s), 0, Machine.ptr(0))))
+    zr_buf_push(b, Machine.bytes(" gives "), 7)
+    zr_buf_str(b, zr_c_result(zr_inspect(zr_real_class(v))))
+    zr_buf_byte(b, 41)
+    zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+  end
 end

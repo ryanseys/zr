@@ -350,4 +350,22 @@ module Zr::Kern
     zr_c_entered()
     zr_str_intern(zr_capi_str(text, zr_cstr_len(text), zr_capi_enc_index(enc)))
   end
+
+  # rb_enc_find: the rb_encoding named `name`; ASCII-8BIT for a name
+  # that no encoding has, as ruby gives it.
+  #: (ptr) -> ptr
+  def rb_enc_find(name)
+    index = Machine.sword(rb_enc_find_index(name))
+    zr_capi_encoding(index < 0 ? ENC_BINARY : index)
+  end
+
+  # rb_enc_dummy_p: 1 for a dummy encoding (UTF-7, ISO-2022-JP), which
+  # has no characters of its own, else 0.
+  #: (ptr) -> i32
+  def rb_enc_dummy_p(enc)
+    Machine.gates_enter
+    zr_c_entered()
+    dummy = zr_c_result(zr_send(zr_capi_encoding_object(zr_capi_enc_index(enc)), Machine.id(:dummy?), 0, Machine.ptr(0)))
+    Machine.i32(dummy == QTRUE ? 1 : 0)
+  end
 end

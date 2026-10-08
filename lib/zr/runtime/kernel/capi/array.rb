@@ -107,4 +107,27 @@ module Zr::Kern
       zr_c_raise(zr_global(G_ARGUMENT_ERROR), Machine.bytes("array size too big"), 18)
     end
   end
+
+  # rb_ary_unshift: puts `v` first, and returns the Array.
+  #: (value, value) -> value
+  def rb_ary_unshift(ary, v)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_modify_frozen_p(ary)
+      zr_c_result(zr_frozen_error(ary))
+    end
+    zr_ary_unshift(ary, v)
+    ary
+  end
+
+  # rb_ary_pop: removes the last element and returns it, or nil.
+  #: (value) -> value
+  def rb_ary_pop(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_modify_frozen_p(ary)
+      zr_c_result(zr_frozen_error(ary))
+    end
+    zr_ary_pop(ary, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+  end
 end

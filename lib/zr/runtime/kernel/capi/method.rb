@@ -446,4 +446,32 @@ module Zr::Kern
     end
     Machine.i32(found)
   end
+
+  # rb_funcallv_kw: rb_funcallv, the last argument the keywords when
+  # `kw_splat` is not 0.
+  #: (value, word, i32, ptr, i32) -> value
+  def rb_funcallv_kw(recv, mid, argc, argv, kw_splat)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_capi_send_maybe_kw(recv, zr_capi_mid(mid), Machine.sword(argc), argv, kw_splat))
+  end
+
+  # A send with the keywords Hash last when `kw_splat` (RB_PASS_KEYWORDS)
+  # says so.
+  #: (value, word, word, ptr, i32) -> value
+  def zr_capi_send_maybe_kw(recv, mid, argc, argv, kw_splat)
+    if Machine.sword(kw_splat) != 0 && argc > 0
+      return zr_capi_send_kw(recv, mid, argc, argv)
+    end
+    zr_send(recv, mid, argc, argv)
+  end
+
+  # rb_undef_method: `klass` has no method `name`, as `undef_method` makes
+  # it.
+  #: (value, ptr) -> void
+  def rb_undef_method(klass, name)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(klass, Machine.id(:undef_method), zr_sym(zr_intern(name, zr_cstr_len(name))))
+  end
 end

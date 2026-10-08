@@ -133,4 +133,51 @@ module Zr::Kern
     zr_buf_byte(b, 10)
     zr_bug(Buf[b].ptr, Buf[b].len)
   end
+
+  # ruby_snprintf: writes the format into the `n` bytes at `out`, cut to
+  # fit with its NUL, and returns the length of the whole text.
+  #: (ptr, word, ptr) -> i32
+  def ruby_snprintf(out, n, fmt)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_start(list, Machine.stack_args)
+    zr_capi_snprintf(out, n, zr_c_result(zr_c_format(fmt, list)))
+  end
+
+  # ruby_vsnprintf: the same, with C's va_list.
+  #: (ptr, word, ptr, ptr) -> i32
+  def ruby_vsnprintf(out, n, fmt, ap)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_from_c(list, ap)
+    zr_capi_snprintf(out, n, zr_c_result(zr_c_format(fmt, list)))
+  end
+
+  #: (ptr, word, value) -> i32
+  def zr_capi_snprintf(out, n, text)
+    len = RString[text].len
+    if n > 0
+      fits = len < n ? len : n - 1
+      zr_memcpy(out, RString[text].ptr, fits)
+      Machine.store8(out + fits, 0, Machine.i8(0))
+    end
+    Machine.i32(len)
+  end
+
+  # rb_fatal: ends the program with the formatted message as `fatal`,
+  # which no rescue catches: the at_exit handlers run, the message goes to
+  # stderr, and the status is 1, as in ruby. (Ruby also runs the ensure
+  # clauses on the way out; zr does not.)
+  #: (ptr) -> void
+  def rb_fatal(fmt)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_start(list, Machine.stack_args)
+    message = zr_c_result(zr_c_format(fmt, list))
+    exc = zr_c_result(zr_exc_new_str(zr_fatal_class(), message))
+    Libc.exit(Machine.i32(zr_program_end(exc)))
+  end
 end

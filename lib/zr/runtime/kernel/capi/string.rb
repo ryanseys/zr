@@ -366,4 +366,139 @@ module Zr::Kern
     end
     converted
   end
+
+  # rb_str_new_frozen: `str` when it is frozen, else a frozen copy.
+  #: (value) -> value
+  def rb_str_new_frozen(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_frozen_p(str) ? str : zr_str_new_frozen_m(str)
+  end
+
+  # rb_str_freeze: freezes `str` and returns it.
+  #: (value) -> value
+  def rb_str_freeze(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_obj_freeze(str, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+  end
+
+  # rb_str_append and rb_str_buf_append: `str << other` for a String,
+  # with the encodings that `<<` checks.
+  #: (value, value) -> value
+  def rb_str_append(str, other)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:<<), other)
+  end
+
+  #: (value, value) -> value
+  def rb_str_buf_append(str, other)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:<<), other)
+  end
+
+  # rb_str_plus: `a + b`, a new String.
+  #: (value, value) -> value
+  def rb_str_plus(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(a, Machine.id(:+), b)
+  end
+
+  # rb_str_cmp: -1, 0 or 1, as `a <=> b` orders two Strings.
+  #: (value, value) -> i32
+  def rb_str_cmp(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(zr_fix2long(zr_capi_call1(a, Machine.id(:<=>), b)))
+  end
+
+  # rb_str_export_to_enc: `str` in the encoding `enc`.
+  #: (value, ptr) -> value
+  def rb_str_export_to_enc(str, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:encode), zr_capi_encoding_object(zr_capi_enc_index(enc)))
+  end
+
+  # rb_enc_str_coderange: the coderange of `str` (ENC_CODERANGE_7BIT,
+  # _VALID or _BROKEN), which this scans for when it is not known yet.
+  #: (value) -> i32
+  def rb_enc_str_coderange(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_str_ascii_bytes_p(str)
+    cr = RBasic[str].flags & FL_CR_MASK
+    if cr == 0
+      valid = zr_c_result(zr_send(str, Machine.id(:valid_encoding?), 0, Machine.ptr(0)))
+      cr = valid == QTRUE ? FL_CR_VALID : FL_CR_BROKEN
+      zr_str_set_coderange(str, cr)
+    end
+    Machine.i32(cr)
+  end
+
+  # rb_enc_strlen: the characters of the bytes from `p` to `e` in `enc`;
+  # a byte that starts no character counts as one, as String#length
+  # counts it.
+  #: (ptr, ptr, ptr) -> word
+  def rb_enc_strlen(p, e, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    s = zr_str_new_at(p, e - p, zr_capi_enc_index(enc))
+    zr_fix2long(zr_c_result(zr_send(s, Machine.id(:length), 0, Machine.ptr(0))))
+  end
+
+  # rb_enc_codepoint_len: the codepoint of the character at `p` in `enc`,
+  # and its length in bytes into `*len` (when `len` is not NULL). Raises
+  # ArgumentError for no bytes or for bytes that are not a character.
+  #: (ptr, ptr, ptr, ptr) -> word
+  def rb_enc_codepoint_len(p, e, len, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    s = zr_str_new_at(p, e > p ? e - p : 0, zr_capi_enc_index(enc))
+    first = zr_capi_call1(s, Machine.id(:[]), zr_fix(0))
+    if first == QNIL
+      first = s
+    end
+    code = zr_c_result(zr_send(first, Machine.id(:ord), 0, Machine.ptr(0)))
+    if len != 0
+      Machine.store32(len, 0, Machine.i32(RString[first].len))
+    end
+    zr_capi_long(code)
+  end
+
+  # rb_fix2str: `fix.to_s(base)`.
+  #: (value, i32) -> value
+  def rb_fix2str(fix, base)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(fix, Machine.id(:to_s), zr_fix(Machine.sword(base)))
+  end
+
+  # rb_cstr2inum: the Integer that the C string `text` writes in `base`,
+  # as String#to_i reads it. Base 0 is ruby 4.0's strict base 10: no
+  # prefix, and text that is not a number raises, as Integer(text, 10).
+  #: (ptr, i32) -> value
+  def rb_cstr2inum(text, base)
+    Machine.gates_enter
+    zr_c_entered()
+    str = zr_str_new(text, zr_cstr_len(text))
+    if Machine.sword(base) == 0
+      args = Machine.slot(16)
+      Machine.store64(args, 0, Machine.word(str))
+      Machine.store64(args, 8, Machine.word(zr_fix(10)))
+      return zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:Integer), 2, args))
+    end
+    zr_capi_call1(str, Machine.id(:to_i), zr_fix(Machine.sword(base)))
+  end
+
+  # rb_sym_to_s: `sym.to_s`, a new String.
+  #: (value) -> value
+  def rb_sym_to_s(sym)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(sym, Machine.id(:to_s), 0, Machine.ptr(0)))
+  end
 end

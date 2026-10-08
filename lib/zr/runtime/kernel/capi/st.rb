@@ -277,4 +277,19 @@ module Zr::Kern
     h = Machine.mul_wrap(key ^ Machine.word(Machine.ptr(key) >> 29), Machine.word(0x9E3779B97F4A7C15))
     h ^ Machine.word(Machine.ptr(h) >> 32)
   end
+
+  # rb_st_hash: a hash of the `len` bytes at `bytes`, from the seed `h`
+  # (FNV-1a).
+  #: (ptr, word, word) -> word
+  def rb_st_hash(bytes, len, h)
+    Machine.gates_enter
+    zr_c_entered()
+    hash = h ^ Machine.word(0xcbf29ce484222325)
+    i = 0
+    while i < len
+      hash = (hash ^ Machine.u8(Machine.load8(bytes + i, 0))) * 0x100000001b3
+      i += 1
+    end
+    hash
+  end
 end

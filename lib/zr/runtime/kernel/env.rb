@@ -132,7 +132,9 @@ module Zr::Kern
     if !zr_special_p(hooks)
       while RArray[hooks].len > 0
         blk = zr_ary_pop(hooks, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
-        status = zr_program_end_hook(zr_yield(blk, 0, 0), status, exc)
+        # A C extension's end proc (rb_set_end_proc) is the pair [fn, data].
+        r = zr_type(blk) == T_ARRAY ? zr_c_end_proc(blk) : zr_yield(blk, 0, 0)
+        status = zr_program_end_hook(r, status, exc)
       end
     end
     last = zr_errinfo()
@@ -158,6 +160,7 @@ module Zr::Kern
     end
     zr_finalizers_at_exit()
     zr_data_free_all()
+    zr_c_vm_at_exit()
     # A finalizer's output also goes to a buffer, so flush again.
     if zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:flush_pending), 0, 0) == QUNDEF
       Task[zr_task()].pending = Machine.value(QNIL)

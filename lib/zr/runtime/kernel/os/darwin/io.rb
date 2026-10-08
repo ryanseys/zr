@@ -5,7 +5,13 @@ module Zr::Kern
 
   #: () -> word
   def zr_os_errno
-    Machine.u32(Machine.load32(Libc.__error(), 0))
+    Machine.u32(Machine.load32(zr_os_errno_ptr(), 0))
+  end
+
+  # Where this thread's errno is (rb_errno_ptr).
+  #: () -> ptr
+  def zr_os_errno_ptr
+    Libc.__error()
   end
 
   #: (word) -> void

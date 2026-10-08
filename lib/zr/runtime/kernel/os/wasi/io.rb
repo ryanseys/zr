@@ -6,7 +6,13 @@
 module Zr::Kern
   #: () -> word
   def zr_os_errno
-    Machine.u32(Machine.load32(Machine.static(:errno, 8), 0))
+    Machine.u32(Machine.load32(zr_os_errno_ptr(), 0))
+  end
+
+  # Where this thread's errno is (rb_errno_ptr).
+  #: () -> ptr
+  def zr_os_errno_ptr
+    Machine.static(:errno, 8)
   end
 
   #: (word) -> void
