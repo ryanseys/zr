@@ -101,33 +101,45 @@ module Zr::Kern
     RBasic[s].flags = RBasic[s].flags & FL_EMBED_CLEAR & FL_GAP_CLEAR
   end
 
-  # A String whose bytes a scan found all below 0x80, which CRuby calls the
-  # 7-bit coderange. Each write to the bytes clears it, so the runtime scans
-  # a String that it reads many times only once.
-  FL_ASCII = 1 << 38
-  # A String that a scan found valid in its encoding, CRuby's valid
-  # coderange. The same writes clear it, and so does a new encoding.
-  FL_VALID = 1 << 39
-  # A String whose bytes the ASCII scan read, whatever the result. With
-  # FL_ASCII, the bytes are all below 0x80. Without it, one byte is not.
-  # FL_ASCII alone records only a scan that succeeded, so without this flag
-  # a text with one non-ASCII byte gets a new scan for each check, for
-  # example each Regexp match on it. Each write to the bytes clears it, and
-  # so does an encoding that cannot hold ASCII text.
-  FL_SCANNED = 1 << 33
-  FL_ASCII_CLEAR = 0 - FL_ASCII - FL_SCANNED - 1
+  # A String's coderange, in CRuby 4.0's bits (ENC_CODERANGE_MASK), so a C
+  # extension reads and clears it inline as ruby does. Neither bit: not
+  # known yet. 7BIT: every byte is below 0x80. VALID: the bytes are valid
+  # in the encoding, and one is not ASCII. Both bits (BROKEN): the bytes
+  # are not valid. A scan finds it once and keeps it, so the runtime scans
+  # a String that it reads many times only once. Each write to the bytes
+  # clears it, and so does a new encoding, except 7BIT in an encoding that
+  # holds ASCII text.
+  FL_CR_7BIT = 1 << 20
+  FL_CR_VALID = 1 << 21
+  FL_CR_BROKEN = FL_CR_7BIT | FL_CR_VALID
+  FL_CR_MASK = FL_CR_BROKEN
+  FL_CR_CLEAR = 0 - FL_CR_MASK - 1
   # A String whose frozen copy MatchData keeps (MatchData.snapshot) and that
   # is still equal to the copy: nothing changed it since. Each change clears
   # it. Each change also calls the frozen check first (zr_modify_frozen_p),
   # which clears it too, before a byte changes.
   FL_SNAPSHOT = 1 << 32
   FL_SNAPSHOT_CLEAR = 0 - FL_SNAPSHOT - 1
-  FL_SCANS_CLEAR = 0 - FL_ASCII - FL_VALID - FL_SNAPSHOT - FL_SCANNED - 1
+  FL_SCANS_CLEAR = 0 - FL_CR_MASK - FL_SNAPSHOT - 1
 
   # The bytes of `s` changed, so the scan results for them are not valid.
   #: (value) -> void
   def zr_str_modified(s)
     RBasic[s].flags = RBasic[s].flags & FL_SCANS_CLEAR
+  end
+
+  # Whether a scan already found every byte of `s` below 0x80. It scans
+  # nothing itself.
+  #: (value) -> bool
+  def zr_str_known_ascii_p(s)
+    (RBasic[s].flags & FL_CR_MASK) == FL_CR_7BIT
+  end
+  inline :zr_str_known_ascii_p
+
+  # Keeps `cr`, one of the FL_CR_ values, as the coderange of `s`.
+  #: (value, word) -> void
+  def zr_str_set_coderange(s, cr)
+    RBasic[s].flags = (RBasic[s].flags & FL_CR_CLEAR) | cr
   end
 
   # Whether `s` did not change since MatchData.snapshot last copied it.
@@ -359,10 +371,12 @@ module Zr::Kern
 
   #: (value, word) -> value
   def zr_str_set_index(s, index)
-    flags = (RBasic[s].flags & FL_ENC_KEEP & (0 - FL_VALID - 1)) | (index << FL_ENC_SHIFT)
-    # ASCII bytes are not ASCII text in UTF-16 or UTF-32.
-    if !zr_enc_ascii_compat_p(index)
-      flags = flags & FL_ASCII_CLEAR
+    flags = (RBasic[s].flags & FL_ENC_KEEP) | (index << FL_ENC_SHIFT)
+    # Validity depends on the encoding, so only 7BIT carries over, and only
+    # to an encoding that holds ASCII text: ASCII bytes are not ASCII text
+    # in UTF-16 or UTF-32.
+    if (flags & FL_CR_MASK) != FL_CR_7BIT || !zr_enc_ascii_compat_p(index)
+      flags = flags & FL_CR_CLEAR
     end
     RBasic[s].flags = flags
     s
@@ -471,11 +485,16 @@ module Zr::Kern
     zr_bool(zr_str_mb_p(s))
   end
 
-  # Marks the bytes of the String as valid without a scan, as CRuby sets a
-  # coderange that it copies from another String.
+  # Marks the bytes of the String as valid without a validity scan, as
+  # CRuby sets a coderange that it copies from another String: 7BIT when
+  # the bytes are ASCII text, else VALID.
   #: (value) -> value
   def zr_str_mark_valid_m(s)
-    RBasic[s].flags = RBasic[s].flags | FL_VALID
+    cr = RBasic[s].flags & FL_CR_MASK
+    if cr != FL_CR_7BIT && cr != FL_CR_VALID
+      ascii = zr_enc_ascii_compat_p(zr_str_encoding_index(s)) && zr_str_scan_ascii(s)
+      zr_str_set_coderange(s, ascii ? FL_CR_7BIT : FL_CR_VALID)
+    end
     s
   end
 
@@ -671,19 +690,29 @@ module Zr::Kern
   end
 
   # Whether each byte of `s` is below 0x80. It scans once and keeps the
-  # result in FL_ASCII under FL_SCANNED, for both results.
+  # coderange: 7BIT, or for a String with a byte at or above 0x80, VALID or
+  # BROKEN, as CRuby's coderange scan does. So a text with one such byte is
+  # not scanned again for each check, for example each Regexp match on it.
   #: (value) -> bool
   def zr_str_ascii_bytes_p(s)
-    flags = RBasic[s].flags
-    if (flags & FL_ASCII) != 0
-      return true
-    end
-    if (flags & FL_SCANNED) != 0
-      return false
+    cr = RBasic[s].flags & FL_CR_MASK
+    if cr != 0
+      return cr == FL_CR_7BIT
     end
     if !zr_enc_ascii_compat_p(zr_str_encoding_index(s))
       return false
     end
+    if zr_str_scan_ascii(s)
+      zr_str_set_coderange(s, FL_CR_7BIT)
+      return true
+    end
+    zr_str_set_coderange(s, zr_str_non_ascii_coderange(s))
+    false
+  end
+
+  # Whether each byte of `s` is below 0x80, by a scan that keeps nothing.
+  #: (value) -> bool
+  def zr_str_scan_ascii(s)
     n = RString[s].len
     p = RString[s].ptr
     i = 0
@@ -694,12 +723,18 @@ module Zr::Kern
     while i < n && Machine.u8(Machine.load8(p + i, 0)) < 128
       i += 1
     end
-    if i < n
-      RBasic[s].flags = flags | FL_SCANNED
-      return false
+    i == n
+  end
+
+  # The coderange of `s`, which has a byte at or above 0x80: US-ASCII
+  # cannot hold that byte, and another encoding holds it when the bytes
+  # are valid there.
+  #: (value) -> word
+  def zr_str_non_ascii_coderange(s)
+    if zr_str_encoding_index(s) == ENC_USASCII
+      return FL_CR_BROKEN
     end
-    RBasic[s].flags = flags | FL_SCANNED | FL_ASCII
-    true
+    zr_str_valid_scan(s) == QTRUE ? FL_CR_VALID : FL_CR_BROKEN
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -814,7 +849,7 @@ module Zr::Kern
       Machine.store8(RString[recv].ptr + n - 1, 0, Machine.i8(c))
       RString[recv].len = n
       Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
-      if c >= 128 || (RBasic[recv].flags & FL_ASCII) == 0
+      if c >= 128 || !zr_str_known_ascii_p(recv)
         zr_str_modified(recv)
       end
       return recv
@@ -983,7 +1018,7 @@ module Zr::Kern
     # piece when the receiver is known ASCII: a scan of the piece costs the
     # same as its copy, and without the flag the next join scans all of the
     # receiver.
-    ascii = (RBasic[recv].flags & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
+    ascii = zr_str_known_ascii_p(recv) && zr_str_ascii_bytes_p(other)
     n = RString[recv].len + RString[other].len
     zr_str_reserve(recv, n)
     zr_memcpy(RString[recv].ptr + RString[recv].len, RString[other].ptr, RString[other].len)
@@ -1117,10 +1152,9 @@ module Zr::Kern
   end
 
   # Same as `zr_str_ascii_bytes_p`, under the name that the rest of the
-  # kernel uses. The result is kept in `FL_ASCII`, so a String-keyed Hash
-  # does not scan a key again on each lookup. `zr_str_modified` and an
-  # encoding that cannot hold ASCII text clear `FL_ASCII`, so the kept
-  # result is never stale.
+  # kernel uses. The result is kept as the coderange, so a String-keyed
+  # Hash does not scan a key again on each lookup. `zr_str_modified` and a
+  # new encoding clear it, so the kept result is never stale.
   #: (value) -> bool
   def zr_str_ascii_only(s)
     zr_str_ascii_bytes_p(s)
@@ -1215,7 +1249,7 @@ module Zr::Kern
   #: (value, word) -> word
   def zr_str_char_len_at(s, off)
     # Only the flag, never a scan, because this runs once for each character.
-    if (RBasic[s].flags & FL_ASCII) != 0
+    if zr_str_known_ascii_p(s)
       return 1
     end
     if !zr_str_wide_p(s)
@@ -1243,7 +1277,7 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     off = zr_fix2long(at)
-    if off >= RString[s].len || (RBasic[s].flags & FL_ASCII) != 0 || (zr_str_unit(s) == 0 && !zr_str_mb_p(s))
+    if off >= RString[s].len || zr_str_known_ascii_p(s) || (zr_str_unit(s) == 0 && !zr_str_mb_p(s))
       return Machine.value(QTRUE)
     end
     i = 0
@@ -1258,7 +1292,7 @@ module Zr::Kern
     n = RString[s].len
     # A scan that found the bytes ASCII gives the result first, with one
     # flag check.
-    if (RBasic[s].flags & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+    if zr_str_known_ascii_p(s) || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
       return n
     end
     # Valid UTF-8 is counted eight bytes at a time. One scan decides that it
@@ -1332,7 +1366,7 @@ module Zr::Kern
   def zr_str_char_offset(s, index)
     n = RString[s].len
     # One byte for each character: the index is the offset.
-    if (RBasic[s].flags & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+    if zr_str_known_ascii_p(s) || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
       if index < 0
         index += n
       end
@@ -1372,7 +1406,7 @@ module Zr::Kern
   def zr_str_byte_to_char(s, off)
     stop = zr_fix2long(off)
     # One byte for each character: the offset is the index.
-    if (RBasic[s].flags & FL_ASCII) != 0 || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
+    if zr_str_known_ascii_p(s) || (!zr_str_wide_p(s) && zr_str_unit(s) == 0 && !zr_str_mb_p(s)) || zr_str_ascii_bytes_p(s)
       return off
     end
     if zr_str_encoding_index(s) == ENC_UTF8 && zr_str_valid_p(s) == QTRUE && stop <= RString[s].len
@@ -1499,17 +1533,12 @@ module Zr::Kern
   # encoding of this runtime accepts any byte.
   #: (value) -> value
   def zr_str_valid_p(s)
-    # Plain ASCII is valid in each encoding that can hold it, and the
-    # ASCII scan's result also carries over to slices (zr_str_piece).
-    if (RBasic[s].flags & FL_VALID) != 0 || zr_str_ascii_bytes_p(s)
-      RBasic[s].flags = RBasic[s].flags | FL_VALID
-      return Machine.value(QTRUE)
+    # The ASCII scan finds the whole coderange of a String in an encoding
+    # that holds ASCII text. Only UTF-16 and UTF-32 need a scan here.
+    if !zr_str_ascii_bytes_p(s) && (RBasic[s].flags & FL_CR_MASK) == 0
+      zr_str_set_coderange(s, zr_str_valid_scan(s) == QTRUE ? FL_CR_VALID : FL_CR_BROKEN)
     end
-    valid = zr_str_valid_scan(s)
-    if valid == QTRUE
-      RBasic[s].flags = RBasic[s].flags | FL_VALID
-    end
-    valid
+    zr_bool((RBasic[s].flags & FL_CR_MASK) != FL_CR_BROKEN)
   end
 
   #: (value) -> value
@@ -2503,8 +2532,8 @@ G_FROZEN_LITERALS = 52
   #: (value, ptr, word) -> value
   def zr_str_piece(src, bytes, len)
     out = zr_str_copy_encoding(zr_str_new(bytes, len), src)
-    if (RBasic[src].flags & FL_ASCII) != 0
-      RBasic[out].flags = RBasic[out].flags | FL_ASCII | FL_SCANNED | FL_VALID
+    if zr_str_known_ascii_p(src)
+      zr_str_set_coderange(out, FL_CR_7BIT)
     end
     out
   end
@@ -2571,7 +2600,7 @@ G_FROZEN_LITERALS = 52
   # Returns the first `n` bytes of `s` as a new String, and moves the rest
   # to the front of `s`. Thus a read buffer gives out a line and does not
   # copy the rest into a new String. Fewer bytes stay plain ASCII if all of
-  # them were, so FL_ASCII stays correct.
+  # them were, so the 7BIT coderange stays correct.
   #: (value, value) -> value
   def zr_str_shift_front(s, n)
     len = RString[s].len
@@ -2670,7 +2699,7 @@ G_FROZEN_LITERALS = 52
     index = zr_str_join_index(s, other)
     # ASCII spliced into ASCII stays ASCII, as rb_str_update_1 keeps the
     # 7-bit coderange. Without the flag, the next index scans the whole string.
-    ascii = (RBasic[s].flags & FL_ASCII) != 0 && zr_str_ascii_bytes_p(other)
+    ascii = zr_str_known_ascii_p(s) && zr_str_ascii_bytes_p(other)
     at = zr_fix2long(from)
     cut = zr_fix2long(len)
     m = RString[other].len
