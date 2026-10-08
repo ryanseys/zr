@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "fiddle"
 require_relative "block"
 require_relative "image"
 require_relative "../../bytes"
@@ -111,19 +110,22 @@ module Zr
         # The slots that the executable fills, with each bind's import and
         # its dylib. `runtime` gives the address of a name that the
         # executable defines, or nil.
-        #: (^(String) -> Integer?) -> [Array[Fixup], Hash[String, String]]
+        #: (^(String) -> Integer?) -> [Array[Fixup], Hash[String, String?]]
         def fixups(runtime)
-          imports = {} #: Hash[String, String]
+          imports = {} #: Hash[String, String?]
           # A flat lookup finds a name in the executable first, then in the
           # bundle itself, then in its dylibs.
           own = @image.exports.select(&:address).to_h { |e| [e.name, @vm + e.address.to_i] }
           bound = @image.binds.to_h do |bind|
             at = runtime.call(bind.name) || own[bind.name]
-            dylib = dylib_of(bind.name, weak: bind.weak) unless at || bind.name.delete_prefix("_") == STUB_BINDER
+            dylib = dylib_of(bind) unless at || bind.name.delete_prefix("_") == STUB_BINDER
             fixup = if at
                       Fixup.new(address: @vm + bind.address, kind: :rebase, target: at + bind.addend, addend: 0)
                     elsif dylib
-                      imports[bind.name.delete_prefix("_")] = dylib
+                      # A flat lookup stays one: dyld finds the name in
+                      # the images that the executable loads, as it did
+                      # for the bundle.
+                      imports[bind.name.delete_prefix("_")] = dylib == :flat ? nil : dylib
                       Fixup.new(address: @vm + bind.address, kind: :bind, target: bind.name.delete_prefix("_"), addend: bind.addend)
                     else
                       # A weak import that no image defines stays null.
@@ -137,6 +139,10 @@ module Zr
           [rebased + bound.values, imports]
         end
 
+        # The dylibs that the bundle loads, which the executable loads too.
+        #: () -> Array[String]
+        def dylibs = @image.dylibs
+
         private
 
         #: () -> Array[Image::Segment]
@@ -149,22 +155,17 @@ module Zr
           section ? (@vm + section.addr)...(@vm + section.addr + section.size) : @vm...@vm
         end
 
-        # The system dylib of the bundle's that defines `name`, as this
-        # host's loader finds it; nil for a weak import that none defines.
-        #: (String name, weak: bool) -> String?
-        def dylib_of(name, weak:)
-          symbol = name.delete_prefix("_")
-          # A handle's dlsym also searches the dylib's own dependencies,
-          # which libSystem is one of, so libSystem comes first.
-          [Executable::LIBSYSTEM, *(@image.dylibs - [Executable::LIBSYSTEM])].each do |path|
-            Fiddle::Handle.new(path).sym(symbol)
-            return path
-          rescue Fiddle::DLError
-            next
-          end
-          return nil if weak
+        # The dylib that the bind `bind` names by its ordinal, as the linker
+        # recorded where it found the name, or :flat for a flat lookup,
+        # which the bundle left to dyld; nil for a weak flat import, which
+        # stays null.
+        #: (Image::Bind bind) -> (String | :flat | nil)
+        def dylib_of(bind)
+          return @image.dylibs.fetch(bind.library - 1) if bind.library.positive?
+          return nil if bind.weak
+          return :flat if [Image::FLAT_LOOKUP, Image::WEAK_LOOKUP].include?(bind.library)
 
-          raise Refused, "#{@init}: no dylib of the bundle defines #{symbol}"
+          raise Refused, "#{@init}: no image defines #{bind.name.delete_prefix("_")}"
         end
 
         #: () -> void

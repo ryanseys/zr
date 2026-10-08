@@ -122,6 +122,9 @@ module Zr
         OTHER_COMMANDS = [16, 16, 24, 80, 32, 24, 24, 24, 56, 16].sum
         # Where embedded C extensions start, above the runtime's data.
         EMBED_GAP = 1 << 30
+        # A chained import's ordinal for a flat lookup
+        # (BIND_SPECIAL_DYLIB_FLAT_LOOKUP, -2 in 8 bits).
+        FLAT_LOOKUP = 0xFE
 
         # The section name and flags for each part.
         SECTIONS ={ text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
@@ -200,8 +203,8 @@ module Zr
           outside = @imports.reject { |name| self.class.libsystem?(name) || extra.key?(name) }
           raise Refused, "#{outside.first} is not libSystem's" unless outside.empty?
 
-          @dylibs = [LIBSYSTEM, *(extra.values.uniq - [LIBSYSTEM]).sort]
-          @import_dylib = @imports.to_h { |name| [name, extra.key?(name) ? @dylibs.index(extra[name]).to_i + 1 : 1] }
+          @dylibs = [LIBSYSTEM, *(@embeds.flat_map(&:dylibs).uniq - [LIBSYSTEM]).sort]
+          @import_dylib = @imports.to_h { |name| [name, import_ordinal(name, extra)] }
           @ordinal = @imports.each_with_index.to_h
           Timing.phase("link: laying out", "link: laid out") { @base.empty? ? plain : beside_base }
           embed_segments!
@@ -302,17 +305,30 @@ module Zr
         end
 
         # The embeds' fixups (in @embed_fixups), and their imports, each
-        # with its dylib. A bind to a name that the runtime defines, its C
-        # API, becomes a rebase to that definition.
-        #: () -> Hash[String, String]
+        # with its dylib, or nil for a flat lookup. A bind to a name that
+        # the runtime defines, its C API, becomes a rebase to that
+        # definition. A dylib that one embed names wins over another's flat
+        # lookup.
+        #: () -> Hash[String, String?]
         def embed_imports
           @embed_fixups = []
-          found = {} #: Hash[String, String]
+          found = {} #: Hash[String, String?]
           @embeds.each_with_object(found) do |embed, imports|
             fixups, theirs = embed.fixups(->(name) { @base.global(name) })
             @embed_fixups.concat(fixups)
-            imports.merge!(theirs)
+            imports.merge!(theirs) { |_, mine, other| mine || other }
           end
+        end
+
+        # The ordinal of an import's dylib in a chained import: zr's own
+        # imports are libSystem's; an embed's is its dylib's, or the flat
+        # lookup.
+        #: (String name, Hash[String, String?] extra) -> Integer
+        def import_ordinal(name, extra)
+          return 1 unless extra.key?(name)
+
+          dylib = extra[name]
+          dylib ? @dylibs.index(dylib).to_i + 1 : FLAT_LOOKUP
         end
 
         # Adds a segment for each segment of each embed, after the others.

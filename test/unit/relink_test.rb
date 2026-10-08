@@ -94,6 +94,20 @@ class RelinkTest < Minitest::Test
     assert(fixups.all? { |f| f.kind == :rebase })
   end
 
+  # A bundle linked with a flat namespace binds each name by a flat
+  # lookup: the executable keeps the lookup (nil, no dylib) and loads
+  # every dylib that the bundle loads, so dyld finds the name where it did
+  # for the bundle.
+  def test_a_flat_lookup_stays_flat_and_the_bundles_dylibs_load
+    flat = relink("flat", "#include <string.h>\nunsigned long Init_flat(const char *s) { return strlen(s); }\n", "-flat_namespace")
+    flat.place!(0x4_0000_0000)
+    fixups, imports = flat.fixups(->(_) { nil })
+
+    assert_equal({ "strlen" => nil }, imports)
+    assert_includes fixups.map(&:kind), :bind
+    assert_equal [Zr::Obj::MachO::Executable::LIBSYSTEM], flat.dylibs
+  end
+
   def test_what_an_embed_cannot_hold_is_refused_with_its_reason
     {
       "tls" => ["__thread int counter;\nint Init_tls(void) { return ++counter; }\n", [], /thread-local variables/],
