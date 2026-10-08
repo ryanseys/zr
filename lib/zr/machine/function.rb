@@ -848,9 +848,11 @@ module Zr
           refuse(node, "Machine.static takes a symbol and a size") unless name.is_a?(Prism::SymbolNode) && size
           [@f.symbol_value(@f.symbol(@unit.static(node, name.unescaped, immediate(size)))), "Ptr"]
         when :global
-          name = args.first
-          refuse(node, "Machine.global takes the symbol of the word") unless args.one? && name.is_a?(Prism::SymbolNode)
-          [@f.symbol_value(@f.symbol(@unit.global(name.unescaped))), "Ptr"]
+          name, size = args
+          unless name.is_a?(Prism::SymbolNode) && args.size <= 2
+            refuse(node, "Machine.global takes the symbol of the area and its size")
+          end
+          [@f.symbol_value(@f.symbol(@unit.global(node, name.unescaped, size ? immediate(size) : 8))), "Ptr"]
         when :gates
           refuse(node, "Machine.gates takes nothing") unless args.empty?
           [@f.gates, "Word"]

@@ -225,10 +225,10 @@ module Zr
         def extern(name) = @host.extern(name.to_s)
         #: (Symbol name, Integer size) -> Integer
         def static(name, size) = @statics[name] ||= @host.static(name.to_s, size)
-        # An exported word of a C name (`Machine.global`): a static here,
+        # An exported area of a C name (`Machine.global`): a static here,
         # in a namespace of its own.
-        #: (Symbol name) -> Integer
-        def global(name) = static(:"global #{name}", 8)
+        #: (Symbol name, ?Integer size) -> Integer
+        def global(name, size = 8) = static(:"global #{name}", size)
         #: (Integer size) -> Integer
         def slot(size) = @host.slot(size)
         #: (Symbol name) -> Integer

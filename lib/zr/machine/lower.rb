@@ -79,7 +79,7 @@ module Zr
       # @rbs @sigs: Hash[String, Signature]
       # @rbs @next_bytes: Integer
       # @rbs @statics: Hash[String, Integer]
-      # @rbs @globals: Set[String]
+      # @rbs @globals: Hash[String, Integer]
       # @rbs @collectors: Array[String]
       # @rbs @collects: Set[String | Symbol]?
       # @rbs @inline: Hash[String, bool?]
@@ -113,7 +113,7 @@ module Zr
         @raw = []
         @next_bytes = 0
         @statics = {}
-        @globals = Set.new
+        @globals = {}
         @collectors = []
         @collects = nil
         @inline = {}
@@ -831,11 +831,17 @@ module Zr
         "zr_static_#{name}"
       end
 
-      # An exported, zeroed word that C code reads by its own name, as a C
-      # extension reads `rb_cObject`: `Machine.global(:rb_cObject)`.
-      #: (String name) -> String
-      def global(name)
-        @data << Obj::Datum.new(name, :bss, 8, align: 8, linkage: :export) if @globals.add?(name)
+      # An exported, zeroed area that C code reads by its own name, as a C
+      # extension reads `rb_cObject`: `Machine.global(:rb_cObject)` is a
+      # word, and `Machine.global(:ruby_hexdigits, 33)` a table of bytes.
+      #: (Prism::node? node, String name, Integer size) -> String
+      def global(node, name, size)
+        if @globals.key?(name)
+          refuse(node, "#{name} is #{@globals[name]} bytes, not #{size}") if @globals[name] != size
+        else
+          @globals[name] = size
+          @data << Obj::Datum.new(name, :bss, size, align: 8, linkage: :export)
+        end
         name
       end
 
