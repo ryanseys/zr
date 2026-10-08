@@ -8,13 +8,16 @@ require_relative "../support/c_ext"
 # the gems use it (pg, sqlite3, gherkin, mini_racer), against ruby's
 # answers: rb_ary_delete, rb_funcall_with_block(_kw),
 # rb_copy_generic_ivar, rb_gc_adjust_memory_usage, rb_locale_encindex,
-# rb_absint_numwords, rb_str_encode_ospath and
-# rb_thread_lock_native_thread.
+# rb_absint_numwords, rb_str_encode_ospath, rb_thread_lock_native_thread
+# and rb_process_status_wait (io-event).
 class CExtSweepGapsTest < Minitest::Test
   SOURCE = <<~'C'
     #include <ruby.h>
     #include <ruby/encoding.h>
     #include <ruby/thread.h>
+    #include <sys/wait.h>
+
+    VALUE rb_process_status_wait(rb_pid_t pid, int flags);
 
     static VALUE g_delete(VALUE self, VALUE ary, VALUE item) { return rb_ary_delete(ary, item); }
 
@@ -57,6 +60,13 @@ class CExtSweepGapsTest < Minitest::Test
 
     static VALUE g_lock(VALUE self) { return rb_thread_lock_native_thread() ? Qtrue : Qfalse; }
 
+    static VALUE g_wait(VALUE self, VALUE pid, VALUE nohang) {
+      VALUE status = rb_process_status_wait(NUM2INT(pid), RTEST(nohang) ? WNOHANG : 0);
+      if (NIL_P(status)) return Qnil;
+      return rb_ary_new_from_args(3, rb_obj_class(status), rb_funcall(status, rb_intern("pid"), 0),
+                                  rb_funcall(status, rb_intern("exitstatus"), 0));
+    }
+
     void Init_gaps(void) {
       VALUE m = rb_define_module("Gaps");
       rb_define_module_function(m, "delete", g_delete, 2);
@@ -70,6 +80,7 @@ class CExtSweepGapsTest < Minitest::Test
       rb_define_module_function(m, "numwords", g_numwords, 2);
       rb_define_module_function(m, "ospath", g_ospath, 1);
       rb_define_module_function(m, "lock", g_lock, 0);
+      rb_define_module_function(m, "wait", g_wait, 2);
     }
   C
 
@@ -124,6 +135,13 @@ class CExtSweepGapsTest < Minitest::Test
       end
     end
     show(:lock) { Gaps.lock }
+    show(:wait) do
+      slow = Process.spawn("/bin/sh", "-c", "sleep 0.3; exit 3")
+      running = Gaps.wait(slow, true)
+      klass, pid, code = Gaps.wait(slow, false)
+      [running, klass, pid == slow, code]
+    end
+    show(:no_child) { Gaps.wait(-1, false).values_at(0, 1) }
   RUBY
 
   def setup

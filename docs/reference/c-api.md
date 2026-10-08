@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 822 of its
+calls ruby 4.0's C API. zr's kernel gives 823 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -189,7 +189,7 @@ The C API's Regexps and MatchData, each through their Ruby methods.
 
 Waits of C on descriptors that no stream wraps, and ruby's sets of descriptors (rb_fdset_t) that its select takes.
 
-`rb_fd_init`, `rb_fd_term`, `rb_fd_zero`, `rb_fd_set`, `rb_fd_clr`, `rb_fd_isset`, `rb_fd_copy`, `rb_fd_dup`, `rb_fd_select`, `rb_thread_fd_select`, `rb_wait_for_single_fd`, `rb_thread_wait_fd`, `rb_thread_fd_writable`, `rb_io_wait_readable`, `rb_io_wait_writable`
+`rb_fd_init`, `rb_fd_term`, `rb_fd_zero`, `rb_fd_set`, `rb_fd_clr`, `rb_fd_isset`, `rb_fd_copy`, `rb_fd_dup`, `rb_fd_select`, `rb_thread_fd_select`, `rb_wait_for_single_fd`, `rb_thread_wait_fd`, `rb_thread_fd_writable`, `rb_io_wait_readable`, `rb_io_wait_writable`, `rb_process_status_wait`
 
 ## st
 
