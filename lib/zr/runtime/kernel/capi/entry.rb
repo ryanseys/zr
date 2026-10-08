@@ -207,7 +207,7 @@ module Zr::Kern
   # rb_stderr, rb_rs, rb_output_rs, rb_fs and rb_output_fs, and the words
   # behind rb_ruby_debug_ptr and rb_ruby_verbose_ptr): each holds its
   # global's value, and an assignment to the global updates it
-  # (zr_gvar_mirror). The values are rooted as the globals' values.
+  # (zr_gvar_mirror). C may store into a word, so each is a C root too.
   #: () -> void
   def zr_capi_stdio_init
     zr_capi_mirror(0, Machine.id(:$stdin), Machine.global(:rb_stdin))
@@ -226,8 +226,7 @@ module Zr::Kern
   end
 
   # rb_ruby_debug_ptr and rb_ruby_verbose_ptr: the words that hold $DEBUG
-  # and $VERBOSE, which C's ruby_debug and ruby_verbose read. A store
-  # through them reaches C's later reads only, not the globals.
+  # and $VERBOSE, which C's ruby_debug and ruby_verbose read and write.
   #: () -> ptr
   def rb_ruby_debug_ptr
     Machine.gates_enter
@@ -247,8 +246,9 @@ module Zr::Kern
   def zr_capi_mirror(i, id, word)
     rows = Machine.static(:gvar_mirrors, GVAR_MIRRORS * 16)
     Machine.store64(rows + (i * 16), 0, id)
-    Machine.store64(rows + (i * 16), 8, Machine.word(word))
     zr_capi_set(word, zr_gvar_get(id))
+    zr_weak_list_push(zr_c_root_addresses(), Machine.value(Machine.word(word)))
+    Machine.store64(rows + (i * 16), 8, Machine.word(word))
   end
 
   #: (ptr, value) -> void

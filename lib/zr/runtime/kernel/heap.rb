@@ -1200,7 +1200,12 @@ module Zr::Kern
       v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))
       return v == QUNDEF ? Machine.value(QNIL) : v
     end
-    e = zr_gvar_row(zr_gvar_resolve(id))
+    target = zr_gvar_resolve(id)
+    word = zr_gvar_mirror_word(target)
+    if word != 0
+      return Machine.value(Machine.load64(word, 0))
+    end
+    e = zr_gvar_row(target)
     if e == 0
       return Machine.value(QNIL)
     end
@@ -1288,23 +1293,34 @@ module Zr::Kern
     v
   end
 
-  # The globals that C reads as words of its own (CRuby's rb_stdout, rb_rs
-  # and the others): GVAR_MIRRORS pairs of a global's ID and the address
-  # of its word, which the C API fills as it starts (capi/entry.rb); 0
-  # before. Each word follows its global.
+  # The globals that C reads and writes as words of its own (CRuby's
+  # rb_stdout, rb_rs, and ruby_verbose through rb_ruby_verbose_ptr):
+  # GVAR_MIRRORS pairs of a global's ID and the address of its word,
+  # which the C API fills as it starts (capi/entry.rb); 0 before. Once
+  # there, the word is the global's value, as in CRuby: an assignment
+  # stores into it, and a read reads it.
   GVAR_MIRRORS = 10
 
   #: (word, value) -> void
   def zr_gvar_mirror(id, v)
+    word = zr_gvar_mirror_word(id)
+    if word != 0
+      Machine.store64(word, 0, Machine.word(v))
+    end
+  end
+
+  # The word of global `id` (resolved), or 0.
+  #: (word) -> ptr
+  def zr_gvar_mirror_word(id)
     rows = Machine.static(:gvar_mirrors, GVAR_MIRRORS * 16)
     i = 0
     while i < GVAR_MIRRORS && Machine.load64(rows + (i * 16), 0) != 0
       if Machine.load64(rows + (i * 16), 0) == id
-        Machine.store64(Machine.ptr(Machine.load64(rows + (i * 16), 8)), 0, Machine.word(v))
-        return
+        return Machine.ptr(Machine.load64(rows + (i * 16), 8))
       end
       i += 1
     end
+    Machine.ptr(0)
   end
 
   # `$name = v` from Ruby code. A name that `alias` made is in place of a

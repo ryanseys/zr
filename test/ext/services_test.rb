@@ -61,6 +61,16 @@ class CExtServicesTest < Minitest::Test
     static VALUE sv_flags(VALUE self) {
       return rb_assoc_new(*rb_ruby_debug_ptr(), *rb_ruby_verbose_ptr());
     }
+    static VALUE sv_set_flags(VALUE self, VALUE debug, VALUE verbose) {
+      ruby_debug = debug;
+      ruby_verbose = verbose;
+      return Qnil;
+    }
+    static VALUE sv_swap_stdout(VALUE self, VALUE io) {
+      VALUE was = rb_stdout;
+      rb_stdout = io;
+      return was;
+    }
     static VALUE sv_lock(VALUE self) {
       rb_nativethread_lock_t lock;
       rb_nativethread_lock_initialize(&lock);
@@ -111,6 +121,8 @@ class CExtServicesTest < Minitest::Test
       rb_define_module_function(m, "name_error", sv_name_error, 1);
       rb_define_module_function(m, "local", sv_local, 2);
       rb_define_module_function(m, "flags", sv_flags, 0);
+      rb_define_module_function(m, "set_flags", sv_set_flags, 2);
+      rb_define_module_function(m, "swap_stdout", sv_swap_stdout, 1);
       rb_define_module_function(m, "lock", sv_lock, 0);
       rb_define_module_function(m, "stdio", sv_stdio, 2);
       rb_define_module_function(m, "descriptor", sv_descriptor, 3);
@@ -123,6 +135,7 @@ class CExtServicesTest < Minitest::Test
 
   PROGRAM = <<~'RUBY'
     require "services"
+    require "stringio"
 
     def show(label)
       p [label, yield]
@@ -153,6 +166,19 @@ class CExtServicesTest < Minitest::Test
       $VERBOSE = false
       [before, after]
     end
+show(:set_flags) do
+  Services.set_flags(true, nil)
+  seen = [$DEBUG, $VERBOSE, $-v, $-d]
+  Services.set_flags(false, false)
+  [seen, $DEBUG, $VERBOSE, Services.flags]
+end
+show(:swap_stdout) do
+  out = StringIO.new
+  was = Services.swap_stdout(out)
+  puts "to the StringIO"
+  back = Services.swap_stdout(was)
+  [was.equal?(STDOUT), back.equal?(out), $stdout.equal?(STDOUT), out.string]
+end
     show(:lock) { Services.lock }
     show(:stdio) do
       r, w = IO.pipe
