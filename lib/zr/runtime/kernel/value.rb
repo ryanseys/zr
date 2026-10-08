@@ -118,7 +118,7 @@ module Zr::Kern
   # ASCII-8BIT, 1 is UTF-8, 2 is US-ASCII, then one number for each of the
   # other hundred. It is in bits 22 to 28 of the flags, where CRuby 4.0
   # keeps it (ENCODING_SHIFT), so a C extension's inline ENCODING_GET
-  # reads it. A new String gets UTF-8 (FL_ENC_UTF8) from its allocator.
+  # reads it. A new String gets UTF-8 from its allocator (FL_STR_NEW).
   FL_ENC_SHIFT = 22
   FL_ENC_MASK = 127
   FL_ENC_KEEP = 0 - ((FL_ENC_MASK << FL_ENC_SHIFT) + 1)

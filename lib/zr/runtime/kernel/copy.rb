@@ -34,7 +34,7 @@ module Zr::Kern
       zr_ivtab_copy(Machine.ptr(RObject[copy].iv), Machine.ptr(RObject[orig].iv), copy)
       zr_write_barrier_all(copy)
     elsif t == T_STRING
-      RBasic[copy].flags = RBasic[copy].flags | FL_ENC_UTF8
+      RBasic[copy].flags = RBasic[copy].flags | FL_STR_NEW
       zr_str_buf_new(copy, 0)
       Machine.store8(RString[copy].ptr, 0, Machine.i8(0))
       RString[copy].len = 0

@@ -17,6 +17,13 @@ module Zr::Kern
   FL_EMBED = 1 << 7
   FL_EMBED_CLEAR = 0 - FL_EMBED - 1
 
+  # CRuby's RSTRING_NOEMBED (FL_USER1). zr's `ptr` points to the bytes
+  # whether they are embedded or not, so every String has this bit, and a
+  # C extension's inline RSTRING_PTR reads `ptr`. A new String also starts
+  # as UTF-8 (FL_STR_NEW).
+  FL_STR_NOEMBED = 1 << 13
+  FL_STR_NEW = FL_ENC_UTF8 | FL_STR_NOEMBED
+
   #: (value) -> bool
   def zr_str_embedded_p(s)
     (RBasic[s].flags & FL_EMBED) != 0
@@ -157,7 +164,7 @@ module Zr::Kern
   #: (ptr, word) -> value
   def zr_str_new(bytes, len)
     s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(len))
-    RBasic[s].flags = RBasic[s].flags | FL_ENC_UTF8
+    RBasic[s].flags = RBasic[s].flags | FL_STR_NEW
     zr_str_buf_new(s, len)
     zr_memcpy(RString[s].ptr, bytes, len)
     Machine.store8(RString[s].ptr + len, 0, Machine.i8(0))
@@ -2404,7 +2411,7 @@ G_FROZEN_LITERALS = 52
   #: (ptr, word, word) -> value
   def zr_str_fstring(bytes, len, index)
     probe = Machine.value(Machine.slot(RString.size))
-    RBasic[probe].flags = T_STRING | FL_STACK
+    RBasic[probe].flags = T_STRING | FL_STACK | FL_STR_NOEMBED
     RBasic[probe].klass = zr_global(G_STRING)
     RString[probe].len = len
     RString[probe].capa = len
