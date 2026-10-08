@@ -73,8 +73,10 @@ module Zr
         attr_reader :work
 
         def initialize(resolver:, runner: Runner.new, overrides: HOME, logs: File.join(TMP, "logs"),
-                       work: File.join(TMP, "work"), keep: false, say: nil, reference: Harness::Reference, run: true)
+                       work: File.join(TMP, "work"), keep: false, say: nil, reference: Harness::Reference, run: true,
+                       c_scan: CScan.new)
           @resolver = resolver
+          @c_scan = c_scan
           @runner = runner
           @overrides = overrides
           @logs = logs
@@ -89,6 +91,7 @@ module Zr
         def call(request)
           log = []
           subject = nil
+          scans = []
           override = request.name && Override.for(request.name, dir: @overrides)
           raise Failure.new("skip", override.skip, tier: :skipped) if override&.skip
 
@@ -96,6 +99,7 @@ module Zr
           say "found #{subject} (#{subject.source}), with #{deps.empty? ? "no gems" : deps.join(", ")}"
           log << "gem: #{subject} (#{subject.source}) #{subject.root}"
           deps.each { |dep| log << "needs: #{dep} (#{dep.source}) #{dep.root}" }
+          scans = c_scans([subject, *deps], log)
           override ||= Override.for(subject.name, dir: @overrides)
           raise Failure.new("skip", override.skip, tier: :skipped) if override&.skip
           refusal = Rules.refusal([subject, *deps])
@@ -115,19 +119,27 @@ module Zr
               raise Failure.new("smoke:#{e.kind}", e.message, tier: :loads)
             end
           end
-          finish(request, subject, tier, nil, nil, log)
+          finish(request, subject, tier, nil, nil, log, scans)
         rescue Failure => e
-          finish(request, subject || e.subject, e.tier, e.kind, e.message, log)
+          finish(request, subject || e.subject, e.tier, e.kind, e.message, log, scans)
         rescue Gem::Exception, SystemCallError, SocketError => e
           # A download, an unpack or a gemspec that fails.
           log << e.full_message(highlight: false)
-          finish(request, subject, :fails, "resolve", "#{e.class}: #{e.message.lines.first&.chomp}", log)
+          finish(request, subject, :fails, "resolve", "#{e.class}: #{e.message.lines.first&.chomp}", log, scans)
         rescue StandardError => e
           # A defect of this tool, or of a library that it calls, on this
           # gem. The gem fails, with the error in its log, and a sweep goes
           # on to the next gem.
           log << e.full_message(highlight: false)
-          finish(request, subject, :fails, "tool-error", "#{e.class}: #{e.message.lines.first&.chomp}", log)
+          finish(request, subject, :fails, "tool-error", "#{e.class}: #{e.message.lines.first&.chomp}", log, scans)
+        end
+
+        # Finds the gem of `request` and the gems that it needs, and scans
+        # their C extensions (CScan), with no build and no gem code: the
+        # gem's name and its scans. A sweep with `--c-scan` takes only this.
+        def scan(request)
+          subject, deps = @resolver.resolve(request)
+          [subject.name, c_scans([subject, *deps], [])]
         end
 
         # The feature that requires the gem: its name, its name with each
@@ -170,6 +182,18 @@ module Zr
         private
 
         def say(text) = @say&.call(text)
+
+        # The scans of the C extensions among `gems`, each with a line in
+        # `log`: what it compiled and what zr's C API lacks of its imports.
+        def c_scans(gems, log)
+          return [] unless @c_scan
+
+          @c_scan.natives(gems, say: ->(line) { log << line }).each do |scan|
+            log << "C of #{scan.full_name}: #{scan.compiled} of #{scan.sources} files compiled, #{scan.imports.size} ruby imports, " \
+                   "C API lacks #{scan.missing.empty? ? "none" : scan.missing.join(" ")}"
+            log << "  first compile error: #{scan.error}" if scan.error
+          end
+        end
 
         # Builds and runs `name` with `text` in `dir`, and raises a
         # Failure when the binary does not give ruby's output.
@@ -298,7 +322,7 @@ module Zr
           FileUtils.rm_rf(dir) if dir && !@keep
         end
 
-        def finish(request, subject, tier, kind, detail, log)
+        def finish(request, subject, tier, kind, detail, log, scans)
           name = subject&.name || request.label
           version = subject&.version || request.version.to_s
           path = File.join(@logs, "#{name}-#{version.empty? ? "unknown" : version}.txt")
@@ -306,7 +330,7 @@ module Zr
           FileUtils.mkdir_p(@logs)
           File.write(path, "#{log.join("\n\n")}\n")
           Result.new(name: name, version: version, source: subject&.source || (request.path ? "path" : "rubygems"),
-                     tier: tier, kind: kind, detail: detail, log: path)
+                     tier: tier, kind: kind, detail: detail, log: path, scans: scans)
         end
       end
     end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "stringio"
 require_relative "../../tool/lib/zr/dev/gems"
 require_relative "../../tool/gems"
 require_relative "../../tool/gems/sweep"
@@ -144,7 +145,7 @@ class GemCompatTest < Minitest::Test
   def test_an_error_of_the_tool_on_one_gem_fails_that_gem_and_not_the_sweep
     resolver = Object.new
     def resolver.resolve(_request) = nil.fetch
-    result = Gems::Trial.new(resolver: resolver, runner: Runner.new, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+    result = Gems::Trial.new(resolver: resolver, runner: Runner.new, overrides: OVERRIDES, logs: File.join(@dir, "logs"), c_scan: c_scan,
                              work: File.join(@dir, "work"), reference: Reference).call(Gems::Request.parse("tiny"))
 
     assert_equal [:fails, "tool-error"], [result.tier, result.kind]
@@ -345,7 +346,7 @@ class GemCompatTest < Minitest::Test
 
   def test_a_trial_that_runs_nothing_stops_after_the_build
     runner = Runner.new
-    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"), c_scan: c_scan,
                              work: File.join(@dir, "work"), reference: Reference, run: false).call(Gems::Request.parse("tiny"))
 
     assert_equal :builds, result.tier
@@ -356,7 +357,7 @@ class GemCompatTest < Minitest::Test
 
   def test_a_trial_that_runs_nothing_still_fails_a_build_that_fails
     runner = Runner.new(build: answer("", "zr: boom\n", 1))
-    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"), c_scan: c_scan,
                              work: File.join(@dir, "work"), reference: Reference, run: false).call(Gems::Request.parse("tiny"))
 
     assert_equal :fails, result.tier
@@ -407,7 +408,7 @@ class GemCompatTest < Minitest::Test
 
   def test_a_gem_whose_c_part_zr_does_not_port_builds_and_names_it
     runner = Runner.new(build: answer("", NATIVE_WARNING))
-    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+    result = Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"), c_scan: c_scan,
                              work: File.join(@dir, "work"), reference: Reference, run: false).call(Gems::Request.parse("cexty"))
 
     assert_equal [:builds, "cext:cexty"], [result.tier, result.kind]
@@ -515,7 +516,7 @@ class GemCompatTest < Minitest::Test
       seen << tables.map { |table| Gems::Table.new(table.path).map(&:gem) }
     end
 
-    results = sweep.sweep(%w[rack cexty].map { Gems::Request.parse(_1) }, tables, say)
+    results = sweep.sweep(%w[rack cexty].map { Gems::Request.parse(_1) }, tables, StringIO.new, say)
 
     assert_equal %w[rack cexty], results.map(&:name)
     assert_equal [[%w[rack], %w[rack]], [%w[cexty rack], %w[cexty rack]]], seen, "each line comes after its rows are on disk"
@@ -560,8 +561,11 @@ class GemCompatTest < Minitest::Test
 
   def resolver = Gems::Resolver.new(store: Gems::FetchedGems.new(@dir), corpus: CORPUS, offline: true, remote: nil)
 
+  # A C scan that keeps its scans in the test's directory.
+  def c_scan = Gems::CScan.new(dir: File.join(@dir, "capi"))
+
   def trial(runner)
-    Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"),
+    Gems::Trial.new(resolver: resolver, runner: runner, overrides: OVERRIDES, logs: File.join(@dir, "logs"), c_scan: c_scan,
                     work: File.join(@dir, "work"), reference: Reference)
   end
 

@@ -5,8 +5,11 @@ module Zr
     module Gems
       # What a trial found for one gem: its tier (TIERS, or `skipped`),
       # the kind of failure (nil for a gem that loads), a short detail,
-      # and the path of the full log.
-      Result = Data.define(:name, :version, :source, :tier, :kind, :detail, :log) do
+      # the path of the full log, and the CScan::Scan of each C extension
+      # among the gem and the gems that it needs.
+      Result = Data.define(:name, :version, :source, :tier, :kind, :detail, :log, :scans) do
+        def initialize(scans: [], **) = super
+
         # The place of the tier in TIERS; a skipped gem is below them all.
         def rank = TIERS.index(tier) || -1
 
