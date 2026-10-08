@@ -8,8 +8,8 @@ require_relative "../support/c_ext"
 # the gems use it (pg, sqlite3, gherkin, mini_racer), against ruby's
 # answers: rb_ary_delete, rb_funcall_with_block(_kw),
 # rb_copy_generic_ivar, rb_gc_adjust_memory_usage, rb_locale_encindex,
-# rb_absint_numwords, rb_str_encode_ospath, rb_thread_lock_native_thread
-# and rb_process_status_wait (io-event).
+# rb_absint_numwords, rb_str_encode_ospath, rb_thread_lock_native_thread,
+# rb_process_status_wait (io-event) and rb_str_hash(_cmp) (hpricot).
 class CExtSweepGapsTest < Minitest::Test
   SOURCE = <<~'C'
     #include <ruby.h>
@@ -67,6 +67,9 @@ class CExtSweepGapsTest < Minitest::Test
                                   rb_funcall(status, rb_intern("exitstatus"), 0));
     }
 
+    static VALUE g_str_hash(VALUE self, VALUE str) { return ST2FIX(rb_str_hash(str)); }
+    static VALUE g_str_hash_cmp(VALUE self, VALUE a, VALUE b) { return INT2NUM(rb_str_hash_cmp(a, b)); }
+
     void Init_gaps(void) {
       VALUE m = rb_define_module("Gaps");
       rb_define_module_function(m, "delete", g_delete, 2);
@@ -81,6 +84,8 @@ class CExtSweepGapsTest < Minitest::Test
       rb_define_module_function(m, "ospath", g_ospath, 1);
       rb_define_module_function(m, "lock", g_lock, 0);
       rb_define_module_function(m, "wait", g_wait, 2);
+      rb_define_module_function(m, "str_hash", g_str_hash, 1);
+      rb_define_module_function(m, "str_hash_cmp", g_str_hash_cmp, 2);
     }
   C
 
@@ -140,6 +145,12 @@ class CExtSweepGapsTest < Minitest::Test
       running = Gaps.wait(slow, true)
       klass, pid, code = Gaps.wait(slow, false)
       [running, klass, pid == slow, code]
+    end
+    show(:str_hash) do
+      ["", "abc", "café", "café".encode("UTF-16LE"), "\xff".b, "abc".b].map { |s| Gaps.str_hash(s) == s.hash }
+    end
+    show(:str_hash_cmp) do
+      [["a", "a"], ["a", "b"], ["a", "ab"], ["abc", "abc".b], ["é", "é".b], ["", "".encode("UTF-16LE")]].map { |a, b| Gaps.str_hash_cmp(a, b) }
     end
     show(:no_child) { Gaps.wait(-1, false).values_at(0, 1) }
   RUBY

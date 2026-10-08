@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 823 of its
+calls ruby 4.0's C API. zr's kernel gives 825 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -201,7 +201,7 @@ The C API's st tables, which C uses for its own maps.
 
 The C API's Strings.
 
-`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_cstr_to_inum`, `rb_str_equal`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
+`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_cstr_to_inum`, `rb_str_equal`, `rb_str_hash`, `rb_str_hash_cmp`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
 
 ## struct
 

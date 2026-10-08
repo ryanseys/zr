@@ -614,6 +614,25 @@ module Zr::Kern
     zr_capi_call1(a, Machine.id(:==), b)
   end
 
+  # rb_str_hash: the hash code of `str`, which String#hash gives as an
+  # Integer.
+  #: (value) -> word
+  def rb_str_hash(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_value_hash(str)
+  end
+
+  # rb_str_hash_cmp: 0 when `a` and `b` are the same key of a Hash (the
+  # same bytes, and comparable encodings), else 1.
+  #: (value, value) -> i32
+  def rb_str_hash_cmp(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    same = zr_bytes_eq(RString[a].ptr, RString[a].len, RString[b].ptr, RString[b].len) && zr_str_comparable(a, b)
+    Machine.i32(same ? 0 : 1)
+  end
+
   # rb_str_update: `str[beg, len] = val`.
   #: (value, word, word, value) -> void
   def rb_str_update(str, beg, len, val)
