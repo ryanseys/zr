@@ -658,7 +658,7 @@ module Zr::Kern
     row = zr_trace_row_new(9)
     zr_ary_push(row, zr_fix(event))
     zr_ary_push(row, value)
-    zr_ary_push(row, zr_meta_file(meta))
+    zr_ary_push(row, zr_meta_path(meta))
     zr_ary_push(row, zr_fix(line))
     row
   end
@@ -704,7 +704,7 @@ module Zr::Kern
       zr_ary_push(row, Machine.value(QNIL))
       zr_ary_push(row, zr_fix(0))
     else
-      zr_ary_push(row, zr_meta_file(Frame[rec].meta))
+      zr_ary_push(row, zr_meta_path(Frame[rec].meta))
       zr_ary_push(row, zr_fix(zr_frame_line(rec)))
     end
     zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
@@ -776,7 +776,7 @@ module Zr::Kern
       zr_ary_push(row, Machine.value(QNIL))
       zr_ary_push(row, zr_fix(0))
     else
-      zr_ary_push(row, zr_meta_file(Frame[rec].meta))
+      zr_ary_push(row, zr_meta_path(Frame[rec].meta))
       zr_ary_push(row, zr_fix(zr_frame_line(rec)))
     end
     zr_ary_push(row, mid == 0 ? Machine.value(QNIL) : zr_sym(mid))
