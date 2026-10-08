@@ -22,6 +22,30 @@ class CExtTopGemsTest < Minitest::Test
       password = BCrypt::Password.new(hash)
       p password == "secret", password == "wrong", password.cost, password.salt
     RUBY
+    "bindex" => <<~'RUBY',
+      require "bindex"
+
+      def boom(n)
+        secret = n * 3
+        raise ArgumentError, "boom #{secret}"
+      end
+
+      def middle(m)
+        label = "middle"
+        boom(m + 1)
+      end
+
+      begin
+        middle(6)
+      rescue ArgumentError => e
+        bindings = e.bindings
+        p e.message, bindings.size >= 3
+        p bindings[0].local_variables.sort, bindings[0].local_variable_get(:secret)
+        p bindings[1].local_variable_get(:label), bindings[1].local_variable_get(:m)
+        p bindings[0].eval("n + secret")
+      end
+      p RuntimeError.new("unraised").bindings
+    RUBY
 "binding_ninja" => <<~'RUBY',
   require "binding_ninja"
   class Greeter
@@ -47,11 +71,66 @@ RUBY
       p bytes.bytesize, bytes.unpack1("H*")[0, 40]
       p Hash.from_bson(BSON::ByteBuffer.new(bytes))
     RUBY
+    "byebug" => <<~'RUBY',
+      require "byebug"
+      require "byebug/core"
+      require "tmpdir"
+
+      def add(a, b)
+        sum = a + b
+        sum * 2
+      end
+
+      def run
+        total = 1
+        byebug
+        total = add(total, 2)
+        total + 1
+      end
+
+      script = File.join(Dir.mktmpdir, "commands")
+      File.write(script, <<~COMMANDS)
+        p total
+        step
+        p [a, b]
+        next
+        p sum
+        p [Byebug.current_context.frame_method, Byebug.current_context.frame_line, Byebug.current_context.stack_size > 2]
+        continue
+      COMMANDS
+      Byebug.init_file = File.join(File.dirname(script), "none")
+      Byebug::Setting[:histfile] = File.join(File.dirname(script), "history")
+      Byebug::Setting[:autolist] = false
+      Byebug::Context.interface = Byebug::ScriptInterface.new(script, true)
+      p run, Byebug.started?
+    RUBY
     "cgi" => <<~'RUBY',
       require "cgi/escape"
       p CGI.escapeHTML(%(<a href="x">&'</a>)), CGI.unescapeHTML("&lt;b&gt; &amp;amp; &#39;&#x41;&#65; &bogus;")
       p CGI.escape("a b&c/é~"), CGI.unescape("a+b%26c%2F%C3%A9"), CGI.escapeURIComponent("a b+c"), CGI.unescapeURIComponent("a+b%20c")
       p CGI.escapeHTML("plain").frozen?, CGI.escapeHTML("é<").encoding
+    RUBY
+    "debug_inspector" => <<~'RUBY',
+      require "debug_inspector"
+
+      class Walker
+        def inner(x)
+          y = x * 2
+          DebugInspector.open do |dc|
+            locations = dc.backtrace_locations
+            (0...4).map do |i|
+              binding = dc.frame_binding(i)
+              [locations[i].label, locations[i].lineno, dc.frame_self(i).class, dc.frame_class(i),
+               binding && binding.local_variables.sort, binding && binding.local_variable_defined?(:y) && binding.local_variable_get(:y)]
+            end
+          end
+        end
+
+        def outer = inner(21)
+      end
+
+      Walker.new.outer.each { |row| p row }
+      p DebugInspector.open { |dc| dc.frame_binding(1).receiver.class }
     RUBY
     "ed25519" => <<~'RUBY',
       require "ed25519"
@@ -255,6 +334,39 @@ RUBY
       puts Rinku.auto_link("see http://example.com, www.x.org and a@b.co", :all, 'class="l"')
       puts Rinku.auto_link("only https://u.rl/x?y=1", :urls) { |url| url.upcase }
     RUBY
+    "ruby-prof" => <<~'RUBY',
+      require "ruby-prof"
+
+      class Tree
+        def initialize(depth) = @kids = depth.zero? ? [] : Array.new(2) { Tree.new(depth - 1) }
+        def size = 1 + @kids.sum(&:size)
+      end
+
+      def build = Tree.new(4).size
+
+      result = RubyProf::Profile.profile { build }
+      methods = result.threads.first.methods
+      rows = methods.select { |m| m.klass_name == "Tree" }.map { |m| [m.full_name, m.called] }.sort
+      p rows
+      p result.threads.size, methods.map(&:full_name).include?("Object#build")
+
+      profile = RubyProf::Profile.new(measure_mode: RubyProf::ALLOCATIONS, track_allocations: true)
+      profile.start
+      Array.new(10) { "s" * 3 }
+      result = profile.stop
+      p result.threads.first.methods.any? { |m| m.allocations.any? }
+    RUBY
+    "stackprof" => <<~'RUBY',
+      require "stackprof"
+
+      def churn = 2_000.times.map { |i| "item #{i}" }
+
+      report = StackProf.run(mode: :object, interval: 1, raw: true) { churn }
+      p report[:mode], report[:samples] > 0
+      names = report[:frames].values.map { |frame| frame[:name] }
+      p names.include?("Object#churn")
+      p StackProf.running?
+    RUBY
     "thrift" => <<~'RUBY',
       require "thrift"
       [Thrift::BinaryProtocolAccelerated, Thrift::CompactProtocol].each do |klass|
@@ -298,10 +410,11 @@ RUBY
   }.freeze
 
   RUNS = { "" => {}, "_under_stress" => { "ZR_GC_STRESS" => "1" } }.freeze
-  # bson and rbs load a large Ruby half: under ZR_GC_STRESS, which
-  # collects at each allocation, each program takes minutes, past a
-  # test's bound.
-  UNSTRESSED = %w[bson rbs].freeze
+  # bson and rbs load a large Ruby half, and byebug loads 115 files and
+  # reline, then compiles each command's expression as it runs
+  # (binding.eval): under ZR_GC_STRESS, which collects the whole heap at
+  # each allocation, each program takes minutes, past a test's bound.
+  UNSTRESSED = %w[bson byebug rbs].freeze
   # unf_ext's C++ throws exceptions, which only dyld's unwinder handles:
   # its bundle loads with dlopen.
   BUILD_ENVS = { "unf_ext" => { "ZR_EXT" => "dynamic" } }.freeze
