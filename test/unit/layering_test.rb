@@ -4,7 +4,7 @@ require "test_helper"
 
 # The compiler's layers are the first directory under `lib/zr` (hir, ir,
 # lower, machine, backend, obj, native, eval, library, prism_shim,
-# cache),
+# cache, ext),
 # or "top" for a file directly under `lib/zr` or under `lib/zr/cli`
 # (the command line). `top` holds both the leaf
 # utilities (`Zr::Refused`, `Zr::Bytes`, `Zr::Target`,
@@ -21,12 +21,14 @@ class LayeringTest < Minitest::Test
   LIB = Pathname.new(File.join(ROOT, "lib/zr")).freeze
 
   ALLOWED = {
-    "top" => %w[top hir ir lower machine backend obj native eval library prism_shim cache],
+    "top" => %w[top hir ir lower machine backend obj native eval library prism_shim cache ext],
     # `library` is a leaf layer: where the library that a program
     # requires is (`Library::Layout`, `Library::Roots`). The front end
     # (`Hir::Build`) and the lowering cache read it, and it reads only
     # the leaf utilities of `top`.
-    "hir" => %w[top library],
+    # The front end resolves a require to a C extension that the build
+    # links (`Ext.bundles`).
+    "hir" => %w[top library ext],
     "ir" => %w[top],
     # `Lower` reads HIR and emits IR. `machine/description` is the one
     # kernel-subset file it uses, and it is data only (a struct
@@ -35,7 +37,7 @@ class LayeringTest < Minitest::Test
     "machine" => %w[top obj],
     "backend" => %w[top ir obj],
     "obj" => %w[top],
-    "native" => %w[top ir obj backend machine cache],
+    "native" => %w[top ir obj backend machine cache ext],
     "eval" => %w[top],
     "library" => %w[top],
     "prism_shim" => %w[top],
@@ -43,6 +45,10 @@ class LayeringTest < Minitest::Test
     # holds IR and the code cache's machine code, which its workers
     # assemble with the back end.
     "cache" => %w[top ir native backend library],
+    # The C extensions that a build links: mkmf's Makefile, an installed
+    # gem's objects, and the C API's names, which it checks an object's
+    # imports against (`Obj::MachO::Image`).
+    "ext" => %w[top obj],
   }.freeze
 
   def test_every_cross_layer_edge_is_allowed

@@ -83,6 +83,38 @@ module Zr
         [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
       end
 
+      # The environment of a child that sees the gems installed in this
+      # ruby, as a user's ruby and zr do: the test runs under Bundler,
+      # which hides every gem outside the bundle.
+      UNBUNDLED = %w[BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_SETUP BUNDLER_VERSION RUBYOPT RUBYLIB]
+                  .to_h { |name| [name, nil] }.freeze
+
+      # The installed gem `name`'s newest version, or nil.
+      #: (String name) -> String?
+      def installed(name)
+        Dir[File.join(Gem.default_dir, "gems", "#{name}-*")].filter_map { |dir| File.basename(dir).delete_prefix("#{name}-") }
+                                                             .select { |version| Gem::Version.correct?(version) }
+                                                             .max_by { |version| Gem::Version.new(version) }
+      end
+
+      # Runs `program`, which requires the installed gem `name` at
+      # `version`, under ruby and as a zr binary that links the gem's real
+      # C extension (`--native-ext`), once in each of `binary_envs`.
+      #: (String name, String version, String program, Array[Hash[String, String]] binary_envs) -> [Output, Array[Output]]
+      def gem_outputs(name, version, program, binary_envs)
+        dir = File.join(DIR, "gem-#{name}-#{version}")
+        FileUtils.mkdir_p(dir)
+        path = File.join(dir, "prog_#{Digest::SHA256.hexdigest(program)[0, 12]}.rb")
+        File.write(path, program)
+        ruby = run(UNBUNDLED, RbConfig.ruby, path)
+        bin = path.delete_suffix(".rb")
+        built = run(UNBUNDLED, File.join(ROOT, "bin", "zr"), "build", "--native-ext", "#{name}=#{version}", "--gem", "#{name}=#{version}",
+                    path, "-o", bin)
+        return [ruby, binary_envs.map { built }] unless built.status.zero?
+
+        [ruby, binary_envs.map { |extra| run(UNBUNDLED.merge(extra), bin) }]
+      end
+
       #: (Hash[String, String] env, *String command) -> Output
       def run(env, *command)
         out, err, status = Open3.capture3(env, *command)

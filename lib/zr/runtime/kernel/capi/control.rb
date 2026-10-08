@@ -63,15 +63,18 @@ module Zr::Kern
     end
   end
 
+  # The data words that these functions give the C functions are C's: a
+  # Value, or as often the address of a struct, so none is a root.
+
   # rb_protect: calls `fn(data)`, and stops any unwind out of it. `*state`
   # is 0, or the unwind's tag, which rb_jump_tag resumes it with; then the
   # result is nil.
-  #: (ptr, value, ptr) -> value
+  #: (ptr, word, ptr) -> value
   def rb_protect(fn, data, state)
     Machine.gates_enter
     zr_c_entered()
     argv = Machine.slot(64)
-    Machine.store64(argv, 0, Machine.word(data))
+    Machine.store64(argv, 0, data)
     r = Machine.value(zr_call_c(fn, argv, 1))
     tag = 0
     if r == QUNDEF
@@ -96,12 +99,12 @@ module Zr::Kern
   # rb_ensure: calls `body(data1)`, then the ensure function whatever the body
   # did (`ensure_fn(data2)`), then goes on with the body's unwind, if it
   # had one.
-  #: (ptr, value, ptr, value) -> value
+  #: (ptr, word, ptr, word) -> value
   def rb_ensure(body, data1, ensure_fn, data2)
     Machine.gates_enter
     zr_c_entered()
     argv = Machine.slot(64)
-    Machine.store64(argv, 0, Machine.word(data1))
+    Machine.store64(argv, 0, data1)
     r = Machine.value(zr_call_c(body, argv, 1))
     left = Machine.value(QNIL)
     if r == QUNDEF
@@ -109,7 +112,7 @@ module Zr::Kern
       left = Task[zr_task()].parked
       Task[zr_task()].parked = Machine.value(QNIL)
     end
-    Machine.store64(argv, 0, Machine.word(data2))
+    Machine.store64(argv, 0, data2)
     if zr_call_c(ensure_fn, argv, 1) == QUNDEF
       zr_c_unwind()
     end
@@ -123,7 +126,7 @@ module Zr::Kern
 
   # rb_rescue: calls `body(data1)`; a StandardError that it raises calls
   # `rescue_fn(data2, exception)` instead, whose result it gives.
-  #: (ptr, value, ptr, value) -> value
+  #: (ptr, word, ptr, word) -> value
   def rb_rescue(body, data1, rescue_fn, data2)
     Machine.gates_enter
     zr_c_entered()
@@ -134,7 +137,7 @@ module Zr::Kern
   end
 
   # rb_rescue2: the same for the exception classes that follow, up to a 0.
-  #: (ptr, value, ptr, value) -> value
+  #: (ptr, word, ptr, word) -> value
   def rb_rescue2(body, data1, rescue_fn, data2)
     Machine.gates_enter
     zr_c_entered()
@@ -154,10 +157,10 @@ module Zr::Kern
 
   # rb_vrescue2: `classes` is a 0-terminated list. With no rescue
   # function, a rescued call gives nil.
-  #: (ptr, value, ptr, value, ptr) -> value
+  #: (ptr, word, ptr, word, ptr) -> value
   def zr_capi_rescue(body, data1, rescue_fn, data2, classes)
     argv = Machine.slot(64)
-    Machine.store64(argv, 0, Machine.word(data1))
+    Machine.store64(argv, 0, data1)
     r = Machine.value(zr_call_c(body, argv, 1))
     if r != QUNDEF
       return r
@@ -174,7 +177,7 @@ module Zr::Kern
     Task[t].parked = Machine.value(QNIL)
     rescued = Machine.value(QNIL)
     if rescue_fn != 0
-      Machine.store64(argv, 0, Machine.word(data2))
+      Machine.store64(argv, 0, data2)
       Machine.store64(argv, 8, Machine.word(exc))
       rescued = zr_c_result(Machine.value(zr_call_c(rescue_fn, argv, 2)))
     end

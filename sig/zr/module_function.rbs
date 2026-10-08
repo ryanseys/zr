@@ -71,6 +71,14 @@ module Zr::Digests
   extend Zr::Digests
 end
 
+module Zr::Ext
+  extend Zr::Ext
+end
+
+module Zr::Ext::CApi
+  extend Zr::Ext::CApi
+end
+
 module Zr::Doctor
   extend Zr::Doctor
 end

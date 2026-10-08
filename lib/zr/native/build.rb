@@ -17,6 +17,8 @@ require_relative "../machine/lower"
 require_relative "../runtime"
 require_relative "../timing"
 require_relative "../config"
+require_relative "../ext"
+require_relative "../ext/capi"
 require_relative "parallel"
 require_relative "code_cache"
 
@@ -108,9 +110,12 @@ module Zr
         root(program.runtime, objects, program.evals)
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) } #: [Array[IR::Function], Array[Obj::Code]]
         Timing.phase("writing and linking the program object", "program object written and linked") do
-          # The objects of the C extensions go to the system linker, as
-          # `--link` words do.
-          extensions = Config.current.ext_objects.values.flatten
+          # The objects of the C extensions and their libraries go to the
+          # system linker, as `--link` words do, once the C API has all
+          # that they import.
+          sources = Ext.bundles.values
+          Ext::CApi.check!(sources)
+          extensions = sources.flat_map { |source| source.objects + source.libraries }
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs, link: link + extensions)
         end

@@ -676,7 +676,7 @@ module Zr
                       elsif path == Library::Roots::SWITCHES
                         unit(path, @switches.prelude || raise(ArgumentError, "the build has no switches' prelude"))
                       elsif extension?(path)
-                        Unit.new(path, [], ExtInit.new(Loader.init_name(path), path, 1), [], false)
+                        Unit.new(path, [], ExtInit.new(Ext.bundles.fetch(path).init, path, 1), [], false)
                       else
                         parsed_unit(path)
                       end
@@ -798,7 +798,7 @@ module Zr
         end
 
         # The bundle of a C extension that the build links in
-        # (`Config#ext_objects`), for `feature` under the directory
+        # (`Ext.bundles`), for `feature` under the directory
         # `dir`: `hello` and `hello.so` find `dir/hello.bundle`, as ruby's
         # require finds a darwin extension.
         #: (String dir, String feature) -> String?
@@ -808,12 +808,11 @@ module Zr
         end
 
         #: (String path) -> bool
-        def extension?(path) = Config.current.ext_objects.key?(path)
+        def extension?(path) = Ext.bundles.key?(path)
 
-        # The function that ruby runs to load the extension at `path`:
-        # `Init_` and the file's name without its extension.
-        #: (String path) -> String
-        def self.init_name(path) = "Init_#{File.basename(path).sub(/\..*\z/, "")}"
+        # Whether the build links a C extension under one of `roots`.
+        #: (Array[String] roots) -> bool
+        def extension_in?(roots) = Ext.bundles.each_key.any? { |path| roots.any? { |root| path.start_with?("#{root}/") } }
 
         # Library::Layout::EXT, or an OS layer's directory under it.
         #: (String root) -> bool

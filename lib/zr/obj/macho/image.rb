@@ -4,7 +4,8 @@ module Zr
   module Obj
     module MachO
       # Reads a linked arm64 Mach-O image: a bundle (a C extension), a
-      # dylib or an executable. It gives what zr needs to link or load one:
+      # dylib or an executable, or for its symbols a compiler's object
+      # file. It gives what zr needs to link or load one:
       # its segments, the dylibs it loads, the symbols it defines and the
       # ones it imports, and each pointer that dyld fixes, as one `Rebase`
       # or `Bind` record whether the image keeps them as `LC_DYLD_INFO`
@@ -15,10 +16,11 @@ module Zr
         MH_MAGIC_64 = 0xFEEDFACF
         FAT_MAGIC = 0xCAFEBABE
         CPU_TYPE_ARM64 = 0x0100000C
+        MH_OBJECT = 1
         MH_EXECUTE = 2
         MH_DYLIB = 6
         MH_BUNDLE = 8
-        FILETYPES = { MH_EXECUTE => :execute, MH_DYLIB => :dylib, MH_BUNDLE => :bundle }.freeze #: Hash[Integer, ::Symbol]
+        FILETYPES = { MH_OBJECT => :object, MH_EXECUTE => :execute, MH_DYLIB => :dylib, MH_BUNDLE => :bundle }.freeze #: Hash[Integer, ::Symbol]
 
         LC_REQ_DYLD = 0x80000000
         LC_SYMTAB = 0x2

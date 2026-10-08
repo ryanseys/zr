@@ -53,9 +53,10 @@ module Zr
       cli.rb cli/command.rb cli/errors.rb cli/help.rb cli/options.rb cli/refusals.rb cli/runner.rb
       cli/commands/cache.rb cli/commands/compile.rb cli/commands/diff.rb cli/commands/doctor.rb cli/commands/gems.rb cli/commands/help.rb
       cli/commands/inspect.rb cli/commands/version.rb
-      native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
+      ext/capi.rb native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
       obj/jit.rb obj/jit/fiddle.rb
-      obj/macho/block.rb obj/macho/executable.rb obj/macho/libsystem.rb obj/macho/prelink.rb obj/macho/skeleton.rb
+      obj/macho/block.rb obj/macho/executable.rb obj/macho/image.rb obj/macho/libsystem.rb obj/macho/prelink.rb
+      obj/macho/skeleton.rb
     ].map { |name| File.join(__dir__, name) }.freeze
 
     # The compiler files that drive zr but that neither a build nor a link
@@ -71,7 +72,7 @@ module Zr
     # `compiler_digest_test.rb` checks that a build and a link load none of
     # them, and that it lists each compiler file that they do not load.
     DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb doctor.rb machine/host.rb obj/archive.rb
-                      obj/macho/image.rb server.rb server/client.rb]
+                      server.rb server/client.rb]
                      .map { |name| File.join(__dir__, name) } +
                    Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze
 

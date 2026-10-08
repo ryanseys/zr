@@ -90,4 +90,74 @@ module Zr::Kern
     end
     e == 0 ? missing : HEntry[e].value
   end
+
+  # rb_hash_clear: removes every pair, and returns the Hash.
+  #: (value) -> value
+  def rb_hash_clear(h)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_hash_clear(h))
+  end
+
+  # rb_hash_freeze: freezes the Hash, and returns it.
+  #: (value) -> value
+  def rb_hash_freeze(h)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_obj_freeze(h, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+  end
+
+  # rb_hash_foreach's answers from the C function (st.h).
+  ST_CONTINUE = 0
+  ST_STOP = 1
+  ST_DELETE = 2
+  ST_CHECK = 3
+
+  # rb_hash_foreach: calls `fn(key, value, arg)` for each pair, in order.
+  # The function's answer goes on, stops, or deletes the pair. While it
+  # runs, a new key raises, as in `each`. `arg` is the C caller's word
+  # (st_data_t), often the address of its own struct, so it is no root.
+  #: (value, ptr, word) -> void
+  def rb_hash_foreach(h, fn, arg)
+    Machine.gates_enter
+    zr_c_entered()
+    argv = Machine.slot(64)
+    Machine.store64(argv, 16, arg)
+    RHash[h].iter = RHash[h].iter + 1
+    i = 0
+    while i < RHash[h].len
+      e = RHash[h].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        Machine.store64(argv, 0, Machine.word(HEntry[e].key))
+        Machine.store64(argv, 8, Machine.word(HEntry[e].value))
+        r = zr_call_c(fn, argv, 3)
+        if r == QUNDEF
+          RHash[h].iter = RHash[h].iter - 1
+          zr_c_unwind()
+        end
+        answer = Machine.sword(Machine.i32(r))
+        if answer == ST_STOP
+          break
+        end
+        if answer == ST_DELETE
+          zr_capi_hash_kill(h, RHash[h].entries + (i * HEntry.size))
+        end
+      end
+      i += 1
+    end
+    RHash[h].iter = RHash[h].iter - 1
+  end
+
+  # Removes entry `e` of `h`, as a delete during a walk does: the entry
+  # stays in its place, dead.
+  #: (value, ptr) -> void
+  def zr_capi_hash_kill(h, e)
+    if HEntry[e].live == 0
+      return
+    end
+    HEntry[e].live = 0
+    HEntry[e].key = Machine.value(QNIL)
+    HEntry[e].value = Machine.value(QNIL)
+    RHash[h].live = RHash[h].live - 1
+  end
 end

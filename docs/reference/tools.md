@@ -131,6 +131,12 @@ gives more examples.
 | `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
 | `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `gems/top.tsv` again from packages.ecosyste.ms. |
 
+### C extensions
+
+| Command | Does |
+|---|---|
+| `zr-dev ext imports [--all] <bundle-or-object>...` | Lists what a C extension takes from ruby that zr's C API (`lib/zr/runtime/kernel/capi/`) does not have yet: the ruby names among the undefined symbols of a bundle or an object file, read with zr's own Mach-O reader. `--all` lists every ruby import, `+` for those the C API has and `-` for the others. It fails when one is missing, as a build that links the extension refuses then. |
+
 ### Expected outputs
 
 | Command | Does |

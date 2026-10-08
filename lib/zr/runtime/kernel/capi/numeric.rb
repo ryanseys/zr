@@ -23,11 +23,32 @@ module Zr::Kern
   def rb_num2ll(v)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_long(v)
+    zr_capi_long_of(v, true)
+  end
+
+  # rb_big2long and rb_big2ll: a bignum that fits.
+  #: (value) -> word
+  def rb_big2long(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_long_of(v, false)
+  end
+
+  #: (value) -> word
+  def rb_big2ll(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_long_of(v, true)
   end
 
   #: (value) -> word
   def zr_capi_long(v)
+    zr_capi_long_of(v, false)
+  end
+
+  # A long, or a long long when `ll`, which only the messages tell apart.
+  #: (value, bool) -> word
+  def zr_capi_long_of(v, ll)
     while true
       if v == QNIL
         zr_c_raise(zr_global(G_TYPE_ERROR), Machine.bytes("no implicit conversion from nil to integer"), 42)
@@ -45,6 +66,9 @@ module Zr::Kern
       if zr_big_p(v)
         out = Machine.slot(8)
         if !zr_big_to_long(v, out)
+          if ll
+            zr_c_raise(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long long'"), 42)
+          end
           zr_c_raise(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'long'"), 37)
         end
         return Machine.load64(out, 0)
@@ -60,18 +84,111 @@ module Zr::Kern
   def rb_num2ulong(v)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_ulong(v)
+    zr_capi_ulong_of(v, false)
   end
 
   #: (value) -> word
   def rb_num2ull(v)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_ulong(v)
+    zr_capi_ulong_of(v, true)
+  end
+
+  # rb_big2ulong and rb_big2ull: a bignum that fits, a negative one
+  # wrapped.
+  #: (value) -> word
+  def rb_big2ulong(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_big_ulong(v, false)
+  end
+
+  #: (value) -> word
+  def rb_big2ull(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_big_ulong(v, true)
+  end
+
+  # rb_big_sign: 1 for a bignum of 0 or more, else 0.
+  #: (value) -> i32
+  def rb_big_sign(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_negative_p(v) ? Machine.i32(0) : Machine.i32(1)
+  end
+
+  # rb_num2uint and rb_fix2uint: an unsigned long that an unsigned int
+  # holds, or a negative one that an int holds, as check_uint allows.
+  #: (value) -> word
+  def rb_num2uint(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_check_uint(zr_capi_ulong_of(v, false), zr_capi_negative_p(v))
+  end
+
+  #: (value) -> word
+  def rb_fix2uint(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_check_uint(zr_capi_ulong_of(v, false), zr_capi_negative_p(v))
+  end
+
+  # rb_absint_size: the bytes of `v`'s magnitude, and in `*nlz` the zero
+  # bits at the top of the last byte.
+  #: (value, ptr) -> word
+  def rb_absint_size(v, nlz)
+    Machine.gates_enter
+    zr_c_entered()
+    magnitude = zr_c_result(zr_send(v, Machine.id(:abs), 0, Machine.ptr(0)))
+    bits = zr_fix2long(zr_c_result(zr_send(magnitude, Machine.id(:bit_length), 0, Machine.ptr(0))))
+    bytes = (bits + 7) / 8
+    if nlz != 0
+      Machine.store32(nlz, 0, Machine.i32((bytes * 8) - bits))
+    end
+    bytes
+  end
+
+  # Whether the Integer or Float `v` is below 0.
+  #: (value) -> bool
+  def zr_capi_negative_p(v)
+    if zr_fixnum_p(v)
+      return zr_fix2long(v) < 0
+    end
+    if zr_float_p(v)
+      return zr_float_value(v) < Machine.f64(0)
+    end
+    zr_big_p(v) && zr_hidden_get(v, zr_sym(Machine.id(:__neg__))) == QTRUE
+  end
+
+  # check_uint's RangeError.
+  #: (word, bool) -> word
+  def zr_capi_check_uint(n, negative)
+    if negative ? n >= 0 - 2147483648 : Machine.ptr(n) <= Machine.ptr(4294967295)
+      return n
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("integer "), 8)
+    if negative
+      zr_buf_long(b, n)
+      zr_buf_push(b, Machine.bytes(" too small to convert to 'unsigned int'"), 39)
+    else
+      zr_buf_str(b, zr_c_result(zr_obj_as_string(zr_capi_unsigned(n))))
+      zr_buf_push(b, Machine.bytes(" too big to convert to 'unsigned int'"), 37)
+    end
+    zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b))
+    n
   end
 
   #: (value) -> word
   def zr_capi_ulong(v)
+    zr_capi_ulong_of(v, false)
+  end
+
+  # An unsigned long, or an unsigned long long when `ll`.
+  #: (value, bool) -> word
+  def zr_capi_ulong_of(v, ll)
     while true
       if v == QNIL
         zr_c_raise(zr_global(G_TYPE_ERROR), Machine.bytes("no implicit conversion of nil into Integer"), 42)
@@ -90,17 +207,18 @@ module Zr::Kern
         zr_capi_float_range(v)
       end
       if zr_big_p(v)
-        return zr_capi_big_ulong(v)
+        return zr_capi_big_ulong(v, ll)
       end
       v = zr_c_result(zr_to_int(v))
     end
     0
   end
 
-  # A bignum as an unsigned long: its magnitude below 2^64, negated
-  # (wrapping) when the bignum is negative, as rb_big2ulong gives it.
-  #: (value) -> word
-  def zr_capi_big_ulong(v)
+  # A bignum as an unsigned long (an unsigned long long when `ll`): its
+  # magnitude below 2^64, negated (wrapping) when the bignum is negative
+  # and its magnitude is at most 2^63, as rb_big2ulong gives it.
+  #: (value, bool) -> word
+  def zr_capi_big_ulong(v, ll)
     out = Machine.slot(8)
     if zr_big_to_long(v, out)
       return Machine.load64(out, 0)
@@ -110,10 +228,21 @@ module Zr::Kern
     n = RArray[limbs].len
     top = n == 3 ? zr_fix2long(zr_ary_at(limbs, 2)) : 0
     if n > 3 || top >= 16
-      zr_c_raise(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum out of range of unsigned long"), 36)
+      if ll
+        zr_c_raise(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'unsigned long long'"), 51)
+      end
+      zr_c_raise(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum too big to convert into 'unsigned long'"), 46)
     end
     magnitude = Machine.shl_wrap(top, 60) | Machine.shl_wrap(zr_fix2long(zr_ary_at(limbs, 1)), 30) | zr_fix2long(zr_ary_at(limbs, 0))
-    neg ? Machine.sub_wrap(0, magnitude) : magnitude
+    if !neg
+      return magnitude
+    end
+    # Past 2^63, a negative magnitude has no unsigned long.
+    if ll
+      zr_c_raise(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum out of range of unsigned long long"), 41)
+    end
+    zr_c_raise(zr_core_class(Machine.id(:RangeError)), Machine.bytes("bignum out of range of unsigned long"), 36)
+    0
   end
 
   # rb_num2int and rb_fix2int: as rb_num2long, then within an int.

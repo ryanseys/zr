@@ -54,6 +54,18 @@ class ConfigTest < Minitest::Test
                  "ZR_EXT_OBJECTS=lib/hello.bundle=hello.o.", error.message
   end
 
+  # Each word is a gem, or a gem and its version, split at commas and
+  # spaces.
+  def test_native_ext_names_gems_and_their_versions
+    Zr::Config.with(ZR_NATIVE_EXT: "msgpack, nokogiri=1.19.4 json") do |config|
+      assert_equal({ "msgpack" => nil, "nokogiri" => "1.19.4", "json" => nil }, config.native_ext)
+    end
+    Zr::Config.with(ZR_NATIVE_EXT: nil) { |config| assert_empty config.native_ext }
+    error = assert_raises(Zr::Config::Invalid) { Zr::Config.with(ZR_NATIVE_EXT: "msgpack=") { |_| } }
+    assert_equal 'ZR_NATIVE_EXT has "msgpack=". Give each gem as NAME or NAME=VERSION, for example ZR_NATIVE_EXT=msgpack.',
+                 error.message
+  end
+
   def test_linker_defaults_to_auto_when_unset
     Zr::Config.with(ZR_LINKER: nil) { |config| assert_equal "auto", config.linker }
   end
@@ -99,6 +111,7 @@ class ConfigTest < Minitest::Test
       "ZR_HOST_RUBY" => [%w[--host-ruby /bin/ruby], :host_ruby, "/bin/ruby"],
       "ZR_LINK_ARGS" => [["--link-args", "a.o -lz"], :link, %w[a.o -lz]],
       "ZR_EXT_OBJECTS" => [["--ext-objects", "/a.bundle=/a.o"], :ext_objects, { "/a.bundle" => ["/a.o"] }],
+      "ZR_NATIVE_EXT" => [["--native-ext", "msgpack"], :native_ext, { "msgpack" => nil }],
       "ZR_RUN_CACHE" => [%w[--no-run-cache], :run_cache?, false],
       "ZR_TRACE" => [%w[--trace], :trace?, true],
       "ZR_CODE_CACHE" => [%w[--code-cache verify], :code_cache, "verify"],

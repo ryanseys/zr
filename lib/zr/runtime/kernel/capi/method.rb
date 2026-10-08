@@ -373,4 +373,10 @@ module Zr::Kern
     c = zr_capi_fmt_byte(fmt, at)
     c >= 48 && c <= 57
   end
+
+  # A send whose last argument is the keywords Hash, as `recv.mid(*a, **h)`.
+  #: (value, word, word, ptr) -> value
+  def zr_capi_send_kw(recv, mid, argc, argv)
+    zr_send(recv, mid, zr_kw_argc(argc, argv), argv)
+  end
 end

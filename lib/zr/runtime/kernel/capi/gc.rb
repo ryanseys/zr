@@ -163,6 +163,22 @@ module Zr::Kern
     zr_xfree(p)
   end
 
+  # ruby_malloc_size_overflow: the ArgumentError of a count times a size
+  # that overflows.
+  #: (word, word) -> void
+  def ruby_malloc_size_overflow(count, size)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("malloc: possible integer overflow ("), 35)
+    zr_buf_str(b, zr_c_result(zr_obj_as_string(zr_capi_unsigned(count))))
+    zr_buf_byte(b, 42)
+    zr_buf_str(b, zr_c_result(zr_obj_as_string(zr_capi_unsigned(size))))
+    zr_buf_byte(b, 41)
+    zr_c_result(zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b))
+  end
+
   # `n * size`, or CRuby's ArgumentError when the product overflows, as
   # ruby_xmalloc2 raises it.
   #: (word, word, ptr, word) -> word

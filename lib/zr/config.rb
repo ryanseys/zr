@@ -69,6 +69,7 @@ module Zr
       row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr starts for gems and syntax errors"),
       row("ZR_LINK_ARGS", "--link-args", :value, "WORDS", "words for the system linker, split as a shell does"),
       row("ZR_EXT_OBJECTS", "--ext-objects", :value, "PATH=OBJ,...", "C extensions to link: each a bundle's path, then its objects"),
+      row("ZR_NATIVE_EXT", "--native-ext", :value, "GEM[=VERSION],...", "gems whose installed C extension to link, not a port"),
       row("ZR_RUN_CACHE", "--run-cache", :switch, nil, "keep the binary of each run and run it again (on)"),
       row("ZR_TRACE", "--trace", :switch, nil, "arm the trace events in the program's code"),
       row("ZR_CODE_CACHE", "--code-cache", :choice, CODE_CACHES, "keep the runtime's machine code (1), not (0), or check it"),
@@ -102,6 +103,11 @@ module Zr
     # of each one's bundle, where ruby would load it from, to the object
     # files that hold its code.
     attr_reader :ext_objects #: Hash[String, Array[String]]
+
+    # The gems whose C extension a build links as the host ruby built it
+    # (`ZR_NATIVE_EXT`), by name, each with the version it asks for or nil
+    # for the newest installed.
+    attr_reader :native_ext #: Hash[String, String?]
 
     # The settings from `given` (by variable name, as `CLI.settings!`
     # reads the flags), and the rest from `env`.
@@ -139,6 +145,9 @@ module Zr
       @link = words(value("ZR_LINK_ARGS")).freeze
       # `ZR_EXT_OBJECTS`: shell words, each `bundle=object,object`.
       @ext_objects = words(value("ZR_EXT_OBJECTS")).to_h { |word| ext_object(word) }.freeze
+      # `ZR_NATIVE_EXT`: gem names, split at commas and spaces, each
+      # `name` or `name=version`.
+      @native_ext = value("ZR_NATIVE_EXT").to_s.split(/[\s,]+/).reject(&:empty?).to_h { |word| native_gem(word) }.freeze
       @run_cache = switch?("ZR_RUN_CACHE", default: true)
       @trace = switch?("ZR_TRACE")
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
@@ -208,6 +217,18 @@ module Zr
       [File.expand_path(bundle.to_s), objects.to_s.split(",").map { |object| File.expand_path(object) }]
     end
     private :ext_object
+
+    # One word of `ZR_NATIVE_EXT`: a gem's name, and its version or nil.
+    #: (String word) -> [String, String?]
+    def native_gem(word)
+      name, version = word.split("=", 2)
+      if name.to_s.empty? || version&.empty?
+        source = source("ZR_NATIVE_EXT")
+        raise Invalid, "#{source} has #{word.inspect}. Give each gem as NAME or NAME=VERSION, for example #{source}=msgpack."
+      end
+      [name.to_s, version]
+    end
+    private :native_gem
 
     # The ruby that runs zr, or `ruby` on PATH in a binary that zr built,
     # whose `RbConfig.ruby` names zr itself.

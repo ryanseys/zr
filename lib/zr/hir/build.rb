@@ -7,6 +7,7 @@ require_relative "../library/layout"
 require_relative "../library/roots"
 require_relative "../target"
 require_relative "../config"
+require_relative "../ext"
 require_relative "node"
 require_relative "syntax_report"
 
@@ -156,6 +157,9 @@ module Zr
         preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.evals? && loader.activations.positive?
         preludes << switched if switched
         loader.native_gems.each do |gem|
+          # A gem whose C extension the build links has its C part.
+          next if loader.extension_in?(gem.roots)
+
           warn "zr: warning: #{gem.refusal}: its Ruby files compile, and a require of its C part raises LoadError if it runs"
         end
         body = preludes.empty? ? main.body : Seq.new([*preludes, main.body], 0)

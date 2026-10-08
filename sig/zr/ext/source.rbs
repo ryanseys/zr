@@ -1,0 +1,14 @@
+# The fields of the record in lib/zr/ext/source.rb. Its methods are inline.
+module Zr
+  module Ext
+    class Source < Data
+      attr_reader bundle: String
+      attr_reader init: String
+      attr_reader objects: Array[String]
+      attr_reader libraries: Array[String]
+
+      def self.new: (String bundle, String init, Array[String] objects, Array[String] libraries) -> instance
+                  | (bundle: String, init: String, objects: Array[String], libraries: Array[String]) -> instance
+    end
+  end
+end

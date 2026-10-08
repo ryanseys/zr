@@ -59,4 +59,17 @@ module Zr::Kern
     zr_c_entered()
     zr_capi_id(zr_sym2id(sym))
   end
+
+  # rb_intern3: the ID of the `len` bytes at `name` in `enc`. A name is
+  # its bytes here, so the encoding only matters past ASCII, as a Symbol
+  # of those bytes.
+  #: (ptr, word, ptr) -> word
+  def rb_intern3(name, len, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    if enc == 0 || zr_bytes_ascii_only_p(name, len)
+      return zr_capi_id(zr_intern(name, len))
+    end
+    zr_capi_id(zr_sym2id(zr_c_result(zr_send(zr_capi_str(name, len, zr_capi_enc_index(enc)), Machine.id(:to_sym), 0, Machine.ptr(0)))))
+  end
 end

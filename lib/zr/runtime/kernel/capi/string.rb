@@ -204,4 +204,73 @@ module Zr::Kern
     Machine.store64(at, 0, Machine.word(s))
     s
   end
+
+  # rb_check_string_type: `v` as a String through to_str, or nil.
+  #: (value) -> value
+  def rb_check_string_type(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(zr_global(G_STRING), Machine.id(:try_convert), v)
+  end
+
+  # rb_str_dup: a new String of `str`'s class with its bytes and
+  # encoding, which does not call initialize_copy.
+  #: (value) -> value
+  def rb_str_dup(str)
+    Machine.gates_enter
+    zr_c_entered()
+    copy = zr_str_copy_encoding(zr_str_new(RString[str].ptr, RString[str].len), str)
+    RBasic[copy].klass = zr_real_class(str)
+    copy
+  end
+
+  # rb_str_replace: replaces `str`'s bytes and encoding with `other`'s.
+  #: (value, value) -> value
+  def rb_str_replace(str, other)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_str_replace(str, zr_c_result(zr_str_operand(other))))
+  end
+
+  # rb_str_substr: `str[beg, len]` by characters, or nil.
+  #: (value, word, word) -> value
+  def rb_str_substr(str, beg, len)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(zr_int_from_word(beg)))
+    Machine.store64(args, 8, Machine.word(zr_int_from_word(len)))
+    zr_c_result(zr_send(str, Machine.id(:[]), 2, args))
+  end
+
+  # rb_str_intern: the Symbol of a String.
+  #: (value) -> value
+  def rb_str_intern(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(str, Machine.id(:to_sym), 0, Machine.ptr(0)))
+  end
+
+  # rb_sym2str: the frozen name of a Symbol.
+  #: (value) -> value
+  def rb_sym2str(sym)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(sym, Machine.id(:name), 0, Machine.ptr(0)))
+  end
+
+  # rb_str_encode: `str.encode(to, **opts)`. The flags of a C caller
+  # that gives no options are the default ones.
+  #: (value, value, i32, value) -> value
+  def rb_str_encode(str, to, ecflags, ecopts)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(to))
+    if ecopts == QNIL
+      return zr_c_result(zr_send(str, Machine.id(:encode), 1, args))
+    end
+    Machine.store64(args, 8, Machine.word(ecopts))
+    zr_c_result(zr_capi_send_kw(str, Machine.id(:encode), 2, args))
+  end
 end
