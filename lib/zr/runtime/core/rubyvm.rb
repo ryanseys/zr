@@ -36,6 +36,73 @@ class RubyVM
 
   def self.keep_script_lines = KEEP_SCRIPT_LINES[0]
 
+  # rb_profile_frame_*: the answer `what` about a frame of
+  # rb_profile_frames, the code of the FrameMeta at `meta`
+  # (kernel/capi/profile.rb). A C method's frame has no code, so no path,
+  # label or first line, as ruby's entry of a C function has none. A
+  # method's frame has its class; other code (a class body, a file) has
+  # none.
+  def self.profile_frame(meta, what)
+    Primitive.attr! :hidden
+    form, owner, name = Primitive.zr_profile_meta(meta)
+    iseq = InstructionSequence.send(:of_frame, meta) unless form == :cfunc
+    case what
+    when :path then iseq&.path
+    when :absolute_path then form == :cfunc ? +"<cfunc>" : iseq.absolute_path
+    when :label then iseq&.label
+    when :base_label then iseq&.base_label
+    when :first_lineno then iseq&.first_lineno
+    when :classpath then profile_classpath(owner) unless form == :code
+    when :singleton_method_p then form != :code && owner.singleton_class?
+    when :method_name then profile_method_name(form, name, iseq)
+    when :qualified_method_name then profile_qualified(form, owner, profile_method_name(form, name, iseq))
+    when :full_label then profile_full_label(form, owner, name, iseq)
+    end
+  end
+
+  # rb_profile_frame_classpath: the path of the class, or of the module
+  # whose singleton class it is, or `#<Class:0x...>` for another object's.
+  def self.profile_classpath(owner)
+    Primitive.attr! :hidden
+    return owner.name || owner.inspect unless owner.singleton_class?
+
+    attached = owner.attached_object
+    attached.is_a?(Module) ? attached.name || attached.inspect : Kernel.instance_method(:to_s).bind_call(attached)
+  end
+
+  # rb_profile_frame_method_name: a C method's name, a Ruby method's, or
+  # nil for code outside a method.
+  def self.profile_method_name(form, name, iseq)
+    Primitive.attr! :hidden
+    case form
+    when :cfunc then name.to_s
+    when :method then iseq.base_label
+    end
+  end
+
+  # rb_profile_frame_qualified_method_name: `Class#name`, `Class.name`,
+  # or the name alone for code outside a method.
+  def self.profile_qualified(form, owner, method_name)
+    Primitive.attr! :hidden
+    return nil if method_name.nil?
+    return method_name if form == :code
+
+    "#{profile_classpath(owner)}#{owner.singleton_class? ? "." : "#"}#{method_name}"
+  end
+
+  # rb_profile_frame_full_label: the label with its method qualified, as
+  # `block in Class#name`.
+  def self.profile_full_label(form, owner, name, iseq)
+    Primitive.attr! :hidden
+    return profile_qualified(form, owner, name.to_s) if form == :cfunc
+
+    qualified = profile_qualified(form, owner, profile_method_name(form, name, iseq))
+    return iseq.label if qualified.nil? || iseq.base_label == qualified
+
+    "#{iseq.label[0, iseq.label.length - iseq.base_label.length]}#{qualified}"
+  end
+  private_class_method :profile_frame, :profile_classpath, :profile_method_name, :profile_qualified, :profile_full_label
+
   def self.keep_script_lines=(flag)
     KEEP_SCRIPT_LINES[0] = flag ? true : false
   end

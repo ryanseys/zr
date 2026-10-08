@@ -1146,7 +1146,8 @@ module Zr::Kern
   end
 
   # Runs a requested safe point. It resets the poll word and the count,
-  # and runs the handlers of POSIX signals that arrived. Then, if a
+  # and runs the handlers of POSIX signals that arrived and the postponed
+  # jobs that C triggered (postponed_jobs.rb). Then, if a
   # second thread set up preemption, it yields to the scheduler, which
   # runs the finalizers that a collection queued where a thread may
   # switch: a finalizer can wait for another thread. Else it runs them
@@ -1155,7 +1156,7 @@ module Zr::Kern
   def zr_preempt_expired
     Machine.store64(zr_poll_slot(), 0, 0)
     Machine.store64(Machine.static(:preempt_count, 8), 0, PREEMPT_TICKS)
-    if zr_trap_check() == QUNDEF
+    if zr_trap_check() == QUNDEF || zr_postponed_run() == QUNDEF
       return Machine.value(QUNDEF)
     end
     mid = Machine.load64(Machine.static(:preempt_mid, 8), 0)

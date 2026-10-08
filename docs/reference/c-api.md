@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 797 of its
+calls ruby 4.0's C API. zr's kernel gives 813 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -26,8 +26,12 @@ outward. A frame's depth counts the frames from it outward, so
 two depths compare as ruby's do, but the number is not ruby's.
 An event hook (`rb_add_event_hook`) is a C TracePoint too, and
 a C TracePoint hears the internal events NEWOBJ and FREEOBJ.
-zr does not have yet `rb_profile_frame*`, `rb_postponed_job_*`
-and `rb_iseq_*`, so stackprof and vernier do not build.
+A frame of `rb_profile_frames` is the address of its code with
+the Fixnum tag: a signal handler can take one, as stackprof's
+does, and a postponed job (`rb_postponed_job_*`) runs at the
+next safe point. zr does not have yet the private
+`rb_iseq_*` and `rb_iseqw_*`, which datadog-ci and debug's
+`iseq_collector` call.
 
 ## array
 
@@ -148,6 +152,12 @@ The functions of an rb_encoding (OnigEncodingType), which CRuby's inline encodin
 The C API's printf functions.
 
 `rb_sprintf`, `rb_vsprintf`, `rb_raise`, `rb_name_error`, `rb_enc_raise`, `rb_bug`, `rb_warn`, `rb_warning`, `rb_category_warn`, `rb_category_warning`, `ruby_snprintf`, `ruby_vsnprintf`, `rb_fatal`, `rb_enc_sprintf`, `rb_str_catf`, `rb_str_vcatf`
+
+## profile
+
+The C API of ruby/debug.h for sampling profilers (stackprof, vernier, datadog): the frames that run, and jobs that run at the next safe point (postponed_jobs.rb).
+
+`rb_profile_frames`, `rb_profile_thread_frames`, `rb_profile_frame_path`, `rb_profile_frame_absolute_path`, `rb_profile_frame_label`, `rb_profile_frame_base_label`, `rb_profile_frame_full_label`, `rb_profile_frame_first_lineno`, `rb_profile_frame_classpath`, `rb_profile_frame_singleton_method_p`, `rb_profile_frame_method_name`, `rb_profile_frame_qualified_method_name`, `rb_postponed_job_preregister`, `rb_postponed_job_trigger`, `rb_postponed_job_register`, `rb_postponed_job_register_one`
 
 ## range
 

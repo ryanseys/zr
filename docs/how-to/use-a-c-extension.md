@@ -104,9 +104,8 @@ thread-local variables, or that links a library outside macOS.
   ruby-prof does) or reads the frames (`rb_debug_inspector_open`, as
   byebug does) makes zr build the program with its trace events, as
   `--trace` does. The program is then larger and slower.
-- The sampling profiler C API (`rb_profile_frames`,
-  `rb_postponed_job_*`) is not there, so stackprof and vernier do not
-  build.
+- The private functions of ruby's instruction sequences (`rb_iseq_*`,
+  `rb_iseqw_*`) are not there, so datadog-ci does not build.
 - zr runs C extensions on macOS on Apple silicon. Other targets use
   ports only.
 

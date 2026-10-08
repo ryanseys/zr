@@ -876,6 +876,35 @@ module Zr::Kern
     zr_fix(Machine.word(zr_iseq_meta(body)))
   end
 
+  # Whether the code of `meta` is a C method's, as ruby sees it: a
+  # builtin, or a core method that zr writes in Ruby and ruby in C. Its
+  # frame has no file and no line of its own.
+  #: (ptr) -> bool
+  def zr_meta_native_p(meta)
+    FrameMeta[meta].kind == KIND_BUILTIN || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].file_len == 0
+  end
+
+  # What rb_profile_frame_* reads of the code of the FrameMeta at
+  # `meta_word` (a frame of rb_profile_frames), besides what its
+  # instruction sequence gives: `[form, owner, name]`. The form is :cfunc
+  # for a C method (zr_meta_native_p), :method for a Ruby method, and
+  # :code for other code: a block outside a method, a class body, a file.
+  #: (value) -> value
+  def zr_profile_meta(meta_word)
+    meta = Machine.ptr(zr_fix2long(meta_word))
+    form = Machine.id(:code)
+    if zr_meta_native_p(meta)
+      form = Machine.id(:cfunc)
+    elsif FrameMeta[meta].kind == KIND_DEF
+      form = Machine.id(:method)
+    end
+    out = zr_ary_new(3)
+    zr_ary_push(out, zr_sym(form))
+    zr_ary_push(out, FrameMeta[meta].owner)
+    zr_ary_push(out, FrameMeta[meta].name == 0 ? Machine.value(QNIL) : zr_sym(FrameMeta[meta].name))
+    out
+  end
+
   # The frames that a debugger reads, outward from the caller of this
   # method, as zr_debug_frames_from gives them.
   #: () -> value
@@ -895,7 +924,7 @@ module Zr::Kern
         entry = zr_ary_new(6)
         zr_ary_push(out, entry)
         meta = Frame[rec].meta
-        native = FrameMeta[meta].kind == KIND_BUILTIN || FrameMeta[meta].kind == KIND_HIDDEN || FrameMeta[meta].file_len == 0
+        native = zr_meta_native_p(meta)
         b = Machine.slot(Buf.size)
         zr_buf_init(b)
         # A C frame has no file or line of its own.
