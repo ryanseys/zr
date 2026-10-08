@@ -266,6 +266,11 @@ module Zr
           STORE64.call(static(:gates, 8), word)
         end
 
+        # The walker has no machine stack for a C caller's arguments: a
+        # variadic C-API function runs only in a binary.
+        #: () -> Integer
+        def stack_args = raise(NotImplementedError, "a variadic C-API function runs only in a binary")
+
         #: () -> void
         def gates_enter
           @host.gates = LOAD64.call(static(:gates, 8))

@@ -127,6 +127,35 @@ module Zr::Kern
   def rb_rescue(body, data1, rescue_fn, data2)
     Machine.gates_enter
     zr_c_entered()
+    classes = Machine.slot(16)
+    Machine.store64(classes, 0, Machine.word(zr_global(G_STANDARD_ERROR)))
+    Machine.store64(classes, 8, 0)
+    zr_capi_rescue(body, data1, rescue_fn, data2, classes)
+  end
+
+  # rb_rescue2: the same for the exception classes that follow, up to a 0.
+  #: (ptr, value, ptr, value) -> value
+  def rb_rescue2(body, data1, rescue_fn, data2)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_start(list, Machine.stack_args)
+    classes = Machine.slot((CAPI_ARGS + 1) * 8)
+    n = 0
+    klass = zr_va_next_word(list)
+    while klass != 0 && n < CAPI_ARGS
+      Machine.store64(classes + (n * 8), 0, klass)
+      n += 1
+      klass = zr_va_next_word(list)
+    end
+    Machine.store64(classes + (n * 8), 0, 0)
+    zr_capi_rescue(body, data1, rescue_fn, data2, classes)
+  end
+
+  # rb_vrescue2: `classes` is a 0-terminated list. With no rescue
+  # function, a rescued call gives nil.
+  #: (ptr, value, ptr, value, ptr) -> value
+  def zr_capi_rescue(body, data1, rescue_fn, data2, classes)
     argv = Machine.slot(64)
     Machine.store64(argv, 0, Machine.word(data1))
     r = Machine.value(zr_call_c(body, argv, 1))
@@ -135,7 +164,7 @@ module Zr::Kern
     end
     t = zr_task()
     exc = Task[t].pending
-    if Task[t].pending_kind != PENDING_RAISE || !zr_is_a(exc, zr_global(G_STANDARD_ERROR))
+    if Task[t].pending_kind != PENDING_RAISE || !zr_capi_rescues_p(exc, classes)
       zr_c_unwind()
     end
     # $! is the exception while the rescue function runs, and what it was
@@ -143,11 +172,26 @@ module Zr::Kern
     before = Task[t].errinfo
     zr_capi_park()
     Task[t].parked = Machine.value(QNIL)
-    Machine.store64(argv, 0, Machine.word(data2))
-    Machine.store64(argv, 8, Machine.word(exc))
-    rescued = zr_c_result(Machine.value(zr_call_c(rescue_fn, argv, 2)))
+    rescued = Machine.value(QNIL)
+    if rescue_fn != 0
+      Machine.store64(argv, 0, Machine.word(data2))
+      Machine.store64(argv, 8, Machine.word(exc))
+      rescued = zr_c_result(Machine.value(zr_call_c(rescue_fn, argv, 2)))
+    end
     Task[zr_task()].errinfo = before
     rescued
+  end
+
+  # Whether `exc` is a kind of one of the classes in the 0-terminated list.
+  #: (value, ptr) -> bool
+  def zr_capi_rescues_p(exc, classes)
+    while Machine.load64(classes, 0) != 0
+      if zr_is_a(exc, Machine.value(Machine.load64(classes, 0)))
+        return true
+      end
+      classes += 8
+    end
+    false
   end
 
   # Takes the task's pending unwind and keeps it in `Task.parked`, as

@@ -860,6 +860,9 @@ module Zr
           @f.store(value, gates_addr(node), region: :gates)
           @f.gates_set(value)
           [nil, "Void"]
+        when :stack_args
+          refuse(node, "Machine.stack_args takes nothing") unless args.empty?
+          [@f.stack_args, "Ptr"]
         when :gates_enter
           refuse(node, "Machine.gates_enter takes nothing") unless args.empty?
           @f.gates_enter(@f.fetch("i64", gates_addr(node), region: :gates))

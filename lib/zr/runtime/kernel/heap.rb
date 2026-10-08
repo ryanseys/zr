@@ -888,6 +888,8 @@ module Zr::Kern
     # The unwind that rb_protect stopped, which rb_jump_tag resumes: an
     # Array of the pending fields (capi/control.rb), or nil.
     attr_accessor :parked #: value
+    # Whether the C method that runs got keywords (rb_keyword_given_p).
+    attr_accessor :c_keywords #: word
   end
 
   # The runtime's own roots: the core classes and the main object.

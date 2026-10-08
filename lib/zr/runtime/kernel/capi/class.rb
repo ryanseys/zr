@@ -143,4 +143,39 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes(" for -2..15"), 11)
     zr_c_result(zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b))
   end
+
+  # rb_obj_class: the class of `obj`, past singleton classes and module
+  # proxies.
+  #: (value) -> value
+  def rb_obj_class(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_real_class(obj)
+  end
+
+  # rb_class2name: the name of `klass` as a C string. A named class keeps
+  # its name, so the bytes live as long as the class.
+  #: (value) -> ptr
+  def rb_class2name(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    RString[zr_class_path(zr_real_class_of_class(klass))].ptr
+  end
+
+  # rb_obj_classname: the name of the class of `obj`.
+  #: (value) -> ptr
+  def rb_obj_classname(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    RString[zr_class_path(zr_real_class(obj))].ptr
+  end
+
+  # `klass` past singleton classes and module proxies (rb_class_real).
+  #: (value) -> value
+  def zr_real_class_of_class(klass)
+    while klass != QNIL && (zr_singleton_p(klass) || zr_type(klass) == T_ICLASS)
+      klass = RClass[klass].superclass
+    end
+    klass
+  end
 end

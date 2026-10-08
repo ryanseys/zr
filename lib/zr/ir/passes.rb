@@ -867,7 +867,7 @@ module Zr
           read = [] #: Array[String]
           f.blocks.each do |b|
             b.insts.each do |i|
-              return false if %i[call call_indirect].include?(i.op)
+              return false if %i[call call_indirect stack_args].include?(i.op)
 
               read << i.args[0] if i.op == :stack_addr
               count += 1

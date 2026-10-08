@@ -167,6 +167,7 @@ view costs nothing.
 | `Machine.gates` | the gate word, from its register (`x28`; a global on wasm) |
 | `Machine.gates_set(w)` | sets the gate word to `w`: stores its static and sets its register, for all functions |
 | `Machine.gates_enter` | the first statement of a def that foreign code calls (`main`, a signal handler, the start of a thread, a C callback, a C-API function): loads the register from the static, and gives the caller's value back on return. The def saves every callee-saved register, so the collector's scan of C frames sees what C kept in them |
+| `Machine.stack_args` | the address of the first argument that the caller passed on the stack: on darwin arm64, a variadic C-API function's variadic arguments (`VaList`). Native code only |
 | `Machine.bytes("text")` | the address of a read-only copy of the literal |
 | `Machine.bytesize("text")` | the size of the literal in bytes |
 | `Machine.id(:name)` | the symbol ID of `name` |

@@ -512,6 +512,12 @@ module Zr
             @asm.mov d, Regalloc::GATES
             store_value(i.results[0], d)
           when :gates_set, :gates_enter then @asm.mov Regalloc::GATES, value_in(i.args[0], X9)
+          when :stack_args
+            # sp at entry: above a small frame, or above a large frame and
+            # the x29 pair over it (`prologue`).
+            d = result_in(i.results[0], X9)
+            frame_address(d, small_frame? ? @frame : @frame + PAIR)
+            store_value(i.results[0], d)
           when :func_addr
             c = callee_of(i.args[0])
             emit_symbol(i.results[0], c.symbol, @defined.include?(c.symbol))

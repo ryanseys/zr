@@ -472,6 +472,17 @@ module Zr
         nil
       end
 
+      # The address of the first argument that the caller passed on the
+      # stack: where a C caller puts a variadic function's variadic
+      # arguments on darwin arm64. Only the function's own frame knows it,
+      # so a function with one is never inlined.
+      #: () -> String
+      def stack_args
+        v = value
+        emit(Inst.new(:stack_args, type: "i64", results: [v]))
+        v
+      end
+
       # A constant whose immediate a producer sets later. Returns the value,
       # and the instruction whose first argument to set.
       #: (String type) -> [String, Inst]

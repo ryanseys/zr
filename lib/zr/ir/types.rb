@@ -36,7 +36,7 @@ module Zr
         iconst: :own, load: :own, ireduce: :own, uextend: :own, sextend: :own, gates: :own,
         call: :call, call_indirect: :call_indirect,
         icmp: :flag, fcmp: :flag,
-        stack_addr: :address, symbol_value: :address, func_addr: :address,
+        stack_addr: :address, stack_args: :address, symbol_value: :address, func_addr: :address,
         select: :second,
         sadd_overflow: :first, ssub_overflow: :first, smul_overflow: :first
       }.merge((Inst::FBINOPS + Inst::FUNOPS).to_h { |op| [op, :float] }).freeze #: Hash[op, Symbol]

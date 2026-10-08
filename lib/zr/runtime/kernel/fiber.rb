@@ -84,6 +84,7 @@ module Zr::Kern
     Task[t].flip_flops = Machine.value(QNIL)
     Task[t].cframe = 0
     Task[t].parked = Machine.value(QNIL)
+    Task[t].c_keywords = 0
   end
 
   # Ends the current task's ractor marking for a time, as a ractor's
