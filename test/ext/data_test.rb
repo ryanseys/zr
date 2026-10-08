@@ -118,6 +118,16 @@ class CExtDataTest < Minitest::Test
     static VALUE kept_forever;
     static VALUE get_registered(VALUE self) { return registered; }
     static VALUE get_kept(VALUE self) { return kept_forever; }
+    /* Words that C registers but that hold no object: an ID (thrift
+       registers its IDs), and a VALUE still 0 until set. */
+    static ID registered_id;
+    static VALUE registered_late;
+    static VALUE get_registered_id(VALUE self) { return ID2SYM(registered_id); }
+    static VALUE set_registered_late(VALUE self, VALUE times) {
+      registered_late = rb_str_times(rb_str_new_cstr("late "), times);
+      return Qnil;
+    }
+    static VALUE get_registered_late(VALUE self) { return registered_late ? registered_late : Qfalse; }
 
     /* `first` lives only in this frame or a register while the loop
        makes garbage. */
@@ -168,6 +178,12 @@ class CExtDataTest < Minitest::Test
       rb_gc_register_address(&registered);
       kept_forever = rb_str_new_cstr("marked forever");
       rb_gc_register_mark_object(kept_forever);
+      rb_define_module_function(m, "registered_id", get_registered_id, 0);
+      rb_define_module_function(m, "set_registered_late", set_registered_late, 1);
+      rb_define_module_function(m, "registered_late", get_registered_late, 0);
+      registered_id = rb_intern("a_registered_id");
+      rb_global_variable(&registered_id);
+      rb_global_variable(&registered_late);
     }
   C
 
@@ -224,6 +240,20 @@ class CExtDataTest < Minitest::Test
         results << box.get << cell.get
       end
       p results.last(4)
+    RUBY
+  end
+
+  # CRuby marks each registered word only if it is an object, so an ID
+  # or a 0 there is no crash, and a Value set later lives.
+  def test_registered_words_that_hold_no_object_are_skipped
+    assert_same_as_ruby(<<~RUBY)
+      require "store"
+      p Store.registered_late
+      GC.start
+      Store.set_registered_late(3)
+      200.times { |i| "garbage \#{i}" * 4 }
+      GC.start
+      p Store.registered_id, Store.registered_late
     RUBY
   end
 

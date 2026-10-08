@@ -14,14 +14,16 @@ module Zr::Kern
     Machine.static(:c_root_objects, WeakList.size)
   end
 
-  # Marks the Value at each registered address, and each kept object.
+  # Marks the word at each registered address, and each kept object. The
+  # words are maybe-Values, as in CRuby's global list: C code registers
+  # its ID variables too (thrift does), and an ID there is no object.
   #: () -> void
   def zr_mark_c_roots
     l = zr_c_root_addresses()
     i = 0
     while i < WeakList[l].len
       at = Machine.ptr(Machine.load64(WeakList[l].ptr + (i * 8), 0))
-      zr_mark(Machine.value(Machine.load64(at, 0)))
+      zr_mark_maybe(Machine.load64(at, 0))
       i += 1
     end
     l = zr_c_root_objects()

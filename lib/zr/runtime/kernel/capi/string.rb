@@ -410,6 +410,14 @@ module Zr::Kern
     zr_capi_call1(a, Machine.id(:+), b)
   end
 
+  # rb_str_times: `str * times`, a new String.
+  #: (value, value) -> value
+  def rb_str_times(str, times)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:*), times)
+  end
+
   # rb_str_cmp: -1, 0 or 1, as `a <=> b` orders two Strings.
   #: (value, value) -> i32
   def rb_str_cmp(a, b)
