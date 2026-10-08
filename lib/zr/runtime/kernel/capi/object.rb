@@ -206,15 +206,6 @@ module Zr::Kern
     zr_capi_id(FrameMeta[Frame[Task[zr_task()].top].meta].name)
   end
 
-  # rb_enumeratorize_with_size: `obj.enum_for(meth, *args)`. A size
-  # function is not kept: the Enumerator's size is nil.
-  #: (value, value, i32, ptr, ptr) -> value
-  def rb_enumeratorize_with_size(obj, meth, argc, argv, size_fn)
-    Machine.gates_enter
-    zr_c_entered()
-    zr_c_result(zr_enum_for(obj, zr_sym2id(meth), Machine.sword(argc), argv, Machine.value(QNIL)))
-  end
-
   # rb_proc_call_with_block: `proc.call(*args, &block)`.
   #: (value, i32, ptr, value) -> value
   def rb_proc_call_with_block(proc, argc, argv, block)

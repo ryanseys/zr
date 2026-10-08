@@ -513,11 +513,55 @@ module Zr::Kern
     zr_capi_notimplement()
   end
 
-  # rb_enumeratorize: `obj.enum_for(meth, *argv)`.
+  # rb_enumeratorize, rb_enumeratorize_with_size and its _kw form: the
+  # Enumerator of `obj.meth(*argv)`, which RETURN_ENUMERATOR gives when
+  # the C method got no block. The last argument is keywords when
+  # `kw_splat` says so, and in the forms without it when the C method got
+  # keywords, as in ruby. A size function is not kept: the Enumerator's
+  # size is nil.
   #: (value, value, i32, ptr) -> value
   def rb_enumeratorize(obj, meth, argc, argv)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_enum_for(obj, zr_sym2id(meth), Machine.sword(argc), argv, Machine.value(QNIL)))
+    zr_capi_enumeratorize(obj, meth, Machine.sword(argc), argv, Task[zr_task()].c_keywords)
+  end
+
+  #: (value, value, i32, ptr, ptr) -> value
+  def rb_enumeratorize_with_size(obj, meth, argc, argv, size_fn)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_enumeratorize(obj, meth, Machine.sword(argc), argv, Task[zr_task()].c_keywords)
+  end
+
+  #: (value, value, i32, ptr, ptr, i32) -> value
+  def rb_enumeratorize_with_size_kw(obj, meth, argc, argv, size_fn, kw_splat)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_enumeratorize(obj, meth, Machine.sword(argc), argv, Machine.sword(kw_splat))
+  end
+
+  #: (value, value, word, ptr, word) -> value
+  def zr_capi_enumeratorize(obj, meth, argc, argv, keywords)
+    count = argc
+    kwargs = Machine.value(QNIL)
+    if keywords != 0 && argc > 0
+      count = argc - 1
+      kwargs = Machine.value(Machine.load64(argv + (count * 8), 0))
+    else
+      kwargs = zr_hash_new()
+    end
+    args = zr_ary_new(count)
+    i = 0
+    while i < count
+      zr_ary_push(args, Machine.value(Machine.load64(argv + (i * 8), 0)))
+      i += 1
+    end
+    parts = Machine.slot(40)
+    Machine.store64(parts, 0, Machine.word(obj))
+    Machine.store64(parts, 8, Machine.word(meth))
+    Machine.store64(parts, 16, Machine.word(args))
+    Machine.store64(parts, 24, Machine.word(kwargs))
+    Machine.store64(parts, 32, QNIL)
+    zr_c_result(zr_send(zr_core_class(Machine.id(:Enumerator)), Machine.id(:for), 5, parts))
   end
 end

@@ -32,6 +32,14 @@ class CExtStdlibCApiTest < Minitest::Test
     static VALUE ens_body(VALUE d) { return INT2FIX(5); }
     static VALUE ens_undef(VALUE d) { return Qundef; }
     static VALUE s_ensure_undef(VALUE self) { return rb_ensure(ens_body, Qnil, ens_undef, Qnil); }
+    /* stringio's each_line: the enumerator calls it again with the same keywords. */
+    static VALUE s_lines(int argc, VALUE *argv, VALUE self) {
+      VALUE sep = Qnil, opts = Qnil;
+      RETURN_ENUMERATOR(self, argc, argv);
+      rb_scan_args(argc, argv, "01:", &sep, &opts);
+      rb_yield(rb_assoc_new(sep, opts));
+      return self;
+    }
     static VALUE s_formats(VALUE self) {
       VALUE s = rb_str_new_cstr("n=");
       rb_str_catf(s, "%d and %s", 42, "text");
@@ -110,6 +118,7 @@ class CExtStdlibCApiTest < Minitest::Test
       rb_define_module_function(m, "catch_name", s_catch_name, 0);
       rb_define_module_function(m, "throw_uncaught", s_throw_uncaught, 0);
       rb_define_module_function(m, "ensure_undef", s_ensure_undef, 0);
+      rb_define_module_function(m, "lines", s_lines, -1);
       rb_define_module_function(m, "formats", s_formats, 0);
       rb_define_module_function(m, "strings", s_strings, 1);
       rb_define_module_function(m, "find_none", s_find_none, 0);
@@ -138,6 +147,10 @@ class CExtStdlibCApiTest < Minitest::Test
     show(:catch) { [StdlibC.catch(true), StdlibC.catch(false), StdlibC.catch_name] }
     show(:throw_uncaught) { StdlibC.throw_uncaught }
     show(:ensure_undef) { StdlibC.ensure_undef }
+    show(:enum_keywords) do
+      [StdlibC.lines(",", chomp: true).to_a, StdlibC.lines(chomp: true).to_a, StdlibC.lines({ "h" => 1 }).to_a,
+       StdlibC.lines.to_a, StdlibC.lines(chomp: true).size]
+    end
     show(:formats) { StdlibC.formats }
     show(:strings) { StdlibC.strings("shared") }
     show(:find_none) { StdlibC.find_none }
