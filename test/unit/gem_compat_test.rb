@@ -163,18 +163,26 @@ class GemCompatTest < Minitest::Test
     assert_equal ["minitest 5.25.0", "old 1.0.0"], deps.map(&:to_s).sort
   end
 
-  def test_the_sets_keep_each_platform_of_a_version
-    specs = %w[arm64-darwin ruby].map do |platform|
-      Gem::Specification.new do |s|
-        s.name = "native"
-        s.version = "1.0.0"
-        s.platform = platform
+  # A version's `ruby` release wins over its precompiled ones, and a
+  # version with none (sorbet-static's) takes the release for this
+  # machine: universal-darwin on an arm64 Mac, not Linux's or Java's.
+  def test_the_sets_keep_the_ruby_release_of_a_version_else_this_machines
+    releases = { "1.0.0" => %w[arm64-darwin ruby], "2.0.0" => %w[aarch64-linux java universal-darwin x86_64-linux] }
+    specs = releases.flat_map do |version, platforms|
+      platforms.map do |platform|
+        Gem::Specification.new do |s|
+          s.name = "native"
+          s.version = version
+          s.platform = platform
+        end
       end
     end
     set = Class.new(Gem::Resolver::Set) { define_method(:find_all) { |_| specs } }.new
     request = Gem::Resolver::DependencyRequest.new(Gem::Dependency.new("native"), nil)
+    found = Gems::Resolver::Preferred.new([set, set]).find_all(request).map { |s| [s.version.to_s, s.platform.to_s] }
 
-    assert_equal %w[arm64-darwin ruby], Gems::Resolver::Preferred.new([set, set]).find_all(request).map { |s| s.platform.to_s }
+    skip "needs a darwin host" unless Gem::Platform.local.os == "darwin"
+    assert_equal [%w[1.0.0 ruby], %w[2.0.0 universal-darwin]], found
   end
 
   def test_a_failure_to_resolve_keeps_the_gems_version

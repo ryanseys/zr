@@ -9,9 +9,11 @@ module Zr
   module Dev
     module Gems
       # Finds a gem and the gems that it needs, as `bundle install` would
-      # pick them, but only among releases for the `ruby` platform: a
-      # precompiled platform gem (nokogiri-1.19.4-arm64-darwin) holds
-      # native code, and its gemspec lists no extension to refuse.
+      # pick them, but the release of each version for the `ruby` platform
+      # first: a precompiled platform gem (nokogiri-1.19.4-arm64-darwin)
+      # holds native code, and its gemspec lists no extension to refuse. A
+      # version with no `ruby` release takes the release for this machine
+      # (sorbet-static's universal-darwin).
       #
       # For a dependency, the first of these that has a matching version
       # wins, in order:
@@ -62,7 +64,7 @@ module Zr
           end
 
           spec = @remote.newest(request.name, request.requirement)
-          raise Failure.new("not-found", "rubygems.org has no #{request} for the ruby platform") unless spec
+          raise Failure.new("not-found", "rubygems.org has no #{request} for the ruby platform or this machine's") unless spec
 
           @store.unpack(@remote.download(spec, @store.downloads))
         end
@@ -75,7 +77,7 @@ module Zr
           sets = [Provided.new, (Local.new { |name| @corpus.find(name) } if @corpus),
                   (Local.new { |name| @store.versions(name) } if @offline), (@remote.set unless @offline)]
           resolver = Gem::Resolver.new(subject.gem_dependencies, Preferred.new(sets.compact))
-          requests = Resolver.ruby_platform { Resolver.requests(resolver) }
+          requests = Resolver.platforms { Resolver.requests(resolver) }
           requests.filter_map do |request|
             spec = request.spec
             next if spec.is_a?(Provided::Spec) || spec.name == subject.name
@@ -102,13 +104,24 @@ module Zr
           raise Failure.new("resolve", conflict.message.lines.map(&:strip).reject(&:empty?).join(" "))
         end
 
-        # Runs the block with only the `ruby` platform installable.
-        def self.ruby_platform
+        # Runs the block with the `ruby` platform and this machine's
+        # installable (`preferred` picks among them).
+        def self.platforms
           saved = Gem.platforms
-          Gem.platforms = [Gem::Platform::RUBY]
+          Gem.platforms = [Gem::Platform::RUBY, Gem::Platform.local]
           yield
         ensure
           Gem.platforms = saved
+        end
+
+        # Of `specs`, for each version, its `ruby` release when it has one,
+        # else its releases for this machine (universal-darwin matches an
+        # arm64-darwin machine).
+        def self.preferred(specs)
+          specs.group_by { |spec| [spec.name, spec.version] }.values.flat_map do |releases|
+            ruby = releases.select { |spec| spec.platform.to_s == Gem::Platform::RUBY }
+            ruby.empty? ? releases.select { |spec| Gem::Platform.match_spec?(spec) } : ruby
+          end
         end
 
         # A set makes new specs for each lookup, and the resolver compares
@@ -180,7 +193,9 @@ module Zr
             @sets = sets
           end
 
-          def find_all(request) = @sets.flat_map { |set| set.find_all(request) }.uniq { |spec| [spec.name, spec.version.to_s, spec.platform.to_s] }
+          def find_all(request)
+            Resolver.preferred(@sets.flat_map { |set| set.find_all(request) }.uniq { |spec| [spec.name, spec.version.to_s, spec.platform.to_s] })
+          end
 
           def prefetch(requests) = @sets.each { |set| set.prefetch(requests) }
 
@@ -191,11 +206,12 @@ module Zr
         class Remote
           def set = Gem::Resolver::BestSet.new
 
-          # The newest release of `name` for the `ruby` platform that
-          # `requirement` accepts, or nil.
+          # The newest release of `name` that `requirement` accepts, for the
+          # `ruby` platform or else for this machine (Resolver.preferred),
+          # or nil.
           def newest(name, requirement)
             request = Gem::Resolver::DependencyRequest.new(Gem::Dependency.new(name, requirement), nil)
-            Resolver.ruby_platform { set.find_all(request) }.select { |spec| spec.platform.to_s == "ruby" }.max_by(&:version)
+            Resolver.preferred(Resolver.platforms { set.find_all(request) }).max_by(&:version)
           rescue Gem::RemoteFetcher::FetchError, SocketError, SystemCallError => e
             raise Failure.new("not-found", "rubygems.org: #{e.message.lines.first.chomp}")
           end
