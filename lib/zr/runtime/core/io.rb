@@ -297,6 +297,7 @@ class IO
     fmode |= 0x400 if text.include?("x")
     fmode |= 0x800 if text.start_with?("w")
     fmode |= 0x100000 if conversion[:bom]
+    external ||= Encoding::BINARY if binary
     default = external.nil?
     external ||= Encoding.default_external
     internal = Encoding::BINARY.equal?(external) ? nil : internal || Encoding.default_internal

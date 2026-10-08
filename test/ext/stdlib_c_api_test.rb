@@ -140,7 +140,7 @@ class CExtStdlibCApiTest < Minitest::Test
     show(:modeenc) do
       [StdlibC.modeenc(nil, nil), StdlibC.modeenc("r+", nil), StdlibC.modeenc("w:iso-8859-1", nil),
        StdlibC.modeenc("a", nil), StdlibC.modeenc(nil, { mode: "rb" }), StdlibC.modeenc("r:euc-jp:utf-8", nil),
-       StdlibC.modeenc(nil, { encoding: "UTF-16LE" }), StdlibC.modeenc(File::RDWR, nil)]
+       StdlibC.modeenc(nil, { encoding: "UTF-16LE", binmode: true }), StdlibC.modeenc(File::RDWR, nil)]
     end
     show(:modeenc_twice) { StdlibC.modeenc("r", { mode: "w" }) }
     show(:lastline) do
