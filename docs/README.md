@@ -47,6 +47,8 @@ Facts about commands, formats and layouts.
 - [Environment variables](reference/environment-variables.md)
 - [The C API](reference/c-api.md): the functions of ruby's C API that a
   C extension can call in zr
+- [Ports and native extensions](reference/ports-vs-native.md): zr's
+  ports of json, stringio and strscan against the gems' own C
 - [Targets](reference/targets.md)
 - [Differences from ruby](reference/differences-from-ruby.md): what zr
   refuses on purpose, and the ruby bugs that zr does not copy
