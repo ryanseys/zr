@@ -165,7 +165,9 @@ module Zr
             jumps = jumps?(node.body)
             lambda do |f|
               run_body(s, f, jumps, node) do
-                opened(s, f, :class)
+                # A `class << obj` body fires neither :class nor :end, as in
+                # ruby (`Tracing::OPENING`).
+                opened(s, f, :class) unless node.is_a?(Hir::SingletonClassDef)
                 body.call(f)
               end
             end

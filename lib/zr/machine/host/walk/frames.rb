@@ -171,7 +171,9 @@ module Zr
           #: (untyped node, Symbol kind, Unit unit, ?Hir::Params? params) -> bool
           def open?(node, kind, unit, params = nil)
             return true if %i[main eval].include?(kind)
-            return true if unit.traced && %i[def block top].include?(kind)
+            # A traced program's hooks read a Binding of any frame, as the
+            # lowering's `@has_env` gives one.
+            return true if unit.traced && %i[def block top class].include?(kind)
 
             defaults = [] #: Array[Hir::node?]
             defaults = params.optional.map(&:last) + params.keywords.filter_map(&:last) if params
