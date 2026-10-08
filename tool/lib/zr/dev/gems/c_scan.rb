@@ -52,8 +52,8 @@ module Zr
         # file is made again by a newer scanner, which may compile more.
         # 2: the headers of the gem's include/ and src/, and src/'s files
         # when an extconf.rb names it. 3: a header that cc does not find is
-        # looked for anywhere in the gem.
-        SCANNER = 3
+        # looked for anywhere in the gem. 4: then in the system's libraries.
+        SCANNER = 4
 
         SOURCES = %w[c cc cpp cxx].freeze
         # The most seconds that one file's compile takes.
@@ -65,10 +65,23 @@ module Zr
         LENIENT = %w[implicit-function-declaration incompatible-function-pointer-types int-conversion
                      incompatible-pointer-types implicit-int return-type].map { |name| "-Wno-error=#{name}" }.freeze
 
+        # Where Homebrew keeps the headers of the libraries that it installs:
+        # libpq's pg_config.h for pg, and the others that gems wrap.
+        HOMEBREW = ENV.fetch("HOMEBREW_PREFIX", "/opt/homebrew")
+
+        # The include directories of the system's libraries, Homebrew's own
+        # first.
+        def self.system_includes
+          [File.join(HOMEBREW, "include"), *Dir[File.join(HOMEBREW, "opt", "*", "include")].sort].select { |dir| File.directory?(dir) }
+        end
+
         attr_reader :dir
 
-        def initialize(dir: File.join(TMP, "capi"))
+        # `system_includes` are where a header that the gem lacks is looked
+        # for after the gem.
+        def initialize(dir: File.join(TMP, "capi"), system_includes: CScan.system_includes)
           @dir = dir
+          @system_includes = system_includes
         end
 
         # The Scan of `subject`'s C extensions, kept or made now.
@@ -186,8 +199,8 @@ module Zr
 
         # Compiles `file` as `compile` does. When cc does not find a header
         # (`'nokogiri_gumbo.h' file not found`), it looks for that header
-        # anywhere in the gem, as an extconf.rb would add its directory,
-        # and compiles again with it. `headers` keeps what it found, for
+        # anywhere in the gem or the system's libraries (`header_dir`), as
+        # an extconf.rb would add its directory, and compiles again with it. `headers` keeps what it found, for
         # the gem's other files.
         def compile_finding_headers(subject, file, object, work, headers)
           MAX_FOUND_HEADERS.times do
@@ -201,13 +214,17 @@ module Zr
           compile(file, object, work, headers)
         end
 
-        # The directory in the gem from which `#include "name"` finds a
-        # file, or nil: for `rbs/ast.h`, the parent of the rbs/ directory.
+        # The directory from which `#include "name"` finds a file, or nil:
+        # for `rbs/ast.h`, the parent of the rbs/ directory. It looks in the
+        # gem, then in the system's libraries (SYSTEM_INCLUDES), as an
+        # extconf.rb finds a library's headers with pkg-config.
         def header_dir(subject, name)
           return nil if name.start_with?("/") || name.split("/").include?("..")
 
           found = Dir.glob("**/#{name}", base: subject.root).min_by(&:size)
-          found && File.join(subject.root, found.delete_suffix(name)).chomp("/")
+          return File.join(subject.root, found.delete_suffix(name)).chomp("/") if found
+
+          @system_includes.find { |dir| File.file?(File.join(dir, name)) }
         end
 
         # Compiles `file` into `object`; the first error line, or nil.

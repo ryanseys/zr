@@ -105,10 +105,23 @@ class CScanTest < Minitest::Test
     assert_equal [UNKNOWN], scan.missing
   end
 
-  def test_a_header_that_the_gem_does_not_have_still_fails
-    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "pg_config.h"\n#include "shared.h")))
+  def test_a_header_that_neither_the_gem_nor_the_system_has_still_fails
+    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "zr_scan_nowhere.h"\n#include "shared.h")))
 
-    assert_match(/'pg_config\.h' file not found/, @scanner.call(subject).error)
+    assert_match(/'zr_scan_nowhere\.h' file not found/, @scanner.call(subject).error)
+  end
+
+  # pg includes pg_config.h, which libpq installs (Homebrew's
+  # opt/libpq/include), as its extconf.rb finds with pg_config.
+  def test_a_header_of_a_system_library_is_found_in_its_include_directory
+    system = File.join(@dir, "system", "include")
+    write(system, "libzr/zr_scan_lib.h" => "#define ZR_SCAN_LIB 1\n")
+    subject = gem("scanned", "main.c" => MAIN.sub(%(#include "shared.h"), %(#include "libzr/zr_scan_lib.h"\n#include "shared.h")))
+    scanner = Gems::CScan.new(dir: @scanner.dir, system_includes: [system])
+
+    scan = scanner.call(subject)
+
+    assert_predicate scan, :complete?, scan.error
   end
 
   def test_src_is_left_out_when_no_extconf_names_it
