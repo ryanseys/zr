@@ -131,6 +131,10 @@ class CExtObjectsAndClassesTest < Minitest::Test
                                   rb_funcall(rb_time_timespec_new(&ts, INT_MAX - 1), rb_intern("inspect"), 0),
                                   rb_funcall(rb_time_timespec_new(&ts, 3600), rb_intern("inspect"), 0));
     }
+    static VALUE timespec(VALUE self, VALUE t) {
+      struct timespec ts = rb_time_timespec(t);
+      return rb_ary_new_from_args(2, LONG2NUM(ts.tv_sec), LONG2NUM(ts.tv_nsec));
+    }
     static VALUE globals(VALUE self) {
       return rb_ary_new_from_args(5, rb_cThread, rb_mErrno, rb_eSysStackError, rb_eSignal, rb_mProcess);
     }
@@ -174,6 +178,7 @@ class CExtObjectsAndClassesTest < Minitest::Test
       rb_define_module_function(m, "numbers", numbers, 0);
       rb_define_module_function(m, "gc_toggle", gc_toggle, 0);
       rb_define_module_function(m, "times", times, 0);
+      rb_define_module_function(m, "timespec", timespec, 1);
       rb_define_module_function(m, "globals", globals, 0);
       VALUE allocated = rb_define_class_under(m, "Allocated", rb_cObject);
       rb_define_alloc_func(allocated, c_alloc);
@@ -263,6 +268,8 @@ class CExtObjectsAndClassesTest < Minitest::Test
     show(:numbers) { Objs.numbers }
     show(:gc_toggle) { Objs.gc_toggle }
     show(:times) { Objs.times }
+    show(:timespec) { [Objs.timespec(Time.at(1_700_000_000, 123_456_789, :nsec)), Objs.timespec(42), Objs.timespec(1.5), Objs.timespec(Time.at(-1, 5, :nsec))] }
+    show(:timespec_bad) { Objs.timespec("x") }
     show(:globals) { Objs.globals }
   RUBY
 

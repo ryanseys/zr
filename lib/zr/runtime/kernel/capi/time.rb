@@ -38,6 +38,38 @@ module Zr::Kern
     zr_capi_time_at(Machine.load64(ts, 0), Machine.load64(ts, 8), Machine.id(:nsec), zone)
   end
 
+  # rb_time_timespec: the seconds and nanoseconds of `time` (a Time, or a
+  # number of seconds) as C's struct timespec. The struct comes back in
+  # two registers, so a raw stub (Backend::Aarch64::Stub.time_timespec)
+  # is the C function, and zr_capi_time_timespec fills the struct for it.
+  #: (value) -> word
+  def rb_time_timespec(time) = Machine.raw
+
+  # Fills the struct timespec at `out` for rb_time_timespec. A number
+  # counts as seconds since the epoch, as ruby takes it; anything else is
+  # ruby's TypeError.
+  #: (value, ptr) -> void
+  def zr_capi_time_timespec(time, out)
+    Machine.gates_enter
+    zr_c_entered()
+    t = time
+    if !zr_is_a(time, zr_core_class(Machine.id(:Time)))
+      if !zr_is_a(time, zr_global(G_NUMERIC))
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_push(b, Machine.bytes("can't convert "), 14)
+        zr_buf_str(b, zr_c_result(zr_inspect(zr_real_class(time))))
+        zr_buf_push(b, Machine.bytes(" into time"), 10)
+        zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+      end
+      t = zr_capi_call1(zr_core_class(Machine.id(:Time)), Machine.id(:at), time)
+    end
+    sec = zr_c_result(zr_send(t, Machine.id(:to_i), 0, Machine.ptr(0)))
+    nsec = zr_c_result(zr_send(t, Machine.id(:nsec), 0, Machine.ptr(0)))
+    Machine.store64(out, 0, zr_capi_long(sec))
+    Machine.store64(out, 8, zr_capi_long(nsec))
+  end
+
   # `Time.at(sec, sub, unit, in: zone)`, without `in:` for a nil zone.
   #: (word, word, word, value) -> value
   def zr_capi_time_at(sec, sub, unit, zone)
