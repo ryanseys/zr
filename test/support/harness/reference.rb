@@ -29,11 +29,11 @@ module Zr
       # among the ones that the most downloaded gems need
       # (`zr-dev ext rank`), each in a GEM_HOME of its own below `native/`.
       # Their install compiles the extension with this ruby, once.
-      NATIVE = { "bcrypt" => "3.1.22", "bson" => "5.2.0", "cgi" => "0.5.2",
+      NATIVE = { "bcrypt" => "3.1.22", "binding_ninja" => "0.2.3", "bson" => "5.2.0", "cgi" => "0.5.2",
                  "ed25519" => "1.4.0", "erb" => "6.0.7", "escape_utils" => "1.3.0", "fast_blank" => "1.0.1",
-                 "google-protobuf" => "4.36.2", "hiredis" => "0.6.3", "http_parser.rb" => "0.8.1",
+                 "google-protobuf" => "4.36.2", "gvltools" => "0.5.0", "hiredis" => "0.6.3", "http_parser.rb" => "0.8.1",
                  "jaro_winkler" => "1.7.0", "murmurhash3" => "0.1.7", "nio4r" => "2.7.5", "oj" => "3.17.7",
-                 "puma" => "8.0.2", "rbs" => "4.2.0", "rbtree" => "0.4.7", "redcarpet" => "3.6.1", "rinku" => "2.0.6",
+                 "puma" => "8.0.2", "rbs" => "4.2.0", "rbtree" => "0.4.7", "rbtree3" => "1.1.0", "redcarpet" => "3.6.1", "rinku" => "2.0.6",
                  "thrift" => "0.25.0", "unf_ext" => "0.0.9.1", "yajl-ruby" => "1.4.3", "zstd-ruby" => "2.0.10" }.freeze
 
       module_function

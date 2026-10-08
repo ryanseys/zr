@@ -22,6 +22,24 @@ class CExtTopGemsTest < Minitest::Test
       password = BCrypt::Password.new(hash)
       p password == "secret", password == "wrong", password.cost, password.salt
     RUBY
+"binding_ninja" => <<~'RUBY',
+  require "binding_ninja"
+  class Greeter
+    extend BindingNinja
+
+    def greet(caller_binding, name)
+      [caller_binding.class, caller_binding.receiver.class, caller_binding.local_variable_get(:greeting), name]
+    end
+    auto_inject_binding :greet
+
+    def maybe(caller_binding, name) = [caller_binding.nil?, name]
+    auto_inject_binding :maybe, if: :inject?
+
+    def inject? = false
+  end
+  greeting = "hello"
+  p Greeter.new.greet("ruby"), Greeter.new.maybe("zr")
+RUBY
     "bson" => <<~'RUBY',
       require "bson"
       doc = { "a" => 1, "b" => [1, 2.5, "x"], "c" => { "d" => nil, "e" => true }, "big" => 2**40 }
@@ -79,6 +97,18 @@ class CExtTopGemsTest < Minitest::Test
         p e.class
       end
     RUBY
+"gvltools" => <<~'RUBY',
+  require "gvltools"
+  metrics = [GVLTools::GlobalTimer, GVLTools::LocalTimer, GVLTools::WaitingThreads]
+  metrics.each(&:enable)
+  p metrics.map(&:enabled?)
+  threads = 3.times.map { Thread.new { 2000.times { Thread.pass } } }
+  threads.each(&:join)
+  p GVLTools::GlobalTimer.monotonic_time.positive?, GVLTools::WaitingThreads.count
+  metrics.each(&:disable)
+  GVLTools::GlobalTimer.reset
+  p metrics.map(&:enabled?), GVLTools::GlobalTimer.monotonic_time
+RUBY
     "hiredis" => <<~'RUBY',
       require "hiredis/ext/reader"
       reader = Hiredis::Ext::Reader.new
@@ -204,6 +234,14 @@ class CExtTopGemsTest < Minitest::Test
       p multi.to_a, multi.count, multi.each_pair.map { |k, v| "#{k}#{v}" }
       p tree.select { |k, _| k > 1 }, tree.map { |k, v| v * k }, tree == RBTree[3 => "c", 1 => "a"]
     RUBY
+"rbtree3" => <<~'RUBY',
+  require "rbtree"
+  tree = RBTree[{ "c" => 3, "a" => 1, "b" => 2 }]
+  p tree.to_a, tree.first, tree.last, tree.lower_bound("bb"), tree.to_hash
+  tree.default = 0
+  hash = tree.to_hash
+  p hash.class, hash, hash["missing"], RBTree.new.to_hash
+RUBY
     "redcarpet" => <<~'RUBY',
       require "redcarpet"
       require "redcarpet/render_strip"
