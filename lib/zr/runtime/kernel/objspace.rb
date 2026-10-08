@@ -78,7 +78,7 @@ module Zr::Kern
     t = 0
     while t < 32
       if t == T_CLASS || t == T_MODULE || t == T_FLOAT || t == T_STRING || t == T_REGEXP || t == T_ARRAY || t == T_HASH ||
-         t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_DATA || t == T_CREF || t == T_ENV || t == T_ICLASS
+         t == T_BIGNUM || t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_DATA || t == T_CREF || t == T_ENV || t == T_ICLASS
         named += Machine.load64(counts + (t * 8), 0)
       end
       t += 1
@@ -92,6 +92,7 @@ module Zr::Kern
     zr_census_store(result, Machine.id(:T_REGEXP), Machine.load64(counts + (T_REGEXP * 8), 0))
     zr_census_store(result, Machine.id(:T_ARRAY), Machine.load64(counts + (T_ARRAY * 8), 0))
     zr_census_store(result, Machine.id(:T_HASH), Machine.load64(counts + (T_HASH * 8), 0))
+    zr_census_store(result, Machine.id(:T_BIGNUM), Machine.load64(counts + (T_BIGNUM * 8), 0))
     zr_census_store(result, Machine.id(:T_DATA), Machine.load64(counts + (T_DATA * 8), 0) + Machine.load64(counts + (T_PROC * 8), 0) + Machine.load64(counts + (T_METHOD * 8), 0) + Machine.load64(counts + (T_FIBER * 8), 0))
     zr_census_store(result, Machine.id(:T_IMEMO), Machine.load64(counts + (T_CREF * 8), 0) + Machine.load64(counts + (T_ENV * 8), 0))
     zr_census_store(result, Machine.id(:T_ICLASS), Machine.load64(counts + (T_ICLASS * 8), 0))
@@ -336,7 +337,7 @@ module Zr::Kern
       bits = bits | (zr_str_chilled_p(v) ? DUMP_CHILLED : 0)
     elsif t == T_ARRAY
       bits = bits | (zr_ary_embedded_p(v) ? DUMP_EMBEDDED : 0)
-    elsif t == T_OBJECT
+    elsif t == T_OBJECT || t == T_BIGNUM
       bits = bits | (zr_ivtab_embedded_p(Machine.ptr(RObject[v].iv)) ? DUMP_EMBEDDED : 0)
     end
     zr_fix(bits)
@@ -375,7 +376,7 @@ module Zr::Kern
       n += zr_ary_embedded_p(v) ? 0 : RArray[v].capa * 8
     elsif t == T_HASH
       n += (RHash[v].cap * HEntry.size) + (RHash[v].nbins * 8)
-    elsif t == T_OBJECT
+    elsif t == T_OBJECT || t == T_BIGNUM
       iv = Machine.ptr(RObject[v].iv)
       n += zr_ivtab_embedded_p(iv) ? 0 : IvTab[iv].cap * IvEntry.size
     end

@@ -49,7 +49,7 @@ module Zr::Kern
       return 0
     end
     t = RBasic[v].flags & T_MASK
-    if t == T_OBJECT
+    if t == T_OBJECT || t == T_BIGNUM
       Machine.ptr(RObject[v].iv)
     elsif t == T_CLASS || t == T_MODULE
       Machine.ptr(ClassExt[RClass[v].ext].iv)
@@ -108,7 +108,7 @@ module Zr::Kern
   # cell, so only a T_OBJECT can return non-nil.
   #: (value) -> value
   def zr_ivtab_owner(obj)
-    if !zr_special_p(obj) && (RBasic[obj].flags & T_MASK) == T_OBJECT
+    if !zr_special_p(obj) && ((RBasic[obj].flags & T_MASK) == T_OBJECT || (RBasic[obj].flags & T_MASK) == T_BIGNUM)
       return obj
     end
     Machine.value(QNIL)
@@ -119,7 +119,13 @@ module Zr::Kern
   # bytes, 5 in 128, 13 in 256.
   #: (value) -> value
   def zr_obj_alloc(klass)
-    o = zr_alloc(T_OBJECT, klass, ClassExt[RClass[klass].ext].obj_bytes)
+    zr_obj_alloc_as(T_OBJECT, klass)
+  end
+
+  # The same, for an RObject of the type `type` (T_OBJECT or T_BIGNUM).
+  #: (word, value) -> value
+  def zr_obj_alloc_as(type, klass)
+    o = zr_alloc(type, klass, ClassExt[RClass[klass].ext].obj_bytes)
     zr_obj_ivtab_init(o)
     o
   end

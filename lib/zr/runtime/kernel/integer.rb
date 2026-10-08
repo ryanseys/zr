@@ -172,13 +172,13 @@ module Zr::Kern
   # one operand is a bignum.
   #: (value) -> bool
   def zr_big_p(v)
-    !zr_special_p(v) && zr_type(v) == T_OBJECT && RBasic[v].klass == zr_global(G_INTEGER)
+    !zr_special_p(v) && zr_type(v) == T_BIGNUM
   end
 
   # Makes an empty bignum object for the core to fill.
   #: () -> value
   def zr_big_alloc
-    zr_obj_alloc(zr_global(G_INTEGER))
+    zr_obj_alloc_as(T_BIGNUM, zr_global(G_INTEGER))
   end
 
   #: (value) -> value

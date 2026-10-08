@@ -95,6 +95,10 @@ module Zr::Kern
   T_MODULE = 3
   T_STRING = 5
   T_ARRAY = 7
+  # A bignum is an RObject whose limbs and sign are hidden ivars, with
+  # CRuby's tag, so a C extension's RB_TYPE_P(v, T_BIGNUM) knows it.
+  # Each reader of an RObject's ivar table takes both tags.
+  T_BIGNUM = 10
   T_NIL = 17
   T_TRUE = 18
   T_FALSE = 19
@@ -135,6 +139,7 @@ module Zr::Kern
   ENC_UTF16LE = 4
   ENC_UTF32BE = 5
   ENC_UTF32LE = 6
+  ENC_UTF16 = 7
   ENC_UTF32 = 8
   # A symbol entry keeps the same tag in its length word, at this shift.
   SYM_TAG_SHIFT = 56
