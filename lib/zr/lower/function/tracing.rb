@@ -65,11 +65,22 @@ module Zr
         #: () -> void
         def cover_method = kernel("zr_coverage_method", arg_entry)
 
-        # The scope's opening event, once its parameters are bound.
+        # The scope's opening event, once its parameters are bound. It fires
+        # on the scope's own line, while the frame is on the line of the
+        # body's first statement, as ruby's frame is when its hooks run (a
+        # backtrace or a debugger reads that line).
         #: () -> void
         def trace_open
           event = OPENING[@kind]
-          fire(event) if event && traced?
+          return unless event && traced?
+
+          on = @f.label
+          off = @f.label
+          @f.brif(armed?(event), on, off)
+          switch(on)
+          checked(kernel("zr_trace_open", event_word(event), imm(Hir::Trace.first_line(@body) || 0)))
+          @f.jump(off)
+          switch(off)
         end
 
         # The scope's closing event, with its return value. The line is

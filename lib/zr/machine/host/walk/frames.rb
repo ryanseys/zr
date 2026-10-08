@@ -312,13 +312,15 @@ module Zr
             check(k.zr_trace_fire(EVENTS.fetch(event), @qnil)) if armed?(event)
           end
 
-          # The scope's opening event, once its parameters are bound.
+          # The scope's opening event, once its parameters are bound, with
+          # the frame on the line of its body's first statement.
           #: (Scope s, Frame f, Symbol kind) -> void
           def opened(s, f, kind)
             return unless s.unit.traced
 
             f.opened = kind
-            fire(OPENING.fetch(kind))
+            event = OPENING.fetch(kind)
+            check(k.zr_trace_open(EVENTS.fetch(event), Hir::Trace.first_line(s.node.body) || 0)) if armed?(event)
           end
 
           # The closing event of a scope that leaves with `v`: at the line of

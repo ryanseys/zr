@@ -281,6 +281,22 @@ module Zr
     Trace = Node.new(:event, :line)
 
     class Trace
+      # The line of the first `:line` event of a scope's body, not of a
+      # scope inside it, or nil for a body with none. A scope's frame is
+      # on it while the hooks of its opening event run, as ruby's is.
+      #: (untyped node) -> Integer?
+      def self.first_line(node)
+        case node
+        when Trace then return node.event == :line ? node.line : nil
+        when Block, Def, ClassDef, ModuleDef, SingletonClassDef then return nil
+        end
+        Hir.each_child(node) do |child|
+          line = first_line(child)
+          return line if line
+        end
+        nil
+      end
+
       # The line that the event fires on in an ensure body that runs on
       # `path` (:exit, :raise or :jump), or outside one (:none), or nil
       # when it does not fire. A local jump (`return`, or `break` out of

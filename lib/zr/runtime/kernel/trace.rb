@@ -434,6 +434,22 @@ module Zr::Kern
     value
   end
 
+  # Fires the opening event (:call, :b_call, :class) of the frame that
+  # runs. Its row has the line of the scope (its FrameMeta's, not where
+  # a default argument left the frame), and while the hooks run, the
+  # frame is on `first`, the line of its body's first statement, as
+  # ruby's frame is; 0 leaves the frame where it is. Returns undef when a
+  # hook raised.
+  #: (word, word) -> value
+  def zr_trace_open(event, first)
+    rec = Task[zr_task()].top
+    line = FrameMeta[Frame[rec].meta].line
+    if first != 0
+      Frame[rec].line = first & 4294967295
+    end
+    zr_trace_send_at(rec, event, Machine.value(QNIL), line)
+  end
+
   # A raise fires `:raise` from the program frame: the frame that raised,
   # or the frame that called the runtime method that raised. A raise
   # deeper in the runtime, for its own use, is not a program event.
