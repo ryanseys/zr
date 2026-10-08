@@ -47,7 +47,7 @@ show "UTF-16BE, odd length", x
 
 y = +""
 show "empty", y
-y.setbyte(0, 0x41) rescue (y << "A")
+y << "A"
 show "one byte", y
 y.setbyte(0, 0xe9)
 show "setbyte to 0xe9", y
