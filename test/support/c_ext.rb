@@ -88,6 +88,23 @@ module Zr
         [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
       end
 
+      # Runs `program` with several extensions under ruby, and as one zr
+      # binary that links the extensions in `static` from their objects and
+      # embeds the others' bundles. Returns `[ruby, zr]`.
+      #: (Array[Built] exts, String program, static: Array[Built]) -> [Output, Output]
+      def outputs_together(exts, program, static:)
+        paths = exts.map { |ext| "$LOAD_PATH.unshift(#{ext.dir.inspect})\n" }.join
+        dir = File.join(DIR, "together")
+        FileUtils.mkdir_p(dir)
+        path = File.join(dir, "prog_#{Digest::SHA256.hexdigest([paths, program, static.map(&:bundle)].inspect)[0, 12]}.rb")
+        File.write(path, paths + program)
+        ruby = run({}, RbConfig.ruby, path)
+        given = exts.map { |ext| static.include?(ext) ? "#{ext.bundle}=#{ext.object}" : ext.bundle }.join(" ")
+        bin = path.delete_suffix(".rb")
+        built = run({ "ZR_EXT_OBJECTS" => given }, File.join(ROOT, "bin", "zr"), "build", path, "-o", bin)
+        [ruby, built.status.zero? ? run({}, bin) : built]
+      end
+
       # The environment of a child that sees the gems installed in this
       # ruby, as a user's ruby and zr do: the test runs under Bundler,
       # which hides every gem outside the bundle.

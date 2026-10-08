@@ -52,7 +52,7 @@ module Zr
         # @rbs return: String?
         def link(image, out, work:, objects:, strip:, linker:, target:, link: [], embeds: [])
           if !embeds.empty? && (linker == "cc" || !link.empty?)
-            return "an embedded C extension needs zr's own linker, which takes no --link word or static extension yet; " \
+            return "a C extension in the binary needs zr's own linker, which takes no --link word yet; " \
                    "build with --ext=dynamic, or without ZR_LINKER=cc"
           end
           unless link.empty?
@@ -67,7 +67,7 @@ module Zr
               e.message
             end
             return nil unless why
-            return "zr's linker cannot embed the C extension: #{why}. Build with --ext=dynamic" unless embeds.empty?
+            return "zr's linker cannot put the C extension in the binary: #{why}. Build with --ext=dynamic" unless embeds.empty?
             return "zr's linker cannot link this program: #{why}. Set ZR_LINKER=auto to link it with cc" if linker == "ruby"
             return "zr's linker cannot link this program: #{why}. cc can, and this host has no cc (#{Target.cc_hint})" unless target.tool("cc")
           end

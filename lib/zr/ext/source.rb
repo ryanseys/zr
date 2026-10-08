@@ -15,7 +15,8 @@ module Zr
     # binary with the libraries that they need, and a precompiled bundle
     # (`library`), when there is one. `mode` says which the build uses:
     #
-    # - :static links the objects in;
+    # - :static links the objects into a bundle, which then embeds
+    #   (`Native::Build.ext_bundle`);
     # - :embed relinks the bundle into the binary (`Obj::MachO::Relink`);
     # - :dynamic loads the bundle with dlopen where the require runs.
     #

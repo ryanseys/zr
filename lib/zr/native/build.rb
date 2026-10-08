@@ -112,18 +112,41 @@ module Zr
         root(program.runtime, objects, program.evals)
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) } #: [Array[IR::Function], Array[Obj::Code]]
         Timing.phase("writing and linking the program object", "program object written and linked") do
-          # Once the C API has all that the C extensions import: a static
-          # one's objects and libraries go to the system linker, as `--link`
-          # words do; an embedded one's bundle goes into zr's linker
-          # (`Obj::MachO::Relink`); and a binary that loads one with dlopen
-          # exports the C API.
+          # Once the C API has all that the C extensions import: zr's
+          # linker relinks each bundle into the binary (`Obj::MachO::Relink`),
+          # a static extension's as `ext_bundle` links it, and a binary that
+          # loads one with dlopen exports the C API.
           sources = Ext.bundles.values
           Ext::CApi.check!(sources)
-          extensions = sources.select { |s| s.mode == :static }.flat_map { |s| s.objects + s.libraries }
-          extensions += exports(work) if sources.any? { |s| s.mode == :dynamic }
-          embeds = sources.select { |s| s.mode == :embed }.map { |s| Obj::MachO::Relink.new(File.binread(s.library.to_s), init: s.init) }
+          loaded, inside = sources.partition { |s| s.mode == :dynamic }
+          embeds = inside.map { |s| Obj::MachO::Relink.new(File.binread(ext_bundle(s, program.runtime.target)), init: s.init) }
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
-                                                           target: program.runtime.target, jobs: jobs, link: link + extensions, embeds: embeds)
+                                                           target: program.runtime.target, jobs: jobs,
+                                                           link: loaded.empty? ? link : link + exports(work), embeds: embeds)
+        end
+      end
+
+      # The bundle of a C extension that zr's linker relinks into the
+      # binary: a precompiled one as it is, or one that `cc` links from a
+      # static extension's objects and libraries, as mkmf would, and the
+      # store keeps. The bundle keeps the extension's names apart from the
+      # program's and from another extension's: only its Init function
+      # is read from outside.
+      #: (Ext::Source source, Target target) -> String
+      def ext_bundle(source, target)
+        return source.library.to_s if source.library
+
+        inputs = source.objects.map { |object| Digest::SHA256.file(object).hexdigest }
+        key = Cache::Store.key("ext-bundle", Ext::ABI, target.triple, *inputs, *source.libraries)
+        Cache::Store.once(:image, "#{key}-bundle") do |file|
+          linked = "#{file}.#{Process.pid}"
+          log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-bundle", "-undefined", "dynamic_lookup",
+                                   *Link::Darwin::MIN_OS_FLAGS, "-o", linked, *source.objects, *source.libraries])
+          raise Refused, "cc cannot link #{File.basename(source.bundle)} from its objects:\n#{log.strip}" unless ok
+
+          Cache::Store.write_file(file, File.binread(linked))
+        ensure
+          File.unlink(linked) if linked && File.exist?(linked)
         end
       end
 

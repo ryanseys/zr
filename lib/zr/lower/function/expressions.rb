@@ -324,19 +324,17 @@ module Zr
         end
 
         # A C extension's require: it runs the extension's Init function,
-        # which the link put in the binary, which it relinked into the
-        # binary with the bundle's initializers, or which the binary finds
-        # in the bundle that it loads with dlopen (`Ext::Source#mode`).
+        # which the binary finds in the bundle that it loads with dlopen, or
+        # which the link relinked into the binary with the bundle's
+        # initializers (`Ext::Source#mode`).
         #: (Hir::ExtInit node) -> String
         def ext_init(node)
-          case node.mode
-          when :embed
+          if node.mode == :dynamic
+            library = string_literal(node.library.to_s, "zr_str_literal_freeze")
+            checked(kernel("zr_ext_load", library, string_literal(node.init, "zr_str_literal_freeze")))
+          else
             names = %w[zr_ext_ zr_ext_inits_ zr_ext_inits_end_ zr_ext_offsets_ zr_ext_offsets_end_ zr_ext_base_]
             checked(kernel("zr_ext_embedded", *names.map { |prefix| symbol_address("#{prefix}#{node.init}") }))
-          when :dynamic
-            library = node.library.to_s
-            checked(kernel("zr_ext_load", string_literal(library, "zr_str_literal_freeze"), string_literal(node.init, "zr_str_literal_freeze")))
-          else checked(kernel("zr_ext_init", symbol_address(node.init)))
           end
         end
 
