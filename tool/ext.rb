@@ -3,6 +3,7 @@
 require_relative "lib/zr/dev"
 require_relative "../lib/zr/ext/c_api"
 require_relative "lib/zr/dev/ext_rank"
+require_relative "lib/zr/dev/ext_compare"
 require_relative "lib/zr/dev/gems/fetched_gems"
 
 module Zr
@@ -113,8 +114,31 @@ module Zr
         end
       end
 
+      # Compares zr's port of a gem's C with the gem's real C extension.
+      #
+      #   zr-dev ext compare json stringio strscan
+      #
+      # For each gem, it builds each program of test/programs/stdlib/<gem>/
+      # twice, with the port and with `--native-ext`, runs each binary,
+      # and prints a table row: the programs that give ruby's output each
+      # way, the total time, and the mean binary size.
+      class Compare < Command
+        summary "Compare zr's port of a gem's C with the gem's real C extension"
+        usage "<gem>..."
+
+        def run(argv)
+          fail!("give the gems to compare, such as json stringio strscan") if argv.empty?
+
+          work = File.join(Paths::ROOT, "tmp", "ext-compare")
+          print ExtCompare::HEADER
+          argv.each { |gem| puts ExtCompare.row(gem, ExtCompare.compare(gem, File.join(work, gem))) }
+          true
+        end
+      end
+
       commands("imports" => ["List a C extension's ruby imports that zr's C API lacks", -> { Imports }],
-               "rank" => ["Rank the C extensions that block the top gems, and what they lack", -> { Rank }])
+               "rank" => ["Rank the C extensions that block the top gems, and what they lack", -> { Rank }],
+               "compare" => ["Compare zr's port of a gem's C with the gem's real C extension", -> { Compare }])
     end
   end
 end
