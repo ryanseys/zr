@@ -102,7 +102,7 @@ module Zr
       FEATURE = %r{\A[a-z][a-z0-9_-]*(?:/[a-z0-9_-]+)*\z}
 
       # The features that the extension's C may require as it runs. The
-      # names that C passes to rb_require are C strings (`__cstring`), so
+      # names that C passes to rb_require are C strings (`__cstring`, `.rodata.str1.1`), so
       # they are each such string that reads as a feature name; the build
       # compiles in those that a load path has (`Loader#add`). An
       # extension that imports no require function requires nothing.
@@ -110,11 +110,7 @@ module Zr
       def required_features
         return [] unless CApi.imports(*binaries).intersect?(REQUIRERS)
 
-        binaries.flat_map do |path|
-          bytes = File.binread(path)
-          Obj::MachO::Image.read(bytes).sections.select { |section| section.name == "__cstring" }
-                           .flat_map { |section| bytes.byteslice(section.offset, section.size).split("\0") }
-        end.grep(FEATURE).uniq
+        binaries.flat_map { |path| Obj::Image.read(File.binread(path)).c_strings }.grep(FEATURE).uniq
       end
 
       # The C API's functions that hook trace events: a tracer's, a

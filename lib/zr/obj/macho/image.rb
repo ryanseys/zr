@@ -147,6 +147,16 @@ module Zr
         #: () -> Array[String]
         def defined = external.reject { |s| s.type & N_TYPE == N_UNDF && s.value.zero? }.map(&:name).sort
 
+        # `name` as C writes it: Mach-O puts `_` before each C name.
+        #: (String name) -> String
+        def c_name(name) = name.delete_prefix("_")
+
+        # The C strings of the image, from its `__cstring` sections.
+        #: () -> Array[String]
+        def c_strings
+          sections.select { |section| section.name == "__cstring" }.flat_map { |section| bytes.byteslice(section.offset, section.size).split("\0") }
+        end
+
         # Every pointer that dyld rebases, from the opcodes or the chains.
         #: () -> Array[Rebase]
         def rebases = fixups[0]

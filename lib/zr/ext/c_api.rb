@@ -3,7 +3,7 @@
 require_relative "../prism"
 require_relative "../paths"
 require_relative "../refused"
-require_relative "../obj/macho/image"
+require_relative "../obj/image"
 
 module Zr
   module Ext
@@ -35,14 +35,16 @@ module Zr
       #: (Array[String] imports) -> Array[String]
       def missing(imports) = imports.select { |name| ruby?(name) && !names.include?(name) }.uniq.sort
 
-      # The ruby names that the Mach-O objects or images at `paths` import
-      # from outside them: a name that one of them defines (an extension's
-      # own `rb_cCDict`, which its other objects use) is not an import.
+      # The ruby names that the objects or images at `paths` (Mach-O or
+      # ELF) import from outside them: a name that one of them defines (an
+      # extension's own `rb_cCDict`, which its other objects use) is not an
+      # import.
       #: (*String paths) -> Array[String]
       def imports(*paths)
-        images = paths.map { |path| Obj::MachO::Image.read(File.binread(path)) }
-        own = images.flat_map(&:defined).to_set
-        images.flat_map(&:undefined).uniq.reject { |name| own.include?(name) }.map { |name| name.delete_prefix("_") }.select { |name| ruby?(name) }
+        images = paths.map { |path| Obj::Image.read(File.binread(path)) }
+        own = images.flat_map { |image| image.defined.map { |name| image.c_name(name) } }.to_set
+        images.flat_map { |image| image.undefined.map { |name| image.c_name(name) } }.uniq
+              .reject { |name| own.include?(name) }.select { |name| ruby?(name) }
       end
 
       # Refuses a build of an extension (`Ext::Source`) that imports a
