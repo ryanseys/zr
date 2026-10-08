@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "ext"
 require_relative "obj/model"
 require_relative "paths"
 require_relative "library/roots"
@@ -94,8 +95,12 @@ module Zr
       # line, then the ones it searches after it (`Kernel.search`).
       names = if computed
                 native = Library::Roots.native(target)
-                later = gem_roots + (Library::Roots.stdlib(target) - native)
-                [[*native.map(&shown), "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
+                # A gem whose C the build links (`--native-ext`) comes before
+                # the ports, as in the build: a require that its C makes
+                # (json's of json/common) finds the gem's file, not the port's.
+                linked = gem_roots.select { |root| Ext.linked_under?([root]) }
+                later = (gem_roots - linked) + (Library::Roots.stdlib(target) - native)
+                [[*(linked + native).map(&shown), "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
               else
                 none = [] #: Array[String]
                 [none] * 4

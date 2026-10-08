@@ -16,6 +16,9 @@ class CExtPortsTest < Minitest::Test
     require "strscan"
     p $LOADED_FEATURES.grep(%r{/(json/ext/parser|json/ext/generator|stringio|strscan)\.bundle\z}).map { File.basename(_1) }.sort
     p JSON.parse('{"a":[1,2.5,null]}'), JSON.generate({ "b" => "é" })
+    # A require at run time finds the gem's own file, which json's C
+    # required, not the port's.
+    p require("json/common"), $LOADED_FEATURES.grep(%r{/json/common\.rb\z}).map { _1[%r{json-[\d.]+/lib/json/common\.rb\z}] }
     io = StringIO.new(+"one\ntwo\n")
     p io.gets, io.read, io.eof?
     p StringIO.new("a\nb\n").each_line(chomp: true).to_a
@@ -29,17 +32,33 @@ class CExtPortsTest < Minitest::Test
   end
 
   def test_the_gems_own_c_runs_in_place_of_the_port
-    skip "#{GEMS.join(", ")} are not all installed in this ruby" unless GEMS.all? { Zr::Test::CExt.installed(_1) }
+    assert_same_as_ruby("all", PROGRAM, GEMS)
+  end
+
+  # json's C requires json/common as it starts. With no eval support in
+  # the program, the run-time search must find the gem's file, which the
+  # build compiled, before the port's.
+  def test_a_require_from_the_gems_c_finds_the_gems_own_file
+    assert_same_as_ruby("json", <<~'RUBY', %w[json])
+      require "json"
+      p JSON.parse("[1, 2]"), require("json/common")
+    RUBY
+  end
+
+  private
+
+  def assert_same_as_ruby(name, program, gems)
+    skip "#{gems.join(", ")} are not all installed in this ruby" unless gems.all? { Zr::Test::CExt.installed(_1) }
 
     dir = File.join(Zr::Test::CExt::DIR, "ports")
     FileUtils.mkdir_p(dir)
-    path = File.join(dir, "prog.rb")
-    File.write(path, PROGRAM)
+    path = File.join(dir, "#{name}.rb")
+    File.write(path, program)
     env = Zr::Test::CExt::UNBUNDLED
     ruby = Zr::Test::CExt.run(env, RbConfig.ruby, path)
     # Each gem's own Ruby half comes with its C, as the how-to says.
-    gems = GEMS.flat_map { ["--gem", "#{_1}=#{Zr::Test::CExt.installed(_1)}"] }
-    built = Zr::Test::CExt.run(env, File.join(Zr::Test::CExt::ROOT, "bin", "zr"), "build", "--native-ext", GEMS.join(","), *gems, path,
+    flags = gems.flat_map { ["--gem", "#{_1}=#{Zr::Test::CExt.installed(_1)}"] }
+    built = Zr::Test::CExt.run(env, File.join(Zr::Test::CExt::ROOT, "bin", "zr"), "build", "--native-ext", gems.join(","), *flags, path,
                                "-o", path.delete_suffix(".rb"))
     zr = built.status.zero? ? Zr::Test::CExt.run(env, path.delete_suffix(".rb")) : built
 

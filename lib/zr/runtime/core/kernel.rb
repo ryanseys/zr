@@ -283,7 +283,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     return found(File.expand_path(name)) if name.start_with?("/", "./", "../", "~")
 
     # The library that the program was compiled against lists the roots
-    # of this runtime's ports of C, an empty line, then the others. The
+    # of the gems whose C the program links and of this runtime's ports
+    # of C, an empty line, then the others. The
     # ports come before $LOAD_PATH: an installed copy of such a gem that
     # rubygems activates has a C part that no program here can load. The
     # others come after it, as ruby's own library does, so a directory the
