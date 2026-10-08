@@ -8,14 +8,24 @@ module Zr::Kern
   def rb_gc_mark(v)
     Machine.gates_enter
     zr_c_entered()
-    zr_mark(v)
+    zr_capi_mark(Machine.word(v))
   end
 
   #: (value) -> void
   def rb_gc_mark_movable(v)
     Machine.gates_enter
     zr_c_entered()
-    zr_mark(v)
+    zr_capi_mark(Machine.word(v))
+  end
+
+  # Marks the object `v` for C. A profiler also marks the frames of
+  # rb_profile_frames that it keeps, which are addresses outside the heap
+  # (capi/profile.rb), as ruby's mark of a frame's iseq does nothing to it.
+  #: (word) -> void
+  def zr_capi_mark(v)
+    if !zr_special_p(Machine.value(v)) && zr_heap_address_p(v)
+      zr_mark(Machine.value(v))
+    end
   end
 
   # rb_gc_mark_maybe: marks `v` if it is a live object, whatever word it is.

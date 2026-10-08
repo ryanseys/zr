@@ -3,10 +3,12 @@ module Zr::Kern
   # datadog): the frames that run, and jobs that run at the next safe
   # point (postponed_jobs.rb).
   #
-  # A frame of rb_profile_frames is the address of its FrameMeta with the
-  # Fixnum tag: no object is made, as a signal handler can make none; it
-  # names the same code each time, as a profiler's table keys it; and the
-  # collector's mark of it does nothing. As ruby gives a method's entry
+  # A frame of rb_profile_frames is the address of its FrameMeta: no
+  # object is made, as a signal handler can make none; it names the same
+  # code each time, as a profiler's table keys it; and the collector's
+  # mark of it does nothing (rb_gc_mark), as it is outside the heap. Like
+  # ruby's, it is no Fixnum: stackprof keeps its own frames (GC, sweeping)
+  # as Fixnums, and tells them apart by that. As ruby gives a method's entry
   # for a method's frame, also for a block in it, the frame of a block in
   # a method names the method. The rb_profile_frame_* functions answer in
   # Ruby (RubyVM.profile_frame).
@@ -50,7 +52,7 @@ module Zr::Kern
               meta = method
             end
           end
-          Machine.store64(buff + (i * 8), 0, Machine.word(meta) | 1)
+          Machine.store64(buff + (i * 8), 0, Machine.word(meta))
           if lines != 0
             Machine.store32(lines + (i * 4), 0, Machine.i32(native ? 0 : zr_frame_line(rec)))
           end
@@ -62,70 +64,70 @@ module Zr::Kern
     i
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_path(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:path))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_absolute_path(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:absolute_path))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_label(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:label))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_base_label(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:base_label))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_full_label(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:full_label))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_first_lineno(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:first_lineno))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_classpath(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:classpath))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_singleton_method_p(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:singleton_method_p))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_method_name(frame)
     Machine.gates_enter
     zr_c_entered()
     zr_capi_profile_frame(frame, Machine.id(:method_name))
   end
 
-  #: (value) -> value
+  #: (word) -> value
   def rb_profile_frame_qualified_method_name(frame)
     Machine.gates_enter
     zr_c_entered()
@@ -133,14 +135,15 @@ module Zr::Kern
   end
 
   # The answer `what` about the frame `frame` of rb_profile_frames; nil
-  # for a value that is no such frame.
-  #: (value, word) -> value
+  # for a word that is no such frame. A frame is a word, not a value: the
+  # collector must not read a FrameMeta as an object.
+  #: (word, word) -> value
   def zr_capi_profile_frame(frame, what)
-    if !zr_fixnum_p(frame)
+    if (frame & 7) != 0 || frame == 0 || zr_heap_address_p(frame)
       return Machine.value(QNIL)
     end
     argv = Machine.slot(64)
-    Machine.store64(argv, 0, Machine.word(zr_fix(Machine.word(frame) - 1)))
+    Machine.store64(argv, 0, Machine.word(zr_fix(frame)))
     Machine.store64(argv, 8, Machine.word(zr_sym(what)))
     zr_c_result(zr_trace_point_send(zr_core_class(Machine.id(:RubyVM)), Machine.id(:profile_frame), 2, argv))
   end

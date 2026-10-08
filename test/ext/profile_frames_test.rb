@@ -7,8 +7,10 @@ require_relative "../support/c_ext"
 # The C API of ruby/debug.h for sampling profilers
 # (kernel/capi/profile.rb, kernel/postponed_jobs.rb), as stackprof,
 # vernier and datadog use it: the frames that run and what each one
-# names, jobs that run at the next safe point, and a SIGPROF handler
-# that samples the frames and triggers a job, against ruby's answers.
+# names, jobs that run at the next safe point, a SIGPROF handler that
+# samples the frames and triggers a job, and a T_DATA that keeps frames
+# and marks them, as stackprof's does, against ruby's answers. A frame
+# is no Fixnum: stackprof keeps its own frames as Fixnums.
 class CExtProfileFramesTest < Minitest::Test
   SOURCE = <<~'C'
     #include <ruby.h>
@@ -61,6 +63,37 @@ class CExtProfileFramesTest < Minitest::Test
       int n = rb_profile_thread_frames(thread, 0, 64, buff, lines);
       VALUE out = rb_ary_new();
       for (int i = 0; i < n; i++) rb_ary_push(out, rb_profile_frame_full_label(buff[i]));
+      return out;
+    }
+
+    /* A frame is no Fixnum and no special constant, as a pointer is. */
+    static VALUE pf_kind(VALUE self) {
+      VALUE frame;
+      rb_profile_frames(0, 1, &frame, NULL);
+      return rb_ary_new_from_args(2, FIXNUM_P(frame) ? Qtrue : Qfalse, RB_SPECIAL_CONST_P(frame) ? Qtrue : Qfalse);
+    }
+
+    /* stackprof keeps its frames in a table that its T_DATA marks. */
+    struct kept { int n; VALUE frames[16]; };
+
+    static void kept_mark(void *p) {
+      struct kept *k = p;
+      for (int i = 0; i < k->n; i++) rb_gc_mark(k->frames[i]);
+    }
+
+    static const rb_data_type_t kept_type = {"kept", {kept_mark, RUBY_TYPED_DEFAULT_FREE, NULL}, 0, 0, 0};
+
+    static VALUE pf_keep(VALUE self) {
+      struct kept *k;
+      VALUE obj = TypedData_Make_Struct(rb_cObject, struct kept, &kept_type, k);
+      k->n = rb_profile_frames(0, 16, k->frames, NULL);
+      return obj;
+    }
+
+    static VALUE pf_kept(VALUE self, VALUE obj) {
+      struct kept *k = rb_check_typeddata(obj, &kept_type);
+      VALUE out = rb_ary_new();
+      for (int i = 0; i < k->n; i++) rb_ary_push(out, rb_profile_frame_full_label(k->frames[i]));
       return out;
     }
 
@@ -126,6 +159,9 @@ class CExtProfileFramesTest < Minitest::Test
       rb_define_module_function(m, "register", pf_register, 0);
       rb_define_module_function(m, "ran", pf_ran, 0);
       rb_define_module_function(m, "sample", pf_sample, 0);
+      rb_define_module_function(m, "kind", pf_kind, 0);
+      rb_define_module_function(m, "keep", pf_keep, 0);
+      rb_define_module_function(m, "kept", pf_kept, 1);
     }
   C
 
@@ -165,6 +201,11 @@ class CExtProfileFramesTest < Minitest::Test
     p [:skip, Prof.frames(1, 2).map { |row| row[4] }]
     p [:top, Prof.frames(0, 2).map { |row| row[4] }]
     show(:same) { Prof.same? }
+    show(:kind) { Prof.kind }
+    def keep_here = Prof.keep
+    kept = keep_here
+    GC.start
+    show(:kept) { Prof.kept(kept).first(2) }
 
     other = Thread.new { Thread.stop; :done }
     Thread.pass until other.status == "sleep"

@@ -49,9 +49,10 @@ module Zr
             two depths compare as ruby's do, but the number is not ruby's.
             An event hook (`rb_add_event_hook`) is a C TracePoint too, and
             a C TracePoint hears the internal events NEWOBJ and FREEOBJ.
-            A frame of `rb_profile_frames` is the address of its code with
-            the Fixnum tag: a signal handler can take one, as stackprof's
-            does, and a postponed job (`rb_postponed_job_*`) runs at the
+            A frame of `rb_profile_frames` is the address of its code, no
+            Fixnum, as ruby's is a pointer: a signal handler can take one,
+            as stackprof's does, `rb_gc_mark` of it does nothing, and a
+            postponed job (`rb_postponed_job_*`) runs at the
             next safe point. The private `rb_iseq_*` and `rb_iseqw_*` that
             debug and datadog-ci declare take the address of the code's
             FrameMeta for an `rb_iseq_t *`; `rb_iseq_code_location` gives

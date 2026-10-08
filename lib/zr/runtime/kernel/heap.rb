@@ -321,6 +321,13 @@ module Zr::Kern
     (Machine.load64(Machine.ptr(w), 0) & FL_ALLOCATED) != 0
   end
 
+  # Whether the word `w` is an address in one of the heap's arenas, a
+  # cell or not.
+  #: (word) -> bool
+  def zr_heap_address_p(w)
+    zr_arena_p(Machine.ptr(w & (0 - ARENA_BYTES)))
+  end
+
   # Marks the word `w` if it is a live cell, as CRuby's
   # rb_gc_mark_maybe does.
   #: (word) -> void
