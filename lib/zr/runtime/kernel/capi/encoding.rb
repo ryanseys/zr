@@ -216,14 +216,19 @@ module Zr::Kern
   def rb_enc_find_index(name)
     Machine.gates_enter
     zr_c_entered()
+    Machine.i32(zr_capi_find_index(name))
+  end
+
+  #: (ptr) -> word
+  def zr_capi_find_index(name)
     arg = Machine.slot(8)
     Machine.store64(arg, 0, Machine.word(zr_str_new(name, zr_cstr_len(name))))
     enc = zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:find), 1, arg)
     if enc == QUNDEF
       Task[zr_task()].pending = Machine.value(QNIL)
-      return Machine.i32(0 - 1)
+      return 0 - 1
     end
-    Machine.i32(zr_fix2long(zr_c_result(zr_send(enc, Machine.id(:index), 0, Machine.ptr(0)))))
+    zr_fix2long(zr_c_result(zr_send(enc, Machine.id(:index), 0, Machine.ptr(0))))
   end
 
   # rb_enc_get_index: the encoding index of a String, a Symbol, or an
@@ -362,7 +367,9 @@ module Zr::Kern
   # that no encoding has, as ruby gives it.
   #: (ptr) -> ptr
   def rb_enc_find(name)
-    index = Machine.sword(rb_enc_find_index(name))
+    Machine.gates_enter
+    zr_c_entered()
+    index = zr_capi_find_index(name)
     zr_capi_encoding(index < 0 ? ENC_BINARY : index)
   end
 
