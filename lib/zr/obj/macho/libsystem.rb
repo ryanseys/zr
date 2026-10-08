@@ -164,12 +164,21 @@ module Zr
           posix_spawnp
           pow
           pread
+          pthread_cond_broadcast
+          pthread_cond_init
+          pthread_cond_wait
           pthread_create
           pthread_detach
           pthread_get_stackaddr_np
           pthread_get_stacksize_np
+          pthread_getspecific
           pthread_jit_write_protect_np
+          pthread_key_create
+          pthread_mutex_init
+          pthread_mutex_lock
+          pthread_mutex_unlock
           pthread_self
+          pthread_setspecific
           ptsname
           pwrite
           read

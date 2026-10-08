@@ -1,0 +1,353 @@
+module Zr::Kern
+  # C that runs without the GVL: rb_thread_call_without_gvl and its kin.
+  # zr's threads are green, so such C runs on a worker OS thread of the
+  # offload pool, and the green thread that called it waits for the job's
+  # pipe as for any descriptor (`Thread#offload_wait`): the other threads
+  # run meanwhile. A thread that is alone calls the C itself.
+  #
+  # A worker touches only the pool and its jobs, which are malloc'd and
+  # which the pool's mutex guards: never the heap, the task or a static.
+  # It reaches the pool through its thread argument, and keeps the job
+  # that it runs in a thread-local key. When the C calls
+  # rb_thread_call_with_gvl, the worker posts the call to the job, and the
+  # waiting green thread runs it and lets the worker go on.
+  class OffloadPool < Layout
+    attr_accessor :mutex #: ptr
+    attr_accessor :cond #: ptr
+    attr_accessor :head #: ptr
+    attr_accessor :tail #: ptr
+    attr_accessor :workers #: word
+    attr_accessor :idle #: word
+    # The thread-local key of a worker's job (pthread_key_t).
+    attr_accessor :key #: word
+    # The process that made the pool: a fork's child has no workers, and
+    # makes a pool of its own.
+    attr_accessor :pid #: word
+  end
+
+  class OffloadJob < Layout
+    attr_accessor :next #: ptr
+    attr_accessor :fn #: ptr
+    attr_accessor :data #: ptr
+    attr_accessor :result #: ptr
+    attr_accessor :state #: word
+    attr_accessor :read_fd #: word
+    attr_accessor :write_fd #: word
+    attr_accessor :ubf #: ptr
+    attr_accessor :ubf_data #: ptr
+    # A call that the C asks for with rb_thread_call_with_gvl.
+    attr_accessor :call_fn #: ptr
+    attr_accessor :call_data #: ptr
+    attr_accessor :call_result #: ptr
+  end
+
+  JOB_QUEUED = 0
+  JOB_RUNNING = 1
+  JOB_DONE = 2
+  JOB_CALLING = 3
+  # The most workers; more jobs wait in the queue.
+  OFFLOAD_WORKERS = 16
+  # pthread_mutex_t and pthread_cond_t fit in this many bytes on each OS.
+  PTHREAD_OBJECT_BYTES = 128
+  # RUBY_UBF_IO and RUBY_UBF_PROCESS: no function that unblocks the C.
+  UBF_NONE = 0 - 1
+
+  # rb_thread_call_without_gvl: `fn(data)` on a worker, while the other
+  # threads run. An interrupt (Thread#raise, #kill, a signal) calls
+  # `ubf(ubf_data)` to stop the C, waits for it to return, then goes on.
+  #: (ptr, ptr, ptr, ptr) -> ptr
+  def rb_thread_call_without_gvl(fn, data, ubf, ubf_data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_offload_call(fn, data, ubf, ubf_data)
+  end
+
+  #: (ptr, ptr, ptr, ptr) -> ptr
+  def rb_thread_call_without_gvl2(fn, data, ubf, ubf_data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_offload_call(fn, data, ubf, ubf_data)
+  end
+
+  # rb_nogvl: the same; zr takes no flag into account.
+  #: (ptr, ptr, ptr, ptr, i32) -> ptr
+  def rb_nogvl(fn, data, ubf, ubf_data, flags)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_offload_call(fn, data, ubf, ubf_data)
+  end
+
+  # rb_thread_call_with_gvl: `fn(data)` with the GVL, from C that runs
+  # without it. On a worker, the waiting green thread runs it; on a Ruby
+  # thread, the call is direct.
+  #: (ptr, ptr) -> ptr
+  def rb_thread_call_with_gvl(fn, data)
+    Machine.gates_enter
+    pool = Machine.ptr(Machine.load64(Machine.static(:offload_pool, 8), 0))
+    job = pool == 0 ? Machine.ptr(0) : Libc.pthread_getspecific(OffloadPool[pool].key)
+    if job == 0
+      zr_c_entered()
+      argv = Machine.slot(64)
+      Machine.store64(argv, 0, Machine.word(data))
+      return Machine.ptr(zr_c_result(Machine.value(zr_call_c(fn, argv, 1))))
+    end
+    Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
+    OffloadJob[job].call_fn = fn
+    OffloadJob[job].call_data = data
+    OffloadJob[job].state = JOB_CALLING
+    Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
+    zr_offload_signal(job)
+    Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
+    while OffloadJob[job].state == JOB_CALLING
+      Libc.pthread_cond_wait(OffloadPool[pool].cond, OffloadPool[pool].mutex)
+    end
+    Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
+    OffloadJob[job].call_result
+  end
+
+  # ruby_native_thread_p: 1. In ruby, C without the GVL runs on its Ruby
+  # thread; here it runs on a worker, which can reach Ruby too, through
+  # rb_thread_call_with_gvl.
+  #: () -> i32
+  def ruby_native_thread_p
+    Machine.gates_enter
+    Machine.i32(1)
+  end
+
+  # ruby_thread_has_gvl_p: 0 on a worker of the pool, which runs C
+  # without the GVL, else 1.
+  #: () -> i32
+  def ruby_thread_has_gvl_p
+    Machine.gates_enter
+    pool = Machine.ptr(Machine.load64(Machine.static(:offload_pool, 8), 0))
+    pool != 0 && Libc.pthread_getspecific(OffloadPool[pool].key) != 0 ? Machine.i32(0) : Machine.i32(1)
+  end
+
+  # rb_thread_check_ints: a safe point, which runs what interrupts wait.
+  #: () -> void
+  def rb_thread_check_ints
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_preempt())
+  end
+
+  # rb_thread_current: Thread.current.
+  #: () -> value
+  def rb_thread_current
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_core_class(Machine.id(:Thread)), Machine.id(:current), 0, Machine.ptr(0)))
+  end
+
+  # rb_thread_schedule: Thread.pass.
+  #: () -> void
+  def rb_thread_schedule
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_core_class(Machine.id(:Thread)), Machine.id(:pass), 0, Machine.ptr(0)))
+  end
+
+  # `fn(data)` without the GVL, as rb_thread_call_without_gvl runs it.
+  #: (ptr, ptr, ptr, ptr) -> ptr
+  def zr_offload_call(fn, data, ubf, ubf_data)
+    if zr_threaded() == QFALSE
+      argv = Machine.slot(64)
+      Machine.store64(argv, 0, Machine.word(data))
+      return Machine.ptr(zr_c_result(Machine.value(zr_call_c(fn, argv, 1))))
+    end
+    pool = zr_offload_pool()
+    job = zr_offload_submit(pool, fn, data, ubf, ubf_data)
+    args = Machine.slot(8)
+    Machine.store64(args, 0, Machine.word(zr_fix(OffloadJob[job].read_fd)))
+    thread = zr_send(zr_core_class(Machine.id(:Thread)), Machine.id(:current), 0, Machine.ptr(0))
+    # What the C's calls into Ruby return lives on the worker's stack,
+    # which the collector does not read: it stays here until the job ends.
+    kept = zr_ary_new(0)
+    while true
+      if zr_send(thread, Machine.id(:offload_wait), 1, args) == QUNDEF
+        # An interrupt: the C stops and returns first, then the interrupt
+        # goes on.
+        zr_capi_park()
+        zr_offload_unblock(pool, job, kept)
+        zr_capi_unpark()
+        zr_offload_free(job)
+        zr_c_unwind()
+      end
+      zr_offload_drain(job)
+      if zr_offload_serve(pool, job, kept)
+        result = OffloadJob[job].result
+        zr_offload_free(job)
+        return result
+      end
+    end
+    Machine.ptr(0)
+  end
+
+  # After a wake: runs the call that the C asked for, if it did, keeps
+  # its result in `kept`, and lets the worker go on. Whether the job is
+  # done.
+  #: (ptr, ptr, value) -> bool
+  def zr_offload_serve(pool, job, kept)
+    Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
+    state = OffloadJob[job].state
+    Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
+    if state == JOB_DONE
+      return true
+    end
+    if state == JOB_CALLING
+      argv = Machine.slot(64)
+      Machine.store64(argv, 0, Machine.word(OffloadJob[job].call_data))
+      # The call's error cannot go through the worker's C; it is dropped.
+      r = zr_call_c(OffloadJob[job].call_fn, argv, 1)
+      if r == QUNDEF
+        Task[zr_task()].pending = Machine.value(QNIL)
+        r = QNIL
+      end
+      zr_ary_push(kept, Machine.value(r))
+      Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
+      OffloadJob[job].call_result = Machine.ptr(r)
+      OffloadJob[job].state = JOB_RUNNING
+      Libc.pthread_cond_broadcast(OffloadPool[pool].cond)
+      Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
+    end
+    false
+  end
+
+  # An interrupt of the wait: calls the job's unblocking function, then
+  # waits in the system call for the C to return, serving the calls that
+  # it asks for on the way.
+  #: (ptr, ptr, value) -> void
+  def zr_offload_unblock(pool, job, kept)
+    if OffloadJob[job].ubf != Machine.ptr(UBF_NONE) && OffloadJob[job].ubf != 0
+      argv = Machine.slot(64)
+      Machine.store64(argv, 0, Machine.word(OffloadJob[job].ubf_data))
+      if zr_call_c(OffloadJob[job].ubf, argv, 1) == QUNDEF
+        Task[zr_task()].pending = Machine.value(QNIL)
+      end
+    end
+    while true
+      zr_offload_drain(job)
+      if zr_offload_serve(pool, job, kept)
+        return
+      end
+    end
+  end
+
+  # The pool of this process, made the first time.
+  #: () -> ptr
+  def zr_offload_pool
+    at = Machine.static(:offload_pool, 8)
+    pool = Machine.ptr(Machine.load64(at, 0))
+    pid = Machine.sword(Libc.getpid())
+    if pool != 0 && OffloadPool[pool].pid == pid
+      return pool
+    end
+    pool = zr_xmalloc(OffloadPool.size)
+    Libc.memset(pool, Machine.i32(0), OffloadPool.size)
+    OffloadPool[pool].mutex = zr_xmalloc(PTHREAD_OBJECT_BYTES)
+    OffloadPool[pool].cond = zr_xmalloc(PTHREAD_OBJECT_BYTES)
+    Libc.pthread_mutex_init(OffloadPool[pool].mutex, Machine.ptr(0))
+    Libc.pthread_cond_init(OffloadPool[pool].cond, Machine.ptr(0))
+    key = Machine.slot(8)
+    Machine.store64(key, 0, 0)
+    Libc.pthread_key_create(key, Machine.ptr(0))
+    OffloadPool[pool].key = Machine.load64(key, 0)
+    OffloadPool[pool].pid = pid
+    Machine.store64(at, 0, Machine.word(pool))
+    pool
+  end
+
+  # Queues a job for `fn(data)`, with its pipe, and starts a worker when
+  # none is idle.
+  #: (ptr, ptr, ptr, ptr, ptr) -> ptr
+  def zr_offload_submit(pool, fn, data, ubf, ubf_data)
+    fds = Machine.slot(8)
+    if Libc.pipe(fds) != Machine.i32(0)
+      args = Machine.slot(16)
+      Machine.store64(args, 0, Machine.word(zr_str_new(Machine.bytes("pipe"), 4)))
+      Machine.store64(args, 8, Machine.word(zr_fix(zr_errno())))
+      zr_c_result(zr_raise(zr_c_result(zr_send(zr_core_class(Machine.id(:SystemCallError)), Machine.id(:new), 2, args))))
+    end
+    job = zr_xmalloc(OffloadJob.size)
+    Libc.memset(job, Machine.i32(0), OffloadJob.size)
+    OffloadJob[job].fn = fn
+    OffloadJob[job].data = data
+    OffloadJob[job].ubf = ubf
+    OffloadJob[job].ubf_data = ubf_data
+    OffloadJob[job].read_fd = Machine.sword(Machine.load32(fds, 0))
+    OffloadJob[job].write_fd = Machine.sword(Machine.load32(fds, 4))
+    Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
+    if OffloadPool[pool].tail == 0
+      OffloadPool[pool].head = job
+    else
+      OffloadJob[OffloadPool[pool].tail].next = job
+    end
+    OffloadPool[pool].tail = job
+    spawn = OffloadPool[pool].idle == 0 && OffloadPool[pool].workers < OFFLOAD_WORKERS
+    if spawn
+      OffloadPool[pool].workers = OffloadPool[pool].workers + 1
+    end
+    Libc.pthread_cond_broadcast(OffloadPool[pool].cond)
+    Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
+    if spawn
+      tid = Machine.slot(8)
+      if Libc.pthread_create(tid, Machine.ptr(0), Machine.addr(:zr_offload_worker), pool) == Machine.i32(0)
+        Libc.pthread_detach(Machine.ptr(Machine.load64(tid, 0)))
+      end
+    end
+    job
+  end
+
+  # A worker's loop: takes each job, runs its C, marks it done, and wakes
+  # its waiter. It never returns.
+  #: (ptr) -> ptr
+  def zr_offload_worker(pool)
+    while true
+      Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
+      OffloadPool[pool].idle = OffloadPool[pool].idle + 1
+      while OffloadPool[pool].head == 0
+        Libc.pthread_cond_wait(OffloadPool[pool].cond, OffloadPool[pool].mutex)
+      end
+      OffloadPool[pool].idle = OffloadPool[pool].idle - 1
+      job = OffloadPool[pool].head
+      OffloadPool[pool].head = OffloadJob[job].next
+      if OffloadPool[pool].head == 0
+        OffloadPool[pool].tail = Machine.ptr(0)
+      end
+      OffloadJob[job].state = JOB_RUNNING
+      Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
+      Libc.pthread_setspecific(OffloadPool[pool].key, job)
+      result = Machine.ptr(zr_gc_call(OffloadJob[job].fn, OffloadJob[job].data))
+      Libc.pthread_setspecific(OffloadPool[pool].key, Machine.ptr(0))
+      Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
+      OffloadJob[job].result = result
+      OffloadJob[job].state = JOB_DONE
+      Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
+      zr_offload_signal(job)
+    end
+    Machine.ptr(0)
+  end
+
+  # A job's waiter wakes when its pipe has a byte: one for each change
+  # that it must look at.
+  #: (ptr) -> void
+  def zr_offload_signal(job)
+    byte = Machine.slot(8)
+    Machine.store8(byte, 0, Machine.i8(1))
+    Libc.write(Machine.i32(OffloadJob[job].write_fd), byte, 1)
+  end
+
+  # Reads one wake byte; the read waits until there is one.
+  #: (ptr) -> void
+  def zr_offload_drain(job)
+    byte = Machine.slot(8)
+    Libc.read(Machine.i32(OffloadJob[job].read_fd), byte, 1)
+  end
+
+  #: (ptr) -> void
+  def zr_offload_free(job)
+    Libc.close(Machine.i32(OffloadJob[job].read_fd))
+    Libc.close(Machine.i32(OffloadJob[job].write_fd))
+    zr_xfree(job)
+  end
+end

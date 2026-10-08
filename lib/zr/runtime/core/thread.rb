@@ -1099,6 +1099,16 @@ class Thread
     nil
   end
 
+  # rb_thread_call_without_gvl's wait: the C runs on a worker OS thread,
+  # and this thread waits for the job's pipe (`fd`) as a blocking region,
+  # so the others run. An interrupt (a raise, a kill, a signal) ends the
+  # wait; the kernel then stops the C and waits for it before it goes on
+  # (lib/zr/runtime/kernel/capi/thread.rb).
+  def offload_wait(fd)
+    Primitive.attr! :hidden
+    wait_io(fd, IO::READABLE, nil, gives_way: true)
+  end
+
   # rb_thread_wait_for_single_fd: the events of `events` that `fd` came
   # ready for, 0 once `deadline` (nanoseconds on the monotonic clock)
   # passes, or the negated errno.

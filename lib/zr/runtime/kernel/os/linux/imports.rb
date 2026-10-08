@@ -49,6 +49,26 @@ module Zr::Kern
     def self.pthread_create(p1, p2, p3, p4) = Machine.import
     #: (ptr) -> i32
     def self.pthread_detach(p) = Machine.import
+    #: (ptr, ptr) -> i32
+    def self.pthread_mutex_init(p1, p2) = Machine.import
+    #: (ptr) -> i32
+    def self.pthread_mutex_lock(p) = Machine.import
+    #: (ptr) -> i32
+    def self.pthread_mutex_unlock(p) = Machine.import
+    #: (ptr, ptr) -> i32
+    def self.pthread_cond_init(p1, p2) = Machine.import
+    #: (ptr, ptr) -> i32
+    def self.pthread_cond_wait(p1, p2) = Machine.import
+    #: (ptr) -> i32
+    def self.pthread_cond_broadcast(p) = Machine.import
+    #: (ptr, ptr) -> i32
+    def self.pthread_key_create(p1, p2) = Machine.import
+    #: (word, ptr) -> i32
+    def self.pthread_setspecific(k, p) = Machine.import
+    #: (word) -> ptr
+    def self.pthread_getspecific(k) = Machine.import
+    #: () -> ptr
+    def self.pthread_self = Machine.import
     #: (i32, ptr) -> ptr
     def self.setlocale(i, p) = Machine.import
     #: (i32) -> ptr
