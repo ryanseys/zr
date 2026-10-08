@@ -51,7 +51,7 @@ module Zr
       # once, not with each such program.
       #: (?Target target) -> Loader
       def self.eval_support(target = Target.default)
-        Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target)).tap do |loader|
+        Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target), extensions: false).tap do |loader|
           eval_require(loader, target)
           rubygems(loader)
           loader.add(LAZY_RUBYGEMS)

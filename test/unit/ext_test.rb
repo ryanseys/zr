@@ -229,4 +229,21 @@ class ExtTest < Minitest::Test
       assert_match(/\Alacks\.bundle: zr's C API has no rb_not_a_function yet/, error.message)
     end
   end
+
+  # A program's require finds the C extension that its build links; eval
+  # support, which every program shares and the cache keeps, never does,
+  # or a build with --native-ext would leave its extension in the cache.
+  def test_only_a_programs_loader_finds_the_linked_extensions
+    Dir.mktmpdir do |dir|
+      lib = File.join(dir, "lib")
+      bundle = File.join(lib, "hello.bundle")
+      Zr::Config.with(ZR_EXT_OBJECTS: bundle) do
+        program = Zr::Hir::Build::Loader.new([lib])
+        support = Zr::Hir::Build::Loader.new([lib], extensions: false)
+
+        assert_equal bundle, program.resolve(:require, "hello", File.join(dir, "main.rb"))
+        assert_nil support.resolve(:require, "hello", File.join(dir, "main.rb"))
+      end
+    end
+  end
 end
