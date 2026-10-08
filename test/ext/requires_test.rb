@@ -47,6 +47,28 @@ class CExtRequiresTest < Minitest::Test
     end
   end
 
+  # debug_inspector's lib requires its bundle by a computed name: the
+  # build links each extension that it is given, and require finds it by
+  # any of its names, as ruby's does.
+  COMPUTED = <<~'PROGRAM'
+    require "rbconfig"
+    name = "needs.#{RbConfig::CONFIG["DLEXT"]}"
+    p require(name), require("needs"), require("needs.so")
+    p Needs::EARLY, $LOADED_FEATURES.grep(/needs\.bundle\z/).size
+    begin
+      require "nothing.#{RbConfig::CONFIG["DLEXT"]}"
+    rescue LoadError => e
+      p e.message
+    end
+  PROGRAM
+
+  def test_a_computed_name_finds_the_linked_extension
+    ruby, zr = Zr::Test::CExt.outputs(@ext, COMPUTED)
+
+    assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"
+    assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr stderr:\n#{zr.stderr}"
+  end
+
   def test_the_files_that_c_requires_load_as_in_ruby
     ruby, zr = Zr::Test::CExt.outputs(@ext, PROGRAM)
 

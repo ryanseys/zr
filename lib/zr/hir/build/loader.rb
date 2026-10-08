@@ -693,6 +693,15 @@ module Zr
           i
         end
 
+        # The C extensions that the build links and that no literal
+        # require reached. A computed require (debug_inspector's
+        # `require "debug_inspector.#{dlext}"`) finds one as it runs, as
+        # it finds any file of the program.
+        #: () -> void
+        def extensions!
+          Ext.bundles.each_key { |path| add(path) } if @extensions
+        end
+
         # The files that a C extension's C may require as it runs
         # (`Ext::Source#required_features`) go into the program, so that
         # require finds them, as a computed require finds any file of the

@@ -121,7 +121,10 @@ module Zr
           # is not in $LOADED_FEATURES, and what its -r requires is the
           # program's, not hidden as a runtime file's requires are.
           switched = (Require.new(:load, "zr/ruby_switches", Library::Roots::SWITCHES, loader.add(Library::Roots::SWITCHES), 0) if switches.prelude)
-          [loader, loader.unit(file, source, line, scopes, method: method), switched]
+          main = loader.unit(file, source, line, scopes, method: method)
+          # A program links the extensions that --native-ext names.
+          loader.extensions! if eval_support
+          [loader, main, switched]
         end
         # A build knows three facts only after it reads every file: that
         # the program uses eval, TracePoint, or Coverage. Each fact needs

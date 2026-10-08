@@ -270,7 +270,13 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     return search(feature) if feature.end_with?(".rb")
 
     found = search("#{feature}.rb")
-    return found if found || !feature.end_with?(".so", ".bundle", ".dylib", ".o")
+    return found if found
+
+    # A C extension that the program links, by any name that ruby's
+    # require gives it: `parser`, `parser.so` or `parser.bundle`.
+    linked = native_file(feature)
+    return linked if linked && Primitive.zr_unit_for(linked)
+    return nil unless feature.end_with?(".so", ".bundle", ".dylib", ".o")
 
     found(File.join(Primitive.zr_load_names(3), "#{feature.delete_suffix(File.extname(feature))}.rb"))
   end
