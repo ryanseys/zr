@@ -163,7 +163,10 @@ class ExtTest < Minitest::Test
     assert_includes names, "rb_raise"
     assert_includes names, "rb_cObject"
     refute_includes names, "zr_capi_str", "a kernel helper is not C API"
+    assert_includes names, "OnigEncodingASCII", "Onigmo's data is ruby's"
+    refute_includes names, "zr_capi_verbose", "a word of zr's own is not C API"
     assert_equal %w[rb_not_a_function], Zr::Ext::CApi.missing(%w[rb_define_method memcpy rb_not_a_function rb_raise])
+    assert_equal %w[OnigEncodingNone], Zr::Ext::CApi.missing(%w[OnigEncodingASCII OnigEncodingNone])
   end
 
   # An extension's own global with a ruby-like name (zstd-ruby's

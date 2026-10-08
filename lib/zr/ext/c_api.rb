@@ -14,8 +14,8 @@ module Zr
     # stops the build with its name, not the program later.
     module CApi
       # The names that are ruby's: what an extension takes from ruby, not
-      # from libc.
-      RUBY = /\A(?:rb_|ruby_|st_|onig)/
+      # from libc. Onigmo's data is `OnigEncodingASCII` and its kin.
+      RUBY = /\A(?:rb_|ruby_|st_|onig|Onig)/
       DIR = File.join(Paths::RUNTIME, "kernel/capi")
 
       module_function
@@ -65,7 +65,7 @@ module Zr
           found << node.name.to_s if ruby?(node.name.to_s)
         when Prism::CallNode
           word = node.arguments&.arguments&.first if machine_global?(node)
-          found << word.unescaped if word.is_a?(Prism::SymbolNode)
+          found << word.unescaped if word.is_a?(Prism::SymbolNode) && ruby?(word.unescaped)
         end
         node.compact_child_nodes.each { |child| collect(child, found) }
       end
