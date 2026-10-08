@@ -603,6 +603,7 @@ module Zr
     # @rbs fn: String
     # @rbs kind: String
     # @rbs line: Integer
+    # @rbs end_line: Integer
     # @rbs name: Integer | String | Symbol
     # @rbs parent: String?
     # @rbs params: Hir::Params?
@@ -618,7 +619,7 @@ module Zr
     # @rbs frameless: bool
     # @rbs blocks: Integer
     # @rbs return: String
-    def meta(fn, kind, line, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
+    def meta(fn, kind, line, end_line: 0, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
              captures: false, node: 0, cover: nil, twin: nil, owns_backref: false, reads_backref: false, frameless: false, blocks: 0)
       layout = layout("FrameMeta")
       file = file_bytes
@@ -628,6 +629,7 @@ module Zr
       word.call("file_len", internal? ? 0 : shown_file.bytesize)
       word.call("kind", const(kind))
       word.call("line", line)
+      word.call("end_line", end_line)
       word.call("node", node)
       # The def-site entry that this scope uses when it makes a method,
       # plus one, so 0 means that the program does not measure coverage.

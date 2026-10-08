@@ -134,6 +134,7 @@ module Zr
               row.file_len = unit.internal ? 0 : file.bytesize
               row.kind = kind
               row.line = line_of(node)
+              row.end_line = node.respond_to?(:end_line) ? node.end_line.to_i : 0
               row.parent = parent
               row.arity = params ? params.arity : 0
               row.params = params ? param_table(params) : 0

@@ -833,12 +833,13 @@ module Zr::Kern
     zr_buf_take(b)
   end
 
-  # Returns `[path, first line, kind]` of the FrameMeta at `meta_word`.
-  # The kind is the name that RubyVM::InstructionSequence#type gives.
+  # Returns `[path, first line, kind, last line]` of the FrameMeta at
+  # `meta_word`. The kind is the name that RubyVM::InstructionSequence#type
+  # gives.
   #: (value) -> value
   def zr_iseq_meta_info(meta_word)
     meta = Machine.ptr(zr_fix2long(meta_word))
-    out = zr_ary_new(3)
+    out = zr_ary_new(4)
     zr_ary_push(out, zr_meta_file(meta))
     kind = FrameMeta[meta].kind
     # ruby makes the code of a whole file (rb_iseq_new_main, _top) with
@@ -857,6 +858,7 @@ module Zr::Kern
       name = Machine.id(:eval)
     end
     zr_ary_push(out, zr_sym(name))
+    zr_ary_push(out, zr_fix(FrameMeta[meta].end_line))
     out
   end
 

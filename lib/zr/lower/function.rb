@@ -474,6 +474,7 @@ module Zr
         @f.store(@prev, @rec, off(@frame, "prev"))
         d = @def
         line = d ? d.line : 1
+        end_line = (d.end_line if d.respond_to?(:end_line)) || 0
         name = d.is_a?(Hir::ClassDef) || d.is_a?(Hir::ModuleDef) ? d.name : 0
         params = own_params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
@@ -482,7 +483,7 @@ module Zr
         @meta = if @twin_of
                   "zr_meta_#{@twin_of}"
                 else
-                  @l.meta(@name, kind, line, name: name, parent: @outer&.meta, params: params, locals: @locals,
+                  @l.meta(@name, kind, line, end_line: end_line, name: name, parent: @outer&.meta, params: params, locals: @locals,
                                              env: @has_env, ruby: attributes.include?(:ruby),
                                              captures: true, node: node_id, cover: method_cover, twin: @twin,
                                              owns_backref: owns_backref?, reads_backref: reads_backref?, frameless: attributes.include?(:frameless),

@@ -27,6 +27,8 @@ module Zr::Kern
   # program that does not trace: a second function of the same body with
   # the method signature, which a send calls directly (`zr_entry_fn`). It
   # makes the same frame as the block, with no Proc copy. Else it is 0.
+  # `end_line` is the line where the scope's code ends, its `end` or its
+  # `}`, or 0 for a file's or an eval's (rb_iseq_code_location).
   # `reads_backref` is 1 on a program's block that reads `$~`, `$_` or a
   # part of `$~`: a Proc made of it keeps the `$~` of its scope, so it
   # sees that `$~` after its method returned or on another stack.
@@ -55,6 +57,7 @@ module Zr::Kern
     attr_accessor :blocks #: word
     attr_accessor :rescues #: ptr
     attr_accessor :reads_backref #: word
+    attr_accessor :end_line #: word
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it

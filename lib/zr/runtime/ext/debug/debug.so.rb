@@ -41,7 +41,18 @@ class RubyVM
     end
 
     def first_line = first_lineno
-    def last_line = first_lineno
+
+    # The line of the code's `end`, when the code has one (a method, a
+    # block, a class body), else its first line.
+    def last_line = last_of_meta || first_lineno
+
+    private
+
+    def last_of_meta
+      meta = Primitive.zr_hidden_get(self, :__meta__)
+      last = Primitive.zr_iseq_meta_info(meta)[3] if meta&.nonzero?
+      last if last&.positive?
+    end
   end
 end
 
