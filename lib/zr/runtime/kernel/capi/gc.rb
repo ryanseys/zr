@@ -310,4 +310,36 @@ module Zr::Kern
     zr_c_entered()
     zr_capi_call1(zr_core_class(Machine.id(:GC)), Machine.id(:latest_gc_info), key)
   end
+
+  # rb_objspace_each_objects: calls `fn(start, end, stride, data)` over
+  # the heap until it answers other than 0. CRuby gives each page, free
+  # slots and internal objects too; zr gives each object that the
+  # program can see as a range of its own cell, so the C loop over
+  # `start...end` by `stride` meets only live objects. They are copied
+  # into an Array first, as ObjectSpace.each_object does, so what `fn`
+  # allocates is not in the walk.
+  #: (ptr, word) -> void
+  def rb_objspace_each_objects(fn, data)
+    Machine.gates_enter
+    zr_c_entered()
+    objects = zr_objspace_objects(Machine.value(QNIL))
+    argv = Machine.slot(32)
+    Machine.store64(argv, 24, data)
+    i = 0
+    while i < RArray[objects].len
+      v = zr_ary_at(objects, i)
+      bytes = zr_cell_bytes(v)
+      Machine.store64(argv, 0, Machine.word(v))
+      Machine.store64(argv, 8, Machine.word(v) + bytes)
+      Machine.store64(argv, 16, bytes)
+      r = zr_call_c(fn, argv, 4)
+      if r == QUNDEF
+        zr_c_unwind()
+      end
+      if Machine.i32(r) != Machine.i32(0)
+        return
+      end
+      i += 1
+    end
+  end
 end

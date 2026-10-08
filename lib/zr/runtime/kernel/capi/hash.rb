@@ -121,6 +121,11 @@ module Zr::Kern
   def rb_hash_foreach(h, fn, arg)
     Machine.gates_enter
     zr_c_entered()
+    zr_capi_hash_foreach(h, fn, arg)
+  end
+
+  #: (value, ptr, word) -> void
+  def zr_capi_hash_foreach(h, fn, arg)
     argv = Machine.slot(64)
     Machine.store64(argv, 16, arg)
     RHash[h].iter = RHash[h].iter + 1

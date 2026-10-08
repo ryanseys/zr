@@ -22,7 +22,15 @@ class Thread
   # pairs; a Hash keyed by Object would hash the class, which gives it an
   # object id before the program asks for one.
   UNINTERRUPTIBLE = [[Object, :never]].freeze
-  private_constant :UNINTERRUPTIBLE
+  # The changes of a thread's state that C's thread event hooks see
+  # (ruby/thread.h's numbers; kernel/thread_hooks.rb): it started, is
+  # ready to run, runs, stopped running, or ended.
+  EVENT_STARTED = 1
+  EVENT_READY = 2
+  EVENT_RESUMED = 4
+  EVENT_SUSPENDED = 8
+  EVENT_EXITED = 16
+  private_constant :UNINTERRUPTIBLE, :EVENT_STARTED, :EVENT_READY, :EVENT_RESUMED, :EVENT_SUSPENDED, :EVENT_EXITED
 
   # The scheduler's state is Thread's own: a subclass that reads it
   # reads Thread's.
@@ -350,11 +358,26 @@ class Thread
         signal_wakes_main
       end
       @switching = false
-      to.send(:take_over, from) unless to.equal?(from)
+      unless to.equal?(from)
+        handover(from, to)
+        to.send(:take_over, from)
+      end
       # A signal that came while another thread ran waits for the main
       # thread, which runs its command at its next safe point.
       Primitive.zr_trap_rearm if from.equal?(@main)
       from.send(:interrupted)
+    end
+
+    # The events of a switch, in the order thread_sched_yield gives them:
+    # `from` stops running (unless it ended, which told its own), is
+    # ready again if it only yielded its turn, and `to` runs.
+    def handover(from, to)
+      Primitive.attr! :hidden
+      if Primitive.zr_hidden_get(from, :status) != :dead
+        Primitive.zr_thread_event(EVENT_SUSPENDED, from)
+        Primitive.zr_thread_event(EVENT_READY, from) if @queue.include?(from)
+      end
+      Primitive.zr_thread_event(EVENT_RESUMED, to)
     end
 
     # A signal that came while every thread waited cut the wait short, and
@@ -474,7 +497,12 @@ class Thread
     end
 
     def enqueue(thread)
-      atomically { @queue << thread unless @queue.include?(thread) }
+      atomically do
+        unless @queue.include?(thread)
+          @queue << thread
+          Primitive.zr_thread_event(EVENT_READY, thread)
+        end
+      end
     end
 
     def dequeue(thread)
@@ -932,6 +960,7 @@ class Thread
     # belongs to this thread.
     Primitive.zr_fiber_rehome(@fiber)
     Primitive.zr_preempt_arm(Thread, :preempt)
+    Primitive.zr_thread_event(EVENT_STARTED, self)
     Thread.send(:enqueue, self)
     Primitive.zr_hidden_get(Thread, :threads) << self
   end
@@ -1009,8 +1038,12 @@ class Thread
     end
   end
 
+  # thread_sched_to_dead: the thread stops running and ends, as C's hooks
+  # see.
   def finish
     Primitive.attr! :hidden
+    Primitive.zr_thread_event(EVENT_SUSPENDED, self)
+    Primitive.zr_thread_event(EVENT_EXITED, self)
     @status = :dead
     Thread.send(:forget, self)
     Thread.send(:rouse, @waiters.dup)

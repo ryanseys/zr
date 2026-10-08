@@ -69,4 +69,47 @@ module Zr::Kern
     zr_c_entered()
     zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:c_backtrace), 0, Machine.ptr(0)))
   end
+
+  # rb_binding_new: the Binding of the nearest frame written in Ruby, the
+  # one that called the C method, as `binding` there gives it.
+  #: () -> value
+  def rb_binding_new
+    Machine.gates_enter
+    zr_c_entered()
+    rec = zr_capi_ruby_frame()
+    if rec == 0
+      return zr_c_result(zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("Can't create Binding from C level function"), 42))
+    end
+    zr_binding_at(rec)
+  end
+
+  # rb_sourcefile and rb_sourceline: the file and the line where the
+  # nearest frame written in Ruby is; NULL and 0 with none. The file is
+  # an fstring, which lives as long as the program, as CRuby's is the
+  # iseq's path.
+  #: () -> ptr
+  def rb_sourcefile
+    Machine.gates_enter
+    zr_c_entered()
+    rec = zr_capi_ruby_frame()
+    if rec == 0
+      return Machine.ptr(0)
+    end
+    meta = Frame[rec].meta
+    RString[zr_str_fstring(FrameMeta[meta].file, FrameMeta[meta].file_len, ENC_UTF8)].ptr
+  end
+
+  #: () -> i32
+  def rb_sourceline
+    Machine.gates_enter
+    zr_c_entered()
+    rec = zr_capi_ruby_frame()
+    rec == 0 ? Machine.i32(0) : Machine.i32(zr_frame_line(rec))
+  end
+
+  # The nearest frame written in Ruby, past the C method's own, or 0.
+  #: () -> ptr
+  def zr_capi_ruby_frame
+    zr_frame_with_file(Task[zr_task()].top)
+  end
 end

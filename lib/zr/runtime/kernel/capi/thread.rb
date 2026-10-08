@@ -660,4 +660,82 @@ module Zr::Kern
     zr_capi_thread_send(mutex, Machine.id(:unlock))
     r
   end
+
+  # rb_internal_thread_add_event_hook: `callback` gets each of `events`
+  # that a thread has (kernel/thread_hooks.rb). Returns the hook, which
+  # rb_internal_thread_remove_event_hook takes.
+  #: (ptr, word, word) -> ptr
+  def rb_internal_thread_add_event_hook(callback, events, data)
+    Machine.gates_enter
+    zr_c_entered()
+    hook = zr_xmalloc(ThreadHook.size)
+    ThreadHook[hook].callback = callback
+    ThreadHook[hook].events = events & 0xffffffff
+    ThreadHook[hook].data = data
+    ThreadHook[hook].next = Machine.ptr(Machine.load64(zr_thread_hooks(), 0))
+    Machine.store64(zr_thread_hooks(), 0, Machine.word(hook))
+    hook
+  end
+
+  # rb_internal_thread_remove_event_hook: unlinks and frees `hook`;
+  # whether it was there.
+  #: (ptr) -> i32
+  def rb_internal_thread_remove_event_hook(hook)
+    Machine.gates_enter
+    zr_c_entered()
+    link = zr_thread_hooks()
+    while Machine.load64(link, 0) != 0
+      at = Machine.ptr(Machine.load64(link, 0))
+      if at == hook
+        Machine.store64(link, 0, Machine.word(ThreadHook[hook].next))
+        zr_xfree(hook)
+        return Machine.i32(1)
+      end
+      link = at
+    end
+    Machine.i32(0)
+  end
+
+  # The keys that rb_internal_thread_specific_key_create can give.
+  THREAD_SPECIFIC_KEYS = 8
+
+  # rb_internal_thread_specific_key_create: a key for a word of C's in
+  # each thread; at most eight, as in ruby.
+  #: () -> i32
+  def rb_internal_thread_specific_key_create
+    Machine.gates_enter
+    zr_c_entered()
+    count = Machine.static(:thread_specific_keys, 8)
+    key = Machine.load64(count, 0)
+    if key >= THREAD_SPECIFIC_KEYS
+      zr_c_result(zr_raise_msg(zr_core_class(Machine.id(:ThreadError)), Machine.bytes("rb_internal_thread_specific_key_create() is called more than 8 times"), 68))
+    end
+    Machine.store64(count, 0, key + 1)
+    Machine.i32(key)
+  end
+
+  # rb_internal_thread_specific_get and _set: the thread's word for
+  # `key`, NULL until set. The words are in a hidden binary String of the
+  # thread's; a get makes no object, as a hook that may not allocate
+  # reads it.
+  #: (value, i32) -> word
+  def rb_internal_thread_specific_get(thread, key)
+    Machine.gates_enter
+    zr_c_entered()
+    words = zr_hidden_get(thread, zr_sym(Machine.id(:specific)))
+    words == QNIL ? 0 : Machine.load64(RString[words].ptr + (Machine.sword(key) * 8), 0)
+  end
+
+  #: (value, i32, word) -> void
+  def rb_internal_thread_specific_set(thread, key, data)
+    Machine.gates_enter
+    zr_c_entered()
+    words = zr_hidden_get(thread, zr_sym(Machine.id(:specific)))
+    if words == QNIL
+      words = zr_capi_str(Machine.ptr(0), THREAD_SPECIFIC_KEYS * 8, ENC_BINARY)
+      Libc.memset(RString[words].ptr, Machine.i32(0), THREAD_SPECIFIC_KEYS * 8)
+      zr_hidden_set(thread, zr_sym(Machine.id(:specific)), words)
+    end
+    Machine.store64(RString[words].ptr + (Machine.sword(key) * 8), 0, data)
+  end
 end

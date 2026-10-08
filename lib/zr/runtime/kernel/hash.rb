@@ -745,16 +745,19 @@ module Zr::Kern
     if e == HASH_RAISED
       return Machine.value(QUNDEF)
     end
-    if e == 0
-      return Machine.value(QNIL)
-    end
+    e == 0 ? Machine.value(QNIL) : zr_hash_remove(recv, e)
+  end
+
+  # Removes the live entry `e` of `h` and returns its value.
+  #: (value, ptr) -> value
+  def zr_hash_remove(h, e)
     v = HEntry[e].value
     HEntry[e].live = 0
     HEntry[e].key = Machine.value(QNIL)
     HEntry[e].value = Machine.value(QNIL)
-    RHash[recv].live = RHash[recv].live - 1
-    if RHash[recv].live == 0 && RHash[recv].iter == 0
-      zr_hash_release(recv)
+    RHash[h].live = RHash[h].live - 1
+    if RHash[h].live == 0 && RHash[h].iter == 0
+      zr_hash_release(h)
     end
     v
   end
@@ -1457,6 +1460,12 @@ module Zr::Kern
     if zr_modify_frozen_p(h)
       return zr_frozen_error(h)
     end
+    zr_hash_empty(h)
+  end
+
+  # Kills every entry, frozen or not, as st_clear does.
+  #: (value) -> value
+  def zr_hash_empty(h)
     i = 0
     while i < RHash[h].len
       HEntry[RHash[h].entries + (i * HEntry.size)].live = 0

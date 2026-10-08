@@ -34,6 +34,79 @@ module Zr::Kern
     attr_accessor :hash #: ptr
   end
 
+  # rb_hash_tbl: the Hash's st table, as RHASH_TBL gives it. The table is
+  # a view: the st functions see that it has no room of its own and work
+  # on the Hash, so what C stores with st_insert is in the Hash. Its
+  # `entries` word is the Hash, and its type compares keys with `eql?`
+  # and hashes them with `hash`, as CRuby's objhash does. One view stays
+  # for each Hash address, so C can ask for the table again and again.
+  #: (value, ptr, i32) -> ptr
+  def rb_hash_tbl(hash, file, line)
+    Machine.gates_enter
+    zr_c_entered()
+    views = Machine.static(:st_views, 8)
+    if Machine.load64(views, 0) == 0
+      Machine.store64(views, 0, Machine.word(zr_st_new(8)))
+    end
+    table = Machine.ptr(Machine.load64(views, 0))
+    e = zr_st_find(table, Machine.word(hash))
+    view = e == 0 ? zr_st_view_new(table, hash) : Machine.ptr(StEntry[e].value)
+    StTable[view].num_entries = RHash[hash].live
+    view
+  end
+
+  #: (ptr, value) -> ptr
+  def zr_st_view_new(table, hash)
+    view = zr_xmalloc(StTable.size)
+    Libc.memset(view, Machine.i32(0), StTable.size)
+    StTable[view].type = zr_st_objtype()
+    StTable[view].entries = Machine.ptr(Machine.word(hash))
+    zr_st_add(table, Machine.word(hash), Machine.word(view))
+    view
+  end
+
+  # The Hash that `tab` is a view of, or nil for a table of C's own.
+  #: (ptr) -> value
+  def zr_st_viewed(tab)
+    StTable[tab].room == 0 ? Machine.value(Machine.word(StTable[tab].entries)) : Machine.value(QNIL)
+  end
+
+  # The entry of `key` in the Hash, raising what its `hash` or `eql?`
+  # raised.
+  #: (value, word) -> ptr
+  def zr_st_view_find(hash, key)
+    e = zr_hash_entry(hash, Machine.value(key))
+    if e == HASH_RAISED
+      zr_c_unwind()
+    end
+    e
+  end
+
+  # The type of a view: objhash's compare and hash.
+  #: () -> ptr
+  def zr_st_objtype
+    type = Machine.static(:st_objtype, 16)
+    StHashType[type].compare = Machine.addr(:zr_capi_st_objcmp)
+    StHashType[type].hash = Machine.addr(:zr_capi_st_objhash)
+    type
+  end
+
+  #: (word, word) -> i32
+  def zr_capi_st_objcmp(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    same = a == b || zr_capi_call1(Machine.value(a), Machine.id(:eql?), Machine.value(b)) == QTRUE
+    same ? Machine.i32(0) : Machine.i32(1)
+  end
+
+  #: (word) -> word
+  def zr_capi_st_objhash(key)
+    Machine.gates_enter
+    zr_c_entered()
+    code = zr_c_result(zr_send(Machine.value(key), Machine.id(:hash), 0, Machine.ptr(0)))
+    zr_fixnum_p(code) ? zr_fix2long(code) : Machine.word(code)
+  end
+
   # rb_st_init_table and rb_st_init_table_with_size: a table whose keys
   # the C functions of `type` compare and hash.
   #: (ptr) -> ptr
@@ -180,6 +253,10 @@ module Zr::Kern
   def rb_st_copy(old)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(old)
+    if hash != QNIL
+      return zr_st_view_copy(hash)
+    end
     tab = zr_st_typed(StTable[old].type, StTable[old].room)
     i = 0
     while i < StTable[old].used
@@ -192,11 +269,31 @@ module Zr::Kern
     tab
   end
 
+  # A table of C's own with the pairs of `hash`, as st_copy of a Hash's
+  # table gives.
+  #: (value) -> ptr
+  def zr_st_view_copy(hash)
+    tab = zr_st_typed(zr_st_objtype(), RHash[hash].live)
+    i = 0
+    while i < RHash[hash].len
+      e = RHash[hash].entries + (i * HEntry.size)
+      if HEntry[e].live != 0
+        zr_st_add(tab, Machine.word(HEntry[e].key), Machine.word(HEntry[e].value))
+      end
+      i += 1
+    end
+    tab
+  end
+
   # rb_st_memsize: the bytes that the table holds.
   #: (ptr) -> word
   def rb_st_memsize(tab)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(tab)
+    if hash != QNIL
+      return StTable.size + (RHash[hash].cap * HEntry.size) + (RHash[hash].nbins * 8)
+    end
     StTable.size + (StTable[tab].room * StEntry.size) + (StTable[tab].nbins * 8)
   end
 
@@ -221,6 +318,13 @@ module Zr::Kern
   def rb_st_insert(tab, key, value)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(tab)
+    if hash != QNIL
+      had = zr_st_view_find(hash, key) != 0
+      zr_c_result(zr_hash_store(hash, Machine.value(key), Machine.value(value)))
+      StTable[tab].num_entries = RHash[hash].live
+      return had ? Machine.i32(1) : Machine.i32(0)
+    end
     e = zr_st_find(tab, key)
     if e != 0
       StEntry[e].value = value
@@ -235,6 +339,10 @@ module Zr::Kern
   def rb_st_lookup(tab, key, value)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(tab)
+    if hash != QNIL
+      return zr_st_view_lookup(hash, key, value)
+    end
     e = zr_st_find(tab, key)
     if e == 0
       return Machine.i32(0)
@@ -245,11 +353,36 @@ module Zr::Kern
     Machine.i32(1)
   end
 
+  #: (value, word, ptr) -> i32
+  def zr_st_view_lookup(hash, key, value)
+    e = zr_st_view_find(hash, key)
+    if e == 0
+      return Machine.i32(0)
+    end
+    if value != 0
+      Machine.store64(value, 0, Machine.word(HEntry[e].value))
+    end
+    Machine.i32(1)
+  end
+
   # rb_st_delete: removes `*key`; its value goes to `*value`.
   #: (ptr, ptr, ptr) -> i32
   def rb_st_delete(tab, key, value)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(tab)
+    if hash != QNIL
+      e = zr_st_view_find(hash, Machine.load64(key, 0))
+      if value != 0
+        Machine.store64(value, 0, e == 0 ? 0 : Machine.word(HEntry[e].value))
+      end
+      if e == 0
+        return Machine.i32(0)
+      end
+      zr_hash_remove(hash, e)
+      StTable[tab].num_entries = RHash[hash].live
+      return Machine.i32(1)
+    end
     e = zr_st_find(tab, Machine.load64(key, 0))
     if e == 0
       if value != 0
@@ -270,6 +403,12 @@ module Zr::Kern
   def rb_st_foreach(tab, fn, arg)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(tab)
+    if hash != QNIL
+      zr_capi_hash_foreach(hash, fn, arg)
+      StTable[tab].num_entries = RHash[hash].live
+      return Machine.i32(0)
+    end
     argv = Machine.slot(64)
     Machine.store64(argv, 16, arg)
     i = 0
@@ -303,6 +442,10 @@ module Zr::Kern
   def rb_st_update(tab, key, fn, arg)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(tab)
+    if hash != QNIL
+      return zr_st_view_update(tab, hash, key, fn, arg)
+    end
     e = zr_st_find(tab, key)
     existing = e != 0 ? 1 : 0
     argv = Machine.slot(64)
@@ -331,21 +474,62 @@ module Zr::Kern
     Machine.i32(existing)
   end
 
+  # rb_st_update on a Hash's view: the same answers, which store into the
+  # Hash or delete from it.
+  #: (ptr, value, word, ptr, word) -> i32
+  def zr_st_view_update(tab, hash, key, fn, arg)
+    e = zr_st_view_find(hash, key)
+    existing = e != 0 ? 1 : 0
+    argv = Machine.slot(64)
+    pair = Machine.slot(16)
+    Machine.store64(pair, 0, key)
+    Machine.store64(pair, 8, existing != 0 ? Machine.word(HEntry[e].value) : 0)
+    Machine.store64(argv, 0, Machine.word(pair))
+    Machine.store64(argv, 8, Machine.word(pair + 8))
+    Machine.store64(argv, 16, arg)
+    Machine.store64(argv, 24, existing)
+    r = zr_call_c(fn, argv, 4)
+    if r == QUNDEF
+      zr_c_unwind()
+    end
+    answer = Machine.sword(Machine.i32(r))
+    if answer == ST_CONTINUE
+      zr_c_result(zr_hash_store(hash, Machine.value(Machine.load64(pair, 0)), Machine.value(Machine.load64(pair, 8))))
+    elsif answer == ST_DELETE && existing != 0
+      e = zr_st_view_find(hash, key)
+      if e != 0
+        zr_hash_remove(hash, e)
+      end
+    end
+    StTable[tab].num_entries = RHash[hash].live
+    Machine.i32(existing)
+  end
+
   # rb_st_clear: removes every entry.
   #: (ptr) -> void
   def rb_st_clear(tab)
     Machine.gates_enter
     zr_c_entered()
+    hash = zr_st_viewed(tab)
+    if hash != QNIL
+      zr_hash_empty(hash)
+      StTable[tab].num_entries = 0
+      return
+    end
     StTable[tab].used = 0
     StTable[tab].num_entries = 0
     Libc.memset(StTable[tab].bins, Machine.i32(0), StTable[tab].nbins * 8)
   end
 
-  # rb_st_free_table: frees the table and its entries.
+  # rb_st_free_table: frees the table and its entries. A Hash's view
+  # stays, as the Hash owns it.
   #: (ptr) -> void
   def rb_st_free_table(tab)
     Machine.gates_enter
     zr_c_entered()
+    if StTable[tab].room == 0
+      return
+    end
     zr_xfree(StTable[tab].bins)
     zr_xfree(StTable[tab].entries)
     zr_xfree(tab)
