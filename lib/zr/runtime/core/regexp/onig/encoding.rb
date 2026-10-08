@@ -446,3 +446,14 @@ class Regexp
     end
   end
 end
+
+class Regexp
+  # The descriptor through which the kernel reads the characters of
+  # `encoding` (lib/zr/runtime/kernel/onig_enc.rb), as the matcher reads
+  # them. The C API's rb_encoding keeps its address, and Enc.descriptors
+  # keeps it alive.
+  def self.onig_descriptor(encoding)
+    Primitive.attr! :hidden
+    Onig::Enc.reader(encoding).descriptor
+  end
+end

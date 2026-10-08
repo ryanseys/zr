@@ -1,10 +1,12 @@
 module Zr::Kern
   # The C API's encodings. C holds an encoding as CRuby's rb_encoding, an
   # OnigEncodingType, and reads its name, its character lengths and its
-  # index inline (rb_enc_name, rb_enc_mbminlen, rb_enc_mbmaxlen). Each
-  # encoding gets one such struct, made the first time C asks for it and
-  # kept for the program (zr_capi_encoding). Its function pointers are
-  # null: zr's own encoding tables are in another form (onig_enc.rb).
+  # index inline (rb_enc_name, rb_enc_mbminlen, rb_enc_mbmaxlen). Its
+  # inline functions call the struct's function pointers (rb_enc_mbcput,
+  # rb_enc_isspace...), which are the defs of onig.rb. Each encoding gets
+  # one such struct, made the first time C asks for it and kept for the
+  # program (zr_capi_encoding). After CRuby's fields, zr's own: the
+  # descriptor through which onig_enc.rb reads the encoding.
   class RbEncoding < Layout
     attr_accessor :precise_mbc_enc_len #: ptr
     attr_accessor :name #: ptr
@@ -25,7 +27,11 @@ module Zr::Kern
     attr_accessor :case_map #: ptr
     attr_accessor :ruby_encoding_index #: i32
     attr_accessor :flags #: i32
+    attr_accessor :onig #: word
   end
+
+  # OnigEncodingType#flags: ONIGENC_FLAG_UNICODE.
+  ONIGENC_FLAG_UNICODE = 1
 
   # The encodings that the table holds: ruby's 103, with room.
   CAPI_ENCODINGS = 128
@@ -47,6 +53,7 @@ module Zr::Kern
     RbEncoding[enc].min_enc_len = Machine.i32(zr_capi_enc_min_len(index))
     RbEncoding[enc].max_enc_len = Machine.i32(zr_capi_enc_max_len(index))
     RbEncoding[enc].ruby_encoding_index = Machine.i32(index)
+    zr_capi_onig_attach(enc, zr_capi_encoding_object(index))
     Machine.store64(at, 0, Machine.word(enc))
     enc
   end
