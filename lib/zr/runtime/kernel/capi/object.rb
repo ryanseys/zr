@@ -175,7 +175,18 @@ module Zr::Kern
   def rb_class_new_instance(argc, argv, klass)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_send(klass, Machine.id(:new), Machine.sword(argc), argv))
+    zr_capi_new_instance(klass, Machine.sword(argc), argv, Machine.i32(0))
+  end
+
+  # A new object of `klass`: its allocator, then `initialize` with the
+  # arguments and the C method's block, as rb_obj_call_init_kw calls it.
+  # Not `klass.new`, which can be the C method that asks (stringio's
+  # StringIO.new).
+  #: (value, word, ptr, i32) -> value
+  def zr_capi_new_instance(klass, argc, argv, kw_splat)
+    obj = zr_c_result(zr_class_allocate(klass))
+    zr_c_result(zr_capi_send_blk(obj, Machine.id(:initialize), argc, argv, kw_splat, zr_capi_block()))
+    obj
   end
 
   # rb_obj_call_init: calls `obj.initialize(*args)` with the C method's
@@ -354,7 +365,16 @@ module Zr::Kern
   def rb_class_new_instance_kw(argc, argv, klass, kw_splat)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_capi_send_maybe_kw(klass, Machine.id(:new), Machine.sword(argc), argv, kw_splat))
+    zr_capi_new_instance(klass, Machine.sword(argc), argv, kw_splat)
+  end
+
+  # rb_class_new_instance_pass_kw: the same, with keywords when the C
+  # method got them.
+  #: (i32, ptr, value) -> value
+  def rb_class_new_instance_pass_kw(argc, argv, klass)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_new_instance(klass, Machine.sword(argc), argv, Machine.i32(Task[zr_task()].c_keywords))
   end
 
   # rb_require: `require feature`, Qtrue or Qfalse.
