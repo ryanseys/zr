@@ -10,12 +10,14 @@ module Zr::Kern
     zr_c_result(zr_module_define(zr_global(G_OBJECT), zr_capi_name(name), 0))
   end
 
-  # rb_define_module_under: the module `name` in `outer`.
+  # rb_define_module_under: the module `name` in `outer`, new or the one
+  # there, which may be a private constant: C reads it as
+  # rb_const_get_at does, with no check of its visibility.
   #: (value, ptr) -> value
   def rb_define_module_under(outer, name)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_module_define(outer, zr_capi_name(name), 1))
+    zr_c_result(zr_module_define(outer, zr_capi_name(name), 0))
   end
 
   # rb_define_class: the toplevel class `name` with the superclass
@@ -27,12 +29,13 @@ module Zr::Kern
     zr_c_result(zr_class_define(zr_global(G_OBJECT), zr_capi_name(name), super_, 0))
   end
 
-  # rb_define_class_under: the class `name` in `outer`.
+  # rb_define_class_under: the class `name` in `outer`, as
+  # rb_define_module_under finds it.
   #: (value, ptr, value) -> value
   def rb_define_class_under(outer, name, super_)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_class_define(outer, zr_capi_name(name), super_, 1))
+    zr_c_result(zr_class_define(outer, zr_capi_name(name), super_, 0))
   end
 
   # rb_define_method: a public method of `klass` whose body is the C
