@@ -840,8 +840,10 @@ module Zr::Kern
     meta = Machine.ptr(zr_fix2long(meta_word))
     out = zr_ary_new(3)
     zr_ary_push(out, zr_meta_file(meta))
-    zr_ary_push(out, zr_fix(FrameMeta[meta].line))
     kind = FrameMeta[meta].kind
+    # ruby makes the code of a whole file (rb_iseq_new_main, _top) with
+    # first line 0.
+    zr_ary_push(out, zr_fix(kind == KIND_MAIN || kind == KIND_TOP ? 0 : FrameMeta[meta].line))
     name = Machine.id(:top)
     if kind == KIND_DEF
       name = Machine.id(:method)
