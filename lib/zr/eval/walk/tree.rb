@@ -228,6 +228,7 @@ module Zr
           when Hir::Core then ::Object.const_get(node.name)
           when Hir::Once then once(node, ctx)
           when Hir::Stop then raise ::NotImplementedError, "#{@file}:#{node.line}: #{node.what}"
+          when Hir::ExtInit then raise ::NotImplementedError, "#{node.path}: a C extension runs only in a binary"
           when Hir::Require then refuse(node, "require of #{node.feature.inspect}")
           when Hir::Autoload then autoload_node(node, ctx)
           when Hir::BackRef then backref(node, ctx)

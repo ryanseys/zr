@@ -114,12 +114,14 @@ module Zr
     end
 
     # The kernel files: the portable kernel, then its OS layer, then its
-    # architecture layer.
+    # architecture layer, then the C API for a target that runs native C
+    # extensions (not wasm).
     #: () -> Array[String]
     def kernel_files
       Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
-        Dir[File.join(Paths::RUNTIME, "kernel/arch/#{target.arch_layer}/*.rb")].sort
+        Dir[File.join(Paths::RUNTIME, "kernel/arch/#{target.arch_layer}/*.rb")].sort +
+        (target.arch == :wasm32 ? [] : Dir[File.join(Paths::RUNTIME, "kernel/capi/*.rb")].sort)
     end
 
     # The core library files, in the order their toplevels run.

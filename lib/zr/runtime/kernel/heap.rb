@@ -790,6 +790,9 @@ module Zr::Kern
     # The innermost C frame record (`CFrame`) of the task: 0 while no C
     # function that zr called runs.
     attr_accessor :cframe #: ptr
+    # The unwind that rb_protect stopped, which rb_jump_tag resumes: an
+    # Array of the pending fields (capi/control.rb), or nil.
+    attr_accessor :parked #: value
   end
 
   # The runtime's own roots: the core classes and the main object.
@@ -1306,6 +1309,7 @@ module Zr::Kern
     zr_mark(Task[t].refine)
     zr_mark(Task[t].root_env)
     zr_mark(Task[t].flip_flops)
+    zr_mark(Task[t].parked)
     rec = Task[t].top
     while rec != 0
       Machine.store64(zr_marking(), 0, Machine.word(zr_fix(4)))

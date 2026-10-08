@@ -108,8 +108,11 @@ module Zr
         root(program.runtime, objects, program.evals)
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) } #: [Array[IR::Function], Array[Obj::Code]]
         Timing.phase("writing and linking the program object", "program object written and linked") do
+          # The objects of the C extensions go to the system linker, as
+          # `--link` words do.
+          extensions = Config.current.ext_objects.values.flatten
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
-                                                           target: program.runtime.target, jobs: jobs, link: link)
+                                                           target: program.runtime.target, jobs: jobs, link: link + extensions)
         end
       end
 

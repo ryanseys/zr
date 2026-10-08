@@ -58,10 +58,10 @@ module Zr::Kern
     r
   end
 
-  # Called first by a C-API function that C called: the C frames of the
-  # innermost C call end at `low`, a slot of the C-API function's frame.
+  # The C frames of the innermost C call end at `low`, a slot below the
+  # frame of the C-API function that C called (`zr_c_entered`).
   #: (ptr) -> void
-  def zr_c_entered(low)
+  def zr_c_frames_end(low)
     rec = Task[zr_task()].cframe
     if rec != 0
       CFrame[rec].lo = low

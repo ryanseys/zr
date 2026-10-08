@@ -42,6 +42,18 @@ class ConfigTest < Minitest::Test
     Zr::Config.with(ZR_LINK_ARGS: nil) { |config| assert_empty config.link }
   end
 
+  # Each word is a bundle's path, then the objects that hold its code;
+  # both become absolute.
+  def test_ext_objects_map_each_bundle_to_its_objects
+    Zr::Config.with(ZR_EXT_OBJECTS: "/x/a.bundle=/y/a.o,/y/b.o /x/c.bundle=/y/c.o") do |config|
+      assert_equal({ "/x/a.bundle" => ["/y/a.o", "/y/b.o"], "/x/c.bundle" => ["/y/c.o"] }, config.ext_objects)
+    end
+    Zr::Config.with(ZR_EXT_OBJECTS: nil) { |config| assert_empty config.ext_objects }
+    error = assert_raises(Zr::Config::Invalid) { Zr::Config.with(ZR_EXT_OBJECTS: "/x/a.bundle") { |_| } }
+    assert_equal 'ZR_EXT_OBJECTS has "/x/a.bundle". Give each extension as BUNDLE=OBJECT[,OBJECT...], for example ' \
+                 "ZR_EXT_OBJECTS=lib/hello.bundle=hello.o.", error.message
+  end
+
   def test_linker_defaults_to_auto_when_unset
     Zr::Config.with(ZR_LINKER: nil) { |config| assert_equal "auto", config.linker }
   end
@@ -86,6 +98,7 @@ class ConfigTest < Minitest::Test
       "ZR_CACHE_MAX_GB" => [%w[--cache-max-gb=0.5], :cache_max_gb, 0.5],
       "ZR_HOST_RUBY" => [%w[--host-ruby /bin/ruby], :host_ruby, "/bin/ruby"],
       "ZR_LINK_ARGS" => [["--link-args", "a.o -lz"], :link, %w[a.o -lz]],
+      "ZR_EXT_OBJECTS" => [["--ext-objects", "/a.bundle=/a.o"], :ext_objects, { "/a.bundle" => ["/a.o"] }],
       "ZR_RUN_CACHE" => [%w[--no-run-cache], :run_cache?, false],
       "ZR_TRACE" => [%w[--trace], :trace?, true],
       "ZR_CODE_CACHE" => [%w[--code-cache verify], :code_cache, "verify"],

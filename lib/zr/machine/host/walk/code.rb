@@ -96,6 +96,7 @@ module Zr
             when Hir::KwSplatElement then kw_element(node, s)
             when Hir::Once then once(node, s)
             when Hir::Stop then stop(node)
+            when Hir::ExtInit then raise ::NotImplementedError, "#{node.path}: a C extension runs only in a binary"
             when Hir::Trace then trace(node, s)
             when Hir::Cover then cover(node, s)
             when Hir::Using then using(node, s)

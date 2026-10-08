@@ -99,6 +99,10 @@ module Zr
     # runs it. If the program gets to it, the program stops with a message
     # that gives the form. If not, it costs nothing.
     Stop = Node.new(:what, :line)
+    # The toplevel of a C extension's unit: it runs the extension's
+    # `init` function (`Init_hello`), as ruby's require of `path` (a
+    # bundle) runs it.
+    ExtInit = Node.new(:init, :path, :line)
     # `autoload :Name, "feature"` on `recv` (nil for self): the file is
     # `path`, unit `unit`; it runs when the constant is first read.
     # `declared` is an autoload of a feature for which a require reads no

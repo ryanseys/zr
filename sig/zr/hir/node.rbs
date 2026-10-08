@@ -9,7 +9,7 @@ module Zr
 
     # A node that can be a child of another node: every node class with a
     # `line`. Program, Unit and Params are not in it.
-    type node = Require | Activations | Stop | Autoload | Seq | Send | PathLiteral | Using | UsingDefaults | Slot | IndexOpAssign
+    type node = Require | Activations | Stop | ExtInit | Autoload | Seq | Send | PathLiteral | Using | UsingDefaults | Slot | IndexOpAssign
               | AttrOpAssign | Splat | HashSplat | BlockPass | Block | Lambda | Yield | Super | ZSuper | Break | Next
               | Literal | SelfRef | Def | Local | Trace | Cover | Assign | MultiAssign | MultiTarget | If | While | Return
               | And | Or | Not | Core | Once | ClassDef | ModuleDef | SingletonClassDef | ConstRead | ConstWrite | IvarRead
@@ -90,6 +90,12 @@ module Zr
 
     class Stop < Node
       attr_accessor what: String
+      attr_accessor line: Integer
+    end
+
+    class ExtInit < Node
+      attr_accessor init: String
+      attr_accessor path: String
       attr_accessor line: Integer
     end
 

@@ -49,6 +49,7 @@ module Zr
             kernel("zr_activations_reserve", imm(node.count))
             @qnil
           when Hir::Stop then checked(kernel("zr_unloadable", string_literal(node.what, "zr_str_literal_freeze")))
+          when Hir::ExtInit then checked(kernel("zr_ext_init", @f.symbol_value(@f.symbol(node.init, colocated: false))))
           when Hir::Autoload then autoload_unit(node)
           when Hir::Def then define_method(node)
           when Hir::ClassDef, Hir::ModuleDef then class_body(node)

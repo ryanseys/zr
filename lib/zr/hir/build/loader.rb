@@ -675,6 +675,8 @@ module Zr
                         unit(path, text)
                       elsif path == Library::Roots::SWITCHES
                         unit(path, @switches.prelude || raise(ArgumentError, "the build has no switches' prelude"))
+                      elsif extension?(path)
+                        Unit.new(path, [], ExtInit.new(Loader.init_name(path), path, 1), [], false)
                       else
                         parsed_unit(path)
                       end
@@ -767,7 +769,7 @@ module Zr
             # directory has the path of the file the link names.
             @roots.each do |root|
               real = real_root(root)
-              found = candidate(File.join(real, feature)) || native(root, feature)
+              found = candidate(File.join(real, feature)) || native(root, feature) || extension(real, feature)
               return found if found
             end
             # rb_f_load: a name that no root has is a path from the working
@@ -794,6 +796,24 @@ module Zr
         def native(root, feature)
           native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
+
+        # The bundle of a C extension that the build links in
+        # (`Config#ext_objects`), for `feature` under the directory
+        # `dir`: `hello` and `hello.so` find `dir/hello.bundle`, as ruby's
+        # require finds a darwin extension.
+        #: (String dir, String feature) -> String?
+        def extension(dir, feature)
+          path = File.join(dir, "#{feature.sub(NATIVE, "")}.bundle")
+          extension?(path) ? path : nil
+        end
+
+        #: (String path) -> bool
+        def extension?(path) = Config.current.ext_objects.key?(path)
+
+        # The function that ruby runs to load the extension at `path`:
+        # `Init_` and the file's name without its extension.
+        #: (String path) -> String
+        def self.init_name(path) = "Init_#{File.basename(path).sub(/\..*\z/, "")}"
 
         # Library::Layout::EXT, or an OS layer's directory under it.
         #: (String root) -> bool

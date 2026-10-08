@@ -46,7 +46,8 @@ task("build:all") { build!("Zr::Test::Built.targets(wasm: true)") }
 # some test files.
 TIERS = {
   "test:unit" => ["test/unit", "zr's own internals"],
-  "test:programs" => ["test/programs_test.rb", "Ruby programs that zr builds, each checked against ruby 4.0.7"]
+  "test:programs" => ["test/programs_test.rb", "Ruby programs that zr builds, each checked against ruby 4.0.7"],
+  "test:ext" => ["test/ext", "C extensions that zr links, each checked against ruby 4.0.7"]
 }.freeze
 
 TIERS.each do |name, (path, what)|
@@ -54,7 +55,7 @@ TIERS.each do |name, (path, what)|
   task(name) { ruby!(File.join(ROOT, "bin/minitest"), path) }
 end
 
-desc "Every test: unit, programs"
+desc "Every test: unit, programs, ext"
 task test: TIERS.keys
 
 desc "Write every generated file again (zr-dev gen all); CHECK=1 only compares"

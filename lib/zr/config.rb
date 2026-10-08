@@ -68,6 +68,7 @@ module Zr
       row("ZR_CACHE_MAX_GB", "--cache-max-gb", :value, "GB", "the most GB that an installed zr keeps (5; 0: no limit)"),
       row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr starts for gems and syntax errors"),
       row("ZR_LINK_ARGS", "--link-args", :value, "WORDS", "words for the system linker, split as a shell does"),
+      row("ZR_EXT_OBJECTS", "--ext-objects", :value, "PATH=OBJ,...", "C extensions to link: each a bundle's path, then its objects"),
       row("ZR_RUN_CACHE", "--run-cache", :switch, nil, "keep the binary of each run and run it again (on)"),
       row("ZR_TRACE", "--trace", :switch, nil, "arm the trace events in the program's code"),
       row("ZR_CODE_CACHE", "--code-cache", :choice, CODE_CACHES, "keep the runtime's machine code (1), not (0), or check it"),
@@ -96,6 +97,11 @@ module Zr
     attr_reader :cache #: String?
     attr_reader :cache_max_gb, :test_binaries_gb #: Float
     attr_reader :link #: Array[String]
+
+    # The C extensions that a build links in (`ZR_EXT_OBJECTS`): the path
+    # of each one's bundle, where ruby would load it from, to the object
+    # files that hold its code.
+    attr_reader :ext_objects #: Hash[String, Array[String]]
 
     # The settings from `given` (by variable name, as `CLI.settings!`
     # reads the flags), and the rest from `env`.
@@ -131,6 +137,8 @@ module Zr
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.
       @link = words(value("ZR_LINK_ARGS")).freeze
+      # `ZR_EXT_OBJECTS`: shell words, each `bundle=object,object`.
+      @ext_objects = words(value("ZR_EXT_OBJECTS")).to_h { |word| ext_object(word) }.freeze
       @run_cache = switch?("ZR_RUN_CACHE", default: true)
       @trace = switch?("ZR_TRACE")
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
@@ -187,6 +195,19 @@ module Zr
       words
     end
     private :words
+
+    # One word of `ZR_EXT_OBJECTS`: a bundle's path and its objects, with
+    # both made absolute.
+    #: (String word) -> [String, Array[String]]
+    def ext_object(word)
+      bundle, objects = word.split("=", 2)
+      if bundle.to_s.empty? || objects.to_s.empty?
+        name = source("ZR_EXT_OBJECTS")
+        raise Invalid, "#{name} has #{word.inspect}. Give each extension as BUNDLE=OBJECT[,OBJECT...], for example #{name}=lib/hello.bundle=hello.o."
+      end
+      [File.expand_path(bundle.to_s), objects.to_s.split(",").map { |object| File.expand_path(object) }]
+    end
+    private :ext_object
 
     # The ruby that runs zr, or `ruby` on PATH in a binary that zr built,
     # whose `RbConfig.ruby` names zr itself.
