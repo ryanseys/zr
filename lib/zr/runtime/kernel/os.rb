@@ -20,6 +20,7 @@
 #
 # errno and descriptors
 #   zr_os_errno          [] => Word
+#   zr_os_errno_ptr      [] => Ptr
 #   zr_os_set_errno      [Word] => Void
 #   zr_os_fcntl          [I32, I32, Word] => I32
 #   zr_os_ioctl          [I32, Word, Ptr] => I32
