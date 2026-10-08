@@ -316,7 +316,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(", created at "), 13)
       zr_buf_str(b, created)
     end
-    e = zr_exc_new_str(zr_global(G_FROZEN_ERROR), zr_buf_take(b))
+    e = zr_exc_new_str(zr_global(G_FROZEN_ERROR), zr_buf_take_at(b, ENC_BINARY))
     return e if e == QUNDEF
     zr_exc_detail(e, Machine.id(:receiver), v)
     zr_exc_raise(e)

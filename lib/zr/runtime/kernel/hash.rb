@@ -721,7 +721,7 @@ module Zr::Kern
     else
       zr_buf_str(b, s)
     end
-    e = zr_exc_new(zr_global(G_KEY_ERROR), zr_buf_take(b))
+    e = zr_exc_new(zr_global(G_KEY_ERROR), zr_buf_take_at(b, ENC_BINARY))
     zr_exc_detail(e, Machine.id(:key), key)
     zr_exc_detail(e, Machine.id(:receiver), recv)
     zr_exc_raise(e)

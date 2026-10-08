@@ -111,6 +111,11 @@ module Zr
       #: (String file) -> bool
       def runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || given?(file)
 
+      # Whether `file` is Ruby in place of ruby's C: the core library or
+      # an extension's C half (ext/).
+      #: (String file) -> bool
+      def stands_in_for_c?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/core/", "#{Layout::EXT}/")
+
       #: (String file) -> bool
       def description?(file) = file == DESCRIPTION
 

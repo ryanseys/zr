@@ -203,6 +203,11 @@ module Zr
         node_ids = {} #: Hash[Node, Integer]
         @node_ids = node_ids.compare_by_identity
         @encoding = encoding
+        # The message literals of this file's errors, each with the
+        # encoding of its text (`c_message`), and that encoding while one
+        # is being built.
+        @c_messages = Library::Roots.stands_in_for_c?(file) ? {}.compare_by_identity : nil
+        @in_c_message = nil
         @shadowed = shadowed
         @path = [Object.name]
         @singleton = false
@@ -1235,8 +1240,57 @@ module Zr
         return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
         return newarray_send(node) if newarray_send?(node)
 
+        message, encoding = c_message(node)
+        @c_messages[message] = encoding if message
         send = plain_call(node)
         relative_in_file(node, send)
+      end
+
+      # The message literal of an error that a file standing in for ruby's
+      # C makes, and the encoding of its ASCII text: `raise Klass, "text"`
+      # (or `+"text"`), `raise "text"`, or `SomeError.new("text")`. CRuby's
+      # C raises with rb_raise, whose format makes the message binary
+      # while it is ASCII; a NameError's message is US-ASCII, as
+      # rb_name_err_raise makes it.
+      #: (Prism::CallNode node) -> [Prism::node, Encoding]?
+      def c_message(node)
+        return unless @c_messages && node.block.nil?
+
+        args = node.arguments&.arguments || []
+        if node.name == :new && error_class?(node.receiver)
+          klass = node.receiver
+          message = args[0]
+        elsif %i[raise fail].include?(node.name) && (node.receiver.nil? || (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
+          klass = args[0] if args.size > 1
+          message = args.size == 1 ? args[0] : args[1]
+        end
+        return unless message.is_a?(Prism::StringNode) || message.is_a?(Prism::InterpolatedStringNode) || unary_plus_literal?(message)
+
+        name_error = klass.is_a?(Prism::ConstantReadNode) && %i[NameError NoMethodError].include?(klass.name)
+        [message, name_error ? ::Encoding::US_ASCII : ::Encoding::BINARY]
+      end
+
+      # Whether `node` names an error class by a constant (`KeyError`,
+      # `Encoding::CompatibilityError`).
+      #: (Prism::node? node) -> bool
+      def error_class?(node)
+        (node.is_a?(Prism::ConstantReadNode) || node.is_a?(Prism::ConstantPathNode)) && node.name.end_with?("Error")
+      end
+
+      #: (Prism::node? node) -> bool
+      def unary_plus_literal?(node)
+        node.is_a?(Prism::CallNode) && node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.arguments.nil?
+      end
+
+      # Builds the message literal of an error (`c_message`): its ASCII
+      # text has the message's encoding, and the code that it interpolates
+      # is built as any other.
+      #: (Prism::node node) -> node
+      def c_message_expr(node)
+        @in_c_message = @c_messages.fetch(node)
+        expr(node)
+      ensure
+        @in_c_message = nil
       end
 
       # compile.c's opt_newarray_send: `[a, b].min` or `.max` on a literal
@@ -1519,7 +1573,7 @@ module Zr
             kwargs = HashLit.new([HashSplat.new(anonymous(:kwrest, line), line), nil], line)
             block = BlockPass.new(anonymous(:block, line), line)
             Splat.new(anonymous(:rest, line), line)
-          else expr(a)
+          else @c_messages&.key?(a) ? c_message_expr(a) : expr(a)
           end
         end
         [args, kwargs, block]

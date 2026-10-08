@@ -893,7 +893,7 @@ module Zr::Kern
       zr_buf_sym(b, id)
       zr_buf_push(b, Machine.bytes(" in "), 4)
       zr_buf_class(b, base)
-      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take_at(b, ENC_USASCII))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       zr_exc_detail(exc, Machine.id(:receiver), base)
       return zr_exc_raise(exc)

@@ -726,15 +726,19 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Raises with the `len` bytes at `bytes`. The message is binary while
+  # it is ASCII, as rb_raise's format makes it, else UTF-8.
   #: (value, ptr, word) -> value
   def zr_raise_msg(klass, bytes, len)
-    zr_raise_new(klass, zr_str_new(bytes, len))
+    index = zr_bytes_ascii_only_p(bytes, len) ? ENC_BINARY : ENC_UTF8
+    zr_raise_new(klass, zr_str_new_at(bytes, len, index))
   end
 
-  # Raises with the message in `b`, and takes ownership of `b`.
+  # Raises with the message in `b`, and takes ownership of `b`. The
+  # message's encoding is as zr_raise_msg's.
   #: (value, ptr) -> value
   def zr_raise_buf(klass, b)
-    zr_raise_new(klass, zr_buf_take(b))
+    zr_raise_new(klass, zr_buf_take_at(b, ENC_BINARY))
   end
 
   # rb_raise: a new error of `klass` with `message`, raised as

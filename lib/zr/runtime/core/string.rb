@@ -3666,15 +3666,22 @@ class Encoding
     private :setup, :named
   end
 
-  # The two failures, built with all their attributes.
+  # The two failures, built with all their attributes. The message is
+  # binary while it is ASCII, as make_econv_exception's rb_sprintf makes
+  # it.
   def self.byte_error(message, source, destination, bytes, again, incomplete)
     Primitive.attr! :hidden
-    InvalidByteSequenceError.new(message).send(:setup, source, destination, bytes.b, again&.b, incomplete)
+    InvalidByteSequenceError.new(c_message(message)).send(:setup, source, destination, bytes.b, again&.b, incomplete)
   end
 
   def self.char_error(message, source, destination, char)
     Primitive.attr! :hidden
-    UndefinedConversionError.new(message).send(:setup, source, destination, char)
+    UndefinedConversionError.new(c_message(message)).send(:setup, source, destination, char)
+  end
+
+  def self.c_message(message)
+    Primitive.attr! :hidden
+    message.ascii_only? ? message.b : message
   end
 
   attr_reader :names

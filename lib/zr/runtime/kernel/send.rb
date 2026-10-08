@@ -21,7 +21,7 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes("' for "), 6)
     r = zr_buf_receiver(b, recv)
     return r if r == QUNDEF
-    e = zr_exc_new(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), zr_buf_take(b))
+    e = zr_exc_new(zr_global(vcall ? G_NAME_ERROR : G_NO_METHOD_ERROR), zr_buf_take_at(b, ENC_USASCII))
     zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
     zr_exc_detail(e, Machine.id(:receiver), recv)
     if !vcall
@@ -450,7 +450,7 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes("' called for "), 13)
     r = zr_buf_receiver(b, recv)
     return r if r == QUNDEF
-    e = zr_exc_new(zr_global(G_NO_METHOD_ERROR), zr_buf_take(b))
+    e = zr_exc_new(zr_global(G_NO_METHOD_ERROR), zr_buf_take_at(b, ENC_USASCII))
     zr_exc_detail(e, Machine.id(:name), zr_sym(mid))
     zr_exc_detail(e, Machine.id(:receiver), recv)
     zr_exc_detail(e, Machine.id(:args), zr_ary_of(argc, argv))

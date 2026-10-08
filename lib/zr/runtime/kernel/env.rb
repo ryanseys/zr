@@ -1200,7 +1200,7 @@ module Zr::Kern
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("cannot load such file -- "), 25)
     zr_buf_push(b, path, len)
-    r = zr_exc_new_str(zr_core_class(Machine.id(:LoadError)), zr_buf_take(b))
+    r = zr_exc_new_str(zr_core_class(Machine.id(:LoadError)), zr_buf_take_at(b, ENC_BINARY))
     if r != QUNDEF
       zr_ivar_set(r, Machine.id(:@path), zr_str_new(path, len))
       r = zr_exc_raise(r)

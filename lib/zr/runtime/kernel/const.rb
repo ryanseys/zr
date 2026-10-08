@@ -646,7 +646,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("::"), 2)
     end
     zr_buf_sym(b, id)
-    msg = zr_buf_take(b)
+    msg = zr_buf_take_at(b, ENC_USASCII)
     # rb_sprintf: a name in an encoding other than UTF-8 gives the message
     # its encoding.
     enc = zr_symbol_encoding_index(id)
@@ -797,7 +797,7 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes("::"), 2)
     zr_buf_sym(b, id)
     zr_buf_push(b, Machine.bytes(" referenced"), 11)
-    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+    exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take_at(b, ENC_USASCII))
     zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
     zr_exc_detail(exc, Machine.id(:receiver), scope)
     zr_exc_raise(exc)
@@ -857,7 +857,7 @@ module Zr::Kern
         zr_buf_push(b, Machine.bytes("::"), 2)
         zr_buf_sym(b, id)
         zr_buf_push(b, Machine.bytes(" not defined"), 12)
-        exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+        exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take_at(b, ENC_USASCII))
         zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
         zr_exc_detail(exc, Machine.id(:receiver), recv)
         return zr_exc_raise(exc)
@@ -1181,7 +1181,7 @@ module Zr::Kern
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("wrong constant name "), 20)
       zr_buf_sym(b, id)
-      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take_at(b, ENC_USASCII))
       zr_exc_detail(exc, Machine.id(:name), name)
       zr_exc_detail(exc, Machine.id(:receiver), recv)
       return zr_exc_raise(exc)
@@ -1367,7 +1367,7 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("::"), 2)
       zr_buf_sym(b, id)
       zr_buf_push(b, Machine.bytes(" not defined"), 12)
-      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take_at(b, ENC_USASCII))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       zr_exc_detail(exc, Machine.id(:receiver), recv)
       return zr_exc_raise(exc)
@@ -1636,7 +1636,7 @@ module Zr::Kern
       zr_buf_init(b)
       zr_buf_push(b, Machine.bytes("autoload must be constant name: "), 32)
       zr_buf_sym(b, id)
-      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take(b))
+      exc = zr_exc_new(zr_global(G_NAME_ERROR), zr_buf_take_at(b, ENC_USASCII))
       zr_exc_detail(exc, Machine.id(:name), zr_sym(id))
       return zr_exc_raise(exc)
     end

@@ -66,10 +66,15 @@ module Zr
         if node.forced_utf8_encoding? then text.dup.force_encoding(Encoding::UTF_8)
         elsif node.forced_binary_encoding? then text.dup.force_encoding(Encoding::BINARY)
         # Prism reads ASCII text as UTF-8, whatever an eval's String says.
-        elsif text.encoding != @encoding && text.ascii_only? then text.dup.force_encoding(@encoding)
+        elsif text.encoding != text_encoding && text.ascii_only? then text.dup.force_encoding(text_encoding)
         else text
         end
       end
+
+      # The encoding of a literal's ASCII text: the source's, or the
+      # message's in an error that stands in for rb_raise's (`c_message`).
+      #: () -> Encoding
+      def text_encoding = @in_c_message || @encoding
 
       # An element of an array literal. `[1, a: 2]` contains a Hash.
       # Keywords that are only `**` splats add it only if it is not empty.
@@ -559,7 +564,7 @@ module Zr
         parts = node.parts.map do |part|
           case part
           when Prism::StringNode then Literal.new(unescaped(part), part.location.start_line)
-          when Prism::EmbeddedStatementsNode then part.statements ? seq(part.statements) : Literal.new(nil, line)
+          when Prism::EmbeddedStatementsNode then part.statements ? embedded(part.statements) : Literal.new(nil, line)
           when Prism::EmbeddedVariableNode then expr(part.variable)
           when Prism::InterpolatedStringNode then interpolation(part, line)
           else unsupported(part, "#{Refused.form_of(part)} in a string")
@@ -568,13 +573,24 @@ module Zr
         # A single embedded part is joined to an empty literal in the
         # source's encoding, which gives the result's start encoding, as
         # ruby's compiler does.
-        parts.unshift(Literal.new(String.new(encoding: @encoding), line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
+        parts.unshift(Literal.new(String.new(encoding: text_encoding), line)) if node.parts.size == 1 && !node.parts[0].is_a?(Prism::StringNode)
         # If refinements are active, each part gets `to_s` at its own site,
         # which does the lookup with them. Ruby folds a String or Symbol
         # part into the text first, and a String or Symbol value skips the
         # refined `to_s` at run time.
         parts = parts.map { |part| folded?(part) ? part : Send.of(part, :to_s, [], line, interp: true) } if @using
         Interp.new(parts, line)
+      end
+
+      # The code of a `#{}`, whose own literals keep the source's encoding
+      # in a raise's message too.
+      #: (Prism::StatementsNode statements) -> node
+      def embedded(statements)
+        message = @in_c_message
+        @in_c_message = nil
+        seq(statements)
+      ensure
+        @in_c_message = message
       end
 
       #: (node part) -> bool
