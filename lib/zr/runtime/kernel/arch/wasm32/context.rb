@@ -18,4 +18,16 @@ module Zr::Kern
   def zr_switch(from, to)
     zr_bug(Machine.bytes("a wasm32 module has one machine stack, and cannot switch it\n"), 60)
   end
+
+  # A wasm32 module calls no native C.
+  #: (ptr, ptr, ptr, word) -> word
+  def zr_cframe_call(record, fn, argv, argc)
+    zr_bug(Machine.bytes("a wasm32 module cannot call native C\n"), 37)
+    0
+  end
+
+  #: (ptr) -> void
+  def zr_cframe_leap(record)
+    zr_bug(Machine.bytes("a wasm32 module cannot call native C\n"), 37)
+  end
 end

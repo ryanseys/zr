@@ -21,6 +21,15 @@ module Zr
         CONTEXT = { x19: 0, x21: 16, x23: 32, x25: 48, x27: 64, x29: 80, x30: 88, sp: 96, d8: 104 }.freeze #: Hash[Symbol, Integer]
         CONTEXT_BYTES = 176
 
+        # A C frame record (`CFrame`, lib/zr/runtime/kernel/c_frame.rb):
+        # the stub saves its context after the record's five fields.
+        # `test/unit/host_boot_test.rb` checks that the kernel's layout
+        # agrees.
+        CFRAME_CONTEXT = 40
+        # The Value that `zr_cframe_call` returns after a leap: undef, a
+        # pending unwind.
+        QUNDEF = 0x24
+
         module_function
 
         # `zr_switch(from: Ptr, to: Ptr)`: saves this stack in `from`, and
@@ -46,11 +55,115 @@ module Zr
           Obj::Code.new("zr_switch", a.to_binary, align: 4)
         end
 
+        # `zr_cframe_call(record: Ptr, fn: Ptr, argv: Ptr, argc: Word) -> Word`:
+        # calls the C function `fn` with the `argc` words at `argv` as its
+        # arguments, the first eight in x0..x7 and the rest on the stack,
+        # and returns its x0. `argv` holds at least eight words.
+        #
+        # It first saves this stack's context in `record` (after its
+        # fields, at CFRAME_CONTEXT), with x30 set to
+        # a landing in this stub, so a C-API function can leap back here
+        # (`zr_cframe_leap`) when an unwind must skip the C frames, as
+        # CRuby's rb_raise longjmps. The landing returns undef. The stub
+        # keeps the record and the caller's x30 in 16 bytes of stack, and
+        # x19 holds the record during the call. It leaves x28 as C or the
+        # leap left it; the kernel loads the gate word again after it
+        # (`zr_call_c`).
+        #: (?assembler: singleton(Assembler)) -> Obj::Code
+        def cframe_call(assembler: Assembler)
+          a = assembler.new
+          landing = a.make_label("landing")
+          copy = a.make_label("copy")
+          call = a.make_label("call")
+          a.sub SP, SP, 16
+          a.stp X0, X30, [SP, 0]
+          a.add X15, X0, CFRAME_CONTEXT
+          save_context(a, X15, landing)
+          a.mov X19, X0
+          a.mov X16, X1
+          a.mov X17, X2
+          # The words after the eighth, at the bottom of a 16-byte aligned
+          # area below sp.
+          a.subs X9, X3, 8
+          a.b call, cond: :le
+          a.add X10, X9, 1
+          a.and X10, X10, 0xFFFF_FFFF_FFFF_FFFE
+          a.lsl X10, X10, 3
+          a.mov X11, SP
+          a.sub X11, X11, X10
+          a.mov SP, X11
+          a.add X12, X17, 64
+          a.put_label copy
+          a.ldr X13, [X12, 0]
+          a.str X13, [X11, 0]
+          a.add X12, X12, 8
+          a.add X11, X11, 8
+          a.subs X9, X9, 1
+          a.b copy, cond: :ne
+          a.put_label call
+          [[X0, X1], [X2, X3], [X4, X5], [X6, X7]].each_with_index { |(p, q), i| a.ldp p, q, [X17, 16 * i] }
+          a.blr X16
+          a.ldr X9, [X19, CFRAME_CONTEXT + CONTEXT[:sp]]
+          a.mov SP, X9
+          a.ldr X30, [SP, 8]
+          a.add SP, SP, 16
+          a.ldr X19, [X19, CFRAME_CONTEXT + CONTEXT[:x19]]
+          a.ret
+          a.put_label landing
+          a.ldr X30, [SP, 8]
+          a.add SP, SP, 16
+          a.movz X0, QUNDEF
+          a.ret
+          Obj::Code.new("zr_cframe_call", a.to_binary, align: 4)
+        end
+
+        # `zr_cframe_leap(record: Ptr)`: resumes the context that
+        # `zr_cframe_call` saved in `record`, so that call returns undef.
+        # The frames between, C and kernel, are dropped as a longjmp drops
+        # them; the kernel restores its own state first (`zr_cframe_leap`'s
+        # caller in lib/zr/runtime/kernel/c_frame.rb).
+        #: (?assembler: singleton(Assembler)) -> Obj::Code
+        def cframe_leap(assembler: Assembler)
+          a = assembler.new
+          a.add X0, X0, CFRAME_CONTEXT
+          load_context(a, X0)
+          a.ret
+          Obj::Code.new("zr_cframe_leap", a.to_binary, align: 4)
+        end
+
+        # Saves the callee-saved registers, x29, sp and d8..d15 in the
+        # context at `base`, with `resume` as the x30 that a load returns to.
+        #: (Assembler a, Registers::Register base, Label resume) -> void
+        def save_context(a, base, resume)
+          [[X19, X20], [X21, X22], [X23, X24], [X25, X26]].each_with_index { |(p, q), i| a.stp p, q, [base, 16 * i] }
+          a.str X27, [base, CONTEXT[:x27]]
+          a.str X29, [base, CONTEXT[:x29]]
+          a.adr X9, resume
+          a.str X9, [base, CONTEXT[:x30]]
+          a.mov X9, SP
+          a.str X9, [base, CONTEXT[:sp]]
+          [[D8, D9], [D10, D11], [D12, D13], [D14, D15]].each_with_index { |(p, q), i| a.stp p, q, [base, CONTEXT[:d8] + (16 * i)] }
+        end
+
+        # Loads what `save_context` saved from the context at `base`.
+        #: (Assembler a, Registers::Register base) -> void
+        def load_context(a, base)
+          [[X19, X20], [X21, X22], [X23, X24], [X25, X26], [X29, X30]].each_with_index do |(p, q), i|
+            a.ldp p, q, [base, i < 4 ? 16 * i : CONTEXT[:x29]]
+          end
+          a.ldr X27, [base, CONTEXT[:x27]]
+          a.ldr X9, [base, CONTEXT[:sp]]
+          a.mov SP, X9
+          [[D8, D9], [D10, D11], [D12, D13], [D14, D15]].each_with_index { |(p, q), i| a.ldp p, q, [base, CONTEXT[:d8] + (16 * i)] }
+        end
+
         # The machine code of the raw function `name` (`Machine::RAW`).
         #: (String name) -> Obj::Code
         def function(name)
           case name
           when "zr_switch" then switch
+          when "zr_cframe_call" then cframe_call
+          when "zr_cframe_leap" then cframe_leap
           else raise ArgumentError, "no raw function named #{name}"
           end
         end

@@ -22,4 +22,15 @@ module Zr::Kern
   def zr_arch_context_sp(ctx)
     Machine.load64(ctx, 96)
   end
+
+  # Calls the C function `fn` with the `argc` words at `argv` (at least
+  # eight words), after it saves a context in the C frame record `record`
+  # (`CFrame`). It returns C's result, or undef when a C-API function
+  # leaps back with zr_cframe_leap. The stub is `Backend::Aarch64::Stub`'s.
+  #: (ptr, ptr, ptr, word) -> word
+  def zr_cframe_call(record, fn, argv, argc) = Machine.raw
+
+  # Resumes the context in `record`: its zr_cframe_call returns undef.
+  #: (ptr) -> void
+  def zr_cframe_leap(record) = Machine.raw
 end

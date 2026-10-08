@@ -787,6 +787,9 @@ module Zr::Kern
     # (`zr_flip_flop_get`).
     attr_accessor :root_env #: value
     attr_accessor :flip_flops #: value
+    # The innermost C frame record (`CFrame`) of the task: 0 while no C
+    # function that zr called runs.
+    attr_accessor :cframe #: ptr
   end
 
   # The runtime's own roots: the core classes and the main object.

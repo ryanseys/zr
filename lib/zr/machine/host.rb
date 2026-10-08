@@ -1164,8 +1164,9 @@ module Zr
 
           set.merge(grown)
         end
-        set.delete(:indirect)
-        set #: Set[String]
+        # A collector that is not a def here (a raw function, which the
+        # arch layer gives) makes its callers collect, but has no frame.
+        set.select { |name| defs.key?(name) }.to_set #: Set[String]
       end
 
       #: (Prism::node? node, Hash[String, Prism::DefNode] defs, Set[Symbol] signatures) -> Array[String | Symbol]
@@ -1174,7 +1175,7 @@ module Zr
         queue = [node].compact #: Array[Prism::node]
         while (n = queue.shift)
           if n.is_a?(Prism::CallNode)
-            found << n.name.to_s if n.receiver.nil? && defs.key?(n.name.to_s)
+            found << n.name.to_s if n.receiver.nil? && (defs.key?(n.name.to_s) || @collectors.include?(n.name.to_s))
             receiver = n.receiver
             found << :indirect if n.name == :call && receiver.is_a?(Prism::ConstantReadNode) && signatures.include?(receiver.name)
           end

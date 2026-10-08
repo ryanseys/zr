@@ -88,7 +88,9 @@ module Zr
     # The raw functions by name. The kernel subset knows only their signatures;
     # the native build gets their machine code from the backend
     # (`Backend::Aarch64::Stub`).
-    RAW = [Raw.new("zr_switch", %w[Ptr Ptr], "Void")].to_h { |r| [r.name, r] }.freeze #: Hash[String, Raw]
+    RAW = [Raw.new("zr_switch", %w[Ptr Ptr], "Void"),
+           Raw.new("zr_cframe_call", %w[Ptr Ptr Ptr Word], "Word"),
+           Raw.new("zr_cframe_leap", %w[Ptr], "Void")].to_h { |r| [r.name, r] }.freeze #: Hash[String, Raw]
     # A signature for `Machine.call`: `Machine.sig :name, [types] => type`.
     # @rbs skip
     Signature = Data.define(:name, :params, :ret)

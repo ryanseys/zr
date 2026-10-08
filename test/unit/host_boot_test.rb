@@ -21,6 +21,24 @@ class HostBootTest < Minitest::Test
 
   def text(s) = Zr::Machine::Host::Memory.read(@k::RString[s].ptr, @k::RString[s].len)
 
+  # zr_cframe_call saves its context after a C frame record's fields.
+  def test_a_c_frame_record_has_the_size_that_the_stub_steps_over
+    require_relative "../../lib/zr/backend/aarch64/stub"
+    assert_equal Zr::Backend::Aarch64::Stub::CFRAME_CONTEXT, @k::CFrame.size
+    assert_equal @k::CFrame.size + @k::CONTEXT_BYTES, @k::CFRAME_BYTES
+  end
+
+  # A C call in a C frame record gives C's result, and leaves no record
+  # linked in the task.
+  def test_a_c_call_returns_what_c_returns
+    labs = Fiddle::Handle::DEFAULT["labs"]
+    argv = Zr::Machine::Host::Memory.zeroed(64)
+    Zr::Machine::Host::Memory.write(argv, [-42].pack("q<"))
+
+    assert_equal 42, @k.zr_call_c(labs, argv, 1)
+    assert_equal 0, @k::Task[@k.zr_task].cframe
+  end
+
   def test_the_boot_makes_the_core_classes
     object = @k.zr_global(@k::G_OBJECT)
 

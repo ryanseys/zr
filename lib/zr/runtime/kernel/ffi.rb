@@ -16,11 +16,6 @@ module Zr::Kern
     def self.call(fn, p1, i1, i2, i3, p2, p3) = Machine.indirect
   end
 
-  module FfiCall
-    #: (ptr, ptr, ptr, ptr, ptr) -> void
-    def self.call(fn, p1, p2, p3, p4) = Machine.indirect
-  end
-
   module FfiClosureAlloc
     #: (ptr, word, ptr) -> ptr
     def self.call(fn, n, p) = Machine.indirect
@@ -34,11 +29,6 @@ module Zr::Kern
   module FfiClosureFree
     #: (ptr, ptr) -> void
     def self.call(fn, p) = Machine.indirect
-  end
-
-  module CWords
-    #: (ptr, word, word, word, word, word, word, word, word) -> word
-    def self.call(fn, n1, n2, n3, n4, n5, n6, n7, n8) = Machine.indirect
   end
 
   module CWordsF64
@@ -244,7 +234,12 @@ module Zr::Kern
     outer = zr_global(G_FFI_UNWIND)
     zr_set_global(G_FFI_UNWIND, Machine.value(QNIL))
     call = zr_ffi_fn(Machine.static(:ffi_call_fn, 8), Machine.bytes("ffi_call\0"))
-    FfiCall.call(call, zr_ffi_ptr(cif), zr_ffi_ptr(fn), zr_ffi_ptr(rvalue), zr_ffi_ptr(avalues))
+    words = Machine.slot(64)
+    Machine.store64(words, 0, Machine.word(zr_ffi_ptr(cif)))
+    Machine.store64(words, 8, Machine.word(zr_ffi_ptr(fn)))
+    Machine.store64(words, 16, Machine.word(zr_ffi_ptr(rvalue)))
+    Machine.store64(words, 24, Machine.word(zr_ffi_ptr(avalues)))
+    zr_call_c(call, words, 4)
     errno = zr_errno()
     if zr_ffi_resume(outer)
       return Machine.value(QUNDEF)
@@ -412,7 +407,7 @@ module Zr::Kern
     zr_c_words(args, words)
     outer = zr_global(G_FFI_UNWIND)
     zr_set_global(G_FFI_UNWIND, Machine.value(QNIL))
-    r = CWords.call(zr_ffi_ptr(fn), Machine.load64(words, 0), Machine.load64(words, 8), Machine.load64(words, 16), Machine.load64(words, 24), Machine.load64(words, 32), Machine.load64(words, 40), Machine.load64(words, 48), Machine.load64(words, 56))
+    r = zr_call_c(zr_ffi_ptr(fn), words, 8)
     if Machine.word(errno) != 0
       Machine.store64(errno, 0, Machine.word(zr_errno()))
     end

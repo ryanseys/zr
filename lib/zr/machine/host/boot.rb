@@ -54,6 +54,10 @@ module Zr
           def zr_arch_context_sp(ctx) = Memory.read(ctx + 24, 8).unpack1("q<")
           #: (Integer from, Integer to) -> nil
           def zr_switch(from, to) = self::BOOT.switch(from, to)
+          #: (Integer record, Integer fn, Integer argv, Integer argc) -> Integer
+          def zr_cframe_call(record, fn, argv, argc) = self::BOOT.cframe_call(record, fn, argv, argc)
+          #: (Integer record) -> bot
+          def zr_cframe_leap(record) = throw(record)
         end
 
         # The OS layer's stack bounds are the main fiber's slot area: a
@@ -133,6 +137,21 @@ module Zr
         # gets as it loads.
         #: () -> untyped
         def kern = @host.kern
+
+        # `zr_cframe_call` on the host: the call of C is a Fiddle call
+        # (`Host#call_at`), and a leap (`zr_cframe_leap`) throws the
+        # record's address back to here, as a longjmp to the saved context
+        # would return. The walker's own frames unwind as Ruby frames, and
+        # the slot top goes back to where it was.
+        #: (Integer record, Integer fn, Integer argv, Integer argc) -> Integer
+        def cframe_call(record, fn, argv, argc)
+          args = Memory.read(argv, argc * 8).unpack("q<*")
+          word = TYPES["Word"]
+          top = @host.slot_top
+          catch(record) { return @host.call_at(fn, [word] * argc, word, args) }
+          @host.slot_top = top
+          kern::QUNDEF
+        end
 
         # Switches from the context `from` to `to`, starting `to`'s Fiber at
         # its entry the first time.

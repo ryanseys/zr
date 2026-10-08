@@ -438,10 +438,14 @@ module Zr
             end
           end
           # The function must restore each callee-saved register that it
-          # uses, so the frame has a place for each one.
+          # uses, so the frame has a place for each one. A function that
+          # foreign code enters saves all of them, x28 too: then the
+          # values that C keeps in them are in this frame, where the
+          # collector's scan of the C frames reads them
+          # (`zr_mark_cframes`).
           @saved_at = {}
           saved = @reg.values.uniq.select { |r| Regalloc.callee?(r) }
-          saved << Regalloc::GATES if @enters
+          saved = (saved + Regalloc::CALLEE + [Regalloc::GATES]).uniq if @enters
           saved.sort_by(&:to_i).each do |r|
             @saved_at[r] = off
             off += 8
