@@ -67,19 +67,20 @@ module Zr::Kern
     CFrame[rec].hi != 0
   end
 
-  # Calls `fn(data)` for the collector: a T_DATA's mark, free or size
-  # function (data_object.rb). The collector stops an allocation in it
+  # Calls `fn(a, b)` for the collector: a T_DATA's mark, free or size
+  # function (data_object.rb), which takes `a` alone, or a hook of an
+  # internal event (trace.rb). The collector stops an allocation in it
   # (zr_alloc_slow), so this call, unlike zr_call_c, cannot collect, and
   # the collector's own frames keep no roots for it. No Ruby code runs in
   # it, so no gate changes.
-  #: (ptr, ptr) -> word
-  def zr_call_c_in_gc(fn, data)
+  #: (ptr, ptr, ptr) -> word
+  def zr_call_c_in_gc(fn, a, b)
     # The record bounds the C frames for a C-API function that this C
     # calls (zr_c_entered); a leap from here stops (zr_c_unwind), so the
     # call saves no context in it.
     rec = Machine.slot(CFRAME_BYTES)
     zr_cframe_push(rec)
-    r = zr_gc_call(fn, data)
+    r = zr_gc_call(fn, a, b)
     zr_cframe_pop(rec)
     r
   end

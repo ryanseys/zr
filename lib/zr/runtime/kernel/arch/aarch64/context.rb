@@ -34,7 +34,7 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_cframe_leap(record) = Machine.raw
 
-  # Calls the C function `fn` with `data`, for the collector.
-  #: (ptr, ptr) -> word
-  def zr_gc_call(fn, data) = Machine.raw
+  # Calls the C function `fn(a, b)`, for the collector.
+  #: (ptr, ptr, ptr) -> word
+  def zr_gc_call(fn, a, b) = Machine.raw
 end

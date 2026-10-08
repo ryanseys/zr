@@ -137,16 +137,17 @@ module Zr
           Obj::Code.new("zr_cframe_leap", a.to_binary, align: 4)
         end
 
-        # `zr_gc_call(fn: Ptr, data: Ptr) -> Word`: calls the C function
-        # `fn` with `data` for the collector, a T_DATA's mark or free
-        # function. It is a tail call, so C returns to the caller. No
-        # unwind leaves such C (the kernel stops one), so it saves no
-        # context.
+        # `zr_gc_call(fn: Ptr, a: Ptr, b: Ptr) -> Word`: calls the C
+        # function `fn(a, b)` for the collector: a T_DATA's mark or free
+        # function, which takes `a` alone, or a FREEOBJ hook. It is a tail
+        # call, so C returns to the caller. No unwind leaves such C (the
+        # kernel stops one), so it saves no context.
         #: (?assembler: singleton(Assembler)) -> Obj::Code
         def gc_call(assembler: Assembler)
           a = assembler.new
           a.mov X16, X0
           a.mov X0, X1
+          a.mov X1, X2
           a.br X16
           Obj::Code.new("zr_gc_call", a.to_binary, align: 4)
         end

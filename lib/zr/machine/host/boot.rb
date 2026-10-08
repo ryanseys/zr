@@ -59,7 +59,7 @@ module Zr
           #: (Integer record) -> bot
           def zr_cframe_leap(record) = throw(record)
           #: (Integer fn, Integer data) -> Integer
-          def zr_gc_call(fn, data) = self::BOOT.gc_call(fn, data)
+          def zr_gc_call(fn, a, b) = self::BOOT.gc_call(fn, a, b)
         end
 
         # The OS layer's stack bounds are the main fiber's slot area: a
@@ -155,11 +155,11 @@ module Zr
           kern::QUNDEF
         end
 
-        # `zr_gc_call` on the host: a Fiddle call of `fn(data)`.
-        #: (Integer fn, Integer data) -> Integer
-        def gc_call(fn, data)
+        # `zr_gc_call` on the host: a Fiddle call of `fn(a, b)`.
+        #: (Integer fn, Integer a, Integer b) -> Integer
+        def gc_call(fn, a, b)
           word = TYPES["Word"]
-          @host.call_at(fn, [word], word, [data])
+          @host.call_at(fn, [word, word], word, [a, b])
         end
 
         # Switches from the context `from` to `to`, starting `to`'s Fiber at

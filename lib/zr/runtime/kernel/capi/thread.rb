@@ -317,7 +317,7 @@ module Zr::Kern
       OffloadJob[job].state = JOB_RUNNING
       Libc.pthread_mutex_unlock(OffloadPool[pool].mutex)
       Libc.pthread_setspecific(OffloadPool[pool].key, job)
-      result = Machine.ptr(zr_gc_call(OffloadJob[job].fn, OffloadJob[job].data))
+      result = Machine.ptr(zr_gc_call(OffloadJob[job].fn, OffloadJob[job].data, Machine.ptr(0)))
       Libc.pthread_setspecific(OffloadPool[pool].key, Machine.ptr(0))
       Libc.pthread_mutex_lock(OffloadPool[pool].mutex)
       OffloadJob[job].result = result

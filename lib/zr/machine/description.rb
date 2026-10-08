@@ -91,7 +91,7 @@ module Zr
     RAW = [Raw.new("zr_switch", %w[Ptr Ptr], "Void"),
            Raw.new("zr_cframe_call", %w[Ptr Ptr Ptr Word], "Word"),
            Raw.new("zr_cframe_leap", %w[Ptr], "Void"),
-           Raw.new("zr_gc_call", %w[Ptr Ptr], "Word"),
+           Raw.new("zr_gc_call", %w[Ptr Ptr Ptr], "Word"),
            # C's functions that return a struct in two registers
            # (Stub::PAIR_RESULTS); only C calls them.
            Raw.new("rb_time_timespec", %w[Value], "Word"),

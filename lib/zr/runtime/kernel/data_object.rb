@@ -99,7 +99,7 @@ module Zr::Kern
       mark = RData[v].dmark
     end
     if mark != 0
-      zr_call_c_in_gc(mark, data)
+      zr_call_c_in_gc(mark, data, Machine.ptr(0))
     end
   end
 
@@ -148,7 +148,7 @@ module Zr::Kern
     if free == Machine.ptr(DATA_DEFAULT_FREE)
       zr_xfree(data)
     elsif now
-      zr_call_c_in_gc(free, data)
+      zr_call_c_in_gc(free, data, Machine.ptr(0))
       if owned
         zr_xfree(data)
       end

@@ -31,8 +31,8 @@ module Zr::Kern
     zr_bug(Machine.bytes("a wasm32 module cannot call native C\n"), 37)
   end
 
-  #: (ptr, ptr) -> word
-  def zr_gc_call(fn, data)
+  #: (ptr, ptr, ptr) -> word
+  def zr_gc_call(fn, a, b)
     zr_bug(Machine.bytes("a wasm32 module cannot call native C\n"), 37)
     0
   end
