@@ -32,7 +32,10 @@ module Zr
           # `block:` for a call with a block, `bare:` for one without, and for a
           # body split on `Primitive.mandatory_only?`, `only:` for a call of
           # `lead:` plain arguments. `raise:` (and `raise_only:` for such a
-          # call) is the line of an error that the body raises.
+          # call) is the line of an error that the body raises. `first:` is
+          # the line of the body's first statement, where a frame of the
+          # method stands as its :call hooks run, also when the rest of its
+          # lines are not known.
           def of(node)
             statements = statements_of(node.body)
             return unless statements
@@ -47,6 +50,7 @@ module Zr
               statements = statements_of(split.subsequent&.statements)
             end
             known.merge!(by_block(statements)) if statements
+            known[:first] = statements&.first&.location&.start_line
             known[:raise] = raise_line(statements, params)
             known.compact!
             known unless known.except(:lead).empty?

@@ -322,7 +322,7 @@ class TracePoint
     def body_lines(known, shape)
       Primitive.attr! :hidden
       return if known.nil?
-      return known[:only] if known[:only] && shape >> 2 == known[:lead] && shape.nobits?(2)
+      return known[:only] if known[:only] && only_call?(known, shape)
 
       shape.odd? ? known[:block] : known[:bare]
     end
@@ -334,8 +334,16 @@ class TracePoint
     def raise_line(place, shape)
       Primitive.attr! :hidden
       known = place[4] || {}
-      line = known[:raise_only] if known[:lead] == shape >> 2 && shape.nobits?(2)
+      line = known[:raise_only] if only_call?(known, shape)
       line || known[:raise] || place[1]
+    end
+
+    # Whether a call of `shape` runs the body that CRuby compiles for a
+    # call of the method's plain arguments alone, `known[:lead]` of them,
+    # with no keywords.
+    def only_call?(known, shape)
+      Primitive.attr! :hidden
+      known[:lead] == shape >> 2 && shape.nobits?(2)
     end
 
     # The :return of the TracePoint#enable that started `point`'s trace,
@@ -367,19 +375,29 @@ class TracePoint
 
         row[2] = place[0]
         row[3] = raise_line(place, shape)
-        row[8] = false
+        row[8] = [place[0], row[3]]
       # A :call or :return around one of CRuby's own Ruby methods reports
       # the position of that method in CRuby's builtin sources.
       elsif (row[0] & 0x18).nonzero? && row[10].nonzero? && (place = builtin_places[row[6]]&.[](row[4]))
         row[2] = place[0]
-        row[3] = row[0] == 0x8 ? place[1] : place[2]
-        row[8] = false
+        row[3] = place[2]
         # The :line events of its body follow its :call, by the call's
         # shape (zr_trace_call_shape), which the row carries in its value.
+        # A body that CRuby splits for a call of its plain arguments alone
+        # (Primitive.mandatory_only?) has its own :call line; the other
+        # calls report the def's.
+        first = nil
         if row[0] == 0x8
-          lines = body_lines(place[4], row[1])
+          known = place[4]
+          only = known&.key?(:lead) && only_call?(known, row[1])
+          row[3] = known&.key?(:lead) && !only ? place[3] : place[1]
+          lines = body_lines(known, row[1])
+          first = lines&.first || (known[:first] unless known.nil? || only)
           row[1] = nil
         end
+        # The method has no frame of its own here: its binding stands on the
+        # first line that its body runs (TracePoint#binding).
+        row[8] = [place[0], first || row[3]]
       end
 
       thread = Thread.current
@@ -503,15 +521,17 @@ class TracePoint
   end
 
   # The binding of the frame of the event. A core method that CRuby
-  # writes in Ruby (Kernel#class) has no frame here (`fire` marks its row
-  # with false): its binding has no locals and its receiver, as ruby's
-  # frame of that method has.
+  # writes in Ruby (Kernel#class) has no frame of zr's here: `fire` gives
+  # its row the place of its binding, which has no locals and the
+  # method's receiver, as ruby's frame of that method has.
   def binding
     return nil if %i[c_call c_return].include?(event) || row[8].nil?
-    return Primitive.zr_trace_builtin_binding(row[10], row[7]) if row[8] == false && row[10].nonzero?
-    return nil if row[8] == false
+    return Primitive.zr_trace_binding(row[8]) unless row[8].is_a?(Array)
+    return nil if row[10].zero?
 
-    Primitive.zr_trace_binding(row[8])
+    bound = Primitive.zr_trace_builtin_binding(row[10], row[7])
+    Primitive.zr_hidden_set(bound, :__source__, row[8])
+    bound
   end
 
   def return_value

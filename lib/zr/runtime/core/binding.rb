@@ -13,7 +13,9 @@ class Binding
 
   def receiver = Primitive.zr_binding_receiver(self)
 
-  def source_location = [Primitive.zr_binding_file(self), Primitive.zr_binding_line(self)]
+  # The place a TracePoint gave the binding of a frame that zr does not
+  # have (TracePoint#binding), or where the binding was made.
+  def source_location = Primitive.zr_hidden_get(self, :__source__)&.dup || [Primitive.zr_binding_file(self), Primitive.zr_binding_line(self)]
 
   def local_variables
     scopes.flatten.compact.uniq

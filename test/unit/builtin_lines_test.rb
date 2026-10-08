@@ -24,7 +24,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ block: [3], bare: [3] }, known)
+    assert_equal({ block: [3], bare: [3], first: 3 }, known)
   end
 
   def test_statements_with_no_call_before_the_last_fire_each_line
@@ -36,7 +36,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ block: [2, 3, 4], bare: [2, 3, 4] }, known)
+    assert_equal({ block: [2, 3, 4], bare: [2, 3, 4], first: 2 }, known)
   end
 
   def test_a_block_guard_gives_a_sequence_for_a_call_without_a_block
@@ -50,7 +50,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ block: [3, 6], bare: [3, 4] }, known)
+    assert_equal({ block: [3, 6], bare: [3, 4], first: 3 }, known)
   end
 
   def test_a_modifier_guard_on_block_given_fires_its_one_line
@@ -61,7 +61,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ block: [2, 3], bare: [2] }, known)
+    assert_equal({ block: [2, 3], bare: [2], first: 2 }, known)
   end
 
   def test_a_loop_after_the_guard_leaves_only_the_bare_sequence
@@ -79,11 +79,12 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ bare: [2, 3] }, known)
+    assert_equal({ bare: [2, 3], first: 2 }, known)
   end
 
+  # The sequence is not known; the first line is.
   def test_a_call_before_the_last_statement_is_not_known
-    assert_nil lines_of(<<~RUBY)
+    assert_equal({ first: 2 }, lines_of(<<~RUBY))
       def tap
         yield(self)
         self
@@ -92,8 +93,8 @@ class BuiltinLinesTest < Minitest::Test
   end
 
   def test_a_last_statement_with_a_branch_or_a_block_is_not_known
-    assert_nil lines_of("def f\n  x ? 1 : 2\nend\n")
-    assert_nil lines_of("def f\n  [1].each { |x| x }\nend\n")
+    assert_equal({ first: 2 }, lines_of("def f\n  x ? 1 : 2\nend\n"))
+    assert_equal({ first: 2 }, lines_of("def f\n  [1].each { |x| x }\nend\n"))
   end
 
   def test_a_body_with_a_rescue_is_not_known
@@ -111,7 +112,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ lead: 1, only: [3], raise_only: 3, block: [5], bare: [5], raise: 5 }, known)
+    assert_equal({ lead: 1, only: [3], raise_only: 3, block: [5], bare: [5], first: 5, raise: 5 }, known)
   end
 
   def test_a_branching_second_half_keeps_only_the_mandatory_lines
@@ -128,7 +129,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ lead: 0, only: [4] }, known)
+    assert_equal({ lead: 0, only: [4], first: 6 }, known)
   end
 
   def test_an_error_raises_at_the_first_primitive_that_takes_a_parameter
@@ -146,7 +147,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ lead: 0, only: [3], raise: 8 }, known)
+    assert_equal({ lead: 0, only: [3], first: 5, raise: 8 }, known)
   end
 
   def test_a_primitive_in_the_test_of_a_branch_only_decides
@@ -160,7 +161,7 @@ class BuiltinLinesTest < Minitest::Test
       end
     RUBY
 
-    assert_equal({ raise: 3 }, known)
+    assert_equal({ first: 2, raise: 3 }, known)
   end
 
   def test_a_method_without_parameters_raises_at_no_line_of_its_own
@@ -168,7 +169,7 @@ class BuiltinLinesTest < Minitest::Test
   end
 
   def test_statements_on_one_line_fire_it_once
-    assert_equal({ block: [2], bare: [2] }, lines_of("def f\n  a = 1; Primitive.x(a)\nend\n"))
+    assert_equal({ block: [2], bare: [2], first: 2 }, lines_of("def f\n  a = 1; Primitive.x(a)\nend\n"))
   end
 
   private
