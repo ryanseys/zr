@@ -7,7 +7,7 @@ module Zr
     # Reads a static library: an `ar` archive of object files, in the BSD
     # form that Apple's tools write (`#1/len` names, a `__.SYMDEF` index)
     # or the GNU form (`/` index, `//` long names). A link takes from it
-    # only the members that define a symbol it needs (`select`), as `ld`
+    # only the members that define a symbol it needs (`needed`), as `ld`
     # does.
     class Archive
       MAGIC = "!<arch>\n"
@@ -54,7 +54,7 @@ module Zr
       # symbol that a chosen member leaves undefined, until none is left.
       # They are in the archive's order.
       #: (Array[String] roots) -> Array[Member]
-      def select(roots)
+      def needed(roots)
         # Keyed by offset: a Member's hash would read all of its bytes.
         chosen = {} #: Hash[Integer, true]
         wanted = roots.dup

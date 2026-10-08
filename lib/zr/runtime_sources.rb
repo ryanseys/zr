@@ -63,12 +63,15 @@ module Zr
     # compiled compiler's checks, `zr doctor`, `zr cache`, the reader of
     # ruby's switches, the printer of `--dump=parsetree`, and the host
     # machine that runs the kernel on CRuby (machine/host.rb and each file
-    # under machine/host/). An edit to one of
+    # under machine/host/), and the readers of linked Mach-O images and of
+    # static libraries, which only tests use until a link takes C
+    # extensions. An edit to one of
     # them rebuilt the runtime (16 s, and eval support too), although no
     # output can depend on it.
     # `compiler_digest_test.rb` checks that a build and a link load none of
     # them, and that it lists each compiler file that they do not load.
-    DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb doctor.rb machine/host.rb server.rb server/client.rb]
+    DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb doctor.rb machine/host.rb obj/archive.rb
+                      obj/macho/image.rb server.rb server/client.rb]
                      .map { |name| File.join(__dir__, name) } +
                    Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze
 

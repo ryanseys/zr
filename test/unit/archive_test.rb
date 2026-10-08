@@ -43,14 +43,14 @@ class ArchiveTest < Minitest::Test
     end
   end
 
-  def test_select_takes_the_members_that_define_what_is_needed_and_what_they_need
+  def test_needed_takes_the_members_that_define_what_is_needed_and_what_they_need
     path = archives.find { |a| File.basename(a) == "libz.a" } || skip("the host ruby has no libz.a")
     archive = Archive.read(File.binread(path))
-    names = archive.select(["_deflate"]).map(&:name)
+    names = archive.needed(["_deflate"]).map(&:name)
     assert_includes names, "deflate.o"
     assert_includes names, "trees.o", "deflate.o calls _tr_flush_block, which trees.o defines"
     refute_includes names, "inflate.o"
-    assert_empty archive.select(["_not_in_the_archive"])
+    assert_empty archive.needed(["_not_in_the_archive"])
   end
 
   def test_a_file_that_is_not_an_archive_is_refused
