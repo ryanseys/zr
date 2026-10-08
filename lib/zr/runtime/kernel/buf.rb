@@ -107,6 +107,7 @@ module Zr::Kern
   def zr_buf_take(b)
     n = Buf[b].len
     s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(n))
+    RBasic[s].flags = RBasic[s].flags | FL_ENC_UTF8
     if n <= zr_str_embed_capa(s)
       # Copies bytes that fit in the cell, from the tail or from a grown
       # buffer. Then it frees the grown buffer.

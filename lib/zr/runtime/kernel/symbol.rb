@@ -303,7 +303,7 @@ module Zr::Kern
     if zr_str_ascii_bytes_p(name)
       return zr_fix(zr_intern(RString[name].ptr, RString[name].len))
     end
-    zr_fix(zr_intern_tagged(RString[name].ptr, RString[name].len, (RBasic[name].flags >> FL_ENC_SHIFT) & 255))
+    zr_fix(zr_intern_tagged(RString[name].ptr, RString[name].len, zr_enc_symbol_tag(zr_str_encoding_index(name))))
   end
 
   # The number of regexp literal sites in the program, so that the sites

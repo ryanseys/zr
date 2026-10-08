@@ -40,7 +40,7 @@ end
 | 10 | `FL_EXIVAR` |
 | 11 | `FL_FREEZE` |
 | 13 | `FL_SINGLETON` |
-| 24-31 | the encoding index, where the object has an encoding |
+| 22-28 | the encoding index of a String (CRuby's ENCODING_SHIFT) |
 
 | Type | Number | Type | Number |
 |---|---|---|---|

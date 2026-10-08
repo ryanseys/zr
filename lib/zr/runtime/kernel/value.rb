@@ -116,12 +116,15 @@ module Zr::Kern
   FL_TEMP_NAME = 1 << 14
   # A String's encoding, as ruby's index into `Encoding.list`: 0 is
   # ASCII-8BIT, 1 is UTF-8, 2 is US-ASCII, then one number for each of the
-  # other hundred. It is in eight bits of the flags, with 0 and 1 swapped,
-  # so a String with no encoding set reads as UTF-8.
-  FL_ENC_SHIFT = 24
-  FL_ENC_KEEP = 0 - ((255 << 24) + 1)
+  # other hundred. It is in bits 22 to 28 of the flags, where CRuby 4.0
+  # keeps it (ENCODING_SHIFT), so a C extension's inline ENCODING_GET
+  # reads it. A new String gets UTF-8 (FL_ENC_UTF8) from its allocator.
+  FL_ENC_SHIFT = 22
+  FL_ENC_MASK = 127
+  FL_ENC_KEEP = 0 - ((FL_ENC_MASK << FL_ENC_SHIFT) + 1)
   ENC_BINARY = 0
   ENC_UTF8 = 1
+  FL_ENC_UTF8 = ENC_UTF8 << FL_ENC_SHIFT
   ENC_USASCII = 2
   ENC_CESU8 = 15
   # No encoding: the result for two Strings that are not compatible.

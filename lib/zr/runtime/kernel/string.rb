@@ -104,25 +104,22 @@ module Zr::Kern
   # A String whose bytes a scan found all below 0x80, which CRuby calls the
   # 7-bit coderange. Each write to the bytes clears it, so the runtime scans
   # a String that it reads many times only once.
-  FL_ASCII = 1 << 21
+  FL_ASCII = 1 << 38
   # A String that a scan found valid in its encoding, CRuby's valid
   # coderange. The same writes clear it, and so does a new encoding.
-  FL_VALID = 1 << 23
+  FL_VALID = 1 << 39
   # A String whose bytes the ASCII scan read, whatever the result. With
   # FL_ASCII, the bytes are all below 0x80. Without it, one byte is not.
   # FL_ASCII alone records only a scan that succeeded, so without this flag
   # a text with one non-ASCII byte gets a new scan for each check, for
   # example each Regexp match on it. Each write to the bytes clears it, and
-  # so does an encoding that cannot hold ASCII text. (Bits 24 to 31 hold
-  # the encoding, FL_ENC_SHIFT, and bit 32 is FL_SNAPSHOT; this bit is
-  # above them.)
+  # so does an encoding that cannot hold ASCII text.
   FL_SCANNED = 1 << 33
   FL_ASCII_CLEAR = 0 - FL_ASCII - FL_SCANNED - 1
   # A String whose frozen copy MatchData keeps (MatchData.snapshot) and that
   # is still equal to the copy: nothing changed it since. Each change clears
   # it. Each change also calls the frozen check first (zr_modify_frozen_p),
-  # which clears it too, before a byte changes. Bits 24 to 31 hold the
-  # encoding (FL_ENC_SHIFT); no bit above them is in use.
+  # which clears it too, before a byte changes.
   FL_SNAPSHOT = 1 << 32
   FL_SNAPSHOT_CLEAR = 0 - FL_SNAPSHOT - 1
   FL_SCANS_CLEAR = 0 - FL_ASCII - FL_VALID - FL_SNAPSHOT - FL_SCANNED - 1
@@ -148,6 +145,7 @@ module Zr::Kern
   #: (ptr, word) -> value
   def zr_str_new(bytes, len)
     s = zr_alloc(T_STRING, zr_global(G_STRING), zr_str_cell_bytes(len))
+    RBasic[s].flags = RBasic[s].flags | FL_ENC_UTF8
     zr_str_buf_new(s, len)
     zr_memcpy(RString[s].ptr, bytes, len)
     Machine.store8(RString[s].ptr + len, 0, Machine.i8(0))
@@ -348,14 +346,20 @@ module Zr::Kern
   # Returns the encoding of `s`: ruby's own index into `Encoding.list`.
   #: (value) -> word
   def zr_str_encoding_index(s)
-    i = (RBasic[s].flags >> FL_ENC_SHIFT) & 255
-    i < 2 ? 1 - i : i
+    (RBasic[s].flags >> FL_ENC_SHIFT) & FL_ENC_MASK
+  end
+
+  # Returns the symbol table's tag for the encoding `index`. The table that
+  # the compiler writes (lib/zr/symbol_numbering.rb) swaps 0 and 1, so a
+  # name with no tag is UTF-8.
+  #: (word) -> word
+  def zr_enc_symbol_tag(index)
+    index < 2 ? 1 - index : index
   end
 
   #: (value, word) -> value
   def zr_str_set_index(s, index)
-    i = index < 2 ? 1 - index : index
-    flags = (RBasic[s].flags & FL_ENC_KEEP & (0 - FL_VALID - 1)) | (i << FL_ENC_SHIFT)
+    flags = (RBasic[s].flags & FL_ENC_KEEP & (0 - FL_VALID - 1)) | (index << FL_ENC_SHIFT)
     # ASCII bytes are not ASCII text in UTF-16 or UTF-32.
     if !zr_enc_ascii_compat_p(index)
       flags = flags & FL_ASCII_CLEAR
@@ -1863,7 +1867,7 @@ module Zr::Kern
       zr_buf_str(b, s)
       return zr_raise_buf(zr_core_class(Machine.id(:EncodingError)), b)
     end
-    tag = (RBasic[recv].flags >> FL_ENC_SHIFT) & 255
+    tag = zr_enc_symbol_tag(zr_str_encoding_index(recv))
     zr_sym(zr_intern_tagged(RString[recv].ptr, RString[recv].len, tag))
   end
 
@@ -2386,7 +2390,7 @@ G_FROZEN_LITERALS = 52
 
   # A String in the fstring table, which cannot have a singleton class
   # (CRuby's RSTRING_FSTR).
-  FL_FSTR = 1 << 22
+  FL_FSTR = 1 << 29
 
   GATE_LTLT = 16384
 
