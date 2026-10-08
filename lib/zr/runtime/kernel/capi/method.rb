@@ -491,6 +491,12 @@ module Zr::Kern
   def rb_f_notimplement(argc, argv, recv, marker)
     Machine.gates_enter
     zr_c_entered()
+    zr_capi_notimplement()
+    Machine.value(QNIL)
+  end
+
+  #: () -> void
+  def zr_capi_notimplement
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_str(b, zr_capi_id_name(zr_capi_id(FrameMeta[Frame[Task[zr_task()].top].meta].name)))
@@ -504,7 +510,7 @@ module Zr::Kern
   def rb_notimplement
     Machine.gates_enter
     zr_c_entered()
-    rb_f_notimplement(Machine.i32(0), Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+    zr_capi_notimplement()
   end
 
   # rb_enumeratorize: `obj.enum_for(meth, *argv)`.
