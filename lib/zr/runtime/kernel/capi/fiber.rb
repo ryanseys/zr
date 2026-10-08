@@ -117,4 +117,36 @@ module Zr::Kern
   def zr_capi_fiber_class
     zr_core_class(Machine.id(:Fiber))
   end
+
+  # rb_fiber_scheduler_io_wait, rb_fiber_scheduler_io_select and
+  # rb_fiber_scheduler_kernel_sleep: the scheduler's hooks of those names.
+  #: (value, value, value, value) -> value
+  def rb_fiber_scheduler_io_wait(scheduler, io, events, timeout)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(24)
+    Machine.store64(args, 0, Machine.word(io))
+    Machine.store64(args, 8, Machine.word(events))
+    Machine.store64(args, 16, Machine.word(timeout))
+    zr_c_result(zr_send(scheduler, Machine.id(:io_wait), 3, args))
+  end
+
+  #: (value, value, value, value, value) -> value
+  def rb_fiber_scheduler_io_select(scheduler, readables, writables, exceptables, timeout)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(32)
+    Machine.store64(args, 0, Machine.word(readables))
+    Machine.store64(args, 8, Machine.word(writables))
+    Machine.store64(args, 16, Machine.word(exceptables))
+    Machine.store64(args, 24, Machine.word(timeout))
+    zr_c_result(zr_send(scheduler, Machine.id(:io_select), 4, args))
+  end
+
+  #: (value, value) -> value
+  def rb_fiber_scheduler_kernel_sleep(scheduler, duration)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(scheduler, Machine.id(:kernel_sleep), duration)
+  end
 end

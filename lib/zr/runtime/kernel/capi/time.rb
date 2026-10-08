@@ -120,4 +120,12 @@ module Zr::Kern
     Machine.store64(args, 24, Machine.word(kw))
     zr_c_result(zr_capi_send_kw(zr_core_class(Machine.id(:Time)), Machine.id(:at), 4, args))
   end
+
+  # rb_time_utc_offset: Time#utc_offset.
+  #: (value) -> value
+  def rb_time_utc_offset(time)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(time, Machine.id(:utc_offset), 0, Machine.ptr(0)))
+  end
 end

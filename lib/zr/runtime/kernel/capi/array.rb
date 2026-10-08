@@ -231,4 +231,131 @@ module Zr::Kern
     end
     copy
   end
+
+  # rb_ary_concat, rb_ary_delete_at, rb_ary_sort_bang and rb_ary_to_s:
+  # Array#concat, #delete_at, #sort! and #to_s.
+  #: (value, value) -> value
+  def rb_ary_concat(ary, other)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(ary, Machine.id(:concat), other)
+  end
+
+  #: (value, word) -> value
+  def rb_ary_delete_at(ary, pos)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(ary, Machine.id(:delete_at), zr_int_from_word(pos))
+  end
+
+  #: (value) -> value
+  def rb_ary_sort_bang(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(ary, Machine.id(:sort!), 0, Machine.ptr(0)))
+  end
+
+  #: (value) -> value
+  def rb_ary_to_s(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(ary, Machine.id(:to_s), 0, Machine.ptr(0)))
+  end
+
+  # rb_ary_hidden_new and rb_ary_tmp_new: an Array that C uses for itself
+  # with room for `capa` elements, which ObjectSpace does not give out.
+  #: (word) -> value
+  def rb_ary_hidden_new(capa)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_ary_hidden(capa)
+  end
+
+  #: (word) -> value
+  def rb_ary_tmp_new(capa)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_ary_hidden(capa)
+  end
+
+  #: (word) -> value
+  def zr_capi_ary_hidden(capa)
+    ary = zr_ary_new(capa)
+    RBasic[ary].flags = RBasic[ary].flags | FL_CONCEALED
+    ary
+  end
+
+  # rb_ary_ptr_use_start and rb_ary_ptr_use_end (RARRAY_PTR_USE): the
+  # elements, which C may store to with no write barrier, so the Array
+  # leaves the barrier's protection, as RARRAY_PTR makes it.
+  #: (value) -> ptr
+  def rb_ary_ptr_use_start(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_write_barrier_all(ary)
+    zr_unprotected_add(ary)
+    RArray[ary].ptr
+  end
+
+  #: (value) -> void
+  def rb_ary_ptr_use_end(ary)
+    Machine.gates_enter
+    zr_c_entered()
+  end
+
+  # rb_mem_clear: `n` nils at `mem`.
+  #: (ptr, word) -> void
+  def rb_mem_clear(mem, n)
+    Machine.gates_enter
+    zr_c_entered()
+    i = 0
+    while i < n
+      Machine.store64(mem + (i * 8), 0, QNIL)
+      i += 1
+    end
+  end
+
+  # rb_ary_cat: appends the `len` Values at `argv`.
+  #: (value, ptr, word) -> value
+  def rb_ary_cat(ary, argv, len)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_modify_frozen_p(ary)
+      zr_c_result(zr_frozen_error(ary))
+    end
+    i = 0
+    while i < len
+      zr_ary_push(ary, Machine.value(Machine.load64(argv + (i * 8), 0)))
+      i += 1
+    end
+    ary
+  end
+
+  # rb_ary_reverse and rb_ary_freeze: Array#reverse! and #freeze.
+  #: (value) -> value
+  def rb_ary_reverse(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(ary, Machine.id(:reverse!), 0, Machine.ptr(0)))
+  end
+
+  #: (value) -> value
+  def rb_ary_freeze(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(ary, Machine.id(:freeze), 0, Machine.ptr(0)))
+  end
+
+  # rb_enum_values_pack: the values that a yield gave, as one: nil for
+  # none, the value for one, else an Array of them.
+  #: (i32, ptr) -> value
+  def rb_enum_values_pack(argc, argv)
+    Machine.gates_enter
+    zr_c_entered()
+    n = Machine.sword(argc)
+    if n == 0
+      return Machine.value(QNIL)
+    end
+    n == 1 ? Machine.value(Machine.load64(argv, 0)) : zr_ary_of(n, argv)
+  end
 end

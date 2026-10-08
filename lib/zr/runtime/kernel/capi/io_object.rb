@@ -287,4 +287,14 @@ module Zr::Kern
     Machine.store64(args, 8, Machine.word(flags))
     zr_c_result(zr_send(zr_core_class(Machine.id(:File)), Machine.id(:open), 2, args))
   end
+
+  # rb_io_bufwrite: `io.write` of the `size` bytes at `buf`; the bytes it
+  # wrote.
+  #: (value, ptr, word) -> word
+  def rb_io_bufwrite(io, buf, size)
+    Machine.gates_enter
+    zr_c_entered()
+    bytes = zr_capi_str(buf, size, ENC_BINARY)
+    zr_fix2long(zr_capi_call1(io, Machine.id(:write), bytes))
+  end
 end

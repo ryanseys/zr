@@ -576,4 +576,145 @@ module Zr::Kern
     zr_c_entered()
     zr_capi_call1(a, Machine.id(:==), b)
   end
+
+  # rb_str_update: `str[beg, len] = val`.
+  #: (value, word, word, value) -> void
+  def rb_str_update(str, beg, len, val)
+    Machine.gates_enter
+    zr_c_entered()
+    from = zr_int_from_word(beg)
+    count = zr_int_from_word(len)
+    args = Machine.slot(24)
+    Machine.store64(args, 0, Machine.word(from))
+    Machine.store64(args, 8, Machine.word(count))
+    Machine.store64(args, 16, Machine.word(val))
+    zr_c_result(zr_send(str, Machine.id(:[]=), 3, args))
+  end
+
+  # rb_str_strlen and rb_str_length: the characters of `str`, as a long
+  # and as an Integer.
+  #: (value) -> word
+  def rb_str_strlen(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_fix2long(zr_c_result(zr_send(str, Machine.id(:length), 0, Machine.ptr(0))))
+  end
+
+  #: (value) -> value
+  def rb_str_length(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(str, Machine.id(:length), 0, Machine.ptr(0)))
+  end
+
+  # rb_str_to_str: `obj` as a String, through `to_str`.
+  #: (value) -> value
+  def rb_str_to_str(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    v = zr_capi_check_convert(obj, T_STRING, Machine.bytes("String"), 6, Machine.id(:to_str))
+    if v == QNIL
+      return zr_capi_convert(obj, Machine.bytes("String"), 6, Machine.id(:to_str), true)
+    end
+    v
+  end
+
+  # rb_str_capacity: the bytes that `str` holds before it grows.
+  #: (value) -> word
+  def rb_str_capacity(str)
+    Machine.gates_enter
+    zr_c_entered()
+    RString[str].capa
+  end
+
+  # rb_str_modify_expand: makes `str` changeable, with room for `expand`
+  # bytes past its length.
+  #: (value, word) -> void
+  def rb_str_modify_expand(str, expand)
+    Machine.gates_enter
+    zr_c_entered()
+    if expand < 0
+      zr_c_raise(zr_global(G_ARGUMENT_ERROR), Machine.bytes("negative expanding string size"), 30)
+    end
+    zr_capi_str_modify(str)
+    zr_str_reserve(str, RString[str].len + expand)
+  end
+
+  # rb_str_tmp_new: a binary String of `len` bytes that C fills.
+  #: (word) -> value
+  def rb_str_tmp_new(len)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_str(Machine.ptr(0), len, ENC_BINARY)
+  end
+
+  # rb_str_to_dbl: the Float that `str` reads as: a strict read
+  # (`Float(str)`) when `badcheck` is not 0, else String#to_f.
+  #: (value, i32) -> f64
+  def rb_str_to_dbl(str, badcheck)
+    Machine.gates_enter
+    zr_c_entered()
+    if Machine.sword(badcheck) != 0
+      return zr_float_value(zr_capi_call1(zr_global(G_KERNEL), Machine.id(:Float), str))
+    end
+    zr_float_value(zr_c_result(zr_send(str, Machine.id(:to_f), 0, Machine.ptr(0))))
+  end
+
+  # rb_str2inum: the Integer that `str` starts with, in `base`, as
+  # String#to_i reads it.
+  #: (value, i32) -> value
+  def rb_str2inum(str, base)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.sword(base)
+    zr_capi_call1(str, Machine.id(:to_i), zr_fix(b == 0 ? 10 : b))
+  end
+
+  # rb_must_asciicompat: Encoding::CompatibilityError for a String whose
+  # encoding is not ASCII-compatible.
+  #: (value) -> void
+  def rb_must_asciicompat(str)
+    Machine.gates_enter
+    zr_c_entered()
+    enc = zr_c_result(zr_send(str, Machine.id(:encoding), 0, Machine.ptr(0)))
+    if zr_c_result(zr_send(enc, Machine.id(:ascii_compatible?), 0, Machine.ptr(0))) != QTRUE
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("ASCII incompatible encoding: "), 29)
+      zr_buf_str(b, zr_c_result(zr_send(enc, Machine.id(:to_s), 0, Machine.ptr(0))))
+      zr_c_result(zr_raise_buf(zr_capi_nested(Machine.id(:Encoding), Machine.id(:CompatibilityError)), b))
+    end
+  end
+
+  # rb_memsearch: where the `m` bytes at `x` first are in the `n` bytes at
+  # `y`, or -1.
+  #: (ptr, word, ptr, word, ptr) -> word
+  def rb_memsearch(x, m, y, n, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    at = 0
+    while at + m <= n
+      if zr_bytes_eq(y + at, m, x, m)
+        return at
+      end
+      at += 1
+    end
+    0 - 1
+  end
+
+  # rb_str_free: frees nothing; the collector frees a String.
+  #: (value) -> void
+  def rb_str_free(str)
+    Machine.gates_enter
+    zr_c_entered()
+  end
+
+  # rb_uv_to_utf8: the UTF-8 bytes of the code point `uv` at `buf`, and
+  # their count.
+  #: (ptr, word) -> i32
+  def rb_uv_to_utf8(buf, uv)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(zr_capi_onig_write(RbEncoding[zr_capi_encoding(ENC_UTF8)].onig, uv, buf))
+  end
 end

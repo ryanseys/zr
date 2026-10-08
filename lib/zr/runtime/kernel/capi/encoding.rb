@@ -401,4 +401,12 @@ module Zr::Kern
     end
     zr_capi_encoding(zr_capi_to_enc_index(enc))
   end
+
+  # rb_locale_encoding: the encoding of the locale (`Encoding.find("locale")`).
+  #: () -> ptr
+  def rb_locale_encoding
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_encoding(zr_capi_to_enc_index(zr_str_new(Machine.bytes("locale"), 6)))
+  end
 end

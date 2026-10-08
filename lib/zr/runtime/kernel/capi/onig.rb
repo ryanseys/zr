@@ -372,4 +372,19 @@ module Zr::Kern
     kind = zr_onig_enc_kind(onig)
     kind == ONIG_ENC_KIND_UTF8 || kind == ONIG_ENC_KIND_CESU8 || kind >= ONIG_ENC_KIND_UTF16LE
   end
+
+  # rb_enc_nth: the `nth` character of the text [p, e), or `e` past it.
+  #: (ptr, ptr, word, ptr) -> ptr
+  def rb_enc_nth(p, e, nth, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    at = p
+    left = nth
+    onig = RbEncoding[enc].onig
+    while left > 0 && at < e
+      at += zr_onig_mbclen(onig, at, e)
+      left -= 1
+    end
+    at > e ? e : at
+  end
 end

@@ -321,4 +321,116 @@ module Zr::Kern
     zr_c_entered()
     zr_c_result(zr_send(mod, Machine.id(:ancestors), 0, Machine.ptr(0)))
   end
+
+  # rb_define_method_id: rb_define_method of the method named by `id`.
+  #: (value, word, ptr, i32) -> void
+  def rb_define_method_id(klass, id, fn, arity)
+    Machine.gates_enter
+    zr_c_entered()
+    name = zr_capi_id_name(id)
+    zr_capi_define(klass, RString[name].ptr, fn, Machine.sword(arity), VIS_PUBLIC)
+  end
+
+  # The name of the C ID `id`, as a String that ends with a NUL.
+  #: (word) -> value
+  def zr_capi_id_name(id)
+    zr_c_result(zr_send(zr_sym(zr_capi_mid(id)), Machine.id(:name), 0, Machine.ptr(0)))
+  end
+
+  # rb_cvar_set: the class variable `id` of `klass`.
+  #: (value, word, value) -> void
+  def rb_cvar_set(klass, id, v)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(zr_sym(zr_capi_mid(id))))
+    Machine.store64(args, 8, Machine.word(v))
+    zr_c_result(zr_send(klass, Machine.id(:class_variable_set), 2, args))
+  end
+
+  # rb_mod_include_p: Module#include?.
+  #: (value, value) -> value
+  def rb_mod_include_p(mod, other)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(mod, Machine.id(:include?), other)
+  end
+
+  # rb_mod_method_arity: the arity of the instance method `id` of `mod`.
+  #: (value, word) -> i32
+  def rb_mod_method_arity(mod, id)
+    Machine.gates_enter
+    zr_c_entered()
+    method = zr_capi_call1(mod, Machine.id(:instance_method), zr_sym(zr_capi_mid(id)))
+    Machine.i32(zr_fix2long(zr_c_result(zr_send(method, Machine.id(:arity), 0, Machine.ptr(0)))))
+  end
+
+  # rb_module_new and rb_class_new: an anonymous Module, and an anonymous
+  # Class of the superclass `super_`; rb_class_new runs no `inherited`.
+  #: () -> value
+  def rb_module_new
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_global(G_MODULE), Machine.id(:new), 0, Machine.ptr(0)))
+  end
+
+  #: (value) -> value
+  def rb_class_new(super_)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_check_inheritable(super_))
+    zr_class_new(super_)
+  end
+
+  # rb_undef: the `undef` of the method `id` in `klass`, which raises
+  # NameError for a name that it does not have.
+  #: (value, word) -> void
+  def rb_undef(klass, id)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_undef(klass, zr_capi_mid(id)))
+  end
+
+  # rb_mod_remove_const: Module#remove_const.
+  #: (value, value) -> value
+  def rb_mod_remove_const(mod, name)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(mod, Machine.id(:remove_const), name)
+  end
+
+  # rb_mod_module_eval: Module#module_eval of the `argc` arguments at
+  # `argv`, with the C method's block.
+  #: (i32, ptr, value) -> value
+  def rb_mod_module_eval(argc, argv, mod)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send_blk(mod, Machine.id(:module_eval), Machine.sword(argc), argv, zr_capi_block()))
+  end
+
+  # rb_class_instance_methods: Module#instance_methods.
+  #: (i32, ptr, value) -> value
+  def rb_class_instance_methods(argc, argv, mod)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(mod, Machine.id(:instance_methods), Machine.sword(argc), argv))
+  end
+
+  # rb_cv_get: the class variable of the C name `name` (`"@@count"`).
+  #: (value, ptr) -> value
+  def rb_cv_get(klass, name)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(klass, Machine.id(:class_variable_get), zr_sym(zr_intern(name, zr_cstr_len(name))))
+  end
+
+  # rb_method_basic_definition_p: whether the method `id` of `klass` is
+  # the core library's own, not one that the program defined, as 1 or 0.
+  #: (value, word) -> i32
+  def rb_method_basic_definition_p(klass, id)
+    Machine.gates_enter
+    zr_c_entered()
+    e = zr_find_method(klass, zr_capi_mid(id))
+    e != 0 && MEntry[e].core != 0 ? Machine.i32(1) : Machine.i32(0)
+  end
 end

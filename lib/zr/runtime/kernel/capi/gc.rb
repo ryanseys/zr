@@ -272,4 +272,33 @@ module Zr::Kern
     zr_c_entered()
     Heap[zr_heap()].collecting != 0 ? Machine.i32(1) : Machine.i32(0)
   end
+
+  # rb_alloc_tmp_buffer: rb_alloc_tmp_buffer_with_count of `len` bytes.
+  #: (ptr, word) -> ptr
+  def rb_alloc_tmp_buffer(store, len)
+    Machine.gates_enter
+    zr_c_entered()
+    buffer = zr_capi_str(Machine.ptr(0), len, ENC_BINARY)
+    Machine.store64(store, 0, Machine.word(buffer))
+    RString[buffer].ptr
+  end
+
+  # rb_gc_stat: GC.stat's value of the Symbol `key`; for a Hash, GC.stat
+  # fills it, and the answer is 0.
+  #: (value) -> word
+  def rb_gc_stat(key)
+    Machine.gates_enter
+    zr_c_entered()
+    stat = zr_capi_call1(zr_core_class(Machine.id(:GC)), Machine.id(:stat), key)
+    zr_symbol_p(key) ? zr_capi_ulong_of(stat, false) : 0
+  end
+
+  # rb_gc_latest_gc_info: GC.latest_gc_info, or its value of the Symbol
+  # `key`.
+  #: (value) -> value
+  def rb_gc_latest_gc_info(key)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(zr_core_class(Machine.id(:GC)), Machine.id(:latest_gc_info), key)
+  end
 end

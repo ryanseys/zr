@@ -484,4 +484,34 @@ module Zr::Kern
     end
     zr_method_add(klass, zr_intern(name, zr_cstr_len(name)), 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
   end
+
+  # rb_f_notimplement: the body of a method that this platform cannot
+  # give: it raises CRuby's NotImplementedError, with the method's name.
+  #: (i32, ptr, value, value) -> value
+  def rb_f_notimplement(argc, argv, recv, marker)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_str(b, zr_capi_id_name(zr_capi_id(FrameMeta[Frame[Task[zr_task()].top].meta].name)))
+    zr_buf_push(b, Machine.bytes("() function is unimplemented on this machine"), 44)
+    zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:NotImplementedError)), b))
+  end
+
+  # rb_notimplement: NotImplementedError for the C method that runs, as
+  # rb_f_notimplement raises it.
+  #: () -> void
+  def rb_notimplement
+    Machine.gates_enter
+    zr_c_entered()
+    rb_f_notimplement(Machine.i32(0), Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+  end
+
+  # rb_enumeratorize: `obj.enum_for(meth, *argv)`.
+  #: (value, value, i32, ptr) -> value
+  def rb_enumeratorize(obj, meth, argc, argv)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_enum_for(obj, zr_sym2id(meth), Machine.sword(argc), argv, Machine.value(QNIL)))
+  end
 end

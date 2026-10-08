@@ -456,4 +456,154 @@ module Zr::Kern
     f = zr_c_result(zr_send(v, Machine.id(:to_f), 0, Machine.ptr(0)))
     zr_capi_converted(v, f, T_FLOAT, Machine.bytes("Float"), 5, Machine.id(:to_f))
   end
+
+  # rb_big_norm: a bignum in its smallest form; zr's Integers are always
+  # in it.
+  #: (value) -> value
+  def rb_big_norm(x)
+    Machine.gates_enter
+    zr_c_entered()
+    x
+  end
+
+  # rb_big2dbl: the Float nearest the Integer `x`, as a double.
+  #: (value) -> f64
+  def rb_big2dbl(x)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_float_value(zr_c_result(zr_send(x, Machine.id(:to_f), 0, Machine.ptr(0))))
+  end
+
+  # rb_big_cmp, rb_big_plus, rb_big_minus, rb_big_mul, rb_big_div,
+  # rb_big_modulo, rb_big_pow and rb_big_eq: the Integer operators, for an
+  # `x` that C knows to be a bignum.
+  #: (value, value) -> value
+  def rb_big_cmp(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:<=>), y)
+  end
+
+  #: (value, value) -> value
+  def rb_big_plus(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:+), y)
+  end
+
+  #: (value, value) -> value
+  def rb_big_minus(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:-), y)
+  end
+
+  #: (value, value) -> value
+  def rb_big_mul(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:*), y)
+  end
+
+  #: (value, value) -> value
+  def rb_big_div(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:/), y)
+  end
+
+  #: (value, value) -> value
+  def rb_big_modulo(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:%), y)
+  end
+
+  #: (value, value) -> value
+  def rb_big_pow(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:**), y)
+  end
+
+  #: (value, value) -> value
+  def rb_big_eq(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:==), y)
+  end
+
+  # rb_dbl2big: the Integer of the double `d`, truncated.
+  #: (f64) -> value
+  def rb_dbl2big(d)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_float_new(d), Machine.id(:to_i), 0, Machine.ptr(0)))
+  end
+
+  # rb_num_coerce_bin: `x id y` after `y.coerce(x)`, as a numeric
+  # operator does for an operand it does not know.
+  #: (value, value, word) -> value
+  def rb_num_coerce_bin(x, y, id)
+    Machine.gates_enter
+    zr_c_entered()
+    pair = zr_capi_call1(y, Machine.id(:coerce), x)
+    zr_capi_call1(zr_ary_at(pair, 0), zr_capi_mid(id), zr_ary_at(pair, 1))
+  end
+
+  # rb_num_coerce_relop: the same for a comparison, where a coerce that
+  # fails or an answer of nil is CRuby's ArgumentError.
+  #: (value, value, word) -> value
+  def rb_num_coerce_relop(x, y, id)
+    Machine.gates_enter
+    zr_c_entered()
+    r = Machine.value(QNIL)
+    if zr_c_result(zr_check_funcall(y, Machine.id(:coerce))) == QTRUE
+      pair = zr_capi_call1(y, Machine.id(:coerce), x)
+      r = zr_capi_call1(zr_ary_at(pair, 0), zr_capi_mid(id), zr_ary_at(pair, 1))
+    end
+    if r == QNIL
+      zr_c_result(zr_cmperr(x, y))
+    end
+    r
+  end
+
+  # rb_num2short, rb_fix2short and rb_num2ushort: an Integer as a C
+  # short, with CRuby's RangeError past it.
+  #: (value) -> i32
+  def rb_num2short(v)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(zr_capi_short_of(v, 0 - 32768, 32767, Machine.bytes("short"), 5))
+  end
+
+  #: (value) -> i32
+  def rb_fix2short(v)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(zr_capi_short_of(v, 0 - 32768, 32767, Machine.bytes("short"), 5))
+  end
+
+  #: (value) -> i32
+  def rb_num2ushort(v)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(zr_capi_short_of(v, 0 - 32768, 65535, Machine.bytes("unsigned short"), 14) & 65535)
+  end
+
+  #: (value, word, word, ptr, word) -> word
+  def zr_capi_short_of(v, low, high, cname, clen)
+    n = zr_capi_long(v)
+    if n < low || n > high
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("integer "), 8)
+      zr_buf_long(b, n)
+      zr_buf_push(b, n < low ? Machine.bytes(" too small to convert to '") : Machine.bytes(" too big to convert to '"), n < low ? 26 : 24)
+      zr_buf_push(b, cname, clen)
+      zr_buf_byte(b, 39)
+      zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b))
+    end
+    n
+  end
 end

@@ -145,4 +145,43 @@ module Zr::Kern
     end
     zr_capi_id(zr_sym2id(zr_c_result(zr_send(str, Machine.id(:to_sym), 0, Machine.ptr(0)))))
   end
+
+  # rb_intern_str: the ID of the String `str`.
+  #: (value) -> word
+  def rb_intern_str(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_id(zr_sym2id(zr_c_result(zr_send(str, Machine.id(:to_sym), 0, Machine.ptr(0)))))
+  end
+
+  # rb_to_symbol: `name` as a Symbol: a Symbol itself, or the Symbol of a
+  # String (or of what `to_str` gives).
+  #: (value) -> value
+  def rb_to_symbol(name)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_symbol_p(name)
+      return name
+    end
+    str = zr_capi_check_convert(name, T_STRING, Machine.bytes("String"), 6, Machine.id(:to_str))
+    if str == QNIL
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_str(b, zr_c_result(zr_inspect(name)))
+      zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
+      zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+    end
+    zr_c_result(zr_send(str, Machine.id(:to_sym), 0, Machine.ptr(0)))
+  end
+
+  # rb_is_const_id: whether `id` names a constant (its first letter is a
+  # capital), as 1 or 0.
+  #: (word) -> i32
+  def rb_is_const_id(id)
+    Machine.gates_enter
+    zr_c_entered()
+    name = zr_c_result(zr_send(zr_sym(zr_capi_mid(id)), Machine.id(:name), 0, Machine.ptr(0)))
+    first = RString[name].len > 0 ? Machine.u8(Machine.load8(RString[name].ptr, 0)) : 0
+    first >= 65 && first <= 90 ? Machine.i32(1) : Machine.i32(0)
+  end
 end

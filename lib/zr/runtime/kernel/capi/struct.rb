@@ -89,4 +89,12 @@ module Zr::Kern
     zr_c_entered()
     zr_c_result(zr_send(klass, Machine.id(:members), 0, Machine.ptr(0)))
   end
+
+  # rb_struct_alloc_noinit: a Struct of `klass` with no member set.
+  #: (value) -> value
+  def rb_struct_alloc_noinit(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(klass, Machine.id(:allocate), 0, Machine.ptr(0)))
+  end
 end

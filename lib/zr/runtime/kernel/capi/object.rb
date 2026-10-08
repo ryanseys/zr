@@ -775,4 +775,161 @@ module Zr::Kern
     zr_c_entered()
     zr_c_result(zr_send(klass, Machine.id(:attached_object), 0, Machine.ptr(0)))
   end
+
+  # rb_obj_clone: `obj.clone`.
+  #: (value) -> value
+  def rb_obj_clone(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(obj, Machine.id(:clone), 0, Machine.ptr(0)))
+  end
+
+  # rb_obj_init_copy: Object#initialize_copy, which a C `initialize_copy`
+  # calls first: nothing for the object itself, else the checks that it
+  # can take the copy.
+  #: (value, value) -> value
+  def rb_obj_init_copy(obj, orig)
+    Machine.gates_enter
+    zr_c_entered()
+    if obj == orig
+      return obj
+    end
+    if zr_modify_frozen_p(obj)
+      zr_c_result(zr_frozen_error(obj))
+    end
+    if zr_real_class(obj) != zr_real_class(orig)
+      zr_c_raise(zr_global(G_TYPE_ERROR), Machine.bytes("initialize_copy should take same class object"), 45)
+    end
+    obj
+  end
+
+  # rb_error_frozen: FrozenError for changing the frozen `what`.
+  #: (ptr) -> void
+  def rb_error_frozen(what)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("can't modify frozen "), 20)
+    zr_buf_push(b, what, zr_cstr_len(what))
+    zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:FrozenError)), b))
+  end
+
+  # rb_eql: whether `a` and `b` are the same object or `a.eql?(b)`, as 1
+  # or 0.
+  #: (value, value) -> i32
+  def rb_eql(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    if a == b || zr_capi_call1(a, Machine.id(:eql?), b) == QTRUE
+      return Machine.i32(1)
+    end
+    Machine.i32(0)
+  end
+
+  # rb_obj_method: `obj.method(name)`.
+  #: (value, value) -> value
+  def rb_obj_method(obj, name)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(obj, Machine.id(:method), name)
+  end
+
+  # rb_memerror: NoMemoryError, as when an allocation fails.
+  #: () -> void
+  def rb_memerror
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_raise(zr_core_class(Machine.id(:NoMemoryError)), Machine.bytes("failed to allocate memory"), 25)
+  end
+
+  # rb_hash: `obj.hash`.
+  #: (value) -> value
+  def rb_hash(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(obj, Machine.id(:hash), 0, Machine.ptr(0)))
+  end
+
+  # rb_to_int and rb_check_to_integer: `val` as an Integer through its
+  # conversion; rb_check_to_integer gives nil where rb_to_int raises.
+  #: (value) -> value
+  def rb_to_int(val)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_fixnum_p(val) || zr_big_p(val)
+      return val
+    end
+    v = zr_capi_convert(val, Machine.bytes("Integer"), 7, Machine.id(:to_int), true)
+    if zr_fixnum_p(v) || zr_big_p(v)
+      return v
+    end
+    zr_capi_converted(val, v, T_FIXNUM, Machine.bytes("Integer"), 7, Machine.id(:to_int))
+  end
+
+  #: (value, ptr) -> value
+  def rb_check_to_integer(val, method)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_fixnum_p(val) || zr_big_p(val)
+      return val
+    end
+    mid = zr_intern(method, zr_cstr_len(method))
+    v = zr_capi_convert(val, Machine.bytes("Integer"), 7, mid, false)
+    zr_fixnum_p(v) || zr_big_p(v) ? v : Machine.value(QNIL)
+  end
+
+  # rb_obj_instance_variables: Object#instance_variables.
+  #: (value) -> value
+  def rb_obj_instance_variables(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(obj, Machine.id(:instance_variables), 0, Machine.ptr(0)))
+  end
+
+  # rb_objspace_internal_object_p: no object that C sees is internal to
+  # zr: each is a program's.
+  #: (value) -> i32
+  def rb_objspace_internal_object_p(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(0)
+  end
+
+  # rb_get_argv: ARGV.
+  #: () -> value
+  def rb_get_argv
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_global(G_OBJECT), Machine.id(:const_get), 1, zr_capi_one(zr_sym(Machine.id(:ARGV)))))
+  end
+
+  # A one-word argv holding `v`.
+  #: (value) -> ptr
+  def zr_capi_one(v)
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(v))
+    arg
+  end
+
+  # rb_assert_failure: RUBY_ASSERT's report, after which the process ends.
+  #: (ptr, i32, ptr, ptr) -> void
+  def rb_assert_failure(file, line, name, expr)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("Assertion Failed: "), 18)
+    zr_buf_push(b, file, zr_cstr_len(file))
+    zr_buf_byte(b, 58)
+    zr_buf_long(b, Machine.sword(line))
+    zr_buf_byte(b, 58)
+    if name != 0
+      zr_buf_push(b, name, zr_cstr_len(name))
+    end
+    zr_buf_byte(b, 58)
+    zr_buf_push(b, expr, zr_cstr_len(expr))
+    zr_buf_byte(b, 10)
+    zr_bug(Buf[b].ptr, Buf[b].len)
+  end
 end
