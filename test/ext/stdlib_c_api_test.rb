@@ -28,6 +28,10 @@ class CExtStdlibCApiTest < Minitest::Test
     static VALUE s_catch_name(VALUE self) { return rb_catch("named", caught_i, Qtrue); }
     static VALUE s_throw_uncaught(VALUE self) { rb_throw("nowhere", Qnil); return Qnil; }
 
+    /* json's generator: its ensure function gives Qundef, which is no unwind. */
+    static VALUE ens_body(VALUE d) { return INT2FIX(5); }
+    static VALUE ens_undef(VALUE d) { return Qundef; }
+    static VALUE s_ensure_undef(VALUE self) { return rb_ensure(ens_body, Qnil, ens_undef, Qnil); }
     static VALUE s_formats(VALUE self) {
       VALUE s = rb_str_new_cstr("n=");
       rb_str_catf(s, "%d and %s", 42, "text");
@@ -105,6 +109,7 @@ class CExtStdlibCApiTest < Minitest::Test
       rb_define_module_function(m, "catch", s_catch, 1);
       rb_define_module_function(m, "catch_name", s_catch_name, 0);
       rb_define_module_function(m, "throw_uncaught", s_throw_uncaught, 0);
+      rb_define_module_function(m, "ensure_undef", s_ensure_undef, 0);
       rb_define_module_function(m, "formats", s_formats, 0);
       rb_define_module_function(m, "strings", s_strings, 1);
       rb_define_module_function(m, "find_none", s_find_none, 0);
@@ -132,6 +137,7 @@ class CExtStdlibCApiTest < Minitest::Test
 
     show(:catch) { [StdlibC.catch(true), StdlibC.catch(false), StdlibC.catch_name] }
     show(:throw_uncaught) { StdlibC.throw_uncaught }
+    show(:ensure_undef) { StdlibC.ensure_undef }
     show(:formats) { StdlibC.formats }
     show(:strings) { StdlibC.strings("shared") }
     show(:find_none) { StdlibC.find_none }

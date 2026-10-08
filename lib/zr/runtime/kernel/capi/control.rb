@@ -119,7 +119,7 @@ module Zr::Kern
       Task[zr_task()].parked = Machine.value(QNIL)
     end
     Machine.store64(argv, 0, data2)
-    if zr_call_c(ensure_fn, argv, 1) == QUNDEF
+    if !zr_call_c_returned(ensure_fn, argv, 1)
       zr_c_unwind()
     end
     if r == QUNDEF

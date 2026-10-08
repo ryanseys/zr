@@ -51,6 +51,20 @@ module Zr::Kern
     r
   end
 
+  # Calls `fn` as zr_call_c does, for its effect: whether it returned,
+  # false when a C-API function unwound out of it. A C function may give
+  # undef itself (json's ensure function does), which zr_call_c's answer
+  # cannot tell from an unwind; zr_c_unwind marks the record instead.
+  #: (ptr, ptr, word) -> bool
+  def zr_call_c_returned(fn, argv, argc)
+    rec = Machine.slot(CFRAME_BYTES)
+    zr_cframe_push(rec)
+    zr_cframe_call(rec, fn, argv, argc)
+    zr_cframe_pop(rec)
+    Machine.gates_set(Machine.load64(Machine.static(:gates, 8), 0))
+    CFrame[rec].hi != 0
+  end
+
   # Calls `fn(data)` for the collector: a T_DATA's mark, free or size
   # function (data_object.rb). The collector stops an allocation in it
   # (zr_alloc_slow), so this call, unlike zr_call_c, cannot collect, and
@@ -117,6 +131,8 @@ module Zr::Kern
     Task[t].top = CFrame[rec].top
     Machine.store64(zr_kroots(), 0, Machine.word(CFrame[rec].kroots))
     Task[t].cframe = CFrame[rec].prev
+    # The record bounds no C frames now; its call left (zr_call_c_returned).
+    CFrame[rec].hi = 0
     zr_cframe_leap(rec)
   end
 end
