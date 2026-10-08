@@ -121,6 +121,52 @@ module Zr::Kern
     Machine.i32(0)
   end
 
+  # rb_st_update: calls `fn(&key, &value, arg, existing)` with the entry
+  # of `key`, or with `key` and an unset value when there is none. Its
+  # answer stores what it left in the two (ST_CONTINUE) or deletes the
+  # entry (ST_DELETE). Returns whether the entry was there.
+  #: (ptr, word, ptr, word) -> i32
+  def rb_st_update(tab, key, fn, arg)
+    Machine.gates_enter
+    zr_c_entered()
+    e = zr_st_find(tab, key)
+    existing = e != 0 ? 1 : 0
+    argv = Machine.slot(64)
+    pair = Machine.slot(16)
+    Machine.store64(pair, 0, key)
+    Machine.store64(pair, 8, existing != 0 ? StEntry[e].value : 0)
+    Machine.store64(argv, 0, Machine.word(pair))
+    Machine.store64(argv, 8, Machine.word(pair + 8))
+    Machine.store64(argv, 16, arg)
+    Machine.store64(argv, 24, existing)
+    r = zr_call_c(fn, argv, 4)
+    if r == QUNDEF
+      zr_c_unwind()
+    end
+    answer = Machine.sword(Machine.i32(r))
+    if answer == ST_CONTINUE
+      if existing == 0
+        zr_st_add(tab, Machine.load64(pair, 0), Machine.load64(pair, 8))
+      else
+        StEntry[e].key = Machine.load64(pair, 0)
+        StEntry[e].value = Machine.load64(pair, 8)
+      end
+    elsif answer == ST_DELETE && existing != 0
+      zr_st_kill(tab, e)
+    end
+    Machine.i32(existing)
+  end
+
+  # rb_st_clear: removes every entry.
+  #: (ptr) -> void
+  def rb_st_clear(tab)
+    Machine.gates_enter
+    zr_c_entered()
+    StTable[tab].used = 0
+    StTable[tab].num_entries = 0
+    Libc.memset(StTable[tab].bins, Machine.i32(0), StTable[tab].nbins * 8)
+  end
+
   # rb_st_free_table: frees the table and its entries.
   #: (ptr) -> void
   def rb_st_free_table(tab)
@@ -291,5 +337,42 @@ module Zr::Kern
       i += 1
     end
     hash
+  end
+
+  # rb_st_hash_start, rb_st_hash_uint, rb_st_hash_uint32 and
+  # rb_st_hash_end: a hash built a word at a time, as C's `hash` method
+  # of a struct builds one. Each step mixes the word in; the end spreads
+  # the bits.
+  #: (word) -> word
+  def rb_st_hash_start(h)
+    Machine.gates_enter
+    zr_c_entered()
+    h ^ Machine.word(0x9e3779b97f4a7c15)
+  end
+
+  #: (word, word) -> word
+  def rb_st_hash_uint(h, i)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_hash_step(h, i)
+  end
+
+  #: (word, i32) -> word
+  def rb_st_hash_uint32(h, i)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_hash_step(h, Machine.u32(i))
+  end
+
+  #: (word) -> word
+  def rb_st_hash_end(h)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_st_hash(h)
+  end
+
+  #: (word, word) -> word
+  def zr_st_hash_step(h, i)
+    Machine.mul_wrap(h ^ zr_st_hash(i), 0x100000001b3)
   end
 end
