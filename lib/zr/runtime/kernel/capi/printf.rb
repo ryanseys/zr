@@ -39,6 +39,18 @@ module Zr::Kern
     zr_c_result(zr_raise(zr_c_result(zr_exc_new_str(klass, message))))
   end
 
+  # rb_enc_raise: the same, with the message in the encoding `enc`.
+  #: (ptr, value, ptr) -> void
+  def rb_enc_raise(enc, klass, fmt)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_start(list, Machine.stack_args)
+    message = zr_c_result(zr_c_format(fmt, list))
+    zr_capi_associate(message, zr_capi_enc_index(enc))
+    zr_c_result(zr_raise(zr_c_result(zr_exc_new_str(klass, message))))
+  end
+
   # rb_bug: ruby's own bug, which ends the process.
   #: (ptr) -> void
   def rb_bug(fmt)

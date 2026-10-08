@@ -51,15 +51,17 @@ module Zr::Kern
     r
   end
 
-  # Calls `fn` as zr_call_c does, for its effect: whether it returned,
-  # false when a C-API function unwound out of it. A C function may give
-  # undef itself (json's ensure function does), which zr_call_c's answer
-  # cannot tell from an unwind; zr_c_unwind marks the record instead.
+  # Calls `fn` as zr_call_c does, and tells whether it returned: false
+  # when a C-API function unwound out of it. A C function may give undef
+  # itself (json's ensure function does), or a position that is undef's
+  # word (a regexp match callback), which zr_call_c's answer cannot tell
+  # from an unwind; zr_c_unwind marks the record instead. The result
+  # replaces argv[0].
   #: (ptr, ptr, word) -> bool
   def zr_call_c_returned(fn, argv, argc)
     rec = Machine.slot(CFRAME_BYTES)
     zr_cframe_push(rec)
-    zr_cframe_call(rec, fn, argv, argc)
+    Machine.store64(argv, 0, zr_cframe_call(rec, fn, argv, argc))
     zr_cframe_pop(rec)
     Machine.gates_set(Machine.load64(Machine.static(:gates, 8), 0))
     CFrame[rec].hi != 0

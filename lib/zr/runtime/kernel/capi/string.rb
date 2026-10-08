@@ -410,6 +410,14 @@ module Zr::Kern
     zr_capi_call1(a, Machine.id(:+), b)
   end
 
+  # rb_str_dump: `str.dump`.
+  #: (value) -> value
+  def rb_str_dump(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(str, Machine.id(:dump), 0, Machine.ptr(0)))
+  end
+
   # rb_str_times: `str * times`, a new String.
   #: (value, value) -> value
   def rb_str_times(str, times)

@@ -439,6 +439,14 @@ module Zr::Kern
     zr_capi_check_convert(val, T_ARRAY, Machine.bytes("Array"), 5, Machine.id(:to_ary))
   end
 
+  # rb_check_hash_type: `val` as a Hash through `to_hash`, or nil.
+  #: (value) -> value
+  def rb_check_hash_type(val)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_check_convert(val, T_HASH, Machine.bytes("Hash"), 4, Machine.id(:to_hash))
+  end
+
   #: (value, word, ptr, word, word) -> value
   def zr_capi_check_convert(val, t, tname, tlen, mid)
     if zr_capi_builtin_type(val) == t && t != T_DATA

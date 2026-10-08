@@ -74,6 +74,8 @@ module Zr::Kern
       RFiber[copy].yielding = 0
       RFiber[copy].transferred = 0
     elsif t == T_REGEXP
+      RRegexp[copy].ptr = Machine.word(copy)
+      RRegexp[copy].usecnt = 0
       RRegexp[copy].source = Machine.value(QNIL)
       RRegexp[copy].names = Machine.value(QNIL)
       RRegexp[copy].options = 0

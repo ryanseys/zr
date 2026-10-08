@@ -40,9 +40,16 @@ module Zr::Kern
   # subjects in other encodings. `names` contains
   # [[name, [group numbers]], ...]. `limit` is the timeout of the pattern
   # in nanoseconds, or 0 for none.
+  #
+  # The first fields are CRuby's struct RRegexp, which C reads inline:
+  # `ptr` (RREGEXP_PTR) is the regex_t that C passes back to onig_search
+  # and the like (capi/regex.rb), here the cell's own address; `source` is
+  # RREGEXP_SRC; `usecnt` counts C matches in progress.
   class RRegexp < Layout
     attr_reader :basic #: RBasic
+    attr_accessor :ptr #: word
     attr_accessor :source #: value
+    attr_accessor :usecnt #: word
     attr_accessor :options #: word
     attr_accessor :program #: value
     attr_accessor :names #: value
@@ -62,6 +69,8 @@ module Zr::Kern
   #: (value) -> value
   def zr_regexp_alloc(klass)
     re = zr_alloc(T_REGEXP, klass, RRegexp.size)
+    RRegexp[re].ptr = Machine.word(re)
+    RRegexp[re].usecnt = 0
     RRegexp[re].source = Machine.value(QNIL)
     RRegexp[re].options = 0
     RRegexp[re].names = Machine.value(QNIL)

@@ -98,6 +98,22 @@ module Zr::Kern
     zr_c_result(zr_alias(klass, zr_capi_name(new_name), zr_capi_name(old_name)))
   end
 
+  # rb_alias: the same, with IDs.
+  #: (value, word, word) -> void
+  def rb_alias(klass, alias_id, orig_id)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_alias(klass, zr_capi_mid(alias_id), zr_capi_mid(orig_id)))
+  end
+
+  # rb_deprecate_constant: `mod.deprecate_constant(name)`.
+  #: (value, ptr) -> void
+  def rb_deprecate_constant(mod, name)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(mod, Machine.id(:deprecate_constant), zr_sym(zr_capi_name(name)))
+  end
+
   # rb_include_module: includes `mod` in `klass`.
   #: (value, value) -> void
   def rb_include_module(klass, mod)
