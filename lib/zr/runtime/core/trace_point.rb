@@ -199,6 +199,13 @@ class TracePoint
       Primitive.zr_hidden_set(self, :__armed__, mask)
       builtin_places if (mask & 0xf9).nonzero?
       Primitive.zr_trace_events_set(mask & ALL)
+      # The C points that hear internal events, which the kernel calls
+      # itself (kernel/internal_events.rb).
+      internal = enabled.filter_map do |point|
+        events = Primitive.zr_hidden_get(point, :__events__)
+        [Primitive.zr_hidden_get(point, :__c_hook__), point, events] if (events & INTERNAL_OBJECT_EVENTS).nonzero?
+      end
+      Primitive.zr_trace_internal_set(internal)
     end
 
     # The same mask, for an event Ruby fires rather than compiled code.

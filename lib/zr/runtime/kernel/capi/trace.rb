@@ -48,12 +48,17 @@ module Zr::Kern
   end
 
   # rb_tracearg_from_tracepoint: the trace arg of the event that `tp`'s
-  # hook handles, which is `tp` itself. Out of a hook it raises
+  # hook handles, which is `tp` itself, or for an internal event the
+  # kernel's record of it (internal_events.rb). Out of a hook it raises
   # RuntimeError, as ruby's does.
   #: (value) -> ptr
   def rb_tracearg_from_tracepoint(tp)
     Machine.gates_enter
     zr_c_entered()
+    internal = zr_internal_arg()
+    if InternalArg[internal].event != 0 && InternalArg[internal].point == tp
+      return internal
+    end
     zr_c_result(zr_trace_point_send(tp, Machine.id(:row), 0, Machine.ptr(0)))
     Machine.ptr(tp)
   end
@@ -63,6 +68,9 @@ module Zr::Kern
   def rb_tracearg_event_flag(arg)
     Machine.gates_enter
     zr_c_entered()
+    if arg == zr_internal_arg()
+      return Machine.i32(InternalArg[arg].event)
+    end
     Machine.i32(zr_fix2long(zr_capi_tracearg(arg, Machine.id(:event_flag))))
   end
 
@@ -169,7 +177,47 @@ module Zr::Kern
   # The accessor `mid` of the trace arg `arg`, a TracePoint.
   #: (ptr, word) -> value
   def zr_capi_tracearg(arg, mid)
+    if arg == zr_internal_arg()
+      return zr_capi_internal_tracearg(mid)
+    end
     zr_c_result(zr_trace_point_send(Machine.value(arg), mid, 0, Machine.ptr(0)))
+  end
+
+  # The accessor `mid` of the trace arg of an internal event, which runs
+  # no Ruby: the object, and the place, self and method of the frame that
+  # runs. A FREEOBJ hook runs in the sweep, where no String can be made,
+  # so it gets no path. Any other accessor gives nil.
+  #: (word) -> value
+  def zr_capi_internal_tracearg(mid)
+    arg = zr_internal_arg()
+    top = Task[zr_task()].top
+    if mid == Machine.id(:object)
+      return InternalArg[arg].object
+    end
+    if top == 0
+      return Machine.value(QNIL)
+    end
+    if mid == Machine.id(:self)
+      return Frame[top].self
+    end
+    rec = zr_frame_with_file(top)
+    if mid == Machine.id(:lineno)
+      return zr_fix(rec == 0 ? 0 : zr_frame_line(rec))
+    end
+    if mid == Machine.id(:path)
+      return rec == 0 || InternalArg[arg].event != TRACE_NEWOBJ ? Machine.value(QNIL) : zr_meta_path(Frame[rec].meta)
+    end
+    method = zr_method_meta_of(top)
+    if method == 0
+      return Machine.value(QNIL)
+    end
+    if mid == Machine.id(:method_id) || mid == Machine.id(:callee_id)
+      return zr_sym(FrameMeta[method].name)
+    end
+    if mid == Machine.id(:defined_class)
+      return FrameMeta[method].owner
+    end
+    Machine.value(QNIL)
   end
 
   # Turns `tp` on or off. A point that starts :c_return events hears the

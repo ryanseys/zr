@@ -1472,11 +1472,15 @@ module Zr::Kern
   end
 
   # Frees an unmarked cell of `bytes` that was live: releases what it owns,
-  # and poisons it. `watched` tells whether allocation tracing or stress
-  # mode is on, which the sweep reads once for each arena. A plain object
-  # whose ivar entries are in its cell owns nothing outside it.
+  # and poisons it. `watched` tells whether allocation tracing, a FREEOBJ
+  # hook or stress mode is on, which the sweep reads once for each arena.
+  # A FREEOBJ hook hears the cell before it releases anything. A plain
+  # object whose ivar entries are in its cell owns nothing outside it.
   #: (ptr, word, bool) -> void
   def zr_free_cell(cell, bytes, watched)
+    if watched
+      zr_trace_internal(TRACE_FREEOBJ, Machine.value(cell))
+    end
     flags = Machine.load64(cell, 0)
     if (flags & FL_ALLOCATED) != 0 && ((flags & (T_MASK | FL_EXIVAR)) != T_OBJECT || !zr_ivtab_embedded_p(Machine.ptr(RObject[Machine.value(cell)].iv)))
       zr_release(Machine.value(cell))
@@ -1532,7 +1536,7 @@ module Zr::Kern
     ages = zr_arena_ages(a)
     remembered = zr_arena_remembered(a)
     allocated = zr_arena_allocated(a)
-    watched = AllocTrace[zr_alloc_trace()].used != 0 || Heap[zr_heap()].stress != 0
+    watched = AllocTrace[zr_alloc_trace()].used != 0 || Heap[zr_heap()].stress != 0 || zr_trace_internal_armed(TRACE_FREEOBJ)
     live = 0
     w = 0
     while w < MARK_BYTES
@@ -2340,12 +2344,13 @@ module Zr::Kern
   end
 
   # Whether an allocation must use `zr_alloc_slow`: under stress, while
-  # allocations are traced, or when the payload is over its limit. Each
-  # change to one of the three calls this again.
+  # allocations are traced or a C hook hears NEWOBJ, or when the payload
+  # is over its limit. Each change to one of these calls this again.
   #: () -> void
   def zr_heap_slow_update
     h = zr_heap()
-    slow = Heap[h].stress != 0 || AllocTrace[zr_alloc_trace()].on != 0 || Heap[h].malloced > Heap[h].malloc_limit
+    slow = Heap[h].stress != 0 || AllocTrace[zr_alloc_trace()].on != 0 || Heap[h].malloced > Heap[h].malloc_limit ||
+           zr_trace_internal_armed(TRACE_NEWOBJ)
     Heap[h].slow = slow ? 1 : 0
   end
 
@@ -2386,6 +2391,7 @@ module Zr::Kern
     if AllocTrace[zr_alloc_trace()].on != 0
       zr_alloc_trace_record(cell)
     end
+    zr_trace_internal(TRACE_NEWOBJ, v)
     zr_heap_slow_update()
     v
   end
