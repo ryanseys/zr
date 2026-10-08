@@ -302,6 +302,7 @@ module Zr
           EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze #: Hash[Symbol, Integer]
           OPENING = { def: :call, block: :b_call, class: :class }.freeze #: Hash[Symbol, Symbol]
           CLOSING = { def: :return, block: :b_return, class: :end }.freeze #: Hash[Symbol, Symbol]
+          LAMBDA = 1 << 32
 
           # Whether an enabled TracePoint listens for `event`.
           #: (Symbol event) -> bool
@@ -320,7 +321,16 @@ module Zr
 
             f.opened = kind
             event = OPENING.fetch(kind)
-            check(k.zr_trace_open(EVENTS.fetch(event), Hir::Trace.first_line(s.node.body) || 0)) if armed?(event)
+            check(k.zr_trace_open(event_word(f, event), Hir::Trace.first_line(s.node.body) || 0)) if armed?(event)
+          end
+
+          # The bit of `event` of frame `f`: a block's :b_call and :b_return
+          # also carry whether the block runs as a lambda, as the lowering's
+          # `event_word` gives them (the kernel's TRACE_LAMBDA).
+          #: (Frame f, Symbol event) -> Integer
+          def event_word(f, event)
+            bit = EVENTS.fetch(event)
+            f.opened == :block && f.proc && lambda_proc?(f.proc) ? bit | LAMBDA : bit
           end
 
           # The closing event of a scope that leaves with `v`: at the line of
@@ -333,7 +343,7 @@ module Zr
 
             line = f.ret_line || node.end_line
             line!(f, line) unless v == @qundef || line.nil?
-            k.zr_trace_fire(EVENTS.fetch(event), v)
+            k.zr_trace_fire(event_word(f, event), v)
           end
 
           # Sets the frame's line word, as the lowering's `at_node` does
