@@ -216,4 +216,15 @@ module Zr::Kern
     end
     q
   end
+
+  # ruby_strdup: a copy of a C string in ruby's malloc.
+  #: (ptr) -> ptr
+  def ruby_strdup(text)
+    Machine.gates_enter
+    zr_c_entered()
+    n = zr_cstr_len(text) + 1
+    copy = zr_xmalloc(n)
+    zr_memcpy(copy, text, n)
+    copy
+  end
 end

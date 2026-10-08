@@ -280,4 +280,53 @@ module Zr::Kern
     Machine.store64(args, 0, Machine.word(arg))
     zr_c_result(zr_send(recv, mid, 1, args))
   end
+
+  # rb_range_beg_len: the start and length in a sequence of `len` that
+  # `range` selects, into `*begp` and `*lenp`: true, false when `range`
+  # is not a Range, or nil (with `err`, CRuby's RangeError) when it
+  # starts outside. `err` 0 or 2 also stops the length at the end.
+  #: (value, ptr, ptr, word, i32) -> value
+  def rb_range_beg_len(range, begp, lenp, len, err)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_special_p(range) || !zr_is_a(range, zr_global(G_RANGE))
+      return Machine.value(QFALSE)
+    end
+    first = zr_c_result(zr_send(range, Machine.id(:begin), 0, Machine.ptr(0)))
+    last = zr_c_result(zr_send(range, Machine.id(:end), 0, Machine.ptr(0)))
+    excl = zr_c_result(zr_send(range, Machine.id(:exclude_end?), 0, Machine.ptr(0))) == QTRUE
+    mode = Machine.sword(err)
+    beg = first == QNIL ? 0 : zr_capi_long(first)
+    stop = last == QNIL ? 0 - 1 : zr_capi_long(last)
+    if last == QNIL
+      excl = false
+    end
+    if beg < 0
+      beg += len
+    end
+    if beg >= 0
+      if stop < 0
+        stop += len
+      end
+      if !excl
+        stop += 1
+      end
+      if (mode == 0 || mode == 2) && stop > len
+        stop = len
+      end
+      if !((mode == 0 || mode == 2) && beg > len)
+        Machine.store64(begp, 0, beg)
+        Machine.store64(lenp, 0, stop - beg < 0 ? 0 : stop - beg)
+        return Machine.value(QTRUE)
+      end
+    end
+    if mode != 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_str(b, zr_c_result(zr_inspect(range)))
+      zr_buf_push(b, Machine.bytes(" out of range"), 13)
+      zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b))
+    end
+    Machine.value(QNIL)
+  end
 end

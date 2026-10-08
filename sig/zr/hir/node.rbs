@@ -97,6 +97,7 @@ module Zr
       attr_accessor init: String
       attr_accessor path: String
       attr_accessor line: Integer
+      attr_accessor library: String?
     end
 
     class Autoload < Node

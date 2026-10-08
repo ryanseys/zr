@@ -75,7 +75,9 @@ module Zr
         path = File.join(ext.dir, "prog_#{Digest::SHA256.hexdigest(source)[0, 12]}.rb")
         File.write(path, source)
         ruby = run(env, RbConfig.ruby, path)
-        bin = path.delete_suffix(".rb")
+        # Each set of runs has its own binary: two tests of one program
+        # build at the same time.
+        bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest(binary_envs.inspect)[0, 8]}"
         zr_env = env.merge("ZR_EXT_OBJECTS" => "#{ext.bundle}=#{ext.object}")
         built = run(zr_env, File.join(ROOT, "bin", "zr"), "build", path, "-o", bin)
         return [ruby, binary_envs.map { built }] unless built.status.zero?
@@ -92,9 +94,10 @@ module Zr
       # The installed gem `name`'s newest version, or nil.
       #: (String name) -> String?
       def installed(name)
-        Dir[File.join(Gem.default_dir, "gems", "#{name}-*")].filter_map { |dir| File.basename(dir).delete_prefix("#{name}-") }
-                                                             .select { |version| Gem::Version.correct?(version) }
-                                                             .max_by { |version| Gem::Version.new(version) }
+        Dir[File.join(Gem.default_dir, "specifications", "#{name}-*.gemspec")]
+          .filter_map { |path| Gem::Specification.load(path) }
+          .select { |spec| spec.name == name }
+          .max_by(&:version)&.version&.to_s
       end
 
       # Runs `program`, which requires the installed gem `name` at
@@ -107,7 +110,9 @@ module Zr
         path = File.join(dir, "prog_#{Digest::SHA256.hexdigest(program)[0, 12]}.rb")
         File.write(path, program)
         ruby = run(UNBUNDLED, RbConfig.ruby, path)
-        bin = path.delete_suffix(".rb")
+        # Each set of runs has its own binary: two tests of one program
+        # build at the same time.
+        bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest(binary_envs.inspect)[0, 8]}"
         built = run(UNBUNDLED, File.join(ROOT, "bin", "zr"), "build", "--native-ext", "#{name}=#{version}", "--gem", "#{name}=#{version}",
                     path, "-o", bin)
         return [ruby, binary_envs.map { built }] unless built.status.zero?

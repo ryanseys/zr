@@ -53,7 +53,7 @@ module Zr
       cli.rb cli/command.rb cli/errors.rb cli/help.rb cli/options.rb cli/refusals.rb cli/runner.rb
       cli/commands/cache.rb cli/commands/compile.rb cli/commands/diff.rb cli/commands/doctor.rb cli/commands/gems.rb cli/commands/help.rb
       cli/commands/inspect.rb cli/commands/version.rb
-      ext/capi.rb native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
+      ext/c_api.rb native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
       obj/jit.rb obj/jit/fiddle.rb
       obj/macho/block.rb obj/macho/executable.rb obj/macho/image.rb obj/macho/libsystem.rb obj/macho/prelink.rb
       obj/macho/skeleton.rb

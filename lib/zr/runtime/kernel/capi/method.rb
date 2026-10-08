@@ -379,4 +379,71 @@ module Zr::Kern
   def zr_capi_send_kw(recv, mid, argc, argv)
     zr_send(recv, mid, zr_kw_argc(argc, argv), argv)
   end
+
+  # rb_call_super: calls the next method of the C method that runs, with
+  # `argc` arguments at `argv`, and its keywords when it got them.
+  #: (i32, ptr) -> value
+  def rb_call_super(argc, argv)
+    Machine.gates_enter
+    zr_c_entered()
+    n = Machine.sword(argc)
+    if Task[zr_task()].c_keywords != 0 && n > 0
+      n = zr_kw_argc(n, argv)
+    end
+    zr_c_result(zr_super(Machine.ptr(0), Task[zr_task()].top, n, argv, Machine.value(QNIL)))
+  end
+
+  # rb_get_kwargs: takes the `required` and `optional` keywords that the
+  # IDs at `table` name out of `hash` into `values` (undef for a missing
+  # optional one), as rb_get_kwargs deletes them from the caller's copy.
+  # A negative `optional` (-1 - n) allows other keys. Raises CRuby's
+  # `missing keyword` and `unknown keyword` errors. Returns the count of
+  # keywords found.
+  #: (value, ptr, i32, i32, ptr) -> i32
+  def rb_get_kwargs(hash, table, required, optional, values)
+    Machine.gates_enter
+    zr_c_entered()
+    req = Machine.sword(required)
+    opt = Machine.sword(optional)
+    rest = opt < 0
+    if rest
+      opt = 0 - 1 - opt
+    end
+    n = req + opt
+    ids = Machine.slot((CAPI_ARGS + 1) * 8)
+    if n > CAPI_ARGS
+      zr_c_raise(zr_global(G_ARGUMENT_ERROR), Machine.bytes("too many keywords for rb_get_kwargs"), 35)
+    end
+    i = 0
+    while i < n
+      Machine.store64(ids + (i * 8), 0, zr_capi_mid(Machine.load64(table + (i * 8), 0)))
+      i += 1
+    end
+    if hash == QNIL && req > 0
+      zr_c_result(zr_kw_missing(Machine.value(QNIL), ids, req))
+    end
+    if hash != QNIL
+      zr_c_result(zr_kw_missing(hash, ids, req))
+    end
+    found = req
+    i = 0
+    while i < n
+      key = zr_sym(Machine.load64(ids + (i * 8), 0))
+      v = hash == QNIL ? Machine.value(QUNDEF) : zr_capi_hash_lookup(hash, key, Machine.value(QUNDEF))
+      if v != QUNDEF && i >= req
+        found += 1
+      end
+      if values != 0
+        if v != QUNDEF
+          zr_c_result(zr_hash_delete_m(hash, key))
+        end
+        Machine.store64(values + (i * 8), 0, Machine.word(v))
+      end
+      i += 1
+    end
+    if !rest && hash != QNIL && RHash[hash].live > (values != 0 ? 0 : found)
+      zr_c_result(zr_kw_unknown(hash, ids, n))
+    end
+    Machine.i32(found)
+  end
 end

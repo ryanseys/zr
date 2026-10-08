@@ -6,9 +6,10 @@ module Zr
       attr_reader init: String
       attr_reader objects: Array[String]
       attr_reader libraries: Array[String]
+      attr_reader library: String?
 
-      def self.new: (String bundle, String init, Array[String] objects, Array[String] libraries) -> instance
-                  | (bundle: String, init: String, objects: Array[String], libraries: Array[String]) -> instance
+      def self.new: (String bundle, String init, Array[String] objects, Array[String] libraries, String? library) -> instance
+                  | (bundle: String, init: String, objects: Array[String], libraries: Array[String], library: String?) -> instance
     end
   end
 end

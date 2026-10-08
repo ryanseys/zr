@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
-require_relative "../lib/zr/ext/capi"
+require_relative "../lib/zr/ext/c_api"
 
 module Zr
   module Dev

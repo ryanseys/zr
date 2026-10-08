@@ -395,4 +395,12 @@ module Zr::Kern
     zr_buf_push(b, Machine.bytes(" out of range of integer"), 24)
     zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b))
   end
+
+  # rb_out_of_int: the RangeError of a long that is not an int.
+  #: (word) -> void
+  def rb_out_of_int(n)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_check_int(n)
+  end
 end

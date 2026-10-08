@@ -49,11 +49,11 @@ module Zr
       #: (Array[Source] sources) -> void
       def check!(sources)
         sources.each do |source|
-          lacking = missing(source.objects.flat_map { |path| imports(path) })
+          lacking = missing(source.binaries.flat_map { |path| imports(path) })
           next if lacking.empty?
 
           raise Refused, "#{File.basename(source.bundle)}: zr's C API has no #{lacking.join(", ")} yet " \
-                         "(`zr-dev ext imports #{source.objects.join(" ")}` lists what it uses)"
+                         "(`zr-dev ext imports #{source.binaries.join(" ")}` lists what it uses)"
         end
       end
 

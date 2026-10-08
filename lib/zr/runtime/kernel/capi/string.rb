@@ -273,4 +273,97 @@ module Zr::Kern
     Machine.store64(args, 8, Machine.word(ecopts))
     zr_c_result(zr_capi_send_kw(str, Machine.id(:encode), 2, args))
   end
+
+  # rb_str_concat: `str << obj`, a String or a codepoint.
+  #: (value, value) -> value
+  def rb_str_concat(str, obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:<<), obj)
+  end
+
+  # rb_str_split: `str.split(sep)` with a C string separator.
+  #: (value, ptr) -> value
+  def rb_str_split(str, sep)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:split), zr_str_new(sep, zr_cstr_len(sep)))
+  end
+
+  # rb_enc_str_buf_cat: appends `len` bytes at `bytes` in `enc`, as
+  # rb_enc_cr_str_buf_cat joins two encodings.
+  #: (value, ptr, word, ptr) -> value
+  def rb_enc_str_buf_cat(str, bytes, len, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:buf_cat), zr_capi_str(bytes, len, zr_capi_enc_index(enc)))
+  end
+
+  # rb_str_conv_enc: `str` from `from` (its own encoding for NULL) to
+  # `to`, or `str` itself when it needs no conversion or cannot have one.
+  #: (value, ptr, ptr) -> value
+  def rb_str_conv_enc(str, from, to)
+    Machine.gates_enter
+    zr_c_entered()
+    if to == 0
+      return str
+    end
+    source = from == 0 ? zr_str_encoding_index(str) : zr_capi_enc_index(from)
+    target = zr_capi_enc_index(to)
+    if source == target
+      return str
+    end
+    if (zr_enc_ascii_compat_p(target) && zr_enc_ascii_compat_p(source) && zr_str_ascii_bytes_p(str)) || target == ENC_BINARY
+      if zr_str_encoding_index(str) == target
+        return str
+      end
+      return zr_str_set_index(zr_str_copy_encoding(zr_str_new(RString[str].ptr, RString[str].len), str), target)
+    end
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(zr_capi_encoding_object(target)))
+    Machine.store64(args, 8, Machine.word(zr_capi_encoding_object(source)))
+    converted = zr_send(str, Machine.id(:encode), 2, args)
+    if converted == QUNDEF
+      # Some error: the String as it was, as CRuby gives it.
+      Task[zr_task()].pending = Machine.value(QNIL)
+      return str
+    end
+    converted
+  end
+
+  # rb_external_str_new_with_enc: bytes read from outside, in `enc`, in
+  # Encoding.default_internal when there is one and it can take them.
+  #: (ptr, word, ptr) -> value
+  def rb_external_str_new_with_enc(bytes, len, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    index = zr_capi_enc_index(enc)
+    if bytes == 0
+      return zr_capi_str(bytes, len, index)
+    end
+    ascii = zr_bytes_ascii_only_p(bytes, len)
+    if index == ENC_BINARY || (index == ENC_USASCII && !ascii)
+      return zr_capi_str(bytes, len, ENC_BINARY)
+    end
+    internal = zr_c_result(zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:default_internal), 0, Machine.ptr(0)))
+    if internal == QNIL
+      return zr_capi_str(bytes, len, index)
+    end
+    inner = zr_fix2long(zr_c_result(zr_send(internal, Machine.id(:index), 0, Machine.ptr(0))))
+    if inner == index
+      return zr_capi_str(bytes, len, index)
+    end
+    if index == ENC_USASCII || (zr_enc_ascii_compat_p(index) && ascii)
+      return zr_capi_str(bytes, len, inner)
+    end
+    s = zr_capi_str(bytes, len, index)
+    args = Machine.slot(8)
+    Machine.store64(args, 0, Machine.word(internal))
+    converted = zr_send(s, Machine.id(:encode), 1, args)
+    if converted == QUNDEF
+      Task[zr_task()].pending = Machine.value(QNIL)
+      return s
+    end
+    converted
+  end
 end

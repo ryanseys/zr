@@ -49,6 +49,30 @@ module Zr::Kern
     Machine.value(QTRUE)
   end
 
+  # Runs a C extension that the binary loads with dlopen: the bundle at
+  # `path`, and its Init function `init`. The binary exports the C API,
+  # which the bundle's imports bind to. Raises LoadError with dlopen's
+  # reason when the bundle does not load. Returns undef when Init raised.
+  #: (value, value) -> value
+  def zr_ext_load(path, init)
+    handle = Libc.dlopen(RString[path].ptr, Machine.i32(RTLD_LAZY))
+    if handle == 0
+      why = Libc.dlerror()
+      return zr_raise_msg(zr_core_class(Machine.id(:LoadError)), why, zr_cstr_len(why))
+    end
+    fn = Libc.dlsym(handle, RString[init].ptr)
+    if fn == 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("no "), 3)
+      zr_buf_str(b, init)
+      zr_buf_push(b, Machine.bytes(" in "), 4)
+      zr_buf_str(b, path)
+      return zr_raise_buf(zr_core_class(Machine.id(:LoadError)), b)
+    end
+    zr_ext_init(fn)
+  end
+
   # Sets the words that an extension reads as `rb_cObject` and the like,
   # once, before the first Init runs. They hold core classes, which their
   # constants keep alive.

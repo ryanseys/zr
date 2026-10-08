@@ -3,7 +3,7 @@
 require "test_helper"
 require "tmpdir"
 require_relative "../../lib/zr/ext"
-require_relative "../../lib/zr/ext/capi"
+require_relative "../../lib/zr/ext/c_api"
 
 # The readers that find a C extension to link: mkmf's Makefile
 # (`Zr::Ext::Makefile`), an installed gem's extensions (`Ext::Source`),
@@ -71,6 +71,23 @@ class ExtTest < Minitest::Test
       assert_equal File.join(gem, "lib", "hello", "hello.bundle"), source.bundle
       assert_equal "Init_hello_ext", source.init
       assert_equal %w[a.o b.o extra.o].map { |name| File.join(ext, name) }, source.objects
+    end
+  end
+
+  # A precompiled gem ships a bundle for each ruby: the one for this ABI
+  # is the extension that `require "x/x"` loads, through dlopen.
+  def test_a_precompiled_gem_gives_its_bundle_for_this_abi
+    Dir.mktmpdir do |gem|
+      %w[3.4 4.0].each do |abi|
+        FileUtils.mkdir_p(File.join(gem, "lib", "fancy", abi))
+        File.write(File.join(gem, "lib", "fancy", abi, "fancy.bundle"), "")
+      end
+      source = Zr::Ext::Source.installed(gem).first
+
+      assert_equal 1, Zr::Ext::Source.installed(gem).size
+      assert_equal File.join(gem, "lib", "fancy", "fancy.bundle"), source.bundle
+      assert_equal File.join(gem, "lib", "fancy", Zr::Ext::ABI, "fancy.bundle"), source.library
+      assert_equal ["Init_fancy", [], [source.library]], [source.init, source.objects, source.binaries]
     end
   end
 

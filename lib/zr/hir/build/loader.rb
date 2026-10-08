@@ -676,7 +676,8 @@ module Zr
                       elsif path == Library::Roots::SWITCHES
                         unit(path, @switches.prelude || raise(ArgumentError, "the build has no switches' prelude"))
                       elsif extension?(path)
-                        Unit.new(path, [], ExtInit.new(Ext.bundles.fetch(path).init, path, 1), [], false)
+                        source = Ext.bundles.fetch(path)
+                        Unit.new(path, [], ExtInit.new(source.init, path, 1, source.library), [], false)
                       else
                         parsed_unit(path)
                       end

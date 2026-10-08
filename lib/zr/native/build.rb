@@ -18,7 +18,7 @@ require_relative "../runtime"
 require_relative "../timing"
 require_relative "../config"
 require_relative "../ext"
-require_relative "../ext/capi"
+require_relative "../ext/c_api"
 require_relative "parallel"
 require_relative "code_cache"
 
@@ -116,9 +116,20 @@ module Zr
           sources = Ext.bundles.values
           Ext::CApi.check!(sources)
           extensions = sources.flat_map { |source| source.objects + source.libraries }
+          extensions += exports(work) if sources.any?(&:library)
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
                                                            target: program.runtime.target, jobs: jobs, link: link + extensions)
         end
+      end
+
+      # The linker words that export the C API from the binary, for a bundle
+      # that it loads with dlopen: its imports bind to the binary's names.
+      # The list goes in `work`.
+      #: (String work) -> Array[String]
+      def exports(work)
+        list = File.join(work, "capi.exports")
+        File.write(list, Ext::CApi.names.sort.map { |name| "_#{name}\n" }.join)
+        ["-Wl,-exported_symbols_list,#{list}"]
       end
 
       # Names the store entries that a link of `objects` reads (lib/zr/cache/store.rb),

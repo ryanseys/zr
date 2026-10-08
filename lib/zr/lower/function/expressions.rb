@@ -49,7 +49,7 @@ module Zr
             kernel("zr_activations_reserve", imm(node.count))
             @qnil
           when Hir::Stop then checked(kernel("zr_unloadable", string_literal(node.what, "zr_str_literal_freeze")))
-          when Hir::ExtInit then checked(kernel("zr_ext_init", @f.symbol_value(@f.symbol(node.init, colocated: false))))
+          when Hir::ExtInit then ext_init(node)
           when Hir::Autoload then autoload_unit(node)
           when Hir::Def then define_method(node)
           when Hir::ClassDef, Hir::ModuleDef then class_body(node)
@@ -321,6 +321,17 @@ module Zr
           return expr(node) unless text.is_a?(String) && text.encoding == ::Encoding::UTF_8
 
           shared_literal(text)
+        end
+
+        # A C extension's require: it runs the extension's Init function,
+        # which the link put in the binary, or which the binary finds in
+        # the bundle that it loads with dlopen (`Ext::Source#library`).
+        #: (Hir::ExtInit node) -> String
+        def ext_init(node)
+          library = node.library
+          return checked(kernel("zr_ext_init", @f.symbol_value(@f.symbol(node.init, colocated: false)))) unless library
+
+          checked(kernel("zr_ext_load", string_literal(library, "zr_str_literal_freeze"), string_literal(node.init, "zr_str_literal_freeze")))
         end
 
         # A String literal, built by `fn` and tagged with the file's script
