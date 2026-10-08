@@ -60,6 +60,30 @@ class RubyVM
     end
   end
 
+  # The private iseq functions of the C API (kernel/capi/iseq.rb): the
+  # answer `what` about the code of the FrameMeta at `meta`.
+  def self.iseq_answer(meta, what, as_proc)
+    Primitive.attr! :hidden
+    iseq = InstructionSequence.send(:of_frame, meta)
+    case what
+    when :wrapper then iseq
+    when :path then iseq.path
+    when :realpath then iseq.absolute_path
+    when :label then iseq.label
+    when :first_lineno then iseq.first_lineno
+    when :type then Primitive.zr_iseq_meta_info(meta)[2]
+    when :parameters then Primitive.zr_iseq_meta_parameters_as(meta, as_proc)
+    end
+  end
+
+  # rb_iseqw_to_iseq: the FrameMeta address of a RubyVM::InstructionSequence,
+  # or nil for one that has none.
+  def self.iseq_meta(iseqw)
+    Primitive.attr! :hidden
+    meta = Primitive.zr_hidden_get(iseqw, :__meta__) if iseqw.is_a?(InstructionSequence)
+    meta if meta&.nonzero?
+  end
+
   # rb_profile_frame_classpath: the path of the class, or of the module
   # whose singleton class it is, or `#<Class:0x...>` for another object's.
   def self.profile_classpath(owner)
@@ -101,7 +125,7 @@ class RubyVM
 
     "#{iseq.label[0, iseq.label.length - iseq.base_label.length]}#{qualified}"
   end
-  private_class_method :profile_frame, :profile_classpath, :profile_method_name, :profile_qualified, :profile_full_label
+  private_class_method :profile_frame, :profile_classpath, :profile_method_name, :profile_qualified, :profile_full_label, :iseq_answer, :iseq_meta
 
   def self.keep_script_lines=(flag)
     KEEP_SCRIPT_LINES[0] = flag ? true : false

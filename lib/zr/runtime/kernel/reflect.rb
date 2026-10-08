@@ -867,10 +867,18 @@ module Zr::Kern
   #: (value) -> value
   def zr_iseq_meta_parameters(meta_word)
     meta = Machine.ptr(zr_fix2long(meta_word))
+    zr_iseq_meta_parameters_as(meta_word, zr_bool(FrameMeta[meta].kind == KIND_BLOCK))
+  end
+
+  # The same, as a proc takes them when `as_proc` is true, else as a
+  # method or a lambda takes them (rb_iseq_parameters).
+  #: (value, value) -> value
+  def zr_iseq_meta_parameters_as(meta_word, as_proc)
+    meta = Machine.ptr(zr_fix2long(meta_word))
     if FrameMeta[meta].params == 0
       return zr_ary_new(0)
     end
-    zr_param_rows(FrameMeta[meta].params, FrameMeta[meta].kind == KIND_BLOCK)
+    zr_param_rows(FrameMeta[meta].params, as_proc == QTRUE)
   end
 
   #: (value) -> value

@@ -105,7 +105,9 @@ thread-local variables, or that links a library outside macOS.
   byebug does) makes zr build the program with its trace events, as
   `--trace` does. The program is then larger and slower.
 - The private functions of ruby's instruction sequences (`rb_iseq_*`,
-  `rb_iseqw_*`) are not there, so datadog-ci does not build.
+  `rb_iseqw_*`) give lines and no columns, and a walk of the heap for
+  instruction sequences (debug's and datadog-ci's `iseq_collector`)
+  finds none.
 - zr runs C extensions on macOS on Apple silicon. Other targets use
   ports only.
 

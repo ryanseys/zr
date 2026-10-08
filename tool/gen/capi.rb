@@ -52,9 +52,11 @@ module Zr
             A frame of `rb_profile_frames` is the address of its code with
             the Fixnum tag: a signal handler can take one, as stackprof's
             does, and a postponed job (`rb_postponed_job_*`) runs at the
-            next safe point. zr does not have yet the private
-            `rb_iseq_*` and `rb_iseqw_*`, which datadog-ci and debug's
-            `iseq_collector` call.
+            next safe point. The private `rb_iseq_*` and `rb_iseqw_*` that
+            debug and datadog-ci declare take the address of the code's
+            FrameMeta for an `rb_iseq_t *`; `rb_iseq_code_location` gives
+            lines and no columns (both are 0). A walk of the heap finds no
+            instruction sequences, as zr's code is not objects.
 
           MD
           files.each do |path, names|

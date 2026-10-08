@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 813 of its
+calls ruby 4.0's C API. zr's kernel gives 822 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -29,9 +29,11 @@ a C TracePoint hears the internal events NEWOBJ and FREEOBJ.
 A frame of `rb_profile_frames` is the address of its code with
 the Fixnum tag: a signal handler can take one, as stackprof's
 does, and a postponed job (`rb_postponed_job_*`) runs at the
-next safe point. zr does not have yet the private
-`rb_iseq_*` and `rb_iseqw_*`, which datadog-ci and debug's
-`iseq_collector` call.
+next safe point. The private `rb_iseq_*` and `rb_iseqw_*` that
+debug and datadog-ci declare take the address of the code's
+FrameMeta for an `rb_iseq_t *`; `rb_iseq_code_location` gives
+lines and no columns (both are 0). A walk of the heap finds no
+instruction sequences, as zr's code is not objects.
 
 ## array
 
@@ -122,6 +124,12 @@ The C API of IO::Buffer: the bytes of a buffer, which C reads or writes in place
 The C API of IO objects: their struct rb_io (GetOpenFile), their descriptors and modes, and the IO methods that C calls by function.
 
 `rb_io_taint_check`, `rb_io_check_closed`, `rb_io_check_readable`, `rb_io_check_char_readable`, `rb_io_check_writable`, `rb_io_set_nonblock`, `rb_io_synchronized`, `rb_io_descriptor`, `rb_io_mode`, `rb_io_check_io`, `rb_io_get_io`, `rb_io_flush`, `rb_io_close`, `rb_io_gets`, `rb_io_getbyte`, `rb_io_eof`, `rb_io_binmode`, `rb_io_ascii8bit_binmode`, `rb_io_path`, `rb_io_timeout`, `rb_io_wait`, `rb_cloexec_open`, `rb_fd_fix_cloexec`, `rb_update_max_fd`, `rb_file_open`, `rb_file_open_str`, `rb_io_bufwrite`, `rb_io_extract_modeenc`, `rb_io_stdio_file`, `rb_io_open_descriptor`
+
+## iseq
+
+The private functions of CRuby's instruction sequences that debuggers and coverage tools declare for themselves (debug, datadog-ci).
+
+`rb_iseqw_new`, `rb_iseqw_to_iseq`, `rb_iseq_code_location`, `rb_iseq_path`, `rb_iseq_realpath`, `rb_iseq_label`, `rb_iseq_first_lineno`, `rb_iseq_type`, `rb_iseq_parameters`
 
 ## method
 
