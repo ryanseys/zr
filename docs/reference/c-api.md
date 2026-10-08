@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 772 of its
+calls ruby 4.0's C API. zr's kernel gives 780 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -20,9 +20,12 @@ A C TracePoint (`rb_tracepoint_new`) is a Ruby TracePoint whose
 hook is a C function, and its trace arg answers as the
 TracePoint's methods do. An extension that hooks trace events
 makes zr build the program with them, as a program that names
-TracePoint does. zr does not have yet `rb_debug_inspector_*`,
-`rb_profile_frame*`, `rb_postponed_job_*` and `rb_iseq_*`, so
-debug_inspector, byebug and stackprof do not build.
+TracePoint does. The debug inspector (`rb_debug_inspector_*`)
+gives the frames that a backtrace shows, from the innermost
+outward. A frame's depth counts the frames from it outward, so
+two depths compare as ruby's do, but the number is not ruby's.
+zr does not have yet `rb_profile_frame*`, `rb_postponed_job_*`
+and `rb_iseq_*`, so stackprof and vernier do not build.
 
 ## array
 
@@ -53,6 +56,12 @@ The C API's exceptions and its ways to stop an unwind in C: rb_raise and its kin
 The C API's T_DATA objects (data_object.rb), and the allocation functions that make them for a class.
 
 `rb_data_typed_object_wrap`, `rb_data_typed_object_zalloc`, `rb_data_object_wrap`, `rb_data_object_zalloc`, `rb_check_typeddata`, `rb_typeddata_is_kind_of`, `rb_typeddata_inherited_p`, `rb_define_alloc_func`, `rb_undef_alloc_func`, `rb_get_alloc_func`
+
+## debug
+
+The debug inspector of ruby/debug.h: a debugger's view of the frames that run, as byebug, debug_inspector and bindex read them.
+
+`rb_debug_inspector_open`, `rb_debug_inspector_backtrace_locations`, `rb_debug_inspector_frame_self_get`, `rb_debug_inspector_frame_class_get`, `rb_debug_inspector_frame_binding_get`, `rb_debug_inspector_frame_iseq_get`, `rb_debug_inspector_frame_depth`, `rb_debug_inspector_current_depth`
 
 ## encoding
 

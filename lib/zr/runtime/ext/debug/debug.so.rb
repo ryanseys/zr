@@ -11,8 +11,9 @@ module DEBUGGER__
   def self.capture_frames(skip_path_prefix)
     frames = Primitive.zr_debug_frames
     depth = frames.size
-    frames.each_with_index.filter_map do |(row, node, receiver, bound, meta, klass), i|
-      location = Thread::Backtrace::Location.new(row, node)
+    locations = Thread.send(:frame_locations, frames)
+    frames.each_with_index.filter_map do |(_row, _node, receiver, bound, meta, klass), i|
+      location = locations[i]
       iseq = meta.zero? ? nil : RubyVM::InstructionSequence.send(:of_frame, meta)
       path = iseq ? iseq.absolute_path || iseq.path : location.path
       next if path && skip_path_prefix && path.start_with?(skip_path_prefix)

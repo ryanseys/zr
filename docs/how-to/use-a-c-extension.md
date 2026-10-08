@@ -101,11 +101,12 @@ thread-local variables, or that links a library outside macOS.
   zr keeps its own tags for them. C that reads them through functions
   (`rb_obj_is_proc`) gets ruby's answer.
 - An extension that hooks trace events (`rb_tracepoint_new`, as
-  ruby-prof does) makes zr build the program with its trace events, as
+  ruby-prof does) or reads the frames (`rb_debug_inspector_open`, as
+  byebug does) makes zr build the program with its trace events, as
   `--trace` does. The program is then larger and slower.
-- The debugger and sampling profiler C API (`rb_debug_inspector_*`,
-  `rb_profile_frames`) is not there, so byebug, stackprof and
-  debug_inspector do not build.
+- The sampling profiler C API (`rb_profile_frames`,
+  `rb_postponed_job_*`) is not there, so stackprof and vernier do not
+  build.
 - zr runs C extensions on macOS on Apple silicon. Other targets use
   ports only.
 

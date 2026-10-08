@@ -43,9 +43,12 @@ module Zr
             hook is a C function, and its trace arg answers as the
             TracePoint's methods do. An extension that hooks trace events
             makes zr build the program with them, as a program that names
-            TracePoint does. zr does not have yet `rb_debug_inspector_*`,
-            `rb_profile_frame*`, `rb_postponed_job_*` and `rb_iseq_*`, so
-            debug_inspector, byebug and stackprof do not build.
+            TracePoint does. The debug inspector (`rb_debug_inspector_*`)
+            gives the frames that a backtrace shows, from the innermost
+            outward. A frame's depth counts the frames from it outward, so
+            two depths compare as ruby's do, but the number is not ruby's.
+            zr does not have yet `rb_profile_frame*`, `rb_postponed_job_*`
+            and `rb_iseq_*`, so stackprof and vernier do not build.
 
           MD
           files.each do |path, names|

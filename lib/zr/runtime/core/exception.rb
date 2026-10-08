@@ -615,6 +615,22 @@ class Interrupt
 end
 
 class Thread
+  # The location of each frame that the kernel gives a debugger
+  # (zr_debug_frames_from), as rb_debug_inspector_backtrace_locations
+  # gives them: a C frame has no path and no line.
+  def self.frame_locations(frames)
+    Primitive.attr! :hidden
+    frames.map { |row, node, _receiver, _binding, meta| Backtrace::Location.new(row, node, meta.zero? ? false : nil) }
+  end
+
+  # rb_debug_inspector_frame_iseq_get: the code of a frame's FrameMeta
+  # (`meta`, its address), or nil for a C frame, which has none.
+  def self.frame_iseq(meta)
+    Primitive.attr! :hidden
+    RubyVM::InstructionSequence.send(:of_frame, meta) unless meta.zero?
+  end
+  private_class_method :frame_locations, :frame_iseq
+
   class Backtrace
     # `--backtrace-limit`, or -1 when no limit was given.
     def self.limit = Primitive.zr_backtrace_limit_m

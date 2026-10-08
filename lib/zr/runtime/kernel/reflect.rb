@@ -874,14 +874,20 @@ module Zr::Kern
     zr_fix(Machine.word(zr_iseq_meta(body)))
   end
 
-  # The data that rb_debug_inspector_open gives a debugger. It returns
-  # each frame, outward from the caller of this method, as `[backtrace
-  # line, node id, self, binding, FrameMeta address, class]`. A frame that
-  # the runtime pushed for a C method has no binding, and its address is 0.
+  # The frames that a debugger reads, outward from the caller of this
+  # method, as zr_debug_frames_from gives them.
   #: () -> value
   def zr_debug_frames
+    zr_debug_frames_from(Frame[Task[zr_task()].top].prev)
+  end
+
+  # The data that rb_debug_inspector_open gives a debugger. It returns
+  # each shown frame, from `rec` outward, as `[backtrace line, node id,
+  # self, binding, FrameMeta address, class]`. A frame that the runtime
+  # pushed for a C method has no binding, and its address is 0.
+  #: (ptr) -> value
+  def zr_debug_frames_from(rec)
     out = zr_ary_new(16)
-    rec = Frame[Task[zr_task()].top].prev
     while rec != 0
       if zr_frame_shown_p(rec)
         entry = zr_ary_new(6)
