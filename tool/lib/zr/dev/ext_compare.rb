@@ -5,6 +5,7 @@ require "open3"
 require "rbconfig"
 require "timeout"
 require_relative "../dev"
+require_relative "../../../../test/support/harness/answer"
 
 module Zr
   module Dev
@@ -46,11 +47,14 @@ module Zr
         _, built = capture(File.join(Paths::ROOT, "bin", "zr"), "build", *flags, program, "-o", bin)
         return Run.new(program, way, false, nil, nil) unless built.success?
 
-        expected = File.read("#{program}.expected")
+        expected = File.binread("#{program}.expected")
+        dir = File.dirname(program)
         times = Array.new(RUNS) do
           started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          out, status = capture(bin, chdir: File.dirname(program))
-          [Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, out == expected && status.success?]
+          out, status = capture(bin, chdir: dir)
+          # The program tests' own check: addresses and paths masked.
+          same = Harness::Normalize.bytes(out, program, dir) == expected
+          [Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, same && status.success?]
         end
         Run.new(program, way, times.all?(&:last), times.map(&:first).min, File.size(bin))
       end
@@ -59,11 +63,15 @@ module Zr
       def capture(*command, chdir: Dir.pwd)
         Open3.popen3(*command, chdir: chdir) do |stdin, stdout, stderr, wait|
           stdin.close
-          reader = Thread.new { stdout.read }
-          Thread.new { stderr.read }
-          Timeout.timeout(LIMIT) { [reader.value, wait.value] }
+          # Both pipes drain, or a full one stops the child, and both
+          # readers end before the block closes the pipes.
+          readers = [stdout, stderr].map { |io| Thread.new { io.read } }
+          status = Timeout.timeout(LIMIT) { wait.value }
+          out, = readers.map(&:value)
+          [out, status]
         rescue Timeout::Error
           Process.kill("KILL", wait.pid)
+          readers.each(&:join)
           ["", wait.value]
         end
       end
