@@ -237,9 +237,12 @@ module Zr::Kern
   def rb_str_substr(str, beg, len)
     Machine.gates_enter
     zr_c_entered()
+    # Both Integers come first: a word in `args` roots nothing.
+    from = zr_int_from_word(beg)
+    count = zr_int_from_word(len)
     args = Machine.slot(16)
-    Machine.store64(args, 0, Machine.word(zr_int_from_word(beg)))
-    Machine.store64(args, 8, Machine.word(zr_int_from_word(len)))
+    Machine.store64(args, 0, Machine.word(from))
+    Machine.store64(args, 8, Machine.word(count))
     zr_c_result(zr_send(str, Machine.id(:[]), 2, args))
   end
 
