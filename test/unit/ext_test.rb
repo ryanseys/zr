@@ -226,17 +226,21 @@ class ExtTest < Minitest::Test
                              "void Init_point(void) { rb_tracepoint_new(0, 8, 0, 0); }\n",
                   "frames" => "void *rb_debug_inspector_open(void *, void *);\nvoid Init_frames(void) { rb_debug_inspector_open(0, 0); }\n",
                   "quiet" => "unsigned long rb_intern(const char *);\nvoid Init_quiet(void) { rb_intern(\"x\"); }\n" }
-      given = sources.map do |name, c|
+      given = sources.to_h do |name, c|
         File.write(File.join(dir, "#{name}.c"), c)
         object = File.join(dir, "#{name}.o")
         system("cc", "-c", File.join(dir, "#{name}.c"), "-o", object, exception: true)
-        "#{File.join(lib, "#{name}.bundle")}=#{object}"
+        [name, "#{File.join(lib, "#{name}.bundle")}=#{object}"]
       end
 
-      traced = Zr::Config.with(ZR_EXT_OBJECTS: given.join(" ")) do
+      Zr::Config.with(ZR_EXT_OBJECTS: given.values.join(" ")) do
         assert_equal({ "point" => true, "frames" => true, "quiet" => false },
                      Zr::Ext.bundles.to_h { |path, source| [File.basename(path, ".bundle"), source.traces?] })
-        sources.each_key.to_h do |name|
+      end
+      # Each program links the one extension that it is given, which a
+      # computed require may load as well as a literal one.
+      traced = given.to_h do |name, ext|
+        Zr::Config.with(ZR_EXT_OBJECTS: ext) do
           [name, Zr::Hir::Build.program("require #{name.dump}\n", File.join(dir, "main.rb"), roots: [lib]).traced]
         end
       end
