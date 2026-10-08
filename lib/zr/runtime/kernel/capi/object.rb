@@ -257,6 +257,8 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("Integer"), 7)
     elsif t == T_DATA
       zr_buf_push(b, Machine.bytes("Data"), 4)
+    elsif t == T_FILE
+      zr_buf_push(b, Machine.bytes("File"), 4)
     elsif t == T_SYMBOL
       zr_buf_push(b, Machine.bytes("Symbol"), 6)
     elsif t == T_NIL
@@ -384,7 +386,12 @@ module Zr::Kern
     if zr_symbol_p(v)
       return T_SYMBOL
     end
-    RBasic[v].flags & T_MASK
+    t = RBasic[v].flags & T_MASK
+    # An IO is CRuby's T_FILE, which C reaches through its companion.
+    if t == T_OBJECT && zr_is_a(v, zr_core_class(Machine.id(:IO)))
+      return T_FILE
+    end
+    t
   end
 
   # rb_convert_type: `val` when it is of the builtin type `type`, else

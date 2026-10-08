@@ -1,7 +1,7 @@
 module Zr::Kern
-  # The C API's IO and system errors: writes to an IO object through its
-  # Ruby methods, errno, and the SystemCallError of an errno. C reaches
-  # no IO struct (rb_io_t): zr's IO keeps its own fields.
+  # The C API's writes to an IO object, through its Ruby methods, errno,
+  # and the SystemCallError of an errno. The IO objects themselves are in
+  # io_object.rb.
 
   # rb_io_write: `io.write(str)`.
   #: (value, value) -> value

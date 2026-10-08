@@ -78,7 +78,8 @@ module Zr::Kern
     t = 0
     while t < 32
       if t == T_CLASS || t == T_MODULE || t == T_FLOAT || t == T_STRING || t == T_REGEXP || t == T_ARRAY || t == T_HASH ||
-         t == T_BIGNUM || t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_DATA || t == T_CREF || t == T_ENV || t == T_ICLASS
+         t == T_BIGNUM || t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_DATA || t == T_CREF || t == T_ENV || t == T_ICLASS ||
+         t == T_FILE
         named += Machine.load64(counts + (t * 8), 0)
       end
       t += 1

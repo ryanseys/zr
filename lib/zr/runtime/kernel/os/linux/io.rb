@@ -24,6 +24,7 @@ module Zr::Kern
   EINTR = 4
   EBADF = 9
   ENOEXEC = 8
+  EAGAIN = 11
 
   # The *at calls' directory for the working directory, and their flag
   # for a link itself.

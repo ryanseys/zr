@@ -3240,6 +3240,8 @@ module Zr::Kern
       zr_mark_regexp(v)
     elsif t == T_DATA
       zr_mark_data(v)
+    elsif t == T_FILE
+      zr_mark_rfile(v)
     end
   end
 
@@ -3314,6 +3316,8 @@ module Zr::Kern
       zr_xfree(REnv[v].slots)
     elsif t == T_DATA
       zr_release_data(v)
+    elsif t == T_FILE
+      zr_release_rfile(v)
     end
   end
 

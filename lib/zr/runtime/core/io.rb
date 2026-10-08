@@ -2296,6 +2296,23 @@ class IO
     raise IOError, +"closed stream" if @closed
   end
 
+  # The descriptor and the FMODE_* bits of an open stream, which a C
+  # extension reads in the stream's struct rb_io (the C API's
+  # rb_io_check_closed fills them from here).
+  def struct_fields
+    Primitive.attr! :hidden
+    check_open
+    mode = 0
+    mode |= 0x01 if @readable
+    mode |= 0x02 if @writable
+    mode |= 0x04 if @binmode
+    mode |= 0x08 if @sync
+    mode |= 0x10 if @tty
+    mode |= 0x20 if @twin
+    mode |= 0x40 if @mode.start_with?("a")
+    [@fd, mode]
+  end
+
   # rb_io_check_initialized: a stream that IO.allocate made and no
   # initialize has opened.
   def check_initialized
@@ -3486,6 +3503,16 @@ class IO
   def wait_writable(timeout = nil) = poll_once(POLL_OUT, timeout).zero? ? nil : self
 
   def wait_priority(timeout = nil) = poll_once(POLL_PRI, timeout).zero? ? nil : self
+
+  # The wait of C on descriptors that no stream wraps
+  # (rb_wait_for_single_fd, rb_thread_fd_select): the events each of
+  # `fds` came ready for, from its row of `events`, all zero once `usec`
+  # microseconds pass (nil waits on), or the negated errno.
+  def self.wait_fds(fds, events, usec)
+    Primitive.attr! :hidden
+    deadline = usec && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (usec * 1000)
+    Thread.current.send(:wait_fds, fds, events, deadline, gives_way: true)
+  end
 
   private
 
