@@ -56,10 +56,12 @@ module Zr
         return Report.new(entry, subject.version, :failed, [], "no extconf.rb (#{spec&.extensions.to_a.join(", ")})") if extconfs.empty?
 
         imports = in_child(seconds) do
-          extconfs.flat_map { |extconf| Ext::Builder.new(File.join(subject.root, extconf)).source(subject.root).objects }
-                  .flat_map { |object| Ext::CApi.imports(object) }.uniq
+          extconfs.flat_map { |extconf| Ext::CApi.imports(*Ext::Builder.new(File.join(subject.root, extconf)).source(subject.root).objects) }
+                  .uniq
         end
         missing = Ext::CApi.missing(imports).sort
+        return Report.new(entry, subject.version, :failed, [], "imports nothing of ruby's C API (an FFI library?)") if imports.empty?
+
         Report.new(entry, subject.version, missing.empty? ? :ready : :lacks, missing, "")
       rescue Refused, ChildFailed => e
         Report.new(entry, subject&.version, :failed, [], e.message.lines.first(3).join.strip)

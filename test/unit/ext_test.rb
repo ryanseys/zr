@@ -158,6 +158,28 @@ class ExtTest < Minitest::Test
     assert_equal %w[rb_not_a_function], Zr::Ext::CApi.missing(%w[rb_define_method memcpy rb_not_a_function rb_raise])
   end
 
+  # An extension's own global with a ruby-like name (zstd-ruby's
+  # `rb_cCDict`), defined in one object and used in another, is not an
+  # import of the extension.
+  def test_a_name_that_one_object_defines_is_not_an_import_of_the_others
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+
+    Dir.mktmpdir do |dir|
+      sources = { "defines" => "unsigned long rb_cOwn;\n",
+                  "uses" => "extern unsigned long rb_cOwn;\nunsigned long rb_intern(const char *);\n" \
+                            "unsigned long Init_uses(void) { return rb_cOwn + rb_intern(\"x\"); }\n" }
+      objects = sources.map do |name, c|
+        File.write(File.join(dir, "#{name}.c"), c)
+        system("cc", "-c", File.join(dir, "#{name}.c"), "-o", File.join(dir, "#{name}.o"), exception: true)
+        File.join(dir, "#{name}.o")
+      end
+
+      assert_equal %w[rb_cOwn rb_intern], Zr::Ext::CApi.imports(objects.last).sort
+      assert_equal %w[rb_intern], Zr::Ext::CApi.imports(*objects)
+      Zr::Ext::CApi.check!([Zr::Ext::Source.given(File.join(dir, "uses.bundle"), objects)])
+    end
+  end
+
   # A build of an extension that imports a function the C API lacks
   # stops with its name, before the link.
   def test_an_import_that_the_c_api_lacks_refuses_the_build

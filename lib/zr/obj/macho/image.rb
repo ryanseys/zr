@@ -137,14 +137,15 @@ module Zr
         def sections = segments.flat_map(&:sections)
 
         # The names of the symbols that the image takes from elsewhere,
-        # from its symbol table, sorted.
+        # from its symbol table, sorted. A common symbol (an object's
+        # `int counter;`, undefined with a size) is the image's own.
         #: () -> Array[String]
-        def undefined = external.select { |s| s.type & N_TYPE == N_UNDF }.map(&:name).sort
+        def undefined = external.select { |s| s.type & N_TYPE == N_UNDF && s.value.zero? }.map(&:name).sort
 
         # The names of the external symbols that the image defines, from
-        # its symbol table, sorted.
+        # its symbol table, sorted: common symbols too.
         #: () -> Array[String]
-        def defined = external.reject { |s| s.type & N_TYPE == N_UNDF }.map(&:name).sort
+        def defined = external.reject { |s| s.type & N_TYPE == N_UNDF && s.value.zero? }.map(&:name).sort
 
         # Every pointer that dyld rebases, from the opcodes or the chains.
         #: () -> Array[Rebase]

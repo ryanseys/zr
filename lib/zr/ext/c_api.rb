@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "../prism"
-require "set"
 require_relative "../paths"
 require_relative "../refused"
 require_relative "../obj/macho/image"
@@ -14,8 +13,6 @@ module Zr
     # checks an extension's imports against it, so a missing function
     # stops the build with its name, not the program later.
     module CApi
-      # @rbs @names: Set[String]
-
       # The names that are ruby's: what an extension takes from ruby, not
       # from libc.
       RUBY = /\A(?:rb_|ruby_|st_|onig)/
@@ -23,12 +20,12 @@ module Zr
 
       module_function
 
-      # The names, read once from the kernel's source.
+      # The names, read once for each build from the kernel's source.
       #: () -> Set[String]
       def names
-        @names ||= Dir[File.join(DIR, "*.rb")].each_with_object(Set.new) do |path, found|
-          collect(Prism.parse_file(path).value, found)
-        end.freeze
+        Session.current.memo(:capi_names) do
+          Dir[File.join(DIR, "*.rb")].each_with_object(Set.new) { |path, found| collect(Prism.parse_file(path).value, found) }.freeze
+        end
       end
 
       #: (String name) -> bool
@@ -38,10 +35,14 @@ module Zr
       #: (Array[String] imports) -> Array[String]
       def missing(imports) = imports.select { |name| ruby?(name) && !names.include?(name) }.uniq.sort
 
-      # The ruby names that the Mach-O object or image at `path` imports.
-      #: (String path) -> Array[String]
-      def imports(path)
-        Obj::MachO::Image.read(File.binread(path)).undefined.map { |name| name.delete_prefix("_") }.select { |name| ruby?(name) }
+      # The ruby names that the Mach-O objects or images at `paths` import
+      # from outside them: a name that one of them defines (an extension's
+      # own `rb_cCDict`, which its other objects use) is not an import.
+      #: (*String paths) -> Array[String]
+      def imports(*paths)
+        images = paths.map { |path| Obj::MachO::Image.read(File.binread(path)) }
+        own = images.flat_map(&:defined).to_set
+        images.flat_map(&:undefined).uniq.reject { |name| own.include?(name) }.map { |name| name.delete_prefix("_") }.select { |name| ruby?(name) }
       end
 
       # Refuses a build of an extension (`Ext::Source`) that imports a
@@ -49,7 +50,7 @@ module Zr
       #: (Array[Source] sources) -> void
       def check!(sources)
         sources.each do |source|
-          lacking = missing(source.binaries.flat_map { |path| imports(path) })
+          lacking = missing(imports(*source.binaries))
           next if lacking.empty?
 
           raise Refused, "#{File.basename(source.bundle)}: zr's C API has no #{lacking.join(", ")} yet " \

@@ -113,7 +113,7 @@ module Zr
     def ready?(spec)
       require_relative "ext/c_api"
       sources = Ext::Source.installed(spec.gem_dir, spec.extension_dir)
-      !sources.empty? && sources.all? { |source| Ext::CApi.missing(source.binaries.flat_map { |path| Ext::CApi.imports(path) }).empty? }
+      !sources.empty? && sources.all? { |source| Ext::CApi.missing(Ext::CApi.imports(*source.binaries)).empty? }
     rescue StandardError # a bundle zr cannot read, or a Makefile it cannot: not ready
       false
     end
