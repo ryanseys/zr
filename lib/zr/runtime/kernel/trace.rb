@@ -193,7 +193,8 @@ module Zr::Kern
     # A :call goes to TracePoint.fire while :line is on, even when no
     # TracePoint wants the :call itself, so the body fires its lines.
     if (events & before) != 0 || (before == TRACE_CALL && (events & TRACE_BUILTIN_LINES) != 0)
-      r = zr_trace_c_send(before, e, owner, recv, before == TRACE_CALL ? zr_trace_call_shape(argc, kw, blk) : Machine.value(QNIL))
+      r = zr_trace_c_send_in(before, before, e, owner, recv, before == TRACE_CALL ? zr_trace_call_shape(argc, kw, blk) : Machine.value(QNIL),
+                             Machine.value(QNIL), blk)
       return r if r == QUNDEF
     end
     value = zr_invoke(e, recv, argc, argv, blk, kw)
@@ -203,7 +204,7 @@ module Zr::Kern
     shape = Machine.value(QNIL)
     if value == QUNDEF && before == TRACE_CALL && zr_trace_builtin_raised_p()
       shape = zr_trace_call_shape(argc, kw, blk)
-      r = zr_trace_c_send_shaped(TRACE_RAISE, e, owner, recv, Task[zr_task()].pending, shape)
+      r = zr_trace_c_send_in(before, TRACE_RAISE, e, owner, recv, Task[zr_task()].pending, shape, blk)
       return r if r == QUNDEF
     end
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & after) == 0
@@ -218,13 +219,43 @@ module Zr::Kern
     end
     kind = Task[t].pending_kind
     pending = Task[t].pending
-    r = zr_trace_c_send_shaped(after, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value, shape)
+    r = zr_trace_c_send_in(before, after, e, owner, recv, value == QUNDEF ? Machine.value(QNIL) : value, shape, blk)
     return r if r == QUNDEF
     if value == QUNDEF
       Task[t].pending_kind = kind
       Task[t].pending = pending
     end
     value
+  end
+
+  # Fires `event` about the entry `e` (zr_trace_c_send_shaped). The hooks
+  # of a core method that CRuby writes in Ruby (`before` is TRACE_CALL)
+  # run with a frame of that method on top, as ruby's hooks run in that
+  # method's frame, which caller_locations and a debugger see: zr runs
+  # the method with no frame of its own while its events fire. A C
+  # method's hooks see no frame of it, as ruby's do not.
+  #: (word, word, ptr, value, value, value, value, value) -> value
+  def zr_trace_c_send_in(before, event, e, owner, recv, value, shape, blk)
+    if before != TRACE_CALL
+      return zr_trace_c_send_shaped(event, e, owner, recv, value, shape)
+    end
+    rec = Machine.slot(Frame.size)
+    t = zr_task()
+    Frame[rec].prev = Task[t].top
+    Frame[rec].meta = MEntry[e].meta
+    Frame[rec].line = 0
+    Frame[rec].serial = 0
+    Frame[rec].self = recv
+    Frame[rec].cref = Machine.value(QNIL)
+    Frame[rec].blk = blk
+    Frame[rec].nvalues = 0
+    Frame[rec].entry = e
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = Machine.value(QNIL)
+    Task[t].top = rec
+    r = zr_trace_c_send_shaped(event, e, owner, recv, value, shape)
+    Task[t].top = Frame[rec].prev
+    r
   end
 
   # The :c_call and the :c_return of a C method that pops its own frame
