@@ -180,4 +180,35 @@ module Zr::Kern
     exc = zr_c_result(zr_exc_new_str(zr_fatal_class(), message))
     Libc.exit(Machine.i32(zr_program_end(exc)))
   end
+
+  # rb_enc_sprintf: rb_sprintf's String in the encoding `enc`.
+  #: (ptr, ptr) -> value
+  def rb_enc_sprintf(enc, fmt)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_start(list, Machine.stack_args)
+    str = zr_c_result(zr_c_format(fmt, list))
+    zr_capi_associate(str, zr_capi_enc_index(enc))
+    str
+  end
+
+  # rb_str_catf and rb_str_vcatf: append the formatted text to `str`.
+  #: (value, ptr) -> value
+  def rb_str_catf(str, fmt)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_start(list, Machine.stack_args)
+    zr_capi_call1(str, Machine.id(:<<), zr_c_result(zr_c_format(fmt, list)))
+  end
+
+  #: (value, ptr, ptr) -> value
+  def rb_str_vcatf(str, fmt, ap)
+    Machine.gates_enter
+    zr_c_entered()
+    list = Machine.slot(VA_LIST_BYTES)
+    zr_va_from_c(list, ap)
+    zr_capi_call1(str, Machine.id(:<<), zr_c_result(zr_c_format(fmt, list)))
+  end
 end

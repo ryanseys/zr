@@ -278,6 +278,36 @@ class IO
     [text, binary, external, internal, conversion.merge(bom: bom)]
   end
 
+  # rb_io_extract_modeenc for C (the C API): the mode and the options as
+  # open_options reads them, as the words that C gets: the mode (from
+  # the options, if they give it), open(2)'s flags, the FMODE_* bits, and
+  # the two encodings that rb_io_ext_int_to_encs makes of them: the
+  # internal and the external one when they differ, else the external
+  # one alone (nil when none was given).
+  def self.c_modeenc(mode, options)
+    Primitive.attr! :hidden
+    options ||= {}
+    text, binary, external, internal, conversion = open_options(mode, options)
+    fmode = 0
+    fmode |= 0x01 if !text.start_with?("w", "a") || text.include?("+")
+    fmode |= 0x02 if !text.start_with?("r") || text.include?("+")
+    fmode |= 0x04 if binary
+    fmode |= 0x40 if text.start_with?("a")
+    fmode |= 0x80 if text.start_with?("w", "a")
+    fmode |= 0x400 if text.include?("x")
+    fmode |= 0x800 if text.start_with?("w")
+    fmode |= 0x100000 if conversion[:bom]
+    default = external.nil?
+    external ||= Encoding.default_external
+    internal = Encoding::BINARY.equal?(external) ? nil : internal || Encoding.default_internal
+    encodings = if internal.nil? || (fmode & 0x100000).zero? && internal == external
+                  [default && internal != external ? nil : external, nil]
+                else
+                  [internal, external]
+                end
+    [options.fetch(:mode, mode), File.send(:open_flags, text), fmode, *encodings]
+  end
+
   # parse_mode_enc: "ext", "ext:int" or "ext:-", split at the last colon.
   # A name that matches no encoding warns and leaves its slot at the
   # default, and `bom|` before a UTF encoding lets the bytes give it.

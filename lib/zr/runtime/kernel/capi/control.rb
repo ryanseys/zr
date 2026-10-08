@@ -251,4 +251,45 @@ module Zr::Kern
     Task[t].pending_site = zr_fix2long(zr_ary_at(left, 4))
     Task[t].pending_from = Machine.ptr(zr_fix2long(zr_ary_at(left, 5)))
   end
+
+  # rb_catch_obj: `catch(tag) { |tag| ... }` with the C block function
+  # `fn` (rb_block_call's form) as the block; a throw to `tag` gives its
+  # value. rb_catch: the same with the Symbol of the C string `tag`.
+  #: (value, ptr, word) -> value
+  def rb_catch_obj(tag, fn, data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_catch(tag, zr_capi_cblock_new(fn, data)))
+  end
+
+  #: (ptr, ptr, word) -> value
+  def rb_catch(tag, fn, data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_catch(zr_sym(zr_intern(tag, zr_cstr_len(tag))), zr_capi_cblock_new(fn, data)))
+  end
+
+  # rb_throw_obj and rb_throw: `throw(tag, value)`, which raises
+  # UncaughtThrowError when no catch waits for `tag`.
+  #: (value, value) -> void
+  def rb_throw_obj(tag, value)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_throw(tag, value)
+  end
+
+  #: (ptr, value) -> void
+  def rb_throw(tag, value)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_throw(zr_sym(zr_intern(tag, zr_cstr_len(tag))), value)
+  end
+
+  #: (value, value) -> void
+  def zr_capi_throw(tag, value)
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(tag))
+    Machine.store64(args, 8, Machine.word(value))
+    zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:throw), 2, args))
+  end
 end

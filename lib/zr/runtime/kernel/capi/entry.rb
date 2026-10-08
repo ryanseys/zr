@@ -193,18 +193,32 @@ module Zr::Kern
     zr_capi_util_init()
   end
 
-  # rb_stdin, rb_stdout and rb_stderr: the streams of $stdin, $stdout and
-  # $stderr, which an assignment to the global then updates
-  # (zr_gvar_mirror). The global objects are rooted as the globals' values.
+  # The words of the globals that C reads (rb_stdin, rb_stdout,
+  # rb_stderr, rb_rs, rb_output_rs, rb_fs and rb_output_fs): each holds
+  # its global's value, and an assignment to the global updates it
+  # (zr_gvar_mirror). The values are rooted as the globals' values.
   #: () -> void
   def zr_capi_stdio_init
-    words = Machine.static(:stdio_words, 24)
-    Machine.store64(words, 0, Machine.word(Machine.global(:rb_stdin)))
-    Machine.store64(words, 8, Machine.word(Machine.global(:rb_stdout)))
-    Machine.store64(words, 16, Machine.word(Machine.global(:rb_stderr)))
-    zr_capi_set(Machine.global(:rb_stdin), zr_gvar_get(Machine.id(:$stdin)))
-    zr_capi_set(Machine.global(:rb_stdout), zr_gvar_get(Machine.id(:$stdout)))
-    zr_capi_set(Machine.global(:rb_stderr), zr_gvar_get(Machine.id(:$stderr)))
+    zr_capi_mirror(0, Machine.id(:$stdin), Machine.global(:rb_stdin))
+    zr_capi_mirror(1, Machine.id(:$stdout), Machine.global(:rb_stdout))
+    zr_capi_mirror(2, Machine.id(:$stderr), Machine.global(:rb_stderr))
+    zr_capi_mirror(3, Machine.id(:$/), Machine.global(:rb_rs))
+    zr_capi_mirror(4, Machine.id(:$\), Machine.global(:rb_output_rs))
+    zr_capi_mirror(5, Machine.id(:$;), Machine.global(:rb_fs))
+    zr_capi_mirror(6, Machine.id(:$,), Machine.global(:rb_output_fs))
+    # rb_default_rs is "\n" whatever $/ says, kept as C's own roots are.
+    rs = zr_c_result(zr_send(zr_str_new(Machine.bytes("\n"), 1), Machine.id(:-@), 0, Machine.ptr(0)))
+    zr_weak_list_push(zr_c_root_objects(), rs)
+    zr_capi_set(Machine.global(:rb_default_rs), rs)
+  end
+
+  # Row `i` of the mirrors: the global `id` and its word.
+  #: (word, word, ptr) -> void
+  def zr_capi_mirror(i, id, word)
+    rows = Machine.static(:gvar_mirrors, GVAR_MIRRORS * 16)
+    Machine.store64(rows + (i * 16), 0, id)
+    Machine.store64(rows + (i * 16), 8, Machine.word(word))
+    zr_capi_set(word, zr_gvar_get(id))
   end
 
   #: (ptr, value) -> void

@@ -208,8 +208,24 @@ module Zr::Kern
   def rb_path2class(path)
     Machine.gates_enter
     zr_c_entered()
-    len = zr_cstr_len(path)
-    str = zr_str_new(path, len)
+    zr_capi_path2class(zr_str_new(path, zr_cstr_len(path)))
+  end
+
+  # rb_path_to_class: the same, of a String.
+  #: (value) -> value
+  def rb_path_to_class(path)
+    Machine.gates_enter
+    zr_c_entered()
+    str = zr_capi_string_at(zr_capi_one(path))
+    zr_capi_path2class(zr_str_new(RString[str].ptr, RString[str].len))
+  end
+
+  # The walk of rb_path2class over `str`, a String that nothing else
+  # changes.
+  #: (value) -> value
+  def zr_capi_path2class(str)
+    len = RString[str].len
+    path = RString[str].ptr
     c = zr_global(G_OBJECT)
     at = 0
     while at < len

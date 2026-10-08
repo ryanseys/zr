@@ -409,4 +409,26 @@ module Zr::Kern
     zr_c_entered()
     zr_capi_encoding(zr_capi_to_enc_index(zr_str_new(Machine.bytes("locale"), 6)))
   end
+
+  # rb_enc_copy: `dst` takes the encoding of `src`.
+  #: (value, value) -> void
+  def rb_enc_copy(dst, src)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_associate(dst, zr_capi_obj_enc_index(src))
+  end
+
+  # rb_find_encoding: the rb_encoding of an Encoding, or of the encoding
+  # that a name names; NULL for a name of none.
+  #: (value) -> ptr
+  def rb_find_encoding(enc)
+    Machine.gates_enter
+    zr_c_entered()
+    found = zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:find), 1, zr_capi_one(enc))
+    if found == QUNDEF
+      Task[zr_task()].pending = Machine.value(QNIL)
+      return Machine.ptr(0)
+    end
+    zr_capi_encoding(zr_fix2long(zr_c_result(zr_send(found, Machine.id(:index), 0, Machine.ptr(0)))))
+  end
 end

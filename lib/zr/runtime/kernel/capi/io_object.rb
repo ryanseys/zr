@@ -297,4 +297,44 @@ module Zr::Kern
     bytes = zr_capi_str(buf, size, ENC_BINARY)
     zr_fix2long(zr_capi_call1(io, Machine.id(:write), bytes))
   end
+
+  # rb_io_enc_t: the internal and the external encoding, the conversion's
+  # flags (an int) and its options.
+  class RbIoEnc < Layout
+    attr_accessor :enc #: ptr
+    attr_accessor :enc2 #: ptr
+    attr_accessor :ecflags #: word
+    attr_accessor :ecopts #: value
+  end
+
+  # rb_io_extract_modeenc: the mode at `*vmode_p` and the options of an
+  # open, read as IO.open reads them: `*vmode_p` gets the mode (from the
+  # options, if they give it), `*oflags_p` open(2)'s flags, `*fmode_p` the
+  # FMODE_* bits, and `*convconfig` the encodings. zr converts with no
+  # flags of C's.
+  #: (ptr, ptr, value, ptr, ptr, ptr) -> void
+  def rb_io_extract_modeenc(vmode_p, vperm_p, opthash, oflags_p, fmode_p, convconfig)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.load64(vmode_p, 0))
+    Machine.store64(args, 8, Machine.word(opthash))
+    r = zr_c_result(zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:c_modeenc), 2, args))
+    Machine.store64(vmode_p, 0, Machine.word(zr_ary_at(r, 0)))
+    Machine.store32(oflags_p, 0, Machine.i32(zr_fix2long(zr_ary_at(r, 1))))
+    Machine.store32(fmode_p, 0, Machine.i32(zr_fix2long(zr_ary_at(r, 2))))
+    RbIoEnc[convconfig].enc = zr_capi_enc_of(zr_ary_at(r, 3))
+    RbIoEnc[convconfig].enc2 = zr_capi_enc_of(zr_ary_at(r, 4))
+    Machine.store32(convconfig + 16, 0, Machine.i32(0))
+    RbIoEnc[convconfig].ecopts = Machine.value(QNIL)
+  end
+
+  # The rb_encoding of an Encoding, or NULL for nil.
+  #: (value) -> ptr
+  def zr_capi_enc_of(encoding)
+    if encoding == QNIL
+      return Machine.ptr(0)
+    end
+    zr_capi_encoding(zr_fix2long(zr_c_result(zr_send(encoding, Machine.id(:index), 0, Machine.ptr(0)))))
+  end
 end

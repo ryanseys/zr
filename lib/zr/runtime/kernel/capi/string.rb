@@ -717,4 +717,30 @@ module Zr::Kern
     zr_c_entered()
     Machine.i32(zr_capi_onig_write(RbEncoding[zr_capi_encoding(ENC_UTF8)].onig, uv, buf))
   end
+
+  # rb_str_new_shared: a new String with the bytes of `str` (CRuby shares
+  # its buffer; zr copies it).
+  #: (value) -> value
+  def rb_str_new_shared(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(str, Machine.id(:dup), 0, Machine.ptr(0)))
+  end
+
+  # rb_str_to_interned_str: the frozen, deduplicated String of `str`
+  # (`-str`).
+  #: (value) -> value
+  def rb_str_to_interned_str(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(str, Machine.id(:-@), 0, Machine.ptr(0)))
+  end
+
+  # rb_str_buf_cat_ascii: appends the ASCII C string `text`.
+  #: (value, ptr) -> value
+  def rb_str_buf_cat_ascii(str, text)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(str, Machine.id(:<<), zr_str_new(text, zr_cstr_len(text)))
+  end
 end

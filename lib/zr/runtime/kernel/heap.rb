@@ -1288,22 +1288,22 @@ module Zr::Kern
     v
   end
 
-  # The words through which C reads $stdin, $stdout and $stderr, as
-  # CRuby's rb_stdin, rb_stdout and rb_stderr: their addresses, which the
-  # C API sets as it starts (capi/entry.rb), or 0 before. Each follows
-  # its global.
+  # The globals that C reads as words of its own (CRuby's rb_stdout, rb_rs
+  # and the others): GVAR_MIRRORS pairs of a global's ID and the address
+  # of its word, which the C API fills as it starts (capi/entry.rb); 0
+  # before. Each word follows its global.
+  GVAR_MIRRORS = 8
+
   #: (word, value) -> void
   def zr_gvar_mirror(id, v)
-    words = Machine.static(:stdio_words, 24)
-    if Machine.load64(words, 0) == 0
-      return
-    end
-    if id == Machine.id(:$stdin)
-      Machine.store64(Machine.ptr(Machine.load64(words, 0)), 0, Machine.word(v))
-    elsif id == Machine.id(:$stdout)
-      Machine.store64(Machine.ptr(Machine.load64(words, 8)), 0, Machine.word(v))
-    elsif id == Machine.id(:$stderr)
-      Machine.store64(Machine.ptr(Machine.load64(words, 16)), 0, Machine.word(v))
+    rows = Machine.static(:gvar_mirrors, GVAR_MIRRORS * 16)
+    i = 0
+    while i < GVAR_MIRRORS && Machine.load64(rows + (i * 16), 0) != 0
+      if Machine.load64(rows + (i * 16), 0) == id
+        Machine.store64(Machine.ptr(Machine.load64(rows + (i * 16), 8)), 0, Machine.word(v))
+        return
+      end
+      i += 1
     end
   end
 

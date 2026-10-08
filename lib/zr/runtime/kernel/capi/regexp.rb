@@ -64,4 +64,34 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
   end
+
+  # rb_lastline_get and rb_lastline_set: `$_` of the Ruby code that called
+  # the C method; rb_backref_get and rb_backref_set: its `$~`.
+  #: () -> value
+  def rb_lastline_get
+    Machine.gates_enter
+    zr_c_entered()
+    zr_lastline_get()
+  end
+
+  #: (value) -> void
+  def rb_lastline_set(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_lastline_set(v)
+  end
+
+  #: () -> value
+  def rb_backref_get
+    Machine.gates_enter
+    zr_c_entered()
+    zr_backref_get()
+  end
+
+  #: (value) -> void
+  def rb_backref_set(v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_backref_set(v)
+  end
 end
