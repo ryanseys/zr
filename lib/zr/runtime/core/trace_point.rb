@@ -367,13 +367,13 @@ class TracePoint
 
         row[2] = place[0]
         row[3] = raise_line(place, shape)
-        row[8] = nil
+        row[8] = false
       # A :call or :return around one of CRuby's own Ruby methods reports
       # the position of that method in CRuby's builtin sources.
       elsif (row[0] & 0x18).nonzero? && row[10].nonzero? && (place = builtin_places[row[6]]&.[](row[4]))
         row[2] = place[0]
         row[3] = row[0] == 0x8 ? place[1] : place[2]
-        row[8] = nil
+        row[8] = false
         # The :line events of its body follow its :call, by the call's
         # shape (zr_trace_call_shape), which the row carries in its value.
         if row[0] == 0x8
@@ -502,8 +502,14 @@ class TracePoint
     row[7]
   end
 
+  # The binding of the frame of the event. A core method that CRuby
+  # writes in Ruby (Kernel#class) has no frame here (`fire` marks its row
+  # with false): its binding has no locals and its receiver, as ruby's
+  # frame of that method has.
   def binding
     return nil if %i[c_call c_return].include?(event) || row[8].nil?
+    return Primitive.zr_trace_builtin_binding(row[10], row[7]) if row[8] == false && row[10].nonzero?
+    return nil if row[8] == false
 
     Primitive.zr_trace_binding(row[8])
   end

@@ -828,6 +828,16 @@ module Zr::Kern
     value
   end
 
+  # The binding of a core method that CRuby writes in Ruby (Kernel#class),
+  # whose method entry is at `entry_word`: zr runs it with no frame of its
+  # own, so the binding has no locals, and `recv` is its receiver, as
+  # ruby's frame of that method has.
+  #: (value, value) -> value
+  def zr_trace_builtin_binding(entry_word, recv)
+    e = Machine.ptr(zr_fix2long(entry_word))
+    zr_binding_of(MEntry[e].meta, Machine.value(QNIL), recv, zr_global(G_TOP_CREF))
+  end
+
   # Returns the binding of the live frame whose serial is `serial`, or nil
   # after the frame returns.
   #: (value) -> value
