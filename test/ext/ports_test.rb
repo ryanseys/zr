@@ -37,8 +37,10 @@ class CExtPortsTest < Minitest::Test
     File.write(path, PROGRAM)
     env = Zr::Test::CExt::UNBUNDLED
     ruby = Zr::Test::CExt.run(env, RbConfig.ruby, path)
-    built = Zr::Test::CExt.run(env, File.join(Zr::Test::CExt::ROOT, "bin", "zr"), "build", "--native-ext", GEMS.join(","), path, "-o",
-                               path.delete_suffix(".rb"))
+    # Each gem's own Ruby half comes with its C, as the how-to says.
+    gems = GEMS.flat_map { ["--gem", "#{_1}=#{Zr::Test::CExt.installed(_1)}"] }
+    built = Zr::Test::CExt.run(env, File.join(Zr::Test::CExt::ROOT, "bin", "zr"), "build", "--native-ext", GEMS.join(","), *gems, path,
+                               "-o", path.delete_suffix(".rb"))
     zr = built.status.zero? ? Zr::Test::CExt.run(env, path.delete_suffix(".rb")) : built
 
     assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"

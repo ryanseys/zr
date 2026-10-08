@@ -43,7 +43,7 @@ module Zr
       def run(gem, program, way, work)
         bin = File.join(work, way.to_s, File.basename(program, ".rb"))
         FileUtils.mkdir_p(File.dirname(bin))
-        flags = way == :native ? ["--native-ext", gem] : []
+        flags = way == :native ? native_flags(gem) : []
         _, built = capture(File.join(Paths::ROOT, "bin", "zr"), "build", *flags, program, "-o", bin)
         return Run.new(program, way, false, nil, nil) unless built.success?
 
@@ -57,6 +57,17 @@ module Zr
           [Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, same && status.success?]
         end
         Run.new(program, way, times.all?(&:last), times.map(&:first).min, File.size(bin))
+      end
+
+      # The flags of a build with the gem's own C: `--native-ext` links the
+      # C of the newest installed version, and `--gem` takes that version's
+      # Ruby half with it, as docs/how-to/use-a-c-extension.md says. Ruby's
+      # copy of a default gem can be older than the C (strscan 3.1.8's
+      # strscan.rb requires its Ruby methods; 3.1.6's C did).
+      def native_flags(gem)
+        specs = Dir[File.join(Gem.default_dir, "specifications", "#{gem}-*.gemspec")].filter_map { Gem::Specification.load(_1) }
+        version = specs.select { _1.name == gem }.max_by(&:version)&.version
+        ["--native-ext", gem, *(["--gem", "#{gem}=#{version}"] if version)]
       end
 
       # The stdout and status of `command`, killed after LIMIT seconds.

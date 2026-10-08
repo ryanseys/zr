@@ -22,4 +22,8 @@ class ExtCompareTest < Minitest::Test
 
     assert_equal "| strscan | 1 | 1 | 0 | 0.50 s | 0.00 s | 4.0 MB | 0.0 MB |", Compare.row("strscan", runs)
   end
+
+  def test_the_native_build_names_the_gem_only_when_it_is_installed
+    assert_equal ["--native-ext", "no-such-gem-here"], Compare.native_flags("no-such-gem-here")
+  end
 end
