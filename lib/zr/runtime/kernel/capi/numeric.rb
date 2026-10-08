@@ -403,4 +403,34 @@ module Zr::Kern
     zr_c_entered()
     zr_capi_check_int(n)
   end
+
+  # rb_big2str: `x.to_s(base)`.
+  #: (value, i32) -> value
+  def rb_big2str(x, base)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(x, Machine.id(:to_s), zr_fix(Machine.sword(base)))
+  end
+
+  # rb_complex_new: the Complex `real + imag i`, as Complex.rect makes it.
+  #: (value, value) -> value
+  def rb_complex_new(real, imag)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(real))
+    Machine.store64(args, 8, Machine.word(imag))
+    zr_c_result(zr_send(zr_core_class(Machine.id(:Complex)), Machine.id(:rect), 2, args))
+  end
+
+  # rb_rational_new: the Rational `num / den`, reduced.
+  #: (value, value) -> value
+  def rb_rational_new(num, den)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(num))
+    Machine.store64(args, 8, Machine.word(den))
+    zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:Rational), 2, args))
+  end
 end

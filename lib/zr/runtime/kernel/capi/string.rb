@@ -501,4 +501,68 @@ module Zr::Kern
     zr_c_entered()
     zr_c_result(zr_send(sym, Machine.id(:to_s), 0, Machine.ptr(0)))
   end
+
+  # rb_str_subseq: the `len` bytes of `str` from byte `beg`, in its
+  # encoding.
+  #: (value, word, word) -> value
+  def rb_str_subseq(str, beg, len)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(zr_fix(beg)))
+    Machine.store64(args, 8, Machine.word(zr_fix(len)))
+    zr_c_result(zr_send(str, Machine.id(:byteslice), 2, args))
+  end
+
+  # rb_external_str_new: a String of the `len` bytes at `bytes` in the
+  # default external encoding.
+  #: (ptr, word) -> value
+  def rb_external_str_new(bytes, len)
+    Machine.gates_enter
+    zr_c_entered()
+    enc = zr_c_result(zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:default_external), 0, Machine.ptr(0)))
+    zr_capi_str(bytes, len, zr_fix2long(zr_c_result(zr_send(enc, Machine.id(:index), 0, Machine.ptr(0)))))
+  end
+
+  # rb_cstr_to_dbl: the Float that the C string `text` writes; with
+  # `badcheck`, text that is not one raises as Float() does, else it reads
+  # as String#to_f does.
+  #: (ptr, i32) -> f64
+  def rb_cstr_to_dbl(text, badcheck)
+    Machine.gates_enter
+    zr_c_entered()
+    str = zr_str_new(text, zr_cstr_len(text))
+    f = Machine.value(QNIL)
+    if Machine.sword(badcheck) != 0
+      f = zr_capi_call1(zr_global(G_KERNEL), Machine.id(:Float), str)
+    else
+      f = zr_c_result(zr_send(str, Machine.id(:to_f), 0, Machine.ptr(0)))
+    end
+    zr_float_value(f)
+  end
+
+  # ruby_strtod: C's strtod, which sets `*end` past the number it read.
+  #: (ptr, ptr) -> f64
+  def ruby_strtod(text, stop)
+    Machine.gates_enter
+    zr_c_entered()
+    Libc.strtod(text, stop)
+  end
+
+  # rb_cstr_to_inum: rb_cstr2inum with `badcheck` given: with it, text
+  # that is not a whole number raises, as Integer(text, base) does.
+  #: (ptr, i32, i32) -> value
+  def rb_cstr_to_inum(text, base, badcheck)
+    Machine.gates_enter
+    zr_c_entered()
+    str = zr_str_new(text, zr_cstr_len(text))
+    b = Machine.sword(base)
+    if Machine.sword(badcheck) != 0
+      args = Machine.slot(16)
+      Machine.store64(args, 0, Machine.word(str))
+      Machine.store64(args, 8, Machine.word(zr_fix(b == 0 ? 10 : b)))
+      return zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:Integer), 2, args))
+    end
+    zr_capi_call1(str, Machine.id(:to_i), zr_fix(b == 0 ? 10 : b))
+  end
 end

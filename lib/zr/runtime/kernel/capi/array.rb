@@ -130,4 +130,105 @@ module Zr::Kern
     end
     zr_ary_pop(ary, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
   end
+
+  # rb_ary_includes: whether `ary` has an element `== item`.
+  #: (value, value) -> value
+  def rb_ary_includes(ary, item)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(ary, Machine.id(:include?), item)
+  end
+
+  # rb_ary_resize: cuts `ary` to `len` elements or fills it with nil up
+  # to them, and returns it.
+  #: (value, word) -> value
+  def rb_ary_resize(ary, len)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_modify_frozen_p(ary)
+      zr_c_result(zr_frozen_error(ary))
+    end
+    if len < RArray[ary].len
+      RArray[ary].len = len
+    end
+    while RArray[ary].len < len
+      zr_ary_push(ary, Machine.value(QNIL))
+    end
+    ary
+  end
+
+  # rb_assoc_new: the pair `[key, value]`.
+  #: (value, value) -> value
+  def rb_assoc_new(key, v)
+    Machine.gates_enter
+    zr_c_entered()
+    pair = zr_ary_new(2)
+    zr_ary_push(pair, key)
+    zr_ary_push(pair, v)
+    pair
+  end
+
+  # rb_ary_join: `ary.join(sep)`.
+  #: (value, value) -> value
+  def rb_ary_join(ary, sep)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(ary, Machine.id(:join), sep)
+  end
+
+  # rb_ary_shift: removes the first element and returns it, or nil.
+  #: (value) -> value
+  def rb_ary_shift(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(ary, Machine.id(:shift), 0, Machine.ptr(0)))
+  end
+
+  # rb_ary_to_ary: `obj` as an Array: itself, what its `to_ary` gives, or
+  # `[obj]`.
+  #: (value) -> value
+  def rb_ary_to_ary(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    ary = zr_capi_check_convert(obj, T_ARRAY, Machine.bytes("Array"), 5, Machine.id(:to_ary))
+    if ary != QNIL
+      return ary
+    end
+    one = zr_ary_new(1)
+    zr_ary_push(one, obj)
+    one
+  end
+
+  # rb_ary_subseq: `ary[beg, len]`.
+  #: (value, word, word) -> value
+  def rb_ary_subseq(ary, beg, len)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(zr_fix(beg)))
+    Machine.store64(args, 8, Machine.word(zr_fix(len)))
+    zr_c_result(zr_send(ary, Machine.id(:[]), 2, args))
+  end
+
+  # rb_ary_aref: `ary[*args]`.
+  #: (i32, ptr, value) -> value
+  def rb_ary_aref(argc, argv, ary)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(ary, Machine.id(:[]), Machine.sword(argc), argv))
+  end
+
+  # rb_ary_dup: a new Array of the same elements.
+  #: (value) -> value
+  def rb_ary_dup(ary)
+    Machine.gates_enter
+    zr_c_entered()
+    copy = zr_ary_new(RArray[ary].len)
+    i = 0
+    while i < RArray[ary].len
+      zr_ary_push(copy, zr_ary_at(ary, i))
+      i += 1
+    end
+    copy
+  end
 end

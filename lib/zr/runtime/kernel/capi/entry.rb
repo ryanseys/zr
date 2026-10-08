@@ -161,6 +161,12 @@ module Zr::Kern
     zr_capi_set(Machine.global(:rb_eScriptError), zr_core_class(Machine.id(:ScriptError)))
     zr_capi_set(Machine.global(:rb_eSyntaxError), zr_core_class(Machine.id(:SyntaxError)))
     zr_capi_set(Machine.global(:rb_eThreadError), zr_core_class(Machine.id(:ThreadError)))
+    zr_capi_set(Machine.global(:rb_eSysStackError), zr_global(G_SYSTEM_STACK_ERROR))
+    zr_capi_set(Machine.global(:rb_eSignal), zr_core_class(Machine.id(:SignalException)))
+    zr_capi_set(Machine.global(:rb_cThread), zr_core_class(Machine.id(:Thread)))
+    zr_capi_set(Machine.global(:rb_mErrno), zr_core_class(Machine.id(:Errno)))
+    zr_capi_set(Machine.global(:rb_mProcess), zr_core_class(Machine.id(:Process)))
+    zr_capi_set(Machine.global(:rb_cMethod), zr_global(G_METHOD))
   end
 
   #: (ptr, value) -> void

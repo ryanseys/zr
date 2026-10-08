@@ -491,4 +491,256 @@ module Zr::Kern
     zr_buf_byte(b, 41)
     zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
   end
+
+  # rb_equal: whether `a == b`, true for the same object, as Qtrue or
+  # Qfalse.
+  #: (value, value) -> value
+  def rb_equal(a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_rb_equal(a, b))
+  end
+
+  # rb_error_frozen_object: raises FrozenError for changing `obj`.
+  #: (value) -> void
+  def rb_error_frozen_object(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_frozen_error(obj))
+  end
+
+  # rb_obj_dup: `obj.dup`.
+  #: (value) -> value
+  def rb_obj_dup(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(obj, Machine.id(:dup), 0, Machine.ptr(0)))
+  end
+
+  # rb_obj_alloc: a new `klass` from its allocator, not initialized.
+  #: (value) -> value
+  def rb_obj_alloc(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_class_allocate(klass))
+  end
+
+  # rb_obj_hide: ruby hides `obj` from ObjectSpace by clearing its class;
+  # zr keeps it as it is, and returns it.
+  #: (value) -> value
+  def rb_obj_hide(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    obj
+  end
+
+  # rb_obj_freeze_inline: freezes `obj` (the OBJ_FREEZE macro).
+  #: (value) -> void
+  def rb_obj_freeze_inline(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_obj_freeze(obj, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+  end
+
+  # rb_obj_encoding: the Encoding of `obj`; TypeError for an object with
+  # none.
+  #: (value) -> value
+  def rb_obj_encoding(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    index = zr_capi_obj_enc_index(obj)
+    if index < 0
+      zr_c_raise(zr_global(G_TYPE_ERROR), Machine.bytes("unknown encoding"), 16)
+    end
+    zr_capi_encoding_object(index)
+  end
+
+  # rb_ivar_defined: whether `obj` has the instance variable `mid`.
+  #: (value, word) -> value
+  def rb_ivar_defined(obj, mid)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_ivar_defined(obj, zr_capi_mid(mid))
+  end
+
+  # rb_ivar_count: the number of `obj`'s instance variables.
+  #: (value) -> word
+  def rb_ivar_count(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    RArray[zr_capi_ivar_names(obj)].len
+  end
+
+  # rb_ivar_foreach: `fn(id, value, arg)` for each instance variable of
+  # `obj`, until one returns ST_STOP.
+  #: (value, ptr, word) -> void
+  def rb_ivar_foreach(obj, fn, arg)
+    Machine.gates_enter
+    zr_c_entered()
+    names = zr_capi_ivar_names(obj)
+    argv = Machine.slot(64)
+    i = 0
+    while i < RArray[names].len
+      id = zr_sym2id(zr_ary_at(names, i))
+      Machine.store64(argv, 0, zr_capi_id(id))
+      Machine.store64(argv, 8, Machine.word(zr_ivar_get(obj, id)))
+      Machine.store64(argv, 16, arg)
+      r = zr_call_c(fn, argv, 3)
+      if r == QUNDEF
+        zr_c_result(Machine.value(QUNDEF))
+      end
+      if (r & 0xffffffff) == ST_STOP
+        return
+      end
+      i += 1
+    end
+  end
+
+  # The names of `obj`'s instance variables, as Symbols.
+  #: (value) -> value
+  def zr_capi_ivar_names(obj)
+    zr_c_result(zr_obj_instance_variables(obj, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL)))
+  end
+
+  # rb_cvar_get: the class variable `mid` of `klass`.
+  #: (value, word) -> value
+  def rb_cvar_get(klass, mid)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(klass, Machine.id(:class_variable_get), zr_sym(zr_capi_mid(mid)))
+  end
+
+  # rb_extend_object: adds `mod` to `obj`'s singleton class, as
+  # Module#extend_object does.
+  #: (value, value) -> void
+  def rb_extend_object(obj, mod)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(mod, Machine.id(:extend_object), obj)
+  end
+
+  # rb_singleton_class: `obj`'s singleton class, made when it has none.
+  #: (value) -> value
+  def rb_singleton_class(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_singleton_class(obj))
+  end
+
+  # rb_method_boundp: 1 when instances of `klass` have the method `mid`:
+  # a public or protected one when `ex` is not 0, any one when it is.
+  #: (value, word, i32) -> i32
+  def rb_method_boundp(klass, mid, ex)
+    Machine.gates_enter
+    zr_c_entered()
+    sym = zr_sym(zr_capi_mid(mid))
+    if zr_capi_call1(klass, Machine.id(:method_defined?), sym) == QTRUE
+      return Machine.i32(1)
+    end
+    if Machine.sword(ex) == 0 && zr_capi_call1(klass, Machine.id(:private_method_defined?), sym) == QTRUE
+      return Machine.i32(1)
+    end
+    Machine.i32(0)
+  end
+
+  # rb_obj_method_arity: the arity of `obj`'s method `mid`.
+  #: (value, word) -> i32
+  def rb_obj_method_arity(obj, mid)
+    Machine.gates_enter
+    zr_c_entered()
+    m = zr_capi_call1(obj, Machine.id(:method), zr_sym(zr_capi_mid(mid)))
+    Machine.i32(zr_fix2long(zr_c_result(zr_send(m, Machine.id(:arity), 0, Machine.ptr(0)))))
+  end
+
+  # rb_apply: `recv.mid(*args)`, private methods too.
+  #: (value, word, value) -> value
+  def rb_apply(recv, mid, args)
+    Machine.gates_enter
+    zr_c_entered()
+    # A copy: the call may change `args`.
+    copy = zr_c_result(zr_send(args, Machine.id(:dup), 0, Machine.ptr(0)))
+    zr_c_result(zr_send(recv, zr_capi_mid(mid), RArray[copy].len, RArray[copy].ptr))
+  end
+
+  # rb_check_type: raises TypeError unless `v` is of the builtin type `t`
+  # (Check_Type).
+  #: (value, i32) -> void
+  def rb_check_type(v, t)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_capi_builtin_type(v) != Machine.sword(t)
+      rb_unexpected_type(v, t)
+    end
+  end
+
+  # rb_gv_get and rb_gv_set: the global variable `name`, with or without
+  # its `$`.
+  #: (ptr) -> value
+  def rb_gv_get(name)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_gvar_get(zr_capi_gvar_id(name)))
+  end
+
+  #: (ptr, value) -> value
+  def rb_gv_set(name, v)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_gvar_set(zr_capi_gvar_id(name), v))
+  end
+
+  # The id of the global variable `name`, `$` first.
+  #: (ptr) -> word
+  def zr_capi_gvar_id(name)
+    len = zr_cstr_len(name)
+    if len > 0 && Machine.u8(Machine.load8(name, 0)) == 36
+      return zr_intern(name, len)
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_byte(b, 36)
+    zr_buf_push(b, name, len)
+    id = zr_intern(Buf[b].ptr, Buf[b].len)
+    zr_buf_free(b)
+    id
+  end
+
+  # rb_marshal_dump: `Marshal.dump(obj)`, or into `port` when it is not
+  # nil.
+  #: (value, value) -> value
+  def rb_marshal_dump(obj, port)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(obj))
+    Machine.store64(args, 8, Machine.word(port))
+    zr_c_result(zr_send(zr_core_class(Machine.id(:Marshal)), Machine.id(:dump), port == QNIL ? 1 : 2, args))
+  end
+
+  # rb_marshal_load: `Marshal.load(port)`.
+  #: (value) -> value
+  def rb_marshal_load(port)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(zr_core_class(Machine.id(:Marshal)), Machine.id(:load), port)
+  end
+
+  # rb_cmpint: -1, 0 or 1 for what `a <=> b` gave as `val`; ArgumentError
+  # for nil, as Comparable does.
+  #: (value, value, value) -> i32
+  def rb_cmpint(val, a, b)
+    Machine.gates_enter
+    zr_c_entered()
+    if val == QNIL
+      zr_c_result(zr_cmperr(a, b))
+    end
+    if zr_fixnum_p(val)
+      n = zr_fix2long(val)
+      return Machine.i32(n > 0 ? 1 : n < 0 ? 0 - 1 : 0)
+    end
+    if zr_capi_call1(val, Machine.id(:>), zr_fix(0)) == QTRUE
+      return Machine.i32(1)
+    end
+    Machine.i32(zr_capi_call1(val, Machine.id(:<), zr_fix(0)) == QTRUE ? 0 - 1 : 0)
+  end
 end

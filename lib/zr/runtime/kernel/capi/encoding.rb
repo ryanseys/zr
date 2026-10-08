@@ -368,4 +368,12 @@ module Zr::Kern
     dummy = zr_c_result(zr_send(zr_capi_encoding_object(zr_capi_enc_index(enc)), Machine.id(:dummy?), 0, Machine.ptr(0)))
     Machine.i32(dummy == QTRUE ? 1 : 0)
   end
+
+  # rb_filesystem_encoding: the encoding of file names.
+  #: () -> ptr
+  def rb_filesystem_encoding
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_encoding(zr_capi_to_enc_index(zr_str_new(Machine.bytes("filesystem"), 10)))
+  end
 end

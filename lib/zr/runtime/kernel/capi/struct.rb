@@ -80,4 +80,13 @@ module Zr::Kern
     zr_c_entered()
     zr_c_result(zr_send(s, Machine.id(:size), 0, Machine.ptr(0)))
   end
+
+  # rb_struct_s_members: the member names of the Struct class `klass`, as
+  # Symbols.
+  #: (value) -> value
+  def rb_struct_s_members(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(klass, Machine.id(:members), 0, Machine.ptr(0)))
+  end
 end

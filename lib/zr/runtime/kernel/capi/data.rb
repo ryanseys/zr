@@ -195,4 +195,21 @@ module Zr::Kern
       zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
     end
   end
+
+  # rb_get_alloc_func: the allocator that rb_define_alloc_func gave
+  # `klass` or its nearest ancestor, or NULL when none of them has one.
+  #: (value) -> ptr
+  def rb_get_alloc_func(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    k = klass
+    while !zr_special_p(k) && zr_type(k) == T_CLASS
+      ext = RClass[k].ext
+      if ext != 0 && ClassExt[ext].alloc != 0
+        return Machine.ptr(ClassExt[ext].alloc)
+      end
+      k = zr_c_result(zr_send(k, Machine.id(:superclass), 0, Machine.ptr(0)))
+    end
+    Machine.ptr(0)
+  end
 end

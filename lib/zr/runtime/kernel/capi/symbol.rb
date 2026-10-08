@@ -72,4 +72,57 @@ module Zr::Kern
     end
     zr_capi_id(zr_sym2id(zr_c_result(zr_send(zr_capi_str(name, len, zr_capi_enc_index(enc)), Machine.id(:to_sym), 0, Machine.ptr(0)))))
   end
+
+  # rb_id2name: the name of an ID as a C string, which stays valid for
+  # the program: a NUL-terminated copy for each symbol, made once.
+  #: (word) -> ptr
+  def rb_id2name(mid)
+    Machine.gates_enter
+    zr_c_entered()
+    id = zr_capi_mid(mid)
+    table = Machine.static(:capi_id_names, 16)
+    cap = Machine.load64(table, 8)
+    if id >= cap
+      grown = (id + 1) * 2
+      rows = zr_xmalloc(grown * 8)
+      Libc.memset(rows, Machine.i32(0), grown * 8)
+      if cap > 0
+        old = Machine.ptr(Machine.load64(table, 0))
+        zr_memcpy(rows, old, cap * 8)
+        zr_xfree(old)
+      end
+      Machine.store64(table, 0, Machine.word(rows))
+      Machine.store64(table, 8, grown)
+    end
+    row = Machine.ptr(Machine.load64(table, 0)) + (id * 8)
+    name = Machine.ptr(Machine.load64(row, 0))
+    if name == 0
+      len = zr_symbol_name_len(id)
+      name = zr_xmalloc(len + 1)
+      zr_memcpy(name, zr_symbol_name_ptr(id), len)
+      Machine.store8(name + len, 0, Machine.i8(0))
+      Machine.store64(row, 0, Machine.word(name))
+    end
+    name
+  end
+
+  # rb_id2str: the name of an ID, a frozen String.
+  #: (word) -> value
+  def rb_id2str(mid)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_sym(zr_capi_mid(mid)), Machine.id(:name), 0, Machine.ptr(0)))
+  end
+
+  # rb_check_symbol_cstr: the Symbol of the `len` bytes at `name` in
+  # `enc` when one exists, else nil: it makes none.
+  #: (ptr, word, ptr) -> value
+  def rb_check_symbol_cstr(name, len, enc)
+    Machine.gates_enter
+    zr_c_entered()
+    index = zr_capi_enc_index(enc)
+    tag = zr_bytes_ascii_only_p(name, len) ? 0 : (index < 2 ? 1 - index : index)
+    id = zr_symbol_index_find(name, len, tag)
+    id < 0 ? Machine.value(QNIL) : zr_sym(id)
+  end
 end

@@ -178,4 +178,144 @@ module Zr::Kern
     end
     klass
   end
+
+  # rb_define_class_id: a new anonymous class under `super_` (Object for
+  # 0), which no constant names yet.
+  #: (word, value) -> value
+  def rb_define_class_id(mid, super_)
+    Machine.gates_enter
+    zr_c_entered()
+    parent = Machine.word(super_) == 0 ? zr_global(G_OBJECT) : super_
+    zr_capi_call1(zr_global(G_CLASS), Machine.id(:new), parent)
+  end
+
+  # rb_define_module_id: a new anonymous module.
+  #: (word) -> value
+  def rb_define_module_id(mid)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_global(G_MODULE), Machine.id(:new), 0, Machine.ptr(0)))
+  end
+
+  # rb_path2class: the class or module that the path `A::B` names from
+  # Object. A part that is missing raises ArgumentError with the path up
+  # to it (`undefined class/module A::`), and one that is not a class or a
+  # module raises TypeError, as in ruby.
+  #: (ptr) -> value
+  def rb_path2class(path)
+    Machine.gates_enter
+    zr_c_entered()
+    len = zr_cstr_len(path)
+    str = zr_str_new(path, len)
+    c = zr_global(G_OBJECT)
+    at = 0
+    while at < len
+      stop = at
+      while stop < len && Machine.u8(Machine.load8(path + stop, 0)) != 58
+        stop += 1
+      end
+      upto = stop + 2 <= len ? stop + 2 : stop
+      sym = zr_sym(zr_intern(path + at, stop - at))
+      if zr_capi_call1(c, Machine.id(:const_defined?), sym) != QTRUE
+        zr_capi_path_error(zr_global(G_ARGUMENT_ERROR), Machine.bytes("undefined class/module "), 23, zr_str_new(path, upto), Machine.bytes(""), 0)
+      end
+      c = zr_capi_call1(c, Machine.id(:const_get), sym)
+      if zr_special_p(c) || (zr_type(c) != T_CLASS && zr_type(c) != T_MODULE)
+        zr_capi_path_error(zr_global(G_TYPE_ERROR), Machine.bytes(""), 0, str, Machine.bytes(" does not refer to class/module"), 31)
+      end
+      at = upto
+    end
+    c
+  end
+
+  #: (value, ptr, word, value, ptr, word) -> void
+  def zr_capi_path_error(klass, head, hlen, path, tail, tlen)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, head, hlen)
+    zr_buf_str(b, path)
+    zr_buf_push(b, tail, tlen)
+    zr_c_result(zr_raise_buf(klass, b))
+  end
+
+  # rb_class_name: the path of `klass` as a String, `#<Class:0x...>` for
+  # an anonymous one.
+  #: (value) -> value
+  def rb_class_name(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_class_path(zr_real_class_of_class(klass)))
+  end
+
+  # rb_prepend_module: prepends `mod` to `klass`, as Module#prepend_features
+  # does, without the `prepended` hook.
+  #: (value, value) -> void
+  def rb_prepend_module(klass, mod)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(mod, Machine.id(:prepend_features), klass)
+  end
+
+  # rb_define_attr: a reader and a writer of `@name`, as `read` and
+  # `write` ask.
+  #: (value, ptr, i32, i32) -> void
+  def rb_define_attr(klass, name, read, write)
+    Machine.gates_enter
+    zr_c_entered()
+    sym = zr_sym(zr_intern(name, zr_cstr_len(name)))
+    if Machine.sword(read) != 0
+      zr_capi_call1(klass, Machine.id(:attr_reader), sym)
+    end
+    if Machine.sword(write) != 0
+      zr_capi_call1(klass, Machine.id(:attr_writer), sym)
+    end
+  end
+
+  # rb_const_defined and rb_const_defined_at: whether `klass` has the
+  # constant `mid`, through its ancestors or in itself alone. Like ruby,
+  # they give Qtrue (20) as the int for yes, and 0 for no.
+  #: (value, word) -> i32
+  def rb_const_defined(klass, mid)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_const_defined(klass, mid, true)
+  end
+
+  #: (value, word) -> i32
+  def rb_const_defined_at(klass, mid)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_const_defined(klass, mid, false)
+  end
+
+  #: (value, word, bool) -> i32
+  def zr_capi_const_defined(klass, mid, inherit)
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(zr_sym(zr_capi_mid(mid))))
+    Machine.store64(args, 8, Machine.word(zr_bool(inherit)))
+    Machine.i32(zr_c_result(zr_send(klass, Machine.id(:const_defined?), 2, args)) == QTRUE ? QTRUE : 0)
+  end
+
+  # rb_class_superclass, rb_mod_name and rb_mod_ancestors: `superclass`,
+  # `name` and `ancestors`.
+  #: (value) -> value
+  def rb_class_superclass(klass)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(klass, Machine.id(:superclass), 0, Machine.ptr(0)))
+  end
+
+  #: (value) -> value
+  def rb_mod_name(mod)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(mod, Machine.id(:name), 0, Machine.ptr(0)))
+  end
+
+  #: (value) -> value
+  def rb_mod_ancestors(mod)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(mod, Machine.id(:ancestors), 0, Machine.ptr(0)))
+  end
 end

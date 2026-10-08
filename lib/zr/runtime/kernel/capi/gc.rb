@@ -247,4 +247,20 @@ module Zr::Kern
     zr_c_entered()
     Machine.store64(store, 0, 0)
   end
+
+  # rb_gc_enable and rb_gc_disable: GC.enable and GC.disable, each true
+  # when collection was off before.
+  #: () -> value
+  def rb_gc_enable
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_core_class(Machine.id(:GC)), Machine.id(:enable), 0, Machine.ptr(0)))
+  end
+
+  #: () -> value
+  def rb_gc_disable
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_core_class(Machine.id(:GC)), Machine.id(:disable), 0, Machine.ptr(0)))
+  end
 end

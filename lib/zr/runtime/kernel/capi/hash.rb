@@ -160,4 +160,45 @@ module Zr::Kern
     HEntry[e].value = Machine.value(QNIL)
     RHash[h].live = RHash[h].live - 1
   end
+
+  # rb_hash_set_ifnone: the Hash's default value, which `[]` gives for a
+  # missing key; returns the Hash.
+  #: (value, value) -> value
+  def rb_hash_set_ifnone(hash, ifnone)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(hash, Machine.id(:default=), ifnone)
+    hash
+  end
+
+  # rb_hash_fetch: `hash.fetch(key)`, KeyError for a missing key.
+  #: (value, value) -> value
+  def rb_hash_fetch(hash, key)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(hash, Machine.id(:fetch), key)
+  end
+
+  # rb_hash_bulk_insert: stores the `argc / 2` pairs of keys and values at
+  # `argv`.
+  #: (word, ptr, value) -> void
+  def rb_hash_bulk_insert(argc, argv, hash)
+    Machine.gates_enter
+    zr_c_entered()
+    i = 0
+    while i + 1 < argc
+      args = argv + (i * 8)
+      zr_c_result(zr_send(hash, Machine.id(:[]=), 2, args))
+      i += 2
+    end
+  end
+
+  # rb_hash_start: the first step of a hash value from the seed `h`, which
+  # rb_hash_uint and rb_hash_end go on from.
+  #: (word) -> word
+  def rb_hash_start(h)
+    Machine.gates_enter
+    zr_c_entered()
+    h ^ Machine.word(0x9e3779b97f4a7c15)
+  end
 end
