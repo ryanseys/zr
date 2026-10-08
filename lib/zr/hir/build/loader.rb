@@ -686,7 +686,10 @@ module Zr
                       else
                         parsed_unit(path)
                       end
-          c_requires(path) if extension?(path)
+          if extension?(path)
+            c_requires(path)
+            @traces ||= Ext.bundles.fetch(path).traces?
+          end
           i
         end
 

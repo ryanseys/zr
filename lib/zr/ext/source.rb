@@ -116,6 +116,17 @@ module Zr
                            .flat_map { |section| bytes.byteslice(section.offset, section.size).split("\0") }
         end.grep(FEATURE).uniq
       end
+
+      # The C API's functions that hook trace events: a tracer's, a
+      # profiler's or a debugger's. A debugger's frames give bindings,
+      # which see every local only in a traced build (`Loader#traces?`).
+      TRACERS = %w[rb_tracepoint_new rb_add_event_hook rb_add_event_hook2 rb_thread_add_event_hook rb_thread_add_event_hook2
+                   rb_debug_inspector_open].freeze
+
+      # Whether the extension's C hooks trace events, so the build must
+      # fire them, as for a program that names TracePoint.
+      #: () -> bool
+      def traces? = CApi.imports(*binaries).intersect?(TRACERS)
     end
   end
 end

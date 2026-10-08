@@ -162,6 +162,7 @@ class ExtTest < Minitest::Test
     assert_includes names, "rb_define_method"
     assert_includes names, "rb_raise"
     assert_includes names, "rb_cObject"
+    assert_includes names, "rb_tracearg_callee_id"
     refute_includes names, "zr_capi_str", "a kernel helper is not C API"
     assert_includes names, "OnigEncodingASCII", "Onigmo's data is ruby's"
     refute_includes names, "zr_capi_verbose", "a word of zr's own is not C API"
@@ -208,6 +209,39 @@ class ExtTest < Minitest::Test
       end
 
       assert_equal({ "requires" => %w[demo/part set], "quiet" => [] }, found)
+    end
+  end
+
+  # An extension that hooks trace events (a C TracePoint, or a debugger's
+  # frames) traces, and the program that requires it is built with its
+  # trace events armed, though no file names TracePoint. An extension
+  # that hooks none leaves the program untraced.
+  def test_an_extension_that_hooks_trace_events_arms_them_in_the_program
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+
+    Dir.mktmpdir do |dir|
+      lib = File.join(dir, "lib")
+      FileUtils.mkdir_p(lib)
+      sources = { "point" => "void *rb_tracepoint_new(unsigned long, unsigned, void *, void *);\n" \
+                             "void Init_point(void) { rb_tracepoint_new(0, 8, 0, 0); }\n",
+                  "frames" => "void *rb_debug_inspector_open(void *, void *);\nvoid Init_frames(void) { rb_debug_inspector_open(0, 0); }\n",
+                  "quiet" => "unsigned long rb_intern(const char *);\nvoid Init_quiet(void) { rb_intern(\"x\"); }\n" }
+      given = sources.map do |name, c|
+        File.write(File.join(dir, "#{name}.c"), c)
+        object = File.join(dir, "#{name}.o")
+        system("cc", "-c", File.join(dir, "#{name}.c"), "-o", object, exception: true)
+        "#{File.join(lib, "#{name}.bundle")}=#{object}"
+      end
+
+      traced = Zr::Config.with(ZR_EXT_OBJECTS: given.join(" ")) do
+        assert_equal({ "point" => true, "frames" => true, "quiet" => false },
+                     Zr::Ext.bundles.to_h { |path, source| [File.basename(path, ".bundle"), source.traces?] })
+        sources.each_key.to_h do |name|
+          [name, Zr::Hir::Build.program("require #{name.dump}\n", File.join(dir, "main.rb"), roots: [lib]).traced]
+        end
+      end
+
+      assert_equal({ "point" => true, "frames" => true, "quiet" => false }, traced)
     end
   end
 
