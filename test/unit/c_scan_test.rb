@@ -149,6 +149,15 @@ class CScanTest < Minitest::Test
     assert_equal "plain has no C files", sweep.lacks(scan.with(gem: "plain", sources: 0))
   end
 
+  def test_a_scans_line_names_what_the_c_api_lacks
+    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    scan = Gems::CScan::Scan.new(gem: "pg", version: "1.0", sources: 2, compiled: 2, imports: %w[rb_zr_one rb_zr_two], error: nil)
+
+    assert_equal "pg lacks 2: rb_zr_one rb_zr_two", sweep.lacks(scan)
+    assert_equal "pg lacks 2 (1/2): rb_zr_one rb_zr_two", sweep.lacks(scan.with(compiled: 1))
+    assert_equal "pg lacks 0", sweep.lacks(scan.with(imports: []))
+  end
+
   def test_only_the_c_extensions_that_zr_does_not_port_are_scanned
     c = gem("scanned", "main.c" => MAIN)
     ported = gem("json", "main.c" => MAIN)
@@ -184,7 +193,7 @@ class CScanTest < Minitest::Test
 
     written = capi.string.lines.map { |line| JSON.parse(line) }
     assert_equal [["app", [[UNKNOWN]]], ["plain", []]], written.map { |row| [row["name"], row["scans"].map { _1["missing"] }] }
-    assert_match(/\A\[1\/2\] C +app  C: scanned lacks 1 /, lines[0])
+    assert_match(/\A\[1\/2\] C +app  C: scanned lacks 1: #{UNKNOWN} \(/o, lines[0])
     assert_match(/\A\[2\/2\] no C +plain /, lines[1])
     assert_match(/^ +1  #{UNKNOWN} +app$/o, File.read(File.join(@dir, "capi.txt")))
   end

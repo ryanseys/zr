@@ -142,13 +142,17 @@ module Zr
           "  C: #{result.scans.map { |scan| lacks(scan) }.join(", ")}"
         end
 
-        # `nokogiri lacks 0 (35/36)`: the files that compiled when not all
+        # `pg lacks 3: rb_copy_generic_ivar rb_gc_adjust_memory_usage
+        # rb_locale_encindex`, or `nokogiri lacks 0 (35/36)`: the functions
+        # that zr's C API lacks, and the files that compiled when not all
         # did. A scan with no compiled file found nothing to count.
         def lacks(scan)
           return "#{scan.gem} has no C files" if scan.sources.zero?
           return "#{scan.gem} did not compile (0/#{scan.sources})" if scan.compiled.zero?
 
-          "#{scan.gem} lacks #{scan.missing.size}#{" (#{scan.compiled}/#{scan.sources})" unless scan.complete?}"
+          files = " (#{scan.compiled}/#{scan.sources})" unless scan.complete?
+          names = ": #{scan.missing.join(" ")}" unless scan.missing.empty?
+          "#{scan.gem} lacks #{scan.missing.size}#{files}#{names}"
         end
 
         # Writes the ranking of `rows` (CScan.rank) to `path` and says its
