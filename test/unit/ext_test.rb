@@ -180,6 +180,26 @@ class ExtTest < Minitest::Test
     end
   end
 
+  # The features that an extension's C may require are its C strings that
+  # read as feature names, and only when it imports a require function.
+  def test_an_extension_requires_the_feature_names_in_its_c_strings
+    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+
+    Dir.mktmpdir do |dir|
+      sources = { "requires" => "void rb_require(const char *);\nint puts(const char *);\n" \
+                                "void Init_requires(void) { rb_require(\"demo/part\"); rb_require(\"set\"); puts(\"Not a Feature!\"); }\n",
+                  "quiet" => "int puts(const char *);\nvoid Init_quiet(void) { puts(\"demo/part\"); }\n" }
+      found = sources.to_h do |name, c|
+        File.write(File.join(dir, "#{name}.c"), c)
+        object = File.join(dir, "#{name}.o")
+        system("cc", "-c", File.join(dir, "#{name}.c"), "-o", object, exception: true)
+        [name, Zr::Ext::Source.given(File.join(dir, "#{name}.bundle"), [object]).required_features]
+      end
+
+      assert_equal({ "requires" => %w[demo/part set], "quiet" => [] }, found)
+    end
+  end
+
   # A build of an extension that imports a function the C API lacks
   # stops with its name, before the link.
   def test_an_import_that_the_c_api_lacks_refuses_the_build

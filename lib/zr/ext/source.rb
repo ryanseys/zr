@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "makefile"
+require_relative "c_api"
 
 module Zr
   module Ext
@@ -94,6 +95,27 @@ module Zr
       # loads with dlopen under `dynamic`; objects stay static.
       #: (String mode) -> Source
       def for_mode(mode) = library && mode == "dynamic" ? with(mode: :dynamic) : self
+
+      # The C API's functions that require a feature (`rb_require("oj/bag")`).
+      REQUIRERS = %w[rb_require rb_require_string rb_f_require].freeze
+      # A string that reads as a feature name: words joined by slashes.
+      FEATURE = %r{\A[a-z][a-z0-9_-]*(?:/[a-z0-9_-]+)*\z}
+
+      # The features that the extension's C may require as it runs. The
+      # names that C passes to rb_require are C strings (`__cstring`), so
+      # they are each such string that reads as a feature name; the build
+      # compiles in those that a load path has (`Loader#add`). An
+      # extension that imports no require function requires nothing.
+      #: () -> Array[String]
+      def required_features
+        return [] unless CApi.imports(*binaries).intersect?(REQUIRERS)
+
+        binaries.flat_map do |path|
+          bytes = File.binread(path)
+          Obj::MachO::Image.read(bytes).sections.select { |section| section.name == "__cstring" }
+                           .flat_map { |section| bytes.byteslice(section.offset, section.size).split("\0") }
+        end.grep(FEATURE).uniq
+      end
     end
   end
 end

@@ -433,7 +433,7 @@ module Zr
           table = k::LoadTable
           # `Walk::EvalSupport` has the `units` that `Manifest` reads of a `Zr::EvalSupport`.
           manifest = Manifest.of_program(hir, @eval_files) # steep:ignore ArgumentTypeMismatch
-          texts = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
+          texts = LoadTables.new(computed: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {}, branches: hir.branches || {},
                                  defs: hir.defs || {}, target: target, manifest: Manifest.bytes(manifest, target)).texts
           TEXTS.zip(texts) do |field, lines|
             text = lines.join("\n").b

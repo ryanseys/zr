@@ -681,7 +681,20 @@ module Zr
                       else
                         parsed_unit(path)
                       end
+          c_requires(path) if extension?(path)
           i
+        end
+
+        # The files that a C extension's C may require as it runs
+        # (`Ext::Source#required_features`) go into the program, so that
+        # require finds them, as a computed require finds any file of the
+        # program.
+        #: (String path) -> void
+        def c_requires(path)
+          Ext.bundles.fetch(path).required_features.each do |feature|
+            found = resolve(:require, feature, path)
+            add(found) if found
+          end
         end
 
         # A required file, or, when it does not parse, a unit that raises
@@ -813,7 +826,7 @@ module Zr
 
         # Whether the build links a C extension under one of `roots`.
         #: (Array[String] roots) -> bool
-        def extension_in?(roots) = Ext.bundles.each_key.any? { |path| roots.any? { |root| path.start_with?("#{root}/") } }
+        def extension_in?(roots) = Ext.linked_under?(roots)
 
         # Library::Layout::EXT, or an OS layer's directory under it.
         #: (String root) -> bool

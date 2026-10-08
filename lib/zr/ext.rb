@@ -31,6 +31,13 @@ module Zr
       end
     end
 
+    # Whether the build links a C extension under one of `roots`: the gem
+    # whose roots they are has its C part.
+    #: (Array[String] roots, ?Config config) -> bool
+    def linked_under?(roots, config = Config.current)
+      bundles(config).each_key.any? { |path| roots.any? { |root| path.start_with?("#{root}/") } }
+    end
+
     # The extensions of the installed gem `name` (the newest, or
     # `version`), in this order: the ones that zr builds with the
     # arguments that `config` gives the gem (`ZR_EXT_CONFIG`); the

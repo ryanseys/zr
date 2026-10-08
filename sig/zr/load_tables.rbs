@@ -2,7 +2,7 @@
 # inline RBS cannot type.
 module Zr
   class LoadTables < Data
-    attr_reader evals: bool
+    attr_reader computed: bool
     attr_reader gems: bool
     attr_reader spots: Hash[String, String]
     attr_reader coverable: Hash[String, [Integer, Array[Integer]]]
@@ -14,12 +14,12 @@ module Zr
     attr_reader manifest: String?
     attr_reader redirects: Hash[String, String]
 
-    def self.new: (?evals: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
+    def self.new: (?computed: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
                    ?branches: Hash[String, Array[Array[untyped]]], ?defs: Hash[String, Array[Array[untyped]]],
                    ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
                    ?redirects: Hash[String, String], ?gems: bool) -> instance
 
-    def initialize: (?evals: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
+    def initialize: (?computed: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
                      ?branches: Hash[String, Array[Array[untyped]]], ?defs: Hash[String, Array[Array[untyped]]],
                      ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
                      ?redirects: Hash[String, String], ?gems: bool) -> void

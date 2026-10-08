@@ -115,11 +115,19 @@ module Zr
       end
       tag = rt.description.const_for("SYMBOL_TAG") #: Integer
       SymbolNumbering.number(data, symbols, tag)
-      tables = LoadTables.new(evals: hir.evals, spots: hir.spots || {}, coverable: hir.coverable || {},
+      # A C extension's rb_require is a require of a computed name.
+      tables = LoadTables.new(computed: hir.evals || !Ext.bundles.empty?, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
-                              target: target, gem_roots: gem_set ? gem_set.gems.reject(&:refusal).flat_map(&:roots) : [],
+                              target: target, gem_roots: gem_set ? gem_roots(gem_set) : [],
                               manifest: Manifest.bytes(gems, target), redirects: redirects, gems: switches.gems)
       new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
+    end
+
+    # The roots of the gems whose files a require at run time can load: a
+    # gem that zr can use, or one whose C extension the build links.
+    #: (GemSet gem_set) -> Array[String]
+    def self.gem_roots(gem_set)
+      gem_set.gems.select { |gem| gem.refusal.nil? || Ext.linked_under?(gem.roots) }.flat_map(&:roots)
     end
 
     # Eval support has zr's own copy of some libraries (fileutils, pp, irb,

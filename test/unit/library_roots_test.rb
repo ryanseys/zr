@@ -33,7 +33,7 @@ class LibraryRootsTest < Minitest::Test
     shown = Library::Roots.bundled_roots.map { |root| Zr::Paths.shown(root) }
 
     found = [[], ["/gems/a/lib"]].map do |gem_roots|
-      Library::Roots.from_load_names(Zr::LoadTables.new(evals: true, gem_roots: gem_roots).texts.first)
+      Library::Roots.from_load_names(Zr::LoadTables.new(computed: true, gem_roots: gem_roots).texts.first)
     end
 
     assert_equal [[Zr::Paths.shown(Library::Roots.pure), shown]] * 2, found

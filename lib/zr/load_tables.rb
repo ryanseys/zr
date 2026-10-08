@@ -13,8 +13,8 @@ module Zr
   # - as (bytes, length), one name per line: the library directories to
   #   search after $LOAD_PATH, the ruby features that this runtime has no
   #   file for, the features ruby loads before the program, and the
-  #   extensions directory. Only a program with eval can require a
-  #   computed name, so only such a program gets these lines;
+  #   extensions directory. Only a program that can require a computed
+  #   name (`computed`: it evals, or its C requires) gets these lines;
   # - error_highlight's spots for each file (every program has them), and
   #   Coverage's tables;
   # - for a program with eval, the digest of each eval support file
@@ -38,13 +38,13 @@ module Zr
   # program shares its prebuilt files (a port's `require "json/common"`).
   # A require of such a copy runs the gem's file instead (`zr_require_redirect`), so
   # one copy loads, as in ruby.
-  LoadTables = Data.define(:evals, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects, :gems)
+  LoadTables = Data.define(:computed, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects, :gems)
 
   # The methods are in a reopened class, not in the block of
   # `Data.define`, so that the type check (sig/zr/load_tables.rbs) sees
   # them in the class that they belong to.
   class LoadTables
-    def initialize(evals: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
+    def initialize(computed: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
                    manifest: nil, redirects: {}, gems: true)
       super
     end
@@ -87,12 +87,12 @@ module Zr
       # reason if there is one. So a computed require stops for the same
       # reason as a literal one.
       uncarried = Hir::Build.missing_features(target).map { |name| [name, *Hir::Build::UNSUPPORTED_LIBRARIES[name]].join("\t") }
-      # Only a build reads the roots. An eval in a program (evals false)
+      # Only a build reads the roots. An eval in a program (computed false)
       # builds its tables here too, and must not read them: they are the
       # build machine's directories.
       # The roots a run-time require searches before $LOAD_PATH, an empty
       # line, then the ones it searches after it (`Kernel.search`).
-      names = if evals
+      names = if computed
                 native = Library::Roots.native(target)
                 later = gem_roots + (Library::Roots.stdlib(target) - native)
                 [[*native.map(&shown), "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
