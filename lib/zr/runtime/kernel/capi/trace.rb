@@ -14,13 +14,127 @@ module Zr::Kern
   def rb_tracepoint_new(_thread, events, func, data)
     Machine.gates_enter
     zr_c_entered()
-    hook = Machine.slot(16)
-    Machine.store64(hook, 0, Machine.word(func))
-    Machine.store64(hook, 8, Machine.word(data))
     argv = Machine.slot(64)
     Machine.store64(argv, 0, Machine.word(zr_fix(Machine.sword(events) & 0xffffffff)))
-    Machine.store64(argv, 8, Machine.word(zr_str_new(hook, 16)))
+    Machine.store64(argv, 8, Machine.word(zr_capi_hook(func, Machine.word(data), HOOK_POINT)))
     zr_c_result(zr_trace_point_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:c_point), 2, argv))
+  end
+
+  # The words of a C hook (zr_trace_call_c), as a String that its point
+  # keeps.
+  #: (ptr, word, word) -> value
+  def zr_capi_hook(func, data, form)
+    words = Machine.slot(24)
+    Machine.store64(words, 0, Machine.word(func))
+    Machine.store64(words, 8, data)
+    Machine.store64(words, 16, form)
+    zr_str_new(words, 24)
+  end
+
+  # rb_add_event_hook: `func(event, data, self, mid, klass)` for each of
+  # `events` in every thread, until rb_remove_event_hook removes it. The
+  # hook is a C TracePoint, on at once.
+  #: (ptr, i32, value) -> void
+  def rb_add_event_hook(func, events, data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_add_hook(Machine.value(QNIL), func, events, data, Machine.i32(0))
+  end
+
+  # rb_add_event_hook2: the same, or with RUBY_EVENT_HOOK_FLAG_RAW_ARG
+  # in `flags`, `func(data, arg)` with the trace arg.
+  #: (ptr, i32, value, i32) -> void
+  def rb_add_event_hook2(func, events, data, flags)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_add_hook(Machine.value(QNIL), func, events, data, flags)
+  end
+
+  # rb_thread_add_event_hook and rb_thread_add_event_hook2: a hook of the
+  # events of `thread` alone.
+  #: (value, ptr, i32, value) -> void
+  def rb_thread_add_event_hook(thread, func, events, data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_add_hook(thread, func, events, data, Machine.i32(0))
+  end
+
+  #: (value, ptr, i32, value, i32) -> void
+  def rb_thread_add_event_hook2(thread, func, events, data, flags)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_add_hook(thread, func, events, data, flags)
+  end
+
+  # rb_remove_event_hook: removes each hook of every thread that calls
+  # `func`; how many.
+  #: (ptr) -> i32
+  def rb_remove_event_hook(func)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_remove_hooks(Machine.value(QNIL), func, Machine.value(QUNDEF))
+  end
+
+  # rb_remove_event_hook_with_data: only the hooks whose data is `data`,
+  # or every one for undef.
+  #: (ptr, value) -> i32
+  def rb_remove_event_hook_with_data(func, data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_remove_hooks(Machine.value(QNIL), func, data)
+  end
+
+  #: (value, ptr) -> i32
+  def rb_thread_remove_event_hook(thread, func)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_remove_hooks(thread, func, Machine.value(QUNDEF))
+  end
+
+  #: (value, ptr, value) -> i32
+  def rb_thread_remove_event_hook_with_data(thread, func, data)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_remove_hooks(thread, func, data)
+  end
+
+  # RUBY_EVENT_HOOK_FLAG_RAW_ARG.
+  EVENT_HOOK_RAW_ARG = 4
+
+  # Adds the hook of `func` (TracePoint.c_hook) for `thread`, or every
+  # thread for nil.
+  #: (value, ptr, i32, value, i32) -> void
+  def zr_capi_add_hook(thread, func, events, data, flags)
+    form = (Machine.sword(flags) & EVENT_HOOK_RAW_ARG) != 0 ? HOOK_RAW : HOOK_EVENT
+    argv = Machine.slot(64)
+    Machine.store64(argv, 0, Machine.word(zr_fix(Machine.sword(events) & 0xffffffff)))
+    Machine.store64(argv, 8, Machine.word(zr_capi_hook(func, Machine.word(data), form)))
+    Machine.store64(argv, 16, Machine.word(thread))
+    before = Machine.load64(Machine.static(:trace_events, 8), 0)
+    zr_c_result(zr_trace_point_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:c_hook), 3, argv))
+    zr_capi_trace_started(before)
+  end
+
+  # Removes the hooks of `thread` (nil: of every thread) that call `func`
+  # with `data`, or with any data for undef (TracePoint.c_unhook); how
+  # many.
+  #: (value, ptr, value) -> i32
+  def zr_capi_remove_hooks(thread, func, data)
+    # Each String is a local until both are made: the slot is no root.
+    words = Machine.slot(8)
+    Machine.store64(words, 0, Machine.word(func))
+    func_word = zr_str_new(words, 8)
+    data_word = Machine.value(QNIL)
+    if data != QUNDEF
+      Machine.store64(words, 0, Machine.word(data))
+      data_word = zr_str_new(words, 8)
+    end
+    argv = Machine.slot(64)
+    Machine.store64(argv, 0, Machine.word(func_word))
+    Machine.store64(argv, 8, Machine.word(data_word))
+    Machine.store64(argv, 16, Machine.word(thread))
+    removed = zr_c_result(zr_trace_point_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:c_unhook), 3, argv))
+    Machine.i32(zr_fix2long(removed))
   end
 
   # rb_tracepoint_enable and rb_tracepoint_disable: turn the point on or
@@ -220,21 +334,28 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  # Turns `tp` on or off. A point that starts :c_return events hears the
-  # return of the C method that turned it on, as ruby's hook sees the
-  # return of the C function that runs (zr_capi_trace_returned).
+  # Turns `tp` on or off.
   #: (value, value) -> value
   def zr_capi_trace_switch(tp, on)
-    events = Machine.static(:trace_events, 8)
-    before = Machine.load64(events, 0)
+    before = Machine.load64(Machine.static(:trace_events, 8), 0)
     argv = Machine.slot(64)
     Machine.store64(argv, 0, Machine.word(on))
     zr_c_result(zr_trace_point_send(tp, Machine.id(:c_switch), 1, argv))
+    zr_capi_trace_started(before)
+    Machine.value(QUNDEF)
+  end
+
+  # After C turned on a point or a hook, with `before` the mask of the
+  # events that were on: when :c_return events start, the C method that
+  # runs hears its own return, as ruby's hook sees the return of the C
+  # function that runs (zr_capi_trace_returned).
+  #: (word) -> void
+  def zr_capi_trace_started(before)
     top = Task[zr_task()].top
-    if (before & TRACE_C_RETURN) == 0 && (Machine.load64(events, 0) & TRACE_C_RETURN) != 0 && zr_capi_method_frame_p(top)
+    if (before & TRACE_C_RETURN) == 0 && (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_C_RETURN) != 0 &&
+       zr_capi_method_frame_p(top)
       Machine.store64(Machine.static(:trace_c_returning, 8), 0, Machine.word(top))
     end
-    Machine.value(QUNDEF)
   end
 
   # Whether the frame `rec` runs a C method that an extension defined

@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby 4.0's C API. zr's kernel gives 780 of its
+calls ruby 4.0's C API. zr's kernel gives 788 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -24,6 +24,8 @@ TracePoint does. The debug inspector (`rb_debug_inspector_*`)
 gives the frames that a backtrace shows, from the innermost
 outward. A frame's depth counts the frames from it outward, so
 two depths compare as ruby's do, but the number is not ruby's.
+An event hook (`rb_add_event_hook`) is a C TracePoint too, and
+a C TracePoint hears the internal events NEWOBJ and FREEOBJ.
 zr does not have yet `rb_profile_frame*`, `rb_postponed_job_*`
 and `rb_iseq_*`, so stackprof and vernier do not build.
 
@@ -191,7 +193,7 @@ The C API's Structs, through Struct's own methods: a Struct here is not CRuby's 
 
 ## symbol
 
-CRuby's ID, as C code holds it.
+zr's symbol id of the C ID `id`: an ID that this API gave, or a character, which names the operator of that one character.
 
 `rb_intern`, `rb_intern2`, `rb_id2sym`, `rb_sym2id`, `rb_intern3`, `rb_id2name`, `rb_id2str`, `rb_check_symbol_cstr`, `rb_to_id`, `rb_intern_str`, `rb_to_symbol`, `rb_is_const_id`
 
@@ -211,7 +213,7 @@ The C API's Times, made through Time.at.
 
 The C API of ruby/debug.h for tracers: a C TracePoint is the Ruby TracePoint of core/trace_point.rb with a C function for its block, so the events, the masks, the order of the hooks and the stop of nested events are the same code for both.
 
-`rb_tracepoint_new`, `rb_tracepoint_enable`, `rb_tracepoint_disable`, `rb_tracepoint_enabled_p`, `rb_tracearg_from_tracepoint`, `rb_tracearg_event_flag`, `rb_tracearg_event`, `rb_tracearg_path`, `rb_tracearg_lineno`, `rb_tracearg_method_id`, `rb_tracearg_callee_id`, `rb_tracearg_defined_class`, `rb_tracearg_binding`, `rb_tracearg_self`, `rb_tracearg_return_value`, `rb_tracearg_raised_exception`, `rb_tracearg_parameters`, `rb_tracearg_eval_script`, `rb_tracearg_instruction_sequence`, `rb_tracearg_object`
+`rb_tracepoint_new`, `rb_add_event_hook`, `rb_add_event_hook2`, `rb_thread_add_event_hook`, `rb_thread_add_event_hook2`, `rb_remove_event_hook`, `rb_remove_event_hook_with_data`, `rb_thread_remove_event_hook`, `rb_thread_remove_event_hook_with_data`, `rb_tracepoint_enable`, `rb_tracepoint_disable`, `rb_tracepoint_enabled_p`, `rb_tracearg_from_tracepoint`, `rb_tracearg_event_flag`, `rb_tracearg_event`, `rb_tracearg_path`, `rb_tracearg_lineno`, `rb_tracearg_method_id`, `rb_tracearg_callee_id`, `rb_tracearg_defined_class`, `rb_tracearg_binding`, `rb_tracearg_self`, `rb_tracearg_return_value`, `rb_tracearg_raised_exception`, `rb_tracearg_parameters`, `rb_tracearg_eval_script`, `rb_tracearg_instruction_sequence`, `rb_tracearg_object`
 
 ## util
 

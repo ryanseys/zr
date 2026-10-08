@@ -881,16 +881,49 @@ module Zr::Kern
     Machine.value(QFALSE)
   end
 
-  # Runs a C TracePoint's hook for the event its point handles:
-  # `func(point, data)`, from the two words of `hook`. Returns undef when
-  # the hook raised.
-  #: (value, value) -> value
-  def zr_trace_call_c(hook, point)
+  # The forms of a C hook, the third word of its `hook` (after its
+  # function and its data): a C TracePoint's `func(tp, data)`
+  # (rb_tracepoint_new), an event hook's `func(event, data, self, mid,
+  # klass)` (rb_add_event_hook), and a raw one's `func(data, arg)`
+  # (rb_add_event_hook2 with RUBY_EVENT_HOOK_FLAG_RAW_ARG), whose trace
+  # arg is the point.
+  HOOK_POINT = 0
+  HOOK_EVENT = 1
+  HOOK_RAW = 2
+
+  # Runs the C hook of `point` for the event of `row`, from the words of
+  # `hook`, in its form. Returns undef when the hook raised.
+  #: (value, value, value) -> value
+  def zr_trace_call_c(hook, point, row)
     words = RString[hook].ptr
+    data = Machine.load64(words, 8)
+    form = Machine.load64(words, 16)
     argv = Machine.slot(64)
-    Machine.store64(argv, 0, Machine.word(point))
-    Machine.store64(argv, 8, Machine.load64(words, 8))
-    if !zr_call_c_returned(Machine.ptr(Machine.load64(words, 0)), argv, 2)
+    n = 2
+    if form == HOOK_EVENT
+      # A C method's events name it and its class; ruby gives the others
+      # neither.
+      event = zr_fix2long(zr_ary_at(row, 0))
+      mid = Machine.value(QNIL)
+      klass = Machine.value(QNIL)
+      if (event & (TRACE_C_CALL | TRACE_C_RETURN)) != 0
+        mid = zr_ary_at(row, 4)
+        klass = zr_ary_at(row, 6)
+      end
+      Machine.store64(argv, 0, event)
+      Machine.store64(argv, 8, data)
+      Machine.store64(argv, 16, Machine.word(zr_ary_at(row, 7)))
+      Machine.store64(argv, 24, mid == QNIL ? 0 : zr_capi_id(zr_sym2id(mid)))
+      Machine.store64(argv, 32, klass == QNIL ? 0 : Machine.word(klass))
+      n = 5
+    elsif form == HOOK_RAW
+      Machine.store64(argv, 0, data)
+      Machine.store64(argv, 8, Machine.word(point))
+    else
+      Machine.store64(argv, 0, Machine.word(point))
+      Machine.store64(argv, 8, data)
+    end
+    if !zr_call_c_returned(Machine.ptr(Machine.load64(words, 0)), argv, n)
       return Machine.value(QUNDEF)
     end
     Machine.value(QNIL)

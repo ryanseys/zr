@@ -12,11 +12,13 @@ module Zr::Kern
   TRACE_NEWOBJ = 0x100000
   TRACE_FREEOBJ = 0x200000
 
-  # A hook: the C function and data of a point, the point, and the
-  # internal events that it hears.
+  # A hook: the C function, data and form (HOOK_POINT or HOOK_RAW,
+  # trace.rb) of a point, the point, and the internal events that it
+  # hears.
   class InternalHook < Layout
     attr_accessor :func #: ptr
     attr_accessor :data #: ptr
+    attr_accessor :form #: word
     attr_accessor :point #: value
     attr_accessor :events #: word
   end
@@ -42,8 +44,8 @@ module Zr::Kern
 
   # The hooks of the C points that hear internal events, from `rows`:
   # `[hook, point, events]` for each point, where `hook` holds the words
-  # of its C function and its data (TracePoint.c_point). The list that a
-  # hook runs from is not freed under it.
+  # of its C function, its data and its form (TracePoint.c_point). The
+  # list that a hook runs from is not freed under it.
   #: (value) -> value
   def zr_trace_internal_set(rows)
     hooks = Machine.static(:internal_hooks, 16)
@@ -64,6 +66,7 @@ module Zr::Kern
       hook = list + (i * InternalHook.size)
       InternalHook[hook].func = Machine.ptr(Machine.load64(words, 0))
       InternalHook[hook].data = Machine.ptr(Machine.load64(words, 8))
+      InternalHook[hook].form = Machine.load64(words, 16)
       InternalHook[hook].point = zr_ary_at(row, 1)
       InternalHook[hook].events = zr_fix2long(zr_ary_at(row, 2))
       events |= InternalHook[hook].events
@@ -79,7 +82,9 @@ module Zr::Kern
 
   # Calls each hook that hears `event` about `obj`, unless a hook runs
   # already. A cell that the runtime keeps for itself has no class, and
-  # is no object of the program's, so it is no event.
+  # is no object of the program's, so it is no event. A hook of the
+  # event-hook form (`func(event, data, self, mid, klass)`) hears none:
+  # a call from the sweep passes two words.
   #: (word, value) -> void
   def zr_trace_internal(event, obj)
     running = Machine.static(:internal_running, 8)
@@ -101,7 +106,11 @@ module Zr::Kern
       hook = list + (i * InternalHook.size)
       if (InternalHook[hook].events & event) != 0
         InternalArg[arg].point = InternalHook[hook].point
-        zr_call_c_in_gc(InternalHook[hook].func, Machine.ptr(InternalHook[hook].point), InternalHook[hook].data)
+        if InternalHook[hook].form == HOOK_RAW
+          zr_call_c_in_gc(InternalHook[hook].func, InternalHook[hook].data, arg)
+        elsif InternalHook[hook].form == HOOK_POINT
+          zr_call_c_in_gc(InternalHook[hook].func, Machine.ptr(InternalHook[hook].point), InternalHook[hook].data)
+        end
       end
       i += 1
     end

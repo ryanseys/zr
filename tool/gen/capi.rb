@@ -47,6 +47,8 @@ module Zr
             gives the frames that a backtrace shows, from the innermost
             outward. A frame's depth counts the frames from it outward, so
             two depths compare as ruby's do, but the number is not ruby's.
+            An event hook (`rb_add_event_hook`) is a C TracePoint too, and
+            a C TracePoint hears the internal events NEWOBJ and FREEOBJ.
             zr does not have yet `rb_profile_frame*`, `rb_postponed_job_*`
             and `rb_iseq_*`, so stackprof and vernier do not build.
 

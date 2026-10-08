@@ -46,13 +46,58 @@ class TracePoint
     def trace(*events, &block) = new(*events, &block).tap(&:enable)
 
     # rb_tracepoint_new: a point whose hook is C's, `hook` the words of its
-    # function and its data (kernel/capi/trace.rb).
+    # function, its data and its form (kernel/trace.rb, zr_trace_call_c).
     def c_point(mask, hook)
       Primitive.attr! :hidden
       point = Primitive.zr_class_build(self)
       Primitive.zr_hidden_set(point, :__events__, mask)
       Primitive.zr_hidden_set(point, :__c_hook__, hook)
       point
+    end
+
+    # rb_add_event_hook and its kin: a C point, on at once, that hears
+    # the events of `thread`, or of every thread for nil.
+    def c_hook(mask, hook, thread)
+      Primitive.attr! :hidden
+      point = c_point(mask, hook)
+      point.send(:switch, true)
+      Primitive.zr_hidden_set(point, :__thread__, thread)
+      Primitive.zr_hidden_set(point, :__hook_thread__, thread)
+      c_hooks << point
+      point
+    end
+
+    # rb_remove_event_hook and its kin: turns off each hook of `thread`
+    # (nil: of every thread) whose function is the word `func`, and whose
+    # data is the word `data` unless it is nil. Returns how many.
+    def c_unhook(func, data, thread)
+      Primitive.attr! :hidden
+      gone = c_hooks.select do |point|
+        words = Primitive.zr_hidden_get(point, :__c_hook__)
+        Primitive.zr_hidden_get(point, :__hook_thread__).equal?(thread) && words.byteslice(0, 8) == func &&
+          (data.nil? || words.byteslice(8, 8) == data)
+      end
+      gone.each do |point|
+        c_hooks.delete(point)
+        point.send(:switch, false)
+      end
+      gone.size
+    end
+
+    # The end of `thread`: its own hooks stop, those of set_trace_func and
+    # those of C, as thread_start_func_2 removes them.
+    def thread_ended(thread)
+      Primitive.attr! :hidden
+      remove_trace_funcs(thread)
+      c_hooks.select { |point| Primitive.zr_hidden_get(point, :__hook_thread__).equal?(thread) }.each do |point|
+        c_hooks.delete(point)
+        point.send(:switch, false)
+      end
+    end
+
+    def c_hooks
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__c_hooks__) || Primitive.zr_hidden_set(self, :__c_hooks__, [])
     end
 
     # The enabled TracePoints of the one VM, by CRuby's key: its RubyVM
@@ -198,14 +243,17 @@ class TracePoint
       enabled.each { |point| mask |= Primitive.zr_hidden_get(point, :__events__) }
       Primitive.zr_hidden_set(self, :__armed__, mask)
       builtin_places if (mask & 0xf9).nonzero?
-      Primitive.zr_trace_events_set(mask & ALL)
       # The C points that hear internal events, which the kernel calls
-      # itself (kernel/internal_events.rb).
-      internal = enabled.filter_map do |point|
+      # itself (kernel/internal_events.rb). A core method that zr writes in
+      # Ruby (filter_map) would fire the events of its own calls while
+      # another point is on, so this loop calls none.
+      internal = []
+      enabled.each do |point|
         events = Primitive.zr_hidden_get(point, :__events__)
-        [Primitive.zr_hidden_get(point, :__c_hook__), point, events] if (events & INTERNAL_OBJECT_EVENTS).nonzero?
+        internal << [Primitive.zr_hidden_get(point, :__c_hook__), point, events] if (events & INTERNAL_OBJECT_EVENTS).nonzero?
       end
       Primitive.zr_trace_internal_set(internal)
+      Primitive.zr_trace_events_set(mask & ALL)
     end
 
     # The same mask, for an event Ruby fires rather than compiled code.
@@ -350,10 +398,17 @@ class TracePoint
       begin
         i = points.size - 1
         while i >= 0
-          # A point that C made (c_point) calls its C function.
+          # A point that C made (c_point) calls its C function. A point
+          # that a hook before it turned off hears no more.
           point = points[i]
           hook = Primitive.zr_hidden_get(point, :__c_hook__)
-          hook ? Primitive.zr_trace_call_c(hook, point) : Primitive.zr_hidden_get(point, :__proc__).call(point)
+          if !enabled.include?(point)
+            nil
+          elsif hook
+            Primitive.zr_trace_call_c(hook, point, row)
+          else
+            Primitive.zr_hidden_get(point, :__proc__).call(point)
+          end
           i -= 1
         end
       ensure
