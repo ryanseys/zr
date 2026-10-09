@@ -422,6 +422,10 @@ RUBY
   BUILD_ENVS = { "unf_ext" => { "ZR_EXT" => "dynamic" },
                  "zstd-ruby" => Zr::Target::AARCH64_DARWIN.native? ? {} : { "ZR_EXT_CONFIG" => "zstd-ruby=--with-cflags=-U_FORTIFY_SOURCE" } }.freeze
 
+  # The gems whose Ruby requires openssl, which a static Linux binary
+  # cannot open (docs/reference/dependencies.md).
+  OPENSSL = %w[bcrypt thrift].freeze
+
   def setup
     skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?
   end
@@ -434,6 +438,9 @@ RUBY
         version = Reference::NATIVE.fetch(name)
         home = Reference.native_home(name, version)
         skip "#{name} #{version} is not installed (bin/setup)" unless File.directory?(home)
+        if OPENSSL.include?(name) && !Zr::Target::AARCH64_DARWIN.native?
+          skip "#{name} requires openssl, which a static binary cannot open"
+        end
 
         ruby, (zr,) = Zr::Test::CExt.gem_outputs(name, version, program, [env], build_env: BUILD_ENVS.fetch(name, {}), home: home)
         assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"
