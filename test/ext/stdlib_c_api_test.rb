@@ -61,7 +61,8 @@ class CExtStdlibCApiTest < Minitest::Test
     static VALUE s_path(VALUE self, VALUE path) { return rb_path_to_class(path); }
 
     static VALUE s_modeenc(VALUE self, VALUE vmode, VALUE opt) {
-      int oflags = -1, fmode = -1;
+      int oflags = -1;
+      enum rb_io_mode fmode = -1;
       rb_io_enc_t conv;
       rb_io_extract_modeenc(&vmode, 0, opt, &oflags, &fmode, &conv);
       return rb_ary_new_from_args(6, vmode, INT2FIX(oflags & 3), INT2FIX(fmode & 0xfff),
