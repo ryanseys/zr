@@ -86,6 +86,23 @@ class ElfLocalizeTest < Minitest::Test
     refute(image.sections.any? { |section| section.name.start_with?(".init_array") }, "the initializers moved")
   end
 
+  # A weak definition is vague linkage, as C++ gives an inline or a
+  # template function in a COMDAT group: it stays global, so the linker
+  # keeps one copy for the binary, and the other objects that call it
+  # (libstdc++.a's own) find it.
+  def test_a_weak_definition_stays_global
+    File.write(File.join(@dir, "w.c"), <<~C)
+      __attribute__((weak)) int shared_weak(void) { return 5; }
+      int own(void) { return shared_weak(); }
+      void Init_w(void) { own(); }
+    C
+    run!(@cc, "-O2", "-fPIC", "-c", "w.c", "-o", "w.o")
+    image = Image.read(Zr::Obj::Elf::Localize.call(File.binread(File.join(@dir, "w.o")), "Init_w"))
+    bind = image.symbols.to_h { |symbol| [symbol.name, symbol.bind] }
+
+    assert_equal [Image::STB_WEAK, Image::STB_LOCAL, Image::STB_GLOBAL], bind.values_at("shared_weak", "own", "Init_w")
+  end
+
   def test_readelf_reads_the_rewritten_object_without_a_complaint
     path = localized("a")
     out, status = Open3.capture2e(@readelf, "-a", "-W", path)

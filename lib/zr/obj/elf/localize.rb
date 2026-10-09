@@ -11,7 +11,11 @@ module Zr
       # come in; the same object goes out with each name that it defines
       # made local, except its Init function, so two extensions (and the
       # program) can each have a `buffer_new`. Its imports stay global, and
-      # the link binds them to zr's C API and to libc.
+      # the link binds them to zr's C API and to libc. Its weak definitions
+      # stay global too: they are C++'s inline and template functions, in
+      # COMDAT groups, which the linker keeps once for the whole binary. A
+      # local copy would still take the group, and libstdc++.a's own calls
+      # to that function would then find no definition.
       #
       # The object also gets the names that the program's require of the
       # extension reads (`zr_ext_embedded`, as Obj::MachO::Relink gives
@@ -104,13 +108,14 @@ module Zr
           end
 
           # The symbols, the locals first: the object's own locals, then
-          # each name that it defined, now local, then its imports, Init
-          # and its common symbols (which cannot be local). And `order`,
+          # each name that it defined, now local, then its imports, Init,
+          # its weak definitions and its common symbols (which cannot be
+          # local). And `order`,
           # the new index of each old one.
           #: () -> [Array[Image::Symbol], Array[Integer]]
           def ordered_symbols
             symbols = @image.symbols
-            localized = ->(s) { s.global? && !s.undefined? && s.name != @init && s.shndx != SHN_COMMON }
+            localized = ->(s) { s.bind == Image::STB_GLOBAL && !s.undefined? && s.name != @init && s.shndx != SHN_COMMON }
             groups = [symbols.each_index.select { |i| symbols[i].bind == Image::STB_LOCAL },
                       symbols.each_index.select { |i| localized.call(symbols[i]) },
                       symbols.each_index.select { |i| symbols[i].global? && !localized.call(symbols[i]) }]
