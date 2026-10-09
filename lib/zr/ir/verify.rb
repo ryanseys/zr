@@ -125,7 +125,7 @@ module Zr
         # Checks the operand types of an opcode against the types from `Types`.
         # An immediate operand has no type and is not checked. A binary integer
         # opcode takes its result type on both sides: backends read an `i8`
-        # compared with an `i64` differently (see #43). A shift takes an amount
+        # compared with an `i64` differently. A shift takes an amount
         # of any integer type. Call arguments have the parameter types of the
         # signature, and a return has the return type of the function.
         #: (Inst i, Block b) -> void

@@ -43,7 +43,7 @@ class WasiLibmTest < Minitest::Test
   end
 end
 
-# The same checks, with the kernel's Ruby run on CRuby (A7).
+# The same checks, with the kernel's Ruby run on CRuby (`Machine::Host`).
 class WasiLibmHostTest < WasiLibmTest
   def self.kernel = @kernel ||= Zr::Harness::KernelHost.new("os/wasi/libm.rb")
 end

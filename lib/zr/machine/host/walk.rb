@@ -16,7 +16,7 @@ module Zr
   module Machine
     class Host
       # Runs HIR (the core library, then a program) on CRuby over the
-      # kernel's heap (A7). A value is a kernel Value; a send, a constant,
+      # kernel's heap. A value is a kernel Value; a send, a constant,
       # a block and a raise go through the same kernel calls as the code
       # that `Lower` emits (lib/zr/lower/function/*.rb), so a binary and
       # the walker agree. A def and a block are functions of the kernel:

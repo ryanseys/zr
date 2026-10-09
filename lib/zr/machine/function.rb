@@ -212,7 +212,7 @@ module Zr
         when Prism::StatementsNode then statements(node, want)
         when Prism::ParenthesesNode then node.body ? expr(node.body, want) : [nil, "Void"]
         when Prism::IntegerNode
-          # A Word is signed (A6), so on CRuby a bare literal at or above
+          # A Word is signed, so on CRuby a bare literal at or above
           # 2**63 is not the word it is here.
           if node.value >= 1 << 63 && want != "Ptr"
             refuse(node, "a literal at or above 2**63 is a word only as Machine.word(literal)")
@@ -486,7 +486,7 @@ module Zr
 
       # The operators whose result wraps at the width of the type, by
       # name. A plain `+ - * <<` must not overflow, so that it means the
-      # same on CRuby (A6); a sum that must wrap names it. CRuby cannot
+      # same on CRuby; a sum that must wrap names it. CRuby cannot
       # tell a Word from a Ptr by its value, so the name also says which:
       # `add_wrap` wraps a Word into its signed range, `uadd_wrap` a Ptr
       # into [0, 2**64).
@@ -624,7 +624,7 @@ module Zr
         end
       end
 
-      # A Ptr is in [0, 2**64) (A6). A sum, a difference, a product or a
+      # A Ptr is in [0, 2**64). A sum, a difference, a product or a
       # shift whose result is a Ptr must stay in that range. A Word added
       # to a Ptr is signed, so its sign says which way the Ptr may move.
       #: (Prism::node node, Symbol op, String lhs, String lt, String rhs, String rt, String value) -> void

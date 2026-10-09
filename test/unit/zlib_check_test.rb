@@ -45,7 +45,7 @@ class ZlibCheckTest < Minitest::Test
   end
 end
 
-# The same checks, with the kernel's Ruby run on CRuby (A7).
+# The same checks, with the kernel's Ruby run on CRuby (`Machine::Host`).
 class ZlibCheckHostTest < ZlibCheckTest
   def self.kernel
     @kernel ||= Zr::Harness::KernelHost.new("zlib_check.rb", "zlib_tables.rb")

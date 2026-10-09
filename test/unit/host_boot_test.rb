@@ -3,7 +3,7 @@
 require "test_helper"
 require_relative "../../lib/zr/machine/host/boot"
 
-# The whole kernel booted on CRuby (`Machine::Host::Boot`, A7): the heap,
+# The whole kernel booted on CRuby (`Machine::Host::Boot`): the heap,
 # the core classes, and a collection that keeps each Value a host def
 # holds.
 class HostBootTest < Minitest::Test

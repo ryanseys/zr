@@ -3,7 +3,7 @@
 require "test_helper"
 require_relative "../../lib/zr/machine/lower"
 
-# The kernel's form (A6): one `module Zr::Kern` of plain Ruby. A named
+# The kernel's form: one `module Zr::Kern` of plain Ruby. A named
 # operation (`Machine.add_wrap`, `Machine.sdiv`, `Machine.u32`, ...)
 # lowers to the same IR as the plain operator or cast; it only says
 # what the code means where Ruby's operator means something else.

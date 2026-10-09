@@ -15,8 +15,7 @@ AllCops:
   Exclude:
     # The runtime's Ruby (core, ext, lib) is not linted yet: much of it
     # follows upstream code (onigmo, prism, psych, openssl ports). The
-    # kernel gets the Lint cops only (see below). Plan A7 makes ruby run
-    # all of lib/zr/runtime; that is separate from what RuboCop checks.
+    # kernel gets the Lint cops only (see below).
     - "lib/zr/runtime/core/**/*"
     - "lib/zr/runtime/ext/**/*"
     - "lib/zr/runtime/lib/**/*"
@@ -28,7 +27,7 @@ AllCops:
     - "test/runtime/**/*"
     - "test/machine/**/*"
     - "test/hir/**/*"     # input programs for the HIR snapshots
-    - ".claude/**/*"      # agent worktrees
+    - ".claude/worktrees/**/*"
     - "gems/**/*"         # the gem probes that zr compiles
     - "tmp/**/*"
     - "lib/zr/hir/features.rb"      # generated
@@ -65,7 +64,7 @@ Lint/LambdaWithoutLiteralBlock: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 Lint/BinaryOperatorWithIdenticalOperands: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 
 # The kernel (lib/zr/runtime/kernel) is typed Ruby: zr lowers it, and
-# plan A7 runs it on ruby too. Only the Lint cops above apply to it.
+# `Machine::Host` (lib/zr/machine/host.rb) runs it on ruby too. Only the Lint cops above apply to it.
 Layout: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 Style: { Exclude: ["lib/zr/runtime/kernel/**/*", "test/**/*"] }
 Naming: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
@@ -133,7 +132,6 @@ Style/Semicolon:
     - "tool/commands.rb"
     - "tool/gen.rb"
     - "tool/gems.rb"
-    - "tool/spec.rb"
 # lambda.call(x), not lambda.(x).
 Style/LambdaCall: { Enabled: true }
 

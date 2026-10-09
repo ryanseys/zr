@@ -4,8 +4,8 @@ require_relative "lib/zr/dev"
 
 module Zr
   module Dev
-    # `zr-dev host prog.rb [args]`: runs a program on CRuby, with no build
-    # (A7). The kernel runs as Ruby (`Machine::Host`), and the walker runs
+    # `zr-dev host prog.rb [args]`: runs a program on CRuby, with no
+    # build. The kernel runs as Ruby (`Machine::Host`), and the walker runs
     # the core library, the gem prelude and the program over the kernel's
     # heap (`Machine::Host::Walk`). The exit status is the program's.
     class Hosted < Command

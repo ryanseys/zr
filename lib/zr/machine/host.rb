@@ -12,13 +12,13 @@ require_relative "host/memory"
 
 module Zr
   module Machine
-    # The kernel on CRuby (A7). The kernel's files are plain Ruby in
-    # `module Zr::Kern` (A6), and a host loads them into this ruby: each
+    # The kernel on CRuby. The kernel's files are plain Ruby in
+    # `module Zr::Kern`, and a host loads them into this ruby: each
     # `def` is a method of the module, and the forms that a build lowers
     # (`Machine.*`, `Libc.*`, layouts, signatures) are objects here that act on
     # the process's real memory through Fiddle.
     #
-    # The values are the type model of A6: an I8, I32, Word or Value is an
+    # The values follow the kernel's type model (docs/reference/kernel-subset.md): an I8, I32, Word or Value is an
     # Integer in the signed range of its width, a Ptr an Integer in
     # [0, 2**64), a Bool true or false, and an F64 a Float. The lowering
     # refuses each form whose meaning on this model differs from the

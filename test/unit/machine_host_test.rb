@@ -6,7 +6,7 @@ require "tmpdir"
 require_relative "../../lib/zr/runtime"
 require_relative "../../lib/zr/machine/host"
 
-# The kernel on CRuby (`Machine::Host`, A7): the type model of A6, real
+# The kernel on CRuby (`Machine::Host`): the kernel's type model, real
 # memory, and the forms a kernel file declares with.
 class MachineHostTest < Minitest::Test
   SOURCE = <<~RUBY

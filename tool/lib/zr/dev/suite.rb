@@ -336,7 +336,7 @@ module Zr
         end
 
         # The live list of the area's gaps, `<out>/issues/<area>.jsonl`,
-        # which another process (an agent that fixes them) may read while
+        # which another process (a watcher such as `tail -f`) may read while
         # the run goes on. Each line is one JSON object: an example that
         # ruby passes and zr does not, with zr's status and message and
         # its tag, if any; or a file that did not build, load or end, with

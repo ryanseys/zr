@@ -171,7 +171,7 @@ class OnigMatchTest < Minitest::Test
   end
 end
 
-# The same checks, with the kernel's Ruby run on CRuby (A7).
+# The same checks, with the kernel's Ruby run on CRuby (`Machine::Host`).
 class OnigMatchHostTest < OnigMatchTest
   def self.port
     @port ||= Zr::Harness::KernelHost.new("onig_*.rb", constants: { "CLOCK_MONOTONIC" => 6 })

@@ -7,9 +7,8 @@ module Zr
   module Dev
     # The kernel's lowering on each target, as text that two runs can
     # compare: each function's IR fingerprint, the kernel's description,
-    # each datum and the symbol names. The kernel's move to plain Ruby (A6)
-    # changes its spelling and nothing else, so each step must keep this
-    # the same.
+    # each datum and the symbol names. A change of the kernel's
+    # spelling alone must keep this the same.
     #
     #   zr-dev golden save [LABEL]    lower the kernel on each target, write tmp/golden/LABEL/
     #   zr-dev golden check [LABEL]   lower it again, and list what differs from LABEL
