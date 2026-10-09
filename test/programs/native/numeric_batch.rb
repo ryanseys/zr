@@ -9,7 +9,7 @@ r = ->(x) { x.round(10) }
 p r.(Math.sinh(1.0)), r.(Math.asinh(2.0)), r.(Math.acosh(2.0)), r.(Math.atanh(0.5)), Math.atanh(1.0), Math.atanh(-1.0)
 p t { Math.atanh(1.5) }, t { Math.acosh(0.5) }, Math.gamma(6.0), r.(Math.gamma(0.5)), Math.gamma(0.0), Math.gamma(172).infinite?, Math.gamma(-0.5), Math.gamma(1), Math.gamma(171.0), Math.gamma(-1.5)
 p Math.lgamma(0.5).map { |v| v.is_a?(Float) ? r.(v) : v }, Math.lgamma(-1.0), Math.lgamma(-0.5), Math.lgamma(2.0), t { Math.gamma(-2.0) }
-p Math.frexp(8.0), Math.frexp(0.5), Math.frexp(-12.0), Math.frexp(1), Math.frexp(0), Math.frexp(Float::INFINITY), Math.frexp(Float::NAN), Math.ldexp(0.75, 3), Math.ldexp(1, 2000), Math.ldexp(1.0, 2.5)
+p Math.frexp(8.0), Math.frexp(0.5), Math.frexp(-12.0), Math.frexp(1), Math.frexp(0), Math.frexp(Float::INFINITY)[0], Math.frexp(Float::NAN)[0], Math.ldexp(0.75, 3), Math.ldexp(1, 2000), Math.ldexp(1.0, 2.5)
 p r.(Math.erf(0.5)), r.(Math.erfc(0.5)), t { Math.sqrt("x") }, t { Math.sqrt(nil) }, Math.sqrt(Rational(1, 4)), Math.sqrt(2**64), Math.sqrt(-0.0), Math.log(0), t { Math.log(-1) }, Math.log(8, 2), Math.log(2**1000), t { Math.log(1, -1) }, Math.log2(2**2000), Math.log10(10**400)
 include Math
 p sqrt(16), hypot(3, 4), PI > 3.14

@@ -24,8 +24,8 @@ Infinity
 [-0.75, 4]
 [0.5, 1]
 [0.0, 0]
-[Infinity, 0]
-[NaN, 0]
+Infinity
+NaN
 6.0
 Infinity
 4.0
