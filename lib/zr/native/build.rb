@@ -12,6 +12,7 @@ require_relative "../backend/aarch64"
 require_relative "../backend/wasm"
 require_relative "../obj/macho/object_file"
 require_relative "../obj/elf/object_file"
+require_relative "../obj/elf/localize"
 require_relative "../obj/macho/prelink"
 require_relative "../obj/macho/relink"
 require_relative "../machine/lower"
@@ -113,16 +114,25 @@ module Zr
         functions, assembled = program.functions.partition { |f| f.is_a?(IR::Function) } #: [Array[IR::Function], Array[Obj::Code]]
         Timing.phase("writing and linking the program object", "program object written and linked") do
           # Once the C API has all that the C extensions import: zr's
-          # linker relinks each bundle into the binary (`Obj::MachO::Relink`),
-          # a static extension's as `ext_bundle` links it, and a binary that
-          # loads one with dlopen exports the C API.
-          sources = Ext.bundles(target: program.runtime.target).values
+          # linker relinks each bundle into a Mach-O binary
+          # (`Obj::MachO::Relink`), a static extension's as `ext_bundle`
+          # links it, and a binary that loads one with dlopen exports the
+          # C API. An ELF binary links each static extension's object, with
+          # its names its own (`ext_object`).
+          target = program.runtime.target
+          sources = Ext.bundles(target: target).values
           Ext::CApi.check!(sources)
-          loaded, inside = sources.partition { |s| s.mode == :dynamic }
-          embeds = inside.map { |s| Obj::MachO::Relink.new(File.binread(ext_bundle(s, program.runtime.target)), init: s.init) }
+          embeds = [] #: Array[Obj::MachO::Relink]
+          if target.object_format == :elf
+            objects += sources.map { |s| ext_object(s, target) }
+            link += sources.flat_map(&:libraries)
+          else
+            loaded, inside = sources.partition { |s| s.mode == :dynamic }
+            embeds = inside.map { |s| Obj::MachO::Relink.new(File.binread(ext_bundle(s, target)), init: s.init) }
+            link += exports(work) unless loaded.empty?
+          end
           binary(functions, program.data, out, work: work, assembled: assembled, objects: objects, strip: !program.evals,
-                                                           target: program.runtime.target, jobs: jobs,
-                                                           link: loaded.empty? ? link : link + exports(work), embeds: embeds)
+                                                           target: target, jobs: jobs, link: link, embeds: embeds)
         end
       end
 
@@ -147,6 +157,32 @@ module Zr
           Cache::Store.write_file(file, File.binread(linked))
         ensure
           File.unlink(linked) if linked && File.exist?(linked)
+        end
+      end
+
+      # The object of a static C extension in an ELF binary: its objects,
+      # joined by the target's `cc -r`, with each name that they define
+      # local but its Init function (`Obj::Elf::Localize`), as the store
+      # keeps it. A static binary loads no library, so an extension that
+      # is a compiled library (embed, dynamic) cannot be in one.
+      #: (Ext::Source source, Target target) -> String
+      def ext_object(source, target)
+        unless source.mode == :static
+          raise Refused, "#{File.basename(source.bundle)}: a #{target.triple} binary links a C extension from its objects, " \
+                         "and this one is a compiled library (ZR_EXT=#{source.mode}); build it from its source (`--native-ext`)"
+        end
+
+        inputs = source.objects.map { |object| Digest::SHA256.file(object).hexdigest }
+        localize = Digest::SHA256.file(File.expand_path("../obj/elf/localize.rb", __dir__)).hexdigest
+        key = Cache::Store.key("ext-object", Ext::ABI, target.triple, source.init, localize, *inputs)
+        Cache::Store.once(:object, key) do |file|
+          joined = "#{file}.#{Process.pid}.o"
+          log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-r", "-nostdlib", "-o", joined, *source.objects])
+          raise Refused, "cc cannot join the objects of #{File.basename(source.bundle)}:\n#{log.strip}" unless ok
+
+          Cache::Store.write_file(file, Obj::Elf::Localize.call(File.binread(joined), source.init))
+        ensure
+          File.unlink(joined) if joined && File.exist?(joined)
         end
       end
 

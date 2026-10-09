@@ -26,13 +26,14 @@ module Zr
         SYMBOL = "L<CCS<Q<Q<"
         SYMBOL_BYTES = 24
 
-        # A section header, with its name read.
-        Section = Data.define(:name, :type, :flags, :addr, :offset, :size, :link, :info, :align, :entsize)
+        # A section header, with its name read; `name_at` is where the name
+        # starts in the section names.
+        Section = Data.define(:name, :type, :flags, :addr, :offset, :size, :link, :info, :align, :entsize, :name_at)
 
         # A symbol of .symtab: `bind` and `type` split from st_info, and
         # `shndx` the section index, read through SHT_SYMTAB_SHNDX when the
         # object has more sections than a 16-bit index holds.
-        Symbol = Data.define(:name, :value, :size, :bind, :type, :other, :shndx) do
+        Symbol = Data.define(:name, :value, :size, :bind, :type, :other, :shndx, :name_at) do
           def global? = bind == STB_GLOBAL || bind == STB_WEAK
           def undefined? = shndx == SHN_UNDEF
         end
@@ -40,6 +41,8 @@ module Zr
         attr_reader :bytes #: String
         attr_reader :sections #: Array[Section]
         attr_reader :symbols #: Array[Symbol]
+        # The index of the section that holds the sections' names.
+        attr_reader :names_index #: Integer
 
         #: (String bytes) -> Image
         def self.read(bytes) = new(bytes.b)
@@ -95,6 +98,7 @@ module Zr
         def read_sections
           shoff = bytes.byteslice(40, 8).unpack1("Q<")
           count, names_at = bytes.byteslice(60, 4).unpack("S<S<")
+          @names_index = 0
           return [] if shoff.zero?
 
           first = header(shoff, 0)
@@ -102,8 +106,9 @@ module Zr
           count = first[5] if count.zero?
           names_at = first[6] if names_at == SHN_XINDEX
           raw = (0...count).map { |i| header(shoff, i) }
+          @names_index = names_at
           names = raw[names_at]
-          raw.map { |r| Section.new(string(names[4], r[0]), *r.values_at(1, 2, 3, 4, 5, 6, 7, 8, 9)) }
+          raw.map { |r| Section.new(string(names[4], r[0]), *r.values_at(1, 2, 3, 4, 5, 6, 7, 8, 9), r[0]) }
         end
 
         #: (Integer shoff, Integer index) -> Array[Integer]
@@ -117,7 +122,7 @@ module Zr
           (0...(table.size / SYMBOL_BYTES)).map do |i|
             name, info, other, shndx, value, size = bytes.byteslice(table.offset + (i * SYMBOL_BYTES), SYMBOL_BYTES).unpack(SYMBOL)
             shndx = bytes.byteslice(wide.offset + (i * 4), 4).unpack1("L<") if shndx == SHN_XINDEX && wide
-            Symbol.new(string(names.offset, name), value, size, info >> 4, info & 0xF, other, shndx)
+            Symbol.new(string(names.offset, name), value, size, info >> 4, info & 0xF, other, shndx, name)
           end
         end
 
