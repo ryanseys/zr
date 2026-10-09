@@ -4,8 +4,6 @@ module Zr::Kern
   module Libc
     #: (i32, ptr, word) -> word
     def self.write(i, p, n) = Machine.import
-    #: (ptr, word, i32, i32, i32, word) -> ptr
-    def self.mmap(p, n1, i1, i2, i3, n2) = Machine.import
     #: (i32) -> void
     def self.exit(i) = Machine.import
   end
@@ -26,7 +24,7 @@ module Zr::Kern
   def main(argc, argv)
     ctx = Machine.static(:ctx, 512)
     other_ctx = ctx + 256
-    stack = Libc.mmap(0, 65536, 3, 4098, -1, 0)
+    stack = Machine.static(:stack, 65536)
     Machine.store64(other_ctx, 88, Machine.addr(:other))
     Machine.store64(other_ctx, 96, stack + 65536)
     n = 0
