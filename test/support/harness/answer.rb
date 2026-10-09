@@ -63,7 +63,12 @@ module Zr
         dirs.any? { |dir| File.exist?(File.join(dir, "libssl.3.dylib")) }
       end
 
-      CHECKS = { "libssl" => method(:libssl?) }.freeze
+      # True when the tests do not run as root, as on a developer machine:
+      # root may change any id and chroot, so a test of what a user is
+      # refused gives other answers (a container that runs as root).
+      def self.nonroot?(_platform) = !Process.euid.zero?
+
+      CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?) }.freeze
 
       def self.met?(name, platform) = CHECKS.fetch(name).call(platform)
     end

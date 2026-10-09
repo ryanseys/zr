@@ -18,7 +18,8 @@ module Zr
     #   foo.rb.env             `NAME=value` lines, added to its environment
     #   foo.rb.files/          files that the run directory holds (fixtures)
     #   foo.rb.needs           what the machine must have, one per line:
-    #                          `libssl`, or a platform (`macos`, `linux`)
+    #                          `libssl`, `nonroot`, or a platform (`macos`,
+    #                          `linux`)
     #   foo.rb.ruby            options for ruby only, such as -W:no-experimental
     #   foo.rb.limits          `build_mb=N` and `run_mb=N` lines
     #   foo.rb.gems            `name version` lines: another version of a
