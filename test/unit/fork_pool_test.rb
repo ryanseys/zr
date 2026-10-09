@@ -41,6 +41,8 @@ class ForkPoolTest < Minitest::Test
   end
 
   def test_the_deadline_is_three_minutes_unless_it_is_asked_for
+    skip "ZR_TEST_TIMEOUT sets the deadline of this run" if ENV["ZR_TEST_TIMEOUT"]
+
     assert_equal 180, Zr::Test::Workers::DEADLINE
   end
 
@@ -50,6 +52,8 @@ class ForkPoolTest < Minitest::Test
   end
 
   def test_a_suite_may_ask_for_a_bound_of_its_own
+    skip "ZR_TEST_TIMEOUT sets the deadline of every suite in this run" if ENV["ZR_TEST_TIMEOUT"]
+
     assert_equal 600, Zr::Test::ForkPool.deadline_for(Patient)
     assert_equal Zr::Test::Workers::DEADLINE, Zr::Test::ForkPool.deadline_for(ForkPoolTest)
   end
@@ -75,7 +79,7 @@ class ForkPoolTest < Minitest::Test
       child(SPAWNER, work, "ZR_TEST_TIMEOUT" => "3", "ZR_POOL_PID" => kept)
       pid = Integer(File.read(kept))
 
-      assert_raises(Errno::ESRCH, "the worker's child outlived it") { Process.kill(0, pid) }
+      assert gone?(pid), "the worker's child outlived it"
     end
   end
 
@@ -101,8 +105,20 @@ class ForkPoolTest < Minitest::Test
       child(GROUPER, work, "ZR_TEST_TIMEOUT" => "3", "ZR_POOL_PID" => kept)
       pid = Integer(File.read(kept))
 
-      assert_raises(Errno::ESRCH, "the worker's grouped child outlived it") { Process.kill(0, pid) }
+      assert gone?(pid), "the worker's grouped child outlived it"
     end
+  end
+
+  # Whether `pid` no longer runs. A process that was killed but that no
+  # one reaped is a zombie: it no longer runs. In a container whose first
+  # process does not reap orphans (`sleep infinity`), a killed orphan
+  # stays a zombie.
+  def gone?(pid)
+    Process.kill(0, pid)
+    stat = "/proc/#{pid}/stat"
+    File.exist?(stat) && File.read(stat).split(") ").last.start_with?("Z")
+  rescue Errno::ESRCH
+    true
   end
 
   # The pool replaces a worker because of the memory that the worker
