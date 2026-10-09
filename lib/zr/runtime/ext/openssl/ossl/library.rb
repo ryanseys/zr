@@ -54,9 +54,14 @@ module OpenSSL
 
       # Opens libssl, whose image brings its own libcrypto, so every
       # symbol that the port binds comes through this one handle. Raises
-      # LoadError with each searched path when none contains OpenSSL 3.
+      # LoadError with each searched path when none contains OpenSSL 3,
+      # and at once in a static binary (aarch64-linux-musl), which has no
+      # dynamic loader to open it with.
       def load
         return @handle if @handle
+        if RUBY_PLATFORM.end_with?("-linux-musl")
+          raise LoadError, "OpenSSL cannot load: this #{RUBY_PLATFORM} binary is static, and zr's openssl opens libssl.so.3 when it runs"
+        end
 
         tried = []
         candidates = directories.map { |dir| File.join(dir, file_name) }

@@ -9,7 +9,7 @@ is C or assembler source in the repository.
 |---|---|---|
 | ruby 4.0.7, or a later 4.0 release | runs the compiler; zr checks its output against ruby 4.0.7, and warns on a later release | everything |
 | libSystem | the only dynamic library that a macOS binary links | macOS binaries |
-| OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else from the Homebrew or MacPorts prefix. Without them, that `require` raises `LoadError`. Nothing else needs them | programs that require `openssl` |
+| OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else from the Homebrew or MacPorts prefix. Without them, that `require` raises `LoadError`. An aarch64-linux-musl binary is static and cannot open them: its `require "openssl"` raises `LoadError`, and so does that of a gem that requires it (bcrypt, thrift). Nothing else needs them | programs that require `openssl` on macOS |
 | `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZR_LINKER=cc`, or when zr's own linker refuses one | optional |
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `zr run --emit wasm` uses it | running WASI modules |
