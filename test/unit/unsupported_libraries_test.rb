@@ -17,7 +17,7 @@ class UnsupportedLibrariesTest < Minitest::Test
   Build = Zr::Hir::Build
 
   def test_a_name_with_a_reason_stops_with_that_reason
-    assert_equal "mkmf, which writes a C extension's Makefile: zr compiles no C, so an extension it configured",
+    assert_equal "mkmf, which writes a C extension's Makefile: zr runs it in the host ruby when it builds a gem's extension, so mkmf in a program",
                  stop(%(require "mkmf"\n))
   end
 

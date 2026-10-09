@@ -37,7 +37,7 @@ and [How to use a C extension](../how-to/use-a-c-extension.md)).
 
 ### `aarch64-apple-darwin`, `aarch64-linux-musl`, `wasm32-wasi`
 
-- `mkmf`, which writes a C extension's Makefile: zr compiles no C
+- `mkmf`, which writes a C extension's Makefile: zr runs it in the host ruby when it builds a gem's extension
 - `portable_ruby_gems`
 - `prism/ffi`, the FFI half of prism: this runtime's prism is a Ruby port of the C
 - `prism/lex_ripper`

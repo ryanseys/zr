@@ -171,7 +171,7 @@ module Zr
       # implemented yet" (`zr_unloadable`), so each value completes that
       # sentence.
       UNSUPPORTED_LIBRARIES = {
-        "mkmf" => "mkmf, which writes a C extension's Makefile: zr compiles no C, so an extension it configured",
+        "mkmf" => "mkmf, which writes a C extension's Makefile: zr runs it in the host ruby when it builds a gem's extension, so mkmf in a program",
         "prism/ffi" => "prism/ffi, the FFI half of prism: this runtime's prism is a Ruby port of the C, so the C half"
       }.freeze
 

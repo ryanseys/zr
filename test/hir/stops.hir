@@ -4,7 +4,7 @@
       (const ARGV)
       (str "--build-extension"))
     (seq
-      (stop "mkmf, which writes a C extension's Makefile: zr compiles no C, so an extension it configured")
+      (stop "mkmf, which writes a C extension's Makefile: zr runs it in the host ruby when it builds a gem's extension, so mkmf in a program")
       (send self p
         (send self have_header
           (str "stdio.h"))))

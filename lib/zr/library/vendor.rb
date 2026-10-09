@@ -42,7 +42,7 @@ module Zr
         "prism.rb" => "the prism port gem replaces ruby's prism, and ruby's build writes part of it from templates",
         "prism/" => "the prism port gem replaces ruby's prism, and ruby's build writes part of it from templates",
         "win32/" => "only a Windows ruby installs it",
-        "mkmf.rb" => "zr compiles no C, so it refuses mkmf (Hir::Build::UNSUPPORTED_LIBRARIES)",
+        "mkmf.rb" => "zr runs mkmf in the host ruby, never in a program (Hir::Build::UNSUPPORTED_LIBRARIES)",
         "bundler/man/index.txt" => "ruby's installer leaves it out"
       }.freeze
 
