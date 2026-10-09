@@ -318,17 +318,12 @@ module Zr::Kern
     zr_capi_str_conv(str, from == 0 ? zr_str_encoding_index(str) : zr_capi_enc_index(from), zr_capi_enc_index(to))
   end
 
-  # rb_str_encode_ospath: a path as the OS takes it, which on macOS is
-  # UTF-8: a path in another encoding (not binary) is converted.
+  # rb_str_encode_ospath: a path as the OS takes it (zr_os_ospath).
   #: (value) -> value
   def rb_str_encode_ospath(path)
     Machine.gates_enter
     zr_c_entered()
-    source = zr_str_encoding_index(path)
-    if source == ENC_BINARY || source == ENC_UTF8
-      return path
-    end
-    zr_capi_str_conv(path, source, ENC_UTF8)
+    zr_os_ospath(path)
   end
 
   # `str` from the encoding index `source` to `target` (rb_str_conv_enc).

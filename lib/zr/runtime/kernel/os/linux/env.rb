@@ -15,6 +15,13 @@ module Zr::Kern
     zr_str_new(Machine.bytes("aarch64-linux-musl"), 18)
   end
 
+  # A path as this OS takes it: its bytes, whatever their encoding, as
+  # ruby's rb_str_encode_ospath gives it outside macOS and Windows.
+  #: (value) -> value
+  def zr_os_ospath(path)
+    path
+  end
+
   # The locale's codeset, as ruby's main sets it: setlocale(LC_CTYPE, "")
   # from the environment, then nl_langinfo(CODESET). LC_CTYPE is 0 and
   # CODESET is 14 in musl's headers.
