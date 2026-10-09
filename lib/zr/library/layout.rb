@@ -41,6 +41,9 @@ module Zr
       # Upstream source files that no install has, which only the tools
       # read (prism's templates).
       SOURCES = File.join(Paths::VENDOR, "src")
+      # A ruby's headers and rbconfig.rb for each target that is not this
+      # host, laid out as its install prefix (Vendor::TARGET_RUBIES).
+      TARGETS = File.join(Paths::VENDOR, "targets")
 
       # The directories below ROOT that hold upstream code a build reads.
       # Not all of vendor/: a checkout can keep a bundle in vendor/bundle.
@@ -60,6 +63,13 @@ module Zr
 
       # The upstream source tree of `name` at `version` in SOURCES.
       def source(name, version) = File.join(SOURCES, "#{name}-#{version}")
+
+      # The install prefix of the ruby for the target `triple`.
+      def target_root(triple) = File.join(TARGETS, triple)
+
+      # The rbconfig.rb of the ruby for the target `triple`, which finds its
+      # headers from where it is.
+      def target_rbconfig(triple) = File.join(target_root(triple), "lib/ruby", API, triple, "rbconfig.rb")
 
       # The OS layer of EXT for `target`.
       def ext_os(target) = File.join(EXT, "os", target.os_layer)

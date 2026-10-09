@@ -55,6 +55,16 @@ module Zr
         "minitest" => { "lib/hoe/minitest.rb" => "a plugin of hoe, which ruby never loads from minitest" },
         "prism" => { "lib/prism/ffi.rb" => "prism's FFI half: zr refuses it (Hir::Build::UNSUPPORTED_LIBRARIES)" }
       }.freeze
+
+      # For each target other than this host, the image of a ruby built for
+      # it, pinned by digest, and its platform: its headers and rbconfig.rb
+      # go into Layout.target_root. A C extension for that target compiles
+      # against them (`Ext::Builder`, mkmf's --target-rbconfig). Its
+      # config.h is what ruby's configure wrote there, which no source has.
+      TARGET_RUBIES = {
+        "aarch64-linux-musl" => ["docker.io/library/ruby@sha256:2a4755a0545d2a23414bf1d616237dc54f3cac0a61861a9cbed9eae056c8de91",
+                                 %w[linux arm64]]
+      }.freeze
     end
   end
 end

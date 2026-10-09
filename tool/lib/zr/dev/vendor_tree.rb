@@ -5,6 +5,7 @@ require "fileutils"
 require "json"
 require "net/http"
 require "rubygems/package"
+require "stringio"
 require "zlib"
 require_relative "../../../../lib/zr/library/vendor"
 require_relative "../../../../lib/zr/library/ports"
@@ -30,7 +31,8 @@ module Zr
 
       # The directories below ROOT that the tree owns: a file there that
       # the plan does not have is removed.
-      OWNED = [Library::Layout::PREFIX, Library::Layout::LICENSES, Library::Layout::SOURCES].map { |dir| Dev.rel(dir) }.freeze
+      OWNED = [Library::Layout::PREFIX, Library::Layout::LICENSES, Library::Layout::SOURCES, Library::Layout::TARGETS]
+              .map { |dir| Dev.rel(dir) }.freeze
       LOCK = Dev.rel(Library::Layout::LOCK)
       STDLIB = "lib/zr/library/stdlib.rb"
       CACHE = "tmp/vendor/cache"
@@ -98,6 +100,7 @@ module Zr
         stock_ports!
         minitest_license
         prism_source
+        target_rubies
         @others = stock_bundled(ruby).reject { |name, _| @bundled.key?(name) }
         self
       end
@@ -113,7 +116,7 @@ module Zr
           inputs #{self.class.inputs}
 
         TEXT
-        rows = @entries.sort_by { |e| [%w[ruby source license default bundled port].index(e.kind), e.name] }.map(&:to_s)
+        rows = @entries.sort_by { |e| [%w[ruby source target license default bundled port].index(e.kind), e.name] }.map(&:to_s)
         sums = @files.sort.map { |path, bytes| "#{Digest::SHA256.hexdigest(bytes)} #{vendor_rel(path)}" }
         "#{head}#{rows.join("\n")}\n\nfiles\n#{sums.join("\n")}\n"
       end
@@ -272,6 +275,24 @@ module Zr
         %w[config.yml LICENSE.md].each { |path| add(File.join(root, path), tree.read(path)) }
       end
 
+      # The headers and rbconfig.rb of the ruby of each other target, from
+      # its image, which must hold this ruby's version.
+      def target_rubies
+        Library::Vendor::TARGET_RUBIES.each do |triple, (image, platform)|
+          prefix = "usr/local/"
+          rbconfig = "#{prefix}lib/ruby/#{Library::Layout::API}/#{triple}/rbconfig.rb"
+          files = ImageSource.new(image, platform, fail: @fail).files(["#{prefix}include/ruby-#{Library::Layout::API}/", rbconfig])
+          text = files.fetch(rbconfig) { @fail.call("#{image}: no #{rbconfig}") }
+          version = %w[MAJOR MINOR TEENY].map { |part| text[/CONFIG\["#{part}"\] = "(\d+)"/, 1] }.join(".")
+          @fail.call("#{image}: ruby #{version}, not #{RUBY}") unless version == RUBY
+
+          digest = image.split("@", 2).last
+          @entries << Entry.new("target", triple, RUBY, image, digest.delete_prefix("sha256:"))
+          root = Library::Layout.target_root(triple)
+          files.each { |path, bytes| add(File.join(root, path.delete_prefix(prefix)), bytes) }
+        end
+      end
+
       def licenses(package)
         @gems.contents(package).each { |rel, bytes| yield rel, bytes if !rel.include?("/") && rel.match?(LICENSE) }
       end
@@ -317,6 +338,97 @@ module Zr
         private
 
         def batch = @batch ||= IO.popen(["git", "-C", @dir, "cat-file", "--batch"], "r+b")
+      end
+
+      # A container image on a registry, pinned by the digest of its index:
+      # the files of its layers, read in Ruby, with each layer kept in
+      # tmp/vendor/cache by its SHA-256, which the download must have.
+      class ImageSource
+        INDEX = %w[application/vnd.oci.image.index.v1+json application/vnd.docker.distribution.manifest.list.v2+json].freeze
+        MANIFEST = %w[application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json].freeze
+        REGISTRY = "https://registry-1.docker.io/v2"
+
+        # `image` is `docker.io/<repository>@sha256:<hex>`; `platform` is
+        # `[os, architecture]`.
+        def initialize(image, platform, fail:)
+          @repository, @digest = image.delete_prefix("docker.io/").split("@", 2)
+          @platform = platform
+          @fail = fail
+          @fail.call("#{image}: no @sha256: digest") unless @digest&.start_with?("sha256:")
+        end
+
+        # `{ path => bytes }` of the regular files below each of `dirs`
+        # (paths without the leading `/`), as the image's last layer that
+        # holds each one has it.
+        def files(dirs)
+          out = {}
+          layers.each do |layer|
+            Gem::Package::TarReader.new(StringIO.new(Zlib.gunzip(blob(layer)))).each do |entry|
+              path = entry.full_name.delete_prefix("./")
+              next unless dirs.any? { |dir| path.start_with?(dir) }
+
+              name = File.basename(path)
+              if name.start_with?(".wh.")
+                out.delete(File.join(File.dirname(path), name.delete_prefix(".wh.")))
+              elsif entry.file?
+                out[path] = entry.read.to_s.b
+              end
+            end
+          end
+          out
+        end
+
+        private
+
+        # The layers of the image for the platform, from its index.
+        def layers
+          index = JSON.parse(get("manifests/#{@digest}", INDEX + MANIFEST))
+          manifest = index
+          if index["manifests"]
+            os, arch = @platform
+            found = index["manifests"].find { |m| m.dig("platform", "os") == os && m.dig("platform", "architecture") == arch }
+            @fail.call("#{@repository}@#{@digest}: no #{os}/#{arch} image") unless found
+            manifest = JSON.parse(get("manifests/#{found.fetch("digest")}", MANIFEST))
+          end
+          manifest.fetch("layers").map { |layer| layer.fetch("digest") }
+        end
+
+        # The bytes of the layer `digest`, which must have that SHA-256.
+        def blob(digest)
+          path = Dev.path("#{CACHE}/#{digest.tr(":", "-")}.tar.gz")
+          unless File.file?(path)
+            FileUtils.mkdir_p(File.dirname(path))
+            Paths.write_atomic(path, get("blobs/#{digest}", []))
+          end
+          bytes = File.binread(path)
+          sha = "sha256:#{Digest::SHA256.hexdigest(bytes)}"
+          @fail.call("#{digest}: the download has #{sha}") unless sha == digest
+          bytes
+        end
+
+        def get(rel, accept, url = "#{REGISTRY}/#{@repository}/#{rel}", limit = 5)
+          @fail.call("too many redirects for #{url}") if limit.zero?
+
+          uri = URI(url)
+          request = Net::HTTP::Get.new(uri)
+          # The token is only for the registry; a blob's redirect goes to a
+          # store that takes none.
+          request["Authorization"] = "Bearer #{token}" if url.start_with?(REGISTRY)
+          request["Accept"] = accept.join(", ") unless accept.empty?
+          response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(request) }
+          case response
+          when Net::HTTPSuccess then response.body.b
+          when Net::HTTPRedirection then get(rel, accept, response["location"], limit - 1)
+          else @fail.call("#{url}: #{response.code} #{response.message}")
+          end
+        end
+
+        def token
+          @token ||= begin
+            uri = URI("https://auth.docker.io/token?service=registry.docker.io&scope=repository:#{@repository}:pull")
+            JSON.parse(Net::HTTP.get(uri)).fetch("token")
+          end
+        end
       end
 
       # The .gem files from rubygems.org, kept in tmp/vendor/cache. A gem
