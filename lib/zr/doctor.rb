@@ -89,12 +89,13 @@ module Zr
     end
 
     # The real C extensions that `--native-ext` can put in a binary here:
-    # the host must be the darwin target, with cc to link an extension's
-    # objects or to build one, and make for an extconf.rb with rules of
-    # its own. Names each installed gem whose extensions import nothing
-    # that zr's C API lacks yet.
+    # the host must be aarch64 darwin or aarch64-linux-musl, with cc to
+    # link an extension's objects or to build one, and make for an
+    # extconf.rb with rules of its own. Names each installed gem whose
+    # extensions import nothing that zr's C API lacks yet.
     def extensions(triple = Target.host_triple, specs = Gem::Specification.latest_specs(true), cc: which("cc"), make: which("make"))
-      return Check.new(:ok, "C extensions", "not on #{triple}; zr's ports stand in for them") unless triple == Target::AARCH64_DARWIN.triple
+      hosts = [Target::AARCH64_DARWIN, Target::AARCH64_LINUX_MUSL].map(&:triple)
+      return Check.new(:ok, "C extensions", "not on #{triple}; zr's ports stand in for them") unless hosts.include?(triple)
       return Check.new(:warn, "C extensions", "no cc, which --native-ext needs (#{Target.cc_hint})") unless cc
 
       require_relative "ext"

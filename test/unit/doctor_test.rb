@@ -146,10 +146,11 @@ class DoctorTest < Minitest::Test
 
   DARWIN = Zr::Target::AARCH64_DARWIN.triple
 
-  def test_c_extensions_are_for_the_darwin_target_only
-    check = Zr::Doctor.extensions("aarch64-linux-musl", [])
+  def test_c_extensions_are_for_aarch64_darwin_and_musl_only
+    check = Zr::Doctor.extensions("x86_64-linux-gnu", [])
 
-    assert_equal [:ok, "not on aarch64-linux-musl; zr's ports stand in for them"], [check.status, check.detail]
+    assert_equal [:ok, "not on x86_64-linux-gnu; zr's ports stand in for them"], [check.status, check.detail]
+    assert_match(/\A0 of 0 installed gems/, Zr::Doctor.extensions("aarch64-linux-musl", [], cc: "/usr/bin/cc", make: "/usr/bin/make").detail)
   end
 
   def test_c_extensions_without_cc_or_make_warn

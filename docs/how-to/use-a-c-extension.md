@@ -51,7 +51,7 @@ variable `ZR_NATIVE_EXT` does the same.
 
 | Mode | What the build does | Use it when |
 |---|---|---|
-| `static` (the default) | Links the extension's objects into a bundle with `cc`, and puts the bundle in the binary. Each extension keeps its own names. | Almost always. The binary needs no file at run time. |
+| `static` (the default) | Links the extension's objects into the binary: on macOS through a bundle that `cc` links, on Linux as one object that `cc -r` joins. Each extension keeps its own names. | Almost always. The binary needs no file at run time. On aarch64-linux-musl it is the only mode. |
 | `embed` | Puts the gem's own bundle in the binary with zr's linker. Nothing loads at run time. | The gem has only a bundle, as a precompiled platform gem has. A gem with no objects uses this mode by itself. |
 | `dynamic` | Loads the bundle with `dlopen` where the `require` runs. The bundle must stay at its path. | The extension's C++ throws exceptions, uses thread-local variables, or links a library that is not part of macOS. The build tells you so. |
 
@@ -108,7 +108,25 @@ thread-local variables, or that links a library outside macOS.
   `rb_iseqw_*`) give lines and no columns, and a walk of the heap for
   instruction sequences (debug's and datadog-ci's `iseq_collector`)
   finds none.
-- zr runs C extensions on macOS on Apple silicon. Other targets use
-  ports only.
+- zr runs C extensions on macOS on Apple silicon and on
+  aarch64-linux-musl. A musl binary is static, so it links each
+  extension from its objects: `embed` and `dynamic` are for macOS.
+  Other targets use ports only.
+
+## Build for aarch64-linux-musl
+
+From a Mac, give the target and the gem, as for any other build:
+
+```console
+$ zr build --target aarch64-linux-musl --native-ext msgpack app.rb -o app
+```
+
+zr builds the gem's extension for the target, as `gem install` would
+there. It runs the gem's `extconf.rb` with the RbConfig of ruby
+4.0.7 for aarch64-linux-musl, whose headers zr carries, and with the
+musl cross compiler (`aarch64-linux-musl-gcc`, for example from
+Homebrew's `musl-cross`). mkmf's checks find the functions that zr's C
+API has. A library that the extension links (`-lxml2`) must be a static
+one for musl.
 
 The full list of functions is in [The C API](../reference/c-api.md).
