@@ -163,8 +163,16 @@ module Zr::Native::Toolchain
   extend Zr::Native::Toolchain
 end
 
+module Zr::Obj::Elf::Localize
+  extend Zr::Obj::Elf::Localize
+end
+
 module Zr::Obj::Elf::ObjectFile
   extend Zr::Obj::Elf::ObjectFile
+end
+
+module Zr::Obj::Image
+  extend Zr::Obj::Image
 end
 
 module Zr::Obj::MachO::Chains
