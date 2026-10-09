@@ -202,7 +202,7 @@ class CScanTest < Minitest::Test
   end
 
   def test_a_scan_that_compiled_nothing_says_so
-    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    sweep = Zr::Dev::Commands::GemCompat::Sweep.new("gems sweep")
     scan = @scanner.call(gem("scanned", "broken.c" => BROKEN))
 
     assert_equal "scanned did not compile (0/1)", sweep.lacks(scan)
@@ -210,7 +210,7 @@ class CScanTest < Minitest::Test
   end
 
   def test_a_scans_line_names_what_the_c_api_lacks
-    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    sweep = Zr::Dev::Commands::GemCompat::Sweep.new("gems sweep")
     scan = Gems::CScan::Scan.new(gem: "pg", version: "1.0", sources: 2, compiled: 2, imports: %w[rb_zr_one rb_zr_two], error: nil)
 
     assert_equal "pg lacks 2: rb_zr_one rb_zr_two", sweep.lacks(scan, EVERY)
@@ -240,7 +240,7 @@ class CScanTest < Minitest::Test
   end
 
   def test_a_c_scan_sweep_writes_a_row_for_each_gem_and_the_ranking
-    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    sweep = Zr::Dev::Commands::GemCompat::Sweep.new("gems sweep")
     scans = { "app" => [@scanner.call(gem("scanned", "main.c" => MAIN))], "plain" => [] }
     trial = Object.new
     trial.define_singleton_method(:scan) { |request| [request.name, scans.fetch(request.name)] }

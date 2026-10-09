@@ -9,7 +9,7 @@ require_relative "../../tool/cruby_test"
 # not count as one that zr fails.
 class CRubyTestRunnerTest < Minitest::Test
   def test_the_program_asks_the_runner_to_list_skips
-    program = Zr::Dev::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
+    program = Zr::Dev::Commands::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
 
     assert_includes program, %(ARGV.replace(["-v", "--tty=no", "--show-skip", *ARGV]))
   end
@@ -17,7 +17,7 @@ class CRubyTestRunnerTest < Minitest::Test
   # tool/test/init.rb's checkers stay out, but not what they load: tests
   # call Dir.mktmpdir with no require, as tempfile loads tmpdir.
   def test_the_program_sets_up_as_init_rb_does
-    program = Zr::Dev::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
+    program = Zr::Dev::Commands::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
 
     assert_includes program, %(Warning[:experimental] = false\n)
     assert_includes program, %(require "tempfile"\n)
@@ -25,18 +25,18 @@ class CRubyTestRunnerTest < Minitest::Test
   end
 
   def test_the_stand_ins_come_last_on_the_load_path
-    program = Zr::Dev::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
+    program = Zr::Dev::Commands::CRubyTest.program("/ruby", ["/ruby/test/ruby/test_x.rb"])
     load_path = program.lines.grep(/\$LOAD_PATH.unshift/).first
 
-    assert load_path.end_with?("#{Zr::Dev::CRubyTest::STAND_INS.inspect})\n"), load_path
-    assert_path_exists File.join(Zr::Dev::CRubyTest::STAND_INS, "-test-/sanitizers.rb")
+    assert load_path.end_with?("#{Zr::Dev::Commands::CRubyTest::STAND_INS.inspect})\n"), load_path
+    assert_path_exists File.join(Zr::Dev::Commands::CRubyTest::STAND_INS, "-test-/sanitizers.rb")
   end
 
   # CRuby's own tests ask Test::Sanitizers whether the build has ASAN or
   # LSAN; zr builds have neither.
   def test_the_sanitizers_stand_in_answers_as_a_plain_build
     script = "require '-test-/sanitizers'; p [Test::Sanitizers.asan_enabled?, Test::Sanitizers.lsan_enabled?, Test::Sanitizers.class]"
-    out = IO.popen([RbConfig.ruby, "-I", Zr::Dev::CRubyTest::STAND_INS, "-e", script], &:read)
+    out = IO.popen([RbConfig.ruby, "-I", Zr::Dev::Commands::CRubyTest::STAND_INS, "-e", script], &:read)
 
     assert_equal "[false, false, Class]\n", out
   end
@@ -53,7 +53,7 @@ class CRubyTestRunnerTest < Minitest::Test
       Finished tests in 0.003465s, 288.6003 tests/s, 0.0000 assertions/s.
     OUT
 
-    examples = Zr::Dev::CRubyTest.read(out)[:examples]
+    examples = Zr::Dev::Commands::CRubyTest.read(out)[:examples]
 
     assert_equal "skip", examples.fetch("TestAst#test_of_proc").first
     assert_equal ["pass"], examples.fetch("TestAst#test_allocate")

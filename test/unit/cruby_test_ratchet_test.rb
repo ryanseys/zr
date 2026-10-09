@@ -10,11 +10,11 @@ require_relative "../../tool/cruby_test"
 # for this ruby is not checked.
 class CRubyTestRatchetTest < Minitest::Test
   def test_each_directory_that_ran_matches_its_tags
-    results = Zr::Dev::Suite.results(Zr::Dev::CRubyTest::OUT)
+    results = Zr::Dev::Suite.results(Zr::Dev::Commands::CRubyTest::OUT)
     skip "no test-all results for ruby #{Zr::RUBY}: run zr-dev cruby-test <dir>" if results.empty?
 
     problems = results.flat_map do |dir, data|
-      Zr::Dev::Suite.problems(data, Zr::Dev::CRubyTest.method(:tags)).map { |line| "#{dir}: #{line}" }
+      Zr::Dev::Suite.problems(data, Zr::Dev::Commands::CRubyTest.method(:tags)).map { |line| "#{dir}: #{line}" }
     end
     assert_empty problems, "run zr-dev cruby-test <dir> --update-tags after a fix, and commit the tags"
   end
@@ -38,6 +38,6 @@ class CRubyTestRatchetTest < Minitest::Test
     OUT
     expected = { "TestX#test_b" => ["error", "RuntimeError: boom"], "TestX#test_a" => ["fail", "<1> expected but was"] }
 
-    assert_equal({ examples: expected, load: nil, ended: false, hung: "TestX#test_c" }, Zr::Dev::CRubyTest.read(out.dup))
+    assert_equal({ examples: expected, load: nil, ended: false, hung: "TestX#test_c" }, Zr::Dev::Commands::CRubyTest.read(out.dup))
   end
 end

@@ -49,8 +49,8 @@ class GemCompatTest < Minitest::Test
   def test_a_sweep_skips_a_name_of_the_top_list_that_it_cannot_take
     top = File.join(@dir, "top.tsv")
     Gems::Top.write({ "rack" => 3, ".." => 2, "cexty" => 1 }, top)
-    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
-    sweep.instance_variable_set(:@top, Zr::Dev::GemCompat::Sweep.ranks("3"))
+    sweep = Zr::Dev::Commands::GemCompat::Sweep.new("gems sweep")
+    sweep.instance_variable_set(:@top, Zr::Dev::Commands::GemCompat::Sweep.ranks("3"))
     sweep.define_singleton_method(:top_list) { Gems::Top.read(top) }
 
     words, _ = nil
@@ -358,7 +358,7 @@ class GemCompatTest < Minitest::Test
   end
 
   def test_build_only_takes_no_path_and_no_corpus_whose_gemspec_would_run
-    sweep = ->(*argv) { Zr::Dev::GemCompat::Sweep.new("gems sweep").start(["--build-only", *argv]) }
+    sweep = ->(*argv) { Zr::Dev::Commands::GemCompat::Sweep.new("gems sweep").start(["--build-only", *argv]) }
 
     _, err = capture_io { assert_raises(SystemExit) { sweep.call("./some/gem") } }
     assert_includes err, "--build-only takes no path"
@@ -507,7 +507,7 @@ class GemCompatTest < Minitest::Test
     lines = []
     seen = []
     answers = { "rack" => result("rack", :loads), "cexty" => result("cexty", :refused, "cext:cexty") }
-    sweep = Zr::Dev::GemCompat::Sweep.new("gems sweep")
+    sweep = Zr::Dev::Commands::GemCompat::Sweep.new("gems sweep")
     sweep.define_singleton_method(:downloads) { { "rack" => 7 } }
     sweep.define_singleton_method(:trial) { ->(request) { answers.fetch(request.name) } }
     say = lambda do |line|
@@ -525,7 +525,7 @@ class GemCompatTest < Minitest::Test
   end
 
   def test_a_sweeps_top_ranks_are_a_count_or_a_range_from_one
-    ranks = Zr::Dev::GemCompat::Sweep.method(:ranks)
+    ranks = Zr::Dev::Commands::GemCompat::Sweep.method(:ranks)
     top = (1..30).map { "gem#{_1}" }
 
     assert_equal %w[gem1 gem2 gem3], top[ranks.call("3")]

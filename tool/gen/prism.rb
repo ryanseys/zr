@@ -8,70 +8,72 @@ require_relative "../../lib/zr/library/ports"
 
 module Zr
   module Dev
-    class Gen
-      # Writes the generated files of the pure-Ruby prism, and checks the
-      # generated files of the vendored gem. Both render from prism 1.9.0's
-      # config.yml with the locals of its template driver
-      # (vendor/src/prism-1.9.0/templates/template.rb, from prism's git
-      # tag, because the gem has no templates):
-      #
-      # * zr's templates (tool/gen/prism/templates/*.rb.erb) render into
-      #   lib/zr/runtime/ext/prism/ruby/*.rb.
-      # * upstream's templates (templates/lib) must render the vendored
-      #   gem's lib files byte for byte. This never writes vendored files;
-      #   a difference is a failure.
-      #
-      # `test/unit/prism_test.rb` fails when a file is out of date.
-      class PrismRuby < Generator
-        UPSTREAM = Library::Layout.source("prism", Library::Ports::ALL.fetch("prism").version)
-        GEM = File.dirname(Library::Ports.lib("prism"))
-        TEMPLATES = Dev.path("tool/gen/prism/templates")
-        OUT = Dev.path("lib/zr/runtime/ext/prism/ruby")
+    module Commands
+      class Gen
+        # Writes the generated files of the pure-Ruby prism, and checks the
+        # generated files of the vendored gem. Both render from prism 1.9.0's
+        # config.yml with the locals of its template driver
+        # (vendor/src/prism-1.9.0/templates/template.rb, from prism's git
+        # tag, because the gem has no templates):
+        #
+        # * zr's templates (tool/gen/prism/templates/*.rb.erb) render into
+        #   lib/zr/runtime/ext/prism/ruby/*.rb.
+        # * upstream's templates (templates/lib) must render the vendored
+        #   gem's lib files byte for byte. This never writes vendored files;
+        #   a difference is a failure.
+        #
+        # `test/unit/prism_test.rb` fails when a file is out of date.
+        class PrismRuby < Generator
+          UPSTREAM = Library::Layout.source("prism", Library::Ports::ALL.fetch("prism").version)
+          GEM = File.dirname(Library::Ports.lib("prism"))
+          TEMPLATES = Dev.path("tool/gen/prism/templates")
+          OUT = Dev.path("lib/zr/runtime/ext/prism/ruby")
 
-        def run(_argv)
-          failures = upstream_differences.map { |name| "vendored #{name} differs from its template" }
-          ours.each do |path, text|
-            failures << Dev.rel(path) unless Dev.write(Dev.rel(path), check: check?) { |io| io.print text }
+          def run(_argv)
+            failures = upstream_differences.map { |name| "vendored #{name} differs from its template" }
+            ours.each do |path, text|
+              failures << Dev.rel(path) unless Dev.write(Dev.rel(path), check: check?) { |io| io.print text }
+            end
+            failures.each { |failure| warn "zr-dev gen prism: #{failure}" }
+            failures.empty?
           end
-          failures.each { |failure| warn "zr-dev gen prism: #{failure}" }
-          failures.empty?
-        end
 
-        def driver
-          load File.join(UPSTREAM, "templates/template.rb") unless defined?(Prism::Template)
-          Prism::Template
-        end
+          def driver
+            load File.join(UPSTREAM, "templates/template.rb") unless defined?(Prism::Template)
+            Prism::Template
+          end
 
-        # Upstream's rendered files that differ from the vendored ones.
-        def upstream_differences
-          Dir.mktmpdir("prism-generate-") do |dir|
-            Dir.glob("lib/**/*.rb.erb", base: File.join(UPSTREAM, "templates")).sort.filter_map do |erb|
-              name = erb.delete_suffix(".erb")
-              rendered = File.join(dir, name)
-              driver.render(name, write_to: rendered)
-              name unless FileUtils.identical?(rendered, File.join(GEM, name))
+          # Upstream's rendered files that differ from the vendored ones.
+          def upstream_differences
+            Dir.mktmpdir("prism-generate-") do |dir|
+              Dir.glob("lib/**/*.rb.erb", base: File.join(UPSTREAM, "templates")).sort.filter_map do |erb|
+                name = erb.delete_suffix(".erb")
+                rendered = File.join(dir, name)
+                driver.render(name, write_to: rendered)
+                name unless FileUtils.identical?(rendered, File.join(GEM, name))
+              end
             end
           end
-        end
 
-        # Each of zr's templates, rendered: `{ path => text }`. A template gets
-        # config.yml's locals, and `upstream`, the vendored templates directory.
-        def ours
-          locals = driver.send(:locals).merge(upstream: File.join(UPSTREAM, "templates"))
-          Dir.glob("*.rb.erb", base: TEMPLATES).sort.to_h do |erb|
-            path = File.join(TEMPLATES, erb)
-            template = ERB.new(File.read(path), trim_mode: "-")
-            template.filename = path
-            heading = <<~RUBY
-              # frozen_string_literal: true
-              # shareable_constant_value: literal
+          # Each of zr's templates, rendered: `{ path => text }`. A template gets
+          # config.yml's locals, and `upstream`, the vendored templates directory.
+          def ours
+            locals = driver.send(:locals).merge(upstream: File.join(UPSTREAM, "templates"))
+            Dir.glob("*.rb.erb", base: TEMPLATES).sort.to_h do |erb|
+              path = File.join(TEMPLATES, erb)
+              template = ERB.new(File.read(path), trim_mode: "-")
+              template.filename = path
+              heading = <<~RUBY
+                # frozen_string_literal: true
+                # shareable_constant_value: literal
 
-              # Generated by `zr-dev gen prism` from
-              # tool/gen/prism/templates/#{erb}
-              # and prism 1.9.0's config.yml. Do not edit.
+                # Generated by `zr-dev gen prism` from
+                # tool/gen/prism/templates/#{erb}
+                # and prism 1.9.0's config.yml. Do not edit.
 
-            RUBY
-            [File.join(OUT, erb.delete_suffix(".erb")), heading + template.result_with_hash(locals)]
+              RUBY
+              [File.join(OUT, erb.delete_suffix(".erb")), heading + template.result_with_hash(locals)]
+            end
           end
         end
       end

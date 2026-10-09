@@ -8,7 +8,7 @@ require_relative "../../tool/gen/builtin_lines"
 # of CRuby's Ruby-written core methods fires, when the build can know
 # them. TracePoint.fire replays them after the method's :call.
 class BuiltinLinesTest < Minitest::Test
-  Lines = Zr::Dev::Gen::BuiltinLines::Lines
+  Lines = Zr::Dev::Commands::Gen::BuiltinLines::Lines
 
   def test_the_generated_file_is_current
     skip "no CRuby source: RUBY_SRC names a ruby checkout" unless Zr::Dev.ruby_src?

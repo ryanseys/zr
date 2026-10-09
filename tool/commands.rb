@@ -8,27 +8,27 @@ require_relative "lib/zr/dev"
 module Zr
   module Dev
     COMMANDS = {
-      "gen" => ["Write a generated file again, or check it", -> { require_relative "gen"; Gen }],
+      "gen" => ["Write a generated file again, or check it", -> { require_relative "gen"; Commands::Gen }],
       "rubyspec" => ["Run ruby/spec in ruby and in zr binaries, and compare each example",
-                     -> { require_relative "rubyspec"; RubySpec }],
+                     -> { require_relative "rubyspec"; Commands::RubySpec }],
       "cruby-test" => ["Run CRuby's test-all in ruby and in zr binaries, and compare each test",
-                       -> { require_relative "cruby_test"; CRubyTest }],
+                       -> { require_relative "cruby_test"; Commands::CRubyTest }],
       "probe" => ["Run Ruby files under ruby and as zr binaries, and show the differences",
-                  -> { require_relative "probe"; Probe }],
-      "expect" => ["Write the expected output of program tests from ruby 4.0.7", -> { require_relative "expect"; Expect }],
+                  -> { require_relative "probe"; Commands::Probe }],
+      "expect" => ["Write the expected output of program tests from ruby 4.0.7", -> { require_relative "expect"; Commands::Expect }],
       "record" => ["Ask ruby what a benchmark answers, and write it beside the benchmark",
-                   -> { require_relative "record"; Record }],
-      "affected" => ["Run the tests that a change can reach", -> { require_relative "affected"; Affected }],
-      "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Bench }],
-      "compile" => ["How long zr takes to compile, and where", -> { require_relative "compile"; Compile }],
-      "host" => ["Run a program on CRuby over zr's kernel, with no build", -> { require_relative "hosted"; Hosted }],
-      "golden" =>["Save or check the kernel's lowering on each target", -> { require_relative "golden"; Golden }],
-      "stage" => ["Check that zr compiles itself to the same bytes (1 or 2)", -> { require_relative "stage"; Stage }],
-      "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; GemCompat }],
+                   -> { require_relative "record"; Commands::Record }],
+      "affected" => ["Run the tests that a change can reach", -> { require_relative "affected"; Commands::Affected }],
+      "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Commands::Bench }],
+      "compile" => ["How long zr takes to compile, and where", -> { require_relative "compile"; Commands::Compile }],
+      "host" => ["Run a program on CRuby over zr's kernel, with no build", -> { require_relative "hosted"; Commands::Hosted }],
+      "golden" =>["Save or check the kernel's lowering on each target", -> { require_relative "golden"; Commands::Golden }],
+      "stage" => ["Check that zr compiles itself to the same bytes (1 or 2)", -> { require_relative "stage"; Commands::Stage }],
+      "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; Commands::GemCompat }],
       "vendor" => ["Write vendor/ (ruby's library and gems, as upstream ships them) again, or check it",
-                   -> { require_relative "vendor"; VendorCommand }],
-      "ext" => ["Tools for C extensions: what one imports from ruby", -> { require_relative "ext"; ExtTools }],
-      "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Serve }]
+                   -> { require_relative "vendor"; Commands::VendorCommand }],
+      "ext" => ["Tools for C extensions: what one imports from ruby", -> { require_relative "ext"; Commands::ExtTools }],
+      "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Commands::Serve }]
     }.freeze
 
     # `zr-dev` itself: the group of all the commands, with no name of its

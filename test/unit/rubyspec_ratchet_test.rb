@@ -10,11 +10,11 @@ require_relative "../../tool/rubyspec"
 # this ruby is not checked.
 class RubySpecRatchetTest < Minitest::Test
   def test_each_area_that_ran_matches_its_tags
-    results = Zr::Dev::Suite.results(Zr::Dev::RubySpec::OUT)
+    results = Zr::Dev::Suite.results(Zr::Dev::Commands::RubySpec::OUT)
     skip "no ruby/spec results for ruby #{Zr::RUBY}: run zr-dev rubyspec <area>" if results.empty?
 
     problems = results.flat_map do |area, data|
-      Zr::Dev::Suite.problems(data, Zr::Dev::RubySpec.method(:tags)).map { |line| "#{area}: #{line}" }
+      Zr::Dev::Suite.problems(data, Zr::Dev::Commands::RubySpec.method(:tags)).map { |line| "#{area}: #{line}" }
     end
     assert_empty problems, "run zr-dev rubyspec <area> --update-tags after a fix, and commit the tags"
   end
@@ -25,12 +25,12 @@ class RubySpecRatchetTest < Minitest::Test
     rel = "library/mkmf/mkmf_spec.rb"
     name = "mkmf can be required with --enable-frozen-string-literal"
 
-    assert_equal({ name => "fails" }, Zr::Dev::RubySpec.tags(rel))
-    assert_match(/\Azr refuses mkmf/, Zr::Dev::RubySpec.reasons(rel)[name])
+    assert_equal({ name => "fails" }, Zr::Dev::Commands::RubySpec.tags(rel))
+    assert_match(/\Azr refuses mkmf/, Zr::Dev::Commands::RubySpec.reasons(rel)[name])
   end
 
   # mspec reads a spec file's tags from the path that `tags_path` gives.
   def test_the_tags_of_a_spec_file_are_where_mspec_looks
-    assert_equal File.join(Zr::Dev::RubySpec::TAGS, "core/array/pop_tags.txt"), Zr::Dev::RubySpec.tags_path("core/array/pop_spec.rb")
+    assert_equal File.join(Zr::Dev::Commands::RubySpec::TAGS, "core/array/pop_tags.txt"), Zr::Dev::Commands::RubySpec.tags_path("core/array/pop_spec.rb")
   end
 end

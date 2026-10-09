@@ -6,10 +6,10 @@ require_relative "../../tool/affected"
 # Tests how `zr-dev affected` maps changed files to test paths, and the
 # bin/minitest command that runs them (tool/affected.rb).
 class AffectedTest < Minitest::Test
-  def affected = Zr::Dev::Affected.new("affected")
+  def affected = Zr::Dev::Commands::Affected.new("affected")
 
   def test_the_command_runs_unit_files_by_path_and_programs_by_zr_programs
-    env, _ruby, minitest, *paths = Zr::Dev::Affected.command(%w[test/unit/fork_pool_test.rb test/programs/core/gc test/programs/cli])
+    env, _ruby, minitest, *paths = Zr::Dev::Commands::Affected.command(%w[test/unit/fork_pool_test.rb test/programs/core/gc test/programs/cli])
 
     assert minitest.end_with?("bin/minitest")
     assert_equal %w[test/unit/fork_pool_test.rb test/programs_test.rb], paths
@@ -17,7 +17,7 @@ class AffectedTest < Minitest::Test
   end
 
   def test_a_command_of_unit_files_alone_sets_nothing
-    env, _ruby, _minitest, *paths = Zr::Dev::Affected.command(%w[test/unit/fork_pool_test.rb])
+    env, _ruby, _minitest, *paths = Zr::Dev::Commands::Affected.command(%w[test/unit/fork_pool_test.rb])
 
     assert_empty env
     assert_equal %w[test/unit/fork_pool_test.rb], paths
@@ -48,7 +48,7 @@ class AffectedTest < Minitest::Test
   end
 
   def test_the_load_graph_follows_literal_requires
-    graph = Zr::Dev::Affected::LoadGraph.new
+    graph = Zr::Dev::Commands::Affected::LoadGraph.new
     test = File.join(Zr::Dev::ROOT, "test/unit/run_cache_test.rb")
 
     assert graph.reaches?(test, File.join(Zr::Dev::ROOT, "lib/zr/cache/run.rb"))

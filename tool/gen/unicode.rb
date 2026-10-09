@@ -4,125 +4,127 @@ require_relative "../gen"
 
 module Zr
   module Dev
-    class Gen
-      # Reads the Unicode case mappings from ruby, and writes them as tables
-      # that the runtime uses to map characters.
-      class Unicode < Generator
-        host_ruby!
-        writes "lib/zr/runtime/core/unicode.rb"
+    module Commands
+      class Gen
+        # Reads the Unicode case mappings from ruby, and writes them as tables
+        # that the runtime uses to map characters.
+        class Unicode < Generator
+          host_ruby!
+          writes "lib/zr/runtime/core/unicode.rb"
 
-        KINDS = {
-          "UP" => :upcase.to_proc,
-          "DOWN" => :downcase.to_proc,
-          "TITLE" => :capitalize.to_proc,
-          "SWAP" => :swapcase.to_proc,
-          "FOLD" => ->(c) { c.downcase(:fold) }
-        }.freeze
+          KINDS = {
+            "UP" => :upcase.to_proc,
+            "DOWN" => :downcase.to_proc,
+            "TITLE" => :capitalize.to_proc,
+            "SWAP" => :swapcase.to_proc,
+            "FOLD" => ->(c) { c.downcase(:fold) }
+          }.freeze
 
-        # Writes the single-character mappings as runs with the same delta.
-        # Thus a table of 1,500 characters needs only a few hundred rows.
-        def runs(table)
-          table.keys.sort.each_with_object([]) do |cp, out|
-            delta = table[cp] - cp
-            last = out.last
-            if last && last[0] + last[1] == cp && last[2] == delta
-              last[1] += 1
-            else
-              out << [cp, 1, delta]
+          # Writes the single-character mappings as runs with the same delta.
+          # Thus a table of 1,500 characters needs only a few hundred rows.
+          def runs(table)
+            table.keys.sort.each_with_object([]) do |cp, out|
+              delta = table[cp] - cp
+              last = out.last
+              if last && last[0] + last[1] == cp && last[2] == delta
+                last[1] += 1
+              else
+                out << [cp, 1, delta]
+              end
             end
           end
-        end
 
-        def rows(values, per_line)
-          values.each_slice(per_line).map { |slice| "    #{slice.join(", ")}," }.join("\n")
-        end
+          def rows(values, per_line)
+            values.each_slice(per_line).map { |slice| "    #{slice.join(", ")}," }.join("\n")
+          end
 
-        def char(cp)
-          cp.chr(Encoding::UTF_8)
-        rescue RangeError
-          nil
-        end
+          def char(cp)
+            cp.chr(Encoding::UTF_8)
+          rescue RangeError
+            nil
+          end
 
-        def mappings
-          single = Hash.new { |h, k| h[k] = {} }
-          multi = Hash.new { |h, k| h[k] = {} }
-          (0..0x10FFFF).each do |cp|
-            next if (0xD800..0xDFFF).cover?(cp)
-            next unless (c = char(cp))
+          def mappings
+            single = Hash.new { |h, k| h[k] = {} }
+            multi = Hash.new { |h, k| h[k] = {} }
+            (0..0x10FFFF).each do |cp|
+              next if (0xD800..0xDFFF).cover?(cp)
+              next unless (c = char(cp))
 
-            KINDS.each do |name, map|
-              mapped = map.call(c)
-              next if mapped == c
+              KINDS.each do |name, map|
+                mapped = map.call(c)
+                next if mapped == c
 
-              codepoints = mapped.codepoints
-              codepoints.size == 1 ? single[name][cp] = codepoints[0] : multi[name][cp] = codepoints
+                codepoints = mapped.codepoints
+                codepoints.size == 1 ? single[name][cp] = codepoints[0] : multi[name][cp] = codepoints
+              end
+            end
+            [single, multi]
+          end
+
+          # The codepoints that ruby's inspect escapes. Onigmo calls a codepoint
+          # without its own category unprintable, and ruby writes it as \uXXXX.
+          # The escape table already covers codepoints below 128, so this table
+          # starts at 128.
+          def unprintable
+            (128..0x10FFFF).each_with_object([]) do |cp, out|
+              next if (0xD800..0xDFFF).cover?(cp)
+              next unless (c = char(cp))
+              next unless c.inspect.include?("\\u")
+
+              last = out.last
+              if last && last[0] + last[1] == cp
+                last[1] += 1
+              else
+                out << [cp, 1]
+              end
             end
           end
-          [single, multi]
-        end
 
-        # The codepoints that ruby's inspect escapes. Onigmo calls a codepoint
-        # without its own category unprintable, and ruby writes it as \uXXXX.
-        # The escape table already covers codepoints below 128, so this table
-        # starts at 128.
-        def unprintable
-          (128..0x10FFFF).each_with_object([]) do |cp, out|
-            next if (0xD800..0xDFFF).cover?(cp)
-            next unless (c = char(cp))
-            next unless c.inspect.include?("\\u")
+          def write(io)
+            single, multi = mappings
 
-            last = out.last
-            if last && last[0] + last[1] == cp
-              last[1] += 1
-            else
-              out << [cp, 1]
+            io.puts "# frozen_string_literal: true"
+            io.puts
+            io.puts "# The Unicode case mappings, generated by `zr-dev gen unicode`. Each"
+            io.puts "# RUNS table is a flat list of (first codepoint, how many, how far"
+            io.puts "# to move) triples; each MULTI table holds the characters that map"
+            io.puts "# to more than one."
+            io.puts "class String"
+            KINDS.each_key do |name|
+              io.puts "  #{name}_RUNS = ["
+              io.puts rows(runs(single[name]).flatten, 12)
+              io.puts "  ].freeze"
+              io.puts
+              pairs = multi[name].sort.map { |cp, to| "#{cp} => #{to.inspect}" }
+              io.puts "  #{name}_MULTI = {"
+              io.puts pairs.each_slice(3).map { |slice| "    #{slice.join(", ")}," }.join("\n")
+              io.puts "  }.freeze"
+              io.puts
+              io.puts "  private_constant :#{name}_RUNS, :#{name}_MULTI"
+              io.puts
             end
-          end
-        end
-
-        def write(io)
-          single, multi = mappings
-
-          io.puts "# frozen_string_literal: true"
-          io.puts
-          io.puts "# The Unicode case mappings, generated by `zr-dev gen unicode`. Each"
-          io.puts "# RUNS table is a flat list of (first codepoint, how many, how far"
-          io.puts "# to move) triples; each MULTI table holds the characters that map"
-          io.puts "# to more than one."
-          io.puts "class String"
-          KINDS.each_key do |name|
-            io.puts "  #{name}_RUNS = ["
-            io.puts rows(runs(single[name]).flatten, 12)
+            io.puts "  # The tables by the name each case method asks for, and the two"
+            io.puts "  # letters Turkish gives their own rules."
+            io.puts "  CASE_RUNS = { up: UP_RUNS, down: DOWN_RUNS, title: TITLE_RUNS, swap: SWAP_RUNS, fold: FOLD_RUNS }.freeze"
+            io.puts "  CASE_MULTI = { up: UP_MULTI, down: DOWN_MULTI, title: TITLE_MULTI, " \
+                    "swap: SWAP_MULTI, fold: FOLD_MULTI }.freeze"
+            io.puts "  KERNEL_CASE = { up: 1, down: 2, title: 3 }.freeze"
+            io.puts "  TURKIC = { up: { 105 => 304 }, title: { 105 => 304 }, down: { 73 => 305, 304 => 105 }, " \
+                    "fold: { 73 => 305, 304 => 105 }, swap: { 73 => 305, 105 => 304, 304 => 105 } }.freeze"
+            io.puts
+            io.puts "  private_constant :CASE_RUNS, :CASE_MULTI, :KERNEL_CASE, :TURKIC"
+            io.puts
+            io.puts "  # The codepoints inspect escapes rather than shows, as runs of a"
+            io.puts "  # first codepoint and how many follow it. A byte under 128 has its"
+            io.puts "  # own escape, so the table starts at 128."
+            io.puts "  UNPRINTABLE_RUNS = ["
+            io.puts rows(unprintable.flatten, 12)
             io.puts "  ].freeze"
             io.puts
-            pairs = multi[name].sort.map { |cp, to| "#{cp} => #{to.inspect}" }
-            io.puts "  #{name}_MULTI = {"
-            io.puts pairs.each_slice(3).map { |slice| "    #{slice.join(", ")}," }.join("\n")
-            io.puts "  }.freeze"
-            io.puts
-            io.puts "  private_constant :#{name}_RUNS, :#{name}_MULTI"
-            io.puts
+            io.puts "  private_constant :UNPRINTABLE_RUNS"
+            io.puts "end"
           end
-          io.puts "  # The tables by the name each case method asks for, and the two"
-          io.puts "  # letters Turkish gives their own rules."
-          io.puts "  CASE_RUNS = { up: UP_RUNS, down: DOWN_RUNS, title: TITLE_RUNS, swap: SWAP_RUNS, fold: FOLD_RUNS }.freeze"
-          io.puts "  CASE_MULTI = { up: UP_MULTI, down: DOWN_MULTI, title: TITLE_MULTI, " \
-                  "swap: SWAP_MULTI, fold: FOLD_MULTI }.freeze"
-          io.puts "  KERNEL_CASE = { up: 1, down: 2, title: 3 }.freeze"
-          io.puts "  TURKIC = { up: { 105 => 304 }, title: { 105 => 304 }, down: { 73 => 305, 304 => 105 }, " \
-                  "fold: { 73 => 305, 304 => 105 }, swap: { 73 => 305, 105 => 304, 304 => 105 } }.freeze"
-          io.puts
-          io.puts "  private_constant :CASE_RUNS, :CASE_MULTI, :KERNEL_CASE, :TURKIC"
-          io.puts
-          io.puts "  # The codepoints inspect escapes rather than shows, as runs of a"
-          io.puts "  # first codepoint and how many follow it. A byte under 128 has its"
-          io.puts "  # own escape, so the table starts at 128."
-          io.puts "  UNPRINTABLE_RUNS = ["
-          io.puts rows(unprintable.flatten, 12)
-          io.puts "  ].freeze"
-          io.puts
-          io.puts "  private_constant :UNPRINTABLE_RUNS"
-          io.puts "end"
         end
       end
     end
