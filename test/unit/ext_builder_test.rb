@@ -47,6 +47,26 @@ class ExtBuilderTest < Minitest::Test
     assert_includes Zr::Obj::MachO::Image.read(File.binread(source.objects.first)).undefined, "_rb_define_module_function"
   end
 
+  # An extconf that builds a library where it runs names it by that path
+  # (nokogiri's libgumbo.a). The store gives the build another directory
+  # when it ends, and the libraries follow it there.
+  def test_a_library_that_the_extconf_builds_is_where_the_build_is
+    builder = Zr::Ext::Builder.new(extconf(<<~'RUBY'))
+      require "mkmf"
+      require "fileutils"
+      FileUtils.mkdir_p("ports/lib")
+      File.write("ports/lib/libhelper.a", "!<arch>\n")
+      $LIBS << " -L#{File.expand_path("ports/lib")} #{File.expand_path("ports/lib/libhelper.a")}"
+      create_makefile("tiny")
+    RUBY
+    libraries = builder.source(@gem).libraries
+    dir = builder.build
+
+    assert_includes libraries, "-L#{dir}/ports/lib"
+    assert_includes libraries, "#{dir}/ports/lib/libhelper.a"
+    assert_path_exists "#{dir}/ports/lib/libhelper.a"
+  end
+
   def test_the_same_sources_and_arguments_build_once
     path = extconf(%(require "mkmf"\ncreate_makefile("tiny")\n))
     first = Zr::Ext::Builder.new(path).build

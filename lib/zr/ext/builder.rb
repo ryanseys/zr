@@ -44,6 +44,12 @@ module Zr
       # The file that mkmf loads as the target's RbConfig.
       TARGET_RBCONFIG = File.expand_path("target_rbconfig.rb", __dir__)
 
+      # The file in a built extension's directory that names the directory
+      # extconf.rb ran in, before the store gave the build its own name. An
+      # extconf that builds a library there (nokogiri's libgumbo.a) names
+      # it in LIBS by that first path.
+      BUILT_IN = "zr-built-in"
+
       # `extconf` is the extension's extconf.rb, and `args` the words it
       # takes (`--use-system-libraries`). `ruby` runs it: zr's host ruby,
       # whose headers the extension compiles against on this host's own
@@ -61,9 +67,21 @@ module Zr
       # finds is under its lib/.
       #: (String gem_dir) -> Source
       def source(gem_dir)
-        makefile = Makefile.read(File.join(build, "Makefile"))
+        dir = build
+        makefile = Makefile.read(File.join(dir, "Makefile"))
         Source.new(bundle: File.join(gem_dir, "lib", "#{makefile.feature}.#{@target.dlext}"), init: makefile.init,
-                   objects: makefile.objects, libraries: makefile.libraries, library: nil, mode: :static)
+                   objects: makefile.objects, libraries: moved(makefile.libraries, dir), library: nil, mode: :static)
+      end
+
+      # `libraries` with each path under the directory that extconf.rb ran
+      # in (BUILT_IN) under `dir`, where the build is now.
+      #: (Array[String] libraries, String dir) -> Array[String]
+      def moved(libraries, dir)
+        record = File.join(dir, BUILT_IN)
+        return libraries unless File.file?(record)
+
+        was = "#{File.read(record)}/"
+        libraries.map { |word| word.include?(was) ? word.gsub(was) { "#{dir}/" } : word }
       end
 
       # The directory of the built extension: its Makefile and objects.
@@ -73,6 +91,7 @@ module Zr
         # Two builds of one extension: one runs extconf, the other waits.
         Cache::Store.once(:ext, key) do
           Cache::Store.write(:ext, key) do |dir|
+            File.write(File.join(dir, BUILT_IN), dir)
             run(dir, @ruby, @extconf, *cross_args, *@args, env: env)
             makefile = Makefile.read(File.join(dir, "Makefile"))
             makefile.standard? && makefile.sources.all? { |c, _| File.file?(c) } ? compile(dir, makefile) : run(dir, "make", env: env)
