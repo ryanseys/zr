@@ -30,12 +30,7 @@ system("rm", "-r", root)
 s = File.stat("/tmp")
 p s.class, s.directory?, s.file?, s.ftype, s.mode.to_s(8), s.size.class, s.mtime.class, s.nlink.class, s.ino.class
 begin; File.stat("/nope"); rescue => e; p e.class, e.message; end
-p File.realpath("/tmp")
-begin; File.realpath("/nope"); rescue => e; p e.message; end
-p File.realpath("tmp", "/private")
-p File.symlink?("/tmp"), File.symlink?("/private/tmp"), File.symlink?("/nope")
-p File.lstat("/tmp").symlink?
-p (File.stat("/tmp") <=> File.stat("/private/tmp")), s.inspect.start_with?("#<File::Stat dev=0x")
+p s.inspect.start_with?("#<File::Stat dev=0x")
 
 class A; def x = 1; X = 2; @iv = 3; @@cv = 4; def self.s = 5; end
 module M; def self.m = 6; end

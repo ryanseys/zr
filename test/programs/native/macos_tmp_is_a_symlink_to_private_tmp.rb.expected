@@ -1,0 +1,9 @@
+"/private/tmp"
+"No such file or directory @ rb_check_realpath_internal - /nope"
+"/private/tmp"
+true
+false
+false
+true
+0
+true

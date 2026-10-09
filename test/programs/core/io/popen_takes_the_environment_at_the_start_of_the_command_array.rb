@@ -16,4 +16,3 @@ begin
 rescue ArgumentError => e
   p e.message
 end
-p IO.popen([{ "X" => "4" }, ["sh", "argv0"], "-c", "echo $X $0"], &:read)

@@ -41,14 +41,6 @@ Integer
 Integer
 Errno::ENOENT
 "No such file or directory @ rb_file_s_stat - /nope"
-"/private/tmp"
-"No such file or directory @ rb_check_realpath_internal - /nope"
-"/private/tmp"
-true
-false
-false
-true
-0
 true
 "B"
 Object
