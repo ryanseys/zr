@@ -13,7 +13,7 @@ class CacheTest < Minitest::Test
         Zr::Session.current.set(:cache, dir)
         old = Zr::Cache::Store.write(:object, "0" * 64, "x" * (2 << 20))
         File.utime(Time.now - (3 * 86_400), Time.now - (3 * 86_400), old)
-        stub_method(Zr::Cache::Janitor, :old_compilers, []) { yield dir, old }
+        yield dir, old
       ensure
         Zr::Session.current.forget(:cache)
       end
@@ -64,24 +64,27 @@ class CacheTest < Minitest::Test
     end
   end
 
-  # The files of a zr from before the store are never read again.
-  def test_a_clean_removes_the_old_layout_and_keeps_the_harness_marks
-    with_cache("5") do |dir, _old|
-      old_layout = [File.join(dir, "runtime-#{"1" * 64}.o"), File.join(dir, "parse/ab.marshal")]
+  # A clean deletes the store's unused entries and the binaries that the
+  # server left. It keeps the harness's marks (`built-<digest>.ok`,
+  # test/support/built.rb), which are outside the store.
+  def test_a_clean_keeps_the_harness_marks_and_removes_old_served_binaries
+    with_cache("5") do |dir, old|
       mark = File.join(dir, "built-#{"2" * 64}.ok")
-      [*old_layout, mark].each do |path|
+      served = File.join(dir, "served", "sum")
+      [mark, served].each do |path|
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, "x")
       end
+      File.utime(Time.now - 7200, Time.now - 7200, served)
 
       gone = Zr::Cache::Janitor.prune
 
-      assert_empty old_layout.select { |path| File.exist?(path) }
       assert_path_exists mark
-      refute_path_exists File.join(dir, "parse")
-      assert_equal "old layout", Zr::Cache::Janitor.kind(old_layout.first)
+      refute_path_exists served
+      assert_includes gone, old
+      assert_includes gone, served
+      assert_equal "served", Zr::Cache::Janitor.kind(served)
       assert_equal "object", Zr::Cache::Janitor.kind(Zr::Cache::Store.path(:object, "1" * 64))
-      assert_includes gone, old_layout.first
     end
   end
 end

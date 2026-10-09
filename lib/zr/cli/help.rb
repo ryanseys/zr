@@ -162,8 +162,7 @@ module Zr
 
           path            print the cache directory (the default)
           size            what the cache holds, by kind
-          clean           delete the files that this zr does not use, and the
-                          compiled compilers that older zr versions kept
+          clean           delete the files that this zr does not use
           clean --days N  the same, but keep the files used in the last N days
           clean --all     delete every file in the cache, also this zr's own;
                           the next build makes them again

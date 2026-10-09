@@ -216,21 +216,6 @@ class GemCompatTest < Minitest::Test
     assert_equal subject, store.unpack(package("packed", "0.4.0", "lib/packed.rb" => "module Packed; end\n"))
   end
 
-  def test_the_store_of_an_older_zr_dev_moves_to_the_gem_home_layout
-    old = File.join(@dir, "src/packed-0.4.0")
-    FileUtils.mkdir_p([old, File.join(@dir, "rubygems/cache")])
-    marker = { name: "packed", version: "0.4.0", require_paths: ["lib"], extensions: [], dependencies: [] }
-    File.write(File.join(old, Gems::FetchedGems::MARKER), JSON.generate(marker))
-    File.write(File.join(old, "packed.gemspec"), "spec\n")
-    store = Gems::FetchedGems.new(@dir)
-
-    store.migrate
-
-    assert_equal ["packed-0.4.0"], Dir.children(store.gems)
-    assert_equal "spec\n", File.read(File.join(store.specifications, "packed-0.4.0.gemspec"))
-    assert File.directory?(File.join(@dir, "cache"))
-  end
-
   def test_offline_the_resolver_takes_the_newest_version_in_the_store
     store = Gems::FetchedGems.new(@dir)
     store.unpack(package("packed", "0.4.0", "lib/packed.rb" => ""))

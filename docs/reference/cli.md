@@ -276,8 +276,8 @@ prelinked images, machine code, parsed trees and the binaries of
 | Command | Effect |
 |---|---|
 | `zr cache` or `zr cache path` | Prints the cache directory. |
-| `zr cache size` | Prints what the cache holds, by kind, and the compiled compilers that older zr versions kept. It also prints the size of wasmtime's own cache, if there is one. zr does not clean that cache. |
-| `zr cache clean` | Deletes the entries that this zr does not use, the files of a zr from before the store, and the compiled compilers that older zr versions kept. The next build rebuilds nothing. |
+| `zr cache size` | Prints what the cache holds, by kind. It also prints the size of wasmtime's own cache, if there is one. zr does not clean that cache. |
+| `zr cache clean` | Deletes the entries that this zr does not use, and the binaries that a build server left. The next build rebuilds nothing. |
 | `zr cache clean --days N` | Does the same as `zr cache clean`, but keeps the entries used in the last N days. In a checkout, `--days 1` keeps the entries of a branch that you used today. |
 | `zr cache clean --all` | Deletes every entry in the cache. The next build makes them again. |
 
@@ -310,9 +310,7 @@ limit, zr deletes its entries that were used longest ago.
 
 An installed zr also cleans its cache after a build when the cache is
 larger than `ZR_CACHE_MAX_GB` (5 GB by default). It deletes the entries
-that were used longest ago and that no root names. If the cache is
-still too large, it then deletes the compiled compilers that older zr
-versions kept. It measures the cache at most once a day
+that were used longest ago and that no root names. It measures the cache at most once a day
 (`Cache::Janitor.trim`, `lib/zr/cache/janitor.rb`).
 
 ## Messages

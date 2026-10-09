@@ -71,23 +71,6 @@ module Zr
           FileUtils.rm_rf(work) if work && File.exist?(work)
         end
 
-        # Moves the store of an older zr-dev (`src/`, with a gemspec in each
-        # gem's directory, and `rubygems/cache/`) to this layout.
-        def migrate
-          old = File.join(@dir, "src")
-          return unless File.directory?(old) && !File.exist?(gems)
-
-          File.rename(old, gems)
-          FileUtils.mkdir_p(specifications)
-          Dir.children(gems).each do |base|
-            subject = read(File.join(gems, base))
-            spec = subject && File.join(gems, base, "#{subject.name}.gemspec")
-            File.rename(spec, File.join(specifications, "#{base}.gemspec")) if spec && File.file?(spec)
-          end
-          cache = File.join(@dir, "rubygems", "cache")
-          File.rename(cache, File.join(@dir, "cache")) if File.directory?(cache) && !File.exist?(File.join(@dir, "cache"))
-        end
-
         def read(dir)
           marker = File.join(dir, MARKER)
           return nil unless File.file?(marker)

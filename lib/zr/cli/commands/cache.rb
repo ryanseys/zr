@@ -58,9 +58,6 @@ module Zr
           files.group_by { |path| Zr::Cache::Janitor.kind(path) }.sort_by { |_, group| -Zr::Cache::Janitor.bytes(group) }.each do |kind, group|
             puts format("%6d MB  %5d  %s", Zr::Cache::Janitor.megabytes(group), group.size, kind)
           end
-          others = Zr::Cache::Janitor.old_compilers
-          old_mb = others.sum { |dir| Zr::Cache::Store.tree_bytes(dir) } >> 20
-          puts format("%6d MB  %5d  compiled compilers that older zr versions kept", old_mb, others.size)
           puts format("%6d MB  %5d  in all, in %s", Zr::Cache::Janitor.megabytes(files), files.size, Paths.cache)
           wasmtime
         end
@@ -76,16 +73,13 @@ module Zr
         end
 
         # Deletes the files that this zr does not use and that were not
-        # used in the last `days`, and the compiled compilers of older zr
-        # versions. With `all`, it deletes every file.
+        # used in the last `days`. With `all`, it deletes every file.
         #: (all: bool, days: Float | Integer) -> void
         def clean(all:, days:)
           sizes = Zr::Cache::Janitor.all.to_h { |path| [path, Zr::Cache::Janitor.bytes([path])] }
           gone = all ? Zr::Cache::Janitor.clear : Zr::Cache::Janitor.prune(days: days)
-          others = Zr::Cache::Janitor.old_compilers
-          freed = gone.sum { |path| sizes.fetch(path, 0) } + others.sum { |dir| Zr::Cache::Store.tree_bytes(dir) }
-          others.each { |dir| Paths.remove(dir) }
-          puts format("deleted %d file(s) and %d compiled compiler(s), %d MB", gone.size, others.size, freed >> 20)
+          freed = gone.sum { |path| sizes.fetch(path, 0) }
+          puts format("deleted %d file(s), %d MB", gone.size, freed >> 20)
         end
       end
     end
