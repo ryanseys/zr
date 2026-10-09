@@ -25,7 +25,7 @@ class VendorTest < Minitest::Test
   end
 
   def test_every_vendored_file_is_the_one_the_lock_names
-    have = Dir.glob("{ruby,LICENSES,src}/**/*", File::FNM_DOTMATCH, base: Zr::Paths::VENDOR)
+    have = Dir.glob("{ruby,LICENSES,src,targets}/**/*", File::FNM_DOTMATCH, base: Zr::Paths::VENDOR)
               .select { |rel| File.file?(File.join(Zr::Paths::VENDOR, rel)) }
 
     differ = (have & locked.keys).reject { |rel| Digest::SHA256.file(File.join(Zr::Paths::VENDOR, rel)).hexdigest == locked[rel] }
