@@ -1,0 +1,6 @@
+[LoadError, true, #<Encoding:Windows-31J>]
+#<Encoding:Windows-31J>
+true
+[#<Encoding:Windows-31J>, true]
+false
+#<Encoding:Windows-31J>

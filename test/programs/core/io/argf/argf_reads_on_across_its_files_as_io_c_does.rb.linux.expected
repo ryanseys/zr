@@ -1,0 +1,7 @@
+["ab", "c\n", "def\ng", "h\xC3\xA9\nij", nil]
+[#<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:UTF-8>]
+["", "abc", "\ndef\n", "", "gh\xC3\xA9\nij", #<EOFError: end of file reached>]
+["abc\n", ARGF, "ghé\n", "/tmp/zr_af2", false, 1]
+["/tmp/zr_af1", "abc\n", "ghé\n"]
+["abc\n", 1]
+[nil, "", "-", #<Errno::ESPIPE: Invalid seek @ rb_io_tell - <STDIN>>]

@@ -1,0 +1,19 @@
+true
+false
+true
+"target.rb"
+true
+["inner.rb", "outer.rb"]
+["no", false]
+[["foo.so"], false]
+[["foo.o"], false]
+[["foo.bundle"], "cannot load such file -- foo"]
+[["foo"], false]
+[["a/foo.rb", "b/foo.rb"], "cannot load such file -- foo"]
+Object
+true
+TMP/wrapped.rb:2: warning: main.public in the wrapped load is effective only in wrapper module
+TMP/wrapped.rb:3: warning: main.private in the wrapped load is effective only in wrapper module
+TMP/wrapped.rb:4: warning: main.define_method in the wrapped load is effective only in wrapper module
+false
+false

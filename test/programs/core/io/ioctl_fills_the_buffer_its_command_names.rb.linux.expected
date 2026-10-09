@@ -1,0 +1,7 @@
+Errno::ENOTTY: Not a tty
+Errno::ENOTTY: Not a tty
+Errno::ENOTTY: Not a tty
+FrozenError: can't modify frozen String: ""
+Errno::ENOTTY: Not a tty
+Errno::ENOTTY: Not a tty
+IOError: closed stream
