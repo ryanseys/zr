@@ -4,11 +4,11 @@
 # names a file, as ruby 4.0 reads it.
 p system("sh", "-c", "umask", umask: 0o077)
 r, w = IO.pipe
-pid = spawn("sh", "-c", "ps -o pgid= -p $$; echo $$", pgroup: true, out: w)
+pid = spawn("sh", "-c", "read x", pgroup: true, in: r)
+r.close
+p Process.getpgid(pid) == pid
 w.close
-pgid, me = r.read.split.map(&:to_i)
 Process.wait(pid)
-p pgid == me
 p IO.popen(["sh", "-c", "ulimit -n"], rlimit_nofile: 100, &:read)
 p IO.popen(["sh", "-c", "ulimit -c"], rlimit_core: [0, 0], &:read)
 p IO.popen(["sh", "-c", "echo $FOO-$HOME"], unsetenv_others: true, &:read)

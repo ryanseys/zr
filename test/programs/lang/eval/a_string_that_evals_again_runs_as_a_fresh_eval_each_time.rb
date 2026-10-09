@@ -1,7 +1,13 @@
 # An eval of the same string, again and again, behaves as a fresh eval
 # each time, and a loop of evals does not grow (test_ast.rb's
 # test_memory_leak runs eval("") a million times).
-def rss_kb = Integer(IO.popen(["ps", "-o", "rss=", "-p", Process.pid.to_s], &:read).strip)
+# The resident size: from /proc on Linux, whose BusyBox ps has no -p.
+def rss_kb
+  status = "/proc/self/status"
+  return Integer(File.foreach(status).find { |line| line.start_with?("VmRSS:") }.split[1]) if File.exist?(status)
+
+  Integer(IO.popen(["ps", "-o", "rss=", "-p", Process.pid.to_s], &:read).strip)
+end
 
 src = "s = 'abc'; s << 'd'; s"
 p 3.times.map { eval(src) }, eval(src).equal?(eval(src))

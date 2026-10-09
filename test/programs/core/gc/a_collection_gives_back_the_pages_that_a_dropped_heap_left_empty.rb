@@ -2,7 +2,13 @@
 # to the system, as CRuby's heap_pages_free_unused_pages does, and keeps
 # what the live objects need. GC.stat counts them in total_freed_pages,
 # and the pages that hold memory in heap_allocated_pages.
-def rss_kb = `ps -o rss= -p #{$$}`.to_i
+# The resident size: from /proc on Linux, whose BusyBox ps has no -p.
+def rss_kb
+  status = "/proc/self/status"
+  return File.foreach(status).find { |line| line.start_with?("VmRSS:") }.split[1].to_i if File.exist?(status)
+
+  `ps -o rss= -p #{$$}`.to_i
+end
 
 GC.start
 before = GC.stat
