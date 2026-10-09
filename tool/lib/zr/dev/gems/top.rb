@@ -8,7 +8,7 @@ module Zr
   module Dev
     module Gems
       # The most downloaded gems, from packages.ecosyste.ms, in
-      # gems/top.tsv: a header, then `name<TAB>downloads` for each gem,
+      # log/gems/top.tsv: a header, then `name<TAB>downloads` for each gem,
       # most downloads first. `zr-dev gems top --refresh` writes it, and a
       # sweep reads it for `--top N` and for the downloads column.
       module Top
@@ -17,7 +17,7 @@ module Zr
 
         module_function
 
-        def path = Dev.path("gems/top.tsv")
+        def path = File.join(TABLES, "top.tsv")
 
         # `{ name => downloads }`, most downloads first, or {} with no file.
         def read(file = path)

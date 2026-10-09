@@ -46,7 +46,7 @@ module Zr
                                       -> { require_relative "gen/prism_encoding_tables"; PrismEncodingTables }],
           "support" => ["docs/reference/support.md: what zr refuses, from the compiler", -> { require_relative "gen/support"; Support }],
           "capi" => ["docs/reference/c-api.md: the C API that zr gives C extensions", -> { require_relative "gen/capi"; CApi }],
-          "gem-compat" => ["docs/reference/gem-compat.md: how far each gem gets, from gems/compat.tsv",
+          "gem-compat" => ["docs/reference/gem-compat.md: how far each gem gets, from log/gems/compat.tsv",
                            -> { require_relative "gen/gem_compat"; GemCompat }],
           "perf" => ["docs/explanation/performance.md: the newest benchmark reports", -> { require_relative "gen/perf"; Perf }]
         })
@@ -55,9 +55,11 @@ module Zr
         # (RUBY_SRC, PRISM_SRC) stops the run when the checkout is missing.
         # `openssl_constants` is not in the run: its order comes from the
         # host's OpenSSL build (see tool/gen/openssl_constants.rb), so run it
-        # by name and read the diff.
+        # by name and read the diff. Nor is `gem-compat`: its table
+        # (log/gems/compat.tsv) is not committed, so only a machine that
+        # swept the gems writes the page.
         class All < Command
-          APART = %w[all openssl_constants].freeze
+          APART = %w[all openssl_constants gem-compat].freeze
 
           summary "Every generator, in order"
           usage "[--check]"

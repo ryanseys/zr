@@ -126,17 +126,17 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev gems try GEM [--keep] [--save]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `gems/compat.tsv`. `--build-only` builds the program and runs nothing. |
-| `zr-dev gems sweep [GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--build-only]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `gems/top.tsv`, and `--top FIRST..LAST` those ranked FIRST to LAST. As each gem ends, its line goes into `log/gems/sweep-<time>.log` and its row into `log/gems/sweep-<time>.tsv`, and with `--save` into `gems/compat.tsv`. `--build-only` runs no gem code: it takes gems from rubygems.org only and stops after the build. |
+| `zr-dev gems try GEM [--keep] [--save]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `log/gems/compat.tsv`. `--build-only` builds the program and runs nothing. |
+| `zr-dev gems sweep [GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--build-only]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `log/gems/top.tsv`, and `--top FIRST..LAST` those ranked FIRST to LAST. As each gem ends, its line goes into `log/gems/sweep-<time>.log` and its row into `log/gems/sweep-<time>.tsv`, and with `--save` into `log/gems/compat.tsv`. `--build-only` runs no gem code: it takes gems from rubygems.org only and stops after the build. |
 | `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
-| `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `gems/top.tsv` again from packages.ecosyste.ms. |
+| `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `log/gems/top.tsv` again from packages.ecosyste.ms. |
 
 ### C extensions
 
 | Command | Does |
 |---|---|
 | `zr-dev ext imports [--all] <bundle-or-object>...` | Lists what a C extension takes from ruby that zr's C API (`lib/zr/runtime/kernel/capi/`) does not have yet: the ruby names among the undefined symbols of a bundle or an object file, read with zr's own Mach-O reader. `--all` lists every ruby import, `+` for those the C API has and `-` for the others. It fails when one is missing, as a build that links the extension refuses then. |
-| `zr-dev ext rank [--top N] [--build] [--only NAME,...] [--store DIR]` | Ranks the C extensions that keep the top N gems of `gems/top.tsv` (1000) from zr: each `cext:<name>` kind of `gems/compat.tsv`, by the number of those gems that it blocks, then by its own gem's downloads. `--build` builds each one, one at a time and for at most 10 minutes, from the gem that `zr-dev gems` unpacked in `--store` (`tmp/gems`) with `Ext::Builder`, which runs the gem's `extconf.rb`: gem code that a sweep never runs. It prints what each one lacks of zr's C API, then the functions to add, each with the number of top gems that wait on it. |
+| `zr-dev ext rank [--top N] [--build] [--only NAME,...] [--store DIR]` | Ranks the C extensions that keep the top N gems of `log/gems/top.tsv` (1000) from zr: each `cext:<name>` kind of `log/gems/compat.tsv`, by the number of those gems that it blocks, then by its own gem's downloads. `--build` builds each one, one at a time and for at most 10 minutes, from the gem that `zr-dev gems` unpacked in `--store` (`tmp/gems`) with `Ext::Builder`, which runs the gem's `extconf.rb`: gem code that a sweep never runs. It prints what each one lacks of zr's C API, then the functions to add, each with the number of top gems that wait on it. |
 | `zr-dev ext compare <gem>...` | Compares zr's port of a gem's C with the gem's real C extension: it builds each program of `test/programs/stdlib/<gem>/` both ways into `tmp/ext-compare/` (the native way with `--native-ext <gem> --gem <gem>=<newest installed version>`), runs each binary three times, and prints a table row for each gem: the programs, how many give ruby's output each way (checked as the program tests check it), the total of the fastest times, and the mean binary size. [Ports and native extensions](ports-vs-native.md) records its table. |
 
 ### Expected outputs
@@ -182,7 +182,7 @@ in `tool/gen/`.
 | `zr-dev gen emoji` | `lib/zr/runtime/core/emoji.rb` |
 | `zr-dev gen builtin_lines` | `lib/zr/runtime/core/builtin_lines.rb` |
 | `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
-| `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. |
+| `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `log/gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. The table is not committed, so `gen all` leaves this page out, and without the table the command stops. |
 | `zr-dev gen capi` | `docs/reference/c-api.md`: the functions and data of ruby's C API that the kernel gives C extensions, from `lib/zr/runtime/kernel/capi/*.rb` |
 
 #### Generated files that the unit tier tests

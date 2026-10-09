@@ -57,7 +57,7 @@ class GemCompatTest < Minitest::Test
     _, err = capture_io { words = sweep.words(["tiny"]) }
 
     assert_equal %w[tiny rack cexty], words
-    assert_includes err, %(skipped ".." of gems/top.tsv)
+    assert_includes err, %(skipped ".." of log/gems/top.tsv)
   end
 
   # Corpus
@@ -554,6 +554,39 @@ class GemCompatTest < Minitest::Test
     Gems::Top.write({ "rake" => 10, "rack" => 5 }, path)
 
     assert_equal({ "rake" => 10, "rack" => 5 }, Gems::Top.read(path))
+  end
+
+  # Gen::GemCompat
+
+  def test_the_compat_page_counts_each_tier_and_lists_the_causes
+    require_relative "../../tool/gen"
+    require_relative "../../tool/gen/gem_compat"
+    io = StringIO.new
+
+    stub_method(Gems::Table, :compat, File.join(FIXTURES, "compat.tsv")) do
+      Zr::Dev::Commands::Gen::GemCompat.new("gen gem-compat").write(io)
+    end
+
+    assert_includes io.string, "from log/gems/compat.tsv"
+    assert_includes io.string, "The results come from"
+    { "loads" => 2, "compiles" => 1, "builds" => 1, "fails" => 1, "refused" => 2, "skipped" => 1, "all" => 8 }.each do |tier, count|
+      assert_includes io.string, "| #{tier} | #{count} |\n"
+    end
+    assert_match(/^\| `cext:nokogiri` \| 2 \| zeta, eta \|$/, io.string)
+  end
+
+  # The table is not committed, so a checkout without one keeps the page.
+  def test_the_compat_page_stops_without_a_table
+    require_relative "../../tool/gen"
+    require_relative "../../tool/gen/gem_compat"
+
+    _, err = capture_io do
+      stub_method(Gems::Table, :compat, File.join(@dir, "compat.tsv")) do
+        assert_raises(SystemExit) { Zr::Dev::Commands::Gen::GemCompat.new("gen gem-compat").write(StringIO.new) }
+      end
+    end
+
+    assert_includes err, "run `zr-dev gems sweep --save`"
   end
 
   private

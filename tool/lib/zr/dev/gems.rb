@@ -20,8 +20,11 @@ module Zr
     module Gems
       # The fetched gems, the logs, the sweeps and the work directories.
       TMP = Dev.path("tmp/gems")
-      # The committed files: compat.tsv, top.tsv and the overrides.
+      # The overrides (`gems/<name>.rb`), which are committed.
       HOME = Dev.path("gems")
+      # The tables (compat.tsv, top.tsv) and the sweeps' logs. They are
+      # not committed: log/ is kept when tmp/ is cleared.
+      TABLES = Dev.path("log/gems")
 
       # The names that rubygems.org accepts (Gem::Specification::VALID_NAME_PATTERN),
       # but one of dots alone, which would name a directory above another.

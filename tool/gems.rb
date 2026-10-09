@@ -9,9 +9,9 @@ module Zr
       #
       #   zr-dev gems try rack                 one gem, with the full diff
       #   zr-dev gems try rack=3.1.8 --keep    that version; keep the work directory
-      #   zr-dev gems sweep --top 100 --save   many gems, one line each, into gems/compat.tsv
+      #   zr-dev gems sweep --top 100 --save   many gems, one line each, into log/gems/compat.tsv
       #   zr-dev gems triage                   the failures, grouped by cause
-      #   zr-dev gems top --refresh            gems/top.tsv from packages.ecosyste.ms
+      #   zr-dev gems top --refresh            log/gems/top.tsv from packages.ecosyste.ms
       #
       # A gem is NAME (the newest release), NAME=VERSION, or the path of an
       # unpacked gem (a word with a `/`). `--corpus DIR` (or ZR_GEM_CORPUS)
@@ -24,7 +24,7 @@ module Zr
           "try" => ["One gem: build a program that requires it, and compare it with ruby", -> { require_relative "gems/try"; Try }],
           "sweep" => ["Many gems, one line each, into a table", -> { require_relative "gems/sweep"; Sweep }],
           "triage" => ["The failures of a table, grouped by cause", -> { require_relative "gems/triage"; Triage }],
-          "top" => ["The most downloaded gems (gems/top.tsv)", -> { require_relative "gems/top"; Top }]
+          "top" => ["The most downloaded gems (log/gems/top.tsv)", -> { require_relative "gems/top"; Top }]
         })
 
         # The options and the parts that each gems command shares.

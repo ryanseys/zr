@@ -7,7 +7,7 @@ module Zr
   module Dev
     module Gems
       # The rows of a sweep, one for each gem, sorted by name, as a TSV
-      # file with a header. gems/compat.tsv is the committed one. An update
+      # file with a header. log/gems/compat.tsv is the one that the tools read. An update
       # replaces the row of each gem that it tried, and keeps the others.
       class Table
         include Enumerable
@@ -20,7 +20,7 @@ module Zr
 
         attr_reader :path
 
-        def self.compat = Dev.path("gems/compat.tsv")
+        def self.compat = File.join(TABLES, "compat.tsv")
 
         def initialize(path)
           @path = path
@@ -62,8 +62,8 @@ module Zr
 
         # The detail on one line, without tabs, and at most DETAIL long. A
         # path in this checkout is relative to it, and one in the home
-        # directory starts with `~`, so the committed table names no
-        # machine.
+        # directory starts with `~`, so a table that someone shares names
+        # no machine.
         def self.clean(text)
           line = text.to_s.gsub("#{Dev::ROOT}/", "").gsub("#{Dir.home}/", "~/").gsub(/\s+/, " ").strip
           line.size > DETAIL ? "#{line[0, DETAIL - 3]}..." : line

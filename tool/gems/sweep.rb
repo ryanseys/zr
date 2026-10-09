@@ -11,7 +11,7 @@ module Zr
         # `zr-dev gems sweep`: tries many gems, and writes one line for each
         # gem as it ends, then the count in each tier. As each gem ends, its
         # line goes into log/gems/sweep-<time>.log and its row into
-        # log/gems/sweep-<time>.tsv, and with `--save` into gems/compat.tsv
+        # log/gems/sweep-<time>.tsv, and with `--save` into log/gems/compat.tsv
         # too, where it replaces the row of the same gem. So a sweep that
         # stops keeps every row so far, and `tail -f` shows its progress.
         #
@@ -32,7 +32,7 @@ module Zr
         class Sweep < Base
           summary "Many gems, one line each, into a table"
 
-          LOG = Dev.path("log/gems")
+          LOG = Dev::Gems::TABLES
           usage "[GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--corpus DIR] [--offline] [--build-only] [--c-scan]"
 
           # The functions and the extensions that the end of a sweep shows.
@@ -48,11 +48,11 @@ module Zr
 
           def options(o)
             super
-            o.on("--top N|FIRST..LAST", "also the N most downloaded gems of gems/top.tsv, or those ranked FIRST to LAST") do |v|
+            o.on("--top N|FIRST..LAST", "also the N most downloaded gems of log/gems/top.tsv, or those ranked FIRST to LAST") do |v|
               @top = Sweep.ranks(v) or fail!("--top takes N or FIRST..LAST, as 100 or 1001..2000, not #{v}")
             end
             o.on("--jobs N", Integer, "gems at a time (default 1)") { |v| @jobs = v }
-            o.on("--save", "write the rows into gems/compat.tsv") { @save = true }
+            o.on("--save", "write the rows into log/gems/compat.tsv") { @save = true }
             o.on("--c-scan", "only scan the C extensions of each gem and the gems it needs; build and run nothing") { @c_scan = true }
           end
 
@@ -194,16 +194,16 @@ module Zr
             return argv.dup unless @top
 
             top = top_list
-            fail!("no gems/top.tsv; run `zr-dev gems top --refresh`") if top.empty?
+            fail!("no log/gems/top.tsv; run `zr-dev gems top --refresh`") if top.empty?
             listed, odd = (top.keys[@top] || []).partition { |name| name.match?(Dev::Gems::NAME) }
-            odd.each { |name| warn "zr-dev #{self.name}: skipped #{name.inspect} of gems/top.tsv: not a gem name this tool takes" }
+            odd.each { |name| warn "zr-dev #{self.name}: skipped #{name.inspect} of log/gems/top.tsv: not a gem name this tool takes" }
             argv + listed
           end
 
-          # The most downloaded gems, by rank (gems/top.tsv).
+          # The most downloaded gems, by rank (log/gems/top.tsv).
           def top_list = Dev::Gems::Top.read
 
-          # The indexes into gems/top.tsv of `--top`'s ranks, which count
+          # The indexes into log/gems/top.tsv of `--top`'s ranks, which count
           # from 1: "100" is the first 100, and "1001..2000" the next 1000.
           def self.ranks(text)
             case text

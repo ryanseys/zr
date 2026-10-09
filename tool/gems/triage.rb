@@ -23,7 +23,7 @@ module Zr
 
           def defaults = @file = nil
 
-          def options(o) = o.on("--file TSV", "read TSV, not gems/compat.tsv") { |v| @file = v }
+          def options(o) = o.on("--file TSV", "read TSV, not log/gems/compat.tsv") { |v| @file = v }
 
           def run(argv)
             fail!("give at most one kind") if argv.size > 1

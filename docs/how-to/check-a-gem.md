@@ -62,7 +62,7 @@ Options of `try`:
 
 - `--keep` keeps the work directory (`tmp/gems/work/...`) with the probe
   and the binary, so that you can run them again.
-- `--save` writes the result into `gems/compat.tsv`.
+- `--save` writes the result into `log/gems/compat.tsv`.
 - `--corpus DIR` and `--offline`: see [Use a corpus](#use-a-corpus).
 
 The exit status is 0 when the gem loads, and 1 when it does not.
@@ -104,9 +104,9 @@ each command, each output, and the diff.
 ## Check many gems
 
 ```
-$ zr-dev gems top --refresh            # gems/top.tsv: the 1000 most downloaded gems
+$ zr-dev gems top --refresh            # log/gems/top.tsv: the 1000 most downloaded gems
 $ zr-dev gems sweep --top 100 --save
-100 gems with zr 3284ce3b3a1c; rows in log/gems/sweep-20261007-0900.tsv and gems/compat.tsv
+100 gems with zr 3284ce3b3a1c; rows in log/gems/sweep-20261007-0900.tsv and log/gems/compat.tsv
 [1/100] loads     bundler 4.0.21 (9s; 0m in all)
 [2/100] compiles  aws-sdk-core 3.257.0  output-diff (95s; 1m in all)
 ...
@@ -115,18 +115,19 @@ $ zr-dev gems sweep --top 100 --save
 100 of 100 gems: ...
 ```
 
-`sweep` takes gems by name, the top N of `gems/top.tsv` (`--top N`), the
+`sweep` takes gems by name, the top N of `log/gems/top.tsv` (`--top N`), the
 gems ranked FIRST to LAST (`--top 1001..2000`), or both. `zr-dev gems top
---refresh --count 11000` writes a longer `gems/top.tsv`. It tries one gem at a time; `--jobs N` tries N at a time, but
+--refresh --count 11000` writes a longer `log/gems/top.tsv`. It tries one gem at a time; `--jobs N` tries N at a time, but
 each build can use 2 GB. Ctrl-C stops it.
 
 As each gem ends, the sweep writes its line into
 `log/gems/sweep-<time>.log` and its row into `log/gems/sweep-<time>.tsv`.
-With `--save`, the row also goes into `gems/compat.tsv`, which is
-committed. So a sweep that stops keeps every row so far, and
+With `--save`, the row also goes into `log/gems/compat.tsv`. The
+tables in `log/gems/` are not committed, and they stay when `tmp/` is
+cleared. So a sweep that stops keeps every row so far, and
 `tail -f log/gems/sweep-<time>.log` shows how far it is.
 
-`gems/compat.tsv` has one row for each gem, sorted by name, and a sweep
+`log/gems/compat.tsv` has one row for each gem, sorted by name, and a sweep
 replaces only the rows of the gems that it tried. Its columns are `gem`,
 `version`, `source`, `tier`, `kind`, `detail` (at most 200 characters),
 `zr_commit`, `date` and `downloads`.
@@ -174,7 +175,7 @@ $ zr-dev gen gem-compat
 ```
 
 It writes [Gem compatibility](../reference/gem-compat.md) from
-`gems/compat.tsv`.
+`log/gems/compat.tsv`.
 
 ## Help the tool with a gem
 

@@ -8,10 +8,10 @@ module Zr
     module Commands
       class Gems
         # `zr-dev gems top`: the most downloaded gems, each with its tier in
-        # gems/compat.tsv. `--refresh` writes gems/top.tsv again from
+        # log/gems/compat.tsv. `--refresh` writes log/gems/top.tsv again from
         # packages.ecosyste.ms.
         class Top < Base
-          summary "The most downloaded gems (gems/top.tsv)"
+          summary "The most downloaded gems (log/gems/top.tsv)"
           usage "[--refresh] [--count N]"
 
           COUNT = 1000
@@ -23,7 +23,7 @@ module Zr
           end
 
           def options(o)
-            o.on("--refresh", "write gems/top.tsv again from packages.ecosyste.ms") { @refresh = true }
+            o.on("--refresh", "write log/gems/top.tsv again from packages.ecosyste.ms") { @refresh = true }
             o.on("--count N", Integer, "gems to write (default #{COUNT}) or to show (default #{SHOWN})") { |v| @count = v }
           end
 

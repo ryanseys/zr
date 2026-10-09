@@ -14,8 +14,8 @@ module Zr
     # first, and what each one needs of zr's C API (`zr-dev ext rank`).
     #
     # A sweep refuses a gem whose gemspec names a C extension
-    # (`cext:<name>` in gems/compat.tsv) and runs none of its code. This
-    # ranks those kinds among the top gems of gems/top.tsv: by the number
+    # (`cext:<name>` in log/gems/compat.tsv) and runs none of its code. This
+    # ranks those kinds among the top gems of log/gems/top.tsv: by the number
     # of them that each extension blocks, then by the extension gem's own
     # downloads. A build (`build`) then runs the extension's extconf.rb and
     # compiles it from the gem that the sweep unpacked (`Ext::Builder`), and

@@ -23,7 +23,7 @@ module Zr
           def options(o)
             super
             o.on("--keep", "keep the work directory (tmp/gems/work)") { @keep = true }
-            o.on("--save", "write the row into gems/compat.tsv") { @save = true }
+            o.on("--save", "write the row into log/gems/compat.tsv") { @save = true }
           end
 
           def run(argv)
