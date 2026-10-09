@@ -16,6 +16,9 @@ module Zr
       File.directory?(checkout) ? checkout : path("tmp/ruby")
     end
 
+    # Whether a CRuby checkout is at hand.
+    def self.ruby_src? = File.directory?(ruby_src)
+
     # `PRISM_SRC`, else ~/dev/prism, else the release tree in tmp/.
     def self.prism_src
       return File.expand_path(ENV["PRISM_SRC"]) if ENV["PRISM_SRC"]
@@ -45,8 +48,9 @@ module Zr
       fail!("zr-dev: no #{path} in #{prism_src}; PRISM_SRC names a prism checkout or a #{PRISM} tree")
     end
 
-    # Whether a prism source is at hand.
-    def self.prism? = File.directory?(prism_src)
+    # Whether a prism source is at hand: a checkout, or a tree with its C
+    # (a gem's release tree has none).
+    def self.prism? = File.exist?(File.join(prism_src, ".git")) || File.directory?(File.join(prism_src, "src"))
 
     def self.git_show(checkout, revision, path, variable)
       unless File.directory?(checkout)

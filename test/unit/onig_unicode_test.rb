@@ -2,6 +2,7 @@
 
 require "test_helper"
 require "prism"
+require_relative "../../tool/lib/zr/dev"
 require_relative "../../lib/zr/runtime/core/regexp/unicode_tables"
 
 # lib/zr/runtime/core/regexp/unicode_tables.rb (the plain-Ruby parser's tables)
@@ -18,6 +19,8 @@ class OnigUnicodeTest < Minitest::Test
   KERNEL_PATH = File.join(ROOT, "lib/zr/runtime/kernel/onig_tables.rb")
 
   def test_the_generated_files_are_current
+    skip "no CRuby source: RUBY_SRC names a ruby checkout" unless Zr::Dev.ruby_src?
+
     out, ok = Checks.generate("onig_unicode")
 
     assert ok, out

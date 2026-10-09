@@ -11,6 +11,8 @@ class BuiltinLinesTest < Minitest::Test
   Lines = Zr::Dev::Gen::BuiltinLines::Lines
 
   def test_the_generated_file_is_current
+    skip "no CRuby source: RUBY_SRC names a ruby checkout" unless Zr::Dev.ruby_src?
+
     out, ok = Checks.generate("builtin_lines")
 
     assert ok, out
