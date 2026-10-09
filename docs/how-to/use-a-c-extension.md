@@ -129,4 +129,20 @@ Homebrew's `musl-cross`). mkmf's checks find the functions that zr's C
 API has. A library that the extension links (`-lxml2`) must be a static
 one for musl.
 
+On an aarch64-linux-musl host, such as Alpine Linux, leave out
+`--target`: the host ruby's install of the gem gives the objects, or zr
+builds them from the gem's `extconf.rb` when the install did not keep
+them. A static archive needs the libraries that it uses itself, which
+the extension's Makefile does not name. `pkg-config --static` names
+them, and `--link-args` gives them to the linker after the extension's
+own. For nokogiri against Alpine's libxml2 and libxslt (`apk add
+libxml2-dev libxslt-dev libxml2-static libxslt-static zlib-static
+xz-static`):
+
+```console
+$ zr build app.rb --gem nokogiri --native-ext nokogiri \
+    --ext-config nokogiri=--use-system-libraries \
+    --link-args "$(pkg-config --static --libs libxml-2.0 libxslt libexslt)"
+```
+
 The full list of functions is in [The C API](../reference/c-api.md).

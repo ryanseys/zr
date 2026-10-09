@@ -27,11 +27,23 @@ class CExtNokogiriTest < Minitest::Test
     skip "nokogiri is not installed in this ruby" unless @version
   end
 
+  # On Linux, a zr binary links nokogiri's C from its source, built
+  # against the system's libxml2 and libxslt (`--use-system-libraries`),
+  # and links their static archives, which need the libraries that
+  # `pkg-config --static` names (liblzma). On macOS it loads the
+  # precompiled bundle.
+  def build_env
+    return {} if Zr::Target::AARCH64_DARWIN.native?
+
+    libs = IO.popen(%w[pkg-config --static --libs libxml-2.0 libxslt libexslt], err: File::NULL, &:read)
+    { "ZR_EXT_CONFIG" => "nokogiri=--use-system-libraries", "ZR_LINK_ARGS" => libs.strip }
+  end
+
   # `program` starts with its require of nokogiri; the stress starts
   # after it.
   def assert_same_as_ruby(program, env)
     program = program.sub(%(require "nokogiri"\n)) { |line| line + STRESS }
-    ruby, (zr,) = Zr::Test::CExt.gem_outputs("nokogiri", @version, program, [env])
+    ruby, (zr,) = Zr::Test::CExt.gem_outputs("nokogiri", @version, program, [env], build_env: build_env)
     assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"
     assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr's output differs from ruby's under #{env}\nzr stderr:\n#{zr.stderr}"
   end
