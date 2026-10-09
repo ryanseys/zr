@@ -116,7 +116,7 @@ module Zr
           # linker relinks each bundle into the binary (`Obj::MachO::Relink`),
           # a static extension's as `ext_bundle` links it, and a binary that
           # loads one with dlopen exports the C API.
-          sources = Ext.bundles.values
+          sources = Ext.bundles(target: program.runtime.target).values
           Ext::CApi.check!(sources)
           loaded, inside = sources.partition { |s| s.mode == :dynamic }
           embeds = inside.map { |s| Obj::MachO::Relink.new(File.binread(ext_bundle(s, program.runtime.target)), init: s.init) }

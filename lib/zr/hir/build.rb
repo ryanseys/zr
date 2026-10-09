@@ -113,7 +113,8 @@ module Zr
         built = lambda do |external, trace, evals, covers|
           loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
-                              gate: gate, description: Library::Roots.description(target), switches: switches, def_base: def_base || 0)
+                              gate: gate, description: Library::Roots.description(target), switches: switches, def_base: def_base || 0,
+                              target: target)
           loader.main!(file)
           loader.eval_using = using
           # Built before the main file, so that the main file's requires

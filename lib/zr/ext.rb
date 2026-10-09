@@ -2,6 +2,7 @@
 
 require_relative "config"
 require_relative "refused"
+require_relative "target"
 require_relative "ext/source"
 require_relative "ext/builder"
 
@@ -13,45 +14,45 @@ module Zr
   # when it installed them (`Ext::Source.installed`), or that zr builds
   # (`Ext::Builder`).
   module Ext
-    # The extensions of each build's Config, made once: a build asks at
-    # each require that it resolves.
-    BUNDLES = ObjectSpace::WeakKeyMap.new #: ObjectSpace::WeakKeyMap[Config, Hash[String, Source]]
+    # The extensions of each build's Config and target triple, made once:
+    # a build asks at each require that it resolves.
+    BUNDLES = ObjectSpace::WeakKeyMap.new #: ObjectSpace::WeakKeyMap[Config, Hash[String, Hash[String, Source]]]
 
     module_function
 
     # Each extension of the build, by the path of the bundle that a
     # require finds it at: the loader resolves a require to one
     # (`Hir::Build::Loader#extension`), and the link takes its objects.
-    #: (?Config config) -> Hash[String, Source]
-    def bundles(config = Config.current)
-      BUNDLES[config] ||= begin
+    #: (?Config config, ?target: Target) -> Hash[String, Source]
+    def bundles(config = Config.current, target: Target.default)
+      (BUNDLES[config] ||= {})[target.triple] ||= begin
         given = config.ext_objects.map { |bundle, objects| Source.given(bundle, objects) }
-        installed = config.native_ext.flat_map { |name, version| installed(name, version, config) }
+        installed = config.native_ext.flat_map { |name, version| installed(name, version, config, target: target) }
         (given + installed).to_h { |source| [source.bundle, source.for_mode(config.ext_mode)] }.freeze
       end
     end
 
     # The extensions of the build by the feature that requires each, its
     # path under its gem's lib/ (`json/ext/parser`), made once.
-    FEATURES = ObjectSpace::WeakKeyMap.new #: ObjectSpace::WeakKeyMap[Config, Hash[String, String]]
+    FEATURES = ObjectSpace::WeakKeyMap.new #: ObjectSpace::WeakKeyMap[Config, Hash[String, Hash[String, String]]]
 
     # The bundle of the extension that the build links for `feature`
     # (`json/ext/parser`, `stringio.so`), or nil. It wins over a port of
     # the same C, which a library root holds: `--native-ext` asks for the
     # gem's own C.
-    #: (String feature, ?Config config) -> String?
-    def bundle_for(feature, config = Config.current)
-      features = FEATURES[config] ||= bundles(config).each_key.to_h do |path|
-        [path[(path.rindex("/lib/").to_i + 5)..].to_s.delete_suffix(".bundle"), path]
+    #: (String feature, ?Config config, ?target: Target) -> String?
+    def bundle_for(feature, config = Config.current, target: Target.default)
+      features = (FEATURES[config] ||= {})[target.triple] ||= bundles(config, target: target).each_key.to_h do |path|
+        [path[(path.rindex("/lib/").to_i + 5)..].to_s.sub(/\.(?:so|bundle)\z/, ""), path]
       end
       features[feature.sub(/\.(?:so|bundle)\z/, "")]
     end
 
     # Whether the build links a C extension under one of `roots`: the gem
     # whose roots they are has its C part.
-    #: (Array[String] roots, ?Config config) -> bool
-    def linked_under?(roots, config = Config.current)
-      bundles(config).each_key.any? { |path| roots.any? { |root| path.start_with?("#{root}/") } }
+    #: (Array[String] roots, ?Config config, ?target: Target) -> bool
+    def linked_under?(roots, config = Config.current, target: Target.default)
+      bundles(config, target: target).each_key.any? { |path| roots.any? { |root| path.start_with?("#{root}/") } }
     end
 
     # The extensions of the installed gem `name` (the newest, or
@@ -59,10 +60,12 @@ module Zr
     # arguments that `config` gives the gem (`ZR_EXT_CONFIG`); the
     # objects or the bundles that the host ruby's install left
     # (`Source.installed`); else the ones that zr builds from the gem's
-    # extconf.rb (`Builder`). Refuses a gem that is not installed, or a
-    # host ruby whose C ABI is not the one that zr's C API has.
-    #: (String name, String? version, ?Config config) -> Array[Source]
-    def installed(name, version, config = Config.current)
+    # extconf.rb (`Builder`). For another target than this host, zr builds
+    # them for that target, as the host ruby compiled its own for the
+    # host. Refuses a gem that is not installed, or a host ruby whose C
+    # ABI is not the one that zr's C API has.
+    #: (String name, String? version, ?Config config, ?target: Target) -> Array[Source]
+    def installed(name, version, config = Config.current, target: Target.default)
       unless RbConfig::CONFIG["ruby_version"].start_with?("#{ABI}.")
         raise Refused, "--native-ext #{name}: zr's C API is ruby #{ABI}'s, and this ruby is #{RUBY_VERSION}; " \
                        "run zr with a ruby #{ABI}"
@@ -74,20 +77,20 @@ module Zr
 
       dir = spec.gem_dir #: String
       args = config.ext_config[name]
-      sources = args ? built(spec, args) : Source.installed(dir, spec.extension_dir)
-      sources = built(spec, []) if sources.empty?
+      sources = args || !target.native? ? built(spec, args || [], target) : Source.installed(dir, spec.extension_dir)
+      sources = built(spec, [], target) if sources.empty?
       return sources unless sources.empty?
 
       raise Refused, "--native-ext #{name}: #{spec.full_name} has no C extension: no compiled one in #{dir} and no extconf.rb to build"
     end
 
     # The extensions of the gem `spec`, each built from its extconf.rb with
-    # `args`.
-    #: (untyped spec, Array[String] args) -> Array[Source]
-    def built(spec, args)
+    # `args` for `target`.
+    #: (untyped spec, Array[String] args, ?Target target) -> Array[Source]
+    def built(spec, args, target = Target.default)
       dir = spec.gem_dir #: String
       extconfs = spec.extensions.grep(/extconf\.rb\z/) #: Array[String]
-      extconfs.map { |extconf| Builder.new(File.join(dir, extconf), args: args).source(dir) }
+      extconfs.map { |extconf| Builder.new(File.join(dir, extconf), args: args, target: target).source(dir) }
     end
   end
 end

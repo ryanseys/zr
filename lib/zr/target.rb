@@ -64,6 +64,11 @@ module Zr
     #: () -> String
     def os_layer = OS_LAYERS.fetch(os)
 
+    # The extension of a C extension's library, which a require of
+    # `parser.so` finds as ruby's does: `bundle` on darwin, `so` elsewhere.
+    #: () -> String
+    def dlext = os == :darwin ? "bundle" : "so"
+
     #: () -> String
     def arch_layer = ARCH_LAYERS.fetch(arch)
 

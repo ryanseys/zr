@@ -98,7 +98,7 @@ module Zr
                 # A gem whose C the build links (`--native-ext`) comes before
                 # the ports, as in the build: a require that its C makes
                 # (json's of json/common) finds the gem's file, not the port's.
-                linked = gem_roots.select { |root| Ext.linked_under?([root]) }
+                linked = gem_roots.select { |root| Ext.linked_under?([root], target: target) }
                 later = (gem_roots - linked) + (Library::Roots.stdlib(target) - native)
                 [[*(linked + native).map(&shown), "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
               else

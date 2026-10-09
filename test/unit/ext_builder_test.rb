@@ -3,6 +3,7 @@
 require "test_helper"
 require "tmpdir"
 require_relative "../../lib/zr/ext"
+require_relative "../../lib/zr/obj/image"
 
 # `Ext::Builder`: an extension built from its extconf.rb, as `gem install`
 # builds one, into the store. mkmf's Makefile alone is compiled with cc
@@ -67,6 +68,29 @@ class ExtBuilderTest < Minitest::Test
     assert File.file?(File.join(dir, "generated.h")), "make ran the extconf's rule"
     assert File.file?(File.join(dir, "tiny.o"))
     refute_predicate Zr::Ext::Makefile.read(File.join(dir, "Makefile")), :standard?
+  end
+
+  MUSL = Zr::Target::AARCH64_LINUX_MUSL
+
+  # For aarch64-linux-musl, mkmf takes that target's RbConfig: the
+  # objects are ELF, the library is lib/<feature>.so, and have_func finds
+  # the functions that zr's C API has and no others.
+  def test_an_extension_for_musl_compiles_with_its_cross_toolchain_and_headers
+    skip "needs aarch64-linux-musl's cc" unless MUSL.tool("cc")
+    builder = Zr::Ext::Builder.new(extconf(<<~RUBY), target: MUSL)
+      require "mkmf"
+      abort "no rb_define_module" unless have_func("rb_define_module", "ruby.h")
+      abort "rb_thread_select is no function of zr's" if have_func("rb_thread_select", "ruby.h")
+      create_makefile("tiny/tiny")
+    RUBY
+    source = builder.source(@gem)
+    image = Zr::Obj::Elf::Image.read(File.binread(source.objects.first))
+
+    assert_equal [File.join(@gem, "lib", "tiny", "tiny.so"), "Init_tiny", :static], [source.bundle, source.init, source.mode]
+    assert_includes image.undefined, "rb_define_module_function"
+    assert_includes image.defined, "Init_tiny"
+    assert_includes File.read(File.join(builder.build, "Makefile")), "aarch64-linux-musl"
+    refute_equal Zr::Ext::Builder.new(File.join(@ext, "extconf.rb")).build, builder.build, "each target builds apart"
   end
 
   def test_a_failed_extconf_refuses_with_its_output

@@ -93,15 +93,18 @@ module Zr
         # @rbs switches: Switches
         # @rbs def_base: Integer
         # @rbs extensions: bool
+        # @rbs target: Target
         # @rbs return: void
         def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
-                       gate: false, description: nil, switches: Switches::NONE, def_base: 0, extensions: true)
+                       gate: false, description: nil, switches: Switches::NONE, def_base: 0, extensions: true, target: Target.default)
           @deferred = deferred
           # Whether a require may find the C extensions that this build
           # links (`Ext.bundles`). Eval support, which every program shares
           # and the cache keeps, never does.
           @extensions = extensions
+          # The target whose C extensions the build links.
+          @target = target
           @switches = switches
           @modules = {}
           @description = description
@@ -681,14 +684,14 @@ module Zr
                       elsif path == Library::Roots::SWITCHES
                         unit(path, @switches.prelude || raise(ArgumentError, "the build has no switches' prelude"))
                       elsif extension?(path)
-                        source = Ext.bundles.fetch(path)
+                        source = Ext.bundles(target: @target).fetch(path)
                         Unit.new(path, [], ExtInit.new(source.init, path, 1, source.library, source.mode), [], false)
                       else
                         parsed_unit(path)
                       end
           if extension?(path)
             c_requires(path)
-            @traces ||= Ext.bundles.fetch(path).traces?
+            @traces ||= Ext.bundles(target: @target).fetch(path).traces?
           end
           i
         end
@@ -699,7 +702,7 @@ module Zr
         # it finds any file of the program.
         #: () -> void
         def extensions!
-          Ext.bundles.each_key { |path| add(path) } if @extensions
+          Ext.bundles(target: @target).each_key { |path| add(path) } if @extensions
         end
 
         # The files that a C extension's C may require as it runs
@@ -708,7 +711,7 @@ module Zr
         # program.
         #: (String path) -> void
         def c_requires(path)
-          Ext.bundles.fetch(path).required_features.each do |feature|
+          Ext.bundles(target: @target).fetch(path).required_features.each do |feature|
             found = resolve(:require, feature, path)
             add(found) if found
           end
@@ -800,7 +803,7 @@ module Zr
             # directory has the path of the file the link names. A root of
             # zr's ports gives way to the C extension that the build links
             # for the feature (`--native-ext`).
-            linked = (Ext.bundle_for(feature) if @extensions)
+            linked = (Ext.bundle_for(feature, target: @target) if @extensions)
             @roots.each do |root|
               next if linked && native_root?(root)
 
@@ -834,22 +837,22 @@ module Zr
           native_root?(root) && feature.match?(NATIVE) ? candidate(File.join(root, feature.sub(NATIVE, ""))) : nil
         end
 
-        # The bundle of a C extension that the build links in
-        # (`Ext.bundles`), for `feature` under the directory
-        # `dir`: `hello` and `hello.so` find `dir/hello.bundle`, as ruby's
-        # require finds a darwin extension.
+        # The library of a C extension that the build links in
+        # (`Ext.bundles`), for `feature` under the directory `dir`: `hello`
+        # and `hello.so` find `dir/hello.bundle` on darwin and `dir/hello.so`
+        # elsewhere, as ruby's require finds an extension.
         #: (String dir, String feature) -> String?
         def extension(dir, feature)
-          path = File.join(dir, "#{feature.sub(NATIVE, "")}.bundle")
+          path = File.join(dir, "#{feature.sub(NATIVE, "")}.#{@target.dlext}")
           extension?(path) ? path : nil
         end
 
         #: (String path) -> bool
-        def extension?(path) = @extensions && Ext.bundles.key?(path)
+        def extension?(path) = @extensions && Ext.bundles(target: @target).key?(path)
 
         # Whether the build links a C extension under one of `roots`.
         #: (Array[String] roots) -> bool
-        def extension_in?(roots) = @extensions && Ext.linked_under?(roots)
+        def extension_in?(roots) = @extensions && Ext.linked_under?(roots, target: @target)
 
         # Library::Layout::EXT, or an OS layer's directory under it.
         #: (String root) -> bool
