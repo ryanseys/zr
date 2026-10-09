@@ -322,10 +322,16 @@ module Zr::Kern
   end
 
   # Whether the word `w` is an address in one of the heap's arenas, a
-  # cell or not.
+  # cell or not. An arena is aligned to ARENA_BYTES but is smaller, and
+  # malloc may give the rest of that span to other blocks (musl's does),
+  # so an address past the arena's last cell is not in it.
   #: (word) -> bool
   def zr_heap_address_p(w)
-    zr_arena_p(Machine.ptr(w & (0 - ARENA_BYTES)))
+    a = Machine.ptr(w & (0 - ARENA_BYTES))
+    unless zr_arena_p(a)
+      return false
+    end
+    w < Machine.word(zr_arena_first(a)) + (ArenaHead[a].ncells * ArenaHead[a].cell)
   end
 
   # Marks the word `w` if it is a live cell, as CRuby's
