@@ -126,8 +126,7 @@ module Zr::Kern
   def rb_funcall(recv, mid, n)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     count = Machine.sword(n)
     room = Machine.slot(CAPI_ARGS * 8)
     args = zr_capi_va_values(list, count, room)
@@ -140,8 +139,7 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
     zr_capi_need_block()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     count = Machine.sword(n)
     room = Machine.slot(CAPI_ARGS * 8)
     args = zr_capi_va_values(list, count, room)
@@ -225,8 +223,7 @@ module Zr::Kern
   def rb_scan_args(argc, argv, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     Machine.i32(zr_capi_scan_args(SCAN_ARGS_PASS_CALLED_KEYWORDS, Machine.sword(argc), argv, fmt, list))
   end
 
@@ -235,8 +232,7 @@ module Zr::Kern
   def rb_scan_args_kw(kw_flag, argc, argv, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     Machine.i32(zr_capi_scan_args(Machine.sword(kw_flag), Machine.sword(argc), argv, fmt, list))
   end
 

@@ -8,8 +8,7 @@ module Zr::Kern
   def rb_struct_define(name)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     args = zr_ary_new(4)
     if name != 0
       zr_ary_push(args, zr_str_new(name, zr_cstr_len(name)))
@@ -23,8 +22,7 @@ module Zr::Kern
   def rb_struct_define_under(outer, name)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     args = zr_ary_new(4)
     zr_capi_struct_members(args, list)
     klass = zr_c_result(zr_send(zr_core_class(Machine.id(:Struct)), Machine.id(:new), RArray[args].len, RArray[args].ptr))
@@ -46,8 +44,7 @@ module Zr::Kern
   def rb_struct_new(klass)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     members = zr_c_result(zr_send(klass, Machine.id(:members), 0, Machine.ptr(0)))
     n = RArray[members].len
     room = Machine.slot(CAPI_ARGS * 8)

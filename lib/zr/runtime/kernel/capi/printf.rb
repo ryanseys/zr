@@ -1,6 +1,6 @@
 module Zr::Kern
   # The C API's printf functions. Each takes a C format and variadic
-  # arguments (Machine.stack_args), or a va_list, and gives them to the
+  # arguments (Machine.va_list), or C's va_list, and gives them to the
   # format of core/c_format.rb. RB_WARN_CATEGORY_* are the categories of
   # rb_category_warn.
   WARN_CATEGORY_DEPRECATED = 1
@@ -13,8 +13,7 @@ module Zr::Kern
   def rb_sprintf(fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_c_result(zr_c_format(fmt, list))
   end
 
@@ -33,8 +32,7 @@ module Zr::Kern
   def rb_raise(klass, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     message = zr_c_result(zr_c_format(fmt, list))
     zr_c_result(zr_raise(zr_c_result(zr_exc_new_str(klass, message))))
   end
@@ -45,8 +43,7 @@ module Zr::Kern
   def rb_name_error(id, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     message = zr_c_result(zr_c_format(fmt, list))
     name = zr_sym(zr_capi_mid(id))
     args = Machine.slot(16)
@@ -61,8 +58,7 @@ module Zr::Kern
   def rb_enc_raise(enc, klass, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     message = zr_c_result(zr_c_format(fmt, list))
     zr_capi_associate(message, zr_capi_enc_index(enc))
     zr_c_result(zr_raise(zr_c_result(zr_exc_new_str(klass, message))))
@@ -73,8 +69,7 @@ module Zr::Kern
   def rb_bug(fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_bug(zr_c_format(fmt, list))
   end
 
@@ -83,8 +78,7 @@ module Zr::Kern
   def rb_warn(fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_warn(zr_c_result(zr_c_format(fmt, list)))
   end
 
@@ -96,8 +90,7 @@ module Zr::Kern
     if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE
       return
     end
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_warn(zr_c_result(zr_c_format(fmt, list)))
   end
 
@@ -109,8 +102,7 @@ module Zr::Kern
     if zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL || !zr_capi_category_on(Machine.sword(category))
       return
     end
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_warn(zr_c_result(zr_c_format(fmt, list)))
   end
 
@@ -122,8 +114,7 @@ module Zr::Kern
     if zr_gvar_get(Machine.id(:$VERBOSE)) != QTRUE || !zr_capi_category_on(Machine.sword(category))
       return
     end
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_warn(zr_c_result(zr_c_format(fmt, list)))
   end
 
@@ -169,8 +160,7 @@ module Zr::Kern
   def ruby_snprintf(out, n, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_snprintf(out, n, zr_c_result(zr_c_format(fmt, list)))
   end
 
@@ -203,8 +193,7 @@ module Zr::Kern
   def rb_fatal(fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     message = zr_c_result(zr_c_format(fmt, list))
     exc = zr_c_result(zr_exc_new_str(zr_fatal_class(), message))
     Libc.exit(Machine.i32(zr_program_end(exc)))
@@ -215,8 +204,7 @@ module Zr::Kern
   def rb_enc_sprintf(enc, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     str = zr_c_result(zr_c_format(fmt, list))
     zr_capi_associate(str, zr_capi_enc_index(enc))
     str
@@ -227,8 +215,7 @@ module Zr::Kern
   def rb_str_catf(str, fmt)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_call1(str, Machine.id(:<<), zr_c_result(zr_c_format(fmt, list)))
   end
 

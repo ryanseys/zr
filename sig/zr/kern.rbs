@@ -62,7 +62,7 @@ module Zr
       def self.gates: () -> word
       def self.gates_set: (word gates) -> void
       def self.gates_enter: () -> void
-      def self.stack_args: () -> ptr
+      def self.va_list: (Integer kind) -> ptr
 
       def self.word: (Integer | Value | bool | Layout x) -> word
       def self.sword: (Integer | Value x) -> word

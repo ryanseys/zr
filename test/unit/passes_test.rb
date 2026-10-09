@@ -785,15 +785,15 @@ end
     assert_equal 41, Zr::IR::Interp.new(functions).answer("caller", [20])
   end
 
-  # The caller's stack arguments are where the function's own frame
-  # starts, so a leaf that reads them stays a call: in its caller they
-  # would be the caller's.
-  def test_inline_keeps_a_leaf_that_reads_its_stack_arguments
-    args = function("first_stack_arg", [], "i64") { |f| f.ret(f.fetch("i64", f.stack_args)) }
-    caller = function("caller", [], "i64") { |f| f.ret(f.call_val(f.callee("first_stack_arg", [], "i64"), [])) }
+  # A variadic function's va_list holds its own frame's arguments, so a
+  # leaf that reads it stays a call: in its caller they would be the
+  # caller's.
+  def test_inline_keeps_a_leaf_that_reads_its_variadic_arguments
+    args = function("first_variadic_arg", [], "i64") { |f| f.ret(f.fetch("i64", f.va_list(f.slot(8), 0))) }
+    caller = function("caller", [], "i64") { |f| f.ret(f.call_val(f.callee("first_variadic_arg", [], "i64"), [])) }
     Zr::IR::Passes.inline([args, caller]).each { |f| Zr::IR::Passes.prepare(f, strict: true) }
 
     assert_equal 1, ops(caller).count(:call)
-    assert_includes ops(args), :stack_args
+    assert_includes ops(args), :va_list
   end
 end

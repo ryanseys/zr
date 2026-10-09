@@ -3,15 +3,10 @@ module Zr::Kern
   # one on the stack in 8 bytes of its own, in order, whatever its type:
   # an int's high bits mean nothing, and a double is its bits. A VaList is
   # a word with the address of the next one, which is also what C's
-  # va_list is here.
+  # va_list is here. A variadic function's `Machine.va_list(VA_LIST_KIND)`
+  # is one that its prologue starts at its first argument.
   VA_LIST_BYTES = 8
-
-  # Starts the VaList at `list`: `first` is the variadic function's
-  # Machine.stack_args.
-  #: (ptr, ptr) -> void
-  def zr_va_start(list, first)
-    Machine.store64(list, 0, Machine.word(first))
-  end
+  VA_LIST_KIND = 0
 
   # Starts the VaList at `list` from a va_list that C passed (rb_vsprintf).
   #: (ptr, ptr) -> void

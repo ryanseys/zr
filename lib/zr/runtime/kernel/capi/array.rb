@@ -40,8 +40,7 @@ module Zr::Kern
   def rb_ary_new_from_args(n)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     zr_capi_ary_check_capa(n)
     ary = zr_ary_new(n)
     i = 0

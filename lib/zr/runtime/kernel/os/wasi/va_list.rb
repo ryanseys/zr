@@ -1,11 +1,7 @@
 module Zr::Kern
   # A wasm32 module calls no C, so no C call gives it arguments to read.
   VA_LIST_BYTES = 8
-
-  #: (ptr, ptr) -> void
-  def zr_va_start(list, first)
-    zr_bug(Machine.bytes("a wasm32 module has no C arguments\n"), 35)
-  end
+  VA_LIST_KIND = 0
 
   #: (ptr, ptr) -> void
   def zr_va_from_c(list, ap)

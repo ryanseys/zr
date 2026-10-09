@@ -10,14 +10,10 @@ module Zr::Kern
     attr_accessor :vr_offs #: i32
   end
 
+  # A variadic function's `Machine.va_list(VA_LIST_KIND)` is one that its
+  # prologue fills, with the registers that its arguments came in.
   VA_LIST_BYTES = 32
-
-  # A variadic function's own arguments come in registers here, which the
-  # kernel's C-API functions do not save yet.
-  #: (ptr, ptr) -> void
-  def zr_va_start(list, first)
-    zr_bug(Machine.bytes("a variadic C-API function cannot read its arguments on linux yet\n"), 65)
-  end
+  VA_LIST_KIND = 1
 
   # Copies a va_list that C passed (by its address, as AAPCS64 passes the
   # array type), so the reads here do not move C's.

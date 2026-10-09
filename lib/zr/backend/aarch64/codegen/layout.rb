@@ -245,8 +245,10 @@ module Zr
           end
           @slots_end = Bytes.align(off, 8)
           @stack = {}
+          @va_list = nil
           @f.blocks.each do |b|
             b.insts.each do |i|
+              @va_list = i if i.op == :va_list
               next unless i.op == :stack_addr
 
               at = @slot_at[Integer(i.args[0].delete_prefix("ss"))]

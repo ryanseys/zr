@@ -11,7 +11,7 @@ module Zr
             | :fcvt_from_sint | :fcvt_to_sint_sat | :bitcast
             | :ireduce | :sextend | :uextend
             | :sadd_overflow | :ssub_overflow | :smul_overflow
-            | :iconst | :symbol_value | :func_addr | :stack_addr | :stack_args
+            | :iconst | :symbol_value | :func_addr | :stack_addr | :va_list
             | :load | :store
             | :gates | :gates_set | :gates_enter
             | :call | :call_indirect

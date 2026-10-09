@@ -147,8 +147,7 @@ module Zr::Kern
   def rb_rescue2(body, data1, rescue_fn, data2)
     Machine.gates_enter
     zr_c_entered()
-    list = Machine.slot(VA_LIST_BYTES)
-    zr_va_start(list, Machine.stack_args)
+    list = Machine.va_list(VA_LIST_KIND)
     classes = Machine.slot((CAPI_ARGS + 1) * 8)
     n = 0
     klass = zr_va_next_word(list)

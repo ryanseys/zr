@@ -55,6 +55,7 @@ module Zr
         # @rbs @slot_at: Array[Integer]
         # @rbs @slots_end: Integer
         # @rbs @stack: Hash[String, Integer]
+        # @rbs @va_list: IR::Inst?
         # @rbs @const: Hash[String, Integer]
         # @rbs @symbol: Hash[String, [String, bool]]
         # @rbs @remade: Set[String]
@@ -392,6 +393,7 @@ module Zr
           raise Refused, "#{@f.name}: more than eight parameters" if entry.params.size > IR::REGISTER_ARGS
 
           ints, floats = entry.params.partition { |_, t| t != "f64" }.map { |list| list.map(&:first) } #: [Array[String], Array[String]]
+          va_list_prologue(ints.size, floats.size)
           # The integer parameters arrive in x0.., and a home can be one of
           # those registers, so they move as one parallel copy. The floats
           # move after them, because a float's home can also be an argument
@@ -401,6 +403,38 @@ module Zr
             @asm.fmov X9, Registers.d(n)
             store_param(v, X9)
           end
+        end
+
+        # Fills the C va_list of a variadic function (`IR::Function#va_list`)
+        # before the parameters move to their homes, which can overwrite the
+        # registers that hold the variadic arguments. sp at entry, above a
+        # small frame or above a large frame and the x29 pair over it, is
+        # where the caller put the arguments that came on the stack.
+        #
+        # Kind 1, AAPCS64's va_list: `__stack`, `__gr_top`, `__vr_top`,
+        # then `__gr_offs` and `__vr_offs`, the negative offsets from each
+        # top of the first variadic argument, past the `ints` and `floats`
+        # named ones; x0-x7 and d0-d7 go to the save areas after it.
+        #: (Integer ints, Integer floats) -> void
+        def va_list_prologue(ints, floats)
+          i = @va_list or return
+
+          at = @slot_at[Integer(i.args[0].delete_prefix("ss"))]
+          frame_address(X9, small_frame? ? @frame : @frame + PAIR)
+          frame_address(X10, at)
+          @asm.str X9, [X10, 0]
+          return if i.offset.zero?
+
+          (0...8).step(2) { |n| @asm.stp Registers.x(n), Registers.x(n + 1), [X10, 32 + (n * 8)] }
+          (0...8).each { |n| @asm.str Registers.d(n), [X10, 96 + (n * 16)] }
+          @asm.add X9, X10, 96
+          @asm.str X9, [X10, 8]
+          @asm.add X9, X10, 224
+          @asm.str X9, [X10, 16]
+          gr_offs = -(8 - ints) * 8
+          vr_offs = -(8 - floats) * 16
+          materialize(X9, (gr_offs & 0xFFFF_FFFF) | ((vr_offs & 0xFFFF_FFFF) << 32))
+          @asm.str X9, [X10, 24]
         end
 
         # Two immediates reach 16 MiB less one page. A larger frame is a
@@ -512,11 +546,10 @@ module Zr
             @asm.mov d, Regalloc::GATES
             store_value(i.results[0], d)
           when :gates_set, :gates_enter then @asm.mov Regalloc::GATES, value_in(i.args[0], X9)
-          when :stack_args
-            # sp at entry: above a small frame, or above a large frame and
-            # the x29 pair over it (`prologue`).
+          when :va_list
+            # The prologue filled it (`va_list_prologue`).
             d = result_in(i.results[0], X9)
-            frame_address(d, small_frame? ? @frame : @frame + PAIR)
+            frame_address(d, @slot_at[Integer(i.args[0].delete_prefix("ss"))])
             store_value(i.results[0], d)
           when :func_addr
             c = callee_of(i.args[0])
