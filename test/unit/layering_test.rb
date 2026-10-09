@@ -47,8 +47,10 @@ class LayeringTest < Minitest::Test
     "cache" => %w[top ir native backend library],
     # The C extensions that a build links: mkmf's Makefile, an installed
     # gem's objects, and the C API's names, which it checks an object's
-    # imports against (`Obj::MachO::Image`).
-    "ext" => %w[top obj],
+    # imports against (`Obj::MachO::Image`). `Ext::Builder` keeps each
+    # build in the store (`Cache::Store`), and reads the RbConfig of
+    # another target where the library layout puts it (`Library::Layout`).
+    "ext" => %w[top obj cache library],
   }.freeze
 
   def test_every_cross_layer_edge_is_allowed
