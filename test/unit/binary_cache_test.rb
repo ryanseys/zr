@@ -52,6 +52,7 @@ class BinaryCacheTest < Minitest::Test
   end
 
   def test_kept_binary_contains_only_program_bytes
+    skip "only a Mach-O binary has a prelinked image to leave out" unless Zr::Target.default.object_format == :macho
     kept = File.join(@work, "kept")
     Binaries.keep(kept, @bin, @program, @work)
 
@@ -59,6 +60,15 @@ class BinaryCacheTest < Minitest::Test
     holes = Binaries.cuts(File.binread(@bin), Zr::Native::Build.prelink(Binaries.objects_of(@program)))
     assert_equal %i[text data symbols strings], holes.map(&:last)
     assert_operator holes.sum { |_, size, _| size }, :>, File.size(@bin) - (1 << 20)
+  end
+
+  def test_an_elf_binary_is_kept_whole_and_deflated
+    skip "an ELF host only" unless Zr::Target.default.object_format == :elf
+    kept = File.join(@work, "kept")
+    Binaries.keep(kept, @bin, @program, @work)
+
+    assert_equal Binaries::WHOLE, File.binread(kept, Binaries::WHOLE.bytesize)
+    assert_operator File.size(kept), :<, File.size(@bin) / 2
   end
 
   def test_a_torn_kept_file_is_a_miss

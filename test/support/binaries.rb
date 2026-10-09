@@ -26,8 +26,8 @@ module Zr
     # and deflates the rest. `take` writes the holes back from the prelinked
     # image in memory. A full program tier is then 5 GB, not 200 GB. The
     # binaries are entries of the store (kind `binary`), and `trim` keeps
-    # them under `ZR_TEST_BINARIES_GB`, the least recently used first. A WASI module has no prelinked image, so
-    # it is kept whole, and only with `ZR_TEST_BINARIES=1`.
+    # them under `ZR_TEST_BINARIES_GB`, the least recently used first. An ELF binary has no prelinked image, so it
+    # is kept whole and deflated. A WASI module is kept as it is, and only with `ZR_TEST_BINARIES=1`.
     # `ZR_TEST_BINARIES=0` keeps nothing.
     #
     # The key fails closed. It contains the runtime digest for the target
@@ -39,7 +39,10 @@ module Zr
     # are equal to the bytes of the prelinked image. When `take` cannot
     # restore the whole binary, it returns false and the test builds.
     module Binaries
-      VERSION = 4
+      VERSION = 5
+      # The start of a kept binary that is whole: an ELF binary, which has
+      # no prelinked image to leave out.
+      WHOLE = "zr-whole".b
       # The environment variables that change the bytes of a build. Also
       # `ZR_VERIFY`, which makes the lowering verify itself: with it, a
       # run lowers again and does not use a kept binary.
@@ -92,7 +95,10 @@ module Zr
 
         now = Time.now
         File.utime(now, now, kept)
-        kept.end_with?(".wasm") ? copy(kept, bin) : restore(kept, bin)
+        if kept.end_with?(".wasm") then copy(kept, bin)
+        elsif File.binread(kept, WHOLE.bytesize) == WHOLE then unwhole(kept, bin)
+        else restore(kept, bin)
+        end
         true
       rescue SystemCallError, TypeError, ArgumentError, KeyError, Zlib::Error
         File.unlink(bin) if File.exist?(bin)
@@ -118,8 +124,11 @@ module Zr
         # do not keep it: `check!` stops the tier and gives the file name.
         SourceGuard.check!
         objects = objects_of(program)
-        sparse = !kept.end_with?(".wasm") && Native::Build.prelink_path(objects)
-        Zr::Paths.write_atomic(kept, sparse ? sparse(bytes, objects) : bytes)
+        form = if kept.end_with?(".wasm") then bytes
+               elsif program.runtime.target.object_format == :macho && Native::Build.prelink_path(objects) then sparse(bytes, objects)
+               else whole(bytes)
+               end
+        Zr::Paths.write_atomic(kept, form)
       end
 
       # Removes the least recently used binaries beyond their quota. Call
@@ -137,6 +146,23 @@ module Zr
       # A clone where the filesystem clones, else a copy.
       def copy(from, to)
         Obj::MachO::Skeleton.clone(from, to, File.size(from)) || FileUtils.cp(from, to)
+      end
+
+      # --- the whole form ----------------------------------------------
+
+      # Returns the whole form of `bytes`: WHOLE, the size, and the
+      # deflated bytes. A torn file fails the inflate or the size.
+      def whole(bytes) = WHOLE + [bytes.bytesize].pack("Q<") + Zlib::Deflate.deflate(bytes, Zlib::BEST_SPEED)
+
+      # Writes the binary to `bin` from its whole form in `kept`.
+      def unwhole(kept, bin)
+        form = File.binread(kept)
+        bytes = Zlib::Inflate.inflate(form.byteslice((WHOLE.bytesize + 8)..))
+        size = form.unpack1("Q<", offset: WHOLE.bytesize)
+        raise ArgumentError, "the binary came back #{bytes.bytesize} bytes, not #{size}" unless bytes.bytesize == size
+
+        File.binwrite(bin, bytes)
+        File.chmod(0o755, bin)
       end
 
       # --- the sparse form ---------------------------------------------
