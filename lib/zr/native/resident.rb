@@ -7,9 +7,10 @@ module Zr
     # Fiddle: `proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size)`
     # returns the number of bytes of `info` that it filled (a
     # proc_taskinfo is 96). The resident size is the second word. The call
-    # takes a microsecond; a `ps` child takes 2 ms. On other systems, or in
-    # a zr binary (which has no Fiddle), this returns nil and the caller
-    # uses a different value.
+    # takes a microsecond; a `ps` child takes 2 ms. Linux has `/proc`: its
+    # status file gives the resident size (VmRSS, in kB). On other systems,
+    # or in a zr binary on macOS (which has no Fiddle), this returns nil and
+    # the caller uses a different value.
     module Resident
       TASKINFO = 4
       SIZE = 96
@@ -17,12 +18,22 @@ module Zr
       # The resident bytes of `pid`, or nil.
       #: (Integer pid) -> Integer?
       def self.bytes_of(pid)
+        return from_proc(pid) if File.exist?("/proc/self/status")
         return nil unless (ask = asker)
 
         info = ::Fiddle::Pointer.malloc(SIZE, ::Fiddle::RUBY_FREE)
         return nil unless ask.call(pid, TASKINFO, 0, info, SIZE) == SIZE
 
         info[8, 8].unpack1("Q<") #: Integer
+      end
+
+      # VmRSS of `pid`'s status file, or nil when the process is gone.
+      #: (Integer pid) -> Integer?
+      def self.from_proc(pid)
+        line = File.foreach("/proc/#{pid}/status").find { |text| text.start_with?("VmRSS:") }
+        line && (line.split.fetch(1).to_i * 1024)
+      rescue SystemCallError
+        nil
       end
 
       # The same in megabytes, for a report.
