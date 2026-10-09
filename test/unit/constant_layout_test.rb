@@ -56,6 +56,7 @@ class ConstantLayoutTest < Minitest::Test
   # Files that cannot follow the rule. A nil constant means that the file
   # defines none.
   EXCEPTIONS = {
+    "ext/target_rbconfig.rb" => [nil, "a file that mkmf loads into MakeMakefile for --target-rbconfig; it is never required"],
     "gem_set/resolve.rb" => ["ZrGemSet", "a script that a child ruby runs with its own load path; it is never required"],
     "ir.rb" => [nil, "the aggregator of the IR files: it requires them and defines no constant"],
     "parse.rb" => [nil, "defines the method Zr.parse"],

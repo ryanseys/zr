@@ -247,8 +247,10 @@ class ConfigTest < Minitest::Test
   end
 
   # Only this class reads a `ZR_*` variable, so a build sees one set of
-  # settings and a test can change them with `Config.with`.
-  READERS = %w[lib/zr/config.rb].freeze
+  # settings and a test can change them with `Config.with`. The other one
+  # runs in the child ruby of an extconf.rb, and reads what `Ext::Builder`
+  # gives that child, not a setting.
+  READERS = %w[lib/zr/config.rb lib/zr/ext/target_rbconfig.rb].freeze
 
   def test_only_config_reads_a_zr_variable
     readers = (Dir[File.join(ROOT, "lib/**/*.rb")] - Dir[File.join(ROOT, "lib/zr/runtime/**/*.rb")]).select do |path|
