@@ -6,27 +6,39 @@ require_relative "../jit"
 module Zr
   module Obj
     class JIT
-      # The system calls of the loader, under CRuby.
+      # The system calls of the loader, under CRuby: macOS's, or Linux's.
+      # Linux maps an anonymous region with other flag bits, has no
+      # MAP_JIT and no write protection to switch, and makes new code
+      # seen by the instruction cache with libgcc's `__clear_cache`.
       class Fiddle
+        LINUX = RUBY_PLATFORM.include?("linux")
+        ANON_PRIVATE = LINUX ? 0x22 : MAP_ANON_PRIVATE
+        JIT_FLAG = LINUX ? 0 : MAP_JIT
+
         # @rbs @lib: ::Fiddle::Handle
         # @rbs @mmap: ::Fiddle::Function
         # @rbs @munmap: ::Fiddle::Function
         # @rbs @protect: ::Fiddle::Function
         # @rbs @invalidate: ::Fiddle::Function
+        # @rbs @clear: ::Fiddle::Function
 
         #: () -> void
         def initialize
           @lib = ::Fiddle::Handle::DEFAULT
           @mmap = fn("mmap", [:voidp, :size_t, :int, :int, :int, :long], :voidp)
           @munmap = fn("munmap", [:voidp, :size_t], :int)
-          @protect = fn("pthread_jit_write_protect_np", [:int], :void)
-          @invalidate = fn("sys_icache_invalidate", [:voidp, :size_t], :void)
+          if LINUX
+            @clear = fn("__clear_cache", [:voidp, :voidp], :void)
+          else
+            @protect = fn("pthread_jit_write_protect_np", [:int], :void)
+            @invalidate = fn("sys_icache_invalidate", [:voidp, :size_t], :void)
+          end
         end
 
         # Reserves `size` bytes with no access, where `map` places its two
         # parts.
         #: (Integer size) -> Integer?
-        def reserve(size) = mapped(@mmap.call(0, size, 0, MAP_ANON_PRIVATE, -1, 0))
+        def reserve(size) = mapped(@mmap.call(0, size, 0, ANON_PRIVATE, -1, 0))
 
         # Unmaps `size` bytes at `at`, so that a mapping can use them by hint.
         #: (Integer at, Integer size) -> untyped
@@ -36,7 +48,7 @@ module Zr
         # else near `near` if the kernel accepts the hint.
         #: (Integer size, exec: bool, ?at: Integer?, ?near: Integer) -> Integer?
         def map(size, exec:, at: nil, near: 0)
-          flags = MAP_ANON_PRIVATE | (exec ? MAP_JIT : 0) | (at ? MAP_FIXED : 0)
+          flags = ANON_PRIVATE | (exec ? JIT_FLAG : 0) | (at ? MAP_FIXED : 0)
           mapped(@mmap.call(at || near, size, exec ? 7 : 3, flags, -1, 0))
         end
 
@@ -53,6 +65,11 @@ module Zr
 
         #: (Integer at, String bytes) -> untyped
         def write_code(at, bytes)
+          if LINUX
+            ::Fiddle::Pointer.new(at)[0, bytes.bytesize] = bytes
+            return @clear.call(at, at + bytes.bytesize)
+          end
+
           @protect.call(0)
           ::Fiddle::Pointer.new(at)[0, bytes.bytesize] = bytes
           @protect.call(1)

@@ -29,7 +29,7 @@ class RegallocDifferentialTest < Minitest::Test
   CONDS = Zr::IR::Inst::CONDS
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    skip "needs an aarch64 host" unless Zr::Target.host_triple.start_with?("aarch64")
   end
 
   def test_allocated_and_spilled_code_match_the_interpreter

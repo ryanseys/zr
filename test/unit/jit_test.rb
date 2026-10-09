@@ -11,7 +11,7 @@ require_relative "../../test/native/fixtures"
 class JITTest < Minitest::Test
   # Only a darwin host has Mach-O, libSystem and the darwin JIT.
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    skip "needs an aarch64 host" unless Zr::Target.host_triple.start_with?("aarch64")
   end
 
   def call_main(name)
