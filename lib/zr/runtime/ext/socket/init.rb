@@ -21,7 +21,9 @@ class Socket < BasicSocket
     # words; a failure in a system call is that call's error.
     def resolution_error(reason, code)
       Primitive.attr! :hidden
-      raise SystemCallError.new(reason, -code) if code.negative?
+      # The kernel gives the errno of EAI_SYSTEM past every resolver code
+      # (zr_sock_gai_failed's GAI_ERRNO).
+      raise SystemCallError.new(reason, code - 65_536) if code >= 65_536
 
       error = ResolutionError.new("#{reason}: #{Primitive.zr_sock_gai_message(code)}")
       Primitive.zr_hidden_set(error, :error_code, code)

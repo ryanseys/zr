@@ -210,12 +210,17 @@ module Zr::Kern
     zr_sock_cstr(buffer)
   end
 
-  # A resolver failure: its code, or the negated errno of the system call
-  # that failed (EAI_SYSTEM).
+  # The start of the errnos that zr_sock_gai_failed gives: past every
+  # resolver code, which is small, and negative on musl (EAI_NONAME is
+  # -2), so a negated errno would read as one.
+  GAI_ERRNO = 65536
+
+  # A resolver failure: its code, or GAI_ERRNO plus the errno of the
+  # system call that failed (EAI_SYSTEM).
   #: (i32) -> value
   def zr_sock_gai_failed(r)
     if Machine.sword(r) == EAI_SYSTEM && zr_errno() != 0
-      return zr_fix(0 - zr_errno())
+      return zr_fix(GAI_ERRNO + zr_errno())
     end
     zr_fix(Machine.sword(r))
   end
