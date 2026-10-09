@@ -79,7 +79,13 @@ module Zr::Kern
 
   # rb_thread_call_with_gvl: `fn(data)` with the GVL, from C that runs
   # without it. On a worker, the waiting green thread runs it; on a Ruby
-  # thread, the call is direct.
+  # thread, the call is direct. A worker calls it on its own OS thread,
+  # so its frame stays off the Ruby thread's chain of root frames: a
+  # collection on the Ruby thread would read the worker's stack through
+  # it, and its return would put back a head that the Ruby thread has
+  # moved since.
+  any_thread :rb_thread_call_with_gvl
+
   #: (ptr, ptr) -> ptr
   def rb_thread_call_with_gvl(fn, data)
     Machine.gates_enter
