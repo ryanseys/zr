@@ -4,7 +4,7 @@ require "test_helper"
 require "zr/prism"
 
 # Zr::LineCursor answers each line lookup as prism's binary search does
-# (lib/zr/prism.rb), in any order of offsets.
+# (lib/zr/line_cursor.rb), in any order of offsets.
 class LineCursorTest < Minitest::Test
   SOURCE = "a = 1\n\nb = [\n  2,\n  3\n]\n# end\nputs a + b.sum".b
 

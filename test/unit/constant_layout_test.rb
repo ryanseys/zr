@@ -60,7 +60,7 @@ class ConstantLayoutTest < Minitest::Test
     "gem_set/resolve.rb" => ["ZrGemSet", "a script that a child ruby runs with its own load path; it is never required"],
     "ir.rb" => [nil, "the aggregator of the IR files: it requires them and defines no constant"],
     "parse.rb" => [nil, "defines the method Zr.parse"],
-    "prism.rb" => ["Zr::HOSTED", "sets up the host's prism; a Zr::Prism would hide ::Prism"],
+    "prism.rb" => [nil, "sets up the host's prism; a Zr::Prism would hide ::Prism"],
     "prism_shim/prism/prism.rb" => [nil, "stands in for prism's C extension on the load path"],
     "version.rb" => ["Zr::VERSION", "holds the version constants, as a gemspec expects"],
   }.freeze

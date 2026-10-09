@@ -2,10 +2,11 @@
 
 require "digest/sha2"
 require_relative "../paths"
+require_relative "../host"
 require_relative "../prism"
 require_relative "../source_guard"
 require_relative "store"
-require_relative "../runtime/lib/zr/eval/runtime" unless Zr::HOSTED
+require_relative "../runtime/lib/zr/eval/runtime" if Zr::Host.compiled?
 
 module Zr
   module Cache
@@ -166,7 +167,7 @@ module Zr
       # records each file stamp, and `write` checks them again.
       #: () -> Hash[String, String]
       def parser_digests
-        return ::Zr::Eval::Runtime.sources.select { |path, _| parser_file?(path) } unless HOSTED
+        return ::Zr::Eval::Runtime.sources.select { |path, _| parser_file?(path) } if Host.compiled?
 
         files = parser_files
         @stamps = files.to_h { |file| [file, Paths.stamp(file)] }
@@ -196,11 +197,11 @@ module Zr
         makers = @makers ||= {} #: Hash[Array[String], String?]
         return makers[files] if makers.key?(files)
 
-        digests = if HOSTED
-                    files.to_h { |file| [file, (Digest::SHA256.hexdigest(File.binread(file)) if File.file?(file))] }
-                  else
+        digests = if Host.compiled?
                     carried = ::Zr::Eval::Runtime.sources
                     files.to_h { |file| [file, carried[file]] }
+                  else
+                    files.to_h { |file| [file, (Digest::SHA256.hexdigest(File.binread(file)) if File.file?(file))] }
                   end
         parser
         @stamps&.merge!(files.to_h { |file| [file, Paths.stamp(file)] })

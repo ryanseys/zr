@@ -1,13 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "library/ports"
-
-module Zr
-  # Whether ruby itself runs the compiler. Ruby finds prism on its load
-  # path. A zr binary that includes the compiler has prism compiled in
-  # and no load path.
-  HOSTED = !$LOAD_PATH.resolve_feature_path("prism").nil? #: bool
-end
+require_relative "line_cursor"
 
 # The host's prism: the vendored Ruby part of prism 1.9.0
 # (vendor/ruby, Zr::Library::Ports.lib) on top of zr's Ruby port of prism's C
@@ -21,34 +15,4 @@ $LOAD_PATH.unshift(File.expand_path("../../vendor/ruby/lib/ruby/gems/4.0.0/gems/
                    File.expand_path("prism_shim", __dir__))
 require "prism"
 
-module Zr
-  # prism finds the line of a byte offset with a binary search over the
-  # line starts. The builder asks once or more for each node (5% of a
-  # warm build of bundler), and reads the nodes mostly in source order.
-  # So the line of the last answer, or the line after it, is almost
-  # always the answer, and a binary search is left for the rest. The
-  # answer is the same as prism's.
-  # @rbs module-self: Prism::Source
-  module LineCursor
-    # @rbs @zr_line: Integer?
-
-    private
-
-    #: (Integer byte_offset) -> Integer
-    def find_line(byte_offset)
-      # Steep looks for `super` in the module, not in Prism::Source, which
-      # it is prepended to.
-      return super if frozen? # steep:ignore UnexpectedSuper
-
-      starts = offsets
-      at = @zr_line || 0
-      if starts[at] <= byte_offset
-        after = at + 1
-        return at if after == starts.length || byte_offset < starts[after]
-        return @zr_line = after if after + 1 == starts.length || byte_offset < starts[after + 1]
-      end
-      @zr_line = super # steep:ignore UnexpectedSuper
-    end
-  end
-end
 Prism::Source.prepend(Zr::LineCursor)

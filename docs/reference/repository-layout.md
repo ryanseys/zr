@@ -40,14 +40,15 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/source_guard.rb` | `Zr::SourceGuard.check!`: a cache write stops if a source changed during the build |
 | `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
-| `lib/zr/library.rb`, `lib/zr/library/` | `Zr::Library`: the library that a program requires, and where each part of it is |
+| `lib/zr/library/` | `Zr::Library`: the library that a program requires, and where each part of it is |
 | `lib/zr/library/layout.rb` | `Library::Layout`: where `vendor/ruby`, the gem home and zr's own `runtime/ext` and `runtime/lib` are |
 | `lib/zr/library/roots.rb` | `Library::Roots`: the directories that a program's `require` searches, in order, and the names that the loader treats as the runtime's own (the kernel's description, the eval support file) |
 | `lib/zr/library/vendor.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
 | `lib/zr/library/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
 | `lib/zr/library/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
-| `lib/zr/prism.rb` | loads prism on the host, and `Zr::HOSTED`: whether ruby runs the compiler |
+| `lib/zr/prism.rb` | loads prism on the host: the vendored prism over zr's port of its C |
+| `lib/zr/line_cursor.rb` | `Zr::LineCursor`: a faster line lookup for prism's sources, with the same answers |
 | `lib/zr/cache/parse.rb` | the host's cache of parse results |
 | `lib/zr/hir.rb`, `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |
 | `lib/zr/hir/build.rb`, `lib/zr/hir/build/` | `Hir::Build`, the builder of the HIR, and its parts: `loader.rb` (`Hir::Build::Loader`: the files that a program reaches through `require` and `load`), `patterns.rb` (pattern matching), `literals.rb`, `requires.rb` and `coverage.rb` |

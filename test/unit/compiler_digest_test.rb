@@ -31,7 +31,7 @@ class CompilerDigestTest < Minitest::Test
   LOADED_BY_SOME_BUILDS = %w[
     backend/aarch64/listing.rb diff.rb eval.rb eval/walk.rb eval/walk/evaluate.rb eval/walk/tree.rb gem_set.rb
     gem_set/resolve.rb
-    ir/interp.rb library.rb library/vendor.rb
+    ir/interp.rb library/vendor.rb
   ].map { |name| File.join(LIB, "zr", name) }.freeze
 
   # The other side of the first test: a new file that only drives zr must
