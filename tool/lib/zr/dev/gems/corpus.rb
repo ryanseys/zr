@@ -5,12 +5,13 @@ require "json"
 module Zr
   module Dev
     module Gems
-      # A directory of unpacked gems, one directory for each name, as
-      # zeo's corpus has them (`<corpus>/rake`). A corpus can hold very
+      # A directory of unpacked gems, one directory for each name
+      # (`<corpus>/rake`). A corpus can hold very
       # many gems, so the tool finds a gem by its exact path and never
       # lists the corpus.
       class Corpus
-        # zeo's markers: the version, and the metadata of the release.
+        # The marker files that a corpus may have beside each gem: the
+        # version, and the metadata of the release (JSON).
         VERSION = ".zeo-probe-version"
         SPEC = ".zeo-probe-spec"
 
@@ -32,7 +33,7 @@ module Zr
         end
 
         # The subject of the unpacked gem in `dir`. It reads the store's
-        # marker, zeo's markers, the gem's gemspec and the name of the
+        # marker, the corpus's markers, the gem's gemspec and the name of the
         # directory (`rake-13.4.2`), in that order. Only a gemspec gives
         # the dependencies. Raises a Failure when nothing gives a version.
         def self.read(dir, source:, name: nil)
@@ -44,17 +45,17 @@ module Zr
           base_name, base_version = File.basename(dir).match(/\A(.+?)-(\d[^-]*)\z/)&.captures
           spec = gemspec(dir, name || base_name)
           name ||= spec&.name || base_name || File.basename(dir)
-          zeo = marker(dir)
-          version = zeo[:version] || spec&.version&.to_s || base_version
+          markers = marker(dir)
+          version = markers[:version] || spec&.version&.to_s || base_version
           raise Failure.new("not-found", "#{dir}: no #{VERSION}, gemspec or <name>-<version> name gives the version") unless version
 
           Subject.new(name: name, version: version, root: dir, source: source,
-                      require_paths: zeo[:require_paths] || spec&.raw_require_paths || default_paths(dir),
-                      extensions: zeo[:extensions] || spec&.extensions || [],
+                      require_paths: markers[:require_paths] || spec&.raw_require_paths || default_paths(dir),
+                      extensions: markers[:extensions] || spec&.extensions || [],
                       dependencies: spec ? spec.runtime_dependencies.map { |dep| [dep.name, dep.requirement.to_s] } : [])
         end
 
-        # zeo's markers, as `{ version:, require_paths:, extensions: }`
+        # The corpus's markers, as `{ version:, require_paths:, extensions: }`
         # with nil for each one that is missing.
         def self.marker(dir)
           version = File.join(dir, VERSION)

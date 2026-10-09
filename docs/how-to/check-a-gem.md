@@ -210,18 +210,20 @@ puts Rainbow("zr").red.bright
 ## Use a corpus
 
 A corpus is a directory of unpacked gems, one directory for each name
-(`<corpus>/rake`), as zeo's corpus has them. `--corpus DIR`, or the
+(`<corpus>/rake`). `--corpus DIR`, or the
 variable `ZR_GEM_CORPUS`, makes the tool look in the corpus first, for
 the gem and for each gem that it needs:
 
 ```
-$ zr-dev gems sweep --corpus ~/dev/all-gems/gems --offline rake thor rack
+$ zr-dev gems sweep --corpus <dir> --offline rake thor rack
 ```
 
 The tool finds each gem by its exact path, and never lists the corpus,
-so a corpus can hold every gem. It reads the version from
-`.zeo-probe-version`, the require paths and the extensions from
-`.zeo-probe-spec`, and the dependencies from `<name>.gemspec`.
+so a corpus can hold every gem. It reads the version, the require paths
+and the extensions from the corpus's marker files when it has them
+(`.zeo-probe-version`, and `.zeo-probe-spec` in JSON), else from
+`<name>.gemspec`, else from the directory name (`rake-13.4.2`). Only
+`<name>.gemspec` gives the dependencies.
 
 `--offline` fetches nothing. A gem that is not in the corpus then comes
 from `tmp/gems`, the gems that an earlier run fetched.
