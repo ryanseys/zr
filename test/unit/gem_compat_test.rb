@@ -511,6 +511,12 @@ class GemCompatTest < Minitest::Test
     assert_equal 200, Gems::Table.clean("x" * 500).size
   end
 
+  def test_a_detail_names_no_path_of_this_machine
+    detail = "ruby: #{Zr::Dev.path("tmp/gems/a.rb")}:5: error, and #{Dir.home}/.gem/b.rb:1"
+
+    assert_equal "ruby: tmp/gems/a.rb:5: error, and ~/.gem/b.rb:1", Gems::Table.clean(detail)
+  end
+
   def test_a_sweep_writes_each_row_and_line_as_its_gem_ends
     tables = %w[sweep.tsv compat.tsv].map { |name| Gems::Table.new(File.join(@dir, name)) }
     lines = []

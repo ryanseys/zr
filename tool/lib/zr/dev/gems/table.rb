@@ -60,9 +60,12 @@ module Zr
 
         def self.unquote(field) = field.start_with?('"') && field.end_with?('"') && field.size > 1 ? field[1..-2].gsub('""', '"') : field
 
-        # The detail on one line, without tabs, and at most DETAIL long.
+        # The detail on one line, without tabs, and at most DETAIL long. A
+        # path in this checkout is relative to it, and one in the home
+        # directory starts with `~`, so the committed table names no
+        # machine.
         def self.clean(text)
-          line = text.to_s.gsub(/\s+/, " ").strip
+          line = text.to_s.gsub("#{Dev::ROOT}/", "").gsub("#{Dir.home}/", "~/").gsub(/\s+/, " ").strip
           line.size > DETAIL ? "#{line[0, DETAIL - 3]}..." : line
         end
 
