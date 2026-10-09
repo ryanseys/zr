@@ -11,6 +11,10 @@ module Zr
   module Timing
     module_function
 
+    # Seconds on the monotonic clock, for a difference of two reads.
+    #: () -> Float
+    def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
     # Runs the block and returns its value. `doing` names the phase as it
     # starts, and `label` as it ends; `zr-dev compile` keys its rows by
     # the label.
@@ -19,7 +23,7 @@ module Zr
       return yield unless Config.current.timing?
 
       warn "zr: #{doing} ..."
-      began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      began = now
       before = collector
       begin
         yield
@@ -27,7 +31,7 @@ module Zr
         after = collector
         gc = after.each_with_index.map { |a, i| a - before.fetch(i) }
         warn format("zr: %-40s %7.3fs  gc %d (%d major) mark %d ms sweep %d ms", label,
-                    Process.clock_gettime(Process::CLOCK_MONOTONIC) - began, *gc)
+                    now - began, *gc)
       end
     end
 

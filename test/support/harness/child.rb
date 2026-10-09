@@ -3,6 +3,7 @@
 require "etc"
 require_relative "answer"
 require_relative "clean_env"
+require_relative "../../../lib/zr/timing"
 
 module Zr
   module Harness
@@ -185,7 +186,7 @@ module Zr
         end
       end
 
-      def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      def now = Timing.now
     end
   end
 end

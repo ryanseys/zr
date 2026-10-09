@@ -2,6 +2,7 @@
 
 require "rbconfig"
 require_relative "../../../../lib/zr/config"
+require_relative "../../../../lib/zr/timing"
 
 module Zr
   module Dev
@@ -45,9 +46,9 @@ module Zr
 
     # Runs the block. Returns its value and the seconds it took.
     def self.timed
-      began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      began = Timing.now
       result = yield
-      [result, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began]
+      [result, Timing.now - began]
     end
   end
 end

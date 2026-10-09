@@ -6,6 +6,7 @@ require "json"
 require "open3"
 require "tmpdir"
 require_relative "../../../../lib/zr/cli/runner"
+require_relative "../../../../lib/zr/timing"
 
 module Zr
   module Dev
@@ -200,13 +201,12 @@ module Zr
         pid = Process.spawn(env, *argv, chdir: dir, in: File::NULL, out: writer, err: File::NULL, pgroup: true)
         writer.close
         out = +""
-        clock = -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
-        heard = clock.call
+        heard = Timing.now
         collector = Thread.new do
           told = 0
           loop do
             out << reader.readpartial(65_536)
-            heard = clock.call
+            heard = Timing.now
             next unless live && (last = out.rindex("\n", -1)) && last >= told
 
             out.byteslice(told, last + 1 - told).each_line { |line| live.call(line.chomp) }
@@ -215,10 +215,10 @@ module Zr
         rescue IOError
           nil
         end
-        deadline = clock.call + limit
+        deadline = Timing.now + limit
         timed_out = false
         until collector.join(1)
-          next unless clock.call > deadline || (idle && clock.call - heard > idle)
+          next unless Timing.now > deadline || (idle && Timing.now - heard > idle)
 
           timed_out = true
           kill(pid)
@@ -312,7 +312,7 @@ module Zr
           FileUtils.rm_rf(@work) unless @keep
         end
 
-        def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        def now = Timing.now
 
         # The result of one file, with a line when it ends, so a log shows
         # how far a long run is: the count of files that ended, the file,

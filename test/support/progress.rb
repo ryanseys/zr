@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest"
+require_relative "../../lib/zr/timing"
 
 module Zr
   module Test
@@ -49,7 +50,7 @@ module Zr
 
         private
 
-        def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        def now = Timing.now
 
         # The number of examples that the run will start, after the
         # minitest filters.

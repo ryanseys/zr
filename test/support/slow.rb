@@ -2,6 +2,7 @@
 
 require "minitest"
 require_relative "../../lib/zr/config"
+require_relative "../../lib/zr/timing"
 
 module Zr
   module Test
@@ -47,7 +48,7 @@ module Zr
         end
       end
 
-      def self.now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      def self.now = Timing.now
 
       # The time of the examples in one directory: the number of
       # examples, the total seconds, and the seconds for each part.
