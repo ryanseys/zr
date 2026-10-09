@@ -30,11 +30,6 @@ module Zr
       CLI.tune!
     end
 
-    # Runs `argv` and stops the tool when it fails.
-    def self.run!(*argv, **)
-      system(*argv, **) or fail!("zr-dev: #{argv.join(" ")} failed")
-    end
-
     # The output of `git` with `args` in `dir`, or nil when it fails.
     # `args` are an argument list, never a shell string.
     def self.git(*args, dir: ROOT, err: File::NULL)

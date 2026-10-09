@@ -24,6 +24,6 @@ end
 
 require_relative "dev/command"
 require_relative "dev/files"
-require_relative "dev/host"
+require_relative "dev/process"
 require_relative "dev/parallel"
 require_relative "dev/sources"

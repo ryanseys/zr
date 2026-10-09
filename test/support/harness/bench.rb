@@ -8,7 +8,7 @@ require "tmpdir"
 require_relative "answer"
 require_relative "child"
 require_relative "runner"
-require_relative "../../../tool/lib/zr/dev/host"
+require_relative "../../../tool/lib/zr/dev/process"
 
 module Zr
   module Harness
