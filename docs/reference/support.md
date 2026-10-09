@@ -57,7 +57,9 @@ baseline that passes fails the run, so these lists are current.
 
 ### aarch64-linux-musl
 
-None.
+| Test | Why |
+|---|---|
+| `cli/stdlib/ffi/ffi_libc_call.rb` | dlopen: a static musl binary has no dynamic loader |
 
 ### host
 
