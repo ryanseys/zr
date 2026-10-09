@@ -234,6 +234,52 @@ class KernelFormsTest < Minitest::Test
     assert_match(/Machine.word of an I32 is Machine.u32 \(zero-extend\) or Machine.sword \(sign-extend\)/, message)
   end
 
+  # A def that may run the collector links its frame into the chain of
+  # root frames (the `kroots` static). One that C may call on another OS
+  # thread (`any_thread`) does not: that chain is the Ruby thread's.
+  ROOTED = <<~RUBY
+    module Zr::Kern
+      collects :zr_gc
+      any_thread :elsewhere
+
+      #: () -> value
+      def zr_gc
+        Machine.value(4)
+      end
+
+      #: (value) -> value
+      def keep(v)
+        v
+      end
+
+      #: () -> value
+      def here
+        keep(zr_gc)
+      end
+
+      #: () -> value
+      def elsewhere
+        keep(zr_gc)
+      end
+    end
+  RUBY
+
+  def test_an_any_thread_def_has_no_root_frame
+    unit = Zr::Machine::Lower.new([[ROOTED, "k.rb"]])
+    unit.run
+    roots = unit.functions.to_h { |f| [f.name, f.globals.map(&:symbol).include?("zr_static_kroots")] }
+
+    assert roots.fetch("here"), "a collecting def links a root frame"
+    refute roots.fetch("elsewhere"), "an any_thread def links none"
+  end
+
+  def test_an_any_thread_def_keeps_no_value_in_a_local
+    message = refusal("collects :zr_gc\nany_thread :f\n#: () -> value\ndef zr_gc\n  Machine.value(4)\nend\n" \
+                      "#: () -> value\ndef f\n  v = zr_gc\n  zr_gc\n  v\nend")
+
+    assert_match(/f is any_thread, so it has no root frame to keep a Value local in/, message)
+  end
+
   def test_there_is_no_machine_def
     assert_match(/not a declaration or a def/, refusal("#: () -> void\nmachine def x\nend"))
   end

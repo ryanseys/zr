@@ -22,9 +22,11 @@ module Zr
     end
     type f64 = Float
 
-    # `inline :name` and `collects :name` in a kernel file's module.
+    # `inline :name`, `collects :name` and `any_thread :name` in a kernel
+    # file's module.
     def self.inline: (Symbol name) -> void
     def self.collects: (Symbol name) -> void
+    def self.any_thread: (Symbol name) -> void
 
     # The superclass of each `class Name < Layout`. `Name[p]` is a view
     # of the layout at `p`; each field is an attribute of the class.

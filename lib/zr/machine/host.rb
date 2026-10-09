@@ -841,6 +841,8 @@ module Zr
         kern.const_set(:Libc, Libc.new(self))
         kern.const_set(:Layout, view_base)
         kern.define_singleton_method(:inline) { |_name| nil }
+        # The host runs C on one thread: an any_thread def is any def here.
+        kern.define_singleton_method(:any_thread) { |_name| nil }
         kern.define_singleton_method(:collects) { |name| host.collectors << name.to_s }
         Zr.send(:remove_const, :Kern) if Zr.const_defined?(:Kern, false)
         Zr.const_set(:Kern, kern)

@@ -84,6 +84,7 @@ module Zr
       # @rbs @collects: Set[String | Symbol]?
       # @rbs @inline: Hash[String, bool?]
       # @rbs @inlined: Array[String]
+      # @rbs @any_thread: Array[String]
       # @rbs @file: String
 
       include Immediates
@@ -118,6 +119,7 @@ module Zr
         @collects = nil
         @inline = {}
         @inlined = []
+        @any_thread = []
       end
 
       #: () -> [Array[IR::Function], Array[Obj::Datum], Array[String]]
@@ -304,6 +306,13 @@ module Zr
         @collects.include?(name)
       end
 
+      # Whether `name` is declared `any_thread`: C may call it on a thread
+      # that is not Ruby's (a worker that runs C without the GVL). Its
+      # frame does not go on the chain of root frames, which a static
+      # heads for the Ruby thread alone (ROOTS).
+      #: (String name) -> bool
+      def any_thread?(name) = @any_thread.include?(name)
+
       # Whether a call to `callee` lowers the callee's body in place of a
       # call. The kernel has many defs of one expression (a tag test, the
       # address of a static, a load from it). A call costs a frame, saved
@@ -452,6 +461,7 @@ module Zr
       #   module Name                          a signature, `def self.call(fn, ...) = Machine.indirect`
       #   NAME = 1 << 4                        a constant
       #   inline :name, collects :name         as `Machine.inline` and `Machine.collects`
+      #   any_thread :name                     a def that C may call on any thread (`any_thread?`)
       #   #: (types) -> type, then a def       a def (`def_type`); `= Machine.raw` is one the backend delivers
       #: (Array[Prism::node] statements, Hash[Integer, String] annotations) -> void
       def declare(statements, annotations)
@@ -469,9 +479,9 @@ module Zr
           when Prism::CallNode
             # The guards below check the class of each argument.
             args = node.arguments&.arguments || [] #: Array[untyped]
-            if node.receiver.nil? && %i[inline collects].include?(node.name)
+            if node.receiver.nil? && %i[inline collects any_thread].include?(node.name)
               refuse(node, "`#{node.name}` takes the symbol of a def") unless args.one? && args.first.is_a?(Prism::SymbolNode)
-              (node.name == :inline ? @inlined : @collectors) << args.first.unescaped
+              { inline: @inlined, collects: @collectors, any_thread: @any_thread }.fetch(node.name) << args.first.unescaped
             else
               refuse(node, "a statement that is not a declaration or a def")
             end

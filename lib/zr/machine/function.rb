@@ -64,7 +64,7 @@ module Zr
 
       #: () -> IR::Function
       def lower
-        enter_roots if @unit.collects?(@d.name)
+        enter_roots if @unit.collects?(@d.name) && !@unit.any_thread?(@d.name)
         @d.params.each_with_index do |(name, type), i|
           local = declare_local(@d.node, name, type)
           @f.store(@f.args[i], local[:addr])
@@ -161,9 +161,15 @@ module Zr
         @locals[name] ||= { type: type, addr: local_addr(type) }
       end
 
+      # A def that runs on any thread has no root frame. It may pass a
+      # Value from one call to the next, but it may not keep one in a
+      # local, where a collection in a later call would not see it.
       #: (String type) -> String
       def local_addr(type)
         # @type ivar @roots: Roots
+        if type == "Value" && @unit.any_thread?(@d.name)
+          refuse(@d.node, "#{@d.name} is any_thread, so it has no root frame to keep a Value local in")
+        end
         return @f.stack_addr(@f.slot(8)) unless @roots && type == "Value"
 
         at = root_slot
