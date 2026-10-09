@@ -129,8 +129,8 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 
 | Variable | Command | Default | Effect |
 |---|---|---|---|
-| `RUBY_SRC` | `zr-dev gen`, `zr-dev vendor`, `zr-dev rubyspec`, `zr-dev cruby-test` | `~/dev/github.com/ruby/ruby` when it exists, else `tmp/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit, and `zr-dev vendor` ruby's own library. `zr-dev rubyspec` runs its `spec/` directory and `zr-dev cruby-test` its `test/` directory; both need the checkout at that commit. |
-| `PRISM_SRC` | `zr-dev gen prism_encoding_tables`, `zr-dev vendor` | `~/dev/prism`, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
+| `RUBY_SRC` | `zr-dev gen`, `zr-dev vendor`, `zr-dev rubyspec`, `zr-dev cruby-test` | `tmp/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/version.rb`). The generators read the C sources at that commit, and `zr-dev vendor` ruby's own library. `zr-dev rubyspec` runs its `spec/` directory and `zr-dev cruby-test` its `test/` directory; both need the checkout at that commit. |
+| `PRISM_SRC` | `zr-dev gen prism_encoding_tables`, `zr-dev vendor` | `tmp/prism` when it exists, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
 | `NKF_SRC` | `zr-dev gen nkf` | the installed nkf gem's `ext/nkf/nkf-utf8/utf8tbl.c` | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |
 | `MKCONSTANTS` | `zr-dev gen tables` | the file in `RUBY_SRC` | The path of a copy of `ext/socket/mkconstants.rb` from the ruby 4.0.7 source. |

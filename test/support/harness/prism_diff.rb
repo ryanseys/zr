@@ -19,8 +19,9 @@ module Zr
     module PrismDiff
       ROOT = File.expand_path("../../..", __dir__)
       UPSTREAM = File.join(ROOT, "tmp/prism-1.9.0")
-      # The prism checkout that test/prism is extracted from.
-      CHECKOUT = File.expand_path("~/dev/prism")
+      # The prism checkout that test/prism is extracted from: `PRISM_SRC`,
+      # else tmp/prism.
+      CHECKOUT = ENV["PRISM_SRC"].to_s.empty? ? File.join(ROOT, "tmp/prism") : File.expand_path(ENV["PRISM_SRC"])
       # test_helper.rb's SYNTAX_VERSIONS.
       SYNTAX_VERSIONS = %w[3.3 3.4 4.0 4.1].freeze
       # zr's own Ruby, parsed under the latest syntax.

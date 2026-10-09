@@ -8,22 +8,22 @@ module Zr
     # vendored: a table is written from them once and then committed.
     PRISM = "v1.9.0"
 
-    # `RUBY_SRC`, else ~/dev/github.com/ruby/ruby, else tmp/ruby.
+    # `RUBY_SRC`, else tmp/ruby.
     def self.ruby_src
       return File.expand_path(ENV["RUBY_SRC"]) unless ENV["RUBY_SRC"].to_s.empty?
 
-      checkout = File.expand_path("~/dev/github.com/ruby/ruby")
-      File.directory?(checkout) ? checkout : path("tmp/ruby")
+      path("tmp/ruby")
     end
 
     # Whether a CRuby checkout is at hand.
     def self.ruby_src? = File.directory?(ruby_src)
 
-    # `PRISM_SRC`, else ~/dev/prism, else the release tree in tmp/.
+    # `PRISM_SRC`, else a checkout in tmp/prism, else the release tree in
+    # tmp/.
     def self.prism_src
       return File.expand_path(ENV["PRISM_SRC"]) if ENV["PRISM_SRC"]
 
-      checkout = File.expand_path("~/dev/prism")
+      checkout = path("tmp/prism")
       tree = path("tmp/prism-#{PRISM.delete_prefix("v")}")
       File.directory?(checkout) || !File.directory?(tree) ? checkout : tree
     end
