@@ -201,10 +201,12 @@ module Zr
           syntax = options.dumps.include?(:syntax)
           # ruby prints "Syntax OK" with C's printf and the tree through
           # $stdout, which it flushes. So a terminal shows "Syntax OK" first,
-          # and a pipe or a file gets it last, when C's buffer is flushed.
-          puts "Syntax OK" if syntax && $stdout.tty?
+          # and on macOS a pipe or a file gets it last, when C's buffer is
+          # flushed. A ruby on musl (Alpine) gives it first there too.
+          first = $stdout.tty? || RUBY_PLATFORM.end_with?("-musl")
+          puts "Syntax OK" if syntax && first
           $stdout.write(tree) if tree
-          puts "Syntax OK" if syntax && !$stdout.tty?
+          puts "Syntax OK" if syntax && !first
         end
 
         #: (Prism::ParseResult result) -> String
