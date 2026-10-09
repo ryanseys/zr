@@ -47,7 +47,9 @@ class CScanTest < Minitest::Test
     assert_predicate scan, :complete?
     assert_equal [1, 1, nil], [scan.sources, scan.compiled, scan.error]
     assert_includes scan.imports, "rb_define_method"
-    assert_includes scan.imports, "rb_funcall"
+    # With gcc, ruby's headers give rb_funcall's constant arguments to
+    # rb_funcallv.
+    assert(scan.imports.intersect?(%w[rb_funcall rb_funcallv]), scan.imports.inspect)
     assert_equal [UNKNOWN], scan.missing(EVERY)
     refute(scan.imports.any? { |name| name.start_with?("_") || !Zr::Ext::CApi.ruby?(name) }, "only ruby's names, without the underscore")
   end

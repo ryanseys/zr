@@ -82,18 +82,29 @@ module Zr
         # when an extconf.rb names it. 3: a header that cc does not find is
         # looked for anywhere in the gem. 4: then in the system's libraries.
         # 5: mkmf's HAVE_ macros for this ruby, an empty stand-in for a
-        # header that an extconf.rb writes, and C++17.
-        SCANNER = 5
+        # header that an extconf.rb writes, and C++17. 6: gcc, without
+        # clang's own flags.
+        SCANNER = 6
 
         SOURCES = %w[c cc cpp cxx].freeze
         # The most seconds that one file's compile takes.
         COMPILE_SECONDS = 120
         # cc's memory limit for one file.
         COMPILE_MB = 2048
-        # Errors that clang raises for C that older compilers took. The
-        # scan wants the calls, not a clean build.
-        LENIENT = %w[implicit-function-declaration incompatible-function-pointer-types int-conversion
-                     incompatible-pointer-types implicit-int return-type].map { |name| "-Wno-error=#{name}" }.freeze
+        # Errors that clang and gcc 14 raise for C that older compilers
+        # took. The scan wants the calls, not a clean build.
+        LENIENT = %w[implicit-function-declaration int-conversion incompatible-pointer-types implicit-int
+                     return-type].map { |name| "-Wno-error=#{name}" }.freeze
+        # What only clang takes: its own such error, and `__declspec`,
+        # which C written for Windows too uses. gcc stops at a flag that
+        # it does not know.
+        CLANG = %w[-Wno-error=incompatible-function-pointer-types -fdeclspec].freeze
+        # Whether the host ruby's cc is clang (macOS), not gcc (Linux).
+        CLANG_CC = begin
+          IO.popen([*RbConfig::CONFIG["CC"].split, "--version"], err: File::NULL, &:read).to_s.include?("clang")
+        rescue SystemCallError
+          false
+        end
 
         # Where Homebrew keeps the headers of the libraries that it installs:
         # libpq's pg_config.h for pg, and the others that gems wrap.
@@ -227,9 +238,11 @@ module Zr
 
         # The most headers that one file's compile looks for in the gem.
         MAX_FOUND_HEADERS = 8
+        # How cc says that it did not find a header: clang, then gcc.
+        MISSING_HEADER = /'([^']+)' file not found|fatal error: (\S+): No such file or directory/
 
         # Compiles `file` as `compile` does. When cc does not find a header
-        # (`'nokogiri_gumbo.h' file not found`), it looks for that header
+        # (MISSING_HEADER), it looks for that header
         # anywhere in the gem or the system's libraries (`header_dir`), as
         # an extconf.rb would add its directory, and compiles again with it.
         # `headers` keeps what it found, for the gem's other files. A header
@@ -238,7 +251,7 @@ module Zr
         def compile_finding_headers(subject, file, object, work, headers)
           MAX_FOUND_HEADERS.times do
             failure = compile(file, object, work, headers)
-            wanted = failure&.[](/'([^']+)' file not found/, 1)
+            wanted = failure&.match(MISSING_HEADER)&.captures&.compact&.first
             dir = wanted && header_dir(subject, wanted)
             next if wanted && dir.nil? && stand_in(work, wanted)
             return failure unless dir && !headers.include?(dir)
@@ -309,8 +322,13 @@ module Zr
         # C++17, which the C++ of today's gems (re2, grpc) needs.
         def flags(file, work, cxx)
           config = RbConfig::CONFIG
+          clang = if !CLANG_CC then []
+                  elsif cxx then CLANG.drop(1)
+                  else CLANG
+                  end
           [*config["CPPFLAGS"].split, "-I#{config["rubyarchhdrdir"]}", "-I#{config["rubyhdrdir"]}", "-I#{File.dirname(file)}",
-           "-I#{work}", "-include", File.join(work, HAVE), "-O3", "-fdeclspec", "-w", *(cxx ? ["-std=gnu++17"] : LENIENT)]
+           "-I#{work}", "-include", File.join(work, HAVE), "-O3", "-w", *(cxx ? ["-std=gnu++17"] : LENIENT),
+           *clang]
         end
       end
     end
