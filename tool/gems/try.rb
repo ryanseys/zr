@@ -5,7 +5,7 @@ require_relative "../lib/zr/dev/gems"
 module Zr
   module Dev
     module Commands
-      class GemCompat
+      class Gems
         # `zr-dev gems try GEM`: tries one gem and tells each step, the
         # result, the diff and the path of the log.
         #
@@ -38,8 +38,8 @@ module Zr
             puts "  #{result.detail}" if result.detail
             puts "log: #{Dev.rel(result.log)}"
             if @save
-              record([Gems::Table.new(Gems::Table.compat)], result)
-              puts "wrote #{Dev.rel(Gems::Table.compat)}"
+              record([Dev::Gems::Table.new(Dev::Gems::Table.compat)], result)
+              puts "wrote #{Dev.rel(Dev::Gems::Table.compat)}"
             end
             result.passed?(run: !@build_only)
           end

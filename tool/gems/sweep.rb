@@ -2,11 +2,12 @@
 
 require "json"
 require_relative "../lib/zr/dev/gems"
+require_relative "../../lib/zr/timing"
 
 module Zr
   module Dev
     module Commands
-      class GemCompat
+      class Gems
         # `zr-dev gems sweep`: tries many gems, and writes one line for each
         # gem as it ends, then the count in each tier. As each gem ends, its
         # line goes into log/gems/sweep-<time>.log and its row into
@@ -18,7 +19,7 @@ module Zr
         # raises it. Ctrl-C stops the children.
         #
         # Each trial also compiles the C extensions among the gem and the
-        # gems that it needs, with no gem code (Gems::CScan), and
+        # gems that it needs, with no gem code (Dev::Gems::CScan), and
         # log/gems/sweep-<time>.capi.jsonl gets their imports and what zr's
         # C API lacks of them. At the end the sweep ranks the functions that
         # the C API lacks by the number of swept gems that wait on each, and
@@ -64,8 +65,8 @@ module Zr
             reference! unless @c_scan
 
             base = File.join(LOG, "sweep-#{Time.now.strftime("%Y%m%d-%H%M%S")}")
-            tables = @c_scan ? [] : [Gems::Table.new("#{base}.tsv")]
-            tables << Gems::Table.new(Gems::Table.compat) if @save
+            tables = @c_scan ? [] : [Dev::Gems::Table.new("#{base}.tsv")]
+            tables << Dev::Gems::Table.new(Dev::Gems::Table.compat) if @save
             FileUtils.mkdir_p(LOG)
             File.open("#{base}.log", "w") do |log|
               log.sync = true
@@ -73,7 +74,7 @@ module Zr
               File.open("#{base}.capi.jsonl", "w") do |capi|
                 capi.sync = true
                 files = [*tables.map(&:path), capi.path].map { |path| Dev.rel(path) }
-                say.call("#{requests.size} gems with zr #{Gems::Table.commit}; rows in #{files.join(" and ")}")
+                say.call("#{requests.size} gems with zr #{Dev::Gems::Table.commit}; rows in #{files.join(" and ")}")
                 rows = @c_scan ? c_scan(requests, capi, say) : sweep(requests, tables, capi, say)
                 say.call("stopped after #{rows.size} of #{requests.size} gems") if rows.size < requests.size
                 say.call(summary(rows, requests.size)) unless @c_scan
@@ -98,9 +99,9 @@ module Zr
             trial = trial()
             each_done(requests, say, nil, capi) do |request|
               name, scans = trial.scan(request)
-              Gems::Result.new(name: name, version: "", source: "", tier: :skipped, kind: "c-scan", detail: nil, log: nil, scans: scans)
-            rescue Gems::Failure, Gem::Exception, SystemCallError, SocketError => e
-              Gems::Result.new(name: request.label, version: "", source: "", tier: :fails, kind: "resolve",
+              Dev::Gems::Result.new(name: name, version: "", source: "", tier: :skipped, kind: "c-scan", detail: nil, log: nil, scans: scans)
+            rescue Dev::Gems::Failure, Gem::Exception, SystemCallError, SocketError => e
+              Dev::Gems::Result.new(name: request.label, version: "", source: "", tier: :fails, kind: "resolve",
                                detail: e.message.lines.first&.chomp, log: nil)
             end
           end
@@ -148,7 +149,7 @@ module Zr
           # that zr's C API lacks, and the files that compiled when not all
           # did. A function that `ruby` lacks too comes last, apart: it is no
           # gap of zr's. A scan with no compiled file found nothing to count.
-          def lacks(scan, ruby = Gems::CScan::RUBY)
+          def lacks(scan, ruby = Dev::Gems::CScan::RUBY)
             return "#{scan.gem} has no C files" if scan.sources.zero?
             return "#{scan.gem} did not compile (0/#{scan.sources})" if scan.compiled.zero?
 
@@ -163,7 +164,7 @@ module Zr
           # Writes the ranking of `rows` (CScan.rank) to `path` and says its
           # head.
           def rank(rows, path, say)
-            ranking = Gems::CScan.rank(rows)
+            ranking = Dev::Gems::CScan.rank(rows)
             lines = ["the C API functions that the swept gems wait on (swept gems that need each):",
                      *ranking.functions.map { |function, users| format("%5d  %-40s %s", users.size, function, users.first(6).join(" ")) },
                      "", "the C extensions that the swept gems need (gems that need each; files that compiled; functions it lacks):",
@@ -180,11 +181,11 @@ module Zr
 
           def summary(results, wanted)
             counts = results.map(&:tier).tally
-            tiers = [*Gems::TIERS.reverse, :skipped].filter_map { |tier| "#{counts[tier]} #{tier}" if counts[tier] }
+            tiers = [*Dev::Gems::TIERS.reverse, :skipped].filter_map { |tier| "#{counts[tier]} #{tier}" if counts[tier] }
             "#{results.size} of #{wanted} gems: #{tiers.join(", ")}"
           end
 
-          def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          def now = Timing.now
 
           # The gems of `argv`, then those of `--top`'s ranks. A name in the
           # list that no request can name is skipped, so it does not stop the
@@ -194,13 +195,13 @@ module Zr
 
             top = top_list
             fail!("no gems/top.tsv; run `zr-dev gems top --refresh`") if top.empty?
-            listed, odd = (top.keys[@top] || []).partition { |name| name.match?(Gems::NAME) }
+            listed, odd = (top.keys[@top] || []).partition { |name| name.match?(Dev::Gems::NAME) }
             odd.each { |name| warn "zr-dev #{self.name}: skipped #{name.inspect} of gems/top.tsv: not a gem name this tool takes" }
             argv + listed
           end
 
           # The most downloaded gems, by rank (gems/top.tsv).
-          def top_list = Gems::Top.read
+          def top_list = Dev::Gems::Top.read
 
           # The indexes into gems/top.tsv of `--top`'s ranks, which count
           # from 1: "100" is the first 100, and "1001..2000" the next 1000.

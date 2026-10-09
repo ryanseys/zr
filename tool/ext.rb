@@ -10,7 +10,7 @@ module Zr
   module Dev
     module Commands
       # Tools for C extensions.
-      class ExtTools < Group
+      class Ext < Group
         summary "Tools for C extensions"
 
         # Lists what a C extension takes from ruby, against zr's C API.
@@ -76,7 +76,7 @@ module Zr
             @top = 1000
             @build = false
             @only = nil
-            @store = Gems::TMP
+            @store = Dev::Gems::TMP
           end
 
           def options(o)
@@ -89,11 +89,11 @@ module Zr
           def run(argv)
             fail!("takes no arguments") unless argv.empty?
 
-            entries = ExtRank.ranked(Gems::Table.new(Gems::Table.compat), Gems::Top.read, @top)
+            entries = ExtRank.ranked(Dev::Gems::Table.new(Dev::Gems::Table.compat), Dev::Gems::Top.read, @top)
             entries = entries.select { |entry| @only.include?(entry.name) } if @only
             return entries.each_with_index { |entry, i| puts line(i, entry, entry.blocked.first(4).join(", ")) } unless @build
 
-            fetched = Gems::FetchedGems.new(@store)
+            fetched = Dev::Gems::FetchedGems.new(@store)
             reports = entries.each_with_index.map do |entry, i|
               report = ExtRank.build(entry, fetched)
               puts line(i, entry, "#{report.version} #{summary(report)}")

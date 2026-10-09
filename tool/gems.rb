@@ -17,7 +17,7 @@ module Zr
       # unpacked gem (a word with a `/`). `--corpus DIR` (or ZR_GEM_CORPUS)
       # finds each gem first in DIR/<name>. The tool never lists DIR, so a
       # corpus can hold every gem. docs/how-to/check-a-gem.md tells more.
-      class GemCompat < Group
+      class Gems < Group
         summary "Check which gems zr compiles, and group what stops the others"
 
         commands({
@@ -43,9 +43,9 @@ module Zr
             o.on("--build-only", "run no gem's code: gems from rubygems.org only, built and not run") { @build_only = true }
           end
 
-          def trial(**) = Gems::Trial.new(resolver: resolver, run: !@build_only, **)
+          def trial(**) = Dev::Gems::Trial.new(resolver: resolver, run: !@build_only, **)
 
-          def resolver = Gems::Resolver.new(store: Gems::FetchedGems.new, corpus: corpus, offline: @offline || false)
+          def resolver = Dev::Gems::Resolver.new(store: Dev::Gems::FetchedGems.new, corpus: corpus, offline: @offline || false)
 
           def corpus
             dir = @corpus || ENV.fetch("ZR_GEM_CORPUS", "")
@@ -54,11 +54,11 @@ module Zr
             fail!("--build-only takes no corpus: a corpus gem's .gemspec is Ruby that runs") if @build_only
 
             fail!("no corpus directory #{dir}") unless File.directory?(dir)
-            Gems::Corpus.new(dir)
+            Dev::Gems::Corpus.new(dir)
           end
 
           def request(word)
-            request = Gems::Request.parse(word)
+            request = Dev::Gems::Request.parse(word)
             fail!("--build-only takes no path: the gem's .gemspec is Ruby that runs") if @build_only && request.path
             request
           rescue ArgumentError => e
@@ -76,14 +76,14 @@ module Zr
           # Puts the result's row, with the commit and the downloads, into
           # each table, and writes the tables.
           def record(tables, result)
-            commit = Gems::Table.commit
+            commit = Dev::Gems::Table.commit
             tables.each do |table|
               table.add(result, commit: commit, downloads: downloads[result.name])
               table.write
             end
           end
 
-          def downloads = @downloads ||= Gems::Top.read
+          def downloads = @downloads ||= Dev::Gems::Top.read
         end
       end
     end

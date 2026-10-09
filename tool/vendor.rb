@@ -17,7 +17,7 @@ module Zr
       #   zr-dev vendor outdated        the gems that have a newer release on rubygems.org
       #   zr-dev vendor diff GEM [V]    the files that change from the locked GEM to V (default:
       #                                 the newest), and zr's files that replace one of them
-      class VendorCommand < Group
+      class Vendor < Group
         summary "Write vendor/ (ruby's library and gems, as upstream ships them) again, or check it"
 
         commands({

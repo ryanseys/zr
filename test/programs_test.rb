@@ -21,7 +21,7 @@
 host = ENV["ZR_TEST_HOST"] == "1"
 if host
   require_relative "../tool/hosted"
-  stacks = Zr::Dev::Commands::Hosted::STACK
+  stacks = Zr::Dev::Commands::Host::STACK
   unless stacks.all? { |name, value| ENV[name] == value }
     # bin/minitest requires each file as `./<path>`, from here.
     file = Pathname(__FILE__).relative_path_from(Dir.pwd).to_s

@@ -5,7 +5,7 @@ require_relative "../lib/zr/dev/gems"
 module Zr
   module Dev
     module Commands
-      class GemCompat
+      class Gems
         # `zr-dev gems triage`: the causes that stop gems, the one that
         # stops the most gems first, with the downloads of those gems.
         # `triage KIND` gives each gem of the kinds that start with KIND,
@@ -27,10 +27,10 @@ module Zr
 
           def run(argv)
             fail!("give at most one kind") if argv.size > 1
-            table = Gems::Table.new(@file || Gems::Table.compat)
+            table = Dev::Gems::Table.new(@file || Dev::Gems::Table.compat)
             fail!("#{Dev.rel(table.path)} has no rows; run `zr-dev gems sweep --save`") if table.size.zero?
 
-            groups = Gems::Triage.new(table).groups(argv.first)
+            groups = Dev::Gems::Triage.new(table).groups(argv.first)
             if groups.empty?
               puts argv.empty? ? "no failures in #{Dev.rel(table.path)}" : "no failures of kind #{argv.first}"
               return true

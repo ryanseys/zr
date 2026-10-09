@@ -3,3 +3,6 @@
 
 # The kernel moves from the machine dialect to plain Ruby.
 b94fd1b530ba54faaab068315f400b46bd2ad933
+
+# zr-dev's commands move into Zr::Dev::Commands (indentation only).
+d9831aa1e7bc65cd26516de4ee80fb942e1ffc91

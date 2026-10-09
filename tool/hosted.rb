@@ -9,7 +9,7 @@ module Zr
       # build. The kernel runs as Ruby (`Machine::Host`), and the walker runs
       # the core library, the gem prelude and the program over the kernel's
       # heap (`Machine::Host::Walk`). The exit status is the program's.
-      class Hosted < Command
+      class Host < Command
         summary "Run a program on CRuby over zr's kernel, with no build"
         usage "<file.rb> [args...]"
         host_ruby!

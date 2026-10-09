@@ -21,13 +21,13 @@ module Zr
       "affected" => ["Run the tests that a change can reach", -> { require_relative "affected"; Commands::Affected }],
       "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Commands::Bench }],
       "compile" => ["How long zr takes to compile, and where", -> { require_relative "compile"; Commands::Compile }],
-      "host" => ["Run a program on CRuby over zr's kernel, with no build", -> { require_relative "hosted"; Commands::Hosted }],
-      "golden" =>["Save or check the kernel's lowering on each target", -> { require_relative "golden"; Commands::Golden }],
+      "host" => ["Run a program on CRuby over zr's kernel, with no build", -> { require_relative "hosted"; Commands::Host }],
+      "golden" => ["Save or check the kernel's lowering on each target", -> { require_relative "golden"; Commands::Golden }],
       "stage" => ["Check that zr compiles itself to the same bytes (1 or 2)", -> { require_relative "stage"; Commands::Stage }],
-      "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; Commands::GemCompat }],
+      "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; Commands::Gems }],
       "vendor" => ["Write vendor/ (ruby's library and gems, as upstream ships them) again, or check it",
-                   -> { require_relative "vendor"; Commands::VendorCommand }],
-      "ext" => ["Tools for C extensions: what one imports from ruby", -> { require_relative "ext"; Commands::ExtTools }],
+                   -> { require_relative "vendor"; Commands::Vendor }],
+      "ext" => ["Tools for C extensions: what one imports from ruby", -> { require_relative "ext"; Commands::Ext }],
       "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Commands::Serve }]
     }.freeze
 
