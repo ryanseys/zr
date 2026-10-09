@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "etc"
 require_relative "answer"
 require_relative "clean_env"
 
@@ -104,10 +105,11 @@ module Zr
         Watch.drop(pid) if megabytes
       end
 
-      # One thread reads the memory of all watched groups. It runs `ps`
+      # One thread reads the memory of all watched groups. It reads it
       # once every EVERY seconds while a child is watched, and stops when
-      # none is. One `ps` for each child five times a second causes too
-      # much load when twelve children run.
+      # none is: from /proc on Linux, else from one `ps`. One `ps` for each
+      # child five times a second causes too much load when twelve
+      # children run.
       module Watch
         @groups = {}
         @sample = {}
@@ -127,8 +129,7 @@ module Zr
         end
 
         # The resident kilobytes of the group that `pid` leads, at the last
-        # sample. It is 0 before the first sample, or when ps cannot give
-        # it (busybox's ps has no -o pgid).
+        # sample. It is 0 before the first sample.
         def resident_kb(pid)
           @lock.synchronize { @sample.fetch(pid, 0) }
         end
@@ -153,6 +154,24 @@ module Zr
         end
 
         def read(groups)
+          File.exist?("/proc/self/stat") ? from_proc(groups) : from_ps(groups)
+        end
+
+        # Each process's /proc/<pid>/stat gives its group (field 5) and its
+        # resident pages (field 24), after its name in parentheses. Alpine's
+        # BusyBox `ps` gives neither.
+        def from_proc(groups)
+          page_kb = Etc.sysconf(Etc::SC_PAGESIZE) / 1024
+          Dir["/proc/[0-9]*/stat"].each_with_object(Hash.new(0)) do |path, sample|
+            fields = File.read(path).rpartition(")").last.split
+            pgid = fields.fetch(2).to_i
+            sample[pgid] += fields.fetch(21).to_i * page_kb if groups.key?(pgid)
+          rescue SystemCallError
+            next
+          end
+        end
+
+        def from_ps(groups)
           out = IO.popen(["ps", "-A", "-o", "pgid=,rss="], err: File::NULL, &:read)
           sample = Hash.new(0)
           out.each_line do |line|
