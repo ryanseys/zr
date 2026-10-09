@@ -24,8 +24,8 @@ require_relative "cli/commands/version"
 
 module Zr
   # The `zr` command: `exe/zr` in a checkout, and the gem's executable
-  # once it is installed. The repository's own tools (tests, bootstrap,
-  # benchmarks, generated tables) are rake tasks.
+  # once it is installed. The repository's own tools are `zr-dev`
+  # commands (tool/zr-dev.rb) and bin/minitest; the gem has neither.
   #
   # Each word that `zr` takes first is a command (lib/zr/cli/commands/):
   # `CLI.start` finds its class in `COMMANDS` and runs it. Any other first

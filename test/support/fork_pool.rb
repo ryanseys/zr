@@ -16,8 +16,7 @@ module Zr
     # uses threads. Threads do not help here: a zr compile is Ruby code,
     # and the GVL lets only one thread run it at a time.
     #
-    # The parent loads all test files one time (0.4 s and 68 MB for the
-    # old spec tier). Each worker is a fork of the parent, so it does not load
+    # The parent loads all test files one time. Each worker is a fork of the parent, so it does not load
     # them again. The unit of work is one example, not one file, so no
     # worker is idle while another worker has many examples left.
     #

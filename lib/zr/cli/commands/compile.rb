@@ -287,8 +287,8 @@ module Zr
         end
 
         # A `zr run` whose binary is in the run cache: execs the binary now,
-        # before zr looks for a compiled compiler or starts again with the
-        # collector limits (40 ms each). This process then is the program, so
+        # before zr hands the command to a build server or starts again with
+        # the collector limits (40 ms each). This process then is the program, so
         # its status and signals are the program's own. Does nothing for any
         # other command, for a `zr run` that needs a build, and in the second
         # start (whose first start already looked).

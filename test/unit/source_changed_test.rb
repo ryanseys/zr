@@ -9,8 +9,7 @@ require_relative "../support/binaries"
 # A cache key contains the digest of the sources that a build read. If a
 # source changes while the build runs, what the build makes after that
 # is a mix of two trees. A cache then returns that mix for the key until
-# the source changes again (the spec tier had three hundred such
-# binaries). Thus a runtime records the file stamp (mtime and size) of
+# the source changes again. Thus a runtime records the file stamp (mtime and size) of
 # every file that its digest covers, and each cache write first checks
 # whether one of them has changed.
 class SourceChangedTest < Minitest::Test

@@ -9,7 +9,8 @@ require_relative "../../lib/zr/hir"
 # decide if the enclosing method arms the catch for a `return`.
 #
 # Each case below was checked against ruby 4.0.7 first.
-# `test/spec/lang/eval/eval_test.rb` checks the same cases end to end.
+# The programs in `test/programs/lang/eval/` check the same cases end to
+# end.
 class EvalCallTest < Minitest::Test
   Build = Zr::Hir::Build
 

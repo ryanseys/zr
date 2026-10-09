@@ -121,7 +121,7 @@ class ParseCacheTest < Minitest::Test
   end
 
   # A second parse of a source in the same process returns the tree that
-  # the memo contains, and reads no file. A worker of the spec tier runs a
+  # the memo contains, and reads no file. A worker can run a
   # hundred examples that each require "set". Without the memo, almost all
   # of that time goes to unmarshalling the tree of set.rb a hundred times.
   def test_parse_returns_memoized_tree_without_reading_the_cache

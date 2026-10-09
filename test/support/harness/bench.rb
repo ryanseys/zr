@@ -237,11 +237,11 @@ module Zr
       end
 
       # The short hash of HEAD, with `-dirty` when the tree has changes
-      # under `lib`, `runtime` or `benchmark`. `unknown` outside git.
+      # under `lib` or `benchmark`. `unknown` outside git.
       def revision
         rev = Dev.revision(dir: @root) or return "unknown"
 
-        changed = Dev.git("status", "--porcelain", "--", "lib", "runtime", "benchmark", dir: @root).to_s.lines.reject { |l| l.include?(RESULTS) }
+        changed = Dev.git("status", "--porcelain", "--", "lib", "benchmark", dir: @root).to_s.lines.reject { |l| l.include?(RESULTS) }
         changed.empty? ? rev : "#{rev}-dirty"
       end
 

@@ -113,12 +113,11 @@ module Zr
           @io.puts format("%-36s %s", "all #{rows.size} directories", rows.sum(Spent.zero, &:last))
         end
 
-        # Returns the area directory of the test file, for example
-        # `test/spec/core/string`. For a file that is not that deep, it
-        # returns the path of the file.
+        # Returns the path of the test file from `test/`, for example
+        # `test/unit/cache_test.rb`.
         def directory(result)
           file = result.source_location.first.to_s
-          file[%r{test/(?:spec|e2e)/[^/]+/[^/]+}] || file[%r{test/.*\z}] || file
+          file[%r{test/.*\z}] || file
         end
       end
     end

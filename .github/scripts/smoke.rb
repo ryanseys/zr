@@ -4,8 +4,7 @@
 # would: `zr version` and `zr doctor`, then a program as a WASI module
 # and as an object. On an Apple Silicon Mac it also runs the program as
 # a native binary; on any other host it checks that zr writes a macOS
-# binary, refuses to run it, and never starts the compiled compiler's
-# self-build. CI and the release workflow run it on the .gem they
+# binary and refuses to run it. CI and the release workflow run it on the .gem they
 # publish.
 #
 #   ruby .github/scripts/smoke.rb [--user-cache] zr-0.1.0.gem [DIR]
@@ -70,14 +69,11 @@ unless status.exitstatus == 2 && out == %(zr: ZR_JOBS is "abc". Set it to a whol
   abort "smoke: ZR_JOBS=abc gave status #{status.exitstatus} and #{out.inspect}"
 end
 
-# The first build: a host that cannot run a macOS binary must not start
-# the compiled compiler's self-build.
 native_host = RbConfig::CONFIG["host_os"].start_with?("darwin") && %w[arm64 aarch64].include?(RbConfig::CONFIG["host_cpu"])
 puts "$ #{zr} build sum.rb -o sum.wasm --emit wasm"
 _, err, status = Open3.capture3(env, zr, "build", "sum.rb", "-o", "sum.wasm", "--emit", "wasm", chdir: smoke)
 $stderr.print err
 abort "smoke: zr build --emit wasm exited #{status.exitstatus}" unless status.success?
-abort "smoke: this host started the self-build of a compiler it cannot run" if !native_host && err.include?("zr is compiling itself")
 
 run.(zr, "build", "sum.rb", "-o", "sum.o", "--emit", "obj")
 expect.(run.("wasmtime", "sum.wasm"), "wasmtime sum.wasm")
