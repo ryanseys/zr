@@ -130,8 +130,9 @@ A published version cannot change. If a release is broken:
 
 ## What the gem contains
 
-The gem contains the compiler, the runtime, the vendored sources and
-the license texts. It contains no binary: a release ships the
+The gem contains the compiler, the runtime, the vendored library
+(`vendor/ruby`), ruby's headers and `rbconfig.rb` for each target that
+builds C extensions (`vendor/targets`), and the license texts. It contains no binary: a release ships the
 platform-independent gem only. The host ruby runs zr (`exe/zr`). On
 the first build, an installed gem builds the runtime into the user's
 cache, and tells the user (`lib/zr/runtime.rb`).

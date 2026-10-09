@@ -35,10 +35,12 @@ Gem::Specification.new do |spec|
   }
 
   # The compiler, its runtime and the vendored library (vendor/ruby, as
-  # upstream ships it; vendor/src holds only what the tools read). The
+  # upstream ships it), and each target's ruby headers and rbconfig.rb for
+  # C extensions (vendor/targets). vendor/src holds only what the tools
+  # read. The
   # tests and the tasks stay in the repository.
   spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL, &:read).split("\x0").select do |file|
-    file.match?(%r{\A(exe|lib|licenses|vendor/(ruby|LICENSES))/}) || file == "vendor/vendor.lock" ||
+    file.match?(%r{\A(exe|lib|licenses|vendor/(ruby|LICENSES|targets))/}) || file == "vendor/vendor.lock" ||
       %w[LICENSE.txt THIRD_PARTY_NOTICES.md README.md CHANGELOG.md].include?(file)
   end
   # Outside a git checkout, the list is empty, and so would the gem be.
