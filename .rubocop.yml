@@ -67,7 +67,7 @@ Lint/BinaryOperatorWithIdenticalOperands: { Exclude: ["lib/zr/runtime/kernel/**/
 # The kernel (lib/zr/runtime/kernel) is typed Ruby: zr lowers it, and
 # plan A7 runs it on ruby too. Only the Lint cops above apply to it.
 Layout: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
-Style: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
+Style: { Exclude: ["lib/zr/runtime/kernel/**/*", "test/**/*"] }
 Naming: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 Metrics: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 
