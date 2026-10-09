@@ -187,7 +187,7 @@ jobs:
             git init -q /tmp/ruby && git -C /tmp/ruby fetch -q --depth 1 https://github.com/ruby/ruby.git "$rev" &&
             git clone -q --depth 1 --branch v1.9.0 https://github.com/ruby/prism.git /tmp/prism &&
             RUBY_SRC=/tmp/ruby PRISM_SRC=/tmp/prism ruby tool/zr-dev.rb vendor &&
-            git diff --exit-code vendor lib/zr/stdlib.rb'
+            git diff --exit-code vendor lib/zr/library/stdlib.rb'
       - name: Build the runtime for the checks
         run: docker exec alpine bundle exec rake build
       - name: Run the units this target answers
