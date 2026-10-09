@@ -69,6 +69,18 @@ class ExtTest < Minitest::Test
                  Zr::Ext::Makefile.new(text, dir: "/b").libraries
   end
 
+  # An extconf that adds its own archive to $LDFLAGS (hiredis's
+  # libhiredis.a) has it in DLDFLAGS, after LIBPATH as mkmf's rule links
+  # it. Only the libraries of DLDFLAGS come: its other words are options
+  # for a bundle's link.
+  def test_the_libraries_take_the_archives_of_dldflags
+    text = "ldflags = -L. -rdynamic -Wl,-z,relro ./../../vendor/hiredis/libhiredis.a -lextra\n" \
+           "dldflags = -undefined dynamic_lookup -multiply_defined suppress\nDLDFLAGS = $(ldflags) $(dldflags)\n" \
+           "LIBPATH = -L/usr/lib\nLIBS = -lm\n"
+    assert_equal %w[-L/usr/lib -L/b/ext/hiredis_ext /b/vendor/hiredis/libhiredis.a -lextra -lm],
+                 Zr::Ext::Makefile.new(text, dir: "/b/ext/hiredis_ext").libraries
+  end
+
   # mkmf on Linux links an extension with libruby (LIBRUBYARG_SHARED in
   # LIBS, or the static one); a zr binary is the ruby and links neither.
   def test_the_libraries_leave_out_rubys_own_library

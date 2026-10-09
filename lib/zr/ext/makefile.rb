@@ -80,15 +80,20 @@ module Zr
       def objects = words("OBJS").map { |name| File.expand_path(name, dir) }
 
       # The words that the link takes for libraries, as mkmf's link rule
-      # gives them: LIBPATH, then LOCAL_LIBS, then LIBS. A directory or an
-      # archive in the Makefile's directory is made absolute, so the link
-      # can run elsewhere. Ruby's own library is left out: a zr binary is
+      # gives them: LIBPATH, then the libraries of DLDFLAGS, then
+      # LOCAL_LIBS, then LIBS. An extconf that adds its own archive to
+      # $LDFLAGS (hiredis's libhiredis.a) puts it in DLDFLAGS, whose other
+      # words are options for linking a bundle, which zr does not take. A
+      # directory or an archive in the Makefile's directory is made
+      # absolute, so the link can run elsewhere. Ruby's own library is
+      # left out: a zr binary is
       # the ruby. mkmf on Linux names it in LIBS (`-lruby`, from
       # LIBRUBYARG_SHARED), and a static binary has no libruby to link.
       #: () -> Array[String]
       def libraries
         own = ["-l#{self["RUBY_SO_NAME"]}", "-l#{self["RUBY_SO_NAME"]}-static"]
-        (words("LIBPATH") + words("LOCAL_LIBS") + words("LIBS")).reject { |word| own.include?(word) }.map do |word|
+        linked = words("DLDFLAGS").select { |word| word.start_with?("-l", "-L") || word.end_with?(".a", ".o") }
+        (words("LIBPATH") + linked + words("LOCAL_LIBS") + words("LIBS")).reject { |word| own.include?(word) }.map do |word|
           if word.start_with?("-L") && !word.start_with?("-L/") then "-L#{File.expand_path(word.delete_prefix("-L"), dir)}"
           elsif word.end_with?(".a") && !word.start_with?("/", "-") then File.expand_path(word, dir)
           else word
