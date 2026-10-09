@@ -10,19 +10,19 @@ module Zr::Kern
   # ruby_qsort: sorts `nel` records of `size` bytes at `base` with C's
   # `cmp(a, b, data)`, as ruby does on darwin: with libc's BSD qsort_r,
   # so equal records end in ruby's order. BSD's comparator takes its
-  # data first; zr_os_qsort_cmp passes the call on in C's order.
+  # data first; zr_darwin_qsort_cmp passes the call on in C's order.
   #: (ptr, word, word, ptr, word) -> void
   def zr_os_c_qsort(base, nel, size, cmp, data)
     thunk = Machine.slot(16)
     Machine.store64(thunk, 0, Machine.word(cmp))
     Machine.store64(thunk, 8, data)
-    Libc.qsort_r(base, nel, size, thunk, Machine.addr(:zr_os_qsort_cmp))
+    Libc.qsort_r(base, nel, size, thunk, Machine.addr(:zr_darwin_qsort_cmp))
   end
 
   # qsort_r calls this C-entry def. A C comparator that raises unwinds
   # out of the sort, as its longjmp does in ruby.
   #: (ptr, ptr, ptr) -> i32
-  def zr_os_qsort_cmp(thunk, a, b)
+  def zr_darwin_qsort_cmp(thunk, a, b)
     Machine.gates_enter
     zr_c_entered()
     argv = Machine.slot(64)

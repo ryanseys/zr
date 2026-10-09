@@ -15,15 +15,11 @@ module Zr::Kern
     zr_str_new(Machine.bytes("arm64-darwin23"), 14)
   end
 
-  # A path as macOS takes it, UTF-8, as ruby's rb_str_encode_ospath
-  # gives it: a path in another encoding (not binary) is converted.
-  #: (value) -> value
-  def zr_os_ospath(path)
-    source = zr_str_encoding_index(path)
-    if source == ENC_BINARY || source == ENC_UTF8
-      return path
-    end
-    zr_capi_str_conv(path, source, ENC_UTF8)
+  # Whether this OS takes a path in UTF-8: macOS does, so ruby's
+  # rb_str_encode_ospath converts a path in another encoding.
+  #: () -> word
+  def zr_os_ospath_utf8
+    1
   end
 
   # The locale's codeset, as ruby's main sets it: setlocale(LC_CTYPE, "")

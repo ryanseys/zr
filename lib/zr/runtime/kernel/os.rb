@@ -54,6 +54,7 @@
 #   zr_os_fdopen         [I32, Ptr] => Ptr
 #   zr_os_machine_bytes  [] => Word
 #   zr_os_locale_charmap [] => Value
+#   zr_os_ospath_utf8    [] => Word
 #
 # stacks, shared memory and loaded code
 #   zr_os_stack_low      [] => Word

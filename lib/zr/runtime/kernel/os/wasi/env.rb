@@ -10,11 +10,12 @@ module Zr::Kern
     zr_str_new(Machine.bytes("wasm32-wasi"), 11)
   end
 
-  # A path as this OS takes it: its bytes, whatever their encoding, as
-  # ruby's rb_str_encode_ospath gives it outside macOS and Windows.
-  #: (value) -> value
-  def zr_os_ospath(path)
-    path
+  # Whether this OS takes a path in UTF-8: no, it takes its bytes,
+  # whatever their encoding, as ruby's rb_str_encode_ospath gives it
+  # outside macOS and Windows.
+  #: () -> word
+  def zr_os_ospath_utf8
+    0
   end
 
   # WASI has no locale: the core gives the codeset that wasi-libc, a musl,
