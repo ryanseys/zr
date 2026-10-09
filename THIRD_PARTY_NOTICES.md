@@ -8,7 +8,7 @@ version, its license, and where its license text is.
 
 `vendor/` holds code that other people wrote, byte for byte as they
 ship it. Nobody edits a file there: `zr-dev vendor` writes it from
-`lib/zr/vendor.rb`, and `vendor/vendor.lock` names each source (a ruby
+`lib/zr/library/vendor.rb`, and `vendor/vendor.lock` names each source (a ruby
 revision, a `.gem` with its SHA-256, a git tag) and the SHA-256 of each
 file. A program that zr builds carries the files it requires from it,
 under each one's own license.
@@ -31,6 +31,11 @@ under each one's own license.
   BSD-2-Clause, and test-unit is Ruby, BSD-2-Clause or PSFL.
 - `vendor/src/prism-1.9.0` holds prism's `config.yml` and templates, from
   its git tag, which only `zr-dev gen prism` reads (MIT).
+- `vendor/targets/aarch64-linux-musl` holds ruby 4.0.7's C headers
+  (`include/ruby-4.0.0`) and its `rbconfig.rb` for that target, as the
+  image `docker.io/library/ruby` that `vendor/vendor.lock` names has
+  them. zr builds a C extension for that target with them. They are
+  under Ruby or BSD-2-Clause (`vendor/LICENSES/ruby`).
 
 The gems whose C zr ports, at zr's versions:
 
@@ -53,14 +58,13 @@ The gems whose C zr ports, at zr's versions:
 
 | File | Derived from | License |
 |---|---|---|
-| `lib/zr/runtime/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as vendored by the json gem | MIT |
-| `lib/zr/runtime/kernel/float.rb` (the Ryu section), `lib/zr/runtime/kernel/ryu_tables.rb` | Ryu (Ulf Adams) | Apache-2.0 or Boost-1.0 |
+| `lib/zr/runtime/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as the json gem 3.0.2 vendors it; the license texts are in `licenses/fpconv.txt` | MIT, and Boost-1.0 for the json gem's copy |
+| `lib/zr/runtime/kernel/float.rb` (the Ryu section), `lib/zr/runtime/kernel/ryu_tables.rb` | Ryu (Ulf Adams); the license texts are in `licenses/ryu.txt` | Apache-2.0 or Boost-1.0 |
 | `lib/zr/runtime/core/regexp/onig.rb`, `lib/zr/runtime/core/regexp/onig/*.rb`, `lib/zr/runtime/core/regexp/unicode_tables.rb`, `lib/zr/runtime/kernel/regexp.rb`, `lib/zr/runtime/kernel/onig_enc.rb`, `lib/zr/runtime/kernel/onig_stack.rb`, `lib/zr/runtime/kernel/onig_match.rb`, `lib/zr/runtime/kernel/onig_cache.rb`, `lib/zr/runtime/kernel/onig_search.rb` | Onigmo, the regular expression engine of CRuby 4.0.7 (K. Kosako, K. Takata); the license text is in `lib/zr/runtime/kernel/regexp.rb` | BSD-2-Clause |
 | `lib/zr/runtime/core/regexp_pattern.rb` | CRuby 4.0.7's `re.c` (the preprocess, encoding and description functions) | Ruby or BSD-2-Clause |
 | `lib/zr/runtime/ext/prism/prism.rb`, `lib/zr/runtime/ext/prism/ruby/*.rb` | prism 1.9.0's C (the parser, lexer, encodings, options, serializer and extension); the license text is in `vendor/ruby/lib/ruby/gems/4.0.0/gems/prism-1.9.0/LICENSE.md` | MIT |
 | `lib/zr/runtime/ext/openssl.so.rb`, `lib/zr/runtime/ext/openssl/ossl/*.rb` | the C half of ruby's openssl gem 4.0.2 (`ext/openssl/ossl*.c` in CRuby 4.0.7); the license text is in `vendor/LICENSES/openssl/COPYING` | Ruby or BSD-2-Clause |
 | `lib/zr/runtime/kernel/zlib_check.rb`, `lib/zr/runtime/kernel/zlib_tables.rb`, `lib/zr/runtime/kernel/zlib_stream.rb`, `lib/zr/runtime/kernel/zlib_inftrees.rb`, `lib/zr/runtime/kernel/zlib_inffast.rb`, `lib/zr/runtime/kernel/zlib_inflate.rb`, `lib/zr/runtime/kernel/zlib_trees.rb`, `lib/zr/runtime/kernel/zlib_deflate.rb`, `lib/zr/runtime/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `lib/zr/runtime/kernel/zlib.rb` | Zlib |
-
 | `lib/zr/runtime/core/random.rb` | MT19937 (Makoto Matsumoto and Takuji Nishimura), as CRuby 4.0.7's `missing/mt19937.c` has it; the license text is in `licenses/mt19937.txt` | BSD-3-Clause |
 | `lib/zr/runtime/kernel/digest.rb`, `lib/zr/runtime/ext/digest/*.rb`, `lib/zr/runtime/ext/digest.so.rb` | CRuby 4.0.7's `ext/digest`: MD5 (L. Peter Deutsch, Aladdin Enterprises; `licenses/md5.txt`, zlib-style), RIPEMD-160 (Antoon Bosselaers, Katholieke Universiteit Leuven; `licenses/rmd160.txt`, BSD), SHA-2 (Aaron D. Gifford; `licenses/sha2.txt`, BSD-3-Clause), SHA-1 (Steve Reid, public domain), and ruby's own glue | as named, and Ruby or BSD-2-Clause for the glue |
 | `lib/zr/runtime/ext/psych/libyaml/*.rb` | libyaml 0.2.5 (Kirill Simonov, Ingy döt Net); the license text is in `licenses/libyaml.txt` | MIT |
@@ -81,7 +85,7 @@ in `licenses/`.
 A binary or a WASI module that zr builds contains the zr runtime, so it
 contains code from some of the parts above. Every program contains
 Onigmo (BSD-2-Clause), MT19937 (BSD-3-Clause), Ryu (Apache-2.0 or
-Boost-1.0), fpconv (MIT), the Unicode tables (Unicode-3.0) and ruby's
+Boost-1.0), fpconv (MIT and Boost-1.0), the Unicode tables (Unicode-3.0) and ruby's
 own code (Ruby or BSD-2-Clause). A program that requires zlib, digest,
 psych, nkf, json, ffi or openssl also contains that part, and the files
 it requires from ruby's library.
@@ -95,3 +99,4 @@ one way to do that.
 ## Benchmarks (repository only, not in the gem)
 
 `benchmark/` holds benchmarks from spinel (MIT); see `benchmark/UPSTREAM.md`.
+The license text is in `benchmark/LICENSE.txt`.

@@ -4,7 +4,8 @@ module Zr::Kern
   # number. JSON's generator writes each finite Float with it.
   #
   # Derived from fpconv (Copyright (c) 2013 Andreas Samoljuk, MIT License),
-  # as vendored by the json gem. See THIRD_PARTY_NOTICES.md.
+  # as the json gem vendors it (Boost Software License 1.0). See
+  # THIRD_PARTY_NOTICES.md and licenses/fpconv.txt.
   FPCONV_EXPMASK = 9218868437227405312
   FPCONV_FRACMASK = 4503599627370495
   FPCONV_HIDDENBIT = 4503599627370496

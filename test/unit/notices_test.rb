@@ -14,14 +14,18 @@ class NoticesTest < Minitest::Test
 
   def tracked(dir) = IO.popen(["git", "-C", ROOT, "ls-files", dir], &:read).split("\n")
 
-  def paths = NOTICES.scan(/`([^`]+)`/).flatten.grep(%r{\A(lib/zr/runtime|vendor|licenses)/}).uniq
+  # The repository paths that the notices name. A heading names a whole
+  # part (`lib/zr/runtime/`), not a file in it, so it covers nothing.
+  def paths
+    NOTICES.lines.grep_v(/\A#/).join.scan(/`([^`]+)`/).flatten.grep(%r{\A(lib|vendor|licenses|benchmark)/}).uniq
+  end
 
   def covered?(file)
     paths.any? { |path| File.fnmatch(path, file, File::FNM_PATHNAME) || file.start_with?("#{path.chomp("/")}/") }
   end
 
   def test_every_path_names_a_file
-    files = tracked("lib/zr/runtime") + tracked("vendor") + tracked("licenses")
+    files = tracked("lib") + tracked("vendor") + tracked("licenses") + tracked("benchmark")
 
     stale = paths.reject { |path| files.any? { |file| File.fnmatch(path, file, File::FNM_PATHNAME) || file.start_with?("#{path.chomp("/")}/") } }
 
@@ -29,7 +33,9 @@ class NoticesTest < Minitest::Test
   end
 
   def test_every_runtime_file_from_other_work_is_named
-    derived = tracked("lib/zr/runtime").grep(/\.rb\z/).select { |file| File.foreach(File.join(ROOT, file)).first(20).join.match?(SOURCE) }
+    derived = tracked("lib/zr/runtime").grep(/\.rb\z/).select do |file|
+      File.foreach(File.join(ROOT, file)).first(20).grep(/\A\s*#/).join.match?(SOURCE)
+    end
 
     missing = derived.reject { |file| covered?(file) }
 
@@ -44,6 +50,23 @@ class NoticesTest < Minitest::Test
     end
 
     assert_equal [], missing
+  end
+
+  # Each text in licenses/ is there for a part that the notices name.
+  def test_every_license_text_is_named
+    unnamed = tracked("licenses").reject { |file| paths.include?(file) }
+
+    assert_equal [], unnamed
+  end
+
+  # Each top-level entry of vendor/ (ruby, src, targets, LICENSES, the
+  # lock) is a part with its own source and license.
+  def test_every_part_of_vendor_is_named
+    parts = tracked("vendor").map { |file| file.split("/").first(2).join("/") }.uniq
+
+    unnamed = parts.reject { |part| paths.any? { |path| path == part || path.start_with?("#{part}/") } }
+
+    assert_equal [], unnamed
   end
 
   def test_the_gem_ships_the_license_texts
