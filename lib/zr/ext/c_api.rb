@@ -56,7 +56,7 @@ module Zr
           next if lacking.empty?
 
           raise Refused, "#{File.basename(source.bundle)}: zr's C API has no #{lacking.join(", ")} yet " \
-                         "(`zr-dev ext imports #{source.binaries.join(" ")}` lists what it uses)"
+                         "(report it: #{ISSUES_URL})"
         end
       end
 

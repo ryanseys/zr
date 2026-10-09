@@ -79,7 +79,7 @@ runs. If one is missing, the build stops with exit status 3 and names
 it:
 
 ```
-zr: foo.bundle: zr's C API has no rb_foo yet (`zr-dev ext imports foo.bundle` lists what it uses)
+zr: foo.bundle: zr's C API has no rb_foo yet (report it: https://github.com/ryanseys/zr/issues)
 ```
 
 Do one of these:
