@@ -124,10 +124,13 @@ module Zr
       UNBUNDLED = %w[BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_SETUP BUNDLER_VERSION RUBYOPT RUBYLIB]
                   .to_h { |name| [name, nil] }.freeze
 
-      # The installed gem `name`'s newest version, or nil.
+      # The installed gem `name`'s newest version, or nil. It looks where
+      # an UNBUNDLED child looks: ruby's own gems and GEM_HOME (the
+      # docker ruby images install gems in /usr/local/bundle).
       #: (String name) -> String?
       def installed(name)
-        Dir[File.join(Gem.default_dir, "specifications", "#{name}-*.gemspec")]
+        (Gem.path | [Gem.default_dir])
+          .flat_map { |dir| Dir[File.join(dir, "specifications", "#{name}-*.gemspec")] }
           .filter_map { |path| Gem::Specification.load(path) }
           .select { |spec| spec.name == name }
           .max_by(&:version)&.version&.to_s
