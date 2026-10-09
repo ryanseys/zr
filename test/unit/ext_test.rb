@@ -69,6 +69,16 @@ class ExtTest < Minitest::Test
                  Zr::Ext::Makefile.new(text, dir: "/b").libraries
   end
 
+  # mkmf on Linux links an extension with libruby (LIBRUBYARG_SHARED in
+  # LIBS, or the static one); a zr binary is the ruby and links neither.
+  def test_the_libraries_leave_out_rubys_own_library
+    text = "RUBY_SO_NAME = ruby\nlibdir = /usr/local/lib\nLIBRUBYARG_SHARED = -Wl,-rpath,$(libdir) -L$(libdir) -l$(RUBY_SO_NAME)\n" \
+           "LIBRUBYARG_STATIC = -l$(RUBY_SO_NAME)-static\nLIBPATH = -L. -L$(libdir)\n" \
+           "LIBS = $(LIBRUBYARG_SHARED) $(LIBRUBYARG_STATIC) -lm -lruby2 -lc\n"
+    assert_equal %w[-L/b -L/usr/local/lib -Wl,-rpath,/usr/local/lib -L/usr/local/lib -lm -lruby2 -lc],
+                 Zr::Ext::Makefile.new(text, dir: "/b").libraries
+  end
+
   # mkmf's template alone is standard, also with a depend file's header
   # lines; a rule of the extconf's own is not.
   def test_a_makefile_is_standard_when_its_rules_are_mkmfs

@@ -82,10 +82,13 @@ module Zr
       # The words that the link takes for libraries, as mkmf's link rule
       # gives them: LIBPATH, then LOCAL_LIBS, then LIBS. A directory or an
       # archive in the Makefile's directory is made absolute, so the link
-      # can run elsewhere.
+      # can run elsewhere. Ruby's own library is left out: a zr binary is
+      # the ruby. mkmf on Linux names it in LIBS (`-lruby`, from
+      # LIBRUBYARG_SHARED), and a static binary has no libruby to link.
       #: () -> Array[String]
       def libraries
-        (words("LIBPATH") + words("LOCAL_LIBS") + words("LIBS")).map do |word|
+        own = ["-l#{self["RUBY_SO_NAME"]}", "-l#{self["RUBY_SO_NAME"]}-static"]
+        (words("LIBPATH") + words("LOCAL_LIBS") + words("LIBS")).reject { |word| own.include?(word) }.map do |word|
           if word.start_with?("-L") && !word.start_with?("-L/") then "-L#{File.expand_path(word.delete_prefix("-L"), dir)}"
           elsif word.end_with?(".a") && !word.start_with?("/", "-") then File.expand_path(word, dir)
           else word
