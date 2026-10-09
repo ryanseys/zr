@@ -163,6 +163,22 @@ in the string does not reach that Binding.
 Backtraces give the interpreter's own files, not the line of the
 string.
 
+## Where the code is
+
+The code of eval support is in five places. Some files go into the
+program, and some run on the host that builds it.
+
+| File | What it is | Where it runs |
+|---|---|---|
+| `lib/zr/eval.rb` | `Zr::Eval`, the eval compiler: the entry of eval support on a native target | in the program |
+| `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter: the entry of eval support on wasm, or with `ZR_EVAL=walk` | in the program; the tests also run the walk on ruby |
+| `lib/zr/runtime/lib/zr/eval/` | what only the runtime can give an eval: the symbol table and `using` (`runtime.rb`), the string forms of `eval` over the compiler (`forms.rb`) or over the interpreter (`walk_forms.rb`), and the interpreter's tables (`walking.rb`) | in the program, as files of the runtime's own library |
+| `lib/zr/eval_support.rb` | `Zr::EvalSupport`, which builds eval support once into its own object, with the metadata that a program needs | on the host |
+| `lib/zr/cache/lowering/eval_support.rb` | the cache of each file's lowering in eval support, so an edit lowers one file again, not all of them | on the host |
+
+`Library::Roots.eval_file` (`lib/zr/library/roots.rb`) chooses the
+entry for the target.
+
 ## Limits
 
 - A WASI module contains the whole front end, where a binary links a
