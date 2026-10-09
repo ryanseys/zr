@@ -50,6 +50,8 @@ was built for:
 | `Fiber`, `Thread`, `Ractor` | yes | yes | no: a module has one stack; `Fiber.new` raises `FiberError` |
 | `eval` of a string | yes, with the eval compiler | yes, with the eval compiler | yes, with the tree-walking interpreter |
 | FFI (`ffi`, `fiddle`) | yes | no | no |
+| A gem's real C extension (`--native-ext`) | yes: `static`, `embed` or `dynamic` | yes: `static` only | no: ports only |
+| OpenSSL (`require "openssl"`) | yes, with OpenSSL 3 on the machine | no: a static binary cannot open it | no |
 | Preemption | a timer thread | a timer thread | a count at each safe point |
 | Expected output | `foo.rb.expected` | the same, or `foo.rb.linux.expected` | the same, or `foo.rb.wasi.expected` |
 

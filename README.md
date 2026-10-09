@@ -97,9 +97,15 @@ fibers, threads or ractors. See [Targets](https://github.com/ryanseys/zr/blob/v0
   world", 46 MB as a WASI module, and about 110 MB for a program that
   calls `eval`, which carries the compiler.
 - **Libraries.** A program can require all of ruby 4.0.7's library,
-  and a pure-Ruby gem through a literal `$LOAD_PATH`. A gem with a C
-  extension works only if zr has a Ruby port of its C. See
-  [How to use a library or a gem](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/use-a-library-or-gem.md).
+  and a pure-Ruby gem through a literal `$LOAD_PATH`. For a gem with a
+  C extension, zr uses its Ruby port of the C when it has one. With
+  `--native-ext`, a binary runs the gem's real C extension instead,
+  through zr's own copy of ruby 4.0's C API, on macOS and on aarch64
+  Linux. The tests run 30 such gems, among them nokogiri, msgpack, puma,
+  byebug and google-protobuf, and compare their output with ruby's. A
+  static Linux binary cannot open OpenSSL. See
+  [How to use a library or a gem](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/use-a-library-or-gem.md)
+  and [How to use a C extension](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/use-a-c-extension.md).
 - **Refusals.** A few forms and libraries are refused at build time.
   [What zr supports](https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/support.md) lists them, and
   [Differences from ruby](https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/differences-from-ruby.md) lists

@@ -30,8 +30,10 @@ A `require` of one of these names compiles, and raises
 require that never runs costs nothing. Every other library of
 ruby 4.0.7 is there: the default and bundled gems, and ruby's
 own `lib/`. A gem that ruby does not ship comes from `--gem` or a
-Gemfile.lock, and a gem with a C extension needs a port (see
-[How to use a library or a gem](../how-to/use-a-library-or-gem.md)).
+Gemfile.lock. A gem with a C extension needs a port, or
+`--native-ext` on macOS or aarch64 Linux (see
+[How to use a library or a gem](../how-to/use-a-library-or-gem.md)
+and [How to use a C extension](../how-to/use-a-c-extension.md)).
 
 ### `aarch64-apple-darwin`, `aarch64-linux-musl`, `wasm32-wasi`
 

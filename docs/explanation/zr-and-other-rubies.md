@@ -39,8 +39,10 @@ and compiles itself.
 ## When to use something else
 
 - Your program needs a gem with a C extension that zr has not ported
-  ([How to use a library or a gem](../how-to/use-a-library-or-gem.md)),
-  or another ruby version than 4.0.7. Use CRuby.
+  and cannot run: one that calls a function of ruby's C API that zr
+  does not have, or one that needs OpenSSL in a Linux binary
+  ([How to use a C extension](../how-to/use-a-c-extension.md)).
+  Or it needs another ruby version than 4.0.7. Use CRuby.
 - You need an x86_64 or Windows binary. zr does not build one yet
   ([Targets](../reference/targets.md)).
 - You want to run Ruby in a browser. zr builds WASI modules for an

@@ -3,6 +3,8 @@
 This guide shows you how to build a program that uses a gem's real C
 extension, such as msgpack's or nokogiri's. zr compiles your Ruby, and
 the binary runs the gem's C code as ruby 4.0 would run it.
+This works on macOS on Apple silicon and on aarch64 Linux (the static
+`aarch64-linux-musl` target).
 
 By default, zr does not do this. For a gem with a C extension, zr uses
 its own port of the C part when it has one (json, strscan, openssl and
@@ -88,9 +90,9 @@ Do one of these:
 - Report the missing name, with the gem and its version, at
   <https://github.com/ryanseys/zr/issues>.
 
-A build in `static` or `embed` mode also stops, and tells you to use
-`--ext=dynamic`, for an extension whose C++ throws exceptions, that uses
-thread-local variables, or that links a library outside macOS.
+On macOS, a build in `static` or `embed` mode also stops, and tells you
+to use `--ext=dynamic`, for an extension whose C++ throws exceptions,
+that uses thread-local variables, or that links a library outside macOS.
 
 ## What is different from ruby
 
@@ -111,7 +113,26 @@ thread-local variables, or that links a library outside macOS.
 - zr runs C extensions on macOS on Apple silicon and on
   aarch64-linux-musl. A musl binary is static, so it links each
   extension from its objects: `embed` and `dynamic` are for macOS.
-  Other targets use ports only.
+  A WASI module uses ports only.
+- Each extension keeps its own copy of a global name that two
+  extensions both define. On macOS ruby does the same. On Linux ruby
+  loads each extension with `RTLD_GLOBAL`, so there the second
+  extension uses the first one's copy, and zr's answer differs.
+
+## Gems that the tests run
+
+The tests in `test/ext` build each of these gems with its real C
+extension and compare the output with ruby's, plain and with the
+collector running at each allocation, on macOS and on Alpine Linux:
+
+bcrypt, bindex, bson, byebug, cgi, debug_inspector, ed25519, erb,
+escape_utils, fast_blank, google-protobuf, hiredis, jaro_winkler,
+msgpack, murmurhash3, nio4r, nokogiri, oj, puma, rbs, rbtree, redcarpet,
+rinku, ruby-prof, stackprof, thrift, unf_ext, websocket-driver,
+yajl-ruby and zstd-ruby.
+
+On Linux, the bcrypt and thrift tests skip: their Ruby requires
+`openssl`, which a static binary cannot open (below).
 
 ## Build for aarch64-linux-musl
 
@@ -144,5 +165,20 @@ $ zr build app.rb --gem nokogiri --native-ext nokogiri \
     --ext-config nokogiri=--use-system-libraries \
     --link-args "$(pkg-config --static --libs libxml-2.0 libxslt libexslt)"
 ```
+
+Some C needs an option for Alpine. Alpine's headers check
+`_FORTIFY_SOURCE`, and zstd-ruby's C does not compile with that check.
+Turn it off for the gem:
+
+```console
+$ zr build app.rb --gem zstd-ruby --native-ext zstd-ruby \
+    --ext-config zstd-ruby=--with-cflags=-U_FORTIFY_SOURCE
+```
+
+A C++ extension links with Alpine's static libstdc++ (`unf_ext`, for
+example). An aarch64-linux-musl binary cannot open OpenSSL, so a gem
+whose Ruby or C requires `openssl` does not run on this target; its
+`require "openssl"` raises `LoadError`
+([Dependencies](../reference/dependencies.md)).
 
 The full list of functions is in [The C API](../reference/c-api.md).

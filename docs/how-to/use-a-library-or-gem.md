@@ -35,8 +35,8 @@ because zr has a Ruby port of its C. Some ports are at a later version
 than ruby 4.0.7 ships, for example json 3.0.2; see
 [Library versions](../reference/differences-from-ruby.md#library-versions).
 To port another one, see
-[How to port a C extension](port-a-c-extension.md). On macOS, a binary
-can also run a gem's real C extension; see
+[How to port a C extension](port-a-c-extension.md). On macOS and on
+aarch64 Linux, a binary can also run a gem's real C extension; see
 [How to use a C extension](use-a-c-extension.md).
 
 ## Your own files

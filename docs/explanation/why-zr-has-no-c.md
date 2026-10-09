@@ -67,8 +67,8 @@ The tests compile it and load it into the test process; see
 
 ## zr has no C, and it runs your gems' C
 
-A gem's own C extension is not zr's C. On macOS, `--native-ext` puts
-a gem's real extension in the binary
+A gem's own C extension is not zr's C. On macOS and on aarch64 Linux,
+`--native-ext` puts a gem's real extension in the binary
 ([How to use a C extension](../how-to/use-a-c-extension.md)). zr does
 not translate that C and does not emulate ruby for it. Instead, zr's
 objects have the same layout in memory as ruby 4.0's: nil and the other

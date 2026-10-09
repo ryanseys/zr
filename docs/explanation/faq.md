@@ -66,8 +66,11 @@ binaries yet. `zr doctor` shows what this host can build. See
 
 ## Does a binary need anything to run?
 
-A macOS or Linux binary needs nothing: no ruby and no gems. A program
-that requires `openssl` needs OpenSSL 3 on the machine that runs it.
+A macOS or Linux binary needs nothing: no ruby and no gems. A gem's C
+extension (`--native-ext`) is linked into the binary. A macOS program
+that requires `openssl` needs OpenSSL 3 on the machine that runs it. A
+Linux binary is static and cannot open OpenSSL, so its
+`require "openssl"` raises `LoadError`.
 A WASI module needs an engine such as [wasmtime](https://wasmtime.dev).
 
 ## Can I distribute the binaries that zr builds?
