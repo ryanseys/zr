@@ -416,8 +416,11 @@ RUBY
   # each allocation, each program takes minutes, past a test's bound.
   UNSTRESSED = %w[bson byebug rbs].freeze
   # unf_ext's C++ throws exceptions, which only dyld's unwinder handles:
-  # its bundle loads with dlopen.
-  BUILD_ENVS = { "unf_ext" => { "ZR_EXT" => "dynamic" } }.freeze
+  # its bundle loads with dlopen. On Linux zr builds zstd-ruby's C as
+  # ruby's install did there: Alpine's fortified headers stop zstd's
+  # C unless _FORTIFY_SOURCE is off (tool/install_reference_gems.rb).
+  BUILD_ENVS = { "unf_ext" => { "ZR_EXT" => "dynamic" },
+                 "zstd-ruby" => Zr::Target::AARCH64_DARWIN.native? ? {} : { "ZR_EXT_CONFIG" => "zstd-ruby=--with-cflags=-U_FORTIFY_SOURCE" } }.freeze
 
   def setup
     skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?

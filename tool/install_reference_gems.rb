@@ -61,6 +61,9 @@ end
 # installs from its source, not as a precompiled gem for the platform
 # (google-protobuf-4.36.2-aarch64-linux-musl has only a .so).
 source = RUBY_PLATFORM.include?("darwin") ? [] : ["--platform", "ruby"]
+# extconf.rb's words for a gem outside macOS: Alpine's fortified headers
+# stop zstd's C unless _FORTIFY_SOURCE is off.
+build_args = RUBY_PLATFORM.include?("darwin") ? {} : { "zstd-ruby" => ["--", "--with-cflags=-U_FORTIFY_SOURCE"] }
 failed += Ref::NATIVE.reject do |gem, version|
   home = Ref.native_home(gem, version)
   next true if Dir[File.join(home, "specifications", "#{gem}-#{version}*.gemspec")].any?
@@ -70,7 +73,7 @@ failed += Ref::NATIVE.reject do |gem, version|
   # Rakefile runs rake).
   path = [home, Gem.default_dir].join(File::PATH_SEPARATOR)
   system(env.merge("GEM_HOME" => home, "GEM_PATH" => path), RbConfig.ruby, "-S", "gem", "install", gem, "-v", version, *source,
-         "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
+         "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", *build_args.fetch(gem, []), out: File::NULL)
 end.to_a
 failed.each { |gem, _| warn "#{gem} did not install" }
 
