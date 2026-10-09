@@ -20,7 +20,7 @@ class CExtWebsocketDriverTest < Minitest::Test
   RUBY
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?
     @version = Zr::Test::CExt.installed("websocket-driver")
     skip "websocket-driver is not installed in this ruby" unless @version
   end

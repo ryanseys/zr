@@ -85,7 +85,7 @@ class CExtBasicsTest < Minitest::Test
   C
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?
     @ext = Zr::Test::CExt.build("hello", SOURCE)
   end
 

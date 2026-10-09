@@ -35,7 +35,7 @@ class CExtNamespacesTest < Minitest::Test
   RUBY
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?
     @left = Zr::Test::CExt.build("left", self.class.source("left", 10))
     @right = Zr::Test::CExt.build("right", self.class.source("right", 20))
   end

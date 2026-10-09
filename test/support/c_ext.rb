@@ -4,6 +4,7 @@ require "digest/sha2"
 require "fileutils"
 require "open3"
 require "rbconfig"
+require_relative "../../lib/zr/target"
 
 module Zr
   module Test
@@ -18,7 +19,9 @@ module Zr
     # test checks that zr gives ruby's answer.
     module CExt
       ROOT = File.expand_path("../..", __dir__)
-      DIR = File.join(ROOT, "tmp", "test-ext")
+      # One directory for each host's ruby: a darwin run and a linux run
+      # of one checkout (in a container) build apart.
+      DIR = File.join(ROOT, "tmp", "test-ext", RbConfig::CONFIG["arch"])
 
       # A built extension: its directory, which a program's require
       # searches, and its bundle and object.
@@ -27,13 +30,23 @@ module Zr
       # The output of one run: stdout, then stderr, then the exit status.
       Output = Data.define(:stdout, :stderr, :status)
 
+      # The hosts where zr runs C extensions: aarch64 darwin, and aarch64
+      # linux with musl, where each one links into a static binary. A test
+      # runs on the host's own target, as ruby there gives each answer.
+      HOSTS = [Target::AARCH64_DARWIN, Target::AARCH64_LINUX_MUSL].freeze
+      UNSUPPORTED = "needs an aarch64-apple-darwin or aarch64-linux-musl host"
+
       module_function
+
+      # Whether this host runs zr's C extensions.
+      #: () -> bool
+      def supported? = HOSTS.any?(&:native?)
 
       #: (String name, String source) -> Built
       def build(name, source)
         config = RbConfig::CONFIG
         dir = File.join(DIR, Digest::SHA256.hexdigest([name, source, config["ruby_version"]].join("\0"))[0, 16])
-        built = Built.new(dir: dir, bundle: File.join(dir, "#{name}.bundle"), object: File.join(dir, "#{name}.o"))
+        built = Built.new(dir: dir, bundle: File.join(dir, "#{name}.#{config["DLEXT"]}"), object: File.join(dir, "#{name}.o"))
         return built if File.exist?(built.bundle)
 
         FileUtils.mkdir_p(dir)

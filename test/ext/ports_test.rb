@@ -28,7 +28,7 @@ class CExtPortsTest < Minitest::Test
   RUBY
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?
   end
 
   def test_the_gems_own_c_runs_in_place_of_the_port

@@ -46,7 +46,7 @@ class CExtModesTest < Minitest::Test
   RUBY
 
   def setup
-    skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
+    skip "embed and dynamic modes load a Mach-O bundle: they need an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
     @ext = Zr::Test::CExt.build("modes", SOURCE)
   end
 
