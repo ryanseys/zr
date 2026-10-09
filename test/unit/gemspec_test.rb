@@ -35,10 +35,11 @@ class GemspecTest < Minitest::Test
   end
 
   # The checkout's path or the home directory in a shipped file would be
-  # a path of the machine that built the gem.
+  # a path of the machine that built the gem. Only a whole path counts: a
+  # checkout at /zr is not named by `lib/zr/`.
   def test_no_file_names_this_machine
-    here = [ROOT, Dir.home].map(&:b)
-    named = spec.files.select { |file| here.any? { |path| File.binread(File.join(ROOT, file)).include?(path) } }
+    here = Regexp.union([ROOT, Dir.home].map { |path| %r{(?<![\w./-])#{Regexp.escape(path)}/}n })
+    named = spec.files.select { |file| File.binread(File.join(ROOT, file)).match?(here) }
     assert_empty named
   end
 
