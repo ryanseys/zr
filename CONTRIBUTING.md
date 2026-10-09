@@ -66,3 +66,7 @@ form by name. See [The contract](docs/explanation/the-contract.md).
 ## Report a security problem
 
 See [SECURITY.md](SECURITY.md).
+
+## Conduct
+
+This project follows the [code of conduct](CODE_OF_CONDUCT.md).

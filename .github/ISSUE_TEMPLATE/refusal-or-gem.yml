@@ -1,0 +1,31 @@
+name: A refusal, or a gem that does not work
+description: zr refuses a form or a library, or a gem (or its C extension) does not build or run.
+labels: [compat]
+body:
+  - type: input
+    id: gem
+    attributes:
+      label: The gem and its version, if it is about a gem
+      placeholder: nokogiri 1.19.4 with --native-ext
+  - type: textarea
+    id: program
+    attributes:
+      label: The smallest program, and the zr command
+      render: ruby
+    validations:
+      required: true
+  - type: textarea
+    id: message
+    attributes:
+      label: What zr says
+      description: The refusal or the error, in full. For a C extension, also the output of `zr-dev ext imports <bundle>` if you have it.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `zr doctor`
+      render: text
+    validations:
+      required: true

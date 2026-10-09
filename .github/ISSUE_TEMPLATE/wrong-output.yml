@@ -1,0 +1,33 @@
+name: A wrong answer or a crash
+description: A compiled program prints something that ruby 4.0.7 does not, or stops.
+labels: [bug]
+body:
+  - type: textarea
+    id: program
+    attributes:
+      label: The smallest program that shows it
+      render: ruby
+    validations:
+      required: true
+  - type: textarea
+    id: ruby
+    attributes:
+      label: What ruby 4.0.7 prints
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: zr
+    attributes:
+      label: What the zr binary prints
+      description: The command that you ran, its output and its exit status.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `zr doctor`
+      render: text
+    validations:
+      required: true
