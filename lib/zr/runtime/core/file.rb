@@ -763,9 +763,14 @@ class File < IO
   def self.realpath(path, dir = nil)
     path = path_of(path)
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
-    result = Primitive.zr_realpath_m(os_path(path))
-    # rb_check_realpath_internal gives the path back in its own encoding.
-    return result.encode(path.encoding) if result.is_a?(String) && result.encoding != path.encoding && path.encoding != Encoding::US_ASCII
+    given = os_path(path)
+    result = Primitive.zr_realpath_m(given)
+    # rb_check_realpath_internal gives the path back in its own encoding:
+    # converted back where os_path converted it (macOS), else its bytes as
+    # they are, which the system kept.
+    if result.is_a?(String) && result.encoding != path.encoding && path.encoding != Encoding::US_ASCII
+      return given.encoding == path.encoding ? result.force_encoding(path.encoding) : result.encode(path.encoding)
+    end
     return result unless result.is_a?(Integer)
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
