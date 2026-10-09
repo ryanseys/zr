@@ -56,13 +56,20 @@ failed = failed.to_a + Ref.ports.reject do |gem, version|
          "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
 end
 # Each gem whose C extension zr runs as it is goes into a GEM_HOME of its
-# own (Ref::NATIVE); its install compiles the extension.
+# own (Ref::NATIVE); its install compiles the extension. Outside macOS a
+# zr binary is static and links an extension from its objects, so a gem
+# installs from its source, not as a precompiled gem for the platform
+# (google-protobuf-4.36.2-aarch64-linux-musl has only a .so).
+source = RUBY_PLATFORM.include?("darwin") ? [] : ["--platform", "ruby"]
 failed += Ref::NATIVE.reject do |gem, version|
   home = Ref.native_home(gem, version)
   next true if Dir[File.join(home, "specifications", "#{gem}-#{version}*.gemspec")].any?
 
   puts "installing #{gem} #{version} into #{home}"
-  system(env.merge("GEM_HOME" => home, "GEM_PATH" => home), RbConfig.ruby, "-S", "gem", "install", gem, "-v", version,
+  # The build may run one of ruby's bundled gems (google-protobuf's
+  # Rakefile runs rake).
+  path = [home, Gem.default_dir].join(File::PATH_SEPARATOR)
+  system(env.merge("GEM_HOME" => home, "GEM_PATH" => path), RbConfig.ruby, "-S", "gem", "install", gem, "-v", version, *source,
          "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
 end.to_a
 failed.each { |gem, _| warn "#{gem} did not install" }
