@@ -125,7 +125,11 @@ module Zr
           embeds = [] #: Array[Obj::MachO::Relink]
           if target.object_format == :elf
             objects += sources.map { |s| ext_object(s, target) }
-            link += sources.flat_map(&:libraries)
+            # The user's words (`--link`) come after the extensions'
+            # libraries. A static archive takes only the names that are
+            # missing when the linker reaches it, so the libraries that a
+            # static libxml2.a needs (-llzma) go after -lxml2.
+            link = sources.flat_map(&:libraries) + link
           else
             loaded, inside = sources.partition { |s| s.mode == :dynamic }
             embeds = inside.map { |s| Obj::MachO::Relink.new(File.binread(ext_bundle(s, target)), init: s.init) }
