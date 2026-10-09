@@ -30,7 +30,7 @@ class CExtRefusalsTest < Minitest::Test
     _, zr = Zr::Test::CExt.outputs(@ext, "require 'refused'\n")
 
     assert_equal 3, zr.status
-    assert_match(/\Azr: refused\.bundle: zr's C API has no rb_zr_no_such_function yet/, zr.stderr)
+    assert_match(/\Azr: refused\.#{RbConfig::CONFIG["DLEXT"]}: zr's C API has no rb_zr_no_such_function yet/, zr.stderr)
     refute_match(/internal error/, zr.stderr)
   end
 end
