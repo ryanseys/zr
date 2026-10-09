@@ -156,7 +156,8 @@ class Socket < BasicSocket
       text = sockaddr.is_a?(Addrinfo) ? sockaddr.to_sockaddr : String.try_convert(sockaddr)
       unless text.nil?
         raise TypeError, "sockaddr length too big" if text.bytesize > SOCKADDR_MAX
-        raise TypeError, "sockaddr size differs - should not happen" unless text.bytesize >= 1 && text.getbyte(0) == text.bytesize
+        # Only where a sockaddr records its length, as ruby checks it.
+        raise TypeError, "sockaddr size differs - should not happen" if SA_LEN && !(text.bytesize >= 1 && text.getbyte(0) == text.bytesize)
 
         return Socket.nameinfo(text, flags)
       end

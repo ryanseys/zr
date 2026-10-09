@@ -10,7 +10,9 @@ class Socket < BasicSocket
   CMSG_HEADER_PACK = "Q<ii"
   CMSG_ALIGN = 8
   KAME = false
-  private_constant :UNIX_PATH_MAX, :CMSG_HEADER, :CMSG_HEADER_PACK, :CMSG_ALIGN, :KAME
+  # Whether a sockaddr records its own length (sa_len).
+  SA_LEN = false
+  private_constant :UNIX_PATH_MAX, :CMSG_HEADER, :CMSG_HEADER_PACK, :CMSG_ALIGN, :KAME, :SA_LEN
 
   class << self
     # The two bytes a sockaddr of `family` starts with; Linux keeps no
