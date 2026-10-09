@@ -116,7 +116,10 @@ module Zr
       def load(target)
         runtime = Runtime.for(target)
         runtime.description
-        return Native::Build.prelink([Native::Build.runtime_object(runtime)]) if target.link
+        # Only a Mach-O link has a prelink to keep; an ELF one links the
+        # runtime object with the target's cc.
+        return Native::Build.prelink([Native::Build.runtime_object(runtime)]) if target.link && target.object_format == :macho
+        return Native::Build.runtime_object(runtime) if target.link
 
         Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Program.build(PLAIN, "built.rb", target: target)))
       end
