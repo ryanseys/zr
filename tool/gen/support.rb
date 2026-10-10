@@ -92,8 +92,11 @@ module Zr
             lists.group_by { |_, text| text }.map { |text, pairs| "### #{pairs.map { |triple, _| "`#{triple}`" }.join(", ")}\n\n#{text}" }.join("\n\n")
           end
 
+          # The baselines of the targets. host.txt is the baseline of
+          # `zr-dev host` (the kernel run on ruby), a check of zr's own, not
+          # a target that a user builds for.
           def baselines
-            Dir[Dev.path("test/baselines/*.txt")].sort.map do |file|
+            Dir[Dev.path("test/baselines/*.txt")].sort.reject { |file| File.basename(file) == "host.txt" }.map do |file|
               rows = File.readlines(file, chomp: true).reject { |line| line.empty? || line.start_with?("#") }.map do |line|
                 key, why = line.split("\t", 2)
                 "| `#{key}` | #{why.to_s.gsub("|", "\\|")} |"
