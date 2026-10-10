@@ -25,7 +25,7 @@ The first public release.
   any host, static `aarch64-linux-musl` binaries with a musl toolchain,
   and object files. zr links a macOS binary itself, so it needs no C
   compiler and no linker.
-- zr has no C. prism 1.9.0 parses through a Ruby port of its C; zlib is
+- zr's own code has no C. prism 1.9.0 parses through a Ruby port of its C; zlib is
   a port of zlib 1.3.1; `Regexp` is a port of Onigmo, CRuby 4.0.7's
   engine; json, psych (with libyaml), openssl, socket, digest, date,
   stringio, strscan, bigdecimal, nkf, ffi and others have Ruby ports of
@@ -35,7 +35,7 @@ The first public release.
   gem through a literal `$LOAD_PATH`. A program that evals, or requires
   a computed name, carries the compiler (native targets) or a
   tree-walking interpreter (wasm32-wasi).
-- ruby runs zr on every host. A build keeps the runtime, the prelinked
+- zr runs on the host's ruby. A build keeps the runtime, the prelinked
   image and each file's machine code in one content store (`<cache>/store/`), which `zr cache` shows and
   cleans. Each build names in a root what the next build needs, so a
   clean keeps it, and an installed zr evicts the entries used longest
@@ -56,7 +56,7 @@ The first public release.
   or the build has `--allow-runtime-require`.
 - `zr doctor` checks the ruby, the host, each target, wasmtime, OpenSSL,
   the standard library and the cache, and says
-  what to do for each problem. [How to install zr](docs/how-to/install.md)
+  what to do for each problem. [How to install zr](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/install.md)
   shows how to get ruby 4.0.7, and lists each problem and its fix.
 - An error prints one line and no backtrace (`ZR_DEBUG=1` shows it).
   A bad `ZR_*` value exits with status 2 and names a value that works.
@@ -75,134 +75,62 @@ The first public release.
 - Documentation in `docs/`: tutorials, how-to guides, reference and
   explanation, with a performance page and a support page that
   `zr-dev gen` writes from the benchmark reports and from the compiler.
-- For contributors: `bin/setup`, `bin/minitest`, `bin/console`, the
-  `bin/zr` and `bin/zr-dev` binstubs, the `zr-dev` tools, and CI for
-  all three targets.
-- Two test tiers: `test/unit` (minitest, plain `def test_...`
-  methods) and `test/programs`, which `test/programs_test.rb` runs as
-  one minitest test for each program. `bin/minitest` runs both, and
-  `rake test:unit` and `rake test:programs` run one.
-  `ZR_PROGRAMS=core/gc,lang` selects program tests by path,
-  `ZR_TEST_HOST=1` runs them on CRuby over zr's kernel,
+- A program can run a gem's real C extension (`--native-ext NAME`, or
+  `ZR_NATIVE_EXT`) through zr's own copy of ruby 4.0.7's C API, on
+  macOS and in a static aarch64-linux-musl binary. `--ext` chooses
+  whether the binary links the extension's objects (the default),
+  embeds its bundle, or loads the bundle when it runs. When the gem's
+  install kept no compiled code, zr runs its `extconf.rb` and builds
+  it. `zr doctor` counts the installed gems whose extension is ready.
+- `zr` is also a ruby: when its first word names no command, it takes
+  ruby's command line (`zr app.rb`, `zr -e CODE`, `zr -lane ...`), and
+  builds and runs the program as `zr run` does.
+- A `case` whose `when` values are all symbol literals compares the
+  subject with each symbol, with no send of `===`, while no program
+  redefines or prepends `Symbol#===`.
+
+### Development
+
+- `bin/setup` installs the gems and builds the runtime;
+  `bin/minitest` runs the tests, `bin/console` opens IRB with zr
+  loaded, and `bin/zr` and `bin/zr-dev` run zr and its tools from the
+  checkout. CI runs every target.
+- Three test tiers: `test/unit` (minitest, plain `def test_...`
+  methods), `test/programs`, which `test/programs_test.rb` runs as one
+  minitest test for each program, and `test/ext`, C extensions checked
+  against ruby. `ZR_PROGRAMS=core/gc,lang` selects program tests by
+  path, `ZR_TEST_HOST=1` runs them on CRuby over zr's kernel,
   `ZR_TEST_FAIL_FAST=1` stops at the first failure, and
-  `ZR_TEST_SECONDS` sets the time limit of each program. The program
-  tests replace the spec tier
-  (`test/spec`, its `zr(...)` and `must_answer` DSL), the e2e tier
-  (`test/e2e`) and `programs_test`.
+  `ZR_TEST_SECONDS` sets the time limit of each program.
 - A program test is a plain Ruby program under
   `test/programs/<area>/`, with ruby's output in files beside it in
   spinel's format (`foo.rb.expected`, `foo.rb.err.expected`,
   `foo.rb.args`, `foo.rb.stdin`), and zr's own files (`.status`,
-  `.env`, `.files/`, `.needs`, `.ruby`, `.limits`, `.links`,
+  `.env`, `.files/`, `.needs`, `.ruby`, `.limits`, `.gems`,
   `.<platform>.expected`). Forked workers build each program, and a
-  failure prints a unified diff.
-  Tests below `test/programs/cli/` build with `zr build`. See
-  `docs/reference/program-tests.md`.
+  failure prints a unified diff. Tests below `test/programs/cli/`
+  build with `zr build`. See `docs/reference/program-tests.md`.
 - `zr-dev expect [--all] [--check]` writes the expected files of the
-  program tests from ruby 4.0.7, in place of `zr-dev oracle` and the
-  `zr-dev spec` commands. `zr-dev record` now records only benchmarks.
-- The baseline of a target is keyed by the program's path below
-  `test/programs`, and the host has a baseline too
-  (`test/baselines/aarch64-apple-darwin.txt`).
+  program tests from ruby 4.0.7, and `zr-dev record` the recordings
+  of the benchmarks.
+- The baseline of a target lists the program tests that it may fail,
+  keyed by the program's path below `test/programs`, each with its
+  reason.
 - A unit test file that builds a program declares
   `# zr-test: runtime` or `# zr-test: eval` in its first lines. A run
   of files without it does not build the runtime. `bin/zr-dev affected`
-  maps a change to unit tests and to program tests, and runs them with
-  `bin/minitest`.
-- `bin/steep check` runs Steep on every file of the compiler. The
-  `Steepfile` checks each file at the strict level, except two record
-  files at the default level.
-  Types are inline RBS annotations, and `sig/zr/` holds what inline RBS
-  cannot type: `Struct` and `Data` records, `module_function` modules.
-  CI runs it after the lint step, and fails if a Steep worker stops.
-- A kernel def gives its machine types in an inline RBS comment above
-  it, `#: (i32, ptr) -> i32`, in place of a `sig [I32, Ptr] => I32`
-  call. RBS reads the comments with `sig/zr/kern.rbs`, so the generated
-  `sig/zr_kern.rbs` and `zr-dev gen kern_rbs` are gone. zr refuses a
-  `#:` comment that no def follows; two such comments were in the kernel.
-- The kernel's declarations are typed Ruby too. A layout is
-  `class Name < Layout` with one `attr_accessor :field #: type` for each
-  field, read through a view (`RString[s].len`). An import is
-  `def self.name(...) = Machine.import` in a `module Libc`, which each
-  layer keeps in its own `imports.rb`; zr refuses an import declared
-  twice. A signature is a module with a typed `def self.call`. zr
-  refuses arithmetic on a view, a view where a `ptr` is necessary, and
-  a condition that is not a `bool`, so the kernel means the same on
-  CRuby (`Machine::Host`) as in a binary. Each program in
-  `test/machine/` runs on CRuby too, and gives the binary's output.
-- Steep checks the kernel of each target at the strict level
-  (`test/unit/kernel_steep_test.rb`), with `sig/zr/kern.rbs`, which
-  types the `Layout` class and each intrinsic. `value` is the class
-  `Value` there, so Steep, as the lowering, refuses a `word` where a
-  `value` is necessary, and arithmetic on a `value`. zr refuses an intrinsic
-  with the wrong number of operands; before, the lowering stopped on a
-  NoMethodError.
-- `COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage of
-  `lib/` with SimpleCov, and writes `tmp/coverage/index.html`. It gates
-  nothing.
-- `rake lint` has more cops, each with its reason in `.rubocop.yml`:
-  the rubocop-performance, rubocop-minitest and rubocop-thread_safety
-  plugins, Style cops for one form of quotes, ternaries, semicolons,
-  `lambda.call`, rescue modifiers, mutable constants and the core
-  collection methods, anonymous block and argument forwarding,
-  `Naming/PredicateMethod`, `Style/OptionalBooleanParameter` and
-  `Metrics/ParameterLists`. `.rubocop_todo.yml` lists the files that
-  are not fixed yet.
-- `test/unit/constant_layout_test.rb`: each file of `lib/zr` holds the
-  constant that its path names, as in `Zr::Cache::Store` in
-  `lib/zr/cache/store.rb`.
-
-### Changed
-
-- A `case` whose `when` values are all symbol literals compares the
-  subject with each symbol, with no send of `===`, while no program
-  redefines or prepends `Symbol#===`. `bm_case_symbol` takes 0.10 s,
-  not 0.68 s.
-- The compiler's code has new namespaces, with no change of behavior
-  or of output: `Zr::Session` keeps the memos of the process;
-  `Zr::Library::*` and `Zr::Cache::*` group the library roots and the
-  caches; each `zr` command is a class in `lib/zr/cli/commands/`; the
-  build server is the class `Zr::Server`, with `Zr::Server::Client`;
-  `Zr::GcTuning` replaces `Tune`; `Runtime.for`, `EvalSupport.for`,
-  `Program.build` and `Host.compiled?` replace functions on `module Zr`.
-- Tests run with `bin/minitest` (the standard binstub); `bin/test` is
-  gone. Program tests are `test/programs_test.rb`, one test per
-  program; `ZR_PROGRAMS`, `ZR_TEST_HOST=1`, `ZR_TEST_FAIL_FAST=1`,
-  `ZR_TEST_SECONDS` replace bin/test's options. `bin/zr` and
-  `bin/zr-dev` are binstubs; `rake build:tools` is gone.
-
-### Removed
-
-- The handoff to a compiled compiler: `exe/zr` no longer gives `run`,
-  `build` and `machine` to `bin/zr` or to a compiled compiler in the
-  user's cache, and the first build no longer compiles zr. ruby runs
-  every command. zr still compiles itself as a check (`zr-dev stage 1`,
-  `zr-dev stage 2`, `zr-dev compile --zr`). `rake build:self` and the
-  `fast compiler` check of `zr doctor` are gone. `zr cache size` shows,
-  and `zr cache clean` deletes, the compiled compilers that older zr
-  versions kept in the user's cache (`self-*`, `shipped-*`).
-- The platform gems and `zr-dev gem native`. A release ships the
-  platform-independent gem only.
-- The iseq cache (the `iseq` kind of the store). `exe/zr` loads zr's
-  files with plain ruby.
-- The variables `ZR_COMPILED`, `ZR_BINARY` and `ZR_ISEQ_CACHE`.
-- The `zr machine` and `zr targets` commands. `zr doctor` shows each
-  target, its outputs and the outputs that this host can make.
-  `zr help build` lists the triples.
-
-### Fixed
-
-- A `return` in a block inside `class << self` leaves the method that
-  holds it, also when a method call runs the block.
-- A `yield` with keyword arguments passes them as keywords also when
-  another thread runs at the yield.
-- A child process that a program starts (`posix_spawn` or `exec`) gets
-  its standard streams (fds 0 to 2) with `O_NONBLOCK` clear, as ruby
-  gives them: a `cat` that reads a pipe from `IO.pipe` waits for the
-  bytes, and does not fail with `EAGAIN`.
-- `String#*` and `Array.new(n, value)` copy the first part, then the
-  copied part again, as ruby does. The number of copies is the log of
-  `n`, not `n`.
+  maps a change to unit tests and to program tests, and runs them.
+- `zr-dev rubyspec` and `zr-dev cruby-test` run ruby/spec and CRuby's
+  test-all under ruby and in zr binaries, with the gaps as tags and a
+  ratchet test.
+- The kernel is typed Ruby: plain Ruby with machine types in inline
+  RBS comments, which `Machine::Host` also runs on CRuby.
+- `bin/steep check` runs Steep on every file of the compiler, with
+  inline RBS annotations and `sig/zr/` for what inline RBS cannot
+  type. `rake lint` runs RuboCop, each cop with its reason in
+  `.rubocop.yml`. `COVERAGE=1 bin/minitest <paths>` measures the
+  coverage of `lib/`. `test/unit/constant_layout_test.rb` checks that
+  each file of `lib/zr` holds the constant that its path names.
 
 ### Planned for 0.2
 
