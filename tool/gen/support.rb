@@ -89,7 +89,9 @@ module Zr
               [target.triple, lines.join("\n")]
             end
             # Targets with the same list share one heading.
-            lists.group_by { |_, text| text }.map { |text, pairs| "### #{pairs.map { |triple, _| "`#{triple}`" }.join(", ")}\n\n#{text}" }.join("\n\n")
+            lists.group_by { |_, text| text }.map do |text, pairs|
+              "### #{pairs.map { |triple, _| "`#{triple}`" }.join(", ")}\n\n#{text}"
+            end.join("\n\n")
           end
 
           # The baselines of the targets. host.txt is the baseline of

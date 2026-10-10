@@ -139,7 +139,8 @@ module Zr
             fail!("usage: zr-dev vendor diff GEM [VERSION]") unless gem
             entries, = VendorTree.lock
             locked = entries.find { |e| e.name == gem && %w[bundled port].include?(e.kind) } or fail!("#{gem} is not a gem of vendor/")
-            gems = VendorTree::GemSource.new(entries.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h, fail: method(:fail!))
+            digests = entries.filter_map { |e| ["#{e.name}-#{e.version}.gem", e.sha256] if e.sha256 }.to_h
+            gems = VendorTree::GemSource.new(digests, fail: method(:fail!))
             version ||= gems.latest(gem)
             old = lib_files(gems, gem, locked.version)
             new = lib_files(gems, gem, version)
@@ -153,7 +154,9 @@ module Zr
               puts "  #{state}  #{rel}"
             end
             overlays = changed.filter_map { |rel| overlay(rel.delete_prefix("lib/")) }
-            puts "", "zr files that replace one of them; check each before the update:", *overlays.map { |path| "  #{Dev.rel(path)}" } if overlays.any?
+            return if overlays.empty?
+
+            puts "", "zr files that replace one of them; check each before the update:", *overlays.map { |path| "  #{Dev.rel(path)}" }
           end
 
           def lib_files(gems, gem, version)
