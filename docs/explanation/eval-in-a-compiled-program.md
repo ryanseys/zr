@@ -57,7 +57,7 @@ smaller and starts faster.
 
 The compiler is Ruby, so zr can compile it like any other program. zr
 builds eval support into its own object one time, and keeps it in the
-cache (`eval-<key>.o`). A program that evals links that object beside
+cache (an `object` entry of the store). A program that evals links that object beside
 the runtime.
 
 The compiler loads only when the program evaluates its first string.

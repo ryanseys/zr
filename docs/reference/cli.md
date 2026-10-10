@@ -244,7 +244,7 @@ warn  target             aarch64-linux-musl     binary, obj; this host: obj
 ok    target             wasm32-wasi            wasm; this host: wasm
 ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
-ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
+ok    libraries          stdlib of ruby 4.0.7 (73 gems), 18 ports
 ok    C extensions       3 of 34 installed gems with one need nothing more of zr's C API: msgpack, nokogiri, websocket-driver
 ok    cache              ~/Library/Caches/zr, 2703 MB
 ```
@@ -298,6 +298,7 @@ SHA-256 digest of every input of the entry:
 | `gems` | the gems that `--gem` and a Gemfile.lock resolved |
 | `wasm` | the prelude of a WASI module |
 | `run` | the binaries of `zr run` (at most 2 GB) |
+| `ext` | the C extensions that zr built from a gem's sources (`--native-ext`) |
 | `binary` | the binaries that the program tests keep (at most `ZR_TEST_BINARIES_GB`) |
 | `result` | the host program tests that passed, with no data (`test/support/result_cache.rb`) |
 | `source` | the digest of a compiler file without its comments, so a comment edit rebuilds nothing |
@@ -372,7 +373,7 @@ computed name, do not stop the build either.
 When a backend cannot compile code that the front end accepted, the
 message starts with `zr: zr cannot compile this program`, and says
 that this is a limit or a defect in zr, not a problem in the program.
-Please report it.
+Report it at https://github.com/ryanseys/zr/issues.
 
 ## Exit status
 

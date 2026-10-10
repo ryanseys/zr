@@ -1,7 +1,9 @@
 # Dependencies
 
-This page lists everything that zr uses and does not own. None of it
-is C or assembler source in the repository.
+This page lists everything that zr uses and does not own. zr's own
+code has no C or assembler. The only C in the repository is ruby's
+headers for a cross build of a C extension (`vendor/targets`) and the
+small extensions that the tests build (`test/ext`).
 
 ## To use the gem
 

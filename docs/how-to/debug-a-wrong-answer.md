@@ -6,7 +6,17 @@ signal or its exit status is different from what ruby gave.
 
 ## See the whole difference
 
-Run the one program test:
+For any Ruby file, `zr diff` runs it under ruby and as a zr binary, and
+prints the kind of difference and a diff of each part (stdout, stderr,
+the exit status and the signal):
+
+```console
+$ zr diff small.rb
+```
+
+See [`zr diff`](../reference/cli.md#zr-diff-options-filerb-args).
+
+For a program test, run the one test:
 
 ```console
 $ ZR_PROGRAMS=core/string/slicing/foo.rb bin/minitest test/programs_test.rb

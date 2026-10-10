@@ -1,8 +1,9 @@
 # How to port a C extension
 
 This guide shows you how to make a gem with a C extension work in
-programs that zr compiles. zr never compiles C, so the C half of the
-extension becomes Ruby. To learn why, read
+programs that zr compiles, with no C: the C half of the extension
+becomes Ruby. (`--native-ext` runs a gem's real C instead; see
+[How to use a C extension](use-a-c-extension.md).) To learn why, read
 [Why zr has no C](../explanation/why-zr-has-no-c.md).
 
 A gem without C needs no port: ruby 4.0.7's copy is in `vendor/ruby`,

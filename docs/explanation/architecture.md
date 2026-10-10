@@ -123,7 +123,7 @@ binary has the runtime at those addresses:
 A link relocates only the program. It writes the runtime's bytes and
 page hashes as the image has them, and writes again only the runtime's
 slots for names that the program or libSystem defines. The skeleton
-(`skeleton-<digest>.bin`) contains the bytes that every such binary
+(an `image` entry of the cache's store) contains the bytes that every such binary
 starts with, and a link clones it where the file system can.
 
 ## The runtime

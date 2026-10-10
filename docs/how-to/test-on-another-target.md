@@ -82,11 +82,14 @@ run it in `foo.rb.needs` (`macos`, `linux`, `wasi`).
 $ docker run -d --name alpine -v "$PWD:/zr" -w /zr ruby:4.0.7-alpine sleep infinity
 $ docker exec alpine apk add --no-cache build-base git
 $ docker exec alpine git config --global --add safe.directory /zr
+$ docker exec alpine bundle config set --global without development
 $ docker exec alpine bundle install
+$ docker exec alpine ruby tool/install_reference_gems.rb
 $ docker exec alpine bundle exec rake build
 $ docker exec -e ZR_TARGET=aarch64-linux-musl -e ZR_PROGRAMS=cli alpine bin/minitest test/programs_test.rb
 ```
 
 These are the commands of the `linux-musl` job in
-`.github/workflows/ci.yml`. They need an aarch64 host, for example an
+`.github/workflows/ci.yml`. `tool/install_reference_gems.rb` installs the
+gems that ruby's side of a program test reads (`tmp/reference`). They need an aarch64 host, for example an
 Apple Silicon Mac.

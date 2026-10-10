@@ -12,7 +12,10 @@ checked must not go out.
 Do these by hand before the first release:
 
 1. Make the repository public. The homepage, the docs links in the
-   gem and in zr's messages, and the free macOS runners need it.
+   gem and in zr's messages, and the free macOS runners need it. The
+   README's links and the links that zr prints name the `vX.Y.Z` tag,
+   so they work only after the first release: release on the day the
+   repository goes public.
 2. On rubygems.org, add a **pending** trusted publisher (Profile, then
    "Trusted publishers", then "Create pending publisher"), because the
    gem `zr` does not exist yet: the gem name `zr`, this repository, the

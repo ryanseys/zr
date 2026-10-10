@@ -54,9 +54,13 @@ $ zr doctor
 ok    zr                 0.1.0  /Users/you/.gem/ruby/4.0.0/gems/zr-0.1.0
 ok    ruby               4.0.7
 ok    host               aarch64-apple-darwin
+ok    target             aarch64-apple-darwin   binary, obj; this host: binary, obj
+warn  target             aarch64-linux-musl     binary, obj; this host: obj
+ok    target             wasm32-wasi            wasm; this host: wasm
 warn  wasmtime           not on PATH; needed only for 'zr run --emit wasm'. See https://wasmtime.dev
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
-ok    libraries          stdlib of ruby 4.0.7 (59 gems), 17 ports
+ok    libraries          stdlib of ruby 4.0.7 (73 gems), 18 ports
+ok    C extensions       3 of 34 installed gems with one need nothing more of zr's C API: msgpack, nokogiri, websocket-driver
 ok    cache              /Users/you/Library/Caches/zr, 0 MB
 ```
 
@@ -107,8 +111,8 @@ program is the same: it uses zr's own standard library, not the host's.
 ### A `fail` line in `zr doctor` for `libraries`
 
 A file of zr's standard library is missing, so the install is damaged.
-Run `gem install zr` again. A build then says:
-`zr: zr's install is damaged: ... Reinstall zr with 'gem install zr -v 0.1.0'`.
+Run `gem install zr` again. The line names the missing directory:
+`<dir> is missing; reinstall zr (gem install zr)`.
 
 ### `Permission denied` or `No space left on device` under the cache
 

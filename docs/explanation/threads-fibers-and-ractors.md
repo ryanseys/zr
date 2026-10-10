@@ -12,8 +12,9 @@ registers and the stack pointer of one task and loads those of the
 other. It is machine code that zr's own assembler writes.
 
 Ruby frames are native frames in zr, so a task's stack must be large:
-10,000 frames of a plain method need about 36 MiB. zr reserves the
-whole stack, and the OS gives it pages only when it grows.
+zr maps 64 MiB for each one (`MAIN_STACK_BYTES`, `FIBER_STACK_BYTES`),
+about 300,000 frames of a plain method. zr reserves the whole stack,
+and the OS gives it pages only when it grows.
 
 ## Fibers
 
