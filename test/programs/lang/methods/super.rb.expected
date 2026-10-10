@@ -4,8 +4,8 @@
 [:from_A, :B]
 [:from_A, :B]
 super: no superclass method 'nope' for an instance of B
-super.rb:18:in 'B#nope'
-super.rb:23:in '<main>'
+lang/methods/super.rb:18:in 'B#nope'
+lang/methods/super.rb:23:in '<main>'
 [:C, [:M, [:A, 4, {k: 0}, [:b], 3, nil]]]
 [[:A, 11, 2, [], 1, nil], [:A, 12, 2, [], 1, nil]]
 [:A, 99, 2, [], 1, nil]

@@ -1,0 +1,4 @@
+lang/methods/no_method.rb:2:in '<main>': undefined local variable or method 'frobnicate' for main (NameError)
+
+frobnicate
+^^^^^^^^^^

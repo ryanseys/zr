@@ -1,0 +1,17 @@
+lang/singleton/singletons.rb:6:in 'block in Foo.baz'
+lang/singleton/singletons.rb:3:in 'Foo.bar'
+lang/singleton/singletons.rb:6:in 'Foo.baz'
+lang/singleton/singletons.rb:15:in '<main>'
+lang/singleton/singletons.rb:12:in 'hi'
+lang/singleton/singletons.rb:20:in '<main>'
+#<Class:Foo>
+#<Class:#<Object:0xADDR>>
+#<Class:Object>
+#<Class:#<Class:Foo>>
+Class
+Object
+Class
+#<RuntimeError: x>
+3
+nil
+#<Class:Foo>

@@ -52,10 +52,10 @@ nil
 {"x" => 1, "y" => 2}
 false
 :v
-datas.rb:43:in 'Boom#initialize'
-datas.rb:47:in 'Boom.new'
-datas.rb:47:in '<main>'
-datas.rb:43:in 'Boom#initialize'
-datas.rb:48:in 'Boom.new'
-datas.rb:48:in '<main>'
+core/data/datas.rb:43:in 'Boom#initialize'
+core/data/datas.rb:47:in 'Boom.new'
+core/data/datas.rb:47:in '<main>'
+core/data/datas.rb:43:in 'Boom#initialize'
+core/data/datas.rb:48:in 'Boom.new'
+core/data/datas.rb:48:in '<main>'
 #<data Boom q=1>

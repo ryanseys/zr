@@ -1,0 +1,9 @@
+lang/variables/masgn.rb:53:in 'Store#[]=': wrong number of arguments (given 3, expected 2) (ArgumentError)
+
+    caller: lang/variables/masgn.rb:83
+    | p(s[1, 2] = 3)
+         ^^^^^^^^
+    callee: lang/variables/masgn.rb:53
+    |   def []=(k, v)
+            ^^^
+	from lang/variables/masgn.rb:83:in '<main>'

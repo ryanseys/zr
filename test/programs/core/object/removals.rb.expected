@@ -31,13 +31,13 @@ instance variable @zz not defined
 :@zz
 'zz' is not allowed as an instance variable name
 FrozenError
-["removals.rb:91:in 'Object#outer'", "removals.rb:92:in '<main>'"]
-["removals.rb:93:in 'Object#inner0'", "removals.rb:94:in '<main>'"]
-["removals.rb:96:in 'Object#limited_outer'"]
+["core/object/removals.rb:91:in 'Object#outer'", "core/object/removals.rb:92:in '<main>'"]
+["core/object/removals.rb:93:in 'Object#inner0'", "core/object/removals.rb:94:in '<main>'"]
+["core/object/removals.rb:96:in 'Object#limited_outer'"]
 []
 1
 nil
 []
-["removals.rb:99:in 'block in <main>'", "removals.rb:99:in 'Array#each'", "removals.rb:99:in '<main>'"]
+["core/object/removals.rb:99:in 'block in <main>'", "core/object/removals.rb:99:in 'Array#each'", "core/object/removals.rb:99:in '<main>'"]
 negative level (-1)
 negative size (-1)

@@ -84,15 +84,15 @@ true
 false
 #<ArgumentError: wrong number of arguments (given 2, expected 0..1)>
 #<ArgumentError: wrong number of arguments (given 0, expected 1..2)>
-hashes.rb:53:in 'Hash#fetch'
-hashes.rb:53:in '<main>'
-hashes.rb:58:in 'block in <main>'
-hashes.rb:58:in 'Hash#each'
-hashes.rb:58:in 'Enumerable#map'
-hashes.rb:58:in '<main>'
-hashes.rb:59:in 'block in <main>'
-hashes.rb:59:in 'Hash#each'
-hashes.rb:59:in '<main>'
+core/hash/hashes.rb:53:in 'Hash#fetch'
+core/hash/hashes.rb:53:in '<main>'
+core/hash/hashes.rb:58:in 'block in <main>'
+core/hash/hashes.rb:58:in 'Hash#each'
+core/hash/hashes.rb:58:in 'Enumerable#map'
+core/hash/hashes.rb:58:in '<main>'
+core/hash/hashes.rb:59:in 'block in <main>'
+core/hash/hashes.rb:59:in 'Hash#each'
+core/hash/hashes.rb:59:in '<main>'
 [2, 4, 6]
 [2, 3]
 [1, 2, 3]

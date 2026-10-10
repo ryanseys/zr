@@ -244,7 +244,7 @@ nil
 :orig
 :orig
 :+
-"#<Method: Alias#other(orig)() core_batch.rb:42>"
+"#<Method: Alias#other(orig)() lang/programs/core_batch.rb:42>"
 NoMethodError
 TypeError
 true

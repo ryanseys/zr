@@ -1,7 +1,0 @@
-warnings_more.rb:17: warning: constant Old::GONE is deprecated
-warnings_more.rb:22: warning: from inner
-warnings_more.rb:26: warning: from the caller
-warning: past the top
-warnings_more.rb:28: warning: first
-second
-no position

@@ -1,0 +1,5 @@
+core/exception/exceptions.rb:107:in 'Pt#initialize_copy': undefined method 'x' for an instance of String (NoMethodError)
+
+    @x = o.x + 100
+          ^^
+	from core/exception/exceptions.rb:116:in '<main>'

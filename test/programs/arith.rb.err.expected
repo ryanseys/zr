@@ -1,2 +1,0 @@
-arith.rb:33:in 'Integer#/': divided by 0 (ZeroDivisionError)
-	from arith.rb:33:in '<main>'

@@ -9,7 +9,7 @@ module Zr
     # a ruby started from here loads bundler before the program. Bundler
     # uses 56 object ids, so the next object id is 464, not 16 as in a
     # plain ruby. A compiled binary does not read `RUBYOPT`, so the two
-    # outputs differ (`test/programs/reflection_more.rb`). Bundler also
+    # outputs differ (`test/programs/core/object/reflection_more.rb`). Bundler also
     # stops a child from loading a gem that ruby bundles but this Gemfile
     # does not list; prism's own test suite needs such gems.
     module CleanEnv

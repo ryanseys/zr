@@ -16,7 +16,7 @@ nil
 [#<Class:Outer::Inner>, Outer::Inner, Outer]
 [Outer]
 []
-["reflection_more.rb", 37]
+["core/object/reflection_more.rb", 37]
 38
 nil
 nil

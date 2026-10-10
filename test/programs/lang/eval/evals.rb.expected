@@ -39,12 +39,12 @@ Dyn
 38
 #<ArgumentError: tried to create Proc object without a block>
 #<TypeError: wrong argument type Integer (expected Proc/Method/UnboundMethod)>
-evals.rb:67:in 'block in <class:Dyn>'
-evals.rb:70:in '<main>'
-evals.rb:75:in 'block in <main>'
-evals.rb:75:in 'Class#initialize'
-evals.rb:75:in 'Class#new'
-evals.rb:75:in '<main>'
+lang/eval/evals.rb:67:in 'block in <class:Dyn>'
+lang/eval/evals.rb:70:in '<main>'
+lang/eval/evals.rb:75:in 'block in <main>'
+lang/eval/evals.rb:75:in 'Class#initialize'
+lang/eval/evals.rb:75:in 'Class#new'
+lang/eval/evals.rb:75:in '<main>'
 "anon error"
 StandardError
 Class

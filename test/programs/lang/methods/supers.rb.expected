@@ -10,5 +10,5 @@ NoMethodError: super called outside of method
 "A#hi(8)A#hi(8)"
 NoMethodError: super: no superclass method 'hi4' for an instance of C
 NoMethodError: super: no superclass method 'hi4' for an instance of D
-supers.rb:9:in 'block in <class:B>'
-supers.rb:28:in '<main>'
+lang/methods/supers.rb:9:in 'block in <class:B>'
+lang/methods/supers.rb:28:in '<main>'

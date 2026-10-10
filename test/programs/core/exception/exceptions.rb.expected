@@ -1,5 +1,5 @@
-"exceptions.rb:1:in '<main>': boom (RuntimeError)\n"
-"exceptions.rb:1:in '<main>': boom (RuntimeError)\n"
+"core/exception/exceptions.rb:1:in '<main>': boom (RuntimeError)\n"
+"core/exception/exceptions.rb:1:in '<main>': boom (RuntimeError)\n"
 "default E"
 "default E"
 "x"
@@ -53,15 +53,15 @@ true
 "custom"
 "custom (Custom)"
 "#<Custom: custom>"
-exceptions.rb:59:in 'E2#initialize'
-exceptions.rb:61:in 'Exception.exception'
-exceptions.rb:61:in 'Kernel#raise'
-exceptions.rb:61:in '<main>'
-exceptions.rb:59:in 'E2#initialize'
-exceptions.rb:66:in '<main>'
-exceptions.rb:70:in 'F#exception'
-exceptions.rb:72:in 'Kernel#raise'
-exceptions.rb:72:in '<main>'
+core/exception/exceptions.rb:59:in 'E2#initialize'
+core/exception/exceptions.rb:61:in 'Exception.exception'
+core/exception/exceptions.rb:61:in 'Kernel#raise'
+core/exception/exceptions.rb:61:in '<main>'
+core/exception/exceptions.rb:59:in 'E2#initialize'
+core/exception/exceptions.rb:66:in '<main>'
+core/exception/exceptions.rb:70:in 'F#exception'
+core/exception/exceptions.rb:72:in 'Kernel#raise'
+core/exception/exceptions.rb:72:in '<main>'
 [DidYouMean::Correctable, LoadError, ScriptError]
 IndexError
 RangeError

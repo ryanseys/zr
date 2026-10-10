@@ -15,9 +15,9 @@ UncaughtThrowError
 ArgumentError
 uncaught throw "s"
 :ok
-throws.rb:33:in 'block in <main>'
-throws.rb:33:in 'Kernel#catch'
-throws.rb:33:in '<main>'
+lang/control/throws.rb:33:in 'block in <main>'
+lang/control/throws.rb:33:in 'Kernel#catch'
+lang/control/throws.rb:33:in '<main>'
 wrong number of arguments (given 0, expected 1..2)
 20
 :returned

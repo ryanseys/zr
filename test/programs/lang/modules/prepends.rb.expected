@@ -22,8 +22,8 @@ prepended to Dog
 "solo"
 "Tracked"
 1
-prepends.rb:50:in 'Raiser#boom'
-prepends.rb:54:in '<main>'
+lang/modules/prepends.rb:50:in 'Raiser#boom'
+lang/modules/prepends.rb:54:in '<main>'
 [:secret]
 "please, LOUD WOOF"
 false

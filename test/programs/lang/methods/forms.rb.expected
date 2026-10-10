@@ -1,6 +1,6 @@
 :old
 :old
-forms.rb:5:in 'Foo#raiser'
+lang/methods/forms.rb:5:in 'Foo#raiser'
 :small
 :int
 :ab

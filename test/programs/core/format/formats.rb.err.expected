@@ -1,5 +1,5 @@
-formats.rb:19:in 'Kernel#format': invalid format character - % (ArgumentError)
+core/format/formats.rb:19:in 'Kernel#format': invalid format character - % (ArgumentError)
 
 p format("%08x", -255), format("%.6x", -255), format("%#010x", -255), format("%10x|", -255), format("%-10x|", -255), format("%+08x", -255), format("%5%"), format("%o", -8), format("%b", -1), format("%x", -1), format("%x", -16), format("%x", -17)
                                                                                                                                                    ^^^^^
-	from formats.rb:19:in '<main>'
+	from core/format/formats.rb:19:in '<main>'

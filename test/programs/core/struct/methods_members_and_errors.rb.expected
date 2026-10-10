@@ -1,5 +1,5 @@
-structs.rb:4:in 'S#initialize'
-structs.rb:7:in '<main>'
+core/struct/methods_members_and_errors.rb:4:in 'S#initialize'
+core/struct/methods_members_and_errors.rb:7:in '<main>'
 [:[], :inspect, :keyword_init?, :members, :new]
 [:a, :a=, :b, :b=]
 [:==, :[], :[]=, :deconstruct, :deconstruct_keys, :dig, :each, :each_pair, :eql?, :filter, :hash, :inspect, :length, :members, :select, :size, :to_a, :to_h, :to_s, :values, :values_at]

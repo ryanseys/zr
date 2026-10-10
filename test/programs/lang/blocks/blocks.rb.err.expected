@@ -1,0 +1,7 @@
+lang/blocks/blocks.rb:49:in 'block in <main>': undefined local variable or method 'raise_it' for main (NameError)
+
+[1].each { |v| raise_it }
+               ^^^^^^^^
+Did you mean?  raise
+	from lang/blocks/blocks.rb:49:in 'Array#each'
+	from lang/blocks/blocks.rb:49:in '<main>'

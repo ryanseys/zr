@@ -7,15 +7,15 @@
 true
 1
 7
-exits.rb:6:in '<main>'
-exits.rb:7:in 'Kernel#exit'
-exits.rb:7:in 'Object#m'
-exits.rb:8:in '<main>'
+core/process/exits.rb:6:in '<main>'
+core/process/exits.rb:7:in 'Kernel#exit'
+core/process/exits.rb:7:in 'Object#m'
+core/process/exits.rb:8:in '<main>'
 #<TypeError: no implicit conversion of String into Integer>
 #<TypeError: no implicit conversion from nil to integer>
 no implicit conversion of nil into String
-exits.rb:11:in 'Kernel#abort'
-exits.rb:11:in '<main>'
+core/process/exits.rb:11:in 'Kernel#abort'
+core/process/exits.rb:11:in '<main>'
 no implicit conversion of Integer into String
 Proc
 #<ArgumentError: called without a block>
