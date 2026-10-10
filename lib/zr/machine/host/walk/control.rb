@@ -19,6 +19,7 @@ module Zr
           # @rbs @qundef: Integer
           # @rbs @poll: Integer
           # @rbs @ensure_path: Symbol
+          # @rbs @jump_line: Integer?
 
           private
 

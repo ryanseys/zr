@@ -154,13 +154,15 @@ module Zr
         key = Cache::Store.key("ext-bundle", Ext::ABI, target.triple, *inputs, *source.libraries)
         Cache::Store.once(:image, "#{key}-bundle") do |file|
           linked = "#{file}.#{Process.pid}"
-          log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-bundle", "-undefined", "dynamic_lookup",
-                                   *Link::Darwin::MIN_OS_FLAGS, "-o", linked, *source.objects, *source.libraries])
-          raise Refused, "cc cannot link #{File.basename(source.bundle)} from its objects:\n#{log.strip}" unless ok
+          begin
+            log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-bundle", "-undefined", "dynamic_lookup",
+                                     *Link::Darwin::MIN_OS_FLAGS, "-o", linked, *source.objects, *source.libraries])
+            raise Refused, "cc cannot link #{File.basename(source.bundle)} from its objects:\n#{log.strip}" unless ok
 
-          Cache::Store.write_file(file, File.binread(linked))
-        ensure
-          File.unlink(linked) if linked && File.exist?(linked)
+            Cache::Store.write_file(file, File.binread(linked))
+          ensure
+            File.unlink(linked) if File.exist?(linked)
+          end
         end
       end
 
@@ -181,12 +183,14 @@ module Zr
         key = Cache::Store.key("ext-object", Ext::ABI, target.triple, source.init, localize, *inputs)
         Cache::Store.once(:object, key) do |file|
           joined = "#{file}.#{Process.pid}.o"
-          log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-r", "-nostdlib", "-o", joined, *source.objects])
-          raise Refused, "cc cannot join the objects of #{File.basename(source.bundle)}:\n#{log.strip}" unless ok
+          begin
+            log, ok = Toolchain.run([Toolchain.command(target, "cc"), "-r", "-nostdlib", "-o", joined, *source.objects])
+            raise Refused, "cc cannot join the objects of #{File.basename(source.bundle)}:\n#{log.strip}" unless ok
 
-          Cache::Store.write_file(file, Obj::Elf::Localize.call(File.binread(joined), source.init))
-        ensure
-          File.unlink(joined) if joined && File.exist?(joined)
+            Cache::Store.write_file(file, Obj::Elf::Localize.call(File.binread(joined), source.init))
+          ensure
+            File.unlink(joined) if File.exist?(joined)
+          end
         end
       end
 

@@ -268,7 +268,7 @@ module Zr
 
         # The walker has no machine stack for a C caller's arguments: a
         # variadic C-API function runs only in a binary.
-        #: () -> Integer
+        #: (Integer _kind) -> Integer
         def va_list(_kind) = raise(NotImplementedError, "a variadic C-API function runs only in a binary")
 
         #: () -> void

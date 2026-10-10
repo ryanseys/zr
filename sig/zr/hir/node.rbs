@@ -292,6 +292,9 @@ module Zr
       attr_accessor event: Symbol
       attr_accessor line: Integer
 
+      # The line of the first `:line` event of a scope body, or nil.
+      def self.first_line: (untyped node) -> Integer?
+
       def line_on: (Symbol path, Integer? jump_line) -> Integer?
     end
 

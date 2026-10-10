@@ -93,6 +93,7 @@ module Zr
     # link an extension's objects or to build one, and make for an
     # extconf.rb with rules of its own. Names each installed gem whose
     # extensions import nothing that zr's C API lacks yet.
+    #: (?String triple, ?Array[Gem::Specification] specs, ?cc: String?, ?make: String?) -> Check
     def extensions(triple = Target.host_triple, specs = Gem::Specification.latest_specs(true), cc: which("cc"), make: which("make"))
       hosts = [Target::AARCH64_DARWIN, Target::AARCH64_LINUX_MUSL].map(&:triple)
       return Check.new(:ok, "C extensions", "not on #{triple}; zr's ports stand in for them") unless hosts.include?(triple)

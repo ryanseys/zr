@@ -1,0 +1,7 @@
+# The members of rubygems that lib/ uses and RBS's rubygems signatures
+# leave out (`Doctor#extensions`).
+class Gem::Specification
+  def self.latest_specs: (?bool prerelease) -> Array[Gem::Specification]
+
+  def gem_dir: () -> String
+end

@@ -87,7 +87,7 @@ module Zr
       # name once, in a Hash, and makes no array of all of them.
       def imports
         named = (@functions + @data).to_h { |d| [d.name, true] }
-        found = {}
+        found = {} #: Hash[String, bool]
         [@functions, @data].each do |items|
           items.each { |d| d.relocs.each { |r| found[r.symbol] = true unless named.key?(r.symbol) } }
         end

@@ -1,0 +1,7 @@
+# The module that mkmf loads rbconfig.rb into (`MakeMakefile::RbConfig`),
+# as lib/zr/ext/target_rbconfig.rb reads it in extconf.rb's child.
+module MakeMakefile
+  module RbConfig
+    def self.fire_update!: (String key, String value) -> bool
+  end
+end

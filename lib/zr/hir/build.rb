@@ -58,6 +58,9 @@ module Zr
       # @rbs @certain: Hash[Prism::node, bool]?
       # @rbs @after_label: Hash[Prism::node, bool]?
       # @rbs @temp_serial: Integer?
+      # @rbs @c_messages: Hash[Prism::node, Encoding]?
+      # @rbs @in_c_message: Encoding?
+      # @rbs @elsewhere: Integer
 
       # The named calls that a site lowers to a kernel entry with a core
       # fast path (Zr::Lower::Function::Sends::OPT_ENTRIES), with each
@@ -210,7 +213,8 @@ module Zr
         # The message literals of this file's errors, each with the
         # encoding of its text (`c_message`), and that encoding while one
         # is being built.
-        @c_messages = Library::Roots.stands_in_for_c?(file) ? {}.compare_by_identity : nil
+        messages = {} #: Hash[Prism::node, Encoding]
+        @c_messages = Library::Roots.stands_in_for_c?(file) ? messages.compare_by_identity : nil
         @in_c_message = nil
         @shadowed = shadowed
         @path = [Object.name]
@@ -355,7 +359,7 @@ module Zr
       RUBY_ENGINE_NAME = "ruby"
 
       # Whether `values`, compared with RUBY_ENGINE, name only other rubies.
-      #: (Array[Prism::node] values) -> bool
+      #: (Array[Prism::node?] values) -> bool
       def other_engines?(values)
         values.all? { |v| v.is_a?(Prism::StringNode) && v.unescaped != RUBY_ENGINE_NAME }
       end
@@ -370,9 +374,12 @@ module Zr
       # round).
       #: (Prism::node predicate) -> bool
       def other_engine_test?(predicate)
-        return false unless predicate.is_a?(Prism::CallNode) && predicate.name == :== && predicate.arguments&.arguments&.size == 1
+        return false unless predicate.is_a?(Prism::CallNode) && predicate.name == :==
 
-        other = predicate.arguments.arguments[0]
+        args = predicate.arguments&.arguments
+        return false unless args && args.size == 1
+
+        other = args[0]
         (ruby_engine?(predicate.receiver) && other_engines?([other])) || (ruby_engine?(other) && other_engines?([predicate.receiver]))
       end
 
@@ -1245,7 +1252,7 @@ module Zr
         return newarray_send(node) if newarray_send?(node)
 
         message, encoding = c_message(node)
-        @c_messages[message] = encoding if message
+        @c_messages&.store(message, encoding) if message && encoding
         send = plain_call(node)
         relative_in_file(node, send)
       end
@@ -1268,7 +1275,7 @@ module Zr
           klass = args[0] if args.size > 1
           message = args.size == 1 ? args[0] : args[1]
         end
-        return unless message.is_a?(Prism::StringNode) || message.is_a?(Prism::InterpolatedStringNode) || unary_plus_literal?(message)
+        return unless message && (message.is_a?(Prism::StringNode) || message.is_a?(Prism::InterpolatedStringNode) || unary_plus_literal?(message))
 
         name_error = klass.is_a?(Prism::ConstantReadNode) && %i[NameError NoMethodError].include?(klass.name)
         [message, name_error ? ::Encoding::US_ASCII : ::Encoding::BINARY]
@@ -1278,7 +1285,7 @@ module Zr
       # `Encoding::CompatibilityError`).
       #: (Prism::node? node) -> bool
       def error_class?(node)
-        (node.is_a?(Prism::ConstantReadNode) || node.is_a?(Prism::ConstantPathNode)) && node.name.end_with?("Error")
+        (node.is_a?(Prism::ConstantReadNode) || node.is_a?(Prism::ConstantPathNode)) && node.name.to_s.end_with?("Error")
       end
 
       #: (Prism::node? node) -> bool
@@ -1291,7 +1298,7 @@ module Zr
       # is built as any other.
       #: (Prism::node node) -> node
       def c_message_expr(node)
-        @in_c_message = @c_messages.fetch(node)
+        @in_c_message = @c_messages&.fetch(node)
         expr(node)
       ensure
         @in_c_message = nil

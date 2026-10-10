@@ -474,7 +474,7 @@ module Zr
         @f.store(@prev, @rec, off(@frame, "prev"))
         d = @def
         line = d ? d.line : 1
-        end_line = (d.end_line if d.respond_to?(:end_line)) || 0
+        end_line = d&.end_line || 0
         name = d.is_a?(Hir::ClassDef) || d.is_a?(Hir::ModuleDef) ? d.name : 0
         params = own_params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)

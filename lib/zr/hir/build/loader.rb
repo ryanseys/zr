@@ -49,6 +49,8 @@ module Zr
         # @rbs @alias_flags: Hash[Symbol, Symbol?]
         # @rbs @hiding: bool?
         # @rbs @switches: Switches
+        # @rbs @extensions: bool
+        # @rbs @target: Target
 
         attr_reader :units #: Array[Unit]
 
@@ -765,9 +767,9 @@ module Zr
         #: (String path) -> bool
         def main?(path) = @main == File.expand_path(path)
 
-        # Why a build cannot use the file at `path`: it is in a gem of the
-        # GemSet that zr cannot compile (a C extension). Nil otherwise.
-        #: (String? path, ?String? feature) -> String?
+        # The gem of the GemSet that holds the file at `path` when zr cannot
+        # compile it (a C extension). Nil otherwise.
+        #: (String? path, ?String? feature) -> GemSet::Entry?
         def refused_gem(path, feature = nil) = @gem_set&.refused(path, feature)
 
         # Each gem of the set that the program reaches whose C part zr does

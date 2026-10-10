@@ -1,0 +1,6 @@
+# Open3.capture2e with the `chdir:` of Process.spawn, which RBS's stdlib
+# leaves out (`Ext::Builder#run`).
+module Open3
+  def self.capture2e: (Hash[String, String?] env, *String command, chdir: String) -> [String, Process::Status]
+                    | ...
+end

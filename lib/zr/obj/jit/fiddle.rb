@@ -11,16 +11,16 @@ module Zr
       # MAP_JIT and no write protection to switch, and makes new code
       # seen by the instruction cache with libgcc's `__clear_cache`.
       class Fiddle
-        LINUX = RUBY_PLATFORM.include?("linux")
-        ANON_PRIVATE = LINUX ? 0x22 : MAP_ANON_PRIVATE
-        JIT_FLAG = LINUX ? 0 : MAP_JIT
-
         # @rbs @lib: ::Fiddle::Handle
         # @rbs @mmap: ::Fiddle::Function
         # @rbs @munmap: ::Fiddle::Function
         # @rbs @protect: ::Fiddle::Function
         # @rbs @invalidate: ::Fiddle::Function
         # @rbs @clear: ::Fiddle::Function
+
+        LINUX = RUBY_PLATFORM.include?("linux")
+        ANON_PRIVATE = LINUX ? 0x22 : MAP_ANON_PRIVATE
+        JIT_FLAG = LINUX ? 0 : MAP_JIT
 
         #: () -> void
         def initialize

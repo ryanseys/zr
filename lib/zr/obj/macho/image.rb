@@ -154,7 +154,8 @@ module Zr
         # The C strings of the image, from its `__cstring` sections.
         #: () -> Array[String]
         def c_strings
-          sections.select { |section| section.name == "__cstring" }.flat_map { |section| bytes.byteslice(section.offset, section.size).split("\0") }
+          sections.select { |section| section.name == "__cstring" }
+                  .flat_map { |section| bytes.byteslice(section.offset, section.size).to_s.split("\0") }
         end
 
         # Every pointer that dyld rebases, from the opcodes or the chains.

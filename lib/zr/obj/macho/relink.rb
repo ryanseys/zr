@@ -118,7 +118,7 @@ module Zr
           own = @image.exports.select(&:address).to_h { |e| [e.name, @vm + e.address.to_i] }
           bound = @image.binds.to_h do |bind|
             at = runtime.call(bind.name) || own[bind.name]
-            dylib = dylib_of(bind) unless at || bind.name.delete_prefix("_") == STUB_BINDER
+            dylib = at || bind.name.delete_prefix("_") == STUB_BINDER ? nil : dylib_of(bind)
             fixup = if at
                       Fixup.new(address: @vm + bind.address, kind: :rebase, target: at + bind.addend, addend: 0)
                     elsif dylib

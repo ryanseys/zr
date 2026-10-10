@@ -60,6 +60,15 @@ module Zr
 
         # One rewrite of one object.
         class Rewrite
+          # @rbs @image: Image
+          # @rbs @table: Integer
+          # @rbs @init: String
+          # @rbs @entry: Image::Symbol
+          # @rbs @sections: Array[Image::Section]
+          # @rbs @contents: Hash[Integer, String]
+          # @rbs @renamed: Hash[Integer, Integer]
+          # @rbs @order: Array[Integer]
+
           #: (Image image, Integer table, String init, Image::Symbol entry) -> void
           def initialize(image, table, init, entry)
             @image = image
@@ -67,9 +76,9 @@ module Zr
             @init = init
             @entry = entry
             @sections = image.sections
-            @contents = {} #: Hash[Integer, String]
-            @renamed = {} #: Hash[Integer, Integer]
-            @order = [] #: Array[Integer]
+            @contents = {}
+            @renamed = {}
+            @order = []
           end
 
           #: () -> String
@@ -120,7 +129,7 @@ module Zr
                       symbols.each_index.select { |i| localized.call(symbols[i]) },
                       symbols.each_index.select { |i| symbols[i].global? && !localized.call(symbols[i]) }]
             sequence = groups.flatten
-            order = Array.new(symbols.size)
+            order = Array.new(symbols.size) #: Array[Integer]
             sequence.each_with_index { |old, new| order[old] = new }
             out = sequence.map { |i| localized.call(symbols[i]) ? symbols[i].with(bind: Image::STB_LOCAL) : symbols[i] }
             [out, order]
@@ -129,14 +138,20 @@ module Zr
           # The names that zr_ext_embedded reads, all global.
           #: (Integer? inits) -> Array[Image::Symbol]
           def added_symbols(inits)
-            global = ->(name, shndx, value, type: STT_NOTYPE, size: 0) { Image::Symbol.new(name, value, size, Image::STB_GLOBAL, type, 0, shndx, nil) }
-            bounds = inits ? [inits, 0, @sections.fetch(inits).size] : [SHN_ABS, 0, 0]
-            [global.call("zr_ext_#{@init}", @entry.shndx, @entry.value, type: @entry.type, size: @entry.size),
-             global.call("zr_ext_inits_#{@init}", bounds[0], bounds[1]),
-             global.call("zr_ext_inits_end_#{@init}", bounds[0], bounds[2]),
-             global.call("zr_ext_offsets_#{@init}", SHN_ABS, 0),
-             global.call("zr_ext_offsets_end_#{@init}", SHN_ABS, 0),
-             global.call("zr_ext_base_#{@init}", SHN_ABS, 0)]
+            shndx, start, finish = inits ? [inits, 0, @sections.fetch(inits).size] : [SHN_ABS, 0, 0]
+            [global("zr_ext_#{@init}", @entry.shndx, @entry.value, type: @entry.type, size: @entry.size),
+             global("zr_ext_inits_#{@init}", shndx, start),
+             global("zr_ext_inits_end_#{@init}", shndx, finish),
+             global("zr_ext_offsets_#{@init}", SHN_ABS, 0),
+             global("zr_ext_offsets_end_#{@init}", SHN_ABS, 0),
+             global("zr_ext_base_#{@init}", SHN_ABS, 0)]
+          end
+
+          # A global symbol that the rewrite adds, its name not yet in the
+          # string table.
+          #: (String name, Integer shndx, Integer value, ?type: Integer, ?size: Integer) -> Image::Symbol
+          def global(name, shndx, value, type: STT_NOTYPE, size: 0)
+            Image::Symbol.new(name, value, size, Image::STB_GLOBAL, type, 0, shndx, nil)
           end
 
           # A symbol's 24 bytes, its name added to `strings` when it is new.
@@ -164,7 +179,7 @@ module Zr
                 width = section.type == SHT_RELA ? 24 : 16
                 data = @image.contents(section).dup
                 (0...(data.bytesize / width)).each do |n|
-                  info = data.byteslice((n * width) + 8, 8).unpack1("Q<")
+                  info = data.unpack1("Q<", offset: (n * width) + 8) #: Integer
                   data[(n * width) + 8, 8] = [(order.fetch(info >> 32) << 32) | (info & 0xFFFFFFFF)].pack("Q<")
                 end
                 @contents[i] = data
@@ -178,15 +193,17 @@ module Zr
           # and a group's info is its signature's new index.
           #: (locals: Integer) -> String
           def layout(locals:)
-            out = @image.bytes.byteslice(0, 64).dup
+            out = @image.bytes.byteslice(0, 64).to_s.dup
             offsets = @sections.each_with_index.map do |section, i|
-              next 0 if i.zero?
-
-              data = @contents.fetch(i) { section.type == SHT_NOBITS ? "" : @image.contents(section) }
-              out << ("\0" * ((-out.bytesize) % [section.align, 1].max))
-              at = out.bytesize
-              out << data
-              at
+              if i.zero?
+                0
+              else
+                data = @contents.fetch(i) { section.type == SHT_NOBITS ? "" : @image.contents(section) }
+                out << ("\0" * ((-out.bytesize) % [section.align, 1].max))
+                at = out.bytesize
+                out << data
+                at
+              end
             end
             out << ("\0" * ((-out.bytesize) % 8))
             out[40, 8] = [out.bytesize].pack("Q<")
@@ -198,7 +215,7 @@ module Zr
 
           #: (Image::Section section, Integer i, Integer offset, Integer locals) -> String
           def header(section, i, offset, locals)
-            return @image.bytes.byteslice(sections_at, Image::SECTION_BYTES) if i.zero?
+            return @image.bytes.byteslice(sections_at, Image::SECTION_BYTES).to_s if i.zero?
 
             size = @contents.key?(i) ? @contents.fetch(i).bytesize : section.size
             info = section.info
@@ -210,7 +227,7 @@ module Zr
           end
 
           #: () -> Integer
-          def sections_at = @image.bytes.byteslice(40, 8).unpack1("Q<")
+          def sections_at = @image.bytes.unpack1("Q<", offset: 40) #: Integer
         end
       end
     end

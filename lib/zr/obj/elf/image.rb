@@ -28,13 +28,20 @@ module Zr
 
         # A section header, with its name read; `name_at` is where the name
         # starts in the section names.
+        # @rbs skip
         Section = Data.define(:name, :type, :flags, :addr, :offset, :size, :link, :info, :align, :entsize, :name_at)
 
         # A symbol of .symtab: `bind` and `type` split from st_info, and
         # `shndx` the section index, read through SHT_SYMTAB_SHNDX when the
         # object has more sections than a 16-bit index holds.
-        Symbol = Data.define(:name, :value, :size, :bind, :type, :other, :shndx, :name_at) do
+        # @rbs skip
+        Symbol = Data.define(:name, :value, :size, :bind, :type, :other, :shndx, :name_at)
+
+        class Symbol
+          #: () -> bool
           def global? = bind == STB_GLOBAL || bind == STB_WEAK
+
+          #: () -> bool
           def undefined? = shndx == SHN_UNDEF
         end
 
@@ -54,7 +61,7 @@ module Zr
         #: (String bytes) -> void
         def initialize(bytes)
           @bytes = bytes
-          unless Image.elf?(bytes) && bytes.getbyte(4) == 2 && bytes.getbyte(5) == 1 && bytes.byteslice(18, 2).unpack1("S<") == EM_AARCH64
+          unless Image.elf?(bytes) && bytes.getbyte(4) == 2 && bytes.getbyte(5) == 1 && bytes.unpack1("S<", offset: 18) == EM_AARCH64
             raise ArgumentError, "not a 64-bit little-endian aarch64 ELF file"
           end
 
@@ -77,7 +84,7 @@ module Zr
         #: () -> Array[String]
         def c_strings
           sections.select { |s| s.flags.allbits?(SHF_ALLOC | SHF_MERGE | SHF_STRINGS) && s.entsize <= 1 }
-                  .flat_map { |s| bytes.byteslice(s.offset, s.size).split("\0") }
+                  .flat_map { |s| contents(s).split("\0") }
         end
 
         # `name` as C writes it: ELF adds no prefix.
@@ -86,7 +93,7 @@ module Zr
 
         # The bytes of section `section`.
         #: (Section section) -> String
-        def contents(section) = bytes.byteslice(section.offset, section.size)
+        def contents(section) = bytes.byteslice(section.offset, section.size) #: String
 
         # The index of the section header table entry of .symtab, or nil.
         #: () -> Integer?
@@ -96,8 +103,8 @@ module Zr
 
         #: () -> Array[Section]
         def read_sections
-          shoff = bytes.byteslice(40, 8).unpack1("Q<")
-          count, names_at = bytes.byteslice(60, 4).unpack("S<S<")
+          shoff = bytes.unpack1("Q<", offset: 40) #: Integer
+          count, names_at = bytes.unpack("S<S<", offset: 60) #: [Integer, Integer]
           @names_index = 0
           return [] if shoff.zero?
 
@@ -108,11 +115,11 @@ module Zr
           raw = (0...count).map { |i| header(shoff, i) }
           @names_index = names_at
           names = raw[names_at]
-          raw.map { |r| Section.new(string(names[4], r[0]), *r.values_at(1, 2, 3, 4, 5, 6, 7, 8, 9), r[0]) }
+          raw.map { |r| Section.new(string(names[4], r[0]), *r.drop(1), r[0]) }
         end
 
         #: (Integer shoff, Integer index) -> Array[Integer]
-        def header(shoff, index) = bytes.byteslice(shoff + (index * SECTION_BYTES), SECTION_BYTES).unpack(SECTION_HEADER)
+        def header(shoff, index) = bytes.unpack(SECTION_HEADER, offset: shoff + (index * SECTION_BYTES)) #: Array[Integer]
 
         #: () -> Array[Symbol]
         def read_symbols
@@ -120,14 +127,17 @@ module Zr
           names = sections.fetch(table.link)
           wide = sections.find { |s| s.type == SHT_SYMTAB_SHNDX && s.link == symtab_index }
           (0...(table.size / SYMBOL_BYTES)).map do |i|
-            name, info, other, shndx, value, size = bytes.byteslice(table.offset + (i * SYMBOL_BYTES), SYMBOL_BYTES).unpack(SYMBOL)
-            shndx = bytes.byteslice(wide.offset + (i * 4), 4).unpack1("L<") if shndx == SHN_XINDEX && wide
+            row = bytes.unpack(SYMBOL, offset: table.offset + (i * SYMBOL_BYTES)) #: [Integer, Integer, Integer, Integer, Integer, Integer]
+            name, info, other, shndx, value, size = row
+            if shndx == SHN_XINDEX && wide
+              shndx = bytes.unpack1("L<", offset: wide.offset + (i * 4)) #: Integer
+            end
             Symbol.new(string(names.offset, name), value, size, info >> 4, info & 0xF, other, shndx, name)
           end
         end
 
         #: (Integer table, Integer at) -> String
-        def string(table, at) = bytes.unpack1("Z*", offset: table + at)
+        def string(table, at) = bytes.unpack1("Z*", offset: table + at) #: String
       end
     end
   end

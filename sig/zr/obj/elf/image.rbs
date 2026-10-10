@@ -1,0 +1,45 @@
+# The records of lib/zr/obj/elf/image.rb. Their methods are inline.
+module Zr
+  module Obj
+    module Elf
+      class Image
+        class Section < Data
+          attr_reader name: String
+          attr_reader type: Integer
+          attr_reader flags: Integer
+          attr_reader addr: Integer
+          attr_reader offset: Integer
+          attr_reader size: Integer
+          attr_reader link: Integer
+          attr_reader info: Integer
+          attr_reader align: Integer
+          attr_reader entsize: Integer
+          attr_reader name_at: Integer
+
+          def self.new: (String name, *Integer fields) -> instance
+                      | (**untyped) -> instance
+
+          def with: (**untyped) -> instance
+        end
+
+        class Symbol < Data
+          attr_reader name: String
+          attr_reader value: Integer
+          attr_reader size: Integer
+          attr_reader bind: Integer
+          attr_reader type: Integer
+          attr_reader other: Integer
+          attr_reader shndx: Integer
+          attr_reader name_at: Integer?
+
+          def self.new: (String name, Integer value, Integer size, Integer bind, Integer type, Integer other, Integer shndx,
+                         Integer? name_at) -> instance
+                      | (**untyped) -> instance
+
+          def with: (**untyped) -> instance
+
+        end
+      end
+    end
+  end
+end

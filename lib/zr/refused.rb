@@ -10,6 +10,7 @@ module Zr
   # fallbacks (`Native::Build`) keep matching on that superclass. `include
   # Zr::Refusal` only lets code ask a class or instance whether it means
   # this, without naming every stage's own `Refused`.
+  # @rbs module-self: Exception
   module Refusal; end
 
   # The program uses a form that zr does not support. The message gives

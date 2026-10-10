@@ -16,6 +16,7 @@ module Zr
         # @rbs @qnil: String
         # @rbs @ensure_path: Symbol
         # @rbs @jump_line: Integer?
+        # @rbs @body: Hir::node?
 
         # ruby's RUBY_EVENT_* bits.
         EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze #: Hash[Symbol, Integer]

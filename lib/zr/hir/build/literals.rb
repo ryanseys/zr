@@ -587,10 +587,12 @@ module Zr
       #: (Prism::StatementsNode statements) -> node
       def embedded(statements)
         message = @in_c_message
-        @in_c_message = nil
-        seq(statements)
-      ensure
-        @in_c_message = message
+        begin
+          @in_c_message = nil
+          seq(statements)
+        ensure
+          @in_c_message = message
+        end
       end
 
       #: (node part) -> bool

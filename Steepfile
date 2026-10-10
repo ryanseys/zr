@@ -62,7 +62,7 @@ PRESETS = {
 
 target :lib do
   signature "sig/zr", "sig/vendor"
-  library "digest", "json", "socket", "etc", "open3", "fileutils", "pathname", "tempfile", "securerandom", "zlib", "prism"
+  library "digest", "json", "socket", "etc", "open3", "fileutils", "pathname", "tempfile", "securerandom", "shellwords", "zlib", "prism"
 
   LEVELS.each do |level, paths|
     group level do
