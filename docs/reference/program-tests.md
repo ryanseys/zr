@@ -18,7 +18,9 @@ A program is a `.rb` file and nothing else: no header and no DSL.
 `ruby foo.rb` runs it. Thus the program that you debug is the program
 that the test builds.
 
-The names of the files beside it are spinel's:
+The names of the files beside it come from
+[spinel](https://github.com/matz/spinel), a Ruby compiler, so a spinel
+test directory runs as it is:
 
 | File | Contains | When the file is not there |
 |---|---|---|
@@ -35,13 +37,13 @@ zr adds these files, in the same style:
 | `foo.rb.status` | `exit N`, or `signal N` for a program that a signal stopped | `exit 0` |
 | `foo.rb.env` | `NAME=value` lines, added to the program's environment | nothing is added |
 | `foo.rb.files/` | a tree of files that the run directory holds (the fixtures) | no files |
-| `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, or a platform (`macos`, `linux`, `wasi`) | the test runs everywhere |
+| `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, `nonroot` (a user that is not root), or a platform (`macos`, `linux`, `wasi`) | the test runs everywhere |
 | `foo.rb.ruby` | command-line options for ruby only, such as `-W:no-experimental`; zr ignores them | no options |
 | `foo.rb.limits` | `build_mb=N` and `run_mb=N` lines: memory limits above the defaults | the defaults |
-| `foo.rb.links` | paths of the checkout, one on each line, that the run directory links at the same path (`lib`, for a program that compiles zr's own code) | no links |
+| `foo.rb.gems` | `name version` lines: another version of a gem whose C zr ports, which ruby takes on `-I` and the build with `--gem` | the version in `vendor/ruby` |
 | `foo.rb.<platform>.expected` | the stdout on that platform (`linux`, `wasi`), when it is different | `foo.rb.expected` |
 
-In `.env`, `.needs`, `.links` and `.limits`, an empty line and a line
+In `.env`, `.needs`, `.limits` and `.gems`, an empty line and a line
 that starts with `#` do not count.
 
 Nothing is escaped and nothing has a marker. Thus a program can write
@@ -60,7 +62,6 @@ test.
 | `test/programs/stdlib/` | the standard library and the ports | in the worker process |
 | `test/programs/compiler/` | what zr does with a program: caches, fusion, guards | in the worker process |
 | `test/programs/cli/` | the product: `zr build`, the link, ARGV, signals, sockets, the flush at exit | with `zr build`, in its own process, as a user builds it |
-| `test/programs/*.rb` | older whole programs | in the worker process |
 | `test/programs/native/` | programs that only a native target runs (`.needs` gives `macos` and `linux`) | in the worker process |
 
 An area has a directory for each subject, and a directory for each
@@ -119,8 +120,7 @@ Each run of a program, by ruby or by zr, gets a new directory
 3. It copies the tree of `foo.rb.files/` into `run/`. A symbolic link
    stays a link. A file that must be beside the program goes in
    `foo.rb.files/<directory of rel>/`.
-4. It links each path of `foo.rb.links` from `run/` to the checkout.
-5. It starts the program in `run/`, as `ruby <rel> <args>` or as the
+4. It starts the program in `run/`, as `ruby <rel> <args>` or as the
    binary with the same arguments. Thus `__FILE__` and a backtrace give
    `<rel>`.
 

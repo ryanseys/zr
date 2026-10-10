@@ -43,8 +43,9 @@ tell you why. They also skip when wasmtime is not installed.
 $ bin/minitest
 ```
 
-This runs every `test/**/*_test.rb` file: the unit tests and the
-program tests. `rake test` runs the two tiers, one after the other.
+This runs every `test/**/*_test.rb` file: the unit tests, the program
+tests and the C extension tests. `rake test` runs the three tiers, one
+after the other.
 `rake` runs `rake lint` first, then the tests. To time a run, use the
 shell's `time`:
 
@@ -62,7 +63,8 @@ $ bin/minitest test/programs_test.rb
 $ bin/minitest test/unit/wasm_test.rb test/unit/exe_test.rb
 ```
 
-`rake test:unit` and `rake test:programs` run one tier.
+`rake test:unit`, `rake test:programs` and `rake test:ext` run one
+tier.
 
 ## Run some program tests
 
@@ -181,17 +183,15 @@ A value that the collector does not find then fails at once.
 ## Accept a new snapshot
 
 Some tests compare output with a file in the repository: the HIR dumps,
-the disassembly listing, the descriptions and the libSystem list. If
-your change must change one of these files, write it again with
-`ZR_BLESS=1`, then read the diff:
+the disassembly listing, the libSystem list and the files that some
+generators write (prism's Ruby, its encoding tables, the builtin lines
+and Onigmo's Unicode tables). If your change must change one of these
+files, write it again with `ZR_BLESS=1`, then read the diff:
 
 ```console
-$ ZR_BLESS=1 bin/minitest test/unit/description_test.rb
-$ git diff lib/zr/runtime/ext/os/
+$ ZR_BLESS=1 bin/minitest test/unit/hir_test.rb
+$ git diff test/hir/
 ```
-
-A change to the signature of a kernel def, or to a struct or a constant
-under `lib/zr/runtime/kernel/`, always changes the description.
 
 ## Check that an expected output is still ruby's
 

@@ -66,9 +66,10 @@ no arguments. Give paths and minitest options to `bin/minitest`.
 | Task | Does |
 |---|---|
 | `rake` | `rake lint`, then `rake test`. |
-| `rake test` | The two tiers: unit, programs. |
+| `rake test` | The three tiers: unit, programs, ext. |
 | `rake test:unit` | The unit tier: zr's own internals (`test/unit`). |
 | `rake test:programs` | The program tests: Ruby programs that zr builds, each checked against ruby 4.0.7 (`test/programs_test.rb`). |
+| `rake test:ext` | The C extensions that zr links, each checked against ruby 4.0.7 (`test/ext`). |
 | `rake lint` | Runs RuboCop with the cops that `.rubocop.yml` turns on. |
 | `rake gen` | Writes every generated file again (`zr-dev gen all`). `CHECK=1 rake gen` writes nothing, and fails if a file is out of date. |
 
@@ -86,7 +87,7 @@ test/unit/bytes_test.rb`. It gates nothing.
 
 | Task | Does |
 |---|---|
-| `rake release` | Builds the gem, tags the version and pushes the gem to rubygems.org, from your machine. The release workflow does not use it; see [How to release zr](../how-to/release.md). |
+| `rake release`, `rake gem:release` | Stop with a message: a release is a pushed `vX.Y.Z` tag, which the release workflow checks, builds and pushes. See [How to release zr](../how-to/release.md). |
 | `rake gem:build` | Builds `pkg/zr-<version>.gem`. |
 | `rake gem:install`, `rake gem:install:local` | Builds the gem and installs it. |
 | `rake gem:build:checksum`, `rake gem:clean`, `rake gem:clobber` | Bundler's other gem tasks. |
@@ -187,18 +188,21 @@ in `tool/gen/`.
 
 #### Generated files that the unit tier tests
 
-The unit tier writes these four files again and compares them with the
-committed files. Thus a file that is out of date makes a test fail.
+The unit tier writes these files again and compares them with the
+committed files. The tests of `builtin_lines` and `onig_unicode` skip
+without a CRuby checkout (`RUBY_SRC`). Thus a file that is out of date makes a test fail.
 
 | Command | Writes | Tested by |
 |---|---|---|
 | `zr-dev gen libsystem` | `lib/zr/obj/macho/libsystem.rb` | `test/unit/libsystem_test.rb` |
 | `zr-dev gen prism` | `lib/zr/runtime/ext/prism/ruby/*.rb`, from the templates in `tool/gen/prism/templates` | `test/unit/prism_test.rb` |
 | `zr-dev gen prism_encoding_tables` | `lib/zr/runtime/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |
+| `zr-dev gen builtin_lines` | `lib/zr/runtime/core/builtin_lines.rb` | `test/unit/builtin_lines_test.rb` |
+| `zr-dev gen onig_unicode` | `lib/zr/runtime/core/regexp/unicode_tables.rb`, `lib/zr/runtime/kernel/onig_tables.rb` | `test/unit/onig_unicode_test.rb` |
 
-`ZR_BLESS=1 bin/minitest test/unit/description_test.rb` also writes the
-descriptions again. `ZR_BLESS=1` on `test/unit/libsystem_test.rb`
-writes the libSystem list again. See
+`ZR_BLESS=1` on one of these tests writes its file again, in place of
+the check. `ZR_BLESS=1` on `test/unit/libsystem_test.rb` writes the
+libSystem list again. See
 [How to run the tests](../how-to/run-the-tests.md#accept-a-new-snapshot).
 
 ### Measure

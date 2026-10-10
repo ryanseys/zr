@@ -54,7 +54,7 @@ covers the linker too. The comparison does not include the UUID and
 the signature, because under `ZR_LINKER=cc` the system linker writes
 them and no input decides them.
 
-This test is much larger than any spec or program. The compiler is
+This test is much larger than any program test. The compiler is
 tens of thousands of lines of real Ruby: the prism port, the HIR build,
 the lowering, the IR passes, the backend, the object writers and the
 linker. If compiled zr gives a different result from zr on CRuby

@@ -117,8 +117,8 @@ it, and put the new digest in the line.
 
 ## Then
 
-1. Install the test reference again. The expected output of each spec
-   comes from ruby with the same gem versions as `vendor/`, in
+1. Install the test reference again. The expected output of each program
+   test comes from ruby with the same gem versions as `vendor/`, in
    `tmp/reference/gems`. `bin/setup` also runs this step.
 
    ```console
@@ -138,8 +138,9 @@ it, and put the new digest in the line.
 ## A new ruby
 
 A new ruby release (for example a patch release with a security fix in
-a default gem) is a new toolchain. Change `.ruby-version`, `Zr::RUBY`
-and `RUBY_REVISION`, install that ruby, then write the tree. The
+a default gem) is a new toolchain. Change `.ruby-version`, `Zr::RUBY`,
+`RUBY_RELEASE_DATE` and `RUBY_REVISION` (`lib/zr/version.rb`), install
+that ruby, then write the tree. The
 library's directory name follows the release (`Zr::Library::Layout::API`: 4.0.0
 for every 4.0.x), and the lock shows each file that changes. The
 bundled gems take the versions in ruby's `gems/bundled_gems`. zr's

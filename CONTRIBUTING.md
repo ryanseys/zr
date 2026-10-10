@@ -20,7 +20,7 @@ On Linux, you can work on the `wasm32-wasi` target:
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
 $ bin/setup     # installs the gems and builds the runtime (a few minutes)
-$ bin/minitest  # runs every test: unit, programs
+$ bin/minitest  # runs every test: unit, programs, ext
 ```
 
 ## Make a change
@@ -49,9 +49,9 @@ form by name. See [The contract](docs/explanation/the-contract.md).
   lists the terms.
 - A comment says why, not what the code already says.
 - Test names say what they check: `test_<subject>_<condition>_<result>`.
-- A spec sentence (`it "..."`) says what the program does, in the
-  present tense: `a frozen String raises FrozenError on <<`. It names no
-  issue number.
+- A program test's file name says what the program does, in the
+  present tense: `a_frozen_string_raises_frozen_error_on_append.rb`. It
+  names no issue number.
 - `bundle exec rake lint` runs RuboCop: the Lint cops and the cops that
   `.rubocop.yml` adds, each with its reason.
 - `bin/steep check` runs Steep on every file of the compiler. Annotate

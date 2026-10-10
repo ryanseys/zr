@@ -99,6 +99,6 @@ The portable runtime calls a fixed set of OS functions, which
 | `lib/zr/runtime/kernel/os/<os>/` | the kernel's OS calls: errno, descriptors, stacks, POSIX signals, JIT mapping |
 | `lib/zr/runtime/kernel/arch/<arch>/` | the machine context that a task switch saves |
 | `lib/zr/runtime/core/os/<os>/` | the numbers that the OS gives the errno, IO, File and Process constants |
-| `lib/zr/runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) and the description |
+| `lib/zr/runtime/ext/os/<os>/` | extension tables (fcntl, etc, socket) |
 
 The table files come from the ruby of that OS (`zr-dev gen tables`).

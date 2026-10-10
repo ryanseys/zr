@@ -41,8 +41,8 @@ ordinary Ruby over the kernel.
 `def` goes, and where zr looks up constants.
 
 **Description.** The kernel's signatures, effects, constants and struct
-layouts, as text (`zr_description.rb`, which a build writes into the
-cache from the kernel, in `store/description/`). A program
+layouts, as text (`zr_description.rb`). A build makes it from the
+kernel (`Runtime#carried_text`), and nobody commits it. A program
 that evals includes the description in place of the kernel's sources.
 
 **Digest.** A SHA-256 hash of all the inputs of a built file. zr gives
@@ -77,8 +77,9 @@ written in ordinary Ruby.
 its Ruby state: self, the line, and every Value that the function
 keeps. The collector reads it. See [Runtime layouts](runtime-layouts.md).
 
-**Gap.** An example that zr cannot pass yet. It stays in its place,
-with `skip "<what it needs>"`.
+**Gap.** A behavior where zr does not give ruby's output yet: a
+program in `test/gaps/`, which the tiers do not run, or a line of a
+baseline. See `test/gaps/README.md`.
 
 **Gate.** One bit of the gate word. A gate is clear while a fast path
 is correct. When a program redefines the method that the fast path
@@ -175,12 +176,12 @@ or reads an instance variable, and owns the cache entries for it.
 
 **Skeleton.** The bytes that every binary linked beside one prelinked
 image starts with: the header page and the runtime's `__TEXT`
-(`skeleton-<digest>.bin` in the cache). A link clones the skeleton and
+(an `image` entry of the cache's store). A link clones the skeleton and
 writes only the rest.
 
 **Snapshot.** A committed file that a unit test compares its output
-with: the HIR dumps, the disassembly listing, the descriptions, the
-libSystem list. `ZR_BLESS=1` writes it again.
+with: the HIR dumps, the disassembly listing, the libSystem list, and
+the files of some generators. `ZR_BLESS=1` writes it again.
 
 **Stage 1, stage 2.** The compiler that ruby builds, and the compiler
 that stage 1 builds. See [Bootstrapping](../explanation/bootstrapping.md).
@@ -191,8 +192,8 @@ that stage 1 builds. See [Bootstrapping](../explanation/bootstrapping.md).
 **Task.** A fiber, with its own machine stack. Threads and ractors run
 on tasks.
 
-**Tier.** One of the two groups of tests: unit (`test/unit`) and
-programs (`test/programs`). See
+**Tier.** One of the three groups of tests: unit (`test/unit`),
+programs (`test/programs`) and ext (`test/ext`). See
 [How the tests run](../explanation/how-the-tests-run.md).
 
 **Tree-walking interpreter.** The part of eval support on wasm. It

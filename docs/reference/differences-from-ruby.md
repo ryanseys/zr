@@ -17,7 +17,7 @@ kinds:
   depend on it portably. zr gives a result that is correct, but not
   the same bytes.
 
-Each row gives the spec that tests the behavior, where there is one.
+The program tests in `test/programs/` hold zr to each row.
 
 ## Refusals
 
@@ -30,15 +30,14 @@ Each row gives the spec that tests the behavior, where there is one.
 | The message of a `SyntaxError` from `RubyVM::AbstractSyntaxTree.parse` | prism's message: zr parses only with prism | the message of ruby's older parser, parse.y |
 | A method that the program reaches only through a name that it builds at run time, such as `send("ev" + "al", ...)` | `NotImplementedError` when the method needs a part of the runtime that the program did not ask for (the compiler, the normalization tables, pp.rb) | the method's result |
 
-The spec `core/rubyvm/rubyvm_test.rb` "an InstructionSequence answers
-eval, to_binary and each_child as ruby does" tests the parts of
+The programs in `test/programs/core/rubyvm/` test the parts of
 `InstructionSequence` that zr supports.
 
 ## Details that zr does not copy
 
 | What | zr | ruby 4.0.7 |
 |---|---|---|
-| The order of `instance_methods`, `methods`, `constants`, `global_variables` and the other lists of names | the order of definition | the order of CRuby's id tables, which comes from the symbols that the boot interned and changes with the installed gems. `core/object/search_test.rb` sorts the lists that it compares. |
+| The order of `instance_methods`, `methods`, `constants`, `global_variables` and the other lists of names | the order of definition | the order of CRuby's id tables, which comes from the symbols that the boot interned and changes with the installed gems. A test that compares such a list sorts it. |
 | `ObjectSpace.dump` of an object on the heap | the address, the type, the class, `frozen`, the value, the size and `memsize` | also `shape_id`, `slot_size`, `embedded`, `chilled`, `coderange` and `flags`, which describe CRuby's heap |
 | `GC.compact` and `GC.latest_compact_info` | the live objects by type under `considered`, and empty `moved`, `moved_up` and `moved_down`: this collector never moves an object | the objects that the compaction moved, by type |
 | A TracePoint that the program reaches only by a name in a string or a symbol, or in an eval's code, such as `Object.const_get("TracePoint")` or `eval("TracePoint.new(:call) { }")` | no events from the program's code, and a warning when the TracePoint is enabled: zr arms the events at build time, when a file's code names `TracePoint`, `set_trace_func` or `Coverage`. `zr run --trace` (or `ZR_TRACE=1`) arms them. | the events |

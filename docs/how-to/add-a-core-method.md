@@ -82,11 +82,8 @@ call a libc function, declare it in the `module Libc` of
 [The kernel subset](../reference/kernel-subset.md) lists the
 types and the `Machine.*` operations.
 
-Then write the descriptions again, because they list every kernel def:
-
-```console
-$ ZR_BLESS=1 bin/minitest test/unit/description_test.rb
-```
+The kernel's description, which lists every kernel def, follows by
+itself: a build makes it from the kernel, and nobody commits it.
 
 ## 5. Add a new file, if the class has none
 
