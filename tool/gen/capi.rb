@@ -37,7 +37,7 @@ module Zr
               and the name, before anything runs:
 
               ```
-              zr: foo.bundle: zr's C API has no rb_foo yet (`zr-dev ext imports foo.bundle` lists what it uses)
+              zr: foo.bundle: zr's C API has no rb_foo yet (report it: https://github.com/ryanseys/zr/issues)
               ```
 
               A C TracePoint (`rb_tracepoint_new`) is a Ruby TracePoint whose
