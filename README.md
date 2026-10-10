@@ -1,5 +1,9 @@
 # zr
 
+[![CI](https://github.com/ryanseys/zr/actions/workflows/ci.yml/badge.svg)](https://github.com/ryanseys/zr/actions/workflows/ci.yml)
+[![Gem Version](https://img.shields.io/gem/v/zr)](https://rubygems.org/gems/zr)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/ryanseys/zr/blob/v0.1.0/LICENSE.txt)
+
 **A Ruby compiler, written in Ruby.** zr compiles Ruby programs to
 native binaries and WebAssembly modules. A compiled program gives
 exactly the output that ruby 4.0.7 gives. When zr cannot promise this
@@ -15,12 +19,13 @@ Hello, Ruby!
 ```
 
 The compiler, the runtime, the core library, the parser and the
-garbage collector are all Ruby. The repository has no C or
-assembler.
+garbage collector are all Ruby. zr's own code has no C or assembler.
 
-> **Status: pre-1.0.** zr compiles large programs, bundler among them,
-> and its tests hold every answer to ruby 4.0.7's. The command line and
-> the environment variables can change in a minor release until 1.0.
+> **Status: pre-1.0, not yet for production.** zr compiles large
+> programs, bundler among them. On 2026-10-06, zr passed 33,140 of the
+> 33,144 ruby/spec examples that ruby 4.0.7 passes, and 9,051 of the
+> 9,961 tests of CRuby's `test/ruby`. The command line and the
+> environment variables can change in a minor release until 1.0.
 > See [the changelog](https://github.com/ryanseys/zr/blob/v0.1.0/CHANGELOG.md).
 
 ## Install
@@ -39,8 +44,9 @@ $ zr run hello.rb
   ruby 4.0.7, and gives a warning on a later 4.0 release. The gem has
   no dependencies: it carries ruby 4.0.7's standard library itself, so
   the install downloads only zr;
-- a host that runs the binaries: an Apple Silicon Mac with macOS 14 or
-  later, or aarch64 Linux. Any other host builds WebAssembly modules;
+- to run the binaries, an Apple Silicon Mac with macOS 14 or later, or
+  aarch64 Linux. Any host builds macOS binaries, WebAssembly modules
+  and objects;
 - [wasmtime](https://wasmtime.dev), to run WebAssembly modules;
 - OpenSSL 3 (`brew install openssl@3`), only for a macOS program that
   requires `openssl`.
@@ -91,8 +97,8 @@ fibers, threads or ractors. See [Targets](https://github.com/ryanseys/zr/blob/v0
 
 - **Hosts.** zr builds binaries for arm64 only: an Apple Silicon Mac,
   and aarch64 Linux (a static musl binary, which also runs on a glibc
-  Linux). It builds no x86_64 or Windows binary. Any host builds WASI
-  modules and objects.
+  Linux). It builds no x86_64 or Windows binary. Any host builds macOS
+  binaries, WASI modules and objects.
 - **Size.** A binary contains the whole runtime: 27 MB for "hello
   world", 46 MB as a WASI module, and about 110 MB for a program that
   calls `eval`, which carries the compiler.
@@ -142,8 +148,10 @@ ruby's output byte for byte. See
 
 ## Contribute
 
-The full test suite needs an Apple Silicon Mac. On Linux you can work
-on the `wasm32-wasi` target (`ZR_TARGET=wasm32-wasi bin/minitest ...`); see
+The full test suite runs on an Apple Silicon Mac. On aarch64 Linux, the
+program tests run for `aarch64-linux-musl` in an Alpine container, and
+any host can work on the `wasm32-wasi` target
+(`ZR_TARGET=wasm32-wasi bin/minitest ...`); see
 [How to test on another target](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/test-on-another-target.md).
 
 ```console
@@ -153,7 +161,7 @@ $ bin/setup               # install the gems and build the runtime (a few minute
 $ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
                           # the program tests in one directory
 $ bin/zr-dev affected     # the tests that your change can reach
-$ bin/minitest            # all the tests: unit, programs
+$ bin/minitest            # all the tests: unit, programs, ext
 ```
 
 `bin/minitest` builds the runtime again when a change under `lib/` or
@@ -168,7 +176,7 @@ $ rake lint       # RuboCop (.rubocop.yml)
 $ rake build      # build the runtime for this host
 $ bin/console     # IRB with zr loaded
 $ rake -T         # every rake task
-$ bin/zr-dev help   # every maintainer tool
+$ bin/zr-dev help         # every maintainer tool
 ```
 
 See [How to run the tests](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/run-the-tests.md) and
@@ -179,8 +187,18 @@ documentation is in [`docs/`](https://github.com/ryanseys/zr/blob/v0.1.0/docs/RE
 
 See [How to release zr](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/release.md).
 
+## Credits
+
+zr ports the work of others to Ruby: [prism](https://github.com/ruby/prism)
+parses, [Onigmo](https://github.com/k-takata/Onigmo) matches regular
+expressions, and [zlib](https://zlib.net), [libyaml](https://github.com/yaml/libyaml),
+[Ryu](https://github.com/ulfjack/ryu) and fpconv are in the runtime. The
+benchmarks come from [spinel](https://github.com/matz/spinel). ruby
+4.0.7's own library and the C halves of its gems are the reference for
+all of it.
+
 ## License
 
-zr is under the MIT License (`LICENSE.txt`). The vendored and derived
-parts keep their own licenses. `THIRD_PARTY_NOTICES.md` lists each
-one.
+zr is under the [MIT License](https://github.com/ryanseys/zr/blob/v0.1.0/LICENSE.txt). The vendored and
+derived parts keep their own licenses.
+[`THIRD_PARTY_NOTICES.md`](https://github.com/ryanseys/zr/blob/v0.1.0/THIRD_PARTY_NOTICES.md) lists each one.
