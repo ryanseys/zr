@@ -58,7 +58,7 @@ one. `zr-dev expect` runs the program under ruby and writes what it
 printed beside the program:
 
 ```console
-$ ruby tool/zr-dev.rb expect test/programs/lang/blocks/enumeration
+$ bin/zr-dev expect test/programs/lang/blocks/enumeration
 lang/blocks/enumeration/groups_words_by_their_length.rb: wrote expected
 1 test(s) asked, 1 written
 ```
@@ -125,8 +125,8 @@ Now let ruby correct the file. `--check` tells you that the file is
 not ruby's, and `--all` writes it again:
 
 ```console
-$ ruby tool/zr-dev.rb expect --check test/programs/lang/blocks/enumeration
-$ ruby tool/zr-dev.rb expect --all test/programs/lang/blocks/enumeration
+$ bin/zr-dev expect --check test/programs/lang/blocks/enumeration
+$ bin/zr-dev expect --all test/programs/lang/blocks/enumeration
 ```
 
 Run the test again. It passes.

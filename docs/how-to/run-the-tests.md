@@ -6,7 +6,7 @@ you open a pull request.
 
 For the full list of rake tasks, `zr-dev` commands and test variables,
 see [Tools](../reference/tools.md). This guide writes `zr-dev` for
-`ruby tool/zr-dev.rb`. To learn how a
+`bin/zr-dev`. To learn how a
 tier runs, see [How the tests run](../explanation/how-the-tests-run.md).
 
 ## Before you start
@@ -200,8 +200,8 @@ compares the output with the files beside the program. It compiles
 nothing and writes nothing:
 
 ```console
-$ ruby tool/zr-dev.rb expect --check test/programs/core/string
-$ ruby tool/zr-dev.rb expect --check
+$ bin/zr-dev expect --check test/programs/core/string
+$ bin/zr-dev expect --check
 ```
 
 Without `--check`, `zr-dev expect` writes the files again. See
@@ -220,8 +220,8 @@ See [How to test on another target](test-on-another-target.md).
 Run these after a change to the compiler or to the kernel's layouts:
 
 ```console
-$ ruby tool/zr-dev.rb stage 1
-$ ruby tool/zr-dev.rb stage 2
+$ bin/zr-dev stage 1
+$ bin/zr-dev stage 2
 ```
 
 `zr-dev stage 2` takes about ten minutes and 5 GB of memory, so run it

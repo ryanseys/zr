@@ -38,14 +38,14 @@ run the tests that the tool names.
 1. See what is newer on rubygems.org:
 
    ```console
-   $ ruby tool/zr-dev.rb vendor outdated
+   $ bin/zr-dev vendor outdated
    ```
 
 2. See what the update changes, and which of zr's files replace one of
    the changed files:
 
    ```console
-   $ ruby tool/zr-dev.rb vendor diff bigdecimal 4.1.3
+   $ bin/zr-dev vendor diff bigdecimal 4.1.3
    ```
 
 3. Change the version: a port's in `lib/zr/library/ports.rb`. A bundled gem
@@ -70,7 +70,7 @@ zr's reason.
 ## Write the tree
 
 ```console
-$ ruby tool/zr-dev.rb vendor
+$ bin/zr-dev vendor
 ```
 
 The tool reads:
@@ -91,7 +91,7 @@ nothing.
 ## Check the tree
 
 ```console
-$ ruby tool/zr-dev.rb vendor --check
+$ bin/zr-dev vendor --check
 ```
 
 It needs no network: each file must have the SHA-256 in the lock, and
@@ -128,7 +128,7 @@ it, and put the new digest in the line.
 2. Run the tests that the change reaches, one directory at a time:
 
    ```console
-   $ ruby tool/zr-dev.rb affected
+   $ bin/zr-dev affected
    ```
 
    If ruby gives a different output with the new version, get the new

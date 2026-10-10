@@ -7,13 +7,13 @@ of its output beside it, and the harness checks the answer before it
 keeps a time. A program that gives a wrong answer gets no time.
 
 ```console
-$ ruby tool/zr-dev.rb bench                  # every program, five runs each
-$ ruby tool/zr-dev.rb bench fib nbody        # the programs whose name holds a word
-$ ruby tool/zr-dev.rb bench --runs 3 fib
-$ ruby tool/zr-dev.rb bench --target wasm32-wasi
-$ ruby tool/zr-dev.rb bench --check          # the newest report against the one before
-$ ruby tool/zr-dev.rb bench --check caebda07 be347192
-$ ruby tool/zr-dev.rb compile                # what a build costs, by phase
+$ bin/zr-dev bench                  # every program, five runs each
+$ bin/zr-dev bench fib nbody        # the programs whose name holds a word
+$ bin/zr-dev bench --runs 3 fib
+$ bin/zr-dev bench --target wasm32-wasi
+$ bin/zr-dev bench --check          # the newest report against the one before
+$ bin/zr-dev bench --check caebda07 be347192
+$ bin/zr-dev compile                # what a build costs, by phase
 ```
 
 The harness measures each run with `Benchmark.measure` from the

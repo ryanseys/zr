@@ -168,7 +168,7 @@ $ rake lint       # RuboCop (.rubocop.yml)
 $ rake build      # build the runtime for this host
 $ bin/console     # IRB with zr loaded
 $ rake -T         # every rake task
-$ ruby tool/zr-dev.rb help   # every maintainer tool
+$ bin/zr-dev help   # every maintainer tool
 ```
 
 See [How to run the tests](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/run-the-tests.md) and

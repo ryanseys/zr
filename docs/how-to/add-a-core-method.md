@@ -12,7 +12,7 @@ Let ruby write its expected output; see
 [How to add a program test](add-a-program-test.md). Then run the test:
 
 ```console
-$ ruby tool/zr-dev.rb expect test/programs/core/string/squeeze
+$ bin/zr-dev expect test/programs/core/string/squeeze
 $ ZR_PROGRAMS=core/string/squeeze bin/minitest test/programs_test.rb
 ```
 
@@ -103,7 +103,7 @@ nothing else changed:
 
 ```console
 $ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
-$ ruby tool/zr-dev.rb affected
+$ bin/zr-dev affected
 ```
 
 ## Mark helpers and Ruby-written methods

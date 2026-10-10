@@ -57,7 +57,7 @@ Facts about commands, formats and layouts.
   `zr-dev gems` tried gets with zr
 - [Program tests](reference/program-tests.md): the files beside a
   program, the run directory, the baselines and the runner's output
-- [Benchmark recordings](reference/test-format.md): the files beside a
+- [Benchmark recordings](reference/benchmark-recordings.md): the files beside a
   benchmark
 - [Repository layout](reference/repository-layout.md)
 - [The kernel subset](reference/kernel-subset.md)

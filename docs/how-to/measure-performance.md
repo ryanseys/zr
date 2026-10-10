@@ -3,7 +3,7 @@
 This guide shows you how to measure how fast zr's binaries run, and
 how fast zr builds them. The options of each command are in
 [Tools](../reference/tools.md#measure). This guide writes `zr-dev`
-for `ruby tool/zr-dev.rb`.
+for `bin/zr-dev`.
 
 ## Time the binaries
 
@@ -13,8 +13,8 @@ against the recording, and then times it beside `ruby` and
 toplevel loop too, which runs only once):
 
 ```console
-$ ruby tool/zr-dev.rb bench fib tak nbody
-$ ruby tool/zr-dev.rb bench --runs 5 fib
+$ bin/zr-dev bench fib tak nbody
+$ bin/zr-dev bench --runs 5 fib
 ```
 
 A program with a wrong output fails, and has no time. The summary on
@@ -40,9 +40,9 @@ of 100 ms or more whose wall-clock time changed by a tenth fails the
 check. A shorter program is only listed.
 
 ```console
-$ ruby tool/zr-dev.rb bench --check
-$ ruby tool/zr-dev.rb bench --check caebda07 be347192
-$ ruby tool/zr-dev.rb bench --check benchmark/results/20260922-0426-caebda07.txt tmp/bench/latest.txt
+$ bin/zr-dev bench --check
+$ bin/zr-dev bench --check caebda07 be347192
+$ bin/zr-dev bench --check benchmark/results/20260922-0426-caebda07.txt tmp/bench/latest.txt
 ```
 
 A time is valid only on the machine that measured it. Compare two
@@ -69,9 +69,9 @@ rung of `benchmark/compile/` and reports the seconds of each phase. Thus a
 change to the total shows which phase changed.
 
 ```console
-$ ruby tool/zr-dev.rb compile
-$ ruby tool/zr-dev.rb compile --runs 5 bundler
-$ ruby tool/zr-dev.rb compile --write   # writes the table to tmp/bench/compile.txt
+$ bin/zr-dev compile
+$ bin/zr-dev compile --runs 5 bundler
+$ bin/zr-dev compile --write   # writes the table to tmp/bench/compile.txt
 ```
 
 The rungs are a series of require graphs: `hello` requires nothing,
@@ -85,8 +85,8 @@ fails if the compiler is slower than the newest baseline. Both need
 `--zr`:
 
 ```console
-$ ruby tool/zr-dev.rb compile --zr --commit
-$ ruby tool/zr-dev.rb compile --zr --check
+$ bin/zr-dev compile --zr --commit
+$ bin/zr-dev compile --zr --check
 ```
 
 ## Profile the compiler

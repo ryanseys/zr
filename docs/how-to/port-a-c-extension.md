@@ -28,7 +28,7 @@ ruby's own, in `vendor/ruby/lib/ruby/4.0.0`, and the version must be
 ruby 4.0.7's. Then write the tree:
 
 ```console
-$ ruby tool/zr-dev.rb vendor
+$ bin/zr-dev vendor
 ```
 
 Never edit the vendored files. If the gem does not work, fix zr. To
@@ -85,9 +85,9 @@ Add program tests under `test/programs/stdlib/<gem>/` that use the gem
 as its users do. Let ruby write their expected outputs, and run them:
 
 ```console
-$ ruby tool/zr-dev.rb expect test/programs/stdlib/digest
+$ bin/zr-dev expect test/programs/stdlib/digest
 $ ZR_PROGRAMS=stdlib/digest bin/minitest test/programs_test.rb
-$ ruby tool/zr-dev.rb expect --check test/programs/stdlib/digest
+$ bin/zr-dev expect --check test/programs/stdlib/digest
 ```
 
 `zr-dev expect --check` checks that the expected outputs are still

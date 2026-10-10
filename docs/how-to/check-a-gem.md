@@ -18,7 +18,7 @@ Set up the reference ruby. The tool compares each probe with it:
 $ ruby tool/install_reference_gems.rb
 ```
 
-This guide writes `zr-dev` for `ruby tool/zr-dev.rb`.
+This guide writes `zr-dev` for `bin/zr-dev`.
 
 ## Try one gem
 

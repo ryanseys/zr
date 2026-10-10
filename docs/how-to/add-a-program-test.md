@@ -3,7 +3,7 @@
 This guide shows you how to add a program test, how to give a program
 its arguments, input and files, and how to split a large program. For
 the format of each file, see [Program tests](../reference/program-tests.md).
-This guide writes `zr-dev` for `ruby tool/zr-dev.rb`; see
+This guide writes `zr-dev` for `bin/zr-dev`; see
 [Tools](../reference/tools.md#tests).
 
 ## Add a test
@@ -25,7 +25,7 @@ This guide writes `zr-dev` for `ruby tool/zr-dev.rb`; see
 3. Get the expected output from ruby 4.0.7. Never write it yourself:
 
    ```console
-   $ ruby tool/zr-dev.rb expect test/programs/core/string/case_mapping
+   $ bin/zr-dev expect test/programs/core/string/case_mapping
    core/string/case_mapping/upcase_keeps_the_receivers_encoding.rb: wrote expected
    1 test(s) asked, 1 written
    ```
@@ -62,7 +62,7 @@ Write the files beside the program before you run `zr-dev expect`:
 `.expected`. After you change one of these files alone, give `--all`:
 
 ```console
-$ ruby tool/zr-dev.rb expect --all test/programs/<area>/<subject>/foo.rb
+$ bin/zr-dev expect --all test/programs/<area>/<subject>/foo.rb
 ```
 
 ## Give the program its own files
@@ -99,7 +99,7 @@ file.
 ## Check that the expected files are still ruby's
 
 ```console
-$ ruby tool/zr-dev.rb expect --check test/programs/core/string
+$ bin/zr-dev expect --check test/programs/core/string
 ```
 
 `--check` writes nothing. It lists each test whose files are

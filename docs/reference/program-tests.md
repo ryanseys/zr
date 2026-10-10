@@ -82,10 +82,10 @@ program under ruby 4.0.7, in a run directory as the test does, and
 writes the files:
 
 ```console
-$ ruby tool/zr-dev.rb expect                              # each test whose program is newer
-$ ruby tool/zr-dev.rb expect test/programs/core/string    # an area
-$ ruby tool/zr-dev.rb expect --all test/programs/lang     # write again, also when not newer
-$ ruby tool/zr-dev.rb expect --check                      # write nothing; list what differs
+$ bin/zr-dev expect                              # each test whose program is newer
+$ bin/zr-dev expect test/programs/core/string    # an area
+$ bin/zr-dev expect --all test/programs/lang     # write again, also when not newer
+$ bin/zr-dev expect --check                      # write nothing; list what differs
 ```
 
 - It always writes `foo.rb.expected`. It writes `foo.rb.err.expected`

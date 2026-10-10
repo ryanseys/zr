@@ -98,16 +98,17 @@ test/unit/bytes_test.rb`. It gates nothing.
 ## zr-dev
 
 `zr-dev` holds the tools that work on a checkout. Run it with the ruby
-of the checkout, from any directory:
+of the checkout: `bin/zr-dev` in the checkout, or `ruby
+<checkout>/tool/zr-dev.rb` from any directory.
 
 ```
-$ ruby tool/zr-dev.rb help                 # every command
-$ ruby tool/zr-dev.rb bench --help         # the options of one command
-$ ruby tool/zr-dev.rb gems help            # the commands of a group
+$ bin/zr-dev help                 # every command
+$ bin/zr-dev bench --help         # the options of one command
+$ bin/zr-dev gems help            # the commands of a group
 ```
 
-The tables below write `zr-dev` for `ruby tool/zr-dev.rb`. The binstub
-`bin/zr-dev` does the same (see [The binstubs](#the-binstubs)). The code of
+The tables below write `zr-dev` for `bin/zr-dev` (see
+[The binstubs](#the-binstubs)). The code of
 each command is in `tool/<command>.rb`, with `_` for `-`
 (`tool/cruby_test.rb`); `zr-dev host` is in `tool/hosted.rb`. The header comment of each file
 gives more examples.
@@ -146,9 +147,52 @@ gives more examples.
 | Command | Does |
 |---|---|
 | `zr-dev expect [--all] [--check] [path...]` | Runs each program test under ruby 4.0.7, in a run directory as the test does, and writes its files beside it: `foo.rb.expected`, and `foo.rb.err.expected` and `foo.rb.status` when they are not empty and not `exit 0` (`tool/expect.rb`). On Linux, it writes `foo.rb.linux.expected` when the stdout is different. With no path, it takes `test/programs`. It writes only a test whose `foo.rb.expected` is missing or older than the program; `--all` writes each test. `--check` writes nothing, lists each test whose files differ from ruby, and fails if there is one. See [Program tests](program-tests.md#expected-output). |
-| `zr-dev record [--again] <benchmark>...` | Runs a benchmark under ruby 4.0.7 and writes its recording (`.out`, `.err`, `.status`, `.signal`) beside it. It takes only paths below `benchmark/`. It does not change a benchmark that has a recording. `--again` writes the recording again. See [Benchmark recordings](test-format.md). |
-| `zr-dev rubyspec <area>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs ruby/spec from the CRuby checkout at `RUBY_SRC` (at `Zr::RUBY_REVISION`) under ruby 4.0.7 and in zr binaries, and compares each example. An area is a directory of `spec/ruby`, such as `language` or `core/array`; `core` and `library` are each of their directories, and `--all` is every area. The spec files go into binaries of 20 files, built one at a time; a chunk that does not build is split until the file is alone. Each file runs in its own process with a limit of 120 s, 2 at once. ruby's results are kept by the file's digest in `log/rubyspec/ruby/`. The examples that zr fails are tags in mspec's form in `test/rubyspec/tags/` (`fails:`, `hangs:` (zr's run skips it), `fails(build):`, `fails(load):`); `--update-tags` writes them from the run. A run writes `log/rubyspec/results/<area>.json`, a report of the gaps in `log/rubyspec/<area>.txt`, a live list of the gaps in `log/rubyspec/issues/<area>.jsonl`, the output of zr's runs line by line with the time and the file in `log/rubyspec/tests/<area>.log` (`tail -f` shows each example as it ends, and the one that hangs), and `test/rubyspec/summary.tsv` again. `test/unit/rubyspec_ratchet_test.rb` fails on an untagged gap or a stale tag. `command_line`, `optional/capi` and `security` are CRuby's alone. Only one suite runs at a time (`tmp/suite.lock`). |
-| `zr-dev cruby-test <dir>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs CRuby's test-all (a directory of `test/` in `RUBY_SRC`, such as `ruby` or `json`) under ruby 4.0.7 and in zr binaries, on CRuby's own runner, and compares each test, as `zr-dev rubyspec` does. A test that starts a ruby (`assert_separately`, `assert_in_out_err`) starts zr through `RUBY`, so a file has 600 s. The tags are `test/cruby/tags/<dir>/<file>.txt`, a line for each test: its name, a tab, and why (`fail`, `timeout` (zr's run skips it), or a reason of your own such as `ractor`; `*` with `build` or `load` for the file). The results, the reports, the live gap lists (`issues/<dir>.jsonl`) and the live test logs (`tests/<dir>.log`: each test of zr's runs as it starts and ends, with the time and the file) are in `log/cruby-test/`, the summary in `test/cruby/summary.tsv`, and the ratchet is `test/unit/cruby_test_ratchet_test.rb`. |
+| `zr-dev record [--again] <benchmark>...` | Runs a benchmark under ruby 4.0.7 and writes its recording (`.out`, `.err`, `.status`, `.signal`) beside it. It takes only paths below `benchmark/`. It does not change a benchmark that has a recording. `--again` writes the recording again. See [Benchmark recordings](benchmark-recordings.md). |
+| `zr-dev rubyspec <area>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs ruby/spec under ruby 4.0.7 and in zr binaries, and compares each example. See [ruby/spec and test-all](#rubyspec-and-test-all). |
+| `zr-dev cruby-test <dir>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs CRuby's test-all under ruby 4.0.7 and in zr binaries, and compares each test. See [ruby/spec and test-all](#rubyspec-and-test-all). |
+
+#### ruby/spec and test-all
+
+`zr-dev rubyspec` runs ruby/spec from the CRuby checkout at `RUBY_SRC`
+(at `Zr::RUBY_REVISION`). An area is a directory of `spec/ruby`, such
+as `language` or `core/array`; `core` and `library` are each of their
+directories, and `--all` is every area. `command_line`, `optional/capi`
+and `security` are CRuby's alone.
+
+The spec files go into binaries of 20 files, built one at a time; a
+chunk that does not build is split until the file is alone. Each file
+runs in its own process with a limit of 120 s, 2 at once. ruby's
+results are kept by the file's digest in `log/rubyspec/ruby/`.
+
+The examples that zr fails are tags in mspec's form in
+`test/rubyspec/tags/`: `fails:`, `hangs:` (zr's run skips it),
+`fails(build):` and `fails(load):`. `--update-tags` writes them from
+the run. `test/unit/rubyspec_ratchet_test.rb` fails on an untagged gap
+or a stale tag.
+
+A run writes these files:
+
+- `log/rubyspec/results/<area>.json`, the results;
+- `log/rubyspec/<area>.txt`, a report of the gaps;
+- `log/rubyspec/issues/<area>.jsonl`, a live list of the gaps;
+- `log/rubyspec/tests/<area>.log`, the output of zr's runs line by
+  line, with the time and the file. `tail -f` shows each example as it
+  ends, and the one that hangs;
+- `test/rubyspec/summary.tsv`, again.
+
+`zr-dev cruby-test` runs a directory of CRuby's `test/` in `RUBY_SRC`,
+such as `ruby` or `json`, on CRuby's own runner, and compares each
+test in the same way. A test that starts a ruby (`assert_separately`,
+`assert_in_out_err`) starts zr through `RUBY`, so a file has 600 s.
+The tags are `test/cruby/tags/<dir>/<file>.txt`, a line for each test:
+its name, a tab, and why (`fail`, `timeout` (zr's run skips it), or a
+reason of your own such as `ractor`; `*` with `build` or `load` for
+the file). The results, the reports, the live gap lists
+(`issues/<dir>.jsonl`) and the live test logs (`tests/<dir>.log`) are
+in `log/cruby-test/`, and the summary is `test/cruby/summary.tsv`. The
+ratchet is `test/unit/cruby_test_ratchet_test.rb`.
+
+Only one suite runs at a time (`tmp/suite.lock`).
 
 ### Generated files
 
@@ -240,7 +284,21 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 
 | Command | Does |
 |---|---|
-| `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop: the compiler loaded, YJIT warm, and the runtime's description, symbols and prelinked images in memory. While it runs, each `zr run` and `zr build` of this checkout sends it the build. The server forks one child for each build. The client then runs the program itself, so the program keeps the terminal, the signals and the exit status. A Ctrl-C in the client stops the build. The server starts again when a file of zr that it loaded changes, and stops after `--idle` minutes with no request (default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`. On 2026-09-29, after an edit to a core file, `zr run` of hello took 4.2 s with the server and 4.9 s without it; after an edit to a program, 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a program with eval). The server held about 700 MB. |
+| `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop, which each `zr run` and `zr build` of this checkout uses while it runs. |
+
+The server holds the compiler loaded, YJIT warm, and the runtime's
+description, symbols and prelinked images in memory. It forks one child
+for each build. The client then runs the program itself, so the program
+keeps the terminal, the signals and the exit status. A Ctrl-C in the
+client stops the build. The server starts again when a file of zr that
+it loaded changes, and stops after `--idle` minutes with no request
+(default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes
+a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`.
+
+On 2026-09-29, after an edit to a core file, `zr run` of hello took
+4.2 s with the server and 4.9 s without it; after an edit to a
+program, 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a
+program with eval). The server held about 700 MB.
 
 ## The binstubs
 
