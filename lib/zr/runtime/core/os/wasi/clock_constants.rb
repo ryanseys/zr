@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # WASI's clocks, as ruby identifies them there: wasi-libc's clockid_t is
 # a pointer, so ruby identifies each clock with a Symbol, and CLOCK_IDS
 # gives the WASI clock id that each Symbol represents.

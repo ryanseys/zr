@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The load that CRuby's prelude makes on the first `binding.irb`: irb, the
 # pinned gem, included without changes. A program that calls `irb` by
 # name includes this file before its body. The load waits for that first

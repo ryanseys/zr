@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Onigmo's search optimizer: what a pattern's tree says about where a
 # match can start (regcomp.c:4220-5400), written onto the regex as its
 # optimize kind, anchors, exact string or map, and distances. A port

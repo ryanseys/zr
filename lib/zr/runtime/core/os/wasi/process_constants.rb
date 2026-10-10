@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # wasi-libc's waitpid(2) flags, which are 0 where no child can be waited
 # for, and the tables the portable Process reads: WASI has no priorities
 # and no resource limits, so it names none.

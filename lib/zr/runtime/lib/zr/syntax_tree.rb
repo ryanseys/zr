@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The translator that RubyVM::AbstractSyntaxTree uses:
 # lib/zr/runtime/lib/zr/ast.rb, over prism. A program that refers to the module
 # includes this file before its body and loads the translator with it, so

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Onigmo's tokenizer: fetch_token and fetch_token_in_cc with the
 # scanners they use (regparse.c:1837-4195). A port under the
 # BSD-2-Clause license reproduced in regexp.rb.

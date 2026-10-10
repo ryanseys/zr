@@ -76,6 +76,9 @@ Layout/LineLength:
   Max: 150
 Layout/TrailingWhitespace: { Enabled: true, AllowInHeredoc: true } # heredocs are programs and outputs
 Layout/EmptyLines: { Enabled: true }
+# The kernel has no such comment: zr lowers its literals to bytes, so it
+# has no String to freeze. test/unit/frozen_string_literal_test.rb checks
+# the runtime's core, ext and lib, which this file excludes.
 Style/FrozenStringLiteralComment: { Enabled: true }
 
 # The Minitest cops keep one form for each assertion. The form gives the

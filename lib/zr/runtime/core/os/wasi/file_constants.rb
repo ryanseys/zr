@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # wasi-libc's open(2), flock(2) and fnmatch numbers, with File::Constants's
 # names for them: the status flags are WASI's fdflags, the creation flags
 # its oflags shifted up 12 bits, and the access modes bits of their own.

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Onigmo's parser: a pattern's tokens to its tree (regparse.c:
 # 2100-2450 and 4200-6853). A port under the BSD-2-Clause license
 # reproduced in regexp.rb.

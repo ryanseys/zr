@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 
 # racc's cparse.c, in ruby: the parser core that `require "racc/cparse"`
 # loads from racc/parser.rb. The C core and racc's own Ruby core

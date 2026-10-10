@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Linux's waitpid(2) flags, priority targets, resource limits and
 # sysconf name, with Process's names for them.
 module Process

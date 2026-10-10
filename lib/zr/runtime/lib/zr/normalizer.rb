@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The load that CRuby's String#unicode_normalize makes on its first call:
 # ruby's own normalize.rb, included without changes from vendor/ruby. A
 # program that calls one of the three methods by name includes this file

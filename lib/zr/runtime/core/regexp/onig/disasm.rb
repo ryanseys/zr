@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The byte code listed as onig_print_compiled_byte_code lists it
 # (regcomp.c:6155-6570), for the tests and for reading a compile.
 class Regexp

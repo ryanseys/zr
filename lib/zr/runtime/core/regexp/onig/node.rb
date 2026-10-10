@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The parse tree Onigmo builds (regparse.h's Node union) and what it
 # is built with: the scan environment, the bit sets and code range
 # buffers of a character class, and the name table of a pattern. A

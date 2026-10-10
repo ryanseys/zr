@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Onigmo's tree setup between the parse and the compile (regcomp.c:
 # 1895-4200): group renumbering, match lengths, subexpression calls,
 # look-behind checks, the possessive rewrite, case fold expansion of

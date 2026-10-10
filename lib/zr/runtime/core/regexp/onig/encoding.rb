@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The encodings ruby hands Onigmo (OnigEncodingType): what the shared
 # helpers of regenc.c do over each encoding's primitives, the
 # single-byte encodings (enc/ascii.c, us_ascii.c, iso_8859_*.c,

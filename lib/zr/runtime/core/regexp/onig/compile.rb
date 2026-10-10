@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Onigmo's compiler: a tuned tree to its byte code (regcomp.c:386-1894).
 # The bytes are laid out as Onigmo lays them out, little-endian: an
 # opcode is one byte, a relative or absolute address, a length and a

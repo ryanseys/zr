@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # darwin's clock_gettime(2) ids, with Process's names for them.
 module Process
   CLOCK_REALTIME = 0

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The user, group and system tables the C library keeps. Ruby ships this
 # as an extension; the rows come from getpwnam and its family.
 require "rbconfig"

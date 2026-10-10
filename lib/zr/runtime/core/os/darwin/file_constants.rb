@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # darwin's open(2), flock(2) and fnmatch numbers, with
 # File::Constants's names for them.
 class File < IO

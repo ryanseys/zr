@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Regexp::Onig: Onigmo, the regular expression engine of CRuby 4.0.7,
 # in Ruby. The parser, the tree setup, the optimizer and the compiler
 # live here in plain Ruby; the matcher is the kernel's (lib/zr/runtime/kernel/onig_*.rb).

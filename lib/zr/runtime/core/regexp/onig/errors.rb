@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Onigmo's error codes and messages (onigmo.h, regerror.c), and the
 # warnings its parser gives. A port under the BSD-2-Clause license
 # reproduced in regexp.rb.
