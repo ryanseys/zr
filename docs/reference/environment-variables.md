@@ -76,6 +76,7 @@ them.
 | `ZR_GC_VERIFY` | set (any value) | unset | Checks every minor collection against a full trace, and tells which store the write barrier missed. |
 | `ZR_GC_TRACE` | set (any value) | unset | Prints one line to stderr for each collection. See [Memory and the collector](../explanation/memory-and-the-collector.md#read-the-collector-trace). |
 | `ZR_MCACHE` | `0`, `verify` | unset | `0`: fills no inline cache, so every send looks up its method. `verify`: checks every cache hit against a fresh lookup, and stops at the first that is different. |
+| `RUBY_THREAD_VM_STACK_SIZE` | a number of bytes | 1048576 | As in ruby, the size of the VM stack. zr scales its 64 MiB machine stack by this value against ruby's default, so a program recurses as deep, relative to ruby, as it would there. See [Differences from ruby](differences-from-ruby.md). |
 | `OPENSSL_DIR` | a prefix | unset | `require "openssl"` in a macOS program opens `libssl.3.dylib` in `$OPENSSL_DIR/lib` and nowhere else. When it is not set, the program looks in the Homebrew and MacPorts prefixes. |
 | `ZR_RUBY` | a path | set by `zr` | The `zr` that ran the program: `zr run` and `zr app.rb` set it to the path of the `zr` command. `RbConfig.ruby` gives it, so `system(RbConfig.ruby, "-e", ...)` runs zr. Without it, `RbConfig.ruby` is `$ZR_BINDIR/zr` when `ZR_BINDIR` or `ZR_PREFIX` is set, else the first `zr` on `PATH`, else `~/.zr/bin/zr`. |
 | `ZR_HOME` | a directory | set by `zr` | The ruby tree of the `zr` that ran the program (`vendor/ruby` in zr's gem), which has an installed ruby's layout. `zr run` and `zr app.rb` set it, as they set `ZR_RUBY`. It is the install prefix of `RbConfig` and `$LOAD_PATH` unless `ZR_PREFIX` is set, as JRuby and TruffleRuby give their home. A program that no zr ran has no home, and its `RbConfig::TOPDIR` is nil, as for a ruby that is not installed. The program's `ENV` does not show it. |
@@ -135,3 +136,7 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |
 | `MKCONSTANTS` | `zr-dev gen tables` | the file in `RUBY_SRC` | The path of a copy of `ext/socket/mkconstants.rb` from the ruby 4.0.7 source. |
 | `ZR_GEM_CORPUS` | `zr-dev gems` | unset | A directory of unpacked gems, `<dir>/<name>`, that `zr-dev gems` looks in first, by name. It never lists the directory. The `--corpus` option has priority. |
+| `HOMEBREW_PREFIX` | `zr-dev gems sweep --c-scan` | `/opt/homebrew` | Where Homebrew keeps the headers of the libraries that a gem's C extension includes. |
+
+`zr-dev rubyspec` sets `MSPEC_RUNNER` and `SPEC_SKIP_HANGS` in the
+runs that it starts; they are not for a person to set.

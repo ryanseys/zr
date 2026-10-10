@@ -108,7 +108,8 @@ $ ruby tool/zr-dev.rb gems help            # the commands of a group
 
 The tables below write `zr-dev` for `ruby tool/zr-dev.rb`. The binstub
 `bin/zr-dev` does the same (see [The binstubs](#the-binstubs)). The code of
-each command is in `tool/<command>.rb`. The header comment of each file
+each command is in `tool/<command>.rb`, with `_` for `-`
+(`tool/cruby_test.rb`); `zr-dev host` is in `tool/hosted.rb`. The header comment of each file
 gives more examples.
 
 ### Tests
@@ -127,7 +128,7 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev gems try GEM [--keep] [--save]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `log/gems/compat.tsv`. `--build-only` builds the program and runs nothing. |
+| `zr-dev gems try GEM [--keep] [--save] [--build-only]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `log/gems/compat.tsv`. `--build-only` builds the program and runs nothing. |
 | `zr-dev gems sweep [GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--build-only]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `log/gems/top.tsv`, and `--top FIRST..LAST` those ranked FIRST to LAST. As each gem ends, its line goes into `log/gems/sweep-<time>.log` and its row into `log/gems/sweep-<time>.tsv`, and with `--save` into `log/gems/compat.tsv`. `--build-only` runs no gem code: it takes gems from rubygems.org only and stops after the build. |
 | `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
 | `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `log/gems/top.tsv` again from packages.ecosyste.ms. |
@@ -158,7 +159,9 @@ table from the running ruby stops on a ruby that is not 4.0.7.
 
 Every generator takes `--check`. With `--check`, it writes nothing, and
 it fails if the file is out of date. `zr-dev gen all` runs every
-generator in order (`rake gen` runs it too).
+generator in order (`rake gen` runs it too), but `openssl_constants`
+and `gem-compat`. `--except NAME,...` leaves out more: CI runs
+`gen all --check --except libsystem,features,tables,redefinitions`.
 
 The generators read the CRuby source from the checkout that `RUBY_SRC`
 names (default `tmp/ruby`), at `Zr::RUBY_REVISION` (`lib/zr/version.rb`). They read
@@ -185,6 +188,9 @@ in `tool/gen/`.
 | `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
 | `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `log/gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. The table is not committed, so `gen all` leaves this page out, and without the table the command stops. |
 | `zr-dev gen capi` | `docs/reference/c-api.md`: the functions and data of ruby's C API that the kernel gives C extensions, from `lib/zr/runtime/kernel/capi/*.rb` |
+| `zr-dev gen support` | `docs/reference/support.md`: what zr refuses, from the compiler, and the baseline of each target |
+| `zr-dev gen perf` | `docs/explanation/performance.md`: the run and build times, from the newest reports in `benchmark/results/` |
+| `zr-dev gen redefinitions` | `lib/zr/runtime/core/redefinitions.rb`: the core methods whose redefinition makes ruby warn. It runs ruby once for each core method, so it takes some minutes. |
 
 #### Generated files that the unit tier tests
 
@@ -234,7 +240,7 @@ See [Bootstrapping](../explanation/bootstrapping.md).
 
 | Command | Does |
 |---|---|
-| `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop: the compiler loaded, YJIT warm, and the runtime's description, symbols and prelinked images in memory. While it runs, each `zr run` and `zr build` of this checkout sends it the build. The server forks one child for each build. The client then runs the program itself, so the program keeps the terminal, the signals and the exit status. A Ctrl-C in the client stops the build. The server starts again when a file of zr that it loaded changes, and stops after `--idle` minutes with no request (default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`. After an edit to a core file, `zr run` of hello took 4.2 s with the server and 4.9 s without it. After an edit to a program, it took 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a program with eval). The server holds about 700 MB. |
+| `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop: the compiler loaded, YJIT warm, and the runtime's description, symbols and prelinked images in memory. While it runs, each `zr run` and `zr build` of this checkout sends it the build. The server forks one child for each build. The client then runs the program itself, so the program keeps the terminal, the signals and the exit status. A Ctrl-C in the client stops the build. The server starts again when a file of zr that it loaded changes, and stops after `--idle` minutes with no request (default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`. On 2026-09-29, after an edit to a core file, `zr run` of hello took 4.2 s with the server and 4.9 s without it; after an edit to a program, 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a program with eval). The server held about 700 MB. |
 
 ## The binstubs
 

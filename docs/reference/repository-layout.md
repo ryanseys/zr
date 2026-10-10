@@ -3,7 +3,7 @@
 ## The gem
 
 The gem contains `exe/`, `lib/`, `licenses/`, `vendor/ruby/`,
-`vendor/LICENSES/` and `vendor/vendor.lock`, with `README.md`,
+`vendor/targets/`, `vendor/LICENSES/` and `vendor/vendor.lock`, with `README.md`,
 `CHANGELOG.md` and the license files. It has no gem dependencies: the
 library that a program requires is `vendor/ruby`
 (`lib/zr/library/roots.rb`) and zr's own `lib/zr/runtime/ext`.
@@ -31,6 +31,10 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/cli.rb` | the command line of `zr`: `CLI.start` runs the command that the first word names (`CLI::COMMANDS`) |
 | `lib/zr/cli/` | the parts of the command line: `command.rb` (the base class), `options.rb` (the option table), `help.rb` (the help text), `errors.rb`, `refusals.rb` (status 3), `runner.rb` (runs the built binary), and `commands/`, one file for each command |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |
+| `lib/zr/diff.rb` | `Zr::Diff`: runs a program under ruby and as a zr binary, and compares the runs (`zr diff`, `zr-dev probe`) |
+| `lib/zr/manifest.rb` | `Zr::Manifest`: the gems that a binary carries, which `zr inspect` and `--print-gems` print |
+| `lib/zr/gem_set.rb`, `lib/zr/gem_set/` | `Zr::GemSet`: the gems that a build reads before zr's library (`--gem`, a Gemfile.lock) |
+| `lib/zr/ext.rb`, `lib/zr/ext/` | `Zr::Ext`: the C extensions that `--native-ext` links in, how zr builds them, and the C API that they may call |
 | `lib/zr/cache/store.rb` | the one content store of every cache: layout, keys, reads, writes, roots and eviction |
 | `lib/zr/cache/janitor.rb` | the build cache as `zr cache` sees it: size, clean, and the daily trim |
 | `lib/zr/refused.rb` | `Zr::Refused`: a program uses a form that zr does not support |
@@ -113,7 +117,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `bin/minitest`, `bin/rake`, `bin/rubocop`, ... | the binstubs of the gems; `bin/minitest` runs the tests |
 | `Rakefile` | the rake tasks: build, test, gen, lint and release |
 | `tool/zr-dev.rb` | the `zr-dev` command, which lists and starts the maintainer tools; see [Tools](tools.md#zr-dev) |
-| `tool/*.rb` | the body of each `zr-dev` command, one file for each command (`tool/bench.rb` for `zr-dev bench`) |
+| `tool/*.rb` | the body of each `zr-dev` command, a class in `Zr::Dev::Commands`, one file for each command (`tool/bench.rb` for `zr-dev bench`, `tool/hosted.rb` for `zr-dev host`); `tool/commands.rb` lists them |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/lib/zr/dev/parallel.rb` | `Dev.parallel_map`: the one worker pool of the tools, with the results in the order of the items |
 | `tool/install_reference_gems.rb` | installs the gems of the reference ruby into `tmp/reference/gems`; `bin/setup` runs it |
@@ -123,10 +127,13 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `.rubocop.yml`, `.rubocop_todo.yml` | the cops of `rake lint`, each with its reason; the files that a cop found when it came in, to fix |
 | `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
 | `vendor/src/` | upstream sources that only the tools read: prism's templates (`zr-dev gen prism`) |
+| `vendor/targets/` | ruby 4.0.7's C headers and `rbconfig.rb` for each target that zr builds C extensions for from another host (`aarch64-linux-musl`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |
 | `docs/` | this documentation |
 | `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
 | `.github/actions/runtime-cache/` | the CI step that keeps the built runtime between runs |
+| `.github/actions/reference/` | the CI step that keeps the test reference (`tmp/reference`) between runs |
+| `.github/scripts/` | the scripts of CI and the release: the smoke test of a built gem, the type check, and the check that CI passed for a tag |
 | `test/test_helper.rb` | what every test file requires |
 | `test/programs_test.rb` | the program tests: one minitest test for each program below `test/programs/` |
 | `test/support/` | the test library: the program tests' format (`program_case.rb`), run directory (`program_run.rb`), build (`program_build.rb`), check (`programs.rb`) and baselines (`baseline.rb`); the fork pool, the workers, the kept binaries, the `# zr-test:` needs, the progress file |
@@ -134,6 +141,9 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `test/support/harness/` | ruby's reference runs, the child process limits, wasmtime, the benchmark runner, `Harness::KernelJIT`, and the harnesses that compare a port with ruby's C |
 | `test/support/harness/selected_target.rb` | `Harness.selected_target`: the target of this run (`ZR_TARGET`, or the host's), with no load of the command line |
 | `test/unit/` | the unit tier: zr's own internals |
+| `test/ext/` | the ext tier: C extensions that zr links, each built from C in the test and checked against ruby 4.0.7 |
+| `test/gaps/` | programs where zr does not give ruby's output yet; no tier runs them (`test/gaps/README.md`) |
+| `test/rubyspec/`, `test/cruby/` | the results of the last `zr-dev rubyspec` and `zr-dev cruby-test` runs (`summary.tsv`), and the tags of the examples that zr fails |
 | `test/programs/` | the program tests: plain Ruby programs with ruby's output beside them, in areas (`lang/`, `core/`, `stdlib/`, `compiler/`, and `cli/`, which builds with `zr build`); those in `native/` run only on a native target. See [Program tests](program-tests.md) |
 | `test/baselines/` | the baseline of each target, the host too (`<triple>.txt`), and of another project's program tests (`corpus/<project>-<triple>.txt`); see [How to test on another target](../how-to/test-on-another-target.md) |
 | `test/fixtures/gems/` | the gems that `gem_compat_test` reads |

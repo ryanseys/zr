@@ -12,7 +12,8 @@ small extensions that the tests build (`test/ext`).
 | ruby 4.0.7, or a later 4.0 release | runs the compiler; zr checks its output against ruby 4.0.7, and warns on a later release | everything |
 | libSystem | the only dynamic library that a macOS binary links | macOS binaries |
 | OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else from the Homebrew or MacPorts prefix. Without them, that `require` raises `LoadError`. An aarch64-linux-musl binary is static and cannot open them: its `require "openssl"` raises `LoadError`, and so does that of a gem that requires it (bcrypt, thrift). Nothing else needs them | programs that require `openssl` on macOS |
-| `cc` (Xcode Command Line Tools) | links a macOS binary only under `ZR_LINKER=cc`, or when zr's own linker refuses one | optional |
+| `cc` (Xcode Command Line Tools) | links a macOS binary under `ZR_LINKER=cc`, or when zr's own linker refuses one; links a C library that `--link` names; compiles and links a gem's C extension for `--native-ext` | optional; `--native-ext` |
+| `make` | runs the Makefile that a gem's `extconf.rb` writes, when zr builds the gem's C extension | `--native-ext` of a gem whose install kept no compiled code |
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `zr run --emit wasm` uses it | running WASI modules |
 
@@ -43,7 +44,10 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification; the tests check zr's encoder against it | `test/unit/aarch64_test.rb` |
 | `fiddle` gem ~> 1.1 | loads code into the test process | `lib/zr/obj/jit/fiddle.rb`, `Harness::KernelJIT` |
 | `benchmark` gem ~> 0.5 | the clock of `zr-dev bench` and `zr-dev compile` | `test/support/harness/bench.rb`, `tool/compile.rb` |
-| `rubocop` gem ~> 1.89 | `rake lint` | `.rubocop.yml` |
+| `rubocop` gem ~> 1.89, with `rubocop-performance`, `rubocop-minitest` and `rubocop-thread_safety` | `rake lint` | `.rubocop.yml` |
+| `steep` gem ~> 2.1, `rbs` gem ~> 4.2 | the type check of the compiler | `bin/steep check`, `Steepfile`, `sig/` |
+| `simplecov` gem ~> 1.3 | line and branch coverage with `COVERAGE=1` | `test/support/coverage_run.rb` |
+| `debug_inspector` gem ~> 1.2 | the frames of the kernel when it runs on ruby | `lib/zr/machine/host.rb` |
 | `irb` gem | `bin/console` | by hand |
 | `vernier` gem ~> 1.0 | profiles the compiler; never part of a build or a test | by hand |
 | wasmtime | runs the wasm tests; a test skips without it | `wasm_test`, the tiers under `ZR_TARGET=wasm32-wasi` |
