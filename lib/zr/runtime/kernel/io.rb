@@ -581,10 +581,11 @@ module Zr::Kern
     zr_os_stat_rows(buf)
   end
 
-  # realpath(3): the resolved path, or a negative errno.
+  # realpath(3): the resolved path, or a negative errno. The OS layer
+  # gives ENOSYS where the system has no realpath (WASI).
   #: (value) -> value
   def zr_realpath_m(path)
-    p = Libc.realpath(RString[path].ptr, 0)
+    p = zr_os_realpath(RString[path].ptr)
     if p == 0
       return zr_fix(0 - zr_errno())
     end

@@ -51,6 +51,3 @@ core/hash/formatting/eql_compares_by_value_and_replace_widens_the_receiver_to_ho
 
 # WASI has no working directory to change.
 core/hash/dir_chdir_block_form_restores_the_previous_directory.rb	chdir has no wasm form
-
-# The tree-walking interpreter (lib/zr/eval/walk.rb) does not run every form yet.
-lang/methods/eval_return_belongs_to_the_enclosing_method.rb	return from an eval is not walked yet

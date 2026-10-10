@@ -772,6 +772,9 @@ class File < IO
       return given.encoding == path.encoding ? result.force_encoding(path.encoding) : result.encode(path.encoding)
     end
     return result unless result.is_a?(Integer)
+    # ENOSYS: the system has no realpath (WASI), and ruby built without
+    # HAVE_REALPATH walks the path in the same way.
+    return realpath_walk(path, false) if -result == Errno::ENOSYS::Errno
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
     raise SystemCallError.new(path, -result, +"rb_check_realpath_internal")

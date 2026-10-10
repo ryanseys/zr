@@ -61,10 +61,12 @@ module Zr::Kern
   RIGHTS_OTHER = 1073741823 - RIGHTS_READ - RIGHTS_WRITE
   FDSTAT_LEN = 24
 
-  # WASI cannot resolve the links in a path, so this returns 0 for every
-  # path, and the caller uses the path as written.
+  # WASI has no realpath, so this returns 0 with ENOSYS for every path. A
+  # require then uses the path as written, and File.realpath walks the
+  # path with lstat and readlink.
   #: (ptr) -> ptr
   def zr_os_realpath(path)
+    zr_os_set_errno(WASI_ENOSYS)
     Machine.ptr(0)
   end
 
