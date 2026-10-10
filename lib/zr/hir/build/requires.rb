@@ -82,7 +82,9 @@ module Zr
         end
 
         return plain_call(node, compiles: false) if @loader.deferred?(feature) || (@in_def && @loader.ahead?(@file))
-        return plain_call(node, compiles: false) if node.name == :require && FEATURES.include?(feature.to_s.delete_suffix(".so")) && feature.match?(ENCODINGS)
+        if node.name == :require && FEATURES.include?(feature.to_s.delete_suffix(".so")) && feature.match?(ENCODINGS)
+          return plain_call(node, compiles: false)
+        end
 
         path = @loader.resolve(node.name, feature, @file)
         gem_refusal(node, feature, path)
@@ -220,7 +222,9 @@ module Zr
         gem_refusal(node, feature, path)
         # An autoload that the gem prelude's boot does not read leaves its
         # file to the program that reads the constant.
-        return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path || feature, path || feature, nil, line) if path && @loader.ahead?(@file) && !@loader.booted?(path)
+        if path && @loader.ahead?(@file) && !@loader.booted?(path)
+          return Autoload.new(node.receiver && expr(node.receiver), name_node.unescaped.to_sym, path, path, nil, line)
+        end
 
         stop = path.nil? && stop_for(node, feature)
         unit = stop ? @loader.stop_unit(stop.what, line) : (path && @loader.add(path))

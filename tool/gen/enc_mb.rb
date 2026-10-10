@@ -76,7 +76,8 @@ module Zr
               encodings.each do |encoding|
                 sequences = (0x80..0xFF).zip
                 sequences += (0x80..0xFF).flat_map { |a| (0..0xFF).map { |b| [a, b] } }
-                sequences += Array.new(100_000) { Array.new(random.rand(3..6)) { random.rand(3).zero? ? random.rand(0x30..0x39) : random.rand(0x80..0xFF) } }
+                byte = -> { random.rand(3).zero? ? random.rand(0x30..0x39) : random.rand(0x80..0xFF) }
+                sequences += Array.new(100_000) { Array.new(random.rand(3..6)) { byte.call } }
                 sequences.each do |bytes|
                   text = bytes.pack("C*")
                   ours = found?(enc, text.b)

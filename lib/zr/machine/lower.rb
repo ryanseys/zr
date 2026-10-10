@@ -512,7 +512,9 @@ module Zr
       #: (Prism::ClassNode node, Hash[Integer, String] annotations) -> void
       def declare_layout(node, annotations)
         path = node.constant_path
-        refuse(node, "a class of the kernel is a layout, `class Name < Layout`") unless path.is_a?(Prism::ConstantReadNode) && node.superclass&.slice == "Layout"
+        unless path.is_a?(Prism::ConstantReadNode) && node.superclass&.slice == "Layout"
+          refuse(node, "a class of the kernel is a layout, `class Name < Layout`")
+        end
         body = node.body
         refuse(body, LAYOUT_FIELD) unless body.nil? || body.is_a?(Prism::StatementsNode)
         name = path.name.to_s
@@ -587,7 +589,9 @@ module Zr
         pair = hash.elements.first if hash.is_a?(Prism::KeywordHashNode) && hash.elements.one?
         key = pair.key if pair.is_a?(Prism::AssocNode)
         value = pair.value if pair.is_a?(Prism::AssocNode)
-        refuse(call, "an import names its wasm module with `from: \"module\"`") unless key.is_a?(Prism::SymbolNode) && key.unescaped == "from" && value.is_a?(Prism::StringNode)
+        unless key.is_a?(Prism::SymbolNode) && key.unescaped == "from" && value.is_a?(Prism::StringNode)
+          refuse(call, "an import names its wasm module with `from: \"module\"`")
+        end
         value.unescaped
       end
 

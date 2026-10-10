@@ -366,7 +366,8 @@ module Zr
             get(i.args[1])
             @code << "\xA7".b
             get(i.args[0])
-            @code << { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]]) << Bytes.leb(i.offset)
+            store = { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]])
+            @code << store << Bytes.leb(i.offset)
           end
 
           #: (IR::Inst i) -> void

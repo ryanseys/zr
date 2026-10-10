@@ -122,7 +122,8 @@ module Zr
                                     align: 4, link: symtab_index, info: 0, entsize: 4)
           end
 
-          sections << Section.new(name: ".strtab", type: SHT_STRTAB, flags: 0, bytes: strtab, size: strtab.bytesize, align: 1, link: 0, info: 0, entsize: 0)
+          sections << Section.new(name: ".strtab", type: SHT_STRTAB, flags: 0, bytes: strtab, size: strtab.bytesize,
+                                  align: 1, link: 0, info: 0, entsize: 0)
           section_names = StringTable.new(blank: 0)
           sections << Section.new(name: ".shstrtab", type: SHT_STRTAB, flags: 0, bytes: "".b, size: 0, align: 1, link: 0, info: 0, entsize: 0)
           names = sections.map { |s| section_names.add(s.name) }

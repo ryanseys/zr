@@ -407,7 +407,8 @@ module Zr
       # `a b= *r c k: k2:= **kw &blk`: each parameter as its syntax.
       #: (Params p) -> String
       def params(p)
-        [*p.required.map { |r| param_name(r) }, *p.optional.map { |name, _| "#{name}=" }, p.rest && "*#{p.rest == :implicit ? "" : p.rest}", *p.post.map { |r| param_name(r) },
+        [*p.required.map { |r| param_name(r) }, *p.optional.map { |name, _| "#{name}=" },
+         p.rest && "*#{p.rest == :implicit ? "" : p.rest}", *p.post.map { |r| param_name(r) },
          *p.keywords.map { |name, default| "#{name}:#{default ? "=" : ""}" }, p.kwrest && "**#{p.kwrest}", p.block && "&#{p.block}"].compact.join(" ")
       end
 

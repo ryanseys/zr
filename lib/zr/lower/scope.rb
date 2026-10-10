@@ -107,7 +107,8 @@ module Zr
         when Hir::Slot then base
         when Hir::Case
           top = base + 3
-          [top, staging(node.subject, top), staging(node.else_body, top), *node.clauses.flat_map { |values, body| [staging(body, top), *values.map { |v| staging(v, top) }] }].max
+          clauses = node.clauses.flat_map { |values, body| [staging(body, top), *values.map { |v| staging(v, top) }] }
+          [top, staging(node.subject, top), staging(node.else_body, top), *clauses].max
         when Hir::IndexOpAssign
           # The receiver, the arguments and the current value keep slots;
           # the operator send (`current op value`) stages two more above.
@@ -121,7 +122,8 @@ module Zr
           # A literal list whose value is not used stays in its slots
           # while the targets (and nested targets) read it.
           spread = node.value.is_a?(Hir::ArrayLit) && !spread?(node.value.elements) ? node.value.elements.size : 0
-          [staging(node.value, top), top + spread + targets(node.target), *staged_in(node.target).map { |t| staging(t.is_a?(Hir::ConstWrite) ? t.scope : t, top) }].max
+          inner = staged_in(node.target).map { |t| staging(t.is_a?(Hir::ConstWrite) ? t.scope : t, top) }
+          [staging(node.value, top), top + spread + targets(node.target), *inner].max
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
           # An ensure keeps three slots. During a pending unwind, its body
