@@ -48,6 +48,11 @@ lang/methods/class_method_site_stays_correct_when_the_class_changes.rb	hypot has
 core/hash/thread_value_hash_tail.rb	can't allocate fiber stack: Function not implemented
 core/hash/enumeration/a_blockless_each_or_each_pair_is_an_enumerator_over_the_pair.rb	can't allocate fiber stack: Function not implemented
 core/hash/formatting/eql_compares_by_value_and_replace_widens_the_receiver_to_hol.rb	can't allocate fiber stack: Function not implemented
+core/array/arrays_and_enumerables_check_as_cruby_does.rb	can't allocate fiber stack: Function not implemented
 
 # WASI has no working directory to change.
 core/hash/dir_chdir_block_form_restores_the_previous_directory.rb	chdir has no wasm form
+
+# callcc needs the whole stack, and a WASI module cannot reach it.
+core/array/iterators_raise_when_a_continuation_reenters_them.rb	callcc where the stack is out of reach is not implemented yet
+core/array/a_sort_that_a_continuation_reenters_raises_sort_reentered.rb	callcc where the stack is out of reach is not implemented yet
