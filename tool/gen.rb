@@ -62,14 +62,24 @@ module Zr
           APART = %w[all openssl_constants gem-compat].freeze
 
           summary "Every generator, in order"
-          usage "[--check]"
+          usage "[--check] [--except NAME,...]"
 
-          def defaults = @check = false
+          def defaults
+            @check = false
+            @except = [] #: Array[String]
+          end
 
-          def options(o) = o.on("--check", "write nothing; fail when a file is out of date") { @check = true }
+          def options(o)
+            o.on("--check", "write nothing; fail when a file is out of date") { @check = true }
+            # CI leaves out the generators whose output depends on the host
+            # (libsystem, features, tables) or that take long (redefinitions).
+            o.on("--except NAME,...", Array, "run every generator but these") { |names| @except = names }
+          end
 
           def run(_argv)
-            words = Gen.commands.keys - APART
+            unknown = @except - Gen.commands.keys
+            fail!("no generator #{unknown.join(", ")}") unless unknown.empty?
+            words = Gen.commands.keys - APART - @except
             failed = words.reject { |word| Gen.commands.fetch(word).last.call.new("gen #{word}").start(@check ? ["--check"] : []).zero? }
             failed.each { |word| warn "zr-dev gen all: #{word} failed" }
             failed.empty?

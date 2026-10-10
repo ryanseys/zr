@@ -1,9 +1,19 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directories: ["/", "/.github/actions/runtime-cache"]
+    directories: ["/", "/.github/actions/runtime-cache", "/.github/actions/reference"]
     schedule:
       interval: monthly
     groups:
       actions:
+        patterns: ["*"]
+  # The gem has no runtime dependencies, so each of these is a tool of the
+  # checkout (RuboCop, Steep, minitest): one pull request a month for all.
+  - package-ecosystem: bundler
+    directory: "/"
+    schedule:
+      interval: monthly
+    versioning-strategy: lockfile-only
+    groups:
+      development:
         patterns: ["*"]
