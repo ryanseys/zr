@@ -383,6 +383,87 @@ class WasiLibmTest < Minitest::Test
     check_unary("erfc", xs, 1) { |x| nearest_double(Rational((2**1600) - precise_erf(x), 2**1600)) }
   end
 
+  # Values for tgamma and lgamma_r: integers, half integers, the poles,
+  # the edges of each case of lgamma_r.c, and the ends of the range.
+  def gamma_values(seed)
+    rng = Random.new(seed)
+    SPECIAL + (-30..30).map(&:to_f) + (-30..30).map { |n| n + 0.5 } +
+      [171.0, 171.6, 171.7, 172.0, 184.0, -184.5, -183.5, -170.5, 2.0**-54, 2.0**-55, 2.0**-70, 2.0**-71, 23.0, 24.0, 22.5,
+       0.9, 0.7316, 0.23164, 1.7316, 1.23164, 1.4616321449683622, 7.999999999999999, 8.0, 2.0**58, 2.0**57, 1.0e300] +
+      Array.new(1500) { (rng.rand - 0.5) * 60 } + Array.new(500) { rng.rand * 2 } + Array.new(300) { rng.rand * 180 } +
+      Array.new(300) { -rng.rand * 190 }
+  end
+
+  def test_tgamma_of_special_values_and_small_integers_is_exact
+    # Pairs, not a Hash: 0.0 and -0.0 are one key of a Hash.
+    cases = [[0.0, INF], [-0.0, -INF], [INF, INF], [-INF, NAN], [NAN, NAN], [-1.0, NAN], [-2.0, NAN], [-1.0e300, NAN],
+             [172.0, INF], [184.0, INF], [1.0e300, INF], [-184.5, -0.0], [-185.5, 0.0], [2.0**-60, 2.0**60]] +
+            (1..23).map { |n| [n.to_f, (1...n).reduce(1, :*).to_f] }
+
+    cases.each do |x, want|
+      got = self.class.kernel.call("tgamma", x)
+
+      refute differs?(want, got, 0), "tgamma(#{x}) = #{got}, not #{want}"
+    end
+  end
+
+  # musl's tgamma is up to 7 ulp from macOS's for x > 0, and its
+  # reflection formula loses digits near the poles of x < 0, where it can
+  # be 1000 ulp away.
+  def test_tgamma_is_within_eight_ulp_of_macos_for_positive_x
+    xs = gamma_values(28).select(&:positive?)
+
+    check_unary("tgamma", xs, 8) { |x| self.class.host_libm("tgamma", 1).call(x) }
+  end
+
+  def test_tgamma_is_near_macos_for_negative_x
+    gamma_values(29).select { |x| x.negative? && x.finite? && x != x.floor && x > -184 }.each do |x|
+      want = self.class.host_libm("tgamma", 1).call(x)
+      got = self.class.kernel.call("tgamma", x)
+
+      if want.finite?
+        assert_in_delta want, got, want.abs * 1.0e-9, "tgamma(#{x})"
+      else
+        refute differs?(want, got, 0), "tgamma(#{x}) = #{got}, not #{want}"
+      end
+    end
+  end
+
+  def test_lgamma_r_of_special_values_is_exact_with_its_sign
+    [[0.0, INF, 1], [-0.0, INF, -1], [INF, INF, 1], [-INF, INF, 1], [1.0, 0.0, 1], [2.0, 0.0, 1], [-1.0, INF, 1], [-2.0, INF, 1],
+     [-0.5, Math.log(2 * Math.sqrt(Math::PI)), -1], [3.0, Math.log(2.0), 1], [2.0**-80, 80 * Math.log(2.0), 1],
+     [-(2.0**-80), 80 * Math.log(2.0), -1]].each do |x, want, want_sign|
+      got, sign = lgamma_r(x)
+
+      refute differs?(want, got, 1), "lgamma_r(#{x}) = #{got}, not #{want}"
+      assert_equal want_sign, sign, "lgamma_r(#{x}) sign"
+    end
+    assert_predicate lgamma_r(NAN).first, :nan?
+  end
+
+  # musl's lgamma_r is up to 4 ulp from macOS's for x > 0 (macOS's
+  # lgamma(1.5) is the one off there). Near the zeros of lgamma of x < 0
+  # its error is absolute, not relative.
+  def test_lgamma_r_is_within_four_ulp_of_macos_for_positive_x
+    gamma_values(30).select { |x| x.positive? && x.finite? }.each do |x|
+      want, want_sign = Math.lgamma(x)
+      got, sign = lgamma_r(x)
+
+      refute differs?(want, got, 4), "lgamma_r(#{x}) = #{got}, not #{want}"
+      assert_equal want_sign, sign, "lgamma_r(#{x}) sign"
+    end
+  end
+
+  def test_lgamma_r_is_near_macos_with_its_sign_for_negative_x
+    gamma_values(31).select { |x| x.negative? && x.finite? && x != x.floor }.each do |x|
+      want, want_sign = Math.lgamma(x)
+      got, sign = lgamma_r(x)
+
+      assert_in_delta want, got, [want.abs, 1.0].max * 1.0e-9, "lgamma_r(#{x})"
+      assert_equal want_sign, sign, "lgamma_r(#{x}) sign"
+    end
+  end
+
   private
 
   # Doubles of random bits: every exponent, both signs.
@@ -440,6 +521,13 @@ end
     end
 
     assert_empty bad.first(10), "#{bad.size} of #{pairs.size} differ by more than #{max_ulps} ulp"
+  end
+
+  # lgamma_r(x) and the sign that it stores.
+  def lgamma_r(x)
+    sign = Fiddle::Pointer.malloc(4, Fiddle::RUBY_FREE)
+    value = self.class.kernel.call("lgamma_r", x, sign.to_i)
+    [value, sign[0, 4].unpack1("l")]
   end
 
   def frexp(x)
