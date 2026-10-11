@@ -228,6 +228,11 @@ module Zr::Kern
     if zr_loading_hidden()
       return true
     end
+    # The tree-walking interpreter reads a constant for the program that
+    # it walks (`zr_walk_const`): it sees what compiled code there sees.
+    if Machine.load64(Machine.static(:const_for_program, 8), 0) > 0
+      return false
+    end
     rec = Task[zr_task()].top
     reflective = Machine.load64(Machine.static(:const_reflective, 8), 0) > 0
     if !reflective && rec != 0 && (FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN)
@@ -2181,6 +2186,49 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_const_defined_at_m(scope, name)
     zr_const_defined_at(scope, zr_sym2id(name))
+  end
+
+  # The constant reads of the tree-walking interpreter (lib/zr/runtime/lib/
+  # zr/eval/walking.rb). Its own frames are hidden, so a read would see
+  # the constants that only eval support set (Zr, Prism). These read as
+  # the walked program: `kind` 0 is `Name` under `at` (a cref), 1 is
+  # `defined?(Name)`, 2 is `at::Name` and 3 is `defined?(at::Name)`.
+  #: (word, value, value) -> value
+  def zr_walk_const(kind, at, name)
+    flag = Machine.static(:const_for_program, 8)
+    Machine.store64(flag, 0, Machine.load64(flag, 0) + 1)
+    id = zr_sym2id(name)
+    r = if kind == 0
+          zr_const_get(at, id)
+        elsif kind == 1
+          zr_const_defined(at, id)
+        elsif kind == 2
+          zr_const_get_at(at, id)
+        else
+          zr_const_defined_at(at, id)
+        end
+    Machine.store64(flag, 0, Machine.load64(flag, 0) - 1)
+    r
+  end
+
+  #: (value, value) -> value
+  def zr_walk_const_get_m(cref, name)
+    zr_walk_const(0, cref, name)
+  end
+
+  #: (value, value) -> value
+  def zr_walk_const_defined_m(cref, name)
+    zr_walk_const(1, cref, name)
+  end
+
+  #: (value, value) -> value
+  def zr_walk_const_get_at_m(scope, name)
+    zr_walk_const(2, scope, name)
+  end
+
+  #: (value, value) -> value
+  def zr_walk_const_defined_at_m(scope, name)
+    zr_walk_const(3, scope, name)
   end
 
   #: (value, value, value) -> value

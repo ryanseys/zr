@@ -98,11 +98,13 @@ module Zr
       # A path from the system, in the locale's encoding (`zr_path_str`).
       def path(string) = Primitive.zr_path_str(string)
 
-      # A bare constant under `cref`, and `scope::Name`.
-      def const_get(cref, name) = Primitive.zr_const_get_m(cref, name)
-      def const_defined?(cref, name) = Primitive.zr_const_defined_m(cref, name)
-      def const_get_at(scope, name) = Primitive.zr_const_get_at_m(scope, name)
-      def const_defined_at?(scope, name) = Primitive.zr_const_defined_at_m(scope, name)
+      # A bare constant under `cref`, and `scope::Name`, read as the walked
+      # program reads them: a constant that only eval support set (Zr,
+      # Prism) stays hidden, though these frames are eval support's.
+      def const_get(cref, name) = Primitive.zr_walk_const_get_m(cref, name)
+      def const_defined?(cref, name) = Primitive.zr_walk_const_defined_m(cref, name)
+      def const_get_at(scope, name) = Primitive.zr_walk_const_get_at_m(scope, name)
+      def const_defined_at?(scope, name) = Primitive.zr_walk_const_defined_at_m(scope, name)
       def const_set(klass, name, value) = Primitive.zr_const_set_m(klass, name, value)
 
       def cvar_get(cref, name) = Primitive.zr_cvar_get_m(cref, name)
