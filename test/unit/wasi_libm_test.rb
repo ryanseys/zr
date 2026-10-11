@@ -309,6 +309,42 @@ class WasiLibmTest < Minitest::Test
     check_unary("atanh", xs, 2) { |x| x.abs > 1 ? NAN : Math.atanh(x) }
   end
 
+  # Values in [-1, 1] for asin and acos, the edges of each case, and some
+  # out of the domain.
+  def unit_values(seed)
+    rng = Random.new(seed)
+    SPECIAL + [0.975, 0.9750000000000001, 0.97499999999999998, 1.0.prev_float, -1.0.next_float, 0.5.prev_float,
+               2.0**-26, 2.0**-57, 2.0**-58, 1.5, -1.5] +
+      Array.new(2000) { (rng.rand * 2) - 1 } + Array.new(500) { 1 - (rng.rand * 1.0e-6) } +
+      Array.new(300) { (rng.rand - 0.5) * 1.0e-8 }
+  end
+
+  def test_asin_is_within_one_ulp
+    check_unary("asin", unit_values(20), 1) { |x| x.abs > 1 ? NAN : Math.asin(x) }
+  end
+
+  def test_acos_is_within_one_ulp
+    check_unary("acos", unit_values(21), 1) { |x| x.abs > 1 ? NAN : Math.acos(x) }
+  end
+
+  def test_atan_is_within_one_ulp
+    rng = Random.new(22)
+    xs = SPECIAL + [0.4375, 0.4374999999999999, 0.6875, 1.1875, 2.4375, 2.0**66, 2.0**-27] +
+         Array.new(1500) { (rng.rand - 0.5) * 10 } + Array.new(1000) { random_double(rng) }
+
+    check_unary("atan", xs, 1) { |x| Math.atan(x) }
+  end
+
+  def test_atan2_is_within_one_ulp
+    rng = Random.new(23)
+    edges = SPECIAL + [1.0e-20, -1.0e-20, 1.0e20, -1.0e20]
+    pairs = edges.product(edges) + random_pairs(23, 2000) +
+            Array.new(500) { [(rng.rand - 0.5) * 4, (rng.rand - 0.5) * 4] } +
+            Array.new(200) { [rng.rand * 1.0e-30, -rng.rand] }
+
+    check_binary("atan2", pairs, 1) { |y, x| Math.atan2(y, x) }
+  end
+
   private
 
   # Doubles of random bits: every exponent, both signs.
