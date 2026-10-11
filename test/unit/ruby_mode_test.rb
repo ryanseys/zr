@@ -578,6 +578,17 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-x", stdin: "junk\n#!ruby -w\r\np 2\r\n")
   end
 
+  # A first line of `#!` alone is a comment; with anything after it that
+  # does not name ruby, it is a launcher, and the script runs from the
+  # first `#!ruby` line (test_rubyoptions.rb's test_shebang).
+  def test_a_bare_shebang_line_is_a_comment
+    same_as_ruby(stdin: "#!")
+    same_as_ruby("-c", stdin: "#!")
+    same_as_ruby(stdin: "#!\np 1\n")
+    same_as_ruby(stdin: "#! \np 1\n")
+    same_as_ruby(stdin: "#!\r\np 1\n")
+  end
+
   # Without gems, the libraries of ruby's gem prelude are not there.
   def test_no_gems_means_no_gem_prelude_libraries
     code = "p [defined?(ErrorHighlight), defined?(SyntaxSuggest), defined?(DidYouMean), defined?(Gem)]; foo rescue p $!.message"

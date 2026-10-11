@@ -100,9 +100,10 @@ module Zr
                            [File.read(path), path]
                          end
           # A first `#!` line that does not name ruby is a launcher, and the
-          # script runs as with -x, also from standard input.
+          # script runs as with -x, also from standard input. A `#!` with
+          # nothing after it on its line is a comment, as in ruby.
           first = source.each_line.first.to_s
-          options.xflag! if first.start_with?("#!") && !first.include?("ruby")
+          options.xflag! if first.start_with?("#!") && first != "#!" && first != "#!\n" && !first.include?("ruby")
           line = options.xflag ? source.each_line.find { |text| text.start_with?("#!") && text.include?("ruby") } : source
           fatal("no Ruby script found in input (LoadError)", prefix: file) unless line
           options.shebang!(line)
