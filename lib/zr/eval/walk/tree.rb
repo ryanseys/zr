@@ -556,7 +556,9 @@ module Zr
         def frame_method(node, ctx)
           case node.name
           when :block_given?, :iterator? then !ctx.block.nil?
-          when :__method__, :__callee__ then ctx.name
+          # Outside a method of the string, the method of the frame that
+          # the eval reads (`bm = binding; bm.eval("__method__")`).
+          when :__method__, :__callee__ then ctx.name || World.binding_method(@frame)&.first
           when :local_variables then ctx.chain.flat_map(&:names).uniq
           when :binding then scope_binding(ctx)
           when :__dir__ then @file.start_with?("(eval") ? nil : ::File.dirname(@file)
@@ -956,7 +958,9 @@ module Zr
           when :false then "expression"
           when :assignment then "assignment"
           when :yield then ctx.block ? "yield" : nil
-          when :local then ctx.chain.any? { |s| s.holds?(node.target) } ? "local-variable" : nil
+          # The parser makes a name a local only where it is one, so the
+          # node has no target to look up (`Hir::Build#defined`).
+          when :local then "local-variable"
           when :ivar then ctx.self_.instance_variable_defined?(node.target) ? "instance-variable" : nil
           when :gvar then truthy?(World.gvar_defined?(node.target)) ? "global-variable" : nil
           when :cvar then truthy?(World.cvar_defined?(ctx.cref, node.target)) ? "class variable" : nil
