@@ -2554,6 +2554,10 @@ G_FROZEN_LITERALS = 52
     zr_str_take_bytes(s, other)
     zr_str_modified(s)
     zr_str_copy_encoding(s, other)
+    # rb_enc_cr_str_exact_copy: the String takes the other's coderange
+    # too, as it is, scanned or not.
+    zr_str_set_coderange(s, RBasic[other].flags & FL_CR_MASK)
+    s
   end
 
   # `setbyte`: sets the byte at the fixnum `i` to the fixnum `byte` modulo

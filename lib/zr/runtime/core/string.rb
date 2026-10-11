@@ -1950,7 +1950,12 @@ class String
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     # Encoding.find gives nil only for "internal" while it is unset, an
     # alias of BINARY to force_encoding (enc_set_default_encoding).
-    Primitive.zr_str_set_index_m(self, Encoding.carried(Encoding.find(encoding) || Encoding::BINARY))
+    index = Encoding.carried(Encoding.find(encoding) || Encoding::BINARY)
+    # rb_str_force_encoding: the same encoding changes nothing, so the
+    # String keeps its coderange.
+    return self if index == Primitive.zr_str_encoding_index_m(self)
+
+    Primitive.zr_str_set_index_m(self, index)
   end
 
   # A copy of the receiver's characters written in `target`. Every pair
@@ -1990,16 +1995,27 @@ class String
       quote = Encoding.at(Primitive.zr_str_encoding_index_m(text)).ascii_compatible? ? +"\"" : "\"".encode(text.encoding)
       text = quote + text + quote
     end
-    # ruby's newline decorators work on the ASCII side of the
-    # conversion: before it when the source is ASCII-compatible, after
-    # it when only the target is, and through UTF-8 between two wide
-    # encodings.
+    converted = encode_text(text, target, options, through_converter)
+    # str_encode_associate: ruby holds that a transcoded String is never
+    # broken, and its scan reads the bytes as ASCII-8BIT, so the result
+    # is valid without a check, also where the target's own reading of
+    # the bytes says otherwise (a Big5-HKSCS character from 0x87).
+    from.equal?(target) ? converted : Primitive.zr_str_mark_valid_m(converted)
+  end
+
+  # ruby's newline decorators work on the ASCII side of the
+  # conversion: before it when the source is ASCII-compatible, after
+  # it when only the target is, and through UTF-8 between two wide
+  # encodings.
+  def encode_text(text, target, options, through_converter)
+    Primitive.attr! :hidden
     return Encoding.convert(text, target, options) unless options[:newline] && !through_converter
     return Encoding.convert(newlines(text, options), target, options) if text.encoding.ascii_compatible?
     return newlines(Encoding.convert(text, target, options), options) if target.ascii_compatible?
 
     Encoding.convert(newlines(Encoding.convert(text, Encoding::UTF_8, options), options), target, options)
   end
+  private :encode_text
 
   # A code point appended to a String in a multibyte encoding: the bytes
   # that spell it, which the encoding must hold as one character.

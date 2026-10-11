@@ -1,0 +1,10 @@
+["Big5-HKSCS", ["61", "88", "6d", "a4", "e9"], true, true, true]
+["Big5-UAO", ["61", "a0", "c1", "a4", "e9"], true, true, true]
+["CP951", ["61", "88", "6d", "a4", "e9"], true, true, true]
+["Big5", Encoding::UndefinedConversionError]
+["EUC-JP", ["61", "8f", "ab", "b1", "c6", "fc"], true, true, true]
+["Shift_JIS", Encoding::UndefinedConversionError]
+false
+true
+true
+true
