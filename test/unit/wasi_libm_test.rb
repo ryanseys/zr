@@ -132,7 +132,119 @@ class WasiLibmTest < Minitest::Test
     assert_in_delta 2.5, self.class.kernel.call("strtod", buf.to_i, 0), 0.0
   end
 
+  # --- libm -------------------------------------------------------------------
+
+  INF = Float::INFINITY
+  NAN = Float::NAN
+
+  # Values at the edges: zeros, infinities, NaN, subnormals, the ends of
+  # the range, and some exact values.
+  SPECIAL = [0.0, -0.0, INF, -INF, NAN, 5.0e-324, -5.0e-324, 1.0e-320, Float::MIN, -Float::MIN, Float::MIN.prev_float,
+             Float::MAX, -Float::MAX, 1.0, -1.0, 0.5, -0.5, 2.0, -2.0, 3.0, -3.0, 10.0, 1.0e-300, -1.0e-300, 1.0e300,
+             -1.0e300, Float::EPSILON, 1.0 + Float::EPSILON, 1.0 - (Float::EPSILON / 2)].freeze
+
+  # The C libm of this host, for the functions that Ruby has no plain
+  # method for (fmod, pow, fma).
+  def self.host_libm(name, arity)
+    @host_libm ||= {}
+    @host_libm[name] ||= Fiddle::Function.new(Fiddle::Handle::DEFAULT[name], [Fiddle::TYPE_DOUBLE] * arity, Fiddle::TYPE_DOUBLE)
+  end
+
+  def test_fmod_is_exact
+    pairs = SPECIAL.product(SPECIAL) + random_pairs(1, 3000) +
+            [[1.0e300, 3.0], [-1.0e300, 7.0e-300], [5.0e-324, 3.0e-324], [Float::MAX, Float::MIN], [7.5, -2.0], [-7.5, 2.0]]
+
+    check_binary("fmod", pairs, 0) { |x, y| self.class.host_libm("fmod", 2).call(x, y) }
+  end
+
+  def test_hypot_is_within_one_ulp
+    check_binary("hypot", SPECIAL.product(SPECIAL), 1) { |x, y| Math.hypot(x, y) }
+    check_binary("hypot", random_pairs(2, 3000) + [[3.0, 4.0], [1.0e300, 1.0e300], [1.0e-300, 1.0e-300], [5.0e-324, 5.0e-324]], 1) do |x, y|
+      Math.hypot(x, y)
+    end
+  end
+
+  def test_pow_is_within_one_ulp
+    pow = ->(x, y) { self.class.host_libm("pow", 2).call(x, y) }
+    check_binary("pow", SPECIAL.product(SPECIAL + [0.25, -0.25, 1.5, 4.0, -4.0, 1.0e20, -1.0e20, 2.0**-70]), 1, &pow)
+    rng = Random.new(3)
+    pairs = Array.new(1500) { [rng.rand * 4, (rng.rand - 0.5) * 200] } +
+            Array.new(1000) { [(rng.rand - 0.5) * 20, rng.rand(-40..40).to_f] } +
+            Array.new(1000) { [random_double(rng).abs, rng.rand - 0.5] } +
+            Array.new(500) { [1.0 + ((rng.rand - 0.5) * 1.0e-6), (rng.rand - 0.5) * 1.0e9] } +
+            [[2.0, 1023.0], [2.0, 1024.0], [2.0, -1074.0], [2.0, -1075.0], [0.5, 1074.5], [10.0, 308.25], [10.0, -323.5],
+             [-2.0, 1023.0], [-2.0, -1075.0], [Float::MIN, 0.5], [5.0e-324, 0.25], [1.0e-310, -0.9]]
+
+    check_binary("pow", pairs, 1, &pow)
+  end
+
+  def test_exp_is_within_one_ulp
+    check_unary("exp", SPECIAL + [709.782712893384, 709.79, -745.1332191019411, -745.14, -708.4, -740.0], 1) { |x| Math.exp(x) }
+    rng = Random.new(4)
+    xs = Array.new(2000) { (rng.rand - 0.5) * 1500 } + Array.new(1000) { (rng.rand - 0.5) * 2 } +
+         Array.new(500) { (rng.rand - 0.5) * 1.0e-10 } + Array.new(300) { -708 - (rng.rand * 37) }
+
+    check_unary("exp", xs, 1) { |x| Math.exp(x) }
+  end
+
   private
+
+  # Doubles of random bits: every exponent, both signs.
+  def random_double(rng)
+    loop do
+      x = [rng.rand(2**64)].pack("Q").unpack1("D")
+      return x if x.finite?
+    end
+  end
+
+  def random_pairs(seed, n)
+    rng = Random.new(seed)
+    Array.new(n / 2) { [random_double(rng), random_double(rng)] } +
+      Array.new(n / 2) { [(rng.rand - 0.5) * 2000, (rng.rand - 0.5) * 20] }
+  end
+
+# Whether `got` is not `want`. A zero, an infinity or NaN must be
+# exact, its sign too; another result can be `max_ulps` away, because
+# macOS's libm and musl's can round a transcendental function
+# differently.
+def differs?(want, got, max_ulps)
+  return ulps(want, got) > max_ulps if max_ulps.positive? && want.finite? && !want.zero?
+
+  !(want.nan? && got.nan?) && bits(want) != bits(got)
+end
+
+# The distance in ulps between two doubles; 0 for two NaNs.
+  def ulps(a, b)
+    return 0 if a.nan? && b.nan?
+    return 2**64 if a.nan? || b.nan?
+
+    (ordered(a) - ordered(b)).abs
+  end
+
+  def ordered(x)
+    b = [x].pack("G").unpack1("q>")
+    b.negative? ? -(b & 0x7FFF_FFFF_FFFF_FFFF) : b
+  end
+
+  def check_unary(name, xs, max_ulps)
+    bad = xs.filter_map do |x|
+      want = yield(x)
+      got = self.class.kernel.call(name, x)
+      "#{name}(#{x.inspect}) = #{got.inspect}, not #{want.inspect}" if differs?(want, got, max_ulps)
+    end
+
+    assert_empty bad.first(10), "#{bad.size} of #{xs.size} differ by more than #{max_ulps} ulp"
+  end
+
+  def check_binary(name, pairs, max_ulps)
+    bad = pairs.filter_map do |x, y|
+      want = yield(x, y)
+      got = self.class.kernel.call(name, x, y)
+      "#{name}(#{x.inspect}, #{y.inspect}) = #{got.inspect}, not #{want.inspect}" if differs?(want, got, max_ulps)
+    end
+
+    assert_empty bad.first(10), "#{bad.size} of #{pairs.size} differ by more than #{max_ulps} ulp"
+  end
 
   def frexp(x)
     e = Fiddle::Pointer.malloc(4, Fiddle::RUBY_FREE)

@@ -66,6 +66,7 @@ The gems whose C zr ports, at zr's versions:
 | `lib/zr/runtime/ext/openssl.so.rb`, `lib/zr/runtime/ext/openssl/ossl/*.rb` | the C half of ruby's openssl gem 4.0.2 (`ext/openssl/ossl*.c` in CRuby 4.0.7); the license text is in `vendor/LICENSES/openssl/COPYING` | Ruby or BSD-2-Clause |
 | `lib/zr/runtime/kernel/zlib_check.rb`, `lib/zr/runtime/kernel/zlib_tables.rb`, `lib/zr/runtime/kernel/zlib_stream.rb`, `lib/zr/runtime/kernel/zlib_inftrees.rb`, `lib/zr/runtime/kernel/zlib_inffast.rb`, `lib/zr/runtime/kernel/zlib_inflate.rb`, `lib/zr/runtime/kernel/zlib_trees.rb`, `lib/zr/runtime/kernel/zlib_deflate.rb`, `lib/zr/runtime/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `lib/zr/runtime/kernel/zlib.rb` | Zlib |
 | `lib/zr/runtime/core/random.rb` | MT19937 (Makoto Matsumoto and Takuji Nishimura), as CRuby 4.0.7's `missing/mt19937.c` has it; the license text is in `licenses/mt19937.txt` | BSD-3-Clause |
+| `lib/zr/runtime/kernel/os/wasi/libm.rb`, `lib/zr/runtime/kernel/os/wasi/libm_*.rb` | musl 1.2.5's `src/math` (Rich Felker, et al.), with code from FreeBSD's msun (Sun Microsystems) and from Arm Limited's optimized routines; the license texts are in `licenses/musl.txt` | MIT, the Sun notice, and MIT for Arm's files |
 | `lib/zr/runtime/kernel/os/wasi/strtod.rb` | the decimal conversion of Go's strconv package (`decimal.go`, `atof.go`; The Go Authors); the license text is in `licenses/go.txt` | BSD-3-Clause |
 | `lib/zr/runtime/kernel/digest.rb`, `lib/zr/runtime/ext/digest/*.rb`, `lib/zr/runtime/ext/digest.so.rb` | CRuby 4.0.7's `ext/digest`: MD5 (L. Peter Deutsch, Aladdin Enterprises; `licenses/md5.txt`, zlib-style), RIPEMD-160 (Antoon Bosselaers, Katholieke Universiteit Leuven; `licenses/rmd160.txt`, BSD), SHA-2 (Aaron D. Gifford; `licenses/sha2.txt`, BSD-3-Clause), SHA-1 (Steve Reid, public domain), and ruby's own glue | as named, and Ruby or BSD-2-Clause for the glue |
 | `lib/zr/runtime/ext/psych/libyaml/*.rb` | libyaml 0.2.5 (Kirill Simonov, Ingy döt Net); the license text is in `licenses/libyaml.txt` | MIT |
@@ -87,7 +88,9 @@ A binary or a WASI module that zr builds contains the zr runtime, so it
 contains code from some of the parts above. Every program contains
 Onigmo (BSD-2-Clause), MT19937 (BSD-3-Clause), Ryu (Apache-2.0 or
 Boost-1.0), fpconv (MIT and Boost-1.0), the Unicode tables (Unicode-3.0) and ruby's
-own code (Ruby or BSD-2-Clause). A program that requires zlib, digest,
+own code (Ruby or BSD-2-Clause). A WASI module also contains the port
+of musl's libm (MIT, and the Sun notice) and the port of Go's decimal
+conversion (BSD-3-Clause). A program that requires zlib, digest,
 psych, nkf, json, ffi or openssl also contains that part, and the files
 it requires from ruby's library.
 
