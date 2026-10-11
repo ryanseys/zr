@@ -243,6 +243,14 @@ module Zr::Kern
     zr_binding_at(zr_eval_frame())
   end
 
+  # The scope of the running frame itself. The tree-walking interpreter's
+  # toplevel for a required file (lib/zr/runtime/lib/zr/eval/walk_file.rb)
+  # takes it: a new top-level scope each time it runs, with main as self.
+  #: () -> value
+  def zr_own_binding
+    zr_binding_at(Task[zr_task()].top)
+  end
+
   #: (ptr) -> value
   def zr_binding_at(rec)
     blk = zr_block_proc(Frame[rec].blk)

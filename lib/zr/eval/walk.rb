@@ -41,11 +41,27 @@ module Zr
 
     # A file that is not compiled into the program. The eval compiler
     # returns the address of its toplevel, and the kernel calls it. The
-    # interpreter has no address, so it refuses, with a message that
-    # gives the file.
+    # interpreter has no code of its own, so it returns the address of
+    # walk_file.rb's toplevel, which walks the file (`walk_next`). A file
+    # that the walked file requires goes on top of the list, and the
+    # toplevel takes it off before it walks, so a nested require works.
     # @rbs skip
     def compile_file(path)
-      raise Walk::Tree::Refused, "#{path}:1: a require of a file the program was not compiled with is not walked yet"
+      @files ||= [] # steep:ignore
+      @files.push(path) # steep:ignore
+      World.unit_for(@walk_file) # steep:ignore
+    end
+
+    # walk_file.rb's toplevel: walks the next file that `compile_file`
+    # holds, in `scope` (the toplevel's own new scope) under `cref`. The
+    # first run holds no file: it keeps `me`, the path of walk_file.rb.
+    #: (Binding scope, String me, untyped cref) -> untyped
+    def walk_next(scope, me, cref)
+      @walk_file ||= me # steep:ignore
+      path = @files&.pop # steep:ignore
+      return unless path
+
+      Walk.evaluate(File.read(path), scope, file: path, line: 1, self_: scope.receiver, cref: cref, block: nil)
     end
 
     # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
@@ -56,3 +72,6 @@ module Zr
     end
   end
 end
+
+# After `Zr::Eval#walk_next`: this require runs the file's toplevel once.
+require_relative "../runtime/lib/zr/eval/walk_file"

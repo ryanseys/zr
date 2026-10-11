@@ -29,6 +29,10 @@ module Zr
       # no message, so it cannot be compared by a method call on it.
       def same?(a, b) = Primitive.zr_same_p(a, b)
 
+      # The address of the compiled toplevel of the program's file at
+      # `path`, as an Integer, or nil.
+      def unit_for(path) = Primitive.zr_unit_for(path)
+
       # The lexical scope of the frame that called eval, and one scope
       # inside it.
       def cref_under(mod, outer) = Primitive.zr_eval_cref_under(mod, outer)
