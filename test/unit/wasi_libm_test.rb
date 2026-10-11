@@ -187,6 +187,44 @@ class WasiLibmTest < Minitest::Test
     check_unary("exp", xs, 1) { |x| Math.exp(x) }
   end
 
+  def test_expm1_is_within_one_ulp
+    rng = Random.new(5)
+    xs = SPECIAL + [709.78, 709.79, -38.0, -40.0, 0.34657359027997264, 0.3465735902799727, 1.0397207708399179, 56 * Math.log(2)] +
+         Array.new(1500) { (rng.rand - 0.5) * 100 } + Array.new(1000) { (rng.rand - 0.5) * 3 } +
+         Array.new(500) { (rng.rand - 0.5) * 1.0e-8 } + Array.new(500) { random_double(rng) }
+
+    check_unary("expm1", xs, 1) { |x| Math.expm1(x) }
+  end
+
+  # Values for the logarithms: near 1, every exponent, and subnormals.
+  def log_values(seed)
+    rng = Random.new(seed)
+    SPECIAL + [0.9375, 0.9374999999999999, 1.064697265625, 1.0646972656249998, 0.95751953125, 1.04425048828125,
+               0.7071067811865476, 1.4142135623730951, 0.29289321881345254, -0.29289321881345254, 1.0e-320, 3.0e-310] +
+      Array.new(1500) { random_double(rng).abs } + Array.new(1000) { 1.0 + ((rng.rand - 0.5) * 0.2) } +
+      Array.new(500) { rng.rand * 1000 } + Array.new(300) { rng.rand * 1.0e-310 } + Array.new(200) { -rng.rand * 10 }
+  end
+
+  def test_log_is_within_one_ulp
+    check_unary("log", log_values(6), 1) { |x| x.negative? ? NAN : Math.log(x) }
+  end
+
+  def test_log2_is_within_one_ulp
+    check_unary("log2", log_values(7), 1) { |x| x.negative? ? NAN : Math.log2(x) }
+  end
+
+  def test_log10_is_within_one_ulp
+    check_unary("log10", log_values(8) + [10.0, 100.0, 1.0e22, 1.0e-5], 1) { |x| x.negative? ? NAN : Math.log10(x) }
+  end
+
+  def test_log1p_is_within_one_ulp
+    rng = Random.new(9)
+    xs = log_values(9) + [-1.0, -0.9999999999999999, -1.5, -0.2928932188134524, 0.41421356237309503, 1.0e-17, -1.0e-17] +
+         Array.new(1000) { rng.rand - 1.0 } + Array.new(500) { (rng.rand - 0.5) * 1.0e-6 }
+
+    check_unary("log1p", xs, 1) { |x| x < -1 ? NAN : Math.log1p(x) }
+  end
+
   private
 
   # Doubles of random bits: every exponent, both signs.

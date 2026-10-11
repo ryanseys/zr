@@ -107,4 +107,99 @@ module Zr::Kern
     end
     Machine.f64(0x0010000000000000) * y # 0x1p-1022
   end
+
+  # expm1(3): exp(x) - 1, precise near 0.
+  #: (f64) -> f64
+  def expm1(x)
+    # @type var k: word
+    one = Machine.f64(0x3FF0000000000000)
+    half = Machine.f64(0x3FE0000000000000)
+    ln2_hi = Machine.f64(0x3FE62E42FEE00000)
+    ln2_lo = Machine.f64(0x3DEA39EF35793C76)
+    hx = zr_libm_high(x) & 0x7FFFFFFF
+    sign = zr_libm_bits(x) >> 63
+    # A huge or infinite x, or NaN.
+    if hx >= 0x4043687A
+      # |x| >= 56*ln2
+      return x if x != x
+      return -one if sign != 0
+
+      return x * Machine.f64(0x7FE0000000000000) if x > Machine.f64(0x40862E42FEFA39EF) # 0x1p1023, o_threshold
+    end
+    c = Machine.f64(0)
+    k = 0
+    # Argument reduction.
+    if hx > 0x3FD62E42
+      # |x| > 0.5 ln2
+      if hx < 0x3FF0A2B2
+        # and |x| < 1.5 ln2
+        if sign == 0
+          hi = x - ln2_hi
+          lo = ln2_lo
+          k = 1
+        else
+          hi = x + ln2_hi
+          lo = -ln2_lo
+          k = -1
+        end
+      else
+        k = Machine.to_int((Machine.f64(0x3FF71547652B82FE) * x) + (sign != 0 ? -half : half))
+        t = Machine.to_f64(k)
+        # t*ln2_hi is exact here.
+        hi = x - (t * ln2_hi)
+        lo = t * ln2_lo
+      end
+      x = hi - lo
+      c = (hi - x) - lo
+    elsif hx < 0x3C900000
+      # |x| < 2**-54: return x.
+      return x
+    end
+    # x is now in the primary range.
+    hfx = half * x
+    hxs = x * hfx
+    r1 = one + (hxs * (Machine.f64(Machine.word(0xBFA11111111110F4)) +
+                       (hxs * (Machine.f64(0x3F5A01A019FE5585) +
+                               (hxs * (Machine.f64(Machine.word(0xBF14CE199EAADBB7)) +
+                                       (hxs * (Machine.f64(0x3ED0CFCA86E65239) +
+                                               (hxs * Machine.f64(Machine.word(0xBE8AFDB76E09C32D)))))))))))
+    t = Machine.f64(0x4008000000000000) - (r1 * hfx) # 3.0
+    e = hxs * ((r1 - t) / (Machine.f64(0x4018000000000000) - (x * t))) # 6.0
+    # c is 0
+    return x - ((x * e) - hxs) if k == 0
+
+    e = (x * (e - c)) - c
+    e -= hxs
+    # exp(x) ~ 2**k (x_reduced - e + 1)
+    return (half * (x - e)) - half if k == -1
+
+    two = Machine.f64(0x4000000000000000)
+    if k == 1
+      return -two * (e - (x + half)) if x < -Machine.f64(0x3FD0000000000000) # -0.25
+
+      return one + (two * (x - e))
+    end
+    twopk = Machine.f64(Machine.ptr(0x3FF + k) << 52) # 2**k
+    if k < 0 || k > 56
+      # Enough to return exp(x)-1.
+      y = x - e + one
+      y = k == 1024 ? y * two * Machine.f64(0x7FE0000000000000) : y * twopk
+      return y - one
+    end
+    u = Machine.f64(Machine.ptr(0x3FF - k) << 52) # 2**-k
+    return (x - e + (one - u)) * twopk if k < 20
+
+    (x - (e + u) + one) * twopk
+  end
+
+  # exp(x)/2 for x >= log(DBL_MAX), a little better than
+  # 0.5*exp(x/2)*exp(x/2) (__expo2). k = 2043 makes k*ln2 have a minimal
+  # relative error, with x - k*ln2 > log(DBL_MIN).
+  #: (f64, f64) -> f64
+  def zr_libm_expo2(x, sign)
+    # k is odd, so scale*scale overflows.
+    scale = zr_libm_words((0x3FF + (2043 / 2)) << 20, 0)
+    # exp(x - k ln2) * 2**(k-1)
+    exp(x - Machine.f64(0x40962066151ADD8B)) * (sign * scale) * scale
+  end
 end
