@@ -719,7 +719,7 @@ module Zr
         # Method definition. Each call walks the body, in the lexical scope
         # of the `def`.
         def define(node, ctx)
-          owner = node.receiver ? World.singleton_of(walk(node.receiver, ctx)) : World.cref_klass(ctx.cref)
+          owner = node.receiver ? World.singleton_of(walk(node.receiver, ctx)) : World.cref_definee(ctx.cref)
           tree = self
           cref = ctx.cref
           # The program gives the arguments, so Steep cannot type them.
@@ -760,16 +760,16 @@ module Zr
                  elsif node.scope then walk(node.scope, ctx)
                  else World.cref_klass(World.cref_lexical(ctx.cref))
                  end
-          mod = World.const_defined_at?(base, node.name) ? World.const_get_at(base, node.name) : nil
-          # Steep finds Module#const_set on World before World#const_set.
-          mod ||= World.const_set(base, node.name, new_module(node, ctx)) # steep:ignore ArgumentTypeMismatch,UnexpectedPositionalArgument
+          # The kernel opens or defines it as compiled code does: a new
+          # class has its name before the superclass's `inherited` runs.
+          scoped = !node.scope.nil?
+          mod = if node.is_a?(Hir::ClassDef)
+                  sup = node.superclass && walk(node.superclass, ctx)
+                  World.class_define(base, node.name, sup, !node.superclass.nil?, scoped)
+                else
+                  World.module_define(base, node.name, scoped)
+                end
           run_body(node, mod, ctx)
-        end
-
-        def new_module(node, ctx)
-          return ::Module.new unless node.is_a?(Hir::ClassDef)
-
-          node.superclass ? ::Class.new(walk(node.superclass, ctx)) : ::Class.new
         end
 
         def singleton_def(node, ctx) = run_body(node, World.singleton_of(walk(node.target, ctx)), ctx)
@@ -1032,12 +1032,12 @@ module Zr
 
         def alias_node(_node, ctx, new_name, old_name)
           # Steep finds Module#alias_method on World before World#alias_method.
-          World.alias_method(World.cref_klass(ctx.cref), new_name.to_sym, old_name.to_sym) # steep:ignore UnexpectedPositionalArgument
+          World.alias_method(World.cref_definee(ctx.cref), new_name.to_sym, old_name.to_sym) # steep:ignore UnexpectedPositionalArgument
           nil
         end
 
         def undef_node(_node, ctx, names)
-          mod = World.cref_klass(ctx.cref)
+          mod = World.cref_definee(ctx.cref)
           names.each { |name| mod.send(:undef_method, name.to_sym) }
           nil
         end

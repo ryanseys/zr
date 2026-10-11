@@ -83,6 +83,7 @@ module Zr
         def cref_under(mod, outer) = Cref.new(mod, outer, 0, false)
         def cref_push(mod, outer) = Cref.new(mod, outer, 0, false)
         def cref_klass(cref) = cref.klass
+        def cref_definee(cref) = cref.klass
         def cref_lexical(cref) = cref
 
         PRIVATE = %i[initialize initialize_copy initialize_clone initialize_dup respond_to_missing?].freeze
@@ -146,6 +147,15 @@ module Zr
         def const_get_at(scope, name) = scope.const_get(name)
         def const_defined_at?(scope, name) = scope.const_defined?(name)
         def const_set(klass, name, value) = klass.const_set(name, value)
+
+        # The `class` and `module` keywords: open the constant, or define it.
+        def class_define(base, name, sup, given, _scoped)
+          base.const_defined?(name, false) ? base.const_get(name, false) : base.const_set(name, Class.new(given ? sup : Object))
+        end
+
+        def module_define(base, name, _scoped)
+          base.const_defined?(name, false) ? base.const_get(name, false) : base.const_set(name, Module.new)
+        end
 
         def cvar_get(cref, name) = cref.klass.class_variable_get(name)
         def cvar_defined?(cref, name) = cref.klass.class_variable_defined?(name)

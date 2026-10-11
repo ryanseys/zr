@@ -1164,6 +1164,21 @@ module Zr::Kern
     zr_module_define(scope, zr_sym2id(name), 0)
   end
 
+  # The `class` keyword for the tree-walking interpreter: the same steps
+  # as compiled code, so the class has its name before the superclass's
+  # `inherited` runs. `given` is false when the program gave no
+  # superclass, and `scoped` is true for a path with a scope.
+  #: (value, value, value, value, value) -> value
+  def zr_class_define_m(scope, name, sup, given, scoped)
+    zr_class_define(scope, zr_sym2id(name), given == QTRUE ? sup : Machine.value(QUNDEF), scoped == QTRUE ? 1 : 0)
+  end
+
+  # The `module` keyword for the tree-walking interpreter.
+  #: (value, value, value) -> value
+  def zr_module_define_scoped_m(scope, name, scoped)
+    zr_module_define(scope, zr_sym2id(name), scoped == QTRUE ? 1 : 0)
+  end
+
   # Writes the id of a constant name, given as a Symbol or String, to
   # `out`. Otherwise raises `wrong constant name x`. A valid name is an
   # upper-case letter, then letters, digits, underscores or non-ASCII bytes.

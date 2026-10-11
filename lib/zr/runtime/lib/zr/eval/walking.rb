@@ -42,6 +42,13 @@ module Zr
       # The module a cref names, and the innermost cref that is a
       # lexical scope rather than an eval's.
       def cref_klass(cref) = Primitive.zr_cref_klass(cref)
+      # The class that a `def`, an `alias` or an `undef` changes. Under
+      # `1.instance_eval` there is none, and it raises TypeError.
+      def cref_definee(cref) = Primitive.zr_cref_definee(cref)
+      # The `class` and `module` keywords: open the constant, or define
+      # it, as compiled code does.
+      def class_define(base, name, sup, given, scoped) = Primitive.zr_class_define_m(base, name, sup, given, scoped)
+      def module_define(base, name, scoped) = Primitive.zr_module_define_scoped_m(base, name, scoped)
       def cref_lexical(cref) = Primitive.zr_cref_lexical(cref)
       # The visibility that a `def` under `cref` gets: 0 public, 1 private,
       # 2 protected; and whether `module_function` requests a copy on
