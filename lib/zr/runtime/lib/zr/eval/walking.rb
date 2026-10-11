@@ -91,6 +91,9 @@ module Zr
       def binding_svars(b) = Primitive.zr_binding_svars(b)
       def binding_return(b, v) = Primitive.zr_binding_return(b, v)
       def binding_method(b) = Primitive.zr_binding_method(b)
+      # The new locals of a `Binding#eval` string, as one new scope inside
+      # the Binding's, as the eval compiler leaves them.
+      def binding_push(b, names) = Primitive.zr_binding_push_m(b, names)
 
       # `Module.nesting` under `cref`, and a String literal's chill.
       def nesting(cref) = Primitive.zr_cref_nesting(cref)

@@ -504,6 +504,27 @@ module Zr::Kern
     Eval.call(Machine.ptr(zr_code_word(code, 0)), RProc[b].self, RProc[b].cref, e, RProc[b].blk)
   end
 
+  # The tree-walking interpreter's `Binding#eval`: the new locals of the
+  # string, an Array of Symbols, become one new scope inside the Binding's,
+  # as zr_binding_run makes the scope of a compiled string the Binding's.
+  # The Binding keeps the table, so zr never frees it.
+  #: (value, value) -> value
+  def zr_binding_push_m(b, names)
+    n = RArray[names].len
+    if n == 0
+      return Machine.value(QNIL)
+    end
+    table = zr_xmalloc((n + 1) * 8)
+    Machine.store64(table, 0, n)
+    i = 0
+    while i < n
+      Machine.store64(table + ((i + 1) * 8), 0, zr_sym2id(zr_ary_at(names, i)))
+      i += 1
+    end
+    RProc[b].env = zr_env_new(RProc[b].env, n, table)
+    Machine.value(QNIL)
+  end
+
   # Adds a name to the Binding, in a new scope inside the Binding's scope.
   # The Binding keeps the table, so zr never frees it.
   #: (value, value) -> value

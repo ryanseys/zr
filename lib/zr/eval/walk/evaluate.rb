@@ -64,11 +64,12 @@ module Zr
       # Binding, so a later read there returns the value the string set.
       #: (Binding scope, Tree::Scope own) -> void
       def self.keep(scope, own)
-        own.names.each do |name|
-          next unless name.to_s.match?(/\A[a-z_][A-Za-z0-9_]*\z/)
-
-          scope.local_variable_set(name, own.get(name))
-        end
+        names = own.names.select { |name| name.to_s.match?(/\A[a-z_][A-Za-z0-9_]*\z/) }
+        # The names that the Binding has not got yet go into one new scope
+        # inside it first, so `local_variables` lists them before the
+        # names of a `local_variable_set`, as in ruby.
+        World.binding_push(scope, names.reject { |name| scope.local_variable_defined?(name) })
+        names.each { |name| scope.local_variable_set(name, own.get(name)) }
       end
 
       # The argument as a String, as ruby converts it: a String, or an

@@ -134,6 +134,8 @@ module Zr
 
         def binding_svars(b) = Svars.new(b)
         def binding_return(_b, v) = throw(RETURN, v)
+        # CRuby's Binding#local_variable_set adds each new name itself.
+        def binding_push(_b, _names) = nil
 
         def binding_method(b)
           name = b.eval("__method__") or return nil
