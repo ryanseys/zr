@@ -959,8 +959,55 @@ module Zr::Kern
     i
   end
 
+  # ruby_strtod (missing/dtoa.c) reads at most DBL_DIG * 4 significant
+  # digits of a fraction: once it has more than 60 digits, it drops each
+  # later digit after the point. Every digit before the point counts, and
+  # leading zeros count for nothing. This cuts the number in `b` (the text
+  # that zr_float_scan wrote) the same way, so that a long fraction rounds
+  # as in ruby and not exactly: the system's strtod reads every digit.
+  #: (ptr) -> void
+  def zr_float_cut_fraction(b)
+    q = Buf[b].ptr
+    len = Buf[b].len
+    i = 0
+    if i < len && (Machine.u8(Machine.load8(q, 0)) == 45 || Machine.u8(Machine.load8(q, 0)) == 43)
+      i += 1
+    end
+    nd = 0
+    while i < len && zr_digit_at(q, i)
+      if nd > 0 || Machine.u8(Machine.load8(q + i, 0)) != 48
+        nd += 1
+      end
+      i += 1
+    end
+    if i >= len || Machine.u8(Machine.load8(q + i, 0)) != 46
+      return
+    end
+    i += 1
+    zeros = 0
+    while i < len && zr_digit_at(q, i)
+      if nd > 60
+        stop = i
+        while stop < len && zr_digit_at(q, stop)
+          stop += 1
+        end
+        zr_memmove(q + i, q + stop, len - stop)
+        Buf[b].len = len - (stop - i)
+        return
+      end
+      if Machine.u8(Machine.load8(q + i, 0)) == 48
+        zeros += 1
+      else
+        nd = nd == 0 ? 1 : nd + zeros + 1
+        zeros = 0
+      end
+      i += 1
+    end
+  end
+
   #: (ptr) -> f64
   def zr_buf_strtod(b)
+    zr_float_cut_fraction(b)
     zr_buf_byte(b, 0)
     d = Libc.strtod(Buf[b].ptr, 0)
     zr_buf_free(b)
