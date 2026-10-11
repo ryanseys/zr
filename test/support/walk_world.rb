@@ -5,6 +5,16 @@ require_relative "../../lib/zr/runtime/lib/zr/eval/walking"
 require_relative "../../lib/zr/eval/walk/evaluate"
 
 module Zr
+  class Eval
+    # The runtime's part of the front end's setup (runtime/lib/zr/eval/
+    # runtime.rb). On CRuby the walk and the front end share ruby's own
+    # separators, so there is nothing to set aside.
+    class Runtime
+      def self.plain_separators = yield
+      def self.compiling = yield
+    end
+  end
+
   module Test
     # Runs the tree-walking interpreter (lib/zr/eval/walk/tree.rb) on CRuby,
     # so its tests take milliseconds and build nothing. The interpreter

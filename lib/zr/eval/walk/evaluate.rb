@@ -43,8 +43,15 @@ module Zr
         # matches nothing.
         names = World.binding_scopes(scope) #: Array[Array[Symbol]]
         own = [] #: Array[Symbol]
-        Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, own],
-                                method: World.binding_parameters(scope))
+        params = World.binding_parameters(scope)
+        # The front end joins, splits and reads lines with ruby's defaults,
+        # as the eval compiler's does (`Eval.plainly`); the walk itself runs
+        # with the program's separators.
+        Runtime.plain_separators do
+          Runtime.compiling do
+            Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, own], method: params)
+          end
+        end
       end
 
       # The scopes of the frame, innermost first, in the order of lookup.
