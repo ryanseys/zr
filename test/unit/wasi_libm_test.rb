@@ -464,6 +464,32 @@ class WasiLibmTest < Minitest::Test
     end
   end
 
+  def test_fma_is_exact
+    rng = Random.new(32)
+    edges = [0.0, -0.0, INF, -INF, NAN, 1.0, -1.0, 5.0e-324, Float::MIN, Float::MAX, 1.0 + Float::EPSILON, 2.0**-537, 3.0]
+    triples = edges.product(edges, edges) +
+              Array.new(1500) { [random_double(rng), random_double(rng), random_double(rng)] } +
+              Array.new(1500) do
+                x = (rng.rand - 0.5) * 100
+                y = (rng.rand - 0.5) * 100
+                # z near -x*y: the sum cancels.
+                [x, y, -(x * y) * (1 + ((rng.rand - 0.5) * 1.0e-14))]
+              end +
+              Array.new(1000) { [(rng.rand + 0.5) * 2.0**-520, (rng.rand + 0.5) * 2.0**-520, (rng.rand - 0.5) * 2.0**-1030] } +
+              Array.new(500) { [(rng.rand + 0.5) * 2.0**512, (rng.rand + 0.5) * 2.0**511, -(rng.rand * Float::MAX)] } +
+              [[2.0**-537, 2.0**-537, 0.0], [Float::MIN, 0.5, 0.0], [Float::MIN, 1.0 - Float::EPSILON / 2, 0.0],
+               [Float::MIN, 1.0 - Float::EPSILON / 4, Float::MIN.prev_float * 0], [1.0 + Float::EPSILON, 1.0 - Float::EPSILON, -1.0],
+               [Float::MAX, 2.0, -Float::MAX], [Float::MAX, 1.0 + Float::EPSILON, 0.0], [0.1, 10.0, -1.0]]
+    fma = self.class.host_libm("fma", 3)
+    bad = triples.filter_map do |x, y, z|
+      want = fma.call(x, y, z)
+      got = self.class.kernel.call("fma", x, y, z)
+      "fma(#{x}, #{y}, #{z}) = #{got}, not #{want}" if differs?(want, got, 0)
+    end
+
+    assert_empty bad.first(10), "#{bad.size} of #{triples.size} differ"
+  end
+
   private
 
   # Doubles of random bits: every exponent, both signs.
