@@ -603,7 +603,7 @@ module Zr
           # IR::Inst::FBINOPS, written out.
           when :fadd, :fsub, :fmul, :fdiv
             a = double_in(i.args[0])
-            b = double_in(i.args[1])
+            b = double_in(i.args[1], a)
             @asm.public_send(i.op, double_out(i.results[0]), a, b)
           # IR::Inst::FUNOPS, written out.
           when :fneg, :fabs, :sqrt, :floor, :ceil, :trunc, :nearest
@@ -928,7 +928,7 @@ module Zr
         #: (IR::Inst i) -> Symbol
         def emit_fcompare(i)
           a = double_in(i.args[0])
-          b = double_in(i.args[1])
+          b = double_in(i.args[1], a)
           @asm.fcmp a, b
           FCONDS.fetch(i.cond)
         end
@@ -942,11 +942,14 @@ module Zr
         # used again, the next read loads the value from its home.
 
         # The d register that contains `v`. It loads `v` from its home when
-        # `v` is in no d register.
-        #: (String v) -> Registers::Register
-        def double_in(v)
+        # `v` is in no d register. `keep` is the register of an operand that
+        # the instruction reads too: the load must not write over it, even
+        # when the rotation comes back to it.
+        #: (String v, ?Registers::Register? keep) -> Registers::Register
+        def double_in(v, keep = nil)
           @doubles[v] || begin
             d = next_double
+            d = next_double if keep && d.equal?(keep)
             @asm.fmov d, value_in(v, X9)
             remember_double(v, d)
           end
