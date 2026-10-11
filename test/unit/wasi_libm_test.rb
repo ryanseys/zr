@@ -225,6 +225,46 @@ class WasiLibmTest < Minitest::Test
     check_unary("log1p", xs, 1) { |x| x < -1 ? NAN : Math.log1p(x) }
   end
 
+  # Values for the trigonometric functions: the doubles next to multiples
+  # of pi/2 (where the reduction cancels), the edges of each reduction
+  # case, and large arguments, which need the reduction of
+  # __rem_pio2_large.
+  def trig_values(seed)
+    rng = Random.new(seed)
+    near = (1..40).flat_map do |k|
+      m = k * Math::PI / 2
+      [m, m.prev_float, m.next_float, -m]
+    end
+    near += [Math::PI / 4, (Math::PI / 4).next_float, 0.6744, 0.6745, 2.0**-26, 2.0**-27, 2.0**-28, 2.0**20 * Math::PI / 2,
+             (2.0**20 * Math::PI / 2).next_float, 1.0e22, 1.0e300, Float::MAX, 6381956970095103.0 * (2**797),
+             5.319372648326541e+255, 1.7976931348623157e+308, 2.0**1023, 2.0**200, 2.0**120, 2.0**60, 2.0**30]
+    SPECIAL + near + Array.new(1500) { (rng.rand - 0.5) * 20 } + Array.new(800) { (rng.rand - 0.5) * 2.0e6 } +
+      Array.new(800) { random_double(rng) } + Array.new(300) { (rng.rand - 0.5) * 1.0e-7 }
+  end
+
+  def test_sin_is_within_one_ulp
+    check_unary("sin", trig_values(10), 1) { |x| Math.sin(x) }
+  end
+
+  def test_cos_is_within_one_ulp
+    check_unary("cos", trig_values(11), 1) { |x| Math.cos(x) }
+  end
+
+  # macOS's tan is up to 2 ulp from the exact value (tan(-0.9855017167263247)
+  # for one); musl's is within 1 ulp. So tan is compared with macOS's
+  # within 2 ulp, and with a precise value within 1 ulp.
+  def test_tan_is_within_two_ulp_of_macos
+    check_unary("tan", trig_values(12), 2) { |x| Math.tan(x) }
+  end
+
+  def test_tan_is_within_one_ulp_of_the_exact_value
+    rng = Random.new(13)
+    xs = [-7.015526294645335, -4.00614210013174, 8.108719095499172, -0.9855017167263247, 2.1718382815680126, 0.7, 0.9,
+          1.5707963267948966, 1.0e22, 1.0e40, 2.0**100] + Array.new(200) { (rng.rand - 0.5) * 20 }
+
+    check_unary("tan", xs, 1) { |x| precise_tan(x) }
+  end
+
   private
 
   # Doubles of random bits: every exponent, both signs.
@@ -317,9 +357,12 @@ end
   # CRuby's Float drops the digits after a limit, so for a long text it
   # can round a value just above a halfway point down; C's strtod (musl,
   # darwin) does not.
-  def exact_double(text)
-    r = text.to_r
+  def exact_double(text) = nearest_double(text.to_r)
+
+  # The double nearest to the rational `r`, rounded half to even.
+  def nearest_double(r)
     return 0.0 if r.zero?
+    return -nearest_double(-r) if r.negative?
 
     e = r.numerator.bit_length - r.denominator.bit_length
     e -= 1 while Rational(2)**e > r
@@ -328,6 +371,38 @@ end
     q, rem = (r / (Rational(2)**low)).divmod(1)
     q += 1 if rem > Rational(1, 2) || (rem == Rational(1, 2) && q.odd?)
     Math.ldexp(q.to_f, low)
+  end
+
+  PI_TEXT = "3.14159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651" \
+            "328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196"
+
+  # tan(x) to about 2**-300, in fixed point: x less the nearest multiple
+  # k of pi/2, then the Taylor series of sin and cos. For |x| up to about
+  # 1e100, which the 200 digits of pi cover.
+  def precise_tan(x)
+    one = 2**300
+    half_pi = (PI_TEXT.to_r * one / 2).round
+    big = (x.to_r * one).round
+    k = Rational(big, half_pi).round
+    r = big - (k * half_pi)
+    r2 = r * r / one
+    sin = 0
+    t = r
+    i = 1
+    until t.zero?
+      sin += t
+      t = -t * r2 / one / ((i + 1) * (i + 2))
+      i += 2
+    end
+    cos = 0
+    t = one
+    i = 0
+    until t.zero?
+      cos += t
+      t = -t * r2 / one / ((i + 1) * (i + 2))
+      i += 2
+    end
+    nearest_double(k.odd? ? Rational(-cos, sin) : Rational(sin, cos))
   end
 
   # The decimal text of the dyadic rational `r`, every digit exact.
