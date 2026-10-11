@@ -4,14 +4,17 @@ require "test_helper"
 require_relative "../support/harness/kernel_jit"
 require_relative "../support/harness/kernel_host"
 
-# WASI has no libm in a zr module, so the WASI layer defines frexp and
-# ldexp itself (lib/zr/runtime/kernel/os/wasi/libm.rb). Compiled for this host,
-# they give the same values as CRuby's Math.frexp and Math.ldexp.
+# WASI has no libm and no strtod in a zr module, so the WASI layer
+# defines them itself (lib/zr/runtime/kernel/os/wasi/libm*.rb and
+# strtod.rb). Compiled for this host, they give the same values as
+# CRuby's Math, Float and String#to_f.
 class WasiLibmTest < Minitest::Test
+  FILES = "os/wasi/{libm,strtod}*.rb"
+
   VALUES = [1.0, -1.0, 0.5, 3.0, 44.7815, -2.675, 1.0e20, 1.0e-300, 5.0e-324, -2.2250738585072014e-308,
             Float::MAX, Float::MIN, Float::EPSILON].freeze
 
-  def self.kernel = @kernel ||= Zr::Harness::KernelJIT.new("os/wasi/libm.rb")
+  def self.kernel = @kernel ||= Zr::Harness::KernelJIT.new(FILES)
 
   def test_frexp_is_crubys
     VALUES.each do |x|
@@ -34,6 +37,101 @@ class WasiLibmTest < Minitest::Test
     end
   end
 
+  # --- strtod ---------------------------------------------------------------
+
+  STRTOD_HARD = %w[
+    0 -0 0.0 -0.0 1 -1 1.5 0.1 0.2 0.3 0.30000000000000004 123456789012345678901234567890
+    2.2250738585072011e-308 2.2250738585072012e-308 2.2250738585072014e-308 2.225073858507201e-308
+    1e23 8.533e+68 4.1006e-184 9.998e+307 9.9538452227e-280 6.47660115e-260 7.4e+47 5.92e+48
+    9007199254740993 9007199254740992 9007199254740991 9007199254740994 9007199254740995
+    18014398509481985 18014398509481987 9223372036854775807 9223372036854775808 18446744073709551615
+    5e-324 4.9406564584124654e-324 2.4703282292062327e-324 2.4703282292062328e-324 2.47e-324 2.5e-324
+    1e-324 7e-324 1e-400 1.7976931348623157e308 1.7976931348623158e308 1.797693134862315807e308
+    1.7976931348623159e308 1.8e308 1e309 1e400 1e10000 1e-10000 1e99999999999 0e99999999 -1e400
+    4.35679034e-310 1.3e22 1e22 1e15 1234567e30 1e37 1e38 9007199254740991e22 9007199254740993e-22
+    0.000000000000000000000000000000001 100000000000000000000000000000000e-30 1.000000000000000111
+    1.00000000000000011102230246251565404236316680908203125 1.00000000000000011102230246251565404236316680908203124
+    1.00000000000000011102230246251565404236316680908203126 1.00000000000000033306690738754696212708950042724609375
+  ].freeze
+
+  def test_strtod_rounds_hard_cases_as_crubys_float
+    STRTOD_HARD.each { |text| assert_strtod Float(text), text, text.size }
+  end
+
+  def test_strtod_rounds_random_decimals_as_crubys_float
+    rng = Random.new(20_261_011)
+    3000.times do
+      text = "#{rng.rand(1..9)}.#{Array.new(rng.rand(0..25)) { rng.rand(10) }.join}e#{rng.rand(-345..310)}"
+      text = "-#{text}" if rng.rand(2).zero?
+
+      assert_strtod Float(text), text, text.size
+    end
+  end
+
+  # Each case is the exact midpoint of two doubles, and the midpoint
+  # with one more digit above or below it, as decimal text.
+  def test_strtod_rounds_halfway_cases_to_even
+    rng = Random.new(7)
+    doubles = [1.0, Float::MAX.prev_float, Float::MIN, Float::MIN.prev_float, 5.0e-324, 1.0e23, 2.0**53, 0.1] +
+              Array.new(150) { [rng.rand(2**64)].pack("Q").unpack1("D") }.select(&:finite?).map(&:abs)
+    doubles.each do |x|
+      mid = (x.to_r + x.next_float.to_r) / 2
+      text = exact_decimal(mid)
+
+      # A dyadic fraction ends in 5; a midpoint above 2**53 is an integer.
+      above = text.include?(".") ? "#{text}1" : "#{text}.1"
+      below = text.include?(".") ? "#{text.delete_suffix("5")}4#{"9" * 20}" : "#{Integer(text) - 1}.#{"9" * 20}"
+      [text, above, below].each { |t| assert_strtod exact_double(t), t, t.size }
+    end
+  end
+
+  def test_strtod_reads_long_inputs
+    smallest_half = exact_decimal(Rational(1, 2**1075))
+    [
+      "1#{"0" * 400}e-400", "9007199254740992.5#{"0" * 900}1", "9007199254740992.5#{"0" * 900}",
+      "9007199254740993#{"0" * 900}e-900", "0.#{"0" * 1000}1e1000", "#{"9" * 1000}e-1000", "1#{"2" * 1200}",
+      smallest_half, "#{smallest_half}1", "#{smallest_half.delete_suffix("5")}4", "1#{"0" * 310}", "1#{"0" * 308}"
+    ].each { |text| assert_strtod exact_double(text), text, text.size }
+  end
+
+  def test_strtod_reads_hex_floats
+    {
+      "0x1.8p+3" => 12.0, "0X1.8P3" => 12.0, "0xA" => 10.0, "-0x1p-1" => -0.5, "0x.8" => 0.5, "0x1p-1074" => 5.0e-324,
+      "0x1p-1075" => 0.0, "0x1.8p-1075" => 5.0e-324, "0x1.0000000000001p-1074" => 5.0e-324, "0x1.8p-1074" => 1.0e-323,
+      "0x1.fffffffffffff8p1023" => Float::INFINITY, "0x1.fffffffffffff7ffp1023" => Float::MAX,
+      "0x1.00000000000008p0" => 1.0, "0x1.00000000000018p0" => 1.0 + (2 * Float::EPSILON),
+      "0x1.000000000000080000000001p0" => 1.0 + Float::EPSILON, "0x123456789abcdef0123p0" => 0x123456789abcdef0123.to_f,
+      "0x0.000000000000000000001p0" => 2.0**-84, "0x1p+99999999" => Float::INFINITY, "0x1p-99999999" => 0.0,
+      "0x1.fffffffffffffp-1023" => Float::MIN, "0x1.ffffffffffffe8p-1023" => Float::MIN.prev_float, "0x0.fffffffffffff8p-1022" => Float::MIN
+    }.each { |text, want| assert_strtod want, text, text.size }
+  end
+
+  # The end pointer: how far strtod read.
+  def test_strtod_stops_where_c_stops
+    {
+      "1.5abc" => [1.5, 3], "1e" => [1.0, 1], "1e+" => [1.0, 1], "1e+5x" => [100_000.0, 4], "1.e5" => [100_000.0, 4],
+      "  -12" => [-12.0, 5], "\t\n+7" => [7.0, 4], "." => [0.0, 0], "-" => [0.0, 0], "" => [0.0, 0], "  x" => [0.0, 0],
+      "0x" => [0.0, 1], "0xg" => [0.0, 1], "0x.p1" => [0.0, 1], "0x1p" => [1.0, 3], "0x1p-" => [1.0, 3], ".5" => [0.5, 2],
+      "inf" => [Float::INFINITY, 3], "-Infinity" => [-Float::INFINITY, 9], "INFINITx" => [Float::INFINITY, 3],
+      "1_000" => [1.0, 1], "12.34.5" => [12.34, 5], "00012" => [12.0, 5]
+    }.each { |text, (want, stop)| assert_strtod want, text, stop }
+  end
+
+  def test_strtod_reads_nan
+    { "nan" => 3, "-NaN" => 4, "nan(abc_1)" => 10, "nan(" => 3, "nan(a b)" => 3 }.each do |text, stop|
+      value, read = strtod(text)
+
+      assert_predicate value, :nan?, text
+      assert_equal stop, read, text
+    end
+  end
+
+  def test_strtod_takes_a_null_end_pointer
+    buf = c_string("2.5")
+
+    assert_in_delta 2.5, self.class.kernel.call("strtod", buf.to_i, 0), 0.0
+  end
+
   private
 
   def frexp(x)
@@ -41,9 +139,57 @@ class WasiLibmTest < Minitest::Test
     m = self.class.kernel.call("frexp", x, e.to_i)
     [m, e[0, 4].unpack1("l")]
   end
+
+  def c_string(text)
+    buf = Fiddle::Pointer.malloc(text.bytesize + 1, Fiddle::RUBY_FREE)
+    buf[0, text.bytesize + 1] = "#{text}\0"
+    buf
+  end
+
+  # The value that strtod reads from `text`, and how many bytes it read.
+  def strtod(text)
+    buf = c_string(text)
+    stop = Fiddle::Pointer.malloc(8, Fiddle::RUBY_FREE)
+    value = self.class.kernel.call("strtod", buf.to_i, stop.to_i)
+    [value, stop[0, 8].unpack1("Q") - buf.to_i]
+  end
+
+  def assert_strtod(want, text, stop)
+    got, read = strtod(text)
+
+    assert_equal bits(want), bits(got), "strtod(#{text[0, 80].inspect}): #{got} for #{want}"
+    assert_equal stop, read, "strtod(#{text[0, 80].inspect}) stop"
+  end
+
+  def bits(x) = [x].pack("G").unpack1("Q>")
+
+  # The double nearest to the decimal `text`, from its exact value.
+  # CRuby's Float drops the digits after a limit, so for a long text it
+  # can round a value just above a halfway point down; C's strtod (musl,
+  # darwin) does not.
+  def exact_double(text)
+    r = text.to_r
+    return 0.0 if r.zero?
+
+    e = r.numerator.bit_length - r.denominator.bit_length
+    e -= 1 while Rational(2)**e > r
+    e += 1 while Rational(2)**(e + 1) <= r
+    low = [e - 52, -1074].max
+    q, rem = (r / (Rational(2)**low)).divmod(1)
+    q += 1 if rem > Rational(1, 2) || (rem == Rational(1, 2) && q.odd?)
+    Math.ldexp(q.to_f, low)
+  end
+
+  # The decimal text of the dyadic rational `r`, every digit exact.
+  def exact_decimal(r)
+    k = 0
+    k += 1 until (r * (2**k)).denominator == 1
+    digits = (r * (10**k)).to_i.to_s.rjust(k + 1, "0")
+    k.zero? ? digits : "#{digits[0...-k]}.#{digits[-k..]}"
+  end
 end
 
 # The same checks, with the kernel's Ruby run on CRuby (`Machine::Host`).
 class WasiLibmHostTest < WasiLibmTest
-  def self.kernel = @kernel ||= Zr::Harness::KernelHost.new("os/wasi/libm.rb")
+  def self.kernel = @kernel ||= Zr::Harness::KernelHost.new(FILES)
 end
