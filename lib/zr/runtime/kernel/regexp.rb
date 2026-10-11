@@ -467,15 +467,25 @@ module Zr::Kern
     # The stack's own block is its lowest block of a program: the core
     # frames that start a Thread or a Fiber are below it.
     root = Machine.ptr(0)
+    program = false
     at = Frame[rec].prev
     while at != 0
-      if zr_block_frame_p(at) && FrameMeta[Frame[at].meta].file_len != 0
-        root = at
+      if Frame[at].meta != 0 && FrameMeta[Frame[at].meta].file_len != 0
+        program = true
+        if zr_block_frame_p(at)
+          root = at
+        end
       end
       at = Frame[at].prev
     end
     if root != 0 && zr_backref_scope_meta(FrameMeta[Frame[root].meta].parent) == zr_backref_scope_meta(meta)
       return root
+    end
+    # No frame of the program is below the block: it is its stack's own
+    # block, so its `$~` is the stack's own, not the one of the scope
+    # that made it (rb_fiber_start sets ec->root_lep to its lep).
+    if !program
+      return rec
     end
     zr_backref_kept(rec)
     rec
