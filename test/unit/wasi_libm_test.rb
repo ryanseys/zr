@@ -345,6 +345,44 @@ class WasiLibmTest < Minitest::Test
     check_binary("atan2", pairs, 1) { |y, x| Math.atan2(y, x) }
   end
 
+  def test_cbrt_is_within_one_ulp
+    rng = Random.new(24)
+    xs = SPECIAL + [8.0, 27.0, -27.0, 1.0e-310, 2.0**-1074, 3.0e-320] + Array.new(2000) { random_double(rng) } +
+         Array.new(1000) { (rng.rand - 0.5) * 100 }
+
+    check_unary("cbrt", xs, 1) { |x| Math.cbrt(x) }
+  end
+
+  # Values for erf and erfc: the edges of each case of erf.c.
+  def erf_values(seed)
+    rng = Random.new(seed)
+    SPECIAL + [0.84375, 0.8437499999999999, 1.25, 1.2499999999999998, 2.857142857142857, 2.857142857142858, 6.0, 5.999999999999999,
+               28.0, 27.999999999999996, 0.25, 0.24999999999999997, 2.0**-28, 2.0**-56, 2.0**-57, 26.5, -5.9] +
+      Array.new(2000) { (rng.rand - 0.5) * 12 } + Array.new(800) { (rng.rand - 0.5) * 52 } + Array.new(300) { (rng.rand - 0.5) * 1.0e-8 }
+  end
+
+  # macOS's erf is up to 3 ulp from the exact value
+  # (erf(0.47369317167132863) for one), and its erfc up to 5 ulp
+  # (erfc(22.06002724043096)); past 27 its erfc gives 0 where the value
+  # rounds to 5e-324. musl's are within 1 ulp. So they are compared with
+  # macOS's within 4 and 8 ulp, and with a precise value within 1 ulp.
+  def test_erf_is_within_four_ulp_of_macos
+    check_unary("erf", erf_values(25), 4) { |x| Math.erf(x) }
+  end
+
+  def test_erfc_is_within_eight_ulp_of_macos
+    check_unary("erfc", erf_values(26), 8) { |x| Math.erfc(x) }
+  end
+
+  def test_erf_and_erfc_are_within_one_ulp_of_the_exact_value
+    rng = Random.new(27)
+    xs = [-0.22388468102979164, 0.47369317167132863, 0.04606646816455262, -0.8029727352504135, 0.84375, 1.25, 2.857142857142858,
+          5.999999999999999, 1.0e-10] + Array.new(150) { (rng.rand * 8) - 2 }
+
+    check_unary("erf", xs, 1) { |x| nearest_double(Rational(precise_erf(x), 2**1600)) }
+    check_unary("erfc", xs, 1) { |x| nearest_double(Rational((2**1600) - precise_erf(x), 2**1600)) }
+  end
+
   private
 
   # Doubles of random bits: every exponent, both signs.
@@ -483,6 +521,25 @@ end
       i += 2
     end
     nearest_double(k.odd? ? Rational(-cos, sin) : Rational(sin, cos))
+  end
+
+  # erf(x) * 2**1600, by its Taylor series: 2/sqrt(pi) times the sum of
+  # (-1)**n x**(2n+1)/(n!(2n+1)). The series loses about x*x*1.44 bits, so
+  # erfc(x) from it is precise for x up to about 8.
+  def precise_erf(x)
+    one = 2**1600
+    sqrt_pi = Integer.sqrt((PI_TEXT.to_r * one * one).round)
+    big = (x.to_r * one).round
+    x2 = big * big / one
+    term = big
+    sum = 0
+    n = 0
+    until term.zero?
+      sum += term / ((2 * n) + 1)
+      n += 1
+      term = -term * x2 / one / n
+    end
+    2 * sum * one / sqrt_pi
   end
 
   # The decimal text of the dyadic rational `r`, every digit exact.
