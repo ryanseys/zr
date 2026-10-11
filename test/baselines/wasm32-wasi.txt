@@ -33,15 +33,10 @@ cli/stdlib/socket/socket_loopback.rb	cannot load such file -- socket/constants
 # The spec examples of the slice that CI runs on wasm32-wasi
 # (lang/methods, core/array, core/hash).
 
-# A WASI module has no libm. The WASI layer defines frexp and ldexp only
-# (lib/zr/runtime/kernel/os/wasi/libm.rb).
-core/array/float_round_digits_cruby.rb	pow has no wasm form
-core/array/float_round_ndigits_return_type.rb	pow has no wasm form
-core/array/float_round_truncate_ndigits.rb	pow has no wasm form
-core/array/ivar_array_filled_from_outside.rb	pow has no wasm form
-lang/methods/dispatch/a_user_to_f_beside_the_builtin_one_widens_the_call_s_return.rb	strtod has no wasm form
-core/hash/regressions/any_none_one_and_count_take_a_pair_argument_and_a_hash_serve.rb	fmod has no wasm form
-lang/methods/class_method_site_stays_correct_when_the_class_changes.rb	hypot has no wasm form
+# The WASI layer ports musl's libm (lib/zr/runtime/kernel/os/wasi/libm*.rb), as a
+# C ruby on WASI uses it. macOS's libm wrote the expected output, and its
+# tan is up to 2 ulp from the exact value where musl's is within 1.
+core/math/a_float_or_an_integer_argument_is_answered_by_the_kernel_at.rb	tan(1) is 1.5574077246549023 with musl, 1.557407724654902 with macOS
 
 # wasi cannot allocate a fiber stack: no Thread, and no external
 # Enumerator (`next`).
