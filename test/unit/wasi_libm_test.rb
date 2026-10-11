@@ -265,6 +265,50 @@ class WasiLibmTest < Minitest::Test
     check_unary("tan", xs, 1) { |x| precise_tan(x) }
   end
 
+  # Values for the hyperbolic functions: the edges of each case, and
+  # arguments where exp overflows, which go through __expo2.
+  def hyperbolic_values(seed)
+    rng = Random.new(seed)
+    SPECIAL + [709.7, 709.79, 710.0, 710.47, 710.48, -710.4, 711.0, 20.0, 20.000000000000004, 0.5493061443340548,
+               0.25541281188299525, 0.6931471805599453, 2.0**-26, 2.0**-27, 2.0**26, 2.0**25, 0.125, 1.125, 2.0] +
+      Array.new(1500) { (rng.rand - 0.5) * 50 } + Array.new(1000) { (rng.rand - 0.5) * 2 } +
+      Array.new(500) { (rng.rand - 0.5) * 1500 } + Array.new(500) { random_double(rng) }
+  end
+
+  def test_sinh_is_within_one_ulp
+    check_unary("sinh", hyperbolic_values(14), 1) { |x| Math.sinh(x) }
+  end
+
+  def test_cosh_is_within_one_ulp
+    check_unary("cosh", hyperbolic_values(15), 1) { |x| Math.cosh(x) }
+  end
+
+  # musl's tanh, asinh, acosh and atanh are up to 2 ulp from the exact
+  # value in some ranges (their comments say where); macOS's are closer.
+  def test_tanh_is_within_two_ulp
+    check_unary("tanh", hyperbolic_values(16), 2) { |x| Math.tanh(x) }
+  end
+
+  def test_asinh_is_within_two_ulp
+    check_unary("asinh", hyperbolic_values(17), 2) { |x| Math.asinh(x) }
+  end
+
+  def test_acosh_is_within_two_ulp
+    rng = Random.new(18)
+    xs = hyperbolic_values(18).map(&:abs) + [1.0, 1.0000000000000002, 0.9999999999999999, -1.0, 0.5] +
+         Array.new(1000) { 1 + (rng.rand * 0.2) } + Array.new(500) { 1 + (rng.rand * 1.0e-8) }
+
+    check_unary("acosh", xs, 2) { |x| x < 1 ? NAN : Math.acosh(x) }
+  end
+
+  def test_atanh_is_within_two_ulp
+    rng = Random.new(19)
+    xs = SPECIAL + [0.5, 0.49999999999999994, -0.5, 0.9999999999999999, -0.9999999999999999, 2.0**-32, 2.0**-33] +
+         Array.new(2000) { (rng.rand * 2) - 1 } + Array.new(500) { (rng.rand - 0.5) * 1.0e-9 }
+
+    check_unary("atanh", xs, 2) { |x| x.abs > 1 ? NAN : Math.atanh(x) }
+  end
+
   private
 
   # Doubles of random bits: every exponent, both signs.
