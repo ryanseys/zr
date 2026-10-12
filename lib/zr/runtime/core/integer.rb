@@ -557,7 +557,8 @@ class Numeric
     y = other
     unless other.is_a?(Numeric)
       unless other.respond_to?(:coerce, true)
-        shown = other.nil? || other == true || other == false ? other.inspect : other.class
+        # coerce_failed: a special constant or a Symbol shows as inspect.
+        shown = other.nil? || other == true || other == false || other.is_a?(Symbol) ? other.inspect : other.class
         raise TypeError, "#{shown} can't be coerced into #{self.class}"
       end
 

@@ -391,7 +391,15 @@ class Rational < Numeric
 
   alias quo /
 
-  def fdiv(other) = to_f / other
+  # rb_rational_fdiv: the exact quotient, then its Float, so a bad
+  # operand fails to coerce into Rational.
+  def fdiv(other)
+    return self / 0.0 if other == 0
+    return to_f if other.equal?(1)
+
+    div = self / other
+    div.is_a?(Float) ? div : div.to_f
+  end
 
   def **(other)
     # rb_rational_pow: an exact zero power is one.
