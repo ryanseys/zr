@@ -44,6 +44,7 @@ module Zr
     # @rbs @unit_body: Hir::node?
     # @rbs @inline_defs: Hash[Symbol, Hir::Def]?
     # @rbs @def_names: Hash[Hir::Def, String]
+    # @rbs @defined: Hash[Hir::Def, bool]
     # @rbs @block_names: Hash[Hir::Block, String]
     # @rbs @site_cells: Hash[untyped, String]
 
@@ -247,6 +248,8 @@ module Zr
       @inline_defs = nil
       @def_names = {} #: Hash[Hir::Def, String]
       @def_names.compare_by_identity
+      @defined = {} #: Hash[Hir::Def, bool]
+      @defined.compare_by_identity
       @block_names = {} #: Hash[Hir::Block, String]
       @block_names.compare_by_identity
       @site_cells = {} #: Hash[untyped, String]
@@ -723,11 +726,16 @@ module Zr
       @keyword_tables[words] ||= id_table("#{@prefix}_kw_#{@keyword_tables.size}", words)
     end
 
-    # Lowers a def now into a function, named for the site.
+    # Lowers a def now into a function, named for the site. A def is one
+    # function however many times its site is lowered: an ensure body is
+    # lowered once for each way out of it (Function::Regions#with_ensure).
     #: (Hir::Def node) -> String
     def define(node)
       name = def_name(node)
-      Function.new(self, name, node.locals, node.body, node, :def).lower
+      unless @defined.key?(node)
+        @defined[node] = true
+        Function.new(self, name, node.locals, node.body, node, :def).lower
+      end
       name
     end
 
