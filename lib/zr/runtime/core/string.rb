@@ -1434,7 +1434,7 @@ class String
   end
 
   def partition(sep)
-    sep = Primitive.zr_str_operand(sep) unless sep.is_a?(Regexp)
+    sep = String.send(:quoted_pattern, sep)
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, 0, false)
       Primitive.zr_backref_set(match)
@@ -1450,7 +1450,7 @@ class String
   end
 
   def rpartition(sep)
-    sep = Primitive.zr_str_operand(sep) unless sep.is_a?(Regexp)
+    sep = String.send(:quoted_pattern, sep)
     if sep.is_a?(Regexp)
       match = sep.send(:search, self, Primitive.zr_str_bytesize(self), true)
       Primitive.zr_backref_set(match)
@@ -1957,6 +1957,19 @@ class String
     Regexp.new(text)
   end
   private_class_method :pattern_of
+
+  # get_pat_quoted: a Regexp, or a String (what to_str gives) that stays
+  # text, as partition and rpartition take a separator.
+  def self.quoted_pattern(pattern)
+    Primitive.attr! :hidden
+    return pattern if pattern.is_a?(Regexp) || pattern.is_a?(String)
+
+    text = String.try_convert(pattern)
+    raise TypeError, "wrong argument type #{conversion_name(pattern)} (expected Regexp)" if text.nil?
+
+    text
+  end
+  private_class_method :quoted_pattern
 
   def encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
 

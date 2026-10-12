@@ -1,0 +1,19 @@
+partition(:a): TypeError: wrong argument type Symbol (expected Regexp)
+rpartition(:a): TypeError: wrong argument type Symbol (expected Regexp)
+partition(nil): TypeError: wrong argument type nil (expected Regexp)
+rpartition(nil): TypeError: wrong argument type nil (expected Regexp)
+partition(1): TypeError: wrong argument type Integer (expected Regexp)
+rpartition(1): TypeError: wrong argument type Integer (expected Regexp)
+partition(1.5): TypeError: wrong argument type Float (expected Regexp)
+rpartition(1.5): TypeError: wrong argument type Float (expected Regexp)
+partition([]): TypeError: wrong argument type Array (expected Regexp)
+rpartition([]): TypeError: wrong argument type Array (expected Regexp)
+partition(Sep): ["a", "-", "-b-c"]
+rpartition(Sep): ["a--b", "-", "c"]
+partition("-"): ["a", "-", "-b-c"]
+rpartition("-"): ["a--b", "-", "c"]
+partition(/-+/): ["a", "--", "b-c"]
+rpartition(/-+/): ["a--b", "-", "c"]
+partition no match: ["abc", "", ""]
+rpartition no match: ["", "", "abc"]
+partition regexp $~: "b"
