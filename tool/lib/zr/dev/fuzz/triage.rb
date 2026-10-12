@@ -54,11 +54,12 @@ module Zr
         private
 
         # The reduced program, its result and its shape, or the program as
-        # it is when there is no reducer or the reducer fails.
+        # it is when there is no reducer. `reducer` makes a new Reducer
+        # for each case, as each one keeps the state of its reduction.
         def reduce(candidate, result)
           return [candidate.source, result, nil] unless @reducer
 
-          @reducer.reduce(candidate.source, result)
+          @reducer.call.reduce(candidate.source, result)
         end
       end
     end

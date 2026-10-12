@@ -21,6 +21,9 @@ module Zr
         summary "Write Ruby programs, run them in ruby and in zr, and keep each difference"
         commands(
           "run" => ["Fuzz: check programs until the time or the count is up", -> { Run }],
+          "reduce" => ["Make a failing Ruby file small, while it still fails the same way", -> { Reduce }],
+          "recheck" => ["Check the smallest case of each open bucket again, and mark the fixed ones", -> { Recheck }],
+          "replay" => ["Check one case again, and show how ruby and zr differ", -> { Replay }],
           "report" => ["List the buckets of log/fuzz", -> { Report }]
         )
 
@@ -30,11 +33,15 @@ module Zr
           def pinned_defaults
             @jobs = nil
             @coverage = false
+            @budget = nil
           end
 
           def pinned_options(o)
             o.on("-j JOBS", Integer, "programs at a time (default: what the memory affords)") { |v| @jobs = v }
             o.on("--coverage", "measure the compiler lines that each build runs") { @coverage = true }
+            o.on("--reduce-budget N", Integer, "checks for the reduction of one case (default #{Dev::Fuzz::Reducer::BUDGET})") do |v|
+              @budget = v
+            end
           end
 
           def jobs = [@jobs || Test::Workers.size, 1].max
@@ -51,6 +58,15 @@ module Zr
             ensure
               builder&.close
               FileUtils.rm_rf(Dev.path("tmp/fuzz/work/#{store.run}"))
+            end
+          end
+
+          # Makes a Reducer for one case: it checks with the oracle, with no
+          # second run, on half of the jobs, as other cases run beside it.
+          def reducer_for(oracle)
+            lambda do
+              Dev::Fuzz::Reducer.new(check: ->(source) { oracle.check(source, confirm: false) }, jobs: [jobs / 2, 1].max,
+                                     budget: @budget || Dev::Fuzz::Reducer::BUDGET)
             end
           end
 
@@ -75,6 +91,7 @@ module Zr
             @seed = nil
             @modes = nil
             @seeds = nil
+            @reduce = true
           end
 
           def options(o)
@@ -83,6 +100,7 @@ module Zr
             o.on("--count N", Integer, "how many programs to check") { |v| @count = v }
             o.on("--seed S", Integer, "the seed of the run (default: random)") { |v| @seed = v }
             o.on("--mode LIST", Array, "where programs come from: #{MODES.join(", ")}") { |v| @modes = v }
+            o.on("--no-reduce", "keep each failing program as it is") { @reduce = false }
             o.on("--seeds LIST", Array, "seed files or directories (default test/programs, log/fuzz/corpus)") do |v|
               @seeds = v.map { |d| File.expand_path(d) }
             end
@@ -105,7 +123,8 @@ module Zr
             deadline = @count && !@time ? nil : Timing.now + (@time || 30 * 60)
             puts "zr-dev fuzz: run #{store.run}, seed #{seed}, #{jobs} job(s), modes #{modes.join(", ")}; log #{Dev.rel(store.log_path)}"
             with_oracle(store) do |oracle|
-              triage = Dev::Fuzz::Triage.new(store: store, meta: run_meta.merge(seed: seed))
+              triage = Dev::Fuzz::Triage.new(store: store, reducer: @reduce ? reducer_for(oracle) : nil,
+                                             meta: run_meta.merge(seed: seed))
               engine = Dev::Fuzz::Engine.new(oracle: oracle, store: store, triage: triage, sources: sources, jobs: jobs,
                                              seed: seed, deadline: deadline, count: @count)
               old = Signal.trap("INT") { engine.stop! }
@@ -124,6 +143,114 @@ module Zr
             parts = text.match(/\A(\d+)([smh]?)\z/)&.captures or fail!("give a span such as 90s, 30m or 2h, not #{text}")
             n, unit = parts
             Integer(n) * { "" => 1, "s" => 1, "m" => 60, "h" => 3600 }.fetch(unit)
+          end
+        end
+
+        # `zr-dev fuzz reduce FILE`: reduces any Ruby file that fails in
+        # zr, from the fuzzer, a suite or a gem, and writes the result to
+        # log/fuzz/reduced/.
+        class Reduce < Command
+          include Pinned
+
+          summary "Make a failing Ruby file small, while it still fails the same way"
+          usage "<file.rb> [-j N] [--reduce-budget N]"
+          host_ruby!
+
+          def defaults = pinned_defaults
+
+          def options(o) = pinned_options(o)
+
+          def run(argv)
+            Dev.pinned!(name)
+            file = argv.first or fail!("give a Ruby file")
+            fail!("no such file: #{file}") unless File.file?(file)
+            source = File.binread(file)
+            store = Dev::Fuzz::Store.new
+            with_oracle(store) do |oracle|
+              result = oracle.check(source)
+              unless result.failure?
+                puts "#{file}: #{result.verdict.kind}#{" (#{result.verdict.detail})" if result.invalid?}; nothing to reduce"
+                return true
+              end
+              puts "#{file}: #{result.verdict.kind}: #{result.verdict.detail[0, 150]}"
+              reducer = reducer_for(oracle).call
+              small, final, = reducer.reduce(source, result)
+              out = store.path("reduced", File.basename(file).sub(/(\.rb)?\z/, ".rb"))
+              FileUtils.mkdir_p(File.dirname(out))
+              File.binwrite(out, small)
+              puts "#{Dev.rel(out)}: #{small.bytesize} of #{source.bytesize} bytes after #{reducer.checks} check(s); " \
+                   "#{final.verdict.kind}"
+            end
+            true
+          end
+        end
+
+        # `zr-dev fuzz recheck`: checks the smallest case of each open
+        # bucket (or of the given buckets) with the zr of the checkout. A
+        # case that zr now passes marks its bucket fixed at this version.
+        class Recheck < Command
+          include Pinned
+
+          summary "Check the smallest case of each open bucket again, and mark the fixed ones"
+          usage "[bucket...] [-j N]"
+          host_ruby!
+
+          def defaults = pinned_defaults
+
+          def options(o) = pinned_options(o)
+
+          def run(argv)
+            Dev.pinned!(name)
+            store = Dev::Fuzz::Store.new
+            open = store.buckets.select { |b, r| (argv.empty? ? r["status"] == "open" : argv.include?(b)) && r["smallest"] }
+            if open.empty?
+              puts "zr-dev fuzz: no bucket to check"
+              return true
+            end
+            fixed = 0
+            with_oracle(store) do |oracle|
+              version = Suite.zr_version[0, 12]
+              Dev.parallel_map(open.to_a, jobs: jobs, each: lambda { |(bucket, verdict)|
+                if verdict.same?
+                  store.mark(bucket, "fixed@#{version}")
+                  fixed += 1
+                end
+                puts "#{bucket}: #{verdict.same? ? "FIXED" : verdict.kind}"
+              }) do |bucket, record|
+                [bucket, oracle.check(File.binread(Dev.path(record["smallest"]["path"]))).verdict]
+              end
+            end
+            puts "#{fixed} of #{open.size} bucket(s) fixed"
+            true
+          end
+        end
+
+        # `zr-dev fuzz replay ID`: checks one case again, and prints the
+        # diff of the answers.
+        class Replay < Command
+          include Pinned
+
+          summary "Check one case again, and show how ruby and zr differ"
+          usage "<case id | file.rb>"
+          host_ruby!
+
+          def defaults = pinned_defaults
+
+          def options(o) = pinned_options(o)
+
+          def run(argv)
+            Dev.pinned!(name)
+            id = argv.first or fail!("give a case id or a file")
+            store = Dev::Fuzz::Store.new
+            file = File.file?(id) ? id : Dir[store.path("cases", "*", "#{id}.rb")].first
+            fail!("no case #{id} in #{Dev.rel(store.path("cases"))}") unless file
+            @jobs ||= 1
+            with_oracle(store) do |oracle|
+              result = oracle.check(File.binread(file))
+              puts "#{Dev.rel(File.expand_path(file))}: #{result.verdict.kind}: #{result.verdict.detail}"
+              puts Dev::Fuzz::Store.diff(result) unless result.same?
+              return result.same?
+            end
           end
         end
 

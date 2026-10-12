@@ -92,7 +92,7 @@ module Zr
             File.binwrite("#{base}.rb.expected", result.ruby.stdout)
             File.binwrite("#{base}.rb.err.expected", result.ruby.stderr) unless result.ruby.stderr.empty?
           end
-          File.binwrite("#{base}.diff", diff(result))
+          File.binwrite("#{base}.diff", Store.diff(result))
           File.write("#{base}.json", JSON.pretty_generate(meta.merge(answers(result))))
           rel = Dev.rel("#{base}.rb")
           line = meta.merge(id: id, bucket: bucket, verdict: result.verdict.to_h, case: rel, size: source.bytesize, time: now)
@@ -171,6 +171,18 @@ module Zr
           file
         end
 
+        # The parts of the two answers that differ, as unified diffs, or the
+        # stderr of a build that failed.
+        def self.diff(result)
+          want, got = result.ruby, result.zr
+          return result.build ? "--- build\n#{result.build.stderr}" : "" unless want && got
+
+          %i[stdout stderr].filter_map do |part|
+            a, b = want.public_send(part), got.public_send(part)
+            "--- #{part} (ruby, then zr)\n#{Zr::Diff.unified(a.to_s, b.to_s)}" unless a == b
+          end.push("--- status: ruby #{Classify.status(want)}, zr #{Classify.status(got)}").join("\n")
+        end
+
         private
 
         def now = Time.now.utc.iso8601
@@ -188,16 +200,6 @@ module Zr
           draft = "#{file}.#{Process.pid}.#{Thread.current.object_id}"
           File.write(draft, text)
           File.rename(draft, file)
-        end
-
-        def diff(result)
-          want, got = result.ruby, result.zr
-          return result.build ? "--- build\n#{result.build.stderr}" : "" unless want && got
-
-          %i[stdout stderr].filter_map do |part|
-            a, b = want.public_send(part), got.public_send(part)
-            "--- #{part} (ruby, then zr)\n#{Zr::Diff.unified(a.to_s, b.to_s)}" unless a == b
-          end.push("--- status: ruby #{Classify.status(want)}, zr #{Classify.status(got)}").join("\n")
         end
 
         def answers(result)
