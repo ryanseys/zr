@@ -15,6 +15,8 @@ module Zr
                        -> { require_relative "cruby_test"; Commands::CRubyTest }],
       "probe" => ["Run Ruby files under ruby and as zr binaries, and show the differences",
                   -> { require_relative "probe"; Commands::Probe }],
+      "fuzz" => ["Write Ruby programs, run them in ruby and in zr, and keep each difference",
+                 -> { require_relative "fuzzer"; Commands::Fuzz }],
       "expect" => ["Write the expected output of program tests from ruby 4.0.7", -> { require_relative "expect"; Commands::Expect }],
       "record" => ["Ask ruby what a benchmark answers, and write it beside the benchmark",
                    -> { require_relative "record"; Commands::Record }],
