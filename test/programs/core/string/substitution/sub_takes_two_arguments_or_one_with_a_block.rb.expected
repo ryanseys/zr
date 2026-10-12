@@ -1,0 +1,38 @@
+sub(): ArgumentError: wrong number of arguments (given 0, expected 2)
+sub(1): ArgumentError: wrong number of arguments (given 1, expected 2)
+sub(3): ArgumentError: wrong number of arguments (given 3, expected 2)
+sub(4): ArgumentError: wrong number of arguments (given 4, expected 2)
+sub() {}: ArgumentError: wrong number of arguments (given 0, expected 1..2)
+sub(3) {}: ArgumentError: wrong number of arguments (given 3, expected 1..2)
+sub!(): ArgumentError: wrong number of arguments (given 0, expected 2)
+sub!(1): ArgumentError: wrong number of arguments (given 1, expected 2)
+sub!(3): ArgumentError: wrong number of arguments (given 3, expected 2)
+sub!() {}: ArgumentError: wrong number of arguments (given 0, expected 1..2)
+sub!(3) {}: ArgumentError: wrong number of arguments (given 3, expected 1..2)
+gsub(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+gsub(3): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+gsub!(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+frozen sub!(): ArgumentError: wrong number of arguments (given 0, expected 2)
+frozen sub!(1): ArgumentError: wrong number of arguments (given 1, expected 2)
+frozen sub!(2): FrozenError: can't modify frozen String: "hello"
+public_send(:sub): ArgumentError: wrong number of arguments (given 0, expected 2)
+send(:sub!, 'l'): ArgumentError: wrong number of arguments (given 1, expected 2)
+method(:sub).call: ArgumentError: wrong number of arguments (given 3, expected 2)
+sub(2): "heLlo"
+sub(regexp, hash): "h3llo"
+sub(1) {}: "heLLo"
+sub(2) {} uses the replacement: "heLlo"
+sub with $~: "hell!o"
+no match: "hello"
+sub!(2): "heLlo"
+sub! no match: nil
+sub!(1) {}: "hell0"
+nil replacement: TypeError: no implicit conversion of nil into String
+-1
+-1
+[[:rest]]
+[[:rest]]
+"String#sub"
+"String#sub!"
+subclass sub(): ArgumentError: wrong number of arguments (given 0, expected 2)
+subclass sub(2): String

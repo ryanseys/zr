@@ -846,15 +846,23 @@ class String
   # `sub`: replaces the first match with  `replacement` (with its `\1`,
   # `\k<name>`, `\0` and `\&` filled in), with the Hash's entry for the
   # match, or with the block's return value (with `$~` set).
-  def sub(pattern, replacement = (none = true; nil), &block) = subbed(pattern, replacement, false, none, &block)
+  def sub(*args, &block) = subbed(*sub_operands(args, block), false, args.size == 1, &block)
+
+  # rb_str_sub_bang's rb_check_arity: two arguments, or one with a block.
+  def sub_operands(args, block)
+    Primitive.attr! :hidden
+    unless args.size == 2 || (block && args.size == 1)
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{block ? "1..2" : "2"})"
+    end
+
+    [args[0], args[1]]
+  end
 
   # rb_str_sub_bang: a replacement that is not a Hash converts to a
   # String first, nil too when it was given (`none` when it was not). `sub` works on a copy, so a block that changes the
   # receiver does not change the result; `sub!` raises for that.
   def subbed(pattern, replacement, bang, none, &block)
     Primitive.attr! :hidden
-    raise ArgumentError, +"wrong number of arguments (given 1, expected 2)" if none && block.nil?
-
     replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless none || replacement.is_a?(String)
     match = first_match(pattern, 0)
     Primitive.zr_backref_set(match)
@@ -931,9 +939,10 @@ class String
 
   # A match makes the receiver the result and returns it, even when the
   # text comes out the same; `$~` tells whether there was one.
-  def sub!(pattern, replacement = (none = true; nil), &block)
+  def sub!(*args, &block)
+    pattern, replacement = sub_operands(args, block)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    result = subbed(pattern, replacement, true, none, &block)
+    result = subbed(pattern, replacement, true, args.size == 1, &block)
     $~ ? replaced(result) : nil
   end
 
