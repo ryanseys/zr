@@ -1,0 +1,13 @@
+before using: false
+ERB before: "x=3"
+TOPLEVEL_BINDING.eval: ["refined", 6]
+ERB#result: "x=refined"
+ERB#result double: "refined"
+ERB#result_with_hash: "refined"
+Kernel#eval with it: 10
+whisper before its using: NoMethodError: undefined method 'whisper' for an instance of String
+both: ["ab...", 4]
+binding here: ["cd...", "refined"]
+a method's eval: 12
+from a class: 14
+interpolated: "refined"

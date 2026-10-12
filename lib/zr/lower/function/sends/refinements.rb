@@ -12,11 +12,13 @@ module Zr
         private
 
         # `using mod` fills its activation entry, so every send under it
-        # sees this module's refinements. It returns its self.
+        # sees this module's refinements. At the main file's toplevel,
+        # TOPLEVEL_BINDING takes the entry too. It returns its self.
         #: (Hir::Using node) -> String
         def using_row(node)
           at_node(node)
           checked(kernel("zr_using_activate", imm(node.id), expr(node.value), imm(node.from)))
+          checked(kernel("zr_using_main", imm(node.id))) if @kind == :main && !@l.internal?
           @self
         end
 

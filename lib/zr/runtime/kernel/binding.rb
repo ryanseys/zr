@@ -592,6 +592,18 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # `using` at the main file's toplevel. Ruby's rb_mod_using gives main's
+  # frame a cref with the refinement, and TOPLEVEL_BINDING holds that
+  # frame, so a later eval in it (ERB#result's, say) runs under entry
+  # `id`.
+  #: (word) -> value
+  def zr_using_main(id)
+    b = zr_const_get(zr_global(G_TOP_CREF), Machine.id(:TOPLEVEL_BINDING))
+    return b if b == QUNDEF
+    zr_hidden_set(b, zr_sym(Machine.id(:__using__)), zr_fix(id))
+    Machine.value(QNIL)
+  end
+
   # `TOPLEVEL_BINDING`: main's scope, set when the program starts.
   #: (value, value, value, ptr) -> value
   def zr_toplevel_binding(env, self_, cref, meta)
