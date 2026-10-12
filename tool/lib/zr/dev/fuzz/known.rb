@@ -24,7 +24,9 @@ module Zr
            "zr recurses deeper before SystemStackError (Details)"],
           [%w[output-diff], /arm64-darwin|aarch64-linux-musl/, "the platform of the target (Details)"],
           [%w[exception-diff output-diff], /FloatDomainError: NaN \|.*FloatDomainError: -?Infinity/,
-           "ruby's round(half: :even) of an infinity says NaN (Ruby bugs)"]
+           "ruby's round(half: :even) of an infinity says NaN (Ruby bugs)"],
+          [%w[exception-diff output-diff], /FloatDomainError: Infinity \|.*FloatDomainError: -Infinity/,
+           "ruby's rationalize of -Infinity says Infinity (Ruby bugs)"]
         ].freeze
 
         module_function

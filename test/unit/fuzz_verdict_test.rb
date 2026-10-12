@@ -113,4 +113,14 @@ class FuzzVerdictTest < Minitest::Test
     assert_match(/half: :even/, Zr::Dev::Fuzz::Known.reason(nan))
     assert_nil Zr::Dev::Fuzz::Known.reason(real)
   end
+
+  def test_known_matches_rubys_infinity_message_for_a_negative_infinity_rationalized
+    sign = Zr::Dev::Fuzz::Verdict.new(kind: "output-diff", key: "uN: FloatDomainError: Infinity | uN: FloatDomainError: -Infinity",
+                                      detail: "")
+    other = Zr::Dev::Fuzz::Verdict.new(kind: "output-diff", key: "uN: FloatDomainError: -Infinity | uN: FloatDomainError: Infinity",
+                                       detail: "")
+
+    assert_match(/rationalize/, Zr::Dev::Fuzz::Known.reason(sign))
+    assert_nil Zr::Dev::Fuzz::Known.reason(other)
+  end
 end
