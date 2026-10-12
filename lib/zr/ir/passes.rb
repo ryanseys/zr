@@ -781,7 +781,8 @@ module Zr
             while (r = ready.shift)
               out << r
               placed[r.name] = true
-              ready.unshift(*waiting.delete(r.name)) if waiting.key?(r.name)
+              children = waiting.delete(r.name)
+              ready.unshift(*children) if children
             end
           end
           @f.blocks.replace(out)
