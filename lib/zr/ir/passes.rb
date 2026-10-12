@@ -649,6 +649,8 @@ module Zr
           loop { break unless pruned? | bypassed? | merged? }
           rename_uses unless @rename.empty?
           @f.changed!(:cfg)
+          dominance_order unless defined_first?
+          @f
         end
 
         private
@@ -741,6 +743,49 @@ module Zr
           @f.blocks.reject! { |b| b.nil? || joined.key?(b) }
           @f.changed!(:cfg)
           true
+        end
+
+        # Whether each value comes before its readers in the layout, as
+        # `Types` needs. A join can break this: a predecessor that moves up
+        # to its successor's position can move above a block that dominates
+        # it, when the lowering laid the successor out before that block
+        # (the exit of a `begin ... end while` loop).
+        #: () -> bool
+        def defined_first?
+          seen = {} #: Hash[String, bool]
+          @f.blocks.each { |b| b.params.each { |v, _| seen[v] = true } }
+          @f.blocks.all? do |b|
+            b.insts.all? do |i|
+              ok = i.args.all? { |a| !IR.value?(a) || seen.key?(a) }
+              i.results.each { |v| seen[v] = true }
+              ok
+            end
+          end
+        end
+
+        # Puts each block after its immediate dominator, and keeps the order
+        # of the others. A definition dominates its readers, so it then comes
+        # before them. A block whose dominator comes later waits, and goes
+        # just after it.
+        #: () -> void
+        def dominance_order
+          idom = @f.analysis.idom
+          waiting = Hash.new { |h, k| h[k] = [] } #: Hash[String, Array[Block]]
+          placed = {} #: Hash[String, bool]
+          out = [] #: Array[Block]
+          @f.blocks.each do |b|
+            dom = idom[b.name]
+            next waiting[dom] << b if dom && !placed.key?(dom)
+
+            ready = [b]
+            while (r = ready.shift)
+              out << r
+              placed[r.name] = true
+              ready.unshift(*waiting.delete(r.name)) if waiting.key?(r.name)
+            end
+          end
+          @f.blocks.replace(out)
+          @f.changed!(:cfg)
         end
       end
 

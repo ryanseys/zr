@@ -1,0 +1,11 @@
+cycle: [10, 2, 7, 0, 1]
+flatten: []
+first: nil
+in: []
+after: [1, 2]
+show: nil
+counted: [[[0], [1], [2]], 3, 8]
+until: [-1, [-1, -1, -1]]
+14
+[16, [6, 1]]
+["xxxx", 4]

@@ -318,6 +318,42 @@ class PassesTest < Minitest::Test
     assert_equal [11, 6], was
   end
 
+  # The exit of a `begin ... end while` loop: the lowering lays it out
+  # before the block that defines a value, and its one predecessor (which
+  # that block dominates) after. The join must not move the predecessor,
+  # and the reader of the value, above the definition.
+  def test_a_join_never_moves_a_reader_above_the_block_that_defines_its_value
+    f = function("dominated", %w[i8 i8 i64], "i64") do |f, c1, c2, x|
+      done = f.label
+      body = f.label
+      latch = f.label
+      other = f.label
+      tail = f.label
+      f.brif(c1, body, other)
+      # An instruction, so the exit is not a hop that the pass bypasses.
+      f.switch(done)
+      f.band(x, x)
+      f.jump(tail)
+      f.switch(body)
+      v = f.iadd(x, f.iconst("i64", 1))
+      f.brif(c2, latch, other)
+      f.switch(latch)
+      f.jump(done)
+      f.switch(other)
+      f.ret(f.iconst("i64", 0))
+      f.switch(tail)
+      f.ret(f.iadd(v, v))
+    end
+    was = [[1, 1, 5], [1, 0, 5], [0, 1, 5]].map { |args| answer(f, args) }
+    Zr::IR::Passes.prepare(f, strict: true)
+    assert_equal [12, 0, 0], was
+    assert_equal was, [[1, 1, 5], [1, 0, 5], [0, 1, 5]].map { |args| answer(f, args) }
+    x = f.args[2]
+    defines = f.blocks.index { |b| b.insts.any? { |i| i.op == :iadd && i.args.include?(x) } }
+    reads = f.blocks.index { |b| b.insts.any? { |i| i.op == :iadd && i.args.none?(x) } }
+    assert_operator defines, :<=, reads, "the definition comes first in the layout"
+  end
+
   # The match loop's shape: an inlined def returns a constant to a join,
   # and the join tests it. The edge with the constant goes straight to
   # the block that the tests choose.
