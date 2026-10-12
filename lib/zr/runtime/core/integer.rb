@@ -252,11 +252,24 @@ class Integer
 
   def ord = self
 
+  # A zero divisor raises here, as fix_divmod does; a Bignum divides a
+  # Float divisor as a Float, so its error comes from Float#divmod.
   def divmod(other)
+    raise ZeroDivisionError, +"divided by 0" if zero_divisor?(other)
     return to_f.divmod(other) if other.is_a?(Float)
 
     [div(other), modulo(other)]
   end
+
+  # Whether `other` is a zero that this divides by in its own frame: an
+  # Integer zero, or a Float zero when this is a Fixnum.
+  def zero_divisor?(other)
+    Primitive.attr! :hidden
+    return other == 0 if other.is_a?(Integer)
+
+    other.is_a?(Float) && other == 0.0 && Primitive.zr_fixnum_p_m(self)
+  end
+  private :zero_divisor?
 
   # A Float divisor of zero divides by zero; a Bignum's Float quotient
   # truncates (rb_big_divide), a Fixnum's floors (fix_divide).
@@ -267,13 +280,21 @@ class Integer
       q = to_f / other
       return between?(-4_611_686_018_427_387_904, 4_611_686_018_427_387_903) ? q.floor : q.truncate
     end
-    return self / other if other.is_a?(Integer)
+    if other.is_a?(Integer)
+      raise ZeroDivisionError, +"divided by 0" if other == 0
+
+      return self / other
+    end
 
     # int_idiv: rb_num_coerce_bin with div itself.
     Primitive.zr_num_coerce_m(self, other, :div, 0)
   end
 
-  def modulo(other) = self % other
+  def modulo(other)
+    raise ZeroDivisionError, +"divided by 0" if zero_divisor?(other)
+
+    self % other
+  end
 
   # CRuby's rb_int_fdiv_double: both sides divided by their gcd first;
   # two that fit divide as doubles, and anything wider goes through

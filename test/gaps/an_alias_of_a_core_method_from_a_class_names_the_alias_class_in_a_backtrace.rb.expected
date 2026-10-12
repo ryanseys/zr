@@ -3,3 +3,6 @@
 "H#fetch"
 "Comparable#between?"
 "String#sub"
+"FileTest.exist?"
+"FileTest.directory?"
+"FileTest.size?"

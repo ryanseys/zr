@@ -4,7 +4,9 @@
 # module's method keeps the module. zr labels a frame from its function's
 # own owner, and a frame does not record which method entry the call
 # went through, so it shows 'Module#<=>' and 'Array#fetch'. Found by
-# zr-dev fuzz.
+# zr-dev fuzz. FileTest's functions are File's in CRuby
+# (define_filetest_function), and its frame says 'FileTest.exist?'; zr's
+# FileTest calls File's, so the frame says 'File.exist?'.
 def label
   yield
 rescue StandardError => e
@@ -36,3 +38,7 @@ class String
   alias_method :ss, :sub
 end
 label { "".ss }
+
+label { FileTest.exist?(1) }
+label { FileTest.directory?(nil) }
+label { FileTest.size?(:a) }

@@ -567,9 +567,10 @@ class IO
     timeout = time_interval(timeout)
     # An infinite timeout waits as none does.
     timeout = nil if timeout == Float::INFINITY
-    rows = [readers, writers, priority].zip([POLL_IN, POLL_OUT, POLL_PRI]).flat_map do |list, event|
-      select_list(list).map { |io| [io, select_stream(io), event] }
-    end
+    rows = []
+    select_rows(rows, readers, POLL_IN)
+    select_rows(rows, writers, POLL_OUT)
+    select_rows(rows, priority, POLL_PRI)
     now = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
     # A reader whose buffer contains bytes is ready without a wait.
     deadline = if rows.any? { |_, stream, event| event == POLL_IN && stream.send(:buffered?) } then now
@@ -587,14 +588,22 @@ class IO
   # What a `select` list entry represents: a stream, or the value that
   # its `to_io` returns. An object with no `to_io` is not a stream, and
   # ruby gives its name in the error.
-  # Each list is an Array or nil, as rb_f_select's Check_Type wants: a
-  # bare IO is an error, not a list of its own lines.
-  def self.select_list(list)
+  # Adds a row for each stream of `list` to `rows`. Each list is an Array
+  # or nil, as select_internal's Check_Type wants: a bare IO is an error,
+  # not a list of its own lines. One list's entries are checked before
+  # the next list, as there, and with no block, so that no frame of
+  # Array's shows in the error.
+  def self.select_rows(rows, list, event)
     Primitive.attr! :hidden
-    return [] if list.nil?
+    return if list.nil?
     raise TypeError, "wrong argument type #{conversion_name(list)} (expected Array)" unless list.is_a?(Array)
 
-    list
+    i = 0
+    while i < list.size
+      io = list[i]
+      rows << [io, select_stream(io), event]
+      i += 1
+    end
   end
 
   def self.select_stream(entry)
@@ -607,7 +616,7 @@ class IO
 
     stream
   end
-  private_class_method :select_stream
+  private_class_method :select_rows, :select_stream
 
   # Runs the command with a pipe on its standard input or output. With
   # a block, the stream closes and the child is waited for after the

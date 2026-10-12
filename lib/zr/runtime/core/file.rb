@@ -48,7 +48,7 @@ class File < IO
   end
 
   def self.extname(path)
-    name = basename(path)
+    name = basename(path_of(path))
     lead = 0
     lead += 1 while lead < name.size && name[lead] == +"."
     dot = name.rindex(".")
@@ -196,8 +196,10 @@ class File < IO
   def self.without_gvl(&) = Fiber.send(:offloaded, &)
 
   # What a path names, as rb_stat reads it: 0 nothing, 1 a directory,
-  # 2 a file, and more for the other kinds.
+  # 2 a file, and more for the other kinds. Its frame is hidden, as an
+  # error here is one of the predicate that asked.
   def self.kind_of_path(path)
+    Primitive.attr! :hidden
     if (io = stat_io(path))
       stat = io.stat
       return stat.directory? ? 1 : stat.file? ? 2 : 3
@@ -1374,7 +1376,7 @@ class Dir
   end
 
   def self.getwd = pwd
-  def self.exist?(path) = File.directory?(path)
+  def self.exist?(path) = File.send(:kind_of_path, path) == 1
 
   def self.mkdir(path, mode = 0o777)
     path = File.send(:path_of, path)
