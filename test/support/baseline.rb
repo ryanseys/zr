@@ -9,6 +9,10 @@ module Zr
     #
     # A listed test that fails is a skip that gives the reason. A listed
     # test that passes fails the run, so the file stays current.
+    #
+    # `upgrade.txt` is the same for every target: the tests that a new ruby
+    # (`.ruby-version`) changed and zr does not match yet. Each fix deletes
+    # its line, and the upgrade is done when the file is gone.
     module Baseline
       DIR = File.expand_path("../baselines", __dir__)
 
@@ -16,11 +20,14 @@ module Zr
 
       def path(target) = File.join(DIR, "#{target.triple}.txt")
 
-      def for(target) = read(path(target))
+      def for(target) = upgrade.merge(read(path(target)))
 
       # What the host (`ZR_TEST_HOST=1`, CRuby over the kernel) can fail:
       # `host.txt`. A binary's own baseline does not apply there.
-      def host = read(File.join(DIR, "host.txt"))
+      def host = upgrade.merge(read(File.join(DIR, "host.txt")))
+
+      # What a new ruby changed that zr does not match yet, on every target.
+      def upgrade = read(File.join(DIR, "upgrade.txt"))
 
       def read(file)
         return {} unless File.file?(file)
