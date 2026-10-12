@@ -6,9 +6,20 @@ class Array
   include Enumerable
 
   # rb_ary_find: the first element that the block accepts, else the
-  # value that `ifnone` returns.
-  def find(ifnone = (omitted = true; nil))
-    return to_enum(__callee__, *([ifnone] unless omitted)) unless block_given?
+  # value that `ifnone` returns. With no block, the arguments go to the
+  # enumerator: the arity check comes after RETURN_ENUMERATOR. Two
+  # optional parameters and `given`, the count of arguments, not a rest
+  # Array, so a call allocates nothing. A third argument gets the
+  # message of the two parameters.
+  def find(ifnone = (given = 0; nil), extra = (given ||= 1; nil))
+    given ||= 2
+    unless block_given?
+      return to_enum(__callee__) if given == 0
+      return to_enum(__callee__, ifnone) if given == 1
+
+      return to_enum(__callee__, ifnone, extra)
+    end
+    raise ArgumentError, +"wrong number of arguments (given 2, expected 0..1)" if given == 2
 
     i = 0
     while i < Primitive.zr_ary_len_m(self)
@@ -21,9 +32,17 @@ class Array
   end
   alias detect find
 
-  # The last element that the block accepts, else the value that `ifnone` returns.
-  def rfind(ifnone = (omitted = true; nil))
-    return to_enum(:rfind, *([ifnone] unless omitted)) unless block_given?
+  # The last element that the block accepts, else the value that
+  # `ifnone` returns. With no block, as in find.
+  def rfind(ifnone = (given = 0; nil), extra = (given ||= 1; nil))
+    given ||= 2
+    unless block_given?
+      return to_enum(:rfind) if given == 0
+      return to_enum(:rfind, ifnone) if given == 1
+
+      return to_enum(:rfind, ifnone, extra)
+    end
+    raise ArgumentError, +"wrong number of arguments (given 2, expected 0..1)" if given == 2
 
     i = Primitive.zr_ary_len_m(self) - 1
     while i >= 0

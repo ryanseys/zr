@@ -1,0 +1,37 @@
+find(2 args): #<Enumerator: [3, 8, 5, 10]:find("%d", 1.5)>
+detect(2 args): #<Enumerator: [3, 8, 5, 10]:detect(nil, [1, 2])>
+rfind(2 args): #<Enumerator: [3, 8, 5, 10]:rfind("%d", 2)>
+find(nil): #<Enumerator: [3, 8, 5, 10]:find(nil)>
+find(): #<Enumerator: [3, 8, 5, 10]:find>
+rfind(proc): Enumerator
+public_send(:rfind, 2 args): #<Enumerator: [3, 8, 5, 10]:rfind("%d", 1.5)>
+find(2 args) {}: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+detect(2 args) {}: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+enumerator with 2 args, each: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+enumerator with 2 args, size: nil
+find {}: 8
+detect {}: 8
+rfind {}: 5
+find(ifnone) {}: :none
+rfind(ifnone) {}: :none
+find(nil) {}: nil
+enumerator find: 5
+enumerator rfind: 8
+enumerator find(ifnone): :none
+Hash#find(2 args): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Range#find(2 args): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Enumerator#find(2 args): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Range#detect(3 args): ArgumentError: wrong number of arguments (given 3, expected 0..1)
+each_line(2 args): #<Enumerator: "ax0x1Fx+=-74\nsecond line\n":each_line("ab", "")>
+each_line(3 args): #<Enumerator: "ax0x1Fx+=-74\nsecond line\n":each_line(1, 2, 3)>
+each_line(2 args, chomp:): #<Enumerator: "ax0x1Fx+=-74\nsecond line\n":each_line("x", 2, chomp: true)>
+each_line(2 args).to_a: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+each_line(2 args) {}: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+each_line(1 bad arg).to_a: TypeError: no implicit conversion of Integer into String
+each_line(nil).to_a: ["ax0x1Fx+=-74\nsecond line\n"]
+each_line('x').to_a: ["ax", "0x", "1Fx", "+=-74\nsecond line\n"]
+each_line(chomp:).to_a: ["ax0x1Fx+=-74", "second line"]
+each_line('', chomp:).to_a: ["a", "b\n"]
+each_line {}: [13, 12]
+each_line size: nil
+lines(2 args): ArgumentError: wrong number of arguments (given 2, expected 0..1)

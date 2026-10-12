@@ -761,14 +761,14 @@ class String
     stop
   end
 
-  def each_line(separator = (nosep = true), chomp: (nochomp = true), &block)
-    separator = $/ if nosep
-    chomp = false if nochomp
-    unless block
-      shown = nosep ? [] : [separator]
-      return nochomp ? to_enum(:each_line, *shown) : to_enum(:each_line, *shown, chomp: chomp)
-    end
+  # rb_str_each_line: with no block, any arguments go to the enumerator,
+  # before the arity check.
+  def each_line(*args, chomp: (nochomp = true), &block)
+    return nochomp ? to_enum(:each_line, *args) : to_enum(:each_line, *args, chomp: chomp) unless block
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
+    separator = args.empty? ? $/ : args[0]
+    chomp = false if nochomp
     OWN[:lines].bind_call(self, separator, chomp: chomp).each(&block)
     self
   end
