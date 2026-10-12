@@ -296,6 +296,8 @@ class Integer
 
   def modulo(other)
     raise ZeroDivisionError, +"divided by 0" if zero_divisor?(other)
+    # big_modulo: a Bignum takes a Float divisor to Float#%.
+    return to_f.__send__(:%, other) if other.is_a?(Float) && !Primitive.zr_fixnum_p_m(self)
 
     self % other
   end

@@ -446,6 +446,13 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_int_mod(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)
+      # big_modulo: a Float divisor goes to Float#% as rb_funcall sends
+      # it, so its frame shows under this one.
+      if zr_float_p(Machine.value(Machine.load64(argv, 0)))
+        f = zr_send(recv, Machine.id(:to_f), 0, 0)
+        return f if f == QUNDEF
+        return zr_send(f, Machine.id(:%), 1, argv)
+      end
       return zr_big_route(recv, Machine.id(:%), argc, argv)
     end
     if zr_float_p(Machine.value(Machine.load64(argv, 0)))
