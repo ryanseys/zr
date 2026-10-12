@@ -1,0 +1,11 @@
+str =~ str: TypeError: type mismatch: String given
+sym =~ str: TypeError: type mismatch: String given
+public_send(:=~, str): TypeError: type mismatch: String given
+subclass: TypeError: type mismatch: String given
+str =~ regexp: 2
+sym =~ regexp: 1
+str =~ nil: nil
+str =~ Integer: NoMethodError: undefined method '=~' for an instance of Integer
+own =~: "own: abc"
+sym.match(str): #<MatchData "b">
+str.match(str): #<MatchData "b">
