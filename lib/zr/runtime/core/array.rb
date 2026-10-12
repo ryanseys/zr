@@ -307,10 +307,16 @@ class Array
   end
 
   # BASIC_OP_UNREDEFINED_P for a literal's min or max: whether the
-  # program left the core's method in place.
+  # program left the core's method in place, and no refinement of Array
+  # defines it. CRuby clears the flag when a refinement defines the
+  # method, whether or not a `using` turns it on (Module#refine_under
+  # keeps Array's refinements).
   def self.newarray_optimized?(name)
     Primitive.attr! :hidden
-    instance_method(name) == OPTIMIZED[name]
+    return false unless instance_method(name) == OPTIMIZED[name]
+
+    holders = Primitive.zr_hidden_get(self, :__refined__)
+    holders.nil? || holders.none? { |h| h.instance_methods(false).include?(name) || h.private_instance_methods(false).include?(name) }
   end
 
   # vm_opt_newarray_min and _max: a literal's elements, each compared

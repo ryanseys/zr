@@ -1306,13 +1306,15 @@ module Zr
 
       # compile.c's opt_newarray_send: `[a, b].min` or `.max` on a literal
       # that is not static and has no splat runs without Array#min, which
-      # compares in the other order. The core's own files keep the send, and
-      # so does a site under `using`, where a refinement may answer.
+      # compares in the other order. The core's own files keep the send. A
+      # site under `using` takes the literal path too: a refinement of
+      # Array#min or #max turns it off where the program runs
+      # (Array.newarray_optimized?), as it clears CRuby's BOP flag.
       #: (Prism::CallNode node) -> bool
       def newarray_send?(node)
         %i[min max].include?(node.name) && node.receiver.is_a?(Prism::ArrayNode) && !node.receiver.static_literal? &&
           node.receiver.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) } &&
-          node.arguments.nil? && node.block.nil? && node.call_operator != "&." && !Library::Roots.runtime_file?(@file) && @using.nil?
+          node.arguments.nil? && node.block.nil? && node.call_operator != "&." && !Library::Roots.runtime_file?(@file)
       end
 
       # The program itself sends the method when it is redefined, so the

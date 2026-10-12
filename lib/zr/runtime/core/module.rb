@@ -224,6 +224,8 @@ class Module
       holder = Primitive.zr_refinement_new(target, @__activated__ ||= [])
       Primitive.zr_hidden_set(holder, :__origin__, self)
       table[target] = holder
+      # Array.newarray_optimized? reads the refinements of Array.
+      Primitive.zr_hidden_set(Array, :__refined__, [*Primitive.zr_hidden_get(Array, :__refined__), holder]) if target.equal?(Array)
     end
     Primitive.zr_hidden_set(holder, :__outer__, outer) if outer
     Primitive.zr_refine_body(block, holder)
