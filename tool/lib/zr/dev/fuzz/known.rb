@@ -22,7 +22,9 @@ module Zr
           [%w[unimplemented exception-diff], /Coverage.*eval|eval.*Coverage/, "no coverage of eval code (Refusals)"],
           [%w[exception-diff output-diff], /stack level too deep|SystemStackError|levels\.\.\./,
            "zr recurses deeper before SystemStackError (Details)"],
-          [%w[output-diff], /arm64-darwin|aarch64-linux-musl/, "the platform of the target (Details)"]
+          [%w[output-diff], /arm64-darwin|aarch64-linux-musl/, "the platform of the target (Details)"],
+          [%w[exception-diff output-diff], /FloatDomainError: NaN \|.*FloatDomainError: -?Infinity/,
+           "ruby's round(half: :even) of an infinity says NaN (Ruby bugs)"]
         ].freeze
 
         module_function

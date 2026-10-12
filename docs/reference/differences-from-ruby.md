@@ -130,3 +130,4 @@ own locale: two builds under two locales write the same bytes.
 |---|---|---|
 | A second deadlock after a deadlock that the program rescued (a thread waits on a Queue that no thread feeds, the program rescues the `fatal`, then the main thread waits again) | raises `fatal` "No live threads left. Deadlock?" again | stops responding |
 | `String#grapheme_clusters` of a UTF-16 string with a lone lead surrogate before other characters, such as `"a\x00\x00\xD8b\x00"` in UTF-16LE | keeps each character whole: `["a\x00", "\x00\xD8", "b\x00"]` | splits the code units: `["a\x00", "\x00", "\xD8b"]` |
+| `Float#round(half: :even)` of `Infinity` or `-Infinity`, with no digits | raises `FloatDomainError` with the value, `"Infinity"` or `"-Infinity"`, as `round`, `round(half: :up)` and `round(half: :down)` do | raises `FloatDomainError` with `"NaN"`: `round_half_even` (numeric.c) takes `fmod` of the infinite value, which is NaN |

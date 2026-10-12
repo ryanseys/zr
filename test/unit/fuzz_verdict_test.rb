@@ -103,4 +103,14 @@ class FuzzVerdictTest < Minitest::Test
     assert_match(/YARV/, Zr::Dev::Fuzz::Known.reason(disasm))
     assert_nil Zr::Dev::Fuzz::Known.reason(plain)
   end
+
+  def test_known_matches_rubys_nan_message_for_an_infinity_rounded_half_even
+    nan = Zr::Dev::Fuzz::Verdict.new(kind: "output-diff", key: "uN: FloatDomainError: NaN | uN: FloatDomainError: -Infinity",
+                                     detail: "")
+    real = Zr::Dev::Fuzz::Verdict.new(kind: "output-diff", key: "uN: FloatDomainError: Infinity | uN: FloatDomainError: NaN",
+                                      detail: "")
+
+    assert_match(/half: :even/, Zr::Dev::Fuzz::Known.reason(nan))
+    assert_nil Zr::Dev::Fuzz::Known.reason(real)
+  end
 end
