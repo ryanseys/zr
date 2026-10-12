@@ -38,23 +38,33 @@ class Range
     out
   end
 
-  def last(n = (none = true; nil))
+  # Two optional parameters and `given`, the count of arguments, not a
+  # rest Array, so a call allocates nothing; min and max do the same. A
+  # third argument gets the message of the two parameters.
+  def last(n = (given = 0; nil), extra = (given ||= 1; nil))
+    given ||= 2
     raise RangeError, +"cannot get the last element of endless range" if @end.nil?
-    return @end if none
+    return @end if given == 0
+    # rb_ary_last over the Array of the range, which is made before the
+    # count converts.
+    unless @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer)) && Primitive.zr_basic_method_m(self, :each)
+      return given == 1 ? to_a.last(n) : to_a.last(n, extra)
+    end
+
+    # rb_int_range_last: an Integer end counts back from it, with no begin
+    # or an Integer one, and no Array of the whole range, while Range's
+    # each is the core's own. An empty range answers [] before it reads
+    # its arguments, then the count must be one argument.
+    high = @excl ? @end - 1 : @end
+    return [] if !@begin.nil? && high < @begin
+    raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" if given == 2
 
     n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"negative array size" if n < 0
-    # rb_int_range_last: an Integer end counts back from it, with no begin
-    # or an Integer one, and no Array of the whole range, while Range's
-    # each is the core's own.
-    if @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer)) && Primitive.zr_basic_method_m(self, :each)
-      high = @excl ? @end - 1 : @end
-      low = high - n + 1
-      low = @begin if !@begin.nil? && @begin > low
-      return low > high ? [] : (low..high).to_a
-    end
 
-    to_a.last(n)
+    low = high - n + 1
+    low = @begin if !@begin.nil? && @begin > low
+    low > high ? [] : (low..high).to_a
   end
 
   # range_min: a block goes to Enumerable#min, and a count, nil too, to

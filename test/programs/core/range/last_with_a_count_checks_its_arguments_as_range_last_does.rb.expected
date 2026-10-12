@@ -1,0 +1,104 @@
+(0...0).last(): 0
+(0...0).last(nil): []
+(0...0).last(nil, 1): []
+(0...0).last(2, 1): []
+(0...0).last(2): []
+(0...0).last(2.9): []
+(0...0).last(Two): []
+(0...0).last(0): []
+(0...0).last(-1): []
+(0...0).last(10): []
+(0...0).last([]): []
+(1..0).last(): 0
+(1..0).last(nil): []
+(1..0).last(nil, 1): []
+(1..0).last(2, 1): []
+(1..0).last(2): []
+(1..0).last(2.9): []
+(1..0).last(Two): []
+(1..0).last(0): []
+(1..0).last(-1): []
+(1..0).last(10): []
+(1..0).last([]): []
+(0...3).last(): 3
+(0...3).last(nil): TypeError: no implicit conversion from nil to integer
+(0...3).last(nil, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(0...3).last(2, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(0...3).last(2): [1, 2]
+(0...3).last(2.9): [1, 2]
+(0...3).last(Two): [1, 2]
+(0...3).last(0): []
+(0...3).last(-1): ArgumentError: negative array size
+(0...3).last(10): [0, 1, 2]
+(0...3).last([]): TypeError: no implicit conversion of Array into Integer
+(1..3).last(): 3
+(1..3).last(nil): TypeError: no implicit conversion from nil to integer
+(1..3).last(nil, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(1..3).last(2, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(1..3).last(2): [2, 3]
+(1..3).last(2.9): [2, 3]
+(1..3).last(Two): [2, 3]
+(1..3).last(0): []
+(1..3).last(-1): ArgumentError: negative array size
+(1..3).last(10): [1, 2, 3]
+(1..3).last([]): TypeError: no implicit conversion of Array into Integer
+(..4).last(): 4
+(..4).last(nil): TypeError: no implicit conversion from nil to integer
+(..4).last(nil, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(..4).last(2, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(..4).last(2): [3, 4]
+(..4).last(2.9): [3, 4]
+(..4).last(Two): [3, 4]
+(..4).last(0): []
+(..4).last(-1): ArgumentError: negative array size
+(..4).last(10): [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4]
+(..4).last([]): TypeError: no implicit conversion of Array into Integer
+(...4).last(): 4
+(...4).last(nil): TypeError: no implicit conversion from nil to integer
+(...4).last(nil, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(...4).last(2, 1): ArgumentError: wrong number of arguments (given 2, expected 1)
+(...4).last(2): [2, 3]
+(...4).last(2.9): [2, 3]
+(...4).last(Two): [2, 3]
+(...4).last(0): []
+(...4).last(-1): ArgumentError: negative array size
+(...4).last(10): [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3]
+(...4).last([]): TypeError: no implicit conversion of Array into Integer
+('a'..'c').last(): "c"
+('a'..'c').last(nil): TypeError: no implicit conversion from nil to integer
+('a'..'c').last(nil, 1): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+('a'..'c').last(2, 1): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+('a'..'c').last(2): ["b", "c"]
+('a'..'c').last(2.9): ["b", "c"]
+('a'..'c').last(Two): ["b", "c"]
+('a'..'c').last(0): []
+('a'..'c').last(-1): ArgumentError: negative array size
+('a'..'c').last(10): ["a", "b", "c"]
+('a'..'c').last([]): TypeError: no implicit conversion of Array into Integer
+(1.0..3.0).last(): 3.0
+(1.0..3.0).last(nil): TypeError: can't iterate from Float
+(1.0..3.0).last(nil, 1): TypeError: can't iterate from Float
+(1.0..3.0).last(2, 1): TypeError: can't iterate from Float
+(1.0..3.0).last(2): TypeError: can't iterate from Float
+(1.0..3.0).last(2.9): TypeError: can't iterate from Float
+(1.0..3.0).last(Two): TypeError: can't iterate from Float
+(1.0..3.0).last(0): TypeError: can't iterate from Float
+(1.0..3.0).last(-1): TypeError: can't iterate from Float
+(1.0..3.0).last(10): TypeError: can't iterate from Float
+(1.0..3.0).last([]): TypeError: can't iterate from Float
+(1..3.5).last(): 3.5
+(1..3.5).last(nil): TypeError: no implicit conversion from nil to integer
+(1..3.5).last(nil, 1): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+(1..3.5).last(2, 1): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+(1..3.5).last(2): [2, 3]
+(1..3.5).last(2.9): [2, 3]
+(1..3.5).last(Two): [2, 3]
+(1..3.5).last(0): []
+(1..3.5).last(-1): ArgumentError: negative array size
+(1..3.5).last(10): [1, 2, 3]
+(1..3.5).last([]): TypeError: no implicit conversion of Array into Integer
+(1..).last: RangeError: cannot get the last element of endless range
+(1..).last(1, 2): RangeError: cannot get the last element of endless range
+Steps.last(1): [9]
+Steps.last(1, 2): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Steps.last(nil): TypeError: no implicit conversion from nil to integer
