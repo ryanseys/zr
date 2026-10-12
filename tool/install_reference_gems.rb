@@ -37,11 +37,19 @@ FileUtils.mkdir_p(Ref::GEMS)
 wanted = Ref.gems
 have = installed
 
+# A precompiled gem carries a bundle for each released ruby ABI
+# (ffi-1.17.4-arm64-darwin has lib/4.0/ffi_c.bundle), and a development
+# ruby (RUBY_PATCHLEVEL -1) has none of them. Outside macOS a zr binary
+# is static and links an extension from its objects, so it needs the
+# objects of a build (google-protobuf-4.36.2-aarch64-linux-musl has only a
+# .so). In both cases a gem installs from its source.
+source = RUBY_PLATFORM.include?("darwin") && RUBY_PATCHLEVEL >= 0 ? [] : ["--platform", "ruby"]
+
 # A clean environment, so that the bundle of this checkout does not apply.
 env = { "GEM_HOME" => Ref::GEMS, "GEM_PATH" => Ref::GEMS, "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil }
 failed = wanted.reject { |gem, version| have.include?([gem, version]) }.reject do |gem, version|
   puts "installing #{gem} #{version}"
-  system(env, RbConfig.ruby, "-S", "gem", "install", gem, "-v", version, "--install-dir", Ref::GEMS,
+  system(env, RbConfig.ruby, "-S", "gem", "install", gem, "-v", version, *source, "--install-dir", Ref::GEMS,
          "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
 end
 # Each other version of a ported gem that a program test runs with goes
@@ -55,11 +63,7 @@ failed = failed.to_a + Ref.ports.reject do |gem, version|
          "--install-dir", home, "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
 end
 # Each gem whose C extension zr runs as it is goes into a GEM_HOME of its
-# own (Ref::NATIVE); its install compiles the extension. Outside macOS a
-# zr binary is static and links an extension from its objects, so a gem
-# installs from its source, not as a precompiled gem for the platform
-# (google-protobuf-4.36.2-aarch64-linux-musl has only a .so).
-source = RUBY_PLATFORM.include?("darwin") ? [] : ["--platform", "ruby"]
+# own (Ref::NATIVE); its install compiles the extension (`source` above).
 # extconf.rb's words for a gem outside macOS: Alpine's fortified headers
 # stop zstd's C unless _FORTIFY_SOURCE is off.
 build_args = RUBY_PLATFORM.include?("darwin") ? {} : { "zstd-ruby" => ["--", "--with-cflags=-U_FORTIFY_SOURCE"] }

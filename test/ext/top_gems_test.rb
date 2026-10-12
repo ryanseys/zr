@@ -188,23 +188,6 @@ RUBY
   GVLTools::GlobalTimer.reset
   p metrics.map(&:enabled?), GVLTools::GlobalTimer.monotonic_time
 RUBY
-    "hiredis" => <<~'RUBY',
-      require "hiredis/ext/reader"
-      reader = Hiredis::Ext::Reader.new
-      reader.feed("*3\r\n$3\r\nfoo\r\n:42\r\n*2\r\n+OK\r\n$-1\r\n")
-      p reader.gets, reader.gets
-      reader.feed("-ERR bad thing\r\n$5\r\nhel")
-      error = reader.gets
-      p error.class, error.message, reader.gets
-      reader.feed("lo\r\n")
-      p reader.gets
-      begin
-        reader.feed("?\r\n")
-        reader.gets
-      rescue => e
-        p e.class
-      end
-    RUBY
     "http_parser.rb" => <<~'RUBY',
       require "http_parser"
       parser = Http::Parser.new
@@ -385,17 +368,6 @@ RUBY
       require "unf_ext"
       n = UNF::Normalizer.new
       p n.normalize("é", :nfd).bytes, n.normalize("é", :nfc), n.normalize("ﬁ", :nfkc), n.normalize("①", :nfkd)
-    RUBY
-    "yajl-ruby" => <<~'RUBY',
-      require "yajl"
-      p Yajl::Parser.parse('{"a":[1,2.5,"x",null,true],"b":{"c":"é"}}')
-      puts Yajl::Encoder.encode({ "a" => [1, nil, "q\"uote"], "b" => 2.5 })
-      p Yajl::Parser.parse('{"k":1}', symbolize_keys: true)
-      begin
-        Yajl::Parser.parse("{bad")
-      rescue Yajl::ParseError => e
-        p e.class
-      end
     RUBY
     "zstd-ruby" => <<~'RUBY'
       require "zstd-ruby"

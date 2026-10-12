@@ -8,18 +8,18 @@
 # `::RUBY_REVISION` is the host's.
 module Zr
   # The ruby that zr runs on and matches, as `.ruby-version` names it.
-  RUBY_PIN = "4.0.7"
+  RUBY_PIN = "4.1.0-preview1"
   # Its RUBY_VERSION, RUBY_PATCHLEVEL, RUBY_RELEASE_DATE, RUBY_REVISION
   # and RUBY_COPYRIGHT.
-  RUBY = "4.0.7"
-  RUBY_PATCHLEVEL = 0
-  RUBY_RELEASE_DATE = "2026-09-15"
-  RUBY_REVISION = "229531a6cfbf07e3caef30dbac24a2a3f3fed482"
+  RUBY = "4.1.0"
+  RUBY_PATCHLEVEL = -1
+  RUBY_RELEASE_DATE = "2026-10-11"
+  RUBY_REVISION = "2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1"
   RUBY_COPYRIGHT = "ruby - Copyright (C) 1993-2026 Yukihiro Matsumoto"
   # Its RUBY_DESCRIPTION, without the " [platform]" at the end.
-  RUBY_DESCRIPTION_HEAD = "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM"
+  RUBY_DESCRIPTION_HEAD = "ruby 4.1.0preview1 (2026-10-11 master 2d08b5f42f) +PRISM"
   # Its API version, which C extensions are built for, and the name of
   # its library directories (RbConfig's `ruby_version`).
-  RUBY_API = "4.0"
-  RUBY_LIB_VERSION = "4.0.0"
+  RUBY_API = "4.1"
+  RUBY_LIB_VERSION = "4.1.0+5"
 end

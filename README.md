@@ -105,7 +105,7 @@ fibers, threads or ractors. See [Targets](https://github.com/ryanseys/zr/blob/v0
   C extension, zr uses its Ruby port of the C when it has one. With
   `--native-ext`, a binary runs the gem's real C extension instead,
   through zr's own copy of ruby's C API, on macOS and on aarch64
-  Linux. The tests run 30 such gems, among them nokogiri, msgpack, puma,
+  Linux. The tests run 28 such gems, among them nokogiri, msgpack, puma,
   byebug and google-protobuf, and compare their output with ruby's. A
   static Linux binary cannot open OpenSSL. See
   [How to use a library or a gem](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/use-a-library-or-gem.md)

@@ -1,0 +1,77 @@
+#ifndef RBIMPL_ROBJECT_H                             /*-*-C++-*-vi:se ft=cpp:*/
+#define RBIMPL_ROBJECT_H
+/**
+ * @file
+ * @author     Ruby developers <ruby-core@ruby-lang.org>
+ * @copyright  This  file  is   a  part  of  the   programming  language  Ruby.
+ *             Permission  is hereby  granted,  to  either redistribute  and/or
+ *             modify this file, provided that  the conditions mentioned in the
+ *             file COPYING are met.  Consult the file for details.
+ * @warning    Symbols   prefixed  with   either  `RBIMPL`   or  `rbimpl`   are
+ *             implementation details.   Don't take  them as canon.  They could
+ *             rapidly appear then vanish.  The name (path) of this header file
+ *             is also an  implementation detail.  Do not expect  it to persist
+ *             at the place it is now.  Developers are free to move it anywhere
+ *             anytime at will.
+ * @note       To  ruby-core:  remember  that   this  header  can  be  possibly
+ *             recursively included  from extension  libraries written  in C++.
+ *             Do not  expect for  instance `__VA_ARGS__` is  always available.
+ *             We assume C99  for ruby itself but we don't  assume languages of
+ *             extension libraries.  They could be written in C++98.
+ * @brief      Defines struct ::RObject.
+ */
+#include "ruby/internal/config.h"
+
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
+
+#include "ruby/internal/attr/artificial.h"
+#include "ruby/internal/attr/deprecated.h"
+#include "ruby/internal/attr/pure.h"
+#include "ruby/internal/cast.h"
+#include "ruby/internal/fl_type.h"
+#include "ruby/internal/value.h"
+#include "ruby/internal/value_type.h"
+
+/**
+ * Convenient casting macro.
+ *
+ * @param   obj  An object, which is in fact an ::RObject.
+ * @return  The passed object casted to ::RObject.
+ */
+#define ROBJECT(obj)          RBIMPL_CAST((struct RObject *)(obj))
+
+struct st_table;
+
+/**
+ * Ruby's ordinal objects.  Unless otherwise  special cased, all predefined and
+ * user-defined classes share this struct to hold their instances.
+ */
+struct RObject {
+
+    /** Basic part, including flags and class. */
+    struct RBasic basic;
+
+    /** Object's specific fields. */
+    union {
+        /* Embedded instance variables. When an object slot is large enough, it
+         * uses this area to store the instance variables embedded.
+         *
+         * This is a length 1 array because:
+         *   1. GCC has a bug that does not optimize C flexible array members
+         *      (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=102452)
+         *   2. Zero length arrays are not supported by all compilers
+         */
+        VALUE ary[1];
+
+       /**
+        * When an object slot is too small or too complex to store instance
+        * variables inline, it references another, larger, object that contains
+        * the instance variables.
+        */
+       VALUE extended;
+    } as;
+};
+
+#endif /* RBIMPL_ROBJECT_H */

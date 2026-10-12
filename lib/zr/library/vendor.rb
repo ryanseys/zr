@@ -29,18 +29,19 @@ module Zr
       # The bundled gems of ruby that vendor/ holds, at the versions in
       # ruby's gems/bundled_gems. A bundled gem with a C part is a port
       # (lib/zr/library/ports.rb, at zr's version), or zr refuses it (rbs,
-      # typeprof, debug, rdoc, repl_type_completor, win32ole).
+      # typeprof, debug, rdoc, repl_type_completor), or only a Windows ruby
+      # installs it (win32ole, win32-registry).
       BUNDLED = %w[
-        abbrev base64 benchmark csv drb getoptlong irb logger matrix minitest mutex_m net-ftp
-        net-imap net-pop net-smtp observer ostruct power_assert prime pstore rake readline
-        reline resolv-replace rexml rinda rss test-unit
+        abbrev base64 benchmark csv drb getoptlong irb logger matrix minitest mutex_m net-imap
+        net-smtp observer ostruct power_assert prime pstore rake readline reline resolv-replace
+        rexml rinda rss test-unit tsort
       ].freeze
 
       # The parts of ruby's library that vendor/ leaves out, with the
       # reason. A name that ends in `/` is a directory.
       LEFT_OUT = {
-        "prism.rb" => "the prism port gem replaces ruby's prism, and ruby's build writes part of it from templates",
-        "prism/" => "the prism port gem replaces ruby's prism, and ruby's build writes part of it from templates",
+        "ruby/prism.rb" => "Ruby::Prism: ruby's build writes part of it from prism's templates",
+        "ruby/prism/" => "Ruby::Prism: ruby's build writes part of it from prism's templates",
         "win32/" => "only a Windows ruby installs it",
         "mkmf.rb" => "zr runs mkmf in the host ruby, never in a program (Hir::Build::UNSUPPORTED_LIBRARIES)",
         "bundler/man/index.txt" => "ruby's installer leaves it out"
@@ -48,7 +49,7 @@ module Zr
 
       # The default gems whose files LEFT_OUT removes: their specifications
       # stay out too.
-      LEFT_OUT_GEMS = %w[prism].freeze
+      LEFT_OUT_GEMS = %w[].freeze
 
       # Files of a gem that vendor/ leaves out, with the reason.
       GEM_EXCLUDE = {
@@ -56,14 +57,22 @@ module Zr
         "prism" => { "lib/prism/ffi.rb" => "prism's FFI half: zr refuses it (Hir::Build::UNSUPPORTED_LIBRARIES)" }
       }.freeze
 
-      # For each target other than this host, the image of a ruby built for
-      # it, pinned by digest, and its platform: its headers and rbconfig.rb
-      # go into Layout.target_root. A C extension for that target compiles
-      # against them (`Ext::Builder`, mkmf's --target-rbconfig). Its
-      # config.h is what ruby's configure wrote there, which no source has.
+      # For each target other than this host, how to build the pinned ruby
+      # for it: the image that builds it (pinned by digest), its platform,
+      # and the packages that its configure finds. `zr-dev vendor` builds
+      # the release tarball there (ruby-lang.org's releases.yml gives its
+      # URL and SHA-256) as the official ruby image does, and its headers
+      # and rbconfig.rb go into Layout.target_root. A C extension for that
+      # target compiles against them (`Ext::Builder`, mkmf's
+      # --target-rbconfig). Its config.h is what ruby's configure wrote
+      # there, which no source has.
       TARGET_RUBIES = {
-        "aarch64-linux-musl" => ["docker.io/library/ruby@sha256:2a4755a0545d2a23414bf1d616237dc54f3cac0a61861a9cbed9eae056c8de91",
-                                 %w[linux arm64]]
+        "aarch64-linux-musl" => {
+          image: "docker.io/library/alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
+          platform: %w[linux arm64],
+          packages: %w[build-base bzip2-dev gdbm-dev gmp-dev libffi-dev linux-headers ncurses-dev openssl-dev
+                       readline-dev yaml-dev zlib-dev]
+        }
       }.freeze
     end
   end

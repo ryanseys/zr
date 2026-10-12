@@ -28,14 +28,16 @@ module Zr
       # Gems with a C extension that zr runs as it is (`--native-ext`),
       # among the ones that the most downloaded gems need
       # (`zr-dev ext rank`), each in a GEM_HOME of its own below `native/`.
-      # Their install compiles the extension with this ruby, once.
+      # Their install compiles the extension with this ruby, once. hiredis
+      # and yajl-ruby are not here: they use untyped Data (Data_Get_Struct),
+      # which ruby 4.1 removed, so no ruby since then builds them.
       NATIVE = { "bcrypt" => "3.1.22", "bindex" => "0.8.1", "binding_ninja" => "0.2.3", "bson" => "5.2.0", "byebug" => "13.0.0",
                  "cgi" => "0.5.2", "debug_inspector" => "1.2.0", "ed25519" => "1.4.0", "erb" => "6.0.7",
                  "escape_utils" => "1.3.0", "fast_blank" => "1.0.1", "google-protobuf" => "4.36.2", "gvltools" => "0.5.0",
-                 "hiredis" => "0.6.3", "http_parser.rb" => "0.8.1", "jaro_winkler" => "1.7.0", "murmurhash3" => "0.1.7",
+                 "http_parser.rb" => "0.8.1", "jaro_winkler" => "1.7.0", "murmurhash3" => "0.1.7",
                  "nio4r" => "2.7.5", "oj" => "3.17.7", "puma" => "8.0.2", "rbs" => "4.2.0", "rbtree" => "0.4.7",
                  "rbtree3" => "1.1.0", "redcarpet" => "3.6.1", "rinku" => "2.0.6", "ruby-prof" => "2.0.5",
-                 "stackprof" => "0.2.28", "thrift" => "0.25.0", "unf_ext" => "0.0.9.1", "yajl-ruby" => "1.4.3",
+                 "stackprof" => "0.2.28", "thrift" => "0.25.0", "unf_ext" => "0.0.9.1",
                  "zstd-ruby" => "2.0.10" }.freeze
 
       module_function
@@ -43,8 +45,9 @@ module Zr
       # `{ name => version }`: each gem that GEMS must hold.
       def gems
         want = Library::Stdlib::BUNDLED.merge(Library::Stdlib::OTHER_BUNDLED)
-        # win32ole builds only on Windows, which zr does not target.
-        want.delete("win32ole") unless Gem.win_platform?
+        # win32ole and win32-registry work only on Windows, which zr does not
+        # target.
+        %w[win32ole win32-registry].each { |name| want.delete(name) } unless Gem.win_platform?
         Library::Ports::ALL.each do |name, port|
           want[name] = port.version if want.key?(name) || stock_defaults[name] != port.version
         end

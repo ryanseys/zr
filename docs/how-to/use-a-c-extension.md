@@ -130,10 +130,12 @@ extension and compare the output with ruby's, plain and with the
 collector running at each allocation, on macOS and on Alpine Linux:
 
 bcrypt, bindex, bson, byebug, cgi, debug_inspector, ed25519, erb,
-escape_utils, fast_blank, google-protobuf, hiredis, jaro_winkler,
-msgpack, murmurhash3, nio4r, nokogiri, oj, puma, rbs, rbtree, redcarpet,
-rinku, ruby-prof, stackprof, thrift, unf_ext, websocket-driver,
-yajl-ruby and zstd-ruby.
+escape_utils, fast_blank, google-protobuf, jaro_winkler, msgpack,
+murmurhash3, nio4r, nokogiri, oj, puma, rbs, rbtree, redcarpet, rinku,
+ruby-prof, stackprof, thrift, unf_ext, websocket-driver and zstd-ruby.
+
+hiredis and yajl-ruby are not among them: they use untyped Data
+(`Data_Get_Struct`), which ruby 4.1 removed, so ruby does not build them.
 
 On Linux, the bcrypt and thrift tests skip: their Ruby requires
 `openssl`, which a static binary cannot open (below).

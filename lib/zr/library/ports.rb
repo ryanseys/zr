@@ -34,9 +34,9 @@ module Zr
         # json 2.20 and 2.21 have 3.0's C interface; the port acts as 2.x
         # where 2.x deprecates what 3.0 refuses (ext/json/ext).
         "json" => port("3.0.2", compat: ">= 2.20, < 3.1"),
-        "psych" => port("5.3.1", vendored: false),
+        "psych" => port("5.5.0", vendored: false),
         "bigdecimal" => port("4.1.2"),
-        "digest" => port("3.2.1", vendored: false),
+        "digest" => port("3.3.0", vendored: false),
         "syslog" => port("0.4.0"),
         "ffi" => port("1.17.4"),
         "openssl" => port("4.0.2", vendored: false),
@@ -45,12 +45,12 @@ module Zr
         "racc" => port("1.8.1"),
         # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
         # if any, is ruby's own at the same version.
-        "date" => port("3.5.1", vendored: false),
-        "stringio" => port("3.2.0", vendored: false),
-        "strscan" => port("3.1.6", vendored: false),
-        "zlib" => port("3.2.3", vendored: false),
-        "io-console" => port("0.8.2", vendored: false),
-        "etc" => port("1.4.6", vendored: false),
+        "date" => port("3.6.0", vendored: false),
+        "stringio" => port("3.2.1.dev", vendored: false),
+        "strscan" => port("3.1.9.dev", vendored: false),
+        "zlib" => port("3.2.4", vendored: false),
+        "io-console" => port("0.9.4", vendored: false),
+        "etc" => port("1.5.0", vendored: false),
         "fcntl" => port("1.3.0", vendored: false)
       }.freeze #: Hash[String, Port]
 

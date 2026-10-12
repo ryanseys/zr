@@ -1,0 +1,308 @@
+# -*- frozen-string-literal: true -*-
+
+module Gem # :nodoc:
+  # TODO: the nodoc above is a workaround for RDoc's Prism parser handling stopdoc differently, we may want to use
+  # stopdoc/startdoc pair like before
+end
+
+module Gem::BUNDLED_GEMS # :nodoc:
+  SINCE = {
+    "racc" => "3.3.0",
+    "abbrev" => "3.4.0",
+    "base64" => "3.4.0",
+    "bigdecimal" => "3.4.0",
+    "csv" => "3.4.0",
+    "drb" => "3.4.0",
+    "getoptlong" => "3.4.0",
+    "mutex_m" => "3.4.0",
+    "nkf" => "3.4.0",
+    "observer" => "3.4.0",
+    "resolv-replace" => "3.4.0",
+    "rinda" => "3.4.0",
+    "syslog" => "3.4.0",
+    "ostruct" => "4.0.0",
+    "pstore" => "4.0.0",
+    "rdoc" => "4.0.0",
+    "win32ole" => "4.0.0",
+    "fiddle" => "4.0.0",
+    "logger" => "4.0.0",
+    "benchmark" => "4.0.0",
+    "irb" => "4.0.0",
+    "reline" => "4.0.0",
+    # "readline" => "4.0.0", # This is wrapper for reline. We don't warn for this.
+    "tsort" => "4.1.0",
+    "prism" => "4.1.0",
+  }.freeze
+
+  EXACT = {
+    "kconv" => "nkf",
+  }.freeze
+
+  WARNED = {}                   # unfrozen
+
+  conf = ::RbConfig::CONFIG
+  LIBDIR = (conf["rubylibdir"] + "/").freeze
+  ARCHDIR = (conf["rubyarchdir"] + "/").freeze
+  dlext = [conf["DLEXT"], "so"].uniq
+  DLEXT = /\.#{Regexp.union(dlext)}\z/
+  LIBEXT = /\.#{Regexp.union("rb", *dlext)}\z/
+
+  # Decorate Kernel#require so that requiring a gem that is no longer a default
+  # gem emits a warning. Called by Bundler during setup
+  # (lib/bundler/rubygems_integration.rb), guarded by respond_to?(:replace_require)
+  # because older Ruby versions ship without this file.
+  #
+  # The decorating method is defined via define_method, so its base_label is
+  # "replace_require" rather than "require"; this is why uplevel has to recognize
+  # both labels (build_message instead skips our own frames by file path).
+  def self.replace_require(specs)
+    return if [::Kernel.singleton_class, ::Kernel].any? {|klass| klass.respond_to?(:no_warning_require) }
+
+    spec_names = specs.to_a.each_with_object({}) {|spec, h| h[spec.name] = true }
+
+    [::Kernel.singleton_class, ::Kernel].each do |kernel_class|
+      kernel_class.send(:alias_method, :no_warning_require, :require)
+      kernel_class.send(:define_method, :require) do |name|
+        if message = ::Gem::BUNDLED_GEMS.warning?(name, specs: spec_names)
+          Kernel.warn message, uplevel: ::Gem::BUNDLED_GEMS.uplevel
+        end
+        kernel_class.send(:no_warning_require, name)
+      end
+      if kernel_class == ::Kernel
+        kernel_class.send(:private, :require)
+      else
+        kernel_class.send(:public, :require)
+      end
+    end
+  end
+
+  # base_labels that belong to the require machinery: "replace_require" is the
+  # define_method block installed by replace_require, "require" covers both
+  # Kernel#require and the wrappers that Bootsnap and Zeitwerk install on top.
+  REQUIRE_LABELS = ["replace_require", "require"].freeze
+
+  # Compute the uplevel: argument for Kernel#warn so the warning points at the
+  # user's require call site rather than at our machinery. We walk down the run
+  # of require frames (there can be several when Bootsnap/Zeitwerk are present)
+  # and stop at the first frame past them.
+  def self.uplevel
+    frame_count = 0
+    uplevel = 0
+    require_found = false
+    Thread.each_caller_location do |cl|
+      frame_count += 1
+
+      if require_found
+        unless REQUIRE_LABELS.include?(cl.base_label)
+          return uplevel
+        end
+      else
+        if REQUIRE_LABELS.include?(cl.base_label)
+          require_found = true
+        end
+      end
+      uplevel += 1
+      # Don't show script name when bundle exec and call ruby script directly.
+      if cl.path.end_with?("bundle")
+        return
+      end
+    end
+    require_found ? 1 : (frame_count - 1).nonzero?
+  end
+
+  # Resolve a require target to the bundled gem it belongs to.
+  #
+  # +name+ is a feature name or a file path (String or Pathname). Returns
+  # +[feature, gem_name, subfeature]+ where +feature+ is the normalized feature
+  # string (extension and bootsnap-expanded LIBDIR/ARCHDIR prefix removed),
+  # +gem_name+ is the matching SINCE key, and +subfeature+ is true when the
+  # require targets a nested path (e.g. "benchmark/ips") rather than the gem's
+  # top-level feature. Returns nil when the target is not a bundled gem.
+  #
+  # This is a deliberately cheap check: the SINCE membership test here excludes
+  # the vast majority of candidates before the costly checks in warning?
+  # (see [Bug #20641]).
+  def self.find_gem(name)
+    feature = File.path(name).sub(LIBEXT, "")
+
+    if feature.include?("/")
+      # bootsnap expands `require "csv"` to `require "#{LIBDIR}/csv.rb"`,
+      # and `require "syslog"` to `require "#{ARCHDIR}/syslog.so"`, so strip
+      # those prefixes back off before matching. [Bug #20450]
+      feature.delete_prefix!(ARCHDIR)
+      feature.delete_prefix!(LIBDIR)
+      # 1. A segment for the EXACT mapping and SINCE check
+      # 2. A segment for the SINCE check for dashed names
+      # 3. A segment to check if there's a subfeature
+      segments = feature.split("/", 3)
+      gem = segments.shift
+      gem = EXACT[gem] || gem
+      if !SINCE[gem]
+        gem = "#{gem}-#{segments.shift}"
+        return unless SINCE[gem]
+      end
+      [feature, gem, segments.any?]
+    else
+      gem = EXACT[feature] || feature
+      return unless SINCE[gem]
+      [feature, gem, false]
+    end
+  end
+
+  def self.warning?(name, specs: nil)
+    # name can be a feature name or a file path with String or Pathname
+    feature, name, subfeature = find_gem(name)
+    return unless feature
+
+    # Callers can suppress warnings for specific gems/features for the duration
+    # of a block via this thread-local. prelude.rb uses it so that `binding.irb`
+    # can load irb (which pulls in reline and rdoc) without warning. [Bug #21723]
+    if suppress_list = Thread.current[:__bundled_gems_warning_suppression]
+      return if suppress_list.include?(name) || suppress_list.include?(feature)
+    end
+
+    return if specs.include?(name)
+
+    # Don't warn if a hyphenated gem provides this feature
+    # (e.g., benchmark-ips provides benchmark/ips, benchmark/timing, etc.)
+    if subfeature
+      prefix = feature.split("/").first + "-"
+      return if specs.any? { |spec, _| spec.start_with?(prefix) }
+
+      # Don't warn if the feature is found outside the standard library
+      # (e.g., benchmark-ips's lib dir is on $LOAD_PATH but not in specs)
+      resolved = $LOAD_PATH.resolve_feature_path(feature) rescue nil
+      if resolved && !resolved[1].start_with?(LIBDIR, ARCHDIR)
+        return
+      end
+    end
+
+    return if WARNED[name]
+    WARNED[name] = true
+
+    level = RUBY_VERSION < SINCE[name] ? :warning : :error
+
+    if subfeature
+      "#{feature} is found in #{name}, which"
+    else
+      "#{feature} #{level == :warning ? "was loaded" : "used to be loaded"} from the standard library, but"
+    end + build_message(name, level)
+  end
+
+  def self.build_message(name, level)
+    msg = if level == :warning
+      " will no longer be part of the default gems starting from Ruby #{SINCE[name]}"
+    else
+      " is not part of the default gems since Ruby #{SINCE[name]}."
+    end
+
+    if defined?(Bundler)
+      motivation = level == :warning ? "silence this warning" : "fix this error"
+      msg += "\nYou can add #{name} to your Gemfile or gemspec to #{motivation}."
+
+      # We detect the gem name from caller_locations. The frame that issued the
+      # require we are warning about sits just above our own machinery: the
+      # `warning?` call and the `require` wrapper installed by replace_require.
+      # Skip those by matching this file's path rather than a fixed frame count,
+      # so the detection does not break when the call depth into build_message
+      # changes.
+      #
+      # Additionally, we need to skip Bootsnap and Zeitwerk if present, these
+      # gems decorate Kernel#require, so they are not really the ones issuing
+      # the require call users should be warned about. Those are upwards.
+      location = nil
+      Thread.each_caller_location do |cl|
+        next if cl.path == __FILE__
+        next if cl.base_label == "require"
+        location = cl.path
+        break
+      end
+
+      if location && File.file?(location) && !location.start_with?(Gem::BUNDLED_GEMS::LIBDIR)
+        caller_gem = nil
+        Gem.path.each do |path|
+          if location =~ %r{#{path}/gems/([\w\-\.]+)}
+            caller_gem = $1
+            break
+          end
+        end
+        if caller_gem
+          msg += "\nAlso please contact the author of #{caller_gem} to request adding #{name} into its gemspec."
+        end
+      end
+    else
+      msg += " Install #{name} from RubyGems."
+    end
+
+    msg
+  end
+
+  # Activate +gem+ even when it is not declared in the current Gemfile, by
+  # building and setting up a temporary Bundler definition.
+  #
+  # Unlike the rest of this file, this neither detects nor warns about bundled
+  # gems. It exists so that +binding.irb+ (see prelude.rb) and
+  # <tt>bundle console</tt> (lib/bundler/cli/console.rb) can load irb even when
+  # it is not declared. Only usable when Bundler is available.
+  def self.force_activate(gem)
+    require "bundler"
+    Bundler.reset!
+
+    # Build and activate a temporary definition containing the original gems + the requested gem
+    builder = Bundler::Dsl.new
+
+    lockfile = nil
+    if Bundler::SharedHelpers.in_bundle? && Bundler.definition.gemfiles.size > 0
+      Bundler.definition.gemfiles.each {|gemfile| builder.eval_gemfile(gemfile) }
+      lockfile = begin
+        Bundler.default_lockfile
+      rescue Bundler::GemfileNotFound
+        nil
+      end
+    else
+      # Fake BUNDLE_GEMFILE and BUNDLE_LOCKFILE to let checks pass
+      orig_gemfile = ENV["BUNDLE_GEMFILE"]
+      orig_lockfile = ENV["BUNDLE_LOCKFILE"]
+      Bundler::SharedHelpers.set_env "BUNDLE_GEMFILE", "Gemfile"
+      Bundler::SharedHelpers.set_env "BUNDLE_LOCKFILE", "Gemfile.lock"
+    end
+
+    builder.gem gem
+
+    definition = builder.to_definition(lockfile, nil)
+    definition.validate_runtime!
+
+    begin
+      orig_ui = Bundler.ui
+      orig_no_lock = Bundler::Definition.no_lock
+
+      ui = Bundler::UI::Shell.new
+      ui.level = "silent"
+      Bundler.ui = ui
+      Bundler::Definition.no_lock = true
+
+      Bundler::Runtime.new(nil, definition).setup
+    rescue Bundler::GemNotFound
+      warn "Failed to activate #{gem}, please install it with 'gem install #{gem}'"
+    ensure
+      ENV['BUNDLE_GEMFILE'] = orig_gemfile if orig_gemfile
+      ENV['BUNDLE_LOCKFILE'] = orig_lockfile if orig_lockfile
+      Bundler.ui = orig_ui
+      Bundler::Definition.no_lock = orig_no_lock
+    end
+  end
+end
+
+# for RubyGems without Bundler environment.
+# If loading library is not part of the default gems and the bundled gems, warn it.
+class LoadError
+  def message # :nodoc:
+    return super unless path
+
+    name = path.tr("/", "-")
+    if !defined?(Bundler) && Gem::BUNDLED_GEMS::SINCE[name] && !Gem::BUNDLED_GEMS::WARNED[name]
+      warn name + Gem::BUNDLED_GEMS.build_message(name, :error), uplevel: Gem::BUNDLED_GEMS.uplevel
+    end
+    super
+  end
+end

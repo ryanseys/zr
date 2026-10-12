@@ -4,14 +4,14 @@
 # sources at that version. Do not edit.
 #
 # The constants that describe the ruby that the program runs as.
-RUBY_VERSION = "4.0.7"
+RUBY_VERSION = "4.1.0"
 RUBY_ENGINE = "ruby"
-RUBY_ENGINE_VERSION = "4.0.7"
+RUBY_ENGINE_VERSION = "4.1.0"
 RUBY_PLATFORM = Primitive.zr_os_ruby_platform.freeze
-RUBY_PATCHLEVEL = 0
-RUBY_RELEASE_DATE = "2026-09-15"
-RUBY_REVISION = "229531a6cfbf07e3caef30dbac24a2a3f3fed482"
+RUBY_PATCHLEVEL = -1
+RUBY_RELEASE_DATE = "2026-10-11"
+RUBY_REVISION = "2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1"
 RUBY_COPYRIGHT = "ruby - Copyright (C) 1993-2026 Yukihiro Matsumoto"
-RUBY_DESCRIPTION = "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [#{RUBY_PLATFORM}]".freeze
+RUBY_DESCRIPTION = "ruby 4.1.0preview1 (2026-10-11 master 2d08b5f42f) +PRISM [#{RUBY_PLATFORM}]".freeze
 # RbConfig's `ruby_version`: the name of the library directories.
-Primitive.zr_hidden_set(Kernel, :__zr_ruby_lib_version__, "4.0.0")
+Primitive.zr_hidden_set(Kernel, :__zr_ruby_lib_version__, "4.1.0+5")

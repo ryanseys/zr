@@ -11,7 +11,7 @@ require_relative "line_cursor"
 # because both return the same objects. The paths are literal, so zr
 # sees them when it compiles zr (`Library::Ports.lib("prism")` names the first;
 # prism_test.rb checks that they agree).
-$LOAD_PATH.unshift(File.expand_path("../../vendor/ruby/lib/ruby/gems/4.0.0/gems/prism-1.9.0/lib", __dir__),
+$LOAD_PATH.unshift(File.expand_path("../../vendor/ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib", __dir__),
                    File.expand_path("prism_shim", __dir__))
 require "prism"
 

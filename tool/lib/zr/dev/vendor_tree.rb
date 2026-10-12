@@ -5,7 +5,9 @@ require "fileutils"
 require "json"
 require "net/http"
 require "rubygems/package"
+require "shellwords"
 require "stringio"
+require "yaml"
 require "zlib"
 require_relative "../../../../lib/zr/library/vendor"
 require_relative "../../../../lib/zr/library/ports"
@@ -92,7 +94,7 @@ module Zr
         library(ruby)
         add(Library::Layout::GEM_PRELUDE, ruby.read("gem_prelude.rb"))
         %w[COPYING BSDL LEGAL].each { |name| add(File.join(Library::Layout::LICENSES, "ruby", name), ruby.read(name)) }
-        @defaults = default_gems
+        @defaults = default_gems(ruby)
         rubygems_license
         @bundled = Library::Vendor::BUNDLED.to_h { |name| [name, stock_bundled(ruby).fetch(name) { @fail.call("#{name} is not in ruby's gems/bundled_gems") }] }
         @bundled.each { |name, version| gem("bundled", name, version) }
@@ -196,22 +198,33 @@ module Zr
       # has it, each gem's license files from its .gem, and its executables,
       # which are the only files that ruby's install keeps in the gem's own
       # directory (Gem.bin_path finds `bundle` there).
-      def default_gems
+      #
+      # A ruby that is not a release can carry a default gem at a version
+      # that rubygems.org does not have (stringio 3.2.1.dev). That gem comes
+      # from ruby's own tree, as ruby's installer takes it: its executables
+      # from ruby's libexec/ (tool/rbinstall.rb), under ruby's own license.
+      def default_gems(ruby)
         Dir[File.join(Gem.default_specifications_dir, "*.gemspec")].sort.filter_map do |spec_path|
           spec = Gem::Specification.load(spec_path) or @fail.call("#{spec_path} does not load")
           next if Library::Vendor::LEFT_OUT_GEMS.include?(spec.name)
 
           add(File.join(Library::Layout::SPECIFICATIONS, "default", File.basename(spec_path)), File.binread(spec_path))
-          package = @gems.fetch(spec.name, spec.version.to_s)
-          @entries << Entry.new("default", spec.name, spec.version.to_s, GemSource.url(spec.name, spec.version), @gems.sha(spec.name, spec.version))
-          licenses(package) { |rel, bytes| add(File.join(Library::Layout::LICENSES, spec.name, rel), bytes) }
-          contents = @gems.contents(package)
+          version = spec.version.to_s
+          contents = if @gems.published?(spec.name, version)
+                       package = @gems.fetch(spec.name, version)
+                       @entries << Entry.new("default", spec.name, version, GemSource.url(spec.name, version), @gems.sha(spec.name, version))
+                       licenses(package) { |rel, bytes| add(File.join(Library::Layout::LICENSES, spec.name, rel), bytes) }
+                       @gems.contents(package)
+                     else
+                       @entries << Entry.new("default", spec.name, version, "https://github.com/ruby/ruby@#{RUBY_REVISION}", nil)
+                       spec.executables.to_h { |exe| [File.join(spec.bindir, exe), ruby.read(File.join("libexec", exe))] }
+                     end
           spec.executables.each do |exe|
             rel = File.join(spec.bindir, exe)
             bytes = contents[rel] or @fail.call("#{spec.full_name}: its .gem has no #{rel}")
-            add(File.join(Library::Layout.gem_root(spec.name, spec.version.to_s), rel), bytes)
+            add(File.join(Library::Layout.gem_root(spec.name, version), rel), bytes)
           end
-          [spec.name, spec.version.to_s]
+          [spec.name, version]
         end.to_h
       end
 
@@ -276,18 +289,19 @@ module Zr
       end
 
       # The headers and rbconfig.rb of the ruby of each other target, from
-      # its image, which must hold this ruby's version.
+      # a build of the pinned ruby's release tarball for it.
       def target_rubies
-        Library::Vendor::TARGET_RUBIES.each do |triple, (image, platform)|
+        locked = self.class.lock.first.select { |e| e.kind == "target" }.to_h { |e| [e.name, e] }
+        Library::Vendor::TARGET_RUBIES.each do |triple, recipe|
           prefix = "usr/local/"
           rbconfig = "#{prefix}lib/ruby/#{Library::Layout::API}/#{triple}/rbconfig.rb"
-          files = ImageSource.new(image, platform, fail: @fail).files(["#{prefix}include/ruby-#{Library::Layout::API}/", rbconfig])
-          text = files.fetch(rbconfig) { @fail.call("#{image}: no #{rbconfig}") }
+          build = TargetBuild.new(triple, recipe, locked[triple], fail: @fail)
+          files = build.files(["#{prefix}include/ruby-#{Library::Layout::API}/", rbconfig])
+          text = files.fetch(rbconfig) { @fail.call("the #{triple} build has no #{rbconfig}") }
           version = %w[MAJOR MINOR TEENY].map { |part| text[/CONFIG\["#{part}"\] = "(\d+)"/, 1] }.join(".")
-          @fail.call("#{image}: ruby #{version}, not #{RUBY}") unless version == RUBY
+          @fail.call("the #{triple} build is ruby #{version}, not #{RUBY}") unless version == RUBY
 
-          digest = image.split("@", 2).last
-          @entries << Entry.new("target", triple, RUBY, image, digest.delete_prefix("sha256:"))
+          @entries << Entry.new("target", triple, RUBY, build.source, build.sha256)
           root = Library::Layout.target_root(triple)
           files.each { |path, bytes| add(File.join(root, path.delete_prefix(prefix)), bytes) }
         end
@@ -340,39 +354,51 @@ module Zr
         def batch = @batch ||= IO.popen(["git", "-C", @dir, "cat-file", "--batch"], "r+b")
       end
 
-      # A container image on a registry, pinned by the digest of its index:
-      # the files of its layers, read in Ruby, with each layer kept in
-      # tmp/vendor/cache by its SHA-256, which the download must have.
-      class ImageSource
-        INDEX = %w[application/vnd.oci.image.index.v1+json application/vnd.docker.distribution.manifest.list.v2+json].freeze
-        MANIFEST = %w[application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json].freeze
-        REGISTRY = "https://registry-1.docker.io/v2"
+      # A build of the pinned ruby for another target, in a container, as
+      # the official ruby image builds it: the release tarball that
+      # ruby-lang.org's releases.yml names, with the SHA-256 that it
+      # publishes. The build's headers and rbconfig.rb are kept in
+      # tmp/vendor/cache as a tar; a build that the lock names must have its
+      # locked SHA-256. Delete the tar to build again.
+      class TargetBuild
+        RELEASES = "https://raw.githubusercontent.com/ruby/www.ruby-lang.org/master/_data/releases.yml"
+        # The configure of the official ruby image (docker-library/ruby),
+        # less the JITs, which change no header.
+        CONFIGURE = ["--disable-install-doc", "--enable-shared", "LDFLAGS=-Wl,-z,relro -Wl,-z,now"].freeze
 
-        # `image` is `docker.io/<repository>@sha256:<hex>`; `platform` is
-        # `[os, architecture]`.
-        def initialize(image, platform, fail:)
-          @repository, @digest = image.delete_prefix("docker.io/").split("@", 2)
-          @platform = platform
+        attr_reader :sha256
+
+        # `locked` is the lock's entry of the target, which holds only when
+        # it names the same build.
+        def initialize(triple, recipe, locked, fail:)
+          @triple = triple
+          @recipe = recipe
+          @locked = locked
           @fail = fail
-          @fail.call("#{image}: no @sha256: digest") unless @digest&.start_with?("sha256:")
+          release = YAML.safe_load(GemSource.new({}, fail: fail).download(RELEASES), permitted_classes: [Date])
+                        .find { |row| row["version"].to_s == RUBY_PIN } or fail.call("ruby-lang.org's releases.yml has no ruby #{RUBY_PIN}")
+          @tarball = release.dig("url", "gz")
+          @tarball_sha = release.dig("sha256", "gz")
+          @fail.call("ruby-lang.org's releases.yml gives no .tar.gz of ruby #{RUBY_PIN}") unless @tarball && @tarball_sha
+          @locked = nil unless locked&.url == source
         end
 
-        # `{ path => bytes }` of the regular files below each of `dirs`
-        # (paths without the leading `/`), as the image's last layer that
-        # holds each one has it.
-        def files(dirs)
-          out = {}
-          layers.each do |layer|
-            Gem::Package::TarReader.new(StringIO.new(Zlib.gunzip(blob(layer)))).each do |entry|
-              path = entry.full_name.delete_prefix("./")
-              next unless dirs.any? { |dir| path.start_with?(dir) }
+        # What the lock names as the build's source.
+        def source = "#{@tarball} built in #{@recipe.fetch(:image)}"
 
-              name = File.basename(path)
-              if name.start_with?(".wh.")
-                out.delete(File.join(File.dirname(path), name.delete_prefix(".wh.")))
-              elsif entry.file?
-                out[path] = entry.read.to_s.b
-              end
+        # `{ path => bytes }` of the regular files of the build below each of
+        # `dirs`.
+        def files(dirs)
+          path = Dev.path("#{CACHE}/target-#{@triple}-#{key}.tar")
+          build(path) unless File.file?(path)
+          @sha256 = Digest::SHA256.file(path).hexdigest
+          if @locked && @sha256 != @locked.sha256
+            @fail.call("#{Dev.rel(path)}: SHA-256 #{@sha256}, not #{@locked.sha256} (vendor/vendor.lock)")
+          end
+          out = {}
+          File.open(path, "rb") do |io|
+            Gem::Package::TarReader.new(io).each do |entry|
+              out[entry.full_name] = entry.read.to_s.b if entry.file? && dirs.any? { |dir| entry.full_name.start_with?(dir) }
             end
           end
           out
@@ -380,54 +406,34 @@ module Zr
 
         private
 
-        # The layers of the image for the platform, from its index.
-        def layers
-          index = JSON.parse(get("manifests/#{@digest}", INDEX + MANIFEST))
-          manifest = index
-          if index["manifests"]
-            os, arch = @platform
-            found = index["manifests"].find { |m| m.dig("platform", "os") == os && m.dig("platform", "architecture") == arch }
-            @fail.call("#{@repository}@#{@digest}: no #{os}/#{arch} image") unless found
-            manifest = JSON.parse(get("manifests/#{found.fetch("digest")}", MANIFEST))
-          end
-          manifest.fetch("layers").map { |layer| layer.fetch("digest") }
-        end
+        # What the build is made from.
+        def key = Digest::SHA256.hexdigest([@tarball_sha, @recipe.inspect, CONFIGURE.inspect].join("\0"))[0, 16]
 
-        # The bytes of the layer `digest`, which must have that SHA-256.
-        def blob(digest)
-          path = Dev.path("#{CACHE}/#{digest.tr(":", "-")}.tar.gz")
-          unless File.file?(path)
-            FileUtils.mkdir_p(File.dirname(path))
-            Paths.write_atomic(path, get("blobs/#{digest}", []))
-          end
-          bytes = File.binread(path)
-          sha = "sha256:#{Digest::SHA256.hexdigest(bytes)}"
-          @fail.call("#{digest}: the download has #{sha}") unless sha == digest
-          bytes
-        end
+        def build(path)
+          source = Dev.path("#{CACHE}/#{File.basename(@tarball)}")
+          FileUtils.mkdir_p(File.dirname(source))
+          Paths.write_atomic(source, GemSource.new({}, fail: @fail).download(@tarball)) unless File.file?(source)
+          sha = Digest::SHA256.file(source).hexdigest
+          @fail.call("#{File.basename(@tarball)}: SHA-256 #{sha}, but ruby-lang.org publishes #{@tarball_sha}") unless sha == @tarball_sha
 
-        def get(rel, accept, url = "#{REGISTRY}/#{@repository}/#{rel}", limit = 5)
-          @fail.call("too many redirects for #{url}") if limit.zero?
-
-          uri = URI(url)
-          request = Net::HTTP::Get.new(uri)
-          # The token is only for the registry; a blob's redirect goes to a
-          # store that takes none.
-          request["Authorization"] = "Bearer #{token}" if url.start_with?(REGISTRY)
-          request["Accept"] = accept.join(", ") unless accept.empty?
-          response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(request) }
-          case response
-          when Net::HTTPSuccess then response.body.b
-          when Net::HTTPRedirection then get(rel, accept, response["location"], limit - 1)
-          else @fail.call("#{url}: #{response.code} #{response.message}")
-          end
-        end
-
-        def token
-          @token ||= begin
-            uri = URI("https://auth.docker.io/token?service=registry.docker.io&scope=repository:#{@repository}:pull")
-            JSON.parse(Net::HTTP.get(uri)).fetch("token")
-          end
+          name = File.basename(path)
+          rbconfig = "usr/local/lib/ruby/#{Library::Layout::API}/#{@triple}/rbconfig.rb"
+          script = <<~SH
+            set -eu
+            apk add --no-cache #{@recipe.fetch(:packages).join(" ")}
+            mkdir /build
+            tar -xzf /work/#{File.basename(source)} -C /build --strip-components=1
+            cd /build
+            ./configure --build=#{@triple} #{CONFIGURE.map { |arg| Shellwords.escape(arg) }.join(" ")}
+            make -j"$(nproc)"
+            make install DESTDIR=/dest
+            tar -C /dest -cf /work/#{name}.part usr/local/include #{rbconfig}
+            mv /work/#{name}.part /work/#{name}
+          SH
+          warn "building ruby #{RUBY_PIN} for #{@triple} in #{@recipe.fetch(:image)} (podman); this takes a while"
+          ok = system("podman", "run", "--rm", "--platform", @recipe.fetch(:platform).join("/"), "-v", "#{File.dirname(path)}:/work",
+                      @recipe.fetch(:image), "sh", "-c", script)
+          @fail.call("the build of ruby #{RUBY_PIN} for #{@triple} failed; podman must run (podman machine start)") unless ok && File.file?(path)
         end
       end
 
@@ -447,6 +453,13 @@ module Zr
 
         def sha(name, version) = @sums.fetch("#{name}-#{version}.gem")
 
+        # Whether rubygems.org has the .gem of `name` at `version`: the lock
+        # or the cache has it, or rubygems.org lists it.
+        def published?(name, version)
+          file = "#{name}-#{version}.gem"
+          @locked.key?(file) || File.file?(Dev.path("#{CACHE}/#{file}")) || !ruby_row(name, version).nil?
+        end
+
         def fetch(name, version)
           file = "#{name}-#{version}.gem"
           path = Dev.path("#{CACHE}/#{file}")
@@ -458,15 +471,20 @@ module Zr
           if (want = @locked[file])
             @fail.call("#{file}: SHA-256 #{sha}, not #{want} (vendor/vendor.lock)") unless sha == want
           else
-            # The v2 lookup of one version can answer for another platform
-            # (erb has a java build), so find the ruby one in the list.
-            row = JSON.parse(download("https://rubygems.org/api/v1/versions/#{name}.json"))
-                      .find { |v| v["number"] == version && v["platform"] == "ruby" }
-            published = row&.fetch("sha") or @fail.call("rubygems.org has no #{file}")
+            published = ruby_row(name, version)&.fetch("sha") or @fail.call("rubygems.org has no #{file}")
             @fail.call("#{file}: SHA-256 #{sha}, but rubygems.org publishes #{published}") unless sha == published
           end
           @sums[file] = sha
           @packages[path] ||= Gem::Package.new(path)
+        end
+
+        # rubygems.org's row of `name` at `version` for the ruby platform, or
+        # nil. The v2 lookup of one version can answer for another platform
+        # (erb has a java build), so this finds the ruby one in the list.
+        def ruby_row(name, version)
+          @versions ||= {}
+          @versions[name] ||= JSON.parse(download("https://rubygems.org/api/v1/versions/#{name}.json"))
+          @versions[name].find { |v| v["number"] == version && v["platform"] == "ruby" }
         end
 
         # `{ rel => bytes }` of the files a package contains.
