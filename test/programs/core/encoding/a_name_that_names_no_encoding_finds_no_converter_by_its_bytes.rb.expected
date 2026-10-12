@@ -1,0 +1,108 @@
+encode("\u00E9"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xE9)"
+encode("\u00E9", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xE9)"
+encode(UTF-8, "\u00E9"): Encoding::ConverterNotFoundError: "code converter not found (\xE9 to UTF-8)"
+encode("\u00E9", nope): Encoding::ConverterNotFoundError: "code converter not found (nope to \xE9)"
+Converter.new("\u00E9", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (\xE9 to UTF-8)"
+Converter.new(UTF-8, "\u00E9"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xE9)"
+Encoding.find("\u00E9"): ArgumentError: "invalid encoding name (non ASCII)"
+force_encoding("\u00E9"): ArgumentError: "invalid encoding name (non ASCII)"
+encode("\u00E9"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+encode("\u00E9", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+encode(UTF-8, "\u00E9"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+encode("\u00E9", nope): Encoding::ConverterNotFoundError: "code converter not found (nope)"
+Converter.new("\u00E9", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+Converter.new(UTF-8, "\u00E9"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+Encoding.find("\u00E9"): ArgumentError: "invalid encoding name (non ASCII)"
+force_encoding("\u00E9"): ArgumentError: "invalid encoding name (non ASCII)"
+encode("\xFF"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xFF)"
+encode("\xFF", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xFF)"
+encode(UTF-8, "\xFF"): Encoding::ConverterNotFoundError: "code converter not found (\xFF to UTF-8)"
+encode("\xFF", nope): Encoding::ConverterNotFoundError: "code converter not found (nope to \xFF)"
+Converter.new("\xFF", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (\xFF to UTF-8)"
+Converter.new(UTF-8, "\xFF"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xFF)"
+Encoding.find("\xFF"): ArgumentError: "unknown encoding name - \xFF"
+force_encoding("\xFF"): ArgumentError: "unknown encoding name - \xFF"
+encode("é"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xC3\xA9)"
+encode("é", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xC3\xA9)"
+encode(UTF-8, "é"): Encoding::ConverterNotFoundError: "code converter not found (\xC3\xA9 to UTF-8)"
+encode("é", nope): Encoding::ConverterNotFoundError: "code converter not found (nope to \xC3\xA9)"
+Converter.new("é", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (\xC3\xA9 to UTF-8)"
+Converter.new(UTF-8, "é"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to \xC3\xA9)"
+Encoding.find("é"): ArgumentError: "unknown encoding name - é"
+force_encoding("é"): ArgumentError: "unknown encoding name - é"
+encode("UTF-8\u0000"): ArgumentError: "string contains null byte"
+encode("UTF-8\u0000", UTF-8): ArgumentError: "string contains null byte"
+encode(UTF-8, "UTF-8\u0000"): ArgumentError: "string contains null byte"
+encode("UTF-8\u0000", nope): ArgumentError: "string contains null byte"
+Converter.new("UTF-8\u0000", UTF-8): ArgumentError: "string contains null byte"
+Converter.new(UTF-8, "UTF-8\u0000"): ArgumentError: "string contains null byte"
+Encoding.find("UTF-8\u0000"): ArgumentError: "invalid encoding name (NUL byte)"
+force_encoding("UTF-8\u0000"): ArgumentError: "invalid encoding name (NUL byte)"
+encode("a\u0000"): ArgumentError: "string contains null char"
+encode("a\u0000", UTF-8): ArgumentError: "string contains null char"
+encode(UTF-8, "a\u0000"): ArgumentError: "string contains null char"
+encode("a\u0000", nope): ArgumentError: "string contains null char"
+Converter.new("a\u0000", UTF-8): ArgumentError: "string contains null char"
+Converter.new(UTF-8, "a\u0000"): ArgumentError: "string contains null char"
+Encoding.find("a\u0000"): ArgumentError: "invalid encoding name (non ASCII)"
+force_encoding("a\u0000"): ArgumentError: "invalid encoding name (non ASCII)"
+encode(""): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+encode("", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+encode(UTF-8, ""): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+encode("", nope): Encoding::ConverterNotFoundError: "code converter not found (nope)"
+Converter.new("", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+Converter.new(UTF-8, ""): Encoding::ConverterNotFoundError: "code converter not found (UTF-8)"
+Encoding.find(""): ArgumentError: "unknown encoding name - "
+force_encoding(""): ArgumentError: "unknown encoding name - "
+encode("nope"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to nope)"
+encode("nope", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to nope)"
+encode(UTF-8, "nope"): Encoding::ConverterNotFoundError: "code converter not found (nope to UTF-8)"
+encode("nope", nope): ["aaa", #<Encoding:BINARY (ASCII-8BIT)>]
+Converter.new("nope", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (nope to UTF-8)"
+Converter.new(UTF-8, "nope"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to nope)"
+Encoding.find("nope"): ArgumentError: "unknown encoding name - nope"
+force_encoding("nope"): ArgumentError: "unknown encoding name - nope"
+encode("x\u0000y"): ArgumentError: "string contains null byte"
+encode("x\u0000y", UTF-8): ArgumentError: "string contains null byte"
+encode(UTF-8, "x\u0000y"): ArgumentError: "string contains null byte"
+encode("x\u0000y", nope): ArgumentError: "string contains null byte"
+Converter.new("x\u0000y", UTF-8): ArgumentError: "string contains null byte"
+Converter.new(UTF-8, "x\u0000y"): ArgumentError: "string contains null byte"
+Encoding.find("x\u0000y"): ArgumentError: "invalid encoding name (NUL byte)"
+force_encoding("x\u0000y"): ArgumentError: "invalid encoding name (NUL byte)"
+encode(#<Encoding:UTF-8>): ["aaa", #<Encoding:UTF-8>]
+encode(#<Encoding:UTF-8>, UTF-8): ["aaa", #<Encoding:UTF-8>]
+encode(UTF-8, #<Encoding:UTF-8>): ["aaa", #<Encoding:UTF-8>]
+encode(#<Encoding:UTF-8>, nope): Encoding::ConverterNotFoundError: "code converter not found (nope to UTF-8)"
+Converter.new(#<Encoding:UTF-8>, UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to UTF-8)"
+Converter.new(UTF-8, #<Encoding:UTF-8>): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to UTF-8)"
+Encoding.find(#<Encoding:UTF-8>): #<Encoding:UTF-8>
+force_encoding(#<Encoding:UTF-8>): #<Encoding:UTF-8>
+encode("utf-8"): ["aaa", #<Encoding:UTF-8>]
+encode("utf-8", UTF-8): ["aaa", #<Encoding:UTF-8>]
+encode(UTF-8, "utf-8"): ["aaa", #<Encoding:UTF-8>]
+encode("utf-8", nope): Encoding::ConverterNotFoundError: "code converter not found (nope to UTF-8)"
+Converter.new("utf-8", UTF-8): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to UTF-8)"
+Converter.new(UTF-8, "utf-8"): Encoding::ConverterNotFoundError: "code converter not found (UTF-8 to UTF-8)"
+Encoding.find("utf-8"): #<Encoding:UTF-8>
+force_encoding("utf-8"): #<Encoding:UTF-8>
+encode(x, X): ["\xC3\xA9", #<Encoding:BINARY (ASCII-8BIT)>]
+encode('', ''): ["a", #<Encoding:BINARY (ASCII-8BIT)>]
+encode(x, x) invalid: ["a", #<Encoding:BINARY (ASCII-8BIT)>]
+encode(wide, wide): ["a", #<Encoding:BINARY (ASCII-8BIT)>]
+encode(UTF-8, utf-8): ["a", #<Encoding:UTF-8>]
+rescue as ConverterNotFoundError: [:converter, #<Encoding:BINARY (ASCII-8BIT)>]
+String.new(encoding: nil): TypeError: "no implicit conversion of nil into String"
+String.new(encoding: 'UTF-16LE'): ["\u6261", #<Encoding:UTF-16LE>]
+String.new(encoding: false): TypeError: "no implicit conversion of false into String"
+String.new(): ["", #<Encoding:BINARY (ASCII-8BIT)>]
+65.chr(nil): TypeError: "no implicit conversion of nil into String"
+65.chr(false): TypeError: "no implicit conversion of false into String"
+65.chr: ["A", #<Encoding:US-ASCII>]
+233.chr: ["\xE9", #<Encoding:BINARY (ASCII-8BIT)>]
+233.chr('UTF-8'): ["é", #<Encoding:UTF-8>]
+prepend binary: Encoding::CompatibilityError: "incompatible character encodings: UTF-8 and BINARY (ASCII-8BIT)"
+prepend two: Encoding::CompatibilityError: "incompatible character encodings: UTF-8 and BINARY (ASCII-8BIT)"
+prepend onto binary: Encoding::CompatibilityError: "incompatible character encodings: BINARY (ASCII-8BIT) and UTF-8"
+prepend ascii: ["abé", #<Encoding:UTF-8>]
+prepend none: ["é", #<Encoding:UTF-8>]

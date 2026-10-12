@@ -680,7 +680,7 @@ class Encoding
       return value.name if value.is_a?(Encoding)
 
       text = Converter.send(:string_of, value)
-      Encoding.send(:lookup, text) { return text }.name
+      Encoding.send(:lookup, text) { return Encoding.send(:c_name, text) }.name
     end
 
     def self.string_of(value)

@@ -306,7 +306,12 @@ class String
 
   def clear = Primitive.zr_str_discard(self)
 
-  def prepend(*others) = Primitive.zr_str_replace(self, others.map { |other| Primitive.zr_str_operand(other) }.join + self)
+  # rb_str_update: this String's encoding is the first in an error.
+  def prepend(*others)
+    joined = others.map { |other| Primitive.zr_str_operand(other) }.join
+    Encoding.compatible?(self, joined) || Encoding.incompatible(self, joined)
+    Primitive.zr_str_replace(self, joined + self)
+  end
 
   def insert(index, other)
     index = Primitive.zr_index_operand_m(index)
@@ -2143,11 +2148,11 @@ class String
   # With no source the String keeps its bytes, unless a capacity is
   # given, which discards the bytes. In both cases it keeps its
   # encoding. A new String is binary because `allocate` made it so.
-  def initialize(source = (none = true), encoding: nil, capacity: nil)
+  def initialize(source = (none = true), encoding: (same = true; nil), capacity: nil)
     # A frozen String takes no argument, as CRuby's rb_str_init checks;
     # with none there is nothing to change.
     if frozen?
-      return self if none && encoding.nil? && capacity.nil?
+      return self if none && same && capacity.nil?
 
       Primitive.zr_frozen_error(self)
     end
@@ -2162,7 +2167,7 @@ class String
     else
       Primitive.zr_str_initialize_m(self, Primitive.zr_str_operand(source))
     end
-    OWN[:force_encoding].bind_call(self, encoding) if encoding
+    OWN[:force_encoding].bind_call(self, encoding) unless same
     self
   end
 
@@ -4897,6 +4902,8 @@ class Encoding
     raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
     # rb_to_encoding_index: a name must be in an ASCII-compatible encoding.
     return yield(+"invalid encoding name (non ASCII)") unless text.encoding.ascii_compatible?
+    # rb_enc_find_index: a NUL ends the C string, so a name has none.
+    return yield(+"invalid encoding name (NUL byte)") if text.include?("\0")
 
     if text.ascii_only?
       key = text.upcase(:ascii)
@@ -4933,17 +4940,44 @@ class Encoding
     end
   end
 
-  # Both ends of a conversion. A name that matches no encoding is not an
-  # ArgumentError here: ruby looks for a converter by the two names and
-  # finds none.
+  # Both ends of a conversion, the target first, as str_transcode_enc_args
+  # reads them. A name that matches no encoding is not an ArgumentError
+  # here: ruby looks for a converter by the two names and finds none. Two
+  # such names that are the same but for case are no conversion
+  # (encoding_equal), and give BINARY at both ends.
   def self.pair(source, target)
     Primitive.attr! :hidden
-    ends = [source, target].map { |name| lookup(name) { nil } }
-    return ends if ends.all?
+    to = lookup(target) { nil }
+    dname = to ? to.name : c_name(target)
+    from = lookup(source) { nil }
+    sname = from ? from.name : c_name(source)
+    return [from, to] if from && to
+    return [BINARY, BINARY] if !from && !to && sname.casecmp?(dname)
 
-    names = [source, target].zip(ends).map { |name, found| found ? found.name : name.to_s }
-    raise ConverterNotFoundError, "code converter not found (#{names.join(' to ')})"
+    shown = if sname.empty? then dname
+            elsif dname.empty? then sname
+            else "#{sname.b} to #{dname.b}"
+            end
+    raise ConverterNotFoundError, "code converter not found (#{shown.b})"
   end
+
+  # An encoding name that names none, as econv reads it (StringValueCStr):
+  # its bytes up to the first NUL, as BINARY. A NUL inside it is an error;
+  # in a wide encoding, a NUL character is.
+  def self.c_name(name)
+    Primitive.attr! :hidden
+    text = String.try_convert(name)
+    raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
+
+    bytes = text.b
+    if wide?(text.encoding)
+      raise ArgumentError, +"string contains null char" if text.each_char.any? { |c| c.bytes.all?(0) }
+    elsif bytes.include?("\0")
+      raise ArgumentError, +"string contains null byte"
+    end
+    bytes.byteslice(0, bytes.index("\0") || bytes.bytesize)
+  end
+  private_class_method :c_name
 
   # The external and internal encodings a program set, nil for the ones
   # it did not: the locale's encoding and none.

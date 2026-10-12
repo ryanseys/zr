@@ -195,8 +195,9 @@ class Integer
   private :bit_at
 
   # Without an encoding: US-ASCII below 128, else one binary byte.
-  def chr(encoding = nil)
-    if encoding
+  # A nil encoding is a name to look up, as any other given value is.
+  def chr(encoding = (none = true; nil))
+    unless none
       # rb_num_to_uint first: a code point is an unsigned int.
       raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 0xFFFF_FFFF
 
