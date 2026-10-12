@@ -59,6 +59,46 @@ module Zr
           FileUtils.rm_rf(dir) if dir && !@keep
         end
 
+        HOST = File.expand_path("host.rb", __dir__)
+
+        # The stack sizes of a hosted run (`Commands::Host::STACK`): the
+        # walker nests a Ruby frame in another for each call.
+        HOST_STACK = %w[RUBY_THREAD_VM_STACK_SIZE RUBY_THREAD_MACHINE_STACK_SIZE RUBY_FIBER_VM_STACK_SIZE
+                        RUBY_FIBER_MACHINE_STACK_SIZE].to_h { |name| [name, (256 << 20).to_s] }.freeze
+
+        # What `source` gives when it runs hosted on the zr at `pin`: CRuby
+        # over zr's kernel, with no build. Slower than a binary, so it gets
+        # a minute.
+        def hosted(source, pin)
+          dir = fresh_dir
+          run = File.join(dir, "run")
+          FileUtils.mkdir_p(run)
+          File.binwrite(File.join(run, NAME), source)
+          answer, = Harness::Child.run([Dev.ruby, "--yjit", HOST, pin, NAME], cwd: run, seconds: 60, megabytes: 4096,
+                                                                              env: HOST_STACK.merge(@builder&.env || {}))
+          normalize(answer, run)
+        ensure
+          FileUtils.rm_rf(dir) if dir && !@keep
+        end
+
+        # Where the fault of a failure is: "compiler" when zr refused or
+        # failed to build it, or when the hosted run gives ruby's answer;
+        # "kernel" when the hosted run gives the binary's answer (the core
+        # library or the kernel, which both share); "mixed" when all three
+        # differ; "host-error" when the hosted run itself fails.
+        def layer(source, result, pin)
+          return "compiler" if result.build && !result.build.ok?
+          return nil unless result.zr
+
+          host = hosted(source, pin)
+          return "host-error" unless host.code.is_a?(Integer) || host.signal
+          return "kernel" if Classify.parts(host) == Classify.parts(result.zr)
+          return "compiler" if Classify.parts(host) == Classify.parts(result.ruby)
+          return "host-error" if Classify.text(host.stderr).match?(/zr: internal error|\(Zr::/)
+
+          "mixed"
+        end
+
         private
 
         def check_in(dir, source, confirm)

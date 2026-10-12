@@ -98,6 +98,7 @@ module Zr
             @seeds = nil
             @reduce = true
             @packs = nil
+            @layer = true
           end
 
           def options(o)
@@ -107,6 +108,7 @@ module Zr
             o.on("--seed S", Integer, "the seed of the run (default: random)") { |v| @seed = v }
             o.on("--mode LIST", Array, "where programs come from: #{MODES.join(", ")}") { |v| @modes = v }
             o.on("--no-reduce", "keep each failing program as it is") { @reduce = false }
+            o.on("--no-layer", "do not run each case hosted to tell the kernel from the compiler") { @layer = false }
             o.on("--packs LIST", Array, "only these packs in generated programs") { |v| @packs = v }
             o.on("--seeds LIST", Array, "seed files or directories (default test/programs, log/fuzz/corpus)") do |v|
               @seeds = v.map { |d| File.expand_path(d) }
@@ -125,7 +127,8 @@ module Zr
             deadline = @count && !@time ? nil : Timing.now + (@time || 30 * 60)
             puts "zr-dev fuzz: run #{store.run}, seed #{seed}, #{jobs} job(s), modes #{modes.join(", ")}; log #{Dev.rel(store.log_path)}"
             with_oracle(store) do |oracle|
-              triage = Dev::Fuzz::Triage.new(store: store, reducer: @reduce ? reducer_for(oracle) : nil,
+              layer = @layer ? ->(source, result) { oracle.layer(source, result, Suite::PIN) } : nil
+              triage = Dev::Fuzz::Triage.new(store: store, reducer: @reduce ? reducer_for(oracle) : nil, layer: layer,
                                              meta: run_meta.merge(seed: seed))
               engine = Dev::Fuzz::Engine.new(oracle: oracle, store: store, triage: triage, sources: sources, jobs: jobs,
                                              seed: seed, deadline: deadline, count: @count)
@@ -374,7 +377,20 @@ module Zr
             end
             by_kind = shown.values.group_by { |r| r["kind"] }.transform_values(&:size)
             puts "#{shown.size} bucket(s): #{by_kind.sort_by { |_, n| -n }.map { |k, n| "#{k} #{n}" }.join(", ")}"
+            coverage
             true
+          end
+
+          # The compiler lines that the runs with --coverage ran, by
+          # directory of lib/zr: a directory with few lines is one the
+          # programs do not reach yet.
+          def coverage
+            lines = Dev::Fuzz::Store.new.coverage
+            return if lines.empty?
+
+            dirs = lines.map { |line| line.split(":").first.split("/").first(3).join("/").delete_suffix(".rb") }.tally
+            puts "coverage: #{lines.size} compiler line(s); by directory:"
+            dirs.sort_by { |_, n| -n }.first(15).each { |dir, n| puts format("  %6d  lib/%s", n, dir) }
           end
         end
       end

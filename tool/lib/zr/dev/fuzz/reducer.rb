@@ -121,11 +121,13 @@ module Zr
           nil
         end
 
+        # The comments go first: one check, which a spent budget would
+        # never reach at the end.
         def tree_passes(source)
-          source = list_pass(source)
-          source = node_pass(source)
           bare = Reducer.uncommented(source)
-          bare != source && interesting?(bare) ? bare : source
+          source = bare if bare != source && interesting?(bare)
+          source = list_pass(source)
+          node_pass(source)
         end
 
         # ddmin over each list of the tree. After each removal the source
