@@ -397,10 +397,12 @@ class Integer
 
   def nobits?(mask) = self & bit_mask(mask) == 0
 
-  # A mask is any Integer, or what to_int makes of the argument.
+  # A mask is any Integer, or what to_int makes of the argument
+  # (rb_to_int): a Float's to_int, so NaN is a FloatDomainError and a
+  # large Float a Bignum.
   def bit_mask(mask)
     Primitive.attr! :hidden
-    mask.is_a?(Integer) ? mask : Primitive.zr_index_operand_m(mask)
+    mask.is_a?(Integer) ? mask : to_integer(mask)
   end
   private :bit_mask
 

@@ -1,0 +1,34 @@
+12.allbits?(NaN): FloatDomainError: NaN
+12.allbits?(Infinity): FloatDomainError: Infinity
+12.allbits?(-Infinity): FloatDomainError: -Infinity
+12.allbits?(2.5): false
+12.allbits?(1.1805916207174113e+21): false
+12.allbits?(6): false
+12.allbits?(1180591620717411303424): false
+12.allbits?(#<Mask:>): false
+12.allbits?(nil): TypeError: no implicit conversion of nil into Integer
+12.allbits?("6"): TypeError: no implicit conversion of String into Integer
+12.allbits?((1/1)): false
+12.anybits?(NaN): FloatDomainError: NaN
+12.anybits?(Infinity): FloatDomainError: Infinity
+12.anybits?(-Infinity): FloatDomainError: -Infinity
+12.anybits?(2.5): false
+12.anybits?(1.1805916207174113e+21): false
+12.anybits?(6): true
+12.anybits?(1180591620717411303424): false
+12.anybits?(#<Mask:>): true
+12.anybits?(nil): TypeError: no implicit conversion of nil into Integer
+12.anybits?("6"): TypeError: no implicit conversion of String into Integer
+12.anybits?((1/1)): false
+12.nobits?(NaN): FloatDomainError: NaN
+12.nobits?(Infinity): FloatDomainError: Infinity
+12.nobits?(-Infinity): FloatDomainError: -Infinity
+12.nobits?(2.5): true
+12.nobits?(1.1805916207174113e+21): true
+12.nobits?(6): false
+12.nobits?(1180591620717411303424): true
+12.nobits?(#<Mask:>): false
+12.nobits?(nil): TypeError: no implicit conversion of nil into Integer
+12.nobits?("6"): TypeError: no implicit conversion of String into Integer
+12.nobits?((1/1)): true
+big.allbits?(big Float): true
