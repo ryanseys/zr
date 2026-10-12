@@ -10,7 +10,7 @@ tells how to make them again.
 ## Run time
 
 Each program in `benchmark/` is built with zr, then run beside
-`ruby` and `ruby --yjit` (ruby 4.0.7). The harness checks each
+`ruby` and `ruby --yjit` (the ruby that zr pins). The harness checks each
 program's output against ruby's recording before it keeps a
 time. A ratio under 1 means zr's binary is faster.
 

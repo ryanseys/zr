@@ -5,7 +5,7 @@ This page lists the gems that `zr-dev gems` tried, and how far
 each one gets with zr. For each gem, the tool builds a small
 program (the probe) that requires the gem and prints each
 constant that the require defines. It runs the probe under ruby
-4.0.7 and as a zr binary, and compares the two outputs.
+and as a zr binary, and compares the two outputs.
 [Check a gem](../how-to/check-a-gem.md) tells how to run it.
 
 | Tier | Meaning |

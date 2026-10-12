@@ -9,7 +9,7 @@ module Zr
         # docs/reference/support.md: what zr refuses, read from the compiler
         # itself. The syntax forms are the ones the HIR build and the
         # lowering refuse by name (`unsupported`); the libraries are the
-        # names that `require` answers in ruby 4.0.7 and that zr has no file
+        # names that `require` answers in the pinned ruby and that zr has no file
         # for (Build.missing_features); the baselines are the tests that each
         # target may fail. A refusal message links to this page.
         class Support < Generator
@@ -27,7 +27,7 @@ module Zr
               # What zr supports
 
               zr compiles a Ruby program only when the binary gives exactly
-              what ruby 4.0.7 gives ([the contract](../explanation/the-contract.md)).
+              what ruby gives ([the contract](../explanation/the-contract.md)).
               Where it cannot promise that, it refuses the program with exit
               status 3 and names the form and its line. This page lists what
               zr refuses, as the compiler itself lists it. Other differences
@@ -48,7 +48,7 @@ module Zr
               A `require` of one of these names compiles, and raises
               `LoadError` with the reason when it runs, so a guarded
               require that never runs costs nothing. Every other library of
-              ruby 4.0.7 is there: the default and bundled gems, and ruby's
+              the ruby that zr pins is there: the default and bundled gems, and ruby's
               own `lib/`. A gem that ruby does not ship comes from `--gem` or a
               Gemfile.lock. A gem with a C extension needs a port, or
               `--native-ext` on macOS or aarch64 Linux (see

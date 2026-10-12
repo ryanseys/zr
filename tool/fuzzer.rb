@@ -7,7 +7,7 @@ module Zr
   module Dev
     module Commands
       # `zr-dev fuzz`: a differential fuzzer. It writes Ruby programs (or
-      # takes them from a corpus), runs each one under ruby 4.0.7 and as a
+      # takes them from a corpus), runs each one under the pinned ruby and as a
       # zr binary, and keeps each difference as a small case in
       # log/fuzz/cases/, one bucket for each gap.
       #

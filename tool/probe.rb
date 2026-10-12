@@ -10,7 +10,7 @@ require_relative "../lib/zr/diff"
 module Zr
   module Dev
     module Commands
-      # Runs Ruby files under ruby 4.0.7 and as zr binaries, and shows where
+      # Runs Ruby files under the pinned ruby and as zr binaries, and shows where
       # the two differ.
       #
       #   zr-dev probe probes/                 every .rb file in a directory

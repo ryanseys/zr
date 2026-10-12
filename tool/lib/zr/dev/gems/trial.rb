@@ -11,7 +11,7 @@ module Zr
       # Tries one gem. It finds the gem and its dependencies, refuses what
       # zr cannot compile, and builds a probe: a program that requires the
       # gem and prints each constant that the require defines. It runs the
-      # probe under ruby 4.0.7 (the reference, with each gem's roots on
+      # probe under the pinned ruby (the reference, with each gem's roots on
       # -I) and as a zr binary, and compares the two. An override with a
       # smoke program (gems/<name>.rb) runs the same way.
       #

@@ -20,7 +20,7 @@ module Zr
       # them (`Harness::Answer.beside`). The program tests have their own
       # files and tool (`zr-dev expect`).
       #
-      # Ruby 4.0.7 is the only reference for correct output, so only this
+      # The pinned ruby is the only reference for correct output, so only this
       # tool writes these files. It does not replace an existing recording:
       # a new output needs a changed program. Use `--again` to replace it.
       # A benchmark runs from the repository root, as `zr-dev bench` runs it.

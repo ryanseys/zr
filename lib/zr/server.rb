@@ -85,7 +85,7 @@ module Zr
     #
     # One loop in the main thread waits for a request, for the end of a
     # build (its child holds the write end of a pipe), and for a client
-    # that goes away. (In ruby 4.0.7, a `waitpid` in another thread never
+    # that goes away. (In ruby 4.0, a `waitpid` in another thread never
     # returned the child while the main thread waited in `IO.select`.)
     #: () -> void
     def serve

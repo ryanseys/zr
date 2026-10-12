@@ -9,7 +9,7 @@ require_relative "lib/zr/dev/suite"
 module Zr
   module Dev
     module Commands
-      # Runs ruby/spec, the specs of ruby 4.0.7's own checkout, under ruby
+      # Runs ruby/spec, the specs of the pinned ruby's own checkout, under ruby
       # and in zr binaries, and compares each example.
       #
       #   zr-dev rubyspec language                    one area

@@ -3,7 +3,7 @@
 # The host ruby runs this file in a child of zr (Zr::GemSet.resolve),
 # with `--disable-gems` and zr's standard library first on the load path.
 # So the rubygems and bundler here are the ones that zr ships (vendor/ruby,
-# ruby 4.0.7's), as JRuby and TruffleRuby run their own: never the
+# the pinned ruby's), as JRuby and TruffleRuby run their own: never the
 # host's, which `gem update --system` can change, and never a bundle that
 # zr runs under. zr itself never loads them: the compiled compiler has
 # neither. The request comes as JSON on stdin:

@@ -54,7 +54,7 @@ module Zr
         end
 
         # The functions of the ruby that runs this tool, which the gems are
-        # compiled for (ruby 4.0.7): a name that this process exports.
+        # compiled for (the pinned ruby): a name that this process exports.
         class HostRuby
           def initialize
             @exports = {}

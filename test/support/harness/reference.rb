@@ -5,9 +5,9 @@ require_relative "../../../lib/zr/library/ports"
 
 module Zr
   module Harness
-    # The ruby that every expected output comes from: ruby 4.0.7 with the
-    # gems that a stock install has, except that a gem whose C zr ports
-    # comes at zr's version (json 3.0.2, not 2.18.0). Those are the same
+    # The ruby that every expected output comes from: the pinned ruby with
+    # the gems that a stock install has, except that a gem whose C zr
+    # ports comes at zr's version (lib/zr/library/ports.rb). Those are the same
     # libraries that a zr build compiles in (vendor/ruby and lib/zr/library/ports.rb).
     #
     # The gems live in their own GEM_HOME, tmp/reference/gems, which

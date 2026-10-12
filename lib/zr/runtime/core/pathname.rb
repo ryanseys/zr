@@ -4,7 +4,7 @@
 # without a require, and `require "pathname"` adds the Find and rmtree
 # part that ruby keeps on the load path.
 #
-# This is ruby 4.0.7's pathname_builtin.rb, with `<=>` and `sub`, which
+# This is ruby's pathname_builtin.rb at RUBY_REVISION, with `<=>` and `sub`, which
 # its pathname.c writes in C, in Ruby here. A Pathname is only a string:
 # it never touches the file system for an operation on the name itself,
 # and every operation on the file goes to File, Dir or FileTest.

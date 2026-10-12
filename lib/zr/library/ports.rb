@@ -9,14 +9,14 @@ module Zr
     # port of the C half (lib/zr/runtime/ext) come together, at one version.
     #
     # A port with `vendored: true` is vendored as a gem at zr's version
-    # (vendor/ruby/lib/ruby/gems/4.0.0/gems/<name>-<version>, which
+    # (vendor/ruby/lib/ruby/gems/<Layout::API>/gems/<name>-<version>, which
     # `zr-dev vendor` writes). It comes before ruby's own library on the
     # load path, as rubygems activates an installed gem over a default gem.
     # One with `vendored: false` has its Ruby half in ruby's own library at the
     # same version (psych, openssl), or has no Ruby half (zlib).
     #
-    # Some versions are newer than the ones ruby 4.0.7 ships (json 3.0.2,
-    # not 2.18.0): docs/reference/differences-from-ruby.md lists them.
+    # Some versions are newer than the ones that the pinned ruby ships:
+    # docs/reference/differences-from-ruby.md lists them.
     module Ports
       # One port: the gem's version, the versions whose C interface the port
       # implements (rubygems requirements, joined with ", ", read only when
@@ -43,7 +43,7 @@ module Zr
         "nkf" => port("0.3.0"),
         "fiddle" => port("1.1.8"),
         "racc" => port("1.8.1"),
-        # The C of ruby 4.0.7's default gem, in lib/zr/runtime/ext. Its Ruby half,
+        # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
         # if any, is ruby's own at the same version.
         "date" => port("3.5.1", vendored: false),
         "stringio" => port("3.2.0", vendored: false),

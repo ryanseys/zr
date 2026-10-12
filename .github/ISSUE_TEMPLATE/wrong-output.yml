@@ -1,5 +1,5 @@
 name: A wrong answer or a crash
-description: A compiled program prints something that ruby 4.0.7 does not, or stops.
+description: A compiled program prints something that ruby (the version in .ruby-version) does not, or stops.
 labels: [bug]
 body:
   - type: textarea
@@ -12,7 +12,8 @@ body:
   - type: textarea
     id: ruby
     attributes:
-      label: What ruby 4.0.7 prints
+      label: What ruby prints
+      description: The output of the program under the ruby version that zr pins (.ruby-version), with `ruby -v`.
       render: text
     validations:
       required: true

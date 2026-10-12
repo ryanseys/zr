@@ -2031,7 +2031,7 @@ module Zr::Kern
   # Whether `mid` on `klass` is one of CRuby's basic operators, which the
   # interpreter and the JITs run inline while the core's entry is in place.
   # As CRuby boots, every C method named as a basic operator joins the
-  # table (add_opt_method_entry at 4.0.7), not only the ones that
+  # table (vm.c's add_opt_method_entry), not only the ones that
   # vm_init_redefined_flag lists, and a redefinition warns in the classes
   # that vm_redefinition_check_flag names.
   #: (value, word) -> bool
@@ -2240,7 +2240,7 @@ module Zr::Kern
   end
 
   # The warning for a method of the core that a program redefines, as
-  # ruby 4.0.7 gives it: Warning.redefinition reads the generated table
+  # ruby gives it: Warning.redefinition reads the generated table
   # (lib/zr/runtime/core/redefinitions.rb), which knows the methods that ruby
   # does not warn for and the <internal:*> line of each def.
   #: (value, word) -> bool

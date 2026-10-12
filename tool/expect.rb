@@ -6,7 +6,7 @@ require_relative "lib/zr/dev"
 module Zr
   module Dev
     module Commands
-      # Writes the expected output of program tests from ruby 4.0.7, the only
+      # Writes the expected output of program tests from the pinned ruby, the only
       # reference for correct output (test/support/program_case.rb).
       #
       #   zr-dev expect                               every test whose program is newer
@@ -20,7 +20,7 @@ module Zr
       # is not the same as `foo.rb.expected`. When ruby does not finish, the
       # old files stay.
       class Expect < Command
-        summary "Write the expected output of program tests from ruby 4.0.7"
+        summary "Write the expected output of program tests from the pinned ruby"
         usage "[--all] [--check] [path...]"
         host_ruby!
 

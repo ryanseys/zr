@@ -6,7 +6,7 @@
 # The matcher, its encoders, tables and stack (lib/zr/runtime/kernel/onig_*.rb)
 # and the parser, tree setup, optimizer and compiler of the core
 # (lib/zr/runtime/core/regexp/onig/*) are Onigmo, the regular expression engine
-# of CRuby 4.0.7, written again in Ruby:
+# of CRuby, written again in Ruby:
 #
 #   Copyright (c) 2002-2013 K.Kosako <sndgk393 AT ybb DOT ne DOT jp>
 #   Copyright (c) 2011-2016 K.Takata <kentkt AT csc DOT jp>

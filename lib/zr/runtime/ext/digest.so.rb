@@ -3,7 +3,7 @@
 # digest.c, in ruby: Digest.hexencode, the Digest::Instance protocol,
 # Digest::Class, and Digest::Base, which runs the algorithm that a
 # subclass gives in its metadata. The extension's ruby part (digest.rb,
-# vendored in vendor/ruby/lib/ruby/4.0.0) uses it as it uses the C.
+# vendored in vendor/ruby) uses it as it uses the C.
 module Digest
   # An algorithm, as rb_digest_metadata_t describes one: which compression
   # the kernel runs, the chaining words it starts from, the lengths, and

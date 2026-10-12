@@ -206,7 +206,7 @@ class RubyVM
         debug_frozen_string_literal: false, coverage_enabled: true, debug_level: 0, frozen_string_literal: nil
       }.freeze
 
-      # What `compile_option = true` and `= false` give at 4.0.7.
+      # What `compile_option = true` and `= false` give in the pinned ruby.
       COMPILE_OPTION_TRUE = COMPILE_OPTION.merge(
         peephole_optimization: false, specialized_instruction: false, operands_unification: false,
         coverage_enabled: false, debug_level: 1, frozen_string_literal: false

@@ -24,7 +24,7 @@ module Zr
       # The features that ruby loads before a program starts, so a require
       # of one returns false. The runtime's gem prelude loads
       # error_highlight, did_you_mean and syntax_suggest's core extension,
-      # as ruby's does. Ruby 4.0.7 also loads rubygems, which this runtime
+      # as ruby's does. Ruby also loads rubygems, which this runtime
       # does not preload: a require of it stops with a message, and does
       # not return false and then fail at the first use. Only pathname's C
       # part is loaded, so `require "pathname"` still runs its Ruby part

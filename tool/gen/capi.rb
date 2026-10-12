@@ -27,7 +27,7 @@ module Zr
 
               A C extension that zr runs (`--native-ext`, see
               [How to use a C extension](../how-to/use-a-c-extension.md))
-              calls ruby 4.0's C API. zr's kernel gives #{total} of its
+              calls ruby's C API, of the series that zr pins. zr's kernel gives #{total} of its
               functions and data words, each one a def or a word of kernel
               Ruby named after its C symbol, under `#{DIR}/`. This page lists
               them, one section for each file.

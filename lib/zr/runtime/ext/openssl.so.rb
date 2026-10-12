@@ -5,7 +5,7 @@
 # (lib/zr/runtime/ext/openssl/ossl/library.rb). Nothing cryptographic is done here:
 # each method converts its arguments, calls the library as the C
 # extension does, and raises what the C extension raises. The gem's
-# Ruby part (vendor/ruby/lib/ruby/4.0.0/openssl) uses these classes as it uses
+# Ruby part (openssl/, vendored in vendor/ruby) uses these classes as it uses
 # the C.
 #
 # The files under openssl/ossl each represent the C file of the same

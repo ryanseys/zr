@@ -2,7 +2,7 @@
 # What zr supports
 
 zr compiles a Ruby program only when the binary gives exactly
-what ruby 4.0.7 gives ([the contract](../explanation/the-contract.md)).
+what ruby gives ([the contract](../explanation/the-contract.md)).
 Where it cannot promise that, it refuses the program with exit
 status 3 and names the form and its line. This page lists what
 zr refuses, as the compiler itself lists it. Other differences
@@ -28,7 +28,7 @@ example `interpolated xstring (InterpolatedXString)`.
 A `require` of one of these names compiles, and raises
 `LoadError` with the reason when it runs, so a guarded
 require that never runs costs nothing. Every other library of
-ruby 4.0.7 is there: the default and bundled gems, and ruby's
+the ruby that zr pins is there: the default and bundled gems, and ruby's
 own `lib/`. A gem that ruby does not ship comes from `--gem` or a
 Gemfile.lock. A gem with a C extension needs a port, or
 `--native-ext` on macOS or aarch64 Linux (see
@@ -77,15 +77,11 @@ baseline that passes fails the run, so these lists are current.
 | `cli/stdlib/bundler/bundler_resolves_a_gemfile.rb` | the build holds more than 2048 MB |
 | `cli/stdlib/bundler/require_bundler.rb` | the build holds more than 3072 MB |
 | `cli/stdlib/socket/socket_loopback.rb` | cannot load such file -- socket/constants |
-| `core/array/float_round_digits_cruby.rb` | pow has no wasm form |
-| `core/array/float_round_ndigits_return_type.rb` | pow has no wasm form |
-| `core/array/float_round_truncate_ndigits.rb` | pow has no wasm form |
-| `core/array/ivar_array_filled_from_outside.rb` | pow has no wasm form |
-| `lang/methods/dispatch/a_user_to_f_beside_the_builtin_one_widens_the_call_s_return.rb` | strtod has no wasm form |
-| `core/hash/regressions/any_none_one_and_count_take_a_pair_argument_and_a_hash_serve.rb` | fmod has no wasm form |
-| `lang/methods/class_method_site_stays_correct_when_the_class_changes.rb` | hypot has no wasm form |
+| `core/math/a_float_or_an_integer_argument_is_answered_by_the_kernel_at.rb` | tan(1) is 1.5574077246549023 with musl, 1.557407724654902 with macOS |
 | `core/hash/thread_value_hash_tail.rb` | can't allocate fiber stack: Function not implemented |
 | `core/hash/enumeration/a_blockless_each_or_each_pair_is_an_enumerator_over_the_pair.rb` | can't allocate fiber stack: Function not implemented |
 | `core/hash/formatting/eql_compares_by_value_and_replace_widens_the_receiver_to_hol.rb` | can't allocate fiber stack: Function not implemented |
+| `core/array/arrays_and_enumerables_check_as_cruby_does.rb` | can't allocate fiber stack: Function not implemented |
 | `core/hash/dir_chdir_block_form_restores_the_previous_directory.rb` | chdir has no wasm form |
-| `lang/methods/eval_return_belongs_to_the_enclosing_method.rb` | return from an eval is not walked yet |
+| `core/array/iterators_raise_when_a_continuation_reenters_them.rb` | callcc where the stack is out of reach is not implemented yet |
+| `core/array/a_sort_that_a_continuation_reenters_raises_sort_reentered.rb` | callcc where the stack is out of reach is not implemented yet |

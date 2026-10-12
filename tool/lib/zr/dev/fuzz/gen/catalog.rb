@@ -7,7 +7,7 @@ module Zr
         # The methods that the `explore` pack calls (as Fuzzilli's
         # ExplorationMutator does): any public method that a core class or
         # one of its core modules defines, read from the running ruby (the
-        # pinned ruby 4.0.7), with arguments from a small pool. Most calls
+        # pinned ruby), with arguments from a small pool. Most calls
         # raise; the class and the message of the error are compared too.
         module Catalog
           CLASSES = { int: Integer, float: Float, str: String, sym: Symbol, ints: Array, strs: Array, hash: Hash,

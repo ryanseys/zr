@@ -160,7 +160,7 @@ module Zr::Kern
   # when it is old. So from then on the barrier applies to the cell, and a
   # store through the image records nothing.
   #
-  # This is what `vm_env_write_slowpath` (vm_insnhelper.c:514 at 4.0.7)
+  # This is what `vm_env_write_slowpath` (vm_insnhelper.c)
   # does: it remembers `VM_ENV_ENVVAL(ep)`, which is the cell, never the
   # frame. A heap Env has QNIL in `cell` and is its own cell.
   #: (value, value) -> void

@@ -8,7 +8,7 @@ require_relative "lib/zr/dev/suite"
 module Zr
   module Dev
     module Commands
-      # Runs CRuby's own tests (test-all, `test/` of ruby 4.0.7's checkout)
+      # Runs CRuby's own tests (test-all, `test/` of the pinned ruby's checkout)
       # under ruby and in zr binaries, and compares each test.
       #
       #   zr-dev cruby-test ruby                      test/ruby

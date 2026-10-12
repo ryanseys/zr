@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Written by `zr-dev gen tables` from ruby 4.0.7 on aarch64-linux-musl; do not edit.
+# Written by `zr-dev gen tables` on linux; do not edit.
 # Every Errno name and the errno it stands for, one row per class; a
 # name in ALIASES is another name for a class in CODES. Signal::LIST is
 # Signal.list in ruby's order.

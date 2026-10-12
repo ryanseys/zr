@@ -11,8 +11,8 @@ require_relative "stdlib"
 module Zr
   module Library
     # The directories that a program's `require` reads, and the names that
-    # the loader treats as part of the runtime. The directories: ruby 4.0.7's
-    # own library and bundled gems as a stock ruby installs them, in
+    # the loader treats as part of the runtime. The directories: the pinned
+    # ruby's own library and bundled gems as a stock ruby installs them, in
     # vendor/ruby (`zr-dev vendor` writes it, lib/zr/library/vendor.rb). zr
     # compiles their files into the program, and never loads them itself. A
     # build reads no gem of the host, so it needs no gem but zr, and two

@@ -81,7 +81,7 @@ module Zr
             write("core", "errno.rb", <<~RUBY)
               # frozen_string_literal: true
 
-              # Written by `zr-dev gen tables` from ruby #{RUBY_VERSION} on #{RUBY_PLATFORM}; do not edit.
+              # Written by `zr-dev gen tables` on #{os}; do not edit.
               # Every Errno name and the errno it stands for, one row per class; a
               # name in ALIASES is another name for a class in CODES. Signal::LIST is
               # Signal.list in ruby's order.

@@ -9,7 +9,7 @@ module Zr::Kern
     argv
   end
 
-  # RUBY_PLATFORM, as ruby 4.0.7 built for this OS and machine gives it.
+  # RUBY_PLATFORM, as ruby built for this OS and machine gives it.
   #: () -> value
   def zr_os_ruby_platform
     zr_str_new(Machine.bytes("arm64-darwin23"), 14)

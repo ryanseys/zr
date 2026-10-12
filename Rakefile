@@ -46,8 +46,8 @@ task("build:all") { build!("Zr::Test::Built.targets(wasm: true)") }
 # some test files.
 TIERS = {
   "test:unit" => ["test/unit", "zr's own internals"],
-  "test:programs" => ["test/programs_test.rb", "Ruby programs that zr builds, each checked against ruby 4.0.7"],
-  "test:ext" => ["test/ext", "C extensions that zr links, each checked against ruby 4.0.7"]
+  "test:programs" => ["test/programs_test.rb", "Ruby programs that zr builds, each checked against the pinned ruby"],
+  "test:ext" => ["test/ext", "C extensions that zr links, each checked against the pinned ruby"]
 }.freeze
 
 TIERS.each do |name, (path, what)|

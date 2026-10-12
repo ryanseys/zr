@@ -17,7 +17,7 @@ module Zr
                   -> { require_relative "probe"; Commands::Probe }],
       "fuzz" => ["Write Ruby programs, run them in ruby and in zr, and keep each difference",
                  -> { require_relative "fuzzer"; Commands::Fuzz }],
-      "expect" => ["Write the expected output of program tests from ruby 4.0.7", -> { require_relative "expect"; Commands::Expect }],
+      "expect" => ["Write the expected output of program tests from the pinned ruby", -> { require_relative "expect"; Commands::Expect }],
       "record" => ["Ask ruby what a benchmark answers, and write it beside the benchmark",
                    -> { require_relative "record"; Commands::Record }],
       "affected" => ["Run the tests that a change can reach", -> { require_relative "affected"; Commands::Affected }],

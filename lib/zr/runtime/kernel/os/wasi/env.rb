@@ -4,7 +4,7 @@
 # user or time zone.
 
 module Zr::Kern
-  # RUBY_PLATFORM, as ruby 4.0.7 built for WASI gives it.
+  # RUBY_PLATFORM, as ruby built for WASI gives it.
   #: () -> value
   def zr_os_ruby_platform
     zr_str_new(Machine.bytes("wasm32-wasi"), 11)

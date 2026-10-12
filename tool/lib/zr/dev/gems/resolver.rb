@@ -94,7 +94,7 @@ module Zr
         rescue Gem::DependencyError => e
           raise Failure.new("resolve", e.message.lines.first.chomp)
         rescue NoMethodError => e
-          # RubyGems 4.0.7 fails as it makes the DependencyResolutionError
+          # RubyGems 4.0 fails as it makes the DependencyResolutionError
           # of some conflicts (ddtrace's `datadog-ci ~> 0.8.1`):
           # Conflict#conflicting_dependencies calls `request` on nil. The
           # conflict itself is the cause.
