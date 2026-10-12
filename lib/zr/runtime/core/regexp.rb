@@ -866,10 +866,14 @@ class MatchData
     [byte_begin(index), byte_end(index)]
   end
 
-  def match(index) = self[index]
+  # match_nth: a group past the last one is an IndexError, not nil.
+  def match(index)
+    b = byte_begin(index)
+    b && Primitive.zr_str_byteslice(text, b, byte_end(index) - b)
+  end
 
   def match_length(index)
-    value = self[index]
+    value = match(index)
     value && value.size
   end
 
