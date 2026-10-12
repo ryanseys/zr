@@ -846,16 +846,21 @@ class String
   # `sub`: replaces the first match with  `replacement` (with its `\1`,
   # `\k<name>`, `\0` and `\&` filled in), with the Hash's entry for the
   # match, or with the block's return value (with `$~` set).
-  def sub(*args, &block) = subbed(*sub_operands(args, block), false, args.size == 1, &block)
+  #
+  # Two optional parameters and `given`, the count of arguments, not a
+  # rest Array, so a call allocates nothing. A third argument gets the
+  # message of the two parameters.
+  def sub(pattern = (given = 0; nil), replacement = (given ||= 1; nil), &block)
+    sub_arity(given ||= 2, block)
+    subbed(pattern, replacement, false, given == 1, &block)
+  end
 
   # rb_str_sub_bang's rb_check_arity: two arguments, or one with a block.
-  def sub_operands(args, block)
+  def sub_arity(given, block)
     Primitive.attr! :hidden
-    unless args.size == 2 || (block && args.size == 1)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{block ? "1..2" : "2"})"
-    end
+    return if given == 2 || (block && given == 1)
 
-    [args[0], args[1]]
+    raise ArgumentError, "wrong number of arguments (given #{given}, expected #{block ? "1..2" : "2"})"
   end
 
   # rb_str_sub_bang: a replacement that is not a Hash converts to a
@@ -939,10 +944,10 @@ class String
 
   # A match makes the receiver the result and returns it, even when the
   # text comes out the same; `$~` tells whether there was one.
-  def sub!(*args, &block)
-    pattern, replacement = sub_operands(args, block)
+  def sub!(pattern = (given = 0; nil), replacement = (given ||= 1; nil), &block)
+    sub_arity(given ||= 2, block)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    result = subbed(pattern, replacement, true, args.size == 1, &block)
+    result = subbed(pattern, replacement, true, given == 1, &block)
     $~ ? replaced(result) : nil
   end
 

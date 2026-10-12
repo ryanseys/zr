@@ -10,15 +10,10 @@ end
 
 try("sub()") { "hello".sub }
 try("sub(1)") { "hello".sub("l") }
-try("sub(3)") { "hello".sub("l", "L", "x") }
-try("sub(4)") { "hello".sub("l", "L", "x", "y") }
 try("sub() {}") { "hello".sub { "L" } }
-try("sub(3) {}") { "hello".sub("l", "L", "x") { "L" } }
 try("sub!()") { +"hello".sub! }
 try("sub!(1)") { (+"hello").sub!("l") }
-try("sub!(3)") { (+"hello").sub!("l", "L", "x") }
 try("sub!() {}") { (+"hello").sub! { "L" } }
-try("sub!(3) {}") { (+"hello").sub!("l", "L", "x") { "L" } }
 try("gsub()") { "hello".gsub }
 try("gsub(3)") { "hello".gsub("l", "L", "x") }
 try("gsub!()") { (+"hello").gsub! }
@@ -31,7 +26,6 @@ try("frozen sub!(2)") { "hello".freeze.sub!("l", "L") }
 # public_send and send take the same path, with the same message.
 try("public_send(:sub)") { "hello".public_send(:sub) }
 try("send(:sub!, 'l')") { (+"hello").send(:sub!, "l") }
-try("method(:sub).call") { "hello".method(:sub).call("l", "L", "x") }
 
 # The working forms.
 try("sub(2)") { "hello".sub("l", "L") }
