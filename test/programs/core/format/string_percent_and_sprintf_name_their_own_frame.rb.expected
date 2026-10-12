@@ -1,0 +1,35 @@
+format bad spec: ArgumentError: malformed format string - %z (Kernel#format, line 12)
+sprintf bad spec: ArgumentError: malformed format string - %z (Kernel#sprintf, line 13)
+% bad spec: ArgumentError: malformed format string - %z (String#%, line 14)
+% bad spec, array: ArgumentError: malformed format string - %z (String#%, line 15)
+% too few: ArgumentError: too few arguments (String#%, line 16)
+format too few: ArgumentError: too few arguments (Kernel#format, line 17)
+sprintf too few: ArgumentError: too few arguments (Kernel#sprintf, line 18)
+% bad Integer: ArgumentError: invalid value for Integer(): "x" (String#%, line 19)
+format bad Integer: ArgumentError: invalid value for Integer(): "x" (Kernel#format, line 20)
+% bad Float: ArgumentError: invalid value for Float(): "x" (String#%, line 21)
+sprintf no conversion: TypeError: can't convert Object into Integer (Kernel#sprintf, line 22)
+% missing key: KeyError: key<a> not found (String#%, line 23)
+format missing key: KeyError: key{a} not found (Kernel#format, line 24)
+format no arguments: ArgumentError: too few arguments (Kernel#format, line 25)
+sprintf no arguments: ArgumentError: too few arguments (Kernel#sprintf, line 26)
+Kernel.format: ArgumentError: malformed format string - %z (Kernel.format, line 27)
+Kernel.sprintf: ArgumentError: malformed format string - %z (Kernel.sprintf, line 28)
+send(:format): ArgumentError: malformed format string - %z (Kernel#format, line 29)
+method(:sprintf).call: ArgumentError: malformed format string - %z (Kernel#sprintf, line 30)
+format: "003.1|ab  |ff"
+sprintf: "+5 10"
+%: "a and :b"
+% hash: "007"
+% one: "1.23e+04"
+:format
+:sprintf
+:format
+:sprintf
+true
+true
+false
+false
+String
+1
+["String#%", "Object#render"]

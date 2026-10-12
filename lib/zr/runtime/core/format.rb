@@ -3,18 +3,26 @@
 # `Kernel#format` over Integer, Float, String, Symbol and the `%c` and
 # `%p` directives.
 module Kernel
-  def format(*args)
+  # format and sprintf are two methods, as in ruby, so a backtrace names
+  # the one that the program called.
+  def format(*args) = Kernel.formatted(args)
+
+  def sprintf(*args) = Kernel.formatted(args)
+
+  # The spec and its arguments, rendered. Its frame is hidden: a
+  # backtrace shows the caller (format, sprintf or String#%) alone.
+  def self.formatted(args)
+    Primitive.attr! :hidden
     raise ArgumentError, +"too few arguments" if args.empty?
 
     Formatter.new(Primitive.zr_str_operand(args.first), args.drop(1)).render
   end
-  alias sprintf format
 
   private :format, :sprintf
 
   # One `format` call: walks the spec's bytes, taking arguments in
   # order, by position (`%1$d`) or by name (`%<n>d`, `%{n}`). Its
-  # methods are hidden helpers: a backtrace shows Kernel#format alone.
+  # methods are hidden helpers: a backtrace shows the caller alone.
   class Formatter
     # The bits of sprintf.c's `flags`: the five flag characters, then
     # whether a width, a precision, and a `.` were given.
@@ -647,6 +655,6 @@ class String
   # arguments; anything else is the one argument.
   def %(args)
     list = Array.try_convert(args)
-    format(self, *(list || [args]))
+    Kernel.formatted([self, *(list || [args])])
   end
 end
