@@ -132,6 +132,16 @@ class Enumerator
 
   # `to_enum(:method, *args, **kwargs)`, with a size or a proc that
   # returns it.
+  # enumerator_init reads the method name as rb_check_id does: a Symbol,
+  # a String, or what to_str gives.
+  def self.method_name(method)
+    Primitive.attr! :hidden
+    return if method.is_a?(Symbol) || method.is_a?(String) || String.try_convert(method)
+
+    raise TypeError, "#{method.inspect} is not a symbol nor a string"
+  end
+  private_class_method :method_name
+
   def self.for(receiver, method, args, kwargs, size)
     Primitive.attr! :hidden
     e = allocate
@@ -380,6 +390,7 @@ end
 
 module Kernel
   def to_enum(method = :each, *args, **kwargs, &size)
+    Enumerator.send(:method_name, method)
     Enumerator.for(self, method, args, kwargs, size)
   end
 
@@ -704,6 +715,7 @@ class Enumerator::Lazy < Enumerator
   end
 
   def to_enum(method = :each, *args, **kwargs, &size)
+    Enumerator.send(:method_name, method)
     Enumerator::Lazy.allocate.send(:chain, self, method, :run_send, args:, kwargs:) { size&.call }
   end
 

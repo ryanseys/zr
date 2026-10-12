@@ -1,0 +1,23 @@
+to_enum(0): TypeError: 0 is not a symbol nor a string
+enum_for(0): TypeError: 0 is not a symbol nor a string
+lazy to_enum(0): TypeError: 0 is not a symbol nor a string
+to_enum(nil): TypeError: nil is not a symbol nor a string
+enum_for(nil): TypeError: nil is not a symbol nor a string
+lazy to_enum(nil): TypeError: nil is not a symbol nor a string
+to_enum(1.5): TypeError: 1.5 is not a symbol nor a string
+enum_for(1.5): TypeError: 1.5 is not a symbol nor a string
+lazy to_enum(1.5): TypeError: 1.5 is not a symbol nor a string
+to_enum([:each]): TypeError: [:each] is not a symbol nor a string
+enum_for([:each]): TypeError: [:each] is not a symbol nor a string
+lazy to_enum([:each]): TypeError: [:each] is not a symbol nor a string
+to_enum({a: 1}): TypeError: {a: 1} is not a symbol nor a string
+enum_for({a: 1}): TypeError: {a: 1} is not a symbol nor a string
+lazy to_enum({a: 1}): TypeError: {a: 1} is not a symbol nor a string
+to_enum(true): TypeError: true is not a symbol nor a string
+enum_for(true): TypeError: true is not a symbol nor a string
+lazy to_enum(true): TypeError: true is not a symbol nor a string
+a String: [[1, 0], [2, 1]]
+a Symbol: [[1], [2]]
+to_str: [1]
+an unknown name: nil
+lazy String: [1]
