@@ -1,0 +1,12 @@
+[TypeError, "no implicit conversion of Integer into Hash", ["Hash#merge"]]
+[TypeError, "no implicit conversion of nil into Hash", ["Hash#merge"]]
+[TypeError, "no implicit conversion of Integer into Hash", ["Hash#merge!"]]
+[TypeError, "no implicit conversion of Symbol into Hash", ["Hash#update"]]
+[FrozenError, "can't modify frozen Hash: {a: 1}", ["Hash#update"]]
+{a: 1, b: 2, c: 3}
+{a: 6}
+{a: 6}
+{a: 1}
+{a: 1}
+{a: 1, z: 1}
+[RuntimeError, "in the block", []]

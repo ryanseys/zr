@@ -184,13 +184,22 @@ class Hash
   # no `initialize_copy`, updated as merge! updates.
   def merge(*others, &block)
     out = Primitive.zr_hash_dup_m(self)
-    others.each { |other| out.update_from(other, &block) }
+    i = 0
+    while i < others.size
+      out.update_from(others[i], &block)
+      i += 1
+    end
     out
   end
 
+  # rb_hash_update walks its arguments in C: no frame of Array#each.
   def merge!(*others, &block)
     Primitive.zr_frozen_error(self) if frozen?
-    others.each { |other| update_from(other, &block) }
+    i = 0
+    while i < others.size
+      update_from(others[i], &block)
+      i += 1
+    end
     self
   end
   alias update merge!
