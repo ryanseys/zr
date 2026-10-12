@@ -9,9 +9,11 @@ module Zr
     # that runs in the background. The file gives the examples done and
     # the total, the failures, the rate, the time left and the last
     # example. The reporter writes the file at most once a second, and
-    # one more time at the end.
+    # one more time at the end. Each failure's full report also goes to
+    # FAILURES as it happens, so you can read a diff before the run ends.
     module Progress
       PATH = File.expand_path("../../tmp/test-progress.txt", __dir__)
+      FAILURES = File.expand_path("../../tmp/test-failures.txt", __dir__)
       EVERY = 1.0
 
       def self.minitest_plugin_init(options)
@@ -33,13 +35,17 @@ module Zr
           @began = now
           @started_at = Time.now.strftime("%H:%M:%S")
           @total = counted
+          File.write(FAILURES, "")
           write
         end
 
         def record(result)
           @done += 1
           @skipped += 1 if result.skipped?
-          @failed << "#{result.klass}##{result.name}" if !result.passed? && !result.skipped?
+          if !result.passed? && !result.skipped?
+            @failed << "#{result.klass}##{result.name}"
+            log_failure(result)
+          end
           @last = format("%s#%s (%.1f s)", result.klass, result.name, result.time)
           write if now - @written >= EVERY
         end
@@ -74,6 +80,16 @@ module Zr
         end
 
         def clock(seconds) = format("%d:%02d", seconds / 60, seconds % 60)
+
+        def log_failure(result)
+          File.open(FAILURES, "a") do |file|
+            file << "== #{result.klass}##{result.name}\n"
+            result.failures.each { |failure| file << failure.message << "\n" }
+            file << "\n"
+          end
+        rescue SystemCallError
+          nil
+        end
 
         def tier = "bin/minitest"
       end
