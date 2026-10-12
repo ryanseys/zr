@@ -17,12 +17,12 @@ private constant Conf::SECRET referenced
 :SECRET
 constant Conf::NOPE not defined
 1
-[#<Class:0xADDR>, C, B]
+[B, C, #<Class:0xADDR>]
 [D]
 []
 []
 A
-[nil, "C", "B"]
+["B", "C", nil]
 1
 [:@b]
 2

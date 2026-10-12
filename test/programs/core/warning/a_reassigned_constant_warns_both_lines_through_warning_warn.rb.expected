@@ -1,4 +1,4 @@
 caught: warning: already initialized constant C::X定数
-caught: warning: previous definition of X定数 was here
+core/warning/a_reassigned_constant_warns_both_lines_through_warning_warn.rb:9: warning: previous definition of X定数 was here
 caught: warning: already initialized constant Y
-caught: warning: previous definition of Y was here
+core/warning/a_reassigned_constant_warns_both_lines_through_warning_warn.rb:11: warning: previous definition of Y was here

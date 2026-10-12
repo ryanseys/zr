@@ -1,18 +1,18 @@
 8
-2
-8
-"\x00\x00\x00\x00\x00"
+1
 5
-"eyabc"
+"\x00\x00\x00\x00\x00"
+7
+"\x00\x00\x00ya"
 true
 0
 #<ArgumentError: Specified offset+length is bigger than the buffer size!>
-#<ArgumentError: Specified offset+length is bigger than the buffer size!>
-#<ArgumentError: Length can't be negative!>
+#<ArgumentError: The given offset is bigger than the buffer size!>
+#<ArgumentError: Offset can't be negative!>
 IO::Buffer::AccessError
 #<TypeError: no implicit conversion of Integer into IO>
-4
-"3456"
+0
+"\x00\x00\x00\x00"
 0
 2
 0

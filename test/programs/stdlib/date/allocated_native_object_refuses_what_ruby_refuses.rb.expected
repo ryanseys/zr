@@ -24,7 +24,7 @@ Queue#size	!TypeError: #<Thread::Queue:0xADDR> not initialized
 Queue#closed?	false
 Queue#initialize	1
 SizedQueue#push	!TypeError: #<Thread::SizedQueue:0xADDR> not initialized
-SizedQueue#max	0
+SizedQueue#max	!TypeError: #<Thread::SizedQueue:0xADDR> not initialized
 Zlib::Deflate#deflate	!Zlib::Error: stream is not ready
 Zlib::Deflate#closed?	true
 Fiber#resume	!FiberError: uninitialized fiber

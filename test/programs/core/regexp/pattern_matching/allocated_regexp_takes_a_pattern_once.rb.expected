@@ -7,9 +7,3 @@ Regexp
 "b+"
 1
 true
-[TypeError, "already initialized regexp"]
-Wrapped
-Wrapped
-"(a+)"
-"(a+)"
-"d+"

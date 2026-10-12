@@ -20,19 +20,19 @@ Pathname#read: [[:rest, :*], [:keyrest, :**], [:block, :&]] / -1
 Pathname#relative_path_from: [[:req, :base_directory]] / 1
 Pathname#rename: [[:req, :to]] / 1
 Pathname#rmtree: [[:key, :noop], [:key, :verbose], [:key, :secure]] / -1
-Pathname#sub_ext: [[:req, :repl]] / 1
+Pathname#sub_ext: [[:req]] / 1
 Pathname#truncate: [[:req, :length]] / 1
 Pathname#utime: [[:req, :atime], [:req, :mtime]] / 2
 Pathname#write: [[:rest, :*], [:keyrest, :**], [:block, :&]] / -1
 Pathname.glob: [[:rest, :args], [:keyrest, :kwargs]] / -1
 Pathname.mktmpdir: [] / 0
 Pathname.pwd: [] / 0
-Pathname#chop_basename (private): [[:req, :path]] / 1
+Pathname#chop_basename (private): [[:req]] / 1
 Pathname#plus (private): [[:req, :path1], [:req, :path2]] / 2
 Pathname#prepend_prefix (private): [[:req, :prefix], [:req, :relpath]] / 2
-Pathname#same_paths? (private): [[:req, :a], [:req, :b]] / 2
-Pathname#split_names (private): [[:req, :path]] / 1
-Pathname private set: [:add_trailing_separator, :chop_basename, :cleanpath_aggressive, :cleanpath_conservative, :del_trailing_separator, :has_trailing_separator?, :initialize, :plus, :prepend_prefix, :same_paths?, :split_names]
+Pathname#same_paths? (private): [[:req], [:req]] / 2
+Pathname#split_names (private): [[:req]] / 1
+Pathname private set: [:add_trailing_separator, :chop_basename, :cleanpath_aggressive, :cleanpath_conservative, :del_trailing_separator, :has_separator?, :has_trailing_separator?, :initialize, :plus, :prepend_prefix, :same_paths?, :split_names]
 Pathname protected set: [:path]
 Kernel#Float: [[:req, :arg], [:key, :exception]] / -2
 Kernel#Integer: [[:req, :arg], [:opt, :base], [:key, :exception]] / -2

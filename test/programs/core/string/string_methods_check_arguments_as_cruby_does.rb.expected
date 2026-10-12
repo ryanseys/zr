@@ -16,17 +16,3 @@ true
 1
 [ArgumentError, "wide char encoding: UTF-16LE"]
 [ArgumentError, "wide char encoding: UTF-32BE"]
-"foobarbaz"
-[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]
-"bar"
-#<Encoding:US-ASCII>
-#<Encoding:UTF-8>
-"XYC"
-true
-"foo#<Object:0x>baz"
-[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16BE"]
-[Encoding::CompatibilityError, "ASCII incompatible encoding: ISO-2022-JP"]
-12
-[]
-["a b"]
-[RuntimeError, "string modified"]

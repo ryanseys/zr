@@ -1,0 +1,2 @@
+stdlib/json/json_3_0_2_raises_on_duplicate_keys_comments_and_unknown_key.rb:32:in 'Kernel#require': cannot load such file -- json/generic_object (LoadError)
+	from stdlib/json/json_3_0_2_raises_on_duplicate_keys_comments_and_unknown_key.rb:32:in '<main>'

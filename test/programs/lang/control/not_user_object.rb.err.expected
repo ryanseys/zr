@@ -1,0 +1,13 @@
+lang/control/not_user_object.rb: 
+lang/control/not_user_object.rb:5: syntax errors found (SyntaxError)
+  3 | end
+  4 | p(!Obj.new)
+> 5 | p(not Obj.new)
+    |       ^~~ unexpected constant, expecting end-of-input
+    |       ^~~ unexpected constant; expected a `)` to close the arguments
+    |       ^~~ expected a `(` after `not`
+    |              ^ unexpected ')', ignoring it
+    |              ^ unexpected ')', expecting end-of-input
+  6 | o = Obj.new
+  7 | p(!o)
+

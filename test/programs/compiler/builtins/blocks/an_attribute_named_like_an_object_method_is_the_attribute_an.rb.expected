@@ -1,5 +1,5 @@
 "GET"
 7
-[ArgumentError, "comparison of Integer with String failed"]
-[ArgumentError, "comparison of Integer with String failed"]
+[ArgumentError, "comparison of Integer with String failed: coercion was not possible"]
+[ArgumentError, "comparison of Integer with String failed: comparator returned nil"]
 :unbounded

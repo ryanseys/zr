@@ -10,5 +10,4 @@ false
 nil
 99
 [1, 2, 3]
-private constant Pathname::SEPARATOR_LIST referenced
-"/"
+uninitialized constant Pathname::SEPARATOR_LIST

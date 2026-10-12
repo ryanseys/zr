@@ -12,6 +12,6 @@ KeyError
 "key not found: :qux"
 :qux
 true
-#<TypeError: can't convert Symbol into Float>
+#<TypeError: no implicit conversion of Symbol into Float>
 true
 "foo"

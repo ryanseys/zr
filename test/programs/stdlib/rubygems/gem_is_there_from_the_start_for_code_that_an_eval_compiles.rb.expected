@@ -5,7 +5,7 @@ false
 false
 false
 String
-Monitor
+Thread::Monitor
 nil
 nil
 1

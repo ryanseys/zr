@@ -1,5 +1,5 @@
 [3, 4]
-[TypeError, "can't convert Object to Hash (Object#to_hash gives String)"]
+[TypeError, "can't convert Object into Hash (Object#to_hash gives String)"]
 message
 [SystemExit, "message"]
 0

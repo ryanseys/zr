@@ -1,8 +1,8 @@
 true
 [NotImplementedError, "not a StandardError"]
 [StandardError, "plain"]
-[ArgumentError, "comparison of String with 0 failed"]
-[ArgumentError, "comparison of String with 0 failed"]
-[ArgumentError, "comparison of Float with Labeledエ failed"]
-[ArgumentError, "comparison of Integer with Labeledエ failed"]
-[ArgumentError, "comparison of Float with nil failed"]
+[ArgumentError, "comparison of String with 0 failed: comparator returned nil"]
+[ArgumentError, "comparison of String with 0 failed: comparator returned nil"]
+[ArgumentError, "comparison of Float with Labeledエ failed: coercion was not possible"]
+[ArgumentError, "comparison of Integer with Labeledエ failed: coercion was not possible"]
+[ArgumentError, "comparison of Float with nil failed: coercion was not possible"]

@@ -40,6 +40,6 @@
 "super()" => (SCOPE [1:0-1:7] [] nil (SUPER [1:0-1:7] nil))
 "super 1" => (SCOPE [1:0-1:7] [] nil (SUPER [1:0-1:7] (LIST [1:6-1:7] (INTEGER [1:6-1:7] 1) nil)))
 "super { }" => (SCOPE [1:0-1:9] [] nil (ITER [1:0-1:9] (ZSUPER [1:0-1:5] ) (SCOPE [1:6-1:9] [] nil (BEGIN [1:7-1:7] nil))))
-"->(x) { x }" => (SCOPE [1:0-1:11] [] nil (LAMBDA [1:0-1:11] (SCOPE [1:2-1:11] [:x] (ARGS [1:3-1:4] 1 nil nil nil 0 nil nil nil nil nil) (DVAR [1:8-1:9] :x))))
-"->{ }" => (SCOPE [1:0-1:5] [] nil (LAMBDA [1:0-1:5] (SCOPE [1:2-1:5] [] (ARGS [1:2-1:2] 0 nil nil nil 0 nil nil nil nil nil) (BEGIN [1:3-1:3] nil))))
+"->(x) { x }" => (SCOPE [1:0-1:11] [] nil (LAMBDA [1:0-1:11] (SCOPE [1:0-1:11] [:x] (ARGS [1:3-1:4] 1 nil nil nil 0 nil nil nil nil nil) (DVAR [1:8-1:9] :x))))
+"->{ }" => (SCOPE [1:0-1:5] [] nil (LAMBDA [1:0-1:5] (SCOPE [1:0-1:5] [] (ARGS [1:2-1:2] 0 nil nil nil 0 nil nil nil nil nil) (BEGIN [1:3-1:3] nil))))
 "defined?(a)" => (SCOPE [1:0-1:11] [] nil (DEFINED [1:0-1:11] (VCALL [1:9-1:10] :a)))

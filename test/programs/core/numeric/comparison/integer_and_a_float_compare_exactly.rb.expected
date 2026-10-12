@@ -6,5 +6,5 @@
 [false, false, false, false]
 [false, false, false, false, false]
 [false, false]
-"comparison of Rational with NaN failed"
-"comparison of Integer with String failed"
+"comparison of Rational with NaN failed: comparator returned nil"
+"comparison of Integer with String failed: coercion was not possible"

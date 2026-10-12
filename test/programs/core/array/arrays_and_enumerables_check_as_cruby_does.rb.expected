@@ -14,7 +14,7 @@ core/array/arrays_and_enumerables_check_as_cruby_does.rb:26: warning: given bloc
 13: ArgumentError: bad value for range
 14: [1, :a, :b, 2]
 15: 1
-16: TypeError: can't convert Object to Array (Object#to_ary gives Integer)
+16: TypeError: can't convert Object into Array (Object#to_ary gives Integer)
 17: :ok
 18: "z"
 19: "z"
@@ -22,9 +22,7 @@ core/array/arrays_and_enumerables_check_as_cruby_does.rb:26: warning: given bloc
 21: [:a]
 22: [[7], [6, 5], [4, 3], [2, 1]]
 23: [[7], [6, 5], [4, 3], [2, 1]]
-core/array/arrays_and_enumerables_check_as_cruby_does.rb:42: warning: passing arguments to Enumerable#to_set is deprecated
-24: Set
-core/array/arrays_and_enumerables_check_as_cruby_does.rb:43: warning: passing arguments to Enumerable#to_set is deprecated
-25: Set
+24: ArgumentError: wrong number of arguments (given 1, expected 0)
+25: ArgumentError: wrong number of arguments (given 1, expected 0)
 26: RuntimeError: no
 27: [[1, 9]]

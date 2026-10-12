@@ -7,7 +7,7 @@ true
 true
 [8, 9, 2]
 1
-[TypeError, "can't convert Object to Array (Object#to_ary gives Integer)"]
+[TypeError, "can't convert Object into Array (Object#to_ary gives Integer)"]
 6
 16
 6

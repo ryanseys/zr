@@ -4,7 +4,7 @@ length 0                   ret=0     wrote=0     head=""
 length past the end        ret=1000  wrote=1000  head="abcdef"
 length -1                  ret=1000  wrote=1000  head="abcdef"
 length 5.9                 ret=5     wrote=5     head="abcde"
-length a String            TypeError: no implicit conversion from string
+length a String            TypeError: no implicit conversion of String into Integer
 offset 200                 ret=10    wrote=10    head="stuvwx"
 offset -1                  ret=10    wrote=10    head="abcdef"
 offset past the end        ret=0     wrote=0     head=""

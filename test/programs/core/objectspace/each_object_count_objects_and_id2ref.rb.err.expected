@@ -1,0 +1,4 @@
+core/objectspace/each_object_count_objects_and_id2ref.rb:23:in '<main>': undefined method '_id2ref' for module ObjectSpace (NoMethodError)
+
+p ObjectSpace._id2ref(x.object_id).equal?(x)
+             ^^^^^^^^

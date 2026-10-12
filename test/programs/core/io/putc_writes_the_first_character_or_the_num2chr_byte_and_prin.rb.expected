@@ -1,4 +1,4 @@
-[65.5, "xyz", 321, #<TypeError: no implicit conversion from nil to integer>, #<TypeError: no implicit conversion of Symbol into Integer>, #<RangeError: bignum too big to convert into 'long'>]
+[65.5, "xyz", 321, #<TypeError: no implicit conversion of nil into Integer>, #<TypeError: no implicit conversion of Symbol into Integer>, #<RangeError: bignum too big to convert into 'long'>]
 "AxA"
 #<ArgumentError: too few arguments>
 #<ArgumentError: too few arguments>

@@ -23,8 +23,8 @@
 25: 5
 26: ["/a", "b"]
 27: ["/a", "b"]
-28: TypeError: no implicit conversion from string
-29: TypeError: no implicit conversion from string
+28: TypeError: no implicit conversion of String into Integer
+29: TypeError: no implicit conversion of String into Integer
 30: 2
 33: ["bad", Object]
 34: ["bad", Object]

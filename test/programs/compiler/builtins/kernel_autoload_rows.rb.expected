@@ -1,5 +1,5 @@
-[:autoload, :autoload?]
-[:autoload, :autoload?]
+[:autoload, :autoload?, :autoload_relative]
+[:autoload, :autoload?, :autoload_relative]
 []
 [2, -1]
 nil

@@ -1,0 +1,1 @@
+core/string/match_calls_the_pattern_then_yields_its_result.rb:4:in '<main>': can't modify frozen Regexp: /foo/ (FrozenError)

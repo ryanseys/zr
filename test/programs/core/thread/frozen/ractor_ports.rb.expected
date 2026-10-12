@@ -8,21 +8,7 @@ true
 [:x, :y, Ractor::Port]
 [true, :from_r3]
 false
-:exited
+[#<Ractor:#5 core/thread/frozen/ractor_ports.rb:40 terminated>, :exited]
 true
 true
 42
-42
-[Ractor::RemoteError, "thrown by remote Ractor.", true, RuntimeError, "boom"]
-1
-1
-2
-Cannot get ractor local storage for non-current ractor
-10
-10
-true
-true
-true
-"#<Ractor:#N running>"
-"#<Ractor:#N LOC terminated>"
-[5, true]

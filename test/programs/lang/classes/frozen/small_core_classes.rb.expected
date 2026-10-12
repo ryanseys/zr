@@ -1,4 +1,4 @@
-Profiler singleton: [:clear, :disable, :enable, :enabled?, :raw_data, :report, :result, :total_time]
+Profiler singleton: [:clear, :configure, :disable, :enable, :enabled?, :raw_data, :report, :result, :total_time]
 Profiler enabled?: false
 Profiler total_time: 0.0
 Profiler result: ""
@@ -11,7 +11,7 @@ Profiler report: nil
 Backtrace.limit: -1
 Backtrace singleton: [:limit]
 Backtrace constants: [:Location]
-Location own: [:absolute_path, :base_label, :inspect, :label, :lineno, :path, :to_s]
+Location own: [:absolute_path, :base_label, :inspect, :label, :lineno, :path, :source_range, :syntax_tree, :to_s]
 caller_locations class: Thread::Backtrace::Location
 WKM own: [:[], :[]=, :clear, :delete, :getkey, :inspect, :key?]
 WKM arities: [1, 2, 0, 1, 1, 0, 1]

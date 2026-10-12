@@ -1,5 +1,5 @@
-#<ArgumentError: comparison of Integer with Object failed>
-#<ArgumentError: comparison of Integer with Object failed>
+#<ArgumentError: comparison of Integer with Object failed: coercion was not possible>
+#<ArgumentError: comparison of Integer with Object failed: coercion was not possible>
 #<TypeError: coerce must return [x, y]>
 nil
 nil

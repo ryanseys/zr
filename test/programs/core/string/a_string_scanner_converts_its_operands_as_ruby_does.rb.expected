@@ -27,16 +27,16 @@ pos = '1': TypeError: no implicit conversion of String into Integer
 pos = 5: RangeError: index out of range
 peek(-1): ArgumentError: negative string size (or size too big)
 peek('1'): TypeError: no implicit conversion of String into Integer
-[nil]: TypeError: no implicit conversion from nil to integer
+[nil]: TypeError: no implicit conversion of nil into Integer
 [:y]: IndexError: undefined group name reference: y
 ['y']: IndexError: undefined group name reference: y
 [1.5]: nil
 unscan: StringScanner::Error: unscan failed: previous match record not exist
 scan_integer(base: 3): ArgumentError: Unsupported integer base: 3, expected 10 or 16
 pos = 1.5: 1
-pos = nil: TypeError: no implicit conversion from nil to integer
+pos = nil: TypeError: no implicit conversion of nil into Integer
 peek(1.9): "a"
-peek(nil): TypeError: no implicit conversion from nil to integer
+peek(nil): TypeError: no implicit conversion of nil into Integer
 [2**70]: RangeError: bignum too big to convert into 'long'
 ['x']: "a"
 scan(to_str): "a"

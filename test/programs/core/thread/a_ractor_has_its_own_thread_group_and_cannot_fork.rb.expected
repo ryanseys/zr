@@ -1,5 +1,5 @@
 true
-["can not access non-shareable objects in constant ThreadGroup::Default by non-main Ractor.", true, ThreadGroup, 1]
+["can not access non-shareable objects in constant ThreadGroup::Default of a class/module created by another Ractor.", true, ThreadGroup, 1]
 false
 [false, false]
 true

@@ -1,1 +1,5 @@
 core/io/buffer_mapped_and_shared_is_memory_a_forked_child_shares.rb:6: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+core/io/buffer_mapped_and_shared_is_memory_a_forked_child_shares.rb:41:in '<main>': undefined method 'shared?' for an instance of IO::Buffer::Slice (NoMethodError)
+
+p shared.slice(0, 8).shared?
+                    ^^^^^^^^

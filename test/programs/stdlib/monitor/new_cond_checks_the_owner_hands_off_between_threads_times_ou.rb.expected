@@ -1,4 +1,4 @@
-MonitorMixin::ConditionVariable
+Thread::Monitor::ConditionVariable
 ThreadError
 ThreadError
 [0, 1, 2]

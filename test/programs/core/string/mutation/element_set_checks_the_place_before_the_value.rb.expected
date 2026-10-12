@@ -4,9 +4,9 @@
 "Hello"
 "E"
 "HEllo"
-[TypeError, "can't convert Object to Integer (Object#to_int gives String)"]
+[TypeError, "can't convert Object into Integer (Object#to_int gives String)"]
 to_str called
 "aXdef"
-[TypeError, "can't convert Object to Integer (Object#to_int gives String)"]
+[TypeError, "can't convert Object into Integer (Object#to_int gives String)"]
 to_str called
 [IndexError, "index 20 out of string"]

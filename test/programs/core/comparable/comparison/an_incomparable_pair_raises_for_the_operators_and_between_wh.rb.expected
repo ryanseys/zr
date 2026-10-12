@@ -5,9 +5,9 @@ true
 true
 true
 true
-comparison of Weight with Weight failed
-comparison of Weight with Weight failed
-comparison of Weight with Weight failed
+comparison of Weight with Weight failed: comparator returned nil
+comparison of Weight with Weight failed: comparator returned nil
+comparison of Weight with Weight failed: comparator returned nil
 false
 true
 true

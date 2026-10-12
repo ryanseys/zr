@@ -17,7 +17,7 @@ nil
 [ArgumentError, "array size too big"]
 [RangeError, "bignum too big to convert into 'long'"]
 [nil, nil]
-[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
 [1, 2]
 [2]
 [IndexError, "index 4611686018427387904 outside of array bounds: -3...3"]

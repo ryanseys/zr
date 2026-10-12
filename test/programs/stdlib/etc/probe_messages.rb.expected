@@ -18,14 +18,14 @@ Dir.chdir(missing){}	Errno::ENOENT: No such file or directory @ dir_chdir0 - <TM
 Dir.mkdir(exists)	Errno::EEXIST: File exists @ dir_s_mkdir - <TMP>
 Dir.entries(missing)	Errno::ENOENT: No such file or directory @ dir_initialize - <TMP>/no-such-file
 IO.read(missing)	Errno::ENOENT: No such file or directory @ rb_sysopen - <TMP>/no-such-file
-sort mixed	ArgumentError: comparison of Integer with String failed
-sort_by mixed	ArgumentError: comparison of Integer with String failed
-min_by mixed	ArgumentError: comparison of Float with 1.0 failed
-max_by mixed	ArgumentError: comparison of Float with 1.0 failed
-min mixed	ArgumentError: comparison of String with 1 failed
-max mixed	ArgumentError: comparison of String with 1 failed
-sort NaN	ArgumentError: comparison of Float with NaN failed
-<=> nil compare	ArgumentError: comparison of Integer with String failed
+sort mixed	ArgumentError: comparison of Integer with String failed: comparator returned nil
+sort_by mixed	ArgumentError: comparison of Integer with String failed: comparator returned nil
+min_by mixed	ArgumentError: comparison of Float with 1.0 failed: comparator returned nil
+max_by mixed	ArgumentError: comparison of Float with 1.0 failed: comparator returned nil
+min mixed	ArgumentError: comparison of String with 1 failed: comparator returned nil
+max mixed	ArgumentError: comparison of String with 1 failed: comparator returned nil
+sort NaN	ArgumentError: comparison of Float with NaN failed: comparator returned nil
+<=> nil compare	ArgumentError: comparison of Integer with String failed: coercion was not possible
 Array#<=> mixed	ok "nil"
 undefined method	NoMethodError: undefined method 'no_such_method' for an instance of Object
 undefined local	NameError: undefined local variable or method 'no_such_local_or_method' for main

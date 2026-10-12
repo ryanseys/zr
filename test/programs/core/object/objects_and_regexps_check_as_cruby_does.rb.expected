@@ -1,5 +1,4 @@
-core/object/objects_and_regexps_check_as_cruby_does.rb:11: warning: ObjectSpace._id2ref is deprecated
-1: nil
+1: NoMethodError: undefined method '_id2ref' for module ObjectSpace
 2: ObjectSpace::WeakMap
 3: ObjectSpace::WeakMap
 4: ObjectSpace::WeakMap
@@ -10,7 +9,7 @@ core/object/objects_and_regexps_check_as_cruby_does.rb:11: warning: ObjectSpace.
 9: true
 10: /a/i
 11: /abc/
-12: TypeError: can't convert Object to String (Object#to_str gives Integer)
+12: TypeError: can't convert Object into String (Object#to_str gives Integer)
 13: true
 core/object/objects_and_regexps_check_as_cruby_does.rb:27: warning: flags ignored
 14: true
@@ -20,7 +19,7 @@ core/object/objects_and_regexps_check_as_cruby_does.rb:27: warning: flags ignore
 18: 2
 19: TypeError: wrong argument type Integer (expected Array)
 20: ArgumentError: time interval must not be negative
-21: ArgumentError: comparison of String with 0 failed
+21: ArgumentError: comparison of String with 0 failed: comparator returned nil
 22: TypeError: can't copy the root class
 23: 5
 24: NoMethodError

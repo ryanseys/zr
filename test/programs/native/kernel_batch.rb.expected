@@ -1,9 +1,9 @@
 [1, 2]
 Pair
 1
-"can't convert Bad to Array (Bad#to_ary gives Integer)"
+"can't convert Bad into Array (Bad#to_ary gives Integer)"
 [N, nil]
-"can't convert BadProc to Proc (BadProc#to_proc gives Symbol)"
+"can't convert BadProc into Proc (BadProc#to_proc gives Symbol)"
 true
 4
 true
@@ -11,9 +11,9 @@ Integer
 -36028797018963966
 9007199254740994
 true
-TypeError: can't convert LiarInt to Integer (LiarInt#to_int gives String)
-TypeError: can't convert LiarInt to Integer (LiarInt#to_int gives String)
-TypeError: can't convert LiarInt to Integer (LiarInt#to_int gives String)
+TypeError: can't convert LiarInt into Integer (LiarInt#to_int gives String)
+TypeError: can't convert LiarInt into Integer (LiarInt#to_int gives String)
+TypeError: can't convert LiarInt into Integer (LiarInt#to_int gives String)
 [1, 2, 1, 2]
 "abab"
 30

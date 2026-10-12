@@ -26,9 +26,9 @@ nil
 "index -5 too small for array; minimum: -3"
 [3, 1]
 "no implicit conversion of String into Integer"
-"no implicit conversion from nil to integer"
+"no implicit conversion of nil into Integer"
 "no implicit conversion of String into Integer"
-"no implicit conversion from nil to integer"
+"no implicit conversion of nil into Integer"
 "no implicit conversion of String into Integer"
 [2, 1]
 "no implicit conversion of true into Integer"

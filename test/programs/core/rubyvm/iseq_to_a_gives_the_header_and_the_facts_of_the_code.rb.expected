@@ -1,4 +1,4 @@
-["YARVInstructionSequence/SimpleDataFormat", 4, 0, 1]
+["YARVInstructionSequence/SimpleDataFormat", 4, 1, 1]
 :prism
 [1, 0, 1, 0]
 ["<compiled>", "<compiled>", "<compiled>", 1, :top, []]

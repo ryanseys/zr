@@ -1,7 +1,7 @@
-[TypeError, "no implicit conversion from nil to integer"]
-[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
 [TypeError, "no implicit conversion of Range into Integer"]
-[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
 "e"
 String
 [FrozenError, "can't modify frozen String: \"x\""]
@@ -10,7 +10,7 @@ String
 nil
 2
 3
-[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
 nil
 "l"
 nil

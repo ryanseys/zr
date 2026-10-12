@@ -1,0 +1,5 @@
+stdlib/strscan/strscan_names_its_error_class_scanerror_on_object_too.rb:3:in '<main>': uninitialized constant ScanError (NameError)
+
+p ScanError, ScanError.equal?(StringScanner::Error)
+  ^^^^^^^^^
+Did you mean?  SyntaxError

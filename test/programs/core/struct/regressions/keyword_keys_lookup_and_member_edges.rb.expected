@@ -5,12 +5,12 @@
 [ArgumentError, "unknown keywords: 5"]
 [ArgumentError, "unknown keywords: w, z"]
 [ArgumentError, "wrong number of arguments (given 2, expected 0)"]
-[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
 #<struct Plain a=1, b=2>
 #<struct Plain a=9, b=nil>
 [20, 10, nil, 10]
 {}
-[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
 {"x" => 1}
 [TypeError, "0 is not a symbol nor a string"]
 [ArgumentError, "unknown keyword: :z"]

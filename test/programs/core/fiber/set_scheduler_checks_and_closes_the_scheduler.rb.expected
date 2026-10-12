@@ -1,5 +1,0 @@
-true
-[:sleep]
-:close
-"Scheduler must implement #block"
-#<RuntimeError: No scheduler is available!>

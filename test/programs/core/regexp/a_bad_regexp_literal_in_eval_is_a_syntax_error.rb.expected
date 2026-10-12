@@ -1,6 +1,6 @@
-no-encoding unicode: SyntaxError: (eval):1: incompatible character encoding: /\u{6666}/
-euc unicode: SyntaxError: (eval):1: incompatible character encoding: /\u{6666}/
-sjis unicode: SyntaxError: (eval):1: incompatible character encoding: /\u{6666}/
+no-encoding unicode: SyntaxError: (eval):1: syntax error found
+euc unicode: SyntaxError: (eval):1: syntax error found
+sjis unicode: SyntaxError: (eval):1: syntax error found
 utf-8 unicode: "\\u{6666}"
 short tail: SyntaxError: (eval):1: too short escaped multibyte character: /\xc2/
 short head: SyntaxError: (eval):1: too short escaped multibyte character: /\xc2/

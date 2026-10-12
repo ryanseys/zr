@@ -31,7 +31,7 @@ nil
 [1, 2]
 {a: 1, b: 2}
 {a: 1, b: 2, c: 3}
-"can't convert Bad to Hash (Bad#to_hash gives Integer)"
+"can't convert Bad into Hash (Bad#to_hash gives Integer)"
 "no implicit conversion of Object into Hash"
 "12"
 "9"

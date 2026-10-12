@@ -182,7 +182,7 @@ Infinity
 -Infinity
 [true, "invalid date"]
 [TypeError, "invalid year (not numeric)"]
-[TypeError, "no implicit conversion to float from string"]
+[TypeError, "no implicit conversion of String into Float"]
 [TypeError, "String can't be coerced into Integer"]
 [TypeError, "expected numeric"]
 [TypeError, "expected numeric"]

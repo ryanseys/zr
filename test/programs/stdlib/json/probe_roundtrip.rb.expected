@@ -72,5 +72,5 @@ stringio truncate mode	ok ""
 stringio read only write	IOError: not opened for writing
 stringio append read	IOError: not opened for reading
 marshal cycle	ok true
-json cycle	JSON::NestingError: nesting of 100 is too deep. Did you try to serialize objects with circular references?
+json cycle	JSON::NestingError: nesting of 101 is too deep. Did you try to serialize objects with circular references?
 yaml cycle	ok true

@@ -1,0 +1,2 @@
+core/regexp/pattern_matching/allocated_regexp_takes_a_pattern_once.rb:27:in 'Regexp#initialize': can't modify frozen Regexp: /b+/i (FrozenError)
+	from core/regexp/pattern_matching/allocated_regexp_takes_a_pattern_once.rb:27:in '<main>'

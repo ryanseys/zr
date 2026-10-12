@@ -1,4 +1,4 @@
-Monitor
+Thread::Monitor
 true
 true
 false
@@ -10,7 +10,7 @@ false
 nil
 nil
 true
-MonitorMixin::ConditionVariable
+Thread::Monitor::ConditionVariable
 ThreadError
 ThreadError
 [0, 1, 2]

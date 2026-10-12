@@ -1,0 +1,1 @@
+stdlib/openssl/certificate_chain_verifies_through_a_store.rb:81: warning: `obj.flags = new_flags` does not clear existing flags; use `obj.clear_flags` first if you want to replace them, or `obj.flags |= new_flags` to indicate that appending flags is intentional

@@ -2,4 +2,4 @@
 [{a: 1}, nil]
 [1, [7, 8]]
 "via missing"
-"can't convert Object to String (Object#to_s gives Integer)"
+"can't convert Object into String (Object#to_s gives Integer)"

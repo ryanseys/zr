@@ -1,6 +1,6 @@
 1180591620717411303424 << nil: TypeError: no implicit conversion of nil into Integer
 1180591620717411303424 >> nil: TypeError: no implicit conversion of nil into Integer
-1180591620717411303424[nil]: TypeError: no implicit conversion from nil to integer
+1180591620717411303424[nil]: TypeError: no implicit conversion of nil into Integer
 1180591620717411303424[nil, 1]: TypeError: no implicit conversion of nil into Integer
 1180591620717411303424 << 1.5: 2361183241434822606848
 1180591620717411303424 >> 1.5: 590295810358705651712
@@ -18,7 +18,7 @@
 1180591620717411303424 >> :a: TypeError: no implicit conversion of Symbol into Integer
 1180591620717411303424[:a]: TypeError: no implicit conversion of Symbol into Integer
 1180591620717411303424[:a, 1]: TypeError: no implicit conversion of Symbol into Integer
-1180591620717411303424.to_s(nil): TypeError: no implicit conversion from nil to integer
+1180591620717411303424.to_s(nil): TypeError: no implicit conversion of nil into Integer
 1180591620717411303424.to_s(2, 1): ArgumentError: wrong number of arguments (given 2, expected 0..1)
 1180591620717411303424.to_s(16): "400000000000000000"
 1180591620717411303424.to_s(1.9): "6x5kxtvuwilukg"
@@ -27,7 +27,7 @@
 1180591620717411303424.inspect: "1180591620717411303424"
 -1180591620717411303424 << nil: TypeError: no implicit conversion of nil into Integer
 -1180591620717411303424 >> nil: TypeError: no implicit conversion of nil into Integer
--1180591620717411303424[nil]: TypeError: no implicit conversion from nil to integer
+-1180591620717411303424[nil]: TypeError: no implicit conversion of nil into Integer
 -1180591620717411303424[nil, 1]: TypeError: no implicit conversion of nil into Integer
 -1180591620717411303424 << 1.5: -2361183241434822606848
 -1180591620717411303424 >> 1.5: -590295810358705651712
@@ -45,7 +45,7 @@
 -1180591620717411303424 >> :a: TypeError: no implicit conversion of Symbol into Integer
 -1180591620717411303424[:a]: TypeError: no implicit conversion of Symbol into Integer
 -1180591620717411303424[:a, 1]: TypeError: no implicit conversion of Symbol into Integer
--1180591620717411303424.to_s(nil): TypeError: no implicit conversion from nil to integer
+-1180591620717411303424.to_s(nil): TypeError: no implicit conversion of nil into Integer
 -1180591620717411303424.to_s(2, 1): ArgumentError: wrong number of arguments (given 2, expected 0..1)
 -1180591620717411303424.to_s(16): "-400000000000000000"
 -1180591620717411303424.to_s(1.9): "-6x5kxtvuwilukg"
@@ -72,7 +72,7 @@
 7 >> :a: TypeError: no implicit conversion of Symbol into Integer
 7[:a]: TypeError: no implicit conversion of Symbol into Integer
 7[:a, 1]: TypeError: no implicit conversion of Symbol into Integer
-7.to_s(nil): TypeError: no implicit conversion from nil to integer
+7.to_s(nil): TypeError: no implicit conversion of nil into Integer
 7.to_s(2, 1): ArgumentError: wrong number of arguments (given 2, expected 0..1)
 7.to_s(16): "7"
 7.to_s(1.9): "7"

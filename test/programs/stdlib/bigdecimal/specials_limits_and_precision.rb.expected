@@ -18,7 +18,7 @@ false
 [1, "Infinity", 10, 0]
 [-1, "Infinity", 10, 0]
 [0, "NaN", 10, 0]
-#<TypeError: no implicit conversion from nil to integer>
+#<TypeError: no implicit conversion of nil into Integer>
 #<ArgumentError: negative precision>
 0.9e0
 0.888e0

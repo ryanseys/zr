@@ -2,10 +2,10 @@
 [TypeError, "can't convert String into time interval"]
 [ArgumentError, "time interval must not be negative"]
 [TypeError, "can't convert Symbol into time interval"]
-[TypeError, "can't convert Symbol into Float"]
-[TypeError, "no implicit conversion to float from string"]
+[TypeError, "no implicit conversion of Symbol into Float"]
+[TypeError, "no implicit conversion of String into Float"]
 nil
-[TypeError, "can't convert Symbol into Float"]
+[TypeError, "no implicit conversion of Symbol into Float"]
 nil
-[TypeError, "can't convert Symbol into Float"]
-[TypeError, "no implicit conversion to float from string"]
+[TypeError, "no implicit conversion of Symbol into Float"]
+[TypeError, "no implicit conversion of String into Float"]

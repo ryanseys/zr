@@ -4,8 +4,8 @@
 4: 3
 5: 3
 6: "l"
-7: TypeError: no implicit conversion from nil to integer
-8: TypeError: no implicit conversion from nil to integer
+7: TypeError: no implicit conversion of nil into Integer
+8: TypeError: no implicit conversion of nil into Integer
 9: TypeError: no implicit conversion of Range into Integer
 10: true
 11: true

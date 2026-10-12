@@ -9,6 +9,6 @@ ArgumentError
 3
 "min argument must be less than or equal to max argument"
 "cannot clamp with an exclusive range"
-"comparison of String with 1 failed"
+"comparison of String with 1 failed: comparator returned nil"
 ArgumentError
 [[:a, 1], [:b, 2], [:c, 3]]

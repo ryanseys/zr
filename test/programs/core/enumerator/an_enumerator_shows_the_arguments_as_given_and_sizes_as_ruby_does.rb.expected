@@ -35,9 +35,9 @@ Enumerator#each_with_object {}: [6, 2, 4]
 5.upto(4r): ["#<Enumerator: 5:upto((4/1))>", 0]
 5.downto(6r): ["#<Enumerator: 5:downto((6/1))>", 0]
 5.downto(2r) to_a: [5, 4, 3, 2]
-1.5.step('2'): TypeError: no implicit conversion to float from string
-1.5.step(true): TypeError: no implicit conversion to float from true
-1.step('2', 1.0): TypeError: no implicit conversion to float from string
+1.5.step('2'): TypeError: no implicit conversion of String into Float
+1.5.step(true): TypeError: no implicit conversion of true into Float
+1.step('2', 1.0): TypeError: no implicit conversion of String into Float
 1.5.step(Object): TypeError: can't convert Object into Float
 1.step(3, 1.0): ["(1.step(3, 1.0))", 3]
 1.0.step(3): ["(1.0.step(3))", 3]
@@ -49,8 +49,8 @@ Enumerator#each_with_object {}: [6, 2, 4]
 1.upto(3r) {}: [1, 2, 3]
 5.downto(2.5r) {}: [5, 4, 3]
 1.upto(3.5r) to_a: [1, 2, 3]
-1.upto(Object) {}: ArgumentError: comparison of Integer with Object failed
-1.downto(nil) {}: ArgumentError: comparison of Integer with nil failed
+1.upto(Object) {}: ArgumentError: comparison of Integer with Object failed: coercion was not possible
+1.downto(nil) {}: ArgumentError: comparison of Integer with nil failed: coercion was not possible
 (2**70).upto(2**70 + 5.5r): ["#<Enumerator: 1180591620717411303424:upto((2361183241434822606859/2))>", 6]
 (2**70).downto(2**70 - 2.5r): ["#<Enumerator: 1180591620717411303424:downto((2361183241434822606843/2))>", 3]
 (2**70).downto(2**70 - 2.5r) to_a: 3

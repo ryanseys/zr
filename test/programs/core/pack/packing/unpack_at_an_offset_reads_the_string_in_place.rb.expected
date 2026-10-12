@@ -17,7 +17,7 @@ H: ["cdef", #<Encoding:US-ASCII>]
 B: ["11001101", #<Encoding:US-ASCII>]
 w: [129]
 at the end: [""]
-negative: ArgumentError: offset can't be negative
+negative: ["l"]
 past the end: ArgumentError: offset outside of string
 a subclass: ["bc", 100]
 a block: [99, 100]

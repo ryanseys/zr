@@ -1,4 +1,4 @@
-JSON::NestingError: nesting of 2 is too deep. Did you try to serialize objects with circular references?
+JSON::NestingError: nesting of 3 is too deep. Did you try to serialize objects with circular references?
 "{\"a\":1}"
 nil
 ["Array", "Hash", "Integer", "String"]

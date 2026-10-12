@@ -1,3 +1,3 @@
 ["method_missing"]
-"can't convert NotProc to Proc (NotProc#to_proc gives Integer)"
+"can't convert NotProc into Proc (NotProc#to_proc gives Integer)"
 "no implicit conversion of Object into Proc"

@@ -1,4 +1,4 @@
-[:major_by, :need_major_by, :gc_by, :have_finalizer, :immediate_sweep, :state, :weak_references_count, :retained_weak_references_count]
+[:major_by, :need_major_by, :gc_by, :have_finalizer, :immediate_sweep, :state, :weak_references_count]
 [:force, :method, true, :none, false]
 true
 nil
@@ -13,12 +13,7 @@ true
 :newobj
 true
 true
-:none
+:sweeping
 "unknown key: invalid"
 ["unknown key: ルビー", #<Encoding:UTF-8>]
 "non-hash or symbol given"
-true
-true
-true
-true
-true

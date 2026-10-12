@@ -1,0 +1,5 @@
+core/gc/latest_gc_info_tells_what_the_last_collection_was.rb:73:in 'GC.latest_gc_info': unknown key: retained_weak_references_count (ArgumentError)
+
+before_kept = GC.latest_gc_info(:retained_weak_references_count)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+	from core/gc/latest_gc_info_tells_what_the_last_collection_was.rb:73:in '<main>'

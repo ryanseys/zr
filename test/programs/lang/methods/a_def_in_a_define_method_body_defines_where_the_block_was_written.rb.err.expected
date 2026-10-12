@@ -1,7 +1,17 @@
 lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb: --> lang/methods/a_def_in_a_define_method_body_defines_where_the_block_was_written.rb
 
-Unmatched keyword, missing `end' ?
+unexpected 'rescue' modifier; expected a `)` to close the arguments
+unexpected ')', expecting end-of-input
+unexpected ')', ignoring it
 
+>  3  prc = nil
+> 11  c = Class.new { define_method(:test, prc) }
+> 12  o = c.new
+> 13  o.test
+> 14  p o.respond_to?(:nested_in_proc), (t.new.nested_in_proc rescue $!.class)
+> 15  class K; define_method(:mk) { def inner_k = :k }; end
+> 16  K.new.mk
+> 17  p K.new.inner_k
 > 18  class Base; def hi = :base; end
 > 19  class Sub < Base; define_method(:hi) { [super(), :sub] }; end
 > 20  p Sub.new.hi

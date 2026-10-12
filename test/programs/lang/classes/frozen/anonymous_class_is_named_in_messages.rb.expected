@@ -3,7 +3,7 @@ inspect: #<#<Class:0xXX>:0xXX>
 to_s: #<#<Class:0xXX>:0xXX>
 ivars: #<#<Class:0xXX>:0xXX @a=1>
 frozen: FrozenError: can't modify frozen #<Class:0xXX>: #<#<Class:0xXX>:0xXX>
-comparison: ArgumentError: comparison of Integer with #<Class:0xXX> failed
+comparison: ArgumentError: comparison of Integer with #<Class:0xXX> failed: coercion was not possible
 class: #<Class:0xXX>
 subclass: #<#<Class:0xXX>:0xXX>
 error class: #<Class:0xXX>: #<Class:0xXX>

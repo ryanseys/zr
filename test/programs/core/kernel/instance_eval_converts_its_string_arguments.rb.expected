@@ -1,5 +1,5 @@
-[TypeError, "can't convert Object to String (Object#to_str gives Symbol)"]
+[TypeError, "can't convert Object into String (Object#to_str gives Symbol)"]
 "file.rb"
 15
-[TypeError, "can't convert Object to Integer (Object#to_int gives Symbol)"]
+[TypeError, "can't convert Object into Integer (Object#to_int gives Symbol)"]
 15

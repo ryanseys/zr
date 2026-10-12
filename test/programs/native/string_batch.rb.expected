@@ -57,7 +57,7 @@ nil
 1
 [2, 3]
 "s"
-"can't convert Badish to String (Badish#to_str gives Integer)"
+"can't convert Badish into String (Badish#to_str gives Integer)"
 "a\nb"
 "é"
 [0, 255]
@@ -227,7 +227,7 @@ true
 nil
 "abc"
 "no implicit conversion of Integer into String"
-"can't convert BadSep to String (BadSep#to_str gives Integer)"
+"can't convert BadSep into String (BadSep#to_str gives Integer)"
 #<Encoding:BINARY (ASCII-8BIT)>
 true
 false

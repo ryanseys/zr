@@ -7,10 +7,10 @@
 7: 8
 8: 4
 9: 3
-10: ArgumentError: comparison of Integer with String failed
-11: ArgumentError: comparison of Integer with String failed
-12: TypeError: can't convert Object to Integer (Object#to_int gives String)
-13: TypeError: can't convert Object to Integer (Object#to_int gives String)
+10: ArgumentError: comparison of Integer with String failed: coercion was not possible
+11: ArgumentError: comparison of Integer with String failed: coercion was not possible
+12: TypeError: can't convert Object into Integer (Object#to_int gives String)
+13: TypeError: can't convert Object into Integer (Object#to_int gives String)
 14: TypeError: Integer#pow() 2nd argument not allowed unless all arguments are integers
 15: 0
 16: 1
@@ -21,7 +21,7 @@
 21: :mod
 22: #<Enumerator: 1..2:bsearch>
 23: TypeError: can't do binary search for String
-24: TypeError: no implicit conversion from nil to integer
+24: TypeError: no implicit conversion of nil into Integer
 25: TypeError: can't iterate from NilClass
 26: false
 27: "\x01"
@@ -34,4 +34,4 @@
 30: 1
 31: false
 32: true
-33: TypeError: can't convert Sub to Rational (Sub#to_r gives Integer)
+33: TypeError: can't convert Sub into Rational (Sub#to_r gives Integer)

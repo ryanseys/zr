@@ -1,0 +1,5 @@
+lang/constants/runtime_helper_constants_are_not_the_programs.rb:56:in '<class:Pathname>': uninitialized constant Pathname::SEPARATOR_LIST (NameError)
+
+  p SEPARATOR_LIST
+    ^^^^^^^^^^^^^^
+	from lang/constants/runtime_helper_constants_are_not_the_programs.rb:55:in '<main>'

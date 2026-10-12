@@ -10,10 +10,10 @@ Object singleton:
 Object constants: ARGF ARGV ArgumentError Array BasicObject Binding CROSS_COMPILING Class ClosedQueueError Comparable Complex ConditionVariable Data DidYouMean Dir ENV EOFError Encoding EncodingError Enumerable Enumerator Errno ErrorHighlight Exception FalseClass Fiber FiberError File FileTest Float FloatDomainError FrozenError GC GEMS Hash IO IOError IndexError Integer Interrupt Kernel KeyError LATER LoadError LocalJumpError Marshal MatchData Math Method Module Monitor MonitorMixin Mutex NameError NilClass NoMatchingPatternError NoMatchingPatternKeyError NoMemoryError NoMethodError NotImplementedError Numeric Object ObjectSpace Pathname Proc Process Queue RUBY_COPYRIGHT RUBY_DESCRIPTION RUBY_ENGINE RUBY_ENGINE_VERSION RUBY_PATCHLEVEL RUBY_PLATFORM RUBY_RELEASE_DATE RUBY_REVISION RUBY_VERSION Ractor Random Range RangeError Rational RbConfig Refinement Regexp RegexpError Ruby RubyVM RuntimeError STDERR STDIN STDOUT ScriptError SecurityError Set Signal SignalException SizedQueue StandardError StopIteration String Struct Symbol SyntaxError SyntaxSuggest SystemCallError SystemExit SystemStackError TOPLEVEL_BINDING Thread ThreadError ThreadGroup Time TracePoint TrueClass TypeError UnboundMethod UncaughtThrowError UnicodeNormalize Warning ZeroDivisionError
 Kernel public: !~ <=> === class clone define_singleton_method display dup enum_for eql? extend freeze frozen? hash inspect instance_of? instance_variable_defined? instance_variable_get instance_variable_set instance_variables is_a? itself kind_of? method methods nil? object_id private_methods protected_methods public_method public_methods public_send remove_instance_variable respond_to? send singleton_class singleton_method singleton_methods tap then to_enum to_s yield_self
 Kernel protected: 
-Kernel private: Array Complex Float Hash Integer Pathname Rational String __callee__ __dir__ __method__ ` abort at_exit autoload autoload? binding block_given? caller caller_locations catch eval exec exit exit! fail fork format gets global_variables initialize_clone initialize_copy initialize_dup instance_variables_to_inspect iterator? lambda load local_variables loop open p pp print printf proc putc puts raise rand readline readlines respond_to_missing? select set_trace_func sleep spawn sprintf srand syscall system test throw trace_var trap untrace_var warn
-Kernel singleton: Array Complex Float Hash Integer Pathname Rational String __callee__ __dir__ __method__ ` abort at_exit autoload autoload? binding block_given? caller caller_locations catch eval exec exit exit! fail fork format gets global_variables iterator? lambda load local_variables loop open p print printf proc putc puts raise rand readline readlines require require_relative select set_trace_func sleep spawn sprintf srand syscall system test throw trace_var trap untrace_var warn
+Kernel private: Array Complex Float Hash Integer Pathname Rational String __callee__ __dir__ __method__ ` abort at_exit autoload autoload? autoload_relative binding block_given? caller caller_locations catch eval exec exit exit! fail fork format gets global_variables initialize_clone initialize_copy initialize_dup instance_variables_to_inspect iterator? lambda load local_variables loop open p pp print printf proc putc puts raise rand readline readlines respond_to_missing? select set_trace_func sleep spawn sprintf srand syscall system test throw trace_var trap untrace_var warn
+Kernel singleton: Array Complex Float Hash Integer Pathname Rational String __callee__ __dir__ __method__ ` abort at_exit autoload autoload? autoload_relative binding block_given? caller caller_locations catch eval exec exit exit! fail fork format gets global_variables iterator? lambda load local_variables loop open p print printf proc putc puts raise rand readline readlines require require_relative select set_trace_func sleep spawn sprintf srand syscall system test throw trace_var trap untrace_var warn
 Kernel constants: 
-Module public: < <= <=> == === > >= alias_method ancestors attr attr_accessor attr_reader attr_writer autoload autoload? class_eval class_exec class_variable_defined? class_variable_get class_variable_set class_variables const_defined? const_get const_missing const_set const_source_location constants define_method deprecate_constant freeze include include? included_modules inspect instance_method instance_methods method_defined? module_eval module_exec name prepend private_class_method private_constant private_instance_methods private_method_defined? protected_instance_methods protected_method_defined? public_class_method public_constant public_instance_method public_instance_methods public_method_defined? refinements remove_class_variable remove_method set_temporary_name singleton_class? to_s undef_method undefined_instance_methods
+Module public: < <= <=> == === > >= alias_method ancestors attr attr_accessor attr_reader attr_writer autoload autoload? autoload_relative class_eval class_exec class_variable_defined? class_variable_get class_variable_set class_variables const_defined? const_get const_missing const_set const_source_location constants define_method deprecate_constant descendants freeze include include? included_modules inspect instance_method instance_methods method_defined? module_eval module_exec name prepend private_class_method private_constant private_instance_methods private_method_defined? protected_instance_methods protected_method_defined? public_class_method public_constant public_instance_method public_instance_methods public_method_defined? refinements remove_class_variable remove_method set_temporary_name singleton_class? to_s undef_method undefined_instance_methods
 Module protected: 
 Module private: append_features const_added extend_object extended included initialize initialize_clone method_added method_removed method_undefined module_function prepend_features prepended private protected public refine remove_const ruby2_keywords using
 Module singleton: constants nesting used_modules used_refinements
@@ -48,7 +48,7 @@ FalseClass protected:
 FalseClass private: 
 FalseClass singleton: 
 FalseClass constants: 
-Integer public: % & * ** + - -@ / < << <= <=> == === > >= >> [] ^ abs allbits? anybits? bit_length ceil ceildiv chr coerce denominator digits div divmod downto even? fdiv floor gcd gcdlcm inspect integer? lcm magnitude modulo next nobits? numerator odd? ord pow pred rationalize remainder round size succ times to_f to_i to_int to_r to_s truncate upto zero? | ~
+Integer public: % & * ** + - -@ / < << <= <=> == === > >= >> [] ^ abs allbits? anybits? bit_count bit_length ceil ceildiv chr coerce denominator digits div divmod downto even? fdiv floor gcd gcdlcm inspect integer? lcm magnitude modulo next nobits? numerator odd? ord pow pred rationalize remainder round size succ times to_f to_i to_int to_r to_s truncate upto zero? | ~
 Integer protected: 
 Integer private: 
 Integer singleton: sqrt try_convert
@@ -73,7 +73,7 @@ Complex protected:
 Complex private: marshal_dump
 Complex singleton: polar rect rectangular
 Complex constants: I
-String public: % * + +@ -@ << <=> == === =~ [] []= append_as_bytes ascii_only? b byteindex byterindex bytes bytesize byteslice bytesplice capitalize capitalize! casecmp casecmp? center chars chomp chomp! chop chop! chr clear codepoints concat count crypt dedup delete delete! delete_prefix delete_prefix! delete_suffix delete_suffix! downcase downcase! dump dup each_byte each_char each_codepoint each_grapheme_cluster each_line empty? encode encode! encoding end_with? eql? force_encoding freeze getbyte grapheme_clusters gsub gsub! hash hex include? index insert inspect intern length lines ljust lstrip lstrip! match match? next next! oct ord partition prepend replace reverse reverse! rindex rjust rpartition rstrip rstrip! scan scrub scrub! setbyte size slice slice! split squeeze squeeze! start_with? strip strip! sub sub! succ succ! sum swapcase swapcase! to_c to_f to_i to_r to_s to_str to_sym tr tr! tr_s tr_s! undump unicode_normalize unicode_normalize! unicode_normalized? unpack unpack1 upcase upcase! upto valid_encoding?
+String public: % * + +@ -@ << <=> == === =~ [] []= append_as_bytes ascii_only? b bit_clear bit_count bit_flip bit_get bit_set bit_set? bitwise_and bitwise_and! bitwise_not bitwise_not! bitwise_or bitwise_or! bitwise_xor bitwise_xor! byteindex byterindex bytes bytesize byteslice bytesplice capitalize capitalize! casecmp casecmp? center chars chomp chomp! chop chop! chr clear codepoints concat count crypt dedup delete delete! delete_prefix delete_prefix! delete_suffix delete_suffix! downcase downcase! dump dup each_byte each_char each_codepoint each_grapheme_cluster each_line empty? encode encode! encoding end_with? eql? force_encoding freeze getbyte grapheme_clusters gsub gsub! hash hex include? index insert inspect intern length lines ljust lstrip lstrip! match match? next next! oct ord partition prepend replace reverse reverse! rindex rjust rpartition rstrip rstrip! scan scrub scrub! setbyte size slice slice! split squeeze squeeze! start_with? strip strip! sub sub! succ succ! sum swapcase swapcase! to_c to_f to_i to_r to_s to_str to_sym tr tr! tr_s tr_s! undump unicode_normalize unicode_normalize! unicode_normalized? unpack unpack1 upcase upcase! upto valid_encoding?
 String protected: 
 String private: initialize initialize_copy
 String singleton: new try_convert
@@ -93,7 +93,7 @@ Hash protected:
 Hash private: initialize initialize_copy
 Hash singleton: [] ruby2_keywords_hash ruby2_keywords_hash? try_convert
 Hash constants: 
-Range public: % == === begin bsearch count cover? each end entries eql? exclude_end? first hash include? inspect last max member? min minmax overlap? reverse_each size step to_a to_s to_set
+Range public: % == === begin bsearch clamp count cover? each end entries eql? exclude_end? first hash include? inspect last max member? min minmax overlap? reverse_each size step to_a to_s to_set
 Range protected: 
 Range private: initialize initialize_copy
 Range singleton: 
@@ -113,17 +113,17 @@ Set protected:
 Set private: initialize initialize_copy
 Set singleton: []
 Set constants: CoreSet
-Proc public: << == === >> [] arity binding call clone curry dup eql? hash inspect lambda? parameters ruby2_keywords source_location to_proc to_s yield
+Proc public: << == === >> [] arity binding call clone curry dup eql? hash inspect lambda? parameters refined ruby2_keywords source_location source_range syntax_tree to_proc to_s yield
 Proc protected: 
 Proc private: 
 Proc singleton: new
 Proc constants: 
-Method public: << == === >> [] arity box call clone curry dup eql? hash inspect name original_name owner parameters receiver source_location super_method to_proc to_s unbind
+Method public: << == === >> [] arity box call clone curry dup eql? hash inspect name original_name owner parameters receiver source_location source_range super_method syntax_tree to_proc to_s unbind
 Method protected: 
 Method private: 
 Method singleton: 
 Method constants: 
-UnboundMethod public: == arity bind bind_call clone dup eql? hash inspect name original_name owner parameters source_location super_method to_s
+UnboundMethod public: == arity bind bind_call clone dup eql? hash inspect name original_name owner parameters source_location source_range super_method syntax_tree to_s
 UnboundMethod protected: 
 UnboundMethod private: 
 UnboundMethod singleton: 
@@ -203,10 +203,10 @@ File::Stat protected:
 File::Stat private: initialize initialize_copy
 File::Stat singleton: 
 File::Stat constants: 
-Dir public: chdir children close each each_child fileno inspect path pos pos= read rewind seek tell to_path
+Dir public: chdir children close each each_child fileno inspect path pos pos= read rewind scan seek tell to_path
 Dir protected: 
 Dir private: initialize
-Dir singleton: [] chdir children chroot delete each_child empty? entries exist? fchdir for_fd foreach getwd glob home mkdir open pwd rmdir unlink
+Dir singleton: [] chdir children chroot delete each_child empty? entries exist? fchdir for_fd foreach getwd glob home mkdir open pwd rmdir scan unlink
 Dir constants: 
 Time public: + - <=> asctime ceil ctime day deconstruct_keys dst? eql? floor friday? getgm getlocal getutc gmt? gmt_offset gmtime gmtoff hash hour inspect isdst iso8601 localtime mday min mon monday? month nsec round saturday? sec strftime subsec sunday? thursday? to_a to_f to_i to_r to_s tuesday? tv_nsec tv_sec tv_usec usec utc utc? utc_offset wday wednesday? xmlschema yday year zone
 Time protected: 
@@ -223,7 +223,7 @@ Regexp protected:
 Regexp private: initialize initialize_copy
 Regexp singleton: compile escape last_match linear_time? quote timeout timeout= try_convert union
 Regexp constants: EXTENDED FIXEDENCODING IGNORECASE MULTILINE NOENCODING TimeoutError
-MatchData public: == [] begin bytebegin byteend byteoffset captures deconstruct deconstruct_keys end eql? hash inspect length match match_length named_captures names offset post_match pre_match regexp size string to_a to_s values_at
+MatchData public: == [] begin bytebegin byteend byteoffset captures deconstruct deconstruct_keys end eql? hash inspect integer_at length match match_length named_captures names offset post_match pre_match regexp size string to_a to_s values_at
 MatchData protected: 
 MatchData private: initialize_copy
 MatchData singleton: 
@@ -243,9 +243,9 @@ Enumerator protected:
 Enumerator private: initialize initialize_copy
 Enumerator singleton: produce product
 Enumerator constants: ArithmeticSequence Chain Generator Lazy Producer Product Yielder
-Enumerator::Lazy public: chunk chunk_while collect collect_concat compact drop drop_while eager enum_for filter filter_map find_all flat_map force grep grep_v lazy map reject select slice_after slice_before slice_when take take_while to_enum uniq with_index zip
+Enumerator::Lazy public: chunk chunk_while collect collect_concat compact drop drop_while each_with_index eager enum_for filter filter_map find_all flat_map force grep grep_v lazy map reject select slice_after slice_before slice_when take take_while tap_each to_enum uniq with_index zip
 Enumerator::Lazy protected: 
-Enumerator::Lazy private: _enumerable_collect _enumerable_collect_concat _enumerable_drop _enumerable_drop_while _enumerable_filter _enumerable_filter_map _enumerable_find_all _enumerable_flat_map _enumerable_grep _enumerable_grep_v _enumerable_map _enumerable_reject _enumerable_select _enumerable_take _enumerable_take_while _enumerable_uniq _enumerable_with_index _enumerable_zip initialize
+Enumerator::Lazy private: _enumerable_collect _enumerable_collect_concat _enumerable_drop _enumerable_drop_while _enumerable_each_with_index _enumerable_filter _enumerable_filter_map _enumerable_find_all _enumerable_flat_map _enumerable_grep _enumerable_grep_v _enumerable_map _enumerable_reject _enumerable_select _enumerable_take _enumerable_take_while _enumerable_uniq _enumerable_with_index _enumerable_zip initialize
 Enumerator::Lazy singleton: 
 Enumerator::Lazy constants: 
 Enumerator::Yielder public: << to_proc yield
@@ -277,7 +277,7 @@ Thread public: [] []= abort_on_exception abort_on_exception= add_trace_func aliv
 Thread protected: 
 Thread private: initialize
 Thread singleton: abort_on_exception abort_on_exception= current each_caller_location exit fork handle_interrupt ignore_deadlock ignore_deadlock= kill list main new pass pending_interrupt? report_on_exception report_on_exception= start stop
-Thread constants: Backtrace ConditionVariable Mutex Queue SizedQueue
+Thread constants: Backtrace ConditionVariable Monitor Mutex Queue SizedQueue
 Thread::Mutex public: lock locked? owned? sleep synchronize try_lock unlock
 Thread::Mutex protected: 
 Thread::Mutex private: initialize
@@ -370,8 +370,8 @@ Refinement singleton:
 Refinement constants: 
 ObjectSpace public: 
 ObjectSpace protected: 
-ObjectSpace private: _id2ref count_objects define_finalizer each_object garbage_collect undefine_finalizer
-ObjectSpace singleton: _id2ref count_objects define_finalizer each_object garbage_collect undefine_finalizer
+ObjectSpace private: count_objects define_finalizer each_object garbage_collect undefine_finalizer
+ObjectSpace singleton: count_objects define_finalizer each_object garbage_collect undefine_finalizer
 ObjectSpace constants: WeakKeyMap WeakMap
 FileTest public: 
 FileTest protected: 

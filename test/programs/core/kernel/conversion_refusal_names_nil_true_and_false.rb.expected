@@ -3,7 +3,7 @@ TypeError: no implicit conversion of true into Array
 TypeError: no implicit conversion of false into Array
 TypeError: no implicit conversion of false into Hash
 TypeError: no implicit conversion of nil into String
-TypeError: no implicit conversion from nil to integer
+TypeError: no implicit conversion of nil into Integer
 TypeError: wrong argument type nil (expected Module)
 TypeError: wrong argument type true (expected Module)
 TypeError: no implicit conversion of true into Integer

@@ -21,7 +21,7 @@
 3
 5
 [:fallback]
-[TypeError, "can't convert ToAryOne to Array (ToAryOne#to_ary gives Integer)"]
+[TypeError, "can't convert ToAryOne into Array (ToAryOne#to_ary gives Integer)"]
 []
 [1, 2]
 [TypeError, "no implicit conversion of nil into Array"]
@@ -30,7 +30,7 @@
 [TypeError, "no implicit conversion of nil into Array"]
 [1]
 [ArgumentError, "attempt to drop negative size"]
-[TypeError, "no implicit conversion from nil to integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
 3
 [TypeError, "can't convert Integer into Array"]
 1

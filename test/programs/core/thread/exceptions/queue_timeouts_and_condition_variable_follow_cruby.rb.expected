@@ -1,6 +1,6 @@
-[TypeError, "no implicit conversion to float from true"]
-[TypeError, "no implicit conversion to float from false"]
-[TypeError, "no implicit conversion to float from true"]
+[TypeError, "no implicit conversion of true into Float"]
+[TypeError, "no implicit conversion of false into Float"]
+[TypeError, "no implicit conversion of true into Float"]
 [ThreadError, "queue empty"]
 [ThreadError, "queue empty"]
 nil

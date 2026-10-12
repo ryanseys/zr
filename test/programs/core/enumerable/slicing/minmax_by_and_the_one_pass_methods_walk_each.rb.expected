@@ -8,7 +8,7 @@
 [1, 3]
 3
 ArgumentError
-"comparison of Integer with String failed"
+"comparison of Integer with String failed: comparator returned nil"
 6
 240
 [1, 2]

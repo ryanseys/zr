@@ -1,13 +1,13 @@
-[-0.0, NaN].max: ArgumentError: comparison of Float with -0.0 failed
-[1.0, NaN].max: ArgumentError: comparison of Float with 1.0 failed
-[NaN, 1.0].min: ArgumentError: comparison of Float with NaN failed
-[1, NaN].max: ArgumentError: comparison of Float with 1 failed
-[-0.0, NaN].min: ArgumentError: comparison of Float with -0.0 failed
-[1.0, NaN].minmax: ArgumentError: comparison of Float with NaN failed
+[-0.0, NaN].max: ArgumentError: comparison of Float with -0.0 failed: comparator returned nil
+[1.0, NaN].max: ArgumentError: comparison of Float with 1.0 failed: comparator returned nil
+[NaN, 1.0].min: ArgumentError: comparison of Float with NaN failed: comparator returned nil
+[1, NaN].max: ArgumentError: comparison of Float with 1 failed: comparator returned nil
+[-0.0, NaN].min: ArgumentError: comparison of Float with -0.0 failed: comparator returned nil
+[1.0, NaN].minmax: ArgumentError: comparison of Float with NaN failed: comparator returned nil
 [x, 2, 9].max: 9
 [x, 2, 9].min: 2
-after an Enumerable refinement: ArgumentError: comparison of Float with 1.0 failed
-min, refinement not used: ArgumentError: comparison of Float with NaN failed
-max, refinement not used: ArgumentError: comparison of Float with 1.0 failed
+after an Enumerable refinement: ArgumentError: comparison of Float with 1.0 failed: comparator returned nil
+min, refinement not used: ArgumentError: comparison of Float with NaN failed: comparator returned nil
+max, refinement not used: ArgumentError: comparison of Float with 1.0 failed: comparator returned nil
 min, refinement used: :refined_min
 max, refinement used: 4

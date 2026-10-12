@@ -4,9 +4,9 @@ true
 true
 true
 3
-AE: comparison of VerN with 3 failed
-AE: comparison of VerN with 1 failed
-AE: comparison of VerN with 1 failed
+AE: comparison of VerN with 3 failed: comparator returned nil
+AE: comparison of VerN with 1 failed: comparator returned nil
+AE: comparison of VerN with 1 failed: comparator returned nil
 true
-AE: comparison of HeapV with :sym failed
-AE: comparison of HeapV with nil failed
+AE: comparison of HeapV with :sym failed: comparator returned nil
+AE: comparison of HeapV with nil failed: comparator returned nil

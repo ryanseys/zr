@@ -1,0 +1,4 @@
+core/object/ivars/ivars_on_a_bare_value.rb:11:in 'Kernel#instance_variable_set': can't modify frozen Regexp: /x/ (FrozenError)
+	from core/object/ivars/ivars_on_a_bare_value.rb:11:in 'block in <main>'
+	from core/object/ivars/ivars_on_a_bare_value.rb:10:in 'Array#each'
+	from core/object/ivars/ivars_on_a_bare_value.rb:10:in '<main>'

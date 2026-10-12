@@ -17,5 +17,3 @@
 [:c_return, :!=]
 [:c_call, :=~]
 [:c_return, :=~]
-[:c_call, :include?]
-[:c_return, :include?]

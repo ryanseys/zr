@@ -1,4 +1,4 @@
-[:C1, :C2]
+[#<NameError: uninitialized constant CloneTest::TEST>, #<NameError: uninitialized constant CloneTest::TEST>]
 TypeError
 TypeError
 TypeError

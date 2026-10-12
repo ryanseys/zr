@@ -1,9 +1,9 @@
 "\xF9D"
-[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF-8 in conversion from SJIS-DoCoMo to UTF8-DOCOMO to UTF-8", nil, "\uE6A0", "UTF8-DoCoMo", "UTF-8"]
+[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF-8 in conversion from SJIS-DOCOMO to UTF8-DOCOMO to UTF-8", nil, "\uE6A0", "UTF8-DoCoMo", "UTF-8"]
 ["UTF8-DoCoMo", "\xEE\x9A\xA0"]
-[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF8-KDDI in conversion from SJIS-DoCoMo to UTF8-DOCOMO to UTF8-KDDI", nil, "\uE6A0", "UTF8-DoCoMo", "UTF8-KDDI"]
-[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF-8 in conversion from SJIS-DoCoMo to UTF8-DOCOMO to UTF-8 to EUC-JP", nil, "\uE6A0", "UTF8-DoCoMo", "UTF-8"]
-[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF8-KDDI in conversion from SJIS-DoCoMo to UTF8-DOCOMO to UTF8-KDDI to SJIS-KDDI", nil, "\uE6A0", "UTF8-DoCoMo", "UTF8-KDDI"]
+[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF8-KDDI in conversion from SJIS-DOCOMO to UTF8-DOCOMO to UTF8-KDDI", nil, "\uE6A0", "UTF8-DoCoMo", "UTF8-KDDI"]
+[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF-8 in conversion from SJIS-DOCOMO to UTF8-DOCOMO to UTF-8 to EUC-JP", nil, "\uE6A0", "UTF8-DoCoMo", "UTF-8"]
+[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" to UTF8-KDDI in conversion from SJIS-DOCOMO to UTF8-DOCOMO to UTF8-KDDI to SJIS-KDDI", nil, "\uE6A0", "UTF8-DoCoMo", "UTF8-KDDI"]
 [Encoding::UndefinedConversionError, "U+1F4A9 to UTF8-DoCoMo in conversion from UTF-8 to UTF8-DoCoMo to SJIS-DOCOMO", nil, "💩", "UTF-8", "UTF8-DoCoMo"]
 [Encoding::UndefinedConversionError, "\"\\xC3\\xA9\" to SJIS-DOCOMO in conversion from UTF-8 to UTF8-DoCoMo to SJIS-DOCOMO", nil, "\u00E9", "UTF8-DOCOMO", "SJIS-DOCOMO"]
 [Encoding::UndefinedConversionError, "\"\\xC3\\xA9\" to SJIS-KDDI in conversion from UTF-8 to UTF8-KDDI to SJIS-KDDI", nil, "\u00E9", "UTF8-KDDI", "SJIS-KDDI"]

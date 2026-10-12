@@ -8,8 +8,8 @@ nil
 -1
 true
 nil
-[TypeError, "can't convert Wrap to String (Wrap#to_str gives Integer)"]
-[TypeError, "can't convert Wrap to String (Wrap#to_str gives Integer)"]
+[TypeError, "can't convert Wrap into String (Wrap#to_str gives Integer)"]
+[TypeError, "can't convert Wrap into String (Wrap#to_str gives Integer)"]
 "fine"
 [FrozenError, "can't modify frozen String: \"AB\""]
 [FrozenError, "can't modify frozen String: \"AB\""]

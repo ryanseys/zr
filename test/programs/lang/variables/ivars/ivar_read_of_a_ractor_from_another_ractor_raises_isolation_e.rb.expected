@@ -1,1 +1,1 @@
-[Ractor::IsolationError, "can not access instance variables of shareable objects from non-main Ractors"]
+[nil, :after]

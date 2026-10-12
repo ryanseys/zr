@@ -1,0 +1,2 @@
+core/marshal/marshal_names_classes_freezes_and_calls_the_proc_as_ruby_does.rb:41:in 'Kernel#instance_variable_set': can't modify frozen Regexp: /x/ (FrozenError)
+	from core/marshal/marshal_names_classes_freezes_and_calls_the_proc_as_ruby_does.rb:41:in '<main>'

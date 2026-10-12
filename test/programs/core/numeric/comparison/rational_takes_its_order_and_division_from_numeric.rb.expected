@@ -10,7 +10,7 @@ false
 3
 (5/3)
 [-1, (1/3)]
-#<ArgumentError: comparison of Rational with String failed>
+#<ArgumentError: comparison of Rational with String failed: comparator returned nil>
 #<ZeroDivisionError: divided by 0>
 #<ZeroDivisionError: divided by 0>
 [:*, :**, :+, :-, :-@, :/, :<=>, :==, :abs, :ceil, :coerce, :denominator, :fdiv, :floor, :hash, :inspect, :magnitude, :negative?, :numerator, :positive?, :quo, :rationalize, :round, :to_f, :to_i, :to_r, :to_s, :truncate]

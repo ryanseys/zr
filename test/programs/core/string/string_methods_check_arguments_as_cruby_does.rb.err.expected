@@ -1,0 +1,1 @@
+core/string/string_methods_check_arguments_as_cruby_does.rb:35:in '<main>': can't modify frozen Regexp: /foo/ (FrozenError)

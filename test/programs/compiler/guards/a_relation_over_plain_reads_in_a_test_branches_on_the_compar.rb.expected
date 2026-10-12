@@ -13,7 +13,7 @@
 [:no, :no, nil, nil, :ne, :ne]
 [:lt, :le, nil, nil, :ne, :ne]
 [:no, :le, nil, :ge, :eq, :eq]
-"comparison of Integer with nil failed"
+"comparison of Integer with nil failed: coercion was not possible"
 [0, 1, 2, 3, 4]
 -1
 :seven

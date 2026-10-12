@@ -1,0 +1,5 @@
+stdlib/objspace/objspace_introspection.rb:38:in '<main>': undefined method 'count_nodes' for module ObjectSpace (NoMethodError)
+
+p [ObjectSpace.count_nodes, ObjectSpace.count_tdata_objects].map(&:class)
+              ^^^^^^^^^^^^
+Did you mean?  count_objects

@@ -6,7 +6,7 @@
 55
 500000000
 TypeError: can't convert String into an exact number
-TypeError: can't convert NilClass into an exact number
+TypeError: can't convert nil into an exact number
 TypeError: can't convert Symbol into an exact number
 "2000-01-01 20:15:01 UTC"
 "1999-12-25 12:00:30 UTC"

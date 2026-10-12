@@ -37,5 +37,5 @@ nil
 [JSON::GeneratorError, "NaN not allowed in JSON"]
 "NaN"
 ["NaN", "Infinity", "-Infinity"]
-[JSON::NestingError, "nesting of 1 is too deep. Did you try to serialize objects with circular references?"]
+[JSON::NestingError, "nesting of 2 is too deep. Did you try to serialize objects with circular references?"]
 [JSON::NestingError, "nesting of 2 is too deep"]

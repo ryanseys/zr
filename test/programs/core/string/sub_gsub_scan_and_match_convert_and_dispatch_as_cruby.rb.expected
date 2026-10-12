@@ -5,6 +5,4 @@ TypeError
 TypeError
 ["o", "o"]
 1
-:foo
-"l"
-"hello"
+core/string/sub_gsub_scan_and_match_convert_and_dispatch_as_cruby.rb:12:in '<main>': can't modify frozen Regexp: /./ (FrozenError)

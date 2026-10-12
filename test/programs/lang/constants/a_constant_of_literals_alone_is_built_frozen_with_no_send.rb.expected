@@ -3,31 +3,3 @@ true
 true
 [1, :a, nil, true, 2.5, -3]
 true
-5
-true
-true
-true
-true
-true
-true
-true
-true
-true
-true
-{1 => :one, two: 2, nil => false}
-true
-true
-[]
-[4611686018427387904, 1180591620717411303424]
-true
-true
-"a".."c"
-true
-true
-[1, :a, nil, true, 2.5, false, 7]
-[1, :a, nil, true, 2.5, false]
-false
-{1 => :a, b: 2, nil => nil, true => false, c: 3}
-{1 => :a, b: 2, nil => nil, true => false}
-{}
-false

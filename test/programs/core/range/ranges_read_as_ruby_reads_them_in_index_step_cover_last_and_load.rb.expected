@@ -14,5 +14,5 @@ load: [false, nil]
 endless cover: [false, true, true]
 beginless step to_a to_i: TypeError: nil can't be coerced into Integer
 beginless step to_a to_r: TypeError: nil can't be coerced into Rational
-beginless step to_a to_f: TypeError: no implicit conversion to float from nil
+beginless step to_a to_f: TypeError: no implicit conversion of nil into Float
 last with each: [[8, 9, 10], 1]

@@ -15,7 +15,7 @@ UnboundMethod: true
 make_shareable freezes the Method: true
 the receiver stays unfrozen: [false, false]
 a frozen Method: true
-shareable? of a frozen Method: false
+shareable? of a frozen Method: true
 shareable? of an unfrozen Method: false
 shareable? of a Method with an unshareable receiver: false
 singleton to_s: Ractor::Error: can not make shareable object for #<Method: String#to_s()> because it refers unshareable objects
@@ -33,11 +33,11 @@ Binding refuses: Ractor::Error: can not make shareable object for #<Binding:0xX>
 Random: Ractor::Error: can not make shareable object for #<Random:0xX>
 WeakMap: Ractor::Error: can not make shareable object for #<ObjectSpace::WeakMap:0xX>
 TracePoint: Ractor::Error: can not make shareable object for #<TracePoint:disabled>
-IO::Buffer: Ractor::Error: can not make shareable object for #<IO::Buffer 0xX+4 INTERNAL>
+IO::Buffer: Ractor::Error: can not make shareable object for #<IO::Buffer::Storage 0xX+4 INTERNAL>
 Dir: Ractor::Error: can not make shareable object for #<Dir:.>
 Encoding::Converter: Ractor::Error: can not make shareable object for #<Encoding::Converter: UTF-8 to EUC-JP>
 Time: true
-IO: true
+IO: Ractor::Error: can not make shareable object for #<IO:fd 7>
 Set: true
 Port: true
 Regexp: true

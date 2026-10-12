@@ -1,4 +1,4 @@
-false
+true
 "constant"
 true
 undefined method 'nope' for nil (NoMethodError)

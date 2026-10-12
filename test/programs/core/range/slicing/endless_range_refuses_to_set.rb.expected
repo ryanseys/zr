@@ -3,4 +3,4 @@ Set[1, 2]
 Set["a", "b", "c"]
 #<RangeError: cannot convert endless range to a set>
 Range
--1
+0

@@ -1,0 +1,2 @@
+stdlib/json/json_3_0_2_refuses_create_additions_and_the_json_add_files_t.rb:9:in 'Kernel#require': cannot load such file -- json/add/core (LoadError)
+	from stdlib/json/json_3_0_2_refuses_create_additions_and_the_json_add_files_t.rb:9:in '<main>'

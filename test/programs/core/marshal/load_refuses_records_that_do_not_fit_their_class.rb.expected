@@ -5,7 +5,7 @@ false
 fewer members: TypeError: struct Pair not compatible (struct size differs)
 other member: TypeError: struct Pair not compatible (:bar for :baz)
 not a struct: TypeError: class Pair not a struct
-range as struct: TypeError: struct Range not compatible (:a for :begin)
+range as struct: TypeError: struct Range not compatible (struct size differs)
 no _load: TypeError: class Dumped needs to have method '_load'
 no marshal_load: TypeError: instance of Kept needs to have method 'marshal_load'
 complex 0: ArgumentError: marshaled complex must have an array whose length is 2 but 0

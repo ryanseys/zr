@@ -1,4 +1,4 @@
-#<ArgumentError: comparison of Object with 1 failed>
-#<ArgumentError: comparison of Object with 1 failed>
+#<ArgumentError: comparison of Object with 1 failed: comparator returned nil>
+#<ArgumentError: comparison of Object with 1 failed: comparator returned nil>
 []
 []

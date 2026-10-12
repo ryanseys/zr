@@ -1,0 +1,1 @@
+core/enumerable/values_that_each_yields_together_spread_into_a_lambda.rb:28:in '<main>': can't modify frozen Regexp: /x/ (FrozenError)

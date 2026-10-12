@@ -1,7 +1,7 @@
 lang/methods/a_redefined_builtin_warns_as_ruby_s_table_of_its_core_says.rb:5: warning: method redefined; discarding old tap
-<internal:kernel>:89: warning: previous definition of tap was here
+<internal:kernel>:79: warning: previous definition of tap was here
 lang/methods/a_redefined_builtin_warns_as_ruby_s_table_of_its_core_says.rb:5: warning: method redefined; discarding old frozen?
-<internal:kernel>:67: warning: previous definition of frozen? was here
+<internal:kernel>:57: warning: previous definition of frozen? was here
 lang/methods/a_redefined_builtin_warns_as_ruby_s_table_of_its_core_says.rb:6: warning: method redefined; discarding old times
 <internal:numeric>:255: warning: previous definition of times was here
 lang/methods/a_redefined_builtin_warns_as_ruby_s_table_of_its_core_says.rb:6: warning: method redefined; discarding old zero?

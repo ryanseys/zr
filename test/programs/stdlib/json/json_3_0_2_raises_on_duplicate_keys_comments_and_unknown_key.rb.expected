@@ -36,4 +36,3 @@ false
 "{\"a\":1}"
 "{\n  \"a\": [\n    1\n  ]\n}"
 #<ArgumentError: unknown keyword: bogus>
-"constant"

@@ -37,8 +37,8 @@ incompatible encoding regexp match (UTF-8 regexp with ISO-8859-1 string)
 [195, 169]
 [233]
 U+017C from UTF-8 to ISO-8859-1
-"\x81" to UTF-8 in conversion from Windows-1252 to UTF-8
-"\x81" to UTF-8 in conversion from Windows-1252 to UTF-8 to KOI8-R
+"\x81" from WINDOWS-1252 to UTF-8
+"\x81" to UTF-8 in conversion from WINDOWS-1252 to UTF-8 to KOI8-R
 U+00E9 from UTF-8 to US-ASCII
 "?"
 "!"

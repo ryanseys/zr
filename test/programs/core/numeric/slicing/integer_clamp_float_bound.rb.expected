@@ -10,7 +10,7 @@ Float
 Integer
 Integer
 ArgumentError: min argument must be less than or equal to max argument
-ArgumentError: comparison of Float with 2.0 failed
-ArgumentError: comparison of Float with NaN failed
-ArgumentError: comparison of Integer with NaN failed
-ArgumentError: comparison of Float with 2 failed
+ArgumentError: comparison of Float with 2.0 failed: comparator returned nil
+ArgumentError: comparison of Float with NaN failed: comparator returned nil
+ArgumentError: comparison of Integer with NaN failed: comparator returned nil
+ArgumentError: comparison of Float with 2 failed: comparator returned nil

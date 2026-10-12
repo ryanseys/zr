@@ -5,5 +5,5 @@
 [2, 4, 6]
 [20, 40]
 true
-TypeError: can't convert BadProc to Proc (BadProc#to_proc gives Symbol)
+TypeError: can't convert BadProc into Proc (BadProc#to_proc gives Symbol)
 TypeError: no implicit conversion of NoProc into Proc

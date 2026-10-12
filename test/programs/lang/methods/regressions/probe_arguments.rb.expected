@@ -43,7 +43,7 @@ curry(bad)	TypeError: no implicit conversion of Symbol into Integer
 bsearch(String)	TypeError: wrong argument type String (must be numeric, true, false or nil)
 bsearch(Float)	ok "2"
 bsearch(nil)	ok "nil"
-bsearch(NaN)	ArgumentError: comparison of Float with 0 failed
+bsearch(NaN)	ArgumentError: comparison of Float with 0 failed: comparator returned nil
 Array#fill(bad)	TypeError: no implicit conversion of Symbol into Integer
 Array#first(-1)	ArgumentError: negative array size
 Array#take(-1)	ArgumentError: attempt to take negative size

@@ -6,7 +6,7 @@
 #<TypeError: true can't be coerced into BigDecimal>
 #<TypeError: :s can't be coerced into BigDecimal>
 #<TypeError: String can't be coerced into BigDecimal>
-#<ArgumentError: comparison of BigDecimal with String failed>
+#<ArgumentError: comparison of BigDecimal with String failed: coercion was not possible>
 false
 false
 true

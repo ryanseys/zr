@@ -19,10 +19,10 @@ RangeError: float 1.844674407e+19 out of range of unsigned long long
 RangeError: float 9.223372037e+18 out of range of integer
 RangeError: float NaN out of range of long long
 TypeError: no implicit conversion of nil into Integer
-TypeError: no implicit conversion from nil to integer
-TypeError: no implicit conversion from nil
-TypeError: no implicit conversion from boolean
-TypeError: no implicit conversion from string
+TypeError: no implicit conversion of nil into Integer
+TypeError: no implicit conversion of nil into Integer
+TypeError: no implicit conversion of true into Integer
+TypeError: no implicit conversion of String into Integer
 TypeError: no implicit conversion of String into Integer
 RangeError: bignum too big to convert into 'unsigned long'
 RangeError: integer 4294967296 too big to convert to 'unsigned int'

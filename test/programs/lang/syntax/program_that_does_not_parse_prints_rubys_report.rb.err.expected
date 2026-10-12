@@ -1,6 +1,6 @@
 lang/syntax/program_that_does_not_parse_prints_rubys_report.rb: --> lang/syntax/program_that_does_not_parse_prints_rubys_report.rb
 
-Unmatched keyword, missing `end' ?
+invalid method name; a setter method cannot be defined in an endless method definition
 
 > 3  puts "never printed"
 > 4  class O; def s=(v) = @s = v; end

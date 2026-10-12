@@ -50,8 +50,8 @@ true
 9
 #<struct S :verbose?=true, name="x">
 [[:verbose?, true], [:name, "x"]]
-#<struct >
-#<data >
+#<struct>
+#<data>
 #<struct Struct::Tms2 a=1>
 K(keyword_init: true)
 "K(keyword_init: true)"
@@ -87,8 +87,8 @@ true
 "#<Enumerator::Lazy:ADDR>"
 10
 10
-"comparison of Float with NaN failed"
-"comparison of String with 1 failed"
+"comparison of Float with NaN failed: comparator returned nil"
+"comparison of String with 1 failed: comparator returned nil"
 {"a" => 1, "k" => 7}
 [1, 2]
 [1, 2]

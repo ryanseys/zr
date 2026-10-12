@@ -5,6 +5,6 @@ ArgumentError: unknown keywords: :k, :j
 NameError: wrong constant name Nope::
 NameError: wrong constant name String::Nope::
 NameError: uninitialized constant Nope
-["<internal:kernel>", 161]
+["<internal:kernel>", 151]
 "#<Method: Integer#times() <internal:numeric>:255>"
-"#<Method: Kernel.Integer(arg, base=..., exception: ...) <internal:kernel>:287>"
+"#<Method: Kernel.Integer(arg, base=..., exception: ...) <internal:kernel>:277>"

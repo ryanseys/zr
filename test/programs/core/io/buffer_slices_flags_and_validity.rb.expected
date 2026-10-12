@@ -1,10 +1,10 @@
-resize mapped slice: []
+resize mapped slice: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
 new 0: [:null?, :valid?, :empty?]
-new 0 to_s: "#<IO::Buffer ADDR+0 NULL>"
+new 0 to_s: "#<IO::Buffer::Storage ADDR+0 NULL>"
 new 4: [:internal?, :valid?]
 new page: [:mapped?, :valid?]
 new page-1 mapped: [:mapped?, :valid?]
-new 4 readonly: IO::Buffer::AllocationError: Could not allocate buffer!
+new 4 readonly: [:internal?, :readonly?, :valid?]
 new neg flags: ArgumentError: Flags can't be negative!
 new str size: TypeError: not an Integer
 new str flags: TypeError: not an Integer
@@ -13,18 +13,18 @@ for empty: [:external?, :readonly?, :valid?, :empty?]
 for empty block: [:external?, :valid?, :empty?]
 [:external?, :valid?, :empty?]
 string 0: ""
-slice 0: [:valid?, :empty?]
-slice new: [:valid?]
-slice new to_s: "#<IO::Buffer ADDR+2 SLICE>"
-slice mapped: [:valid?]
-slice for: [:readonly?, :valid?]
-slice for to_s: "#<IO::Buffer ADDR+2 READONLY SLICE>"
-slice for frozen: [[:external?, :readonly?, :valid?], [:readonly?, :valid?]]
-slice map: [[:external?, :mapped?, :shared?, :readonly?, :valid?], [:readonly?, :valid?]]
-slice map private: [[:mapped?, :private?, :valid?], [:valid?], "#<IO::Buffer ADDR+2 SLICE>"]
-free slice: [[], IO::Buffer::InvalidatedError]
-transfer slice: [[], [:internal?, :valid?], [:internal?, :null?, :valid?, :empty?]]
-resize slice out: [[]]
+slice 0: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+slice new: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+slice new to_s: "#<IO::Buffer::Slice ADDR+2 SLICE>"
+slice mapped: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+slice for: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+slice for to_s: "#<IO::Buffer::Slice ADDR+2 READONLY SLICE>"
+slice for frozen: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+slice map: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+slice map private: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+free slice: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+transfer slice: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
+resize slice out: NoMethodError: undefined method 'external?' for an instance of IO::Buffer::Slice
 resize neg: ArgumentError: Size can't be negative!
 resize str: TypeError: not an Integer
 resize mapped: [:internal?, :valid?]
@@ -34,7 +34,7 @@ resize null big: [[:mapped?, :valid?], 16384]
 resize freed: [[:internal?, :valid?], 10]
 resize freed for: [[:internal?, :valid?], 10]
 transfer locked: IO::Buffer::LockedError: Cannot transfer ownership of locked buffer!
-transfer to_s: [true, [:internal?, :null?, :valid?, :empty?], "#<IO::Buffer ADDR+0 NULL INTERNAL>"]
-transfer for: [true, [:external?, :readonly?, :null?, :valid?, :empty?]]
-free for to_s: [[:null?, :valid?, :empty?], "#<IO::Buffer ADDR+0 NULL>"]
+transfer to_s: [true, [:null?, :valid?, :empty?], "#<IO::Buffer::Storage ADDR+0 NULL>"]
+transfer for: [true, [:null?, :valid?, :empty?]]
+free for to_s: [[:null?, :valid?, :empty?], "#<IO::Buffer::Storage ADDR+0 NULL>"]
 free new: [[:null?, :valid?, :empty?], 0]

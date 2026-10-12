@@ -6,7 +6,7 @@ stat_heap: Hash
 config: Hash
 OPTS: Array
 INTERNAL_CONSTANTS: Hash
-latest_gc_info keys: [:gc_by, :have_finalizer, :immediate_sweep, :major_by, :need_major_by, :retained_weak_references_count, :state, :weak_references_count]
+latest_gc_info keys: [:gc_by, :have_finalizer, :immediate_sweep, :major_by, :need_major_by, :state, :weak_references_count]
 latest_compact_info: {considered: {}, moved: {}, moved_up: {}, moved_down: {}}
 verify_compaction_references: Hash
 verify_internal_consistency: nil

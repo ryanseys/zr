@@ -1,20 +1,20 @@
-true
-nil
--2.0000000006853225
-1
-#<RangeError: 800016 is not an id value>
-#<RangeError: 18446744073709551616 is not an id value>
-#<RangeError: bignum out of range of unsigned long>
-#<RangeError: 1099511627776 is not an id value>
--1
-1.5
 false
-NilClass
-2.0
--2.0055511151231253
-RangeError
-nil
-1
-:a
-"x"
-Object
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+NoMethodError
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>
+#<NoMethodError: undefined method '_id2ref' for module ObjectSpace>

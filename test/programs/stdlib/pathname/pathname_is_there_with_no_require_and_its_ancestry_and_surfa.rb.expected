@@ -1,7 +1,7 @@
 ancestors: [Pathname, Object, Kernel, BasicObject]
 own singleton: [:getwd, :glob, :mktmpdir, :pwd]
 own instance count: 98
-constants: [:SEPARATOR_PAT, :VERSION]
+constants: [:VERSION]
 VERSION: true
-SEPARATOR_PAT: /\//
+SEPARATOR_PAT: NameError: uninitialized constant Pathname::SEPARATOR_PAT
 Kernel#Pathname is private: true

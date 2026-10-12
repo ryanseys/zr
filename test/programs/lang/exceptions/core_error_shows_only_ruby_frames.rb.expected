@@ -19,8 +19,8 @@ core_error_shows_only_ruby_frames.rb:14:block in <main>
 core_error_shows_only_ruby_frames.rb:7:Object#show
 core_error_shows_only_ruby_frames.rb:14:<main>
 JSON::ParserError: expected object key, got EOF at line 1 column 2
-common.rb:302:JSON::Ext::Parser.parse
-common.rb:302:JSON.parse
+common.rb:294:JSON::Ext::Parser.parse
+common.rb:294:JSON.parse
 core_error_shows_only_ruby_frames.rb:15:block in <main>
 core_error_shows_only_ruby_frames.rb:7:Object#show
 core_error_shows_only_ruby_frames.rb:15:<main>
@@ -34,7 +34,7 @@ core_error_shows_only_ruby_frames.rb:17:Array#fetch
 core_error_shows_only_ruby_frames.rb:17:block in <main>
 core_error_shows_only_ruby_frames.rb:7:Object#show
 core_error_shows_only_ruby_frames.rb:17:<main>
-ArgumentError: comparison of Integer with String failed
+ArgumentError: comparison of Integer with String failed: comparator returned nil
 core_error_shows_only_ruby_frames.rb:18:Array#sort
 core_error_shows_only_ruby_frames.rb:18:block in <main>
 core_error_shows_only_ruby_frames.rb:7:Object#show

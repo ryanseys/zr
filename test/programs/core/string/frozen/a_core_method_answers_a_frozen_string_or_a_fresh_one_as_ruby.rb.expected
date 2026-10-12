@@ -13,7 +13,7 @@ Float::NAN.inspect: false
 Rational(1, 2).to_s: false
 Complex(1, 2).to_s: false
 Complex(1, 2).inspect: false
-:a.to_s: false
+:a.to_s: true
 :a.name: true
 :a.inspect: false
 [1].inspect: false
@@ -80,8 +80,8 @@ Integer.sqrt(4).to_s: false
 Random.new(1).bytes(0): false
 'é'.unicode_normalize: false
 'a'.encode('UTF-16LE'): false
-GC.stat.keys.first.to_s: false
-ObjectSpace.count_objects.keys.first.to_s: false
+GC.stat.keys.first.to_s: true
+ObjectSpace.count_objects.keys.first.to_s: true
 __method__.to_s: true
 Set[1].inspect: false
 Set[].to_s: false

@@ -15,6 +15,6 @@ match("zz"): IndexError: undefined group name reference: zz
 match_length("zz"): IndexError: undefined group name reference: zz
 match(1.9): nil
 match_length(1.9): nil
-match(nil): TypeError: no implicit conversion from nil to integer
-match_length(nil): TypeError: no implicit conversion from nil to integer
+match(nil): TypeError: no implicit conversion of nil into Integer
+match_length(nil): TypeError: no implicit conversion of nil into Integer
 multibyte: ["😀", #<Encoding:UTF-8>, 1]

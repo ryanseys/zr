@@ -26,7 +26,7 @@
 [FrozenError, "ASCII-8BIT"]
 [NoMethodError, "US-ASCII"]
 [TypeError, "US-ASCII"]
-[TypeError, "ASCII-8BIT"]
+[TypeError, "UTF-8"]
 [ArgumentError, "ASCII-8BIT"]
 [NameError, "US-ASCII"]
 [NameError, "US-ASCII"]

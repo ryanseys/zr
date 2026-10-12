@@ -110,8 +110,8 @@ true
 #<FloatDomainError: -Infinity>
 #<TypeError: String can't be coerced into Float>
 #<TypeError: nil can't be coerced into Float>
-#<ArgumentError: comparison of Float with String failed>
-#<ArgumentError: comparison of Float with nil failed>
+#<ArgumentError: comparison of Float with String failed: coercion was not possible>
+#<ArgumentError: comparison of Float with nil failed: coercion was not possible>
 #<TypeError: String can't be coerced into Integer>
 10.0
 -3.0

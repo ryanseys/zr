@@ -12,7 +12,7 @@ core/process/exits.rb:7:in 'Kernel#exit'
 core/process/exits.rb:7:in 'Object#m'
 core/process/exits.rb:8:in '<main>'
 #<TypeError: no implicit conversion of String into Integer>
-#<TypeError: no implicit conversion from nil to integer>
+#<TypeError: no implicit conversion of nil into Integer>
 no implicit conversion of nil into String
 core/process/exits.rb:11:in 'Kernel#abort'
 core/process/exits.rb:11:in '<main>'

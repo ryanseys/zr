@@ -1,4 +1,4 @@
 Enumerator
-"comparison of String with 0 failed"
+"comparison of String with 0 failed: comparator returned nil"
 Enumerator
-"comparison of String with 0 failed"
+"comparison of String with 0 failed: comparator returned nil"

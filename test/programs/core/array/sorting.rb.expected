@@ -15,10 +15,10 @@ true
 [[3, 2], [3, 1], [2, 7], [2, 6], [1, 0], [1, 3], [1, 5], [0, 4]]
 [1, 2, 3]
 [1, 2, 3]
-#<ArgumentError: comparison of Integer with String failed>
-#<ArgumentError: comparison of Integer with nil failed>
+#<ArgumentError: comparison of Integer with String failed: comparator returned nil>
+#<ArgumentError: comparison of Integer with nil failed: comparator returned nil>
 #<RuntimeError: boom 1 2>
-#<ArgumentError: comparison of Integer with 2 failed>
+#<ArgumentError: comparison of Integer with 2 failed: comparator returned nil>
 #<RuntimeError: no>
 [3, 1, 2]
 [Rev(3), Rev(2), Rev(1)]
@@ -58,5 +58,5 @@ nil
 [[:a, 1], [:b, 2]]
 [[:a, 1], [:b, 2]]
 [5, 4, 3, 2, 1]
-#<ArgumentError: comparison of Integer with String failed>
+#<ArgumentError: comparison of Integer with String failed: comparator returned nil>
 #<RuntimeError: in key>

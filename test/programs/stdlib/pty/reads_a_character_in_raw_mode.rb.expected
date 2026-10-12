@@ -9,10 +9,10 @@ true
 ["boom", true]
 "pw"
 true
-IO::ConsoleMode
+IO::Console::Mode
 false
-IO::ConsoleMode
-IO::ConsoleMode
+IO::Console::Mode
+IO::Console::Mode
 [24, 80]
 [24, 80]
 true

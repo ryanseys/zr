@@ -1,9 +1,9 @@
 ArgumentError
-"comparison of Bad with Bad failed"
+"comparison of Bad with Bad failed: comparator returned nil"
 ArgumentError
-"comparison of Bad with Bad failed"
+"comparison of Bad with Bad failed: comparator returned nil"
 ArgumentError
-"comparison of Bad with Bad failed"
+"comparison of Bad with Bad failed: comparator returned nil"
 ArgumentError
-"comparison of Bad with Bad failed"
+"comparison of Bad with Bad failed: comparator returned nil"
 false

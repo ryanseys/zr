@@ -1,1 +1,3 @@
-core/env/an_ivar_of_env_belongs_to_the_main_ractor.rb:5: warning: Ractor API is experimental and may change in future versions of Ruby.
+core/env/an_ivar_of_env_belongs_to_the_main_ractor.rb:3:in 'block in <main>': can't modify instance variables of a shareable Object (Ractor::IsolationError)
+	from core/env/an_ivar_of_env_belongs_to_the_main_ractor.rb:3:in 'BasicObject#instance_eval'
+	from core/env/an_ivar_of_env_belongs_to_the_main_ractor.rb:3:in '<main>'

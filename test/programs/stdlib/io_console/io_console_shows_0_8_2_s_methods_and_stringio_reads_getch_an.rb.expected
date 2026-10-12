@@ -1,7 +1,7 @@
-[false, false, false, false]
-[:echo=, :raw, :raw!]
+[true, true, true, false]
+[:echo, :echo=, :echo?, :min, :min=, :raw, :raw!, :time, :time=]
 [:initialize_copy]
-#<NoMethodError: undefined method 'initialize' for an instance of IO::ConsoleMode>
+#<NoMethodError: undefined method 'initialize' for an instance of IO::Console::Mode>
 false
 [:inherited, :initialize]
 [StringIO, IO::generic_writable, IO::generic_readable]

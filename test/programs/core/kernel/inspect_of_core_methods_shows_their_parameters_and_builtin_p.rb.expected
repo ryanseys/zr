@@ -2,10 +2,10 @@
 #<Method: Array#push(*)>
 #<Method: Array(Enumerable)#each_slice(_)>
 #<Method: Object(Kernel)#puts(*)>
-#<Method: Kernel.Integer(arg, base=..., exception: ...) <internal:kernel>:287>
+#<Method: Kernel.Integer(arg, base=..., exception: ...) <internal:kernel>:277>
 #<Method: Integer#times() <internal:numeric>:255>
 #<Method: String#gsub(*)>
 #<Method: Hash#fetch(*)>
 #<UnboundMethod: Array#first(n=...) <internal:array>:129>
 #<UnboundMethod: Comparable#clamp(*)>
-#<UnboundMethod: Kernel#then() <internal:kernel>:121>
+#<UnboundMethod: Kernel#then() <internal:kernel>:111>

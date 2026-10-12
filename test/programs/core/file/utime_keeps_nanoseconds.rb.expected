@@ -5,4 +5,4 @@
 123456789
 500000000
 true
-"can't convert NilClass into time"
+"can't convert nil into time"

@@ -16,7 +16,7 @@ singleton holding a class: [TypeError, TypeError]
 regexp escapes of 1.8: /au3042/
 regexp kept escape: /\\u/
 regexp lone u: /u/
-regexp encoded u: /u/
+regexp encoded u: FrozenError: can't modify frozen Regexp: /u/
 regexp utf-8 escape: /a\u3042/
 no method error parts: [:no_such_method_here, [1], false]
 key error parts: [1, 2]

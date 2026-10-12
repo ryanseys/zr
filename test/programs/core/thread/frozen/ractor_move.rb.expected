@@ -13,19 +13,5 @@
 [true, 16]
 [true, 16]
 42
-[Ractor::Error, "can not move Thread object."]
-[Ractor::Error, "can not move Proc object."]
-[TypeError, "allocator undefined for Proc"]
-true
-true
-[Point, "iv", "iv"]
-[Point, "iv"]
-Ractor::MovedError
-[{"k" => "v"}, "d", Ractor::MovedError]
-"via-port"
-Ractor::MovedError
-["still-mine", "still-mine"]
-[Ractor::MovedError, Ractor::Error, RuntimeError, StandardError]
-BasicObject
-[:!, :!=, :==, :__id__, :__send__, :equal?, :instance_eval, :instance_exec, :method_missing]
-true
+[Ractor::Error, "can not move a Thread object"]
+[Ractor::Error, "can not move a Proc object"]

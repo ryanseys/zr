@@ -4,7 +4,7 @@ permutation('x').size: TypeError: no implicit conversion of String into Integer
 permutation(2**64).size: RangeError: bignum too big to convert into 'long'
 permutation('x').to_a: TypeError: no implicit conversion of String into Integer
 permutation(nil): #<Enumerator: [1, 2]:permutation(nil)>
-permutation(nil).size: TypeError: no implicit conversion from nil to integer
+permutation(nil).size: TypeError: no implicit conversion of nil into Integer
 permutation(nil) {}: [[1, 2], [2, 1]]
 permutation(1, 2): #<Enumerator: [1]:permutation(1, 2)>
 permutation(1, 2, 3): #<Enumerator: [1, 2]:permutation(1, 2, 3)>

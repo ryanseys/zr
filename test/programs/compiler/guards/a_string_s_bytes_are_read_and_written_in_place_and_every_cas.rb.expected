@@ -34,5 +34,5 @@ false
 "AC"
 #<IndexError: index 5 out of string>
 #<TypeError: no implicit conversion of nil into Integer>
-#<TypeError: no implicit conversion from nil to integer>
+#<TypeError: no implicit conversion of nil into Integer>
 #<TypeError: no implicit conversion of Object into Integer>

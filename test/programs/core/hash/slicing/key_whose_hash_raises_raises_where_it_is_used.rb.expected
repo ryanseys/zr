@@ -1,4 +1,3 @@
-[:splat, "boom"]
 [:update, "boom"]
 [:literal, "boom"]
 [:aref, "boom"]

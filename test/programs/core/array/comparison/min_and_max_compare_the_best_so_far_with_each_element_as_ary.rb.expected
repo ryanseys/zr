@@ -1,6 +1,6 @@
-comparison of Integer with nil failed
-comparison of Integer with nil failed
-comparison of Integer with String failed
-comparison of Float with nil failed
-comparison of Integer with nil failed
-comparison of String with 1 failed
+comparison of Integer with nil failed: comparator returned nil
+comparison of Integer with nil failed: comparator returned nil
+comparison of Integer with String failed: comparator returned nil
+comparison of Float with nil failed: comparator returned nil
+comparison of Integer with nil failed: comparator returned nil
+comparison of String with 1 failed: comparator returned nil

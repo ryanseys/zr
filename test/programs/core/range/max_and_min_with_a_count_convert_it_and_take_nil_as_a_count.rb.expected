@@ -1,5 +1,5 @@
-(1..4).max(nil): TypeError: no implicit conversion from nil to integer
-(1..4).min(nil): TypeError: no implicit conversion from nil to integer
+(1..4).max(nil): TypeError: no implicit conversion of nil into Integer
+(1..4).min(nil): TypeError: no implicit conversion of nil into Integer
 (1..4).max([]): TypeError: no implicit conversion of Array into Integer
 (1..4).min([]): TypeError: no implicit conversion of Array into Integer
 (1..4).max("2"): TypeError: no implicit conversion of String into Integer
@@ -18,8 +18,8 @@
 (1..4).min(10): [1, 2, 3, 4]
 (1..4).max: 4
 (1..4).min: 1
-(-1...4).max(nil): TypeError: no implicit conversion from nil to integer
-(-1...4).min(nil): TypeError: no implicit conversion from nil to integer
+(-1...4).max(nil): TypeError: no implicit conversion of nil into Integer
+(-1...4).min(nil): TypeError: no implicit conversion of nil into Integer
 (-1...4).max([]): TypeError: no implicit conversion of Array into Integer
 (-1...4).min([]): TypeError: no implicit conversion of Array into Integer
 (-1...4).max("2"): TypeError: no implicit conversion of String into Integer
@@ -38,7 +38,7 @@
 (-1...4).min(10): [-1, 0, 1, 2, 3]
 (-1...4).max: 3
 (-1...4).min: -1
-(..4).max(nil): TypeError: no implicit conversion from nil to integer
+(..4).max(nil): TypeError: no implicit conversion of nil into Integer
 (..4).min(nil): RangeError: cannot get the minimum of beginless range
 (..4).max([]): TypeError: no implicit conversion of Array into Integer
 (..4).min([]): RangeError: cannot get the minimum of beginless range
@@ -58,8 +58,8 @@
 (..4).min(10): RangeError: cannot get the minimum of beginless range
 (..4).max: 4
 (..4).min: RangeError: cannot get the minimum of beginless range
-('a'..'e').max(nil): TypeError: no implicit conversion from nil to integer
-('a'..'e').min(nil): TypeError: no implicit conversion from nil to integer
+('a'..'e').max(nil): TypeError: no implicit conversion of nil into Integer
+('a'..'e').min(nil): TypeError: no implicit conversion of nil into Integer
 ('a'..'e').max([]): TypeError: no implicit conversion of Array into Integer
 ('a'..'e').min([]): TypeError: no implicit conversion of Array into Integer
 ('a'..'e').max("2"): TypeError: no implicit conversion of String into Integer
@@ -78,8 +78,8 @@
 ('a'..'e').min(10): ["a", "b", "c", "d", "e"]
 ('a'..'e').max: "e"
 ('a'..'e').min: "a"
-(1.0..3.5).max(nil): TypeError: no implicit conversion from nil to integer
-(1.0..3.5).min(nil): TypeError: no implicit conversion from nil to integer
+(1.0..3.5).max(nil): TypeError: no implicit conversion of nil into Integer
+(1.0..3.5).min(nil): TypeError: no implicit conversion of nil into Integer
 (1.0..3.5).max([]): TypeError: no implicit conversion of Array into Integer
 (1.0..3.5).min([]): TypeError: no implicit conversion of Array into Integer
 (1.0..3.5).max("2"): TypeError: no implicit conversion of String into Integer
@@ -100,7 +100,7 @@
 (1.0..3.5).min: 1.0
 (1..).max([]): RangeError: cannot get the maximum of endless range
 (1..).min([]): TypeError: no implicit conversion of Array into Integer
-(1..).min(nil): TypeError: no implicit conversion from nil to integer
+(1..).min(nil): TypeError: no implicit conversion of nil into Integer
 (..4).min([]): RangeError: cannot get the minimum of beginless range
 (..'c').max(1): TypeError: can't iterate from NilClass
 (...'c').max: RangeError: cannot get the maximum of beginless range with custom comparison method

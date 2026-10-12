@@ -3,15 +3,15 @@
 [TypeError, "can't convert StrAnswer into Integer"]
 5
 [12, 18]
-[TypeError, "can't convert ToIString to Integer (ToIString#to_i gives String)"]
-[TypeError, "can't convert ToINil to Integer (ToINil#to_i gives NilClass)"]
+[TypeError, "can't convert ToIString into Integer (ToIString#to_i gives String)"]
+[TypeError, "can't convert ToINil into Integer (ToINil#to_i gives nil)"]
 nil
 nil
 [FloatDomainError, "Infinity"]
 12
 [ArgumentError, "base specified for non string value"]
 nil
-[TypeError, "can't convert FloatNil to Float (FloatNil#to_f gives NilClass)"]
+[TypeError, "can't convert FloatNil into Float (FloatNil#to_f gives nil)"]
 nil
 nil
 7
