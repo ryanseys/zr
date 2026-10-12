@@ -1,0 +1,130 @@
+[1, "Array#push"]
+[2, "Array#detect"]
+[3, "Array#collect"]
+[4, "Set#add"]
+[5, "Array#unshift"]
+[6, "Hash#store"]
+[7, "Integer#abs"]
+[8, "String#-@"]
+[9, "Symbol#to_s"]
+[10, "Array#collect!"]
+[11, "Array#find_index"]
+[12, "Range#each"]
+[13, "Hash#each_pair"]
+[14, "block (2 levels) in <main>"]
+[15, "block (2 levels) in <main>"]
+[16, "block (2 levels) in <main>"]
+[17, "Hash#has_key?"]
+[18, "String#slice"]
+[19, "Array#filter!"]
+[21, "Integer#to_s"]
+[22, "String#to_str"]
+[23, "Symbol#to_sym"]
+[24, "Array#size"]
+[25, "Array#length"]
+[26, "File.empty?"]
+[27, "Float#abs"]
+[28, "Kernel#then"]
+[29, "Kernel#then"]
+[30, "Set#|"]
+[31, "Integer#next"]
+[32, "Integer#succ"]
+[33, "Kernel.format"]
+[34, "Kernel.sprintf"]
+[35, "Enumerable#each_with_object"]
+Array#detect: ok
+Complex.rect: ArgumentError Complex.rect
+Complex#imag: ArgumentError Complex#imag
+Complex#rect: ArgumentError Complex#rect
+Complex#magnitude: ArgumentError Complex#magnitude
+Complex#angle: ArgumentError Complex#angle
+Complex#phase: ArgumentError Complex#phase
+Complex#conj: ArgumentError Complex#conj
+Complex#quo: ArgumentError Complex#quo
+Numeric#imag: ArgumentError Numeric#imaginary
+Numeric#rect: ArgumentError Numeric#rect
+Numeric#conj: ArgumentError Numeric#conjugate
+Numeric#angle: ArgumentError Numeric#angle
+Numeric#phase: ArgumentError Numeric#phase
+Float#angle: ArgumentError Float#angle
+Float#phase: ArgumentError Float#phase
+Data#to_s: ArgumentError Data#inspect
+Enumerable#filter: ArgumentError Enumerable#filter
+Enumerable#find_all: ArgumentError Enumerable#find_all
+Enumerable#detect: ArgumentError Enumerable#detect
+Enumerable#member?: ArgumentError Enumerable#member?
+Float#to_int: ArgumentError Float#to_int
+Hash#filter: ArgumentError Hash#filter
+Hash#filter!: ArgumentError Hash#filter!
+Hash#update: TypeError Hash#update
+Hash#has_value?: ArgumentError Hash#has_value?
+Integer#inspect: ArgumentError Integer#to_s
+Integer#===: ArgumentError Integer#===
+Integer#to_int: ArgumentError Integer#to_int
+Integer#truncate: ArgumentError Integer#truncate
+Integer#magnitude: ArgumentError Integer#abs
+Numeric#%: ArgumentError Numeric#%
+Kernel#yield_self: ArgumentError Kernel#then
+Marshal.restore: ArgumentError Marshal.load
+Pathname#===: ArgumentError Pathname#==
+Pathname#eql?: ArgumentError Pathname#==
+Pathname#to_path: ArgumentError Pathname#to_s
+Pathname#/: ArgumentError Pathname#+
+Proc#===: ok
+Range#entries: ArgumentError Range#entries
+Range#member?: ArgumentError Range#member?
+Rational#magnitude: ArgumentError Rational#magnitude
+Rational#quo: ArgumentError Rational#quo
+Regexp#eql?: ArgumentError Regexp#eql?
+MatchData#length: ArgumentError MatchData#length
+MatchData#deconstruct: ArgumentError MatchData#captures
+MatchData#eql?: ArgumentError MatchData#eql?
+Set#intersection: ArgumentError Set#&
+Set#difference: ArgumentError Set#-
+Set#+: ArgumentError Set#|
+Set#union: ArgumentError Set#|
+Set#eql?: ArgumentError Set#==
+Set#<<: ArgumentError Set#add
+Set#map!: ArgumentError Set#collect!
+Set#member?: ArgumentError Set#include?
+Set#===: ArgumentError Set#include?
+Set#to_s: ArgumentError Set#inspect
+Set#<: ArgumentError Set#proper_subset?
+Set#>: ArgumentError Set#proper_superset?
+Set#length: ArgumentError Set#size
+Set#filter!: ArgumentError Set#select!
+Set#<=: ArgumentError Set#subset?
+Set#>=: ArgumentError Set#superset?
+String#slice: ArgumentError String#slice
+String#next: ArgumentError String#next
+String#next!: ArgumentError String#next!
+String#dedup: ArgumentError String#-@
+Symbol#size: ArgumentError Symbol#size
+Symbol#next: ArgumentError Symbol#next
+Symbol#id2name: ArgumentError Symbol#to_s
+Struct#length: ArgumentError Struct#length
+Struct#filter: ArgumentError Struct#filter
+Struct#to_s: ArgumentError Struct#inspect
+Thread::Queue#<<: ArgumentError Thread::Queue#push
+Thread::Queue#enq: ArgumentError Thread::Queue#push
+Thread::Queue#length: ArgumentError Thread::Queue#length
+Time.gm: ArgumentError Time.utc
+Time.mktime: ArgumentError Time.local
+Time#mon: ArgumentError Time#mon
+Time#mday: ArgumentError Time#mday
+Time#tv_usec: ArgumentError Time#tv_usec
+Time#tv_nsec: ArgumentError Time#tv_nsec
+Time#tv_sec: ArgumentError Time#tv_sec
+Time#gmt?: ArgumentError Time#gmt?
+Time#gmt_offset: ArgumentError Time#gmt_offset
+Time#gmtoff: ArgumentError Time#gmtoff
+Time#isdst: ArgumentError Time#isdst
+Time#gmtime: ArgumentError Time#gmtime
+Time#getgm: ArgumentError Time#getgm
+Time#asctime: ArgumentError Time#asctime
+Time#xmlschema: ArgumentError Time#xmlschema
+Time.local 0: ArgumentError Time.local
+Time.utc 9: ArgumentError Time.utc
+Time.mktime 9: ArgumentError Time.local
+2000
+Time.gm 10: ok

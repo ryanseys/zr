@@ -750,6 +750,33 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # In a core class body: alias `name` of `klass` shows its original's
+  # name in a backtrace, as an alias that CRuby makes with
+  # rb_define_alias or in its Ruby files does.
+  #: (value, value) -> value
+  def zr_method_label_original(klass, name)
+    e = zr_find_method_at(klass, zr_sym2id(name))
+    if e != 0
+      MEntry[e].label = 0
+    end
+    Machine.value(QNIL)
+  end
+
+  # In a core class body: `name` of `klass`, which zr defines apart from
+  # `original` where CRuby makes it an alias of `original`, shows the
+  # original's name in a backtrace.
+  #: (value, value, value) -> value
+  def zr_method_label_as(klass, name, original)
+    e = zr_find_method_at(klass, zr_sym2id(name))
+    if e != 0 && MEntry[e].meta != 0
+      label = zr_xmalloc(FrameMeta.size)
+      zr_memcpy(label, MEntry[e].meta, FrameMeta.size)
+      FrameMeta[label].name = zr_sym2id(original)
+      MEntry[e].label = label
+    end
+    Machine.value(QNIL)
+  end
+
   # In a core class body: `name` of `klass` is a method of its own, which
   # CRuby defines apart from the method that zr shares its code with.
   #: (value, value) -> value

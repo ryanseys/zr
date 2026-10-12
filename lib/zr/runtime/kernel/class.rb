@@ -669,6 +669,16 @@ module Zr::Kern
       return zr_method_added(klass, new_id)
     end
     label = zr_alias_meta(klass, MEntry[e].meta, MEntry[e].label)
+    # A core alias is the method that CRuby defines apart with the same C
+    # function, and its frames show its own name ('Array#detect'). The
+    # aliases that CRuby makes with rb_define_alias or in its Ruby files
+    # show the original's; core/aliases.rb lists them.
+    meta = MEntry[e].meta
+    if label == 0 && new_id != old_id && meta != 0 && !zr_program_started_p() && FrameMeta[meta].kind == KIND_BUILTIN && FrameMeta[meta].ruby == 0
+      label = zr_xmalloc(FrameMeta.size)
+      zr_memcpy(label, meta, FrameMeta.size)
+      FrameMeta[label].name = new_id
+    end
     zr_method_copy(klass, new_id, e, MEntry[e].meta, vis, true)
     MEntry[zr_find_method_at(zr_origin(klass), new_id)].label = label
     zr_method_added(klass, new_id)
@@ -683,7 +693,7 @@ module Zr::Kern
     if meta == 0 || zr_type(klass) != T_CLASS || zr_special_p(FrameMeta[meta].owner) || zr_type(FrameMeta[meta].owner) != T_CLASS
       return label
     end
-    if FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN
+    if (FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN) || FrameMeta[meta].owner == klass
       return label
     end
     zr_meta_owned(label != 0 ? label : meta, klass)

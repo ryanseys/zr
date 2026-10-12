@@ -1316,13 +1316,13 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_frame_label_meta(rec)
     meta = Frame[rec].meta
-    # A method that an alias reached shows the alias's owner: the entry's
-    # label meta is a copy of the frame's (zr_alias_meta).
+    # A method that an alias reached shows the alias's owner, or a core
+    # alias its own name: the entry's label meta is a copy of the frame's
+    # (zr_alias).
     e = Frame[rec].entry
     if e != 0 && (FrameMeta[meta].kind == KIND_DEF || FrameMeta[meta].kind == KIND_BUILTIN)
       own = MEntry[e].label
-      if own != 0 && own != meta && FrameMeta[own].name == FrameMeta[meta].name && FrameMeta[own].file == FrameMeta[meta].file &&
-         FrameMeta[own].line == FrameMeta[meta].line
+      if own != 0 && own != meta && FrameMeta[own].file == FrameMeta[meta].file && FrameMeta[own].line == FrameMeta[meta].line
         return own
       end
     end
