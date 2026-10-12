@@ -481,10 +481,10 @@ class Complex < Numeric
     real.to_r
   end
 
-  def rationalize(eps = nil)
+  def rationalize(eps = (none = true; nil))
     raise RangeError, "can't convert #{self} into Rational" unless exact_real?
 
-    real.rationalize(eps)
+    none ? real.rationalize : real.rationalize(eps)
   end
 
   def to_s = formatted(:to_s)

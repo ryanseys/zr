@@ -473,21 +473,25 @@ class Rational < Numeric
     end
   end
 
-  # The simplest fraction within `eps` of this one.
-  def rationalize(eps = nil)
-    return self if eps.nil?
+  # nurat_rationalize: the simplest fraction within `eps` of this one,
+  # found for the magnitude, the sign put back after.
+  def rationalize(eps = (none = true; nil))
+    return self if none
 
-    eps = eps.abs
-    Rational.send(:simplest, self - eps, self + eps)
+    e = eps.abs
+    rat = negative? ? -self : self
+    a = e.equal?(0) ? rat : rat - e
+    b = e.equal?(0) ? rat : rat + e
+    return self if a == b
+
+    r = Rational.send(:simplest, a, b)
+    negative? ? -r : r
   end
 
-  # The fraction with the smallest denominator in [a, b].
+  # nurat_rationalize_internal: the fraction with the smallest
+  # denominator in [a, b]. A Float bound stays a Float, as in CRuby.
   def self.simplest(a, b)
     Primitive.attr! :hidden
-    a = Rational.send(:converted, a, [], true)
-    b = Rational.send(:converted, b, [], true)
-    return a if a == b
-
     p0 = 0
     p1 = 1
     q0 = 1
@@ -499,8 +503,8 @@ class Rational < Numeric
       k = c - 1
       p2 = k * p1 + p0
       q2 = k * q1 + q0
-      t = 1 / (b - k)
-      b = 1 / (a - k)
+      t = 1.quo(b - k)
+      b = 1.quo(a - k)
       a = t
       p0 = p1
       q0 = q1
@@ -573,30 +577,45 @@ class Float
     exponent >= 0 ? Rational.send(:build, mantissa * (1 << exponent), 1) : Rational.send(:build, mantissa, 1 << -exponent)
   end
 
-  # The simplest fraction that reads back as this double, or one within
-  # `eps` of it.
-  def rationalize(eps = nil)
+  # float_rationalize: the simplest fraction that reads back as this
+  # double, or one within `eps` of it, found for the magnitude. Only a
+  # value below 0.0 is negative, so -0.0 keeps its own sign.
+  def rationalize(eps = (none = true; nil))
+    neg = self < 0.0
+    x = neg ? -self : self
+    if none
+      r = x.send(:rationalized)
+    else
+      # rb_flt_rationalize_with_prec: eps.abs comes first, and the bounds
+      # stay Floats.
+      e = eps.abs
+      a = x - e
+      b = x + e
+      r = a == b ? x.to_r : Rational.send(:simplest, a, b)
+    end
+    neg ? -r : r
+  end
+
+  # rb_flt_rationalize, for a double that is not negative.
+  def rationalized
+    Primitive.attr! :hidden
     raise FloatDomainError, to_s unless finite?
     return Rational.send(:build, 0, 1) if zero?
 
-    if eps.nil?
-      mantissa, exponent = Primitive.zr_float_decode(self)
-      return Rational.send(:build, mantissa * (1 << exponent), 1) if exponent >= 0
+    mantissa, exponent = Primitive.zr_float_decode(self)
+    return Rational.send(:build, mantissa * (1 << exponent), 1) if exponent >= 0
 
-      # The interval is a half unit of the full 53-bit mantissa either
-      # way, as CRuby's frexp-based decode gives it.
-      while mantissa.abs < (1 << 52)
-        mantissa *= 2
-        exponent -= 1
-      end
-      low = Rational.send(:build, 2 * mantissa - 1, 1 << (1 - exponent))
-      high = Rational.send(:build, 2 * mantissa + 1, 1 << (1 - exponent))
-      Rational.send(:simplest, low, high)
-    else
-      eps = eps.abs
-      Rational.send(:simplest, to_r - eps, to_r + eps)
+    # The interval is a half unit of the full 53-bit mantissa either
+    # way, as CRuby's frexp-based decode gives it.
+    while mantissa.abs < (1 << 52)
+      mantissa *= 2
+      exponent -= 1
     end
+    low = Rational.send(:build, 2 * mantissa - 1, 1 << (1 - exponent))
+    high = Rational.send(:build, 2 * mantissa + 1, 1 << (1 - exponent))
+    Rational.send(:simplest, low, high)
   end
+  private :rationalized
 
   # An infinity or NaN is its own numerator over one.
   def numerator = finite? ? to_r.numerator : self
