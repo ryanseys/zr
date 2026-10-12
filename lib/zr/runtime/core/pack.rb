@@ -424,6 +424,8 @@ module Packing
   # rb_uv_to_utf8: a code point as UTF-8's bytes, in as many as six of
   # them, surrogates and all.
   def self.utf8(code)
+    # NUM2LONG first: a value outside a long raises its RangeError.
+    Primitive.zr_index_operand_m(code)
     raise RangeError, +"pack(U): value out of range" if code.negative? || code > 0x7fffffff
     return code.chr.b if code < 0x80
 

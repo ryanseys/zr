@@ -1,0 +1,12 @@
+[18446744073709551616].pack('U'): RangeError: bignum too big to convert into 'long'
+[9223372036854775808].pack('U'): RangeError: bignum too big to convert into 'long'
+[-9223372036854775809].pack('U'): RangeError: bignum too big to convert into 'long'
+[9223372036854775807].pack('U'): RangeError: pack(U): value out of range
+[-1].pack('U'): RangeError: pack(U): value out of range
+[2147483647].pack('U'): "\xFD\xBF\xBF\xBF\xBF\xBF"
+[2147483648].pack('U'): RangeError: pack(U): value out of range
+[1114112].pack('U'): "\xF4\x90\x80\x80"
+[65].pack('U'): "A"
+[2.9].pack('U'): "\u0002"
+["a"].pack('U'): TypeError: no implicit conversion of String into Integer
+U* mixed: RangeError: bignum too big to convert into 'long'
