@@ -180,6 +180,9 @@ class Integer
       return shifted & ((1 << span) - 1)
     end
 
+    # rb_big_aref reads one bit with NUM2LONG's message for nil.
+    raise TypeError, +"no implicit conversion from nil to integer" if bit.nil? && !Primitive.zr_fixnum_p_m(self)
+
     bit_at(to_integer(bit))
   end
 

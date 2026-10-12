@@ -475,8 +475,9 @@ class Integer
     other = args[0]
     case op
     when :to_s
-      base = args[0] || 10
-      base = Primitive.zr_index_operand_m(base)
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+
+      base = args.empty? ? 10 : Primitive.zr_index_operand_m(args[0])
       raise ArgumentError, "invalid radix #{base}" if base < 2 || base > 36
 
       Integer.send(:big_to_s, self, base)
@@ -528,7 +529,7 @@ class Integer
     Primitive.attr! :hidden
     # A shift count converts as CRuby's rb_to_int does: a Float or a
     # Rational truncates.
-    return big_with_integer(op, implicit_integer(other)) if (op == :<< || op == :>>) && !other.is_a?(Integer)
+    return big_with_integer(op, to_integer(other)) if (op == :<< || op == :>>) && !other.is_a?(Integer)
 
     case other
     when Integer then big_with_integer(op, other)
