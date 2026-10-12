@@ -136,7 +136,7 @@ module Zr
         # quoted text, numbers. Long lines keep their start.
         def template(line)
           line.to_s
-              .gsub(/0x(?:\h+|\.\.\.|ADDR)/, "ADDR")
+              .gsub(/0x(?:ADDR|\.\.\.|\h+)/, "ADDR")
               .gsub(/"(?:[^"\\]|\\.)*"/, '"Q"')
               .gsub(/'(?:[^'\\]|\\.)*'/, "'Q'")
               .gsub(/(?<!0x)(?<![\w.])-?\d+(?:\.\d+)?(?:e[+-]?\d+)?|(?<=[A-Za-z_])\d+/, "N")

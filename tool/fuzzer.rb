@@ -24,6 +24,7 @@ module Zr
           "reduce" => ["Make a failing Ruby file small, while it still fails the same way", -> { Reduce }],
           "recheck" => ["Check the smallest case of each open bucket again, and mark the fixed ones", -> { Recheck }],
           "replay" => ["Check one case again, and show how ruby and zr differ", -> { Replay }],
+          "gen" => ["Print the program of a seed, or check the generator on ruby", -> { Gen }],
           "report" => ["List the buckets of log/fuzz", -> { Report }]
         )
 
@@ -79,13 +80,13 @@ module Zr
           include Pinned
 
           summary "Fuzz: check programs until the time or the count is up"
-          usage "[--time 30m | --count N] [-j N] [--seed S] [--mode mutate,seed] [--seeds DIR,...]"
+          usage "[--time 30m | --count N] [-j N] [--seed S] [--mode gen,mutate,meta,junk,seed] [--packs a,b] [--seeds DIR,...]"
           host_ruby!
 
           # Where programs come from, and how often each one comes when a
           # run has more than one. `seed` runs the seed files as they are,
           # each one once, so it is only on when asked for.
-          WEIGHTS = { "mutate" => 30 }.freeze
+          WEIGHTS = { "gen" => 50, "mutate" => 30, "meta" => 15, "junk" => 5 }.freeze
           MODES = [*WEIGHTS.keys, "seed"].freeze
 
           def defaults
@@ -96,6 +97,7 @@ module Zr
             @modes = nil
             @seeds = nil
             @reduce = true
+            @packs = nil
           end
 
           def options(o)
@@ -105,6 +107,7 @@ module Zr
             o.on("--seed S", Integer, "the seed of the run (default: random)") { |v| @seed = v }
             o.on("--mode LIST", Array, "where programs come from: #{MODES.join(", ")}") { |v| @modes = v }
             o.on("--no-reduce", "keep each failing program as it is") { @reduce = false }
+            o.on("--packs LIST", Array, "only these packs in generated programs") { |v| @packs = v }
             o.on("--seeds LIST", Array, "seed files or directories (default test/programs, log/fuzz/corpus)") do |v|
               @seeds = v.map { |d| File.expand_path(d) }
             end
@@ -147,8 +150,14 @@ module Zr
               when "seed" then [Dev::Fuzz::SeedSource.new(files, rng), 1]
               when "mutate"
                 kept = Dir[store.path("corpus", "*.rb")]
-                mutator = Dev::Fuzz::Mutator.new(seeds: ->(r) { File.binread(files.sample(random: r)) })
+                mutator = Dev::Fuzz::Mutator.new(seeds: ->(r) { File.binread(files.sample(random: r)) },
+                                                 generator: ->(r) { Dev::Fuzz::Gen.snippet(r.rand(2**31)) })
                 [Dev::Fuzz::MutateSource.new(files, mutator: mutator, kept: kept), WEIGHTS.fetch(mode)]
+              when "gen" then [Dev::Fuzz::GenSource.new(only: @packs), WEIGHTS.fetch(mode)]
+              when "meta"
+                snippet = ->(r) { Dev::Fuzz::Gen.snippet(r.rand(2**31)) }
+                [Dev::Fuzz::MetaSource.new(base: Dev::Fuzz::GenSource.new(only: @packs), generator: snippet), WEIGHTS.fetch(mode)]
+              when "junk" then [Dev::Fuzz::JunkSource.new(files), WEIGHTS.fetch(mode)]
               end
             end
           end
@@ -266,6 +275,79 @@ module Zr
               puts Dev::Fuzz::Store.diff(result) unless result.same?
               return result.same?
             end
+          end
+        end
+
+        # `zr-dev fuzz gen`: prints the program of a seed, or checks the
+        # generator on ruby alone (`--check N`): how many programs end
+        # within the limit, give ruby the same answer twice, and how often
+        # a unit raises (an error that the writer did not mean is a fault
+        # of the writer).
+        class Gen < Command
+          summary "Print the program of a seed, or check the generator on ruby"
+          usage "[--seed S] [--packs a,b] [--check N] [-j N]"
+          host_ruby!
+
+          def defaults
+            @seed = 1
+            @packs = nil
+            @check = nil
+            @jobs = nil
+          end
+
+          def options(o)
+            o.on("--seed S", Integer, "the seed of the program (default 1)") { |v| @seed = v }
+            o.on("--packs LIST", Array, "only these packs: #{Dev::Fuzz::Swarm::PACKS.keys.join(", ")}") { |v| @packs = v }
+            o.on("--check N", Integer, "run N programs on ruby, twice each, and report") { |v| @check = v }
+            o.on("-j JOBS", Integer, "programs at a time for --check") { |v| @jobs = v }
+          end
+
+          def run(_argv)
+            unknown = (@packs || []) - Dev::Fuzz::Swarm::PACKS.keys
+            fail!("no pack #{unknown.join(", ")}") unless unknown.empty?
+            unless @check
+              print Dev::Fuzz::Gen.program(@seed, only: @packs).first
+              return true
+            end
+
+            Dev.pinned!(name)
+            rows = check
+            report(rows)
+            rows.all? { |_, _, answer, same| answer.code.is_a?(Integer) && same }
+          end
+
+          UNIT_ERROR = /\Au\d+: ([A-Z]\w*(?:::\w+)*): (.*)/
+
+          def check
+            oracle = Dev::Fuzz::Oracle.new(builder: nil, work: Dev.path("tmp/fuzz/work/gen-check-#{Process.pid}"))
+            seeds = (@seed...(@seed + @check)).to_a
+            Dev.parallel_map(seeds, jobs: @jobs || Test::Workers.size) do |seed|
+              source, swarm = Dev::Fuzz::Gen.program(seed, only: @packs)
+              one = oracle.ruby_only(source)
+              two = oracle.ruby_only(source)
+              [seed, swarm, one, Dev::Fuzz::Classify.parts(one) == Dev::Fuzz::Classify.parts(two)]
+            end
+          ensure
+            FileUtils.rm_rf(Dev.path("tmp/fuzz/work/gen-check-#{Process.pid}"))
+          end
+
+          def report(rows)
+            ended = rows.count { |_, _, a, _| a.code.is_a?(Integer) }
+            same = rows.count { |_, _, a, s| a.code.is_a?(Integer) && s }
+            lines = rows.flat_map { |_, _, a, _| Dev::Fuzz::Classify.text(a.stdout).lines }
+            units = lines.count { |l| l.match?(/\Au\d+\.\d+[: ]/) }
+            errors = lines.filter_map { |l| l.match(UNIT_ERROR) }
+            puts "#{rows.size} program(s): #{ended} ended in time, #{same} gave ruby the same answer twice"
+            puts "#{units} shown value(s), #{errors.size} unit(s) stopped by an error"
+            rows.reject { |_, _, a, s| a.code.is_a?(Integer) && s }.first(10).each do |seed, _, a, s|
+              puts "  seed #{seed}: #{a.code.is_a?(Integer) ? "two answers" : a.code}#{" (twice the same)" if s}"
+            end
+            puts "the errors that stop units most often:"
+            errors.map { |m| "#{m[1]}: #{Dev::Fuzz::Classify.template(m[2])[0, 90]}" }.tally.sort_by { -_2 }.first(25).each do |e, n|
+              puts format("  %5d  %s", n, e)
+            end
+            statuses = rows.map { |_, _, a, _| a.code }.tally.sort_by { -_2 }
+            puts "exit statuses: #{statuses.map { |c, n| "#{c} #{n}" }.join(", ")}"
           end
         end
 

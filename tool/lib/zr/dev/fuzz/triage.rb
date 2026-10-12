@@ -28,6 +28,8 @@ module Zr
 
         def call(candidate, result)
           verdict = result.verdict
+          return :ignored if candidate.origin == "junk" && !Triage.junk_fault?(result)
+
           if (why = Known.reason(verdict))
             @store.count(verdict.bucket, verdict, known: why)
             return :known
@@ -49,6 +51,17 @@ module Zr
           meta[:layer] = @layer.call(source, final) if @layer
           @store.add_case(bucket, id, final, source: source, original: candidate.source, meta: meta)
           fresh ? :new : :old
+        end
+
+        # A difference in a run of junk counts when the build failed in a way
+        # that it must not (Classify::BUILD_FAULTS), or when ruby rejected the
+        # junk and zr did not print ruby's report. A refusal, or junk that
+        # happens to run, is no fault.
+        def self.junk_fault?(result)
+          return true if Classify::BUILD_FAULTS.include?(result.verdict.kind)
+          return false if result.verdict.kind == "refused"
+
+          Classify.text(result.ruby&.stderr).include?("(SyntaxError)") || Classify.text(result.ruby&.stderr).include?("syntax error")
         end
 
         private
