@@ -57,32 +57,40 @@ class Range
     to_a.last(n)
   end
 
-  def min(n = nil, &block)
+  # range_min: a block goes to Enumerable#min, and a count, nil too, to
+  # first, which checks the arity.
+  def min(*args, &block)
     raise RangeError, +"cannot get the minimum of beginless range" if @begin.nil?
     if block
       raise RangeError, +"cannot get the minimum of endless range with custom comparison method" if @end.nil?
 
       return super
     end
-    return first(n) unless n.nil?
+    return first(*args) unless args.empty?
 
     c = @end.nil? ? -1 : (@begin <=> @end)
     c.nil? || c > 0 || (c == 0 && @excl) ? nil : @begin
   end
 
-  def max(n = nil, &block)
+  # range_max: a block, or an exclusive end that is not a Number, goes to
+  # Enumerable#max. A count, nil too, converts to an Integer first, then
+  # takes that many values from the end.
+  def max(*args, &block)
     raise RangeError, +"cannot get the maximum of endless range" if @end.nil?
-    if block || n || (@excl && !@end.is_a?(Numeric))
-      raise ArgumentError, +"negative array size (or size too big)" if n && n < 0
-      if @begin.nil?
-        raise RangeError, +"cannot get the maximum of beginless range with custom comparison method" if block
-        raise TypeError, +"can't iterate from NilClass" unless @end.is_a?(Integer)
-
-        return counted_down(n)
-      end
-      raise ArgumentError, +"negative array size (or size too big)" if n && n < 0
+    if block || (@excl && !@end.is_a?(Numeric))
+      raise RangeError, +"cannot get the maximum of beginless range with custom comparison method" if @begin.nil?
 
       return super
+    end
+    unless args.empty?
+      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+
+      n = Primitive.zr_index_operand_m(args[0])
+      raise ArgumentError, +"negative array size (or size too big)" if n < 0
+      return super(n) unless @begin.nil?
+      raise TypeError, +"can't iterate from NilClass" unless @end.is_a?(Integer)
+
+      return counted_down(n)
     end
 
     c = @begin.nil? ? -1 : (@begin <=> @end)

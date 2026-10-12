@@ -1,0 +1,119 @@
+(1..4).max(nil): TypeError: no implicit conversion from nil to integer
+(1..4).min(nil): TypeError: no implicit conversion from nil to integer
+(1..4).max([]): TypeError: no implicit conversion of Array into Integer
+(1..4).min([]): TypeError: no implicit conversion of Array into Integer
+(1..4).max("2"): TypeError: no implicit conversion of String into Integer
+(1..4).min("2"): TypeError: no implicit conversion of String into Integer
+(1..4).max(2): [4, 3]
+(1..4).min(2): [1, 2]
+(1..4).max(2.7): [4, 3]
+(1..4).min(2.7): [1, 2]
+(1..4).max(Two): [4, 3]
+(1..4).min(Two): [1, 2]
+(1..4).max(0): []
+(1..4).min(0): []
+(1..4).max(-1): ArgumentError: negative array size (or size too big)
+(1..4).min(-1): ArgumentError: negative array size (or size too big)
+(1..4).max(10): [4, 3, 2, 1]
+(1..4).min(10): [1, 2, 3, 4]
+(1..4).max: 4
+(1..4).min: 1
+(-1...4).max(nil): TypeError: no implicit conversion from nil to integer
+(-1...4).min(nil): TypeError: no implicit conversion from nil to integer
+(-1...4).max([]): TypeError: no implicit conversion of Array into Integer
+(-1...4).min([]): TypeError: no implicit conversion of Array into Integer
+(-1...4).max("2"): TypeError: no implicit conversion of String into Integer
+(-1...4).min("2"): TypeError: no implicit conversion of String into Integer
+(-1...4).max(2): [3, 2]
+(-1...4).min(2): [-1, 0]
+(-1...4).max(2.7): [3, 2]
+(-1...4).min(2.7): [-1, 0]
+(-1...4).max(Two): [3, 2]
+(-1...4).min(Two): [-1, 0]
+(-1...4).max(0): []
+(-1...4).min(0): []
+(-1...4).max(-1): ArgumentError: negative array size (or size too big)
+(-1...4).min(-1): ArgumentError: negative array size (or size too big)
+(-1...4).max(10): [3, 2, 1, 0, -1]
+(-1...4).min(10): [-1, 0, 1, 2, 3]
+(-1...4).max: 3
+(-1...4).min: -1
+(..4).max(nil): TypeError: no implicit conversion from nil to integer
+(..4).min(nil): RangeError: cannot get the minimum of beginless range
+(..4).max([]): TypeError: no implicit conversion of Array into Integer
+(..4).min([]): RangeError: cannot get the minimum of beginless range
+(..4).max("2"): TypeError: no implicit conversion of String into Integer
+(..4).min("2"): RangeError: cannot get the minimum of beginless range
+(..4).max(2): [4, 3]
+(..4).min(2): RangeError: cannot get the minimum of beginless range
+(..4).max(2.7): [4, 3]
+(..4).min(2.7): RangeError: cannot get the minimum of beginless range
+(..4).max(Two): [4, 3]
+(..4).min(Two): RangeError: cannot get the minimum of beginless range
+(..4).max(0): []
+(..4).min(0): RangeError: cannot get the minimum of beginless range
+(..4).max(-1): ArgumentError: negative array size (or size too big)
+(..4).min(-1): RangeError: cannot get the minimum of beginless range
+(..4).max(10): [4, 3, 2, 1, 0, -1, -2, -3, -4, -5]
+(..4).min(10): RangeError: cannot get the minimum of beginless range
+(..4).max: 4
+(..4).min: RangeError: cannot get the minimum of beginless range
+('a'..'e').max(nil): TypeError: no implicit conversion from nil to integer
+('a'..'e').min(nil): TypeError: no implicit conversion from nil to integer
+('a'..'e').max([]): TypeError: no implicit conversion of Array into Integer
+('a'..'e').min([]): TypeError: no implicit conversion of Array into Integer
+('a'..'e').max("2"): TypeError: no implicit conversion of String into Integer
+('a'..'e').min("2"): TypeError: no implicit conversion of String into Integer
+('a'..'e').max(2): ["e", "d"]
+('a'..'e').min(2): ["a", "b"]
+('a'..'e').max(2.7): ["e", "d"]
+('a'..'e').min(2.7): ["a", "b"]
+('a'..'e').max(Two): ["e", "d"]
+('a'..'e').min(Two): ["a", "b"]
+('a'..'e').max(0): []
+('a'..'e').min(0): []
+('a'..'e').max(-1): ArgumentError: negative array size (or size too big)
+('a'..'e').min(-1): ArgumentError: negative array size (or size too big)
+('a'..'e').max(10): ["e", "d", "c", "b", "a"]
+('a'..'e').min(10): ["a", "b", "c", "d", "e"]
+('a'..'e').max: "e"
+('a'..'e').min: "a"
+(1.0..3.5).max(nil): TypeError: no implicit conversion from nil to integer
+(1.0..3.5).min(nil): TypeError: no implicit conversion from nil to integer
+(1.0..3.5).max([]): TypeError: no implicit conversion of Array into Integer
+(1.0..3.5).min([]): TypeError: no implicit conversion of Array into Integer
+(1.0..3.5).max("2"): TypeError: no implicit conversion of String into Integer
+(1.0..3.5).min("2"): TypeError: no implicit conversion of String into Integer
+(1.0..3.5).max(2): TypeError: can't iterate from Float
+(1.0..3.5).min(2): TypeError: can't iterate from Float
+(1.0..3.5).max(2.7): TypeError: can't iterate from Float
+(1.0..3.5).min(2.7): TypeError: can't iterate from Float
+(1.0..3.5).max(Two): TypeError: can't iterate from Float
+(1.0..3.5).min(Two): TypeError: can't iterate from Float
+(1.0..3.5).max(0): TypeError: can't iterate from Float
+(1.0..3.5).min(0): TypeError: can't iterate from Float
+(1.0..3.5).max(-1): ArgumentError: negative array size (or size too big)
+(1.0..3.5).min(-1): ArgumentError: negative array size (or size too big)
+(1.0..3.5).max(10): TypeError: can't iterate from Float
+(1.0..3.5).min(10): TypeError: can't iterate from Float
+(1.0..3.5).max: 3.5
+(1.0..3.5).min: 1.0
+(1..).max([]): RangeError: cannot get the maximum of endless range
+(1..).min([]): TypeError: no implicit conversion of Array into Integer
+(1..).min(nil): TypeError: no implicit conversion from nil to integer
+(..4).min([]): RangeError: cannot get the minimum of beginless range
+(..'c').max(1): TypeError: can't iterate from NilClass
+(...'c').max: RangeError: cannot get the maximum of beginless range with custom comparison method
+(...'c').max(1): RangeError: cannot get the maximum of beginless range with custom comparison method
+max(nil) {}: 1
+min(nil) {}: 4
+max(2) {}: [1, 2]
+min(2) {}: [4, 3]
+max([]) {}: TypeError: no implicit conversion of Array into Integer
+('a'...'e').max(nil): "d"
+('a'...'e').max(2): ["d", "c"]
+('a'...'e').max([]): TypeError: no implicit conversion of Array into Integer
+(..4).max(nil) {}: RangeError: cannot get the maximum of beginless range with custom comparison method
+(1..).min(nil) {}: RangeError: cannot get the minimum of endless range with custom comparison method
+max(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+min(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
