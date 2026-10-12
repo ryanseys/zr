@@ -365,6 +365,9 @@ module Zr::Kern
   # own ancestor list.
   #: (value, word, ptr, word) -> value
   def zr_mod_method_defined_vis(recv, argc, argv, vis)
+    if argc < 1 || argc > 2
+      return zr_wrong_arity_range(argc, 1, 2)
+    end
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF

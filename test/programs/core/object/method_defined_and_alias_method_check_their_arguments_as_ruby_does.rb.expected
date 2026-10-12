@@ -1,0 +1,39 @@
+method_defined?(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+method_defined?(:pub): true
+method_defined?(:priv): false
+method_defined?(:prot): true
+method_defined?(:to_s, false): false
+method_defined?(:to_s, true): true
+method_defined?(1, 2, 3): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+method_defined?(1): TypeError: 1 is not a symbol nor a string
+public_method_defined?(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+public_method_defined?(:pub): true
+public_method_defined?(:priv): false
+public_method_defined?(:prot): false
+public_method_defined?(:to_s, false): false
+public_method_defined?(:to_s, true): true
+public_method_defined?(1, 2, 3): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+public_method_defined?(1): TypeError: 1 is not a symbol nor a string
+private_method_defined?(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+private_method_defined?(:pub): false
+private_method_defined?(:priv): true
+private_method_defined?(:prot): false
+private_method_defined?(:to_s, false): false
+private_method_defined?(:to_s, true): false
+private_method_defined?(1, 2, 3): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+private_method_defined?(1): TypeError: 1 is not a symbol nor a string
+protected_method_defined?(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+protected_method_defined?(:pub): false
+protected_method_defined?(:priv): false
+protected_method_defined?(:prot): true
+protected_method_defined?(:to_s, false): false
+protected_method_defined?(:to_s, true): false
+protected_method_defined?(1, 2, 3): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+protected_method_defined?(1): TypeError: 1 is not a symbol nor a string
+alias_method(1, 2): TypeError: 2 is not a symbol nor a string
+alias_method(1, :pub): TypeError: 1 is not a symbol nor a string
+alias_method(:x, 2): TypeError: 2 is not a symbol nor a string
+alias_method(:x, :none): NameError: undefined method 'none' for class 'Sample'
+alias_method(:x, :pub): :x
+alias_method(nil, nil): TypeError: nil is not a symbol nor a string
+x: 1

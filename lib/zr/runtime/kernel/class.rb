@@ -670,10 +670,11 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_alias_method(recv, argc, argv, cref, blk)
+    # rb_mod_alias_method reads the old name first.
     slot = Machine.slot(16)
-    r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
-    return r if r == QUNDEF
     r = zr_name_id(Machine.value(Machine.load64(argv, 8)), slot + 8)
+    return r if r == QUNDEF
+    r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     new_id = Machine.load64(slot, 0)
     r = zr_alias(recv, new_id, Machine.load64(slot, 8))
