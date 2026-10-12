@@ -1,0 +1,53 @@
+float range min(-2) with a block: ArgumentError: negative size (-2)
+float range max(-2) with a block: ArgumentError: negative size (-2)
+Loud#min(-2): ArgumentError: negative size (-2)
+Loud#max(-2): ArgumentError: negative size (-2)
+Hash#max(-2): ArgumentError: negative size (-2)
+min_by(-2): ArgumentError: negative size (-2)
+float range min("l") with a block: TypeError: no implicit conversion of String into Integer
+float range max("l") with a block: TypeError: no implicit conversion of String into Integer
+Loud#min("l"): TypeError: no implicit conversion of String into Integer
+Loud#max("l"): TypeError: no implicit conversion of String into Integer
+Hash#max("l"): TypeError: no implicit conversion of String into Integer
+min_by("l"): TypeError: no implicit conversion of String into Integer
+float range min(nil) with a block: TypeError: can't iterate from Float
+float range max(nil) with a block: TypeError: can't iterate from Float
+each
+Loud#min(nil): 1
+each
+Loud#max(nil): 1
+Hash#max(nil): [:b, 2]
+min_by(nil): TypeError: can't iterate from Float
+float range min(0) with a block: []
+float range max(0) with a block: []
+Loud#min(0): []
+Loud#max(0): []
+Hash#max(0): []
+min_by(0): []
+float range min(1) with a block: TypeError: can't iterate from Float
+float range max(1) with a block: TypeError: can't iterate from Float
+each
+Loud#min(1): [1]
+each
+Loud#max(1): [1]
+Hash#max(1): [[:b, 2]]
+min_by(1): TypeError: can't iterate from Float
+float range min(2) with a block: TypeError: can't iterate from Float
+float range max(2) with a block: TypeError: can't iterate from Float
+each
+Loud#min(2): [1, 2]
+each
+Loud#max(2): [1, 2]
+Hash#max(2): [[:b, 2], [:a, 1]]
+min_by(2): TypeError: can't iterate from Float
+float range min(2.9) with a block: TypeError: can't iterate from Float
+float range max(2.9) with a block: TypeError: can't iterate from Float
+each
+Loud#min(2.9): [1, 2]
+each
+Loud#max(2.9): [1, 2]
+Hash#max(2.9): [[:b, 2], [:a, 1]]
+min_by(2.9): TypeError: can't iterate from Float
+too big: RangeError: bignum too big to convert into 'long'
+each
+to_int: [1]

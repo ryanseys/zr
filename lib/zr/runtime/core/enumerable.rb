@@ -483,13 +483,30 @@ module Enumerable
     rev ? result.reverse : result
   end
 
+  # rb_nmin_run converts and checks a count before `each` runs, and a
+  # count of zero runs nothing.
   def min(n = nil, &blk)
-    elements.min(n, &blk)
+    return elements.min(&blk) if n.nil?
+
+    n = nmin_count(n)
+    n == 0 ? [] : elements.min(n, &blk)
   end
 
   def max(n = nil, &blk)
-    elements.max(n, &blk)
+    return elements.max(&blk) if n.nil?
+
+    n = nmin_count(n)
+    n == 0 ? [] : elements.max(n, &blk)
   end
+
+  def nmin_count(n)
+    Primitive.attr! :hidden
+    n = Primitive.zr_index_operand_m(n)
+    raise ArgumentError, "negative size (#{n})" if n < 0
+
+    n
+  end
+  private :nmin_count
 
   # What `each` yields, gathered as enum_to_a gathers it: a subclass's
   # own `to_a` is not called.

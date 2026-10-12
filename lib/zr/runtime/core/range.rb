@@ -99,7 +99,8 @@ class Range
 
       n = Primitive.zr_index_operand_m(n)
       raise ArgumentError, +"negative array size (or size too big)" if n < 0
-      return super(n) unless @begin.nil?
+      # Every element is walked, a count of zero too.
+      return elements.max(n) unless @begin.nil?
       raise TypeError, +"can't iterate from NilClass" unless @end.is_a?(Integer)
 
       return counted_down(n)
