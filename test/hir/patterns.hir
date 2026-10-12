@@ -25,7 +25,9 @@
                 (seq
                   (assign %why2
                     (interp
-                      (send inspect
+                      (send format
+                        (core Kernel)
+                        (str "%p")
                         (local %subject1))
                       (str " does not respond to #deconstruct")))
                   (assign %key3
@@ -55,7 +57,9 @@
               (seq
                 (assign %why2
                   (interp
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %elements6))
                     (str " length mismatch (given ")
                     (send size
@@ -77,10 +81,14 @@
               (seq
                 (assign %why2
                   (interp
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %pattern8))
                     (str " === ")
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %part7))
                     (str " does not return true")))
                 (assign %key3
@@ -105,10 +113,10 @@
           (core Kernel)
           (send new
             (core NoMatchingPatternKeyError)
-            (interp
-              (send inspect
-                (local %subject1))
-              (str ": ")
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject1)
               (local %why2))
             (hash
               (sym :matchee)
@@ -118,10 +126,10 @@
         (send raise
           (core Kernel)
           (core NoMatchingPatternError)
-          (interp
-            (send inspect
-              (local %subject1))
-            (str ": ")
+          (send format
+            (core Kernel)
+            (str "%p: %s")
+            (local %subject1)
             (local %why2))))))
   (seq
     (assign %subject9
@@ -149,7 +157,9 @@
                   (seq
                     (assign %why10
                       (interp
-                        (send inspect
+                        (send format
+                          (core Kernel)
+                          (str "%p")
                           (local %subject9))
                         (str " does not respond to #deconstruct_keys")))
                     (assign %key11
@@ -179,7 +189,9 @@
                   (assign %why10
                     (interp
                       (str "key not found: ")
-                      (send inspect
+                      (send format
+                        (core Kernel)
+                        (str "%p")
                         (sym :name))))
                   (assign %key11
                     (sym :name))
@@ -200,10 +212,14 @@
                   (seq
                     (assign %why10
                       (interp
-                        (send inspect
+                        (send format
+                          (core Kernel)
+                          (str "%p")
                           (local %pattern15))
                         (str " === ")
-                        (send inspect
+                        (send format
+                          (core Kernel)
+                          (str "%p")
                           (local %part14))
                         (str " does not return true")))
                     (assign %key11
@@ -221,7 +237,9 @@
               (assign %why10
                 (interp
                   (str "key not found: ")
-                  (send inspect
+                  (send format
+                    (core Kernel)
+                    (str "%p")
                     (sym :age))))
               (assign %key11
                 (sym :age))
@@ -244,10 +262,10 @@
           (core Kernel)
           (send new
             (core NoMatchingPatternKeyError)
-            (interp
-              (send inspect
-                (local %subject9))
-              (str ": ")
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject9)
               (local %why10))
             (hash
               (sym :matchee)
@@ -257,10 +275,10 @@
         (send raise
           (core Kernel)
           (core NoMatchingPatternError)
-          (interp
-            (send inspect
-              (local %subject9))
-            (str ": ")
+          (send format
+            (core Kernel)
+            (str "%p: %s")
+            (local %subject9)
             (local %why10))))))
   (seq
     (assign %subject16
@@ -283,10 +301,14 @@
               (seq
                 (assign %why17
                   (interp
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %pattern20))
                     (str " === ")
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %subject16))
                     (str " does not return true")))
                 (assign %key18
@@ -300,10 +322,14 @@
               (seq
                 (assign %why17
                   (interp
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %pattern21))
                     (str " === ")
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %subject16))
                     (str " does not return true")))
                 (assign %key18
@@ -332,10 +358,10 @@
           (core Kernel)
           (send new
             (core NoMatchingPatternKeyError)
-            (interp
-              (send inspect
-                (local %subject16))
-              (str ": ")
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject16)
               (local %why17))
             (hash
               (sym :matchee)
@@ -345,10 +371,10 @@
         (send raise
           (core Kernel)
           (core NoMatchingPatternError)
-          (interp
-            (send inspect
-              (local %subject16))
-            (str ": ")
+          (send format
+            (core Kernel)
+            (str "%p: %s")
+            (local %subject16)
             (local %why17))))))
   (seq
     (assign %subject22
@@ -375,7 +401,9 @@
                 (seq
                   (assign %why23
                     (interp
-                      (send inspect
+                      (send format
+                        (core Kernel)
+                        (str "%p")
                         (local %subject22))
                       (str " does not respond to #deconstruct_keys")))
                   (assign %key24
@@ -403,7 +431,9 @@
                 (assign %why23
                   (interp
                     (str "key not found: ")
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (sym :a))))
                 (assign %key24
                   (sym :a))
@@ -437,10 +467,10 @@
           (core Kernel)
           (send new
             (core NoMatchingPatternKeyError)
-            (interp
-              (send inspect
-                (local %subject22))
-              (str ": ")
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject22)
               (local %why23))
             (hash
               (sym :matchee)
@@ -450,10 +480,10 @@
         (send raise
           (core Kernel)
           (core NoMatchingPatternError)
-          (interp
-            (send inspect
-              (local %subject22))
-            (str ": ")
+          (send format
+            (core Kernel)
+            (str "%p: %s")
+            (local %subject22)
             (local %why23))))))
   (assign x
     (array
@@ -486,7 +516,9 @@
                 (seq
                   (assign %why29
                     (interp
-                      (send inspect
+                      (send format
+                        (core Kernel)
+                        (str "%p")
                         (local %subject28))
                       (str " does not respond to #deconstruct")))
                   (assign %key30
@@ -516,7 +548,9 @@
               (seq
                 (assign %why29
                   (interp
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %elements33))
                     (str " length mismatch (given ")
                     (send size
@@ -539,10 +573,14 @@
                 (seq
                   (assign %why29
                     (interp
-                      (send inspect
+                      (send format
+                        (core Kernel)
+                        (str "%p")
                         (local %pattern35))
                       (str " === ")
-                      (send inspect
+                      (send format
+                        (core Kernel)
+                        (str "%p")
                         (local %part34))
                       (str " does not return true")))
                   (assign %key30
@@ -569,7 +607,9 @@
                       (seq
                         (assign %why29
                           (interp
-                            (send inspect
+                            (send format
+                              (core Kernel)
+                              (str "%p")
                               (local %part36))
                             (str " does not respond to #deconstruct")))
                         (assign %key30
@@ -599,7 +639,9 @@
                     (seq
                       (assign %why29
                         (interp
-                          (send inspect
+                          (send format
+                            (core Kernel)
+                            (str "%p")
                             (local %elements38))
                           (str " length mismatch (given ")
                           (send size
@@ -640,10 +682,10 @@
           (core Kernel)
           (send new
             (core NoMatchingPatternKeyError)
-            (interp
-              (send inspect
-                (local %subject28))
-              (str ": ")
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject28)
               (local %why29))
             (hash
               (sym :matchee)
@@ -653,10 +695,10 @@
         (send raise
           (core Kernel)
           (core NoMatchingPatternError)
-          (interp
-            (send inspect
-              (local %subject28))
-            (str ": ")
+          (send format
+            (core Kernel)
+            (str "%p: %s")
+            (local %subject28)
             (local %why29))))))
   (send self p
     (seq
@@ -691,7 +733,9 @@
               (seq
                 (assign %why43
                   (interp
-                    (send inspect
+                    (send format
+                      (core Kernel)
+                      (str "%p")
                       (local %subject42))
                     (str " does not respond to #deconstruct_keys")))
                 (assign %key44
@@ -720,7 +764,9 @@
               (assign %why43
                 (interp
                   (str "key not found: ")
-                  (send inspect
+                  (send format
+                    (core Kernel)
+                    (str "%p")
                     (sym :k))))
               (assign %key44
                 (sym :k))
@@ -740,10 +786,10 @@
           (core Kernel)
           (send new
             (core NoMatchingPatternKeyError)
-            (interp
-              (send inspect
-                (local %subject42))
-              (str ": ")
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject42)
               (local %why43))
             (hash
               (sym :matchee)
@@ -753,10 +799,10 @@
         (send raise
           (core Kernel)
           (core NoMatchingPatternError)
-          (interp
-            (send inspect
-              (local %subject42))
-            (str ": ")
+          (send format
+            (core Kernel)
+            (str "%p: %s")
+            (local %subject42)
             (local %why43))))))
   (send self p
     (local k)))

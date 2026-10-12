@@ -1,0 +1,19 @@
+two patterns: NoMatchingPatternError: 0
+one pattern: NoMatchingPatternError: 5: nil === 5 does not return true
+=>: NoMatchingPatternError: 5: String === 5 does not return true
+array length: NoMatchingPatternError: [0, 1]: [0, 1] length mismatch (given 2, expected 1)
+array element: NoMatchingPatternError: [0]: String === 0 does not return true
+find pattern: NoMatchingPatternError: [1, 2]: [1, 2] does not match to find pattern
+hash value: NoMatchingPatternError: {a: 0}: nil === 0 does not return true
+hash missing key: NoMatchingPatternKeyError: {a: 1}: key not found: :b
+hash rest: NoMatchingPatternError: {a: 1, b: 2}: rest of {b: 2} is not empty
+no deconstruct: NoMatchingPatternError: 3: 3 does not respond to #deconstruct
+nil subject: NoMatchingPatternError: NoMatchingPatternError
+class subject: NoMatchingPatternError: Object
+own to_s: NoMatchingPatternError: S
+own inspect: NoMatchingPatternError: I: 1 === I does not return true
+key error key: [:b, {a: 1}]
+"refined to_s"
+"refined inspect"
+"refined array"
+"refined to_s"

@@ -104,17 +104,18 @@ module Zr
           Seq.new([set(result, expr(node.call), line), *writes, read(result, line)], line)
         end
 
-        # The raise if nothing matched. After several patterns, the message
-        # is only the subject's to_s. After a single pattern, it is the
-        # subject's inspect and the recorded reason. For a missing key, it
-        # is the key error with its key and matchee.
+        # The raise if nothing matched. After several patterns, the subject
+        # itself is the message, which Exception#to_s converts. After a
+        # single pattern, the message is `format("%p: %s")` of the subject
+        # and the recorded reason. For a missing key, it is the key error
+        # with its key and matchee. As compile.c makes them (core#raise,
+        # core#sprintf), neither sends to_s or inspect from the program's
+        # scope, so a refinement of either does not change the message.
         #: (Symbol subject, Match match, Integer line) -> node
         def no_match(subject, match, line)
-          return send_to(core(:Kernel, line), :raise, [core(:NoMatchingPatternError, line),send_to(read(subject, line), :to_s, [], line)], line) if match.why.nil?
+          return send_to(core(:Kernel, line), :raise, [core(:NoMatchingPatternError, line), read(subject, line)], line) if match.why.nil?
 
-          inspect = send_to(read(subject, line), :inspect, [], line)
-
-          message = Interp.new([inspect, Literal.new(": ", line), read(match.why, line)], line)
+          message = send_to(core(:Kernel, line), :format, [Literal.new("%p: %s", line), read(subject, line), read(match.why, line)], line)
           key_error = send_to(core(:NoMatchingPatternKeyError, line), :new, [message], line,
                               kwargs: HashLit.new([Literal.new(:matchee, line), read(match.matchee, line), Literal.new(:key, line), read(match.key, line)], line))
           If.new(read(match.key, line),
@@ -215,8 +216,14 @@ module Zr
             Or.new(test, Seq.new([@b.set(@why, reason, line), @b.set(@key, Literal.new(nil, line), line), Literal.new(false, line)], line), line)
           end
 
+          # The inspect of a value in a reason, as core#sprintf's `%p` makes
+          # it: not a send from the program's scope, which a refinement of
+          # inspect would change.
           #: (Symbol name, Integer line) -> Send
-          def inspect_of(name, line) = @b.send_to(@b.read(name, line), :inspect, [], line)
+          def inspect_of(name, line) = shown(@b.read(name, line), line)
+
+          #: (node value, Integer line) -> Send
+          def shown(value, line) = @b.send_to(@b.core(:Kernel, line), :format, [Literal.new("%p", line), value], line)
 
           # `Const === subject` if the pattern has a constant.
           #: (Prism::ArrayPatternNode | Prism::FindPatternNode | Prism::HashPatternNode node, Symbol subject, Integer line) -> Array[node]
@@ -356,7 +363,7 @@ module Zr
             test = @b.send_to(@b.read(d, line), :key?, [key], line)
             return test if @why.nil?
 
-            Or.new(test, Seq.new([@b.set(@why, Interp.new([Literal.new("key not found: ", line), @b.send_to(key, :inspect, [], line)], line), line),
+            Or.new(test, Seq.new([@b.set(@why, Interp.new([Literal.new("key not found: ", line), shown(key, line)], line), line),
                                   @b.set(@key, key, line), @b.set(@matchee, @b.read(d, line), line), Literal.new(false, line)], line), line)
           end
 
