@@ -1,7 +1,7 @@
 # The defining property of class-level `@x`, and the whole reason it
 # can't share `@@x`'s storage: a subclass gets its OWN slot, starting
 # empty, even though it inherits the method that reads it. Contrast the
-# `@@cv` line, which IS shared. Oracle-verified (ruby 4.0.7).
+# `@@cv` line, which IS shared. Oracle-verified against ruby.
 
 class Base
   @reg = "base-ivar"

@@ -387,14 +387,9 @@ RubyVM public:
 RubyVM protected: 
 RubyVM private: 
 RubyVM singleton: keep_script_lines keep_script_lines= stat
-RubyVM constants: AbstractSyntaxTree DEFAULT_PARAMS INSTRUCTION_NAMES OPTS YJIT
+RubyVM constants: AbstractSyntaxTree DEFAULT_PARAMS INSTRUCTION_NAMES OPTS
 RubyVM::AbstractSyntaxTree public: 
 RubyVM::AbstractSyntaxTree protected: 
 RubyVM::AbstractSyntaxTree private: 
 RubyVM::AbstractSyntaxTree singleton: node_id_for_backtrace_location of
 RubyVM::AbstractSyntaxTree constants: 
-RubyVM::YJIT public: 
-RubyVM::YJIT protected: 
-RubyVM::YJIT private: 
-RubyVM::YJIT singleton: code_gc disasm dump_exit_locations enable enabled? exit_locations insns_compiled log log_enabled? reset_stats! runtime_stats simulate_oom! stats_enabled? stats_string trace_exit_locations_enabled?
-RubyVM::YJIT constants: 

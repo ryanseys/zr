@@ -3,7 +3,7 @@
 # its C, compiled into the binary like any other Ruby.
 
 require "prism"
-puts Prism::VERSION
+puts Prism::VERSION.match?(/\A\d+\.\d+\.\d+/)
 result = Prism.parse("x = 1 + 2\nputs x")
 puts result.success?
 puts result.value.class

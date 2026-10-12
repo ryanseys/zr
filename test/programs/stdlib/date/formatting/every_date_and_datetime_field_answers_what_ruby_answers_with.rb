@@ -1,4 +1,4 @@
-# The whole `Date`/`DateTime` surface, field by field, against ruby 4.0.7.
+# The whole `Date`/`DateTime` surface, field by field, against ruby.
 # Nothing here reads the machine's zone: `to_time` appears only through
 # fields that a local Time renders identically everywhere.
 require "date"

@@ -1,9 +1,9 @@
 # Kernel#Float / #Integer strictness, CRuby-parity edges:
 # - digit-separating underscores parse ("1_000.5"); misplaced ones raise
 # - an embedded NUL is invalid (the prefix before it does not parse alone)
-# - ".5" and "5." both parse (CRuby 4.0 accepts a trailing dot)
+# - ".5" and "5." both parse (CRuby accepts a trailing dot)
 # - hex Float literals parse, including fractional and p-exponent forms
-#   ("0x1_1" -> 17.0, "0x1_1.0" -> 17.0, CRuby 4.0)
+#   ("0x1_1" -> 17.0, "0x1_1.0" -> 17.0, CRuby)
 # - "inf"/"nan" raise (C strtod would parse them)
 # - Integer() auto-detects prefix bases, including leading-0 octal ("077" -> 63)
 def tf(s)

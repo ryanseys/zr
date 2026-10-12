@@ -1,5 +1,5 @@
 # `RubyVM::AbstractSyntaxTree` over every prism kind zr maps, checked shape
-# for shape against ruby 4.0.7.
+# for shape against ruby.
 #
 # The taxonomy is parse.y's, not prism's, and the two disagree in ways no
 # rule derives: `[]` is its own kind, an absent range endpoint is a NIL NODE,

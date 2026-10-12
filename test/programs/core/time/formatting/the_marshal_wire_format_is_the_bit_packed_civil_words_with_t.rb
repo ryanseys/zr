@@ -25,7 +25,7 @@ p [t4.year, t4.utc?]
 t5 = Marshal.load(Marshal.dump(Time.utc(1500, 6, 15, 12)))
 p [t5.year, t5.hour]
 
-# Cross-loading CRuby's own canonical bytes (a 4.0.7 dump of
+# Cross-loading CRuby's own canonical bytes (a ruby dump of
 # 2020-01-02 03:04:05 UTC).
 bytes = ["040849753a0954696d650d43001ec000005010063a097a6f6e65492208555443063a064546"].pack("H*")
 p Marshal.load(bytes)

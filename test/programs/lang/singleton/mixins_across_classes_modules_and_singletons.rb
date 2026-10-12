@@ -2,7 +2,7 @@
 # classes, modules, singleton classes and plain objects, read off `ancestors`,
 # `super` chains, the notification hooks and the reflection predicates.
 #
-# Written 2026-08-21 as a differential sweep against ruby 4.0.7. It found four
+# Written 2026-08-21 as a differential sweep against ruby. It found four
 # divergences on its first run, three of them fixed in the same commit series:
 # a singleton `prepend` fired no `prepended` hook, its module landed AFTER the
 # singleton head in `ancestors` instead of before, and

@@ -1,7 +1,7 @@
 # Known gaps
 
 Each `<name>.rb` here is a small program where zr's output is not yet
-ruby's. `<name>.rb.expected` is ruby 4.0.7's stdout
+ruby's. `<name>.rb.expected` is ruby's stdout
 (`ruby <name>.rb > <name>.rb.expected`). The name says what ruby does, and
 the comment at the top says what zr does instead.
 

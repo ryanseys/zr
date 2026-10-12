@@ -1,7 +1,7 @@
 # The wide Unicode rows (UTF-16LE/BE, UTF-32LE/BE): NOT ASCII-compatible
 # (never ascii_only, even empty; concatenation with anything else only
 # through an empty side), surrogate-pair walking, scalar-based chr/<<,
-# \uXXXX-escaped inspect. Verbatim ruby 4.0.7 output.
+# \uXXXX-escaped inspect. Verbatim ruby output.
 
 u = "ab€".encode("UTF-16LE")
 p u.bytes

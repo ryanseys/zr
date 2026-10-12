@@ -1,5 +1,5 @@
 # IO::Buffer: the flags of new buffers and slices, null buffers, slices
-# that go invalid, resize, free and transfer, as CRuby 4.0 gives them.
+# that go invalid, resize, free and transfer, as CRuby gives them.
 $VERBOSE = nil
 Warning[:experimental] = false
 def flags(b) = %i[external? internal? mapped? shared? private? readonly? null? valid? empty?].select { |m| b.send(m) }

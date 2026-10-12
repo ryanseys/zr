@@ -3,7 +3,7 @@
 # Enumerator, Thread, Mutex (lockable while frozen) -- with the
 # dup-drops/clone-copies flag rule and the flag never aliasing an
 # earlier copy. Queue/SizedQueue refuse to freeze with CRuby's
-# TypeError. Expected output is verbatim ruby 4.0.7.
+# TypeError. Expected output is verbatim ruby output.
 
 pr = proc { 1 }
 puts pr.frozen?

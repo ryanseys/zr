@@ -1,4 +1,4 @@
-# The comprehensive frame battery, all verbatim ruby 4.0.7 (invoked as
+# The comprehensive frame battery, all verbatim ruby output (invoked as
 # `-e`, the same label this harness compiles under): method labels
 # (Object#m / Foo#m / Foo.cm / M.modfun / M#mixed), lexical block
 # frames (`block in ...`), caller windows (0-start, past-the-top nil,

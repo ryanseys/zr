@@ -1,4 +1,4 @@
-# Pathname is a builtin in ruby 4.0, and require "pathname" adds the rest.
+# Pathname is a builtin in ruby, and require "pathname" adds the rest.
 require "pathname"
 
 p defined?(Pathname)

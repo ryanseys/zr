@@ -7,7 +7,7 @@ require_relative "../support/harness/reference"
 # Checks `Obj::MachO::Image`, zr's reader of linked Mach-O images, against
 # the tools that read them for Apple: `nm` for the symbols, `otool -l` for
 # the segments and `dyld_info -fixups` for each pointer that dyld fixes.
-# The images are the C extensions that ruby 4.0.7 and the reference gems
+# The images are the C extensions that ruby and the reference gems
 # hold, so the reader sees the bundles that zr will link and load.
 class MachOImageTest < Minitest::Test
   Image = Zr::Obj::MachO::Image

@@ -1,5 +1,5 @@
 # Refinements (`Module#refine` / `Kernel#using`), every line oracle-checked
-# against ruby 4.0.7 -- several are not what the documentation leads you to
+# against ruby -- several are not what the documentation leads you to
 # expect.
 #
 # THE RULE, as the oracle behaves: everything lexically AFTER the `using`, in

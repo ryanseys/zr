@@ -1,4 +1,4 @@
-# nil.object_id is 4 (CRuby 4.0.7). Range#cover? accepts a Range argument
+# nil.object_id is 4 (CRuby). Range#cover? accepts a Range argument
 # (containment). Struct#!= negates the struct's value == (not identity).
 
 p nil.object_id

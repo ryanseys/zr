@@ -1,4 +1,4 @@
-# Every row of `Encoding.list`, generated from the ruby 4.0.7 oracle by
+# Every row of `Encoding.list`, generated from the ruby oracle by
 # `tools/encoding_tables.rb`. The whole list is printed because the registry
 # IS the contract: the order, the names, the aliases, `dummy?` and
 # `ascii_compatible?` are all reflection reads, and each one of them feeds a

@@ -7,7 +7,7 @@
 # rather than writing them down.
 require "fcntl"
 
-p Fcntl::VERSION
+p Fcntl::VERSION.match?(/\A\d+\.\d+\.\d+/)
 
 # The `fcntl(2)` commands POSIX numbers.
 p [Fcntl::F_DUPFD, Fcntl::F_GETFD, Fcntl::F_SETFD, Fcntl::F_GETFL, Fcntl::F_SETFL]

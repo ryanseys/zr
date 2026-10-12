@@ -4,7 +4,7 @@
 # file operations bundler relies on work.
 
 require "fileutils"
-puts FileUtils::VERSION
+puts FileUtils::VERSION.match?(/\A\d+\.\d+\.\d+/)
 puts FileUtils.respond_to?(:mkdir_p)
 d = "/tmp/zr_fu_e2e_#{Process.pid}"
 FileUtils.rm_rf(d)

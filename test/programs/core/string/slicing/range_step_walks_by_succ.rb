@@ -3,7 +3,7 @@
 #
 # `docs/COMPATIBILITY.md` recorded this as the one outright crash in the
 # document -- "answers the right Enumerator, but WALKING it crashes". It
-# does not: every row below matches ruby 4.0.7, so the note is deleted and
+# does not: every row below matches ruby, so the note is deleted and
 # these rows replace it.
 
 p ("a".."e").step(2).to_a

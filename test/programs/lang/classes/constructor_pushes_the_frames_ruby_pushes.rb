@@ -15,7 +15,7 @@
 # So the row is silenced in that table and the two framing shapes push their
 # own.
 #
-# Every row below is oracle-verified against ruby 4.0.7.
+# Every row below is oracle-verified against ruby.
 
 def frames(label, n = 2)
   yield

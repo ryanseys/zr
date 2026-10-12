@@ -1,6 +1,6 @@
 # The Encoding engine: a string is bytes + an encoding, queryable and
 # transcodable, with the Encoding class and its constants. `__ENCODING__`
-# answers the script encoding (UTF-8). Cross-checked against ruby 4.0.7.
+# answers the script encoding (UTF-8). Cross-checked against ruby.
 
 p "hello".encoding
 p __ENCODING__

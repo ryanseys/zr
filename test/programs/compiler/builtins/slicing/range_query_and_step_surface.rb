@@ -1,4 +1,4 @@
-# Every `Range` query and `#step` shape, against ruby 4.0.7: the closed forms
+# Every `Range` query and `#step` shape, against ruby: the closed forms
 # an unbounded range answers without walking, the negative-count refusals, and
 # the bad-stride messages -- which all come from `begin + step`.
 def t(label)

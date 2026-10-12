@@ -7,9 +7,9 @@
 # constant.
 [1].each do
   require "abbrev"
-  p Abbrev::VERSION
+  p Abbrev::VERSION.match?(/\A\d+\.\d+\.\d+/)
 end
 
 require "abbrev"
-p Abbrev::VERSION
+p Abbrev::VERSION.match?(/\A\d+\.\d+\.\d+/)
 p Abbrev.abbrev(["ruby"])["rub"]

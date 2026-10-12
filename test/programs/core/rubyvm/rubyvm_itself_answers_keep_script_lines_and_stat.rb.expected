@@ -1,5 +1,5 @@
 [:keep_script_lines, :keep_script_lines=, :stat]
-[:AbstractSyntaxTree, :DEFAULT_PARAMS, :INSTRUCTION_NAMES, :InstructionSequence, :OPTS, :YJIT]
+[:AbstractSyntaxTree, :DEFAULT_PARAMS, :INSTRUCTION_NAMES, :InstructionSequence, :OPTS]
 false
 true
 [:constant_cache_invalidations, :constant_cache_misses, :global_cvar_state, :next_shape_id, :shape_cache_size]

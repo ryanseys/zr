@@ -1,7 +1,7 @@
 ancestors: [Digest::MD5, Digest::Base, Digest::Class, Digest::Instance, Object]
 sha2 superclass: Digest::Class
 sha384 superclass: Digest::Base
-version: "3.2.1"
+version: true
 class file: [Digest::SHA256, true]
 base64digest: "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0="
 inst base64digest: "qZk+NkcGgWq6PiVxeFDCbJzQ2J0="

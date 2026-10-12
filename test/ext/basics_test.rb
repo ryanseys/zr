@@ -4,7 +4,7 @@
 require "test_helper"
 require_relative "../support/c_ext"
 
-# A C extension built against ruby 4.0.7's own headers runs in a zr
+# A C extension built against ruby's own headers runs in a zr
 # binary and gives ruby's answers: its methods and their arities, the
 # Strings and numbers that it makes and reads inline, its calls of Ruby,
 # and each way that an exception leaves or stays in C.

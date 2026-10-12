@@ -2,7 +2,7 @@
 # structural walking is CRuby-faithful (a valid-but-unmapped pair is a real
 # character), mapping via encoding_rs; char ops, transcode round trips,
 # Integer#chr / << codepoint splits, and all three
-# InvalidByteSequenceError message forms. Verbatim ruby 4.0.7 output.
+# InvalidByteSequenceError message forms. Verbatim ruby output.
 
 sj = "あいz".encode("Shift_JIS")
 p sj.bytes

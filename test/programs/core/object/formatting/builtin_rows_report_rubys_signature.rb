@@ -11,7 +11,7 @@
 #     because CRuby defines the two separately.
 #   * a Struct WRITER's parameter is named `_`, a reader has none.
 
-require "pathname" # a no-op in zr and in ruby 4.0: the class is already there
+require "pathname" # a no-op in zr and in ruby: the class is already there
 require "tmpdir"   # what adds `Pathname.mktmpdir`
 
 def show(label)

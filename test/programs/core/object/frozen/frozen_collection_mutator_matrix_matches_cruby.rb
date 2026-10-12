@@ -1,6 +1,6 @@
 # The full String/Array/Hash mutator matrix against a frozen receiver
 # -- every row's outcome (FrozenError, or legal like `str * 2`) is
-# verbatim ruby 4.0.7. Guard-ordering nuances included: `setbyte`
+# verbatim ruby output. Guard-ordering nuances included: `setbyte`
 # validates index/type BEFORE the frozen check; `transform_values!`
 # returns its blockless enumerator before it.
 

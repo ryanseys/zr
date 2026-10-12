@@ -33,12 +33,12 @@ module Semver
   def patch = Semver::RUBY_VERSION[-1]
 end
 
-p Semver::RUBY_VERSION
+p Semver::RUBY_VERSION.size, Semver::RUBY_VERSION.all?(Integer)
 p Semver::PARTS
 p Semver::ENGINE
 p Semver.ruby1_8?
 p Semver.modern?
-p Semver.patch
+p Semver.patch == Integer(::RUBY_VERSION[/\d+\z/])
 
 # The guard decides, so only one of these classes is ever defined -- the same
 # reading `defined?` gives.

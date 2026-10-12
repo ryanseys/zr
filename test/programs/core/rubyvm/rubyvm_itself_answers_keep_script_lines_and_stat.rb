@@ -15,7 +15,7 @@ end
 
 # ---- RubyVM itself.
 p RubyVM.singleton_methods(false).sort
-p RubyVM.constants.sort
+p RubyVM.constants.sort - %i[YJIT ZJIT] # less the JITs that the build has
 p RubyVM.keep_script_lines
 RubyVM.keep_script_lines = true
 p RubyVM.keep_script_lines

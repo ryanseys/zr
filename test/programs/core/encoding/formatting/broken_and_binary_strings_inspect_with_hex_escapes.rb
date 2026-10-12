@@ -1,6 +1,6 @@
 # A byte that isn't a character in the string's encoding renders as
 # \xNN, and the cross-encoding equality rule keeps ASCII-only strings
-# equal across encodings. Cross-checked against ruby 4.0.7.
+# equal across encodings. Cross-checked against ruby.
 
 p "abc".b == "abc"
 p "abc".b.encoding

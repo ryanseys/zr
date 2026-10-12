@@ -1,5 +1,5 @@
 # Array#pack / String#unpack across the integer, string, base64, hex,
-# BER and UTF-8 directives. Verified against ruby 4.0.7.
+# BER and UTF-8 directives. Verified against ruby.
 
 p [65, 66, 67].pack("C*")
 p [258].pack("v").bytes

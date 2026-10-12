@@ -1,4 +1,4 @@
-# Five behaviours that zr answers exactly as ruby 4.0.7 does. These rows
+# Five behaviours that zr answers exactly as ruby does. These rows
 # catch a change in any of them.
 #
 #   1. Mixed Integer/Float comparison past 2**53

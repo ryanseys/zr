@@ -7,7 +7,7 @@ require_relative "../../lib/zr/hir"
 #
 # In ruby, an alias of a global applies to the whole program, and it
 # takes effect when it runs. An alias under a branch that does not run
-# leaves the name an ordinary global. Checked against ruby 4.0.7:
+# leaves the name an ordinary global. Checked against ruby:
 #
 #   if false; alias $x $&; end; "hello" =~ /ll/; p $x   # nil
 #

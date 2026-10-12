@@ -1,4 +1,4 @@
-1.9.0
+true
 true
 Prism::ProgramNode
 ["Prism::LocalVariableWriteNode", "Prism::CallNode"]

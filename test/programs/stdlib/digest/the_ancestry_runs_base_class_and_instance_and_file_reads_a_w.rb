@@ -3,7 +3,7 @@ def show(l); print l, ": "; p(yield); rescue Exception => e; puts "#{e.class}: #
 show("ancestors") { Digest::MD5.ancestors.first(5) }
 show("sha2 superclass") { Digest::SHA2.superclass }
 show("sha384 superclass") { Digest::SHA384.superclass }
-show("version") { Digest::VERSION }
+show("version") { Digest::VERSION.match?(/\A\d+\.\d+\.\d+/) }
 show("class file") do
   d = Digest::SHA256.file(__FILE__)
   [d.class, d.hexdigest == Digest::SHA256.hexdigest(File.binread(__FILE__))]

@@ -9,8 +9,18 @@ keys = %w[
 ]
 p keys.reject { |key| RbConfig::CONFIG.key?(key) }
 p keys.reject { |key| RbConfig::MAKEFILE_CONFIG.key?(key) }
-%w[RUBY_API_VERSION RUBY_VERSION_NAME THREAD_MODEL LIBPATHENV PRELOADENV SYMBOL_PREFIX modular_gc_dir
-   CROSS_COMPILING PACKAGE SHELL RM MKDIR_P GNU_LD COROUTINE_TYPE ruby_pc].each { |key| p [key, RbConfig::CONFIG[key]] }
+%w[THREAD_MODEL LIBPATHENV PRELOADENV SYMBOL_PREFIX modular_gc_dir
+   CROSS_COMPILING PACKAGE SHELL RM GNU_LD COROUTINE_TYPE].each { |key| p [key, RbConfig::CONFIG[key]] }
+# The names that carry the version follow it.
+api = RbConfig::CONFIG["RUBY_API_VERSION"]
+p api == RUBY_VERSION[/\A\d+\.\d+/]
+p RbConfig::CONFIG["RUBY_VERSION_NAME"] == "ruby-#{RbConfig::CONFIG["ruby_version"]}"
+p RbConfig::CONFIG["ruby_pc"] == "ruby-#{api}.pc"
+p RbConfig::CONFIG["RUBY_SO_NAME"] == "ruby.#{api}"
 p RbConfig::CONFIG.values_at("includedir", "docdir", "sitehdrdir").all? { |v| v.start_with?("/") }
-p RbConfig::CONFIG["LIBRUBY_SO"].end_with?(RbConfig::CONFIG["RUBY_PROGRAM_VERSION"])
+# A static ruby's library name ends with the whole version, and a shared
+# one's with the API version only; both start with the same name.
+p RbConfig::CONFIG["LIBRUBY_SO"].start_with?("lib#{RbConfig::CONFIG["RUBY_SO_NAME"]}.")
 p RbConfig::CONFIG["INSTALL_DATA"].end_with?("-m 644")
+# The build host chooses its mkdir (a GNU one is gmkdir).
+p RbConfig::CONFIG["MKDIR_P"].end_with?("mkdir -p")

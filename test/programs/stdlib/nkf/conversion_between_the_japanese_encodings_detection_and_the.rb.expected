@@ -1,6 +1,6 @@
 "constant"
-"2.1.5 (2018-12-15)"
-"2.1.5"
+true
+true
 [nil, nil, nil]
 [#<Encoding:ISO-2022-JP (dummy)>, #<Encoding:EUC-JP>, #<Encoding:Shift_JIS>, #<Encoding:UTF-8>, #<Encoding:UTF-16BE>, #<Encoding:UTF-32BE>, #<Encoding:US-ASCII>, #<Encoding:BINARY (ASCII-8BIT)>]
 #<Encoding:US-ASCII>

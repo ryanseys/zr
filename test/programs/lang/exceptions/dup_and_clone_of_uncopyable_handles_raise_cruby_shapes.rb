@@ -1,5 +1,5 @@
 # Duplicating or cloning an uncopyable handle raises a real, rescuable
-# error, with every message verbatim from ruby 4.0.7. Fiber is the
+# error, with every message verbatim from ruby. Fiber is the
 # special one: CRuby's shallow copy succeeds but skips the machine
 # stack, so the COPY is an uninitialized fiber (resume raises) while
 # the original still runs. Concurrent join/value on one Thread hands

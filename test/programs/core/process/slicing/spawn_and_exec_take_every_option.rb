@@ -1,7 +1,7 @@
 # The spawn options posix_spawn cannot carry go through fork and execve:
 # umask, pgroup and rlimit_*. exec takes an environment and options,
 # every refusal names what rb_execarg_addopt names, and open("|cmd")
-# names a file, as ruby 4.0 reads it.
+# names a file, as ruby reads it.
 p system("sh", "-c", "umask", umask: 0o077)
 r, w = IO.pipe
 pid = spawn("sh", "-c", "read x", pgroup: true, in: r)

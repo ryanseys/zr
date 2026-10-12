@@ -1,6 +1,6 @@
 # `Date._parse` -- the heuristic scanner `Date.parse`, `DateTime.parse` and
 # `Time.parse` all read their fields out of. Every line here is oracle-verified
-# against ruby 4.0.7, including the KEY ORDER: the hash records fields in the
+# against ruby, including the KEY ORDER: the hash records fields in the
 # order the cascade found them (weekday, then clock and zone, then the date),
 # so the order is part of the answer.
 #

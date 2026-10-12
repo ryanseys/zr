@@ -1,6 +1,6 @@
 # Ruby lets a parameter name repeat when it begins with `_` -- `def f(a, a)` is
 # a SyntaxError, `def f(_, _)` is not -- and only the FIRST occurrence owns the
-# readable local. Every shape below is oracled against ruby 4.0.7.
+# readable local. Every shape below is oracled against ruby.
 #
 # The method signature and the block prologue got this wrong in opposite
 # ways: a method put one generated name on two parameters, which the

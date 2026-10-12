@@ -2,7 +2,7 @@
 # accepts: `last(n)`, `sample(n)`,
 # the block form of `rindex`, the fill span forms, and the variadic
 # set-op siblings `union`/`intersection`/`difference` (distinct from the
-# binary `|`/`&`/`-`). All oracle-verified against ruby 4.0.7.
+# binary `|`/`&`/`-`). All oracle-verified against ruby.
 
 p [1, 2, 3].last(2)
 p [1, 2, 3].last(0)

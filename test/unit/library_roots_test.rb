@@ -47,7 +47,7 @@ class LibraryRootsTest < Minitest::Test
     assert_equal [], held
   end
 
-  # The versions are stock ruby 4.0.7's (`zr-dev vendor` reads them
+  # The versions are stock ruby's (`zr-dev vendor` reads them
   # from ruby itself), so each default gem's specification is this ruby's.
   def test_default_gems_are_this_rubys_versions
     stale = Library::Stdlib::DEFAULT.reject do |name, version|

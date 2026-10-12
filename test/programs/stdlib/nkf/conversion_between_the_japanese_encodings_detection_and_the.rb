@@ -6,8 +6,8 @@
 require "nkf"
 
 p defined?(NKF)
-p NKF::VERSION
-p NKF::NKF_VERSION
+p NKF::VERSION.match?(/\A\d+\.\d+\.\d+/)
+p NKF::NKF_VERSION.match?(/\A\d+\.\d+\.\d+/)
 p [NKF::AUTO, NKF::NOCONV, NKF::UNKNOWN]
 p [NKF::JIS, NKF::EUC, NKF::SJIS, NKF::UTF8, NKF::UTF16, NKF::UTF32, NKF::ASCII, NKF::BINARY]
 

@@ -3,7 +3,7 @@
 # operations rubygems/bundler rely on; every line is oracle-matched.
 require "fileutils"
 
-puts FileUtils::VERSION
+puts FileUtils::VERSION.match?(/\A\d+\.\d+\.\d+/)
 puts FileUtils.respond_to?(:mkdir_p)
 
 d = "/tmp/zr_fileutils_example"

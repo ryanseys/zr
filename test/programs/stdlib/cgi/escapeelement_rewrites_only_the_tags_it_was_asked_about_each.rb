@@ -2,7 +2,7 @@
 # asked about, and each span ends at the next DELIMITER.
 #
 # CRuby writes each as a regexp, and the two differ only in the alphabet
-# (`cgi/escape.rb`, ruby 4.0.7):
+# (ruby's `cgi/escape.rb`):
 #
 #   escapeElement    /<\/?(?:A|B)\b[^<>]*+>?/im
 #   unescapeElement  /&lt;\/?(?:A|B)\b(?>[^&]+|&(?![gl]t;)\w+;)*(?:&gt;)?/im

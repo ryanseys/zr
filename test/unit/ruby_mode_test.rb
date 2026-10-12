@@ -606,7 +606,8 @@ class RubyModeTest < Minitest::Test
     same_as_ruby(stdin: "#! /bin/not_the_interpreter\r\np 1\r\n")
     same_as_ruby(stdin: "#! /bin/not_the_interpreter\np 1\n#!ruby\np 2\n")
     same_as_ruby("--disable-gems", "-e", "begin; require 'no_such_feature_zr'; rescue LoadError => e; p e.message; end")
-    same_as_ruby("-v", "-e", "p 1")
+    # The platform is the build host's, which zr's target need not match.
+    same_as_ruby("-v", "-e", "p 1", platform: true)
     same_as_ruby("-q")
     same_as_ruby("-C", "nodir", "-e", "1")
     same_as_ruby("-e", "exit 7")
@@ -628,15 +629,18 @@ class RubyModeTest < Minitest::Test
   # checks that both give the same output, errors and status.
   #: (*String argv, ?stdin: String) -> void
   # `env` is more of the environment, where "DIR" stands for the
-  # directory that both run in.
-  def same_as_ruby(*argv, stdin: "", env: {})
+  # directory that both run in. `platform` masks the " [platform]" that
+  # ends a line of the output, as in RUBY_DESCRIPTION.
+  def same_as_ruby(*argv, stdin: "", env: {}, platform: false)
     in_dir do |dir|
       given = ENV_OF_BOTH.merge(env.transform_values { |value| value.gsub("DIR", dir) })
       ruby = Open3.capture3(given, RbConfig.ruby, *argv, stdin_data: stdin, chdir: dir)
       zr = Open3.capture3(given, EXE, *argv, stdin_data: stdin, chdir: dir)
       expected = [ruby[0], ruby[1].gsub(/^#{Regexp.escape(RbConfig.ruby)}:|^ruby:/, "zr:"), ruby[2].exitstatus]
+      actual = [zr[0], zr[1], zr[2].exitstatus]
+      expected[0], actual[0] = [expected[0], actual[0]].map { |out| out.sub(/ \[[\w.-]+\]$/, " [platform]") } if platform
 
-      assert_equal expected, [zr[0], zr[1], zr[2].exitstatus], argv.inspect
+      assert_equal expected, actual, argv.inspect
     end
   end
 

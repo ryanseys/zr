@@ -17,7 +17,7 @@ class CExtThreadsAndFibersTest < Minitest::Test
     #include <ruby/io.h>
     #include <ruby/fiber/scheduler.h>
 
-    /* Not in a public header: ruby 4.0's internal/thread.h declares it so. */
+    /* Not in a public header: ruby's internal/thread.h declares it so. */
     VALUE rb_thread_io_blocking_region(struct rb_io *, rb_blocking_function_t *, void *);
 
     static VALUE body(void *arg) { return rb_funcall((VALUE)arg, rb_intern("*"), 1, INT2FIX(2)); }

@@ -3,6 +3,6 @@
 # irb's own and not the one it started with.
 before = Binding.instance_method(:irb)
 require "irb"
-p IRB::VERSION
+p IRB::VERSION.match?(/\A\d+\.\d+\.\d+/)
 p Binding.instance_method(:irb) == before
 p Binding.private_method_defined?(:irb)

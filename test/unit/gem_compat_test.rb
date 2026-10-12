@@ -117,7 +117,7 @@ class GemCompatTest < Minitest::Test
     assert_includes error.message, "helper"
   end
 
-  # A resolver whose resolve fails as RubyGems 4.0.7 does on ddtrace: a
+  # A resolver whose resolve fails as RubyGems does on ddtrace: a
   # NoMethodError while it makes the error of a conflict.
   class BrokenResolver
     def initialize(cause) = @cause = cause

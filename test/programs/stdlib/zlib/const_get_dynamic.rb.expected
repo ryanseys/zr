@@ -7,7 +7,7 @@ Struct -> Struct
 Enumerator -> Enumerator
 Math -> Math
 Zlib -> Zlib
-RUBY_VERSION -> 4.0.7
+RUBY_ENGINE -> ruby
 -- nested, also computed
 Zlib::Error -> Zlib::Error
 Zlib::GzipFile -> Zlib::GzipFile

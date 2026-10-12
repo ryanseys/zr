@@ -7,8 +7,11 @@
 # both name the platform this test is running on.
 
 require "rbconfig"
-puts RbConfig::CONFIG["ruby_version"]
-puts RbConfig::CONFIG.fetch("host_os").sub(/\d+\z/, "N")
-puts RbConfig::CONFIG["EXEEXT"].inspect
-puts RbConfig::CONFIG["arch"].sub(/\d+\z/, "N")
+config = RbConfig::CONFIG
+# The library directories carry the API version, and a development build's
+# ABI version after a "+".
+puts config["ruby_version"].match?(/\A#{Regexp.escape(config["RUBY_API_VERSION"])}\.\d+(\+\d+)?\z/)
+puts config["arch"] == "#{config.fetch("host_cpu")}-#{config.fetch("host_os").delete_suffix("-gnu")}"
+puts config["arch"] == RUBY_PLATFORM
+puts config["EXEEXT"].inspect
 puts defined?(RbConfig::CONFIG)

@@ -1,4 +1,4 @@
-# rand(Float) truncates the bound and draws an Integer (CRuby 4.0.7);
+# rand(Float) truncates the bound and draws an Integer (CRuby);
 # Integer#digits distinguishes a negative radix from a 0/1 radix.
 
 p rand(3.5).class

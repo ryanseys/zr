@@ -2,7 +2,7 @@
 # a reopened exception-prelude class's method visible on rescued
 # subclass instances, late parent reopens and mid-chain module
 # includes visible on deep-leaf instances. Expected output is
-# verbatim ruby 4.0.7.
+# verbatim ruby output.
 
 class StandardError
   def tagged; "SE-tag: #{message}"; end

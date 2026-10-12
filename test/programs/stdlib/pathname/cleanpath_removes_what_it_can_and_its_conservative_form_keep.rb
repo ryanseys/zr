@@ -1,9 +1,9 @@
-# `Pathname` is reachable with NO require: ruby 4.0 loads `pathname.so` before
+# `Pathname` is reachable with NO require: ruby loads `pathname.so` before
 # the first line. This covers the whole surface -- the path ALGEBRA, which is
 # pure string work and never touches disk, and the delegations, which must
 # answer exactly what the same `File`/`Dir` call answers.
 
-require "pathname"   # a no-op here and in ruby 4.0: the class is already there
+require "pathname"   # a no-op here and in ruby: the class is already there
 require "tmpdir"
 
 def show(label)

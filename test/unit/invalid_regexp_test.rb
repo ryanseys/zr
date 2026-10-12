@@ -12,20 +12,20 @@ require "stringio"
 # reports it as a refusal with the line. A program that compiles the
 # pattern while it runs gets the SyntaxError that ruby raises.
 #
-# Each message below was checked against ruby 4.0.7.
+# Each message is the one that the host ruby gives for the same pattern.
 class InvalidRegexpTest < Minitest::Test
   Hir = Zr::Hir
 
   def test_invalid_pattern_error_gives_its_line
     error = assert_raises(Hir::Invalid) { build("p 1\np(/[z-a]/)\n") }
 
-    assert_equal "pattern.rb:2: empty range in char class: /[z-a]/", error.message
+    assert_equal "pattern.rb:2: #{ruby_message("[z-a]")}", error.message
   end
 
   def test_backwards_repeat_range_gives_ruby_message
     error = assert_raises(Hir::Invalid) { build("p(/a{2,1}/)\n") }
 
-    assert_equal "pattern.rb:1: upper is smaller than lower in repeat range: /a{2,1}/", error.message
+    assert_equal "pattern.rb:1: #{ruby_message("a{2,1}")}", error.message
   end
 
   # `Hir::Invalid` is a refusal, so a build gives the refusal exit status
@@ -49,7 +49,7 @@ class InvalidRegexpTest < Minitest::Test
   # ruby's compiler writes no code for an expression whose value is not
   # used, so it never reads a regexp there. The same pattern is a
   # SyntaxError when it is the value of a scope. Each program below was
-  # checked against ruby 4.0.7, and each one runs.
+  # checked against ruby, and each one runs.
   def test_a_pattern_nothing_takes_the_value_of_is_never_read
     [
       "puts 1\n/[z-a]/\nputs 2\n",                   # before the last statement
@@ -94,6 +94,14 @@ class InvalidRegexpTest < Minitest::Test
   # Returns the HIR of `source`, built as eval support builds it: with no
   # eval support linked in, and the loader in the run-time compile mode.
   def build(source) = Zr::Hir.build(source, "pattern.rb", eval_support: false)
+
+  # The message of the RegexpError that ruby raises for `pattern`.
+  def ruby_message(pattern)
+    Regexp.new(pattern)
+    flunk "ruby compiles /#{pattern}/"
+  rescue RegexpError => e
+    e.message
+  end
 
   def capturing_stderr
     said = StringIO.new

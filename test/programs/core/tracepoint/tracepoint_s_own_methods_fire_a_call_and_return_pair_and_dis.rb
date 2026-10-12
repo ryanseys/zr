@@ -1,7 +1,7 @@
 # CRuby implements TracePoint's own surface in Ruby (<internal:trace_point>),
 # so calling one of those methods while a trace is live fires an ordinary
 # :call/:return pair -- `tp.disable` reports one last :disable on its way out.
-# Line numbers below are trace_point.rb's, ruby 4.0.7.
+# Line numbers below are those of ruby's trace_point.rb.
 events = []
 tp = TracePoint.new(:call) { |t| events << t.method_id }
 

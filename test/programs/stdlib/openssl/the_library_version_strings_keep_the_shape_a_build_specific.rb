@@ -4,7 +4,7 @@
 require "openssl"
 
 puts "-- versions --"
-p OpenSSL::VERSION
+p OpenSSL::VERSION.match?(/\A\d+\.\d+\.\d+/)
 p OpenSSL::OPENSSL_VERSION.start_with?("OpenSSL 3.")
 p OpenSSL::OPENSSL_LIBRARY_VERSION.start_with?("OpenSSL 3.")
 p OpenSSL::OPENSSL_VERSION_NUMBER >= 0x30000000

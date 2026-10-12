@@ -2,7 +2,7 @@
 # negation honored); `match`/`match?`/`rindex` take an optional start
 # position; `rindex` also accepts a Regexp; `each_line` an optional
 # separator; `split` an optional limit (positive caps fields, negative
-# keeps trailing empties). All oracle-verified against ruby 4.0.7.
+# keeps trailing empties). All oracle-verified against ruby.
 
 p "hello world".count("lo")
 p "hello world".count("lo", "o")

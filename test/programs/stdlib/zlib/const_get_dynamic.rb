@@ -8,7 +8,7 @@
 require "zlib"
 
 puts "-- const_get with a computed name"
-%w[Array String Comparable Float Struct Enumerator Math Zlib RUBY_VERSION].each do |n|
+%w[Array String Comparable Float Struct Enumerator Math Zlib RUBY_ENGINE].each do |n|
   begin
     puts "#{n} -> #{Object.const_get(n)}"
   rescue NameError

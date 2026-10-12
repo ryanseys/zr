@@ -1,9 +1,11 @@
 
 # The methods each core class and module defines itself, by visibility,
-# and the constants it holds, as ruby 4.0 lists them. Names that rubygems
+# and the constants it holds, as ruby lists them. Names that rubygems
 # and irb's Binding#irb define are left out, and so is RubyVM's parse.y
-# surface: the ISEQ class and the AST's nodes.
-LATER = %i[Gem RUBYGEMS_ACTIVATION_MONITOR irb InstructionSequence Location Node parse parse_file].freeze
+# surface: the ISEQ class and the AST's nodes. So are the names that the
+# build decides: the JITs it has and the GMP it links.
+LATER = %i[Gem RUBYGEMS_ACTIVATION_MONITOR irb InstructionSequence Location Node parse parse_file
+           YJIT ZJIT GMP_VERSION].freeze
 GEMS = %i[gem gem_original_require require require_relative].freeze
 mods = [BasicObject, Object, Kernel, Module, Class, Comparable, Enumerable, NilClass, TrueClass, FalseClass,
         Integer, Float, Numeric, Rational, Complex, String, Symbol, Array, Hash, Range, Struct, Data, Set,
@@ -15,7 +17,7 @@ mods = [BasicObject, Object, Kernel, Module, Class, Comparable, Enumerable, NilC
         Thread, Thread::Mutex, Thread::Queue, Thread::SizedQueue, Thread::ConditionVariable, ThreadGroup,
         Fiber, Process::Status, ObjectSpace::WeakMap, ObjectSpace::WeakKeyMap, Marshal, Math, GC, Process,
         Signal, Warning, TracePoint, Ractor, Refinement, ObjectSpace, FileTest, Errno::ENOENT,
-        RubyVM, RubyVM::AbstractSyntaxTree, RubyVM::YJIT]
+        RubyVM, RubyVM::AbstractSyntaxTree]
 mods.each do |m|
   rows = {
     public: m.public_instance_methods(false),

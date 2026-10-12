@@ -7,5 +7,5 @@
 
 VERSION_COPY = RUBY_VERSION
 box = Ruby::Box.new
-box.eval("puts RUBY_VERSION")
+box.eval("p RUBY_VERSION == #{RUBY_VERSION.dump}")
 box.eval("begin; p VERSION_COPY; rescue NameError; puts 'invisible'; end")

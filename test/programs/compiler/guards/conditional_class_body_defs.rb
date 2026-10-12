@@ -6,7 +6,7 @@
 # leaves nothing behind. (This is the class-body analogue of the top-level
 # conditional-definition handling.)
 class Host
-  # "4.0.7" >= "3.0" is true -> Modern registers.
+  # RUBY_VERSION >= "3.0" is true -> Modern registers.
   if RUBY_VERSION >= "3.0"
     class Modern
       def tag
@@ -15,7 +15,7 @@ class Host
     end
   end
 
-  # "4.0.7" < "3.0" is false -> the legacy nested class is dropped entirely.
+  # RUBY_VERSION < "3.0" is false -> the legacy nested class is dropped entirely.
   if RUBY_VERSION < "3.0"
     class Legacy
       def tag

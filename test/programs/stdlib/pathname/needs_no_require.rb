@@ -1,4 +1,4 @@
-# ruby 4.0 loads `pathname.so` before the first line, so the class and
+# ruby loads `pathname.so` before the first line, so the class and
 # `Kernel#Pathname` are there with no require at all.
 
 puts Pathname.new("/x")

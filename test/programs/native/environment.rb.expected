@@ -1,11 +1,11 @@
-"4.0.7"
+true
 "ruby"
-"4.0.7"
-"arm64-darwin23"
-0
-"2026-09-15"
-"ruby - Copyright (C) 1993-2026 Yukihiro Matsumoto"
-"ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin23]"
+true
+true
+true
+true
+true
+true
 []
 []
 "native/environment.rb"

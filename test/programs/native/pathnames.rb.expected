@@ -38,8 +38,8 @@ true
 true
 true
 true
-"# Pathname is a builtin in ruby 4.0, and require \"pathname\" adds the rest.\n"
-"# Pathname is a builtin in ruby 4.0, and require \"pathname\" adds the rest.\n"
+"# Pathname is a builtin in ruby, and require \"pathname\" adds the rest.\n"
+"# Pathname is a builtin in ruby, and require \"pathname\" adds the rest.\n"
 Array
 Array
 true

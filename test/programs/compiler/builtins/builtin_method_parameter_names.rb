@@ -2,7 +2,7 @@
 # names nothing where ruby names nothing.
 #
 # CLOSED 2026-08-24. The whole-surface census is zero: over 2,594 rows both
-# ruby 4.0.7 and zr declare, `#parameters` and `#arity` agree on every one.
+# ruby and zr declare, `#parameters` and `#arity` agree on every one.
 #
 # The mechanism landed 2026-08-21 -- the DSL spells a row's signature per NAME
 # (`params "fmt, buffer: nil"`) in ruby's own `def` spelling, and the ARITY

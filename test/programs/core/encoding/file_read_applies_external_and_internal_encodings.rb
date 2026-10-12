@@ -1,6 +1,6 @@
 # File.read tags bytes with the external encoding (default UTF-8), or a
 # requested one; binread is always ASCII-8BIT; binwrite round-trips raw
-# bytes. Verified against ruby 4.0.7.
+# bytes. Verified against ruby.
 
 require "tmpdir"
 Dir.mktmpdir do |dir|

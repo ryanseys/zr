@@ -3,7 +3,7 @@
 # frozen-object ivar/singleton/extend guards and the frozen-builtin
 # instance_variable_set raises. The cvar guard is on the storage OWNER
 # (`Sub.freeze` doesn't stop a write to Base's `@@z`). Expected output
-# is verbatim ruby 4.0.7 (addresses normalized in-script).
+# is verbatim ruby output (addresses normalized in-script).
 
 class Foo
   def self.setiv; @x = 1; end

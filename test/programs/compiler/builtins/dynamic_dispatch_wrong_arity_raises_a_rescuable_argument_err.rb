@@ -1,7 +1,7 @@
 # On an arity mismatch, `send` raises a RESCUABLE ArgumentError, as Ruby
 # does. The program survives every mismatch and the final line prints.
 # All three message shapes -- fixed `N`, range `N..M`, and the rest form
-# `N+` -- are oracle-verified against ruby 4.0.7.
+# `N+` -- are oracle-verified against ruby.
 
 class A
   def fixed(a) = a

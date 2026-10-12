@@ -2,7 +2,7 @@
 # non-blocking fibers to the scheduler: sleep, a pipe read and write, a
 # Mutex, a Queue, a Thread#value, Process.wait, Timeout.timeout,
 # getaddrinfo and a close. The scheduler is CRuby's own test scheduler
-# (test/fiber/scheduler.rb at ruby 4.0.7), unedited.
+# (test/fiber/scheduler.rb of ruby), unedited.
 require_relative "fiber_scheduler/scheduler"
 require "timeout"
 log = []

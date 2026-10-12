@@ -8,7 +8,7 @@ require_relative "../../lib/zr/hir"
 # decide if the program includes eval support. `Build#evals?` uses it to
 # decide if the enclosing method arms the catch for a `return`.
 #
-# Each case below was checked against ruby 4.0.7 first.
+# Each case below was checked against ruby first.
 # The programs in `test/programs/lang/eval/` check the same cases end to
 # end.
 class EvalCallTest < Minitest::Test

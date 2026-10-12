@@ -17,6 +17,6 @@ p require("date_core")
 p Date.civil(2026, 10, 3).to_s
 p defined?(Date::VERSION)
 p require("date")
-p Date::VERSION
+p Date::VERSION.match?(/\A\d+\.\d+\.\d+/)
 p Date::Infinity.new > Date.today.jd
 p require("date_core")
