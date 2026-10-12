@@ -346,7 +346,13 @@ class String
   def strip!(*selectors) = mutate(OWN[:strip].bind_call(self, *selectors))
   def lstrip!(*selectors) = mutate(OWN[:lstrip].bind_call(self, *selectors))
   def rstrip!(*selectors) = mutate(OWN[:rstrip].bind_call(self, *selectors))
-  def chomp!(separator = $/) = mutate(OWN[:chomp].bind_call(self, separator))
+  # rb_str_chomp_bang: an empty String gives nil before the separator
+  # converts.
+  def chomp!(separator = $/)
+    return mutate(self) if Primitive.zr_str_bytesize(self) == 0
+
+    mutate(OWN[:chomp].bind_call(self, separator))
+  end
   def chop! = mutate(OWN[:chop].bind_call(self))
   def squeeze!(*sets) = mutate(OWN[:squeeze].bind_call(self, *sets))
 
@@ -1305,7 +1311,7 @@ class String
       elsif part.is_a?(String)
         part.each_byte { |b| Primitive.zr_str_push_byte(self, b) }
       else
-        raise TypeError, "wrong argument type #{conversion_name(part)} (expected String or Integer)"
+        raise TypeError, "wrong argument type #{Primitive.zr_real_class(part)} (expected String or Integer)"
       end
     end
     self
@@ -2300,7 +2306,9 @@ class String
   end
 
   def scrub!(replacement = nil, &block)
-    # A valid String is left alone, frozen or not.
+    # enc_str_scrub checks the pair first. A valid String is then left
+    # alone, frozen or not.
+    raise ArgumentError, +"both of block and replacement given" if block && !replacement.nil?
     return self if Primitive.zr_str_valid_p(self)
 
     mutate(OWN[:scrub].bind_call(self, replacement, &block))
@@ -2322,9 +2330,9 @@ class String
     lead < 0 || Primitive.zr_str_char_len_at_m(self, lead) <= at - lead
   end
 
+  # rb_str_byteindex_m: the offset is checked before the needle converts.
   def byteindex(needle, start = 0)
     start = Primitive.zr_index_operand_m(start)
-    needle = Primitive.zr_str_operand(needle) unless needle.is_a?(Regexp)
     start += Primitive.zr_str_bytesize(self) if start < 0
     return Primitive.zr_backref_set(nil) if (start < 0 || start > Primitive.zr_str_bytesize(self)) && needle.is_a?(Regexp)
     return nil if start < 0 || start > Primitive.zr_str_bytesize(self)
@@ -2335,12 +2343,11 @@ class String
       Primitive.zr_backref_set(match)
       return match && match.send(:begin_at, 0)
     end
-    byte_index(needle, start)
+    byte_index(Primitive.zr_str_operand(needle), start)
   end
 
   def byterindex(needle, start = Primitive.zr_str_bytesize(self))
     start = Primitive.zr_index_operand_m(start)
-    needle = Primitive.zr_str_operand(needle) unless needle.is_a?(Regexp)
     start += Primitive.zr_str_bytesize(self) if start < 0
     return Primitive.zr_backref_set(nil) if start < 0 && needle.is_a?(Regexp)
     return nil if start < 0

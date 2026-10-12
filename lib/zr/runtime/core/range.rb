@@ -486,7 +486,7 @@ class Range
   # range_overlap, over both ranges' own bounds: a subclass's begin and
   # end are not called.
   def overlap?(other)
-    raise TypeError, "wrong argument type #{conversion_name(other)} (expected Range)" unless other.is_a?(Range)
+    raise TypeError, "wrong argument type #{Primitive.zr_real_class(other)} (expected Range)" unless other.is_a?(Range)
 
     other_begin, other_end, other_excl = other.send(:bounds)
     return false if empty_region?(@begin, other_end, other_excl)

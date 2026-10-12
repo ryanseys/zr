@@ -1,0 +1,30 @@
+scrub! both: ArgumentError: both of block and replacement given
+scrub! both, invalid: ArgumentError: both of block and replacement given
+scrub! both, frozen: ArgumentError: both of block and replacement given
+scrub! nil and block: "az"
+scrub! block: "a<[255]>"
+scrub! valid, frozen: "a"
+scrub both: ArgumentError: both of block and replacement given
+chomp! empty: [nil, nil, nil, nil]
+chomp! empty, frozen: FrozenError: can't modify frozen String: ""
+chomp! bad separator: TypeError: no implicit conversion of Integer into String
+chomp!: ["ab", "a", nil, nil, "a"]
+byteindex: [nil, nil, nil, 2, 2, nil]
+byteindex off a boundary: IndexError: offset 1 does not land on character boundary
+byteindex bad needle: TypeError: no implicit conversion of Integer into String
+byteindex bad offset: TypeError: no implicit conversion of String into Integer
+byterindex: [nil, 0, 3, nil]
+byterindex off a boundary: IndexError: offset 1 does not land on character boundary
+byterindex bad needle: TypeError: no implicit conversion of Integer into String
+append_as_bytes NilClass: TypeError: wrong argument type NilClass (expected String or Integer)
+overlap? NilClass: TypeError: wrong argument type NilClass (expected Range)
+append_as_bytes TrueClass: TypeError: wrong argument type TrueClass (expected String or Integer)
+overlap? TrueClass: TypeError: wrong argument type TrueClass (expected Range)
+append_as_bytes Float: TypeError: wrong argument type Float (expected String or Integer)
+overlap? Float: TypeError: wrong argument type Float (expected Range)
+append_as_bytes Symbol: TypeError: wrong argument type Symbol (expected String or Integer)
+overlap? Symbol: TypeError: wrong argument type Symbol (expected Range)
+append_as_bytes Object: TypeError: wrong argument type Object (expected String or Integer)
+overlap? Object: TypeError: wrong argument type Object (expected Range)
+append_as_bytes Array: TypeError: wrong argument type Array (expected String or Integer)
+overlap? Array: TypeError: wrong argument type Array (expected Range)
