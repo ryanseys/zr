@@ -1,0 +1,26 @@
+"Klass.<=>"
+"A#fetch"
+"H#fetch"
+"Comparable#between?"
+"String#sub"
+"FileTest.exist?"
+"FileTest.directory?"
+"FileTest.size?"
+["Bar#a", "block in <main>"]
+["Foo#a", "block in <main>"]
+["Kernel#instance_variable_get", "block in <main>"]
+["W2#fetch", "block in <main>"]
+["W#fetch", "block in <main>"]
+["Hash#fetch", "block in <main>"]
+["fetch", "block in <main>"]
+["Sub2#first", "block in <main>"]
+["Array#fetch", "block in <main>"]
+["Mo.f", "block in <main>"]
+["Mo.g", "block in <main>"]
+["Deep#a", "block in <main>"]
+["Foo#a", "Deep#a"]
+Bar
+Sub2
+W2
+:c
+:a

@@ -1,0 +1,162 @@
+FileTest.blockdev?, missing: false
+FileTest.blockdev?, 1: TypeError: no implicit conversion of Integer into String (FileTest.blockdev?)
+FileTest.blockdev?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.blockdev?)
+Holder#blockdev?, missing: false
+Holder#blockdev?, nil: TypeError: no implicit conversion of nil into String (FileTest#blockdev?)
+same as File, blockdev?: true
+FileTest.chardev?, missing: false
+FileTest.chardev?, 1: TypeError: no implicit conversion of Integer into String (FileTest.chardev?)
+FileTest.chardev?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.chardev?)
+Holder#chardev?, missing: false
+Holder#chardev?, nil: TypeError: no implicit conversion of nil into String (FileTest#chardev?)
+same as File, chardev?: true
+FileTest.directory?, missing: false
+FileTest.directory?, 1: TypeError: no implicit conversion of Integer into String (FileTest.directory?)
+FileTest.directory?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.directory?)
+Holder#directory?, missing: false
+Holder#directory?, nil: TypeError: no implicit conversion of nil into String (FileTest#directory?)
+same as File, directory?: true
+FileTest.empty?, missing: false
+FileTest.empty?, 1: TypeError: no implicit conversion of Integer into String (FileTest.empty?)
+FileTest.empty?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.empty?)
+Holder#empty?, missing: false
+Holder#empty?, nil: TypeError: no implicit conversion of nil into String (FileTest#empty?)
+same as File, empty?: true
+FileTest.executable?, missing: false
+FileTest.executable?, 1: TypeError: no implicit conversion of Integer into String (FileTest.executable?)
+FileTest.executable?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.executable?)
+Holder#executable?, missing: false
+Holder#executable?, nil: TypeError: no implicit conversion of nil into String (FileTest#executable?)
+same as File, executable?: true
+FileTest.executable_real?, missing: false
+FileTest.executable_real?, 1: TypeError: no implicit conversion of Integer into String (FileTest.executable_real?)
+FileTest.executable_real?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.executable_real?)
+Holder#executable_real?, missing: false
+Holder#executable_real?, nil: TypeError: no implicit conversion of nil into String (FileTest#executable_real?)
+same as File, executable_real?: true
+FileTest.exist?, missing: false
+FileTest.exist?, 1: TypeError: no implicit conversion of Integer into String (FileTest.exist?)
+FileTest.exist?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.exist?)
+Holder#exist?, missing: false
+Holder#exist?, nil: TypeError: no implicit conversion of nil into String (FileTest#exist?)
+same as File, exist?: true
+FileTest.file?, missing: false
+FileTest.file?, 1: TypeError: no implicit conversion of Integer into String (FileTest.file?)
+FileTest.file?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.file?)
+Holder#file?, missing: false
+Holder#file?, nil: TypeError: no implicit conversion of nil into String (FileTest#file?)
+same as File, file?: true
+FileTest.grpowned?, missing: false
+FileTest.grpowned?, 1: TypeError: no implicit conversion of Integer into String (FileTest.grpowned?)
+FileTest.grpowned?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.grpowned?)
+Holder#grpowned?, missing: false
+Holder#grpowned?, nil: TypeError: no implicit conversion of nil into String (FileTest#grpowned?)
+same as File, grpowned?: true
+FileTest.identical?, missing: false
+FileTest.identical?, 1: TypeError: no implicit conversion of Integer into String (FileTest.identical?)
+FileTest.identical?, no argument: ArgumentError: wrong number of arguments (given 0, expected 2) (FileTest.identical?)
+Holder#identical?, missing: false
+Holder#identical?, nil: TypeError: no implicit conversion of nil into String (FileTest#identical?)
+same as File, identical?: true
+FileTest.owned?, missing: false
+FileTest.owned?, 1: TypeError: no implicit conversion of Integer into String (FileTest.owned?)
+FileTest.owned?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.owned?)
+Holder#owned?, missing: false
+Holder#owned?, nil: TypeError: no implicit conversion of nil into String (FileTest#owned?)
+same as File, owned?: true
+FileTest.pipe?, missing: false
+FileTest.pipe?, 1: TypeError: no implicit conversion of Integer into String (FileTest.pipe?)
+FileTest.pipe?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.pipe?)
+Holder#pipe?, missing: false
+Holder#pipe?, nil: TypeError: no implicit conversion of nil into String (FileTest#pipe?)
+same as File, pipe?: true
+FileTest.readable?, missing: false
+FileTest.readable?, 1: TypeError: no implicit conversion of Integer into String (FileTest.readable?)
+FileTest.readable?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.readable?)
+Holder#readable?, missing: false
+Holder#readable?, nil: TypeError: no implicit conversion of nil into String (FileTest#readable?)
+same as File, readable?: true
+FileTest.readable_real?, missing: false
+FileTest.readable_real?, 1: TypeError: no implicit conversion of Integer into String (FileTest.readable_real?)
+FileTest.readable_real?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.readable_real?)
+Holder#readable_real?, missing: false
+Holder#readable_real?, nil: TypeError: no implicit conversion of nil into String (FileTest#readable_real?)
+same as File, readable_real?: true
+FileTest.setgid?, missing: false
+FileTest.setgid?, 1: TypeError: no implicit conversion of Integer into String (FileTest.setgid?)
+FileTest.setgid?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.setgid?)
+Holder#setgid?, missing: false
+Holder#setgid?, nil: TypeError: no implicit conversion of nil into String (FileTest#setgid?)
+same as File, setgid?: true
+FileTest.setuid?, missing: false
+FileTest.setuid?, 1: TypeError: no implicit conversion of Integer into String (FileTest.setuid?)
+FileTest.setuid?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.setuid?)
+Holder#setuid?, missing: false
+Holder#setuid?, nil: TypeError: no implicit conversion of nil into String (FileTest#setuid?)
+same as File, setuid?: true
+FileTest.size, missing: Errno::ENOENT: No such file or directory @ rb_file_s_size - /nonexistent/zr (FileTest.size)
+FileTest.size, 1: TypeError: no implicit conversion of Integer into String (FileTest.size)
+FileTest.size, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.size)
+Holder#size, missing: Errno::ENOENT: No such file or directory @ rb_file_s_size - /nonexistent/zr (FileTest#size)
+Holder#size, nil: TypeError: no implicit conversion of nil into String (FileTest#size)
+same as File, size: true
+FileTest.size?, missing: nil
+FileTest.size?, 1: TypeError: no implicit conversion of Integer into String (FileTest.size?)
+FileTest.size?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.size?)
+Holder#size?, missing: nil
+Holder#size?, nil: TypeError: no implicit conversion of nil into String (FileTest#size?)
+same as File, size?: true
+FileTest.socket?, missing: false
+FileTest.socket?, 1: TypeError: no implicit conversion of Integer into String (FileTest.socket?)
+FileTest.socket?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.socket?)
+Holder#socket?, missing: false
+Holder#socket?, nil: TypeError: no implicit conversion of nil into String (FileTest#socket?)
+same as File, socket?: true
+FileTest.sticky?, missing: false
+FileTest.sticky?, 1: TypeError: no implicit conversion of Integer into String (FileTest.sticky?)
+FileTest.sticky?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.sticky?)
+Holder#sticky?, missing: false
+Holder#sticky?, nil: TypeError: no implicit conversion of nil into String (FileTest#sticky?)
+same as File, sticky?: true
+FileTest.symlink?, missing: false
+FileTest.symlink?, 1: TypeError: no implicit conversion of Integer into String (FileTest.symlink?)
+FileTest.symlink?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.symlink?)
+Holder#symlink?, missing: false
+Holder#symlink?, nil: TypeError: no implicit conversion of nil into String (FileTest#symlink?)
+same as File, symlink?: true
+FileTest.world_readable?, missing: nil
+FileTest.world_readable?, 1: TypeError: no implicit conversion of Integer into String (FileTest.world_readable?)
+FileTest.world_readable?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.world_readable?)
+Holder#world_readable?, missing: nil
+Holder#world_readable?, nil: TypeError: no implicit conversion of nil into String (FileTest#world_readable?)
+same as File, world_readable?: true
+FileTest.world_writable?, missing: nil
+FileTest.world_writable?, 1: TypeError: no implicit conversion of Integer into String (FileTest.world_writable?)
+FileTest.world_writable?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.world_writable?)
+Holder#world_writable?, missing: nil
+Holder#world_writable?, nil: TypeError: no implicit conversion of nil into String (FileTest#world_writable?)
+same as File, world_writable?: true
+FileTest.writable?, missing: false
+FileTest.writable?, 1: TypeError: no implicit conversion of Integer into String (FileTest.writable?)
+FileTest.writable?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.writable?)
+Holder#writable?, missing: false
+Holder#writable?, nil: TypeError: no implicit conversion of nil into String (FileTest#writable?)
+same as File, writable?: true
+FileTest.writable_real?, missing: false
+FileTest.writable_real?, 1: TypeError: no implicit conversion of Integer into String (FileTest.writable_real?)
+FileTest.writable_real?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.writable_real?)
+Holder#writable_real?, missing: false
+Holder#writable_real?, nil: TypeError: no implicit conversion of nil into String (FileTest#writable_real?)
+same as File, writable_real?: true
+FileTest.zero?, missing: false
+FileTest.zero?, 1: TypeError: no implicit conversion of Integer into String (FileTest.zero?)
+FileTest.zero?, no argument: ArgumentError: wrong number of arguments (given 0, expected 1) (FileTest.zero?)
+Holder#zero?, missing: false
+Holder#zero?, nil: TypeError: no implicit conversion of nil into String (FileTest#zero?)
+same as File, zero?: true
+exist? of this file: [true, true, true]
+with an IO: [true, true, false]
+size of a missing file: Errno::ENOENT: No such file or directory @ rb_file_s_size - /nonexistent/zr (FileTest.size)
+listed: [true, true, []]
+owners: [#<Class:FileTest>, FileTest, 1]
+File's own labels: ["File.empty?", "File.executable_real?"]

@@ -730,6 +730,26 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # In a core class body: method `name` of `from` defined again on `to`,
+  # private when `priv` is true, with the same code and `to` as its owner,
+  # as CRuby defines one C function on two classes
+  # (define_filetest_function). Its frames show `to`.
+  #: (value, value, value, value) -> value
+  def zr_method_share(from, name, to, priv)
+    mid = zr_sym2id(name)
+    e = zr_find_method_at(from, mid)
+    if e != 0
+      vis = VIS_PUBLIC
+      if priv == QTRUE
+        vis = VIS_PRIVATE
+      end
+      owned = zr_meta_owned(MEntry[e].meta, to)
+      zr_method_copy(to, mid, e, owned, vis, false)
+      MEntry[zr_find_method_at(zr_origin(to), mid)].label = owned
+    end
+    Machine.value(QNIL)
+  end
+
   # In a core class body: `name` of `klass` is a method of its own, which
   # CRuby defines apart from the method that zr shares its code with.
   #: (value, value) -> value

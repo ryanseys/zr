@@ -185,9 +185,12 @@ class File < IO
     expand_path(text.start_with?("~") ? "./#{text}" : text, dir)
   end
 
-  def self.exist?(path) = kind_of_path(path) != 0
-  def self.file?(path) = kind_of_path(path) == 2
-  def self.directory?(path) = kind_of_path(path) == 1
+  # The predicates that FileTest shares (define_filetest_function) run
+  # with FileTest, or what includes it, as self, so they name File for
+  # its helpers.
+  def self.exist?(path) = File.send(:kind_of_path, path) != 0
+  def self.file?(path) = File.send(:kind_of_path, path) == 2
+  def self.directory?(path) = File.send(:kind_of_path, path) == 1
 
   # IO_WITHOUT_GVL: a file system call that can block, which the
   # scheduler of a non-blocking fiber can run as it decides. The block
@@ -303,8 +306,11 @@ class File < IO
   end
   private :fifo_fd
 
-  def self.size(path)
-    # rb_file_s_size: to_io is asked once.
+  def self.size(path) = File.send(:size_at, path)
+
+  # rb_file_s_size: to_io is asked once.
+  def self.size_at(path)
+    Primitive.attr! :hidden
     io = stat_io(path)
     return io.stat.size if io
 
@@ -314,8 +320,12 @@ class File < IO
 
     result
   end
+  private_class_method :size_at
 
-  def self.size?(path)
+  def self.size?(path) = File.send(:size_or_nil, path)
+
+  def self.size_or_nil(path)
+    Primitive.attr! :hidden
     if (io = stat_io(path))
       size = io.stat.size
       return size.zero? ? nil : size
@@ -325,19 +335,23 @@ class File < IO
     result = without_gvl { Primitive.zr_io_file_size(os_path(path)) }
     result <= 0 ? nil : result
   end
+  private_class_method :size_or_nil
 
-  def self.zero?(path)
+  def self.zero?(path) = File.send(:zero_size?, path)
+  def self.empty?(path) = File.send(:zero_size?, path)
+
+  def self.zero_size?(path)
+    Primitive.attr! :hidden
     return stat_io(path).stat.size.zero? if stat_io(path)
 
     path = path_of(path)
     without_gvl { Primitive.zr_io_file_size(os_path(path)) }.zero?
   end
+  private_class_method :zero_size?
 
-  def self.empty?(path) = zero?(path)
-
-  def self.readable?(path) = accessible?(path, 4)
-  def self.writable?(path) = accessible?(path, 2)
-  def self.executable?(path) = accessible?(path, 1)
+  def self.readable?(path) = File.send(:accessible?, path, 4)
+  def self.writable?(path) = File.send(:accessible?, path, 2)
+  def self.executable?(path) = File.send(:accessible?, path, 1)
 
   # rb_eaccess.
   def self.accessible?(path, mode)
@@ -748,7 +762,7 @@ class File < IO
   def self.atime(path) = Stat.of(path_of(path), "rb_file_s_atime").atime
   def self.ctime(path) = Stat.of(path_of(path), "rb_file_s_ctime").ctime
   def self.ftype(path) = Stat.send(:link, path, "rb_file_s_ftype").ftype
-  def self.symlink?(path) = stat_fields(path, false).then { |f| f.is_a?(Array) && (f[2] & 0o170000) == 0o120000 }
+  def self.symlink?(path) = File.send(:stat_fields, path, false).then { |f| f.is_a?(Array) && (f[2] & 0o170000) == 0o120000 }
 
   # stat(2), or lstat(2) where `follow` is false, as the call that may
   # block: the fields, or the negative errno.
@@ -959,10 +973,10 @@ class File < IO
 
   def self.birthtime(path) = Stat.of(path_of(path), "rb_file_s_birthtime").birthtime
 
-  def self.blockdev?(path) = mode_kind?(path, 0o060000)
-  def self.chardev?(path) = mode_kind?(path, 0o020000)
-  def self.pipe?(path) = mode_kind?(path, 0o010000)
-  def self.socket?(path) = mode_kind?(path, 0o140000)
+  def self.blockdev?(path) = File.send(:mode_kind?, path, 0o060000)
+  def self.chardev?(path) = File.send(:mode_kind?, path, 0o020000)
+  def self.pipe?(path) = File.send(:mode_kind?, path, 0o010000)
+  def self.socket?(path) = File.send(:mode_kind?, path, 0o140000)
 
   def self.mode_kind?(path, kind)
     Primitive.attr! :hidden
@@ -981,8 +995,8 @@ class File < IO
 
   # The permission bits when everyone may read (or write) the file,
   # else nil.
-  def self.world_readable?(path) = mode_when(path, 0o004)
-  def self.world_writable?(path) = mode_when(path, 0o002)
+  def self.world_readable?(path) = File.send(:mode_when, path, 0o004)
+  def self.world_writable?(path) = File.send(:mode_when, path, 0o002)
 
   def self.mode_when(path, bit)
     Primitive.attr! :hidden
@@ -993,9 +1007,9 @@ class File < IO
   end
   private_class_method :mode_when
 
-  def self.setuid?(path) = mode_set?(path, 0o4000)
-  def self.setgid?(path) = mode_set?(path, 0o2000)
-  def self.sticky?(path) = mode_set?(path, 0o1000)
+  def self.setuid?(path) = File.send(:mode_set?, path, 0o4000)
+  def self.setgid?(path) = File.send(:mode_set?, path, 0o2000)
+  def self.sticky?(path) = File.send(:mode_set?, path, 0o1000)
 
   def self.mode_set?(path, bit)
     Primitive.attr! :hidden
@@ -1004,10 +1018,10 @@ class File < IO
   end
   private_class_method :mode_set?
 
-  def self.owned?(path) = stat_field(path, 4) == Process.uid
+  def self.owned?(path) = File.send(:stat_field, path, 4) == Process.uid
   def self.grpowned?(path)
-    gid = stat_field(path, 5)
-    !gid.nil? && group_member?(gid)
+    gid = File.send(:stat_field, path, 5)
+    !gid.nil? && File.send(:group_member?, gid)
   end
 
   # rb_group_member: the effective group, or one of the supplementary
@@ -1030,15 +1044,15 @@ class File < IO
 
   # The same file: one device and one inode.
   def self.identical?(a, b)
-    left = stat_fields(a)
-    right = stat_fields(b)
+    left = File.send(:stat_fields, a)
+    right = File.send(:stat_fields, b)
     left.is_a?(Array) && right.is_a?(Array) && left[0] == right[0] && left[1] == right[1]
   end
 
   # `access(2)` checks the real user. The plain forms also check that user.
-  def self.readable_real?(path) = readable?(path)
-  def self.writable_real?(path) = writable?(path)
-  def self.executable_real?(path) = executable?(path)
+  def self.readable_real?(path) = File.send(:accessible?, path, 4)
+  def self.writable_real?(path) = File.send(:accessible?, path, 2)
+  def self.executable_real?(path) = File.send(:accessible?, path, 1)
 
   def self.path(object) = path_of(object)
 
@@ -1171,15 +1185,15 @@ class File < IO
 end
 
 # `FileTest` has the same predicates as File, as a module that a program
-# can mix in. Ruby gives the same results for both.
+# can mix in: the same code as File's, defined again on FileTest, as
+# define_filetest_function defines one C function on both. A frame
+# shows 'FileTest.exist?'.
 module FileTest
-  module_function
-
   %i[blockdev? chardev? directory? empty? executable? executable_real? exist? file? grpowned?
      identical? owned? pipe? readable? readable_real? setgid? setuid? size size? socket? sticky?
      symlink? world_readable? world_writable? writable? writable_real? zero?].each do |name|
-    define_method(name) { |*args| File.public_send(name, *args) }
-    module_function name
+    Primitive.zr_method_share(File.singleton_class, name, singleton_class, false)
+    Primitive.zr_method_share(File.singleton_class, name, self, true)
   end
 end
 
