@@ -1,0 +1,12 @@
+nil: TypeError: no implicit conversion of nil into Hash
+nil with a block: TypeError: no implicit conversion of nil into Hash
+frozen, nil: TypeError: no implicit conversion of nil into Hash
+frozen, 1: TypeError: no implicit conversion of Integer into Hash
+frozen, a Hash: FrozenError: can't modify frozen Hash: {a: 1}
+frozen, a block: FrozenError: can't modify frozen Hash: {a: 1}
+enumerator: [2, {"a" => 1, "b" => 2}]
+mapping and block: {z: 1, "b" => 2}
+mapping only: {b: 1, a: 2}
+block: {"a" => 1}
+to_hash: {q: 1}
+too many: ArgumentError: wrong number of arguments (given 2, expected 0..1)

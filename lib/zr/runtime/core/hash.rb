@@ -272,12 +272,13 @@ class Hash
 
   # rb_hash_transform_keys_bang: each pair taken out and put back under
   # its new key, in the order the pairs were, a key another pair has
-  # already moved to left where it is.
-  def transform_keys!(mapping = nil)
-    return to_enum(:transform_keys!) { size } unless mapping || block_given?
+  # already moved to left where it is. A given mapping, nil too,
+  # converts before the frozen check.
+  def transform_keys!(mapping = (none = true; nil))
+    return to_enum(:transform_keys!) { size } if none && !block_given?
 
+    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") unless none
     Primitive.zr_frozen_error(self) if frozen?
-    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") if mapping
     moved = {}
     pairs = []
     Primitive.zr_hash_foreach(self) { |k, v| pairs << [k, v] }
