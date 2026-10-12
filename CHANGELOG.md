@@ -123,6 +123,14 @@ The first public release.
 - `zr-dev rubyspec` and `zr-dev cruby-test` run ruby/spec and CRuby's
   test-all under ruby and in zr binaries, with the gaps as tags and a
   ratchet test.
+- `zr-dev fuzz` is a differential fuzzer. It writes typed Ruby programs
+  from a seed, mutates the program tests on prism's tree, rewrites
+  programs (opaque literals, dead code, moved statements), and breaks
+  seeds into junk. It runs each program under ruby and as a zr binary,
+  reduces each difference to a small case, buckets it, names the layer
+  at fault from a hosted run, and keeps it in `log/fuzz/`. `reduce`,
+  `recheck`, `replay`, `report` and `gen --check` work on the cases and
+  on the generator.
 - The kernel is typed Ruby: plain Ruby with machine types in inline
   RBS comments, which `Machine::Host` also runs on CRuby.
 - `bin/steep check` runs Steep on every file of the compiler, with
