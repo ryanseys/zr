@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
 require_relative "../prism"
-require "error_highlight"
+# ruby makes ErrorHighlight an autoload, and so does a zr program. The
+# compiler that a program carries (eval support) must not load the
+# library itself: that would end the program's autoload.
+require "error_highlight" unless defined?(ErrorHighlight)
 
 module Zr
   module Hir
@@ -105,11 +108,13 @@ module Zr
 
       # Spotter raises for a form that it does not know. A spot only
       # adds a highlight to an error message, so a failed spot is no spot,
-      # and it must not stop the build.
+      # and it must not stop the build. The Spotter is called directly:
+      # `ErrorHighlight.spot` takes only a node of the host's own parser
+      # (Ruby::Prism), not of the prism gem that zr parses with.
       #: (untyped node, Symbol point, Symbol? name) -> Hash[Symbol, Integer]?
       def spot(node, point, name)
         name ||= node.binary_operator if node.type == :call_operator_write_node
-        ErrorHighlight.spot(node, point_type: point, name: name)
+        ErrorHighlight.const_get(:Spotter).new(node, point_type: point, name: name).spot
       rescue StandardError, NotImplementedError
         nil
       end

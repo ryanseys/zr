@@ -532,6 +532,9 @@ module Process
   # object old and gives back the arenas it left empty, then a compaction.
   # Strings keep the coderange that their scans found.
   def warmup
+    # proc_warmup loads the libraries that decorate a message now, not at
+    # the first error display.
+    Exception.send(:load_decorations)
     GC.start
     GC.compact
     true

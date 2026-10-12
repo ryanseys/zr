@@ -62,9 +62,40 @@ class Exception
     Primitive.zr_exc_raw_message(self) == mesg && backtrace == other.backtrace
   end
 
-  def detailed_message(highlight: nil, **)
-    decorate(message.to_s, checked_highlight(highlight, false))
+  def detailed_message(highlight: UNSET, **opt)
+    # error.c's lazy_load_decoration_gems: the first call loads the
+    # libraries that decorate a message, then dispatches again to reach
+    # their decorators. A decorator that called this through super
+    # decorates the result itself.
+    unless Primitive.zr_hidden_get(Exception, :__decorated__)
+      basic = Kernel.instance_method(:method).bind_call(self, :detailed_message).owner.equal?(Exception)
+      if Exception.send(:load_decorations) && basic
+        opt[:highlight] = highlight unless UNSET.equal?(highlight)
+        return detailed_message(**opt)
+      end
+    end
+
+    decorate(message.to_s, checked_highlight(UNSET.equal?(highlight) ? nil : highlight, false))
   end
+
+  # error.c's require_decoration_gems, once per process: loads each of
+  # error_highlight, did_you_mean and syntax_suggest that is still an
+  # autoload (`--disable` removes one). A library that fails to load
+  # leaves the message as it is, and $! does not change. Returns false
+  # when an earlier call loaded them.
+  def self.load_decorations
+    Primitive.attr! :hidden
+    return false if Primitive.zr_hidden_get(Exception, :__decorated__)
+
+    Primitive.zr_hidden_set(Exception, :__decorated__, true)
+    %i[ErrorHighlight DidYouMean SyntaxSuggest].each do |name|
+      Object.const_get(name) if Object.autoload?(name)
+    rescue Exception # rubocop:disable Lint/RescueException
+      nil
+    end
+    true
+  end
+  private_class_method :load_decorations
 
   # exc_full_message: the report that ruby prints for an uncaught error.
   # All keywords go on to `detailed_message`.
@@ -723,9 +754,3 @@ module Kernel
   end
   private :caller_locations
 end
-
-# ruby.c defines these before the gem prelude runs, which loads each
-# library only where its module is defined.
-module ErrorHighlight; end
-module DidYouMean; end
-module SyntaxSuggest; end

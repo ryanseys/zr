@@ -200,6 +200,9 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     assert_raises(RubyOptions::Invalid) { parse("--backtrace-limit=-2", "x.rb") }
     assert_equal "missing argument for --backtrace-limit", assert_raises(RubyOptions::Invalid) { parse("--backtrace-limit=", "1") }.message
     assert_includes parse("--disable=did_you_mean", "x.rb").prelude.to_s, "Object.send(:remove_const, :DidYouMean)"
+    assert_includes parse("--disable-error_highlight", "x.rb").prelude.to_s, "Object.send(:remove_const, :ErrorHighlight)"
+    # Without gems no autoload is made, so none is removed.
+    refute_includes parse("--disable=gems", "x.rb").prelude.to_s, "remove_const"
   end
 
   def test_zrs_own_flags_go_to_zr
@@ -594,7 +597,18 @@ class RubyModeTest < Minitest::Test
     code = "p [defined?(ErrorHighlight), defined?(SyntaxSuggest), defined?(DidYouMean), defined?(Gem)]; foo rescue p $!.message"
     same_as_ruby("--disable=gems", "-e", code)
     same_as_ruby("--disable-did_you_mean", "-e", code)
+    same_as_ruby("--disable-error_highlight", "-e", code)
+    same_as_ruby("--disable=syntax_suggest", "-e", code)
     same_as_ruby("--disable=gems", "-e", "nil.foo")
+    # The first error display loads only the libraries that are still on.
+    same_as_ruby("--disable=error_highlight", "-e", "[1].frist")
+    same_as_ruby("--disable=did_you_mean", "-e", "[1].frist")
+  end
+
+  # ruby 4.1 makes the libraries autoloads; the first error display loads them.
+  def test_the_message_decorators_load_at_the_first_error_display
+    same_as_ruby("-e", "p Object.autoload?(:DidYouMean); [1].frist rescue p $!.detailed_message; p Object.autoload?(:DidYouMean)")
+    same_as_ruby("-e", "[1].frist")
   end
 
   def test_errors_before_the_program_runs

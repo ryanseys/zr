@@ -628,9 +628,9 @@ module Zr::Kern
     # bodies that the inline fast paths replace.
     zr_box_snapshot()
     zr_runtime_written()
-    # The libraries that ruby loads before a program: error_highlight,
-    # did_you_mean and syntax_suggest's core extension. The fast paths
-    # replace the operators as they are after these libraries load.
+    # ruby's gem prelude, and the autoloads of error_highlight,
+    # did_you_mean and syntax_suggest. The fast paths replace the
+    # operators as they are after the prelude runs.
     if !zr_gems_off_p()
       r = Libc.zr_gem_prelude()
       if r == QUNDEF

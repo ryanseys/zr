@@ -1,0 +1,5 @@
+2
+["error_highlight", "did_you_mean", "syntax_suggest"]
+0
+"\e[1mundefined method 'frist' for an instance of Array (\e[1;4mNoMethodError\e[m\e[1m)\e[m\n\e[1mDid you mean?  first\e[m"
+nil

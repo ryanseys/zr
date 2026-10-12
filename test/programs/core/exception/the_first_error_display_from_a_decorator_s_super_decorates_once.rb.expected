@@ -1,0 +1,3 @@
+"loud: missing thing (LoudError)"
+"loud: \e[1mmissing thing (\e[1;4mLoudError\e[m\e[1m)\e[m\n\n\e[1m  raise LoudError.new(\"missing thing\", :thing)\e[m\n\e[1m  ^^^^^\e[m"
+nil

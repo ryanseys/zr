@@ -22,16 +22,13 @@ module Zr
       end
 
       # The features that ruby loads before a program starts, so a require
-      # of one returns false. The runtime's gem prelude loads
-      # error_highlight, did_you_mean and syntax_suggest's core extension,
-      # as ruby's does. Ruby also loads rubygems, which this runtime
+      # of one returns false. Ruby also loads rubygems, which this runtime
       # does not preload: a require of it stops with a message, and does
       # not return false and then fail at the first use. Only pathname's C
       # part is loaded, so `require "pathname"` still runs its Ruby part
-      # and returns true.
-      GEM_PRELOADED = %w[error_highlight did_you_mean syntax_suggest/core_ext].freeze
-      PRELOADED = (%w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig enc/encdb enc/trans/transdb] +
-                   GEM_PRELOADED).freeze
+      # and returns true. error_highlight, did_you_mean and syntax_suggest
+      # are autoloads until the first error display (Runtime::DECORATIONS).
+      PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig enc/encdb enc/trans/transdb].freeze
 
       # ruby's encoding and transcoder extensions, which this runtime has
       # built in. A require of one stays for the run time, where the core

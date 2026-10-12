@@ -385,7 +385,10 @@ module Zr
         def syntax_error_program(input, error, report)
           warned = report[0, report.index("#{input}: ") || 0]
           <<~RUBY
-            require "syntax_suggest/api" if defined?(SyntaxSuggest)
+            # syntax_suggest's decorator requires its search as it runs.
+            # The binary carries the search; running it now would load the
+            # decorator before the first display, which ruby does not.
+            require "syntax_suggest/api" if false
             error = SyntaxError.new(#{error.message.inspect})
             error.instance_variable_set(:@path, #{input.inspect})
             $stderr.write(#{warned.inspect}, #{input.inspect}, ": ", error.detailed_message(highlight: false), "\\n")

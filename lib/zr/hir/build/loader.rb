@@ -695,8 +695,19 @@ module Zr
             c_requires(path)
             @traces ||= Ext.bundles(target: @target).fetch(path).traces?
           end
+          if (tail = Loader.tails[path])
+            @units[i].body = Seq.new([@units[i].body, Require.new(:hidden, tail.delete_prefix("#{Library::Layout::RUNTIME_LIB}/").delete_suffix(".rb"),
+                                                                  tail, add(tail), 0)], 0)
+          end
           i
         end
+
+        # zr's own code that runs at the end of an upstream file, each time
+        # that file loads (an autoload, a require, or the first error
+        # display): error_highlight's node lookup for a program compiled
+        # ahead of time (lib/zr/runtime/lib/zr/error_highlight.rb).
+        #: () -> Hash[String, String]
+        def self.tails = { File.join(Library::Roots.pure, "error_highlight.rb") => File.join(Library::Layout::RUNTIME_LIB, "zr/error_highlight.rb") }
 
         # The C extensions that the build links and that no literal
         # require reached. A computed require (debug_inspector's

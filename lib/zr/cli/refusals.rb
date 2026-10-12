@@ -22,7 +22,9 @@ module Zr
       # has it: `api` first, so `core_ext` does not require it by name
       # (a second core_ext would wrap the message twice). ruby prints the
       # parse's warnings before the error, so the report has them too. It
-      # exits 2 when the file parses.
+      # exits 2 when the file parses. The host ruby runs it with its gems,
+      # where it finds prism (a bundled gem), and with no autoload of the
+      # message decorators, which would load the host's own syntax_suggest.
       SYNTAX_REPORT = <<~'RUBY'
         syntax_suggest, input = ARGV
         require File.join(syntax_suggest, "api")
@@ -131,14 +133,14 @@ module Zr
 
       # ruby's report for `input`, which does not parse, or nil when it
       # parses (then a file that it requires did not). The host ruby writes
-      # it, without gems, so no other version of syntax_suggest is loaded,
-      # and at the program's warning level (`verbose`, $VERBOSE as -w, -W0
+      # it (SYNTAX_REPORT) at the program's warning level (`verbose`, $VERBOSE as -w, -W0
       # or neither set it), so the parse warns as the program's would.
       #: (String input, ?verbose: bool | Symbol | nil) -> String?
       def syntax_report(input, verbose: false)
         require_relative "../library/roots"
         level = { true => "-W2", nil => "-W0" }.fetch(verbose, "-W1")
-        argv = [Config.current.host_ruby, "--disable-gems", level, "-e", SYNTAX_REPORT, File.join(Library::Roots.pure, "syntax_suggest"), input]
+        argv = [Config.current.host_ruby, "--disable=error_highlight,did_you_mean,syntax_suggest", level,
+                "-e", SYNTAX_REPORT, File.join(Library::Roots.pure, "syntax_suggest"), input]
         out = IO.popen(argv, err: File::NULL, &:read)
         # `IO.popen` with a block waits for the child, so `$?` is set.
         status = $? #: Process::Status

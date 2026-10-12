@@ -377,10 +377,11 @@ module Zr
     GEM_PRELUDE_ENTRY = "zr_gem_prelude"
 
     # CRuby's gem_prelude.rb, which loads ruby's default libraries before
-    # a program's first line. After it comes error_highlight's lookup for
-    # a program compiled ahead of time. Boot runs it after the core
-    # library loads, before the program.
-    SPOTTED = File.join(Library::Layout::RUNTIME_LIB, "zr/error_highlight.rb")
+    # a program's first line. Before it, as rb_define_gem_modules does,
+    # each library that decorates an error message is an autoload. The
+    # first error display loads them (Exception#detailed_message). Boot
+    # runs the prelude after the core library loads, before the program.
+    DECORATIONS = { ErrorHighlight: "error_highlight", DidYouMean: "did_you_mean", SyntaxSuggest: "syntax_suggest" }.freeze
 
     # The parsers that the prelude's libraries require for work that this
     # runtime does differently. error_highlight's prism_find: the compiled
@@ -392,12 +393,15 @@ module Zr
     #: (?Target target) -> Hir::Program
     def self.gem_prelude(target = Target.default)
       loader = Hir::Build::Loader.new(Library::Roots.stdlib(target), deferred: DEFERRED,
-                                                                 preloaded: Hir::Build::PRELOADED - Hir::Build::GEM_PRELOADED)
+                                                                 preloaded: Hir::Build::PRELOADED)
       main = loader.unit("<internal:gem_prelude>", File.read(Library::Layout::GEM_PRELUDE))
-      spotted = Hir::Require.new(:hidden, "zr/error_highlight", SPOTTED, loader.add(SPOTTED), 0)
+      autoloads = DECORATIONS.map do |name, feature|
+        path = loader.resolve(:require, feature, main.file) or raise ArgumentError, "no #{feature}.rb in the library roots"
+        Hir::Autoload.new(nil, name, feature, path, loader.add(path), 0, false)
+      end
       # did_you_mean reads RbConfig, which ruby has loaded by then.
       rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : [] #: Array[Hir::node]
-      body = Hir::Seq.new([*rbconfig, main.body, spotted], 0)
+      body = Hir::Seq.new([*rbconfig, *autoloads, main.body], 0)
       Hir::Program.new(main.file, main.locals, body, loader.units, main.warnings, false, loader.entries, false, main.node_ids, {})
     end
 
