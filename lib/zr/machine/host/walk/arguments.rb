@@ -27,8 +27,17 @@ module Zr
           # Frame. `fn` is the def's function: a `ruby2_keywords` method is
           # known by it (`zr_kw_undeclared`).
           def method_binder(p, s, fn)
+            return general_binder(p, s, fn) if more_args?(s)
+
             plain_binder(p, s) || general_binder(p, s, fn)
           end
+
+          # What a def marked `Primitive.attr! :more_args` gives for more
+          # arguments than it declares: its receiver's `more_args` result
+          # (`Lower::Function::Params#more_args`).
+          MoreArgs = Data.define(:value)
+
+          def more_args?(s) = s.internal? && !s.def_node.nil? && attributes(s.def_node).include?(:more_args)
 
           # The code that binds only required parameters, each a name of its
           # own: they are the scope's first locals, so the argument vector is
@@ -71,6 +80,8 @@ module Zr
             # `**nil` refuses keywords before the count is checked, as
             # CRuby's setup_parameters_complex does (`Lower::Function::Params`).
             nokey = p.kwrest == :nokey
+            more = more_args?(s) ? p.required.size + p.post.size + p.optional.size : nil
+            name = more ? sym(s.def_node.name) : nil
             lambda do |f, argc, argv|
               t = task
               kw = @task_kw.call(t)
@@ -90,6 +101,8 @@ module Zr
               end
               args = Memory.words(argv, argc)
               keywords&.call(f, kwhash) if nokey
+              next MoreArgs.new(check(@kern.zr_more_args(f.self_, name, argc, argv, f.blk))) if more && argc > more
+
               arity.call(args.size)
               positional.call(f, args)
               keywords&.call(f, kwhash) unless nokey

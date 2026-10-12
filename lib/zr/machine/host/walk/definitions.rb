@@ -94,7 +94,9 @@ module Zr
             cover = node.cover
             lambda do |f, argc, argv, entry|
               run_body(s, f, jumps, node) do
-                bind.call(f, argc, argv)
+                bound = bind.call(f, argc, argv)
+                next bound.value if bound.is_a?(Arguments::MoreArgs)
+
                 preempt unless internal
                 opened(s, f, :def)
                 @kern.zr_coverage_method(entry) if cover

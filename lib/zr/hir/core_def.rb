@@ -27,6 +27,10 @@ module Zr
       # name, so a redefined Integer#+ applies.
       # `:frameless` marks a method that ruby runs as an instruction: it is
       # listed as any method is, and has no backtrace entry.
+      # `:more_args` marks a method that CRuby lets take any count: a call
+      # with more arguments than its parameters take returns what the
+      # receiver's private `more_args(name, *args)` gives, so the method
+      # needs no rest parameter.
       #: (node? body) -> Array[Symbol]
       def self.attributes(body)
         # For a def with a `rescue` or `ensure`, read its protected body.

@@ -859,9 +859,9 @@ class String
   # match, or with the block's return value (with `$~` set).
   #
   # Two optional parameters and `given`, the count of arguments, not a
-  # rest Array, so a call allocates nothing. A third argument gets the
-  # message of the two parameters.
+  # rest Array, so a call allocates nothing. More go to more_args.
   def sub(pattern = (given = 0; nil), replacement = (given ||= 1; nil), &block)
+    Primitive.attr! :more_args
     sub_arity(given ||= 2, block)
     subbed(pattern, replacement, false, given == 1, &block)
   end
@@ -873,6 +873,14 @@ class String
 
     raise ArgumentError, "wrong number of arguments (given #{given}, expected #{block ? "1..2" : "2"})"
   end
+
+  # The calls of sub and sub! with more than two arguments
+  # (`Primitive.attr! :more_args`).
+  def more_args(_name, *args, &block)
+    Primitive.attr! :hidden
+    sub_arity(args.size, block)
+  end
+  private :more_args
 
   # rb_str_sub_bang: a replacement that is not a Hash converts to a
   # String first, nil too when it was given (`none` when it was not). `sub` works on a copy, so a block that changes the
@@ -956,6 +964,7 @@ class String
   # A match makes the receiver the result and returns it, even when the
   # text comes out the same; `$~` tells whether there was one.
   def sub!(pattern = (given = 0; nil), replacement = (given ||= 1; nil), &block)
+    Primitive.attr! :more_args
     sub_arity(given ||= 2, block)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     result = subbed(pattern, replacement, true, given == 1, &block)

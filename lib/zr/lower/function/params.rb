@@ -60,6 +60,7 @@ module Zr
           # `**nil` refuses keywords before the count is checked, as
           # CRuby's setup_parameters_complex does.
           bind_keywords(p, kwargs_at, tab, argc, argv) if p.kwrest == :nokey
+          more_args(p, argc, argv) if attributes.include?(:more_args)
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
           bind_keywords(p, kwargs_at, tab, argc, argv) if keywords?(p) && p.kwrest != :nokey
@@ -223,6 +224,20 @@ module Zr
           kw = @f.fetch("i64", @task_addr, off(@task, "kw"))
           @f.store(imm(0), @task_addr, off(@task, "kw"), region: :task)
           kw
+        end
+
+        # A core def marked `Primitive.attr! :more_args` that gets more
+        # arguments than it declares returns what its receiver's private
+        # `more_args(name, *args)` gives, as a C method that takes any
+        # count checks the count itself. The def needs no rest parameter,
+        # so its common calls allocate no Array (`Hir::CoreDef.attributes`).
+        #: (Hir::Params p, String argc, String argv) -> void
+        def more_args(p, argc, argv)
+          max = p.required.size + p.post.size + p.optional.size
+          fail_unless(@f.icmp("sle", argc, imm(max))) do
+            direct_params.each { |name| write_local(slot_of(name), 0, @qnil) }
+            kernel("zr_more_args", @self, sym_value(@def.name), argc, argv, @blk)
+          end
         end
 
         # CRuby's messages: an exact count, `min+` with a rest, `min..max`

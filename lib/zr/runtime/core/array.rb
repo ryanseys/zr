@@ -9,9 +9,9 @@ class Array
   # value that `ifnone` returns. With no block, the arguments go to the
   # enumerator: the arity check comes after RETURN_ENUMERATOR. Two
   # optional parameters and `given`, the count of arguments, not a rest
-  # Array, so a call allocates nothing. A third argument gets the
-  # message of the two parameters.
+  # Array, so a call allocates nothing. More go to more_args.
   def find(ifnone = (given = 0; nil), extra = (given ||= 1; nil))
+    Primitive.attr! :more_args
     given ||= 2
     unless block_given?
       return to_enum(__callee__) if given == 0
@@ -35,6 +35,7 @@ class Array
   # The last element that the block accepts, else the value that
   # `ifnone` returns. With no block, as in find.
   def rfind(ifnone = (given = 0; nil), extra = (given ||= 1; nil))
+    Primitive.attr! :more_args
     given ||= 2
     unless block_given?
       return to_enum(:rfind) if given == 0
@@ -56,6 +57,17 @@ class Array
     end
     ifnone&.call
   end
+
+  # The calls of find, detect and rfind with more than two arguments
+  # (`Primitive.attr! :more_args`): with no block, the enumerator takes
+  # them all; with one, the count is wrong.
+  def more_args(name, *args, &block)
+    Primitive.attr! :hidden
+    return to_enum(name, *args) unless block
+
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)"
+  end
+  private :more_args
 
   # rb_ary_any_p and the related methods: how many elements meet the
   # criterion (a pattern's `===`, the block, or truthiness), counted no

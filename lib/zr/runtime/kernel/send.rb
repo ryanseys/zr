@@ -1059,6 +1059,25 @@ module Zr::Kern
     zr_dispatch(0, recv, mid, argc, argv, 0, Machine.value(QNIL))
   end
 
+  # A core def marked `Primitive.attr! :more_args` that got more arguments
+  # than it declares: its receiver's private `more_args` gets the name
+  # that the call used (an alias's, as `__callee__` reads it from the
+  # def's frame) or else the def's `name`, then the arguments and the
+  # block.
+  #: (value, value, word, ptr, value) -> value
+  def zr_more_args(recv, name, argc, argv, blk)
+    mid = zr_frame_mid(Task[zr_task()].top)
+    if mid != 0
+      name = zr_sym(mid)
+    end
+    args = zr_xmalloc((argc + 1) * 8)
+    Machine.store64(args, 0, Machine.word(name))
+    zr_memcpy(args + 8, argv, argc * 8)
+    r = zr_send_blk(recv, Machine.id(:more_args), argc + 1, args, blk)
+    zr_xfree(args)
+    r
+  end
+
   #: (value, word, word, ptr, value) -> value
   def zr_send_blk(recv, mid, argc, argv, blk)
     zr_dispatch(0, recv, mid, argc, argv, 0, blk)

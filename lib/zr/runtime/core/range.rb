@@ -39,9 +39,10 @@ class Range
   end
 
   # Two optional parameters and `given`, the count of arguments, not a
-  # rest Array, so a call allocates nothing; min and max do the same. A
-  # third argument gets the message of the two parameters.
+  # rest Array, so a call allocates nothing; min and max do the same.
+  # More go to more_args.
   def last(n = (given = 0; nil), extra = (given ||= 1; nil))
+    Primitive.attr! :more_args
     given ||= 2
     raise RangeError, +"cannot get the last element of endless range" if @end.nil?
     return @end if given == 0
@@ -70,6 +71,7 @@ class Range
   # range_min: a block goes to Enumerable#min, and a count, nil too, to
   # first, which checks the arity.
   def min(n = (given = 0; nil), extra = (given ||= 1; nil), &block)
+    Primitive.attr! :more_args
     given ||= 2
     raise RangeError, +"cannot get the minimum of beginless range" if @begin.nil?
     if block
@@ -87,6 +89,7 @@ class Range
   # Enumerable#max. A count, nil too, converts to an Integer first, then
   # takes that many values from the end.
   def max(n = (given = 0; nil), extra = (given ||= 1; nil), &block)
+    Primitive.attr! :more_args
     given ||= 2
     raise RangeError, +"cannot get the maximum of endless range" if @end.nil?
     if block || (@excl && !@end.is_a?(Numeric))
@@ -117,6 +120,42 @@ class Range
     end
     @end
   end
+
+  # The calls of last, min and max with more than two arguments
+  # (`Primitive.attr! :more_args`), checked in their order: the bounds
+  # first, then the count that the method they go to takes.
+  def more_args(name, *args, &block)
+    Primitive.attr! :hidden
+    expected = "1"
+    case name
+    when :last
+      raise RangeError, +"cannot get the last element of endless range" if @end.nil?
+
+      if @end.is_a?(Integer) && (@begin.nil? || @begin.is_a?(Integer)) && Primitive.zr_basic_method_m(self, :each)
+        return [] if !@begin.nil? && (@excl ? @end - 1 : @end) < @begin
+      else
+        # rb_ary_last over the Array of the range.
+        to_a
+        expected = "0..1"
+      end
+    when :min
+      raise RangeError, +"cannot get the minimum of beginless range" if @begin.nil?
+      if block
+        raise RangeError, +"cannot get the minimum of endless range with custom comparison method" if @end.nil?
+
+        expected = "0..1"
+      end
+    when :max
+      raise RangeError, +"cannot get the maximum of endless range" if @end.nil?
+      if block || (@excl && !@end.is_a?(Numeric))
+        raise RangeError, +"cannot get the maximum of beginless range with custom comparison method" if @begin.nil?
+
+        expected = "0..1"
+      end
+    end
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{expected})"
+  end
+  private :more_args
 
   def minmax(&block)
     return super if block
