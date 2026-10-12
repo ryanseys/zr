@@ -1,0 +1,15 @@
+[:all?, true]
+core/array/all_any_none_and_one_of_an_empty_array_do_not_warn_of_a_block.rb:6: warning: given block not used
+[:all?, true]
+[:any?, false]
+core/array/all_any_none_and_one_of_an_empty_array_do_not_warn_of_a_block.rb:6: warning: given block not used
+[:any?, true]
+[:any?, false]
+core/array/all_any_none_and_one_of_an_empty_array_do_not_warn_of_a_block.rb:8: warning: given block not used
+[:any?, true]
+[:none?, true]
+core/array/all_any_none_and_one_of_an_empty_array_do_not_warn_of_a_block.rb:6: warning: given block not used
+[:none?, false]
+[:one?, false]
+core/array/all_any_none_and_one_of_an_empty_array_do_not_warn_of_a_block.rb:6: warning: given block not used
+[:one?, true]

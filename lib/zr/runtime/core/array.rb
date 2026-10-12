@@ -1546,7 +1546,8 @@ class Array
   # rb_ary_any_p's own words.
   def meeting(pattern, bare, by_block, enough, negate: false)
     Primitive.attr! :hidden
-    Primitive.zr_warn_here_m("given block not used") if by_block && !bare
+    # rb_ary_all_p and the others answer an empty Array before they warn.
+    Primitive.zr_warn_here_m("given block not used") if by_block && !bare && Primitive.zr_ary_len_m(self) > 0
     count = 0
     i = 0
     while i < Primitive.zr_ary_len_m(self)
