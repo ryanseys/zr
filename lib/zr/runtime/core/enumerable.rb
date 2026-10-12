@@ -1056,11 +1056,12 @@ module Enumerable
     sliced { |before, x| block.call(before, x) }
   end
 
-  def slice_before(pattern = (omitted = true; nil), &block)
-    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if omitted && block.nil?
-    raise ArgumentError, +"wrong number of arguments (given 1, expected 0)" if !omitted && block
+  # enum_slice_before: with a block, no argument; with none, exactly one.
+  def slice_before(*args, &block)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{block ? 0 : 1})" unless args.size == (block ? 0 : 1)
 
-    test = omitted ? block : ->(x) { pattern === x }
+    pattern = args[0]
+    test = block || ->(x) { pattern === x }
     source = self
     Enumerator.new do |y|
       slice = nil
@@ -1078,11 +1079,13 @@ module Enumerable
     end
   end
 
-  def slice_after(pattern = (omitted = true; nil), &block)
-    raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if omitted && block.nil?
-    raise ArgumentError, +"both pattern and block are given" if !omitted && block
+  # enum_slice_after: with a block, no argument; with none, exactly one.
+  def slice_after(*args, &block)
+    raise ArgumentError, +"both pattern and block are given" if block && !args.empty?
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" unless block || args.size == 1
 
-    test = omitted ? block : ->(x) { pattern === x }
+    pattern = args[0]
+    test = block || ->(x) { pattern === x }
     source = self
     Enumerator.new do |y|
       slice = nil

@@ -1,0 +1,18 @@
+slice_after(a, b): ArgumentError: wrong number of arguments (given 2, expected 1)
+slice_after(1, 2, 3): ArgumentError: wrong number of arguments (given 3, expected 1)
+slice_after(): ArgumentError: wrong number of arguments (given 0, expected 1)
+slice_after(1) {}: ArgumentError: both pattern and block are given
+slice_after(1, 2) {}: ArgumentError: both pattern and block are given
+slice_before(a, b): ArgumentError: wrong number of arguments (given 2, expected 1)
+slice_before(): ArgumentError: wrong number of arguments (given 0, expected 1)
+slice_before(1) {}: ArgumentError: wrong number of arguments (given 1, expected 0)
+slice_before(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 0)
+Hash#slice_after(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Range#slice_before(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+slice_after(pattern): [[1, 2], [6], [7, 8], [10]]
+slice_after(Integer): [[1, 2, 6], [7], [8, 10]]
+slice_after {}: [[1, 2], [6], [7, 8], [10]]
+slice_before(pattern): [[1, 2], [6], [7, 8, 10]]
+slice_before {}: [[1, 2, 6], [7], [8], [10]]
+slice_after(nil): [[nil], [1, nil]]
+strings: ["ab#", "cd#", "e"]
