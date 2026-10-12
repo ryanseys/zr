@@ -1,0 +1,7 @@
+0, true: TypeError: true is not a symbol nor a string
+0, nil: TypeError: nil is not a symbol nor a string
+1.5, 1: TypeError: 1 is not a symbol nor a string
+0, :x: TypeError: can't define singleton
+0, 'y': TypeError: can't define singleton
+big, :x: TypeError: can't define singleton
+define on a Rational: FrozenError: can't modify frozen Rational: (1/1)

@@ -586,6 +586,10 @@ class Numeric
 
   # A number's singleton is refused, as every Numeric is a value.
   def singleton_method_added(name)
+    unless name.is_a?(Symbol) || name.is_a?(String) || String.try_convert(name)
+      raise TypeError, "#{name.inspect} is not a symbol nor a string"
+    end
+
     singleton_class.send(:remove_method, name)
     raise TypeError, "can't define singleton method \"#{name}\" for #{self.class}"
   end
