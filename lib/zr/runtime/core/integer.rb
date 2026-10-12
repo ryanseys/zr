@@ -669,15 +669,33 @@ class Numeric
 
   # int_upto_size and int_downto_size over a stop that is no number:
   # the two ends compare when the size is asked for, which most such
-  # stops refuse.
+  # stops refuse. The span divides by the step with `div`, as
+  # ruby_num_interval_step_size does, so a Rational stop counts whole
+  # steps.
   def interval_enum(name, stop)
     Primitive.attr! :hidden
     to_enum(name, stop) do
       up = name == :upto
-      (up ? self > stop : self < stop) ? 0 : (up ? stop - self : self - stop) + 1
+      (up ? self > stop : self < stop) ? 0 : (stop - self).div(up ? 1 : -1) + 1
     end
   end
   private :interval_enum
+
+  # int_upto and int_downto over a stop that is no number: `>` or `<`
+  # decides each step, and a step adds or takes 1 with `+` or `-`.
+  def interval_each(name, stop)
+    Primitive.attr! :hidden
+    up = name == :upto
+    i = self
+    until (c = up ? i > stop : i < stop)
+      yield i
+      i = up ? i + 1 : i - 1
+    end
+    Primitive.zr_cmperr(i, stop) if c.nil?
+
+    self
+  end
+  private :interval_each
 
   # The `half:` keyword as one of :up, :even, :down.
   def self.half_mode(half)
@@ -759,9 +777,28 @@ class Numeric
     Primitive.attr! :hidden
     descending = step_descending?(step)
     return Float::INFINITY if limit.nil? || Primitive.zr_rb_equal(step, 0)
+    # A Float anywhere counts as ruby_float_step_size, over each end's
+    # NUM2DBL.
+    if is_a?(Float) || limit.is_a?(Float) || step.is_a?(Float)
+      from = step_float(self)
+      to = step_float(limit)
+      by = step_float(step)
+      return Enumerator::ArithmeticSequence.for(from, :step, [to, by], {}, from, to, by, false).size
+    end
     return 0 if descending ? self < limit : self > limit
 
     (limit - self).div(step) + 1
+  end
+
+  # NUM2DBL: nil, true, false and a String are no number.
+  def step_float(x)
+    Primitive.attr! :hidden
+    case x
+    when Float then x
+    when nil, true, false then raise TypeError, "no implicit conversion to float from #{x.inspect}"
+    when String then raise TypeError, +"no implicit conversion to float from string"
+    else Float(x)
+    end
   end
 
   # num_step's walk: a missing limit is an infinite one in the step's

@@ -182,7 +182,14 @@ class Enumerator
     memo
   end
 
-  alias each_with_object with_object
+  # Its own method, not an alias: the enumerator it returns names the
+  # method that was called, as each name has its own entry in CRuby.
+  def each_with_object(memo)
+    return to_enum(:each_with_object, memo) { size } unless block_given?
+
+    Primitive.zr_enum_each(self, nil) { |x| yield(x, memo) }
+    memo
+  end
 
   # `next` and `peek` take the values as CRuby's C does, with no send of
   # `next_values` that a backtrace would show or a program could redefine.

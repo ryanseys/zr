@@ -481,9 +481,9 @@ class Array
     false
   end
 
-  def repeated_combination(k)
-    k = Primitive.zr_index_operand_m(k)
-    return to_enum(:repeated_combination, k) { k < 0 ? 0 : (k == 0 ? 1 : (Primitive.zr_ary_len_m(self) + k - 1).downto(Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / (1..k).inject(1) { |a, b| a * b }) } unless block_given?
+  def repeated_combination(given)
+    k = Primitive.zr_index_operand_m(given)
+    return to_enum(:repeated_combination, given) { k < 0 ? 0 : (k == 0 ? 1 : (Primitive.zr_ary_len_m(self) + k - 1).downto(Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / (1..k).inject(1) { |a, b| a * b }) } unless block_given?
 
     if k == 0
       yield []
@@ -518,9 +518,9 @@ class Array
     self
   end
 
-  def combination(k)
-    k = Primitive.zr_index_operand_m(k)
-    return to_enum(:combination, k) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..Primitive.zr_ary_len_m(self) - k).inject(1) { |a, b| a * b }) } unless block_given?
+  def combination(given)
+    k = Primitive.zr_index_operand_m(given)
+    return to_enum(:combination, given) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..Primitive.zr_ary_len_m(self) - k).inject(1) { |a, b| a * b }) } unless block_given?
 
     if k == 0
       yield []

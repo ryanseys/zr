@@ -1388,8 +1388,8 @@ class String
     copy
   end
 
-  def upto(last, exclusive = false, &block)
-    return to_enum(:upto, last, exclusive) unless block
+  def upto(last, exclusive = (inclusive = true; false), &block)
+    return inclusive ? to_enum(:upto, last) : to_enum(:upto, last, exclusive) unless block
 
     last = Primitive.zr_str_operand(last)
     # rb_str_upto_each: rb_enc_check of the two ends.

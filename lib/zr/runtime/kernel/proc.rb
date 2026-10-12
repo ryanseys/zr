@@ -1430,7 +1430,8 @@ module Zr::Kern
       return zr_big_route_blk(recv, Machine.id(:times), argc, argv, blk)
     end
     if blk == QNIL
-      return zr_enum_for(recv, Machine.id(:times), argc, argv, recv)
+      # int_times_size: a negative count runs nothing.
+      return zr_enum_for(recv, Machine.id(:times), argc, argv, zr_fix2long(recv) < 0 ? zr_fix(0) : recv)
     end
     n = zr_fix2long(recv)
     i = 0
@@ -1573,6 +1574,13 @@ module Zr::Kern
       end
       return zr_enum_for(recv, Machine.id(:upto), argc, argv, zr_int_step_size(recv, argc, argv, 1))
     end
+    # A stop that is no number walks as int_upto's generic loop does.
+    if argc == 1 && zr_int_unsized_stop_p(Machine.value(Machine.load64(argv, 0)))
+      slot = Machine.slot(16)
+      Machine.store64(slot, 0, Machine.word(zr_sym(Machine.id(:upto))))
+      Machine.store64(slot, 8, Machine.load64(argv, 0))
+      return zr_send_blk(recv, Machine.id(:interval_each), 2, slot, blk)
+    end
     out = Machine.slot(8)
     r = zr_int_bound(recv, argv, out, 1)
     return r if r == QUNDEF
@@ -1601,6 +1609,13 @@ module Zr::Kern
         return zr_send(recv, Machine.id(:interval_enum), 2, slot)
       end
       return zr_enum_for(recv, Machine.id(:downto), argc, argv, zr_int_step_size(recv, argc, argv, 0 - 1))
+    end
+    # A stop that is no number walks as int_downto's generic loop does.
+    if argc == 1 && zr_int_unsized_stop_p(Machine.value(Machine.load64(argv, 0)))
+      slot = Machine.slot(16)
+      Machine.store64(slot, 0, Machine.word(zr_sym(Machine.id(:downto))))
+      Machine.store64(slot, 8, Machine.load64(argv, 0))
+      return zr_send_blk(recv, Machine.id(:interval_each), 2, slot, blk)
     end
     out = Machine.slot(8)
     r = zr_int_bound(recv, argv, out, 0 - 1)

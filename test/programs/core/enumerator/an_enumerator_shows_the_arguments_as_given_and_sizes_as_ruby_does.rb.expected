@@ -1,0 +1,56 @@
+String#upto(nil): ["#<Enumerator: \"\":upto(nil)>", nil]
+String#upto('c'): ["#<Enumerator: \"a\":upto(\"c\")>", nil]
+String#upto('c', true): ["#<Enumerator: \"a\":upto(\"c\", true)>", nil]
+String#upto('c', nil): ["#<Enumerator: \"a\":upto(\"c\", nil)>", nil]
+String#upto('c', false) to_a: ["a", "b", "c"]
+String#upto('c', true) to_a: ["a", "b"]
+Hash#each_slice(1.5): ["#<Enumerator: {a: 1, b: 2, c: 3}:each_slice(1.5)>", 3]
+Range#each_cons(1.5): ["#<Enumerator: 1..5:each_cons(1.5)>", 5]
+Array#combination(1.5): ["#<Enumerator: [3, 1, 2]:combination(1.5)>", 3]
+Array#repeated_combination(1.5): ["#<Enumerator: [3, 1, 2]:repeated_combination(1.5)>", 3]
+Hash#each_slice((2/1)): ["#<Enumerator: {a: 1, b: 2, c: 3}:each_slice((2/1))>", 2]
+Range#each_cons((2/1)): ["#<Enumerator: 1..5:each_cons((2/1))>", 4]
+Array#combination((2/1)): ["#<Enumerator: [3, 1, 2]:combination((2/1))>", 3]
+Array#repeated_combination((2/1)): ["#<Enumerator: [3, 1, 2]:repeated_combination((2/1))>", 6]
+Hash#each_slice(2): ["#<Enumerator: {a: 1, b: 2, c: 3}:each_slice(2)>", 2]
+Range#each_cons(2): ["#<Enumerator: 1..5:each_cons(2)>", 4]
+Array#combination(2): ["#<Enumerator: [3, 1, 2]:combination(2)>", 3]
+Array#repeated_combination(2): ["#<Enumerator: [3, 1, 2]:repeated_combination(2)>", 6]
+Hash#each_slice(18446744073709551616): RangeError: bignum too big to convert into 'long'
+Range#each_cons(18446744073709551616): RangeError: bignum too big to convert into 'long'
+Array#combination(18446744073709551616): RangeError: bignum too big to convert into 'long'
+Array#repeated_combination(18446744073709551616): RangeError: bignum too big to convert into 'long'
+Hash#each_slice(1.5) to_a: [[[:a, 1]], [[:b, 2]], [[:c, 3]]]
+Range#each_cons(2.9) to_a: [[1, 2], [2, 3], [3, 4]]
+Array#combination(1.5) to_a: [[3], [1], [2]]
+Hash#each_slice('2'): TypeError: no implicit conversion of String into Integer
+Hash#each_slice(0.5): ArgumentError: invalid slice size
+Array#combination('2'): TypeError: no implicit conversion of String into Integer
+Enumerator#each_with_object: ["#<Enumerator: #<Enumerator: [3, 1, 2]:each>:each_with_object([])>", 3]
+Enumerator#with_object: ["#<Enumerator: #<Enumerator: [3, 1, 2]:each>:with_object([])>", 3]
+Enumerator#each_with_object {}: [6, 2, 4]
+5.downto(2r): ["#<Enumerator: 5:downto((2/1))>", 4]
+5.downto(2.5r): ["#<Enumerator: 5:downto((5/2))>", 3]
+5.upto(7.5r): ["#<Enumerator: 5:upto((15/2))>", 3]
+5.upto(4r): ["#<Enumerator: 5:upto((4/1))>", 0]
+5.downto(6r): ["#<Enumerator: 5:downto((6/1))>", 0]
+5.downto(2r) to_a: [5, 4, 3, 2]
+1.5.step('2'): TypeError: no implicit conversion to float from string
+1.5.step(true): TypeError: no implicit conversion to float from true
+1.step('2', 1.0): TypeError: no implicit conversion to float from string
+1.5.step(Object): TypeError: can't convert Object into Float
+1.step(3, 1.0): ["(1.step(3, 1.0))", 3]
+1.0.step(3): ["(1.0.step(3))", 3]
+-3.times: ["#<Enumerator: -3:times>", 0]
+0.times: ["#<Enumerator: 0:times>", 0]
+3.times: ["#<Enumerator: 3:times>", 3]
+-(2**70).times: ["#<Enumerator: -1180591620717411303424:times>", 0]
+(2**70).times: ["#<Enumerator: 1180591620717411303424:times>", 1180591620717411303424]
+1.upto(3r) {}: [1, 2, 3]
+5.downto(2.5r) {}: [5, 4, 3]
+1.upto(3.5r) to_a: [1, 2, 3]
+1.upto(Object) {}: ArgumentError: comparison of Integer with Object failed
+1.downto(nil) {}: ArgumentError: comparison of Integer with nil failed
+(2**70).upto(2**70 + 5.5r): ["#<Enumerator: 1180591620717411303424:upto((2361183241434822606859/2))>", 6]
+(2**70).downto(2**70 - 2.5r): ["#<Enumerator: 1180591620717411303424:downto((2361183241434822606843/2))>", 3]
+(2**70).downto(2**70 - 2.5r) to_a: 3

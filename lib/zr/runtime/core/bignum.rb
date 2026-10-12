@@ -483,7 +483,7 @@ class Integer
     when :to_f then Integer.send(:big_to_f, self)
     when :~ then Integer.send(:big_sub, Integer.send(:big_negate, self), 1)
     when :times
-      return to_enum(:times) { self } unless block_given?
+      return to_enum(:times) { negative? ? 0 : self } unless block_given?
 
       i = 0
       while i < self
@@ -492,7 +492,7 @@ class Integer
       end
       self
     when :upto
-      return to_enum(:upto, other) { other >= self ? other - self + 1 : 0 } unless block_given?
+      return to_enum(:upto, other) { other >= self ? (other - self).div(1) + 1 : 0 } unless block_given?
 
       i = self
       while i <= other
@@ -501,7 +501,7 @@ class Integer
       end
       self
     when :downto
-      return to_enum(:downto, other) { self >= other ? self - other + 1 : 0 } unless block_given?
+      return to_enum(:downto, other) { self >= other ? (other - self).div(-1) + 1 : 0 } unless block_given?
 
       i = self
       while i >= other

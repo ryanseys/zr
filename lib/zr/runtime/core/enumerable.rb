@@ -285,10 +285,10 @@ module Enumerable
     rounds <= 0 ? 0 : total * rounds
   end
 
-  def each_cons(n)
-    n = Primitive.zr_index_operand_m(n)
+  def each_cons(given)
+    n = Primitive.zr_index_operand_m(given)
     raise ArgumentError, +"invalid size" if n <= 0
-    return to_enum(:each_cons, n) { (total = enumerable_size) && [total - n + 1, 0].max } unless block_given?
+    return to_enum(:each_cons, given) { (total = enumerable_size) && [total - n + 1, 0].max } unless block_given?
     # enum_size_over_p: a source that says it is shorter than a window
     # is not walked.
     total = enumerable_size
@@ -304,10 +304,10 @@ module Enumerable
     self
   end
 
-  def each_slice(n)
-    n = Primitive.zr_index_operand_m(n)
+  def each_slice(given)
+    n = Primitive.zr_index_operand_m(given)
     raise ArgumentError, +"invalid slice size" if n <= 0
-    return to_enum(:each_slice, n) { (total = enumerable_size) && (total + n - 1) / n } unless block_given?
+    return to_enum(:each_slice, given) { (total = enumerable_size) && (total + n - 1) / n } unless block_given?
 
     # limit_by_enum_size reads the size to reserve a slice's room.
     enumerable_size
