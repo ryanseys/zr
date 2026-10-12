@@ -79,10 +79,14 @@ module Zr
           include Pinned
 
           summary "Fuzz: check programs until the time or the count is up"
-          usage "[--time 30m | --count N] [-j N] [--seed S] [--mode seed] [--seeds DIR,...]"
+          usage "[--time 30m | --count N] [-j N] [--seed S] [--mode mutate,seed] [--seeds DIR,...]"
           host_ruby!
 
-          MODES = %w[seed].freeze
+          # Where programs come from, and how often each one comes when a
+          # run has more than one. `seed` runs the seed files as they are,
+          # each one once, so it is only on when asked for.
+          WEIGHTS = { "mutate" => 30 }.freeze
+          MODES = [*WEIGHTS.keys, "seed"].freeze
 
           def defaults
             pinned_defaults
@@ -108,18 +112,13 @@ module Zr
 
           def run(_argv)
             Dev.pinned!(name)
-            modes = @modes || MODES
+            modes = @modes || WEIGHTS.keys
             unknown = modes - MODES
             fail!("no mode #{unknown.join(", ")}; the modes are #{MODES.join(", ")}") unless unknown.empty?
             seed = @seed || Random.new_seed % 1_000_000
             store = Dev::Fuzz::Store.new
             rng = Random.new(seed)
-            sources = []
-            if modes.include?("seed")
-              files = Dev::Fuzz::Corpus.files(@seeds || Dev::Fuzz::Corpus::DEFAULT)
-              fail!("no seed files in #{(@seeds || Dev::Fuzz::Corpus::DEFAULT).join(", ")}") if files.empty?
-              sources << [Dev::Fuzz::SeedSource.new(files, rng), 1]
-            end
+            sources = sources(modes, rng, store)
             deadline = @count && !@time ? nil : Timing.now + (@time || 30 * 60)
             puts "zr-dev fuzz: run #{store.run}, seed #{seed}, #{jobs} job(s), modes #{modes.join(", ")}; log #{Dev.rel(store.log_path)}"
             with_oracle(store) do |oracle|
@@ -136,6 +135,22 @@ module Zr
               puts "zr-dev fuzz: cases in #{Dev.rel(store.path("cases"))}; `zr-dev fuzz report` lists the buckets"
             end
             true
+          end
+
+          # [source, weight] for each mode.
+          def sources(modes, rng, store)
+            dirs = @seeds || Dev::Fuzz::Corpus::DEFAULT
+            files = Dev::Fuzz::Corpus.files(dirs)
+            fail!("no seed files in #{dirs.join(", ")}") if files.empty?
+            modes.map do |mode|
+              case mode
+              when "seed" then [Dev::Fuzz::SeedSource.new(files, rng), 1]
+              when "mutate"
+                kept = Dir[store.path("corpus", "*.rb")]
+                mutator = Dev::Fuzz::Mutator.new(seeds: ->(r) { File.binread(files.sample(random: r)) })
+                [Dev::Fuzz::MutateSource.new(files, mutator: mutator, kept: kept), WEIGHTS.fetch(mode)]
+              end
+            end
           end
 
           # Seconds in a span such as "90s", "30m", "2h" or "45".
