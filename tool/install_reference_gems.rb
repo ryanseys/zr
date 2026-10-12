@@ -3,8 +3,8 @@
 
 # Installs the gems of the reference ruby: the ruby that the tests take
 # every expected output from (test/support/harness/reference.rb). These
-# are ruby 4.0.7's bundled gems at its own versions, and the gems whose C
-# zr ports at zr's versions. They go into tmp/reference/gems.
+# are the pinned ruby's bundled gems at its own versions, and the gems
+# whose C zr ports at zr's versions. They go into tmp/reference/gems.
 #
 #   ruby tool/install_reference_gems.rb
 #
@@ -22,8 +22,7 @@ require_relative "../test/support/harness/reference"
 
 Ref = Zr::Harness::Reference
 
-pinned = File.read(File.expand_path("../.ruby-version", __dir__)).strip
-abort "#{$PROGRAM_NAME}: the reference is ruby #{pinned}; this is ruby #{RUBY_VERSION}" unless RUBY_VERSION == pinned
+abort "#{$PROGRAM_NAME}: the reference is ruby #{Zr::RUBY_PIN} (.ruby-version); this is #{RUBY_DESCRIPTION}" unless Zr.pinned_ruby?
 
 # `[[name, version]]` of each gem in the directory, whatever its platform
 # (ffi installs as ffi-1.17.4-arm64-darwin).

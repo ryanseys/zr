@@ -29,10 +29,10 @@ module Zr
     def zr = Check.new(:ok, "zr", "#{VERSION}  #{Paths::ROOT}")
 
     def ruby(version = RUBY_VERSION)
-      return Check.new(:ok, "ruby", version) if version == RUBY
-      return Check.new(:warn, "ruby", "#{version}; zr is tested with #{RUBY}") if Zr.supported_ruby?(version)
+      return Check.new(:ok, "ruby", version) if Zr.tested_ruby?(version)
+      return Check.new(:warn, "ruby", "#{version}; zr is tested with #{RUBY_PIN}") if Zr.supported_ruby?(version)
 
-      Check.new(:fail, "ruby", "#{version}; zr needs #{RUBY} or a later 4.0 release. See #{DOCS_URL}/how-to/install.md")
+      Check.new(:fail, "ruby", "#{version}; zr needs ruby #{RUBY_MINIMUM} or later. See #{DOCS_URL}/how-to/install.md")
     end
 
     # Whether this host runs and links the binaries of a target.
@@ -85,7 +85,7 @@ module Zr
       return Check.new(:fail, "libraries", "#{missing.first} is missing; reinstall zr (gem install zr)") unless missing.empty?
 
       count = Library::Stdlib::DEFAULT.size + Library::Stdlib::BUNDLED.size
-      Check.new(:ok, "libraries", "stdlib of ruby #{RUBY} (#{count} gems), #{Library::Ports::ALL.size} ports")
+      Check.new(:ok, "libraries", "stdlib of ruby #{RUBY_PIN} (#{count} gems), #{Library::Ports::ALL.size} ports")
     end
 
     # The real C extensions that `--native-ext` can put in a binary here:

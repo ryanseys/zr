@@ -16,11 +16,18 @@ module Zr
       exit 1
     end
 
-    # Stops a tool that reads a table from the running ruby, unless that
-    # ruby is CRuby at the version that `.ruby-version` pins. A table
-    # from another ruby is not correct for zr.
+    # Stops a tool that reads a table or an output from ruby, unless the
+    # running ruby and the ruby that it starts (`Dev.ruby`, ZR_HOST_RUBY)
+    # are CRuby at the version that `.ruby-version` pins
+    # (lib/zr/ruby_version.rb): a table from another ruby is not correct
+    # for zr.
     def self.pinned!(tool)
-      fail!("zr-dev #{tool}: ruby #{RUBY} writes this table; this is ruby #{RUBY_VERSION}") unless RUBY_VERSION == RUBY
+      want = "ruby #{RUBY_PIN} (.ruby-version) writes this table"
+      fail!("zr-dev #{tool}: #{want}; this is #{::RUBY_DESCRIPTION}") unless Zr.pinned_ruby?
+      return if ruby == RbConfig.ruby
+
+      facts = IO.popen([ruby, "-e", "print RUBY_VERSION, ' ', RUBY_PATCHLEVEL, ' ', RUBY_REVISION"], err: File::NULL, &:read)
+      fail!("zr-dev #{tool}: #{want}; ZR_HOST_RUBY (#{ruby}) is not it") unless facts == "#{RUBY} #{RUBY_PATCHLEVEL} #{RUBY_REVISION}"
     end
 
     # Sets the collector limits and YJIT for a compile (`Zr::CLI.tune!`).

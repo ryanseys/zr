@@ -3,7 +3,7 @@
 require_relative "library/ports"
 require_relative "line_cursor"
 
-# The host's prism: the vendored Ruby part of prism 1.9.0
+# The host's prism: the vendored Ruby part of zr's prism port
 # (vendor/ruby, Zr::Library::Ports.lib) on top of zr's Ruby port of prism's C
 # (lib/zr/runtime/ext/prism/ruby). A zr binary links in the same tree. Both
 # directories go ahead of ruby's own prism. prism_shim contains only

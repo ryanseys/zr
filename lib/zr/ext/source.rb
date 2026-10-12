@@ -5,10 +5,11 @@ require_relative "c_api"
 
 module Zr
   module Ext
-    # The ABI of the C extensions that zr runs: ruby 4.0's object layout
-    # and C API. A precompiled gem keeps one bundle for each ruby minor
-    # version, in a directory of that name (`lib/nokogiri/4.0/`).
-    ABI = "4.0"
+    # The ABI of the C extensions that zr runs: the object layout and the
+    # C API of the pinned ruby's series (RUBY_API). A precompiled gem keeps
+    # one bundle for each ruby minor version, in a directory of that name
+    # (`lib/nokogiri/<RUBY_API>/`).
+    ABI = RUBY_API
 
     # One C extension that a build runs: the bundle path that `require`
     # finds it at (where ruby would load it, under the gem's lib/), the

@@ -7,7 +7,7 @@ module Zr
   module Dev
     module Commands
       # `zr-dev vendor`: writes vendor/ from lib/zr/library/vendor.rb,
-      # lib/zr/library/ports.rb and lib/zr/version.rb. vendor/ is upstream
+      # lib/zr/library/ports.rb and lib/zr/ruby_version.rb. vendor/ is upstream
       # code, byte for byte; see lib/zr/library/vendor.rb and
       # docs/how-to/update-vendored-code.md.
       #
@@ -75,7 +75,9 @@ module Zr
 
             have = owned_files.to_h { |rel| [rel.delete_prefix("vendor/"), Digest::SHA256.file(Dev.path(rel)).hexdigest] }
             problems = []
-            problems << "lib/zr/library/vendor.rb, lib/zr/library/ports.rb or lib/zr/version.rb changed since the lock" if inputs != VendorTree.inputs
+            if inputs != VendorTree.inputs
+              problems << "lib/zr/library/vendor.rb, lib/zr/library/ports.rb or lib/zr/ruby_version.rb changed since the lock"
+            end
             (locked.keys - have.keys).each { |rel| problems << "vendor/#{rel}: missing" }
             (have.keys - locked.keys).each { |rel| problems << "vendor/#{rel}: not in the lock" }
             (have.keys & locked.keys).each { |rel| problems << "vendor/#{rel}: differs from upstream" if have[rel] != locked[rel] }

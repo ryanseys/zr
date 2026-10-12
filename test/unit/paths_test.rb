@@ -104,7 +104,7 @@ class PathsTest < Minitest::Test
   def test_a_bundler_git_clone_is_not_a_checkout
     Dir.mktmpdir do |dir|
       clone = File.join(dir, "zr")
-      bundled = File.join(dir, "bundle/ruby/4.0.0/bundler/gems/zr-0123abcd")
+      bundled = File.join(dir, "bundle/ruby/#{Zr::RUBY_LIB_VERSION}/bundler/gems/zr-0123abcd")
       [clone, bundled].each { |root| FileUtils.mkdir_p(File.join(root, ".git")) }
       assert Zr::Paths.checkout?(clone)
       refute Zr::Paths.checkout?(bundled)

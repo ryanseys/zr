@@ -1,15 +1,8 @@
 # frozen_string_literal: true
 
-# The constants and globals that describe the running program.
-RUBY_VERSION = "4.0.7"
-RUBY_ENGINE = "ruby"
-RUBY_ENGINE_VERSION = "4.0.7"
-RUBY_PLATFORM = Primitive.zr_os_ruby_platform.freeze
-RUBY_PATCHLEVEL = 0
-RUBY_RELEASE_DATE = "2026-09-15"
-RUBY_REVISION = "229531a6cfbf07e3caef30dbac24a2a3f3fed482"
-RUBY_COPYRIGHT = "ruby - Copyright (C) 1993-2026 Yukihiro Matsumoto"
-RUBY_DESCRIPTION = "ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [#{RUBY_PLATFORM}]".freeze
+# The globals that describe the running program. The constants that name
+# its ruby (RUBY_VERSION and the rest) come just before, from the
+# generated core/ruby_version.rb.
 # rubygems loads rbconfig before the program starts, and rbconfig says
 # this ruby is not a cross-compiling one.
 CROSS_COMPILING = nil
@@ -393,9 +386,10 @@ $LOAD_PATH.concat(
   lambda do
     lib = "#{Primitive.zr_hidden_get(ENV, :__zr_prefix__)}/lib/ruby"
     arch = RUBY_PLATFORM
-    %W[site_ruby/4.0.0 site_ruby/4.0.0/#{arch} site_ruby
-       vendor_ruby/4.0.0 vendor_ruby/4.0.0/#{arch} vendor_ruby
-       4.0.0 4.0.0/#{arch}].map do |dir|
+    version = Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__)
+    %W[site_ruby/#{version} site_ruby/#{version}/#{arch} site_ruby
+       vendor_ruby/#{version} vendor_ruby/#{version}/#{arch} vendor_ruby
+       #{version} #{version}/#{arch}].map do |dir|
       # ruby_init_loadpath marks each default entry with itself, which
       # rubygems reads to put gem paths in front of them.
       path = "#{lib}/#{dir}"

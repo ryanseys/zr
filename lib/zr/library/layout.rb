@@ -19,8 +19,9 @@ module Zr
     #   replaces an upstream file of its name.
     module Layout
       # The directory name of ruby's library version (RbConfig's
-      # `ruby_version`): 4.0.0 for every ruby 4.0.x.
-      API = RUBY.sub(/\.\d+\z/, ".0")
+      # `ruby_version`): the same for each release of a series, with the
+      # ABI version after a `+` for a preview (lib/zr/ruby_version.rb).
+      API = RUBY_LIB_VERSION
 
       # The install prefix that holds ruby's library and gems, as
       # `zr-dev vendor` writes it.

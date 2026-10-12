@@ -6,21 +6,22 @@
 # runs the tests.
 
 require "rbconfig"
+require_relative "../lib/zr/version"
 
 root = File.expand_path("..", __dir__)
 Dir.chdir(root)
 
-# zr builds only on the ruby that .ruby-version pins. Say so before the
-# long steps, not after them.
-pinned = File.read(".ruby-version").strip
-unless RUBY_VERSION == pinned
-  abort "bin/setup: this is ruby #{RUBY_VERSION}; zr needs ruby #{pinned} " \
-        "(for example `mise install ruby@#{pinned}` or `rbenv install #{pinned}`)"
+# A checkout tests zr against the ruby that .ruby-version pins, and that
+# ruby writes the expected outputs. Say so before the long steps, not
+# after them.
+unless Zr.pinned_ruby?
+  abort "bin/setup: this is #{RUBY_DESCRIPTION}; zr needs ruby #{Zr::RUBY_PIN} " \
+        "(for example `mise install ruby@#{Zr::RUBY_PIN}` or `rbenv install #{Zr::RUBY_PIN}`)"
 end
 
 system("bundle", "install", exception: true)
 
-# The ruby that the tests compare with: ruby 4.0.7's bundled gems, and
+# The ruby that the tests compare with: its bundled gems, and
 # zr's versions of the gems whose C it ports, in tmp/reference.
 system(RbConfig.ruby, "tool/install_reference_gems.rb", exception: true)
 

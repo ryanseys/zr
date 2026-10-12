@@ -90,6 +90,6 @@ class LibraryRootsTest < Minitest::Test
     spec = Gem::Specification.load(File.join(ROOT, "zr.gemspec"))
 
     assert_equal [], spec.runtime_dependencies.map(&:name)
-    assert(spec.files.any? { |file| file.start_with?("vendor/ruby/lib/ruby/4.0.0/") })
+    assert(spec.files.any? { |file| file.start_with?("vendor/ruby/lib/ruby/#{Zr::Library::Layout::API}/") })
   end
 end

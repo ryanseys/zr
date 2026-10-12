@@ -138,7 +138,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   def self.archdir
     Primitive.attr! :hidden
-    "#{Primitive.zr_hidden_get(ENV, :__zr_prefix__)}/lib/ruby/4.0.0/#{RUBY_PLATFORM}"
+    "#{Primitive.zr_hidden_get(ENV, :__zr_prefix__)}/lib/ruby/#{Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__)}/#{RUBY_PLATFORM}"
   end
 
   # CRuby's rb_feature_p for the name as it was written, before any file

@@ -10,22 +10,28 @@ require_relative "../../lib/zr/doctor"
 class DoctorTest < Minitest::Test
   EXE = File.join(ROOT, "exe/zr")
 
-  def test_another_ruby_fails
-    check = Zr::Doctor.ruby("4.1.0")
+  # A ruby older than any that zr runs on, and one of the series after
+  # the pinned ruby's.
+  def too_old = "#{Zr::RUBY_MINIMUM.to_i - 1}.4.7"
+  def next_series = "#{Zr::RUBY.to_i}.#{Zr::RUBY.split(".")[1].to_i + 1}.0"
+
+  def test_an_older_ruby_fails
+    check = Zr::Doctor.ruby(too_old)
 
     assert_equal :fail, check.status
-    assert_equal "4.1.0; zr needs #{Zr::RUBY} or a later 4.0 release. See #{Zr::DOCS_URL}/how-to/install.md", check.detail
+    assert_equal "#{too_old}; zr needs ruby #{Zr::RUBY_MINIMUM} or later. See #{Zr::DOCS_URL}/how-to/install.md", check.detail
   end
 
-  def test_a_later_patch_release_warns
-    check = Zr::Doctor.ruby("4.0.9")
+  def test_another_series_warns
+    check = Zr::Doctor.ruby(next_series)
 
     assert_equal :warn, check.status
-    assert_equal "4.0.9; zr is tested with #{Zr::RUBY}", check.detail
+    assert_equal "#{next_series}; zr is tested with #{Zr::RUBY_PIN}", check.detail
   end
 
-  def test_the_pinned_ruby_is_ok
+  def test_the_pinned_series_is_ok
     assert_equal :ok, Zr::Doctor.ruby(Zr::RUBY).status
+    assert_equal :ok, Zr::Doctor.ruby("#{Zr::RUBY[/\A\d+\.\d+/]}.99").status
   end
 
   def test_a_host_that_cannot_run_its_binaries_warns
@@ -72,13 +78,13 @@ class DoctorTest < Minitest::Test
   end
 
   def test_a_failed_check_makes_the_run_fail
-    failing = Zr::Doctor::Check.new(:fail, "ruby", "4.0.8")
+    failing = Zr::Doctor::Check.new(:fail, "ruby", too_old)
     out = StringIO.new
 
     ran = stub_method(Zr::Doctor, :checks, [failing]) { Zr::Doctor.run(out) }
 
     refute ran
-    assert_equal "fail  ruby               4.0.8\n", out.string
+    assert_equal "fail  ruby               #{too_old}\n", out.string
   end
 
   def zr(*, env: {})
@@ -91,7 +97,7 @@ class DoctorTest < Minitest::Test
     out, _, status = zr("version")
 
     assert_predicate status, :success?
-    assert_equal "zr #{Zr::VERSION} (for ruby #{Zr::RUBY})\n", out
+    assert_equal "zr #{Zr::VERSION} (for ruby #{Zr::RUBY_PIN})\n", out
   end
 
   def test_cache_prints_its_path

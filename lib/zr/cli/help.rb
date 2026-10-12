@@ -114,7 +114,7 @@ module Zr
           Usage: zr gems [--gem <name>=<version|dir>]... [--gemfile <path>] [--json] [<file.rb>]
 
           Lists each gem that a build can read, with its version and its
-          source: stdlib (ruby 4.0.7's library in zr), port (a gem with a C
+          source: stdlib (ruby's own library, in zr), port (a gem with a C
           part that zr ports), Gemfile.lock, or --gem. With <file.rb>, lists
           only the gems that the build of <file.rb> reads.
 
@@ -149,7 +149,7 @@ module Zr
           Usage: zr version
 
           Prints zr's version and the ruby version that it matches:
-          zr #{VERSION} (for ruby #{RUBY}). `zr --version` and `zr -v` do the same.
+          zr #{VERSION} (for ruby #{RUBY_PIN}). `zr --version` and `zr -v` do the same.
         TEXT
         "help" => <<~TEXT,
           Usage: zr help [<command>]

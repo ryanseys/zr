@@ -13,12 +13,15 @@ module Zr
       # A generator reads a reference: the running ruby, a CRuby source file
       # at RUBY_REVISION (`Dev.cruby`), prism's C (`Dev.prism`), or zr's own
       # runtime. A generator that reads the running ruby is `host_ruby!`: it
-      # runs only under ruby 4.0.7 itself.
+      # runs only under the ruby that `.ruby-version` pins. `ruby_version`
+      # comes first: the others read the record that it writes.
       class Gen < Group
         summary "Write a generated file again, or check it (--check)"
 
         commands({
           "all" => ["Every generator below, in order", -> { All }],
+          "ruby_version" => ["lib/zr/ruby_version.rb and its runtime twin: the ruby that .ruby-version pins",
+                             -> { require_relative "gen/ruby_version"; RubyVersion }],
           "features" => ["lib/zr/hir/features.rb: the names require accepts", -> { require_relative "gen/features"; Features }],
           "libsystem" => ["lib/zr/obj/macho/libsystem.rb: the names libSystem defines", -> { require_relative "gen/libsystem"; Libsystem }],
           "encodings" => ["lib/zr/runtime/core/encodings.rb: the encodings ruby knows", -> { require_relative "gen/encodings"; Encodings }],

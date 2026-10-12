@@ -8,21 +8,21 @@ Gem::Specification.new do |spec|
   spec.authors = ["Ryan Seys"]
   spec.email = ["ryan@ryanseys.com"]
 
-  spec.summary = "A Ruby compiler, written in Ruby: its programs give ruby 4.0.7's output, or zr refuses them by name"
+  spec.summary = "A Ruby compiler, written in Ruby: its programs print what ruby prints, or zr refuses them by name"
   spec.description = <<~TEXT
     zr compiles Ruby programs to native aarch64-apple-darwin binaries and
     WASI modules on any host, and to static aarch64-linux-musl binaries
-    with a musl toolchain. A compiled program gives ruby 4.0.7's output,
-    or zr refuses it at build time. The compiler and the runtime are Ruby,
-    with no C. zr carries ruby's standard library itself, so the gem
-    depends on nothing.
+    with a musl toolchain. A compiled program gives the output of ruby
+    #{Zr::RUBY_PIN}, the Ruby 4 release that zr targets, or zr refuses it at
+    build time. The compiler and the runtime are Ruby, with no C. zr
+    carries ruby's standard library itself, so the gem depends on nothing.
   TEXT
   spec.homepage = "https://github.com/ryanseys/zr"
   spec.license = "MIT" # the vendored parts: THIRD_PARTY_NOTICES.md
-  # The ruby that zr checks its output against (.ruby-version), or a later
-  # 4.0 release. zr carries its own standard library (vendor/ruby), so the
-  # host ruby only runs the compiler. zr warns on any ruby but Zr::RUBY.
-  spec.required_ruby_version = [">= #{Zr::RUBY}", "< 4.1"]
+  # Ruby 4 or later. zr carries its own standard library (vendor/ruby), so
+  # the host ruby only runs the compiler. zr warns on a ruby of another
+  # series than the one that it checks its output against (.ruby-version).
+  spec.required_ruby_version = ">= #{Zr::RUBY_MINIMUM}"
 
   spec.metadata = {
     "homepage_uri" => spec.homepage,

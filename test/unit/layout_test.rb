@@ -4,8 +4,9 @@ require "test_helper"
 require_relative "../../lib/zr/version"
 
 # The layout rules of the repository. The tools live in tool/, and the
-# Rakefile keeps only the standard entry points. Each version fact has
-# one source, lib/zr/version.rb, and every other copy must agree with it.
+# Rakefile keeps only the standard entry points. The ruby version has one
+# source, `.ruby-version`: `zr-dev gen ruby_version` records it
+# (lib/zr/ruby_version.rb), and every other fact is derived from the record.
 class LayoutTest < Minitest::Test
   # Enough for the standard tasks and their comments. A tool with its own
   # logic belongs in tool/.
@@ -23,25 +24,44 @@ class LayoutTest < Minitest::Test
     assert_operator lines, :<=, RAKEFILE_LINES, "the Rakefile has #{lines} lines; move the logic to tool/"
   end
 
-  def test_ruby_version_agrees_with_version_rb
-    assert_equal Zr::RUBY, read(".ruby-version").strip
+  def test_the_record_names_the_pinned_ruby
+    assert_equal Zr::RUBY_PIN, read(".ruby-version").strip
   end
 
-  def test_env_rb_agrees_with_version_rb
-    env = read("lib/zr/runtime/core/env.rb")
+  # The constants that a program sees, and its library directories, come
+  # from the record.
+  def test_the_runtime_constants_agree_with_the_record
+    require_relative "../../tool/lib/zr/dev"
+    require_relative "../../tool/gen/ruby_version"
+    gen = Zr::Dev::Commands::Gen::RubyVersion
 
-    assert_includes env, %(RUBY_VERSION = "#{Zr::RUBY}")
-    assert_includes env, %(RUBY_RELEASE_DATE = "#{Zr::RUBY_RELEASE_DATE}")
-    assert_includes env, %(RUBY_REVISION = "#{Zr::RUBY_REVISION}")
+    assert_equal gen.runtime_text(gen.recorded), read(gen::RUNTIME)
   end
 
-  def test_ci_names_the_same_ruby
-    ci = Dir[File.join(ROOT, ".github/workflows/*.yml")].sum("") { |path| File.read(path) }
+  # The pinned ruby gives the record's values itself.
+  def test_the_record_agrees_with_the_pinned_ruby
+    skip "this is #{RUBY_DESCRIPTION}, not ruby #{Zr::RUBY_PIN}" unless Zr.pinned_ruby?
 
-    # A job without a checkout names the version itself.
-    assert_empty ci.scan(/ruby-version: (\S+)/).flatten - [".ruby-version", %("#{Zr::RUBY}")], "the ruby setup-ruby installs"
-    assert_equal [Zr::RUBY], ci.scan(/\bruby:(\d+\.\d+\.\d+)/).flatten.uniq, "the container's ruby"
-    assert_equal [Zr::RUBY_REVISION], ci.scan(%r{ruby/ruby/(\h{40})/}).flatten.uniq, "the CRuby revision CI reads"
+    assert_equal [RUBY_RELEASE_DATE, RUBY_COPYRIGHT], [Zr::RUBY_RELEASE_DATE, Zr::RUBY_COPYRIGHT]
+    # Up to the +PRISM, which a JIT that the run turned on can follow.
+    assert_equal RUBY_DESCRIPTION[/\A[^)]*\)/], Zr::RUBY_DESCRIPTION_HEAD[/\A[^)]*\)/]
+    assert_equal [RbConfig::CONFIG["ruby_version"], RbConfig::CONFIG["RUBY_API_VERSION"]], [Zr::RUBY_LIB_VERSION, Zr::RUBY_API]
+  end
+
+  # CI reads the ruby from `.ruby-version` and the record, and names no
+  # version itself.
+  def test_ci_names_no_ruby_version
+    ci = Dir[File.join(ROOT, ".github/**/*.yml")].sum("") { |path| File.read(path) }
+
+    assert_equal [".ruby-version"], ci.scan(/ruby-version: (\S+)/).flatten.uniq, "the ruby setup-ruby installs"
+    assert_empty ci.scan(/\bruby:\d/), "the container's ruby"
+    assert_empty ci.scan(%r{ruby/ruby/\h{40}}), "the CRuby revision CI reads"
+    assert_empty ci.scan(/--branch v\d/), "the prism tag CI reads"
+  end
+
+  # RuboCop checks zr's own code for the oldest ruby that runs it.
+  def test_rubocop_targets_the_oldest_ruby_that_runs_zr
+    assert_equal Zr::RUBY_MINIMUM, read(".rubocop.yml")[/TargetRubyVersion: (\S+)/, 1]
   end
 
   def test_the_tools_doc_names_every_command

@@ -91,8 +91,8 @@ class RunnerTest < Minitest::Test
   # directory that exist.
   def test_the_home_is_an_installed_ruby_layout
     assert_equal File.realpath(Runner::HOME), Runner::HOME
-    assert File.file?(File.join(Runner::HOME, "lib/ruby/4.0.0/fileutils.rb"))
-    assert File.directory?(File.join(Runner::HOME, "lib/ruby/gems/4.0.0/specifications"))
+    assert File.file?(File.join(Runner::HOME, "lib/ruby/#{Zr::RUBY_LIB_VERSION}/fileutils.rb"))
+    assert File.directory?(File.join(Runner::HOME, "lib/ruby/gems/#{Zr::RUBY_LIB_VERSION}/specifications"))
   end
 
   # A child ruby runs the steps, since a test must not move this

@@ -19,7 +19,7 @@ module Zr
 
       # The program that writes ruby's report of a syntax error. It loads
       # zr's own syntax_suggest (vendor/ruby) by its path, as a stock ruby
-      # 4.0.7 has it: `api` first, so `core_ext` does not require it by name
+      # has it: `api` first, so `core_ext` does not require it by name
       # (a second core_ext would wrap the message twice). ruby prints the
       # parse's warnings before the error, so the report has them too. It
       # exits 2 when the file parses.
@@ -51,16 +51,16 @@ module Zr
       def host_refusal(version = RUBY_VERSION)
         return if Zr.supported_ruby?(version)
 
-        "zr #{VERSION} runs on ruby #{RUBY} or a later 4.0 release. " \
-          "Install ruby #{RUBY}: #{DOCS_URL}/how-to/install.md"
+        "zr #{VERSION} runs on ruby #{RUBY_MINIMUM} or later. Install ruby #{RUBY_PIN}: #{DOCS_URL}/how-to/install.md"
       end
 
-      # A note for a ruby that zr runs on but is not tested with, or nil.
+      # A note for a ruby that zr runs on but is not tested with (another
+      # series than RUBY), or nil.
       #: (?String version) -> String?
       def host_note(version = RUBY_VERSION)
-        return if version == RUBY || !Zr.supported_ruby?(version)
+        return if Zr.tested_ruby?(version) || !Zr.supported_ruby?(version)
 
-        "zr #{VERSION} is tested with ruby #{RUBY}; this is ruby #{version}"
+        "zr #{VERSION} is tested with ruby #{RUBY_PIN}; this is ruby #{version}"
       end
 
       # Stops a build on a ruby that zr does not run on, before it reads

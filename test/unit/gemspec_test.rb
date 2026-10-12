@@ -45,7 +45,7 @@ class GemspecTest < Minitest::Test
 
   def test_the_gem_depends_on_no_other_gem
     assert_empty spec.runtime_dependencies
-    assert_equal [Gem::Requirement.new(">= #{Zr::RUBY}", "< 4.1")], [spec.required_ruby_version]
+    assert_equal [Gem::Requirement.new(">= #{Zr::RUBY_MINIMUM}")], [spec.required_ruby_version]
   end
 
   def test_the_links_name_this_version

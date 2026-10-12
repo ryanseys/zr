@@ -16,7 +16,12 @@ module RbConfig
   # parameters and frames as Ruby methods do.
   Primitive.attr! :ruby
 
-  ruby_version = "4.0.0"
+  # The name of ruby's library directories (core/ruby_version.rb), and
+  # the major and minor version that the API, its library and its pkg-config
+  # file are named for.
+  ruby_version = Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__).dup
+  major, minor, teeny = RUBY_VERSION.split(".")
+  api = "#{major}.#{minor}"
 
   # The platform facts are the running program's own. `RUBY_PLATFORM` is
   # `<cpu>-<os>`; the rest follow from it. `dup`, because a value here has
@@ -65,12 +70,12 @@ module RbConfig
 
   CONFIG = {
     "DESTDIR" => DESTDIR,
-    "MAJOR" => "4",
-    "MINOR" => "0",
-    "TEENY" => "7",
-    "PATCHLEVEL" => "0",
+    "MAJOR" => major,
+    "MINOR" => minor,
+    "TEENY" => teeny,
+    "PATCHLEVEL" => RUBY_PATCHLEVEL.to_s,
     "ruby_version" => ruby_version,
-    "RUBY_SO_NAME" => "ruby.4.0",
+    "RUBY_SO_NAME" => "ruby.#{api}",
     "ruby_install_name" => zr_ruby_name,
     "RUBY_INSTALL_NAME" => zr_ruby_name,
     "RUBY_BASE_NAME" => "ruby",
@@ -192,7 +197,7 @@ module RbConfig
     "universal" => "",
 
     # --- The rest of CRuby's keys, as its configure gives them. -----------
-    "RUBY_API_VERSION" => "4.0",
+    "RUBY_API_VERSION" => api.dup,
     "RUBY_VERSION_NAME" => "ruby-#{ruby_version}",
     "RUBY_LIB_VERSION" => "",
     "RUBY_LIB_VERSION_STYLE" => "3\t/* full */",
@@ -229,7 +234,7 @@ module RbConfig
     "LIBRUBY_SONAME" => "lib$(RUBY_SO_NAME).#{soext}.$(RUBY_API_VERSION)",
     "LIBRUBY_ALIASES" => "lib$(RUBY_SO_NAME).#{soext}",
     "LIBRUBY_RELATIVE" => "no",
-    "ruby_pc" => "ruby-4.0.pc",
+    "ruby_pc" => "ruby-#{api}.pc",
     "modular_gc_dir" => "",
     "ENCSTATIC" => "",
     "EXTSTATIC" => "",

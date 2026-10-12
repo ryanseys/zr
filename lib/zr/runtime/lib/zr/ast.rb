@@ -368,7 +368,7 @@ module Zr
       private
 
       def prism_parse(source)
-        Prism.parse(source, version: "4.0", encoding: source.encoding)
+        Prism.parse(source, version: "current", encoding: source.encoding)
       rescue ArgumentError
         Prism.parse(source)
       end

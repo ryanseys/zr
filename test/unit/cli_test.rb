@@ -4,36 +4,43 @@ require "test_helper"
 require "stringio"
 require_relative "../../lib/zr/cli"
 
-# The command builds only on the one pinned ruby version. A build reads
-# the standard library of that ruby, and the tests check zr against the
-# output of that ruby.
+# The command builds on Ruby 4 and later. It is quiet on the series of the
+# pinned ruby (.ruby-version): a build reads the standard library of that
+# ruby, and the tests check zr against the output of that ruby.
 class CliTest < Minitest::Test
+  # A later release of the pinned series, a ruby of the next series, and
+  # one older than any ruby that zr runs on.
+  def same_series = "#{Zr::RUBY[/\A\d+\.\d+/]}.99"
+  def next_series = "#{Zr::RUBY.to_i}.#{Zr::RUBY.split(".")[1].to_i + 1}.0"
+  def too_old = "#{Zr::RUBY_MINIMUM.to_i - 1}.4.7"
+
   def test_pinned_ruby_matches_ruby_version_file
-    assert_equal File.read(File.expand_path("../../.ruby-version", __dir__)).strip, Zr::RUBY
+    assert_equal File.read(File.expand_path("../../.ruby-version", __dir__)).strip, Zr::RUBY_PIN
   end
 
-  def test_the_pinned_ruby_builds
-    assert_nil Zr::CLI::Refusals.host_refusal(Zr::RUBY)
-    assert_nil Zr::CLI::Refusals.host_note(Zr::RUBY)
+  def test_the_pinned_series_builds_with_no_note
+    [Zr::RUBY, same_series].each do |version|
+      assert_nil Zr::CLI::Refusals.host_refusal(version)
+      assert_nil Zr::CLI::Refusals.host_note(version)
+    end
   end
 
-  def test_a_later_patch_release_builds_with_a_note
-    assert_nil Zr::CLI::Refusals.host_refusal("4.0.9")
-    assert_equal "zr #{Zr::VERSION} is tested with ruby #{Zr::RUBY}; this is ruby 4.0.9", Zr::CLI::Refusals.host_note("4.0.9")
-    assert_output(nil, "zr: warning: #{Zr::CLI::Refusals.host_note("4.0.9")}\n") { Zr::CLI::Refusals.pinned!("4.0.9") }
+  def test_another_series_builds_with_a_note
+    assert_nil Zr::CLI::Refusals.host_refusal(next_series)
+    assert_equal "zr #{Zr::VERSION} is tested with ruby #{Zr::RUBY_PIN}; this is ruby #{next_series}",
+                 Zr::CLI::Refusals.host_note(next_series)
+    assert_output(nil, "zr: warning: #{Zr::CLI::Refusals.host_note(next_series)}\n") { Zr::CLI::Refusals.pinned!(next_series) }
   end
 
-  def test_other_ruby_is_refused_with_message
-    assert_equal "zr #{Zr::VERSION} runs on ruby #{Zr::RUBY} or a later 4.0 release. " \
-                 "Install ruby #{Zr::RUBY}: #{Zr::DOCS_URL}/how-to/install.md",
-                 Zr::CLI::Refusals.host_refusal("4.0.6")
-    refute_nil Zr::CLI::Refusals.host_refusal("4.1.0")
-    refute_nil Zr::CLI::Refusals.host_refusal("3.4.7")
+  def test_an_older_ruby_is_refused_with_message
+    assert_equal "zr #{Zr::VERSION} runs on ruby #{Zr::RUBY_MINIMUM} or later. " \
+                 "Install ruby #{Zr::RUBY_PIN}: #{Zr::DOCS_URL}/how-to/install.md",
+                 Zr::CLI::Refusals.host_refusal(too_old)
   end
 
-  def test_a_build_on_another_ruby_stops_with_the_refusal_status
+  def test_a_build_on_an_older_ruby_stops_with_the_refusal_status
     error = assert_raises(SystemExit) do
-      assert_output(nil, "zr: #{Zr::CLI::Refusals.host_refusal("4.1.0")}\n") { Zr::CLI::Refusals.pinned!("4.1.0") }
+      assert_output(nil, "zr: #{Zr::CLI::Refusals.host_refusal(too_old)}\n") { Zr::CLI::Refusals.pinned!(too_old) }
     end
     assert_equal Zr::CLI::REFUSED, error.status
     assert_nil Zr::CLI::Refusals.pinned!(Zr::RUBY)

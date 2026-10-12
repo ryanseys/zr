@@ -12,10 +12,10 @@ module Zr
     # The tree is a ruby install prefix (Zr::Library::Layout), as a stock
     # ruby leaves it after `gem install` of the port gems:
     #
-    #   vendor/ruby/lib/ruby/4.0.0/        ruby's own library and the default
+    #   vendor/ruby/lib/ruby/<API>/        ruby's own library and the default
     #                                      gems, from ruby's source at
     #                                      RUBY_REVISION
-    #   vendor/ruby/lib/ruby/gems/4.0.0/   the bundled gems and the port
+    #   vendor/ruby/lib/ruby/gems/<API>/   the bundled gems and the port
     #                                      gems, each from its .gem
     #   vendor/ruby/gem_prelude.rb         from ruby's source
     #   vendor/LICENSES/                   license texts that no gem

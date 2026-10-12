@@ -9,7 +9,7 @@ module Zr
       # `zr version` and `zr --version`: zr's version and the ruby version
       # that it matches. `zr -v` is ruby's -v (`Compile#ruby`).
       class Version < Command
-        LINE = "zr #{VERSION} (for ruby #{RUBY})".freeze
+        LINE = "zr #{VERSION} (for ruby #{RUBY_PIN})".freeze
 
         #: () -> bool
         def plain? = true
