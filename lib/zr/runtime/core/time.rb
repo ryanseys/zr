@@ -385,6 +385,10 @@ class Time
     # `(year, month, day, hour, min, sec, usec)`, or the ten fields
     # `Time#to_a` gives, which name the same instant backwards.
     def from_fields(args, zone)
+      # time_arg: the ten fields of to_a, or one to eight.
+      unless args.size == 10 || args.size.between?(1, 8)
+        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..8)"
+      end
       if args.size == 10
         sec, min, hour, day, month, year, _wday, _yday, dst = args
         return civil(year, month, day, hour, min, sec, zone, dst: dst ? true : false)

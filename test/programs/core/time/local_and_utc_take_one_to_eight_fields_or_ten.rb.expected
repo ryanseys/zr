@@ -1,0 +1,28 @@
+["local(0)", ArgumentError, "wrong number of arguments (given 0, expected 1..8)", "Time.local"]
+["local(9)", ArgumentError, "wrong number of arguments (given 9, expected 1..8)", "Time.local"]
+["local(11)", ArgumentError, "wrong number of arguments (given 11, expected 1..8)", "Time.local"]
+["local(12)", ArgumentError, "wrong number of arguments (given 12, expected 1..8)", "Time.local"]
+2000
+4
+[5, 4, 3, 2, 1, 2000]
+["mktime(0)", ArgumentError, "wrong number of arguments (given 0, expected 1..8)", "Time.local"]
+["mktime(9)", ArgumentError, "wrong number of arguments (given 9, expected 1..8)", "Time.local"]
+["mktime(11)", ArgumentError, "wrong number of arguments (given 11, expected 1..8)", "Time.local"]
+["mktime(12)", ArgumentError, "wrong number of arguments (given 12, expected 1..8)", "Time.local"]
+2000
+4
+[5, 4, 3, 2, 1, 2000]
+["utc(0)", ArgumentError, "wrong number of arguments (given 0, expected 1..8)", "Time.utc"]
+["utc(9)", ArgumentError, "wrong number of arguments (given 9, expected 1..8)", "Time.utc"]
+["utc(11)", ArgumentError, "wrong number of arguments (given 11, expected 1..8)", "Time.utc"]
+["utc(12)", ArgumentError, "wrong number of arguments (given 12, expected 1..8)", "Time.utc"]
+2000
+4
+[5, 4, 3, 2, 1, 2000]
+["gm(0)", ArgumentError, "wrong number of arguments (given 0, expected 1..8)", "Time.utc"]
+["gm(9)", ArgumentError, "wrong number of arguments (given 9, expected 1..8)", "Time.utc"]
+["gm(11)", ArgumentError, "wrong number of arguments (given 11, expected 1..8)", "Time.utc"]
+["gm(12)", ArgumentError, "wrong number of arguments (given 12, expected 1..8)", "Time.utc"]
+2000
+4
+[5, 4, 3, 2, 1, 2000]
