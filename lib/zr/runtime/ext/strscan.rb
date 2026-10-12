@@ -28,8 +28,12 @@ class StringScanner
   # program has a ScanError already.
   Object.const_set(:ScanError, Error) unless Object.const_defined?(:ScanError)
 
-  def initialize(string, fixed_anchor: false)
-    Primitive.zr_hidden_set(self, :__string__, string.to_str)
+  # The second argument is the old `dup` flag, which ruby takes and drops.
+  # ruby counts `fixed_anchor:` as a third argument beside it.
+  def initialize(string, _dup = (no_dup = true; nil), fixed_anchor: (no_anchor = true; false))
+    raise ArgumentError, +"wrong number of arguments (given 3, expected 1..2)" unless no_dup || no_anchor
+
+    Primitive.zr_hidden_set(self, :__string__, Primitive.zr_str_operand(string))
     Primitive.zr_hidden_set(self, :__anchor__, fixed_anchor)
     reset
   end
@@ -52,7 +56,7 @@ class StringScanner
   end
 
   def string=(text)
-    Primitive.zr_hidden_set(self, :__string__, text.to_str)
+    Primitive.zr_hidden_set(self, :__string__, Primitive.zr_str_operand(text))
     reset
     string
   end
@@ -71,7 +75,7 @@ class StringScanner
   end
 
   def pos=(byte)
-    byte = byte.to_int
+    byte = Primitive.zr_index_operand_m(byte)
     byte += string.bytesize if byte.negative?
     raise RangeError, "index out of range" if byte.negative? || byte > string.bytesize
 
@@ -154,7 +158,7 @@ class StringScanner
   end
 
   def peek(len)
-    len = len.to_int
+    len = Primitive.zr_index_operand_m(len)
     raise ArgumentError, "negative string size (or size too big)" if len.negative?
 
     string.byteslice(pos, len) || ""
@@ -319,10 +323,10 @@ class StringScanner
 
   def group_index(index)
     Primitive.attr! :hidden
-    return index if index.is_a?(Integer) || index.is_a?(String) || index.is_a?(Symbol)
-    raise TypeError, "no implicit conversion of #{conversion_name(index)} into Integer" unless index.respond_to?(:to_int)
+    return index if index.is_a?(String) || index.is_a?(Symbol)
 
-    index.to_int
+    # NUM2LONG, as strscan_aref reads any other index.
+    Primitive.zr_index_operand_m(index)
   end
 
   # strscan_do_scan: `pattern` at the scan pointer (`anchored`) or
@@ -335,7 +339,7 @@ class StringScanner
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :__regex__, pattern.is_a?(Regexp) ? pattern : nil)
     unless pattern.is_a?(Regexp)
-      pattern = String.try_convert(pattern) or raise TypeError, "no implicit conversion of #{conversion_name(pattern)} into String"
+      pattern = Primitive.zr_str_operand(pattern)
     end
     text = string
     clear_match

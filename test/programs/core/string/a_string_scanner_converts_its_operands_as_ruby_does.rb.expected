@@ -1,0 +1,43 @@
+new(1): TypeError: no implicit conversion of Integer into String
+string = 1: TypeError: no implicit conversion of Integer into String
+<< 1: TypeError: no implicit conversion of Integer into String
+new(nil): TypeError: no implicit conversion of nil into String
+string = nil: TypeError: no implicit conversion of nil into String
+<< nil: TypeError: no implicit conversion of nil into String
+new(:a): TypeError: no implicit conversion of Symbol into String
+string = :a: TypeError: no implicit conversion of Symbol into String
+<< :a: TypeError: no implicit conversion of Symbol into String
+new(1.5): TypeError: no implicit conversion of Float into String
+string = 1.5: TypeError: no implicit conversion of Float into String
+<< 1.5: TypeError: no implicit conversion of Float into String
+new(#<struct to_str="xy">): #<StringScanner 0/2 @ "xy">
+string = #<struct to_str="xy">: "xy"
+<< #<struct to_str="xy">: "axy"
+new("ab"): #<StringScanner 0/2 @ "ab">
+string = "ab": "ab"
+<< "ab": "aab"
+new(a, 1): #<StringScanner 0/1 @ "a">
+new(a, true, fixed_anchor: true): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+new(a, 1, 2): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+new(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+scan(1): TypeError: no implicit conversion of Integer into String
+scan_until(nil): TypeError: no implicit conversion of nil into String
+skip(:a): TypeError: no implicit conversion of Symbol into String
+pos = '1': TypeError: no implicit conversion of String into Integer
+pos = 5: RangeError: index out of range
+peek(-1): ArgumentError: negative string size (or size too big)
+peek('1'): TypeError: no implicit conversion of String into Integer
+[nil]: TypeError: no implicit conversion from nil to integer
+[:y]: IndexError: undefined group name reference: y
+['y']: IndexError: undefined group name reference: y
+[1.5]: nil
+unscan: StringScanner::Error: unscan failed: previous match record not exist
+scan_integer(base: 3): ArgumentError: Unsupported integer base: 3, expected 10 or 16
+pos = 1.5: 1
+pos = nil: TypeError: no implicit conversion from nil to integer
+peek(1.9): "a"
+peek(nil): TypeError: no implicit conversion from nil to integer
+[2**70]: RangeError: bignum too big to convert into 'long'
+['x']: "a"
+scan(to_str): "a"
+check_until(1): TypeError: no implicit conversion of Integer into String
