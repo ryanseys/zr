@@ -320,18 +320,27 @@ class Array
   end
 
   # vm_opt_newarray_min and _max: a literal's elements, each compared
-  # with the best so far.
+  # with the best so far, in a loop with no block, so that no frame
+  # shows in an error.
   def self.newarray_min(items)
     Primitive.attr! :hidden
     best = items[0]
-    (1...items.size).each { |i| best = items[i] if items.compared(items[i], best) < 0 }
+    i = 1
+    while i < items.size
+      best = items[i] if items.compared(items[i], best) < 0
+      i += 1
+    end
     best
   end
 
   def self.newarray_max(items)
     Primitive.attr! :hidden
     best = items[0]
-    (1...items.size).each { |i| best = items[i] if items.compared(items[i], best) > 0 }
+    i = 1
+    while i < items.size
+      best = items[i] if items.compared(items[i], best) > 0
+      i += 1
+    end
     best
   end
 
@@ -1434,8 +1443,27 @@ class Array
     h
   end
 
-  # With a block, the one pass Enumerable makes.
-  def minmax = block_given? ? super : [min, max]
+  # With a block, the one pass Enumerable makes. Without one, as
+  # rb_ary_minmax: rb_ary_min, then rb_ary_max, each walked here, so
+  # that neither shows a frame in an error.
+  def minmax
+    return super if block_given?
+
+    low = high = nil
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      v = Primitive.zr_ary_aref1_m(self, i)
+      low = v if i == 0 || compared(low, v) > 0
+      i += 1
+    end
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      v = Primitive.zr_ary_aref1_m(self, i)
+      high = v if i == 0 || compared(high, v) < 0
+      i += 1
+    end
+    [low, high]
+  end
 
   # The core's own min and max, which a literal's fast path stands in for.
   OPTIMIZED = { min: instance_method(:min), max: instance_method(:max) }.freeze
