@@ -1,0 +1,69 @@
+Hash#count: 2
+Hash#count(1): 0
+Hash#count {}: 0
+Hash#count(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Hash#count(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Hash#count(nil, nil): ArgumentError: wrong number of arguments (given 2, expected 1)
+Hash#find_index: Enumerator
+Hash#find_index(2): nil
+Hash#find_index {}: nil
+Hash#find_index(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Hash#find_index(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Range#count: 3
+Range#count(1): 1
+Range#count {}: 1
+Range#count(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Range#count(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Range#count(nil, nil): ArgumentError: wrong number of arguments (given 2, expected 1)
+Range#find_index: Enumerator
+Range#find_index(2): 1
+Range#find_index {}: 1
+Range#find_index(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Range#find_index(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Bag#count: 3
+Bag#count(1): 2
+Bag#count {}: 2
+Bag#count(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Bag#count(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Bag#count(nil, nil): ArgumentError: wrong number of arguments (given 2, expected 1)
+Bag#find_index: Enumerator
+Bag#find_index(2): 1
+Bag#find_index {}: 1
+Bag#find_index(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Bag#find_index(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Enumerator#count: 3
+Enumerator#count(1): 2
+Enumerator#count {}: 2
+Enumerator#count(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Enumerator#count(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Enumerator#count(nil, nil): ArgumentError: wrong number of arguments (given 2, expected 1)
+Enumerator#find_index: Enumerator
+Enumerator#find_index(2): 1
+Enumerator#find_index {}: 1
+Enumerator#find_index(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Enumerator#find_index(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Struct#count: 2
+Struct#count(1): 1
+Struct#count {}: 1
+Struct#count(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Struct#count(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Struct#count(nil, nil): ArgumentError: wrong number of arguments (given 2, expected 1)
+Struct#find_index: Enumerator
+Struct#find_index(2): 1
+Struct#find_index {}: 1
+Struct#find_index(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+Struct#find_index(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 1)
+Array#count: 3
+Array#count(1): 2
+Array#count {}: 2
+Array#count(1, 2): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Array#count(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Array#count(nil, nil): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Array#find_index: Enumerator
+Array#find_index(2): 1
+Array#find_index {}: 1
+Array#find_index(1, 2): ArgumentError: wrong number of arguments (given 2, expected 0..1)
+Array#find_index(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+endless Range#count(1, 2): ArgumentError: wrong number of arguments (given 2, expected 1)
+send count: ArgumentError: wrong number of arguments (given 2, expected 1)
+send find_index: ArgumentError: wrong number of arguments (given 2, expected 1)

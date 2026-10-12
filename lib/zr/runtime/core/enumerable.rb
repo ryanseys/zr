@@ -126,7 +126,11 @@ module Enumerable
     true
   end
 
-  def count(item = (none = true), &blk)
+  # With an argument, CRuby takes exactly one (rb_scan_args "1"), so a
+  # second says "expected 1". A second optional parameter catches it
+  # with no rest Array on each call.
+  def count(item = (none = true), _extra = (one = true), &blk)
+    raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" unless one
     Primitive.zr_warn_here_m("given block not used") if blk && !none
     n = 0
     if !none
@@ -667,8 +671,9 @@ module Enumerable
     out
   end
 
-  def find_index(v = (omitted = true; nil), &blk)
+  def find_index(v = (omitted = true; nil), _extra = (one = true), &blk)
     return to_enum(:find_index) if omitted && !blk
+    raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" unless one
 
     Primitive.zr_warn_here_m("given block not used") if blk && !omitted
 
