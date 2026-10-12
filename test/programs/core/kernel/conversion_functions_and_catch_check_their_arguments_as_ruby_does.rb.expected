@@ -1,0 +1,51 @@
+Integer(UTF-16LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+Integer(UTF-16LE, 10): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+Integer(UTF-16LE, exception: false): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+Float(UTF-16LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+Rational(UTF-16LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+Complex(UTF-16LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16LE
+Integer(UTF-16BE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16BE
+Integer(UTF-16BE, 10): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16BE
+Integer(UTF-16BE, exception: false): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16BE
+Float(UTF-16BE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16BE
+Rational(UTF-16BE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16BE
+Complex(UTF-16BE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-16BE
+Integer(UTF-32LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-32LE
+Integer(UTF-32LE, 10): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-32LE
+Integer(UTF-32LE, exception: false): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-32LE
+Float(UTF-32LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-32LE
+Rational(UTF-32LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-32LE
+Complex(UTF-32LE): Encoding::CompatibilityError: ASCII incompatible encoding: UTF-32LE
+Integer(EUC-JP): 12
+Integer(bad, exception: false): nil
+Rational(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+Rational(1, 2, 3): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+Rational(1, 2): (1/2)
+Rational(exception: false): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+Complex(): ArgumentError: wrong number of arguments (given 0, expected 1..2)
+Complex(1, 2, 3): ArgumentError: wrong number of arguments (given 3, expected 1..2)
+Complex(1, 2): (1+2i)
+catch: LocalJumpError: no block given
+catch(:x): LocalJumpError: no block given
+catch {}: 7
+singleton_method(:solo): :solo
+singleton_method('solo'): :solo
+singleton_method(to_str): :solo
+singleton_method(1): TypeError: 1 is not a symbol nor a string
+singleton_method(nil): TypeError: nil is not a symbol nor a string
+singleton_method(:none): NameError: undefined singleton method 'none' for 'main'
+(1..6).count(1 args): 1
+(1..6).count(2 args): ArgumentError: wrong number of arguments (given 2, expected 1)
+(1..6).count(3 args): ArgumentError: wrong number of arguments (given 3, expected 1)
+(1..6).count(4 args): ArgumentError: wrong number of arguments (given 4, expected 1)
+(1..6).count(2): 1
+const_get(1): TypeError: no implicit conversion of Integer into String
+const_defined?(1): TypeError: no implicit conversion of Integer into String
+const_source_location(1): TypeError: no implicit conversion of Integer into String
+const_get(nil): TypeError: no implicit conversion of nil into String
+const_defined?(nil): TypeError: no implicit conversion of nil into String
+const_source_location(nil): TypeError: no implicit conversion of nil into String
+const_get(1.5): TypeError: no implicit conversion of Float into String
+const_defined?(1.5): TypeError: no implicit conversion of Float into String
+const_source_location(1.5): TypeError: no implicit conversion of Float into String
+const_get(String): String

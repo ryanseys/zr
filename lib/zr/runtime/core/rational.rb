@@ -102,6 +102,9 @@ class Rational < Numeric
       when Integer, Rational then value
       when Float then value.to_r
       when String
+        # string_to_r_strict: rb_must_asciicompat first.
+        raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{value.encoding}" unless value.encoding.ascii_compatible?
+
         parsed = parse(value, exception)
         # string_to_r_strict: the zero of a tiny exponent is a Rational,
         # the infinity of a huge one is an error.
@@ -539,7 +542,8 @@ class Rational < Numeric
 end
 
 module Kernel
-  def Rational(a, *rest, exception: true)
+  def Rational(a = (none = true), *rest, exception: true)
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1..2)" if none
     raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
 
     Rational.send(:converted, a, rest, exception_flag(exception))

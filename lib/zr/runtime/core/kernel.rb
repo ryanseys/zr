@@ -671,8 +671,12 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   end
 
   # rb_str_convert_to_inum for Integer(): the whole text in `base`.
+  # rb_must_asciicompat comes first, so a wide String raises whatever
+  # `exception:` says.
   def string_integer(text, base, exception)
     Primitive.attr! :hidden
+    raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{text.encoding}" unless text.encoding.ascii_compatible?
+
     n = parse_integer(text, base)
     return n if n
     return nil unless exception
@@ -912,7 +916,7 @@ module Kernel
   def eval(source, binding = nil, file = "(eval)", line = 1) = Primitive.zr_unimplemented(+"eval reached in a program built without the compiler")
 
   def catch(tag = Object.new, &block)
-    raise LocalJumpError, +"no block given (yield)" unless block
+    raise LocalJumpError, +"no block given" unless block
 
     Primitive.zr_catch(tag, block)
   end
@@ -1230,8 +1234,13 @@ module Kernel
     nil
   end
 
+  # rb_check_id: a Symbol, or a String or what to_str gives.
   def singleton_method(name)
-    raise NameError.new("undefined singleton method '#{name}' for '#{inspect}'", name) unless Primitive.zr_singleton_method_names_m(self).include?(name.to_sym)
+    unless name.is_a?(Symbol)
+      text = String.try_convert(name) or raise TypeError, "#{name.inspect} is not a symbol nor a string"
+      name = text.to_sym
+    end
+    raise NameError.new("undefined singleton method '#{name}' for '#{inspect}'", name) unless Primitive.zr_singleton_method_names_m(self).include?(name)
 
     method(name)
   end

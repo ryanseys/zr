@@ -277,6 +277,8 @@ class Range
   # returns without a walk. An argument or a block counts the members
   # that match, so those walk as Enumerable does.
   def count(*args, &block)
+    # enum_count takes one argument at most (rb_scan_args "1").
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
     return super unless args.empty? && !block
     return Float::INFINITY if @begin.nil? || @end.nil?
     return size if @begin.is_a?(Integer)

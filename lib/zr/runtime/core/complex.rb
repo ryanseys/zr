@@ -545,7 +545,8 @@ class Complex < Numeric
 end
 
 module Kernel
-  def Complex(real, *rest, exception: true)
+  def Complex(real = (none = true), *rest, exception: true)
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1..2)" if none
     raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
 
     Complex.send(:convert_parts, real, rest, exception_flag(exception))
