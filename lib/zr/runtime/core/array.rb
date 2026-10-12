@@ -526,9 +526,20 @@ class Array
     self
   end
 
-  def permutation(k = (omitted = true; Primitive.zr_ary_len_m(self)))
-    k = Primitive.zr_index_operand_m(k)
-    return to_enum(:permutation, *([k] unless omitted)) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (Primitive.zr_ary_len_m(self) - k + 1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } } unless block_given?
+  # rb_ary_permutation: with no block, the enumerator comes first, with
+  # all the arguments, and its size converts the count
+  # (rb_ary_permutation_size). With a block, the arity is 0..1 and nil
+  # means the length.
+  def permutation(*args)
+    unless block_given?
+      return to_enum(:permutation, *args) do
+        r = args.empty? ? Primitive.zr_ary_len_m(self) : Primitive.zr_index_operand_m(args[0])
+        r < 0 || r > Primitive.zr_ary_len_m(self) ? 0 : (Primitive.zr_ary_len_m(self) - r + 1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b }
+      end
+    end
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+
+    k = args[0].nil? ? Primitive.zr_ary_len_m(self) : Primitive.zr_index_operand_m(args[0])
 
     if k == 0
       yield []

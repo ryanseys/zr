@@ -1,0 +1,20 @@
+permutation('%d'): #<Enumerator: []:permutation("%d")>
+permutation(2**64): #<Enumerator: ["", "", "", ""]:permutation(18446744073709551616)>
+permutation('x').size: TypeError: no implicit conversion of String into Integer
+permutation(2**64).size: RangeError: bignum too big to convert into 'long'
+permutation('x').to_a: TypeError: no implicit conversion of String into Integer
+permutation(nil): #<Enumerator: [1, 2]:permutation(nil)>
+permutation(nil).size: TypeError: no implicit conversion from nil to integer
+permutation(nil) {}: [[1, 2], [2, 1]]
+permutation(1, 2): #<Enumerator: [1]:permutation(1, 2)>
+permutation(1, 2, 3): #<Enumerator: [1, 2]:permutation(1, 2, 3)>
+permutation(1, 2).size: 2
+permutation(1, 2) {}: ArgumentError: wrong number of arguments (given 2, expected 0..1)
+permutation.size: 6
+permutation(2).size: 6
+permutation(2.9).to_a: [[1, 2], [1, 3], [2, 1], [2, 3], [3, 1], [3, 2]]
+permutation(-1).to_a: []
+permutation(5).to_a: []
+repeated_permutation('x'): #<Enumerator: []:repeated_permutation("x")>
+combination('x'): TypeError: no implicit conversion of String into Integer
+repeated_combination('x'): TypeError: no implicit conversion of String into Integer
