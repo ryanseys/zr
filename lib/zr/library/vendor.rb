@@ -6,7 +6,7 @@ module Zr
     # upstream code, byte for byte as its authors ship it. Nobody edits a
     # file there: `zr-dev vendor` writes the tree from these lists, from
     # lib/zr/library/ports.rb (the gems whose C zr ports, at zr's versions)
-    # and from lib/zr/version.rb (the ruby release). It records every source
+    # and from lib/zr/ruby_version.rb (the ruby release). It records every source
     # and every file's digest in vendor/vendor.lock.
     #
     # The tree is a ruby install prefix (Zr::Library::Layout), as a stock

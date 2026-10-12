@@ -23,7 +23,7 @@ Commands:
 
 `zr help <command>` and `zr <command> --help` (or `-h`) print the
 options of a command. `zr version` prints zr's version and the ruby
-whose output it gives (`zr 0.1.0 (for ruby 4.0.7)`). `zr --version` and `zr -v` are the
+whose output it gives (`zr 0.1.0 (for ruby <version>)`, where `<version>` is the pinned ruby). `zr --version` and `zr -v` are the
 same. A first word that names no command runs zr as a ruby: see
 [`zr` as a ruby](#zr-as-a-ruby).
 
@@ -33,8 +33,9 @@ come before or after `<file.rb>`. For `run`, options come before
 `<file.rb>`, because every word after it goes to the program. Put `--`
 before `<file.rb>` when the file name starts with `-`.
 
-zr runs on ruby 4.0.7, and on a later 4.0 release with a warning. On
-another ruby, `run` and `build` stop with exit status 3,
+zr runs on ruby 4.0 or later. On a ruby of another series than the
+pinned one (`.ruby-version`), it gives a warning. On a ruby older than
+4.0, `run` and `build` stop with exit status 3,
 and the message links [How to install zr](../how-to/install.md).
 
 ## Options
@@ -93,7 +94,7 @@ zr -Ilib -rapp -w script.rb
 ```
 
 A command's name always wins: run a script named `build` as
-`zr ./build` or `zr -- build`. zr reads the switches as ruby 4.0.7 does,
+`zr ./build` or `zr -- build`. zr reads the switches as ruby does,
 in order, up to the script's name, `-` or `--`; a cluster such as
 `-lane` is one switch per letter. It also reads the switches on the
 script's first line when that line starts with `#!` and names ruby
@@ -183,7 +184,7 @@ path exists on the machine that runs the program.
 ## `zr gems [options] [<file.rb>]`
 
 Prints each gem that a build can read, with its version and its
-source: `stdlib` (ruby 4.0.7's library in zr), `port` (a gem with a C
+source: `stdlib` (the pinned ruby's library in zr), `port` (a gem with a C
 part that zr ports), `Gemfile.lock` or `--gem`. For a gem that
 replaces a port, the row also gives the versions whose C zr
 implements. With `<file.rb>`, it prints only the gems that the build
@@ -236,15 +237,15 @@ reason; `zr gems` shows zr's.
 Checks what zr needs on this host, and prints one line for each check:
 
 ```
-ok    zr                 0.1.0  /Users/you/.gem/ruby/4.0.0/gems/zr-0.1.0
-ok    ruby               4.0.7
+ok    zr                 0.1.0  /Users/you/.gem/ruby/<ruby_version>/gems/zr-0.1.0
+ok    ruby               <version>
 ok    host               aarch64-apple-darwin
 ok    target             aarch64-apple-darwin   binary, obj; this host: binary, obj
 warn  target             aarch64-linux-musl     binary, obj; this host: obj
 ok    target             wasm32-wasi            wasm; this host: wasm
 ok    wasmtime           /opt/homebrew/bin/wasmtime
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
-ok    libraries          stdlib of ruby 4.0.7 (73 gems), 18 ports
+ok    libraries          stdlib of ruby <version> (73 gems), 18 ports
 ok    C extensions       3 of 34 installed gems with one need nothing more of zr's C API: msgpack, nokogiri, websocket-driver
 ok    cache              ~/Library/Caches/zr, 2703 MB
 ```
@@ -382,7 +383,7 @@ Report it at https://github.com/ryanseys/zr/issues.
 | 0 | Success. For `zr run`, the program's own status. |
 | 1 | An error. A build step failed, or a require in the program's own files has no file; the message tells which. For `zr diff`, the two runs differ. In ruby mode (`zr app.rb`, `zr -e`), the statuses that ruby gives: 1 for a missing script or a switch that ruby rejects. |
 | 2 | A usage error: the command line is wrong, the file that a command names does not exist, or a setting (a `ZR_*` variable or its flag) has a value that zr cannot use. For `zr diff`, the build failed. |
-| 3 | A refusal: zr does not support the program, or this host cannot build or run the target, or the ruby is not 4.0.7 or a later 4.0 release. The message gives the form and its line, or the missing tool. `zr diff` also exits 3 when zr refused the program. |
+| 3 | A refusal: zr does not support the program, or this host cannot build or run the target, or the ruby is older than 4.0. The message gives the form and its line, or the missing tool. `zr diff` also exits 3 when zr refused the program. |
 | 130 | Ctrl-C stopped zr. zr removes its temporary files first. |
 
 A program that does not parse still builds, and `zr build` gives a

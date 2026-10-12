@@ -22,7 +22,7 @@ This guide writes `zr-dev` for `bin/zr-dev`; see
    puts "ab".upcase.encoding
    ```
 
-3. Get the expected output from ruby 4.0.7. Never write it yourself:
+3. Get the expected output from the pinned ruby. Never write it yourself:
 
    ```console
    $ bin/zr-dev expect test/programs/core/string/case_mapping

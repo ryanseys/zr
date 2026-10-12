@@ -10,7 +10,7 @@ the ports stay correct.
 | Library | Role | In zr |
 |---|---|---|
 | prism 1.9.0 | the parser that ruby uses | a Ruby port in `lib/zr/runtime/ext/prism/ruby`, under prism's own Ruby half |
-| Onigmo | CRuby 4.0.7's regular expression engine | a Ruby port: the pattern compiler in `lib/zr/runtime/core/regexp/onig/`, and the matcher in the kernel's typed Ruby in `lib/zr/runtime/kernel/onig_*.rb` |
+| Onigmo | CRuby's regular expression engine | a Ruby port: the pattern compiler in `lib/zr/runtime/core/regexp/onig/`, and the matcher in the kernel's typed Ruby in `lib/zr/runtime/kernel/onig_*.rb` |
 | zlib 1.3.1 | compression | a port in the kernel's typed Ruby, `lib/zr/runtime/kernel/zlib_*.rb` |
 
 ## Why no C
@@ -71,7 +71,7 @@ A gem's own C extension is not zr's C. On macOS and on aarch64 Linux,
 `--native-ext` puts a gem's real extension in the binary
 ([How to use a C extension](../how-to/use-a-c-extension.md)). zr does
 not translate that C and does not emulate ruby for it. Instead, zr's
-objects have the same layout in memory as ruby 4.0's: nil and the other
+objects have the same layout in memory as ruby's: nil and the other
 special values, the header of every object, Strings, Arrays and the
 structs of C data. So the extension's machine code reads zr's objects
 as it reads ruby's, at native speed.

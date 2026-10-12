@@ -4,30 +4,36 @@ This guide shows you how to get the ruby that zr runs on, install zr,
 and check the host. At the end, it lists the problems that an install
 can have, and what to do for each.
 
-zr runs on ruby 4.0.7, or on a later 4.0 release. The gem has no
-dependencies, and the install compiles nothing.
+zr runs on ruby 4.0 or later. It targets the latest Ruby 4 release:
+its tests compare zr with the ruby that zr's `.ruby-version` names (the
+pinned ruby). The gem has no dependencies, and the install compiles
+nothing.
 
-## 1. Get ruby 4.0.7
+## 1. Get ruby
 
-Use one of these. Each installs ruby 4.0.7 next to the ruby that you
-have:
+Use the latest Ruby 4 release. Each of these installs it next to the
+ruby that you have. Replace `<version>` with the version that
+`.ruby-version` names at zr's release tag:
 
 | Tool | Commands |
 |---|---|
-| mise | `mise use -g ruby@4.0.7` |
-| rbenv with ruby-build | `brew upgrade ruby-build` (or `git -C ~/.rbenv/plugins/ruby-build pull`), then `rbenv install 4.0.7` and `rbenv global 4.0.7` |
-| ruby-install with chruby | `ruby-install ruby 4.0.7`, then `chruby 4.0.7` |
-| Docker | `docker run -it ruby:4.0.7 bash` |
+| mise | `mise use -g ruby@<version>` |
+| rbenv with ruby-build | `brew upgrade ruby-build` (or `git -C ~/.rbenv/plugins/ruby-build pull`), then `rbenv install <version>` and `rbenv global <version>` |
+| ruby-install with chruby | `ruby-install ruby <version>`, then `chruby <version>` |
+| Docker | `docker run -it ruby:<version> bash` |
 
-Homebrew's `ruby` formula gives the newest ruby release, which can be a
-version that zr does not run on. A version manager gives the exact
-version.
+In a checkout of zr, `$(cat .ruby-version)` gives the version, for
+example `mise install ruby@$(cat .ruby-version)`.
+
+Homebrew's `ruby` formula gives the newest ruby release, which can be of
+another series than the pinned ruby. zr runs on it with a warning. A
+version manager gives the exact version.
 
 Check the version:
 
 ```console
 $ ruby -v
-ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin24]
+ruby 4.x.y (...) +PRISM [arm64-darwin24]
 ```
 
 ## 2. Install zr
@@ -36,30 +42,30 @@ ruby 4.0.7 (2026-09-15 revision 229531a6cf) +PRISM [arm64-darwin24]
 $ gem install zr
 ```
 
-The install downloads only zr: zr carries ruby 4.0.7's standard
-library itself. On another ruby, rubygems stops the install with a
-message that names the ruby version that zr needs:
+The install downloads only zr: zr carries the pinned ruby's standard
+library itself. On a ruby older than 4.0, rubygems stops the install
+with a message that names the ruby version that zr needs:
 
 ```
 ERROR:  Error installing zr:
-	zr requires Ruby version >= 4.0.7, < 4.1. The current ruby version is 3.4.7.
+	zr requires Ruby version >= 4.0. The current ruby version is 3.4.7.
 ```
 
-Get ruby 4.0.7 (step 1), then install zr again.
+Get ruby (step 1), then install zr again.
 
 ## 3. Check the host
 
 ```console
 $ zr doctor
-ok    zr                 0.1.0  /Users/you/.gem/ruby/4.0.0/gems/zr-0.1.0
-ok    ruby               4.0.7
+ok    zr                 0.1.0  /Users/you/.gem/ruby/<ruby_version>/gems/zr-0.1.0
+ok    ruby               <version>
 ok    host               aarch64-apple-darwin
 ok    target             aarch64-apple-darwin   binary, obj; this host: binary, obj
 warn  target             aarch64-linux-musl     binary, obj; this host: obj
 ok    target             wasm32-wasi            wasm; this host: wasm
 warn  wasmtime           not on PATH; needed only for 'zr run --emit wasm'. See https://wasmtime.dev
 ok    openssl            /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib
-ok    libraries          stdlib of ruby 4.0.7 (73 gems), 18 ports
+ok    libraries          stdlib of ruby <version> (73 gems), 18 ports
 ok    C extensions       3 of 34 installed gems with one need nothing more of zr's C API: msgpack, nokogiri, websocket-driver
 ok    cache              /Users/you/Library/Caches/zr, 0 MB
 ```
@@ -96,17 +102,21 @@ Next: [Compile your first program](../tutorials/compile-your-first-program.md).
 
 ## Troubleshooting
 
-### `zr: zr 0.1.0 runs on ruby 4.0.7 or a later 4.0 release.`
+### `zr: zr 0.1.0 runs on ruby 4.0 or later. Install ruby <version>: …/how-to/install.md`
 
-The `ruby` on your `PATH` is another version. `ruby -v` shows it, and
+The `ruby` on your `PATH` is older than 4.0. `ruby -v` shows it, and
 `which zr` shows the ruby that the `zr` command belongs to. Select
-ruby 4.0.7 with your version manager (step 1), and install zr for it.
-zr exits with status 3.
+the latest Ruby 4 release with your version manager (step 1), and
+install zr for it. zr exits with status 3. `zr doctor` gives a `fail`
+line for `ruby`: `<v>; zr needs ruby 4.0 or later. See …`.
 
-### `zr: warning: zr 0.1.0 is tested with ruby 4.0.7; this is ruby 4.0.9`
+### `zr: warning: zr 0.1.0 is tested with ruby <version>; this is ruby <v>`
 
-zr runs on a later 4.0 release, but its tests use 4.0.7. A compiled
-program is the same: it uses zr's own standard library, not the host's.
+zr runs on this ruby, but its tests use the pinned ruby, of another
+series. `zr doctor` gives a `warn` line for `ruby`:
+`<v>; zr is tested with <version>`. A compiled program is the same: it
+uses zr's own standard library, not the host's. To remove the warning,
+use a ruby of the pinned ruby's series (step 1).
 
 ### A `fail` line in `zr doctor` for `libraries`
 

@@ -2,7 +2,7 @@
 
 This guide shows you how to build a program that uses a gem's real C
 extension, such as msgpack's or nokogiri's. zr compiles your Ruby, and
-the binary runs the gem's C code as ruby 4.0 would run it.
+the binary runs the gem's C code as ruby would run it.
 This works on macOS on Apple silicon and on aarch64 Linux (the static
 `aarch64-linux-musl` target).
 
@@ -13,8 +13,9 @@ You opt in to the real extension for each gem with `--native-ext`.
 
 ## Before you start
 
-- Run zr under ruby 4.0. zr's C API is ruby 4.0's, and the build stops
-  under any other ruby.
+- Run zr under a ruby of the pinned ruby's series (`.ruby-version`).
+  zr's C API is that series', and the build stops under a ruby of
+  another series.
 - Install the gem in that ruby with `gem install`, as for ruby. zr uses
   what the install left: the compiled objects, the built bundle, or the
   precompiled bundle of a platform gem.
@@ -146,8 +147,8 @@ $ zr build --native-ext msgpack --target aarch64-linux-musl --gem msgpack=1.8.0 
 ```
 
 zr builds the gem's extension for the target, as `gem install` would
-there. It runs the gem's `extconf.rb` with the RbConfig of ruby
-4.0.7 for aarch64-linux-musl, whose headers zr carries, and with the
+there. It runs the gem's `extconf.rb` with the RbConfig of the pinned
+ruby for aarch64-linux-musl, whose headers zr carries, and with the
 musl cross compiler (`aarch64-linux-musl-gcc`, for example from
 Homebrew's `musl-cross`). mkmf's checks find the functions that zr's C
 API has. A library that the extension links (`-lxml2`) must be a static

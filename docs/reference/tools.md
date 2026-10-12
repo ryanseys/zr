@@ -12,7 +12,7 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 | Script | Does |
 |---|---|
 | `bin/setup` | Installs the gems (`bundle install`), sets up the reference ruby (`tool/install_reference_gems.rb`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
-| `ruby tool/install_reference_gems.rb` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: ruby 4.0.7's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/library/ports.rb`). It installs only the missing gems, tells you about other versions in the directory, and then writes `tmp/reference/STAMP`. `bin/setup` runs it. `expect`, `record`, `probe` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). |
+| `ruby tool/install_reference_gems.rb` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: the pinned ruby's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/library/ports.rb`). It installs only the missing gems, tells you about other versions in the directory, and then writes `tmp/reference/STAMP`. `bin/setup` runs it. `expect`, `record`, `probe` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). |
 | `bin/minitest [paths] [minitest options]` | Runs the tests (minitest's own binstub). With no paths, it runs every `test/**/*_test.rb`: the unit tests and the program tests (`test/programs_test.rb`). It builds the runtime first if the tests need it and it is not built. |
 | `bin/zr` | The binstub of `exe/zr`, the `zr` command of this checkout. |
 | `bin/zr-dev` | The binstub of `tool/zr-dev.rb`, the [`zr-dev`](#zr-dev) commands. |
@@ -68,8 +68,8 @@ no arguments. Give paths and minitest options to `bin/minitest`.
 | `rake` | `rake lint`, then `rake test`. |
 | `rake test` | The three tiers: unit, programs, ext. |
 | `rake test:unit` | The unit tier: zr's own internals (`test/unit`). |
-| `rake test:programs` | The program tests: Ruby programs that zr builds, each checked against ruby 4.0.7 (`test/programs_test.rb`). |
-| `rake test:ext` | The C extensions that zr links, each checked against ruby 4.0.7 (`test/ext`). |
+| `rake test:programs` | The program tests: Ruby programs that zr builds, each checked against the pinned ruby (`test/programs_test.rb`). |
+| `rake test:ext` | The C extensions that zr links, each checked against the pinned ruby (`test/ext`). |
 | `rake lint` | Runs RuboCop with the cops that `.rubocop.yml` turns on. |
 | `rake gen` | Writes every generated file again (`zr-dev gen all`). `CHECK=1 rake gen` writes nothing, and fails if a file is out of date. |
 
@@ -118,7 +118,7 @@ gives more examples.
 | Command | Does |
 |---|---|
 | `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/minitest`: the unit test files by path, and the program tests through `ZR_PROGRAMS`. It reads the diff against `main`, or against `--base`, and maps each changed file to unit tests and program tests (`tool/affected.rb`): a changed test to itself, a file beside a program to the program, a core class to its program tests, a library to its `stdlib/` area and the programs that require it, and a file under `lib/zr` that does not change a build to the unit tests that load it. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
-| `zr-dev vendor` | Writes `vendor/` (ruby 4.0.7's own library from its source at `RUBY_REVISION`, the bundled gems and the port gems from their `.gem` files, prism's templates from its tag), `vendor/vendor.lock` and `lib/zr/library/stdlib.rb`, from `lib/zr/library/vendor.rb`, `lib/zr/library/ports.rb` and `lib/zr/version.rb`. It needs `RUBY_SRC` and `PRISM_SRC`. See [How to update the vendored code](../how-to/update-vendored-code.md). |
+| `zr-dev vendor` | Writes `vendor/` (the pinned ruby's own library from its source at `RUBY_REVISION`, the bundled gems and the port gems from their `.gem` files, prism's templates from its tag), `vendor/vendor.lock` and `lib/zr/library/stdlib.rb`, from `lib/zr/library/vendor.rb`, `lib/zr/library/ports.rb` and `lib/zr/ruby_version.rb`. It needs `RUBY_SRC` and `PRISM_SRC`. See [How to update the vendored code](../how-to/update-vendored-code.md). |
 | `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |
 | `zr-dev vendor outdated` | Lists the gems of `vendor/` that have a newer release on rubygems.org. |
 | `zr-dev vendor diff GEM [VERSION]` | Lists the files that change from the locked GEM to VERSION (default: the newest), and zr's files under `lib/zr/runtime/` that replace one of them. |
@@ -129,7 +129,7 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev gems try GEM [--keep] [--save] [--build-only]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under ruby 4.0.7 and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `log/gems/compat.tsv`. `--build-only` builds the program and runs nothing. |
+| `zr-dev gems try GEM [--keep] [--save] [--build-only]` | Fetches the gem and the gems that it needs (ruby platform only), builds a program that requires it, runs the program under the pinned ruby and as a zr binary, and prints the tier, the diff and the path of the log (`tmp/gems/logs`). `--keep` keeps the work directory. `--save` writes the row into `log/gems/compat.tsv`. `--build-only` builds the program and runs nothing. |
 | `zr-dev gems sweep [GEM...] [--top N|FIRST..LAST] [--jobs N] [--save] [--build-only]` | Tries many gems, one line each, then counts the tiers. `--top N` adds the N most downloaded gems of `log/gems/top.tsv`, and `--top FIRST..LAST` those ranked FIRST to LAST. As each gem ends, its line goes into `log/gems/sweep-<time>.log` and its row into `log/gems/sweep-<time>.tsv`, and with `--save` into `log/gems/compat.tsv`. `--build-only` runs no gem code: it takes gems from rubygems.org only and stops after the build. |
 | `zr-dev gems triage [KIND] [--file TSV]` | Groups the gems that do not load by the kind of failure, the kind that stops the most gems first. With `KIND`, it gives each gem of that kind with its detail. |
 | `zr-dev gems top [--refresh] [--count N]` | Prints the most downloaded gems with their tiers. `--refresh` writes `log/gems/top.tsv` again from packages.ecosyste.ms. |
@@ -146,10 +146,10 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev expect [--all] [--check] [path...]` | Runs each program test under ruby 4.0.7, in a run directory as the test does, and writes its files beside it: `foo.rb.expected`, and `foo.rb.err.expected` and `foo.rb.status` when they are not empty and not `exit 0` (`tool/expect.rb`). On Linux, it writes `foo.rb.linux.expected` when the stdout is different. With no path, it takes `test/programs`. It writes only a test whose `foo.rb.expected` is missing or older than the program; `--all` writes each test. `--check` writes nothing, lists each test whose files differ from ruby, and fails if there is one. See [Program tests](program-tests.md#expected-output). |
-| `zr-dev record [--again] <benchmark>...` | Runs a benchmark under ruby 4.0.7 and writes its recording (`.out`, `.err`, `.status`, `.signal`) beside it. It takes only paths below `benchmark/`. It does not change a benchmark that has a recording. `--again` writes the recording again. See [Benchmark recordings](benchmark-recordings.md). |
-| `zr-dev rubyspec <area>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs ruby/spec under ruby 4.0.7 and in zr binaries, and compares each example. See [ruby/spec and test-all](#rubyspec-and-test-all). |
-| `zr-dev cruby-test <dir>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs CRuby's test-all under ruby 4.0.7 and in zr binaries, and compares each test. See [ruby/spec and test-all](#rubyspec-and-test-all). |
+| `zr-dev expect [--all] [--check] [path...]` | Runs each program test under the pinned ruby, in a run directory as the test does, and writes its files beside it: `foo.rb.expected`, and `foo.rb.err.expected` and `foo.rb.status` when they are not empty and not `exit 0` (`tool/expect.rb`). On Linux, it writes `foo.rb.linux.expected` when the stdout is different. With no path, it takes `test/programs`. It writes only a test whose `foo.rb.expected` is missing or older than the program; `--all` writes each test. `--check` writes nothing, lists each test whose files differ from ruby, and fails if there is one. See [Program tests](program-tests.md#expected-output). |
+| `zr-dev record [--again] <benchmark>...` | Runs a benchmark under the pinned ruby and writes its recording (`.out`, `.err`, `.status`, `.signal`) beside it. It takes only paths below `benchmark/`. It does not change a benchmark that has a recording. `--again` writes the recording again. See [Benchmark recordings](benchmark-recordings.md). |
+| `zr-dev rubyspec <area>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs ruby/spec under the pinned ruby and in zr binaries, and compares each example. See [ruby/spec and test-all](#rubyspec-and-test-all). |
+| `zr-dev cruby-test <dir>... \| --all [-f PATTERN] [-j JOBS] [--shard I/N] [--update-tags] [--keep]` | Runs CRuby's test-all under the pinned ruby and in zr binaries, and compares each test. See [ruby/spec and test-all](#rubyspec-and-test-all). |
 
 #### ruby/spec and test-all
 
@@ -196,10 +196,12 @@ Only one suite runs at a time (`tmp/suite.lock`).
 
 ### Generated files
 
-Each generator writes a file from ruby 4.0.7, or from a CRuby source at
-the revision of ruby 4.0.7. The file starts with a header that tells
-this. Do not edit a generated file by hand. A generator that reads a
-table from the running ruby stops on a ruby that is not 4.0.7.
+Each generator writes a file from the ruby that `.ruby-version` names,
+or from a CRuby source at that ruby's revision. The file starts with a
+header that tells this. Do not edit a generated file by hand. A
+generator that reads a table from the running ruby stops on a ruby that
+is not the pinned one: the same version, patch level and revision
+(`Zr.pinned_ruby?`).
 
 Every generator takes `--check`. With `--check`, it writes nothing, and
 it fails if the file is out of date. `zr-dev gen all` runs every
@@ -208,7 +210,7 @@ and `gem-compat`. `--except NAME,...` leaves out more: CI runs
 `gen all --check --except libsystem,features,tables,redefinitions`.
 
 The generators read the CRuby source from the checkout that `RUBY_SRC`
-names (default `tmp/ruby`), at `Zr::RUBY_REVISION` (`lib/zr/version.rb`). They read
+names (default `tmp/ruby`), at `Zr::RUBY_REVISION` (`lib/zr/ruby_version.rb`). They read
 prism from `PRISM_SRC` (default `tmp/prism` when it exists, else
 `tmp/prism-1.9.0`). With no checkout there, a generator stops and says
 which `git clone` to run. The code of each generator is
@@ -216,6 +218,7 @@ in `tool/gen/`.
 
 | Command | Writes |
 |---|---|
+| `zr-dev gen ruby_version` | `lib/zr/ruby_version.rb` (`Zr::RUBY_PIN`, `Zr::RUBY`, `Zr::RUBY_REVISION`, `Zr::RUBY_API`, `Zr::RUBY_LIB_VERSION` and the rest) and `lib/zr/runtime/core/ruby_version.rb` (the `RUBY_*` constants that a program sees), from `.ruby-version` and the CRuby source at that tag in `RUBY_SRC`, never from the running ruby. It runs first: the other generators, `zr-dev vendor` and the gem read what it writes. To change the ruby, see [How to update the vendored code](../how-to/update-vendored-code.md#a-new-ruby). |
 | `zr-dev gen features` | `lib/zr/hir/features.rb`: the names that `require` accepts |
 | `zr-dev gen unicode` | `lib/zr/runtime/core/unicode.rb`: case mappings |
 | `zr-dev gen encodings` | `lib/zr/runtime/core/encodings.rb`: the encoding registry |
@@ -266,8 +269,8 @@ libSystem list again. See
 | `zr-dev compile --profile runtime\|eval` | Lowers the runtime or eval support object, then times the passes and the assembly of each function, one at a time. It prints the sums and the 20 slowest functions, and writes all of them to `tmp/bench/profile-<object>.tsv`. |
 | `zr-dev compile --zr --check` | Fails if the compiled compiler is slower than the newest baseline in `benchmark/results/compile/`. |
 | `zr-dev host <file.rb> [args...]` | Runs a program on CRuby with no build: the kernel runs as Ruby (`Machine::Host`), and a walker runs the core library, the gem prelude and the program over the kernel's heap (`Machine::Host::Walk`). The exit status is the program's. It is much slower than a binary. `ZR_TEST_HOST=1 bin/minitest test/programs_test.rb` runs the program tests this way. |
-| `zr-dev probe [-j JOBS] <file.rb\|dir>...` | Runs each Ruby file under ruby 4.0.7 and as a zr binary, and prints a unified diff of each part that differs: stdout, stderr, the exit status and the signal. It compiles each file in a fork of one process that has the compiler and the runtime loaded. A directory means its `.rb` files. `-j` sets the probes at a time (default 4). |
-| `zr-dev fuzz run [--time 30m \| --count N] [-j N] [--seed S] [--mode gen,mutate,meta,junk,seed] [--packs a,b] [--seeds DIR,...] [--coverage] [--no-reduce] [--no-layer]` | Fuzzes zr: checks programs under ruby 4.0.7 and as zr binaries until the time (default 30 minutes) or the count is up. `gen` writes typed programs from a seed, `mutate` edits the seeds (default `test/programs` and `log/fuzz/corpus`) on prism's tree, `meta` rewrites generated programs, `junk` breaks seeds, and `seed` runs each seed once as it is. Each difference is reduced, put in a bucket by its kind and key, run hosted to name the layer at fault (`kernel` or `compiler`), and kept in `log/fuzz/cases/<bucket>/` with ruby's expected output. `--coverage` keeps programs that reach new compiler lines as seeds. The run holds the suite lock and builds with a copy of zr (`tmp/suite/zr`), so the checkout can change. Ctrl-C stops it and writes the summary. |
+| `zr-dev probe [-j JOBS] <file.rb\|dir>...` | Runs each Ruby file under the pinned ruby and as a zr binary, and prints a unified diff of each part that differs: stdout, stderr, the exit status and the signal. It compiles each file in a fork of one process that has the compiler and the runtime loaded. A directory means its `.rb` files. `-j` sets the probes at a time (default 4). |
+| `zr-dev fuzz run [--time 30m \| --count N] [-j N] [--seed S] [--mode gen,mutate,meta,junk,seed] [--packs a,b] [--seeds DIR,...] [--coverage] [--no-reduce] [--no-layer]` | Fuzzes zr: checks programs under the pinned ruby and as zr binaries until the time (default 30 minutes) or the count is up. `gen` writes typed programs from a seed, `mutate` edits the seeds (default `test/programs` and `log/fuzz/corpus`) on prism's tree, `meta` rewrites generated programs, `junk` breaks seeds, and `seed` runs each seed once as it is. Each difference is reduced, put in a bucket by its kind and key, run hosted to name the layer at fault (`kernel` or `compiler`), and kept in `log/fuzz/cases/<bucket>/` with ruby's expected output. `--coverage` keeps programs that reach new compiler lines as seeds. The run holds the suite lock and builds with a copy of zr (`tmp/suite/zr`), so the checkout can change. Ctrl-C stops it and writes the summary. |
 | `zr-dev fuzz reduce <file.rb>` | Reduces any Ruby file that zr gets wrong to a small one that fails the same way, into `log/fuzz/reduced/`. |
 | `zr-dev fuzz recheck [bucket...]` | Checks the smallest case of each open bucket again, and marks the ones that zr now passes as fixed. |
 | `zr-dev fuzz replay <case id\|file.rb>` | Checks one case again, and prints the diff. |

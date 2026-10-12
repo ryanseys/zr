@@ -1,4 +1,4 @@
-From CRuby 4.0.7's LEGAL file, word for word.
+From CRuby's LEGAL file, word for word.
 
 [ext/digest/md5/md5.c]
 [ext/digest/md5/md5.h]

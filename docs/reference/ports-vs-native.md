@@ -33,7 +33,7 @@ native extension.
 
 ## Results
 
-Measured on 2026-10-08, aarch64-apple-darwin, ruby 4.0.7. The gem
+Measured on 2026-10-08, aarch64-apple-darwin. The gem
 versions: json 3.0.2, stringio 3.2.0 and strscan 3.1.8.
 
 | Gem | Programs | Pass (port) | Pass (native) | Time (port) | Time (native) | Size (port) | Size (native) |

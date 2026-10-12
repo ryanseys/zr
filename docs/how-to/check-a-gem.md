@@ -2,11 +2,11 @@
 
 This guide shows you how to find out if zr compiles a gem, and what
 stops it if zr does not. The tool is `zr-dev gems`. It runs in a
-checkout of zr, under ruby 4.0.7.
+checkout of zr, under the ruby that `.ruby-version` names.
 
 For each gem, the tool builds a small program (the probe) that requires
 the gem and prints each constant that the require defines, with its
-`VERSION`. It runs the probe under ruby 4.0.7 and as a zr binary, and
+`VERSION`. It runs the probe under that ruby and as a zr binary, and
 compares stdout, stderr and the exit status. It never runs `gem install`
 and never compiles C.
 

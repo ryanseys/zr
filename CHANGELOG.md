@@ -11,12 +11,12 @@ The first public release.
 
 ### Added
 
-- `gem install zr` installs the `zr` command on ruby 4.0.7: `run`,
+- `gem install zr` installs the `zr` command on ruby 4.0 or later: `run`,
   `build`, `gems`, `inspect`, `diff`, `doctor`, `cache`, `version` and
-  `help`. The gem has no dependencies: it carries ruby 4.0.7's
+  `help`. The gem has no dependencies: it carries the pinned ruby's
   standard library (`vendor/ruby`), so the install downloads only zr, and
-  compiles nothing. zr runs on ruby 4.0.7 or a later 4.0 release.
-- A compiled program gives ruby 4.0.7's output byte for byte, or zr
+  compiles nothing.
+- A compiled program gives the pinned ruby's output byte for byte, or zr
   refuses it at build time with exit status 3. A refusal gives the
   file, the line and the column, the form, the source line with a
   caret, and a link to `docs/reference/support.md`, which lists what
@@ -26,12 +26,12 @@ The first public release.
   and object files. zr links a macOS binary itself, so it needs no C
   compiler and no linker.
 - zr's own code has no C. prism 1.9.0 parses through a Ruby port of its C; zlib is
-  a port of zlib 1.3.1; `Regexp` is a port of Onigmo, CRuby 4.0.7's
+  a port of zlib 1.3.1; `Regexp` is a port of Onigmo, CRuby's
   engine; json, psych (with libyaml), openssl, socket, digest, date,
   stringio, strscan, bigdecimal, nkf, ffi and others have Ruby ports of
   their C halves. `require "openssl"` in a macOS binary opens the
   host's OpenSSL 3 when it runs.
-- A program can require all of ruby 4.0.7's library, and a pure-Ruby
+- A program can require all of ruby's library, and a pure-Ruby
   gem through a literal `$LOAD_PATH`. A program that evals, or requires
   a computed name, carries the compiler (native targets) or a
   tree-walking interpreter (wasm32-wasi).
@@ -57,7 +57,7 @@ The first public release.
 - `zr doctor` checks the ruby, the host, each target, wasmtime, OpenSSL,
   the standard library and the cache, and says
   what to do for each problem. [How to install zr](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/install.md)
-  shows how to get ruby 4.0.7, and lists each problem and its fix.
+  shows how to get ruby, and lists each problem and its fix.
 - An error prints one line and no backtrace (`ZR_DEBUG=1` shows it).
   A bad `ZR_*` value exits with status 2 and names a value that works.
   Ctrl-C exits with status 130. Every command takes `--help`, and a
@@ -76,7 +76,7 @@ The first public release.
   explanation, with a performance page and a support page that
   `zr-dev gen` writes from the benchmark reports and from the compiler.
 - A program can run a gem's real C extension (`--native-ext NAME`, or
-  `ZR_NATIVE_EXT`) through zr's own copy of ruby 4.0.7's C API, on
+  `ZR_NATIVE_EXT`) through zr's own copy of ruby's C API, on
   macOS and in a static aarch64-linux-musl binary. `--ext` chooses
   whether the binary links the extension's objects (the default),
   embeds its bundle, or loads the bundle when it runs. When the gem's
@@ -88,6 +88,16 @@ The first public release.
 - A `case` whose `when` values are all symbol literals compares the
   subject with each symbol, with no send of `===`, while no program
   redefines or prepends `Symbol#===`.
+
+### Changed
+
+- `.ruby-version` is the one ruby pin. `mise.toml` is gone.
+- `zr-dev gen ruby_version` derives every ruby version fact from
+  `.ruby-version` and the CRuby source at that tag.
+- zr runs on ruby 4.0 or later. On a ruby of another series than the
+  pinned one, zr gives a warning.
+- The tests check shapes and relations, not the values of one ruby
+  release or build.
 
 ### Development
 
@@ -111,7 +121,7 @@ The first public release.
   failure prints a unified diff. Tests below `test/programs/cli/`
   build with `zr build`. See `docs/reference/program-tests.md`.
 - `zr-dev expect [--all] [--check]` writes the expected files of the
-  program tests from ruby 4.0.7, and `zr-dev record` the recordings
+  program tests from the pinned ruby, and `zr-dev record` the recordings
   of the benchmarks.
 - The baseline of a target lists the program tests that it may fail,
   keyed by the program's path below `test/programs`, each with its

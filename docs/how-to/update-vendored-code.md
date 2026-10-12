@@ -1,8 +1,8 @@
 # How to update the vendored code
 
 This guide shows you how to change `vendor/`: the code that other
-people wrote, which zr compiles into a program. That code is ruby
-4.0.7's own library, its bundled gems, and the gems whose C part zr
+people wrote, which zr compiles into a program. That code is the pinned
+ruby's own library, its bundled gems, and the gems whose C part zr
 ports. A program's `require` of `csv`, `uri` or `json` reads these
 files. zr never reads the host's gems, so a change to a program's
 library is always a change to `vendor/`.
@@ -14,19 +14,22 @@ One file says what it holds, and one command writes it:
 |---|---|
 | `lib/zr/library/vendor.rb` | the input: the bundled gems that `vendor/` holds, and the files that it leaves out, each with its reason |
 | `lib/zr/library/ports.rb` | the input: each gem whose C part zr ports, at zr's version |
-| `lib/zr/version.rb` | the input: the ruby release (`RUBY`, `RUBY_REVISION`) |
-| `vendor/ruby/lib/ruby/4.0.0/` | ruby's own library, the default gems, rubygems and bundler, from ruby's source |
-| `vendor/ruby/lib/ruby/gems/4.0.0/gems/<name>-<version>/` | each bundled gem and each port gem: its `lib` and its license files, from its `.gem` |
-| `vendor/ruby/lib/ruby/gems/4.0.0/specifications/` | the gemspec of each gem |
+| `lib/zr/ruby_version.rb` | the input: the ruby release (`RUBY`, `RUBY_REVISION`), which `zr-dev gen ruby_version` writes from `.ruby-version` |
+| `vendor/ruby/lib/ruby/<ruby_version>/` | ruby's own library, the default gems, rubygems and bundler, from ruby's source |
+| `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/<name>-<version>/` | each bundled gem and each port gem: its `lib` and its license files, from its `.gem` |
+| `vendor/ruby/lib/ruby/gems/<ruby_version>/specifications/` | the gemspec of each gem |
 | `vendor/ruby/gem_prelude.rb` | ruby's `gem_prelude.rb` |
 | `vendor/src/prism-1.9.0/` | prism's `config.yml` and templates, from its git tag, for `zr-dev gen prism` |
 | `vendor/LICENSES/` | the license texts that no gem directory holds |
 | `vendor/vendor.lock` | the output: each source, and the SHA-256 of each `.gem` and each file |
 | `lib/zr/library/stdlib.rb` | the output: the name and version of each gem (`Zr::Library::Stdlib`) |
 
-`vendor/ruby` is a ruby install prefix, as a stock ruby 4.0.7 leaves
-it after a `gem install` of the port gems. `GEM_PATH=vendor/ruby/lib/ruby/gems/4.0.0 gem list`
-lists its gems.
+`vendor/ruby` is a ruby install prefix, as a stock ruby of the pinned
+version leaves it after a `gem install` of the port gems.
+`<ruby_version>` is that ruby's library version (RbConfig's
+`ruby_version`, `Zr::Library::Layout::API`).
+`GEM_PATH=vendor/ruby/lib/ruby/gems/<ruby_version> gem list` lists its
+gems.
 
 ## Change what the tree holds
 
@@ -79,7 +82,8 @@ The tool reads:
   see [Tools](../reference/tools.md)), as ruby's installer lays it out.
   It does not read the host's `rubylibdir`: a ruby build can patch it.
 - the default gems' specifications from the running ruby. Run the tool
-  on a stock ruby 4.0.7 (`.ruby-version`); it stops on another ruby.
+  on a stock ruby of the version in `.ruby-version`; it stops on another
+  ruby.
 - each `.gem` from rubygems.org, into `tmp/vendor/cache`. It stops when
   a file's SHA-256 is not the one in `vendor/vendor.lock`. A gem that is
   not in the lock yet must have the SHA-256 that rubygems.org publishes.
@@ -137,13 +141,35 @@ it, and put the new digest in the line.
 
 ## A new ruby
 
-A new ruby release (for example a patch release with a security fix in
-a default gem) is a new toolchain. Change `.ruby-version`, `Zr::RUBY`,
-`RUBY_RELEASE_DATE` and `RUBY_REVISION` (`lib/zr/version.rb`), install
-that ruby, then write the tree. The
-library's directory name follows the release (`Zr::Library::Layout::API`: 4.0.0
-for every 4.0.x), and the lock shows each file that changes. The
-bundled gems take the versions in ruby's `gems/bundled_gems`. zr's
-library follows ruby's releases: to get a fixed gem, release zr for
-the ruby release that includes it. See also
-[ruby 4.0.7 is part of the toolchain](../explanation/the-contract.md#ruby-407-is-part-of-the-toolchain).
+zr targets the latest Ruby 4 release. A new ruby release (a new series,
+or a patch release with a security fix in a default gem) is a new
+toolchain. `.ruby-version` is the one place that names it. Do these
+steps in order:
+
+1. Write the new name into `.ruby-version`.
+2. Check out the tag `v<name>` in `RUBY_SRC` (default `tmp/ruby`, a
+   clone). For a new clone:
+   `git clone --branch v<name> https://github.com/ruby/ruby tmp/ruby`.
+3. Install that ruby, for example
+   `mise install ruby@$(cat .ruby-version)`, then run `bundle install`.
+4. Write the ruby's facts (`lib/zr/ruby_version.rb` and its runtime
+   twin): `bin/zr-dev gen ruby_version`.
+5. Write the tree: `bin/zr-dev vendor`. If a gem moved between the
+   default and the bundled gems, first change
+   `lib/zr/library/vendor.rb` and `lib/zr/library/ports.rb`.
+6. Install the test reference: `ruby tool/install_reference_gems.rb`.
+7. Write every generated file: `bin/zr-dev gen all`.
+8. Write the expected outputs: `bin/zr-dev expect --all`. Do it again in
+   the Alpine container for the `.linux.expected` files (see
+   [How to test on another target](test-on-another-target.md)).
+9. Run the tests. List each failure that the new ruby causes in the
+   target's baseline (`test/baselines/<triple>.txt`) with its reason,
+   then fix them one at a time.
+
+The library's directory name follows the release
+(`Zr::Library::Layout::API`, the same for each release of a series),
+and the lock shows each file that changes. The bundled gems take the
+versions in ruby's `gems/bundled_gems`. zr's library follows ruby's
+releases: to get a fixed gem, release zr for the ruby release that
+includes it. See also
+[The pinned ruby is part of the toolchain](../explanation/the-contract.md#the-pinned-ruby-is-part-of-the-toolchain).

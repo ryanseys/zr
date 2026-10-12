@@ -9,7 +9,7 @@ small extensions that the tests build (`test/ext`).
 
 | Dependency | Why | Needed for |
 |---|---|---|
-| ruby 4.0.7, or a later 4.0 release | runs the compiler; zr checks its output against ruby 4.0.7, and warns on a later release | everything |
+| ruby 4.0 or later; the latest Ruby 4 release is best | runs the compiler; zr checks its output against the ruby that `.ruby-version` names, and warns on a ruby of another series | everything |
 | libSystem | the only dynamic library that a macOS binary links | macOS binaries |
 | OpenSSL 3 (libssl and libcrypto) | a macOS binary opens them when it runs `require "openssl"`: from `OPENSSL_DIR`, else from the Homebrew or MacPorts prefix. Without them, that `require` raises `LoadError`. An aarch64-linux-musl binary is static and cannot open them: its `require "openssl"` raises `LoadError`, and so does that of a gem that requires it (bcrypt, thrift). Nothing else needs them | programs that require `openssl` on macOS |
 | `cc` (Xcode Command Line Tools) | links a macOS binary under `ZR_LINKER=cc`, or when zr's own linker refuses one; links a C library that `--link` names; compiles and links a gem's C extension for `--native-ext` | optional; `--native-ext` |
@@ -17,9 +17,9 @@ small extensions that the tests build (`test/ext`).
 | musl's `cc`, or `aarch64-linux-musl-gcc` | links a static binary | `aarch64-linux-musl` binaries |
 | wasmtime | runs a module; `zr run --emit wasm` uses it | running WASI modules |
 
-The gem has no dependencies. It carries ruby 4.0.7's pure-Ruby
-standard library in `vendor/ruby`, as a stock ruby 4.0.7 installs it: the
-default gems and the bundled gems, at the versions that ruby 4.0.7
+The gem has no dependencies. It carries the pinned ruby's pure-Ruby
+standard library in `vendor/ruby`, as a stock ruby installs it: the
+default gems and the bundled gems, at the versions that the pinned ruby
 includes (`Zr::Library::Stdlib`). A program's `require` reads those files, and
 never the host's gems. The gems with a C part are zr's own ports
 (`Zr::Library::Ports`); [Differences from ruby](differences-from-ruby.md#library-versions)
@@ -37,7 +37,7 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 
 | Dependency | Why | Used by |
 |---|---|---|
-| ruby 4.0.7 (`.ruby-version`) | the host, and the only reference for the tests | everything |
+| the ruby that `.ruby-version` names | the host, and the only reference for the tests | everything |
 | `rake` gem ~> 13.0 | the tasks | `Rakefile` |
 | `minitest` gem ~> 6.0 | runs every test | `bin/minitest` |
 | `minitest-reporters` gem ~> 1.8 | the report of the slowest tests (`SLOW=1`), and the JUnit file for CI | `test/test_helper.rb` |
@@ -51,5 +51,5 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | `irb` gem | `bin/console` | by hand |
 | `vernier` gem ~> 1.0 | profiles the compiler; never part of a build or a test | by hand |
 | wasmtime | runs the wasm tests; a test skips without it | `wasm_test`, the tiers under `ZR_TARGET=wasm32-wasi` |
-| the test reference | ruby 4.0.7's bundled gems, and each port's gem at zr's version, in `tmp/reference/gems` (`tool/install_reference_gems.rb`). Every expected output comes from ruby with only these gems | `zr-dev expect`, `zr-dev record`, `zr-dev probe`, the program tests of a program that does not parse |
+| the test reference | the pinned ruby's bundled gems, and each port's gem at zr's version, in `tmp/reference/gems` (`tool/install_reference_gems.rb`). Every expected output comes from ruby with only these gems | `zr-dev expect`, `zr-dev record`, `zr-dev probe`, the program tests of a program that does not parse |
 | `nm`, `otool` | read an object and a binary back | `macho_test`, `exe_test`, `native_test` |

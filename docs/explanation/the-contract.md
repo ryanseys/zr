@@ -1,7 +1,7 @@
 # The contract: ruby's output or a refusal
 
 zr makes one promise. A program that zr compiles gives exactly the
-output of ruby 4.0.7: the same stdout, the same stderr, and the same
+output of ruby: the same stdout, the same stderr, and the same
 exit status. When zr cannot keep that promise for a program, it does
 not compile the program. It gives the form that it does not support
 and the line, and exits with status 3.
@@ -35,7 +35,7 @@ program with a message that gives the feature.
 ## Why ruby is the only reference
 
 A test needs a correct result to compare with. zr gets that result
-from one place: ruby 4.0.7, the version in `.ruby-version`. It never
+from one place: the ruby that `.ruby-version` names. It never
 compares with a different implementation, and a person never writes an
 expected output by hand.
 
@@ -53,20 +53,22 @@ two times: `test/unit/prism_test.rb` and `regexp_diff_test.rb` compare
 the port with ruby's C on the host, object by object, over a committed
 sample.
 
-## ruby 4.0.7 is part of the toolchain
+## The pinned ruby is part of the toolchain
 
-ruby 4.0.7 is more than the reference. Its pure-Ruby standard library
+zr targets the latest Ruby 4 release. `.ruby-version` pins the exact
+release, and that ruby is more than the reference. Its pure-Ruby standard library
 is what a program's `require` reads, and the generated tables
 (`zr-dev gen`) come from it. zr carries that library itself, in
-`vendor/ruby`, as JRuby and TruffleRuby carry theirs: a stock ruby
-4.0.7's files, byte for byte (`zr-dev vendor --check`). A build never reads
+`vendor/ruby`, as JRuby and TruffleRuby carry theirs: a stock ruby's
+files, byte for byte (`zr-dev vendor --check`). A build never reads
 the host's gems, so a distributor's patched copy of a gem, or a newer
 gem that `gem update` installed, does not change a program.
 
 The host ruby only runs the compiler. `zr build` and `zr run` run on
-ruby 4.0.7 or a later 4.0 release (a later release gives a warning),
-and refuse any other ruby with status 3. Each generator task stops on a
-ruby other than 4.0.7. A newer ruby is a new toolchain:
+ruby 4.0 or later (a ruby of another series than the pinned one gives a
+warning), and refuse an older ruby with status 3. Each generator task
+stops on a ruby other than the pinned one. A newer ruby is a new
+toolchain:
 `.ruby-version`, `vendor/`, the tables, the expected outputs and the
 recordings all change to it together.
 

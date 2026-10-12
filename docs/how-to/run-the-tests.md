@@ -195,7 +195,7 @@ $ git diff test/hir/
 
 ## Check that an expected output is still ruby's
 
-`zr-dev expect --check` runs each program under ruby 4.0.7 and
+`zr-dev expect --check` runs each program under the pinned ruby and
 compares the output with the files beside the program. It compiles
 nothing and writes nothing:
 

@@ -1,14 +1,16 @@
 # Questions and answers
 
-## Why only ruby 4.0.7?
+## Why one ruby version?
 
-zr promises the output that ruby 4.0.7 gives. Each test compares zr's
-output with an expected output from that one ruby, and zr compiles that
-ruby's own library, which zr carries, into each program. The host ruby
-only runs the compiler, so zr also runs on a later 4.0 release, with a
-warning: the programs that it builds still give ruby 4.0.7's answers.
-A ruby outside 4.0 is refused. See
-[ruby 4.0.7 is part of the toolchain](the-contract.md#ruby-407-is-part-of-the-toolchain).
+zr targets the latest Ruby 4 release, and promises the output that the
+ruby in `.ruby-version` gives. Each test compares zr's output with an
+expected output from that one ruby, and zr compiles that ruby's own
+library, which zr carries, into each program. The host ruby only runs
+the compiler, so zr runs on any ruby 4.0 or later. On a ruby of another
+series than the pinned one, zr gives a warning: the programs that it
+builds still give the pinned ruby's answers. A ruby older than 4.0 is
+refused. See
+[The pinned ruby is part of the toolchain](the-contract.md#the-pinned-ruby-is-part-of-the-toolchain).
 
 ## What happens when my program uses something zr does not support?
 
@@ -21,7 +23,7 @@ libraries.
 
 ## Can I use gems?
 
-You can use every library that ruby 4.0.7 ships, and a pure-Ruby gem
+You can use every library that ruby ships, and a pure-Ruby gem
 that you add to `$LOAD_PATH` with a literal path. You cannot use a gem
 that needs a C extension, unless zr has ported it (zr has ports of the
 C of json, psych, zlib, digest, openssl, socket, stringio, strscan,
@@ -57,7 +59,7 @@ second, and a large one (all of bundler) in about six seconds.
 
 ## Which machines can build, and which can run the output?
 
-Any host with ruby 4.0.7 can build a macOS arm64 binary, a WASI module
+Any host with ruby 4.0 or later can build a macOS arm64 binary, a WASI module
 and an object file. Only an Apple Silicon Mac runs the macOS binary.
 An `aarch64-linux-musl` binary needs a musl cross toolchain, or an
 aarch64 Linux host with musl. zr does not build x86_64 or Windows

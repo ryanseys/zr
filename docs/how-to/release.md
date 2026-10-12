@@ -107,12 +107,13 @@ A gem pushed by hand has no provenance attestation.
 
 ## After a release
 
-On a machine with a stock ruby 4.0.7 and no Gemfile:
+On a machine with a stock ruby of the version in `.ruby-version` and no
+Gemfile:
 
 ```console
 $ gem install zr -v X.Y.Z
 $ zr version
-zr X.Y.Z (for ruby 4.0.7)
+zr X.Y.Z (for ruby <version>)
 $ zr doctor
 $ echo 'puts "hello"' > hello.rb && zr run hello.rb
 ```

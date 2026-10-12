@@ -13,7 +13,7 @@ the same source gives the same binary on any machine.
 
 ## Ruby's own library: nothing to do
 
-A `require` of a library that ruby 4.0.7 ships works as in ruby:
+A `require` of a library that ruby ships works as in ruby:
 
 ```ruby
 require "json"
@@ -22,9 +22,9 @@ require "net/http"
 require "csv"        # a bundled gem
 ```
 
-zr reads these files from its own copy of ruby 4.0.7's standard
+zr reads these files from its own copy of the pinned ruby's standard
 library (`vendor/ruby` in the gem): the default and bundled gems, at
-the versions that ruby 4.0.7 ships. A gem that you install on the host
+the versions that the pinned ruby ships. A gem that you install on the host
 (for example a newer `csv`) does not change what the program gets. A
 small number of names have no file in zr, for example `mkmf`. A
 `require` of one of them raises `LoadError` when it runs.
@@ -32,7 +32,7 @@ small number of names have no file in zr, for example `mkmf`. A
 
 A library with a C extension, such as `json`, `psych` or `zlib`, works
 because zr has a Ruby port of its C. Some ports are at a later version
-than ruby 4.0.7 ships, for example json 3.0.2; see
+than the pinned ruby ships, for example json 3.0.2; see
 [Library versions](../reference/differences-from-ruby.md#library-versions).
 To port another one, see
 [How to port a C extension](port-a-c-extension.md). On macOS and on
@@ -80,7 +80,7 @@ zr reads each gem from one of three places, in this order:
 1. a `--gem` option of `zr run` or `zr build`;
 2. the Gemfile.lock of `--gemfile PATH`, or of `BUNDLE_GEMFILE` (which
    `bundle exec` sets), as `bundle exec ruby` reads it;
-3. zr's standard library, which is ruby 4.0.7's.
+3. zr's standard library, which is the pinned ruby's.
 
 `--gem NAME=VERSION` uses a version that rubygems has installed, and
 `--gem NAME=DIR` uses a directory with a gemspec or a `lib/`:
@@ -101,7 +101,7 @@ $ bundle exec zr build app.rb -o app          # the same, with zr in the Gemfile
 
 zr needs no `bundle exec`, and does not use the host's bundler. It
 reads the lock with its own copy of rubygems and bundler, which are
-ruby 4.0.7's, as JRuby and TruffleRuby use their own. A Gemfile in the
+the pinned ruby's, as JRuby and TruffleRuby use their own. A Gemfile in the
 program's directory does nothing until you name it, as for
 `ruby app.rb`.
 
@@ -142,9 +142,9 @@ a C extension:
 
 - A lock can name a default gem (a gem that ruby itself installs) at
   ruby's own version. zr then uses its standard library's copy of the
-  gem's files, and for a port, the version rule above: the default
-  json of ruby 4.0.7 is 2.18.0, so a lock with it stops a build that
-  requires json.
+  gem's files, and for a port, the version rule above: when the default
+  json of the pinned ruby is older than the range that the json port
+  implements, a lock with it stops a build that requires json.
 
 A program that uses eval carries zr's own copy of some libraries
 (fileutils, pp, irb, reline, rubygems and others). A build of such a

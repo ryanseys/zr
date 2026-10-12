@@ -24,7 +24,8 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 |---|---|
 | `exe/zr` | the `zr` command; `lib/zr/cli/commands/` has its commands |
 | `lib/zr.rb` | the entry point: the version, the paths and the targets |
-| `lib/zr/version.rb` | `Zr::VERSION`, and `Zr::RUBY`, the ruby that zr needs |
+| `lib/zr/version.rb` | `Zr::VERSION`, and `Zr::RUBY_MINIMUM`, the oldest ruby that runs zr |
+| `lib/zr/ruby_version.rb` | `Zr::RUBY_PIN`, `Zr::RUBY` and the other facts of the ruby that `.ruby-version` names; `zr-dev gen ruby_version` writes it |
 | `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
 | `lib/zr/host.rb` | `Zr::Host.compiled?`: whether zr runs in a binary that zr compiled, not in CRuby |
 | `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once, and `Config.flag?` for an on-or-off variable |
@@ -89,8 +90,8 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/runtime/ext/prism/` | the prism port: `prism.rb` and `ruby/` (`Prism::Ruby`) |
 | `lib/zr/runtime/ext/os/<os>/` | extension tables |
 | `lib/zr/runtime/lib/zr/` | zr's own libraries: the run-time half of eval support, and the files that load a library at its first call (`pp`, `irb`, `unicode_normalize`), as CRuby's prelude does |
-| `vendor/ruby/lib/ruby/4.0.0/` | ruby 4.0.7's own library and default gems, from ruby's source, not edited |
-| `vendor/ruby/lib/ruby/gems/4.0.0/` | the bundled gems and the gems whose C zr ports, each from its `.gem`, not edited |
+| `vendor/ruby/lib/ruby/<ruby_version>/` | the pinned ruby's own library and default gems, from ruby's source, not edited |
+| `vendor/ruby/lib/ruby/gems/<ruby_version>/` | the bundled gems and the gems whose C zr ports, each from its `.gem`, not edited |
 | `vendor/ruby/gem_prelude.rb` | ruby's `gem_prelude.rb` |
 | `vendor/LICENSES/` | the license texts that no gem directory holds |
 | `vendor/vendor.lock` | each source of `vendor/`, and the SHA-256 of each file; see [How to update the vendored code](../how-to/update-vendored-code.md) |
@@ -105,7 +106,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
   of the same name. zr compiles it into programs. The host loads only namespaced, pure parts of it, by path:
   `Regexp::Onig` and `Prism::Ruby`.
 - `vendor/` is never on the host's load path. A file such as
-  `vendor/ruby/lib/ruby/4.0.0/pathname.rb` must never replace the
+  `vendor/ruby/lib/ruby/<ruby_version>/pathname.rb` must never replace the
   host ruby's own.
 
 ## The repository only
@@ -127,7 +128,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `.rubocop.yml`, `.rubocop_todo.yml` | the cops of `rake lint`, each with its reason; the files that a cop found when it came in, to fix |
 | `tool/gen/` | the generators of `zr-dev gen`, one file for each generated file; `tool/gen/prism/templates/` has the templates of the pure-Ruby prism |
 | `vendor/src/` | upstream sources that only the tools read: prism's templates (`zr-dev gen prism`) |
-| `vendor/targets/` | ruby 4.0.7's C headers and `rbconfig.rb` for each target that zr builds C extensions for from another host (`aarch64-linux-musl`) |
+| `vendor/targets/` | the pinned ruby's C headers and `rbconfig.rb` for each target that zr builds C extensions for from another host (`aarch64-linux-musl`) |
 | `lib/zr/prism_shim/` | makes `require "prism/prism"` load the port on the host |
 | `docs/` | this documentation |
 | `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
@@ -141,7 +142,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `test/support/harness/` | ruby's reference runs, the child process limits, wasmtime, the benchmark runner, `Harness::KernelJIT`, and the harnesses that compare a port with ruby's C |
 | `test/support/harness/selected_target.rb` | `Harness.selected_target`: the target of this run (`ZR_TARGET`, or the host's), with no load of the command line |
 | `test/unit/` | the unit tier: zr's own internals |
-| `test/ext/` | the ext tier: C extensions that zr links, each built from C in the test and checked against ruby 4.0.7 |
+| `test/ext/` | the ext tier: C extensions that zr links, each built from C in the test and checked against the pinned ruby |
 | `test/gaps/` | programs where zr does not give ruby's output yet; no tier runs them (`test/gaps/README.md`) |
 | `test/rubyspec/`, `test/cruby/` | the results of the last `zr-dev rubyspec` and `zr-dev cruby-test` runs (`summary.tsv`), and the tags of the examples that zr fails |
 | `test/programs/` | the program tests: plain Ruby programs with ruby's output beside them, in areas (`lang/`, `core/`, `stdlib/`, `compiler/`, and `cli/`, which builds with `zr build`); those in `native/` run only on a native target. See [Program tests](program-tests.md) |

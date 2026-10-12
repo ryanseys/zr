@@ -6,7 +6,7 @@
 
 **A Ruby compiler, written in Ruby.** zr compiles Ruby programs to
 native binaries and WebAssembly modules. A compiled program gives
-exactly the output that ruby 4.0.7 gives. When zr cannot promise this
+exactly the output that ruby gives. When zr cannot promise this
 for a program, it refuses to compile it, and gives the line.
 
 ```console
@@ -22,28 +22,26 @@ The compiler, the runtime, the core library, the parser and the
 garbage collector are all Ruby. zr's own code has no C or assembler.
 
 > **Status: pre-1.0, not yet for production.** zr compiles large
-> programs, bundler among them. On 2026-10-06, zr passed 33,140 of the
-> 33,144 ruby/spec examples that ruby 4.0.7 passes, and 9,051 of the
-> 9,961 tests of CRuby's `test/ruby`. The command line and the
+> programs, bundler among them. The command line and the
 > environment variables can change in a minor release until 1.0.
 > See [the changelog](https://github.com/ryanseys/zr/blob/v0.1.0/CHANGELOG.md).
 
 ## Install
 
 ```console
-$ ruby -v            # 4.0.7, or a later 4.0 release
+$ ruby -v            # ruby 4.0 or later; the latest Ruby 4 release is best
 $ gem install zr
 $ zr doctor          # what this host has, and what zr can do here
 $ zr run hello.rb
 ```
 
-[How to install zr](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/install.md) shows how to get ruby
-4.0.7, and what to do when a step fails. You need:
+[How to install zr](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/install.md) shows how to get ruby, and what to do when a step fails. You need:
 
-- ruby 4.0.7, or a later 4.0 release. zr checks its output against
-  ruby 4.0.7, and gives a warning on a later 4.0 release. The gem has
-  no dependencies: it carries ruby 4.0.7's standard library itself, so
-  the install downloads only zr;
+- ruby 4.0 or later. zr targets the latest Ruby 4 release, and checks
+  its output against the ruby that `.ruby-version` names. On a ruby of
+  another series, zr gives a warning. The gem has no dependencies: it
+  carries its ruby's standard library itself, so the install downloads
+  only zr;
 - to run the binaries, an Apple Silicon Mac with macOS 14 or later, or
   aarch64 Linux. Any host builds macOS binaries, WebAssembly modules
   and objects;
@@ -102,11 +100,11 @@ fibers, threads or ractors. See [Targets](https://github.com/ryanseys/zr/blob/v0
 - **Size.** A binary contains the whole runtime: 27 MB for "hello
   world", 46 MB as a WASI module, and about 110 MB for a program that
   calls `eval`, which carries the compiler.
-- **Libraries.** A program can require all of ruby 4.0.7's library,
+- **Libraries.** A program can require all of ruby's library,
   and a pure-Ruby gem through a literal `$LOAD_PATH`. For a gem with a
   C extension, zr uses its Ruby port of the C when it has one. With
   `--native-ext`, a binary runs the gem's real C extension instead,
-  through zr's own copy of ruby 4.0's C API, on macOS and on aarch64
+  through zr's own copy of ruby's C API, on macOS and on aarch64
   Linux. The tests run 30 such gems, among them nokogiri, msgpack, puma,
   byebug and google-protobuf, and compare their output with ruby's. A
   static Linux binary cannot open OpenSSL. See
@@ -141,7 +139,7 @@ app.rb ─► prism ─► HIR ─► IR ─┬─► aarch64 machine code ─�
   typed Ruby (plain Ruby syntax, machine types), and the core
   library in ordinary Ruby.
 
-ruby 4.0.7 is the only source of expected outputs. zr must match
+The pinned ruby is the only source of expected outputs. zr must match
 ruby's output byte for byte. See
 [Architecture](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/architecture.md) and
 [The contract](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/the-contract.md).
@@ -193,9 +191,9 @@ zr ports the work of others to Ruby: [prism](https://github.com/ruby/prism)
 parses, [Onigmo](https://github.com/k-takata/Onigmo) matches regular
 expressions, and [zlib](https://zlib.net), [libyaml](https://github.com/yaml/libyaml),
 [Ryu](https://github.com/ulfjack/ryu) and fpconv are in the runtime. The
-benchmarks come from [spinel](https://github.com/matz/spinel). ruby
-4.0.7's own library and the C halves of its gems are the reference for
-all of it.
+benchmarks come from [spinel](https://github.com/matz/spinel). ruby's
+own library and the C halves of its gems are the reference for all of
+it.
 
 ## License
 

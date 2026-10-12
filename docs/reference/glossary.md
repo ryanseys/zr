@@ -156,7 +156,7 @@ output: `.out` (stdout), `.err` (stderr), `.status` (an exit status
 that is not 0) and `.signal`. `zr-dev record` writes them. See
 [Benchmark recordings](benchmark-recordings.md).
 
-**Reference ruby.** ruby 4.0.7 with only the reference gems
+**Reference ruby.** The ruby that `.ruby-version` names, with only the reference gems
 (`tmp/reference/gems`): the only source of expected outputs
 (`Harness::Reference`).
 

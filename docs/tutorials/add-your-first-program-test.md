@@ -5,7 +5,8 @@ checks zr against ruby: we write a small Ruby program, let ruby write
 its output beside it, and see that the program that zr compiles gives
 the same output. Almost every change to zr starts with this loop.
 
-You need an Apple Silicon Mac with ruby 4.0.7 and git.
+You need an Apple Silicon Mac with git, and the ruby that zr's
+`.ruby-version` names.
 
 ## Get the code
 
@@ -24,7 +25,7 @@ Check that the command works:
 
 ```console
 $ exe/zr version
-zr 0.1.0 (for ruby 4.0.7)
+zr 0.1.0 (for ruby 4.x.y)
 ```
 
 ## Write the program
@@ -53,7 +54,7 @@ Ruby Compiles To Native Code
 
 ## Let ruby write the expected output
 
-ruby 4.0.7 is the only source of expected outputs, so we never type
+The pinned ruby is the only source of expected outputs, so we never type
 one. `zr-dev expect` runs the program under ruby and writes what it
 printed beside the program:
 

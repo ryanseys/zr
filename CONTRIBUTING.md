@@ -5,8 +5,9 @@ Thank you for helping. This page tells you how to start. The guides in
 
 ## Set up
 
-You need ruby 4.0.7 (see `.ruby-version`; for example
-`mise install ruby@4.0.7` or `rbenv install 4.0.7`) on an Apple
+You need the ruby that `.ruby-version` names (for example
+`mise install ruby@$(cat .ruby-version)` or
+`rbenv install $(cat .ruby-version)`) on an Apple
 Silicon Mac with 16 GB of memory or more. The first `bin/setup` takes
 some minutes, and a full `bin/minitest` takes much longer; start with the
 tests near your change. [wasmtime](https://wasmtime.dev) is optional;
@@ -36,7 +37,7 @@ $ bin/minitest  # runs every test: unit, programs, ext
    [How to run the tests](docs/how-to/run-the-tests.md).
 4. Add a line to `CHANGELOG.md` under `[Unreleased]`.
 
-ruby 4.0.7 is the reference: a compiled program must print what ruby
+The pinned ruby is the reference: a compiled program must print what ruby
 prints, byte for byte. When zr cannot do that for a form, it refuses the
 form by name. See [The contract](docs/explanation/the-contract.md).
 

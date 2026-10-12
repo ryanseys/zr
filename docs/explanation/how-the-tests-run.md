@@ -11,10 +11,11 @@ The tests are in three tiers. Each tier is a directory below `test/`.
 | Tier | Directory | Tests |
 |---|---|---|
 | unit | `test/unit/` | zr's own internals: the parser port, the passes, the backends, the linkers, the harness, the tools. Minitest, in plain `def test_...` methods |
-| programs | `test/programs/`, run by `test/programs_test.rb` | Ruby behavior and the product. Each test is a plain Ruby program that zr builds and runs, checked against ruby 4.0.7's output |
-| ext | `test/ext/` | C extensions that zr links into a binary through its copy of ruby's C API. Each test builds a small extension from C in the test, and checks its answers against ruby 4.0.7's |
+| programs | `test/programs/`, run by `test/programs_test.rb` | Ruby behavior and the product. Each test is a plain Ruby program that zr builds and runs, checked against the pinned ruby's output |
+| ext | `test/ext/` | C extensions that zr links into a binary through its copy of ruby's C API. Each test builds a small extension from C in the test, and checks its answers against the pinned ruby's |
 
-ruby 4.0.7 is the reference for the program tests. Every expected
+The ruby that `.ruby-version` names is the reference for the program
+tests. Every expected
 output comes from ruby (`zr-dev expect`), never from a person. See
 [The contract](the-contract.md) and
 [Program tests](../reference/program-tests.md).

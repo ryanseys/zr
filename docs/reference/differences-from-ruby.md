@@ -1,6 +1,6 @@
 # Differences from ruby
 
-zr gives ruby 4.0.7's output, or it refuses
+zr gives ruby's output, or it refuses
 ([the contract](../explanation/the-contract.md)). This page lists each
 place where zr does not give ruby's output on purpose. There are three
 kinds:
@@ -9,7 +9,7 @@ kinds:
   does not have, such as YARV bytecode. zr raises `NotImplementedError`
   with a message that gives the method. It does not give a wrong
   result.
-- **A ruby bug.** ruby 4.0.7 itself goes wrong, for example it stops
+- **A ruby bug.** The pinned ruby itself goes wrong, for example it stops
   responding. zr gives the result that ruby's documentation gives, and
   a comment at the code tells the difference.
 - **A detail that zr does not copy.** The result comes from how CRuby
@@ -21,7 +21,7 @@ The program tests in `test/programs/` hold zr to each row.
 
 ## Refusals
 
-| What | zr | ruby 4.0.7 |
+| What | zr | ruby |
 |---|---|---|
 | `RubyVM::InstructionSequence#disasm`, `#disassemble`, `#to_a` | `NotImplementedError`: zr compiles to machine code, and has no YARV bytecode to show | the bytecode |
 | `RubyVM::InstructionSequence#to_binary` of a compiled string | `NotImplementedError`, for the same reason | the bytecode as a String |
@@ -35,7 +35,7 @@ The programs in `test/programs/core/rubyvm/` test the parts of
 
 ## Details that zr does not copy
 
-| What | zr | ruby 4.0.7 |
+| What | zr | ruby |
 |---|---|---|
 | The order of `instance_methods`, `methods`, `constants`, `global_variables` and the other lists of names | the order of definition | the order of CRuby's id tables, which comes from the symbols that the boot interned and changes with the installed gems. A test that compares such a list sorts it. |
 | `ObjectSpace.dump` of an object on the heap | the address, the type, the class, `frozen`, the value, the size and `memsize` | also `shape_id`, `slot_size`, `embedded`, `chilled`, `coderange` and `flags`, which describe CRuby's heap |
@@ -47,7 +47,7 @@ The programs in `test/programs/core/rubyvm/` test the parts of
 | rubygems' boot files, such as `bundled_gems.rb` and its `LoadError#message` | loaded only when the program uses `Gem`. In a program that compiles at run time, `Gem` and `RUBYGEMS_ACTIVATION_MONITOR` are autoloads until the first use, so `Object.autoload?(:Gem)` is `"zr/rubygems"` until then | loaded before the program starts |
 | A `require` of a default or bundled gem | the gem's files from zr's `vendor/ruby`, compiled in; no rubygems code runs | rubygems activates the gem in Ruby code of its own, which a program's redefined methods (such as a counting `Array#each`) see |
 | `Gem::Specification`, `Gem.loaded_specs` and `gem` | the gems that zr built the binary with, each active from the start, as under `bundle exec` (lib/zr/runtime/lib/zr/gem_manifest.rb) | every gem installed on the machine |
-| A default or bundled gem that is also installed at another version | the version that ruby 4.0.7 ships, from `vendor/ruby` | the newest installed version |
+| A default or bundled gem that is also installed at another version | the version that the pinned ruby ships, from `vendor/ruby` | the newest installed version |
 | `RUBY_PLATFORM` and `RbConfig::CONFIG["arch"]` | the platform of the target that zr built the binary for: `arm64-darwin23` (the Darwin version of macOS 14, the oldest macOS that the binary loads on), `aarch64-linux-musl` or `wasm32-wasi` | the platform that ruby was built for, so `arm64-darwin24` for a ruby built on macOS 15 |
 | `OpenSSL::OPENSSL_LIBRARY_VERSION` | the OpenSSL library that zr runs on. `OPENSSL_VERSION` is ruby's. | the library that ruby's openssl was built against |
 | The core library's own helpers (for example `Packing`, or a private constant such as `Array`'s `SMALL_ARRAY_LEN`) | hidden from the program: a read, `defined?`, `const_get` and the reflection do not find them, and a program's constant of the same name is its own | not there |
@@ -78,9 +78,9 @@ variables stop the build; `dynamic` mode runs them.
 `zr` takes ruby's switches ([`zr` as a ruby](cli.md#zr-as-a-ruby)).
 These give other output than ruby's:
 
-| What | zr | ruby 4.0.7 |
+| What | zr | ruby |
 |---|---|---|
-| `-v`, `--version` | zr's version, `zr 0.1.0 (for ruby 4.0.7)` | `RUBY_DESCRIPTION` |
+| `-v`, `--version` | zr's version, `zr 0.1.0 (for ruby <version>)` | `RUBY_DESCRIPTION` |
 | `-h`, `--help` | zr's usage | ruby's list of switches |
 | `--disable=did_you_mean`, `error_highlight`, `syntax_suggest` | no effect: every program loads them as it starts | the program starts without them |
 | `RUBYOPT` | not read: zr's own ruby reads it | its switches come after the command line's |
@@ -90,28 +90,22 @@ These give other output than ruby's:
 
 ## Library versions
 
-zr carries the pure-Ruby files of ruby 4.0.7's default and bundled gems
-at the versions that ruby 4.0.7 ships (`Zr::Library::Stdlib`). The gems with a
-C part are zr's own ports (`Zr::Library::Ports`). Five of them are at a later
-version than ruby 4.0.7 ships, so their Ruby files and their behavior
-are those of the later version:
-
-| Gem | zr | ruby 4.0.7 |
-|---|---|---|
-| prism | 1.9.0 | 1.8.1 (default gem) |
-| json | 3.0.2 | 2.18.0 (default gem) |
-| bigdecimal | 4.1.2 | 4.0.1 (bundled gem) |
-| syslog | 0.4.0 | 0.3.0 (bundled gem) |
-| nkf | 0.3.0 | 0.2.0 (bundled gem) |
+zr carries the pure-Ruby files of the pinned ruby's default and bundled
+gems at the versions that it ships (`Zr::Library::Stdlib`). The gems with a
+C part are zr's own ports (`Zr::Library::Ports`). A port can be at a later
+version than the pinned ruby ships. Its Ruby files and its behavior are
+then those of the later version. `lib/zr/library/ports.rb` gives the
+version of each port, and `vendor/vendor.lock` gives the version of each
+gem that zr carries.
 
 A Gemfile.lock or `--gem` can select another version of a port's gem
 when the port implements its C interface: json 2.20 and 2.21 run on
 the json port, which then warns where json 2.x warns (a duplicate key, a
 comment) and takes `escape_slash`, as json 2.x's own C part does.
 
-ffi 1.17.4 is also a port; ruby 4.0.7 does not ship ffi. The other
+ffi 1.17.4 is also a port; ruby does not ship ffi. The other
 ports (psych, digest, openssl, fiddle, racc, date, stringio, strscan,
-zlib, io-console, etc, fcntl) are at ruby 4.0.7's versions.
+zlib, io-console, etc, fcntl) are at the pinned ruby's versions.
 
 ## The locale
 
@@ -126,7 +120,7 @@ own locale: two builds under two locales write the same bytes.
 
 ## Ruby bugs
 
-| What | zr | ruby 4.0.7 |
+| What | zr | ruby |
 |---|---|---|
 | A second deadlock after a deadlock that the program rescued (a thread waits on a Queue that no thread feeds, the program rescues the `fatal`, then the main thread waits again) | raises `fatal` "No live threads left. Deadlock?" again | stops responding |
 | `String#grapheme_clusters` of a UTF-16 string with a lone lead surrogate before other characters, such as `"a\x00\x00\xD8b\x00"` in UTF-16LE | keeps each character whole: `["a\x00", "\x00\xD8", "b\x00"]` | splits the code units: `["a\x00", "\x00", "\xD8b"]` |

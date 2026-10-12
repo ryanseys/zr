@@ -5,8 +5,9 @@ zr. We run it, we build a native binary from it, and we build a
 WebAssembly module from the same file. At the end, you have one program
 that runs three ways and prints the same thing each time.
 
-You need an Apple Silicon Mac (macOS 14 or later) with ruby 4.0.7. The
-last step also needs [wasmtime](https://wasmtime.dev).
+You need an Apple Silicon Mac (macOS 14 or later) with ruby 4.0 or later
+(the latest Ruby 4 release is best). The last step also needs
+[wasmtime](https://wasmtime.dev).
 [How to install zr](../how-to/install.md) shows how to get them.
 
 ## Install zr
@@ -21,7 +22,7 @@ Check that the command is there:
 
 ```console
 $ zr version
-zr 0.1.0 (for ruby 4.0.7)
+zr 0.1.0 (for ruby 4.x.y)
 ```
 
 Check what zr can do on this Mac:

@@ -1,7 +1,7 @@
 # Program tests
 
 A program test is a plain Ruby program under `test/programs/`, with
-files beside it that give what ruby 4.0.7 does with it. The test
+files beside it that give what the pinned ruby does with it. The test
 builds the program with zr, runs the binary, and compares its stdout,
 its stderr and its exit status with ruby's, byte for byte.
 
@@ -76,9 +76,9 @@ ruby for each test loads the whole compiler each time.
 
 ## Expected output
 
-ruby 4.0.7 is the only source of expected output. Never write an
-expected file yourself. `zr-dev expect` (`tool/expect.rb`) runs each
-program under ruby 4.0.7, in a run directory as the test does, and
+The ruby that `.ruby-version` names is the only source of expected
+output. Never write an expected file yourself. `zr-dev expect`
+(`tool/expect.rb`) runs each program under that ruby, in a run directory as the test does, and
 writes the files:
 
 ```console

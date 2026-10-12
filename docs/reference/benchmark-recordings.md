@@ -30,8 +30,8 @@ and a wrong output is a `diff` of two files.
 ## Recording
 
 `zr-dev record <path>` (`tool/record.rb`) runs the benchmark under
-ruby 4.0.7, from the repository root, with an empty stdin and only the
-reference gems, and writes the files above. ruby 4.0.7 is the only
+the pinned ruby, from the repository root, with an empty stdin and only
+the reference gems, and writes the files above. That ruby is the only
 source of expected outputs, so nothing else writes them, and nobody
 writes them by hand. The command does not change a benchmark that has
 a recording. `zr-dev record --again <path>` writes the recording again.

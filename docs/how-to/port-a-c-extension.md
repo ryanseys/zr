@@ -6,7 +6,7 @@ becomes Ruby. (`--native-ext` runs a gem's real C instead; see
 [How to use a C extension](use-a-c-extension.md).) To learn why, read
 [Why zr has no C](../explanation/why-zr-has-no-c.md).
 
-A gem without C needs no port: ruby 4.0.7's copy is in `vendor/ruby`,
+A gem without C needs no port: the pinned ruby's copy is in `vendor/ruby`,
 as [How to update the vendored code](update-vendored-code.md) shows.
 
 ## 1. Vendor the gem's Ruby half
@@ -22,10 +22,10 @@ default):
 
 With `gem: true` (the default), `zr-dev vendor` puts the gem's `lib/`
 and license files, as its `.gem` has them, in
-`vendor/ruby/lib/ruby/gems/4.0.0/gems/<gem>-<version>/`, and a require
+`vendor/ruby/lib/ruby/gems/<ruby_version>/gems/<gem>-<version>/`, and a require
 finds it before ruby's own library. With `gem: false`, the Ruby half is
-ruby's own, in `vendor/ruby/lib/ruby/4.0.0`, and the version must be
-ruby 4.0.7's. Then write the tree:
+ruby's own, in `vendor/ruby/lib/ruby/<ruby_version>`, and the version
+must be the pinned ruby's. Then write the tree:
 
 ```console
 $ bin/zr-dev vendor
@@ -38,7 +38,7 @@ replace one of its files, write an overlay under `lib/zr/runtime/ext` (see
 `ruby tool/install_reference_gems.rb` then installs that version for the tests. Add a
 row for the gem to `THIRD_PARTY_NOTICES.md`, and to
 [Library versions](../reference/differences-from-ruby.md#library-versions)
-when its version is not ruby 4.0.7's.
+when its version is not the pinned ruby's.
 
 ## 2. Write the C half in Ruby
 

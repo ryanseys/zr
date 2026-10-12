@@ -69,9 +69,10 @@ state is one `Inline::Site` value, not four instance variables.
   constant do not agree.
 - `Hir.each_child` (`lib/zr/hir/node.rb`) is the walk over a node's
   children that the escape, scope and builder passes share.
-- `lib/zr/version.rb` is the one source of the ruby version and
-  revision. `test/unit/layout_test.rb` fails when `.ruby-version`,
-  `lib/zr/runtime/core/env.rb` or CI disagrees with it.
+- `.ruby-version` is the one source of the ruby version. `zr-dev gen
+  ruby_version` records its facts in `lib/zr/ruby_version.rb`, and
+  every other fact comes from that record. `test/unit/layout_test.rb`
+  fails when the record or CI disagrees with `.ruby-version`.
 - A generated file has a generator in `tool/gen/`, and its header names
   the command that writes it (`zr-dev gen <name>`). Do not edit it by
   hand; change the generator.
