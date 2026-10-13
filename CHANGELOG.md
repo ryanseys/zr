@@ -159,6 +159,13 @@ The first public release.
   Its options (`--suite`, `--changed`, `--failed`, `--record`, `--verify`,
   `--live`, `--no-build`, `-j` and others) set what `bin/minitest`
   reads.
+- Each run keeps the time of each test in `tmp/zr-dev-test/times.tsv`,
+  also when the run is killed, and `bin/zr-dev test --slowest [N]`
+  lists the slowest tests and groups. `ZR_TEST_TMP` moves the files of
+  a run, so a suite that a test starts does not write over them.
+- The C extension tests of the top gems run only when `ZR_TOP_GEMS=1`
+  is set. The `aarch64` gem is no longer a development dependency: the
+  program tests run the machine code that zr's encoder writes.
 - `zr-dev fuzz` is a differential fuzzer. It writes typed Ruby programs
   from a seed, mutates the program tests on prism's tree, rewrites
   programs (opaque literals, dead code, moved statements), and breaks
@@ -171,7 +178,9 @@ The first public release.
   RBS comments, which `Machine::Host` also runs on CRuby.
 - `bin/steep check` runs Steep on every file of the compiler, with
   inline RBS annotations and `sig/zr/` for what inline RBS cannot
-  type. `rake lint` runs RuboCop, each cop with its reason in
+  type. Its `kernel` target checks the kernel with the OS layer of one
+  target (`ZR_KERNEL_OS`), and CI checks the layer of each target.
+  `rake lint` runs RuboCop, each cop with its reason in
   `.rubocop.yml`. `COVERAGE=1 bin/minitest <paths>` measures the
   coverage of `lib/`. `test/unit/constant_layout_test.rb` checks that
   each file of `lib/zr` holds the constant that its path names.
