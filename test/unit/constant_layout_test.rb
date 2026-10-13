@@ -62,6 +62,7 @@ class ConstantLayoutTest < Minitest::Test
     "parse.rb" => [nil, "defines the method Zr.parse"],
     "prism.rb" => [nil, "sets up the host's prism; a Zr::Prism would hide ::Prism"],
     "prism_shim/prism/prism.rb" => [nil, "stands in for prism's C extension on the load path"],
+    "ruby_version.rb" => ["Zr::RUBY_PIN", "the generated record of the pinned ruby: constants of Zr, as version.rb holds"],
     "version.rb" => ["Zr::VERSION", "holds the version constants, as a gemspec expects"],
   }.freeze
 
