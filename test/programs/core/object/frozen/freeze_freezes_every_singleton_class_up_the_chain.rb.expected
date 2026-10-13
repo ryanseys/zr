@@ -1,0 +1,8 @@
+[true, true, true]
+[true, true, true]
+[true, true, true, true]
+[false, false, false, false]
+[true, true, true]
+[true, true]
+[FrozenError, "can't modify frozen Class: #<Class:#<Object:0x>>"]
+[false, true, true]

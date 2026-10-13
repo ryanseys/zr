@@ -1944,11 +1944,15 @@ module Zr::Kern
     end
     unless zr_special_p(recv)
       RBasic[recv].flags = (RBasic[recv].flags | FL_FREEZE) & (zr_type(recv) == T_STRING ? FL_CHILLED_CLEAR : 0 - 1)
-      # The singleton class freezes with its object, as CRuby's
+      # The singleton class freezes with its object, and its own
+      # singleton class with it, up the chain, as CRuby's
       # rb_freeze_singleton_class does.
-      k = RBasic[recv].klass
-      if zr_singleton_p(k) && RClass[k].attached == recv
+      attached = recv
+      k = RBasic[attached].klass
+      while zr_singleton_p(k) && !zr_frozen_p(k) && RClass[k].attached == attached
         RBasic[k].flags = RBasic[k].flags | FL_FREEZE
+        attached = k
+        k = RBasic[attached].klass
       end
     end
     recv
