@@ -14,7 +14,7 @@ module Zr
                   | (bundle: String, init: String, objects: Array[String], libraries: Array[String], library: String?,
                      mode: :static | :embed | :dynamic) -> instance
 
-      def with: (?mode: :static | :embed | :dynamic) -> instance
+      def with: (?mode: :static | :embed | :dynamic, ?library: String?) -> instance
     end
   end
 end

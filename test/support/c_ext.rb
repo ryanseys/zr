@@ -42,10 +42,12 @@ module Zr
       #: () -> bool
       def supported? = HOSTS.any?(&:native?)
 
-      #: (String name, String source) -> Built
-      def build(name, source)
+      # `libruby` links the bundle with ruby's shared library, as mkmf
+      # does under a ruby built with --enable-shared.
+      #: (String name, String source, ?libruby: bool) -> Built
+      def build(name, source, libruby: false)
         config = RbConfig::CONFIG
-        dir = File.join(DIR, Digest::SHA256.hexdigest([name, source, config["ruby_version"]].join("\0"))[0, 16])
+        dir = File.join(DIR, Digest::SHA256.hexdigest([name, source, config["ruby_version"], libruby].join("\0"))[0, 16])
         built = Built.new(dir: dir, bundle: File.join(dir, "#{name}.#{config["DLEXT"]}"), object: File.join(dir, "#{name}.o"))
         return built if File.exist?(built.bundle)
 
@@ -53,19 +55,20 @@ module Zr
         # Test workers run in parallel; one builds, and the others wait.
         File.open(File.join(dir, "lock"), File::RDWR | File::CREAT) do |lock|
           lock.flock(File::LOCK_EX)
-          compile(config, name, source, built) unless File.exist?(built.bundle)
+          compile(config, name, source, built, libruby) unless File.exist?(built.bundle)
         end
         built
       end
 
-      #: (Hash[String, String] config, String name, String source, Built built) -> void
-      def compile(config, name, source, built)
+      #: (Hash[String, String] config, String name, String source, Built built, bool libruby) -> void
+      def compile(config, name, source, built, libruby)
         c = File.join(built.dir, "#{name}.c")
         File.write(c, source)
         flags = config["CFLAGS"].split + config["CPPFLAGS"].split + config["ARCH_FLAG"].split
         includes = ["-I#{config["rubyhdrdir"]}", "-I#{config["rubyarchhdrdir"]}"]
         run!("cc", *flags, *includes, "-fPIC", "-c", c, "-o", built.object)
-        run!(*config["LDSHARED"].split, *config["DLDFLAGS"].split, *config["ARCH_FLAG"].split, built.object, "-o", "#{built.bundle}.part")
+        shared = libruby ? ["-L#{config["libdir"]}", *config["LIBRUBYARG_SHARED"].split] : []
+        run!(*config["LDSHARED"].split, *config["DLDFLAGS"].split, *config["ARCH_FLAG"].split, built.object, *shared, "-o", "#{built.bundle}.part")
         File.rename("#{built.bundle}.part", built.bundle)
       end
 

@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
+require "digest/sha2"
 require_relative "makefile"
 require_relative "c_api"
+require_relative "../cache/store"
+require_relative "../obj/macho/flatten"
 
 module Zr
   module Ext
@@ -95,7 +98,26 @@ module Zr
       # The same extension as the build `mode` (`ZR_EXT`) runs it: a bundle
       # loads with dlopen under `dynamic`; objects stay static.
       #: (String mode) -> Source
-      def for_mode(mode) = library && mode == "dynamic" ? with(mode: :dynamic) : self
+      def for_mode(mode)
+        found = library
+        return self unless found && mode == "dynamic"
+
+        with(mode: :dynamic, library: loadable(found))
+      end
+
+      # The bundle that dlopen loads for the one at `path`: itself, or for
+      # a bundle that links ruby's shared library, a copy that binds to the
+      # binary's C API instead (`Obj::MachO::Flatten`), which the store
+      # keeps.
+      #: (String path) -> String
+      def loadable(path)
+        bytes = File.binread(path)
+        return path unless Obj::MachO::Flatten.libruby?(bytes)
+
+        flatten = Digest::SHA256.file(File.expand_path("../obj/macho/flatten.rb", __dir__)).hexdigest
+        key = Cache::Store.key("flat-bundle", flatten, Digest::SHA256.hexdigest(bytes))
+        Cache::Store.once(:image, "#{key}-flat") { |file| Cache::Store.write_file(file, Obj::MachO::Flatten.call(bytes)) }
+      end
 
       # The C API's functions that require a feature (`rb_require("oj/bag")`).
       REQUIRERS = %w[rb_require rb_require_string rb_f_require].freeze

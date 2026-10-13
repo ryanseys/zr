@@ -56,4 +56,37 @@ class CExtModesTest < Minitest::Test
       assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr's output differs from ruby's (#{mode})\nzr stderr:\n#{zr.stderr}"
     end
   end
+
+  # A bundle that a ruby built with --enable-shared links with its
+  # libruby: zr binds its imports to the binary's C API and loads no
+  # libruby (Obj::MachO::Relink for embed, Obj::MachO::Flatten for
+  # dynamic).
+  %w[embed dynamic].each do |mode|
+    define_method(:"test_a_bundle_that_links_libruby_runs_as_in_ruby_#{mode}") do
+      skip "the host ruby has no shared library to link" unless RbConfig::CONFIG["ENABLE_SHARED"] == "yes"
+
+      linked = Zr::Test::CExt.build("modes", SOURCE, libruby: true)
+      assert Zr::Obj::MachO::Flatten.libruby?(File.binread(linked.bundle)), "the bundle links no libruby"
+      ruby, (zr,) = Zr::Test::CExt.outputs_under(linked, PROGRAM, [{}], mode: mode)
+      assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr's output differs from ruby's (#{mode})\nzr stderr:\n#{zr.stderr}"
+    end
+  end
+
+  # The copy that dynamic mode loads names no libruby, binds each of
+  # ruby's names by flat lookup, and keeps a valid signature (codesign is
+  # the oracle).
+  def test_the_dynamic_copy_of_a_bundle_that_links_libruby_binds_flat
+    skip "the host ruby has no shared library to link" unless RbConfig::CONFIG["ENABLE_SHARED"] == "yes"
+
+    linked = Zr::Test::CExt.build("modes", SOURCE, libruby: true)
+    image = Zr::Obj::MachO::Image.read(Zr::Obj::MachO::Flatten.call(File.binread(linked.bundle)))
+    assert_empty image.dylibs.grep(Zr::Obj::MachO::Relink::LIBRUBY)
+    ruby_binds = image.binds.select { |bind| bind.name.start_with?("_rb_") }
+    refute_empty ruby_binds
+    assert_equal [Zr::Obj::MachO::Image::FLAT_LOOKUP], ruby_binds.map(&:library).uniq
+    copy = File.join(linked.dir, "flat.bundle")
+    File.binwrite(copy, image.bytes)
+    _out, status = Open3.capture2e("codesign", "--verify", copy)
+    assert_predicate status, :success?, "codesign rejects the copy's signature"
+  end
 end
