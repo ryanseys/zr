@@ -144,6 +144,22 @@ class << ENV
   def key(value) = to_h.key(variable_name(value))
   def values_at(*names) = names.map { |n| self[n] }
 
+  # env_fetch_values (ruby 4.1): each name's value as a fetch of one
+  # argument gives it: the block's value for a name that is not set, else
+  # a KeyError.
+  def fetch_values(*names)
+    names.map do |name|
+      value = self[name]
+      next value if value
+      next yield(name) if block_given?
+
+      raise KeyError.new("key not found: #{name.inspect}", receiver: self, key: name)
+    end
+  end
+
+  # env_to_a: ENV's own, not Enumerable's through each.
+  def to_a = to_h.to_a
+
   # Each name is read as a name, so a Symbol refuses here rather than
   # quietly missing.
   def slice(*names)
