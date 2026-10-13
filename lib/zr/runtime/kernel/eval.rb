@@ -317,6 +317,22 @@ module Zr::Kern
   # The same, as the function of a define_method entry that a compiled
   # site finds (`zr_entry_fn`). The site calls it directly, with no
   # second frame in between.
+  # vm_call_bmethod: once a ractor started, a method that define_method
+  # made from a Proc that is not shareable runs only in the ractor that
+  # defined it (`__defined_in__`, which a definition of the program sets).
+  # The compiled twin of the body calls this too.
+  #: (value) -> value
+  def zr_bmethod_ractor_check(p)
+    if (RBasic[p].flags & FL_SHAREABLE) != 0
+      return Machine.value(QNIL)
+    end
+    d = zr_ivar_get(p, Machine.id(:__defined_in__))
+    if d == QNIL || zr_fix2long(d) == Task[zr_task()].ractor
+      return Machine.value(QNIL)
+    end
+    zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("defined with an un-shareable Proc in a different Ractor"), 55)
+  end
+
   #: (value, word, ptr, ptr, value, value) -> value
   def zr_bmethod_fn(recv, argc, argv, e, blk, found)
     # An entry has a coverage record only when the program measures
@@ -325,6 +341,10 @@ module Zr::Kern
       zr_coverage_method(e)
     end
     body = MEntry[e].cref
+    if (Machine.gates & GATE_RACTOR) != 0
+      r = zr_bmethod_ractor_check(body)
+      return r if r == QUNDEF
+    end
     if RProc[body].meta == 0
       # The Proc of a Symbol or a Method uses only its arguments.
       return Block.call(RProc[body].fn, body, argc, argv, blk)

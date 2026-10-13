@@ -611,7 +611,7 @@ module Process
   # out first, so the child does not write them again; in the child only
   # the thread that forked lives on.
   def self._fork
-    raise Ractor::IsolationError, +"can not fork from non-main Ractors" unless Ractor.main?
+    raise Ractor::IsolationError, +"can not fork from non-main Ractors" if Primitive.zr_ractor_task_p_m
 
     $stdout.flush
     $stderr.flush

@@ -58,6 +58,9 @@ module Zr::Kern
     attr_accessor :mbins #: word
     attr_accessor :obj_bytes #: word
     attr_accessor :autoloads #: value
+    # The number of the ractor that created the class or module, 0 for
+    # the main ractor (zr_class_owned_p).
+    attr_accessor :owner #: word
   end
   # `orig` is the name of the first definition of the method, which an
   # alias keeps. `from` is the ancestor list node where an alias or a
@@ -200,6 +203,7 @@ module Zr::Kern
     ClassExt[ext].mbins = 0
     ClassExt[ext].obj_bytes = RObject.size
     ClassExt[ext].autoloads = Machine.value(QFALSE)
+    ClassExt[ext].owner = (Machine.gates & GATE_RACTOR) == 0 ? 0 : Task[zr_task()].ractor
     counter = Machine.static(:class_serial, 8)
     Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
     ClassExt[ext].serial = Machine.load64(counter, 0)
@@ -480,9 +484,8 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
-    if zr_modify_frozen_p(base)
-      return zr_frozen_error(base)
-    end
+    owned = zr_class_modify_check(base)
+    return owned if owned == QUNDEF
     if recv == base || zr_chain_includes(recv, base)
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("cyclic prepend detected"), 23)
     end
@@ -543,9 +546,8 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" (expected Module)"), 18)
       return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
     end
-    if zr_modify_frozen_p(base)
-      return zr_frozen_error(base)
-    end
+    owned = zr_class_modify_check(base)
+    return owned if owned == QUNDEF
     if recv == base || zr_chain_includes(recv, base)
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("cyclic include detected"), 23)
     end
@@ -628,9 +630,8 @@ module Zr::Kern
   # name. It keeps its meta, so a backtrace shows the original name.
   #: (value, word, word) -> value
   def zr_alias(klass, new_id, old_id)
-    if zr_modify_frozen_p(klass)
-      return zr_frozen_error(klass)
-    end
+    owned = zr_class_modify_check(klass)
+    return owned if owned == QUNDEF
     e = zr_find_method(klass, old_id)
     # A refinement aliases a method of the class it refines.
     if e == 0 && zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
@@ -777,9 +778,8 @@ module Zr::Kern
 
   #: (value, word) -> value
   def zr_undef(klass, id)
-    if zr_modify_frozen_p(klass)
-      return zr_frozen_error(klass)
-    end
+    owned = zr_class_modify_check(klass)
+    return owned if owned == QUNDEF
     if zr_find_method(klass, id) == 0 && !zr_refined_has_method_p(klass, id)
       # With the name and the receiver, which did_you_mean reads. The
       # message of a metaclass names its class, as rb_method_name_error
@@ -981,21 +981,26 @@ module Zr::Kern
       zr_exc_detail(exc, Machine.id(:receiver), base)
       return zr_exc_raise(exc)
     end
-    r = zr_ractor_cvar_check(owner, id)
-    return r if r == QUNDEF
-    zr_ivtab_get(Machine.ptr(ClassExt[RClass[owner].ext].cv), id)
+    zr_cvar_read_check(owner, id, zr_ivtab_get(Machine.ptr(ClassExt[RClass[owner].ext].cv), id))
   end
 
-  # A class variable outside the main ractor: CRuby refuses all of them.
+  # A class variable is the class's that holds it (cvar_read_ractor_check):
+  # another ractor reads only a shareable value of it. Returns `v` or undef.
+  #: (value, word, value) -> value
+  def zr_cvar_read_check(owner, id, v)
+    if zr_special_p(v) || zr_class_owned_p(owner)
+      return v
+    end
+    zr_ractor_refuse(Machine.id(:cvar_read), owner, zr_sym(id), v)
+  end
+
+  # cvar_set_ractor_check: only the holder's ractor writes or removes it.
   #: (value, word) -> value
-  def zr_ractor_cvar_check(owner, id)
-    if Task[zr_task()].ractor == 0
+  def zr_cvar_write_check(owner, id)
+    if zr_class_owned_p(owner)
       return Machine.value(QNIL)
     end
-    args = Machine.slot(16)
-    Machine.store64(args, 0, Machine.word(zr_sym(id)))
-    Machine.store64(args, 8, Machine.word(owner))
-    zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:cvar_isolation!), 2, args)
+    zr_ractor_refuse(Machine.id(:cvar_write!), owner, zr_sym(id), Machine.value(QNIL))
   end
 
   # Whether `@@id` is set under `cref`.
@@ -1019,7 +1024,7 @@ module Zr::Kern
     if owner == QNIL
       owner = base
     end
-    r = zr_ractor_cvar_check(owner, id)
+    r = zr_cvar_write_check(owner, id)
     return r if r == QUNDEF
     frozen = zr_class_modify_check(zr_cvar_holder(owner))
     return frozen if frozen == QUNDEF
@@ -1106,6 +1111,8 @@ module Zr::Kern
       return made
     end
     meta = zr_class_alloc(T_CLASS, msup, zr_global(G_CLASS))
+    # It is its class's, whichever ractor made it.
+    ClassExt[RClass[meta].ext].owner = ClassExt[RClass[klass].ext].owner
     # A singleton class is frozen when its object is frozen.
     RBasic[meta].flags = RBasic[meta].flags | FL_SINGLETON | (RBasic[klass].flags & FL_FREEZE)
     RClass[meta].attached = klass
@@ -1186,6 +1193,13 @@ module Zr::Kern
     c = zr_singleton_class(zr_real_class(v))
     s = zr_class_alloc(T_CLASS, k, c)
     RBasic[s].flags = RBasic[s].flags | FL_SINGLETON | (RBasic[v].flags & FL_FREEZE)
+    # A module's singleton class is the module's. A shareable object is
+    # no ractor's own, so its singleton class is the main ractor's.
+    if zr_type(v) == T_MODULE
+      ClassExt[RClass[s].ext].owner = ClassExt[RClass[v].ext].owner
+    elsif (RBasic[v].flags & FL_SHAREABLE) != 0
+      ClassExt[RClass[s].ext].owner = 0
+    end
     RClass[s].attached = v
     RBasic[v].klass = s
     s
@@ -1208,10 +1222,69 @@ module Zr::Kern
   # object it belongs to, as CRuby's rb_class_modify_check does.
   #: (value) -> value
   def zr_class_modify_check(klass)
-    if !zr_frozen_p(klass)
+    if zr_frozen_p(klass)
+      return zr_frozen_error(zr_singleton_p(klass) ? RClass[klass].attached : klass)
+    end
+    zr_class_owner_check(klass)
+  end
+
+  # Class ownership (rb_class_owned_p): only the ractor that created a
+  # class or module changes it. Another ractor reads it, but no
+  # unshareable value in it. Until a ractor starts, every class is the
+  # main ractor's.
+  #: (value) -> bool
+  def zr_class_owned_p(klass)
+    (Machine.gates & GATE_RACTOR) == 0 || ClassExt[RClass[klass].ext].owner == Task[zr_task()].ractor
+  end
+
+  # rb_class_owner_check: raises unless the current ractor owns `klass`.
+  #: (value) -> value
+  def zr_class_owner_check(klass)
+    if zr_class_owned_p(klass)
       return Machine.value(QNIL)
     end
-    zr_frozen_error(zr_singleton_p(klass) ? RClass[klass].attached : klass)
+    zr_ractor_refuse(Machine.id(:foreign_class!), klass, Machine.value(QNIL), Machine.value(QNIL))
+  end
+
+  # Calls the Ractor class's refusal `mid` with three values: the class
+  # keeps the words of each refusal, and decides some by the value.
+  #: (word, value, value, value) -> value
+  def zr_ractor_refuse(mid, a, b, c)
+    args = Machine.slot(24)
+    Machine.store64(args, 0, Machine.word(a))
+    Machine.store64(args, 8, Machine.word(b))
+    Machine.store64(args, 16, Machine.word(c))
+    zr_send(zr_core_class(Machine.id(:Ractor)), mid, 3, args)
+  end
+
+  # A class's own instance variable read by a ractor that did not create
+  # the class: an unshareable value raises. Returns `v` or undef.
+  #: (value, word, value) -> value
+  def zr_class_ivar_read(obj, id, v)
+    if (Machine.gates & GATE_RACTOR) == 0 || zr_special_p(v) || !zr_class_ivar_p(obj, id) || zr_class_owned_p(obj)
+      return v
+    end
+    zr_ractor_refuse(Machine.id(:class_ivar_read), obj, zr_sym(id), v)
+  end
+
+  # A class's own instance variable written by a ractor that did not
+  # create the class raises.
+  #: (value, word) -> value
+  def zr_class_ivar_write_check(obj, id)
+    if (Machine.gates & GATE_RACTOR) == 0 || !zr_class_ivar_p(obj, id) || zr_class_owned_p(obj)
+      return Machine.value(QNIL)
+    end
+    zr_ractor_refuse(Machine.id(:class_ivar_write!), obj, zr_sym(id), Machine.value(QNIL))
+  end
+
+  # Whether `id` names a program's instance variable of a class or module.
+  #: (value, word) -> bool
+  def zr_class_ivar_p(obj, id)
+    if zr_special_p(obj) || !zr_ivar_id_visible_p(id)
+      return false
+    end
+    t = RBasic[obj].flags & T_MASK
+    t == T_CLASS || t == T_MODULE
   end
 
   # The class that `v.class` returns: it skips a singleton class and the
@@ -1789,6 +1862,13 @@ module Zr::Kern
     # meta. A Proc from a Symbol or a Method has none, as CRuby's
     # rb_proc_get_iseq returns nothing for it.
     block_meta = RProc[body].meta
+    # The ractor of the program that defines the method, which a call
+    # from another ractor checks (zr_bmethod_ractor_check). The core
+    # library's own are C methods in CRuby, which any ractor calls.
+    if zr_program_started_p()
+      ractor = (Machine.gates & GATE_RACTOR) == 0 ? 0 : Task[zr_task()].ractor
+      zr_state_set(body, zr_sym(Machine.id(:__defined_in__)), zr_fix(ractor))
+    end
     # The entry's `fn` is the block's twin, if it has one (FrameMeta).
     twin = 0
     if block_meta != 0 && RProc[body].fn == FrameMeta[block_meta].fn
@@ -3437,6 +3517,8 @@ module Zr::Kern
   # name, which cannot change.
   #: (value, value) -> value
   def zr_mod_set_temporary_name(mod, name)
+    owned = zr_class_owner_check(mod)
+    return owned if owned == QUNDEF
     if RClass[mod].name != QNIL && (RBasic[mod].flags & FL_TEMP_NAME) == 0
       return Machine.value(QFALSE)
     end
@@ -3813,6 +3895,14 @@ module Zr::Kern
   # refine_under keeps them for the block.
   #: (value, word, ptr, value, value) -> value
   def zr_mod_refine(recv, argc, argv, cref, blk)
+    # refine writes the refinement tables into the receiver too.
+    owned = zr_class_owner_check(recv)
+    return owned if owned == QUNDEF
+    target = Machine.value(Machine.load64(argv, 0))
+    if !zr_special_p(target) && (zr_type(target) == T_CLASS || zr_type(target) == T_MODULE)
+      owned = zr_class_owner_check(target)
+      return owned if owned == QUNDEF
+    end
     args = Machine.slot(16)
     Machine.store64(args, 0, Machine.word(Task[zr_task()].refine))
     Machine.store64(args, 8, Machine.load64(argv, 0))

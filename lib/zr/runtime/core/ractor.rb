@@ -171,8 +171,9 @@ class Ractor
   UNSHAREABLE = [Thread, Thread::Mutex, Thread::Queue, Thread::SizedQueue, Thread::ConditionVariable].freeze
   private_constant :UNSHAREABLE
 
-  # Every ractor of this process, and the notice ruby prints once.
-  RACTORS = []
+  # Every ractor of this process but the main one, by number, and the
+  # notice ruby prints once.
+  RACTORS = {}
   NOTICE = []
   private_constant :RACTORS, :NOTICE
 
@@ -292,9 +293,12 @@ class Ractor
 
   # The ractor this task belongs to: the main one until a task of a
   # ractor's own says otherwise.
-  def self.current = Thread.current.thread_variable_get(:__ractor__) || main
+  def self.current
+    number = Primitive.zr_ractor_number_m
+    number.zero? ? main : RACTORS[number]
+  end
 
-  def self.count = RACTORS.count { |ractor| live?(ractor) } + 1
+  def self.count = RACTORS.each_value.count { |ractor| live?(ractor) } + 1
 
   # rb_multi_ractor_p: once a second ractor has been made, the process
   # stays multi-ractor.
@@ -310,15 +314,11 @@ class Ractor
   # back to the ractor.
   def self.on_main
     Primitive.attr! :hidden
-    thread = Thread.current
-    was = thread.thread_variable_get(:__ractor__)
-    marked = Primitive.zr_ractor_leave_m == 1
-    thread.thread_variable_set(:__ractor__, nil)
+    number = Primitive.zr_ractor_leave_m
     begin
       yield
     ensure
-      thread.thread_variable_set(:__ractor__, was)
-      Primitive.zr_ractor_enter_m if marked
+      Primitive.zr_ractor_enter_m(number) unless number.zero?
     end
   end
   private_class_method :on_main
@@ -438,7 +438,10 @@ class Ractor
   def self.make_shareable(obj, copy: false)
     return make_shareable(copy(obj, true)) if copy
 
-    deep_freeze(obj, {}.compare_by_identity)
+    seen = {}.compare_by_identity
+    deep_freeze(obj, seen)
+    # Each object in the graph is shareable from now on.
+    seen.each_key { |node| Primitive.zr_set_shareable_m(node) }
     obj
   end
 
@@ -474,20 +477,52 @@ class Ractor
     raise IsolationError, "can't modify instance variables of a shareable #{Primitive.zr_real_class(obj)}"
   end
 
-  # What a program outside the main ractor cannot reach, in CRuby's
-  # words. The runtime calls this for each because the words are here.
+  # What a ractor cannot reach in a class that another ractor created,
+  # in CRuby's words (class ownership). The runtime calls these, with the
+  # class, a name and a value, because the words are here; a read gives
+  # the value back when it is shareable.
+  def self.foreign_class!(klass, _name, _value)
+    Primitive.attr! :hidden
+    # A singleton class is named by its object, with no dispatch.
+    named = klass.singleton_class? ? klass.attached_object : klass
+    raise IsolationError, "can not modify #{Module === named ? path(named) : ANY_TO_S.bind_call(named)} because it is created by another Ractor"
+  end
+
   def self.const_read(owner, name, value)
     Primitive.attr! :hidden
     return value if shareable?(value)
 
-    raise IsolationError, "can not access non-shareable objects in constant #{owner}::#{name} by non-main Ractor."
+    raise IsolationError, "can not access non-shareable objects in constant #{path(owner)}::#{name} of a class/module created by another Ractor."
   end
 
-  def self.const_write(value)
+  def self.const_write!(_owner, _name, _value)
+    Primitive.attr! :hidden
+    raise IsolationError, "can not set constants of classes/modules created by another Ractor"
+  end
+
+  def self.class_ivar_read(owner, name, value)
     Primitive.attr! :hidden
     return value if shareable?(value)
 
-    raise IsolationError, "can not set constants with non-shareable objects by non-main Ractors"
+    raise IsolationError, "can not get unshareable values from instance variables of classes/modules created by another Ractor " \
+                          "(#{name} from #{path(owner)})"
+  end
+
+  def self.class_ivar_write!(_owner, _name, _value)
+    Primitive.attr! :hidden
+    raise IsolationError, "can not set instance variables of classes/modules created by another Ractor"
+  end
+
+  def self.cvar_read(owner, name, value)
+    Primitive.attr! :hidden
+    return value if shareable?(value)
+
+    raise IsolationError, "can not read non-shareable class variable #{name} of #{owner}, which was created by another Ractor"
+  end
+
+  def self.cvar_write!(owner, name, _value)
+    Primitive.attr! :hidden
+    raise IsolationError, "can not set class variable #{name} of #{owner}, which was created by another Ractor"
   end
 
   def self.gvar_isolation!(name)
@@ -495,10 +530,17 @@ class Ractor
     raise IsolationError, "can not access global variable #{name} from non-main Ractor"
   end
 
-  def self.cvar_isolation!(name, owner)
+  # rb_class_path: a module's name as its constant gives it, which no
+  # `to_s` of the program changes; rb_any_to_s for any other object.
+  MODULE_TO_S = Module.instance_method(:to_s)
+  ANY_TO_S = Kernel.instance_method(:to_s)
+  private_constant :MODULE_TO_S, :ANY_TO_S
+
+  def self.path(mod)
     Primitive.attr! :hidden
-    raise IsolationError, "can not access class variables from non-main Ractors (#{name} from #{owner})"
+    MODULE_TO_S.bind_call(mod)
   end
+  private_class_method :path
 
   # The refusal a husk gives every message it still gets.
   def self.moved!
@@ -934,15 +976,14 @@ class Ractor
   def self.start(ractor, number, args, block, where)
     Primitive.attr! :hidden
     seat(ractor, number, nil)
-    RACTORS << ractor
+    RACTORS[number] = ractor
     Primitive.zr_hidden_set(ractor, :__site__, where && where[0, where.index(":in ") || where.size])
     # The block's self is the ractor, as with ruby's isolated block. Its
     # own copy is rebound, so a block that the program still has keeps the
     # self it was written with.
     body = Primitive.zr_proc_rebind_m(block.dup, ractor)
     task = Thread.new do
-      Primitive.zr_ractor_enter_m
-      Thread.current.thread_variable_set(:__ractor__, ractor)
+      Primitive.zr_ractor_enter_m(number)
       # The ractor has a default thread group of its own, which its
       # threads start in.
       Primitive.zr_hidden_set(Thread.current, :group, ThreadGroup.new)

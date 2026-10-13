@@ -1936,6 +1936,12 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_obj_freeze(recv, argc, argv, cref, blk)
+    # rb_mod_freeze: only a class's ractor freezes it; a frozen one stays
+    # a no-op for every ractor.
+    if !zr_special_p(recv) && (zr_type(recv) == T_CLASS || zr_type(recv) == T_MODULE) && !zr_frozen_p(recv)
+      owned = zr_class_owner_check(recv)
+      return owned if owned == QUNDEF
+    end
     unless zr_special_p(recv)
       RBasic[recv].flags = (RBasic[recv].flags | FL_FREEZE) & (zr_type(recv) == T_STRING ? FL_CHILLED_CLEAR : 0 - 1)
       # The singleton class freezes with its object, as CRuby's

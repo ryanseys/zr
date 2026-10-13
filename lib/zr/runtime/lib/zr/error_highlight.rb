@@ -20,9 +20,19 @@ module ErrorHighlight
     end
 
     # `{ file => { node id => [[point, name, line, column, last line,
-    # last column], ...] } }`, read from the program once.
+    # last column], ...] } }`, read from the program once. The table is
+    # shareable, so a ractor reads it too; only the main ractor keeps it
+    # on the class, which is the main ractor's own.
     def self.table
-      @table ||= Primitive.zr_load_names(4).split("\f").to_h do |text|
+      @table || begin
+        table = Ractor.make_shareable(load_table)
+        @table = table unless Primitive.zr_ractor_task_p_m # rubocop:disable ThreadSafety/ClassInstanceVariable
+        table
+      end
+    end
+
+    def self.load_table
+      Primitive.zr_load_names(4).split("\f").to_h do |text|
         file, *lines = text.split("\n")
         rows = {}
         lines.each do |line|
@@ -35,6 +45,7 @@ module ErrorHighlight
         [file, rows]
       end
     end
+    private_class_method :load_table
 
     def initialize(path, rows)
       @path = path

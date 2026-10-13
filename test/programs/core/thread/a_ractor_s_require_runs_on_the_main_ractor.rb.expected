@@ -1,0 +1,7 @@
+:hello
+"required"
+"can not access non-shareable objects in constant RactorRequired::LIST of a class/module created by another Ractor."
+"can not modify RactorRequired because it is created by another Ractor"
+[1, 2]
+1
+1

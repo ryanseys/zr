@@ -93,8 +93,15 @@ module Zr::Kern
     zr_bool(Task[zr_task()].ractor != 0)
   end
 
+  # The number of the ractor of the current task: 0 for the main ractor.
+  #: () -> value
+  def zr_ractor_number_m
+    zr_fix(Task[zr_task()].ractor)
+  end
+
   # Ends the current task's ractor marking for a time, as a ractor's
-  # require runs on the main ractor. Returns 1 when it was marked, else 0.
+  # require runs on the main ractor. Returns the ractor's number, which
+  # `zr_ractor_enter_m` takes back.
   #: () -> value
   def zr_ractor_leave_m
     t = zr_task()
@@ -103,15 +110,15 @@ module Zr::Kern
     zr_fix(was)
   end
 
-  # Marks the current task as a ractor task. After this, the task checks
-  # what a ractor that is not the main one cannot reach: an unshareable
-  # constant, a global, a class variable.
-  #: () -> value
-  def zr_ractor_enter_m
-    Task[zr_task()].ractor = 1
+  # Marks the current task as a task of ractor `number`. After this, the
+  # task checks what another ractor's classes keep, and what a ractor
+  # that is not the main one cannot reach (a global).
+  #: (value) -> value
+  def zr_ractor_enter_m(number)
+    Task[zr_task()].ractor = zr_fix2long(number)
     Machine.gates_set(Machine.gates | GATE_RACTOR)
-    # Each constant read in a ractor checks whether it can share the
-    # value, so no cache entry that the main ractor filled can be used.
+    # Each constant read checks whose class holds the value, so no cache
+    # entry that another ractor filled can be used.
     zr_consts_changed()
     Machine.value(QNIL)
   end
@@ -196,6 +203,8 @@ module Zr::Kern
     end
     t = zr_xmalloc(Task.size)
     zr_task_init(t, stack + STACK_MARGIN)
+    # A thread or a fiber belongs to the ractor of the task that makes it.
+    Task[t].ractor = Task[zr_task()].ractor
     RFiber[f].task = t
     RFiber[f].stack = stack
     ctx = zr_xmalloc(CONTEXT_BYTES)

@@ -133,7 +133,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # share.
   def self.required(name)
     Primitive.attr! :hidden
-    return Ractor.send(:on_main) { required(name) } unless Ractor.main?
+    return Ractor.send(:on_main) { required(name) } if Primitive.zr_ractor_task_p_m
 
     feature = File.path(name)
     return false if preloaded?(feature) || parserless?(feature)

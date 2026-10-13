@@ -810,27 +810,28 @@ module Zr::Kern
     zr_const_get(cref, id)
   end
 
-  # Reads a program's bare constant. Outside the main ractor, the value
-  # must be shareable. There, the cache entry is not used, so each read does
-  # a lookup (the stamp changes when a ractor's task starts and stops).
+  # Reads a program's bare constant. Once a ractor started, a ractor
+  # reads an unshareable value only from a class of its own. The cache
+  # entry then holds a value that passed this check, for the ractor that
+  # filled it: a switch to a task of another ractor changes the stamp.
   #: (ptr, value, word) -> value
   def zr_const_read_cached(cc, cref, id)
-    if Task[zr_task()].ractor == 0
+    if (Machine.gates & GATE_RACTOR) == 0
       return zr_const_get_cached(cc, cref, id)
     end
     v = zr_const_get(cref, id)
     return v if v == QUNDEF
     e = zr_const_row_under(cref, id)
-    if e == 0
-      return v
+    if e != 0 && zr_ractor_const(CEntry[e].owner, id, v) == QUNDEF
+      return Machine.value(QUNDEF)
     end
-    zr_ractor_const(CEntry[e].owner, id, v)
+    zr_const_get_cached(cc, cref, id)
   end
 
   # Reads a program's `scope::Name` in the same way.
   #: (ptr, value, word) -> value
   def zr_const_read_at_cached(cc, scope, id)
-    if Task[zr_task()].ractor == 0
+    if (Machine.gates & GATE_RACTOR) == 0
       return zr_const_get_at_cached(cc, scope, id)
     end
     v = zr_const_get_at(scope, id)
@@ -839,24 +840,20 @@ module Zr::Kern
       return v
     end
     e = zr_const_row_in(scope, id, scope != zr_global(G_OBJECT))
-    if e == 0
-      return v
+    if e != 0 && zr_ractor_const(CEntry[e].owner, id, v) == QUNDEF
+      return Machine.value(QUNDEF)
     end
-    zr_ractor_const(CEntry[e].owner, id, v)
+    zr_const_get_at_cached(cc, scope, id)
   end
 
-  # Checks `v`, a constant of `owner`, read outside the main ractor. The
-  # ractor can read it only if it is shareable.
+  # Checks `v`, a constant of `owner`: a ractor that did not create
+  # `owner` reads it only if it is shareable. Returns `v` or undef.
   #: (value, word, value) -> value
   def zr_ractor_const(owner, id, v)
-    if zr_special_p(v)
+    if zr_special_p(v) || zr_class_owned_p(owner)
       return v
     end
-    args = Machine.slot(24)
-    Machine.store64(args, 0, Machine.word(owner))
-    Machine.store64(args, 8, Machine.word(zr_sym(id)))
-    Machine.store64(args, 16, Machine.word(v))
-    zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:const_read), 3, args)
+    zr_ractor_refuse(Machine.id(:const_read), owner, zr_sym(id), v)
   end
 
   # Reads `scope::Name` at a site. Returns the same value as
@@ -898,7 +895,7 @@ module Zr::Kern
     if e == 0 || IvEntry[e].value == QUNDEF
       return Machine.value(QNIL)
     end
-    IvEntry[e].value
+    zr_class_ivar_read(obj, id, IvEntry[e].value)
   end
 
   # Writes `@name = v` at a site with the cached index `ic`. Does the same
@@ -929,6 +926,8 @@ module Zr::Kern
     if zr_shareable_ivar_p(obj, id)
       return zr_shareable_ivar_error(obj)
     end
+    owned = zr_class_ivar_write_check(obj, id)
+    return owned if owned == QUNDEF
     t = zr_ivtab_for_write(obj)
     e = zr_ivtab_guess(t, id, ic)
     if e == 0
@@ -955,7 +954,7 @@ module Zr::Kern
     kind = RBasic[obj].flags & T_MASK
     if kind == T_OBJECT
       t = Machine.ptr(RObject[obj].iv)
-    elsif kind == T_CLASS || kind == T_MODULE
+    elsif (kind == T_CLASS || kind == T_MODULE) && zr_class_owned_p(obj)
       t = Machine.ptr(ClassExt[RClass[obj].ext].iv)
     else
       return 0

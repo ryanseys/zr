@@ -183,7 +183,7 @@ module Zr::Kern
       zr_exc_detail(exc, Machine.id(:receiver), recv)
       return zr_exc_raise(exc)
     end
-    zr_ivtab_get(Machine.ptr(ClassExt[RClass[owner].ext].cv), id)
+    zr_cvar_read_check(owner, id, zr_ivtab_get(Machine.ptr(ClassExt[RClass[owner].ext].cv), id))
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -199,6 +199,8 @@ module Zr::Kern
     if owner == QNIL
       owner = recv
     end
+    r = zr_cvar_write_check(owner, id)
+    return r if r == QUNDEF
     r = zr_class_modify_check(zr_cvar_holder(owner))
     return r if r == QUNDEF
     v = Machine.value(Machine.load64(argv, 8))
@@ -216,6 +218,8 @@ module Zr::Kern
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
     r = zr_check_cvar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
+    return r if r == QUNDEF
+    r = zr_cvar_write_check(recv, id)
     return r if r == QUNDEF
     r = zr_class_modify_check(recv)
     return r if r == QUNDEF

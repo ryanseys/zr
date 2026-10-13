@@ -1,0 +1,43 @@
+define a method: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+def in a class body: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+alias: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+undef: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+remove_method: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+private: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+include: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+prepend: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+const_set: Ractor::IsolationError: can not set constants of classes/modules created by another Ractor
+const literal: Ractor::IsolationError: can not set constants of classes/modules created by another Ractor
+remove_const: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+private_constant: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+autoload: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+read shareable const: "f"
+read unshareable const: Ractor::IsolationError: can not access non-shareable objects in constant Main::NAMES of a class/module created by another Ractor.
+const_get unshareable: Ractor::IsolationError: can not access non-shareable objects in constant Main::NAMES of a class/module created by another Ractor.
+class ivar read: Ractor::IsolationError: can not get unshareable values from instance variables of classes/modules created by another Ractor (@list from Main)
+class ivar write: Ractor::IsolationError: can not set instance variables of classes/modules created by another Ractor
+cvar read unshareable: Ractor::IsolationError: can not read non-shareable class variable @@count of Main, which was created by another Ractor
+cvar read shareable: 1
+cvar write: Ractor::IsolationError: can not set class variable @@shared of Main, which was created by another Ractor
+class_variable_set: Ractor::IsolationError: can not set class variable @@shared of Main, which was created by another Ractor
+class_variable_get unshareable: Ractor::IsolationError: can not read non-shareable class variable @@count of Main, which was created by another Ractor
+remove_class_variable: Ractor::IsolationError: can not set class variable @@shared of Main, which was created by another Ractor
+freeze: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+set_temporary_name: Ractor::IsolationError
+refine: Ractor::IsolationError: can not modify M because it is created by another Ractor
+singleton of Ractor.main: Ractor::IsolationError: can not modify #<Ractor:0xX> because it is created by another Ractor
+singleton of a class: Ractor::IsolationError: can not modify Main because it is created by another Ractor
+include into own class: 2
+own class from inside: [[1, 2], [3], [4], :hi, "more"]
+main reads its unshareable const: Ractor::IsolationError: can not access non-shareable objects in constant #<Class:0xX>::LIST of a class/module created by another Ractor.
+main reads its ivar: Ractor::IsolationError: can not get unshareable values from instance variables of classes/modules created by another Ractor (@state from #<Class:0xX>)
+main reads its cvar: Ractor::IsolationError: can not read non-shareable class variable @@seen of #<Class:0xX>, which was created by another Ractor
+main defines a method on it: Ractor::IsolationError: can not modify #<Class:0xX> because it is created by another Ractor
+main sets a const on it: Ractor::IsolationError: can not set constants of classes/modules created by another Ractor
+main freezes it: Ractor::IsolationError: can not modify #<Class:0xX> because it is created by another Ractor
+main calls its method: RuntimeError: defined with an un-shareable Proc in a different Ractor
+main reads its shareable const: Ractor::IsolationError
+a thread in a ractor is the ractor's: [false, false]
+a fiber in a ractor is the ractor's: false
+main still owns its classes: 1
+main sets an unshareable const: [1]

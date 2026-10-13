@@ -866,9 +866,22 @@ module Zr::Kern
   # instead. When the program first requires one of those files itself,
   # nothing runs again. The file is recorded and the call returns true, as
   # the first load does.
+  #
+  # A ractor's require runs on the main ractor (rb_ractor_require), so the
+  # file defines its classes and constants as the main ractor's.
   #: (value, ptr, word) -> value
   def zr_require(path, fn, kind)
-    zr_require_run(path, fn, kind, true)
+    t = zr_task()
+    ractor = Task[t].ractor
+    if ractor == 0
+      return zr_require_run(path, fn, kind, true)
+    end
+    Task[t].ractor = 0
+    r = zr_require_run(path, fn, kind, true)
+    Task[t].ractor = ractor
+    # The cache entries that the file filled are the main ractor's.
+    zr_consts_changed()
+    r
   end
 
   # The same, for a require with a name that the program computed.

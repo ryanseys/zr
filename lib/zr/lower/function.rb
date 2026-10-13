@@ -266,6 +266,7 @@ module Zr
         preempt if @kind == :def
         trace_open
         cover_method if @kind == :def && method_cover
+        ractor_bmethod_check if @twin_of
         if @kind == :block
           @body_label = @f.label
           @f.jump(@body_label)
@@ -976,6 +977,20 @@ module Zr
         @captures[name] ||= depth
         @writes << name if write && !@writes.include?(name)
         @outer&.__send__(:capture, name, depth - 1, write: write)
+      end
+
+      # The twin of a define_method body: once a ractor started, a call
+      # checks that the ractor that defined the method runs it, or that
+      # its Proc is shareable (zr_bmethod_ractor_check).
+      #: () -> void
+      def ractor_bmethod_check
+        check = @f.label
+        go = @f.label
+        @f.brif(gate_test(["GATE_RACTOR"]), go, check)
+        switch(check)
+        checked(kernel("zr_bmethod_ractor_check", @proc))
+        @f.jump(go)
+        switch(go)
       end
 
       # `[name, written, rebound]` for each capture of this scope: whether

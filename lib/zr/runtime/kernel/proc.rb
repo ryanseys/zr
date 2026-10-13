@@ -380,7 +380,7 @@ module Zr::Kern
     if lambda == QTRUE && RProc[p].passed == 0
       RProc[copy].lambda = 1
     end
-    RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE | FL_ISOLATED
+    RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE | FL_ISOLATED | FL_SHAREABLE
     copy
   end
 

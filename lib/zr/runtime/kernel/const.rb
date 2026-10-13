@@ -393,6 +393,12 @@ module Zr::Kern
       zr_raise_buf(zr_global(G_TYPE_ERROR), b)
       return 0
     end
+    # const_set: only the class's ractor sets its constants, which then
+    # may be unshareable.
+    if !zr_class_owned_p(klass)
+      zr_ractor_refuse(Machine.id(:const_write!), klass, zr_sym(id), v)
+      return 0
+    end
     if zr_class_modify_check(klass) == QUNDEF
       return 0
     end
@@ -868,25 +874,22 @@ module Zr::Kern
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_private_constant(recv, argc, argv, cref, blk)
-    if zr_modify_frozen_p(recv)
-      return zr_frozen_error(recv)
-    end
+    owned = zr_class_modify_check(recv)
+    return owned if owned == QUNDEF
     zr_mod_constant_visibility(recv, argc, argv, 1)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_public_constant(recv, argc, argv, cref, blk)
-    if zr_modify_frozen_p(recv)
-      return zr_frozen_error(recv)
-    end
+    owned = zr_class_modify_check(recv)
+    return owned if owned == QUNDEF
     zr_mod_constant_visibility(recv, argc, argv, 0)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_deprecate_constant(recv, argc, argv, cref, blk)
-    if zr_modify_frozen_p(recv)
-      return zr_frozen_error(recv)
-    end
+    owned = zr_class_modify_check(recv)
+    return owned if owned == QUNDEF
     zr_mod_constant_visibility(recv, argc, argv, 0 - 1)
   end
 
@@ -1273,7 +1276,9 @@ module Zr::Kern
     if e == 0
       return zr_uninitialized_constant(recv, id)
     end
-    zr_const_value(e)
+    v = zr_const_value(e)
+    return v if v == QUNDEF
+    zr_ractor_const(CEntry[e].owner, id, v)
   end
 
   # Returns `[file, line]` of the entry, `[]` for an entry that the runtime
@@ -1421,10 +1426,6 @@ module Zr::Kern
     r = zr_const_name_id(recv, Machine.value(Machine.load64(argv, 0)), slot)
     return r if r == QUNDEF
     v = Machine.value(Machine.load64(argv, 8))
-    if Task[zr_task()].ractor != 0 && !zr_special_p(v)
-      r = zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:const_write), 1, argv + 8)
-      return r if r == QUNDEF
-    end
     zr_const_set(recv, Machine.load64(slot, 0), v)
   end
 
@@ -1582,6 +1583,8 @@ module Zr::Kern
         mod = RClass[mod].superclass
       end
     end
+    owned = zr_class_owner_check(mod)
+    return owned if owned == QUNDEF
     # A name that already has a value stays, as `autoload_synchronized`
     # (variable.c:2913) returns false for it. A name with no value (undefined,
     # waiting for a file, or waiting for a file that another require

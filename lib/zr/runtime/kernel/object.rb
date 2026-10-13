@@ -345,7 +345,7 @@ module Zr::Kern
     if v == QUNDEF
       return Machine.value(QNIL)
     end
-    v
+    zr_class_ivar_read(obj, id, v)
   end
 
   # A hidden instance variable has a name with no `@`. `instance_variables`
@@ -505,6 +505,8 @@ module Zr::Kern
     if zr_shareable_ivar_p(obj, id)
       return zr_shareable_ivar_error(obj)
     end
+    owned = zr_class_ivar_write_check(obj, id)
+    return owned if owned == QUNDEF
     t = zr_ivtab_for_write(obj)
     zr_ivtab_set_in(t, id, v, zr_ivtab_owner(obj))
     zr_write_barrier(obj, v)
