@@ -709,6 +709,12 @@ Capabilities insufficient
     buf
   end
 
+  # WASI maps no files: 0 tells IO::Buffer.map to read the file instead.
+  #: (i32, word, word, word, word) -> ptr
+  def zr_os_file_map(fd, bytes, offset, prot, flags)
+    Machine.ptr(0)
+  end
+
   # WASI has no fork and no shared memory.
   #: (word) -> ptr
   def zr_os_shared_map(bytes)

@@ -119,6 +119,25 @@ module Zr::Kern
     zr_ffi_addr(at)
   end
 
+  # A mapping of `size` bytes of the file at descriptor `fd` from
+  # `offset`, read and write when `writable`, which the file and a forked
+  # child share unless it is private, as io_buffer_map_file makes it.
+  # Returns its address, nil where the host maps no files, or the negated
+  # errno of the mmap.
+  #: (value, value, value, value, value) -> value
+  def zr_mem_file_map(fd, size, offset, writable, shared)
+    prot = writable != QFALSE && writable != QNIL ? 3 : 1
+    flags = shared != QFALSE && shared != QNIL ? 1 : 2
+    at = zr_os_file_map(Machine.i32(zr_fix2long(fd)), zr_fix2long(size), zr_fix2long(offset), prot, flags)
+    if Machine.word(at) == 0
+      return Machine.value(QNIL)
+    end
+    if Machine.word(at) == 0 - 1
+      return zr_fix(0 - zr_errno())
+    end
+    zr_ffi_addr(at)
+  end
+
   #: (value, value) -> value
   def zr_mem_unmap(addr, size)
     Libc.munmap(zr_ffi_ptr(addr), zr_fix2long(size))

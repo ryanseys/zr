@@ -168,7 +168,8 @@ class IO
         end
         yield buffer
       ensure
-        buffer&.free
+        # rb_io_buffer_free, which a block that froze the buffer allows.
+        buffer&.send(:c_free)
         Primitive.zr_str_unlocktmp_m(string) if locked
       end
     end
@@ -177,6 +178,10 @@ class IO
     def self.string(length)
       klass = storage_class
       Buffer.send(:announce)
+      length = Primitive.zr_index_operand_m(length)
+      raise ArgumentError, +"negative string size (or size too big)" if length.negative?
+      raise LocalJumpError, +"no block given" unless block_given?
+
       text = "\0".b * length
       klass.for(text) { |buffer| yield buffer }
       text
@@ -307,9 +312,14 @@ class IO
     end
 
     # An offset, a length, an amount or a count: an Integer that is not
-    # negative, which the error names.
+    # negative, which the error names (rb_int_negative_p refuses any other
+    # value).
     def self.index_operand(value, name)
       Primitive.attr! :hidden
+      raise TypeError, +"not an Integer" unless Integer === value
+      # NUM2SIZET.
+      raise RangeError, +"bignum too big to convert into 'unsigned long long'" unless value.bit_length < 64
+
       value = Primitive.zr_index_operand_m(value)
       raise ArgumentError, "#{name} can't be negative!" if value.negative?
 
@@ -633,7 +643,10 @@ class IO
     # object.
     def to_s
       memory, start = resolve
-      address = memory.nil? ? 0 : (memory.object_id * 16) + start
+      address = if memory.nil? then 0
+                elsif memory.is_a?(RawMemory) then memory.address + start
+                else (memory.object_id * 16) + start
+                end
       flags = send(:flags)
       shown = ["#<#{Primitive.zr_class_path(Primitive.zr_real_class(self))} #{format('0x%016x', address)}+#{size}"]
       shown << "NULL" if memory.nil?
@@ -1232,6 +1245,18 @@ class IO
       def mapped(file, size, offset, flags)
         Primitive.attr! :hidden
         mode = MAPPED | FILE | (flags & READONLY)
+        shared = flags & PRIVATE == 0
+        # io_buffer_map_file: mmap of the file itself, which a forked child
+        # shares unless the mapping is private.
+        address = Primitive.zr_mem_file_map(file.fileno, size, offset, flags & READONLY == 0, shared)
+        raise SystemCallError.new(+"io_buffer_storage_map_file:mmap", -address) if address.is_a?(Integer) && address.negative?
+        if address
+          memory = RawMemory.at(address, size, MAPPED)
+          return adopted(memory, 0, size, shared ? mode | EXTERNAL | SHARED : mode | PRIVATE, nil, nil)
+        end
+
+        # A host with no file mappings reads the file, and a shared
+        # mapping writes each change back to it.
         if flags & PRIVATE != 0
           adopted(file.pread(size, offset).b, 0, size, mode | PRIVATE, nil, nil)
         else

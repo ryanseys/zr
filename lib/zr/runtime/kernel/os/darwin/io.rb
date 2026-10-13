@@ -303,6 +303,13 @@ module Zr::Kern
   SHARED_PROT = 3
   SHARED_MAP_FLAGS = 4097
 
+  # Maps `bytes` of the file `fd` from `offset`, with mmap's `prot` and
+  # `flags`. Returns MAP_FAILED (-1) on failure, with errno set.
+  #: (i32, word, word, word, word) -> ptr
+  def zr_os_file_map(fd, bytes, offset, prot, flags)
+    Libc.mmap(0, bytes, Machine.i32(prot), Machine.i32(flags), fd, offset)
+  end
+
   # Maps `bytes` of zeroed memory that a fork shares. Returns 0 on failure.
   #: (word) -> ptr
   def zr_os_shared_map(bytes)
