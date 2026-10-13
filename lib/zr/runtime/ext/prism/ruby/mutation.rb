@@ -65,6 +65,12 @@ module Prism
           @location = Location.pack(start, end_offset)
         end
 
+        # PM_NODE_START_SET_* alone: the C keeps a start and a length, so a
+        # new start keeps the length and moves the end.
+        def start_offset_keep_length=(start)
+          @location = (start << 32) | (@location & 0xFFFF_FFFF)
+        end
+
         def end_offset=(finish)
           @location = Location.pack(start_offset, finish)
         end
@@ -1262,6 +1268,15 @@ module Prism
         def fields = [@ensure_keyword_loc, @statements, @end_keyword_loc]
       end
 
+      refine ErrorRecoveryNode do
+        def unexpected=(unexpected)
+          @unexpected = unexpected
+        end
+
+        # The fields in the constructor's order, raw.
+        def fields = [@unexpected]
+      end
+
       refine FindPatternNode do
         def opening_loc = @opening_loc
 
@@ -1365,12 +1380,18 @@ module Prism
       end
 
       refine ForwardingSuperNode do
+        def keyword_loc = @keyword_loc
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
         def block=(block)
           @block = block
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@block]
+        def fields = [@keyword_loc, @block]
       end
 
       refine GlobalVariableAndWriteNode do
@@ -1599,9 +1620,9 @@ module Prism
       end
 
       refine InNode do
-        def in_loc = @in_loc
+        def in_keyword_loc = @in_keyword_loc
 
-        def then_loc = @then_loc
+        def then_keyword_loc = @then_keyword_loc
 
         def pattern=(pattern)
           @pattern = pattern
@@ -1611,16 +1632,16 @@ module Prism
           @statements = statements
         end
 
-        def in_loc=(in_loc)
-          @in_loc = in_loc
+        def in_keyword_loc=(in_keyword_loc)
+          @in_keyword_loc = in_keyword_loc
         end
 
-        def then_loc=(then_loc)
-          @then_loc = then_loc
+        def then_keyword_loc=(then_keyword_loc)
+          @then_keyword_loc = then_keyword_loc
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@pattern, @statements, @in_loc, @then_loc]
+        def fields = [@pattern, @statements, @in_keyword_loc, @then_keyword_loc]
       end
 
       refine IndexAndWriteNode do
@@ -2266,7 +2287,7 @@ module Prism
       end
 
       refine MatchPredicateNode do
-        def operator_loc = @operator_loc
+        def keyword_loc = @keyword_loc
 
         def value=(value)
           @value = value
@@ -2276,12 +2297,12 @@ module Prism
           @pattern = pattern
         end
 
-        def operator_loc=(operator_loc)
-          @operator_loc = operator_loc
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@value, @pattern, @operator_loc]
+        def fields = [@value, @pattern, @keyword_loc]
       end
 
       refine MatchRequiredNode do
@@ -2430,6 +2451,23 @@ module Prism
 
         # The fields in the constructor's order, raw.
         def fields = [@arguments, @keyword_loc]
+      end
+
+      refine NoBlockParameterNode do
+        def operator_loc = @operator_loc
+
+        def keyword_loc = @keyword_loc
+
+        def operator_loc=(operator_loc)
+          @operator_loc = operator_loc
+        end
+
+        def keyword_loc=(keyword_loc)
+          @keyword_loc = keyword_loc
+        end
+
+        # The fields in the constructor's order, raw.
+        def fields = [@operator_loc, @keyword_loc]
       end
 
       refine NoKeywordsParameterNode do
@@ -3008,7 +3046,7 @@ module Prism
       refine SymbolNode do
         def opening_loc = @opening_loc
 
-        def value_loc = @value_loc
+        def content_loc = @content_loc
 
         def closing_loc = @closing_loc
 
@@ -3016,8 +3054,8 @@ module Prism
           @opening_loc = opening_loc
         end
 
-        def value_loc=(value_loc)
-          @value_loc = value_loc
+        def content_loc=(content_loc)
+          @content_loc = content_loc
         end
 
         def closing_loc=(closing_loc)
@@ -3029,7 +3067,7 @@ module Prism
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@opening_loc, @value_loc, @closing_loc, @unescaped]
+        def fields = [@opening_loc, @content_loc, @closing_loc, @unescaped]
       end
 
       refine UndefNode do
@@ -3048,14 +3086,14 @@ module Prism
       end
 
       refine UnlessNode do
-        def keyword_loc = @keyword_loc
+        def unless_keyword_loc = @unless_keyword_loc
 
         def then_keyword_loc = @then_keyword_loc
 
         def end_keyword_loc = @end_keyword_loc
 
-        def keyword_loc=(keyword_loc)
-          @keyword_loc = keyword_loc
+        def unless_keyword_loc=(unless_keyword_loc)
+          @unless_keyword_loc = unless_keyword_loc
         end
 
         def predicate=(predicate)
@@ -3079,26 +3117,26 @@ module Prism
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@keyword_loc, @predicate, @then_keyword_loc, @statements, @else_clause, @end_keyword_loc]
+        def fields = [@unless_keyword_loc, @predicate, @then_keyword_loc, @statements, @else_clause, @end_keyword_loc]
       end
 
       refine UntilNode do
-        def keyword_loc = @keyword_loc
+        def until_keyword_loc = @until_keyword_loc
 
         def do_keyword_loc = @do_keyword_loc
 
-        def closing_loc = @closing_loc
+        def end_keyword_loc = @end_keyword_loc
 
-        def keyword_loc=(keyword_loc)
-          @keyword_loc = keyword_loc
+        def until_keyword_loc=(until_keyword_loc)
+          @until_keyword_loc = until_keyword_loc
         end
 
         def do_keyword_loc=(do_keyword_loc)
           @do_keyword_loc = do_keyword_loc
         end
 
-        def closing_loc=(closing_loc)
-          @closing_loc = closing_loc
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
         end
 
         def predicate=(predicate)
@@ -3110,16 +3148,16 @@ module Prism
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@keyword_loc, @do_keyword_loc, @closing_loc, @predicate, @statements]
+        def fields = [@until_keyword_loc, @do_keyword_loc, @end_keyword_loc, @predicate, @statements]
       end
 
       refine WhenNode do
-        def keyword_loc = @keyword_loc
+        def when_keyword_loc = @when_keyword_loc
 
         def then_keyword_loc = @then_keyword_loc
 
-        def keyword_loc=(keyword_loc)
-          @keyword_loc = keyword_loc
+        def when_keyword_loc=(when_keyword_loc)
+          @when_keyword_loc = when_keyword_loc
         end
 
         def conditions=(conditions)
@@ -3135,26 +3173,26 @@ module Prism
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@keyword_loc, @conditions, @then_keyword_loc, @statements]
+        def fields = [@when_keyword_loc, @conditions, @then_keyword_loc, @statements]
       end
 
       refine WhileNode do
-        def keyword_loc = @keyword_loc
+        def while_keyword_loc = @while_keyword_loc
 
         def do_keyword_loc = @do_keyword_loc
 
-        def closing_loc = @closing_loc
+        def end_keyword_loc = @end_keyword_loc
 
-        def keyword_loc=(keyword_loc)
-          @keyword_loc = keyword_loc
+        def while_keyword_loc=(while_keyword_loc)
+          @while_keyword_loc = while_keyword_loc
         end
 
         def do_keyword_loc=(do_keyword_loc)
           @do_keyword_loc = do_keyword_loc
         end
 
-        def closing_loc=(closing_loc)
-          @closing_loc = closing_loc
+        def end_keyword_loc=(end_keyword_loc)
+          @end_keyword_loc = end_keyword_loc
         end
 
         def predicate=(predicate)
@@ -3166,7 +3204,7 @@ module Prism
         end
 
         # The fields in the constructor's order, raw.
-        def fields = [@keyword_loc, @do_keyword_loc, @closing_loc, @predicate, @statements]
+        def fields = [@while_keyword_loc, @do_keyword_loc, @end_keyword_loc, @predicate, @statements]
       end
 
       refine XStringNode do

@@ -136,11 +136,21 @@ module Prism
 
           finish = cursor
           indicator = true
+        else
+          # Any other magic comment is `key: value`, so it has a colon. Its
+          # key starts after the leading whitespace, and the loop below
+          # skips no delimiter before it: `#: x` has an empty key.
+          colon = @source.byteindex(":", start)
+          return false if colon.nil? || colon >= finish
+
+          start += 1 while start < finish && whitespace?(@source.getbyte(start))
         end
 
         cursor = start
         while cursor < finish
-          cursor += 1 while cursor < finish && (magic_comment_key_delimiter?(@source.getbyte(cursor)) || whitespace?(@source.getbyte(cursor)))
+          if indicator
+            cursor += 1 while cursor < finish && (magic_comment_key_delimiter?(@source.getbyte(cursor)) || whitespace?(@source.getbyte(cursor)))
+          end
 
           key_start = cursor
           cursor += 1 while cursor < finish && !magic_comment_key_delimiter?(@source.getbyte(cursor)) && !whitespace?(@source.getbyte(cursor))

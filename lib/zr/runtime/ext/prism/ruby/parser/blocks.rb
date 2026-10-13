@@ -22,7 +22,7 @@ module Prism
       PARAMETERS_ORDERING = Hash.new(PARAMETERS_NO_CHANGE).merge!(
         UAMPERSAND: PARAMETERS_ORDER_NOTHING_AFTER, AMPERSAND: PARAMETERS_ORDER_NOTHING_AFTER,
         UDOT_DOT_DOT: PARAMETERS_ORDER_NOTHING_AFTER, IDENTIFIER: PARAMETERS_ORDER_NAMED,
-        PARENTHESIS_LEFT: PARAMETERS_ORDER_NAMED, EQUAL: PARAMETERS_ORDER_OPTIONAL, LABEL: PARAMETERS_ORDER_KEYWORDS,
+        PARENTHESIS_LEFT_GROUPING: PARAMETERS_ORDER_NAMED, EQUAL: PARAMETERS_ORDER_OPTIONAL, LABEL: PARAMETERS_ORDER_KEYWORDS,
         USTAR: PARAMETERS_ORDER_AFTER_OPTIONAL, STAR: PARAMETERS_ORDER_AFTER_OPTIONAL,
         USTAR_STAR: PARAMETERS_ORDER_KEYWORDS_REST, STAR_STAR: PARAMETERS_ORDER_KEYWORDS_REST
       ).freeze
@@ -38,7 +38,7 @@ module Prism
       # parse_required_destructured_parameter: `(a, *b, (c, d))` among
       # parameters.
       def parse_required_destructured_parameter
-        expect(:PARENTHESIS_LEFT, :expect_lparen_req_parameter)
+        expect(:PARENTHESIS_LEFT_GROUPING, :expect_lparen_req_parameter)
 
         node = multi_target_node
         multi_target_node_opening_set(node, previous_token)
@@ -51,7 +51,7 @@ module Prism
             break
           end
 
-          if @current_type == :PARENTHESIS_LEFT
+          if @current_type == :PARENTHESIS_LEFT_GROUPING
             param = parse_required_destructured_parameter
           elsif accept(:USTAR)
             star = previous_token
@@ -110,10 +110,32 @@ module Prism
         [[state, current].min, true]
       end
 
+      # parse_parameters_handle_trailing_comma: a comma after the last
+      # parameter. In a block it stands for an implicit rest after a named
+      # parameter; from 4.1 (Feature #19107) a method may end its parameters
+      # with one, but not after `...`.
+      def parse_parameters_handle_trailing_comma(params, order, in_block, allows_trailing_comma)
+        return err_previous(:parameter_wild_loose_comma) unless allows_trailing_comma
+
+        if in_block
+          return err_previous(:parameter_wild_loose_comma) unless order >= PARAMETERS_ORDER_NAMED
+
+          param = implicit_rest_node(previous_token)
+          if params.rest.nil?
+            parameters_node_rest_set(params, param)
+          else
+            err_node(param, :parameter_splat_multi)
+            parameters_node_posts_append(params, param)
+          end
+        elsif @version < Options::VERSION_CRUBY_4_1 || order == PARAMETERS_ORDER_NOTHING_AFTER
+          err_previous(:parameter_wild_loose_comma)
+        end
+      end
+
       # parse_parameters: a method's, block's or lambda's parameters; nil
       # when there are none.
       def parse_parameters(binding_power, uses_parentheses, allows_trailing_comma, allows_forwarding_parameters,
-                           accepts_blocks_in_defaults, in_block, depth)
+                           accepts_blocks_in_defaults, in_block, diag_id_forwarding, depth)
         do_loop_stack_push(false)
 
         params = parameters_node
@@ -123,7 +145,7 @@ module Prism
           parsing = true
 
           case @current_type
-          when :PARENTHESIS_LEFT
+          when :PARENTHESIS_LEFT_GROUPING
             order, = update_parameter_state(current_token, order)
             param = parse_required_destructured_parameter
 
@@ -137,26 +159,32 @@ module Prism
             lex
 
             operator = previous_token
-            repeated = false
-            if accept(:IDENTIFIER)
-              name = previous_token
-              repeated = parameter_name_check(name)
-              local_add_token(name, 1)
+            if @version >= Options::VERSION_CRUBY_4_1 && accept(:KEYWORD_NIL)
+              # &nil: the method takes no block.
+              param = no_block_parameter_node(operator, previous_token)
             else
-              name = NOT_PROVIDED
-              @current_scope.parameters |= Scope::FORWARDING_BLOCK
+              repeated = false
+              if accept(:IDENTIFIER)
+                name = previous_token
+                repeated = parameter_name_check(name)
+                local_add_token(name, 1)
+              else
+                name = NOT_PROVIDED
+                @current_scope.parameters |= Scope::FORWARDING_BLOCK
+              end
+
+              param = block_parameter_node(name, operator)
+              flag_repeated_parameter(param) if repeated
             end
 
-            param = block_parameter_node(name, operator)
-            flag_repeated_parameter(param) if repeated
             if params.block.nil?
               parameters_node_block_set(params, param)
             else
               err_node(param, :parameter_block_multi)
-              parameters_node_posts_append(params, param)
+              parameters_node_posts_append(params, error_recovery_node_unexpected(param))
             end
           when :UDOT_DOT_DOT
-            err_current(:argument_no_forwarding_ellipses) unless allows_forwarding_parameters
+            err_current(diag_id_forwarding) unless allows_forwarding_parameters
 
             order, succeeded = update_parameter_state(current_token, order)
             lex
@@ -167,7 +195,7 @@ module Prism
             if params.keyword_rest
               # The forwarding takes the keyword rest's place, which moves to
               # the posts.
-              parameters_node_posts_append(params, params.keyword_rest)
+              parameters_node_posts_append(params, error_recovery_node_unexpected(params.keyword_rest))
               err_previous(:parameter_unexpected_fwd) if succeeded
               params.keyword_rest = nil
             end
@@ -196,7 +224,7 @@ module Prism
               reads = before_3_4? ? @current_scope.locals.reads(name_id) : 0
 
               accepts_block_stack_push(true) if accepts_blocks_in_defaults
-              value = parse_value_expression(binding_power, false, false, :parameter_no_default, depth + 1)
+              value = parse_value_expression(binding_power, ACCEPTS_DO_BLOCK, :parameter_no_default, depth + 1)
               accepts_block_stack_pop if accepts_blocks_in_defaults
 
               param = optional_parameter_node(name, operator, value)
@@ -265,7 +293,7 @@ module Prism
                 reads = before_3_4? ? @current_scope.locals.reads(name_id) : 0
 
                 accepts_block_stack_push(true) if accepts_blocks_in_defaults
-                value = parse_value_expression(binding_power, false, false, :parameter_no_default_kw, depth + 1)
+                value = parse_value_expression(binding_power, ACCEPTS_DO_BLOCK, :parameter_no_default_kw, depth + 1)
                 accepts_block_stack_pop if accepts_blocks_in_defaults
 
                 if before_3_4? && @current_scope.locals.reads(name_id) != reads
@@ -341,24 +369,10 @@ module Prism
               parameters_node_keyword_rest_set(params, param)
             else
               err_node(param, :parameter_assoc_splat_multi)
-              parameters_node_posts_append(params, param)
+              parameters_node_posts_append(params, error_recovery_node_unexpected(param))
             end
           else
-            if @previous_type == :COMMA
-              if allows_trailing_comma && order >= PARAMETERS_ORDER_NAMED
-                # A trailing comma in block parameters.
-                param = implicit_rest_node(previous_token)
-
-                if params.rest.nil?
-                  parameters_node_rest_set(params, param)
-                else
-                  err_node(param, :parameter_splat_multi)
-                  parameters_node_posts_append(params, param)
-                end
-              else
-                err_previous(:parameter_wild_loose_comma)
-              end
-            end
+            parse_parameters_handle_trailing_comma(params, order, in_block, allows_trailing_comma) if @previous_type == :COMMA
 
             parsing = false
           end
@@ -455,7 +469,7 @@ module Prism
             lex
             rescue_node_operator_set(rescue_clause, previous_token)
 
-            reference = parse_expression(BINDING_POWER_INDEX, false, false, :rescue_variable, depth + 1)
+            reference = parse_expression(BINDING_POWER_INDEX, ACCEPTS_DO_BLOCK, :rescue_variable, depth + 1)
             reference = parse_target(reference, false, false)
 
             rescue_node_reference_set(rescue_clause, reference)
@@ -464,7 +478,7 @@ module Prism
           else
             if token_begins_expression?(@current_type) || @current_type == :USTAR
               loop do
-                expression = parse_starred_expression(BINDING_POWER_DEFINED, false, :rescue_expression, depth + 1)
+                expression = parse_starred_expression(BINDING_POWER_DEFINED, 0, :rescue_expression, depth + 1)
                 rescue_node_exceptions_append(rescue_clause, expression)
 
                 break if match?(:NEWLINE, :SEMICOLON, :KEYWORD_THEN)
@@ -472,7 +486,7 @@ module Prism
                 if accept(:EQUAL_GREATER)
                   rescue_node_operator_set(rescue_clause, previous_token)
 
-                  reference = parse_expression(BINDING_POWER_INDEX, false, false, :rescue_variable, depth + 1)
+                  reference = parse_expression(BINDING_POWER_INDEX, ACCEPTS_DO_BLOCK, :rescue_variable, depth + 1)
                   reference = parse_target(reference, false, false)
 
                   rescue_node_reference_set(rescue_clause, reference)
@@ -580,6 +594,8 @@ module Prism
 
         parse_rescues(opening_newline_index, opening, node, type, depth + 1)
         node.start_offset = start
+        # It ends at the current token, `end` or what stands for it.
+        node.end_offset = @current_end
 
         node
       end
@@ -591,7 +607,9 @@ module Prism
         unless @current_type == :SEMICOLON
           context_push(:block_parameters) unless is_lambda_literal
           parameters = parse_parameters(is_lambda_literal ? BINDING_POWER_DEFINED : BINDING_POWER_INDEX,
-                                        false, allows_trailing_comma, false, accepts_blocks_in_defaults, true, depth + 1)
+                                        false, allows_trailing_comma, false, accepts_blocks_in_defaults, true,
+                                        is_lambda_literal ? :argument_no_forwarding_ellipses_lambda : :argument_no_forwarding_ellipses_block,
+                                        depth + 1)
           context_pop unless is_lambda_literal
         end
 
@@ -692,12 +710,16 @@ module Prism
         nil
       end
 
-      # parse_block: a `{ }` or `do end` block, after its opening token.
+      # parse_block: a `{ }` or `do end` block, after its opening token. The
+      # lexer manages the block-accepting frame of a brace block; a `do`
+      # block pushes its own over its parameters and body, and pops it
+      # before its `end`, as parse.y's `do_body`.
       def parse_block(depth)
         opening = previous_token
         accept(:NEWLINE)
 
-        accepts_block_stack_push(true)
+        do_block = opening.type != :BRACE_LEFT && opening.type != :BRACE_LEFT_ARGUMENT
+        accepts_block_stack_push(true) if do_block
         scope_push(false)
 
         block_parameters = nil
@@ -721,39 +743,49 @@ module Prism
         accept(:NEWLINE)
         statements = nil
 
-        if opening.type == :BRACE_LEFT
-          statements = parse_statements(:block_braces, depth + 1) unless @current_type == :BRACE_RIGHT
-
-          expect_opening(:BRACE_RIGHT, :block_term_brace, opening)
-        else
+        if do_block
           unless @current_type == :KEYWORD_END
-            unless match?(:KEYWORD_RESCUE, :KEYWORD_ELSE, :KEYWORD_ENSURE)
-              accepts_block_stack_push(true)
-              statements = parse_statements(:block_keywords, depth + 1)
-              accepts_block_stack_pop
-            end
+            statements = parse_statements(:block_keywords, depth + 1) unless match?(:KEYWORD_RESCUE, :KEYWORD_ELSE, :KEYWORD_ENSURE)
 
             if match?(:KEYWORD_RESCUE, :KEYWORD_ENSURE)
               statements = parse_rescues_implicit_begin(0, nil, opening.start, statements, :block, depth + 1)
             end
           end
 
+          # The token after the block lexes in the enclosing context.
+          accepts_block_stack_pop
           expect_opening(:KEYWORD_END, :block_term_end, opening)
+        else
+          statements = parse_statements(:block_braces, depth + 1) unless @current_type == :BRACE_RIGHT
+
+          expect_opening(:BRACE_RIGHT, :block_term_brace, opening)
         end
 
         locals = locals_order(@current_scope.locals, scope_toplevel?)
         parameters = parse_blocklike_parameters(block_parameters, opening, previous_token)
 
         scope_pop
-        accepts_block_stack_pop
-
         block_node(locals, opening, parameters, statements, previous_token)
       end
 
+      # Tokens that may start a call's arguments though they begin no
+      # expression.
+      ARGUMENTS_LIST_STARTS = %i[PARENTHESIS_LEFT KEYWORD_DO KEYWORD_DO_BLOCK USTAR USTAR_STAR UAMPERSAND].freeze
+
+      # The opening delimiters whose frame the lexer has pushed when the
+      # first command argument starts with one.
+      ARGUMENT_DELIMITERS = %i[PARENTHESIS_LEFT PARENTHESIS_LEFT_GROUPING PARENTHESIS_LEFT_PARENTHESES BRACKET_LEFT
+                               BRACKET_LEFT_ARRAY].freeze
+
       # parse_arguments_list: a call's arguments, with or without
-      # parentheses, and its block; whether any were found.
-      def parse_arguments_list(arguments, accepts_block, accepts_command_call, depth)
+      # parentheses, and with `full_arguments` its block; whether any were
+      # found. `full_arguments` is false only for `yield`, whose arguments
+      # take neither a block argument nor a trailing comma.
+      def parse_arguments_list(arguments, full_arguments, flags, depth)
+        return false unless token_begins_expression?(@current_type) || match?(*ARGUMENTS_LIST_STARTS)
+
         found = false
+        parsed_command_args = false
 
         if accept(:PARENTHESIS_LEFT)
           found = true
@@ -762,8 +794,11 @@ module Prism
           if accept(:PARENTHESIS_RIGHT)
             arguments.closing_loc = previous_token.location
           else
-            accepts_block_stack_push(true)
-            parse_arguments(arguments, accepts_block, :PARENTHESIS_RIGHT, depth + 1)
+            parse_arguments(arguments, full_arguments, :PARENTHESIS_RIGHT, flags & ~ACCEPTS_DO_BLOCK, depth + 1)
+
+            if !full_arguments && @previous_type == :COMMA
+              err_previous(:expect_argument, Tokens::HUMAN.fetch(@current_type))
+            end
 
             unless accept(:PARENTHESIS_RIGHT)
               err_current(:argument_term_paren, Tokens::HUMAN.fetch(@current_type))
@@ -771,33 +806,47 @@ module Prism
               @previous_type = :MISSING
             end
 
-            accepts_block_stack_pop
             arguments.closing_loc = previous_token.location
           end
-        elsif accepts_command_call && (token_begins_expression?(@current_type) || match?(:USTAR, :USTAR_STAR, :UAMPERSAND)) &&
+        elsif flags.anybits?(ACCEPTS_COMMAND_CALL) && (token_begins_expression?(@current_type) || match?(:USTAR, :USTAR_STAR, :UAMPERSAND)) &&
               @current_type != :BRACE_LEFT
           found = true
-          accepts_block_stack_push(false)
+          parsed_command_args = true
 
-          # A command call's arguments.
-          parse_arguments(arguments, accepts_block, :EOF, depth + 1)
+          # The command arguments' frame accepts no block, so that a `do`
+          # after them binds to this command. As parse.y's `command_args`, it
+          # goes under the frame that the lexer pushed for a delimiter that
+          # starts the first argument.
+          lookahead_delimiter = match?(*ARGUMENT_DELIMITERS)
+          accepts_block_stack_pop if lookahead_delimiter
+          accepts_block_stack_push(false)
+          accepts_block_stack_push(true) if lookahead_delimiter
+
+          parse_arguments(arguments, full_arguments, :EOF, flags, depth + 1)
 
           # A trailing comma, unless a semicolon follows.
           if @previous_type == :COMMA && @current_type != :SEMICOLON
             err_previous(:expect_argument, Tokens::HUMAN.fetch(@current_type))
           end
 
+          # The same for the frame of a brace block after the arguments.
+          lookahead_brace = match?(:BRACE_LEFT, :BRACE_LEFT_ARGUMENT)
+          accepts_block_stack_pop if lookahead_brace
           accepts_block_stack_pop
+          accepts_block_stack_push(true) if lookahead_brace
         end
 
-        if accepts_block
+        if full_arguments
           block = nil
 
-          if accept(:BRACE_LEFT)
+          if accept(:BRACE_LEFT, :BRACE_LEFT_ARGUMENT)
             found = true
             block = parse_block(depth + 1)
             arguments_validate_block(arguments, block)
           elsif accepts_block_stack? && accept(:KEYWORD_DO)
+            found = true
+            block = parse_block(depth + 1)
+          elsif parsed_command_args && accepts_block_stack? && flags.anybits?(ACCEPTS_DO_BLOCK) && accept(:KEYWORD_DO_BLOCK)
             found = true
             block = parse_block(depth + 1)
           end
@@ -853,12 +902,13 @@ module Prism
       end
 
       # The contexts a block exit may be in (:valid), may not be in unless a
-      # while or until modifier follows (:invalid), or sees through.
+      # while or until modifier follows (:invalid), or sees through. END's
+      # body (:postexe) takes one only before 4.1 (#20409).
       BLOCK_EXIT_CONTEXTS = {
         block_braces: :valid, block_keywords: :valid, block_else: :valid, block_ensure: :valid,
         block_parameters: :valid, block_rescue: :valid, defined: :valid, for: :valid, lambda_braces: :valid,
         lambda_do_end: :valid, lambda_else: :valid, lambda_ensure: :valid, lambda_rescue: :valid,
-        loop_predicate: :valid, postexe: :valid, until: :valid, while: :valid,
+        loop_predicate: :valid, postexe: :postexe, until: :valid, while: :valid,
         def: :invalid, def_params: :invalid, def_else: :invalid, def_ensure: :invalid, def_rescue: :invalid,
         main: :invalid, preexe: :invalid, sclass: :invalid, sclass_else: :invalid, sclass_ensure: :invalid,
         sclass_rescue: :invalid
@@ -871,6 +921,11 @@ module Prism
         @contexts.reverse_each do |context|
           case BLOCK_EXIT_CONTEXTS[context]
           when :valid then return
+          when :postexe
+            return if @version < Options::VERSION_CRUBY_4_1
+
+            @current_block_exits << node
+            return
           when :invalid
             @current_block_exits << node
             return
@@ -918,7 +973,7 @@ module Prism
       def parse_predicate(binding_power, context, then_keyword, depth)
         context_push(:predicate)
         error_id = context == :if ? :conditional_if_predicate : :conditional_unless_predicate
-        predicate = parse_value_expression(binding_power, true, false, error_id, depth + 1)
+        predicate = parse_value_expression(binding_power, ACCEPTS_COMMAND_CALL | ACCEPTS_DO_BLOCK, error_id, depth + 1)
 
         predicate_closed = accept(:NEWLINE, :SEMICOLON)
 
@@ -941,7 +996,7 @@ module Prism
         keyword = previous_token
         then_keyword = NOT_PROVIDED
 
-        predicate, then_keyword = parse_predicate(BINDING_POWER_MODIFIER, context, then_keyword, depth + 1)
+        predicate, then_keyword = parse_predicate(BINDING_POWER_MODIFIER + 1, context, then_keyword, depth + 1)
         statements = nil
 
         unless match?(:KEYWORD_ELSIF, :KEYWORD_ELSE, :KEYWORD_END)
@@ -969,7 +1024,7 @@ module Prism
             elsif_keyword = current_token
             lex
 
-            elsif_predicate, then_keyword = parse_predicate(BINDING_POWER_MODIFIER, :elsif, then_keyword, depth + 1)
+            elsif_predicate, then_keyword = parse_predicate(BINDING_POWER_MODIFIER + 1, :elsif, then_keyword, depth + 1)
             accepts_block_stack_push(true)
 
             elsif_statements = parse_statements(:elsif, depth + 1)

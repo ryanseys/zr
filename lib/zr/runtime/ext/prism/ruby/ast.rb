@@ -10,9 +10,9 @@ module Prism
     # api_node.c's pm_ast_new: what the C extension does to each node as it
     # hands a tree to Ruby. The parser built the nodes already; left to do
     # is that strings take the encoding the tree is read in and freeze, a
-    # constant not valid in that encoding reads `:?`, and under
-    # `freeze: true` each location becomes a frozen Location and each node
-    # and list freezes.
+    # constant not valid in that encoding reads `:?`, an optional location
+    # of no length is nil, and under `freeze: true` each location becomes a
+    # frozen Location and each node and list freezes.
     class AST
       # Each node's part of the work, visible to AST alone.
       module Reify
@@ -68,6 +68,8 @@ module Prism
 
         refine ArrayNode do
           def reify(ast)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -80,6 +82,8 @@ module Prism
 
         refine ArrayPatternNode do
           def reify(ast)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -93,6 +97,7 @@ module Prism
 
         refine AssocNode do
           def reify(ast)
+            @operator_loc = nil if @operator_loc && (@operator_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -123,6 +128,8 @@ module Prism
 
         refine BeginNode do
           def reify(ast)
+            @begin_keyword_loc = nil if @begin_keyword_loc && (@begin_keyword_loc & 0xFFFF_FFFF).zero?
+            @end_keyword_loc = nil if @end_keyword_loc && (@end_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -168,6 +175,7 @@ module Prism
         refine BlockParameterNode do
           def reify(ast)
             @name = ast.constant(@name)
+            @name_loc = nil if @name_loc && (@name_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -179,6 +187,8 @@ module Prism
 
         refine BlockParametersNode do
           def reify(ast)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -203,6 +213,8 @@ module Prism
           def reify(ast)
             @read_name = ast.constant(@read_name)
             @write_name = ast.constant(@write_name)
+            @call_operator_loc = nil if @call_operator_loc && (@call_operator_loc & 0xFFFF_FFFF).zero?
+            @message_loc = nil if @message_loc && (@message_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -216,6 +228,11 @@ module Prism
         refine CallNode do
           def reify(ast)
             @name = ast.constant(@name)
+            @call_operator_loc = nil if @call_operator_loc && (@call_operator_loc & 0xFFFF_FFFF).zero?
+            @message_loc = nil if @message_loc && (@message_loc & 0xFFFF_FFFF).zero?
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
+            @equal_loc = nil if @equal_loc && (@equal_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -233,6 +250,8 @@ module Prism
             @read_name = ast.constant(@read_name)
             @write_name = ast.constant(@write_name)
             @binary_operator = ast.constant(@binary_operator)
+            @call_operator_loc = nil if @call_operator_loc && (@call_operator_loc & 0xFFFF_FFFF).zero?
+            @message_loc = nil if @message_loc && (@message_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -247,6 +266,8 @@ module Prism
           def reify(ast)
             @read_name = ast.constant(@read_name)
             @write_name = ast.constant(@write_name)
+            @call_operator_loc = nil if @call_operator_loc && (@call_operator_loc & 0xFFFF_FFFF).zero?
+            @message_loc = nil if @message_loc && (@message_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -307,6 +328,7 @@ module Prism
           def reify(ast)
             @name = ast.constant(@name)
             ast.constants(@locals)
+            @inheritance_operator_loc = nil if @inheritance_operator_loc && (@inheritance_operator_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -525,6 +547,11 @@ module Prism
           def reify(ast)
             @name = ast.constant(@name)
             ast.constants(@locals)
+            @operator_loc = nil if @operator_loc && (@operator_loc & 0xFFFF_FFFF).zero?
+            @lparen_loc = nil if @lparen_loc && (@lparen_loc & 0xFFFF_FFFF).zero?
+            @rparen_loc = nil if @rparen_loc && (@rparen_loc & 0xFFFF_FFFF).zero?
+            @equal_loc = nil if @equal_loc && (@equal_loc & 0xFFFF_FFFF).zero?
+            @end_keyword_loc = nil if @end_keyword_loc && (@end_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -542,6 +569,8 @@ module Prism
 
         refine DefinedNode do
           def reify(ast)
+            @lparen_loc = nil if @lparen_loc && (@lparen_loc & 0xFFFF_FFFF).zero?
+            @rparen_loc = nil if @rparen_loc && (@rparen_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -554,6 +583,7 @@ module Prism
 
         refine ElseNode do
           def reify(ast)
+            @end_keyword_loc = nil if @end_keyword_loc && (@end_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -595,6 +625,15 @@ module Prism
           end
         end
 
+        refine ErrorRecoveryNode do
+          def reify(ast)
+            return unless ast.freeze?
+
+            @location = ast.location(@location)
+            freeze
+          end
+        end
+
         refine FalseNode do
           def reify(ast)
             return unless ast.freeze?
@@ -606,6 +645,8 @@ module Prism
 
         refine FindPatternNode do
           def reify(ast)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -637,6 +678,7 @@ module Prism
 
         refine ForNode do
           def reify(ast)
+            @do_keyword_loc = nil if @do_keyword_loc && (@do_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -671,6 +713,7 @@ module Prism
             return unless ast.freeze?
 
             @location = ast.location(@location)
+            @keyword_loc = ast.location(@keyword_loc)
             freeze
           end
         end
@@ -758,6 +801,8 @@ module Prism
 
         refine HashPatternNode do
           def reify(ast)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -770,6 +815,9 @@ module Prism
 
         refine IfNode do
           def reify(ast)
+            @if_keyword_loc = nil if @if_keyword_loc && (@if_keyword_loc & 0xFFFF_FFFF).zero?
+            @then_keyword_loc = nil if @then_keyword_loc && (@then_keyword_loc & 0xFFFF_FFFF).zero?
+            @end_keyword_loc = nil if @end_keyword_loc && (@end_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -809,17 +857,19 @@ module Prism
 
         refine InNode do
           def reify(ast)
+            @then_keyword_loc = nil if @then_keyword_loc && (@then_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
-            @in_loc = ast.location(@in_loc)
-            @then_loc = ast.location(@then_loc) if @then_loc
+            @in_keyword_loc = ast.location(@in_keyword_loc)
+            @then_keyword_loc = ast.location(@then_keyword_loc) if @then_keyword_loc
             freeze
           end
         end
 
         refine IndexAndWriteNode do
           def reify(ast)
+            @call_operator_loc = nil if @call_operator_loc && (@call_operator_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -834,6 +884,7 @@ module Prism
         refine IndexOperatorWriteNode do
           def reify(ast)
             @binary_operator = ast.constant(@binary_operator)
+            @call_operator_loc = nil if @call_operator_loc && (@call_operator_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -847,6 +898,7 @@ module Prism
 
         refine IndexOrWriteNode do
           def reify(ast)
+            @call_operator_loc = nil if @call_operator_loc && (@call_operator_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -973,6 +1025,8 @@ module Prism
 
         refine InterpolatedStringNode do
           def reify(ast)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -985,6 +1039,8 @@ module Prism
 
         refine InterpolatedSymbolNode do
           def reify(ast)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1038,6 +1094,7 @@ module Prism
         refine KeywordRestParameterNode do
           def reify(ast)
             @name = ast.constant(@name)
+            @name_loc = nil if @name_loc && (@name_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1148,7 +1205,7 @@ module Prism
             return unless ast.freeze?
 
             @location = ast.location(@location)
-            @operator_loc = ast.location(@operator_loc)
+            @keyword_loc = ast.location(@keyword_loc)
             freeze
           end
         end
@@ -1173,15 +1230,6 @@ module Prism
           end
         end
 
-        refine MissingNode do
-          def reify(ast)
-            return unless ast.freeze?
-
-            @location = ast.location(@location)
-            freeze
-          end
-        end
-
         refine ModuleNode do
           def reify(ast)
             @name = ast.constant(@name)
@@ -1198,6 +1246,8 @@ module Prism
 
         refine MultiTargetNode do
           def reify(ast)
+            @lparen_loc = nil if @lparen_loc && (@lparen_loc & 0xFFFF_FFFF).zero?
+            @rparen_loc = nil if @rparen_loc && (@rparen_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1211,6 +1261,8 @@ module Prism
 
         refine MultiWriteNode do
           def reify(ast)
+            @lparen_loc = nil if @lparen_loc && (@lparen_loc & 0xFFFF_FFFF).zero?
+            @rparen_loc = nil if @rparen_loc && (@rparen_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1238,6 +1290,17 @@ module Prism
             return unless ast.freeze?
 
             @location = ast.location(@location)
+            freeze
+          end
+        end
+
+        refine NoBlockParameterNode do
+          def reify(ast)
+            return unless ast.freeze?
+
+            @location = ast.location(@location)
+            @operator_loc = ast.location(@operator_loc)
+            @keyword_loc = ast.location(@keyword_loc)
             freeze
           end
         end
@@ -1459,6 +1522,8 @@ module Prism
 
         refine RescueNode do
           def reify(ast)
+            @operator_loc = nil if @operator_loc && (@operator_loc & 0xFFFF_FFFF).zero?
+            @then_keyword_loc = nil if @then_keyword_loc && (@then_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1473,6 +1538,7 @@ module Prism
         refine RestParameterNode do
           def reify(ast)
             @name = ast.constant(@name)
+            @name_loc = nil if @name_loc && (@name_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1584,6 +1650,8 @@ module Prism
         refine StringNode do
           def reify(ast)
             @unescaped = ast.string(@unescaped)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1596,6 +1664,8 @@ module Prism
 
         refine SuperNode do
           def reify(ast)
+            @lparen_loc = nil if @lparen_loc && (@lparen_loc & 0xFFFF_FFFF).zero?
+            @rparen_loc = nil if @rparen_loc && (@rparen_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
@@ -1609,11 +1679,13 @@ module Prism
         refine SymbolNode do
           def reify(ast)
             @unescaped = ast.string(@unescaped)
+            @opening_loc = nil if @opening_loc && (@opening_loc & 0xFFFF_FFFF).zero?
+            @closing_loc = nil if @closing_loc && (@closing_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
+            @content_loc = ast.location(@content_loc)
             @opening_loc = ast.location(@opening_loc) if @opening_loc
-            @value_loc = ast.location(@value_loc) if @value_loc
             @closing_loc = ast.location(@closing_loc) if @closing_loc
             freeze
           end
@@ -1641,10 +1713,12 @@ module Prism
 
         refine UnlessNode do
           def reify(ast)
+            @then_keyword_loc = nil if @then_keyword_loc && (@then_keyword_loc & 0xFFFF_FFFF).zero?
+            @end_keyword_loc = nil if @end_keyword_loc && (@end_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
-            @keyword_loc = ast.location(@keyword_loc)
+            @unless_keyword_loc = ast.location(@unless_keyword_loc)
             @then_keyword_loc = ast.location(@then_keyword_loc) if @then_keyword_loc
             @end_keyword_loc = ast.location(@end_keyword_loc) if @end_keyword_loc
             freeze
@@ -1653,22 +1727,25 @@ module Prism
 
         refine UntilNode do
           def reify(ast)
+            @do_keyword_loc = nil if @do_keyword_loc && (@do_keyword_loc & 0xFFFF_FFFF).zero?
+            @end_keyword_loc = nil if @end_keyword_loc && (@end_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
-            @keyword_loc = ast.location(@keyword_loc)
+            @until_keyword_loc = ast.location(@until_keyword_loc)
             @do_keyword_loc = ast.location(@do_keyword_loc) if @do_keyword_loc
-            @closing_loc = ast.location(@closing_loc) if @closing_loc
+            @end_keyword_loc = ast.location(@end_keyword_loc) if @end_keyword_loc
             freeze
           end
         end
 
         refine WhenNode do
           def reify(ast)
+            @then_keyword_loc = nil if @then_keyword_loc && (@then_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
-            @keyword_loc = ast.location(@keyword_loc)
+            @when_keyword_loc = ast.location(@when_keyword_loc)
             @then_keyword_loc = ast.location(@then_keyword_loc) if @then_keyword_loc
             @conditions.freeze
             freeze
@@ -1677,12 +1754,14 @@ module Prism
 
         refine WhileNode do
           def reify(ast)
+            @do_keyword_loc = nil if @do_keyword_loc && (@do_keyword_loc & 0xFFFF_FFFF).zero?
+            @end_keyword_loc = nil if @end_keyword_loc && (@end_keyword_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)
-            @keyword_loc = ast.location(@keyword_loc)
+            @while_keyword_loc = ast.location(@while_keyword_loc)
             @do_keyword_loc = ast.location(@do_keyword_loc) if @do_keyword_loc
-            @closing_loc = ast.location(@closing_loc) if @closing_loc
+            @end_keyword_loc = ast.location(@end_keyword_loc) if @end_keyword_loc
             freeze
           end
         end
@@ -1702,6 +1781,8 @@ module Prism
 
         refine YieldNode do
           def reify(ast)
+            @lparen_loc = nil if @lparen_loc && (@lparen_loc & 0xFFFF_FFFF).zero?
+            @rparen_loc = nil if @rparen_loc && (@rparen_loc & 0xFFFF_FFFF).zero?
             return unless ast.freeze?
 
             @location = ast.location(@location)

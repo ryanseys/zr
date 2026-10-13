@@ -1,12 +1,12 @@
-#include <string.h>
-
 #include "prism/ast.h"
+
+#include <assert.h>
 
 /**
  * Returns a string representation of the given token type.
  */
-PRISM_EXPORTED_FUNCTION const char *
-pm_token_type_name(pm_token_type_t token_type) {
+const char *
+pm_token_type(pm_token_type_t token_type) {
     switch (token_type) {
 <%- tokens.each do |token| -%>
         case PM_TOKEN_<%= token.name %>:
@@ -27,14 +27,10 @@ pm_token_type_name(pm_token_type_t token_type) {
  * Returns the human name of the given token type.
  */
 const char *
-pm_token_type_human(pm_token_type_t token_type) {
+pm_token_str(pm_token_type_t token_type) {
     switch (token_type) {
         case PM_TOKEN_EOF:
             return "end-of-input";
-        case PM_TOKEN_MISSING:
-            return "missing token";
-        case PM_TOKEN_NOT_PROVIDED:
-            return "not provided token";
         case PM_TOKEN_AMPERSAND:
             return "'&'";
         case PM_TOKEN_AMPERSAND_AMPERSAND:
@@ -56,6 +52,10 @@ pm_token_type_human(pm_token_type_t token_type) {
         case PM_TOKEN_BANG_TILDE:
             return "'!~'";
         case PM_TOKEN_BRACE_LEFT:
+            return "'{'";
+        case PM_TOKEN_BRACE_LEFT_ARGUMENT:
+            return "'{'";
+        case PM_TOKEN_BRACE_LEFT_HASH:
             return "'{'";
         case PM_TOKEN_BRACE_RIGHT:
             return "'}'";
@@ -171,6 +171,10 @@ pm_token_type_human(pm_token_type_t token_type) {
             return "'defined?'";
         case PM_TOKEN_KEYWORD_DO:
             return "'do'";
+        case PM_TOKEN_KEYWORD_DO_BLOCK:
+            return "'do'";
+        case PM_TOKEN_KEYWORD_DO_LAMBDA:
+            return "'do'";
         case PM_TOKEN_KEYWORD_DO_LOOP:
             return "'do'";
         case PM_TOKEN_KEYWORD_ELSE:
@@ -271,9 +275,13 @@ pm_token_type_human(pm_token_type_t token_type) {
             return "'->'";
         case PM_TOKEN_NEWLINE:
             return "newline";
+        case PM_TOKEN_NEWLINE_TERMINATOR:
+            return "newline";
         case PM_TOKEN_NUMBERED_REFERENCE:
             return "numbered reference";
         case PM_TOKEN_PARENTHESIS_LEFT:
+            return "'('";
+        case PM_TOKEN_PARENTHESIS_LEFT_GROUPING:
             return "'('";
         case PM_TOKEN_PARENTHESIS_LEFT_PARENTHESES:
             return "'('";
@@ -354,7 +362,10 @@ pm_token_type_human(pm_token_type_t token_type) {
         case PM_TOKEN_USTAR_STAR:
             return "**";
         case PM_TOKEN_WORDS_SEP:
+        case PM_TOKEN_WORDS_SEP_IMPLICIT:
             return "string separator";
+        case PM_TOKEN_XSTRING_BEGIN:
+            return "backtick string literal";
         case PM_TOKEN___END__:
             return "'__END__'";
         case PM_TOKEN_MAXIMUM:
@@ -362,8 +373,8 @@ pm_token_type_human(pm_token_type_t token_type) {
             return "";
     }
 
-    // Provide a default, because some compilers can't determine that the above
-    // switch is exhaustive.
+    /* Provide a default, because some compilers cannot determine that the above
+     * switch is exhaustive. */
     assert(false && "unreachable");
     return "";
 }

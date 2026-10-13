@@ -58,6 +58,12 @@ module Prism
           @location = Location.pack(start, end_offset)
         end
 
+        # PM_NODE_START_SET_* alone: the C keeps a start and a length, so a
+        # new start keeps the length and moves the end.
+        def start_offset_keep_length=(start)
+          @location = (start << 32) | (@location & 0xFFFF_FFFF)
+        end
+
         def end_offset=(finish)
           @location = Location.pack(start_offset, finish)
         end

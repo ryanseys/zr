@@ -4,10 +4,8 @@ module Zr
   module Dev
     # Where a generator reads the C sources that zr's tables come from.
     # `RUBY_SRC` names a CRuby checkout that holds RUBY_REVISION, and
-    # `PRISM_SRC` a prism checkout that holds the tag PRISM. Neither is
+    # `PRISM_SRC` a prism checkout that holds prism_revision. Neither is
     # vendored: a table is written from them once and then committed.
-    PRISM = "v1.9.0"
-
     # `RUBY_SRC`, else tmp/ruby.
     def self.ruby_src
       return File.expand_path(ENV["RUBY_SRC"]) unless ENV["RUBY_SRC"].to_s.empty?
@@ -18,14 +16,19 @@ module Zr
     # Whether a CRuby checkout is at hand.
     def self.ruby_src? = File.directory?(ruby_src)
 
-    # `PRISM_SRC`, else a checkout in tmp/prism, else the release tree in
-    # tmp/.
+    # `PRISM_SRC`, else tmp/prism.
     def self.prism_src
-      return File.expand_path(ENV["PRISM_SRC"]) if ENV["PRISM_SRC"]
+      return File.expand_path(ENV["PRISM_SRC"]) unless ENV["PRISM_SRC"].to_s.empty?
 
-      checkout = path("tmp/prism")
-      tree = path("tmp/prism-#{PRISM.delete_prefix("v")}")
-      File.directory?(checkout) || !File.directory?(tree) ? checkout : tree
+      path("tmp/prism")
+    end
+
+    # The prism commit that ruby bundles: the fourth column of prism's row
+    # in CRuby's gems/bundled_gems at RUBY_REVISION. ruby's build makes
+    # the prism gem from that commit, and its parser is that commit's C.
+    def self.prism_revision
+      row = cruby("gems/bundled_gems").lines.find { |line| line.split.first == "prism" }
+      row&.split&.[](3) or fail!("zr-dev: ruby's gems/bundled_gems gives no git commit for prism")
     end
 
     # One CRuby source file at RUBY_REVISION.
@@ -36,21 +39,11 @@ module Zr
       git("ls-tree", "--name-only", "#{RUBY_REVISION}:#{dir}", dir: ruby_src, err: $stderr).to_s.split("\n")
     end
 
-    # One prism source file at PRISM: from a git checkout, or from a
-    # release tree of that version (`tmp/prism-1.9.0`, which the prism
-    # tests extract).
-    def self.prism(path)
-      return git_show(prism_src, PRISM, path, "PRISM_SRC") if File.exist?(File.join(prism_src, ".git"))
+    # One prism source file at prism_revision.
+    def self.prism(path) = git_show(prism_src, prism_revision, path, "PRISM_SRC")
 
-      tree = File.join(prism_src, path)
-      return File.read(tree) if File.file?(tree)
-
-      fail!("zr-dev: no #{path} in #{prism_src}; PRISM_SRC names a prism checkout or a #{PRISM} tree")
-    end
-
-    # Whether a prism source is at hand: a checkout, or a tree with its C
-    # (a gem's release tree has none).
-    def self.prism? = File.exist?(File.join(prism_src, ".git")) || File.directory?(File.join(prism_src, "src"))
+    # Whether a prism checkout is at hand.
+    def self.prism? = File.exist?(File.join(prism_src, ".git"))
 
     def self.git_show(checkout, revision, path, variable)
       unless File.directory?(checkout)

@@ -6,6 +6,15 @@ using Prism::Ruby::Mutation
 module Prism
   module Ruby
     class Parser
+      # The PM_PARSE_* flags that steer how an expression parses.
+      ACCEPTS_COMMAND_CALL = 0x1
+      ACCEPTS_LABEL = 0x2
+      ACCEPTS_DO_BLOCK = 0x4
+      IN_ENDLESS_DEF = 0x8
+      # The value of a `rescue` modifier, which CRuby parses as a statement
+      # in statement, multiple-assignment and command-call contexts.
+      ACCEPTS_STATEMENT = 0x10
+
       # pm_binding_power_t
       BINDING_POWER_UNSET = 0
       BINDING_POWER_STATEMENT = 2
@@ -291,8 +300,8 @@ module Prism
       # -- expressions ----------------------------------------------------------
 
       # parse_value_expression
-      def parse_value_expression(binding_power, accepts_command_call, accepts_label, id, depth)
-        node = parse_expression(binding_power, accepts_command_call, accepts_label, id, depth)
+      def parse_value_expression(binding_power, flags, id, depth)
+        node = parse_expression(binding_power, flags, id, depth)
         assert_value_expression(node)
         node
       end
@@ -301,7 +310,7 @@ module Prism
       # power, and the unary tokens that do, though they have one.
       NO_EXPRESSION_TOKENS = %i[
         EQUAL_GREATER KEYWORD_IN BRACE_RIGHT BRACKET_RIGHT COLON COMMA EMBEXPR_END EOF LAMBDA_BEGIN KEYWORD_DO
-        KEYWORD_DO_LOOP KEYWORD_END KEYWORD_ELSE KEYWORD_ELSIF KEYWORD_ENSURE KEYWORD_THEN KEYWORD_RESCUE
+        KEYWORD_DO_BLOCK KEYWORD_DO_LAMBDA KEYWORD_DO_LOOP KEYWORD_END KEYWORD_ELSE KEYWORD_ELSIF KEYWORD_ENSURE KEYWORD_THEN KEYWORD_RESCUE
         KEYWORD_WHEN NEWLINE PARENTHESIS_RIGHT SEMICOLON UAMPERSAND
       ].to_h { |type| [type, true] }.freeze
       UNARY_EXPRESSION_TOKENS = %i[UCOLON_COLON UMINUS UMINUS_NUM UPLUS BANG TILDE UDOT_DOT UDOT_DOT_DOT].to_h { |type| [type, true] }.freeze
@@ -315,14 +324,14 @@ module Prism
       end
 
       # parse_starred_expression
-      def parse_starred_expression(binding_power, accepts_command_call, id, depth)
+      def parse_starred_expression(binding_power, flags, id, depth)
         if accept(:USTAR)
           operator = previous_token
-          expression = parse_value_expression(binding_power, false, false, :expect_expression_after_star, depth + 1)
+          expression = parse_value_expression(binding_power, flags & ACCEPTS_DO_BLOCK, :expect_expression_after_star, depth + 1)
           return splat_node(operator, expression)
         end
 
-        parse_value_expression(binding_power, accepts_command_call, false, id, depth)
+        parse_value_expression(binding_power, flags, id, depth)
       end
 
       # pm_node_unreference: before the C frees a node, its jumps leave the
@@ -370,7 +379,7 @@ module Prism
       # Whether a call can become a local variable or attribute write: a
       # message without `!` or `?`, and no parentheses, arguments or block.
       def call_writable_target?(call)
-        return false if call.message_loc.nil?
+        return false unless loc_present?(call.message_loc)
 
         last = @source.getbyte(loc_end(call.message_loc) - 1)
         last != 0x21 && last != 0x3F && call.opening_loc.nil? && call.arguments.nil? && call.block.nil?
@@ -381,7 +390,7 @@ module Prism
       # splat, where fewer targets are.
       def parse_target(target, multiple, splat_parent)
         case target
-        when MissingNode
+        when ErrorRecoveryNode
           target
         when SourceEncodingNode, FalseNode, SourceFileNode, SourceLineNode, NilNode, SelfNode, TrueNode
           parse_unwriteable_target(target)
@@ -395,7 +404,7 @@ module Prism
           retype(target, ConstantTargetNode)
         when BackReferenceReadNode, NumberedReferenceReadNode
           err_node_content(target, :write_target_readonly)
-          target
+          error_recovery_node_unexpected(target)
         when GlobalVariableReadNode
           retype(target, GlobalVariableTargetNode)
         when LocalVariableReadNode
@@ -472,7 +481,7 @@ module Prism
       # parse_write: `target operator value` as a write node.
       def parse_write(target, operator, value)
         case target
-        when MissingNode
+        when ErrorRecoveryNode
           target
         when ClassVariableReadNode
           class_variable_write_node(target, operator, value)
@@ -590,21 +599,21 @@ module Prism
             name = nil
 
             if token_begins_expression?(@current_type)
-              name = parse_expression(binding_power, false, false, :expect_expression_after_star, depth + 1)
+              name = parse_expression(binding_power, ACCEPTS_DO_BLOCK, :expect_expression_after_star, depth + 1)
               name = parse_target(name, true, true)
             end
 
             multi_target_node_targets_append(result, splat_node(star_operator, name))
             has_rest = true
-          elsif @current_type == :PARENTHESIS_LEFT
+          elsif @current_type == :PARENTHESIS_LEFT_GROUPING
             context_push(:multi_target)
-            target = parse_expression(binding_power, false, false, :expect_expression_after_comma, depth + 1)
+            target = parse_expression(binding_power, ACCEPTS_DO_BLOCK, :expect_expression_after_comma, depth + 1)
             target = parse_target(target, true, false)
 
             multi_target_node_targets_append(result, target)
             context_pop
           elsif token_begins_expression?(@current_type)
-            target = parse_expression(binding_power, false, false, :expect_expression_after_comma, depth + 1)
+            target = parse_expression(binding_power, ACCEPTS_DO_BLOCK, :expect_expression_after_comma, depth + 1)
             target = parse_target(target, true, false)
 
             multi_target_node_targets_append(result, target)
@@ -621,7 +630,10 @@ module Prism
       # parse_targets_validate: the targets must be followed by `=` or `)`.
       def parse_targets_validate(first_target, binding_power, depth)
         result = parse_targets(first_target, binding_power, depth)
-        accept(:NEWLINE)
+
+        # A newline may come before the `)` or `=` only inside parentheses
+        # (`a, b\n= 1, 2` is not valid).
+        accept(:NEWLINE) if context?(:parens) || context?(:multi_target)
 
         err_node(result, :write_target_unexpected) unless match?(:EQUAL, :PARENTHESIS_RIGHT)
         result
@@ -639,7 +651,7 @@ module Prism
         context_push(context)
 
         loop do
-          node = parse_expression(BINDING_POWER_STATEMENT, true, false, :cannot_parse_expression, depth + 1)
+          node = parse_expression(BINDING_POWER_STATEMENT, ACCEPTS_COMMAND_CALL | ACCEPTS_DO_BLOCK, :cannot_parse_expression, depth + 1)
           statements_node_body_append(statements, node, true)
 
           # After an error, the context the recovery is for ends the list.
@@ -659,7 +671,7 @@ module Prism
 
           # An unterminated statement: skip a token that could not be parsed,
           # or report the missing terminator.
-          if node.is_a?(MissingNode)
+          if node.is_a?(ErrorRecoveryNode)
             lex
 
             if @current_type == :EOF
@@ -695,12 +707,11 @@ module Prism
             operator = previous_token
             value = nil
 
-            if @current_type == :BRACE_LEFT
-              # A hash splatted straight into this one shares its keys.
-              @current_hash_keys = literals
-              value = parse_value_expression(BINDING_POWER_DEFINED, false, false, :expect_expression_after_splat_hash, depth + 1)
-            elsif token_begins_expression?(@current_type)
-              value = parse_value_expression(BINDING_POWER_DEFINED, false, false, :expect_expression_after_splat_hash, depth + 1)
+            if token_begins_expression?(@current_type)
+              value = parse_value_expression(BINDING_POWER_DEFINED, ACCEPTS_DO_BLOCK, :expect_expression_after_splat_hash, depth + 1)
+
+              # A hash literal's keys join this hash's.
+              hash_key_static_literals_merge(literals, value, value.start_offset) if value.is_a?(HashNode)
             else
               scope_forwarding_keywords_check(operator)
             end
@@ -716,7 +727,7 @@ module Prism
 
             value = nil
             if token_begins_expression?(@current_type)
-              value = parse_value_expression(BINDING_POWER_DEFINED, false, false, :hash_expression_after_label, depth + 1)
+              value = parse_value_expression(BINDING_POWER_DEFINED, ACCEPTS_DO_BLOCK, :hash_expression_after_label, depth + 1)
             else
               # `{ foo: }` reads the value of `foo`.
               value = parse_assoc_implicit_value(label)
@@ -726,7 +737,7 @@ module Prism
 
             element = assoc_node(key, NOT_PROVIDED, value)
           else
-            key = parse_value_expression(BINDING_POWER_DEFINED, false, true, :hash_key, depth + 1)
+            key = parse_value_expression(BINDING_POWER_DEFINED, ACCEPTS_DO_BLOCK | ACCEPTS_LABEL, :hash_key, depth + 1)
 
             # A string key is frozen.
             key.flag_set(StringFlags::FROZEN | NodeFlags::STATIC_LITERAL) if key.is_a?(StringNode)
@@ -740,7 +751,7 @@ module Prism
               operator = previous_token
             end
 
-            value = parse_value_expression(BINDING_POWER_DEFINED, false, false, :hash_value, depth + 1)
+            value = parse_value_expression(BINDING_POWER_DEFINED, ACCEPTS_DO_BLOCK, :hash_value, depth + 1)
             element = assoc_node(key, operator, value)
           end
 
@@ -800,7 +811,7 @@ module Prism
 
       # parse_arguments: a call's arguments up to `terminator`, into
       # `arguments`.
-      def parse_arguments(arguments, accepts_forwarding, terminator, depth)
+      def parse_arguments(arguments, accepts_forwarding, terminator, flags, depth)
         binding_power = BINDING_POWERS[@current_type].left
 
         if match?(terminator, :EOF) ||
@@ -835,9 +846,9 @@ module Prism
 
             parse_arguments_append(arguments, argument)
 
-            flags = ArgumentsNodeFlags::CONTAINS_KEYWORDS
-            flags |= ArgumentsNodeFlags::CONTAINS_KEYWORD_SPLAT if contains_keyword_splat
-            arguments.arguments.flag_set(flags)
+            node_flags = ArgumentsNodeFlags::CONTAINS_KEYWORDS
+            node_flags |= ArgumentsNodeFlags::CONTAINS_KEYWORD_SPLAT if contains_keyword_splat
+            arguments.arguments.flag_set(node_flags)
 
             parsed_bare_hash = true
           when :UAMPERSAND
@@ -847,7 +858,7 @@ module Prism
             expression = nil
 
             if token_begins_expression?(@current_type)
-              expression = parse_value_expression(BINDING_POWER_DEFINED, false, false, :expect_argument, depth + 1)
+              expression = parse_value_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :expect_argument, depth + 1)
             else
               scope_forwarding_block_check(operator)
             end
@@ -872,7 +883,7 @@ module Prism
               argument = splat_node(operator, nil)
               err_previous(:argument_splat_after_assoc_splat) if parsed_bare_hash
             else
-              expression = parse_value_expression(BINDING_POWER_DEFINED, false, false, :expect_expression_after_splat, depth + 1)
+              expression = parse_value_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :expect_expression_after_splat, depth + 1)
               err(operator.start, expression.end_offset, :argument_splat_after_assoc_splat) if parsed_bare_hash
               argument = splat_node(operator, expression)
             end
@@ -885,7 +896,7 @@ module Prism
               if token_begins_expression?(@current_type)
                 # `...` before an expression is a beginless range.
                 operator = previous_token
-                right = parse_expression(BINDING_POWER_RANGE, false, false, :expect_expression_after_operator, depth + 1)
+                right = parse_expression(BINDING_POWER_RANGE, flags & ACCEPTS_DO_BLOCK, :expect_expression_after_operator, depth + 1)
 
                 if right.is_a?(RangeNode)
                   err(loc_start(right.operator_loc), loc_end(right.operator_loc), :unexpected_range_operator)
@@ -907,13 +918,21 @@ module Prism
           end
 
           if default
-            argument ||= parse_value_expression(BINDING_POWER_DEFINED, !parsed_first_argument, true, :expect_argument, depth + 1)
+            argument ||= parse_value_expression(BINDING_POWER_DEFINED,
+                                                (flags & ACCEPTS_DO_BLOCK) | (parsed_first_argument ? 0 : ACCEPTS_COMMAND_CALL) | ACCEPTS_LABEL,
+                                                :expect_argument, depth + 1)
 
             contains_keywords = false
             contains_keyword_splat = false
 
             if argument_allowed_for_bare_hash?(argument)
               err_previous(:argument_bare_hash) if parsed_bare_hash
+
+              # A key is an argument: a command call or a block call is none
+              # (`Foo::Bar { } => v`, `foo bar do end => v`).
+              if command_call_value?(argument) || block_call?(argument)
+                err_previous(:expect_eol_after_statement, Tokens::HUMAN.fetch(@previous_type))
+              end
 
               operator = @previous_type == :EQUAL_GREATER ? previous_token : NOT_PROVIDED
 
@@ -924,7 +943,7 @@ module Prism
               hash_key_static_literals_add(hash_keys, argument)
 
               # The value of the key already parsed.
-              value = parse_value_expression(BINDING_POWER_DEFINED, false, false, :hash_value, depth + 1)
+              value = parse_value_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :hash_value, depth + 1)
               argument = assoc_node(argument, operator, value)
 
               keyword_hash_node_elements_append(bare_hash, argument)
@@ -939,15 +958,15 @@ module Prism
 
             parse_arguments_append(arguments, argument)
 
-            flags = 0
-            flags |= ArgumentsNodeFlags::CONTAINS_KEYWORDS if contains_keywords
-            flags |= ArgumentsNodeFlags::CONTAINS_KEYWORD_SPLAT if contains_keyword_splat
-            arguments.arguments.flag_set(flags)
+            node_flags = 0
+            node_flags |= ArgumentsNodeFlags::CONTAINS_KEYWORDS if contains_keywords
+            node_flags |= ArgumentsNodeFlags::CONTAINS_KEYWORD_SPLAT if contains_keyword_splat
+            arguments.arguments.flag_set(node_flags)
           end
 
           parsed_first_argument = true
 
-          break if argument.is_a?(MissingNode) || @recovering
+          break if argument.is_a?(ErrorRecoveryNode) || @recovering
 
           # Before a specific terminator a newline is no statement end.
           accepted_newline = terminator != :EOF && accept(:NEWLINE)
@@ -967,8 +986,11 @@ module Prism
             break
           end
 
-          # A trailing comma.
-          break if @current_type == terminator
+          # A trailing comma, which may not follow `...` (`foo(...,)`).
+          if @current_type == terminator
+            err_previous(:invalid_comma) if parsed_forwarding_arguments
+            break
+          end
         end
       end
     end

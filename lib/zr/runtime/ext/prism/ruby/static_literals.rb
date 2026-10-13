@@ -7,9 +7,8 @@ module Prism
   module Ruby
     # static_literals.c: the literal hash keys and `when` values seen so far,
     # to warn about duplicates. Each kind of literal has its own table; the
-    # tables keep the C's murmur hash, size and linear probing, because a
-    # resize there places each node without probing and so can drop one,
-    # which decides which duplicates are found.
+    # tables keep the C's murmur hash, size and linear probing, which decide
+    # the order the nodes compare in.
     class StaticLiterals
       # pm_node_hash_t
       class Table
@@ -28,7 +27,13 @@ module Prism
             capacity = @capacity.zero? ? 4 : @capacity * 2
             mask = capacity - 1
             nodes = Array.new(capacity)
-            @nodes.each { |existing| nodes[@hash.(existing) & mask] = existing unless existing.nil? }
+            @nodes.each do |existing|
+              next if existing.nil?
+
+              index = @hash.(existing) & mask
+              index = (index + 1) & mask until nodes[index].nil?
+              nodes[index] = existing
+            end
             @nodes = nodes
             @capacity = capacity
           end
@@ -98,11 +103,9 @@ module Prism
             murmur_scramble(NODE_TYPE_NUMBERS.fetch(:rational_node))
         when ImaginaryNode
           static_literal_hash(node.numeric) ^ murmur_scramble(NODE_TYPE_NUMBERS.fetch(:imaginary_node))
-        when StringNode
-          flags = node.flags & (StringFlags::FORCED_BINARY_ENCODING | StringFlags::FORCED_UTF8_ENCODING)
-          murmur_hash(node.unescaped) ^ murmur_scramble(flags)
+        when StringNode, SymbolNode then murmur_hash(node.unescaped) ^ murmur_scramble(static_literal_encoding_flags(node))
         when SourceFileNode then murmur_hash(node.filepath)
-        when RegularExpressionNode, SymbolNode then murmur_hash(node.unescaped) ^ murmur_scramble(node.flags)
+        when RegularExpressionNode then murmur_hash(node.unescaped) ^ murmur_scramble(node.flags)
         end
       end
 
@@ -134,18 +137,43 @@ module Prism
         end
       end
 
-      # pm_compare_string_nodes: by length, then bytes.
-      def compare_string_nodes(left, right)
-        left = static_literal_string(left)
-        right = static_literal_string(right)
+      # node_encoding_flags: the flags that decide a string's encoding. A
+      # `\u` escape forces UTF-8 also in a UTF-8 source, where it makes the
+      # same string as the character itself, so there it does not count.
+      def static_literal_encoding_flags(node)
+        utf8 = @encoding == Encodings::UTF_8
+        case node
+        when StringNode
+          mask = StringFlags::FORCED_BINARY_ENCODING
+          mask |= StringFlags::FORCED_UTF8_ENCODING unless utf8
+          node.flags & mask
+        when SymbolNode
+          mask = SymbolFlags::FORCED_BINARY_ENCODING | SymbolFlags::FORCED_US_ASCII_ENCODING
+          mask |= SymbolFlags::FORCED_UTF8_ENCODING unless utf8
+          node.flags & mask
+        else
+          # __FILE__ resolves the same way each time in a parse.
+          0
+        end
+      end
+
+      # pm_string_compare: by length, then bytes.
+      def static_literal_bytes_compare(left, right)
         return left.bytesize <=> right.bytesize if left.bytesize != right.bytesize
 
         left.b <=> right.b
       end
 
+      # pm_compare_string_nodes: the bytes, then the encoding flags, since
+      # equal bytes of another encoding are another string.
+      def compare_string_nodes(left, right)
+        result = static_literal_bytes_compare(static_literal_string(left), static_literal_string(right))
+        result.zero? ? static_literal_encoding_flags(left) <=> static_literal_encoding_flags(right) : result
+      end
+
       # pm_compare_regular_expression_nodes
       def compare_regular_expression_nodes(left, right)
-        result = compare_string_nodes(left, right)
+        result = static_literal_bytes_compare(left.unescaped, right.unescaped)
         result.zero? ? left.flags <=> right.flags : result
       end
 
@@ -229,9 +257,28 @@ module Prism
       # at the earlier key.
       def hash_key_static_literals_add(literals, node)
         duplicated = literals.add(node, true)
-        return if duplicated.nil?
+        hash_key_duplicated_warn(duplicated, node) if duplicated
+      end
 
+      # pm_hash_key_duplicated_warn
+      def hash_key_duplicated_warn(duplicated, node)
         warn_node(duplicated, :duplicated_hash_key, static_literal_inspect(duplicated), newline_line(node.start_offset, @start_line))
+      end
+
+      # pm_hash_key_static_literals_merge: the keys of a hash literal
+      # splatted with `**` join the outer hash's, as if written in place. A
+      # pair that is all inside the splatted hash (from `boundary` on) was
+      # warned about already.
+      def hash_key_static_literals_merge(literals, hash, boundary)
+        hash.elements.each do |element|
+          case element
+          when AssocNode
+            duplicated = literals.add(element.key, true)
+            hash_key_duplicated_warn(duplicated, element.key) if duplicated && duplicated.start_offset < boundary
+          when AssocSplatNode
+            hash_key_static_literals_merge(literals, element.value, boundary) if element.value.is_a?(HashNode)
+          end
+        end
       end
 
       # pm_when_clause_static_literals_add

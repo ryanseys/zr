@@ -7,6 +7,7 @@ require "net/http"
 require "rubygems/package"
 require "shellwords"
 require "stringio"
+require "tmpdir"
 require "yaml"
 require "zlib"
 require_relative "../../../../lib/zr/library/vendor"
@@ -98,7 +99,7 @@ module Zr
         rubygems_license
         @bundled = Library::Vendor::BUNDLED.to_h { |name| [name, stock_bundled(ruby).fetch(name) { @fail.call("#{name} is not in ruby's gems/bundled_gems") }] }
         @bundled.each { |name, version| gem("bundled", name, version) }
-        Library::Ports::ALL.each { |name, port| gem("port", name, port.version) if port.vendored }
+        Library::Ports::ALL.each { |name, port| port_gem(ruby, name, port.version) if port.vendored }
         stock_ports!
         minitest_license
         prism_source
@@ -253,6 +254,51 @@ module Zr
         add(File.join(Library::Layout::SPECIFICATIONS, "#{spec.full_name}.gemspec"), spec.to_ruby)
       end
 
+      # A vendored port: its .gem, or prism as ruby's build makes it.
+      def port_gem(ruby, name, version)
+        return gem("port", name, version) unless name == "prism"
+
+        stock = stock_bundled(ruby)[name]
+        @fail.call("port prism #{version}: ruby bundles prism #{stock}") unless stock == version
+        prism_gem(version)
+      end
+
+      # prism's gem at the commit that ruby bundles (Dev.prism_revision),
+      # as ruby's build makes it: the commit's lib/ files and the files
+      # that its templates render there (templates/template.rb), and the
+      # specification that ruby's installer wrote for it.
+      def prism_gem(version)
+        revision = Dev.prism_revision
+        tree = GitTree.new(Dev.prism_src, revision, "PRISM_SRC")
+        @entries << Entry.new("port", "prism", version, "https://github.com/ruby/prism@#{revision}", nil)
+        root = Library::Layout.gem_root("prism", version)
+        excluded = Library::Vendor::GEM_EXCLUDE.fetch("prism", {})
+        files = tree.files(%w[lib]).to_h { |rel| [rel, tree.read(rel)] }.merge(prism_rendered(tree))
+        files["LICENSE.md"] = tree.read("LICENSE.md")
+        files.each { |rel, bytes| add(File.join(root, rel), bytes) unless excluded.key?(rel) }
+        spec = File.join(Gem.dir, "specifications", "prism-#{version}.gemspec")
+        @fail.call("the reference ruby has no #{spec}") unless File.file?(spec)
+        add(File.join(Library::Layout::SPECIFICATIONS, File.basename(spec)), File.binread(spec))
+      end
+
+      # The lib/ files that prism's templates render: `{ rel => bytes }`.
+      # The driver reads config.yml next to templates/, so both are written
+      # to a directory of their own, and it runs in a ruby of its own.
+      def prism_rendered(tree)
+        Dir.mktmpdir("zr-prism-") do |dir|
+          [*tree.files(%w[templates]), "config.yml"].each do |rel|
+            FileUtils.mkdir_p(File.join(dir, File.dirname(rel)))
+            File.binwrite(File.join(dir, rel), tree.read(rel))
+          end
+          Dir.glob("lib/**/*.rb.erb", base: File.join(dir, "templates")).sort.to_h do |erb|
+            rel = erb.delete_suffix(".erb")
+            out = File.join(dir, "out", rel)
+            system(RbConfig.ruby, File.join(dir, "templates/template.rb"), rel, out, exception: true)
+            [rel, File.binread(out)]
+          end
+        end
+      end
+
       # A port that is not a gem here must be the version of ruby's own
       # copy, since that copy is its Ruby half.
       def stock_ports!
@@ -275,14 +321,13 @@ module Zr
         add(File.join(Library::Layout::LICENSES, "minitest", "LICENSE"), "The license of minitest, from its README.rdoc.\n\n#{text.strip}\n")
       end
 
-      # prism's config.yml and templates, from its git tag: the gem has no
-      # templates, and `zr-dev gen prism` renders them.
+      # prism's config.yml and templates, at the commit that ruby bundles:
+      # the gem has no templates, and `zr-dev gen prism` renders them.
       def prism_source
         version = Library::Ports::ALL.fetch("prism").version
-        tag = "v#{version}"
-        @fail.call("prism #{version}: PRISM_SRC is at #{PRISM}") unless tag == PRISM
-        tree = GitTree.new(Dev.prism_src, tag, "PRISM_SRC")
-        @entries << Entry.new("source", "prism", version, "https://github.com/ruby/prism@#{tag}", nil)
+        revision = Dev.prism_revision
+        tree = GitTree.new(Dev.prism_src, revision, "PRISM_SRC")
+        @entries << Entry.new("source", "prism", version, "https://github.com/ruby/prism@#{revision}", nil)
         root = Library::Layout.source("prism", version)
         tree.files(%w[templates]).each { |path| add(File.join(root, path), tree.read(path)) }
         %w[config.yml LICENSE.md].each { |path| add(File.join(root, path), tree.read(path)) }

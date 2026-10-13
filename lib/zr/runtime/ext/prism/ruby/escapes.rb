@@ -31,8 +31,9 @@ module Prism
       def escape_hexadecimal_digit(byte) = byte <= 0x39 ? byte - 0x30 : (byte & 0x7) + 9
 
       # escape_unicode: the code point of `length` hexadecimal digits, or
-      # U+FFFD with an error for a surrogate.
-      def escape_unicode(from, length, error_start = nil, error_end = nil)
+      # U+FFFD with an error for a surrogate. In a regexp the error waits for
+      # the regexp's own check, which words it for a regexp.
+      def escape_unicode(from, length, error_start = nil, error_end = nil, flags = 0)
         value = 0
         length.times do |index|
           value <<= 4 if index != 0
@@ -40,7 +41,9 @@ module Prism
         end
 
         if value >= 0xD800 && value <= 0xDFFF
-          if error_start
+          if flags.anybits?(ESCAPE_FLAG_REGEXP)
+            # The regexp's check reports it.
+          elsif error_start
             err(error_start, error_end, :escape_invalid_unicode)
           else
             err(from, from + length, :escape_invalid_unicode)
@@ -74,10 +77,12 @@ module Prism
       end
 
       # escape_write_unicode: a \u escape past ASCII, or any in a character
-      # literal, makes the string UTF-8.
+      # literal, makes the string UTF-8. In a regexp, the regexp's own
+      # check reports a mixed or an invalid escape.
       def escape_write_unicode(buffer, flags, start, finish, value)
+        regexp = flags.anybits?(ESCAPE_FLAG_REGEXP)
         if value >= 0x80 || flags.anybits?(ESCAPE_FLAG_SINGLE)
-          if @explicit_encoding && @explicit_encoding != Encodings::UTF_8
+          if @explicit_encoding && @explicit_encoding != Encodings::UTF_8 && !regexp
             err(start, finish, :mixed_encoding, @explicit_encoding.name)
           end
           @explicit_encoding = Encodings::UTF_8
@@ -85,14 +90,15 @@ module Prism
 
         return if append_codepoint(buffer, value)
 
-        err(start, finish, :escape_invalid_unicode)
+        err(start, finish, :escape_invalid_unicode) unless regexp
         buffer << 0xEF << 0xBF << 0xBD
       end
 
       # escape_write_byte_encoded: a byte past ASCII fixes the encoding.
-      def escape_write_byte_encoded(buffer, byte)
+      def escape_write_byte_encoded(buffer, flags, byte)
         if byte >= 0x80
-          if @explicit_encoding && @explicit_encoding == Encodings::UTF_8 && @encoding != Encodings::UTF_8
+          if @explicit_encoding && @explicit_encoding == Encodings::UTF_8 && @encoding != Encodings::UTF_8 &&
+             !flags.anybits?(ESCAPE_FLAG_REGEXP)
             err_current(:mixed_encoding, @encoding.name)
           end
           @explicit_encoding = @encoding
@@ -103,7 +109,7 @@ module Prism
       # escape_write_byte: the byte, and for a regexp its \xNN spelling.
       def escape_write_byte(buffer, regexp_buffer, flags, byte)
         regexp_buffer << format("\\x%02X", byte) if flags.anybits?(ESCAPE_FLAG_REGEXP)
-        escape_write_byte_encoded(buffer, byte)
+        escape_write_byte_encoded(buffer, flags, byte)
       end
 
       # escape_write_escape_encoded: the character after the backslash as it
@@ -112,6 +118,8 @@ module Prism
         width = @encoding_changed ? @encoding.char_width(@source, @current_end, @end - @current_end) : Encodings::UTF_8.char_width(@source, @current_end, @end - @current_end)
 
         if width == 1
+          # An escaped newline still starts a line.
+          newline_append(@current_end) if @source.getbyte(@current_end) == 0x0A
           byte = escape_byte(@source.getbyte(@current_end), flags)
           @current_end += 1
           escape_write_byte(buffer, regexp_buffer, flags, byte)
@@ -150,8 +158,9 @@ module Prism
         when 0x4D then escape_read_meta(buffer, regexp_buffer, flags)
         else
           if peeked == 0x0D && peek_offset(1) == 0x0A
+            newline_append(@current_end + 1)
             @current_end += 2
-            return escape_write_byte_encoded(buffer, escape_byte(0x0A, flags))
+            return escape_write_byte_encoded(buffer, flags, escape_byte(0x0A, flags))
           end
 
           if flags.anybits?(ESCAPE_FLAG_CONTROL | ESCAPE_FLAG_META) && !ascii_printable?(peeked)
@@ -212,7 +221,7 @@ module Prism
           end
         end
 
-        escape_write_byte_encoded(buffer, value)
+        escape_write_byte_encoded(buffer, flags, value)
       end
 
       # \uNNNN and \u{N ...}
@@ -265,7 +274,7 @@ module Prism
             count += 1
             extra_codepoints_start = unicode_start if flags.anybits?(ESCAPE_FLAG_SINGLE) && count == 2
 
-            value = escape_unicode(unicode_start, length)
+            value = escape_unicode(unicode_start, length, nil, nil, flags)
             escape_write_unicode(buffer, flags, unicode_start, @current_end, value)
             @current_end += strspn_inline_whitespace(@current_end, @end)
           end
@@ -296,7 +305,7 @@ module Prism
               err(short, @current_end, :escape_invalid_unicode_short, @source.byteslice(short, 2))
             end
           elsif length == 4
-            value = escape_unicode(@current_end, 4)
+            value = escape_unicode(@current_end, 4, nil, nil, flags)
             regexp_buffer << @source.byteslice(start, @current_end + 4 - start) if regexp
             escape_write_unicode(buffer, flags, start, @current_end + 4, value)
             @current_end += 4
@@ -355,6 +364,7 @@ module Prism
             return err_current(:escape_invalid_control)
           end
 
+          newline_append(@current_end) if peeked == 0x0A
           @current_end += 1
           escape_write_byte(buffer, regexp_buffer, flags, escape_byte(peeked, flags | ESCAPE_FLAG_CONTROL))
         end
@@ -396,6 +406,7 @@ module Prism
             return err(@current_start, @current_end + width, :escape_invalid_meta)
           end
 
+          newline_append(@current_end) if peeked == 0x0A
           @current_end += 1
           escape_write_byte(buffer, regexp_buffer, flags, escape_byte(peeked, flags | ESCAPE_FLAG_META))
         end
@@ -409,6 +420,10 @@ module Prism
           @lex_state = STATE_BEG
           return :QUESTION_MARK
         end
+
+        # A character literal takes its encoding from its own contents, and
+        # it is lexed inline, with no lex mode to clear the encoding.
+        @explicit_encoding = nil
 
         if @current_end >= @end
           err_current(:incomplete_question_mark)

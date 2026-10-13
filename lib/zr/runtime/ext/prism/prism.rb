@@ -3,10 +3,9 @@
 
 require_relative "ruby"
 
-# Init_prism (extension.c) and Init_prism_pack (api_pack.c): the Prism
-# constant and the singleton methods that prism's C extension defines,
-# implemented by the Ruby port. A gem's own Ruby part then finds Prism as
-# it would after the C extension loads.
+# Init_prism (extension.c): the Prism constant and the singleton methods
+# that prism's C extension defines, implemented by the Ruby port. A gem's
+# own Ruby part then finds Prism as it would after the C extension loads.
 module Prism
   VERSION = Ruby::Dump::VERSION.join(".").b.freeze
 
@@ -34,13 +33,6 @@ module Prism
     def self.local?(string) = Ruby::StringQuery.local?(string)
     def self.constant?(string) = Ruby::StringQuery.constant?(string)
     def self.method_name?(string) = Ruby::StringQuery.method_name?(string)
-  end
-
-  module Pack
-    class Directive; end
-    class Format; end
-
-    def self.parse(version, variant, source) = Ruby::Pack.parse(version, variant, source)
   end
 
   # prism's C extension has its parser in C, so its Prism has no Ruby. The

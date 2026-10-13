@@ -162,21 +162,13 @@ junk"), 5]
     end
   end
 
-  # Prism::Pack.parse and Prism::StringQuery's native halves.
-  def test_pack_and_string_query_match_c_extension
-    random = Random.new(5)
-    letters = "CSLQJcsljqIinNvVUwDdFfEeGgAaZBbHhuMmPp@Xx%K _!<>*0123456789#\n".chars
-    templates = Array.new(2000) { Array.new(random.rand(0..8)) { letters.sample(random: random) }.join }
-    templates += ["", "C18446744073709551615", "C18446744073709551616", "C18446744073709551619", nil, 5]
-    failures = templates.product(%i[pack unpack]).filter_map do |template, variant|
-      why = PrismDiff.call_difference(Prism::Pack, Prism.const_get(:Ruby)::Pack) { |pack| pack.parse(:v3_2_0, variant, template) }
-      "Pack.parse #{variant} #{template.inspect}: #{why}" if why
-    end
+  # Prism::StringQuery's native half.
+  def test_string_query_matches_c_extension
     names = ["foo", "Foo", "foo?", "foo!", "foo=", "_1", "_0", "_12", "", "[]", "[]=", "<=>", "!", "a b", "é", "É", "Ωmega", "foo?x", "a
 end
 "]
     encodings = [Encoding::UTF_8, Encoding::BINARY, Encoding::US_ASCII, Encoding::Shift_JIS, Encoding::EUC_JP, Encoding::UTF_16LE]
-    failures += names.product(encodings, %i[local? constant? method_name?]).filter_map do |name, encoding, method|
+    failures = names.product(encodings, %i[local? constant? method_name?]).filter_map do |name, encoding, method|
       string = name.dup.force_encoding(encoding)
       why = PrismDiff.call_difference(Prism::StringQuery, Prism.const_get(:Ruby)::StringQuery) { |query| query.public_send(method, string) }
       "StringQuery.#{method} #{string.inspect}: #{why}" if why

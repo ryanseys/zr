@@ -34,7 +34,8 @@ module Prism
 
     # pm_lex_mode_t: the mode and whichever of its fields that mode reads.
     LexMode = Struct.new(:mode, :nesting, :interpolation, :label_allowed, :incrementor, :terminator, :breakpoints,
-                         :ident_start, :ident_length, :quote, :indent, :next_start, :common_whitespace, :line_continuation)
+                         :ident_start, :ident_length, :quote, :indent, :next_start, :common_whitespace, :line_continuation,
+                         :started, :separated)
 
     # pm_parser_t and prism.c's functions over it. The class is reopened by
     # one file per part of prism.c (lexer.rb, escapes.rb, and the parser's
@@ -75,8 +76,23 @@ module Prism
       # PM_TAB_WHITESPACE_SIZE
       TAB_WHITESPACE_SIZE = 8
 
+      # pm_parse_err_is_fatal: the errors that no more input can make valid,
+      # unless they reach the end of the source.
+      FATAL_ERRORS = %i[
+        array_expression_after_star begin_upcase_brace class_variable_bare end_upcase_brace
+        escape_invalid_hexadecimal escape_invalid_unicode_list escape_invalid_unicode_short
+        expression_not_writable expression_not_writable_self float_parse global_variable_bare hash_key
+        heredoc_identifier instance_variable_bare invalid_block_exit invalid_encoding_magic_comment
+        invalid_float_exponent invalid_number_binary invalid_number_decimal invalid_number_hexadecimal
+        invalid_number_octal invalid_number_underscore_trailing no_local_variable parameter_order
+        statement_undef void_expression
+      ].to_h { |id| [id, true] }.freeze
+
+      # The errors of a token that does not belong where it is.
+      STRAY_ERRORS = { unexpected_token_ignore: true, unexpected_token_close_context: true }.freeze
+
       attr_reader :source, :errors, :warnings, :comments, :magic_comments, :data_loc, :newlines,
-                  :constant_pool, :encoding, :start_line, :options, :shared_strings, :negative_zeros
+                  :constant_pool, :encoding, :start_line, :options, :shared_strings, :negative_zeros, :filepath
 
       # The Source that each node refers to.
       attr_accessor :node_source
@@ -121,16 +137,18 @@ module Prism
         @errors = []
         @current_scope = nil
         @contexts = []
-        @current_hash_keys = nil
         @encoding = Encodings::UTF_8
         @encoding_comment_start = 0
         @lex_callback = nil
         @encoding_changed_callback = nil
         @filepath = (options.filepath || "").b
-        @constant_pool = ConstantPool.new(@source, [@end / 95, 4].max)
+        @constant_pool = ConstantPool.new(@source, [@end / 120, 4].max)
+        @constant_cache_start = @constant_cache_end = @constant_cache_id = nil
         # pm_newline_list_t: the offset each line starts at.
         @newlines = [0]
         @integer_base = 0
+        @integer_lexed = false
+        @integer_value = 0
         @current_string = nil
         @start_line = 1
         @explicit_encoding = nil
@@ -147,7 +165,6 @@ module Prism
         @pattern_matching_newlines = false
         @in_keyword_arg = false
         @semantic_token_seen = false
-        @current_regular_expression_ascii_only = false
         @warn_mismatched_indentation = true
 
         @node_source = nil
@@ -163,10 +180,6 @@ module Prism
         find_shebang(options)
         @encoding_comment_start += strspn_inline_whitespace(@encoding_comment_start, @end)
       end
-
-      # Whether a lex mode other than the default one is open (the lex mode
-      # stack's index past 0).
-      def lex_mode_nested? = @lex_modes.size > 1
 
       def current_token = Token.new(@current_type, @current_start, @current_end)
       def previous_token = Token.new(@previous_type, @previous_start, @previous_end)
@@ -413,6 +426,21 @@ module Prism
       def do_loop_stack_pop = @do_loop_stack >>= 1
       def do_loop_stack? = @do_loop_stack.anybits?(1)
 
+      # pm_enclosure_frame_push: an opening delimiter (`(`, `[`, `{` or `#{`)
+      # makes a `do` inside it neither a loop's `do` nor one that binds to
+      # an enclosing command, as parse.y's COND_PUSH(0) and CMDARG_PUSH(0).
+      # The lexer pushes the frame at the delimiter and pops it at its
+      # closer.
+      def enclosure_frame_push
+        do_loop_stack_push(false)
+        accepts_block_stack_push(true)
+      end
+
+      def enclosure_frame_pop
+        do_loop_stack_pop
+        accepts_block_stack_pop
+      end
+
       # -- scopes and locals ------------------------------------------------------
 
       # pm_parser_scope_push
@@ -425,8 +453,16 @@ module Prism
         @current_scope = @current_scope.previous
       end
 
-      # pm_parser_constant_id_location
-      def constant_id_location(start, finish) = @constant_pool.insert_shared(start, finish - start)
+      # pm_parser_constant_id_raw: the id of the source's bytes. A lookup of
+      # the range just looked up reuses its id with no insert, so it does
+      # not grow the pool.
+      def constant_id_location(start, finish)
+        return @constant_cache_id if start == @constant_cache_start && finish == @constant_cache_end
+
+        @constant_cache_start = start
+        @constant_cache_end = finish
+        @constant_cache_id = @constant_pool.insert_shared(start, finish - start)
+      end
 
       # pm_parser_constant_id_owned
       def constant_id_owned(bytes) = @constant_pool.insert_owned(bytes)

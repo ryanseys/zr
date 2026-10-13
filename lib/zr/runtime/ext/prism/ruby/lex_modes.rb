@@ -58,7 +58,6 @@ module Prism
       # pm_token_buffer_copy: the buffer is the token's string.
       def token_buffer_copy(buffer)
         @current_string = owned_string(buffer.bytes)
-        @current_regular_expression_ascii_only = buffer.regexp_bytes.ascii_only? if buffer.regexp?
       end
 
       # pm_token_buffer_flush: the token's string, a slice of the source when
@@ -66,7 +65,6 @@ module Prism
       def token_buffer_flush(buffer)
         if buffer.cursor.nil?
           @current_string = shared_string(@current_start, @current_end)
-          @current_regular_expression_ascii_only = @current_string.ascii_only? if buffer.regexp?
         else
           buffer.append(@source, buffer.cursor, @current_end)
           token_buffer_copy(buffer)
@@ -148,7 +146,7 @@ module Prism
           lex_mode_push(LexMode.new(:embexpr))
           @current_end = pound + 2
           @command_start = true
-          do_loop_stack_push(false)
+          enclosure_frame_push
           return :EMBEXPR_BEGIN
         end
 
@@ -178,10 +176,14 @@ module Prism
         end
         @current_start = @current_end
 
+        mode = @lex_mode
         whitespace =
           if @heredoc_end
             inline = strspn_inline_whitespace(@current_end, @end)
             peek_offset(inline) == 0x0A ? inline + 1 : inline
+          elsif mode.terminator == 0x0A
+            # A newline delimiter ends the list; it separates no words.
+            strspn_inline_whitespace(@current_end, @end)
           else
             strspn_whitespace_newlines(@current_end, @end)
           end
@@ -189,12 +191,22 @@ module Prism
         if whitespace > 0
           @current_end += whitespace
           flush_heredoc_end if peek_offset(-1) == 0x0A
+          mode.started = true
+          mode.separated = true
           return lex_token(:WORDS_SEP)
         end
 
         return lex_token(:EOF) if @current_end >= @end
 
-        mode = @lex_mode
+        # A list that starts with no whitespace still has a separator after
+        # its opener; it goes to the lex callback alone.
+        unless mode.started
+          mode.started = true
+          mode.separated = true
+          @current_type = :WORDS_SEP_IMPLICIT
+          lex_callback
+        end
+
         breakpoints = mode.breakpoints
         breakpoint = strpbrk(@current_end, breakpoints, true)
         buffer = TokenBuffer.new
@@ -202,8 +214,12 @@ module Prism
         while breakpoint
           byte = @source.getbyte(breakpoint)
 
-          # Whitespace ends an element, which must have content by now.
-          return lex_content(buffer, breakpoint) if whitespace?(byte)
+          # Whitespace ends an element, which must have content by now; a
+          # newline delimiter is the terminator instead.
+          if whitespace?(byte) && byte != mode.terminator
+            mode.separated = false
+            return lex_content(buffer, breakpoint)
+          end
 
           if byte == mode.terminator
             if mode.nesting > 0
@@ -213,9 +229,23 @@ module Prism
               next
             end
 
-            return lex_content(buffer, breakpoint) if breakpoint > @current_start
+            if breakpoint > @current_start
+              mode.separated = false
+              return lex_content(buffer, breakpoint)
+            end
+
+            # So does a list that ends with no whitespace before its
+            # terminator.
+            unless mode.separated
+              mode.separated = true
+              @current_end = breakpoint
+              @current_type = :WORDS_SEP_IMPLICIT
+              lex_callback
+            end
 
             @current_end = breakpoint + 1
+            # A newline delimiter still starts a line.
+            newline_append(breakpoint) if byte == 0x0A
             lex_mode_pop
             @lex_state = STATE_END
             return lex_token(:STRING_END)
@@ -242,6 +272,7 @@ module Prism
             end
 
             token_buffer_flush(buffer) if type == :STRING_CONTENT
+            mode.separated = false
             return lex_token(type)
           else # the incrementor
             @current_end = breakpoint + 1

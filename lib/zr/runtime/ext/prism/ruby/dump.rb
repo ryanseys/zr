@@ -14,13 +14,9 @@ module Prism
     # writer takes the rest beside the result:
     #
     # * `pool`, the constant pool as the parser built it. It answers `size`,
-    #   and `each_bucket`, which yields `[id, bytes, source_offset]` for each
-    #   constant in the order of its hash table's buckets (the order the C
-    #   writes owned constants' bytes in); `source_offset` is nil for a
-    #   constant the pool owns.
-    # * `shared`, a Hash by identity from each String that is a slice of the
-    #   source to its offset there. Every other String is written as bytes
-    #   of its own.
+    #   and `each_bucket`, which yields `[id, bytes]` for each constant in
+    #   the order of its hash table's buckets (the order the C writes the
+    #   constants' bytes in).
     # * `negative_zeros`, the ids of the nodes whose integer is a negated
     #   zero (`-0`), which pm_integer_t keeps a sign for and Integer cannot.
     class Dump
@@ -37,7 +33,6 @@ module Prism
         :argument_after_block,
         :argument_after_forwarding_ellipses,
         :argument_bare_hash,
-        :argument_block_forwarding,
         :argument_block_multi,
         :argument_conflict_ampersand,
         :argument_conflict_star,
@@ -49,6 +44,8 @@ module Prism
         :argument_forwarding_unbound,
         :argument_no_forwarding_ampersand,
         :argument_no_forwarding_ellipses,
+        :argument_no_forwarding_ellipses_lambda,
+        :argument_no_forwarding_ellipses_block,
         :argument_no_forwarding_star,
         :argument_no_forwarding_star_star,
         :argument_splat_after_assoc_splat,
@@ -94,6 +91,7 @@ module Prism
         :def_endless,
         :def_endless_parameters,
         :def_endless_setter,
+        :def_endless_do_block,
         :def_name,
         :def_params_term,
         :def_params_term_paren,
@@ -127,7 +125,6 @@ module Prism
         :expect_expression_after_lparen,
         :expect_expression_after_operator,
         :expect_expression_after_pipepipeeq,
-        :expect_expression_after_question,
         :expect_expression_after_splat,
         :expect_expression_after_splat_hash,
         :expect_expression_after_star,
@@ -277,7 +274,9 @@ module Prism
         :pattern_term_paren,
         :pipepipeeq_multi_assign,
         :regexp_encoding_option_mismatch,
+        :regexp_escaped_non_ascii_in_utf8,
         :regexp_incompat_char_encoding,
+        :regexp_invalid_char_property,
         :regexp_invalid_unicode_range,
         :regexp_non_escaped_mbc,
         :regexp_parse_error,
@@ -365,17 +364,16 @@ module Prism
       WARNING_LEVELS = { default: 0, verbose: 1 }
 
       # pm_serialize_parse: the header, the content, and a closing zero.
-      def self.parse(result, encoding_name:, pool:, shared:, negative_zeros: [])
-        new(pool, shared, negative_zeros).parse(result, encoding_name)
+      def self.parse(result, encoding_name:, pool:, negative_zeros: [])
+        new(pool, negative_zeros).parse(result, encoding_name)
       end
 
-      def initialize(pool, shared, negative_zeros)
+      def initialize(pool, negative_zeros)
         @pool = pool
-        @shared = shared
         @negative_zeros = negative_zeros
         @buffer = String.new(encoding: Encoding::BINARY)
         @ids = {}
-        pool.each_bucket { |id, bytes, _| @ids[bytes.b] = id }
+        pool.each_bucket { |id, bytes| @ids[bytes.b] = id }
       end
 
       def parse(result, encoding_name)
@@ -407,19 +405,14 @@ module Prism
         constant_pool
       end
 
-      # The table of constants, eight bytes each in id order: a source
-      # offset or, with the top bit set, the offset of bytes written after
-      # the table, then the length.
+      # The table of constants, eight bytes each in id order: the offset
+      # of the constant's bytes, which follow the table, then their length.
       def constant_pool
         table = @buffer.bytesize
         @buffer << ("\0" * (@pool.size * 8))
-        @pool.each_bucket do |id, bytes, source_offset|
-          start = source_offset
-          if start.nil?
-            start = @buffer.bytesize | (1 << 31)
-            @buffer << bytes
-          end
-          @buffer[table + (id - 1) * 8, 8] = [start, bytes.bytesize].pack("L2")
+        @pool.each_bucket do |id, bytes|
+          @buffer[table + (id - 1) * 8, 8] = [@buffer.bytesize, bytes.bytesize].pack("L2")
+          @buffer << bytes
         end
       end
 
@@ -435,6 +428,7 @@ module Prism
         optional_location(result.data_loc)
         diagnostics(result.errors, ERROR_TYPES, ERROR_LEVELS)
         diagnostics(result.warnings, WARNING_TYPES, WARNING_LEVELS)
+        byte(result.continuable? ? 1 : 0)
       end
 
       # pm_serialize_comment_list
@@ -469,7 +463,6 @@ module Prism
       # pm_serialize_node
       def node(node)
         byte(NODE_TYPES.fetch(node.type))
-        offset = @buffer.bytesize
         varuint(node.node_id)
         varuint(node.start_offset)
         varuint(node.end_offset - node.start_offset)
@@ -745,7 +738,7 @@ module Prism
           optional_location(node.rparen_loc)
           optional_location(node.equal_loc)
           optional_location(node.end_keyword_loc)
-          @buffer[length_slot, 4] = [@buffer.bytesize - offset - 4].pack("L")
+          @buffer[length_slot, 4] = [@buffer.bytesize - length_slot].pack("L")
         when :defined_node
           varuint(node.__send__(:flags))
           optional_location(node.lparen_loc)
@@ -771,6 +764,9 @@ module Prism
           location(node.ensure_keyword_loc)
           optional_node(node.statements)
           location(node.end_keyword_loc)
+        when :error_recovery_node
+          varuint(node.__send__(:flags))
+          optional_node(node.unexpected)
         when :false_node
           varuint(node.__send__(:flags))
         when :find_pattern_node
@@ -804,6 +800,7 @@ module Prism
           varuint(node.__send__(:flags))
         when :forwarding_super_node
           varuint(node.__send__(:flags))
+          location(node.keyword_loc)
           optional_node(node.block)
         when :global_variable_and_write_node
           varuint(node.__send__(:flags))
@@ -868,8 +865,8 @@ module Prism
           varuint(node.__send__(:flags))
           node(node.pattern)
           optional_node(node.statements)
-          location(node.in_loc)
-          optional_location(node.then_loc)
+          location(node.in_keyword_loc)
+          optional_location(node.then_keyword_loc)
         when :index_and_write_node
           varuint(node.__send__(:flags))
           optional_node(node.receiver)
@@ -1034,7 +1031,7 @@ module Prism
           varuint(node.__send__(:flags))
           node(node.value)
           node(node.pattern)
-          location(node.operator_loc)
+          location(node.keyword_loc)
         when :match_required_node
           varuint(node.__send__(:flags))
           node(node.value)
@@ -1044,8 +1041,6 @@ module Prism
           varuint(node.__send__(:flags))
           node(node.call)
           nodes(node.targets)
-        when :missing_node
-          varuint(node.__send__(:flags))
         when :module_node
           varuint(node.__send__(:flags))
           constants(node.locals)
@@ -1076,6 +1071,10 @@ module Prism
           location(node.keyword_loc)
         when :nil_node
           varuint(node.__send__(:flags))
+        when :no_block_parameter_node
+          varuint(node.__send__(:flags))
+          location(node.operator_loc)
+          location(node.keyword_loc)
         when :no_keywords_parameter_node
           varuint(node.__send__(:flags))
           location(node.operator_loc)
@@ -1234,7 +1233,7 @@ module Prism
         when :symbol_node
           varuint(node.__send__(:flags))
           optional_location(node.opening_loc)
-          optional_location(node.value_loc)
+          location(node.content_loc)
           optional_location(node.closing_loc)
           string(node.unescaped)
         when :true_node
@@ -1245,7 +1244,7 @@ module Prism
           location(node.keyword_loc)
         when :unless_node
           varuint(node.__send__(:flags))
-          location(node.keyword_loc)
+          location(node.unless_keyword_loc)
           node(node.predicate)
           optional_location(node.then_keyword_loc)
           optional_node(node.statements)
@@ -1253,22 +1252,22 @@ module Prism
           optional_location(node.end_keyword_loc)
         when :until_node
           varuint(node.__send__(:flags))
-          location(node.keyword_loc)
+          location(node.until_keyword_loc)
           optional_location(node.do_keyword_loc)
-          optional_location(node.closing_loc)
+          optional_location(node.end_keyword_loc)
           node(node.predicate)
           optional_node(node.statements)
         when :when_node
           varuint(node.__send__(:flags))
-          location(node.keyword_loc)
+          location(node.when_keyword_loc)
           nodes(node.conditions)
           optional_location(node.then_keyword_loc)
           optional_node(node.statements)
         when :while_node
           varuint(node.__send__(:flags))
-          location(node.keyword_loc)
+          location(node.while_keyword_loc)
           optional_location(node.do_keyword_loc)
-          optional_location(node.closing_loc)
+          optional_location(node.end_keyword_loc)
           node(node.predicate)
           optional_node(node.statements)
         when :x_string_node
@@ -1338,107 +1337,108 @@ module Prism
         :embedded_statements_node => 48,
         :embedded_variable_node => 49,
         :ensure_node => 50,
-        :false_node => 51,
-        :find_pattern_node => 52,
-        :flip_flop_node => 53,
-        :float_node => 54,
-        :for_node => 55,
-        :forwarding_arguments_node => 56,
-        :forwarding_parameter_node => 57,
-        :forwarding_super_node => 58,
-        :global_variable_and_write_node => 59,
-        :global_variable_operator_write_node => 60,
-        :global_variable_or_write_node => 61,
-        :global_variable_read_node => 62,
-        :global_variable_target_node => 63,
-        :global_variable_write_node => 64,
-        :hash_node => 65,
-        :hash_pattern_node => 66,
-        :if_node => 67,
-        :imaginary_node => 68,
-        :implicit_node => 69,
-        :implicit_rest_node => 70,
-        :in_node => 71,
-        :index_and_write_node => 72,
-        :index_operator_write_node => 73,
-        :index_or_write_node => 74,
-        :index_target_node => 75,
-        :instance_variable_and_write_node => 76,
-        :instance_variable_operator_write_node => 77,
-        :instance_variable_or_write_node => 78,
-        :instance_variable_read_node => 79,
-        :instance_variable_target_node => 80,
-        :instance_variable_write_node => 81,
-        :integer_node => 82,
-        :interpolated_match_last_line_node => 83,
-        :interpolated_regular_expression_node => 84,
-        :interpolated_string_node => 85,
-        :interpolated_symbol_node => 86,
-        :interpolated_x_string_node => 87,
-        :it_local_variable_read_node => 88,
-        :it_parameters_node => 89,
-        :keyword_hash_node => 90,
-        :keyword_rest_parameter_node => 91,
-        :lambda_node => 92,
-        :local_variable_and_write_node => 93,
-        :local_variable_operator_write_node => 94,
-        :local_variable_or_write_node => 95,
-        :local_variable_read_node => 96,
-        :local_variable_target_node => 97,
-        :local_variable_write_node => 98,
-        :match_last_line_node => 99,
-        :match_predicate_node => 100,
-        :match_required_node => 101,
-        :match_write_node => 102,
-        :missing_node => 103,
+        :error_recovery_node => 51,
+        :false_node => 52,
+        :find_pattern_node => 53,
+        :flip_flop_node => 54,
+        :float_node => 55,
+        :for_node => 56,
+        :forwarding_arguments_node => 57,
+        :forwarding_parameter_node => 58,
+        :forwarding_super_node => 59,
+        :global_variable_and_write_node => 60,
+        :global_variable_operator_write_node => 61,
+        :global_variable_or_write_node => 62,
+        :global_variable_read_node => 63,
+        :global_variable_target_node => 64,
+        :global_variable_write_node => 65,
+        :hash_node => 66,
+        :hash_pattern_node => 67,
+        :if_node => 68,
+        :imaginary_node => 69,
+        :implicit_node => 70,
+        :implicit_rest_node => 71,
+        :in_node => 72,
+        :index_and_write_node => 73,
+        :index_operator_write_node => 74,
+        :index_or_write_node => 75,
+        :index_target_node => 76,
+        :instance_variable_and_write_node => 77,
+        :instance_variable_operator_write_node => 78,
+        :instance_variable_or_write_node => 79,
+        :instance_variable_read_node => 80,
+        :instance_variable_target_node => 81,
+        :instance_variable_write_node => 82,
+        :integer_node => 83,
+        :interpolated_match_last_line_node => 84,
+        :interpolated_regular_expression_node => 85,
+        :interpolated_string_node => 86,
+        :interpolated_symbol_node => 87,
+        :interpolated_x_string_node => 88,
+        :it_local_variable_read_node => 89,
+        :it_parameters_node => 90,
+        :keyword_hash_node => 91,
+        :keyword_rest_parameter_node => 92,
+        :lambda_node => 93,
+        :local_variable_and_write_node => 94,
+        :local_variable_operator_write_node => 95,
+        :local_variable_or_write_node => 96,
+        :local_variable_read_node => 97,
+        :local_variable_target_node => 98,
+        :local_variable_write_node => 99,
+        :match_last_line_node => 100,
+        :match_predicate_node => 101,
+        :match_required_node => 102,
+        :match_write_node => 103,
         :module_node => 104,
         :multi_target_node => 105,
         :multi_write_node => 106,
         :next_node => 107,
         :nil_node => 108,
-        :no_keywords_parameter_node => 109,
-        :numbered_parameters_node => 110,
-        :numbered_reference_read_node => 111,
-        :optional_keyword_parameter_node => 112,
-        :optional_parameter_node => 113,
-        :or_node => 114,
-        :parameters_node => 115,
-        :parentheses_node => 116,
-        :pinned_expression_node => 117,
-        :pinned_variable_node => 118,
-        :post_execution_node => 119,
-        :pre_execution_node => 120,
-        :program_node => 121,
-        :range_node => 122,
-        :rational_node => 123,
-        :redo_node => 124,
-        :regular_expression_node => 125,
-        :required_keyword_parameter_node => 126,
-        :required_parameter_node => 127,
-        :rescue_modifier_node => 128,
-        :rescue_node => 129,
-        :rest_parameter_node => 130,
-        :retry_node => 131,
-        :return_node => 132,
-        :self_node => 133,
-        :shareable_constant_node => 134,
-        :singleton_class_node => 135,
-        :source_encoding_node => 136,
-        :source_file_node => 137,
-        :source_line_node => 138,
-        :splat_node => 139,
-        :statements_node => 140,
-        :string_node => 141,
-        :super_node => 142,
-        :symbol_node => 143,
-        :true_node => 144,
-        :undef_node => 145,
-        :unless_node => 146,
-        :until_node => 147,
-        :when_node => 148,
-        :while_node => 149,
-        :x_string_node => 150,
-        :yield_node => 151,
+        :no_block_parameter_node => 109,
+        :no_keywords_parameter_node => 110,
+        :numbered_parameters_node => 111,
+        :numbered_reference_read_node => 112,
+        :optional_keyword_parameter_node => 113,
+        :optional_parameter_node => 114,
+        :or_node => 115,
+        :parameters_node => 116,
+        :parentheses_node => 117,
+        :pinned_expression_node => 118,
+        :pinned_variable_node => 119,
+        :post_execution_node => 120,
+        :pre_execution_node => 121,
+        :program_node => 122,
+        :range_node => 123,
+        :rational_node => 124,
+        :redo_node => 125,
+        :regular_expression_node => 126,
+        :required_keyword_parameter_node => 127,
+        :required_parameter_node => 128,
+        :rescue_modifier_node => 129,
+        :rescue_node => 130,
+        :rest_parameter_node => 131,
+        :retry_node => 132,
+        :return_node => 133,
+        :self_node => 134,
+        :shareable_constant_node => 135,
+        :singleton_class_node => 136,
+        :source_encoding_node => 137,
+        :source_file_node => 138,
+        :source_line_node => 139,
+        :splat_node => 140,
+        :statements_node => 141,
+        :string_node => 142,
+        :super_node => 143,
+        :symbol_node => 144,
+        :true_node => 145,
+        :undef_node => 146,
+        :unless_node => 147,
+        :until_node => 148,
+        :when_node => 149,
+        :while_node => 150,
+        :x_string_node => 151,
+        :yield_node => 152,
       }
 
       def optional_node(node)
@@ -1450,17 +1450,8 @@ module Prism
         nodes.each { |node| node(node) }
       end
 
-      # pm_serialize_string: a slice of the source by offset, or bytes.
-      def string(string)
-        if (offset = @shared[string])
-          byte(1)
-          varuint(offset)
-          varuint(string.bytesize)
-        else
-          byte(2)
-          embedded(string)
-        end
-      end
+      # pm_serialize_string: the string's own bytes.
+      def string(string) = embedded(string)
 
       def constant(symbol)
         varuint(@ids.fetch(symbol.name.b))
@@ -1481,8 +1472,9 @@ module Prism
         varuint(location.length)
       end
 
+      # An optional location of no length is absent.
       def optional_location(location)
-        if location.nil?
+        if location.nil? || location.length.zero?
           byte(0)
         else
           byte(1)

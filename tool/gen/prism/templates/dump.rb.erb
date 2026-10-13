@@ -7,13 +7,9 @@ module Prism
     # writer takes the rest beside the result:
     #
     # * `pool`, the constant pool as the parser built it. It answers `size`,
-    #   and `each_bucket`, which yields `[id, bytes, source_offset]` for each
-    #   constant in the order of its hash table's buckets (the order the C
-    #   writes owned constants' bytes in); `source_offset` is nil for a
-    #   constant the pool owns.
-    # * `shared`, a Hash by identity from each String that is a slice of the
-    #   source to its offset there. Every other String is written as bytes
-    #   of its own.
+    #   and `each_bucket`, which yields `[id, bytes]` for each constant in
+    #   the order of its hash table's buckets (the order the C writes the
+    #   constants' bytes in).
     # * `negative_zeros`, the ids of the nodes whose integer is a negated
     #   zero (`-0`), which pm_integer_t keeps a sign for and Integer cannot.
     class Dump
@@ -40,17 +36,16 @@ module Prism
       WARNING_LEVELS = { default: 0, verbose: 1 }
 
       # pm_serialize_parse: the header, the content, and a closing zero.
-      def self.parse(result, encoding_name:, pool:, shared:, negative_zeros: [])
-        new(pool, shared, negative_zeros).parse(result, encoding_name)
+      def self.parse(result, encoding_name:, pool:, negative_zeros: [])
+        new(pool, negative_zeros).parse(result, encoding_name)
       end
 
-      def initialize(pool, shared, negative_zeros)
+      def initialize(pool, negative_zeros)
         @pool = pool
-        @shared = shared
         @negative_zeros = negative_zeros
         @buffer = String.new(encoding: Encoding::BINARY)
         @ids = {}
-        pool.each_bucket { |id, bytes, _| @ids[bytes.b] = id }
+        pool.each_bucket { |id, bytes| @ids[bytes.b] = id }
       end
 
       def parse(result, encoding_name)
@@ -82,19 +77,14 @@ module Prism
         constant_pool
       end
 
-      # The table of constants, eight bytes each in id order: a source
-      # offset or, with the top bit set, the offset of bytes written after
-      # the table, then the length.
+      # The table of constants, eight bytes each in id order: the offset
+      # of the constant's bytes, which follow the table, then their length.
       def constant_pool
         table = @buffer.bytesize
         @buffer << ("\0" * (@pool.size * 8))
-        @pool.each_bucket do |id, bytes, source_offset|
-          start = source_offset
-          if start.nil?
-            start = @buffer.bytesize | (1 << 31)
-            @buffer << bytes
-          end
-          @buffer[table + (id - 1) * 8, 8] = [start, bytes.bytesize].pack("L2")
+        @pool.each_bucket do |id, bytes|
+          @buffer[table + (id - 1) * 8, 8] = [@buffer.bytesize, bytes.bytesize].pack("L2")
+          @buffer << bytes
         end
       end
 
@@ -110,6 +100,7 @@ module Prism
         optional_location(result.data_loc)
         diagnostics(result.errors, ERROR_TYPES, ERROR_LEVELS)
         diagnostics(result.warnings, WARNING_TYPES, WARNING_LEVELS)
+        byte(result.continuable? ? 1 : 0)
       end
 
       # pm_serialize_comment_list
@@ -144,7 +135,6 @@ module Prism
       # pm_serialize_node
       def node(node)
         byte(NODE_TYPES.fetch(node.type))
-        offset = @buffer.bytesize
         varuint(node.node_id)
         varuint(node.start_offset)
         varuint(node.end_offset - node.start_offset)
@@ -190,7 +180,7 @@ module Prism
           <%- end -%>
           <%- end -%>
           <%- if node.needs_serialized_length? -%>
-          @buffer[length_slot, 4] = [@buffer.bytesize - offset - 4].pack("L")
+          @buffer[length_slot, 4] = [@buffer.bytesize - length_slot].pack("L")
           <%- end -%>
         <%- end -%>
         end
@@ -212,17 +202,8 @@ module Prism
         nodes.each { |node| node(node) }
       end
 
-      # pm_serialize_string: a slice of the source by offset, or bytes.
-      def string(string)
-        if (offset = @shared[string])
-          byte(1)
-          varuint(offset)
-          varuint(string.bytesize)
-        else
-          byte(2)
-          embedded(string)
-        end
-      end
+      # pm_serialize_string: the string's own bytes.
+      def string(string) = embedded(string)
 
       def constant(symbol)
         varuint(@ids.fetch(symbol.name.b))
@@ -243,8 +224,9 @@ module Prism
         varuint(location.length)
       end
 
+      # An optional location of no length is absent.
       def optional_location(location)
-        if location.nil?
+        if location.nil? || location.length.zero?
           byte(0)
         else
           byte(1)

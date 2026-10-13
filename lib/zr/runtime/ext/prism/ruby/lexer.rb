@@ -24,6 +24,11 @@ module Prism
         semantic_token_seen = @semantic_token_seen
         @semantic_token_seen = true
 
+        lex_mode_dispatch(previous_command_start, semantic_token_seen)
+      end
+
+      # The lexer of the current lex mode (C's `switch_lex_modes`).
+      def lex_mode_dispatch(previous_command_start, semantic_token_seen)
         case @lex_mode.mode
         when :default, :embexpr, :embvar then lex_default(previous_command_start, semantic_token_seen)
         when :list then lex_list
@@ -55,6 +60,14 @@ module Prism
           @current_start = @current_end
 
           if @current_end >= @end
+            # A construct left open at the end closes mode by mode, so that
+            # each one cleans up (a heredoc moves next_start); only then is
+            # the EOF lexed.
+            unless @lex_mode.mode == :default
+              lex_mode_pop
+              return lex_mode_dispatch(previous_command_start, semantic_token_seen)
+            end
+
             # An EOF right after a newline is reported on the newline's line.
             @current_start -= 1 if @current_start > 0 && @source.getbyte(@current_start - 1) == 0x0A
             return lex_token(:EOF)
@@ -69,17 +82,15 @@ module Prism
               @current_end -= 1
               :EOF
             when 0x23, 0x0D, 0x0A # a comment, then the newline it ends in
-              if byte == 0x23
-                lex_comment(semantic_token_seen)
-                lexed_comment = true
-              end
+              # A comment at the end of the file has no newline to lex.
+              lexed_comment = !lex_comment(semantic_token_seen) if byte == 0x23
               case lex_newline(lexed_comment, semantic_token_seen)
               when :again
                 lexed_comment = false
                 next
               when :done then return
               end
-              # A newline after a comment was reported with the comment.
+              # A comment at the end of the file has no newline to report.
               lex_callback unless lexed_comment
               return
             when 0x2C # ,
@@ -92,7 +103,7 @@ module Prism
             when 0x29 # )
               @enclosure_nesting -= 1
               @lex_state = STATE_ENDFN
-              do_loop_stack_pop
+              enclosure_frame_pop
               :PARENTHESIS_RIGHT
             when 0x3B # ;
               @lex_state = STATE_BEG
@@ -102,7 +113,7 @@ module Prism
             when 0x5D # ]
               @enclosure_nesting -= 1
               @lex_state = STATE_END
-              do_loop_stack_pop
+              enclosure_frame_pop
               :BRACKET_RIGHT
             when 0x7B then lex_brace_left
             when 0x7D then lex_brace_right
@@ -200,6 +211,9 @@ module Prism
       end
 
       # A # comment to the end of its line, which may be a magic comment.
+      # The comment leaves out its newline, which then lexes as a token of
+      # its own: the current token is that newline. It returns whether the
+      # comment ends in a newline.
       def lex_comment(semantic_token_seen)
         ending = next_newline(@current_end)
         @current_end = ending.nil? ? @end : ending
@@ -207,15 +221,28 @@ module Prism
         comment = [:inline, @current_start, @current_end]
         @comments << comment
 
-        @current_end += 1 if ending
         @current_type = :COMMENT
         lex_callback
 
-        return if magic_comment(semantic_token_seen) || @current_start != @encoding_comment_start
-
         # A first-line comment that is no key/value magic comment may still
         # name an encoding.
-        magic_comment_encoding if @current_end - @current_start >= 10 && !@encoding_locked
+        if !magic_comment(semantic_token_seen) && @current_start == @encoding_comment_start &&
+           @current_end - @current_start >= 10 && !@encoding_locked
+          magic_comment_encoding
+        end
+        return false if ending.nil?
+
+        @current_start = ending
+        @current_end = ending + 1
+        true
+      end
+
+      # The newline that ends a construct where a newline is otherwise
+      # not significant: the lexer reports it, then gives the parser a
+      # NEWLINE.
+      def lex_newline_terminator
+        @current_type = :NEWLINE_TERMINATOR
+        lex_callback
       end
 
       # parser_lex_ignored_newline
@@ -261,7 +288,7 @@ module Prism
         case lex_state_ignored
         when :pattern
           if @pattern_matching_newlines || @in_keyword_arg
-            lex_ignored_newline unless lexed_comment
+            lex_newline_terminator unless lexed_comment
             @lex_state = STATE_BEG
             @command_start = true
             @current_type = :NEWLINE
@@ -300,17 +327,17 @@ module Prism
               return :again
             end
 
-            if @version >= Options::VERSION_CRUBY_4_0 && following && logical_operator_at?(following)
+            if @version >= Options::VERSION_CRUBY_4_0 && following && logical_operator_at?(following, next_content)
               lex_ignored_newline unless lexed_comment
               return :again
             end
           end
 
           if @source.getbyte(next_content) == 0x2E
-            # A beginless range on the next line keeps a real newline, as
-            # ripper has it.
+            # A beginless range on the next line means that this newline
+            # ends the statement, not that a method chain goes on.
             if peek_at(next_content + 1) == 0x2E
-              lex_ignored_newline unless lexed_comment
+              lex_newline_terminator unless lexed_comment
               @lex_state = STATE_BEG
               @command_start = true
               @current_type = :NEWLINE
@@ -333,12 +360,14 @@ module Prism
               return newline_operator(lexed_comment, STATE_BEG, next_content, 2, :PIPE_PIPE)
             end
 
-            if peek_at(next_content) == 0x61 && peek_at(next_content + 1) == 0x6E && peek_at(next_content + 2) == 0x64 && identifier_width(next_content + 3) == 0
+            if peek_at(next_content) == 0x61 && peek_at(next_content + 1) == 0x6E && peek_at(next_content + 2) == 0x64 &&
+               !predicate_suffix?(next_content + 3) && identifier_width(next_content + 3) == 0
               @command_start = true
               return newline_operator(lexed_comment, STATE_BEG, next_content, 3, :KEYWORD_AND)
             end
 
-            if peek_at(next_content) == 0x6F && peek_at(next_content + 1) == 0x72 && identifier_width(next_content + 2) == 0
+            if peek_at(next_content) == 0x6F && peek_at(next_content + 1) == 0x72 &&
+               !predicate_suffix?(next_content + 2) && identifier_width(next_content + 2) == 0
               @command_start = true
               return newline_operator(lexed_comment, STATE_BEG, next_content, 2, :KEYWORD_OR)
             end
@@ -353,12 +382,19 @@ module Prism
       end
 
       # `&&`, `||`, `and` or `or` at `at`, as a line may start with them.
-      def logical_operator_at?(at)
+      # `and?` and `or!` are method names, not keywords (from 4.0). After a
+      # comment, C tests the byte after the keyword's length from `guard`,
+      # the start of the next line's content, not from `at`.
+      def logical_operator_at?(at, guard)
         (peek_at(at) == 0x26 && peek_at(at + 1) == 0x26) ||
           (peek_at(at) == 0x7C && peek_at(at + 1) == 0x7C) ||
-          (peek_at(at) == 0x61 && peek_at(at + 1) == 0x6E && peek_at(at + 2) == 0x64 && identifier_width(at + 3) == 0) ||
-          (peek_at(at) == 0x6F && peek_at(at + 1) == 0x72 && identifier_width(at + 2) == 0)
+          (peek_at(at) == 0x61 && peek_at(at + 1) == 0x6E && peek_at(at + 2) == 0x64 && !predicate_suffix?(guard + 3) &&
+            identifier_width(at + 3) == 0) ||
+          (peek_at(at) == 0x6F && peek_at(at + 1) == 0x72 && !predicate_suffix?(guard + 2) && identifier_width(at + 2) == 0)
       end
+
+      # A `!` or `?` that makes a method name of a keyword.
+      def predicate_suffix?(at) = peek_at(at) == 0x21 || peek_at(at) == 0x3F
 
       # The ignored newline, then the operator that starts the next line.
       def newline_operator(lexed_comment, state, at, length, type)
@@ -371,14 +407,18 @@ module Prism
         :done
       end
 
-      # ( as a call's parentheses or a grouping's
+      # ( that groups the expression it wraps at the start of an
+      # expression, wraps a command argument after a space in argument
+      # position, or else opens an argument list
       def lex_parenthesis_left(space_seen)
-        type = :PARENTHESIS_LEFT
-        type = :PARENTHESIS_LEFT_PARENTHESES if space_seen && (lex_state_arg? || @lex_state == (STATE_END | STATE_LABEL))
+        type = if lex_state_beg? then :PARENTHESIS_LEFT_GROUPING
+               elsif space_seen && (lex_state_arg? || @lex_state == (STATE_END | STATE_LABEL)) then :PARENTHESIS_LEFT_PARENTHESES
+               else :PARENTHESIS_LEFT
+               end
 
         @enclosure_nesting += 1
         @lex_state = STATE_BEG | STATE_LABEL
-        do_loop_stack_push(false)
+        enclosure_frame_push
         type
       end
 
@@ -401,11 +441,12 @@ module Prism
         type = :BRACKET_LEFT_ARRAY if lex_state_beg? || (lex_state_arg? && (space_seen || lex_state?(STATE_LABELED)))
 
         @lex_state = STATE_BEG | STATE_LABEL
-        do_loop_stack_push(false)
+        enclosure_frame_push
         type
       end
 
-      # { as a lambda's body, a hash, or a block
+      # { as a lambda's body, a hash, a block, or a block after a
+      # parenthesized command argument
       def lex_brace_left
         type = :BRACE_LEFT
 
@@ -415,23 +456,29 @@ module Prism
           type = :LAMBDA_BEGIN
         elsif lex_state?(STATE_LABELED)
           @lex_state = STATE_BEG | STATE_LABEL
-        elsif lex_state?(STATE_ARG_ANY | STATE_END | STATE_ENDFN) || lex_state?(STATE_ENDARG)
+          type = :BRACE_LEFT_HASH
+        elsif lex_state?(STATE_ARG_ANY | STATE_END | STATE_ENDFN)
           @command_start = true
           @lex_state = STATE_BEG
+        elsif lex_state?(STATE_ENDARG)
+          @command_start = true
+          @lex_state = STATE_BEG
+          type = :BRACE_LEFT_ARGUMENT
         else
           @lex_state = STATE_BEG | STATE_LABEL
+          type = :BRACE_LEFT_HASH
         end
 
         @enclosure_nesting += 1
         @brace_nesting += 1
-        do_loop_stack_push(false)
+        enclosure_frame_push
         type
       end
 
       # } which may end an embedded expression
       def lex_brace_right
         @enclosure_nesting -= 1
-        do_loop_stack_pop
+        enclosure_frame_pop
 
         if @lex_mode.mode == :embexpr && @brace_nesting == 0
           lex_mode_pop
@@ -664,7 +711,7 @@ module Prism
         end
 
         lex_mode_push_string(true, false, 0, 0x60)
-        :BACKTICK
+        :XSTRING_BEGIN
       end
 
       # & && &&= &= &.
@@ -840,6 +887,9 @@ module Prism
         if peek == 0x22 || peek == 0x27
           lex_mode_push_string(peek == 0x22, false, 0, @source.getbyte(@current_end))
           @current_end += 1
+        else
+          # A bare symbol pushes no lex mode, which would clear the encoding.
+          @explicit_encoding = nil
         end
 
         @lex_state = STATE_FNAME
@@ -859,7 +909,8 @@ module Prism
         end
 
         if lex_state_spcarg?(space_seen)
-          warn_current(:ambiguous_slash)
+          # Ruby 4.1 no longer warns (#21994).
+          warn_current(:ambiguous_slash) if @version <= Options::VERSION_CRUBY_4_0
           lex_mode_push_regexp(0, 0x2F)
           return :REGEXP_BEGIN
         end
@@ -904,7 +955,11 @@ module Prism
           return :PERCENT_EQUAL
         elsif lex_state_beg? || (lex_state?(STATE_FITEM) && peek == 0x73) || lex_state_spcarg?(space_seen)
           if @encoding.alnum_char(@source, @current_end, @end - @current_end) == 0
-            err_current(:invalid_percent) if @source.getbyte(@current_end) >= 0x80
+            # A multibyte character that is not alphanumeric: skip the `%`.
+            if @source.getbyte(@current_end) >= 0x80
+              err_current(:invalid_percent)
+              return
+            end
 
             delimiter = lex_percent_delimiter
             lex_mode_push_string(true, false, lex_mode_incrementor(delimiter), lex_mode_terminator(delimiter))

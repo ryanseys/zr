@@ -44,6 +44,10 @@ module Prism
       def loc_start(location) = location >> 32
       def loc_end(location) = Mutation::Location.packed_end(location)
 
+      # A location of some length: the C's `length > 0`. A missing token
+      # leaves one of no length.
+      def loc_present?(location) = !location.nil? && (location & 0xFFFF_FFFF) > 0
+
       # PM_LOCATION_NULL_VALUE
       def null_location = 0
 
@@ -103,15 +107,20 @@ module Prism
 
       # -- checks on nodes --------------------------------------------------
 
+      # PM_CASE_VOID_VALUE
+      VOID_VALUE_NODES = [ReturnNode, BreakNode, NextNode, RedoNode, RetryNode, MatchRequiredNode].freeze
+
       # pm_check_value_expression: the node that makes `node` no value (a
       # return, break, next, redo, retry or `=>` match on every path), or
       # nil.
       def check_value_expression(node)
         void_node = nil
+        # Bug #21669: from 4.1, the check sees every branch.
+        thorough = @version >= Options::VERSION_CRUBY_4_1
 
         until node.nil?
           case node
-          when ReturnNode, BreakNode, NextNode, RedoNode, RetryNode, MatchRequiredNode
+          when *VOID_VALUE_NODES
             return void_node || node
           when MatchPredicateNode
             return
@@ -126,34 +135,54 @@ module Prism
 
               node = node.ensure_clause
             elsif node.rescue_clause
-              return if node.statements.nil?
+              if node.else_clause.nil? || !thorough
+                return if node.statements.nil?
 
-              value = check_value_expression(node.statements)
-              return if value.nil?
+                value = check_value_expression(node.statements)
+                return if value.nil?
 
-              void_node ||= value
+                void_node ||= value
+              end
+
               rescue_clause = node.rescue_clause
               until rescue_clause.nil?
-                value = check_value_expression(rescue_clause.statements)
-                if value.nil?
+                if check_value_expression(rescue_clause.statements).nil?
+                  return if thorough
+
                   void_node = nil
                   break
                 end
-                void_node ||= value
                 rescue_clause = rescue_clause.subsequent
               end
 
               return void_node if node.else_clause.nil?
 
               node = node.else_clause
+              if thorough && (value = check_value_expression(node))
+                return value
+              end
             else
               node = node.statements
             end
+          when CaseNode, CaseMatchNode
+            return if !thorough || node.else_clause.nil?
+
+            node.conditions.each do |condition|
+              value = check_value_expression(condition.statements)
+              return if value.nil?
+
+              void_node ||= value
+            end
+            node = node.else_clause
           when EnsureNode, ElseNode
             node = node.statements
           when ParenthesesNode
             node = node.body
           when StatementsNode
+            if thorough && (statement = node.body.find { |body_part| VOID_VALUE_NODES.include?(body_part.class) })
+              return void_node || statement
+            end
+
             node = node.body.last
           when IfNode
             return if node.statements.nil? || node.subsequent.nil?
@@ -172,7 +201,8 @@ module Prism
             void_node ||= value
             node = node.else_clause
           when AndNode, OrNode
-            node = node.left
+            # The left operand was checked when the node was made.
+            return
           when LocalVariableWriteNode
             scope = @current_scope
             node.depth.times { scope = scope.previous }
@@ -204,7 +234,7 @@ module Prism
                LocalVariableReadNode, NumberedReferenceReadNode
             "a variable"
           when CallNode
-            if node.call_operator_loc.nil? && !node.message_loc.nil?
+            if node.call_operator_loc.nil? && loc_present?(node.message_loc)
               message = @constant_pool.bytes(constant_id_of(node.name))
               message if VOID_OPERATORS.key?(message)
             end
@@ -319,13 +349,16 @@ module Prism
 
       # pm_arguments_end
       def arguments_end(arguments)
+        # A missing `)` leaves a closing location of no length.
+        closing = arguments.closing_loc if loc_present?(arguments.closing_loc)
         if arguments.block
           finish = arguments.block.end_offset
-          finish = loc_end(arguments.closing_loc) if arguments.closing_loc && loc_end(arguments.closing_loc) > finish
+          finish = loc_end(closing) if closing && loc_end(closing) > finish
           return finish
         end
-        return loc_end(arguments.closing_loc) if arguments.closing_loc
+        return loc_end(closing) if closing
         return arguments.arguments.end_offset if arguments.arguments
+        return loc_end(arguments.opening_loc) if loc_present?(arguments.opening_loc)
 
         nil
       end
@@ -333,7 +366,7 @@ module Prism
       # pm_arguments_validate_block: a brace block cannot attach to a call
       # whose arguments have no parentheses.
       def arguments_validate_block(arguments, block)
-        return if arguments.arguments.nil? || arguments.closing_loc
+        return if arguments.arguments.nil? || loc_present?(arguments.closing_loc)
         return if arguments.arguments.arguments.size == 1 && arguments.arguments.arguments[0].is_a?(ParenthesesNode)
 
         err_node(block, :argument_unexpected_block)
@@ -380,8 +413,15 @@ module Prism
 
       # -- node creation ----------------------------------------------------
 
-      # pm_missing_node_create
-      def missing_node(start, finish) = MissingNode.new(@node_source, next_node_id, loc(start, finish), 0)
+      # pm_error_recovery_node_create: a node that stands where the parser
+      # expected one and found none.
+      def error_recovery_node(start, finish) = ErrorRecoveryNode.new(@node_source, next_node_id, loc(start, finish), 0, nil)
+
+      # pm_error_recovery_node_create_unexpected: a node that stands where
+      # the parser found `unexpected`, which is not valid there.
+      def error_recovery_node_unexpected(unexpected)
+        ErrorRecoveryNode.new(@node_source, next_node_id, unexpected.location, 0, unexpected)
+      end
 
       # pm_alias_global_variable_node_create
       def alias_global_variable_node(keyword, new_name, old_name)
@@ -412,7 +452,7 @@ module Prism
 
       # pm_arguments_node_arguments_append
       def arguments_node_arguments_append(node, argument)
-        node.start_offset = argument.start_offset if node.arguments.empty?
+        node.start_offset_keep_length = argument.start_offset if node.arguments.empty?
         node.end_offset = argument.end_offset if node.end_offset < argument.end_offset
 
         node.arguments << argument
@@ -726,7 +766,7 @@ module Prism
         receiver = conditional_predicate(receiver, :not) if receiver
 
         node = call_node(receiver.nil? ? 0 : call_node_ignore_visibility_flag(receiver))
-        finish = arguments.closing_loc ? loc_end(arguments.closing_loc) : receiver.end_offset
+        finish = loc_present?(arguments.closing_loc) ? loc_end(arguments.closing_loc) : receiver.end_offset
         node.location = loc(message.start, finish)
         node.receiver = receiver
         node.message_loc = message.optional_location
@@ -782,7 +822,7 @@ module Prism
       # operator write.
       def call_node_writable?(node)
         message_loc = node.message_loc
-        return false if message_loc.nil?
+        return false unless loc_present?(message_loc)
 
         last = @source.getbyte(loc_end(message_loc) - 1)
         last != 0x21 && last != 0x3F && identifier_start_width(loc_start(message_loc)) != 0 &&
@@ -1091,7 +1131,7 @@ module Prism
       # last when there are two or more.
       def find_pattern_node(nodes)
         left = nodes.first
-        right = nodes.size == 1 ? missing_node(left.end_offset, left.end_offset) : nodes.last
+        right = nodes.size == 1 ? error_recovery_node(left.end_offset, left.end_offset) : nodes.last
 
         FindPatternNode.new(@node_source, next_node_id, loc(left.start_offset, right.end_offset), 0,
                             nil, left, nodes[1...-1] || [], right, nil, nil)
@@ -1201,7 +1241,7 @@ module Prism
       def forwarding_super_node(token, arguments)
         block = arguments.block
         location = block.nil? ? token.location : loc(token.start, block.end_offset)
-        ForwardingSuperNode.new(@node_source, next_node_id, location, 0, block)
+        ForwardingSuperNode.new(@node_source, next_node_id, location, 0, token.location, block)
       end
 
       # pm_hash_pattern_node_empty_create
@@ -1410,7 +1450,13 @@ module Prism
       # pm_integer_node_create
       def integer_node(base, token)
         node = IntegerNode.new(@node_source, next_node_id, token.location, base | NodeFlags::STATIC_LITERAL, 0)
-        node.value = integer_parse(INTEGER_BASES.fetch(base), token.start, token.end)
+        if @integer_lexed
+          # The value the lexer kept, which may be the last integer lexed.
+          node.value = @integer_value
+          @integer_lexed = false
+        else
+          node.value = integer_parse(INTEGER_BASES.fetch(base), token.start, token.end)
+        end
         node
       end
 
@@ -1511,7 +1557,7 @@ module Prism
 
       # pm_interpolated_regular_expression_node_append
       def interpolated_regular_expression_node_append(node, part)
-        node.start_offset = part.start_offset if node.start_offset > part.start_offset
+        node.start_offset_keep_length = part.start_offset if node.start_offset > part.start_offset
         node.end_offset = part.end_offset if node.end_offset < part.end_offset
 
         interpolated_node_append(node, node.parts, part)
@@ -1529,7 +1575,7 @@ module Prism
       # pm_interpolated_string_node_append: a part, and what it does to the
       # string's static literal, frozen and mutable flags.
       def interpolated_string_node_append(node, part)
-        node.start_offset = part.start_offset if node.parts.empty? && node.opening_loc.nil?
+        node.start_offset_keep_length = part.start_offset if node.parts.empty? && node.opening_loc.nil?
         node.end_offset = [node.end_offset, part.end_offset].max
 
         case part
@@ -1552,9 +1598,12 @@ module Prism
           else
             node.flag_unset(INTERPOLATED_STRING_FLAGS)
           end
-        when EmbeddedVariableNode, XStringNode, InterpolatedXStringNode, SymbolNode, InterpolatedSymbolNode
-          # The last four only after an error.
+        when EmbeddedVariableNode, ErrorRecoveryNode
           node.flag_unset(INTERPOLATED_STRING_FLAGS)
+        when XStringNode, InterpolatedXStringNode, SymbolNode, InterpolatedSymbolNode
+          # Only after an error: the part is not valid here.
+          node.flag_unset(INTERPOLATED_STRING_FLAGS)
+          return node.parts << error_recovery_node_unexpected(part)
         end
 
         node.parts << part
@@ -1598,7 +1647,7 @@ module Prism
 
       # pm_interpolated_symbol_node_append
       def interpolated_symbol_node_append(node, part)
-        node.start_offset = part.start_offset if node.parts.empty? && node.opening_loc.nil?
+        node.start_offset_keep_length = part.start_offset if node.parts.empty? && node.opening_loc.nil?
 
         interpolated_node_append(node, node.parts, part)
         node.end_offset = [node.end_offset, part.end_offset].max
@@ -1794,14 +1843,16 @@ module Prism
         if node.location.nil?
           node.location = target.location
         else
-          node.start_offset = target.start_offset if node.start_offset > target.start_offset
-          node.end_offset = target.end_offset if node.end_offset < target.end_offset
+          # A location of no length is not set yet (PM_LOCATION_INIT_UNSET).
+          unset = node.start_offset == node.end_offset
+          node.start_offset_keep_length = target.start_offset if unset || node.start_offset > target.start_offset
+          node.end_offset = target.end_offset if unset || node.end_offset < target.end_offset
         end
       end
 
-      # pm_multi_target_node_opening_set
+      # pm_multi_target_node_opening_set: the node starts as its `(`.
       def multi_target_node_opening_set(node, lparen)
-        node.location = node.location.nil? ? loc(lparen.start, lparen.start) : loc(lparen.start, node.end_offset)
+        node.location = lparen.location
         node.lparen_loc = lparen.location
       end
 
@@ -1881,12 +1932,12 @@ module Prism
 
       # pm_parameters_node_location_set
       def parameters_node_location_set(params, param)
-        if params.location.nil?
+        # A location of no length is not set yet (PM_LOCATION_INIT_UNSET).
+        if params.location.nil? || params.start_offset == params.end_offset
           params.location = param.location
         else
-          start = [params.start_offset, param.start_offset].min
-          finish = [params.end_offset, param.end_offset].max
-          params.location = loc(start, finish)
+          params.start_offset_keep_length = param.start_offset if params.start_offset > param.start_offset
+          params.end_offset = param.end_offset if params.end_offset < param.end_offset
         end
       end
 
@@ -1924,6 +1975,11 @@ module Prism
       def parameters_node_keyword_rest_set(params, param)
         parameters_node_location_set(params, param)
         params.keyword_rest = param
+      end
+
+      # pm_no_block_parameter_node_create: `&nil`.
+      def no_block_parameter_node(operator, keyword)
+        NoBlockParameterNode.new(@node_source, next_node_id, loc(operator.start, keyword.end), 0, operator.location, keyword.location)
       end
 
       # pm_parameters_node_block_set
@@ -2079,9 +2135,12 @@ module Prism
         SourceEncodingNode.new(@node_source, next_node_id, token.location, NodeFlags::STATIC_LITERAL)
       end
 
-      # pm_source_file_node_create
+      # pm_source_file_node_create: from 4.1, `__FILE__` is no static
+      # literal, as ruby reads it when the code runs.
       def source_file_node(file_keyword)
-        flags = frozen_string_literal_flags(StringFlags::MUTABLE, NodeFlags::STATIC_LITERAL | StringFlags::FROZEN)
+        frozen = StringFlags::FROZEN
+        frozen |= NodeFlags::STATIC_LITERAL if @version < Options::VERSION_CRUBY_4_1
+        flags = frozen_string_literal_flags(StringFlags::MUTABLE, frozen)
         SourceFileNode.new(@node_source, next_node_id, file_keyword.location, flags, @filepath)
       end
 
@@ -2108,7 +2167,7 @@ module Prism
       # pm_statements_node_body_update
       def statements_node_body_update(node, statement)
         if statements_node_body_length(node) == 0 || statement.start_offset < node.start_offset
-          node.start_offset = statement.start_offset
+          node.start_offset_keep_length = statement.start_offset
         end
         node.end_offset = statement.end_offset if statement.end_offset > node.end_offset
       end
@@ -2175,9 +2234,9 @@ module Prism
 
       # parse_symbol_encoding: the encoding flag of a symbol, which is
       # US-ASCII when ASCII only, or the encoding an escape fixed.
-      def symbol_encoding(location, contents, validate)
-        if @explicit_encoding
-          if @explicit_encoding == Encodings::UTF_8
+      def symbol_encoding(location, contents, validate, explicit = @explicit_encoding)
+        if explicit
+          if explicit == Encodings::UTF_8
             symbol_encoding_validate(location, contents, Encodings::UTF_8) if validate
             return SymbolFlags::FORCED_UTF8_ENCODING
           elsif @encoding == Encodings::US_ASCII
@@ -2189,56 +2248,6 @@ module Prism
           return SymbolFlags::FORCED_US_ASCII_ENCODING
         elsif validate
           symbol_encoding_validate(location, contents, @encoding)
-        end
-        0
-      end
-
-      # parse_and_validate_regular_expression_encoding_modifier
-      def regular_expression_encoding_modifier(source, ascii_only, flags, modifier, modifier_encoding)
-        if @explicit_encoding.nil?
-          return modifier == 0x6E ? RegularExpressionFlags::FORCED_US_ASCII_ENCODING : flags if ascii_only
-
-          if @encoding == Encodings::US_ASCII
-            err_token(current_token, :invalid_multibyte_char, @encoding.name)
-          elsif @encoding != modifier_encoding
-            err_token(current_token, :regexp_encoding_option_mismatch, modifier, @encoding.name)
-            err_token(current_token, :regexp_non_escaped_mbc, source) if modifier == 0x6E
-          end
-          return flags
-        end
-
-        # The C cannot yet tell hex from Unicode escapes, and checks only this.
-        if modifier != 0x75 && @explicit_encoding == Encodings::UTF_8 && @encoding != Encodings::UTF_8
-          err_token(current_token, :regexp_incompat_char_encoding, source)
-        end
-        flags
-      end
-
-      # parse_and_validate_regular_expression_encoding: the encoding flags of
-      # a regexp from its modifier, its escapes and whether it is ASCII only.
-      def regular_expression_encoding(source, ascii_only, flags)
-        if @encoding == Encodings::US_ASCII && @explicit_encoding.nil? && !ascii_only
-          err_token(current_token, :invalid_multibyte_char, @encoding.name)
-        end
-
-        if flags.anybits?(RegularExpressionFlags::ASCII_8BIT)
-          return regular_expression_encoding_modifier(source, ascii_only, flags, 0x6E, Encodings::ASCII_8BIT)
-        end
-        if flags.anybits?(RegularExpressionFlags::UTF_8)
-          return regular_expression_encoding_modifier(source, ascii_only, flags, 0x75, Encodings::UTF_8)
-        end
-        if flags.anybits?(RegularExpressionFlags::EUC_JP)
-          return regular_expression_encoding_modifier(source, ascii_only, flags, 0x65, Encodings::ALL.fetch(:EUC_JP))
-        end
-        if flags.anybits?(RegularExpressionFlags::WINDOWS_31J)
-          return regular_expression_encoding_modifier(source, ascii_only, flags, 0x73, Encodings::ALL.fetch(:WINDOWS_31J))
-        end
-
-        return RegularExpressionFlags::FORCED_US_ASCII_ENCODING if ascii_only
-
-        if @explicit_encoding
-          return RegularExpressionFlags::FORCED_UTF8_ENCODING if @explicit_encoding == Encodings::UTF_8
-          return RegularExpressionFlags::FORCED_BINARY_ENCODING if @encoding == Encodings::US_ASCII
         end
         0
       end
@@ -2287,7 +2296,7 @@ module Prism
       def symbol_node_label?(node)
         return false unless node.is_a?(SymbolNode) || node.is_a?(InterpolatedSymbolNode)
 
-        !node.closing_loc.nil? && @source.getbyte(loc_end(node.closing_loc) - 1) == 0x3A
+        loc_present?(node.closing_loc) && @source.getbyte(loc_end(node.closing_loc) - 1) == 0x3A
       end
 
       # pm_string_node_to_symbol_node
@@ -2304,7 +2313,7 @@ module Prism
       def symbol_node_to_string_node(node)
         flags = frozen_string_literal_flags(StringFlags::MUTABLE, NodeFlags::STATIC_LITERAL | StringFlags::FROZEN)
         StringNode.new(@node_source, next_node_id, node.location, flags,
-                       node.opening_loc, node.value_loc, node.closing_loc, node.unescaped)
+                       node.opening_loc, node.content_loc, node.closing_loc, node.unescaped)
       end
 
       # pm_true_node_create
@@ -2419,9 +2428,9 @@ module Prism
       # pm_yield_node_create
       def yield_node(keyword, lparen_loc, arguments, rparen_loc)
         finish =
-          if rparen_loc then loc_end(rparen_loc)
+          if loc_present?(rparen_loc) then loc_end(rparen_loc)
           elsif arguments then arguments.end_offset
-          elsif lparen_loc then loc_end(lparen_loc)
+          elsif loc_present?(lparen_loc) then loc_end(lparen_loc)
           else keyword.end
           end
 

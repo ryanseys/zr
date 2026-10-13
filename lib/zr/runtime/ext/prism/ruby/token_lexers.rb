@@ -131,6 +131,30 @@ module Prism
       def binary_number_validate(from) = number_validate(from, strspn_binary_number(from, @end))
       def octal_number_validate(from) = number_validate(from, strspn_octal_number(from, @end))
       def decimal_number_validate(from) = number_validate(from, strspn_decimal_number(from, @end))
+
+      # The digits of a decimal that starts with 1-9, as the C scans them
+      # inline: the error is at the first underscore after another, else at
+      # an underscore that ends the run.
+      def decimal_number_inline_validate(from)
+        cursor = from
+        invalid = nil
+        underscore = seen = false
+        while cursor < @end
+          byte = @source.getbyte(cursor)
+          if byte >= 0x30 && byte <= 0x39
+            underscore = false
+          elsif byte == 0x5F
+            seen = true
+            invalid ||= cursor if underscore
+            underscore = true
+          else
+            break
+          end
+          cursor += 1
+        end
+        invalid ||= cursor - 1 if seen && underscore
+        number_validate(from, [cursor - from, invalid])
+      end
       def hexadecimal_number_validate(from) = number_validate(from, strspn_hexadecimal_number(from, @end))
 
       # lex_optional_float_suffix: the type and whether an exponent was seen.
@@ -218,8 +242,20 @@ module Prism
             type, seen_e = lex_optional_float_suffix
           end
         else
-          @current_end += decimal_number_validate(@current_end)
+          digits_start = @current_end - 1
+          @current_end += decimal_number_inline_validate(@current_end)
+
+          # The C keeps a decimal's value from the lexer when it fits in 32
+          # bits. The parser reads it after it lexes the next token, so the
+          # value of an integer right after can take its place (`1 2;`).
+          value = @source.byteslice(digits_start, @current_end - digits_start).delete("_").to_i
+          if value <= 0xFFFF_FFFF
+            @integer_value = value
+            @integer_lexed = true
+          end
+
           type, seen_e = lex_optional_float_suffix
+          @integer_lexed = false if type != :INTEGER
         end
 
         # A second fractional part, 1.2.3, is an error on the extra part.
@@ -237,6 +273,7 @@ module Prism
       def lex_numeric
         type = :INTEGER
         @integer_base = INTEGER_BASE_DECIMAL
+        @integer_lexed = false
         return type unless @current_end < @end
 
         type, seen_e = lex_numeric_prefix
@@ -360,6 +397,25 @@ module Prism
         type
       end
 
+      # The kind of a `do` keyword, as parse.y tells keyword_do apart. As a
+      # name (`:do`, `def do`) it is plain. At the bare nesting level of a
+      # lambda literal it opens the lambda's body, and no token in that body
+      # is at a lambda's start any more (parse.y's lpar_beg = -1); the parser
+      # puts the nesting back after the lambda. Otherwise it is a loop's
+      # `do`, one that binds to a command's arguments, or a block's.
+      def lex_do(previous_lex_state)
+        return :KEYWORD_DO if previous_lex_state.anybits?(STATE_FNAME)
+
+        if @enclosure_nesting == @lambda_enclosure_nesting
+          @lambda_enclosure_nesting = -1
+          return :KEYWORD_DO_LAMBDA
+        end
+        return :KEYWORD_DO_LOOP if do_loop_stack?
+        return :KEYWORD_DO_BLOCK unless accepts_block_stack?
+
+        :KEYWORD_DO
+      end
+
       # lex_identifier
       def lex_identifier(previous_command_start)
         start = @current_start
@@ -381,6 +437,9 @@ module Prism
             if label_position?(previous_command_start) && peek == 0x3A && peek_offset(1) != 0x3A
               @lex_state = STATE_ARG | STATE_LABELED
               match(0x3A)
+              # A label is lexed inline, with no lex mode to clear the
+              # encoding of the literal before it.
+              @explicit_encoding = nil
               return :LABEL
             end
 
@@ -398,13 +457,15 @@ module Prism
           if label_position?(previous_command_start) && peek == 0x3A && peek_offset(1) != 0x3A
             @lex_state = STATE_ARG | STATE_LABELED
             match(0x3A)
+            @explicit_encoding = nil
             return :LABEL
           end
         end
 
         if @lex_state != STATE_DOT && KEYWORD_WIDTHS.include?(width) && (keyword = KEYWORDS[@source.byteslice(start, width)])
+          previous_lex_state = @lex_state
           found = lex_keyword(*keyword)
-          return do_loop_stack? ? :KEYWORD_DO_LOOP : :KEYWORD_DO if found == :KEYWORD_DO
+          return lex_do(previous_lex_state) if found == :KEYWORD_DO
 
           return found
         end

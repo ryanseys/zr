@@ -36,7 +36,7 @@ module Prism
     # keeps it.
     class Locals
       # PM_LOCALS_HASH_THRESHOLD
-      HASH_THRESHOLD = 9
+      HASH_THRESHOLD = 5
       NOT_FOUND = 0xFFFF_FFFF
 
       # pm_local_t

@@ -20,11 +20,10 @@ module Prism
       end
 
       # [ elements ]
-      def parse_array_literal(depth)
+      def parse_array_literal(flags, depth)
         lex
 
         array = array_node(previous_token)
-        accepts_block_stack_push(true)
         parsed_bare_hash = false
 
         until match?(:BRACKET_RIGHT, :EOF)
@@ -55,7 +54,7 @@ module Prism
             if match?(:BRACKET_RIGHT, :COMMA, :EOF)
               scope_forwarding_positionals_check(operator)
             else
-              expression = parse_value_expression(BINDING_POWER_DEFINED, false, false, :array_expression_after_star, depth + 1)
+              expression = parse_value_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :array_expression_after_star, depth + 1)
             end
 
             element = splat_node(operator, expression)
@@ -65,13 +64,13 @@ module Prism
             element = keyword_hash_node
             hash_keys = StaticLiterals.new(self)
 
-            unless match?(:EOF, :NEWLINE, :SEMICOLON, :BRACE_RIGHT, :BRACKET_RIGHT, :KEYWORD_DO, :PARENTHESIS_RIGHT)
+            unless match?(:EOF, :NEWLINE, :SEMICOLON, :KEYWORD_DO_BLOCK, :BRACE_RIGHT, :BRACKET_RIGHT, :KEYWORD_DO, :PARENTHESIS_RIGHT)
               parse_assocs(hash_keys, element, depth + 1)
             end
 
             parsed_bare_hash = true
           else
-            element = parse_value_expression(BINDING_POWER_DEFINED, false, true, :array_expression, depth + 1)
+            element = parse_value_expression(BINDING_POWER_DEFINED, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_LABEL, :array_expression, depth + 1)
 
             if symbol_node_label?(element) || accept(:EQUAL_GREATER)
               err_previous(:expression_bare_hash) if parsed_bare_hash
@@ -82,7 +81,7 @@ module Prism
 
               operator = @previous_type == :EQUAL_GREATER ? previous_token : NOT_PROVIDED
 
-              value = parse_value_expression(BINDING_POWER_DEFINED, false, false, :hash_value, depth + 1)
+              value = parse_value_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :hash_value, depth + 1)
               keyword_hash_node_elements_append(hash, assoc_node(element, operator, value))
 
               element = hash
@@ -93,7 +92,7 @@ module Prism
           end
 
           array_node_elements_append(array, element)
-          break if element.is_a?(MissingNode)
+          break if element.is_a?(ErrorRecoveryNode)
         end
 
         accept(:NEWLINE)
@@ -105,7 +104,6 @@ module Prism
         end
 
         array_node_close_set(array, previous_token)
-        accepts_block_stack_pop
 
         array
       end
@@ -124,42 +122,44 @@ module Prism
       end
 
       # ( statements ), or parenthesized targets of a multiple write.
-      def parse_parentheses(binding_power, depth)
+      def parse_parentheses(binding_power, flags, depth)
         opening = current_token
-        flags = 0
+        paren_flags = 0
 
         previous_block_exits = push_block_exits([])
 
         lex
-        flags = parse_parentheses_terminators(flags)
+        paren_flags = parse_parentheses_terminators(paren_flags)
 
         # ()
         if match?(:PARENTHESIS_RIGHT, :EOF)
+          # A command argument group sets ENDARG before its `)`, also when
+          # empty, so a `{` after it lexes as a block brace.
+          @lex_state = STATE_ENDARG if @current_type == :PARENTHESIS_RIGHT && opening.type == :PARENTHESIS_LEFT_PARENTHESES
+
           expect(:PARENTHESIS_RIGHT, :expect_rparen)
           pop_block_exits(previous_block_exits)
-          return parentheses_node(opening, nil, previous_token, flags)
+          return parentheses_node(opening, nil, previous_token, paren_flags)
         end
 
-        accepts_block_stack_push(true)
         context_push(:parens)
-        statement = parse_expression(BINDING_POWER_STATEMENT, true, false, :cannot_parse_expression, depth + 1)
+        statement = parse_expression(BINDING_POWER_STATEMENT, ACCEPTS_COMMAND_CALL | ACCEPTS_DO_BLOCK, :cannot_parse_expression, depth + 1)
         context_pop
 
         terminator_found = false
         if accept(:SEMICOLON)
           terminator_found = true
-          flags |= ParenthesesNodeFlags::MULTIPLE_STATEMENTS
+          paren_flags |= ParenthesesNodeFlags::MULTIPLE_STATEMENTS
         elsif accept(:NEWLINE)
           terminator_found = true
         end
 
-        flags = parse_parentheses_terminators(flags) if terminator_found
+        paren_flags = parse_parentheses_terminators(paren_flags) if terminator_found
 
         if @current_type == :PARENTHESIS_RIGHT
           @lex_state = STATE_ENDARG if opening.type == :PARENTHESIS_LEFT_PARENTHESES
 
           lex
-          accepts_block_stack_pop
           pop_block_exits(previous_block_exits)
 
           if statement.is_a?(MultiTargetNode) || statement.is_a?(SplatNode)
@@ -184,8 +184,12 @@ module Prism
 
             if context?(:multi_target)
               # Allowed by the parent.
-            elsif context?(:for_index) && @current_type == :KEYWORD_IN
-              # A for loop's targets.
+            elsif context?(:for_index) && match?(:KEYWORD_IN, :COMMA)
+              # A for loop's targets; a comma continues them.
+            elsif flags.anybits?(ACCEPTS_STATEMENT)
+              # A rescue modifier's value takes the targets on `=` or a
+              # comma; another binary operator may not take them.
+              err_node(result, :write_target_unexpected) if BINDING_POWERS[@current_type].binary && @current_type != :EQUAL
             elsif binding_power != BINDING_POWER_STATEMENT || !match?(:EQUAL, :PARENTHESIS_RIGHT)
               err_node(result, :write_target_unexpected)
             end
@@ -196,12 +200,12 @@ module Prism
           statements = statements_node
           statements_node_body_append(statements, statement, true)
 
-          return parentheses_node(opening, statements, previous_token, flags)
+          return parentheses_node(opening, statements, previous_token, paren_flags)
         end
 
         # Several statements.
         context_push(:parens)
-        flags |= ParenthesesNodeFlags::MULTIPLE_STATEMENTS
+        paren_flags |= ParenthesesNodeFlags::MULTIPLE_STATEMENTS
 
         statements = statements_node
         statements_node_body_append(statements, statement, true)
@@ -211,7 +215,7 @@ module Prism
         end
 
         loop do
-          node = parse_expression(BINDING_POWER_STATEMENT, true, false, :cannot_parse_expression, depth + 1)
+          node = parse_expression(BINDING_POWER_STATEMENT, ACCEPTS_COMMAND_CALL | ACCEPTS_DO_BLOCK, :cannot_parse_expression, depth + 1)
           statements_node_body_append(statements, node, true)
 
           if @recovering
@@ -219,7 +223,7 @@ module Prism
             break
           end
 
-          break if node.is_a?(MissingNode)
+          break if node.is_a?(ErrorRecoveryNode)
 
           if accept(:NEWLINE, :SEMICOLON)
             nil while accept(:NEWLINE, :SEMICOLON)
@@ -232,7 +236,6 @@ module Prism
         end
 
         context_pop
-        accepts_block_stack_pop
         expect(:PARENTHESIS_RIGHT, :expect_rparen)
 
         # Targets may end parentheses only at the statement level.
@@ -249,7 +252,7 @@ module Prism
         if statement.is_a?(MultiTargetNode)
           offset = statement.end_offset
           operator = Token.new(:EQUAL, offset, offset)
-          value = missing_node(offset, offset)
+          value = error_recovery_node(offset, offset)
 
           statement = multi_write_node(statement, operator, value)
           statements.body[-1] = statement
@@ -260,27 +263,21 @@ module Prism
         pop_block_exits(previous_block_exits)
 
         void_statements_check(statements, true)
-        parentheses_node(opening, statements, previous_token, flags)
+        parentheses_node(opening, statements, previous_token, paren_flags)
       end
 
       # { assocs }
       def parse_hash_literal(depth)
-        # An inner hash splatted into one being parsed shares its keys.
-        current_hash_keys = @current_hash_keys
-        @current_hash_keys = nil
-
-        accepts_block_stack_push(true)
         lex
 
         opening = previous_token
         node = hash_node(opening)
 
         unless match?(:BRACE_RIGHT, :EOF)
-          parse_assocs(current_hash_keys || StaticLiterals.new(self), node, depth + 1)
+          parse_assocs(StaticLiterals.new(self), node, depth + 1)
           accept(:NEWLINE)
         end
 
-        accepts_block_stack_pop
         expect_opening(:BRACE_RIGHT, :hash_term, opening)
         hash_node_closing_loc_set(node, previous_token)
 
@@ -304,20 +301,20 @@ module Prism
       end
 
       # Whether arguments or a block follow a name, which make it a call.
-      def call_arguments_follow?(accepts_command_call)
-        (accepts_command_call && (token_begins_expression?(@current_type) || match?(:UAMPERSAND, :USTAR, :USTAR_STAR))) ||
+      def call_arguments_follow?(flags)
+        (flags.anybits?(ACCEPTS_COMMAND_CALL) && (token_begins_expression?(@current_type) || match?(:UAMPERSAND, :USTAR, :USTAR_STAR))) ||
           (accepts_block_stack? && @current_type == :KEYWORD_DO) ||
           @current_type == :BRACE_LEFT
       end
 
       # Foo, or Foo(...) as a call.
-      def parse_constant(binding_power, accepts_command_call, depth)
+      def parse_constant(binding_power, flags, depth)
         lex
         constant = previous_token
 
-        if @current_type == :PARENTHESIS_LEFT || call_arguments_follow?(accepts_command_call)
+        if @current_type == :PARENTHESIS_LEFT || call_arguments_follow?(flags & ACCEPTS_COMMAND_CALL)
           arguments = Arguments.new
-          parse_arguments_list(arguments, true, accepts_command_call, depth + 1)
+          parse_arguments_list(arguments, true, flags, depth + 1)
           return call_node_fcall(constant, arguments)
         end
 
@@ -325,7 +322,7 @@ module Prism
       end
 
       # an identifier: a local variable or a method call.
-      def parse_identifier(binding_power, accepts_command_call, depth)
+      def parse_identifier(binding_power, flags, depth)
         lex
         identifier = previous_token
         node = parse_variable_call
@@ -334,7 +331,7 @@ module Prism
           # Not a local, so arguments may follow.
           arguments = Arguments.new
 
-          if parse_arguments_list(arguments, true, accepts_command_call, depth + 1)
+          if parse_arguments_list(arguments, true, flags, depth + 1)
             node.flag_unset(CallNodeFlags::VARIABLE_CALL)
 
             node.opening_loc = arguments.opening_loc
@@ -344,10 +341,10 @@ module Prism
 
             node.end_offset = arguments_end(arguments) || loc_end(node.message_loc)
           end
-        elsif call_arguments_follow?(accepts_command_call)
+        elsif call_arguments_follow?(flags & ACCEPTS_COMMAND_CALL)
           # A local followed by arguments or a block is a call after all.
           arguments = Arguments.new
-          parse_arguments_list(arguments, true, accepts_command_call, depth + 1)
+          parse_arguments_list(arguments, true, flags, depth + 1)
           fcall = call_node_fcall(identifier, arguments)
 
           if node.is_a?(ItLocalVariableReadNode) || numbered_parameter?(identifier.start, identifier.end)
@@ -385,7 +382,7 @@ module Prism
           node.end_offset = opening.end
         elsif (part = parse_string_part(depth + 1)).nil?
           # parse_string_part reported the error.
-          node = missing_node(@previous_start, @previous_end)
+          node = error_recovery_node(@previous_start, @previous_end)
         elsif part.is_a?(StringNode) && match?(:HEREDOC_END, :EOF)
           # One line of plain content.
           part.flag_set(parse_unescaped_encoding)
@@ -435,8 +432,8 @@ module Prism
       end
 
       # alias new old
-      def parse_alias(binding_power, depth)
-        err_current(:statement_alias) if binding_power != BINDING_POWER_STATEMENT
+      def parse_alias(binding_power, flags, depth)
+        err_current(:statement_alias) if binding_power != BINDING_POWER_STATEMENT && !flags.anybits?(ACCEPTS_STATEMENT)
 
         lex
         keyword = previous_token
@@ -448,15 +445,18 @@ module Prism
         when BackReferenceReadNode, NumberedReferenceReadNode, GlobalVariableReadNode
           case old_name
           when NumberedReferenceReadNode then err_node(old_name, :alias_argument_numbered_reference)
-          when BackReferenceReadNode, GlobalVariableReadNode then nil
-          else err_node(old_name, :alias_argument)
+          when BackReferenceReadNode, GlobalVariableReadNode, ErrorRecoveryNode then nil
+          else
+            err_node(old_name, :alias_argument)
+            old_name = error_recovery_node_unexpected(old_name)
           end
 
           alias_global_variable_node(keyword, new_name, old_name)
         else
           if (new_name.is_a?(SymbolNode) || new_name.is_a?(InterpolatedSymbolNode)) &&
-             !old_name.is_a?(SymbolNode) && !old_name.is_a?(InterpolatedSymbolNode)
+             !old_name.is_a?(SymbolNode) && !old_name.is_a?(InterpolatedSymbolNode) && !old_name.is_a?(ErrorRecoveryNode)
             err_node(old_name, :alias_argument)
+            old_name = error_recovery_node_unexpected(old_name)
           end
 
           alias_method_node(keyword, new_name, old_name)
@@ -464,7 +464,7 @@ module Prism
       end
 
       # case ... when / case ... in
-      def parse_case(depth)
+      def parse_case(flags, depth)
         opening_newline_index = token_newline_index
         lex
 
@@ -476,7 +476,7 @@ module Prism
         if accept(:NEWLINE, :SEMICOLON)
           nil while accept(:NEWLINE, :SEMICOLON)
         elsif !match?(:KEYWORD_WHEN, :KEYWORD_IN, :KEYWORD_END) && token_begins_expression?(@current_type)
-          predicate = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, :case_expression_after_case, depth + 1)
+          predicate = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :case_expression_after_case, depth + 1)
           nil while accept(:NEWLINE, :SEMICOLON)
         end
 
@@ -503,19 +503,19 @@ module Prism
             loop do
               if accept(:USTAR)
                 operator = previous_token
-                expression = parse_value_expression(BINDING_POWER_DEFINED, false, false, :expect_expression_after_star, depth + 1)
+                expression = parse_value_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :expect_expression_after_star, depth + 1)
 
                 when_node_conditions_append(when_clause, splat_node(operator, expression))
-                break if expression.is_a?(MissingNode)
+                break if expression.is_a?(ErrorRecoveryNode)
               else
-                condition = parse_value_expression(BINDING_POWER_DEFINED, false, false, :case_expression_after_when, depth + 1)
+                condition = parse_value_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :case_expression_after_when, depth + 1)
                 when_node_conditions_append(when_clause, condition)
-                break if condition.is_a?(MissingNode)
+                break if condition.is_a?(ErrorRecoveryNode)
 
                 # A string in a when clause is frozen.
                 if condition.is_a?(StringNode)
                   condition.flag_set(StringFlags::FROZEN | NodeFlags::STATIC_LITERAL)
-                elsif condition.is_a?(SourceFileNode)
+                elsif condition.is_a?(SourceFileNode) && @version < Options::VERSION_CRUBY_4_1
                   condition.flag_set(NodeFlags::STATIC_LITERAL)
                 end
 
@@ -566,11 +566,11 @@ module Prism
             # A guard clause.
             if accept(:KEYWORD_IF_MODIFIER)
               keyword = previous_token
-              guard = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, :conditional_if_predicate, depth + 1)
+              guard = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :conditional_if_predicate, depth + 1)
               pattern = if_node_modifier(pattern, keyword, guard)
             elsif accept(:KEYWORD_UNLESS_MODIFIER)
               keyword = previous_token
-              guard = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, :conditional_unless_predicate, depth + 1)
+              guard = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :conditional_unless_predicate, depth + 1)
               pattern = unless_node_modifier(pattern, keyword, guard)
             end
 
@@ -659,7 +659,7 @@ module Prism
       end
 
       # break, next, return
-      def parse_jump(accepts_command_call, depth)
+      def parse_jump(flags, depth)
         lex
 
         keyword = previous_token
@@ -670,12 +670,25 @@ module Prism
 
           if binding_power == BINDING_POWER_UNSET || binding_power >= BINDING_POWER_RANGE
             following = current_token
-            parse_arguments(arguments, false, :EOF, depth + 1)
+            parse_arguments(arguments, false, :EOF, flags, depth + 1)
 
             # `foo && return bar`
-            if !accepts_command_call && arguments.arguments
+            if !flags.anybits?(ACCEPTS_COMMAND_CALL) && arguments.arguments
               err_token(following, :expect_eol_after_statement, Tokens::HUMAN.fetch(following.type))
             end
+
+            # `return a,` at the end of the input. The arguments take a
+            # trailing comma only before the terminator, here EOF.
+            if @previous_type == :COMMA && @current_type == :EOF
+              err_previous(:expect_argument, Tokens::HUMAN.fetch(@current_type))
+            end
+          end
+
+          # A block argument has no place in a jump.
+          if arguments.block
+            err_node(arguments.block, :unexpected_block_argument)
+            node_unreference(arguments.block)
+            arguments.block = nil
           end
         end
 
@@ -694,12 +707,12 @@ module Prism
       end
 
       # super, super(...)
-      def parse_super(accepts_command_call, depth)
+      def parse_super(flags, depth)
         lex
 
         keyword = previous_token
         arguments = Arguments.new
-        parse_arguments_list(arguments, true, accepts_command_call, depth + 1)
+        parse_arguments_list(arguments, true, flags, depth + 1)
 
         if arguments.opening_loc.nil? && arguments.arguments.nil? && (arguments.block.nil? || arguments.block.is_a?(BlockNode))
           return forwarding_super_node(keyword, arguments)
@@ -709,12 +722,12 @@ module Prism
       end
 
       # yield
-      def parse_yield_expression(accepts_command_call, depth)
+      def parse_yield_expression(flags, depth)
         lex
 
         keyword = previous_token
         arguments = Arguments.new
-        parse_arguments_list(arguments, false, accepts_command_call, depth + 1)
+        parse_arguments_list(arguments, false, flags, depth + 1)
 
         # A yield has no place for a block argument.
         if arguments.block
@@ -730,7 +743,7 @@ module Prism
       end
 
       # class Name < Super, class << self
-      def parse_class(depth)
+      def parse_class(flags, depth)
         opening_newline_index = token_newline_index
         lex
 
@@ -741,7 +754,7 @@ module Prism
 
         if accept(:LESS_LESS)
           operator = previous_token
-          expression = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, :expect_expression_after_less_less, depth + 1)
+          expression = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :expect_expression_after_less_less, depth + 1)
 
           scope_push(true)
           unless match?(:NEWLINE, :SEMICOLON)
@@ -773,7 +786,7 @@ module Prism
           return singleton_class_node(locals, class_keyword, operator, expression, statements, previous_token)
         end
 
-        constant_path = parse_expression(BINDING_POWER_INDEX, false, false, :class_name, depth + 1)
+        constant_path = parse_expression(BINDING_POWER_INDEX, flags & ACCEPTS_DO_BLOCK, :class_name, depth + 1)
         name = previous_token
         err_token(name, :class_name) if name.type != :CONSTANT
 
@@ -784,7 +797,7 @@ module Prism
           @command_start = true
           lex
 
-          superclass = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, :class_superclass, depth + 1)
+          superclass = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :class_superclass, depth + 1)
         else
           inheritance_operator = NOT_PROVIDED
           superclass = nil
@@ -820,7 +833,10 @@ module Prism
         scope_pop
         do_loop_stack_pop
 
-        err_node(constant_path, :class_name) unless constant_path.is_a?(ConstantPathNode) || constant_path.is_a?(ConstantReadNode)
+        unless constant_path.is_a?(ConstantPathNode) || constant_path.is_a?(ConstantReadNode)
+          err_node(constant_path, :class_name)
+          constant_path = error_recovery_node_unexpected(constant_path) unless constant_path.is_a?(ErrorRecoveryNode)
+        end
 
         pop_block_exits(previous_block_exits)
 
@@ -837,7 +853,7 @@ module Prism
       }
 
       # def name(params) ... end, def name = value
-      def parse_def(binding_power, accepts_command_call, depth)
+      def parse_def(binding_power, flags, depth)
         previous_block_exits = push_block_exits([])
 
         def_keyword = current_token
@@ -901,7 +917,7 @@ module Prism
           lex
 
           lparen = previous_token
-          expression = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, :def_receiver, depth + 1)
+          expression = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :def_receiver, depth + 1)
 
           accept(:NEWLINE)
           expect(:PARENTHESIS_RIGHT, :expect_rparen)
@@ -927,7 +943,11 @@ module Prism
           lex
           lparen = previous_token
 
-          params = @current_type == :PARENTHESIS_RIGHT ? nil : parse_parameters(BINDING_POWER_DEFINED, true, false, true, true, false, depth + 1)
+          # From 4.1 (Feature #19107) the parameters may end in a comma.
+          unless @current_type == :PARENTHESIS_RIGHT
+            params = parse_parameters(BINDING_POWER_DEFINED, true, @version >= Options::VERSION_CRUBY_4_1, true, true, false,
+                                      :argument_no_forwarding_ellipses, depth + 1)
+          end
 
           @lex_state = STATE_BEG
           @command_start = true
@@ -946,7 +966,7 @@ module Prism
 
           lparen = NOT_PROVIDED
           rparen = NOT_PROVIDED
-          params = parse_parameters(BINDING_POWER_DEFINED, false, false, true, true, false, depth + 1)
+          params = parse_parameters(BINDING_POWER_DEFINED, false, false, true, true, false, :argument_no_forwarding_ellipses, depth + 1)
 
           # `def * = 1` is ambiguous with an optional parameter.
           accept_endless_def = false
@@ -974,24 +994,46 @@ module Prism
           do_loop_stack_push(false)
           statements = statements_node
 
-          allow_command_call =
+          allow_flags =
             if @version >= Options::VERSION_CRUBY_4_0
-              accepts_command_call
-            else
+              flags & ACCEPTS_COMMAND_CALL
+            elsif binding_power == BINDING_POWER_ASSIGNMENT || binding_power < BINDING_POWER_COMPOSITION
               # `def foo = puts "Hello"`, but not `private def foo = puts "Hello"`.
-              binding_power == BINDING_POWER_ASSIGNMENT || binding_power < BINDING_POWER_COMPOSITION
+              ACCEPTS_COMMAND_CALL
+            else
+              0
             end
 
-          statement = parse_expression(BINDING_POWER_DEFINED + 1, allow_command_call, false, :def_endless, depth + 1)
+          # In the body, `do` lexes as KEYWORD_DO; a command's arguments
+          # make it KEYWORD_DO_BLOCK, which the outer context takes. The
+          # frame spans the rescue modifiers too.
+          accepts_block_stack_push(true)
+          statement = parse_expression(BINDING_POWER_DEFINED + 1, allow_flags | IN_ENDLESS_DEF, :def_endless, depth + 1)
 
-          if accept(:KEYWORD_RESCUE_MODIFIER)
+          # `def f = 1 do end`
+          if accept(:KEYWORD_DO)
+            block = parse_block(depth + 1)
+            err_node(block, :def_endless_do_block)
+          end
+
+          # `def f = a rescue b rescue c` rescues within the body, to the
+          # left.
+          while accept(:KEYWORD_RESCUE_MODIFIER)
             context_push(:rescue_modifier)
 
             rescue_keyword = previous_token
-            value = parse_expression(BINDING_POWERS[:KEYWORD_RESCUE_MODIFIER].right, false, false, :rescue_modifier_value, depth + 1)
+            # The value excludes `and`, `or`, `in` and `=>`.
+            value = parse_expression(BINDING_POWER_MATCH + 1, flags & ACCEPTS_DO_BLOCK, :rescue_modifier_value, depth + 1)
             context_pop
 
             statement = rescue_modifier_node(statement, rescue_keyword, value)
+          end
+
+          accepts_block_stack_pop
+
+          # `def f = def g = foo bar`
+          if statement.is_a?(DefNode) && command_call_value?(statement)
+            err_node(statement, :expect_eol_after_statement, Tokens::HUMAN.fetch(@current_type))
           end
 
           statements_node_body_append(statements, statement, false)
@@ -1043,14 +1085,14 @@ module Prism
       end
 
       # defined?(expression)
-      def parse_defined(depth)
+      def parse_defined(flags, depth)
         lex
         keyword = previous_token
 
         context_push(:defined)
         newline = accept(:NEWLINE)
 
-        if accept(:PARENTHESIS_LEFT)
+        if accept(:PARENTHESIS_LEFT, :PARENTHESIS_LEFT_GROUPING)
           lparen = previous_token
 
           if newline && accept(:PARENTHESIS_RIGHT)
@@ -1058,7 +1100,7 @@ module Prism
             lparen = NOT_PROVIDED
             rparen = NOT_PROVIDED
           else
-            expression = parse_expression(BINDING_POWER_COMPOSITION, true, false, :defined_expression, depth + 1)
+            expression = parse_expression(BINDING_POWER_COMPOSITION, ACCEPTS_COMMAND_CALL | ACCEPTS_DO_BLOCK, :defined_expression, depth + 1)
 
             if @recovering
               rparen = NOT_PROVIDED
@@ -1071,7 +1113,7 @@ module Prism
         else
           lparen = NOT_PROVIDED
           rparen = NOT_PROVIDED
-          expression = parse_expression(BINDING_POWER_DEFINED, false, false, :defined_expression, depth + 1)
+          expression = parse_expression(BINDING_POWER_DEFINED, flags & ACCEPTS_DO_BLOCK, :defined_expression, depth + 1)
         end
 
         context_pop
@@ -1079,8 +1121,8 @@ module Prism
       end
 
       # END { ... }
-      def parse_post_execution(binding_power, depth)
-        err_current(:statement_postexe_end) if binding_power != BINDING_POWER_STATEMENT
+      def parse_post_execution(binding_power, flags, depth)
+        err_current(:statement_postexe_end) if binding_power != BINDING_POWER_STATEMENT && !flags.anybits?(ACCEPTS_STATEMENT)
 
         lex
         keyword = previous_token
@@ -1096,7 +1138,7 @@ module Prism
       end
 
       # for index in collection ... end
-      def parse_for(depth)
+      def parse_for(flags, depth)
         opening_newline_index = token_newline_index
         lex
 
@@ -1105,18 +1147,12 @@ module Prism
         context_push(:for_index)
 
         if accept(:USTAR)
-          star_operator = previous_token
-          name = nil
-          if token_begins_expression?(@current_type)
-            name = parse_expression(BINDING_POWER_INDEX, false, false, :expect_expression_after_star, depth + 1)
-          end
-
-          index = splat_node(star_operator, name)
+          index = parse_splat(flags, depth)
         elsif token_begins_expression?(@current_type)
-          index = parse_expression(BINDING_POWER_INDEX, false, false, :expect_expression_after_comma, depth + 1)
+          index = parse_expression(BINDING_POWER_INDEX, flags & ACCEPTS_DO_BLOCK, :expect_expression_after_comma, depth + 1)
         else
           err_token(for_keyword, :for_index)
-          index = missing_node(for_keyword.start, for_keyword.end)
+          index = error_recovery_node(for_keyword.start, for_keyword.end)
         end
 
         index = @current_type == :COMMA ? parse_targets(index, BINDING_POWER_INDEX, depth + 1) : parse_target(index, false, false)
@@ -1127,7 +1163,7 @@ module Prism
         expect(:KEYWORD_IN, :for_in)
         in_keyword = previous_token
 
-        collection = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, :for_collection, depth + 1)
+        collection = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :for_collection, depth + 1)
         do_loop_stack_pop
 
         if accept(:KEYWORD_DO_LOOP)
@@ -1159,21 +1195,21 @@ module Prism
       end
 
       # undef names
-      def parse_undef(binding_power, depth)
-        err_current(:statement_undef) if binding_power != BINDING_POWER_STATEMENT
+      def parse_undef(binding_power, flags, depth)
+        err_current(:statement_undef) if binding_power != BINDING_POWER_STATEMENT && !flags.anybits?(ACCEPTS_STATEMENT)
 
         lex
         node = undef_node(previous_token)
         name = parse_undef_argument(depth + 1)
 
-        unless name.is_a?(MissingNode)
+        unless name.is_a?(ErrorRecoveryNode)
           undef_node_append(node, name)
 
           while @current_type == :COMMA
             @lex_state = STATE_FNAME | STATE_FITEM
             lex
             name = parse_undef_argument(depth + 1)
-            break if name.is_a?(MissingNode)
+            break if name.is_a?(ErrorRecoveryNode)
 
             undef_node_append(node, name)
           end
@@ -1183,15 +1219,16 @@ module Prism
       end
 
       # not expression, not(expression)
-      def parse_not(accepts_command_call, depth)
+      def parse_not(binding_power, flags, depth)
         lex
 
         message = previous_token
         arguments = Arguments.new
         receiver = nil
 
-        # Where no command call may be, `not` needs parentheses.
-        if !accepts_command_call && @current_type != :PARENTHESIS_LEFT
+        # Above its own binding power, `not` needs parentheses, except in
+        # an endless def's body.
+        if binding_power > BINDING_POWER_NOT && !flags.anybits?(IN_ENDLESS_DEF) && @current_type != :PARENTHESIS_LEFT
           if @current_type == :PARENTHESIS_LEFT_PARENTHESES
             err(@previous_end, @previous_end + 1, :expect_lparen_after_not_lparen)
           else
@@ -1199,19 +1236,19 @@ module Prism
             err_current(:expect_lparen_after_not_other)
           end
 
-          return missing_node(@current_start, @current_end)
+          return error_recovery_node(@current_start, @current_end)
         end
 
         accept(:NEWLINE)
 
-        if accept(:PARENTHESIS_LEFT)
+        if accept(:PARENTHESIS_LEFT, :PARENTHESIS_LEFT_GROUPING)
           lparen = previous_token
 
           if accept(:PARENTHESIS_RIGHT)
             receiver = parentheses_node(lparen, nil, previous_token, 0)
           else
             arguments.opening_loc = lparen.location
-            receiver = parse_expression(BINDING_POWER_COMPOSITION, true, false, :not_expression, depth + 1)
+            receiver = parse_expression(BINDING_POWER_COMPOSITION, ACCEPTS_COMMAND_CALL | ACCEPTS_DO_BLOCK, :not_expression, depth + 1)
 
             unless @recovering
               accept(:NEWLINE)
@@ -1220,24 +1257,24 @@ module Prism
             end
           end
         else
-          receiver = parse_expression(BINDING_POWER_NOT, true, false, :not_expression, depth + 1)
+          receiver = parse_expression(BINDING_POWER_NOT, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, :not_expression, depth + 1)
         end
 
         call_node_not(receiver, message, arguments)
       end
 
       # module Name ... end
-      def parse_module(depth)
+      def parse_module(flags, depth)
         previous_block_exits = push_block_exits([])
 
         opening_newline_index = token_newline_index
         lex
         module_keyword = previous_token
 
-        constant_path = parse_expression(BINDING_POWER_INDEX, false, false, :module_name, depth + 1)
+        constant_path = parse_expression(BINDING_POWER_INDEX, flags & ACCEPTS_DO_BLOCK, :module_name, depth + 1)
 
         # A name that failed to parse.
-        if constant_path.is_a?(MissingNode)
+        if constant_path.is_a?(ErrorRecoveryNode)
           pop_block_exits(previous_block_exits)
 
           missing = Token.new(:MISSING, @previous_end, @previous_end)
@@ -1253,6 +1290,9 @@ module Prism
 
         name = previous_token
         err_token(name, :module_name) if name.type != :CONSTANT
+        unless constant_path.is_a?(ConstantReadNode) || constant_path.is_a?(ConstantPathNode) || constant_path.is_a?(ErrorRecoveryNode)
+          constant_path = error_recovery_node_unexpected(constant_path)
+        end
 
         scope_push(true)
         accept(:SEMICOLON, :NEWLINE)
@@ -1283,7 +1323,7 @@ module Prism
       end
 
       # while and until loops.
-      def parse_loop(type, depth)
+      def parse_loop(type, flags, depth)
         opening_newline_index = token_newline_index
 
         context_push(:loop_predicate)
@@ -1292,7 +1332,7 @@ module Prism
         lex
         keyword = previous_token
         predicate_error = type == :while ? :conditional_while_predicate : :conditional_until_predicate
-        predicate = parse_value_expression(BINDING_POWER_COMPOSITION, true, false, predicate_error, depth + 1)
+        predicate = parse_value_expression(BINDING_POWER_COMPOSITION, (flags & ACCEPTS_DO_BLOCK) | ACCEPTS_COMMAND_CALL, predicate_error, depth + 1)
 
         do_loop_stack_pop
         context_pop
@@ -1340,7 +1380,7 @@ module Prism
       # A symbol element of %i or %I that gains another string part: the
       # symbol becomes an interpolated symbol of its string and this one.
       def parse_list_symbol_split(current)
-        content = Token.new(:STRING_CONTENT, loc_start(current.value_loc), loc_end(current.value_loc))
+        content = Token.new(:STRING_CONTENT, loc_start(current.content_loc), loc_end(current.content_loc))
         first_string = string_node_unescaped(NOT_PROVIDED, content, NOT_PROVIDED, current.unescaped)
         # The C makes the second part from the previous token.
         second_string = string_node_current_string(NOT_PROVIDED, previous_token, NOT_PROVIDED)
@@ -1399,6 +1439,9 @@ module Prism
         until match?(:STRING_END, :EOF)
           case @current_type
           when :WORDS_SEP
+            # Each element has its own encoding.
+            @explicit_encoding = nil
+
             if current
               array_node_elements_append(array, current)
               current = nil
@@ -1425,14 +1468,14 @@ module Prism
 
               string = symbol_node_to_string_node(current)
               interpolated_symbol_node_append(interpolated, string)
-              interpolated.start_offset = string.start_offset
+              interpolated.start_offset_keep_length = string.start_offset
               start_location_set = true
               current = interpolated
             end
 
             part = parse_string_part(depth + 1)
             interpolated_symbol_node_append(current, part)
-            current.start_offset = part.start_offset unless start_location_set
+            current.start_offset_keep_length = part.start_offset unless start_location_set
           else
             expect(:STRING_CONTENT, :list_i_upper_element)
             lex
@@ -1550,23 +1593,20 @@ module Prism
           lex
 
           node = regular_expression_node(opening, content, previous_token)
-          node.flag_set(RegularExpressionFlags::FORCED_US_ASCII_ENCODING)
+          node.flag_set(regexp_parse(node))
           return node
         end
 
         if @current_type == :STRING_CONTENT
           unescaped = @current_string
           content = current_token
-          ascii_only = @current_regular_expression_ascii_only
           lex
 
           if accept(:REGEXP_END)
             node = regular_expression_node_unescaped(opening, content, previous_token, unescaped)
 
-            # Before `=~` the named captures parse the errors.
-            parse_regular_expression_errors(node) unless @current_type == :EQUAL_TILDE
-
-            node.flag_set(regular_expression_encoding(unescaped, ascii_only, node.flags))
+            # Before `=~` the regexp is checked with its named captures.
+            node.flag_set(regexp_parse(node)) unless @current_type == :EQUAL_TILDE
             return node
           end
 
@@ -1649,23 +1689,28 @@ module Prism
         node
       end
 
+      # parse_splat: `*` (just lexed) and the optional expression after it.
+      def parse_splat(flags, depth)
+        operator = previous_token
+        name = nil
+        if token_begins_expression?(@current_type)
+          name = parse_expression(BINDING_POWER_INDEX, flags & ACCEPTS_DO_BLOCK, :expect_expression_after_star, depth + 1)
+        end
+
+        splat_node(operator, name)
+      end
+
       # *splat at the start of a multiple write.
-      def parse_splat_target(binding_power, diag_id, depth)
+      def parse_splat_target(binding_power, flags, diag_id, depth)
         lex
 
         # Only a multiple write may start with *.
         if binding_power != BINDING_POWER_STATEMENT
           err_prefix(diag_id)
-          return missing_node(@previous_start, @previous_end)
+          return error_recovery_node(@previous_start, @previous_end)
         end
 
-        operator = previous_token
-        name = nil
-        if token_begins_expression?(@current_type)
-          name = parse_expression(BINDING_POWER_INDEX, false, false, :expect_expression_after_star, depth + 1)
-        end
-
-        splat = splat_node(operator, name)
+        splat = parse_splat(flags, depth)
 
         return parse_targets_validate(splat, BINDING_POWER_INDEX, depth + 1) if @current_type == :COMMA
 
@@ -1673,14 +1718,15 @@ module Prism
       end
 
       # ! ~ -@ +@ as prefix operators.
-      def parse_unary(binding_power, name, depth)
+      def parse_unary(binding_power, name, flags, depth)
         err_prefix(:unary_disallowed) if binding_power > BINDING_POWER_UNARY
 
         lex
 
         operator = previous_token
-        accepts_command_call = name == "!" && binding_power < BINDING_POWER_MATCH
-        receiver = parse_expression(BINDING_POWERS[@previous_type].right, accepts_command_call, false, :unary_receiver, depth + 1)
+        receiver_flags = flags & ACCEPTS_DO_BLOCK
+        receiver_flags |= ACCEPTS_COMMAND_CALL if name == "!" && binding_power < BINDING_POWER_MATCH
+        receiver = parse_expression(BINDING_POWERS[@previous_type].right, receiver_flags, :unary_receiver, depth + 1)
         node = call_node_unary(operator, receiver, name)
 
         node.receiver = conditional_predicate(receiver, :not) if name == "!"
@@ -1688,15 +1734,15 @@ module Prism
       end
 
       # -1, and -2 ** 2 as -(2 ** 2).
-      def parse_negative_number(depth)
+      def parse_negative_number(flags, depth)
         lex
 
         operator = previous_token
-        node = parse_expression(BINDING_POWERS[@previous_type].right, false, false, :unary_receiver, depth + 1)
+        node = parse_expression(BINDING_POWERS[@previous_type].right, flags & ACCEPTS_DO_BLOCK, :unary_receiver, depth + 1)
 
         if accept(:STAR_STAR)
           exponent_operator = previous_token
-          exponent = parse_expression(BINDING_POWERS[exponent_operator.type].right, false, false, :expect_argument, depth + 1)
+          exponent = parse_expression(BINDING_POWERS[exponent_operator.type].right, flags & ACCEPTS_DO_BLOCK, :expect_argument, depth + 1)
           node = call_node_binary(node, exponent_operator, exponent, 0)
           call_node_unary(operator, node, "-@")
         elsif node.is_a?(IntegerNode) || node.is_a?(FloatNode) || node.is_a?(RationalNode) || node.is_a?(ImaginaryNode)
@@ -1713,7 +1759,6 @@ module Prism
         @lambda_enclosure_nesting = @enclosure_nesting
 
         opening_newline_index = token_newline_index
-        accepts_block_stack_push(true)
         lex
 
         operator = previous_token
@@ -1736,15 +1781,12 @@ module Prism
 
           block_parameters_node_closing_set(block_parameters, previous_token)
         when *CASE_PARAMETER
-          accepts_block_stack_push(false)
           block_parameters = parse_block_parameters(false, NOT_PROVIDED, true, false, depth + 1)
-          accepts_block_stack_pop
         else
           block_parameters = nil
         end
 
         body = nil
-        @lambda_enclosure_nesting = previous_lambda_enclosure_nesting
 
         if accept(:LAMBDA_BEGIN)
           opening = previous_token
@@ -1752,16 +1794,22 @@ module Prism
           body = parse_statements(:lambda_braces, depth + 1) unless @current_type == :BRACE_RIGHT
 
           warn_indentation_mismatch(opening_newline_index, operator, false, false)
+
+          # The token after the `}` lexes in the enclosing lambda's nesting.
+          @lambda_enclosure_nesting = previous_lambda_enclosure_nesting
           expect_opening(:BRACE_RIGHT, :lambda_term_brace, opening)
         else
-          expect(:KEYWORD_DO, :lambda_open)
+          # The lexer manages the frame of a `{ }` body; a `do end` body
+          # pushes its own before the `do` lexes the body's first token.
+          accepts_block_stack_push(true)
+          expect(:KEYWORD_DO_LAMBDA, :lambda_open)
           opening = previous_token
 
-          unless match?(:KEYWORD_END, :KEYWORD_RESCUE, :KEYWORD_ENSURE)
-            accepts_block_stack_push(true)
-            body = parse_statements(:lambda_do_end, depth + 1)
-            accepts_block_stack_pop
-          end
+          # No token in the body is at the start of a lambda, also when
+          # the `do` is missing.
+          @lambda_enclosure_nesting = -1
+
+          body = parse_statements(:lambda_do_end, depth + 1) unless match?(:KEYWORD_END, :KEYWORD_RESCUE, :KEYWORD_ENSURE)
 
           if match?(:KEYWORD_RESCUE, :KEYWORD_ENSURE)
             body = parse_rescues_implicit_begin(opening_newline_index, operator, opening.start, body, :lambda, depth + 1)
@@ -1769,6 +1817,9 @@ module Prism
             warn_indentation_mismatch(opening_newline_index, operator, false, false)
           end
 
+          accepts_block_stack_pop
+
+          @lambda_enclosure_nesting = previous_lambda_enclosure_nesting
           expect_opening(:KEYWORD_END, :lambda_term_end, operator)
         end
 
@@ -1776,7 +1827,6 @@ module Prism
         parameters = parse_blocklike_parameters(block_parameters, operator, previous_token)
 
         scope_pop
-        accepts_block_stack_pop
 
         lambda_node(locals, operator, opening, previous_token, parameters, body)
       end
@@ -1799,7 +1849,7 @@ module Prism
           err_prefix(diag_id)
         end
 
-        missing_node(@previous_start, @previous_end)
+        error_recovery_node(@previous_start, @previous_end)
       end
 
       # pm_parser_err_prefix: the errors whose messages name a token.
@@ -1868,35 +1918,17 @@ module Prism
         end
       end
 
-      # parse_regular_expression_errors: the errors the regexp scanner finds
-      # in a regexp literal, at the offending bytes when the source is a
-      # slice of the file and at the whole literal otherwise.
-      def parse_regular_expression_errors(node)
-        unescaped = node.unescaped
-        shared = @shared_strings[unescaped]
-        start = node.start_offset
-        finish = node.end_offset
-
-        regexp_parse(unescaped, node.flag?(RegularExpressionFlags::EXTENDED), nil) do |error_start, error_end, message|
-          if shared
-            err(shared + error_start, shared + error_end, :regexp_parse_error, message)
-          else
-            err(start, finish, :regexp_parse_error, message)
-          end
-        end
-      end
-
       # parse_expression_prefix: an expression from its first token.
-      def parse_expression_prefix(binding_power, accepts_command_call, accepts_label, diag_id, depth)
+      def parse_expression_prefix(binding_power, flags, diag_id, depth)
         case @current_type
-        when :BRACKET_LEFT_ARRAY then parse_array_literal(depth)
-        when :PARENTHESIS_LEFT, :PARENTHESIS_LEFT_PARENTHESES then parse_parentheses(binding_power, depth)
-        when :BRACE_LEFT then parse_hash_literal(depth)
+        when :BRACKET_LEFT_ARRAY then parse_array_literal(flags, depth)
+        when :PARENTHESIS_LEFT_GROUPING, :PARENTHESIS_LEFT_PARENTHESES then parse_parentheses(binding_power, flags, depth)
+        when :BRACE_LEFT_HASH then parse_hash_literal(depth)
         when :CHARACTER_LITERAL then parse_character_literal(depth)
         when :CLASS_VARIABLE
           lex
           parse_statement_targets(class_variable_read_node(previous_token), binding_power, depth)
-        when :CONSTANT then parse_constant(binding_power, accepts_command_call, depth)
+        when :CONSTANT then parse_constant(binding_power, flags, depth)
         when :UCOLON_COLON
           lex
           delimiter = previous_token
@@ -1907,7 +1939,7 @@ module Prism
           operator = current_token
           lex
 
-          right = parse_expression(BINDING_POWERS[operator.type].left, false, false, :expect_expression_after_operator, depth + 1)
+          right = parse_expression(BINDING_POWERS[operator.type].left, flags & ACCEPTS_DO_BLOCK, :expect_expression_after_operator, depth + 1)
 
           # `..1..2` is not allowed.
           err_current(:unexpected_range_operator) if match?(:DOT_DOT, :DOT_DOT_DOT)
@@ -1934,7 +1966,7 @@ module Prism
         when :BACK_REFERENCE
           lex
           parse_statement_targets(back_reference_read_node(previous_token), binding_power, depth)
-        when :IDENTIFIER, :METHOD_NAME then parse_identifier(binding_power, accepts_command_call, depth)
+        when :IDENTIFIER, :METHOD_NAME then parse_identifier(binding_power, flags, depth)
         when :HEREDOC_START then parse_heredoc(depth)
         when :INSTANCE_VARIABLE
           lex
@@ -1964,29 +1996,29 @@ module Prism
         when :KEYWORD___LINE__
           lex
           source_line_node(previous_token)
-        when :KEYWORD_ALIAS then parse_alias(binding_power, depth)
-        when :KEYWORD_CASE then parse_case(depth)
+        when :KEYWORD_ALIAS then parse_alias(binding_power, flags, depth)
+        when :KEYWORD_CASE then parse_case(flags, depth)
         when :KEYWORD_BEGIN then parse_begin(depth)
         when :KEYWORD_BEGIN_UPCASE then parse_pre_execution(binding_power, depth)
-        when :KEYWORD_BREAK, :KEYWORD_NEXT, :KEYWORD_RETURN then parse_jump(accepts_command_call, depth)
-        when :KEYWORD_SUPER then parse_super(accepts_command_call, depth)
-        when :KEYWORD_YIELD then parse_yield_expression(accepts_command_call, depth)
-        when :KEYWORD_CLASS then parse_class(depth)
-        when :KEYWORD_DEF then parse_def(binding_power, accepts_command_call, depth)
-        when :KEYWORD_DEFINED then parse_defined(depth)
-        when :KEYWORD_END_UPCASE then parse_post_execution(binding_power, depth)
+        when :KEYWORD_BREAK, :KEYWORD_NEXT, :KEYWORD_RETURN then parse_jump(flags, depth)
+        when :KEYWORD_SUPER then parse_super(flags, depth)
+        when :KEYWORD_YIELD then parse_yield_expression(flags, depth)
+        when :KEYWORD_CLASS then parse_class(flags, depth)
+        when :KEYWORD_DEF then parse_def(binding_power, flags, depth)
+        when :KEYWORD_DEFINED then parse_defined(flags, depth)
+        when :KEYWORD_END_UPCASE then parse_post_execution(binding_power, flags, depth)
         when :KEYWORD_FALSE
           lex
           false_node(previous_token)
-        when :KEYWORD_FOR then parse_for(depth)
+        when :KEYWORD_FOR then parse_for(flags, depth)
         when :KEYWORD_IF then parse_if(depth)
-        when :KEYWORD_UNDEF then parse_undef(binding_power, depth)
-        when :KEYWORD_NOT then parse_not(accepts_command_call, depth)
+        when :KEYWORD_UNDEF then parse_undef(binding_power, flags, depth)
+        when :KEYWORD_NOT then parse_not(binding_power, flags, depth)
         when :KEYWORD_UNLESS
           opening_newline_index = token_newline_index
           lex
           parse_conditional(:unless, opening_newline_index, false, depth + 1)
-        when :KEYWORD_MODULE then parse_module(depth)
+        when :KEYWORD_MODULE then parse_module(flags, depth)
         when :KEYWORD_NIL
           lex
           nil_node(previous_token)
@@ -2006,22 +2038,22 @@ module Prism
         when :KEYWORD_TRUE
           lex
           true_node(previous_token)
-        when :KEYWORD_UNTIL then parse_loop(:until, depth)
-        when :KEYWORD_WHILE then parse_loop(:while, depth)
+        when :KEYWORD_UNTIL then parse_loop(:until, flags, depth)
+        when :KEYWORD_WHILE then parse_loop(:while, flags, depth)
         when :PERCENT_LOWER_I then parse_percent_lower_i
         when :PERCENT_UPPER_I then parse_percent_upper_i(depth)
         when :PERCENT_LOWER_W then parse_percent_lower_w
         when :PERCENT_UPPER_W then parse_percent_upper_w(depth)
         when :REGEXP_BEGIN then parse_regexp_literal(depth)
-        when :BACKTICK, :PERCENT_LOWER_X then parse_xstring_literal(depth)
-        when :USTAR then parse_splat_target(binding_power, diag_id, depth)
-        when :BANG then parse_unary(binding_power, "!", depth)
-        when :TILDE then parse_unary(binding_power, "~", depth)
-        when :UMINUS then parse_unary(binding_power, "-@", depth)
-        when :UMINUS_NUM then parse_negative_number(depth)
+        when :XSTRING_BEGIN, :PERCENT_LOWER_X then parse_xstring_literal(depth)
+        when :USTAR then parse_splat_target(binding_power, flags, diag_id, depth)
+        when :BANG then parse_unary(binding_power, "!", flags, depth)
+        when :TILDE then parse_unary(binding_power, "~", flags, depth)
+        when :UMINUS then parse_unary(binding_power, "-@", flags, depth)
+        when :UMINUS_NUM then parse_negative_number(flags, depth)
         when :MINUS_GREATER then parse_lambda(depth)
-        when :UPLUS then parse_unary(binding_power, "+@", depth)
-        when :STRING_BEGIN then parse_strings(nil, accepts_label, depth + 1)
+        when :UPLUS then parse_unary(binding_power, "+@", flags, depth)
+        when :STRING_BEGIN then parse_strings(nil, flags.anybits?(ACCEPTS_LABEL), depth + 1)
         when :SYMBOL_BEGIN
           lex_mode = @lex_mode.dup
           lex

@@ -6,7 +6,7 @@
 inputs f4cd28d075731c0bb0496481d009ee4012270aa4d7e75e330f114f5a91fba2a7
 
 ruby ruby 4.1.0 - https://github.com/ruby/ruby@2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1
-source prism 1.9.0 - https://github.com/ruby/prism@v1.9.0
+source prism 1.9.0 - https://github.com/ruby/prism@0a5f9c956cb62b371ab680868d08c82ae0d49201
 target aarch64-linux-musl 4.1.0 e5bd40325058057c850ebce22907c66316f540a08714eff711359ec30c218f48 https://cache.ruby-lang.org/pub/ruby/4.1/ruby-4.1.0-preview1.tar.gz built in docker.io/library/alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 license rubygems-update 4.1.0.beta2 73b1485c83b1d11a1587138b7ca9ef763e09931b8d580dc52e92b4821a92a456 https://rubygems.org/downloads/rubygems-update-4.1.0.beta2.gem
 default bundler 4.1.0.beta2 ffd80c244e3c080cbc403b194e7b386668c69275561f81b7a801f08772a6e2d6 https://rubygems.org/downloads/bundler-4.1.0.beta2.gem
@@ -84,7 +84,7 @@ port ffi 1.17.4 bcd1642e06f0d16fc9e09ac6d49c3a7298b9789bcb58127302f934e437d60acf
 port fiddle 1.1.8 7fa8ee3627271497f3add5503acdbc3f40b32f610fc1cf49634f083ef3f32eee https://rubygems.org/downloads/fiddle-1.1.8.gem
 port json 3.0.2 8e6d7e7b11384c21230430cef90b71f14849a34a1f4452796670f7c981bd19df https://rubygems.org/downloads/json-3.0.2.gem
 port nkf 0.3.0 357a8dbeba38b727b75930f665146546076a394a1c243faf634ff176e3588895 https://rubygems.org/downloads/nkf-0.3.0.gem
-port prism 1.9.0 7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85 https://rubygems.org/downloads/prism-1.9.0.gem
+port prism 1.9.0 - https://github.com/ruby/prism@0a5f9c956cb62b371ab680868d08c82ae0d49201
 port racc 1.8.1 4a7f6929691dbec8b5209a0b373bc2614882b55fc5d2e447a21aaa691303d62f https://rubygems.org/downloads/racc-1.8.1.gem
 port syslog 0.4.0 c4c38ae982fe72903ec41094b5e5f2dcbbc66f510d0225c9702e5e980d827472 https://rubygems.org/downloads/syslog-0.4.0.gem
 
@@ -1255,46 +1255,46 @@ cc49c862f0863f5c96771fcd0c05803bd83326dff6329a65f451aaf7f80d746d ruby/lib/ruby/g
 967586d538a28955ec2541910cf63c5ac345fcdea94bfb1f1705a1f6eb36bcbb ruby/lib/ruby/gems/4.1.0+5/gems/prime-0.1.4/COPYING
 31ef63b3382fafb0fbed8c945db3e208c58371bc7ab12471e364d6e97aace7c1 ruby/lib/ruby/gems/4.1.0+5/gems/prime-0.1.4/lib/prime.rb
 b471020939ffa8ec28125e4e31c29ef56dee40aa5403640f8311374cc5b413fc ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/LICENSE.md
-db36d00d25867fb932435d6cc3753ba51046ef65eab5d9fa6b68ad9c1932479a ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism.rb
-4a3bff8f5d99ac2f8fcd02b38c90e4ab7675d0d4fc850f943ddab230dc6a7384 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/compiler.rb
-982e7f6e3a0dabfa8b8df9bd17f24a006ce916a6cf176d0d74ec6b22fdd9126f ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/desugar_compiler.rb
-c63be4ddd6fb8bf7bfff3ca78844d4bbaaf8fd3b457c6cc38691ec74e70f790e ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/dispatcher.rb
-e81ff0f2ca59c91f0896859068e5a2577c6fe6d0518b57db4456959861baf4d2 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/dot_visitor.rb
-d167056def2f1c623d02fbb897814196d8032ce1f4740b11eaaeed9589395834 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/dsl.rb
-ad28f33420fcc2507a4c0287b5c359457711a32e91903b3e17749891c10e064a ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/inspect_visitor.rb
-621db3d83ddd70724b2192908b82e698a99d40cedd2db136a32958572e573701 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/lex_compat.rb
-1592fcddddaeacef73ad215668e3e1dee701961ca0cbb4a22283ce2f40f4d7eb ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/mutation_compiler.rb
-864d4d54f44a8a74bb32cef05153343cdd0e761844352c1f0648110accd80d88 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/node.rb
-17cd0d8309ab9d08abe52f752a105010d9a69bd66fbbe9228904d58c26c651a0 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/node_ext.rb
-d48210e3c2e502b79199403c37d0d28378bdfe656697ca3306f3677f3316ec43 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/pack.rb
-aa76af536d506957d124b8d2fb74fdfa1ee1183c62135fa135a6228fef298633 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result.rb
-e8cbe8727a3b855454cec6670ba76ca1a37e189ecac8ddd08ddeb7bc11a922e6 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result/comments.rb
-e0b805f6909cea3bc388e453d22c0b66e289721e91b9d516a9a363e6d2706db2 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result/errors.rb
-9bc8f9d4551028a69eb5d6482bf181468fc9773c9749c215c875e672a6b1cae4 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result/newlines.rb
-236f45ef3c7a8c8d0e91a5d16c5fed59ca31de76a7742e2c0ed2b71834aaadf8 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/pattern.rb
+159b58d32de0250762938725c2908509293e6b71109e39d1042a95e5a67b776a ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism.rb
+d3678a609f35a34dd665afcf090a22fe8c5ab4e7acaf2cb61f7aa107b55e9a71 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/compiler.rb
+3464977e2fea2c290489bdd9ae6011caac1438d3e89f6b53cda964cb3cdf9c46 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/desugar_compiler.rb
+fa689be9bbc9838b177c1cfea0984b51d5cbc66d88d373649cc9d62af8091ae8 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/dispatcher.rb
+19d30839b8eb3bbfc8b6c04bc73af4fe49e8ef9553c6e69bc7edb02809c1703a ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/dot_visitor.rb
+0f9e2775fd438757242661c572eeb4dc37682ff1a78c6b2b71dd485bd4b207f6 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/dsl.rb
+0cf30763b0cd8dd8ce65639b52fee6d6118527ab2b9386533a2cf79668fc8229 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/inspect_visitor.rb
+1cd9ca13d0b94e817dc3eded9e0b05ed9f6caa713bcc7a628fba72025456ada6 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/lex_compat.rb
+1c7c96fb728adc59ffa44c8d46c9b4ae6e1d922275d44a1e4ee03975a4aa47da ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/mutation_compiler.rb
+91a0e97c70edd3c5f40ed43a85bb37a3c96341c910b4be54af38c676d9352c4f ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/node.rb
+f35c98448899496208bc7449ad71504373803f221f2691e8961506e1e5e8ab54 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/node_ext.rb
+7f6f5aca36aeb4a3e8aedfea2255368d2b546551bdf29fb68b1a40450e0254cb ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/node_find.rb
+5085162c449ff5d66672dafe53f8d39e0c20ba7f23d01928ff568dfa0f737ce2 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result.rb
+51416feb77a98087d14dea887f0153197162332bb360b571164320e51a268737 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result/comments.rb
+4376c9abc82a58b6e34605ecb180917fee6c11b1c08677a36fbd7b7412bf01c5 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result/errors.rb
+fad0117d447f4fa14ced8a0b2e6c4a3910e335da94879bb87e31e574c72d24e8 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/parse_result/newlines.rb
+66940a3077214c67f3455dec80b64c1ddb27d0d801bb0f6961fe1541fe1676f4 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/pattern.rb
 b3bfe9c774813b43c104c75c7aa262ab076715cac434997e2ea80b51509feb37 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/polyfill/append_as_bytes.rb
 dbb150665211cd006b33e47fc207fa80b9d90dcad14308fe9d1fa0f512b35552 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/polyfill/byteindex.rb
 e1c757f37cdf9499711b04ebc2390a4b6f5842608e31ef8c94a41ea2562282dc ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/polyfill/scan_byte.rb
 52ca260e79241dc91868d693e9404205150e300594df06100c94903399b4efba ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/polyfill/unpack1.rb
 555b7a9ba975428898dc282b71e057afb67360fe437d9e0d100b17fae80f8ba2 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/polyfill/warn.rb
-7fe3d8257759146b47e834344fa2bcccc1c13e7e7a76256026453bfeee70da7d ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/reflection.rb
-fd9cbebb1a7ffe4fbbb757c71d30e69d6ee32d67f0f93738da690d94514b0de4 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/relocation.rb
-6cb815382e90d0cf882d986f5cba5cb04d451ed6aa8f474e2abaf11a1226e80a ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/serialize.rb
-30500073e4261c862e39a35e3078a733876d5e6e0377d051e6723e15d3b40b04 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/string_query.rb
-6f439c202a40f9db9623238487359da5b565a434fd21270b1cd96c69bef2e0df ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation.rb
-1e5ce83bccd0e39e0af4fd53f1bbde847a84185955317f2f7e3bbf7d0a013c2a ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser.rb
-ca86ea795abe06225e12b4bd4c01ccfe2a4c775e104306e5e1e0095d674da10b ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser/builder.rb
-054a2d03cc447e845c5a83c9b978e525b7e75d811d80499f3c350f9241797296 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser/compiler.rb
-c158bca0db9d28c6c07558f271ef644663c27d9e115cabdea6657cf2f52127c4 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser/lexer.rb
-6a193922a737ba55438d8957772c2a1fbedf6ed2f6ed5e9820fdd05f373ca461 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser_current.rb
+8282126a5cd446b6c9c62f39c95bcb94e4b7267b5e83e154db7f529c0dd15617 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/reflection.rb
+6af2589b2c88e070496920fc11c76800d398149018db83c5f775efe3506e4add ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/relocation.rb
+60be8a7469d3ad915ac2bc229f201f1875e8cbc88d4d9334e7faf229eded9af2 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/serialize.rb
+5535ce98b3f076443ca3ff49294eeb5899d13a8f636661a0ab1984e94334ac64 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/string_query.rb
+0bd2f3b8be7606c0e3db1a20072501b73c053740ef43d1d28892e74316567e59 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation.rb
+ac77a4eddd9f22b4bec1c20eb98a6e18439a99e1d5fec15ce40b13f66aaae8ed ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser.rb
+5e106bfc1c28d32979a4e60351bab8f24a7fd6121d46f10936d847777bc62863 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser/builder.rb
+98efaa4875fb2ca31b3a525e5151d4de820b89f0bbc07fbb5a3b9df5468f098d ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser/compiler.rb
+a05bb900c8c2f320ade96ef66451b303b8892421c188813a375e0aadaa372523 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser/lexer.rb
+389dce9bbc982886ea0b972f7687277926015ab840b22fa2f835e43c569f1116 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser_current.rb
 8aa73e06ac5ea6eeb30312ef0ad652dd4667b7ef817c407d0edb312833d1279d ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/parser_versions.rb
-11c8180bf2ac0249ab907e136dfb1043cb1f732be7d562ee7cfb760a1ecb9ef6 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper.rb
+a57d56a145e50b0de22e2923d07aeb5315ed129dfd1ec62cb886e5f3ddbf7460 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper.rb
 63f730de2f4d1cc7378019ad10505e77474eb68e1a8849dbfe32af52d8ce337b ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper/filter.rb
-0efd6abef24811454ca15d99c6b69617ca53de8e4a18604c76f6242d65d1e64d ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper/lexer.rb
-c0f92c6a61cfba98f359caf616cb2ad8eb4563dce88403d13b812ce219a41adf ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper/sexp.rb
-9e376d8cc0f85c35e1ba3523dd959469d2cf2b7ea3e6d6bc27e8bb50295159c0 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper/shim.rb
-bc9e980a6da8f99a1bd8c2b95c6e13aa79e012d15f033eb5c7df270be96998f3 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ruby_parser.rb
-117626b6156ab72e784a33d76e7a098bb8fde66cafe0164bea88d25b944d1d12 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/visitor.rb
+54202238afa7998667523932941d33310dd178a569d6a3d77399a89694f217e2 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper/lexer.rb
+0690ec781cde3967a41abd8cdd86fe9c25ffa207990f2dcd2c3093ff2ad7f686 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper/sexp.rb
+8d5691cd9d0f49e6afbffd4653dbc8426f25155c48922a5d38d73d6e31e668df ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ripper/shim.rb
+cb64eba911bc0539bd19d99e8cf6f77864f9437e4a2a9f59efdd6ce59ad66009 ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/translation/ruby_parser.rb
+a54c88cea115a0557b2d1b3db08df9b5c39d4b5e314153ea074ce1044251d57c ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib/prism/visitor.rb
 36a9a6e7347214bbba599a412617204e65bff065dcbe5c46f5cb454c80de9eb0 ruby/lib/ruby/gems/4.1.0+5/gems/pstore-0.2.1/BSDL
 967586d538a28955ec2541910cf63c5ac345fcdea94bfb1f1705a1f6eb36bcbb ruby/lib/ruby/gems/4.1.0+5/gems/pstore-0.2.1/COPYING
 c6598dca43e40e4be3b7e49ec0a07e87e4c8075258b6d8fc4fcbc12998ff006f ruby/lib/ruby/gems/4.1.0+5/gems/pstore-0.2.1/lib/pstore.rb
@@ -1627,7 +1627,7 @@ d7977ab4987e88a4d0040d5418d7ffd2e1b7c08a30556e567bb990c344072631 ruby/lib/ruby/g
 145eaeb05aceaf698f0e58ce8bcb3b87e6e22f35322b8f3b40724c860242df46 ruby/lib/ruby/gems/4.1.0+5/specifications/ostruct-0.6.3.gemspec
 2d2cb5bd63ce685a22f0dfaba522fc6ccce303a36b665fe3184741ef4d84b338 ruby/lib/ruby/gems/4.1.0+5/specifications/power_assert-3.1.0.gemspec
 0efde437ab59e1c5c9b203123b124c55232cfe3ebe65f2d77eedbbda7f9e89ed ruby/lib/ruby/gems/4.1.0+5/specifications/prime-0.1.4.gemspec
-93da0fd0c6ed386b1dea0bc1d2dc9526879cdb1b0442fce3d12d8bde469360e8 ruby/lib/ruby/gems/4.1.0+5/specifications/prism-1.9.0.gemspec
+1b5737b9c41b8cb9ab9d1aafb41d7b14a67f8701d23aa7469263fdd8e1a32c44 ruby/lib/ruby/gems/4.1.0+5/specifications/prism-1.9.0.gemspec
 05a63c1a6a656a8393876a2b1f0db0bfeea402385064ad07875ded23c3b4dd36 ruby/lib/ruby/gems/4.1.0+5/specifications/pstore-0.2.1.gemspec
 1697a4d175fbde75bf206a6a8aee50d5e0ad20d1f43498b4cd19a0261a7d7e04 ruby/lib/ruby/gems/4.1.0+5/specifications/racc-1.8.1.gemspec
 524b08b01145e7b3bf399141b7105e8d2511def812db6622f56f63711bf5f82a ruby/lib/ruby/gems/4.1.0+5/specifications/rake-13.4.2.gemspec
@@ -1641,41 +1641,33 @@ d115e99576c66ff05892002b6ec8710e0f794e5de2f70f7758b4021b20231b4b ruby/lib/ruby/g
 7cba5704c1b763c317787ad98965265aaed78c8b09940a11125c7838c16e4516 ruby/lib/ruby/gems/4.1.0+5/specifications/test-unit-3.7.8.gemspec
 618097c833fb2f59c1faadc6081416ff58b1bc2415181fbd89d538c38304ef51 ruby/lib/ruby/gems/4.1.0+5/specifications/tsort-0.2.0.gemspec
 b471020939ffa8ec28125e4e31c29ef56dee40aa5403640f8311374cc5b413fc src/prism-1.9.0/LICENSE.md
-6c6a487aaf9e5e294ab622635c2de3792d0edeec7fde8d4792f2524202c83e2b src/prism-1.9.0/config.yml
-6211cd8e1c88986f71c743d33a125f0d5b25455833c98e95fc187e3413986cd3 src/prism-1.9.0/templates/ext/prism/api_node.c.erb
-9927e70f27e6ec294f64a30222f467b521848f8b4f3e64a662259d521f349708 src/prism-1.9.0/templates/include/prism/ast.h.erb
-14714bac2305e0d24af6124554f86796b5887e98a1a96505489e83ef223897c1 src/prism-1.9.0/templates/include/prism/diagnostic.h.erb
-49a0f9026b9fe644c73c2c21e7b29de6fb1acdca44b195d6d6c32d40dbeb2cc0 src/prism-1.9.0/templates/java/org/prism/AbstractNodeVisitor.java.erb
-46f5e0621a1534c160ece48ae1a1945dfcdd02555d3378b982f7f958cbc93503 src/prism-1.9.0/templates/java/org/prism/Loader.java.erb
-7ebb7bb117d1040ba4086fe5fad9d5a369addd7d23fffa2712900c012f37edd8 src/prism-1.9.0/templates/java/org/prism/Nodes.java.erb
-6badd5308682e6bbb2f0a766c4b47d0a89ce6e2ee3a79d37cf172f46887270ee src/prism-1.9.0/templates/javascript/src/deserialize.js.erb
-3502f4d46348f96de0628caea7c224f2bc6bad97cee5b616d69dbd07290577a3 src/prism-1.9.0/templates/javascript/src/nodes.js.erb
+2e0641cf52c6a7130dee7e060109b2f2ec1f2d904c85efe0036bf4ddf02d33f9 src/prism-1.9.0/config.yml
+18e664523b34a2e30f5eea3c11b71c1c0a0b3ccdb36a970660814186246b1829 src/prism-1.9.0/templates/ext/prism/api_node.c.erb
+79a7bf6c318ca4c1e66d1f405ae4fbde40c455f1f3ccd4b2f3ab98bd33756c70 src/prism-1.9.0/templates/include/prism/ast.h.erb
+312225e75a510464ad15ffd499aa27e7acad0e2d3c9abda18eb264b62b7347b0 src/prism-1.9.0/templates/include/prism/internal/diagnostic.h.erb
+b2c3932c96f2c18b8b5423d547963c4d560858112859cde74f9d6474c8bf299b src/prism-1.9.0/templates/java/api/src/main/java-templates/org/ruby_lang/prism/AbstractNodeVisitor.java.erb
+1c0a4c27705ff51f5e6df44815707ee9cceae6b8562c7d75fe4f87f04bd03dd3 src/prism-1.9.0/templates/java/api/src/main/java-templates/org/ruby_lang/prism/Loader.java.erb
+1f3ebd78cde4e0a665f81b395476df630129df21ee51ca4a31ededb0e5b73b20 src/prism-1.9.0/templates/java/api/src/main/java-templates/org/ruby_lang/prism/Nodes.java.erb
+ca3ffaf4a7e6be6ddc187ac901d9922d7a1483b35e9f01892474bcc9a80737aa src/prism-1.9.0/templates/javascript/src/deserialize.js.erb
+4b8d4cdb3a9eb725cc8539c7191a524f0670f5589562b7af71ee2e61e9737bf8 src/prism-1.9.0/templates/javascript/src/nodes.js.erb
 965329e3913b697c4c1dcc8d0bd516f74b4efad34b70718ed771d5cca880b013 src/prism-1.9.0/templates/javascript/src/visitor.js.erb
-f4af72b8ec6de5d7ecd4a85269444746b2bfa895c8df0727d7f27c8261d57613 src/prism-1.9.0/templates/lib/prism/compiler.rb.erb
-1cd5d91a884641f39d1aa7246958f18356fe112f36ec2d70888efde7d864f827 src/prism-1.9.0/templates/lib/prism/dispatcher.rb.erb
-f7d7863025eeaf650a62c5f9cb8f2291c866f503ca79167986b8efc0b6fbc1cd src/prism-1.9.0/templates/lib/prism/dot_visitor.rb.erb
-880201b917aa32fcab27606a2be7ed8908ba2b70c75143aab4dbeefca67826de src/prism-1.9.0/templates/lib/prism/dsl.rb.erb
-58f9b6b04510c720e0e63f9ae54337f5e576ae5ceab7eab2744875aab833d7b5 src/prism-1.9.0/templates/lib/prism/inspect_visitor.rb.erb
-d003a993a06e92b1b433f1cd1169ea84e8651a46e0ab3e857e271805b2bb5584 src/prism-1.9.0/templates/lib/prism/mutation_compiler.rb.erb
-d05eb3eee8517f40349c0eaa12ceb8c768a7d4f792b7fa2b61143824bd262cde src/prism-1.9.0/templates/lib/prism/node.rb.erb
-8bf1e3b3199e886a286e014354d30ad714d4aabe7518122f102093ffbc00d3ee src/prism-1.9.0/templates/lib/prism/reflection.rb.erb
-5d0294bbb7806f9b04dee46d02e14f441b0ac66afaf529c99ceb27b5484eae9f src/prism-1.9.0/templates/lib/prism/serialize.rb.erb
-75d7e86f8ae0a395d3bb6c51dcd6e24bf21b2c2e476dfa92e7b084e47d369f23 src/prism-1.9.0/templates/lib/prism/visitor.rb.erb
-dc36b3ef0a0ca108506c9bf737212304e9047ef79797072d7a01fe1ae31384c9 src/prism-1.9.0/templates/rbi/prism/dsl.rbi.erb
-686fce784ef615a12e73cd15e769378a52fd1e6f7a6ccea6235a000df131d7cc src/prism-1.9.0/templates/rbi/prism/node.rbi.erb
-f0c74e1ca5030876ca99a0d72550530d291fb53f2ca3bf43b2b6fb37501be634 src/prism-1.9.0/templates/rbi/prism/visitor.rbi.erb
-dbcfde1930ed208dc9ad9aa8a171951c7491a814e979d3752fe1f5b18e45563d src/prism-1.9.0/templates/sig/prism.rbs.erb
-5a0ddfc5f8b4ea71360c28aeff7cf9dffc81212fce010126bb07228fd7170ab6 src/prism-1.9.0/templates/sig/prism/_private/dot_visitor.rbs.erb
-d293794eba99b7012cbebc99387f83f5cc3c62efd0eec3c0b0821f278368c705 src/prism-1.9.0/templates/sig/prism/dsl.rbs.erb
-3d06af717b4d95ed7ccd714cde76ed571b72ab59b3c923a64b6b69361017ac29 src/prism-1.9.0/templates/sig/prism/mutation_compiler.rbs.erb
-96f409066ba7ca4cd895ff65b2e02b913f16fdb4374b33eaa68d6aa4781897b5 src/prism-1.9.0/templates/sig/prism/node.rbs.erb
-348e5bdcd73edc5070d5349b4a7fcb87bd83d75959379fc33d70d149c2deba3a src/prism-1.9.0/templates/sig/prism/visitor.rbs.erb
-2e753db986e88ca5d5a2824961df3ce455a34b5563e8a4e36e0571a516cfa412 src/prism-1.9.0/templates/src/diagnostic.c.erb
-c97a601e3ccda7134b4900ecef05523f393d46c2b5912f18acef3f271ea186c2 src/prism-1.9.0/templates/src/node.c.erb
-d82f6830330927993301997bf316651367ebedfd87a51dda31d1565e5fa89364 src/prism-1.9.0/templates/src/prettyprint.c.erb
-eeded21e61e1734752d0b4ec774caa47f4f23ae22645ea54472d76e8f797caec src/prism-1.9.0/templates/src/serialize.c.erb
-50a7d1cd03bb7dd5e717317393f7a392dcdbbabc976edceaf5067fe877331c18 src/prism-1.9.0/templates/src/token_type.c.erb
-834bf4571ed0935e7d40d7f4ee578778032881343cdc88ace65fab6c396dbae9 src/prism-1.9.0/templates/template.rb
+ca9e530c4bd2578da8b199abe44c9beb71f05535b5b4afbfe14c9d81c4bc471c src/prism-1.9.0/templates/lib/prism/compiler.rb.erb
+aef41459fa912a627178c4bea7c804d7cad298c08368c584c078d37b06534daa src/prism-1.9.0/templates/lib/prism/dispatcher.rb.erb
+88bcafa85017d9e7d7f62b6e1cc1741a30e4e287d258ab852e6f2cae38f3abf5 src/prism-1.9.0/templates/lib/prism/dot_visitor.rb.erb
+c0075647ce78ab89960301a8de3be6fa7bb66e211cc7871f239f4588d39ec569 src/prism-1.9.0/templates/lib/prism/dsl.rb.erb
+8282102ada2948b5c2ca1340724acf80479393860fde713b211d2c5eaef7e42a src/prism-1.9.0/templates/lib/prism/inspect_visitor.rb.erb
+b49f2c82468d32df8ae57ce603ed5075c436ceed615b04201499d33c2a4b1cde src/prism-1.9.0/templates/lib/prism/mutation_compiler.rb.erb
+71c341111c16a965c24859311d25391e5d023824d6d6b843fa1c28d799ff1db4 src/prism-1.9.0/templates/lib/prism/node.rb.erb
+45b631c5a1b9e36307723cc02e7af7e577f56e090d039b46f9a0bd9eb0ce6b97 src/prism-1.9.0/templates/lib/prism/reflection.rb.erb
+792568741d848e0b76923dcca29b2555c89c7d9c63fa4a16f51e9238a1dce5f7 src/prism-1.9.0/templates/lib/prism/serialize.rb.erb
+c3410e5a679d1c9684fcef6d67d5257829e994e5f22f94d616e1b5940376f56f src/prism-1.9.0/templates/lib/prism/visitor.rb.erb
+96ec980f6c2e675f8b217e682560ae697e9965467d817853c258c6be475ab8d2 src/prism-1.9.0/templates/src/diagnostic.c.erb
+bbf61d18082356bf1f91590a434db77b280fb77050bf7da69c8bc2b6ee2f3003 src/prism-1.9.0/templates/src/json.c.erb
+b3f256e7e99cefd8cdbf0d1f78c1eb010e96ab9e0472343475e8e043700df4a5 src/prism-1.9.0/templates/src/node.c.erb
+d040eb45043a56f3547fc089ab220f13a06de76c19e73ba7334fb085dbcda9c7 src/prism-1.9.0/templates/src/prettyprint.c.erb
+52ed5f26110c832904f0879e0e3374a825f27ea73e0401f3b12d58d1f5d009b8 src/prism-1.9.0/templates/src/serialize.c.erb
+51764ff944ce3069dcf68807eee9ab978f126fc850870afe88df87284e1a38e8 src/prism-1.9.0/templates/src/tokens.c.erb
+c43fd9ea929c2cf6e601cbabc55196d6492b3b06f60cde9af2d10034d0a33727 src/prism-1.9.0/templates/template.rb
 2111ba078d8a949c66dac0f2b586539d56b2125154251d9cfc695343cb3d2110 targets/aarch64-linux-musl/include/ruby-4.1.0+5/aarch64-linux-musl/ruby/config.h
 04af8803affdcd5301e83d49078f64b10eb263823198913a6d7cd949a632d0a0 targets/aarch64-linux-musl/include/ruby-4.1.0+5/ruby.h
 1ed2a9d1dbfec38f44c435a099bf560496cc0596e381448fdaee5da68f2117d2 targets/aarch64-linux-musl/include/ruby-4.1.0+5/ruby/assert.h

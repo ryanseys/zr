@@ -12,7 +12,7 @@ module Prism
       PARSE_PATTERN_MULTI = 2
 
       # The tokens a pattern primitive may start with.
-      PATTERN_PRIMITIVE_STARTS = (%i[IDENTIFIER BRACKET_LEFT_ARRAY BRACE_LEFT CARET CONSTANT UCOLON_COLON UDOT_DOT UDOT_DOT_DOT] +
+      PATTERN_PRIMITIVE_STARTS = (%i[IDENTIFIER BRACKET_LEFT_ARRAY BRACE_LEFT_HASH CARET CONSTANT UCOLON_COLON UDOT_DOT UDOT_DOT_DOT] +
                                   CASE_PRIMITIVE).freeze
 
       private
@@ -129,7 +129,7 @@ module Prism
 
       # parse_pattern_hash_implicit_value: `{ name: }` binds `name`.
       def parse_pattern_hash_implicit_value(captures, key)
-        value_loc = key.value_loc
+        value_loc = key.content_loc
         value_start = loc_start(value_loc)
         value_end = loc_end(value_loc)
 
@@ -160,8 +160,19 @@ module Prism
         err_node(node, :pattern_hash_key_duplicate) if keys.add(node, true)
       end
 
-      # The tokens after a hash pattern key that leave its value out.
-      PATTERN_HASH_VALUE_ENDS = %i[COMMA KEYWORD_THEN BRACE_RIGHT BRACKET_RIGHT PARENTHESIS_RIGHT NEWLINE SEMICOLON]
+      # token_begins_pattern_p: a token a pattern may start with. A pattern
+      # ends before any other, which the enclosing context then takes.
+      def token_begins_pattern?(type)
+        token_begins_expression?(type) || type == :USTAR || type == :USTAR_STAR || type == :CARET
+      end
+
+      # The value of a hash pattern's key: implicit when no pattern follows.
+      def parse_pattern_hash_value(captures, key, depth)
+        return parse_pattern(captures, PARSE_PATTERN_SINGLE, :pattern_expression_after_key, depth + 1) if token_begins_pattern?(@current_type)
+        return parse_pattern_hash_implicit_value(captures, key) if key.is_a?(SymbolNode)
+
+        error_recovery_node(key.end_offset, key.end_offset)
+      end
 
       # parse_pattern_hash: a hash pattern from its first key or rest.
       def parse_pattern_hash(captures, first_node, depth)
@@ -171,28 +182,26 @@ module Prism
 
         if first_node.is_a?(AssocSplatNode) || first_node.is_a?(NoKeywordsParameterNode)
           rest = first_node
-        elsif first_node.is_a?(SymbolNode) && symbol_node_label?(first_node)
-          parse_pattern_hash_key(keys, first_node)
+        elsif symbol_node_label?(first_node)
+          if first_node.is_a?(InterpolatedSymbolNode)
+            err_node(first_node, :pattern_hash_key_interpolated)
+          else
+            parse_pattern_hash_key(keys, first_node)
+          end
 
-          value =
-            if match?(*PATTERN_HASH_VALUE_ENDS, :EOF)
-              parse_pattern_hash_implicit_value(captures, first_node)
-            else
-              parse_pattern(captures, PARSE_PATTERN_SINGLE, :pattern_expression_after_key, depth + 1)
-            end
-
+          value = parse_pattern_hash_value(captures, first_node, depth)
           assocs << assoc_node(first_node, NOT_PROVIDED, value)
         else
           id = first_node.is_a?(InterpolatedSymbolNode) ? :pattern_hash_key_interpolated : :pattern_hash_key_label
           err_node(first_node, id)
 
-          value = missing_node(first_node.start_offset, first_node.end_offset)
+          value = error_recovery_node(first_node.start_offset, first_node.end_offset)
           assocs << assoc_node(first_node, NOT_PROVIDED, value)
         end
 
         while accept(:COMMA)
           # A trailing comma, but not after a rest.
-          if match?(:KEYWORD_THEN, :BRACE_RIGHT, :BRACKET_RIGHT, :PARENTHESIS_RIGHT, :NEWLINE, :SEMICOLON, :EOF)
+          unless token_begins_pattern?(@current_type)
             err_token(current_token, :pattern_expression_after_rest) if rest
             break
           end
@@ -215,23 +224,16 @@ module Prism
               elsif !symbol_node_label?(key)
                 err_node(key, :pattern_label_after_comma)
               end
+            elsif accept(:LABEL)
+              key = symbol_node_label(previous_token)
             else
               expect(:LABEL, :pattern_label_after_comma)
-              key = symbol_node_label(previous_token)
+              key = symbol_node(NOT_PROVIDED, Token.new(:LABEL, @previous_end, @previous_end), NOT_PROVIDED)
             end
 
             parse_pattern_hash_key(keys, key)
 
-            value =
-              if match?(*PATTERN_HASH_VALUE_ENDS)
-                if key.is_a?(SymbolNode)
-                  parse_pattern_hash_implicit_value(captures, key)
-                else
-                  missing_node(key.end_offset, key.end_offset)
-                end
-              else
-                parse_pattern(captures, PARSE_PATTERN_SINGLE, :pattern_expression_after_key, depth + 1)
-              end
+            value = parse_pattern_hash_value(captures, key, depth)
 
             assoc = assoc_node(key, NOT_PROVIDED, value)
             err_node(assoc, :pattern_expression_after_rest) if rest
@@ -274,7 +276,7 @@ module Prism
           accept(:NEWLINE)
           expect_opening(:BRACKET_RIGHT, :pattern_term_bracket, opening)
           parse_pattern_bracketed(inner, opening, previous_token)
-        when :BRACE_LEFT
+        when :BRACE_LEFT_HASH
           previous_pattern_matching_newlines = @pattern_matching_newlines
           @pattern_matching_newlines = false
 
@@ -292,11 +294,11 @@ module Prism
               when :USTAR_STAR
                 parse_pattern_keyword_rest(captures)
               when :STRING_BEGIN
-                parse_expression(BINDING_POWER_MAX, false, true, :pattern_hash_key_label, depth + 1)
+                parse_expression(BINDING_POWER_MAX, ACCEPTS_DO_BLOCK | ACCEPTS_LABEL, :pattern_hash_key_label, depth + 1)
               else
                 err_current(:pattern_hash_key, Tokens::HUMAN.fetch(@current_type))
                 lex
-                missing_node(@previous_start, @previous_end)
+                error_recovery_node(@previous_start, @previous_end)
               end
 
             node = parse_pattern_hash(captures, first_node, depth + 1)
@@ -317,14 +319,14 @@ module Prism
           lex
 
           if CASE_PRIMITIVE.include?(@current_type)
-            right = parse_expression(BINDING_POWER_MAX, false, false, :pattern_expression_after_range, depth + 1)
+            right = parse_expression(BINDING_POWER_MAX, ACCEPTS_DO_BLOCK, :pattern_expression_after_range, depth + 1)
           else
             err_token(operator, :pattern_expression_after_range)
-            right = missing_node(operator.start, operator.end)
+            right = error_recovery_node(operator.start, operator.end)
           end
           range_node(nil, operator, right)
         when *CASE_PRIMITIVE
-          node = parse_expression(BINDING_POWER_MAX, false, true, id, depth + 1)
+          node = parse_expression(BINDING_POWER_MAX, ACCEPTS_LABEL | ACCEPTS_DO_BLOCK, id, depth + 1)
 
           # A label goes back to the caller.
           return node if symbol_node_label?(node)
@@ -332,16 +334,14 @@ module Prism
           # No arithmetic in a pattern.
           if node.is_a?(CallNode)
             err_node(node, id)
-            missing = missing_node(node.start_offset, node.end_offset)
-            node_unreference(node)
-            return missing
+            return error_recovery_node_unexpected(node)
           end
 
           if accept(:DOT_DOT, :DOT_DOT_DOT)
             operator = previous_token
 
             if CASE_PRIMITIVE.include?(@current_type)
-              right = parse_expression(BINDING_POWER_MAX, false, false, :pattern_expression_after_range, depth + 1)
+              right = parse_expression(BINDING_POWER_MAX, ACCEPTS_DO_BLOCK, :pattern_expression_after_range, depth + 1)
               return range_node(node, operator, right)
             end
 
@@ -370,20 +370,14 @@ module Prism
             when :GLOBAL_VARIABLE
               lex
               global_variable_read_node(previous_token)
-            when :NUMBERED_REFERENCE
-              lex
-              numbered_reference_read_node(previous_token)
-            when :BACK_REFERENCE
-              lex
-              back_reference_read_node(previous_token)
-            when :PARENTHESIS_LEFT
+            when :PARENTHESIS_LEFT_GROUPING
               previous_pattern_matching_newlines = @pattern_matching_newlines
               @pattern_matching_newlines = false
 
               lparen = current_token
               lex
 
-              expression = parse_value_expression(BINDING_POWER_STATEMENT, true, false, :pattern_expression_after_pin, depth + 1)
+              expression = parse_value_expression(BINDING_POWER_COMPOSITION, ACCEPTS_DO_BLOCK | ACCEPTS_COMMAND_CALL, :pattern_expression_after_pin, depth + 1)
               @pattern_matching_newlines = previous_pattern_matching_newlines
 
               accept(:NEWLINE)
@@ -391,7 +385,7 @@ module Prism
               return pinned_expression_node(expression, operator, lparen, previous_token)
             else
               err_token(operator, :pattern_expression_after_pin)
-              missing_node(operator.start, operator.end)
+              error_recovery_node(operator.start, operator.end)
             end
 
           pinned_variable_node(operator, variable)
@@ -410,16 +404,23 @@ module Prism
           parse_pattern_constant_path(captures, constant_read_node(constant), depth + 1)
         else
           err_current(id)
-          missing_node(@current_start, @current_end)
+          error_recovery_node(@current_start, @current_end)
         end
       end
 
+      # The nodes that make up a pattern, whose captures are its own; a
+      # lambda, an interpolation or a pinned expression may hold targets
+      # that are not, and a nested alternation was checked already.
+      PATTERN_STRUCTURE_NODES = [ArrayPatternNode, AssocNode, AssocSplatNode, CapturePatternNode, FindPatternNode,
+                                 HashPatternNode, ImplicitNode, ParenthesesNode, SplatNode].freeze
+
       # parse_pattern_alternation_error: a capture in an alternative is an
-      # error.
+      # error, unless its name starts with `_`.
       def parse_pattern_alternation_error(node)
-        if node.is_a?(LocalVariableTargetNode)
-          err(node.start_offset, node.end_offset, :pattern_capture_in_alternative)
-        else
+        case node
+        when LocalVariableTargetNode
+          err(node.start_offset, node.end_offset, :pattern_capture_in_alternative) unless peek_at(node.start_offset) == 0x5F
+        when *PATTERN_STRUCTURE_NODES
           node.compact_child_nodes.each { |child| parse_pattern_alternation_error(child) }
         end
       end
@@ -444,7 +445,7 @@ module Prism
             else
               node = parse_pattern_primitive(captures, id, depth + 1)
             end
-          when :PARENTHESIS_LEFT, :PARENTHESIS_LEFT_PARENTHESES
+          when :PARENTHESIS_LEFT_GROUPING, :PARENTHESIS_LEFT_PARENTHESES
             operator = previous_token
             opening = current_token
             lex
@@ -462,7 +463,7 @@ module Prism
             end
           else
             err_current(id)
-            right = missing_node(@current_start, @current_end)
+            right = error_recovery_node(@current_start, @current_end)
 
             if alternation
               parse_pattern_alternation_error(right) unless captures.empty?
@@ -536,8 +537,11 @@ module Prism
           nodes = [node]
 
           while accept(:COMMA)
-            # A trailing comma is an implicit rest.
-            if match?(:KEYWORD_THEN, :BRACE_RIGHT, :BRACKET_RIGHT, :PARENTHESIS_RIGHT, :SEMICOLON, :KEYWORD_AND, :KEYWORD_OR)
+            # A trailing comma, before a token no pattern starts with, is an
+            # implicit rest; after a rest it is a second one.
+            unless token_begins_pattern?(@current_type)
+              err_previous(:pattern_rest) if trailing_rest
+
               nodes << implicit_rest_node(previous_token)
               trailing_rest = true
               break

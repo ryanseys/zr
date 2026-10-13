@@ -35,7 +35,7 @@ module Prism
       # scope forwards.
       EvalScope = Struct.new(:locals, :forwarding)
 
-      attr_reader :filepath, :line, :encoding, :frozen_string_literal, :command_line, :version, :scopes
+      attr_reader :filepath, :line, :encoding, :frozen_string_literal, :command_line, :version, :scopes, :raise_error
 
       def initialize(filepath = nil, **keywords)
         @filepath = nil
@@ -48,6 +48,7 @@ module Prism
         @main_script = false
         @partial_script = false
         @freeze = false
+        @raise_error = 0
         @scopes = []
         keywords.each { |key, value| read(key, value) }
         return if filepath.nil?
@@ -91,6 +92,7 @@ module Prism
         when :main_script then @main_script = value ? true : false unless value.nil?
         when :partial_script then @partial_script = value ? true : false unless value.nil?
         when :freeze then @freeze = value ? true : false unless value.nil?
+        when :raise_error then @raise_error = read_raise_error(value) unless value.nil?
         else raise ArgumentError, "unknown keyword: #{key}".b
         end
       end
@@ -108,7 +110,9 @@ module Prism
 
             value.truncate
           else
-            integer = Integer.try_convert(value) || raise(TypeError, "no implicit conversion of #{value.class} into Integer".b)
+            # Ruby's own conversion error, in UTF-8 as ruby makes it.
+            name = { true => "true", false => "false" }.fetch(value) { value.class.name }
+            integer = Integer.try_convert(value) || raise(TypeError, "no implicit conversion of #{name} into Integer")
             raise RangeError, "bignum too big to convert into 'long'".b unless LONG.cover?(integer)
 
             integer
@@ -118,6 +122,24 @@ module Prism
         long
       end
 
+      # pm_errors_format_type_t of the raise_error option. True picks color
+      # on a terminal (style under NO_COLOR) and plain otherwise.
+      def read_raise_error(value)
+        if value == true
+          return ErrorsFormat::PLAIN unless $stderr.respond_to?(:tty?) && $stderr.tty?
+
+          no_color = ENV["NO_COLOR"]
+          return no_color.nil? || no_color.empty? ? ErrorsFormat::COLOR : ErrorsFormat::STYLE
+        end
+
+        case Options.check_type(value, Symbol)
+        when :plain then ErrorsFormat::PLAIN
+        when :style then ErrorsFormat::STYLE
+        when :color then ErrorsFormat::COLOR
+        else raise ArgumentError, "invalid raise_error value: #{value}".b
+        end
+      end
+
       def read_version(value)
         text = string(value)
         if text == "current"
@@ -125,6 +147,13 @@ module Prism
           raise CurrentVersionError, RUBY_VERSION if found.nil?
 
           found
+        elsif text == "nearest"
+          # A version prism does not know is below or above the ones it does.
+          found = version_number(RUBY_VERSION.byteslice(0, 3))
+          return found if found
+          return VERSION_CRUBY_3_3 if RUBY_VERSION < "3.3"
+
+          VERSION_LATEST
         else
           version_number(text) || raise(ArgumentError, "invalid version: #{value}".b)
         end

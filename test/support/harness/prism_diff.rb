@@ -3,7 +3,7 @@
 require "fileutils"
 require "prism"
 require_relative "child"
-require_relative "../../../tool/lib/zr/dev/parallel"
+require_relative "../../../tool/lib/zr/dev"
 
 module Zr
   module Harness
@@ -12,16 +12,18 @@ module Zr
     #
     # `writer` tests Prism::Ruby::Dump without the Ruby parser. A loader
     # reads each file's C dump back, and also keeps the data that a tree
-    # does not contain: the constant pool entries, which strings are
-    # slices of the source, and which integers are a negated zero. The
-    # writer writes the dump again, and the two dumps must be equal byte
-    # for byte.
+    # does not contain: the constant pool entries and which integers are
+    # a negated zero. The writer writes the dump again, and the two dumps
+    # must be equal byte for byte.
     module PrismDiff
       ROOT = File.expand_path("../../..", __dir__)
-      UPSTREAM = File.join(ROOT, "tmp/prism-1.9.0")
+      # The prism commit that ruby bundles (Dev.prism_revision), whose C
+      # the reference ruby's prism is.
+      REVISION = Dev.prism_revision
+      UPSTREAM = File.join(ROOT, "tmp/prism-#{REVISION[0, 12]}")
       # The prism checkout that test/prism is extracted from: `PRISM_SRC`,
       # else tmp/prism.
-      CHECKOUT = ENV["PRISM_SRC"].to_s.empty? ? File.join(ROOT, "tmp/prism") : File.expand_path(ENV["PRISM_SRC"])
+      CHECKOUT = Dev.prism_src
       # test_helper.rb's SYNTAX_VERSIONS.
       SYNTAX_VERSIONS = %w[3.3 3.4 4.0 4.1].freeze
       # zr's own Ruby, parsed under the latest syntax.
@@ -31,13 +33,13 @@ module Zr
 
       module_function
 
-      # The parts of prism's v1.9.0 tag that the tests read: prism's tests
+      # The parts of prism at REVISION that the tests read: prism's tests
       # and the snapshots that they compare with. They are extracted on
       # first use.
       UPSTREAM_PARTS = %w[test/prism snapshots].freeze
 
-      # The path of test/prism at prism's v1.9.0 tag, extracted on first
-      # use. nil when there is no checkout to extract it from.
+      # The path of test/prism at REVISION, extracted on first use. nil
+      # when there is no checkout to extract it from.
       def upstream
         tests = File.join(UPSTREAM, "test/prism")
         missing = UPSTREAM_PARTS.reject { |part| File.directory?(File.join(UPSTREAM, part)) }
@@ -52,12 +54,12 @@ module Zr
       # Pipes `git archive` of the tag, for `parts`, into `tar`.
       def extract(parts)
         reader, writer = IO.pipe
-        archive = Process.spawn("git", "-C", CHECKOUT, "archive", "--prefix=prism-1.9.0/", "v1.9.0", *parts, out: writer)
+        archive = Process.spawn("git", "-C", CHECKOUT, "archive", "--prefix=#{File.basename(UPSTREAM)}/", REVISION, *parts, out: writer)
         unpack = Process.spawn("tar", "-x", "-C", File.dirname(UPSTREAM), in: reader)
         reader.close
         writer.close
         failed = [archive, unpack].map { |pid| Process.wait2(pid).last }.reject(&:success?)
-        raise "extracting prism's v1.9.0 tests from #{CHECKOUT} failed" unless failed.empty?
+        raise "extracting prism's tests at #{REVISION[0, 12]} from #{CHECKOUT} failed" unless failed.empty?
       end
 
       # The directory whose prism/prism.rb is used in place of the C extension.
@@ -69,7 +71,7 @@ module Zr
         def counts = to_a[1..6]
       end
 
-      # Runs prism's own test files (test/prism/**/*_test.rb at v1.9.0) on
+      # Runs prism's own test files (test/prism/**/*_test.rb at REVISION) on
       # the C extension or the Ruby port (`backend` :c or :ruby). Each file
       # runs in its own ruby, with a time and memory limit, and at most
       # `jobs` run at a time. Returns one TestRun for each file.
@@ -127,41 +129,33 @@ module Zr
         end.select { |c| only.nil? || File.fnmatch?(only, c.name, File::FNM_PATHNAME | File::FNM_EXTGLOB) }
       end
 
-      # The constant pool of a C dump: the bytes and source offset of each
-      # entry (the offset is nil for an owned entry). Owned entries are in
-      # the order of their bytes after the table, which is the order of the
-      # C pool's hash buckets.
+      # The constant pool of a C dump: the bytes of each entry, which
+      # follow the table in the order of the C pool's hash buckets.
       class RecordedPool
         attr_reader :size
 
-        def initialize(input, serialized, base, size)
+        def initialize(serialized, base, size)
           @size = size
           @entries = Array.new(size) do |index|
             start, length = serialized.unpack("L2", offset: base + index * 8)
-            if start.anybits?(1 << 31)
-              [index + 1, serialized.byteslice(start & ~(1 << 31), length), nil, start]
-            else
-              [index + 1, input.byteslice(start, length), start, -1]
-            end
+            [index + 1, serialized.byteslice(start, length), start]
           end
         end
 
         def each_bucket
-          @entries.sort_by { |entry| [entry[3], entry[0]] }.each { |id, bytes, offset, _| yield id, bytes, offset }
+          @entries.sort_by(&:last).each { |id, bytes, _| yield id, bytes }
         end
       end
 
       Serialize = Prism.const_get(:Serialize)
 
-      # A Serialize::Loader that also keeps the encoding name as written,
-      # the source offset of each string that is a slice, and the ids of
-      # the nodes whose integer is a negated zero.
+      # A Serialize::Loader that also keeps the encoding name as written
+      # and the ids of the nodes whose integer is a negated zero.
       class Recorder < Serialize.const_get(:Loader)
-        attr_reader :shared, :encoding_name, :negative_zeros
+        attr_reader :encoding_name, :negative_zeros
 
         def initialize(source, serialized)
           super
-          @shared = {}.compare_by_identity
           @negative_zeros = []
           @node_ids = []
         end
@@ -192,23 +186,11 @@ module Zr
           encoding
         end
 
-        def load_string(encoding)
-          case (type = io.getbyte)
-          when 1
-            offset = load_varuint
-            input.byteslice(offset, load_varuint).force_encoding(encoding).freeze.tap { |string| @shared[string] = offset }
-          when 2
-            load_embedded_string(encoding)
-          else
-            raise "Unknown serialized string type: #{type}"
-          end
-        end
-
         # The steps of Serialize.load_parse. Returns the result, and the
         # other arguments of Dump.parse.
         def self.load_parse(input, serialized)
           input = input.dup
-          source = Prism::Source.for(input)
+          source = Prism::Source.for(input, 1, [])
           loader = new(source, serialized)
           loader.load_header
           encoding = loader.load_encoding
@@ -221,12 +203,13 @@ module Zr
           data_loc = loader.load_optional_location_object(false)
           errors = loader.load_errors(encoding, false)
           warnings = loader.load_warnings(encoding, false)
+          continuable = loader.load_bool
           base = loader.load_uint32
           size = loader.load_varuint
-          node = loader.load_node(Serialize.const_get(:ConstantPool).new(loader.input, serialized, base, size), encoding, false)
-          result = Prism::ParseResult.new(node, comments, magic_comments, data_loc, errors, warnings, source)
-          [result, { encoding_name: loader.encoding_name, pool: RecordedPool.new(loader.input, serialized, base, size),
-                     shared: loader.shared, negative_zeros: loader.negative_zeros }]
+          node = loader.load_node(Serialize.const_get(:ConstantPool).new(serialized, base, size), encoding, false)
+          result = Prism::ParseResult.new(node, comments, magic_comments, data_loc, errors, warnings, continuable, source)
+          [result, { encoding_name: loader.encoding_name, pool: RecordedPool.new(serialized, base, size),
+                     negative_zeros: loader.negative_zeros }]
         end
       end
 
@@ -331,7 +314,7 @@ module Zr
       end
 
       # How the block's result with the C extension's receiver (Prism,
-      # Prism::Pack, Prism::StringQuery) differs from its result with the
+      # Prism::StringQuery) differs from its result with the
       # Ruby port's receiver, or nil. A raised error is also a result, and
       # compares by class and message.
       def call_difference(c, ruby)
@@ -344,9 +327,10 @@ module Zr
       end
 
       # `[result]` of the block, or `[:raised, class, message, backtrace]`.
+      # The raise_error option raises SyntaxError, a ScriptError.
       def answer
         [yield]
-      rescue StandardError, SystemStackError => e
+      rescue StandardError, ScriptError, SystemStackError => e
         [:raised, e.class, e.message, e.backtrace.first(4)]
       end
 

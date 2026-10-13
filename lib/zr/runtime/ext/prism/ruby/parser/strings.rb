@@ -10,7 +10,7 @@ module Prism
       CASE_KEYWORD = %i[
         KEYWORD___ENCODING__ KEYWORD___FILE__ KEYWORD___LINE__ KEYWORD_ALIAS KEYWORD_AND KEYWORD_BEGIN
         KEYWORD_BEGIN_UPCASE KEYWORD_BREAK KEYWORD_CASE KEYWORD_CLASS KEYWORD_DEF KEYWORD_DEFINED KEYWORD_DO
-        KEYWORD_DO_LOOP KEYWORD_ELSE KEYWORD_ELSIF KEYWORD_END KEYWORD_END_UPCASE KEYWORD_ENSURE KEYWORD_FALSE
+        KEYWORD_DO_BLOCK KEYWORD_DO_LAMBDA KEYWORD_DO_LOOP KEYWORD_ELSE KEYWORD_ELSIF KEYWORD_END KEYWORD_END_UPCASE KEYWORD_ENSURE KEYWORD_FALSE
         KEYWORD_FOR KEYWORD_IF KEYWORD_IN KEYWORD_MODULE KEYWORD_NEXT KEYWORD_NIL KEYWORD_NOT KEYWORD_OR
         KEYWORD_REDO KEYWORD_RESCUE KEYWORD_RETRY KEYWORD_RETURN KEYWORD_SELF KEYWORD_SUPER KEYWORD_THEN
         KEYWORD_TRUE KEYWORD_UNDEF KEYWORD_UNLESS KEYWORD_UNTIL KEYWORD_WHEN KEYWORD_WHILE KEYWORD_YIELD
@@ -27,7 +27,7 @@ module Prism
       # PM_CASE_PRIMITIVE
       CASE_PRIMITIVE = %i[
         INTEGER INTEGER_IMAGINARY INTEGER_RATIONAL INTEGER_RATIONAL_IMAGINARY FLOAT FLOAT_IMAGINARY
-        FLOAT_RATIONAL FLOAT_RATIONAL_IMAGINARY SYMBOL_BEGIN REGEXP_BEGIN BACKTICK PERCENT_LOWER_X
+        FLOAT_RATIONAL FLOAT_RATIONAL_IMAGINARY SYMBOL_BEGIN REGEXP_BEGIN XSTRING_BEGIN PERCENT_LOWER_X
         PERCENT_LOWER_I PERCENT_LOWER_W PERCENT_UPPER_I PERCENT_UPPER_W STRING_BEGIN KEYWORD_NIL KEYWORD_SELF
         KEYWORD_TRUE KEYWORD_FALSE KEYWORD___FILE__ KEYWORD___LINE__ KEYWORD___ENCODING__ MINUS_GREATER
         HEREDOC_START UMINUS_NUM CHARACTER_LITERAL
@@ -48,9 +48,9 @@ module Prism
       private
 
       # parse_unescaped_encoding: the encoding flag a string's escapes force.
-      def parse_unescaped_encoding
-        return 0 if @explicit_encoding.nil?
-        return StringFlags::FORCED_UTF8_ENCODING if @explicit_encoding == Encodings::UTF_8
+      def parse_unescaped_encoding(explicit = @explicit_encoding)
+        return 0 if explicit.nil?
+        return StringFlags::FORCED_UTF8_ENCODING if explicit == Encodings::UTF_8
         return StringFlags::FORCED_BINARY_ENCODING if @encoding == Encodings::US_ASCII
 
         0
@@ -80,10 +80,8 @@ module Prism
           opening = previous_token
           statements = nil
 
-          unless @current_type == :EMBEXPR_END
-            accepts_block_stack_push(true)
+          unless match?(:EMBEXPR_END, :HEREDOC_END, :EOF)
             statements = parse_statements(:embexpr, depth + 1)
-            accepts_block_stack_pop
           end
 
           @brace_nesting = brace_nesting
@@ -122,7 +120,7 @@ module Prism
               class_variable_read_node(previous_token)
             else
               expect(:IDENTIFIER, :embvar_invalid)
-              missing_node(@current_start, @current_end)
+              error_recovery_node(@current_start, @current_end)
             end
 
           embedded_variable_node(operator, variable)
@@ -184,7 +182,8 @@ module Prism
             @lex_state = next_state if next_state != STATE_NONE
             lex
 
-            return symbol_node(opening, NOT_PROVIDED, previous_token)
+            # Its content is empty, at the closing quote.
+            return symbol_node(opening, Token.new(:STRING_CONTENT, @previous_start, @previous_start), previous_token)
           end
 
           part = parse_string_part(depth + 1)
@@ -279,7 +278,7 @@ module Prism
           parse_symbol(lex_mode, STATE_NONE, depth + 1)
         else
           err_current(:undef_argument)
-          missing_node(@current_start, @current_end)
+          error_recovery_node(@current_start, @current_end)
         end
       end
 
@@ -308,7 +307,7 @@ module Prism
           global_variable_read_node(previous_token)
         else
           err_current(:alias_argument)
-          missing_node(@current_start, @current_end)
+          error_recovery_node(@current_start, @current_end)
         end
       end
 
@@ -406,7 +405,8 @@ module Prism
 
       # parse_heredoc_dedent: the indentation of a <<~ heredoc's lines, which
       # are the string parts at the start or after another string part; a
-      # part left empty goes.
+      # part left empty goes, unless it is a line continuation
+      # (heredoc_dedent_discard_string_node).
       def parse_heredoc_dedent(nodes, common_whitespace)
         dedent_next = true
 
@@ -418,7 +418,10 @@ module Prism
 
           node.unescaped = parse_heredoc_dedent_string(node.unescaped, common_whitespace) if dedent_next
           dedent_next = true
-          !node.unescaped.empty?
+          next true unless node.unescaped.empty?
+
+          content = node.content_loc
+          memchr(@source.byteslice(loc_start(content), loc_end(content) - loc_start(content)), 0x5C, 0)
         end
       end
 
@@ -443,10 +446,10 @@ module Prism
             node = string_node(opening, content, previous_token)
             node.unescaped = shared_string(content.start, content.end)
           elsif accept(:LABEL_END)
-            # "":
-            content = Token.new(:STRING_CONTENT, @previous_start, @previous_start)
-            node = symbol_node(opening, content, previous_token)
-            node.unescaped = shared_string(content.start, content.end)
+            # "": has no content token, and C gives its content the location
+            # at offset 0, of no length.
+            node = symbol_node(opening, Token.new(:STRING_CONTENT, 0, 0), previous_token)
+            node.unescaped = shared_string(@previous_start, @previous_start)
 
             err_node(node, :unexpected_label) unless label_allowed
           elsif !lex_interpolation
@@ -489,11 +492,13 @@ module Prism
           elsif @current_type == :STRING_CONTENT
             content = current_token
             unescaped = @current_string
+            # The content's encoding, before the next token lexes another.
+            explicit = @explicit_encoding
             lex
 
             if match?(:STRING_END, :EOF)
               node = string_node_unescaped(opening, content, current_token, unescaped)
-              node.flag_set(parse_unescaped_encoding)
+              node.flag_set(parse_unescaped_encoding(explicit))
 
               # An unterminated string: the error is at the end of its last
               # line of content.
@@ -506,13 +511,13 @@ module Prism
                 @previous_type = :MISSING
               end
             elsif accept(:LABEL_END)
-              flags = symbol_encoding(content, unescaped, true)
+              flags = symbol_encoding(content, unescaped, true, explicit)
               node = symbol_node_unescaped(opening, content, previous_token, unescaped, flags)
               err_node(node, :unexpected_label) unless label_allowed
             else
               # Interpolation.
               part = string_node_unescaped(NOT_PROVIDED, previous_token, NOT_PROVIDED, unescaped)
-              part.flag_set(parse_unescaped_encoding)
+              part.flag_set(parse_unescaped_encoding(explicit))
               parts = [part]
 
               until match?(:STRING_END, :LABEL_END, :EOF)

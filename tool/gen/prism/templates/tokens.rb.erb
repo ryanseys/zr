@@ -1,8 +1,8 @@
 <%-
-  # The human names are C (templates/src/token_type.c.erb's
-  # pm_token_type_human), where one return may follow several cases.
-  source = File.read(File.join(upstream, "src/token_type.c.erb"))
-  body = source[/pm_token_type_human\(.*\z/m]
+  # The human names are C (templates/src/tokens.c.erb's
+  # pm_token_str), where one return may follow several cases.
+  source = File.read(File.join(upstream, "src/tokens.c.erb"))
+  body = source[/pm_token_str\(.*\z/m]
   human = {}
   pending = []
   body.scan(/case PM_TOKEN_(\w+):|return "((?:[^"\\]|\\.)*)";/) do |name, text|
@@ -14,7 +14,7 @@
     end
   end
   human.delete("MAXIMUM")
-  raise "token_type.c.erb and config.yml disagree" unless human.keys.sort == tokens.map(&:name).sort
+  raise "tokens.c.erb and config.yml disagree" unless human.keys.sort == tokens.map(&:name).sort
 -%>
 module Prism
   module Ruby
