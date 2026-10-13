@@ -38,8 +38,8 @@ outer = 1
 bad = proc { outer + 1 }
 begin
   Ractor.new(&bad)
-rescue ArgumentError => e
-  puts e.message
+rescue Ractor::IsolationError => e
+  puts "#{e.class}: #{e.message}"
 end
 
 # `&nil` is "no block" -- the missing-block ArgumentError.

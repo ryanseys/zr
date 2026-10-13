@@ -890,10 +890,6 @@ module Zr::Kern
       v = IvEntry[e].value
       return v == QUNDEF ? Machine.value(QNIL) : v
     end
-    g = zr_ractor_guard(obj)
-    if g == QUNDEF
-      return g
-    end
     t = zr_ivtab(obj)
     if t == 0
       return Machine.value(QNIL)
@@ -919,7 +915,7 @@ module Zr::Kern
     # one past its last ivar entry. This is the first assignment in an
     # `initialize`. When no entry contains `id`, the new entry goes at the
     # end, with no more kernel calls.
-    if !zr_special_p(obj) && (RBasic[obj].flags & (T_MASK | FL_FREEZE)) == T_OBJECT && Task[zr_task()].ractor == 0
+    if !zr_special_p(obj) && (RBasic[obj].flags & (T_MASK | FL_FREEZE | FL_SHAREABLE)) == T_OBJECT && Task[zr_task()].ractor == 0
       t = Machine.ptr(RObject[obj].iv)
       if IvarCache[ic].index == IvTab[t].len && zr_ivtab_row(t, id) == 0
         zr_ivtab_append(t, id, v, obj)
@@ -927,12 +923,11 @@ module Zr::Kern
         return v
       end
     end
-    g = zr_ractor_guard(obj)
-    if g == QUNDEF
-      return g
-    end
     if zr_modify_frozen_p(obj)
       return zr_frozen_error(obj)
+    end
+    if zr_shareable_ivar_p(obj, id)
+      return zr_shareable_ivar_error(obj)
     end
     t = zr_ivtab_for_write(obj)
     e = zr_ivtab_guess(t, id, ic)
@@ -949,8 +944,7 @@ module Zr::Kern
 
   # Returns the ivar entry at the cached index in the table of an object,
   # class or module, when that entry contains `id` and the read is outside
-  # a ractor (`zr_ractor_guard` applies the ractor isolation rule).
-  # Otherwise it returns 0. A site does this check inline before it calls
+  # a ractor. Otherwise it returns 0. A site does this check inline before it calls
   # here (the lowering's `guessed_ivar_row`). An accessor entry calls here
   # directly.
   #: (value, word, ptr) -> ptr

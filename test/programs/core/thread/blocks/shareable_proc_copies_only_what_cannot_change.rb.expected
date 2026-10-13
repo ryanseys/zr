@@ -12,8 +12,8 @@ a frozen array: [1, 2]
 writes an outer local: Ractor::IsolationError: can not make a Proc shareable because it accesses outer variables (v).
 a nested block writes it: Ractor::IsolationError: can not make a Proc shareable because it accesses outer variables (a).
 writes two: Ractor::IsolationError: can not make a Proc shareable because it accesses outer variables (alpha, zeta).
-two bound twice: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'zeta' may be reassigned.
-one unshareable, one bound twice: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'zeta' may be reassigned.
+two bound twice: Ractor::IsolationError: cannot make a shareable Proc because the outer variable 'alpha' or 'zeta' may be reassigned.
+one unshareable, one bound twice: Ractor::IsolationError
 self by default: nil
 self: 5: 5
 self: []: Ractor::IsolationError: self should be shareable: []

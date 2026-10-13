@@ -122,6 +122,27 @@ module Zr
         found.values
       end
 
+      # Whether the block `node`, or a block in it, uses `yield`. Ruby
+      # counts the method's block as an outer variable of each block
+      # between the `yield` and the method (access_outer_variables), so a
+      # Ractor refuses to isolate any of them.
+      #: (Block node) -> bool
+      def yields?(node)
+        # @type var scan: ^(untyped) -> bool
+        scan = lambda do |n|
+          case n
+          when Yield then true
+          when Def then scan.call(n.receiver)
+          when ClassDef then scan.call([n.scope, n.superclass])
+          when ModuleDef then scan.call(n.scope)
+          when SingletonClassDef then scan.call(n.target)
+          when Node, Array then Hir.each_child(n).any? { |child| scan.call(child) }
+          else false
+          end
+        end
+        scan.call([node.params, node.body])
+      end
+
       # `send(:binding)`, `send("binding")` and the rest of BY_NAME. A name
       # that is not a literal counts when `computed` is set.
       #: (Send node, bool computed) -> bool

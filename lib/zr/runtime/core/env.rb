@@ -54,8 +54,9 @@ end
 $LOADED_FEATURES = %w[enumerator.so monitor.so thread.rb fiber.so rational.so complex.so pathname.so ruby2_keywords.rb set.rb
                       io/wait.rb io/wait.so]
 
-# The process environment, read and written through libSystem.
-ENV = Object.new
+# The process environment, read and written through libSystem. It is one
+# for every ractor, so it is shareable, and it takes no instance variable.
+ENV = Primitive.zr_set_shareable_m(Object.new)
 
 class << ENV
   include Enumerable

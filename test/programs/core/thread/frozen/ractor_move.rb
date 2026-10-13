@@ -57,10 +57,10 @@ begin
 rescue Ractor::Error => e
   p [e.class, e.message]
 end
-# ...and the COPY path refuses a proc with CRuby's allocator message.
+# ...and the COPY path refuses a proc, which only a dump hook could carry.
 begin
   r6.send(proc {})
-rescue TypeError => e
+rescue Ractor::Error => e
   p [e.class, e.message]
 end
 r6.send(:done)

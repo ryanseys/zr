@@ -1,0 +1,37 @@
+ractor ivar set: Ractor::IsolationError: can't modify instance variables of a shareable Ractor
+ractor ivar set by @: Ractor::IsolationError: can't modify instance variables of a shareable Ractor
+ractor ivar get: nil
+ractor ivars: []
+ractor ivar defined: false
+env ivar: Ractor::IsolationError: can't modify instance variables of a shareable Object
+env ivar by @: Ractor::IsolationError: can't modify instance variables of a shareable Object
+env ivar read: nil
+env ivars: []
+env shareable: [true, false]
+ractor shareable: [true, false]
+port ivar: FrozenError
+peek inside: nil
+read main from a ractor: [nil, nil]
+write main from a ractor: Ractor::RemoteError: thrown by remote Ractor. (cause Ractor::IsolationError: can't modify instance variables of a shareable Ractor)
+env write from a ractor: Ractor::RemoteError: thrown by remote Ractor. (cause Ractor::IsolationError: can't modify instance variables of a shareable Object)
+proc with ivar: Ractor::IsolationError: can not isolate a Proc because it has instance variables
+frozen proc with ivar: Ractor::IsolationError: can not isolate a Proc because it has instance variables
+isolated proc: [true, false]
+isolated proc ivar: Ractor::IsolationError: can't modify instance variables of a shareable Proc
+isolated proc read: nil
+isolated proc make_shareable: true
+isolated lambda read from a ractor: nil
+yield: Ractor::IsolationError: can not isolate a Proc because it uses 'yield'.
+nested yield: Ractor::IsolationError: can not isolate a Proc because it uses 'yield'.
+yield and outer: Ractor::IsolationError: can not isolate a Proc because it accesses outer variables (x) and uses 'yield'.
+shareable_proc yield: Ractor::IsolationError: can not make a Proc shareable because it uses 'yield'.
+shareable_proc yield and write: Ractor::IsolationError: can not make a Proc shareable because it accesses outer variables (v) and uses 'yield'.
+outer: Ractor::IsolationError: can not isolate a Proc because it accesses outer variables (o).
+frozen method shareable: true
+frozen method, unshareable receiver: false
+unfrozen method: false
+io shareable: [false, false]
+make io shareable: Ractor::Error: can not make shareable object for #<File:core/thread/frozen/a_shareable_object_that_is_not_frozen_takes_no_instance_variable.rb>
+make an array of io shareable: Ractor::Error: can not make shareable object for #<IO:<STDERR>>
+at_exit in a ractor: Ractor::RemoteError: thrown by remote Ractor. (cause Ractor::IsolationError: can not call at_exit from non-main Ractors)
+at_exit in main: :ok

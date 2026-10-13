@@ -276,7 +276,7 @@ module Zr
         land if @landing
         # After the body is lowered, its captures are known, so the
         # captures table that its meta refers to can be written.
-        @l.captures_table(@name, capture_rows) unless @twin_of
+        @l.captures_table(@name, capture_rows, @kind == :block && Hir::Locals.yields?(@def)) unless @twin_of
         @l.rescues_table(@name, @rescue_rows) unless @twin_of || @rescue_rows.empty?
         @l.functions << @f
         @f
@@ -770,8 +770,8 @@ module Zr
       # the kernel's read or write, which sets the guess
       # (lib/zr/runtime/kernel/cache.rb). The inline path accepts a plain object,
       # class or module while no ractor has started (GATE_RACTOR; the
-      # kernel applies the ractor isolation rule), and not frozen when
-      # `writing`.
+      # kernel applies the ractor isolation rule), and neither frozen nor
+      # shareable (FL_SHAREABLE) when `writing`.
       #: (String ic, Symbol ivar, String slow, writing: bool) ?{ (String, String) -> void } -> String
       def guessed_ivar_row(ic, ivar, slow, writing:)
         table = @l.layout("IvTab")
@@ -870,14 +870,14 @@ module Zr
 
       # Self's own ivar table: in its cell for a plain object, in its
       # extension for a class or module. Branches to `slow` for all other
-      # kinds, or for a frozen object when `writing`.
+      # kinds, or for a frozen or shareable object when `writing`.
       #: (String slow, bool writing) -> String
       def own_ivar_table(slow, writing)
         object = @f.label
         other = @f.label
         classy = @f.label
         found, (t,) = @f.block(["i64"]) #: [String, [String]]
-        mask = @l.const("T_MASK") | (writing ? @l.const("FL_FREEZE") : 0)
+        mask = @l.const("T_MASK") | (writing ? @l.const("FL_FREEZE") | @l.const("FL_SHAREABLE") : 0)
         kind = @f.band(@f.fetch("i64", @self, off(@l.layout("RBasic"), "flags")), imm(mask))
         @f.brif(@f.icmp("eq", kind, imm(@l.const("T_OBJECT"))), object, other)
         switch(object)

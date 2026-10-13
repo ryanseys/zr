@@ -269,32 +269,40 @@ module Zr::Kern
     IvEntry[e].value
   end
 
-  # An instance variable of a shareable object that can still change
-  # belongs only to the main ractor. A Ractor is such an object, because
-  # its contents are not frozen. Any ractor can read a deeply frozen
-  # graph, because nothing can change it, and a write to it raises a
-  # frozen error. A Ractor keeps its own state in hidden slots, which have
-  # no `@` and no program can refer to. Thus each instance variable of a
-  # Ractor here belongs to the program and follows the program's rule.
-  # ENV is shareable and not frozen too, and keeps no state in ivars.
+  # rb_check_ivar_modifiable: a shareable object that is not frozen (a
+  # Ractor, ENV, a Proc that a ractor isolated) takes no instance
+  # variable, because every ractor reaches it. So its instance variables
+  # are as fixed as a frozen object's, and any ractor can read them. The
+  # runtime's own hidden slots have no `@` and are not instance variables.
+  #: (value, word) -> bool
+  def zr_shareable_ivar_p(obj, id)
+    (RBasic[obj].flags & FL_SHAREABLE) != 0 && zr_ivar_id_visible_p(id)
+  end
+
+  # Raises the refusal of an instance variable write to such an object.
   #: (value) -> value
-  def zr_ractor_guard(obj)
-    t = zr_task()
-    if Task[t].ractor == 0 || zr_frozen_p(obj)
-      return Machine.value(QNIL)
+  def zr_shareable_ivar_error(obj)
+    args = Machine.slot(8)
+    Machine.store64(args, 0, Machine.word(obj))
+    zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:isolation!), 1, args)
+  end
+
+  # Marks `obj` shareable although it is not frozen (FL_SHAREABLE).
+  #: (value) -> value
+  def zr_set_shareable_m(obj)
+    if !zr_special_p(obj)
+      RBasic[obj].flags = RBasic[obj].flags | FL_SHAREABLE
     end
-    if zr_class_of(obj) != zr_core_class(Machine.id(:Ractor)) && obj != zr_const_get_at(zr_global(G_OBJECT), Machine.id(:ENV))
-      return Machine.value(QNIL)
-    end
-    zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:isolation!), 0, 0)
+    obj
+  end
+
+  #: (value) -> value
+  def zr_shareable_mark_p_m(obj)
+    zr_bool(!zr_special_p(obj) && (RBasic[obj].flags & FL_SHAREABLE) != 0)
   end
 
   #: (value, word) -> value
   def zr_ivar_defined(obj, id)
-    g = zr_ractor_guard(obj)
-    if g == QUNDEF
-      return g
-    end
     t = zr_ivtab(obj)
     if t == 0
       return Machine.value(QFALSE)
@@ -374,6 +382,64 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The singleton class of `from`, given to `to`: an object that a ractor
+  # moves keeps its singleton methods (ractor.c moves the class with its
+  # object). Nothing happens when `from` has no singleton class.
+  #: (value, value) -> value
+  def zr_move_singleton_m(from, to)
+    klass = RBasic[from].klass
+    if (RBasic[klass].flags & FL_SINGLETON) != 0
+      RBasic[to].klass = klass
+      RClass[klass].attached = to
+      zr_write_barrier(klass, to)
+      zr_methods_changed()
+    end
+    Machine.value(QNIL)
+  end
+
+  # Every instance variable name of `obj` as a Symbol, the runtime's
+  # hidden ones too (a copy over a ractor's boundary carries them all),
+  # but not its object id.
+  #: (value) -> value
+  def zr_ivar_all_names_m(obj)
+    out = zr_ary_new(4)
+    if zr_special_p(obj)
+      return out
+    end
+    t = zr_ivtab(obj)
+    if t == 0
+      return out
+    end
+    i = 0
+    while i < IvTab[t].len
+      e = IvTab[t].rows + (i * IvEntry.size)
+      if IvEntry[e].id != Machine.id(:__object_id__) && IvEntry[e].value != QUNDEF
+        zr_ary_push(out, zr_sym(IvEntry[e].id))
+      end
+      i += 1
+    end
+    out
+  end
+
+  # The names of the program's instance variables of `obj` (`@` names).
+  #: (value) -> value
+  def zr_ivar_names_m(obj)
+    out = zr_ary_new(4)
+    if zr_special_p(obj)
+      return out
+    end
+    t = zr_ivtab(obj)
+    if t != 0
+      zr_ivtab_names(t, out, 64)
+    end
+    out
+  end
+
+  #: (value) -> value
+  def zr_frozen_p_m(v)
+    zr_bool(zr_frozen_p(v))
+  end
+
   # `object_id`: 2n + 1 for a fixnum, 4 for nil, 20 for true, 0 for false.
   # A heap object gets a value from a counter (8, 16, 24, ...) at its first
   # call, kept in a hidden ivar. For a symbol or a flonum it is the word,
@@ -435,6 +501,9 @@ module Zr::Kern
   def zr_ivar_set(obj, id, v)
     if zr_modify_frozen_p(obj)
       return zr_frozen_error(obj)
+    end
+    if zr_shareable_ivar_p(obj, id)
+      return zr_shareable_ivar_error(obj)
     end
     t = zr_ivtab_for_write(obj)
     zr_ivtab_set_in(t, id, v, zr_ivtab_owner(obj))
@@ -1869,6 +1938,33 @@ module Zr::Kern
   def zr_exc_set_message(recv, m)
     RException[recv].message = m
     m
+  end
+
+  # The references of an Exception that are not instance variables: its
+  # message, its cause (nil when none is set) and its backtrace Strings
+  # (from set_backtrace, or the cache of `backtrace`).
+  #: (value) -> value
+  def zr_exc_refs_m(e)
+    out = zr_ary_new(4)
+    zr_ary_push(out, RException[e].message)
+    zr_ary_push(out, RException[e].cause == QUNDEF ? Machine.value(QNIL) : RException[e].cause)
+    zr_ary_push(out, RException[e].bt)
+    zr_ary_push(out, RException[e].strs)
+    out
+  end
+
+  # Sets the references that `zr_exc_refs_m` gave, in the same order. A
+  # cause that was not set stays unset.
+  #: (value, value) -> value
+  def zr_exc_set_refs_m(e, refs)
+    RException[e].message = zr_ary_at(refs, 0)
+    if RException[e].cause != QUNDEF
+      RException[e].cause = zr_ary_at(refs, 1)
+    end
+    RException[e].bt = zr_ary_at(refs, 2)
+    RException[e].strs = zr_ary_at(refs, 3)
+    zr_write_barrier_all(e)
+    e
   end
 
   # `#<Klass: to_s>`, or only the class name when `to_s` is empty. A

@@ -50,7 +50,11 @@ r5.join
 # ---- value/join, the successor rule, RemoteError.
 r6 = Ractor.new { 6 * 7 }
 p r6.value
-p r6.value  # same ractor may re-take
+begin
+  r6.value # the value is taken once
+rescue Ractor::Error => e
+  p [e.class, e.message]
+end
 r7 = Ractor.new { raise "boom" }
 begin
   r7.value

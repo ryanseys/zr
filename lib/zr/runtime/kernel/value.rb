@@ -109,6 +109,10 @@ module Zr::Kern
   T_MASK = 31
   # Flag bits above the type.
   FL_ALLOCATED = 1 << 5
+  # An object that every ractor reaches, but that is not frozen: a Ractor,
+  # ENV, or a Proc that a ractor isolated. It takes no instance variable
+  # (rb_check_ivar_modifiable). Bit 8 is CRuby's RUBY_FL_SHAREABLE.
+  FL_SHAREABLE = 1 << 8
   FL_FREEZE = 1 << 11
   # An object of a kind with no ivar table field keeps its ivar table in a
   # side table next to the arena, indexed by its cell.

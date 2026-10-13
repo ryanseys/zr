@@ -618,8 +618,16 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     yield
   end
 
+  # `END { }` registers its body here: rb_set_end_proc with no check of
+  # the ractor, which `at_exit` makes.
+  def self.end_proc(&block)
+    Primitive.attr! :hidden
+    Primitive.zr_at_exit_add(block)
+  end
+
   def at_exit(&block)
     raise ArgumentError, +"called without a block" unless block
+    raise Ractor::IsolationError, +"can not call at_exit from non-main Ractors" if Primitive.zr_ractor_task_p_m
 
     Primitive.zr_at_exit_add(block)
   end

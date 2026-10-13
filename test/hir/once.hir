@@ -6,7 +6,7 @@
     (send post_exe
       (core Kernel)
       (block () locals ()
-        (send at_exit
+        (send end_proc
           (core Kernel)
           (block () locals ()
             (seq

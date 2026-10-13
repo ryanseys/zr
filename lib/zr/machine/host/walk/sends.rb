@@ -516,7 +516,8 @@ module Zr
               home.params.names.each { |n| counts[n] += 1 } if home.respond_to?(:params) && home.params
               [id(name), (written ? 1 : 0) | (counts[name] > 1 ? 2 : 0)]
             end
-            table([rows.size, *words])
+            words.push(id(:yield), 4) if Hir::Locals.yields?(node)
+            table([words.size / 2, *words])
           end
 
           def lambda_node(node, s)

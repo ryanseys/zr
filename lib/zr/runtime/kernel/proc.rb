@@ -303,6 +303,9 @@ module Zr::Kern
     p
   end
 
+  # A captures table entry that stands for `yield`, not for a local.
+  CAPTURE_YIELD = 4
+
   # Returns the outer locals that a block uses, as Symbols. A Ractor
   # refuses a block that uses one, and gives their names. A block that
   # uses none has no table.
@@ -316,10 +319,25 @@ module Zr::Kern
     n = Machine.load64(table, 0)
     i = 0
     while i < n
-      zr_ary_push(out, zr_sym(Machine.load64(table + 8 + (i * 16), 0)))
+      row = table + 8 + (i * 16)
+      if (Machine.load64(row, 8) & CAPTURE_YIELD) == 0
+        zr_ary_push(out, zr_sym(Machine.load64(row, 0)))
+      end
       i += 1
     end
     out
+  end
+
+  # Whether a block, or a block in it, uses `yield`: ruby counts the
+  # method's block as one more outer variable.
+  #: (value) -> value
+  def zr_proc_yields_m(p)
+    table = zr_proc_captures_table(p)
+    if table == 0
+      return Machine.value(QFALSE)
+    end
+    n = Machine.load64(table, 0)
+    zr_bool(n > 0 && (Machine.load64(table + 8 + ((n - 1) * 16), 8) & CAPTURE_YIELD) != 0)
   end
 
   # Returns the same locals as `[name, written, rebound]` records: whether
@@ -337,11 +355,13 @@ module Zr::Kern
     while i < n
       row = table + 8 + (i * 16)
       flags = Machine.load64(row, 8)
-      triple = zr_ary_new(3)
-      zr_ary_push(triple, zr_sym(Machine.load64(row, 0)))
-      zr_ary_push(triple, zr_bool((flags & 1) != 0))
-      zr_ary_push(triple, zr_bool((flags & 2) != 0))
-      zr_ary_push(out, triple)
+      if (flags & CAPTURE_YIELD) == 0
+        triple = zr_ary_new(3)
+        zr_ary_push(triple, zr_sym(Machine.load64(row, 0)))
+        zr_ary_push(triple, zr_bool((flags & 1) != 0))
+        zr_ary_push(triple, zr_bool((flags & 2) != 0))
+        zr_ary_push(out, triple)
+      end
       i += 1
     end
     out

@@ -3,3 +3,5 @@
 2
 49
 8
+Ractor::IsolationError: can not isolate a Proc because it accesses outer variables (outer).
+must be called with a block

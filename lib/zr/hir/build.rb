@@ -1990,7 +1990,7 @@ module Zr
         # is two blocks deeper (`block (2 levels) in <main>`).
         body = deepen(deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0), 0)
         none = Params.new([], [], nil, [], [], nil, nil)
-        register = Send.of(Core.new(:Kernel, line), :at_exit, [], line, block: Block.new(none, [], body, line))
+        register = Send.of(Core.new(:Kernel, line), :end_proc, [], line, block: Block.new(none, [], body, line))
         # It registers once for its site, however many times the site runs.
         Once.new(Send.of(Core.new(:Kernel, line), :post_exe, [], line, block: Block.new(none, [], register, line)), line)
       end

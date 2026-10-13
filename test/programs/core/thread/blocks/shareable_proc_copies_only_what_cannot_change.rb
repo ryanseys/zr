@@ -10,6 +10,17 @@ rescue Exception => e
   puts "#{label}: #{e.class}: #{e.message}"
 end
 
+# Ruby takes the locals of a block in the order of its symbol table,
+# which depends on the build. With two names in play, these cases print
+# the names sorted, or only which refusal it is.
+def try_names(label)
+  r = yield
+  puts "#{label}: #{r.inspect}"
+rescue Exception => e
+  text = e.message.sub(/\((.*)\)/) { "(#{$1.split(", ").sort.join(", ")})" }
+  puts "#{label}: #{e.class}: #{text.sub(/'(alpha|zeta)'/, "'alpha' or 'zeta'")}"
+end
+
 def param(name) = Ractor.shareable_proc { name }
 try("a parameter") { [param(:x).call, param(:x).frozen?, Ractor.shareable?(param(:x))] }
 
@@ -98,7 +109,7 @@ def writes_two
   alpha = 1
   Ractor.shareable_proc { alpha = 2; zeta = 3 }
 end
-try("writes two") { writes_two }
+try_names("writes two") { writes_two }
 
 def both_rebound
   zeta = 1
@@ -107,7 +118,7 @@ def both_rebound
   alpha = 2
   Ractor.shareable_proc { [zeta, alpha] }
 end
-try("two bound twice") { both_rebound }
+try_names("two bound twice") { both_rebound }
 
 def mixed
   alpha = []
@@ -115,7 +126,11 @@ def mixed
   zeta = 2
   Ractor.shareable_proc { [alpha, zeta] }
 end
-try("one unshareable, one bound twice") { mixed }
+try("one unshareable, one bound twice") do
+  mixed
+rescue Ractor::IsolationError => e
+  e.class
+end
 
 try("self by default") { Ractor.shareable_proc { self }.call }
 try("self: 5") { Ractor.shareable_proc(self: 5) { self }.call }

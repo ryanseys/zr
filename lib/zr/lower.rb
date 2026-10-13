@@ -695,18 +695,21 @@ module Zr
 
     # The scope's captures (outer locals) as data: the count, then a name
     # id and flags for each (1: the scope writes it, 2: the owner scope
-    # binds it more than once). A Ractor reads them from a block's meta to
-    # refuse a block that it cannot isolate, and to list the captures.
+    # binds it more than once). A block that uses `yield` (`yields`) ends
+    # with one more entry, `yield` with flag 4. A Ractor reads them from a
+    # block's meta to refuse a block that it cannot isolate, and to list
+    # the captures.
     #
     # The order is ruby's. Ruby keys a block's outer variables by symbol,
     # in the order that the program first uses each name. zr's symbol ids
     # do not follow the program (the runtime used many names first), so
     # the entries follow the order of each local's first declaration.
-    #: (String fn, Array[[Symbol, bool, bool]] rows) -> String
-    def captures_table(fn, rows)
+    #: (String fn, Array[[Symbol, bool, bool]] rows, bool yields) -> String
+    def captures_table(fn, rows, yields)
       rows = rows.sort_by { |local, _, _| @spelled.fetch(local, @spelled.size) }
       words = rows.flat_map { |local, written, rebound| [local, (written ? 1 : 0) | (rebound ? 2 : 0)] }
-      id_table("zr_captures_#{fn}", [rows.size, *words])
+      words.push(:yield, 4) if yields
+      id_table("zr_captures_#{fn}", [words.size / 2, *words])
     end
 
     # Each of `names` in the order the program first declares it.

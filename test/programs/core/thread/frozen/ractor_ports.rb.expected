@@ -12,3 +12,17 @@ false
 true
 true
 42
+[Ractor::Error, "The value was already taken"]
+[Ractor::RemoteError, "thrown by remote Ractor.", true, RuntimeError, "boom"]
+1
+1
+2
+Cannot get ractor local storage for non-current ractor
+10
+10
+true
+true
+true
+"#<Ractor:#N running>"
+"#<Ractor:#N LOC terminated>"
+[5, true]

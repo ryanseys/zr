@@ -87,6 +87,12 @@ module Zr::Kern
     Task[t].c_keywords = 0
   end
 
+  # Whether the current task belongs to a ractor that is not the main one.
+  #: () -> value
+  def zr_ractor_task_p_m
+    zr_bool(Task[zr_task()].ractor != 0)
+  end
+
   # Ends the current task's ractor marking for a time, as a ractor's
   # require runs on the main ractor. Returns 1 when it was marked, else 0.
   #: () -> value
@@ -97,9 +103,9 @@ module Zr::Kern
     zr_fix(was)
   end
 
-  # Marks the current task as a ractor task. After this, the task refuses
-  # the program's reads and writes of instance variables of a shareable
-  # object, as CRuby refuses them outside the main ractor.
+  # Marks the current task as a ractor task. After this, the task checks
+  # what a ractor that is not the main one cannot reach: an unshareable
+  # constant, a global, a class variable.
   #: () -> value
   def zr_ractor_enter_m
     Task[zr_task()].ractor = 1

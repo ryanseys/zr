@@ -1,3 +1,1 @@
 core/thread/blocks/ractor/zr/ractor.rb:6: warning: Ractor API is experimental and may change in future versions of Ruby.
-core/thread/blocks/ractor/zr/ractor.rb:31:in 'Ractor.new': can not isolate a Proc because it accesses outer variables (outer). (Ractor::IsolationError)
-	from core/thread/blocks/ractor/zr/ractor.rb:31:in '<main>'

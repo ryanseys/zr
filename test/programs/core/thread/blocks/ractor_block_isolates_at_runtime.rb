@@ -4,11 +4,11 @@
 # A block that touches an outer local or the enclosing object's ivars
 # compiles. Ruby answers differently for each:
 #
-#   - an OUTER LOCAL is an `ArgumentError` from `Ractor.new` itself, raised
-#     after the arguments have been evaluated;
+#   - an OUTER LOCAL is a `Ractor::IsolationError` from `Ractor.new` itself,
+#     raised after the arguments have been evaluated;
 #   - an `@ivar` is not a Proc problem at all. Ruby isolates the Proc and
-#     rebinds its `self` to the RACTOR, so the read is an ivar of a shareable
-#     object and raises `Ractor::IsolationError` INSIDE the ractor, surfacing
+#     rebinds its `self` to the RACTOR, which is shareable: a read gives nil,
+#     and a write raises `Ractor::IsolationError` INSIDE the ractor, surfacing
 #     as `Ractor::RemoteError` at `#value`;
 #   - a receiverless call to an enclosing-class method is a plain `NameError`
 #     for the same reason: `self` is a Ractor, which has no such method.

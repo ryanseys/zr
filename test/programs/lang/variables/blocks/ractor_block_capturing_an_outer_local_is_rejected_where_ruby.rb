@@ -1,4 +1,4 @@
-# CRuby's `ArgumentError`, raised by `Ractor.new` itself and catchable
+# Ruby's `Ractor::IsolationError`, raised by `Ractor.new` itself and catchable
 # there, not a compile error. The verdict rides on
 # the Proc value (`RProc::with_outer_capture`), so a literal block and a
 # `&proc` argument reach the same raise.

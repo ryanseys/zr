@@ -118,8 +118,6 @@ module Zr::Kern
     id = Machine.load64(slot, 0)
     r = zr_check_ivar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
     return r if r == QUNDEF
-    r = zr_ractor_guard(recv)
-    return r if r == QUNDEF
     zr_ivar_get(recv, id)
   end
 
@@ -130,8 +128,6 @@ module Zr::Kern
     return r if r == QUNDEF
     id = Machine.load64(slot, 0)
     r = zr_check_ivar_name(recv, Machine.value(Machine.load64(argv, 0)), id)
-    return r if r == QUNDEF
-    r = zr_ractor_guard(recv)
     return r if r == QUNDEF
     zr_ivar_set(recv, id, Machine.value(Machine.load64(argv, 8)))
   end

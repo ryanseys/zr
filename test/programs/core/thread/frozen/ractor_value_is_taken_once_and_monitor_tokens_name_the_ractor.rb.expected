@@ -1,0 +1,37 @@
+#<Ractor::Port to:#1 id:0>
+#<Ractor::Port to:#1 id:1>
+value: 42
+value again: Ractor::Error: The value was already taken
+join after value: true
+aborted value: Ractor::RemoteError: thrown by remote Ractor. (cause RuntimeError: boom)
+aborted value again: Ractor::Error: The value was already taken
+aborted join after: Ractor::Error: The value was already taken
+aborted join: Ractor::RemoteError: thrown by remote Ractor. (cause RuntimeError: boom2)
+aborted join again: Ractor::Error: The value was already taken
+aborted value after join: Ractor::Error: The value was already taken
+join: true
+join again: true
+value after join: :ok
+by reference: true
+other takes: :a
+then main: Ractor::Error: Only the successor ractor can take a value
+#<Ractor::Port to:#1 id:17>
+monitor token: [Array, 2, true, :exited]
+monitor abort token: [true, :aborted]
+monitor after end: [false, [true, :aborted]]
+select ractor: [true, :sel]
+value after select: Ractor::Error: The value was already taken
+select aborted: Ractor::RemoteError: thrown by remote Ractor. (cause RuntimeError: sel)
+value after select aborted: Ractor::Error: The value was already taken
+unmonitor: true
+value 1: 1
+receive timeout: nil
+port receive timeout: nil
+select timeout: nil
+select ractor timeout: nil
+receive bad timeout: ArgumentError: time interval must not be negative
+receive str timeout: TypeError: can't convert String into time interval
+receive nil timeout: 5
+waiting message beats timeout: :here
+inner ports: ["#<Ractor::Port to:#N id:0>", "#<Ractor::Port to:#N id:1>"]
+#<Ractor::Port to:#1 id:31>

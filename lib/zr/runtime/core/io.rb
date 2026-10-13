@@ -2368,6 +2368,22 @@ class IO
     end
   end
 
+  # A ractor moved this stream into `copy` (Ractor#send with move: true):
+  # the copy owns the descriptor from now on, with a Closer of its own.
+  # This stream, which becomes a husk with its Closer, has no finalizer
+  # left.
+  def moved_into(copy)
+    Primitive.attr! :hidden
+    Primitive.zr_finalizers_m.delete(self)
+    copy.__send__(:adopt_descriptor)
+  end
+
+  def adopt_descriptor
+    Primitive.attr! :hidden
+    @closer = nil
+    own_descriptor
+  end
+
   # rb_io_check_closed: an allocated stream has no descriptor to check.
   def check_open
     Primitive.attr! :hidden
