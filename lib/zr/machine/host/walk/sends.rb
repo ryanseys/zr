@@ -195,7 +195,9 @@ module Zr
                    elsif node.recv && !node.recv.is_a?(Hir::SelfRef) && !@funcalls.key?(node) then 2
                    else 0
                    end
-            mode |= SEND_CORE if core_send?(node.name, s)
+            # A literal `send` in the core is rb_funcall: the program's own
+            # method answers it, as any send from CRuby's C does.
+            mode |= SEND_CORE if core_send?(node.name, s) && !@funcalls.key?(node)
             mode |= SEND_USING if node.using
             mode
           end
