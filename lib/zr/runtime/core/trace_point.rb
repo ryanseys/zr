@@ -288,15 +288,28 @@ class TracePoint
     # the def in its builtin source. Any other core method has none.
     def builtin_source(method)
       Primitive.attr! :hidden
+      place = builtin_place(method)
+      [place[0], place[3]] if place
+    end
+
+    # Method#source_range of such a method: the span of its def, as
+    # Ruby::SourceRange.of takes it. Its `<internal:…>` path is no file.
+    def builtin_range(method)
+      Primitive.attr! :hidden
+      place = builtin_place(method) or return nil
+      [place[0], false, place[3], place[5][0], place[2], place[5][1]]
+    end
+
+    def builtin_place(method)
+      Primitive.attr! :hidden
       owner = method.owner
       name = method.original_name
       # A module_function's copy on the module shares the def.
-      place = if owner.singleton_class?
-                BUILTIN_LINES["#{owner.attached_object}.#{name}"] || (BUILTIN_LINES["#{owner.attached_object}##{name}"] if owner.attached_object.is_a?(Module))
-              else
-                BUILTIN_LINES["#{owner}##{name}"]
-              end
-      [place[0], place[3]] if place
+      if owner.singleton_class?
+        BUILTIN_LINES["#{owner.attached_object}.#{name}"] || (BUILTIN_LINES["#{owner.attached_object}##{name}"] if owner.attached_object.is_a?(Module))
+      else
+        BUILTIN_LINES["#{owner}##{name}"]
+      end
     end
 
     def marked_builtins

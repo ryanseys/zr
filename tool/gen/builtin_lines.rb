@@ -13,7 +13,8 @@ module Zr
         # `<internal:file>` path, the line of the :call, the last line of the
         # body (where ruby reports the return), the line of the def, and the
         # :line events of the body (Lines) when a call with a block and one
-        # without each fire a sequence the build can know.
+        # without each fire a sequence the build can know, or nil, and the
+        # byte columns where the def starts and ends (Method#source_range).
         class BuiltinLines < Generator
           writes "lib/zr/runtime/core/builtin_lines.rb"
 
@@ -213,7 +214,8 @@ module Zr
                 owner = "Object" if owner.empty?
                 singleton = @singleton || node.receiver.is_a?(Prism::SelfNode)
                 key = "#{owner}#{singleton ? "." : "#"}#{node.name}"
-                @rows[key] ||= [@path, call_line(node), node.location.end_line, node.location.start_line, Lines.of(node)].compact
+                @rows[key] ||= [@path, call_line(node), node.location.end_line, node.location.start_line, Lines.of(node),
+                                 [node.location.start_column, node.location.end_column]]
               end
 
               private
@@ -250,7 +252,8 @@ module Zr
             io.puts "# Where CRuby's own Ruby methods stand: the path TracePoint names for"
             io.puts "# one, the line its :call reports, the line its :return reports, the"
             io.puts "# line of its def, and the lines its :line events report, with a block"
-            io.puts "# and without one, when they come before any call it makes."
+            io.puts "# and without one, when they come before any call it makes (or nil),"
+            io.puts "# and the columns where its def starts and ends."
             io.puts "class TracePoint"
             io.puts "  BUILTIN_LINES = {"
             rows.sort.each { |key, row| io.puts "    #{key.inspect} => #{row.inspect}," }

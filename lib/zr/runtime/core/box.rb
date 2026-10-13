@@ -16,6 +16,42 @@ module Ruby
   COPYRIGHT = RUBY_COPYRIGHT
   DESCRIPTION = RUBY_DESCRIPTION
 
+  # Where a piece of code starts and ends (Proc#source_range and
+  # Method#source_range): its path, its real path when it comes from a
+  # file, and its first and last line and byte column. Only the core makes
+  # one, as rb_source_range_new does.
+  class SourceRange
+    Primitive.zr_undef_alloc(self)
+    class << self
+      undef_method :new
+    end
+
+    # The range of a span that the kernel gives: [path, whether it comes
+    # from a file, line, column, end line, end column], or nil for none.
+    def self.of(span)
+      Primitive.attr! :hidden
+      return nil if span.nil?
+
+      range = Primitive.zr_class_build(self)
+      absolute = span[1] ? Kernel.send(:real_path_of, span[0]) : nil
+      Primitive.zr_hidden_set(range, :__range__, [span[0], absolute, span[2], span[3], span[4], span[5]].freeze)
+      range
+    end
+    private_class_method :of
+
+    def path = Primitive.zr_hidden_get(self, :__range__)[0]
+    def absolute_path = Primitive.zr_hidden_get(self, :__range__)[1]
+    def start_line = Primitive.zr_hidden_get(self, :__range__)[2]
+    def start_column = Primitive.zr_hidden_get(self, :__range__)[3]
+    def end_line = Primitive.zr_hidden_get(self, :__range__)[4]
+    def end_column = Primitive.zr_hidden_get(self, :__range__)[5]
+
+    def inspect
+      path, absolute, line, column, last, last_column = Primitive.zr_hidden_get(self, :__range__)
+      "#<Ruby::SourceRange #{absolute || path}:(#{line},#{column})-(#{last},#{last_column})>"
+    end
+  end
+
   class Box < Module
     # A loaded feature, which a box counts for itself.
     class Entry; end

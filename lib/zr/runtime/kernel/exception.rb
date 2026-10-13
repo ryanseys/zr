@@ -61,6 +61,15 @@ module Zr::Kern
     # The activation entry in force where a def or block is written, plus
     # one, or 0 (zr_entry_activation).
     attr_accessor :using #: word
+    # Where a def's, block's or lambda's code starts and ends, as
+    # rb_iseq_code_location gives it (Proc#source_range): the first
+    # line, and the byte columns of the start and of the end, whose line
+    # is `end_line`. `span_line` is 0 for any other scope.
+    attr_accessor :span_line #: word
+    attr_accessor :column #: word
+    attr_accessor :end_column #: word
+    # 1 for a scope that an eval compiled: its code has no absolute path.
+    attr_accessor :evaled #: word
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it

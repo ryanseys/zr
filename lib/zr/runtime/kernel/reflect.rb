@@ -631,6 +631,50 @@ module Zr::Kern
     out
   end
 
+  # Where the code of `meta` starts and ends, as rb_iseq_code_location
+  # gives it: [path, whether it comes from a file, line, column, end line,
+  # end column], or nil for a scope with no file or no code range. Code
+  # that an eval compiled has no absolute path, also when the eval names
+  # a real file.
+  #: (ptr) -> value
+  def zr_meta_span(meta)
+    if meta == 0 || FrameMeta[meta].file_len == 0 || FrameMeta[meta].span_line == 0
+      return Machine.value(QNIL)
+    end
+    out = zr_ary_new(6)
+    zr_ary_push(out, zr_meta_path(meta))
+    zr_ary_push(out, zr_bool(FrameMeta[meta].evaled == 0))
+    zr_ary_push(out, zr_fix(FrameMeta[meta].span_line))
+    zr_ary_push(out, zr_fix(FrameMeta[meta].column))
+    zr_ary_push(out, zr_fix(FrameMeta[meta].end_line))
+    zr_ary_push(out, zr_fix(FrameMeta[meta].end_column))
+    out
+  end
+
+  # `Proc#source_range`'s place: a Method's Proc has its method's, and a
+  # Proc that the runtime made has none.
+  #: (value) -> value
+  def zr_proc_span(recv)
+    if RProc[recv].fn == Machine.addr(:zr_method_block)
+      return zr_method_span(RProc[recv].self)
+    end
+    zr_meta_span(RProc[recv].meta)
+  end
+
+  # `Method#source_range`'s place: the code of the def, or of the block
+  # that `define_method` took. A core method has the def that CRuby
+  # writes in Ruby, if any; an attribute method or a C method has none.
+  #: (value) -> value
+  def zr_method_span(recv)
+    meta = zr_method_meta(Machine.ptr(RMethod[recv].entry))
+    if meta != 0 && FrameMeta[meta].file_len > 0
+      return zr_meta_span(meta)
+    end
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(recv))
+    zr_send(zr_core_class(Machine.id(:TracePoint)), Machine.id(:builtin_range), 1, arg)
+  end
+
   # The singleton methods of the main object: `include`, `public` and
   # `private` operate on Object.
   #: (value, word, ptr, value, value) -> value

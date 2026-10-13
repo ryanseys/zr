@@ -16,6 +16,10 @@ class Proc
 
   def to_proc = self
 
+  # Where the block's code starts and ends, or nil for a Proc that the
+  # runtime made (rb_proc_source_range).
+  def source_range = Ruby::SourceRange.send(:of, Primitive.zr_proc_span(self))
+
   # Only a proc with a rest and no keywords or post parameters can
   # take keywords in its rest; any other shape causes a warning.
   def ruby2_keywords
@@ -172,4 +176,12 @@ class Method
   def <<(other) = to_proc << other
 
   def curry(arity = nil) = to_proc.curry(arity)
+
+  # Where the def's code starts and ends, also for a core method that
+  # CRuby writes in Ruby; nil for a C or attribute method.
+  def source_range = Ruby::SourceRange.send(:of, Primitive.zr_method_span(self))
+end
+
+class UnboundMethod
+  def source_range = Ruby::SourceRange.send(:of, Primitive.zr_method_span(self))
 end

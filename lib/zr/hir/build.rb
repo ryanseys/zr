@@ -991,7 +991,7 @@ module Zr
               body = marked(body, marks, node.location.start_line) unless marks.empty?
               locals = with_temps(node.locals + (params.names - node.locals))
               Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line,
-                      method_cover(node), entry_using)
+                      method_cover(node), entry_using, span(node))
             end
           ensure
             @in_def = was
@@ -1214,8 +1214,16 @@ module Zr
           body = node.body ? expr(node.body) : Literal.new(nil, line)
           exit_event(node.location.end_line)
           noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
-                          node.location.end_line, method_cover(node), entry_using), node)
+                          node.location.end_line, method_cover(node), entry_using, span(node)), node)
         end
+      end
+
+      # Where `node`'s code starts and ends: [line, column, end line, end
+      # column], the columns in bytes.
+      #: (Prism::node node) -> Array[Integer]
+      def span(node)
+        at = node.location
+        [at.start_line, at.start_column, at.end_line, at.end_column]
       end
 
       # A block's Params and the locals prism leaves implicit: `it`, or
@@ -1735,7 +1743,7 @@ module Zr
           body = node.body ? expr(node.body) : Literal.new(nil, line)
           exit_event(node.location.end_line)
           Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, node.opening_loc.start_line,
-                                     node.location.end_line, method_cover(node), entry_using), node), line)
+                                     node.location.end_line, method_cover(node), entry_using, span(node)), node), line)
         end
       end
 

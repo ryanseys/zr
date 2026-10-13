@@ -487,7 +487,8 @@ module Zr
                                              env: @has_env, ruby: attributes.include?(:ruby),
                                              captures: true, node: node_id, cover: method_cover, twin: @twin,
                                              owns_backref: owns_backref?, reads_backref: reads_backref?, frameless: attributes.include?(:frameless),
-                                             blocks: @blocks, using: d.respond_to?(:using) ? d.using : nil)
+                                             blocks: @blocks, using: d.respond_to?(:using) ? d.using : nil,
+                                             span: d.respond_to?(:span) ? d.span : nil)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = (line & LINE_MASK) | (node_id << 32)

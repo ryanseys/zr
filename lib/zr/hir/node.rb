@@ -170,8 +170,10 @@ module Zr
     # A block literal: its parameters, every local of its scope
     # (parameters first), and its body. `using` is the activation entry in
     # force where it is written, which a method that `define_method` makes
-    # from it searches with (Method#super_method).
-    Block = Node.new(:params, :locals, :body, :line, :end_line, :cover, :using)
+    # from it searches with (Method#super_method). `span` is where its
+    # code starts and ends, [line, column, end line, end column], or nil
+    # for one that the build makes (Proc#source_range).
+    Block = Node.new(:params, :locals, :body, :line, :end_line, :cover, :using, :span)
     # `-> (params) { body }`: a Block that is a lambda from the start.
     Lambda = Node.new(:block, :line)
     # The one parameter shape: `required` and `post` are names,
@@ -271,7 +273,8 @@ module Zr
     # Params; `receiver` is the expression of a singleton def
     # (`def self.x`, `def obj.x`), or nil. `using` is the activation entry
     # in force at the def, or nil (Method#super_method searches with it).
-    Def = Node.new(:name, :params, :locals, :body, :line, :receiver, :evals, :end_line, :cover, :using)
+    # `span` is where the def starts and ends, as Block's.
+    Def = Node.new(:name, :params, :locals, :body, :line, :receiver, :evals, :end_line, :cover, :using, :span)
     # `depth` counts block scopes up to the scope that owns the local.
     Local = Node.new(:name, :depth, :line)
     # A point where a traced program fires a TracePoint `event`: a
