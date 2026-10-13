@@ -27,8 +27,21 @@ module ObjectSpace
   HEAP_TYPES = [
     [String, "STRING"], [Array, "ARRAY"], [Hash, "HASH"], [Class, "CLASS"], [Module, "MODULE"],
     [Float, "FLOAT"], [Regexp, "REGEXP"], [Symbol, "SYMBOL"], [Struct, "STRUCT"], [Integer, "BIGNUM"],
-    [IO, "FILE"], [MatchData, "MATCH"], [Complex, "COMPLEX"], [Rational, "RATIONAL"],
-    [Proc, "DATA"], [Method, "DATA"], [UnboundMethod, "DATA"], [Thread, "DATA"], [Fiber, "DATA"]
+    [IO, "FILE"], [MatchData, "MATCH"], [Complex, "COMPLEX"], [Rational, "RATIONAL"], [Range, "STRUCT"], [Data, "STRUCT"]
+  ].freeze
+  # The core classes that CRuby makes T_DATA, each with the
+  # wrap_struct_name of its rb_data_type_t and whether that type frees
+  # at once (RUBY_TYPED_FREE_IMMEDIATELY); a subclass comes first.
+  DATA_TYPES = [
+    [Thread, "VM/thread", false], [Fiber, "fiber", false], [Binding, "binding", false],
+    [ObjectSpace::WeakMap, "weakmap", false], [ObjectSpace::WeakKeyMap, "weakkeymap", false],
+    [Thread::SizedQueue, "Thread::SizedQueue", false], [Thread::Queue, "Thread::Queue", false],
+    [Dir, "dir", false], [Encoding, "encoding", false], [Encoding::Converter, "econv", false],
+    [IO::Buffer, "IO::Buffer", false], [Proc, "proc", true], [Method, "method", true],
+    [UnboundMethod, "method", true], [Thread::Mutex, "mutex", true], [Thread::ConditionVariable, "condvar", true],
+    [Thread::Monitor, "monitor", true], [Time, "time", true], [Random, "random/MT", true],
+    [Enumerator, "enumerator", true], [Thread::Backtrace::Location, "frame_info", true], [Ractor, "ractor", true],
+    [Ractor::Port, "ractor/port", true], [File::Stat, "stat", true]
   ].freeze
   # The types in the order of CRuby's tags.
   TYPE_ORDER = %w[OBJECT CLASS MODULE FLOAT STRING REGEXP ARRAY HASH STRUCT BIGNUM FILE DATA MATCH COMPLEX RATIONAL SYMBOL].freeze
@@ -42,7 +55,7 @@ module ObjectSpace
   # each byte as it is, but these escapes and other control bytes as \u00XX.
   JSON_ESCAPES = { "\\" => "\\\\", '"' => '\\"', "\b" => "\\b", "\t" => "\\t", "\f" => "\\f",
                    "\n" => "\\n", "\r" => "\\r", "\x7f" => "\\u007f" }.freeze
-  private_constant :HEAP_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :AR_TABLE, :JSON_ESCAPES
+  private_constant :HEAP_TYPES, :DATA_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :AR_TABLE, :JSON_ESCAPES
 
   module_function
 
@@ -156,8 +169,13 @@ module ObjectSpace
     private
 
     def heap_type(obj)
+      return "DATA" if data_type(obj)
+
       HEAP_TYPES.find { |klass, _| obj.is_a?(klass) }&.last || "OBJECT"
     end
+
+    # The rb_data_type_t of a T_DATA object: [class, name, frees at once].
+    def data_type(obj) = DATA_TYPES.find { |klass, _, _| obj.is_a?(klass) }
 
     # One object as dump writes it (dump_append_special_const): a special
     # constant as its JSON value, a static Symbol as its name, a flonum in
@@ -209,7 +227,15 @@ module ObjectSpace
         fields[:embedded] = true if bits.anybits?(EMBEDDED)
       when Module then module_fields(obj, fields)
       when IO then fields[:fd] = obj.fileno unless obj.closed?
-      else object_fields(obj, bits, fields) if heap_type(obj) == "OBJECT"
+      else
+        if (type = data_type(obj))
+          # dump_object's T_DATA: the type's name, and a type that does not
+          # free at once (ruby 4.1).
+          fields[:struct] = type[1]
+          fields[:free_immediately] = false unless type[2]
+        elsif heap_type(obj) == "OBJECT"
+          object_fields(obj, bits, fields)
+        end
       end
     end
 
