@@ -109,7 +109,7 @@ class Time
           return number
         end
       end
-      raise TypeError, "can't convert #{value.class} into an exact number"
+      raise TypeError, cant_convert(value, "an exact number")
     end
 
     # A Rational that contains a whole number becomes that Integer.
@@ -157,7 +157,7 @@ class Time
     def needs!(zone, method)
       return unless zone_object?(zone) && !zone.respond_to?(method)
 
-      raise TypeError, "can't convert #{zone.class} into an exact number"
+      raise TypeError, cant_convert(zone, "an exact number")
     end
 
     # Whether `zone` is a timezone object: not a name or a number, and with
@@ -494,7 +494,7 @@ class Time
       elsif value.respond_to?(:to_int)
         return implicit_integer(value)
       end
-      raise TypeError, "can't convert #{value.class} into an exact number"
+      raise TypeError, cant_convert(value, "an exact number")
     end
 
     # obj2ubits: a field that fits in `bits` bits, read from decimal

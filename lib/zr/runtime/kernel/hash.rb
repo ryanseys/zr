@@ -1378,16 +1378,7 @@ module Zr::Kern
         if !zr_special_p(converted) && zr_type(converted) == T_HASH
           return zr_hash_update(h, converted)
         end
-        b = Machine.slot(Buf.size)
-        zr_buf_init(b)
-        zr_buf_push(b, Machine.bytes("can't convert "), 14)
-        zr_buf_class_of(b, other)
-        zr_buf_push(b, Machine.bytes(" to Hash ("), 10)
-        zr_buf_class_of(b, other)
-        zr_buf_push(b, Machine.bytes("#to_hash gives "), 15)
-        zr_buf_class_of(b, converted)
-        zr_buf_push(b, Machine.bytes(")"), 1)
-        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+        return zr_raise_gives(other, Machine.bytes("Hash"), 4, Machine.bytes("#to_hash gives "), 15, converted)
       end
       b = Machine.slot(Buf.size)
       zr_buf_init(b)

@@ -154,7 +154,7 @@ class Rational < Numeric
       Primitive.attr! :hidden
       return converted if Rational === converted
 
-      raise TypeError, "can't convert #{conversion_name(value)} to Rational (#{conversion_name(value)}#to_r gives #{conversion_name(converted)})"
+      raise TypeError, cant_convert_gives(value, "Rational", :to_r, converted)
     end
 
     # nurat_int_value: only an Integer is an integer here.

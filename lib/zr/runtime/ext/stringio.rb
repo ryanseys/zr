@@ -563,7 +563,7 @@ class StringIO
 
       converted = obj.respond_to?(:to_strio, true) ? obj.to_strio : nil
       raise TypeError, "no implicit conversion of #{Primitive.zr_class_name_of(obj)} into StringIO" if converted.nil?
-      raise TypeError, "can't convert #{Primitive.zr_class_name_of(obj)} to StringIO (#{Primitive.zr_class_name_of(obj)}#to_strio gives #{Primitive.zr_class_name_of(converted)})" unless converted.is_a?(StringIO)
+      raise TypeError, cant_convert_gives(obj, "StringIO", :to_strio, converted) unless converted.is_a?(StringIO)
 
       converted
     end

@@ -181,7 +181,7 @@ class Integer
     end
 
     # rb_big_aref reads one bit with NUM2LONG's message for nil.
-    raise TypeError, +"no implicit conversion from nil to integer" if bit.nil? && !Primitive.zr_fixnum_p_m(self)
+    raise TypeError, no_implicit_conversion(bit, "Integer") if bit.nil? && !Primitive.zr_fixnum_p_m(self)
 
     bit_at(to_integer(bit))
   end
@@ -469,7 +469,7 @@ class Integer
     return value if Integer === value
 
     converted = Primitive.zr_check_call(value, :to_int)
-    raise TypeError, "can't convert #{conversion_name(value)} to Integer (#{conversion_name(value)}#to_int gives #{conversion_name(converted)})" unless converted.nil? || Integer === converted
+    raise TypeError, cant_convert_gives(value, "Integer", :to_int, converted) unless converted.nil? || Integer === converted
 
     converted
   end
@@ -663,7 +663,7 @@ class Numeric
     raise TypeError, "can't convert #{conversion_name(self)} into Rational" unless respond_to?(:to_r, true)
 
     r = to_r
-    raise TypeError, "can't convert #{conversion_name(self)} to Rational (#{conversion_name(self)}#to_r gives #{conversion_name(r)})" unless r.is_a?(Rational)
+    raise TypeError, cant_convert_gives(self, "Rational", :to_r, r) unless r.is_a?(Rational)
 
     r / other
   end
@@ -813,13 +813,13 @@ class Numeric
     (limit - self).div(step) + 1
   end
 
-  # NUM2DBL: nil, true, false and a String are no number.
+  # NUM2DBL: a special constant that is no number, or a String, has no
+  # implicit conversion.
   def step_float(x)
     Primitive.attr! :hidden
     case x
     when Float then x
-    when nil, true, false then raise TypeError, "no implicit conversion to float from #{x.inspect}"
-    when String then raise TypeError, +"no implicit conversion to float from string"
+    when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(x, "Float")
     else Float(x)
     end
   end

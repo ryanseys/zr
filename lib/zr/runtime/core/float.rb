@@ -109,7 +109,7 @@ module Kernel
     when nil, true, false
       return nil unless exception
 
-      raise TypeError, "can't convert #{value.inspect} into Float"
+      raise TypeError, cant_convert(value, "Float")
     else
       # rb_convert_to_float: to_f must give a Float; with exception: false,
       # an error in it gives nil.
@@ -117,12 +117,12 @@ module Kernel
         converted = Primitive.zr_protect(nil) { value.to_f if value.respond_to?(:to_f) }
         return converted.is_a?(Float) ? converted : nil
       end
-      raise TypeError, "can't convert #{conversion_name(value)} into Float" unless value.respond_to?(:to_f)
+      raise TypeError, cant_convert(value, "Float") unless value.respond_to?(:to_f)
 
       converted = value.to_f
       return converted if converted.is_a?(Float)
 
-      raise TypeError, "can't convert #{conversion_name(value)} to Float (#{conversion_name(value)}#to_f gives #{converted.class})"
+      raise TypeError, cant_convert_gives(value, "Float", :to_f, converted)
     end
   end
 
@@ -314,7 +314,7 @@ module Math
     Primitive.attr! :hidden
     return x if Primitive.zr_float_p_m(x)
     return x.to_f if Primitive.zr_integer_p_m(x)
-    raise TypeError, "can't convert #{x.nil? ? "nil" : x.class} into Float" unless x.is_a?(Numeric)
+    raise TypeError, cant_convert(x, "Float") unless x.is_a?(Numeric)
 
     x.to_f
   end

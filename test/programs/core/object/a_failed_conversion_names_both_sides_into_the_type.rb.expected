@@ -1,0 +1,42 @@
+no implicit conversion of nil into String
+no implicit conversion of true into String
+no implicit conversion of Integer into String
+no implicit conversion of nil into Integer
+no implicit conversion of String into Integer
+no implicit conversion of false into Integer
+no implicit conversion of nil into Integer
+no implicit conversion of nil into Integer
+no implicit conversion of nil into Array
+no implicit conversion of nil into Hash
+no implicit conversion of nil into Integer
+can't convert nil into Float
+can't convert String into Float
+can't convert true into Float
+nil can't be coerced into Float
+nil can't be coerced into Float
+can't convert String into time interval
+no implicit conversion of nil into Integer
+nil can't be coerced into Integer
+can't convert nil into Integer
+can't convert nil into Float
+can't convert true into Float
+can't convert Object into Float
+can't convert nil into Rational
+can't convert nil into Complex
+can't convert Integer into Hash
+can't convert Gives into String (Gives#to_str gives Integer)
+can't convert Gives into String (Gives#to_str gives nil)
+can't convert Gives into Array (Gives#to_ary gives String)
+can't convert Gives into Hash (Gives#to_hash gives true)
+can't convert Gives into Integer (Gives#to_int gives String)
+can't convert Gives into Array (Gives#to_ary gives Integer)
+can't convert Gives into Float (Gives#to_f gives Integer)
+can't convert Gives into Rational (Gives#to_r gives Array)
+can't convert Gives into String (Gives#to_str gives Symbol)
+can't convert Gives into Array (Gives#to_ary gives false)
+can't convert Gives into Hash (Gives#to_hash gives Integer)
+can't convert Gives into Regexp (Gives#to_regexp gives String)
+can't convert Gives into IO (Gives#to_io gives String)
+can't convert Gives into Proc (Gives#to_proc gives Integer)
+to_s fell back
+can't convert nil into time

@@ -1397,7 +1397,7 @@ class String
     return object if String === object
 
     converted = Primitive.zr_check_call(object, :to_str)
-    raise TypeError, "can't convert #{conversion_name(object)} to String (#{conversion_name(object)}#to_str gives #{conversion_name(converted)})" unless converted.nil? || String === converted
+    raise TypeError, cant_convert_gives(object, "String", :to_str, converted) unless converted.nil? || String === converted
 
     converted
   end

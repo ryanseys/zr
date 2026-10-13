@@ -403,7 +403,7 @@ class Regexp
     return nil unless object.respond_to?(:to_regexp)
 
     converted = object.to_regexp
-    raise TypeError, "can't convert #{conversion_name(object)} to Regexp (#{conversion_name(object)}#to_regexp gives #{conversion_name(converted)})" unless converted.nil? || converted.is_a?(Regexp)
+    raise TypeError, cant_convert_gives(object, "Regexp", :to_regexp, converted) unless converted.nil? || converted.is_a?(Regexp)
 
     converted
   end
@@ -650,9 +650,9 @@ class Regexp
     Primitive.attr! :hidden
     return 0 if seconds.nil?
 
-    raise TypeError, +"no implicit conversion to float from string" if seconds.is_a?(String)
-    raise TypeError, "no implicit conversion to float from #{seconds}" if seconds == true || seconds == false
-    raise TypeError, "can't convert #{seconds.class} into Float" unless seconds.is_a?(Numeric)
+    # NUM2DBL.
+    raise TypeError, no_implicit_conversion(seconds, "Float") if seconds.is_a?(String) || seconds.is_a?(Symbol) || true.equal?(seconds) || false.equal?(seconds)
+    raise TypeError, cant_convert(seconds, "Float") unless seconds.is_a?(Numeric)
     raise ArgumentError, "invalid timeout: #{seconds}" unless seconds.to_f.positive?
 
     # double2hrtime saturates; Infinity has no Integer.

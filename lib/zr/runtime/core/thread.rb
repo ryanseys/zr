@@ -188,7 +188,7 @@ class Thread
     # wait converts it before it parks.
     def interval(timeout)
       Primitive.attr! :hidden
-      raise TypeError, "can't convert #{timeout.nil? ? 'nil' : timeout.class} into time interval" unless timeout.is_a?(Numeric)
+      raise TypeError, cant_convert(timeout, "time interval") unless timeout.is_a?(Numeric)
       raise ArgumentError, +"time interval must not be negative" if timeout.negative?
       raise RangeError, +"NaN out of Time range" if timeout.is_a?(Float) && timeout.nan?
 
@@ -201,15 +201,14 @@ class Thread
     # number that no conversion reads.
     def seconds(limit)
       Primitive.attr! :hidden
-      raise TypeError, +"no implicit conversion to float from string" if limit.is_a?(String)
-      raise TypeError, "no implicit conversion to float from #{limit}" if limit == true || limit == false
-      raise TypeError, +"can't convert nil into Float" if limit.nil?
+      # rb_num2dbl: a special constant that is no number, or a String.
+      raise TypeError, no_implicit_conversion(limit, "Float") if limit.nil? || limit.is_a?(String) || limit.is_a?(Symbol) || true.equal?(limit) || false.equal?(limit)
 
       # rb_num2dbl: an object that is no Numeric converts with to_f.
       unless limit.is_a?(Numeric)
         converted = Primitive.zr_check_call(limit, :to_f)
-        raise TypeError, "can't convert #{conversion_name(limit)} into Float" if converted.nil?
-        raise TypeError, "can't convert #{conversion_name(limit)} to Float (#{conversion_name(limit)}#to_f gives #{conversion_name(converted)})" unless converted.is_a?(Float)
+        raise TypeError, cant_convert(limit, "Float") if converted.nil?
+        raise TypeError, cant_convert_gives(limit, "Float", :to_f, converted) unless converted.is_a?(Float)
 
         limit = converted
       end
@@ -1789,7 +1788,7 @@ class Thread::Queue
       raise TypeError, "can't convert #{conversion_name(items)} into Array" unless items.respond_to?(:to_a)
 
       converted = items.to_a
-      raise TypeError, "can't convert #{conversion_name(items)} to Array (#{conversion_name(items)}#to_a gives #{conversion_name(converted)})" unless converted.is_a?(Array)
+      raise TypeError, cant_convert_gives(items, "Array", :to_a, converted) unless converted.is_a?(Array)
 
       items = converted
     end

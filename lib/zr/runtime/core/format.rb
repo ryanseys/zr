@@ -209,7 +209,7 @@ module Kernel
     # NUM2INT: a width or precision must fit in a C int.
     def num2int(v)
       Primitive.attr! :hidden
-      raise TypeError, +"no implicit conversion from nil to integer" if nil.equal?(v)
+      raise TypeError, no_implicit_conversion(v, "Integer") if nil.equal?(v)
       if Float === v
         raise RangeError, "float #{Kernel.format("%-.10g", v)} out of range of integer" unless v >= -2**63 && v < 2**63
 

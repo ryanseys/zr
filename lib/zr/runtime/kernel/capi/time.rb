@@ -86,13 +86,13 @@ module Zr::Kern
         b = Machine.slot(Buf.size)
         zr_buf_init(b)
         zr_buf_push(b, Machine.bytes("can't convert "), 14)
-        zr_buf_str(b, zr_c_result(zr_inspect(zr_real_class(time))))
+        zr_buf_cname(b, time)
         if interval
           zr_buf_push(b, Machine.bytes(" into time interval"), 19)
         else
           zr_buf_push(b, Machine.bytes(" into time"), 10)
         end
-        zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+        zr_c_result(zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8)))
       end
       if interval && zr_capi_call1(time, Machine.id(:<), zr_fix(0)) == QTRUE
         zr_c_raise(zr_global(G_ARGUMENT_ERROR), Machine.bytes("time interval must not be negative"), 34)

@@ -16,8 +16,7 @@ class ERB
       unless str.is_a?(String)
         converted = str.to_s
         unless converted.is_a?(String)
-          name = conversion_name(str)
-          raise TypeError, "can't convert #{name} to String (#{name}#to_s gives #{conversion_name(converted)})"
+          raise TypeError, cant_convert_gives(str, "String", :to_s, converted)
         end
         str = converted
       end

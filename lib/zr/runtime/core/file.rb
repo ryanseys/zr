@@ -220,7 +220,7 @@ class File < IO
 
     io = Primitive.zr_check_call(file, :to_io)
     return nil if io.nil?
-    raise TypeError, "can't convert #{conversion_name(file)} to IO (#{conversion_name(file)}#to_io gives #{conversion_name(io)})" unless IO === io
+    raise TypeError, cant_convert_gives(file, "IO", :to_io, io) unless IO === io
 
     io
   end
@@ -900,7 +900,7 @@ class File < IO
       nanoseconds = ((time - seconds) * 1e9 + 0.5).to_i
       return nanoseconds >= 1_000_000_000 ? [seconds + 1, nanoseconds - 1_000_000_000] : [seconds, nanoseconds]
     end
-    raise TypeError, "can't convert #{time.class} into time" unless time.respond_to?(:divmod)
+    raise TypeError, cant_convert(time, "time") unless time.respond_to?(:divmod)
 
     whole, part = time.divmod(1)
     [Integer.send(:int_operand, whole), Integer.send(:int_operand, part * 1_000_000_000)]

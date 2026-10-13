@@ -298,10 +298,9 @@ class Date
     Primitive.attr! :hidden
     sg = case start
          when Float then start
-         when nil, true, false then raise TypeError, "no implicit conversion to float from #{start.inspect}"
-         when String then raise TypeError, "no implicit conversion to float from string"
+         when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(start, "Float")
          when Numeric then start.to_f
-         else raise TypeError, "can't convert #{start.class} into Float"
+         else raise TypeError, cant_convert(start, "Float")
          end
     return sg if sg.infinite? || sg.between?(REFORM_BEGIN_JD, REFORM_END_JD)
 

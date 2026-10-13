@@ -634,7 +634,7 @@ class Array
     return object if Array === object
 
     converted = Primitive.zr_check_call(object, :to_ary)
-    raise TypeError, "can't convert #{conversion_name(object)} to Array (#{conversion_name(object)}#to_ary gives #{conversion_name(converted)})" unless converted.nil? || Array === converted
+    raise TypeError, cant_convert_gives(object, "Array", :to_ary, converted) unless converted.nil? || Array === converted
 
     converted
   end

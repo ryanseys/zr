@@ -298,7 +298,7 @@ module Fiddle
       result = value.__send__(:to_int)
       return result if result.is_a?(Integer)
 
-      raise TypeError, "can't convert #{value.class} to Integer (#{value.class}#to_int gives #{result.class})"
+      raise TypeError, cant_convert_gives(value, "Integer", :to_int, result)
     end
 
     # rb_check_string_type
@@ -309,7 +309,7 @@ module Fiddle
       result = value.__send__(:to_str)
       return result if result.nil? || result.is_a?(String)
 
-      raise TypeError, "can't convert #{value.class} to String (#{value.class}#to_str gives #{result.class})"
+      raise TypeError, cant_convert_gives(value, "String", :to_str, result)
     end
 
     # StringValue
@@ -343,7 +343,7 @@ module Fiddle
     def num2long(value)
       loop do
         case value
-        when nil then raise TypeError, "no implicit conversion from nil to integer"
+        when nil then raise TypeError, no_implicit_conversion(value, "Integer")
         when Integer
           raise RangeError, "bignum too big to convert into 'long'" unless value.between?(LONG_MIN, LONG_MAX)
 
@@ -403,7 +403,7 @@ module Fiddle
     def num2ll(value)
       loop do
         case value
-        when nil then raise TypeError, "no implicit conversion from nil"
+        when nil, String, true, false then raise TypeError, no_implicit_conversion(value, "Integer")
         when Integer
           raise RangeError, "bignum too big to convert into 'long long'" unless value.between?(LONG_MIN, LONG_MAX)
 
@@ -412,8 +412,6 @@ module Fiddle
           return value.to_i if value < 1 << 63 && value >= LONG_MIN
 
           float_out_of_range(value, "long long")
-        when String then raise TypeError, "no implicit conversion from string"
-        when true, false then raise TypeError, "no implicit conversion from boolean"
         else value = to_int(value)
         end
       end
@@ -443,15 +441,14 @@ module Fiddle
       case value
       when Float then value
       when Integer, Rational then value.to_f
-      when String then raise TypeError, "no implicit conversion to float from string"
-      when nil, true, false then raise TypeError, "no implicit conversion to float from #{value.inspect}"
+      when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(value, "Float")
       else
-        raise TypeError, "can't convert #{value.class} into Float" unless value.respond_to?(:to_f, true)
+        raise TypeError, cant_convert(value, "Float") unless value.respond_to?(:to_f, true)
 
         result = value.__send__(:to_f)
         return result if result.is_a?(Float)
 
-        raise TypeError, "can't convert #{value.class} to Float (#{value.class}#to_f gives #{result.class})"
+        raise TypeError, cant_convert_gives(value, "Float", :to_f, result)
       end
     end
 

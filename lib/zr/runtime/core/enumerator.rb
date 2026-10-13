@@ -618,14 +618,13 @@ class Enumerator::ArithmeticSequence < Enumerator
     q.is_a?(Integer) ? q : q.floor
   end
 
-  # NUM2DBL: a number's Float. nil, true, false and a String are no
-  # number, so a beginless sequence of Floats has no first value.
+  # NUM2DBL: a number's Float. nil, true, false, a Symbol and a String
+  # are no number, so a beginless sequence of Floats has no first value.
   def num2dbl(x)
     Primitive.attr! :hidden
     case x
     when Float then x
-    when nil, true, false then raise TypeError, "no implicit conversion to float from #{x.inspect}"
-    when String then raise TypeError, +"no implicit conversion to float from string"
+    when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(x, "Float")
     else x.to_f
     end
   end

@@ -60,9 +60,7 @@ module FFI
         raise RangeError, "float #{format("%-.10g", value)} out of range of long long" unless value >= -2**63 && value < 2**63
 
         value.truncate
-      when nil then raise TypeError, "no implicit conversion from nil"
-      when true, false then raise TypeError, "no implicit conversion from boolean"
-      when String then raise TypeError, "no implicit conversion from string"
+      when nil, true, false, String then raise TypeError, no_implicit_conversion(value, "Integer")
       else Primitive.zr_index_operand_m(value)
       end
     end
@@ -90,13 +88,12 @@ module FFI
       case value
       when Float then value
       when Integer, Rational then value.to_f
-      when String then raise TypeError, "no implicit conversion to float from string"
-      when nil, true, false then raise TypeError, "no implicit conversion to float from #{value.inspect}"
+      when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(value, "Float")
       else
-        raise TypeError, "can't convert #{value.class} into Float" unless value.respond_to?(:to_f, true)
+        raise TypeError, cant_convert(value, "Float") unless value.respond_to?(:to_f, true)
 
         float = value.__send__(:to_f)
-        raise TypeError, "can't convert #{value.class} to Float (#{value.class}#to_f gives #{float.class})" unless float.is_a?(Float)
+        raise TypeError, cant_convert_gives(value, "Float", :to_f, float) unless float.is_a?(Float)
 
         float
       end

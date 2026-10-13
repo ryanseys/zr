@@ -516,7 +516,7 @@ class Hash
     return object if Hash === object
 
     converted = Primitive.zr_check_call(object, :to_hash)
-    raise TypeError, "can't convert #{conversion_name(object)} to Hash (#{conversion_name(object)}#to_hash gives #{conversion_name(converted)})" unless converted.nil? || Hash === converted
+    raise TypeError, cant_convert_gives(object, "Hash", :to_hash, converted) unless converted.nil? || Hash === converted
 
     converted
   end

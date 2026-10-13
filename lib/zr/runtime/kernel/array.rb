@@ -272,26 +272,9 @@ module Zr::Kern
       return a
     end
     if zr_special_p(r) || zr_type(r) != T_ARRAY
-      return zr_raise_gives_array(v, Machine.bytes("#to_a gives "), 12, r)
+      return zr_raise_gives(v, Machine.bytes("Array"), 5, Machine.bytes("#to_a gives "), 12, r)
     end
     r
-  end
-
-  # Raises convert_type_with_id's TypeError for a conversion of `obj` to
-  # an Array whose method (`#to_a gives `) returned `got`:
-  # "can't convert Foo to Array (Foo#to_a gives Integer)".
-  #: (value, ptr, word, value) -> value
-  def zr_raise_gives_array(obj, gives, len, got)
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("can't convert "), 14)
-    zr_buf_class_of(b, obj)
-    zr_buf_push(b, Machine.bytes(" to Array ("), 11)
-    zr_buf_class_of(b, obj)
-    zr_buf_push(b, gives, len)
-    zr_buf_class_of(b, got)
-    zr_buf_push(b, Machine.bytes(")"), 1)
-    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
   end
 
   # Adds the elements of the splat `*v` to the Array `a`.
@@ -345,16 +328,7 @@ module Zr::Kern
         return given if given == QUNDEF
         if given != QNIL
           if zr_special_p(given) || zr_type(given) != T_ARRAY
-            b = Machine.slot(Buf.size)
-            zr_buf_init(b)
-            zr_buf_push(b, Machine.bytes("can't convert "), 14)
-            zr_buf_class_of(b, first)
-            zr_buf_push(b, Machine.bytes(" to Array ("), 11)
-            zr_buf_class_of(b, first)
-            zr_buf_push(b, Machine.bytes("#to_ary gives "), 14)
-            zr_buf_class_of(b, given)
-            zr_buf_push(b, Machine.bytes(")"), 1)
-            return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+            return zr_raise_gives(first, Machine.bytes("Array"), 5, Machine.bytes("#to_ary gives "), 14, given)
           end
           i = 0
           while i < RArray[given].len
@@ -490,33 +464,14 @@ module Zr::Kern
     if converted == QTRUE
       r = Machine.value(Machine.load64(out, 0))
       return r if zr_fixnum_p(r) || zr_big_p(r)
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("can't convert "), 14)
-      zr_buf_class_of(b, v)
-      zr_buf_push(b, Machine.bytes(" to Integer ("), 13)
-      zr_buf_class_of(b, v)
-      zr_buf_push(b, Machine.bytes("#to_int gives "), 14)
-      zr_buf_class_of(b, r)
-      zr_buf_push(b, Machine.bytes(")"), 1)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+      return zr_raise_gives(v, Machine.bytes("Integer"), 7, Machine.bytes("#to_int gives "), 14, r)
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    if v == QNIL
-      zr_buf_push(b, Machine.bytes("no implicit conversion from nil to integer"), 42)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-    end
     zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-    if v == QTRUE || v == QFALSE
-      s = zr_inspect(v)
-      return s if s == QUNDEF
-      zr_buf_str(b, s)
-    else
-      zr_buf_class_of(b, v)
-    end
+    zr_buf_cname(b, v)
     zr_buf_push(b, Machine.bytes(" into Integer"), 13)
-    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8))
   end
 
   # `a[beg, len]`: a new Array of the elements from `beg`, or nil after
@@ -1013,7 +968,7 @@ module Zr::Kern
         return a
       end
       if a != QNIL
-        return zr_raise_gives_array(v, Machine.bytes("#to_ary gives "), 14, a)
+        return zr_raise_gives(v, Machine.bytes("Array"), 5, Machine.bytes("#to_ary gives "), 14, a)
       end
     end
     a = zr_ary_new(1)

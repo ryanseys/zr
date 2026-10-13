@@ -129,7 +129,7 @@ module Psych
         converted = value.to_str
         return converted if converted.is_a?(String)
 
-        raise TypeError, "can't convert #{value.class} to String (#{value.class}#to_str gives #{converted.class})"
+        raise TypeError, cant_convert_gives(value, "String", :to_str, converted)
       end
 
       # StringValueCStr: the bytes of a string with no NUL in it.
@@ -154,7 +154,7 @@ module Psych
 
           truncated
         when nil
-          raise TypeError, "no implicit conversion from nil to integer"
+          raise TypeError, no_implicit_conversion(value, "Integer")
         when true, false
           raise TypeError, "no implicit conversion of #{value} into Integer"
         else

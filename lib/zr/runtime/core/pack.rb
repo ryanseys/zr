@@ -403,12 +403,12 @@ module Packing
   def self.integer_item(item)
     return item if item.is_a?(Integer)
     return Integer(item) if item.is_a?(Numeric)
-    raise TypeError, "no implicit conversion of #{item.nil? ? 'nil' : item.class} into Integer" if item.nil? || !item.respond_to?(:to_int)
+    raise TypeError, no_implicit_conversion(item, "Integer") if item.nil? || !item.respond_to?(:to_int)
 
     int = item.to_int
     return int if int.is_a?(Integer)
 
-    raise TypeError, "can't convert #{item.class} to Integer (#{item.class}#to_int gives #{int.class})"
+    raise TypeError, cant_convert_gives(item, "Integer", :to_int, int)
   end
 
   # rb_to_float: a Numeric as a Float, and nothing else.
@@ -417,8 +417,7 @@ module Packing
     # A Numeric that has no to_f of its own falls to the TypeError.
     return item.to_f if item.is_a?(Numeric) && item.respond_to?(:to_f)
 
-    shown = item.nil? || item == true || item == false ? item.inspect : item.class
-    raise TypeError, "can't convert #{shown} into Float"
+    raise TypeError, cant_convert(item, "Float")
   end
 
   # rb_uv_to_utf8: a code point as UTF-8's bytes, in as many as six of

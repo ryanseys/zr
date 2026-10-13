@@ -265,7 +265,7 @@ module OpenSSL
           raise RangeError, "float #{format("%-.10g", value)} out of range of integer" unless value >= -(1 << 63) && value < (1 << 63)
 
           value.truncate
-        when nil then raise TypeError, "no implicit conversion from nil to integer"
+        when nil then raise TypeError, no_implicit_conversion(value, "Integer")
         else long(integer(value))
         end
       end
@@ -304,7 +304,7 @@ module OpenSSL
           raise RangeError, "float #{format("%-.10g", value)} out of range of integer" unless value > -(1 << 63) - 1 && value < (1 << 64)
 
           value.truncate & Lib::WORD_MASK
-        when nil then raise TypeError, "no implicit conversion from nil to integer"
+        when nil then raise TypeError, no_implicit_conversion(value, "Integer")
         else uint64(integer(value))
         end
       end
@@ -315,8 +315,7 @@ module OpenSSL
         case value
         when Float then value
         when Integer, Rational then value.to_f
-        when String then raise TypeError, "no implicit conversion to float from string"
-        when nil, true, false then raise TypeError, "no implicit conversion to float from #{value.inspect}"
+        when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(value, "Float")
         else Float(value)
         end
       end
@@ -326,7 +325,7 @@ module OpenSSL
         raise TypeError, "no implicit conversion of #{type_name(value)} into Integer" unless value.respond_to?(:to_int, true) && !(value == true || value == false)
 
         converted = value.__send__(:to_int)
-        raise TypeError, "can't convert #{value.class} to Integer (#{value.class}#to_int gives #{converted.class})" unless converted.is_a?(Integer)
+        raise TypeError, cant_convert_gives(value, "Integer", :to_int, converted) unless converted.is_a?(Integer)
 
         converted
       end

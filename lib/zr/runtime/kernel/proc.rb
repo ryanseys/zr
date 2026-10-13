@@ -997,16 +997,7 @@ module Zr::Kern
     if !zr_special_p(pr) && zr_type(pr) == T_PROC
       return pr
     end
-    b = Machine.slot(Buf.size)
-    zr_buf_init(b)
-    zr_buf_push(b, Machine.bytes("can't convert "), 14)
-    zr_buf_class_of(b, v)
-    zr_buf_push(b, Machine.bytes(" to Proc ("), 10)
-    zr_buf_class_of(b, v)
-    zr_buf_push(b, Machine.bytes("#to_proc gives "), 15)
-    zr_buf_class_of(b, pr)
-    zr_buf_push(b, Machine.bytes(")"), 1)
-    zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+    zr_raise_gives(v, Machine.bytes("Proc"), 4, Machine.bytes("#to_proc gives "), 15, pr)
   end
 
   # Calls the block with `argc` arguments. Each yield is a back edge of the
@@ -1070,16 +1061,7 @@ module Zr::Kern
           return zr_block_spread(a, spread, argv_out, keep)
         end
         if a != QNIL
-          b = Machine.slot(Buf.size)
-          zr_buf_init(b)
-          zr_buf_push(b, Machine.bytes("can't convert "), 14)
-          zr_buf_class_of(b, v)
-          zr_buf_push(b, Machine.bytes(" to Array ("), 11)
-          zr_buf_class_of(b, v)
-          zr_buf_push(b, Machine.bytes("#to_ary gives "), 14)
-          zr_buf_class_of(b, a)
-          zr_buf_push(b, Machine.bytes(")"), 1)
-          return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+          return zr_raise_gives(v, Machine.bytes("Array"), 5, Machine.bytes("#to_ary gives "), 14, a)
         end
       end
     end

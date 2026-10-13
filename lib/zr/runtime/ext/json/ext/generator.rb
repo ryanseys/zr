@@ -28,7 +28,7 @@ module JSON
         converted = val.__send__(method)
         return converted if converted.is_a?(klass)
 
-        raise TypeError, "can't convert #{conversion_name(val)} to #{klass} (#{conversion_name(val)}##{method} gives #{conversion_name(converted)})"
+        raise TypeError, cant_convert_gives(val, klass, method, converted)
       end
       private_class_method :convert_type
 

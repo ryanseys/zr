@@ -551,7 +551,7 @@ module OpenSSL
         raise TypeError, "can't convert #{type_name(value)} into Array" unless value.respond_to?(:to_a)
 
         array = value.to_a
-        raise TypeError, "can't convert #{value.class} to Array (#{value.class}#to_a gives #{array.class})" unless array.is_a?(Array)
+        raise TypeError, cant_convert_gives(value, "Array", :to_a, array) unless array.is_a?(Array)
 
         array
       end

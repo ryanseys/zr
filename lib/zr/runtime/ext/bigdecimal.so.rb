@@ -478,8 +478,7 @@ align(them) { |mine, theirs, _| mine <=> theirs }
         groups = groups * 10 + c.to_i
       end
     elsif !none
-      raise TypeError, "no implicit conversion from nil to integer" if format.nil?
-      raise TypeError, "no implicit conversion of #{format.class} into Integer" unless format.respond_to?(:to_int)
+      raise TypeError, no_implicit_conversion(format, "Integer") if format.nil? || !format.respond_to?(:to_int)
 
       groups = format.to_int
       raise ArgumentError, "argument must be positive" if groups < 0
@@ -543,7 +542,7 @@ return [@sign, "Infinity", 10, 0] unless finite?
 
   # VpGetPrecisionInt: the precision of add, sub and mult.
 def with_precision(digits)
-  raise TypeError, "no implicit conversion from nil to integer" if digits.nil?
+  raise TypeError, no_implicit_conversion(digits, "Integer") if digits.nil?
 
   digits = Integer.send(:int_operand, digits)
   raise ArgumentError, "negative precision" if digits.negative?

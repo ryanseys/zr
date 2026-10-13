@@ -129,7 +129,7 @@ class TracePoint
         raise TypeError, "no implicit conversion of #{conversion_name(event)} into Symbol" unless event.respond_to?(:to_sym)
 
         name = event.to_sym
-        raise TypeError, "can't convert #{conversion_name(event)} to Symbol (#{conversion_name(event)}#to_sym gives #{conversion_name(name)})" unless name.is_a?(Symbol)
+        raise TypeError, cant_convert_gives(event, "Symbol", :to_sym, name) unless name.is_a?(Symbol)
       end
 
       EVENTS.fetch(name) { raise ArgumentError, "unknown event: #{name}" }

@@ -551,7 +551,7 @@ class IO
   def self.time_interval(value)
     Primitive.attr! :hidden
     return nil if value.nil?
-    raise TypeError, "can't convert #{conversion_name(value)} into time interval" unless value.is_a?(Numeric)
+    raise TypeError, cant_convert(value, "time interval") unless value.is_a?(Numeric)
     raise ArgumentError, +"time interval must not be negative" if value.negative?
     raise RangeError, +"NaN out of Time range" if value.is_a?(Float) && value.nan?
 
@@ -612,7 +612,7 @@ class IO
     raise TypeError, "no implicit conversion of #{conversion_name(entry)} into IO" unless entry.respond_to?(:to_io)
 
     stream = entry.to_io
-    raise TypeError, "can't convert #{conversion_name(entry)} to IO (#{conversion_name(entry)}#to_io gives #{conversion_name(stream)})" unless stream.is_a?(IO)
+    raise TypeError, cant_convert_gives(entry, "IO", :to_io, stream) unless stream.is_a?(IO)
 
     stream
   end
@@ -766,7 +766,7 @@ class IO
     return object if IO === object
 
     io = Primitive.zr_check_call(object, :to_io)
-    raise TypeError, "can't convert #{conversion_name(object)} to IO (#{conversion_name(object)}#to_io gives #{conversion_name(io)})" unless io.nil? || IO === io
+    raise TypeError, cant_convert_gives(object, "IO", :to_io, io) unless io.nil? || IO === io
 
     io
   end
@@ -821,8 +821,7 @@ class IO
     case value
     when Integer then value
     when Float then value.to_i
-    when String then raise TypeError, +"no implicit conversion from string"
-    when true, false then raise TypeError, +"no implicit conversion from boolean"
+    when String, true, false then raise TypeError, no_implicit_conversion(value, "Integer")
     else Primitive.zr_index_operand_m(value)
     end.tap { |offset| raise RangeError, +"bignum too big to convert into 'long long'" unless offset.bit_length < 64 }
   end

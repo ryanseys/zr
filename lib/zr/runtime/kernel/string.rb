@@ -335,16 +335,7 @@ module Zr::Kern
         if !zr_special_p(s) && zr_type(s) == T_STRING
           return s
         end
-        b = Machine.slot(Buf.size)
-        zr_buf_init(b)
-        zr_buf_push(b, Machine.bytes("can't convert "), 14)
-        zr_buf_class_of(b, v)
-        zr_buf_push(b, Machine.bytes(" to String ("), 12)
-        zr_buf_class_of(b, v)
-        zr_buf_push(b, Machine.bytes("#to_str gives "), 14)
-        zr_buf_class_of(b, s)
-        zr_buf_push(b, Machine.bytes(")"), 1)
-        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+        return zr_raise_gives(v, Machine.bytes("String"), 6, Machine.bytes("#to_str gives "), 14, s)
       end
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -1129,16 +1120,7 @@ module Zr::Kern
       # rb_check_string_type: a to_str that gives neither a String nor
       # nil is an error.
       if s != QNIL
-        b = Machine.slot(Buf.size)
-        zr_buf_init(b)
-        zr_buf_push(b, Machine.bytes("can't convert "), 14)
-        zr_buf_class_of(b, other)
-        zr_buf_push(b, Machine.bytes(" to String ("), 12)
-        zr_buf_class_of(b, other)
-        zr_buf_push(b, Machine.bytes("#to_str gives "), 14)
-        zr_buf_class_of(b, s)
-        zr_buf_push(b, Machine.bytes(")"), 1)
-        return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
+        return zr_raise_gives(other, Machine.bytes("String"), 6, Machine.bytes("#to_str gives "), 14, s)
       end
     end
     Machine.store64(slot, 0, Machine.word(recv))

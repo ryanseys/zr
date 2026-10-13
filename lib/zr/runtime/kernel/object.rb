@@ -1100,6 +1100,42 @@ module Zr::Kern
     zr_buf_str(b, zr_class_name_of(v))
   end
 
+  # Writes `v` as CRuby's type_err_cname names it in a conversion error:
+  # nil, true and false by name, and any other value by its class.
+  #: (ptr, value) -> void
+  def zr_buf_cname(b, v)
+    if v == QNIL
+      zr_buf_push(b, Machine.bytes("nil"), 3)
+    elsif v == QTRUE
+      zr_buf_push(b, Machine.bytes("true"), 4)
+    elsif v == QFALSE
+      zr_buf_push(b, Machine.bytes("false"), 5)
+    else
+      zr_buf_class_of(b, v)
+    end
+  end
+
+  # Raises CRuby's rb_cant_convert_invalid_return: the conversion of `obj`
+  # into the type named by `tname` (`tlen` bytes) gave `got`, which is no
+  # such value. `gives` (`glen` bytes) is "#to_ary gives " for to_ary:
+  # "can't convert Foo into Array (Foo#to_ary gives Integer)", in UTF-8
+  # as rb_enc_raise makes it.
+  #: (value, ptr, word, ptr, word, value) -> value
+  def zr_raise_gives(obj, tname, tlen, gives, glen, got)
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("can't convert "), 14)
+    zr_buf_cname(b, obj)
+    zr_buf_push(b, Machine.bytes(" into "), 6)
+    zr_buf_push(b, tname, tlen)
+    zr_buf_push(b, Machine.bytes(" ("), 2)
+    zr_buf_cname(b, obj)
+    zr_buf_push(b, gives, glen)
+    zr_buf_cname(b, got)
+    zr_buf_push(b, Machine.bytes(")"), 1)
+    zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8))
+  end
+
   # Appends `v`'s class as a message's `%"PRIsVALUE` writes it: through
   # the class's own `to_s` (rb_obj_as_string of rb_obj_class). Returns
   # undef when `to_s` raised.

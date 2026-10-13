@@ -496,7 +496,7 @@ module Zr::Kern
     end
     zr_buf_push(b, Machine.bytes(" into "), 6)
     zr_buf_push(b, tname, tlen)
-    zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+    zr_c_result(zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8)))
   end
 
   # Whether `mid` is one of ruby's implicit conversions, whose TypeError
@@ -508,27 +508,27 @@ module Zr::Kern
   end
 
   # `v`, which `val.mid` gave, when it is of the builtin type `t`; else
-  # ruby's TypeError, `can't convert X to Array (X#to_ary gives Y)`.
+  # ruby's TypeError, `can't convert X into Array (X#to_ary gives Y)`.
   #: (value, value, word, ptr, word, word) -> value
   def zr_capi_converted(val, v, t, tname, tlen, mid)
     if zr_capi_ruby_type(v) == t
       return v
     end
-    shown = zr_c_result(zr_inspect(zr_real_class(val)))
+    shown = zr_c_result(zr_inspect(val == QNIL || val == QTRUE || val == QFALSE ? val : zr_real_class(val)))
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("can't convert "), 14)
     zr_buf_str(b, shown)
-    zr_buf_push(b, Machine.bytes(" to "), 4)
+    zr_buf_push(b, Machine.bytes(" into "), 6)
     zr_buf_push(b, tname, tlen)
     zr_buf_push(b, Machine.bytes(" ("), 2)
     zr_buf_str(b, shown)
     zr_buf_byte(b, 35)
     zr_buf_str(b, zr_c_result(zr_send(zr_sym(mid), Machine.id(:to_s), 0, Machine.ptr(0))))
     zr_buf_push(b, Machine.bytes(" gives "), 7)
-    zr_buf_str(b, zr_c_result(zr_inspect(zr_real_class(v))))
+    zr_buf_cname(b, v)
     zr_buf_byte(b, 41)
-    zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+    zr_c_result(zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8)))
   end
 
   # rb_equal: whether `a == b`, true for the same object, as Qtrue or

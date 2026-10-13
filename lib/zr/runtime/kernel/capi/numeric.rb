@@ -51,7 +51,7 @@ module Zr::Kern
   def zr_capi_long_of(v, ll)
     while true
       if v == QNIL
-        zr_c_raise(zr_global(G_TYPE_ERROR), Machine.bytes("no implicit conversion from nil to integer"), 42)
+        zr_c_raise(zr_global(G_TYPE_ERROR), Machine.bytes("no implicit conversion of nil into Integer"), 42)
       end
       if zr_fixnum_p(v)
         return zr_fix2long(v)
@@ -302,8 +302,9 @@ module Zr::Kern
     n
   end
 
-  # rb_num2dbl: an Integer or a Float as a double. A String or nil is a
-  # TypeError, as Float() is not.
+  # rb_num2dbl: an Integer or a Float as a double. A String, or a special
+  # constant that is no number, has no implicit conversion; Float() takes
+  # them.
   #: (value) -> f64
   def rb_num2dbl(v)
     Machine.gates_enter
@@ -311,20 +312,13 @@ module Zr::Kern
     if zr_float_p(v)
       return zr_float_value(v)
     end
-    if v == QNIL || v == QTRUE || v == QFALSE || (!zr_special_p(v) && zr_type(v) == T_STRING)
+    if (zr_special_p(v) && !zr_fixnum_p(v)) || (!zr_special_p(v) && zr_type(v) == T_STRING)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("no implicit conversion to float from "), 37)
-      if v == QNIL
-        zr_buf_push(b, Machine.bytes("nil"), 3)
-      elsif v == QTRUE
-        zr_buf_push(b, Machine.bytes("true"), 4)
-      elsif v == QFALSE
-        zr_buf_push(b, Machine.bytes("false"), 5)
-      else
-        zr_buf_push(b, Machine.bytes("string"), 6)
-      end
-      zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+      zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+      zr_buf_cname(b, v)
+      zr_buf_push(b, Machine.bytes(" into Float"), 11)
+      zr_c_result(zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8)))
     end
     zr_float_value(zr_c_result(zr_send(v, Machine.id(:to_f), 0, Machine.slot(8))))
   end
@@ -474,7 +468,7 @@ module Zr::Kern
       shown = v == QNIL || v == QTRUE || v == QFALSE ? v : zr_real_class(v)
       zr_buf_str(b, zr_c_result(zr_inspect(shown)))
       zr_buf_push(b, Machine.bytes(" into Float"), 11)
-      zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+      zr_c_result(zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8)))
     end
     f = zr_c_result(zr_send(v, Machine.id(:to_f), 0, Machine.ptr(0)))
     zr_capi_converted(v, f, T_FLOAT, Machine.bytes("Float"), 5, Machine.id(:to_f))

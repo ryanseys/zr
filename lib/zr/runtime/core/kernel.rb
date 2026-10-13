@@ -86,6 +86,29 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   end
   private :conversion_name
 
+  # The messages of CRuby's rb_no_implicit_conversion, rb_cant_convert and
+  # rb_cant_convert_invalid_return (error.c), for `raise TypeError, ...`.
+  # Each names the value as conversion_name does, in UTF-8 as
+  # rb_enc_raise makes it.
+  def no_implicit_conversion(value, type)
+    Primitive.attr! :hidden
+    "no implicit conversion of #{conversion_name(value)} into #{type}".force_encoding(Encoding::UTF_8)
+  end
+
+  def cant_convert(value, type)
+    Primitive.attr! :hidden
+    "can't convert #{conversion_name(value)} into #{type}".force_encoding(Encoding::UTF_8)
+  end
+
+  # The conversion method `method` of `value` gave `result`, which is no
+  # `type`.
+  def cant_convert_gives(value, type, method, result)
+    Primitive.attr! :hidden
+    name = conversion_name(value)
+    "can't convert #{name} into #{type} (#{name}##{method} gives #{conversion_name(result)})".force_encoding(Encoding::UTF_8)
+  end
+  private :no_implicit_conversion, :cant_convert, :cant_convert_gives
+
   # The message goes to stderr immediately; the SystemExit contains it.
   def abort(*args)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
@@ -647,7 +670,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     when nil
       return nil unless exception
 
-      raise TypeError, +"can't convert nil into Integer"
+      raise TypeError, cant_convert(value, "Integer")
     end
     # to_int under rb_protect: an error, a throw, a break or a return out
     # of it, or a value that is no Integer, passes on to to_str, then to
@@ -667,7 +690,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     converted = value.to_i
     return converted if converted.is_a?(Integer)
 
-    raise TypeError, "can't convert #{conversion_name(value)} to Integer (#{conversion_name(value)}#to_i gives #{converted.class})"
+    raise TypeError, cant_convert_gives(value, "Integer", :to_i, converted)
   end
 
   # rb_str_convert_to_inum for Integer(): the whole text in `base`.
@@ -693,10 +716,9 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     converted = Primitive.zr_check_call(value, :to_s)
     return converted if String === converted
 
-    name = conversion_name(value)
-    raise TypeError, "can't convert #{name} into String" if converted.nil?
+    raise TypeError, cant_convert(value, "String") if converted.nil?
 
-    raise TypeError, "can't convert #{name} to String (#{name}#to_s gives #{conversion_name(converted)})"
+    raise TypeError, cant_convert_gives(value, "String", :to_s, converted)
   end
 
   # rb_Array: to_ary, else to_a, else the value alone. If either returns
@@ -709,7 +731,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # one too.
     converted = Primitive.zr_check_call(value, :to_a)
     return converted if converted.is_a?(Array)
-    raise TypeError, "can't convert #{conversion_name(value)} to Array (#{conversion_name(value)}#to_a gives #{conversion_name(converted)})" unless converted.nil?
+    raise TypeError, cant_convert_gives(value, "Array", :to_a, converted) unless converted.nil?
 
     [value]
   end
@@ -731,7 +753,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
       duration = Integer.send(:int_operand, pair[0]) + Float(pair[1]) if pair
     end
     unless duration.nil?
-      raise TypeError, "can't convert #{duration.class} into time interval" unless duration.is_a?(Numeric)
+      raise TypeError, cant_convert(duration, "time interval") unless duration.is_a?(Numeric)
       raise ArgumentError, +"time interval must not be negative" if duration < 0
       raise RangeError, +"NaN out of Time range" if duration.is_a?(Float) && duration.nan?
     end
@@ -762,7 +784,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
         symbol = category.to_sym
         unless symbol.is_a?(Symbol)
-          raise TypeError, "can't convert #{conversion_name(category)} to Symbol (#{conversion_name(category)}#to_sym gives #{conversion_name(symbol)})"
+          raise TypeError, cant_convert_gives(category, "Symbol", :to_sym, symbol)
         end
         category = symbol
       end
@@ -799,14 +821,13 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   def implicit_integer(value)
     Primitive.attr! :hidden
     return value if value.is_a?(Integer)
-    raise TypeError, +"no implicit conversion from nil to integer" if value.nil?
-    raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer" unless value.respond_to?(:to_int)
+    raise TypeError, no_implicit_conversion(value, "Integer") if value.nil? || !value.respond_to?(:to_int)
 
     # rb_to_int: what to_int gives must be an Integer.
     converted = value.to_int
     return converted if converted.is_a?(Integer)
 
-    raise TypeError, "can't convert #{conversion_name(value)} to Integer (#{conversion_name(value)}#to_int gives #{conversion_name(converted)})"
+    raise TypeError, cant_convert_gives(value, "Integer", :to_int, converted)
   end
 
   # rb_to_int: an Integer, or what `to_int` makes one, where nil is a
@@ -819,7 +840,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     converted = value.to_int
     return converted if converted.is_a?(Integer)
 
-    raise TypeError, "can't convert #{value.class} to Integer (#{value.class}#to_int gives #{converted.class})"
+    raise TypeError, cant_convert_gives(value, "Integer", :to_int, converted)
   end
 
   def exit_status(status)
