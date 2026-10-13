@@ -1,0 +1,14 @@
+depth 1: 1
+depth 199: 199
+depth 200: 200
+depth 201: OpenSSL::ASN1::ASN1Error: nesting depth 201 exceeds limit
+depth 500: OpenSSL::ASN1::ASN1Error: nesting depth 201 exceeds limit
+decode_all past the limit: nesting depth 201 exceeds limit
+traverse past the limit: :walked
+rand odd=true: always odd
+rand odd=1: always odd
+rand odd="yes": always odd
+rand odd=:odd: always odd
+rand odd=false: parity varies or even
+rand odd=nil: parity varies or even
+rand bits: true

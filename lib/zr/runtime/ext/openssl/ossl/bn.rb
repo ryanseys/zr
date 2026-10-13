@@ -314,7 +314,7 @@ module OpenSSL
       raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..3)" if rest.size > 2
 
       fill, odd = rest
-      bottom = rest.size == 2 && odd == true ? 1 : 0
+      bottom = rest.size == 2 && odd ? 1 : 0
       top = rest.empty? ? 0 : Ossl.int(fill)
       bits = Ossl.int(bits)
       result = Lib.BN_new

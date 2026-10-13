@@ -636,6 +636,8 @@ module OpenSSL
     # ossl_asn1_decode0 and its kin, over one DER String: `row`, when
     # given, receives each header as traverse yields it.
     class ASN1Decoder
+      MAX_NESTING_DEPTH = 200
+
       def initialize(object, row)
         object = Ossl.to_der_if_possible(object)
         @der = Ossl.string_value(object).dup.freeze
@@ -677,8 +679,11 @@ module OpenSSL
       end
 
       # ossl_asn1_decode0: the value at the position, the bytes it took,
-      # and the offset after it.
+      # and the offset after it. Constructed values nest at most
+      # MAX_NESTING_DEPTH deep.
       def decode(length, offset, depth)
+        raise Ossl.error(ASN1::ASN1Error, "nesting depth #{depth} exceeds limit") if depth > MAX_NESTING_DEPTH
+
         cursor = [@base + @position].pack("J")
         len = Lib.buffer(8)
         tag, tag_class = Array.new(2) { Lib.buffer(4) }
