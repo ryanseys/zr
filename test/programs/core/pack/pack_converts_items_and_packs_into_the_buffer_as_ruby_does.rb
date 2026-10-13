@@ -13,7 +13,7 @@ def obj.to_s = "1"
     "#{e.class}: #{e.message}"
   end
   r2 = begin
-    [obj, obj, obj, obj].pack("a R" + d)
+    [obj, obj, obj, obj].pack("a y" + d)
   rescue => e
     "#{e.class}: #{e.message}"
   end
@@ -34,7 +34,7 @@ p ([65].pack("c", buffer: "f".freeze) rescue $!.class)
 o = Object.new
 def o.to_str = "1"
 p [o, o].pack("a\t\n# comment\nA2"), [1].pack("@"), [1, 2].pack("C@C")
-p ([1].pack("a R") rescue $!.message)
+p ([1].pack("a y") rescue $!.message)
 class NoFloat < Numeric; end
 k = NoFloat
 p ([k.new].pack("d") rescue [$!.class, $!.message])

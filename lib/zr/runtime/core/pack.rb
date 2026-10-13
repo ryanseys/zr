@@ -16,7 +16,7 @@ module Packing
   # The directives a template may name, the bytes a space is written
   # with, the modifiers that follow a directive, and the star and the
   # digits a count is written in.
-  KNOWN = "CcSsLlQqJjIinNvVUwaAZHhBbmMuxX@dDeEfFgGpP".freeze
+  KNOWN = "CcSsLlQqJjIinNvVUwRraAZHhBbmMuxX@dDeEfFgGpP^".freeze
   SPACE = [32, 9, 10, 11, 12, 13].freeze
   NATIVE = "sSiIlLqQjJ".freeze
   MODIFIERS = [60, 62, 95, 33].freeze     # < > _ !
@@ -25,6 +25,15 @@ module Packing
   DIGIT_0 = 48
   DIGIT_9 = 57
   private_constant :KNOWN, :SPACE, :NATIVE, :MODIFIERS, :STAR, :LONG_MAX, :DIGIT_0, :DIGIT_9
+
+  # pack_alignof on this machine: the alignment of each type that `x!`
+  # and `@!` take, and of a native `l` or `L` (a C long).
+  ALIGNMENTS = { "c" => 1, "C" => 1, "s" => 2, "S" => 2, "i" => 4, "I" => 4, "l" => 4, "L" => 4, "q" => 8, "Q" => 8,
+                 "j" => 8, "J" => 8, "n" => 2, "v" => 2, "N" => 4, "V" => 4, "f" => 4, "F" => 4, "e" => 4, "g" => 4,
+                 "d" => 8, "D" => 8, "E" => 8, "G" => 8, "p" => 8, "P" => 8 }.freeze
+  NATIVE_LONG = 8
+  ULONG_MAX = 0xFFFF_FFFF_FFFF_FFFF
+  private_constant :ALIGNMENTS, :NATIVE_LONG, :ULONG_MAX
 
   # The template as [directive, count, big?] triples; count is nil
   # for none, :all for `*`. `check` off keeps an unknown directive, so
@@ -54,6 +63,13 @@ module Packing
 
       # The directive's byte: a byte of a multibyte character is no directive.
       c = template.byteslice(i - 1, 1)
+      # `x!` and `@!` (ruby 4.1) align the position to a number of bytes,
+      # or to a type's alignment, and take no count.
+      if (b == 120 || b == 64) && i < size && template.getbyte(i) == 33
+        alignment, i = alignment_at(template, i + 1, size)
+        out << [b == 120 ? +"x!" : +"@!", alignment, nil]
+        next
+      end
       big = nil
       native = false
       # pack_modifiers checks each modifier against the directive first.
@@ -89,6 +105,92 @@ module Packing
       out << [c, count, big]
     end
     out
+  end
+
+  # pack_alignment_size: the alignment after `x!` or `@!`, as digits or
+  # as a type with its modifiers, and the index after it.
+  def self.alignment_at(template, i, size)
+    if i < size && template.getbyte(i) >= DIGIT_0 && template.getbyte(i) <= DIGIT_9
+      n = 0
+      while i < size && template.getbyte(i) >= DIGIT_0 && template.getbyte(i) <= DIGIT_9
+        n = (n * 10) + (template.getbyte(i) - DIGIT_0)
+        i += 1
+      end
+      raise RangeError, +"invalid alignment" if n.zero? || n > ULONG_MAX
+
+      return [n, i]
+    end
+    raise ArgumentError, +"missing alignment" if i >= size
+
+    type = template.getbyte(i)
+    i += 1
+    native = false
+    endian = false
+    while i < size && Primitive.zr_table_member_p(MODIFIERS, template.getbyte(i))
+      m = template.getbyte(i)
+      raise ArgumentError, "'#{m.chr}' allowed only after types #{NATIVE}" unless NATIVE.include?(type.chr)
+      if m == 62 || m == 60
+        raise RangeError, +"Can't use both '<' and '>'" if endian
+
+        endian = true
+      else
+        native = true
+      end
+      i += 1
+    end
+    raise ArgumentError, +"endian modifier is not allowed for alignment" if endian
+
+    alignment = native && (type == 108 || type == 76) ? NATIVE_LONG : ALIGNMENTS[type.chr]
+    raise ArgumentError, unknown_directive("alignment", type, template) unless alignment
+
+    [alignment, i]
+  end
+
+  # pack_align_pad: the bytes that move `pos` to the next multiple of
+  # `alignment` counted from `base`.
+  def self.align_pad(pos, base, alignment)
+    return 0 if alignment <= 1
+    raise RangeError, +"alignment too big" if alignment > LONG_MAX
+
+    mod = (pos - base) % alignment
+    mod.zero? ? 0 : alignment - mod
+  end
+
+  # The LEB128 bytes of `n` (R, r), as pack_pack writes them: as many
+  # 7-bit groups as the magnitude takes, one more for a signed value
+  # whose top group is full, in two's complement over the groups.
+  def self.leb128(n, signed)
+    raise ArgumentError, +"can't encode negative numbers in ULEB128" if !signed && n.negative?
+
+    bits = n.abs.bit_length
+    groups = (bits + 6) / 7
+    if groups.zero?
+      groups = 1
+    elsif signed && (bits % 7).zero?
+      groups += 1
+    end
+    value = n % (1 << (7 * groups))
+    out = "".b
+    groups.times do |g|
+      byte = (value >> (7 * g)) & 0x7F
+      out << (g < groups - 1 ? byte | 0x80 : byte)
+    end
+    out
+  end
+
+  # The value of the LEB128 bytes of `bytes` from `from` up to `to`.
+  def self.leb128_value(bytes, from, to, signed)
+    value = 0
+    (from...to).each_with_index { |at, g| value |= (bytes.getbyte(at) & 0x7F) << (7 * g) }
+    width = 7 * (to - from)
+    signed && value[width - 1] == 1 ? value - (1 << width) : value
+  end
+
+  # NOT_BUFFER: a String to pack that is the buffer itself.
+  def self.not_buffer(value, buffer)
+    raise ArgumentError, +"cannot pack buffer object into itself" if buffer && value.equal?(buffer)
+
+    value
   end
 
   # Quoted printable, as CRuby's qpencode writes it: a byte outside the
@@ -186,9 +288,10 @@ module Packing
   # The byte an unpack starts at. The directives read the String where
   # it is, from there on: a copy of a long String for each unpack1 at
   # an offset makes a reader of records quadratic.
+  # A negative offset counts back from the end (ruby 4.1).
   def self.from(text, offset)
-    raise ArgumentError, +"offset can't be negative" if offset < 0
-    raise ArgumentError, +"offset outside of string" if offset > text.bytesize
+    offset += text.bytesize if offset < 0
+    raise ArgumentError, +"offset outside of string" if offset < 0 || offset > text.bytesize
 
     offset
   end
@@ -269,8 +372,10 @@ module Packing
   # The result is US-ASCII while every directive writes ASCII (`m`, `M`,
   # `u` and none at all), UTF-8 once a `U` widens that, and binary as
   # soon as one directive writes arbitrary bytes.
-  def self.pack(items, template, out = "".b)
+  def self.pack(items, template, out = "".b, buffer = nil)
     at = 0
+    # `x!` aligns from where a buffer's own bytes end.
+    base = out.bytesize
     associates = nil
     list = directives(template, "pack", check: false)
     encoding = Encoding::US_ASCII
@@ -287,6 +392,8 @@ module Packing
       raise RuntimeError, +"format string modified" if template.bytesize != template_size
 
       case c
+      when "x!", "@!"
+        out << "\0" * align_pad(out.bytesize, c == +"@!" ? 0 : base, count)
       when "x"
         out << "\0" * (count == :all ? 0 : (count || 1))
       when "X"
@@ -304,7 +411,7 @@ module Packing
         item = Primitive.zr_ary_at_m(items, at)
         at += 1
         # StringValue: nil is an empty String, anything else goes through to_str.
-        item = item.nil? ? +"" : Primitive.zr_str_operand(item)
+        item = item.nil? ? +"" : not_buffer(Primitive.zr_str_operand(item), buffer)
 
         out << pack_text(item.b, c, count)
       when "H", "h", "B", "b"
@@ -313,7 +420,7 @@ module Packing
         # A String alone, or nil as an empty one, as CRuby's StringValue
         # takes it; `m` and `u` refuse nil too, and only `M` takes to_s.
         item = Primitive.zr_ary_at_m(items, at)
-        item = Primitive.zr_str_operand(item.nil? ? +"" : item)
+        item = not_buffer(Primitive.zr_str_operand(item.nil? ? +"" : item), buffer)
         at += 1
         out << (c == +"H" || c == +"h" ? pack_hex(item, c == +"H", count) : pack_bits(item, c == +"B", count))
       when "m"
@@ -321,13 +428,14 @@ module Packing
 
         item = Primitive.zr_ary_at_m(items, at)
         at += 1
-        out << base64(Primitive.zr_str_operand(item).b, count)
+        out << base64(not_buffer(Primitive.zr_str_operand(item), buffer).b, count)
       when "M"
         raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
         item = Primitive.zr_ary_at_m(items, at)
         at += 1
         # rb_obj_as_string: a to_s that gives no String gives the default one.
+        not_buffer(item, buffer)
         text = item.to_s
         text = Kernel.instance_method(:to_s).bind_call(item) unless text.is_a?(String)
         out << quoted_printable(text.b, count)
@@ -336,21 +444,21 @@ module Packing
 
         item = Primitive.zr_ary_at_m(items, at)
         at += 1
-        out << uuencode(Primitive.zr_str_operand(item).b, count)
+        out << uuencode(not_buffer(Primitive.zr_str_operand(item), buffer).b, count)
       when "p", "P"
         # `P`'s count is the least width of the one String it points at.
         if c == +"P"
           raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
           width = count.is_a?(Integer) ? count : 1
-          text = Primitive.zr_ary_at_m(items, at).nil? ? nil : Primitive.zr_str_operand(Primitive.zr_ary_at_m(items, at))
+          text = Primitive.zr_ary_at_m(items, at).nil? ? nil : not_buffer(Primitive.zr_str_operand(Primitive.zr_ary_at_m(items, at)), buffer)
           raise ArgumentError, "too short buffer for P(#{text.bytesize} for #{width})" if text && text.bytesize < width
         end
         n = c == +"P" ? 1 : count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
         n.times do
           raise ArgumentError, +"too few arguments" if at >= Primitive.zr_ary_len_m(items)
 
-          text = Primitive.zr_ary_at_m(items, at).nil? ? nil : Primitive.zr_str_operand(Primitive.zr_ary_at_m(items, at))
+          text = Primitive.zr_ary_at_m(items, at).nil? ? nil : not_buffer(Primitive.zr_str_operand(Primitive.zr_ary_at_m(items, at)), buffer)
           at += 1
           (associates ||= []) << text
           push_integer(out, text.nil? ? 0 : Primitive.zr_str_bytes_address(text), 8, false)
@@ -360,6 +468,9 @@ module Packing
         at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       when "w"
         each_item(items, at, count) { |item| out << ber(integer_item(item)) }
+        at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
+      when "R", "r"
+        each_item(items, at, count) { |item| out << leb128(integer_item(item), c == +"r") }
         at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       when "d", "D", "E", "G"
         each_item(items, at, count) { |item| out << pack_double(float_item(item), c == +"G") }
@@ -630,6 +741,14 @@ module Packing
     # directive raises where it is, and unpack1 stops before a later one.
     directives(template, "unpack", check: false).each do |c, count, big|
       case c
+      when "x!", "@!"
+        n = align_pad(at, c == +"@!" ? 0 : base, count)
+        raise ArgumentError, c == +"@!" ? +"@ outside of string" : +"x outside of string" if n > bytes.bytesize - at
+
+        at += n
+      when "^"
+        # The position so far, from the String's start (ruby 4.1).
+        out << at
       when "x"
         n = count == :all ? bytes.bytesize - at : (count || 1)
         raise ArgumentError, +"x outside of string" if at + n > bytes.bytesize
@@ -723,6 +842,27 @@ module Packing
           out << value
           value = 0
           n -= 1 if n
+        end
+      when "R", "r"
+        # A value whose last byte still has the high bit set is nil, and
+        # so is each one that a count asks for past the end.
+        n = count == :all ? nil : (count || 1)
+        start = at
+        while (n.nil? || n > 0) && at < bytes.bytesize
+          b = bytes.getbyte(at)
+          at += 1
+          next if b >= 128
+
+          out << leb128_value(bytes, start, at, c == +"r")
+          start = at
+          n -= 1 if n
+        end
+        unless n.nil?
+          if start != at && n > 0
+            out << nil
+            n -= 1
+          end
+          n.times { out << nil }
         end
       when "d", "D", "E", "G"
         each_slot(bytes, at, 8, count, out) { |chunk| unpack_double(chunk, c == +"G") }
@@ -939,7 +1079,7 @@ class Array
       raise TypeError, "buffer must be String, not #{buffer.class}" unless buffer.is_a?(String)
       raise FrozenError.new("can't modify frozen String: #{buffer.inspect}", receiver: buffer) if buffer.frozen?
     end
-    result = Packing.pack(self, Primitive.zr_str_operand(fmt), buffer ? buffer.b : "".b)
+    result = Packing.pack(self, Primitive.zr_str_operand(fmt), buffer ? buffer.b : "".b, buffer)
     return result unless buffer
 
     associates = Packing.associated(result)
