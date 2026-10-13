@@ -233,17 +233,18 @@ module Process
     end
 
     # rb_execarg_addopt: the child's descriptors that an option key names,
-    # a Fixnum, an IO or an Array of descriptors.
+    # a Fixnum, an IO or an Array of descriptors. check_exec_options_i
+    # names the class of any other key.
     def descriptors(key)
       case key
       when Array then key.map { |one| descriptor(one) }
       when IO then [descriptor(key)]
       when Integer
         # A Bignum is no descriptor at all.
-        raise ArgumentError, +"wrong exec option" unless key.bit_length < 63
+        raise ArgumentError, "wrong exec option: #{Primitive.zr_real_class(key)}" unless key.bit_length < 63
 
         [descriptor(key)]
-      else raise ArgumentError, +"wrong exec option"
+      else raise ArgumentError, "wrong exec option: #{Primitive.zr_real_class(key)}"
       end
     end
 
