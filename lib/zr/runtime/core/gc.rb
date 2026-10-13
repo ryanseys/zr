@@ -259,10 +259,11 @@ module GC
   # of its own to add.
   OPTS = %w[USE_RGENGC RGENGC_ESTIMATE_OLDMALLOC GC_ENABLE_LAZY_SWEEP GC_COMPACTION_SUPPORTED].freeze
 
-  # The heap's own sizes: cells of 32 to 256 bytes in 4 MiB arenas.
+  # The sizes that CRuby's heap reports (RVALUE_SIZE and the rest); this
+  # heap's own cells and arenas differ, and nothing here reads them.
   INTERNAL_CONSTANTS = {
-    DEBUG: false, BASE_SLOT_SIZE: 32, RBASIC_SIZE: 16, RVALUE_OVERHEAD: 0, HEAP_PAGE_OBJ_LIMIT: 131_064,
-    HEAP_PAGE_BITMAP_SIZE: 16_384, HEAP_PAGE_SIZE: 4_194_304, HEAP_COUNT: 5, RVARGC_MAX_ALLOCATE_SIZE: 256, RVALUE_OLD_AGE: 3
+    DEBUG: false, RVALUE_SIZE: 40, RBASIC_SIZE: 16, RVALUE_OVERHEAD: 0, HEAP_PAGE_BITMAP_SIZE: 256,
+    HEAP_PAGE_SIZE: 65_536, HEAP_COUNT: 12, RVARGC_MAX_ALLOCATE_SIZE: 1024, RVALUE_OLD_AGE: 3
   }.freeze
 
   # Nothing moves here: a compaction considers each live object by its
