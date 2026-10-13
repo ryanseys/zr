@@ -8,12 +8,14 @@ module Digest
   # An algorithm, as rb_digest_metadata_t describes one: which compression
   # the kernel runs, the chaining words it starts from, the lengths, and
   # the byte order of its words and its length field.
-  Metadata = Struct.new(:algorithm, :start, :digest_length, :block_length, :little_endian)
+  # `hasher` runs an algorithm that keeps its own context (CRC32,
+  # BLAKE3): init, update, finish and copy, in place of the compression.
+  Metadata = Struct.new(:algorithm, :start, :digest_length, :block_length, :little_endian, :hasher)
   private_constant :Metadata
 
-  def self.metadata(algorithm, start, digest_length, block_length, little_endian)
+  def self.metadata(algorithm, start, digest_length, block_length, little_endian, hasher = nil)
     Primitive.attr! :hidden
-    Metadata.new(algorithm, start, digest_length, block_length, little_endian).freeze
+    Metadata.new(algorithm, start, digest_length, block_length, little_endian, hasher).freeze
   end
   private_class_method :metadata
 
@@ -141,7 +143,8 @@ module Digest
       raise TypeError, "different algorithms" unless metadata.equal?(obj.send(:metadata))
 
       state, pending, length = obj.send(:context)
-      Primitive.zr_state_set(self, :__context__, [state.dup, pending.dup, length])
+      state = (hasher = metadata.hasher) ? hasher.copy(state) : state.dup
+      Primitive.zr_state_set(self, :__context__, [state, pending.dup, length])
       self
     end
 
@@ -152,6 +155,11 @@ module Digest
 
     def update(str)
       str = Primitive.zr_str_operand(str)
+      if (hasher = metadata.hasher)
+        context[0] = hasher.update(context[0], str.b)
+        return self
+      end
+
       context[1] << str.b
       context[2] += str.bytesize
       compress
@@ -169,6 +177,12 @@ module Digest
     # as the digest, and the context started again.
     def finish
       meta = metadata
+      if meta.hasher
+        out = meta.hasher.finish(context[0])
+        start
+        return out
+      end
+
       state, pending, length = context
       field = meta.block_length == 128 ? 16 : 8
       pending << "\x80".b
@@ -200,7 +214,9 @@ module Digest
 
     def start
       Primitive.attr! :hidden
-      Primitive.zr_state_set(self, :__context__, [Primitive.zr_digest_state(metadata.start), "".b, 0])
+      meta = metadata
+      state = meta.hasher ? meta.hasher.init : Primitive.zr_digest_state(meta.start)
+      Primitive.zr_state_set(self, :__context__, [state, "".b, 0])
     end
 
     def compress
