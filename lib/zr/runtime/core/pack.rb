@@ -387,8 +387,14 @@ module Packing
         encoding = Encoding::BINARY
       end
     end
-    # pack_pack: a conversion that changes the template stops the pack.
+    # pack_pack: a conversion that changes the template stops the pack, at
+    # the next byte of the template that it reads: a directive, or a space
+    # after the last one.
     template_size = template.bytesize
+    trailing = [32, 9, 10, 11, 12, 13].include?(template.getbyte(-1))
+    # CRuby packs into the buffer itself: a conversion that changes the
+    # buffer leaves the pack to go on from what is in it then.
+    mark = buffer&.bytesize
     list.each do |c, count, big|
       raise RuntimeError, +"format string modified" if template.bytesize != template_size
 
@@ -471,7 +477,14 @@ module Packing
         each_item(items, at, count) { |item| out << ber(integer_item(item)) }
         at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       when "R", "r"
-        each_item(items, at, count) { |item| out << leb128(integer_item(item), c == +"r") }
+        each_item(items, at, count) do |item|
+          n = integer_item(item)
+          if buffer && buffer.bytesize != mark
+            out = buffer.b
+            mark = buffer.bytesize
+          end
+          out << leb128(n, c == +"r")
+        end
         at += count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
       when "d", "D", "E", "G"
         each_item(items, at, count) { |item| out << pack_double(float_item(item), c == +"G") }
@@ -492,6 +505,8 @@ module Packing
         at += n
       end
     end
+    raise RuntimeError, +"format string modified" if trailing && template.bytesize != template_size
+
     associate(out, associates) if associates
     out.force_encoding(encoding)
   end
@@ -1101,10 +1116,19 @@ class String
   def unpack(fmt, offset: 0)
     Primitive.attr! :ruby
     bytes = plain
-    values = Packing.unpack(bytes, Primitive.zr_str_operand(fmt), false, Packing.associated(self), Packing.from(bytes, offset), padded: !block_given?)
+    fmt = Primitive.zr_str_operand(fmt)
+    values = Packing.unpack(bytes, fmt, false, Packing.associated(self), Packing.from(bytes, offset), padded: !block_given?)
     return values unless block_given?
 
-    values.each { |value| yield value }
+    # A block that changes the String or the format stops the unpack
+    # (UNPACK_PUSH, [Bug #22315]).
+    size = bytesize
+    format_size = fmt.bytesize
+    values.each do |value|
+      yield value
+      raise RuntimeError, +"string modified" if bytesize != size
+      raise RuntimeError, +"format string modified" if fmt.bytesize != format_size
+    end
     nil
   end
 

@@ -11,11 +11,12 @@ module Kernel
 
   # The spec and its arguments, rendered. Its frame is hidden: a
   # backtrace shows the caller (format, sprintf or String#%) alone.
-  def self.formatted(args)
+  # `watched` is the Array that String#% takes its arguments from.
+  def self.formatted(args, watched = nil)
     Primitive.attr! :hidden
     raise ArgumentError, +"too few arguments" if args.empty?
 
-    Formatter.new(Primitive.zr_str_operand(args.first), args.drop(1)).render
+    Formatter.new(Primitive.zr_str_operand(args.first), args.drop(1), watched).render
   end
 
   private :format, :sprintf
@@ -40,7 +41,7 @@ module Kernel
     NONE = Object.new.freeze
     private_constant :FSHARP, :FMINUS, :FPLUS, :FZERO, :FSPACE, :FWIDTH, :FPREC, :FPREC0, :FLAG_BITS, :CONVERSIONS, :NONE
 
-    def initialize(spec, args)
+    def initialize(spec, args, watched = nil)
       Primitive.attr! :hidden
       encoding = Encoding.at(Primitive.zr_str_encoding_index_m(spec))
       raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{encoding}" unless encoding.ascii_compatible?
@@ -48,6 +49,10 @@ module Kernel
       # A subclass's text is read as its bytes, as rb_str_format reads it.
       @spec = Primitive.zr_real_class(spec).equal?(String) ? spec : String.new(spec)
       @args = args
+      # format_args_check: String#%'s Array, which a conversion must not
+      # change while the format reads it.
+      @watched = watched
+      @watched_size = watched&.size
       # sprintf.c's `posarg`: 0 before any argument, the last unnumbered
       # one taken, -1 after a numbered one, -2 after a named one.
       @posarg = 0
@@ -71,6 +76,7 @@ module Kernel
 
         i = directive(i + 1)
       end
+      args_check
       too_many
       @out
     end
@@ -229,6 +235,7 @@ module Kernel
       raise ArgumentError, "unnumbered(#{@nextarg}) mixed with numbered" if @posarg == -1
       raise ArgumentError, "unnumbered(#{@nextarg}) mixed with named" if @posarg == -2
 
+      args_check
       @posarg = @nextarg
       @nextarg += 1
       nth(@posarg)
@@ -241,8 +248,14 @@ module Kernel
       raise ArgumentError, "numbered(#{n}) after named" if @posarg == -2
       raise ArgumentError, "invalid index - #{n}$" if n < 1
 
+      args_check
       @posarg = -1
       nth(n)
+    end
+
+    def args_check
+      Primitive.attr! :hidden
+      raise RuntimeError, +"array modified during formatting" if @watched && Primitive.zr_ary_len_m(@watched) != @watched_size
     end
 
     def nth(n)
@@ -338,6 +351,9 @@ module Kernel
 
                n.chr(enc)
              end
+      # CHECK_WIDTH: the character and its padding fit an int.
+      raise ArgumentError, +"width too big" if width && width > 1 && char.bytesize > 2_147_483_647 - (width - 1)
+
       pad(char, flags, width)
     end
 
@@ -659,6 +675,6 @@ class String
   # arguments; anything else is the one argument.
   def %(args)
     list = Array.try_convert(args)
-    Kernel.formatted([self, *(list || [args])])
+    Kernel.formatted([self, *(list || [args])], list)
   end
 end
