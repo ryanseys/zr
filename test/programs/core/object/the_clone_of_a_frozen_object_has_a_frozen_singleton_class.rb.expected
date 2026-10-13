@@ -1,0 +1,16 @@
+class clone: [true, true]
+class clone ivar: FrozenError
+class clone sdef: FrozenError
+module clone: [true, true]
+module clone sdef: FrozenError
+obj clone: [true, true]
+obj clone singleton made: [true, true]
+str clone: [true, true]
+class clone true: [true, true]
+class frozen dup: [false, false]
+class clone false: [false, false]
+singleton of frozen: [true, true]
+ext obj clone: [true, true, true]
+ext obj clone sdef: [1, FrozenError]
+class clone ancestors: [:hi, true]
+class clone thawed singleton: :z

@@ -417,6 +417,12 @@ module Zr::Kern
     return r if r == QUNDEF
     if freeze == QTRUE || (freeze == QNIL && zr_frozen_p(recv))
       RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
+      # rb_obj_freeze_inline: the singleton class that the clone took
+      # freezes with it, as zr_obj_freeze freezes one.
+      k = RBasic[copy].klass
+      if zr_singleton_p(k) && RClass[k].attached == copy
+        RBasic[k].flags = RBasic[k].flags | FL_FREEZE
+      end
     elsif freeze == QNIL && zr_str_chilled_p(recv)
       # A clone keeps the chilled flag, as rb_obj_clone_setup copies it.
       RBasic[copy].flags = RBasic[copy].flags | (RBasic[recv].flags & FL_CHILLED)
