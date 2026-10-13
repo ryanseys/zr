@@ -20,3 +20,8 @@ require "zlib"
 p %i[eof isatty size tell].zip(%i[eof? tty? length pos]).map { |a, b| StringIO.instance_method(a) == StringIO.instance_method(b) }
 p %i[each_line eof tell].zip(%i[each eof? pos]).map { |a, b| Zlib::GzipReader.instance_method(a) == Zlib::GzipReader.instance_method(b) }
 p Zlib::GzipWriter.instance_method(:tell) == Zlib::GzipWriter.instance_method(:pos), StringIO.instance_method(:tell).name
+# Dir.getwd and pwd, Dir's rmdir, unlink and delete, File's fnmatch? and
+# fnmatch and unlink and delete, ENV.filter and select.
+p Dir.method(:getwd) == Dir.method(:pwd), Dir.method(:rmdir) == Dir.method(:delete), Dir.method(:unlink) == Dir.method(:delete)
+p File.method(:fnmatch?) == File.method(:fnmatch), File.method(:unlink) == File.method(:delete), ENV.method(:filter) == ENV.method(:select)
+p Dir.method(:getwd).name, File.method(:unlink).original_name

@@ -27,7 +27,9 @@
   [NilClass, :|, :^], [TrueClass, :to_s, :inspect], [FalseClass, :|, :^], [FalseClass, :to_s, :inspect],
   [Regexp.singleton_class, :escape, :quote], [FileTest.singleton_class, :empty?, :zero?],
   [File.singleton_class, :empty?, :zero?], [Kernel.singleton_class, :format, :sprintf],
-  [Process.singleton_class, :wait, :waitpid], [Process.singleton_class, :wait2, :waitpid2]
+  [Process.singleton_class, :wait, :waitpid], [Process.singleton_class, :wait2, :waitpid2],
+  [Dir.singleton_class, :pwd, :getwd], [Dir.singleton_class, :delete, :rmdir], [Dir.singleton_class, :delete, :unlink],
+  [File.singleton_class, :fnmatch, :fnmatch?], [File.singleton_class, :delete, :unlink], [ENV.singleton_class, :select, :filter]
 ].each { |klass, original, name| Primitive.zr_method_alias_of(klass, name, original) }
 
 [[Array, :<<], [Integer, :to_int], [Kernel, :iterator?]].each do |klass, name|

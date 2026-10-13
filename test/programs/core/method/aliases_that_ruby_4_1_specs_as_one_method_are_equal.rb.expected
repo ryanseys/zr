@@ -20,3 +20,11 @@ true
 [true, true, true]
 true
 :tell
+true
+true
+true
+true
+true
+true
+:getwd
+:unlink
