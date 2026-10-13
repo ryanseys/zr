@@ -1,0 +1,4 @@
+[10, 0, 12, 3]
+["a_for_loop_body_proc_has_the_whole_loop_as_its_source.rb", 10]
+[Ruby::Prism::ForNode, 10, 12]
+[:inner, 2]

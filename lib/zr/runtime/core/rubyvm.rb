@@ -313,7 +313,8 @@ class RubyVM
       while (node, parent = queue.shift)
         if [node.start_line, node.start_column, node.end_line, node.end_column] == [range.start_line, range.start_column, range.end_line, range.end_column]
           case node.type
-          when :def_node, :lambda_node then return node
+          # A `for` body is a block whose source is the whole loop.
+          when :def_node, :lambda_node, :for_node then return node
           when :block_node then return parent
           end
         end

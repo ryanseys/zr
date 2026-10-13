@@ -1601,7 +1601,8 @@ module Zr
           bind = target.is_a?(Send) ? target.tap { |t| t.args << value } : target.tap { |t| t.value = value }
           params = Params.new([:"*for"], [], nil, [], [], nil, nil)
         end
-        block = Block.new(params, [:"*for"], Seq.new([bind, RedoPoint.new(line), body], line), line)
+        # The body is a Proc whose source is the whole `for` (Proc#source_range).
+        block = noted(Block.new(params, [:"*for"], Seq.new([bind, RedoPoint.new(line), body], line), line, node.location.end_line, nil, nil, span(node)), node)
         Send.of(expr(node.collection), :each, [], line, block: block)
       end
 
