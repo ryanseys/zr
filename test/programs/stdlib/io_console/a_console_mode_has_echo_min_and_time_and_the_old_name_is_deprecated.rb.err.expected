@@ -1,0 +1,2 @@
+stdlib/io_console/a_console_mode_has_echo_min_and_time_and_the_old_name_is_deprecated.rb:8: warning: constant IO::ConsoleMode is deprecated
+stdlib/io_console/a_console_mode_has_echo_min_and_time_and_the_old_name_is_deprecated.rb:9: warning: constant IO::Console::Mode::VERSION is deprecated

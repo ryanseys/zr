@@ -280,6 +280,13 @@ module Zr::Kern
     zr_str_new(buf, TERMIOS_LEN)
   end
 
+  # The bytes of a struct termios, which an allocated IO::Console::Mode
+  # holds as zeros (conmode_alloc).
+  #: () -> value
+  def zr_io_termios_len
+    zr_fix(TERMIOS_LEN)
+  end
+
   #: (value, value, value) -> value
   def zr_io_set_termios(fd, action, bytes)
     zr_io_status(Libc.tcsetattr(Machine.i32(zr_fix2long(fd)), Machine.i32(zr_fix2long(action)),

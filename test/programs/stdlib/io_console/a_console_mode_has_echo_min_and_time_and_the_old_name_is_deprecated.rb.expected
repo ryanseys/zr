@@ -1,0 +1,23 @@
+"0.9.4"
+[:Mode, :VERSION]
+true
+true
+[false, false, 0, (0/1)]
+[255, (1/2)]
+[255, (51/2)]
+[nil, 1, nil, (0/1)]
+true
+[true, false]
+[7, (2/1), false, 1]
+true
+#<TypeError: no implicit conversion of String into Integer>
+#<TypeError: wrong argument type Integer (expected console-mode)>
+255
+[true, true]
+false
+true
+true
+false
+true
+true
+"\e[?25l\e[?25h"

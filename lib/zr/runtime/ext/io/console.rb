@@ -14,10 +14,16 @@ class IO
   CSI = "\e["
   private_constant :CSI
 
+  # io-console's version, and the class of a terminal's mode.
+  module Console
+    VERSION = "0.9.4"
+  end
+
   # A terminal's mode, kept as the bytes that tcgetattr gave. ruby calls
-  # the class IO::ConsoleMode and keeps the bytes hidden.
-  # Only IO#console_mode makes one: console.c undefines its initialize.
-  class ConsoleMode
+  # the class IO::Console::Mode (IO::ConsoleMode is its old, deprecated
+  # name) and keeps the bytes hidden. Only IO#console_mode makes one:
+  # console.c undefines its initialize.
+  class Console::Mode
     # As rb_undef_method, a second load of this file undefines nothing.
     undef_method :initialize if private_method_defined?(:initialize)
 
@@ -26,9 +32,28 @@ class IO
       self
     end
 
+    def echo? = (IO.send(:flag_of, mode_bytes, TERMIOS_LFLAG) & ECHO_ANY) != 0
+    alias echo echo?
+
     def echo=(flag)
       IO.send(flag ? :echo_mode : :noecho_mode, mode_bytes, nil)
       self
+    end
+
+    # The bytes that a read waits for: VMIN.
+    def min = mode_bytes.getbyte(TERMIOS_VMIN)
+
+    def min=(value)
+      mode_bytes.setbyte(TERMIOS_VMIN, value.nil? ? 1 : IO.send(:clamp_uchar, IO.send(:int_arg, value)))
+      value
+    end
+
+    # The tenths of a second that a read waits: VTIME, as a Rational.
+    def time = Rational(mode_bytes.getbyte(TERMIOS_VTIME), 10)
+
+    def time=(value)
+      mode_bytes.setbyte(TERMIOS_VTIME, value.nil? ? 0 : IO.send(:clamp_uchar, IO.send(:int_arg, value * 10)))
+      value
     end
 
     # In place, and a copy under the same name without the bang.
@@ -41,10 +66,21 @@ class IO
 
     def mode_bytes
       Primitive.attr! :hidden
-      Primitive.zr_hidden_get(self, :__mode__)
+      bytes = Primitive.zr_hidden_get(self, :__mode__)
+      return bytes if bytes
+
+      bytes = ("\0" * Primitive.zr_io_termios_len).b
+      Primitive.zr_hidden_set(self, :__mode__, bytes)
+      bytes
     end
     private :mode_bytes
+
+    VERSION = Console::VERSION
+    deprecate_constant :VERSION
   end
+
+  ConsoleMode = Console::Mode
+  deprecate_constant :ConsoleMode
 
   # ---- the mode rows ---------------------------------------------------
 
@@ -105,19 +141,21 @@ class IO
     begin
       answer = ttymode(:noecho_mode) { gets }
     ensure
-      target.write($/ || "\n")
+      # A newline, whatever $/ is (io-console 0.9).
+      target.write("\n")
     end
     answer&.chomp
   end
 
   def console_mode
-    mode = ConsoleMode.allocate
+    mode = Console::Mode.allocate
     Primitive.zr_hidden_set(mode, :__mode__, console_mode_bytes(console_read_fd, path))
     mode
   end
 
+  # rb_check_typeddata names the data type, console-mode.
   def console_mode=(mode)
-    raise TypeError, "wrong argument type #{conversion_name(mode)} (expected IO::ConsoleMode)" unless mode.is_a?(ConsoleMode)
+    raise TypeError, "wrong argument type #{conversion_name(mode)} (expected console-mode)" unless mode.is_a?(Console::Mode)
 
     console_set_mode(console_read_fd, mode.__send__(:mode_bytes), path)
     mode
@@ -196,6 +234,17 @@ class IO
   def clear_screen
     erase_screen(2)
     goto(0, 0)
+  end
+
+  def hide_cursor = escape("#{CSI}?25l")
+  def show_cursor = escape("#{CSI}?25h")
+
+  # console_input_pending_p: bytes read ahead, or a read that would not
+  # wait.
+  def input_pending?
+    return true unless @buffer.nil? || @buffer.empty?
+
+    !wait_readable(0).nil?
   end
 
   # The position that the terminal itself reports. A reply that is not in
@@ -447,9 +496,10 @@ class IO
         intr: intr.equal?(true) }
     end
 
+    # clamp_uchar compares the int as unsigned, so a negative one is 255.
     def clamp_uchar(value)
       Primitive.attr! :hidden
-      value.clamp(0, 255)
+      value.negative? ? 255 : value.clamp(0, 255)
     end
 
     # NUM2INT and NUM2UINT, whose ranges a coordinate has to fit.
