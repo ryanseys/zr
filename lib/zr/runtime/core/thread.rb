@@ -1678,7 +1678,15 @@ class Thread::Mutex
   def lock
     raise ThreadError, +"deadlock; recursive locking" if owned?
 
-    Thread.current.send(:wait_on, waiters, nil, true, self) while locked?
+    while locked?
+      # Without a scheduler, nothing can run the other fiber of this
+      # thread that has the lock while this one waits (do_mutex_lock).
+      if Fiber.current_scheduler.nil? && !Thread.ignore_deadlock && Primitive.zr_hidden_get(self, :__thread__).equal?(Thread.current)
+        raise ThreadError, +"deadlock; lock already owned by another fiber belonging to the same thread"
+      end
+
+      Thread.current.send(:wait_on, waiters, nil, true, self)
+    end
     Primitive.zr_state_set(self, :__owner__, Fiber.current)
     Primitive.zr_state_set(self, :__thread__, Thread.current)
     self
