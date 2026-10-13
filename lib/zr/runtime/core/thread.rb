@@ -1676,6 +1676,8 @@ class Thread::Mutex
   end
 
   def lock
+    # do_mutex_lock: the code that a trap interrupted may hold the lock.
+    raise ThreadError, +"can't be called from trap context" if Signal.send(:trap_context?)
     raise ThreadError, +"deadlock; recursive locking" if owned?
 
     while locked?

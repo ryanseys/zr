@@ -182,11 +182,26 @@ module Signal
 
     # signal_exec: an immediate value does nothing, a String is Ruby to
     # run at the top level, and anything else is called.
+    # While the command runs, its thread is in trap context
+    # (TRAP_INTERRUPT_MASK), where Mutex#lock refuses to wait.
     def execute(command, signo)
       Primitive.attr! :hidden
       return if Primitive.zr_special_p_m(command)
 
-      command.is_a?(String) ? TOPLEVEL_BINDING.send(:eval, command) : command.call(signo)
+      was = Primitive.zr_hidden_get(self, :__trap_thread__)
+      Primitive.zr_hidden_set(self, :__trap_thread__, Thread.current)
+      begin
+        command.is_a?(String) ? TOPLEVEL_BINDING.send(:eval, command) : command.call(signo)
+      ensure
+        Primitive.zr_hidden_set(self, :__trap_thread__, was)
+      end
+    end
+
+    # Whether the current thread runs a trap command.
+    def trap_context?
+      Primitive.attr! :hidden
+      trapping = Primitive.zr_hidden_get(self, :__trap_thread__)
+      !trapping.nil? && trapping.equal?(Thread.current)
     end
 
     # rb_threadptr_signal_raise: the main thread's handle_interrupt masks

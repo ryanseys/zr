@@ -1,0 +1,3 @@
+["can't be called from trap context", "can't be called from trap context", "can't be called from trap context", "can't be called from trap context", true, :in_thread, "can't be called from trap context"]
+:after
+[true, :reentered]
