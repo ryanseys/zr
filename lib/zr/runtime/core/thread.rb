@@ -309,6 +309,9 @@ class Thread
 
       Primitive.zr_finalizers_due
       wake_due
+      # A thread parked on a descriptor wakes when it is ready even while
+      # others keep the run queue full, as ruby's timer thread checks.
+      atomically { poll_waiters(wait: false) } unless @io_waiters.empty?
       return nil if @queue.empty? || !@current.send(:quantum_spent?)
 
       @queue << @current
@@ -401,13 +404,15 @@ class Thread
     end
 
     # One wait on every descriptor that a thread parks on, for as long as
-    # the first sleeper allows: each thread whose descriptor became ready
-    # wakes. A wait that a signal cut short wakes no thread, and the
-    # calling loop looks at the run queue again.
-    def poll_waiters
+    # the first sleeper allows, or no wait at all without `wait`: each
+    # thread whose descriptor became ready wakes. A wait that a signal cut
+    # short wakes no thread, and the calling loop looks at the run queue
+    # again.
+    def poll_waiters(wait: true)
       Primitive.attr! :hidden
       deadline = @sleepers.map(&:first).min
       left = deadline && [((deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)) / 1_000_000.0).ceil, 0].max
+      left = 0 unless wait
       waiters = @io_waiters.dup
       ready = Primitive.zr_io_wait_fds(waiters.map { |fd, _, _| fd }, waiters.map { |_, events, _| events }, left || -1)
       if ready.is_a?(Integer)
