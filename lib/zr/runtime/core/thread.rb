@@ -751,9 +751,16 @@ class Thread
 
   def thread_variable_get(key) = @variables[local_key(key)]
 
+  # rb_thread_variable_set: the frozen check comes before the key's. A nil
+  # value deletes the key, so thread_variables no longer lists it.
   def thread_variable_set(key, value)
-    key = local_key(key)
     Kernel.raise FrozenError.new("can't modify frozen thread locals", receiver: self) if frozen?
+
+    key = local_key(key)
+    if value.nil?
+      @variables.delete(key)
+      return nil
+    end
 
     @variables[key] = value
   end

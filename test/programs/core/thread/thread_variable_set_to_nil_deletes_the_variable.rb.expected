@@ -1,0 +1,19 @@
+1
+2
+[:a, :b]
+nil
+false
+false
+nil
+nil
+false
+nil
+false
+true
+true
+false
+[TypeError, "1 is not a symbol nor a string"]
+[]
+[FrozenError, "can't modify frozen thread locals"]
+[FrozenError, "can't modify frozen thread locals"]
+[FrozenError, "can't modify frozen thread locals"]
