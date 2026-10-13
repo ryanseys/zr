@@ -120,10 +120,11 @@ module Zr
           # @rbs ruby: bool
           # @rbs cover: Integer?
           # @rbs owns_backref: bool
+          # @rbs reads_backref: bool
           # @rbs frameless: bool
           # @rbs return: Integer
           def meta(node, unit, kind, name: 0, parent: 0, params: nil, locals: [], fn: 0, open: true, ruby: false, cover: nil,
-                   owns_backref: false, frameless: false)
+                   owns_backref: false, reads_backref: false, frameless: false)
             @metas[node] ||= begin
               m = k::FrameMeta
               addr = Memory.zeroed(m.size, 8)
@@ -146,7 +147,21 @@ module Zr
               row.ruby = ruby ? 1 : 0
               row.cover = cover ? cover + 1 : 0
               row.owns_backref = owns_backref ? 1 : 0
+              row.reads_backref = reads_backref ? 1 : 0
+              # Where a def's or block's code starts and ends (`Lower#meta`'s
+              # span), which #source_range and #syntax_tree read.
+              span = node.respond_to?(:span) ? node.span : nil
+              if span
+                row.span_line = span[0]
+                row.column = span[1]
+                row.end_column = span[3]
+              end
               row.frameless = frameless ? 1 : 0
+              row.evaled = unit.evaled ? 1 : 0
+              # The `using` entry of a def or block, plus one, which
+              # super_method searches with (`Lower#meta`'s `using`).
+              using = node.respond_to?(:using) ? node.using : nil
+              row.using = using ? using + 1 : 0
               row.box = m[unit.root].box if unit.root
               addr
             end

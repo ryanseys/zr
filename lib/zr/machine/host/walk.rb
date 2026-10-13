@@ -60,6 +60,7 @@ module Zr
         # @rbs @eval_support: bool
         # @rbs @eval_entry: Integer?
         # @rbs @prism: bool
+        # @rbs @file_spots: Hash[String, String]
         # @rbs @spellings: Hash[untyped, Spelling]
         # @rbs @owners: Hash[Hir::Params, Hash[Symbol?, [Symbol, Integer]]]
         # @rbs @attributes: Hash[Hir::Def, Array[Symbol]]
@@ -134,7 +135,9 @@ module Zr
         # that uses TracePoint, whose code fires events (`Lower#traced?`).
         # `spelling` is the order of its program's local names (`Spelling`).
         # @rbs skip -- typed in sig/zr/machine/host/walk.rbs
-        Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden, :root, :traced, :spelling)
+        # `evaled` is a unit that an eval compiled, whose code has no
+        # absolute path (`Lower#meta`'s `evaled`).
+        Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden, :root, :traced, :spelling, :evaled)
 
         # The order in which a lowering first meets each local name of its
         # program (`Lower#spell`): the toplevels in order, each scope's
@@ -508,6 +511,11 @@ module Zr
         # (rubygems, rbconfig, pp, irb, ...), built once, which the program
         # refers to and does not build again. Its compiler file stands for
         # the host's own `Zr::Eval` (EVAL_SUPPORT), not for zr's compiler.
+              def file_spots(path)
+                Primitive.attr! :hidden
+                Primitive.zr_host_file_spots(path)
+              end
+
         class EvalSupport
           # @rbs @compiler: String
           # @rbs @units: Hash[String, Array[Symbol | Hir::entry]]?
@@ -580,6 +588,7 @@ module Zr
           own = [] #: Array[Symbol]
           # Its `using` entries take the next free slots of the program's
           # table, now (`Zr::Eval#compiled`); a traced program's eval is
+          k.singleton_class.define_method(:zr_host_file_spots) { |path| walk.send(:file_spots, path) }
           # traced too.
           hir = Hir.build(text(source), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, own],
                                                     method: method == @qnil ? nil : ruby(method),
@@ -612,6 +621,7 @@ module Zr
           # An error in the string alone (a stray `yield`) keeps the
           # string's path as its backtrace (`Zr::Eval#compile`).
           exc = @host.pin(check(outside([string(e.message)]) { |av| k.zr_send(klass, id(:new), 1, av) }))
+          unit.evaled = true
           path = @host.pin(outside([string(e.path)]) { |av| k.zr_ary_of(1, av) })
           check(outside([path]) { |av| k.zr_send(exc, id(:set_backtrace), 1, av) })
           k.zr_raise(exc)
@@ -671,12 +681,21 @@ module Zr
           case x
           when nil then @qnil
           when true then @qtrue
+          (@file_spots ||= {})[name] = hir.spots.fetch(name, "")
           when false then @qfalse
           when Integer then (x << 1) | 1
           when String
             bytes = x.b
             if @scratch_size < bytes.bytesize
               @scratch_size = [bytes.bytesize, 2 * @scratch_size].max
+        # `Zr::Eval#file_spots`: the spots (Hir::Spots) of the file at `path`
+        # that a load or require compiled at run time, or nil.
+        #: (Integer path) -> Integer
+        def file_spots(path)
+          spots = @file_spots&.[](text(path))
+          spots ? value(spots) : @qnil
+        end
+
               @scratch = Memory.zeroed(@scratch_size)
             end
             Memory.write(@scratch, bytes)

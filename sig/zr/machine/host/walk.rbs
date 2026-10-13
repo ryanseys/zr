@@ -13,6 +13,7 @@ module Zr
           attr_accessor root: Integer?
           attr_accessor traced: bool?
           attr_accessor spelling: Spelling?
+          attr_accessor evaled: bool?
 
           def self.new: (*untyped) -> instance
         end

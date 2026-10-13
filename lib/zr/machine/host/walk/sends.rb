@@ -469,7 +469,11 @@ module Zr
               homes = [node, *s.homes]
               kind = unit.internal ? k::KIND_HIDDEN : k::KIND_BLOCK
               open = open?(node, :block, unit, node.params)
-              m = meta(node, unit, kind, parent: s.meta, params: node.params, locals: node.locals, open: open, cover: node.cover)
+              # A program's block in a scope that reads `$~` keeps that scope's
+              # `$~` (`Lower::Function#reads_backref?`).
+              backref = !unit.internal && Hir.backref_read?(homes.last.respond_to?(:body) ? homes.last.body : homes.last)
+              m = meta(node, unit, kind, parent: s.meta, params: node.params, locals: node.locals, open: open, cover: node.cover,
+                                         reads_backref: backref)
               k::FrameMeta[m].captures = captures_table(node, homes, unit.spelling)
               inner = scope(node, unit, :block, m, scopes: [node.locals, *s.scopes], homes: homes, def_node: s.def_node, params: node.params,
                                                    open: open)

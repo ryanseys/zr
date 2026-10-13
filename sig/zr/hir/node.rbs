@@ -35,6 +35,7 @@ module Zr
     def self.node?: (untyped value) -> bool
     def self.flip_flop?: (Symbol? name) -> bool
     def self.each_child: (untyped node) { (untyped) -> void } -> Array[untyped]
+    def self.backref_read?: (untyped node) -> bool
                        | (untyped node) -> Array[untyped]
 
     class Node < Struct[untyped]

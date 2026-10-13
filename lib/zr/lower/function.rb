@@ -346,23 +346,6 @@ module Zr
         @slot_of.fetch(node.name) { @l.refuse(node, "#{node.name} is not a local of this scope") }
       end
 
-      # Whether `node` reads `$~`, `$_`, a part of `$~` or
-      # `Regexp.last_match`, outside a def or class body in it.
-      #: (untyped node) -> bool
-      def self.backref_read?(node)
-        case node
-        when Hir::BackRef then true
-        when Hir::GvarRead then node.name == :$~ || node.name == :$_
-        when Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then false
-        when Hir::Send
-          return true if node.name == :last_match && node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Regexp
-
-          Hir.each_child(node).any? { |child| backref_read?(child) }
-        when Hir::Node, Array then Hir.each_child(node).any? { |child| backref_read?(child) }
-        else false
-        end
-      end
-
       private
 
       # The program's toplevel gives its file to the runtime for `$0`.
@@ -416,7 +399,7 @@ module Zr
         known = @scope_reads_backref
         return known unless known.nil?
 
-        @scope_reads_backref = Function.backref_read?(@body)
+        @scope_reads_backref = Hir.backref_read?(@body)
       end
       protected :scope_reads_backref?
 

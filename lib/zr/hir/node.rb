@@ -54,6 +54,23 @@ module Zr
       block_given? ? children.each { |child| yield child } : children
     end
 
+    # Whether `node` reads `$~`, `$_`, a part of `$~` or
+    # `Regexp.last_match`, outside a def or class body in it. A block of
+    # such a scope keeps the scope's `$~` (FrameMeta `reads_backref`).
+    def self.backref_read?(node)
+      case node
+      when BackRef then true
+      when GvarRead then node.name == :$~ || node.name == :$_
+      when Def, ClassDef, ModuleDef, SingletonClassDef then false
+      when Send
+        return true if node.name == :last_match && node.recv.is_a?(ConstRead) && node.recv.name == :Regexp
+
+        each_child(node).any? { |child| backref_read?(child) }
+      when Node, Array then each_child(node).any? { |child| backref_read?(child) }
+      else false
+      end
+    end
+
     # `units` are the files that a require or load reaches, each with its
     # own toplevel, in order of first reference. `warnings` are the
     # parse-time warnings that ruby prints for the file, printed when it
