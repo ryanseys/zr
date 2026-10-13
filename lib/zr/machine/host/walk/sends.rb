@@ -42,6 +42,12 @@ module Zr
           SEND_CORE = 8
           SEND_USING = 16
 
+          # The calls whose string runs under the refinements of the call
+          # site, or whose Binding keeps them for an eval
+          # (Lower::Function::Sends::EVAL_USING).
+          EVAL_USING = %i[eval instance_eval class_eval module_eval binding].freeze
+          SENDS = %i[send __send__ public_send].freeze
+
           # The names that the core's sends dispatch normally
           # (Lower::Function::Sends::PROTOCOL); any other core send finds the
           # core's own method (SEND_CORE).
@@ -107,6 +113,9 @@ module Zr
             dispatch = dispatcher(node, s, send_mode(node, s))
             word = line_word(node, s)
             using = node.using
+            # An eval or binding call learns the `using` entry in force here,
+            # plus one (`Sends#note_eval_using`).
+            eval_using = (using.is_a?(Integer) ? using + 1 : 0) if eval_using?(node)
             # Proc#call and Proc#yield pass a `**h` on to the block as a
             # yield does, also an empty one (`Lower::Function::Sends`).
             kw_argc = %i[call yield].include?(node.name) ? :zr_kw_argc_yield : :zr_kw_argc
@@ -131,6 +140,7 @@ module Zr
                 begin
                   av = argv(f, values)
                   line!(f, word)
+                  @task_eval_using.call(task, eval_using) if eval_using
                   activate(using, f) if using
                   result = dispatch.call(r, values.size, av, @qnil)
                   @task_refine.call(task, @qnil) if using
@@ -175,6 +185,7 @@ module Zr
                 argc = @kern.public_send(kw_argc, argc, av) if kw
                 argc = @kern.public_send(ruby2_out, argc, av) if splat && !kw
                 line!(f, word)
+                @task_eval_using.call(task, eval_using) if eval_using
                 activate(using, f) if using
                 answer = dispatch.call(r, argc, av, blk)
                 @task_refine.call(task, @qnil) if using
@@ -286,6 +297,16 @@ module Zr
 
             first = node.args.first
             first.is_a?(Hir::Literal) && first.value.is_a?(Symbol) && !%i[send __send__ public_send].include?(first.value)
+          end
+
+          # A call of one of EVAL_USING, by its name or through a `send`
+          # whose name is not a literal of another method (`Sends#eval_using?`).
+          def eval_using?(node)
+            return true if EVAL_USING.include?(node.name)
+            return false unless SENDS.include?(node.name) && !node.args.empty?
+
+            name = node.args.first
+            !name.is_a?(Hir::Literal) || EVAL_USING.include?(name.value)
           end
 
           # The call that a kernel send makes, one per site (`Sends#funcall`).

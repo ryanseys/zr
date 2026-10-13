@@ -378,9 +378,13 @@ module Zr
           def using(node, s)
             word = line_word(node, s)
             value = code(node.value, s)
+            # At the main file's toplevel, TOPLEVEL_BINDING takes the entry
+            # too (`Sends#using_row`).
+            main = s.kind == :main && !s.internal?
             lambda do |f|
               line!(f, word)
               check(@kern.zr_using_activate(node.id, value.call(f), node.from))
+              check(@kern.zr_using_main(node.id)) if main
               f.self_
             end
           end
@@ -514,16 +518,16 @@ module Zr
             value = code(node.value, s)
             name = id(node.name)
             word = line_word(node, s)
+            warns = s.kind == :block
             lambda do |f|
               klass = scope.call(f)
               v = value.call(f)
               line!(f, word)
-            warns = s.kind == :block
+              @kern.zr_refinement_self_warn if warns
               check(@kern.zr_const_set(klass, name, v))
               v
             end
           end
-              @kern.zr_refinement_self_warn if warns
 
           def const_or_write(node, s)
             scope = scope_class(node.scope, s)
@@ -531,19 +535,19 @@ module Zr
             name = id(node.name)
             word = line_word(node, s)
             scoped = node.scope
+            warns = s.kind == :block
             lambda do |f|
               klass = scope.call(f)
               line!(f, word)
               v = scoped ? @kern.zr_const_lookup_at(klass, name) : @kern.zr_const_lookup(f.cref, name)
-            warns = s.kind == :block
               next v if v != @qundef && truthy?(v)
 
               v = value.call(f)
+              @kern.zr_refinement_self_warn if warns
               check(@kern.zr_const_set(klass, name, v))
               v
             end
           end
-              @kern.zr_refinement_self_warn if warns
 
           # The name of an ivar as the core's code sees it: a core file's
           # ivars are hidden from a program, as CRuby's C fields are, unless
@@ -654,15 +658,15 @@ module Zr
             value = code(node.value, s)
             name = id(node.name)
             word = line_word(node, s)
+            warns = s.kind == :block
             lambda do |f|
               v = value.call(f)
               line!(f, word)
+              @kern.zr_refinement_self_warn if warns
               check(@kern.zr_cvar_set(f.cref, name, v))
-            warns = s.kind == :block
               v
             end
           end
-              @kern.zr_refinement_self_warn if warns
 
           # --- aliases ---
 

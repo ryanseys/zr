@@ -92,6 +92,7 @@ module Zr
         # @rbs @task_refine: ^(Integer, untyped) -> untyped
         # @rbs @task_kw: ^(Integer) -> untyped
         # @rbs @task_set_kw: ^(Integer, untyped) -> untyped
+        # @rbs @task_eval_using: ^(Integer, untyped) -> untyped
         # @rbs @site_stamp: Integer
         # @rbs @poll: Integer
         # @rbs @trace_events: Integer
@@ -134,9 +135,9 @@ module Zr
         # that `zr_box_stamp` gave the root. `traced` is a unit of a program
         # that uses TracePoint, whose code fires events (`Lower#traced?`).
         # `spelling` is the order of its program's local names (`Spelling`).
-        # @rbs skip -- typed in sig/zr/machine/host/walk.rbs
         # `evaled` is a unit that an eval compiled, whose code has no
         # absolute path (`Lower#meta`'s `evaled`).
+        # @rbs skip -- typed in sig/zr/machine/host/walk.rbs
         Unit = Struct.new(:file, :internal, :units, :node_ids, :core, :hidden, :root, :traced, :spelling, :evaled)
 
         # The order in which a lowering first meets each local name of its
@@ -309,12 +310,16 @@ module Zr
         end
 
         # The symbol id of `name`, interned in the kernel's table if the
-        # kernel has not seen it.
+        # kernel has not seen it. A name that is not ASCII keeps its
+        # encoding as the tag of the entry (`zr_symbol_tag`).
         #: (Symbol name) -> Integer
         def id(name)
           @ids[name] ||= begin
             text = name.to_s
-            @host.symbols.ids[text] || @kern.zr_intern(@host.bytes(text), text.bytesize)
+            @host.symbols.ids[text] || begin
+              index = text.ascii_only? ? 1 : ENCODING_INDEX.fetch(text.encoding)
+              @kern.zr_intern_tagged(@host.bytes(text), text.bytesize, index < 2 ? 1 - index : index)
+            end
           end
         end
 
@@ -382,6 +387,7 @@ module Zr
           @task_refine = Memory.writer(TYPES["Value"], task.fetch("refine").first)
           @task_kw = Memory.reader(TYPES["Word"], task.fetch("kw").first)
           @task_set_kw = Memory.writer(TYPES["Word"], task.fetch("kw").first)
+          @task_eval_using = Memory.writer(TYPES["Word"], task.fetch("eval_using").first)
           @site_stamp = @host.static("site_stamp", 8)
           @poll = @host.static("current_task", 16) + 8
           @trace_events = @host.static("trace_events", 8)
@@ -413,15 +419,20 @@ module Zr
                 k.zr_program_start(@host.bytes(file), file.bytesize, @traced ? 1 : 0)
                 k.zr_toplevel_binding(f.env, f.self_, f.cref, m)
               end
-              # Through Warning.warn and under $VERBOSE, as the lowering's
-              # `parse_warnings` gives them.
-              Array(hir.warnings).each do |line|
-                verbose = line.start_with?(Hir::Build::Loader::VERBOSE_WARNING)
-                text = "#{verbose ? line[1..] : line}\n".b
-                k.zr_parse_warning(@host.bytes(text), text.bytesize, verbose ? 1 : 0)
-              end
+              parse_warnings(Array(hir.warnings))
             end
             run_body(s, f, jumps) { body.call(f) }
+          end
+        end
+
+        # The parser's warnings `lines`, through Warning.warn and under
+        # $VERBOSE, as the lowering's `parse_warnings` gives them.
+        #: (Array[String] lines) -> void
+        def parse_warnings(lines)
+          lines.each do |line|
+            verbose = line.start_with?(Hir::Build::Loader::VERBOSE_WARNING)
+            text = "#{verbose ? line[1..] : line}\n".b
+            k.zr_parse_warning(@host.bytes(text), text.bytesize, verbose ? 1 : 0)
           end
         end
 
@@ -483,17 +494,26 @@ module Zr
             class Eval
               def self.current = @current ||= new
 
-              # The keywords are Zr::Eval#compile's. The walker's eval
-              # takes the refinements of the program's table, not `using`.
+              # The keywords are Zr::Eval#compile's.
               def compile(source, file, line = 1, scopes = [], method = nil, using: nil, warn_now: false, debug_frozen: false)
                 Primitive.attr! :hidden
                 # String#+ converts as prism does: `eval(123)` is a TypeError.
-                Primitive.zr_host_eval_compile(+"" + source, file, line, scopes, method)
+                # A String keeps its encoding, which String#+ would not.
+                source = +"" + source unless source.is_a?(String)
+                # eval_make_iseq: a source that is not ASCII compatible cannot be read.
+                raise ArgumentError, +"invalid source encoding" unless source.encoding.ascii_compatible?
+
+                Primitive.zr_host_eval_compile(source, file, line, scopes, method, using, source.encoding.name, warn_now)
               end
 
               def compile_file(path)
                 Primitive.attr! :hidden
                 Primitive.zr_host_eval_file(path)
+              end
+
+              def file_spots(path)
+                Primitive.attr! :hidden
+                Primitive.zr_host_file_spots(path)
               end
 
               # prism loads at the first parse: walking it takes seconds here.
@@ -511,11 +531,6 @@ module Zr
         # (rubygems, rbconfig, pp, irb, ...), built once, which the program
         # refers to and does not build again. Its compiler file stands for
         # the host's own `Zr::Eval` (EVAL_SUPPORT), not for zr's compiler.
-              def file_spots(path)
-                Primitive.attr! :hidden
-                Primitive.zr_host_file_spots(path)
-              end
-
         class EvalSupport
           # @rbs @compiler: String
           # @rbs @units: Hash[String, Array[Symbol | Hir::entry]]?
@@ -573,6 +588,7 @@ module Zr
           k.singleton_class.define_method(:zr_host_eval_compile) { |*args| walk.send(:eval_compile, *args) }
           k.singleton_class.define_method(:zr_host_eval_file) { |path| walk.send(:eval_file, path) }
           k.singleton_class.define_method(:zr_host_prism) { walk.send(:prism!) }
+          k.singleton_class.define_method(:zr_host_file_spots) { |path| walk.send(:file_spots, path) }
           unit = Unit.new("<internal:zr_eval>", true, [], nil)
           check(toplevel(Hir.build(EVAL_SUPPORT, "<internal:zr_eval>", eval_support: false), unit, k::KIND_MAIN))
           forms = File.join(Paths::RUNTIME, "lib/zr/eval/forms.rb")
@@ -581,21 +597,31 @@ module Zr
 
         # `Zr::Eval#compile`: the code record of the string `source`, as the
         # kernel reads it (`zr_code_word`): the toplevel, its FrameMeta,
-        # and the slot count and names of the Env for its own locals.
-        #: (Integer source, Integer file, Integer line, Integer scopes, Integer method) -> Integer
-        def eval_compile(source, file, line, scopes, method)
+        # the slot count and names of the Env for its own locals, the metas
+        # that a box stamps, and the `using` entry that its toplevel leaves.
+        # The code starts under the `using` entry `using` (nil for none). The
+        # source is in the encoding named `encoding`. The parser's warnings
+        # print as the code runs, or now under `warn_now`.
+        #: (Integer source, Integer file, Integer line, Integer scopes, Integer method, Integer using, Integer encoding, Integer warn_now) -> Integer
+        def eval_compile(source, file, line, scopes, method, using, encoding, warn_now)
           outer = ruby(scopes).map { |names| names.map(&:to_sym) } #: Array[Array[Symbol]]
           own = [] #: Array[Symbol]
           # Its `using` entries take the next free slots of the program's
           # table, now (`Zr::Eval#compiled`); a traced program's eval is
-          k.singleton_class.define_method(:zr_host_file_spots) { |path| walk.send(:file_spots, path) }
           # traced too.
-          hir = Hir.build(text(source), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, own],
+          hir = Hir.build(text(source).force_encoding(text(encoding)), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, own],
                                                     method: method == @qnil ? nil : ruby(method),
-                                                    activations: k.zr_fix2long(k.zr_activations_count), trace: @traced)
+                                                    activations: k.zr_fix2long(k.zr_activations_count), trace: @traced,
+                                                    using: using == @qnil ? nil : k.zr_fix2long(using))
           k.zr_activations_reserve(hir.activations)
+          warnings = Array(hir.warnings)
+          if warn_now == @qtrue
+            parse_warnings(warnings)
+            warnings = []
+          end
           unit = Unit.new(text(file), false, hir.units, hir.node_ids)
           unit.spelling = Spelling.new([hir])
+          unit.evaled = true
           # A traced program's eval'd code fires its events too.
           unit.traced = @traced
           m = meta(hir, unit, k::KIND_EVAL, locals: hir.locals)
@@ -606,14 +632,18 @@ module Zr
           fn = @host.callable(lambda do |self_, cref, env, blk|
             body, jumps = run ||= [code(hir.body, s), jumps?(hir.body)]
             enter(s, self_, cref, blk, env: env, outer: k::REnv[env].parent) do |f|
+              parse_warnings(warnings)
               run_body(s, f, jumps) { body.call(f) }
             end
           end)
           words = [fn, m, hir.locals.size, id_table(hir.locals)].map { |w| (w << 1) | 1 }
           # The fifth word: the metas that a box stamps (`Ruby::Box#run`).
           metas = outside([(m << 1) | 1]) { |av| @host.pin(k.zr_ary_of(1, av)) }
-          outside(words + [metas]) { |av| k.zr_ary_of(words.size + 1, av) }
+          left = hir.using ? (hir.using << 1) | 1 : @qnil
+          outside(words + [metas, left]) { |av| k.zr_ary_of(words.size + 2, av) }
         rescue Hir::Invalid, SyntaxError => e
+          # The parser's warnings print before its error (`Zr::Eval#warned`).
+          parse_warnings(Array(e.instance_variable_get(:@zr_warnings))) if e.instance_variable_defined?(:@zr_warnings)
           message = e.message.b
           klass = k.zr_core_class(id(:SyntaxError))
           return k.zr_raise_msg(klass, @host.bytes(message), message.bytesize) unless e.is_a?(SyntaxError) && e.backtrace == [e.path]
@@ -621,7 +651,6 @@ module Zr
           # An error in the string alone (a stray `yield`) keeps the
           # string's path as its backtrace (`Zr::Eval#compile`).
           exc = @host.pin(check(outside([string(e.message)]) { |av| k.zr_send(klass, id(:new), 1, av) }))
-          unit.evaled = true
           path = @host.pin(outside([string(e.path)]) { |av| k.zr_ary_of(1, av) })
           check(outside([path]) { |av| k.zr_send(exc, id(:set_backtrace), 1, av) })
           k.zr_raise(exc)
@@ -652,10 +681,19 @@ module Zr
           base = coverage && ruby(check(k.zr_send(coverage, id(:next_def_site), 0, 0)))
           traced = @traced || ruby(k.zr_trace_armed_m)
           hir = Hir.build(File.read(name), name, eval_support: false, trace: traced, def_base: base)
+          (@file_spots ||= {})[name] = hir.spots.fetch(name, "")
           check(outside([value(hir.coverable), value(hir.defs)]) { |av| k.zr_send(coverage, id(:compiled_lines!), 2, av) }) if coverage
           unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids, false, false, nil, hir.traced)
           fn = @host.callable(-> { toplevel(hir, unit, k::KIND_TOP) })
           (fn << 1) | 1
+        end
+
+        # `Zr::Eval#file_spots`: the spots (Hir::Spots) of the file at `path`
+        # that a load or require compiled at run time, or nil.
+        #: (Integer path) -> Integer
+        def file_spots(path)
+          spots = @file_spots&.[](text(path))
+          spots ? value(spots) : @qnil
         end
 
         # The program's Coverage, when the program loaded it
@@ -681,21 +719,12 @@ module Zr
           case x
           when nil then @qnil
           when true then @qtrue
-          (@file_spots ||= {})[name] = hir.spots.fetch(name, "")
           when false then @qfalse
           when Integer then (x << 1) | 1
           when String
             bytes = x.b
             if @scratch_size < bytes.bytesize
               @scratch_size = [bytes.bytesize, 2 * @scratch_size].max
-        # `Zr::Eval#file_spots`: the spots (Hir::Spots) of the file at `path`
-        # that a load or require compiled at run time, or nil.
-        #: (Integer path) -> Integer
-        def file_spots(path)
-          spots = @file_spots&.[](text(path))
-          spots ? value(spots) : @qnil
-        end
-
               @scratch = Memory.zeroed(@scratch_size)
             end
             Memory.write(@scratch, bytes)
