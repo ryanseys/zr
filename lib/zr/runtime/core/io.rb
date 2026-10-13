@@ -3227,15 +3227,33 @@ class IO
     pos >= last.bytesize && char_boundary?(pos - last.bytesize) && @buffer.byteslice(pos - last.bytesize, last.bytesize).b == last
   end
 
+  # Paragraph mode's separator: two newlines in the read encoding, as
+  # rb_io_getline_0 converts them for an encoding that is not ASCII
+  # compatible, such as UTF-16 or UTF-32.
+  # The dummy UTF-16 and UTF-32 write a byte order mark first, which no
+  # line of the stream matches, as in ruby.
+  def paragraph_separator
+    Primitive.attr! :hidden
+    enc = read_encoding
+    return +"\n\n" if enc.ascii_compatible?
+
+    "\n\n".encode(enc)
+  end
+
   # Paragraph mode's newlines before a paragraph, read as they arrive: a
-  # fresh stream's buffer is empty until it is filled.
+  # fresh stream's buffer is empty until it is filled. In a wide
+  # encoding, swallow skips whole newline characters (ruby 99d1ece935);
+  # the dummy UTF-16 and UTF-32 read as big-endian.
   def skip_newlines
     Primitive.attr! :hidden
+    enc = read_encoding
+    unit = { Encoding::UTF_16 => Encoding::UTF_16BE, Encoding::UTF_32 => Encoding::UTF_32BE }.fetch(enc, enc)
+    newline = enc.ascii_compatible? ? "\n" : "\n".encode(unit).b
     while true
-      fill_cooked if @buffer.empty? && !@eof
-      break unless @buffer.start_with?("\n")
+      fill_cooked while @buffer.bytesize < newline.bytesize && !@eof
+      break unless @buffer.byteslice(0, newline.bytesize).b == newline
 
-      take(1)
+      take(newline.bytesize)
     end
   end
 
@@ -3256,7 +3274,7 @@ class IO
       return take(n)
     end
     paragraph = separator.empty?
-    separator = paragraph ? +"\n\n" : buffered_separator(separator)
+    separator = paragraph ? paragraph_separator : buffered_separator(separator)
     skip_newlines if paragraph
     return limited_line(separator, limit, paragraph) if limit
     from = 0
@@ -3392,7 +3410,7 @@ class IO
     Primitive.attr! :hidden
     return line if separator.nil?
 
-    separator = +"\n\n" if separator.empty?
+    separator = paragraph_separator if separator.empty?
     bytes = line.b
     return line unless bytes.end_with?(separator.b)
 
@@ -3402,8 +3420,13 @@ class IO
       b = bytes.getbyte(start)
       return line if b >= 0x80 && b <= 0xBF
     end
+    # A one-character "\n" also takes the byte before it when that byte is
+    # a CR, as rb_io_getline_0 compares one byte, also in a wide
+    # encoding. So UTF-16BE's "\r\n" keeps the CR's first byte.
     cut = separator.bytesize
-    cut += 1 if separator.b == "\n" && bytes.getbyte(-2) == 0x0D && bytes.bytesize > 1
+    sep_enc = separator.encoding
+    newline = sep_enc.ascii_compatible? || sep_enc.dummy? ? "\n" : "\n".encode(sep_enc).b
+    cut += 1 if separator.b == newline && bytes.bytesize > cut && bytes.getbyte(-cut - 1) == 0x0D
     line.byteslice(0, line.bytesize - cut)
   end
 end
