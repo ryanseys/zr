@@ -3095,12 +3095,11 @@ class IO
   # rb_io_getline_0 with a limit, step by step. appendline reads to the
   # separator's last byte or to the limit; a line ends where the whole
   # separator ends on a character's start. A limit that runs out on that
-  # last byte with no whole separator leaves 0, which appendline takes as
-  # no limit, so the line reads on to the next separator: ruby's own
-  # quirk. A limit inside a character reads on, a byte at a time, to its
-  # end, at most 16 bytes. In an encoding whose characters are wider than
-  # a byte, search_delim finds the separator's last character, whole and
-  # at a character's start, not its last byte.
+  # last byte with no whole separator ends the line there, as any other
+  # byte does (ruby 227006291d). A limit inside a character reads on, a
+  # byte at a time, to its end, at most 16 bytes. In an encoding whose
+  # characters are wider than a byte, search_delim finds the separator's
+  # last character, whole and at a character's start, not its last byte.
   def limited_line(separator, limit, paragraph)
     Primitive.attr! :hidden
     newline = separator.getbyte(separator.bytesize - 1)
@@ -3125,14 +3124,11 @@ class IO
       end
       return(pos.zero? ? nil : take(pos)) if byte.nil? && pos >= @buffer.bytesize && @eof
 
-      if wide ? ends_with?(last, pos) : byte == newline
-        next if pos < size || !char_boundary?(pos - size)
-
-        if @buffer.byteslice(pos - size, size) == separator
-          line = take(pos)
-          skip_newlines if paragraph
-          return line
-        end
+      if (wide ? ends_with?(last, pos) : byte == newline) && pos >= size && char_boundary?(pos - size) &&
+         @buffer.byteslice(pos - size, size) == separator
+        line = take(pos)
+        skip_newlines if paragraph
+        return line
       end
       next unless left.zero?
 
