@@ -1183,14 +1183,9 @@ module Enumerable
   def lazy = Enumerator::Lazy.from(self)
 
   # CRuby writes this one in Ruby, so it returns its own parameters.
-  # A class argument is the Set to build, which Ruby 4.0 deprecates.
-  def to_set(*args, &block)
+  # Ruby 4.1 takes no class argument.
+  def to_set(&block)
     Primitive.attr! :ruby
-    klass = Set
-    unless args.empty?
-      warn("passing arguments to Enumerable#to_set is deprecated", uplevel: 1)
-      klass = args.shift
-    end
-    klass.new(self, *args, &block)
+    Set.new(self, &block)
   end
 end

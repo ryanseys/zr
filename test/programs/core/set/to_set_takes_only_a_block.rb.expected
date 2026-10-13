@@ -1,0 +1,18 @@
+[[:e, 0, [[:block, :block]]], [:s, 0, []], [:r, 0, []]]
+Set[3, 1, 2]
+Set[30, 10, 20]
+[ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+[ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+Set[1, 2, 3]
+Set[-1, -2, -3]
+[ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+[RangeError, "cannot convert endless range to a set"]
+Set[[:a, 1]]
+Set[1, 2]
+true
+false
+Set[2, 3]
+[ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+[Set, false]
+Set[2, 4]
+true

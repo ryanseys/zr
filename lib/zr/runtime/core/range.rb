@@ -282,7 +282,7 @@ class Range
   end
   alias entries to_a
 
-  def to_set(...)
+  def to_set
     raise RangeError, +"cannot convert endless range to a set" if @end.nil?
 
     super

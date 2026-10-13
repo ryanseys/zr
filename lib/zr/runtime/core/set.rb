@@ -399,18 +399,11 @@ class Set
 
   def to_a = table.keys
 
-  def to_set(*args, &block)
-    klass = Set
-    if args.empty?
-      args = [self]
-    else
-      Warning.send(:deprecated, "passing arguments to Set#to_set is deprecated")
-      klass = args[0]
-      args[0] = self
-    end
-    return self if klass.equal?(Set) && instance_of?(Set) && args.size == 1 && block.nil?
+  # set_i_to_set: a Set is itself unless a block maps it.
+  def to_set(&block)
+    return self if instance_of?(Set) && block.nil?
 
-    klass.new(*args, &block)
+    Set.new(self, &block)
   end
 
   # Ruby 4.0 keeps this subclass, which takes no compatibility layer.
@@ -461,15 +454,9 @@ class Set
       end
     end
 
-    def to_set(*args, &block)
-      klass = if args.empty?
-        Set
-      else
-        warn "passing arguments to Enumerable#to_set is deprecated", uplevel: 1
-        args.shift
-      end
-      return self if instance_of?(Set) && klass == Set && block.nil? && args.empty?
-      klass.new(self, *args, &block)
+    def to_set(&block)
+      return self if instance_of?(Set) && block.nil?
+      Set.new(self, &block)
     end
 
     def flatten_merge(set, seen = {}) # :nodoc:
