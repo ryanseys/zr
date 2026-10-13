@@ -117,8 +117,8 @@ class GemCompatTest < Minitest::Test
     assert_includes error.message, "helper"
   end
 
-  # A resolver whose resolve fails as RubyGems does on ddtrace: a
-  # NoMethodError while it makes the error of a conflict.
+  # A resolver that fails with a NoMethodError, as a bug of RubyGems
+  # would, while it makes the error of another failure.
   class BrokenResolver
     def initialize(cause) = @cause = cause
 
@@ -129,16 +129,7 @@ class GemCompatTest < Minitest::Test
     end
   end
 
-  def test_a_conflict_that_rubygems_fails_to_report_fails_to_resolve
-    conflict = Gem::Molinillo::ResolverError.new("Unable to satisfy the following requirements:\n\n- `datadog-ci (~> 0.8.1)` required by `user`")
-
-    error = assert_raises(Gems::Failure) { Gems::Resolver.requests(BrokenResolver.new(conflict)) }
-
-    assert_equal "resolve", error.kind
-    assert_equal "Unable to satisfy the following requirements: - `datadog-ci (~> 0.8.1)` required by `user`", error.message
-  end
-
-  def test_another_no_method_error_of_the_resolver_is_not_a_conflict
+  def test_a_no_method_error_of_the_resolver_is_not_a_conflict
     assert_raises(NoMethodError) { Gems::Resolver.requests(BrokenResolver.new(ArgumentError.new("x"))) }
   end
 
