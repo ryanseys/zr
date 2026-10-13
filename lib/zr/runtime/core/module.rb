@@ -285,6 +285,8 @@ class Module
   # of rb_using_module.
   def using(mod)
     raise TypeError, "wrong argument type #{Primitive.zr_class_name_of(mod)} (expected Module)" unless mod.is_a?(Module)
+    # The refinements of a refined Proc are fixed when it is made.
+    raise RuntimeError, +"Module#using is not permitted in a proc with refinements" if Primitive.zr_refined_caller_m
 
     raise RuntimeError, +"Module#using is not permitted in methods"
   end

@@ -16,6 +16,15 @@ class Proc
 
   def to_proc = self
 
+  # A copy of the Proc whose body, and the blocks and methods that it
+  # writes, run with the refinements of `mods` in use; the receiver is
+  # left as it is. No module gives the receiver itself.
+  def refined(*mods)
+    return self if mods.empty?
+
+    Primitive.zr_proc_refine_m(self, mods)
+  end
+
   # Where the block's code starts and ends, or nil for a Proc that the
   # runtime made (rb_proc_source_range).
   def source_range = Ruby::SourceRange.send(:of, Primitive.zr_proc_span(self))

@@ -61,6 +61,10 @@ module Zr::Kern
     # ancestor list node where the call found the method, where its
     # `super` goes on. Other Procs do not set it.
     attr_accessor :found #: value
+    # On a Proc whose function is zr_refined_block (Proc#refined): the
+    # list of its refinements, as Task#refine takes it. Other Procs do
+    # not set it.
+    attr_accessor :refined #: value
   end
 
   module Block
@@ -267,6 +271,9 @@ module Zr::Kern
     if (RBasic[p].flags & FL_BMETHOD_RUN) != 0
       zr_mark(RProc[p].found)
     end
+    if RProc[p].fn == Machine.addr(:zr_refined_block)
+      zr_mark(RProc[p].refined)
+    end
   end
 
   # Returns the self of a block.
@@ -394,7 +401,80 @@ module Zr::Kern
     if RProc[p].meta != 0 && FrameMeta[RProc[p].meta].reads_backref != 0 && RProc[p].home != 0
       zr_proc_keep_svars(p)
     end
+    # A block that the body of a refined Proc wrote keeps its refinements
+    # after the body returns, as CRuby's copied iseq does.
+    if zr_refined_running_p() && RProc[p].home != 0 && RProc[p].meta != 0 && FrameMeta[RProc[p].meta].kind == KIND_BLOCK
+      list = zr_frame_refined_list(RProc[p].home)
+      if list != QNIL
+        RProc[p].refined = list
+        zr_write_barrier(p, list)
+        RProc[p].fn = Machine.addr(:zr_refined_block)
+      end
+    end
     p
+  end
+
+  # Whether the code of a refined Proc may run now (Proc#refined): one was
+  # made, and a call of one, or of a method that one defined, is running.
+  #: () -> bool
+  def zr_refined_running_p
+    Machine.load64(Machine.static(:refined_procs, 8), 0) != 0 && Machine.load64(Machine.static(:imports_running, 8), 0) != 0
+  end
+
+  # The function of a Proc from Proc#refined: the block's own function,
+  # which runs while the count of such code is up, as zr_imported_invoke
+  # runs a copied method. So each send misses its cache, and the miss looks
+  # with the Proc's refinements (zr_using_toplevel_refine).
+  #: (value, word, ptr, value) -> value
+  def zr_refined_block(p, argc, argv, blk)
+    running = Machine.static(:imports_running, 8)
+    Machine.store64(running, 0, Machine.load64(running, 0) + 1)
+    Machine.store64(Machine.static(:site_stamp, 8), 0, 0 - 1)
+    zr_methods_changed()
+    r = Block.call(FrameMeta[RProc[p].meta].fn, p, argc, argv, blk)
+    Machine.store64(running, 0, Machine.load64(running, 0) - 1)
+    if Machine.load64(running, 0) == 0
+      zr_methods_changed()
+    end
+    r
+  end
+
+  # Whether the caller of the core method that calls this runs code that
+  # a refined Proc wrote, where Module#using is refused.
+  #: () -> value
+  def zr_refined_caller_m
+    top = Task[zr_task()].top
+    zr_bool(zr_refined_running_p() && top != 0 && zr_frame_refined_list(Frame[top].prev) != QNIL)
+  end
+
+  # `Proc#refined(*mods)`: a copy of `p` whose body runs with the
+  # refinements of `mods` in use, after those of `p` if it has some, the
+  # last module's first (proc_refined). Only a block of the program can
+  # take them.
+  #: (value, value) -> value
+  def zr_proc_refine_m(p, mods)
+    meta = RProc[p].meta
+    if meta == 0 || FrameMeta[meta].kind != KIND_BLOCK || FrameMeta[meta].file_len == 0
+      return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("can't apply refinements to a Proc without a Ruby block"), 54)
+    end
+    list = zr_ary_new(4)
+    refined = RProc[p].fn == Machine.addr(:zr_refined_block)
+    if refined
+      zr_ary_splat(list, RProc[p].refined)
+    end
+    i = 0
+    while i < RArray[mods].len
+      r = zr_using_holders(list, zr_ary_at(mods, i))
+      return r if r == QUNDEF
+      i += 1
+    end
+    q = zr_alloc(T_PROC, zr_real_class(p), RProc.size)
+    zr_memcpy(Machine.ptr(q) + RBasic.size, Machine.ptr(p) + RBasic.size, RProc.size - RBasic.size)
+    RProc[q].refined = list
+    zr_write_barrier(q, list)
+    RProc[q].fn = Machine.addr(:zr_refined_block)
+    Machine.store64(Machine.static(:refined_procs, 8), 0, 1)
+    q
   end
 
   # A Proc of a block that reads `$~` keeps the `$~` and `$_` of its
@@ -435,6 +515,10 @@ module Zr::Kern
   #: (value) -> value
   def zr_sym_to_proc_here(sym)
     row = Task[zr_task()].refine
+    # `&:name` in the body of a refined Proc takes its refinements.
+    if row == QNIL && zr_refined_running_p()
+      row = zr_frame_refined_list(Task[zr_task()].top)
+    end
     if row == QNIL
       return zr_sym_to_proc(sym)
     end
@@ -1896,6 +1980,11 @@ module Zr::Kern
   def zr_proc_eq(recv, argc, argv, cref, blk)
     other = Machine.value(Machine.load64(argv, 0))
     if zr_special_p(other) || zr_type(other) != T_PROC
+      return Machine.value(QFALSE)
+    end
+    # Two copies from Proc#refined are one when they have one set of
+    # refinements, as the memo of proc_refined gives them one iseq.
+    if RProc[recv].fn == Machine.addr(:zr_refined_block) && RProc[other].fn == RProc[recv].fn && !zr_same_elements_p(RProc[recv].refined, RProc[other].refined)
       return Machine.value(QFALSE)
     end
     zr_bool(RProc[recv].fn == RProc[other].fn && RProc[recv].env == RProc[other].env &&

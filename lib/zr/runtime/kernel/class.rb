@@ -1957,6 +1957,16 @@ module Zr::Kern
     MEntry[e].imported = 0
     MEntry[e].label = 0
     MEntry[e].using = core || meta == 0 ? 0 : zr_using_defined(meta)
+    # A def in the body of a refined Proc keeps its refinements when it
+    # runs later (Proc#refined). Each call of it counts as refined code
+    # that runs, as a copied method's does (zr_imported_invoke).
+    if !core && meta != 0 && FrameMeta[meta].kind == KIND_DEF && zr_refined_running_p()
+      list = zr_frame_refined_list(Task[zr_task()].top)
+      if list != QNIL
+        MEntry[e].using = zr_activation_find(list) + 1
+        MEntry[e].imported = 1
+      end
+    end
     if conceal
       zr_hidden_defined_method(klass, mid)
     end
@@ -3287,9 +3297,13 @@ module Zr::Kern
     elsif t == T_STRING || t == T_FLOAT
       return
     elsif t == T_ICLASS
-      # An include node's refinement proxies (zr_refinement_iclass).
-      zr_mark(RClass[v].name)
-      zr_mark(RClass[v].superclass)
+      # A refinement's proxy (zr_refinement_iclass) does not keep its node:
+      # the node's class does while the program uses it, and the
+      # refinement's table drops the proxy when the node goes.
+      attached = RClass[v].attached
+      if ClassExt[RClass[attached].ext].refined == QNIL || RClass[attached].origin == v
+        zr_mark(RClass[v].superclass)
+      end
       zr_mark(RClass[v].attached)
       if RClass[RClass[v].attached].origin == v
         zr_mark_mtab(RClass[v].ext)
@@ -3587,7 +3601,18 @@ module Zr::Kern
   def zr_using_toplevel_refine
     t = zr_task()
     top = Task[t].top
-    if zr_special_p(zr_global(G_USING_TOPLEVEL)) || Task[t].refine != QNIL || top == 0
+    if Task[t].refine != QNIL || top == 0
+      return false
+    end
+    # The body of a refined Proc, or code that it wrote (Proc#refined).
+    if zr_refined_running_p()
+      list = zr_frame_refined_list(top)
+      if list != QNIL
+        Task[t].refine = list
+        return true
+      end
+    end
+    if zr_special_p(zr_global(G_USING_TOPLEVEL))
       return false
     end
     id = zr_using_latest(Machine.value(QNIL), Frame[top].meta)
@@ -3599,6 +3624,47 @@ module Zr::Kern
     end
     Task[t].refine = zr_activation_row(zr_global(G_ACTIVATIONS), zr_fix2long(id))
     true
+  end
+
+  # The refinements of the refined Proc (Proc#refined) whose code
+  # runs in frame `rec`: the Proc's own frame, a def that its body
+  # defined (MEntry#using), or, for any other scope, the frame on the
+  # stack of the scope that wrote it (a block yielded to, a class body).
+  # nil for code that no refined Proc wrote.
+  #: (ptr) -> value
+  def zr_frame_refined_list(rec)
+    while rec != 0
+      meta = Frame[rec].meta
+      if meta == 0
+        return Machine.value(QNIL)
+      end
+      kind = FrameMeta[meta].kind
+      if kind == KIND_DEF
+        e = Frame[rec].entry
+        if e == 0 || MEntry[e].using == 0
+          return Machine.value(QNIL)
+        end
+        return zr_activation_row(zr_global(G_ACTIVATIONS), MEntry[e].using - 1)
+      end
+      p = Frame[rec].entry
+      if kind == KIND_BLOCK && p != 0 && RProc[p].fn == Machine.addr(:zr_refined_block)
+        return RProc[p].refined
+      end
+      parent = FrameMeta[meta].parent
+      rec = Frame[rec].prev
+      if parent == 0
+        # A class body captures nothing, so its meta names no parent: the
+        # frame that ran the `class` statement is the one under it.
+        if kind != KIND_CLASS && kind != KIND_MODULE && kind != KIND_SCLASS
+          return Machine.value(QNIL)
+        end
+      else
+        while rec != 0 && Frame[rec].meta != parent
+          rec = Frame[rec].prev
+        end
+      end
+    end
+    Machine.value(QNIL)
   end
 
   # Keeps `klass` alive as the owner of a def site's meta (G_META_OWNERS).
@@ -3618,6 +3684,42 @@ module Zr::Kern
       zr_set_global(G_META_OWNERS, owners)
     end
     zr_ary_push(owners, klass)
+  end
+
+  # The activation entry that holds the refinements `list`: one that has
+  # the same refinements in the same order, else a new one at the end.
+  # A def in a refined Proc's body takes one (MEntry#using).
+  #: (value) -> word
+  def zr_activation_find(list)
+    rows = zr_global(G_ACTIVATIONS)
+    n = zr_special_p(rows) ? 0 : RArray[rows].len
+    i = 0
+    while i < n
+      row = zr_ary_at(rows, i)
+      if !zr_special_p(row) && zr_type(row) == T_ARRAY && zr_same_elements_p(row, list)
+        return i
+      end
+      i += 1
+    end
+    rows = zr_activation_rows(n)
+    zr_ary_store(rows, n, list)
+    n
+  end
+
+  # Whether two Arrays have the same objects in the same order.
+  #: (value, value) -> bool
+  def zr_same_elements_p(a, b)
+    if RArray[a].len != RArray[b].len
+      return false
+    end
+    i = 0
+    while i < RArray[a].len
+      if zr_ary_at(a, i) != zr_ary_at(b, i)
+        return false
+      end
+      i += 1
+    end
+    true
   end
 
   # The entry that the def whose code runs in frame `rec`, in its own body
@@ -3774,6 +3876,11 @@ module Zr::Kern
   # that `mod` refines. `from` is -1 when nothing was in use.
   #: (word, value, word) -> value
   def zr_using_activate(id, mod, from)
+    # The refinements of a refined Proc are fixed when it is made
+    # (CREF_REFINED_PROC).
+    if zr_refined_running_p() && zr_frame_refined_list(Task[zr_task()].top) != QNIL
+      return zr_raise_msg(zr_global(G_RUNTIME_ERROR), Machine.bytes("Module#using is not permitted in a proc with refinements"), 56)
+    end
     rows = zr_activation_rows(id)
     list = zr_ary_new(4)
     prior = zr_activation_row(rows, from)
@@ -4015,23 +4122,21 @@ module Zr::Kern
   # that `h` refines: the place where a lookup found `h`'s method. A
   # `super` in that method goes on from `node`, also when the module is in
   # the ancestor list more than once (rb_vm_module_refinement_iclass). The
-  # node keeps its proxies in its name, which an include node does not use
-  # otherwise, so each one is made once.
+  # refinement keeps its proxies in a table whose keys, the nodes, are
+  # weak: each one is made once, and it goes with the refinement or the
+  # node, when the program no longer uses either (one of many
+  # Proc#refined calls, or of many classes).
   #: (value, value) -> value
   def zr_refinement_iclass(node, h)
-    list = RClass[node].name
-    if list == QNIL
-      list = zr_ary_new(1)
-      RClass[node].name = list
-      zr_write_barrier(node, list)
+    id = Machine.id(:__proxies__)
+    table = zr_ivar_get(h, id)
+    if zr_special_p(table)
+      table = zr_weak_table_new(WEAK_KEY, true)
+      zr_state_set(h, zr_sym(id), table)
     else
-      i = 0
-      while i < RArray[list].len
-        ri = zr_ary_at(list, i)
-        if RClass[ri].attached == h
-          return ri
-        end
-        i += 1
+      found = zr_hash_lookup(table, node)
+      if found != QUNDEF
+        return found
       end
     end
     ri = zr_alloc(T_ICLASS, h, RClass.size)
@@ -4042,7 +4147,7 @@ module Zr::Kern
     RClass[ri].origin = Machine.value(QNIL)
     RClass[ri].seq = 0
     zr_write_barrier_all(ri)
-    zr_ary_push(list, ri)
+    zr_hash_store(table, node, ri)
     ri
   end
 

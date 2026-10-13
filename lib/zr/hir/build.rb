@@ -156,12 +156,13 @@ module Zr
           loader, main, switched = built.call(external, trace, evals, covers)
           preludes = eval_support ? Build.preludes(loader, target) : []
         end
-        # A program with eval numbers its `using` entries here. A compile
-        # at run time cannot see how many there are, because an entry
-        # under a condition is made only if the condition is true. So all
-        # entries are taken before the first line, and a compile at run
-        # time starts after the last of them.
-        preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.evals? && loader.activations.positive?
+        # A program numbers its `using` entries here. Code that makes an
+        # entry at run time, a compile in an eval or Proc#refined, cannot
+        # see how many there are, because an entry under a condition is
+        # made only if the condition is true. So all entries are taken
+        # before the first line, and one made at run time comes after the
+        # last of them.
+        preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.activations.positive?
         preludes << switched if switched
         loader.native_gems.each do |gem|
           # A gem whose C extension the build links has its C part.
