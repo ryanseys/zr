@@ -91,8 +91,11 @@ class Random < random_base
   def self.rand(*args) = Random.send(:checked, Random.send(:rand_random, Random, args), args)
   def self.bytes(size) = default.bytes(size)
 
-  # Bytes from the system's own source, not the seeded stream.
+  # random_raw_seed: bytes from the system's own source, not the seeded
+  # stream. The size is a C long (NUM2LEN), so a size past it raises
+  # RangeError before any byte is drawn.
   def self.urandom(size)
+    size = Primitive.zr_index_operand_m(size)
     raise ArgumentError, +"negative string size (or size too big)" if size < 0
 
     out = "".b

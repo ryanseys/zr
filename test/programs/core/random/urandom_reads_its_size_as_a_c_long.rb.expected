@@ -1,0 +1,17 @@
+urandom(0): [0, #<Encoding:BINARY (ASCII-8BIT)>, false]
+urandom(1): [1, #<Encoding:BINARY (ASCII-8BIT)>, false]
+urandom(16): [16, #<Encoding:BINARY (ASCII-8BIT)>, false]
+urandom(2.9): [2, #<Encoding:BINARY (ASCII-8BIT)>, false]
+urandom(to_int 3): [3, #<Encoding:BINARY (ASCII-8BIT)>, false]
+urandom(-1): ArgumentError: negative string size (or size too big)
+urandom(-1.5): ArgumentError: negative string size (or size too big)
+urandom(2**63): RangeError: bignum too big to convert into 'long'
+urandom(-2**63 - 1): RangeError: bignum too big to convert into 'long'
+urandom(2**64): RangeError: bignum too big to convert into 'long'
+urandom(2.0**63): RangeError: float 9.223372037e+18 out of range of integer
+urandom(NaN): RangeError: float NaN out of range of integer
+urandom(Infinity): RangeError: float Inf out of range of integer
+urandom(nil): TypeError: no implicit conversion of nil into Integer
+urandom("3"): TypeError: no implicit conversion of String into Integer
+urandom(:a): TypeError: no implicit conversion of Symbol into Integer
+true
