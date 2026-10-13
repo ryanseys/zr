@@ -1,0 +1,25 @@
+IO::TimeoutError
+"Hello"
+IO::TimeoutError
+"abcdef"
+IO::TimeoutError
+"line1\n"
+IO::TimeoutError
+"line2"
+IO::TimeoutError
+"xyz"
+0.01
+"ok"
+""
+[IO::TimeoutError, "Blocking operation timed out!"]
+10
+[IO::TimeoutError, "Blocking operation timed out!"]
+nil
+1
+0.5
+0
+(1/1)
+[TypeError, "can't convert String into time interval"]
+[ArgumentError, "time interval must not be negative"]
+[TypeError, "can't convert Object into time interval"]
+nil

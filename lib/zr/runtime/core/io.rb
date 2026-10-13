@@ -1943,7 +1943,12 @@ class IO
       end
       # io_bufread: what the buffer holds, then the rest with no buffer.
       text = take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
-      text << locking(buffer) { read_direct(length - text.bytesize) } if text.bytesize < length
+      begin
+        text << locking(buffer) { read_direct(length - text.bytesize) } if text.bytesize < length
+      rescue IO::TimeoutError
+        restore_read(text)
+        raise
+      end
       # At the end, the buffer is emptied, as io_read does.
       return buffer&.clear && nil if text.empty? && length > 0
 
@@ -1971,6 +1976,9 @@ class IO
       end
     end
     text
+  rescue IO::TimeoutError
+    restore_read(text)
+    raise
   end
 
   # These three all read what is there and fill a buffer when one is
@@ -2115,7 +2123,10 @@ class IO
 
   def timeout = @timeout
 
+  # rb_io_set_timeout: a value other than nil or false must be a time
+  # interval.
   def timeout=(seconds)
+    IO.send(:time_interval, seconds) if seconds
     @timeout = seconds
   end
 
@@ -2396,6 +2407,31 @@ class IO
     park_until(READABLE) unless Primitive.zr_hidden_get(self, :__listening__)
   end
 
+  # rb_io_wait under the stream's timeout: a blocking call waits at most
+  # that long for the descriptor, then raises IO::TimeoutError. A
+  # non-blocking fiber's scheduler keeps the time itself.
+  def wait_timeout(event, fd = @fd)
+    Primitive.attr! :hidden
+    return if @timeout.nil? || Fiber.current_scheduler
+
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (@timeout * 1e9).round
+    ready = Thread.current.send(:wait_io, fd, event, deadline)
+    raise SystemCallError.new(nil, -ready, +"io_wait") if ready.negative?
+    raise IO::TimeoutError, +"Blocking operation timed out!" if ready.zero?
+  end
+
+  # io_restore_read_buffer: the bytes that a read took before its timeout
+  # go back to the head of the buffer, which grows to take them, so the
+  # next read gets them (ruby 4.1, #19053).
+  def restore_read(text)
+    Primitive.attr! :hidden
+    return if text.empty?
+
+    @buffer = text.b.force_encoding(@buffer.encoding) + @buffer
+    @cooked += text.bytesize
+    @eof = false
+  end
+
   # A system call on a descriptor that is not ready would stop every
   # green thread. So a task that shares the process with others yields
   # to the scheduler until the descriptor is ready. A single task waits
@@ -2409,6 +2445,7 @@ class IO
 
       return scheduler.io_wait(self, event, @timeout)
     end
+    return wait_timeout(event, fd) if @timeout
     return unless @nonblock || (Primitive.zr_threaded && !Thread.send(:alone?))
 
     Thread.current.send(:wait_io, fd, event, nil)
@@ -2547,6 +2584,7 @@ class IO
     out = +"".b
     if @buffer.empty?
       while out.bytesize < length
+        wait_timeout(READABLE) if @timeout
         chunk = read_memory(length - out.bytesize)
         break if chunk.nil?
 
@@ -2568,6 +2606,9 @@ class IO
       break if @buffer.empty?
     end
     out
+  rescue IO::TimeoutError
+    restore_read(out)
+    raise
   end
 
   # read_all: what remains of a regular file, or BUFSIZ more at a time
@@ -2577,11 +2618,16 @@ class IO
     out = +"".b
     wanted = remain_size
     wanted = BUFSIZ if wanted.zero?
-    loop do
-      out << bufread(wanted - out.bytesize)
-      break if out.bytesize < wanted
+    begin
+      loop do
+        out << bufread(wanted - out.bytesize)
+        break if out.bytesize < wanted
 
-      wanted += BUFSIZ
+        wanted += BUFSIZ
+      end
+    rescue IO::TimeoutError
+      restore_read(out)
+      raise
     end
     out
   end
