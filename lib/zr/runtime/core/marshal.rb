@@ -48,7 +48,7 @@ module Marshal
   # (`d`), and only a `_load_data` reads one.
   DATA_KINDS = %w[ARGF.class Proc Method UnboundMethod Binding Enumerator Fiber Dir Ractor StringIO Thread Thread::Mutex
                   Thread::Queue Thread::SizedQueue Thread::ConditionVariable Time Random Encoding::Converter
-                  ObjectSpace::WeakMap ObjectSpace::WeakKeyMap].freeze
+                  ObjectSpace::WeakMap ObjectSpace::WeakKeyMap IO::Buffer].freeze
   private_constant :DATA_KINDS
 
   # A copy of one of these classes (`Class#dup`) keeps the allocator, so

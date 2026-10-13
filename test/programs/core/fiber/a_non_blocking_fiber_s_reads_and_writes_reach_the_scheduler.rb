@@ -7,20 +7,20 @@ require "tmpdir"
 class Logged < IOBufferScheduler
   attr_reader :calls
   def initialize(*) = (super; @calls = [])
-  def io_read(io, buffer, length, offset)
-    @calls << [:io_read, io.class, buffer.size, buffer.external?, buffer.locked?, length, offset]
+  def io_read(io, buffer, offset, length)
+    @calls << [:io_read, io.class, buffer.size, buffer.external?, buffer.locked?, offset, length]
     super
   end
-  def io_write(io, buffer, length, offset)
-    @calls << [:io_write, io.class, buffer.size, buffer.get_string(offset, [buffer.size - offset, 12].min), length, offset]
+  def io_write(io, buffer, offset, length)
+    @calls << [:io_write, io.class, buffer.size, buffer.get_string(offset, [length, 12].min), offset, length]
     super
   end
-  def io_pread(io, buffer, from, length, offset)
-    @calls << [:io_pread, from, length, offset]
+  def io_pread(io, buffer, from, offset, length)
+    @calls << [:io_pread, from, offset, length]
     super
   end
-  def io_pwrite(io, buffer, from, length, offset)
-    @calls << [:io_pwrite, from, length, offset]
+  def io_pwrite(io, buffer, from, offset, length)
+    @calls << [:io_pwrite, from, offset, length]
     super
   end
 end

@@ -1,6 +1,7 @@
-# IO::Buffer#read, #write, #pread and #pwrite make the system call over
-# the rest of the buffer until at least `length` bytes moved, and answer
-# the count or the negative errno.
+# IO::Buffer#read, #write, #pread and #pwrite take an offset into the
+# buffer and then a length, which is the most bytes to move. Each makes
+# one system call and answers the count, which may be short, or the
+# negative errno.
 require "tmpdir"
 require "io/nonblock"
 Warning[:experimental] = false

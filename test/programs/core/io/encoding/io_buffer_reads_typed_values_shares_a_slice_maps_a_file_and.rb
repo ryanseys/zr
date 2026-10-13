@@ -9,7 +9,7 @@ p IO::Buffer::PAGE_SIZE >= 4096
 p IO::Buffer::PAGE_SIZE % 4096 == 0
 p IO::Buffer::DEFAULT_SIZE
 p [IO::Buffer::EXTERNAL, IO::Buffer::INTERNAL, IO::Buffer::MAPPED, IO::Buffer::SHARED,
-   IO::Buffer::LOCKED, IO::Buffer::PRIVATE, IO::Buffer::READONLY]
+   IO::Buffer::PRIVATE, IO::Buffer::READONLY]
 p [IO::Buffer::LITTLE_ENDIAN, IO::Buffer::BIG_ENDIAN, IO::Buffer::NETWORK_ENDIAN]
 p IO::Buffer::HOST_ENDIAN == IO::Buffer::LITTLE_ENDIAN
 p [IO::Buffer::LockedError.superclass, IO::Buffer::AllocationError.superclass,

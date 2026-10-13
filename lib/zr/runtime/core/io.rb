@@ -1489,7 +1489,7 @@ class IO
     IO.send(:room_for!, length)
     text = if (scheduler = IO.send(:scheduler_taking, :io_pread))
              IO::Buffer.send(:lent, "\0".b * length) do |memory|
-               read = IO.send(:io_result, scheduler.io_pread(self, memory, offset, 0, 0))
+               read = IO.send(:io_result, scheduler.io_pread(self, memory, offset, 0, length))
                read.positive? ? memory.get_string(0, read) : (read.zero? ? nil : read)
              end
            else
@@ -1506,7 +1506,7 @@ class IO
     check_writable
     result = if (scheduler = IO.send(:scheduler_taking, :io_pwrite))
                IO::Buffer.send(:lent, text.b, readonly: true) do |memory|
-                 IO.send(:io_result, scheduler.io_pwrite(self, memory, offset, 0, 0))
+                 IO.send(:io_result, scheduler.io_pwrite(self, memory, offset, 0, memory.size))
                end
              else
                Primitive.zr_io_pwrite(@fd, text, offset)
@@ -2552,7 +2552,7 @@ class IO
     return Primitive.zr_io_read(@fd, size) unless scheduler
 
     IO::Buffer.send(:lent, "\0".b * size) do |memory|
-      read = IO.send(:io_result, scheduler.io_read(self, memory, 0, 0))
+      read = IO.send(:io_result, scheduler.io_read(self, memory, 0, size))
       next read if read.negative?
 
       read.zero? ? nil : memory.get_string(0, read)
@@ -2570,7 +2570,7 @@ class IO
     while from < text.bytesize
       rest = text.byteslice(from, text.bytesize - from)
       wrote = IO::Buffer.send(:lent, rest, readonly: true) do |memory|
-        IO.send(:io_result, scheduler.io_write(self, memory, 0, 0))
+        IO.send(:io_result, scheduler.io_write(self, memory, 0, memory.size))
       end
       if wrote.negative?
         raise SystemCallError.new(label, -wrote, +"rb_sys_fail_on_write") unless -wrote == Errno::EAGAIN::Errno
@@ -2632,8 +2632,10 @@ class IO
   def read_all
     Primitive.attr! :hidden
     out = +"".b
+    # A size from stat gets one byte more: a file that grew since reads
+    # on, and one that did not ends with that read.
     wanted = remain_size
-    wanted = BUFSIZ if wanted.zero?
+    wanted = wanted.zero? ? BUFSIZ : wanted + 1
     begin
       loop do
         out << bufread(wanted - out.bytesize)

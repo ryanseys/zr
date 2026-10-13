@@ -1,0 +1,119 @@
+constants: [:AccessError, :AllocationError, :BIG_ENDIAN, :DEFAULT_SIZE, :EXTERNAL, :HOST_ENDIAN, :INTERNAL, :InvalidatedError, :LITTLE_ENDIAN, :LockedError, :MAPPED, :MAP_ALIGNMENT, :MaskError, :NETWORK_ENDIAN, :PAGE_SIZE, :PRIVATE, :READONLY, :SHARED, :Slice, :Storage, :VERSION]
+ancestors: [[IO::Buffer, Comparable, Object], IO::Buffer, IO::Buffer]
+storage methods: [:external?, :free, :internal?, :mapped?, :private?, :resize, :shared?, :transfer]
+slice methods: [:resize]
+buffer singleton: [:for, :map, :new, :size_of, :string]
+version: [Integer, true, true]
+LOCKED: NameError: uninitialized constant IO::Buffer::LOCKED
+allocate: TypeError: allocator undefined for IO::Buffer
+Storage.allocate: IO::Buffer::Storage
+new class: [IO::Buffer::Storage, IO::Buffer::Storage, true]
+Slice.for: NoMethodError: undefined method 'for' for class IO::Buffer::Slice
+Slice.map: NoMethodError: undefined method 'map' for class IO::Buffer::Slice
+subclass: ["#<MyStorage ADDR+2 INTERNAL>", MyStorage, "\x00"]
+internal and mapped: ArgumentError: Flags can't include both IO::Buffer::INTERNAL and IO::Buffer::MAPPED!
+external: ArgumentError: IO::Buffer::EXTERNAL can't be used with IO::Buffer.new!
+shared internal: ArgumentError: IO::Buffer::SHARED and IO::Buffer::PRIVATE require IO::Buffer::MAPPED!
+shared private: ArgumentError: Flags can't include both IO::Buffer::SHARED and IO::Buffer::PRIVATE!
+shared alone: [true, true]
+unknown flag: [true, "#<IO::Buffer::Storage ADDR+4 INTERNAL>"]
+readonly new: [true, IO::Buffer::AccessError]
+source new: nil
+source for: ["abc", true, false]
+source for frozen: true
+source block: true
+source slice: true
+follow: ["cd", "de", "cde", true]
+slice write: "\x00hi\x00"
+slice new: ["ell", "#<IO::Buffer::Slice ADDR+3 READONLY SLICE>"]
+slice new defaults: [5, 3]
+slice new type: TypeError: wrong argument type String (expected IO::Buffer)
+slice new range: ArgumentError: Specified offset+length is bigger than the buffer size!
+slice again: RuntimeError: Slice is already initialized!
+slice uninitialized: [0, false, true, false, nil, "#<IO::Buffer::Slice ADDR+0 NULL INVALID>"]
+slice uninitialized lock: IO::Buffer::InvalidatedError: Buffer has been invalidated!
+slice uninitialized resize: IO::Buffer::InvalidatedError: Uninitialized slice!
+slice dup: [IO::Buffer::Slice, true, 2, false]
+storage dup: [IO::Buffer::Storage, false, nil, "ab"]
+slice copy type: TypeError: Expected IO::Buffer::Slice!
+advance owner: IO::Buffer::AccessError: Cannot advance an owning buffer!
+advance for: [3, "llo", "hello"]
+advance slice: [2, "#<IO::Buffer::Slice ADDR+2 SLICE>"]
+advance negative: ArgumentError: Amount can't be negative!
+advance too far: ArgumentError: Advance amount exceeds buffer size!
+advance all: [0, true, true]
+slice resize: [6, 1]
+slice resize past: ArgumentError: Resized slice exceeds its source buffer!
+slice resize negative: ArgumentError: Size can't be negative!
+revalidate: [false, true, "#<IO::Buffer::Slice ADDR+2 NULL SLICE INVALID>", IO::Buffer::InvalidatedError, true, [0, 0]]
+invalid slice write: IO::Buffer::InvalidatedError: Buffer is invalid!
+invalid slice of slice: [false, "Buffer has been invalidated!"]
+slice free: NoMethodError: undefined method 'free' for an instance of IO::Buffer::Slice
+slice transfer: NoMethodError: undefined method 'transfer' for an instance of IO::Buffer::Slice
+transfer: [IO::Buffer::Storage, 4, true, false, "#<IO::Buffer::Storage ADDR+0 NULL>"]
+free flags: [false, false, 0]
+locked nested: [true, true]
+locked slice: [true, true, "Buffer is locked!"]
+locked after: [false, true]
+locked resize: IO::Buffer::LockedError: Cannot resize locked buffer!
+locked slice resize: 3
+each locks: [true, true]
+frozen write: FrozenError: can't modify frozen IO::Buffer::Storage: #<IO::Buffer::Storage 0xX+2 INTERNAL>
+0xADDR  00 00                                           ..
+frozen readonly?: [false, true, 0]
+frozen source: [true, IO::Buffer::AccessError]
+frozen advance: FrozenError: can't modify frozen IO::Buffer::Slice: #<IO::Buffer::Slice 0xX+2 SLICE>
+0xADDR  00 00                                           ..
+frozen free: FrozenError: can't modify frozen IO::Buffer::Storage: #<IO::Buffer::Storage 0xX+2 INTERNAL>
+0xADDR  00 00                                           ..
+readonly slice: [true, "#<IO::Buffer::Slice ADDR+1 READONLY SLICE>"]
+bit_count: [11, 3, 1, 0]
+bit_count range: ArgumentError: Specified offset+length is bigger than the buffer size!
+hexdump null: nil
+hexdump empty: ""
+hexdump width: "0xADDR  62 63 bc\n0xADDR  64 65 de"
+hexdump width 0: ArgumentError: Width must be at least 1!
+hexdump width big: ArgumentError: Width must be at most 1024!
+hexdump width negative: ArgumentError: Width can't be negative!
+inspect empty: "#<IO::Buffer::Storage ADDR+0 EXTERNAL READONLY SLICE>"
+mask overlap: IO::Buffer::MaskError: Mask overlaps source buffer!
+mask apart: [255, 255, 255, 255]
+mask type: TypeError: wrong argument type String (expected IO::Buffer)
+compare: [-25, 25, 1]
+compare type: TypeError: wrong argument type Integer (expected IO::Buffer)
+equal: [true, false]
+each count: [[1, 98], [2, 99]]
+each count negative: ArgumentError: Count can't be negative!
+each offset: ArgumentError: The given offset is bigger than the buffer size!
+each_byte past: ArgumentError: Specified offset+count is bigger than the buffer size!
+values u16: [25185, 25699]
+get_values type: ArgumentError: Argument buffer_types should be an array!
+set_values lengths: ArgumentError: Argument buffer_types and values should have the same length!
+set_values values: ArgumentError: Argument values should be an array!
+type name: TypeError: wrong argument type String (expected Symbol)
+type unknown: ArgumentError: Invalid type name!
+clear wraps: [1, 1]
+copy source offset: ArgumentError: The given source offset is bigger than the source itself!
+copy source range: ArgumentError: The computed source range exceeds the size of the source buffer!
+read: [4, "abcd"]
+read offset: [3, "abc\x00"]
+read short: [2, "ab"]
+read eof: 0
+read past: ArgumentError: Specified offset+length is bigger than the buffer size!
+read readonly: IO::Buffer::AccessError: Buffer is not writable!
+write: [5, "hello"]
+write offset: [1, "l"]
+write zero: 0
+pread: [4, "ello", 0]
+pread offset: [4, "hell"]
+pwrite: [1, 0, ".z..."]
+pwrite from: ".z.ab"
+map size: ArgumentError: Size (9) can't be larger than file size (5)
+map offset: ArgumentError: Offset (1) must be a multiple of IO::Buffer::MAP_ALIGNMENT (ALIGNMENT)!
+map offset past: ArgumentError: Offset (5) can't be larger than file size (5)
+map flags: ArgumentError: IO::Buffer::INTERNAL can't be used with IO::Buffer.map!
+map shared private: ArgumentError: Flags can't include both IO::Buffer::SHARED and IO::Buffer::PRIVATE!
+map class: [IO::Buffer::Storage, nil, "#<IO::Buffer::Storage ADDR+5 EXTERNAL MAPPED FILE SHARED READONLY>"]
+marshal: TypeError: no _dump_data is defined for class IO::Buffer::Storage
+marshal slice: TypeError: no _dump_data is defined for class IO::Buffer::Slice
+shareable: [false, false]

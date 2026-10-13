@@ -4,7 +4,7 @@ def try(label)
   value = yield
   puts "#{label}: #{value.inspect}"
 rescue Exception => e
-  puts "#{label}: #{e.class}: #{e.message.lines.first.chomp.gsub(/0x\h+/, "0xX")}"
+  puts "#{label}: #{e.class}: #{e.message.lines.first.chomp.gsub(/0x\h+/, "0xX").gsub(/fd \d+/, "fd N")}"
 end
 
 def share(label, &) = try(label) { Ractor.shareable?(Ractor.make_shareable(yield)) }

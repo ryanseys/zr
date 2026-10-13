@@ -1,8 +1,9 @@
 # IO::Buffer: the flags of new buffers and slices, null buffers, slices
-# that go invalid, resize, free and transfer, as CRuby gives them.
+# that go invalid, resize, free and transfer, as CRuby gives them. A
+# slice has only the predicates that all buffers have.
 $VERBOSE = nil
 Warning[:experimental] = false
-def flags(b) = %i[external? internal? mapped? shared? private? readonly? null? valid? empty?].select { |m| b.send(m) }
+def flags(b) = %i[external? internal? mapped? shared? private? readonly? null? valid? empty?].select { |m| b.respond_to?(m) && b.send(m) }
 def show(label)
   r = yield
   puts "#{label}: #{r.inspect}"

@@ -36,9 +36,9 @@ writer.close
 p reader.read
 Process.wait(pid)
 
-# A slice keeps only the read-only flag. A resize copies the bytes into
-# memory of its own, which a child no longer shares.
-p shared.slice(0, 8).shared?
+# A slice has no memory flags of its own. A resize copies the bytes
+# into memory of its own, which a child no longer shares.
+p shared.slice(0, 8).respond_to?(:shared?)
 shared.resize(128)
 p shared.size, shared.get_string(0, message.bytesize), shared.shared?, shared.internal?
 pid = fork { shared.set_string("z") }

@@ -37,7 +37,7 @@ IO::Buffer: Ractor::Error: can not make shareable object for #<IO::Buffer::Stora
 Dir: Ractor::Error: can not make shareable object for #<Dir:.>
 Encoding::Converter: Ractor::Error: can not make shareable object for #<Encoding::Converter: UTF-8 to EUC-JP>
 Time: true
-IO: Ractor::Error: can not make shareable object for #<IO:fd 7>
+IO: Ractor::Error: can not make shareable object for #<IO:fd N>
 Set: true
 Port: true
 Regexp: true

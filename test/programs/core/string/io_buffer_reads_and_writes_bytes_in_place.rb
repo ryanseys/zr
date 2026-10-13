@@ -5,7 +5,7 @@
 $stderr.reopen(IO::NULL)
 p IO::Buffer::PAGE_SIZE.class
 p IO::Buffer::DEFAULT_SIZE
-p [IO::Buffer::EXTERNAL, IO::Buffer::INTERNAL, IO::Buffer::MAPPED, IO::Buffer::SHARED, IO::Buffer::LOCKED, IO::Buffer::PRIVATE, IO::Buffer::READONLY]
+p [IO::Buffer::EXTERNAL, IO::Buffer::INTERNAL, IO::Buffer::MAPPED, IO::Buffer::SHARED, IO::Buffer::PRIVATE, IO::Buffer::READONLY]
 p [IO::Buffer::LITTLE_ENDIAN, IO::Buffer::BIG_ENDIAN, IO::Buffer::HOST_ENDIAN, IO::Buffer::NETWORK_ENDIAN]
 p IO::Buffer.size_of(:U8)
 p IO::Buffer.size_of([:U32, :F64])
