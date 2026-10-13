@@ -36,6 +36,8 @@ class File < IO
     # rb_file_dirname_n: each level drops the last name and the
     # separators before it. The separators inside the rest stay as they
     # were, and a run of them at the start is one root.
+    # The result keeps the path's encoding, a "." or "/" too.
+    encoding = path.encoding
     level.times do
       root = path.start_with?("/")
       body = path.sub(%r{\A/+}, "").sub(%r{/+\z}, "")
@@ -43,6 +45,7 @@ class File < IO
       path = if cut then (root ? +"/" : +"") << body[0, cut].sub(%r{/+\z}, "")
              else root ? +"/" : +"."
              end
+      path.force_encoding(encoding)
     end
     path
   end
@@ -125,8 +128,10 @@ class File < IO
   def self.absolute_path?(path) = path_of(path).start_with?("/")
 
   # The result is in the argument's encoding; a relative US-ASCII one takes
-  # the encoding of the directory it joins. The working directory is in
-  # the filesystem's, which has to be ASCII compatible to join them.
+  # the encoding of the directory it joins, and so does any relative one
+  # with only ASCII bytes that joins a directory given. The working
+  # directory is in the filesystem's, which has to be ASCII compatible to
+  # join them.
   def self.expand_path(path, dir = nil)
     given = path_of(path)
     path = expand_home(given)
@@ -139,7 +144,7 @@ class File < IO
              end
 
              base = dir.nil? ? Dir.send(:cwd) : expand_path(dir)
-             encoding = dir.nil? ? Encoding.find("filesystem") : base.encoding if encoding == Encoding::US_ASCII
+             encoding = dir.nil? ? Encoding.find("filesystem") : base.encoding if encoding == Encoding::US_ASCII || (!dir.nil? && given.ascii_only?)
              normalized(base.end_with?("/") ? base + path : "#{base}/#{path}")
            end
     encoding.ascii_compatible? ? full.force_encoding(encoding) : full
@@ -780,14 +785,22 @@ class File < IO
   # rb_check_realpath_emulate.
   def self.realpath(path, dir = nil)
     path = path_of(path)
+    wanted = path.encoding
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
     given = os_path(path)
     result = Primitive.zr_realpath_m(given)
-    # rb_check_realpath_internal gives the path back in its own encoding:
-    # converted back where os_path converted it (macOS), else its bytes as
-    # they are, which the system kept.
-    if result.is_a?(String) && result.encoding != path.encoding && path.encoding != Encoding::US_ASCII
-      return given.encoding == path.encoding ? result.force_encoding(path.encoding) : result.encode(path.encoding)
+    # rb_check_realpath_internal gives the path back in the encoding of the
+    # path it was given: converted back where os_path converted it (macOS),
+    # else its bytes as they are, which the system kept; and its bytes
+    # under that encoding where they do not convert.
+    if result.is_a?(String) && result.encoding != wanted && wanted != Encoding::US_ASCII
+      return result.force_encoding(wanted) if given.encoding == wanted
+
+      begin
+        return result.encode(wanted)
+      rescue EncodingError
+        return result.force_encoding(wanted)
+      end
     end
     return result unless result.is_a?(Integer)
     # ENOSYS: the system has no realpath (WASI), and ruby built without
@@ -1059,10 +1072,21 @@ class File < IO
   def self.path(object) = path_of(object)
 
   # `realpath` where the last name need not exist.
+  # The path comes back in the encoding of the path given, and stays in
+  # the encoding it resolved in where its bytes do not convert.
   def self.realdirpath(path, dir = nil)
     path = path_of(path)
+    wanted = path.encoding
     path = File.join(path_of(dir), path) if dir && !path.start_with?("/")
-    realpath_walk(path, true)
+    result = realpath_walk(path, true)
+    return result if result.encoding == wanted || wanted == Encoding::US_ASCII
+    return result.force_encoding(wanted) if result.ascii_only?
+
+    begin
+      result.encode(wanted)
+    rescue EncodingError
+      result
+    end
   end
 
   # A path argument, as CRuby's rb_get_path takes it: a String, or the
