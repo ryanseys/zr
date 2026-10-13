@@ -1,0 +1,14 @@
+(eval at lang/eval/code_that_does_not_parse_prints_the_parser_warnings_before_the_syntax_error.rb:8):1: warning: ... at EOL, should be parenthesized?
+(eval at lang/eval/code_that_does_not_parse_prints_the_parser_warnings_before_the_syntax_error.rb:8):1: warning: possibly useless use of ... in void context
+SyntaxError
+(eval at lang/eval/code_that_does_not_parse_prints_the_parser_warnings_before_the_syntax_error.rb:8):1: warning: ... at EOL, should be parenthesized?
+(eval at lang/eval/code_that_does_not_parse_prints_the_parser_warnings_before_the_syntax_error.rb:8):1: warning: possibly useless use of ... in void context
+SyntaxError
+<compiled>:1: warning: ... at EOL, should be parenthesized?
+<compiled>:1: warning: possibly useless use of ... in void context
+:iseq
+(eval at lang/eval/code_that_does_not_parse_prints_the_parser_warnings_before_the_syntax_error.rb:19):1: warning: ... at EOL, should be parenthesized?
+:not_verbose
+:quiet
+named.rb:7: warning: ... at EOL, should be parenthesized?
+false

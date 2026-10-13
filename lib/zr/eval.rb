@@ -226,7 +226,7 @@ module Zr
              keep]
       reuse = coverage.nil? && !@runtime.traced_for_now?
       if reuse && (kept = @compiled[key])
-        raise kept.dup if kept.is_a?(Exception)
+        raise warned(kept.dup) if kept.is_a?(Exception)
 
         return kept
       end
@@ -245,7 +245,7 @@ module Zr
                                                       switches: Hir::Switches.new(debug_frozen_string_literal: debug_frozen, keep_script_lines: keep))
       rescue Hir::Invalid, SyntaxError => e
         @compiled[key] = e.dup if reuse
-        raise
+        raise warned(e)
       end
       @runtime.take_activations(hir.activations)
       # RubyVM::InstructionSequence.compile: the parser warns as it reads,
@@ -299,6 +299,18 @@ module Zr
     def plain_new?
       vm = Object.const_get(:RubyVM) #: untyped
       vm::InstructionSequence.compile_option[:specialized_instruction] == false
+    end
+
+    # An error of an eval's code that does not parse: the parser's
+    # warnings print first, as ruby's parser prints them while it reads.
+    # A kept copy has them too, so each eval of the code prints them.
+    #: (Exception error) -> Exception
+    def warned(error)
+      return error unless error.instance_variable_defined?(:@zr_warnings)
+
+      warnings = error.remove_instance_variable(:@zr_warnings) #: Array[String]
+      warnings.each { |text| parse_warning(text) }
+      error
     end
 
     # A warning of the parser, as zr_parse_warning writes it: one that

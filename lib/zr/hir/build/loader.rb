@@ -545,7 +545,13 @@ module Zr
                    else
                      Zr.parse(source, filepath: file, line: line, **options)
                    end
-          raise SyntaxReport.error(result, file) unless result.errors.empty?
+          unless result.errors.empty?
+            error = SyntaxReport.error(result, file)
+            # ruby's parser prints its warnings also for code that does not
+            # parse; an eval prints them before it raises (Eval#warned).
+            error.instance_variable_set(:@zr_warnings, warnings(result, file)) if scopes
+            raise error
+          end
           if (marker = result.data_loc) && !(@switches.inline && main?(file))
             @data[file] = source.byteindex("\n", marker.start_offset)&.succ || source.bytesize
           end
