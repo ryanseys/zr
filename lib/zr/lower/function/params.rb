@@ -24,6 +24,7 @@ module Zr
         # @rbs @qnil: String
         # @rbs @raw_block: Symbol?
         # @rbs @rec: String
+        # @rbs @self: String
         # @rbs @slot_of: Hash[Symbol, Integer]
         # @rbs @task: Machine::Layout
         # @rbs @task_addr: String
@@ -247,9 +248,10 @@ module Zr
         #: (Hir::Params p, String argc, String argv) -> void
         def more_args(p, argc, argv)
           max = p.required.size + p.post.size + p.optional.size
+          d = @def #: Hir::Def
           fail_unless(@f.icmp("sle", argc, imm(max))) do
             direct_params.each { |name| write_local(slot_of(name), 0, @qnil) }
-            kernel("zr_more_args", @self, sym_value(@def.name), argc, argv, @blk)
+            kernel("zr_more_args", @self, sym_value(d.name), argc, argv, @blk)
           end
         end
 

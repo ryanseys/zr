@@ -320,7 +320,10 @@ module Zr
         FRAME_GLOBALS = { :$~ => 0, :$_ => 1 }.freeze
 
         # The `[$~, $_]` cell of the code that `ctx` runs.
-        def svars(ctx) = ctx.svars || (@svars ||= World.binding_svars(@frame))
+        def svars(ctx) = ctx.svars || frame_svars
+
+        # The cell of the frame that called eval.
+        def frame_svars = @svars ||= World.binding_svars(@frame)
 
         def gvar_read(node, ctx)
           slot = FRAME_GLOBALS[node.name]

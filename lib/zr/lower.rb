@@ -22,6 +22,7 @@ module Zr
     # @rbs @entry: String
     # @rbs @internal: bool
     # @rbs @plain_new: bool
+    # @rbs @script: Integer
     # @rbs @ext: bool
     # @rbs @unit_internal: bool?
     # @rbs @unit_hidden: bool?

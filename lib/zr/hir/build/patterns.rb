@@ -54,7 +54,8 @@ module Zr
           chain = node.else_clause ? expr(node.else_clause, taken: taken) : no_match(subject, match, line)
           # A jump to the end follows each `in` body but the last, on the
           # `in` line, and the `else`, on the `case` line (`jump_event`).
-          chain = jumping(chain, node.else_clause.statements, line, taken: taken) if node.else_clause
+          else_clause = node.else_clause
+          chain = jumping(chain, else_clause.statements, line, taken: taken) if else_clause
           chain = covered(covers.last, chain, line)
           last = node.conditions.size - 1
           node.conditions.each_with_index.reverse_each do |clause, i|
@@ -182,7 +183,7 @@ module Zr
             when Prism::FindPatternNode then find_pattern(node, subject, line)
             when Prism::HashPatternNode then hash_pattern(node, subject, line)
             when Prism::AlternationPatternNode then Or.new(pattern(node.left, subject), pattern(node.right, subject), line)
-            when Prism::ParenthesesNode then pattern(node.body.is_a?(Prism::StatementsNode) ? node.body.body.first : node.body, subject)
+            when Prism::ParenthesesNode then pattern((body = node.body).is_a?(Prism::StatementsNode) ? body.body.first : body, subject)
             when Prism::CapturePatternNode
               And.new(pattern(node.value, subject), bind(node.target, @b.read(subject, line), line), line)
             when Prism::LocalVariableTargetNode then bind(node, @b.read(subject, line), line)
@@ -229,7 +230,7 @@ module Zr
           # `Const === subject` if the pattern has a constant.
           #: (Prism::ArrayPatternNode | Prism::FindPatternNode | Prism::HashPatternNode node, Symbol subject, Integer line) -> Array[node]
           def constant_test(node, subject, line)
-            node.constant ? [value_pattern(@b.expr(node.constant), subject, line, node.constant)] : []
+            (constant = node.constant) ? [value_pattern(@b.expr(constant), subject, line, constant)] : []
           end
 
           # `subject.deconstruct`, called once per subject and kept: an

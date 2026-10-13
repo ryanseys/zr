@@ -333,7 +333,7 @@ module Zr
               tail_collecting?(callee.node.body) or
                 refuse(callee.node, "#{callee.name} is `Machine.inline`, so it may run the collector only in the call that ends an arm")
             else
-              !collects?(callee.name) && callee.node.body && small?(callee.node.body, [INLINE_NODES])
+              !collects?(callee.name) && (body = callee.node.body) && small?(body, [INLINE_NODES])
             end
         end
       end
@@ -401,8 +401,8 @@ module Zr
       # Whether `node` is `Name[p]` of a layout `Name`.
       #: (Prism::node? node) -> bool
       def layout_view?(node)
-        node.is_a?(Prism::CallNode) && node.name == :[] && node.receiver.is_a?(Prism::ConstantReadNode) &&
-          !struct_for(node.receiver.name.to_s).nil?
+        node.is_a?(Prism::CallNode) && node.name == :[] && (receiver = node.receiver).is_a?(Prism::ConstantReadNode) &&
+          !struct_for(receiver.name.to_s).nil?
       end
 
       # The defs that can run the collector. A fixpoint over the calls of
@@ -626,7 +626,7 @@ module Zr
           p.name.to_s
         end
         refuse(d, "the `#:` type has #{params.size} types for #{names.size} parameters") if names.size != params.size
-        refuse(d, "a machine def takes required parameters only") if d.parameters && d.parameters.child_nodes.compact.size != names.size
+        refuse(d, "a machine def takes required parameters only") if (parameters = d.parameters) && parameters.child_nodes.compact.size != names.size
         refuse(d, "a def has a receiver; the kernel's defs are plain `def name`") if d.receiver
         refuse(d, "#{d.name} is defined twice; the first is in #{@defs[d.name.to_s].file}") if @defs.key?(d.name.to_s)
         typed = names.zip(params) #: Array[[String, String]]

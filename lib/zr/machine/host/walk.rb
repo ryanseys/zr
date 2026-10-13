@@ -198,6 +198,7 @@ module Zr
           @qfalse = k::QFALSE
           @qundef = k::QUNDEF
           @ids = {}
+          @file_spots = {}
           @sites = Hash.new { |h, node| h[node] = h.size + 1 }.compare_by_identity
           @cells = {} #: Hash[untyped, Hash[Symbol, Integer]]
           @cells.compare_by_identity
@@ -317,7 +318,7 @@ module Zr
           @ids[name] ||= begin
             text = name.to_s
             @host.symbols.ids[text] || begin
-              index = text.ascii_only? ? 1 : ENCODING_INDEX.fetch(text.encoding)
+              index = text.ascii_only? ? 1 : Code::ENCODING_INDEX.fetch(text.encoding)
               @kern.zr_intern_tagged(@host.bytes(text), text.bytesize, index < 2 ? 1 - index : index)
             end
           end
@@ -617,7 +618,7 @@ module Zr
           warnings = Array(hir.warnings)
           if warn_now == @qtrue
             parse_warnings(warnings)
-            warnings = []
+            warnings = [] #: Array[String]
           end
           unit = Unit.new(text(file), false, hir.units, hir.node_ids)
           unit.spelling = Spelling.new([hir])
@@ -681,7 +682,7 @@ module Zr
           base = coverage && ruby(check(k.zr_send(coverage, id(:next_def_site), 0, 0)))
           traced = @traced || ruby(k.zr_trace_armed_m)
           hir = Hir.build(File.read(name), name, eval_support: false, trace: traced, def_base: base)
-          (@file_spots ||= {})[name] = hir.spots.fetch(name, "")
+          @file_spots[name] = (hir.spots || {}).fetch(name, "")
           check(outside([value(hir.coverable), value(hir.defs)]) { |av| k.zr_send(coverage, id(:compiled_lines!), 2, av) }) if coverage
           unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids, false, false, nil, hir.traced)
           fn = @host.callable(-> { toplevel(hir, unit, k::KIND_TOP) })
@@ -692,7 +693,7 @@ module Zr
         # that a load or require compiled at run time, or nil.
         #: (Integer path) -> Integer
         def file_spots(path)
-          spots = @file_spots&.[](text(path))
+          spots = @file_spots[text(path)]
           spots ? value(spots) : @qnil
         end
 

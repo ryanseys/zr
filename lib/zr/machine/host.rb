@@ -1059,8 +1059,8 @@ module Zr
         name = case node
                when Prism::LocalVariableReadNode then types[node.name]
                when Prism::CallNode
-                 if node.name == :[] && node.receiver.is_a?(Prism::ConstantReadNode)
-                   node.receiver.name.to_s
+                 if node.name == :[] && (receiver = node.receiver).is_a?(Prism::ConstantReadNode)
+                   receiver.name.to_s
                  elsif (outer = view_of(node.receiver, types))
                    outer.fields[node.name.to_s]&.last
                  end

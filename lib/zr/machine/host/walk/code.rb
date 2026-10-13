@@ -202,7 +202,7 @@ module Zr
           end
 
           # ruby's own index for an encoding, which a String holds.
-          ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze
+          ENCODING_INDEX = ::Encoding.list.each_with_index.to_h.freeze #: Hash[::Encoding, Integer]
 
           def frozen_string(node, _s)
             bytes = node.value.b

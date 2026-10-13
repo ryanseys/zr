@@ -85,7 +85,12 @@ module Zr
         # binds are LC_DYLD_INFO opcodes.
         #: (String out) -> Integer?
         def chained_fixups(out)
-          each_command(out) { |cmd, at| return out.unpack1("L<", offset: at + 8) if cmd == Image::LC_DYLD_CHAINED_FIXUPS }
+          each_command(out) do |cmd, at|
+            next unless cmd == Image::LC_DYLD_CHAINED_FIXUPS
+
+            offset = out.unpack1("L<", offset: at + 8) #: Integer
+            return offset
+          end
           nil
         end
 
@@ -93,8 +98,8 @@ module Zr
         #: (String out, Integer fixups, Integer ordinal) -> void
         def rebind(out, fixups, ordinal)
           fields = out.unpack("L<6", offset: fixups) #: Array[Integer]
-          imports_at, count, format = fields.values_at(2, 4, 5)
-          size, bits = IMPORTS.fetch(format) { raise ArgumentError, "chained import format #{format}" }
+          imports_at, count, format = fields.values_at(2, 4, 5) #: [Integer, Integer, Integer]
+          size, bits = IMPORTS.fetch(format) { raise ArgumentError, "chained import format #{format}" } #: [Integer, Integer]
           directive = size == 4 ? "L<" : "Q<"
           mask = (1 << bits) - 1
           count.times do |i|
@@ -163,7 +168,11 @@ module Zr
         #: (String out) -> void
         def resign(out)
           signature = nil #: Integer?
-          each_command(out) { |cmd, at| signature = out.unpack1("L<", offset: at + 8) if cmd == LC_CODE_SIGNATURE }
+          each_command(out) do |cmd, at|
+            next unless cmd == LC_CODE_SIGNATURE
+
+            signature = out.unpack1("L<", offset: at + 8) #: Integer
+          end
           raise Zr::Refused, "a bundle that links libruby has no code signature" unless signature
 
           magic, _length, count = out.unpack("L>3", offset: signature) #: [Integer, Integer, Integer]
@@ -179,8 +188,8 @@ module Zr
         #: (String out, Integer blob) -> void
         def rehash(out, blob)
           fields = out.unpack("L>9C4", offset: blob) #: Array[Integer]
-          hash_offset, slots, limit = fields.values_at(4, 7, 8)
-          hash_size, hash_type, _platform, page_bits = fields.last(4)
+          hash_offset, slots, limit = fields.values_at(4, 7, 8) #: [Integer, Integer, Integer]
+          hash_size, hash_type, _platform, page_bits = fields.last(4) #: [Integer, Integer, Integer, Integer]
           digest = DIGESTS.fetch(hash_type) { raise ArgumentError, "a code signature of hash type #{hash_type}" }
           page = 1 << page_bits
           slots.times do |n|

@@ -35,8 +35,8 @@ module Zr
     def self.node?: (untyped value) -> bool
     def self.flip_flop?: (Symbol? name) -> bool
     def self.each_child: (untyped node) { (untyped) -> void } -> Array[untyped]
-    def self.backref_read?: (untyped node) -> bool
                        | (untyped node) -> Array[untyped]
+    def self.backref_read?: (untyped node) -> bool
 
     class Node < Struct[untyped]
       def self.new: (*untyped) -> instance
@@ -195,6 +195,8 @@ module Zr
       attr_accessor line: Integer
       attr_accessor end_line: Integer?
       attr_accessor cover: Integer?
+      attr_accessor using: Integer?
+      attr_accessor span: Array[Integer]?
     end
 
     class Lambda < Node
@@ -219,9 +221,11 @@ module Zr
       def simple?: () -> bool
       def plain?: () -> bool
       def names: () -> Array[Symbol]
+      def no_block?: () -> bool
       def arity: () -> Integer
       def rows: () -> Array[Array[Symbol]]
       def kwrest_rows: () -> Array[Array[Symbol]]
+      def block_rows: () -> Array[Array[Symbol]]
     end
 
     class Yield < Node
@@ -281,6 +285,8 @@ module Zr
       attr_accessor evals: bool
       attr_accessor end_line: Integer
       attr_accessor cover: Integer?
+      attr_accessor using: Integer?
+      attr_accessor span: Array[Integer]?
     end
 
     class Local < Node
@@ -406,6 +412,7 @@ module Zr
       attr_accessor scope: scope
       attr_accessor name: Symbol
       attr_accessor line: Integer
+      attr_accessor nil_lexical: bool?
     end
 
     class ConstWrite < Node

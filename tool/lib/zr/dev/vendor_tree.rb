@@ -218,7 +218,6 @@ module Zr
       def default_gems(ruby)
         Dir[File.join(Gem.default_specifications_dir, "*.gemspec")].sort.filter_map do |spec_path|
           spec = Gem::Specification.load(spec_path) or @fail.call("#{spec_path} does not load")
-          next if Library::Vendor::LEFT_OUT_GEMS.include?(spec.name)
 
           add(File.join(Library::Layout::SPECIFICATIONS, "default", File.basename(spec_path)), File.binread(spec_path))
           version = spec.version.to_s

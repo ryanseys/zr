@@ -37,7 +37,8 @@ module Zr
             return nil
           end
 
-          rescued = node.rescue_clause.location.start_line if node.is_a?(Prism::BeginNode) && node.statements.nil? && node.rescue_clause
+          clause = node.rescue_clause if node.is_a?(Prism::BeginNode) && node.statements.nil?
+          rescued = clause.location.start_line if clause
           start = rescued || node.location.start_line
           fresh = @last_lines.last != start
           @last_lines[-1] = start
@@ -145,7 +146,7 @@ module Zr
           # (opt_duparray_send).
           args = node.arguments&.arguments || []
           arg = args.first
-          if node.name == :include? && node.receiver.is_a?(Prism::ArrayNode) && node.receiver.static_literal? &&
+          if node.name == :include? && (receiver = node.receiver).is_a?(Prism::ArrayNode) && receiver.static_literal? &&
              args.size == 1 && node.block.nil? && arg && !arg.is_a?(Prism::SplatNode)
             return first_line(arg)
           end
@@ -163,14 +164,14 @@ module Zr
         when Prism::InterpolatedStringNode, Prism::InterpolatedXStringNode, Prism::InterpolatedSymbolNode
           # A literal part is on the string's own line; code runs on its own.
           case (part = node.parts.first)
-          when Prism::EmbeddedStatementsNode then part.statements ? first_line(part.statements.body.first) : part.location.start_line
+          when Prism::EmbeddedStatementsNode then (statements = part.statements) ? first_line(statements.body.first) : part.location.start_line
           when Prism::EmbeddedVariableNode then part.location.start_line
           else node.location.start_line
           end
         when Prism::ParenthesesNode
           body = node.body
           body.is_a?(Prism::StatementsNode) ? statements_line(body, taken) : node.location.start_line
-        when Prism::BeginNode then node.statements ? statements_line(node.statements, taken) : node.location.start_line
+        when Prism::BeginNode then (statements = node.statements) ? statements_line(statements, taken) : node.location.start_line
         when Prism::IfNode, Prism::UnlessNode
           tested = condition_line(node.predicate)
           return tested if tested
@@ -214,7 +215,7 @@ module Zr
       def branch_line(branch, node, taken)
         case branch
         when Prism::StatementsNode then statements_line(branch, taken)
-        when Prism::ElseNode then branch.statements ? statements_line(branch.statements, taken) : (node.location.start_line if taken)
+        when Prism::ElseNode then (statements = branch.statements) ? statements_line(statements, taken) : (node.location.start_line if taken)
         when Prism::IfNode then first_line(branch, taken: taken)
         else node.location.start_line if taken
         end
@@ -231,7 +232,7 @@ module Zr
             next if chosen == false
             return first_line(test) if chosen.nil?
 
-            return clause.statements ? statements_line(clause.statements, taken) : (node.location.start_line if taken)
+            return (statements = clause.statements) ? statements_line(statements, taken) : (node.location.start_line if taken)
           end
         end
         branch_line(node.else_clause, node, taken)
@@ -341,16 +342,20 @@ module Zr
       # else covers the whole `if`. CRuby records the same.
       #: (Prism::IfNode node) -> Array[[Symbol, Array[Integer]]]
       def if_sides(node)
-        [[:then, node.statements ? span(node.statements.location) : after(node.predicate.location)],
-         [:else, node.subsequent ? span(else_location(node.subsequent)) : span(node.location)]]
+        statements = node.statements
+        subsequent = node.subsequent
+        [[:then, statements ? span(statements.location) : after(node.predicate.location)],
+         [:else, subsequent ? span(else_location(subsequent)) : span(node.location)]]
       end
 
       # An `unless` has its then first in the source, but ruby numbers its
       # else first, so the two are in reverse order.
       #: (Prism::UnlessNode node) -> Array[[Symbol, Array[Integer]]]
       def unless_sides(node)
-        [[:else, node.else_clause ? span(else_location(node.else_clause)) : span(node.location)],
-         [:then, node.statements ? span(node.statements.location) : after(node.predicate.location)]]
+        else_clause = node.else_clause
+        statements = node.statements
+        [[:else, else_clause ? span(else_location(else_clause)) : span(node.location)],
+         [:then, statements ? span(statements.location) : after(node.predicate.location)]]
       end
 
       # Each `when` or `in` clause, then the else. A `case` always has an
@@ -359,7 +364,8 @@ module Zr
       #: (Prism::CaseNode | Prism::CaseMatchNode node, Symbol kind) -> Array[[Symbol, Array[Integer]]]
       def case_sides(node, kind)
         sides = node.conditions.map { |c| [kind, span(c.statements&.location || c.location)] } #: Array[[Symbol, Array[Integer]]]
-        sides << [:else, span(node.else_clause ? else_location(node.else_clause) : node.location)]
+        else_clause = node.else_clause
+        sides << [:else, span(else_clause ? else_location(else_clause) : node.location)]
       end
 
       # A loop has one branch: its body, or the whole loop if it has no

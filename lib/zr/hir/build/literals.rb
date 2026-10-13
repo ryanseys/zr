@@ -96,7 +96,8 @@ module Zr
         elements.flat_map do |e|
           case e
           when Prism::AssocNode
-            [expr(e.key), expr(e.value.is_a?(Prism::ImplicitNode) ? e.value.value : e.value)]
+            value = e.value
+            [expr(e.key), expr(value.is_a?(Prism::ImplicitNode) ? value.value : value)]
           when Prism::AssocSplatNode
             [HashSplat.new(e.value ? expr(e.value) : anonymous(:kwrest, e.location.start_line), e.location.start_line), nil]
           end
@@ -565,7 +566,7 @@ module Zr
         parts = node.parts.map do |part|
           case part
           when Prism::StringNode then Literal.new(unescaped(part), part.location.start_line)
-          when Prism::EmbeddedStatementsNode then part.statements ? embedded(part.statements) : Literal.new(nil, line)
+          when Prism::EmbeddedStatementsNode then (statements = part.statements) ? embedded(statements) : Literal.new(nil, line)
           when Prism::EmbeddedVariableNode then expr(part.variable)
           when Prism::InterpolatedStringNode then interpolation(part, line)
           else unsupported(part, "#{Refused.form_of(part)} in a string")

@@ -244,7 +244,8 @@ module Zr
           [value, type]
         when Prism::CallNode then call(node, want)
         when Prism::IfNode
-          branch(node, want, node.statements, node.subsequent.is_a?(Prism::ElseNode) ? node.subsequent.statements : node.subsequent)
+          subsequent = node.subsequent
+          branch(node, want, node.statements, subsequent.is_a?(Prism::ElseNode) ? subsequent.statements : subsequent)
         when Prism::UnlessNode then branch(node, want, node.else_clause&.statements, node.statements)
         when Prism::WhileNode then loop_while(node)
         when Prism::BreakNode
@@ -253,7 +254,8 @@ module Zr
           @f.jump(@loops.last)
           [nil, "Void"]
         when Prism::ReturnNode
-          value, type = node.arguments ? expr(node.arguments.arguments.first, @d.ret) : [nil, "Void"]
+          arguments = node.arguments
+          value, type = arguments ? expr(arguments.arguments.first, @d.ret) : [nil, "Void"]
           refuse(node, "a return of #{type} from a def whose type says #{@d.ret}") unless fits?(@d.ret, type)
           ret(type == "Void" ? nil : value)
           [nil, "Void"]
@@ -288,8 +290,8 @@ module Zr
           target(node, node.name.to_s, args)
         elsif @unit.machine?(node.receiver)
           intrinsic(node, args, want)
-        elsif node.name == :call && node.receiver.is_a?(Prism::ConstantReadNode) && !@unit.sig_read?(node.receiver)
-          refuse(node, "#{node.receiver.name} is not a signature here")
+        elsif node.name == :call && (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && !@unit.sig_read?(receiver)
+          refuse(node, "#{receiver.name} is not a signature here")
         elsif (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && @unit.sig_read?(receiver)
           refuse(node, "a signature takes `call`") unless node.name == :call
           indirect(node, @unit.sig_for(receiver.name.to_s), args[0], args.drop(1))
@@ -302,12 +304,12 @@ module Zr
 
           refuse(node, "a negation of a #{type}") unless ir_type(type)
           [@f.isub(@f.iconst(ir_type(type), 0), value), type]
-        elsif node.name == :[] && node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
+        elsif node.name == :[] && (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(receiver.name.to_s))
           refuse(node, "#{layout.name}[p] takes one pointer") unless args.one?
           ptr, pt = expr(args[0])
           refuse(args[0], "#{layout.name}[p] of a #{pt}") unless %w[Ptr Word Value].include?(pt) || view(pt)
           [ptr, layout.name]
-        elsif node.receiver.is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(node.receiver.name.to_s))
+        elsif (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && (layout = @unit.struct_for(receiver.name.to_s))
           return literal(node, layout.size, want) if node.name == :size && args.empty?
 
           refuse(node, "#{layout.name}.#{node.name}: a field is read through a view, `#{layout.name}[p].field`")
@@ -378,7 +380,8 @@ module Zr
         images[d] ||= begin
           writes = {} #: Hash[Symbol, Array[Prism::node]]
           other = Set.new(d.params.map { |name, _| name.to_sym })
-          local_writes(d.node.body, writes, other) if d.node.body
+          body = d.node.body
+          local_writes(body, writes, other) if body
           names = Set.new(writes.keys) - other
           while (kept = names.select { |name| writes.fetch(name).all? { |v| slot_address?(v, names) } }.to_set) != names
             names = kept
@@ -401,7 +404,7 @@ module Zr
 
       #: (Prism::node node, Set[Symbol] names) -> bool
       def slot_address?(node, names)
-        return false unless node.is_a?(Prism::CallNode) && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Machine
+        return false unless node.is_a?(Prism::CallNode) && (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && receiver.name == :Machine
         return true if node.name == :slot
 
         args = node.arguments&.arguments || []
@@ -515,7 +518,7 @@ module Zr
         case node
         when Prism::IntegerNode, Prism::TrueNode, Prism::FalseNode, Prism::ConstantReadNode then true
         when Prism::LocalVariableReadNode then @locals.key?(node.name.to_s)
-        when Prism::ParenthesesNode then node.body.is_a?(Prism::StatementsNode) && node.body.body.one? && plain?(node.body.body[0])
+        when Prism::ParenthesesNode then (body = node.body).is_a?(Prism::StatementsNode) && body.body.one? && plain?(body.body[0])
         when Prism::AndNode, Prism::OrNode then plain?(node.left) && plain?(node.right)
         when Prism::CallNode
           args = node.arguments&.arguments || []
@@ -926,11 +929,13 @@ module Zr
             refuse(node, "Machine.#{node.name} of an I32 counts 64 bits on CRuby; widen it first (Machine.u32)")
           end
           refuse(node, "Machine.#{node.name} of a #{type}") unless ir_type(type) == "i64" && args.one?
-          [@f.bitop(node.name, value), type]
+          op = node.name #: IR::op
+          [@f.bitop(op, value), type]
         when :sqrt, :floor, :ceil, :trunc, :nearest, :fabs
           value, type = expr(args.first)
           refuse(node, "Machine.#{node.name} of a #{type}") unless type == "F64"
-          [@f.funop(node.name, value), "F64"]
+          op = node.name #: IR::op
+          [@f.funop(op, value), "F64"]
         when :addr
           name = args.first
           refuse(node, "Machine.addr takes the symbol of a machine def") unless name.is_a?(Prism::SymbolNode)
@@ -1086,7 +1091,8 @@ module Zr
         jump_if(node.predicate, body, done)
         @f.switch(body)
         @loops.push(done)
-        statements(node.statements) if node.statements
+        body = node.statements
+        statements(body) if body
         @loops.pop
         @f.jump(head) unless @f.terminated?
         @f.switch(done)

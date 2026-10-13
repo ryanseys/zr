@@ -361,7 +361,7 @@ module Zr
           when "c" then dump_item!(:syntax)
           when "s" then @sflag = true
           when "h"
-            @help ||= :usage
+            @help ||= :usage #: :usage
             return
           when "l"
             @line = true
@@ -611,7 +611,7 @@ module Zr
         case item
         when :version then @version_only = true
         when :copyright then @copyright = true
-        when :usage then @help ||= :usage
+        when :usage then @help ||= :usage #: :usage
         when :help then @help = :help
         when :insns then refuse("--dump=insns (zr compiles to machine code, not to YARV instructions)")
         else @dumps = DUMP_EXITS & [*@dumps, item]

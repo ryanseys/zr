@@ -277,7 +277,7 @@ module Zr
         land if @landing
         # After the body is lowered, its captures are known, so the
         # captures table that its meta refers to can be written.
-        @l.captures_table(@name, capture_rows, @kind == :block && Hir::Locals.yields?(@def)) unless @twin_of
+        @l.captures_table(@name, capture_rows, (own = @def).is_a?(Hir::Block) && Hir::Locals.yields?(own)) unless @twin_of
         @l.rescues_table(@name, @rescue_rows) unless @twin_of || @rescue_rows.empty?
         @l.functions << @f
         @f
@@ -460,6 +460,7 @@ module Zr
         line = d ? d.line : 1
         end_line = d&.end_line || 0
         name = d.is_a?(Hir::ClassDef) || d.is_a?(Hir::ModuleDef) ? d.name : 0
+        own = d if d.is_a?(Hir::Def) || d.is_a?(Hir::Block)
         params = own_params if %i[def block].include?(@kind)
         kind = hidden_def? ? "KIND_HIDDEN" : @l.frame_kind(@kind)
         node_id = d ? @l.node_id(d) : 0
@@ -471,8 +472,8 @@ module Zr
                                              env: @has_env, ruby: attributes.include?(:ruby),
                                              captures: true, node: node_id, cover: method_cover, twin: @twin,
                                              owns_backref: owns_backref?, reads_backref: reads_backref?, frameless: attributes.include?(:frameless),
-                                             blocks: @blocks, using: d.respond_to?(:using) ? d.using : nil,
-                                             span: d.respond_to?(:span) ? d.span : nil)
+                                             blocks: @blocks, using: own&.using,
+                                             span: own&.span)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = (line & LINE_MASK) | (node_id << 32)

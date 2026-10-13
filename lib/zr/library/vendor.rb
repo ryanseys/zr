@@ -46,10 +46,6 @@ module Zr
         "bundler/man/index.txt" => "ruby's installer leaves it out"
       }.freeze
 
-      # The default gems whose files LEFT_OUT removes: their specifications
-      # stay out too.
-      LEFT_OUT_GEMS = %w[].freeze
-
       # Files of a gem that vendor/ leaves out, with the reason.
       GEM_EXCLUDE = {
         "minitest" => { "lib/hoe/minitest.rb" => "a plugin of hoe, which ruby never loads from minitest" },

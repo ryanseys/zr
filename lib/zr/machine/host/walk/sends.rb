@@ -38,6 +38,7 @@ module Zr
           # @rbs @proc_ret_serial: Integer
           # @rbs @proc_lambda: Integer
           # @rbs @task_refine: ^(Integer, untyped) -> untyped
+          # @rbs @task_eval_using: ^(Integer, untyped) -> untyped
 
           SEND_CORE = 8
           SEND_USING = 16

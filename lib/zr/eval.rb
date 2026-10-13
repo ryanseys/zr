@@ -22,6 +22,7 @@ module Zr
     # @rbs @count: Integer
     # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
     # @rbs @files: Hash[[String, String], [Integer, String?]]
+    # @rbs @file_spots: Hash[String, String?]
     # @rbs @scripts: Array[String]
     # @rbs @script_sources: Array[[String, Integer]]
 
@@ -165,7 +166,7 @@ module Zr
         # eval's do (`compiled`): numbered from 0, they would take the
         # entries of the program and of eval support (prism's parser).
         hir = Hir.build(source, path, eval_support: false, trace: @runtime.tracing?, def_base: base, activations: @runtime.activations)
-        @file_spots[path] = hir.spots.fetch(path, "")
+        @file_spots[path] = (hir.spots || {}).fetch(path, "")
         @runtime.take_activations(hir.activations)
         coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
         ext = Library::Roots.internal_library?(path)
@@ -264,7 +265,7 @@ module Zr
         no_defs = {} #: Hash[String, Array[Array[Integer]]]
         coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, no_defs, true)
       end
-      script = keep ? kept_script(hir.spots.fetch(string(file), ""), string(source), line.to_int) : 0
+      script = keep ? kept_script((hir.spots || {}).fetch(string(file), ""), string(source), line.to_int) : 0
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new,
                                                                    script: script).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)

@@ -114,8 +114,8 @@ module Zr
           range(rows, node.node_id, node.location) if RANGES[node.type]
           range(rows, node.node_id | ENTRY, entry(node))
           # A value that `when` or `in` tests with ===.
-          node.conditions.each { |test| range(rows, test.node_id, test.location) unless RANGES[test.type] } if node.type == :when_node
-          range(rows, pinned(node.pattern).node_id, pinned(node.pattern).location) if node.type == :in_node && !RANGES[pinned(node.pattern).type]
+          node.conditions.each { |test| range(rows, test.node_id, test.location) unless RANGES[test.type] } if node.is_a?(Prism::WhenNode)
+          range(rows, pinned(node.pattern).node_id, pinned(node.pattern).location) if node.is_a?(Prism::InNode) && !RANGES[pinned(node.pattern).type]
           next unless spotted
 
           points = POINTS[node.type] or next

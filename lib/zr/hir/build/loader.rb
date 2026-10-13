@@ -308,7 +308,8 @@ module Zr
         # compiler.
         #: (Prism::CallNode node, String file) -> void
         def load_path_changed!(node, file)
-          return unless node.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(node.receiver.name)
+          receiver = node.receiver
+          return unless receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(receiver.name)
           return unless LOAD_PATH_CHANGES.include?(node.name)
 
           literal = %i[unshift push <<].include?(node.name) && node.arguments&.arguments&.all? { |a| literal_path(a, file) }
@@ -351,9 +352,10 @@ module Zr
         # passes a name to Kernel's or Module's method that no site shows.
         #: (Prism::DefNode node) -> void
         def loads_by_def!(node)
-          return unless (REQUIRES.include?(node.name) || AUTOLOADS.include?(node.name)) && node.body
+          body = node.body
+          return unless (REQUIRES.include?(node.name) || AUTOLOADS.include?(node.name)) && body
 
-          supers = node.body.breadth_first_search { |n| n.is_a?(Prism::SuperNode) || n.is_a?(Prism::ForwardingSuperNode) }
+          supers = body.breadth_first_search { |n| n.is_a?(Prism::SuperNode) || n.is_a?(Prism::ForwardingSuperNode) }
           @evals = true if supers
         end
 
@@ -908,9 +910,9 @@ module Zr
           roots = [] #: Array[[bool, Array[String]]]
           # @type var walk: ^(Prism::node) -> void
           walk = lambda do |n|
-            if n.is_a?(Prism::CallNode) && n.receiver.is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(n.receiver.name) &&
-               %i[unshift push <<].include?(n.name) && n.arguments
-              paths = n.arguments.arguments.filter_map { |a| literal_path(a, file) }
+            if n.is_a?(Prism::CallNode) && (receiver = n.receiver).is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(receiver.name) &&
+               %i[unshift push <<].include?(n.name) && (arguments = n.arguments)
+              paths = arguments.arguments.filter_map { |a| literal_path(a, file) }
               roots << [n.name == :unshift, paths] unless paths.empty?
             end
             n.compact_child_nodes.each { |c| walk.call(c) }
@@ -936,10 +938,12 @@ module Zr
             File.expand_path(dir + parts[1].unescaped)
           when Prism::CallNode
             # `"lib".freeze`, as the prelude of `-I` writes each directory.
-            return literal_path(node.receiver, file) if node.name == :freeze && node.receiver && node.arguments.nil? && node.block.nil?
-            return nil unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File && node.arguments
+            receiver = node.receiver
+            arguments = node.arguments
+            return literal_path(receiver, file) if node.name == :freeze && receiver && arguments.nil? && node.block.nil?
+            return nil unless receiver.is_a?(Prism::ConstantReadNode) && receiver.name == :File && arguments
 
-            args = node.arguments.arguments #: untyped
+            args = arguments.arguments #: untyped
             if node.name == :expand_path && args.size == 2 && args[0].is_a?(Prism::StringNode) && dir_call?(args[1])
               File.expand_path(args[0].unescaped, dir)
             elsif node.name == :expand_path && args.size == 2 && args[0].is_a?(Prism::StringNode) && args[1].is_a?(Prism::SourceFileNode)
@@ -957,7 +961,7 @@ module Zr
           return node.receiver.nil? && node.arguments.nil? if node.name == :__dir__
 
           args = node.arguments&.arguments || [] #: Array[Prism::node]
-          node.name == :dirname && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :File &&
+          node.name == :dirname && (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && receiver.name == :File &&
             args.size == 1 && args[0].is_a?(Prism::SourceFileNode)
         end
       end

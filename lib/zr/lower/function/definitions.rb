@@ -10,6 +10,7 @@ module Zr
         # @rbs @f: IR::Function
         # @rbs @l: Lower
         # @rbs @kind: Function::kind
+        # @rbs @qnil: String
 
         private
 

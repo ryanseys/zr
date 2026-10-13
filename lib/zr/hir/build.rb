@@ -678,7 +678,7 @@ module Zr
       # (Def#using, Block#using). A `refine` block's list is its owner's,
       # which the runtime finds from the method's owner.
       #: () -> Integer?
-      def entry_using = @using.is_a?(Integer) ? @using : nil
+      def entry_using = (using = @using).is_a?(Integer) ? using : nil
 
       #: (untyped node, Hash[Integer, bool] seen) -> void
       def mark_using(node, seen)
@@ -894,7 +894,9 @@ module Zr
           rescues << rescue_clause(clause)
           clause = clause.subsequent
         end
-        else_body = node.else_clause && (node.else_clause.statements ? seq(node.else_clause.statements, taken: taken) : Literal.new(nil, line))
+        else_clause = node.else_clause
+        else_statements = else_clause&.statements
+        else_body = else_clause && (else_statements ? seq(else_statements, taken: taken) : Literal.new(nil, line))
         ensure_clause = node.ensure_clause
         ensure_body = ensure_clause && silent_ensure(ensure_clause.statements ? seq(ensure_clause.statements, taken: false) : Literal.new(nil, line), ensure_clause)
         Begin.new(body, rescues, else_body, ensure_body, line)
@@ -928,7 +930,9 @@ module Zr
       def rescue_clause(node)
         line = node.location.start_line
         classes = node.exceptions.map { |e| e.is_a?(Prism::SplatNode) ? splat(e, line) : expr(e) }
-        Rescue.new(classes, node.reference && target(node.reference), node.statements ? seq(node.statements) : Literal.new(nil, line), line)
+        reference = node.reference
+        statements = node.statements
+        Rescue.new(classes, reference && target(reference), statements ? seq(statements) : Literal.new(nil, line), line)
       end
 
       # The value of `return`, `break` and `next`: none is nil, one value
@@ -997,7 +1001,7 @@ module Zr
               body = marked(body, marks, node.location.start_line) unless marks.empty?
               locals = with_temps(node.locals + (params.names - node.locals))
               Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line,
-                      method_cover(node), entry_using, span(node))
+                      method_cover(node), entry_using, span(node.location))
             end
           ensure
             @in_def = was
@@ -1071,7 +1075,8 @@ module Zr
       # values, as a `Super` with the locals of the enclosing def.
       #: (Prism::ForwardingSuperNode node, Integer line) -> (ZSuper | Super)
       def zsuper(node, line)
-        p = @def_params or return ZSuper.new(node.block && block(node.block), line)
+        given = node.block
+        p = @def_params or return ZSuper.new(given && block(given), line)
 
         local = lambda do |name|
           name = name.whole if name.is_a?(MultiTarget)
@@ -1087,7 +1092,7 @@ module Zr
         pairs += p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
         kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
         # `&nil` has no block to pass: its method got none.
-        block = node.block ? block(node.block) : (BlockPass.new(local.call(p.block), line) if p.block && !p.no_block?)
+        block = given ? block(given) : (BlockPass.new(local.call(p.block), line) if p.block && !p.no_block?)
         Super.new(positional, kwargs, block, line, @block_depth.positive?)
       end
 
@@ -1098,7 +1103,8 @@ module Zr
 
         required = node.requireds.map { |p| name_of(p) }
         optional = node.optionals.map { |p| optional_param(p) }
-        rest = node.rest && rest_name(node.rest)
+        rest_param = node.rest
+        rest = rest_param && rest_name(rest_param)
         post = node.posts.map { |p| name_of(p) }
         keywords = node.keywords.map do |k|
           case k
@@ -1106,17 +1112,18 @@ module Zr
           when Prism::OptionalKeywordParameterNode then [k.name, expr(k.value)]
           end
         end
-        kwrest = node.keyword_rest && rest_name(node.keyword_rest)
-        if node.keyword_rest.is_a?(Prism::ForwardingParameterNode)
+        keyword_rest = node.keyword_rest
+        kwrest = keyword_rest && rest_name(keyword_rest)
+        if keyword_rest.is_a?(Prism::ForwardingParameterNode)
           rest = ANONYMOUS[:rest]
           kwrest = ANONYMOUS[:kwrest]
           block = ANONYMOUS[:block]
         else
-          block = case node.block
+          block = case (block_param = node.block)
                   when nil then nil
                   # `&nil`: the def refuses a block.
                   when Prism::NoBlockParameterNode then :noblock
-                  else node.block.name || ANONYMOUS[:block]
+                  else block_param.name || ANONYMOUS[:block]
                   end
         end
         Params.new(required, optional, rest, post, keywords, kwrest, block)
@@ -1137,11 +1144,11 @@ module Zr
       #: (Prism::MultiTargetNode | Prism::MultiWriteNode node) -> MultiTarget
       def multi_target(node)
         line = node.location.start_line
-        rest = case node.rest
+        rest = case (rest_node = node.rest)
                when nil then nil
                when Prism::ImplicitRestNode then :implicit
-               when Prism::SplatNode then node.rest.expression ? target(node.rest.expression) : :implicit
-               else unsupported(node.rest)
+               when Prism::SplatNode then (expression = rest_node.expression) ? target(expression) : :implicit
+               else unsupported(rest_node)
                end
         noted(MultiTarget.new(node.lefts.map { |t| target(t) }, rest, node.rights.map { |t| target(t) }, line), node)
       end
@@ -1232,16 +1239,8 @@ module Zr
           body = node.body ? expr(node.body) : Literal.new(nil, line)
           exit_event(node.location.end_line)
           noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
-                          node.location.end_line, method_cover(node), entry_using, span(node)), node)
+                          node.location.end_line, method_cover(node), entry_using, span(node.location)), node)
         end
-      end
-
-      # Where `node`'s code starts and ends: [line, column, end line, end
-      # column], the columns in bytes.
-      #: (Prism::node node) -> Array[Integer]
-      def span(node)
-        at = node.location
-        [at.start_line, at.start_column, at.end_line, at.end_column]
       end
 
       # A block's Params and the locals prism leaves implicit: `it`, or
@@ -1303,7 +1302,7 @@ module Zr
         if node.name == :new && error_class?(node.receiver)
           klass = node.receiver
           message = args[0]
-        elsif %i[raise fail].include?(node.name) && (node.receiver.nil? || (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
+        elsif %i[raise fail].include?(node.name) && ((receiver = node.receiver).nil? || (receiver.is_a?(Prism::ConstantReadNode) && receiver.name == :Kernel))
           klass = args[0] if args.size > 1
           message = args.size == 1 ? args[0] : args[1]
         end
@@ -1378,7 +1377,8 @@ module Zr
           [arg.left, arg.right].all? { |side| side.nil? || side.is_a?(Prism::IntegerNode) } && !(arg.left.nil? && arg.right.nil?)
         when Prism::CallNode
           plain = arg.arguments.nil? && arg.block.nil? && arg.call_operator != "&." && !arg.name.end_with?("=")
-          plain && (arg.receiver.nil? || simple_include_arg?(arg.receiver, static))
+          receiver = arg.receiver
+          plain && (receiver.nil? || simple_include_arg?(receiver, static))
         else false
         end
       end
@@ -1418,7 +1418,7 @@ module Zr
       #: (Prism::CallNode node) -> Symbol?
       def body_mark(node)
         mark = node.arguments&.arguments&.first
-        return unless !@in_def && node.name == :attr! && node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Primitive &&
+        return unless !@in_def && node.name == :attr! && (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && receiver.name == :Primitive &&
                       mark.is_a?(Prism::SymbolNode) && %w[ruby hidden ivars sends_each sends_ops].include?(mark.unescaped)
 
         mark.unescaped.to_sym
@@ -1450,15 +1450,16 @@ module Zr
         args, kwargs, forwarded = arguments(node.arguments)
         # A receiverless call in a module that defines its own `load` or
         # `require` goes to that method (json's `JSON.load`), not Kernel's.
-        kernel = compiles && ((node.receiver.nil? && !shadowed?(node.name)) ||
-                              (node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel))
+        receiver = node.receiver
+        kernel = compiles && ((receiver.nil? && !shadowed?(node.name)) ||
+                              (receiver.is_a?(Prism::ConstantReadNode) && receiver.name == :Kernel))
         @loader.evals!(node.name, args, kernel: kernel) if @elsewhere.zero?
         gems!(:Gem) if node.name == :gem && node.receiver.nil?
         @loader.load_path_changed!(node, @file) if @elsewhere.zero?
         @loader.normalizes!(node.name, args)
         # `&:name` calls that method, as a call with that name does.
-        if node.block.is_a?(Prism::BlockArgumentNode) && node.block.expression.is_a?(Prism::SymbolNode)
-          @loader.normalizes!(node.block.expression.unescaped.to_sym, [])
+        if (given = node.block).is_a?(Prism::BlockArgumentNode) && (symbol = given.expression).is_a?(Prism::SymbolNode)
+          @loader.normalizes!(symbol.unescaped.to_sym, [])
         end
         # The inline `[]`, `[]=` and `<<` check visibility as an explicit
         # call does, so a literal `self` dispatches (it can call private
@@ -1473,7 +1474,8 @@ module Zr
         recv = node.receiver && expr(node.receiver)
         # A refinement is active inside its own block, so a sibling
         # refined method can be called there by bare name.
-        blk = node.block ? in_refine(node) { block(node.block) } : forwarded
+        given = node.block
+        blk = given ? in_refine(node) { block(given) } : forwarded
         safe = node.call_operator == "&."
         # Both branches of a safe call have the call's location, as CRuby
         # records. `branch_covers` returns nils if nothing is measured, and
@@ -1555,7 +1557,8 @@ module Zr
           return Defined.new(:nil, nil, line) if node.body.nil?
           return Defined.new(:expression, nil, line) if node.multiple_statements?
 
-          inner = node.body.is_a?(Prism::StatementsNode) && node.body.body.size == 1 ? node.body.body.first : nil
+          body = node.body
+          inner = body.is_a?(Prism::StatementsNode) && body.body.size == 1 ? body.body.first : nil
           inner ? defined(inner, line) : Defined.new(:expression, nil, line)
         when Prism::BeginNode
           empty = node.statements.nil? && node.rescue_clause.nil? && node.else_clause.nil? && node.ensure_clause.nil?
@@ -1582,7 +1585,7 @@ module Zr
         index = node.index
         # `for *x in o` assigns as `*x = value` does.
         target = if index.is_a?(Prism::SplatNode)
-                   MultiTarget.new([], index.expression ? target(index.expression) : :implicit, [], line)
+                   MultiTarget.new([], (expression = index.expression) ? target(expression) : :implicit, [], line)
                  else
                    target(index)
                  end
@@ -1602,7 +1605,7 @@ module Zr
           params = Params.new([:"*for"], [], nil, [], [], nil, nil)
         end
         # The body is a Proc whose source is the whole `for` (Proc#source_range).
-        block = noted(Block.new(params, [:"*for"], Seq.new([bind, RedoPoint.new(line), body], line), line, node.location.end_line, nil, nil, span(node)), node)
+        block = noted(Block.new(params, [:"*for"], Seq.new([bind, RedoPoint.new(line), body], line), line, node.location.end_line, nil, nil, span(node.location)), node)
         Send.of(expr(node.collection), :each, [], line, block: block)
       end
 
@@ -1764,7 +1767,7 @@ module Zr
           body = node.body ? expr(node.body) : Literal.new(nil, line)
           exit_event(node.location.end_line)
           Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, node.opening_loc.start_line,
-                                     node.location.end_line, method_cover(node), entry_using, span(node)), node), line)
+                                     node.location.end_line, method_cover(node), entry_using, span(node.location)), node), line)
         end
       end
 
@@ -1779,7 +1782,8 @@ module Zr
       #: (Prism::SuperNode node, Integer line) -> Super
       def super_call(node, line)
         args, kwargs, forwarded = arguments(node.arguments)
-        Super.new(args, kwargs, node.block ? block(node.block) : forwarded, line)
+        given = node.block
+        Super.new(args, kwargs, given ? block(given) : forwarded, line)
       end
 
       #: (Prism::IfNode node, Integer line, taken: bool) -> (If | Seq)
@@ -1802,7 +1806,7 @@ module Zr
         end
         built = If.new(predicate,
                        covered(then_cover, then_body, line),
-                       covered(else_cover, node.subsequent && dead(!else_live) { subsequent(node.subsequent, taken: taken && chosen != true) }, line), line)
+                       covered(else_cover, (following = node.subsequent) && dead(!else_live) { subsequent(following, taken: taken && chosen != true) }, line), line)
         traced ? Seq.new([traced, built], line) : built
       end
 
@@ -1825,7 +1829,7 @@ module Zr
         else_cover, then_cover = chosen.nil? ? branch_covers(:unless, span(node.location), unless_sides(node)) : [nil, nil]
         true_live, false_live = reaches(node.predicate)
         built = If.new(predicate,
-                       covered(else_cover, node.else_clause && dead(!true_live) { seq(node.else_clause.statements, taken: taken && chosen != false) }, line),
+                       covered(else_cover, (else_clause = node.else_clause) && dead(!true_live) { seq(else_clause.statements, taken: taken && chosen != false) }, line),
                        covered(then_cover, node.statements && dead(!false_live) { seq(node.statements, taken: taken && chosen != true) }, line), line)
         traced ? Seq.new([traced, built], line) : built
       end
@@ -1942,8 +1946,8 @@ module Zr
 
       #: (Prism::AliasMethodNode node, Integer line) -> (Alias | AliasValue)
       def alias_method_names(node, line)
-        if node.new_name.is_a?(Prism::SymbolNode) && node.old_name.is_a?(Prism::SymbolNode)
-          Alias.new(node.new_name.unescaped.to_sym, node.old_name.unescaped.to_sym, line)
+        if (new_name = node.new_name).is_a?(Prism::SymbolNode) && (old_name = node.old_name).is_a?(Prism::SymbolNode)
+          Alias.new(new_name.unescaped.to_sym, old_name.unescaped.to_sym, line)
         else
           AliasValue.new(expr(node.new_name), expr(node.old_name), line)
         end
