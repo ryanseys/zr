@@ -231,10 +231,39 @@ end
   # The nearest frame at or outside `rec` that has a file of its own.
   #: (ptr) -> ptr
   def zr_frame_with_file(rec)
-    while rec != 0 && (FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN)
+    while rec != 0 && (FrameMeta[Frame[rec].meta].kind == KIND_BUILTIN || FrameMeta[Frame[rec].meta].kind == KIND_HIDDEN || zr_frame_internal_p(rec))
       rec = Frame[rec].prev
     end
     rec
+  end
+
+  # Whether `rec` runs code whose file is `<internal:...>`, as an eval
+  # names it (RubyGems' Kernel#require). Such a frame shows as a C
+  # method's does, at the place of the Ruby frame that called it
+  # (is_internal_location).
+  #: (ptr) -> bool
+  def zr_frame_internal_p(rec)
+    meta = Frame[rec].meta
+    FrameMeta[meta].file_len > 10 && zr_bytes_eq(FrameMeta[meta].file, 10, Machine.bytes("<internal:"), 10)
+  end
+
+  # Whether `rec`, a C or an internal frame, gives way to an internal frame
+  # further out before the next Ruby frame: CRuby keeps one internal frame
+  # of a run, and drops the frames that it called (backtrace_each).
+  #: (ptr) -> bool
+  def zr_frame_dropped_p(rec)
+    at = Frame[rec].prev
+    while at != 0
+      kind = FrameMeta[Frame[at].meta].kind
+      if zr_frame_internal_p(at)
+        return true
+      end
+      if kind != KIND_BUILTIN && kind != KIND_HIDDEN && FrameMeta[Frame[at].meta].frameless == 0
+        return false
+      end
+      at = Frame[at].prev
+    end
+    false
   end
 
   # Whether `rec` shows in a backtrace. A private helper of the core
@@ -246,6 +275,9 @@ end
   def zr_frame_shown_p(rec)
     kind = FrameMeta[Frame[rec].meta].kind
     if kind == KIND_HIDDEN || FrameMeta[Frame[rec].meta].frameless != 0
+      return false
+    end
+    if (kind == KIND_BUILTIN || zr_frame_internal_p(rec)) && zr_frame_dropped_p(rec)
       return false
     end
     helper = Frame[rec].prev
