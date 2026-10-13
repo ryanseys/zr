@@ -1,0 +1,20 @@
+exec 1
+exit 0
+exec 2
+exit 0
+kept exec 3
+exit 0
+flushed exec 4
+exit 0
+exec 5
+exit 0
+exec 6
+exit 0
+exec 7
+exit 0
+kept Errno::ENOENT
+exit 0
+before system system
+before spawn spawn
+before fork in fork
+exit 0

@@ -690,12 +690,13 @@ module Process
   end
 
   # The process becomes the command, with its environment and options
-  # applied first; only a failure to start returns.
+  # applied first; only a failure to start returns. Unlike a spawn, it
+  # does not write out the standard streams first (no prefork), so what
+  # their buffers hold is lost, as in ruby.
   def self.replaced(args, options)
     Primitive.attr! :hidden
     env, args, options = exec_args(args, options)
     words, argv0 = command_line(args)
-    IO.send(:flush_std)
     redirects = Redirects.new(options)
     environment = environment(env, options)
     path = executable(words.first, search_path(env))
