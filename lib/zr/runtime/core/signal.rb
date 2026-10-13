@@ -189,11 +189,16 @@ module Signal
       command.is_a?(String) ? TOPLEVEL_BINDING.send(:eval, command) : command.call(signo)
     end
 
+    # rb_threadptr_signal_raise: the main thread's handle_interrupt masks
+    # may hold the exception back. Else it rises where the signal
+    # interrupted the main thread, which runs this, so its backtrace has
+    # no frame of the delivery.
     def interrupt(exception)
       Primitive.attr! :hidden
-      # rb_threadptr_signal_raise: the main thread's handle_interrupt
-      # masks may hold the exception back.
-      Thread.main.raise(exception)
+      main = Thread.main
+      raise exception if main.equal?(Thread.current) && !main.send(:masked?, exception)
+
+      main.raise(exception)
     end
 
     # The EXIT trap, run once as the program ends and before its at_exit

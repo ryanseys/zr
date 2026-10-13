@@ -1,0 +1,6 @@
+[Interrupt, "", ["Kernel#sleep", "Object#wait_for"]]
+[SignalException, "SIGUSR1", ["Kernel#sleep", "Object#wait_for"]]
+[SignalException, "SIGTERM", ["Kernel#sleep", "Object#wait_for"]]
+[SignalException, "SIGUSR2", "Thread::Queue#pop"]
+held back
+[SignalException, "SIGHUP", "Thread.handle_interrupt"]
