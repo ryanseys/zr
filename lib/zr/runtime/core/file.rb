@@ -425,17 +425,19 @@ class File < IO
     def rdev_major = (@rdev >> 24) & 0xff
     def rdev_minor = @rdev & 0xffffff
 
+    # rb_file_ftype: one frozen US-ASCII String for each type (ruby 4.1).
     def ftype
-      case @mode & 0o170000
-      when 0o040000 then +"directory"
-      when 0o100000 then +"file"
-      when 0o120000 then +"link"
-      when 0o020000 then +"characterSpecial"
-      when 0o060000 then +"blockSpecial"
-      when 0o010000 then +"fifo"
-      when 0o140000 then +"socket"
-      else +"unknown"
-      end
+      name = case @mode & 0o170000
+             when 0o040000 then +"directory"
+             when 0o100000 then +"file"
+             when 0o120000 then +"link"
+             when 0o020000 then +"characterSpecial"
+             when 0o060000 then +"blockSpecial"
+             when 0o010000 then +"fifo"
+             when 0o140000 then +"socket"
+             else +"unknown"
+             end
+      -name.force_encoding(Encoding::US_ASCII)
     end
 
     def directory? = ftype == +"directory"
@@ -1354,7 +1356,11 @@ class Dir
   def each_child(&block)
     return to_enum(:each_child) unless block
 
-    children.each(&block)
+    # The next read finds a directory that the block closed (ruby 4.1).
+    children.each do |name|
+      yield name
+      open_names
+    end
     self
   end
 
@@ -1375,7 +1381,10 @@ class Dir
     end
     return rows unless block_given?
 
-    rows.each { |name, type| yield name, type }
+    rows.each do |name, type|
+      yield name, type
+      open_names
+    end
     nil
   end
 
