@@ -448,6 +448,13 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-Ilib", "-rfoo", "-e", "p Foo, $LOADED_FEATURES.grep(/foo/).size, $LOAD_PATH.include?(File.expand_path('lib'))")
   end
 
+  # -rrubygems is the gem prelude's own load, not a second one that its
+  # Gem autoload would start while rubygems.rb loads.
+  def test_requiring_rubygems_with_r
+    same_as_ruby("-rrubygems", "-e", "p Gem::VERSION.is_a?(String), $LOADED_FEATURES.grep(/rubygems.rb\\z/).size")
+    same_as_ruby("-rrubygems", "-e", "p 1")
+  end
+
   def test_s_x_and_c_dir
     same_as_ruby("-s", "s.rb", "-x", "-foo=bar", "-a-b", "z")
     same_as_ruby("-s", "s.rb", "-a.b")

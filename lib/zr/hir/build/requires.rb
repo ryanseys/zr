@@ -73,10 +73,11 @@ module Zr
         # `call` makes this node only for a literal feature.
         feature = literal_feature(node) #: String
         if node.name == :require && %w[rubygems bundled_gems].include?(feature.to_s.delete_suffix(".rb")) && !@loader.ahead?(@file) &&
-           (@loader.own?(@file) || @loader.gem_file?(@file)) &&
+           (@loader.own?(@file) || @loader.gem_file?(@file) || @file == Library::Roots::SWITCHES) &&
            @loader.boots_gems?
-          # The prelude loaded rubygems as the program booted.
-          gems!(:Gem)
+          # The prelude loaded rubygems as the program booted. A -r of it
+          # (the switches' file) is the program's too.
+          @loader.gems!(:Gem)
           return Literal.new(false, line)
         end
         if node.name == :require && preloaded?(feature)
