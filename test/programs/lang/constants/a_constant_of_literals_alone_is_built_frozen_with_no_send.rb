@@ -8,8 +8,16 @@ class Hash; def freeze = raise("Hash#freeze called"); end
 class String; def freeze = raise("String#freeze called"); end
 FLAT = [1, :a, nil, true, 2.5, -3]
 p FLAT, FLAT.frozen?
-DEEP = [1, "s", { k: "v", j: [2, :z, "w"] }, __FILE__, 1r]
-p DEEP.size, DEEP.frozen?, DEEP[1].frozen?, DEEP[2].frozen?, DEEP[2][:k].frozen?, DEEP[2][:j].frozen?, DEEP[2][:j][2].frozen?, DEEP[3].frozen?
+DEEP = [1, "s", { k: "v", j: [2, :z, "w"] }, __LINE__, 1r]
+p DEEP.size, DEEP.frozen?, DEEP[1].frozen?, DEEP[2].frozen?, DEEP[2][:k].frozen?, DEEP[2][:j].frozen?, DEEP[2][:j][2].frozen?, DEEP[3]
+# `__FILE__` is no literal: its String is the program's own and not
+# frozen, so a constant of it must be shareable already, and is not.
+begin
+  WHERE = [1, __FILE__]
+rescue Ractor::IsolationError => e
+  p e.message
+end
+p defined?(WHERE)
 p Ractor.shareable?(DEEP)
 p DEEP[1].equal?(DEEP[1]), DEEP[1] == "s"
 TABLE = { 1 => :one, two: 2, nil => false }

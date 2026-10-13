@@ -4,15 +4,20 @@
       (frozen shared "a")
       (frozen shared "c")))
   (const-set DEEP
-    (array frozen
-      (int 1)
-      (frozen shared "s")
-      (hash frozen
-        (sym :k)
-        (array frozen
-          (int 2)
-          (sym :z)))
-      (frozen shared "shareable.rb")))
+    (send make_shareable
+      (const Ractor)
+      (array
+        (int 1)
+        (frozen shared "s")
+        (hash frozen
+          (sym :k)
+          (array frozen
+            (int 2)
+            (sym :z)))
+        (send ensure_shareable
+          (const Ractor)
+          (path "shareable.rb")
+          (str "DEEP")))))
   (const-set WITH_RANGE
     (send make_shareable
       (const Ractor)

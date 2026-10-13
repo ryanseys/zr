@@ -250,8 +250,8 @@ module Zr
         when Prism::RangeNode
           value.low = frozen_literal(node.left, value.low, line) if node.left
           value.high = frozen_literal(node.right, value.high, line) if node.right
-        when Prism::StringNode, Prism::SourceFileNode
-          text = (value.is_a?(PathLiteral) ? value.literal : value).value #: String
+        when Prism::StringNode
+          text = value.value #: String
           return FrozenString.new(text, line, text.encoding == ::Encoding::UTF_8)
         end
         value
@@ -292,17 +292,18 @@ module Zr
       end
 
       # Whether a value is built only of literals, so a freeze cannot
-      # affect an object that the program still uses. A Range with literal
-      # ends counts as the constant's own value, but not as an element:
-      # compile.c's static_literal_node_p, which reads an Array's or a
-      # Hash's elements, has no case for it, so `[(1..2)]` uses
-      # make_shareable.
+      # affect an object that the program still uses. `__FILE__` is not
+      # one (pm_static_literal_value has no case for it), so its String
+      # must be shareable already. A Range with literal ends counts as the
+      # constant's own value, but not as an element: compile.c's
+      # static_literal_node_p, which reads an Array's or a Hash's
+      # elements, has no case for it, so `[(1..2)]` uses make_shareable.
       #: (Prism::node? node, ?top: bool) -> bool
       def shareable_literal?(node, top: true)
         case node
         when Prism::IntegerNode, Prism::FloatNode, Prism::RationalNode, Prism::ImaginaryNode,
              Prism::SymbolNode, Prism::StringNode, Prism::NilNode, Prism::TrueNode, Prism::FalseNode,
-             Prism::RegularExpressionNode, Prism::SourceFileNode, Prism::SourceLineNode, Prism::SourceEncodingNode
+             Prism::RegularExpressionNode, Prism::SourceLineNode, Prism::SourceEncodingNode
           true
         when Prism::ArrayNode then node.elements.all? { |e| shareable_literal?(e, top: false) }
         when Prism::HashNode

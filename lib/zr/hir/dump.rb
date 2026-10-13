@@ -56,6 +56,8 @@ module Zr
           lines[-1] += ")"
         when Literal
           lines << "#{pad}(#{kind(n.value)} #{n.value.inspect})"
+        when PathLiteral
+          lines << "#{pad}(path #{n.literal.value.inspect})"
         when SelfRef
           lines << "#{pad}(self)"
         when Def then dump_def(n, depth, lines)

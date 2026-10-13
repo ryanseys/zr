@@ -1,2 +1,0 @@
-lang/constants/a_constant_of_literals_alone_is_built_frozen_with_no_send.rb:11:in 'RubyVM::FrozenCore.ensure_shareable': cannot assign unshareable object to DEEP (Ractor::IsolationError)
-	from lang/constants/a_constant_of_literals_alone_is_built_frozen_with_no_send.rb:11:in '<main>'
