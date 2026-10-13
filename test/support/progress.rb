@@ -12,8 +12,12 @@ module Zr
     # one more time at the end. Each failure's full report also goes to
     # FAILURES as it happens, so you can read a diff before the run ends.
     module Progress
-      PATH = File.expand_path("../../tmp/test-progress.txt", __dir__)
-      FAILURES = File.expand_path("../../tmp/test-failures.txt", __dir__)
+      # `ZR_TEST_TMP` moves these files: a suite that a test starts
+      # (test/unit/fork_pool_test.rb) must not write over the run that
+      # started it.
+      TMP = ENV.fetch("ZR_TEST_TMP") { File.expand_path("../../tmp", __dir__) }
+      PATH = File.join(TMP, "test-progress.txt")
+      FAILURES = File.join(TMP, "test-failures.txt")
       EVERY = 1.0
 
       def self.minitest_plugin_init(options)

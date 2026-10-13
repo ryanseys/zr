@@ -2,6 +2,7 @@
 
 require "fileutils"
 require "minitest"
+require_relative "progress"
 
 module Zr
   module Test
@@ -13,7 +14,7 @@ module Zr
     # --only-failures keeps the status of each example.
     module LastFailures
       ROOT = File.expand_path("../..", __dir__)
-      PATH = File.join(ROOT, "tmp", "zr-dev-test", "failed.txt")
+      PATH = File.join(Progress::TMP, "zr-dev-test", "failed.txt")
 
       # The lines that the runs so far left, or none.
       def self.read(path = PATH) = File.file?(path) ? File.readlines(path, chomp: true).reject(&:empty?) : []

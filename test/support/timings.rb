@@ -2,6 +2,7 @@
 
 require "fileutils"
 require "minitest"
+require_relative "progress"
 
 module Zr
   module Test
@@ -19,7 +20,7 @@ module Zr
     # test that did not keeps its old one.
     module Timings
       ROOT = File.expand_path("../..", __dir__)
-      DIR = File.join(ROOT, "tmp", "zr-dev-test")
+      DIR = File.join(Progress::TMP, "zr-dev-test")
       TABLE = File.join(DIR, "times.tsv")
       JOURNAL = /\Atimes-(\d+)\.tsv\z/
 
