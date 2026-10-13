@@ -102,11 +102,16 @@ class Range
 
       n = Primitive.zr_index_operand_m(n)
       raise ArgumentError, +"negative array size (or size too big)" if n < 0
-      # Every element is walked, a count of zero too.
-      return elements.max(n) unless @begin.nil?
-      raise TypeError, +"can't iterate from NilClass" unless @end.is_a?(Integer)
 
-      return counted_down(n)
+      # The first n of reverse_each, as range_max takes them: a count of
+      # zero still starts the walk.
+      top = []
+      reverse_each do |v|
+        break if top.size >= n
+
+        top << v
+      end
+      return top
     end
 
     c = @begin.nil? ? -1 : (@begin <=> @end)
@@ -224,16 +229,6 @@ class Range
     [min, max]
   end
 
-  # `n` values down from an Integer end, for a beginless range.
-  def counted_down(n)
-    Primitive.attr! :hidden
-    n = Primitive.zr_index_operand_m(n)
-    raise ArgumentError, +"negative array size (or size too big)" if n < 0
-
-    top = @excl ? @end - 1 : @end
-    Array.new(n) { |i| top - i }
-  end
-
   def exclude_end? = @excl ? true : false
 
   def each
@@ -325,12 +320,17 @@ class Range
     self
   end
 
+  # range_reverse_size: the count down from the end, which must be one
+  # that a walk can start from; the TypeError names the end.
   def reverse_size
     Primitive.attr! :hidden
-    raise TypeError, "can't iterate from #{@end.class}" if @end.nil?
-    return Float::INFINITY if @begin.nil? && @end.is_a?(Integer)
+    cant = -> { raise TypeError, "can't iterate from #{@end.class}" }
+    cant.call if @end.nil?
+    return @end.is_a?(Numeric) ? size : cant.call if @begin.is_a?(Integer)
+    return @end.is_a?(Integer) ? Float::INFINITY : cant.call if @begin.nil?
 
-    size
+    cant.call unless @begin.respond_to?(:succ) && !@begin.is_a?(Time)
+    nil
   end
 
   def to_a
@@ -416,13 +416,21 @@ class Range
   # convert with to_int) covers; a range of Strings compares single
   # ASCII bytes, else walks; any other range walks, as
   # Enumerable#include? does.
+  # range_include_internal: a range of numbers or of Times covers, a range
+  # of two Strings compares the Strings, and any other range iterates
+  # (Enumerable#include?), except that a beginless and endless range takes
+  # any number or Time, and refuses anything else, as does a range with
+  # one open end.
   def include?(v)
-    unless @begin.is_a?(String) || @end.is_a?(String)
-      return covers_value?(v) if linear?(@begin) || linear?(@end) || Integer.try_convert(@begin) || Integer.try_convert(@end)
+    if linear?(@begin) || linear?(@end) || Integer.try_convert(@begin) || Integer.try_convert(@end)
+      return covers_value?(v)
+    end
+    unless @begin.is_a?(String) && @end.is_a?(String)
+      return true if @begin.nil? && @end.nil? && linear?(v)
+      raise TypeError, +"cannot determine inclusion in beginless/endless ranges" if @begin.nil? || @end.nil?
 
       return super
     end
-    raise TypeError, +"cannot determine inclusion in beginless/endless ranges" if @begin.nil? || @end.nil?
 
     v = String.try_convert(v)
     return false if v.nil?
