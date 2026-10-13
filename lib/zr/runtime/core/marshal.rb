@@ -16,7 +16,7 @@ module Marshal
 
       io.binmode if io.respond_to?(:binmode)
     end
-    out = Writer.new(limit).run(obj)
+    out = Writer.new(limit, io).run(obj)
     return out if io.nil?
 
     io.write(out)
@@ -135,8 +135,9 @@ module Marshal
 
   # The tags, by the character each one writes.
   class Writer
-    def initialize(limit)
+    def initialize(limit, io = nil)
       @limit = limit
+      @io = io
       @out = +"".b
       @objects = {}.compare_by_identity
       @symbols = {}
@@ -210,7 +211,7 @@ module Marshal
       # A String, Regexp, Array or Hash writes by its builtin type, which an
       # instance of a copy of one of them (`String.clone`) keeps.
       builtin = Primitive.zr_builtin_class_m(obj)
-      if builtin.equal?(String) then uclass(obj, String) << '"' << bytes(obj)
+      if builtin.equal?(String) then uclass(obj, String) << '"' << payload(obj)
       elsif builtin.equal?(Regexp) then uclass(obj, Regexp) << "/" << bytes(obj.source) << (obj.options & 0xff).chr
       elsif builtin.equal?(Array) then array(obj, limit)
       elsif builtin.equal?(Hash) then hash(obj, limit)
@@ -499,6 +500,20 @@ module Marshal
       hex = n.abs.to_s(16)
       words = [hex.rjust((hex.bytesize + 3) / 4 * 4, "0")].pack("H*").reverse
       (n < 0 ? "-" : "+") + long(words.bytesize / 2) + words
+    end
+
+    # w_bytes with a port: the length goes out first, and a buffer that
+    # holds a stdio BUFSIZ or more goes to the port's write. A write that
+    # changes the string then makes the dump refuse it.
+    def payload(str)
+      size = str.bytesize
+      @out << long(size)
+      if @io && @out.bytesize >= 1024
+        @io.write(@out.dup)
+        @out.clear
+        raise RuntimeError, "string modified during dump" if str.bytesize != size
+      end
+      str.b
     end
 
     def bytes(text)
