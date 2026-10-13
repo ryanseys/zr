@@ -384,17 +384,35 @@ module Zr::Kern
 
   # The singleton class of `from`, given to `to`: an object that a ractor
   # moves keeps its singleton methods (ractor.c moves the class with its
-  # object). Nothing happens when `from` has no singleton class.
-  #: (value, value) -> value
-  def zr_move_singleton_m(from, to)
+  # object). The ractor numbered `owner` takes the class and the singleton
+  # classes above it (rb_class_take_ownership). Nothing happens when
+  # `from` has no singleton class.
+  #: (value, value, value) -> value
+  def zr_move_singleton_m(from, to, owner)
     klass = RBasic[from].klass
     if (RBasic[klass].flags & FL_SINGLETON) != 0
       RBasic[to].klass = klass
       RClass[klass].attached = to
       zr_write_barrier(klass, to)
       zr_methods_changed()
+      k = klass
+      while k != QNIL
+        ClassExt[RClass[k].ext].owner = zr_fix2long(owner)
+        k = zr_own_metaclass(k)
+      end
     end
     Machine.value(QNIL)
+  end
+
+  # rb_class_check_singleton_movable: the singleton class of `obj` moves
+  # with it, so it and the singleton classes above it may hold only
+  # shareable values.
+  #: (value) -> value
+  def zr_singleton_movable_m(obj)
+    if zr_special_p(obj) || !zr_singleton_p(RBasic[obj].klass)
+      return Machine.value(QNIL)
+    end
+    zr_class_tables_refuse(RBasic[obj].klass, Machine.id(:move_entry), 64)
   end
 
   # Every instance variable name of `obj` as a Symbol, the runtime's

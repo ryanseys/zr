@@ -85,7 +85,7 @@ class Ractor
     def send(obj, move: false)
       raise ClosedError, "The port was already closed" if closed?
 
-      queue << (move ? Ractor.__send__(:hand_over, obj) : Ractor.__send__(:copy, obj))
+      queue << (move ? Ractor.__send__(:hand_over, obj, owner) : Ractor.__send__(:copy, obj))
       Thread.__send__(:rouse, waiters.dup)
       self
     end
@@ -525,6 +525,33 @@ class Ractor
     raise IsolationError, "can not set class variable #{name} of #{owner}, which was created by another Ractor"
   end
 
+  # init_copy_owner_check: a copy of a class or module that another
+  # ractor made is the copying ractor's, so it takes no unshareable value.
+  def self.copy_entry(_owner, name, value)
+    Primitive.attr! :hidden
+    return if shareable?(value)
+
+    raise IsolationError, "can not copy a class/module created by another Ractor because " \
+                          "#{entry_kind(name)} #{name} refers to an unshareable object"
+  end
+
+  # rb_class_check_singleton_movable: the receiver of a moved object
+  # owns its singleton class, so the sender's unshareable values may not
+  # go with it.
+  def self.move_entry(_owner, name, value)
+    Primitive.attr! :hidden
+    return if shareable?(value)
+
+    raise IsolationError, "can not move an object whose singleton class has " \
+                          "#{entry_kind(name)} #{name} referring to an unshareable object"
+  end
+
+  def self.entry_kind(name)
+    Primitive.attr! :hidden
+    name.start_with?("@") ? "variable" : "constant"
+  end
+  private_class_method :copy_entry, :move_entry, :entry_kind
+
   def self.gvar_isolation!(name)
     Primitive.attr! :hidden
     raise IsolationError, "can not access global variable #{name} from non-main Ractor"
@@ -735,8 +762,7 @@ class Ractor
 
   # The copy of a graph that `copyable?` passed. An object that appears
   # twice in the graph is copied once, so a cycle comes out a cycle. A
-  # move (`given`) collects the nodes that the sender gives up, and keeps
-  # each one's singleton class.
+  # move (`given`) collects the nodes that the sender gives up.
   def self.cross(value, seen, deeply, given = nil)
     Primitive.attr! :hidden
     return value if immutable?(value) || (!deeply && shareable?(value)) || location?(value)
@@ -745,10 +771,7 @@ class Ractor
 
     copy = Primitive.zr_copy_cell(value)
     seen[value] = copy
-    if given
-      given << value
-      Primitive.zr_move_singleton_m(value, copy)
-    end
+    given << value if given
     fill(value, copy, seen, deeply, given)
     Primitive.zr_ivar_all_names_m(value).each do |name|
       Primitive.zr_state_set(copy, name, cross(Primitive.zr_hidden_get(value, name), seen, deeply, given))
@@ -808,11 +831,12 @@ class Ractor
   end
   private_class_method :struct_values
 
-  # A value that the sender gives up: the receiver gets the graph, and
-  # every node of it that the sender still points at becomes a husk. A
-  # graph with an unmovable object in it is refused before anything
-  # moves, so the sender keeps what it had.
-  def self.hand_over(value)
+  # A value that the sender gives up to `receiver`: the receiver gets the
+  # graph, with each node's singleton class, which it then owns, and every
+  # node that the sender still points at becomes a husk. A graph with an
+  # unmovable object in it is refused before anything moves, so the
+  # sender keeps what it had.
+  def self.hand_over(value, receiver)
     Primitive.attr! :hidden
     return value if immutable?(value) || shareable?(value)
 
@@ -820,7 +844,9 @@ class Ractor
     given = []
     seen = {}.compare_by_identity
     copy = cross(value, seen, false, given)
+    taker = receiver.equal?(main) ? 0 : Primitive.zr_hidden_get(receiver, :__number__)
     given.each do |node|
+      Primitive.zr_move_singleton_m(node, seen[node], taker)
       node.__send__(:moved_into, seen[node]) if IO === node
       Primitive.zr_moved_m(node, MovedObject)
     end
@@ -828,13 +854,16 @@ class Ractor
   end
   private_class_method :hand_over
 
-  # move_preflight: C data moves only when it is an IO.
+  # move_preflight: C data moves only when it is an IO, and a singleton
+  # class moves with its object only when it holds shareable values.
   def self.unmovable!(value, seen)
     Primitive.attr! :hidden
     return if immutable?(value) || shareable?(value) || seen.key?(value) || location?(value)
-    raise Error, "can not move a #{Primitive.zr_real_class(value)} object" if c_data?(value) && !(IO === value)
 
     seen[value] = true
+    Primitive.zr_singleton_movable_m(value)
+    raise Error, "can not move a #{Primitive.zr_real_class(value)} object" if c_data?(value) && !(IO === value)
+
     each_ref(value) { |ref| unmovable!(ref, seen) }
     instance_refs(value) { |ref| unmovable!(ref, seen) }
   end

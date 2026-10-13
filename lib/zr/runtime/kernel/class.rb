@@ -1246,6 +1246,67 @@ module Zr::Kern
     zr_ractor_refuse(Machine.id(:foreign_class!), klass, Machine.value(QNIL), Machine.value(QNIL))
   end
 
+  # Gives the Ractor class's refusal `mid` each value in the own tables of
+  # `klass` and of up to `levels - 1` of its own singleton classes above
+  # it: the constants (but an autoload's), then the instance and the
+  # class variables. The refusal raises for an unshareable value: a class
+  # that another ractor made, copied (init_copy_owner_check), or a
+  # singleton class that moves with its object
+  # (rb_class_check_singleton_movable).
+  #: (value, word, word) -> value
+  def zr_class_tables_refuse(klass, mid, levels)
+    k = klass
+    n = 0
+    while k != QNIL && n < levels
+      ext = RClass[k].ext
+      i = 0
+      while i < ClassExt[ext].clen
+        e = ClassExt[ext].ctab + (i * CEntry.size)
+        if CEntry[e].value != QUNDEF
+          r = zr_ractor_refuse(mid, k, zr_sym(CEntry[e].id), CEntry[e].value)
+          return r if r == QUNDEF
+        end
+        i += 1
+      end
+      r = zr_ivtab_refuse(zr_ivtab(k), k, mid)
+      return r if r == QUNDEF
+      r = zr_ivtab_refuse(Machine.ptr(ClassExt[ext].cv), k, mid)
+      return r if r == QUNDEF
+      k = zr_own_metaclass(k)
+      n += 1
+    end
+    Machine.value(QNIL)
+  end
+
+  # Gives the refusal `mid` each variable of the table `t` (0 for none)
+  # whose name is an instance or a class variable's.
+  #: (ptr, value, word) -> value
+  def zr_ivtab_refuse(t, klass, mid)
+    if t == 0
+      return Machine.value(QNIL)
+    end
+    i = 0
+    while i < IvTab[t].len
+      e = IvTab[t].rows + (i * IvEntry.size)
+      if Machine.u8(Machine.load8(zr_symbol_name_ptr(IvEntry[e].id), 0)) == 64
+        r = zr_ractor_refuse(mid, klass, zr_sym(IvEntry[e].id), IvEntry[e].value)
+        return r if r == QUNDEF
+      end
+      i += 1
+    end
+    Machine.value(QNIL)
+  end
+
+  # The singleton class of `klass` itself (class_own_metaclass), or nil.
+  #: (value) -> value
+  def zr_own_metaclass(klass)
+    meta = RBasic[klass].klass
+    if zr_singleton_p(meta) && RClass[meta].attached == klass
+      return meta
+    end
+    Machine.value(QNIL)
+  end
+
   # Calls the Ractor class's refusal `mid` with three values: the class
   # keeps the words of each refusal, and decides some by the value.
   #: (word, value, value, value) -> value

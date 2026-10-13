@@ -238,6 +238,13 @@ module Zr::Kern
     if zr_singleton_p(orig)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't copy singleton class"), 26)
     end
+    # init_copy_owner_check: the copy is the copying ractor's, so a class
+    # that another ractor made copies only shareable values, its singleton
+    # class's too.
+    if !zr_class_owned_p(orig)
+      r = zr_class_tables_refuse(orig, Machine.id(:copy_entry), 2)
+      return r if r == QUNDEF
+    end
     # The copy is of the original's own class, a subclass of Module too.
     klass = zr_real_class(orig)
     copy = zr_class_alloc(zr_type(orig), RClass[orig].superclass, klass)

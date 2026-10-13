@@ -1,0 +1,23 @@
+clone plain: "nil"
+dup plain: "nil"
+clone const: "Ractor::IsolationError: can not copy a class/module created by another Ractor because constant LIST refers to an unshareable object"
+dup const: "Ractor::IsolationError: can not copy a class/module created by another Ractor because constant LIST refers to an unshareable object"
+clone ivar: "Ractor::IsolationError: can not copy a class/module created by another Ractor because variable @list refers to an unshareable object"
+clone cvar: "Ractor::IsolationError: can not copy a class/module created by another Ractor because variable @@list refers to an unshareable object"
+clone meta const: "Ractor::IsolationError: can not copy a class/module created by another Ractor because constant LIST refers to an unshareable object"
+clone meta ivar: "Ractor::IsolationError: can not copy a class/module created by another Ractor because variable @list refers to an unshareable object"
+dup module const: "Ractor::IsolationError: can not copy a class/module created by another Ractor because constant LIST refers to an unshareable object"
+clone shareable state: "nil"
+main clones: [nil, nil]
+copy is owned: [:hi, :bye, []]
+own class: []
+move singleton methods: [Object, [:hi]]
+move singleton ivar: Ractor::IsolationError: can not move an object whose singleton class has variable @list referring to an unshareable object
+sender keeps it: []
+move singleton const: Ractor::IsolationError: can not move an object whose singleton class has constant LIST referring to an unshareable object
+move singleton cvar: Ractor::IsolationError: can not move an object whose singleton class has variable @@list referring to an unshareable object
+move meta singleton: Ractor::IsolationError: can not move an object whose singleton class has variable @list referring to an unshareable object
+move shareable singleton: [Object, []]
+move nested singleton: Ractor::IsolationError: can not move an object whose singleton class has variable @list referring to an unshareable object
+nested sender keeps it: 1
+receiver owns the singleton: [:hi, :bye, []]
