@@ -1,0 +1,18 @@
+[:deprecated] line 10: warning: the fallback to Object for alias of 'puts' in module 'N' is deprecated and will be removed in Ruby 4.3
+[:deprecated] line 11: warning: the fallback to Object for alias of 'puts' in module 'N2' is deprecated and will be removed in Ruby 4.3
+[:deprecated] line 12: warning: the fallback to Object for alias of 'object_id' in module 'N3' is deprecated and will be removed in Ruby 4.3
+[:deprecated] line 14: warning: the fallback to Object for alias of 'frozen?' in module '#<Module:0xADDR>' is deprecated and will be removed in Ruby 4.3
+true
+N4
+[:deprecated] line 29: warning: aliasing C#q defined in a prepended module P is deprecated and will be removed in Ruby 4.3
+:p
+[:deprecated] line 32: warning: aliasing C2#q defined in a prepended module P is deprecated and will be removed in Ruby 4.3
+:p
+:d
+[:deprecated] line 49: warning: aliasing #<Class:0xADDR>#hi defined in a prepended module #<Module:0xADDR> is deprecated and will be removed in Ruby 4.3
+:pre
+[:deprecated] line 54: warning: aliasing #<Class:0xADDR>#t defined in a prepended module #<Module:0xADDR> is deprecated and will be removed in Ruby 4.3
+:t
+[:deprecated] line 65: warning: the fallback to Object for alias of 'puts' in module 'N7' is deprecated and will be removed in Ruby 4.3
+"stop: deprecated"
+false

@@ -637,13 +637,27 @@ module Zr::Kern
       e = zr_find_method(ClassExt[RClass[klass].ext].refined, old_id)
     end
     # A module's ancestor list is only the module, so the lookup then
-    # tries Object's methods (and Kernel's), as rb_alias does.
+    # tries Object's methods (and Kernel's), as rb_alias does. That
+    # fallback is deprecated (#22276).
+    fallback = false
     if e == 0 && zr_type(klass) == T_MODULE
       e = zr_find_method(zr_global(G_OBJECT), old_id)
+      fallback = true
     end
     if e == 0
       # With the name and the receiver, which did_you_mean reads.
       return zr_undefined_method(klass, old_id, VIS_PUBLIC)
+    end
+    if fallback
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("the fallback to Object for alias of '"), 37)
+      zr_buf_sym(b, old_id)
+      zr_buf_push(b, Machine.bytes("' in module '"), 13)
+      zr_buf_str(b, zr_class_path(klass))
+      zr_buf_push(b, Machine.bytes("'"), 1)
+      r = zr_alias_deprecated(b)
+      return r if r == QUNDEF
     end
     vis = MEntry[e].vis
     # A copy that `private :m` made of an ancestor's method (CRuby's
@@ -658,6 +672,26 @@ module Zr::Kern
       e = zr_special_p(above) ? Machine.ptr(0) : zr_find_method(above, old_id)
       if e == 0
         return zr_undefined_method(klass, old_id, VIS_PUBLIC)
+      end
+    end
+    # An original that a module prepended to the class holds is deprecated
+    # (#22273): the lookup will start at the class's origin.
+    if !fallback && !zr_special_p(holder) && zr_origin(klass) != klass
+      node = RClass[klass].superclass
+      while !zr_special_p(node) && node != zr_origin(klass) && node != holder
+        node = RClass[node].superclass
+      end
+      if node == holder && node != zr_origin(klass)
+        b = Machine.slot(Buf.size)
+        zr_buf_init(b)
+        zr_buf_push(b, Machine.bytes("aliasing "), 9)
+        zr_buf_str(b, zr_class_path(klass))
+        zr_buf_push(b, Machine.bytes("#"), 1)
+        zr_buf_sym(b, old_id)
+        zr_buf_push(b, Machine.bytes(" defined in a prepended module "), 31)
+        zr_buf_str(b, zr_class_path(owner))
+        r = zr_alias_deprecated(b)
+        return r if r == QUNDEF
       end
     end
     # An alias named initialize, initialize_copy and the like is private,
@@ -691,6 +725,21 @@ module Zr::Kern
     zr_method_copy(klass, new_id, e, MEntry[e].meta, vis, true)
     MEntry[zr_find_method_at(zr_origin(klass), new_id)].label = label
     zr_method_added(klass, new_id)
+  end
+
+  # Sends a deprecation of alias to `Warning`, with the version that
+  # removes it, as rb_warn_scheduled_deprecation words it. QUNDEF when
+  # the warning raises. The send runs Ruby, so the task's `found`, which
+  # the alias's copy reads (zr_method_copy), is kept around it.
+  #: (ptr) -> value
+  def zr_alias_deprecated(b)
+    zr_buf_push(b, Machine.bytes(" is deprecated and will be removed in Ruby 4.3"), 46)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(zr_buf_take(b)))
+    found = Task[zr_task()].found
+    r = zr_send(zr_const_get_at(zr_global(G_OBJECT), Machine.id(:Warning)), Machine.id(:deprecated), 1, slot)
+    Task[zr_task()].found = found
+    r
   end
 
   #: (value, word, ptr, value, value) -> value
