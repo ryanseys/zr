@@ -1455,6 +1455,7 @@ module Zr::Kern
     Machine.store64(zr_marking(), 0, Machine.word(zr_fix(3)))
     zr_mark_kernel_roots()
     zr_mark_finalizer_queue()
+    zr_mark_alloc_trace()
     zr_mark_c_roots()
   end
 

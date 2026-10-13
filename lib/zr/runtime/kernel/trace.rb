@@ -587,10 +587,7 @@ module Zr::Kern
       zr_ary_push(row, FrameMeta[MEntry[entry].meta].owner)
     elsif method != 0 && FrameMeta[method].kind == KIND_DEF
       zr_ary_push(row, zr_sym(FrameMeta[method].name))
-      home = rec
-      while home != 0 && Frame[home].meta != method
-        home = Frame[home].prev
-      end
+      home = zr_method_home(rec, method)
       zr_ary_push(row, zr_sym(home == 0 || zr_frame_mid(home) == 0 ? FrameMeta[method].name : zr_frame_mid(home)))
       zr_ary_push(row, zr_trace_defined_class(home, method))
     else
@@ -621,6 +618,17 @@ module Zr::Kern
       m = FrameMeta[m].parent
     end
     false
+  end
+
+  # The frame of the body of `method` (zr_method_meta_of(rec)): `rec`
+  # itself, or the frame under its blocks. 0 when no frame runs it.
+  #: (ptr, ptr) -> ptr
+  def zr_method_home(rec, method)
+    home = rec
+    while home != 0 && Frame[home].meta != method
+      home = Frame[home].prev
+    end
+    home
   end
 
   # The class of the method that frame `home` runs: where the call found

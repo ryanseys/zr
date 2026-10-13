@@ -1,0 +1,14 @@
+C1#make: "C1" :make
+C2#make: "C2" :make
+C1 block: "C1" :make_in_block
+C2 block: "C2" :make_in_block
+module method: "Maker" :made
+singleton method: nil :make
+anonymous, named later: nil :make
+frozen later: "FrozenLater" :make
+frozen at once: nil :make
+top level: nil nil
+path: ASCII-8BIT frozen=false new each time=true name kept=true
+after GC: "C1"
+C1: ["P1", "super", "C1#m"] [[C1, :helper]]
+C2: ["P2", "super", "C2#m"] [[C2, :helper]]

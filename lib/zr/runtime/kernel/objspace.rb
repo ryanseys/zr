@@ -354,13 +354,16 @@ module Zr::Kern
     attr_accessor :used #: word
     attr_accessor :on #: word
   end
-  # `meta` is the C method that made the cell, or 0 if Ruby code made it.
+  # `meta` is the method that made the cell, or 0 at the top level.
+  # `path` is the name of its class when the cell was made, or nil, as
+  # ruby keeps it; the GC marks it (zr_mark_alloc_trace).
   class AllocRow < Layout
     attr_accessor :cell #: word
     attr_accessor :file #: ptr
     attr_accessor :file_len #: word
     attr_accessor :line #: word
     attr_accessor :meta #: ptr
+    attr_accessor :path #: value
     attr_accessor :generation #: word
   end
   # Marks a record whose cell was freed. A probe skips it.
@@ -442,8 +445,32 @@ module Zr::Kern
     AllocRow[row].file = FrameMeta[meta].file
     AllocRow[row].file_len = FrameMeta[meta].file_len
     AllocRow[row].line = zr_frame_line(rec)
-    AllocRow[row].meta = zr_method_meta_of(top)
+    method = zr_method_meta_of(top)
+    AllocRow[row].meta = method
+    AllocRow[row].path = Machine.value(QNIL)
+    if method != 0
+      # One def site can define methods on several classes: the frame
+      # knows which class its method came from (zr_trace_defined_class).
+      owner = zr_trace_defined_class(zr_method_home(top, method), method)
+      if !zr_special_p(owner)
+        AllocRow[row].path = zr_alloc_class_path(owner)
+      end
+    end
     AllocRow[row].generation = Heap[zr_heap()].collections
+  end
+
+  # Marks the class names that the records keep.
+  #: () -> void
+  def zr_mark_alloc_trace
+    t = zr_alloc_trace()
+    i = 0
+    while i < AllocTrace[t].capa
+      row = AllocTrace[t].rows + (i * AllocRow.size)
+      if AllocRow[row].cell > ALLOC_GONE
+        zr_mark(AllocRow[row].path)
+      end
+      i += 1
+    end
   end
 
   # Removes the record of a freed cell.
@@ -496,14 +523,11 @@ module Zr::Kern
     out = zr_ary_new(5)
     zr_ary_push(out, zr_str_new(AllocRow[row].file, AllocRow[row].file_len))
     zr_ary_push(out, zr_fix(AllocRow[row].line))
+    path = AllocRow[row].path
+    # ruby gives a new binary String of the name each time.
+    zr_ary_push(out, path == QNIL ? path : zr_str_set_binary(zr_str_new(RString[path].ptr, RString[path].len)))
     meta = AllocRow[row].meta
-    if meta != 0 && !zr_special_p(FrameMeta[meta].owner)
-      zr_ary_push(out, zr_alloc_class_path(FrameMeta[meta].owner))
-      zr_ary_push(out, zr_sym(FrameMeta[meta].name))
-    else
-      zr_ary_push(out, Machine.value(QNIL))
-      zr_ary_push(out, Machine.value(QNIL))
-    end
+    zr_ary_push(out, meta == 0 ? Machine.value(QNIL) : zr_sym(FrameMeta[meta].name))
     zr_ary_push(out, zr_fix(AllocRow[row].generation))
     out
   end
