@@ -1363,6 +1363,13 @@ end
       if own != 0 && own != meta && FrameMeta[own].file == FrameMeta[meta].file && FrameMeta[own].line == FrameMeta[meta].line
         return own
       end
+      # A def site that a later class ran: the entry has a copy of the
+      # meta with that class as owner, which lives while the frame does.
+      # The site's own meta names the first class (zr_define_method_as).
+      own = MEntry[e].meta
+      if own != 0 && own != meta && FrameMeta[own].file == FrameMeta[meta].file && FrameMeta[own].line == FrameMeta[meta].line
+        meta = own
+      end
     end
     owner = FrameMeta[meta].owner
     if (FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN) || Frame[rec].self != owner || zr_type(owner) != T_MODULE

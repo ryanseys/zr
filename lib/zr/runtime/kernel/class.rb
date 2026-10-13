@@ -3597,6 +3597,14 @@ module Zr::Kern
   # Keeps `klass` alive as the owner of a def site's meta (G_META_OWNERS).
   #: (value) -> void
   def zr_keep_meta_owner(klass)
+    # An object's singleton class would keep the object: its methods' frames
+    # read the copy in their entry (zr_frame_label_meta).
+    if zr_singleton_p(klass)
+      attached = RClass[klass].attached
+      if zr_special_p(attached) || (zr_type(attached) != T_CLASS && zr_type(attached) != T_MODULE)
+        return
+      end
+    end
     owners = zr_global(G_META_OWNERS)
     if zr_special_p(owners)
       owners = zr_ary_new(16)

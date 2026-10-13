@@ -35,3 +35,19 @@ class C; include M; end
   Array.new(3000) { [i] * 3 }
   p Module.new.module_eval { using r; C.new.m } rescue p $!.class
 end
+
+# A singleton method def that each pass runs on a new object: the first
+# object goes, and the later frames still show the method.
+labels = []
+4.times do
+  o = Object.new
+  def o.boom = raise("e")
+  GC.start
+  Array.new(3000) { [1] * 3 }
+  begin
+    o.boom
+  rescue => e
+    labels << e.backtrace_locations[0].label
+  end
+end
+p labels
