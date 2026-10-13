@@ -160,6 +160,8 @@ module Zr
           posix_spawnattr_destroy
           posix_spawnattr_init
           posix_spawnattr_setflags
+          posix_spawnattr_setsigdefault
+          posix_spawnattr_setsigmask
           posix_spawnp
           pow
           pread
@@ -218,6 +220,7 @@ module Zr
           sigaction
           sigaltstack
           signal
+          sigprocmask
           sin
           sinh
           socket

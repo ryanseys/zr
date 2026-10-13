@@ -304,6 +304,10 @@ module Zr::Kern
     def self.posix_spawn_file_actions_destroy(p) = Machine.import
     #: (ptr) -> i32
     def self.posix_spawnattr_init(p) = Machine.import
+    #: (ptr, ptr) -> i32
+    def self.posix_spawnattr_setsigdefault(p1, p2) = Machine.import
+    #: (ptr, ptr) -> i32
+    def self.posix_spawnattr_setsigmask(p1, p2) = Machine.import
     #: (ptr, i32) -> i32
     def self.posix_spawnattr_setflags(p, i) = Machine.import
     #: (ptr) -> i32

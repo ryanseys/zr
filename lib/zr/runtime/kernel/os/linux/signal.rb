@@ -22,6 +22,8 @@ module Zr::Kern
     r
   end
 
+  SIGNAL_PIPE = 13
+
   # The four signals that end the process with ruby's bug report.
   SIGNAL_ILL = 4
   SIGNAL_ABRT = 6
@@ -98,5 +100,19 @@ module Zr::Kern
     Libc.raise(signo)
     zr_os_sigaction(Machine.i32(SIGNAL_ABRT), SIGNAL_DEFAULT, old)
     Libc.abort()
+  end
+
+  # sigprocmask's SIG_SETMASK.
+  SIG_SETMASK = 2
+
+  # Clears the signal mask, as rb_enable_interrupt does when ruby
+  # starts and disable_child_handler_fork_child does in a child: a
+  # signal that the parent blocked reaches the handlers here. The
+  # empty set is the size of musl's sigset_t, the larger one.
+  #: () -> void
+  def zr_os_unblock_signals
+    set = Machine.slot(128)
+    Libc.memset(set, Machine.i32(0), 128)
+    Libc.sigprocmask(Machine.i32(SIG_SETMASK), set, Machine.ptr(0))
   end
 end

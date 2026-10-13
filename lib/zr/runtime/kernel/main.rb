@@ -179,6 +179,7 @@ module Zr::Kern
     zr_heap_init()
     zr_fiber_pool_init()
     zr_crash_init()
+    zr_os_unblock_signals()
     zr_mcache_init()
     Machine.store64(zr_current_task_slot(), 0, Machine.word(Machine.static(:task, Task.size)))
     zr_task_init(zr_task(), zr_main_stack_limit())

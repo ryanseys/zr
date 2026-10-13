@@ -36,6 +36,32 @@ module Zr::Kern
   # Starts child processes through posix_spawn (which is not variadic) on
   # an OS that has it. `zr_os_spawn` calls this with the OS's flags.
 
+  # POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK, the same on darwin and
+  # in musl.
+  SPAWN_SIGNAL_FLAGS = 12
+
+  # A child that ruby starts (disable_child_handler_fork_child) gets
+  # SIGPIPE at its default action, even where the program ignores it, and
+  # an empty signal mask. The exec puts each caught signal back to its
+  # default, and keeps each ignored one. The set is the size of musl's
+  # sigset_t; SIGPIPE's bit is the same in darwin's.
+  #: (ptr) -> void
+  def zr_spawn_signals(attributes)
+    set = Machine.slot(128)
+    Libc.memset(set, Machine.i32(0), 128)
+    Libc.posix_spawnattr_setsigmask(attributes, set)
+    Machine.store8(set + ((SIGNAL_PIPE - 1) / 8), 0, Machine.i8(1 << ((SIGNAL_PIPE - 1) % 8)))
+    Libc.posix_spawnattr_setsigdefault(attributes, set)
+  end
+
+  # The same in a forked child, before its exec.
+  #: () -> void
+  def zr_child_signals
+    old = Machine.slot(16)
+    zr_os_sigaction(Machine.i32(SIGNAL_PIPE), SIGNAL_DEFAULT, old)
+    zr_os_unblock_signals()
+  end
+
   # Spawns `words` (an Array of Strings, program first). Returns the pid,
   # or the negated errno.
   # - `dups`: a flat Array of (child descriptor, source descriptor) pairs,
@@ -52,7 +78,8 @@ module Zr::Kern
     Libc.posix_spawn_file_actions_init(actions)
     attributes = Machine.slot(SPAWN_ATTR_LEN)
     Libc.posix_spawnattr_init(attributes)
-    Libc.posix_spawnattr_setflags(attributes, Machine.i32(flags))
+    Libc.posix_spawnattr_setflags(attributes, Machine.i32(flags | SPAWN_SIGNAL_FLAGS))
+    zr_spawn_signals(attributes)
     n = RArray[dups].len
     i = 0
     while i < n
@@ -233,6 +260,7 @@ module Zr::Kern
     end
     pid = Machine.sword(Libc.fork())
     if pid == 0
+      zr_child_signals()
       err = zr_exec_options(options)
       if err == 0
         Libc.execve(RString[path].ptr, argv, envp)

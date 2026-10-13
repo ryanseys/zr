@@ -12,6 +12,7 @@
 #   SPAWN_ACTIONS_LEN SPAWN_ATTR_LEN SC_NPROCESSORS_ONLN UTSNAME_LEN
 #   UTSNAME_FIELD RTLD_DEFAULT SIGNAL_SEGV SIGNAL_BUS SIGNAL_ILL SIGNAL_ABRT
 #   CRASH_NOTES CRASH_WRITE_FLAGS CRASH_READ_FLAGS
+#   SIGNAL_PIPE
 #
 # The OS layer of the core library, under lib/zr/runtime/core/os/<os>/, contains
 # the values that ruby gives to the constants of each OS: errno.rb,
@@ -55,6 +56,7 @@
 #   zr_os_fault_address [Ptr] => Word
 #   zr_os_c_frames       [Ptr, I32] => Word
 #   zr_os_crash_exit     [I32] => Void
+#   zr_os_unblock_signals [] => Void
 #   zr_os_poll_start     [] => Void
 #   zr_os_malloc_size    [Ptr] => Word
 #   zr_os_c_qsort        [Ptr, Word, Word, Ptr, Word] => Void

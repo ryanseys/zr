@@ -42,6 +42,9 @@ module Zr::Kern
     #: (ptr, ptr) -> i32
     def self.sigaltstack(p1, p2) = Machine.import
 
+    #: (i32, ptr, ptr) -> i32
+    def self.sigprocmask(i, p1, p2) = Machine.import
+
     #: (i32) -> i32
     def self.raise(i) = Machine.import
 

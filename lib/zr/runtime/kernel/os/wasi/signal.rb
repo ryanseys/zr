@@ -15,6 +15,7 @@ module Zr::Kern
   SIGNAL_ABRT = 6
   SIGNAL_BUS = 7
   SIGNAL_SEGV = 11
+  SIGNAL_PIPE = 13
   CRASH_NOTES = 0
 
   # open(2)'s flags: for the file of a report (O_WRONLY | O_CREAT | O_TRUNC),
@@ -52,5 +53,10 @@ module Zr::Kern
   #: (i32) -> void
   def zr_os_crash_exit(signo)
     Libc.abort()
+  end
+
+  # A module has no signal mask.
+  #: () -> void
+  def zr_os_unblock_signals
   end
 end
