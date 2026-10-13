@@ -1177,10 +1177,13 @@ module Zr::Kern
 
   # The first node of module `mod` from `start` up, where `start` is the
   # node that holds an alias (its class, when that is the class's origin),
-  # or `mod` when there is none (rb_find_defined_class_by_owner).
+  # or `mod` when there is none (rb_find_defined_class_by_owner). A module
+  # that has a prepended module of its own holds its methods in its origin,
+  # so the node is the one that shares the origin's table (#16736).
   #: (value, value) -> value
   def zr_owner_node(start, mod)
     k = start
+    ext = RClass[zr_origin(mod)].ext
     if zr_special_p(k)
       return mod
     end
@@ -1188,7 +1191,7 @@ module Zr::Kern
       k = RClass[k].attached
     end
     while k != QNIL
-      if zr_type(k) == T_ICLASS && RClass[k].attached == mod
+      if zr_type(k) == T_ICLASS && RClass[k].attached == mod && RClass[k].ext == ext
         return k
       end
       k = RClass[k].superclass
