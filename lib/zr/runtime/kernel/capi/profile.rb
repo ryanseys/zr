@@ -49,7 +49,10 @@ module Zr::Kern
           if !native
             method = zr_method_meta_of(rec)
             if method != 0
-              meta = method
+              # One def site can define methods on several classes: the
+              # method's frame shows which one it runs.
+              home = zr_method_home(rec, method)
+              meta = home == 0 ? method : zr_frame_label_meta(home)
             end
           end
           Machine.store64(buff + (i * 8), 0, Machine.word(meta))

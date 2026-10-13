@@ -202,6 +202,32 @@ class CExtProfileFramesTest < Minitest::Test
     solo = obj.solo[1]
     p [:singleton, solo.values_at(2, 3, 7, 8), solo[6].match?(/\A#<Object:0x\h{16}>\z/)]
     p [:skip, Prof.frames(1, 2).map { |row| row[4] }]
+
+    # One def site that runs under two classes names each class, also
+    # from a block in it and through an alias; and a prepended class.
+    class Base; end
+    pair = [:First, :Second].map do |name|
+      Object.const_set(name, Class.new(Base) do
+        def where = Prof.frames(1, 1)
+        def where_in_block = [1].map { Prof.frames(1, 1) }.first
+        alias_method :also_where, :where
+      end)
+    end
+    pair.each do |klass|
+      %i[where where_in_block also_where].each do |name|
+        row = klass.new.public_send(name).first
+        p [klass, name, row.values_at(2, 3, 4, 6, 7, 8, 9)]
+      end
+    end
+    module Ahead; end
+    class Behind; prepend Ahead; def where = Prof.frames(1, 1); end
+    p [:prepended, Behind.new.where.first.values_at(4, 6, 9)]
+
+    # A kept frame of a method whose class is gone (freed in zr, kept by
+    # the mark in ruby) reads no freed class.
+    gone = Array.new(3) { Class.new(Base) { def keep_gone = Prof.keep }.new.keep_gone }
+    GC.start
+    show(:gone) { gone.map { |k| Prof.kept(k)[1] }.all?(/\A(#<Class:0x\h+>#)?keep_gone\z/) }
     p [:top, Prof.frames(0, 2).map { |row| row[4] }]
     show(:same) { Prof.same? }
     show(:kind) { Prof.kind }

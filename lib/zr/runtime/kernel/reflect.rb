@@ -1029,9 +1029,15 @@ module Zr::Kern
     elsif FrameMeta[meta].kind == KIND_DEF
       form = Machine.id(:method)
     end
+    # A def in a class with a prepended module has the class's origin as
+    # its owner (zr_define_method_as), which shows as the class.
+    owner = FrameMeta[meta].owner
+    if !zr_special_p(owner) && zr_type(owner) == T_ICLASS
+      owner = RClass[owner].attached
+    end
     out = zr_ary_new(3)
     zr_ary_push(out, zr_sym(form))
-    zr_ary_push(out, FrameMeta[meta].owner)
+    zr_ary_push(out, owner)
     zr_ary_push(out, FrameMeta[meta].name == 0 ? Machine.value(QNIL) : zr_sym(FrameMeta[meta].name))
     out
   end

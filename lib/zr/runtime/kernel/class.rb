@@ -3531,6 +3531,7 @@ module Zr::Kern
     end
     if t == T_ICLASS
       if RClass[RClass[v].attached].origin == v
+        zr_meta_owners_drop(RClass[v].ext, v)
         if ClassExt[RClass[v].ext].mtab != 0
           zr_xfree(ClassExt[RClass[v].ext].mtab)
         end
@@ -3539,6 +3540,7 @@ module Zr::Kern
       end
     elsif t == T_CLASS || t == T_MODULE
       ext = RClass[v].ext
+      zr_meta_owners_drop(ext, v)
       if ClassExt[ext].mtab != 0
         zr_xfree(ClassExt[ext].mtab)
       end
@@ -3570,6 +3572,27 @@ module Zr::Kern
       zr_release_data(v)
     elsif t == T_FILE
       zr_release_rfile(v)
+    end
+  end
+
+  # The metas of the methods of the freed class `klass` (or origin) that
+  # name it as their owner forget it: a profiler can keep such a meta as
+  # a frame after the class goes (capi/profile.rb). A def site's own meta
+  # keeps its first owner alive (zr_keep_meta_owner), so this changes the
+  # copies that later classes, aliases and module functions got, and the
+  # meta of a def on an object's singleton class.
+  #: (ptr, value) -> void
+  def zr_meta_owners_drop(ext, klass)
+    i = 0
+    while i < ClassExt[ext].mlen
+      e = ClassExt[ext].mtab + (i * MEntry.size)
+      if MEntry[e].meta != 0 && FrameMeta[MEntry[e].meta].owner == klass
+        FrameMeta[MEntry[e].meta].owner = Machine.value(QNIL)
+      end
+      if MEntry[e].label != 0 && FrameMeta[MEntry[e].label].owner == klass
+        FrameMeta[MEntry[e].label].owner = Machine.value(QNIL)
+      end
+      i += 1
     end
   end
 

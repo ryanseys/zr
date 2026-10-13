@@ -40,8 +40,8 @@ class RubyVM
   # rb_profile_frames, the code of the FrameMeta at `meta`
   # (kernel/capi/profile.rb). A C method's frame has no code, so no path,
   # label or first line, as ruby's entry of a C function has none. A
-  # method's frame has its class; other code (a class body, a file) has
-  # none.
+  # method's frame has its class, or none once the GC freed that class
+  # (zr_meta_owners_drop); other code (a class body, a file) has none.
   def self.profile_frame(meta, what)
     Primitive.attr! :hidden
     form, owner, name = Primitive.zr_profile_meta(meta)
@@ -53,7 +53,7 @@ class RubyVM
     when :base_label then iseq&.base_label
     when :first_lineno then iseq&.first_lineno
     when :classpath then profile_classpath(owner) unless form == :code
-    when :singleton_method_p then form != :code && owner.singleton_class?
+    when :singleton_method_p then form != :code && owner&.singleton_class? == true
     when :method_name then profile_method_name(form, name, iseq)
     when :qualified_method_name then profile_qualified(form, owner, profile_method_name(form, name, iseq))
     when :full_label then profile_full_label(form, owner, name, iseq)
@@ -88,6 +88,7 @@ class RubyVM
   # whose singleton class it is, or `#<Class:0x...>` for another object's.
   def self.profile_classpath(owner)
     Primitive.attr! :hidden
+    return nil if owner.nil?
     return owner.name || owner.inspect unless owner.singleton_class?
 
     attached = owner.attached_object
@@ -109,7 +110,7 @@ class RubyVM
   def self.profile_qualified(form, owner, method_name)
     Primitive.attr! :hidden
     return nil if method_name.nil?
-    return method_name if form == :code
+    return method_name if form == :code || owner.nil?
 
     "#{profile_classpath(owner)}#{owner.singleton_class? ? "." : "#"}#{method_name}"
   end
