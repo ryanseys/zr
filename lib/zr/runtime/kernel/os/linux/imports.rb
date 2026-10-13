@@ -39,6 +39,12 @@ module Zr::Kern
     #: (i32, ptr, ptr) -> i32
     def self.sigaction(i, p1, p2) = Machine.import
 
+    #: (ptr, ptr) -> i32
+    def self.sigaltstack(p1, p2) = Machine.import
+
+    #: (i32) -> i32
+    def self.raise(i) = Machine.import
+
     #: (ptr, word, i32) -> i32
     def self.mprotect(p, n, i) = Machine.import
 

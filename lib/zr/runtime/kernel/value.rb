@@ -252,12 +252,12 @@ module Zr::Kern
     Libc.write(2, bytes, len)
   end
 
-  # Writes a message to stderr, then aborts. It is for a bug in the
-  # runtime, never for a Ruby error.
+  # Writes ruby's bug report with the message, then aborts
+  # (zr_crash_bug). It is for a bug in the runtime, never for a Ruby
+  # error.
   #: (ptr, word) -> void
   def zr_bug(bytes, len)
-    Libc.write(2, bytes, len)
-    Libc.abort()
+    zr_crash_bug(bytes, len)
   end
 
   # libc's memmove, which is safe for ranges that overlap. Thus a caller

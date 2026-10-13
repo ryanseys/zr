@@ -30,6 +30,7 @@ module Zr
           atan
           atan2
           atanh
+          backtrace
           bind
           cbrt
           chdir
@@ -46,6 +47,7 @@ module Zr
           cos
           cosh
           crypt
+          dladdr
           dlerror
           dlopen
           dlsym
@@ -148,6 +150,7 @@ module Zr
           pipe
           posix_memalign
           posix_openpt
+          posix_spawn
           posix_spawn_file_actions_addchdir_np
           posix_spawn_file_actions_addclose
           posix_spawn_file_actions_adddup2
@@ -179,6 +182,7 @@ module Zr
           ptsname
           pwrite
           qsort_r
+          raise
           read
           readdir
           readlink
@@ -212,6 +216,7 @@ module Zr
           setuid
           shutdown
           sigaction
+          sigaltstack
           signal
           sin
           sinh

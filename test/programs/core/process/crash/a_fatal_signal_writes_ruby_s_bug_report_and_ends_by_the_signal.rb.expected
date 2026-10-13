@@ -1,0 +1,72 @@
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8: [BUG] Segmentation fault at 0x...
+true
+""
+["Control frame information", "Ruby level backtrace information", "Threading information", "Other runtime information"]
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in '<main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:24:in 'block in <main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'fork'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:15:in 'block in report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'block in crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'kill'
+["Total ractor count: 1", "Ruby thread count for this ractor: 1"]
+["* Loaded script: core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb", "* Ruby Box: disabled"]
+true
+[true, true, nil]
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8: [BUG] Bus Error at 0x...
+true
+""
+["Control frame information", "Ruby level backtrace information", "Threading information", "Other runtime information"]
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in '<main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:24:in 'block in <main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'fork'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:15:in 'block in report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'block in crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'kill'
+["Total ractor count: 1", "Ruby thread count for this ractor: 1"]
+["* Loaded script: core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb", "* Ruby Box: disabled"]
+true
+[true, true, nil]
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8: [BUG] Illegal instruction at 0x...
+true
+""
+["Control frame information", "Ruby level backtrace information", "Threading information", "Other runtime information"]
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in '<main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:24:in 'block in <main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'fork'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:15:in 'block in report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'block in crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'kill'
+["Total ractor count: 1", "Ruby thread count for this ractor: 1"]
+["* Loaded script: core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb", "* Ruby Box: disabled"]
+true
+[true, true, nil]
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8: [BUG] Aborted at 0x...
+true
+""
+["Control frame information", "Ruby level backtrace information", "Threading information", "Other runtime information"]
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in '<main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:23:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:24:in 'block in <main>'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:12:in 'fork'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:15:in 'block in report'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'each'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'block in crash'
+core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb:8:in 'kill'
+["Total ractor count: 1", "Ruby thread count for this ractor: 1"]
+["* Loaded script: core/process/crash/a_fatal_signal_writes_ruby_s_bug_report_and_ends_by_the_signal.rb", "* Ruby Box: disabled"]
+true
+[true, true, nil]

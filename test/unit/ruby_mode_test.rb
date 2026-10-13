@@ -212,6 +212,17 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     refute_includes parse("--disable=gems", "x.rb").prelude.to_s, "remove_const"
   end
 
+  # ruby_set_crash_report: the template replaces RUBY_CRASH_REPORT in the
+  # program; RUBYOPT may give it, and it needs a value.
+  def test_crash_report_names_where_a_bug_report_goes
+    assert_includes parse("--crash-report=%p.log", "x.rb").prelude.to_s, 'Primitive.zr_crash_report_set("%p.log")'
+    assert_includes parse("--crash-report", "|/usr/bin/tee r.log", "x.rb").prelude.to_s, 'Primitive.zr_crash_report_set("|/usr/bin/tee r.log")'
+    assert_includes parse("x.rb", env: { "RUBYOPT" => "--crash-report=r.log" }).prelude.to_s, 'Primitive.zr_crash_report_set("r.log")'
+    refute_includes parse("x.rb").prelude.to_s, "zr_crash_report_set"
+    assert_equal "missing argument for --crash-report", assert_raises(RubyOptions::Invalid) { parse("--crash-report=", "x.rb") }.message
+    assert_equal "missing argument for --crash-report", assert_raises(RubyOptions::Invalid) { parse("--crash-report") }.message
+  end
+
   def test_zrs_own_flags_go_to_zr
     assert_equal %w[--trace --gem csv=3.3.6], parse("--trace", "--gem", "csv=3.3.6", "x.rb").zr
   end

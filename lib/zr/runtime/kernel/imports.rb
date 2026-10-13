@@ -81,6 +81,8 @@ module Zr::Kern
     def self.dlopen(p, i) = Machine.import
     #: (ptr, ptr) -> ptr
     def self.dlsym(p1, p2) = Machine.import
+    #: (ptr, ptr) -> i32
+    def self.dladdr(p1, p2) = Machine.import
     #: () -> ptr
     def self.dlerror = Machine.import
     #: (ptr, i32, word) -> ptr
@@ -286,6 +288,8 @@ module Zr::Kern
 
     #: (ptr, ptr, ptr, ptr, ptr, ptr) -> i32
     def self.posix_spawnp(p1, p2, p3, p4, p5, p6) = Machine.import
+    #: (ptr, ptr, ptr, ptr, ptr, ptr) -> i32
+    def self.posix_spawn(p1, p2, p3, p4, p5, p6) = Machine.import
     #: (ptr) -> i32
     def self.posix_spawn_file_actions_init(p) = Machine.import
     #: (ptr, i32, i32) -> i32

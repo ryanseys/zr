@@ -33,6 +33,7 @@ module Zr
       # @rbs @envopt: bool
       # @rbs @rubylib: Array[String]
       # @rbs @backtrace_limit: Integer?
+      # @rbs @crash_report: String?
       # @rbs @debug_frozen: bool
       # @rbs @external_name: String?
       # @rbs @internal_name: String?
@@ -109,6 +110,7 @@ module Zr
         @envopt = false
         @rubylib = []
         @backtrace_limit = nil
+        @crash_report = nil
         @zr = []
         @refused = nil
         @warnings = []
@@ -216,6 +218,9 @@ module Zr
           lines << "$/ = #{text.nil? ? "nil" : "#{text.inspect}#{".b" if text.size == 1}.freeze"}"
         end
         lines << "Primitive.zr_backtrace_limit_set(#{@backtrace_limit})" if @backtrace_limit
+        # ruby_set_crash_report: a template that is not empty replaces
+        # RUBY_CRASH_REPORT.
+        lines << "Primitive.zr_crash_report_set(#{@crash_report.inspect})" unless @crash_report.to_s.empty?
         # --disable=error_highlight (and the others): ruby makes no autoload
         # for that library, so its constant is not there and the first
         # error display does not load it. With --disable=gems the runtime's
@@ -551,7 +556,7 @@ module Zr
           end
           words.split(/[\s,]+/).each { |word| debug_feature!(word) }
         when "jit", "yjit", "zjit", /\A[yz]jit-/ then nil # zr compiles ahead of time.
-        when "crash-report" then nil
+        when "crash-report" then @crash_report = argument(name, given, argv)
         when "encoding" then encoding!(argument(name, given, argv), "--encoding")
         when "external-encoding" then external_once!(argument(name, given, argv))
         when "internal-encoding" then internal_once!(argument(name, given, argv))

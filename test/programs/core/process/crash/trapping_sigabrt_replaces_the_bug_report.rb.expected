@@ -1,0 +1,9 @@
+nil
+trapped
+Proc
+"SYSTEM_DEFAULT"
+"can't trap reserved signal: SIGSEGV"
+"can't trap reserved signal: SIGBUS"
+"can't trap reserved signal: SIGILL"
+""
+true

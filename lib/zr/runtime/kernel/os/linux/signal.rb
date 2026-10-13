@@ -21,4 +21,82 @@ module Zr::Kern
     Machine.store64(old, 0, Machine.load64(was, 0))
     r
   end
+
+  # The four signals that end the process with ruby's bug report.
+  SIGNAL_ILL = 4
+  SIGNAL_ABRT = 6
+  SIGNAL_BUS = 7
+  SIGNAL_SEGV = 11
+
+  # Whether a bug report tells where the system keeps its own crash
+  # report. Only macOS has one.
+  CRASH_NOTES = 0
+
+  # open(2)'s flags: for the file of a report (O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC),
+  # and for a file that a report reads (O_RDONLY | O_CLOEXEC).
+  CRASH_WRITE_FLAGS = 524865
+  CRASH_READ_FLAGS = 524288
+
+  # SA_SIGINFO | SA_ONSTACK | SA_NODEFER: the handler of a fatal signal
+  # gets the siginfo_t, runs on the alternate stack, and can take a
+  # second signal.
+  FATAL_FLAGS = 1207959556
+
+  # sigaction(2) for a fatal signal: `fn` takes (signo, info, context).
+  # The flags are the int after the 128-byte mask.
+  #: (i32, word) -> i32
+  def zr_os_fatal_action(signo, fn)
+    act = Machine.slot(SIGACTION_LEN)
+    Libc.memset(act, Machine.i32(0), SIGACTION_LEN)
+    Machine.store64(act, 0, fn)
+    Machine.store64(act, 136, FATAL_FLAGS)
+    was = Machine.slot(SIGACTION_LEN)
+    Libc.sigaction(signo, act, was)
+  end
+
+  # sigaltstack(2). Linux's stack_t is the base, the flags, then the
+  # size.
+  #: (ptr, word) -> i32
+  def zr_os_altstack(base, size)
+    ss = Machine.slot(24)
+    Machine.store64(ss, 0, Machine.word(base))
+    Machine.store64(ss, 8, 0)
+    Machine.store64(ss, 16, size)
+    Libc.sigaltstack(ss, Machine.ptr(0))
+  end
+
+  # The pid in a siginfo_t that a process sent (SI_USER, SI_QUEUE or
+  # SI_TKILL), or -1 for a signal that the system raised. si_code is at 8
+  # and si_pid at 16.
+  #: (ptr) -> word
+  def zr_os_signal_sender(info)
+    code = Machine.u32(Machine.load32(info, 8))
+    if code != 0 && code != 4294967295 && code != 4294967290
+      return 0 - 1
+    end
+    Machine.u32(Machine.load32(info, 16))
+  end
+
+  # si_addr, at 16.
+  #: (ptr) -> word
+  def zr_os_fault_address(info)
+    Machine.load64(info, 16)
+  end
+
+  # musl has no backtrace(3), so a report has no native frames.
+  #: (ptr, i32) -> word
+  def zr_os_c_frames(buf, max)
+    0
+  end
+
+  # ruby_default_signal: the signal's default action ends the process.
+  # abort(3) with the default SIGABRT is the last resort.
+  #: (i32) -> void
+  def zr_os_crash_exit(signo)
+    old = Machine.slot(8)
+    zr_os_sigaction(signo, SIGNAL_DEFAULT, old)
+    Libc.raise(signo)
+    zr_os_sigaction(Machine.i32(SIGNAL_ABRT), SIGNAL_DEFAULT, old)
+    Libc.abort()
+  end
 end

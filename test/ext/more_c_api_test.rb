@@ -293,6 +293,23 @@ class CExtMoreCApiTest < Minitest::Test
     puts "not reached"
   RUBY
 
+  BUG = <<~'C'
+    #include <ruby.h>
+    static VALUE broken(VALUE self, VALUE n) { rb_bug("broken at %d", NUM2INT(n)); return Qnil; }
+    void Init_bug_ext(void) { rb_define_module_function(rb_define_module("BugExt"), "broken", broken, 1); }
+  C
+
+  BROKEN = <<~'RUBY'
+    require "bug_ext"
+    at_exit { puts "at_exit does not run" }
+    def call = BugExt.broken(3)
+    begin
+      call
+    rescue Exception => e
+      puts "not rescued #{e.class}"
+    end
+  RUBY
+
   def setup
     skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?
   end
@@ -313,6 +330,19 @@ class CExtMoreCApiTest < Minitest::Test
     ruby, zr = Zr::Test::CExt.outputs(Zr::Test::CExt.build("fatal_ext", FATAL), DIES)
     assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr stderr:\n#{zr.stderr}"
     assert_match(/stopped at 3 \(fatal\)/, zr.stderr)
+  end
+
+  # rb_bug writes ruby's bug report: the place, the message and the
+  # description, then the frames. No rescue and no at_exit handler runs,
+  # and SIGABRT ends the process.
+  def test_bug_writes_the_report_and_aborts
+    ruby, zr = Zr::Test::CExt.outputs(Zr::Test::CExt.build("bug_ext", BUG), BROKEN)
+    assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr stderr:\n#{zr.stderr}"
+    head = ->(text) { text.lines.first.sub(/\A\S*?(?=:\d+: )/, "") }
+    assert_equal head.(ruby.stderr), head.(zr.stderr)
+    assert_match(/\[BUG\] broken at 3$/, zr.stderr)
+    assert_includes zr.stderr, "-- Ruby level backtrace information"
+    assert_match(/:in 'call'\n.*:in 'broken'\n/, zr.stderr)
   end
 
   def assert_same_as_ruby(ext, program)

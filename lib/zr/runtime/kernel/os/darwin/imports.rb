@@ -63,6 +63,15 @@ module Zr::Kern
     #: (i32, ptr, ptr) -> i32
     def self.sigaction(i, p1, p2) = Machine.import
 
+    #: (ptr, ptr) -> i32
+    def self.sigaltstack(p1, p2) = Machine.import
+
+    #: (i32) -> i32
+    def self.raise(i) = Machine.import
+
+    #: (ptr, i32) -> i32
+    def self.backtrace(p, i) = Machine.import
+
     #: (i32, ptr, ptr) -> i32
     def self.getpeereid(i, p1, p2) = Machine.import
 
