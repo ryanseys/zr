@@ -600,6 +600,13 @@ module Zr::Kern
     if e == 0
       e = zr_find_method(klass, mid)
     end
+    # A box's own Object methods reach every object of the box; the site
+    # keeps no entry of one, which the other boxes must not see.
+    boxed = 0
+    if e == 0
+      e = zr_box_object_method(recv, mid)
+      boxed = e
+    end
     if refined && (e == 0 || zr_visibility_refused(e, mode) != 0)
       Task[zr_task()].refine = Machine.value(QNIL)
     end
@@ -624,7 +631,7 @@ module Zr::Kern
         return zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, TRACE_C_CALL)
       end
     end
-    if cc != 0
+    if cc != 0 && boxed == 0
       zr_call_cache_fill(cc, klass, e, mid, mode, argc)
     end
     r = zr_invoke(e, recv, argc, argv, blk, kw)

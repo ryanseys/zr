@@ -1,0 +1,11 @@
+:top
+:top
+[:top, :top]
+false
+NameError
+4.0
+[1, :a]
+Comparable
+{a: 1}
+3.0
+3

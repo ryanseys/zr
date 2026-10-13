@@ -117,6 +117,24 @@ module Zr::Kern
     v == QNIL ? klass : v
   end
 
+  # A method that the current box put on its own Object (a toplevel def
+  # in the box) for a receiver whose own class the box does not shadow,
+  # or 0. In ruby such a method is an entry of Object's table that only
+  # the box sees, so it reaches every object of the box; here it is on
+  # the box's Object shadow, which only an Object of the box has.
+  #: (value, word) -> ptr
+  def zr_box_object_method(recv, mid)
+    object = zr_global(G_OBJECT)
+    if ClassExt[RClass[object].ext].boxed == QNIL
+      return 0
+    end
+    view = zr_box_view(object)
+    if view == object || !zr_class_inherits(zr_class_of(recv), object)
+      return 0
+    end
+    zr_find_method(view, mid)
+  end
+
   # Sets `shadow` as the view of `klass` for the box slot.
   #: (value, value, value) -> value
   def zr_box_bind(klass, slot, shadow)

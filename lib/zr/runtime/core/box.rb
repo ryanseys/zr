@@ -178,12 +178,17 @@ module Ruby
 
     # A shadow of a class inherits from it. A module has nothing to
     # inherit from, so the shadow INCLUDES it, which reaches the
-    # module's methods and its constants the same way.
+    # module's methods and its constants the same way. The module's own
+    # methods (Marshal.load, Math.sqrt) are on its singleton class, which
+    # the shadow's does not inherit from, so the shadow passes each one on.
     def mint(shared)
       return Class.new(shared) if shared.is_a?(Class)
 
       made = Module.new
       made.include(shared)
+      shared.singleton_methods.each do |name|
+        made.define_singleton_method(name) { |*args, **opts, &block| shared.public_send(name, *args, **opts, &block) }
+      end
       made
     rescue StandardError
       nil
