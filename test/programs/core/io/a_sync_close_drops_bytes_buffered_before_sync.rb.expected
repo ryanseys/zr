@@ -1,0 +1,13 @@
+""
+"data"
+"sync"
+IO::EAGAINWaitReadable
+"ab"
+""
+"abcd\n"
+"a"
+"a"
+"ab"
+[10, 1023, 1024, 2000]
+""
+"xy"

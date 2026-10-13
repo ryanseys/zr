@@ -1013,11 +1013,11 @@ class IO
     @sync
   end
 
-  # A stream that becomes synchronous writes its buffered bytes immediately.
+  # rb_io_set_sync only sets the mode: bytes that wait in the buffer go
+  # out with the next write, or are dropped at close (finalize_flush).
   def sync=(flag)
     check_open
     @sync = flag ? true : false
-    write_pending if flag
     flag
   end
 
@@ -1053,7 +1053,7 @@ class IO
     # rb_io_close_m checks no freeze: a frozen stream closes too. A core
     # ivar has no `@` in its name.
     finish_writing
-    write_pending
+    finalize_flush
     Primitive.zr_state_set(self, :closed, true)
     own_descriptor
     Thread.send(:fd_closed, @fd) if Primitive.zr_threaded
@@ -1244,7 +1244,7 @@ class IO
     until PENDING.empty?
       io = PENDING.pop
       begin
-        io.send(:write_pending)
+        io.send(:finalize_flush)
       rescue SystemCallError, IOError
         # What the stream kept stays with it, and the end goes on.
         PENDING.delete(io)
@@ -2450,7 +2450,11 @@ class IO
   # writes what waits and the text together.
   def write_bytes(text)
     Primitive.attr! :hidden
-    return write_now(text) if @sync || @tty
+    if @sync || @tty
+      # io_binwrite: bytes that waited from before sync go out first.
+      write_pending unless @wbuf.empty?
+      return write_now(text)
+    end
 
     if @wbuf.bytesize + text.bytesize < WBUF_CAPA
       PENDING << self if @wbuf.empty?
@@ -2605,6 +2609,23 @@ class IO
   end
 
   # Writes out the bytes in the buffer.
+  # fptr_finalize_flush: a close writes the buffered bytes, unless the
+  # stream is synchronous. Then they are what writes made before sync, and
+  # ruby drops them, so that `sync = true` abandons them.
+  def finalize_flush
+    Primitive.attr! :hidden
+    @sync ? clear_written : write_pending
+  end
+
+  # Drops the bytes that wait to be written.
+  def clear_written
+    Primitive.attr! :hidden
+    return if @wbuf.empty?
+
+    @wbuf = +"".b
+    PENDING.delete(self)
+  end
+
   def write_pending
     Primitive.attr! :hidden
     return nil if @wbuf.empty?
