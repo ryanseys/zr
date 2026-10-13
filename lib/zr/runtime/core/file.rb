@@ -1561,14 +1561,16 @@ class Dir
     SKIPDOT = 1 << 29
 
     # One part of a pattern: a name to match, `**/`, or the end, which
-    # matches the path itself (with a slash for MATCH_DIR).
+    # matches the path itself (with a slash for MATCH_DIR). A `***/`
+    # (ruby 4.1) follows the symbolic links to directories.
     class Part
-      attr_reader :type, :str
+      attr_reader :type, :str, :follow_symlinks
       attr_accessor :next
 
-      def initialize(type, str)
+      def initialize(type, str, follow_symlinks = false)
         @type = type
         @str = str
+        @follow_symlinks = follow_symlinks
       end
     end
 
@@ -1750,13 +1752,17 @@ class Dir
       dirsep = recursive = false
       p = 0
       while p < bytes.bytesize && at(bytes, p) != 0
-        if at(bytes, p) == 0x2A && at(bytes, p + 1) == 0x2A && at(bytes, p + 2) == 0x2F
-          loop do
-            p += 3
-            p += 1 while at(bytes, p) == 0x2F
-            break unless at(bytes, p) == 0x2A && at(bytes, p + 1) == 0x2A && at(bytes, p + 2) == 0x2F
-          end
-          parts << Part.new(RECURSIVE, nil)
+        # Recursive parts in a row fold into one, which follows symbolic
+        # links if any of them was a `***/`.
+        start = p
+        follow = false
+        while (len = recursive_length(bytes, p)) != 0
+          follow ||= len == 4
+          p += len
+          p += 1 while at(bytes, p) == 0x2F
+        end
+        if p != start
+          parts << Part.new(RECURSIVE, nil, follow)
           dirsep = recursive = true
           next
         end
@@ -1777,6 +1783,15 @@ class Dir
       parts.first
     end
 
+    # glob_recursive_length: the bytes of a `**/` (3) or a `***/` (4) at
+    # `p`, else 0.
+    def recursive_length(bytes, p)
+      return 0 unless at(bytes, p) == 0x2A && at(bytes, p + 1) == 0x2A
+      return 3 if at(bytes, p + 2) == 0x2F
+
+      at(bytes, p + 2) == 0x2A && at(bytes, p + 3) == 0x2F ? 4 : 0
+    end
+
     # join_path.
     def join(path, dirsep, name) = dirsep ? path + "/".b + name : path + name
 
@@ -1785,7 +1800,7 @@ class Dir
       pieces = []
       while part
         case part.type
-        when RECURSIVE then pieces << "**".b
+        when RECURSIVE then pieces << (part.follow_symlinks ? "***".b : "**".b)
         when MATCH_DIR then pieces << "".b
         else pieces << part.str if part.str
         end
@@ -1827,11 +1842,15 @@ class Dir
     end
 
     # glob_helper: the parts in `parts` at `path`, whose kind is `type`.
-    def helper(path, baselen, namelen, dirsep, type, parts, flags)
-      plain = magical = recursive = match_all = match_dir = brace = false
+    # `ancestors` holds the [device, inode] of each directory on the walk
+    # to here, once a `***/` follows links, so a link back to one of them
+    # does not loop.
+    def helper(path, baselen, namelen, dirsep, type, parts, flags, ancestors = nil)
+      plain = magical = recursive = match_all = match_dir = brace = follow = false
       parts.each do |part|
         if part.type == RECURSIVE
           recursive = true
+          follow = true if part.follow_symlinks
           part = part.next
         end
         case part.type
@@ -1845,7 +1864,7 @@ class Dir
       end
       if brace
         Glob.expand_braces(joined(parts.first).force_encoding(@enc), @escape).each do |each|
-          helper(path, baselen, namelen, dirsep, type, [make_pattern(each.b)], flags)
+          helper(path, baselen, namelen, dirsep, type, [make_pattern(each.b)], flags, ancestors)
         end
         return
       end
@@ -1858,15 +1877,30 @@ class Dir
       end
       return if type == NOENT
 
+      if (follow || ancestors) && (magical || recursive || plain)
+        here = directory_id(path.empty? ? ".".b : path)
+        return unless here
+
+        ancestors = [*ancestors, here]
+      end
       if magical || recursive
-        walk(path, baselen, namelen, dirsep, parts, flags, recursive)
+        walk(path, baselen, namelen, dirsep, parts, flags, follow, ancestors)
       elsif plain
-        plainly(path, baselen, namelen, dirsep, parts, flags)
+        plainly(path, baselen, namelen, dirsep, parts, flags, ancestors)
       end
     end
 
+    # The [device, inode] of the directory that `path` names, following
+    # links, or nil where it names no directory.
+    def directory_id(path)
+      stat = File.stat(path.dup.force_encoding(@enc))
+      stat.directory? ? [stat.dev, stat.ino] : nil
+    rescue SystemCallError
+      nil
+    end
+
     # The entries of a directory, each against every part.
-    def walk(path, baselen, namelen, dirsep, parts, flags, _recursive)
+    def walk(path, baselen, namelen, dirsep, parts, flags, follow, ancestors)
       where = path.empty? ? ".".b : path
       entries = IO.send(:gc_for_fd) { Primitive.zr_io_dir_kinds(where.dup.force_encoding(@enc)) }
       return opendir_failed(where, -entries) if entries.is_a?(Integer)
@@ -1899,10 +1933,27 @@ class Dir
         if parts.any? { _1.type == RECURSIVE } && dotfile < (dotmatch ? 2 : 1) && new_type == UNKNOWN
           new_type = kind_of(buf, false)
         end
+        # A `***/` goes into a link to a directory, unless the directory is
+        # one the walk came through: then only a MATCH_DIR after it
+        # matches the link, with nothing below.
+        linked = cycle = false
+        if follow && new_type == SYMLINK && dotfile < (dotmatch ? 2 : 1)
+          target = directory_id(buf)
+          linked = !target.nil?
+          cycle = linked && ancestors.include?(target)
+        end
         next_parts = []
         parts.each do |part|
           if part.type == RECURSIVE
-            next_parts << part if (new_type == DIRECTORY || new_type == EXIST) && dotfile < (dotmatch ? 2 : 1)
+            if new_type == DIRECTORY || new_type == EXIST
+              next_parts << part if dotfile < (dotmatch ? 2 : 1)
+            elsif part.follow_symlinks && linked
+              if !cycle
+                next_parts << part
+              elsif part.next.type == MATCH_DIR
+                next_parts << part.next
+              end
+            end
             part = part.next
           end
           case part.type
@@ -1913,13 +1964,13 @@ class Dir
             next_parts << part.next if match?(part.str, name, flags)
           end
         end
-        helper(buf, baselen, buf.bytesize - baselen, true, new_type, next_parts, flags)
+        helper(buf, baselen, buf.bytesize - baselen, true, new_type, next_parts, flags, ancestors)
       end
     end
 
     # The plain parts, each looked up by its name, with the parts that
     # match the same name walked together.
-    def plainly(path, baselen, namelen, dirsep, parts, flags)
+    def plainly(path, baselen, namelen, dirsep, parts, flags, ancestors)
       copies = parts.map { |part| part.type <= ALPHA ? part : nil }
       pathlen = baselen + namelen
       copies.each_index do |i|
@@ -1938,7 +1989,7 @@ class Dir
         buf = join(path.byteslice(0, pathlen), dirsep, name)
         new_type = UNKNOWN
         buf, new_type = real_basename(buf, pathlen + (dirsep ? 1 : 0)) if part.type == ALPHA && @real_basename
-        helper(buf, baselen, buf.bytesize - baselen, true, new_type, next_parts, flags)
+        helper(buf, baselen, buf.bytesize - baselen, true, new_type, next_parts, flags, ancestors)
       end
     end
 
