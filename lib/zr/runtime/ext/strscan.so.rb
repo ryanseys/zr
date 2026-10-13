@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 # StringScanner: a position in a string and a match at it. Ruby ships
-# this as a C extension with a small part in ruby. This file is both
-# parts, over the same Regexp engine that the runtime already includes.
+# this as a C extension (strscan.so) and a small part in ruby
+# (strscan/strscan.rb, which strscan.rb requires after this file). This
+# file is the C part, over the same Regexp engine that the runtime
+# already includes.
 #
 # `pos` counts bytes, as ruby's does. A match is a byte range in the
 # string, and the MatchData next to it when a pattern made it. A byte or
@@ -20,13 +22,8 @@
 # `instance_variables` for the program's own variables.
 class StringScanner
   Error = Class.new(StandardError)
-  # The two names that the C extension defines next to its error class.
-  Version = "3.1.6"
-  Id = "$Id$"
-
-  # strscan.c also names its error class ScanError on Object, unless the
-  # program has a ScanError already.
-  Object.const_set(:ScanError, Error) unless Object.const_defined?(:ScanError)
+  # strscan 3.1.9 no longer defines Id, or ScanError on Object.
+  Version = "3.1.9.dev"
 
   # The second argument is the old `dup` flag, which ruby takes and drops.
   # ruby counts `fixed_anchor:` as a third argument beside it.
@@ -86,7 +83,8 @@ class StringScanner
   alias pointer pos
   alias pointer= pos=
 
-  def charpos = string.byteslice(0, pos).length
+  # Past the end of a string that shrank, the count stops at its end.
+  def charpos = string.byteslice(0, eos? ? string.bytesize : pos).length
 
   def eos? = pos >= string.bytesize
 
@@ -131,16 +129,6 @@ class StringScanner
   def scan_full(pattern, advance, answer) = run(pattern, true, answer, advance)
 
   def search_full(pattern, advance, answer) = run(pattern, false, answer, advance)
-
-  # A number at the scan pointer, as ruby's own strscan.rb writes it.
-  def scan_integer(base: 10)
-    case base
-    when 10 then scan_base10_integer
-    when 16 then scan_base16_integer
-    else
-      raise ArgumentError, "Unsupported integer base: #{base.inspect}, expected 10 or 16"
-    end
-  end
 
   def getch
     return nil if eos?
@@ -197,7 +185,45 @@ class StringScanner
     string.byteslice(match_from, match_len)
   end
 
-  def matched_size = matched? ? match_len : nil
+  # A match that a shrunk string cut counts only what is left of it.
+  def matched_size
+    return nil unless matched?
+    return nil if match_from > string.bytesize
+
+    [match_from + match_len, string.bytesize].min - match_from
+  end
+
+  # strscan_integer_at: the group, read as rb_int_parse_cstr reads it (as
+  # to_i does, but nil with no digit), or nil where the group is empty,
+  # did not take part, or lies past the end of a string that shrank.
+  def integer_at(specifier, base = (no_base = true; 10))
+    scanner
+    base = Primitive.zr_index_operand_m(base) unless no_base
+    return nil unless matched?
+
+    index = group_index(specifier)
+    if index.is_a?(String) || index.is_a?(Symbol)
+      raise IndexError, "undefined group name reference: #{index}" unless groups
+
+      index = groups.names.index(index.to_s)
+      raise IndexError, "undefined group name reference: #{specifier}" unless index
+
+      index += 1
+    end
+    count = groups ? groups.size : 1
+    index += count if index.negative?
+    return nil if index.negative? || index >= count
+
+    from, to = groups ? [groups.bytebegin(index), groups.byteend(index)] : [match_from, match_from + match_len]
+    return nil if from.nil? || from > string.bytesize
+
+    to = [to, string.bytesize].min
+    return nil if to <= from
+
+    text = string.byteslice(from, to - from)
+    value = text.to_i(base)
+    value.zero? && !text.match?(/\A\s*[+-]?0/) ? nil : value
+  end
 
   def pre_match = matched? ? string.byteslice(0, match_from) : nil
 
@@ -225,8 +251,11 @@ class StringScanner
     count = groups ? groups.size : 1
     index += count if index.negative?
     return nil if index.negative? || index >= count
+    return matched unless groups
 
-    groups ? groups[index] : matched
+    # extract_range: the group's bytes in the string as it is now.
+    from = groups.bytebegin(index)
+    from && string.byteslice(from, groups.byteend(index) - from)
   end
 
   def values_at(*indexes) = matched? ? indexes.map { |i| self[i] } : nil
@@ -346,6 +375,8 @@ class StringScanner
     return nil if pos > text.bytesize
 
     was = pos
+    # curr_char_head_p: no match starts inside a character.
+    return nil unless char_head?(text, was)
     if pattern.is_a?(Regexp)
       m = pattern.send(:scan_in, text, fixed_anchor? ? 0 : was, was, !anchored)
       return nil unless m
@@ -377,6 +408,17 @@ class StringScanner
     span = from + len - was
     Primitive.zr_hidden_set(self, :__pos__, from + len) if advance
     answer ? text.byteslice(was, span) : span
+  end
+
+  # Whether byte `at` of `text` starts a character, as
+  # rb_enc_left_char_head finds one; in UTF-8, a byte that continues no
+  # character.
+  def char_head?(text, at)
+    Primitive.attr! :hidden
+    return true if at.zero? || at >= text.bytesize
+
+    head = Primitive.zr_str_char_head_m(text, at)
+    head.nil? ? (text.getbyte(at) & 0xC0) != 0x80 : head
   end
 
   # strscan_enc_check: two Strings of different encodings must be able

@@ -1,0 +1,38 @@
+nil
+false
+[:Error, :Version]
+"3.1.9.dev"
+[1, []]
+[1, []]
+[1, []]
+[nil, nil, nil, nil, nil, nil]
+[Encoding::CompatibilityError, "incompatible encoding regexp match (US-ASCII regexp with UTF-16BE string)"]
+[nil, 2, 2]
+[2, true, 2, "", 6]
+[12, nil]
+nil
+[nil, "ab", nil, 2, "", nil]
+["12abc", [1], 12]
+[" 12", [1], 12]
+["-0x1f", [1, 16], -31]
+["0x1f", [1], 0]
+["1_000", [1], 1000]
+["1__0", [1], 1]
+["+7", [1], 7]
+["ff", [1, 16], 255]
+["12", ["n"], 12]
+["12", [:n], 12]
+["12", [5], nil]
+["12", [-1], 12]
+["12", ["x"], [IndexError, "undefined group name reference: x"]]
+["0b101", [1, 0], 5]
+["12", [1, 99], [ArgumentError, "invalid radix 99"]]
+["1e5", [1], 1]
+["０", [1], nil]
+["-0", [1], 0]
+["ab", [2], nil]
+nil
+nil
+1
+2
+[-42, " ", 31]
