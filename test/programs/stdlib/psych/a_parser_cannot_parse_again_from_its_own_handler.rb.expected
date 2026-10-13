@@ -1,0 +1,4 @@
+[:psych_backend, ["libyaml", #<Encoding:US-ASCII>, false]]
+[:reentrant, Psych::Exception, "parser is already parsing, it cannot be reused from a handler callback"]
+[:after, Psych::Parser]
+[:event_location, RuntimeError, "boom"]

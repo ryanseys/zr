@@ -27,6 +27,9 @@ module Psych
   # psych.c
   def self.libyaml_version = LibYAML::VERSION.dup
 
+  # The parser and emitter in use: libyaml, as a build without libfyaml has.
+  BACKEND = (+"libyaml").force_encoding(Encoding::US_ASCII)
+
   # psych_to_ruby.c's two methods.
   class ClassLoader
     private
@@ -279,8 +282,22 @@ module Psych
     private
 
     # psych_parser.c's parse: run libyaml over `yaml` and call `handler`
-    # with every event, each one after an event_location call.
+    # with every event, each one after an event_location call. A handler
+    # cannot parse again with the same parser while it runs.
     def _native_parse(handler, yaml, path)
+      if Primitive.zr_hidden_get(self, :__parsing__)
+        raise Psych::Exception, "parser is already parsing, it cannot be reused from a handler callback"
+      end
+
+      Primitive.zr_state_set(self, :__parsing__, true)
+      begin
+        parse_events(handler, yaml, path)
+      ensure
+        Primitive.zr_state_set(self, :__parsing__, nil)
+      end
+    end
+
+    def parse_events(handler, yaml, path)
       glue = LibYAML::Glue
       parser = glue.reset_native_parser(self)
       internal = Encoding.default_internal
@@ -308,6 +325,7 @@ module Psych
           handler.event_location(event.start_mark.line, event.start_mark.column,
                                  event.end_mark.line, event.end_mark.column)
         end
+        raise state if state
 
         done = false
         case event.type
@@ -344,7 +362,9 @@ module Psych
         when LibYAML::MAPPING_END_EVENT
           state = glue.protect { handler.end_mapping }
         when LibYAML::NO_EVENT
+          # Past the stream's end, libyaml gives no event: the parse stops.
           state = glue.protect { handler.empty }
+          done = true
         when LibYAML::STREAM_END_EVENT
           state = glue.protect { handler.end_stream }
           done = true
