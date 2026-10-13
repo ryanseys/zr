@@ -11,8 +11,8 @@ module Zr
   module LineCursor
     # @rbs @zr_line: Integer?
 
-    private
-
+    # Public, as prism 1.9 at ruby 4.1's commit has it: its Ripper translation
+    # calls it.
     #: (Integer byte_offset) -> Integer
     def find_line(byte_offset)
       # Steep looks for `super` in the module, not in Prism::Source, which
