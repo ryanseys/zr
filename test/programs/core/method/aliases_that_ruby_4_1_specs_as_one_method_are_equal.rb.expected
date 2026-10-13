@@ -1,0 +1,11 @@
+true
+:quote
+:quote
+true
+true
+:zero?
+true
+:reopen
+true
+"a\\.b"
+false

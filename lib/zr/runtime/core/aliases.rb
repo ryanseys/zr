@@ -24,7 +24,9 @@
   [Enumerator::Lazy, :select, :filter], [Enumerator::Lazy, :select, :find_all],
   [Enumerator::Lazy, :chunk, :chunk_while], [Enumerator::Lazy, :chunk, :slice_after],
   [Enumerator::Lazy, :chunk, :slice_before], [Enumerator::Lazy, :chunk, :slice_when],
-  [NilClass, :|, :^], [TrueClass, :to_s, :inspect], [FalseClass, :|, :^], [FalseClass, :to_s, :inspect]
+  [NilClass, :|, :^], [TrueClass, :to_s, :inspect], [FalseClass, :|, :^], [FalseClass, :to_s, :inspect],
+  [Regexp.singleton_class, :escape, :quote], [FileTest.singleton_class, :empty?, :zero?],
+  [File.singleton_class, :empty?, :zero?]
 ].each { |klass, original, name| Primitive.zr_method_alias_of(klass, name, original) }
 
 [[Array, :<<], [Integer, :to_int], [Kernel, :iterator?], [Kernel, :yield_self]].each do |klass, name|

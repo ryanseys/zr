@@ -133,6 +133,8 @@ module Syslog
 
   module_function :open, :reopen, :open!, :opened?, :ident, :options, :facility, :log, :close, :mask, :mask=, :instance,
                   *LEVELS.keys.map { |name| name.to_s.delete_prefix("LOG_").downcase.to_sym }
+  # reopen and open! are one C function, so their Methods are equal.
+  [self, singleton_class].each { |owner| Primitive.zr_method_alias_of(owner, :reopen, :open!) }
 
   def self.inspect
     return "<##{self}: opened=false>" unless opened?
