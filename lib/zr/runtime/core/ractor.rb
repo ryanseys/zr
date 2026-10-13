@@ -934,9 +934,43 @@ class Ractor
   # Closes the default port, which only the ractor that owns it may do.
   def close = default_port.close
 
-  # What `require` becomes inside a ractor. This runtime loads every
-  # file on the one task that runs the program, so it is Kernel's own.
-  def self._require(feature) = Kernel.required(feature)
+  # What Object#require calls in a ractor that is not the main one. The
+  # main ractor then calls `require` on nil with the path, as
+  # rb_ractor_require does, so a require that the program redefines runs
+  # there.
+  def self._require(feature)
+    return require(feature) if main?
+
+    path = File.path(feature)
+    on_main { nil.send(:require, path) }
+  end
+
+  class << self
+    private
+
+    # When the first ractor starts, Object gets a require of its own,
+    # ahead of Kernel's and of any that a gem puts in Kernel: in a ractor
+    # that is not the main one it calls Ractor._require.
+    # The flag is a plain instance variable of Ractor, as in ruby, and
+    # the call to Ractor._require is a send, so a program that redefines
+    # it is heard.
+    def _activated
+      return if instance_variable_defined?(:@__ractor_require_alias_activated)
+
+      Object.module_eval do
+        alias_method :__ractor_original_require, :require
+        def require(feature)
+          if Ractor.main?
+            super
+          else
+            Ractor.__send__(:_require, feature)
+          end
+        end
+        private :require
+      end
+      instance_variable_set(:@__ractor_require_alias_activated, true)
+    end
+  end
 
   private def receive(timeout: nil) = default_port.receive(timeout: timeout)
   alias recv receive
@@ -1007,6 +1041,8 @@ class Ractor
   def self.start(ractor, number, args, block, where)
     Primitive.attr! :hidden
     seat(ractor, number, nil)
+    # The first ractor ends single-ractor mode (cancel_single_ractor_mode).
+    _activated unless multi?
     RACTORS[number] = ractor
     Primitive.zr_hidden_set(ractor, :__site__, where && where[0, where.index(":in ") || where.size])
     # The block's self is the ractor, as with ruby's isolated block. Its

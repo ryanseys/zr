@@ -1,0 +1,16 @@
+false
+false
+[]
+true
+true
+Object
+[:@__ractor_require_alias_activated]
+[true, :first, [["Ractor", :_require, "rq_first.rb"]]]
+nil
+[true, :second, [["Ractor", :_require, "rq_second.rb"]]]
+[["nil", :require, "rq_second.rb"]]
+false
+[["main", :require, "rq_second.rb"]]
+false
+[["nil", :require, "rq_first.rb"]]
+[LoadError, "rq_missing"]
