@@ -124,8 +124,9 @@ module Coverage
         shaped = {}
         shaped[:lines] = lines.freeze if mode[:lines]
         shaped[:oneshot_lines] = lines.each_index.select { |i| lines[i]&.positive? }.map { |i| i + 1 }.freeze if mode[:oneshot_lines]
-        shaped[:branches] = branches_of(path, runs).freeze if runs
-        shaped[:methods] = (claims[path] || {}).freeze if claims
+        # rb_coverage_peek_result freezes the line arrays only.
+        shaped[:branches] = branches_of(path, runs) if runs
+        shaped[:methods] = claims[path] || {} if claims
         [path, shaped]
       end.freeze
     end
