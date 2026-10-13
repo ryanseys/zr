@@ -22,6 +22,7 @@ module OpenSSL
     X509_CRL_set1_nextUpdate: [%i[pointer pointer], :int],
     X509_CRL_get_REVOKED: [%i[pointer], :pointer],
     X509_CRL_add0_revoked: [%i[pointer pointer], :int],
+    X509_CRL_get0_by_serial: [%i[pointer buffer pointer], :int],
     X509_CRL_sort: [%i[pointer], :int],
     X509_CRL_sign: [%i[pointer pointer pointer], :int],
     X509_CRL_verify: [%i[pointer pointer], :int],
@@ -148,6 +149,20 @@ module OpenSSL
       end
 
       def revoked = Ossl.stack_items(Lib.X509_CRL_get_REVOKED(Ossl.x509crl(self))).map { |rev| Ossl.x509revoked_new(rev) }
+
+      # The revoked entry of the serial number `serial`, a copy that
+      # outlives the CRL, or nil.
+      def by_serial(serial)
+        crl = Ossl.x509crl(self)
+        number = Ossl.num_to_asn1integer(serial)
+        found = Lib.buffer(8)
+        begin
+          return nil if Lib.X509_CRL_get0_by_serial(crl, found, number).zero?
+        ensure
+          Lib.ASN1_INTEGER_free(number)
+        end
+        Ossl.x509revoked_new(Lib.pointer_at(found))
+      end
 
       def revoked=(revoked)
         Ossl.check_array(revoked)

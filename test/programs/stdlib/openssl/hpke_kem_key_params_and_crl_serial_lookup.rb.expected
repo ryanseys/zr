@@ -1,0 +1,35 @@
+suite: [16, 1, 1, true]
+suite names: [32, 1, 3]
+suite unsupported: OpenSSL::HPKE::HPKEError: unsupported HPKE suite: kem=0x0001 kdf=0x0002 aead=0x0003: invalid curve
+suite range: OpenSSL::HPKE::HPKEError: KEM id out of range (0..0xFFFF): 65536
+suite negative: OpenSSL::HPKE::HPKEError: KDF id out of range (0..0xFFFF): -1
+suite names bad: OpenSSL::HPKE::HPKEError: unsupported HPKE suite: x,y,z
+suite again: TypeError: OpenSSL::HPKE::Suite already initialized
+suite empty: RuntimeError: OSSL_HPKE_SUITE wasn't initialized!
+ancestry: [OpenSSL::OpenSSLError, OpenSSL::HPKE::Context, OpenSSL::HPKE::Context]
+round 16: [OpenSSL::PKey::EC, 65, true, [21, 17], "hello", "x", true, 1]
+round 32: [OpenSSL::PKey::PKey, 32, true, [21, 17], "hello", "x", true, 1]
+seal empty: OpenSSL::HPKE::HPKEError: could not seal: passed invalid argument
+export none: OpenSSL::HPKE::HPKEError: could not export: passed invalid argument
+export negative: ArgumentError: negative string size (or size too big)
+seal before encap: OpenSSL::HPKE::HPKEError: could not seal: passed invalid argument
+open bad: OpenSSL::HPKE::HPKEError: could not open: passed invalid argument
+decap bad: OpenSSL::HPKE::HPKEError: could not decap: passed invalid argument
+decap not a key: TypeError: wrong argument type String (expected OpenSSL/EVP_PKEY)
+context bad suite: OpenSSL::HPKE::HPKEError: invalid suite specified
+context again: TypeError: OpenSSL::HPKE::Context::Sender already initialized
+context empty: RuntimeError: OSSL_HPKE_CTX wasn't initialized!
+keygen bad: OpenSSL::HPKE::HPKEError: invalid suite specified
+encapsulate: [32, 32, true]
+decapsulate bad: OpenSSL::PKey::PKeyError: EVP_PKEY_decapsulate: invalid key (Invalid enc public key)
+decapsulate type: TypeError: no implicit conversion of Integer into String
+rsa e: 65537
+rsa bits: 1024
+rsa n: [OpenSSL::BN, true]
+x25519 pub: true
+unknown: OpenSSL::PKey::PKeyError: unrecognized OSSL_PARAM key: nope
+symbol: TypeError: no implicit conversion of Symbol into String
+by serial: [OpenSSL::X509::Revoked, 5]
+by bn: 1180591620717411303424
+missing: nil
+type: TypeError: Cannot convert into OpenSSL::BN

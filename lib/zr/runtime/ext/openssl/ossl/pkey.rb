@@ -61,10 +61,26 @@ module OpenSSL
     PEM_write_bio_PrivateKey_traditional: [%i[pointer pointer pointer pointer int pointer pointer], :int],
     PEM_write_bio_PKCS8PrivateKey: [%i[pointer pointer pointer pointer int pointer pointer], :int],
     PEM_write_bio_PUBKEY: [%i[pointer pointer], :int],
-    OBJ_sn2nid: [%i[string], :int]
+    OBJ_sn2nid: [%i[string], :int],
+    EVP_PKEY_encapsulate_init: [%i[pointer pointer], :int],
+    EVP_PKEY_encapsulate: [%i[pointer buffer buffer buffer buffer], :int],
+    EVP_PKEY_decapsulate_init: [%i[pointer pointer], :int],
+    EVP_PKEY_decapsulate: [%i[pointer buffer buffer buffer size_t], :int],
+    EVP_PKEY_gettable_params: [%i[pointer], :pointer],
+    EVP_PKEY_get_params: [%i[pointer buffer], :int],
+    OSSL_PARAM_locate_const: [%i[pointer string], :pointer],
+    OSSL_PARAM_modified: [%i[buffer], :int],
+    OSSL_PARAM_get_BN: [%i[buffer buffer], :int]
   )
 
   module Lib
+    # params.h: OSSL_PARAM's data types, and the return size of one that
+    # nothing set.
+    OSSL_PARAM_INTEGER = 1
+    OSSL_PARAM_UNSIGNED_INTEGER = 2
+    OSSL_PARAM_UTF8_STRING = 4
+    OSSL_PARAM_OCTET_STRING = 5
+    OSSL_PARAM_UNMODIFIED = (1 << 64) - 1
     EVP_PKEY_RSA = 6 # evp.h: NID_rsaEncryption
     EVP_PKEY_DSA = 116 # NID_dsa
     EVP_PKEY_DH = 28 # NID_dhKeyAgreement
@@ -197,6 +213,14 @@ module OpenSSL
       end
 
       # Runs `yield` on a new EVP_PKEY_CTX, which is freed afterwards.
+      # An OSSL_PARAM array that asks for the parameter whose name is at
+      # `name`, into `data` (nil for none yet), then its end. A parameter
+      # is its key, its data type and four bytes of padding, its data, the
+      # data's size and the size that the call returns.
+      def param_query(name, type, data, size)
+        [name, type, 0, data ? Native.address(data) : 0, size, Lib::OSSL_PARAM_UNMODIFIED].pack("JLLJJJ") + ("\0" * 40)
+      end
+
       def with_pkey_ctx(ctx)
         yield ctx
       ensure
@@ -602,6 +626,73 @@ module OpenSSL
             Lib.EVP_PKEY_decrypt(ctx, out, length, data, data.bytesize) > 0
           end
         end
+      end
+
+      # Key encapsulation with the public key: [ciphertext, shared secret].
+      def encapsulate
+        pkey = Ossl.pkey(self)
+        Ossl.with_pkey_ctx(Ossl.new_pkey_ctx(pkey)) do |ctx|
+          raise Ossl.error(PKeyError, "EVP_PKEY_encapsulate_init") if Lib.EVP_PKEY_encapsulate_init(ctx, nil) <= 0
+
+          lengths = Array.new(2) { Lib.buffer(8) }
+          raise Ossl.error(PKeyError, "EVP_PKEY_encapsulate") if Lib.EVP_PKEY_encapsulate(ctx, nil, lengths[0], nil, lengths[1]) <= 0
+
+          sizes = lengths.map { |length| length.unpack1("J") }
+          raise PKeyError, "encapsulated data would be too large" if sizes.max > (1 << 63) - 1
+
+          ciphertext, secret = sizes.map { |size| Lib.buffer(size) }
+          raise Ossl.error(PKeyError, "EVP_PKEY_encapsulate") if Lib.EVP_PKEY_encapsulate(ctx, ciphertext, lengths[0], secret, lengths[1]) <= 0
+
+          [ciphertext.byteslice(0, lengths[0].unpack1("J")), secret.byteslice(0, lengths[1].unpack1("J"))]
+        end
+      end
+
+      # The shared secret that `ciphertext` holds, with the private key.
+      def decapsulate(ciphertext)
+        pkey = Ossl.pkey(self)
+        ciphertext = Ossl.string_value(ciphertext)
+        Ossl.with_pkey_ctx(Ossl.new_pkey_ctx(pkey)) do |ctx|
+          raise Ossl.error(PKeyError, "EVP_PKEY_decapsulate_init") if Lib.EVP_PKEY_decapsulate_init(ctx, nil) <= 0
+
+          Ossl.sized_output(PKeyError, "EVP_PKEY_decapsulate", "decapsulated data would be too large") do |out, length|
+            Lib.EVP_PKEY_decapsulate(ctx, out, length, ciphertext, ciphertext.bytesize) > 0
+          end
+        end
+      end
+
+      # The key's parameter `key`, which EVP_PKEY_gettable_params lists:
+      # an integer as a BN, a UTF-8 or an octet string as a String.
+      def get_param(key)
+        pkey = Ossl.pkey(self)
+        gettable = Lib.EVP_PKEY_gettable_params(pkey)
+        raise Ossl.error(PKeyError, "EVP_PKEY_gettable_params") if gettable.zero?
+
+        found = Lib.OSSL_PARAM_locate_const(gettable, Ossl.cstring_value(key))
+        raise Ossl.error(PKeyError, "unrecognized OSSL_PARAM key: #{key}") if found.zero?
+
+        name, type = Native.read(found, 12).unpack("JL")
+        params = Ossl.param_query(name, type, nil, 0)
+        raise Ossl.error(PKeyError, "EVP_PKEY_get_params") if Lib.EVP_PKEY_get_params(pkey, params).zero?
+        raise Ossl.error(PKeyError, "OSSL_PARAM_modified") if Lib.OSSL_PARAM_modified(params).zero?
+
+        size = params.unpack1("J", offset: 32)
+        case type
+        when Lib::OSSL_PARAM_INTEGER, Lib::OSSL_PARAM_UNSIGNED_INTEGER then size = [size, 1].max
+        when Lib::OSSL_PARAM_UTF8_STRING, Lib::OSSL_PARAM_OCTET_STRING then nil
+        else raise Ossl.error(PKeyError, "unsupported OSSL_PARAM data type #{type} for key #{Lib.string(name)}")
+        end
+        data = Lib.buffer(size)
+        params = Ossl.param_query(name, type, data, size)
+        raise Ossl.error(PKeyError, "EVP_PKEY_get_params") if Lib.EVP_PKEY_get_params(pkey, params).zero?
+
+        if type == Lib::OSSL_PARAM_UTF8_STRING || type == Lib::OSSL_PARAM_OCTET_STRING
+          text = data.byteslice(0, params.unpack1("J", offset: 32))
+          return type == Lib::OSSL_PARAM_UTF8_STRING ? text.force_encoding(Encoding::UTF_8) : text
+        end
+        number = Ossl::BIGNUM.wrap(BN, Ossl.new_bignum)
+        raise Ossl.error(OpenSSLError, "OSSL_PARAM_get_BN") if Lib.OSSL_PARAM_get_BN(params, [Ossl::BIGNUM.fetch(number)].pack("J")).zero?
+
+        number
       end
     end
   end

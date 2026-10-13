@@ -22,6 +22,7 @@ end
 require_relative "openssl/ossl/ossl"
 require_relative "openssl/ossl/digest"
 require_relative "openssl/ossl/hmac"
+require_relative "openssl/ossl/hpke"
 require_relative "openssl/ossl/kdf"
 require_relative "openssl/ossl/provider"
 require_relative "openssl/ossl/rand"
