@@ -404,6 +404,19 @@ module Zr::Kern
     zr_mod_method_defined_vis(recv, argc, argv, VIS_PROTECTED, 2)
   end
 
+  # The function of the method that `klass` finds for `name`, as a
+  # number, or 0 when it finds none. It stays the same while the method
+  # does, so comparing it is a test, with no allocation, that a program
+  # did not redefine or remove a core method.
+  #: (value, value) -> value
+  def zr_method_fn_m(klass, name)
+    e = zr_find_method(klass, zr_sym2id(name))
+    if e == 0 || MEntry[e].kind == KIND_UNDEF
+      return zr_fix(0)
+    end
+    zr_fix(Machine.word(MEntry[e].fn))
+  end
+
   # `Method#super_method`: the method after this method's owner in the
   # receiver's ancestor list, bound in the same way, or nil.
   #: (value, word, ptr, value, value) -> value

@@ -325,7 +325,7 @@ class Array
   # keeps Array's refinements).
   def self.newarray_optimized?(name)
     Primitive.attr! :hidden
-    return false unless instance_method(name) == OPTIMIZED[name]
+    return false unless Primitive.zr_method_fn_m(self, name) == OPTIMIZED[name]
 
     holders = Primitive.zr_hidden_get(self, :__refined__)
     holders.nil? || holders.none? { |h| h.instance_methods(false).include?(name) || h.private_instance_methods(false).include?(name) }
@@ -354,6 +354,18 @@ class Array
       i += 1
     end
     best
+  end
+
+  # vm_opt_newarray_hash and vm_opt_*array_include_p: Array's own hash
+  # and include?, with no send of them.
+  def self.newarray_hash(items)
+    Primitive.attr! :hidden
+    items.hash
+  end
+
+  def self.newarray_include?(items, target)
+    Primitive.attr! :hidden
+    items.include?(target)
   end
 
   # `a <=> b`, or the block's return value, as an Integer; nil fails as
@@ -1478,7 +1490,7 @@ class Array
   end
 
   # The core's own min and max, which a literal's fast path stands in for.
-  OPTIMIZED = { min: instance_method(:min), max: instance_method(:max) }.freeze
+  OPTIMIZED = %i[min max hash include?].to_h { |name| [name, Primitive.zr_method_fn_m(self, name)] }.freeze
   private_constant :OPTIMIZED
 end
 

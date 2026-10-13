@@ -1304,17 +1304,51 @@ module Zr
         @in_c_message = nil
       end
 
-      # compile.c's opt_newarray_send: `[a, b].min` or `.max` on a literal
-      # that is not static and has no splat runs without Array#min, which
-      # compares in the other order. The core's own files keep the send. A
-      # site under `using` takes the literal path too: a refinement of
-      # Array#min or #max turns it off where the program runs
+      # compile.c's opt_newarray_send and opt_duparray_send: `[a, b].min`,
+      # `.max` or `.hash` on a literal that is not static, and
+      # `.include?(arg)` on any literal, with no splat. They run without the
+      # method's send, so no c_call or c_return fires, and min and max
+      # compare in the other order. The core's own files keep the send. A
+      # site under `using` takes the literal path too: a refinement of the
+      # method turns it off where the program runs
       # (Array.newarray_optimized?), as it clears CRuby's BOP flag.
       #: (Prism::CallNode node) -> bool
       def newarray_send?(node)
-        %i[min max].include?(node.name) && node.receiver.is_a?(Prism::ArrayNode) && !node.receiver.static_literal? &&
-          node.receiver.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) } &&
-          node.arguments.nil? && node.block.nil? && node.call_operator != "&." && !Library::Roots.runtime_file?(@file)
+        receiver = node.receiver
+        return false unless receiver.is_a?(Prism::ArrayNode) && node.block.nil? && node.call_operator != "&." &&
+                            receiver.elements.none? { |e| e.is_a?(Prism::SplatNode) || e.is_a?(Prism::KeywordHashNode) } &&
+                            !Library::Roots.runtime_file?(@file)
+
+        case node.name
+        when :min, :max, :hash then !receiver.static_literal? && node.arguments.nil?
+        when :include?
+          args = node.arguments&.arguments || []
+          args.size == 1 && simple_include_arg?(args.first, receiver.static_literal?)
+        else false
+        end
+      end
+
+      # The argument forms that compile.c's peephole takes for include?: a
+      # local, an ivar, self or a literal object (putobject), nil only on a
+      # static Array (duparray's list has putnil, newarray's has not), a
+      # String only where it is frozen or the Array is not static, then any
+      # chain of plain calls with no arguments.
+      #: (Prism::node arg, bool static) -> bool
+      def simple_include_arg?(arg, static)
+        case arg
+        when Prism::LocalVariableReadNode, Prism::InstanceVariableReadNode, Prism::SelfNode, Prism::IntegerNode,
+             Prism::FloatNode, Prism::SymbolNode, Prism::TrueNode, Prism::FalseNode, Prism::RationalNode,
+             Prism::ImaginaryNode, Prism::RegularExpressionNode
+          true
+        when Prism::NilNode then static
+        when Prism::StringNode then !static || arg.frozen?
+        when Prism::RangeNode
+          [arg.left, arg.right].all? { |side| side.nil? || side.is_a?(Prism::IntegerNode) } && !(arg.left.nil? && arg.right.nil?)
+        when Prism::CallNode
+          plain = arg.arguments.nil? && arg.block.nil? && arg.call_operator != "&." && !arg.name.end_with?("=")
+          plain && (arg.receiver.nil? || simple_include_arg?(arg.receiver, static))
+        else false
+        end
       end
 
       # The program itself sends the method when it is redefined, so the
@@ -1323,9 +1357,15 @@ module Zr
       def newarray_send(node)
         line = node.location.start_line
         items = temp("items")
+        steps = [set(items, expr(node.receiver), line)] #: Array[node]
+        args = (node.arguments&.arguments || []).map do |arg|
+          held = temp("arg")
+          steps << set(held, expr(arg), line)
+          read(held, line)
+        end
         optimized = send_to(core(:Array, line), :newarray_optimized?, [Literal.new(node.name, line)], line)
-        fast = send_to(core(:Array, line), :"newarray_#{node.name}", [read(items, line)], line)
-        Seq.new([set(items, expr(node.receiver), line), If.new(optimized, fast, send_to(read(items, line), node.name, [], line), line)], line)
+        fast = send_to(core(:Array, line), :"newarray_#{node.name}", [read(items, line), *args], line)
+        Seq.new([*steps, If.new(optimized, fast, send_to(read(items, line), node.name, args, line), line)], line)
       end
 
       # A file of the program uses rubygems' API. rubygems' own files and

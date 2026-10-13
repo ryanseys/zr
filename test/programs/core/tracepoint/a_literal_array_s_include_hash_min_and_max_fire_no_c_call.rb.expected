@@ -1,0 +1,52 @@
+nil=send false
+nil_s=opt false
+1=opt true
+1_s=opt true
+0=opt false
+str=opt false
+str_s=send false
+sym=opt false
+o.foo=opt true
+o.foo_s=opt true
+foo=opt true
+foo_s=opt true
+iv=opt true
+self=opt false
+x+1=send false
+X=send true
+X_s=send true
+true=opt false
+1.5=opt false
+re=opt false
+range=opt false
+empty=opt false
+o.foo.succ=opt true
+hash=opt int
+hash_s=send int
+max=opt 2
+max_s=send 2
+min=opt 1
+splat=send true
+safe=send true
+block=send true
+two=send true
+true
+false
+true
+true
+true
+true
+false
+true
+true
+2
+1
+true
+[:a, :b, :c]
+"mine 2"
+"mine 1"
+42
+true
+true
+"refined 2"
+"refined 1"
