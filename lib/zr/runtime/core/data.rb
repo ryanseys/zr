@@ -182,7 +182,7 @@ class Data
 
     begin
       pairs = member_names.zip(values_store).map { |m, v| "#{Struct.send(:plain_member?, m) ? m.own_text : m.inspect}=#{v.inspect}" }
-      Primitive.zr_obj_form(pairs.empty? && name ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
+      Primitive.zr_obj_form(pairs.empty? ? "#{head}>" : "#{head} #{pairs.join(', ')}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end
