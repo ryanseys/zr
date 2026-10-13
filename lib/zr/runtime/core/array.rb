@@ -418,7 +418,7 @@ class Array
         return mid if answer == 0
 
         sign = answer <=> 0
-        raise ArgumentError, "comparison of #{answer.class} with 0 failed" if sign.nil?
+        Primitive.zr_cmperr(answer, 0) if sign.nil?
 
         sign < 0 ? high = mid : low = mid + 1
       else

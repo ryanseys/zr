@@ -1508,7 +1508,7 @@ module Zr::Kern
       return Machine.value(QNIL)
     end
     if !zr_fixnum_p(other)
-      return zr_cmperr(recv, other)
+      return zr_cmperr_coerce(recv, other)
     end
     zr_int_operand(recv, argv, out, 0, 3)
   end

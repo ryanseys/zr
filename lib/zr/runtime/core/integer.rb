@@ -594,7 +594,7 @@ class Numeric
   # error when `num` has no such operator.
   def compare_with_zero(num, op)
     Primitive.attr! :hidden
-    raise ArgumentError, "comparison of #{conversion_name(num)} with 0 failed" unless num.respond_to?(op, true)
+    Primitive.zr_cmperr_zero(num, 0) unless num.respond_to?(op, true)
 
     num.__send__(op, 0)
   end
@@ -607,7 +607,7 @@ class Numeric
 
   # The defaults a Numeric subclass inherits, each through the
   # operators and conversions the subclass defines.
-  def abs = self < 0 ? -self : self
+  def abs = below_zero? ? -self : self
 
   # num_uminus: zero minus the receiver, after the receiver coerces zero.
   def -@
@@ -619,9 +619,25 @@ class Numeric
 
   def zero? = self == 0
 
-  def positive? = self > 0
+  # num_positive_p gives what `>` gives; num_negative_p, a boolean. With
+  # no such operator, each fails as rb_num_compare_with_zero does.
+  def positive?
+    Primitive.zr_cmperr_zero(self, 0) unless respond_to?(:>, true)
 
-  def negative? = self < 0
+    self > 0
+  end
+
+  def negative? = below_zero? ? true : false
+
+  # rb_num_negative_int_p: `self < 0`, or the comparison failure when
+  # there is no `<`.
+  def below_zero?
+    Primitive.attr! :hidden
+    Primitive.zr_cmperr_zero(self, 0) unless respond_to?(:<, true)
+
+    self < 0
+  end
+  private :below_zero?
 
   def integer? = false
 

@@ -55,10 +55,32 @@ module Zr::Kern
     zr_fix(0)
   end
 
-  # Raises `comparison of X with Y failed`. The message shows Y with
-  # inspect when it is a special constant, and by its class if not.
+  # Raises `comparison of X with Y failed: comparator returned nil`, as
+  # CRuby's rb_cmpint and ensure_cmp do when `<=>` or an operator gives nil.
   #: (value, value) -> value
   def zr_cmperr(x, y)
+    zr_cmperr_reason(x, y, Machine.bytes("comparator returned nil"), 23)
+  end
+
+  # The same failure for rb_num_coerce_relop when the operand has no
+  # coerce, or its coerce gives nil.
+  #: (value, value) -> value
+  def zr_cmperr_coerce(x, y)
+    zr_cmperr_reason(x, y, Machine.bytes("coercion was not possible"), 25)
+  end
+
+  # The same failure for rb_num_compare_with_zero when `x` has no such
+  # operator.
+  #: (value, value) -> value
+  def zr_cmperr_zero(x, y)
+    zr_cmperr_reason(x, y, Machine.bytes("unable to compare with zero"), 27)
+  end
+
+  # Raises CRuby's rb_cmperr_reason: `comparison of X with Y failed: why`.
+  # The message shows Y with inspect when it is a special constant or a
+  # Float, and by its class if not.
+  #: (value, value, ptr, word) -> value
+  def zr_cmperr_reason(x, y, why, len)
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("comparison of "), 14)
@@ -71,7 +93,8 @@ module Zr::Kern
     else
       zr_buf_class_of(b, y)
     end
-    zr_buf_push(b, Machine.bytes(" failed"), 7)
+    zr_buf_push(b, Machine.bytes(" failed: "), 9)
+    zr_buf_push(b, why, len)
     zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
   end
 

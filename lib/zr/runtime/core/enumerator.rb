@@ -471,12 +471,12 @@ class Enumerator::ArithmeticSequence < Enumerator
   end
 
   # rb_num_coerce_relop, which arith_seq_each's NUM_GE is: `y.coerce(x)`,
-  # then the operator on the pair it gives. No pair, or a nil answer, is
-  # a failed comparison.
+  # then the operator on the pair it gives. No pair is a comparison that
+  # coercion could not make, and a nil answer is one the comparator failed.
   def self.coerce_relop(x, y, op)
     Primitive.attr! :hidden
     pair = y.respond_to?(:coerce, true) ? y.__send__(:coerce, x) : nil
-    Primitive.zr_cmperr(x, y) if pair.nil?
+    Primitive.zr_cmperr_coerce(x, y) if pair.nil?
     raise TypeError, +"coerce must return [x, y]" unless pair.is_a?(Array) && pair.size == 2
 
     answer = pair[0].__send__(op, pair[1])

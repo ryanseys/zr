@@ -595,10 +595,15 @@ end
   def related(other, op)
     them = cast(other)
     if them.nil?
-      raise ArgumentError, "comparison of BigDecimal with #{BigDecimal.send(:named, other)} failed" unless other.respond_to?(:coerce)
+      failed = "comparison of BigDecimal with #{BigDecimal.send(:named, other)} failed"
+      pair = other.coerce(self) if other.respond_to?(:coerce)
+      raise ArgumentError, "#{failed}: coercion was not possible" if pair.nil?
 
-      a, b = other.coerce(self)
-      return a.send(op, b)
+      a, b = pair
+      answer = a.send(op, b)
+      raise ArgumentError, "#{failed}: comparator returned nil" if answer.nil?
+
+      return answer
     end
     return false if nan? || them.nan?
 

@@ -279,7 +279,7 @@ module Zr::Kern
   # CRuby's rb_num_coerce_bin / relop / cmp. `other.coerce(recv)` returns
   # [a, b], and the operator runs as `a mid b`. If `other` has no coerce,
   # `kind` decides: 0 and 3 raise the TypeError, 1 raises the comparison
-  # failure, and 2 returns nil.
+  # failure (rb_num_coerce_relop), and 2 returns nil.
   #: (value, value, word, word) -> value
   def zr_num_coerce(recv, other, mid, kind)
     if kind != 3 && !zr_special_p(other)
@@ -307,7 +307,12 @@ module Zr::Kern
           return answers if answers == QUNDEF
           if answers == QTRUE
             Machine.store64(slot, 0, Machine.word(second))
-            return zr_send(first, mid, 1, slot)
+            r = zr_send(first, mid, 1, slot)
+            # ensure_cmp: a comparison whose answer is nil fails.
+            if kind == 1 && r == QNIL
+              return zr_cmperr(recv, other)
+            end
+            return r
           end
         end
       end
@@ -339,7 +344,7 @@ module Zr::Kern
       end
     end
     if kind == 1
-      zr_buf_push(b, Machine.bytes(" failed"), 7)
+      zr_buf_push(b, Machine.bytes(" failed: coercion was not possible"), 34)
       return zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b)
     end
     zr_buf_push(b, Machine.bytes(" can't be coerced into "), 23)

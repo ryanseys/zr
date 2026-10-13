@@ -574,17 +574,21 @@ module Zr::Kern
     zr_capi_call1(zr_ary_at(pair, 0), zr_capi_mid(id), zr_ary_at(pair, 1))
   end
 
-  # rb_num_coerce_relop: the same for a comparison, where a coerce that
-  # fails or an answer of nil is CRuby's ArgumentError.
+  # rb_num_coerce_relop: the same for a comparison. No coerce, or a coerce
+  # that gives nil, is CRuby's "coercion was not possible"; an answer of
+  # nil is its "comparator returned nil".
   #: (value, value, word) -> value
   def rb_num_coerce_relop(x, y, id)
     Machine.gates_enter
     zr_c_entered()
-    r = Machine.value(QNIL)
+    pair = Machine.value(QNIL)
     if zr_c_result(zr_check_funcall(y, Machine.id(:coerce))) == QTRUE
       pair = zr_capi_call1(y, Machine.id(:coerce), x)
-      r = zr_capi_call1(zr_ary_at(pair, 0), zr_capi_mid(id), zr_ary_at(pair, 1))
     end
+    if pair == QNIL
+      zr_c_result(zr_cmperr_coerce(x, y))
+    end
+    r = zr_capi_call1(zr_ary_at(pair, 0), zr_capi_mid(id), zr_ary_at(pair, 1))
     if r == QNIL
       zr_c_result(zr_cmperr(x, y))
     end
