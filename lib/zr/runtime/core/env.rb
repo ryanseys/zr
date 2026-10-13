@@ -49,8 +49,10 @@ def $LOAD_PATH.resolve_feature_path(feature)
 
   [:rb, path]
 end
-# What ruby loads before the program, spelled as ruby records it.
-$LOADED_FEATURES = %w[enumerator.so monitor.so thread.rb fiber.so rational.so complex.so pathname.so ruby2_keywords.rb set.rb]
+# What ruby loads before the program, spelled as ruby records it. IO's
+# init provides io/wait, whose methods are IO's own.
+$LOADED_FEATURES = %w[enumerator.so monitor.so thread.rb fiber.so rational.so complex.so pathname.so ruby2_keywords.rb set.rb
+                      io/wait.rb io/wait.so]
 
 # The process environment, read and written through libSystem.
 ENV = Object.new

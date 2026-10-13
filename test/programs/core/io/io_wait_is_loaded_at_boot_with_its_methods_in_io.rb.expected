@@ -1,0 +1,16 @@
+true
+true
+true
+false
+false
+false
+2
+[:wait, IO]
+[:wait_readable, IO]
+[:wait_writable, IO]
+[:wait_priority, IO]
+false
+false
+nil
+true
+true
