@@ -798,6 +798,10 @@ class Enumerator::Lazy < Enumerator
     step(:uniq, :run_uniq, block, check: false)
   end
 
+  # lazy_tap_each (ruby 4.1): the block sees each value, which goes on
+  # unchanged. The lazy has no size.
+  def tap_each(&block) = step(:tap_each, :run_tap_each, block)
+
   def compact
     step(:compact, :run_compact, nil, check: false)
   end
@@ -1052,6 +1056,18 @@ class Enumerator::Lazy < Enumerator
           seen[key] = true
           yield(*values)
         end
+        nil
+      end
+      nil
+    end
+
+    # lazy_tap_each_proc: the block gets the value, packed when the source
+    # yields more than one.
+    def run_tap_each
+      block = @block
+      @receiver.each do |*values|
+        block.call(Primitive.zr_enum_value(values))
+        yield(*values)
         nil
       end
       nil
