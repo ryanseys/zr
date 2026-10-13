@@ -1,0 +1,21 @@
+[true, 1, Hash]
+[true, 2]
+[true, 2]
+[:err, RuntimeError, "boom"]
+[5, nil, nil, nil]
+[9, nil]
+[H, [:@iv], Hash]
+[{z: 1}, Hash]
+[{}, {a: 1}, {a: 1}]
+false
+[false, false]
+[:err, RuntimeError, "boom"]
+[9, {z: 1}, {}]
+[1, 1, true]
+[[{a: 1}], 5]
+[]
+[[{a: 1}], 5]
+[{}, 5]
+[H, true, H, 5]
+false
+false

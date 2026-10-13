@@ -1362,12 +1362,22 @@ module Zr::Kern
 
   # `**rest`: the keywords of `hash` that the method does not declare. The
   # entries are copied with their codes, as rb_hash_dup does. A key's own
-  # `hash` ran at the call and does not run again here.
+  # `hash` ran at the call and does not run again here. As a copy, the
+  # rest keeps the Hash's class, default and compare_by_identity, which
+  # shows since ruby 4.1 passes a lone `**h` as h itself.
   #: (value, ptr, word) -> value
   def zr_kw_rest(hash, ids, n)
     out = zr_hash_new()
     if hash == QNIL
       return out
+    end
+    RBasic[out].klass = zr_real_class(hash)
+    RHash[out].default = RHash[hash].default
+    RHash[out].default_proc = RHash[hash].default_proc
+    zr_write_barrier(out, RHash[hash].default)
+    zr_write_barrier(out, RHash[hash].default_proc)
+    if (RBasic[hash].flags & FL_IDENTITY) != 0
+      RBasic[out].flags = RBasic[out].flags | FL_IDENTITY
     end
     i = 0
     while i < RHash[hash].len
@@ -1380,6 +1390,63 @@ module Zr::Kern
     out
   end
 
+  # rb_to_hash_type: `value` itself when it is a Hash, else what its
+  # `to_hash` gives, which must be a Hash.
+  #: (value) -> value
+  def zr_hash_convert(other)
+    if !zr_special_p(other) && zr_type(other) == T_HASH
+      return other
+    end
+    if !zr_special_p(other) && zr_find_method(zr_class_of(other), Machine.id(:to_hash)) != 0
+      converted = zr_send(other, Machine.id(:to_hash), 0, 0)
+      return converted if converted == QUNDEF
+      if !zr_special_p(converted) && zr_type(converted) == T_HASH
+        return converted
+      end
+      return zr_raise_gives(other, Machine.bytes("Hash"), 4, Machine.bytes("#to_hash gives "), 15, converted)
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+    zr_buf_cname(b, other)
+    zr_buf_push(b, Machine.bytes(" into Hash"), 10)
+    zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8))
+  end
+
+  # core#hash_coerce: a lone `**value` in a hash literal or a call (ruby
+  # 4.1). nil is a new Hash; a Hash is copied as rb_hash_dup copies it,
+  # with its class, default, compare_by_identity and instance variables,
+  # so no key's `hash` runs; what `to_hash` gives is taken as it is.
+  #: (value) -> value
+  def zr_hash_coerce(value)
+    if value == QNIL
+      return zr_hash_new()
+    end
+    h = zr_hash_convert(value)
+    return h if h == QUNDEF
+    if h == value
+      return zr_hash_dup_m(h)
+    end
+    h
+  end
+
+  # core#hash_merge_ptr's start: `{**value, ...}` (ruby 4.1) begins as a
+  # plain Hash with the value's pairs and compare_by_identity, as
+  # hash_dup_capa copies them, but not its default.
+  #: (value) -> value
+  def zr_hash_splat_copy(value)
+    out = zr_hash_new()
+    if value == QNIL
+      return out
+    end
+    h = zr_hash_convert(value)
+    return h if h == QUNDEF
+    zr_hash_copy_from(out, h)
+    RHash[out].default = Machine.value(QNIL)
+    RHash[out].default_proc = Machine.value(QNIL)
+    out
+  end
+
   # `**value` in a hash literal or a call: adds the value's pairs. The
   # value must be a Hash (nil adds nothing).
   #: (value, value) -> value
@@ -1387,29 +1454,8 @@ module Zr::Kern
     if other == QNIL
       return h
     end
-    if zr_special_p(other) || zr_type(other) != T_HASH
-      if !zr_special_p(other) && zr_find_method(zr_class_of(other), Machine.id(:to_hash)) != 0
-        converted = zr_send(other, Machine.id(:to_hash), 0, 0)
-        return converted if converted == QUNDEF
-        if !zr_special_p(converted) && zr_type(converted) == T_HASH
-          return zr_hash_update(h, converted)
-        end
-        return zr_raise_gives(other, Machine.bytes("Hash"), 4, Machine.bytes("#to_hash gives "), 15, converted)
-      end
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
-      # rb_convert_type names true and false as themselves.
-      if other == QTRUE || other == QFALSE
-        s = zr_inspect(other)
-        return s if s == QUNDEF
-        zr_buf_str(b, s)
-      else
-        zr_buf_class_of(b, other)
-      end
-      zr_buf_push(b, Machine.bytes(" into Hash"), 10)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-    end
+    other = zr_hash_convert(other)
+    return other if other == QUNDEF
     i = 0
     while i < RHash[other].len
       e = RHash[other].entries + (i * HEntry.size)

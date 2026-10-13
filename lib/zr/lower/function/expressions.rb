@@ -214,9 +214,16 @@ module Zr
         end
 
         # `{k => v, **h}`: if there is a double splat, the pairs are stored
-        # one at a time into a Hash in a record slot.
+        # one at a time into a Hash in a record slot. A literal that starts
+        # with `**h` starts from a copy of h (ruby 4.1's core#hash_coerce
+        # for `**h` alone, core#hash_merge_ptr before more), which keeps
+        # its compare_by_identity and calls no key's `hash`.
         #: (Hir::HashLit node) -> String
         def hash_literal(node)
+          first = node.pairs.first
+          if first.is_a?(Hir::HashSplat) && node.pairs.size == 2
+            return checked(kernel("zr_hash_coerce", expr(first.value)))
+          end
           if (words = immediate_words(node.pairs))
             hash = checked(kernel("zr_hash_of", imm(words.size / 2), @f.symbol_value(@f.symbol(@l.word_table(words)))))
             return node.frozen ? kernel("zr_literal_freeze", hash) : hash
@@ -228,8 +235,14 @@ module Zr
 
           slot = reserve(1)
           at = value_offset(slot)
-          @f.store(kernel("zr_hash_new"), @rec, at)
-          node.pairs.each_slice(2) do |key, value|
+          pairs = node.pairs
+          if first.is_a?(Hir::HashSplat)
+            @f.store(checked(kernel("zr_hash_splat_copy", expr(first.value))), @rec, at)
+            pairs = pairs.drop(2)
+          else
+            @f.store(kernel("zr_hash_new"), @rec, at)
+          end
+          pairs.each_slice(2) do |key, value|
             if key.is_a?(Hir::HashSplat)
               checked(kernel("zr_hash_update", @f.fetch("i64", @rec, at), expr(key.value)))
             else
