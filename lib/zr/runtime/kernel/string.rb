@@ -2744,7 +2744,9 @@ G_FROZEN_LITERALS = 52
     Machine.store8(RString[recv].ptr + RString[recv].len, 0, Machine.i8(zr_fix2long(byte)))
     RString[recv].len = n
     Machine.store8(RString[recv].ptr + n, 0, Machine.i8(0))
-    if (zr_fix2long(byte) & 255) >= 128
+    # An ASCII byte keeps the code range of an ASCII-compatible String;
+    # any byte can break a wide one (UTF-16, UTF-32).
+    if (zr_fix2long(byte) & 255) >= 128 || !zr_enc_ascii_compat_p(zr_str_encoding_index(recv))
       zr_str_modified(recv)
     end
     if zr_str_encoding_index(recv) == ENC_USASCII && zr_fix2long(byte) >= 128
