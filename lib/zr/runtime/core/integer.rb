@@ -360,6 +360,191 @@ class Integer
   end
   private_class_method :big_fdiv
 
+  # rb_int_parse_cstr (bignum.c) for the C API, over the C string at
+  # `address`: `len` bytes, or up to a NUL for a negative `len`; it
+  # reads each byte that the C reads. Returns the Integer or
+  # nil, the offset of the first byte that it did not take, and what the
+  # C stores in `*ndigits`: the bytes before the digits (space, sign,
+  # prefix and leading zeros), then the digits. `badcheck` (C's NULL
+  # `endp`) refuses anything after the number but space. The steps and
+  # their quirks are the C's.
+  def self.parse_cstr(address, len, base, flags, badcheck)
+    Primitive.attr! :hidden
+    byte = ->(at) { Primitive.zr_mem_getbyte(address + at) }
+    str = 0
+    z = nil
+    num_digits = 0
+    catch(:bad) do
+      advance = lambda do |n|
+        throw :bad if len.positive? && len <= n
+        str += n
+        len -= n
+      end
+      negative = false
+      if len != 0 && flags.anybits?(PARSE_SIGN)
+        advance.call(1) while cstr_space?(byte[str])
+        if byte[str] == 0x2b
+          advance.call(1)
+        elsif byte[str] == 0x2d
+          advance.call(1)
+          negative = true
+        end
+      end
+      if base <= 0
+        if byte[str] == 0x30 && len > 1
+          prefixed = PREFIX_BASES.find { |_, marks| marks.include?(byte[str + 1]) }
+          base = prefixed ? prefixed.first : 8
+          advance.call(2) if prefixed
+        else
+          base = base < -1 ? -base : 10
+        end
+      elsif len != 1 && flags.anybits?(PARSE_PREFIX) && byte[str] == 0x30 && PREFIX_BASES[base]&.include?(byte[str + 1])
+        advance.call(2)
+      end
+      raise ArgumentError, "invalid radix #{base}" unless base.between?(2, 36)
+      throw :bad if len.zero?
+
+      # Leading zeros, with single underscores between them, count.
+      num_digits = str
+      if byte[str] == 0x30 && len != 1
+        stop = str + len unless len.negative?
+        underscores = 0
+        num_digits += 1
+        loop do
+          str += 1
+          c = byte[str]
+          break unless c == 0x30 || (flags.anybits?(PARSE_UNDERSCORE) && c == 0x5f)
+
+          if c == 0x5f
+            underscores += 1
+            break if underscores >= 2
+          else
+            num_digits += 1
+            underscores = 0
+          end
+          break if str == stop
+        end
+        str -= 1 if byte[str].zero? || cstr_space?(byte[str])
+        len = stop - str if stop
+      end
+      digit = cstr_digit(byte[str])
+      if digit.negative? || digit >= base
+        z = 0 if !badcheck && num_digits.positive?
+        throw :bad
+      end
+      ndigits = num_digits
+
+      # ruby_scan_digits: the digits that fit in an unsigned long.
+      value = 0
+      num_digits = 0
+      rest = len
+      while rest != 0
+        digit = cstr_digit(byte[str + num_digits])
+        break if digit.negative? || digit >= base
+
+        value = (value * base) + digit
+        num_digits += 1
+        break if rest.positive? && (rest -= 1).zero?
+      end
+      past = str + num_digits
+      if value < 2**64 && !(num_digits.positive? && byte[past] == 0x5f && flags.anybits?(PARSE_UNDERSCORE))
+        ndigits += num_digits
+        if badcheck
+          return [nil, past, ndigits] if num_digits.zero?
+
+          at = past
+          while len.negative? ? byte[at] != 0 : at < str + len
+            return [nil, past, ndigits] unless cstr_space?(byte[at])
+
+            at += 1
+          end
+        end
+        return [negative ? -value : value, past, ndigits]
+      end
+
+      # str2big_scan_digits: more digits, or underscores between them.
+      count, length = cstr_digits(byte, str, len, base, badcheck)
+      throw :bad if count.nil?
+
+      value = Primitive.zr_ffi_read(address + str, length).delete("_").to_i(base)
+      return [negative ? -value : value, str + length, ndigits + count]
+    end
+    [z, str, num_digits]
+  end
+
+  # RB_INT_PARSE_SIGN, _UNDERSCORE and _PREFIX.
+  PARSE_SIGN = 1
+  PARSE_UNDERSCORE = 2
+  PARSE_PREFIX = 4
+  # The letter after a 0 that names each base: b, o, d and x.
+  PREFIX_BASES = { 2 => [0x62, 0x42], 8 => [0x6f, 0x4f], 10 => [0x64, 0x44], 16 => [0x78, 0x58] }.freeze
+  private_constant :PARSE_SIGN, :PARSE_UNDERSCORE, :PARSE_PREFIX, :PREFIX_BASES
+
+  # str2big_scan_digits: the count of digits from `str` and the length
+  # they take with their underscores, or nil where `badcheck` refuses the
+  # text.
+  def self.cstr_digits(byte, str, len, base, badcheck)
+    Primitive.attr! :hidden
+    return [0, 0] if len.zero?
+    return if badcheck && byte[str] == 0x5f
+
+    count = 0
+    after_underscore = false
+    digits_end = at = str
+    loop do
+      c = byte[at]
+      at += 1
+      break if c.zero?
+
+      if c == 0x5f
+        if after_underscore
+          return if badcheck
+
+          break
+        end
+        after_underscore = true
+      else
+        digit = cstr_digit(c)
+        break if digit.negative? || digit >= base
+
+        after_underscore = false
+        count += 1
+        digits_end = at
+      end
+      break if len.positive? && (len -= 1).zero?
+    end
+    return if badcheck && after_underscore
+
+    if badcheck && len != 0
+      at -= 1
+      while byte[at] != 0 && cstr_space?(byte[at])
+        at += 1
+        break if len.positive? && (len -= 1).zero?
+      end
+      return if len != 0 && byte[at] != 0
+    end
+    [count, digits_end - str]
+  end
+
+  # conv_digit: the value of a digit of base 36, or -1.
+  def self.cstr_digit(c)
+    Primitive.attr! :hidden
+    case c
+    when 0x30..0x39 then c - 0x30
+    when 0x61..0x7a then c - 0x57
+    when 0x41..0x5a then c - 0x37
+    else -1
+    end
+  end
+
+  # ISSPACE: a space, a tab, a newline, a vertical tab, a form feed or a
+  # carriage return.
+  def self.cstr_space?(c)
+    Primitive.attr! :hidden
+    c == 0x20 || c.between?(0x09, 0x0d)
+  end
+  private_class_method :parse_cstr, :cstr_digits, :cstr_digit, :cstr_space?
+
   def gcdlcm(other) = [gcd(other), lcm(other)]
 
   def gcd(other)

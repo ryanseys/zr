@@ -613,6 +613,41 @@ module Zr::Kern
     Libc.strtod(text, stop)
   end
 
+  # rb_int_parse_cstr: the Integer that the `len` bytes at `str` (to the
+  # NUL for a negative `len`) start with, or nil; the first byte that it
+  # did not take goes to `*endp`, and the count of bytes before the
+  # number and of its digits to `*ndigits`. With no `endp`, text after
+  # the number gives nil. Integer.parse_cstr follows ruby's C.
+  #: (ptr, word, ptr, ptr, i32, i32) -> value
+  def rb_int_parse_cstr(str, len, endp, ndigits, base, flags)
+    Machine.gates_enter
+    zr_c_entered()
+    if Machine.word(str) == 0
+      if Machine.word(endp) != 0
+        Machine.store64(endp, 0, 0)
+      end
+      if Machine.word(ndigits) != 0
+        Machine.store64(ndigits, 0, 0)
+      end
+      return Machine.value(QNIL)
+    end
+    n = Machine.sword(len)
+    args = Machine.slot(40)
+    Machine.store64(args, 0, Machine.word(zr_capi_unsigned(Machine.word(str))))
+    Machine.store64(args, 8, Machine.word(zr_fix(n < 0 ? 0 - 1 : n)))
+    Machine.store64(args, 16, Machine.word(zr_fix(Machine.sword(base))))
+    Machine.store64(args, 24, Machine.word(zr_fix(Machine.sword(flags))))
+    Machine.store64(args, 32, Machine.word(zr_bool(Machine.word(endp) == 0)))
+    found = zr_c_result(zr_send(zr_global(G_INTEGER), Machine.id(:parse_cstr), 5, args))
+    if Machine.word(endp) != 0
+      Machine.store64(endp, 0, Machine.word(str) + zr_fix2long(zr_ary_at(found, 1)))
+    end
+    if Machine.word(ndigits) != 0
+      Machine.store64(ndigits, 0, zr_fix2long(zr_ary_at(found, 2)))
+    end
+    zr_ary_at(found, 0)
+  end
+
   # rb_cstr_to_inum: rb_cstr2inum with `badcheck` given: with it, text
   # that is not a whole number raises, as Integer(text, base) does.
   #: (ptr, i32, i32) -> value
