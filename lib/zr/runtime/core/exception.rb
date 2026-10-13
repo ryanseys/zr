@@ -777,10 +777,58 @@ class Thread
         id = Primitive.zr_hidden_get(self, :__node_id__)
         raise RuntimeError, +"cannot get source range for location without a node ID" if id.nil? || id.zero?
 
-        rows = script ? Location.send(:rows, ::Zr::Eval.current.script_spots(script).split("\n")) : Location.send(:ranges)[@path]
+        rows = script ? Location.send(:rows, ::Zr::Eval.current.script_spots(script).split("\n")) : Location.send(:ranges_of, @path)
         range = rows&.[](id) or raise RuntimeError, "cannot find node ID #{id} in parsed source"
         Ruby::SourceRange.send(:of, [@path, script.nil?, *range])
       end
+
+      # The node that the frame runs, from a parse of its file again
+      # (Thread::Backtrace::Location#syntax_tree). Nil where the frame
+      # runs no Ruby file, or the file changed since the compile.
+      def syntax_tree
+        return nil if @path.nil? || !Primitive.zr_hidden_get(self, :__script__).nil?
+
+        id = Primitive.zr_hidden_get(self, :__node_id__)
+        return nil if id.nil? || id.zero?
+
+        tree = RubyVM::InstructionSequence.send(:parse_again, @path, absolute_path) or return nil
+        queue = [tree]
+        while (node = queue.shift)
+          return node if node.node_id == id
+
+          queue.concat(node.compact_child_nodes)
+        end
+        nil
+      end
+
+      # `[crc, length]`: the digest of the code of the file at `path` that
+      # the program compiled (Hir::Spots.digest), or nil.
+      def self.digest_of(path)
+        Primitive.attr! :hidden
+        @digests ||= Primitive.zr_load_names(4).split("\f").to_h { |text| [text[/\A[^\n]*/], digest(text.split("\n"))] }
+        return @digests[path] if @digests.key?(path)
+
+        spots = defined?(::Zr::Eval) && ::Zr::Eval.current.file_spots(path)
+        spots ? digest(spots.split("\n")) : nil
+      end
+
+      def self.digest(lines)
+        Primitive.attr! :hidden
+        _, _, _, crc, length = lines.find { |line| line.start_with?("0 h ") }&.split
+        crc && [crc.to_i, length.to_i]
+      end
+      private_class_method :digest_of, :digest
+
+      # The ranges of the file at `path`: from the program's spot table, or
+      # from the spots of a load that compiled it at run time.
+      def self.ranges_of(path)
+        Primitive.attr! :hidden
+        return ranges[path] if ranges.key?(path)
+
+        spots = defined?(::Zr::Eval) && ::Zr::Eval.current.file_spots(path)
+        spots ? rows(spots.split("\n")) : nil
+      end
+      private_class_method :ranges_of
 
       # `{ file => { node id => [line, column, end line, end column] } }`:
       # the ranges in the program's spot table, read once.

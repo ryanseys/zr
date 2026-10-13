@@ -922,8 +922,13 @@ module Zr::Kern
     meta
   end
 
+  # Whether `body` has an instruction sequence. A Method's Proc runs the
+  # method's code but has none of its own, as in ruby.
   #: (value) -> value
   def zr_iseq_p(body)
+    if !zr_special_p(body) && zr_type(body) == T_PROC && RProc[body].fn == Machine.addr(:zr_method_block)
+      return Machine.value(QFALSE)
+    end
     zr_bool(zr_iseq_meta(body) != 0)
   end
 

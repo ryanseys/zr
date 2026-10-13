@@ -20,7 +20,7 @@ class PreludesTest < Minitest::Test
   # as irb does: it requires fileutils, and fileutils defines ninety of
   # its methods with `module_eval`.
   class Loader
-    FLAGS = %i[configures? evals? gems? lazy_gems? normalizes? pretty_prints? irbs? asts?].freeze
+    FLAGS = %i[configures? evals? gems? lazy_gems? normalizes? pretty_prints? irbs? asts? ruby_prisms?].freeze
 
     attr_reader :read
 
@@ -42,6 +42,15 @@ class PreludesTest < Minitest::Test
       @flags[:evals?] = true if path == Build::IRB_SESSION
       @read.size
     end
+  end
+
+  # Ruby::Prism is an autoload that the core makes. A program that uses it
+  # includes ruby/prism and requires nothing before its first line.
+  def test_ruby_prism_is_included_and_not_required
+    loader = Loader.new(ruby_prisms?: true)
+
+    assert_empty preludes(loader)
+    assert_equal [File.join(Zr::Library::Layout::EXT, "ruby/prism.rb")], loader.read
   end
 
   def test_preludes_are_empty_when_no_flag_is_set

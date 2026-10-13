@@ -291,6 +291,69 @@ class RubyVM
     def path = Primitive.zr_hidden_get(self, :__path__)
     def first_lineno = Primitive.zr_hidden_get(self, :__first_lineno__)
 
+    # iseq_syntax_tree: the Ruby::Prism node of this code, from a parse of
+    # its file again. A def gives its DefNode, a lambda its LambdaNode,
+    # and a block the call that the block is for. A program that
+    # compile_file made gives its ProgramNode. Nil where the code is not
+    # from a file (an eval's), or the file changed since the compile.
+    def syntax_tree
+      body = Primitive.zr_hidden_get(self, :__body__)
+      if body.nil?
+        source = Primitive.zr_hidden_get(self, :__source__)
+        path = Primitive.zr_hidden_get(self, :__absolute_path__)
+        return nil unless source && path && File.file?(path) && Primitive.zr_hidden_get(self, :__label__) == "<main>"
+
+        result = ::Ruby::Prism.parse_file(path, version: "current")
+        return result.success? && InstructionSequence.send(:code_of, result) == InstructionSequence.send(:code_of, ::Ruby::Prism.parse(source)) ? result.value : nil
+      end
+
+      range = body.source_range or return nil
+      tree = InstructionSequence.send(:parse_again, range.path, range.absolute_path) or return nil
+      queue = [[tree, nil]]
+      while (node, parent = queue.shift)
+        if [node.start_line, node.start_column, node.end_line, node.end_column] == [range.start_line, range.start_column, range.end_line, range.end_column]
+          case node.type
+          when :def_node, :lambda_node then return node
+          when :block_node then return parent
+          end
+        end
+        node.compact_child_nodes.each { |child| queue << [child, node] }
+      end
+      nil
+    end
+
+    class << self
+      private
+
+      # The tree of the file at `absolute`, which the program compiled as
+      # `path`: nil when there is no such file, or its code is no longer
+      # what was compiled, or it does not parse.
+      def parse_again(path, absolute)
+        Primitive.attr! :hidden
+        return nil unless absolute && File.file?(absolute)
+
+        result = ::Ruby::Prism.parse_file(absolute, version: "current")
+        return nil unless result.success?
+
+        digest = Thread::Backtrace::Location.send(:digest_of, path)
+        if digest
+          code = code_of(result)
+          return nil unless digest == [Primitive.zr_zlib_checksum(0, 0, Primitive.zr_str_operand(code)), code.bytesize]
+        end
+        result.value
+      end
+
+      # The code that prism parsed, up to the end of an `__END__` line.
+      def code_of(result)
+        Primitive.attr! :hidden
+        code = result.source.source
+        if (data = result.data_loc) && (eol = code.byteindex("\n", data.start_offset))
+          code = code.byteslice(0, eol + 1)
+        end
+        code
+      end
+    end
+
     # The path where the file was found, or nil for code that is not from a file.
     def absolute_path
       Primitive.zr_hidden_get(self, :__absolute_path__) || (Primitive.zr_path_kind(path) == 2 ? File.expand_path(path) : nil)

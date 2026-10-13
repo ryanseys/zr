@@ -16,6 +16,10 @@ module Ruby
   COPYRIGHT = RUBY_COPYRIGHT
   DESCRIPTION = RUBY_DESCRIPTION
 
+  # Ruby::Prism, the parser of the running ruby, as ruby's autoload. A
+  # program that uses it includes ruby/prism (Hir::Build.ruby_prism).
+  Primitive.zr_autoload_computed(self, :Prism, "ruby/prism", nil, false, nil)
+
   # Where a piece of code starts and ends (Proc#source_range and
   # Method#source_range): its path, its real path when it comes from a
   # file, and its first and last line and byte column. Only the core makes

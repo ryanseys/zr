@@ -1883,9 +1883,20 @@ module Zr
       def const_path_read(node, line)
         # `Prism::Ruby` is not Ruby::Box: only a top-level `Ruby` compiles.
         @loader&.compiles!(node.name) unless node.name == :Ruby && node.parent
+        @loader&.ruby_prisms! if node.name == :Prism && ruby_namespace?(node.parent)
         gems!(node.name) if node.parent.nil?
         scope, name = constant_path(node)
         ConstRead.new(scope, name, line)
+      end
+
+      # Whether `node` is the top-level `Ruby` (`Ruby` or `::Ruby`).
+      #: (Prism::node? node) -> bool
+      def ruby_namespace?(node)
+        case node
+        when Prism::ConstantReadNode then node.name == :Ruby && !@loader&.module_defined?(@path, :Ruby)
+        when Prism::ConstantPathNode then node.parent.nil? && node.name == :Ruby
+        else false
+        end
       end
 
       #: (Prism::InterpolatedStringNode node, Integer line) -> node

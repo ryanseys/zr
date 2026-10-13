@@ -34,18 +34,26 @@ module ErrorHighlight
     def self.load_table
       Primitive.zr_load_names(4).split("\f").to_h do |text|
         file, *lines = text.split("\n")
-        rows = {}
-        lines.each do |line|
-          id, point, name, *numbers = line.split
-          # A node's range is Location#source_range's.
-          next if point == "r"
-
-          (rows[id.to_i] ||= []) <<[point == "n" ? :name : :args, name == "-" ? nil : name.to_sym, *numbers.map(&:to_i)]
-        end
-        [file, rows]
+        [file, rows(lines)]
       end
     end
     private_class_method :load_table
+
+    # `{ node id => [[point, name, line, column, last line, last column],
+    # ...] }` from the spot lines of a file.
+    def self.rows(lines)
+      rows = {}
+      lines.each do |line|
+        id, point, name, *numbers = line.split
+        # A node's range is Location#source_range's, and the digest
+        # #syntax_tree's.
+        next if point == "r" || point == "h"
+
+        (rows[id.to_i] ||= []) << [point == "n" ? :name : :args, name == "-" ? nil : name.to_sym, *numbers.map(&:to_i)]
+      end
+      rows
+    end
+    private_class_method :rows
 
     def initialize(path, rows)
       @path = path
@@ -70,6 +78,11 @@ module ErrorHighlight
 
   def self.prism_find(location) = CompiledNode.find(location)
   private_class_method :prism_find
+
+  # A Location answers syntax_tree by a parse of its file. The compiled
+  # spots keep error_highlight's work without one.
+  def self.find_node_from_loc(location) = CompiledNode.find(location)
+  private_class_method :find_node_from_loc
 
   # Spotter reads the spot that a compiled node already contains.
   module CompiledSpot

@@ -43,6 +43,7 @@ module Zr
         # @rbs @load_path_computed: bool?
         # @rbs @real_roots: Hash[String, String]?
         # @rbs @asts: bool
+        # @rbs @ruby_prisms: bool
         # @rbs @configures: bool
         # @rbs @activations: Integer
         # @rbs @back_refs: Hash[Symbol, Prism::node]
@@ -142,6 +143,7 @@ module Zr
           @pretty_prints = external&.pretty_prints? || false
           @irbs = external&.irbs? || false
           @asts = false
+          @ruby_prisms = false
           @configures = external&.configures? || false
           # A `using` entry is a slot in one table that the whole program
           # shares, so a build must not use an entry that running code
@@ -414,6 +416,14 @@ module Zr
         #: () -> bool
         def asts? = @asts
 
+        # Whether a file uses Ruby::Prism, or a #syntax_tree, which reads
+        # its nodes. Ruby's autoload of Prism then finds ruby/prism.
+        #: () -> bool
+        def ruby_prisms? = @ruby_prisms
+
+        #: () -> void
+        def ruby_prisms! = @ruby_prisms = true
+
         # Whether a file uses rubygems' API. If so, it loads when the
         # program boots, as ruby loads it for every program.
         #: () -> bool
@@ -489,6 +499,7 @@ module Zr
           @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp) || dynamic
           # A program that calls irb includes irb, which `binding.irb` loads.
           @irbs = true if name == :irb || ((SENDS + FETCHES).include?(name) && named == :irb)
+          @ruby_prisms = true if name == :syntax_tree || ((SENDS + FETCHES).include?(name) && named == :syntax_tree)
         end
 
         # The byte a file's `__END__` data starts at, or nil when it has
@@ -556,7 +567,12 @@ module Zr
           rows = @activations
           body = build.seq(result.value.statements, hoist: true)
           @eval_using_after = build.top_using if scopes
-          unless (@eval && !@switches.keep_script_lines) || @hiding || file.start_with?("<") || Library::Roots.runtime_file?(file)
+          # An eval's string has spots only while ruby would keep its lines.
+          # A file that a load compiles at run time has its ranges, as ruby
+          # reads the file again.
+          if @eval && !scopes && !@hiding && !Library::Roots.runtime_file?(file)
+            spots = Spots.digest(result) + Spots.of(result.value, spotted: false)
+          elsif !((@eval && !@switches.keep_script_lines) || @hiding || file.start_with?("<") || Library::Roots.runtime_file?(file))
             spots = Spots.for(result, source, { filepath: file, line: line })
           end
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings,

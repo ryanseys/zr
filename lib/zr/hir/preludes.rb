@@ -34,7 +34,8 @@ module Zr
           normalizes?: -> { [normalizer(loader)] },
           pretty_prints?: -> { [pretty_printer(loader)] },
           irbs?: -> { [irb_session(loader)] },
-          asts?: -> { [ast_translator(loader)] }
+          asts?: -> { [ast_translator(loader)] },
+          ruby_prisms?: -> { ruby_prism(loader) }
         } #: Hash[Symbol, ^() -> Array[node]]
         taken = {} #: Hash[Symbol, Array[node]]
         while (flag = asking.each_key.find { |name| !taken.key?(name) && loader.public_send(name) })
@@ -130,6 +131,16 @@ module Zr
       #: (Loader loader) -> Require
       def self.ast_translator(loader)
         Require.new(:hidden, "zr/syntax_tree", SYNTAX_TREE, loader.hidden(SYNTAX_TREE), 0)
+      end
+
+      # Ruby::Prism is an autoload of ruby/prism (core/box.rb). A program
+      # that uses it, or a #syntax_tree, includes the file, which the
+      # first read of the constant loads.
+      #: (Loader loader) -> Array[node]
+      def self.ruby_prism(loader)
+        path = loader.resolve(:require, "ruby/prism", Library::Layout::EXT) or raise ArgumentError, "no ruby/prism.rb in the library roots"
+        loader.add(path)
+        []
       end
 
       #: (Loader loader) -> Require

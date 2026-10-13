@@ -1,0 +1,41 @@
+"ruby/prism"
+true
+"1.9.0"
+true
+:CEXT
+nil
+nil
+[:dump, :dump_file, :find, :lex, :lex_compat, :lex_file, :load, :parse, :parse_comments, :parse_failure?, :parse_file, :parse_file_comments, :parse_file_failure?, :parse_file_success?, :parse_lex, :parse_lex_file, :parse_stream, :parse_success?, :profile, :profile_file, :scope]
+Ruby::Prism::ParseResult
+true
+Ruby::Prism::ProgramNode
+Ruby::Prism::DefNode
+:m
+"def m(a, &nil) = a + 1"
+Ruby::Prism::NoBlockParameterNode
+[[Ruby::Prism::InlineComment, "# note"]]
+Ruby::Prism::ASCIISource
+[[Ruby::Prism::ParseError, "unexpected end-of-input; expected an expression after the operator", 3], [Ruby::Prism::ParseError, "unexpected end-of-input, assuming it is closing the parent top level context", 3]]
+[true, true]
+Ruby::Prism::MultiTargetNode
+Ruby::Prism::LexResult
+[[Ruby::Prism::Token, :IDENTIFIER, "a", nil], [Ruby::Prism::Token, :PLUS, "+", nil], [Ruby::Prism::Token, :INTEGER, "1", nil], [Ruby::Prism::Token, :EOF, "", nil]]
+[Ruby::Prism::ProgramNode, 2]
+[Ruby::Prism::InlineComment, Ruby::Prism::EmbDocComment]
+true
+true
+true
+nil
+Ruby::Prism::LocalVariableReadNode
+Ruby::Prism::LocalVariableReadNode
+true
+true
+true
+2
+[TypeError, "wrong argument type Integer (expected Array or Prism::Scope)"]
+[TypeError, "wrong argument type Integer (expected String)"]
+[ArgumentError, "invalid version: 2.0"]
+[SyntaxError, ":1: syntax errors found"]
+[Errno::ENOENT, "No such file or directory - /no/such/file.rb"]
+[:b, :a, :c]
+{value: 1}

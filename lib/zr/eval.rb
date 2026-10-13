@@ -78,6 +78,7 @@ module Zr
       @compiled = {}
       @files = {}
       @scripts = []
+      @file_spots = {}
     end
 
     # Compiles `source`. Returns the toplevel's address, its FrameMeta
@@ -151,6 +152,7 @@ module Zr
         # eval's do (`compiled`): numbered from 0, they would take the
         # entries of the program and of eval support (prism's parser).
         hir = Hir.build(source, path, eval_support: false, trace: @runtime.tracing?, def_base: base, activations: @runtime.activations)
+        @file_spots[path] = hir.spots.fetch(path, "")
         @runtime.take_activations(hir.activations)
         coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
         ext = Library::Roots.internal_library?(path)
@@ -160,6 +162,11 @@ module Zr
         top
       end
     end
+
+    # The spots (Hir::Spots) of the file at `path` that a load or require
+    # compiled at run time, or nil.
+    #: (String path) -> String?
+    def file_spots(path) = @file_spots[path]
 
     # The spots (Hir::Spots) of the eval that `kept_script` numbered.
     #: (Integer number) -> String

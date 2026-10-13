@@ -5,6 +5,7 @@ require_relative "../prism"
 # compiler that a program carries (eval support) must not load the
 # library itself: that would end the program's autoload.
 require "error_highlight" unless defined?(ErrorHighlight)
+require "zlib"
 
 module Zr
   module Hir
@@ -18,6 +19,8 @@ module Zr
     # One record per line: `id point name first_line first_column
     # last_line last_column`. `point` is `n` for `point_type: :name` and
     # `a` for `:args`, or `r` for the range of a node that calls (CALLS).
+    # The first record, `0 h - crc length`, is the digest of the code that
+    # was compiled (`digest`).
     # `name` is the constant in the NameError, or `-` if the spot does not
     # depend on it.
     module Spots
@@ -43,10 +46,23 @@ module Zr
       # tree and the same Spotter.
       #: (Prism::ParseResult result, String source, Hash[Symbol, untyped] options) -> String
       def for(result, source, options)
-        return of(result.value) unless defined?(Cache::Parse)
+        return digest(result) + of(result.value) unless defined?(Cache::Parse)
 
-        spotter = ErrorHighlight.method(:spot).source_location&.first or return of(result.value)
-        Cache::Parse.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
+        spotter = ErrorHighlight.method(:spot).source_location&.first or return digest(result) + of(result.value)
+        digest(result) + Cache::Parse.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
+      end
+
+      # The record of the code that prism parsed, up to the end of an
+      # `__END__` line: its CRC-32 and length. #syntax_tree parses the file
+      # again only while it has the same code, as iseq_syntax_tree checks
+      # the source hash.
+      #: (Prism::ParseResult result) -> String
+      def digest(result)
+        code = result.source.source
+        if (data = result.data_loc) && (eol = code.byteindex("\n", data.start_offset))
+          code = code.byteslice(0, eol + 1) #: String
+        end
+        "0 h - #{Zlib.crc32(code)} #{code.bytesize}\n"
       end
 
       # The node types that Spotter handles, each with its point types.
@@ -74,14 +90,18 @@ module Zr
                  interpolated_symbol_node interpolated_x_string_node interpolated_regular_expression_node
                  x_string_node match_write_node].to_h { [_1, true] }.freeze
 
-      #: (Prism::node tree) -> String
-      def of(tree)
+      # `spotted: false` leaves out error_highlight's spots: a compile at run
+      # time must not load error_highlight, which is the program's autoload.
+      #: (Prism::node tree, ?spotted: bool) -> String
+      def of(tree, spotted: true)
         rows = +""
         queue = [tree]
         while (node = queue.shift)
           queue.concat(node.compact_child_nodes)
           at = CALLS[node.type] ? node.location : entry(node)
           rows << [node.node_id, "r", "-", at.start_line, at.start_column, at.end_line, at.end_column].join(" ") << "\n" if at
+          next unless spotted
+
           points = POINTS[node.type] or next
 
           names(node).each do |name|
