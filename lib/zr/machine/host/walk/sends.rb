@@ -478,8 +478,11 @@ module Zr
               fn = @host.callable(lambda do |pr, argc, argv, blk|
                 run ||= block_body(node, inner)
                 outer = @host.pin(Memory.word(pr + @proc_env))
+                # A block's frame names its Proc as its entry, as a binary's
+                # does, so a send in a refined Proc finds its refinements
+                # (zr_frame_refined_list).
                 enter(inner, Memory.word(pr + @proc_self), Memory.word(pr + @proc_cref), Memory.word(pr + @proc_blk),
-                      proc: pr, outer: outer, defined: blk) do |f|
+                      proc: pr, outer: outer, entry: pr, defined: blk) do |f|
                   run.call(f, argc, argv, blk)
                 end
               end)
