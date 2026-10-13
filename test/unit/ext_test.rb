@@ -150,7 +150,7 @@ class ExtTest < Minitest::Test
   # is the extension that `require "x/x"` loads, through dlopen.
   def test_a_precompiled_gem_gives_its_bundle_for_this_abi
     Dir.mktmpdir do |gem|
-      %w[3.4 4.0].each do |abi|
+      ["3.4", Zr::Ext::ABI].each do |abi|
         FileUtils.mkdir_p(File.join(gem, "lib", "fancy", abi))
         File.write(File.join(gem, "lib", "fancy", abi, "fancy.bundle"), "")
       end
