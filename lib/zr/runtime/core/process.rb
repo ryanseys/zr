@@ -94,15 +94,23 @@ module Process
     end
     private_class_method :made
 
+    # A status that a wait makes is frozen, and so shareable, as ruby
+    # freezes it once it is filled in.
+    def self.reaped(pid, raw)
+      Primitive.attr! :hidden
+      new(pid, raw).freeze
+    end
+    private_class_method :reaped
+
     # Process.wait's status and not its pid, leaving `$?` alone: nil
     # while a WNOHANG child still runs, and pid -1 when there is none to
     # wait for.
     def self.wait(pid = -1, flags = 0)
       result = Process.send(:reap, pid, flags)
-      return new(-1, 0) if result.is_a?(Integer)
+      return reaped(-1, 0) if result.is_a?(Integer)
 
       child, raw = result
-      child.zero? ? nil : new(child, raw)
+      child.zero? ? nil : reaped(child, raw)
     end
 
     def exited? = (@to_i & 0x7F) == 0
@@ -405,7 +413,7 @@ module Process
     child, raw = result
     return nil if child == 0
 
-    Process.send(:status!, Status.new(child, raw))
+    Process.send(:status!, Status.send(:reaped, child, raw))
     child
   end
 
@@ -429,7 +437,7 @@ module Process
 
         raise SystemCallError.new(nil, -result)
       end
-      Process.send(:status!, Status.new(*result))
+      Process.send(:status!, Status.send(:reaped, *result))
       children << [result[0], $?]
     end
     children
@@ -846,7 +854,7 @@ module Process
             Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir, redirects.close_others)
           end
     redirects.opened.each(&:close)
-    Process.send(:status!, Status.new(0, 127 << 8)) if pid.negative?
+    Process.send(:status!, Status.send(:reaped, 0, 127 << 8)) if pid.negative?
     pid
   end
 

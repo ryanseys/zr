@@ -1,0 +1,1 @@
+core/process/a_status_that_a_wait_makes_is_frozen_and_shareable.rb:21: warning: Ractor API is experimental and may change in future versions of Ruby.
