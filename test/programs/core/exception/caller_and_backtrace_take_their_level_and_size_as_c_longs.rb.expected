@@ -1,0 +1,19 @@
+float: true
+to_int: true
+locations_float: true
+locations_to_int: true
+backtrace_float: true
+backtrace_range: true
+backtrace_locations_float: true
+negative_level: ArgumentError: negative level (-1)
+negative_float: ArgumentError: negative level (-1)
+negative_size: ArgumentError: negative size (-1)
+backtrace_negative: ArgumentError: negative level (-1)
+locations_negative: ArgumentError: negative level (-1)
+locations_negative_size: ArgumentError: negative size (-1)
+string: TypeError: no implicit conversion of String into Integer
+nil_level: TypeError: no implicit conversion of nil into Integer
+nil_size: true
+huge: RangeError: bignum too big to convert into 'long'
+past_end: nil
+zero_size: []

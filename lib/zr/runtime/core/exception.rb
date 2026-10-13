@@ -922,6 +922,10 @@ module Kernel
       return all[start]
     end
 
+    # The level and the size are C longs, as caller's are.
+    start = Primitive.zr_index_operand_m(start)
+    raise ArgumentError, "negative level (#{start})" if start.negative?
+    length = Primitive.zr_index_operand_m(length) unless length.nil?
     rows = caller(start + 1, length) or return nil
 
     # Pairs of [node, line], one per row.

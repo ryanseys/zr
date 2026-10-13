@@ -1440,8 +1440,13 @@ end
     end
     start = 1
     limit = 0 - 1
+    # The level and the size are C longs (NUM2LONG): a Float is cut, and
+    # any other value converts with to_int.
+    n = Machine.slot(8)
     if argc > 0
-      start = zr_fix2long(Machine.value(Machine.load64(argv, 0)))
+      r = zr_index_operand(Machine.value(Machine.load64(argv, 0)), n)
+      return r if r == QUNDEF
+      start = Machine.load64(n, 0)
       if start < 0
         b = Machine.slot(Buf.size)
         zr_buf_init(b)
@@ -1452,7 +1457,9 @@ end
       end
     end
     if argc > 1 && Machine.value(Machine.load64(argv, 8)) != QNIL
-      limit = zr_fix2long(Machine.value(Machine.load64(argv, 8)))
+      r = zr_index_operand(Machine.value(Machine.load64(argv, 8)), n)
+      return r if r == QUNDEF
+      limit = Machine.load64(n, 0)
       if limit < 0
         b = Machine.slot(Buf.size)
         zr_buf_init(b)
