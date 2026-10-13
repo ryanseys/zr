@@ -173,7 +173,7 @@ class Range
     Array.new(n) { |i| top - i }
   end
 
-  def exclude_end? = @excl
+  def exclude_end? = @excl ? true : false
 
   def each
     return to_enum(:each) { size } unless block_given?
@@ -757,5 +757,13 @@ class Range
     @end = high
     @excl = exclude_end
     Primitive.zr_hidden_set(self, :__built__, true)
+  end
+
+  # The bounds of a Range that Marshal built from a struct record, which
+  # holds no excl: the Range is still to be initialized.
+  def seat_bounds(low, high)
+    Primitive.attr! :hidden
+    @begin = low
+    @end = high
   end
 end

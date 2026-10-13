@@ -239,9 +239,12 @@ module Marshal
       write_ivars(ivars, limit) unless ivars.empty?
     end
 
-    # A Range writes the three parts ruby gives it, in ruby's order.
+    # A Range writes the three parts ruby gives it, in ruby's order: the
+    # bounds as they are (RANGE_EXCL), so a Range before its initialize
+    # writes a nil excl, and no method that a subclass defines is called.
     def range_parts(range)
-      [[:excl, range.exclude_end?], [:begin, range.begin], [:end, range.end]]
+      low, high, excl = Range.instance_method(:bounds).bind_call(range)
+      [[:excl, excl], [:begin, low], [:end, high]]
     end
 
     # Ruby keeps an exception's message, its backtrace and an errno next
@@ -934,9 +937,10 @@ module Marshal
       end
       @readable += 2
       if klass <= Range
-        # range_loader: a Range dumped before its initialize (no excl)
-        # loads as one that is still to be initialized.
-        Range.instance_method(:initialize).bind_call(built, *values) unless values[2].nil?
+        # rb_struct_initialize over ruby 4.1's two members: the bounds of
+        # a Range that is still to be initialized, whose excl is a flag
+        # that the record does not hold.
+        built.send(:seat_bounds, values[0], values[1])
       elsif klass <= Data
         # A Data value is frozen, as `new` leaves it.
         values.freeze
@@ -947,7 +951,7 @@ module Marshal
 
     # The members of a class that CRuby keeps as T_STRUCT, or nil.
     def struct_members(klass)
-      return %i[begin end excl] if klass <= Range
+      return %i[begin end] if klass <= Range
       return nil unless klass <= Struct || klass <= Data
 
       klass.members
