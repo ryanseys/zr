@@ -9,7 +9,7 @@
 class StringIO
   include Enumerable
 
-  VERSION = "3.2.0"
+  VERSION = "3.2.1.dev"
   MAX_LENGTH = 0x7fff_ffff_ffff_ffff
 
   # struct StringIO.
@@ -79,13 +79,13 @@ class StringIO
     Primitive.zr_frozen_error(self) if frozen?
     return initialize_copy(args[0]) if args.size == 1 && opts.empty? && !args[0].is_a?(String)
 
-    init(args, opts, strio)
+    init(args, opts, changing_strio)
   end
 
   def string = strio.string
 
   def string=(string)
-    ptr = strio
+    ptr = changing_strio
     ptr.flags &= ~READWRITE
     string = Primitive.zr_str_operand(string)
     ptr.flags = string.frozen? ? READABLE : READWRITE
@@ -97,24 +97,24 @@ class StringIO
   def lineno = strio.lineno
 
   def lineno=(lineno)
-    strio.lineno = Primitive.zr_index_operand_m(lineno)
+    changing_strio.lineno = Primitive.zr_index_operand_m(lineno)
   end
 
   def binmode
-    ptr = strio
+    ptr = changing_strio
     ptr.enc = Encoding::BINARY
     ptr.string.force_encoding(Encoding::BINARY) if writable?
     self
   end
 
   def close
-    strio
+    changing_strio
     Primitive.zr_state_set(self, :__open__, 0)
     nil
   end
 
   def close_read
-    ptr = strio
+    ptr = changing_strio
     raise IOError, "closing non-duplex IO for reading" unless ptr.flags.anybits?(READABLE)
 
     Primitive.zr_state_set(self, :__open__, Primitive.zr_hidden_get(self, :__open__) & ~READABLE)
@@ -122,7 +122,7 @@ class StringIO
   end
 
   def close_write
-    ptr = strio
+    ptr = changing_strio
     raise IOError, "closing non-duplex IO for writing" unless ptr.flags.anybits?(WRITABLE)
 
     Primitive.zr_state_set(self, :__open__, Primitive.zr_hidden_get(self, :__open__) & ~WRITABLE)
@@ -166,7 +166,7 @@ class StringIO
   def pos = strio.pos
 
   def pos=(pos)
-    ptr = strio
+    ptr = changing_strio
     at = Primitive.zr_index_operand_m(pos)
     raise Errno::EINVAL if at.negative?
 
@@ -174,14 +174,14 @@ class StringIO
   end
 
   def rewind
-    ptr = strio
+    ptr = changing_strio
     ptr.pos = 0
     ptr.lineno = 0
     0
   end
 
   def seek(amount, whence = nil)
-    ptr = strio
+    ptr = changing_strio
     amount = Primitive.zr_index_operand_m(amount)
     raise IOError, "closed stream" unless open?(READWRITE)
 
@@ -336,10 +336,7 @@ class StringIO
 
     length, buffer = args
     binary = false
-    unless buffer.nil?
-      buffer = Primitive.zr_str_operand(buffer)
-      Primitive.zr_frozen_error(buffer) if buffer.frozen?
-    end
+    buffer = read_buffer(ptr, buffer)
     if length.nil?
       return nil if ptr.string.nil?
 
@@ -372,13 +369,14 @@ class StringIO
   end
 
   def pread(length, offset, buffer = nil)
+    ptr = readable
     len = Primitive.zr_index_operand_m(length)
     at = Primitive.zr_index_operand_m(offset)
     raise ArgumentError, "negative string size (or size too big): #{length}" if len.negative?
-    return buffer.nil? ? +"" : buffer if len.zero?
     raise Errno::EINVAL, "pread: Invalid offset argument: #{offset}" if at.negative?
 
-    ptr = readable
+    buffer = read_buffer(ptr, buffer)
+    return buffer.nil? ? +"" : buffer if len.zero?
     raise EOFError, "end of file reached" if outside?(ptr, at)
     return substr(ptr, at, len, Encoding::BINARY) if buffer.nil?
 
@@ -456,7 +454,7 @@ class StringIO
   def internal_encoding = nil
 
   def set_encoding(ext_enc, int_enc = nil, **opt)
-    ptr = strio
+    ptr = changing_strio
     enc = if ext_enc.nil?
             Encoding.default_external
           else
@@ -472,7 +470,7 @@ class StringIO
   end
 
   def set_encoding_by_bom
-    ptr = strio
+    ptr = changing_strio
     return nil unless encoding_by_bom(ptr)
 
     ptr.enc
@@ -579,11 +577,32 @@ class StringIO
 
   private
 
-  # get_strio: the struct, once initialize made one.
+  # get_strio_for_read: the struct, once initialize made one. A frozen
+  # StringIO still reads.
   def strio
     Primitive.attr! :hidden
-    Primitive.zr_frozen_error(self) if frozen?
     Primitive.zr_hidden_get(self, :__strio__) or raise IOError, "uninitialized stream"
+  end
+
+  # get_strio: the struct of a stream that this call changes, which a
+  # frozen StringIO refuses.
+  def changing_strio
+    Primitive.attr! :hidden
+    Primitive.zr_frozen_error(self) if frozen?
+    strio
+  end
+
+  # strio_readbuf: the buffer that a read fills, as a String that can
+  # change and is not the stream's own.
+  def read_buffer(ptr, buffer)
+    Primitive.attr! :hidden
+    return nil if buffer.nil?
+
+    buffer = Primitive.zr_str_operand(buffer)
+    Primitive.zr_frozen_error(buffer) if buffer.frozen?
+    raise ArgumentError, "cannot read into the underlying string" if buffer.equal?(ptr.string)
+
+    buffer
   end
 
   # STRIO_MODE_SET_P: this object and its struct both allow `mode`.
@@ -602,7 +621,7 @@ class StringIO
 
   def writable
     Primitive.attr! :hidden
-    ptr = strio
+    ptr = changing_strio
     raise IOError, "not opened for writing" unless open?(WRITABLE)
 
     ptr
@@ -858,12 +877,8 @@ class StringIO
       if n < e - s + (chomp ? 1 : 0)
         at = find(string, rs, s, e)
         if at && at + n <= e
-          if e - s < 1024 || n == e - s
-            e = at + n
-            w = chomp ? n : 0
-          else
-            e = at + (chomp ? 0 : n)
-          end
+          e = at + n
+          w = chomp ? n : 0
         end
       end
       line = substr(ptr, ptr.pos, e - s - w, enc)
