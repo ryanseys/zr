@@ -391,10 +391,11 @@ module Packing
     # the next byte of the template that it reads: a directive, or a space
     # after the last one.
     template_size = template.bytesize
-    trailing = [32, 9, 10, 11, 12, 13].include?(template.getbyte(-1))
+    last = template.getbyte(-1)
+    trailing = !last.nil? && (last == 32 || (last >= 9 && last <= 13))
     # CRuby packs into the buffer itself: a conversion that changes the
     # buffer leaves the pack to go on from what is in it then.
-    mark = buffer&.bytesize
+    mark = buffer && Primitive.zr_str_bytesize(buffer)
     list.each do |c, count, big|
       raise RuntimeError, +"format string modified" if template.bytesize != template_size
 
@@ -479,9 +480,9 @@ module Packing
       when "R", "r"
         each_item(items, at, count) do |item|
           n = integer_item(item)
-          if buffer && buffer.bytesize != mark
+          if buffer && Primitive.zr_str_bytesize(buffer) != mark
             out = buffer.b
-            mark = buffer.bytesize
+            mark = Primitive.zr_str_bytesize(buffer)
           end
           out << leb128(n, c == +"r")
         end
@@ -1122,12 +1123,12 @@ class String
 
     # A block that changes the String or the format stops the unpack
     # (UNPACK_PUSH, [Bug #22315]).
-    size = bytesize
-    format_size = fmt.bytesize
+    size = Primitive.zr_str_bytesize(self)
+    format_size = Primitive.zr_str_bytesize(fmt)
     values.each do |value|
       yield value
-      raise RuntimeError, +"string modified" if bytesize != size
-      raise RuntimeError, +"format string modified" if fmt.bytesize != format_size
+      raise RuntimeError, +"string modified" if Primitive.zr_str_bytesize(self) != size
+      raise RuntimeError, +"format string modified" if Primitive.zr_str_bytesize(fmt) != format_size
     end
     nil
   end

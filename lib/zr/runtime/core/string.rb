@@ -2104,7 +2104,7 @@ class String
     through_converter = Encoding.send(:stateless?, from) || Encoding.send(:stateless?, target)
     # transcode_loop: a fallback that changes this String stops the
     # conversion (#22330).
-    options = { **options, __source__: [self, bytesize] } if options[:fallback] && !through_converter
+    options = { **options, __source__: [self, Primitive.zr_str_bytesize(self)] } if options[:fallback] && !through_converter
     text = source.nil? ? plain : copied.force_encoding(from)
     text = escaped(text, options) unless through_converter
     # No conversion, but an `invalid: :replace` the caller wrote still
@@ -5158,7 +5158,7 @@ class Encoding
 
              fallback.public_send(:[], char)
            end
-    raise RuntimeError, "string modified" if watched && watched[0].bytesize != watched[1]
+    raise RuntimeError, "string modified" if watched && Primitive.zr_str_bytesize(watched[0]) != watched[1]
     return nil if text.nil?
 
     String.try_convert(text) || raise(TypeError, "no implicit conversion of #{text.class} into String")
