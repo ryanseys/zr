@@ -236,7 +236,7 @@ module OpenSSL
 
       # ossl_ec_point_initialize.
       def ec_point_initialize(object, args)
-        raise PKey::EC::Point::Error, "EC_POINT already initialized" if EC_POINT.get(object)
+        want_uninitialized(object, EC_POINT)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
 
         group_object, arg2 = args
@@ -268,8 +268,8 @@ module OpenSSL
 
       # ossl_ec_point_initialize_copy.
       def ec_point_initialize_copy(object, other)
-        EC_POINT.unshare(object, other)
-        raise error(PKey::EC::Point::Error, "EC::Point already initialized") if EC_POINT.get(object)
+        EC_POINT.unshare(object, other) unless object.equal?(other)
+        want_uninitialized(object, EC_POINT)
 
         point = EC_POINT.fetch(other)
         group_object = other.instance_variable_get(:@group).dup
@@ -307,7 +307,7 @@ module OpenSSL
       end
 
       def initialize(*args, &block)
-        raise TypeError, "pkey already initialized" if Ossl::PKEY.get(self)
+        Ossl.want_uninitialized(self, Ossl::PKEY)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
 
         arg, pass = args
@@ -411,7 +411,7 @@ module OpenSSL
 
       class Group
         def initialize(*args)
-          raise Ossl.error(RuntimeError, "EC_GROUP is already initialized") if Ossl::EC_GROUP.get(self)
+          Ossl.want_uninitialized(self, Ossl::EC_GROUP)
 
           group = case args.size
                   when 1 then Ossl.ec_group_from(args.first)
@@ -423,8 +423,8 @@ module OpenSSL
         end
 
         def initialize_copy(other)
-          Ossl::EC_GROUP.unshare(self, other)
-          raise Ossl.error(Error, "EC::Group already initialized") if Ossl::EC_GROUP.get(self)
+          Ossl::EC_GROUP.unshare(self, other) unless equal?(other)
+          Ossl.want_uninitialized(self, Ossl::EC_GROUP)
 
           group = Lib.EC_GROUP_dup(Ossl::EC_GROUP.fetch(other))
           raise Ossl.error(Error, "EC_GROUP_dup") if group.zero?

@@ -51,7 +51,8 @@ module OpenSSL
   end
 
   module Ossl
-    X509_EXT = DataType.new("OpenSSL/X509/EXTENSION", X509::Extension, :X509_EXTENSION_free, [RuntimeError, "EXT wasn't initialized!"], alloc: lambda {
+    X509_EXT = DataType.new("OpenSSL/X509/EXTENSION", X509::Extension, :X509_EXTENSION_free,
+                            [RuntimeError, "EXT wasn't initialized!"], create: lambda {
       Lib.X509_EXTENSION_new.tap { |ext| raise Ossl.error(X509::ExtensionError) if ext.zero? }
     })
     X509_EXT_FACTORY = DataType.new("OpenSSL/X509/EXTENSION/Factory", X509::ExtensionFactory, :OPENSSL_free, [RuntimeError, "CTX wasn't initialized!"], alloc: lambda {
@@ -145,17 +146,17 @@ module OpenSSL
       def initialize(*args)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
 
-        Ossl::X509_EXT.fetch(self)
+        Ossl.want_uninitialized(self, Ossl::X509_EXT)
         oid, value, critical = args
         if args.size == 1
           der = Ossl.string_value(Ossl.to_der_if_possible(oid))
-          holder = [Ossl::X509_EXT.take(self)].pack("J")
-          decoded = Lib.d2i_X509_EXTENSION(holder, [Native.address(der)].pack("J"), der.bytesize)
-          Ossl::X509_EXT.set(self, Lib.pointer_at(holder))
-          raise Ossl.error(ExtensionError) if decoded.zero?
+          decoded = Lib.d2i_X509_EXTENSION(nil, [Native.address(der)].pack("J"), der.bytesize)
+          raise Ossl.error(ExtensionError, "d2i_X509_EXTENSION") if decoded.zero?
 
+          Ossl::X509_EXT.set(self, decoded)
           return self
         end
+        Ossl::X509_EXT.create(self)
         self.oid = oid
         self.value = value
         self.critical = critical if args.size > 2
@@ -163,9 +164,8 @@ module OpenSSL
       end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        Ossl::X509_EXT.unshare(self, other)
-        Ossl::X509_EXT.fetch(self)
+        Ossl::X509_EXT.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::X509_EXT)
         copy = Lib.X509_EXTENSION_dup(Ossl::X509_EXT.fetch(other))
         raise Ossl.error(ExtensionError, "X509_EXTENSION_dup") if copy.zero?
 

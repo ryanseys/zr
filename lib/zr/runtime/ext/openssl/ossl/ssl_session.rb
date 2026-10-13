@@ -48,7 +48,7 @@ module OpenSSL
   module SSL
     class Session
       def initialize(arg)
-        raise Ossl.error(SessionError, "SSL Session already initialized") if Ossl::SSL_SESSION.get(self)
+        Ossl.want_uninitialized(self, Ossl::SSL_SESSION)
 
         session = if arg.instance_of?(SSLSocket)
                     Lib.SSL_get1_session(Ossl.ssl(arg)).tap { |s| raise Ossl.error(SessionError, "no session available") if s.zero? }
@@ -69,8 +69,8 @@ module OpenSSL
       end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        Ossl::SSL_SESSION.unshare(self, other)
+        Ossl::SSL_SESSION.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::SSL_SESSION)
         copy = Lib.ASN1_dup(Lib.function_address(:i2d_SSL_SESSION), Lib.function_address(:d2i_SSL_SESSION), Ossl::SSL_SESSION.fetch(other))
         raise Ossl.error(SessionError, "ASN1_dup") if copy.zero?
 

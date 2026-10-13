@@ -33,7 +33,7 @@ module OpenSSL
   end
 
   module Ossl
-    X509_REQ = DataType.new("OpenSSL/X509/REQ", X509::Request, :X509_REQ_free, [RuntimeError, "Req wasn't initialized!"], alloc: lambda {
+    X509_REQ = DataType.new("OpenSSL/X509/REQ", X509::Request, :X509_REQ_free, [RuntimeError, "Req wasn't initialized!"], create: lambda {
       Lib.X509_REQ_new.tap { |req| raise Ossl.error(X509::RequestError) if req.zero? }
     })
 
@@ -46,8 +46,8 @@ module OpenSSL
       def initialize(*args)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
-        Ossl.check_frozen(self)
-        return self if args.empty?
+        Ossl.want_uninitialized(self, Ossl::X509_REQ)
+        return Ossl::X509_REQ.create(self) if args.empty?
 
         bio, _arg = Ossl.obj2bio(Ossl.to_der_if_possible(args.first))
         req = Lib.d2i_X509_REQ_bio(bio, nil)
@@ -63,11 +63,8 @@ module OpenSSL
       end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        return self if equal?(other)
-
-        Ossl::X509_REQ.unshare(self, other)
-        Ossl::X509_REQ.fetch(self)
+        Ossl::X509_REQ.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::X509_REQ)
         copy = Lib.X509_REQ_dup(Ossl::X509_REQ.fetch(other))
         raise Ossl.error(RequestError) if copy.zero?
 

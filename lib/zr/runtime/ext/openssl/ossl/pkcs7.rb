@@ -99,13 +99,15 @@ module OpenSSL
   end
 
   module Ossl
-    PKCS7_STRUCT = DataType.new("OpenSSL/PKCS7", OpenSSL::PKCS7, :PKCS7_free, [RuntimeError, "PKCS7 wasn't initialized."], alloc: lambda {
+    PKCS7_STRUCT = DataType.new("OpenSSL/PKCS7", OpenSSL::PKCS7, :PKCS7_free, [RuntimeError, "PKCS7 wasn't initialized."], create: lambda {
       Lib.PKCS7_new.tap { |p7| raise Ossl.error(OpenSSL::PKCS7::PKCS7Error) if p7.zero? }
     })
-    PKCS7_SIGNER = DataType.new("OpenSSL/PKCS7/SIGNER_INFO", OpenSSL::PKCS7::SignerInfo, :PKCS7_SIGNER_INFO_free, [RuntimeError, "PKCS7si wasn't initialized."], alloc: lambda {
+    PKCS7_SIGNER = DataType.new("OpenSSL/PKCS7/SIGNER_INFO", OpenSSL::PKCS7::SignerInfo, :PKCS7_SIGNER_INFO_free,
+                                [RuntimeError, "PKCS7si wasn't initialized."], create: lambda {
       Lib.PKCS7_SIGNER_INFO_new.tap { |si| raise Ossl.error(OpenSSL::PKCS7::PKCS7Error) if si.zero? }
     })
-    PKCS7_RECIPIENT = DataType.new("OpenSSL/PKCS7/RECIP_INFO", OpenSSL::PKCS7::RecipientInfo, :PKCS7_RECIP_INFO_free, [RuntimeError, "PKCS7ri wasn't initialized."], alloc: lambda {
+    PKCS7_RECIPIENT = DataType.new("OpenSSL/PKCS7/RECIP_INFO", OpenSSL::PKCS7::RecipientInfo, :PKCS7_RECIP_INFO_free,
+                                   [RuntimeError, "PKCS7ri wasn't initialized."], create: lambda {
       Lib.PKCS7_RECIP_INFO_new.tap { |ri| raise Ossl.error(OpenSSL::PKCS7::PKCS7Error) if ri.zero? }
     })
 
@@ -279,13 +281,10 @@ module OpenSSL
     end
 
     def initialize_copy(other)
-      Ossl.check_frozen(self)
-      return self if equal?(other)
-
-      Ossl::PKCS7_STRUCT.unshare(self, other)
-      Ossl.pkcs7(self)
+      Ossl::PKCS7_STRUCT.unshare(self, other) unless equal?(other)
+      Ossl.want_uninitialized(self, Ossl::PKCS7_STRUCT)
       copy = Lib.PKCS7_dup(Ossl.pkcs7(other))
-      raise Ossl.error(PKCS7Error) if copy.zero?
+      raise Ossl.error(PKCS7Error, "PKCS7_dup") if copy.zero?
 
       Ossl::PKCS7_STRUCT.set(self, copy)
       self
@@ -293,7 +292,9 @@ module OpenSSL
 
     def initialize(*args)
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
-      return self if args.empty?
+
+      Ossl.want_uninitialized(self, Ossl::PKCS7_STRUCT)
+      return Ossl::PKCS7_STRUCT.create(self) if args.empty?
 
       bio, _arg = Ossl.obj2bio(Ossl.to_der_if_possible(args.first))
       p7 = Lib.d2i_PKCS7_bio(bio, nil)
@@ -530,11 +531,13 @@ module OpenSSL
 
     class SignerInfo
       def initialize(cert, key, digest)
+        Ossl.want_uninitialized(self, Ossl::PKCS7_SIGNER)
         pkey = Ossl.private_pkey(key)
         x509 = Ossl.x509(cert)
         md, holder = Ossl.fetch_md(digest)
+        Ossl::PKCS7_SIGNER.create(self)
         si = Ossl::PKCS7_SIGNER.fetch(self)
-        raise Ossl.error(PKCS7Error, "PKCS7_SIGNER_INFO_set") if Lib.PKCS7_SIGNER_INFO_set(si, x509, pkey, md).zero?
+        raise Ossl.error(PKCS7Error, "PKCS7_SIGNER_INFO_set") if Lib.PKCS7_SIGNER_INFO_set(si, x509, pkey, md) <= 0
 
         Native.hidden_set(self, :md_holder, holder)
         self
@@ -558,9 +561,11 @@ module OpenSSL
 
     class RecipientInfo
       def initialize(cert)
+        Ossl.want_uninitialized(self, Ossl::PKCS7_RECIPIENT)
         x509 = Ossl.x509(cert)
+        Ossl::PKCS7_RECIPIENT.create(self)
         ri = Ossl::PKCS7_RECIPIENT.fetch(self)
-        raise Ossl.error(PKCS7Error) if Lib.PKCS7_RECIP_INFO_set(ri, x509).zero?
+        raise Ossl.error(PKCS7Error) if Lib.PKCS7_RECIP_INFO_set(ri, x509) <= 0
 
         self
       end

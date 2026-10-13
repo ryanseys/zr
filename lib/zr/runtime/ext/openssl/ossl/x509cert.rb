@@ -46,7 +46,7 @@ module OpenSSL
   end
 
   module Ossl
-    X509_CERT = DataType.new("OpenSSL/X509", X509::Certificate, :X509_free, [RuntimeError, "CERT wasn't initialized!"], alloc: lambda {
+    X509_CERT = DataType.new("OpenSSL/X509", X509::Certificate, :X509_free, [RuntimeError, "CERT wasn't initialized!"], create: lambda {
       Lib.X509_new.tap { |x509| raise Ossl.error(X509::CertificateError) if x509.zero? }
     })
 
@@ -123,8 +123,8 @@ module OpenSSL
       def initialize(*args)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
-        Ossl.check_frozen(self)
-        return self if args.empty?
+        Ossl.want_uninitialized(self, Ossl::X509_CERT)
+        return Ossl::X509_CERT.create(self) if args.empty?
 
         arg = Ossl.to_der_if_possible(args.first)
         bio, _arg = Ossl.obj2bio(arg)
@@ -141,13 +141,10 @@ module OpenSSL
       end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        return self if equal?(other)
-
-        Ossl::X509_CERT.unshare(self, other)
-        Ossl::X509_CERT.fetch(self)
+        Ossl::X509_CERT.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::X509_CERT)
         copy = Lib.X509_dup(Ossl::X509_CERT.fetch(other))
-        raise Ossl.error(CertificateError) if copy.zero?
+        raise Ossl.error(CertificateError, "X509_dup") if copy.zero?
 
         Ossl::X509_CERT.set(self, copy)
         self

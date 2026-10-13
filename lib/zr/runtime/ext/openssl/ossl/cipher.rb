@@ -123,7 +123,7 @@ module OpenSSL
 
   class Cipher
     def initialize(str)
-      raise Ossl.error(RuntimeError, "Cipher already initialized!") if Ossl::CIPHER.get(self)
+      Ossl.want_uninitialized(self, Ossl::CIPHER)
 
       cipher, holder = Ossl.fetch_cipher(str)
       ctx = Ossl.alloc_cipher(self)
@@ -134,11 +134,9 @@ module OpenSSL
     end
 
     def initialize_copy(other)
-      Ossl.check_frozen(self)
-      return self if equal?(other)
-
-      Ossl::CIPHER.unshare(self, other)
-      ctx = Ossl::CIPHER.get(self) || Ossl.alloc_cipher(self)
+      Ossl::CIPHER.unshare(self, other) unless equal?(other)
+      Ossl.want_uninitialized(self, Ossl::CIPHER)
+      ctx = Ossl.alloc_cipher(self)
       raise Ossl.error(CipherError) if Lib.EVP_CIPHER_CTX_copy(ctx, Ossl::CIPHER.fetch(other)) != 1
 
       self

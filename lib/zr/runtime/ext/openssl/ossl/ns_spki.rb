@@ -23,7 +23,7 @@ module OpenSSL
   end
 
   module Ossl
-    SPKI = DataType.new("OpenSSL/NETSCAPE_SPKI", Netscape::SPKI, :NETSCAPE_SPKI_free, [RuntimeError, "SPKI wasn't initialized!"], alloc: lambda {
+    SPKI = DataType.new("OpenSSL/NETSCAPE_SPKI", Netscape::SPKI, :NETSCAPE_SPKI_free, [RuntimeError, "SPKI wasn't initialized!"], create: lambda {
       Lib.NETSCAPE_SPKI_new.tap { |spki| raise Ossl.error(Netscape::SPKIError) if spki.zero? }
     })
 
@@ -36,14 +36,16 @@ module OpenSSL
     class SPKI
       def initialize(*args)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
-        return self if args.empty?
+
+        Ossl.want_uninitialized(self, Ossl::SPKI)
+        return Ossl::SPKI.create(self) if args.empty?
 
         buffer = Ossl.string_value(args.first)
         spki = Lib.NETSCAPE_SPKI_b64_decode(buffer, buffer.bytesize)
         if spki.zero?
           Ossl.clear_error
           spki = Ossl.d2i(:d2i_NETSCAPE_SPKI, buffer)
-          raise Ossl.error(SPKIError) if spki.zero?
+          raise Ossl.error(SPKIError, "d2i_NETSCAPE_SPKI") if spki.zero?
         end
         Ossl::SPKI.set(self, spki)
         self

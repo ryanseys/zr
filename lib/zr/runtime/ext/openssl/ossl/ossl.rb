@@ -170,6 +170,14 @@ module OpenSSL
         raise FrozenError.new("can't modify frozen #{object.class}: #{object.inspect}", receiver: object) if object.frozen?
       end
 
+      # ossl_want_uninitialized: `object` contains no struct of `type` yet,
+      # and is not frozen.
+      def want_uninitialized(object, type)
+        raise TypeError, "#{object.class} already initialized" if type.held?(object)
+
+        check_frozen(object)
+      end
+
       # rb_warn: `message` at the program's line that called into the
       # extension, the frames of the port itself skipped as the C
       # extension has none.
@@ -444,16 +452,31 @@ module OpenSSL
     # instances contain one. `free` frees it. The Get macro raises an error
     # for an object that contains none. `alloc` is the allocator that makes
     # one with the object, where the C extension's allocation function
-    # does; it gets the object when it takes an argument.
+    # does; it gets the object when it takes an argument. `create` makes
+    # one where only `initialize` does (#create): the object is empty
+    # until then.
     class DataType
       def name = @name
 
-      def initialize(name, klass, free, missing = nil, alloc: nil)
+      def initialize(name, klass, free, missing = nil, alloc: nil, create: nil)
         @name = name
         @klass = klass
         @free = free
         @missing = missing
         @alloc = alloc
+        @create = create
+      end
+
+      # Whether `object` contains a struct, with none made for it.
+      def held?(object)
+        check(object)
+        !Native.hidden_get(object, :data).nil?
+      end
+
+      # A new struct in `object`, as its initialize makes one.
+      def create(object)
+        set(object, @create.call)
+        object
       end
 
       # TypedData_Get_Struct: the address in `object`, or nil when

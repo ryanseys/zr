@@ -40,7 +40,7 @@ module OpenSSL
   end
 
   module Ossl
-    X509_CRL = DataType.new("OpenSSL/X509/CRL", X509::CRL, :X509_CRL_free, [RuntimeError, "CRL wasn't initialized!"], alloc: lambda {
+    X509_CRL = DataType.new("OpenSSL/X509/CRL", X509::CRL, :X509_CRL_free, [RuntimeError, "CRL wasn't initialized!"], create: lambda {
       Lib.X509_CRL_new.tap { |crl| raise Ossl.error(X509::CRLError) if crl.zero? }
     })
 
@@ -73,8 +73,8 @@ module OpenSSL
       def initialize(*args)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
 
-        Ossl.check_frozen(self)
-        return self if args.empty?
+        Ossl.want_uninitialized(self, Ossl::X509_CRL)
+        return Ossl::X509_CRL.create(self) if args.empty?
 
         bio, _arg = Ossl.obj2bio(Ossl.to_der_if_possible(args.first))
         crl = Lib.d2i_X509_CRL_bio(bio, nil)
@@ -90,11 +90,8 @@ module OpenSSL
       end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        return self if equal?(other)
-
-        Ossl::X509_CRL.unshare(self, other)
-        Ossl::X509_CRL.fetch(self)
+        Ossl::X509_CRL.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::X509_CRL)
         copy = Lib.X509_CRL_dup(Ossl::X509_CRL.fetch(other))
         raise Ossl.error(CRLError) if copy.zero?
 

@@ -67,9 +67,7 @@ module OpenSSL
 
       # ossl_hpke_ctx_new_sender and _receiver.
       def hpke_context(context, suite, role)
-        raise TypeError, "#{context.class} already initialized" if HPKE_CTX.get(context)
-
-        check_frozen(context)
+        want_uninitialized(context, HPKE_CTX)
         raise error(HPKE::HPKEError, "invalid suite specified") unless suite.is_a?(HPKE::Suite)
 
         ctx = Lib.OSSL_HPKE_CTX_new(Lib::OSSL_HPKE_MODE_BASE, hpke_suite(suite), role, nil, nil)

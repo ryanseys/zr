@@ -37,7 +37,7 @@ module OpenSSL
   end
 
   module Ossl
-    X509_NAME = DataType.new("OpenSSL/X509/NAME", X509::Name, :X509_NAME_free, [RuntimeError, "Name wasn't initialized."], alloc: lambda {
+    X509_NAME = DataType.new("OpenSSL/X509/NAME", X509::Name, :X509_NAME_free, [RuntimeError, "Name wasn't initialized."], create: lambda {
       Lib.X509_NAME_new.tap { |name| raise Ossl.error(X509::NameError) if name.zero? }
     })
 
@@ -71,12 +71,13 @@ module OpenSSL
       def initialize(*args)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
 
-        Ossl::X509_NAME.fetch(self)
-        return self if args.empty?
-
+        Ossl.want_uninitialized(self, Ossl::X509_NAME)
         arg, template = args
-        entries = Array.try_convert(arg)
-        if entries
+        entries = Array.try_convert(arg) unless args.empty?
+        if args.empty? || entries
+          Ossl::X509_NAME.create(self)
+          return if args.empty?
+
           template = OBJECT_TYPE_TEMPLATE if template.nil?
           entries.each do |entry|
             Ossl.check_array(entry)
@@ -85,20 +86,19 @@ module OpenSSL
             type = DEFAULT_OBJECT_TYPE if type.nil?
             Ossl.x509name_add_entry(self, oid, value, type)
           end
-        else
-          der = Ossl.string_value(Ossl.to_der_if_possible(arg))
-          holder = [Ossl::X509_NAME.take(self)].pack("J")
-          decoded = Lib.d2i_X509_NAME(holder, [Native.address(der)].pack("J"), der.bytesize)
-          Ossl::X509_NAME.set(self, Lib.pointer_at(holder))
-          raise Ossl.error(NameError) if decoded.zero?
+          return
         end
+        der = Ossl.string_value(Ossl.to_der_if_possible(arg))
+        decoded = Lib.d2i_X509_NAME(nil, [Native.address(der)].pack("J"), der.bytesize)
+        raise Ossl.error(NameError, "d2i_X509_NAME") if decoded.zero?
+
+        Ossl::X509_NAME.set(self, decoded)
         self
       end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        Ossl::X509_NAME.unshare(self, other)
-        Ossl::X509_NAME.fetch(self)
+        Ossl::X509_NAME.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::X509_NAME)
         copy = Lib.X509_NAME_dup(Ossl::X509_NAME.fetch(other))
         raise Ossl.error(NameError, "X509_NAME_dup") if copy.zero?
 

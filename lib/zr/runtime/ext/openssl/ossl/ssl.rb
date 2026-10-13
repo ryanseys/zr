@@ -898,7 +898,7 @@ module OpenSSL
 
     class SSLSocket
       def initialize(io, *rest, **options)
-        raise Ossl.error(SSLError, "SSL already initialized") if Ossl::SSL_CONNECTION.get(self)
+        Ossl.want_uninitialized(self, Ossl::SSL_CONNECTION)
         raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
 
         unknown = options.keys - [:sync_close]

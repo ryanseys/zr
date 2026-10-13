@@ -92,20 +92,22 @@ module OpenSSL
 
   module Ossl
     TS_REQUEST = DataType.new("OpenSSL/Timestamp/Request", Timestamp::Request, :TS_REQ_free,
-                              [RuntimeError, "TS_REQ wasn't initialized."], alloc: lambda {
+                              [RuntimeError, "TS_REQ wasn't initialized."], create: lambda {
       req = Lib.TS_REQ_new
-      raise Ossl.error(Timestamp::TimestampError) if req.zero?
+      raise Ossl.error(Timestamp::TimestampError, "TS_REQ_new") if req.zero?
 
-      Lib.TS_REQ_set_version(req, 1)
-      Lib.TS_REQ_set_cert_req(req, 1)
+      # The defaults of a new request.
+      raise Ossl.error(Timestamp::TimestampError, "TS_REQ_set_version") if Lib.TS_REQ_set_version(req, 1).zero?
+      raise Ossl.error(Timestamp::TimestampError, "TS_REQ_set_cert_req") if Lib.TS_REQ_set_cert_req(req, 1).zero?
+
       req
     })
     TS_RESPONSE = DataType.new("OpenSSL/Timestamp/Response", Timestamp::Response, :TS_RESP_free,
-                               [RuntimeError, "TS_RESP wasn't initialized."], alloc: lambda {
+                               [RuntimeError, "TS_RESP wasn't initialized."], create: lambda {
       Lib.TS_RESP_new.tap { |resp| raise Ossl.error(Timestamp::TimestampError) if resp.zero? }
     })
     TS_TOKEN_INFO = DataType.new("OpenSSL/Timestamp/TokenInfo", Timestamp::TokenInfo, :TS_TST_INFO_free,
-                                 [RuntimeError, "TS_TST_INFO wasn't initialized."], alloc: lambda {
+                                 [RuntimeError, "TS_TST_INFO wasn't initialized."], create: lambda {
       Lib.TS_TST_INFO_new.tap { |info| raise Ossl.error(Timestamp::TimestampError) if info.zero? }
     })
 
@@ -131,13 +133,13 @@ module OpenSSL
       # The initialize of Request, Response and TokenInfo: a struct a
       # d2i_*_bio function decodes from `der`.
       def ts_decode(object, der, type, function, message)
+        want_uninitialized(object, type)
         bio, _bytes = obj2bio(to_der_if_possible(der))
         struct = Lib.public_send(function, bio, nil)
         Lib.BIO_free(bio)
-        type.check(object)
-        type.set(object, struct)
         raise error(Timestamp::TimestampError, message) if struct.zero?
 
+        type.set(object, struct)
         object
       end
 
@@ -175,7 +177,10 @@ module OpenSSL
   module Timestamp
     class Request
       def initialize(arg = (omitted = true; nil))
-        return self if omitted
+        if omitted
+          Ossl.want_uninitialized(self, Ossl::TS_REQUEST)
+          return Ossl::TS_REQUEST.create(self)
+        end
 
         Ossl.ts_decode(self, arg, Ossl::TS_REQUEST, :d2i_TS_REQ_bio, "Error when decoding the timestamp request")
       end

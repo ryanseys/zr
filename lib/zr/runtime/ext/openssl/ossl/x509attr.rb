@@ -26,7 +26,8 @@ module OpenSSL
   end
 
   module Ossl
-    X509_ATTR = DataType.new("OpenSSL/X509/ATTRIBUTE", X509::Attribute, :X509_ATTRIBUTE_free, [RuntimeError, "ATTR wasn't initialized!"], alloc: lambda {
+    X509_ATTR = DataType.new("OpenSSL/X509/ATTRIBUTE", X509::Attribute, :X509_ATTRIBUTE_free,
+                             [RuntimeError, "ATTR wasn't initialized!"], create: lambda {
       Lib.X509_ATTRIBUTE_new.tap { |attr| raise Ossl.error(X509::AttributeError) if attr.zero? }
     })
 
@@ -47,26 +48,25 @@ module OpenSSL
       def initialize(*args)
         raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
 
-        Ossl::X509_ATTR.fetch(self)
+        Ossl.want_uninitialized(self, Ossl::X509_ATTR)
         oid, value = args
         if args.size == 1
           der = Ossl.string_value(Ossl.to_der_if_possible(oid))
-          holder = [Ossl::X509_ATTR.take(self)].pack("J")
-          decoded = Lib.d2i_X509_ATTRIBUTE(holder, [Native.address(der)].pack("J"), der.bytesize)
-          Ossl::X509_ATTR.set(self, Lib.pointer_at(holder))
-          raise Ossl.error(AttributeError) if decoded.zero?
+          decoded = Lib.d2i_X509_ATTRIBUTE(nil, [Native.address(der)].pack("J"), der.bytesize)
+          raise Ossl.error(AttributeError, "d2i_X509_ATTRIBUTE") if decoded.zero?
 
+          Ossl::X509_ATTR.set(self, decoded)
           return self
         end
+        Ossl::X509_ATTR.create(self)
         self.oid = oid
         self.value = value
         self
       end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        Ossl::X509_ATTR.unshare(self, other)
-        Ossl::X509_ATTR.fetch(self)
+        Ossl::X509_ATTR.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::X509_ATTR)
         copy = Lib.X509_ATTRIBUTE_dup(Ossl::X509_ATTR.fetch(other))
         raise Ossl.error(AttributeError, "X509_ATTRIBUTE_dup") if copy.zero?
 

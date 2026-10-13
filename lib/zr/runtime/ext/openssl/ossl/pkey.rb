@@ -419,8 +419,8 @@ module OpenSSL
       end
 
       def initialize_copy(other)
-        Ossl::PKEY.unshare(self, other)
-        raise TypeError, "pkey already initialized" if Ossl::PKEY.get(self)
+        Ossl::PKEY.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::PKEY)
 
         other_pkey = Ossl::PKEY.get(other)
         if other_pkey

@@ -1,0 +1,44 @@
+Certificate again: TypeError: OpenSSL::X509::Certificate already initialized
+Certificate copy self: TypeError: OpenSSL::X509::Certificate already initialized
+Request again: TypeError: OpenSSL::X509::Request already initialized
+Request copy self: TypeError: OpenSSL::X509::Request already initialized
+CRL again: TypeError: OpenSSL::X509::CRL already initialized
+CRL copy self: TypeError: OpenSSL::X509::CRL already initialized
+Name again: TypeError: OpenSSL::X509::Name already initialized
+Name copy self: TypeError: OpenSSL::X509::Name already initialized
+Extension again: ArgumentError: wrong number of arguments (given 0, expected 1..3)
+Extension copy self: TypeError: OpenSSL::X509::Extension already initialized
+Attribute again: ArgumentError: wrong number of arguments (given 0, expected 1..2)
+Attribute copy self: TypeError: OpenSSL::X509::Attribute already initialized
+Revoked again: TypeError: OpenSSL::X509::Revoked already initialized
+Revoked copy self: TypeError: OpenSSL::X509::Revoked already initialized
+Store again: TypeError: OpenSSL::X509::Store already initialized
+Store copy self: NoMethodError: undefined method 'initialize_copy' for an instance of OpenSSL::X509::Store
+PKCS7 again: TypeError: OpenSSL::PKCS7 already initialized
+PKCS7 copy self: TypeError: OpenSSL::PKCS7 already initialized
+SPKI again: TypeError: OpenSSL::Netscape::SPKI already initialized
+SPKI copy self: #<OpenSSL::Netscape::SPKI:0xX>
+OCSP::Request again: TypeError: OpenSSL::OCSP::Request already initialized
+OCSP::Request copy self: TypeError: OpenSSL::OCSP::Request already initialized
+Timestamp::Request again: TypeError: OpenSSL::Timestamp::Request already initialized
+Timestamp::Request copy self: #<OpenSSL::Timestamp::Request:0xX>
+Cipher again: ArgumentError: wrong number of arguments (given 0, expected 1)
+Cipher copy self: TypeError: OpenSSL::Cipher already initialized
+RSA again: TypeError: OpenSSL::PKey::RSA already initialized
+RSA copy self: TypeError: OpenSSL::PKey::RSA already initialized
+Certificate der again: TypeError: OpenSSL::X509::Certificate already initialized
+Cipher name again: TypeError: OpenSSL::Cipher already initialized
+RSA size again: TypeError: OpenSSL::PKey::RSA already initialized
+Name array again: TypeError: OpenSSL::X509::Name already initialized
+allocated certificate: RuntimeError: CERT wasn't initialized!
+allocated name: RuntimeError: Name wasn't initialized.
+allocated crl: RuntimeError: CRL wasn't initialized!
+allocated store: RuntimeError: STORE wasn't initialized!
+allocated pkcs7: RuntimeError: PKCS7 wasn't initialized.
+allocated then initialize: []
+dup: [7, 9]
+clone frozen: [true, 7]
+name dup: "/CN=zr/O=zr"
+name kept: "/CN=zr"
+frozen initialize: FrozenError: can't modify frozen OpenSSL::X509::Revoked: #<OpenSSL::X509::Revoked:0xX>
+frozen copy: FrozenError: can't modify frozen OpenSSL::X509::Revoked: #<OpenSSL::X509::Revoked:0xX>

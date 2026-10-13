@@ -71,7 +71,7 @@ module OpenSSL
   end
 
   module Ossl
-    X509_STORE = DataType.new("OpenSSL/X509/STORE", X509::Store, :X509_STORE_free, [RuntimeError, "STORE wasn't initialized!"], alloc: lambda {
+    X509_STORE = DataType.new("OpenSSL/X509/STORE", X509::Store, :X509_STORE_free, [RuntimeError, "STORE wasn't initialized!"], create: lambda {
       Lib.X509_STORE_new.tap { |store| raise Ossl.error(X509::StoreError, "X509_STORE_new") if store.zero? }
     })
     X509_STORE_CTX = DataType.new("OpenSSL/X509/STORE_CTX", X509::StoreContext, lambda { |ctx|
@@ -79,7 +79,7 @@ module OpenSSL
       cert = Lib.X509_STORE_CTX_get0_cert(ctx)
       Lib.X509_free(cert) unless cert.zero?
       Lib.X509_STORE_CTX_free(ctx)
-    }, [RuntimeError, "STORE_CTX is out of scope!"], alloc: lambda {
+    }, [RuntimeError, "STORE_CTX is out of scope!"], create: lambda {
       Lib.X509_STORE_CTX_new.tap { |ctx| raise Ossl.error(X509::StoreError, "X509_STORE_CTX_new") if ctx.zero? }
     })
 
@@ -162,8 +162,10 @@ module OpenSSL
       def chain = @chain
 
       def initialize(*args)
-        store = Ossl.x509store(self)
         Ossl.warn("OpenSSL::X509::Store.new does not take any arguments") unless args.empty?
+        Ossl.want_uninitialized(self, Ossl::X509_STORE)
+        Ossl::X509_STORE.create(self)
+        store = Ossl.x509store(self)
         Lib.X509_STORE_set_verify_cb(store, Ossl::X509STORE_VERIFY_CB)
         self.verify_callback = nil
         @error = nil
@@ -266,6 +268,8 @@ module OpenSSL
 
     class StoreContext
       def initialize(store, cert = nil, chain = nil)
+        Ossl.want_uninitialized(self, Ossl::X509_STORE_CTX)
+        Ossl::X509_STORE_CTX.create(self)
         ctx = Ossl::X509_STORE_CTX.fetch(self)
         x509store = Ossl.x509store(store)
         x509 = cert.nil? ? nil : Ossl.dup_x509(cert)

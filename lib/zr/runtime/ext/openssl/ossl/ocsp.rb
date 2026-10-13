@@ -84,21 +84,21 @@ module OpenSSL
   end
 
   module Ossl
-    # The allocator each class shares: OCSP_*_new, or OCSPError.
+    # What each class's initialize makes with no argument: OCSP_*_new.
     def self.ocsp_alloc(new_function) = lambda {
-      Lib.public_send(new_function).tap { |struct| raise Ossl.error(OCSP::OCSPError) if struct.zero? }
+      Lib.public_send(new_function).tap { |struct| raise Ossl.error(OCSP::OCSPError, new_function.to_s) if struct.zero? }
     }
 
     OCSP_REQUEST = DataType.new("OpenSSL/OCSP/REQUEST", OCSP::Request, :OCSP_REQUEST_free,
-                                [RuntimeError, "Request wasn't initialized!"], alloc: ocsp_alloc(:OCSP_REQUEST_new))
+                                [RuntimeError, "Request wasn't initialized!"], create: ocsp_alloc(:OCSP_REQUEST_new))
     OCSP_RESPONSE = DataType.new("OpenSSL/OCSP/RESPONSE", OCSP::Response, :OCSP_RESPONSE_free,
-                                 [RuntimeError, "Response wasn't initialized!"], alloc: ocsp_alloc(:OCSP_RESPONSE_new))
+                                 [RuntimeError, "Response wasn't initialized!"], create: ocsp_alloc(:OCSP_RESPONSE_new))
     OCSP_BASICRESP = DataType.new("OpenSSL/OCSP/BASICRESP", OCSP::BasicResponse, :OCSP_BASICRESP_free,
-                                  [RuntimeError, "Response wasn't initialized!"], alloc: ocsp_alloc(:OCSP_BASICRESP_new))
+                                  [RuntimeError, "Response wasn't initialized!"], create: ocsp_alloc(:OCSP_BASICRESP_new))
     OCSP_SINGLERESP = DataType.new("OpenSSL/OCSP/SINGLERESP", OCSP::SingleResponse, :OCSP_SINGLERESP_free,
-                                   [RuntimeError, "SingleResponse wasn't initialized!"], alloc: ocsp_alloc(:OCSP_SINGLERESP_new))
+                                   [RuntimeError, "SingleResponse wasn't initialized!"], create: ocsp_alloc(:OCSP_SINGLERESP_new))
     OCSP_CERTID = DataType.new("OpenSSL/OCSP/CERTID", OCSP::CertificateId, :OCSP_CERTID_free,
-                               [RuntimeError, "Cert ID wasn't initialized!"], alloc: ocsp_alloc(:OCSP_CERTID_new))
+                               [RuntimeError, "Cert ID wasn't initialized!"], create: ocsp_alloc(:OCSP_CERTID_new))
 
     class << self
       # ossl_ocspcid_new.
@@ -120,9 +120,8 @@ module OpenSSL
       # The initialize_copy of each OCSP class: an ASN1_item_dup of the
       # other's struct.
       def ocsp_copy(object, other, type, item)
-        check_frozen(object)
-        type.unshare(object, other)
-        type.fetch(object)
+        type.unshare(object, other) unless object.equal?(other)
+        want_uninitialized(object, type)
         copy = Lib.ASN1_item_dup(Lib.public_send(item), type.fetch(other))
         raise error(OCSP::OCSPError, "ASN1_item_dup") if copy.zero?
 
@@ -132,7 +131,6 @@ module OpenSSL
 
       # The initialize of each OCSP class given DER.
       def ocsp_decode(object, arg, type, d2i)
-        type.fetch(object)
         der = string_value(to_der_if_possible(arg))
         decoded = d2i(d2i, der)
         raise error(OCSP::OCSPError, d2i.to_s) if decoded.zero?
@@ -224,8 +222,8 @@ module OpenSSL
       def initialize_copy(other) = Ossl.ocsp_copy(self, other, Ossl::OCSP_REQUEST, :OCSP_REQUEST_it)
 
       def initialize(arg = nil)
-        Ossl.ocsp_decode(self, arg, Ossl::OCSP_REQUEST, :d2i_OCSP_REQUEST) unless arg.nil?
-        self
+        Ossl.want_uninitialized(self, Ossl::OCSP_REQUEST)
+        arg.nil? ? Ossl::OCSP_REQUEST.create(self) : Ossl.ocsp_decode(self, arg, Ossl::OCSP_REQUEST, :d2i_OCSP_REQUEST)
       end
 
       def add_nonce(value = nil) = Ossl.ocsp_add_nonce(self, Ossl::OCSP_REQUEST, :OCSP_request_add1_nonce, value)
@@ -282,8 +280,8 @@ module OpenSSL
       def initialize_copy(other) = Ossl.ocsp_copy(self, other, Ossl::OCSP_RESPONSE, :OCSP_RESPONSE_it)
 
       def initialize(arg = nil)
-        Ossl.ocsp_decode(self, arg, Ossl::OCSP_RESPONSE, :d2i_OCSP_RESPONSE) unless arg.nil?
-        self
+        Ossl.want_uninitialized(self, Ossl::OCSP_RESPONSE)
+        arg.nil? ? Ossl::OCSP_RESPONSE.create(self) : Ossl.ocsp_decode(self, arg, Ossl::OCSP_RESPONSE, :d2i_OCSP_RESPONSE)
       end
 
       def status = Lib.OCSP_response_status(Ossl::OCSP_RESPONSE.fetch(self))
@@ -302,8 +300,7 @@ module OpenSSL
       def initialize_copy(other) = Ossl.ocsp_copy(self, other, Ossl::OCSP_BASICRESP, :OCSP_BASICRESP_it)
 
       def initialize(arg = nil)
-        Ossl.ocsp_decode(self, arg, Ossl::OCSP_BASICRESP, :d2i_OCSP_BASICRESP) unless arg.nil?
-        self
+        arg.nil? ? Ossl::OCSP_BASICRESP.create(self) : Ossl.ocsp_decode(self, arg, Ossl::OCSP_BASICRESP, :d2i_OCSP_BASICRESP)
       end
 
       def copy_nonce(request)
@@ -376,7 +373,10 @@ module OpenSSL
     end
 
     class SingleResponse
-      def initialize(arg) = Ossl.ocsp_decode(self, arg, Ossl::OCSP_SINGLERESP, :d2i_OCSP_SINGLERESP)
+      def initialize(arg)
+        Ossl.want_uninitialized(self, Ossl::OCSP_SINGLERESP)
+        Ossl.ocsp_decode(self, arg, Ossl::OCSP_SINGLERESP, :d2i_OCSP_SINGLERESP)
+      end
 
       def initialize_copy(other) = Ossl.ocsp_copy(self, other, Ossl::OCSP_SINGLERESP, :OCSP_SINGLERESP_it)
 
@@ -422,9 +422,8 @@ module OpenSSL
 
     class CertificateId
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        Ossl::OCSP_CERTID.unshare(self, other)
-        Ossl::OCSP_CERTID.fetch(self)
+        Ossl::OCSP_CERTID.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::OCSP_CERTID)
         copy = Lib.OCSP_CERTID_dup(Ossl::OCSP_CERTID.fetch(other))
         raise Ossl.error(OCSPError, "OCSP_CERTID_dup") if copy.zero?
 
@@ -433,7 +432,7 @@ module OpenSSL
       end
 
       def initialize(subject, issuer = (only_der = true; nil), digest = nil)
-        Ossl::OCSP_CERTID.fetch(self)
+        Ossl.want_uninitialized(self, Ossl::OCSP_CERTID)
         if only_der
           der = Ossl.string_value(Ossl.to_der_if_possible(subject))
           id = Ossl.d2i(:d2i_OCSP_CERTID, der)

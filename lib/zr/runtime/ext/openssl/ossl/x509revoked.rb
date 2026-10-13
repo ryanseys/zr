@@ -23,7 +23,7 @@ module OpenSSL
   end
 
   module Ossl
-    X509_REVOKED = DataType.new("OpenSSL/X509/REV", X509::Revoked, :X509_REVOKED_free, [RuntimeError, "REV wasn't initialized!"], alloc: lambda {
+    X509_REVOKED = DataType.new("OpenSSL/X509/REV", X509::Revoked, :X509_REVOKED_free, [RuntimeError, "REV wasn't initialized!"], create: lambda {
       Lib.X509_REVOKED_new.tap { |rev| raise Ossl.error(X509::RevokedError) if rev.zero? }
     })
 
@@ -48,12 +48,15 @@ module OpenSSL
 
   module X509
     class Revoked
-      def initialize(*) = self
+      def initialize(*args)
+        Ossl.warn("OpenSSL::X509::Revoked.new does not take any arguments") unless args.empty?
+        Ossl.want_uninitialized(self, Ossl::X509_REVOKED)
+        Ossl::X509_REVOKED.create(self)
+      end
 
       def initialize_copy(other)
-        Ossl.check_frozen(self)
-        Ossl::X509_REVOKED.unshare(self, other)
-        Ossl::X509_REVOKED.fetch(self)
+        Ossl::X509_REVOKED.unshare(self, other) unless equal?(other)
+        Ossl.want_uninitialized(self, Ossl::X509_REVOKED)
         copy = Lib.X509_REVOKED_dup(Ossl::X509_REVOKED.fetch(other))
         raise Ossl.error(RevokedError, "X509_REVOKED_dup") if copy.zero?
 

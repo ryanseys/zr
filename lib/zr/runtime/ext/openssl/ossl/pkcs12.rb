@@ -22,7 +22,7 @@ module OpenSSL
   end
 
   module Ossl
-    PKCS12_STRUCT = DataType.new("OpenSSL/PKCS12", OpenSSL::PKCS12, :PKCS12_free, [RuntimeError, "PKCS12 wasn't initialized."], alloc: lambda {
+    PKCS12_STRUCT = DataType.new("OpenSSL/PKCS12", OpenSSL::PKCS12, :PKCS12_free, [RuntimeError, "PKCS12 wasn't initialized."], create: lambda {
       Lib.PKCS12_new.tap { |p12| raise Ossl.error(OpenSSL::PKCS12::PKCS12Error) if p12.zero? }
     })
 
@@ -70,9 +70,8 @@ module OpenSSL
     end
 
     def initialize_copy(other)
-      Ossl.check_frozen(self)
-      Ossl::PKCS12_STRUCT.unshare(self, other)
-      Ossl::PKCS12_STRUCT.fetch(self)
+      Ossl::PKCS12_STRUCT.unshare(self, other) unless equal?(other)
+      Ossl.want_uninitialized(self, Ossl::PKCS12_STRUCT)
       copy = Lib.ASN1_dup(Lib.function_address(:i2d_PKCS12), Lib.function_address(:d2i_PKCS12), Ossl::PKCS12_STRUCT.fetch(other))
       raise Ossl.error(PKCS12Error, "ASN1_dup") if copy.zero?
 
@@ -82,15 +81,18 @@ module OpenSSL
 
     def initialize(*args)
       raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
-      return self if args.empty?
+
+      Ossl.want_uninitialized(self, Ossl::PKCS12_STRUCT)
+      return Ossl::PKCS12_STRUCT.create(self) if args.empty?
 
       arg, pass = args
       passphrase = pass.nil? ? nil : Ossl.cstring_value(pass)
       bio, _arg = Ossl.obj2bio(arg)
-      holder = [Ossl::PKCS12_STRUCT.take(self) || 0].pack("J")
-      Lib.d2i_PKCS12_bio(bio, holder)
-      Ossl::PKCS12_STRUCT.set(self, Lib.pointer_at(holder))
+      p12 = Lib.d2i_PKCS12_bio(bio, nil)
       Lib.BIO_free(bio)
+      raise Ossl.error(PKCS12Error, "d2i_PKCS12_bio") if p12.zero?
+
+      Ossl::PKCS12_STRUCT.set(self, p12)
       key, x509, stack = Array.new(3) { Lib.buffer(8) }
       raise Ossl.error(PKCS12Error, "PKCS12_parse") if Lib.PKCS12_parse(Ossl::PKCS12_STRUCT.get(self), passphrase, key, x509, stack).zero?
 
