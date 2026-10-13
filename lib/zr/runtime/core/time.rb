@@ -798,8 +798,11 @@ class Time
       Primitive.zr_warn_here_m("strftime called with empty format string") if $VERBOSE
       return String.new(encoding: format.encoding)
     end
-    text = rendered(format.b) or raise ArgumentError, "invalid format: #{format}"
-    text.force_encoding(format.encoding)
+    # The result's encoding: the format's, or the one a zone name moves
+    # it to (see zone_word).
+    box = [format.encoding]
+    text = rendered(format.b, box) or raise ArgumentError, "invalid format: #{format}"
+    text.force_encoding(box[0])
   end
 
   private
@@ -952,7 +955,8 @@ class Time
 
   # strftime.c's rb_strftime_with_timespec: the bytes of `format` with
   # each directive rendered, or nil when a directive runs off its end.
-  def rendered(format)
+  # `box` holds the result's encoding.
+  def rendered(format, box = nil)
     Primitive.attr! :hidden
     out = "".b
     at = 0
@@ -961,7 +965,7 @@ class Time
       out << format.byteslice(at, percent - at)
       break if percent == format.bytesize
 
-      at = directive(format, percent, out)
+      at = directive(format, percent, out, box)
     end
     out if at <= format.bytesize
   end
@@ -971,7 +975,7 @@ class Time
   # the position where the format continues. Text that is not a
   # directive is copied as it is written. A directive that runs off the
   # end returns a position past it.
-  def directive(format, from, out)
+  def directive(format, from, out, box = nil)
     Primitive.attr! :hidden
     width = -1
     padding = nil
@@ -1025,7 +1029,7 @@ class Time
     when "B" then put_word(out, MONTH_NAMES[month - 1], width, padding, left, (:up if upper || swap))
     when "p" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, swap ? :down : (:up if upper))
     when "P" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, upper ? :up : (:down unless swap))
-    when "Z" then put_word(out, utc? ? "UTC" : zone_abbreviation, width, padding, left, swap ? :down : (:up if upper))
+    when "Z" then put_word(out, utc? ? "UTC" : zone_word(out, zone_abbreviation, box), width, padding, left, swap ? :down : (:up if upper))
     when "d" then put_number(out, day, "0", 2, width, padding, left)
     when "e" then put_number(out, day, " ", 2, width, padding, left)
     when "H" then put_number(out, hour, "0", 2, width, padding, left)
@@ -1055,7 +1059,7 @@ class Time
 
       put_offset(out, colons, width, padding, left)
     when "c", "x", "X", "D", "r", "R", "T", "v", "F"
-      put_compound(out, COMPOUNDS.fetch(c), width, padding, upper)
+      put_compound(out, COMPOUNDS.fetch(c), width, padding, upper, box)
     else
       return verbatim(format, from, at, out)
     end
@@ -1102,11 +1106,27 @@ class Time
     end
   end
 
+  # `%Z`'s name in the result (#22416): the result takes the encoding that
+  # it and the name are compatible in, when that one is ASCII compatible;
+  # else the name converts to the result's encoding, a character that
+  # does not convert replaced.
+  def zone_word(out, word, box)
+    Primitive.attr! :hidden
+    return word if box.nil?
+
+    compat = Encoding.compatible?(out.dup.force_encoding(box[0]), word)
+    if compat&.ascii_compatible?
+      box[0] = compat
+      return word.b
+    end
+    word.encode(box[0], invalid: :replace, undef: :replace).b
+  end
+
   # STRFTIME: a directive that represents a format of other directives,
   # upcased by `^` and right-aligned in `width`.
-  def put_compound(out, format, width, padding, upper)
+  def put_compound(out, format, width, padding, upper, box = nil)
     Primitive.attr! :hidden
-    text = rendered(format)
+    text = rendered(format, box)
     text.upcase! if upper
     out << (padding || " ") * (width - text.bytesize) if width > text.bytesize
     out << text
