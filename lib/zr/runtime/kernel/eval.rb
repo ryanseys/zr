@@ -254,8 +254,9 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("tried to create Proc object without a block"), 43)
     end
     # A Proc from Proc#refined has its refinements in its own cref, which
-    # a method's body does not take (rb_mod_define_method).
-    if RProc[body].fn == Machine.addr(:zr_refined_block)
+    # a method's body does not take (rb_mod_define_method). A Proc that the
+    # body of one made only inherits them, and is taken.
+    if RProc[body].fn == Machine.addr(:zr_refined_block) && zr_hidden_get(body, zr_sym(Machine.id(:__refined__))) == QTRUE
       return zr_raise_msg(zr_global(G_ARGUMENT_ERROR), Machine.bytes("can't define a method from a Proc with refinements"), 50)
     end
     r = zr_define_bmethod(recv, mid, zr_meta_site(caller, mid, recv), body, home)
@@ -364,6 +365,10 @@ module Zr::Kern
     RProc[p].ret_serial = RProc[body].ret_serial
     RProc[p].spread = RProc[body].spread
     RProc[p].passed = RProc[body].passed
+    # A body that a refined Proc made runs with the refinements it inherits.
+    if RProc[body].fn == Machine.addr(:zr_refined_block)
+      RProc[p].refined = RProc[body].refined
+    end
     RProc[p].self = recv
     if found != QNIL && !zr_special_p(found)
       RBasic[p].flags = RBasic[p].flags | FL_BMETHOD_RUN

@@ -493,6 +493,9 @@ module Zr::Kern
     RProc[q].refined = list
     zr_write_barrier(q, list)
     RProc[q].fn = Machine.addr(:zr_refined_block)
+    # The result itself, and not a Proc that its body makes, which only
+    # inherits the refinements: define_method refuses this one.
+    zr_state_set(q, zr_sym(Machine.id(:__refined__)), Machine.value(QTRUE))
     Machine.store64(Machine.static(:refined_procs, 8), 0, 1)
     q
   end

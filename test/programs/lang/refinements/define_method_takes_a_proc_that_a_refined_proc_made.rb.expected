@@ -1,0 +1,7 @@
+[:nested, ["HI!", 6]]
+[:dm_nested, 8]
+[:dm_direct, ArgumentError, "can't define a method from a Proc with refinements"]
+[:dm_chain, ArgumentError, "can't define a method from a Proc with refinements"]
+[:dm_block, 10]
+[:dm_outside, false]
+[:dm_twice, ["AB!", 4]]
