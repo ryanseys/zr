@@ -562,6 +562,11 @@ module Zr::Kern
       if r == QFALSE
         return Machine.value(QNIL)
       end
+      # The ends' to_int can shrink the Array: a start past its new end is
+      # an empty slice (rb_ary_aref1, [Bug #22325]).
+      if Machine.load64(out, 0) > RArray[recv].len
+        return zr_ary_new(0)
+      end
       return zr_ary_subseq(recv, Machine.load64(out, 0), Machine.load64(out, 8))
     end
     # An ArithmeticSequence slices with its stride.

@@ -1078,19 +1078,25 @@ class Array
   end
 
   # A Range past the end pads with nils up to its end.
+  # rb_ary_values_at: a Range, or any object with begin, end and
+  # exclude_end? (rb_range_values), selects a run; the length is the one
+  # the Array had before the call, whatever the ends' methods do to it.
   def values_at(*indexes)
     out = []
+    olen = Primitive.zr_ary_len_m(self)
     indexes.each do |i|
-      next out << Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(i)) unless i.is_a?(Range)
+      ranged = i.is_a?(Range) || (i.respond_to?(:begin) && i.respond_to?(:end) && i.respond_to?(:exclude_end?))
+      next out << Primitive.zr_ary_aref1_m(self, Primitive.zr_index_operand_m(i)) unless ranged
 
       # rb_range_beg_len: the ends convert with to_int.
-      first = i.begin.nil? ? 0 : Primitive.zr_index_operand_m(i.begin)
-      first += Primitive.zr_ary_len_m(self) if first < 0
+      ends = [i.begin, i.end]
+      first = ends[0].nil? ? 0 : Primitive.zr_index_operand_m(ends[0])
+      first += olen if first < 0
       raise RangeError, "#{i} out of range" if first < 0
 
-      last = i.end.nil? ? Primitive.zr_ary_len_m(self) - 1 : Primitive.zr_index_operand_m(i.end)
-      last += Primitive.zr_ary_len_m(self) if last < 0
-      last -= 1 if i.exclude_end? && i.end
+      last = ends[1].nil? ? olen - 1 : Primitive.zr_index_operand_m(ends[1])
+      last += olen if last < 0
+      last -= 1 if i.exclude_end? && ends[1]
       (first..last).each { |j| out << Primitive.zr_ary_aref1_m(self, j) }
     end
     out
@@ -1537,6 +1543,14 @@ class Array
     len = count - from if count < from + len
     return [] if len.zero?
     raise ArgumentError, +"slice step cannot be zero" if step.zero?
+
+    # ary_subseq_len: the ends' to_int can shrink the Array, and what is
+    # gone is an empty slice ([Bug #22325]).
+    now = Primitive.zr_ary_len_m(self)
+    return [] if from > now
+
+    len = now - from if len > now - from
+    return [] if len <= 0
     return Primitive.zr_ary_aref2_m(self, from, len) if step == 1
     return [Primitive.zr_ary_aref1_m(self, from)] if step.positive? && step >= len
 

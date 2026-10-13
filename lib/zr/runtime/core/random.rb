@@ -703,11 +703,11 @@ class Array
         draws << Random.send(:limited_for, random, len - i - 1)
         i += 1
       end
-      # A draw that changed the Array: a draw past its new end samples
-      # nothing.
+      # A conversion that shrank the Array: the i-th draw past what is left
+      # of the new length after i picks samples nothing (ary_sample).
       if Primitive.zr_ary_len_m(self) < len
         len = Primitive.zr_ary_len_m(self)
-        return [] if draws.any? { |d| d >= len }
+        return [] if draws.each_with_index.any? { |d, i| d >= len - i }
         n = len if n > len
       end
     end
