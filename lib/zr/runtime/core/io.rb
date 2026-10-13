@@ -1127,6 +1127,7 @@ class IO
   # rb_io_reopen: one argument that converts with #to_io is a stream;
   # anything else is a path, opened in the given mode or in this stream's.
   def reopen(other, mode = nil, **options)
+    check_initialized
     if mode.nil? && options.empty? && (io = IO.try_convert(other))
       return reopen_stream(io)
     end
@@ -1228,6 +1229,7 @@ class IO
     Primitive.attr! :hidden
     check_open
     write_pending
+    unread
   end
 
   def fsync
@@ -1535,6 +1537,7 @@ class IO
   # binary where it is binary, the default where it can be read,
   # and none at all for a handle that only writes.
   def external_encoding
+    check_initialized
     return @external unless @external.nil?
     return Encoding::BINARY if @binmode && !@textual
     # A stream that writes and reads returns nil until something sets
@@ -1545,7 +1548,10 @@ class IO
     Encoding.default_external
   end
 
-  def internal_encoding = @internal
+  def internal_encoding
+    check_initialized
+    @internal
+  end
 
   # io_encoding_set: two encodings, one encoding or spec string, or nil
   # for the defaults. A spec string warns where a name matches nothing;
@@ -2315,10 +2321,11 @@ class IO
   def pos
     check_open
     write_pending
+    unread
     result = Primitive.zr_io_seek(@fd, 0, SEEK_CUR)
     raise SystemCallError.new(label, -result, +"rb_io_tell") if result < 0
 
-    result - @buffer.bytesize
+    result - (@buffer.bytesize - pending_chars)
   end
 
   alias tell pos
@@ -2942,6 +2949,27 @@ class IO
     converter.primitive_convert(rest, +"")
     push_back(rest) unless rest.empty?
     raise converter.last_error
+  end
+
+  # io_unread: tell and flush give back the bytes read ahead. The stream
+  # seeks back over them and drops its buffer, and with it the characters
+  # that ungetc put back (clear_codeconv). A stream that holds only such
+  # characters, or that cannot seek, keeps what it holds.
+  def unread
+    Primitive.attr! :hidden
+    ahead = @buffer.bytesize - pending_chars
+    return unless ahead.positive?
+    return if Primitive.zr_io_seek(@fd, -ahead, SEEK_CUR).negative?
+
+    clear_buffer
+    @eof = false
+  end
+
+  # The bytes at the front of the buffer that ungetc put back as
+  # characters of a stream that converts what it reads (its cbuf).
+  def pending_chars
+    Primitive.attr! :hidden
+    (@universal || @internal) ? @char_front : 0
   end
 
   def clear_buffer
