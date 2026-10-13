@@ -400,6 +400,22 @@ module Zr::Kern
     zr_frozen_p(str) ? str : zr_str_new_frozen_m(str)
   end
 
+  # rb_str_no_gvl_safe_acquire: a String whose bytes stay where they are
+  # while C works without the GVL: `orig` when it is frozen, else a
+  # frozen copy, which rb_str_no_gvl_safe_release lets go.
+  #: (value) -> value
+  def rb_str_no_gvl_safe_acquire(orig)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_frozen_p(orig) ? orig : zr_str_new_frozen_m(orig)
+  end
+
+  #: (value, value) -> void
+  def rb_str_no_gvl_safe_release(orig, tmp)
+    Machine.gates_enter
+    zr_c_entered()
+  end
+
   # rb_str_freeze: freezes `str` and returns it.
   #: (value) -> value
   def rb_str_freeze(str)
@@ -462,6 +478,13 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
     zr_capi_call1(str, Machine.id(:encode), zr_capi_encoding_object(zr_capi_enc_index(enc)))
+  end
+
+  # rbimpl_enc_str_coderange_scan: the scan that the header's inline
+  # rb_enc_str_coderange makes when the coderange is not known yet.
+  #: (value) -> i32
+  def rbimpl_enc_str_coderange_scan(str)
+    rb_enc_str_coderange(str)
   end
 
   # rb_enc_str_coderange: the coderange of `str` (ENC_CODERANGE_7BIT,

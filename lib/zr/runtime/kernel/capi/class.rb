@@ -215,6 +215,14 @@ module Zr::Kern
     klass
   end
 
+  # rb_mod_descendants: `mod.descendants`.
+  #: (value) -> value
+  def rb_mod_descendants(mod)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(mod, Machine.id(:descendants), 0, Machine.ptr(0)))
+  end
+
   # rb_define_class_id: a new anonymous class under `super_` (Object for
   # 0), which no constant names yet.
   #: (word, value) -> value

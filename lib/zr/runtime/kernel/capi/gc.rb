@@ -52,6 +52,14 @@ module Zr::Kern
     v
   end
 
+  # rb_gc_update_moved: the collector moves no object, so the reference
+  # at `ptr` stays as it is.
+  #: (ptr) -> void
+  def rb_gc_update_moved(ptr)
+    Machine.gates_enter
+    zr_c_entered()
+  end
+
   # rb_gc_writebarrier: C stored `young` into `owner` (RB_OBJ_WRITE).
   #: (value, value) -> void
   def rb_gc_writebarrier(owner, young)
@@ -180,6 +188,23 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
     zr_xfree(p)
+  end
+
+  # The sized forms, which also give the old size: the allocator needs
+  # no size to free or to move a block.
+  #: (ptr, word) -> void
+  def ruby_xfree_sized(p, size)
+    ruby_xfree(p)
+  end
+
+  #: (ptr, word, word) -> ptr
+  def ruby_xrealloc_sized(p, size, old_size)
+    ruby_xrealloc(p, size)
+  end
+
+  #: (ptr, word, word, word) -> ptr
+  def ruby_xrealloc2_sized(p, n, size, old_n)
+    ruby_xrealloc2(p, n, size)
   end
 
   # ruby_malloc_size_overflow: the ArgumentError of a count times a size

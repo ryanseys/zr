@@ -394,6 +394,10 @@ RUBY
   BUILD_ENVS = { "unf_ext" => { "ZR_EXT" => "dynamic" },
                  "zstd-ruby" => Zr::Target::AARCH64_DARWIN.native? ? {} : { "ZR_EXT_CONFIG" => "zstd-ruby=--with-cflags=-U_FORTIFY_SOURCE" } }.freeze
 
+  # The gems whose activation needs another gem of Reference::NATIVE,
+  # which has its own home: puma's gemspec depends on nio4r.
+  DEPENDS = { "puma" => %w[nio4r] }.freeze
+
   # The gems whose Ruby requires openssl, which a static Linux binary
   # cannot open (docs/reference/dependencies.md).
   OPENSSL = %w[bcrypt thrift].freeze
@@ -414,7 +418,11 @@ RUBY
           skip "#{name} requires openssl, which a static binary cannot open"
         end
 
-        ruby, (zr,) = Zr::Test::CExt.gem_outputs(name, version, program, [env], build_env: BUILD_ENVS.fetch(name, {}), home: home)
+        homes = [home, *DEPENDS.fetch(name, []).map { |dep| Reference.native_home(dep, Reference::NATIVE.fetch(dep)) }]
+        ruby, (zr,) = Zr::Test::CExt.gem_outputs(name, version, program, [env], build_env: BUILD_ENVS.fetch(name, {}), home: homes)
+        # A ruby of a development ABI loads only an extension that exports
+        # ruby_abi_version, which rinku's -fvisibility=hidden hides.
+        skip "ruby cannot load #{name}: its bundle hides ruby_abi_version" if ruby.stderr.include?("symbol not found - ruby_abi_version")
         assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"
         assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr stderr:\n#{zr.stderr}"
       end

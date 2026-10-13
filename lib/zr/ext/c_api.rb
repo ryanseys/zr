@@ -14,8 +14,9 @@ module Zr
     # stops the build with its name, not the program later.
     module CApi
       # The names that are ruby's: what an extension takes from ruby, not
-      # from libc. Onigmo's data is `OnigEncodingASCII` and its kin.
-      RUBY = /\A(?:rb_|ruby_|st_|onig|Onig)/
+      # from libc. Onigmo's data is `OnigEncodingASCII` and its kin, and a
+      # header's inline function calls `rbimpl_*` ones.
+      RUBY = /\A(?:rb_|rbimpl_|ruby_|st_|onig|Onig)/
       DIR = File.join(Paths::RUNTIME, "kernel/capi")
 
       module_function

@@ -336,4 +336,18 @@ module Zr::Kern
     Machine.store64(argv, 8, Machine.word(zr_fix(Machine.sword(flags))))
     zr_c_result(zr_trace_point_send(CEntry[e].value, Machine.id(:wait), 2, argv))
   end
+
+  # rb_process_status_for: a frozen status of the child `pid` with the
+  # wait status word `status`, which a fiber scheduler made. zr's status
+  # keeps no errno.
+  #: (i32, i32, i32) -> value
+  def rb_process_status_for(pid, status, error)
+    Machine.gates_enter
+    zr_c_entered()
+    e = zr_const_row_in(zr_core_class(Machine.id(:Process)), Machine.id(:Status), false)
+    argv = Machine.slot(64)
+    Machine.store64(argv, 0, Machine.word(zr_fix(Machine.sword(pid))))
+    Machine.store64(argv, 8, Machine.word(zr_fix(Machine.sword(status))))
+    zr_c_result(zr_send(CEntry[e].value, Machine.id(:made), 2, argv))
+  end
 end

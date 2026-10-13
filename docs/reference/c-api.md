@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby's C API, of the series that zr pins. zr's kernel gives 826 of its
+calls ruby's C API, of the series that zr pins. zr's kernel gives 835 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -52,7 +52,7 @@ C functions as blocks, and the C API's calls of Procs.
 
 The C API's definitions: modules, classes and methods, as an extension's Init makes them.
 
-`rb_define_module`, `rb_define_module_under`, `rb_define_class`, `rb_define_class_under`, `rb_define_module_id_under`, `rb_define_class_id_under`, `rb_define_method`, `rb_define_private_method`, `rb_define_protected_method`, `rb_define_singleton_method`, `rb_define_module_function`, `rb_define_global_function`, `rb_define_alias`, `rb_alias`, `rb_deprecate_constant`, `rb_include_module`, `rb_obj_class`, `rb_class2name`, `rb_obj_classname`, `rb_define_class_id`, `rb_define_module_id`, `rb_path2class`, `rb_path_to_class`, `rb_class_name`, `rb_prepend_module`, `rb_define_attr`, `rb_const_defined`, `rb_const_defined_at`, `rb_class_superclass`, `rb_mod_name`, `rb_mod_ancestors`, `rb_define_method_id`, `rb_cvar_set`, `rb_mod_include_p`, `rb_mod_method_arity`, `rb_module_new`, `rb_class_new`, `rb_undef`, `rb_mod_remove_const`, `rb_mod_module_eval`, `rb_class_instance_methods`, `rb_cv_get`, `rb_method_basic_definition_p`
+`rb_define_module`, `rb_define_module_under`, `rb_define_class`, `rb_define_class_under`, `rb_define_module_id_under`, `rb_define_class_id_under`, `rb_define_method`, `rb_define_private_method`, `rb_define_protected_method`, `rb_define_singleton_method`, `rb_define_module_function`, `rb_define_global_function`, `rb_define_alias`, `rb_alias`, `rb_deprecate_constant`, `rb_include_module`, `rb_obj_class`, `rb_class2name`, `rb_obj_classname`, `rb_mod_descendants`, `rb_define_class_id`, `rb_define_module_id`, `rb_path2class`, `rb_path_to_class`, `rb_class_name`, `rb_prepend_module`, `rb_define_attr`, `rb_const_defined`, `rb_const_defined_at`, `rb_class_superclass`, `rb_mod_name`, `rb_mod_ancestors`, `rb_define_method_id`, `rb_cvar_set`, `rb_mod_include_p`, `rb_mod_method_arity`, `rb_module_new`, `rb_class_new`, `rb_undef`, `rb_mod_remove_const`, `rb_mod_module_eval`, `rb_class_instance_methods`, `rb_cv_get`, `rb_method_basic_definition_p`
 
 ## control
 
@@ -100,7 +100,7 @@ The C API of Fibers and of the fiber scheduler: each one the Fiber method of its
 
 The C API's view of the collector: marks from a T_DATA's mark function, the write barrier, registered roots, and ruby's malloc.
 
-`rb_gc_mark`, `rb_gc_mark_movable`, `rb_gc_mark_maybe`, `rb_gc_mark_locations`, `rb_gc_location`, `rb_gc_writebarrier`, `rb_gc_writebarrier_remember`, `rb_gc_writebarrier_unprotect`, `rb_gc_register_address`, `rb_global_variable`, `rb_gc_unregister_address`, `rb_gc_register_mark_object`, `rb_gc_start`, `rb_gc`, `rb_obj_memsize_of`, `ruby_xmalloc`, `ruby_xmalloc2`, `ruby_xcalloc`, `ruby_xrealloc`, `ruby_xrealloc2`, `ruby_xfree`, `ruby_malloc_size_overflow`, `ruby_strdup`, `rb_alloc_tmp_buffer_with_count`, `rb_free_tmp_buffer`, `rb_gc_enable`, `rb_gc_disable`, `rb_during_gc`, `rb_alloc_tmp_buffer`, `rb_gc_stat`, `rb_gc_latest_gc_info`, `rb_objspace_each_objects`, `rb_gc_adjust_memory_usage`
+`rb_gc_mark`, `rb_gc_mark_movable`, `rb_gc_mark_maybe`, `rb_gc_mark_locations`, `rb_gc_location`, `rb_gc_update_moved`, `rb_gc_writebarrier`, `rb_gc_writebarrier_remember`, `rb_gc_writebarrier_unprotect`, `rb_gc_register_address`, `rb_global_variable`, `rb_gc_unregister_address`, `rb_gc_register_mark_object`, `rb_gc_start`, `rb_gc`, `rb_obj_memsize_of`, `ruby_xmalloc`, `ruby_xmalloc2`, `ruby_xcalloc`, `ruby_xrealloc`, `ruby_xrealloc2`, `ruby_xfree`, `ruby_xfree_sized`, `ruby_xrealloc_sized`, `ruby_xrealloc2_sized`, `ruby_malloc_size_overflow`, `ruby_strdup`, `rb_alloc_tmp_buffer_with_count`, `rb_free_tmp_buffer`, `rb_gc_enable`, `rb_gc_disable`, `rb_during_gc`, `rb_alloc_tmp_buffer`, `rb_gc_stat`, `rb_gc_latest_gc_info`, `rb_objspace_each_objects`, `rb_gc_adjust_memory_usage`
 
 ## hash
 
@@ -190,7 +190,7 @@ The C API's Regexps and MatchData, each through their Ruby methods.
 
 Waits of C on descriptors that no stream wraps, and ruby's sets of descriptors (rb_fdset_t) that its select takes.
 
-`rb_fd_init`, `rb_fd_term`, `rb_fd_zero`, `rb_fd_set`, `rb_fd_clr`, `rb_fd_isset`, `rb_fd_copy`, `rb_fd_dup`, `rb_fd_select`, `rb_thread_fd_select`, `rb_wait_for_single_fd`, `rb_thread_wait_fd`, `rb_thread_fd_writable`, `rb_io_wait_readable`, `rb_io_wait_writable`, `rb_process_status_wait`
+`rb_fd_init`, `rb_fd_term`, `rb_fd_zero`, `rb_fd_set`, `rb_fd_clr`, `rb_fd_isset`, `rb_fd_copy`, `rb_fd_dup`, `rb_fd_select`, `rb_thread_fd_select`, `rb_wait_for_single_fd`, `rb_thread_wait_fd`, `rb_thread_fd_writable`, `rb_io_wait_readable`, `rb_io_wait_writable`, `rb_process_status_wait`, `rb_process_status_for`
 
 ## st
 
@@ -202,7 +202,7 @@ The C API's st tables, which C uses for its own maps.
 
 The C API's Strings.
 
-`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_cstr_to_inum`, `rb_str_equal`, `rb_str_hash`, `rb_str_hash_cmp`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
+`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_no_gvl_safe_acquire`, `rb_str_no_gvl_safe_release`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rbimpl_enc_str_coderange_scan`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_cstr_to_inum`, `rb_str_equal`, `rb_str_hash`, `rb_str_hash_cmp`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
 
 ## struct
 

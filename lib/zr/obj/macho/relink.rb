@@ -15,7 +15,10 @@ module Zr
       #
       # - each rebase moves with the bundle's new place;
       # - each bind to ruby's C API (`_rb_*`, `_ruby_*`, a data word such as
-      #   `_rb_cObject`) becomes a rebase to the runtime's own definition;
+      #   `_rb_cObject`) becomes a rebase to the runtime's own definition,
+      #   also where the bundle found it in ruby's shared library (a bundle
+      #   that a ruby built with --enable-shared links), which the
+      #   executable then does not load;
       # - each other bind is an import from libSystem or one of the system
       #   dylibs that the bundle loads (liblzma), which the host's loader
       #   says defines it. Lazy binds bind at launch too, so the bundle's
@@ -53,6 +56,9 @@ module Zr
         # through frames whose unwind information the relink leaves out.
         UNWINDS = %w[___cxa_throw __Unwind_RaiseException].freeze
         SYSTEM = %r{\A/(?:usr/lib|System/Library)/}
+        # Ruby's shared library (`libruby.4.1.dylib`), whose C API the
+        # runtime defines.
+        LIBRUBY = %r{/libruby(?:\.\d+)*\.dylib\z}
         # dyld's old entry for lazy binding, which only the stub helper
         # calls: with each lazy bind bound at launch, the helper never runs,
         # and its slot stays null (a newer dyld defines no such name).
@@ -119,6 +125,7 @@ module Zr
           bound = @image.binds.to_h do |bind|
             at = runtime.call(bind.name) || own[bind.name]
             dylib = at || bind.name.delete_prefix("_") == STUB_BINDER ? nil : dylib_of(bind)
+            raise Refused, "#{@init}: zr's C API has no #{bind.name.delete_prefix("_")}" if dylib.is_a?(String) && LIBRUBY.match?(dylib)
             fixup = if at
                       Fixup.new(address: @vm + bind.address, kind: :rebase, target: at + bind.addend, addend: 0)
                     elsif dylib
@@ -139,9 +146,10 @@ module Zr
           [rebased + bound.values, imports]
         end
 
-        # The dylibs that the bundle loads, which the executable loads too.
+        # The dylibs that the bundle loads, which the executable loads too:
+        # all but ruby's.
         #: () -> Array[String]
-        def dylibs = @image.dylibs
+        def dylibs = @image.dylibs.grep_v(LIBRUBY)
 
         private
 
@@ -181,7 +189,7 @@ module Zr
           throws = @image.undefined & UNWINDS
           raise Refused, "#{@init}: its C++ throws exceptions (#{throws.first}); build with --ext=dynamic" unless throws.empty?
 
-          foreign = @image.dylibs.grep_v(SYSTEM)
+          foreign = @image.dylibs.grep_v(SYSTEM).grep_v(LIBRUBY)
           raise Refused, "#{@init}: it loads #{foreign.first}, which is not a system dylib; build with --ext=dynamic" unless foreign.empty?
 
           fixed = (@image.rebases.map(&:address) + @image.binds.map(&:address)).find do |address|

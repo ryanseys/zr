@@ -87,6 +87,13 @@ module Process
       @to_i = raw
     end
 
+    # rb_process_status_for: the frozen status that C makes.
+    def self.made(pid, raw)
+      Primitive.attr! :hidden
+      allocate.tap { |status| status.send(:initialize, pid, raw) }.freeze
+    end
+    private_class_method :made
+
     # Process.wait's status and not its pid, leaving `$?` alone: nil
     # while a WNOHANG child still runs, and pid -1 when there is none to
     # wait for.
