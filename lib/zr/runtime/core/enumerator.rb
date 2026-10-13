@@ -783,15 +783,28 @@ class Enumerator::Lazy < Enumerator
     step(:grep_v, block ? :run_grep_v_map : :run_grep_v, block, [pattern], check: false)
   end
 
+  # lazy_zip: each argument converts with to_ary until one does not; that
+  # one and those after it must respond to each, and stay as they are.
   def zip(*others, &block)
     return super if block
 
-    others.each do |other|
-      next if other.is_a?(Array) || other.respond_to?(:each)
+    args = []
+    i = 0
+    while i < others.size
+      converted = Array.try_convert(others[i])
+      break if converted.nil?
 
-      raise TypeError, "wrong argument type #{other.class} (must respond to :each)"
+      args << converted
+      i += 1
     end
-    step(:zip, :run_zip, nil, others, check: false, sized: true)
+    while i < others.size
+      other = others[i]
+      raise TypeError, "wrong argument type #{other.class} (must respond to :each)" unless other.respond_to?(:each)
+
+      args << other
+      i += 1
+    end
+    step(:zip, :run_zip, nil, args, check: false, sized: true)
   end
 
   def uniq(&block)
@@ -1021,8 +1034,11 @@ class Enumerator::Lazy < Enumerator
 
     # Arrays are read by index; any other object is read with `next`,
     # and gives nil after it stops.
+    # lazy_zip_arrays_func reads Arrays by index; once one argument is no
+    # Array, lazy_zip_func walks each of them, Arrays too, with to_enum.
     def run_zip
-      cursors = @args.map { |other| other.is_a?(Array) ? other : other.to_enum }
+      arrays = @args.all? { |other| other.is_a?(Array) }
+      cursors = arrays ? @args : @args.map(&:to_enum)
       i = 0
       @receiver.each do |*values|
         row = [Primitive.zr_enum_value(values)]
