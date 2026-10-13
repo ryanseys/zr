@@ -713,8 +713,17 @@ class Enumerator::Lazy < Enumerator
     Enumerator.for(self, :each, [], {}, proc { size })
   end
 
+  # lazy_to_enum: a name that a lazy method overrides stands for its eager
+  # form (EAGER), so the enumerator iterates. The core's own enumerators
+  # keep the name, as rb_enumeratorize does: a lazy's `with_index` with
+  # no block gives one that sends `with_index` with a block, which makes
+  # another lazy and yields nothing.
   def to_enum(method = :each, *args, **kwargs, &size)
     Enumerator.send(:method_name, method)
+    unless Primitive.zr_caller_core_p
+      name = method.is_a?(Symbol) ? method : String.try_convert(method).to_sym
+      method = EAGER.fetch(name, name)
+    end
     Enumerator::Lazy.allocate.send(:chain, self, method, :run_send, args:, kwargs:) { size&.call }
   end
 
@@ -798,6 +807,11 @@ class Enumerator::Lazy < Enumerator
     step(:with_index, block ? :run_with_index_each : :run_with_index, block, [offset], check: false, sized: true)
   end
 
+  # lazy_each_with_index (ruby 4.1): with_index(0), under its own name.
+  def each_with_index(&block)
+    step(:each_with_index, block ? :run_with_index_each : :run_with_index, block, [0], check: false, sized: true)
+  end
+
   # The chunking methods stay Enumerable's, their enumerator made lazy.
   def chunk(*, &block) = Enumerator::Lazy.from(super)
 
@@ -809,21 +823,22 @@ class Enumerator::Lazy < Enumerator
 
   def slice_after(*, &block) = Enumerator::Lazy.from(super)
 
-  # The eager forms, under CRuby's names for them: aliases of
-  # Enumerable's, and a separate definition of `with_index`, so the
-  # enumerator that it returns without a block shows that name.
-  %i[map collect flat_map collect_concat select filter find_all filter_map reject grep grep_v zip take take_while drop drop_while uniq].each do |name|
-    define_method(:"_enumerable_#{name}", Enumerable.instance_method(name))
-    private :"_enumerable_#{name}"
+  # define_lazy_alias: the eager forms, as private aliases under CRuby's
+  # names for them, of Enumerable's methods and of Enumerator's with_index
+  # and each_with_index. lazy_to_enum names them for the lazy methods.
+  EAGER = { map: :_enumerable_map, collect: :_enumerable_collect, flat_map: :_enumerable_flat_map,
+    collect_concat: :_enumerable_collect_concat, select: :_enumerable_select, find_all: :_enumerable_find_all,
+    filter: :_enumerable_filter, filter_map: :_enumerable_filter_map, reject: :_enumerable_reject,
+    grep: :_enumerable_grep, grep_v: :_enumerable_grep_v, zip: :_enumerable_zip, take: :_enumerable_take,
+    take_while: :_enumerable_take_while, drop: :_enumerable_drop, drop_while: :_enumerable_drop_while,
+    uniq: :_enumerable_uniq, with_index: :_enumerable_with_index, each_with_index: :_enumerable_each_with_index }.freeze
+  private_constant :EAGER
+  EAGER.each do |name, eager|
+    define_method(eager, (name == :with_index || name == :each_with_index ? Enumerator : Enumerable).instance_method(name))
+    private eager
   end
 
   private
-
-  def _enumerable_with_index(offset = (omitted = true; nil), &block)
-    return to_enum(:_enumerable_with_index, *([offset] unless omitted)) { size } unless block
-
-    indexed(offset.nil? ? 0 : implicit_integer(offset), &block)
-  end
 
   # This lazy, reading `receiver` through `runner`, and shown as
   # `receiver`, `method` and `args`; a false `method` shows none.
@@ -880,21 +895,9 @@ class Enumerator::Lazy < Enumerator
       nil
     end
 
-    # lazy_use_super_method: on a lazy receiver, the lazy methods walk as
-    # Enumerable's own (Enumerator's for with_index), which iterate.
-    EAGER = %i[map collect flat_map collect_concat select find_all filter filter_map reject grep grep_v zip
-               take take_while drop drop_while uniq with_index].freeze
-    private_constant :EAGER
-
     # The block's value goes back to the method, as enumerator_block_call
     # passes it: `lazy.to_enum(:chunk).each { ... }` chunks by it.
     def run_send(&)
-      # The name may be a String, as rb_to_id takes either.
-      name = @method.is_a?(String) ? @method.to_sym : @method
-      if @receiver.is_a?(Enumerator::Lazy) && EAGER.include?(name)
-        owner = name == :with_index ? Enumerator : Enumerable
-        return owner.instance_method(name).bind_call(@receiver, *@args, **@kwargs, &)
-      end
       @receiver.__send__(@method, *@args, **@kwargs, &)
     end
 

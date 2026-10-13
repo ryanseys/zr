@@ -386,6 +386,22 @@ module Zr::Kern
   end
 
   # Whether the frame that called the current core method runs code of
+  # the core library: a core method, or a block inside one. CRuby's C
+  # then makes the call with no method lookup (rb_enumeratorize, say).
+  #: () -> value
+  def zr_caller_core_p
+    rec = Frame[Task[zr_task()].top].prev
+    if rec == 0
+      return Machine.value(QFALSE)
+    end
+    meta = Frame[rec].meta
+    while meta != 0 && FrameMeta[meta].kind == KIND_BLOCK
+      meta = FrameMeta[meta].parent
+    end
+    zr_bool(meta != 0 && (FrameMeta[meta].kind == KIND_BUILTIN || FrameMeta[meta].kind == KIND_HIDDEN))
+  end
+
+  # Whether the frame that called the current core method runs code of
   # an eval: the eval's own scope, or a block inside it.
   #: () -> value
   def zr_caller_eval_p
