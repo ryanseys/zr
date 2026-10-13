@@ -1,0 +1,4 @@
+["net/ftp", LoadError, "cannot load such file -- net/ftp", "net/ftp"]
+["net/pop", LoadError, "cannot load such file -- net/pop", "net/pop"]
+[3, 2, 1, 4]
+[[3], [2], [1], [4]]
