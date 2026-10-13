@@ -1,0 +1,19 @@
+[["dangling", :link], ["dirlink", :link], ["f.txt", :file], ["ln", :link], ["pipe", :fifo], ["sub", :directory]]
+nil
+[["dangling", :link], ["dirlink", :link], ["f.txt", :file], ["ln", :link], ["pipe", :fifo], ["sub", :directory]]
+[["dangling", :link], ["dirlink", :link], ["f.txt", :file], ["ln", :link], ["pipe", :fifo], ["sub", :directory]]
+[["pipe", :fifo], ["dangling", :link], ["sub", :directory], ["dirlink", :link], ["f.txt", :file], ["ln", :link]]
+["pipe", "dangling", "sub", "dirlink", "f.txt", "ln"]
+[IOError, "closed directory"]
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+[Errno::ENOENT, "No such file or directory @ dir_initialize - D/nope"]
+[Errno::ENOTDIR, "Not a directory @ dir_initialize - D/f.txt"]
+[ArgumentError, "wrong number of arguments (given 0, expected 1)"]
+[TypeError, "no implicit conversion of Integer into String"]
+[]
+-1
+0
+6
+6

@@ -1358,6 +1358,27 @@ class Dir
     self
   end
 
+  # dir_scan_children (ruby 4.1): each child's name and its type as lstat
+  # gives it (File::Stat#ftype as a Symbol), in the order the directory
+  # lists them; with a block, each name and type, then nil.
+  def scan
+    base = File.send(:os_path, @path).b
+    rows = open_names.filter_map do |name|
+      next if name == +"." || name == +".."
+
+      type = begin
+        File.lstat("#{base}/#{name.b}").ftype.to_sym
+      rescue SystemCallError
+        :unknown
+      end
+      [Dir.send(:external_name, name, @encoding), type]
+    end
+    return rows unless block_given?
+
+    rows.each { |name, type| yield name, type }
+    nil
+  end
+
   # The descriptor the directory reads under. A closed directory has
   # none, and says so in the same words as every other call on it.
   def fileno
@@ -1446,6 +1467,19 @@ class Dir
 
   def self.children(path, encoding: nil)
     entries(path, encoding: encoding).reject { |name| name == +"." || name == +".." }
+  end
+
+  # dir_s_scan (ruby 4.1): Dir#scan of the directory that Dir.open gives,
+  # closed after.
+  def self.scan(*args, **opts, &block)
+    dir = open(*args, **opts)
+    raise TypeError, "wrong argument type #{conversion_name(dir)} (expected dir)" unless dir.is_a?(Dir)
+
+    begin
+      instance_method(:scan).bind_call(dir, &block)
+    ensure
+      instance_method(:close).bind_call(dir)
+    end
   end
 
   def self.each_child(path, encoding: nil, &block)
