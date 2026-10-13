@@ -226,7 +226,14 @@ module Zr::Kern
         if modfn
           zr_method_copy(zr_singleton_class(recv), mid, e, zr_meta_owned_by(MEntry[e].meta, recv), VIS_PUBLIC, false)
         end
-        zr_method_copy(recv, mid, e, zr_meta_owned_by(MEntry[e].meta, recv), zr_definition_vis(mid, home), false)
+        owned = zr_meta_owned_by(MEntry[e].meta, recv)
+        zr_method_copy(recv, mid, e, owned, zr_definition_vis(mid, home), false)
+        # A frame shows the module that defined the method (#22197), but a
+        # module's method on the module's own singleton class shows that
+        # class ('Mod.m'), as location_original_module keeps it.
+        if zr_singleton_p(recv) && RClass[recv].attached == owner
+          MEntry[zr_find_method_at(zr_origin(recv), mid)].label = owned
+        end
         r = zr_method_added(recv, mid)
         return r if r == QUNDEF
         if modfn

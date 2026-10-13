@@ -1,9 +1,8 @@
-# ruby labels the frame of a method that an alias reached with the
-# alias's owner when the method came from a class (rb_alias makes the
-# alias's class the entry's owner): 'Klass.<=>', 'A#fetch', 'Bar#a'. An
-# alias of a module's method keeps the module. FileTest's functions are
-# File's (define_filetest_function), and its frame says
-# 'FileTest.exist?'. Found by zr-dev fuzz.
+# ruby 4.1 labels the frame of a method that an alias reached with the
+# module where the method was defined (#22197): an alias in a class of
+# Array#fetch is still 'Array#fetch'. FileTest's functions are File's
+# (define_filetest_function), and its frame says 'FileTest.exist?'.
+# Found by zr-dev fuzz.
 def label
   yield
 rescue StandardError => e
@@ -93,6 +92,6 @@ end
 labels { Deep.new.c }
 labels { Deep.new.a }
 
-# The alias's owner is its class; it keeps the original's code.
+# The alias's owner is still its class; only the label changed.
 p Bar.instance_method(:c).owner, Sub2.instance_method(:yy).owner, W2.instance_method(:g3).owner
 p Bar.instance_method(:c).name, Bar.instance_method(:c).original_name

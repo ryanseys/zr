@@ -96,8 +96,9 @@ module Zr::Kern
     # eval's `using` there, else 0 (zr_using_toplevel_m).
     attr_accessor :using #: word
     # The meta that a backtrace labels this method's frames with, or 0 for
-    # the frame's own: an alias's copy owned by its class (zr_alias_meta),
-    # or FileTest's copy of a File method (zr_method_share).
+    # the frame's own: a core alias's copy with its own name (zr_alias),
+    # FileTest's copy of a File method (zr_method_share), or a module's
+    # method that define_method put on the module's singleton class.
     attr_accessor :label #: ptr
   end
 
@@ -668,7 +669,9 @@ module Zr::Kern
       end
       return zr_method_added(klass, new_id)
     end
-    label = zr_alias_meta(klass, MEntry[e].meta, MEntry[e].label)
+    # ruby labels the alias's frames with the module where the method was
+    # defined (#22197), so the alias keeps the source's label.
+    label = MEntry[e].label
     # A core alias is the method that CRuby defines apart with the same C
     # function, and its frames show its own name ('Array#detect'). The
     # aliases that CRuby makes with rb_define_alias or in its Ruby files
@@ -682,21 +685,6 @@ module Zr::Kern
     zr_method_copy(klass, new_id, e, MEntry[e].meta, vis, true)
     MEntry[zr_find_method_at(zr_origin(klass), new_id)].label = label
     zr_method_added(klass, new_id)
-  end
-
-  # rb_alias: an alias that a class makes of a class's method has that
-  # class as its owner, which its frames' label shows ('Sub#fetch'). An
-  # alias of a module's method keeps the module. Returns the label meta
-  # of the new entry, from the source's `label` or else its `meta`.
-  #: (value, ptr, ptr) -> ptr
-  def zr_alias_meta(klass, meta, label)
-    if meta == 0 || zr_type(klass) != T_CLASS || zr_special_p(FrameMeta[meta].owner) || zr_type(FrameMeta[meta].owner) != T_CLASS
-      return label
-    end
-    if (FrameMeta[meta].kind != KIND_DEF && FrameMeta[meta].kind != KIND_BUILTIN) || FrameMeta[meta].owner == klass
-      return label
-    end
-    zr_meta_owned(label != 0 ? label : meta, klass)
   end
 
   #: (value, word, ptr, value, value) -> value
