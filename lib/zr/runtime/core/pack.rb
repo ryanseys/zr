@@ -333,6 +333,7 @@ module Packing
   # pack.c's 'u': each line's length character, then groups of four
   # characters, until a byte that is no length character. A short group
   # reads as zeros; a checksum byte and the line end are skipped.
+  # The decoded bytes, and how many bytes of `text` the decoding read.
   def self.uudecode(text)
     send = text.bytesize
     room = send * 3 / 4
@@ -365,7 +366,7 @@ module Packing
       s += 1 if s < send && text.getbyte(s) == 13
       s += 1 if s < send && text.getbyte(s) == 10
     end
-    out
+    [out, s]
   end
   private_class_method :uuencode, :uuchar, :uudecode
 
@@ -733,7 +734,8 @@ module Packing
   # CRuby's do whatever the offset.
   # `padded` false leaves out the nils that stand for a value the bytes
   # run out before, as unpack with a block leaves them out
-  # (PACK_ITEM_ADJUST).
+  # (PACK_ITEM_ADJUST). A directive moves the position over the bytes
+  # that it read, never past the end, which `^` and `X` see.
   def self.unpack(bytes, template, single, associates = nil, base = 0, padded: true)
     out = []
     at = base
@@ -779,15 +781,15 @@ module Packing
           chunk = chunk.byteslice(0, chunk.bytesize - 1) while chunk.end_with?(" ") || chunk.end_with?("\0")
         end
         out << chunk
-        at += n
+        at += at_most(n, bytes.bytesize - at)
       when "H", "h"
         n = count == :all ? (bytes.bytesize - at) * 2 : (count || 1)
         out << unpack_hex(bytes, at, n, c == +"H")
-        at += (n + 1) / 2
+        at += (at_most(n, (bytes.bytesize - at) * 2) + 1) / 2
       when "B", "b"
         n = count == :all ? (bytes.bytesize - at) * 8 : (count || 1)
         out << unpack_bits(bytes, at, n, c == +"B")
-        at += (n + 7) / 8
+        at += (at_most(n, (bytes.bytesize - at) * 8) + 7) / 8
       when "m"
         rest = chunk(bytes, at, bytes.bytesize - at)
         out << (count == 0 ? strict_base64(rest) : decode_base64(rest))
@@ -797,9 +799,9 @@ module Packing
         out << decode_quoted_printable(rest)
         at = bytes.bytesize
       when "u"
-        rest = chunk(bytes, at, bytes.bytesize - at)
-        out << uudecode(rest)
-        at = bytes.bytesize
+        decoded, read = uudecode(chunk(bytes, at, bytes.bytesize - at))
+        out << decoded
+        at += read
       when "p"
         n = count == :all ? nil : (count || 1)
         while (n.nil? || n > 0) && bytes.bytesize - at >= 8
@@ -867,11 +869,11 @@ module Packing
       when "d", "D", "E", "G"
         each_slot(bytes, at, 8, count, out) { |chunk| unpack_double(chunk, c == +"G") }
         unpad(out, bytes, at, 8, count) unless padded
-        at += 8 * (count == :all ? (bytes.bytesize - at) / 8 : (count || 1))
+        at += 8 * at_most(count == :all ? bytes.bytesize : (count || 1), (bytes.bytesize - at) / 8)
       when "f", "F", "e", "g"
         each_slot(bytes, at, 4, count, out) { |chunk| single_value(unpack_integer(chunk, false, c == +"g")) }
         unpad(out, bytes, at, 4, count) unless padded
-        at += 4 * (count == :all ? (bytes.bytesize - at) / 4 : (count || 1))
+        at += 4 * at_most(count == :all ? bytes.bytesize : (count || 1), (bytes.bytesize - at) / 4)
       else
         raise ArgumentError, unknown_directive("unpack", c.getbyte(0), template) unless INTEGERS.key?(c)
 
@@ -880,12 +882,16 @@ module Packing
         n = count == :all ? (bytes.bytesize - at) / size : (count || 1)
         Primitive.zr_unpack_ints(out, bytes, at, n, size, signed, big == true)
         unpad(out, bytes, at, size, count) unless padded
-        at += size * n
+        at += size * at_most(n, (bytes.bytesize - at) / size)
       end
       break if single && !out.empty?
     end
     out
   end
+
+  # The smaller of two Integers, by a comparison that a program's
+  # Integer#<=> does not change, as Array#min would.
+  def self.at_most(n, limit) = n < limit ? n : limit
 
   # Drops the nils that a fixed count of `size`-byte values pushed past
   # the end of the bytes.
