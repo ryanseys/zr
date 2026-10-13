@@ -45,8 +45,9 @@ class Proc
 
   # A proc that collects arguments over calls until `arity` of them
   # arrived, then calls this one. A lambda's arity is checked here.
+  # proc_curry reads the arity as a C int (NUM2INT).
   def curry(arity = nil)
-    arity = implicit_integer(arity) unless arity.nil?
+    arity = IO.send(:c_int, arity) unless arity.nil?
     required = self.arity >= 0 ? self.arity : -self.arity - 1
     if lambda? && arity
       least, most = Proc.min_max_arity(self)
