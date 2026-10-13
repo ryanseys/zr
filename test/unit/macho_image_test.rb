@@ -88,14 +88,16 @@ class MachOImageTest < Minitest::Test
   end
 
   # How dyld_info names a bind's target: its library's short name, then
-  # the symbol, then a weak import's mark.
+  # the symbol, then a weak import's mark. The short name drops `.dylib`
+  # and then the last dotted part: libSystem.B.dylib is libSystem, and
+  # libruby.4.1.dylib is libruby.4.
   def bind_target(image, bind)
     library = case bind.library
               when Image::SELF then "<this-image>"
               when Image::MAIN_EXECUTABLE then "<main-executable>"
               when Image::FLAT_LOOKUP then "<flat-namespace>"
               when Image::WEAK_LOOKUP then "<weak-def-coalesce>"
-              else File.basename(image.dylibs.fetch(bind.library - 1)).split(".").first
+              else File.basename(image.dylibs.fetch(bind.library - 1)).delete_suffix(".dylib").sub(/\.[^.]*\z/, "")
               end
     target = "#{library}/#{bind.name}"
     target += format(" + 0x%X", bind.addend) unless bind.addend.zero?
