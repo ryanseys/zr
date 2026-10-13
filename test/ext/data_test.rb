@@ -104,13 +104,15 @@ class CExtDataTest < Minitest::Test
       return TypedData_Make_Struct(klass, long, &loud_type, n);
     }
 
-    /* An untyped one, made the old way. */
+    /* One wrapped the way untyped data was: a struct of its own that
+       ruby_xfree frees, a mark function and no write barrier. */
     struct legacy { VALUE held; };
     static void legacy_mark(void *p) { rb_gc_mark(((struct legacy *)p)->held); }
+    static const rb_data_type_t legacy_type = { "legacy", { legacy_mark, RUBY_DEFAULT_FREE, 0, }, 0, 0, 0 };
     static VALUE legacy_new(VALUE self, VALUE v) {
       struct legacy *l = ALLOC(struct legacy);
       l->held = v;
-      return rb_data_object_wrap(rb_cObject, l, legacy_mark, RUBY_DEFAULT_FREE);
+      return TypedData_Wrap_Struct(rb_cObject, &legacy_type, l);
     }
     static VALUE legacy_get(VALUE self, VALUE obj) { return ((struct legacy *)DATA_PTR(obj))->held; }
 

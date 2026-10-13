@@ -168,30 +168,6 @@ module Zr::Kern
     end
   end
 
-  # rb_postponed_job_register and rb_postponed_job_register_one: the job
-  # `func(data)` runs at the next safe point; 0 when no slot is free.
-  #: (i32, ptr, ptr) -> i32
-  def rb_postponed_job_register(flags, func, data)
-    Machine.gates_enter
-    zr_postponed_register(func, data)
-  end
-
-  #: (i32, ptr, ptr) -> i32
-  def rb_postponed_job_register_one(flags, func, data)
-    Machine.gates_enter
-    zr_postponed_register(func, data)
-  end
-
-  #: (ptr, ptr) -> i32
-  def zr_postponed_register(func, data)
-    slot = zr_postponed_slot(func, data)
-    if slot == 4294967295
-      return Machine.i32(0)
-    end
-    zr_postponed_trigger(slot)
-    Machine.i32(1)
-  end
-
   # The slot of `func`, which now has `data`: the one that has `func`,
   # or the first free one; 0xffffffff when none is.
   #: (ptr, ptr) -> word

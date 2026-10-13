@@ -421,6 +421,24 @@ module Zr::Kern
     zr_capi_check_int(n)
   end
 
+  # rb_out_of_long: the RangeError of a number that is not a long, which
+  # rb_len2long raises where rb_len_t is wider than long.
+  #: (word) -> void
+  def rb_out_of_long(n)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("integer "), 8)
+    zr_buf_long(b, n)
+    if n < 0
+      zr_buf_push(b, Machine.bytes(" too small to convert to 'long'"), 31)
+    else
+      zr_buf_push(b, Machine.bytes(" too big to convert to 'long'"), 29)
+    end
+    zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b))
+  end
+
   # rb_big2str: `x.to_s(base)`.
   #: (value, i32) -> value
   def rb_big2str(x, base)

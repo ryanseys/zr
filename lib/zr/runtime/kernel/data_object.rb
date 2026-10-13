@@ -1,16 +1,11 @@
 module Zr::Kern
-  # T_DATA: an object that wraps a C extension's struct. It has one of
-  # CRuby 4.0's two layouts, so the extension's inline DATA_PTR and
-  # RTYPEDDATA_* read it as they read ruby's:
-  # - a typed one (RTypedData, with FL_TYPED_DATA) points at its type, a
-  #   rb_data_type_t (DataType) in the extension's data, whose functions
-  #   mark, free and size the struct;
-  # - an untyped one (RData) keeps its mark and free functions itself.
-  # Both keep the struct's pointer at offset 32. The collector calls the
-  # C functions (zr_mark_data, zr_release_data) through zr_call_c_in_gc.
+  # T_DATA: an object that wraps a C extension's struct, in CRuby's
+  # RTypedData layout, so the extension's inline DATA_PTR and
+  # RTYPEDDATA_* read it as they read ruby's. Every T_DATA is typed: it
+  # points at its type, a rb_data_type_t (DataType) in the extension's
+  # data, whose functions mark, free and size the struct. The collector
+  # calls them (zr_mark_data, zr_release_data) through zr_call_c_in_gc.
   T_DATA = 12
-  # RUBY_TYPED_FL_IS_TYPED_DATA (FL_USERPRIV0).
-  FL_TYPED_DATA = 1 << 6
   # A T_DATA or an Array whose stores C makes without the write barrier
   # (zr_unprotected_add). It is on the unprotected list.
   FL_UNPROTECTED = 1 << 38
@@ -26,21 +21,23 @@ module Zr::Kern
     attr_accessor :data #: ptr
   end
 
-  class RData < Layout
-    attr_reader :basic #: RBasic
-    attr_accessor :dmark #: ptr
-    attr_accessor :dfree #: ptr
-    attr_accessor :data #: ptr
-  end
-
-  # rb_data_type_t, which the extension defines.
+  # rb_data_type_t, which the extension defines. Its function table ends
+  # with handle_weak_references and seven reserved words, which must be
+  # zero; the header's inline type check reads `parent` past them.
   class DataType < Layout
     attr_accessor :wrap_struct_name #: ptr
     attr_accessor :dmark #: ptr
     attr_accessor :dfree #: ptr
     attr_accessor :dsize #: ptr
     attr_accessor :dcompact #: ptr
-    attr_accessor :reserved #: ptr
+    attr_accessor :handle_weak_references #: ptr
+    attr_accessor :reserved1 #: ptr
+    attr_accessor :reserved2 #: ptr
+    attr_accessor :reserved3 #: ptr
+    attr_accessor :reserved4 #: ptr
+    attr_accessor :reserved5 #: ptr
+    attr_accessor :reserved6 #: ptr
+    attr_accessor :reserved7 #: ptr
     attr_accessor :parent #: ptr
     attr_accessor :data #: ptr
     attr_accessor :flags #: word
@@ -59,11 +56,6 @@ module Zr::Kern
   DATA_DEFAULT_FREE = 0 - 1
   DATA_REF_END = 0 - 1
 
-  #: (value) -> bool
-  def zr_typed_data_p(v)
-    (RBasic[v].flags & FL_TYPED_DATA) != 0
-  end
-
   # The type of the typed T_DATA `v` (RTYPEDDATA_TYPE).
   #: (value) -> ptr
   def zr_data_type(v)
@@ -73,10 +65,10 @@ module Zr::Kern
   # The struct of T_DATA `v` (RTYPEDDATA_GET_DATA, DATA_PTR).
   #: (value) -> ptr
   def zr_data_ptr(v)
-    if zr_typed_data_p(v) && (RTypedData[v].type & TYPED_DATA_EMBEDDED) != 0
+    if (RTypedData[v].type & TYPED_DATA_EMBEDDED) != 0
       return Machine.ptr(v) + 32
     end
-    RData[v].data
+    RTypedData[v].data
   end
 
   # Marks what T_DATA `v`'s struct refers to, as rb_gc_mark_children
@@ -88,16 +80,12 @@ module Zr::Kern
     if data == 0
       return
     end
-    if zr_typed_data_p(v)
-      type = zr_data_type(v)
-      if (DataType[type].flags & TYPED_DECL_MARKING) != 0
-        zr_mark_data_refs(data, DataType[type].dmark)
-        return
-      end
-      mark = DataType[type].dmark
-    else
-      mark = RData[v].dmark
+    type = zr_data_type(v)
+    if (DataType[type].flags & TYPED_DECL_MARKING) != 0
+      zr_mark_data_refs(data, DataType[type].dmark)
+      return
     end
+    mark = DataType[type].dmark
     if mark != 0
       zr_call_c_in_gc(mark, data, Machine.ptr(0))
     end
@@ -126,21 +114,15 @@ module Zr::Kern
     if data == 0
       return
     end
-    now = false
-    owned = false
-    if zr_typed_data_p(v)
-      type = zr_data_type(v)
-      free = DataType[type].dfree
-      embedded = (RTypedData[v].type & TYPED_DATA_EMBEDDED) != 0
-      now = (DataType[type].flags & TYPED_FREE_IMMEDIATELY) != 0
-      # An embeddable type that did not fit in the cell owns its malloc'd
-      # struct too.
-      owned = (DataType[type].flags & TYPED_EMBEDDABLE) != 0 && !embedded
-      if embedded && free == Machine.ptr(DATA_DEFAULT_FREE)
-        return
-      end
-    else
-      free = RData[v].dfree
+    type = zr_data_type(v)
+    free = DataType[type].dfree
+    embedded = (RTypedData[v].type & TYPED_DATA_EMBEDDED) != 0
+    now = (DataType[type].flags & TYPED_FREE_IMMEDIATELY) != 0
+    # An embeddable type that did not fit in the cell owns its malloc'd
+    # struct too.
+    owned = (DataType[type].flags & TYPED_EMBEDDABLE) != 0 && !embedded
+    if embedded && free == Machine.ptr(DATA_DEFAULT_FREE)
+      return
     end
     if free == 0
       return
@@ -226,10 +208,10 @@ module Zr::Kern
   #: (value) -> void
   def zr_data_free_now(v)
     zr_release_data(v)
-    if zr_typed_data_p(v) && (RTypedData[v].type & TYPED_DATA_EMBEDDED) != 0
+    if (RTypedData[v].type & TYPED_DATA_EMBEDDED) != 0
       RTypedData[v].type = RTypedData[v].type & (0 - 2)
     end
-    RData[v].data = 0
+    RTypedData[v].data = 0
   end
 
   # The objects whose stores of Values C makes without the write barrier:

@@ -110,9 +110,12 @@ class CExtProfileFramesTest < Minitest::Test
       return rb_ary_new_from_args(2, h == again ? Qtrue : Qfalse, INT2NUM(ran));
     }
 
+    /* Two jobs of two functions, each triggered once. */
     static VALUE pf_register(VALUE self) {
       ran = 0;
-      return INT2NUM(rb_postponed_job_register_one(0, other_job, 0) + rb_postponed_job_register(0, job, (void *)2));
+      rb_postponed_job_trigger(rb_postponed_job_preregister(0, other_job, 0));
+      rb_postponed_job_trigger(rb_postponed_job_preregister(0, job, (void *)2));
+      return Qtrue;
     }
 
     static VALUE pf_ran(VALUE self) { return INT2NUM(ran); }

@@ -42,12 +42,11 @@ module Zr::Kern
   # in nanoseconds, or 0 for none.
   #
   # The first fields are CRuby's struct RRegexp, which C reads inline:
-  # `ptr` (RREGEXP_PTR) is the regex_t that C passes back to onig_search
-  # and the like (capi/regex.rb), here the cell's own address; `source` is
-  # RREGEXP_SRC; `usecnt` counts C matches in progress.
+  # `source` is RREGEXP_SRC; `usecnt` counts C matches in progress. C's
+  # regex_t (RREGEXP_PTR) is the address just past them, which C passes
+  # back to onig_search and the like (capi/regex.rb).
   class RRegexp < Layout
     attr_reader :basic #: RBasic
-    attr_accessor :ptr #: word
     attr_accessor :source #: value
     attr_accessor :usecnt #: word
     attr_accessor :options #: word
@@ -69,7 +68,6 @@ module Zr::Kern
   #: (value) -> value
   def zr_regexp_alloc(klass)
     re = zr_alloc(T_REGEXP, klass, RRegexp.size)
-    RRegexp[re].ptr = Machine.word(re)
     RRegexp[re].usecnt = 0
     RRegexp[re].source = Machine.value(QNIL)
     RRegexp[re].options = 0

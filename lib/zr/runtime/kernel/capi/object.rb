@@ -234,6 +234,26 @@ module Zr::Kern
     zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
   end
 
+  # rb_unexpected_object_type: the same TypeError with the expected type
+  # named by C, which TypedData_Get_Struct and Check_Type raise.
+  #: (value, ptr) -> void
+  def rb_unexpected_object_type(v, expected)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    if v == QNIL || v == QTRUE || v == QFALSE
+      zr_buf_str(b, zr_c_result(zr_inspect(v)))
+    else
+      zr_c_result(zr_buf_class_shown(b, v))
+    end
+    zr_buf_push(b, Machine.bytes(" (expected "), 11)
+    zr_buf_push(b, expected, zr_cstr_len(expected))
+    zr_buf_byte(b, 41)
+    zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+  end
+
   # CRuby's name of the builtin type `t` (rb_builtin_type_name).
   #: (ptr, word) -> void
   def zr_capi_type_name(b, t)

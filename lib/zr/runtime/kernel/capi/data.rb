@@ -30,24 +30,6 @@ module Zr::Kern
     v
   end
 
-  # rb_data_object_wrap: an untyped T_DATA, with its mark and free
-  # functions.
-  #: (value, ptr, ptr, ptr) -> value
-  def rb_data_object_wrap(klass, datap, dmark, dfree)
-    Machine.gates_enter
-    zr_c_entered()
-    zr_capi_data(klass, datap, dmark, dfree)
-  end
-
-  #: (value, word, ptr, ptr) -> value
-  def rb_data_object_zalloc(klass, size, dmark, dfree)
-    Machine.gates_enter
-    zr_c_entered()
-    v = zr_capi_data(klass, Machine.ptr(0), dmark, dfree)
-    RData[v].data = zr_capi_zalloc(size)
-    v
-  end
-
   # rb_check_typeddata: the struct of `obj`, a T_DATA of `type` or of a
   # type whose `parent` chain reaches it, or CRuby's TypeError.
   #: (value, ptr) -> ptr
@@ -57,7 +39,7 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
-    if zr_type(obj) == T_DATA && zr_typed_data_p(obj)
+    if zr_type(obj) == T_DATA
       if zr_capi_type_inherits(zr_data_type(obj), type)
         zr_buf_free(b)
         return zr_data_ptr(obj)
@@ -76,13 +58,30 @@ module Zr::Kern
     Machine.ptr(0)
   end
 
+  # rb_unexpected_typeddata: the TypeError of a T_DATA of the type
+  # `actual` where the type `expected` was wanted, which the headers'
+  # TypedData_Get_Struct raises.
+  #: (ptr, ptr) -> void
+  def rb_unexpected_typeddata(actual, expected)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("wrong argument type "), 20)
+    zr_buf_push(b, DataType[actual].wrap_struct_name, zr_cstr_len(DataType[actual].wrap_struct_name))
+    zr_buf_push(b, Machine.bytes(" (expected "), 11)
+    zr_buf_push(b, DataType[expected].wrap_struct_name, zr_cstr_len(DataType[expected].wrap_struct_name))
+    zr_buf_byte(b, 41)
+    zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+  end
+
   # rb_typeddata_is_kind_of: 1 when `obj` is a T_DATA of `type` or of a
   # type that inherits it, else 0.
   #: (value, ptr) -> i32
   def rb_typeddata_is_kind_of(obj, type)
     Machine.gates_enter
     zr_c_entered()
-    if zr_type(obj) == T_DATA && zr_typed_data_p(obj) && zr_capi_type_inherits(zr_data_type(obj), type)
+    if zr_type(obj) == T_DATA && zr_capi_type_inherits(zr_data_type(obj), type)
       return Machine.i32(1)
     end
     Machine.i32(0)
@@ -122,25 +121,11 @@ module Zr::Kern
   #: (value, ptr, ptr) -> value
   def zr_capi_typed_data(klass, datap, type)
     zr_capi_data_check(klass)
-    v = zr_alloc(T_DATA | FL_TYPED_DATA, klass, RTypedData.size)
+    v = zr_alloc(T_DATA, klass, RTypedData.size)
     RTypedData[v].fields_obj = Machine.value(QFALSE)
     RTypedData[v].type = Machine.word(type)
     RTypedData[v].data = datap
     if (DataType[type].flags & TYPED_WB_PROTECTED) == 0 && DataType[type].dmark != 0
-      zr_unprotected_add(v)
-    end
-    v
-  end
-
-  # The untyped T_DATA of `klass`; C writes its struct without a barrier.
-  #: (value, ptr, ptr, ptr) -> value
-  def zr_capi_data(klass, datap, dmark, dfree)
-    zr_capi_data_check(klass)
-    v = zr_alloc(T_DATA, klass, RData.size)
-    RData[v].dmark = dmark
-    RData[v].dfree = dfree
-    RData[v].data = datap
-    if dmark != 0
       zr_unprotected_add(v)
     end
     v

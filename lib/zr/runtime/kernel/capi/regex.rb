@@ -1,9 +1,9 @@
 module Zr::Kern
   # Onigmo's regex API, for C that matches a Regexp itself (strscan). A
-  # regex_t is a Regexp cell: RREGEXP_PTR reads the cell's own address
-  # (regexp.rb). An OnigRegion is the offsets of a match in CRuby's
-  # layout, which C reads inline. The kernel's Onigmo does the matching
-  # (onig_search.rb).
+  # regex_t is an address in a Regexp cell: RREGEXP_PTR gives the address
+  # just past CRuby's struct RRegexp (regexp.rb). An OnigRegion is the
+  # offsets of a match in CRuby's layout, which C reads inline. The
+  # kernel's Onigmo does the matching (onig_search.rb).
 
   # struct re_registers: `num_regs` groups, whose offsets are in `beg`
   # and `ends`, two malloc'd arrays of `allocated` words each. Ruby builds
@@ -14,6 +14,21 @@ module Zr::Kern
     attr_accessor :num_regs #: i32
     attr_accessor :beg #: ptr
     attr_accessor :ends #: ptr
+  end
+
+  # The regex_t of a Regexp: the size of CRuby's struct RRegexp past the
+  # cell's start, as RREGEXP_PTR computes it.
+  REGEX_T_OFFSET = 32
+
+  #: (value) -> word
+  def zr_capi_regex_t(re)
+    Machine.word(re) + REGEX_T_OFFSET
+  end
+
+  # The Regexp whose regex_t `reg` is.
+  #: (word) -> value
+  def zr_capi_regex_cell(reg)
+    Machine.value(reg - REGEX_T_OFFSET)
   end
 
   # Onigmo makes room for at least this many groups.
@@ -183,7 +198,7 @@ module Zr::Kern
   def onig_search(reg, str, text_end, start, range, region, option)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_regex_run(Machine.value(reg), str, text_end, start, range, region, true)
+    zr_capi_regex_run(zr_capi_regex_cell(reg), str, text_end, start, range, region, true)
   end
 
   # onig_match: the length of the match of `reg` at exactly `at`, or
@@ -192,7 +207,7 @@ module Zr::Kern
   def onig_match(reg, str, text_end, at, region, option)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_regex_run(Machine.value(reg), str, text_end, at, text_end, region, false)
+    zr_capi_regex_run(zr_capi_regex_cell(reg), str, text_end, at, text_end, region, false)
   end
 
   # Runs the program of the Regexp `re` over the bytes str...text_end, as
@@ -244,7 +259,7 @@ module Zr::Kern
       region = own
     end
     argv = Machine.slot(64)
-    Machine.store64(argv, 0, Machine.word(reg))
+    Machine.store64(argv, 0, zr_capi_regex_t(reg))
     Machine.store64(argv, 8, Machine.word(str))
     Machine.store64(argv, 16, Machine.word(region))
     Machine.store64(argv, 24, args)
@@ -294,7 +309,7 @@ module Zr::Kern
   def onig_name_to_backref_number(reg, name, name_end, region)
     Machine.gates_enter
     zr_c_entered()
-    rows = zr_capi_regex_names(Machine.value(reg))
+    rows = zr_capi_regex_names(zr_capi_regex_cell(reg))
     len = Machine.word(name_end) - Machine.word(name)
     i = 0
     while i < RArray[rows].len
@@ -333,7 +348,7 @@ module Zr::Kern
   def onig_foreach_name(reg, func, arg)
     Machine.gates_enter
     zr_c_entered()
-    rows = zr_capi_regex_names(Machine.value(reg))
+    rows = zr_capi_regex_names(zr_capi_regex_cell(reg))
     argv = Machine.slot(64)
     i = 0
     while i < RArray[rows].len
@@ -393,7 +408,7 @@ module Zr::Kern
       return Machine.i32(zr_fix2long(re))
     end
     zr_weak_list_push(zr_c_root_objects(), re)
-    Machine.store64(reg, 0, Machine.word(re))
+    Machine.store64(reg, 0, zr_capi_regex_t(re))
     Machine.i32(0)
   end
 
@@ -402,7 +417,7 @@ module Zr::Kern
   def onig_free(reg)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_root_object_drop(Machine.value(reg))
+    zr_c_root_object_drop(zr_capi_regex_cell(reg))
   end
 
   # ONIG_MAX_ERROR_MESSAGE_LEN: the room that C gives the message.

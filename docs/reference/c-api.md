@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby's C API, of the series that zr pins. zr's kernel gives 825 of its
+calls ruby's C API, of the series that zr pins. zr's kernel gives 826 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -52,7 +52,7 @@ C functions as blocks, and the C API's calls of Procs.
 
 The C API's definitions: modules, classes and methods, as an extension's Init makes them.
 
-`rb_define_module`, `rb_define_module_under`, `rb_define_class`, `rb_define_class_under`, `rb_define_method`, `rb_define_private_method`, `rb_define_protected_method`, `rb_define_singleton_method`, `rb_define_module_function`, `rb_define_global_function`, `rb_define_alias`, `rb_alias`, `rb_deprecate_constant`, `rb_include_module`, `rb_obj_class`, `rb_class2name`, `rb_obj_classname`, `rb_define_class_id`, `rb_define_module_id`, `rb_path2class`, `rb_path_to_class`, `rb_class_name`, `rb_prepend_module`, `rb_define_attr`, `rb_const_defined`, `rb_const_defined_at`, `rb_class_superclass`, `rb_mod_name`, `rb_mod_ancestors`, `rb_define_method_id`, `rb_cvar_set`, `rb_mod_include_p`, `rb_mod_method_arity`, `rb_module_new`, `rb_class_new`, `rb_undef`, `rb_mod_remove_const`, `rb_mod_module_eval`, `rb_class_instance_methods`, `rb_cv_get`, `rb_method_basic_definition_p`
+`rb_define_module`, `rb_define_module_under`, `rb_define_class`, `rb_define_class_under`, `rb_define_module_id_under`, `rb_define_class_id_under`, `rb_define_method`, `rb_define_private_method`, `rb_define_protected_method`, `rb_define_singleton_method`, `rb_define_module_function`, `rb_define_global_function`, `rb_define_alias`, `rb_alias`, `rb_deprecate_constant`, `rb_include_module`, `rb_obj_class`, `rb_class2name`, `rb_obj_classname`, `rb_define_class_id`, `rb_define_module_id`, `rb_path2class`, `rb_path_to_class`, `rb_class_name`, `rb_prepend_module`, `rb_define_attr`, `rb_const_defined`, `rb_const_defined_at`, `rb_class_superclass`, `rb_mod_name`, `rb_mod_ancestors`, `rb_define_method_id`, `rb_cvar_set`, `rb_mod_include_p`, `rb_mod_method_arity`, `rb_module_new`, `rb_class_new`, `rb_undef`, `rb_mod_remove_const`, `rb_mod_module_eval`, `rb_class_instance_methods`, `rb_cv_get`, `rb_method_basic_definition_p`
 
 ## control
 
@@ -64,7 +64,7 @@ The C API's exceptions and its ways to stop an unwind in C: rb_raise and its kin
 
 The C API's T_DATA objects (data_object.rb), and the allocation functions that make them for a class.
 
-`rb_data_typed_object_wrap`, `rb_data_typed_object_zalloc`, `rb_data_object_wrap`, `rb_data_object_zalloc`, `rb_check_typeddata`, `rb_typeddata_is_kind_of`, `rb_typeddata_inherited_p`, `rb_define_alloc_func`, `rb_undef_alloc_func`, `rb_get_alloc_func`
+`rb_data_typed_object_wrap`, `rb_data_typed_object_zalloc`, `rb_check_typeddata`, `rb_unexpected_typeddata`, `rb_typeddata_is_kind_of`, `rb_typeddata_inherited_p`, `rb_define_alloc_func`, `rb_undef_alloc_func`, `rb_get_alloc_func`
 
 ## debug
 
@@ -142,13 +142,13 @@ Methods whose bodies are C functions, and the C API's calls of Ruby.
 
 The C API's numbers.
 
-`rb_num2long`, `rb_num2ll`, `rb_big2long`, `rb_big2ll`, `rb_num2ulong`, `rb_num2ull`, `rb_big2ulong`, `rb_big2ull`, `rb_big_sign`, `rb_num2uint`, `rb_fix2uint`, `rb_absint_size`, `rb_absint_numwords`, `rb_num2int`, `rb_fix2int`, `rb_num2dbl`, `rb_int2big`, `rb_int2inum`, `rb_ll2inum`, `rb_uint2big`, `rb_uint2inum`, `rb_ull2inum`, `rb_float_new`, `rb_float_value`, `rb_out_of_int`, `rb_big2str`, `rb_complex_new`, `rb_rational_new`, `rb_to_float`, `rb_big_norm`, `rb_big2dbl`, `rb_big_cmp`, `rb_big_plus`, `rb_big_minus`, `rb_big_mul`, `rb_big_div`, `rb_big_modulo`, `rb_big_pow`, `rb_big_eq`, `rb_dbl2big`, `rb_num_coerce_bin`, `rb_num_coerce_relop`, `rb_num2short`, `rb_fix2short`, `rb_num2ushort`, `rb_integer_pack`, `rb_integer_unpack`
+`rb_num2long`, `rb_num2ll`, `rb_big2long`, `rb_big2ll`, `rb_num2ulong`, `rb_num2ull`, `rb_big2ulong`, `rb_big2ull`, `rb_big_sign`, `rb_num2uint`, `rb_fix2uint`, `rb_absint_size`, `rb_absint_numwords`, `rb_num2int`, `rb_fix2int`, `rb_num2dbl`, `rb_int2big`, `rb_int2inum`, `rb_ll2inum`, `rb_uint2big`, `rb_uint2inum`, `rb_ull2inum`, `rb_float_new`, `rb_float_value`, `rb_out_of_int`, `rb_out_of_long`, `rb_big2str`, `rb_complex_new`, `rb_rational_new`, `rb_to_float`, `rb_big_norm`, `rb_big2dbl`, `rb_big_cmp`, `rb_big_plus`, `rb_big_minus`, `rb_big_mul`, `rb_big_div`, `rb_big_modulo`, `rb_big_pow`, `rb_big_eq`, `rb_dbl2big`, `rb_num_coerce_bin`, `rb_num_coerce_relop`, `rb_num2short`, `rb_fix2short`, `rb_num2ushort`, `rb_integer_pack`, `rb_integer_unpack`
 
 ## object
 
 The C API's objects: freezing, kinds, instance variables, constants, conversions and type errors.
 
-`rb_obj_freeze`, `rb_obj_frozen_p`, `rb_obj_is_kind_of`, `rb_obj_is_instance_of`, `rb_respond_to`, `rb_ivar_get`, `rb_iv_get`, `rb_ivar_set`, `rb_iv_set`, `rb_define_const`, `rb_const_set`, `rb_const_get`, `rb_const_get_at`, `rb_class_inherited_p`, `rb_String`, `rb_Integer`, `rb_Float`, `rb_Array`, `rb_obj_as_string`, `rb_inspect`, `rb_class_new_instance`, `rb_obj_call_init`, `rb_frame_this_func`, `rb_proc_call_with_block`, `rb_unexpected_type`, `rb_range_beg_len`, `rb_attr_get`, `rb_obj_is_proc`, `rb_class_new_instance_kw`, `rb_class_new_instance_pass_kw`, `rb_require`, `rb_convert_type`, `rb_check_convert_type`, `rb_check_array_type`, `rb_check_hash_type`, `rb_equal`, `rb_error_frozen_object`, `rb_obj_dup`, `rb_obj_alloc`, `rb_obj_hide`, `rb_obj_freeze_inline`, `rb_obj_encoding`, `rb_ivar_defined`, `rb_ivar_count`, `rb_ivar_foreach`, `rb_cvar_get`, `rb_extend_object`, `rb_singleton_class`, `rb_method_boundp`, `rb_obj_method_arity`, `rb_apply`, `rb_check_type`, `rb_gv_get`, `rb_gv_set`, `rb_marshal_dump`, `rb_marshal_load`, `rb_cmpint`, `rb_any_to_s`, `rb_obj_id`, `rb_class_attached_object`, `rb_obj_clone`, `rb_obj_init_copy`, `rb_error_frozen`, `rb_eql`, `rb_obj_method`, `rb_memerror`, `rb_hash`, `rb_to_int`, `rb_check_to_integer`, `rb_obj_instance_variables`, `rb_objspace_internal_object_p`, `rb_get_argv`, `rb_assert_failure`, `rb_copy_generic_ivar`
+`rb_obj_freeze`, `rb_obj_frozen_p`, `rb_obj_is_kind_of`, `rb_obj_is_instance_of`, `rb_respond_to`, `rb_ivar_get`, `rb_iv_get`, `rb_ivar_set`, `rb_iv_set`, `rb_define_const`, `rb_const_set`, `rb_const_get`, `rb_const_get_at`, `rb_class_inherited_p`, `rb_String`, `rb_Integer`, `rb_Float`, `rb_Array`, `rb_obj_as_string`, `rb_inspect`, `rb_class_new_instance`, `rb_obj_call_init`, `rb_frame_this_func`, `rb_proc_call_with_block`, `rb_unexpected_type`, `rb_unexpected_object_type`, `rb_range_beg_len`, `rb_attr_get`, `rb_obj_is_proc`, `rb_class_new_instance_kw`, `rb_class_new_instance_pass_kw`, `rb_require`, `rb_convert_type`, `rb_check_convert_type`, `rb_check_array_type`, `rb_check_hash_type`, `rb_equal`, `rb_error_frozen_object`, `rb_obj_dup`, `rb_obj_alloc`, `rb_obj_hide`, `rb_obj_freeze_inline`, `rb_obj_encoding`, `rb_ivar_defined`, `rb_ivar_count`, `rb_ivar_foreach`, `rb_cvar_get`, `rb_extend_object`, `rb_singleton_class`, `rb_method_boundp`, `rb_obj_method_arity`, `rb_apply`, `rb_check_type`, `rb_gv_get`, `rb_gv_set`, `rb_marshal_dump`, `rb_marshal_load`, `rb_cmpint`, `rb_any_to_s`, `rb_obj_id`, `rb_class_attached_object`, `rb_obj_clone`, `rb_obj_init_copy`, `rb_error_frozen`, `rb_eql`, `rb_obj_method`, `rb_memerror`, `rb_hash`, `rb_to_int`, `rb_check_to_integer`, `rb_obj_instance_variables`, `rb_objspace_internal_object_p`, `rb_get_argv`, `rb_assert_failure`, `rb_copy_generic_ivar`
 
 ## onig
 
@@ -166,7 +166,7 @@ The C API's printf functions.
 
 The C API of ruby/debug.h for sampling profilers (stackprof, vernier, datadog): the frames that run, and jobs that run at the next safe point (postponed_jobs.rb).
 
-`rb_profile_frames`, `rb_profile_thread_frames`, `rb_profile_frame_path`, `rb_profile_frame_absolute_path`, `rb_profile_frame_label`, `rb_profile_frame_base_label`, `rb_profile_frame_full_label`, `rb_profile_frame_first_lineno`, `rb_profile_frame_classpath`, `rb_profile_frame_singleton_method_p`, `rb_profile_frame_method_name`, `rb_profile_frame_qualified_method_name`, `rb_postponed_job_preregister`, `rb_postponed_job_trigger`, `rb_postponed_job_register`, `rb_postponed_job_register_one`
+`rb_profile_frames`, `rb_profile_thread_frames`, `rb_profile_frame_path`, `rb_profile_frame_absolute_path`, `rb_profile_frame_label`, `rb_profile_frame_base_label`, `rb_profile_frame_full_label`, `rb_profile_frame_first_lineno`, `rb_profile_frame_classpath`, `rb_profile_frame_singleton_method_p`, `rb_profile_frame_method_name`, `rb_profile_frame_qualified_method_name`, `rb_postponed_job_preregister`, `rb_postponed_job_trigger`
 
 ## range
 

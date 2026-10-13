@@ -38,6 +38,23 @@ module Zr::Kern
     zr_c_result(zr_class_define(outer, zr_capi_name(name), super_, 0))
   end
 
+  # rb_define_module_id_under and rb_define_class_id_under: the forms
+  # that take an ID. The headers make rb_define_module, rb_define_class
+  # and their `_under` forms into calls of these two.
+  #: (value, word) -> value
+  def rb_define_module_id_under(outer, id)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_module_define(outer, zr_capi_mid(id), 0))
+  end
+
+  #: (value, word, value) -> value
+  def rb_define_class_id_under(outer, id, super_)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_class_define(outer, zr_capi_mid(id), super_, 0))
+  end
+
   # rb_define_method: a public method of `klass` whose body is the C
   # function `fn`, which takes `arity` arguments (rb_define_method's -2
   # to 15).
