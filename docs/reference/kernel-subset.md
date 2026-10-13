@@ -69,9 +69,10 @@ module, a file contains only:
 The types are RBS: `sig/zr/kern.rbs` declares each name, the `Layout`
 class and each intrinsic, and `bool` and `void` are RBS's own. So RBS
 reads each `#:` comment of the kernel (`test/unit/kern_rbs_test.rb`),
-and Steep checks the kernel of each target at the strict level
-(`test/unit/kernel_steep_test.rb`): each call, field, import, signature
-and intrinsic.
+and `bin/steep check` checks the kernel at the strict level (the
+Steepfile's `kernel` target): each call, field, import, signature and
+intrinsic. It checks this host's layers; `ZR_KERNEL_OS=linux` or `wasi`
+with `--group=kernel` checks another target's.
 
 Steep does not keep the type of a local that a loop assigns when an
 earlier loop assigned it too. A `# @type var name: type` line at the

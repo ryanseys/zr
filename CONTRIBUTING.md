@@ -54,7 +54,8 @@ form by name. See [The contract](docs/explanation/the-contract.md).
   names no issue number.
 - `bundle exec rake lint` runs RuboCop: the Lint cops and the cops that
   `.rubocop.yml` adds, each with its reason.
-- `bin/steep check` runs Steep on every file of the compiler. Annotate
+- `bin/steep check` runs Steep on every file of the compiler and on the
+  kernel. Annotate
   methods with inline RBS (`#: (Integer) -> String`). A declaration that
   inline RBS cannot type (a `Struct` or `Data` record, a
   `module_function` module) has `# @rbs skip` above it and its types in

@@ -13,7 +13,7 @@
 #
 # lib/zr/runtime is zr's own core and kernel, compiled into each
 # program, and is not checked here, except the files that ruby loads
-# too. test/unit/kernel_steep_test.rb checks the kernel of each layer.
+# too. The `kernel` target checks the kernel, one layer at a time.
 #
 # Each file is in the first level that names it, and is checked with that
 # level's diagnostics. All files are strict, except the two record
@@ -73,4 +73,20 @@ target :lib do
       configure_code_diagnostics(PRESETS.fetch(ENV.fetch("STEEP_LEVEL", level).to_sym))
     end
   end
+end
+
+# The kernel of one target, at the strict level, with sig/zr/kern.rbs:
+# the portable files, the OS layer that ZR_KERNEL_OS names (darwin,
+# linux or wasi; this host's by default) and its architecture layer.
+# Steep checks a file in one target only, and the layers share the
+# portable files, so one check has one layer:
+# `ZR_KERNEL_OS=wasi bin/steep check --group=kernel` checks another.
+KERNEL_LAYERS = { "darwin" => "aarch64", "linux" => "aarch64", "wasi" => "wasm32" }.freeze
+KERNEL_OS = ENV.fetch("ZR_KERNEL_OS") { RUBY_PLATFORM.include?("darwin") ? "darwin" : "linux" }
+
+target :kernel do
+  kernel = "lib/zr/runtime/kernel"
+  signature "sig/zr/kern.rbs"
+  check "#{kernel}/*.rb", "#{kernel}/os/#{KERNEL_OS}", "#{kernel}/arch/#{KERNEL_LAYERS.fetch(KERNEL_OS)}", inline: true
+  configure_code_diagnostics(D::Ruby.strict)
 end
