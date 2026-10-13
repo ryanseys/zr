@@ -272,6 +272,12 @@ class Enumerator
     "(#{parts.join(', ')})"
   end
 
+  # The arguments that `each` passes on, as `each(*args)` added them.
+  def args_given
+    Primitive.attr! :hidden
+    @args
+  end
+
   # enumerator_ptr: an allocated enumerator has nothing to iterate.
   def initialized!
     Primitive.attr! :hidden
@@ -910,17 +916,18 @@ class Enumerator::Lazy < Enumerator
     end
 
     # The values for the step after this one, not packed.
-    def each_raw(&)
-      return @receiver.each(&) if @runner == :run_each
+    def each_raw(*extra, &)
+      return @receiver.each(*extra, &) if @runner == :run_each
 
       __send__(@runner, false, &)
     end
 
     # A lazy that reads another of the core's lazies (and not a subclass,
     # whose `each` the program may define) reads its values as they came.
+    # A lazy that `each` gave arguments (`io.lazy.each("")`) passes them on.
     class Raw
-      def initialize(step) = @step = step
-      def each(&) = @step.each_raw(&)
+      def initialize(step, args) = (@step, @args = step, args)
+      def each(&) = @step.each_raw(*@args, &)
     end
 
     private
@@ -929,7 +936,7 @@ class Enumerator::Lazy < Enumerator
       return @receiver unless Primitive.zr_real_class(@receiver).equal?(Enumerator::Lazy)
 
       step = Primitive.zr_hidden_get(@receiver, :__step__)
-      step ? Raw.new(step) : @receiver
+      step ? Raw.new(step, @receiver.send(:args_given)) : @receiver
     end
 
     # Gives `values` to `out`: packed in one value for the lazy's own
@@ -966,13 +973,18 @@ class Enumerator::Lazy < Enumerator
 
     def run_filter_map(packing, &out) = Primitive.zr_lazy_filter_map(source, @block, out, packing)
 
-    def run_flat_map(_packing)
+    def run_flat_map(packing, &out)
       block = @block
       source.each do |*values|
         # The block gets several values as they came, and nil for none.
         result = values.empty? ? block.call(nil) : block.call(*values)
         if !result.is_a?(Array) && result.respond_to?(:force) && result.respond_to?(:each)
-          result.each { |v| yield v }
+          # lazy_flat_map_i: a block that the object keeps works after the
+          # walk ends, and gives back the values it got, packed.
+          result.each do |*items|
+            emit(out, packing, items)
+            Primitive.zr_enum_value(items)
+          end
         elsif (items = Array.try_convert(result))
           # An Array is read by index, as lazy_flat_map_proc reads it.
           i = 0
