@@ -31,7 +31,7 @@ class BigDecimal < Numeric
   SIGN_NEGATIVE_FINITE = -2
   SIGN_POSITIVE_INFINITE = 3
   SIGN_NEGATIVE_INFINITE = -3
-  VERSION = "4.1.2"
+  VERSION = "4.1.3"
 
   # Ruby keeps its digits nine at a time, in base a thousand million.
   BASE = 1_000_000_000
@@ -172,7 +172,24 @@ class BigDecimal < Numeric
       value
     end
 
-    def interpret_loosely(source) = read(source.to_s, false)
+    # The text ends at a NUL, as String#to_f reads it.
+    def interpret_loosely(source)
+      text = String.try_convert(source) or raise TypeError, "no implicit conversion of #{conversion_name(source)} into String"
+      text.send(:ascii_compatible!)
+      read(text.split("\0", 2).first.to_s, false)
+    end
+
+    # rb_str_convert_to_BigDecimal: the text in an ASCII-compatible
+    # encoding, with no NUL (StringValueCStr), else nil when exceptions are
+    # off.
+    def c_text(text, exception)
+      Primitive.attr! :hidden
+      text.send(:ascii_compatible!)
+      return text unless text.include?("\0")
+      return nil unless exception
+
+      raise ArgumentError, "string contains null byte"
+    end
 
     # Reading a decimal out of text. `strict` refuses anything left
     # over, which is what `BigDecimal("1x")` does; loose reading keeps
@@ -800,12 +817,18 @@ module Kernel
     when Integer then BigDecimal.from_int(value.negative? ? -1 : 1, value.abs, value.abs.to_s.length)
     when Float then BigDecimal.from_float(value, precision)
     when Rational then BigDecimal.from_rational(value, precision)
-    when String then BigDecimal.read(value, true)
+    when Complex
+      raise ArgumentError, "Unable to make a BigDecimal from non-zero imaginary number" unless value.imaginary.zero?
+
+      BigDecimal(value.real, precision, exception: exception)
+    when String
+      text = BigDecimal.send(:c_text, value, exception) or return nil
+      BigDecimal.read(text, true)
     when nil then raise TypeError, "can't convert nil into BigDecimal"
     else
       raise TypeError, "can't convert #{conversion_name(value)} into BigDecimal" unless value.respond_to?(:to_str)
 
-      BigDecimal(value.to_str, precision)
+      BigDecimal(value.to_str, precision, exception: exception)
     end
   rescue ArgumentError, TypeError, FloatDomainError
     raise if exception

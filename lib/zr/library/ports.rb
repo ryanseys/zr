@@ -35,7 +35,7 @@ module Zr
         # where 2.x deprecates what 3.0 refuses (ext/json/ext).
         "json" => port("3.0.2", compat: ">= 2.20, < 3.1"),
         "psych" => port("5.5.0", vendored: false),
-        "bigdecimal" => port("4.1.2"),
+        "bigdecimal" => port("4.1.3"),
         "digest" => port("3.3.0", vendored: false),
         "syslog" => port("0.4.0"),
         "ffi" => port("1.17.4"),
