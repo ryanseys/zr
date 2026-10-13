@@ -299,15 +299,6 @@ module Zr::Kern
     end
   end
 
-  # Makes the private constant `name` of `klass` visible to the program.
-  # The runtime's own `private_constant` hides it, but ruby has it too
-  # (Pathname::SEPARATOR_LIST), so the program can read it as ruby does.
-  #: (value, value) -> value
-  def zr_const_reveal_m(klass, name)
-    zr_const_reveal_in(klass, zr_sym2id(name))
-    Machine.value(QNIL)
-  end
-
   # Returns the constant entry that a `class` or `module` body opens. A
   # hidden entry becomes visible, so a program that reopens a module of the
   # runtime adds to the same module that the runtime uses. When a hidden

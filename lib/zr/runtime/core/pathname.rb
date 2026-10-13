@@ -4,10 +4,11 @@
 # without a require, and `require "pathname"` adds the Find and rmtree
 # part that ruby keeps on the load path.
 #
-# This is ruby's pathname_builtin.rb at RUBY_REVISION, with `<=>` and `sub`, which
-# its pathname.c writes in C, in Ruby here. A Pathname is only a string:
-# it never touches the file system for an operation on the name itself,
-# and every operation on the file goes to File, Dir or FileTest.
+# This is ruby's pathname_builtin.rb at RUBY_REVISION, with the methods
+# that its pathname.c writes in C in Ruby here. A Pathname is only a
+# string: it never touches the file system for an operation on the name
+# itself, and every operation on the file goes to File, Dir or FileTest.
+# The separator is `/` on every target.
 #
 class Pathname
   Primitive.attr! :ivars
@@ -23,6 +24,82 @@ class Pathname
   def sub(*args, &block)
     self.class.new(block ? @path.sub(*args, &block) : @path.sub(*args))
   end
+
+  # path_sub_ext: the path with its extension, if any, replaced.
+  def sub_ext(repl)
+    path = strpath
+    ext = File.extname(path)
+    ext = path[path.rindex(ext)..] unless path.end_with?(ext)
+    self.class.new(path.chomp(ext) + repl)
+  end
+
+  # path_root_p: a path of separators alone.
+  def root? = (path = strpath).start_with?("/") && path.delete("/").empty?
+
+  def absolute? = strpath.start_with?("/")
+
+  private
+
+  # same_paths: a file system that matches names by case folds them.
+  def same_paths?(a, b) = check_strpath(a) == check_strpath(b)
+
+  def has_separator?(path) = check_strpath(path).include?("/")
+
+  # chop_basename: [the path up to its last name, the name], or nil when
+  # the path has no name (empty, or separators alone).
+  def chop_basename(path)
+    return nil if check_strpath(path).empty?
+
+    base = File.basename(path)
+    return nil if base.empty? || base == "/"
+
+    [path[0, path.rindex(base)], base]
+  end
+
+  # split_names: [the separators that root the path, its names].
+  def split_names(path)
+    pre = check_strpath(path)[/\A\/*/]
+    [pre, path.byteslice(pre.bytesize..).split("/").reject(&:empty?)]
+  end
+
+  def has_trailing_separator?(path)
+    r = chop_basename(path) or return false
+    pre, basename = r
+    pre.length + basename.length < path.length
+  end
+
+  # add_trailing_separator: the path itself when it ends with one.
+  def add_trailing_separator(path)
+    return path if check_strpath(path).empty? || path.end_with?("/")
+
+    path.dup << "/"
+  end
+
+  # del_trailing_separator: the path itself when it ends with none; a
+  # root keeps one.
+  def del_trailing_separator(path)
+    return path unless check_strpath(path).end_with?("/")
+
+    kept = path.sub(/\/+\z/, "")
+    kept = path[0, 1] if kept.empty?
+    kept.bytesize == path.bytesize ? path : kept
+  end
+
+  # check_strpath: a String argument, as a path takes one.
+  def check_strpath(path)
+    Primitive.attr! :hidden
+    raise TypeError, "wrong argument type #{conversion_name(path)} (expected String)" unless String === path
+
+    File.send(:path_of, path)
+  end
+
+  # get_strpath: @path, which must be a String path.
+  def strpath
+    Primitive.attr! :hidden
+    raise TypeError, +"unexpected @path" unless String === @path
+
+    File.send(:path_of, @path)
+  end
 end
 
 # The rest is also Ruby in CRuby, and reports its parameters by name.
@@ -32,10 +109,6 @@ class Pathname
   Primitive.attr! :ivars
 
   VERSION = "0.4.0"
-
-  # Darwin's file names match case-sensitively as far as File::FNM_SYSCASE
-  # says.
-  private def same_paths?(a, b) = a == b
 
   protected def path = @path
 
@@ -66,23 +139,6 @@ class Pathname
   alias to_path to_s
 
   def inspect = "#<#{self.class}:#{@path}>"
-
-  def sub_ext(repl)
-    ext = File.extname(@path)
-    ext = @path[@path.rindex(ext)..] unless @path.end_with?(ext)
-    self.class.new(@path.chomp(ext) + repl)
-  end
-
-  # The separator is `/` on every target; written as literals, the
-  # patterns compile when first used and not as the runtime boots,
-  # where the two interpolated ones cost 0.5 ms of a 9 ms start.
-  SEPARATOR_LIST = "/"
-  SEPARATOR_PAT = /\//
-  ABSOLUTE_PATH = /\A\//
-  private_constant :SEPARATOR_LIST, :ABSOLUTE_PATH
-  # pathname.rb has both, as private constants.
-  Primitive.zr_const_reveal_m(self, :SEPARATOR_LIST)
-  Primitive.zr_const_reveal_m(self, :ABSOLUTE_PATH)
 
   def mkpath(mode: nil)
     path = @path == "/" ? @path : @path.chomp("/")
@@ -121,10 +177,6 @@ class Pathname
   rescue Errno::ENOENT
     false
   end
-
-  def root? = chop_basename(@path).nil? && SEPARATOR_PAT.match?(@path)
-
-  def absolute? = ABSOLUTE_PATH.match?(@path)
 
   def relative? = !absolute?
 
@@ -181,13 +233,12 @@ class Pathname
 
   def children(with_directory = true)
     with_directory = false if @path == "."
-    result = []
-    Dir.foreach(@path) do |e|
-      next if e == "." || e == ".."
-
-      result << (with_directory ? self.class.new(File.join(@path, e)) : self.class.new(e))
+    result = Dir.children(@path)
+    if with_directory
+      result.map! { |e| self.class.new(File.join(@path, e)) }
+    else
+      result.map! { |e| self.class.new(e) }
     end
-    result
   end
 
   def each_child(with_directory = true, &b) = children(with_directory).each(&b)
@@ -225,29 +276,11 @@ class Pathname
 
   private
 
-  def chop_basename(path)
-    base = File.basename(path)
-    return nil if /\A#{SEPARATOR_PAT}?\z/o.match?(base)
-
-    [path[0, path.rindex(base)], base]
-  end
-
-  def split_names(path)
-    names = []
-    while (r = chop_basename(path))
-      path, basename = r
-      names.unshift(basename)
-    end
-    [path, names]
-  end
-
   def prepend_prefix(prefix, relpath)
     if relpath.empty?
       File.dirname(prefix)
-    elsif SEPARATOR_PAT.match?(prefix)
-      prefix = File.dirname(prefix)
-      prefix = File.join(prefix, "") if File.basename(prefix + "a") != "a"
-      prefix + relpath
+    elsif has_separator?(prefix)
+      add_trailing_separator(File.dirname(prefix)) + relpath
     else
       prefix + relpath
     end
@@ -271,29 +304,8 @@ class Pathname
         end
       end
     end
-    names.shift while names[0] == ".." if SEPARATOR_PAT.match?(File.basename(pre))
+    names.shift while names[0] == ".." if has_separator?(File.basename(pre))
     self.class.new(prepend_prefix(pre, File.join(*names)))
-  end
-
-  def has_trailing_separator?(path)
-    r = chop_basename(path) or return false
-    pre, basename = r
-    pre.length + basename.length < path.length
-  end
-
-  def add_trailing_separator(path)
-    File.basename(path + "a") == "a" ? path : File.join(path, "")
-  end
-
-  def del_trailing_separator(path)
-    if (r = chop_basename(path))
-      pre, basename = r
-      pre + basename
-    elsif /#{SEPARATOR_PAT}+\z/o =~ path
-      $` + File.dirname(path)[/#{SEPARATOR_PAT}*\z/o]
-    else
-      path
-    end
   end
 
   def cleanpath_conservative
@@ -304,7 +316,7 @@ class Pathname
       pre, base = r
       names.unshift(base) if base != "."
     end
-    names.shift while names[0] == ".." if SEPARATOR_PAT.match?(File.basename(pre))
+    names.shift while names[0] == ".." if has_separator?(File.basename(pre))
     return self.class.new(File.dirname(pre)) if names.empty?
 
     names << "." if names.last != ".." && File.basename(path) == "."
@@ -346,7 +358,7 @@ class Pathname
       basename_list2.shift
     end
     r1 = chop_basename(prefix1)
-    if !r1 && (r1 = SEPARATOR_PAT.match?(File.basename(prefix1)))
+    if !r1 && (r1 = has_separator?(File.basename(prefix1)))
       while !basename_list2.empty? && basename_list2.first == ".."
         index_list2.shift
         basename_list2.shift
