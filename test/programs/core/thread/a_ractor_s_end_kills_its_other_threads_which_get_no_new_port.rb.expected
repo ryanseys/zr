@@ -1,0 +1,9 @@
+:done
+"closed: Ractor::ClosedError: The ractor has terminated"
+:both
+["ensure 0", "ensure 1"]
+:quiet
+[2, true]
+[2, true, true]
+true
+false

@@ -63,7 +63,12 @@ class Ractor
   # the object, not an instance variable of it.
   class Port
     def initialize
-      seat(Ractor.current)
+      ractor = Ractor.current
+      # ractor_port_init: a thread of an ended ractor, which still runs
+      # its ensure clauses, gets no new port.
+      raise ClosedError, "The ractor has terminated" if Primitive.zr_hidden_get(ractor, :__ended__)
+
+      seat(ractor)
     end
 
     # The default port of `ractor`, which its setup makes before the
@@ -113,7 +118,9 @@ class Ractor
       nil
     end
 
-    def closed? = Primitive.zr_hidden_get(self, :__closed__)
+    # A port is also closed once the ractor that made it has ended
+    # (ractor_notify_exit frees its ports).
+    def closed? = Primitive.zr_hidden_get(self, :__closed__) || Primitive.zr_hidden_get(owner, :__ended__) ? true : false
 
     def inspect = "#<Ractor::Port to:##{Primitive.zr_hidden_get(owner, :__number__)} id:#{Primitive.zr_hidden_get(self, :__id__)}>"
 
@@ -1080,19 +1087,25 @@ class Ractor
     # The task is the ractor's, not a thread that the program requested,
     # so a report shows no line of its own for it.
     Primitive.zr_hidden_set(task, :site, nil)
+    Primitive.zr_hidden_set(task, :ractor, number)
     Primitive.zr_hidden_set(ractor, :__thread__, task)
     ractor
   end
   private_class_method :start
 
-  # The end of the ractor's task: nothing reaches it any more, so its
-  # port closes, and everything watching it gets its token.
+  # The end of the ractor's task, in thread_start_func_2's order: the
+  # ractor makes no more ports and its port closes (ractor_notify_exit),
+  # its other threads are killed and run their ensure clauses
+  # (rb_thread_terminate_all), and then everything watching it gets its
+  # token.
   def self.ended(ractor)
     Primitive.attr! :hidden
+    Primitive.zr_hidden_set(ractor, :__ended__, true)
+    Primitive.zr_hidden_get(ractor, :__port__).close
+    Thread.send(:terminate_others)
     monitors = Primitive.zr_hidden_get(ractor, :__monitors__)
     monitors.each { |port| port.send([ractor, token(ractor)]) unless port.closed? }
     monitors.clear
-    Primitive.zr_hidden_get(ractor, :__port__).close
   end
   private_class_method :ended
 

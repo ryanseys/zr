@@ -79,7 +79,13 @@ class Thread
 
     alias fork start
 
-    def list = equal?(Thread) ? @threads.dup : Thread.list
+    # rb_thread_list: the threads of the current ractor.
+    def list
+      return Thread.list unless equal?(Thread)
+
+      ractor = Primitive.zr_ractor_number_m
+      @threads.select { |thread| Primitive.zr_hidden_get(thread, :ractor) == ractor }
+    end
 
     def pass
       return Thread.pass unless equal?(Thread)
@@ -543,6 +549,17 @@ class Thread
       awake(thread)
       unwatch(thread)
     end
+
+    # rb_thread_terminate_all, as a ractor's main thread ends: each other
+    # thread of the ractor is killed, and its ensure clauses run, before
+    # the ractor's end is known. No error of theirs is raised here.
+    def terminate_others
+      others = list.reject { |thread| thread.equal?(@current) }
+      others.each(&:kill)
+      others.each do |thread|
+        @current.send(:wait_on, Primitive.zr_hidden_get(thread, :waiters), nil, true, thread) while thread.alive?
+      end
+    end
   end
 
   def initialize(*args, &block)
@@ -580,6 +597,9 @@ class Thread
     @priority = creator.priority if creator
     @kill_tag = Object.new
     @waiters = []
+    # The ractor of the thread: its creator's (Ractor.start gives a
+    # ractor's own task its number).
+    @ractor = Primitive.zr_ractor_number_m
   end
 
   attr_reader :report_on_exception, :abort_on_exception
