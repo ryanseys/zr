@@ -100,6 +100,11 @@ class CExtRegexTest < Minitest::Test
                    (int)RSTRING_LEN(name), RSTRING_PTR(name));
       return Qnil;
     }
+    /* RMATCH_REGS reads the registers in ruby's struct RMatch. */
+    static VALUE rx_regs(VALUE self, VALUE match) {
+      struct re_registers *regs = RMATCH_REGS(match);
+      return rb_ary_new_from_args(3, INT2FIX(regs->num_regs), LONG2NUM(regs->beg[0]), LONG2NUM(regs->end[0]));
+    }
     static VALUE rx_misc(VALUE self, VALUE klass, VALUE hashish) {
       rb_alias(klass, rb_intern("other_name"), rb_intern("name"));
       rb_deprecate_constant(klass, "OLD");
@@ -118,6 +123,7 @@ class CExtRegexTest < Minitest::Test
       rb_define_module_function(m, "source", rx_source, 1);
       rb_define_module_function(m, "enc_raise", rx_enc_raise, 1);
       rb_define_module_function(m, "misc", rx_misc, 2);
+      rb_define_module_function(m, "regs", rx_regs, 1);
     }
   C
 
@@ -182,5 +188,21 @@ class CExtRegexTest < Minitest::Test
     assert_equal 0, ruby.status, "ruby failed:\n#{ruby.stderr}"
     assert_equal [ruby.stdout, ruby.status], [plain.stdout, plain.status], "zr stderr:\n#{plain.stderr}"
     assert_equal [ruby.stdout, ruby.status], [stressed.stdout, stressed.status], "zr stderr under stress:\n#{stressed.stderr}"
+  end
+
+  # A MatchData of zr keeps its registers in Ruby, not in the cell where
+  # RMATCH_REGS reads them: zr says so, where ruby gives the registers.
+  def test_rmatch_regs_raises_where_ruby_reads_the_cell
+    program = <<~'RUBY'
+      require "rx"
+      begin
+        p Rx.regs(/b+/.match("abbc"))
+      rescue NotImplementedError => e
+        p [e.class, e.message]
+      end
+    RUBY
+    ruby, zr = Zr::Test::CExt.outputs(@ext, program)
+    assert_equal "[1, 1, 3]\n", ruby.stdout
+    assert_equal "[NotImplementedError, \"zr has no RMATCH_REGS: a MatchData keeps its registers outside its cell\"]\n", zr.stdout, zr.stderr
   end
 end

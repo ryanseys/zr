@@ -65,6 +65,17 @@ module Zr::Kern
     zr_c_entered()
   end
 
+  # rb_match_ensure_onig: RMATCH_REGS calls it, then reads the registers
+  # in ruby's struct RMatch in the MatchData's cell. A MatchData of zr
+  # keeps its offsets in Ruby, so the macro cannot work: C gets
+  # NotImplementedError before it reads the cell.
+  #: (value) -> void
+  def rb_match_ensure_onig(match)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_raise(zr_core_class(Machine.id(:NotImplementedError)), Machine.bytes("zr has no RMATCH_REGS: a MatchData keeps its registers outside its cell"), 71)
+  end
+
   # rb_lastline_get and rb_lastline_set: `$_` of the Ruby code that called
   # the C method; rb_backref_get and rb_backref_set: its `$~`.
   #: () -> value
