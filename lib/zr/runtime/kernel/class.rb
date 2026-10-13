@@ -61,6 +61,8 @@ module Zr::Kern
     # The number of the ractor that created the class or module, 0 for
     # the main ractor (zr_class_owned_p).
     attr_accessor :owner #: word
+    # The tables that a growth of mtab or saved replaced (zr_retire_table).
+    attr_accessor :retired #: ptr
   end
   # `orig` is the name of the first definition of the method, which an
   # alias keeps. `from` is the ancestor list node where an alias or a
@@ -203,6 +205,7 @@ module Zr::Kern
     ClassExt[ext].mbins = 0
     ClassExt[ext].obj_bytes = RObject.size
     ClassExt[ext].autoloads = Machine.value(QFALSE)
+    ClassExt[ext].retired = 0
     ClassExt[ext].owner = (Machine.gates & GATE_RACTOR) == 0 ? 0 : Task[zr_task()].ractor
     counter = Machine.static(:class_serial, 8)
     Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
@@ -431,6 +434,7 @@ module Zr::Kern
     ClassExt[RClass[klass].ext].mbins = 0
     ClassExt[RClass[klass].ext].saved = 0
     ClassExt[RClass[klass].ext].slen = 0
+    ClassExt[RClass[klass].ext].retired = 0
     i = 0
     while i < ClassExt[ext].mlen
       e = ClassExt[ext].mtab + (i * MEntry.size)
@@ -2069,7 +2073,7 @@ module Zr::Kern
         old = ClassExt[ext].mtab
         if old != 0
           zr_memcpy(tab, old, n * MEntry.size)
-          zr_xfree(old)
+          zr_retire_table(ext, old)
         end
         ClassExt[ext].mtab = tab
         ClassExt[ext].mcap = cap
@@ -2573,12 +2577,36 @@ module Zr::Kern
     tab = zr_xmalloc((n + 1) * MEntry.size)
     if n > 0
       zr_memcpy(tab, ClassExt[ext].saved, n * MEntry.size)
-      zr_xfree(ClassExt[ext].saved)
+      zr_retire_table(ext, ClassExt[ext].saved)
     end
     zr_memcpy(tab + (n * MEntry.size), e, MEntry.size)
     ClassExt[ext].saved = tab
     ClassExt[ext].slen = n + 1
   end
+
+# Keeps the table `old` that a bigger copy replaced until the class goes.
+# A running method's frame holds its entry (Frame.entry), which points
+# into the table of its time, as a CRuby frame holds its method entry.
+#: (ptr, ptr) -> void
+def zr_retire_table(ext, old)
+  link = zr_xmalloc(16)
+  Machine.store64(link, 0, old)
+  Machine.store64(link, 8, ClassExt[ext].retired)
+  ClassExt[ext].retired = link
+end
+
+# Frees the tables that zr_retire_table kept for `ext`.
+#: (ptr) -> void
+def zr_free_retired(ext)
+  link = ClassExt[ext].retired
+  while link != 0
+    after = Machine.ptr(Machine.load64(link, 8))
+    zr_xfree(Machine.ptr(Machine.load64(link, 0)))
+    zr_xfree(link)
+    link = after
+  end
+  ClassExt[ext].retired = 0
+end
 
   #: (ptr, word) -> ptr
   def zr_saved_row(ext, mid)
@@ -3535,6 +3563,7 @@ module Zr::Kern
         if ClassExt[RClass[v].ext].mtab != 0
           zr_xfree(ClassExt[RClass[v].ext].mtab)
         end
+        zr_free_retired(RClass[v].ext)
         zr_method_index_drop(RClass[v].ext)
         zr_xfree(RClass[v].ext)
       end
@@ -3547,6 +3576,7 @@ module Zr::Kern
       if ClassExt[ext].saved != 0
         zr_xfree(ClassExt[ext].saved)
       end
+      zr_free_retired(ext)
       if ClassExt[ext].ctab != 0
         zr_xfree(ClassExt[ext].ctab)
       end

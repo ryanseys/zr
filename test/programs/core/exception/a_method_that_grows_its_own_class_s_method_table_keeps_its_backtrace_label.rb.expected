@@ -1,0 +1,6 @@
+[3000, ["Grower#grow", "Grower#outer", "<main>"]]
+299
+["block in <main>", "Object#run_block", "<main>"]
+199
+["Counter.run", "<main>"]
+149
