@@ -1,0 +1,10 @@
+["UTF-8", true, 2, ["UTF-8"]]
+["Shift_JIS", true, 2, ["Shift_JIS"]]
+["EUC-JP", true, 2, ["EUC-JP"]]
+["Windows-1252", true, 2, ["Windows-1252"]]
+["US-ASCII", true, 2, ["US-ASCII"]]
+[[#<Encoding:EUC-JP>], ["#!/usr/bin/env ruby\n", "# encoding: EUC-JP\n", "$y = 1"]]
+[[#<Encoding:UTF-8>], ["$z = 2\n"]]
+[:sjis, 2, [#<Encoding:Shift_JIS>], ["# encoding: Shift_JIS\n", "$required = :sjis\n"]]
+[]
+nil

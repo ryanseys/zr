@@ -470,11 +470,37 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     end
 
     real_path!(path)
+    script_lines!(path)
     # A file that a require is running now goes on to the kernel, which
     # waits for that require as ruby does.
     loaded = Primitive.zr_require_computed(path, Primitive.zr_unit_for(path) || compile(path), kind)
     Primitive.zr_autoload_provided(feature, path) if kind != 2
     loaded
+  end
+
+  # SCRIPT_LINES__: while the program has that Hash, each file that a
+  # require or a load runs puts its lines there under its path, in the
+  # encoding of its magic comment (UTF-8 with none), as ruby's parser
+  # does as it reads the file.
+  def self.script_lines!(path)
+    Primitive.attr! :hidden
+    return unless Object.const_defined?(:SCRIPT_LINES__, false)
+
+    table = Object.const_get(:SCRIPT_LINES__, false)
+    return unless table.is_a?(Hash)
+
+    source = File.binread(path)
+    first, second = source.lines.first(2)
+    comment = first&.start_with?("#!") ? second : first
+    name = comment && comment[/coding[:=][ \t]*([\w.-]+)/, 1]
+    encoding = begin
+      name ? Encoding.find(name) : Encoding::UTF_8
+    rescue ArgumentError
+      Encoding::UTF_8
+    end
+    table[path] = source.force_encoding(encoding).lines
+  rescue SystemCallError
+    nil
   end
 
   # The real path of each file that a require or a load ran, by the path
