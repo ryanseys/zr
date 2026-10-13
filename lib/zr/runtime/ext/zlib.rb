@@ -7,7 +7,7 @@
 # in a hidden slot, as a TypedData object keeps its struct.
 Object.send(:native_module, :Zlib)
 module Zlib
-  VERSION = "3.2.3"
+  VERSION = "3.2.4"
   ZLIB_VERSION = "1.3.1"
 
   class Error < StandardError; end
