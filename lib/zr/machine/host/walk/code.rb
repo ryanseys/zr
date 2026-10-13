@@ -518,10 +518,12 @@ module Zr
               klass = scope.call(f)
               v = value.call(f)
               line!(f, word)
+            warns = s.kind == :block
               check(@kern.zr_const_set(klass, name, v))
               v
             end
           end
+              @kern.zr_refinement_self_warn if warns
 
           def const_or_write(node, s)
             scope = scope_class(node.scope, s)
@@ -533,6 +535,7 @@ module Zr
               klass = scope.call(f)
               line!(f, word)
               v = scoped ? @kern.zr_const_lookup_at(klass, name) : @kern.zr_const_lookup(f.cref, name)
+            warns = s.kind == :block
               next v if v != @qundef && truthy?(v)
 
               v = value.call(f)
@@ -540,6 +543,7 @@ module Zr
               v
             end
           end
+              @kern.zr_refinement_self_warn if warns
 
           # The name of an ivar as the core's code sees it: a core file's
           # ivars are hidden from a program, as CRuby's C fields are, unless
@@ -654,9 +658,11 @@ module Zr
               v = value.call(f)
               line!(f, word)
               check(@kern.zr_cvar_set(f.cref, name, v))
+            warns = s.kind == :block
               v
             end
           end
+              @kern.zr_refinement_self_warn if warns
 
           # --- aliases ---
 

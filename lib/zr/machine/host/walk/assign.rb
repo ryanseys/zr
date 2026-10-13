@@ -139,12 +139,18 @@ module Zr
               ->(f, v, _ = nil) { store.call(f, v) }
             when Hir::CvarWrite
               name = id(t.name)
-              ->(f, v, _ = nil) { check(@kern.zr_cvar_set(f.cref, name, v)) }
+              warns = s.kind == :block
+              lambda do |f, v, _ = nil|
+                @kern.zr_refinement_self_warn if warns
+                check(@kern.zr_cvar_set(f.cref, name, v))
+              end
             when Hir::ConstWrite
               scope = scope_class(t.scope, s)
               name = id(t.name)
+              warns = s.kind == :block
               lambda do |f, v, prepared = UNSTAGED|
                 klass = prepared.fetch(t) { scope.call(f) }
+                @kern.zr_refinement_self_warn if warns
                 check(@kern.zr_const_set(klass, name, v))
               end
             when Hir::MultiTarget
