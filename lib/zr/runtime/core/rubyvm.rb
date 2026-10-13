@@ -320,7 +320,9 @@ class RubyVM
       misc[:node_id] = node.node_id if node
       misc[:code_location] = [location.start_line, location.start_column, location.end_line, location.end_column] if location
       misc[:parser] = :prism
-      ["YARVInstructionSequence/SimpleDataFormat", 4, 0, 1, misc, label, path, absolute_path, first_lineno, code_type, locals, {}, [], []]
+      # ISEQ_MAJOR_VERSION and ISEQ_MINOR_VERSION are ruby's API version.
+      major, minor = RUBY_VERSION.split(".").first(2).map(&:to_i)
+      ["YARVInstructionSequence/SimpleDataFormat", major, minor, 1, misc, label, path, absolute_path, first_lineno, code_type, locals, {}, [], []]
     end
 
     # :top for a compiled string, :method for a method's code and :block
