@@ -1,0 +1,48 @@
+multi: "hEH! OH!" UTF-8
+multibyte keys: "hello" UTF-8
+into multibyte: "héllö" UTF-8
+us-ascii joins: "héllo" UTF-8
+utf-16: true 
+binary: "\xFE\xFFb" ASCII-8BIT
+euc: "\x{C6FC}x" EUC-JP
+no match: "hello" UTF-8
+itself: "hello" UTF-8
+empty hash: "hello" UTF-8
+empty string: "" UTF-8
+empty string bad: TypeError: wrong argument type Integer (expected Hash)
+empty value: "" UTF-8
+long key: ArgumentError: keys must be of size 1
+grapheme key: ArgumentError: keys must be of size 1
+empty key: ArgumentError: keys must be of size 1
+not a hash: TypeError: wrong argument type Array (expected Hash)
+nil: TypeError: wrong argument type nil (expected Hash)
+int key: TypeError: no implicit conversion of Integer into String
+int value: TypeError: no implicit conversion of Integer into String
+to_str key: "h3llo" UTF-8
+to_str value: "heeeo" UTF-8
+bad key enc: Encoding::CompatibilityError: incompatible character encodings: UTF-8 and ISO-8859-1
+bad value enc: Encoding::CompatibilityError: incompatible character encodings: UTF-8 and ISO-8859-1
+mixed enc: Encoding::CompatibilityError: incompatible character encodings: ISO-8859-1 and UTF-8
+ascii from latin1: "\xE0b" ISO-8859-1
+broken: ArgumentError: invalid byte sequence in UTF-8
+broken empty hash: ArgumentError: invalid byte sequence in UTF-8
+zero args: ArgumentError: wrong number of arguments (given 0, expected 1..2)
+three args: ArgumentError: wrong number of arguments (given 3, expected 1..2)
+two args still: "hippo" UTF-8
+dup keys by value: "2bc" UTF-8
+"heLLo"
+"heLLo"
+nil
+nil
+nil
+frozen bang: FrozenError: can't modify frozen String: "hello"
+frozen empty bang: FrozenError: can't modify frozen String: ""
+frozen tr: "hallo" UTF-8
+bang zero: ArgumentError: wrong number of arguments (given 0, expected 1..2)
+bang three: ArgumentError: wrong number of arguments (given 3, expected 1..2)
+String
+"zbc"
+-1
+-1
+[[:rest]]
+2

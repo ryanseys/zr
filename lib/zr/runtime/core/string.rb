@@ -874,10 +874,11 @@ class String
     raise ArgumentError, "wrong number of arguments (given #{given}, expected #{block ? "1..2" : "2"})"
   end
 
-  # The calls of sub and sub! with more than two arguments
+  # The calls of sub, sub!, tr and tr! with more than two arguments
   # (`Primitive.attr! :more_args`).
-  def more_args(_name, *args, &block)
+  def more_args(name, *args, &block)
     Primitive.attr! :hidden
+    tr_arity(args.size) if name == :tr || name == :tr!
     sub_arity(args.size, block)
   end
   private :more_args
@@ -1107,13 +1108,28 @@ class String
   end
 
   # rb_str_tr: a copy, which tr_trans changes.
-  def tr(from, to)
+  # rb_str_tr: `tr(selector, replacements)`, or, since ruby 4.1,
+  # `tr(pairs)`, a Hash whose keys of one character each give way to their
+  # values (tr_pairs). Two optional parameters and `given`, as sub has.
+  def tr(from = (given = 0; nil), to = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    tr_arity(given ||= 2)
     copy = String.new(self)
-    copy.send(:tr_trans, from, to, false)
+    given == 1 ? copy.send(:tr_pairs, from) : copy.send(:tr_trans, from, to, false)
     copy
   end
 
-  def tr!(from, to) = tr_trans(from, to, false) ? self : nil
+  def tr!(from = (given = 0; nil), to = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    tr_arity(given ||= 2)
+    (given == 1 ? tr_pairs(from) : tr_trans(from, to, false)) ? self : nil
+  end
+
+  # The arity check of rb_str_tr and rb_str_tr_bang: one argument or two.
+  def tr_arity(given)
+    Primitive.attr! :hidden
+    raise ArgumentError, "wrong number of arguments (given #{given}, expected 1..2)" if given == 0 || given > 2
+  end
 
   def tr_s!(from, to) = tr_trans(from, to, true) ? self : nil
 
@@ -2683,6 +2699,80 @@ class String
 
     Primitive.zr_str_replace(self, OWN[:force_encoding].bind_call(out, enc))
     true
+  end
+
+  # tr_trans_pairs (ruby 4.1): each key of `pairs`, a String of one
+  # character, gives way to its value, a String of any length. The text
+  # takes the encoding that the receiver, the keys and the values agree on
+  # (tr_pair_encoding). Returns whether the text changed, which a key that
+  # gives way to itself does too.
+  def tr_pairs(pairs)
+    Primitive.attr! :hidden
+    raise TypeError, "wrong argument type #{conversion_name(pairs)} (expected Hash)" unless Hash === pairs
+
+    enc = Encoding.at(Primitive.zr_str_encoding_index_m(self))
+    raise ArgumentError, "invalid byte sequence in #{enc}" unless Primitive.zr_str_valid_p(self)
+
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    return false if Primitive.zr_str_bytesize(self) == 0 || pairs.empty?
+
+    ascii = Primitive.zr_str_ascii_only_m(self)
+    rows = []
+    pairs.each do |key, value|
+      key = Primitive.zr_str_operand(key)
+      value = Primitive.zr_str_operand(value)
+      raise ArgumentError, +"keys must be of size 1" unless Primitive.zr_str_bytesize(key) == 1 || key.length == 1
+
+      enc, ascii = tr_pair_encoding(enc, ascii, key)
+      enc, ascii = tr_pair_encoding(enc, ascii, value)
+      rows << key << value
+    end
+    coder = Regexp.encoder(enc)
+    table = {}
+    i = 0
+    while i < rows.size
+      key = OWN[:b].bind_call(rows[i])
+      table[coder.mbc_to_code(key, 0, key.bytesize)] = OWN[:b].bind_call(rows[i + 1])
+      i += 2
+    end
+    text = OWN[:b].bind_call(self)
+    size = text.bytesize
+    out = "".b
+    modify = false
+    s = 0
+    while s < size
+      clen = coder.precise_mbclen(text, s)
+      raise ArgumentError, "invalid byte sequence in #{enc}" if clen <= 0
+
+      repl = table[coder.mbc_to_code(text, s, size)]
+      if repl.nil?
+        out << text.byteslice(s, clen)
+      else
+        out << repl
+        modify = true
+      end
+      s += clen
+    end
+    return false unless modify
+
+    Primitive.zr_str_replace(self, OWN[:force_encoding].bind_call(out, enc))
+    true
+  end
+
+  # rb_enc_check_multi_str: the encoding of a text in `enc`, ASCII only
+  # when `ascii`, once `str` joins it, and whether it stays ASCII only.
+  def tr_pair_encoding(enc, ascii, str)
+    Primitive.attr! :hidden
+    return [enc, ascii] if Primitive.zr_str_bytesize(str) == 0
+
+    other = Encoding.at(Primitive.zr_str_encoding_index_m(str))
+    return [enc, ascii && Primitive.zr_str_ascii_only_m(str)] if enc.equal?(other)
+
+    if enc.ascii_compatible? && other.ascii_compatible?
+      return [enc, ascii] if other.equal?(Encoding::US_ASCII) || Primitive.zr_str_ascii_only_m(str)
+      return [other, false] if enc.equal?(Encoding::US_ASCII) || ascii
+    end
+    raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.shown(enc)} and #{Encoding.shown(other)}"
   end
 
   # trnext: the next character code of a tr set, or nil at its end.
