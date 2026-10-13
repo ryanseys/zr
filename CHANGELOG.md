@@ -88,6 +88,14 @@ The first public release.
 - A `case` whose `when` values are all symbol literals compares the
   subject with each symbol, with no send of `===`, while no program
   redefines or prepends `Symbol#===`.
+- `zr -h` prints a short usage that fits a terminal of 80 by 25.
+  `zr --help`, `zr help` and `--dump=help` print the full usage, in lines
+  of at most 80 columns.
+- A fatal signal, a runtime bug and `rb_bug` write ruby's bug report
+  (`[BUG]`) to the file or command that `RUBY_CRASH_REPORT` or
+  `--crash-report` names, and end the program by the signal.
+- `SCRIPT_LINES__` keeps the lines of each file that a `load` or a
+  `require` runs, in the encoding of the file's magic comment.
 
 ### Changed
 
@@ -98,6 +106,20 @@ The first public release.
   pinned one, zr gives a warning.
 - The tests check shapes and relations, not the values of one ruby
   release or build.
+- zr gives the behavior of ruby 4.1, the pinned ruby: a `Regexp` and the
+  result of `Symbol#to_s` are frozen; `&nil` block parameters and nested
+  `for` targets compile; `Ruby::SourceRange`, `#source_range`,
+  `#syntax_tree`, `Ruby::Prism` and `Proc#refined` are there; so are
+  `Integer#bit_count`, the bit methods of `String`, `Module#descendants`,
+  `Range#clamp`, `MatchData#integer_at`, `ENV.fetch_values`, `Dir.scan`,
+  `autoload_relative`, and pack's `R`, `r`, `x!`, `@!` and `^`. Ractors
+  follow 4.1's rules for class ownership, ports, `value` and `monitor`.
+  `GC.stat` takes `scope:`, and `IO::Buffer` is split into `Storage` and
+  `Slice`. The messages that 4.1 changed are 4.1's.
+- The ports follow the C of the gems that ruby 4.1 ships (openssl, date,
+  digest, psych, stringio, io-console, bigdecimal and prism). The C API
+  follows 4.1's layouts and functions, also for a bundle that links
+  ruby's shared library.
 
 ### Development
 
@@ -132,7 +154,11 @@ The first public release.
   maps a change to unit tests and to program tests, and runs them.
 - `zr-dev rubyspec` and `zr-dev cruby-test` run ruby/spec and CRuby's
   test-all under ruby and in zr binaries, with the gaps as tags and a
-  ratchet test.
+  ratchet test. Each test-all tag gives the reason for its gap.
+- `bin/zr-dev test` runs any test file, line or program, from anywhere.
+  Its options (`--suite`, `--changed`, `--failed`, `--record`, `--verify`,
+  `--live`, `--no-build`, `-j` and others) set what `bin/minitest`
+  reads.
 - `zr-dev fuzz` is a differential fuzzer. It writes typed Ruby programs
   from a seed, mutates the program tests on prism's tree, rewrites
   programs (opaque literals, dead code, moved statements), and breaks

@@ -189,7 +189,8 @@ test in the same way. A test that starts a ruby (`assert_separately`,
 The tags are `test/cruby/tags/<dir>/<file>.txt`, a line for each test:
 its name, a tab, and why (`fail`, `timeout` (zr's run skips it), or a
 reason of your own such as `ractor`; `*` with `build` or `load` for
-the file). The results, the reports, the live gap lists
+the file). `--update-tags` writes `fail` for a new gap, and keeps the
+reason of a tag that stays. The results, the reports, the live gap lists
 (`issues/<dir>.jsonl`) and the live test logs (`tests/<dir>.log`) are
 in `log/cruby-test/`, and the summary is `test/cruby/summary.tsv`. The
 ratchet is `test/unit/cruby_test_ratchet_test.rb`.

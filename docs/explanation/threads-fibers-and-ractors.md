@@ -49,7 +49,13 @@ A `Ractor` is a task with a boundary around it. Every value that goes
 across the boundary is shareable or a deep copy, and a moved object is
 not usable in the sender, as in CRuby. The isolation rules are CRuby's:
 a non-main ractor that uses a global or a class variable that CRuby
-forbids gets `Ractor::IsolationError`.
+forbids gets `Ractor::IsolationError`. Each class and module belongs to
+the ractor that made it: another ractor that changes it gets
+`Ractor::IsolationError` too.
+
+All ractors share one heap. Thus `ObjectSpace.each_object` in a ractor
+also finds the objects of the others, and `GC.stat` counts the whole
+heap ([Differences from ruby](../reference/differences-from-ruby.md#details-that-zr-does-not-copy)).
 
 Ractors run on green tasks, as threads do. A program gets ruby's
 results, but not parallel speed.

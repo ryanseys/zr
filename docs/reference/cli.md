@@ -122,7 +122,7 @@ script's first line when that line starts with `#!` and names ruby
 | `-x[dir]` | The program starts at the first line that starts with `#!` and names ruby. |
 | `-C dir`, `-X dir` | zr changes to `dir` before it reads the script, and the program runs there. |
 | `-S` | Searches `RUBYPATH`, then `PATH`, for the script. |
-| `-c`, `--dump=syntax` | Prints `Syntax OK`, or ruby's syntax error and status 1, and runs nothing. |
+| `-c`, `--dump=syntax` | Prints the parser's warnings, then `Syntax OK`, or ruby's syntax error and status 1, and runs nothing. |
 | `--dump=parsetree` | Prints prism's tree of the program, as ruby prints it, and runs nothing. |
 | `-y`, `--yydebug`, `--dump=yydebug` | Parses the program and runs nothing. With prism, as in ruby, this prints nothing. |
 | `--backtrace-limit=n` | Shows at most `n` lines of each backtrace. |
