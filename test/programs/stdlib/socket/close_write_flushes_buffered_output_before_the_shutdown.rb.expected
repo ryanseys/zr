@@ -1,0 +1,16 @@
+nil
+"buffered"
+:closed
+""
+nil
+nil
+[IOError, "not opened for writing"]
+"x"
+nil
+"plain"
+nil
+true
+"wo"
+[IOError, "closing non-duplex IO for writing"]
+nil
+true

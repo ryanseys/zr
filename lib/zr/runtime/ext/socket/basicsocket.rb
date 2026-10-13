@@ -52,6 +52,9 @@ class BasicSocket < IO
     fd = descriptor
     return close unless @readable
 
+    # bsock_close_write flushes the buffered output first, so the peer gets
+    # it and a later close has nothing to write to the shut down side.
+    write_pending
     Primitive.zr_sock_shutdown(fd, Socket::SHUT_WR)
     @writable = false
     nil

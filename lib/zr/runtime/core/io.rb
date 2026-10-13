@@ -1386,6 +1386,17 @@ class IO
   # reads its end of input, while its output stays readable here.
   def close_write
     return nil if closed?
+
+    # rb_io_close_write: a socket's write side shuts down, after its
+    # buffered output goes out, and a stream that cannot read closes.
+    if !@twin && File::Stat.for_fd(@fd).socket?
+      write_pending if @writable
+      result = Primitive.zr_sock_shutdown(@fd, 1)
+      raise SystemCallError.new(nil, -result) if result < 0
+
+      @writable = false
+      return @readable ? nil : close
+    end
     raise IOError, +"closing non-duplex IO for writing" if @readable && !@twin && !@pid
     return close unless @twin
 
