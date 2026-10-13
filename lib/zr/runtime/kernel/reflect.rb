@@ -730,7 +730,7 @@ module Zr::Kern
     v
   end
 
-  # `Class#subclasses`: the classes whose superclass is this class, newest
+  # `Class#subclasses`: the classes whose superclass is this class, oldest
   # first, with no singleton classes. It reads them from the arena and
   # sorts them by creation serial.
   #: (value, word, ptr, value, value) -> value
@@ -758,14 +758,14 @@ module Zr::Kern
     out
   end
 
-  # Inserts `k` before the first class that was made before `k`.
+  # Inserts `k` before the first class that was made after `k`.
   #: (value, value) -> void
   def zr_ary_insert_by_serial(out, k)
     serial = ClassExt[RClass[k].ext].serial
     n = RArray[out].len
     zr_ary_push(out, k)
     i = 0
-    while i < n && ClassExt[RClass[zr_ary_at(out, i)].ext].serial > serial
+    while i < n && ClassExt[RClass[zr_ary_at(out, i)].ext].serial < serial
       i += 1
     end
     j = n
