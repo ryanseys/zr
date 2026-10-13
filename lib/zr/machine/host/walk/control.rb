@@ -485,6 +485,7 @@ module Zr
           def part_defined(node, s)
             case node
             when Hir::Send then method_defined(node, s)
+            when Hir::Splat then part_defined(node.value, s)
             when Hir::ArrayLit
               parts = node.elements.map { |e| part_defined(e, s) }
               ->(f) { parts.all? { |part| part.call(f) } }
@@ -499,12 +500,17 @@ module Zr
             end
           end
 
+          # A constant, as the lowering's: the scope of `A::B` is tested
+          # first (compile.c's defined_expr), so an undefined `A` is nil and
+          # never reaches const_missing.
           def const_defined(read, s)
             name = id(read.name)
             return ->(f) { truthy?(@kern.zr_const_defined(f.cref, name)) } if read.scope.nil?
+            return ->(_) { truthy?(@kern.zr_const_defined_at(@kern.zr_global(@kern::G_OBJECT), name)) } if read.scope == :top
 
-            scope = read.scope == :top ? ->(_) { @kern.zr_global(@kern::G_OBJECT) } : code(read.scope, s)
-            ->(f) { truthy?(@kern.zr_const_defined_at(scope.call(f), name)) }
+            outer = part_defined(read.scope, s)
+            scope = code(read.scope, s)
+            ->(f) { outer.call(f) && truthy?(@kern.zr_const_defined_at(scope.call(f), name)) }
           end
 
           # A method: its arguments must be defined, then its receiver,

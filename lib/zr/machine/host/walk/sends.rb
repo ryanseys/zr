@@ -489,19 +489,33 @@ module Zr
           end
 
           # The code of a block's run: its parameters bound, then its body.
-          # A `redo` in the block throws its meta (`Hir::Redo`).
+          # A `redo` in the block throws its meta (`Hir::Redo`), and runs
+          # the body again from its `Hir::RedoPoint`: a `for` loop binds its
+          # variable before that point, and a `redo` does not bind it again.
           def block_body(node, s)
             bind = block_binder(node.params, s)
-            body = code(node.body, s)
+            before, after = redo_split(node.body)
+            head = before && code(before, s)
+            body = code(after, s)
             jumps = jumps?([node.body, node.params])
             again = redoes?(node.body) && s.meta
             lambda do |f, argc, argv, blk|
               run_body(s, f, jumps, node) do
                 bind.call(f, argc, argv, blk)
                 opened(s, f, :block)
+                head&.call(f)
                 again ? redoable(again) { body.call(f) } : body.call(f)
               end
             end
+          end
+
+          # A block's body as `[before, after]` its `Hir::RedoPoint`, or
+          # `[nil, body]` when it has none.
+          def redo_split(body)
+            at = body.is_a?(Hir::Seq) ? body.stmts.index { |stmt| stmt.is_a?(Hir::RedoPoint) } : nil
+            return [nil, body] unless at
+
+            [Hir::Seq.new(body.stmts.take(at), body.line), Hir::Seq.new(body.stmts.drop(at + 1), body.line)]
           end
 
           # The captures table of the block `node` (`Lower#captures_table`):

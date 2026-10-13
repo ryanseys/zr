@@ -423,6 +423,11 @@ module Zr
 
             slots = @env_slots
             env = env_at(depth)
+            # A flip-flop in a block reads the state of its task when the
+            # task's block was written in the flip-flop's scope (as the
+            # lowering's read_local).
+            return ->(f) { @kern.zr_flip_flop_get(env.call(f), i) } if depth.positive? && Hir.flip_flop?(name)
+
             ->(f) { Memory.word(Memory.word(env.call(f) + slots) + at) }
           end
 
@@ -450,6 +455,8 @@ module Zr
 
             slots = @env_slots
             env_of = env_at(depth)
+            return ->(f, v) { @kern.zr_flip_flop_set(env_of.call(f), i, v) } if depth.positive? && Hir.flip_flop?(name)
+
             lambda do |f, v|
               env = env_of.call(f)
               Memory.set_word(Memory.word(env + slots) + at, v)
