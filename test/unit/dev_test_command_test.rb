@@ -81,6 +81,25 @@ class DevTestCommandTest < Minitest::Test
     assert_includes refused("#{PROGRAM}:3"), "a program is one test; give it with no line"
   end
 
+  def test_slowest_prints_the_saved_times_and_runs_nothing
+    require_relative "../support/timings"
+    rows = { "AT#test_a" => Zr::Test::Timings::Row.new(2.0, "2026-01-03", "test/unit/a_test.rb", "AT#test_a") }
+    stub_method(Zr::Test::Timings, :merge, nil) do
+      stub_method(Zr::Test::Timings, :read, rows) do
+        out, = capture_io { assert Zr::Dev::Commands::Test.new("test").start(["--slowest", "5"]) }
+
+        assert_match(/The 1 slowest of 1 tests/, out)
+        assert_match(/2\.00 s  AT#test_a  \(2026-01-03\)/, out)
+        refute_includes out, "bin/minitest"
+      end
+      stub_method(Zr::Test::Timings, :read, {}) do
+        out, = capture_io { Zr::Dev::Commands::Test.new("test").start(["--slowest"]) }
+
+        assert_includes out, "no test has a saved time yet"
+      end
+    end
+  end
+
   def test_failed_runs_the_failures_that_still_exist_and_never_every_test
     lines = ["test/unit/cli_test.rb:40", "program core/signal/sigvtalrm_does_nothing.rb", "program gone/away.rb"]
     stub_method(Zr::Test::LastFailures, :read, lines) do

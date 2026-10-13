@@ -18,6 +18,7 @@ module Zr
       #   zr-dev test --suite unit,ext -n /help/       two suites, the tests whose name matches
       #   zr-dev test --changed                        the tests that the change reaches
       #   zr-dev test --failed                         the tests that failed last
+      #   zr-dev test --slowest 30                     the 30 slowest tests that ran, and run nothing
       #
       # Each option sets what bin/minitest reads. The variable after an
       # option's text (`[MT_CPU]`) does the same without zr-dev; the option
@@ -39,6 +40,7 @@ module Zr
           @failed = false
           @list = false
           @mode = nil
+          @slowest = nil
         end
 
         def options(o)
@@ -69,9 +71,12 @@ module Zr
             @env["ZR_TEST_SECONDS"] = v.to_s
           end
           o.on("--list", "--dry-run", "print what would run, and run nothing") { @list = true }
+          o.on("--slowest [N]", Integer, "print the N slowest tests and groups of the saved times (20), and run nothing") { |v| @slowest = v || 20 }
         end
 
         def run(argv)
+          return slowest(@slowest) if @slowest
+
           paths = selected(argv)
           return true if paths.nil?
 
@@ -159,6 +164,20 @@ module Zr
         end
 
         # The tests that failed and have not passed since, or nil when none.
+        # The `count` slowest tests that the runs so far timed, with the
+        # date of each time, and the groups that took the most time.
+        def slowest(count)
+          require_relative "../test/support/timings"
+          Zr::Test::Timings.merge
+          rows = Zr::Test::Timings.read.values
+          if rows.empty?
+            puts "no test has a saved time yet (#{relative(Zr::Test::Timings::TABLE)}): run some tests first"
+          else
+            Zr::Test::Timings.report(rows, count, $stdout, dated: true)
+          end
+          true
+        end
+
         def failed_paths
           require_relative "../test/support/last_failures"
           lines = Zr::Test::LastFailures.read

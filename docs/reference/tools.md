@@ -40,7 +40,7 @@ tier tasks read them too, because they call `bin/minitest`.
 | `ZR_GC_STRESS=1` | Collects at every allocation. |
 | `ZR_TEST_FAIL_FAST=1` | Starts no more tests after one fails. |
 | `ZR_TEST_SECONDS=<n>` | The time limit of each program run and build (default 60). `ZR_TEST_TIMEOUT=0` also lifts the time limit of each test in a worker (default 180). |
-| `SLOW=1` | Also reports the 25 slowest files and the 20 slowest tests. `SLOW=<n>` with `n` > 1 reports `n` tests. |
+| `SLOW=1` | Reports the 20 slowest tests and groups (test files, and directories of program tests) for a run of any size, with the time that the program tests spent to lower, link and run. `SLOW=<n>` with `n` > 1 reports `n`; `SLOW=0` reports none. Unset, a run of 20 tests or more reports 10. |
 | `MT_CPU=<n>` | The number of worker processes. The default is one for each 2 GB of memory, with a quarter of the memory (at least 4 GB) and two cores kept free. |
 
 To time a run, use the shell's `time` (`time bin/minitest test/unit`).
@@ -76,9 +76,10 @@ no arguments. Give paths and minitest options to `bin/minitest`.
 
 To run some tests, give their paths to `zr-dev test`:
 `bin/zr-dev test test/unit/cli_test.rb`, `bin/zr-dev test --suite unit -n /blocks/`,
-or `bin/zr-dev test test/programs/core/string`. For the
-report of the slowest files and tests, set `SLOW=1`: `SLOW=1 rake test:unit`, or
-`SLOW=1 bin/minitest test/unit/cli_test.rb`. `COVERAGE=1` measures the
+or `bin/zr-dev test test/programs/core/string`. Each run keeps the
+time of each test in `tmp/zr-dev-test/times.tsv`; `bin/zr-dev test --slowest [N]`
+prints the slowest of them, and runs nothing. `SLOW=1` gives a longer report at
+the end of a run: `SLOW=1 bin/minitest test/unit/cli_test.rb`. `COVERAGE=1` measures the
 line and branch coverage of `lib/` (not `lib/zr/runtime`, which zr
 compiles and ruby does not run) with SimpleCov, and writes the report
 to `tmp/coverage/index.html`. Give it paths: `COVERAGE=1 bin/minitest
@@ -118,7 +119,7 @@ gives more examples.
 
 | Command | Does |
 |---|---|
-| `zr-dev test [options] [path[:line]...]` | Runs zr's tests with `bin/minitest`: every test, or the test files (with `:LINE` for one test), directories of test files, and programs or directories of programs, anywhere, that you give. `--suite`, `--changed [BASE]` and `--failed` select tests; `-n` and `-e` select by name; `--record`, `--verify` and `--live` say where a program's expected output comes from; `-j`, `--target`, `--gc-stress`, `--no-build`, `--no-cache`, `--fail-fast`, `--timeout` and `--seed` say how they run. Each option sets the variable that `bin/minitest` reads, which works without zr-dev too. `--list` prints the command and the tests, and runs nothing. See [How to run the tests](../how-to/run-the-tests.md). |
+| `zr-dev test [options] [path[:line]...]` | Runs zr's tests with `bin/minitest`: every test, or the test files (with `:LINE` for one test), directories of test files, and programs or directories of programs, anywhere, that you give. `--suite`, `--changed [BASE]` and `--failed` select tests; `-n` and `-e` select by name; `--record`, `--verify` and `--live` say where a program's expected output comes from; `-j`, `--target`, `--gc-stress`, `--no-build`, `--no-cache`, `--fail-fast`, `--timeout` and `--seed` say how they run; `--slowest [N]` prints the slowest tests of the saved times. Each option sets the variable that `bin/minitest` reads, which works without zr-dev too. `--list` prints the command and the tests, and runs nothing. See [How to run the tests](../how-to/run-the-tests.md). |
 | `zr-dev affected [--base REVISION] [--dry-run]` | Runs the tests that a change can reach, with `bin/minitest`: the unit test files by path, and the program tests through `ZR_PROGRAMS`. It reads the diff against `main`, or against `--base`, and maps each changed file to unit tests and program tests (`tool/affected.rb`): a changed test to itself, a file beside a program to the program, a core class to its program tests, a library to its `stdlib/` area and the programs that require it, and a file under `lib/zr` that does not change a build to the unit tests that load it. If the change can reach everything (the compiler, the kernel, the test support), it runs nothing and says so. `--dry-run` prints the test paths and runs nothing. |
 | `zr-dev vendor` | Writes `vendor/` (the pinned ruby's own library from its source at `RUBY_REVISION`, the bundled gems and the port gems from their `.gem` files, prism's templates from its tag), `vendor/vendor.lock` and `lib/zr/library/stdlib.rb`, from `lib/zr/library/vendor.rb`, `lib/zr/library/ports.rb` and `lib/zr/ruby_version.rb`. It needs `RUBY_SRC` and `PRISM_SRC`. See [How to update the vendored code](../how-to/update-vendored-code.md). |
 | `zr-dev vendor --check` | Checks each file of `vendor/` against the lock, offline. |

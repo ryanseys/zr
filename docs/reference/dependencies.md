@@ -40,7 +40,7 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | the ruby that `.ruby-version` names | the host, and the only reference for the tests | everything |
 | `rake` gem ~> 13.0 | the tasks | `Rakefile` |
 | `minitest` gem ~> 6.0 | runs every test | `bin/minitest` |
-| `minitest-reporters` gem ~> 1.8 | the report of the slowest tests (`SLOW=1`), and the JUnit file for CI | `test/test_helper.rb` |
+| `minitest-reporters` gem ~> 1.8 | the JUnit file for CI | `test/test_helper.rb` |
 | `aarch64` gem ~> 3.0 | pure Ruby, generated from the ARM specification; the tests check zr's encoder against it | `test/unit/aarch64_test.rb` |
 | `fiddle` gem ~> 1.1 | loads code into the test process | `lib/zr/obj/jit/fiddle.rb`, `Harness::KernelJIT` |
 | `benchmark` gem ~> 0.5 | the clock of `zr-dev bench` and `zr-dev compile` | `test/support/harness/bench.rb`, `tool/compile.rb` |

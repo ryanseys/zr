@@ -20,7 +20,9 @@
 #   ZR_PROGRAMS=<paths>    the program tests to run (test/programs_test.rb)
 #   ZR_EXPECTED=<mode>     a program test's expected output: record, verify
 #                          or live (test/support/program_selection.rb)
-#   SLOW=1                 report the slowest tests
+#   SLOW=<n>               report the <n> slowest tests and groups (SLOW=1:
+#                          20, with the build parts; SLOW=0: none; a run of 20
+#                          tests or more reports 10)
 #   COVERAGE=1             measure lib/ (test/support/coverage_run.rb)
 
 # `COVERAGE=1` measures lib/. It starts before zr loads, because a file
@@ -59,18 +61,16 @@ Minitest.parallel_executor = Zr::Test::ForkPool.new
 require_relative "support/stubs"
 Minitest::Test.include(Zr::Test::Stubs)
 require_relative "support/slow"
+require_relative "support/timings"
 require_relative "support/progress"
 require_relative "support/last_failures"
 Minitest::Test.parallelize_me!
 
-# Use the Minitest report by default. `SLOW` adds the time of each test.
-# On CI, write a JUnit file, which the web view uses to show failures.
-if Zr::Config.flag?("SLOW") || ENV["CI"]
+# Use the Minitest report, and Slow's (support/slow.rb). On CI, write a
+# JUnit file, which the web view uses to show failures.
+if ENV["CI"]
   require "minitest/reporters"
-  Minitest::Reporters.use!(
-    [*(Minitest::Reporters::MeanTimeReporter.new(show_count: 25, show_all_runs: false) if Zr::Config.flag?("SLOW")),
-     *(Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__)) if ENV["CI"])]
-  )
+  Minitest::Reporters.use!([Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__))])
 end
 
 ROOT = File.expand_path("..", __dir__)

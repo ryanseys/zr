@@ -3,35 +3,40 @@
 require "minitest"
 require_relative "../../lib/zr/config"
 require_relative "../../lib/zr/timing"
+require_relative "timings"
 
 module Zr
   module Test
     # Reports where the time of a run went: the slowest tests by name,
-    # and, for examples that build a program, the time of each build
-    # part, added up by directory.
+    # the groups (test files, and directories of program tests) that took
+    # the most time in all, and, for examples that build a program, the
+    # time of each build part, added up by directory. Most of the time of
+    # a tier is in a few tests (for example, one that lowers the whole
+    # runtime), and this report gives their names. The worker that runs a
+    # test measures its time and returns it in the result, so the time
+    # does not include the pool. Each run also keeps its times
+    # (`Timings`), which `zr-dev test --slowest` reads later.
     #
-    # `SLOW=1` also makes minitest-reporters show the slowest *suites*.
-    # That gives the file, not the test. Most of the time of a tier is in
-    # a few tests (for example, one that lowers the whole runtime), and
-    # this report gives their names. The worker that runs a test measures
-    # its time and returns it in the result, so the time does not include
-    # the pool.
-    #
-    # `SLOW=30` prints 30 tests. `SLOW=1` prints 20. When `SLOW` is not
-    # set, this report is off.
+    # A run of SMALL tests or more prints its DEFAULT slowest tests and
+    # groups at the end. `SLOW=1` prints ASKED of each, and the build
+    # parts, for a run of any size; `SLOW=30` prints 30; `SLOW=0` prints
+    # nothing.
     module Slow
       # The metadata key for the build part times of an example, in seconds.
       KEY = :zr_phases
       PARTS = %i[lower link run].freeze
-      DEFAULT = 20
+      DEFAULT = 10
+      ASKED = 20
+      SMALL = 20
 
-      # `SLOW=1` reports the slowest examples; `SLOW=<n>` reports <n>.
       def self.asked? = Config.flag?("SLOW")
 
-      def self.count = ENV["SLOW"].to_i.then { |n| n > 1 ? n : DEFAULT }
+      def self.off? = ENV["SLOW"] == "0"
+
+      def self.count = ENV["SLOW"].to_i.then { |n| n > 1 ? n : asked? ? ASKED : DEFAULT }
 
       def self.minitest_plugin_init(options)
-        Minitest.reporter << Reporter.new(options[:io], count) if asked?
+        Minitest.reporter << Reporter.new(options[:io], count, always: asked?) unless off?
       end
 
       # Runs the block and adds its time to `row[part]`. Each example has
@@ -74,37 +79,32 @@ module Zr
         def to_s = format("%8d %8.1f %8.1f %8.1f %8.1f", examples, *PARTS.map { |part| parts[part] }, whole)
       end
 
+      # With `always`, the report prints for a run of any size, with the
+      # build parts; without, only for a run of SMALL tests or more.
       class Reporter < Minitest::AbstractReporter
-        def initialize(io, count)
+        def initialize(io, count, always: true)
           super()
           @io = io
           @count = count
-          @tests = []
+          @always = always
+          @rows = []
           @spent = Hash.new { |h, directory| h[directory] = Spent.zero }
         end
 
         def record(result)
-          @tests << [result.time, "#{result.klass}##{result.name}"]
+          @rows << Timings.row(result, nil)
           parts = result.metadata[KEY] if result.metadata?
           @spent[directory(result)].add(result.time, parts) if parts
         end
 
         def report
-          return if @tests.empty?
+          return if @rows.empty? || (!@always && @rows.size < SMALL)
 
-          report_tests
-          report_parts unless @spent.empty?
+          Timings.report(@rows, @count, @io)
+          report_parts if @always && !@spent.empty?
         end
 
         private
-
-        # `@tests` holds `[seconds, name]` pairs.
-        def report_tests
-          slowest = @tests.max_by(@count, &:first)
-          @io.puts format("\nThe %d slowest of %d tests, %.1f s of %.1f s in all:",
-                          slowest.size, @tests.size, slowest.sum(&:first), @tests.sum(&:first))
-          slowest.each { |seconds, name| @io.puts format("%8.2f s  %s", seconds, name) }
-        end
 
         def report_parts
           rows = @spent.sort_by { |_, spent| -spent.whole }

@@ -261,12 +261,25 @@ $ cat tmp/test-progress.txt
 
 ## Find the slow tests
 
+A run of 20 tests or more prints its 10 slowest tests at the end, and
+the 10 groups that took the most time in all: test files, and
+directories of program tests. Each run also keeps the time of each
+test in `tmp/zr-dev-test/times.tsv`, as each test ends, so a run that
+stops early keeps its times too. To see the slowest tests of the runs
+so far, with no run:
+
 ```console
-$ SLOW=1 bin/zr-dev test --suite unit
-$ SLOW=1 rake test:unit
+$ bin/zr-dev test --slowest
+$ bin/zr-dev test --slowest 50
 ```
 
-Both also report the 25 slowest files and the 20 slowest tests.
+`SLOW=<n>` prints `n` tests and groups for a run of any size, and `SLOW=1`
+prints 20, with the time that the program tests spent to lower, link
+and run, by directory. `SLOW=0` prints nothing:
+
+```console
+$ SLOW=1 bin/zr-dev test --suite unit
+```
 
 ## Check the code style
 

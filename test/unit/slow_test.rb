@@ -4,10 +4,10 @@ require "test_helper"
 require "stringio"
 require_relative "../support/slow"
 
-# The report that `SLOW=1` enables: the slowest tests by name, and the
-# time that the examples that build a program spent, by directory. It
-# runs after all tests, so a fault in it shows only there, once, at the
-# end of a full tier.
+# The report at the end of a run: the slowest tests by name, the groups
+# that took the most time, and with `SLOW` the time that the examples
+# that build a program spent, by directory. It runs after all tests, so a
+# fault in it shows only there, once, at the end of a full tier.
 class SlowTest < Minitest::Test
   Slow = Zr::Test::Slow
 
@@ -34,6 +34,24 @@ class SlowTest < Minitest::Test
 
     assert_match(/The 1 slowest of 1 tests/, io.string)
     refute_match(/What the examples/, io.string)
+  end
+
+  def test_with_no_slow_a_small_run_prints_nothing_and_a_large_one_its_slowest
+    small = StringIO.new
+    reporter = Slow::Reporter.new(small, 10, always: false)
+    reporter.record(result("Plain", "one", 0.5, "test/unit/plain_test.rb"))
+    reporter.report
+
+    assert_empty small.string
+
+    large = StringIO.new
+    reporter = Slow::Reporter.new(large, 10, always: false)
+    Slow::SMALL.times { |i| reporter.record(result("Many", "test_#{i}", i * 0.1, "test/unit/many_test.rb", lower: 0.1)) }
+    reporter.report
+
+    assert_match(/The 10 slowest of #{Slow::SMALL} tests/, large.string)
+    assert_match(/\d+\.\d s\s+#{Slow::SMALL} tests  test\/unit\/many_test\.rb/, large.string)
+    refute_match(/What the examples/, large.string, "the build parts print only when SLOW asks")
   end
 
   def test_clock_adds_time_to_hash_and_runs_block_without_one
