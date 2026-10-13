@@ -42,7 +42,12 @@ class Proc
       Primitive.zr_warn_here_m("Skipping set of ruby2_keywords flag for proc (proc accepts keywords or post arguments or proc does not accept argument splat)")
       return self
     end
-    Primitive.zr_ruby2_mark_proc(self)
+    # A refined Proc keeps the mark itself (zr_refined_block): its block
+    # and the other Procs of that block do not get it.
+    return Primitive.zr_ruby2_mark_proc(self) unless Primitive.zr_hidden_get(self, :__refined__)
+
+    Primitive.zr_state_set(self, :__ruby2__, true)
+    self
   end
 
   # `f >> g` calls f then g; `f << g` calls g then f. The result is a

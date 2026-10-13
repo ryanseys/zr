@@ -468,6 +468,15 @@ module Zr::Kern
   # with the Proc's refinements (zr_using_toplevel_refine).
   #: (value, word, ptr, value) -> value
   def zr_refined_block(p, argc, argv, blk)
+    # Proc#ruby2_keywords marks a refined Proc itself, not its block's
+    # function, which the source Proc and its other refined Procs share:
+    # the keywords reach the block as one flagged Hash.
+    t = zr_task()
+    kw = Task[t].kw
+    if kw != 0 && zr_hidden_get(p, zr_sym(Machine.id(:__ruby2__))) == QTRUE
+      Task[t].kw = 0
+      argc = zr_kw_hash_in(kw, argc, argv, 1)
+    end
     running = Machine.static(:imports_running, 8)
     Machine.store64(running, 0, Machine.load64(running, 0) + 1)
     Machine.store64(Machine.static(:site_stamp, 8), 0, 0 - 1)

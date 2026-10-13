@@ -230,6 +230,17 @@ module Zr::Kern
   # the new argument count.
   #: (word, word, ptr, ptr) -> word
   def zr_kw_undeclared(kw, argc, argv, fn)
+    marked = 0
+    if fn != 0 && zr_ivtab_get(zr_ruby2_fns(), Machine.word(fn)) != QUNDEF
+      marked = 1
+    end
+    zr_kw_hash_in(kw, argc, argv, marked)
+  end
+
+  # The keyword word `kw` as one Hash argument, which `marked` (1) flags
+  # for a ruby2_keywords rest. Returns the new argument count.
+  #: (word, word, ptr, word) -> word
+  def zr_kw_hash_in(kw, argc, argv, marked)
     # A table of no keywords (an empty `**{}` given to a block) makes no
     # Hash, so the last argument is a positional one and takes no flag.
     hashed = kw == 1
@@ -237,7 +248,7 @@ module Zr::Kern
       hashed = zr_kw_hashed(Machine.ptr(kw)) == 1
       argc = zr_kw_tab_in(kw, argc, argv)
     end
-    if hashed && fn != 0 && argc > 0 && zr_ivtab_get(zr_ruby2_fns(), Machine.word(fn)) != QUNDEF
+    if hashed && marked != 0 && argc > 0
       h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
       RBasic[h].flags = RBasic[h].flags | FL_RUBY2
     end
