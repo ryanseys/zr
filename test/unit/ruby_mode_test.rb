@@ -407,6 +407,8 @@ class RubyModeTest < Minitest::Test
     "bad.rb" => "def x\n  p (\nend\n",
     "handler.rb" => "at_exit { puts 'handler ran' }\n",
     "unparsed.rb" => "x = 1\nif true\n  1 +\n",
+    "warns.rb" => "case 1\nwhen 1\nwhen 1\nend\nif (y = 1) then end\nx = 1...\n2\n",
+    "warns_bad.rb" => "x = 1...\n2\nfoo(\n",
     "frozen.rb" => "# frozen_string_literal: true\ns = 'abc'\nbegin; s << 'x'; rescue => e; p e.message; end\n" \
                    "t = [\n  'lit']\nbegin; t[0].upcase!; rescue => e; p e.message; end\n",
     "chilled.rb" => "s = 'c'\ns << 'x'\np s\n",
@@ -545,6 +547,18 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-w", "unparsed.rb")
     same_as_ruby("-W0", "unparsed.rb")
     same_as_ruby("--disable-gems", "unparsed.rb")
+  end
+
+  # -c prints the parse's warnings at the program's level, before "Syntax
+  # OK" or the report of a program that does not parse
+  # (test_syntax.rb test_duplicated_when_check_option).
+  def test_syntax_check_prints_the_parse_warnings
+    same_as_ruby("-wc", "warns.rb")
+    same_as_ruby("-c", "warns.rb")
+    same_as_ruby("-W0", "-c", "warns.rb")
+    same_as_ruby("-wc", "-", stdin: "case 1\nwhen 1\nwhen 1\nend\n")
+    same_as_ruby("-wc", "warns_bad.rb")
+    same_as_ruby("-c", "warns_bad.rb")
   end
 
   # -y and --dump print in place of the run; prism's tree prints as ruby's

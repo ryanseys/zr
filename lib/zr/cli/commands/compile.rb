@@ -194,6 +194,8 @@ module Zr
           require_relative "../../parse"
           require_relative "../../hir/syntax_report"
           result = Zr.parse(source, filepath: file, **options.switches.parse_options(true))
+          # ruby prints the warnings also for a program that does not parse.
+          parse_warnings(result, file, options.switches.verbose)
           unless result.errors.empty?
             $stderr.write(Refusals.syntax_text("zr", Hir::SyntaxReport.error(result, file)))
             exit 1
@@ -208,6 +210,17 @@ module Zr
           puts "Syntax OK" if syntax && first
           $stdout.write(tree) if tree
           puts "Syntax OK" if syntax && !first
+        end
+
+        # The parse's warnings, as a run prints them (Loader#warnings): none
+        # under -W0, and those of the -w level only under -w.
+        #: (Prism::ParseResult result, String file, bool | Symbol | nil verbose) -> void
+        def parse_warnings(result, file, verbose)
+          return if verbose.nil?
+
+          result.warnings.each do |w|
+            warn "#{Paths.shown(file)}:#{w.location.start_line}: warning: #{w.message}" if w.level == :default || verbose == true
+          end
         end
 
         #: (Prism::ParseResult result) -> String
