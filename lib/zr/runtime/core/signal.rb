@@ -217,10 +217,18 @@ module Signal
     end
 
     # The EXIT trap, run once as the program ends and before its at_exit
-    # handlers.
+    # handlers. A signal that comes while it runs waits, as in any trap
+    # (TRAP_INTERRUPT_MASK), until the first handler starts.
     def exit_trap
       Primitive.attr! :hidden
-      execute(commands.delete(0), 0) if commands.key?(0)
+      return nil unless commands.key?(0)
+
+      Primitive.zr_hidden_set(self, :__delivering__, true)
+      begin
+        execute(commands.delete(0), 0)
+      ensure
+        Primitive.zr_hidden_set(self, :__delivering__, false)
+      end
       nil
     end
   end

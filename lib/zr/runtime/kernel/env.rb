@@ -121,21 +121,33 @@ module Zr::Kern
     status = zr_program_end_hook(zr_send(zr_global(G_FIBER), Machine.id(:finalize_scheduler), 0, 0), status, exc)
     # An error in the trap is the program's error from then on: it is
     # printed after the handlers, as errinfo is at the end of
-    # rb_ec_cleanup.
-    if zr_send(zr_core_class(Machine.id(:Signal)), Machine.id(:exit_trap), 0, 0) == QUNDEF
+    # rb_ec_cleanup. The handlers run with `$!` nil meanwhile, as
+    # rb_ec_teardown clears errinfo.
+    trapped = 0
+    signal = zr_core_class(Machine.id(:Signal))
+    if zr_send(signal, Machine.id(:exit_trap), 0, 0) == QUNDEF
       exc = Task[zr_task()].pending
       Task[zr_task()].pending = Machine.value(QNIL)
       status = zr_system_exit_p(exc) ? zr_exit_status(exc) : 1
-      zr_errinfo_set(exc)
+      zr_errinfo_set(Machine.value(QNIL))
+      trapped = 1
     end
     hooks = zr_global(G_AT_EXIT)
     if !zr_special_p(hooks)
       while RArray[hooks].len > 0
         blk = zr_ary_pop(hooks, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
-        # A C extension's end proc (rb_set_end_proc) is the pair [fn, data].
-        r = zr_type(blk) == T_ARRAY ? zr_c_end_proc(blk) : zr_yield(blk, 0, 0)
+        # A signal that waited is handled as the handler starts, and the
+        # error of its default handler stops the handler.
+        r = zr_send(signal, Machine.id(:deliver), 0, 0)
+        if r != QUNDEF
+          # A C extension's end proc (rb_set_end_proc) is the pair [fn, data].
+          r = zr_type(blk) == T_ARRAY ? zr_c_end_proc(blk) : zr_yield(blk, 0, 0)
+        end
         status = zr_program_end_hook(r, status, exc)
       end
+    end
+    if trapped != 0
+      zr_errinfo_set(exc)
     end
     last = zr_errinfo()
     # The other threads end after the exit handlers, as ruby_cleanup ends
