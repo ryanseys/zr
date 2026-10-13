@@ -1,0 +1,37 @@
+&  set: Set true 1
+&  array: Set true 0
+&  plain receiver: Set false 1
+intersection: Set true 0
+^  array: Set true 4
+^  set: Set true 1
+^  plain: Set false 1
+|: Set true 3
+-: Set true 2
+flatten: Set true 2
+flatten plain: Set false 2
+flatten!: Set true 2
+nil
+flatten! none: Set true 2
+map!: Set true 2
+collect!: Set true 2
+map! plain: Set false 1
+classify 1: Set true 1
+classify 2: Set true 1
+classify plain 1: Set false 1
+classify plain 2: Set false 1
+divide: Set false 2
+divide part: Set true 1
+divide part: Set true 1
+divide/2: Set false 3
+divide/2 part: Set true 2
+divide/2 part: Set true 2
+divide/2 part: Set true 1
+divide/2 plain part: Set false 2
+divide/2 plain part: Set false 1
+subclass &: MySet false 0
+subclass ^: MySet false 1
+subclass flatten: MySet false 1
+subclass classify 1: MySet false 1
+subclass classify 2: MySet false 1
+subclass divide part: MySet true 1
+subclass map!: MySet false 2

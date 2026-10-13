@@ -55,7 +55,7 @@ class Set
   end
 
   def &(other)
-    result = self.class.allocate
+    result = alike(self.class)
     into = result.send(:table)
     if other.is_a?(Set)
       small, large = size < other.size ? [self, other] : [other, self]
@@ -72,7 +72,7 @@ class Set
 
   def ^(other)
     result = dup
-    source = other.is_a?(Set) ? other : Set.allocate.send(:merge_from, other)
+    source = other.is_a?(Set) ? other : alike(Primitive.zr_real_class(self)).send(:merge_from, other)
     into = result.send(:table)
     source.send(:walk) { |item| into.key?(item) ? into.delete(item) : into[item] = true }
     result
@@ -149,7 +149,7 @@ class Set
     klass = Primitive.zr_real_class(self)
     walk do |item|
       key = yield(item)
-      group = groups.key?(key) ? groups[key] : (groups[key] = klass.allocate)
+      group = groups.key?(key) ? groups[key] : (groups[key] = alike(klass))
       group.send(:table)[item] = true
     end
     groups
@@ -167,7 +167,7 @@ class Set
     return enum_for(:collect!) { size } unless block_given?
 
     check_frozen
-    result = self.class.allocate
+    result = alike(self.class)
     into = result.send(:table)
     walk { |item| into[yield(item)] = true }
     initialize_copy(result)
@@ -227,7 +227,7 @@ class Set
       item = items[i]
       root = root_of(parents, i)
       unless parts.key?(root)
-        parts[root] = self.class.allocate
+        parts[root] = alike(self.class)
         answer.add(parts[root])
       end
       parts[root].add(item)
@@ -245,7 +245,7 @@ class Set
   def empty? = table.empty?
 
   def flatten
-    result = self.class.allocate
+    result = alike(self.class)
     flatten_into(result, self, {})
     result
   end
@@ -849,6 +849,16 @@ class Set
       other.__send__(Set.send(:enum_method, other)) { |item| into[item] = true }
     end
     self
+  end
+
+  # set_s_alloc of `klass`, which compares by identity when this set does:
+  # ruby 4.1 keeps the flag in the sets that &, ^, classify, divide,
+  # collect! and flatten make.
+  def alike(klass)
+    Primitive.attr! :hidden
+    set = klass.allocate
+    Primitive.zr_state_set(set, :__table__, {}.compare_by_identity) if table.compare_by_identity?
+    set
   end
 
   def rebuild(fresh)
