@@ -650,13 +650,28 @@ module Process
     $stdout.flush
     $stderr.flush
     pid = checked(Primitive.zr_proc_fork)
-    if pid.zero?
-      $$ = Primitive.zr_process_id
-      Random.send(:reseed)
-      Thread.send(:after_fork)
-    end
+    after_fork if pid.zero?
     pid
   end
+
+  # A child's state after a fork: its own pid in `$$`, then
+  # rb_thread_atfork's.
+  def self.after_fork
+    Primitive.attr! :hidden
+    $$ = Primitive.zr_process_id
+    thread_atfork
+  end
+
+  # rb_thread_atfork: a new random seed, and only the thread that forked.
+  # A C extension that forks for itself calls it in the child; `$$`
+  # keeps the parent's pid then, as ruby clears its pid cache only in a
+  # fork of its own.
+  def self.thread_atfork
+    Primitive.attr! :hidden
+    Random.send(:reseed)
+    Thread.send(:after_fork)
+  end
+  private_class_method :after_fork, :thread_atfork
 
   # rb_call_proc__fork: `_fork` through a send, so a program that wraps
   # it sees every fork, and its result as a pid (NUM2PIDT). A wrapper
@@ -843,8 +858,14 @@ module Process
   # command.
   def self.start_error(args, options, pid)
     _, args, options = exec_args(args, options)
+    SystemCallError.new(unenterable(options) || command_words(args).first, -pid)
+  end
+
+  # The `chdir:` directory of `options` that a child cannot enter, or nil.
+  def self.unenterable(options)
+    Primitive.attr! :hidden
     dir = options[:chdir] && (String.try_convert(options[:chdir]) || options[:chdir].to_path)
-    SystemCallError.new(dir && !Primitive.zr_path_access(dir, 1) ? dir : command_words(args).first, -pid)
+    dir unless dir.nil? || Primitive.zr_path_access(dir, 1)
   end
 
   def self.spawn_command(args, options)
@@ -992,7 +1013,7 @@ module Process
     table.map { |key, value| "#{key}=#{value}" }
   end
 
-  private_class_method :spawn_command, :start_error, :command_words, :command_line, :search_path, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
+  private_class_method :spawn_command, :start_error, :unenterable, :command_words, :command_line, :search_path, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
 end
 
 # The ids a process runs as. Process::Sys makes the system calls by
@@ -1112,6 +1133,49 @@ module Process
     def status!(status)
       Primitive.attr! :hidden
       Primitive.zr_hidden_set(Thread.current, :__last_status__, status)
+    end
+
+    # rb_last_status_set: `$?` becomes the frozen status of the child
+    # `pid` with the wait status word `raw`.
+    def last_status_set(raw, pid)
+      Primitive.attr! :hidden
+      status!(Status.send(:made, pid, raw))
+      nil
+    end
+
+    # rb_waitpid: `[pid, status word]` of the child that a wait found,
+    # with `$?` set to its status; `[0, 0]` while a WNOHANG child runs;
+    # or the negated errno, with `$?` as it was.
+    def c_waitpid(pid, flags)
+      Primitive.attr! :hidden
+      result = reap(pid, flags) || [0, 0]
+      status!(Status.send(:reaped, *result)) if result.is_a?(Array) && !result[0].zero?
+      result
+    end
+
+    # rb_spawn and rb_spawn_err: `[pid, ""]` for the command that `args`
+    # give, as Process.spawn reads them. A command that does not start
+    # gives the negated errno and the step that failed, as ruby's child
+    # names it: "chdir" for a directory it cannot enter, else "". A bad
+    # argument raises.
+    def c_spawn(args)
+      Primitive.attr! :hidden
+      pid = spawn_command(args, {})
+      return [pid, +""] unless pid.negative?
+
+      [pid, unenterable(exec_args(args, {})[2]) ? +"chdir" : +""]
+    end
+
+    # rb_proc_exec: the process becomes `/bin/sh -c command`, as
+    # proc_exec_sh runs it. Only a failure returns, with its errno. A
+    # command of blanks alone fails with ENOENT.
+    def c_exec_shell(command)
+      Primitive.attr! :hidden
+      return Errno::ENOENT::Errno if command.match?(/\A[ \t\n]*\z/)
+
+      replaced([["/bin/sh", "sh"], "-c", command], {})
+    rescue SystemCallError => e
+      e.errno
     end
 
     def sys_set(call, value, group)

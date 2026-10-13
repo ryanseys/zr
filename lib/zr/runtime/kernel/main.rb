@@ -652,6 +652,7 @@ module Zr::Kern
       end
       exc = Task[zr_task()].pending
       Task[zr_task()].pending = Machine.value(QNIL)
+      Task[zr_task()].pending_kind = PENDING_RAISE
     end
     Machine.i32(zr_program_end(exc))
   end

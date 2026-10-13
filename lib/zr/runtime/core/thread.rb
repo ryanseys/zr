@@ -260,6 +260,22 @@ class Thread
       nil
     end
 
+    # rb_thread_sleep_deadly: Thread.stop without its check for another
+    # thread. With no thread to wake this one, the wait is a deadlock.
+    def sleep_deadly
+      Primitive.attr! :hidden
+      @current.send(:wait, nil, true, resume: true)
+      nil
+    end
+
+    # rb_thread_interrupted: whether `thread` has an interrupt waiting:
+    # an exception that Thread#raise or #kill sent, or, for the main
+    # thread, a signal whose handler has not run.
+    def interrupted?(thread)
+      Primitive.attr! :hidden
+      thread.pending_interrupt? || (thread.equal?(@main) && Primitive.zr_trap_pending)
+    end
+
     # A forked child has only the thread that forked, which is its main
     # thread after the fork; all other threads stay in the parent.
     def after_fork
@@ -986,26 +1002,32 @@ class Thread
     Primitive.attr! :hidden
     @status = :run
     TracePoint.send(:thread_event, :thread_begin, self)
+    fatal = nil
     begin
-      Primitive.zr_catch(@kill_tag, proc do
-        # A kill or an exception that another thread sent arrives only
-        # while the catch and the rescue are active. One that came before
-        # waits for them here, and after them no body is left to stop.
-        @armed = true
-        begin
-          throw @kill_tag if @killed
-          # The thread raises the error again: its `exception` runs here.
-          Kernel.raise @pending.exception if @pending
+      # rb_fatal's unwind, which no rescue stops, ends the thread with its
+      # error, unreported (thread_start_func_2's TAG_FATAL).
+      fatal = Primitive.zr_fatal_stop(proc do
+        Primitive.zr_catch(@kill_tag, proc do
+          # A kill or an exception that another thread sent arrives only
+          # while the catch and the rescue are active. One that came before
+          # waits for them here, and after them no body is left to stop.
+          @armed = true
           begin
-            Primitive.zr_task_root(@block)
-            @value = @block.call(*@args)
+            throw @kill_tag if @killed
+            # The thread raises the error again: its `exception` runs here.
+            Kernel.raise @pending.exception if @pending
+            begin
+              Primitive.zr_task_root(@block)
+              @value = @block.call(*@args)
+            ensure
+              close_scheduler
+            end
           ensure
-            close_scheduler
+            @armed = false
           end
-        ensure
-          @armed = false
-        end
+        end)
       end)
+      @exception = fatal if fatal
     rescue Exception => e
       @exception = e
       # thread_start_func_2 reports no SystemExit.
@@ -1020,6 +1042,8 @@ class Thread
     # A thread that forked is the child's main thread, so its end ends the
     # child, as the main thread's end does.
     Primitive.zr_proc_child_exit(@exception) if equal?(Thread.main)
+    # thread_start_func_2: a TAG_FATAL's error goes on in the main thread.
+    Thread.main.raise(fatal) if fatal
     # thread_do_start: a SystemExit, or any exception under abort_on_exception
     # or $DEBUG, goes on in the main thread.
     Thread.main.raise(@exception) if @exception && (@abort_on_exception || Thread.abort_on_exception || $DEBUG || @exception.is_a?(SystemExit))

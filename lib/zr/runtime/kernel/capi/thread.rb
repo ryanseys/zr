@@ -570,6 +570,16 @@ module Zr::Kern
     zr_capi_thread_send(zr_global(G_KERNEL), Machine.id(:sleep))
   end
 
+  # rb_thread_sleep_deadly: sleeps until woken, and with no other thread
+  # to wake it, raises ruby's deadlock error, as Thread.stop does. (The
+  # forever sleep above waits on.)
+  #: () -> void
+  def rb_thread_sleep_deadly
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_thread_send(zr_capi_thread_class(), Machine.id(:sleep_deadly))
+  end
+
   #: (i32) -> void
   def rb_thread_sleep(sec)
     Machine.gates_enter

@@ -90,6 +90,9 @@ module Zr::Kern
   PENDING_BREAK = 1
   PENDING_RETURN = 2
   PENDING_THROW = 3
+  # rb_fatal's unwind (TAG_FATAL): no rescue stops it, each ensure
+  # clause runs, and the program ends with its error.
+  PENDING_FATAL = 4
 
   #: (value, word, ptr) -> value
   def zr_env_new(parent, n, names)

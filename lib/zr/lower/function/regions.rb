@@ -89,7 +89,8 @@ module Zr
           end
           switch(region.landing, open: true)
           @f.store(kernel("zr_errinfo"), @rec, prev_at) if errinfo
-          @f.store(kernel("zr_signal_take", signal), @rec, value_at)
+          # A written ensure (errinfo) raises a fatal unwind again as a raise.
+          @f.store(kernel(errinfo ? "zr_ensure_take" : "zr_signal_take", signal), @rec, value_at)
           if errinfo
             dropped = -> { kernel("zr_errinfo_set", @f.fetch("i64", @rec, began_at)) }
             with_ensure(dropped, errinfo: false) { run_ensure(body, :raise) }

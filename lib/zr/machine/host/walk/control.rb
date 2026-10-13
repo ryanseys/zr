@@ -411,7 +411,7 @@ module Zr
             prev = @kern.zr_errinfo
             slots(f) do
               out = f.stack.take(24)
-              v = @kern.zr_signal_take(out)
+              v = @kern.zr_ensure_take(out)
               done = false
               begin
                 ensure_body.call(f)

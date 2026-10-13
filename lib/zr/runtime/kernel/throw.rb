@@ -51,6 +51,24 @@ module Zr::Kern
     zr_caught(r, tag)
   end
 
+  # Runs `blk`, and stops a fatal unwind (rb_fatal) that leaves it, as a
+  # thread's top stops TAG_FATAL. The result is the fatal error, or nil.
+  #: (value) -> value
+  def zr_fatal_stop(blk)
+    r = zr_yield(blk, 0, 0)
+    if r != QUNDEF
+      return Machine.value(QNIL)
+    end
+    t = zr_task()
+    if Task[t].pending_kind != PENDING_FATAL
+      return r
+    end
+    exc = Task[t].pending
+    Task[t].pending = Machine.value(QNIL)
+    Task[t].pending_kind = PENDING_RAISE
+    exc
+  end
+
   # The result of a call made under a catch for `tag`: the thrown value
   # when a throw to `tag` ended the call, else `r` as it is.
   #: (value, value) -> value

@@ -289,6 +289,8 @@ class CExtMoreCApiTest < Minitest::Test
       FatalExt.die(3)
     rescue Exception => e
       puts "rescued #{e.class}"
+    ensure
+      puts "ensure runs"
     end
     puts "not reached"
   RUBY
@@ -324,8 +326,9 @@ class CExtMoreCApiTest < Minitest::Test
     assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr stderr:\n#{zr.stderr}"
   end
 
-  # rb_fatal's `fatal` passes every rescue and ends the program, after
-  # the at_exit handlers, with its message on stderr.
+  # rb_fatal's `fatal` passes every rescue, runs each ensure clause, and
+  # ends the program, after the at_exit handlers, with its message on
+  # stderr.
   def test_fatal_ends_the_program
     ruby, zr = Zr::Test::CExt.outputs(Zr::Test::CExt.build("fatal_ext", FATAL), DIES)
     assert_equal [ruby.stdout, ruby.status], [zr.stdout, zr.status], "zr stderr:\n#{zr.stderr}"

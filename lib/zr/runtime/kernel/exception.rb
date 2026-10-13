@@ -633,6 +633,22 @@ end
     v
   end
 
+  # zr_signal_take for an `ensure` clause that the program wrote. When it
+  # ends, ruby raises the error it set aside again as an ordinary raise
+  # (the `throw` that ends an ensure in ruby's instructions). So a fatal
+  # unwind (rb_fatal) that passes one goes on as a raise, and a rescue
+  # further out stops it. The core's own ensure clauses are ruby's C
+  # (rb_ensure), which keeps the unwind fatal.
+  #: (ptr) -> value
+  def zr_ensure_take(out)
+    t = zr_task()
+    top = Task[t].top
+    if Task[t].pending_kind == PENDING_FATAL && top != 0 && !zr_meta_native_p(Frame[top].meta)
+      Task[t].pending_kind = PENDING_RAISE
+    end
+    zr_signal_take(out)
+  end
+
   #: (value, ptr) -> value
   def zr_signal_restore(v, out)
     zr_signal(Machine.load64(out, 0), v, Machine.ptr(Machine.load64(out, 8)), Machine.load64(out, 16))

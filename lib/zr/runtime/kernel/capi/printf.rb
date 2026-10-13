@@ -195,8 +195,7 @@ module Zr::Kern
     zr_c_entered()
     list = Machine.va_list(VA_LIST_KIND)
     message = zr_c_result(zr_c_format(fmt, list))
-    exc = zr_c_result(zr_exc_new_str(zr_fatal_class(), message))
-    Libc.exit(Machine.i32(zr_program_end(exc)))
+    zr_capi_fatal(zr_c_result(zr_exc_new_str(zr_fatal_class(), message)))
   end
 
   # rb_enc_sprintf: rb_sprintf's String in the encoding `enc`.

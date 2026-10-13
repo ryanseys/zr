@@ -160,6 +160,14 @@ module Signal
       commands.key?(signo) && (commands[signo].nil? || commands[signo] == true)
     end
 
+    # ruby_signal_name: the name of `signo` without SIG, or nil. C keeps
+    # the pointer to its bytes, so each name is kept for good.
+    def c_name(signo)
+      Primitive.attr! :hidden
+      names = Primitive.zr_hidden_get(self, :__c_names__) || Primitive.zr_hidden_set(self, :__c_names__, {})
+      names.fetch(signo) { names[signo] = Signal.signame(signo)&.freeze }
+    end
+
     # A safe point: every signal that came runs its command. A signal
     # that comes while a command runs waits for it to end, and one that
     # comes while the scheduler changes its lists waits for the next safe

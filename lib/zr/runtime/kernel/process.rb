@@ -565,7 +565,7 @@ module Zr::Kern
     pending = Task[t].pending
     Task[t].pending_kind = PENDING_RAISE
     Task[t].pending = Machine.value(QNIL)
-    if kind == PENDING_RAISE
+    if kind == PENDING_RAISE || kind == PENDING_FATAL
       return zr_proc_child_exit(pending)
     end
     zr_program_end(Machine.value(QUNDEF))

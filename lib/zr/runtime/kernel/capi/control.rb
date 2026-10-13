@@ -9,6 +9,7 @@ module Zr::Kern
   TAG_BREAK = 2
   TAG_RAISE = 6
   TAG_THROW = 7
+  TAG_FATAL = 8
 
   # rb_exc_raise: raises the exception `exc`.
   #: (value) -> void
@@ -230,6 +231,9 @@ module Zr::Kern
     end
     if kind == PENDING_THROW
       return TAG_THROW
+    end
+    if kind == PENDING_FATAL
+      return TAG_FATAL
     end
     TAG_RAISE
   end

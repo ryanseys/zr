@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby's C API, of the series that zr pins. zr's kernel gives 864 of its
+calls ruby's C API, of the series that zr pins. zr's kernel gives 886 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -162,6 +162,12 @@ The C API's printf functions.
 
 `rb_sprintf`, `rb_vsprintf`, `rb_raise`, `rb_name_error`, `rb_enc_raise`, `rb_bug`, `rb_warn`, `rb_warning`, `rb_category_warn`, `rb_category_warning`, `ruby_snprintf`, `ruby_vsnprintf`, `rb_fatal`, `rb_enc_sprintf`, `rb_str_catf`, `rb_str_vcatf`
 
+## process
+
+The C API's signals, child processes and ends of the program.
+
+`rb_f_kill`, `ruby_signal_name`, `ruby_default_signal`, `rb_thread_interrupted`, `rb_interrupt`, `rb_exit`, `rb_f_exit`, `rb_f_abort`, `rb_exc_fatal`, `rb_last_status_set`, `rb_last_status_get`, `rb_waitpid`, `rb_syswait`, `rb_detach_process`, `rb_spawn`, `rb_spawn_err`, `rb_f_exec`, `rb_proc_exec`, `rb_proc_times`, `rb_thread_atfork`, `rb_thread_atfork_before_exec`, `rb_process_status_wait`, `rb_process_status_for`
+
 ## profile
 
 The C API of ruby/debug.h for sampling profilers (stackprof, vernier, datadog): the frames that run, and jobs that run at the next safe point (postponed_jobs.rb).
@@ -190,7 +196,7 @@ The C API's Regexps and MatchData, each through their Ruby methods.
 
 Waits of C on descriptors that no stream wraps, and ruby's sets of descriptors (rb_fdset_t) that its select takes.
 
-`rb_fd_init`, `rb_fd_term`, `rb_fd_zero`, `rb_fd_set`, `rb_fd_clr`, `rb_fd_isset`, `rb_fd_copy`, `rb_fd_dup`, `rb_fd_select`, `rb_thread_fd_select`, `rb_wait_for_single_fd`, `rb_thread_wait_fd`, `rb_thread_fd_writable`, `rb_io_wait_readable`, `rb_io_wait_writable`, `rb_process_status_wait`, `rb_process_status_for`
+`rb_fd_init`, `rb_fd_term`, `rb_fd_zero`, `rb_fd_set`, `rb_fd_clr`, `rb_fd_isset`, `rb_fd_copy`, `rb_fd_dup`, `rb_fd_select`, `rb_thread_fd_select`, `rb_wait_for_single_fd`, `rb_thread_wait_fd`, `rb_thread_fd_writable`, `rb_io_wait_readable`, `rb_io_wait_writable`
 
 ## st
 
@@ -220,7 +226,7 @@ zr's symbol id of the C ID `id`: an ID that this API gave, or a character, which
 
 C that runs without the GVL: rb_thread_call_without_gvl and its kin.
 
-`rb_thread_call_without_gvl`, `rb_thread_call_without_gvl2`, `rb_nogvl`, `rb_thread_call_with_gvl`, `ruby_native_thread_p`, `ruby_thread_has_gvl_p`, `rb_thread_check_ints`, `rb_thread_current`, `rb_thread_schedule`, `rb_ext_ractor_safe`, `rb_ractor_local_storage_value_newkey`, `rb_ractor_local_storage_value_lookup`, `rb_ractor_local_storage_value`, `rb_ractor_local_storage_value_set`, `rb_nativethread_lock_initialize`, `rb_nativethread_lock_destroy`, `rb_nativethread_lock_lock`, `rb_nativethread_lock_unlock`, `rb_thread_io_blocking_region`, `rb_thread_create`, `rb_thread_alone`, `rb_thread_main`, `rb_thread_stop`, `rb_thread_run`, `rb_thread_wakeup`, `rb_thread_wakeup_alive`, `rb_thread_kill`, `rb_thread_local_aref`, `rb_thread_local_aset`, `rb_thread_sleep_forever`, `rb_thread_sleep`, `rb_thread_wait_for`, `rb_mutex_new`, `rb_mutex_lock`, `rb_mutex_unlock`, `rb_mutex_trylock`, `rb_mutex_locked_p`, `rb_mutex_sleep`, `rb_mutex_synchronize`, `rb_thread_lock_native_thread`, `rb_internal_thread_add_event_hook`, `rb_internal_thread_remove_event_hook`, `rb_internal_thread_specific_key_create`, `rb_internal_thread_specific_get`, `rb_internal_thread_specific_set`
+`rb_thread_call_without_gvl`, `rb_thread_call_without_gvl2`, `rb_nogvl`, `rb_thread_call_with_gvl`, `ruby_native_thread_p`, `ruby_thread_has_gvl_p`, `rb_thread_check_ints`, `rb_thread_current`, `rb_thread_schedule`, `rb_ext_ractor_safe`, `rb_ractor_local_storage_value_newkey`, `rb_ractor_local_storage_value_lookup`, `rb_ractor_local_storage_value`, `rb_ractor_local_storage_value_set`, `rb_nativethread_lock_initialize`, `rb_nativethread_lock_destroy`, `rb_nativethread_lock_lock`, `rb_nativethread_lock_unlock`, `rb_thread_io_blocking_region`, `rb_thread_create`, `rb_thread_alone`, `rb_thread_main`, `rb_thread_stop`, `rb_thread_run`, `rb_thread_wakeup`, `rb_thread_wakeup_alive`, `rb_thread_kill`, `rb_thread_local_aref`, `rb_thread_local_aset`, `rb_thread_sleep_forever`, `rb_thread_sleep_deadly`, `rb_thread_sleep`, `rb_thread_wait_for`, `rb_mutex_new`, `rb_mutex_lock`, `rb_mutex_unlock`, `rb_mutex_trylock`, `rb_mutex_locked_p`, `rb_mutex_sleep`, `rb_mutex_synchronize`, `rb_thread_lock_native_thread`, `rb_internal_thread_add_event_hook`, `rb_internal_thread_remove_event_hook`, `rb_internal_thread_specific_key_create`, `rb_internal_thread_specific_get`, `rb_internal_thread_specific_set`
 
 ## time
 
