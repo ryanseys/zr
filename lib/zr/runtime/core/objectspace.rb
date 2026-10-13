@@ -188,10 +188,6 @@ module ObjectSpace
     objects.size
   end
 
-  # The ids of false, nil and true.
-  SPECIAL_IDS = { 0 => false, 4 => nil, 20 => true }.freeze
-  private_constant :SPECIAL_IDS
-
   # The kernel fills the Hash and makes no object while it counts
   # (zr_objspace_count_into), as CRuby's C makes none.
   def count_objects(result = {})
@@ -200,50 +196,6 @@ module ObjectSpace
     # Each key that it already has counts 0, as set_zero leaves it.
     result.each_key { |key| result[key] = 0 }
     Primitive.zr_objspace_count_into(result)
-  end
-
-  # id2ref: an id that is a special constant's own word gives that
-  # constant; any other names a cell. With more than one ractor, only a
-  # shareable object comes back.
-  def _id2ref(id)
-    Warning.send(:deprecated, "ObjectSpace._id2ref is deprecated")
-    id = to_integer(id)
-    # NUM2PTR: an id of eight bytes or fewer must fit a pointer.
-    raise RangeError, "bignum out of range of unsigned long" if id < -(2**63) && id > -(2**64)
-
-    found = id.between?(-(2**63), (2**64) - 1) ? immediate_of(id) : false
-    if found.equal?(false)
-      found = Primitive.zr_objspace_id2ref(id)
-      raise RangeError, "#{id} is #{id >= Primitive.zr_objspace_next_id ? 'not an id value' : 'a recycled object'}" if found.nil?
-    else
-      found = found.first
-    end
-    if Ractor.send(:multi?) && !Ractor.shareable?(found)
-      raise RangeError, "#{id} is the id of an unshareable object on multi-ractor"
-    end
-
-    found
-  end
-
-  # The constant whose word `id` is, in a one-item Array, or false for a
-  # word that names a cell.
-  def immediate_of(id)
-    Primitive.attr! :hidden
-    word = id & ((2**64) - 1)
-    return [SPECIAL_IDS[word]] if SPECIAL_IDS.key?(word)
-    return [(word >= 2**63 ? word - (2**64) : word) >> 1] if word.odd?
-
-    high = word >> 32
-    low = word & 0xFFFF_FFFF
-    return [Primitive.zr_objspace_word_value(high, low)] if (word & 3) == 2
-    if (word & 0xFF) == 0x0C
-      raise RangeError, "0x#{format('%016x', word)} is not a symbol id value" unless Primitive.zr_objspace_symbol_word_p(high, low)
-
-      return [Primitive.zr_objspace_word_value(high, low)]
-    end
-    raise RangeError, "#{id} is not an id value" unless (word & 7).zero?
-
-    false
   end
 end
 

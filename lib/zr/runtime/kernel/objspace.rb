@@ -149,52 +149,6 @@ module Zr::Kern
     out
   end
 
-  # The live object whose object_id is `id`, or nil. An object has an id
-  # only after a call to its object_id.
-  #: (value) -> value
-  def zr_objspace_id2ref(id)
-    a = 0
-    while a < Heap[zr_heap()].arenas
-      base = zr_arena_at(a)
-      first = zr_arena_first(base)
-      bytes = ArenaHead[base].cell
-      i = zr_arena_next_allocated(base, 0)
-      while i < ARENA_CELLS
-        v = Machine.value(first + (i * bytes))
-        if zr_objspace_visible_p(v)
-          t = zr_ivtab(v)
-          if t != 0 && zr_ivtab_get(t, Machine.id(:__object_id__)) == id
-            return v
-          end
-        end
-        i = zr_arena_next_allocated(base, i + 1)
-      end
-      a += 1
-    end
-    Machine.value(QNIL)
-  end
-
-  # The special constant whose word an id is, given as its high and low
-  # 32 bits. Only `_id2ref` calls this, for a word that it checked is an
-  # immediate's.
-  #: (value, value) -> value
-  def zr_objspace_word_value(high, low)
-    Machine.value(Machine.shl_wrap(Machine.word(zr_fix2long(high)), 32) | Machine.word(zr_fix2long(low)))
-  end
-
-  # The id that the next object to ask for one gets.
-  #: () -> value
-  def zr_objspace_next_id
-    zr_fix(Machine.load64(Machine.static(:object_id_counter, 8), 0) + 8)
-  end
-
-  # Whether a Symbol's word names a symbol that exists.
-  #: (value, value) -> value
-  def zr_objspace_symbol_word_p(high, low)
-    w = (Machine.word(zr_fix2long(high)) << 32) | Machine.word(zr_fix2long(low))
-    zr_bool((w >> 8) < zr_static_symbol_count() + Symtab[zr_symtab()].len)
-  end
-
   # The objects that `v` refers to, as the collector reads them: its class,
   # then its children in mark order, each one time. The mark puts them on
   # the mark stack, where this code reads them and clears their marks. No

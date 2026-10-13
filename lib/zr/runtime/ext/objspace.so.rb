@@ -74,13 +74,6 @@ module ObjectSpace
     result.update(mortal_dynamic_symbol: 0, immortal_dynamic_symbol: 0, immortal_static_symbol: total, immortal_symbol: total)
   end
 
-  # A program here keeps no parse nodes once it is compiled.
-  def count_nodes(result = {})
-    raise TypeError, "non-hash given" unless result.is_a?(Hash)
-
-    result
-  end
-
   def count_tdata_objects(result = {})
     raise TypeError, "non-hash given" unless result.is_a?(Hash)
 
