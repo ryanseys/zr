@@ -48,8 +48,11 @@ module Zr
         # win32ole and win32-registry work only on Windows, which zr does not
         # target.
         %w[win32ole win32-registry].each { |name| want.delete(name) } unless Gem.win_platform?
+        # A vendored port is the gem as rubygems.org has it. A ruby that is
+        # not a release can carry its own copy at the same version, built
+        # from its tree, with other code, as a preview's json does.
         Library::Ports::ALL.each do |name, port|
-          want[name] = port.version if want.key?(name) || stock_defaults[name] != port.version
+          want[name] = port.version if want.key?(name) || port.vendored || stock_defaults[name] != port.version
         end
         want.sort.to_h
       end

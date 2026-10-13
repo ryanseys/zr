@@ -4,4 +4,4 @@ NoMethodError: undefined method 'fast_generate' for module JSON
 "{\"a\"_:1}"
 "{\"k\":\"\\u00e9\"}"
 "\"<\\/script>\""
-JSON::NestingError: nesting of 3 is too deep. Did you try to serialize objects with circular references?
+JSON::NestingError: nesting of 2 is too deep. Did you try to serialize objects with circular references?
