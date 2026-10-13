@@ -9,11 +9,14 @@ module OpenSSL
     X509_STORE_set_verify_cb: [%i[pointer pointer], :void],
     X509_STORE_set_ex_data: [%i[pointer int pointer], :int],
     X509_STORE_get_ex_data: [%i[pointer int], :pointer],
-    X509_STORE_set_flags: [%i[pointer ulong], :int],
     X509_STORE_set_purpose: [%i[pointer int], :int],
     X509_STORE_set_trust: [%i[pointer int], :int],
     X509_STORE_get0_param: [%i[pointer], :pointer],
     X509_VERIFY_PARAM_set_time: [%i[pointer long], :void],
+    X509_VERIFY_PARAM_get_flags: [%i[pointer], :ulong],
+    X509_VERIFY_PARAM_set_flags: [%i[pointer ulong], :int],
+    X509_VERIFY_PARAM_clear_flags: [%i[pointer ulong], :int],
+    X509_STORE_CTX_get0_param: [%i[pointer], :pointer],
     X509_STORE_add_lookup: [%i[pointer pointer], :pointer],
     X509_LOOKUP_file: [[], :pointer],
     X509_LOOKUP_hash_dir: [[], :pointer],
@@ -35,7 +38,6 @@ module OpenSSL
     X509_STORE_CTX_get_current_cert: [%i[pointer], :pointer],
     X509_STORE_CTX_get0_current_crl: [%i[pointer], :pointer],
     X509_STORE_CTX_get0_chain: [%i[pointer], :pointer],
-    X509_STORE_CTX_set_flags: [%i[pointer ulong], :void],
     X509_STORE_CTX_set_purpose: [%i[pointer int], :int],
     X509_STORE_CTX_set_trust: [%i[pointer int], :int],
     X509_STORE_CTX_set_time: [%i[pointer ulong long], :void],
@@ -90,6 +92,24 @@ module OpenSSL
     class << self
       # GetX509StorePtr.
       def x509store(object) = X509_STORE.fetch(object)
+
+      # x509vpm_set_flags_i: the flags are added to the ones set, which
+      # ruby says once they do not already cover.
+      def vpm_set_flags(vpm, flags)
+        value = ulong(flags)
+        if (Lib.X509_VERIFY_PARAM_get_flags(vpm) | value) != value
+          warn("`obj.flags = new_flags` does not clear existing flags; " \
+               "use `obj.clear_flags` first if you want to replace them, " \
+               "or `obj.flags |= new_flags` to indicate that appending flags is intentional")
+        end
+        raise error(X509::StoreError, "X509_VERIFY_PARAM_set_flags") if Lib.X509_VERIFY_PARAM_set_flags(vpm, value).zero?
+      end
+
+      # x509vpm_clear_flags_i: all the flags when `flags` is nil.
+      def vpm_clear_flags(vpm, flags)
+        value = flags.nil? ? (1 << 64) - 1 : ulong(flags)
+        raise error(X509::StoreError, "X509_VERIFY_PARAM_clear_flags") if Lib.X509_VERIFY_PARAM_clear_flags(vpm, value).zero?
+      end
 
       # ossl_verify_cb_call: `proc`'s verdict on the chain the library
       # built so far, as a StoreContext over `ctx` for the length of the
@@ -163,10 +183,16 @@ module OpenSSL
         callback
       end
 
+      def flags = Lib.X509_VERIFY_PARAM_get_flags(Lib.X509_STORE_get0_param(Ossl.x509store(self)))
+
       def flags=(flags)
-        value = Ossl.long(flags)
-        Lib.X509_STORE_set_flags(Ossl.x509store(self), value)
+        Ossl.vpm_set_flags(Lib.X509_STORE_get0_param(Ossl.x509store(self)), flags)
         flags
+      end
+
+      def clear_flags(flags = nil)
+        Ossl.vpm_clear_flags(Lib.X509_STORE_get0_param(Ossl.x509store(self)), flags)
+        nil
       end
 
       def purpose=(purpose)
@@ -301,10 +327,16 @@ module OpenSSL
         crl.zero? ? nil : Ossl.x509crl_new(crl)
       end
 
+      def flags = Lib.X509_VERIFY_PARAM_get_flags(Lib.X509_STORE_CTX_get0_param(Ossl::X509_STORE_CTX.fetch(self)))
+
       def flags=(flags)
-        value = Ossl.long(flags)
-        Lib.X509_STORE_CTX_set_flags(Ossl::X509_STORE_CTX.fetch(self), value)
+        Ossl.vpm_set_flags(Lib.X509_STORE_CTX_get0_param(Ossl::X509_STORE_CTX.fetch(self)), flags)
         flags
+      end
+
+      def clear_flags(flags = nil)
+        Ossl.vpm_clear_flags(Lib.X509_STORE_CTX_get0_param(Ossl::X509_STORE_CTX.fetch(self)), flags)
+        nil
       end
 
       def purpose=(purpose)

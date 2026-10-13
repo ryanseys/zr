@@ -1,0 +1,2 @@
+stdlib/openssl/store_flags_add_and_clear_and_ssl_io_is_one_call_methods.rb:22: warning: `obj.flags = new_flags` does not clear existing flags; use `obj.clear_flags` first if you want to replace them, or `obj.flags |= new_flags` to indicate that appending flags is intentional
+stdlib/openssl/store_flags_add_and_clear_and_ssl_io_is_one_call_methods.rb:37: warning: `obj.flags = new_flags` does not clear existing flags; use `obj.clear_flags` first if you want to replace them, or `obj.flags |= new_flags` to indicate that appending flags is intentional

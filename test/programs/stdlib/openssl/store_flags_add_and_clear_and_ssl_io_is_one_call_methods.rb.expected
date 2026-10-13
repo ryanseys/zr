@@ -1,0 +1,26 @@
+new store: 0
+set: 4
+flags: true
+add: 524288
+both: true
+clear one: nil
+one left: true
+clear all: nil
+none: 0
+or-assign: 4
+covering: 524292
+bad flags: TypeError: no implicit conversion of String into Integer
+clear bad: TypeError: no implicit conversion of String into Integer
+context flags: 557060
+context clear: nil
+context left: 32772
+context add: 524288
+context both: 557060
+private: [true, true, true, true, true]
+public: [true, true, true, true]
+read before start: OpenSSL::SSL::SSLError: SSL session is not started yet
+write before start: OpenSSL::SSL::SSLError: SSL session is not started yet
+capacity: ["", #<Encoding:BINARY (ASCII-8BIT)>]
+capacity type: TypeError: no implicit conversion of String into Integer
+nonblock connect: :wait_readable
+nonblock connect raises: OpenSSL::SSL::SSLErrorWaitReadable: read would block

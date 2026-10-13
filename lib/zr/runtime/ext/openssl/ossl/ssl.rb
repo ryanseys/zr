@@ -539,16 +539,6 @@ module OpenSSL
         true
       end
 
-      # no_exception_p.
-      def no_exception?(options) = options.is_a?(Hash) && options.fetch(:exception, nil) == false
-
-      # io_wait_readable and io_wait_writable, under the IO's timeout.
-      def io_wait(io, events, what)
-        return if io.wait(events, io.timeout)
-
-        raise IO::TimeoutError, "Timed out while waiting to become #{what}!"
-      end
-
       # A callback's exception, raised once the SSL call returns.
       def raise_callback_state(socket, keep: false)
         state = Native.hidden_get(socket, :callback_state)
@@ -566,35 +556,29 @@ module OpenSSL
         "(null)"
       end
 
-      # ossl_start_ssl: SSL_connect or SSL_accept until it completes, waits,
-      # or fails.
-      def start_ssl(socket, function, name, options)
-        nonblock = options != false
+      # ossl_start_ssl: one SSL_connect or SSL_accept: the socket once the
+      # handshake is done, or what it waits for; SSLSocket#connect and
+      # #accept wait and call again.
+      def start_ssl(socket, function, name)
         Native.hidden_set(socket, :callback_state, nil)
         ssl = ssl(socket)
         io = socket.instance_variable_get(:@io)
         loop do
           answer, errno = Lib.public_send(function, ssl)
           raise_callback_state(socket, keep: true)
-          break if answer.positive?
-
           code = Lib.SSL_get_error(ssl, answer)
           case code
-          when Lib::SSL_ERROR_WANT_WRITE
-            return :wait_writable if no_exception?(options)
-            raise error(OpenSSL::SSL::SSLErrorWaitWritable, "write would block") if nonblock
-
-            io_wait(io, IO::WRITABLE, "writable")
-            next
-          when Lib::SSL_ERROR_WANT_READ
-            return :wait_readable if no_exception?(options)
-            raise error(OpenSSL::SSL::SSLErrorWaitReadable, "read would block") if nonblock
-
-            io_wait(io, IO::READABLE, "readable")
-            next
+          when Lib::SSL_ERROR_NONE then return socket
+          when Lib::SSL_ERROR_WANT_WRITE then return :wait_writable
+          when Lib::SSL_ERROR_WANT_READ then return :wait_readable
           when Lib::SSL_ERROR_SYSCALL
-            next if RUBY_PLATFORM.include?("darwin") && errno == Errno::EPROTOTYPE::Errno
-            raise SystemCallError.new(name, errno) unless errno.zero?
+            unless errno.zero?
+              clear_error
+              # See ssl_write.
+              next if RUBY_PLATFORM.include?("darwin") && errno == Errno::EPROTOTYPE::Errno
+
+              raise SystemCallError.new(name, errno)
+            end
           end
           append = ""
           last = Lib.ERR_peek_last_error
@@ -608,73 +592,50 @@ module OpenSSL
                       "#{name}#{" SYSCALL" if code == Lib::SSL_ERROR_SYSCALL} returned=#{code} errno=#{errno} " \
                       "peeraddr=#{peer_ip(io)} state=#{Lib.SSL_state_string_long(ssl)}#{append}")
         end
-        socket
       end
 
-      # ossl_ssl_read_internal.
-      def ssl_read(socket, length, buffer, nonblock, options)
+      # ossl_ssl_read: one SSL_read of at most `length` bytes into
+      # `buffer`: the buffer, nil at the end of the stream, or what it
+      # waits for.
+      def ssl_read(socket, length, buffer)
         ssl = ssl(socket)
         raise OpenSSL::SSL::SSLError, "SSL session is not started yet" unless ssl_started?(ssl)
 
         length = int(length)
-        unless buffer.nil?
-          buffer = string_value(buffer)
-          check_frozen(buffer)
-        end
-        if length.zero?
-          return "".b if buffer.nil?
+        buffer = string_value(buffer)
+        check_frozen(buffer)
+        return buffer.clear if length.zero?
 
-          return buffer.clear
-        end
-        io = socket.instance_variable_get(:@io)
         out = Lib.buffer(length)
-        loop do
-          count, errno = Lib.SSL_read_errno(ssl, out, length)
-          raise_callback_state(socket)
-          case Lib.SSL_get_error(ssl, count)
-          when Lib::SSL_ERROR_NONE
-            data = out.byteslice(0, count)
-            return data if buffer.nil?
-
-            return buffer.replace(data.force_encoding(buffer.encoding))
-          when Lib::SSL_ERROR_ZERO_RETURN
-            return nil if no_exception?(options)
-
-            raise EOFError, "end of file reached"
-          when Lib::SSL_ERROR_WANT_WRITE
-            if nonblock
-              return :wait_writable if no_exception?(options)
-
-              raise error(OpenSSL::SSL::SSLErrorWaitWritable, "write would block")
-            end
-            io_wait(io, IO::WRITABLE, "writable")
-          when Lib::SSL_ERROR_WANT_READ
-            if nonblock
-              return :wait_readable if no_exception?(options)
-
-              raise error(OpenSSL::SSL::SSLErrorWaitReadable, "read would block")
-            end
-            io_wait(io, IO::READABLE, "readable")
-          when Lib::SSL_ERROR_SYSCALL
-            raise error(OpenSSL::SSL::SSLError, "SSL_read") unless Lib.ERR_peek_error.zero?
-            raise SystemCallError.new("SSL_read", errno) unless errno.zero?
-            return nil if no_exception?(options)
-
-            raise EOFError, "end of file reached"
-          else
-            raise error(OpenSSL::SSL::SSLError, "SSL_read")
+        count, errno = Lib.SSL_read_errno(ssl, out, length)
+        raise_callback_state(socket)
+        case Lib.SSL_get_error(ssl, count)
+        when Lib::SSL_ERROR_NONE then buffer.replace(out.byteslice(0, count).force_encoding(buffer.encoding))
+        when Lib::SSL_ERROR_ZERO_RETURN then nil
+        when Lib::SSL_ERROR_WANT_WRITE then :wait_writable
+        when Lib::SSL_ERROR_WANT_READ then :wait_readable
+        when Lib::SSL_ERROR_SYSCALL
+          unless errno.zero?
+            clear_error
+            raise SystemCallError.new("SSL_read", errno)
           end
+          # The peer closed the connection with no shutdown of TLS, which
+          # counts as the end of the stream.
+          return nil if Lib.ERR_peek_error.zero?
+
+          raise error(OpenSSL::SSL::SSLError, "SSL_read")
+        else
+          raise error(OpenSSL::SSL::SSLError, "SSL_read")
         end
       end
 
-      # ossl_ssl_write_internal.
-      def ssl_write(socket, data, options)
-        data = string_value(data)
-        nonblock = options != false
+      # ossl_ssl_write: one SSL_write of `data`: the bytes written, or what
+      # it waits for.
+      def ssl_write(socket, data)
         ssl = ssl(socket)
         raise OpenSSL::SSL::SSLError, "SSL session is not started yet" unless ssl_started?(ssl)
 
-        io = socket.instance_variable_get(:@io)
+        data = string_value(data)
         length = int(data.bytesize)
         return 0 if length.zero?
 
@@ -683,24 +644,19 @@ module OpenSSL
           raise_callback_state(socket)
           case Lib.SSL_get_error(ssl, written)
           when Lib::SSL_ERROR_NONE then return written
-          when Lib::SSL_ERROR_WANT_WRITE
-            return :wait_writable if no_exception?(options)
-            raise error(OpenSSL::SSL::SSLErrorWaitWritable, "write would block") if nonblock
-
-            io_wait(io, IO::WRITABLE, "writable")
-          when Lib::SSL_ERROR_WANT_READ
-            return :wait_readable if no_exception?(options)
-            raise error(OpenSSL::SSL::SSLErrorWaitReadable, "read would block") if nonblock
-
-            io_wait(io, IO::READABLE, "readable")
+          when Lib::SSL_ERROR_WANT_WRITE then return :wait_writable
+          when Lib::SSL_ERROR_WANT_READ then return :wait_readable
           when Lib::SSL_ERROR_SYSCALL
-            next if RUBY_PLATFORM.include?("darwin") && errno == Errno::EPROTOTYPE::Errno
-            raise SystemCallError.new("SSL_write", errno) unless errno.zero?
+            unless errno.zero?
+              clear_error
+              # send(2) on macOS can fail with EPROTOTYPE while the socket
+              # is torn down; the next try gives the real errno (#14713).
+              next if RUBY_PLATFORM.include?("darwin") && errno == Errno::EPROTOTYPE::Errno
 
-            raise error(OpenSSL::SSL::SSLError, "SSL_write")
-          else
-            raise error(OpenSSL::SSL::SSLError, "SSL_write")
+              raise SystemCallError.new("SSL_write", errno)
+            end
           end
+          raise error(OpenSSL::SSL::SSLError, "SSL_write")
         end
       end
 
@@ -970,29 +926,28 @@ module OpenSSL
 
       undef_method :initialize_copy if private_method_defined?(:initialize_copy)
 
-      def connect
+      # The handshake, read and write calls: one call each, which
+      # openssl/ssl.rb's connect, accept, sysread and syswrite wait for
+      # and repeat.
+      private def ssl_connect
         Ossl.ssl_setup(self)
-        Ossl.start_ssl(self, :SSL_connect_errno, "SSL_connect", false)
+        Ossl.start_ssl(self, :SSL_connect_errno, "SSL_connect")
       end
 
-      def connect_nonblock(**options)
+      private def ssl_accept
         Ossl.ssl_setup(self)
-        Ossl.start_ssl(self, :SSL_connect_errno, "SSL_connect", options.empty? ? nil : options)
+        Ossl.start_ssl(self, :SSL_accept_errno, "SSL_accept")
       end
 
-      def accept
-        Ossl.ssl_setup(self)
-        Ossl.start_ssl(self, :SSL_accept_errno, "SSL_accept", false)
+      # rb_str_buf_new: an empty binary String for a read of `length`.
+      private def string_new_capacity(length)
+        Ossl.long(length)
+        +"".b
       end
 
-      def accept_nonblock(**options)
-        Ossl.ssl_setup(self)
-        Ossl.start_ssl(self, :SSL_accept_errno, "SSL_accept", options.empty? ? nil : options)
-      end
+      private def ssl_read(length, buffer) = Ossl.ssl_read(self, length, buffer)
 
-      def sysread(length, buffer = nil) = Ossl.ssl_read(self, length, buffer, false, nil)
-
-      def syswrite(data) = Ossl.ssl_write(self, data, false)
+      private def ssl_write(data) = Ossl.ssl_write(self, data)
 
       def cert
         certificate = Lib.SSL_get_certificate(Ossl.ssl(self))
