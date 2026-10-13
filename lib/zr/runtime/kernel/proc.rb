@@ -832,15 +832,16 @@ module Zr::Kern
   # 2,000,000 elements, three times, took 1.237 s that way, against ruby's
   # 0.670 s and YJIT's 0.631 s. Here it takes 0.542 s.
   #
-  # `out` gets the values as the element was yielded, not packed, so the
-  # result of the enumerator does not change: the next stage packs them
-  # again if it must.
-  #: (value, word, value, value) -> value
-  def zr_lazy_stage(recv, kind, blk, out)
-    kept = zr_ary_new(3)
+  # `out` gets the values that the stage keeps as the element was
+  # yielded, for the next stage; packed in one when `packing`, for the
+  # block of the lazy's own `each`.
+  #: (value, word, value, value, value) -> value
+  def zr_lazy_stage(recv, kind, blk, out, packing)
+    kept = zr_ary_new(4)
     zr_ary_push(kept, zr_fix(kind))
     zr_ary_push(kept, blk)
     zr_ary_push(kept, out)
+    zr_ary_push(kept, packing)
     p = zr_native_proc(Machine.addr(:zr_lazy_stage_block), kept)
     r = zr_enum_send_each(recv, 0, 0, p)
     return r if r == QUNDEF
@@ -855,19 +856,25 @@ module Zr::Kern
   def zr_lazy_stage_block(p, argc, argv, blk)
     kept = RProc[p].self
     kind = zr_fix2long(zr_ary_at(kept, 0))
-    # select and reject call their block with one value, several yielded
-    # values packed in an Array (lazy_select_proc); map and filter_map
-    # pass the values on as they came.
-    if argc > 1 && (kind == LAZY_SELECT || kind == LAZY_REJECT)
+    # Each stage reads the yielded values as one (rb_enum_values_pack): nil
+    # for none, an Array for several, which the next stage gets. The block of
+    # select and reject gets it too; the block of map and filter_map gets
+    # several values as they came.
+    packed = Machine.value(QNIL)
+    if argc == 1
+      packed = Machine.value(Machine.load64(argv, 0))
+    elsif argc > 1
       packed = zr_ary_new(argc)
       i = 0
       while i < argc
         zr_ary_push(packed, Machine.value(Machine.load64(argv + (i * 8), 0)))
         i += 1
       end
-      v = zr_yield1(zr_ary_at(kept, 1), packed)
-    else
+    end
+    if argc > 1 && (kind == LAZY_MAP || kind == LAZY_FILTER_MAP)
       v = zr_yield(zr_ary_at(kept, 1), argc, argv)
+    else
+      v = zr_yield1(zr_ary_at(kept, 1), packed)
     end
     return v if v == QUNDEF
     out = zr_ary_at(kept, 2)
@@ -888,31 +895,34 @@ module Zr::Kern
     if kind == LAZY_REJECT
       kept_p = !kept_p
     end
-    if kept_p
+    if kept_p && zr_ary_at(kept, 3) == QFALSE
       r = zr_yield(out, argc, argv)
+      return r if r == QUNDEF
+    elsif kept_p
+      r = zr_yield1(out, packed)
       return r if r == QUNDEF
     end
     Machine.value(QNIL)
   end
 
-  #: (value, value, value) -> value
-  def zr_lazy_map(recv, blk, out)
-    zr_lazy_stage(recv, LAZY_MAP, blk, out)
+  #: (value, value, value, value) -> value
+  def zr_lazy_map(recv, blk, out, packing)
+    zr_lazy_stage(recv, LAZY_MAP, blk, out, packing)
   end
 
-  #: (value, value, value) -> value
-  def zr_lazy_select(recv, blk, out)
-    zr_lazy_stage(recv, LAZY_SELECT, blk, out)
+  #: (value, value, value, value) -> value
+  def zr_lazy_select(recv, blk, out, packing)
+    zr_lazy_stage(recv, LAZY_SELECT, blk, out, packing)
   end
 
-  #: (value, value, value) -> value
-  def zr_lazy_reject(recv, blk, out)
-    zr_lazy_stage(recv, LAZY_REJECT, blk, out)
+  #: (value, value, value, value) -> value
+  def zr_lazy_reject(recv, blk, out, packing)
+    zr_lazy_stage(recv, LAZY_REJECT, blk, out, packing)
   end
 
-  #: (value, value, value) -> value
-  def zr_lazy_filter_map(recv, blk, out)
-    zr_lazy_stage(recv, LAZY_FILTER_MAP, blk, out)
+  #: (value, value, value, value) -> value
+  def zr_lazy_filter_map(recv, blk, out, packing)
+    zr_lazy_stage(recv, LAZY_FILTER_MAP, blk, out, packing)
   end
 
   # Returns a lambda whose body is the kernel function `fn`, with `self_`

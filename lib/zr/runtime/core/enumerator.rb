@@ -689,8 +689,9 @@ end
 # A lazy enumerator is an Enumerator whose `each` runs a chain of steps.
 # Each lazy has one Step: the receiver it reads, and the runner that
 # streams the output to the block that `each` gets. A step that stops
-# early breaks out of its receiver's `each`. A step's yields keep the
-# receiver's value packing unless CRuby's step passes one value.
+# early breaks out of its receiver's `each`. A step reads each value its
+# receiver yields as one (rb_enum_values_pack: nil for none, an Array for
+# several), and its block and the next step get that one value.
 # `inspect` shows the receiver, method and arguments that made the lazy.
 # CRuby keeps these separate from what `each` runs, and so does this file.
 class Enumerator::Lazy < Enumerator
@@ -861,7 +862,9 @@ class Enumerator::Lazy < Enumerator
   # `receiver`, `method` and `args`; a false `method` shows none.
   def chain(receiver, method, runner, block: nil, args: [], kwargs: {}, &size)
     Primitive.attr! :hidden
-    enumerate(Step.new(receiver, method, runner, block, args, kwargs), :each, [], {}, size)
+    step = Step.new(receiver, method, runner, block, args, kwargs)
+    Primitive.zr_hidden_set(self, :__step__, step)
+    enumerate(step, :each, [], {}, size)
     @shown = [receiver, method, args, kwargs]
     self
   end
@@ -879,6 +882,13 @@ class Enumerator::Lazy < Enumerator
   # What a lazy's `each` runs: its receiver, through one runner. Each
   # runner sends `each` to its receiver by name, as CRuby's
   # lazy_init_iterator does, so a program's own `each` is called.
+  #
+  # Values pass from step to step as their source yielded them, as
+  # CRuby's memo keeps several values packed with a flag: the block of map,
+  # filter_map, flat_map, take_while and drop_while gets them apart, and
+  # every other block gets them packed in one (rb_enum_values_pack: nil
+  # for none, an Array for several). The block of the lazy's own `each`
+  # gets them packed.
   class Step
     Primitive.attr! :sends_each
 
@@ -896,43 +906,71 @@ class Enumerator::Lazy < Enumerator
     def each(*extra, &)
       return @receiver.each(*extra, &) if @runner == :run_each
 
-      __send__(@runner, &)
+      __send__(@runner, true, &)
+    end
+
+    # The values for the step after this one, not packed.
+    def each_raw(&)
+      return @receiver.each(&) if @runner == :run_each
+
+      __send__(@runner, false, &)
+    end
+
+    # A lazy that reads another of the core's lazies (and not a subclass,
+    # whose `each` the program may define) reads its values as they came.
+    class Raw
+      def initialize(step) = @step = step
+      def each(&) = @step.each_raw(&)
     end
 
     private
 
-    def run_each(&)
+    def source
+      return @receiver unless Primitive.zr_real_class(@receiver).equal?(Enumerator::Lazy)
+
+      step = Primitive.zr_hidden_get(@receiver, :__step__)
+      step ? Raw.new(step) : @receiver
+    end
+
+    # Gives `values` to `out`: packed in one value for the lazy's own
+    # `each`, apart for a step after this one.
+    def emit(out, packing, values)
+      packing ? out.call(Primitive.zr_enum_value(values)) : out.call(*values)
+    end
+
+    def run_each(_packing, &)
       @receiver.each(&)
     end
 
-    def run_new(&)
+    def run_new(_packing, &)
       block = @block
       y = Enumerator::Yielder.new(&)
-      @receiver.each { |*values| block.call(y, *values); nil }
+      source.each { |*values| block.call(y, *values); nil }
       nil
     end
 
     # The block's value goes back to the method, as enumerator_block_call
     # passes it: `lazy.to_enum(:chunk).each { ... }` chunks by it.
-    def run_send(&)
+    def run_send(_packing, &)
       @receiver.__send__(@method, *@args, **@kwargs, &)
     end
 
     # The four stages that keep no state go through the kernel's
     # adapter (zr_lazy_stage), which reads an element without the
     # `|*values|` Array the others pay once an element.
-    def run_map(&out) = Primitive.zr_lazy_map(@receiver, @block, out)
+    def run_map(packing, &out) = Primitive.zr_lazy_map(source, @block, out, packing)
 
-    def run_select(&out) = Primitive.zr_lazy_select(@receiver, @block, out)
+    def run_select(packing, &out) = Primitive.zr_lazy_select(source, @block, out, packing)
 
-    def run_reject(&out) = Primitive.zr_lazy_reject(@receiver, @block, out)
+    def run_reject(packing, &out) = Primitive.zr_lazy_reject(source, @block, out, packing)
 
-    def run_filter_map(&out) = Primitive.zr_lazy_filter_map(@receiver, @block, out)
+    def run_filter_map(packing, &out) = Primitive.zr_lazy_filter_map(source, @block, out, packing)
 
-    def run_flat_map
+    def run_flat_map(_packing)
       block = @block
-      @receiver.each do |*values|
-        result = block.call(*values)
+      source.each do |*values|
+        # The block gets several values as they came, and nil for none.
+        result = values.empty? ? block.call(nil) : block.call(*values)
         if !result.is_a?(Array) && result.respond_to?(:force) && result.respond_to?(:each)
           result.each { |v| yield v }
         elsif (items = Array.try_convert(result))
@@ -950,35 +988,35 @@ class Enumerator::Lazy < Enumerator
       nil
     end
 
-    def run_take_while
+    def run_take_while(packing, &out)
       block = @block
-      @receiver.each do |*values|
-        break unless block.call(*values)
+      source.each do |*values|
+        break unless values.empty? ? block.call(nil) : block.call(*values)
 
-        yield(*values)
+        emit(out, packing, values)
         nil
       end
       nil
     end
 
-    def run_drop_while
+    def run_drop_while(packing, &out)
       block = @block
       dropping = true
-      @receiver.each do |*values|
-        dropping = false if dropping && !block.call(*values)
-        yield(*values) unless dropping
+      source.each do |*values|
+        dropping = false if dropping && !(values.empty? ? block.call(nil) : block.call(*values))
+        emit(out, packing, values) unless dropping
         nil
       end
       nil
     end
 
-    def run_take
+    def run_take(packing, &out)
       n = @args[0]
       return nil if n == 0
 
       taken = 0
-      @receiver.each do |*values|
-        yield(*values)
+      source.each do |*values|
+        emit(out, packing, values)
         taken += 1
         break if taken == n
 
@@ -987,27 +1025,30 @@ class Enumerator::Lazy < Enumerator
       nil
     end
 
-    def run_drop
+    def run_drop(packing, &out)
       n = @args[0]
       seen = 0
-      @receiver.each do |*values|
-        yield(*values) if seen >= n
+      source.each do |*values|
+        emit(out, packing, values) if seen >= n
         seen += 1
         nil
       end
       nil
     end
 
-    def run_grep
+    def run_grep(packing, &out)
       pattern = @args[0]
-      @receiver.each { |*values| yield(*values) if pattern === Primitive.zr_enum_value(values); nil }
+      source.each do |*values|
+        emit(out, packing, values) if pattern === Primitive.zr_enum_value(values)
+        nil
+      end
       nil
     end
 
-    def run_grep_map
+    def run_grep_map(_packing)
       pattern = @args[0]
       block = @block
-      @receiver.each do |*values|
+      source.each do |*values|
         x = Primitive.zr_enum_value(values)
         yield block.call(x) if pattern === x
         nil
@@ -1015,16 +1056,19 @@ class Enumerator::Lazy < Enumerator
       nil
     end
 
-    def run_grep_v
+    def run_grep_v(packing, &out)
       pattern = @args[0]
-      @receiver.each { |*values| yield(*values) unless pattern === Primitive.zr_enum_value(values); nil }
+      source.each do |*values|
+        emit(out, packing, values) unless pattern === Primitive.zr_enum_value(values)
+        nil
+      end
       nil
     end
 
-    def run_grep_v_map
+    def run_grep_v_map(_packing)
       pattern = @args[0]
       block = @block
-      @receiver.each do |*values|
+      source.each do |*values|
         x = Primitive.zr_enum_value(values)
         yield block.call(x) unless pattern === x
         nil
@@ -1036,11 +1080,11 @@ class Enumerator::Lazy < Enumerator
     # and gives nil after it stops.
     # lazy_zip_arrays_func reads Arrays by index; once one argument is no
     # Array, lazy_zip_func walks each of them, Arrays too, with to_enum.
-    def run_zip
+    def run_zip(packing, &out)
       arrays = @args.all? { |other| other.is_a?(Array) }
       cursors = arrays ? @args : @args.map(&:to_enum)
       i = 0
-      @receiver.each do |*values|
+      source.each do |*values|
         row = [Primitive.zr_enum_value(values)]
         j = 0
         while j < Primitive.zr_ary_len_m(cursors)
@@ -1056,21 +1100,24 @@ class Enumerator::Lazy < Enumerator
                  end
           j += 1
         end
-        yield row
+        # The row keeps the source's packing: apart only where it packed
+        # several values (lazy_zip_func leaves the memo's flag).
+        emit(out, packing, values.size > 1 ? row : [row])
         i += 1
         nil
       end
       nil
     end
 
-    def run_uniq
+    def run_uniq(packing, &out)
       block = @block
       seen = {}
-      @receiver.each do |*values|
-        key = block ? block.call(*values) : Primitive.zr_enum_value(values)
+      source.each do |*values|
+        v = Primitive.zr_enum_value(values)
+        key = block ? block.call(v) : v
         unless seen.key?(key)
           seen[key] = true
-          yield(*values)
+          emit(out, packing, values)
         end
         nil
       end
@@ -1079,39 +1126,41 @@ class Enumerator::Lazy < Enumerator
 
     # lazy_tap_each_proc: the block gets the value, packed when the source
     # yields more than one.
-    def run_tap_each
+    def run_tap_each(packing, &out)
       block = @block
-      @receiver.each do |*values|
+      source.each do |*values|
         block.call(Primitive.zr_enum_value(values))
-        yield(*values)
+        emit(out, packing, values)
         nil
       end
       nil
     end
 
-    def run_compact
-      @receiver.each { |*values| yield(*values) unless Primitive.zr_enum_value(values).nil?; nil }
+    def run_compact(packing, &out)
+      source.each do |*values|
+        emit(out, packing, values) unless Primitive.zr_enum_value(values).nil?
+        nil
+      end
       nil
     end
 
-    def run_with_index
+    # lazy_with_index_proc: the value and its index, as two values.
+    def run_with_index(packing, &out)
       i = @args[0]
-      # lazy_with_index_proc packs the value and its index: two values.
-      @receiver.each do |*values|
-        yield Primitive.zr_enum_value(values), i
+      source.each do |*values|
+        emit(out, packing, [Primitive.zr_enum_value(values), i])
         i = implicit_integer(i) + 1
         nil
       end
       nil
     end
 
-    def run_with_index_each
+    def run_with_index_each(packing, &out)
       block = @block
       i = @args[0]
-      @receiver.each do |*values|
-        x = Primitive.zr_enum_value(values)
-        block.call(x, i)
-        yield x
+      source.each do |*values|
+        block.call(Primitive.zr_enum_value(values), i)
+        emit(out, packing, values)
         i = implicit_integer(i) + 1
         nil
       end
