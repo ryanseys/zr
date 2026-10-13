@@ -1,5 +1,0 @@
-core/fiber/set_scheduler_checks_and_closes_the_scheduler.rb:16:in 'Fiber.set_scheduler': Scheduler must implement #fiber_interrupt (ArgumentError)
-
-Fiber.set_scheduler(s)
-                    ^
-	from core/fiber/set_scheduler_checks_and_closes_the_scheduler.rb:16:in '<main>'

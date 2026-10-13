@@ -1,5 +1,5 @@
-# Fiber.set_scheduler checks the hooks a scheduler needs and warns of
-# fiber_interrupt; Fiber.schedule runs the fiber hook, a sleep in it
+# Fiber.set_scheduler checks the hooks a scheduler needs, fiber_interrupt
+# too since ruby 4.1; Fiber.schedule runs the fiber hook, a sleep in it
 # reaches kernel_sleep, and setting nil closes the scheduler.
 class S
   def initialize; @ready = []; @log = []; end
@@ -9,6 +9,7 @@ class S
   def unblock(blocker, fiber) = (@log << :unblock; @ready << fiber)
   def io_wait(io, events, timeout) = (@log << :io_wait; events)
   def fiber(&b) = Fiber.new(blocking: false, &b).tap(&:resume)
+  def fiber_interrupt(fiber, exception) = fiber.raise(exception)
   def close = (@log << :close)
   def run; end
 end
@@ -25,3 +26,14 @@ rescue ArgumentError => e
   p e.message
 end
 p((Fiber.schedule {} rescue $!))
+
+# Each hook but fiber_interrupt is not enough.
+class NoInterrupt < S
+  undef_method :fiber_interrupt
+end
+begin
+  Fiber.set_scheduler(NoInterrupt.new)
+rescue ArgumentError => e
+  p e.message
+end
+p Fiber.scheduler

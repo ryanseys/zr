@@ -1374,14 +1374,14 @@ class Fiber
     # The scheduler, while the current fiber does not block.
     def current_scheduler = current.blocking? ? nil : scheduler
 
-    # rb_fiber_scheduler_set: the hooks every scheduler needs, checked;
-    # the previous scheduler closed, so its fibers finish under it.
+    # rb_fiber_scheduler_set: the hooks every scheduler needs, checked
+    # (fiber_interrupt too since ruby 4.1); the previous scheduler closed,
+    # so its fibers finish under it.
     def set_scheduler(scheduler)
       unless scheduler.nil?
-        %i[block unblock kernel_sleep io_wait].each do |hook|
+        %i[block unblock kernel_sleep io_wait fiber_interrupt].each do |hook|
           raise ArgumentError, "Scheduler must implement ##{hook}" unless scheduler.respond_to?(hook)
         end
-        Primitive.zr_warn_here_m("Scheduler should implement #fiber_interrupt") unless scheduler.respond_to?(:fiber_interrupt)
       end
       Thread.current.send(:close_scheduler)
       Thread.current.send(:scheduler=, scheduler)
