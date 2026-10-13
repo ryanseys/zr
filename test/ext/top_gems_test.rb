@@ -388,10 +388,13 @@ RUBY
   # each allocation, each program takes minutes, past a test's bound.
   UNSTRESSED = %w[bson byebug rbs].freeze
   # unf_ext's C++ throws exceptions, which only dyld's unwinder handles:
-  # its bundle loads with dlopen. On Linux zr builds zstd-ruby's C as
+  # its bundle loads with dlopen. On darwin puma's bundle loads the
+  # libssl of a package manager, which only a bundle that dlopen loads
+  # may do. On Linux zr builds zstd-ruby's C as
   # ruby's install did there: Alpine's fortified headers stop zstd's
   # C unless _FORTIFY_SOURCE is off (tool/install_reference_gems.rb).
   BUILD_ENVS = { "unf_ext" => { "ZR_EXT" => "dynamic" },
+                 "puma" => Zr::Target::AARCH64_DARWIN.native? ? { "ZR_EXT" => "dynamic" } : {},
                  "zstd-ruby" => Zr::Target::AARCH64_DARWIN.native? ? {} : { "ZR_EXT_CONFIG" => "zstd-ruby=--with-cflags=-U_FORTIFY_SOURCE" } }.freeze
 
   # The gems whose activation needs another gem of Reference::NATIVE,
