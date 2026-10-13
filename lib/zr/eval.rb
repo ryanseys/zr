@@ -22,6 +22,7 @@ module Zr
     # @rbs @count: Integer
     # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
     # @rbs @files: Hash[[String, String], Integer]
+    # @rbs @scripts: Array[String]
 
     # Two threads can eval at the same time. Only one of them loads the
     # compiler, and the other waits until the load is complete.
@@ -76,6 +77,7 @@ module Zr
       @count = 0
       @compiled = {}
       @files = {}
+      @scripts = []
     end
 
     # Compiles `source`. Returns the toplevel's address, its FrameMeta
@@ -159,6 +161,10 @@ module Zr
       end
     end
 
+    # The spots (Hir::Spots) of the eval that `kept_script` numbered.
+    #: (Integer number) -> String
+    def script_spots(number) = @scripts.fetch(number - 1)
+
     private
 
     # The Coverage module, when the program loaded it. It is reached by a
@@ -191,7 +197,9 @@ module Zr
       # in a program built without trace events, so under them each eval
       # compiles. So does an eval that takes `using` entries.
       plain_new = plain_new?
-      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now, debug_frozen, plain_new]
+      keep = keep_script_lines?
+      key = [-string(source), string(source).encoding, -string(file), line.to_int, scopes, method, using, warn_now, debug_frozen, plain_new,
+             keep]
       reuse = coverage.nil? && !@runtime.traced_for_now?
       if reuse && (kept = @compiled[key])
         raise kept.dup if kept.is_a?(Exception)
@@ -210,7 +218,7 @@ module Zr
       begin
         hir = Hir.build(string(source), string(file), eval_support: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
                                                       activations: @runtime.activations, trace: @runtime.tracing?, using: using,
-                                                      switches: debug_frozen ? Hir::Switches.new(debug_frozen_string_literal: true) : Hir::Switches::NONE)
+                                                      switches: Hir::Switches.new(debug_frozen_string_literal: debug_frozen, keep_script_lines: keep))
       rescue Hir::Invalid, SyntaxError => e
         @compiled[key] = e.dup if reuse
         raise
@@ -232,13 +240,31 @@ module Zr
         no_defs = {} #: Hash[String, Array[Array[Integer]]]
         coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, no_defs, true)
       end
-      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new).run
+      script = keep ? kept_script(hir.spots.fetch(string(file), "")) : 0
+      functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new,
+                                                                   script: script).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
       code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"),
               metas, hir.using] #: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
       @compiled[key] = code if reuse && hir.activations == taken
       code
+    end
+
+    # Keeps an eval's spots, as ruby keeps its script lines: its
+    # Locations then find their source ranges. The number starts at 1.
+    #: (String spots) -> Integer
+    def kept_script(spots)
+      @scripts << spots
+      @scripts.size
+    end
+
+    # Whether ruby keeps the script lines of the code that it compiles
+    # (RubyVM.keep_script_lines).
+    #: () -> bool
+    def keep_script_lines?
+      vm = Object.const_get(:RubyVM) #: untyped
+      vm.keep_script_lines ? true : false
     end
 
     # Whether the program turned off CRuby's specialized instructions

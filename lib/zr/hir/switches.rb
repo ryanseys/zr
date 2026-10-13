@@ -24,6 +24,9 @@ module Zr
     # is read in when it has no magic comment. `debug_frozen_string_literal`
     # (--debug=frozen-string-literal) gives each String literal the place
     # where it was made, which a FrozenError and the chilled warning name.
+    # `keep_script_lines` (RubyVM.keep_script_lines at a compile at run
+    # time) keeps the spots of an eval's code, so its Locations have a
+    # source_range.
     class Switches
       attr_reader :prelude #: String?
       attr_reader :command_line #: String
@@ -33,6 +36,7 @@ module Zr
       attr_reader :verbose #: bool | Symbol | nil
       attr_reader :source_encoding #: String?
       attr_reader :debug_frozen_string_literal #: bool
+      attr_reader :keep_script_lines #: bool
 
       # @rbs prelude: String?
       # @rbs command_line: String
@@ -42,9 +46,10 @@ module Zr
       # @rbs verbose: bool | Symbol | nil
       # @rbs source_encoding: String?
       # @rbs debug_frozen_string_literal: bool
+      # @rbs keep_script_lines: bool
       # @rbs return: void
       def initialize(prelude: nil, command_line: "", frozen_string_literal: nil, gems: true, inline: false, verbose: :runtime,
-                     source_encoding: nil, debug_frozen_string_literal: false)
+                     source_encoding: nil, debug_frozen_string_literal: false, keep_script_lines: false)
         @prelude = prelude
         @source_encoding = source_encoding
         @command_line = command_line
@@ -53,6 +58,7 @@ module Zr
         @inline = inline
         @verbose = verbose
         @debug_frozen_string_literal = debug_frozen_string_literal
+        @keep_script_lines = keep_script_lines
         freeze
       end
 
@@ -74,7 +80,7 @@ module Zr
       #: () -> String
       def key
         [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect, source_encoding.to_s,
-         debug_frozen_string_literal].join("\0")
+         debug_frozen_string_literal, keep_script_lines].join("\0")
       end
     end
   end

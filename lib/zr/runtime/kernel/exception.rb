@@ -68,7 +68,9 @@ module Zr::Kern
     attr_accessor :span_line #: word
     attr_accessor :column #: word
     attr_accessor :end_column #: word
-    # 1 for a scope that an eval compiled: its code has no absolute path.
+    # For a scope that an eval compiled, 1 plus the number of its kept
+    # spots (Zr::Eval#kept_script), or 1 when it keeps none: its code has
+    # no absolute path. 0 for any other scope.
     attr_accessor :evaled #: word
   end
 
@@ -161,12 +163,17 @@ def zr_frame_node_id(rec)
 end
 
 # The node id that a Location keeps for the frame `rec`: negative for
-# code that an eval compiled, whose source CRuby cannot read again
-# (Thread::Backtrace::Location#source_range).
+# code that an eval compiled, whose source CRuby reads again only when
+# RubyVM.keep_script_lines kept it (Thread::Backtrace::Location#source_range).
+# Then the bits from 32 up hold the number of its kept spots.
 #: (ptr) -> word
 def zr_frame_place_id(rec)
   id = zr_frame_node_id(rec)
-  FrameMeta[Frame[rec].meta].evaled != 0 ? 0 - id : id
+  evaled = FrameMeta[Frame[rec].meta].evaled
+  if evaled == 0
+    return id
+  end
+  0 - (id | ((evaled - 1) << 32))
 end
 
   # The levels that the frame `rec` takes in a caller list. CRuby runs

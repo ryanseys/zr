@@ -720,15 +720,17 @@ class Thread
 
       # `node_id` is the id of the prism node the row's line ran, which
       # RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location reads,
-      # negative in code that an eval compiled.
+      # negative in code that an eval compiled, with the number of its
+      # kept spots in the bits from 32 up (zr_frame_place_id).
       # `line` is the frame's line when the kernel knows it: a row at line
       # 0 shows none, so its whole head is the path, digits and all. It is
       # false for a C frame with no Ruby frame under it, which has no path
       # and shows the program's name.
       def initialize(row, node_id = 0, line = nil)
         Primitive.attr! :hidden
-        Primitive.zr_hidden_set(self, :__node_id__, node_id&.abs)
-        Primitive.zr_hidden_set(self, :__evaled__, true) if node_id&.negative?
+        place = node_id&.abs
+        Primitive.zr_hidden_set(self, :__node_id__, place && (place & 0xffffffff))
+        Primitive.zr_hidden_set(self, :__script__, place >> 32) if node_id&.negative?
         at = row.index(":in '")
         head = row[0, at]
         # A frame at line 0 shows no line, as location_format writes it.
@@ -764,17 +766,20 @@ class Thread
 
       # The range of the node that the frame runs, which the compiler
       # recorded for each node that calls (Hir::Spots). CRuby parses the
-      # file again to find it, and it cannot read code that an eval
-      # compiled again.
+      # file again to find it. It reads code that an eval compiled again
+      # only when RubyVM.keep_script_lines kept its lines, and zr then
+      # keeps the eval's spots (Zr::Eval#kept_script).
       def source_range
-        raise ArgumentError, +"cannot get source range for location in eval" if Primitive.zr_hidden_get(self, :__evaled__)
+        script = Primitive.zr_hidden_get(self, :__script__)
+        raise ArgumentError, +"cannot get source range for location in eval" if script&.zero?
         raise RuntimeError, +"cannot get source range for location without Ruby bytecode" if @path.nil?
 
         id = Primitive.zr_hidden_get(self, :__node_id__)
         raise RuntimeError, +"cannot get source range for location without a node ID" if id.nil? || id.zero?
 
-        range = Location.send(:ranges).dig(@path, id) or raise RuntimeError, "cannot find node ID #{id} in parsed source"
-        Ruby::SourceRange.send(:of, [@path, true, *range])
+        rows = script ? Location.send(:rows, ::Zr::Eval.current.script_spots(script).split("\n")) : Location.send(:ranges)[@path]
+        range = rows&.[](id) or raise RuntimeError, "cannot find node ID #{id} in parsed source"
+        Ruby::SourceRange.send(:of, [@path, script.nil?, *range])
       end
 
       # `{ file => { node id => [line, column, end line, end column] } }`:
@@ -783,15 +788,22 @@ class Thread
         Primitive.attr! :hidden
         @ranges ||= Primitive.zr_load_names(4).split("\f").to_h do |text|
           file, *lines = text.split("\n")
-          rows = {}
-          lines.each do |line|
-            id, point, _name, *numbers = line.split
-            rows[id.to_i] = numbers.map(&:to_i) if point == "r"
-          end
-          [file, rows]
+          [file, rows(lines)]
         end
       end
-      private_class_method :ranges
+
+      # `{ node id => [line, column, end line, end column] }` from the
+      # range lines of a file's spots.
+      def self.rows(lines)
+        Primitive.attr! :hidden
+        rows = {}
+        lines.each do |line|
+          id, point, _name, *numbers = line.split
+          rows[id.to_i] = numbers.map(&:to_i) if point == "r"
+        end
+        rows
+      end
+      private_class_method :ranges, :rows
 
       def inspect = @row.inspect
     end

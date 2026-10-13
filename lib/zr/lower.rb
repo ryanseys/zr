@@ -188,6 +188,8 @@ module Zr
     # internal as a one-unit program. `kind` is `:top` for a loaded file
     # (its toplevel is a file's, not a program's): it starts no program
     # and prints no parse warning.
+    # `script` is the number of an eval's kept spots (Zr::Eval#kept_script),
+    # or 0.
     # @rbs program: Hir::Program
     # @rbs kernel: Machine::Description | Machine::Lower
     # @rbs symbols: Machine::Symbols?
@@ -200,10 +202,12 @@ module Zr
     # @rbs fixed: Hash[String, Integer] | Hash[String?, Integer] | nil
     # @rbs units: Cache::Unit?
     # @rbs plain_new: bool
+    # @rbs script: Integer
     # @rbs return: void
     def initialize(program, kernel, symbols, entry: "zr_toplevel", internal: false, ext: false, kind: :main, outer: nil,
-                   target: Target.default, fixed: nil, units: nil, plain_new: false)
+                   target: Target.default, fixed: nil, units: nil, plain_new: false, script: 0)
       @plain_new = plain_new
+      @script = script
       @program = program
       @ids = program.node_ids
       @kernel = kernel
@@ -654,7 +658,7 @@ module Zr
         word.call("column", span[1])
         word.call("end_column", span[3])
       end
-      word.call("evaled", @kind == :eval ? 1 : 0)
+      word.call("evaled", @kind == :eval ? 1 + @script : 0)
       relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
       relocs << Obj::Reloc.new(layout.fields.fetch("name").first, :symid, name.to_s) if !name.is_a?(Integer) && !fixed_id(name)
       relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent

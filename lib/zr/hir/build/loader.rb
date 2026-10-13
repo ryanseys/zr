@@ -556,7 +556,7 @@ module Zr
           rows = @activations
           body = build.seq(result.value.statements, hoist: true)
           @eval_using_after = build.top_using if scopes
-          unless @eval || @hiding || file.start_with?("<") || Library::Roots.runtime_file?(file)
+          unless (@eval && !@switches.keep_script_lines) || @hiding || file.start_with?("<") || Library::Roots.runtime_file?(file)
             spots = Spots.for(result, source, { filepath: file, line: line })
           end
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings,
