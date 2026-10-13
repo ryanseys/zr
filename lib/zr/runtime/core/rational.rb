@@ -264,6 +264,9 @@ class Rational < Numeric
       end
       return nil unless ok
 
+      # An `r` or `R` suffix in place of an exponent (ruby 4.1).
+      return [num, nexp, s + 1] if (b = text.getbyte(s)) && (b | 32) == 114
+
       if s + 1 < text.bytesize && (text.getbyte(s) | 32) == 101
         s += 1
         expsign = nil
