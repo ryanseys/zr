@@ -646,7 +646,10 @@ module Zr::Kern
     end
     bound = zr_alloc(T_METHOD, zr_global(G_METHOD), RMethod.size)
     RMethod[bound].recv = obj
-    RMethod[bound].klass = zr_class_of(obj)
+    # convert_umethod_to_method_components: a module's method is bound at
+    # the module's node in the object's ancestors, or at the module when
+    # the object does not include it.
+    RMethod[bound].klass = zr_type(owner) == T_MODULE ? zr_owner_node(zr_class_of(obj), owner) : zr_class_of(obj)
     RMethod[bound].owner = owner
     zr_memcpy(Machine.ptr(RMethod[bound].entry), Machine.ptr(RMethod[m].entry), MEntry.size)
     bound
@@ -1028,17 +1031,21 @@ module Zr::Kern
       end
       zr_buf_byte(b, RMethod[recv].recv == QUNDEF ? 35 : 46)
     else
-      # method_inspect: a metaclass (the singleton class of a class or a
+      # method_inspect: a module's node (or a class's origin) shows as its
+      # module (#22321). A metaclass (the singleton class of a class or a
       # module) shows as itself; the singleton class of any other object
-      # shows as the class above it.
+      # shows as the class above it, past the modules it extends.
+      if zr_type(klass) == T_ICLASS
+        klass = RClass[klass].attached
+      end
       if zr_singleton_p(klass)
         attached = RClass[klass].attached
         if zr_special_p(attached) || (zr_type(attached) != T_CLASS && zr_type(attached) != T_MODULE)
           klass = RClass[klass].superclass
+          while zr_type(klass) == T_ICLASS
+            klass = RClass[klass].superclass
+          end
         end
-      end
-      while zr_type(klass) == T_ICLASS
-        klass = RClass[klass].superclass
       end
       defined = zr_method_defined_in(recv)
       if RMethod[recv].recv == QUNDEF
