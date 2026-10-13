@@ -171,15 +171,17 @@ module Zr
       # A store through an address of unknown origin writes `UNKNOWN`. It
       # also writes each guard word whose address escapes as a value
       # anywhere in the unit (passed, stored, compared), because a pointer
-      # to that word can then be anywhere. The result goes to each
-      # function's callees, and the description gives it to the program
-      # lowering and to eval support.
+      # to that word can then be anywhere. A def whose address a body only
+      # takes (`Machine.addr`) is not a call: a call through that address
+      # is a call through a pointer, which writes everything. The result
+      # goes to each function's callees, and the description gives it to
+      # the program lowering and to eval support.
       #: () -> void
       def assign_effects
         placed = @functions.to_h { |f| [f.name, placements(f)] }
         escaped = @functions.reduce(0) { |bits, f| bits | escaping_statics(f, placed.fetch(f.name)) }
         local = @functions.to_h { |f| [f.name, local_effects(f, placed.fetch(f.name), escaped)] }
-        calls = @functions.to_h { |f| [f.name, f.callees.filter_map { |c| c.symbol if @defs.key?(c.symbol) }] }
+        calls = @functions.to_h { |f| [f.name, called_defs(f)] }
         effects = local.dup
         loop do
           moved = false
@@ -197,6 +199,14 @@ module Zr
         @functions.each do |f|
           f.callees.each { |c| c.effects = effects.fetch(c.symbol, IR::Effects::ALL) }
         end
+      end
+
+      # The defs of the unit that `f` calls: each callee of a `call`
+      # instruction, not one whose address it only takes.
+      #: (IR::Function f) -> Array[String]
+      def called_defs(f)
+        by_fn = f.callees.to_h { |c| [c.fn, c.symbol] }
+        f.blocks.flat_map { |b| b.insts.filter_map { |i| by_fn.fetch(i.callee) if i.op == :call } }.uniq.select { |symbol| @defs.key?(symbol) }
       end
 
       # Returns `{ value => [root, offset] }` for each value of `f` that is

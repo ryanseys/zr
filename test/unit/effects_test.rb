@@ -84,6 +84,23 @@ class EffectsTest < Minitest::Test
       def pure
         3
       end
+
+      # Takes the address of a def that writes the gates, and calls
+      # nothing.
+      #: (ptr) -> word
+      def names_set_gates(fn)
+        if fn == Machine.addr(:set_gates)
+          1
+        else
+          0
+        end
+      end
+
+      # Calls that def through its address.
+      #: () -> void
+      def runs_set_gates
+        Thunk.call(Machine.addr(:set_gates))
+      end
     end
   RB
 
@@ -111,6 +128,13 @@ class EffectsTest < Minitest::Test
 
   def test_pointer_store_writes_unknown_region
     assert_equal Zr::IR::Effects::UNKNOWN, effects.fetch("poke")
+  end
+
+  # A def whose address a body takes is not called there. A call through
+  # the address is a call through a pointer, which writes everything.
+  def test_taking_an_address_is_not_a_call
+    assert_equal 0, effects.fetch("names_set_gates")
+    assert_equal Zr::IR::Effects::ALL, effects.fetch("runs_set_gates")
   end
 
   def test_import_writes_unknown_and_indirect_call_writes_all
