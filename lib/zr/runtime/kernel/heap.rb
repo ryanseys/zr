@@ -1223,6 +1223,15 @@ module Zr::Kern
       return zr_send(zr_core_class(Machine.id(:ARGF)), Machine.id(:inplace_mode), 0, 0)
     end
     b = zr_box_current()
+    # Kernel's output in a box goes to the box's own $stdout and $stderr,
+    # as rb_stdout and rb_stderr are per box in ruby.
+    registered = zr_global(G_BOX)
+    if b == QNIL && Machine.word(registered) != 0 && registered != QNIL
+      target = zr_gvar_resolve(id)
+      if target == Machine.id(:$stdout) || target == Machine.id(:$stderr) || target == Machine.id(:$stdin)
+        b = zr_box_reach()
+      end
+    end
     if b != QNIL
       v = zr_hash_lookup(zr_box_gvars(b), zr_fix(zr_gvar_resolve(id)))
       return v == QUNDEF ? Machine.value(QNIL) : v

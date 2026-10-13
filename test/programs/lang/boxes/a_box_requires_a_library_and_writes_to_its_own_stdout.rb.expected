@@ -1,0 +1,7 @@
+true
+"constant"
+["standard out\nprinted\nw", "standard err\n"]
+true
+true
+main out
+false

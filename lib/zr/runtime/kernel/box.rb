@@ -180,6 +180,33 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The number of Object's constant entries.
+  #: () -> value
+  def zr_box_object_consts_m
+    zr_fix(ClassExt[RClass[zr_global(G_OBJECT)].ext].clen)
+  end
+
+  # Object's constant entries from entry `from` on, as [name, value]
+  # pairs: the constants that a require made after that point. An
+  # autoload's entry, which has no value yet, is left out.
+  #: (value) -> value
+  def zr_box_object_consts_from_m(from)
+    out = zr_ary_new(4)
+    ext = RClass[zr_global(G_OBJECT)].ext
+    i = zr_fix2long(from)
+    while i < ClassExt[ext].clen
+      e = ClassExt[ext].ctab + (i * CEntry.size)
+      if CEntry[e].value != QUNDEF
+        pair = zr_ary_new(2)
+        zr_ary_push(pair, zr_sym(CEntry[e].id))
+        zr_ary_push(pair, CEntry[e].value)
+        zr_ary_push(out, pair)
+      end
+      i += 1
+    end
+    out
+  end
+
   # The globals of the runtime at the start. A new box copies them.
   #: () -> value
   def zr_box_master_gvars

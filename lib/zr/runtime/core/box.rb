@@ -72,7 +72,18 @@ module Ruby
 
       private
 
-      def require(...) = super
+      # zr links a library into the program, so a box cannot load a copy
+      # of its own: the box gets the constants that the require made.
+      def require(feature)
+        box = Primitive.zr_box_reach
+        return super if box.nil? || Primitive.zr_hidden_get(box, :kind) == :main
+
+        from = Primitive.zr_box_object_consts_m
+        loaded = super
+        box.send(:adopt, Primitive.zr_box_object_consts_from_m(from))
+        loaded
+      end
+
       def require_relative(...) = super
       def load(...) = super
     end
@@ -185,6 +196,15 @@ module Ruby
       Primitive.zr_box_stamp(code[4], self)
       Primitive.zr_box_compiled(code[1])
       Primitive.zr_eval_run(code, @main, @cref, nil, nil)
+    end
+
+    # The constants that a require from the box made on Object go into
+    # the box's own Object, where its code finds them.
+    def adopt(pairs)
+      Primitive.attr! :hidden
+      setup if @slot.nil? && %i[root master].include?(Primitive.zr_hidden_get(self, :kind))
+      object = @shadows[Object]
+      pairs.each { |name, value| object.const_set(name, value) unless object.const_defined?(name, false) }
     end
 
     # A file the box reads and runs for itself, so a feature main has
