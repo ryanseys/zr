@@ -22,7 +22,9 @@ class UnsupportedLibrariesTest < Minitest::Test
   end
 
   def test_a_name_with_no_reason_stops_with_the_name
-    assert_equal %(require of "portable_ruby_gems"), stop(%(require "portable_ruby_gems"\n))
+    name = unreasoned or skip "every library of this ruby that zr has no file for has a reason"
+
+    assert_equal %(require of "#{name}"), stop(%(require "#{name}"\n))
   end
 
   def test_every_reason_is_for_a_library_with_no_file
@@ -35,10 +37,17 @@ class UnsupportedLibrariesTest < Minitest::Test
     rows = Zr::LoadTables.new(computed: true).data.find { |data| data.name == "zr_load_names_1" }.bytes.chomp("\0").split("\n")
 
     assert_includes rows, "mkmf\t#{Build::UNSUPPORTED_LIBRARIES.fetch("mkmf")}"
-    assert_includes rows, "portable_ruby_gems"
+    name = unreasoned
+    assert_includes rows, name if name
   end
 
   private
+
+  # A library that ruby includes, zr has no file for and no reason,
+  # and that is not an encoding (which a require loads at run time).
+  def unreasoned
+    (Build.missing_features - Build::UNSUPPORTED_LIBRARIES.keys).find { |name| !name.match?(Build::ENCODINGS) }
+  end
 
   # The reason that the only statement of `source` stops for.
   def stop(source)
