@@ -2030,6 +2030,11 @@ module Zr::Kern
     if zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
       over = ClassExt[RClass[klass].ext].refined
     end
+    # A def in a box's shadow of a core class closes the gate of the
+    # shared class: a site cannot tell which box runs it.
+    if zr_box_origin(over) != QNIL
+      over = zr_box_origin(over)
+    end
     bit = zr_gate_bit(over, mid)
     booting = kind == KIND_BUILTIN && !zr_program_started_p()
     if bit != 0 && !booting && zr_find_method(over, mid) != 0

@@ -519,6 +519,12 @@ module Zr::Kern
     # binding's iseq its parent: `__method__` and a backtrace label read
     # the scope where the Binding was made.
     FrameMeta[Machine.ptr(zr_code_word(code, 1))].parent = RProc[b].meta
+    # A Binding made in a box runs the string in that box, as Box#run
+    # runs the box's own code (zr_box_stamp).
+    box = FrameMeta[RProc[b].meta].box
+    if Machine.word(box) != 0 && FrameMeta[Machine.ptr(zr_code_word(code, 1))].box != box
+      zr_box_stamp(zr_ary_at(code, 4), box)
+    end
     Eval.call(Machine.ptr(zr_code_word(code, 0)), RProc[b].self, RProc[b].cref, e, RProc[b].blk)
   end
 
