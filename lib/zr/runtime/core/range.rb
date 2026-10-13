@@ -121,7 +121,7 @@ class Range
     @end
   end
 
-  # The calls of last, min and max with more than two arguments
+  # The calls of last, min, max and clamp with more than two arguments
   # (`Primitive.attr! :more_args`), checked in their order: the bounds
   # first, then the count that the method they go to takes.
   def more_args(name, *args, &block)
@@ -152,10 +152,71 @@ class Range
 
         expected = "0..1"
       end
+    when :clamp
+      expected = "1..2"
     end
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{expected})"
   end
   private :more_args
+
+  # range_clamp (ruby 4.1): a new Range of this one's bounds clamped to
+  # `min` and `max`, or to the begin and end of a range (rb_range_values,
+  # never an ArithmeticSequence). The end stays excluded where the end it
+  # took was, and a range wholly past one side is empty. Two optional
+  # parameters and `given`; more go to more_args.
+  def clamp(min = (given = 0; nil), max = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1..2)" if (given ||= 2) == 0
+
+    excl = false
+    if given == 1
+      range = min.is_a?(Range) ? min : (Primitive.zr_range_duck_m(min) unless Enumerator::ArithmeticSequence === min)
+      raise TypeError, "wrong argument type #{conversion_name(min)} (expected Range)" unless range
+
+      min, max, excl = range.send(:bounds)
+    end
+    raise ArgumentError, +"min argument must be less than or equal to max argument" if !min.nil? && !max.nil? && clamp_cmp(min, max) > 0
+
+    low = @begin
+    high = @end
+    high_excl = @excl
+    low_side = high_side = 0
+    unless min.nil?
+      if low.nil? || clamp_cmp(low, min) < 0
+        low_side = -1
+        low = min
+      end
+      if !high.nil? && clamp_cmp(high, min) < 0
+        high_side = -1
+        high = min
+      end
+    end
+    unless max.nil?
+      if low_side == 0 && !low.nil? && clamp_cmp(low, max) > 0
+        low_side = 1
+        low = max
+      end
+      if high_side == 0
+        c = high.nil? ? 1 : clamp_cmp(high, max)
+        if c > 0
+          high_side = 1
+          high = max
+          high_excl = excl
+        elsif c == 0
+          high_excl ||= excl
+        end
+      end
+    end
+    # The range is wholly outside the bounds.
+    high_excl = true if low_side != 0 && low_side == high_side
+    high_excl ? (low...high) : (low..high)
+  end
+
+  # r_cmp: `a <=> b` as rb_cmpint reads it, which fails for nil.
+  def clamp_cmp(a, b)
+    Primitive.attr! :hidden
+    Primitive.zr_cmpint(a <=> b, a, b)
+  end
 
   def minmax(&block)
     return super if block
