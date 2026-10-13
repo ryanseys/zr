@@ -181,7 +181,8 @@ module Signal
     end
 
     # signal_exec: an immediate value does nothing, a String is Ruby to
-    # run at the top level, and anything else is called.
+    # run in the scope that the signal interrupted, at its file and line,
+    # with main as self, and anything else is called.
     # While the command runs, its thread is in trap context
     # (TRAP_INTERRUPT_MASK), where Mutex#lock refuses to wait.
     def execute(command, signo)
@@ -191,10 +192,19 @@ module Signal
       was = Primitive.zr_hidden_get(self, :__trap_thread__)
       Primitive.zr_hidden_set(self, :__trap_thread__, Thread.current)
       begin
-        command.is_a?(String) ? TOPLEVEL_BINDING.send(:eval, command) : command.call(signo)
+        command.is_a?(String) ? evaluate(command) : command.call(signo)
       ensure
         Primitive.zr_hidden_set(self, :__trap_thread__, was)
       end
+    end
+
+    def evaluate(command)
+      Primitive.attr! :hidden
+      scope = Primitive.zr_trap_binding(TOPLEVEL_BINDING.receiver)
+      return TOPLEVEL_BINDING.send(:eval, command) if scope.nil?
+
+      file, line = scope.source_location
+      scope.eval(command, file, line)
     end
 
     # Whether the current thread runs a trap command.

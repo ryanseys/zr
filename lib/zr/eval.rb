@@ -26,8 +26,15 @@ module Zr
     # @rbs @script_sources: Array[[String, Integer]]
 
     # Two threads can eval at the same time. Only one of them loads the
-    # compiler, and the other waits until the load is complete.
+    # compiler, and the other waits until the load is complete. A trap
+    # handler may eval, so it may take this lock (rb_mutex_allow_trap); a
+    # host ruby has no such switch.
     LOADING = Thread::Mutex.new
+    begin
+      Thread::Mutex.send(:allow_trap, LOADING)
+    rescue NoMethodError
+      nil
+    end
 
     # The compiler loads at the first eval, not when the program boots.
     # Most programs that can eval never do. Loading it makes about

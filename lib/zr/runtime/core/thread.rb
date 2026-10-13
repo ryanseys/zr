@@ -1675,9 +1675,19 @@ class Thread::Mutex
     true
   end
 
+  # rb_mutex_allow_trap: a lock of the runtime's own that a trap handler
+  # may take (MUTEX_ALLOW_TRAP), such as the lock of the eval compiler's
+  # load.
+  def self.allow_trap(mutex, allow = true)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_set(mutex, :__allow_trap__, allow)
+    mutex
+  end
+  private_class_method :allow_trap
+
   def lock
     # do_mutex_lock: the code that a trap interrupted may hold the lock.
-    raise ThreadError, +"can't be called from trap context" if Signal.send(:trap_context?)
+    raise ThreadError, +"can't be called from trap context" if Signal.send(:trap_context?) && !Primitive.zr_hidden_get(self, :__allow_trap__)
     raise ThreadError, +"deadlock; recursive locking" if owned?
 
     while locked?

@@ -266,6 +266,24 @@ module Zr::Kern
     b
   end
 
+  # The scope where a trap's String command runs, as rb_eval_cmd_call_kw
+  # runs it (eval_string_with_cref): the innermost Ruby frame that a
+  # backtrace shows, as a Binding whose self is `main`. nil when there is
+  # none.
+  #: (value) -> value
+  def zr_trap_binding(main)
+    rec = Task[zr_task()].top
+    while rec != 0 && (!zr_frame_shown_p(rec) || zr_meta_native_p(Frame[rec].meta))
+      rec = Frame[rec].prev
+    end
+    if rec == 0
+      return Machine.value(QNIL)
+    end
+    b = zr_binding_at(rec)
+    RProc[b].self = main
+    b
+  end
+
   # The `using` entry in force at the eval or binding call that runs now,
   # as an Integer, or nil. The call site writes it (`note_eval_using`);
   # this reads it once.
