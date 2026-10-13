@@ -1579,6 +1579,7 @@ module Zr::Kern
       return frozen
     end
     klass = zr_origin(klass)
+    relabel = false
     if meta == 0
       meta = zr_meta_new()
       FrameMeta[meta].arity = arity
@@ -1588,6 +1589,7 @@ module Zr::Kern
       copy = zr_xmalloc(FrameMeta.size)
       zr_memcpy(copy, meta, FrameMeta.size)
       meta = copy
+      relabel = true
     end
     first = Machine.word(FrameMeta[meta].owner) == 0
     FrameMeta[meta].name = mid
@@ -1607,6 +1609,11 @@ module Zr::Kern
       zr_coverage_method_claim(single, mid, owned)
     end
     zr_method_add_row(klass, mid, fn, arity, kind, meta, cref, vis | core)
+    # The compiled frame records the site's own meta, which names the
+    # first class; this class's frames show the copy (zr_frame_label_meta).
+    if relabel
+      MEntry[zr_find_method_at(klass, mid)].label = meta
+    end
     zr_coverage_method_claim(klass, mid, meta)
     # The entries have their direct entry (zr_define_method_direct). The
     # hooks run with none pending.
@@ -3598,7 +3605,7 @@ module Zr::Kern
   #: (value) -> void
   def zr_keep_meta_owner(klass)
     # An object's singleton class would keep the object: its methods' frames
-    # read the copy in their entry (zr_frame_label_meta).
+    # show the copy in their entry's label (zr_frame_label_meta).
     if zr_singleton_p(klass)
       attached = RClass[klass].attached
       if zr_special_p(attached) || (zr_type(attached) != T_CLASS && zr_type(attached) != T_MODULE)
