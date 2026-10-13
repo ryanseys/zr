@@ -955,4 +955,9 @@ class StringIO
     ptr.flags &= ~READWRITE
     self
   end
+
+  # Names that strio.c defines with one C function are equal Methods.
+  [[:eof, :eof?], [:isatty, :tty?], [:size, :length], [:tell, :pos]].each do |name, original|
+    Primitive.zr_method_alias_of(self, name, original)
+  end
 end

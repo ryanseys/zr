@@ -9,3 +9,14 @@ true
 true
 "a\\.b"
 false
+true
+true
+:then
+:then
+[true, false, true, false]
+true
+true
+[true, true, true, true]
+[true, true, true]
+true
+:tell

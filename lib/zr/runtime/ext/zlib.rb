@@ -1897,6 +1897,9 @@ module Zlib
       at = s.byteindex("\0")
       at ? s.byteslice(0, at) : s
     end
+
+    # zlib.c defines tell and pos with one C function.
+    Primitive.zr_method_alias_of(self, :tell, :pos)
   end
 
   class GzipReader < GzipFile
@@ -2090,5 +2093,8 @@ module Zlib
       Primitive.attr! :hidden
       :reader
     end
+
+    # Names that zlib.c defines with one C function are equal Methods.
+    [[:each_line, :each], [:eof, :eof?], [:tell, :pos]].each { |name, original| Primitive.zr_method_alias_of(self, name, original) }
   end
 end

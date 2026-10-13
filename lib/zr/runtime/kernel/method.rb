@@ -816,6 +816,22 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The `core` word of a core alias that is == to its original but hashes
+  # with its own name (zr_method_hash_apart).
+  CORE_HASHED_APART = 2
+
+  # In a core class body: `name` of `klass` is == to the method it aliases,
+  # but has a hash of its own, as Kernel#yield_self (an alias in ruby's
+  # kernel.rb) has beside then.
+  #: (value, value) -> value
+  def zr_method_hash_apart(klass, name)
+    e = zr_find_method_at(klass, zr_sym2id(name))
+    if e != 0
+      MEntry[e].core = CORE_HASHED_APART
+    end
+    Machine.value(QNIL)
+  end
+
   # In a core class body: `name` of `klass` is a method of its own, which
   # CRuby defines apart from the method that zr shares its code with.
   #: (value, value) -> value
@@ -859,6 +875,9 @@ module Zr::Kern
   def zr_method_hash(recv, argc, argv, cref, blk)
     e = Machine.ptr(RMethod[recv].entry)
     h = zr_hash_mix(Machine.word(RMethod[recv].recv))
+    if MEntry[e].core == CORE_HASHED_APART
+      h = zr_hash_mix(h ^ MEntry[e].mid)
+    end
     # A body that the core table set is the whole identity; the kind of a
     # builtin and of its twin written in Ruby differ.
     h = zr_hash_mix(h ^ Machine.word(zr_method_identity(e)) ^ (MEntry[e].body != 0 ? 0 : MEntry[e].kind))

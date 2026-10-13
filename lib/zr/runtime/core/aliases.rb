@@ -26,12 +26,17 @@
   [Enumerator::Lazy, :chunk, :slice_before], [Enumerator::Lazy, :chunk, :slice_when],
   [NilClass, :|, :^], [TrueClass, :to_s, :inspect], [FalseClass, :|, :^], [FalseClass, :to_s, :inspect],
   [Regexp.singleton_class, :escape, :quote], [FileTest.singleton_class, :empty?, :zero?],
-  [File.singleton_class, :empty?, :zero?]
+  [File.singleton_class, :empty?, :zero?], [Kernel.singleton_class, :format, :sprintf],
+  [Process.singleton_class, :wait, :waitpid], [Process.singleton_class, :wait2, :waitpid2]
 ].each { |klass, original, name| Primitive.zr_method_alias_of(klass, name, original) }
 
-[[Array, :<<], [Integer, :to_int], [Kernel, :iterator?], [Kernel, :yield_self]].each do |klass, name|
+[[Array, :<<], [Integer, :to_int], [Kernel, :iterator?]].each do |klass, name|
   Primitive.zr_method_alone(klass, name)
 end
+
+# Kernel#yield_self is == to then, its original in ruby's kernel.rb, and
+# Method#hash still tells them apart.
+Primitive.zr_method_hash_apart(Kernel, :yield_self)
 
 # The aliases that CRuby makes with rb_define_alias, or writes in its Ruby
 # files, are its original method: a backtrace shows the original's name
