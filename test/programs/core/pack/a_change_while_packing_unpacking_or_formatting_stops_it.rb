@@ -35,7 +35,8 @@ got = []
 try(:unpack_plain) { "ABC".unpack("C*") { got << _1 }; got }
 try(:sprintf_c0) { sprintf("%*c", 0, ?!.ord) }
 try(:sprintf_c_big) { sprintf("%*c", 2147483647, 0x80) }
-try(:sprintf_c_ascii) { sprintf("%*c", 2147483647, 0x41).size rescue $!.class }
+# A one-byte character takes a wide width (the full INT_MAX would need 2 GB).
+try(:sprintf_c_ascii) { sprintf("%*c", 100_000, 0x41).then { [_1.size, _1[-1], _1.count(" ")] } }
 obj = Object.new
 ary = [obj, *Array.new(9) { "x" }]
 obj.define_singleton_method(:to_s) { ary.replace([]); "X" }
