@@ -422,8 +422,9 @@ class Random::Base
   def rand(*args) = Random.send(:checked, Random.send(:rand_random, self, args), args)
 
   # `n` random bytes, four per draw, least significant first.
+  # random_bytes: the size is a C long (NUM2LEN), as urandom reads it.
   def bytes(size)
-    size = to_integer(size)
+    size = Primitive.zr_index_operand_m(size)
     raise ArgumentError, +"negative string size (or size too big)" if size < 0
 
     out = "".b
