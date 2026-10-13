@@ -1,0 +1,12 @@
+[false, true, true]
+[true, false, false]
+[true, true, true]
+[false, false]
+[true, false]
+[true, true, false]
+[ArgumentError, "wrong number of arguments (given 0, expected 1..3)"]
+[ArgumentError, "wrong number of arguments (given 4, expected 1..3)"]
+[ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+[ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+[TypeError, "1 is not a symbol nor a string"]
+-1

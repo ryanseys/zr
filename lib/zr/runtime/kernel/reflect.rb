@@ -360,13 +360,14 @@ module Zr::Kern
   end
 
   # `method_defined?` and the three forms for each visibility: whether the
-  # module or an ancestor defines the name with that visibility. An active
-  # refinement does not count, because the check uses only the module's
-  # own ancestor list.
-  #: (value, word, ptr, word) -> value
-  def zr_mod_method_defined_vis(recv, argc, argv, vis)
-    if argc < 1 || argc > 2
-      return zr_wrong_arity_range(argc, 1, 2)
+  # module or an ancestor defines the name with that visibility (-1 for
+  # public or protected, -2 for any). An active refinement does not count,
+  # because the check uses only the module's own ancestor list. `max` is
+  # the most arguments the form takes.
+  #: (value, word, ptr, word, word) -> value
+  def zr_mod_method_defined_vis(recv, argc, argv, vis, max)
+    if argc < 1 || argc > max
+      return zr_wrong_arity_range(argc, 1, max)
     end
     slot = Machine.slot(8)
     r = zr_name_id(Machine.value(Machine.load64(argv, 0)), slot)
@@ -377,27 +378,30 @@ module Zr::Kern
     if e == 0 || MEntry[e].kind == KIND_UNDEF || zr_entry_hidden_p(e) || MEntry[e].fn == Machine.addr(:zr_f_notimplement)
       return Machine.value(QFALSE)
     end
-    zr_bool(vis < 0 ? MEntry[e].vis != VIS_PRIVATE : MEntry[e].vis == vis)
+    zr_bool(vis == 0 - 2 || (vis < 0 ? MEntry[e].vis != VIS_PRIVATE : MEntry[e].vis == vis))
   end
 
+  # `method_defined?(name, inherit = true, include_private = false)`: the
+  # third argument also matches a private method (ruby 4.1).
   #: (value, word, ptr, value, value) -> value
   def zr_mod_method_defined(recv, argc, argv, cref, blk)
-    zr_mod_method_defined_vis(recv, argc, argv, 0 - 1)
+    any = argc == 3 && Machine.value(Machine.load64(argv, 16)) != QFALSE && Machine.value(Machine.load64(argv, 16)) != QNIL
+    zr_mod_method_defined_vis(recv, argc, argv, any ? 0 - 2 : 0 - 1, 3)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_public_method_defined(recv, argc, argv, cref, blk)
-    zr_mod_method_defined_vis(recv, argc, argv, VIS_PUBLIC)
+    zr_mod_method_defined_vis(recv, argc, argv, VIS_PUBLIC, 2)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_private_method_defined(recv, argc, argv, cref, blk)
-    zr_mod_method_defined_vis(recv, argc, argv, VIS_PRIVATE)
+    zr_mod_method_defined_vis(recv, argc, argv, VIS_PRIVATE, 2)
   end
 
   #: (value, word, ptr, value, value) -> value
   def zr_mod_protected_method_defined(recv, argc, argv, cref, blk)
-    zr_mod_method_defined_vis(recv, argc, argv, VIS_PROTECTED)
+    zr_mod_method_defined_vis(recv, argc, argv, VIS_PROTECTED, 2)
   end
 
   # `Method#super_method`: the method after this method's owner in the
