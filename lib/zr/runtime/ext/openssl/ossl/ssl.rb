@@ -1045,10 +1045,6 @@ module OpenSSL
 
       private
 
-      def sysread_nonblock(length, buffer = nil, **options) = Ossl.ssl_read(self, length, buffer, true, options)
-
-      def syswrite_nonblock(data, **options) = Ossl.ssl_write(self, data, options)
-
       def stop
         ssl = Ossl.ssl(self)
         return nil unless Ossl.ssl_started?(ssl)
