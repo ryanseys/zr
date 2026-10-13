@@ -1,0 +1,15 @@
+[["file_one.ext"], #<Encoding:EUC-JP>]
+[["file_one.ext", "file_one.ext", "two.ext"], [#<Encoding:EUC-JP>, #<Encoding:EUC-JP>, #<Encoding:EUC-JP>]]
+[#<Encoding:Windows-31J>, #<Encoding:Windows-31J>, #<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:BINARY (ASCII-8BIT)>]
+[#<Encoding:Windows-31J>, #<Encoding:Windows-31J>]
+[#<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:BINARY (ASCII-8BIT)>]
+true
+[#<Encoding:ISO-8859-1>, #<Encoding:ISO-8859-1>]
+[#<Encoding:EUC-JP>, #<Encoding:EUC-JP>]
+Encoding::CompatibilityError
+[["dir_glob_\x{82A0}/file.txt"], [#<Encoding:Windows-31J>], true]
+[[#<Encoding:EUC-JP>, #<Encoding:Windows-31J>], [true, true]]
+[["dir_glob_あ/file.txt"], [#<Encoding:UTF-8>]]
+[["dir_glob_あ"], [#<Encoding:UTF-8>]]
+[#<Encoding:EUC-JP>]
+[#<Encoding:EUC-JP>]

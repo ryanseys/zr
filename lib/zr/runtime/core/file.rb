@@ -1608,13 +1608,20 @@ class Dir
     end
 
     def initialize(pattern, base, flags)
-      @pattern = pattern
       @base = base
       @flags = flags
       @escape = (flags & File::FNM_NOESCAPE).zero?
       # A darwin volume matches names without their case, and a plain
       # name reads its real case back (USE_NAME_ON_FS_REAL_BASENAME).
       @real_basename = RUBY_PLATFORM.include?("darwin")
+      # push_glob: the results take the pattern's encoding, the
+      # filesystem's for US-ASCII. On darwin the pattern matches as UTF-8
+      # (rb_str_encode_ospath), and each result converts back (emit).
+      @result_enc = pattern.encoding
+      @result_enc = Encoding.find("filesystem") if @result_enc == Encoding::US_ASCII
+      @result_enc = Encoding::BINARY if @result_enc == Encoding::US_ASCII
+      pattern = File.send(:os_path, pattern) if @real_basename
+      @pattern = pattern
       @enc = @real_basename ? Encoding::UTF_8 : pattern.encoding
       @onig = Regexp.encoder(@enc)
       @found = []
@@ -1838,7 +1845,21 @@ class Dir
     end
 
     def emit(path)
-      @found << path.force_encoding(@enc)
+      @found << (@real_basename ? result_name(path.force_encoding(@enc)) : path.force_encoding(@result_enc))
+    end
+
+    # push_pattern on darwin: a UTF-8 name in default_internal, else in
+    # the pattern's encoding, as rb_str_conv_enc converts it: relabeled
+    # when it is ASCII or the target is binary, and left UTF-8 when it
+    # does not convert.
+    def result_name(name)
+      to = Encoding.default_internal || @result_enc
+      return name if to == Encoding::UTF_8
+      return name.force_encoding(to) if to == Encoding::BINARY || (to.ascii_compatible? && name.ascii_only?)
+
+      name.encode(to)
+    rescue EncodingError
+      name
     end
 
     # glob_helper: the parts in `parts` at `path`, whose kind is `type`.
