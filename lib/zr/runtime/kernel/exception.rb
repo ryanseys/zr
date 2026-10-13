@@ -870,8 +870,12 @@ end
     if FrameMeta[meta].kind == KIND_BLOCK
       levels = 1
       outer = FrameMeta[meta].parent
-      while FrameMeta[outer].kind == KIND_BLOCK
-        levels += 1
+      # An eval's code takes the label of the code that calls eval, so a
+      # block in it counts the blocks around the eval too.
+      while FrameMeta[outer].kind == KIND_BLOCK || FrameMeta[outer].kind == KIND_EVAL
+        if FrameMeta[outer].kind == KIND_BLOCK
+          levels += 1
+        end
         outer = FrameMeta[outer].parent
       end
       zr_buf_push(b, Machine.bytes("block "), 6)

@@ -1,0 +1,10 @@
+"block (2 levels) in <main>"
+"block (3 levels) in <main>"
+"block in <main>"
+"block (2 levels) in <main>"
+["block (2 levels) in <main>", "Array#each"]
+"block in Object#mm"
+["block (2 levels) in K#k", "Array#map", "block in K#k", "Kernel#eval"]
+"block in <main>"
+"block (2 levels) in <main>"
+"block (2 levels) in <main>"
