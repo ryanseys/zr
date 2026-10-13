@@ -1537,6 +1537,13 @@ module Zr
       def regexp_contents(parts, literal)
         head = nil
         first = nil
+        # Two static parts in a row: a line that continues past a heredoc's
+        # body, which parse.y lexes as one token.
+        parts = parts.chunk_while { |a, b| a.is_a?(Prism::StringNode) && b.is_a?(Prism::StringNode) }.flat_map do |run|
+          next run if run.size == 1
+
+          [Piece.new(start_offset(run.first), end_offset(run.last), run.map { |part| string_value(part) }.join, false)]
+        end
         parts = pieces_of(parts)
         parts.each_with_index do |part, index|
           tail = string_content(part, literal, parts, index)
@@ -1576,17 +1583,44 @@ module Zr
       # string_contents: literal_concat over the pieces of one literal.
       def string_contents(parts, literal)
         dedent = dedent_heredoc?(literal)
+        # A squiggly heredoc with no common indentation: parse.y joins no
+        # pieces while the least indentation of its lines so far is above
+        # zero (heredoc_indent > 0 in literal_concat).
+        indent = squiggly_heredoc?(literal) && !dedent ? Float::INFINITY : nil
         head = nil
         first = nil
         parts = pieces_of(parts)
         parts.each_with_index do |part, index|
+          if indent && (at = start_offset(part)) == line_start(line_index(at))
+            column = line_indent(at)
+            indent = column if column && column < indent
+          end
+          @heredoc_indent = indent
           tail = string_content(part, literal, parts, index)
+          @heredoc_indent = nil
           next unless tail
 
           first ||= tail.first_pos
-          head = literal_concat(head, tail, first, tail.last_pos, dedent: dedent)
+          head = literal_concat(head, tail, first, tail.last_pos, dedent: dedent || (indent && indent.positive?))
         end
         dedent ? heredoc_dedent(head) : head
+      end
+
+      def squiggly_heredoc?(literal)
+        opening = literal.respond_to?(:opening_loc) ? literal.opening_loc : nil
+        opening && @src.byteslice(opening.start_offset, 3) == "<<~"
+      end
+
+      # The indentation of the line at `offset`, a tab to the next multiple
+      # of 8, or nil for a line of only blanks.
+      def line_indent(offset)
+        column = 0
+        while [32, 9].include?(byte(offset))
+          column = byte(offset) == 9 ? (column / 8 + 1) * 8 : column + 1
+          offset += 1
+        end
+        blank = offset >= @src.bytesize || byte(offset) == NL || (byte(offset) == 13 && byte(offset + 1) == NL)
+        blank ? nil : column
       end
 
       # A squiggly heredoc whose lines share some indentation. parse.y lexes
@@ -1722,8 +1756,8 @@ module Zr
         opening = literal.respond_to?(:opening_loc) ? literal.opening_loc : nil
         heredoc = opening && @src.byteslice(opening.start_offset, 2) == "<<"
         first = first_of(part)
-        if heredoc && dedent_heredoc?(literal)
-          # Each line is a token; a piece that crosses lines keeps its first line's span.
+        if heredoc && (dedent_heredoc?(literal) || @heredoc_indent&.positive?)
+          # Each line is a token while the indentation so far is above zero; a piece that crosses lines keeps its first line's span.
           line_end = @src.byteindex("\n", start_offset(part))
           finish = end_offset(part)
           finish = line_end + 1 if line_end && line_end + 1 < finish
