@@ -91,6 +91,26 @@ module Zr::Kern
     0
   end
 
+  # The report's command (`zr_crash_spawn`): its pipe's write end, or -1.
+  #: (ptr, ptr) -> word
+  def zr_os_crash_spawn(argv, child)
+    zr_crash_spawn(argv, child)
+  end
+
+  # Waits for the report's command to end.
+  #: (word) -> void
+  def zr_os_crash_wait(pid)
+    status = Machine.slot(8)
+    Libc.waitpid(Machine.i32(pid), status, Machine.i32(0))
+  end
+
+  # dladdr(3): the file and the symbol of the code at `pc`, into `info`.
+  # Returns 0 when it finds none.
+  #: (ptr, ptr) -> word
+  def zr_os_symbol_of(pc, info)
+    Machine.u32(Libc.dladdr(pc, info))
+  end
+
   # ruby_default_signal: the signal's default action ends the process.
   # abort(3) with the default SIGABRT is the last resort.
   #: (i32) -> void

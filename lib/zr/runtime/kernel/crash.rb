@@ -217,8 +217,7 @@ module Zr::Kern
       Libc.close(Machine.i32(fd))
     end
     if Machine.load64(child, 0) != 0
-      status = Machine.slot(8)
-      Libc.waitpid(Machine.i32(Machine.load64(child, 0)), status, Machine.i32(0))
+      zr_os_crash_wait(Machine.load64(child, 0))
     end
   end
 
@@ -383,13 +382,14 @@ module Zr::Kern
     if argc == 0
       return 0 - 1
     end
-    zr_crash_spawn(argv, child)
+    zr_os_crash_spawn(argv, child)
   end
 
   # ruby_popen_writer: runs the command, its first word a path that is
   # not searched (execv), with a pipe on its stdin, and returns the
   # pipe's write end. When the command does not start, it says why on
-  # stderr and returns -1.
+  # stderr and returns -1. Only an OS layer that starts processes calls
+  # it (`zr_os_crash_spawn`).
   #: (ptr, ptr) -> word
   def zr_crash_spawn(argv, child)
     fds = Machine.slot(8)
@@ -764,7 +764,7 @@ module Zr::Kern
     i = 0
     while i < n
       pc = Machine.load64(frames + (i * 8), 0)
-      if Libc.dladdr(Machine.ptr(pc), info) != Machine.i32(0)
+      if zr_os_symbol_of(Machine.ptr(pc), info) != 0
         file = Machine.ptr(Machine.load64(info, 0))
         if file != 0
           zr_buf_push(b, file, zr_cstr_len(file))
@@ -830,7 +830,10 @@ module Zr::Kern
         zr_buf_push(b, Machine.bytes(", type: user\n"), 13)
       end
     end
-    features = zr_gvar_get(Machine.id(:$LOADED_FEATURES))
+    # The array itself, as rb_dump_loaded_features reads it: no getter
+    # runs, so a report from an allocation sends nothing.
+    row = zr_gvar_row(Machine.id(:$LOADED_FEATURES))
+    features = row == 0 ? Machine.value(QNIL) : IvEntry[row].value
     if !zr_special_p(features) && zr_type(features) == T_ARRAY
       zr_buf_push(b, Machine.bytes("* Loaded features:\n\n"), 20)
       i = 0

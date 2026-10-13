@@ -49,6 +49,23 @@ module Zr::Kern
     0
   end
 
+  # A module starts no process, so a report goes to stderr or a file.
+  #: (ptr, ptr) -> word
+  def zr_os_crash_spawn(argv, child)
+    0 - 1
+  end
+
+  # No command, so nothing to wait for.
+  #: (word) -> void
+  def zr_os_crash_wait(pid)
+  end
+
+  # A module has no symbol table to read at run time.
+  #: (ptr, ptr) -> word
+  def zr_os_symbol_of(pc, info)
+    0
+  end
+
   # A module ends with a trap.
   #: (i32) -> void
   def zr_os_crash_exit(signo)
