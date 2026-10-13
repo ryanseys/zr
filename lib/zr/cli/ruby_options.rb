@@ -207,7 +207,8 @@ module Zr
         lines << "$DEBUG = true" if @debug
         @warning_categories.each { |name, on| lines << "Warning[#{name.inspect}] = #{on}" }
         # -I's directories, expanded, then RUBYLIB's as given, each frozen.
-        dirs = @includes.map { |dir| File.expand_path(dir) } + @rubylib
+        # expand_include_path keeps a directory that starts with "./".
+        dirs = @includes.map { |dir| dir.start_with?("./") ? dir : File.expand_path(dir) } + @rubylib
         lines << "$LOAD_PATH.unshift(#{dirs.map { |dir| "#{dir.inspect}.freeze" }.join(", ")})" unless dirs.empty?
         # A separator of one byte is binary, as ruby makes it, and frozen.
         if record_separator
@@ -364,7 +365,9 @@ module Zr
             @inline << (s.empty? ? argv.shift.to_s : s)
             return
           when "r" then return value(s, argv) { |feature| @requires << feature }
-          when "I" then return value(s, argv) { |dir| @includes << dir }
+          # ruby_incpush_expand: one -I takes a list, split at the path
+          # separator, empty parts skipped.
+          when "I" then return value(s, argv) { |dirs| @includes.concat(dirs.split(File::PATH_SEPARATOR).reject(&:empty?)) }
           when "i"
             # "" edits in place with no backup.
             @inplace = s

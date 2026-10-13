@@ -56,6 +56,13 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     assert_equal %w[json set], options.requires
   end
 
+  def test_one_i_takes_a_list_and_keeps_a_dot_slash_directory_as_given
+    options = parse("-I", "./\u3042:./b::lib", "-e", "1")
+
+    assert_equal ["./\u3042", "./b", "lib"], options.includes
+    assert_includes options.prelude.to_s, %(#{"./\u3042".inspect}.freeze, "./b".freeze, #{File.expand_path("lib").inspect}.freeze)
+  end
+
   def test_the_prelude_sets_what_each_switch_sets_in_rubys_order
     prelude = parse("-W0", "-d", "-I/l", "-rjson", "-l", "-s", "-Eascii-8bit:utf-8", "s.rb").prelude.to_s.lines(chomp: true)
 
@@ -442,6 +449,10 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-W:no-deprecated", "-e", "p [Warning[:deprecated], Warning[:experimental], $VERBOSE]")
     same_as_ruby("-w", "-e", "x = 1")
     same_as_ruby("sh.rb")
+  end
+
+  def test_include_directories_split_and_expand_as_ruby
+    same_as_ruby("-I", "./\u3042:./b:c", "-e", "p $LOAD_PATH.first(3).map { _1.sub(Dir.pwd, %(PWD)) }")
   end
 
   def test_load_path_and_required_libraries
