@@ -66,6 +66,7 @@ module Zr::Kern
       RFiber[copy].ctx = 0
       RFiber[copy].stack = 0
       RFiber[copy].kroots = 0
+      RFiber[copy].pooled = 0
       RFiber[copy].blk = Machine.value(QNIL)
       RFiber[copy].status = FIBER_CREATED
       RFiber[copy].prev = Machine.value(QNIL)

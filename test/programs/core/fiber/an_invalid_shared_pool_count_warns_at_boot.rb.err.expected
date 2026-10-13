@@ -1,0 +1,2 @@
+<main>: warning: invalid RUBY_SHARED_FIBER_POOL_MINIMUM_COUNT=x (expected a non-negative integer)
+<main>: warning: invalid RUBY_SHARED_FIBER_POOL_MAXIMUM_COUNT=5y (expected a non-negative integer)

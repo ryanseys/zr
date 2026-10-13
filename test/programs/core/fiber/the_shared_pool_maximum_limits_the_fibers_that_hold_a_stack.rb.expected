@@ -1,0 +1,17 @@
+true
+FiberError
+"can't allocate fiber stack: Resource temporarily unavailable"
+true
+true
+"attempt to resume a resumed fiber (double resume)"
+:done
+:next
+"boom"
+:after_error
+FiberError
+:done
+:transferred
+10
+[:done, :done]
+[:idle, :idle, :idle]
+true

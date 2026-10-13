@@ -18,6 +18,7 @@ module Zr::Kern
     attr_accessor :transferred #: word
     attr_accessor :home #: value
     attr_accessor :kw #: word
+    attr_accessor :pooled #: word
   end
 
   T_FIBER = 30
@@ -41,6 +42,110 @@ module Zr::Kern
     text = Libc.strerror(Machine.i32(err))
     zr_buf_push(b, text, zr_cstr_len(text))
     zr_raise_buf(zr_core_class(Machine.id(:FiberError)), b)
+  end
+
+  # The shared fiber pool of cont.c: its limit, from
+  # RUBY_SHARED_FIBER_POOL_MAXIMUM_COUNT (zero for none), then the number
+  # of fibers that hold a stack. A fiber takes a stack when it first runs
+  # and gives it back when it ends or the GC frees it. A thread's fiber
+  # takes none.
+  #: () -> ptr
+  def zr_fiber_pool
+    Machine.static(:fiber_pool, 16)
+  end
+
+  # The count that a pool variable gives, read as strtoul reads it in
+  # base 10: blanks, a sign, then digits up to the end. A negative count
+  # wraps to a very large one. Zero when the variable is not set or is
+  # empty; -1 when it does not read whole.
+  #: (ptr) -> word
+  def zr_fiber_pool_count(text)
+    if text == 0 || Machine.u8(Machine.load8(text, 0)) == 0
+      return 0
+    end
+    i = 0
+    c = Machine.u8(Machine.load8(text, 0))
+    while c == 32 || (c >= 9 && c <= 13)
+      i += 1
+      c = Machine.u8(Machine.load8(text + i, 0))
+    end
+    negative = c == 45
+    if c == 43 || c == 45
+      i += 1
+      c = Machine.u8(Machine.load8(text + i, 0))
+    end
+    start = i
+    n = 0
+    while c >= 48 && c <= 57
+      if n < 1152921504606846976
+        n = (n * 10) + c - 48
+      end
+      i += 1
+      c = Machine.u8(Machine.load8(text + i, 0))
+    end
+    if i == start || c != 0
+      return 0 - 1
+    end
+    if negative && n != 0
+      return 1152921504606846976
+    end
+    n
+  end
+
+  #: (ptr, word, ptr) -> void
+  def zr_fiber_pool_warn(name, len, text)
+    Libc.write(2, Machine.bytes("<main>: warning: invalid "), 25)
+    Libc.write(2, name, len)
+    Libc.write(2, Machine.bytes("="), 1)
+    Libc.write(2, text, zr_cstr_len(text))
+    Libc.write(2, Machine.bytes(" (expected a non-negative integer)\n"), 35)
+  end
+
+  # Init_Cont reads the minimum and the maximum count, and warns about a
+  # value that does not read whole. zr maps each stack when a fiber is
+  # made, so only the maximum counts.
+  #: () -> void
+  def zr_fiber_pool_init
+    min_name = Machine.bytes("RUBY_SHARED_FIBER_POOL_MINIMUM_COUNT\0")
+    max_name = Machine.bytes("RUBY_SHARED_FIBER_POOL_MAXIMUM_COUNT\0")
+    min_text = Libc.getenv(min_name)
+    max_text = Libc.getenv(max_name)
+    if zr_fiber_pool_count(min_text) == 0 - 1
+      zr_fiber_pool_warn(min_name, 36, min_text)
+    end
+    max = zr_fiber_pool_count(max_text)
+    if max == 0 - 1
+      zr_fiber_pool_warn(max_name, 36, max_text)
+      max = 0
+    end
+    Machine.store64(zr_fiber_pool(), 0, max)
+  end
+
+  # fiber_pool_stack_acquire: at the limit, a full collection frees the
+  # stacks of the fibers that nothing reaches. With none free, the fiber
+  # cannot run.
+  #: (value) -> value
+  def zr_fiber_pool_take(f)
+    pool = zr_fiber_pool()
+    limit = Machine.load64(pool, 0)
+    if limit != 0 && Machine.load64(pool, 8) >= limit
+      zr_gc_start()
+      if Machine.load64(pool, 8) >= limit
+        return zr_fiber_stack_error(EAGAIN)
+      end
+    end
+    Machine.store64(pool, 8, Machine.load64(pool, 8) + 1)
+    RFiber[f].pooled = 1
+    Machine.value(QNIL)
+  end
+
+  #: (value) -> void
+  def zr_fiber_pool_give(f)
+    if RFiber[f].pooled != 0
+      RFiber[f].pooled = 0
+      pool = zr_fiber_pool()
+      Machine.store64(pool, 8, Machine.load64(pool, 8) - 1)
+    end
   end
 
   # The task word and the preemption poll word (send.rb) are in one
@@ -134,6 +239,7 @@ module Zr::Kern
       RFiber[f].ctx = zr_xmalloc(CONTEXT_BYTES)
       RFiber[f].stack = 0
       RFiber[f].kroots = 0
+      RFiber[f].pooled = 0
       RFiber[f].blk = Machine.value(QNIL)
       RFiber[f].status = FIBER_RESUMED
       RFiber[f].prev = Machine.value(QNIL)
@@ -163,6 +269,7 @@ module Zr::Kern
     RFiber[f].ctx = 0
     RFiber[f].stack = 0
     RFiber[f].kroots = 0
+    RFiber[f].pooled = 0
     RFiber[f].blk = Machine.value(QNIL)
     RFiber[f].status = FIBER_CREATED
     RFiber[f].prev = Machine.value(QNIL)
@@ -194,6 +301,7 @@ module Zr::Kern
     RFiber[f].yielding = 0
     RFiber[f].transferred = 0
     RFiber[f].kroots = 0
+    RFiber[f].pooled = 0
     # A fiber belongs to the thread that makes it: the thread of the
     # current fiber.
     RFiber[f].home = RFiber[cur].home
@@ -289,6 +397,11 @@ module Zr::Kern
     RFiber[recv].prev = cur
     RFiber[cur].resuming = recv
     RFiber[recv].yielding = 0
+    # As fiber_switch does, the stack is taken after the fiber is marked
+    # as resumed, so a fiber that gets no stack stays marked.
+    if RFiber[recv].status == FIBER_CREATED && zr_fiber_pool_take(recv) == QUNDEF
+      return Machine.value(QUNDEF)
+    end
     zr_trace_fiber_switched(zr_fiber_run(cur, recv, argc, argv), recv, Machine.id(:resume))
   end
 
@@ -315,6 +428,9 @@ module Zr::Kern
     end
     if RFiber[recv].home != RFiber[cur].home
       return zr_fiber_error(Machine.bytes("fiber called across threads"), 27)
+    end
+    if RFiber[recv].status == FIBER_CREATED && zr_fiber_pool_take(recv) == QUNDEF
+      return Machine.value(QUNDEF)
     end
     RFiber[cur].transferred = 1
     RFiber[cur].status = FIBER_SUSPENDED
@@ -446,6 +562,7 @@ module Zr::Kern
     end
     RFiber[to].value = r
     RFiber[cur].status = FIBER_TERMINATED
+    zr_fiber_pool_give(cur)
     RFiber[to].status = FIBER_RESUMED
     zr_fiber_switch(cur, to)
     zr_bug(Machine.bytes("a terminated fiber ran again\n"), 29)
@@ -652,6 +769,7 @@ module Zr::Kern
 
   #: (value) -> void
   def zr_release_fiber(f)
+    zr_fiber_pool_give(f)
     zr_xfree(RFiber[f].ctx)
     if RFiber[f].stack != 0
       Libc.munmap(RFiber[f].stack, FIBER_STACK_BYTES)
