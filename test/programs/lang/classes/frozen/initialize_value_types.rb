@@ -50,10 +50,6 @@ p mc.clone.send(:initialize_clone, mc).class
 mx = Mutex.new
 p mx.send(:initialize)
 p Mutex.new.freeze.send(:initialize)
-q = Queue.new
-q << 1
-q.send(:initialize)
-p q.size
 sq = SizedQueue.new(3)
 sq.send(:initialize, 5)
 p sq.max

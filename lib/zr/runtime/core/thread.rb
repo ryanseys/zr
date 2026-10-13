@@ -1797,10 +1797,12 @@ class Thread::Queue
     nil
   end
 
+  # queue_do_push: an allocated queue refuses before a closed one.
   def push(value)
+    list = items
     raise ClosedQueueError, +"queue closed" if closed?
 
-    items << value
+    list << value
     Thread.send(:rouse, waiters, 1)
     self
   end
@@ -1827,9 +1829,14 @@ class Thread::Queue
   alias shift pop
   alias deq pop
 
+  # The flag is set before the queue is checked, so a queue that was only
+  # allocated is closed although its close raises.
   def close
-    @closed = true
-    Thread.send(:rouse, waiters.dup)
+    unless @closed == true
+      @closed = true
+      items
+      Thread.send(:rouse, waiters.dup)
+    end
     self
   end
 
@@ -1846,7 +1853,7 @@ class Thread::Queue
     self
   end
 
-  def num_waiting = waiters.size
+  def num_waiting = items && waiters.size
 
   # A queue takes messages and gives them away, so a frozen one could do
   # neither: ruby refuses to freeze one at all. A SizedQueue is a queue,
@@ -1899,12 +1906,14 @@ class Thread::SizedQueue < Thread::Queue
     nil
   end
 
-  def max = @max || 0
+  # szqueue_ptr: each of these checks that the queue was initialized.
+  def max = items && @max
 
   def max=(value)
     value = Primitive.zr_index_operand_m(value)
     raise ArgumentError, +"queue size must be positive" unless value > 0
 
+    items
     @max = value
     Thread.send(:rouse, pushers.dup)
     value
@@ -1940,6 +1949,9 @@ class Thread::SizedQueue < Thread::Queue
   alias deq pop
 
   def close
+    return self if closed?
+
+    items
     super
     Thread.send(:rouse, pushers.dup)
     self
@@ -1953,7 +1965,7 @@ class Thread::SizedQueue < Thread::Queue
     self
   end
 
-  def num_waiting = waiters.size + pushers.size
+  def num_waiting = items && (waiters.size + pushers.size)
 
   private
 
