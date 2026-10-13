@@ -1,0 +1,15 @@
+[Set, "\"type\":\"DATA\"", "\"struct\":\"set\"", "\"free_immediately\":false", false]
+[Set, "\"type\":\"DATA\"", "\"struct\":\"set\"", "\"free_immediately\":false", false]
+[MySet, "\"type\":\"DATA\"", "\"struct\":\"set\"", "\"free_immediately\":false", false]
+[Set, "\"type\":\"DATA\"", "\"struct\":\"set\"", "\"free_immediately\":false", true]
+[Set, "\"type\":\"DATA\"", "\"struct\":\"set\"", "\"free_immediately\":false", true]
+[Set, "\"type\":\"DATA\"", "\"struct\":\"set\"", "\"free_immediately\":false", false]
+true
+true
+true
+true
+true
+[Set, [1], "a"]
+[Set]
+[MySet, 1180591620717411303424]
+[Set, [3]]

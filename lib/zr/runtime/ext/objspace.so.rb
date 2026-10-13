@@ -41,7 +41,7 @@ module ObjectSpace
     [UnboundMethod, "method", true], [Thread::Mutex, "mutex", true], [Thread::ConditionVariable, "condvar", true],
     [Thread::Monitor, "monitor", true], [Time, "time", true], [Random, "random/MT", true],
     [Enumerator, "enumerator", true], [Thread::Backtrace::Location, "frame_info", true], [Ractor, "ractor", true],
-    [Ractor::Port, "ractor/port", true], [File::Stat, "stat", true]
+    [Ractor::Port, "ractor/port", true], [File::Stat, "stat", true], [Set, "set", false]
   ].freeze
   # The types in the order of CRuby's tags.
   TYPE_ORDER = %w[OBJECT CLASS MODULE FLOAT STRING REGEXP ARRAY HASH STRUCT BIGNUM FILE DATA MATCH COMPLEX RATIONAL SYMBOL].freeze
@@ -108,7 +108,13 @@ module ObjectSpace
     return nil if Primitive.zr_special_p_m(obj)
     return [] if obj.is_a?(Integer)
 
-    Primitive.zr_objspace_reachable(obj)
+    found = Primitive.zr_objspace_reachable(obj)
+    return found unless obj.is_a?(Set)
+
+    # ruby's Set is a T_DATA that marks its elements; zr's keeps them as
+    # the keys of a table, which ruby has no object for.
+    table = Primitive.zr_hidden_get(obj, :__table__)
+    found.flat_map { |ref| ref.equal?(table) ? Primitive.zr_objspace_reachable(table).reject { |key| key.equal?(Hash) } : [ref] }
   end
 
   def reachable_objects_from_root = Primitive.zr_objspace_roots
