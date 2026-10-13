@@ -100,7 +100,7 @@ module Zr::Kern
   KIND_COMPILED = 10
 
   # One backtrace frame. `node` is the id of the prism node that the line
-  # ran, or 0.
+  # ran, negative in code that an eval compiled (zr_frame_place_id), or 0.
   class BtRow < Layout
     attr_accessor :meta #: ptr
     attr_accessor :file #: ptr
@@ -155,10 +155,19 @@ module Zr::Kern
     line >= 2147483648 ? line - 4294967296 : line
   end
 
-  #: (ptr) -> word
-  def zr_frame_node_id(rec)
-    Frame[rec].line >> 32
-  end
+#: (ptr) -> word
+def zr_frame_node_id(rec)
+  Frame[rec].line >> 32
+end
+
+# The node id that a Location keeps for the frame `rec`: negative for
+# code that an eval compiled, whose source CRuby cannot read again
+# (Thread::Backtrace::Location#source_range).
+#: (ptr) -> word
+def zr_frame_place_id(rec)
+  id = zr_frame_node_id(rec)
+  FrameMeta[Frame[rec].meta].evaled != 0 ? 0 - id : id
+end
 
   # The levels that the frame `rec` takes in a caller list. CRuby runs
   # a rescue clause in a frame of its own, which shows the clause's line
@@ -281,7 +290,7 @@ module Zr::Kern
           BtRow[row].file = FrameMeta[Frame[source].meta].file
           BtRow[row].file_len = FrameMeta[Frame[source].meta].file_len
           BtRow[row].line = zr_frame_line(source)
-          BtRow[row].node = zr_frame_node_id(source)
+          BtRow[row].node = zr_frame_place_id(source)
         end
         i += 1
       end
@@ -1000,20 +1009,37 @@ module Zr::Kern
   # false for a frame with no file.
   #: (value, value) -> value
   def zr_caller_places(start, limit)
-    skip = zr_fix2long(start)
-    room = limit == QNIL ? 0 - 1 : zr_fix2long(limit)
+    zr_frame_places(Task[zr_task()].top, zr_fix2long(start), limit == QNIL ? 0 - 1 : zr_fix2long(limit))
+  end
+
+  # The same for the frames that `fiber`'s backtrace shows
+  # (zr_fiber_backtrace_m), or nil when it runs on no stack.
+  #: (value, value, value) -> value
+  def zr_fiber_places_m(fiber, start, limit)
+    t = RFiber[fiber].task
+    if t == 0
+      return Machine.value(QNIL)
+    end
+    zr_frame_places(Task[t].top, zr_fix2long(start), zr_fix2long(limit))
+  end
+
+  # The places of the shown frames from `rec` down, past the first
+  # `skip` levels, at most `room` of them (no limit when negative).
+  #: (ptr, word, word) -> value
+  def zr_frame_places(top, skip, room)
+    left = skip
+    rec = top
     out = zr_ary_new(8)
-    rec = Task[zr_task()].top
     while rec != 0 && (room < 0 || RArray[out].len < room * 2)
       if zr_frame_shown_p(rec)
         levels = zr_frame_levels(rec)
-        if skip >= levels
-          skip -= levels
+        if left >= levels
+          left -= levels
         else
           source = zr_frame_with_file(rec)
-          zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_node_id(source)))
-          zr_ary_push(out, source == 0 ? Machine.value(QFALSE) : zr_fix(zr_frame_level_line(source, skip)))
-          skip = 0
+          zr_ary_push(out, zr_fix(source == 0 ? 0 : zr_frame_place_id(source)))
+          zr_ary_push(out, source == 0 ? Machine.value(QFALSE) : zr_fix(zr_frame_level_line(source, left)))
+          left = 0
         end
       end
       rec = Frame[rec].prev

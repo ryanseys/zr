@@ -27,7 +27,10 @@ module ErrorHighlight
         rows = {}
         lines.each do |line|
           id, point, name, *numbers = line.split
-          (rows[id.to_i] ||= []) << [point == "n" ? :name : :args, name == "-" ? nil : name.to_sym, *numbers.map(&:to_i)]
+          # A node's range is Location#source_range's.
+          next if point == "r"
+
+          (rows[id.to_i] ||= []) <<[point == "n" ? :name : :args, name == "-" ? nil : name.to_sym, *numbers.map(&:to_i)]
         end
         [file, rows]
       end

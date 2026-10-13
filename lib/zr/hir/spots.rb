@@ -17,8 +17,9 @@ module Zr
     #
     # One record per line: `id point name first_line first_column
     # last_line last_column`. `point` is `n` for `point_type: :name` and
-    # `a` for `:args`. `name` is the constant in the NameError, or `-` if
-    # the spot does not depend on it.
+    # `a` for `:args`, or `r` for the range of a node that calls (CALLS).
+    # `name` is the constant in the NameError, or `-` if the spot does not
+    # depend on it.
     module Spots
       # Spotter reads the file's lines once per spot, and prism splits the
       # source again each time. A compiled file's source never changes, so
@@ -62,12 +63,25 @@ module Zr
         block_node: %i[name]
       }.freeze
 
+      # The node types whose code calls a method, so a frame can stand at
+      # one: Thread::Backtrace::Location#source_range gives its range, as
+      # CRuby finds the node again by its id.
+      CALLS = %i[call_node super_node forwarding_super_node yield_node call_operator_write_node call_and_write_node
+                 call_or_write_node index_operator_write_node index_and_write_node index_or_write_node
+                 local_variable_operator_write_node instance_variable_operator_write_node
+                 class_variable_operator_write_node global_variable_operator_write_node
+                 constant_operator_write_node constant_path_operator_write_node interpolated_string_node
+                 interpolated_symbol_node interpolated_x_string_node interpolated_regular_expression_node
+                 x_string_node match_write_node].to_h { [_1, true] }.freeze
+
       #: (Prism::node tree) -> String
       def of(tree)
         rows = +""
         queue = [tree]
         while (node = queue.shift)
           queue.concat(node.compact_child_nodes)
+          at = CALLS[node.type] ? node.location : entry(node)
+          rows << [node.node_id, "r", "-", at.start_line, at.start_column, at.end_line, at.end_column].join(" ") << "\n" if at
           points = POINTS[node.type] or next
 
           names(node).each do |name|
@@ -80,6 +94,19 @@ module Zr
           end
         end
         rows
+      end
+
+      # Where a frame of a def, block or lambda stands before its first call
+      # (a TracePoint's :call): its frame keeps the def's id, and CRuby's
+      # stands at the body's first statement. Nil for any other node, or
+      # for an empty body.
+      #: (untyped node) -> Prism::Location?
+      def entry(node)
+        return unless node.type == :def_node || node.type == :block_node || node.type == :lambda_node
+
+        body = node.body
+        body = body.statements if body.is_a?(Prism::BeginNode)
+        body.body.first&.location if body.is_a?(Prism::StatementsNode)
       end
 
       # The constant names that a NameError at `node` can contain, if the

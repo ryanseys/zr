@@ -864,7 +864,10 @@ class Thread
   def backtrace_locations(start = 0, length = nil)
     return length.nil? ? caller_locations(start) : caller_locations(start, length) if equal?(Thread.current)
 
-    backtrace(start, length)&.map { |row| Thread::Backtrace::Location.send(:made, row) }
+    return nil unless alive?
+    return Thread::Backtrace::Location.send(:of_fiber, local_fiber, 0, -1)&.[](start) if Range === start
+
+    Thread::Backtrace::Location.send(:of_fiber, local_fiber, start, length.nil? ? -1 : length)
   end
 
   # An id of its own for as long as the thread lives, as the native
@@ -1580,7 +1583,10 @@ class Fiber
   end
 
   def backtrace_locations(start = 0, length = nil)
-    backtrace(start, length)&.map { |row| Thread::Backtrace::Location.send(:made, row) }
+    return caller_locations(start, length) if equal?(Fiber.current)
+    return [] if !alive? || Primitive.zr_fiber_unborn_p(self)
+
+    Thread::Backtrace::Location.send(:of_fiber, self, start, length.nil? ? -1 : length)
   end
 
   def inspect = Primitive.zr_fiber_inspect_m(self, Primitive.zr_hidden_get(self, :__block__))
