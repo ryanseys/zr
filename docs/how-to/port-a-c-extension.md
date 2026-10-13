@@ -86,7 +86,7 @@ as its users do. Let ruby write their expected outputs, and run them:
 
 ```console
 $ bin/zr-dev expect test/programs/stdlib/digest
-$ ZR_PROGRAMS=stdlib/digest bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/stdlib/digest
 $ bin/zr-dev expect --check test/programs/stdlib/digest
 ```
 

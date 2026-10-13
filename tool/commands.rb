@@ -20,6 +20,7 @@ module Zr
       "expect" => ["Write the expected output of program tests from the pinned ruby", -> { require_relative "expect"; Commands::Expect }],
       "record" => ["Ask ruby what a benchmark answers, and write it beside the benchmark",
                    -> { require_relative "record"; Commands::Record }],
+      "test" => ["Run zr's tests: all, or the test files, lines and programs given", -> { require_relative "test"; Commands::Test }],
       "affected" => ["Run the tests that a change can reach", -> { require_relative "affected"; Commands::Affected }],
       "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Commands::Bench }],
       "compile" => ["How long zr takes to compile, and where", -> { require_relative "compile"; Commands::Compile }],

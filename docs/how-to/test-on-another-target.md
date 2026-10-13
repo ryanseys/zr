@@ -13,8 +13,8 @@ when it gives the same output.
 Set `ZR_TARGET` to the triple:
 
 ```console
-$ ZR_TARGET=wasm32-wasi ZR_PROGRAMS=cli bin/minitest test/programs_test.rb
-$ ZR_TARGET=aarch64-linux-musl ZR_PROGRAMS=lang/methods bin/minitest test/programs_test.rb
+$ bin/zr-dev test --target wasm32-wasi test/programs/cli
+$ bin/zr-dev test --target aarch64-linux-musl test/programs/lang/methods
 ```
 
 The tests build each program for that target and start it as that
@@ -57,7 +57,7 @@ To add a line:
 To remove a line, delete it when the run tells you that the test passes.
 
 There are thousands of program tests, so on another target run the
-directories that CI runs (`.github/workflows/ci.yml`): `ZR_PROGRAMS=cli`
+directories that CI runs (`.github/workflows/ci.yml`): `test/programs/cli`
 and a slice of the language and core areas. Give the baseline the
 tests in them that fail.
 
@@ -86,7 +86,7 @@ $ docker exec alpine bundle config set --global without development
 $ docker exec alpine bundle install
 $ docker exec alpine ruby tool/install_reference_gems.rb
 $ docker exec alpine bundle exec rake build
-$ docker exec -e ZR_TARGET=aarch64-linux-musl -e ZR_PROGRAMS=cli alpine bin/minitest test/programs_test.rb
+$ docker exec alpine bin/zr-dev test --target aarch64-linux-musl test/programs/cli
 ```
 
 These are the commands of the `linux-musl` job in

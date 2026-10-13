@@ -29,11 +29,10 @@ $ bin/minitest  # runs every test: unit, programs, ext
 1. Write a program test that shows the change: see
    [Add your first program test](docs/tutorials/add-your-first-program-test.md).
 2. Change the compiler (`lib/`) or the runtime (`lib/zr/runtime/`).
-3. Run the tests that cover the change: `bin/zr-dev affected`, or some
-   programs such as
-   `ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb`. Then run `bin/minitest`
-   before you open a pull request. A full run takes a long time and
-   much memory; `MT_CPU=4` uses fewer workers. See
+3. Run the tests that cover the change: `bin/zr-dev test --changed`, or
+   some programs such as `bin/zr-dev test test/programs/core/string`. Then
+   run `bin/zr-dev test` before you open a pull request. A full run takes a
+   long time and much memory; `-j 4` uses fewer workers. See
    [How to run the tests](docs/how-to/run-the-tests.md).
 4. Add a line to `CHANGELOG.md` under `[Unreleased]`.
 

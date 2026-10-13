@@ -9,6 +9,8 @@
 #   bin/minitest test/programs_test.rb                     every program
 #   ZR_PROGRAMS=core/gc,lang bin/minitest test/programs_test.rb
 #                                                          the programs below those paths
+#                                                          (or anywhere; `bin/zr-dev test
+#                                                          <path>` sets it)
 #   bin/minitest test/programs_test.rb -i /stdlib.uri/     the tests whose name matches
 #   ZR_TEST_HOST=1 bin/minitest test/programs_test.rb      on CRuby over zr's kernel, with
 #                                                          no build (test/baselines/host.txt)
@@ -36,7 +38,7 @@ require_relative "support/host_program" if host
 
 class ProgramsTest < Minitest::Test
   PROGRAMS = Zr::Test::Programs.new(host: ENV["ZR_TEST_HOST"] == "1")
-  CASES = Zr::Test::Programs.cases.to_h { |test| ["test_#{test.rel}", test] }
+  CASES = Zr::Test::Programs.cases.to_h { |test| ["test_#{Zr::Test::Programs.label(test)}", test] }
   RESULTS = (Zr::Test::ResultCache.new if PROGRAMS.host? && Zr::Test::ResultCache.enabled?)
 
   # Why zr did not build or run a program: a test error, not a failure.

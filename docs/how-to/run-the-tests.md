@@ -18,7 +18,7 @@ $ bin/setup
 ```
 
 `bin/setup` installs the gems and builds the runtime for this host.
-The first build takes a few minutes. `bin/minitest` builds the runtime
+The first build takes a few minutes. A test run builds the runtime
 again when a change under `lib/` or `lib/zr/runtime/` makes it out of date.
 To build the runtime without a test run:
 
@@ -40,141 +40,164 @@ tell you why. They also skip when wasmtime is not installed.
 ## Run all the tests
 
 ```console
-$ bin/minitest
+$ bin/zr-dev test
 ```
 
-This runs every `test/**/*_test.rb` file: the unit tests, the program
-tests and the C extension tests. `rake test` runs the three tiers, one
-after the other.
-`rake` runs `rake lint` first, then the tests. To time a run, use the
-shell's `time`:
+This runs every `test/**/*_test.rb` file with `bin/minitest`: the unit
+tests, the program tests and the C extension tests. `bin/minitest` with
+no path does the same. `rake test` runs the three tiers, one after the
+other. `rake` runs `rake lint` first, then the tests. To time a run, use
+the shell's `time`:
 
 ```console
-$ time bin/minitest test/unit
+$ time bin/zr-dev test --suite unit
 ```
 
-## Run one tier or one file
+## Run some tests
 
-Give `bin/minitest` one or more paths:
+Give `zr-dev test` one or more paths. A path is a test file, a
+directory of test files, a program below `test/programs` or a directory
+of them, or a Ruby program of your own anywhere:
 
 ```console
-$ bin/minitest test/unit
-$ bin/minitest test/programs_test.rb
-$ bin/minitest test/unit/wasm_test.rb test/unit/exe_test.rb
+$ bin/zr-dev test test/unit/wasm_test.rb test/unit/exe_test.rb
+$ bin/zr-dev test test/programs/core/string test/programs/lang
+$ bin/zr-dev test test/programs/core/string/blocks/lambda_arrow_string_return.rb
+$ bin/zr-dev test --suite unit,ext
 ```
 
-`rake test:unit`, `rake test:programs` and `rake test:ext` run one
-tier.
-
-## Run some program tests
-
-`test/programs_test.rb` has one test for each program below
-`test/programs` that has a `.rb.expected` file. To run some of them,
-set `ZR_PROGRAMS` to paths below `test/programs`, separated by commas.
-Each path is a directory or one program:
+To run the test at one line of a test file, give the line after the
+path:
 
 ```console
-$ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/unit/cli_test.rb:214
+```
+
+`--name` (`-n`) selects tests by name, and `--exclude` (`-e`) leaves
+tests out by name. The name of a program test is
+`test_<path below test/programs>`:
+
+```console
+$ bin/zr-dev test --suite unit -n /deduplicated/
+$ bin/zr-dev test test/unit/cli_test.rb -e /encoding/
+$ bin/zr-dev test --suite programs -n /stdlib.uri/
+```
+
+`--list` prints the `bin/minitest` command and the tests that it runs,
+and runs nothing.
+
+Without zr-dev, give `bin/minitest` the test files, and set
+`ZR_PROGRAMS` to the programs, separated by commas:
+
+```console
 $ ZR_PROGRAMS=core/gc,lang bin/minitest test/programs_test.rb
-$ ZR_PROGRAMS=core/string/blocks/lambda_arrow_string_return.rb bin/minitest test/programs_test.rb
 ```
 
-The name of each test is `test_<path below test/programs>`, so a
-minitest option also selects programs by name:
+## Test a program of your own
+
+A program anywhere is a program test. With no `.rb.expected` file beside
+it, the test asks the pinned ruby for the expected output when it runs,
+and compares zr's output with that:
 
 ```console
-$ bin/minitest test/programs_test.rb -i /stdlib.uri/
+$ bin/zr-dev test scratch/try.rb
 ```
 
-## Run some unit tests
+Three options say where the expected output comes from:
 
-Put minitest options after the paths: `-i` (or `-n`) selects tests by
-name, `-e` excludes tests by name, `-s` sets the seed and `-v` shows
-each test:
+| Option | The expected output |
+|---|---|
+| `--record` | The pinned ruby's, written beside each program first, as `zr-dev expect` writes it. |
+| `--verify` | The files beside each program. A program with none fails. |
+| `--live` | The pinned ruby's, now. The test reads and writes no file. |
 
-```console
-$ bin/minitest test/unit -i /deduplicated/
-$ bin/minitest test/unit -i '/Hygiene|Exe|Target/'
-$ bin/minitest test/unit/cli_test.rb -e /encoding/
-```
+`ZR_EXPECTED=record`, `verify` or `live` does the same without zr-dev. A
+directory gives only the programs that have a `.rb.expected` file,
+unless one of these options is set.
 
-To run the test at one line, give the line after the path:
-
-```console
-$ bin/minitest test/unit/cli_test.rb:214
-```
+## Run the failed tests again
 
 When a run fails, minitest prints each failure. A failed program test
 shows the diff against ruby's output. When zr does not build or run
 the program, the test is an error. A skip tells you why: a baseline
-entry or a need that the host does not meet. To run one program test
-again, give its path to `ZR_PROGRAMS`. See
+entry or a need that the host does not meet. See
 [Program tests](../reference/program-tests.md#results).
+
+Each run records the tests that failed in `tmp/zr-dev-test/failed.txt`,
+and takes off each test that passed. To run them again:
+
+```console
+$ bin/zr-dev test --failed
+```
 
 ## Run the tests that a change can reach
 
 ```console
-$ bin/zr-dev affected
-$ bin/zr-dev affected --base origin/main
-$ bin/zr-dev affected --dry-run
+$ bin/zr-dev test --changed
+$ bin/zr-dev test --changed origin/main
 ```
 
-`zr-dev affected` reads the diff against `main`, or against
-`--base`, and runs the tests that the changed files can reach. A
+`--changed` reads the diff against `main`, or against the revision that
+you give, and runs the tests that the changed files can reach. A
 changed unit test file runs itself, and a changed program, or a file
 beside it, runs the program. For a file under `lib/zr/runtime/core`, these
 are the directory of its class and every program test that uses the
 class name. For a file under `lib/zr` that does not change what a
 build writes, these are the unit tests that load it, and
-`test/programs/cli` when `exe/zr` loads it. A change to the compiler, the kernel or the test support reaches
-every test: then `zr-dev affected` runs nothing and tells you so,
-because a full run is a decision for you. It runs the tests that it
-finds with `bin/minitest`: the unit test files by path, and the program
-tests through `ZR_PROGRAMS`. `--dry-run` prints the paths and runs
-nothing.
+`test/programs/cli` when `exe/zr` loads it. A change to the compiler,
+the kernel or the test support reaches every test: then `--changed`
+runs nothing and tells you so, because a full run is a decision for
+you. `zr-dev affected` maps files in the same way.
 
 ## Use fewer workers
 
 `bin/minitest` runs one worker process for each 2 GB of memory. It keeps a
 quarter of the memory (at least 4 GB) and two cores free, and prints
 the number when it starts. A 16 GB, 12-core Mac gets 6 workers. If the
-machine is slow or swaps during a run, set fewer:
+machine is slow or swaps during a run, set fewer with `--jobs` (`-j`,
+or `MT_CPU`):
 
 ```console
-$ MT_CPU=4 ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
+$ bin/zr-dev test -j 4 test/programs/core/string
 ```
 
-Do not run two tiers or two `bin/minitest` commands at the same time.
-Each one takes its workers from the same memory.
+Do not run two tiers or two test runs at the same time. Each one takes
+its workers from the same memory.
 
 ## Stop at the first failure, or change the time limits
 
-`ZR_TEST_FAIL_FAST=1` runs no more tests after one fails.
-`ZR_TEST_SECONDS=N` sets the time limit of each program run and build
-(default 60 s). A worker also stops a test after `ZR_TEST_TIMEOUT`
-seconds (default 180); `ZR_TEST_TIMEOUT=0` removes that limit:
+`--fail-fast` (`ZR_TEST_FAIL_FAST=1`) runs no more tests after one
+fails. `--timeout SECS` sets the time limit of each test and of each
+program's build and run. Without zr-dev, `ZR_TEST_SECONDS=N` sets the
+limit of each program run and build (default 60 s), and
+`ZR_TEST_TIMEOUT=N` the limit of each test in a worker (default 180;
+`0` removes it):
 
 ```console
-$ ZR_TEST_FAIL_FAST=1 bin/minitest test/unit
-$ ZR_TEST_SECONDS=300 ZR_TEST_TIMEOUT=0 ZR_PROGRAMS=stdlib bin/minitest test/programs_test.rb
+$ bin/zr-dev test --fail-fast --suite unit
+$ ZR_TEST_SECONDS=300 ZR_TEST_TIMEOUT=0 bin/zr-dev test test/programs/stdlib
 ```
 
 ## Run the program tests on the host
 
-`ZR_TEST_HOST=1` runs the program tests on CRuby over zr's kernel, with
-no build. The test file starts ruby again with large stacks and
-`--yjit`. Its baseline is `test/baselines/host.txt`:
+`--no-build` (`ZR_TEST_HOST=1`) runs the program tests on CRuby over
+zr's kernel, with no build. The test file starts ruby again with large
+stacks and `--yjit`. Its baseline is `test/baselines/host.txt`. A host
+test that passed with the same inputs passes again at once, from a
+cache; `--no-cache` (`ZR_TEST_FRESH=1`) runs each one:
 
 ```console
-$ ZR_TEST_HOST=1 bin/minitest test/programs_test.rb
+$ bin/zr-dev test --no-build --suite programs
+$ bin/zr-dev test --no-build --no-cache test/programs/lang/control
 ```
 
 ## Collect at every allocation
 
-Add `ZR_GC_STRESS=1` after a change to the heap, the frames or the roots:
+Add `--gc-stress` (`ZR_GC_STRESS=1`) after a change to the heap, the
+frames or the roots:
 
 ```console
-$ ZR_GC_STRESS=1 ZR_PROGRAMS=lang/blocks bin/minitest test/programs_test.rb
+$ bin/zr-dev test --gc-stress test/programs/lang/blocks
 $ ZR_GC_STRESS=1 rake test:programs
 ```
 
@@ -189,7 +212,7 @@ and Onigmo's Unicode tables). If your change must change one of these
 files, write it again with `ZR_BLESS=1`, then read the diff:
 
 ```console
-$ ZR_BLESS=1 bin/minitest test/unit/hir_test.rb
+$ ZR_BLESS=1 bin/zr-dev test test/unit/hir_test.rb
 $ git diff test/hir/
 ```
 
@@ -210,7 +233,7 @@ Without `--check`, `zr-dev expect` writes the files again. See
 ## Run the tests for another target
 
 ```console
-$ ZR_TARGET=wasm32-wasi ZR_PROGRAMS=cli bin/minitest test/programs_test.rb
+$ bin/zr-dev test --target wasm32-wasi test/programs/cli
 ```
 
 See [How to test on another target](test-on-another-target.md).
@@ -239,7 +262,7 @@ $ cat tmp/test-progress.txt
 ## Find the slow tests
 
 ```console
-$ SLOW=1 bin/minitest test/unit
+$ SLOW=1 bin/zr-dev test --suite unit
 $ SLOW=1 rake test:unit
 ```
 

@@ -97,7 +97,8 @@ To select tests by name, give minitest's own options (`-i`, `-e`) to
 
 | Variable | Values | Default | Effect |
 |---|---|---|---|
-| `ZR_PROGRAMS` | paths below `test/programs`, separated by commas | every program | The program tests that `test/programs_test.rb` defines: the programs below each path. A path is a directory or one program, such as `core/gc,lang/blocks`. |
+| `ZR_PROGRAMS` | paths, separated by commas | every program | The program tests that `test/programs_test.rb` defines: the programs below each path. A path is a directory or one program, below `test/programs` (`core/gc,lang/blocks`), below the current directory, or absolute. `zr-dev test` sets it from its program paths. |
+| `ZR_EXPECTED` | `record`, `verify`, `live` | unset | Where a program test's expected output comes from: the pinned ruby, written beside the program first (`record`); the files beside the program, and a program with none fails (`verify`); the pinned ruby now, with no file read or written (`live`). Unset, a test reads its files, and a program with none asks the pinned ruby. `zr-dev test --record`, `--verify` and `--live` set it. |
 | `ZR_TARGET` | a triple | this host | Builds and runs the programs for that target. See [How to test on another target](../how-to/test-on-another-target.md). |
 | `ZR_GC_STRESS` | `1` | unset | Each program that a test runs gets `ZR_GC_STRESS=1` in its environment, and collects at every allocation. |
 | `ZR_TEST_FAIL_FAST` | `1` | unset | The run starts no more tests after one fails. |

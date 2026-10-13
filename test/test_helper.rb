@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-# The tests run with `bin/minitest` (minitest's own runner):
+# The tests run with `bin/minitest` (minitest's own runner), which
+# `bin/zr-dev test` runs with its paths and options (tool/test.rb):
 #
-#   bin/minitest                                  every test: test/**/*_test.rb
-#   bin/minitest test/unit/cli_test.rb -n /help/  one file, and minitest's options
-#   bin/minitest test/programs_test.rb            the program tests (that file says how
-#                                                 to pick some, and how to run them on
-#                                                 the host)
+#   bin/zr-dev test                               every test: test/**/*_test.rb
+#   bin/zr-dev test test/unit/cli_test.rb:40      the test on one line
+#   bin/zr-dev test test/programs/core/gc try.rb  programs, from anywhere
+#   bin/minitest test/unit/cli_test.rb -i /help/  bin/minitest itself, and its options
 #
-# The run reads these variables:
+# The run reads these variables (a `zr-dev test` option sets most):
 #   MT_CPU=<n>             the number of worker processes
 #   ZR_TEST_FAIL_FAST=1    run no more tests after one fails
 #   ZR_TEST_SECONDS=<n>    the time limit of each program run and build
@@ -17,6 +17,9 @@
 #                          180; 0 waits forever)
 #   ZR_TARGET=<triple>     build and run the programs for that target
 #   ZR_GC_STRESS=1         the programs collect at every allocation
+#   ZR_PROGRAMS=<paths>    the program tests to run (test/programs_test.rb)
+#   ZR_EXPECTED=<mode>     a program test's expected output: record, verify
+#                          or live (test/support/program_selection.rb)
 #   SLOW=1                 report the slowest tests
 #   COVERAGE=1             measure lib/ (test/support/coverage_run.rb)
 
@@ -57,6 +60,7 @@ require_relative "support/stubs"
 Minitest::Test.include(Zr::Test::Stubs)
 require_relative "support/slow"
 require_relative "support/progress"
+require_relative "support/last_failures"
 Minitest::Test.parallelize_me!
 
 # Use the Minitest report by default. `SLOW` adds the time of each test.

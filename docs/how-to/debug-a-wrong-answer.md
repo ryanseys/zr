@@ -19,7 +19,7 @@ See [`zr diff`](../reference/cli.md#zr-diff-options-filerb-args).
 For a program test, run the one test:
 
 ```console
-$ ZR_PROGRAMS=core/string/slicing/foo.rb bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/core/string/slicing/foo.rb
 ```
 
 The test compares stdout, stderr, the exit status and the signal
@@ -30,7 +30,7 @@ the message tells which one changed. See
 To run all the tests of an area and see only the failures:
 
 ```console
-$ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/core/string
 ```
 
 ## Make the program smaller
@@ -56,7 +56,7 @@ question.
   only this way, the collector does not find a value:
 
   ```console
-  $ ZR_GC_STRESS=1 ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
+  $ bin/zr-dev test --gc-stress test/programs/core/string
   $ ZR_GC_STRESS=1 ./binary
   ```
 

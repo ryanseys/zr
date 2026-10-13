@@ -33,10 +33,12 @@ module Zr
     # another wrote.
     Case = Data.define(:root, :rel) do
       # The programs below `dir` (a directory or one program) that have an
-      # expected output, as Cases whose root is `root`.
-      def self.under(dir, root)
-        paths = File.file?(dir) ? [dir] : Dir[File.join(dir, "**/*.rb")].sort
-        paths.select { |path| !path.include?(".rb.files/") && File.file?("#{path}.expected") }
+      # expected output, or with `every` all of them, as Cases whose root is
+      # `root`. The files that a program's run directory holds
+      # (foo.rb.files/) are no programs.
+      def self.under(dir, root, every: false)
+        paths = File.file?(dir) ? [dir] : Dir[File.join(dir, "**/*.rb")].sort.reject { |path| path.include?(".rb.files/") }
+        paths.select { |path| every || File.file?("#{path}.expected") }
              .map { |path| new(root, File.expand_path(path).delete_prefix(File.join(File.expand_path(root), ""))) }
       end
 

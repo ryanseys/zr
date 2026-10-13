@@ -195,11 +195,11 @@ baseline, or a need that this machine does not meet); minitest's `-v`
 shows it. The command exits with status 1 when a test failed or had an
 error.
 
-To run one failure again, give its path below `test/programs` to
-`ZR_PROGRAMS`:
+To run one failure again, give its path to `zr-dev test`, or run every
+failure again with `zr-dev test --failed`:
 
 ```console
-$ ZR_PROGRAMS=core/string/blocks/foo.rb bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/core/string/blocks/foo.rb
 ```
 
 ## Baselines

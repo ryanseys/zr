@@ -13,7 +13,7 @@ Let ruby write its expected output; see
 
 ```console
 $ bin/zr-dev expect test/programs/core/string/squeeze
-$ ZR_PROGRAMS=core/string/squeeze bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/core/string/squeeze
 ```
 
 The test fails or has an error now. It is the proof of your fix. Cover the
@@ -94,7 +94,7 @@ put a module before the classes that include it.
 ## 6. Run the test again
 
 ```console
-$ ZR_PROGRAMS=core/string/squeeze bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/core/string/squeeze
 ```
 
 The first build after a change under `lib/zr/runtime/` compiles the runtime
@@ -102,7 +102,7 @@ again, so it takes longer. Then run the class's area, to see that
 nothing else changed:
 
 ```console
-$ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/core/string
 $ bin/zr-dev affected
 ```
 

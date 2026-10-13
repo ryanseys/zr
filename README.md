@@ -156,7 +156,7 @@ any host can work on the `wasm32-wasi` target
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
 $ bin/setup               # install the gems and build the runtime (a few minutes)
-$ ZR_PROGRAMS=core/string bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/core/string
                           # the program tests in one directory
 $ bin/zr-dev affected     # the tests that your change can reach
 $ bin/minitest            # all the tests: unit, programs, ext

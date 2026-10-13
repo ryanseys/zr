@@ -78,11 +78,10 @@ is no `.rb.err.expected` file and no `.rb.status` file.
 
 ## Run it
 
-Run the one test. Give its path below `test/programs` in
-`ZR_PROGRAMS`:
+Run the one test. Give its path to `zr-dev test`:
 
 ```console
-$ ZR_PROGRAMS=lang/blocks/enumeration/groups_words_by_their_length.rb bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/lang/blocks/enumeration/groups_words_by_their_length.rb
 6 test worker(s) on 12 cores and 16 GB (MT_CPU sets the number)
 Run options: --seed 4242
 
@@ -103,8 +102,8 @@ exit status. A program that also wrote a backtrace does not pass.
 Now run the directory, and then its area:
 
 ```console
-$ ZR_PROGRAMS=lang/blocks/enumeration bin/minitest test/programs_test.rb
-$ ZR_PROGRAMS=lang/blocks bin/minitest test/programs_test.rb
+$ bin/zr-dev test test/programs/lang/blocks/enumeration
+$ bin/zr-dev test test/programs/lang/blocks
 ```
 
 ## See a failure
