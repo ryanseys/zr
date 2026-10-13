@@ -3,7 +3,7 @@
 # `zr-dev vendor --check` checks vendor/ against it.
 #
 # A source: kind name version sha256-of-its-.gem url
-inputs f4cd28d075731c0bb0496481d009ee4012270aa4d7e75e330f114f5a91fba2a7
+inputs b60ccdf2388ef625a7c3c7602267058417038480abf02c7eda3de114688cc374
 
 ruby ruby 4.1.0 - https://github.com/ruby/ruby@2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1
 source prism 1.9.0 - https://github.com/ruby/prism@0a5f9c956cb62b371ab680868d08c82ae0d49201
@@ -584,6 +584,46 @@ cb8b0cf0275320afaa2f657502338702f0edf7372c10ff38725cd8a19ee06ab3 ruby/lib/ruby/4
 afa3bc9d8d232a4c3e615ff03431066b616b978501d40f1cb29add384c3eb7d9 ruby/lib/ruby/4.1.0+5/ripper/filter.rb
 6d772df6f63c0c95fa457c5e95c7a2bd2ba8d437d2b8b39c596afa99b664bbc0 ruby/lib/ruby/4.1.0+5/ripper/lexer.rb
 d54292cd96b7ca2cfd96344fcc09b9d3efc043fcc6d6b8fe07cd7a6d3de6dd7b ruby/lib/ruby/4.1.0+5/ripper/sexp.rb
+3b5651485c3a4950e077025248c5237a6c46deb4eb02a2a43f3e7a14a7e13e0c ruby/lib/ruby/4.1.0+5/ruby/prism.rb
+fe577a5643b84447459e84cbd44badba985ed2aa5ce1f622ff7d175cbb5e302e ruby/lib/ruby/4.1.0+5/ruby/prism/compiler.rb
+6166c8025226b2ab086af2f46123a93e02b50d0e9fb28c1b36bc44dc095b1c71 ruby/lib/ruby/4.1.0+5/ruby/prism/desugar_compiler.rb
+ef6c30f8854cdbed651afaa71cfacd4fc011dd54aa710b3fc9c1bbf28f11302f ruby/lib/ruby/4.1.0+5/ruby/prism/dispatcher.rb
+a8407a08035944d9ed4081d49cb30c14b4eb156740baa00d2f03246996ad4b9e ruby/lib/ruby/4.1.0+5/ruby/prism/dot_visitor.rb
+260824e272c308b789d7a0e7362d7df4f1d5070528f33f1a0d3ef0ab2dd91202 ruby/lib/ruby/4.1.0+5/ruby/prism/dsl.rb
+c6ff355dd115d62c7c9818fe9e45dde17502d24d5bbb0141228504697b46ceaa ruby/lib/ruby/4.1.0+5/ruby/prism/inspect_visitor.rb
+9befdfc4091d3feb92444537fda98f90c59d853f089189b724d9d7deb93579f3 ruby/lib/ruby/4.1.0+5/ruby/prism/lex_compat.rb
+5ed1585a7155d216dddf40e496f34d34ea256f334b6fd5ff641a05d8a12aaa52 ruby/lib/ruby/4.1.0+5/ruby/prism/mutation_compiler.rb
+6b453b1187d457fe7977ec63161511083b813d7e91b51d626ca01456f69a9332 ruby/lib/ruby/4.1.0+5/ruby/prism/node.rb
+b410baab12e93bb1c2ba6de23dd587212af4089e0e30a8f30e3c6d48edce6cd2 ruby/lib/ruby/4.1.0+5/ruby/prism/node_ext.rb
+277a44926f43ad88964e1fcccc64b9549bdb00c75e8e33cff15e87663f3d96a5 ruby/lib/ruby/4.1.0+5/ruby/prism/node_find.rb
+57ca349b1f1907f2ba5fc887216e65d44624ed4bd5ec7e97c2e0eb9a67a9c5aa ruby/lib/ruby/4.1.0+5/ruby/prism/parse_result.rb
+b381e0caf6df9ca94dda70212e7f802fe2c0523b5167042148ea05e5623f6b2e ruby/lib/ruby/4.1.0+5/ruby/prism/parse_result/comments.rb
+7bd729d9bdace02e48e137a1aed4c58661118b0d3390fa12043a7ee5be769305 ruby/lib/ruby/4.1.0+5/ruby/prism/parse_result/errors.rb
+91a9d8b9177b3148df940c35dc292acc765484288ad9d4b104790c76ee3571d4 ruby/lib/ruby/4.1.0+5/ruby/prism/parse_result/newlines.rb
+21b93f0920c6f76f39697ba3d4181d1ec7d7f7a6ffbee9818b6753f9e830e0fe ruby/lib/ruby/4.1.0+5/ruby/prism/pattern.rb
+b3bfe9c774813b43c104c75c7aa262ab076715cac434997e2ea80b51509feb37 ruby/lib/ruby/4.1.0+5/ruby/prism/polyfill/append_as_bytes.rb
+dbb150665211cd006b33e47fc207fa80b9d90dcad14308fe9d1fa0f512b35552 ruby/lib/ruby/4.1.0+5/ruby/prism/polyfill/byteindex.rb
+e1c757f37cdf9499711b04ebc2390a4b6f5842608e31ef8c94a41ea2562282dc ruby/lib/ruby/4.1.0+5/ruby/prism/polyfill/scan_byte.rb
+52ca260e79241dc91868d693e9404205150e300594df06100c94903399b4efba ruby/lib/ruby/4.1.0+5/ruby/prism/polyfill/unpack1.rb
+555b7a9ba975428898dc282b71e057afb67360fe437d9e0d100b17fae80f8ba2 ruby/lib/ruby/4.1.0+5/ruby/prism/polyfill/warn.rb
+8e494b0e489afd77b942110f9532d8ffbb912745668631f02e1be7aa288ef96b ruby/lib/ruby/4.1.0+5/ruby/prism/reflection.rb
+659015c5fad3ec05487fc182a60e5d266e87e83276df41219346819039470322 ruby/lib/ruby/4.1.0+5/ruby/prism/relocation.rb
+249e064ea85e52accca37144954a80a0089416ae01a007df93ae7b085ae2fb24 ruby/lib/ruby/4.1.0+5/ruby/prism/serialize.rb
+eb5ff12cfcee533860662b69c9787ae5f583432549b4647cc52d823ac66f4d0d ruby/lib/ruby/4.1.0+5/ruby/prism/string_query.rb
+edd85ddd1b1fe94801da1b666d404d7c8b641bc3d98842cda2169f4c278c4601 ruby/lib/ruby/4.1.0+5/ruby/prism/translation.rb
+db1e662aa7540fc2ff918fc5ae6968575580faf4515775c2328d02f0fa18cbe4 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/parser.rb
+41c6eb7390bb026506f0ffa1b12b361121cfc988328615ab5eb4c3540c57be74 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/parser/builder.rb
+cccd1d3e2dc0550124e1841817d6ea9d4108f8066c7cccdde81c0c8debdb629c ruby/lib/ruby/4.1.0+5/ruby/prism/translation/parser/compiler.rb
+a07ef9c936b63ad537ac1468f7f76071cc6d5a9afb528d78289bbe9a0caf9ba5 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/parser/lexer.rb
+27b5ec7febc27659e24bfb1de16ac6bd7519e949f787511c53c4986aa4f4a8da ruby/lib/ruby/4.1.0+5/ruby/prism/translation/parser_current.rb
+3446814012bbab5de67e89f6b6ea01aed888ebd2c0bf93663efe26202a5d1023 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/parser_versions.rb
+e6ed7ca5317a3f41ed07ee23fc22e00b9555c4e1cf36aa3c63f09e0dc09b4c20 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/ripper.rb
+1c9fc886370a38b057094a03bcd24e46e784a985902c7941c20ed2523c56309b ruby/lib/ruby/4.1.0+5/ruby/prism/translation/ripper/filter.rb
+ca4545dad687388c10eb23bca20450a9f7fde3a6ea874afb21b1a74b184bdac8 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/ripper/lexer.rb
+017c282cb298cf2363adefa504ed4ea67e4ef3517937b2e0e28b5a74c3e4e032 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/ripper/sexp.rb
+43dad8ce702fe410da134d079c7fac7df2c66a957420a496807ddec24d4e7b7d ruby/lib/ruby/4.1.0+5/ruby/prism/translation/ripper/shim.rb
+8876fbe04ca85c00aa89058c2da2e041297a674be8eaf3841d99f568decbcee6 ruby/lib/ruby/4.1.0+5/ruby/prism/translation/ruby_parser.rb
+8afde30b6ae70c93bfe137d6dee176d2abd69dad4ded716d0d2bfb8049af385e ruby/lib/ruby/4.1.0+5/ruby/prism/visitor.rb
 5ec9a209db0fcf2bfbc76d2f25203c422a6565f60152ae1fc9d654c646c525e5 ruby/lib/ruby/4.1.0+5/rubygems.rb
 7fbb53f97fd8da24e2f92d64821386542154974a8864bcc02caa06fe1d9b0773 ruby/lib/ruby/4.1.0+5/rubygems/available_set.rb
 5090d7582971cb2767bf0cca8ac934d4519bba9fb4d98d79d81ba7da5359fb8b ruby/lib/ruby/4.1.0+5/rubygems/basic_specification.rb

@@ -93,6 +93,7 @@ module Zr
         ruby = GitTree.new(Dev.ruby_src, RUBY_REVISION, "RUBY_SRC")
         @entries << Entry.new("ruby", "ruby", RUBY, "https://github.com/ruby/ruby@#{RUBY_REVISION}", nil)
         library(ruby)
+        ruby_prism(ruby)
         add(Library::Layout::GEM_PRELUDE, ruby.read("gem_prelude.rb"))
         %w[COPYING BSDL LEGAL].each { |name| add(File.join(Library::Layout::LICENSES, "ruby", name), ruby.read(name)) }
         @defaults = default_gems(ruby)
@@ -193,6 +194,16 @@ module Zr
         end
       end
 
+      # Ruby::Prism's files that ruby's build renders from the templates
+      # of its own prism/ (prism/srcs.mk.in): lib/prism/X there is
+      # ruby/prism/X in the library.
+      def ruby_prism(ruby)
+        prism_rendered(ruby, "prism/").each do |rel, bytes|
+          rel = rel.sub(%r{\Alib/prism/}, "ruby/prism/")
+          add(File.join(Library::Layout::RUBYLIBDIR, rel), bytes) unless left_out?(rel)
+        end
+      end
+
       def left_out?(rel) = Library::Vendor::LEFT_OUT.each_key.any? { |entry| entry.end_with?("/") ? rel.start_with?(entry) : rel == entry }
 
       # The default gems of this ruby: each specification as its install
@@ -273,7 +284,7 @@ module Zr
         @entries << Entry.new("port", "prism", version, "https://github.com/ruby/prism@#{revision}", nil)
         root = Library::Layout.gem_root("prism", version)
         excluded = Library::Vendor::GEM_EXCLUDE.fetch("prism", {})
-        files = tree.files(%w[lib]).to_h { |rel| [rel, tree.read(rel)] }.merge(prism_rendered(tree))
+        files = tree.files(%w[lib]).to_h { |rel| [rel, tree.read(rel)] }.merge(prism_rendered(tree, ""))
         files["LICENSE.md"] = tree.read("LICENSE.md")
         files.each { |rel, bytes| add(File.join(root, rel), bytes) unless excluded.key?(rel) }
         spec = File.join(Gem.dir, "specifications", "prism-#{version}.gemspec")
@@ -281,14 +292,16 @@ module Zr
         add(File.join(Library::Layout::SPECIFICATIONS, File.basename(spec)), File.binread(spec))
       end
 
-      # The lib/ files that prism's templates render: `{ rel => bytes }`.
-      # The driver reads config.yml next to templates/, so both are written
-      # to a directory of their own, and it runs in a ruby of its own.
-      def prism_rendered(tree)
+      # The lib/ files that prism's templates render: `{ rel => bytes }`,
+      # from the templates/ and config.yml under `prefix` of `tree`. The
+      # driver reads config.yml next to templates/, so both are written to
+      # a directory of their own, and it runs in a ruby of its own.
+      def prism_rendered(tree, prefix)
         Dir.mktmpdir("zr-prism-") do |dir|
-          [*tree.files(%w[templates]), "config.yml"].each do |rel|
+          [*tree.files(["#{prefix}templates"]), "#{prefix}config.yml"].each do |path|
+            rel = path.delete_prefix(prefix)
             FileUtils.mkdir_p(File.join(dir, File.dirname(rel)))
-            File.binwrite(File.join(dir, rel), tree.read(rel))
+            File.binwrite(File.join(dir, rel), tree.read(path))
           end
           Dir.glob("lib/**/*.rb.erb", base: File.join(dir, "templates")).sort.to_h do |erb|
             rel = erb.delete_suffix(".erb")

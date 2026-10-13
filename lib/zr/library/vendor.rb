@@ -40,8 +40,7 @@ module Zr
       # The parts of ruby's library that vendor/ leaves out, with the
       # reason. A name that ends in `/` is a directory.
       LEFT_OUT = {
-        "ruby/prism.rb" => "Ruby::Prism: ruby's build writes part of it from prism's templates",
-        "ruby/prism/" => "Ruby::Prism: ruby's build writes part of it from prism's templates",
+        "ruby/prism/ffi.rb" => "Ruby::Prism's FFI half: zr refuses it (Hir::Build::UNSUPPORTED_LIBRARIES)",
         "win32/" => "only a Windows ruby installs it",
         "mkmf.rb" => "zr runs mkmf in the host ruby, never in a program (Hir::Build::UNSUPPORTED_LIBRARIES)",
         "bundler/man/index.txt" => "ruby's installer leaves it out"
