@@ -1,5 +1,5 @@
 # The frozen flag on the non-collection heap kinds: Proc, Regexp
-# (literals frozen at birth, `Regexp.new` not), MatchData, Fiber,
+# (every Regexp frozen at birth, a subclass instance not), MatchData, Fiber,
 # Enumerator, Thread, Mutex (lockable while frozen) -- with the
 # dup-drops/clone-copies flag rule and the flag never aliasing an
 # earlier copy. Queue/SizedQueue refuse to freeze with CRuby's

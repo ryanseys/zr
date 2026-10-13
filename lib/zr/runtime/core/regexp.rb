@@ -118,7 +118,9 @@ class Regexp
 
   # `source` compiled with the option `bits`, set in the husk `re`. A
   # RegexpError gives the reason, then the pattern as written with its
-  # flags. A pattern that `warns` prints the engine's warnings.
+  # flags. A pattern that `warns` prints the engine's warnings. A Regexp
+  # (not an instance of a subclass) is frozen from then on, as
+  # rb_reg_initialize freezes it.
   def self.seat(re, source, bits, warns: true)
     source = source.dup.freeze unless source.frozen?
     encoding, bits, program, names, warnings = compiled(source, bits)
@@ -126,6 +128,7 @@ class Regexp
     source = source.dup.force_encoding(encoding).freeze unless source.encoding == encoding
     Primitive.zr_regexp_seat(re, program, source, bits, name_rows(names, encoding))
     Primitive.zr_state_set(re, :encoding, encoding)
+    freeze_plain(re)
     warn_of(warnings) if warns
     re
   rescue Onig::Failure => e
@@ -134,6 +137,14 @@ class Regexp
     raise RegexpError, e.message
   end
   private_class_method :seat
+
+  # OBJ_FREEZE of a Regexp whose class is Regexp itself. It sends no
+  # `freeze`.
+  def self.freeze_plain(re)
+    Primitive.attr! :hidden
+    Primitive.zr_literal_freeze(re) if Primitive.zr_real_class(re).equal?(Regexp)
+  end
+  private_class_method :freeze_plain
 
   # `source` compiled with the option `bits`, as [encoding, bits, program,
   # names, warnings]: the program that the kernel's matcher reads
@@ -202,7 +213,8 @@ class Regexp
 
   # rb_reg_init_copy: what `dup` and `clone` fill a husk with (the
   # other Regexp's pattern, which the copy shares), and a refusal for
-  # a Regexp that already has one.
+  # a Regexp that already has one. reg_copy freezes a Regexp copy, so
+  # even `clone(freeze: false)` gives a frozen one.
   def initialize_copy(other)
     return self if equal?(other)
 
@@ -211,6 +223,7 @@ class Regexp
     raise TypeError, +"already initialized regexp" unless Primitive.zr_regexp_source(self).nil?
 
     Primitive.zr_regexp_copy_from(self, other)
+    Regexp.send(:freeze_plain, self)
     self
   end
   private :initialize_copy

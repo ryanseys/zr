@@ -1,0 +1,26 @@
+literal: true /abc/
+interpolated: true /abc/
+new: true /abc/
+new_from_regexp: true /abc/i
+compile: true /a+/i
+union: true /a|(?-mix:b)/
+union_of_one: true /a\.b/
+escape_then_new: true /a\.b/
+dup: true /abc/
+clone: true /abc/
+clone_unfrozen: true /abc/
+marshal: true /abc/m
+allocate_then_initialize: true /abc/
+subclass: false Pattern
+subclass dup: false
+subclass marshal: false
+FrozenError: can't modify frozen Regexp: /abc/
+FrozenError: can't modify frozen Regexp: /lit/
+TypeError: already initialized regexp
+FrozenError: can't modify frozen Regexp: /abc/
+FrozenError: can't modify frozen Regexp: /abc/
+FrozenError: can't modify frozen Regexp: /abc/
+1
+true
+1
+"b"
