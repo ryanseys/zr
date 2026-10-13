@@ -1441,7 +1441,9 @@ module Zr::Kern
       e = ClassExt[ext].ctab + (i * CEntry.size)
       id = CEntry[e].id
       name = zr_sym(id)
-      visible = CEntry[e].private == 0 && (CEntry[e].concealed == 0 || zr_const_sees_reflectively())
+      # A box does not list Object's names that the program wrote.
+      hidden = klass == zr_global(G_OBJECT) && i >= Machine.load64(Machine.static(:master_consts, 8), 0) && zr_box_reach() != QNIL
+      visible = CEntry[e].private == 0 && (CEntry[e].concealed == 0 || zr_const_sees_reflectively()) && !hidden
       if visible && zr_const_name_p(id) && zr_ary_index_of(out, name) < 0
         zr_ary_push(out, name)
       end
@@ -1455,7 +1457,13 @@ module Zr::Kern
   #: (value, value, bool) -> void
   def zr_const_names_of(mod, out, inherit)
     k = mod
-    while k != QNIL && (k != zr_global(G_OBJECT) || mod == zr_global(G_OBJECT))
+    # A box's own Object stands for Object, so its list goes on into it.
+    shadow = mod != zr_global(G_OBJECT) && zr_box_reach() != QNIL && zr_box_view(zr_global(G_OBJECT)) == mod
+    top = mod == zr_global(G_OBJECT) || shadow
+    if shadow && !inherit
+      zr_const_names_at(zr_global(G_OBJECT), out)
+    end
+    while k != QNIL && (k != zr_global(G_OBJECT) || top)
       zr_const_names_at(k, out)
       k = inherit ? RClass[k].superclass : Machine.value(QNIL)
     end

@@ -119,11 +119,12 @@ module Ruby
       if Primitive.zr_hidden_get(self, :kind) == :main
         code = ::Zr::Eval.current.compile(source, "eval", 1, [])
         Primitive.zr_box_compiled(code[1])
-        return Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver, nil, nil, nil)
+        cref = Primitive.zr_hidden_get(self, :cref) || Primitive.zr_hidden_set(self, :cref, Primitive.zr_eval_cref_under(Object, nil))
+        return Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver, cref, nil, nil)
       end
 
-      # The root box takes its state at its first use.
-      setup if @slot.nil? && Primitive.zr_hidden_get(self, :kind) == :root
+      # The root and master boxes take their state at their first use.
+      setup if @slot.nil? && %i[root master].include?(Primitive.zr_hidden_get(self, :kind))
       run(::Zr::Eval.current.compile(source, "eval", 1, []), nil)
     end
 
@@ -189,7 +190,7 @@ module Ruby
     # A file the box reads and runs for itself, so a feature main has
     # already loaded runs again here.
     def load_feature(feature, once)
-      setup if @slot.nil? && Primitive.zr_hidden_get(self, :kind) == :root
+      setup if @slot.nil? && %i[root master].include?(Primitive.zr_hidden_get(self, :kind))
       path = resolve(feature)
       raise LoadError, "cannot load such file -- #{feature}" unless path
       return false if once && @loaded[path]
