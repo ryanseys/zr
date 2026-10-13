@@ -469,8 +469,12 @@ module Zr
         # finds the same constant as compiled code in the same scope.
         def const_read(node, ctx)
           return World.const_get_at(::Object, node.name) if node.scope == :top
-          return World.const_get_at(walk(node.scope, ctx), node.name) if node.scope
 
+          if node.scope
+            scope = walk(node.scope, ctx)
+            # Hir::ConstRead#nil_lexical: a nil scope reads lexically.
+            return World.const_get_at(scope, node.name) unless scope.nil? && node.nil_lexical
+          end
           World.const_get(ctx.cref, node.name)
         end
 

@@ -104,6 +104,8 @@ module Zr
         #: (Hir::MultiTarget target, String value, Hash[Hir::node, Integer] prepared) -> void
         def destructure(target, value, prepared)
           at = value_offset(reserve(1))
+          # The frame stands at the target while to_ary converts the value.
+          at_node(target) if @l.node_id(target) != 0
           @f.store(checked(kernel("zr_masgn_ary", value)), @rec, at)
           ary = -> { @f.fetch("i64", @rec, at) }
           nl = imm(target.lefts.size)

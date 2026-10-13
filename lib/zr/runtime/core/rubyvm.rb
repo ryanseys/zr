@@ -569,7 +569,8 @@ class RubyVM
       raise TypeError, +"Thread::Backtrace::Location object expected" unless backtrace_location.is_a?(Thread::Backtrace::Location)
 
       id = Primitive.zr_hidden_get(backtrace_location, :__node_id__)
-      id.nil? || id.zero? ? nil : id
+      # Without the mark of a frame at a body's entry (Hir::Spots::ENTRY).
+      id.nil? || id.zero? ? nil : id & 0x3fffffff
     end
   end
 

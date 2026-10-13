@@ -21,7 +21,7 @@ module Zr
     # @rbs @host: Obj::_JITHost
     # @rbs @count: Integer
     # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
-    # @rbs @files: Hash[[String, String], Integer]
+    # @rbs @files: Hash[[String, String], [Integer, String?]]
     # @rbs @scripts: Array[String]
 
     # Two threads can eval at the same time. Only one of them loads the
@@ -140,7 +140,11 @@ module Zr
         coverage = covering
         reuse = coverage.nil? && !@runtime.traced_for_now?
         key = [-path, -source] #: [String, String]
-        next @files.fetch(key) if reuse && @files.key?(key)
+        if reuse && @files.key?(key)
+          # The path's spots are this code's again.
+          top, @file_spots[path] = @files.fetch(key)
+          next top
+        end
 
         @count += 1
         name = "zr_load_#{@count}"
@@ -158,7 +162,7 @@ module Zr
         ext = Library::Roots.internal_library?(path)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
         top = Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
-        @files[key] = top if reuse
+        @files[key] = [top, @file_spots[path]] if reuse
         top
       end
     end

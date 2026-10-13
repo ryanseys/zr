@@ -475,7 +475,9 @@ module Zr::Kern
   def zr_trace_open(event, first)
     rec = Task[zr_task()].top
     line = FrameMeta[Frame[rec].meta].line
-    if first != 0
+    if (first >> 32) != 0
+      Frame[rec].line = first
+    elsif first != 0
       Frame[rec].line = first & 4294967295
     end
     zr_trace_send_at(rec, event, Machine.value(QNIL), line)

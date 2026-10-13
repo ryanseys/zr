@@ -490,9 +490,14 @@ module Zr
 
             scope = scope_class(node.scope, s)
             entry = s.internal? ? :zr_const_get_at_cached : :zr_const_read_at_cached
+            lexical = s.internal? ? :zr_const_get_cached : :zr_const_read_cached
+            nil_lexical = node.nil_lexical
             lambda do |f|
               klass = scope.call(f)
               line!(f, word)
+              # Hir::ConstRead#nil_lexical: a nil scope reads lexically.
+              next check(@kern.public_send(lexical, at, f.cref, name)) if nil_lexical && klass == @qnil
+
               check(@kern.public_send(entry, at, klass, name))
             end
           end

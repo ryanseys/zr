@@ -163,12 +163,30 @@ module Zr
         def const_at(node, scope, report_hit:)
           id = sym_word(node.name)
           at_node(node)
+          return nil_lexical_const(scope, id) if scope && node.nil_lexical && !report_hit
+
           # `scope` is nil exactly when the node has no scope.
           if scope
             cached_const(scope, @l.internal? ? "zr_const_get_at_cached" : "zr_const_read_at_cached", id, report_hit: report_hit)
           else
             cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id, report_hit: report_hit)
           end
+        end
+
+        # The read of `scope::Name` that reads `Name` lexically when the
+        # scope is nil (Hir::ConstRead#nil_lexical).
+        #: (String scope, String id) -> String
+        def nil_lexical_const(scope, id)
+          lexical = @f.label
+          scoped = @f.label
+          merge, (result,) = @f.block(["i64"]) #: [String, [String]]
+          @f.brif(@f.icmp("eq", scope, @qnil), lexical, scoped)
+          switch(lexical)
+          @f.jump(merge, [cached_const(@cref, @l.internal? ? "zr_const_get_cached" : "zr_const_read_cached", id)])
+          switch(scoped)
+          @f.jump(merge, [cached_const(scope, @l.internal? ? "zr_const_get_at_cached" : "zr_const_read_at_cached", id)])
+          switch(merge)
+          result
         end
 
         # A constant read through the site's own cell (lib/zr/runtime/kernel/cache.rb).

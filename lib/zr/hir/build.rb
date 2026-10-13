@@ -811,7 +811,7 @@ module Zr
         when Prism::GlobalVariableReadNode then gvar_read(node.name, line)
         when Prism::GlobalVariableWriteNode then gvar_write(node.name, expr(node.value), line)
         when Prism::GlobalVariableOperatorWriteNode
-          gvar_write(node.name, Send.of(gvar_read(node.name, line), node.binary_operator, [expr(node.value)], line), line)
+          gvar_write(node.name, noted(Send.of(gvar_read(node.name, line), node.binary_operator, [expr(node.value)], line), node), line)
         # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`. The
         # write occurs only if necessary. A frozen receiver, a global's
         # setter and a constant's redefinition warning can see this.
@@ -820,26 +820,30 @@ module Zr
         when Prism::ClassVariableReadNode then CvarRead.new(node.name, line)
         when Prism::ClassVariableWriteNode then CvarWrite.new(node.name, expr(node.value), line)
         when Prism::ClassVariableOperatorWriteNode
-          CvarWrite.new(node.name, Send.of(CvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line), line)
+          CvarWrite.new(node.name, noted(Send.of(noted(CvarRead.new(node.name, line), node), node.binary_operator, [expr(node.value)], line), node), line)
         when Prism::ClassVariableOrWriteNode
-          If.new(Defined.new(:cvar, node.name, line), Or.new(CvarRead.new(node.name, line), CvarWrite.new(node.name, expr(node.value), line), line), CvarWrite.new(node.name, expr(node.value), line), line)
+          If.new(Defined.new(:cvar, node.name, line), Or.new(noted(CvarRead.new(node.name, line), node), noted(CvarWrite.new(node.name, expr(node.value), line), node), line),
+                 noted(CvarWrite.new(node.name, expr(node.value), line), node), line)
         # Ruby compiles nothing for a `defined?` whose value is not used.
         when Prism::DefinedNode then taken ? defined(node.value, line) : Literal.new(nil, line)
-        when Prism::ClassVariableAndWriteNode then And.new(CvarRead.new(node.name, line), CvarWrite.new(node.name, expr(node.value), line), line)
+        when Prism::ClassVariableAndWriteNode
+          And.new(noted(CvarRead.new(node.name, line), node), noted(CvarWrite.new(node.name, expr(node.value), line), node), line)
         when Prism::ConstantOrWriteNode then ConstOrWrite.new(nil, node.name, expr(node.value), line)
         when Prism::ConstantPathOrWriteNode
           scope, name, prelude = constant_scope(node.target, line)
-          with_scope(prelude, ConstOrWrite.new(scope, name, expr(node.value), line), line)
+          with_scope(prelude, noted(ConstOrWrite.new(scope, name, expr(node.value), line), node), line)
         when Prism::ConstantAndWriteNode
-          And.new(ConstRead.new(nil, node.name, line), ConstWrite.new(nil, node.name, expr(node.value), line), line)
+          And.new(noted(ConstRead.new(nil, node.name, line), node), noted(ConstWrite.new(nil, node.name, expr(node.value), line), node), line)
         when Prism::ConstantPathAndWriteNode
           scope, name, prelude = constant_scope(node.target, line)
-          with_scope(prelude, And.new(ConstRead.new(scope, name, line), ConstWrite.new(scope, name, expr(node.value), line), line), line)
+          read = noted(ConstRead.new(scope, name, line, prelude ? true : nil), node)
+          with_scope(prelude, And.new(read, noted(ConstWrite.new(scope, name, expr(node.value), line), node), line), line)
         when Prism::ConstantOperatorWriteNode
-          ConstWrite.new(nil, node.name, Send.of(ConstRead.new(nil, node.name, line), node.binary_operator, [expr(node.value)], line), line)
+          ConstWrite.new(nil, node.name, noted(Send.of(noted(ConstRead.new(nil, node.name, line), node), node.binary_operator, [expr(node.value)], line), node), line)
         when Prism::ConstantPathOperatorWriteNode
           scope, name, prelude = constant_scope(node.target, line)
-          with_scope(prelude, ConstWrite.new(scope, name, Send.of(ConstRead.new(scope, name, line), node.binary_operator, [expr(node.value)], line), line), line)
+          read = noted(ConstRead.new(scope, name, line, prelude ? true : nil), node)
+          with_scope(prelude, noted(ConstWrite.new(scope, name, noted(Send.of(read, node.binary_operator, [expr(node.value)], line), node), line), node), line)
         when Prism::AliasMethodNode then alias_method_names(node, line)
         when Prism::AliasGlobalVariableNode then alias_global(node, line)
         when Prism::CaseNode then case_when(node, line, taken: taken)
@@ -852,7 +856,7 @@ module Zr
           node.statements ? seq(node.statements) : Literal.new(nil, line)
         when Prism::InstanceVariableWriteNode then IvarWrite.new(node.name, expr(node.value), line)
         when Prism::InstanceVariableOperatorWriteNode
-          IvarWrite.new(node.name, Send.of(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line), line)
+          IvarWrite.new(node.name, noted(Send.of(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line), node), line)
         when Prism::InstanceVariableOrWriteNode
           Or.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
         when Prism::InstanceVariableAndWriteNode
@@ -1139,12 +1143,18 @@ module Zr
                when Prism::SplatNode then node.rest.expression ? target(node.rest.expression) : :implicit
                else unsupported(node.rest)
                end
-        MultiTarget.new(node.lefts.map { |t| target(t) }, rest, node.rights.map { |t| target(t) }, line)
+        noted(MultiTarget.new(node.lefts.map { |t| target(t) }, rest, node.rights.map { |t| target(t) }, line), node)
       end
 
-      # One target of a multiple assignment.
+      # One target of a multiple assignment, noted with its node: a frame
+      # that writes it, or converts the value for a nested target, stands at it.
       #: (Prism::node node) -> node
       def target(node)
+        noted(target_of(node), node)
+      end
+
+      #: (Prism::node node) -> node
+      def target_of(node)
         line = node.location.start_line
         case node
         when Prism::LocalVariableTargetNode then Assign.new(node.name, node.depth, nil, line)
@@ -1681,7 +1691,9 @@ module Zr
       # method forwards, anywhere a splat can be.
       #: (Prism::SplatNode node, Integer line) -> Splat
       def splat(node, line)
-        Splat.new(node.expression ? expr(node.expression) : anonymous(:rest, line), line)
+        # The splat's own line: its conversion reports it (splatarray).
+        line = node.location.start_line
+        noted(Splat.new(node.expression ? expr(node.expression) : anonymous(:rest, line), line), node)
       end
 
       # The bodies that a file always runs when it loads: its own

@@ -388,7 +388,10 @@ module Zr
     # `class << target; body; end`: the body runs with the singleton
     # class as self and as the definee.
     SingletonClassDef = Node.new(:target, :locals, :body, :line, :end_line)
-    ConstRead = Node.new(:scope, :name, :line)
+    # `nil_lexical` reads the name lexically when the scope's value is
+    # nil, as the read of `scope::Name op= value` and `scope::Name &&=
+    # value` does in ruby (getconstant with allow_nil).
+    ConstRead = Node.new(:scope, :name, :line, :nil_lexical)
     ConstWrite = Node.new(:scope, :name, :value, :line)
     IvarRead = Node.new(:name, :line)
     GvarRead = Node.new(:name, :line)

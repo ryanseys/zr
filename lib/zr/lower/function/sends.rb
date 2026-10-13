@@ -373,14 +373,14 @@ module Zr
           covers = node.covers
           if node.recv.is_a?(Hir::SelfRef)
             cover(covers.first.id) if covers
-            return call(node.dup.tap { |n| n.safe = false })
+            return call(@l.noted(node.dup.tap { |n| n.safe = false }, node))
           end
 
           base = @sp
           slot = reserve(1)
           @f.store(expr(node.recv), @rec, value_offset(slot))
-          plain = Hir::Send.of(Hir::Slot.new(slot, node.line), node.name, node.args, node.line,
-                                opt: node.opt, block: node.block, kwargs: node.kwargs, write: node.write, using: node.using)
+          plain = @l.noted(Hir::Send.of(Hir::Slot.new(slot, node.line), node.name, node.args, node.line,
+                                        opt: node.opt, block: node.block, kwargs: node.kwargs, write: node.write, using: node.using), node)
           is_nil = @f.label
           go = @f.label
           merge, (result,) = @f.block(["i64"]) #: [String, [String]]
@@ -525,13 +525,18 @@ module Zr
         end
 
         # Pushes `parts` one at a time into an Array in the record slot
-        # `slot`. A Splat spreads its value. Returns the Array.
-        #: (Array[Hir::node?] parts, Integer slot) -> String
-        def gather(parts, slot)
+        # `slot`. A Splat spreads its value. Returns the Array. The frame
+        # stands at `at` (an Array literal), or else at the splat, while a
+        # splat converts its value, as splatarray's node is.
+        #: (Array[Hir::node?] parts, Integer slot, ?Hir::node? at) -> String
+        def gather(parts, slot, at = nil)
           @f.store(kernel("zr_ary_new", imm(parts.size)), @rec, value_offset(slot))
           parts.each do |part|
             if part.is_a?(Hir::Splat)
-              checked(kernel("zr_ary_splat", @f.fetch("i64", @rec, value_offset(slot)), expr(part.value)))
+              value = expr(part.value)
+              site = at && @l.node_id(at) != 0 ? at : part
+              at_node(site) if at && @l.node_id(site) != 0
+              checked(kernel("zr_ary_splat", @f.fetch("i64", @rec, value_offset(slot)), value))
             else
               kernel("zr_ary_push", @f.fetch("i64", @rec, value_offset(slot)), expr(part))
             end

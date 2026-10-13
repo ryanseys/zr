@@ -1,0 +1,4 @@
+lang/constants/an_op_assign_on_a_nil_scope_reads_the_name_lexically.rb:26: warning: already initialized constant Outer::Inner
+lang/constants/an_op_assign_on_a_nil_scope_reads_the_name_lexically.rb:24: warning: previous definition of Inner was here
+lang/constants/an_op_assign_on_a_nil_scope_reads_the_name_lexically.rb:41: warning: already initialized constant KScope::V
+lang/constants/an_op_assign_on_a_nil_scope_reads_the_name_lexically.rb:38: warning: previous definition of V was here

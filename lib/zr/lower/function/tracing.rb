@@ -79,9 +79,23 @@ module Zr
           off = @f.label
           @f.brif(armed?(event), on, off)
           switch(on)
-          checked(kernel("zr_trace_open", event_word(event), imm(Hir::Trace.first_line(@body) || 0)))
+          checked(kernel("zr_trace_open", event_word(event), imm(entry_word)))
           @f.jump(off)
           switch(off)
+        end
+
+        # The frame's line word while the opening hooks run: the line of the
+        # body's first statement, and for a def, block or lambda its node id
+        # marked as its entry (Hir::Spots::ENTRY), whose range is that
+        # statement. 0 keeps the frame's word.
+        #: () -> Integer
+        def entry_word
+          first = Hir::Trace.first_line(@body)
+          d = @def
+          node_id = %i[def block].include?(@kind) && d ? @l.node_id(d) : 0
+          return first || 0 if node_id.zero? || d.nil?
+
+          ((first || d.line) & LINE_MASK) | ((node_id | Hir::Spots::ENTRY) << 32)
         end
 
         # The scope's closing event, with its return value. The line is

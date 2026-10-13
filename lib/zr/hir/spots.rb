@@ -79,16 +79,29 @@ module Zr
         block_node: %i[name]
       }.freeze
 
-      # The node types whose code calls a method, so a frame can stand at
-      # one: Thread::Backtrace::Location#source_range gives its range, as
-      # CRuby finds the node again by its id.
-      CALLS = %i[call_node super_node forwarding_super_node yield_node call_operator_write_node call_and_write_node
-                 call_or_write_node index_operator_write_node index_and_write_node index_or_write_node
-                 local_variable_operator_write_node instance_variable_operator_write_node
-                 class_variable_operator_write_node global_variable_operator_write_node
-                 constant_operator_write_node constant_path_operator_write_node interpolated_string_node
-                 interpolated_symbol_node interpolated_x_string_node interpolated_regular_expression_node
-                 x_string_node match_write_node].to_h { [_1, true] }.freeze
+      # The node types where a frame can stand, so a frame can report one:
+      # Thread::Backtrace::Location#source_range gives its range, as CRuby
+      # finds the node again by its id. These are the nodes whose code calls a
+      # method, reads or writes a constant or a class variable, converts a
+      # value, matches a pattern, or opens a class body.
+      RANGES = %i[call_node super_node forwarding_super_node yield_node call_operator_write_node call_and_write_node
+                  call_or_write_node index_operator_write_node index_and_write_node index_or_write_node
+                  local_variable_operator_write_node instance_variable_operator_write_node
+                  class_variable_operator_write_node class_variable_and_write_node class_variable_or_write_node
+                  global_variable_operator_write_node constant_read_node constant_path_node constant_write_node
+                  constant_path_write_node constant_operator_write_node constant_and_write_node constant_or_write_node
+                  constant_path_operator_write_node constant_path_and_write_node constant_path_or_write_node
+                  constant_target_node constant_path_target_node call_target_node index_target_node multi_write_node
+                  multi_target_node array_node hash_node keyword_hash_node splat_node hash_pattern_node array_pattern_node
+                  find_pattern_node class_node module_node singleton_class_node def_node block_node lambda_node
+                  interpolated_string_node interpolated_symbol_node interpolated_x_string_node
+                  interpolated_regular_expression_node x_string_node match_write_node].to_h { [_1, true] }.freeze
+
+      # Bit 30 of a node id: a frame that stands at the entry of a def, block
+      # or lambda, before its first statement (a TracePoint :call). Its row is
+      # that statement, and the id without the bit is the whole node. The
+      # id sits in a word from bit 32 up, so bit 30 keeps that word positive.
+      ENTRY = 1 << 30
 
       # `spotted: false` leaves out error_highlight's spots: a compile at run
       # time must not load error_highlight, which is the program's autoload.
@@ -98,8 +111,11 @@ module Zr
         queue = [tree]
         while (node = queue.shift)
           queue.concat(node.compact_child_nodes)
-          at = CALLS[node.type] ? node.location : entry(node)
-          rows << [node.node_id, "r", "-", at.start_line, at.start_column, at.end_line, at.end_column].join(" ") << "\n" if at
+          range(rows, node.node_id, node.location) if RANGES[node.type]
+          range(rows, node.node_id | ENTRY, entry(node))
+          # A value that `when` or `in` tests with ===.
+          node.conditions.each { |test| range(rows, test.node_id, test.location) unless RANGES[test.type] } if node.type == :when_node
+          range(rows, pinned(node.pattern).node_id, pinned(node.pattern).location) if node.type == :in_node && !RANGES[pinned(node.pattern).type]
           next unless spotted
 
           points = POINTS[node.type] or next
@@ -116,9 +132,25 @@ module Zr
         rows
       end
 
+      # The value that a pinned pattern tests, or the pattern itself.
+      #: (untyped node) -> untyped
+      def pinned(node)
+        case node.type
+        when :pinned_variable_node then node.variable
+        when :pinned_expression_node then node.expression
+        else node
+        end
+      end
+
+      # Adds the range row of the node `id` at `at`, if there is one.
+      #: (String rows, Integer id, Prism::Location? at) -> void
+      def range(rows, id, at)
+        rows << [id, "r", "-", at.start_line, at.start_column, at.end_line, at.end_column].join(" ") << "\n" if at
+      end
+
       # Where a frame of a def, block or lambda stands before its first call
-      # (a TracePoint's :call): its frame keeps the def's id, and CRuby's
-      # stands at the body's first statement. Nil for any other node, or
+      # (a TracePoint's :call): its frame keeps the def's id with ENTRY, as
+      # CRuby's stands at the body's first statement. Nil for any other node, or
       # for an empty body.
       #: (untyped node) -> Prism::Location?
       def entry(node)
@@ -126,8 +158,20 @@ module Zr
 
         body = node.body
         body = body.statements if body.is_a?(Prism::BeginNode)
-        body.body.first&.location if body.is_a?(Prism::StatementsNode)
+        first_run(body.body.first)&.location if body.is_a?(Prism::StatementsNode)
       end
+
+      # The node of the first instruction of a statement, where CRuby's
+      # frame stands before it runs: a write's value, a call's receiver.
+      #: (untyped node) -> untyped
+      def first_run(node)
+        node = node.value while WRITES[node&.type] && node.value
+        node = node.receiver while node&.type == :call_node && node.receiver
+        node
+      end
+
+      WRITES = %i[local_variable_write_node instance_variable_write_node global_variable_write_node
+                  class_variable_write_node constant_write_node].to_h { [_1, true] }.freeze
 
       # The constant names that a NameError at `node` can contain, if the
       # spot depends on the name. `[nil]` if it does not.

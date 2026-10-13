@@ -765,9 +765,10 @@ class Thread
       def to_s = @row
 
       # The range of the node that the frame runs, which the compiler
-      # recorded for each node that calls (Hir::Spots). CRuby parses the
-      # file again to find it. It reads code that an eval compiled again
-      # only when RubyVM.keep_script_lines kept its lines, and zr then
+      # recorded for each node where a frame can stand (Hir::Spots). CRuby
+      # reads the file again, checks that its code is the code it compiled,
+      # and parses it to find the node. It reads code that an eval compiled
+      # again only when RubyVM.keep_script_lines kept its lines, and zr then
       # keeps the eval's spots (Zr::Eval#kept_script).
       def source_range
         script = Primitive.zr_hidden_get(self, :__script__)
@@ -777,8 +778,8 @@ class Thread
         id = Primitive.zr_hidden_get(self, :__node_id__)
         raise RuntimeError, +"cannot get source range for location without a node ID" if id.nil? || id.zero?
 
-        rows = script ? Location.send(:rows, ::Zr::Eval.current.script_spots(script).split("\n")) : Location.send(:ranges_of, @path)
-        range = rows&.[](id) or raise RuntimeError, "cannot find node ID #{id} in parsed source"
+        rows = script ? Location.send(:rows, ::Zr::Eval.current.script_spots(script).split("\n")) : Location.send(:checked_ranges, @path, absolute_path)
+        range = rows&.[](id) or raise RuntimeError, "cannot find node ID #{id & 0x3fffffff} in parsed source"
         Ruby::SourceRange.send(:of, [@path, script.nil?, *range])
       end
 
@@ -795,11 +796,31 @@ class Thread
         queue = [tree]
         while (node = queue.shift)
           return node if node.node_id == id
+          # A frame at the entry of a body stands at its first statement.
+          return Location.send(:first_statement, node) if (node.node_id | 0x40000000) == id
 
           queue.concat(node.compact_child_nodes)
         end
         nil
       end
+
+      # The node where a frame stands at the entry of a def, block or
+      # lambda: the first instruction's node of its first statement, as
+      # Hir::Spots.first_run finds it.
+      def self.first_statement(node)
+        Primitive.attr! :hidden
+        body = node.body
+        body = body.statements if body.is_a?(::Ruby::Prism::BeginNode)
+        return nil unless body.is_a?(::Ruby::Prism::StatementsNode)
+
+        first = body.body.first
+        writes = [::Ruby::Prism::LocalVariableWriteNode, ::Ruby::Prism::InstanceVariableWriteNode, ::Ruby::Prism::GlobalVariableWriteNode,
+                  ::Ruby::Prism::ClassVariableWriteNode, ::Ruby::Prism::ConstantWriteNode]
+        first = first.value while writes.any? { first.is_a?(_1) } && first.value
+        first = first.receiver while first.is_a?(::Ruby::Prism::CallNode) && first.receiver
+        first
+      end
+      private_class_method :first_statement
 
       # `[crc, length]`: the digest of the code of the file at `path` that
       # the program compiled (Hir::Spots.digest), or nil.
@@ -818,6 +839,40 @@ class Thread
         crc && [crc.to_i, length.to_i]
       end
       private_class_method :digest_of, :digest
+
+      # The ranges of the file at `path`, after a read of the file at
+      # `absolute` again, as location_source_range_m reads it: an error of
+      # the read propagates, and the file must still have the code that was
+      # compiled. Code with no real path is an eval's, except -e's.
+      def self.checked_ranges(path, absolute)
+        Primitive.attr! :hidden
+        if absolute.nil?
+          raise ArgumentError, +"cannot get source range for location in eval" unless path == "-e"
+
+          return ranges_of(path)
+        end
+        source = File.binread(absolute)
+        digest = digest_of(path)
+        raise RuntimeError, +"source has been modified" unless digest && same_code?(source, *digest)
+
+        ranges_of(path)
+      end
+
+      # Whether `source` is the code whose CRC-32 is `crc` and whose length
+      # is `length`, with no more than a data section after an `__END__`
+      # line, as location_source_hash_matches checks it.
+      def self.same_code?(source, crc, length)
+        Primitive.attr! :hidden
+        return false if source.bytesize < length
+
+        code = source.byteslice(0, length)
+        return false unless Primitive.zr_zlib_checksum(0, 0, code) == crc
+        return true if source.bytesize == length
+
+        last = code.byteslice((code.byterindex("\n", -2)&.+(1)) || 0, code.bytesize)
+        ["__END__", "__END__\n", "__END__\r\n"].include?(last)
+      end
+      private_class_method :checked_ranges, :same_code?
 
       # The ranges of the file at `path`: from the program's spot table, or
       # from the spots of a load that compiled it at run time.

@@ -166,7 +166,7 @@ module Zr
                   staged(elements) { |argv| kernel("zr_ary_of", imm(elements.size), argv) }
                 else
                   slot = reserve(1)
-                  gathered = gather(elements, slot)
+                  gathered = gather(elements, slot, node)
                   @sp = slot
                   gathered
                 end
@@ -221,15 +221,23 @@ module Zr
         #: (Hir::HashLit node) -> String
         def hash_literal(node)
           first = node.pairs.first
+          # The frame stands at the literal while a key's `hash` or a
+          # `**value`'s to_hash runs, as newhash's node is.
+          here = -> { at_node(node) if @l.node_id(node) != 0 }
           if first.is_a?(Hir::HashSplat) && node.pairs.size == 2
-            return checked(kernel("zr_hash_coerce", expr(first.value)))
+            value = expr(first.value)
+            here.call
+            return checked(kernel("zr_hash_coerce", value))
           end
           if (words = immediate_words(node.pairs))
             hash = checked(kernel("zr_hash_of", imm(words.size / 2), @f.symbol_value(@f.symbol(@l.word_table(words)))))
             return node.frozen ? kernel("zr_literal_freeze", hash) : hash
           end
           unless node.pairs.any?(Hir::HashSplat)
-            hash = staged(node.pairs) { |argv| checked(kernel("zr_hash_of", imm(node.pairs.size / 2), argv)) }
+            hash = staged(node.pairs) do |argv|
+              here.call
+              checked(kernel("zr_hash_of", imm(node.pairs.size / 2), argv))
+            end
             return node.frozen ? kernel("zr_literal_freeze", hash) : hash
           end
 
@@ -237,16 +245,23 @@ module Zr
           at = value_offset(slot)
           pairs = node.pairs
           if first.is_a?(Hir::HashSplat)
-            @f.store(checked(kernel("zr_hash_splat_copy", expr(first.value))), @rec, at)
+            value = expr(first.value)
+            here.call
+            @f.store(checked(kernel("zr_hash_splat_copy", value)), @rec, at)
             pairs = pairs.drop(2)
           else
             @f.store(kernel("zr_hash_new"), @rec, at)
           end
           pairs.each_slice(2) do |key, value|
             if key.is_a?(Hir::HashSplat)
-              checked(kernel("zr_hash_update", @f.fetch("i64", @rec, at), expr(key.value)))
+              splat = expr(key.value)
+              here.call
+              checked(kernel("zr_hash_update", @f.fetch("i64", @rec, at), splat))
             else
-              staged([key, value]) { |argv| checked(kernel("zr_hash_store", @f.fetch("i64", @rec, at), @f.fetch("i64", argv), @f.fetch("i64", argv, 8))) }
+              staged([key, value]) do |argv|
+                here.call
+                checked(kernel("zr_hash_store", @f.fetch("i64", @rec, at), @f.fetch("i64", argv), @f.fetch("i64", argv, 8)))
+              end
             end
           end
           @sp = slot

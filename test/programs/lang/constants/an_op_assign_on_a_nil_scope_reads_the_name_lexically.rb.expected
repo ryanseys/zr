@@ -1,0 +1,20 @@
+op-assign unset: NameError: uninitialized constant NotDefinedHere
+op-assign set: NoMethodError: undefined method '+' for class String
+op-assign Integer: NoMethodError: undefined method '+' for class Integer
+and-assign unset: NameError: uninitialized constant NotDefinedHere
+and-assign set: TypeError: nil is not a class/module
+or-assign: TypeError: nil is not a class/module
+read: TypeError: nil is not a class/module
+write: TypeError: nil is not a class/module
+lexical in a module: TypeError: nil is not a class/module
+and lexical in a module: TypeError: nil is not a class/module
+real scope: 6
+6
+a class scope: 2
+2
+a non-module scope: TypeError: 1 is not a class/module
+a string scope: TypeError: "s" is not a class/module
+eval op-assign unset: NameError: uninitialized constant NotDefinedHere
+eval op-assign set: NoMethodError: undefined method '+' for class String
+eval and-assign unset: NameError: uninitialized constant NotDefinedHere
+eval or-assign: TypeError: nil is not a class/module

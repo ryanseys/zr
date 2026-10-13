@@ -186,19 +186,20 @@ module Zr
             when Prism::CapturePatternNode
               And.new(pattern(node.value, subject), bind(node.target, @b.read(subject, line), line), line)
             when Prism::LocalVariableTargetNode then bind(node, @b.read(subject, line), line)
-            when Prism::PinnedVariableNode then value_pattern(@b.expr(node.variable), subject, line)
-            when Prism::PinnedExpressionNode then value_pattern(@b.expr(node.expression), subject, line)
-            else value_pattern(@b.expr(node), subject, line)
+            when Prism::PinnedVariableNode then value_pattern(@b.expr(node.variable), subject, line, node.variable)
+            when Prism::PinnedExpressionNode then value_pattern(@b.expr(node.expression), subject, line, node.expression)
+            else value_pattern(@b.expr(node), subject, line, node)
             end
           end
 
-          # `pattern === subject`. The reason gives both.
-          #: (node value, Symbol subject, Integer line) -> node
-          def value_pattern(value, subject, line)
-            return @b.send_to(value, :===, [@b.read(subject, line)], line) if @why.nil?
+          # `pattern === subject`. The reason gives both. The frame stands at
+          # the pattern `node` while === runs.
+          #: (node value, Symbol subject, Integer line, Prism::node node) -> node
+          def value_pattern(value, subject, line, node)
+            return @b.noted(@b.send_to(value, :===, [@b.read(subject, line)], line), node) if @why.nil?
 
             held = @b.temp(:pattern)
-            test = @b.send_to(@b.set(held, value, line), :===, [@b.read(subject, line)], line)
+            test = @b.noted(@b.send_to(@b.set(held, value, line), :===, [@b.read(subject, line)], line), node)
             failing(test, Interp.new([inspect_of(held, line), Literal.new(" === ", line), inspect_of(subject, line), Literal.new(" does not return true", line)], line), line)
           end
 
@@ -228,20 +229,22 @@ module Zr
           # `Const === subject` if the pattern has a constant.
           #: (Prism::ArrayPatternNode | Prism::FindPatternNode | Prism::HashPatternNode node, Symbol subject, Integer line) -> Array[node]
           def constant_test(node, subject, line)
-            node.constant ? [value_pattern(@b.expr(node.constant), subject, line)] : []
+            node.constant ? [value_pattern(@b.expr(node.constant), subject, line, node.constant)] : []
           end
 
           # `subject.deconstruct`, called once per subject and kept: an
-          # Array, or a TypeError.
-          #: (Symbol subject, Integer line) -> [Symbol, Array[node]]
-          def deconstructed(subject, line)
+          # Array, or a TypeError. The frame stands at the pattern `node`
+          # while it calls and checks, as checkmatch's node is.
+          #: (Symbol subject, Integer line, Prism::node node) -> [Symbol, Array[node]]
+          def deconstructed(subject, line, node)
             caches = @caches ||= {} #: Hash[Symbol, Symbol]
             cache = caches[subject] ||= @b.temp(:deconstructed)
             d = @b.temp(:elements)
             responds = @b.send_to(@b.read(subject, line), :respond_to?, [Literal.new(:deconstruct, line)], line)
-            call = Or.new(@b.read(cache, line), @b.set(cache, @b.send_to(@b.read(subject, line), :deconstruct, [], line), line), line)
-            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.core(:Array, line)], line), Literal.new(true, line),
-                           @b.send_to(@b.core(:Kernel, line), :raise, [@b.core(:TypeError, line), Literal.new("deconstruct must return Array", line)], line), line)
+            asked = @b.noted(@b.send_to(@b.read(subject, line), :deconstruct, [], line), node)
+            call = Or.new(@b.read(cache, line), @b.set(cache, asked, line), line)
+            refused = @b.send_to(@b.core(:Kernel, line), :raise, [@b.core(:TypeError, line), Literal.new("deconstruct must return Array", line)], line)
+            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.core(:Array, line)], line), Literal.new(true, line), @b.noted(refused, node), line)
             steps = [failing(responds, Interp.new([inspect_of(subject, line), Literal.new(" does not respond to #deconstruct", line)], line), line),
                      Seq.new([@b.set(d, call, line), typed], line)]
             [d, steps]
@@ -259,7 +262,7 @@ module Zr
           #: (Prism::ArrayPatternNode node, Symbol subject, Integer line) -> node
           def array_pattern(node, subject, line)
             steps = constant_test(node, subject, line)
-            d, ask = deconstructed(subject, line)
+            d, ask = deconstructed(subject, line, node)
             steps.concat(ask)
             pre = node.requireds
             post = node.posts
@@ -283,7 +286,7 @@ module Zr
           #: (untyped node, Symbol subject, Integer line) -> node
           def find_pattern(node, subject, line)
             steps = constant_test(node, subject, line)
-            d, ask = deconstructed(subject, line)
+            d, ask = deconstructed(subject, line, node)
             steps.concat(ask)
             middle = node.requireds
             m = middle.size
@@ -330,9 +333,10 @@ module Zr
             d = @b.temp(:pairs)
             responds = @b.send_to(@b.read(subject, line), :respond_to?, [Literal.new(:deconstruct_keys, line)], line)
             steps << failing(responds, Interp.new([inspect_of(subject, line), Literal.new(" does not respond to #deconstruct_keys", line)], line), line)
-            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.core(:Hash, line)], line), Literal.new(true, line),
-                           @b.send_to(@b.core(:Kernel, line), :raise, [@b.core(:TypeError, line), Literal.new("deconstruct_keys must return Hash", line)], line), line)
-            steps << Seq.new([@b.set(d, @b.send_to(@b.read(subject, line), :deconstruct_keys, [asked], line), line), typed], line)
+            refused = @b.send_to(@b.core(:Kernel, line), :raise, [@b.core(:TypeError, line), Literal.new("deconstruct_keys must return Hash", line)], line)
+            typed = If.new(@b.send_to(@b.read(d, line), :is_a?, [@b.core(:Hash, line)], line), Literal.new(true, line), @b.noted(refused, node), line)
+            keyed = @b.noted(@b.send_to(@b.read(subject, line), :deconstruct_keys, [asked], line), node)
+            steps << Seq.new([@b.set(d, keyed, line), typed], line)
             if node.elements.empty? && node.rest.nil?
               steps << failing(@b.send_to(@b.read(d, line), :empty?, [], line), Interp.new([inspect_of(d, line), Literal.new(" is not empty", line)], line), line)
             end

@@ -83,8 +83,8 @@ module Zr
         case node
         when Prism::SplatNode then splat(node, line)
         when Prism::KeywordHashNode
-          hash = HashLit.new(hash_pairs(node.elements), line)
-          node.elements.all?(Prism::AssocSplatNode) ? Splat.new(KwSplatElement.new(hash, line), line) : hash
+          hash = noted(HashLit.new(hash_pairs(node.elements), line), node)
+          node.elements.all?(Prism::AssocSplatNode) ? noted(Splat.new(KwSplatElement.new(hash, line), line), node) : hash
         else expr(node)
         end
       end
