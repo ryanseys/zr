@@ -267,14 +267,12 @@ module Kernel
       raise ArgumentError, +"width after precision" if flags & FPREC0 != 0
     end
 
-    # sprint_exit: arguments in order that the string left unused are an
-    # error under $DEBUG and a warning under $VERBOSE.
+    # sprint_exit: arguments in order that the string left unused are a
+    # warning under $VERBOSE; ruby 4.1 no longer raises under $DEBUG.
     def too_many
       Primitive.attr! :hidden
       return unless @posarg >= 0 && @nextarg <= @args.size
       return if @args.size == 1 && Hash === @args[0]
-
-      raise ArgumentError, +"too many arguments for format string" if $DEBUG
 
       Warning.warn("#{Primitive.zr_warn_position}warning: too many arguments for format string\n") if $VERBOSE
     end
