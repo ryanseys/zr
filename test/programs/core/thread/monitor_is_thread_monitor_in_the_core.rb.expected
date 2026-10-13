@@ -1,0 +1,22 @@
+Thread::Monitor
+true
+"Thread::Monitor"
+Thread::Monitor::ConditionVariable
+true
+[Thread::Monitor, Object]
+Object
+true
+[Thread::Monitor, Thread::Monitor, Thread::Monitor, Thread::Monitor, Thread::Monitor, Thread::Monitor, Thread::Monitor, Thread::Monitor, Thread::Monitor]
+[[:mon_enter, :enter], [:mon_exit, :exit], [:mon_try_enter, :try_enter], [:try_mon_enter, :try_enter], [:mon_synchronize, :synchronize]]
+[]
+Thread::Monitor::ConditionVariable
+[:@monitor, :@cond]
+[true, true]
+[false, false]
+true
+true
+false
+"current fiber not owner"
+Thread::Monitor::ConditionVariable
+:inside
+:mon_synchronize

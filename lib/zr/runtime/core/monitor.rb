@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
-# Monitor: a reentrant lock over a Mutex, which ruby loads before the
-# program's first line. The owner may enter again; the lock releases at
-# the outermost exit. MonitorMixin layers the same over any object.
-class Monitor
+# Thread::Monitor: a reentrant lock over a Mutex, in the core since ruby
+# 4.1 (thread_sync.rb), and Monitor names it. The owner may enter again;
+# the lock releases at the outermost exit. MonitorMixin, from monitor.rb,
+# which ruby loads before the program's first line, layers the same over
+# any object.
+class Thread::Monitor
   def initialize
     Primitive.attr! :hidden
     @mutex = Thread::Mutex.new
@@ -23,9 +25,6 @@ class Monitor
     true
   end
 
-  alias try_mon_enter try_enter
-  alias mon_try_enter try_enter
-
   def enter
     if @owner.equal?(Fiber.current)
       @count += 1
@@ -37,8 +36,6 @@ class Monitor
     nil
   end
 
-  alias mon_enter enter
-
   def exit
     mon_check_owner
     @count -= 1
@@ -49,8 +46,6 @@ class Monitor
     nil
   end
 
-  alias mon_exit exit
-
   def synchronize
     enter
     begin
@@ -59,8 +54,6 @@ class Monitor
       self.exit
     end
   end
-
-  alias mon_synchronize synchronize
 
   def mon_locked? = @mutex.locked?
 
@@ -72,7 +65,7 @@ class Monitor
     nil
   end
 
-  def new_cond = MonitorMixin::ConditionVariable.new(self)
+  def new_cond = ConditionVariable.new(self)
 
   # Releases the whole monitor for the wait and restores the nesting
   # count after: true when signalled, false on the timeout.
@@ -87,13 +80,8 @@ class Monitor
       @count = count
     end
   end
-end
 
-# monitor.rb, the half CRuby writes in Ruby, whose instance variables a
-# program sees as ruby's own shows them.
-module MonitorMixin
-  Primitive.attr! :ivars
-
+  # Written in Ruby in ruby too, so a program sees its instance variables.
   class ConditionVariable
     Primitive.attr! :ivars
 
@@ -131,6 +119,16 @@ module MonitorMixin
       @cond = Thread::ConditionVariable.new
     end
   end
+end
+
+Monitor = Thread::Monitor
+
+# monitor.rb, the half CRuby writes in Ruby, whose instance variables a
+# program sees as ruby's own shows them.
+module MonitorMixin
+  Primitive.attr! :ivars
+
+  ConditionVariable = Monitor::ConditionVariable # :nodoc:
 
   def self.extend_object(obj) # :nodoc:
     super(obj)
@@ -194,4 +192,12 @@ module MonitorMixin
   def mon_check_owner
     @mon_data.mon_check_owner
   end
+end
+
+class Monitor # :nodoc:
+  alias try_mon_enter try_enter
+  alias mon_try_enter try_enter
+  alias mon_enter enter
+  alias mon_exit exit
+  alias mon_synchronize synchronize
 end
