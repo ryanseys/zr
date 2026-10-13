@@ -384,6 +384,24 @@ module Zr::Kern
     copy
   end
 
+  # rb_proc_isolate: a copy of `p` with none of its instance variables. A
+  # trap handler that a ractor other than the main one installs is such a
+  # copy. Ruby counts the copy as shareable, but it does not freeze it. A
+  # Proc of Ruby code gets nil as self and no Binding. A native Proc (a
+  # Method's or a Symbol's) keeps its self, which holds what it calls.
+  #: (value) -> value
+  def zr_proc_isolate_m(p)
+    bytes = zr_cell_bytes(p)
+    copy = zr_alloc(T_PROC, zr_real_class(p), bytes)
+    zr_memcpy(Machine.ptr(copy) + RBasic.size, Machine.ptr(p) + RBasic.size, bytes - RBasic.size)
+    RBasic[copy].flags = RBasic[copy].flags | FL_SHAREABLE
+    if RProc[copy].meta != 0
+      RProc[copy].self = Machine.value(QNIL)
+      RBasic[copy].flags = RBasic[copy].flags | FL_ISOLATED
+    end
+    copy
+  end
+
   # A native Proc has no meta, and no outer locals.
   #: (value) -> ptr
   def zr_proc_captures_table(p)

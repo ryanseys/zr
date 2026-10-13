@@ -1,0 +1,18 @@
+[Ractor::IsolationError, "can not isolate a Proc because it accesses outer variables (count)."]
+[Ractor::IsolationError, "can not isolate a Proc because it uses 'yield'."]
+"DEFAULT"
+"DEFAULT"
+handler self: nil, main: true
+[false, Proc, nil, Ractor, false, true]
+[Handler, :handler]
+[false, true, 42]
+[false, 3, true, false, true, Binding]
+[false, "A", false, true]
+[[Ractor::IsolationError, "can't modify instance variables of a shareable Proc"], true, false, false]
+[[], [:@note]]
+[true, false, true, true]
+false
+[true, :shared]
+[ArgumentError, "Can't create Binding from isolated Proc"]
+[true, true]
+"p :command"

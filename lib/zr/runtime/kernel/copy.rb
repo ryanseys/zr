@@ -81,7 +81,10 @@ module Zr::Kern
       RRegexp[copy].options = 0
       RRegexp[copy].program = Machine.value(QNIL)
       RRegexp[copy].alt = Machine.value(QNIL)
-    elsif t != T_PROC && t != T_METHOD
+    elsif t == T_PROC
+      # rb_proc_dup_0: a copy of a shareable Proc is shareable too.
+      RBasic[copy].flags = RBasic[copy].flags | (RBasic[orig].flags & FL_SHAREABLE)
+    elsif t != T_METHOD
       # The cell already contains the original's words. Clear them, or the
       # collector frees the original's memory when the copy dies.
       Libc.memset(Machine.ptr(copy) + RBasic.size, Machine.i32(0), zr_cell_bytes(copy) - RBasic.size)

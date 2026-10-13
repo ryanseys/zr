@@ -47,10 +47,20 @@ module Signal
       if args.size == 1
         raise ArgumentError, +"tried to create Proc object without a block" unless block
 
-        install(signo, HANDLED, block)
+        install(signo, HANDLED, isolated(block))
       else
-        install(signo, *handling(args[1], signo))
+        how, command = handling(args[1], signo)
+        install(signo, how, isolated(command))
       end
+    end
+
+    # The main ractor runs every handler, so a Proc from another ractor is
+    # isolated first, as sig_trap does.
+    def isolated(command)
+      Primitive.attr! :hidden
+      return command unless Proc === command && !Ractor.main? && !Ractor.shareable?(command)
+
+      Ractor.send(:isolated, command)
     end
 
     # trap_signm: a number below NSIG, or a name EXIT among them.

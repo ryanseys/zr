@@ -227,6 +227,16 @@ class Ractor
   end
   private_class_method :isolate
 
+  # rb_proc_isolate, for a trap handler that a ractor other than the main
+  # one installs: a copy of the block that reaches no outer local, with nil
+  # as self. The block itself does not change.
+  def self.isolated(block)
+    Primitive.attr! :hidden
+    outer!(block, "isolate a Proc", Primitive.zr_proc_captures_m(block))
+    Primitive.zr_proc_isolate_m(block)
+  end
+  private_class_method :isolated
+
   # proc_shared_outer_variables: the refusal of a block that reaches the
   # outer locals `names`, or the method's block through `yield`.
   def self.outer!(block, action, names)
