@@ -245,6 +245,34 @@ class CliParseTest < Minitest::Test
     assert_equal CLI::Help::PAGES.fetch("run"), capture_io { CLI.start(%w[help run]) }.first
   end
 
+# As ruby's: -h fits a terminal of 80 columns and 25 rows, and --help
+# keeps each line to 80 columns (test_rubyoptions.rb test_usage and
+# test_usage_long). `zr help` is --help, and in ruby mode, after a
+# switch, they print the same.
+def test_h_prints_a_short_usage_and_help_the_long_one
+  short, = capture_io { CLI.start(%w[-h]) }
+  long, = capture_io { CLI.start(%w[--help]) }
+
+  assert_operator short.lines.size, :<=, 25
+  assert_empty short.lines.select { |line| line.chomp.size >= 80 }
+  assert_match(/^  build <file.rb> -o <out> /, short)
+  assert short.end_with?("-h prints this text; use --help for settings and more.\n"), short
+  refute_includes short, "--jobs N"
+  assert_empty long.lines.select { |line| line.chomp.size > 80 }
+  assert_includes long, "--jobs N"
+  assert_includes long, "Exit status: 0 success"
+  assert_equal long, capture_io { CLI.start(%w[help]) }.first
+  assert_equal short, capture_io { CLI.start(%w[-w -h]) }.first
+  assert_equal long, capture_io { CLI.start(%w[-w --help]) }.first
+  assert_equal CLI::Help::PAGES.fetch("run"), capture_io { CLI.start(%w[-h run]) }.first
+end
+
+# Each setting fits its row: the flag in its column, then what it does,
+# wrapped below 80 columns.
+def test_each_setting_row_fits_in_80_columns
+  CLI::Help::SETTINGS.each_line { |line| assert_operator line.chomp.size, :<, 80, line }
+end
+
   # A command's missing input is a usage error. In ruby mode, ruby's own
   # status and message.
   def test_a_missing_file_prints_one_line_and_exits_2

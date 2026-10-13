@@ -10,16 +10,25 @@ Usage: zr <command> [options]
 
 Commands:
   run <file.rb> [args...]     compile a program, run it, then delete the build
-  build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
-                              (`compile` is another name)
-  gems [<file.rb>]            list the gems that a build reads, and their sources
+  build <file.rb> -o <out>    compile a program to a binary, a WASI module or
+                              an object (`compile` is another name)
+  gems [<file.rb>]            list the gems of a build and their sources
   inspect <binary>            print the gems that a binary was built with
-  diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
-  doctor                      check this host: ruby, targets, wasmtime, OpenSSL, gems, cache
+  diff <file.rb> [args...]    run a program in ruby and as a zr binary; compare
+  doctor                      check this host: ruby, targets, wasmtime,
+                              OpenSSL, gems, cache
   cache [path|size|clean]     show or clean the build cache
   version                     print the version
   help [<command>]            print help for zr or for one command
+
+Any other first word runs zr as a ruby, with ruby's switches: zr -e 'p 1'
+-h prints this text; use --help for settings and more.
 ```
+
+`zr -h` prints this short list, which fits a terminal of 80 columns
+and 25 rows. `zr --help` and `zr help` print the long one: the
+commands, ruby mode, each [setting](#settings) and the exit statuses,
+in lines of at most 80 columns.
 
 `zr help <command>` and `zr <command> --help` (or `-h`) print the
 options of a command. `zr version` prints zr's version and the ruby
@@ -120,7 +129,9 @@ script's first line when that line starts with `#!` and names ruby
 | `--enable`/`--disable` `gems`, `frozen-string-literal`, `all` | `--disable-gems` does not load rubygems as the program starts. `frozen-string-literal` is the default of every file without the magic comment. |
 | `--jit`, `--yjit`, `--zjit`, `--parser=prism`, `--crash-report` | No effect: zr compiles the program ahead of time, with prism. |
 | `--dump=insns`, `--parser=parse.y` | Exit status 3: zr compiles to machine code with prism, so it has no YARV instructions and no parse.y. |
-| `-h`, `--help`, `--version`, `--dump=usage`, `--dump=help`, `--dump=version` | zr's help and version. |
+| `-h`, `--dump=usage` | zr's short usage, as `zr -h` prints it. |
+| `--help`, `--dump=help` | zr's long usage, as `zr --help` prints it. With `-h` too, as in ruby, the long one. |
+| `--version`, `--dump=version` | zr's version. |
 
 zr's own flags `--trace`, `--gem`, `--gemfile` and
 `--allow-runtime-require` can come before the script. A switch that ruby

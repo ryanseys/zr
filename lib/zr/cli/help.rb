@@ -6,32 +6,59 @@ require_relative "errors"
 
 module Zr
   module CLI
-    # What `zr help` prints: the list of commands (`USAGE`) and one page for
-    # each command (`PAGES`).
+    # What `zr help` prints: the list of commands, short (`SHORT`, for
+    # `zr -h`) or long (`USAGE`), and one page for each command (`PAGES`).
     module Help
-      # The lines of the settings: each flag with what it takes, then what
-      # it does, wrapped to the width of the rest of the usage.
-      SETTINGS = Config::SETTINGS.map do |setting|
-        first, *rest = setting.about.scan(/\S.{0,56}(?=\s|\z)/)
-        [format("  %-28s%s\n", Config.usage(setting), first), *rest.map { |line| "#{" " * 30}#{line}\n" }].join
-      end.join.freeze #: String
+      # The last column of a line of the usage. `ruby -h` keeps its lines
+      # below 80 columns and fits in 25 rows; `ruby --help` keeps them to 80
+      # (test/ruby/test_rubyoptions.rb).
+      WIDTH = 79
 
-      USAGE = <<~TEXT.freeze
+      # A row of a table of the usage: `left` in the first 30 columns, then
+      # `text` wrapped to WIDTH below it. A `left` too wide for its column
+      # puts `text` on the next line.
+      #: (String left, String text) -> String
+      def self.row(left, text)
+        indent = " " * 30
+        head = left.size > 26 ? "  #{left}\n#{indent}" : format("  %-28s", left)
+        "#{head}#{text.scan(/\S.{0,#{WIDTH - indent.size - 1}}(?=\s|\z)/).join("\n#{indent}")}\n"
+      end
+      private_class_method :row
+
+      COMMANDS = [
+        row("run <file.rb> [args...]", "compile a program, run it, then delete the build"),
+        row("build <file.rb> -o <out>", "compile a program to a binary, a WASI module or an object (`compile` is another name)"),
+        row("gems [<file.rb>]", "list the gems of a build and their sources"),
+        row("inspect <binary>", "print the gems that a binary was built with"),
+        row("diff <file.rb> [args...]", "run a program in ruby and as a zr binary; compare"),
+        row("doctor", "check this host: ruby, targets, wasmtime, OpenSSL, gems, cache"),
+        row("cache [path|size|clean]", "show or clean the build cache"),
+        row("version", "print the version"),
+        row("help [<command>]", "print help for zr or for one command")
+      ].join.freeze #: String
+
+      # The settings: each flag with what it takes, then what it does.
+      SETTINGS = Config::SETTINGS.map { |setting| row(Config.usage(setting), setting.about) }.join.freeze #: String
+
+      LINES = <<~TEXT.chomp.freeze
         Usage: zr <command> [options]
                zr [ruby switches] [--] [<file.rb> | -] [args...]
 
         Commands:
-          run <file.rb> [args...]     compile a program, run it, then delete the build
-          build <file.rb> -o <out>    compile a program to a binary, a WASI module or an object
-                                      (`compile` is another name)
-          gems [<file.rb>]            list the gems that a build reads, and their sources
-          inspect <binary>            print the gems that a binary was built with
-          diff <file.rb> [args...]    run a program under ruby and as a zr binary, and compare
-          doctor                      check this host: ruby, targets, wasmtime, OpenSSL, gems, cache
-          cache [path|size|clean]     show or clean the build cache
-          version                     print the version
-          help [<command>]            print help for zr or for one command
+        #{COMMANDS}
+      TEXT
 
+      # What `zr -h` prints: the commands, in one screen.
+      SHORT = <<~TEXT.freeze
+        #{LINES}
+        Any other first word runs zr as a ruby, with ruby's switches: zr -e 'p 1'
+        -h prints this text; use --help for settings and more.
+      TEXT
+
+      # What `zr --help` and `zr help` print: the commands, ruby mode, the
+      # settings and the exit statuses.
+      USAGE = <<~TEXT.freeze
+        #{LINES}
         Any other first word runs zr as a ruby, with ruby's switches (-e, -n,
         -p, -I, -r, -w and the others): `zr app.rb args`, `zr -e 'p 1'`, or a
         program on standard input. A command's name always wins: run a script
@@ -43,7 +70,8 @@ module Zr
         Exit status: 0 success; 1 error; 2 usage error or a bad setting;
         3 zr does not support the program, the target or this ruby; 130 Ctrl-C.
         `zr run` exits with the program's status.
-        Environment variables: #{DOCS_URL}/reference/environment-variables.md
+        Environment variables: reference/environment-variables.md in the docs at
+        #{DOCS_URL}
       TEXT
 
       # The words that ask for help.
@@ -174,10 +202,11 @@ module Zr
 
       module_function
 
-      # Prints the page of `command`, or the list of commands for nil.
-      #: (?String? command) -> void
-      def show(command = nil)
-        return puts(USAGE) if command.nil?
+      # Prints the page of `command`. For nil, prints the list of commands:
+      # the long one, or with `long: false` the short one.
+      #: (?String? command, ?long: bool) -> void
+      def show(command = nil, long: true)
+        return puts(long ? USAGE : SHORT) if command.nil?
 
         Errors.usage_error("unknown command '#{command}'") unless PAGES.key?(command)
         puts PAGES.fetch(command)

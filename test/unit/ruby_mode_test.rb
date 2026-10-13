@@ -273,7 +273,19 @@ def parse(*argv, env: {}) = RubyOptions.parse(argv, env)
     assert parse("--dump=version", "x.rb").version_only
     assert parse("--dump=copyright").copyright
     assert_predicate parse("--dump=usage"), :help?
-    assert_predicate parse("--dump=h"), :help?
+    refute_predicate parse("--dump=usage"), :long_help?
+    assert_predicate parse("--dump=h"), :long_help?
+  end
+
+  # -h is the short usage and --help the long one. As in ruby, --help wins
+  # in either order.
+  def test_h_is_the_short_usage_and_help_wins
+    assert_predicate parse("-h"), :help?
+    refute_predicate parse("-h"), :long_help?
+    assert_predicate parse("--help"), :long_help?
+    assert_predicate parse("-h", "--help"), :long_help?
+    assert_predicate parse("--help", "-h"), :long_help?
+    refute_predicate parse("x.rb"), :help?
   end
 
   # An unknown item or option only warns, and the program still runs. As in

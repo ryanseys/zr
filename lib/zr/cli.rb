@@ -99,6 +99,9 @@ module Zr
 
       args = argv.dup
       verb = args.shift
+      # -h prints the short list of commands; --help and `zr help` the long one.
+      return Help.show(args.first, long: false) if verb == "-h" && !Help.asked?(args)
+
       verb = ALIASES.fetch(verb, verb) if verb
       verb = "version" if %w[--version -v].include?(verb)
       verb = "help" if Help::FLAGS.include?(verb)
@@ -169,7 +172,7 @@ module Zr
     #: (String? verb) -> bot
     def unknown_verb(verb)
       if verb.nil?
-        warn Help::USAGE
+        warn Help::SHORT
         exit 2
       end
       return Errors.usage_error("unknown option '#{verb}'") if verb.start_with?("-")

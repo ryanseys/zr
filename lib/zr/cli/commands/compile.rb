@@ -54,7 +54,7 @@ module Zr
         #: (Array[String] argv) -> void
         def ruby(argv)
           options = @options || RubyOptions.parse(argv)
-          return CLI::Help.show if options.help?
+          return CLI::Help.show(long: options.long_help?) if options.help?
 
           options.warnings.each { |line| warn line }
           Refusals.pinned!

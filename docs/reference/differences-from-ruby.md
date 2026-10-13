@@ -81,7 +81,7 @@ These give other output than ruby's:
 | What | zr | ruby |
 |---|---|---|
 | `-v`, `--version` | zr's version, `zr 0.1.0 (for ruby <version>)` | `RUBY_DESCRIPTION` |
-| `-h`, `--help` | zr's usage | ruby's list of switches |
+| `-h`, `--help` | zr's usage: short for `-h`, long for `--help` | ruby's list of switches: short for `-h`, long for `--help` |
 | `--disable=did_you_mean`, `error_highlight`, `syntax_suggest` | no effect: every program loads them as it starts | the program starts without them |
 | `RUBYOPT` | not read: zr's own ruby reads it | its switches come after the command line's |
 | `-d` | the program's own exceptions | also the `LoadError`s that rubygems' boot rescues, because ruby loads rubygems before every program and zr only before one that uses it |

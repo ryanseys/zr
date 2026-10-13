@@ -58,27 +58,27 @@ module Zr
     # build writes, so a build server with other values does not build
     # for it.
     SETTINGS = [
-      row("ZR_LINKER", "--linker", :choice, LINKERS, "the macOS linker: auto, ruby (zr's own only) or cc"),
-      row("ZR_JOBS", "--jobs", :value, "N", "the workers that assemble a large unit; -j N is the same"),
+      row("ZR_LINKER", "--linker", :choice, LINKERS, "the macOS linker: auto, ruby (zr's own) or cc"),
+      row("ZR_JOBS", "--jobs", :value, "N", "the workers that assemble a large unit (-j N)"),
       row("ZR_EVAL", "--eval-mode", :choice, %w[walk], "walk: eval in a native program walks the tree"),
       row("ZR_TIMING", "--timing", :switch, nil, "print each phase of a build and its seconds", steers: false),
       row("ZR_VERIFY", "--verify", :switch, nil, "check each IR function before it is assembled"),
       row("ZR_KERNEL_CHECKED", "--kernel-checked", :switch, nil, "check each operator of the kernel that can wrap"),
       row("ZR_WASM_NAMES", "--wasm-names", :switch, nil, "give a WASI module a name section"),
-      row("ZR_WASM_WIDTH", "--wasm-width", :value, "N", "the group size of a large wasm function's dispatch"),
-      row("ZR_TUNE", "--tune", :switch, nil, "larger collector limits and YJIT for heavy work (on)"),
+      row("ZR_WASM_WIDTH", "--wasm-width", :value, "N", "the group size of a big wasm function's dispatch"),
+      row("ZR_TUNE", "--tune", :switch, nil, "larger GC limits and YJIT for heavy work (on)"),
       row("ZR_CACHE", "--cache-dir", :value, "DIR", "the cache directory (`zr cache path` prints it)"),
-      row("ZR_CACHE_MAX_GB", "--cache-max-gb", :value, "GB", "the most GB that an installed zr keeps (5; 0: no limit)"),
-      row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr starts for gems and syntax errors"),
-      row("ZR_LINK_ARGS", "--link-args", :value, "WORDS", "words for the system linker, split as a shell does"),
+      row("ZR_CACHE_MAX_GB", "--cache-max-gb", :value, "GB", "the most GB an installed zr keeps (5; 0: none)"),
+      row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr runs for gems and syntax errors"),
+      row("ZR_LINK_ARGS", "--link-args", :value, "WORDS", "words for the system linker, split as sh does"),
       row("ZR_EXT_OBJECTS", "--ext-objects", :value, "PATH=OBJ,...", "C extensions to link: each a bundle's path, then its objects"),
       row("ZR_EXT", "--ext", :choice, EXT_MODES, "how a C extension runs: static (its objects; a bundle alone embeds), embed or dynamic"),
-      row("ZR_NATIVE_EXT", "--native-ext", :value, "GEM[=VERSION],...", "gems whose installed C extension to link, not a port"),
-      row("ZR_EXT_CONFIG", "--ext-config", :value, "GEM=ARG ...", "build a gem's C extension with these extconf.rb arguments"),
+      row("ZR_NATIVE_EXT", "--native-ext", :value, "GEM[=VERSION],...", "gems whose own C extension to link, not a port"),
+      row("ZR_EXT_CONFIG", "--ext-config", :value, "GEM=ARG ...", "the extconf.rb arguments for a gem's C extension"),
       row("ZR_RUN_CACHE", "--run-cache", :switch, nil, "keep the binary of each run and run it again (on)"),
       row("ZR_TRACE", "--trace", :switch, nil, "arm the trace events in the program's code"),
-      row("ZR_CODE_CACHE", "--code-cache", :choice, CODE_CACHES, "keep the runtime's machine code (1), not (0), or check it"),
-      row("ZR_SERVER", "--server", :value, "0|SOCKET", "0: build alone; a path: the build server at that socket", steers: false),
+      row("ZR_CODE_CACHE", "--code-cache", :choice, CODE_CACHES, "keep the runtime's code (1), not (0), or check it"),
+      row("ZR_SERVER", "--server", :value, "0|SOCKET", "0: build alone; a path: the build server's socket", steers: false),
       row("ZR_DEBUG", "--backtrace", :switch, nil, "show the backtrace of an error that stops zr", steers: false)
     ].freeze #: Array[Setting]
 

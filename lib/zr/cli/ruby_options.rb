@@ -24,7 +24,7 @@ module Zr
       # @rbs @field_separator: String?
       # @rbs @inplace: String?
       # @rbs @verbose: [bool?]?
-      # @rbs @help: bool
+      # @rbs @help: (:usage | :help)?
       # @rbs @verbose_option: bool
       # @rbs @loop: bool
       # @rbs @print: bool
@@ -121,7 +121,7 @@ module Zr
         @field_separator = nil
         @inplace = nil
         @verbose = nil
-        @help = false
+        @help = nil
         @verbose_option = false
       end
 
@@ -175,9 +175,14 @@ module Zr
       #: () -> bool
       def dumps? = !@dumps.empty?
 
-      # -h or --help: zr's usage.
+      # -h, --help, --dump=usage or --dump=help: zr's usage.
       #: () -> bool
-      def help? = @help
+      def help? = !@help.nil?
+
+      # --help or --dump=help: the long usage, with the settings. As in
+      # ruby, it wins over -h.
+      #: () -> bool
+      def long_help? = @help == :help
 
       # What `Hir::Switches` the build takes.
       #: () -> Hir::Switches
@@ -356,7 +361,7 @@ module Zr
           when "c" then dump_item!(:syntax)
           when "s" then @sflag = true
           when "h"
-            @help = true
+            @help ||= :usage
             return
           when "l"
             @line = true
@@ -545,7 +550,7 @@ module Zr
         when "verbose"
           @verbose_option = true
           @verbose = [true]
-        when "help" then @help = true
+        when "help" then @help = :help
         when "debug", /\Adebug-./
           # --debug alone (or with an empty value) is -d; --debug=NAMES and
           # --debug-NAME name ruby's debug features, of which there is one.
@@ -606,7 +611,8 @@ module Zr
         case item
         when :version then @version_only = true
         when :copyright then @copyright = true
-        when :usage, :help then @help = true
+        when :usage then @help ||= :usage
+        when :help then @help = :help
         when :insns then refuse("--dump=insns (zr compiles to machine code, not to YARV instructions)")
         else @dumps = DUMP_EXITS & [*@dumps, item]
         end
