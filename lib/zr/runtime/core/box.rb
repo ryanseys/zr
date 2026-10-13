@@ -87,6 +87,14 @@ module Ruby
       raise RuntimeError, +"Ruby::Box is disabled" unless Box.enabled?
 
       (Primitive.zr_hidden_get(Box, :boxes) || Primitive.zr_hidden_set(Box, :boxes, [])) << self
+      # User boxes are numbered from 4, after master, root and main.
+      @number = Primitive.zr_hidden_set(Box, :users, (Primitive.zr_hidden_get(Box, :users) || 3) + 1)
+      setup
+    end
+
+    # The state of a box: its slot, its own Object, globals and features.
+    def setup
+      Primitive.attr! :hidden
       @slot = Primitive.zr_box_slot
       Primitive.zr_box_register(Box)
       @shadows = {}
@@ -106,7 +114,18 @@ module Ruby
       @cref = Primitive.zr_eval_cref_under(self, nil)
     end
 
-    def eval(source) = run(::Zr::Eval.current.compile(source, "eval", 1, []), nil)
+    # The main box is the program itself: its eval runs at the top level.
+    def eval(source)
+      if Primitive.zr_hidden_get(self, :kind) == :main
+        code = ::Zr::Eval.current.compile(source, "eval", 1, [])
+        Primitive.zr_box_compiled(code[1])
+        return Primitive.zr_eval_run(code, TOPLEVEL_BINDING.receiver, nil, nil, nil)
+      end
+
+      # The root box takes its state at its first use.
+      setup if @slot.nil? && Primitive.zr_hidden_get(self, :kind) == :root
+      run(::Zr::Eval.current.compile(source, "eval", 1, []), nil)
+    end
 
     def load_path = @load_path
 
@@ -119,7 +138,7 @@ module Ruby
 
     def load(feature) = load_feature(feature.to_s, false)
 
-    def inspect = @shown || "#<Ruby::Box:#{@slot + 4},user,optional>"
+    def inspect = @shown || "#<Ruby::Box:#{@number},user,optional>"
 
     private
 
@@ -170,6 +189,7 @@ module Ruby
     # A file the box reads and runs for itself, so a feature main has
     # already loaded runs again here.
     def load_feature(feature, once)
+      setup if @slot.nil? && Primitive.zr_hidden_get(self, :kind) == :root
       path = resolve(feature)
       raise LoadError, "cannot load such file -- #{feature}" unless path
       return false if once && @loaded[path]
