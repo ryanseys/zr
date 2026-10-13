@@ -4,7 +4,8 @@
 # writes most of GC in Ruby (its gc.rb), so those methods return their
 # own parameters, under CRuby's names.
 module GC
-  def self.start(full_mark: true, immediate_mark: true, immediate_sweep: true)
+  # One heap serves every Ractor here, so a collection is always global.
+  def self.start(full_mark: true, immediate_mark: true, immediate_sweep: true, global: true)
     Primitive.attr! :ruby
     Primitive.zr_gc_start_m(full_mark, immediate_sweep)
     nil
@@ -30,41 +31,53 @@ module GC
   # decides whether a collection is minor or major. The counts and the two
   # phase times show which ran and what each cost. The trace and the sweep
   # are measured separately because a minor collection traces only the
-  # young objects, but its sweep still walks every arena.
-  def self.stat(hash_or_key = nil)
+  # young objects, but its sweep still walks every arena. The :global
+  # scope gives the counts that all Ractors share; one heap here has no
+  # global cycle of its own.
+  def self.stat(hash_or_key = nil, scope: :ractor)
     Primitive.attr! :ruby
+    raise ArgumentError, "unknown scope: #{scope.inspect}" unless %i[ractor local global].include?(scope)
+
     # A counter that the collector keeps returns its value with no walk
     # of the heap, which the slot counts need.
-    if hash_or_key.is_a?(Symbol)
+    if hash_or_key.is_a?(Symbol) && (scope != :global || GLOBAL_KEYS.include?(hash_or_key))
       counted = counter(hash_or_key)
       return counted unless counted.nil?
     end
     pages, freed_pages = Primitive.zr_gc_pages
     count = Primitive.zr_gc_count
     majors, marking, sweeping = Primitive.zr_gc_phases
+    malloc_total, free_total = Primitive.zr_gc_malloc_totals
     stats = {
       count: count, time: Primitive.zr_gc_nanoseconds / 1_000_000,
       marking_time: marking / 1_000_000, sweeping_time: sweeping / 1_000_000,
-      heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_slots: 0, heap_available_slots: 0,
-      heap_live_slots: 0, heap_free_slots: 0, heap_final_slots: 0, heap_marked_slots: 0, heap_eden_pages: pages,
-      total_allocated_pages: pages + freed_pages, total_freed_pages: freed_pages, total_allocated_objects: 0,
-      total_freed_objects: 0, malloc_increase_bytes: Primitive.zr_gc_malloced,
-      malloc_increase_bytes_limit: Primitive.zr_gc_malloc_limit,
-      minor_gc_count: count - majors, major_gc_count: majors, compact_count: COMPACTED[1], read_barrier_faults: 0, total_moved_objects: 0,
+      total_malloc_bytes: malloc_total, total_free_bytes: free_total,
+      heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_bytes: 0, heap_eden_pages: pages,
+      total_allocated_pages: pages + freed_pages, total_freed_pages: freed_pages,
+      malloc_increase_bytes: Primitive.zr_gc_malloced, malloc_increase_bytes_limit: Primitive.zr_gc_malloc_limit,
+      minor_gc_count: count - majors, major_gc_count: majors, global_gc_count: 0, compact_count: COMPACTED[1],
+      read_barrier_faults: 0, total_moved_objects: 0,
       remembered_wb_unprotected_objects: 0, remembered_wb_unprotected_objects_limit: 0, old_objects: 0,
-      old_objects_limit: 0, oldmalloc_increase_bytes: 0, oldmalloc_increase_bytes_limit: 16 * 1024 * 1024
+      old_objects_limit: 0, oldmalloc_increase_bytes: 0, oldmalloc_increase_bytes_limit: 16 * 1024 * 1024,
+      total_allocated_objects: 0, total_freed_objects: 0,
+      heap_available_slots: 0, heap_live_slots: 0, heap_free_slots: 0, heap_final_slots: 0, heap_marked_slots: 0,
+      page_pool_arenas: pages, page_pool_arenas_freed: freed_pages, page_pool_total_pages: pages + freed_pages,
+      page_pool_discarded_pages: 0
     }
+    stats = stats.slice(*GLOBAL_KEYS) if scope == :global
     # The census comes after every allocation of this call, so the slot
     # counts agree with ObjectSpace.count_objects, as CRuby's stat
     # allocates nothing.
     total, free = Primitive.zr_objspace_census
     live = total - free
     allocated = Primitive.zr_gc_allocated
-    stats[:heap_available_slots] = total
-    stats[:heap_live_slots] = live
-    stats[:heap_free_slots] = free
-    stats[:total_allocated_objects] = allocated
-    stats[:total_freed_objects] = allocated > live ? allocated - live : 0
+    unless scope == :global
+      stats[:heap_available_slots] = total
+      stats[:heap_live_slots] = live
+      stats[:heap_free_slots] = free
+      stats[:total_allocated_objects] = allocated
+      stats[:total_freed_objects] = allocated > live ? allocated - live : 0
+    end
     case hash_or_key
     when nil then stats
     when Hash
@@ -72,15 +85,24 @@ module GC
       Primitive.zr_hash_foreach(stats) { |key, value| Primitive.zr_hash_aset_m(hash_or_key, key, value) }
       hash_or_key
     when Symbol
-      stats.fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
+      raise ArgumentError, "unknown key: #{hash_or_key}" unless stats.key?(hash_or_key)
+
+      stats[hash_or_key]
     else
       raise TypeError, +"non-hash or symbol given"
     end
   end
 
+  # The keys of GC.stat(scope: :global).
+  GLOBAL_KEYS = %i[count time marking_time sweeping_time minor_gc_count major_gc_count global_gc_count].freeze
+  private_constant :GLOBAL_KEYS
+
   def self.counter(key)
     Primitive.attr! :hidden
     case key
+    when :global_gc_count then 0
+    when :total_malloc_bytes then Primitive.zr_gc_malloc_totals[0]
+    when :total_free_bytes then Primitive.zr_gc_malloc_totals[1]
     when :count then Primitive.zr_gc_count
     when :time then Primitive.zr_gc_nanoseconds / 1_000_000
     when :marking_time then Primitive.zr_gc_phases[1] / 1_000_000
@@ -98,23 +120,28 @@ module GC
 
   # What the last collection was, in CRuby's words: why it was major (nil
   # for a minor), whether the next must be, and what started it. Every
-  # sweep here finishes at once, so the state is always :none.
+  # sweep here finishes at once, but one that ruby does lazily (any that
+  # GC.start did not ask to be immediate) reads as still :sweeping, as
+  # ruby's does until its sweep ends.
   def self.latest_gc_info(hash_or_key = nil)
     Primitive.attr! :ruby
-    bits, due, weak, kept = Primitive.zr_gc_info
+    bits, due, weak = Primitive.zr_gc_info
     info = {
       major_by: MAJOR_BY[bits >> 3], need_major_by: (:oldgen if due),
       gc_by: if bits.anybits?(1) then :method
              elsif bits.anybits?(2) then :malloc
              else :newobj
              end,
-      have_finalizer: false, immediate_sweep: bits.nobits?(4), state: :none,
-      weak_references_count: weak, retained_weak_references_count: kept
+      have_finalizer: false, immediate_sweep: bits.nobits?(4), state: bits.anybits?(4) ? :sweeping : :none,
+      weak_references_count: weak
     }
     case hash_or_key
     when nil then info
     when Hash then hash_or_key.merge!(info)
-    when Symbol then info.fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
+    when Symbol
+      raise ArgumentError, "unknown key: #{hash_or_key}" unless info.key?(hash_or_key)
+
+      info[hash_or_key]
     else raise TypeError, +"non-hash or symbol given"
     end
   end
@@ -129,6 +156,10 @@ module GC
   # records stay through a disable, and only `clear` drops them.
   module Profiler
     @enabled = false
+
+    # configure's mark for no max_records given.
+    UNSET = Object.new.freeze
+    private_constant :UNSET
 
     class << self
       def enable
@@ -147,7 +178,29 @@ module GC
 
       def total_time = rows.sum(0.0) { |row| row[:GC_TIME] }
 
-      def raw_data = (rows if @enabled)
+      # The records, oldest first: the last `limit` of them, of those
+      # numbered after `since`.
+      def raw_data(limit: nil, since: nil)
+        limit = count_of(limit, "limit")
+        since = count_of(since, "since")
+        return nil unless @enabled
+
+        records = rows
+        records = records.select { |row| row[:GC_SEQUENCE] > since } if since
+        limit && limit < records.size ? records.last(limit) : records
+      end
+
+      # Keeps at most `max_records` records (nil for no bound), and drops
+      # the records so far.
+      def configure(max_records: UNSET)
+        return nil if UNSET.equal?(max_records)
+
+        unless max_records.nil?
+          max_records = Primitive.zr_index_operand_m(max_records)
+          raise ArgumentError, +"max_records must be positive or nil" unless max_records.positive?
+        end
+        Primitive.zr_gc_profile_configure(max_records)
+      end
 
       def result
         records = rows
@@ -169,17 +222,33 @@ module GC
 
       private
 
+      # A non-negative count argument (NUM2LONG), or nil.
+      def count_of(value, name)
+        return nil if value.nil?
+
+        value = Primitive.zr_index_operand_m(value)
+        raise ArgumentError, "#{name} must be non-negative" if value.negative?
+
+        value
+      end
+
       # A collection's flags as CRuby gives them: GC.start (or stress)
       # asked for it and swept at once; the collector started any other one
-      # for an allocation.
+      # for an allocation. The whole collection stops the program here, so
+      # its wall time is its pause and its stop-the-world time; nothing
+      # waits to stop other threads, and nothing is compacted.
       def rows
+        weak = Primitive.zr_gc_info[2]
         Primitive.zr_gc_profile_rows.map do |row|
-          started, took, live, total, slots, flags = row
+          started, took, live, total, slots, flags, mark, sweep, sequence = row
           asked = flags.anybits?(2)
           major_by = (asked ? :force : :oldgen) if flags.anybits?(1)
           { GC_FLAGS: { major_by: major_by, gc_by: asked ? :method : :newobj, have_finalizer: false, immediate_sweep: asked,
-                        weak_references_count: 0, retained_weak_references_count: 0 },
-            GC_TIME: took / 1e9, GC_INVOKE_TIME: (started - STARTED) / 1e9, HEAP_USE_SIZE: live, HEAP_TOTAL_SIZE: total,
+                        weak_references_count: weak },
+            GC_SEQUENCE: sequence, GC_TIME: took / 1e9, GC_INVOKE_TIME: (started - STARTED) / 1e9,
+            GC_WALL_TIME: took / 1e9, GC_INVOKE_WALL_TIME: (started - STARTED) / 1e9, GC_PAUSE_TIME: took / 1e9,
+            GC_STOP_TIME: 0.0, GC_STW_TIME: took / 1e9, GC_MARK_WALL_TIME: mark / 1e9, GC_SWEEP_WALL_TIME: sweep / 1e9,
+            GC_COMPACT_WALL_TIME: 0.0, HEAP_USE_SIZE: live, HEAP_TOTAL_SIZE: total,
             HEAP_TOTAL_OBJECTS: slots, MOVED_OBJECTS: 0, GC_IS_MARKED: true }
         end
       end
@@ -279,7 +348,11 @@ module GC
     case hash_or_key
     when nil then pool_stats(heap_name, {})
     when Hash then pool_stats(heap_name, hash_or_key)
-    when Symbol then pool_stats(heap_name, {}).fetch(hash_or_key) { raise ArgumentError, "unknown key: #{hash_or_key}" }
+    when Symbol
+      stats = pool_stats(heap_name, {})
+      raise ArgumentError, "unknown key: #{hash_or_key}" unless stats.key?(hash_or_key)
+
+      stats[hash_or_key]
     else raise TypeError, +"non-hash or symbol given"
     end
   end
@@ -292,14 +365,14 @@ module GC
     slot_size, live, free, pages, allocated = Primitive.zr_gc_pool(pool)
     out.merge!(
       slot_size: slot_size, heap_live_slots: live, heap_free_slots: free, heap_final_slots: 0,
-      heap_eden_pages: pages, heap_eden_slots: live + free, total_allocated_pages: pages,
+      heap_eden_pages: pages, heap_eden_slots: live + free, heap_allocatable_slots: 0, total_allocated_pages: pages,
       force_major_gc_count: 0, force_incremental_marking_finish_count: 0,
       total_allocated_objects: allocated, total_freed_objects: [allocated - live, 0].max
     )
   end
   private_class_method :pool_stats
 
-  def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true)
+  def garbage_collect(full_mark: true, immediate_mark: true, immediate_sweep: true, global: true)
     Primitive.attr! :ruby
     Primitive.zr_gc_start_m(full_mark, immediate_sweep)
     nil

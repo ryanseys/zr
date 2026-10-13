@@ -44,7 +44,7 @@ end
 watch = ObjectSpace::WeakMap.new
 churn(watch)
 before = GC.count
-40_000.times { churn }
+200_000.times { churn }
 
 # The count moved without the program asking, and the watched cycle is gone.
 p GC.count > before

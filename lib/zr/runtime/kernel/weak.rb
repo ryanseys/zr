@@ -77,7 +77,6 @@ module Zr::Kern
     finalizers = zr_global(G_FINALIZERS)
     heap = zr_heap()
     Heap[heap].weak_refs = 0
-    Heap[heap].weak_kept = 0
     i = 0
     kept = 0
     while i < WeakList[l].len
@@ -107,9 +106,6 @@ module Zr::Kern
       dead = HEntry[e].live != 0 && (zr_dead_p(HEntry[e].key) || (both && zr_dead_p(HEntry[e].value)))
       if HEntry[e].live != 0 && !finalizer
         Heap[heap].weak_refs = Heap[heap].weak_refs + refs
-        if !dead
-          Heap[heap].weak_kept = Heap[heap].weak_kept + refs
-        end
       end
       if dead
         if finalizer

@@ -20,6 +20,7 @@ module Zr::Kern
     end
     h = zr_heap()
     Heap[h].malloced = Heap[h].malloced + n
+    Heap[h].malloc_total = Heap[h].malloc_total + n
     if Heap[h].malloced > Heap[h].malloc_limit
       Heap[h].slow = 1
     end
@@ -52,6 +53,7 @@ module Zr::Kern
     if p != 0
       h = zr_heap()
       Heap[h].malloced = n > Heap[h].malloced ? 0 : Heap[h].malloced - n
+      Heap[h].free_total = Heap[h].free_total + n
       Libc.free(p)
     end
   end

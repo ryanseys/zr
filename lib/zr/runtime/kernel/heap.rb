@@ -114,17 +114,19 @@ module Zr::Kern
     attr_accessor :reclaimed #: word
     attr_accessor :last_info #: word
     attr_accessor :weak_refs #: word
-    attr_accessor :weak_kept #: word
     attr_accessor :unmeasured #: word
     attr_accessor :released #: word
     attr_accessor :freed_pages #: word
     attr_accessor :by_address #: ptr
     attr_accessor :collecting #: word
+    attr_accessor :malloc_total #: word
+    attr_accessor :free_total #: word
   end
 
   # The bits of Heap#last_info, which GC.latest_gc_info reads: GC.start
-  # ran the collection (1), the payload was over its limit (2), GC.start
-  # asked for no immediate sweep (4), and why a major ran, in the bits
+  # ran the collection (1), the payload was over its limit (2), the sweep
+  # was not immediate (4: GC.start asked so, or an allocation started the
+  # collection), and why a major ran, in the bits
   # from 8 up: GC.start asked for it, the old objects grew, or a minor
   # freed too little. A minor has no reason.
   # Heap#stress: off (0), on with minor collections (ZR_GC_STRESS, or a
@@ -141,18 +143,30 @@ module Zr::Kern
   GC_INFO_NOFREE = 24
 
   # The rows that GC::Profiler reads: while `on`, each collection appends
-  # PROFILE_ROW words to the malloc'd `rows` (`zr_gc_profile_push`).
+  # PROFILE_ROW words to the malloc'd `rows` (`zr_gc_profile_push`). With
+  # a `max` (GC::Profiler.configure's max_records; 0 for none), the rows
+  # are a ring of that many, whose oldest is at `head` once it is full.
+  # `sequence` numbers every row since the start, through a clear.
   class GcProfile < Layout
     attr_accessor :on #: word
     attr_accessor :rows #: ptr
     attr_accessor :count #: word
     attr_accessor :capacity #: word
+    attr_accessor :max #: word
+    attr_accessor :head #: word
+    attr_accessor :sequence #: word
+    attr_accessor :configured #: word
   end
 
   # A profile row's words: the monotonic start in nanoseconds, the
   # nanoseconds it took, the live bytes and all bytes after it, the cells
-  # of all arenas, and flags (1: major, 2: GC.start or stress asked).
-  PROFILE_ROW = 6
+  # of all arenas, flags (1: major, 2: GC.start or stress asked), the
+  # nanoseconds of the mark and of the sweep, and the row's sequence number.
+  PROFILE_ROW = 9
+
+  # GC_PROFILE_RECORD_DEFAULT_MAX_RECORDS: the rows that the profiler keeps
+  # until GC::Profiler.configure sets another number.
+  PROFILE_MAX_DEFAULT = 4096
 
   # The payload increase that a collection permits before the next
   # collection starts for that reason, and the limits on that increase.
@@ -1622,7 +1636,8 @@ module Zr::Kern
     h = zr_heap()
     forced = Heap[h].stress == STRESS_FULL
     major = forced || zr_major_due()
-    by = Heap[h].malloced > Heap[h].malloc_limit ? GC_INFO_MALLOC : 0
+    # A collection that an allocation starts sweeps lazily in CRuby.
+    by = (Heap[h].malloced > Heap[h].malloc_limit ? GC_INFO_MALLOC : 0) | GC_INFO_LAZY
     zr_collect_kind(wanting, major)
     if forced
       Heap[h].last_info = by | GC_INFO_FORCE
@@ -1769,7 +1784,7 @@ module Zr::Kern
       zr_gc_trace(why, major, was, marked - started, swept - marked)
     end
     if GcProfile[zr_gc_profile()].on != 0
-      zr_gc_profile_push(started, swept - started, (major ? 1 : 0) | ((why & 16) != 0 ? 2 : 0))
+      zr_gc_profile_push(started, swept - started, (major ? 1 : 0) | ((why & 16) != 0 ? 2 : 0), marked - started, swept - marked)
     end
   end
 
@@ -1779,11 +1794,21 @@ module Zr::Kern
   end
 
   # Appends one row for the collection that just ended. The buffer is C
-  # memory, so a collection can grow it.
-  #: (word, word, word) -> void
-  def zr_gc_profile_push(started, took, flags)
+  # memory, so a collection can grow it. A full ring writes over its
+  # oldest row.
+  #: (word, word, word, word, word) -> void
+  def zr_gc_profile_push(started, took, flags, mark, sweep)
     pr = zr_gc_profile()
-    if GcProfile[pr].count == GcProfile[pr].capacity
+    if GcProfile[pr].configured == 0
+      GcProfile[pr].max = PROFILE_MAX_DEFAULT
+      GcProfile[pr].configured = 1
+    end
+    max = GcProfile[pr].max
+    at = GcProfile[pr].count
+    if max != 0 && at == max
+      at = GcProfile[pr].head
+      GcProfile[pr].head = (at + 1) % max
+    elsif GcProfile[pr].count == GcProfile[pr].capacity
       cap = GcProfile[pr].capacity == 0 ? 64 : GcProfile[pr].capacity * 2
       rows = Machine.ptr(Libc.malloc(cap * PROFILE_ROW * 8))
       if rows == 0
@@ -1802,14 +1827,20 @@ module Zr::Kern
       slots += SizeClass[zr_size_class(c)].arenas * ARENA_CELLS
       c += 1
     end
-    row = GcProfile[pr].rows + (GcProfile[pr].count * PROFILE_ROW * 8)
+    row = GcProfile[pr].rows + (at * PROFILE_ROW * 8)
     Machine.store64(row, 0, started)
     Machine.store64(row, 8, took)
     Machine.store64(row, 16, Heap[zr_heap()].live)
     Machine.store64(row, 24, zr_heap_bytes())
     Machine.store64(row, 32, slots)
     Machine.store64(row, 40, flags)
-    GcProfile[pr].count = GcProfile[pr].count + 1
+    Machine.store64(row, 48, mark)
+    Machine.store64(row, 56, sweep)
+    Machine.store64(row, 64, GcProfile[pr].sequence)
+    GcProfile[pr].sequence = GcProfile[pr].sequence + 1
+    if at == GcProfile[pr].count
+      GcProfile[pr].count = GcProfile[pr].count + 1
+    end
   end
 
   # GC::Profiler's switch: true starts the rows, false stops them.
@@ -1822,10 +1853,26 @@ module Zr::Kern
   #: () -> value
   def zr_gc_profile_clear
     GcProfile[zr_gc_profile()].count = 0
+    GcProfile[zr_gc_profile()].head = 0
     Machine.value(QNIL)
   end
 
-  # The rows so far, each an Array of PROFILE_ROW Integers.
+  # GC::Profiler.configure: keeps at most `max` rows (nil for no bound),
+  # and drops the rows so far.
+  #: (value) -> value
+  def zr_gc_profile_configure(max)
+    pr = zr_gc_profile()
+    GcProfile[pr].max = max == QNIL ? 0 : zr_fix2long(max)
+    GcProfile[pr].configured = 1
+    if GcProfile[pr].rows != 0
+      Libc.free(GcProfile[pr].rows)
+    end
+    GcProfile[pr].rows = Machine.ptr(0)
+    GcProfile[pr].capacity = 0
+    zr_gc_profile_clear()
+  end
+
+  # The rows so far, oldest first, each an Array of PROFILE_ROW Integers.
   #: () -> value
   def zr_gc_profile_rows
     pr = zr_gc_profile()
@@ -1833,7 +1880,8 @@ module Zr::Kern
     out = zr_ary_new(n)
     i = 0
     while i < n
-      row = GcProfile[pr].rows + (i * PROFILE_ROW * 8)
+      at = GcProfile[pr].max != 0 && n == GcProfile[pr].max ? (GcProfile[pr].head + i) % n : i
+      row = GcProfile[pr].rows + (at * PROFILE_ROW * 8)
       fields = zr_ary_new(PROFILE_ROW)
       zr_ary_push(out, fields)
       j = 0
@@ -2218,7 +2266,7 @@ module Zr::Kern
 
   # GC.latest_gc_info's numbers: the last collection's GC_INFO_* bits,
   # whether the next must be major, and the weak references that its
-  # prune saw and kept.
+  # prune saw.
   #: () -> value
   def zr_gc_info
     h = zr_heap()
@@ -2226,7 +2274,17 @@ module Zr::Kern
     zr_ary_push(out, zr_fix(Heap[h].last_info))
     zr_ary_push(out, zr_bool(zr_major_due()))
     zr_ary_push(out, zr_fix(Heap[h].weak_refs))
-    zr_ary_push(out, zr_fix(Heap[h].weak_kept))
+    out
+  end
+
+  # The bytes that the runtime has allocated and freed since it started,
+  # as GC.stat's total_malloc_bytes and total_free_bytes count them.
+  #: () -> value
+  def zr_gc_malloc_totals
+    h = zr_heap()
+    out = zr_ary_new(2)
+    zr_ary_push(out, zr_fix(Heap[h].malloc_total))
+    zr_ary_push(out, zr_fix(Heap[h].free_total))
     out
   end
 

@@ -1,0 +1,39 @@
+[[:key, :full_mark], [:key, :immediate_mark], [:key, :immediate_sweep], [:key, :global]]
+[[:opt, :hash_or_key], [:key, :scope]]
+[:count, :time, :marking_time, :sweeping_time, :minor_gc_count, :major_gc_count, :global_gc_count]
+true
+true
+[ArgumentError, "unknown scope: :all"]
+true
+[ArgumentError, "unknown key: heap_live_slots"]
+[true, true, true, true, true, true, true, true]
+false
+true
+true
+[:slot_size, :heap_live_slots, :heap_free_slots, :heap_final_slots, :heap_eden_pages, :heap_eden_slots, :heap_allocatable_slots, :total_allocated_pages, :force_major_gc_count, :force_incremental_marking_finish_count, :total_allocated_objects, :total_freed_objects]
+[:major_by, :need_major_by, :gc_by, :have_finalizer, :immediate_sweep, :state, :weak_references_count]
+[ArgumentError, "unknown key: retained_weak_references_count"]
+[:method, true, :none]
+[false, :sweeping]
+:none
+[:newobj, false, :sweeping]
+-1
+nil
+[ArgumentError, "max_records must be positive or nil"]
+[ArgumentError, "max_records must be positive or nil"]
+[TypeError, "no implicit conversion of String into Integer"]
+[ArgumentError, "limit must be non-negative"]
+[ArgumentError, "since must be non-negative"]
+[ArgumentError, "unknown keyword: :nope"]
+[ArgumentError, "wrong number of arguments (given 1, expected 0)"]
+3
+true
+true
+true
+[]
+[]
+[:major_by, :gc_by, :have_finalizer, :immediate_sweep, :weak_references_count]
+true
+true
+6
+nil
