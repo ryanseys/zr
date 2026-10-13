@@ -722,7 +722,7 @@ module Zr
       names.each { |n| @spelled[n] ||= @spelled.size }
     end
 
-    PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey].each_with_index.to_h.freeze #: Hash[Symbol, Integer]
+    PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey noblock].each_with_index.to_h.freeze #: Hash[Symbol, Integer]
 
     # `Method#parameters` as data: the count, then a kind and a name id
     # for each parameter (0 for no name).

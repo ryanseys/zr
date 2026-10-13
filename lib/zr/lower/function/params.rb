@@ -44,7 +44,7 @@ module Zr
         #: (Hir::Params p) -> void
         def bind_direct(p)
           p.required.each_with_index { |name, i| bind(name, @f.args[4 + i]) }
-          bind(p.block, block_param(@blk)) if p.block
+          bind_block_param(p, @blk)
         end
 
         #: (Hir::Params p, String argc, String argv) -> void
@@ -64,7 +64,7 @@ module Zr
           check_arity(p, argc)
           bind_positional(p, argc, argv, strict: true)
           bind_keywords(p, kwargs_at, tab, argc, argv) if keywords?(p) && p.kwrest != :nokey
-          bind(p.block, block_param(@blk)) if p.block
+          bind_block_param(p, @blk)
         end
 
         # A lambda checks its arity and never spreads. One function serves
@@ -74,7 +74,7 @@ module Zr
           # Both are set when `keywords?(p)`, and only then read:
           # @type var kwargs_at: Integer
           # @type var tab: String
-          return strict_empty(p) if p.names.empty? && p.plain?
+          return strict_empty(p) if p.names.empty? && p.plain? && !p.no_block?
 
           argc = @f.args[1]
           argv = @f.args[2]
@@ -118,7 +118,19 @@ module Zr
           end
           bind_positional(p, argc, argv, strict: false, keep: keep)
           bind_keywords(p, kwargs_at, tab, count, given) if keywords?(p) && p.kwrest != :nokey
-          bind(p.block, block_param(call_block)) if p.block
+          bind_block_param(p, call_block)
+        end
+
+        # Binds a `&b` parameter to the block given. `&nil` raises for a
+        # block given, after the arity and keyword checks, as CRuby's
+        # setup_parameters_complex does.
+        #: (Hir::Params p, String blk) -> void
+        def bind_block_param(p, blk)
+          if p.no_block?
+            checked(kernel("zr_no_block", blk))
+          elsif p.block
+            bind(p.block, block_param(blk))
+          end
         end
 
         # The value of a `&b` parameter. If the scope only calls, passes
@@ -137,6 +149,7 @@ module Zr
         #: (Hir::Params p) -> bool
         def raw_block?(p)
           name = p.block or return false
+          return false if p.no_block?
 
           !@l.traced? && !Hir::Locals.opens_locals?(@body, computed: !@l.internal?) && Hir::Escape.raw_block?([@body, *default_expressions], name)
         end

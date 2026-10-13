@@ -22,6 +22,7 @@ module Zr::Kern
   PARAM_KEYREST = 5
   PARAM_BLOCK = 6
   PARAM_NOKEY = 7
+  PARAM_NOBLOCK = 8
 
   #: (value) -> void
   def zr_mark_method(m)
@@ -564,6 +565,8 @@ module Zr::Kern
       Machine.id(:keyrest)
     elsif kind == PARAM_NOKEY
       Machine.id(:nokey)
+    elsif kind == PARAM_NOBLOCK
+      Machine.id(:noblock)
     else
       Machine.id(:block)
     end
@@ -900,6 +903,8 @@ module Zr::Kern
       end
     elsif kind == PARAM_NOKEY
       zr_buf_push(b, Machine.bytes("**nil"), 5)
+    elsif kind == PARAM_NOBLOCK
+      zr_buf_push(b, Machine.bytes("&nil"), 4)
     else
       if id != 0
         zr_buf_sym(b, id)

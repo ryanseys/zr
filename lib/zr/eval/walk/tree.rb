@@ -1082,7 +1082,11 @@ module Zr
           check_arity(params, args, kwargs, ctx) if strict
           bind_positional(params, scope, args, ctx)
           bind_keywords(params, scope, kwargs || {}, ctx, strict: strict)
-          scope.set(params.block, blk) if params.block
+          if params.no_block?
+            raise ::ArgumentError, "no block accepted" if blk
+          elsif params.block
+            scope.set(params.block, blk)
+          end
         end
 
         def keyworded?(params) = !params.keywords.empty? || (params.kwrest && params.kwrest != :nokey)

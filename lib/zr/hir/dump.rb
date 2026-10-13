@@ -411,7 +411,8 @@ module Zr
       def params(p)
         [*p.required.map { |r| param_name(r) }, *p.optional.map { |name, _| "#{name}=" },
          p.rest && "*#{p.rest == :implicit ? "" : p.rest}", *p.post.map { |r| param_name(r) },
-         *p.keywords.map { |name, default| "#{name}:#{default ? "=" : ""}" }, p.kwrest && "**#{p.kwrest}", p.block && "&#{p.block}"].compact.join(" ")
+         *p.keywords.map { |name, default| "#{name}:#{default ? "=" : ""}" }, p.kwrest && "**#{p.kwrest}",
+         p.block && (p.no_block? ? "&nil" : "&#{p.block}")].compact.join(" ")
       end
 
       #: (untyped r) -> (String | Symbol)

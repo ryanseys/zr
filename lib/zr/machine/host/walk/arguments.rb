@@ -119,7 +119,7 @@ module Zr
             arity = arity_check(p)
             block = block_store(p, s)
             rest_fn = p.rest && p.rest != :implicit
-            nothing = p.names.empty? && p.plain?
+            nothing = p.names.empty? && p.plain? && !p.no_block?
             spread = p.spread?
             spread_kind = p.optional.empty? ? 1 : 2
             # Keywords given to a block stop a lone Array from spreading,
@@ -184,6 +184,7 @@ module Zr
 
           # The code that binds `&block` to the Proc of the block given.
           def block_store(p, s)
+            return ->(_f, blk) { check(@kern.zr_no_block(blk)) } if p.no_block?
             return unless p.block && owns?(p, p.block, [:block, 0])
 
             store = local_store(p.block, 0, s)

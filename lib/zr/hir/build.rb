@@ -288,6 +288,7 @@ module Zr
           when :keyrest then kwrest = name
           when :nokey then kwrest = :nokey
           when :block then block = name
+          when :noblock then block = :noblock
           end
         end
         @def_params = Params.new(required, optional, rest, post, keywords, kwrest, block)
@@ -1081,7 +1082,8 @@ module Zr
         pairs = p.kwrest && p.kwrest != :nokey ? [HashSplat.new(local.call(p.kwrest), line), nil] : [] #: Array[node?]
         pairs += p.keywords.flat_map { |name, _| [Literal.new(name, line), local.call(name)] }
         kwargs = pairs.empty? ? nil : HashLit.new(pairs, line)
-        block = node.block ? block(node.block) : (p.block && BlockPass.new(local.call(p.block), line))
+        # `&nil` has no block to pass: its method got none.
+        block = node.block ? block(node.block) : (BlockPass.new(local.call(p.block), line) if p.block && !p.no_block?)
         Super.new(positional, kwargs, block, line, @block_depth.positive?)
       end
 
@@ -1106,7 +1108,12 @@ module Zr
           kwrest = ANONYMOUS[:kwrest]
           block = ANONYMOUS[:block]
         else
-          block = node.block && (node.block.name || ANONYMOUS[:block])
+          block = case node.block
+                  when nil then nil
+                  # `&nil`: the def refuses a block.
+                  when Prism::NoBlockParameterNode then :noblock
+                  else node.block.name || ANONYMOUS[:block]
+                  end
         end
         Params.new(required, optional, rest, post, keywords, kwrest, block)
       end

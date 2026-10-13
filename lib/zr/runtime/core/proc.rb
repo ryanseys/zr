@@ -136,7 +136,7 @@ class Method
                when :req, :opt then +"_"
                when :rest, :keyrest then +""
                when :block then +"block"
-               when :nokey then +"nil"
+               when :nokey, :noblock then +"nil"
                end
       case kind
       when :req then out << name.to_s
@@ -161,6 +161,7 @@ class Method
           out << "..."
         end
       when :nokey then out << "**nil"
+      when :noblock then out << "&nil"
       end
       out << ", " if i < params.size - 1
     end

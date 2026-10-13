@@ -213,8 +213,11 @@ module Zr
 
       def names
         positionals = (required + post).flat_map { |r| r.is_a?(MultiTarget) ? r.names : [r] }
-        positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - %i[implicit nokey]
+        positionals + optional.map(&:first) + [rest].compact + keywords.map(&:first) + [kwrest, block].compact - %i[implicit nokey noblock]
       end
+
+      # `&nil`: a block given raises ArgumentError.
+      def no_block? = block == :noblock
 
       # `Method#arity`: the required count, or -(count + 1) if the count can
       # vary. A required keyword counts as one argument. Any other keyword
@@ -238,8 +241,15 @@ module Zr
           *post.map(&positional),
           *keywords.map { |name, default| [default.nil? ? :keyreq : :key, name] },
           *kwrest_rows,
-          *(block ? [[:block, block]] : [])
+          *block_rows
         ]
+      end
+
+      def block_rows
+        if block == :noblock then [[:noblock]]
+        elsif block then [[:block, block]]
+        else []
+        end
       end
 
       def kwrest_rows

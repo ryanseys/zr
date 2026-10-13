@@ -99,6 +99,15 @@ module Zr::Kern
     zr_raise_arity(b)
   end
 
+  # `&nil`: raises for a block given.
+  #: (value) -> value
+  def zr_no_block(blk)
+    if blk == QNIL
+      return Machine.value(QNIL)
+    end
+    zr_raise_arity_msg(Machine.bytes("no block accepted"), 17)
+  end
+
   #: (word, word) -> value
   def zr_wrong_arity(given, expected)
     zr_wrong_arity_kw(given, expected, expected, 0, 0)

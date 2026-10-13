@@ -78,7 +78,7 @@ module Zr
           # error's report, as STACK_MARGIN does.
           DEPTH = 20_000
 
-          PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey].each_with_index.to_h.freeze
+          PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey noblock].each_with_index.to_h.freeze
 
           private
 
