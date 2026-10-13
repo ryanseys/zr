@@ -125,7 +125,7 @@ class Exception
 
     # Pairs of [node, line], one per row.
     places = Primitive.zr_exc_raise_places(self)
-    locations = Array.new(rows.size) { |i| Thread::Backtrace::Location.new(rows[i], places[i * 2], places[(i * 2) + 1]) }
+    locations = Array.new(rows.size) { |i| Thread::Backtrace::Location.send(:made, rows[i], places[i * 2], places[(i * 2) + 1]) }
     Primitive.zr_hidden_set(self, :__made_locations__, [rows, locations])
     locations
   end
@@ -659,14 +659,14 @@ class Thread
     frames.map do |frame|
       row, node, receiver, _binding, meta, _klass, entry = frame
       unless event && event[8].is_a?(Array) && entry.nonzero? && entry == event[10]
-        next Backtrace::Location.new(row, node, meta.zero? ? false : nil)
+        next Backtrace::Location.send(:made, row, node, meta.zero? ? false : nil)
       end
 
       path, line = event[8]
       frame[3] = Primitive.zr_trace_builtin_binding(entry, receiver)
       Primitive.zr_hidden_set(frame[3], :__source__, event[8])
       frame << [path, line, event[4].to_s]
-      Backtrace::Location.new("#{path}:#{line}#{row[row.index(":in '")..]}", 0, line)
+      Backtrace::Location.send(:made, "#{path}:#{line}#{row[row.index(":in '")..]}", 0, line)
     end
   end
 
@@ -691,6 +691,21 @@ class Thread
     # 'label'` form.
     class Location
       attr_reader :path, :lineno, :label
+
+      # rb_undef_alloc_func, and no `new`: only the core makes a Location,
+      # through `made`, so clone and dup raise TypeError.
+      Primitive.zr_undef_alloc(self)
+      class << self
+        undef_method :new
+      end
+
+      def self.made(row, node_id = 0, line = nil)
+        Primitive.attr! :hidden
+        location = Primitive.zr_class_build(self)
+        location.send(:initialize, row, node_id, line)
+        location
+      end
+      private_class_method :made
 
       # `node_id` is the id of the prism node the row's line ran, which
       # RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location reads.
@@ -750,7 +765,7 @@ module Kernel
 
     # Pairs of [node, line], one per row.
     places = Primitive.zr_caller_places(start + 1, length)
-    Array.new(rows.size) { |i| Thread::Backtrace::Location.new(rows[i], places[i * 2] || 0, places[(i * 2) + 1]) }
+    Array.new(rows.size) { |i| Thread::Backtrace::Location.send(:made, rows[i], places[i * 2] || 0, places[(i * 2) + 1]) }
   end
   private :caller_locations
 end

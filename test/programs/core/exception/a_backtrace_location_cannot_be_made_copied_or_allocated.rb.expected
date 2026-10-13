@@ -1,0 +1,14 @@
+clone: TypeError: allocator undefined for Thread::Backtrace::Location
+clone(freeze: false): TypeError: allocator undefined for Thread::Backtrace::Location
+dup: TypeError: allocator undefined for Thread::Backtrace::Location
+allocate: TypeError: allocator undefined for Thread::Backtrace::Location
+new: NoMethodError: undefined method 'new' for class Thread::Backtrace::Location
+new(row): NoMethodError: undefined method 'new' for class Thread::Backtrace::Location
+false
+false
+Thread::Backtrace::Location
+25
+Thread::Backtrace::Location
+Thread::Backtrace::Location
+28
+"<main>"
