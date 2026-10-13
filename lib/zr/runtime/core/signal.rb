@@ -63,12 +63,13 @@ module Signal
       Ractor.send(:isolated, command)
     end
 
-    # trap_signm: a number below NSIG, or a name EXIT among them.
+    # trap_signm: a number below the system's NSIG, or a name, EXIT among
+    # them.
     def trap_number(signal)
       Primitive.attr! :hidden
       # A Bignum is no number here; it is read as a name.
       return number(signal, exit: true) unless signal.is_a?(Integer) && signal.bit_length < 63
-      raise ArgumentError, "invalid signal number (#{signal})" unless signal.between?(0, 31)
+      raise ArgumentError, "invalid signal number (#{signal})" unless signal.between?(0, Primitive.zr_signal_limit - 1)
 
       signal
     end
@@ -126,7 +127,9 @@ module Signal
       Primitive.attr! :hidden
       unless signo.zero?
         was = Primitive.zr_trap_handle(signo, how)
-        raise SystemCallError.new("SIG#{Signal.signame(signo)}", -was) if was.negative?
+        # rb_signo2signm: a signal with no name, as Linux's real-time ones,
+        # is SIG and its number.
+        raise SystemCallError.new("SIG#{Signal.signame(signo) || signo}", -was) if was.negative?
       end
       old = commands.fetch(signo, UNSET)
       if command.equal?(UNSET)

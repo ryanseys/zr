@@ -133,9 +133,17 @@ module Process
 
     def to_s
       return "pid #{@pid} exit #{exitstatus}" if exited?
-      return "pid #{@pid} stopped SIG#{Signal.signame(stopsig)} (signal #{stopsig})" if stopped?
+      return "pid #{@pid} stopped #{signal_shown(stopsig)}" if stopped?
 
-      "pid #{@pid} SIG#{Signal.signame(termsig)} (signal #{termsig})#{coredump? ? ' (core dumped)' : ''}"
+      "pid #{@pid} #{signal_shown(termsig)}#{coredump? ? ' (core dumped)' : ''}"
+    end
+
+    # pst_message_status: a signal by its name and number, or by its
+    # number alone when it has no name (Linux's real-time signals).
+    private def signal_shown(signo)
+      Primitive.attr! :hidden
+      name = Signal.signame(signo)
+      name ? "SIG#{name} (signal #{signo})" : "signal #{signo}"
     end
 
     def inspect = Primitive.zr_obj_form(@pid.zero? ? "#<#{self.class}: uninitialized>" : "#<Process::Status: #{self}>")

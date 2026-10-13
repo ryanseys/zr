@@ -1,0 +1,12 @@
+true
+true
+true
+true
+[ArgumentError, "invalid signal number (-1)"]
+true
+true
+true
+true
+[true, true, "SIGTERM (signal 15)"]
+true
+true
