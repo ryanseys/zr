@@ -1957,15 +1957,18 @@ module Zr
         lhs_last = last_of(node.name_loc)
         lhs = assignable(node.name, lhs_first, lhs_last)
         rhs = visit(node.value)
+        # new_op_assign: a constant's read spans the whole assignment, as
+        # prism reports it.
+        read_first, read_last = lhs.type == :CDECL ? [first, last] : [lhs_first, lhs_last]
         case op
         when :"||", :"&&"
           lhs.value = rhs
           lhs.first_pos = first
           lhs.last_pos = last
           mk(op == :"||" ? :OP_ASGN_OR : :OP_ASGN_AND, first, last,
-             head: gettable(node.name, lhs_first, lhs_last), value: lhs)
+             head: gettable(node.name, read_first, read_last), value: lhs)
         else
-          call = mk(:CALL, first, last, recv: gettable(node.name, lhs_first, lhs_last), mid: op,
+          call = mk(:CALL, first, last, recv: gettable(node.name, read_first, read_last), mid: op,
                                         args: new_list(rhs))
           lhs.value = call
           lhs.first_pos = first
@@ -2628,15 +2631,12 @@ module Zr
           args_first = last_of(operator)
           if params.is_a?(Prism::BlockParametersNode)
             args = params.parameters ? parameters_args(params.parameters) : new_args_node(args_first, args_first)
-            args_span_first = first_of(params)
-            args_span_first = args.first_pos unless params.opening_loc
             if params.opening_loc && params.parameters.nil?
               args.first_pos = first_of(params.opening_loc)
               args.last_pos = last_of(params.opening_loc)
             end
           else
             args = new_args_node(args_first, args_first)
-            args_span_first = args_first
           end
           count =
             case params
@@ -2651,7 +2651,8 @@ module Zr
           else
             body = bodystmt(node.body, last_of(opening), end_offset(opening)).first
           end
-          scope = mk(:SCOPE, args_span_first, last_of(node), tbl: table, args: args, body: body)
+          # The scope spans the lambda from `->`.
+          scope = mk(:SCOPE, first_of(node), last_of(node), tbl: table, args: args, body: body)
           mk(:LAMBDA, first_of(node), last_of(node), body: scope,
                                                      keyword_locations: [kw(node.operator_loc), kw(node.opening_loc), kw(node.closing_loc)])
         end
@@ -2882,10 +2883,8 @@ module Zr
           name_loc = node.name_loc
           endless = node.equal_loc
           if node.lparen_loc
-            args = params ? parameters_args(params) : nil
-            unless args
-              args = new_args_node(first_of(node.lparen_loc), last_of(node.lparen_loc))
-            end
+            # f_empty_arg: no parameters span nothing, just past `(`.
+            args = params ? parameters_args(params) : new_args_node(last_of(node.lparen_loc), last_of(node.lparen_loc))
             prev = last_of(node.rparen_loc)
             offset = end_offset(node.rparen_loc)
             newline = false
@@ -2898,7 +2897,7 @@ module Zr
             absorb = true
           else
             at = last_of(name_loc)
-            args = new_args_node(endless ? first_of(node) : at, at)
+            args = new_args_node(at, at)
             prev = at
             offset = end_offset(name_loc)
             newline = true
