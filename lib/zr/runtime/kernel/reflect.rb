@@ -256,7 +256,7 @@ module Zr::Kern
       return
     end
     cap = (zr_cell_bytes(o) - RObject.size) / IvEntry.size
-    if IvTab[t].len > cap
+    if IvTab[t].len > cap || zr_ivtab_visible_len(t) > zr_obj_slot_fields(o)
       return
     end
     rows = IvTab[t].rows

@@ -321,7 +321,9 @@ module Zr::Kern
   end
 
   # The bytes that `v` uses: its cell, and the buffer that a String, an
-  # Array or a Hash keeps outside the cell. An immediate uses none.
+  # Array or a Hash keeps outside the cell. An immediate uses none. The
+  # ivar entries that an object keeps outside its cell do not count: ruby
+  # keeps such fields in an object of their own.
   #: (value) -> value
   def zr_objspace_memsize(v)
     if zr_special_p(v)
@@ -335,7 +337,7 @@ module Zr::Kern
       n += zr_ary_embedded_p(v) ? 0 : RArray[v].capa * 8
     elsif t == T_HASH
       n += (RHash[v].cap * HEntry.size) + (RHash[v].nbins * 8)
-    elsif t == T_OBJECT || t == T_BIGNUM
+    elsif t == T_BIGNUM
       iv = Machine.ptr(RObject[v].iv)
       n += zr_ivtab_embedded_p(iv) ? 0 : IvTab[iv].cap * IvEntry.size
     end

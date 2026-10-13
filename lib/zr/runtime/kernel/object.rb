@@ -171,6 +171,65 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # The fields that ruby keeps in the slot of an object whose class
+  # expects `n`: the slot is the smallest of its heaps' sizes (32, 40, 64,
+  # 80, 96, 128, 160, 256, 512, 640, 768, 1024) that holds a 16-byte
+  # header and `n` fields of 8 bytes (rb_obj_embedded_size).
+  #: (word) -> word
+  def zr_ruby_slot_fields(n)
+    need = 16 + (n * 8)
+    slot = 1024
+    if need <= 32
+      slot = 32
+    elsif need <= 40
+      slot = 40
+    elsif need <= 64
+      slot = 64
+    elsif need <= 80
+      slot = 80
+    elsif need <= 96
+      slot = 96
+    elsif need <= 128
+      slot = 128
+    elsif need <= 160
+      slot = 160
+    elsif need <= 256
+      slot = 256
+    elsif need <= 512
+      slot = 512
+    elsif need <= 640
+      slot = 640
+    elsif need <= 768
+      slot = 768
+    end
+    (slot - 16) / 8
+  end
+
+  # The fields that ruby keeps in the slot of `o`, a T_OBJECT, from the
+  # count that its class expects now.
+  #: (value) -> word
+  def zr_obj_slot_fields(o)
+    ext = RClass[zr_real_class(o)].ext
+    zr_ruby_slot_fields((ClassExt[ext].obj_bytes - RObject.size) / IvEntry.size)
+  end
+
+  # A cell here can have room for more entries than ruby's slot for the
+  # same object: a program's own ivar past the slot's fields moves the
+  # fields out, as ruby's does. The runtime's hidden entries do not count,
+  # so the scan for them runs only when the table has as many entries as
+  # the slot has fields.
+  #: (ptr, word, value) -> bool
+  def zr_ivtab_slot_full_p(t, id, owner)
+    if owner == QNIL || zr_type(owner) != T_OBJECT || !zr_ivtab_embedded_p(t)
+      return false
+    end
+    fields = zr_obj_slot_fields(owner)
+    if IvTab[t].len < fields || !zr_ivar_id_visible_p(id)
+      return false
+    end
+    zr_ivtab_visible_len(t) >= fields
+  end
+
   # Sets up an empty object table, with its ivar entries in the object's
   # own cell.
   #: (value) -> void
@@ -405,7 +464,7 @@ module Zr::Kern
   #: (ptr, word, value, value) -> void
   def zr_ivtab_append(t, id, v, owner)
     n = IvTab[t].len
-    if n == IvTab[t].cap
+    if n == IvTab[t].cap || zr_ivtab_slot_full_p(t, id, owner)
       cap = n * 2
       if cap < 4
         cap = 4

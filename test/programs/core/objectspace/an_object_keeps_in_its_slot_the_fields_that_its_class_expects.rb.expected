@@ -1,0 +1,22 @@
+expects 2: moves out at 3, memsize same
+[true, 2]
+expects 3: moves out at 4, memsize same
+[true, 3]
+expects 6: moves out at 7, memsize same
+[true, 6]
+expects 7: moves out at 9, memsize same
+[true, 8]
+expects 8: moves out at 9, memsize same
+[true, 8]
+expects 9: moves out at 11, memsize same
+[true, 10]
+expects 10: moves out at 11, memsize same
+[true, 10]
+true
+6
+false
+false
+7
+true
+true
+false
