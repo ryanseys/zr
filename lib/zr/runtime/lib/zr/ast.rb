@@ -318,7 +318,7 @@ module Zr
           info[:rest_arg],
           info[:no_kwarg] ? false : info[:kw_args],
           info[:no_kwarg] ? false : info[:kw_rest_arg],
-          info[:block_arg]
+          info[:no_blockarg] ? false : info[:block_arg]
         ]
       end
     end
@@ -1300,7 +1300,7 @@ module Zr
           when Prism::KeywordRestParameterNode then table << (kwrest.name || :**)
           when Prism::ForwardingParameterNode then table.push(:*, :**, :&, :"...")
           end
-          if (block = parameters.block)
+          if (block = parameters.block).is_a?(Prism::BlockParameterNode)
             table << (block.name || :&)
           end
         end
@@ -2479,7 +2479,8 @@ module Zr
         node = nil
         if elements.last.is_a?(Prism::ForwardingArgumentsNode)
           leading = elements.size > 1 ? aref_args(elements[0...-1]) : nil
-          return forward_arguments(leading, elements.last, first_of(opening), last_of(closing))
+          # parse.y refuses `f 1, ...` with no parentheses; prism takes it.
+          return forward_arguments(leading, elements.last, first_of(opening || arguments), last_of(closing || arguments))
         end
 
         unless elements.empty?
@@ -2632,7 +2633,8 @@ module Zr
           if params.is_a?(Prism::BlockParametersNode)
             args = params.parameters ? parameters_args(params.parameters) : new_args_node(args_first, args_first)
             if params.opening_loc && params.parameters.nil?
-              args.first_pos = first_of(params.opening_loc)
+              # f_empty_arg: no parameters span nothing, just past `(`.
+              args.first_pos = last_of(params.opening_loc)
               args.last_pos = last_of(params.opening_loc)
             end
           else
@@ -2665,7 +2667,7 @@ module Zr
         mk(:ARGS, first, last, ainfo: {
           pre_args_num: 0, pre_init: nil, opt_args: nil, first_post_arg: nil,
           post_args_num: 0, post_init: nil, rest_arg: nil, kw_args: nil,
-          kw_rest_arg: nil, block_arg: nil, no_kwarg: false
+          kw_rest_arg: nil, block_arg: nil, no_kwarg: false, no_blockarg: false
         })
       end
 
@@ -2717,8 +2719,9 @@ module Zr
           # new_args_tail returns a nameless DVAR spanning the keywords.
           info[:kw_rest_arg] = mk(:DVAR, first_of(params.keywords.first), last_of(params.keywords.last), vid: nil)
         end
-        if (block = params.block)
-          info[:block_arg] = block.name || :&
+        case (block = params.block)
+        when Prism::NoBlockParameterNode then info[:no_blockarg] = true
+        when Prism::BlockParameterNode then info[:block_arg] = block.name || :&
         end
         args
       end
@@ -2885,8 +2888,10 @@ module Zr
           if node.lparen_loc
             # f_empty_arg: no parameters span nothing, just past `(`.
             args = params ? parameters_args(params) : new_args_node(last_of(node.lparen_loc), last_of(node.lparen_loc))
-            prev = last_of(node.rparen_loc)
-            offset = end_offset(node.rparen_loc)
+            # A broken `def m(` has no `)`.
+            closing = node.rparen_loc || node.lparen_loc
+            prev = last_of(closing)
+            offset = end_offset(closing)
             newline = false
             absorb = false
           elsif params
@@ -2985,9 +2990,13 @@ module Zr
       end
 
       def visit_alias_global_variable_node(node)
-        mk(:VALIAS, first_of(node), last_of(node), new_name: node.new_name.name, orig: node.old_name.name,
+        mk(:VALIAS, first_of(node), last_of(node), new_name: global_name(node.new_name), orig: global_name(node.old_name),
                                                    keyword_locations: [kw(node.keyword_loc)])
       end
+
+      # A broken alias names a back reference, a number variable or no
+      # global at all.
+      def global_name(node) = node.respond_to?(:name) ? node.name : node.slice.to_sym
 
       def visit_undef_node(node)
         mk(:UNDEF, first_of(node), last_of(node), undefs: node.names.map { |name| visit(name) },
@@ -3057,7 +3066,7 @@ module Zr
                                                          else_body: visit(node.subsequent.statements.body.first),
                                                          keyword_locations: [nil, kw(node.subsequent.else_keyword_loc), nil])
         end
-        if node.end_keyword_loc.nil? && start_offset(node.statements) < start_offset(keyword)
+        if node.end_keyword_loc.nil? && node.statements && start_offset(node.statements) < start_offset(keyword)
           # The modifier form.
           body = remove_begin(visit(node.statements.body.first))
           return mk(:IF, first_of(node), last_of(node), cond: cond, body: body, else_body: nil,
@@ -3145,10 +3154,10 @@ module Zr
 
       def visit_unless_node(node)
         cond = cond0(visit(node.predicate), [first_of(node), last_of(node)])
-        if node.end_keyword_loc.nil? && node.statements && start_offset(node.statements) < start_offset(node.keyword_loc)
+        if node.end_keyword_loc.nil? && node.statements && start_offset(node.statements) < start_offset(node.unless_keyword_loc)
           body = remove_begin(visit(node.statements.body.first))
           return mk(:UNLESS, first_of(node), last_of(node), cond: cond, body: body, else_body: nil,
-                                                             keyword_locations: [kw(node.keyword_loc), nil, nil])
+                                                             keyword_locations: [kw(node.unless_keyword_loc), nil, nil])
         end
 
         if_body(node, cond, :UNLESS)
@@ -3164,16 +3173,17 @@ module Zr
 
       def loop_node(node, type)
         predicate = node.predicate
-        if node.closing_loc.nil? || start_offset(node.statements || node) < start_offset(node.keyword_loc)
+        keyword_loc = type == :WHILE ? node.while_keyword_loc : node.until_keyword_loc
+        if node.end_keyword_loc.nil? || start_offset(node.statements || node) < start_offset(keyword_loc)
           cond = cond0(visit(predicate), [first_of(predicate), last_of(predicate)])
           body = node.statements ? visit(node.statements.body.first) : nil
           if node.begin_modifier? && body&.type == :BEGIN
             return mk(type, first_of(node), last_of(node), cond: cond, body: body.body, state: false,
-                                                           keyword_locations: [kw(node.keyword_loc), nil])
+                                                           keyword_locations: [kw(keyword_loc), nil])
           end
 
           return mk(type, first_of(node), last_of(node), cond: cond, body: body, state: true,
-                                                         keyword_locations: [kw(node.keyword_loc), nil])
+                                                         keyword_locations: [kw(keyword_loc), nil])
         end
 
         # expr_value_do spans the condition through its `do` or terminator.
@@ -3190,7 +3200,7 @@ module Zr
           body, = compstmt(node.statements, last_of(predicate), end_offset(predicate), newline: true, absorb: true)
         end
         mk(type, first_of(node), last_of(node), cond: cond, body: body, state: true,
-                                                keyword_locations: [kw(node.keyword_loc), kw(node.closing_loc)])
+                                                keyword_locations: [kw(keyword_loc), kw(node.end_keyword_loc)])
       end
 
       def visit_for_node(node)
@@ -3270,7 +3280,7 @@ module Zr
         end
         then_loc = then_span(end_offset(node.conditions.last), node.then_keyword_loc)
         [mk(:WHEN, first_of(node), last, head: args, body: body, next: nil,
-                                         keyword_locations: [kw(node.keyword_loc), then_loc]), last]
+                                         keyword_locations: [kw(node.when_keyword_loc), then_loc]), last]
       end
 
       def case_args(conditions)
@@ -3351,7 +3361,7 @@ module Zr
         visit(node.write)
       end
 
-      def visit_missing_node(node)
+      def visit_error_recovery_node(node)
         span(:ERROR, node)
       end
 
@@ -3380,15 +3390,15 @@ module Zr
 
       def in_clause(node)
         pattern = top_pattern(node.pattern)
-        if (keyword = node.then_loc)
+        if (keyword = node.then_keyword_loc)
           body, _first, last, = compstmt(node.statements, last_of(keyword), end_offset(keyword))
         else
           body, _first, last, = compstmt(node.statements, last_of(node.pattern), end_offset(node.pattern),
                                          newline: true, absorb: true)
         end
-        then_loc = then_span(end_offset(node.pattern), node.then_loc)
+        then_loc = then_span(end_offset(node.pattern), node.then_keyword_loc)
         [mk(:IN, first_of(node), last, head: pattern, body: body, next: nil,
-                                       keyword_locations: [kw(node.in_loc), then_loc, nil]), last]
+                                       keyword_locations: [kw(node.in_keyword_loc), then_loc, nil]), last]
       end
 
       def top_pattern(node)
@@ -3512,7 +3522,8 @@ module Zr
         list = nil
         elements.each do |element|
           key = element.key
-          name = key.unescaped.to_sym
+          # A broken key is not a symbol.
+          name = key.respond_to?(:unescaped) ? key.unescaped.to_sym : key.slice.to_sym
           if element.value.is_a?(Prism::ImplicitNode) || element.value.nil?
             at_first = first_of(element)
             at_last = last_of(element)
@@ -3551,7 +3562,7 @@ module Zr
         first = first_of(node.pattern)
         last = last_of(node.pattern)
         clause = mk(:IN, first, last, head: pat, body: mk(:TRUE, first, last), next: mk(:FALSE, first, last),
-                                      keyword_locations: [kw(node.operator_loc), nil, nil])
+                                      keyword_locations: [kw(node.keyword_loc), nil, nil])
         mk(:CASE3, first_of(node), last_of(node), head: value, body: clause)
       end
 

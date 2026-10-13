@@ -1,0 +1,17 @@
+(SCOPE@1:0-1:19 [] nil (DEFN@1:0-1:19 :m (SCOPE@1:0-1:19 [:a] (ARGS@1:6-1:13 1 nil nil nil 0 nil nil nil nil false) nil)))
+(SCOPE@1:0-1:15 [] nil (DEFN@1:0-1:15 :m (SCOPE@1:0-1:15 [] (ARGS@1:6-1:10 0 nil nil nil 0 nil nil nil nil false) (INTEGER@1:14-1:15 1))))
+(SCOPE@1:0-1:26 [] nil (DEFN@1:0-1:26 :m (SCOPE@1:0-1:26 [:a] (ARGS@1:6-1:20 1 nil nil nil 0 nil nil false false false) nil)))
+(SCOPE@1:0-1:41 [] nil (DEFN@1:0-1:41 :m (SCOPE@1:0-1:41 [:a, :b, :r, :k, nil, :o] (ARGS@1:6-1:35 1 nil (OPT_ARG@1:9-1:14 (LASGN@1:9-1:14 :b (INTEGER@1:13-1:14 1)) nil) nil 0 nil :r (KW_ARG@1:20-1:24 (LASGN@1:20-1:24 :k (INTEGER@1:23-1:24 2)) nil) (DVAR@1:26-1:29 :o) false) nil)))
+(SCOPE@1:0-1:18 [] nil (ITER@1:0-1:18 (FCALL@1:0-1:4 :proc nil) (SCOPE@1:5-1:18 [:a] (ARGS@1:8-1:15 1 nil nil nil 0 nil nil nil nil false) (BEGIN@1:16-1:16 nil))))
+(SCOPE@1:0-1:11 [] nil (LAMBDA@1:0-1:11 (SCOPE@1:0-1:11 [] (ARGS@1:3-1:7 0 nil nil nil 0 nil nil nil nil false) (BEGIN@1:10-1:10 nil))))
+(SCOPE@1:0-1:11 [] nil (LAMBDA@1:0-1:11 (SCOPE@1:0-1:11 [] (ARGS@1:3-1:3 0 nil nil nil 0 nil nil nil nil nil) (BEGIN@1:7-1:7 nil))))
+(SCOPE@1:0-1:9 [] nil (LAMBDA@1:0-1:9 (SCOPE@1:0-1:9 [] (ARGS@1:4-1:4 0 nil nil nil 0 nil nil nil nil nil) (BEGIN@1:7-1:7 nil))))
+(SCOPE@1:0-1:12 [] nil (FCALL@1:0-1:12 :f (LIST@1:2-1:12 (LIST@1:2-1:12 (LAMBDA@1:3-1:11 (SCOPE@1:3-1:11 [] (ARGS@1:6-1:6 0 nil nil nil 0 nil nil nil nil nil) (BEGIN@1:9-1:9 nil))) nil) nil)))
+(SCOPE@1:0-1:14 [] nil (DEFN@1:0-1:14 :m (SCOPE@1:0-1:14 [:b] (ARGS@1:6-1:8 0 nil nil nil 0 nil nil nil nil :b) nil)))
+:SCOPE
+:SCOPE
+:SCOPE
+:SCOPE
+:SCOPE
+:SCOPE
+:SCOPE
