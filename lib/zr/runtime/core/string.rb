@@ -1108,6 +1108,64 @@ class String
   end
 
   # rb_str_tr: a copy, which tr_trans changes.
+  # The bit operations of ruby 4.1 (Feature #22118) take the bytes as a
+  # string of bits, numbered from the least significant bit of each byte,
+  # or from the most with `lsb_first: false`. Reads clamp to the bits
+  # there are; writes raise for bits past the end.
+  def bit_get(*args, **opts)
+    bit = bit_at(args, opts)
+    bit.nil? ? nil : (bit ? 1 : 0)
+  end
+
+  def bit_set?(*args, **opts) = bit_at(args, opts)
+
+  def bit_set(*args, **opts) = bit_mutate(args, opts, 0)
+
+  def bit_clear(*args, **opts) = bit_mutate(args, opts, 1)
+
+  def bit_flip(*args, **opts) = bit_mutate(args, opts, 2)
+
+  # rb_str_bit_count: every bit, or `length` bits from `offset`, or a
+  # Range of them.
+  def bit_count(*args, **opts)
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+
+    lsb = bit_lsb_first(opts)
+    total = Primitive.zr_str_bytesize(self) * 8
+    return Primitive.zr_str_bit_count_m(self, 0, total, true) if args.empty?
+
+    if args[0].is_a?(Range)
+      raise ArgumentError, +"bit length not allowed with a Range" if args.size == 2
+
+      region = bit_region(args[0], total)
+      return 0 unless region
+
+      beg, len = region
+    else
+      raise ArgumentError, +"no bit length given" if args.size == 1
+
+      beg = bit_offset(args[0])
+      len = bit_length(args[1])
+      return 0 if beg >= total
+    end
+    len = total - beg if len > total - beg
+    len == 0 ? 0 : Primitive.zr_str_bit_count_m(self, beg, len, lsb)
+  end
+
+  def bitwise_not = Primitive.zr_str_bitwise_m(OWN[:b].bind_call(self), nil, 0)
+
+  def bitwise_not!
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    Primitive.zr_str_bitwise_m(self, nil, 0)
+  end
+
+  def bitwise_and(other) = bitwise_with(other, 1, false)
+  def bitwise_and!(other) = bitwise_with(other, 1, true)
+  def bitwise_or(other) = bitwise_with(other, 2, false)
+  def bitwise_or!(other) = bitwise_with(other, 2, true)
+  def bitwise_xor(other) = bitwise_with(other, 3, false)
+  def bitwise_xor!(other) = bitwise_with(other, 3, true)
+
   # rb_str_tr: `tr(selector, replacements)`, or, since ruby 4.1,
   # `tr(pairs)`, a Hash whose keys of one character each give way to their
   # values (tr_pairs). Two optional parameters and `given`, as sub has.
@@ -2699,6 +2757,130 @@ class String
 
     Primitive.zr_str_replace(self, OWN[:force_encoding].bind_call(out, enc))
     true
+  end
+
+  # str_bit_get: the bit at an offset, true or false, or nil past the end.
+  def bit_at(args, opts)
+    Primitive.attr! :hidden
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" unless args.size == 1
+
+    lsb = bit_lsb_first(opts)
+    offset = bit_offset(args[0])
+    return nil if offset / 8 >= Primitive.zr_str_bytesize(self)
+
+    (Primitive.zr_str_byte_at(self, offset / 8) >> (lsb ? offset % 8 : 7 - (offset % 8))) & 1 == 1
+  end
+
+  # str_mutate_bit: one bit, `length` bits from an offset, or a Range of
+  # them. A write past the end raises, even one of no bits that starts
+  # past it, and a frozen String refuses even an empty write.
+  def bit_mutate(args, opts, op)
+    Primitive.attr! :hidden
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+
+    lsb = bit_lsb_first(opts)
+    target = args[0]
+    if args.size == 1 && !target.is_a?(Range)
+      offset = bit_offset(target)
+      Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+      raise IndexError, +"bit index out of range" if offset / 8 >= Primitive.zr_str_bytesize(self)
+
+      return Primitive.zr_str_bit_mutate_m(self, offset, 1, lsb, op)
+    end
+    if target.is_a?(Range)
+      raise ArgumentError, +"bit length not allowed with a Range" if args.size == 2
+
+      bounds = bit_range_bounds(target)
+    else
+      beg = bit_offset(target)
+      len = bit_length(args[1])
+    end
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    total = Primitive.zr_str_bytesize(self) * 8
+    beg, len = bit_resolve(bounds, total) || [total + 1, 0] if bounds
+    raise IndexError, +"bit range out of range" if beg > total || len > total - beg
+    return self if len == 0
+
+    Primitive.zr_str_bit_mutate_m(self, beg, len, lsb, op)
+  end
+
+  # str_lsb_first_from_opts: the one keyword, true or false.
+  def bit_lsb_first(opts)
+    Primitive.attr! :hidden
+    unless opts.empty? || (opts.size == 1 && opts.key?(:lsb_first))
+      unknown = opts.keys - [:lsb_first]
+      raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}"
+    end
+    lsb = opts.fetch(:lsb_first, true)
+    raise ArgumentError, +"lsb_first must be true or false" unless true.equal?(lsb) || false.equal?(lsb)
+
+    lsb
+  end
+
+  # str_bit_offset_from_index: an offset that to_int gives, from 0 to the
+  # largest 64-bit one.
+  def bit_offset(index)
+    Primitive.attr! :hidden
+    offset = implicit_integer(index)
+    raise IndexError, +"bit index out of range" if offset < 0
+    raise ArgumentError, +"bit index out of representable range" if offset > 0xFFFF_FFFF_FFFF_FFFF
+
+    offset
+  end
+
+  # str_bit_length_from_index: a length as an offset, but a negative one is
+  # an ArgumentError.
+  def bit_length(value)
+    Primitive.attr! :hidden
+    len = implicit_integer(value)
+    raise ArgumentError, +"negative bit length" if len < 0
+    raise ArgumentError, +"bit length out of representable range" if len > 0xFFFF_FFFF_FFFF_FFFF
+
+    len
+  end
+
+  # str_bit_range_to_offsets: a Range's first bit, and the bit after its
+  # last, or nil where it has no end.
+  def bit_range_bounds(range)
+    Primitive.attr! :hidden
+    low, high, excl = range.send(:bounds)
+    beg = low.nil? ? 0 : bit_offset(low)
+    return [beg, nil] if high.nil?
+
+    high = bit_offset(high)
+    [beg, excl || high == 0xFFFF_FFFF_FFFF_FFFF ? high : high + 1]
+  end
+
+  # str_bit_range_resolve: [beg, len] of the bounds in `total` bits, or nil
+  # when they start past the end. The length is not clamped.
+  def bit_resolve(bounds, total)
+    Primitive.attr! :hidden
+    beg, stop = bounds
+    return nil if beg > total
+
+    stop = total if stop.nil?
+    stop = beg if stop < beg
+    [beg, stop - beg]
+  end
+
+  # A Range's bits read as a region of `total` bits.
+  def bit_region(range, total)
+    Primitive.attr! :hidden
+    bit_resolve(bit_range_bounds(range), total)
+  end
+
+  # STR_DEFINE_BINARY_BITWISE_METHOD: `other` as a String of the same
+  # length, then a new binary String, or the receiver changed in place.
+  def bitwise_with(other, op, bang)
+    Primitive.attr! :hidden
+    other = Primitive.zr_str_operand(other)
+    if Primitive.zr_str_bytesize(self) != Primitive.zr_str_bytesize(other)
+      raise ArgumentError, "operands must have the same length (#{Primitive.zr_str_bytesize(self)} vs #{Primitive.zr_str_bytesize(other)})"
+    end
+    return Primitive.zr_str_bitwise_m(OWN[:b].bind_call(self), other, op) unless bang
+
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    Primitive.zr_str_bitwise_m(self, other, op)
   end
 
   # tr_trans_pairs (ruby 4.1): each key of `pairs`, a String of one

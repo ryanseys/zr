@@ -117,6 +117,15 @@ class Integer
       big.freeze
     end
 
+    # `n.bit_count` for a bignum `n`: the 1 bits of its limbs, or nil for a
+    # negative one.
+    def big_bit_count(n)
+      Primitive.attr! :hidden
+      return nil if big_neg?(n)
+
+      big_mag(n).sum { |limb| Primitive.zr_fix_bit_count(limb) }
+    end
+
     # `n.bit_length` for a bignum `n`: the limbs below the top one are
     # full, and the top one's own bits count; a negative reads through
     # its complement, as a fixnum's does.

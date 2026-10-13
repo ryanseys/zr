@@ -386,6 +386,15 @@ class Integer
     Integer.send(:big_bit_length, self)
   end
 
+  # rb_int_bit_count (ruby 4.1): the 1 bits of a number that is not
+  # negative (zr_fix_bit_count); a bignum's, limb by limb.
+  def bit_count
+    count = Primitive.zr_fixnum_p_m(self) ? Primitive.zr_fix_bit_count(self) : Integer.send(:big_bit_count, self)
+    raise ArgumentError, +"bit_count is undefined for negative integers" if count.nil?
+
+    count
+  end
+
   # rb_int_digits: the receiver's sign first, as rb_num_negative_int_p
   # reads it, then the radix.
   def digits(base = 10)

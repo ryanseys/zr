@@ -2753,4 +2753,98 @@ G_FROZEN_LITERALS = 52
   def zr_str_bytes_address(s)
     zr_fix(Machine.word(RString[s].ptr))
   end
+
+  # The bits `lo` to `hi` (0 to 7) of one byte, in the numbering that
+  # ruby 4.1's String bit methods use: from the least significant bit
+  # when `lsb_first`, else from the most (str_bit_region_byte_mask).
+  #: (word, word, bool) -> word
+  def zr_bit_region_mask(lo, hi, lsb_first)
+    if lsb_first
+      return (0xFF >> (7 - hi)) & (0xFF << lo) & 0xFF
+    end
+    (0xFF >> lo) & (0xFF << (7 - hi)) & 0xFF
+  end
+
+  # String#bit_set, bit_clear and bit_flip (ruby 4.1) on `len` bits from
+  # bit `beg`, which the caller checked: `op` 0 sets, 1 clears and 2
+  # flips them. `lsb` is the lsb_first: keyword.
+  #: (value, value, value, value, value) -> value
+  def zr_str_bit_mutate_m(s, beg, len, lsb, op)
+    first = zr_fix2long(beg)
+    last = first + zr_fix2long(len) - 1
+    kind = zr_fix2long(op)
+    lsb_first = lsb != QFALSE
+    byte = first / 8
+    while byte <= last / 8
+      lo = byte == first / 8 ? first % 8 : 0
+      hi = byte == last / 8 ? last % 8 : 7
+      mask = zr_bit_region_mask(lo, hi, lsb_first)
+      at = RString[s].ptr + byte
+      v = Machine.u8(Machine.load8(at, 0))
+      if kind == 0
+        v = v | mask
+      elsif kind == 1
+        v = v & (0xFF ^ mask)
+      else
+        v = v ^ mask
+      end
+      Machine.store8(at, 0, Machine.i8(v))
+      byte += 1
+    end
+    zr_str_modified(s)
+    s
+  end
+
+  # String#bit_count (ruby 4.1): the 1 bits among `len` bits from bit
+  # `beg`, which the caller checked.
+  #: (value, value, value, value) -> value
+  def zr_str_bit_count_m(s, beg, len, lsb)
+    n = zr_fix2long(len)
+    if n == 0
+      return zr_fix(0)
+    end
+    first = zr_fix2long(beg)
+    last = first + n - 1
+    lsb_first = lsb != QFALSE
+    count = 0
+    byte = first / 8
+    while byte <= last / 8
+      lo = byte == first / 8 ? first % 8 : 0
+      hi = byte == last / 8 ? last % 8 : 7
+      count += Machine.popcnt(Machine.u8(Machine.load8(RString[s].ptr + byte, 0)) & zr_bit_region_mask(lo, hi, lsb_first))
+      byte += 1
+    end
+    zr_fix(count)
+  end
+
+  # String#bitwise_not, bitwise_and, bitwise_or and bitwise_xor (ruby
+  # 4.1): each byte of `dst` becomes its complement (`op` 0), or its and
+  # (1), or (2) or xor (3) with the byte of `other` at the same place. The
+  # caller checked that the two have one length.
+  #: (value, value, value) -> value
+  def zr_str_bitwise_m(dst, other, op)
+    kind = zr_fix2long(op)
+    n = RString[dst].len
+    i = 0
+    while i < n
+      at = RString[dst].ptr + i
+      v = Machine.u8(Machine.load8(at, 0))
+      if kind == 0
+        v = 0xFF ^ v
+      else
+        w = Machine.u8(Machine.load8(RString[other].ptr + i, 0))
+        if kind == 1
+          v = v & w
+        elsif kind == 2
+          v = v | w
+        else
+          v = v ^ w
+        end
+      end
+      Machine.store8(at, 0, Machine.i8(v))
+      i += 1
+    end
+    zr_str_modified(dst)
+    dst
+  end
 end

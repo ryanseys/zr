@@ -562,6 +562,17 @@ module Zr::Kern
     zr_fix(64 - Machine.clz(n))
   end
 
+  # Integer#bit_count (ruby 4.1) of a fixnum: its 1 bits, or nil for a
+  # negative one, which has none to count.
+  #: (value) -> value
+  def zr_fix_bit_count(v)
+    n = zr_fix2long(v)
+    if n < 0
+      return Machine.value(QNIL)
+    end
+    zr_fix(Machine.popcnt(n))
+  end
+
   #: (value, word, ptr, value, value) -> value
   def zr_int_rshift(recv, argc, argv, cref, blk)
     if !zr_fixnum_p(recv)

@@ -1,0 +1,131 @@
+[0, 1, 3, 3, 8, 62, 1, 1, 1000]
+neg: ArgumentError: bit_count is undefined for negative integers
+negbig: ArgumentError: bit_count is undefined for negative integers
+get0: 1
+get7: 0
+get15: 1
+get15 msb: 0
+get8 msb: 1
+get24: nil
+get big: nil
+get bigger: ArgumentError: bit index out of representable range
+get neg: IndexError: bit index out of range
+get negbig: IndexError: bit index out of range
+get float: 0
+get str: TypeError: no implicit conversion of String into Integer
+get nil: TypeError: no implicit conversion of nil into Integer
+get lsb nil: ArgumentError: lsb_first must be true or false
+get lsb 1: ArgumentError: lsb_first must be true or false
+get badkw: ArgumentError: unknown keyword: :foo
+get 0 args: ArgumentError: wrong number of arguments (given 0, expected 1)
+get 2 args: ArgumentError: wrong number of arguments (given 2, expected 1)
+set? 0: true
+set? 1: false
+set? out: nil
+utf8: 1
+set: [true, "\b\x00"]
+set msb: "\x10\x00" ASCII-8BIT
+clear: "\xFD" ASCII-8BIT
+flip: "\x8F" ASCII-8BIT
+set out: IndexError: bit index out of range
+set neg: IndexError: bit index out of range
+set frozen: FrozenError: can't modify frozen String: "\x00"
+set frozen out: FrozenError: can't modify frozen String: "\x00"
+set len: "\xF0\xFF\x00" ASCII-8BIT
+set len msb: "\x0F\xFF\x00" ASCII-8BIT
+clear len: "\a\xE0" ASCII-8BIT
+flip len: "\xF0\x0F" ASCII-8BIT
+set len 0: "\x00" ASCII-8BIT
+set len 0 past: IndexError: bit range out of range
+set len over: IndexError: bit range out of range
+set len neg: ArgumentError: negative bit length
+set len nil: TypeError: no implicit conversion of nil into Integer
+set range: "\xFC\x03" ASCII-8BIT
+set range excl: "\xFC\x01" ASCII-8BIT
+set range endless: "\x00\xF0" ASCII-8BIT
+set range beginless: "\x0F\x00" ASCII-8BIT
+set range empty: "\x00\x00" ASCII-8BIT
+set range rev: "\x00\x00" ASCII-8BIT
+set range over: IndexError: bit range out of range
+set range start past: IndexError: bit range out of range
+set range len: ArgumentError: bit length not allowed with a Range
+set range neg: IndexError: bit index out of range
+set frozen len0: FrozenError: can't modify frozen String: "\x00"
+set utf8: ["\xE1", false, #<Encoding:UTF-8>]
+set 3 args: ArgumentError: wrong number of arguments (given 3, expected 1..2)
+count: 9
+count empty: 0
+count len: 6
+count len msb: 0
+count len clamp: 4
+count past: 0
+count 1 arg: ArgumentError: no bit length given
+count range: 8
+count range past: 0
+count range end: 0
+count range len: ArgumentError: bit length not allowed with a Range
+count lsb bad: ArgumentError: lsb_first must be true or false
+count 3: ArgumentError: wrong number of arguments (given 3, expected 0..2)
+count neg len: ArgumentError: negative bit length
+count big len: ArgumentError: bit length out of representable range
+not: "\xF0\x0F" ASCII-8BIT
+not utf8: ["\x9E\x9D", #<Encoding:BINARY (ASCII-8BIT)>, false]
+not!: [true, "\xF0", #<Encoding:UTF-8>]
+not! frozen: FrozenError: can't modify frozen String: "a"
+and: "\x0F\x0F" ASCII-8BIT
+or: "\xFF\x00" ASCII-8BIT
+xor: "\xF0\x0F" ASCII-8BIT
+and len: ArgumentError: operands must have the same length (2 vs 1)
+and type: TypeError: no implicit conversion of Integer into String
+and utf8: ["a`", #<Encoding:BINARY (ASCII-8BIT)>]
+or!: [true, "ab", #<Encoding:UTF-8>]
+xor! frozen: FrozenError: can't modify frozen String: "ab"
+xor! len frozen: ArgumentError: operands must have the same length (2 vs 1)
+xor! to_str: "`c" UTF-8
+subclass: String
+[-1, -1, -1, -1, -1, -1, 0, 0, 1, 1, 1, 1]
+[[:rest]]
+0
+[8, 8, "\xFA%\xFF?7", "\xFA%\x00\x007", "\xFA%\x1317", 0, "\x00\x00\x131\x00", "\x05\xDA\xEC\xCE\xC8"]
+[11, 11, "\xFE\xFF\xDF", "\x02\x00\xC0", "~\b\xC5", 0, "|\b\x05", "\x81\xF7:"]
+[13, 13, "\x9A\x92\xE6\xFF\xFF\xFF\xEF", "\x9A\x92\x06\x00\x00\x00\xEE", "\x9A\x92f]V\xB2\xEE", 0, "\x00\x00`]V\xB2\x00", "em\x99\xA2\xA9M\x11"]
+[12, 12, "\xA7\xFF\xFF97\x17A", "\xA7\x00\x0087\x17A", "\xA7\x90\xA187\x17A", 1, "\x00\x90\xA1\x00\x00\x00\x00", "Xo^\xC7\xC8\xE8\xBE"]
+[10, 10, "7\x8DY\xAB\xE8+\xE8\xFF\x7F", "7\x8DY\xAB\xE8+\b\x00\x00", "7\x8DY\xAB\xE8+\xA8\x91I", 0, "\x00\x00\x00\x00\x00\x00\xA0\x91I", "\xC8r\xA6T\x17\xD4Wn\xB6"]
+[0, 0, "\xE0\xECD\"\xC4\xB0\xF6\xDEO", "\xE0\xECD\"\xC4\xB0\xF6\xDAO", "\xE0\xECD\"\xC4\xB0\xF6\xDEO", 0, "\x00\x00\x00\x00\x00\x00\x00\x04\x00", "\x1F\x13\xBB\xDD;O\t!\xB0"]
+[20, 20, "\xD9\xEF\xFF\xFF\xFF\xFF", "\xD9\xEC\x00\x00\x00\x00", "\xD9\xEE\xA9\xBBp\x00", 0, "\x00\x02\xA9\xBBp\x00", "&\x11VD\x8F\xFF"]
+[8, 8, "\xEA\xFF_i", "\n\x00@i", "\xEA\xC4Ti", 0, "\xE0\xC4\x14\x00", "\x15;\xAB\x96"]
+[14, 14, "\xB7X\xFE\xFF\xFF\xFF/\xD3t", "\xB7X\x1E\x00\x00\x00,\xD3t", "\xB7X~\xB3\xB4Z,\xD3t", 0, "\x00\x00`\xB3\xB4Z\x00\x00\x00", "H\xA7\x81LK\xA5\xD3,\x8B"]
+[5, 5, "\x7F\xF8mc", "\x00\x18mc", "\\8mc", 0, "\\ \x00\x00", "\xA3\xC7\x92\x9C"]
+[2, 2, "F9\xF9", "F9\x01", "F99", 1, "\x00\x008", "\xB9\xC6\xC6"]
+[0, 0, "\xA5\xC3\xC7[\x11", "\xA5\xC3\xC7[\x11", "\xA5\xC3\xC7[\x11", nil, "\x00\x00\x00\x00\x00", "Z<8\xA4\xEE"]
+[8, 8, "p2b[\xFF\xFF\xF9", "p2bX\x00\x00\t", "p2b[\xAB\xED\x19", 0, "\x00\x00\x00\x03\xAB\xED\x10", "\x8F\xCD\x9D\xA4T\x12\xE6"]
+[1, 1, "b\xF6\x9B\xFD\xC4\a\x939", "b\xF6\x9B\x05\xC4\a\x939", "b\xF6\x9B\xBD\xC4\a\x939", 0, "\x00\x00\x00\xB8\x00\x00\x00\x00", "\x9D\tdB;\xF8l\xC6"]
+[14, 14, "\xAAX\xCF\xDA\xFF\xFF\xFF?c", "\xAAX\xCFZ\x00\x00\x00\x00c", "\xAAX\xCF\xDA\xB7\xD9\x84,c", 0, "\x00\x00\x00\x80\xB7\xD9\x84,\x00", "U\xA70%H&{\xD3\x9C"]
+[2, 2, "\xC1\xD0\xBFI", "\xC1\xD0\x80I", "\xC1\xD0\xABI", 0, "\x00\x00+\x00", ">/T\xB6"]
+[22, 22, "\xFF\xFF\xFF\xFF\xFF\xFD", "\x00\x00\x00\x00\x00\x05", "\x0F\x8B\xD3\xC5x\xC5", 1, "\x0F\x8B\xD3\xC5x\xC0", "\xF0t,:\x87:"]
+[2, 2, "V\x7F", "V\x00", "Vm", 0, "\x00m", "\xA9\x92"]
+[6, 6, "\xDE\xEC1\xF8\xFF\xFF\x04", "\xDE\xEC1\x00\x00\x80\x04", "\xDE\xEC1\xB8\xDF\xF0\x04", 0, "\x00\x00\x00\xB8\xDFp\x00", "!\x13\xCEG \x0F\xFB"]
+[6, 6, "'\xFF6", "'\x006", "'\x146", 1, "\x00\x14\x00", "\xD8\xEB\xC9"]
+[2, 2, "G\xD2\xC4\xFA\x9B", "G\xD2\xC4:\x9A", "G\xD2\xC4:\x9B", 1, "\x00\x00\x00\x00\x01", "\xB8-;\xC5d"]
+[0, 0, "\x03", "\x03", "\x03", 1, "\x00", "\xFC"]
+[0, 0, "\x01\x1EZ", "\x01\x1EZ", "\x01\x1EZ", 1, "\x00\x00\x00", "\xFE\xE1\xA5"]
+[2, 2, "G\xF0\xC4\x12", "@\x00\xC4\x12", "Cp\xC4\x12", 1, "\x03p\x00\x00", "\xBC\x8F;\xED"]
+[2, 2, "\xFF\xF3", "\x01\xF3", "\x9F\xF3", 0, "\x9E\x00", "`\f"]
+[7, 7, "\xCE\xFC\xFF\xAF+", "\xCE\x00\x80\xAF+", "\xCE\xE8\x98\xAF+", 1, "\x00\xE8\x18\x00\x00", "1\x17gP\xD4"]
+[2, 2, "\xFC\xB5?\xFF\xBFN\xAD\f\xC7", "\xFC\xB5\x00\x1F\xBFN\xAD\f\xC7", "\xFC\xB5\x1F\xBF\xBFN\xAD\f\xC7", 1, "\x00\x00\x1F\xA0\x00\x00\x00\x00\x00", "\x03J\xE0@@\xB1R\xF38"]
+[2, 2, "\x8ET|", "\x8ET@", "\x8ETd", 0, "\x00\x00$", "q\xAB\x9B"]
+[2, 2, "\xF5", "5", "5", 1, "\x00", "\xCA"]
+[6, 6, "\xD9\x17\x7F\xFFz", "\xD9\x17\x00\x00z", "\xD9\x17e\xCBz", 0, "\x00\x00e\xCB\x00", "&\xE8\x9A4\x85"]
+[2, 2, "\xFC\xE4\f\\R:\"", "\xFC\xE4\fDR:\"", "\xFC\xE4\fDR:\"", 1, "\x00\x00\x00\x00\x00\x00\x00", "\x03\e\xF3\xBB\xAD\xC5\xDD"]
+[2, 2, "\x02Jk\x7F\xFF\x9D", "\x02Jk\x7F\x01\x9D", "\x02Jk\x7F\x9F\x9D", 0, "\x00\x00\x00\x00\x9E\x00", "\xFD\xB5\x94\x80`b"]
+[5, 5, "\xF9\xFF", "\x01\x80", "\xD1\xF2", 1, "\xD0r", ".\r"]
+[1, 1, "o\xE9\x9E\x17\xDE\xD4\xBC", "o\xE9\x9E\x17\xDE\xD4\xA4", "o\xE9\x9E\x17\xDE\xD4\xAC", 0, "\x00\x00\x00\x00\x00\x00\b", "\x90\x16a\xE8!+S"]
+[12, 12, "\x9F\xFF\xFE\xBE", "\x80\x00\x00\xBE", "\x92\xE8\x90\xBE", 0, "\x12\xE8\x90\x00", "m\x17oA"]
+[5, 5, "\x15\xA5g\xD9\xFF", "\x15\xA5gY\x00", "\x15\xA5gY:", 1, "\x00\x00\x00\x00:", "\xEAZ\x98\xA6\xC5"]
+[1, 1, "\x84pkf\xADT\xC9~\xBF", "\x84pkf\xADT\xC9~\x81", "\x84pkf\xADT\xC9~\xB7", 0, "\x00\x00\x00\x00\x00\x00\x00\x006", "{\x8F\x94\x99R\xAB6\x81H"]
+[3, 3, "9F\x7F", "9F\x03", "9F3", 1, "\x00\x000", "\xC6\xB9\xCC"]
+[2, 2, "\x01\xE2\f\xFBC\xFB\xDF", "\x01\xE2\f\xFBC{\xD8", "\x01\xE2\f\xFBC{\xDD", 1, "\x00\x00\x00\x00\x00\x00\x05", "\xFE\x1D\xF3\x04\xBC\x84\""]
+[17, 17, "\xF0\xE7\xFF\xFF\xFF\xFF\xEB}", "\xF0\xE7\xF8\x00\x00\x00+}", "\xF0\xE7\xF8\t\xC7\xE1\xAB}", 1, "\x00\x00\x00\t\xC7\xE1\x80\x00", "\x0F\x18\a\xF68\x1ET\x82"]
+400000
+350000
+400000
