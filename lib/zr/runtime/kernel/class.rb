@@ -15,6 +15,9 @@ module Zr::Kern
     attr_accessor :ext #: ptr
     attr_accessor :attached #: value
     attr_accessor :origin #: value
+    # On an include proxy, the class serial when it was made: the time of
+    # the include, which orders Module#descendants (zr_mod_own_modules_m).
+    attr_accessor :seq #: word
   end
   # `serial` counts classes in creation order, which `subclasses` reads.
   # `refined` is the class that a refinement holder refines, and `active`
@@ -278,6 +281,9 @@ module Zr::Kern
     RClass[ic].ext = RClass[node].ext
     RClass[ic].attached = mod
     RClass[ic].origin = Machine.value(QNIL)
+    counter = Machine.static(:class_serial, 8)
+    Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
+    RClass[ic].seq = Machine.load64(counter, 0)
     zr_methods_changed()
     ic
   end

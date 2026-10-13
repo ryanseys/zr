@@ -138,6 +138,42 @@ class Module
     Primitive.zr_autoload_computed(self, autoload_name(name), path, nil, Kernel.loaded_feature?(path, file), file)
   end
 
+  # rb_mod_descendants (ruby 4.1): the classes and modules that have this
+  # one among their ancestors, no singleton class. The walk goes down as
+  # ruby's subclass lists take it, each before what is below it: a class's
+  # subclasses in the order they were made, and a module's includers (a
+  # class or module whose own part of its ancestors lists the module) in
+  # the order of the includes.
+  def descendants
+    superclass = Class.instance_method(:superclass)
+    below = {}.compare_by_identity
+    Primitive.zr_objspace_objects(Module).each do |mod|
+      next if mod.singleton_class?
+
+      sup = mod.is_a?(Class) ? superclass.bind_call(mod) : nil
+      (below[sup] ||= []) << [Primitive.zr_class_serial_m(mod), mod] if sup
+      links = Primitive.zr_mod_own_modules_m(mod)
+      i = 0
+      while i < links.size
+        (below[links[i]] ||= []) << [links[i + 1], mod]
+        i += 2
+      end
+    end
+    found = []
+    seen = { self => true }.compare_by_identity
+    walk = lambda do |mod|
+      (below[mod] || []).sort_by(&:first).each do |_, sub|
+        next if seen[sub]
+
+        seen[sub] = true
+        found << sub
+        walk.(sub)
+      end
+    end
+    walk.(self)
+    found
+  end
+
   # rb_mod_autoload_relative (ruby 4.1): autoload of `feature` taken from
   # the directory of the caller's file (Kernel.relative_feature).
   def autoload_relative(name, feature)

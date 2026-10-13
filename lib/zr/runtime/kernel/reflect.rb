@@ -758,6 +758,31 @@ module Zr::Kern
     out
   end
 
+  # The creation serial of a class or module, which orders
+  # Module#descendants as ruby's subclass lists do.
+  #: (value) -> value
+  def zr_class_serial_m(klass)
+    zr_fix(ClassExt[RClass[klass].ext].serial)
+  end
+
+  # The modules in the own part of `klass`'s ancestors (its prepends and
+  # includes, before its superclass), each with the serial of its include
+  # proxy there: [module, serial, ...]. Module#descendants orders a
+  # module's includers by it, as ruby's subclass lists do.
+  #: (value) -> value
+  def zr_mod_own_modules_m(klass)
+    out = zr_ary_new(4)
+    k = RClass[klass].superclass
+    while k != QNIL && zr_type(k) == T_ICLASS
+      if RClass[k].origin == QNIL && RClass[k].attached != klass
+        zr_ary_push(out, RClass[k].attached)
+        zr_ary_push(out, zr_fix(RClass[k].seq))
+      end
+      k = RClass[k].superclass
+    end
+    out
+  end
+
   # Inserts `k` before the first class that was made after `k`.
   #: (value, value) -> void
   def zr_ary_insert_by_serial(out, k)
