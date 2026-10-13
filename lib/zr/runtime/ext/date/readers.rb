@@ -8,7 +8,7 @@ class Date
   ISO_BAS_DATETIME_RE = /\A\s*(?:([-+]?(?:\d{4}|\d{2})|--)(\d{2}|-)(\d{2})|([-+]?(?:\d{4}|\d{2}))(\d{3})|-(\d{3})|(\d{4}|\d{2})w(\d{2})(\d)|-w(\d{2})(\d)|-w-(\d))(?:t?(\d{2})(\d{2})(?:(\d{2})(?:[,.](\d+))?)?(z|[-+]\d{2}(?:\d{2})?)?)?\s*\z/i
   ISO_EXT_TIME_RE = /\A\s*(\d{2}):(\d{2})(?::(\d{2})(?:[,.](\d+))?(z|[-+]\d{2}(:?\d{2})?)?)?\s*\z/i
   ISO_BAS_TIME_RE = /\A\s*(\d{2})(\d{2})(?:(\d{2})(?:[,.](\d+))?(z|[-+]\d{2}(\d{2})?)?)?\s*\z/i
-  RFC3339_RE = /\A\s*(-?\d{4})-(\d{2})-(\d{2})(?:t|\s)(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(z|[-+]\d{2}:\d{2})\s*\z/i
+  RFC3339_RE = /\A\s*(-?\d{4})-(\d{2})-(\d{2})(t|\s)(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(z|[-+]\d{2}:\d{2})\s*\z/i
   XSD_DATETIME_RE = /\A\s*(-?\d{4,})(?:-(\d{2})(?:-(\d{2}))?)?(?:t(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?)?(z|[-+]\d{2}:\d{2})?\s*\z/i
   XSD_TIME_RE = /\A\s*(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(z|[-+]\d{2}:\d{2})?\s*\z/i
   XSD_TRUNC_RE = /\A\s*(?:--(\d{2})(?:-(\d{2}))?|---(\d{2}))(z|[-+]\d{2}:\d{2})?\s*\z/i
@@ -33,10 +33,15 @@ class Date
       found = {}
       m = RFC3339_RE.match(text) or return found
 
+      # RFC 3339 has only "T" (and by custom a space) between the date
+      # and the time (date 3.6.0).
+      unless m[4] == "t" || m[4] == "T" || m[4] == " "
+        Warning.send(:deprecated, "Invalid RFC3339 date time separator provided, this will raise an error in a future version.")
+      end
       found.merge!(year: m[1].to_i, mon: m[2].to_i, mday: m[3].to_i,
-                   hour: m[4].to_i, min: m[5].to_i, sec: m[6].to_i,
-                   zone: m[8], offset: zone_to_diff(m[8]))
-      found[:sec_fraction] = fraction_of(m[7]) if m[7]
+                   hour: m[5].to_i, min: m[6].to_i, sec: m[7].to_i,
+                   zone: m[9], offset: zone_to_diff(m[9]))
+      found[:sec_fraction] = fraction_of(m[8]) if m[8]
       found
     end
 

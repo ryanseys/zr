@@ -1,0 +1,106 @@
+[:incompat, Encoding::CompatibilityError, "incompatible character encodings: UTF-8 and ISO-8859-1"]
+[:fmt_int, TypeError, "no implicit conversion of Integer into String"]
+[:str_utf16, ArgumentError, "string should have ASCII compatible encoding"]
+[:fmt_utf16, ArgumentError, "format should have ASCII compatible encoding"]
+[:binary_zone, [#<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:BINARY (ASCII-8BIT)>]]
+[:emoji, nil]
+[:emoji_date, {year: 2011, mon: 10, mday: 5, leftover: "☀"}]
+[:ascii_both, {year: 2001}]
+[:sjis_fmt, {year: 2001}]
+[:euc_utf8, Encoding::CompatibilityError, "incompatible character encodings: EUC-JP and UTF-8"]
+[:strptime_incompat, Encoding::CompatibilityError, "incompatible character encodings: UTF-8 and ISO-8859-1"]
+[:datetime, Encoding::CompatibilityError, "incompatible character encodings: UTF-8 and ISO-8859-1"]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:25: warning: Invalid RFC3339 date time separator provided, this will raise an error in a future version.
+[:rfc_tab, {year: 2001, mon: 2, mday: 3, hour: 4, min: 5, sec: 6, zone: "+07:00", offset: 25200}]
+[:rfc_space, {year: 2001, mon: 2, mday: 3, hour: 4, min: 5, sec: 6, zone: "+07:00", offset: 25200}]
+[:rfc_t, {year: 2001, mon: 2, mday: 3, hour: 4, min: 5, sec: 6, zone: "+07:00", offset: 25200}]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:28: warning: Invalid RFC3339 date time separator provided, this will raise an error in a future version.
+[:rfc_nl, "2001-02-03T04:05:06+07:00"]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:29: warning: Invalid RFC3339 date time separator provided, this will raise an error in a future version.
+[:rfc_cr, "2001-02-03"]
+[:rfc_quiet, {year: 2001, mon: 2, mday: 3, hour: 4, min: 5, sec: 6, zone: "+07:00", offset: 25200}]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, 2], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, 2], (0/1)]
+[[:new, 1], (1/1)]
+[[:new_offset, 1], (1/1)]
+[[:new, -1], (-1/1)]
+[[:new_offset, -1], (-1/1)]
+[[:new, 0], (0/1)]
+[[:new_offset, 0], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, (2/1)], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, (2/1)], (0/1)]
+[[:new, (1/1)], (1/1)]
+[[:new_offset, (1/1)], (1/1)]
+[[:new, (-1/1)], (-1/1)]
+[[:new_offset, (-1/1)], (-1/1)]
+[[:new, (1/2)], (1/2)]
+[[:new_offset, (1/2)], (1/2)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, (49710/1)], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, (49710/1)], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: fraction of offset is ignored
+[[:new, (1/259200)], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: fraction of offset is ignored
+[[:new_offset, (1/259200)], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, 1.5], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, 1.5], (0/1)]
+[[:new, 0.5], (1/2)]
+[[:new_offset, 0.5], (1/2)]
+[[:new, 0.25], (1/4)]
+[[:new_offset, 0.25], (1/4)]
+[[:new, 1.0], (1/1)]
+[[:new_offset, 1.0], (1/1)]
+[[:new, -1.0], (-1/1)]
+[[:new_offset, -1.0], (-1/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, 2.0], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, 2.0], (0/1)]
+[[:new, "+09:00"], (3/8)]
+[[:new_offset, "+09:00"], (3/8)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, "+25:00"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, "+25:00"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, "junk"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, "junk"], (0/1)]
+[[:new, "Z"], (0/1)]
+[[:new_offset, "Z"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, "+24:00"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, "+24:00"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, "-24:00"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, "-24:00"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, "+24:01"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, "+24:01"], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: fraction of offset is ignored
+[[:new, 0.123456789], (10667/86400)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: fraction of offset is ignored
+[[:new_offset, 0.123456789], (10667/86400)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:34: warning: invalid offset is ignored
+[[:new, 1180591620717411303424], (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:35: warning: invalid offset is ignored
+[[:new_offset, 1180591620717411303424], (0/1)]
+[[:new, (0+1i)], RangeError, "can't convert 0+1i into Rational"]
+[[:new_offset, (0+1i)], RangeError, "can't convert 0+1i into Rational"]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:37: warning: invalid offset is ignored
+[:jd, (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:38: warning: invalid offset is ignored
+[:ordinal, (0/1)]
+stdlib/date/date_3_6_checks_offsets_strptime_encodings_and_rfc3339_separators.rb:39: warning: invalid offset is ignored
+[:commercial, (0/1)]
+[:time_to_datetime, (3/8)]

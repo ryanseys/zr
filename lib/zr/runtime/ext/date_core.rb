@@ -456,23 +456,45 @@ class Date
     format("%s%02d:%02d", sign, of / 3600, (of % 3600) / 60)
   end
 
-  # An offset as a count of seconds: a number of days, or "+HH:MM".
+  # val2off: an offset as a count of seconds, from a number of days or a
+  # zone. One that is no offset within a day is 0, with a warning under
+  # -w.
   private_class_method def self.seconds_of(offset)
     Primitive.attr! :hidden
-    return (offset * DAY).round if offset.is_a?(Numeric)
+    seconds = offset_to_sec(offset)
+    return seconds if seconds
 
-    text = String.try_convert(offset) or raise TypeError, "no implicit conversion of #{conversion_name(offset)} into String"
-    seconds = zone_seconds(text) or raise Error, "invalid offset"
-    seconds
+    Primitive.zr_warn_here_m(+"invalid offset is ignored") if $VERBOSE
+    0
   end
 
-  private_class_method def self.zone_seconds(text)
+  # offset_to_sec: the seconds, or nil for an offset past a day. An
+  # Integer is a whole day; a Float or a Rational rounds to the second,
+  # with a warning under -w when that drops a fraction.
+  private_class_method def self.offset_to_sec(offset)
     Primitive.attr! :hidden
-    return 0 if /\A(?:Z|UTC?|GMT)\z/i.match?(text)
-    return nil unless (m = /\A([-+])(\d{1,2})(?::?(\d{2})(?::?(\d{2}))?)?\z/.match(text))
+    case offset
+    when Integer
+      [-1, 0, 1].include?(offset) ? offset * DAY : nil
+    when Float
+      seconds = offset * DAY
+      return nil if seconds < -DAY || seconds > DAY
 
-    seconds = (m[2].to_i * 3600) + (m[3].to_i * 60) + m[4].to_i
-    m[1] == "-" ? -seconds : seconds
+      whole = seconds.round
+      Primitive.zr_warn_here_m(+"fraction of offset is ignored") if $VERBOSE && whole != seconds
+      whole
+    when String
+      seconds = zone_to_diff(offset)
+      seconds.is_a?(Integer) && seconds.between?(-DAY, DAY) ? seconds : nil
+    else
+      raise TypeError, "expected numeric" unless offset.is_a?(Numeric)
+
+      days = offset.to_r
+      seconds = days * DAY
+      whole = seconds.round
+      Primitive.zr_warn_here_m(+"fraction of offset is ignored") if $VERBOSE && whole != seconds
+      whole.between?(-DAY, DAY) ? whole : nil
+    end
   end
 
   # Whole days move the day number; a fraction moves the nanosecond.

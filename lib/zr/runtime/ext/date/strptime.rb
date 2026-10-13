@@ -275,9 +275,9 @@ class Date
     # when the text does not fit the format.
     def _strptime(text, format = "%F")
       found = {}
-      text = text_of(text)
+      text, format = strptime_texts(text, format)
       reader = Reader.new(text, found)
-      reader.run(text_of(format))
+      reader.run(format)
       found[:leftover] = text[reader.at..] if reader.at < text.length
       return nil if reader.failed?
 
@@ -287,6 +287,21 @@ class Date
     end
 
     private
+
+    # date_s__strptime_internal: both are Strings before either encoding
+    # is checked, and their encodings must be compatible (ruby 4.1).
+    def strptime_texts(given, given_format)
+      Primitive.attr! :hidden
+      text = String.try_convert(given) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into String"
+      format = String.try_convert(given_format) or raise TypeError, "no implicit conversion of #{conversion_name(given_format)} into String"
+      raise ArgumentError, "string should have ASCII compatible encoding" unless text.encoding.ascii_compatible?
+      raise ArgumentError, "format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
+      unless Encoding.compatible?(text, format)
+        raise Encoding::CompatibilityError, "incompatible character encodings: #{text.encoding} and #{format.encoding}"
+      end
+
+      [text, format]
+    end
 
     def complete_century_frag(found)
       Primitive.attr! :hidden
