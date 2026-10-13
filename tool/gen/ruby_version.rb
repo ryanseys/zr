@@ -50,9 +50,9 @@ module Zr
 
             # A release is X.Y.Z; a preview or a release candidate is
             # X.Y.Z-previewN or -rcN, whose tarball's version.h names its stage
-            # ("4.1.0preview1"), as tool/make-snapshot writes it.
+            # ("X.Y.ZpreviewN"), as tool/make-snapshot writes it.
             release = pin.match(/\A(\d+\.\d+\.\d+)(?:-((?:preview|rc)\d+))?\z/) or
-              fail!(".ruby-version names #{pin}; zr takes a ruby release (4.1.0) or a preview (4.1.0-preview1)")
+              fail!(".ruby-version names #{pin}; zr takes a ruby release (X.Y.Z) or a preview (X.Y.Z-previewN)")
             named, label = release.captures
             version_h = Dev.git_show(src, head, "version.h", "RUBY_SRC")
             api_h = Dev.git_show(src, head, "include/ruby/version.h", "RUBY_SRC")
@@ -61,7 +61,7 @@ module Zr
             patchlevel = Integer(define(version_h, "RUBY_PATCHLEVEL"))
             # A preview is a development build: patchlevel -1, and its
             # RUBY_ABI_VERSION suffixes the library directories
-            # (RUBY_LIB_VERSION_STYLE 3, "full": 4.1.0+5).
+            # (RUBY_LIB_VERSION_STYLE 3, "full": X.Y.Z+ABI).
             dev = patchlevel == -1
             unless version == named && dev == !label.nil?
               fail!(".ruby-version names ruby #{pin}, and RUBY_SRC (#{src}) is ruby #{version}#{"-dev" if dev}; check out v#{pin} there")
