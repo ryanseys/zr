@@ -1,0 +1,17 @@
+[Ractor::IsolationError, "can not use END{} in non-main Ractors"]
+[:own_ok, "can not define a finalizer for an object of another Ractor", "can not undefine a finalizer of an object of another Ractor"]
+nil
+true
+"can not get an unshareable attached object from another Ractor"
+true
+String
+true
+"boom"
+false
+true
+true
+true
+true
+true
+true
+1

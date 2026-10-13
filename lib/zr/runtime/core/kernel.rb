@@ -618,10 +618,11 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     yield
   end
 
-  # `END { }` registers its body here: rb_set_end_proc with no check of
-  # the ractor, which `at_exit` makes.
+  # `END { }` registers its body here: rb_set_end_proc, which refuses a
+  # ractor other than the main one in its own words.
   def self.end_proc(&block)
     Primitive.attr! :hidden
+    raise Ractor::IsolationError, +"can not use END{} in non-main Ractors" if Primitive.zr_ractor_task_p_m
     Primitive.zr_at_exit_add(block)
   end
 
@@ -1320,6 +1321,11 @@ class Class
   def attached_object
     object = Primitive.zr_mod_attached(self)
     raise TypeError, "'#{inspect}' is not a singleton class" if object.nil?
+    # A singleton class is shareable, but the object it is attached to
+    # stays with the ractor that made the class.
+    if !Primitive.zr_class_owned_m(self) && !Ractor.shareable?(object)
+      raise Ractor::IsolationError, +"can not get an unshareable attached object from another Ractor"
+    end
 
     object
   end

@@ -1241,6 +1241,12 @@ module Zr::Kern
     (Machine.gates & GATE_RACTOR) == 0 || ClassExt[RClass[klass].ext].owner == Task[zr_task()].ractor
   end
 
+  # The core's view of zr_class_owned_p.
+  #: (value) -> value
+  def zr_class_owned_m(klass)
+    zr_bool(zr_class_owned_p(klass))
+  end
+
   # rb_class_owner_check: raises unless the current ractor owns `klass`.
   #: (value) -> value
   def zr_class_owner_check(klass)

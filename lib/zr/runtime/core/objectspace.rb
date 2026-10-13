@@ -135,6 +135,9 @@ module ObjectSpace
     raise ArgumentError, +"tried to create Proc object without a block" if callable.nil?
     raise ArgumentError, "wrong type argument #{callable.class} (should be callable)" unless callable.respond_to?(:call, true)
     raise ArgumentError, "cannot define finalizer for #{obj.class}" if Primitive.zr_special_p_m(obj)
+    if Module === obj && !Primitive.zr_class_owned_m(obj)
+      raise Ractor::IsolationError, +"can not define a finalizer for an object of another Ractor"
+    end
 
     Primitive.zr_frozen_error(obj) if obj.frozen?
     # rb_callable_receiver: a finalizer that holds the object keeps it
@@ -162,6 +165,9 @@ module ObjectSpace
   end
 
   def undefine_finalizer(obj)
+    if Module === obj && !Primitive.zr_class_owned_m(obj)
+      raise Ractor::IsolationError, +"can not undefine a finalizer of an object of another Ractor"
+    end
     Primitive.zr_frozen_error(obj) if obj.frozen?
     table = Primitive.zr_finalizers_m
     row = table.delete(obj)

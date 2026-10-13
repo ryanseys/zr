@@ -673,6 +673,8 @@ class Ractor
       yield obj.begin
       yield obj.end
     when Struct, Data then struct_values(obj).each { |part| yield part }
+    # A Set's members are in its hidden table, as set.c's are in its struct.
+    when Set then obj.send(:table).each_key { |member| yield member }
     end
     Primitive.zr_ivar_names_m(obj).each { |name| yield Primitive.zr_hidden_get(obj, name) }
     true
@@ -1013,6 +1015,8 @@ class Ractor
     body = Primitive.zr_proc_rebind_m(block.dup, ractor)
     task = Thread.new do
       Primitive.zr_ractor_enter_m(number)
+      # A ractor starts with no fiber storage of its creator's.
+      Primitive.zr_hidden_set(Fiber.current, :__storage__, nil)
       # The ractor has a default thread group of its own, which its
       # threads start in.
       Primitive.zr_hidden_set(Thread.current, :group, ThreadGroup.new)
