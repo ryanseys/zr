@@ -1,0 +1,19 @@
+storage ivars: []
+slice ivars: []
+for ivars: []
+ivar set: [:@mine]
+frozen locked: true
+frozen after: false
+frozen slice locks: true
+frozen free: FrozenError: can't modify frozen IO::Buffer::Storage: #<IO::Buffer::Storage 0xX+4 INTERNAL>
+frozen resize: FrozenError: can't modify frozen IO::Buffer::Storage: #<IO::Buffer::Storage 0xX+4 INTERNAL>
+frozen transfer: FrozenError: can't modify frozen IO::Buffer::Storage: #<IO::Buffer::Storage 0xX+4 INTERNAL>
+frozen set: FrozenError: can't modify frozen IO::Buffer::Storage: #<IO::Buffer::Storage 0xX+4 INTERNAL>
+frozen read: 0
+frozen size: 4
+dup own bytes: ["abcd", "WXYZ"]
+dup own size: [4, 2]
+dup own lock: [true, false]
+slice dup own range: [2, 1, "b"]
+frozen clone: [true, "abcd", true]
+moved: [true, "abcd", []]

@@ -125,6 +125,14 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Frees memory that C allocated with malloc and gave to a buffer that
+  # owns it (rb_io_buffer_new with IO::Buffer::INTERNAL).
+  #: (value) -> value
+  def zr_mem_free(addr)
+    Libc.free(zr_ffi_ptr(addr))
+    Machine.value(QNIL)
+  end
+
   #: (value) -> value
   def zr_mem_getbyte(addr)
     zr_fix(Machine.u8(Machine.load8(zr_ffi_ptr(addr), 0)))

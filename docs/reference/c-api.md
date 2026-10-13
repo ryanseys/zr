@@ -3,7 +3,7 @@
 
 A C extension that zr runs (`--native-ext`, see
 [How to use a C extension](../how-to/use-a-c-extension.md))
-calls ruby's C API, of the series that zr pins. zr's kernel gives 835 of its
+calls ruby's C API, of the series that zr pins. zr's kernel gives 864 of its
 functions and data words, each one a def or a word of kernel
 Ruby named after its C symbol, under `lib/zr/runtime/kernel/capi/`. This page lists
 them, one section for each file.
@@ -116,9 +116,9 @@ The C API's writes to an IO object, through its Ruby methods, errno, and the Sys
 
 ## io_buffer
 
-The C API of IO::Buffer: the bytes of a buffer, which C reads or writes in place, as io-event's selectors do.
+The C API of IO::Buffer: buffers over C's memory, the bytes of a buffer, which C reads or writes in place, as io-event's selectors do, and the buffer's methods.
 
-`rb_io_buffer_get_bytes_for_reading`, `rb_io_buffer_get_bytes_for_writing`
+`rb_io_buffer_p`, `rb_io_buffer_readonly_p`, `rb_io_buffer_new`, `rb_io_buffer_new_locked`, `rb_io_buffer_map`, `rb_io_buffer_lock`, `rb_io_buffer_unlock`, `rb_io_buffer_try_unlock`, `rb_io_buffer_free`, `rb_io_buffer_free_locked`, `rb_io_buffer_get_bytes`, `rb_io_buffer_get_bytes_for_reading`, `rb_io_buffer_get_bytes_for_writing`, `rb_io_buffer_locked_for_reading`, `rb_io_buffer_locked_for_writing`, `rb_io_buffer_transfer`, `rb_io_buffer_resize`, `rb_io_buffer_advance`, `rb_io_buffer_clear`, `rb_io_buffer_read`, `rb_io_buffer_pread`, `rb_io_buffer_write`, `rb_io_buffer_pwrite`, `rb_cIOBuffer`, `rb_cIOBufferStorage`, `rb_cIOBufferSlice`, `RUBY_IO_BUFFER_PAGE_SIZE`, `RUBY_IO_BUFFER_MAP_ALIGNMENT`, `RUBY_IO_BUFFER_DEFAULT_SIZE`
 
 ## io_object
 
@@ -184,7 +184,7 @@ Onigmo's regex API, for C that matches a Regexp itself (strscan).
 
 The C API's Regexps and MatchData, each through their Ruby methods.
 
-`rb_reg_new`, `rb_reg_new_str`, `rb_reg_match`, `rb_reg_nth_match`, `rb_reg_search`, `rb_match_busy`, `rb_lastline_get`, `rb_lastline_set`, `rb_backref_get`, `rb_backref_set`
+`rb_reg_new`, `rb_reg_new_str`, `rb_reg_match`, `rb_reg_nth_match`, `rb_reg_search`, `rb_match_busy`, `rb_match_ensure_onig`, `rb_lastline_get`, `rb_lastline_set`, `rb_backref_get`, `rb_backref_set`
 
 ## select
 
@@ -202,7 +202,7 @@ The C API's st tables, which C uses for its own maps.
 
 The C API's Strings.
 
-`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_no_gvl_safe_acquire`, `rb_str_no_gvl_safe_release`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rbimpl_enc_str_coderange_scan`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_cstr_to_inum`, `rb_str_equal`, `rb_str_hash`, `rb_str_hash_cmp`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
+`rb_str_new`, `rb_str_new_static`, `rb_str_new_cstr`, `rb_utf8_str_new`, `rb_utf8_str_new_static`, `rb_utf8_str_new_cstr`, `rb_usascii_str_new`, `rb_usascii_str_new_static`, `rb_usascii_str_new_cstr`, `rb_str_buf_new`, `rb_str_cat`, `rb_str_cat_cstr`, `rb_str_modify`, `rb_str_resize`, `rb_str_set_len`, `rb_string_value`, `rb_string_value_ptr`, `rb_string_value_cstr`, `rb_check_string_type`, `rb_str_dup`, `rb_str_replace`, `rb_str_substr`, `rb_str_intern`, `rb_sym2str`, `rb_str_encode`, `rb_str_concat`, `rb_str_split`, `rb_enc_str_buf_cat`, `rb_str_conv_enc`, `rb_str_encode_ospath`, `rb_external_str_new_with_enc`, `rb_str_new_frozen`, `rb_str_no_gvl_safe_acquire`, `rb_str_no_gvl_safe_release`, `rb_str_freeze`, `rb_str_append`, `rb_str_buf_append`, `rb_str_plus`, `rb_str_dump`, `rb_str_times`, `rb_str_cmp`, `rb_str_export_to_enc`, `rbimpl_enc_str_coderange_scan`, `rb_enc_str_coderange`, `rb_enc_strlen`, `rb_enc_codepoint_len`, `rb_fix2str`, `rb_cstr2inum`, `rb_sym_to_s`, `rb_str_subseq`, `rb_external_str_new`, `rb_cstr_to_dbl`, `ruby_strtod`, `rb_int_parse_cstr`, `rb_cstr_to_inum`, `rb_str_equal`, `rb_str_hash`, `rb_str_hash_cmp`, `rb_str_update`, `rb_str_strlen`, `rb_str_length`, `rb_str_to_str`, `rb_str_capacity`, `rb_str_modify_expand`, `rb_str_tmp_new`, `rb_str_to_dbl`, `rb_str2inum`, `rb_must_asciicompat`, `rb_memsearch`, `rb_str_free`, `rb_uv_to_utf8`, `rb_str_new_shared`, `rb_str_to_interned_str`, `rb_str_buf_cat_ascii`
 
 ## struct
 

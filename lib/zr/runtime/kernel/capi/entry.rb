@@ -188,6 +188,7 @@ module Zr::Kern
     zr_capi_stdio_init()
     zr_capi_util_init()
     zr_capi_onig_init()
+    zr_capi_buffer_init()
   end
 
   # The Onigmo data that C names: the structs of the exported encodings

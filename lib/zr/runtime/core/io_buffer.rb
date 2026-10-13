@@ -61,15 +61,16 @@ class IO
     }.freeze
     private_constant :TYPES
 
-    # The bytes of a buffer that is MAPPED and SHARED: anonymous memory
-    # that mmap shares with a forked child (MAP_SHARED), so each side sees
-    # the other's writes. It reads and writes as the String that holds the
-    # bytes of any other buffer does. The memory goes back to the system
-    # when nothing holds it.
-    class SharedMemory
+    # Bytes at an address outside the heap: the bytes of a buffer that is
+    # MAPPED and SHARED, anonymous memory that mmap shares with a forked
+    # child (MAP_SHARED), so each side sees the other's writes; or memory
+    # that C gives a buffer (rb_io_buffer_new). It reads and writes as the
+    # String that holds the bytes of any other buffer does.
+    class RawMemory
       Primitive.attr! :hidden
 
-      # The memory, or nil where the host cannot share memory.
+      # Shared memory, or nil where the host cannot share memory. It goes
+      # back to the system when nothing holds it.
       def self.map(size)
         address = Primitive.zr_mem_shared_map(size) or return nil
 
@@ -78,8 +79,21 @@ class IO
         memory
       end
 
-      # A finalizer that holds no reference to the memory's object.
+      # C's memory, which the buffer owns when the flags say that malloc
+      # (INTERNAL) or mmap (MAPPED) made it, and frees as ruby does.
+      def self.at(address, size, flags)
+        memory = new(address, size)
+        if flags & INTERNAL != 0
+          ObjectSpace.define_finalizer(memory, freer(address))
+        elsif flags & MAPPED != 0
+          ObjectSpace.define_finalizer(memory, unmapper(address, size))
+        end
+        memory
+      end
+
+      # Finalizers that hold no reference to the memory's object.
       def self.unmapper(address, size) = proc { Primitive.zr_mem_unmap(address, size) }
+      def self.freer(address) = proc { Primitive.zr_mem_free(address) }
 
       def initialize(address, size)
         @address = address
@@ -98,7 +112,28 @@ class IO
         self
       end
     end
-    private_constant :SharedMemory
+    private_constant :RawMemory
+
+    # The fields of ruby's structs rb_io_buffer_view and _storage: hidden
+    # state, so a buffer has no instance variables, and state that freeze
+    # does not lock, as C frees and locks a frozen buffer. The methods
+    # check freeze where ruby's do (unfrozen!).
+    class Fields
+      Primitive.attr! :hidden
+
+      attr_accessor :memory, :offset, :size, :flags, :source, :mapping, :locks
+
+      def initialize(memory: nil, offset: 0, size: 0, flags: 0, source: nil, mapping: nil)
+        @memory = memory
+        @offset = offset
+        @size = size
+        @flags = flags
+        @source = source
+        @mapping = mapping
+        @locks = 0
+      end
+    end
+    private_constant :Fields
 
     # IO::Buffer.new makes a Storage; a subclass makes its own kind.
     def self.new(...)
@@ -295,7 +330,13 @@ class IO
     private_class_method :lent, :announce, :storage_class, :flags_for, :new_flags, :map_flags,
                          :size_operand, :flags_operand, :index_operand, :row, :io_of
 
-    def size = @size || 0
+    def size = fields.size
+
+    def fields
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__fields__) || Primitive.zr_state_set(self, :__fields__, Fields.new)
+    end
+    private :fields
 
     def source = view[0]
 
@@ -744,7 +785,7 @@ class IO
       Primitive.attr! :hidden
       memory, start, holder = target
       at = start + offset
-      if memory.is_a?(SharedMemory)
+      if memory.is_a?(RawMemory)
         memory.bytesplice(at, bytes.bytesize, bytes)
       else
         i = 0
@@ -920,8 +961,66 @@ class IO
     def c_window(writing)
       Primitive.attr! :hidden
       memory, start = writing ? writable : readable
-      [memory.is_a?(SharedMemory) ? memory.address : memory, start, size]
+      [memory.is_a?(RawMemory) ? memory.address : memory, start, size]
     end
+
+    # rb_io_buffer_get_bytes: the same window, and the flags, read-only
+    # when the view or a source under it is; nil for a view that is not
+    # valid.
+    def c_bytes
+      Primitive.attr! :hidden
+      memory, start = resolve
+      return if start.nil?
+
+      [memory.is_a?(RawMemory) ? memory.address : memory, start, size, flags | (readonly? ? READONLY : 0)]
+    end
+
+    # rb_io_buffer_lock, _unlock and _try_unlock: the lock count of the
+    # Storage under all the slices.
+    def c_lock
+      Primitive.attr! :hidden
+      owner.send(:lock!)
+      self
+    end
+
+    def c_unlock
+      Primitive.attr! :hidden
+      owner.send(:unlock!)
+      self
+    end
+
+    def c_try_unlock # rubocop:disable Naming/PredicateMethod -- ruby's name, which unlocks
+      Primitive.attr! :hidden
+      holder = owner
+      return false if holder.send(:locks).zero?
+
+      holder.send(:unlock!)
+      true
+    end
+
+    # rb_io_buffer_locked_for_reading and _for_writing: the bytes must be
+    # there to read, or to write in a buffer that is not frozen, before
+    # the lock.
+    def c_hold(writing)
+      Primitive.attr! :hidden
+      writing ? modifiable : readable
+      c_lock
+    end
+
+    # The C API (kernel/capi/io_buffer.rb) sends `name` to `buffer` as
+    # ruby's C checks it: get_io_buffer_view refuses what is no buffer,
+    # and get_io_buffer_storage refuses a Slice for the calls that manage
+    # memory.
+    def self.c_call(buffer, name, *args)
+      Primitive.attr! :hidden
+      raise TypeError, "wrong argument type #{conversion_name(buffer)} (expected IO::Buffer)" unless buffer.is_a?(Buffer)
+      raise AccessError, +"Slice does not manage an allocation!" if C_STORAGE_CALLS.include?(name) && buffer.is_a?(Slice)
+
+      buffer.send(name, *args)
+    end
+    private_class_method :c_call
+    C_STORAGE_CALLS = %i[c_free free_locked transfer].freeze
+    private_constant :C_STORAGE_CALLS
 
     # The Storage manages memory and has a lock count; a String-backed
     # one, a lent one and one without memory own none.
@@ -947,6 +1046,8 @@ class IO
       def initialize_copy(source)
         return self if equal?(source)
 
+        # The copy has fields of its own (dup copies the hidden ones).
+        Primitive.zr_state_set(self, :__fields__, Fields.new)
         unfrozen!
         raise TypeError, "wrong argument type #{conversion_name(source)} (expected IO::Buffer)" unless source.is_a?(Buffer)
 
@@ -967,9 +1068,7 @@ class IO
       # source and its flags.
       def free
         unfrozen!
-        raise LockedError, +"Buffer is locked!" if locks.positive?
-
-        released
+        c_free
       end
 
       # The new buffer takes the memory, with its flags and its source;
@@ -979,7 +1078,7 @@ class IO
         raise LockedError, +"Cannot transfer ownership of locked buffer!" if locks.positive?
 
         other = Primitive.zr_class_build(Primitive.zr_real_class(self))
-        other.send(:adopted, @memory, @offset || 0, size, flags, @source, @mapping)
+        other.send(:adopted, fields.memory, fields.offset, size, flags, fields.source, fields.mapping)
         released
         other
       end
@@ -994,19 +1093,19 @@ class IO
         readable
         raise LockedError, +"Cannot resize locked buffer!" if locks.positive?
         raise AccessError, +"Cannot resize external buffer!" if external?
-        return allocated(size, Buffer.send(:flags_for, size)) if @memory.nil?
+        return allocated(size, Buffer.send(:flags_for, size)) if fields.memory.nil?
         return released if size.zero?
 
-        if internal?
+        if internal? && fields.memory.is_a?(String)
           if size < self.size
-            @memory.replace(@memory.byteslice(0, size))
+            fields.memory.replace(fields.memory.byteslice(0, size))
           else
-            @memory << ("\0".b * (size - self.size))
+            fields.memory << ("\0".b * (size - self.size))
           end
-          @size = size
+          fields.size = size
           return self
         end
-        kept = @memory.byteslice(@offset || 0, [size, self.size].min)
+        kept = fields.memory.byteslice(fields.offset, [size, self.size].min)
         allocated(size, Buffer.send(:flags_for, size) | (flags & READONLY))
         store(base(0), 0, kept)
         self
@@ -1016,22 +1115,22 @@ class IO
 
       def view
         Primitive.attr! :hidden
-        [@source, @offset || 0, size]
+        [fields.source, fields.offset, size]
       end
 
       def base(start)
         Primitive.attr! :hidden
-        [@memory, (@offset || 0) + start, self]
+        [fields.memory, fields.offset + start, self]
       end
 
       def flags
         Primitive.attr! :hidden
-        @flags || 0
+        fields.flags
       end
 
       def locks
         Primitive.attr! :hidden
-        @locks || 0
+        fields.locks
       end
 
       def owner
@@ -1046,14 +1145,22 @@ class IO
 
       def lock!
         Primitive.attr! :hidden
-        @locks = locks + 1
+        fields.locks = locks + 1
       end
 
       def unlock!
         Primitive.attr! :hidden
         raise LockedError, +"Buffer not locked!" if locks.zero?
 
-        @locks = locks - 1
+        fields.locks = locks - 1
+      end
+
+      # rb_io_buffer_free, which C may call on a frozen buffer.
+      def c_free
+        Primitive.attr! :hidden
+        raise LockedError, +"Buffer is locked!" if locks.positive?
+
+        released
       end
 
       # rb_io_buffer_free_locked: the one lock goes, then the memory.
@@ -1065,19 +1172,13 @@ class IO
 
       def moved(amount)
         Primitive.attr! :hidden
-        @offset = (@offset || 0) + amount unless @memory.nil? && @source.nil?
-        @size = size - amount
+        fields.offset = fields.offset + amount unless fields.memory.nil? && fields.source.nil?
+        fields.size = size - amount
       end
 
       def adopted(memory, offset, size, flags, source, mapping)
         Primitive.attr! :hidden
-        @memory = memory
-        @offset = offset
-        @size = size
-        @flags = flags
-        @source = source
-        @mapping = mapping
-        @locks = 0
+        Primitive.zr_state_set(self, :__fields__, Fields.new(memory:, offset:, size:, flags:, source:, mapping:))
         self
       end
 
@@ -1086,6 +1187,20 @@ class IO
         adopted(nil, 0, 0, 0, nil, nil)
       end
 
+      # rb_io_buffer_new: the `size` bytes of C's memory at `address`, as
+      # `flags` describe them; with no address, new memory that the flags
+      # choose, or none for a size of zero.
+      def self.c_new(address, size, flags)
+        Primitive.attr! :hidden
+        buffer = Primitive.zr_class_build(self)
+        return buffer.send(:adopted, RawMemory.at(address, size, flags), 0, size, flags, nil, nil) unless address.zero?
+        return buffer.send(:released) if size.zero?
+        raise AllocationError, +"Could not allocate buffer!" if flags.nobits?(INTERNAL | MAPPED)
+
+        buffer.send(:allocated, size, flags)
+      end
+      private_class_method :c_new
+
       # io_buffer_storage_initialize: memory of `size` bytes, or none and
       # no flags for a size of zero.
       def allocated(size, flags)
@@ -1093,7 +1208,7 @@ class IO
         return released if size.zero?
 
         shared = (flags & (MAPPED | SHARED)) == (MAPPED | SHARED)
-        adopted((SharedMemory.map(size) if shared) || ("\0".b * size), 0, size, flags, nil, nil)
+        adopted((RawMemory.map(size) if shared) || ("\0".b * size), 0, size, flags, nil, nil)
       end
 
       # io_buffer_for_make_instance: the whole of a String, whose bytes
@@ -1128,10 +1243,10 @@ class IO
       # the pages that mmap shares with the file.
       def written(at, length)
         Primitive.attr! :hidden
-        return if @mapping.nil? || length.zero?
+        return if fields.mapping.nil? || length.zero?
 
-        file, file_offset = @mapping
-        file.pwrite(@memory.byteslice(at, length), file_offset + at)
+        file, file_offset = fields.mapping
+        file.pwrite(fields.memory.byteslice(at, length), file_offset + at)
       end
     end
 
@@ -1146,7 +1261,7 @@ class IO
 
       def initialize(source, offset = nil, length = nil)
         unfrozen!
-        raise RuntimeError, +"Slice is already initialized!" unless @source.nil?
+        raise RuntimeError, +"Slice is already initialized!" unless fields.source.nil?
         raise TypeError, "wrong argument type #{conversion_name(source)} (expected IO::Buffer)" unless source.is_a?(Buffer)
 
         offset, length = source.send(:extent, offset, length)
@@ -1169,14 +1284,14 @@ class IO
       def resize(size)
         unfrozen!
         size = Buffer.send(:size_operand, size)
-        raise InvalidatedError, +"Uninitialized slice!" if @source.nil?
+        raise InvalidatedError, +"Uninitialized slice!" if fields.source.nil?
 
-        @source.send(:resolve) or raise InvalidatedError, +"Buffer is invalid!"
-        outer = @source.size
-        raise InvalidatedError, +"Buffer is invalid!" if @offset > outer
-        raise ArgumentError, +"Resized slice exceeds its source buffer!" if size > outer - @offset
+        fields.source.send(:resolve) or raise InvalidatedError, +"Buffer is invalid!"
+        outer = fields.source.size
+        raise InvalidatedError, +"Buffer is invalid!" if fields.offset > outer
+        raise ArgumentError, +"Resized slice exceeds its source buffer!" if size > outer - fields.offset
 
-        @size = size
+        fields.size = size
         self
       end
 
@@ -1184,7 +1299,7 @@ class IO
 
       def view
         Primitive.attr! :hidden
-        [@source, @offset || 0, size]
+        [fields.source, fields.offset, size]
       end
 
       # A slice with no source has not been initialized, and has no bytes.
@@ -1200,9 +1315,9 @@ class IO
 
       def owner
         Primitive.attr! :hidden
-        raise InvalidatedError, +"Uninitialized slice!" if @source.nil?
+        raise InvalidatedError, +"Uninitialized slice!" if fields.source.nil?
 
-        @source.send(:owner)
+        fields.source.send(:owner)
       end
 
       def owning?
@@ -1212,15 +1327,13 @@ class IO
 
       def moved(amount)
         Primitive.attr! :hidden
-        @offset += amount
-        @size -= amount
+        fields.offset += amount
+        fields.size -= amount
       end
 
       def attach(source, offset, length)
         Primitive.attr! :hidden
-        @source = source
-        @offset = offset
-        @size = length
+        Primitive.zr_state_set(self, :__fields__, Fields.new(offset:, size: length, source:))
         self
       end
     end
