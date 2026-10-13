@@ -1,0 +1,25 @@
+in marshal_load: true [Meths, U]
+true
+load: true payload false false
+[true, false]
+load: true payload false true
+[true, false, false, true]
+extend_object hook
+extended hook
+"\x04\bU:\x06U:\tdata"
+in marshal_load: false [U, Object]
+[U, Object, Kernel]
+[:override, [1, 2]]
+extend_object hook
+extended hook
+true
+extend_object hook
+extended hook
+["str", true]
+extend_object hook
+extended hook
+[true, true, false]
+prepend_features hook
+prepended hook
+"\x04\be:\bPree:\vObjecto;\x06\x00"
+[Pre, :singleton]

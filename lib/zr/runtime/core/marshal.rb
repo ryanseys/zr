@@ -77,6 +77,13 @@ module Marshal
   SYMBOL_NAME = Symbol.instance_method(:name)
   private_constant :SYMBOL_NAME
 
+  # rb_extend_object and rb_prepend_module, as a load adds the modules of
+  # an `e` record: Module's own methods, with no `extended` or
+  # `prepended` hook.
+  EXTEND_OBJECT = Module.instance_method(:extend_object)
+  PREPEND_FEATURES = Module.instance_method(:prepend_features)
+  private_constant :EXTEND_OBJECT, :PREPEND_FEATURES
+
   # The packed integer: one byte for a small number, else a length byte
   # and the bytes of the number, least significant first. A `_dump` that
   # writes a count of its own uses the same spelling.
@@ -638,6 +645,10 @@ module Marshal
     # symbol link, a small integer, nil, a string with its encoding.
     def read_value
       tag = byte
+      # The modules of an `e` record go to the next object only, through
+      # an ivar record or a user class (r_object_for's extmod).
+      mods = @extmod
+      @extmod = tag == IVARS || tag == UCLASS ? mods : nil
       if tag == OBJECT then object
       elsif tag == SYMLINK then @symbols.fetch(long)
       elsif tag == FIXNUM then long
@@ -655,7 +666,7 @@ module Marshal
       elsif tag == BIGNUM then keep(bignum)
       elsif tag == STRUCT then struct
       elsif tag == USRDEF then user_dump
-      elsif tag == USRMARSHAL then user_marshal
+      elsif tag == USRMARSHAL then user_marshal(mods)
       elsif tag == UCLASS then subclass
       elsif tag == EXTENDED then extended
       elsif tag == REGEXP then keep(regexp)
@@ -798,7 +809,7 @@ module Marshal
         raise ArgumentError, "prepended class #{path} differs from class #{klass.name}" unless klass.equal?(found)
 
         single = value.singleton_class
-        single.prepend(modules.pop) until modules.empty?
+        PREPEND_FEATURES.bind_call(modules.pop, single) until modules.empty?
         return value
       end
       raise ArgumentError, "#{path} does not refer to module" unless found.instance_of?(Module)
@@ -809,9 +820,11 @@ module Marshal
         @pos += 1
         extended(modules)
       else
+        @extmod = modules
         read_value
       end
-      value.extend(modules.pop) until modules.empty?
+      # rb_extend_object: Module's own extend_object, with no hook.
+      EXTEND_OBJECT.bind_call(modules.pop, value) until modules.empty?
       value
     end
 
@@ -1047,10 +1060,13 @@ module Marshal
     end
 
     # r_object's TYPE_USRMARSHAL: after marshal_load, the object takes the
-    # ivars of its data that it did not set itself (r_copy_ivar).
-    def user_marshal
+    # ivars of its data that it did not set itself (r_copy_ivar). The
+    # modules of an `e` record (`mods`) extend it before marshal_load, in
+    # case one of them defines it (append_extmod), and then no others do.
+    def user_marshal(mods = nil)
       klass = constant(symbol_or_link, Class)
       built = keep(Primitive.zr_class_allocate(klass))
+      mods&.reverse_each { |mod| EXTEND_OBJECT.bind_call(mod, built) }
       # rb_marshal_define_compat: Complex and Rational load through a
       # loader that reflection does not show.
       unless built.respond_to?(:marshal_load, true) || built.is_a?(Complex) || built.is_a?(Rational)
@@ -1063,6 +1079,7 @@ module Marshal
         built.instance_variable_set(name, data.instance_variable_get(name)) unless built.instance_variable_defined?(name)
       end
       @partial[built] = true
+      mods&.clear
       built
     end
 
