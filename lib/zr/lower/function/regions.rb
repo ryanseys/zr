@@ -169,10 +169,12 @@ module Zr
 
           handlers.each do |handler, clause|
             switch(handler)
-            kernel("zr_rescue_enter")
+            # The clause takes the exception that the landing took: its test
+            # can raise and rescue, which clears the pending slot.
+            kernel("zr_rescue_take", @f.fetch("i64", @rec, exc_at))
             # `:rescue` fires at the matched clause, so the call is here,
-            # not in `zr_rescue_enter` (`guarded` also uses that to discard
-            # a raise from `defined?`). Ruby reports the clause's first
+            # not in `zr_rescue_take` (`guarded` discards a raise from
+            # `defined?` with `zr_rescue_enter`). Ruby reports the clause's first
             # statement, not the `rescue` keyword, because its program
             # counter goes there.
             kernel("zr_trace_rescue", imm((clause.body || clause).line))

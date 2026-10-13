@@ -593,6 +593,19 @@ end
     prev
   end
 
+  # Starts the rescue clause that matched `exc`, the exception that the
+  # landing took: it becomes `$!`, and nothing is pending. A clause's
+  # test runs code that can raise and rescue, which clears the pending
+  # slot, so the clause does not read it. Returns the previous `$!`.
+  #: (value) -> value
+  def zr_rescue_take(exc)
+    t = zr_task()
+    prev = Task[t].errinfo
+    Task[t].errinfo = exc
+    Task[t].pending = Machine.value(QNIL)
+    prev
+  end
+
   # A rescue whose clauses all missed passes the raise on. A clause's
   # test runs code (its class can autoload a file that raises and
   # rescues), and that can clear the task's pending raise, so the raise

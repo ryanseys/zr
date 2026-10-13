@@ -357,10 +357,18 @@ module Zr
             exc = @kern.zr_rescuable
             raise UNWIND, cause: nil if exc == @qundef
 
+            # As the lowering's: the classes are read with the raise as `$!`,
+            # and the code that reads them can raise and rescue, so a miss
+            # sets the raise again, and a match takes the exception it saw.
+            @kern.zr_errinfo_set(exc)
             _, handler = clauses.find { |matches, _| matches.call(f, exc) }
-            raise UNWIND, cause: nil unless handler
+            unless handler
+              @kern.zr_errinfo_set(saved)
+              @kern.zr_rescue_miss(exc)
+              raise UNWIND, cause: nil
+            end
 
-            @kern.zr_rescue_enter
+            @kern.zr_rescue_take(exc)
             begin
               handler.call(f, exc)
             rescue RetryJump

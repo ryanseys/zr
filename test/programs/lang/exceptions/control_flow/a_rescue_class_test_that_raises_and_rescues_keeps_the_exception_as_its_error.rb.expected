@@ -1,0 +1,9 @@
+[:caught, "one", "one", true]
+nil
+[:picky, "two"]
+[:outer, "three", "three", nil]
+[[:four, "four"], "four"]
+[:done, 3, nil]
+ensure nil
+[:six, "six"]
+nil
