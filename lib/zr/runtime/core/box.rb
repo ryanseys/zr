@@ -90,6 +90,23 @@ module Ruby
 
     def self.enabled? = !ENV["RUBY_BOX"].nil?
 
+    # An autoload that a box registers loads its feature through that
+    # box's `require`, which the box may decorate, wherever the constant
+    # is first read. The last box to register a feature has it.
+    def self.autoload_registered(feature)
+      Primitive.attr! :hidden
+      box = Primitive.zr_box_reach
+      return if box.nil? || Primitive.zr_hidden_get(box, :kind) == :main
+
+      (Primitive.zr_hidden_get(Box, :autoloads) || Primitive.zr_hidden_set(Box, :autoloads, {}))[feature] = box
+    end
+
+    def self.__autoload_require__(feature)
+      Primitive.attr! :hidden
+      box = Primitive.zr_hidden_get(Box, :autoloads)&.[](feature)
+      (box ? Primitive.zr_hidden_get(box, :main) : TOPLEVEL_BINDING.receiver).send(:require, feature)
+    end
+
     # The box the running code belongs to. Ruby counts the box the
     # program itself runs in as one, so main is a box too.
     def self.current = Primitive.zr_box_reach || (enabled? ? main : nil)

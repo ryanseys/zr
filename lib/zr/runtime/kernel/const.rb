@@ -1719,11 +1719,17 @@ module Zr::Kern
   end
 
   # The first read of a constant whose feature the program computed. It
-  # calls `require` on main, which a program can redefine, as ruby does.
+  # calls `require` on main, which a program can redefine, as ruby does;
+  # with boxes, on the main object of the box that registered the
+  # autoload (Ruby::Box.__autoload_require__).
   #: (value) -> value
   def zr_autoload_require(feature)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(feature))
+    box = zr_global(G_BOX)
+    if !zr_special_p(box)
+      return zr_send(box, Machine.id(:__autoload_require__), 1, slot)
+    end
     zr_send(zr_global(G_MAIN), Machine.id(:require), 1, slot)
   end
 

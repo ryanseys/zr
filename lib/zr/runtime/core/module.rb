@@ -135,6 +135,7 @@ class Module
     path = File.path(feature)
     raise ArgumentError, +"empty feature name" if path.empty?
     file = Kernel.feature_file(path)
+    Ruby::Box.send(:autoload_registered, path) if Ruby::Box.enabled?
     Primitive.zr_autoload_computed(self, autoload_name(name), path, nil, Kernel.loaded_feature?(path, file), file)
   end
 
