@@ -1,7 +1,7 @@
 module Zr::Kern
   # The Linux part of the socket calls: a sockaddr that starts with a
-  # 16-bit family, the layouts of struct addrinfo and struct msghdr,
-  # h_errno, and the peer's credentials.
+  # 16-bit family, the layouts of struct addrinfo and struct msghdr, and
+  # the peer's credentials.
 
   EPROTOTYPE = 91
   EAI_SYSTEM = 0 - 11
@@ -51,12 +51,6 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_os_addrinfo_next(node)
     Machine.ptr(Machine.load64(node, 40))
-  end
-
-  # The last resolver error, which gethostbyaddr sets in h_errno.
-  #: () -> word
-  def zr_os_h_errno
-    Machine.u32(Machine.load32(Libc.__h_errno_location(), 0))
   end
 
   # SO_PEERCRED at SOL_SOCKET: a struct ucred with the peer's pid, uid and

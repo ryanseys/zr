@@ -1,6 +1,6 @@
 module Zr::Kern
   # The darwin part of the socket calls: the BSD sockaddr with its length
-  # byte, the layout of struct addrinfo, h_errno, and getpeereid.
+  # byte, the layout of struct addrinfo, and getpeereid.
 
   # On this platform, a send on a connected datagram socket can fail with
   # EPROTOTYPE for a short time while the socket closes. ruby tries again.
@@ -48,12 +48,6 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_os_addrinfo_next(node)
     Machine.ptr(Machine.load64(node, 40))
-  end
-
-  # The last resolver error, which gethostbyaddr sets in h_errno.
-  #: () -> word
-  def zr_os_h_errno
-    Machine.u32(Machine.load32(Machine.extern(:h_errno), 0))
   end
 
   # The peer's effective user and group.

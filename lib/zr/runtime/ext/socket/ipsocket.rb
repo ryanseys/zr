@@ -133,12 +133,6 @@ class TCPSocket < IPSocket
   def initialize(remote_host, remote_serv, local_host = nil, local_serv = nil, resolv_timeout: nil, connect_timeout: nil, open_timeout: nil, fast_fallback: nil, test_mode_settings: nil)
     init_inetsock(remote_host, remote_serv, local_host, local_serv, false, resolv_timeout, connect_timeout, open_timeout)
   end
-
-  def self.gethostbyname(host)
-    Socket.warning("TCPSocket.gethostbyname is deprecated; use Addrinfo.getaddrinfo instead.")
-    rows = Socket.resolve(host, nil, socktype: Socket::SOCK_STREAM, flags: Socket::AI_CANONNAME)
-    Socket.make_hostent(host, rows) { |sockaddr| Socket.make_ipaddr(sockaddr) }
-  end
 end
 
 class TCPServer < TCPSocket

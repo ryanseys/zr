@@ -85,8 +85,6 @@ module Zr
           getgrgid
           getgrnam
           getgroups
-          gethostbyaddr
-          gethostbyname
           gethostname
           getifaddrs
           getlogin
@@ -110,8 +108,6 @@ module Zr
           getsockopt
           getuid
           grantpt
-          h_errno
-          hstrerror
           hypot
           if_indextoname
           if_nametoindex

@@ -281,51 +281,6 @@ module Zr::Kern
     zr_sock_cstr(Libc.gai_strerror(zr_sock_fd(code)))
   end
 
-  # The names in a NULL-terminated list of C strings.
-  #: (ptr) -> value
-  def zr_sock_cstr_list(list)
-    out = zr_ary_new(0)
-    if Machine.word(list) == 0
-      return out
-    end
-    while Machine.load64(list, 0) != 0
-      zr_ary_push(out, zr_sock_cstr(Machine.ptr(Machine.load64(list, 0))))
-      list = list + 8
-    end
-    out
-  end
-
-  # The aliases that gethostbyname(3) gives for a name, or nil.
-  #: (value) -> value
-  def zr_sock_host_aliases(name)
-    h = Libc.gethostbyname(RString[name].ptr)
-    if Machine.word(h) == 0
-      return Machine.value(QNIL)
-    end
-    zr_sock_cstr_list(Machine.ptr(Machine.load64(h, 8)))
-  end
-
-  # gethostbyaddr(3): [name, aliases, family, address bytes...], or the
-  # resolver's error message.
-  #: (value, value) -> value
-  def zr_sock_host_by_addr(addr, family)
-    h = Libc.gethostbyaddr(RString[addr].ptr, Machine.i32(RString[addr].len), zr_sock_fd(family))
-    if Machine.word(h) == 0
-      return zr_sock_cstr(Libc.hstrerror(Machine.i32(zr_os_h_errno())))
-    end
-    out = zr_ary_new(4)
-    zr_ary_push(out, zr_sock_cstr(Machine.ptr(Machine.load64(h, 0))))
-    zr_ary_push(out, zr_sock_cstr_list(Machine.ptr(Machine.load64(h, 8))))
-    zr_ary_push(out, zr_fix(Machine.u32(Machine.load32(h, 16))))
-    length = Machine.u32(Machine.load32(h, 20))
-    list = Machine.ptr(Machine.load64(h, 24))
-    while Machine.load64(list, 0) != 0
-      zr_ary_push(out, zr_sock_bytes(Machine.ptr(Machine.load64(list, 0)), length))
-      list = list + 8
-    end
-    out
-  end
-
   # A service's port in host order, or nil.
   #: (value, value) -> value
   def zr_sock_service_port(name, protocol)

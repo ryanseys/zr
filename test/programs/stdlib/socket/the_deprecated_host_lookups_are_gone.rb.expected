@@ -1,0 +1,12 @@
+false
+false
+false
+false
+[NoMethodError, "undefined method 'gethostbyname' for class Socket", :gethostbyname]
+[NoMethodError, "undefined method 'gethostbyaddr' for class Socket", :gethostbyaddr]
+[NoMethodError, "undefined method 'gethostbyname' for class TCPSocket", :gethostbyname]
+true
+["127.0.0.1"]
+"127.0.0.1"
+80
+"http"

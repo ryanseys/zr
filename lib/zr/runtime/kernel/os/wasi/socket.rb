@@ -33,11 +33,6 @@ module Zr::Kern
     Machine.ptr(0)
   end
 
-  #: () -> word
-  def zr_os_h_errno
-    0
-  end
-
   #: (value) -> value
   def zr_os_peereid(fd)
     zr_notimplement(Machine.bytes("getpeereid"), 10)

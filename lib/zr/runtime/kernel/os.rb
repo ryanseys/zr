@@ -82,7 +82,6 @@
 #   zr_os_sockaddr_len   [Ptr] => Word
 #   zr_os_addrinfo_row   [Ptr] => Value
 #   zr_os_addrinfo_next  [Ptr] => Ptr
-#   zr_os_h_errno        [] => Word
 #   zr_os_peereid        [Value] => Value
 #
 # The architecture layer, under lib/zr/runtime/kernel/arch/<arch>/, does the

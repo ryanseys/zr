@@ -384,12 +384,6 @@ module Zr::Kern
     def self.getnameinfo(p1, i1, p2, i2, p3, i3, i4) = Machine.import
     #: (ptr, word) -> i32
     def self.gethostname(p, n) = Machine.import
-    #: (ptr) -> ptr
-    def self.gethostbyname(p) = Machine.import
-    #: (ptr, i32, i32) -> ptr
-    def self.gethostbyaddr(p, i1, i2) = Machine.import
-    #: (i32) -> ptr
-    def self.hstrerror(i) = Machine.import
     #: (ptr, ptr) -> ptr
     def self.getservbyname(p1, p2) = Machine.import
     #: (i32, ptr) -> ptr

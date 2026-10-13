@@ -94,31 +94,6 @@ class Socket < BasicSocket
       name
     end
 
-    def gethostbyname(host)
-      Socket.warning("Socket.gethostbyname is deprecated; use Addrinfo.getaddrinfo instead.")
-      rows = Socket.resolve(host, nil, socktype: SOCK_STREAM, flags: AI_CANONNAME)
-      Socket.make_hostent(host, rows) do |sockaddr|
-        case Socket.sockaddr_family(sockaddr)
-        when AF_INET then sockaddr.byteslice(4, 4)
-        when AF_INET6 then sockaddr.byteslice(8, 16)
-        else raise SocketError, "unknown socket family:#{Socket.sockaddr_family(sockaddr)}"
-        end
-      end
-    end
-
-    def gethostbyaddr(addr, family = nil)
-      Socket.warning("Socket.gethostbyaddr is deprecated; use Addrinfo#getnameinfo instead.")
-      addr = Primitive.zr_str_operand(addr)
-      type = if family then Socket.family_arg(family)
-             elsif addr.bytesize == 16 then AF_INET6
-             else AF_INET
-             end
-      host = Primitive.zr_sock_host_by_addr(addr, type)
-      raise SocketError, host if host.is_a?(String)
-
-      host
-    end
-
     def getservbyname(service, proto = nil)
       name = Socket.cstr(service)
       protocol = proto.nil? ? "tcp" : Socket.cstr(proto)
@@ -262,12 +237,6 @@ class Socket < BasicSocket
       nil
     end
 
-    # rb_warn.
-    def warning(message)
-      Primitive.attr! :hidden
-      Warning.warn("#{Primitive.zr_warn_position}warning: #{message}\n") unless $VERBOSE.nil?
-    end
-
     # strtoul(3) in base 0, as a service written as a number is read:
     # nil unless it reads to the end.
     def strtoul(text)
@@ -281,16 +250,6 @@ class Socket < BasicSocket
               else match[4].to_i
               end
       match[1] == "-" ? -value : value
-    end
-
-    # rsock_make_hostent: [name, aliases, family, address...], each
-    # address as the block writes it.
-    def make_hostent(host, rows)
-      Primitive.attr! :hidden
-      canonical = rows[0][4]
-      name = canonical || Socket.host_str(host)[0]
-      aliases = canonical && canonical.bytesize < NI_MAXHOST ? Primitive.zr_sock_host_aliases(canonical) : nil
-      [name, aliases || [], rows[0][0], *rows.map { |row| yield row[3] }]
     end
 
     # getifaddrs(3)'s rows, or its error.
