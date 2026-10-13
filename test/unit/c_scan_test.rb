@@ -46,7 +46,9 @@ class CScanTest < Minitest::Test
 
     assert_predicate scan, :complete?
     assert_equal [1, 1, nil], [scan.sources, scan.compiled, scan.error]
-    assert_includes scan.imports, "rb_define_method"
+    # Ruby 4.1's headers give a define with a literal name to
+    # rb_define_method_id.
+    assert(scan.imports.intersect?(%w[rb_define_method rb_define_method_id]), scan.imports.inspect)
     # With gcc, ruby's headers give rb_funcall's constant arguments to
     # rb_funcallv.
     assert(scan.imports.intersect?(%w[rb_funcall rb_funcallv]), scan.imports.inspect)
