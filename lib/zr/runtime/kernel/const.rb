@@ -472,9 +472,10 @@ module Zr::Kern
     e
   end
 
-  # Warns `already initialized constant M::X`, and gives the location of
-  # the first definition when the file is known, each through Warning.warn.
-  # It warns nothing while the runtime boots.
+  # Warns `already initialized constant M::X`, with a second line that
+  # gives the first definition when its file and line are known, in one
+  # message through Warning.warn, as ruby 4.1's rb_const_set does. It
+  # warns nothing while the runtime boots.
   #: (value, word, ptr) -> void
   def zr_warn_reassigned_constant(klass, id, e)
     if Task[zr_task()].top == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
@@ -488,20 +489,17 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("::"), 2)
     end
     zr_buf_sym(b, id)
-    zr_warn_here(Buf[b].ptr, Buf[b].len)
-    if CEntry[e].file_len > 0
-      Buf[b].len = 0
+    if CEntry[e].file_len > 0 && CEntry[e].line != 0
+      zr_buf_byte(b, 10)
       zr_buf_push(b, CEntry[e].file, CEntry[e].file_len)
       zr_buf_byte(b, 58)
       zr_buf_long(b, CEntry[e].line)
       zr_buf_push(b, Machine.bytes(": warning: previous definition of "), 34)
       zr_buf_sym(b, id)
-      zr_buf_push(b, Machine.bytes(" was here\n"), 10)
-      # rb_compile_warn: through Warning.warn, as the first line.
-      zr_warning_write(zr_buf_take(b))
-    else
-      zr_buf_free(b)
+      zr_buf_push(b, Machine.bytes(" was here"), 9)
     end
+    zr_warn_here(Buf[b].ptr, Buf[b].len)
+    zr_buf_free(b)
   end
 
   # Appends `\nfile:line: previous definition of Name was here` to a
