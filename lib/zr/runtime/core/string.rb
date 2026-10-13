@@ -703,7 +703,9 @@ class String
       out << byteslice_of(at, stop - at)
       at = hit
     end
-    if at != pend
+    # A broken last character of a wide encoding can leave `at` past the
+    # end (ruby 4.1).
+    if at < pend
       if chomp
         if newline
           pend = chomp_newline(bytes, at, pend, onig, enc.ascii_compatible?)
