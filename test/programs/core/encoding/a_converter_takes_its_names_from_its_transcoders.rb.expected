@@ -1,0 +1,25 @@
+#<Encoding::Converter: WINDOWS-1252 to UTF-8>
+#<Encoding::Converter: UTF-8 to WINDOWS-1252>
+#<Encoding::Converter: MACROMAN to UTF-8 with universal_newline>
+#<Encoding::Converter: WINDOWS-1252 to KOI8-R>
+#<Encoding::Converter: SJIS-DOCOMO to UTF-8>
+#<Encoding::Converter: UTF-8 to SJIS-DOCOMO>
+#<Encoding::Converter: UTF8-DoCoMo to UTF-8>
+#<Encoding::Converter: UTF8-DOCOMO to SJIS-DOCOMO>
+#<Encoding::Converter: SJIS-KDDI to UTF-8>
+#<Encoding::Converter: EUC-JP to Shift_JIS>
+#<Encoding::Converter: WINDOWS-1252 to UTF-8>
+#<Encoding::Converter: UTF-8 to MACGREEK>
+#<Encoding::Converter: universal_newline>
+[Encoding::UndefinedConversionError, "\"\\x81\" from WINDOWS-1252 to UTF-8", "WINDOWS-1252", "UTF-8"]
+[Encoding::UndefinedConversionError, "U+0449 from UTF-8 to WINDOWS-1252", "UTF-8", "WINDOWS-1252"]
+[Encoding::UndefinedConversionError, "\"\\x81\" to UTF-8 in conversion from WINDOWS-1252 to UTF-8 to KOI8-R", "WINDOWS-1252", "UTF-8"]
+[Encoding::UndefinedConversionError, "U+0449 from UTF-8 to WINDOWS-874", "UTF-8", "WINDOWS-874"]
+[Encoding::UndefinedConversionError, "U+3042 from UTF-8 to MACCYRILLIC", "UTF-8", "MACCYRILLIC"]
+[Encoding::UndefinedConversionError, "\"\\xEE\\x9A\\xA0\" from UTF8-DoCoMo to UTF8-KDDI", "UTF8-DoCoMo", "UTF8-KDDI"]
+:undefined_conversion
+[:undefined_conversion, "UTF-8", "WINDOWS-1250", "\xE3\x81\x82", ""]
+"U+3042 from UTF-8 to WINDOWS-1250"
+[#<Encoding:UTF-8>, #<Encoding:Windows-1250>]
+"café"
+[[#<Encoding:Windows-1252>, #<Encoding:UTF-8>]]

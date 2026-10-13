@@ -858,7 +858,8 @@ class Encoding
       result, step, error, again = @last
       return [result, nil, nil, nil, nil] if step.nil?
 
-      [result, step.source.dup, step.target.dup, error.b, again.b]
+      source, target = declared(step)
+      [result, source.dup, target.dup, error.b, again.b]
     end
 
     def last_error = error_of(@last)
@@ -970,13 +971,19 @@ class Encoding
       @replacement
     end
 
-    # rb_econv_open: the steps of the path, then the decorators.
+    # rb_econv_open: the steps of the path, then the decorators. The
+    # converter takes its names from the first and the last transcoder
+    # (rb_econv_open0), as they declare them.
     def open(source, target, flags)
       Primitive.attr! :hidden
       names = Converter.send(:decorators_of, flags) or return false
       unless source.empty? && target.empty?
         pairs = Converter.send(:search, source, target) or return false
         pairs.each { |a, b| add(Converter.send(:step, a, b), @steps.size) }
+        unless @steps.empty?
+          source = declared(@steps.first)[0]
+          target = declared(@steps.last)[1]
+        end
       end
       names.each { |name| decorate_at_last(name) }
       @source_name = source
@@ -1012,10 +1019,17 @@ class Encoding
         pairs.each { |x, y| add(Converter.send(:step, x, y), @steps.size) }
         if first
           first = false
-          @source_name = @steps[at].source
+          @source_name = declared(@steps[at])[0]
         end
-        @destination_name = @steps.last.target
+        @destination_name = declared(@steps.last)[1]
       end
+    end
+
+    # The names that the transcoder of `step` declares, [source,
+    # destination], which a converter and its errors show.
+    def declared(step)
+      Primitive.attr! :hidden
+      Encoding.send(:transcoder_pair, step.source, step.target)
     end
 
     # rb_econv_add_transcoder_at: the step and its buffer.
@@ -1305,30 +1319,31 @@ class Encoding
 
       from = Converter.send(:encoding_named, step.source)
       to = Converter.send(:encoding_named, step.target)
+      source, target = declared(step)
       if result == :undefined_conversion
         shown = error.dump
         if step.source == "UTF-8"
           char = error.dup.force_encoding(Encoding::UTF_8)
           shown = format("U+%04X", char.ord) if char.valid_encoding? && char.length == 1
         end
-        message = if step.source == @source_name && step.target == @destination_name
-                    "#{shown} from #{step.source} to #{step.target}"
+        message = if source == @source_name && target == @destination_name
+                    "#{shown} from #{source} to #{target}"
                   else
-                    names = @steps.reject(&:decorator?).map(&:target)
-                    "#{shown} to #{step.target} in conversion from #{@source_name}#{names.map { |n| " to #{n}" }.join}"
+                    names = @steps.reject(&:decorator?).map { |each| declared(each)[1] }
+                    "#{shown} to #{target} in conversion from #{@source_name}#{names.map { |n| " to #{n}" }.join}"
                   end
         char = error.dup.force_encoding(from || Encoding::ASCII_8BIT)
-        return Encoding.send(:char_error, message, from, to, char).send(:named, step.source.dup, step.target.dup)
+        return Encoding.send(:char_error, message, from, to, char).send(:named, source.dup, target.dup)
       end
       message = if result == :incomplete_input
-                  "incomplete #{error.dump} on #{step.source}"
+                  "incomplete #{error.dump} on #{source}"
                 elsif again.empty?
-                  "#{error.dump} on #{step.source}"
+                  "#{error.dump} on #{source}"
                 else
-                  "#{error.dump} followed by #{again.dump} on #{step.source}"
+                  "#{error.dump} followed by #{again.dump} on #{source}"
                 end
       Encoding.send(:byte_error, message, from, to, error, again.empty? ? nil : again, result == :incomplete_input)
-              .send(:named, step.source.dup, step.target.dup)
+              .send(:named, source.dup, target.dup)
     end
   end
 end

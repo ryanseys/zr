@@ -25,7 +25,9 @@ module Zr
             return nil if message.start_with?("code converter not found")
 
             short = !message.include?(" in conversion from ")
-            step = short ? encoding.name : message[/\AU\+\h+ to (.*?) in conversion from /, 1]
+            # The name that the transcoder declares, which the converter shows
+            # (WINDOWS-1252 for Windows-1252).
+            step = short ? message[/ from UTF-8 to (\S+)\z/, 1] : message[/\AU\+\h+ to (.*?) in conversion from /, 1]
             [short, step, short_from?(encoding)]
           end
 

@@ -3670,9 +3670,9 @@ class Encoding
   # The two failures that a conversion can return give both of its ends,
   # and the character or the bytes where it stopped.
   class UndefinedConversionError < EncodingError
-    def source_encoding_name = @names ? @names[0] : @source&.name
+    def source_encoding_name = @names ? @names[0] : @source && Encoding.send(:transcoder_name, @source)
 
-    def destination_encoding_name = @names ? @names[1] : @destination&.name
+    def destination_encoding_name = @names ? @names[1] : @destination && Encoding.send(:transcoder_name, @destination)
 
     def source_encoding = @source
 
@@ -3698,9 +3698,9 @@ class Encoding
   end
 
   class InvalidByteSequenceError < EncodingError
-    def source_encoding_name = @names ? @names[0] : @source&.name
+    def source_encoding_name = @names ? @names[0] : @source && Encoding.send(:transcoder_name, @source)
 
-    def destination_encoding_name = @names ? @names[1] : @destination&.name
+    def destination_encoding_name = @names ? @names[1] : @destination && Encoding.send(:transcoder_name, @destination)
 
     def source_encoding = @source
 
@@ -4181,7 +4181,35 @@ class Encoding
     Primitive.attr! :hidden
     SHAPES.key?(encoding.name) ? SHAPES[encoding.name] : MB_SHAPES[encoding.name]
   end
-  private_class_method :shaped?, :shape_of
+
+  # The name that ruby's transcoder for `encoding` declares (enc/trans),
+  # which a conversion error shows since ruby takes a converter's names
+  # from its transcoders (20ca4e1f64): WINDOWS-1252 for Windows-1252, and
+  # SJIS-DOCOMO for a carrier's step to its UTF-8.
+  def self.transcoder_name(encoding)
+    Primitive.attr! :hidden
+    name = encoding.name
+    return HUB_NAMES[name][0] if HUB_NAMES.key?(name)
+
+    row = SHAPES[name]
+    row ? row[1] : name
+  end
+
+  # The names [source, destination] that ruby's transcoder from the
+  # encoding named `a` to the one named `b` declares: a carrier's step
+  # names both sides in its own way (UTF8-DOCOMO to SJIS-DOCOMO), and any
+  # other step names each side as transcoder_name does.
+  def self.transcoder_pair(a, b)
+    Primitive.attr! :hidden
+    hub = HUB_NAMES[a]
+    return hub if hub && hub[1].casecmp?(b)
+
+    hub = HUB_NAMES[b]
+    return hub.reverse if hub && hub[1].casecmp?(a)
+
+    [a, b].map { |name| (row = SHAPES[name]) ? row[1] : name }
+  end
+  private_class_method :shaped?, :shape_of, :transcoder_name, :transcoder_pair
 
   # Each byte read as the code point its encoding gives it.
   def self.to_utf8(text, path, options)
@@ -4755,7 +4783,7 @@ class Encoding
       elsif options[:xml]
         out.concat("&#x#{format('%X', point)};".bytes)
       else
-        named = path.map { |step| step.is_a?(String) ? step : step.name }.join(" to ")
+        named = path.map { |step| step.is_a?(String) ? step : transcoder_name(step) }.join(" to ")
         raise char_error("#{char.b.dump} to #{source} in conversion from #{named}", hub, target, char)
                 .send(:named, destination, source)
       end
@@ -4832,11 +4860,11 @@ class Encoding
     Primitive.attr! :hidden
     other = to.equal?(UTF_8) ? from : to
     row = shape_of(other)
-    return "#{shown} from #{from.name} to #{to.name}" if path.size == 2 && (to.equal?(UTF_8) ? row[2] : row[0])
+    return "#{shown} from #{transcoder_name(from)} to #{transcoder_name(to)}" if path.size == 2 && (to.equal?(UTF_8) ? row[2] : row[0])
 
     step = to.equal?(UTF_8) ? +"UTF-8" : row[1]
     # A hub step shows in the path as its transcoder's own name.
-    named = path.map { |encoding| encoding.is_a?(String) ? encoding : (encoding.equal?(to) ? step : encoding.name) }
+    named = path.map { |encoding| encoding.is_a?(String) ? encoding : (encoding.equal?(to) ? step : transcoder_name(encoding)) }
     "#{shown} to #{step} in conversion from #{named.join(' to ')}"
   end
   private_class_method :message
