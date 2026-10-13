@@ -994,7 +994,8 @@ class Thread
         @armed = true
         begin
           throw @kill_tag if @killed
-          Kernel.raise @pending if @pending
+          # The thread raises the error again: its `exception` runs here.
+          Kernel.raise @pending.exception if @pending
           begin
             Primitive.zr_task_root(@block)
             @value = @block.call(*@args)
@@ -1094,7 +1095,9 @@ class Thread
     if @pending && !masked?(@pending) && (!@killed || @raised_first || @aborting)
       e = @pending
       @pending = nil
-      Kernel.raise e
+      # The thread raises the error again: its `exception` runs here, as
+      # rb_threadptr_execute_interrupts calls it.
+      Kernel.raise e.exception
     end
     kill_here if @killed && !@aborting
   end

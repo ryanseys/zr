@@ -376,10 +376,13 @@ end
     # rb_get_backtrace: a program's own `backtrace` says whether the
     # exception has one already; nil lets the raise capture it.
     custom = zr_exc_backtrace_custom(exc)
+    hooked = Machine.value(QNIL)
     if RException[exc].rows == 0 && RException[exc].bt == QNIL && (custom == QUNDEF || custom == QNIL)
       zr_backtrace_capture(exc, top)
+      hooked = zr_exc_set_backtrace_hook(exc)
+      return hooked if hooked == QUNDEF
     end
-    if RException[exc].bt != QNIL && RException[exc].rows != 0
+    if hooked != QTRUE && RException[exc].bt != QNIL && RException[exc].rows != 0
       zr_xfree(RException[exc].rows)
       RException[exc].rows = 0
       RException[exc].nrows = 0
@@ -421,6 +424,48 @@ end
       return Machine.value(QNIL)
     end
     r
+  end
+
+  # Whether the class of `exc` has a set_backtrace of the program's own,
+  # which a raise calls (set_backtrace in eval_error.c).
+  #: (value) -> bool
+  def zr_exc_set_backtrace_own_p(exc)
+    e = zr_find_method(zr_class_of(exc), Machine.id(:set_backtrace))
+    e != 0 && MEntry[e].core == 0
+  end
+
+  # setup_exception gives the frames that a raise captured to a
+  # set_backtrace of the program's own, as Strings. The exception keeps
+  # its locations (idBt_locations) whatever that method stores, and
+  # `backtrace` gives what it stored: nil when it stored nothing. Under a
+  # raise inside the call, the call is not made again. True when the call
+  # was made.
+  #: (value) -> value
+  def zr_exc_set_backtrace_hook(exc)
+    if !zr_exc_set_backtrace_own_p(exc)
+      return Machine.value(QNIL)
+    end
+    setting = Machine.static(:set_backtrace_calling, 8)
+    t = zr_task()
+    if Machine.load64(setting, 0) == Machine.word(t)
+      return Machine.value(QNIL)
+    end
+    strs = zr_exc_raise_rows(exc)
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(strs))
+    was = Machine.load64(setting, 0)
+    Machine.store64(setting, 0, Machine.word(t))
+    r = zr_send(exc, Machine.id(:set_backtrace), 1, arg)
+    Machine.store64(setting, 0, was)
+    return r if r == QUNDEF
+    if RException[exc].bt == strs
+      RException[exc].bt = Machine.value(QNIL)
+      RException[exc].strs = strs
+      zr_write_barrier(exc, strs)
+    elsif RException[exc].bt == QNIL
+      RException[exc].bt = Machine.value(QFALSE)
+    end
+    Machine.value(QTRUE)
   end
 
   # The end of a raise: the $DEBUG report, the `:raise` event, then the
@@ -729,8 +774,10 @@ end
     if zr_special_p(e) || zr_type(e) != T_EXCEPTION
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
     end
+    # The third argument goes to a set_backtrace of the program's own, as
+    # rb_make_exception calls it, else the core's.
     if argc == 3
-      r = zr_send(e, Machine.id(:assign_backtrace), 1, argv + 16)
+      r = zr_send(e, zr_exc_set_backtrace_own_p(e) ? Machine.id(:set_backtrace) : Machine.id(:assign_backtrace), 1, argv + 16)
       return r if r == QUNDEF
     end
     e
