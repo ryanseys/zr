@@ -139,7 +139,7 @@ class IO
       target.flush
     end
     begin
-      answer = ttymode(:noecho_mode) { gets }
+      answer = ttymode(:noecho_mode) { gets("\n") }
     ensure
       # A newline, whatever $/ is (io-console 0.9).
       target.write("\n")
@@ -268,9 +268,11 @@ class IO
     goto(position[0], position[1])
   end
 
-  # Only Windows has these two, and ruby refuses them here with their names.
-  def pressed?(*) = raise(NotImplementedError, "pressed?() function is unimplemented on this machine")
-  def check_winsize_changed(*) = raise(NotImplementedError, "check_winsize_changed() function is unimplemented on this machine")
+  # Only Windows has these, so here they are rb_f_notimplement: a call
+  # raises NotImplementedError, and respond_to? is false.
+  Primitive.zr_define_notimplement(self, :pressed?)
+  Primitive.zr_define_notimplement(self, :console_input_events)
+  Primitive.zr_define_notimplement(self, :check_winsize_changed)
 
   # ---- the readers that StringIO shares -------------------------------
 
@@ -289,7 +291,7 @@ class IO
       end
       flush if respond_to?(:flush)
       begin
-        line = gets
+        line = gets("\n")
       ensure
         write("\n")
       end
@@ -536,5 +538,27 @@ class IO
 
       value
     end
+
+    # console_platform_tty_p: whether a tty? that names `types` makes the
+    # default check. nil names it, and :any each known kind of tty,
+    # the default one too. The other kinds (:cygwin, :msys) are Windows'.
+    def default_tty?(types)
+      Primitive.attr! :hidden
+      types.empty? || types.reduce(false) do |default, type|
+        next true if type.nil?
+        raise TypeError, "wrong argument type #{type.class} (expected Symbol)" unless type.is_a?(Symbol)
+        raise ArgumentError, "unknown tty type: #{type.inspect}" unless type == :any
+
+        true
+      end
+    end
   end
+
+  # IO::platform_tty, which io/console prepends to IO: tty? and isatty
+  # take the kinds of tty to check for.
+  Primitive.zr_module_define_m(IO, :platform_tty).module_eval do
+    def tty?(*types) = IO.send(:default_tty?, types) ? super() : false
+    def isatty(*types) = IO.send(:default_tty?, types) ? super() : false
+  end
+  prepend(Primitive.zr_module_define_m(IO, :platform_tty))
 end
