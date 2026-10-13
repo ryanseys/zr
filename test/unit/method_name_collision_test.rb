@@ -54,10 +54,15 @@ class MethodNameCollisionTest < Minitest::Test
   # Ruby port in place of the C extension. If a file required prism
   # directly, the C extension would load first, and the port would not
   # load. The harness that checks the port against the C extension loads
-  # the C extension on purpose.
+  # the C extension on purpose, and so does `zr-dev fuzz`, which edits and
+  # reduces programs on prism's tree in a process that never compiles
+  # (fuzz/builder.rb compiles in a process of its own).
+  C_PRISM = %w[tool/lib/zr/dev/fuzz/metamorphic.rb tool/lib/zr/dev/fuzz/mutator.rb tool/lib/zr/dev/fuzz/reducer.rb].freeze
+
   def test_the_compiler_requires_prism_only_through_zr_prism
     direct = (Dir[File.join(ROOT, "{lib,tool,exe}/**/*.rb")] - Dir[File.join(ROOT, "lib/zr/runtime/**/*.rb")]).select do |file|
-      File.read(file).match?(/^\s*require ["']prism["']/) && !file.end_with?("/lib/zr/prism.rb")
+      File.read(file).match?(/^\s*require ["']prism["']/) && !file.end_with?("/lib/zr/prism.rb") &&
+        !C_PRISM.include?(file.delete_prefix("#{ROOT}/"))
     end
     assert_empty direct.map { |file| file.delete_prefix("#{ROOT}/") }
   end

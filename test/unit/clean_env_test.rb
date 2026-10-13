@@ -27,11 +27,11 @@ class CleanEnvTest < Minitest::Test
     assert_equal "nil\n", ruby("p defined?(Bundler)")
   end
 
-  # A plain ruby returns 16 for the first object id. After bundler runs,
-  # it returns 464. Thus ruby and the binary under test gave different
-  # output.
+  # A plain ruby returns a small number for the first object id (8, or 16
+  # in an older ruby). After bundler runs, it returns one in the hundreds
+  # (464). Thus ruby and the binary under test gave different output.
   def test_child_object_ids_start_where_plain_ruby_starts
-    assert_equal "16\n", ruby(%(p "x".object_id))
+    assert_operator Integer(ruby(%(p "x".object_id))), :<, 64
   end
 
   private

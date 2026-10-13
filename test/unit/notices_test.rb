@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "../../lib/zr/ruby_version"
 
 # THIRD_PARTY_NOTICES.md names each part of the gem that other people
 # wrote. A runtime file whose header says that it follows other work
@@ -16,8 +17,10 @@ class NoticesTest < Minitest::Test
 
   # The repository paths that the notices name. A heading names a whole
   # part (`lib/zr/runtime/`), not a file in it, so it covers nothing.
+  # `<ruby_version>` in a path is the pinned ruby's library version.
   def paths
     NOTICES.lines.grep_v(/\A#/).join.scan(/`([^`]+)`/).flatten.grep(%r{\A(lib|vendor|licenses|benchmark)/}).uniq
+           .map { |path| path.gsub("<ruby_version>", Zr::RUBY_LIB_VERSION) }
   end
 
   def covered?(file)
