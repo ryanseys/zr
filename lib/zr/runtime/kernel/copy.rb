@@ -251,7 +251,6 @@ module Zr::Kern
       ClassExt[ext].mlen = ClassExt[from].mlen
       zr_methods_changed()
       ClassExt[ext].mcap = ClassExt[from].mlen
-      zr_crefs_rebound(tab, ClassExt[ext].mlen, orig, copy)
     end
     if ClassExt[from].clen > 0
       tab = zr_xmalloc(ClassExt[from].clen * CEntry.size)
@@ -282,22 +281,6 @@ module Zr::Kern
       zr_include_singleton(copy, RBasic[orig].klass)
     end
     copy
-  end
-
-  # rb_vm_rewrite_cref: a copied method whose body was written in the
-  # original reads constants and class variables through the copy, so
-  # `def foo = TEST` in a clone finds the clone's own TEST.
-  #: (ptr, word, value, value) -> void
-  def zr_crefs_rebound(tab, len, orig, copy)
-    i = 0
-    while i < len
-      e = tab + (i * MEntry.size)
-      cref = MEntry[e].cref
-      if !zr_special_p(cref) && zr_type(cref) == T_CREF && RCref[cref].klass == orig
-        MEntry[e].cref = zr_cref_push(copy, RCref[cref].next)
-      end
-      i += 1
-    end
   end
 
   # rb_mod_init_copy for a class or module with prepends: the copy gets

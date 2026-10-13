@@ -1,4 +1,5 @@
-# A cloned class's methods read the clone's constants; a singleton class
+# A cloned class's methods read the original's constants, as ruby 4.1
+# keeps their cref (#21981); a singleton class
 # has no copy; a clone keeps the singleton class of its singleton class;
 # initialize_dup of a class sees the whole copy; and a bare `private`
 # in a method warns.
