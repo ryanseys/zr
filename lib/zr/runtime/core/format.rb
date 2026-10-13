@@ -332,6 +332,12 @@ module Kernel
 
                char
              else
+               # rb_enc_codelen gives no length past a byte, and
+               # rb_ascii8bit_appendable_encoding_index refuses that code
+               # of a binary or US-ASCII result first.
+               raise RangeError, "#{n} out of char range" if n > 255 && (enc.equal?(Encoding::BINARY) || enc.equal?(Encoding::US_ASCII))
+               raise ArgumentError, +"invalid character" if n > 255
+
                n.chr(enc)
              end
       pad(char, flags, width)

@@ -804,6 +804,15 @@ module Zr::Kern
       Machine.store64(arg, 0, Machine.word(zr_fix(c)))
       return zr_send(recv, Machine.id(:append_mb_point), 1, arg)
     end
+    # rb_str_concat: a binary or US-ASCII String takes a byte, and any
+    # other single-byte encoding has no code past one, which Integer#chr
+    # names with the encoding (rb_enc_codelen).
+    index = zr_str_encoding_index(recv)
+    if !zr_str_wide_p(recv) && c > 255 && index != ENC_BINARY && index != ENC_USASCII
+      arg = Machine.slot(8)
+      Machine.store64(arg, 0, Machine.word(zr_fix(c)))
+      return zr_send(recv, Machine.id(:append_mb_point), 1, arg)
+    end
     limit = zr_str_wide_p(recv) ? 1114111 : 255
     if zr_str_wide_p(recv) && c >= 55296 && c <= 57343
       b = Machine.slot(Buf.size)
@@ -824,6 +833,9 @@ module Zr::Kern
       zr_buf_long(b, c)
       zr_buf_push(b, Machine.bytes(" out of char range"), 18)
       return zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b)
+    end
+    if zr_modify_frozen_p(recv)
+      return zr_frozen_error(recv)
     end
     # A non-ASCII byte makes a US-ASCII String binary, as in rb_str_concat.
     # A frozen String raises before its encoding changes.
@@ -990,14 +1002,15 @@ module Zr::Kern
     out
   end
 
-  # `<<` appends in place. A frozen receiver raises.
+  # `<<` appends in place. A frozen receiver raises, after a code point
+  # that is no character, as rb_str_concat checks the code first.
   #: (value, word, ptr, value, value) -> value
   def zr_str_concat(recv, argc, argv, cref, blk)
-    if zr_modify_frozen_p(recv)
-      return zr_frozen_error(recv)
-    end
     if zr_fixnum_p(Machine.value(Machine.load64(argv, 0)))
       return zr_str_concat_codepoint(recv, zr_fix2long(Machine.value(Machine.load64(argv, 0))))
+    end
+    if zr_modify_frozen_p(recv)
+      return zr_frozen_error(recv)
     end
     other = Machine.value(Machine.load64(argv, 0))
     if zr_big_p(other)

@@ -322,13 +322,12 @@ class Regexp
         def precise_len(s, p, _e) = @us_ascii && s.getbyte(p) >= 0x80 ? INVALID : 1
         def mbc_to_code(s, p, _e) = s.getbyte(p)
 
-        # onigenc_single_byte_code_to_mbclen and _code_to_mbc as ruby
-        # builds them: one byte for any code, and a code past a byte
-        # refused as ruby refuses it.
-        def code_to_mbclen(_code) = 1
+        # onigenc_single_byte_code_to_mbclen and _code_to_mbc: one byte,
+        # and a code past a byte is no code point of the encoding.
+        def code_to_mbclen(code) = code > 0xff ? Err::INVALID_CODE_POINT_VALUE : 1
 
         def code_to_mbc(code)
-          raise RangeError, "#{code} out of char range" if code > 0xff
+          raise Error.new(Err::INVALID_CODE_POINT_VALUE) if code > 0xff
 
           code.chr.b
         end

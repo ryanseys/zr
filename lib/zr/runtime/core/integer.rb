@@ -239,8 +239,11 @@ class Integer
 
         return text
       end
-      raise RangeError, "#{self} out of char range" if self > 255
-      raise RangeError, "invalid codepoint 0x#{format('%X', self)} in US-ASCII" if self > 127 && encoding.equal?(Encoding::US_ASCII)
+      # A single-byte encoding has no code point past a byte, and US-ASCII
+      # none past 127 (onigenc_single_byte_code_to_mbclen).
+      if self > 255 || (self > 127 && encoding.equal?(Encoding::US_ASCII))
+        raise RangeError, "invalid codepoint 0x#{format('%X', self)} in #{encoding.name}"
+      end
 
       return Primitive.zr_str_set_index_m(Primitive.zr_str_from_byte(self), index)
     end
