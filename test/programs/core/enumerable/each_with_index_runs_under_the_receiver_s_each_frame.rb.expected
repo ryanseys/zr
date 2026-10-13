@@ -1,0 +1,7 @@
+["'block (2 levels) in <main>'", "'Array#each'", "'Enumerable#each_with_index'", "'block in <main>'", "'Object#show'", "'<main>'"]
+["'block (2 levels) in <main>'", "'Array#each'", "'block in <main>'", "'Object#show'", "'<main>'"]
+["'block (2 levels) in <main>'", "'Hash#each'", "'Enumerable#each_with_index'", "'block in <main>'", "'Object#show'", "'<main>'"]
+["'block (2 levels) in <main>'", "'Range#each'", "'Enumerable#each_with_index'", "'block in <main>'", "'Object#show'", "'<main>'"]
+["'block (2 levels) in <main>'", "'Array#each'", "'Enumerable#each_with_index'", "'Enumerator#each'", "'block in <main>'", "'Object#show'", "'<main>'"]
+["'block (2 levels) in <main>'", "'Array#each'", "'Enumerable#each_slice'", "'block in <main>'", "'Object#show'", "'<main>'"]
+["'block (2 levels) in <main>'", "'Array#map'", "'Enumerator#with_index'", "'block in <main>'", "'Object#show'", "'<main>'"]

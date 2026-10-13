@@ -1660,26 +1660,12 @@ module Zr::Kern
   # linked under the caller's frame, which is the top. The site stores the
   # caller's frame back when the loop ends, and its landing block does the
   # same on a pending unwind. The gate that the site checked tells that
-  # `mid` is the builtin that the receiver's class finds. With no
-  # refinement in use, the method cache gives the entry; a refined lookup
-  # would find the refinement, so the walk does.
+  # `mid` is the builtin that the receiver's class finds.
   #: (ptr, value, word, ptr) -> void
   def zr_iter_enter(recs, recv, mid, meta)
     t = zr_task()
     home = Task[t].top
-    klass = zr_class_of(recv)
-    e = Task[t].refine == QNIL ? zr_find_method(klass, mid) : zr_search_method(klass, mid)
-    Frame[recs].prev = home
-    Frame[recs].meta = MEntry[e].meta
-    Frame[recs].line = 0
-    Frame[recs].serial = 0
-    Frame[recs].self = recv
-    Frame[recs].cref = Machine.value(QNIL)
-    Frame[recs].blk = Machine.value(QNIL)
-    Frame[recs].nvalues = 0
-    Frame[recs].entry = e
-    Frame[recs].svars = Machine.value(QNIL)
-    Frame[recs].defined = Machine.value(QNIL)
+    zr_builtin_frame(recs, home, recv, mid)
     b = recs + Frame.size
     Frame[b].prev = recs
     Frame[b].meta = meta
@@ -1695,6 +1681,27 @@ module Zr::Kern
     Task[t].top = b
   end
 
+  # Fills `rec` as the frame of the builtin `mid` of `recv`, linked under
+  # `home`, as zr_builtin_fn makes it. With no refinement in use, the
+  # method cache gives the entry; a refined lookup would find the
+  # refinement, so the walk does.
+  #: (ptr, ptr, value, word) -> void
+  def zr_builtin_frame(rec, home, recv, mid)
+    klass = zr_class_of(recv)
+    e = Task[zr_task()].refine == QNIL ? zr_find_method(klass, mid) : zr_search_method(klass, mid)
+    Frame[rec].prev = home
+    Frame[rec].meta = MEntry[e].meta
+    Frame[rec].line = 0
+    Frame[rec].serial = 0
+    Frame[rec].self = recv
+    Frame[rec].cref = Machine.value(QNIL)
+    Frame[rec].blk = Machine.value(QNIL)
+    Frame[rec].nvalues = 0
+    Frame[rec].entry = e
+    Frame[rec].svars = Machine.value(QNIL)
+    Frame[rec].defined = Machine.value(QNIL)
+  end
+
   # Whether `v` is an Array whose `each` is Array's own. Then an Enumerable
   # method can walk it by index and give the same result as `each`.
   #: (value) -> value
@@ -1705,9 +1712,20 @@ module Zr::Kern
     zr_key_builtin_p(v, Machine.id(:each), Machine.addr(:zr_ary_each)) ? Machine.value(QTRUE) : Machine.value(QFALSE)
   end
 
+  # Enumerable#each_with_index over an Array whose `each` is Array's own
+  # (zr_ary_plain_each_p): the walk runs under a frame of Array#each, as
+  # the each that rb_block_call calls does, so a backtrace out of the
+  # block names it.
   #: (value, value) -> value
   def zr_ary_each_with_index_m(recv, blk)
-    zr_ary_each_with_index(recv, 0, 0, Machine.value(QNIL), blk)
+    t = zr_task()
+    home = Task[t].top
+    rec = Machine.slot(Frame.size)
+    zr_builtin_frame(rec, home, recv, Machine.id(:each))
+    Task[t].top = rec
+    r = zr_ary_each_with_index(recv, 0, 0, Machine.value(QNIL), blk)
+    Task[t].top = home
+    r
   end
 
   #: (value, word, ptr, value, value) -> value
