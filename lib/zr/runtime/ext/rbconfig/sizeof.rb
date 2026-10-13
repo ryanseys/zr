@@ -27,7 +27,7 @@ module RbConfig
   # `long` and a `size_t` are four bytes; every other target zr emits
   # for is LP64.
   pointer = RUBY_PLATFORM.start_with?("wasm32") ? 4 : 8
-  %w[long void* size_t ptrdiff_t intptr_t uintptr_t ssize_t].each { |name| sizeof[name] = pointer }
+  %w[long void* size_t ptrdiff_t intptr_t uintptr_t ssize_t rb_len_t].each { |name| sizeof[name] = pointer }
 
   # In the order the C extension writes them, so a program that prints
   # the table prints ruby's.
@@ -38,7 +38,7 @@ module RbConfig
     int_least8_t int_least16_t int_least32_t int_least64_t
     int_fast8_t int_fast16_t int_fast32_t int_fast64_t
     intmax_t sig_atomic_t wchar_t wint_t wctrans_t wctype_t _Bool long\ double
-    float\ _Complex double\ _Complex long\ double\ _Complex
+    float\ _Complex double\ _Complex long\ double\ _Complex rb_len_t
   ].freeze
   private_constant :ORDER
 

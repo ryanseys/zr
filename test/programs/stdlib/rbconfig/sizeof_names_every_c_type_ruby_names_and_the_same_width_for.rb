@@ -10,8 +10,8 @@ p RbConfig::SIZEOF.keys == %w[int short long long\ long __int128 off_t void* flo
                               int_least8_t int_least16_t int_least32_t int_least64_t
                               int_fast8_t int_fast16_t int_fast32_t int_fast64_t intmax_t sig_atomic_t
                               wchar_t wint_t wctrans_t wctype_t _Bool long\ double
-                              float\ _Complex double\ _Complex long\ double\ _Complex]
-p RbConfig::SIZEOF.values_at("int", "long", "void*", "size_t", "long long", "__int128", "_Bool")
+                              float\ _Complex double\ _Complex long\ double\ _Complex rb_len_t]
+p RbConfig::SIZEOF.values_at("int", "long", "void*", "size_t", "long long", "__int128", "_Bool", "rb_len_t")
 p RbConfig::LIMITS.size
 p RbConfig::LIMITS.values_at("FIXNUM_MAX", "FIXNUM_MIN", "INT_MAX", "ULONG_MAX", "SIZE_MAX", "INT_FAST16_MIN")
 p RbConfig::LIMITS.values_at("FLT_MAX", "DBL_EPSILON", "DBL_TRUE_MIN", "DECIMAL_DIG")
