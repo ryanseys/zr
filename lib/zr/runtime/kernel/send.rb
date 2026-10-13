@@ -359,8 +359,8 @@ module Zr::Kern
     if rec == 0
       return 0
     end
-    r = Frame[rec].defined
-    if zr_special_p(r) || zr_type(r) != T_MODULE || ClassExt[RClass[r].ext].refined == QNIL
+    r = zr_refinement_holder(Frame[rec].defined)
+    if r == QNIL
       return 0
     end
     list = zr_ary_new(1)
@@ -639,6 +639,7 @@ module Zr::Kern
     if entry != 0
       owner = FrameMeta[MEntry[entry].meta].owner
       mid = MEntry[entry].orig
+      skip = zr_method_meta(entry)
     else
       meta = zr_method_meta_of(rec)
       if meta == 0
@@ -647,6 +648,7 @@ module Zr::Kern
       end
       owner = FrameMeta[meta].owner
       mid = FrameMeta[meta].name
+      skip = meta
     end
     k = zr_super_from(rec, recv, owner, entry != 0)
     checked = zr_super_self_check(rec, recv, owner, k, entry != 0)
@@ -665,10 +667,11 @@ module Zr::Kern
     kw = zr_kw_take()
     e = 0
     refined = false
-    if k != QNIL && zr_type(k) == T_MODULE && ClassExt[RClass[k].ext].refined != QNIL
+    h = zr_refinement_holder(k)
+    if h != QNIL
       # `super` in a refined method finds the method that the refinement
       # overrides (zr_refined_super_search).
-      e = zr_refined_super_search(ClassExt[RClass[k].ext].refined, mid)
+      e = zr_refined_super_search(h, k, mid, skip)
       refined = true
     elsif k != QNIL
       e = zr_find_method(RClass[k].superclass, mid)
@@ -702,13 +705,40 @@ module Zr::Kern
     r
   end
 
-  # `super` in a refinement's method: the refined class's own methods
-  # first, up to its origin, with no refinement, because the refinement
-  # would otherwise find itself. Above them, the refinements that the
-  # super site uses apply, as search_refined_method goes on to the
-  # superclass.
-  #: (value, word) -> ptr
-  def zr_refined_super_search(refined, mid)
+  # `super` in a method of refinement `h`, found at `at` (`h`, or its proxy
+  # at an include node of the module that `h` refines). First the other
+  # refinements of the same class or module that the super site uses,
+  # newest first: the method's own definition (`skip`, its meta) is
+  # skipped, as search_refined_method skips it. Then the refined class's
+  # own methods, at its node, up to its origin. Above them, the
+  # refinements that the super site uses apply, as search_refined_method
+  # goes on to the superclass.
+  #: (value, value, word, ptr) -> ptr
+  def zr_refined_super_search(h, at, mid, skip)
+    refined = ClassExt[RClass[h].ext].refined
+    node = zr_type(at) == T_ICLASS ? RClass[at].superclass : refined
+    e = zr_refined_entry_skip(refined, mid, skip)
+    if e != 0
+      found = Task[zr_task()].found
+      if zr_type(node) == T_ICLASS && zr_type(found) == T_MODULE && ClassExt[RClass[found].ext].refined != QNIL
+        Task[zr_task()].found = zr_refinement_iclass(node, found)
+      end
+      return MEntry[e].kind == KIND_UNDEF ? Machine.ptr(0) : e
+    end
+    if zr_type(node) == T_ICLASS
+      e = zr_find_method_at(node, mid)
+      if e != 0
+        if MEntry[e].kind == KIND_UNDEF
+          return 0
+        end
+        Task[zr_task()].found = node
+        return e
+      end
+      if RClass[node].superclass == QNIL
+        return 0
+      end
+      return zr_find_method(RClass[node].superclass, mid)
+    end
     origin = zr_origin(refined)
     k = refined
     while k != QNIL
@@ -810,9 +840,77 @@ module Zr::Kern
       r = Frame[r].prev
     end
     if r == 0
+      r = zr_def_frame_by_homes(rec, meta)
+    end
+    if r == 0
       return Machine.value(QNIL)
     end
     Frame[r].defined
+  end
+
+  # Whether frame `rec` with `serial` is on the stack of this task, of a
+  # fiber of this thread, or of any live fiber (another thread's).
+  #: (ptr, word) -> bool
+  def zr_frame_live_anywhere(rec, serial)
+    if zr_frame_live_near(rec, serial)
+      return true
+    end
+    l = zr_fiber_list()
+    i = 0
+    while i < FiberList[l].len
+      w = Machine.load64(FiberList[l].ptr + (i * 8), 0) & (0 - 2)
+      task = RFiber[Machine.value(w)].task
+      if task != 0 && zr_frame_on_stack(Task[task].top, rec, serial)
+        return true
+      end
+      i += 1
+    end
+    false
+  end
+
+  # The frame of the def `meta` that block frame `rec` runs in, when
+  # another thread or fiber runs the block: each block's Proc leads to the
+  # frame that made it while that frame is live. Returns 0 when none does.
+  #: (ptr, ptr) -> ptr
+  def zr_def_frame_by_homes(rec, meta)
+    r = rec
+    while r != 0 && Frame[r].meta != meta
+      fm = Frame[r].meta
+      home = Machine.ptr(0)
+      if fm != 0 && FrameMeta[fm].kind == KIND_BLOCK && Frame[r].entry != 0
+        p = Machine.value(Frame[r].entry)
+        if RProc[p].home != 0 && zr_frame_live_anywhere(RProc[p].home, RProc[p].serial)
+          home = RProc[p].home
+        end
+      end
+      r = home != 0 ? home : Frame[r].prev
+    end
+    r
+  end
+
+  # The node where the call of the `define_method` method that frame
+  # `rec` runs in found it (RProc#found of the copy that runs the call),
+  # or nil. A node whose table no longer holds the method gives nil.
+  #: (ptr) -> value
+  def zr_bmethod_found(rec)
+    e = zr_bmethod_entry(rec)
+    r = rec
+    while r != 0
+      fm = Frame[r].meta
+      if fm != 0 && FrameMeta[fm].kind == KIND_BLOCK && Frame[r].entry != 0
+        p = Machine.value(Frame[r].entry)
+        if (RBasic[p].flags & FL_BMETHOD_RUN) != 0 && RProc[p].cref != QNIL && RCref[RProc[p].cref].entry == e
+          found = RProc[p].found
+          at = zr_find_method_at(found, MEntry[e].mid)
+          if at != 0 && MEntry[at].cref == MEntry[e].cref
+            return found
+          end
+          return Machine.value(QNIL)
+        end
+      end
+      r = Frame[r].prev
+    end
+    Machine.value(QNIL)
   end
 
   # Returns the method entry of the `define_method` method that the frame
@@ -851,6 +949,7 @@ module Zr::Kern
     if entry != 0
       owner = FrameMeta[MEntry[entry].meta].owner
       mid = MEntry[entry].orig
+      skip = zr_method_meta(entry)
     else
       meta = zr_method_meta_of(rec)
       if meta == 0
@@ -858,10 +957,16 @@ module Zr::Kern
       end
       owner = FrameMeta[meta].owner
       mid = FrameMeta[meta].name
+      skip = meta
     end
     k = zr_super_from(rec, Frame[rec].self, owner, entry != 0)
     if k == QNIL
       return Machine.value(QFALSE)
+    end
+    # In a refinement's method, as for its `super` (zr_super_call).
+    h = zr_refinement_holder(k)
+    if h != QNIL
+      return zr_bool(zr_refined_super_search(h, k, mid, skip) != 0)
     end
     zr_bool(zr_find_method(RClass[k].superclass, mid) != 0)
   end
@@ -871,10 +976,11 @@ module Zr::Kern
   # module included twice has two nodes). Otherwise it is the first node
   # of `owner` in the receiver's ancestor list. Returns nil when there is
   # none. A method from `define_method` (`bmethod`) runs a block whose
-  # lexical def is not its method, so only its owner counts.
+  # lexical def is not its method: the node is where its call found it
+  # (zr_bmethod_found), else only its owner counts.
   #: (ptr, value, value, bool) -> value
   def zr_super_from(rec, recv, owner, bmethod)
-    k = bmethod ? Machine.value(QNIL) : zr_frame_defined(rec)
+    k = bmethod ? zr_bmethod_found(rec) : zr_frame_defined(rec)
     # A class with a prepended module holds its methods in its origin. An
     # alias made before the prepend still names the class itself.
     if k != QNIL && zr_type(k) == T_CLASS
@@ -1045,11 +1151,40 @@ module Zr::Kern
 
   # Returns the ancestor list node that a method's frame records as its
   # definition point. For an alias or a visibility copy, it is the source
-  # node. Otherwise it is the node where the lookup found the method.
+  # node: for a module's method, the module's first node after the node
+  # that holds the copy. Otherwise it is the node where the lookup found
+  # the method.
   #: (ptr) -> value
   def zr_entry_found(e)
     from = MEntry[e].from
-    from != QNIL ? from : Task[zr_task()].found
+    if from == QNIL
+      return Task[zr_task()].found
+    end
+    if zr_type(from) == T_MODULE && ClassExt[RClass[from].ext].refined == QNIL
+      return zr_owner_node(Task[zr_task()].found, from)
+    end
+    from
+  end
+
+  # The first node of module `mod` from `start` up, where `start` is the
+  # node that holds an alias (its class, when that is the class's origin),
+  # or `mod` when there is none (rb_find_defined_class_by_owner).
+  #: (value, value) -> value
+  def zr_owner_node(start, mod)
+    k = start
+    if zr_special_p(k)
+      return mod
+    end
+    if zr_type(k) == T_ICLASS && zr_type(RClass[k].attached) == T_CLASS && RClass[RClass[k].attached].origin == k
+      k = RClass[k].attached
+    end
+    while k != QNIL
+      if zr_type(k) == T_ICLASS && RClass[k].attached == mod
+        return k
+      end
+      k = RClass[k].superclass
+    end
+    mod
   end
 
   # The kernel's own sends, which have no site and thus no cache entry.

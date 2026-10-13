@@ -306,7 +306,7 @@ module Zr::Kern
   # contains the body.)
   #: (ptr, value, word, ptr, value) -> value
   def zr_bmethod_call(e, recv, argc, argv, blk)
-    zr_bmethod_fn(recv, argc, argv, e, blk, Machine.value(QNIL))
+    zr_bmethod_fn(recv, argc, argv, e, blk, zr_entry_found(e))
   end
 
   # The same, as the function of a define_method entry that a compiled
@@ -340,6 +340,10 @@ module Zr::Kern
     RProc[p].spread = RProc[body].spread
     RProc[p].passed = RProc[body].passed
     RProc[p].self = recv
+    if found != QNIL && !zr_special_p(found)
+      RBasic[p].flags = RBasic[p].flags | FL_BMETHOD_RUN
+      RProc[p].found = found
+    end
     # The entry keeps its cref after the first call (`zr_bmethod_cref`).
     cref = zr_bmethod_cref_kept(e)
     if cref == QNIL || RCref[cref].entry != e

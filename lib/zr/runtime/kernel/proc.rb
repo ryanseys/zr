@@ -57,6 +57,10 @@ module Zr::Kern
     attr_accessor :spread #: word
     attr_accessor :lambda #: word
     attr_accessor :passed #: word
+    # On the copy that runs a `define_method` method (FL_BMETHOD_RUN): the
+    # ancestor list node where the call found the method, where its
+    # `super` goes on. Other Procs do not set it.
+    attr_accessor :found #: value
   end
 
   module Block
@@ -73,6 +77,9 @@ module Zr::Kern
   # and has no Binding that reaches its scope. A copy of it is an ordinary
   # Proc, so the copy does not get the bit.
   FL_ISOLATED = 1 << 37
+  # The Proc copy that runs one call of a `define_method` method, whose
+  # `found` is set (zr_bmethod_fn). A bit of the Proc type only.
+  FL_BMETHOD_RUN = 1 << 16
   G_PROC = 28
   G_LOCAL_JUMP_ERROR = 29
   PENDING_RAISE = 0
@@ -257,6 +264,9 @@ module Zr::Kern
       zr_bug(Machine.bytes("a Proc holds a block descriptor of a stack: a keeper missed zr_block_proc\n"), 74)
     end
     zr_mark(blk)
+    if (RBasic[p].flags & FL_BMETHOD_RUN) != 0
+      zr_mark(RProc[p].found)
+    end
   end
 
   # Returns the self of a block.

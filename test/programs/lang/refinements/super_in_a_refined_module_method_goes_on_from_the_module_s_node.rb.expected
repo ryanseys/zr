@@ -1,0 +1,8 @@
+"RFGAB"
+"RFGAB"
+"RFGAB"
+[:R, "super", :M, "super", :SC, "super", :R, "super", :M, "super", :C, nil]
+[:R, :M, :SC, :R, :M, :C]
+[:R, "super", :M, :SC, :R, "super", :M, :C]
+"NMA"
+"OA"

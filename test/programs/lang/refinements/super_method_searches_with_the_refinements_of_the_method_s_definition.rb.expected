@@ -1,0 +1,15 @@
+["MA", [[:refinement, A1], A1], [[:refinement, A1], A1]]
+true
+["NMA", "NMA", [[:refinement, A1], [:refinement, A1], A1]]
+true
+true
+["OA", [[:refinement, A1], A1]]
+["BA", [B2, A1]]
+["CMA", [C2, [:refinement, A1], A1]]
+["CMA", [C2, [:refinement, A1], A1]]
+["NBA", [[:refinement, B2], B2, A1]]
+["DA", [D4, A1]]
+[[:R, :F, :P], [[:refinement, F5], F5, P5], [[:refinement, F5], F5, P5]]
+[:F, :P]
+[:P]
+true

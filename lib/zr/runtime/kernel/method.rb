@@ -125,6 +125,25 @@ module Zr::Kern
     if owner == QNIL
       owner = zr_method_owner(klass, mid)
     end
+    zr_method_made(recv, klass, owner, e)
+  end
+
+  # The Method (or UnboundMethod) for entry `e`, which the last lookup
+  # found at Task.found: its class is that node, or for a refinement's
+  # method, the node of the refined module or the refined class.
+  #: (value, ptr) -> value
+  def zr_method_at_found(recv, e)
+    found = Task[zr_task()].found
+    h = zr_refinement_holder(found)
+    if h != QNIL
+      klass = zr_type(found) == T_ICLASS ? RClass[found].superclass : ClassExt[RClass[h].ext].refined
+      return zr_method_made(recv, klass, h, e)
+    end
+    zr_method_made(recv, found, zr_type(found) == T_ICLASS ? RClass[found].attached : found, e)
+  end
+
+  #: (value, value, value, ptr) -> value
+  def zr_method_made(recv, klass, owner, e)
     m = zr_alloc(T_METHOD, zr_global(recv == QUNDEF ? G_UNBOUND_METHOD : G_METHOD), RMethod.size)
     RMethod[m].recv = recv
     RMethod[m].klass = klass
@@ -293,8 +312,25 @@ module Zr::Kern
     if meta != 0
       defined = FrameMeta[meta].owner
       if !zr_special_p(defined) && zr_type(defined) == T_MODULE && ClassExt[RClass[defined].ext].refined != QNIL
-        return defined
+        # A module's refinement goes on from the module's node in the
+        # Method's class.
+        node = zr_refined_node(RMethod[m].klass, defined)
+        return zr_type(node) == T_ICLASS ? zr_refinement_iclass(node, defined) : defined
       end
+    end
+    # A Method whose lookup started below an include node of its owner
+    # (one that super_method made) goes on from the first such node, also
+    # when the module is in the list more than once.
+    k = RMethod[m].klass
+    while !zr_special_p(k) && k != QNIL
+      if zr_type(k) == T_ICLASS && RClass[k].attached == RMethod[m].owner
+        at = zr_find_method_at(k, MEntry[e].mid)
+        if at != 0 && MEntry[at].meta == MEntry[e].meta
+          return k
+        end
+        break
+      end
+      k = RClass[k].superclass
     end
     RMethod[m].owner
   end

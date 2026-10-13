@@ -418,13 +418,43 @@ module Zr::Kern
   end
 
   # `Method#super_method`: the method after this method's owner in the
-  # receiver's ancestor list, bound in the same way, or nil.
+  # receiver's ancestor list, bound in the same way, or nil. The search
+  # uses the refinements in use where the method was written, not those
+  # of the caller (method_super_method reads the method's cref).
   #: (value, word, ptr, value, value) -> value
   def zr_method_super_method(recv, argc, argv, cref, blk)
+    t = zr_task()
+    saved = Task[t].refine
+    list = zr_entry_activation(Machine.ptr(RMethod[recv].entry))
+    # A `define_method` body in a `refine` block: the block's list.
+    owner = RMethod[recv].owner
+    if list == QNIL && zr_refinement_holder(owner) != QNIL
+      list = zr_holder_activation(owner)
+    end
+    Task[t].refine = list
+    r = zr_method_super_of(recv)
+    Task[t].refine = saved
+    r
+  end
+
+  #: (value) -> value
+  def zr_method_super_of(recv)
     owner = RMethod[recv].owner
     # An alias searches on under its original name, as CRuby's
     # method_super_method reads def->original_id.
     mid = zr_method_original_id(Machine.ptr(RMethod[recv].entry))
+    # A refinement's method goes on as its `super` does: the other
+    # refinements of the class or module, then the refined one's own
+    # method at its node, then the ancestors above it.
+    if zr_refinement_holder(owner) != QNIL
+      node = zr_refined_node(RMethod[recv].klass, owner)
+      at = zr_type(node) == T_ICLASS ? zr_refinement_iclass(node, owner) : owner
+      e = zr_refined_super_search(owner, at, mid, zr_method_meta(Machine.ptr(RMethod[recv].entry)))
+      if e == 0 || MEntry[e].kind == KIND_UNDEF || MEntry[e].kind == KIND_MISSING
+        return Machine.value(QNIL)
+      end
+      return zr_method_at_found(RMethod[recv].recv, e)
+    end
     k = RMethod[recv].klass
     while k != QNIL && !(k == owner || (zr_type(k) == T_ICLASS && RClass[k].attached == owner))
       k = RClass[k].superclass
@@ -438,12 +468,14 @@ module Zr::Kern
       k = zr_origin(k)
     end
     # A visibility copy (a zsuper entry) searches on after the node of its
-    # original. So does an alias of a module's method, whose entry keeps
-    # the iclass (rb_alias sets defined_class only for one); an alias of a
-    # superclass's method searches on from its own class.
+    # original. So does an alias of a module's method, after the module's
+    # first node from the alias's class (method_super_method); an alias of
+    # a superclass's method searches on from its own class.
     e = Machine.ptr(RMethod[recv].entry)
     from = MEntry[e].from
-    if from != QNIL && (zr_type(from) == T_ICLASS || MEntry[e].mid == MEntry[e].orig)
+    if from != QNIL && zr_type(from) == T_MODULE && ClassExt[RClass[from].ext].refined == QNIL
+      k = zr_owner_node(k, from)
+    elsif from != QNIL && (zr_type(from) == T_ICLASS || MEntry[e].mid == MEntry[e].orig)
       k = from
     end
     sup = RClass[k].superclass

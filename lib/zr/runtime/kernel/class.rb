@@ -723,7 +723,15 @@ module Zr::Kern
       FrameMeta[label].name = new_id
     end
     zr_method_copy(klass, new_id, e, MEntry[e].meta, vis, true)
-    MEntry[zr_find_method_at(zr_origin(klass), new_id)].label = label
+    copy = zr_find_method_at(zr_origin(klass), new_id)
+    MEntry[copy].label = label
+    # An alias of a module's method finds the module's node when it runs,
+    # from the class that holds the alias (aliased_callable_method_entry),
+    # as the module can be in the ancestor list more than once.
+    from = MEntry[copy].from
+    if !zr_special_p(from) && zr_type(from) == T_ICLASS && zr_type(RClass[from].attached) == T_MODULE
+      MEntry[copy].from = RClass[from].attached
+    end
     zr_method_added(klass, new_id)
   end
 
@@ -3268,6 +3276,8 @@ module Zr::Kern
     elsif t == T_STRING || t == T_FLOAT
       return
     elsif t == T_ICLASS
+      # An include node's refinement proxies (zr_refinement_iclass).
+      zr_mark(RClass[v].name)
       zr_mark(RClass[v].superclass)
       zr_mark(RClass[v].attached)
       if RClass[RClass[v].attached].origin == v
@@ -3614,16 +3624,47 @@ module Zr::Kern
     end
     list = Machine.value(QNIL)
     if holder != QNIL
-      list = ClassExt[RClass[holder].ext].active
-      outer = zr_ivar_get(holder, Machine.id(:__outer__))
-      if list != QNIL && !zr_special_p(outer) && zr_type(outer) == T_ARRAY
-        both = zr_ary_new(RArray[outer].len + RArray[list].len)
-        zr_ary_splat(both, outer)
-        zr_ary_splat(both, list)
-        list = both
-      end
+      list = zr_holder_activation(holder)
     end
     Task[zr_task()].refine = list
+    Machine.value(QNIL)
+  end
+
+  # The refinements in use in a `refine` block of `holder`: the ones that
+  # its module defines, after the ones in use where `refine` was called.
+  #: (value) -> value
+  def zr_holder_activation(holder)
+    list = ClassExt[RClass[holder].ext].active
+    outer = zr_ivar_get(holder, Machine.id(:__outer__))
+    if list != QNIL && !zr_special_p(outer) && zr_type(outer) == T_ARRAY
+      both = zr_ary_new(RArray[outer].len + RArray[list].len)
+      zr_ary_splat(both, outer)
+      zr_ary_splat(both, list)
+      list = both
+    end
+    list
+  end
+
+  # The refinements in use where the method of entry `e` was written: in a
+  # `refine` block, those of the block; else the entry in force where the
+  # def or block is written (FrameMeta#using), or the one that an eval's
+  # toplevel left for it (MEntry#using); else none.
+  #: (ptr) -> value
+  def zr_entry_activation(e)
+    meta = zr_method_meta(e)
+    if meta != 0
+      # A `using` in a `refine` block gives the defs after it an entry.
+      if FrameMeta[meta].using != 0
+        return zr_activation_row(zr_global(G_ACTIVATIONS), FrameMeta[meta].using - 1)
+      end
+      owner = FrameMeta[meta].owner
+      if !zr_special_p(owner) && (zr_type(owner) == T_MODULE || zr_type(owner) == T_CLASS) && ClassExt[RClass[owner].ext].active != QNIL
+        return zr_holder_activation(owner)
+      end
+    end
+    if MEntry[e].using != 0
+      return zr_activation_row(zr_global(G_ACTIVATIONS), MEntry[e].using - 1)
+    end
     Machine.value(QNIL)
   end
 
@@ -3830,6 +3871,11 @@ module Zr::Kern
         if MEntry[e].kind == KIND_UNDEF
           return 0
         end
+        # The method of a module's refinement goes on from this node.
+        found = Task[zr_task()].found
+        if zr_type(k) == T_ICLASS && zr_type(found) == T_MODULE && ClassExt[RClass[found].ext].refined != QNIL
+          Task[zr_task()].found = zr_refinement_iclass(k, found)
+        end
         return e
       end
       e = zr_find_method_at(k, mid)
@@ -3873,14 +3919,110 @@ module Zr::Kern
     0
   end
 
+  # The same as zr_refined_entry_at, for `super` in a refinement's method:
+  # a refinement whose entry is that method's definition (`skip`, its
+  # meta) gives nothing, and the search goes on to the older ones.
+  #: (value, word, ptr) -> ptr
+  def zr_refined_entry_skip(target, mid, skip)
+    list = Task[zr_task()].refine
+    if zr_special_p(list) || zr_type(list) != T_ARRAY
+      return 0
+    end
+    i = RArray[list].len - 1
+    while i >= 0
+      h = zr_ary_at(list, i)
+      if !zr_special_p(h) && zr_type(h) == T_MODULE && ClassExt[RClass[h].ext].refined == target
+        k = h
+        while k != QNIL
+          e = zr_find_method_at(k, mid)
+          if e != 0
+            if skip == 0 || zr_method_meta(e) != skip
+              Task[zr_task()].found = k
+              return e
+            end
+            break
+          end
+          k = RClass[k].superclass
+        end
+      end
+      i -= 1
+    end
+    0
+  end
+
   # The refinement where the last lookup found its entry, or nil. A Method
   # made from a refined name is owned by its holder.
   #: () -> value
   def zr_found_refinement
-    f = Task[zr_task()].found
-    if !zr_special_p(f) && zr_type(f) == T_MODULE && ClassExt[RClass[f].ext].refined != QNIL
-      return f
+    zr_refinement_holder(Task[zr_task()].found)
+  end
+
+  # The refinement that `v` stands for: `v` itself when it is a refinement,
+  # the refinement of a refinement proxy (zr_refinement_iclass), else nil.
+  #: (value) -> value
+  def zr_refinement_holder(v)
+    if zr_special_p(v)
+      return Machine.value(QNIL)
+    end
+    if zr_type(v) == T_ICLASS
+      v = RClass[v].attached
+    end
+    if zr_type(v) == T_MODULE && ClassExt[RClass[v].ext].refined != QNIL
+      return v
     end
     Machine.value(QNIL)
+  end
+
+  # The proxy of refinement `h` at `node`, an include node of the module
+  # that `h` refines: the place where a lookup found `h`'s method. A
+  # `super` in that method goes on from `node`, also when the module is in
+  # the ancestor list more than once (rb_vm_module_refinement_iclass). The
+  # node keeps its proxies in its name, which an include node does not use
+  # otherwise, so each one is made once.
+  #: (value, value) -> value
+  def zr_refinement_iclass(node, h)
+    list = RClass[node].name
+    if list == QNIL
+      list = zr_ary_new(1)
+      RClass[node].name = list
+      zr_write_barrier(node, list)
+    else
+      i = 0
+      while i < RArray[list].len
+        ri = zr_ary_at(list, i)
+        if RClass[ri].attached == h
+          return ri
+        end
+        i += 1
+      end
+    end
+    ri = zr_alloc(T_ICLASS, h, RClass.size)
+    RClass[ri].name = Machine.value(QNIL)
+    RClass[ri].superclass = node
+    RClass[ri].ext = RClass[h].ext
+    RClass[ri].attached = h
+    RClass[ri].origin = Machine.value(QNIL)
+    RClass[ri].seq = 0
+    zr_write_barrier_all(ri)
+    zr_ary_push(list, ri)
+    ri
+  end
+
+  # The node where `super` in refinement `h`'s method goes on, for a
+  # lookup that started at `klass`: the first include node of the module
+  # that `h` refines, else the refined class or module itself.
+  #: (value, value) -> value
+  def zr_refined_node(klass, h)
+    target = ClassExt[RClass[h].ext].refined
+    if zr_type(target) == T_MODULE
+      k = klass
+      while k != QNIL
+        if zr_type(k) == T_ICLASS && RClass[k].attached == target
+          return k
+        end
+        k = RClass[k].superclass
+      end
+    end
+    target
   end
 end

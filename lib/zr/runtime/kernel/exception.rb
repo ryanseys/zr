@@ -58,6 +58,9 @@ module Zr::Kern
     attr_accessor :rescues #: ptr
     attr_accessor :reads_backref #: word
     attr_accessor :end_line #: word
+    # The activation entry in force where a def or block is written, plus
+    # one, or 0 (zr_entry_activation).
+    attr_accessor :using #: word
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it

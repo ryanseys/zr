@@ -672,6 +672,12 @@ module Zr
         Assign.new(node.name, node.depth, activation, node.location.start_line)
       end
 
+      # The activation entry in force here, for a def or block that keeps it
+      # (Def#using, Block#using). A `refine` block's list is its owner's,
+      # which the runtime finds from the method's owner.
+      #: () -> Integer?
+      def entry_using = @using.is_a?(Integer) ? @using : nil
+
       #: (untyped node, Hash[Integer, bool] seen) -> void
       def mark_using(node, seen)
         return if node.nil? || seen.key?(node.object_id)
@@ -985,7 +991,7 @@ module Zr
               body = marked(body, marks, node.location.start_line) unless marks.empty?
               locals = with_temps(node.locals + (params.names - node.locals))
               Def.new(node.name, params, locals, body, node.location.start_line, receiver, evals?(node.body), node.location.end_line,
-                      method_cover(node))
+                      method_cover(node), entry_using)
             end
           ensure
             @in_def = was
@@ -1208,7 +1214,7 @@ module Zr
           body = node.body ? expr(node.body) : Literal.new(nil, line)
           exit_event(node.location.end_line)
           noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, line,
-                          node.location.end_line, method_cover(node)), node)
+                          node.location.end_line, method_cover(node), entry_using), node)
         end
       end
 
@@ -1729,7 +1735,7 @@ module Zr
           body = node.body ? expr(node.body) : Literal.new(nil, line)
           exit_event(node.location.end_line)
           Lambda.new(noted(Block.new(params, with_temps(node.locals + extra + (params.names - node.locals - extra)), body, node.opening_loc.start_line,
-                                     node.location.end_line, method_cover(node)), node), line)
+                                     node.location.end_line, method_cover(node), entry_using), node), line)
         end
       end
 
