@@ -53,6 +53,15 @@ the shell's `time`:
 $ time bin/zr-dev test --suite unit
 ```
 
+A run does not have the tests of `test/ext/top_gems_test.rb` unless you
+ask for them. Each one builds the C extension of a gem that many top
+gems need, and runs it in zr, so together they take more time than all
+other tests. Run them by hand after a change to the C API:
+
+```console
+$ ZR_TOP_GEMS=1 bin/zr-dev test test/ext/top_gems_test.rb
+```
+
 ## Run some tests
 
 Give `zr-dev test` one or more paths. A path is a test file, a
