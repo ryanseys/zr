@@ -1,2 +1,2 @@
-core/format/too_many_arguments_warn_under_verbose_and_raise_under_debug.rb:1: warning: too many arguments for format string
-core/format/too_many_arguments_warn_under_verbose_and_raise_under_debug.rb:1: warning: too many arguments for format string
+core/format/too_many_arguments_warn_under_verbose_and_under_debug_too.rb:1: warning: too many arguments for format string
+core/format/too_many_arguments_warn_under_verbose_and_under_debug_too.rb:1: warning: too many arguments for format string

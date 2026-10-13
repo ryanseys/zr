@@ -49,7 +49,12 @@ source = RUBY_PLATFORM.include?("darwin") && RUBY_PATCHLEVEL >= 0 ? [] : ["--pla
 env = { "GEM_HOME" => Ref::GEMS, "GEM_PATH" => Ref::GEMS, "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil }
 failed = wanted.reject { |gem, version| have.include?([gem, version]) }.reject do |gem, version|
   puts "installing #{gem} #{version}"
-  system(env, RbConfig.ruby, "-S", "gem", "install", gem, "-v", version, *source, "--install-dir", Ref::GEMS,
+  # A gem that ruby bundles installs from ruby's own .gem: a ruby that is
+  # not a release builds it from a commit, not as rubygems.org has it
+  # (ruby 4.1's prism 1.9.0 is a later commit than the v1.9.0 release).
+  bundled = File.join(Gem.default_dir, "cache", "#{gem}-#{version}.gem")
+  what = File.file?(bundled) ? [bundled, "--local"] : [gem, "-v", version, *source]
+  system(env, RbConfig.ruby, "-S", "gem", "install", *what, "--install-dir", Ref::GEMS,
          "--ignore-dependencies", "--no-document", "--quiet", out: File::NULL)
 end
 # Each other version of a ported gem that a program test runs with goes

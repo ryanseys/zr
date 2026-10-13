@@ -1,4 +1,16 @@
-lang/control/not_user_object.rb: 
+lang/control/not_user_object.rb: --> lang/control/not_user_object.rb
+
+expected a `(` after `not`
+unexpected constant; expected a `)` to close the arguments
+unexpected constant, expecting end-of-input
+unexpected ')', expecting end-of-input
+unexpected ')', ignoring it
+
+> 4  p(!Obj.new)
+> 5  p(not Obj.new)
+> 6  o = Obj.new
+> 7  p(!o)
+
 lang/control/not_user_object.rb:5: syntax errors found (SyntaxError)
   3 | end
   4 | p(!Obj.new)
