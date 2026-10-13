@@ -1,0 +1,7 @@
+[nil, 15, nil]
+["core/signal/an_uncaught_signal_exception_prints_only_for_segv_or_a_subclass.rb:21:in 'block in <main>': SIGSEGV (SignalException)", 11, nil]
+["core/signal/an_uncaught_signal_exception_prints_only_for_segv_or_a_subclass.rb:22:in 'block in <main>': SIGTERM (MySig)", 15, nil]
+["core/signal/an_uncaught_signal_exception_prints_only_for_segv_or_a_subclass.rb:23:in 'block in <main>': Interrupt (Interrupt)", 2, nil]
+[nil, nil, 1]
+[nil, 30, nil]
+["core/signal/an_uncaught_signal_exception_prints_only_for_segv_or_a_subclass.rb:26:in 'block (2 levels) in <main>': SIGUSR2 (MySig)", 31, nil]

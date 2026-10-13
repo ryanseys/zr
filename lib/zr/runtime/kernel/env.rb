@@ -146,7 +146,7 @@ module Zr::Kern
     signo = 0
     if exc != QUNDEF && !zr_system_exit_p(exc)
       signo = zr_signal_of(exc)
-      if signo == 0 || zr_is_a(exc, zr_core_class(Machine.id(:Interrupt)))
+      if zr_exit_report_p(exc, signo)
         zr_error_print(exc)
       end
     end
@@ -188,7 +188,6 @@ module Zr::Kern
     if zr_system_exit_p(raised)
       return zr_exit_status(raised)
     end
-    # error_handle prints no POSIX signal other than Interrupt.
     signo = zr_signal_of(raised)
     if zr_is_a(raised, zr_core_class(Machine.id(:LocalJumpError)))
       text = zr_send(raised, Machine.id(:exit_report), 0, 0)
@@ -198,10 +197,25 @@ module Zr::Kern
       end
       Task[zr_task()].pending = Machine.value(QNIL)
     end
-    if signo == 0 || zr_is_a(raised, zr_core_class(Machine.id(:Interrupt)))
+    if zr_exit_report_p(raised, signo)
       zr_error_print_upto(raised, seen == QNIL ? exc : seen)
     end
     1
+  end
+
+  # error_handle: whether the uncaught `exc` (no SystemExit), whose signal
+  # is `signo`, is printed. A SignalException ends the process with no
+  # message, except one for SIGSEGV or of a subclass, such as Interrupt.
+  # An error that carries a signal (EPIPE on standard output) has none.
+  #: (value, word) -> bool
+  def zr_exit_report_p(exc, signo)
+    if zr_special_p(exc)
+      return true
+    end
+    if zr_is_a(exc, zr_core_class(Machine.id(:SignalException)))
+      return signo == SIGNAL_SEGV || zr_real_class(exc) != zr_core_class(Machine.id(:SignalException))
+    end
+    signo == 0
   end
 
   # Returns the POSIX signal number of an uncaught SignalException, or of
