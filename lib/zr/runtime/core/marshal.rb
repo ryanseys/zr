@@ -840,6 +840,8 @@ module Marshal
         end
       end
       value = read_value
+      return relabeled_struct(klass, value) if value.is_a?(Struct)
+
       built = Primitive.zr_class_allocate(klass)
       # The user class must make a value of the same type as the record.
       base = [String, Array, Hash, Regexp].find { |type| value.is_a?(type) }
@@ -854,6 +856,20 @@ module Marshal
       when Regexp then Regexp.send(:seat, built, value.source, value.options)
       end
       @objects[@objects.size - 1] = built
+      built
+    end
+
+    # A struct record under a user class: the struct, now of that class
+    # (RBASIC_SET_CLASS), when the class is a struct class with as many
+    # members.
+    def relabeled_struct(klass, value)
+      Primitive.attr! :hidden
+      raise ArgumentError, "dump format error (user class)" unless klass <= value.class || klass < Struct
+      raise TypeError, "struct #{klass.name} not compatible (struct size differs)" unless value.size == klass.members.size
+
+      built = Primitive.zr_class_allocate(klass)
+      value.to_a.each_with_index { |member, i| built[i] = member }
+      @objects[@objects.index { |object| object.equal?(value) } || (@objects.size - 1)] = built
       built
     end
 

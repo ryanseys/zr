@@ -1,0 +1,7 @@
+[:same_size, #<struct T b=1>]
+[:subclass, #<struct V a=1>]
+[:wider, TypeError, "struct W not compatible (struct size differs)"]
+[:plain, ArgumentError, "dump format error (user class)"]
+[:string_class, ArgumentError, "dump format error (user class)"]
+[:array_to_struct, ArgumentError, "dump format error (user class)"]
+[:module_wrap, ArgumentError, "dump format error (user class)"]
