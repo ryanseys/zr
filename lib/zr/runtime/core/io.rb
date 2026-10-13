@@ -286,6 +286,9 @@ class IO
         external, internal = encodings(options.fetch(:external_encoding, external), options.fetch(:internal_encoding, internal))
       end
     end
+    # rb_io_ext_int_to_encs: an internal encoding alone converts from the
+    # default external encoding of the time the stream opens.
+    external = Encoding.default_external if external.nil? && !internal.nil? && !binary
     # With a byte order mark, the mark may change the external encoding,
     # so an internal one that repeats it stays.
     internal = nil if !bom && !internal.nil? && !external.nil? && internal.name == external.name
@@ -1287,6 +1290,7 @@ class IO
   def binmode
     check_open
     @binmode = true
+    @textual = false
     # Binary mode sets the stream's encoding, whatever encoding it was
     # opened with, and drops the newline decorators (rb_io_binmode).
     @external = nil
@@ -1532,7 +1536,7 @@ class IO
   # and none at all for a handle that only writes.
   def external_encoding
     return @external unless @external.nil?
-    return Encoding::BINARY if @binmode
+    return Encoding::BINARY if @binmode && !@textual
     # A stream that writes and reads returns nil until something sets
     # its encoding, because rb_io_external_encoding checks whether the
     # stream is writable rather than write-only.
@@ -1549,6 +1553,10 @@ class IO
   def set_encoding(external, internal = (one = true; nil), **options)
     check_open
     if !one && !internal.nil?
+      # rb_to_encoding: a name with a NUL byte names no encoding.
+      [external, internal].each do |name|
+        raise ArgumentError, +"invalid encoding name (NUL byte)" if (text = String.try_convert(name)) && text.encoding.ascii_compatible? && text.include?("\0")
+      end
       from = IO.send(:found_encoding, external)
       to = String.try_convert(internal) == +"-" ? from : IO.send(:found_encoding, internal)
       # With no conversion, the stream reads in the second encoding.
@@ -1561,8 +1569,9 @@ class IO
     elsif external.nil?
       external, internal = IO.send(:default_encodings, nil)
       # A binary stream drops its BINARY too: it reads in the default
-      # external encoding, as io_read_encoding gives with none set.
-      external ||= Encoding.default_external if @binmode
+      # external encoding of each read, as io_read_encoding gives with none
+      # set.
+      @textual = true if @binmode
     elsif (text = String.try_convert(external)) && text.encoding.ascii_compatible?
       external, internal, = IO.send(:mode_encodings, text)
       external, internal = IO.send(:default_encodings, external) if internal.nil? && !external.nil?
@@ -2954,7 +2963,7 @@ class IO
     Primitive.attr! :hidden
     return @internal if decoding?
 
-    @external || (@binmode ? Encoding::BINARY : Encoding.default_external)
+    @external || (@binmode && !@textual ? Encoding::BINARY : Encoding.default_external)
   end
 
   # A stream that converts from a stateful encoding, such as ISO-2022-JP,

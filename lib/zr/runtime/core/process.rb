@@ -178,12 +178,19 @@ module Process
 
     private
 
+    # A flag option: true, false or nil, as rb_execarg_addopt checks it.
+    def flag_of(key, value)
+      raise ArgumentError, "expected true or false as #{key}: #{value.inspect}" unless value.nil? || value == true || value == false
+
+      value ? true : false
+    end
+
     # rb_execarg_addopt: each option once.
     def add(key, value)
       case key
       when :chdir then @chdir = path_of(value)
-      when :unsetenv_others then nil
-      when :close_others then @close_others = value ? true : false
+      when :unsetenv_others then flag_of(key, value)
+      when :close_others then @close_others = flag_of(key, value)
       when :pgroup then @pgroup = pgroup_of(value)
       when :umask then @umask = Integer.send(:int_operand, value)
       when :uid then @uid = id_option(value, false)
