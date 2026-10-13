@@ -1589,8 +1589,12 @@ module Zr::Kern
       zr_memcpy(copy, meta, FrameMeta.size)
       meta = copy
     end
+    first = Machine.word(FrameMeta[meta].owner) == 0
     FrameMeta[meta].name = mid
     FrameMeta[meta].owner = klass
+    if first
+      zr_keep_meta_owner(klass)
+    end
     if FrameMeta[meta].blocks == BLOCKS_USED
       zr_block_name_used(mid)
     end
@@ -3486,6 +3490,14 @@ module Zr::Kern
   # It stays unset in a program that never does this.
   G_USING_TOPLEVEL = 74
 
+  # The classes that a def site's own meta names as its owner: the first
+  # class that ran the def. A compiled frame records that meta, and a
+  # backtrace and `super` read its owner, so the class stays alive while
+  # the program runs. A later class gets a copy of the meta in its
+  # method entry (zr_define_method_as). The list grows by one class
+  # for each def site at most.
+  G_META_OWNERS = 75
+
   # `using` at the toplevel of an eval that runs in `binding`, a Binding
   # of a toplevel. Ruby's rb_mod_using gives that toplevel's
   # frame a copy of its cref with the refinement, so the frame's own code
@@ -3580,6 +3592,17 @@ module Zr::Kern
     end
     Task[t].refine = zr_activation_row(zr_global(G_ACTIVATIONS), zr_fix2long(id))
     true
+  end
+
+  # Keeps `klass` alive as the owner of a def site's meta (G_META_OWNERS).
+  #: (value) -> void
+  def zr_keep_meta_owner(klass)
+    owners = zr_global(G_META_OWNERS)
+    if zr_special_p(owners)
+      owners = zr_ary_new(16)
+      zr_set_global(G_META_OWNERS, owners)
+    end
+    zr_ary_push(owners, klass)
   end
 
   # The entry that the def whose code runs in frame `rec`, in its own body
