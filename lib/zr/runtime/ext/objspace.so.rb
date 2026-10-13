@@ -37,11 +37,12 @@ module ObjectSpace
   FSTRING = 2
   CHILLED = 4
   OLD = 8
+  AR_TABLE = 16
   # How dump writes the bytes of a JSON string (dump_append_string_value):
   # each byte as it is, but these escapes and other control bytes as \u00XX.
   JSON_ESCAPES = { "\\" => "\\\\", '"' => '\\"', "\b" => "\\b", "\t" => "\\t", "\f" => "\\f",
                    "\n" => "\\n", "\r" => "\\r", "\x7f" => "\\u007f" }.freeze
-  private_constant :HEAP_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :JSON_ESCAPES
+  private_constant :HEAP_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :AR_TABLE, :JSON_ESCAPES
 
   module_function
 
@@ -201,6 +202,7 @@ module ObjectSpace
       when Float then fields[:value] = format("%#g", obj)
       when Hash
         fields[:size] = obj.size
+        fields[:ar_table] = true if bits.anybits?(AR_TABLE)
         fields[:default] = address(obj.default_proc) if obj.default_proc
       when Array
         fields[:length] = obj.size

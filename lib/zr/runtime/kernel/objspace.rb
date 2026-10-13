@@ -278,6 +278,7 @@ module Zr::Kern
   DUMP_FSTRING = 2
   DUMP_CHILLED = 4
   DUMP_OLD = 8
+  DUMP_AR_TABLE = 16
 
   #: (value) -> value
   def zr_objspace_dump_bits(v)
@@ -292,6 +293,9 @@ module Zr::Kern
       bits = bits | (zr_str_chilled_p(v) ? DUMP_CHILLED : 0)
     elsif t == T_ARRAY
       bits = bits | (zr_ary_embedded_p(v) ? DUMP_EMBEDDED : 0)
+    elsif t == T_HASH
+      # A copy can fill a Hash without zr_hash_append, so the size counts too.
+      bits = bits | ((RBasic[v].flags & FL_HASH_ST) == 0 && RHash[v].live <= HASH_AR_MAX ? DUMP_AR_TABLE : 0)
     elsif t == T_OBJECT || t == T_BIGNUM
       bits = bits | (zr_ivtab_embedded_p(Machine.ptr(RObject[v].iv)) ? DUMP_EMBEDDED : 0)
     end

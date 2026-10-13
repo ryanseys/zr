@@ -478,6 +478,16 @@ module Zr::Kern
     Machine.store64(RHash[h].bins + (i * 8), 0, n + 1)
   end
 
+  # A Hash that has outgrown CRuby's array table (ar_table), which
+  # ObjectSpace.dump reports. CRuby keeps the pairs of a small Hash in its
+  # own slot, two of them in the slot that a Hash takes first, and moves
+  # them to an st_table for good once it needs more room
+  # (RHASH_AR_TABLE_MAX_BOUND). zr's cells do not follow CRuby's slot
+  # sizes, so a literal of three to eight pairs, which CRuby gives a larger
+  # slot, is an st_table here.
+  FL_HASH_ST = 1 << 16
+  HASH_AR_MAX = 2
+
   # Rebuilds the bins from the live entries, with two times the entry
   # capacity, so the probes stay short. A table of HASH_SMALL entries or
   # fewer has no bins, because a scan of that many codes costs less than
@@ -615,6 +625,9 @@ module Zr::Kern
   # the key runs.
   #: (value, value, word, value) -> value
   def zr_hash_append(h, key, code, value)
+    if RHash[h].live >= HASH_AR_MAX
+      RBasic[h].flags = RBasic[h].flags | FL_HASH_ST
+    end
     zr_hash_reserve(h)
     n = RHash[h].len
     e = RHash[h].entries + (n * HEntry.size)
@@ -1066,6 +1079,9 @@ module Zr::Kern
       out = Machine.slot(8)
       r = zr_index_operand(capacity, out)
       return r if r == QUNDEF
+      if Machine.load64(out, 0) > HASH_AR_MAX
+        RBasic[recv].flags = RBasic[recv].flags | FL_HASH_ST
+      end
     end
     if blk != QNIL
       if unset != QTRUE
