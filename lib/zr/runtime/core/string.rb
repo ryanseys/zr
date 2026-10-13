@@ -3649,14 +3649,14 @@ class Symbol
   def casecmp(other) = other.is_a?(Symbol) ? STRING[:casecmp].bind_call(own_text, other.own_text) : nil
 
   def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(own_text, other.own_text) : nil
-  alias id2name to_s
-
-  # Ruby keeps one frozen name String per symbol, so `name` returns the
-  # same object each time.
-  NAMES = Hash.new { |cache, symbol| cache[symbol] = symbol.own_text.freeze }
+  # Ruby keeps one frozen name String per symbol (rb_sym2str), so `to_s`,
+  # `name` and `id2name` return the same object each time.
+  NAMES = Hash.new { |cache, symbol| cache[symbol] = Primitive.zr_sym_name_m(symbol) }
   private_constant :NAMES
 
-  def name = NAMES[self]
+  def to_s = NAMES[self]
+  alias id2name to_s
+  alias name to_s
 
   def self.all_symbols = Primitive.zr_all_symbols
 end

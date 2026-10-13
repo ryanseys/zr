@@ -249,7 +249,16 @@ module Zr::Kern
     # ASCII text; a name in UTF-16, UTF-32 or a dummy encoding keeps it.
     index = zr_symbol_encoding_index(id)
     zr_str_set_index(s, zr_enc_ascii_compat_p(index) && zr_str_ascii_only(s) ? ENC_USASCII : index)
-    RBasic[s].flags = RBasic[s].flags | FL_CHILLED_SYMBOL
+    s
+  end
+
+  # The frozen name String of `sym`, which Symbol#to_s caches: an fstring
+  # as rb_sym2str gives it, but not in the fstring table, so `-"name"` is
+  # another object.
+  #: (value) -> value
+  def zr_sym_name_m(sym)
+    s = zr_sym_to_s(sym, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+    RBasic[s].flags = RBasic[s].flags | FL_FREEZE | FL_FSTR
     s
   end
 

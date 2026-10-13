@@ -1,0 +1,31 @@
+"abc"
+true
+true
+true
+true
+#<Encoding:US-ASCII>
+#<Encoding:UTF-8>
+true
+false
+true
+true
+true
+:to_s
+:to_s
+"can't modify frozen String: \"abc\""
+true
+FrozenError
+"abcd"
+"abc"
+false
+false
+false
+true
+false
+[["+", true], ["[]=", true], ["foo?", true], ["@iv", true], ["$gv", true]]
+true
+TypeError
+"<x>"
+":x"
+"x"
+1

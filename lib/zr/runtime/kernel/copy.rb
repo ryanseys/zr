@@ -436,7 +436,7 @@ module Zr::Kern
       RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
     elsif freeze == QNIL && zr_str_chilled_p(recv)
       # A clone keeps the chilled flag, as rb_obj_clone_setup copies it.
-      RBasic[copy].flags = RBasic[copy].flags | (RBasic[recv].flags & (FL_CHILLED | FL_CHILLED_SYMBOL))
+      RBasic[copy].flags = RBasic[copy].flags | (RBasic[recv].flags & FL_CHILLED)
     end
     copy
   end

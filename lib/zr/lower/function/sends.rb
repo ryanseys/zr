@@ -791,7 +791,7 @@ module Zr
           else
             byte = @f.fetch("i64", argv, 8)
             flags = @f.fetch("i64", recv, off(@l.layout("RBasic"), "flags"))
-            sealed = @l.const("FL_FREEZE") | @l.const("FL_CHILLED") | @l.const("FL_CHILLED_SYMBOL")
+            sealed = @l.const("FL_FREEZE") | @l.const("FL_CHILLED")
             ok = @f.band(ok, @f.icmp("ne", @f.band(byte, imm(1)), imm(0)))
             ok = @f.band(ok, @f.icmp("eq", @f.band(flags, imm(sealed)), imm(0)))
             @f.brif(@f.band(ok, gate_clear("GATE_SETBYTE")), fast, slow)

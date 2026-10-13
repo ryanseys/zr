@@ -1120,7 +1120,7 @@ module Zr::Kern
       return zr_class_of(v)
     end
     # singleton_class_of: a chilled String warns, as its first change does.
-    if zr_type(v) == T_STRING && (RBasic[v].flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+    if zr_type(v) == T_STRING && (RBasic[v].flags & FL_CHILLED) != 0
       zr_str_unchill(v)
     end
     k = RBasic[v].klass

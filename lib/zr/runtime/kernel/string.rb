@@ -2088,12 +2088,10 @@ module Zr::Kern
   end
 
   # A String that a literal made in a file with no frozen_string_literal
-  # setting (STR_CHILLED_LITERAL), or that `Symbol#to_s` made
-  # (STR_CHILLED_SYMBOL_TO_S). It is not frozen, but its first change warns
+  # setting (STR_CHILLED). It is not frozen, but its first change warns
   # that it will be frozen, and after that it is an ordinary String.
   FL_CHILLED = 1 << 15
-  FL_CHILLED_SYMBOL = 1 << 16
-  FL_CHILLED_CLEAR = 0 - FL_CHILLED - FL_CHILLED_SYMBOL - 1
+  FL_CHILLED_CLEAR = 0 - FL_CHILLED - 1
 
   #: (ptr, word) -> value
   def zr_str_new_chilled(bytes, len)
@@ -2118,7 +2116,7 @@ module Zr::Kern
 
   #: (value) -> bool
   def zr_str_chilled_p(s)
-    !zr_special_p(s) && zr_type(s) == T_STRING && (RBasic[s].flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+    !zr_special_p(s) && zr_type(s) == T_STRING && (RBasic[s].flags & FL_CHILLED) != 0
   end
 
   # Whether a change to `v` is refused because `v` is frozen, as
@@ -2128,7 +2126,7 @@ module Zr::Kern
   def zr_modify_frozen_p(v)
     if zr_special_p(v)
       true
-    elsif (RBasic[v].flags & T_MASK) == T_STRING && (RBasic[v].flags & (FL_CHILLED | FL_CHILLED_SYMBOL | FL_SNAPSHOT | FL_LOCKED)) != 0
+    elsif (RBasic[v].flags & T_MASK) == T_STRING && (RBasic[v].flags & (FL_CHILLED | FL_SNAPSHOT | FL_LOCKED)) != 0
       zr_str_modify_marked_p(v)
     else
       (RBasic[v].flags & FL_FREEZE) != 0
@@ -2141,7 +2139,7 @@ module Zr::Kern
   #: (value) -> bool
   def zr_str_modify_marked_p(v)
     flags = RBasic[v].flags
-    if (flags & (FL_CHILLED | FL_CHILLED_SYMBOL)) != 0
+    if (flags & FL_CHILLED) != 0
       zr_str_unchill(v)
       flags = RBasic[v].flags
     end
@@ -2187,27 +2185,20 @@ module Zr::Kern
 
   #: (value) -> void
   def zr_str_unchill(s)
-    symbol = (RBasic[s].flags & FL_CHILLED_SYMBOL) != 0
     RBasic[s].flags = RBasic[s].flags & FL_CHILLED_CLEAR
     if Machine.load64(Machine.static(:warn_deprecated, 8), 0) == 0 || zr_gvar_get(Machine.id(:$VERBOSE)) == QNIL
       return
     end
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
-    if symbol
-      zr_buf_push(b, Machine.bytes("string returned by :"), 20)
-      zr_buf_push(b, RString[s].ptr, RString[s].len)
-      zr_buf_push(b, Machine.bytes(".to_s will be frozen in the future"), 34)
+    created = zr_str_created_at(s)
+    if created == QNIL
+      zr_buf_push(b, Machine.bytes("literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)"), 105)
     else
-      created = zr_str_created_at(s)
-      if created == QNIL
-        zr_buf_push(b, Machine.bytes("literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)"), 105)
-      else
-        # rb_warn_unchilled_literal: a second line names the place.
-        zr_buf_push(b, Machine.bytes("literal string will be frozen in the future\n"), 44)
-        zr_buf_str(b, created)
-        zr_buf_push(b, Machine.bytes(": info: the string was created here"), 35)
-      end
+      # rb_warn_unchilled_literal: a second line names the place.
+      zr_buf_push(b, Machine.bytes("literal string will be frozen in the future\n"), 44)
+      zr_buf_str(b, created)
+      zr_buf_push(b, Machine.bytes(": info: the string was created here"), 35)
     end
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(zr_buf_take(b)))
