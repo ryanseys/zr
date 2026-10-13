@@ -2102,6 +2102,9 @@ class String
     # A conversion to or from stateless ISO-2022-JP runs on a converter,
     # whose own decorators escape and quote for `xml:`.
     through_converter = Encoding.send(:stateless?, from) || Encoding.send(:stateless?, target)
+    # transcode_loop: a fallback that changes this String stops the
+    # conversion (#22330).
+    options = { **options, __source__: [self, bytesize] } if options[:fallback] && !through_converter
     text = source.nil? ? plain : copied.force_encoding(from)
     text = escaped(text, options) unless through_converter
     # No conversion, but an `invalid: :replace` the caller wrote still
@@ -5078,7 +5081,7 @@ class Encoding
       char = point.chr(UTF_8).force_encoding(hub)
       if options[:undef] == :replace
         out.concat(convert(options[:replace] || "?", target, {}).bytes)
-      elsif (given = fallback(options[:fallback], char))
+      elsif (given = fallback(options[:fallback], char, options[:__source__]))
         written = begin
           given.encode(target)
         rescue EncodingError
@@ -5123,7 +5126,7 @@ class Encoding
       replacement = options[:replace] || (to.equal?(UTF_8) ? +"\uFFFD" : +"?")
       return yield(replacement)
     end
-    if char && (text = fallback(options[:fallback], char))
+    if char && (text = fallback(options[:fallback], char, options[:__source__]))
       written = begin
         text.encode(to)
       rescue EncodingError
@@ -5141,7 +5144,9 @@ class Encoding
   # encode, as transcode_loop calls it: a Proc or a Method is called,
   # and a Hash or any other object that responds to `[]` is indexed.
   # nil when there is no fallback, or when the option gives no usable object.
-  def self.fallback(fallback, char)
+  # `watched` is the String being converted, with its size, which the
+  # fallback must leave alone.
+  def self.fallback(fallback, char, watched = nil)
     Primitive.attr! :hidden
     return nil if fallback.nil?
 
@@ -5153,6 +5158,7 @@ class Encoding
 
              fallback.public_send(:[], char)
            end
+    raise RuntimeError, "string modified" if watched && watched[0].bytesize != watched[1]
     return nil if text.nil?
 
     String.try_convert(text) || raise(TypeError, "no implicit conversion of #{text.class} into String")
