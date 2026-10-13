@@ -11,6 +11,10 @@ module Zr
       # program links in the compiler to compile that file at run time.
       REQUIRES = %i[require require_relative load].freeze
 
+      # The calls that register a file for a constant. ruby 4.1's
+      # autoload_relative takes the path from the directory of the file.
+      AUTOLOADS = %i[autoload autoload_relative].freeze
+
       # A require's name at compile time: a String literal, or a path built
       # from `__dir__` with a literal.
       #: (untyped node) -> String?
@@ -187,10 +191,16 @@ module Zr
         Stop.new(UNSUPPORTED_LIBRARIES[name] || "#{node.name} of #{feature.inspect}", line)
       end
 
+      # An eval's code has no file for autoload_relative: its call raises.
+      # A name that is no constant name goes to the call, which raises
+      # NameError as rb_autoload_str does.
       #: (untyped node) -> boolish
       def literal_autoload?(node)
+        return false if node.name == :autoload_relative && @loader&.eval?
+
         args = node.arguments&.arguments
-        args&.size == 2 && args[0].is_a?(Prism::SymbolNode) && (args[1].is_a?(Prism::StringNode) || @loader.literal_path(args[1], @file))
+        args&.size == 2 && args[0].is_a?(Prism::SymbolNode) && args[0].unescaped.match?(/\A[\p{Lu}\p{Lt}]\p{Word}*\z/) &&
+          (args[1].is_a?(Prism::StringNode) || @loader.literal_path(args[1], @file))
       end
 
       # `autoload :Name, "feature"` resolves the feature as a require
@@ -201,6 +211,9 @@ module Zr
         name_node, path_node = node.arguments.arguments
         # `literal_autoload?` makes sure that the feature is known.
         feature = path_node.is_a?(Prism::StringNode) ? path_node.unescaped : @loader.literal_path(path_node, @file) #: String
+        # rb_mod_autoload_relative: the absolute path from the directory of
+        # the file, which autoload? then gives.
+        feature = File.absolute_path(feature, File.dirname(File.exist?(@file) ? File.realpath(@file) : @file)) if node.name == :autoload_relative
         # A feature that is already loaded gets no autoload entry, as in
         # ruby: `require` would return false and read no file, so
         # `Object.autoload?(:Set)` is nil after `autoload :Set, "set"`. The

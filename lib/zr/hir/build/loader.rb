@@ -349,7 +349,7 @@ module Zr
         # passes a name to Kernel's or Module's method that no site shows.
         #: (Prism::DefNode node) -> void
         def loads_by_def!(node)
-          return unless (REQUIRES.include?(node.name) || node.name == :autoload) && node.body
+          return unless (REQUIRES.include?(node.name) || AUTOLOADS.include?(node.name)) && node.body
 
           supers = node.body.breadth_first_search { |n| n.is_a?(Prism::SuperNode) || n.is_a?(Prism::ForwardingSuperNode) }
           @evals = true if supers
@@ -361,7 +361,7 @@ module Zr
         # receiver, because Module#autoload also takes one.
         #: (Symbol name, Array[untyped] args, ?kernel: bool) -> void
         def evals!(name, args, kernel: true)
-          @evals = true if name == :autoload
+          @evals = true if AUTOLOADS.include?(name)
           named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
           @evals = true if Build.eval_call?(name, named: named, argc: args.size)
           if named && SENDS.include?(name)

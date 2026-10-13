@@ -183,7 +183,7 @@ module Zr
       case node
       when Hir::Send
         kernel = node.recv.nil? || (node.recv.is_a?(Hir::ConstRead) && node.recv.name == :Kernel && node.recv.scope.nil?)
-        return true if node.name == :autoload || (kernel && REQUIRES.include?(node.name))
+        return true if node.name == :autoload || node.name == :autoload_relative || (kernel && REQUIRES.include?(node.name))
       when Array then return node.any? { |child| run_time_require?(child) }
       when Hir::Node then nil
       else return false

@@ -1,0 +1,26 @@
+true
+true
+:loaded_b
+nil
+true
+:loaded_top
+true
+:loaded_x
+[LoadError, "cannot infer basepath (autoload_relative called without file context)"]
+[LoadError, "cannot infer basepath (autoload_relative called without file context)"]
+nil
+"/tmp/e.rb"
+[TypeError, "no implicit conversion of Integer into String"]
+[TypeError, "5 is not a symbol nor a string"]
+[NameError, "autoload must be constant name: c"]
+[NameError, "autoload must be constant name: c"]
+[NameError, "autoload must be constant name: 9x"]
+true
+[LoadError, "cannot load such file -- DIR/c.rb"]
+true
+true
+2
+2
+true
+true
+true

@@ -138,6 +138,13 @@ class Module
     Primitive.zr_autoload_computed(self, autoload_name(name), path, nil, Kernel.loaded_feature?(path, file), file)
   end
 
+  # rb_mod_autoload_relative (ruby 4.1): autoload of `feature` taken from
+  # the directory of the caller's file (Kernel.relative_feature).
+  def autoload_relative(name, feature)
+    name = autoload_name(name)
+    autoload(name, Kernel.relative_feature(feature))
+  end
+
   # A constant name as rb_to_id takes one: a Symbol, or a String or the
   # value of `to_str`.
   def autoload_name(name)
@@ -262,9 +269,33 @@ module Kernel
     Primitive.zr_autoload_computed(Kernel, Module.instance_method(:autoload_name).bind_call(Kernel, name), path,
                                    Primitive.zr_eval_cref, Kernel.loaded_feature?(path, file), file)
   end
+  # rb_f_autoload_relative (ruby 4.1): `autoload` of a feature taken from
+  # the directory of the caller's file.
+  def autoload_relative(name, feature)
+    name = Module.instance_method(:autoload_name).bind_call(Kernel, name)
+    path = Kernel.relative_feature(feature)
+    file = Kernel.feature_file(path)
+    Primitive.zr_autoload_computed(Kernel, name, path, Primitive.zr_eval_cref, Kernel.loaded_feature?(path, file), file)
+  end
+
   # rb_f_autoload_p: the class of the caller's cref, as `autoload` uses.
   def autoload?(name, inherit = true) = Primitive.zr_cref_lookup_class(Primitive.zr_eval_cref).autoload?(name, inherit)
-  private :autoload, :autoload?
+  private :autoload, :autoload_relative, :autoload?
+
+  # The absolute path of `feature` from the directory of the file that
+  # called autoload_relative, as rb_mod_autoload_relative makes it. Code
+  # of an eval that names no file has none.
+  def self.relative_feature(feature)
+    Primitive.attr! :hidden
+    path = File.path(feature)
+    file = Primitive.zr_caller_file
+    if file.nil? || (Primitive.zr_caller_eval_p && file.start_with?("(eval"))
+      raise LoadError, +"cannot infer basepath (autoload_relative called without file context)"
+    end
+
+    file = File.realpath(file) if File.exist?(file)
+    File.absolute_path(path, File.dirname(file))
+  end
 end
 
 # The holder that `Module#refine` makes. It has no name of its own; it

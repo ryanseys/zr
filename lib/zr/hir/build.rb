@@ -1248,7 +1248,7 @@ module Zr
         # new String, as its C makes, with no send of +@.
         return Literal.new(unescaped(node.receiver), node.location.start_line, false) if node.name == :+@ && node.receiver.is_a?(Prism::StringNode) && node.block.nil? && Library::Roots.runtime_file?(@file)
         return require_node(node) if REQUIRES.include?(node.name) && node.receiver.nil? && node.block.nil? && !shadowed?(node.name) && !@loader&.eval? && literal_feature(node)
-        return autoload_node(node) if node.name == :autoload && node.block.nil? && literal_autoload?(node)
+        return autoload_node(node) if AUTOLOADS.include?(node.name) && node.block.nil? && literal_autoload?(node)
         return newarray_send(node) if newarray_send?(node)
 
         message, encoding = c_message(node)

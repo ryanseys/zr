@@ -403,11 +403,10 @@ $LOAD_PATH.concat(
 # Kernel itself.
 module Kernel
   module_function :Array, :Float, :Hash, :Integer, :String, :__callee__, :__dir__, :__method__, :abort, :at_exit,
-                  :autoload, :autoload?, :binding, :block_given?, :caller, :caller_locations, :catch, :eval, :exec,
-                  :exit, :exit!, :fail, :format, :gets, :global_variables, :iterator?, :lambda, :load,
-                  :local_variables, :loop, :open, :p, :print, :printf, :proc, :putc, :puts, :raise, :readline,
-                  :readlines, :require, :require_relative, :sleep, :spawn, :sprintf, :system, :throw, :trap, :warn,
-                  :`
+                  :autoload, :autoload?, :autoload_relative, :binding, :block_given?, :caller, :caller_locations,
+                  :catch, :eval, :exec, :exit, :exit!, :fail, :format, :gets, :global_variables, :iterator?, :lambda,
+                  :load, :local_variables, :loop, :open, :p, :print, :printf, :proc, :putc, :puts, :raise, :readline,
+                  :readlines, :require, :require_relative, :sleep, :spawn, :sprintf, :system, :throw, :trap, :warn, :`
 
   # rubygems, which ruby loads as it starts, puts its own Ruby method in
   # Kernel#require, and Kernel.require stays the C one.
