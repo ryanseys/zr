@@ -36,13 +36,12 @@ class WasmLibcShimsTest < Minitest::Test
     "munmap" => "zr_release_other"
   }.freeze
 
+  # One test, so the wasm runtime lowers once (seconds): the roots must
+  # be functions of the kernel first, or the walk checks nothing.
   def test_the_heap_calls_nothing_that_has_no_wasm_form
+    assert_empty ROOTS - by_name.keys, "a root this test cannot find checks nothing"
     assert_equal KNOWN.to_a.sort, formless(ROOTS),
                  "a wasm program stops by name before its first line"
-  end
-
-  def test_the_roots_are_all_functions_the_kernel_defines
-    assert_empty ROOTS - by_name.keys, "a root this test cannot find checks nothing"
   end
 
   # `[callee, the function that calls it]` for each callee reachable from
