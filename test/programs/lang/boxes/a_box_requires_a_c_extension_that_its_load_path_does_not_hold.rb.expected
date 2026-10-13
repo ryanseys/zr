@@ -1,0 +1,6 @@
+true
+"0cc175b9c0f1b6a831c399e269772661"
+false
+[LoadError, "cannot load such file -- no/such/feature"]
+true
+true

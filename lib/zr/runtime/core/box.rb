@@ -234,13 +234,25 @@ module Ruby
     def load_feature(feature, once)
       setup if @slot.nil? && %i[root master].include?(Primitive.zr_hidden_get(self, :kind))
       path = resolve(feature)
-      raise LoadError, "cannot load such file -- #{feature}" unless path
+      return linked_require(feature) unless path
       return false if once && @loaded[path]
 
       @loaded[path] = true
       @globals[Primitive.zr_box_gvar_key(:$LOADED_FEATURES)] << path
       run(::Zr::Eval.current.compile(File.read(path), path, 1, []), path)
       true
+    end
+
+    # A feature that is not under the box's own load path, such as a C
+    # extension, which zr links into the program: main's require loads it
+    # once, and the box gets the constants that the load made, as
+    # Loader#require gives them. A feature that no file has raises
+    # LoadError there.
+    def linked_require(feature)
+      from = Primitive.zr_box_object_consts_m
+      loaded = Kernel.instance_method(:require).bind_call(TOPLEVEL_BINDING.receiver, feature)
+      adopt(Primitive.zr_box_object_consts_from_m(from))
+      loaded
     end
 
     def resolve(feature)
