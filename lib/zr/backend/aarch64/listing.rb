@@ -12,8 +12,7 @@ module Zr
       # `Codegen` takes its assembler as an argument, so this class is in
       # place of the encoder. It records every call and forwards it, and it
       # returns the encoder's bytes. Thus the output shows the backend's
-      # instruction selection, not a decode of the bytes. `aarch64_test.rb`
-      # checks the encoding against the `aarch64` gem.
+      # instruction selection, not a decode of the bytes.
       #
       # A relocation is part of the selection: a call to a local symbol and
       # a call to an import both assemble to the same `bl`. Thus each

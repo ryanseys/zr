@@ -15,10 +15,6 @@ group :development, :test do
   # The slowest-tests report (SLOW=1), and the JUnit file CI shows a
   # failure from.
   gem "minitest-reporters", "~> 1.8"
-  # The arm64 encoder the checks hold ours to. It is generated from the ARM
-  # specification, so it is the authority on an encoding; it builds its own
-  # methods with `class_eval` on strings, so it never enters a program.
-  gem "aarch64", "~> 3.0"
   # Obj::JIT's in-process host for the checks. A bundled gem, not a default
   # one, in ruby 4.
   gem "fiddle", "~> 1.1"

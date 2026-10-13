@@ -75,9 +75,8 @@ The **aarch64 backend** (`lib/zr/backend/aarch64/`) selects
 instructions almost one to one from the IR, and its own assembler
 encodes them. A linear-scan allocator gives values registers from two
 groups: callee-saved registers for values that live across a call, and
-caller-saved registers for the others. The tests check every encoding
-against the `aarch64` gem, which is generated from the ARM
-specification.
+caller-saved registers for the others. The program tests run what it
+encodes on the host.
 
 The **wasm emitter** (`lib/zr/backend/wasm/`) writes one WASI module.
 Control flow is a loop around a `br_table` over the function's blocks,

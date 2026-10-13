@@ -229,8 +229,6 @@ module Zr
         def tst(n, m) = ands(n.zr, n, m)
         # A register amount shifts by the value in the register. An Integer
         # amount is a bitfield move, which is the arm64 name for these forms.
-        # The signatures are the same as the gem's, so `aarch64_test` checks
-        # both forms against the ARM specification.
         #: (Registers::Register d, Registers::Register n, operand m) -> self
         def lsl(d, n, m) = m.is_a?(Integer) ? ubfm(d, n, (d.size - shift(d, m)) % d.size, d.size - 1 - m) : variable_shift(0b00, d, n, m)
         #: (Registers::Register d, Registers::Register n, operand m) -> self
@@ -364,9 +362,7 @@ module Zr
 
         # --- control ------------------------------------------------------
 
-        # `B` to a label, or `B.cond` when a condition is given. The
-        # signature is the same as the gem's, so `aarch64_test` checks the
-        # encoding against the ARM specification.
+        # `B` to a label, or `B.cond` when a condition is given.
         #: (target label, ?cond: Symbol?) -> self
         def b(label, cond: nil)
           return branch(0x1400_0000, label, 0, 26) if cond.nil?
