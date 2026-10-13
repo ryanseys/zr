@@ -1,0 +1,2 @@
+TestObject#test_max_shape_variation_with_performance_warnings	shapes: zr has no object shapes, so it gives no shape performance warning
+TestObject#test_remove_instance_variable_re_embed	objspace: zr's objspace dump has no embedded flag

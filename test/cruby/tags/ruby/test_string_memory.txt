@@ -1,0 +1,3 @@
+TestStringMemory#test_byteslice_postfix	objspace: the allocation tracer does not find the String that byteslice makes
+TestStringMemory#test_byteslice_prefix	objspace: the allocation tracer does not find the String that byteslice makes
+TestStringMemory#test_byteslice_postfix_twice	objspace: the allocation tracer does not find the String that byteslice makes

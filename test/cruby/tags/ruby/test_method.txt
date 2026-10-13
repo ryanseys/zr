@@ -1,0 +1,2 @@
+TestMethod#test_body	yarv: zr compiles to machine code and has no YARV instruction sequences
+TestMethod#test_gced_bmethod	timeout

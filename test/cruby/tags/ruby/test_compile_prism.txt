@@ -1,0 +1,1 @@
+Prism::TestCompilePrism#test_ForwardingArgumentsNode_instruction_sequence_consistency	yarv: zr compiles to machine code and has no YARV instruction sequences

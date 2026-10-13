@@ -1,0 +1,6 @@
+TestProc#test_refined_memo_avoids_recopy	refined procs: zr gives no refined-memo warnings and has no memo of refined copies
+TestProc#test_refined_iseq_to_binary	yarv: zr compiles to machine code and has no YARV instruction sequences
+TestProc#test_refined_chain_warning	refined procs: zr gives no refined-memo warnings and has no memo of refined copies
+TestProc#test_refined_first_call_error_in_fiber	refined procs: zr gives no refined-memo warnings and has no memo of refined copies
+TestProc#test_refined_ruby2_keywords_memo	refined procs: zr gives no refined-memo warnings and has no memo of refined copies
+TestProc#test_refined_memo_different_modules_warning	refined procs: zr gives no refined-memo warnings and has no memo of refined copies

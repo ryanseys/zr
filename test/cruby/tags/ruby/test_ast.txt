@@ -1,0 +1,19 @@
+TestAst::TestLocation#test_numeric_location_with_nonsuffix	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_unexpected_backslash	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_for	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_do_LAMBDA	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_begin	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_if	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_memory_leak	rss: the resident size grows in zr in this loop
+TestAst#test_error_tolerant_end_is_short_for_class	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_do	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_unless	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_treat_end_as_keyword_based_on_indent	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_until	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_module	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_case	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_expr_value_can_be_error	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_do_block	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_method_define	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_while	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y
+TestAst#test_error_tolerant_end_is_short_for_singleton_method_define	parse.y: zr's AST comes from prism, which has no error-tolerant mode of parse.y

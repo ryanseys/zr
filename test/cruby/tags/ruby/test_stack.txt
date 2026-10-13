@@ -1,0 +1,1 @@
+TestStack#test_vm_stack_size	stack: a zr fiber's stack does not change with RUBY_FIBER_VM_STACK_SIZE

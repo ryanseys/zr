@@ -1,0 +1,2 @@
+TestProcSyntaxTree#test_source_hash_survives_binary_round_trip	yarv: zr compiles to machine code and has no YARV instruction sequences
+TestProcSyntaxTree#test_parse_y_syntax_tree	parse.y: zr parses only with prism

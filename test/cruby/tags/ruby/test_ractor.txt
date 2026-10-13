@@ -1,0 +1,8 @@
+TestRactor#test_first_ractor_new_settles_creator_mid_mark	gc: zr has no per-Ractor incremental marking
+TestRactor#test_global_gc_supersedes_ractor_local_incremental_mark	gc: zr has no per-Ractor incremental marking
+TestRactor#test_port_queue_dropped_when_port_unreachable	gc: zr keeps the queue of a Port that nothing reaches
+TestRactor#test_incremental_major_with_zombie_objspace	gc: zr has no per-Ractor incremental marking
+TestRactor#test_ractor_join_absorbs_zombie_while_joiner_mid_mark	gc: zr has no per-Ractor incremental marking
+TestRactor#test_concurrent_incremental_marks_with_shareable_exchange	gc: zr has no per-Ractor incremental marking
+TestRactor#test_each_object_own_all_and_foreign_shareables	ractor: zr has one heap, so ObjectSpace.each_object in a Ractor also finds the unshareable objects of other Ractors (test/gaps)
+TestRactor#test_fork_absorbs_mid_mark_zombie	gc: zr has no per-Ractor incremental marking
