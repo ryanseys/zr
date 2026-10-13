@@ -179,6 +179,10 @@ module Zr::Obj::MachO::Chains
   extend Zr::Obj::MachO::Chains
 end
 
+module Zr::Obj::MachO::Flatten
+  extend Zr::Obj::MachO::Flatten
+end
+
 module Zr::Obj::MachO::ObjectFile
   extend Zr::Obj::MachO::ObjectFile
 end
