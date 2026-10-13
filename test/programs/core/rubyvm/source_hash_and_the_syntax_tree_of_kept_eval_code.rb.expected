@@ -1,0 +1,15 @@
+[:no_keep, [nil, nil]]
+[:m, :def_node]
+[:pr, :call_node]
+[:m_range, #<Ruby::SourceRange (eval-ksl):(1,0)-(1,13)>]
+[:hash, [Integer, 8, true, false]]
+[:to_a, true]
+[:file, :def_node]
+[:changed, nil]
+[:broken, nil]
+[:gone, nil]
+1250624983865211538
+[:arg_size, :local_size, :stack_max, :node_id, :source_hash]
+true
+14695981039346656037
+[:line, [:def_node, 3]]

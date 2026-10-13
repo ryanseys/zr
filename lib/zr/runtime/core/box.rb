@@ -39,6 +39,7 @@ module Ruby
       range = Primitive.zr_class_build(self)
       absolute = span[1] ? Kernel.send(:real_path_of, span[0]) : nil
       Primitive.zr_hidden_set(range, :__range__, [span[0], absolute, span[2], span[3], span[4], span[5]].freeze)
+      Primitive.zr_hidden_set(range, :__script__, span[6])
       range
     end
     private_class_method :of

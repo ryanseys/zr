@@ -23,6 +23,7 @@ module Zr
     # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
     # @rbs @files: Hash[[String, String], [Integer, String?]]
     # @rbs @scripts: Array[String]
+    # @rbs @script_sources: Array[[String, Integer]]
 
     # Two threads can eval at the same time. Only one of them loads the
     # compiler, and the other waits until the load is complete.
@@ -78,6 +79,7 @@ module Zr
       @compiled = {}
       @files = {}
       @scripts = []
+      @script_sources = []
       @file_spots = {}
     end
 
@@ -176,6 +178,10 @@ module Zr
     #: (Integer number) -> String
     def script_spots(number) = @scripts.fetch(number - 1)
 
+    # The source and first line of the eval that `kept_script` numbered.
+    #: (Integer number) -> [String, Integer]
+    def script_source(number) = @script_sources.fetch(number - 1)
+
     private
 
     # The Coverage module, when the program loaded it. It is reached by a
@@ -251,7 +257,7 @@ module Zr
         no_defs = {} #: Hash[String, Array[Array[Integer]]]
         coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, no_defs, true)
       end
-      script = keep ? kept_script(hir.spots.fetch(string(file), "")) : 0
+      script = keep ? kept_script(hir.spots.fetch(string(file), ""), string(source), line.to_int) : 0
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new,
                                                                    script: script).run
       symbols = Obj::JIT.load(unit(functions, data), host: @host)
@@ -263,10 +269,12 @@ module Zr
     end
 
     # Keeps an eval's spots, as ruby keeps its script lines: its
-    # Locations then find their source ranges. The number starts at 1.
-    #: (String spots) -> Integer
-    def kept_script(spots)
+    # Locations then find their source ranges. Its source and first line
+    # stay too, for #syntax_tree. The number starts at 1.
+    #: (String spots, String source, Integer line) -> Integer
+    def kept_script(spots, source, line)
       @scripts << spots
+      @script_sources << [source, line]
       @scripts.size
     end
 

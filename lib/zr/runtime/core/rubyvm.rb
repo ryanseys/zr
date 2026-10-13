@@ -308,10 +308,16 @@ class RubyVM
       end
 
       range = body.source_range or return nil
-      tree = InstructionSequence.send(:parse_again, range.path, range.absolute_path) or return nil
+      # A kept eval's source parses from line 1, as ruby parses it again,
+      # so its range's lines shift by the eval's first line.
+      script = Primitive.zr_hidden_get(range, :__script__)
+      tree, shift = if script&.positive? then InstructionSequence.send(:parse_script, script)
+                    else [InstructionSequence.send(:parse_again, range.path, range.absolute_path), 0]
+                    end
+      return nil unless tree
       queue = [[tree, nil]]
       while (node, parent = queue.shift)
-        if [node.start_line, node.start_column, node.end_line, node.end_column] == [range.start_line, range.start_column, range.end_line, range.end_column]
+        if [node.start_line + shift, node.start_column, node.end_line + shift, node.end_column] == [range.start_line, range.start_column, range.end_line, range.end_column]
           case node.type
           # A `for` body is a block whose source is the whole loop.
           when :def_node, :lambda_node, :for_node then return node
@@ -325,6 +331,15 @@ class RubyVM
 
     class << self
       private
+
+      # The tree of the eval whose source RubyVM.keep_script_lines kept,
+      # and how far its lines are from the eval's.
+      def parse_script(number)
+        Primitive.attr! :hidden
+        source, line = ::Zr::Eval.current.script_source(number)
+        result = ::Ruby::Prism.parse(source, version: "current")
+        [result.success? ? result.value : nil, line - 1]
+      end
 
       # The tree of the file at `absolute`, which the program compiled as
       # `path`: nil when there is no such file, or its code is no longer
@@ -374,6 +389,27 @@ class RubyVM
     def disasm = Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#disasm")
     alias disassemble disasm
 
+    # pm_source_hash: the 64-bit FNV-1a hash of the source this code was
+    # parsed from, up to the line of its __END__; nil when the source is
+    # not at hand. A hash of 0 is 1.
+    def source_hash
+      code = Primitive.zr_hidden_get(self, :__source__)
+      if code.nil?
+        file = absolute_path || path
+        code = File.binread(file) if Primitive.zr_hidden_get(self, :__body__) && file && File.file?(file)
+      end
+      return nil if code.nil?
+
+      code = code.b
+      if (data = code =~ /^__END__\r?(?:\n|\z)/n)
+        stop = code.index("\n", data)
+        code = code.byteslice(0, stop ? stop + 1 : code.bytesize)
+      end
+      hash = 0xcbf29ce484222325
+      code.each_byte { |byte| hash = ((hash ^ byte) * 0x100000001b3) & 0xffffffffffffffff }
+      hash.zero? ? 1 : hash
+    end
+
     # The array of ruby's iseq_data_to_ary: its header, then the facts of
     # this code that the parse gives. zr compiles to machine code, so the
     # stack size, the catch table and the instruction list are empty.
@@ -383,6 +419,7 @@ class RubyVM
       location = node&.location
       misc = { arg_size: 0, local_size: locals.size, stack_max: 0 }
       misc[:node_id] = node.node_id if node
+      misc[:source_hash] = source_hash
       misc[:code_location] = [location.start_line, location.start_column, location.end_line, location.end_column] if location
       misc[:parser] = :prism
       # ISEQ_MAJOR_VERSION and ISEQ_MINOR_VERSION are ruby's API version.

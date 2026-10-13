@@ -641,13 +641,15 @@ module Zr::Kern
     if meta == 0 || FrameMeta[meta].file_len == 0 || FrameMeta[meta].span_line == 0
       return Machine.value(QNIL)
     end
-    out = zr_ary_new(6)
+    out = zr_ary_new(7)
     zr_ary_push(out, zr_meta_path(meta))
     zr_ary_push(out, zr_bool(FrameMeta[meta].evaled == 0))
     zr_ary_push(out, zr_fix(FrameMeta[meta].span_line))
     zr_ary_push(out, zr_fix(FrameMeta[meta].column))
     zr_ary_push(out, zr_fix(FrameMeta[meta].end_line))
     zr_ary_push(out, zr_fix(FrameMeta[meta].end_column))
+    # The number of an eval's kept source (RubyVM.keep_script_lines), or 0.
+    zr_ary_push(out, zr_fix(FrameMeta[meta].evaled == 0 ? 0 : FrameMeta[meta].evaled - 1))
     out
   end
 
