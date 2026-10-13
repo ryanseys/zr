@@ -189,16 +189,21 @@ module Zr::Kern
     if r == QUNDEF
       return false
     end
-    # Fold a bignum to a fixnum, as rb_any_hash does.
-    if zr_big_p(r)
-      r = zr_send(r, Machine.id(:hash), 0, 0)
+    # obj_any_hash: a bignum folds to a fixnum through its own hash, and
+    # any other value that is no fixnum converts with to_int (rb_to_int).
+    while !zr_fixnum_p(r)
+      if zr_big_p(r)
+        r = zr_send(r, Machine.id(:hash), 0, 0)
+      elsif zr_float_p(r)
+        r = zr_send(r, Machine.id(:to_int), 0, 0)
+      else
+        r = zr_to_int(r)
+      end
       if r == QUNDEF
         return false
       end
     end
-    if zr_fixnum_p(r)
-      Machine.store64(out, 0, zr_hash_mix(zr_fix2long(r)))
-    end
+    Machine.store64(out, 0, zr_hash_mix(zr_fix2long(r)))
     true
   end
 
