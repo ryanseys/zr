@@ -52,13 +52,13 @@ class Data
     named = 0
     unknown = nil
     # rb_data_initialize_m: a String key names a member as its Symbol
-    # does; any other key is a TypeError. Missing members raise before
-    # unknown keys.
+    # does, and so does a key that converts with to_str; any other key is
+    # a TypeError. Missing members raise before unknown keys.
     kwargs.each do |key, value|
       name = case key
              when Symbol then key
              when String then key.to_sym
-             else raise TypeError, "#{key.inspect} is not a symbol nor a string"
+             else (key = String.try_convert(key) || raise(TypeError, "#{key.inspect} is not a symbol nor a string")).to_sym
              end
       i = members.index(name)
       if i
@@ -133,7 +133,8 @@ class Data
     values = values_store
     out = {}
     keys.each do |k|
-      raise TypeError, "#{k.inspect} is not a symbol nor a string" unless k.is_a?(Symbol) || k.is_a?(String)
+      # A key that converts with to_str is its String (rb_data_deconstruct_keys).
+      k = String.try_convert(k) || raise(TypeError, "#{k.inspect} is not a symbol nor a string") unless k.is_a?(Symbol) || k.is_a?(String)
 
       i = names.index(k.to_sym)
       break unless i

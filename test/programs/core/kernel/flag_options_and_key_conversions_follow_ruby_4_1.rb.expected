@@ -1,0 +1,17 @@
+[:system_one, ArgumentError, "expected true or false as exception: 1"]
+[:system_string, ArgumentError, "expected true or false as exception: \"true\""]
+[:system_nil, true]
+[:daemon_first, ArgumentError, "expected true or false as nochdir: 1"]
+[:daemon_first_string, ArgumentError, "expected true or false as nochdir: \"true\""]
+[:daemon_second, ArgumentError, "expected true or false as noclose: 1"]
+[:daemon_both, ArgumentError, "expected true or false as noclose: \"y\""]
+true
+"#<BasicObject:0x00 @host=\"localhost\", @port=80>"
+"#<C @port=1>"
+[:keys_converted, {"y" => 2, x: 1}]
+[:key_not_string, TypeError, "can't convert Key into String (Key#to_str gives Integer)"]
+[:key_none, TypeError, "#<thing> is not a symbol nor a string"]
+[:new_converted, #<data Point x=1, y=2>]
+[:new_unknown, ArgumentError, "unknown keyword: \"z\""]
+[:new_not_string, TypeError, "can't convert Key into String (Key#to_str gives Integer)"]
+[:new_symbol_and_string, #<data Point x=1, y=2>]

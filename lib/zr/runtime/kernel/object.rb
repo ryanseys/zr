@@ -1376,7 +1376,17 @@ module Zr::Kern
       zr_buf_byte(b, 62)
       return zr_buf_take_at(b, ENC_BINARY)
     end
-    filter = zr_send_for_caller(recv, Machine.id(:instance_variables_to_inspect), 0, 0, Machine.value(QNIL))
+    # rb_check_funcall: an object with no such method, as a BasicObject,
+    # shows all its instance variables.
+    answers = zr_check_funcall(recv, Machine.id(:instance_variables_to_inspect))
+    if answers == QUNDEF
+      zr_buf_free(b)
+      return answers
+    end
+    filter = Machine.value(QNIL)
+    if answers == QTRUE
+      filter = zr_send_for_caller(recv, Machine.id(:instance_variables_to_inspect), 0, 0, Machine.value(QNIL))
+    end
     if filter == QUNDEF
       zr_buf_free(b)
       return filter

@@ -594,6 +594,10 @@ module Process
   # the child leads a session of its own, in "/" unless `nochdir`, with
   # /dev/null as its standard streams unless `noclose`.
   def daemon(nochdir = nil, noclose = nil)
+    # TO_BOOL: each flag is true, false or nil, noclose checked first.
+    { noclose: noclose, nochdir: nochdir }.each do |name, flag|
+      raise ArgumentError, "expected true or false as #{name}: #{flag.inspect}" unless flag.nil? || flag == true || flag == false
+    end
     Primitive.zr_exit_now(0) unless Process._fork.zero?
     Primitive.zr_proc_setsid
     Dir.chdir("/") unless nochdir
@@ -1202,6 +1206,10 @@ module Kernel
   end
 
   def system(*args, exception: false, **options)
+    unless exception.nil? || exception == true || exception == false
+      raise ArgumentError, "expected true or false as exception: #{exception.inspect}"
+    end
+
     pid = Process.send(:spawn_command, args, options)
     if pid.negative?
       raise Process.send(:start_error, args, options, pid) if exception
