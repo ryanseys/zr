@@ -1,0 +1,17 @@
+[TypeError, "can't instantiate uninitialized class"]
+[TypeError, "can't instantiate uninitialized class"]
+[TypeError, "can't instantiate uninitialized class"]
+[TypeError, "can't instantiate uninitialized class"]
+[TypeError, "uninitialized class"]
+[TypeError, "can't instantiate uninitialized class"]
+true
+Class
+[Object, true]
+[Array, true, []]
+[String, "x", true]
+{a: 1}
+[NoMethodError, "undefined method 'new' for class #<Class:XX>"]
+[TypeError, "already initialized class"]
+2
+"st"
+1

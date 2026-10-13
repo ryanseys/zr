@@ -274,8 +274,12 @@ module Zr::Kern
     if zr_type(orig) == T_CLASS
       zr_make_metaclass(copy)
       # rb_class_init_copy: the copy allocates as the original does, so a
-      # copy of String makes Strings.
-      ClassExt[ext].alloc = zr_alloc_kind(orig)
+      # copy of String makes Strings. A copy of an uninitialized class has
+      # no allocator yet: it takes one from the superclass that its own
+      # `initialize` gives it.
+      if RClass[orig].superclass != QNIL || orig == zr_global(G_BASIC_OBJECT)
+        ClassExt[ext].alloc = zr_alloc_kind(orig)
+      end
     end
     if zr_singleton_p(RBasic[orig].klass)
       zr_include_singleton(copy, RBasic[orig].klass)
