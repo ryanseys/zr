@@ -46,7 +46,7 @@ class Hash
       out = allocate
       list.each_with_index do |item, i|
         pair = Array.try_convert(item)
-        raise ArgumentError, "wrong element type #{item.class} at #{i} (expected array)" unless pair
+        raise ArgumentError, "wrong element type #{item.nil? || item == true || item == false ? item.inspect : item.class} at #{i} (expected array)" unless pair
         raise ArgumentError, "invalid number of elements (#{pair.size} for 1..2)" unless pair.size.between?(1, 2)
 
         Primitive.zr_hash_aset_m(out, pair[0], pair[1])
@@ -264,10 +264,11 @@ class Hash
     self
   end
 
-  def transform_keys(mapping = nil)
-    return to_enum(:transform_keys) { size } unless mapping || block_given?
+  # A mapping that is given must be a Hash, nil too.
+  def transform_keys(mapping = (none = true; nil))
+    return to_enum(:transform_keys) { size } if none && !block_given?
 
-    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") if mapping
+    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") unless none
     out = {}
     Primitive.zr_hash_foreach(self) do |k, v|
       new_key = if mapping && Primitive.zr_hash_key_p_m(mapping, k) then Primitive.zr_hash_fetch_m(mapping, k, nil)
@@ -451,6 +452,7 @@ class Hash
     # answers by its own eql?.
     return Kernel === other && other.respond_to?(:to_hash) && !!other.eql?(self) unless Hash === other
     return false unless Primitive.zr_hash_len_m(self) == Primitive.zr_hash_len_m(other)
+    return false unless Primitive.zr_hash_len_m(self).zero? || compare_by_identity? == other.compare_by_identity?
     return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
     begin

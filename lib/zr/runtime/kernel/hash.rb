@@ -1037,6 +1037,11 @@ module Zr::Kern
     if RHash[recv].live != RHash[other].live
       return Machine.value(QFALSE)
     end
+    # hash_equal: a Hash that compares keys by identity is not equal to one
+    # that compares them with eql?, unless both are empty.
+    if RHash[recv].live != 0 && (RBasic[recv].flags & FL_IDENTITY) != (RBasic[other].flags & FL_IDENTITY)
+      return Machine.value(QFALSE)
+    end
     # The same two Hashes compared again inside their own comparison is a
     # recursion, and the result is equal (rb_exec_recursive_paired).
     if recv == other || zr_guard_enter_paired(recv, other, Machine.id(:==))
