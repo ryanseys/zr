@@ -1,0 +1,23 @@
+"SignalException"
+"SIGINT"
+"bye"
+"Interrupt"
+"Interrupt"
+"stop"
+2
+"SIGTERM"
+"SIGHUP"
+30
+15
+"SIGTERM"
+SignalException
+2
+"x"
+Interrupt
+[RangeError, "bignum too big to convert into 'long'"]
+[ArgumentError, "invalid signal number (-1)"]
+[ArgumentError, "invalid signal number (1000)"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[ArgumentError, "bad signal type Integer"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]
+[Encoding::CompatibilityError, "ASCII incompatible encoding: UTF-16LE"]

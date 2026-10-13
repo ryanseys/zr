@@ -1,0 +1,4 @@
+alive
+"can't trap reserved signal: SIGVTALRM"
+child alive
+true

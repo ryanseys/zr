@@ -56,7 +56,8 @@ module Signal
     # trap_signm: a number below NSIG, or a name EXIT among them.
     def trap_number(signal)
       Primitive.attr! :hidden
-      return number(signal, exit: true) unless signal.is_a?(Integer)
+      # A Bignum is no number here; it is read as a name.
+      return number(signal, exit: true) unless signal.is_a?(Integer) && signal.bit_length < 63
       raise ArgumentError, "invalid signal number (#{signal})" unless signal.between?(0, 31)
 
       signal
@@ -69,6 +70,7 @@ module Signal
       Primitive.attr! :hidden
       name = signal.is_a?(Symbol) ? signal.name : String.try_convert(signal)
       raise ArgumentError, "bad signal type #{signal.class}" if name.nil?
+      raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{name.encoding}" unless name.encoding.ascii_compatible?
       raise ArgumentError, +"signal name with null byte" if name.include?("\0")
 
       minus = name.start_with?("-")
@@ -211,6 +213,9 @@ module Signal
     was = Primitive.zr_trap_handle(signo, default_handling(signo))
     Primitive.zr_trap_handle(signo, was) unless was == SYSTEM_DEFAULT
   end
+  # SIGVTALRM, which ruby's timer thread uses, is caught and dropped
+  # (ruby_posix_signal in Init_native_thread), so it ends no process.
+  Primitive.zr_trap_handle(LIST["VTALRM"], DROPPED) if LIST.key?("VTALRM")
 end
 
 module Kernel

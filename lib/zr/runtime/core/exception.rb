@@ -608,18 +608,21 @@ class SignalException
 
   # A number gives its first signal in Signal.list; a name keeps its own
   # spelling, including an alias.
-  def initialize(sig = (none = true; nil), message = nil, *rest)
+  def initialize(sig = (none = true; nil), message = (bare = true; nil), *rest)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1)" if none && instance_of?(SignalException)
     # esignal_init: a number takes a message too, a name does not.
     raise ArgumentError, "wrong number of arguments (given #{2 + rest.size}, expected #{Integer.try_convert(sig) ? "1..2" : "1"})" unless rest.empty?
 
     number = Integer.try_convert(sig) unless none
     if number
-      # A number up to NSIG names its signal, or SIG and the number.
+      # The number is a C int (NUM2INT); one up to NSIG names its signal,
+      # or SIG and the number. A message given as nil gives the class's
+      # name.
+      number = IO.send(:c_int, number)
       raise ArgumentError, "invalid signal number (#{number})" unless number.between?(0, Primitive.zr_signal_limit)
 
       Primitive.zr_hidden_set(self, :signo, number)
-      super(message || "SIG#{Signal.list.key(number) || number}")
+      super(bare ? "SIG#{Signal.list.key(number) || number}" : message)
     elsif none
       Primitive.zr_hidden_set(self, :signo, 2)
       super(message)
@@ -637,10 +640,24 @@ class SignalException
   end
 
   def signm = to_s
+
+  # Marshal writes the number next to the message and the backtrace.
+  def marshal_parts
+    Primitive.attr! :hidden
+    [[:signo, signo]]
+  end
+
+  def marshal_part_set(name, value)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_set(self, :signo, value) if name == :signo
+  end
+  private :marshal_parts, :marshal_part_set
 end
 
 class Interrupt
-  def initialize(message = +"Interrupt")
+  # interrupt_init: SIGINT, and the message, nil when none is given, so
+  # the class's name is the message.
+  def initialize(message = nil)
     super(2, message)
   end
 end
