@@ -890,6 +890,32 @@ class MatchData
     value && value.size
   end
 
+  # match_integer_at (ruby 4.1): group `index` read as an Integer in
+  # `base`, as rb_int_parse_cstr reads it (String#parsed_integer). A
+  # group that did not take part, past the last, or one that a negative
+  # index puts at 0 or before, is nil, and then no radix is checked. Two
+  # optional parameters and `given`; more go to more_args.
+  def integer_at(index = (given = 0; nil), base = (given ||= 1; 10))
+    Primitive.attr! :more_args
+    raise ArgumentError, +"wrong number of arguments (given 0, expected 1..2)" if (given ||= 2) == 0
+
+    nth = if Primitive.zr_fixnum_p_m(index) then Integer.send(:int_operand, index)
+          elsif index.is_a?(String) || index.is_a?(Symbol) then named_group(index)
+          else raise IndexError, "undefined group name reference: #{index}"
+          end
+    base = Integer.send(:int_operand, base) if given == 2
+    raise ArgumentError, "invalid radix #{base}" if base < 0
+    return nil if nth >= size
+
+    nth += size if nth < 0
+    return nil if nth <= 0 && index.is_a?(Integer) && index < 0
+
+    b = begin_at(nth)
+    return nil if b < 0
+
+    Primitive.zr_str_byteslice(text, b, end_at(nth) - b).b.send(:parsed_integer, base)
+  end
+
   def pre_match = Primitive.zr_str_byteslice(text, 0, begin_at(0))
 
   def post_match = Primitive.zr_str_byteslice(text, end_at(0), Primitive.zr_str_bytesize(text) - end_at(0))
@@ -981,6 +1007,13 @@ class MatchData
 
     e = end_at(index)
     e < 0 ? nil : e
+  end
+
+  # The calls of integer_at with more than two arguments
+  # (`Primitive.attr! :more_args`).
+  def more_args(_name, *args)
+    Primitive.attr! :hidden
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)"
   end
 
   # match_backref_number: a group by name, else by NUM2INT.

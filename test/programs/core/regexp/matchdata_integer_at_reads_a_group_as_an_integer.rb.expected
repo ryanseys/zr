@@ -1,0 +1,59 @@
+42
+42
+255
+nil
+255
+42
+nil
+nil
+nil
+146
+42
+0: 42
+1: nil
+x: nil
+x str: nil
+x 16: 255
+unmatched: nil
+past: nil
+neg: nil
+neg2: nil
+neg all: nil
+neg past: nil
+bad name: IndexError: undefined group name reference: nope
+bad type: IndexError: undefined group name reference: 1.5
+nil: IndexError: undefined group name reference: 
+radix neg: ArgumentError: invalid radix -1
+radix 1: ArgumentError: invalid radix 1
+radix 37: ArgumentError: invalid radix 37
+radix 0: nil
+radix 2: nil
+radix str: TypeError: no implicit conversion of String into Integer
+none: ArgumentError: wrong number of arguments (given 0, expected 1..2)
+three: ArgumentError: wrong number of arguments (given 3, expected 1..2)
+" 12": [12, 18, 12]
+"12 ": [12, 18, 12]
+"-12": [-12, -18, -12]
+"+12": [12, 18, 12]
+"1_000": [1000, 4096, 1000]
+"1__0": [1, 1, 1]
+"_1": [nil, nil, nil]
+"0x1f": [0, 31, 31]
+"0b101": [0, 45313, 5]
+"0o17": [0, 0, 15]
+"017": [17, 23, 15]
+"12abc": [12, 76476, 12]
+"abc": [nil, 2748, nil]
+"": [nil, nil, nil]
+"  ": [nil, nil, nil]
+"-": [nil, nil, nil]
+"0_8": [8, 8, 0]
+"99999999999999999999999": [99999999999999999999999, 2971056094284912659757898137, 99999999999999999999999]
+"１２": [nil, nil, nil]
+"1e3": [1, 483, 1]
+"0x": [0, nil, nil]
+"--1": [0, 0, 0]
+big index: IndexError: undefined group name reference: 18446744073709551616
+to_int idx: IndexError: undefined group name reference: #<Object:0xX>
+to_int radix: ArgumentError: invalid radix 1
+arity: -1

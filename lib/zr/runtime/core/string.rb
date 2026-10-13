@@ -2869,6 +2869,37 @@ class String
   # sign, a base prefix, digits with single underscores, and nothing
   # past the first stray byte. A negative base means the prefix picks
   # the base.
+  # rb_int_parse_cstr with an end pointer, as MatchData#integer_at calls
+  # it: lenient_integer's number, or nil where the text has none. That is
+  # where the text ends after its spaces, its sign or its radix prefix, or
+  # where its first byte is no digit and nothing came before it. A base of
+  # 0 reads the prefix; 1 and past 36 are no radix.
+  def parsed_integer(base)
+    Primitive.attr! :hidden
+    raise ArgumentError, "invalid radix #{base}" if base == 1 || base > 36
+
+    size = Primitive.zr_str_bytesize(self)
+    i = 0
+    i += 1 while i < size && SPACE_BYTES.include?(Primitive.zr_str_byte_at(self, i))
+    i += 1 if i < size && (Primitive.zr_str_byte_at(self, i) == 43 || Primitive.zr_str_byte_at(self, i) == 45)
+    return nil if i >= size
+
+    if Primitive.zr_str_byte_at(self, i) == 48 && i + 1 < size
+      letter = Primitive.zr_str_byte_at(self, i + 1) | 0x20
+      prefixed = { 120 => 16, 98 => 2, 111 => 8, 100 => 10 }[letter]
+      return nil if prefixed && (base == 0 || base == prefixed) && i + 2 >= size
+    end
+    first = Primitive.zr_str_byte_at(self, i)
+    digit = if first >= 48 && first <= 57 then first - 48
+            elsif first >= 97 && first <= 122 then first - 87
+            elsif first >= 65 && first <= 90 then first - 55
+            else 99
+            end
+    return nil if i == 0 && digit >= (base == 0 ? 10 : base)
+
+    lenient_integer(base == 0 ? -10 : base)
+  end
+
   def lenient_integer(base)
     Primitive.attr! :hidden
     # rb_int_parse_cstr skips ASCII space bytes only, so bytes that make
