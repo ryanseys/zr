@@ -854,7 +854,10 @@ module Process
             Primitive.zr_os_spawn(words, redirects.dups, redirects.closes, environment(env, options), redirects.chdir, redirects.close_others)
           end
     redirects.opened.each(&:close)
-    Process.send(:status!, Status.send(:reaped, 0, 127 << 8)) if pid.negative?
+    # Ruby's child that could not start exits 127, and ruby waits for
+    # it. When the system reaps children itself, that wait finds none
+    # and `$?` does not change.
+    Process.send(:status!, Status.send(:reaped, 0, 127 << 8)) if pid.negative? && !Signal.send(:reaps_children?)
     pid
   end
 
@@ -1218,13 +1221,16 @@ module Kernel
       raise ArgumentError, "expected true or false as exception: #{exception.inspect}"
     end
 
+    Process.send(:status!, nil)
     pid = Process.send(:spawn_command, args, options)
     if pid.negative?
       raise Process.send(:start_error, args, options, pid) if exception
 
       return nil
     end
-    Process.wait(pid)
+    # rb_process_status_wait: a child that the system already reaped
+    # (SIGCHLD ignored) gives a status of pid -1 and exit 0, not an error.
+    Process.send(:status!, Process::Status.wait(pid))
     return true if $?.success?
     raise RuntimeError, "Command failed with exit #{$?.exitstatus}: #{args.join(' ')}" if exception
 

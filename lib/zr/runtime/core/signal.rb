@@ -149,6 +149,14 @@ module Signal
       Primitive.zr_hidden_get(self, :__commands__) || Primitive.zr_hidden_set(self, :__commands__, {})
     end
 
+    # Whether the program ignores SIGCHLD. The system then reaps each
+    # child itself, and no wait finds one.
+    def reaps_children?
+      Primitive.attr! :hidden
+      signo = LIST.fetch("CHLD")
+      commands.key?(signo) && (commands[signo].nil? || commands[signo] == true)
+    end
+
     # A safe point: every signal that came runs its command. A signal
     # that comes while a command runs waits for it to end, and one that
     # comes while the scheduler changes its lists waits for the next safe

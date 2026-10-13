@@ -1,0 +1,31 @@
+"DEFAULT"
+true
+[Process::Status, -1, 0, true, "pid -1 exit 0", "#<Process::Status: pid -1 exit 0>", true]
+true
+#<Process::Status: pid -1 exit 0>
+true
+"hi\n"
+nil
+"pop\n"
+nil
+[Errno::ECHILD, "No child processes"]
+#<Process::Status: pid -1 exit 0>
+[Errno::ECHILD, "No child processes"]
+[Errno::ECHILD, "No child processes"]
+[]
+#<Process::Status: pid -1 exit 0>
+nil
+nil
+nil
+[Errno::ENOENT, "No such file or directory - zr-test-no-such-command"]
+#<Process::Status: pid -1 exit 0>
+"IGNORE"
+[true, -1]
+"IGNORE"
+[true, -1]
+nil
+[false, 3, true]
+[nil, 127]
+[false, 5]
+[false, 6]
+[RuntimeError, "Command failed with exit 7: exit 7"]
