@@ -1,3 +1,4 @@
 area	files	ruby_passes	zr_passes	no_build	no_load
+openssl	35	580	580	0	0
 ruby	158	9987	9714	0	0
-total	158	9987	9714	0	0
+total	193	10567	10294	0	0
