@@ -1177,6 +1177,14 @@ module Zr::Kern
     zr_bool(zr_bytes_eq(RString[recv].ptr, RString[recv].len, RString[other].ptr, RString[other].len) && zr_str_comparable(recv, other))
   end
 
+  # Whether two Strings hold the same bytes, with no send: the core's bang
+  # forms ask this of their result, so a String#== that the program
+  # writes does not run.
+  #: (value, value) -> value
+  def zr_str_same_bytes_m(a, b)
+    zr_bool(zr_bytes_eq(RString[a].ptr, RString[a].len, RString[b].ptr, RString[b].len))
+  end
+
   # `String#==`: compares another String by its bytes. For any other value
   # that responds to to_str, it calls `other == self`, as CRuby's
   # rb_str_equal does. `eql?` keeps the plain rule of zr_str_eq.

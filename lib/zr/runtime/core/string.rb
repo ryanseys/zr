@@ -330,31 +330,64 @@ class String
   # `:ascii` leaves everything above 127 alone, `:turkic` gives the
   # dotted and dotless i their own rules, and `:fold` is downcasing
   # for comparison. `:lithuanian` reads as the plain mapping, as it
-  # does in ruby.
-  def upcase(*options) = mapped_case(:up, options)
-  def downcase(*options) = mapped_case(:down, options)
-  def capitalize(*options) = mapped_case(:title, options)
-  def swapcase(*options) = mapped_case(:swap, options)
+  # does in ruby. Two optional parameters and `given`; more go to
+  # more_args, which says "too many options" as check_case_options does.
+  def upcase(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    mapped_case(:up, case_mode(:up, given || 2, option, other))
+  end
 
-  # The bang forms return nil when nothing changed.
-  def upcase!(*options) = mutate(OWN[:upcase].bind_call(self, *options))
-  def downcase!(*options) = mutate(OWN[:downcase].bind_call(self, *options))
-  def capitalize!(*options) = mutate(OWN[:capitalize].bind_call(self, *options))
-  def swapcase!(*options) = mutate(OWN[:swapcase].bind_call(self, *options))
+  def downcase(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    mapped_case(:down, case_mode(:down, given || 2, option, other))
+  end
+
+  def capitalize(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    mapped_case(:title, case_mode(:title, given || 2, option, other))
+  end
+
+  def swapcase(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    mapped_case(:swap, case_mode(:swap, given || 2, option, other))
+  end
+
+  # The bang forms read their options, then refuse a frozen receiver,
+  # then map, as rb_str_upcase_bang does; nil when nothing changed.
+  def upcase!(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    recased(:up, case_mode(:up, given || 2, option, other))
+  end
+
+  def downcase!(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    recased(:down, case_mode(:down, given || 2, option, other))
+  end
+
+  def capitalize!(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    recased(:title, case_mode(:title, given || 2, option, other))
+  end
+
+  def swapcase!(option = (given = 0; nil), other = (given ||= 1; nil))
+    Primitive.attr! :more_args
+    recased(:swap, case_mode(:swap, given || 2, option, other))
+  end
+
   def reverse! = Primitive.zr_str_replace(self, OWN[:reverse].bind_call(self))
-  def delete!(*sets) = mutate(OWN[:delete].bind_call(self, *sets))
-  def strip!(*selectors) = mutate(OWN[:strip].bind_call(self, *selectors))
-  def lstrip!(*selectors) = mutate(OWN[:lstrip].bind_call(self, *selectors))
-  def rstrip!(*selectors) = mutate(OWN[:rstrip].bind_call(self, *selectors))
+  def delete!(*sets) = shrunk(OWN[:delete].bind_call(self, *sets))
+  def strip!(*selectors) = shrunk(OWN[:strip].bind_call(self, *selectors))
+  def lstrip!(*selectors) = shrunk(OWN[:lstrip].bind_call(self, *selectors))
+  def rstrip!(*selectors) = shrunk(OWN[:rstrip].bind_call(self, *selectors))
   # rb_str_chomp_bang: an empty String gives nil before the separator
   # converts.
   def chomp!(separator = $/)
-    return mutate(self) if Primitive.zr_str_bytesize(self) == 0
+    return shrunk(self) if Primitive.zr_str_bytesize(self) == 0
 
-    mutate(OWN[:chomp].bind_call(self, separator))
+    shrunk(OWN[:chomp].bind_call(self, separator))
   end
-  def chop! = mutate(OWN[:chop].bind_call(self))
-  def squeeze!(*sets) = mutate(OWN[:squeeze].bind_call(self, *sets))
+  def chop! = shrunk(OWN[:chop].bind_call(self))
+  def squeeze!(*sets) = shrunk(OWN[:squeeze].bind_call(self, *sets))
 
   # Whitespace and NUL off both ends, in one String. The end is found by
   # walking back over characters, which bytes that make none refuse, as
@@ -876,11 +909,16 @@ class String
     raise ArgumentError, "wrong number of arguments (given #{given}, expected #{block ? "1..2" : "2"})"
   end
 
-  # The calls of sub, sub!, tr and tr! with more than two arguments
-  # (`Primitive.attr! :more_args`).
+  # The calls of sub, sub!, tr, tr! and the case mappings with more than
+  # two arguments (`Primitive.attr! :more_args`).
   def more_args(name, *args, &block)
     Primitive.attr! :hidden
-    tr_arity(args.size) if name == :tr || name == :tr!
+    case name
+    when :upcase, :downcase, :capitalize, :swapcase, :upcase!, :downcase!, :capitalize!, :swapcase!
+      raise ArgumentError, +"too many options"
+    when :tr, :tr!
+      tr_arity(args.size)
+    end
     sub_arity(args.size, block)
   end
   private :more_args
@@ -3095,10 +3133,34 @@ class String
     sign * value
   end
 
+  # The receiver becomes `result`; nil when no byte changes. The bytes
+  # compare with no send, so a String#== that the program writes does
+  # not run.
   def mutate(result)
     Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    return nil if result == self
+    return nil if Primitive.zr_str_same_bytes_m(result, self)
+
+    Primitive.zr_str_replace(self, result)
+  end
+
+  # `mutate` for a bang form that only takes bytes away: the same size
+  # means that it took none.
+  def shrunk(result)
+    Primitive.attr! :hidden
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    return nil if Primitive.zr_str_bytesize(result) == Primitive.zr_str_bytesize(self)
+
+    Primitive.zr_str_replace(self, result)
+  end
+
+  # A case mapping's bang form, its options read: frozen first, then the
+  # map.
+  def recased(kind, mode)
+    Primitive.attr! :hidden
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    result = mapped_case(kind, mode)
+    return nil if Primitive.zr_str_same_bytes_m(result, self)
 
     Primitive.zr_str_replace(self, result)
   end
@@ -3569,40 +3631,36 @@ class String
     [start, length]
   end
 
-  # The one option each case method takes, checked as ruby checks it.
-  # `:lithuanian` has no mapping of its own.
-  def case_mode(options, kind)
+  # The mode of a case method from its `given` options (0, 1 or 2),
+  # checked as check_case_options checks them. `:lithuanian` has no
+  # mapping of its own.
+  def case_mode(kind, given, first, second)
     Primitive.attr! :hidden
-    raise ArgumentError, +"too many options" if options.size > 2
-
-    if options.size == 2
-      first, second = options
+    if given == 2
       raise ArgumentError, +"too many options" unless first == :turkic || first == :lithuanian
       raise ArgumentError, +"invalid second option" unless second == (first == :turkic ? :lithuanian : :turkic)
 
       return :turkic
     end
 
-    mode = options.first
-    return :full if options.empty? || mode == :lithuanian
-    raise ArgumentError, +"option :fold only allowed for downcasing" if mode == :fold && kind != :down
-    raise ArgumentError, +"invalid option" unless mode == :ascii || mode == :turkic || mode == :fold
+    return :full if given == 0 || first == :lithuanian
+    raise ArgumentError, +"option :fold only allowed for downcasing" if first == :fold && kind != :down
+    raise ArgumentError, +"invalid option" unless first == :ascii || first == :turkic || first == :fold
 
-    mode
+    first
   end
 
   # Each character mapped: the first through the title table for
   # `capitalize`, the rest through the lowercase one.
-  def mapped_case(kind, options)
+  def mapped_case(kind, mode)
     Primitive.attr! :hidden
-    mode = case_mode(options, kind)
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     raise Encoding::CompatibilityError, "incompatible encoding with this operation: #{encoding}" if encoding.dummy?
     # UTF-16, UTF-32 and CESU-8 case as the same characters do in UTF-8.
-    return OWN[:encode].bind_call(self, Encoding::UTF_8).send(:mapped_case, kind, options).encode(encoding) if Encoding.wide?(encoding) || encoding.name == +"CESU-8"
+    return OWN[:encode].bind_call(self, Encoding::UTF_8).send(:mapped_case, kind, mode).encode(encoding) if Encoding.wide?(encoding) || encoding.name == +"CESU-8"
     # UTF8-MAC and the carriers' UTF-8 hold the same bytes UTF-8 does.
-    return copied.force_encoding(Encoding::UTF_8).send(:mapped_case, kind, options).force_encoding(encoding) if Encoding.send(:utf8_like?, encoding)
-    return recoded_case(kind, options) if Encoding.cased?(encoding) && !Primitive.zr_str_ascii_only_m(self)
+    return copied.force_encoding(Encoding::UTF_8).send(:mapped_case, kind, mode).force_encoding(encoding) if Encoding.send(:utf8_like?, encoding)
+    return recoded_case(kind, mode) if Encoding.cased?(encoding) && !Primitive.zr_str_ascii_only_m(self)
     # The case-map pass reads every character of a multibyte encoding,
     # and says so of bytes that make none; ASCII mode reads none past
     # ASCII.
@@ -3662,7 +3720,7 @@ class String
   # A single-byte encoding cases its characters as Unicode does, over
   # their code points. A character whose new case the encoding has no
   # byte for stays as it was, and so does a byte it never defined.
-  def recoded_case(kind, options)
+  def recoded_case(kind, mode)
     Primitive.attr! :hidden
     target = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     out = +"".b
@@ -3670,15 +3728,15 @@ class String
     chars.each_index do |i|
       char = chars[i]
       step = kind == :title && !i.zero? ? :down : kind
-      out << (recased_char(char, step, options, target) || char.b)
+      out << (recased_char(char, step, mode, target) || char.b)
     end
     out.force_encoding(target)
   end
 
-  def recased_char(char, kind, options, target)
+  def recased_char(char, kind, mode, target)
     Primitive.attr! :hidden
     wide = char.encode(Encoding::UTF_8)
-    wide.send(:mapped_case, kind, options).encode(target).b
+    wide.send(:mapped_case, kind, mode).encode(target).b
   rescue Encoding::UndefinedConversionError
     nil
   end

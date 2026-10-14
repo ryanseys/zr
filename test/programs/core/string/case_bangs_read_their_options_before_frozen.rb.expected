@@ -1,0 +1,34 @@
+[ArgumentError, "invalid option"]
+[ArgumentError, "too many options"]
+[ArgumentError, "too many options"]
+[ArgumentError, "option :fold only allowed for downcasing"]
+[FrozenError, "can't modify frozen String: \"Abc\""]
+[FrozenError, "can't modify frozen String: \"Abc\""]
+[FrozenError, "can't modify frozen String: \"\\xFF\""]
+[ArgumentError, "input string invalid"]
+[ArgumentError, "too many options"]
+"abc"
+"abc"
+[ArgumentError, "invalid second option"]
+[:upcase!, nil, "AB"]
+[:downcase!, "abc", "ab"]
+[:capitalize!, "Abc", nil]
+[:swapcase!, "abc", "aB"]
+nil
+"iı"
+"dŽ"
+nil
+"ac"
+nil
+"a"
+nil
+"x"
+nil
+"x"
+nil
+"x"
+nil
+nil
+"x"
+[FrozenError, "can't modify frozen String: \"\""]
+[FrozenError, "can't modify frozen String: \"x\""]

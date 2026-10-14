@@ -1,0 +1,24 @@
+15
+15
+20
+20
+20
+[ArgumentError, "unknown keyword: :foo"]
+[ArgumentError, "unknown keywords: :foo, :bar"]
+[ArgumentError, "invalid rounding mode: bad"]
+[ArgumentError, "wrong number of arguments (given 2, expected 0..1)"]
+[TypeError, "no implicit conversion of String into Integer"]
+15
+[1, 4, 7, 1, 2, 3, 10, 8, 6, 4, 1, 3, 5, 1.0, 1.5, 2.0]
+[ArgumentError, "wrong number of arguments (given 3, expected 0..2)"]
+[ArgumentError, "unknown keyword: :foo"]
+[ArgumentError, "unknown keyword: :foo"]
+(1.step(by: 2, to: 5))
+(1.step(5, 2))
+[1, 3, 5]
+[1, 2]
+[ArgumentError, "step can't be 0"]
+[TypeError, "step must be numeric"]
+[ArgumentError, "to is given twice"]
+[ArgumentError, "step is given twice"]
+[ArgumentError, "step can't be 0"]

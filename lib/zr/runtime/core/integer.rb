@@ -638,16 +638,21 @@ class Integer
 
   def floor(digits = 0) = round_to(Numeric.send(:int_operand, digits), :floor)
 
-  # int_round: with no digits the keywords are not read; the digits must
-  # fit an int, then the rounding mode is read.
-  def round(*args, **opts)
-    raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
-    return self if args.empty?
+  # int_round: with no digits the keywords are not read, so the common
+  # call takes no Hash.
+  def round(digits = (none = true; nil), **opts)
+    none ? self : round_digits(digits, **opts)
+  end
 
-    digits = Numeric.send(:int_operand, args.first)
-    mode = Numeric.send(:half_mode, opts.fetch(:half, nil))
+  # The digits must fit an int, then the keywords are read, as
+  # rb_get_kwargs reads them: an unknown one first, then the mode.
+  def round_digits(digits, **opts)
+    Primitive.attr! :hidden
+    digits = Numeric.send(:int_operand, digits)
     unknown = opts.keys - [:half]
     raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}" unless unknown.empty?
+
+    mode = Numeric.send(:half_mode, opts.fetch(:half, nil))
     return self if digits >= 0
 
     unit = 10**-digits
@@ -944,10 +949,24 @@ class Numeric
   # num_step: `step(limit, step)` or `step(to:, by:)`. Without a block,
   # an ArithmeticSequence over numbers, else an Enumerator; with one,
   # each value up to `limit`. A Float anywhere makes every value a
-  # Float, spaced as CRuby's float step is.
-  def step(*args, **kwargs, &block)
-    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
+  # Float, spaced as CRuby's float step is. The common call, a block and
+  # no keywords, takes no Array and no Hash.
+  def step(limit = (given = 0; nil), step = (given ||= 1; nil), **keywords, &block)
+    given ||= 2
+    if block && Primitive.zr_hash_len_m(keywords) == 0 && !(given == 2 && step.nil?)
+      step = 1 if step.nil?
+      raise ArgumentError, +"step can't be 0" if Primitive.zr_rb_equal(step, 0)
 
+      stepping(limit, step, &block)
+      return self
+    end
+    step_as_given(given == 0 ? [] : (given == 1 ? [limit] : [limit, step]), { **keywords }, &block)
+  end
+
+  # `step` with its arguments as given: `args` and `kwargs` also go into
+  # the ArithmeticSequence, which shows them.
+  def step_as_given(args, kwargs, &block)
+    Primitive.attr! :hidden
     unknown = kwargs.keys - %i[to by]
     raise ArgumentError, "unknown keyword#{'s' if unknown.size > 1}: #{unknown.map(&:inspect).join(', ')}" unless unknown.empty?
 

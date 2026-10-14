@@ -60,9 +60,11 @@ class Array
 
   # The calls of find, detect and rfind with more than two arguments
   # (`Primitive.attr! :more_args`): with no block, the enumerator takes
-  # them all; with one, the count is wrong.
+  # them all; with one, the count is wrong. inject and reduce have
+  # Enumerable's count.
   def more_args(name, *args, &block)
     Primitive.attr! :hidden
+    return inject_arity(args.size, block) if name == :inject || name == :reduce
     return to_enum(name, *args) unless block
 
     raise ArgumentError, wrong_arity(args.size, 0..1)
@@ -625,12 +627,8 @@ class Array
 
   def deconstruct = self
 
-  def slice(*args)
-    case args.size
-    when 1 then Primitive.zr_ary_aref1_m(self, args[0])
-    when 2 then Primitive.zr_ary_aref2_m(self, args[0], args[1])
-    else raise ArgumentError, wrong_arity(args.size, 1..2)
-    end
+  def slice(index, length = (absent = true; nil))
+    absent ? Primitive.zr_ary_aref1_m(self, index) : Primitive.zr_ary_aref2_m(self, index, length)
   end
 
   # `Array[1, 2]` is the constructor spelling of `[1, 2]`. A subclass
@@ -1107,29 +1105,24 @@ class Array
     rest.empty? || v.nil? ? v : Primitive.zr_dig_into(v, rest)
   end
 
-  # Each index fetched; the block gives the value for an index out of bounds.
+  # Each index fetched; the block gives the value for an index out of
+  # bounds. CRuby writes it in Ruby, so it sends `fetch`.
   def fetch_values(*indexes, &block)
     Primitive.attr! :ruby
-    indexes.map { |i| fetched(i, [], &block) }
+    indexes.map! { |i| fetch(i, &block) }
+    indexes
   end
 
-  def fetch(*args, &block)
-    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
-
-    fetched(args.first, args.drop(1), &block)
-  end
-
-  # rb_ary_fetch, which fetch_values calls as a function.
-  def fetched(index, default)
-    Primitive.attr! :hidden
-
-    Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !default.empty?
+  # rb_ary_fetch: the element at `index`, else the block's value for it,
+  # else `default`.
+  def fetch(index, default = (none = true; nil))
+    Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !none
     given = index
     index = Primitive.zr_index_operand_m(index)
     i = index < 0 ? index + Primitive.zr_ary_len_m(self) : index
     return Primitive.zr_ary_aref1_m(self, i) if i >= 0 && i < Primitive.zr_ary_len_m(self)
     return yield(given) if block_given?
-    return default[0] unless default.empty?
+    return default unless none
 
     raise IndexError, "index #{index} outside of array bounds: #{-Primitive.zr_ary_len_m(self)}...#{Primitive.zr_ary_len_m(self)}"
   end

@@ -1,0 +1,19 @@
+[:a, "no x", :c]
+[]
+[:b, :a]
+[:a, 50]
+[IndexError, "index 9 outside of array bounds: -2...2"]
+:b
+:b
+:none
+[:block, -5]
+[IndexError, "index 9 outside of array bounds: -2...2"]
+[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]
+[ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+[TypeError, "no implicit conversion of String into Integer"]
+:b
+[ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]
+[ArgumentError, "wrong number of arguments (given 3, expected 1..2)"]
+[:b, :c]
+[:b, :c]
+:c

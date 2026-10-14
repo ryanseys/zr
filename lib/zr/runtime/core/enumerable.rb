@@ -57,13 +57,12 @@ module Enumerable
     ifnone&.call
   end
 
-  def any?(*pattern, &blk)
-    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
+  def any?(pattern = (bare = true; nil), &blk)
     # rb_warn: a pattern and a block, and the block is not used.
-    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
-    if !pattern.empty?
+    Primitive.zr_warn_here_m("given block not used") if blk && !bare
+    if !bare
       Primitive.zr_enum_each(self, nil) do |x|
-        return true if pattern[0] === x
+        return true if pattern === x
         nil
       end
     elsif blk
@@ -80,13 +79,12 @@ module Enumerable
     false
   end
 
-  def all?(*pattern, &blk)
-    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
+  def all?(pattern = (bare = true; nil), &blk)
     # rb_warn: a pattern and a block, and the block is not used.
-    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
-    if !pattern.empty?
+    Primitive.zr_warn_here_m("given block not used") if blk && !bare
+    if !bare
       Primitive.zr_enum_each(self, nil) do |x|
-        return false unless pattern[0] === x
+        return false unless pattern === x
         nil
       end
     elsif blk
@@ -103,13 +101,12 @@ module Enumerable
     true
   end
 
-  def none?(*pattern, &blk)
-    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
+  def none?(pattern = (bare = true; nil), &blk)
     # rb_warn: a pattern and a block, and the block is not used.
-    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
-    if !pattern.empty?
+    Primitive.zr_warn_here_m("given block not used") if blk && !bare
+    if !bare
       Primitive.zr_enum_each(self, nil) do |x|
-        return false if pattern[0] === x
+        return false if pattern === x
         nil
       end
     elsif blk
@@ -571,15 +568,14 @@ module Enumerable
     c > 0 ? 1 : (c < 0 ? -1 : 0)
   end
 
-  def one?(*pattern, &blk)
-    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
+  def one?(pattern = (bare = true; nil), &blk)
     # rb_warn: a pattern and a block, and the block is not used.
-    Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
+    Primitive.zr_warn_here_m("given block not used") if blk && !bare
     # A second match ends the walk, as one_iter_i breaks.
     seen = 0
-    if !pattern.empty?
+    if !bare
       Primitive.zr_enum_each(self, nil) do |x|
-        return false if pattern[0] === x && (seen += 1) > 1
+        return false if pattern === x && (seen += 1) > 1
         nil
       end
     elsif blk
@@ -801,28 +797,40 @@ module Enumerable
     self
   end
 
-  def inject(*args, &block) = injected(args, block)
+  # Two optional parameters and `given`, the count of arguments, not a
+  # rest Array; more go to more_args.
+  def inject(init = (given = 0; nil), op = (given ||= 1; nil), &block)
+    Primitive.attr! :more_args
+    injected(given || 2, init, op, block)
+  end
 
-  # inject and reduce, which CRuby defines from one function.
-  def injected(args, block)
+  def reduce(init = (given = 0; nil), op = (given ||= 1; nil), &block)
+    Primitive.attr! :more_args
+    injected(given || 2, init, op, block)
+  end
+
+  # inject and reduce, which CRuby defines from one function, with the
+  # `given` count of their two arguments. With no block, the one
+  # argument is the operator.
+  def injected(given, init, op, block)
     Primitive.attr! :hidden
-    raise ArgumentError, wrong_arity(args.size, 1..2) if args.size > 2 || (args.empty? && !block)
-    # The operator name goes through to_str (rb_check_id); two arguments
-    # leave the block unused.
-    if (args.size == 2 || (args.size == 1 && !block)) && !args.last.is_a?(Symbol)
-      name = args.last.is_a?(String) ? args.last : String.try_convert(args.last)
-      raise TypeError, "#{args.last.inspect} is not a symbol nor a string" if name.nil?
+    raise ArgumentError, wrong_arity(0, 1..2) if given == 0 && !block
 
-      args = args[0...-1] + [name.to_sym]
-    end
-    # rb_warning: only under a true $VERBOSE.
-    Primitive.zr_warn_here_m("given block not used") if block && args.size == 2 && $VERBOSE
+    if given == 2 || (given == 1 && !block)
+      op = init if given == 1
+      # The operator name goes through to_str (rb_check_id); two
+      # arguments leave the block unused.
+      unless op.is_a?(Symbol)
+        name = op.is_a?(String) ? op : String.try_convert(op)
+        raise TypeError, "#{op.inspect} is not a symbol nor a string" if name.nil?
 
-    acc = args.empty? ? nil : args.first
-    op = args.size == 2 ? args.last : (args.size == 1 && !block ? args.first : nil)
-    if op
-      acc = args.size == 2 ? args.first : nil
-      first = args.size != 2
+        op = name.to_sym
+      end
+      # rb_warning: only under a true $VERBOSE.
+      Primitive.zr_warn_here_m("given block not used") if block && given == 2 && $VERBOSE
+
+      acc = given == 2 ? init : nil
+      first = given != 2
       Primitive.zr_enum_each(self, nil) do |x|
         if first
           acc = x
@@ -835,7 +843,8 @@ module Enumerable
       end
       return acc
     end
-    first = args.empty?
+    acc = init
+    first = given == 0
     Primitive.zr_enum_each(self, nil) do |x|
       if first
         acc = x
@@ -848,7 +857,21 @@ module Enumerable
     acc
   end
 
-  def reduce(*args, &block) = injected(args, block)
+  # The calls of inject and reduce with more than two arguments
+  # (`Primitive.attr! :more_args`).
+  def more_args(_name, *args, &block)
+    Primitive.attr! :hidden
+    inject_arity(args.size, block)
+  end
+  private :more_args
+
+  # enum_inject's arity: with a block, both arguments are optional.
+  # Array and Range, which have more_args of their own, call it too.
+  def inject_arity(count, block)
+    Primitive.attr! :hidden
+    raise ArgumentError, wrong_arity(count, block ? 0..2 : 1..2)
+  end
+  private :inject_arity
 
   # Exact while it can be; from the first Float met while the sum is
   # still an Integer or a Rational, Kahan-Babuska compensated, as CRuby's

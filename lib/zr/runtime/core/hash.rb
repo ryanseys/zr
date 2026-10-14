@@ -365,28 +365,26 @@ class Hash
   # rb_hash_any_p: each pair, as one value that a two-parameter block
   # splits, against the pattern or the block. The walk is the Hash's
   # own, not a send of `each`.
-  def any?(*pattern, &block)
-    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
+  def any?(pattern = (bare = true; nil), &block)
     return false if Primitive.zr_hash_len_m(self) == 0
 
-    Primitive.zr_warn_here_m("given block not used") if block && !pattern.empty?
-    return true if pattern.empty? && !block
+    Primitive.zr_warn_here_m("given block not used") if block && !bare
+    return true if bare && !block
 
     Primitive.zr_hash_foreach(self) do |k, v|
       pair = [k, v]
-      return true if pattern.empty? ? yield(pair) : pattern[0] === pair
+      return true if bare ? yield(pair) : pattern === pair
     end
     false
   end
 
   # `default` with no argument returns the default value; with a key, the
   # value that a default proc would return for it.
-  def default(*key)
-    raise ArgumentError, wrong_arity(key.size, 0..1) if key.size > 1
-    return Primitive.zr_hash_default_value(self) if key.empty?
+  def default(key = (none = true; nil))
+    return Primitive.zr_hash_default_value(self) if none
 
     proc = Primitive.zr_hash_default_proc(self)
-    proc ? proc.call(self, key[0]) : Primitive.zr_hash_default_value(self)
+    proc ? proc.call(self, key) : Primitive.zr_hash_default_value(self)
   end
 
   # `delete(key) { |key| }`: the block's return value for a missing key.

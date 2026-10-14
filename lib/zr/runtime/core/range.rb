@@ -17,16 +17,20 @@ class Range
   def begin = @begin
   def end = @end
 
-  # CRuby counts the arguments itself, and says it wants one.
-  # `first(n)` sends `each` by name, as range_first does, and stops at
-  # the element after the nth, as first_i does.
-  def first(*args)
+  # range_first: a beginless range raises before the count is read, then
+  # CRuby counts the arguments itself, and says it wants one. `first(n)`
+  # sends `each` by name, as range_first does, and stops at the element
+  # after the nth, as first_i does. Two optional parameters and `given`;
+  # more go to more_args.
+  def first(n = (given = 0; nil), _extra = (given ||= 1; nil))
     Primitive.attr! :sends_each
-    raise ArgumentError, wrong_arity(args.size, 1) if args.size > 1
+    Primitive.attr! :more_args
+    given ||= 2
     raise RangeError, +"cannot get the first element of beginless range" if @begin.nil?
-    return @begin if args.empty?
+    return @begin if given == 0
+    raise ArgumentError, wrong_arity(2, 1) if given == 2
 
-    n = Primitive.zr_index_operand_m(args[0])
+    n = Primitive.zr_index_operand_m(n)
     raise ArgumentError, +"negative array size (or size too big)" if n < 0
 
     out = []
@@ -126,13 +130,16 @@ class Range
     @end
   end
 
-  # The calls of last, min, max and clamp with more than two arguments
-  # (`Primitive.attr! :more_args`), checked in their order: the bounds
-  # first, then the count that the method they go to takes.
+  # The calls of first, last, min, max and clamp with more than two
+  # arguments (`Primitive.attr! :more_args`), checked in their order: the
+  # bounds first, then the count that the method they go to takes.
+  # inject and reduce have Enumerable's count.
   def more_args(name, *args, &block)
     Primitive.attr! :hidden
     expected = "1"
     case name
+    when :first
+      raise RangeError, +"cannot get the first element of beginless range" if @begin.nil?
     when :last
       raise RangeError, +"cannot get the last element of endless range" if @end.nil?
 
@@ -159,6 +166,8 @@ class Range
       end
     when :clamp
       expected = "1..2"
+    when :inject, :reduce
+      inject_arity(args.size, block)
     end
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{expected})"
   end
