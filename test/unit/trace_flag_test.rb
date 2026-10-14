@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# zr-test: runtime
 
 require "test_helper"
 require "open3"
