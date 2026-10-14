@@ -1750,27 +1750,11 @@ class String
     out << "\""
   end
 
-  # Whether inspect escapes this code point rather than showing it.
-  # onigmo calls a code point with no category of its own unprintable.
-  # The table contains those as runs of a first point and a length.
+  # Whether inspect escapes this code point rather than showing it: one
+  # above ASCII outside Onigmo's Print class.
   def self.unprintable?(point)
     Primitive.attr! :hidden
-    return false if point < 128
-
-    low = 0
-    high = (UNPRINTABLE_RUNS.size / 2) - 1
-    while low <= high
-      middle = (low + high) / 2
-      first = UNPRINTABLE_RUNS[middle * 2]
-      if point < first
-        high = middle - 1
-      elsif point >= first + UNPRINTABLE_RUNS[(middle * 2) + 1]
-        low = middle + 1
-      else
-        return true
-      end
-    end
-    false
+    point >= 128 && !Regexp.send(:print_code?, point)
   end
   private_class_method :unprintable?
 
@@ -3629,6 +3613,8 @@ class String
     # leaves every other byte (rb_str_ascii_casemap).
     return ascii_cased(kind, encoding) unless encoding.equal?(Encoding::UTF_8) || Encoding.cased?(encoding)
     return Primitive.zr_str_map_case_m(self, KERNEL_CASE[kind]) if mode != :turkic && KERNEL_CASE.key?(kind) && Primitive.zr_str_ascii_check(self)
+    # The fold is Onigmo's case fold, which the kernel reads.
+    return Primitive.zr_str_fold_utf8_m(self) if mode == :fold
 
     out = empty_like
     chars = characters
@@ -3704,7 +3690,6 @@ class String
     code = char.ord
     return TURKIC.fetch(kind).fetch(code).chr(Encoding::UTF_8) if mode == :turkic && TURKIC.fetch(kind).key?(code)
 
-    kind = :fold if mode == :fold
     mapped = CASE_MULTI.fetch(kind)[code]
     return mapped.pack("U*") if mapped
 

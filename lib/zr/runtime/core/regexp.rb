@@ -64,6 +64,14 @@ class Regexp
   end
   private_class_method :option_bits
 
+  # Whether Onigmo's Print class holds the code point `code`.
+  # String#inspect escapes a character above ASCII outside it.
+  def self.print_code?(code)
+    Primitive.attr! :hidden
+    Onig::Unicode.in_code_range?(Onig::Unicode.ranges(Onig::Unicode.properties.fetch("print")), code)
+  end
+  private_class_method :print_code?
+
   # A literal's Regexp, for the kernel's literal table. A flag letter
   # that gives an encoding pins the pattern to it. The compiler printed
   # the pattern's warnings when the file started, as ruby's parser does.
