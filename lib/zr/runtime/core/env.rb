@@ -35,7 +35,7 @@ $LOAD_PATH = []
 # ruby's own extension has.
 def $LOAD_PATH.resolve_feature_path(feature)
   name = String.try_convert(feature)
-  raise TypeError, "no implicit conversion of #{conversion_name(feature)} into String" if name.nil?
+  raise TypeError, no_implicit_conversion(feature, "String") if name.nil?
 
   path = Kernel.send(:search, name.end_with?(".rb") ? name : "#{name}.rb")
   unless path
@@ -68,7 +68,7 @@ class << ENV
   end
 
   def fetch(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
     name, *default = args
 
@@ -210,7 +210,7 @@ class << ENV
 
   def update(*others)
     others.each do |given|
-      other = Hash.try_convert(given) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into Hash"
+      other = Hash.try_convert(given) or raise TypeError, no_implicit_conversion(given, "Hash")
       other.each do |k, v|
         k = variable_name(k)
         self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
@@ -283,7 +283,7 @@ class << ENV
   # The names that the Hash gives are set, each checked as it is. Every
   # other name is removed, as env_replace leaves the environment.
   def replace(given)
-    hash = Hash.try_convert(given) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into Hash"
+    hash = Hash.try_convert(given) or raise TypeError, no_implicit_conversion(given, "Hash")
     names = keys
     hash.each do |name, value|
       self[name] = value

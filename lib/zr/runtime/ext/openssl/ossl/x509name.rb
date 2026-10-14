@@ -69,7 +69,7 @@ module OpenSSL
   module X509
     class Name
       def initialize(*args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
         Ossl.want_uninitialized(self, Ossl::X509_NAME)
         arg, template = args
@@ -112,7 +112,7 @@ module OpenSSL
       end
 
       def to_s(*args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+        raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
         return Ossl.x509name_print(self, Ossl.ulong(args.first)) unless args.empty? || args.first.nil?
 
         text = Lib.X509_NAME_oneline(Ossl::X509_NAME.fetch(self), nil, 0)

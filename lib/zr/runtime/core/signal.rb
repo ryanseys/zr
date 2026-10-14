@@ -39,7 +39,7 @@ module Signal
     # command. Returns the signal's previous handler.
     def trap_signal(args, block)
       Primitive.attr! :hidden
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+      raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
       signo = trap_number(args[0])
       raise ArgumentError, "can't trap reserved signal: SIG#{RESERVED[signo]}" if RESERVED.key?(signo)

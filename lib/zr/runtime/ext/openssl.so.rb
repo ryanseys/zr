@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :OpenSSL)
+
 # openssl.so: the C part of ruby's openssl gem (4.0.2), in Ruby over the
 # host's own libssl and libcrypto 3, which `require "openssl"` opens
 # (lib/zr/runtime/ext/openssl/ossl/library.rb). Nothing cryptographic is done here:

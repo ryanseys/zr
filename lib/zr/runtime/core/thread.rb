@@ -127,7 +127,7 @@ class Thread
     def handle_interrupt(mask)
       raise ArgumentError, +"block is needed." unless block_given?
 
-      mask = Hash.try_convert(given = mask) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into Hash"
+      mask = Hash.try_convert(given = mask) or raise TypeError, no_implicit_conversion(given, "Hash")
       raise ArgumentError, +"unknown mask signature" unless mask.each_value.all? { |v| %i[immediate on_blocking never].include?(v) }
 
       current.send(:push_mask, mask)
@@ -777,7 +777,7 @@ class Thread
   end
 
   def fetch(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
     key = local_key(args.first)
     default = args.drop(1)

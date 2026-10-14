@@ -240,7 +240,7 @@ class File < IO
     # A File that has a descriptor is not opened again, as CRuby's
     # rb_file_initialize refuses before it counts the arguments.
     raise RuntimeError, +"reinitializing File" unless Primitive.zr_hidden_get(self, :fd).nil?
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
+    raise ArgumentError, wrong_arity(args.size, 1..3) unless args.size.between?(1, 3)
 
     path, mode, perm = args
     no_mode = args.size < 2

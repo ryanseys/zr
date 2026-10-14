@@ -48,7 +48,7 @@ stream = Class.new do
     end
 
     text = String.try_convert(ext)
-    raise TypeError, "no implicit conversion of #{conversion_name(ext)} into String" if text.nil?
+    raise TypeError, no_implicit_conversion(ext, "String") if text.nil?
     # StringValueCStr: a NUL character, which in UTF-16 or UTF-32 is not
     # a NUL byte alone.
     nul = Encoding.wide?(text.encoding) ? text.each_char.any? { |c| c.ord.zero? } : text.b.include?("\0")

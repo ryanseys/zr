@@ -138,7 +138,7 @@ module FFI
     end
 
     def initialize(return_type, param_types, *rest, &block)
-      raise ArgumentError, "wrong number of arguments (given #{rest.size + 2}, expected 2..4)" if rest.size > 2
+      raise ArgumentError, wrong_arity(rest.size + 2, 2..4) if rest.size > 2
 
       if block
         raise ArgumentError, "cannot create function with both proc/address and block" if rest.size > 1

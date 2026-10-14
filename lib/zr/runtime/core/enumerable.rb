@@ -58,7 +58,7 @@ module Enumerable
   end
 
   def any?(*pattern, &blk)
-    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
     # rb_warn: a pattern and a block, and the block is not used.
     Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     if !pattern.empty?
@@ -81,7 +81,7 @@ module Enumerable
   end
 
   def all?(*pattern, &blk)
-    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
     # rb_warn: a pattern and a block, and the block is not used.
     Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     if !pattern.empty?
@@ -104,7 +104,7 @@ module Enumerable
   end
 
   def none?(*pattern, &blk)
-    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
     # rb_warn: a pattern and a block, and the block is not used.
     Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     if !pattern.empty?
@@ -572,7 +572,7 @@ module Enumerable
   end
 
   def one?(*pattern, &blk)
-    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
     # rb_warn: a pattern and a block, and the block is not used.
     Primitive.zr_warn_here_m("given block not used") if blk && !pattern.empty?
     # A second match ends the walk, as one_iter_i breaks.
@@ -599,7 +599,7 @@ module Enumerable
   # enum_tally: a given Hash, nil included, must convert.
   def tally(counts = (none = true; nil))
     unless none
-      counts = Hash.try_convert(counts) || raise(TypeError, "no implicit conversion of #{conversion_name(counts)} into Hash")
+      counts = Hash.try_convert(counts) || raise(TypeError, no_implicit_conversion(counts, "Hash"))
       Primitive.zr_frozen_error(counts) if counts.frozen?
 
       Primitive.zr_enum_each(self, nil) do |x|
@@ -806,7 +806,7 @@ module Enumerable
   # inject and reduce, which CRuby defines from one function.
   def injected(args, block)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" if args.size > 2 || (args.empty? && !block)
+    raise ArgumentError, wrong_arity(args.size, 1..2) if args.size > 2 || (args.empty? && !block)
     # The operator name goes through to_str (rb_check_id); two arguments
     # leave the block unused.
     if (args.size == 2 || (args.size == 1 && !block)) && !args.last.is_a?(Symbol)
@@ -1104,7 +1104,7 @@ module Enumerable
   # enum_slice_after: with a block, no argument; with none, exactly one.
   def slice_after(*args, &block)
     raise ArgumentError, +"both pattern and block are given" if block && !args.empty?
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" unless block || args.size == 1
+    raise ArgumentError, wrong_arity(args.size, 1) unless block || args.size == 1
 
     pattern = args[0]
     test = block || ->(x) { pattern === x }

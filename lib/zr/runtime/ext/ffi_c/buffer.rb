@@ -26,7 +26,7 @@ module FFI
     end
 
     def initialize(size, *rest)
-      raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..3)" if rest.size > 2
+      raise ArgumentError, wrong_arity(rest.size + 1, 1..3) if rest.size > 2
 
       type_size = FFI.size_of(size)
       size = type_size * (rest.empty? ? 1 : FFI.long_value(rest[0]))
@@ -58,7 +58,7 @@ module FFI
 
     def order(*args)
       return ffi_swapped? ? :big : :little if args.empty?
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+      raise ArgumentError, wrong_arity(args.size, 1) if args.size > 1
       return self unless %i[big network].include?(args[0])
 
       slice = ffi_slice(0, ffi_size)

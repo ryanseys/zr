@@ -95,6 +95,15 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     "no implicit conversion of #{conversion_name(value)} into #{type}".force_encoding(Encoding::UTF_8)
   end
 
+  # The message of CRuby's rb_error_arity (error.c), for `raise
+  # ArgumentError, ...`. `expected` is a count, a Range, or an endless
+  # Range for "N+".
+  def wrong_arity(given, expected)
+    Primitive.attr! :hidden
+    shown = expected.is_a?(Range) && expected.end.nil? ? "#{expected.begin}+" : expected
+    "wrong number of arguments (given #{given}, expected #{shown})"
+  end
+
   def cant_convert(value, type)
     Primitive.attr! :hidden
     "can't convert #{conversion_name(value)} into #{type}".force_encoding(Encoding::UTF_8)
@@ -107,11 +116,11 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     name = conversion_name(value)
     "can't convert #{name} into #{type} (#{name}##{method} gives #{conversion_name(result)})".force_encoding(Encoding::UTF_8)
   end
-  private :no_implicit_conversion, :cant_convert, :cant_convert_gives
+  private :no_implicit_conversion, :wrong_arity, :cant_convert, :cant_convert_gives
 
   # The message goes to stderr immediately; the SystemExit contains it.
   def abort(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
     # rb_f_abort: with no message, the error being handled is reported.
     if args.empty?
@@ -1004,7 +1013,7 @@ end
 # command again.
 module Kernel
   def trace_var(*args, &block)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
     raise ArgumentError, +"tried to create Proc object without a block" if args.size == 1 && block.nil?
 
     name, command = args.size == 1 ? [args[0], block] : args
@@ -1017,7 +1026,7 @@ module Kernel
   end
 
   def untrace_var(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
     name, command = args
     name = Primitive.zr_gvar_resolve_m(Kernel.send(:global_name, name))

@@ -38,7 +38,7 @@ class Enumerator
 
     # generator_initialize: the block, or a Proc given in its place.
     def initialize(*args, &block)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+      raise ArgumentError, wrong_arity(args.size, 1) if args.size > 1
 
       if args.empty?
         raise LocalJumpError, +"no block given" unless block
@@ -110,7 +110,7 @@ class Enumerator
   # endless unless it says otherwise.
   def self.produce(*initial, **options, &block)
     raise ArgumentError, +"no block given" unless block
-    raise ArgumentError, "wrong number of arguments (given #{initial.size}, expected 0..1)" if initial.size > 1
+    raise ArgumentError, wrong_arity(initial.size, 0..1) if initial.size > 1
 
     unknown = options.keys - [:size]
     raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}" unless unknown.empty?
@@ -124,7 +124,7 @@ class Enumerator
     Primitive.attr! :hidden
     return size if size.nil? || size.respond_to?(:call) || size == Float::INFINITY
 
-    Integer.try_convert(size) || raise(TypeError, "no implicit conversion of #{conversion_name(size)} into Integer")
+    Integer.try_convert(size) || raise(TypeError, no_implicit_conversion(size, "Integer"))
   end
   private_class_method :feasible_size
 

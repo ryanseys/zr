@@ -7,7 +7,7 @@ module FFI
   class StructLayout < Type
     class Field
       def initialize(*args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 3)" unless args.size == 3
+        raise ArgumentError, wrong_arity(args.size, 3) unless args.size == 3
 
         name, offset, type = args
         raise TypeError, "wrong argument type #{Primitive.zr_class_path(Primitive.zr_real_class(name))} (expected Symbol/String)" unless name.is_a?(Symbol) || name.is_a?(::String)

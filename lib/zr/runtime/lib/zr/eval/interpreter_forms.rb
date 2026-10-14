@@ -45,7 +45,7 @@ class Module
   # of the scope of the call.
   def class_eval(*args, &block)
     if block
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?
+      raise ArgumentError, wrong_arity(args.size, 0) unless args.empty?
 
       return class_exec(self, &block)
     end

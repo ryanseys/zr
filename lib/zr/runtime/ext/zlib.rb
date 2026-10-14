@@ -88,7 +88,7 @@ module Zlib
       opts = args.size > 0 ? Hash.try_convert(args.last) : nil
       args.pop if opts
       level, strategy = Zlib.send(:keywords, opts, :level, :strategy)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" unless args.size == 1
+      raise ArgumentError, wrong_arity(args.size, 1) unless args.size == 1
 
       src = Primitive.zr_str_operand(args[0])
       gz = GzFile.new(:gzip)
@@ -163,7 +163,7 @@ module Zlib
     # do_checksum: `str`, or an IO read to its end, onto `sum`.
     def checksum(args, kind)
       Primitive.attr! :hidden
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+      raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
       str, vsum = args
       sum = if !vsum.nil? then unsigned(vsum)
@@ -990,7 +990,7 @@ module Zlib
           z.flags &= ~Stream::REUSE_BUFFER
           z.buf = nil
         end
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" unless args.size == 1
+        raise ArgumentError, wrong_arity(args.size, 1) unless args.size == 1
 
         src = args[0]
         if z.finished?
@@ -1528,7 +1528,7 @@ module Zlib
       if args.empty?
         rs = $/
       else
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
         rs, lim = args
         if !lim.nil?
@@ -1797,7 +1797,7 @@ module Zlib
     def initialize(*args)
       opt = args.size > 1 ? Hash.try_convert(args.last) : nil
       args.pop if opt
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
+      raise ArgumentError, wrong_arity(args.size, 1..3) unless args.size.between?(1, 3)
 
       io, level, strategy = args
       gz = gzfile
@@ -1913,7 +1913,7 @@ module Zlib
       end
 
       def zcat(*args, &block)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+        raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
         io = args[0]
         buf = nil

@@ -819,7 +819,7 @@ module OpenSSL
       end
 
       def add_certificate(cert, key, *rest)
-        raise ArgumentError, "wrong number of arguments (given #{rest.size + 2}, expected 2..3)" if rest.size > 1
+        raise ArgumentError, wrong_arity(rest.size + 2, 2..3) if rest.size > 1
 
         ctx = Ossl::SSL_CTX.get(self)
         Ossl.check_frozen(self)
@@ -899,7 +899,7 @@ module OpenSSL
     class SSLSocket
       def initialize(io, *rest, **options)
         Ossl.want_uninitialized(self, Ossl::SSL_CONNECTION)
-        raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
+        raise ArgumentError, wrong_arity(rest.size + 1, 1..2) if rest.size > 1
 
         unknown = options.keys - [:sync_close]
         raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}" unless unknown.empty?

@@ -144,7 +144,7 @@ module OpenSSL
 
     class Extension
       def initialize(*args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
+        raise ArgumentError, wrong_arity(args.size, 1..3) unless args.size.between?(1, 3)
 
         Ossl.want_uninitialized(self, Ossl::X509_EXT)
         oid, value, critical = args

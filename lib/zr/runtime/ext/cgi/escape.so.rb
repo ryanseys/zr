@@ -59,7 +59,7 @@ class CGI
     end
 
     def unescape(*args)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+      raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
       str = Primitive.zr_str_operand(args[0])
       return super unless str.encoding.ascii_compatible?
@@ -76,7 +76,7 @@ class CGI
     alias escape_uri_component escapeURIComponent
 
     def unescapeURIComponent(*args)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+      raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
       str = Primitive.zr_str_operand(args[0])
       return super unless str.encoding.ascii_compatible?

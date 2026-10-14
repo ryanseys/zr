@@ -126,7 +126,7 @@ class TracePoint
       # rb_to_symbol_type: a Symbol, or what to_sym gives.
       name = event
       unless name.is_a?(Symbol)
-        raise TypeError, "no implicit conversion of #{conversion_name(event)} into Symbol" unless event.respond_to?(:to_sym)
+        raise TypeError, no_implicit_conversion(event, "Symbol") unless event.respond_to?(:to_sym)
 
         name = event.to_sym
         raise TypeError, cant_convert_gives(event, "Symbol", :to_sym, name) unless name.is_a?(Symbol)

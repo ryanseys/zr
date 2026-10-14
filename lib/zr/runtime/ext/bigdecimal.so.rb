@@ -174,7 +174,7 @@ class BigDecimal < Numeric
 
     # The text ends at a NUL, as String#to_f reads it.
     def interpret_loosely(source)
-      text = String.try_convert(source) or raise TypeError, "no implicit conversion of #{conversion_name(source)} into String"
+      text = String.try_convert(source) or raise TypeError, no_implicit_conversion(source, "String")
       text.send(:ascii_compatible!)
       read(text.split("\0", 2).first.to_s, false)
     end

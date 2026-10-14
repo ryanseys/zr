@@ -311,7 +311,7 @@ module OpenSSL
     def rshift!(bits) = self_shift(bits) { |bn, n| Lib.BN_rshift(bn, bn, n) }
 
     def self.rand(bits, *rest)
-      raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..3)" if rest.size > 2
+      raise ArgumentError, wrong_arity(rest.size + 1, 1..3) if rest.size > 2
 
       fill, odd = rest
       bottom = rest.size == 2 && odd ? 1 : 0
@@ -398,7 +398,7 @@ module OpenSSL
     alias === ==
 
     def prime?(*checks)
-      raise ArgumentError, "wrong number of arguments (given #{checks.size}, expected 0..1)" if checks.size > 1
+      raise ArgumentError, wrong_arity(checks.size, 0..1) if checks.size > 1
 
       answer = Lib.BN_check_prime(Ossl.bn_of(self), Ossl.bn_ctx, nil)
       raise Ossl.error(BNError, "BN_check_prime") if answer.negative?
@@ -407,7 +407,7 @@ module OpenSSL
     end
 
     def prime_fasttest?(*args)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+      raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
       prime?
     end

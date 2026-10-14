@@ -110,7 +110,7 @@ class Complex < Numeric
     # nucomp_s_convert: Kernel#Complex for the receiver's class, which
     # always raises.
     def convert(real, *rest)
-      raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
+      raise ArgumentError, wrong_arity(rest.size + 1, 1..2) if rest.size > 1
 
       convert_parts(real, rest, true)
     end
@@ -547,7 +547,7 @@ end
 module Kernel
   def Complex(real = (none = true), *rest, exception: true)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1..2)" if none
-    raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
+    raise ArgumentError, wrong_arity(rest.size + 1, 1..2) if rest.size > 1
 
     Complex.send(:convert_parts, real, rest, exception_flag(exception))
   end

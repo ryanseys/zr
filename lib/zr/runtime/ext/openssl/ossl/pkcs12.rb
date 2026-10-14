@@ -80,7 +80,7 @@ module OpenSSL
     end
 
     def initialize(*args)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+      raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
       Ossl.want_uninitialized(self, Ossl::PKCS12_STRUCT)
       return Ossl::PKCS12_STRUCT.create(self) if args.empty?

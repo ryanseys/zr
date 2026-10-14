@@ -686,7 +686,7 @@ class Encoding
     def self.string_of(value)
       Primitive.attr! :hidden
       text = String.try_convert(value)
-      raise TypeError, "no implicit conversion of #{conversion_name(value)} into String" if text.nil?
+      raise TypeError, no_implicit_conversion(value, "String") if text.nil?
 
       text
     end
@@ -816,7 +816,7 @@ class Encoding
       if args.size == 1 && options.empty? && (path = Array.try_convert(args[0]))
         by_path(path)
       else
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)" unless args.size.between?(2, 3)
+        raise ArgumentError, wrong_arity(args.size, 2..3) unless args.size.between?(2, 3)
 
         # rb_econv_prepare_options: the replacement converts with to_str once.
         options = options.merge(replace: Primitive.zr_str_operand(options[:replace])) unless options[:replace].nil? || options[:replace].is_a?(String)

@@ -44,7 +44,7 @@ module OpenSSL
   module X509
     class Request
       def initialize(*args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+        raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
         Ossl.want_uninitialized(self, Ossl::X509_REQ)
         return Ossl::X509_REQ.create(self) if args.empty?

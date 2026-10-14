@@ -44,7 +44,7 @@ class UNIXSocket < BasicSocket
   # unix_recv_io: the descriptor the other end sent, as `klass.for_fd`
   # makes it, or as a number when `klass` is nil.
   def recv_io(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     klass = args.empty? ? IO : args[0]
     mode = args[1]
@@ -96,7 +96,7 @@ class UNIXSocket < BasicSocket
 
   class << self
     def socketpair(*args, &block)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+      raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
       type = args.empty? ? Socket::SOCK_STREAM : args[0]
       protocol = args.size <= 1 ? 0 : args[1]

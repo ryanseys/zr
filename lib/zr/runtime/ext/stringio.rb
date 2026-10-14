@@ -332,7 +332,7 @@ class StringIO
 
   def read(*args)
     ptr = readable
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     length, buffer = args
     binary = false
@@ -657,7 +657,7 @@ class StringIO
   # `reopen` was given.
   def init(args, opts, ptr)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     string, vmode = args
     vmode = opts[:mode] if vmode.nil? && opts.key?(:mode)
@@ -797,7 +797,7 @@ class StringIO
   # prepare_getline_args: the separator, the limit and whether to chomp.
   def line_args(ptr, args, opts)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     unknown = opts.keys - [:chomp]
     raise ArgumentError, "unknown keyword#{'s' if unknown.size > 1}: #{unknown.map(&:inspect).join(', ')}" unless unknown.empty?

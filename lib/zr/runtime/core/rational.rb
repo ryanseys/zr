@@ -27,7 +27,7 @@ class Rational < Numeric
 
     # nurat_s_convert: Kernel#Rational for this class, private.
     def convert(num, *den)
-      raise ArgumentError, "wrong number of arguments (given #{den.size + 1}, expected 1..2)" if den.size > 1
+      raise ArgumentError, wrong_arity(den.size + 1, 1..2) if den.size > 1
 
       converted(num, den, true)
     end
@@ -559,7 +559,7 @@ end
 module Kernel
   def Rational(a = (none = true), *rest, exception: true)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1..2)" if none
-    raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..2)" if rest.size > 1
+    raise ArgumentError, wrong_arity(rest.size + 1, 1..2) if rest.size > 1
 
     Rational.send(:converted, a, rest, exception_flag(exception))
   end

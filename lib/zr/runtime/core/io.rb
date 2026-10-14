@@ -173,7 +173,7 @@ class IO
     args = Array.try_convert(given) or raise TypeError, no_implicit_conversion(given, "Array")
     keywords = args.last.is_a?(Hash) ? args.last : {}
     positional = keywords.empty? && !args.last.is_a?(Hash) ? args : args[0...-1]
-    raise ArgumentError, "wrong number of arguments (given #{positional.size + 1}, expected 1..3)" if positional.size > 2
+    raise ArgumentError, wrong_arity(positional.size + 1, 1..3) if positional.size > 2
 
     File.open(path, *positional, **keywords, &block)
   end
@@ -249,7 +249,7 @@ class IO
       text = File.send(:open_mode, mode)
     elsif !mode.nil?
       string = String.try_convert(mode)
-      raise TypeError, "no implicit conversion of #{conversion_name(mode)} into String" if string.nil?
+      raise TypeError, no_implicit_conversion(mode, "String") if string.nil?
 
       head, tail = string.split(":", 2)
       text = access_mode(string)
@@ -612,7 +612,7 @@ class IO
   def self.select_stream(entry)
     Primitive.attr! :hidden
     return entry if entry.is_a?(IO)
-    raise TypeError, "no implicit conversion of #{conversion_name(entry)} into IO" unless entry.respond_to?(:to_io)
+    raise TypeError, no_implicit_conversion(entry, "IO") unless entry.respond_to?(:to_io)
 
     stream = entry.to_io
     raise TypeError, cant_convert_gives(entry, "IO", :to_io, stream) unless stream.is_a?(IO)
@@ -3187,7 +3187,7 @@ class IO
   # first must convert to a String.
   def getline_args(args)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     separator = $/
     limit = nil
@@ -3568,14 +3568,14 @@ class SystemCallError
   # the call that failed, and shows only next to a message.
   def initialize(*args)
     if self.class.equal?(SystemCallError)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless args.size.between?(1, 3)
+      raise ArgumentError, wrong_arity(args.size, 1..3) unless args.size.between?(1, 3)
 
       message, errno, func = args
       message, errno = nil, message if args.size == 1 && Primitive.zr_fixnum_p_m(message)
       klass = Errno.for(Primitive.zr_index_operand_m(errno)) unless errno.nil?
       Primitive.zr_exc_set_class(self, klass) if klass
     else
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+      raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
       message, func = args
       errno = self.class.const_get(:Errno)

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :JSON)
+
 # json's generator.c, in ruby. The gem's own ruby (json/common and
 # json/ext/generator/state, vendored in vendor/ruby) uses it
 # as it uses the C extension: JSON::Ext::Generator::State with
@@ -288,13 +290,13 @@ module JSON
         end
 
         def generate(*args)
-          raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+          raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
           Writer.new(fields, args[1], fallback: true).run(args[0])
         end
 
         def _generate_no_fallback(*args)
-          raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+          raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
           Writer.new(fields, args[1], fallback: false).run(args[0])
         end

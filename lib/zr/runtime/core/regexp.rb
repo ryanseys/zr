@@ -527,7 +527,7 @@ class Regexp
       return nil
     end
     text = text.to_s if text.is_a?(Symbol)
-    raise TypeError, "no implicit conversion of #{conversion_name(text)} into String" unless text.is_a?(String)
+    raise TypeError, no_implicit_conversion(text, "String") unless text.is_a?(String)
 
     pos = implicit_integer(pos)
     pos += Primitive.zr_str_length_m(text) if pos < 0
@@ -1013,7 +1013,7 @@ class MatchData
   # (`Primitive.attr! :more_args`).
   def more_args(_name, *args)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)"
+    raise ArgumentError, wrong_arity(args.size, 1..2)
   end
 
   # match_backref_number: a group by name, else by NUM2INT.

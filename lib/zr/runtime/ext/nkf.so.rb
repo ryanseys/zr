@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :NKF)
+
 # nkf.so, the C part of the nkf gem 0.3.0: Network Kanji Filter 2.1.5
 # (ext/nkf/nkf.c over nkf-utf8/nkf.c), in Ruby. The gem's own nkf.rb
 # requires this file, and its kconv.rb is built on NKF.

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :Coverage)
+
 # `coverage.so`: the C half of ext/coverage, over the line counts the
 # kernel keeps (lib/zr/runtime/kernel/coverage.rb). The compiler writes down which
 # lines of each file run a :line event; those are the lines a result
@@ -18,7 +20,7 @@ module Coverage
 
   def self.setup(*args)
     raise RuntimeError, "coverage measurement is already setup" unless state == :idle
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
     mode = mode_of(args)
     Primitive.zr_hidden_set(self, :__mode__, mode)

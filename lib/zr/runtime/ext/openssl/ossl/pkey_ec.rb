@@ -234,7 +234,7 @@ module OpenSSL
       # ossl_ec_point_initialize.
       def ec_point_initialize(object, args)
         want_uninitialized(object, EC_POINT)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+        raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
         group_object, arg2 = args
         if group_object.is_a?(PKey::EC::Point)
@@ -305,7 +305,7 @@ module OpenSSL
 
       def initialize(*args, &block)
         Ossl.want_uninitialized(self, Ossl::PKEY)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
         arg, pass = args
         raise ArgumentError, "OpenSSL::PKey::EC.new cannot be called without arguments; pkeys are immutable with OpenSSL 3.0" if arg.nil?
@@ -389,7 +389,7 @@ module OpenSSL
       def export(*args)
         ec = Ossl.ec(self)
         raise Ossl.error(PKeyError, "can't export - no public key set") if Lib.EC_KEY_get0_public_key(ec).zero?
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
         if Lib.EC_KEY_get0_private_key(ec).zero?
           Ossl.pkey_export_spki(self, false)
@@ -591,7 +591,7 @@ module OpenSSL
         end
 
         def mul(bn1, *rest)
-          raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..3)" if rest.size > 2
+          raise ArgumentError, wrong_arity(rest.size + 1, 1..3) if rest.size > 2
 
           group_object = @group
           point_self = Ossl::EC_POINT.fetch(self)

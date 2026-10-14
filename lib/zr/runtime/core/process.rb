@@ -594,7 +594,7 @@ module Process
   # rb_f_kill: a negative signal goes to each process group. A signal
   # that this process sends to itself is handled before the call returns.
   def kill(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2+)" if args.size < 2
+    raise ArgumentError, wrong_arity(args.size, (2..)) if args.size < 2
 
     signal, *pids = args
     number = Primitive.zr_fixnum_p_m(signal) ? signal : Signal.send(:number, signal, negative: true)
@@ -762,7 +762,7 @@ module Process
 
                value.truncate
              else
-               Integer.try_convert(value) || raise(TypeError, "no implicit conversion of #{conversion_name(value)} into Integer")
+               Integer.try_convert(value) || raise(TypeError, no_implicit_conversion(value, "Integer"))
              end
     wide = bits == 64 ? type : +"unsigned long"
     # rb_big2ull: a magnitude past 64 bits is too big whatever its sign.
@@ -942,7 +942,7 @@ module Process
     if first
       raise ArgumentError, +"wrong first argument" unless first.size == 2
 
-      first = first.map { |part| String.try_convert(part) or raise TypeError, "no implicit conversion of #{conversion_name(part)} into String" }
+      first = first.map { |part| String.try_convert(part) or raise TypeError, no_implicit_conversion(part, "String") }
       raise ArgumentError, +"string contains null byte" if first[1].include?("\0")
 
       args = [[first[0]]] + args.drop(1)
@@ -950,7 +950,7 @@ module Process
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
     words = words.map do |word|
       string = String.try_convert(word)
-      raise TypeError, "no implicit conversion of #{conversion_name(word)} into String" if string.nil?
+      raise TypeError, no_implicit_conversion(word, "String") if string.nil?
 
       string
     end
@@ -971,7 +971,7 @@ module Process
     return [command.first] if command.is_a?(Array)
 
     text = String.try_convert(command)
-    raise TypeError, "no implicit conversion of #{conversion_name(command)} into String" if text.nil?
+    raise TypeError, no_implicit_conversion(command, "String") if text.nil?
 
     # The command is bytes to the shell: one that is not valid in its
     # encoding is read as bytes, as rb_exec_fillarg reads it.
@@ -1006,7 +1006,7 @@ module Process
       if value.nil?
         table.delete(key)
       else
-        table[key] = String.try_convert(value) or raise TypeError, "no implicit conversion of #{conversion_name(value)} into String"
+        table[key] = String.try_convert(value) or raise TypeError, no_implicit_conversion(value, "String")
         raise ArgumentError, +"string contains null byte" if table[key].include?("\0")
       end
     end

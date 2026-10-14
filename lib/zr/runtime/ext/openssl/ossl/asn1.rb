@@ -161,7 +161,7 @@ module OpenSSL
       undef_method :indefinite_length=, :infinite_length=
 
       def initialize(value, *rest)
-        raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..4)" if rest.size > 3
+        raise ArgumentError, wrong_arity(rest.size + 1, 1..4) if rest.size > 3
 
         tag, tagging, tag_class = rest
         Ossl.asn1_initialize(self, value, tag, tagging, tag_class, rest.size + 1)
@@ -179,7 +179,7 @@ module OpenSSL
       end
 
       def initialize(value, *rest)
-        raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..4)" if rest.size > 3
+        raise ArgumentError, wrong_arity(rest.size + 1, 1..4) if rest.size > 3
 
         tag, tagging, tag_class = rest
         Ossl.asn1_initialize(self, value, tag, tagging, tag_class, rest.size + 1)

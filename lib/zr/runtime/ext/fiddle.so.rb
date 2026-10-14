@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :Fiddle)
+
 # `fiddle.so`: the C part of the fiddle gem (1.1.8), in ruby over the ffi
 # gem. Each section represents the C file in its heading and follows the
 # order in which Init_fiddle defines things: fiddle.c, function.c,

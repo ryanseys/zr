@@ -187,7 +187,7 @@ class UDPSocket < IPSocket
 
   def send(*args)
     return super if args.size == 2 || args.size == 3
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 4)" unless args.size == 4
+    raise ArgumentError, wrong_arity(args.size, 4) unless args.size == 4
 
     mesg, flags, host, port = args
     mesg = Primitive.zr_str_operand(mesg)

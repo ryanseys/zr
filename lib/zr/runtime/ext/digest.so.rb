@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :Digest)
+
 # digest.c, in ruby: Digest.hexencode, the Digest::Instance protocol,
 # Digest::Class, and Digest::Base, which runs the algorithm that a
 # subclass gives in its metadata. The extension's ruby part (digest.rb,
@@ -30,7 +32,7 @@ module Digest
 
     def digest_length
       digest = self.digest
-      raise TypeError, "no implicit conversion of #{conversion_name(digest)} into String" unless digest.is_a?(String)
+      raise TypeError, no_implicit_conversion(digest, "String") unless digest.is_a?(String)
 
       digest.bytesize
     end
@@ -58,7 +60,7 @@ module Digest
     end
 
     def digest(*args)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+      raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
       return clone.__send__(:finish) if args.empty?
 
       reset

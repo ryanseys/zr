@@ -22,7 +22,7 @@ class Range
   # the element after the nth, as first_i does.
   def first(*args)
     Primitive.attr! :sends_each
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 1) if args.size > 1
     raise RangeError, +"cannot get the first element of beginless range" if @begin.nil?
     return @begin if args.empty?
 
@@ -376,7 +376,7 @@ class Range
   # that match, so those walk as Enumerable does.
   def count(*args, &block)
     # enum_count takes one argument at most (rb_scan_args "1").
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 1) if args.size > 1
     return super unless args.empty? && !block
     return Float::INFINITY if @begin.nil? || @end.nil?
     return size if @begin.is_a?(Integer)
@@ -441,7 +441,7 @@ class Range
   def ===(v) = covers_value?(v)
 
   def step(*args, &block)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
     stride(args, :step, &block)
   end

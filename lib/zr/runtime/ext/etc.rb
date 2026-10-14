@@ -120,7 +120,7 @@ module Etc
   # StringValue: a String, or an object that converts to one.
   def string_arg(name)
     return name if name.is_a?(String)
-    raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" unless name.respond_to?(:to_str)
+    raise TypeError, no_implicit_conversion(name, "String") unless name.respond_to?(:to_str)
 
     name.to_str
   end

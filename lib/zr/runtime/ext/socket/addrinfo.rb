@@ -225,7 +225,7 @@ class Addrinfo
 
       sockaddr = Socket.pack_unix(path)
     else
-      pair = Array.try_convert(ary[1]) or raise TypeError, "no implicit conversion of #{conversion_name(ary[1])} into Array"
+      pair = Array.try_convert(ary[1]) or raise TypeError, no_implicit_conversion(ary[1], "Array")
       sockaddr = Addrinfo.call_getaddrinfo(pair[0], pair[1], pfamily, socktype, protocol,
                                            Socket::AI_NUMERICHOST | Socket::AI_NUMERICSERV, socktype_hack: true)[0][3]
     end

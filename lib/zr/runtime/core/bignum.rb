@@ -484,7 +484,7 @@ class Integer
     other = args[0]
     case op
     when :to_s
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+      raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
       base = args.empty? ? 10 : Primitive.zr_index_operand_m(args[0])
       raise ArgumentError, "invalid radix #{base}" if base < 2 || base > 36

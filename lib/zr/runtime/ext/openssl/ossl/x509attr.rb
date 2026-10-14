@@ -46,7 +46,7 @@ module OpenSSL
   module X509
     class Attribute
       def initialize(*args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+        raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
         Ossl.want_uninitialized(self, Ossl::X509_ATTR)
         oid, value = args

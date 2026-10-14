@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :Psych)
+
 # psych's C extension, in Ruby: the libyaml 0.2.5 parser and emitter
 # (a port under psych/libyaml) and the glue psych puts around them
 # (psych_parser.c, psych_emitter.c, psych_to_ruby.c and psych.c). The
@@ -368,7 +370,7 @@ module Psych
     # Create a new Psych::Emitter that writes to +io+.
     def initialize(*args)
       unless args.size.between?(1, 2)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)"
+        raise ArgumentError, wrong_arity(args.size, 1..2)
       end
 
       glue = LibYAML::Glue

@@ -22,7 +22,7 @@ module OpenSSL
     class DSA < PKey
       def initialize(*args, &block)
         Ossl.want_uninitialized(self, Ossl::PKEY)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
         raise ArgumentError, "OpenSSL::PKey::DSA.new cannot be called without arguments; pkeys are immutable with OpenSSL 3.0" if args.empty?
 
         arg, pass = args
@@ -48,7 +48,7 @@ module OpenSSL
       end
 
       def export(*args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
         if Ossl.get0(:DSA_get0_key, Ossl.dsa(self), 2)[1].zero?
           Ossl.pkey_export_spki(self, false)

@@ -641,7 +641,7 @@ class Integer
   # int_round: with no digits the keywords are not read; the digits must
   # fit an int, then the rounding mode is read.
   def round(*args, **opts)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
     return self if args.empty?
 
     digits = Numeric.send(:int_operand, args.first)
@@ -672,7 +672,7 @@ class Integer
 
   def self.sqrt(n)
     value = Integer.try_convert(n)
-    raise TypeError, "no implicit conversion of #{conversion_name(n)} into Integer" if value.nil?
+    raise TypeError, no_implicit_conversion(n, "Integer") if value.nil?
     raise Math::DomainError, +'Numerical argument is out of domain - "isqrt"' if value < 0
     return value if value < 2
 
@@ -946,7 +946,7 @@ class Numeric
   # each value up to `limit`. A Float anywhere makes every value a
   # Float, spaced as CRuby's float step is.
   def step(*args, **kwargs, &block)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     unknown = kwargs.keys - %i[to by]
     raise ArgumentError, "unknown keyword#{'s' if unknown.size > 1}: #{unknown.map(&:inspect).join(', ')}" unless unknown.empty?

@@ -24,7 +24,7 @@ module Zr
       # file that is not given and 1 for a line.
       def self.under(args)
         Primitive.attr! :hidden
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless (1..3).cover?(args.size)
+        raise ArgumentError, wrong_arity(args.size, 1..3) unless (1..3).cover?(args.size)
 
         source, file, line = args
         [Primitive.zr_str_operand(source), file.nil? ? nil : Primitive.zr_str_operand(file),

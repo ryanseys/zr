@@ -19,14 +19,14 @@ class Hash
   # The flag a `ruby2_keywords` method sets on the Hash it took from
   # keywords, so a later splat passes it on as keywords again.
   def self.ruby2_keywords_hash(hash)
-    raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash" unless hash.is_a?(Hash)
+    raise TypeError, no_implicit_conversion(hash, "Hash") unless hash.is_a?(Hash)
 
     # rb_hash_dup: the class, ivars, default and compare_by_identity stay.
     Primitive.zr_ruby2_hash_mark(Kernel.instance_method(:dup).bind_call(hash))
   end
 
   def self.ruby2_keywords_hash?(hash)
-    raise TypeError, "no implicit conversion of #{conversion_name(hash)} into Hash" unless hash.is_a?(Hash)
+    raise TypeError, no_implicit_conversion(hash, "Hash") unless hash.is_a?(Hash)
 
     Primitive.zr_ruby2_hash_p(hash)
   end
@@ -208,7 +208,7 @@ class Hash
   # have.
   def update_from(other)
     Primitive.attr! :hidden
-    hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
+    hash = Hash.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Hash")
     Primitive.zr_hash_foreach(hash) do |k, v|
       if block_given? && Primitive.zr_hash_key_p_m(self, k)
         # rb_hash_update_block_i: the block runs inside the update of the
@@ -268,7 +268,7 @@ class Hash
   def transform_keys(mapping = (none = true; nil))
     return to_enum(:transform_keys) { size } if none && !block_given?
 
-    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") unless none
+    mapping = Hash.try_convert(mapping) || raise(TypeError, no_implicit_conversion(mapping, "Hash")) unless none
     out = {}
     Primitive.zr_hash_foreach(self) do |k, v|
       new_key = if mapping && Primitive.zr_hash_key_p_m(mapping, k) then Primitive.zr_hash_fetch_m(mapping, k, nil)
@@ -287,7 +287,7 @@ class Hash
   def transform_keys!(mapping = (none = true; nil))
     return to_enum(:transform_keys!) { size } if none && !block_given?
 
-    mapping = Hash.try_convert(mapping) || raise(TypeError, "no implicit conversion of #{conversion_name(mapping)} into Hash") unless none
+    mapping = Hash.try_convert(mapping) || raise(TypeError, no_implicit_conversion(mapping, "Hash")) unless none
     Primitive.zr_frozen_error(self) if frozen?
     moved = {}
     pairs = []
@@ -311,7 +311,7 @@ class Hash
     return self if equal?(other)
     raise RuntimeError, +"can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
 
-    hash = Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
+    hash = Hash.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Hash")
     Primitive.zr_hash_replace_m(self, hash)
   end
 
@@ -366,7 +366,7 @@ class Hash
   # splits, against the pattern or the block. The walk is the Hash's
   # own, not a send of `each`.
   def any?(*pattern, &block)
-    raise ArgumentError, "wrong number of arguments (given #{pattern.size}, expected 0..1)" if pattern.size > 1
+    raise ArgumentError, wrong_arity(pattern.size, 0..1) if pattern.size > 1
     return false if Primitive.zr_hash_len_m(self) == 0
 
     Primitive.zr_warn_here_m("given block not used") if block && !pattern.empty?
@@ -382,7 +382,7 @@ class Hash
   # `default` with no argument returns the default value; with a key, the
   # value that a default proc would return for it.
   def default(*key)
-    raise ArgumentError, "wrong number of arguments (given #{key.size}, expected 0..1)" if key.size > 1
+    raise ArgumentError, wrong_arity(key.size, 0..1) if key.size > 1
     return Primitive.zr_hash_default_value(self) if key.empty?
 
     proc = Primitive.zr_hash_default_proc(self)
@@ -504,7 +504,7 @@ class Hash
 
   def hash_operand(other)
     Primitive.attr! :hidden
-    Hash.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Hash"
+    Hash.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Hash")
   end
 
   def to_proc

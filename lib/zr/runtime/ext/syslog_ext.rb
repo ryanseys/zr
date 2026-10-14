@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :Syslog)
+
 # syslog.c, in ruby: one process-wide connection to the system logger,
 # which the gem's own syslog.rb requires as syslog_ext.
 module Syslog

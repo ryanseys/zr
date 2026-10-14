@@ -1,0 +1,4 @@
+coverage: TypeError: Coverage is not a module (Integer)
+nkf: TypeError: NKF is not a module (Integer)
+pty: TypeError: PTY is not a module (Integer)
+fcntl: TypeError: Fcntl is not a module (Integer)

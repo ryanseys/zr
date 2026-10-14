@@ -688,7 +688,7 @@ end
 # DateTime: the same value, with the time of day and the offset shown.
 class DateTime < Date
   def self.new(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..8)" if args.size > 8
+    raise ArgumentError, wrong_arity(args.size, 0..8) if args.size > 8
 
     year, month, day, hour, minute, second, offset, start = args
     argc = args.size

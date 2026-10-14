@@ -67,7 +67,7 @@ class BasicSocket < IO
       optname = option.optname
       value = option.data
     else
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 3)" unless args.size == 3
+      raise ArgumentError, wrong_arity(args.size, 3) unless args.size == 3
 
       level, optname, value = args
     end

@@ -207,7 +207,7 @@ class String
 
   # `slice!`: removes the part that `[]` returns from the receiver.
   def slice!(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size == 1 || args.size == 2
+    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size == 1 || args.size == 2
     # str_modify_keep_cr: a frozen String raises, though nothing would change.
     Primitive.zr_frozen_error(self) if frozen?
     unless args[0].is_a?(String) || args[0].is_a?(Regexp) || args[0].is_a?(Range)
@@ -233,7 +233,7 @@ class String
   # `s[i] = t`, `s[start, len] = t`, `s[range] = t` and `s[sub] = t`:
   # the span leaves and `t` takes its place.
   def []=(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)" unless args.size == 2 || args.size == 3
+    raise ArgumentError, wrong_arity(args.size, 2..3) unless args.size == 2 || args.size == 3
 
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     value = args.pop
@@ -778,7 +778,7 @@ class String
   # before the arity check.
   def each_line(*args, chomp: (nochomp = true), &block)
     return nochomp ? to_enum(:each_line, *args) : to_enum(:each_line, *args, chomp: chomp) unless block
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
     separator = args.empty? ? $/ : args[0]
     chomp = false if nochomp
@@ -1130,7 +1130,7 @@ class String
   # rb_str_bit_count: every bit, or `length` bits from `offset`, or a
   # Range of them.
   def bit_count(*args, **opts)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+    raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     lsb = bit_lsb_first(opts)
     total = Primitive.zr_str_bytesize(self) * 8
@@ -1188,7 +1188,7 @@ class String
   # The arity check of rb_str_tr and rb_str_tr_bang: one argument or two.
   def tr_arity(given)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{given}, expected 1..2)" if given == 0 || given > 2
+    raise ArgumentError, wrong_arity(given, 1..2) if given == 0 || given > 2
   end
 
   def tr_s!(from, to) = tr_trans(from, to, true) ? self : nil
@@ -1431,7 +1431,7 @@ class String
   # boundaries of each string.
   def bytesplice(*args)
     n = args.size
-    raise ArgumentError, "wrong number of arguments (given #{n}, expected 2..5)" unless (2..5).cover?(n)
+    raise ArgumentError, wrong_arity(n, 2..5) unless (2..5).cover?(n)
     raise ArgumentError, "wrong number of arguments (given #{n}, expected 2, 3, or 5)" if n == 4
 
     if n == 2 || (n == 3 && !args[0].is_a?(Integer))
@@ -2740,7 +2740,7 @@ class String
   # str_bit_get: the bit at an offset, true or false, or nil past the end.
   def bit_at(args, opts)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" unless args.size == 1
+    raise ArgumentError, wrong_arity(args.size, 1) unless args.size == 1
 
     lsb = bit_lsb_first(opts)
     offset = bit_offset(args[0])
@@ -2754,7 +2754,7 @@ class String
   # past it, and a frozen String refuses even an empty write.
   def bit_mutate(args, opts, op)
     Primitive.attr! :hidden
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
     lsb = bit_lsb_first(opts)
     target = args[0]

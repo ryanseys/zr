@@ -120,7 +120,7 @@ class Struct
       given = 0
     end
     if keyword_init || (given == 0 && Primitive.zr_hash_len_m(keywords) > 0)
-      raise ArgumentError, "wrong number of arguments (given #{given + (keywords.empty? ? 0 : 1)}, expected 0)" unless given == 0
+      raise ArgumentError, wrong_arity(given + (keywords.empty? ? 0 : 1), 0) unless given == 0
 
       # Each key names its member as rb_struct_pos reads it, in the
       # order of the Hash.
@@ -279,7 +279,7 @@ class Struct
   end
 
   def select(*args, &block)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)" unless args.empty?
+    raise ArgumentError, wrong_arity(args.size, 0) unless args.empty?
     return to_enum(:select) { size } unless block
 
     Primitive.zr_struct_values(self).select(&block)

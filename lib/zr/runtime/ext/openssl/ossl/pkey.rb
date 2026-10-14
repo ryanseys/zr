@@ -341,7 +341,7 @@ module OpenSSL
 
       # do_pkcs8_export.
       def pkcs8_export(object, to_der, args)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
         pkey = PKEY.fetch(object)
         cipher, password = args

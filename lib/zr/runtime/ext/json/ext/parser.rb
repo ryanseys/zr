@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :JSON)
+
 # json's parser.c, in ruby: JSON::Ext::ParserConfig, the one-shot
 # JSON::Ext::Parser.parse, and the walk both run. The walk is parser.c's
 # own: an explicit stack of the containers still open, a phase for what

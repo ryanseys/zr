@@ -65,7 +65,7 @@ class Array
     Primitive.attr! :hidden
     return to_enum(name, *args) unless block
 
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)"
+    raise ArgumentError, wrong_arity(args.size, 0..1)
   end
   private :more_args
 
@@ -168,7 +168,7 @@ class Array
   end
 
   def +(other)
-    other = Array.try_convert(other) || raise(TypeError, "no implicit conversion of #{conversion_name(other)} into Array")
+    other = Array.try_convert(other) || raise(TypeError, no_implicit_conversion(other, "Array"))
     out = Array.new(self)
     i = 0
     while i < other.size
@@ -576,7 +576,7 @@ class Array
         r < 0 || r > Primitive.zr_ary_len_m(self) ? 0 : ((Primitive.zr_ary_len_m(self) - r + 1)..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b }
       end
     end
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+    raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
     k = args[0].nil? ? Primitive.zr_ary_len_m(self) : Primitive.zr_index_operand_m(args[0])
 
@@ -629,7 +629,7 @@ class Array
     case args.size
     when 1 then Primitive.zr_ary_aref1_m(self, args[0])
     when 2 then Primitive.zr_ary_aref2_m(self, args[0], args[1])
-    else raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)"
+    else raise ArgumentError, wrong_arity(args.size, 1..2)
     end
   end
 
@@ -770,7 +770,7 @@ class Array
   def concat(*others)
     Primitive.zr_frozen_error(self) if frozen?
     pieces = others.map do |o|
-      ary = Array.try_convert(o) || raise(TypeError, "no implicit conversion of #{conversion_name(o)} into Array")
+      ary = Array.try_convert(o) || raise(TypeError, no_implicit_conversion(o, "Array"))
       ary.equal?(self) ? ary.dup : ary
     end
     pieces.each { |o| Primitive.zr_ary_splice(self, Primitive.zr_ary_len_m(self), 0, o) }
@@ -846,7 +846,7 @@ class Array
   def replace(other)
     # rb_ary_replace: the frozen check comes before the conversion.
     Primitive.zr_frozen_error(self) if frozen?
-    array = Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array"
+    array = Array.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Array")
     replaced(array)
   end
 
@@ -860,7 +860,7 @@ class Array
   # elements leave and the value's elements, or the value, take their
   # place.
   def []=(*args)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 2..3)" unless args.size.between?(2, 3)
+    raise ArgumentError, wrong_arity(args.size, 2..3) unless args.size.between?(2, 3)
 
     Primitive.zr_frozen_error(self) if frozen?
     case args.size
@@ -1114,7 +1114,7 @@ class Array
   end
 
   def fetch(*args, &block)
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+    raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
     fetched(args.first, args.drop(1), &block)
   end
@@ -1282,7 +1282,7 @@ class Array
     i = 0
     while i < others.size
       other = others[i]
-      arrays << (Array.try_convert(other) or raise TypeError, "no implicit conversion of #{conversion_name(other)} into Array")
+      arrays << (Array.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Array"))
       i += 1
     end
     total = 1
@@ -1333,7 +1333,7 @@ class Array
     return [] if (Primitive.zr_ary_len_m(self) == 0)
 
     rows = map do |row|
-      Array.try_convert(row) or raise TypeError, "no implicit conversion of #{conversion_name(row)} into Array"
+      Array.try_convert(row) or raise TypeError, no_implicit_conversion(row, "Array")
     end
     n = rows[0].size
     rows.each { |row| raise IndexError, "element size differs (#{row.size} should be #{n})" if row.size != n }

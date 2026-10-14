@@ -292,8 +292,8 @@ class Date
     # is checked, and their encodings must be compatible (ruby 4.1).
     def strptime_texts(given, given_format)
       Primitive.attr! :hidden
-      text = String.try_convert(given) or raise TypeError, "no implicit conversion of #{conversion_name(given)} into String"
-      format = String.try_convert(given_format) or raise TypeError, "no implicit conversion of #{conversion_name(given_format)} into String"
+      text = String.try_convert(given) or raise TypeError, no_implicit_conversion(given, "String")
+      format = String.try_convert(given_format) or raise TypeError, no_implicit_conversion(given_format, "String")
       raise ArgumentError, "string should have ASCII compatible encoding" unless text.encoding.ascii_compatible?
       raise ArgumentError, "format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
       unless Encoding.compatible?(text, format)

@@ -147,7 +147,7 @@ module FFI
     end
 
     def put_bytes(offset, str, *range)
-      raise ArgumentError, "wrong number of arguments (given #{range.size + 2}, expected 2..4)" if range.size > 2
+      raise ArgumentError, wrong_arity(range.size + 2, 2..4) if range.size > 2
 
       str = FFI.typed(str, ::String)
       offset = FFI.long_value(offset)
@@ -166,7 +166,7 @@ module FFI
     def read_bytes(length) = get_bytes(0, length)
 
     def write_bytes(*args)
-      raise ArgumentError, "wrong number of arguments (given #{args.size + 1}, expected 2..4)" unless args.size.between?(1, 3)
+      raise ArgumentError, wrong_arity(args.size + 1, 2..4) unless args.size.between?(1, 3)
 
       put_bytes(0, *args)
     end

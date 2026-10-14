@@ -135,7 +135,7 @@ class IO
   def getpass(prompt = nil)
     target = self.equal?(STDIN) ? STDERR : self
     unless prompt.nil?
-      target.write(String.try_convert(prompt) || raise(TypeError, "no implicit conversion of #{conversion_name(prompt)} into String"))
+      target.write(String.try_convert(prompt) || raise(TypeError, no_implicit_conversion(prompt, "String")))
       target.flush
     end
     begin
@@ -259,7 +259,7 @@ class IO
   def cursor=(position)
     unless position.is_a?(Array)
       converted = Array.try_convert(position)
-      raise TypeError, "no implicit conversion of #{conversion_name(position)} into Array" if converted.nil?
+      raise TypeError, no_implicit_conversion(position, "Array") if converted.nil?
 
       position = converted
     end
@@ -284,7 +284,7 @@ class IO
 
     def getpass(prompt = nil)
       unless prompt.nil?
-        text = String.try_convert(prompt) or raise TypeError, "no implicit conversion of #{conversion_name(prompt)} into String"
+        text = String.try_convert(prompt) or raise TypeError, no_implicit_conversion(prompt, "String")
         raise ArgumentError, "string contains null byte" if text.include?("\0")
 
         write(text)

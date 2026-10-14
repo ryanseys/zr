@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+Object.send(:native_module, :PTY)
+
 # `require "pty"`: a pseudo-terminal pair. ruby opens the master through
 # the Unix98 calls (posix_openpt, grantpt, unlockpt) and then opens the
 # slave device by the name they give.

@@ -102,7 +102,7 @@ module OpenSSL
     class RSA < PKey
       def initialize(*args, &block)
         Ossl.want_uninitialized(self, Ossl::PKEY)
-        raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+        raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
         raise ArgumentError, "OpenSSL::PKey::RSA.new cannot be called without arguments; pkeys are immutable with OpenSSL 3.0" if args.empty?
 
         arg, pass = args
@@ -137,7 +137,7 @@ module OpenSSL
 
       def export(*args)
         if Ossl.rsa_private_exportable?(self)
-          raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..2)" if args.size > 2
+          raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
           Ossl.pkey_export_traditional(self, false, *args)
         else

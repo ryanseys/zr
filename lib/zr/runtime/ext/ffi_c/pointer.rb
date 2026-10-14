@@ -31,7 +31,7 @@ module FFI
     end
 
     def initialize(*args)
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" unless args.size.between?(1, 2)
+      raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size.between?(1, 2)
 
       type_size = args.size == 2 ? FFI.size_of(args[0]) : 1
       address = args.last
@@ -86,7 +86,7 @@ module FFI
 
     def order(*args)
       return ffi_swapped? ? :big : :little if args.empty?
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1)" if args.size > 1
+      raise ArgumentError, wrong_arity(args.size, 1) if args.size > 1
 
       swap = case args[0]
              when :little then false
@@ -175,7 +175,7 @@ module FFI
     end
 
     def initialize(size, *rest)
-      raise ArgumentError, "wrong number of arguments (given #{rest.size + 1}, expected 1..3)" if rest.size > 2
+      raise ArgumentError, wrong_arity(rest.size + 1, 1..3) if rest.size > 2
 
       size = FFI.size_of(size)
       count = rest.empty? ? 1 : FFI.long_value(rest[0])

@@ -332,7 +332,7 @@ class Random
     # a bound with nothing under it, false for a value that selects no draw.
     def rand_random(obj, args)
       Primitive.attr! :hidden
-      raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
+      raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
 
       rnd = generator_of(obj)
       return random_real(obj, rnd, true) if args.empty?

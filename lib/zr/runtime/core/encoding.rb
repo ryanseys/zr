@@ -642,7 +642,7 @@ class Encoding
     replace = options[:replace]
     return if replace.nil?
 
-    replace = String.try_convert(replace) or raise TypeError, "no implicit conversion of #{conversion_name(options[:replace])} into String"
+    replace = String.try_convert(replace) or raise TypeError, no_implicit_conversion(options[:replace], "String")
     raise ArgumentError, "replacement string is broken: #{replace.dump} as #{replace.encoding}" unless replace.valid_encoding?
   end
   private_class_method :check_options
@@ -1254,7 +1254,7 @@ class Encoding
     return name if name.is_a?(Encoding)
 
     text = String.try_convert(name)
-    raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
+    raise TypeError, no_implicit_conversion(name, "String") if text.nil?
     # rb_to_encoding_index: a name must be in an ASCII-compatible encoding.
     return yield(+"invalid encoding name (non ASCII)") unless text.encoding.ascii_compatible?
     # rb_enc_find_index: a NUL ends the C string, so a name has none.
@@ -1322,7 +1322,7 @@ class Encoding
   def self.c_name(name)
     Primitive.attr! :hidden
     text = String.try_convert(name)
-    raise TypeError, "no implicit conversion of #{conversion_name(name)} into String" if text.nil?
+    raise TypeError, no_implicit_conversion(name, "String") if text.nil?
 
     bytes = text.b
     if wide?(text.encoding)
