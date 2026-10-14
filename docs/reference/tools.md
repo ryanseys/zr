@@ -267,6 +267,7 @@ libSystem list again. See
 | Command | Does |
 |---|---|
 | `zr-dev bench [--runs N] [--target TRIPLE] [filter...]` | Builds each program in `benchmark/`, checks its output, and times it beside `ruby` and `ruby --yjit`. `--runs` sets the runs of each program (default 5). `--target` sets the target to build for. The words select benchmarks by name: `zr-dev bench --runs 5 fib`. |
+| `zr-dev changelog VERSION` | Prints the body of the dated section of VERSION in `CHANGELOG.md`: the notes of its GitHub Release (`tool/changelog.rb`). It fails when the section is missing, has no date, or is empty. The release workflow writes the notes through `.github/scripts/release_notes.rb`, which also checks the tag against `Zr::VERSION`. |
 | `zr-dev bench --check [before after]` | Compares the newest report with the one before it, and runs nothing. With two arguments, it compares those two reports, given as paths or revisions. |
 | `zr-dev compile [--runs N] [--write] [--zr [--commit \| --check]] [filter...]` | Times how long zr takes to compile each rung of `benchmark/compile/`, phase by phase. `--runs` sets the builds of each rung, after one warmup (default 3). `--write` writes the table to `tmp/bench/compile.txt`. `--zr` also builds the compiled compiler with ruby (`tmp/compile/zr`), and times it. The words select rungs by name. |
 | `zr-dev compile --zr --commit` | Also writes a baseline to `benchmark/results/compile/`. |

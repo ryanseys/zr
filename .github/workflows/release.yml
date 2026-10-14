@@ -58,11 +58,7 @@ jobs:
       # The tag names the version in lib/zr/version.rb, and CHANGELOG.md
       # has a dated section for it, which becomes the release notes.
       - name: Check the tag, the version and the changelog
-        run: |
-          version="$(ruby -Ilib -rzr/version -e 'print Zr::VERSION')"
-          ruby -e 'abort "the tag is #{ARGV[0]}, but Zr::VERSION is #{ARGV[1]}" unless ARGV[0] == "v#{ARGV[1]}"' "$TAG" "$version"
-          ruby tool/changelog.rb "$version" > notes.md
-          echo "VERSION=$version" >> "$GITHUB_ENV"
+        run: ruby .github/scripts/release_notes.rb "$TAG"
 
       # Publish only a commit whose every CI job passed.
       - name: Check that CI passed for this commit

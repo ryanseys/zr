@@ -18,6 +18,8 @@ module Zr
       "expect" => ["Write the expected output of program tests and benchmarks from the pinned ruby",
                    -> { require_relative "expect"; Commands::Expect }],
       "test" => ["Run zr's tests: all, or the test files, lines and programs given", -> { require_relative "test"; Commands::Test }],
+      "changelog" => ["Print the CHANGELOG.md section of a version: its release notes",
+                      -> { require_relative "changelog"; Commands::Changelog }],
       "bench" => ["How long the programs that zr builds take to run", -> { require_relative "bench"; Commands::Bench }],
       "compile" => ["How long zr takes to compile, and where", -> { require_relative "compile"; Commands::Compile }],
       "host" => ["Run a program on CRuby over zr's kernel, with no build", -> { require_relative "host"; Commands::Host }],

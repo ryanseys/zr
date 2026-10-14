@@ -56,7 +56,7 @@ Do these by hand before the first release:
    [X.Y.Z]: https://github.com/ryanseys/zr/releases/tag/vX.Y.Z
    ```
 
-   `ruby tool/changelog.rb X.Y.Z` prints the notes; it fails when the
+   `bin/zr-dev changelog X.Y.Z` prints the notes; it fails when the
    section is missing, has no date, or is empty.
 3. Commit, and push to `main`. Wait until every CI job passes.
 4. Tag the commit, and push the tag:
@@ -69,8 +69,8 @@ Do these by hand before the first release:
 The workflow then:
 
 1. stops unless the tag is `v` and `Zr::VERSION`, and `CHANGELOG.md`
-   has a dated section for the version (`tool/changelog.rb`), which
-   becomes the release notes;
+   has a dated section for the version, which becomes the release
+   notes (`.github/scripts/release_notes.rb`);
 2. stops unless every job of `ci.yml` passed for the tagged commit
    (`.github/scripts/ci_passed.rb`);
 3. runs the unit tier, builds the gem, installs it in a clean
@@ -100,7 +100,7 @@ $ git checkout vX.Y.Z
 $ SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec
 $ ruby .github/scripts/smoke.rb --user-cache zr-X.Y.Z.gem "$(mktemp -d)"
 $ gem push zr-X.Y.Z.gem --otp 123456
-$ gh release create vX.Y.Z zr-X.Y.Z.gem --title "zr X.Y.Z" --notes "$(ruby tool/changelog.rb X.Y.Z)" --verify-tag
+$ gh release create vX.Y.Z zr-X.Y.Z.gem --title "zr X.Y.Z" --notes "$(bin/zr-dev changelog X.Y.Z)" --verify-tag
 ```
 
 A gem pushed by hand has no provenance attestation.
