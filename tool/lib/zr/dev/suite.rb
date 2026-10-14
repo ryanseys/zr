@@ -196,6 +196,8 @@ module Zr
       # output and whether a limit stopped it: `limit` seconds in all, or
       # `idle` seconds with no output (a test that hangs).
       # `live`, when given, gets each whole line of the output as it comes.
+      # (Not Harness::Child.run: that one reads the output at the end, and
+      # this streams it and stops a run that goes quiet.)
       def capture(env, argv, dir, limit, idle: nil, live: nil)
         foreground_signals!
         reader, writer = IO.pipe

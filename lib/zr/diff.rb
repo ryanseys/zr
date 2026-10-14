@@ -37,7 +37,8 @@ module Zr
     # Runs `command` in `dir` with an empty stdin and `env` over this
     # environment, in a process group of its own. A run whose program, or
     # a child that holds its output open, takes longer than `limit`
-    # seconds is stopped: its whole group is killed.
+    # seconds is stopped: its whole group is killed. (The tests' runner,
+    # Harness::Child, does not ship with zr, and `zr diff` does.)
     #: (Array[String] command, ?dir: String, ?env: Hash[String, String?], ?limit: (Integer | Float)?) -> Answer
     def run(command, dir: Dir.pwd, env: {}, limit: LIMIT)
       Open3.popen3(env, *command, chdir: dir, pgroup: true) do |stdin, stdout, stderr, waiter|
