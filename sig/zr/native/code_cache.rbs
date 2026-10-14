@@ -1,9 +1,0 @@
-# The class instance variable of lib/zr/native/code_cache.rb. Its methods
-# are inline.
-module Zr
-  module Native
-    class CodeCache
-      self.@backend_digest: String?
-    end
-  end
-end

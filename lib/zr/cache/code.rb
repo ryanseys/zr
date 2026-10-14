@@ -5,7 +5,7 @@ require_relative "../config"
 require_relative "../ir/fingerprint"
 
 module Zr
-  module Native
+  module Cache
     # The machine code of each function that a build assembled, kept by the
     # function's fingerprint (`IR::Fingerprint`), so that the next build
     # assembles only the functions whose IR changed.
@@ -25,7 +25,7 @@ module Zr
     #
     # `ZR_CODE_CACHE=0` turns it off. `ZR_CODE_CACHE=verify` assembles each
     # function that the cache has, too, and raises when the bytes differ.
-    class CodeCache
+    class Code
       # @rbs @kind: String
       # @rbs @dir: String
       # @rbs @index: Hash[String, [String, Integer, Integer]]
@@ -44,7 +44,7 @@ module Zr
         backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb ir/analysis.rb
         ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb ir/inst.rb ir/licm.rb ir/passes.rb
         ir/promotion.rb ir/regions.rb ir/statics.rb ir/switches.rb ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
-        native/code_cache.rb session.rb
+        cache/code.rb session.rb
       ].freeze
 
       LIB = File.expand_path("..", __dir__) #: String
@@ -54,7 +54,7 @@ module Zr
 
       # The cache for objects of `kind` (such as "runtime"), or nil when the
       # cache is off or the target has another backend.
-      #: (String kind, Target target) -> CodeCache?
+      #: (String kind, Target target) -> Code?
       def self.for(kind, target)
         return nil if mode == "0" || target.arch != :aarch64
 
@@ -78,9 +78,9 @@ module Zr
       # to the store must not make every pack a miss.
       #: () -> String
       def self.dir
-        require_relative "../cache/store"
+        require_relative "store"
         key = backend_digest[0, 32] #: String
-        Cache::Store.path(:code, key)
+        Store.path(:code, key)
       end
 
       attr_reader :hits, :misses #: Integer

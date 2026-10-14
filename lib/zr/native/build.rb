@@ -22,7 +22,7 @@ require_relative "../config"
 require_relative "../ext"
 require_relative "../ext/c_api"
 require_relative "parallel"
-require_relative "code_cache"
+require_relative "../cache/code"
 
 module Zr
   module Native
@@ -214,7 +214,7 @@ module Zr
         target = runtime.target
         Cache::Store.root("#{target.triple}-link-#{evals ? "eval-#{evals.kind}" : "plain"}",
                    [*objects, prelink_path(objects), skeleton_path(objects), RuntimeSources.symbols_path(runtime.digest),
-                    runtime.gem_prelude_path, (evals.meta_path if evals), CodeCache.dir])
+                    runtime.gem_prelude_path, (evals.meta_path if evals), Cache::Code.dir])
       rescue SystemCallError, SourceChanged
         nil # a root that is not written protects less; the link goes on
       end
@@ -326,7 +326,7 @@ module Zr
           # A Cache::Lowering::EvalSupport made the code of each unit, and
           # inlined the unit already; its code cache has that code.
           units = support.cache
-          code = units&.code || CodeCache.for("eval", support.target)
+          code = units&.code || Cache::Code.for("eval", support.target)
           done = lambda do
             units = nil # the lambda would keep the IR alive
             support.release
@@ -363,7 +363,7 @@ module Zr
           # A Cache::Lowering::Core made the core's code, and inlined the
           # unit already; its code cache has that code.
           core = runtime.core_cache
-          cache = core&.code || CodeCache.for("runtime", runtime.target)
+          cache = core&.code || Cache::Code.for("runtime", runtime.target)
           why = Timing.phase("assembling and writing the runtime object", "runtime object assembled and written") do
             object(runtime.functions, runtime.data, fresh, raw: runtime.raw, export: true, target: runtime.target, jobs: jobs,
                                                                          cache: cache, inlined: !core.nil?, known: core&.known || {})
@@ -388,7 +388,7 @@ module Zr
       # @rbs export: bool
       # @rbs target: Target
       # @rbs jobs: Integer
-      # @rbs cache: CodeCache?
+      # @rbs cache: Cache::Code?
       # @rbs inlined: bool
       # @rbs known: Hash[String, [String, String]]
       # @rbs release: (^() -> void)?
@@ -413,7 +413,7 @@ module Zr
       # and the unit's symbol names, so a large unit runs them in `jobs`
       # workers. `raw` names the raw functions (`Machine::RAW`), whose code
       # comes from the backend. `assembled` are functions that are already
-      # machine code. With a `cache` (`CodeCache`), a function whose
+      # machine code. With a `cache` (`Cache::Code`), a function whose
       # fingerprint the cache has takes its code from there. `inlined` says
       # that the functions are inlined already (`Cache::Lowering::Core`). `functions` can
       # then have machine code in place of IR, whose fingerprint and bytes
@@ -426,7 +426,7 @@ module Zr
       # @rbs target: Target
       # @rbs jobs: Integer
       # @rbs floor: Integer
-      # @rbs cache: CodeCache?
+      # @rbs cache: Cache::Code?
       # @rbs inlined: bool
       # @rbs known: Hash[String, [String, String]]
       # @rbs return: Obj::Unit
@@ -462,7 +462,7 @@ module Zr
       # @rbs all: Array[IR::Function | Obj::Code]
       # @rbs defined: Set[String]
       # @rbs emitter: singleton(Backend::Aarch64)
-      # @rbs cache: CodeCache
+      # @rbs cache: Cache::Code
       # @rbs jobs: Integer
       # @rbs floor: Integer
       # @rbs known: Hash[String, [String, String]]

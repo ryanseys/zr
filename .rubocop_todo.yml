@@ -9,7 +9,7 @@ ThreadSafety/ClassInstanceVariable:
     - "lib/zr/eval/interpreter.rb"
     - "lib/zr/gc_tuning.rb"
     - "lib/zr/machine/host.rb"
-    - "lib/zr/native/code_cache.rb"
+    - "lib/zr/cache/code.rb"
     - "lib/zr/native/resident.rb"
     - "lib/zr/native/toolchain.rb"
     - "lib/zr/obj/macho/skeleton.rb"

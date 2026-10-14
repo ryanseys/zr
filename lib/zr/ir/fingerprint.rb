@@ -6,7 +6,7 @@ require_relative "function"
 module Zr
   module IR
     # The digest of everything that a backend reads to assemble a function
-    # (`Native::CodeCache`): the function's IR after inlining and before
+    # (`Cache::Code`): the function's IR after inlining and before
     # the passes, and which of the symbols it takes the address of are
     # defined in its own unit. Two functions with one fingerprint assemble
     # to the same bytes with the same backend.

@@ -29,7 +29,7 @@ module Zr
         # has a code cache to take the code from.
         #: (Target target, String | Symbol kind) -> EvalSupport?
         def self.for(target, kind)
-          code = Native::CodeCache.for("eval", target)
+          code = Code.for("eval", target)
           code && new("eval-#{kind}", target, code)
         end
 

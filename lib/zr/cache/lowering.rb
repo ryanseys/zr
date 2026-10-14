@@ -7,7 +7,7 @@ require_relative "../timing"
 require_relative "store"
 require_relative "../ir/fingerprint"
 require_relative "../ir/passes"
-require_relative "../native/code_cache"
+require_relative "code"
 require_relative "../native/parallel"
 require_relative "../backend/aarch64"
 
@@ -23,7 +23,7 @@ module Zr
     # functions and the fixed part's (the kernel), and its code depends on
     # nothing else of the unit. A worker lowers a piece, inlines it,
     # fingerprints each function and assembles each one that the code cache
-    # (`Native::CodeCache`) does not have. It returns machine code and
+    # (`Cache::Code`) does not have. It returns machine code and
     # data, never IR: loading the core's IR took longer than lowering it.
     #
     # An entry keeps what the rest of the build reads from a piece: the
@@ -54,14 +54,14 @@ module Zr
       # @rbs skip -- typed in sig/zr/cache/lowering.rbs
       Piece = Struct.new(:path, :entry, :key, :weight, :make)
 
-      attr_reader :code #: Native::CodeCache
+      attr_reader :code #: Code
 
-      #: (String kind, Target target, Native::CodeCache code) -> void
+      #: (String kind, Target target, Code code) -> void
       def initialize(kind, target, code)
         @kind = kind
         @target = target
         @code = code
-        @backend = Native::CodeCache.backend_digest
+        @backend = Code.backend_digest
       end
 
       # The fingerprint and the code of each function of the pieces, by
@@ -159,7 +159,7 @@ module Zr
         called = functions.flat_map { |f| inliner.calls(f.name) }.uniq.select { |sym| @fixed.key?(sym) }
         named = (functions.flat_map { |f| f.callees.map(&:symbol) + f.globals.map(&:symbol) }).uniq
         defined = own | @fixed_names
-        # A code cache is only for this backend (`Native::CodeCache.for`).
+        # A code cache is only for this backend (`Cache::Code.for`).
         emitter = Backend::Aarch64
         blobs = {} #: Hash[String, String]
         prints = functions.map do |f|

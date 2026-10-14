@@ -11,7 +11,7 @@ require "zr/native/build"
 # the cache's key every file that the passes and the backend load.
 class CodeCacheTest < Minitest::Test
   Fingerprint = Zr::IR::Fingerprint
-  CodeCache = Zr::Native::CodeCache
+  Code = Zr::Cache::Code
 
   # A function with a call, a load and a branch, built as the lowering
   # builds one.
@@ -47,16 +47,16 @@ class CodeCacheTest < Minitest::Test
   def test_the_backend_list_is_every_file_that_assembly_loads
     code = <<~RUBY
       before = $LOADED_FEATURES.dup
-      require #{File.join(CodeCache::LIB, "native/code_cache.rb").inspect}
-      require #{File.join(CodeCache::LIB, "ir/passes.rb").inspect}
-      require #{File.join(CodeCache::LIB, "backend/aarch64.rb").inspect}
-      puts ($LOADED_FEATURES - before).select { |f| f.start_with?(#{"#{CodeCache::LIB}/".inspect}) }.map { |f| f.delete_prefix(#{"#{CodeCache::LIB}/".inspect}) }.sort
+      require #{File.join(Code::LIB, "cache/code.rb").inspect}
+      require #{File.join(Code::LIB, "ir/passes.rb").inspect}
+      require #{File.join(Code::LIB, "backend/aarch64.rb").inspect}
+      puts ($LOADED_FEATURES - before).select { |f| f.start_with?(#{"#{Code::LIB}/".inspect}) }.map { |f| f.delete_prefix(#{"#{Code::LIB}/".inspect}) }.sort
     RUBY
     # A ruby outside this bundle: bundler's setup reads zr.gemspec, which
     # loads version.rb before the list starts.
     out, status = Open3.capture2(Zr::Harness::CleanEnv.env, RbConfig.ruby, "-e", code, unsetenv_others: true)
     assert_predicate status, :success?
-    assert_equal CodeCache::BACKEND.sort, out.split("\n"), "CodeCache::BACKEND must list each file that the passes and the backend load"
+    assert_equal Code::BACKEND.sort, out.split("\n"), "Cache::Code::BACKEND must list each file that the passes and the backend load"
   end
 
   # Part of the runtime, so that the test takes seconds: the object of its
@@ -75,7 +75,7 @@ class CodeCacheTest < Minitest::Test
         Zr::Config.with(ZR_CODE_CACHE: mode == "off" ? "0" : "1") do
           Zr::Session.current.set(:cache, cache)
           why = Zr::Native::Build.object(Marshal.load(functions), runtime.data, out, export: true,
-                                         cache: Zr::Native::CodeCache.for("test", Zr::Target.default))
+                                         cache: Zr::Cache::Code.for("test", Zr::Target.default))
           assert_nil why
         ensure
           Zr::Session.current.forget(:cache)

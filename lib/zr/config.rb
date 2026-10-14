@@ -335,7 +335,7 @@ module Zr
     #: () -> bool
     def run_cache? = @run_cache
 
-    # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Native::CodeCache`).
+    # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Cache::Code`).
     attr_reader :code_cache #: String
 
     # `ZR_SERVER`: nil (use the server if one listens at its default

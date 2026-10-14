@@ -24,7 +24,7 @@ module Zr
         # has a code cache to take the code from.
         #: (Target target) -> Core?
         def self.for(target)
-          code = Native::CodeCache.for("runtime", target)
+          code = Code.for("runtime", target)
           code && new("core", target, code)
         end
 
