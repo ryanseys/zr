@@ -373,16 +373,10 @@ module Zr
     #: () ?{ (IR::Function) -> Obj::Code } -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
     def run(&finish)
       finished = [] #: Array[Obj::Code]
-      open_unit(@entry, @program.body)
-      Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
+      lower_top
       finished.concat(finished_functions(&finish)) if finish
       (@program.units || []).each_with_index do |u, i|
-        @file = u.file
-        @warnings = u.warnings || []
-        @unit_internal = u.internal
-        @unit_hidden = u.hidden
-        @ids = u.node_ids
-        open_unit(unit_entry(i), u.body)
+        enter_unit(u, i)
         key = finish && @units&.key(u, @prefix)
         kept = taken(key)
         if kept
@@ -391,9 +385,7 @@ module Zr
         end
 
         from = @data.size
-        # A unit keeps its locals until `spent`.
-        locals = u.locals #: Array[Symbol]
-        Function.new(self, @prefix, locals, u.body, nil, :top).lower
+        lower_body(u)
         next unless finish
 
         close_pool
@@ -402,13 +394,7 @@ module Zr
         spent(u)
         finished.concat(made)
       end
-      open_unit
-      close_pool
-      @ids = @program.node_ids
-      @unit_internal = @ext
-      @unit_hidden = false
-      @file = @program.file
-      @warnings = @program.warnings || []
+      leave_units
       [finish ? finished : @functions, @data]
     end
 
@@ -420,8 +406,7 @@ module Zr
     #: () -> [Array[IR::Function], Array[Obj::Datum]]
     def lower_entry
       sliced do
-        open_unit(@entry, @program.body)
-        Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
+        lower_top
         close_pool
       end
     end
@@ -432,20 +417,53 @@ module Zr
     def lower_unit(index)
       u = @program.units[index]
       sliced do
-        @file = u.file
-        @warnings = u.warnings || []
-        @unit_internal = u.internal
-        @unit_hidden = u.hidden
-        @ids = u.node_ids
-        open_unit(unit_entry(index), u.body)
-        # A unit keeps its locals until `spent`.
-        locals = u.locals #: Array[Symbol]
-        Function.new(self, @prefix, locals, u.body, nil, :top).lower
+        enter_unit(u, index)
+        lower_body(u)
         close_pool
       ensure
-        @ids = @program.node_ids
+        leave_units
       end
     end
+
+    # Lowers the program's toplevel into its entry function.
+    #: () -> void
+    def lower_top
+      open_unit(@entry, @program.body)
+      Function.new(self, @entry, @program.locals, @program.body, nil, @kind, outer: @outer).lower
+    end
+
+    # Makes `u`, the unit at `index`, the one that the lowering reads: its
+    # file, warnings and node ids, and its own names and counters.
+    #: (Hir::Unit u, Integer index) -> void
+    def enter_unit(u, index)
+      @file = u.file
+      @warnings = u.warnings || []
+      @unit_internal = u.internal
+      @unit_hidden = u.hidden
+      @ids = u.node_ids
+      open_unit(unit_entry(index), u.body)
+    end
+
+    # Lowers the body of `u`, which `enter_unit` entered.
+    #: (Hir::Unit u) -> void
+    def lower_body(u)
+      # A unit keeps its locals until `spent`.
+      locals = u.locals #: Array[Symbol]
+      Function.new(self, @prefix, locals, u.body, nil, :top).lower
+    end
+
+    # Returns the lowering to the program's own file after its units, and
+    # closes the last unit's pool.
+    #: () -> void
+    def leave_units
+      open_unit
+      @ids = @program.node_ids
+      @unit_internal = @ext
+      @unit_hidden = false
+      @file = @program.file
+      @warnings = @program.warnings || []
+    end
+    private :lower_top, :enter_unit, :lower_body, :leave_units
 
     # The functions and data that the block adds. Each is a copy: a slice
     # (`@data[data..]`) shares the whole buffer of the array, and eval
