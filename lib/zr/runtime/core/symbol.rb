@@ -8,24 +8,28 @@ class Symbol
   # The String method entries as they are at boot. Ruby reaches its own
   # C functions from here, so a prepend or a redefinition of a String
   # method does not change Symbol's.
-  STRING = %i[[] length upcase downcase capitalize swapcase succ start_with? end_with? empty? casecmp casecmp?]
+  STRING = %i[[] upcase downcase capitalize swapcase succ start_with? end_with? casecmp casecmp?]
              .to_h { |name| [name, String.instance_method(name)] }.freeze
   private_constant :STRING
 
+  # Ruby keeps one frozen name String per symbol (rb_sym2str), so `to_s`,
+  # `name` and `id2name` return the same object each time.
+  NAMES = Hash.new { |cache, symbol| cache[symbol] = Primitive.zr_sym_name_m(symbol) }
+  private_constant :NAMES
+
   # The name as the core reads it, as rb_sym2str gives it: a `to_s` that
   # the program writes changes interpolation, not Symbol's own methods.
-  TO_S = instance_method(:to_s)
-  private_constant :TO_S
-
   def own_text
     Primitive.attr! :hidden
-    TO_S.bind_call(self)
+    NAMES[self]
   end
 
-  def [](*args) = STRING[:[]].bind_call(own_text, *args)
+  def [](index, length = (absent = true; nil))
+    absent ? STRING[:[]].bind_call(own_text, index) : STRING[:[]].bind_call(own_text, index, length)
+  end
   alias slice []
 
-  def length = STRING[:length].bind_call(own_text)
+  def length = Primitive.zr_str_length_m(own_text)
   alias size length
 
   def =~(other) = own_text =~ other
@@ -41,7 +45,7 @@ class Symbol
 
   def start_with?(*prefixes) = STRING[:start_with?].bind_call(own_text, *prefixes)
   def end_with?(*suffixes) = STRING[:end_with?].bind_call(own_text, *suffixes)
-  def empty? = STRING[:empty?].bind_call(own_text)
+  def empty? = Primitive.zr_str_bytesize(own_text) == 0
 
   # A name that contains a character outside ASCII. If all its
   # characters have a category of their own, it shows as the runtime
@@ -101,10 +105,6 @@ class Symbol
   def casecmp(other) = other.is_a?(Symbol) ? STRING[:casecmp].bind_call(own_text, other.own_text) : nil
 
   def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(own_text, other.own_text) : nil
-  # Ruby keeps one frozen name String per symbol (rb_sym2str), so `to_s`,
-  # `name` and `id2name` return the same object each time.
-  NAMES = Hash.new { |cache, symbol| cache[symbol] = Primitive.zr_sym_name_m(symbol) }
-  private_constant :NAMES
 
   def to_s = NAMES[self]
   alias id2name to_s

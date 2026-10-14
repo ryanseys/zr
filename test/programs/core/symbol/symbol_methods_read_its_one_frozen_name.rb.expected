@@ -1,0 +1,36 @@
+"héllo"
+true
+true
+true
+"h"
+"éll"
+"o"
+"éllo"
+"ll"
+nil
+nil
+"hé"
+"ll"
+5
+5
+false
+true
+0
+0
+:HÉLLO
+:héllp
+true
+true
+#<Encoding:UTF-8>
+"wrong number of arguments (given 0, expected 1..2)"
+"wrong number of arguments (given 3, expected 1..2)"
+5
+"h"
+:HÉLLO
+":héllo"
+"héllo"
+false
+5
+5
+false
+true

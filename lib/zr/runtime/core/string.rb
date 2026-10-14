@@ -323,7 +323,7 @@ class String
     raise IndexError, "index #{index} out of string" if index < 0 || index > count
 
     at = Primitive.zr_str_char_offset_m(self, index)
-    Primitive.zr_str_splice(self, at, 0, Primitive.zr_str_operand(other))
+    Primitive.zr_str_splice(self, at, 0, other)
   end
 
   # The four case mappings, each character through the Unicode tables.

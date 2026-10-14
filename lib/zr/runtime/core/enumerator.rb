@@ -23,8 +23,15 @@ class Enumerator
 
     # Keywords go on to the block, as yielder_yield passes them. Only
     # keywords given go on: an empty `**` would keep a lone Array whole.
-    def yield(*values, **keywords)
-      keywords.empty? ? @block.call(*values) : @block.call(*values, **keywords)
+    # One value, the common call, takes no Array.
+    def yield(value = (none = true; nil), *more, **keywords)
+      unless Primitive.zr_hash_len_m(keywords) == 0
+        return none ? @block.call(**keywords) : @block.call(value, *more, **keywords)
+      end
+      return @block.call if none
+      return @block.call(value) if Primitive.zr_ary_len_m(more) == 0
+
+      @block.call(value, *more)
     end
 
     # yielder_to_proc: a lambda that yields its arguments.

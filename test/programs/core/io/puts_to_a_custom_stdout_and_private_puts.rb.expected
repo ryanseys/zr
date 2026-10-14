@@ -1,0 +1,19 @@
+[[], ["one"], ["a", "b"], [["x", ["y"]]], [nil]]
+[["one", "\n"], ["two\n"], ["3", "\n"], ["\n"]]
+write ["a", "\n"]
+write ["b\n"]
+write ["c", "\n"]
+write ["\n"]
+write ["d", "\n"]
+write ["e", "\n"]
+"a\nb\nc\n\nd\ne\n"
+private method 'puts' called for an instance of Object
+true
+true
+direct
+x
+y
+z
+
+1
+

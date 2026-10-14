@@ -1798,24 +1798,24 @@ class IO
   # what makes `print` and `puts` differ.
   def print(*objects) = IO.print_to(self, objects)
 
-  # One String, the usual call, is its own line: CRuby takes a String
-  # as it is and never calls `to_s` on it.
-  # One String is the common call: its bytes, then a newline unless it
-  # ends in one, with no line walk between.
-  def puts(*objects)
+  # One String is the common call. CRuby takes it as it is and never
+  # calls `to_s` on it: its bytes, then a newline unless it ends in one,
+  # with no line walk between. The objects take no Array for that call.
+  def puts(object = (none = true; nil), *more)
+    one = !none && Primitive.zr_ary_len_m(more) == 0
     # A `write` that the program wrote gets every piece, as CRuby's
     # rb_io_writev sends it; the core's own writes the bytes here.
     unless Primitive.zr_basic_method_m(self, :write)
-      IO.each_line_of(objects) { |*parts| IO.writev(self, parts) }
+      IO.each_line_of(none ? [] : [object, *more]) { |*parts| IO.writev(self, parts) }
       return nil
     end
-    if Primitive.zr_ary_len_m(objects) == 1 && (text = Primitive.zr_ary_at_m(objects, 0)).is_a?(String)
+    if one && object.is_a?(String)
       check_writable
-      line = converted(text)
-      IO.send(:ends_line?, text) ? write_bytes(line) : write_pair(line, converted(NEWLINE))
+      line = converted(object)
+      IO.send(:ends_line?, object) ? write_bytes(line) : write_pair(line, converted(NEWLINE))
       return nil
     end
-    IO.each_line_of(objects) { |*parts| write(*parts) }
+    IO.each_line_of(none ? [] : [object, *more]) { |*parts| write(*parts) }
     nil
   end
 
@@ -3487,11 +3487,16 @@ alias $PROGRAM_NAME $0
 module Kernel
   # rb_f_puts: a call of $stdout's own puts, which a program may
   # define; when $stdout is the receiver, its write takes the lines.
-  def puts(*objects)
+  def puts(object = (none = true; nil), *more)
     out = $stdout
-    return out.__send__(:puts, *objects) unless out.equal?(self)
+    unless out.equal?(self)
+      return out.__send__(:puts) if none
+      return out.__send__(:puts, object) if Primitive.zr_ary_len_m(more) == 0
 
-    IO.send(:each_line_of, objects) { |*parts| IO.send(:writev, out, parts) }
+      return out.__send__(:puts, object, *more)
+    end
+
+    IO.send(:each_line_of, none ? [] : [object, *more]) { |*parts| IO.send(:writev, out, parts) }
     nil
   end
 

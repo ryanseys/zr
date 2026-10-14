@@ -31,7 +31,8 @@ module Zr
       # `**name` among the arguments of a send, a super or a yield, or in
       # an Array or Hash literal. Each of these copies the elements into a
       # new Array or Hash (`Function#gather`, `zr_hash_coerce`), so the
-      # rest itself never escapes. `Primitive.x(*name)` passes the Array
+      # rest itself never escapes. Nor does a primitive that reads only its
+      # length (`LENGTHS`) keep it. `Primitive.x(*name)` passes the Array
       # itself, so it keeps the value, as every other use does.
       #: (untyped node, Symbol name) -> bool
       def self.spread_only?(node, name) = new(name).spread?(node, 0)
@@ -119,10 +120,15 @@ module Zr
         recv.is_a?(ConstRead) && recv.name == :Primitive && recv.scope.nil?
       end
 
+      # The primitives that read only a collection's length, which an empty
+      # shared one answers as a new one would.
+      LENGTHS = %i[zr_ary_len_m zr_hash_len_m].freeze
+
       # `Primitive.arg!(:name)` reads the parameter by its name.
       #: (Send node, Integer level) -> bool
       def primitive_spread?(node, level)
         return false if node.name == :arg! && node.args.any? { |arg| arg.is_a?(Literal) && arg.value == @name }
+        return true if LENGTHS.include?(node.name) && node.args.all? { |arg| arg.is_a?(Local) && mine?(arg, level) }
 
         Hir.all_children?(node) { |v| spread?(v, level) }
       end

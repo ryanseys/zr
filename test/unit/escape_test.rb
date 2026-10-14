@@ -71,6 +71,7 @@ class EscapeTest < Minitest::Test
     "a def inside cannot reach it" => "def inner(a) = a << 1",
     "another primitive" => "Primitive.zr_x(xs)",
     "a primitive's other argument" => "Primitive.arg!(:x)",
+    "a primitive that reads the length" => "Primitive.zr_ary_len_m(a) + Primitive.zr_hash_len_m(k)",
     # `*a` on the right is an Array literal.
     "a splat assignment" => "x = *a",
     "a multiple assignment" => "x, y = *a",
@@ -91,6 +92,7 @@ class EscapeTest < Minitest::Test
     "written over" => "a = []",
     "a primitive's splat" => "Primitive.zr_x(*a)",
     "a primitive's argument by name" => "Primitive.arg!(:a)",
+    "a length primitive with more arguments" => "Primitive.zr_ary_len_m(a, k)",
     "a when splat" => "case 1 when *a then 2 end",
     "a block pass" => "g(&a)",
     "read in a block" => "xs.each { a.size }",
