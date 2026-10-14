@@ -82,8 +82,9 @@ The **wasm emitter** (`lib/zr/backend/wasm/`) writes one WASI module.
 Control flow is a loop around a `br_table` over the function's blocks,
 and stack slots are in a shadow stack in linear memory.
 
-**`IR::Interp`** runs IR directly. It is not a way to run programs. It
-gives a second result, so a miscompile shows as a difference.
+**`IR::Interp`** (`test/support/ir_interp.rb`, test support) runs IR
+directly. It is not a way to run programs. It gives a second result, so
+a miscompile shows as a difference.
 
 ## Objects and linking
 

@@ -65,7 +65,6 @@ Metrics/ParameterLists:
     - "lib/zr/eval/walk.rb"
     - "lib/zr/eval/walk/tree.rb"
     - "lib/zr/gem_set/resolve.rb"
-    - "lib/zr/ir/interp.rb"
     - "lib/zr/lower/function.rb"
     - "lib/zr/lower/function/sends.rb"
     - "lib/zr/lower/function/sends/in_place.rb"

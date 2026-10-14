@@ -2,7 +2,7 @@
 
 require "test_helper"
 require_relative "../../lib/zr/ir/passes"
-require_relative "../../lib/zr/ir/interp"
+require_relative "../support/ir_interp"
 
 # The IR passes, one shape for each test: what a pass does to a function,
 # and that the interpreter returns the same result before and after it.

@@ -94,7 +94,7 @@ one line to delete. See [Program tests](../reference/program-tests.md).
 The program tests test outputs. The unit tests test the parts that
 make the outputs:
 
-- `IR::Interp` runs IR without the backend. When the binary and the
+- `IR::Interp` (`test/support/ir_interp.rb`) runs IR without the backend. When the binary and the
   interpreter give different results, the backend has the bug.
 - The disassembly snapshot records the instructions that the backend
   selects for each IR operation, so a change shows as a diff to read.

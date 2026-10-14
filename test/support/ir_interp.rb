@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require_relative "function"
-require_relative "types"
-require_relative "../bytes"
-require_relative "../refused"
+require_relative "../../lib/zr/ir/function"
+require_relative "../../lib/zr/ir/types"
+require_relative "../../lib/zr/bytes"
+require_relative "../../lib/zr/refused"
 
 module Zr
   module IR
@@ -77,7 +77,7 @@ module Zr
         #: (Integer size, ?Integer align) -> Integer
         def reserve(size, align = 8)
           at = Bytes.align(@bytes.bytesize, align)
-          grow(at + size)
+          Bytes.pad(@bytes, at + size)
           at
         end
 
@@ -113,11 +113,6 @@ module Zr
         PACK = { 1 => "C", 4 => "L<", 8 => "Q<" }.freeze
 
         private
-
-        #: (Integer size) -> void
-        def grow(size)
-          @bytes << ("\0".b * (size - @bytes.bytesize)) if size > @bytes.bytesize
-        end
 
         #: (Integer addr, Integer width) -> void
         def reach(addr, width)
@@ -166,8 +161,7 @@ module Zr
         end
 
         # Anonymous pages only, which is all that the collector needs.
-        #: (Integer _addr, Integer len, Integer _prot, Integer _flags, Integer _fd, Integer _offset) -> Integer
-        def sys_mmap(_addr, len, _prot, _flags, _fd, _offset)
+        def sys_mmap(_addr, len, *)
           @memory.reserve(len, 0x4000)
         end
 
@@ -176,7 +170,6 @@ module Zr
 
       # The state of one call: the values it defined, and the addresses of
       # its stack slots.
-      # @rbs skip -- typed in sig/zr/ir/interp.rbs
       Frame = Data.define(:values, :slot_at, :types)
 
       attr_reader :memory #: Memory

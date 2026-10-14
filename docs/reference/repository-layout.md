@@ -67,7 +67,7 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/symbol_numbering.rb` | `Zr::SymbolNumbering`: the link's numbers for a program's symbols, and their names table |
 | `lib/zr/digests.rb` | the digests of the cache's names that belong to no one target: the link, eval support's keys |
 | `lib/zr/machine/` | the kernel's typed Ruby to the IR, and the kernel's description |
-| `lib/zr/ir.rb`, `lib/zr/ir/` | the IR, its passes, its verifier, and `IR::Interp` |
+| `lib/zr/ir.rb`, `lib/zr/ir/` | the IR, its passes and its verifier |
 | `lib/zr/backend/aarch64/` | the aarch64 backend: assembler, register allocator, code generator |
 | `lib/zr/backend/wasm/` | the wasm emitter: `codegen.rb`, and `codegen/body.rb` (`Codegen::Body`, the code of one function) |
 | `lib/zr/obj/` | the object model, relocations, and the JIT loader |
@@ -137,7 +137,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `.github/scripts/` | the scripts of CI and the release: the smoke test of a built gem, the type check, and the check that CI passed for a tag |
 | `test/test_helper.rb` | what every test file requires |
 | `test/programs_test.rb` | the program tests: one minitest test for each program below `test/programs/` |
-| `test/support/` | the test library: the program tests' format (`program_case.rb`), run directory (`program_run.rb`), build (`program_build.rb`), check (`programs.rb`) and baselines (`baseline.rb`); the fork pool, the workers, the kept binaries, the `# zr-test:` needs, the progress file |
+| `test/support/` | the test library: the program tests' format (`program_case.rb`), run directory (`program_run.rb`), build (`program_build.rb`), check (`programs.rb`) and baselines (`baseline.rb`); the fork pool, the workers, the kept binaries, the `# zr-test:` needs, the progress file; the IR interpreter (`ir_interp.rb`), the aarch64 listing (`aarch64_listing.rb`) and the HIR dump (`hir_dump.rb`) that only tests use |
 | `test/support/coverage_run.rb` | `COVERAGE=1`: starts SimpleCov, and merges the results of the forked workers |
 | `test/support/harness/` | ruby's reference runs, the child process limits, wasmtime, the benchmark runner, `Harness::KernelJIT`, and the harnesses that compare a port with ruby's C |
 | `test/support/harness/selected_target.rb` | `Harness.selected_target`: the target of this run (`ZR_TARGET`, or the host's), with no load of the command line |

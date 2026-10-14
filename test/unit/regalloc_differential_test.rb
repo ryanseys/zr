@@ -3,7 +3,7 @@
 require "test_helper"
 require_relative "../../lib/zr/backend/aarch64"
 require_relative "../../lib/zr/ir/passes"
-require_relative "../../lib/zr/ir/interp"
+require_relative "../support/ir_interp"
 require_relative "../../lib/zr/obj/jit/fiddle"
 
 # Checks the register allocator against code that allocates no registers.

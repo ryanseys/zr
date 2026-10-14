@@ -308,7 +308,8 @@ module Zr
     #: () -> bool
     def timing? = @timing
 
-    # `ZR_VERIFY=1` runs the IR against the interpreter as it lowers.
+    # `ZR_VERIFY=1` checks each IR function's dominance and operand types
+    # (`IR::Verify::Strict`) before it is assembled.
     #: () -> bool
     def verify? = @verify
 

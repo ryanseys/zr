@@ -12,10 +12,11 @@ require_relative "../../lib/zr/backend/wasm/codegen"
 class CaseListsTest < Minitest::Test
   Inst = Zr::IR::Inst
   LIB = File.expand_path("../../lib/zr", __dir__)
+  INTERP = File.expand_path("../support/ir_interp.rb", __dir__)
 
   # The symbols of each `when` arm of a file, for the arms of only symbols.
   def arms(path)
-    program = Prism.parse_file(File.join(LIB, path)).value
+    program = Prism.parse_file(File.expand_path(path, LIB)).value
     found = []
     walk = lambda do |node|
       if node.is_a?(Prism::WhenNode) && node.conditions.all?(Prism::SymbolNode)
@@ -92,7 +93,7 @@ class CaseListsTest < Minitest::Test
     list = Inst::BINOPS
 
     # Act
-    found = arm_with?("ir/interp.rb", list)
+    found = arm_with?(INTERP, list)
 
     # Assert
     assert found, "no arm of interp.rb lists #{list}"
@@ -103,7 +104,7 @@ class CaseListsTest < Minitest::Test
     list = Inst::BITOPS
 
     # Act
-    found = arm_with?("ir/interp.rb", list)
+    found = arm_with?(INTERP, list)
 
     # Assert
     assert found, "no arm of interp.rb lists #{list}"
@@ -114,7 +115,7 @@ class CaseListsTest < Minitest::Test
     list = Inst::FBINOPS + Inst::FUNOPS
 
     # Act
-    found = arm_with?("ir/interp.rb", list)
+    found = arm_with?(INTERP, list)
 
     # Assert
     assert found, "no arm of interp.rb lists #{list}"
@@ -166,10 +167,10 @@ class CaseListsTest < Minitest::Test
 
   def test_the_files_have_no_splat_arm_of_these_lists
     # Arrange
-    paths = %w[backend/wasm/codegen/body.rb backend/aarch64/codegen.rb ir/interp.rb ir/verify.rb]
+    paths = ["backend/wasm/codegen/body.rb", "backend/aarch64/codegen.rb", "ir/verify.rb", INTERP]
 
     # Act
-    splats = paths.select { |path| File.read(File.join(LIB, path)).match?(/^\s*when .*\*(IR::)?(Inst::)?[A-Z]/) }
+    splats = paths.select { |path| File.read(File.expand_path(path, LIB)).match?(/^\s*when .*\*(IR::)?(Inst::)?[A-Z]/) }
 
     # Assert
     assert_empty splats

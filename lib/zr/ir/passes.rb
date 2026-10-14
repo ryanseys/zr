@@ -84,9 +84,9 @@ module Zr
       end
 
       # Runs the pipeline and then the checks, and returns the IR for an
-      # emitter. The dominance and type checks are slow, so a build runs them
-      # only when `ZR_VERIFY=1`. The checks that run the IR against the
-      # interpreter always run.
+      # emitter. The dominance and type checks (`Verify::Strict`) are slow,
+      # so a build runs them only when `ZR_VERIFY=1`; the cheap checks
+      # always run.
       #: (Function f, ?strict: bool) -> Function
       def prepare(f, strict: Config.current.verify?)
         run(f)
@@ -94,7 +94,8 @@ module Zr
       end
 
       # Constant folding. An integer instruction on constants becomes its
-      # result, with the same rules as `IR::Interp`: arithmetic narrower than
+      # result, with the same rules as the tests' IR interpreter
+      # (test/support/ir_interp.rb): arithmetic narrower than
       # `i64` is 32 bits wide, a shift uses its amount modulo the width, a
       # division by zero gives zero, and a remainder by zero gives the
       # dividend. An identity (`x + 0`, `x * 1`, `x & 0`) becomes its operand
@@ -341,8 +342,8 @@ module Zr
           become(i, k.zero? ? b : a) if k
         end
 
-        # Folds the bit operations on constants, with the same rules as
-        # `IR::Interp`.
+        # Folds the bit operations on constants, with the same rules as the
+        # tests' IR interpreter.
         #: (Inst i) -> void
         def fold_bitop(i)
           k = constant(i.args[0])

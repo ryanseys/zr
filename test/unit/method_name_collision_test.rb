@@ -6,7 +6,6 @@ require_relative "../../lib/zr/machine/lower"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/obj/macho/executable"
 require_relative "../../lib/zr/obj/jit/fiddle"
-require_relative "../../lib/zr/ir/interp"
 
 # No method that zr defines can have the name of an `Object` or `Kernel`
 # method. For example, a private `Lower#send` overrode `Object#send` for

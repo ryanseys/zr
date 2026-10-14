@@ -2,7 +2,7 @@
 
 require "test_helper"
 require "stringio"
-require_relative "../../lib/zr/ir/interp"
+require_relative "../support/ir_interp"
 require_relative "../../lib/zr/ir/passes"
 require_relative "../../lib/zr/machine/lower"
 require_relative "../native/fixtures"

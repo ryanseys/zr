@@ -67,8 +67,8 @@ The tests run kernel code in three ways:
   then compare a kernel function with CRuby's. For example,
   `test/unit/zlib_check_test.rb` compares the kernel's CRC-32 and
   Adler-32 with CRuby's zlib.
-- `IR::Interp` runs the IR of a typed-Ruby program without a
-  backend. `test/unit/interp_test.rb` runs the programs in
+- `IR::Interp` (`test/support/ir_interp.rb`) runs the IR of a typed-Ruby
+  program without a backend. `test/unit/interp_test.rb` runs the programs in
   `test/machine/` this way.
 - `Machine::Host` runs kernel files on CRuby.
   `test/unit/machine_host_test.rb` runs each program in `test/machine/`
