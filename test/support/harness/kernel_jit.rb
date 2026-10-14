@@ -5,7 +5,7 @@ require "tmpdir"
 require_relative "../../../lib/zr/machine/lower"
 require_relative "../../../lib/zr/native/build"
 require_relative "../../../lib/zr/obj/jit/fiddle"
-require_relative "../../../lib/zr/paths"
+require_relative "kernel_files"
 
 module Zr
   module Harness
@@ -17,20 +17,15 @@ module Zr
       TYPES = { "Word" => Fiddle::TYPE_LONG, "Ptr" => Fiddle::TYPE_VOIDP, "I32" => Fiddle::TYPE_INT, "I8" => Fiddle::TYPE_CHAR,
                 "Bool" => Fiddle::TYPE_CHAR, "F64" => Fiddle::TYPE_DOUBLE, "Void" => Fiddle::TYPE_VOID }.freeze
 
-      # The imports of the portable kernel, which any of its files can call.
-      IMPORTS = File.join(Paths::RUNTIME, "kernel/imports.rb")
-
-      # `patterns` are globs under lib/zr/runtime/kernel, or absolute paths. `constants` sets the
+      # `patterns` name the files (KernelFiles). `constants` sets the
       # constants that the files read from a kernel file outside the unit
       # (the OS layer, for example).
       def initialize(*patterns, constants: {})
-        files = patterns.flat_map { |pattern| Dir[File.expand_path(pattern, File.join(Paths::RUNTIME, "kernel"))].sort }
-        raise ArgumentError, "no kernel file matches #{patterns.inspect}" if files.empty?
-
+        files = KernelFiles[*patterns]
         Dir.mktmpdir("zr-kernel-jit-") do |dir|
           defined = File.join(dir, "constants.rb")
           File.write(defined, "module Zr::Kern\n#{constants.map { |name, value| "  #{name} = #{value}\n" }.join}end\n")
-          lower = Machine.unit([IMPORTS, *files].uniq + [defined])
+          lower = Machine.unit(files + [defined])
           unit = Native::Build.unit(lower.functions, lower.data, raw: lower.raw)
           @symbols = Obj::JIT.load(unit, syscalls: Obj::JIT::Fiddle.new)
           @defs = lower.defs
