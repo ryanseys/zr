@@ -33,6 +33,7 @@ module Zr
       # @rbs @entering: Hash[String, Hash[String, String]]
       # @rbs @joins: Array[[String, Block, String]]
       # @rbs @incoming: Hash[String, Array[String]]
+      # @rbs @sides: Hash[String, Array[Block]]
       # @rbs @work: Array[[String, Block, String]]
 
       #: (Function f) -> Function
@@ -52,7 +53,9 @@ module Zr
         return @f if @preds[@f.entry_block.name].any?
 
         plan(keys)
+        @sides = {}
         apply(keys)
+        @f.place_before(@sides)
         rewrite(keys)
         rename_uses
         @f.changed!(:cfg)
@@ -169,11 +172,13 @@ module Zr
       end
 
       # Makes a new block on the edge from the `brif` of `p` into `join`, so
-      # that the edge is a jump that can pass the join parameters.
+      # that the edge is a jump that can pass the join parameters. `run`
+      # places it before `join`, after the ones made before it.
       #: (Block p, Block join) -> Block
       def split(p, join)
         br = p.insts.last
-        side = @f.block_before(join)
+        side = @f.unplaced_block
+        (@sides[join.name] ||= []) << side
         side.insts << Inst.new(:jump, targets: [[join.name, []]])
         k = br.targets.index { |(name, _)| name == join.name } #: Integer
         br.targets[k] = [side.name, []]

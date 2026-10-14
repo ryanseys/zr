@@ -37,7 +37,8 @@ module Zr
       # @rbs @header_of: Hash[String, String]
       # @rbs @moved: bool
       # @rbs @tested: Hash[String, bool]
-      # @rbs @order: Array[String]
+      # @rbs @rank: Hash[String, Integer]
+      # @rbs @pre_of: Hash[String, Block]
       # @rbs @body: Hash[Analysis::Loop, Hash[String, bool]]
       # @rbs @loop: Analysis::Loop
       # @rbs @in: Hash[String, bool]
@@ -68,11 +69,17 @@ module Zr
 
         @placed = placements
         @tested = tested_only
-        @order = @analysis.rpo.map(&:name)
+        # Each block's place in reverse postorder, two apart, so that a
+        # preheader takes the place just before its header.
+        @rank = @analysis.rpo.each_with_index.to_h { |b, i| [b.name, 2 * i] }
+        @pre_of = {}
         @body = loops.to_h { |l| [l, l.body.to_h { |b| [b, true] }] }
         entry = @f.entry_block.name
         loops.reverse_each { |l| hoist(l, loops) unless l.header == entry }
-        @moved ? @f.changed!(:cfg) : @f
+        return @f unless @moved
+
+        @f.place_before(@pre_of.transform_values { |pre| [pre] })
+        @f.changed!(:cfg)
       end
 
       private
@@ -84,16 +91,10 @@ module Zr
         @in = @body.fetch(loop)
         survey
         pre = nil #: Block?
-        order = @order
-        k = 0
-        # `while`: `preheader` inserts into `@order`, and a moved instruction
-        # leaves `insts`.
-        while k < order.size
-          name = order[k]
-          k += 1
-          next unless @in.key?(name)
-
+        # The loop's own reachable blocks, in reverse postorder.
+        @in.each_key.select { |name| @rank.key?(name) }.sort_by! { |name| @rank.fetch(name) }.each do |name|
           insts = @block.fetch(name).insts
+          # `while`: a moved instruction leaves `insts`.
           n = 0
           while n < insts.size
             i = insts[n]
@@ -115,7 +116,8 @@ module Zr
       # `@written`: the regions that the loop can write.
       # `@exits`: the blocks that leave the loop (all latches if none do).
       # `@read`: each `[address, offset]` that a block which dominates
-      # the header loads or stores.
+      # the header loads or stores: each block up the header's dominator
+      # chain, and the preheader that this pass made for one of them.
       #: () -> void
       def survey
         @variant = {}
@@ -130,15 +132,22 @@ module Zr
         end
         @exits = @loop.latches if @exits.empty?
         @read = {}
-        header = @loop.header
-        @order.each do |name|
-          next if @in.key?(name) || !dominates?(name, header)
+        idom = @analysis.idom
+        name = @loop.header #: String?
+        while (name = idom[name])
+          reads(@block.fetch(name))
+          pre = @pre_of[name]
+          reads(pre) if pre
+        end
+      end
 
-          @block.fetch(name).insts.each do |i|
-            case i.op
-            when :load then @read[[i.args[0], i.offset]] = true
-            when :store then @read[[i.args[1], i.offset]] = true
-            end
+      # Adds each `[address, offset]` that `b` loads or stores to `@read`.
+      #: (Block b) -> void
+      def reads(b)
+        b.insts.each do |i|
+          case i.op
+          when :load then @read[[i.args[0], i.offset]] = true
+          when :store then @read[[i.args[1], i.offset]] = true
           end
         end
       end
@@ -232,7 +241,8 @@ module Zr
       def preheader(loop, loops)
         @moved = true
         header = @block.fetch(loop.header)
-        pre = @f.block_before(header)
+        # `run` places it before the header with the other preheaders.
+        pre = @f.unplaced_block
         params = header.params.map { |(_, type)| [@f.value, type] } #: Array[[String, String]]
         pre.params.concat(params)
         pre.insts << Inst.new(:jump, targets: [[header.name, params.map(&:first)]])
@@ -245,8 +255,8 @@ module Zr
         end
         @block[pre.name] = pre
         @header_of[pre.name] = header.name
-        at = @order.index(header.name) #: Integer
-        @order.insert(at, pre.name)
+        @pre_of[header.name] = pre
+        @rank[pre.name] = @rank.fetch(header.name) - 1
         loops.each { |l| @body.fetch(l)[pre.name] = true if l != loop && @body.fetch(l).key?(header.name) }
         pre
       end

@@ -544,31 +544,29 @@ module Zr
         hoisted(:stack_addr, slot) { Inst.new(:stack_addr, type: "i64", args: [slot]) }
       end
 
-      # A new block with no parameters, placed just after `after`. A pass
-      # uses this to split a block, so the first half falls through into it.
-      #: (Block after) -> Block
-      def block_after(after)
-        at = @blocks.index(after) #: Integer
-        block_beside(at + 1)
+      # Places the blocks of `placed`, in their order, just before the block
+      # whose name is their key, in one pass over the blocks: a pass that
+      # makes many blocks does not shift the list once for each.
+      #: (Hash[String, Array[Block]] placed) -> void
+      def place_before(placed)
+        blocks = [] #: Array[Block]
+        @blocks.each do |b|
+          before = placed[b.name]
+          blocks.concat(before) if before
+          blocks << b
+        end
+        @blocks = blocks
       end
 
-      # A new block placed just before `before`. A pass uses this to split an
-      # edge, so the new block falls through into its target.
-      #: (Block before) -> Block
-      def block_before(before)
-        at = @blocks.index(before) #: Integer
-        block_beside(at)
-      end
-
-      #: (Integer at) -> Block
-      def block_beside(at)
-        b = unplaced_block
-        @blocks.insert(at, b)
-        b
+      # Places `blocks`, in their order, just after `anchor`.
+      #: (Block anchor, Array[Block] blocks) -> void
+      def place_after(anchor, blocks)
+        at = @blocks.index(anchor) or raise ArgumentError, "#{@name}: #{anchor.name} is not in the function"
+        @blocks.insert(at + 1, *blocks)
       end
 
       # A new block with no parameters that is not in `blocks` yet. The pass
-      # puts it there.
+      # places it (`place_before`, `place_after`).
       #: () -> Block
       def unplaced_block = @block_of.fetch(block_named([]))
 

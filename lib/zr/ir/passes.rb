@@ -975,7 +975,8 @@ module Zr
         # block takes the result of the call as its parameter.
         #: (Function f, Block b, Integer k, Inst call, Function target) -> void
         def expand(f, b, k, call, target)
-          rest = f.block_after(b)
+          # The copies go between `b` and `rest`, all placed at the end.
+          rest = f.unplaced_block
           rest.insts.concat(b.insts.drop(k + 1))
           b.insts.slice!(k..)
           # A call has a result only when its callee returns a value.
@@ -993,10 +994,8 @@ module Zr
           entry = target.entry_block
           passed = target.blocks.none? { |cb| cb.insts.last.targets&.any? { |(blk, _)| blk == entry.name } }
           entry.params.zip(call.args) { |(v, _), arg| names[v] = arg } if passed
-          at = (f.blocks.index(b) or raise "#{f.name}: #{b.name} is not in the function") + 1
           copies = target.blocks.map do |cb|
-            nb = f.block_beside(at)
-            at += 1
+            nb = f.unplaced_block
             names[cb.name] = nb.name
             cb.params.each { |(v, _)| names[v] = f.value } unless passed && cb.equal?(entry)
             cb.insts.each { |i| i.results.each { |r| names[r] = f.value } }
@@ -1006,6 +1005,7 @@ module Zr
             nb.params.concat(cb.params.map { |(v, t)| [names.fetch(v), t] }) unless passed && cb.equal?(entry)
             cb.insts.each { |i| nb.insts << copy(i, names, rest) }
           end
+          f.place_after(b, [*copies.map(&:last), rest])
           b.insts << Inst.new(:jump, targets: [[names.fetch(entry.name), passed ? [] : call.args]])
         end
 
