@@ -31,6 +31,9 @@ module Zr
             values.pack("C*").unpack1("H*").scan(/../).each_slice(16).map { |row| "      \"#{row.map { |h| "\\x#{h}" }.join}\"" }.join(" \\\n")
           end
 
+          # Byte tables, one after another, as one literal.
+          def tables_literal(tables) = tables.map { |table| bytes_literal(table) }.join(" \\\n")
+
           def ranges_literal(values)
             values.each_slice(2).map { |low, high| "0x#{low.to_s(16).upcase}, 0x#{high.to_s(16).upcase}" }.each_slice(6).map { |row| "      #{row.join(", ")}," }.join("\n")
           end
@@ -48,6 +51,11 @@ module Zr
             raise "pm_encodings and pm_encoding_type_t disagree" unless rows.keys == order
 
             tables = source.scan(/^static const uint8_t pm_encoding_(\w+)_table\[256\]/).flatten
+                           .to_h { |name| [name, array(source, "pm_encoding_#{name}_table")] }
+            ascii = tables.fetch("ascii")
+            # Many tables hold ASCII's bytes or another table's; each
+            # distinct one is written once.
+            distinct = tables.values.uniq - [ascii]
             names = []
             source[/^pm_encoding_find\(.*?^\}/m].scan(/ENCODING([12])\(((?:"[^"]*",\s*)+)PM_ENCODING_(\w+)\)/) do |_, list, id|
               list.scan(/"([^"]*)"/).flatten.each { |name| names << [name, id] }
@@ -86,9 +94,19 @@ module Zr
                     # pm_utf_8_dfa: 256 byte types, then 16 transitions per state.
                     UTF_8_DFA = #{array(source, "pm_utf_8_dfa").inspect}.freeze
 
-                    # The pm_encoding_<name>_table byte tables, by name.
+                    # pm_encoding_ascii_table.
+                    ASCII_TABLE = (
+              #{bytes_literal(ascii)}
+                    ).b.freeze
+
+                    # Each other distinct pm_encoding_<name>_table, 256 bytes
+                    # apiece, and the index of each name's table. A name whose
+                    # table holds ASCII's bytes has none.
+                    TABLE_BYTES = (
+              #{tables_literal(distinct)}
+                    ).b.freeze
                     TABLES = {
-              #{tables.map { |name| "        #{name.inspect} => (\n#{bytes_literal(array(source, "pm_encoding_#{name}_table")).gsub(/^/, "    ")}\n        ).b.freeze," }.join("\n")}
+              #{tables.filter_map { |name, table| "        #{name.inspect} => #{distinct.index(table)}," unless table == ascii }.join("\n")}
                     }
 
                     # pm_encodings, in pm_encoding_type_t order: the name, then the

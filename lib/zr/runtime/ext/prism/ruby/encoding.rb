@@ -50,13 +50,13 @@ module Prism
         def char_width(_source, _at, _n) = 1
 
         # pm_encoding_ascii_alpha_char, which returns the table bit itself.
-        def alpha_char(source, at, n) = n > 0 ? TABLES["ascii"].getbyte(source.getbyte(at)) & ALPHABETIC : 0
+        def alpha_char(source, at, n) = n > 0 ? ASCII_TABLE.getbyte(source.getbyte(at)) & ALPHABETIC : 0
 
         # pm_encoding_ascii_alnum_char
-        def alnum_char(source, at, n) = n > 0 && TABLES["ascii"].getbyte(source.getbyte(at)).anybits?(ALPHANUMERIC) ? 1 : 0
+        def alnum_char(source, at, n) = n > 0 && ASCII_TABLE.getbyte(source.getbyte(at)).anybits?(ALPHANUMERIC) ? 1 : 0
 
         # pm_encoding_ascii_isupper_char
-        def isupper_char(source, at, n) = n > 0 && TABLES["ascii"].getbyte(source.getbyte(at)).anybits?(UPPERCASE)
+        def isupper_char(source, at, n) = n > 0 && ASCII_TABLE.getbyte(source.getbyte(at)).anybits?(UPPERCASE)
 
         def inspect = "#<#{self.class.name} #{@name}>"
       end
@@ -357,7 +357,9 @@ module Prism
           when "ascii_char_width" then ASCII.new(name, multibyte)
           when "single_char_width"
             table = alnum.delete_suffix("_alnum_char")
-            table == "ascii" ? Encoding.new(name, multibyte) : Table.new(name, TABLES.fetch(table))
+            # A table that holds ASCII's bytes has no index.
+            index = TABLES[table]
+            index ? Table.new(name, TABLE_BYTES.byteslice(index * 256, 256).freeze) : Encoding.new(name, multibyte)
           else
             Multibyte.new(name, width.delete_suffix("_char_width").to_sym, isupper == "euc_jp_isupper_char" ? :euc_jp : :ascii)
           end
