@@ -20,6 +20,28 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Lint and types read the files and run nothing, so they run on Linux.
+  # steep.rb checks the kernel's other OS layers too (ZR_KERNEL_OS).
+  lint:
+    name: lint and types (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - name: Lint
+        run: bundle exec rake lint
+      # `bin/steep check`, which also fails when a Steep worker stops.
+      # A worker that stops can leave the check waiting, hence the limit.
+      - name: Type check
+        timeout-minutes: 10
+        run: ruby .github/scripts/steep.rb --format=github
+
   macos:
     name: checks and gem (macOS arm64)
     runs-on: macos-15
@@ -37,13 +59,6 @@ jobs:
           version: ${{ env.WASMTIME_VERSION }}
       - uses: ./.github/actions/runtime-cache
       - uses: ./.github/actions/reference
-      - name: Lint
-        run: bundle exec rake lint
-      # `bin/steep check`, which also fails when a Steep worker stops.
-      # A worker that stops can leave the check waiting, hence the limit.
-      - name: Type check
-        timeout-minutes: 10
-        run: ruby .github/scripts/steep.rb --format=github
       # Under ZR_VERIFY=1 every IR function is checked for dominance and
       # operand types before it is assembled, and a pass that changed a
       # function without saying so is refused: the runtime's forty
@@ -128,11 +143,34 @@ jobs:
       # does not list.
       - run: ruby tool/zr-dev.rb gen all --check --except libsystem,features,tables,redefinitions
 
-  linux:
-    name: gem on a host without native builds (Linux)
+  # The gem of the macos job, installed and run as a user would on other
+  # hosts. On Linux, the script checks that zr writes a macOS binary,
+  # refuses to run it (status 3), and never starts the self-build. A
+  # stock-ruby row is a user's ruby: no Gemfile and no bundle, a clean
+  # GEM_HOME, and no ZR_CACHE, so zr uses the user cache under HOME. The
+  # install must fetch nothing. A row's name is its job's name
+  # (.github/scripts/ci_passed.rb, CIJobs).
+  gem:
+    name: ${{ matrix.name }}
     needs: macos
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gem on a host without native builds (Linux)
+            os: ubuntu-24.04
+            minutes: 20
+            outputs: outputs-linux
+          - name: stock ruby, user cache (macOS arm64)
+            os: macos-15
+            minutes: 90
+            smoke: --user-cache
+          - name: stock ruby, user cache (Linux)
+            os: ubuntu-24.04
+            minutes: 30
+            smoke: --user-cache
     steps:
       # Only the smoke script: the gem under test comes from the macos job.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -148,63 +186,15 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: gem
-      # The script checks that this host writes a macOS binary, refuses
-      # to run it (status 3), and never starts the self-build.
       - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb zr-*.gem
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        run: ruby .github/scripts/smoke.rb ${{ matrix.smoke }} zr-*.gem
+      - if: matrix.outputs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: outputs-linux
+          name: ${{ matrix.outputs }}
           path: |
             /opt/zr/smoke/sum.wasm
             /opt/zr/smoke/sum.o
-
-  # The gem as a user with a stock ruby gets it: no Gemfile and no
-  # bundle, a clean GEM_HOME, and no ZR_CACHE, so zr uses the user
-  # cache under HOME. The install must fetch nothing.
-  stock-macos:
-    name: stock ruby, user cache (macOS arm64)
-    needs: macos
-    runs-on: macos-15
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/scripts
-      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
-        with:
-          ruby-version: .ruby-version
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: gem
-      - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem
-
-  stock-linux:
-    name: stock ruby, user cache (Linux)
-    needs: macos
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/scripts
-      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
-        with:
-          ruby-version: .ruby-version
-      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
-        with:
-          version: ${{ env.WASMTIME_VERSION }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: gem
-      - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem
 
   # Static aarch64-linux-musl binaries, built and run where musl is the
   # libc. JavaScript actions do not run inside an Alpine container on an
@@ -218,24 +208,29 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      # BUNDLE_WITHOUT holds for each `docker exec`.
       - name: Start the pinned ruby (.ruby-version) on Alpine
-        run: |
-          docker run -d --name alpine -v "$PWD:/zr" -w /zr "ruby:$(cat .ruby-version)-alpine" sleep infinity
-          docker exec alpine apk add --no-cache build-base git
-          docker exec alpine git config --global --add safe.directory /zr
-          docker exec alpine bundle config set --global without development
-          docker exec alpine bundle install
-          docker exec alpine ruby tool/install_reference_gems.rb
+        run: docker run -d --name alpine -e BUNDLE_WITHOUT=development -v "$PWD:/zr" -w /zr "ruby:$(cat .ruby-version)-alpine" sleep infinity
+      - name: Install the C toolchain and git
+        run: docker exec alpine apk add --no-cache build-base git
+      - name: Let git read the checkout, which another user owns
+        run: docker exec alpine git config --global --add safe.directory /zr
+      - name: Install the bundle
+        run: docker exec alpine bundle install
+      - name: Install the reference gems
+        run: docker exec alpine ruby tool/install_reference_gems.rb
       # A stock image of the pinned ruby: vendor/ must be upstream code, byte for
       # byte: ruby's own library at RUBY_REVISION, the .gem files that
       # vendor/vendor.lock names, and prism's templates at its locked commit. The
-      # check writes vendor/ again from the sources, and fails on a diff.
+      # steps write vendor/ again from the sources, and fail on a diff.
+      - name: Check vendor/ against its lock
+        run: docker exec alpine ruby tool/zr-dev.rb vendor --check
+      - name: Fetch the CRuby and prism sources
+        run: docker exec alpine ruby .github/scripts/fetch_sources.rb
+      - name: Write vendor/ again from the sources
+        run: docker exec alpine ruby tool/zr-dev.rb vendor
       - name: Check that vendor/ is upstream code
-        run: |
-          docker exec alpine ruby tool/zr-dev.rb vendor --check
-          docker exec alpine ruby .github/scripts/fetch_sources.rb
-          docker exec alpine ruby tool/zr-dev.rb vendor
-          docker exec alpine git diff --exit-code vendor lib/zr/library/stdlib.rb
+        run: docker exec alpine git diff --exit-code vendor lib/zr/library/stdlib.rb
       - name: Build the runtime for the checks
         run: docker exec alpine bundle exec rake build
       - name: Run the units this target answers
@@ -288,7 +283,7 @@ jobs:
 
   same-bytes:
     name: output does not depend on the host
-    needs: [macos, linux]
+    needs: [macos, gem]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

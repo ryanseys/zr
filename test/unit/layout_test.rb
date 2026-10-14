@@ -80,6 +80,18 @@ class LayoutTest < Minitest::Test
     end
   end
 
+  # The release waits for each CI job by its name (ci_passed.rb), so each
+  # name is one job's, with each matrix value put in.
+  def test_each_ci_job_has_its_own_name
+    require "yaml"
+    load File.join(ROOT, ".github/scripts/ci_passed.rb")
+    names = CIJobs.required
+
+    assert_equal names.uniq, names
+    assert_empty names.grep(/\$\{\{/)
+    assert_includes names, "stock ruby, user cache (Linux)"
+  end
+
   # RuboCop checks zr's own code for the oldest ruby that runs it.
   def test_rubocop_targets_the_oldest_ruby_that_runs_zr
     assert_equal Zr::RUBY_MINIMUM, read(".rubocop.yml")[/TargetRubyVersion: (\S+)/, 1]

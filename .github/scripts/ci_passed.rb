@@ -9,12 +9,27 @@ require "json"
 require "net/http"
 require "yaml"
 
+# The jobs of ci.yml, by the names that GitHub gives their check runs.
+module CIJobs
+  CI = File.expand_path("../workflows/ci.yml", __dir__)
+  MATRIX_VALUE = /\$\{\{\s*matrix\.(\w+)\s*\}\}/
+
+  # The name of each job, and of each row of a job's matrix: a row's
+  # name is the job's name with the row's values put in.
+  def self.required(ci = YAML.load_file(CI))
+    ci.fetch("jobs").flat_map do |id, job|
+      name = job.fetch("name", id)
+      rows = job.dig("strategy", "matrix", "include") || [{}]
+      rows.map { |row| name.gsub(MATRIX_VALUE) { row.fetch(Regexp.last_match(1)) } }
+    end
+  end
+end
+return unless $PROGRAM_NAME == __FILE__
+
 repo, sha = ARGV.fetch(0), ARGV.fetch(1)
 token = ENV.fetch("GITHUB_TOKEN")
-
-# The names of the jobs in ci.yml: each one must have passed.
-ci = YAML.load_file(File.expand_path("../workflows/ci.yml", __dir__))
-required = ci.fetch("jobs").map { |id, job| job.fetch("name", id) }
+# Each one must have passed.
+required = CIJobs.required
 
 runs = []
 page = 1

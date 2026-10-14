@@ -1,9 +1,17 @@
 version: 2
+# Dependabot updates neither WASMTIME_VERSION in the workflows (it is
+# test/support/harness/wasmtime.rb's VERSION) nor the ruby:<pin>-alpine
+# image of the linux-musl job (it is .ruby-version). An update waits 7
+# days after its release.
 updates:
   - package-ecosystem: github-actions
-    directories: ["/", "/.github/actions/runtime-cache", "/.github/actions/reference"]
+    directories: ["/", "/.github/actions/*"]
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(ci)
     groups:
       actions:
         patterns: ["*"]
@@ -14,6 +22,10 @@ updates:
     schedule:
       interval: monthly
     versioning-strategy: lockfile-only
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(dev)
     groups:
       development:
         patterns: ["*"]
