@@ -63,9 +63,7 @@ module Zr
       # Builds in this process. Returns nil, or `[kind, why]`.
       def in_process(test, run, bin, target, parts = nil)
         source = test.source
-        files = test.files ? file_parts(test.files) : {}
-        files[".gems"] = test.read("gems") if test.gems.any?
-        kept = Binaries.path(target, source, test.rel, files) if Binaries.wanted?(target)
+        kept = Binaries.path(target, test, source) if Binaries.wanted?(target)
         return nil if Binaries.take(kept, bin)
 
         program = Slow.clock(parts, :lower) { Dir.chdir(run) { lower(source, test.rel, target, gem_set(test)) } }
@@ -77,17 +75,6 @@ module Zr
 
         Binaries.keep(kept, bin, program, work)
         nil
-      end
-
-      # The files of a test for the key of a kept binary: each name with
-      # its bytes, and a symbolic link by its target.
-      def file_parts(dir)
-        Dir.glob("**/*", File::FNM_DOTMATCH, base: dir).sort.filter_map do |name|
-          path = File.join(dir, name)
-          next if File.basename(name) == "." || (File.directory?(path) && !File.symlink?(path))
-
-          [name, File.symlink?(path) ? { symlink: File.readlink(path) } : File.binread(path)]
-        end.to_h
       end
 
       # Builds with `zr build` in its own process, from the run directory.

@@ -42,7 +42,7 @@ module Zr
     # `take` cannot restore the whole binary, it returns false and the
     # test builds.
     module Binaries
-      VERSION = 6
+      VERSION = 7
       # The most gigabytes of kept binaries: `trim` takes the ones used
       # longest ago past it (`ZR_TEST_BINARIES_GB`).
       GIGABYTES = Float(ENV.fetch("ZR_TEST_BINARIES_GB", "8"))
@@ -62,17 +62,15 @@ module Zr
         end
       end
 
-      # Returns the path of the kept binary for this test, or nil when no
-      # key can describe it or the run verifies its lowering.
-      def path(target, source, rb, files)
+      # Returns the path of the kept binary for `test`, whose program is
+      # `source`, or nil when the run verifies its lowering.
+      def path(target, test, source)
         config = Config.current
         return nil if config.verify?
 
-        parts = files.sort.map { |name, bytes| [name, bytes.is_a?(Hash) ? "-> #{bytes.fetch(:symlink)}" : bytes] }
-        return nil unless parts.all? { |_, bytes| bytes.is_a?(String) }
-
         key = Zr::Cache::Store.key(VERSION, Runtime.for(target).digest, Zr::Digests.link, libraries, target.triple,
-                                   *config.fingerprint.flatten, rb, source, *parts.flatten)
+                                   *config.fingerprint.flatten, test.rel, source, *test.sidecar_parts.flatten,
+                                   *test.fixture_parts.flatten)
         Zr::Cache::Store.path(:binary, "#{key}#{".wasm" unless target.link}")
       end
 

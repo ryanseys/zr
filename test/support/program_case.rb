@@ -83,6 +83,22 @@ module Zr
       # The directory of files that the run directory holds, or nil.
       def files = File.directory?(beside("files")) ? beside("files") : nil
 
+      # The sidecars that change what zr builds, as `[name, bytes]`: the
+      # gems that the program loads.
+      def sidecar_parts = gems.any? ? [[".gems", read("gems")]] : []
+
+      # The files that the run directory holds, as `[name, bytes]` in name
+      # order, a symbolic link as `-> target`.
+      def fixture_parts
+        dir = files or return []
+        Dir.glob("**/*", File::FNM_DOTMATCH, base: dir).sort.filter_map do |name|
+          path = File.join(dir, name)
+          next if File.basename(name) == "." || (File.directory?(path) && !File.symlink?(path))
+
+          [name, File.symlink?(path) ? "-> #{File.readlink(path)}" : File.binread(path)]
+        end
+      end
+
       private
 
       def lines(suffix) = (read(suffix) || "").lines(chomp: true).reject { |line| line.empty? || line.start_with?("#") }

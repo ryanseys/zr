@@ -4,6 +4,7 @@
 require "test_helper"
 require "tmpdir"
 require "support/binaries"
+require "support/program_case"
 
 # Tests the binary cache of the program tests. A cached binary is stored
 # sparse: it contains only the program's own bytes. It must come back
@@ -22,6 +23,8 @@ class BinaryCacheTest < Minitest::Test
     raise why if why
   end
 
+  def program = Zr::Test::Case.new(@work, "p.rb")
+
   def teardown
     FileUtils.rm_rf(@work) if @work
   end
@@ -35,8 +38,8 @@ class BinaryCacheTest < Minitest::Test
     refute_equal before, Binaries.library_digest(root)
 
     target = Zr::Target.default
-    a = stub_method(Binaries, :libraries, "a") { Binaries.path(target, SOURCE, "p.rb", {}) }
-    b = stub_method(Binaries, :libraries, "b") { Binaries.path(target, SOURCE, "p.rb", {}) }
+    a = stub_method(Binaries, :libraries, "a") { Binaries.path(target, program, SOURCE) }
+    b = stub_method(Binaries, :libraries, "b") { Binaries.path(target, program, SOURCE) }
     refute_equal a, b
   end
 
@@ -45,7 +48,7 @@ class BinaryCacheTest < Minitest::Test
   def test_each_setting_that_steers_a_build_is_in_the_key
     target = Zr::Target.default
     runtime = Data.define(:digest).new(digest: "runtime")
-    key = proc { stub_method(Zr::Runtime, :for, runtime) { Binaries.path(target, SOURCE, "p.rb", {}) } }
+    key = proc { stub_method(Zr::Runtime, :for, runtime) { Binaries.path(target, program, SOURCE) } }
     plain = Zr::Config.with(&key)
 
     Zr::Config::SETTINGS.select(&:steers).each do |setting|
@@ -61,7 +64,7 @@ class BinaryCacheTest < Minitest::Test
   end
 
   def test_a_verify_run_takes_no_kept_binary
-    assert_nil Zr::Config.with(ZR_VERIFY: "1") { Binaries.path(Zr::Target.default, SOURCE, "p.rb", {}) }
+    assert_nil Zr::Config.with(ZR_VERIFY: "1") { Binaries.path(Zr::Target.default, program, SOURCE) }
   end
 
   def test_a_kept_binary_comes_back_byte_for_byte
