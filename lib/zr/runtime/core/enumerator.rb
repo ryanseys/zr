@@ -27,10 +27,8 @@ class Enumerator
       keywords.empty? ? @block.call(*values) : @block.call(*values, **keywords)
     end
 
-    def to_proc
-      block = @block
-      proc { |*values, **keywords| keywords.empty? ? block.call(*values) : block.call(*values, **keywords) }
-    end
+    # yielder_to_proc: a lambda that yields its arguments.
+    def to_proc = method(:yield).to_proc
   end
 
   # The block that an `Enumerator.new` runs. It is an Enumerable of its
