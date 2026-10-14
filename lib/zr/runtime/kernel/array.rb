@@ -228,6 +228,19 @@ module Zr::Kern
     a
   end
 
+  G_EMPTY_REST = 76
+
+  # A def's `*rest` that its body only spreads (`Hir::Escape.spread_only?`):
+  # with no argument, the one frozen empty Array, which the def never
+  # shows; else a new Array of the `argc` Values at `argv`.
+  #: (word, ptr) -> value
+  def zr_rest_of(argc, argv)
+    if argc == 0
+      return zr_global(G_EMPTY_REST)
+    end
+    zr_ary_of(argc, argv)
+  end
+
   # `(a..b).to_a` for two fixnums. It fills the Array here, not with one
   # yield for each element through Enumerable.
   #: (value, value, value) -> value

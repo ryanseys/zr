@@ -155,6 +155,17 @@ module Zr
           !@l.traced? && !Hir::Locals.opens_locals?(@body, computed: !@l.internal?) && Hir::Escape.raw_block?([@body, *default_expressions], name)
         end
 
+        # A def's `*rest` or `**rest` that no argument fills can be the one
+        # shared frozen Array or Hash (`zr_rest_of`, `zr_kw_rest_of`) if
+        # the body only spreads it into a new one (`Hir::Escape`), and
+        # nothing else can read it: no Env, no Binding or eval, and no
+        # hook that gets a Binding of the frame.
+        #: (Symbol name) -> bool
+        def shared_rest?(name)
+          @kind == :def && !@has_env && !@l.traced? && !Hir::Locals.opens_locals?(@body, computed: !@l.internal?) &&
+            Hir::Escape.spread_only?([@body, *default_expressions], name)
+        end
+
         # A block with no parameters accepts any arguments. A lambda
         # (including a `define_method` body) accepts none.
         #: (Hir::Params p) -> void
@@ -336,7 +347,7 @@ module Zr
             rest = p.rest #: Symbol
             start = @f.iadd(imm(p.required.size), given_opt)
             count = @f.isub(avail, given_opt)
-            bind(rest, kernel("zr_ary_of", count, @f.iadd(argv, @f.ishl(start, imm(3)))))
+            bind(rest, kernel(shared_rest?(rest) ? "zr_rest_of" : "zr_ary_of", count, @f.iadd(argv, @f.ishl(start, imm(3)))))
           end
           p.post.each_with_index do |name, i|
             index = @f.iadd(@f.isub(argc, imm(p.post.size)), imm(i))
@@ -493,7 +504,7 @@ module Zr
             if from_table
               checked(kernel("zr_kw_rest_tab", tab, @f.iadd(argv, @f.ishl(count, imm(3))), ids, n))
             else
-              checked(kernel("zr_kw_rest", hash.call, ids, n))
+              checked(kernel(shared_rest?(p.kwrest) ? "zr_kw_rest_of" : "zr_kw_rest", hash.call, ids, n))
             end
           end
           bind(p.kwrest, rest)

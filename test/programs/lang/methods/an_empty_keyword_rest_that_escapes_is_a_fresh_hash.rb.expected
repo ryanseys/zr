@@ -1,0 +1,31 @@
+{mine: 1}
+false
+{}
+false
+{y: 2}
+{}
+false
+{x: 1}
+{x: 1}
+{q: 1}
+false
+{base: true}
+false
+{base: true}
+{base: true}
+{z: 4}
+{}
+false
+false
+[]
+[{z: 1}]
+[[], {}]
+[[1], {}]
+[[], {w: 2}]
+{a: 1}
+{b: 2}
+{c: 3, x: 1}
+{d: 4, base: true}
+{}
+{}
+{x: 1}

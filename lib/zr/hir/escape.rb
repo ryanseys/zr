@@ -17,11 +17,24 @@ module Zr
     # block counts the same: a scope that escapes to a cell takes its
     # stack blocks with it (`zr_env_escape`). A def, class or module body
     # in the scope cannot see the name.
+    #
+    # Also whether a def only spreads its `*rest` or `**rest`: then an
+    # empty one can be the one shared frozen Array or Hash
+    # (`Zr::Lower::Function::Params#shared_rest?`).
     class Escape
       # @rbs @name: Symbol
 
       #: (untyped node, Symbol name) -> bool
       def self.raw_block?(node, name) = new(name).raw?(node, 0)
+
+      # Whether `node` reads the rest parameter `name` only as `*name` or
+      # `**name` among the arguments of a send, a super or a yield, or in
+      # an Array or Hash literal. Each of these copies the elements into a
+      # new Array or Hash (`Function#gather`, `zr_hash_coerce`), so the
+      # rest itself never escapes. `Primitive.x(*name)` passes the Array
+      # itself, so it keeps the value, as every other use does.
+      #: (untyped node, Symbol name) -> bool
+      def self.spread_only?(node, name) = new(name).spread?(node, 0)
 
       #: (Symbol name) -> void
       def initialize(name)
@@ -54,7 +67,65 @@ module Zr
         end
       end
 
+      # Whether `node` (`level` block scopes inside the parameter's scope)
+      # reads the name only to spread it into a new collection.
+      #: (untyped node, Integer level) -> bool
+      def spread?(node, level)
+        case node
+        when Local then !mine?(node, level)
+        when Assign then !mine?(node, level) && spread?(node.value, level)
+        when Send then primitive?(node) ? primitive_spread?(node, level) : spread_send?(node, level)
+        when Super then spread_parts?(node.args, level) && spread?(node.kwargs, level) && spread?(node.block, level)
+        when Yield then spread_parts?(node.args, level) && spread?(node.kwargs, level)
+        when ArrayLit then spread_parts?(node.elements, level)
+        when HashLit then spread_parts?(node.pairs, level)
+        when Block then node.to_a.all? { |v| spread?(v, level + 1) }
+        when Lambda then spread?(node.block, level)
+        when Def then spread?(node.receiver, level)
+        when ClassDef then spread?(node.scope, level) && spread?(node.superclass, level)
+        when ModuleDef then spread?(node.scope, level)
+        when SingletonClassDef then spread?(node.target, level)
+        when Node, Array then Hir.all_children?(node) { |v| spread?(v, level) }
+        else true
+        end
+      end
+
       private
+
+      # The arguments or elements `parts`, where `*name` and `**name` are
+      # spreads.
+      #: (Array[untyped] parts, Integer level) -> bool
+      def spread_parts?(parts, level)
+        parts.all? do |part|
+          case part
+          when Splat, HashSplat
+            value = part.value
+            (value.is_a?(Local) && mine?(value, level)) || spread?(value, level)
+          else spread?(part, level)
+          end
+        end
+      end
+
+      #: (Send node, Integer level) -> bool
+      def spread_send?(node, level)
+        spread?(node.recv, level) && spread_parts?(node.args, level) && spread?(node.kwargs, level) && spread?(node.block, level)
+      end
+
+      # `Primitive.x(...)` in the core calls the kernel with the Values as
+      # they are, so a splat there passes the rest itself.
+      #: (Send node) -> bool
+      def primitive?(node)
+        recv = node.recv
+        recv.is_a?(ConstRead) && recv.name == :Primitive && recv.scope.nil?
+      end
+
+      # `Primitive.arg!(:name)` reads the parameter by its name.
+      #: (Send node, Integer level) -> bool
+      def primitive_spread?(node, level)
+        return false if node.name == :arg! && node.args.any? { |arg| arg.is_a?(Literal) && arg.value == @name }
+
+        Hir.all_children?(node) { |v| spread?(v, level) }
+      end
 
       #: (Local | Assign local, Integer level) -> bool
       def mine?(local, level) = local.name == @name && local.depth == level

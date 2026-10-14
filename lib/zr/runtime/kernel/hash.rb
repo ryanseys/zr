@@ -1400,6 +1400,19 @@ module Zr::Kern
     out
   end
 
+  G_EMPTY_KWREST = 77
+
+  # A def's `**rest` that its body only spreads (`Hir::Escape.spread_only?`):
+  # with no keywords, the one frozen empty Hash, which the def never
+  # shows; else `zr_kw_rest`.
+  #: (value, ptr, word) -> value
+  def zr_kw_rest_of(hash, ids, n)
+    if hash == QNIL
+      return zr_global(G_EMPTY_KWREST)
+    end
+    zr_kw_rest(hash, ids, n)
+  end
+
   # rb_to_hash_type: `value` itself when it is a Hash, else what its
   # `to_hash` gives, which must be a Hash.
   #: (value) -> value

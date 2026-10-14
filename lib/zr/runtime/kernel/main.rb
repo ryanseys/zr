@@ -277,6 +277,9 @@ module Zr::Kern
     end
     zr_set_global(G_MAIN, zr_obj_alloc(zr_global(G_OBJECT)))
     zr_set_global(G_TOP_CREF, zr_cref_push(zr_global(G_OBJECT), Machine.value(QNIL)))
+    # The empty rests that a def which only spreads them shares.
+    zr_set_global(G_EMPTY_REST, zr_literal_freeze(zr_ary_new(0)))
+    zr_set_global(G_EMPTY_KWREST, zr_literal_freeze(zr_hash_new()))
     # A top-level def is private, as in CRuby's toplevel scope.
     RCref[zr_global(G_TOP_CREF)].vis = VIS_PRIVATE
     # Kernel gets the methods of CRuby's Kernel. BasicObject gets its small

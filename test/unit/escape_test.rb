@@ -54,6 +54,63 @@ class EscapeTest < Minitest::Test
     "a call through a nested block's own name and ours" => "xs.each { |c| b.arity }"
   }.freeze
 
+  # Uses of a `*a` or `**k` that copy it into a new Array or Hash.
+  SPREAD = {
+    "a send's splat" => "g(*a)",
+    "a send's double splat" => "g(**k)",
+    "both, with more arguments" => "g(1, *a, 2, **k, x: 3)",
+    "a splat to self" => "self.g(*a)",
+    "a splat in a send's receiver" => "g(*a).size",
+    "a super" => "super(*a, **k)",
+    "a bare super" => "super",
+    "a yield" => "yield(*a, **k)",
+    "an array literal" => "[0, *a]",
+    "a hash literal" => "{ x: 1, **k }",
+    "a splat in a block" => "xs.each { g(*a) }",
+    "a block's own a" => "xs.each { |a| a << 1 }",
+    "a def inside cannot reach it" => "def inner(a) = a << 1",
+    "another primitive" => "Primitive.zr_x(xs)",
+    "a primitive's other argument" => "Primitive.arg!(:x)",
+    # `*a` on the right is an Array literal.
+    "a splat assignment" => "x = *a",
+    "a multiple assignment" => "x, y = *a",
+    # The builder answers `defined?` of an assignment itself.
+    "defined?" => "defined?(@x = a)"
+  }.freeze
+
+  # Uses that read or keep the Array or Hash itself.
+  READ = {
+    "read alone" => "a",
+    "stored" => "@a = a",
+    "returned" => "return k",
+    "an argument" => "g(a)",
+    "the receiver" => "a.size",
+    "written to" => "a << 1",
+    "an index" => "a[0] = 1",
+    "a keyword read" => "k[:x]",
+    "written over" => "a = []",
+    "a primitive's splat" => "Primitive.zr_x(*a)",
+    "a primitive's argument by name" => "Primitive.arg!(:a)",
+    "a when splat" => "case 1 when *a then 2 end",
+    "a block pass" => "g(&a)",
+    "read in a block" => "xs.each { a.size }",
+    "kept by a lambda" => "-> { a }",
+    "a splat of a call on it" => "g(*a.dup)"
+  }.freeze
+
+  SPREAD.each do |name, body|
+    define_method("test_#{name.tr(" ", "_")}_only_spreads") { assert spread_only?(body), body }
+  end
+
+  READ.each do |name, body|
+    define_method("test_#{name.tr(" ", "_")}_reads_the_rest") { refute spread_only?(body), body }
+  end
+
+  # A keyword's default is read after the rest is bound, so it counts.
+  def test_a_keyword_default_counts
+    refute spread_only?("g(*a)", "def f(*a, x: a, **k)")
+  end
+
   RAW.each do |name, body|
     define_method("test_#{name.tr(" ", "_")}_stays_raw") { assert raw?(body), body }
   end
@@ -79,6 +136,13 @@ class EscapeTest < Minitest::Test
     d = def_of("#{head}\n#{body}\nend")
     defaults = d.params.optional.map(&:last)
     Zr::Hir::Escape.raw_block?([d.body, *defaults], :b)
+  end
+
+  # Whether the def spreads both its `*a` and its `**k` only.
+  def spread_only?(body, head = "def f(*a, **k)")
+    d = def_of("#{head}\n#{body}\nend")
+    defaults = d.params.defaults
+    %i[a k].all? { |name| Zr::Hir::Escape.spread_only?([d.body, *defaults], name) }
   end
 
   # Returns the one Def in the program `source`.
