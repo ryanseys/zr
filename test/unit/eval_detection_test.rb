@@ -87,16 +87,34 @@ class EvalDetectionTest < Minitest::Test
     assert_equal support.activations + 1, loader.activations
   end
 
+  # A constant that `defined?` tests, or that a class path opens, names
+  # the library and does not use it: pp tests RubyVM::AbstractSyntaxTree
+  # and opens its Node class, and links neither the compiler nor the
+  # translator for that.
+  def test_naming_a_compiler_constant_links_nothing
+    refute asts?("p defined?(RubyVM::AbstractSyntaxTree)\n")
+    refute asts?("class RubyVM::AbstractSyntaxTree::Node; end\n")
+    refute asts?("module RubyVM::AbstractSyntaxTree; end\n")
+    refute carried?("p defined?(RubyVM::InstructionSequence)\n")
+    refute asts?(%(require "pp"\npp 1\n))
+    assert asts?("p RubyVM::AbstractSyntaxTree.parse('1')\n")
+    assert carried?("p RubyVM::InstructionSequence.compile('1')\n")
+  end
+
   private
 
   # Returns true if the program in `source` links in eval support.
-  def carried?(source)
+  def carried?(source) = loaded(source).evals?
+
+  # Returns true if the program in `source` links in the AST translator.
+  def asts?(source) = loaded(source).asts?
+
+  # The loader after it read the program in `source`.
+  def loaded(source)
     Dir.mktmpdir("zr-eval-") do |work|
       rb = File.join(work, "eval_probe.rb")
       File.write(rb, source)
-      loader = Zr::Hir::Build::Loader.new(Zr::Library::Roots.stdlib(Zr::Target.default))
-      loader.unit(rb, source)
-      loader.evals?
+      Zr::Hir::Build::Loader.new(Zr::Library::Roots.stdlib(Zr::Target.default)).tap { |loader| loader.unit(rb, source) }
     end
   end
 end

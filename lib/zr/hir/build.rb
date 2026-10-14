@@ -42,6 +42,7 @@ module Zr
       # @rbs @in_def: bool
       # @rbs @in_method_body: bool
       # @rbs @in_sclass: bool
+      # @rbs @naming: bool
       # @rbs @dead: Integer
       # @rbs @activations: Integer
       # @rbs @temps: Array[Array[Symbol]]
@@ -232,6 +233,9 @@ module Zr
         # `using` is permitted.
         @in_method_body = false
         @in_sclass = false
+        # In a `defined?` operand or a class path, where a constant is only
+        # named (`naming`).
+        @naming = false
         @dead = 0
         @elsewhere = 0
         @activations = -1
@@ -1536,7 +1540,7 @@ module Zr
         # part exists.
         when Prism::NumberedReferenceReadNode, Prism::BackReferenceReadNode then Defined.new(:backref, expr(node), line)
         when Prism::ClassVariableReadNode then Defined.new(:cvar, node.name, line)
-        when Prism::ConstantReadNode, Prism::ConstantPathNode then Defined.new(:const, expr(node), line)
+        when Prism::ConstantReadNode, Prism::ConstantPathNode then Defined.new(:const, naming { expr(node) }, line)
         when Prism::CallNode
           # `o.x = v` and `o[k] = v` are assignments if `o` has the writer.
           if node.attribute_write? then Defined.new(:attrasgn, plain_call(node), line)
@@ -1852,7 +1856,7 @@ module Zr
 
       #: (Prism::ClassNode node, Integer line) -> ClassDef
       def class_body(node, line)
-        scope, name = constant_path(node.constant_path)
+        scope, name = naming { constant_path(node.constant_path) }
         @loader&.module_defined!(@path, node.constant_path.slice)
         superclass = node.superclass && expr(node.superclass)
         in_definee(node.constant_path.slice, false) do
@@ -1866,7 +1870,7 @@ module Zr
 
       #: (Prism::ModuleNode node, Integer line) -> ModuleDef
       def module_body(node, line)
-        scope, name = constant_path(node.constant_path)
+        scope, name = naming { constant_path(node.constant_path) }
         @loader&.module_defined!(@path, node.constant_path.slice)
         in_definee(node.constant_path.slice, false) do
           in_scope do
@@ -1890,9 +1894,21 @@ module Zr
         end
       end
 
+      # Builds the block's nodes as names only: a constant that `defined?`
+      # tests, or that a class path opens, is not a use of the library
+      # that it names. pp tests RubyVM::AbstractSyntaxTree and opens its
+      # Node class, and links neither the compiler nor the translator.
+      #: [T] () { () -> T } -> T
+      def naming
+        was, @naming = @naming, true
+        yield
+      ensure
+        @naming = was
+      end
+
       #: (Prism::ConstantReadNode node, Integer line) -> ConstRead
       def const_read(node, line)
-        @loader&.compiles!(node.name) unless @loader&.module_defined?(@path, node.name)
+        @loader&.compiles!(node.name) unless @naming || @loader&.module_defined?(@path, node.name)
         gems!(node.name)
         ConstRead.new(nil, node.name, line)
       end
@@ -1900,7 +1916,7 @@ module Zr
       #: (untyped node, Integer line) -> ConstRead
       def const_path_read(node, line)
         # `Prism::Ruby` is not Ruby::Box: only a top-level `Ruby` compiles.
-        @loader&.compiles!(node.name) unless node.name == :Ruby && node.parent
+        @loader&.compiles!(node.name) unless @naming || (node.name == :Ruby && node.parent)
         @loader&.ruby_prisms! if node.name == :Prism && ruby_namespace?(node.parent)
         gems!(node.name) if node.parent.nil?
         scope, name = constant_path(node)
