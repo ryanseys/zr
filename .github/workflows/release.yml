@@ -64,10 +64,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: ruby .github/scripts/ci_passed.rb "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)"
 
-      # The release's own checks, whatever CI said: the unit tier, then
-      # the gem as a user installs and runs it.
-      - name: Run the unit tests
-        run: bin/minitest test/unit
+      # The release's own check is the gem as a user installs and runs it.
+      # It runs no test tier: ci_passed.rb above requires that CI ran every
+      # tier on this commit.
       # rubygems stamps a gem's files with SOURCE_DATE_EPOCH, so the same
       # commit builds the same .gem as CI did.
       - name: Build the gem
