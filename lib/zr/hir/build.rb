@@ -460,7 +460,8 @@ module Zr
       end
 
       # A `$name` read: through an alias of a frame global, `$@` as the
-      # checked backtrace of `$!` (Exception.errat), or the global itself.
+      # checked backtrace of `$!` (the private Exception.errat), or the
+      # global itself.
       #: (Symbol name, Integer line) -> node
       def gvar_read(name, line)
         aliased = @loader&.back_ref(name)
@@ -468,7 +469,7 @@ module Zr
           return If.new(GvarRead.new(flag, line), expr(aliased), GvarRead.new(gvar_name(name), line), line)
         end
         return expr(aliased) if aliased
-        return Send.of(Core.new(:Exception, line), :errat, [GvarRead.new(:$!, line)], line) if name == :$@
+        return Send.of(Core.new(:Exception, line), :__send__, [Literal.new(:errat, line), GvarRead.new(:$!, line)], line) if name == :$@
         return Send.of(Core.new(:Kernel, line), :warning_level, [], line) if name == :$-W
 
         GvarRead.new(gvar_name(name), line)

@@ -1,0 +1,11 @@
+false
+false
+false
+false
+[NoMethodError, :errat]
+[NoMethodError, :link]
+Array
+String
+nil
+File::Stat
+"directory"

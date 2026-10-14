@@ -185,6 +185,7 @@ class Exception
     Primitive.attr! :hidden
     exc&.send(:report_backtrace, exc)
   end
+  private_class_method :errat
 
   # rb_get_backtrace: the backtrace, from an override when there is one,
   # which must give what rb_check_backtrace takes.

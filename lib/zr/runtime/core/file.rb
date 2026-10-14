@@ -527,6 +527,7 @@ class File < IO
 
       allocate.tap { |stat| stat.send(:take, fields) }
     end
+    private_class_method :link
   end
 
   # A shell pattern against a path: `*`, `?` and `[...]` never cross a
@@ -764,7 +765,7 @@ class File < IO
 
 
   def self.stat(path) = Stat.send(:of, path_of(path), "rb_file_s_stat")
-  def self.lstat(path) = Stat.link(path_of(path))
+  def self.lstat(path) = Stat.send(:link, path_of(path))
   def self.mtime(path) = Stat.of(path_of(path), "rb_file_s_mtime").mtime
   def self.atime(path) = Stat.of(path_of(path), "rb_file_s_atime").atime
   def self.ctime(path) = Stat.of(path_of(path), "rb_file_s_ctime").ctime
