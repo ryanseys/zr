@@ -210,8 +210,10 @@ is not the pinned one: the same version, patch level and revision
 Every generator takes `--check`. With `--check`, it writes nothing, and
 it fails if the file is out of date. `zr-dev gen all` runs every
 generator in order (`rake gen` runs it too), but `openssl_constants`
-and `gem-compat`. `--except NAME,...` leaves out more: CI runs
-`gen all --check --except libsystem,features,tables,redefinitions`.
+(`test/unit/openssl_constants_test.rb` checks its rows) and
+`gem-compat`. It skips, with a warning, a generator that reads another
+OS's system library (`libsystem` runs only on macOS). `--except
+NAME,...` leaves out more. CI runs `gen all --check`.
 
 The generators read the CRuby source from the checkout that `RUBY_SRC`
 names (default `tmp/ruby`), at `Zr::RUBY_REVISION` (`lib/zr/ruby_version.rb`). They read

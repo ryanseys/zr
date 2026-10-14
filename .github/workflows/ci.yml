@@ -119,11 +119,10 @@ jobs:
         run: bin/zr cache clean --days 1
 
   # Each generated file (tables, prism's Ruby, the docs pages) is what its
-  # generator writes from the committed inputs. The generators of this
-  # host's OS layer (libsystem, features, tables) are left out: their
-  # output depends on the macOS release, and the unit tier and the
-  # linux-musl job check them. redefinitions runs ruby once for each
-  # core method, which takes too long here.
+  # generator writes from the committed inputs: every generator but the
+  # two that `gen all` keeps apart (tool/gen.rb, All::APART). The darwin
+  # ones (libsystem, tables, features) read this runner's macOS and ruby;
+  # the linux-musl job checks the linux tables.
   generated:
     name: generated files are current (macOS arm64)
     runs-on: macos-15
@@ -138,10 +137,9 @@ jobs:
           bundler-cache: true
       - name: Fetch the CRuby and prism sources that the generators read
         run: ruby .github/scripts/fetch_sources.rb
-      # Outside bundler, as the linux-musl job runs `gen tables`: the nkf
-      # generator reads the nkf gem, which ruby bundles and the Gemfile
-      # does not list.
-      - run: ruby tool/zr-dev.rb gen all --check --except libsystem,features,tables,redefinitions
+      # Outside bundler, so that features sees the default gems of the
+      # ruby, as a user's ruby has them.
+      - run: ruby tool/zr-dev.rb gen all --check
 
   # The gem of the macos job, installed and run as a user would on other
   # hosts. On Linux, the script checks that zr writes a macOS binary,

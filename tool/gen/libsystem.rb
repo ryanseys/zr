@@ -14,6 +14,7 @@ module Zr
         # `Obj::MachO::Executable` gives the same link result on every host.
         # `test/unit/libsystem_test.rb` fails when it is out of date.
         class Libsystem < Generator
+          host_os "darwin"
           writes "lib/zr/obj/macho/libsystem.rb"
 
           def write(io)

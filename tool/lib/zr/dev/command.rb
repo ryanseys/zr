@@ -37,6 +37,14 @@ module Zr
         # ruby as the reference, so it needs the pinned ruby (`Dev.pinned!`).
         def host_ruby! = @host_ruby = true
         def host_ruby? = @host_ruby || false
+
+        # Marks a tool that reads a system library of one OS (a word of
+        # RUBY_PLATFORM, such as "darwin"), so it runs only there.
+        def host_os(os = nil)
+          os ? @host_os = os : @host_os
+        end
+
+        def runs_here? = host_os.nil? || RUBY_PLATFORM.include?(host_os)
       end
 
       attr_reader :name

@@ -58,13 +58,15 @@ module Zr
           "perf" => ["docs/explanation/performance.md: the newest benchmark reports", -> { require_relative "gen/perf"; Perf }]
         })
 
-        # Runs every generator. A generator that needs a checkout
-        # (RUBY_SRC, PRISM_SRC) stops the run when the checkout is missing.
-        # `openssl_constants` is not in the run: its order comes from the
-        # host's OpenSSL build (see tool/gen/openssl_constants.rb), so run it
-        # by name and read the diff. Nor is `gem-compat`: its table
-        # (log/gems/compat.tsv) is not committed, so only a machine that
-        # swept the gems writes the page.
+        # Runs every generator that this host can run, and warns for each
+        # other one: libsystem reads macOS's libSystem (`host_os`). A
+        # generator that needs a checkout (RUBY_SRC, PRISM_SRC) stops the
+        # run when the checkout is missing. Two are never in the run (APART):
+        # `openssl_constants`, whose order comes from the host's OpenSSL
+        # build (tool/gen/openssl_constants.rb), so run it by name and read
+        # the diff (test/unit/openssl_constants_test.rb compares the rows);
+        # and `gem-compat`, whose table (log/gems/compat.tsv) is not
+        # committed, so only a machine that swept the gems writes the page.
         class All < Command
           APART = %w[all openssl_constants gem-compat].freeze
 
@@ -78,19 +80,20 @@ module Zr
 
           def options(o)
             o.on("--check", "write nothing; fail when a file is out of date") { @check = true }
-            # CI leaves out the generators whose output depends on the host
-            # (libsystem, features, tables) or that take long (redefinitions).
             o.on("--except NAME,...", Array, "run every generator but these") { |names| @except = names }
           end
 
           def run(_argv)
             unknown = @except - Gen.commands.keys
             fail!("no generator #{unknown.join(", ")}") unless unknown.empty?
-            words = Gen.commands.keys - APART - @except
-            failed = words.reject { |word| Gen.commands.fetch(word).last.call.new("gen #{word}").start(@check ? ["--check"] : []).zero? }
+            here, elsewhere = (Gen.commands.keys - APART - @except).partition { |word| generator(word).runs_here? }
+            elsewhere.each { |word| warn "zr-dev gen all: #{word} runs only on #{generator(word).host_os}; skipped" }
+            failed = here.reject { |word| generator(word).new("gen #{word}").start(@check ? ["--check"] : []).zero? }
             failed.each { |word| warn "zr-dev gen all: #{word} failed" }
             failed.empty?
           end
+
+          def generator(word) = Gen.commands.fetch(word).last.call
         end
       end
 
