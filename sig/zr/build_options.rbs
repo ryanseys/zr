@@ -1,0 +1,13 @@
+# The record of lib/zr/build_options.rb.
+module Zr
+  class BuildOptions < Data
+    attr_reader target: Target
+    attr_reader gem_set: GemSet?
+    attr_reader gate: bool | Symbol
+    attr_reader trace: bool
+    attr_reader switches: Hir::Switches
+
+    def self.new: (?target: Target, ?gem_set: GemSet?, ?gate: bool | Symbol, ?trace: bool, ?switches: Hir::Switches) -> instance
+    def with: (?target: Target, ?gem_set: GemSet?, ?gate: bool | Symbol, ?trace: bool, ?switches: Hir::Switches) -> instance
+  end
+end

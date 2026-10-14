@@ -91,16 +91,15 @@ module Zr
         # there. In these files, a require inside a method waits for run
         # time, which finds and compiles the file then. So does an autoload
         # of a file outside `booted` (the files that the boot reads).
-        # `gem_set` is the build's GemSet (lib/zr/gem_set.rb), whose roots
-        # come first in `roots`, or nil.
-        # `gate`: a literal require in the program's own files that no
-        # root has stops the build (`Build#gate!`). A build from the CLI
-        # sets it; `--allow-runtime-require` does not.
-        # `switches` are the ruby switches of the build (`Hir::Switches`).
+        # `options` steer the build (`BuildOptions`). The roots of its gem
+        # set come first in `roots`. With its `gate`, a literal require in
+        # the program's own files that no root has stops the build
+        # (`Build#gate!`): a build from the CLI sets it, and
+        # `--allow-runtime-require` does not.
         # @rbs roots: Array[String]
+        # @rbs options: BuildOptions
         # @rbs eval: bool
         # @rbs external: untyped
-        # @rbs trace: bool
         # @rbs evals: bool
         # @rbs covers: bool
         # @rbs activations: Integer?
@@ -109,28 +108,24 @@ module Zr
         # @rbs ahead: Array[String]
         # @rbs booted: Array[String]
         # @rbs prebuilt_eval: untyped
-        # @rbs gem_set: GemSet?
-        # @rbs gate: bool | Symbol
         # @rbs description: (^() -> String?)?
-        # @rbs switches: Switches
         # @rbs def_base: Integer
         # @rbs extensions: _Extensions
-        # @rbs target: Target
         # @rbs return: void
-        def initialize(roots, eval: false, external: nil, trace: false, evals: false, covers: false, activations: nil,
-                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil, gem_set: nil,
-                       gate: false, description: nil, switches: Switches::NONE, def_base: 0, extensions: NoExtensions, target: Target.default)
+        def initialize(roots, options = BuildOptions.new, eval: false, external: nil, evals: false, covers: false, activations: nil,
+                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil,
+                       description: nil, def_base: 0, extensions: NoExtensions)
           @deferred = deferred
           # The C extensions that a require may find: a program's (`Ext`),
           # or none (`NoExtensions`).
           @extensions = extensions
           # The target whose C extensions the build links.
-          @target = target
-          @switches = switches
+          @target = options.target
+          @switches = options.switches
           @modules = {}
           @description = description
-          @gem_set = gem_set
-          @gate = gate
+          @gem_set = options.gem_set
+          @gate = options.gate
           @own = {}
           @main = nil
           @data = {}
@@ -141,7 +136,7 @@ module Zr
           @gems = false
           @native_gems = [] #: Array[GemSet::Entry]
           @eval = eval
-          @trace = trace
+          @trace = options.trace
           @traces = false
           @covers = covers
           @coverable = {}

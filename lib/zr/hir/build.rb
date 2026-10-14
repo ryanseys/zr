@@ -6,6 +6,7 @@ require_relative "../refused"
 require_relative "../library/layout"
 require_relative "../library/roots"
 require_relative "../target"
+require_relative "../build_options"
 require_relative "../config"
 require_relative "node"
 require_relative "syntax_report"
@@ -82,15 +83,13 @@ module Zr
       # runs inside, as from Method#parameters, or nil outside a method:
       # a `yield` has a block only inside a method, and a bare `super`
       # passes those parameters.
-      # `trace` arms the events from the start, for an eval under an
-      # enabled TracePoint.
-      # `gem_set` is a GemSet (lib/zr/gem_set.rb): the gems that come
-      # before zr's standard library, or nil. `gate` stops the build at a
-      # require in the program's own files that no root has (Loader).
-      # `switches` are the ruby switches of the build (`Hir::Switches`):
-      # their prelude runs after the other preludes, before the main file.
+      # `options` steer the build (`BuildOptions`). Its `trace` arms the
+      # events from the start, for an eval under an enabled TracePoint, and
+      # its switches' prelude runs after the other preludes, before the
+      # main file.
       # @rbs source: String
       # @rbs file: String
+      # @rbs options: BuildOptions
       # @rbs roots: Array[String]
       # @rbs program: bool
       # @rbs prebuilt: untyped
@@ -98,28 +97,24 @@ module Zr
       # @rbs scopes: Array[Array[Symbol]]?
       # @rbs method: Array[[Symbol, Symbol?]]?
       # @rbs activations: Integer?
-      # @rbs target: Target
-      # @rbs trace: bool
-      # @rbs gem_set: GemSet?
-      # @rbs gate: bool | Symbol
-      # @rbs switches: Switches
       # @rbs using: Integer?
       # @rbs def_base: Integer?
       # @rbs extensions: Loader::_Extensions
       # @rbs return: Program
-      def self.program(source, file, roots: [], program: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
-                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil, def_base: nil, extensions: Loader::NoExtensions)
+      def self.program(source, file, options = BuildOptions.new, roots: [], program: true, prebuilt: nil, line: 1, scopes: nil, method: nil,
+                       activations: nil, using: nil, def_base: nil, extensions: Loader::NoExtensions)
+        target = options.target
+        switches = options.switches
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
         # build machine.
         file = file.dup.force_encoding(::Encoding::UTF_8) if program && file.encoding != ::Encoding::UTF_8
-        # @type var built: ^(untyped, bool, bool, bool) -> [Loader, Unit, Require?]
-        built = lambda do |external, trace, evals, covers|
-          loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !program, external: external, trace: trace,
-                              evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
-                              gate: gate, description: Library::Roots.description(target), switches: switches, def_base: def_base || 0,
-                              extensions: extensions, target: target)
+        # @type var built: ^(untyped, BuildOptions, bool, bool) -> [Loader, Unit, Require?]
+        built = lambda do |external, options, evals, covers|
+          loader = Loader.new(roots + (options.gem_set&.roots || []) + Library::Roots.stdlib(target), options, eval: !program, external: external,
+                              evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt,
+                              description: Library::Roots.description(target), def_base: def_base || 0, extensions: extensions)
           loader.main!(file)
           loader.eval_using = using
           # Built before the main file, so that the main file's requires
@@ -145,17 +140,18 @@ module Zr
         evals = false
         covers = !def_base.nil? #: bool
         external = nil #: untyped
-        loader, main, switched = built.call(external, trace, evals, covers)
+        loader, main, switched = built.call(external, options, evals, covers)
         preludes = program ? Build.preludes(loader, target) : [] #: Array[node]
         loop do
           over = loader.evals? ? prebuilt : nil
-          break if over.equal?(external) && (loader.traces? || trace) == trace && (loader.covers? || !def_base.nil?) == covers
+          traces = loader.traces? && !options.trace
+          break if over.equal?(external) && !traces && (loader.covers? || !def_base.nil?) == covers
 
           evals = loader.evals?
           external = over
-          trace ||= loader.traces?
+          options = options.with(trace: true) if traces
           covers = loader.covers? || !def_base.nil?
-          loader, main, switched = built.call(external, trace, evals, covers)
+          loader, main, switched = built.call(external, options, evals, covers)
           preludes = program ? Build.preludes(loader, target) : []
         end
         # A program numbers its `using` entries here. Code that makes an

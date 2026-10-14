@@ -282,7 +282,8 @@ module Zr
           if name == "run" && emit.nil? && Zr::Cache::Run.wanted?
             cache ||= entry.call(Runtime.for(target).digest)
           end
-          program = lower(input, target, source: source, switches: switches, assemble: emit.nil?, gem_set: gems, gate: gate, trace: trace)
+          options = BuildOptions.new(target: target, gem_set: gems, gate: gate, trace: trace, switches: switches)
+          program = lower(input, options, source: source, assemble: emit.nil?)
           status = Paths.tmpdir("zr-build-") do |work|
             out = name == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
             case emit
@@ -354,21 +355,11 @@ module Zr
         # a large program is never all in memory at once (`Native::Build.lower`).
         # Returns a `Zr::Program`. `source` is the text of `input`, which
         # ruby mode gives for a program with no file.
-        # @rbs input: String
-        # @rbs target: Target
-        # @rbs source: String
-        # @rbs switches: Hir::Switches
-        # @rbs assemble: bool
-        # @rbs gem_set: GemSet?
-        # @rbs gate: bool | :warn
-        # @rbs trace: bool
-        # @rbs return: Program
-        def lower(input, target, source: File.read(input), switches: Hir::Switches::NONE, assemble: false, gem_set: nil, gate: false, trace: false)
-          unless assemble
-            return Program.build(source, input, target: target, gem_set: gem_set, gate: gate, trace: trace, switches: switches)
-          end
+        #: (String input, BuildOptions options, ?source: String, ?assemble: bool) -> Program
+        def lower(input, options, source: File.read(input), assemble: false)
+          return Program.build(source, input, options) unless assemble
 
-          Native::Build.lower(source, input, target: target, sources: name == "run", gem_set: gem_set, gate: gate, trace: trace, switches: switches)
+          Native::Build.lower(source, input, options, sources: name == "run")
         rescue Refused => e
           warn Refusals.refusal_report(e)
           exit REFUSED
@@ -384,14 +375,14 @@ module Zr
           # (`Loader#parsed_unit`).
           # A program with no file: ruby's report has no syntax_suggest part.
           given = !File.file?(input) && e.respond_to?(:path) && e.path == input
-          report = given ? Refusals.syntax_text(input, e) : Refusals.syntax_report(input, verbose: switches.verbose)
+          report = given ? Refusals.syntax_text(input, e) : Refusals.syntax_report(input, verbose: options.switches.verbose)
           unless report
             warn "zr: a required file does not parse: #{e.message.lines.first.chomp}"
             exit REFUSED
           end
           warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if name == "build"
           # The -r requires still run before it, and their exit handlers after.
-          Program.build(syntax_error_program(input, e, report), input, target: target, gem_set: gem_set, switches: switches)
+          Program.build(syntax_error_program(input, e, report), input, options.with(gate: false, trace: false))
         end
 
         private

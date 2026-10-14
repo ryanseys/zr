@@ -240,7 +240,7 @@ module Zr
         #: (?Target target) -> Integer
         def core(target = Target.default)
           RuntimeSources.for(target).core_files.each do |path|
-            hir = Hir.build(File.read(path), path, program: false, target: target)
+            hir = Hir.build(File.read(path), path, BuildOptions.new(target: target), program: false)
             r = toplevel(hir, Unit.new(path, true, hir.units, nil, true), @kern::KIND_MAIN)
             return r if r == @qundef
           end
@@ -301,7 +301,7 @@ module Zr
           args.each { |a| k.zr_ary_push(list, string(a)) }
           # As a build reads it: with error_highlight's spots, which a
           # build without eval support leaves out.
-          hir = Hir.build(source, path, target: target, prebuilt: @eval_files, extensions: Ext)
+          hir = Hir.build(source, path, BuildOptions.new(target: target), prebuilt: @eval_files, extensions: Ext)
           r = program(hir, path, target)
           exc = @qundef
           if r == @qundef
@@ -611,11 +611,9 @@ module Zr
           # Its `using` entries take the next free slots of the program's
           # table, now (`Zr::Eval#compiled`); a traced program's eval is
           # traced too.
-          hir = Hir.build(text(source).force_encoding(text(encoding)), text(file), program: false, line: k.zr_fix2long(line),
-                                                                                   scopes: [*outer.reverse, own],
-                                                                                   method: method == @qnil ? nil : ruby(method),
-                                                                                   activations: k.zr_fix2long(k.zr_activations_count), trace: @traced,
-                                                                                   using: using == @qnil ? nil : k.zr_fix2long(using))
+          hir = Hir.build(text(source).force_encoding(text(encoding)), text(file), BuildOptions.new(trace: @traced), program: false,
+                          line: k.zr_fix2long(line), scopes: [*outer.reverse, own], method: method == @qnil ? nil : ruby(method),
+                          activations: k.zr_fix2long(k.zr_activations_count), using: using == @qnil ? nil : k.zr_fix2long(using))
           k.zr_activations_reserve(hir.activations)
           warnings = Array(hir.warnings)
           if warn_now == @qtrue
@@ -683,7 +681,7 @@ module Zr
           coverage = measuring_coverage
           base = coverage && ruby(check(k.zr_send(coverage, id(:next_def_site), 0, 0)))
           traced = @traced || ruby(k.zr_trace_armed_m)
-          hir = Hir.build(File.read(name), name, program: false, trace: traced, def_base: base)
+          hir = Hir.build(File.read(name), name, BuildOptions.new(trace: traced), program: false, def_base: base)
           @file_spots[name] = (hir.spots || {}).fetch(name, "")
           check(outside([value(hir.coverable), value(hir.defs)]) { |av| k.zr_send(coverage, id(:compiled_lines!), 2, av) }) if coverage
           unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids, false, false, nil, hir.traced)

@@ -73,7 +73,7 @@ class DescriptionTest < Minitest::Test
   # the darwin test failed with "the runtime's IR was released". This test
   # runs a build first, so that it always checks that order.
   def test_a_build_leaves_this_file_a_kernel_to_read
-    Zr::Native::Build.lower("p 1\n", "description_test.rb", target: TARGETS.first)
+    Zr::Native::Build.lower("p 1\n", "description_test.rb", Zr::BuildOptions.new(target: TARGETS.first))
     assert_predicate Zr::Machine::Description.of(kernel(TARGETS.first)).defs, :any?
   end
 

@@ -322,7 +322,7 @@ module Zr
       Paths.tmpdir("zr-serve-") do |work|
         file = File.join(work, "primer.rb")
         File.write(file, "puts [1, 2].map { |n| n * 2 }.sum\n")
-        program = Native::Build.lower(File.read(file), file, target: target)
+        program = Native::Build.lower(File.read(file), file, BuildOptions.new(target: target))
         Native::Build.program(program, File.join(work, "primer"), work: work)
       end
       fresh!

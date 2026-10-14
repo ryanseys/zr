@@ -72,27 +72,20 @@ module Zr
     # With `sources`, the program lists the files it was built from
     # (`Program#sources`), for the run cache.
     #
-    # `gem_set` is the GemSet whose gems come before zr's standard library
-    # (lib/zr/gem_set.rb), or nil. `gate` stops the build at a require that
-    # nothing has in the program's own files (`Hir::Build#gate!`). `trace`
-    # arms the program's trace events whatever its files name.
-    # `switches` are the ruby switches of the build (`Hir::Switches`).
+    # `options` steer the build (`BuildOptions`).
     # @rbs source: String
     # @rbs file: String
-    # @rbs target: Target
+    # @rbs options: BuildOptions
     # @rbs sources: bool
-    # @rbs gem_set: GemSet?
-    # @rbs gate: bool | Symbol
-    # @rbs trace: bool
-    # @rbs switches: Hir::Switches
     # @rbs &finish: ? (IR::Function, String) -> Obj::Code
     # @rbs return: Program
-    def self.build(source, file, target: Target.default, sources: false, gem_set: nil, gate: false, trace: false,
-                   switches: Hir::Switches::NONE, &finish)
+    def self.build(source, file, options = BuildOptions.new, sources: false, &finish)
+      target = options.target
+      gem_set = options.gem_set
       rt = Runtime.for(target)
       support = EvalSupport.for(target)
       hir = Timing.phase("building the HIR", "hir built") do
-        Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace, switches: switches, extensions: Ext)
+        Hir.build(source, file, options, prebuilt: support, extensions: Ext)
       end
       redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of
@@ -121,7 +114,7 @@ module Zr
       tables = LoadTables.new(computed: hir.evals || !Ext.bundles(target: target).empty?, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_roots(gem_set, target) : [],
-                              manifest: Manifest.bytes(gems, target), redirects: redirects, gems: switches.gems)
+                              manifest: Manifest.bytes(gems, target), redirects: redirects, gems: options.switches.gems)
       new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
     end
 

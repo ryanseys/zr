@@ -166,7 +166,7 @@ module Zr
         # The file's `using` entries come after every entry in use, as an
         # eval's do (`compiled`): numbered from 0, they would take the
         # entries of the program and of eval support (prism's parser).
-        hir = Hir.build(source, path, program: false, trace: @runtime.tracing?, def_base: base, activations: @runtime.activations)
+        hir = Hir.build(source, path, BuildOptions.new(trace: @runtime.tracing?), program: false, def_base: base, activations: @runtime.activations)
         @file_spots[path] = (hir.spots || {}).fetch(path, "")
         @runtime.take_activations(hir.activations)
         coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
@@ -242,9 +242,9 @@ module Zr
       # entries, and takes them now, because no other code runs before
       # the next compile.
       begin
-        hir = Hir.build(string(source), string(file), program: false, line: line.to_int, scopes: [*scopes.reverse, []], method: method,
-                                                      activations: @runtime.activations, trace: @runtime.tracing?, using: using,
-                                                      switches: Hir::Switches.new(debug_frozen_string_literal: debug_frozen, keep_script_lines: keep))
+        switches = Hir::Switches.new(debug_frozen_string_literal: debug_frozen, keep_script_lines: keep)
+        hir = Hir.build(string(source), string(file), BuildOptions.new(trace: @runtime.tracing?, switches: switches), program: false,
+                        line: line.to_int, scopes: [*scopes.reverse, []], method: method, activations: @runtime.activations, using: using)
       rescue Hir::Invalid, SyntaxError => e
         @compiled[key] = e.dup if reuse
         raise warned(e)

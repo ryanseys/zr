@@ -224,26 +224,14 @@ module Zr
       # at one time. It builds the runtime object first and then releases
       # the runtime's IR, so on a cold cache the two are not in memory
       # together.
-      # @rbs source: String
-      # @rbs file: String
-      # @rbs target: Target
-      # @rbs jobs: Integer
-      # @rbs sources: bool
-      # @rbs gem_set: GemSet?
-      # @rbs gate: bool | Symbol
-      # @rbs trace: bool
-      # @rbs switches: Hir::Switches
-      # @rbs return: Program
-      def lower(source, file, target: Target.default, jobs: Build.jobs, sources: false, gem_set: nil, gate: false, trace: false,
-                switches: Hir::Switches::NONE)
+      #: (String source, String file, ?BuildOptions options, ?jobs: Integer, ?sources: bool) -> Program
+      def lower(source, file, options = BuildOptions.new, jobs: Build.jobs, sources: false)
+        target = options.target
         runtime = Runtime.for(target)
         runtime.description
         runtime_object(runtime, jobs: jobs)
         runtime.release
-        Program.build(source, file, target: target, sources: sources, gem_set: gem_set, gate: gate, trace: trace,
-                                     switches: switches) do |f, entry|
-          assemble(f, entry, target: target)
-        end
+        Program.build(source, file, options, sources: sources) { |f, entry| assemble(f, entry, target: target) }
       end
 
       # Prepares and assembles one function immediately after `Program.build`

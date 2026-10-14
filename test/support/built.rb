@@ -133,7 +133,7 @@ module Zr
         return Native::Build.prelink([Native::Build.runtime_object(runtime)]) if target.link && target.object_format == :macho
         return Native::Build.runtime_object(runtime) if target.link
 
-        Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Program.build(PLAIN, "built.rb", target: target)))
+        Native::Build.wasm_prelude(runtime, Native::Build.pending_for(Program.build(PLAIN, "built.rb", BuildOptions.new(target: target))))
       end
 
       # Builds the caches of each target in `targets` that is not current,
@@ -183,7 +183,7 @@ module Zr
       # memory together. Less memory in this process gives more workers
       # to the eval support build (`Native::Parallel.afforded`).
       def build_binary(target, evals: true)
-        program = Native::Build.lower(evals ? EVALS : PLAIN, "built.rb", target: target)
+        program = Native::Build.lower(evals ? EVALS : PLAIN, "built.rb", BuildOptions.new(target: target))
         Dir.mktmpdir("zr-build-") do |work|
           why = Native::Build.program(program, File.join(work, "built"), work: work)
           raise "the build did not finish: #{why}" if why
@@ -197,7 +197,7 @@ module Zr
       def build_module(target)
         Dir.mktmpdir("zr-build-") do |work|
           [PLAIN, EVALS].each_with_index do |source, i|
-            program = Program.build(source, "built.rb", target: target)
+            program = Program.build(source, "built.rb", BuildOptions.new(target: target))
             why = Native::Build.wasm_program(program, File.join(work, "built#{i}.wasm"))
             raise "the build did not finish: #{why}" if why
           end

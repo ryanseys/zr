@@ -160,7 +160,7 @@ class WasmTest < Minitest::Test
 
     Dir.mktmpdir("zr-wasm-") do |dir|
       File.write(File.join(dir, "host.rb"), HOST)
-      program = Zr::Program.build(HOST, File.join(dir, "host.rb"), target: Zr::Target::WASM32_WASI)
+      program = Zr::Program.build(HOST, File.join(dir, "host.rb"), Zr::BuildOptions.new(target: Zr::Target::WASM32_WASI))
       wasm = File.join(dir, "host.wasm")
       assert_nil Zr::Native::Build.wasm_program(program, wasm)
       argv = Zr::Harness::Wasmtime.run(wasm, "a", "b", dirs: { "." => "." }, env: { "X" => "1" })

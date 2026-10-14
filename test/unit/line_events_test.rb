@@ -78,6 +78,6 @@ class LineEventsTest < Minitest::Test
   def ruby_lines(path) = Coverage.line_stub(path).each_with_index.filter_map { |v, i| i + 1 if v }
 
   def zr_lines(path, source)
-    Zr::Hir.build(source, path, trace: true, program: false).coverable.fetch(path).last.uniq.sort
+    Zr::Hir.build(source, path, Zr::BuildOptions.new(trace: true), program: false).coverable.fetch(path).last.uniq.sort
   end
 end

@@ -224,7 +224,7 @@ class GemSetTest < Minitest::Test
     lib = File.join(gem_dir("csv", "9.0.0"), "lib")
     main = File.join(@dir, "main.rb")
 
-    hir = Zr::Hir.build(%(require "csv"\n), main, gem_set: set(name: "csv", version: "9.0.0", roots: [lib]))
+    hir = Zr::Hir.build(%(require "csv"\n), main, Zr::BuildOptions.new(gem_set: set(name: "csv", version: "9.0.0", roots: [lib])))
 
     # A require finds the file by the real path of its directory.
     assert_equal [File.join(File.realpath(lib), "csv.rb")], hir.units.map(&:file)
@@ -241,7 +241,7 @@ class GemSetTest < Minitest::Test
                native: true)
 
     hir = nil
-    _, err = capture_io { hir = Zr::Hir.build(%(require "native"\nrequire "native"\n), main, gem_set: gems) }
+    _, err = capture_io { hir = Zr::Hir.build(%(require "native"\nrequire "native"\n), main, Zr::BuildOptions.new(gem_set: gems)) }
 
     assert_equal [File.join(File.realpath(lib), "native.rb")], hir.units.map(&:file)
     assert_equal 1, err.scan("native 1.0.0 (--gem) has a C extension").size
@@ -253,7 +253,7 @@ class GemSetTest < Minitest::Test
     main = File.join(@dir, "main.rb")
     gems = set(name: "native", version: "1.0.0", roots: [lib], refusal: "native 1.0.0 has a C extension")
 
-    error = assert_raises(Zr::Refused) { Zr::Hir.build(%(x = 1\nrequire "native"\n), main, gem_set: gems) }
+    error = assert_raises(Zr::Refused) { Zr::Hir.build(%(x = 1\nrequire "native"\n), main, Zr::BuildOptions.new(gem_set: gems)) }
 
     assert_equal %(#{main}:2: require of "native": native 1.0.0 has a C extension), error.message
   end

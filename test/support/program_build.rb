@@ -131,9 +131,9 @@ module Zr
 
       def compile(source, rel, target, gem_set = nil)
         if target.link
-          Native::Build.lower(source, rel, target: target, gem_set: gem_set)
+          Native::Build.lower(source, rel, BuildOptions.new(target: target, gem_set: gem_set))
         else
-          Zr::Program.build(source, rel, target: target, gem_set: gem_set)
+          Zr::Program.build(source, rel, BuildOptions.new(target: target, gem_set: gem_set))
         end
       end
 

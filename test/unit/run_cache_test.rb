@@ -97,7 +97,7 @@ class RunCacheTest < Minitest::Test
   # do not.
   def test_a_program_with_no_file_is_found_by_its_text
     switches = Zr::Hir::Switches.new(inline: true)
-    program = Zr::Native::Build.lower("puts 4\n", "-e", sources: true, switches: switches)
+    program = Zr::Native::Build.lower("puts 4\n", "-e", Zr::BuildOptions.new(switches: switches), sources: true)
     out = File.join(@work, "program")
     why = Zr::Native::Build.program(program, out, work: @work)
     raise why if why
