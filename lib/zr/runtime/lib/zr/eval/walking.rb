@@ -33,9 +33,6 @@ module Zr
       # `path`, as an Integer, or nil.
       def unit_for(path) = Primitive.zr_unit_for(path)
 
-      # The lexical scope of the frame that called eval, and one scope
-      # inside it.
-      def cref_under(mod, outer) = Primitive.zr_eval_cref_under(mod, outer)
       # A lexical scope for a class or module body, which a `def` in it
       # defines into and a constant in it is read under.
       def cref_push(mod, outer) = Primitive.zr_cref_push(mod, outer)
@@ -80,9 +77,6 @@ module Zr
       def binding_scopes(b) = Primitive.zr_binding_scopes(b)
       def binding_get(b, depth, index) = Primitive.zr_binding_get(b, depth, index)
       def binding_set(b, depth, index, v) = Primitive.zr_binding_set(b, depth, index, v)
-      def binding_add(b, name) = Primitive.zr_binding_add(b, name)
-      def binding_receiver(b) = Primitive.zr_binding_receiver(b)
-      def binding_cref(b) = Primitive.zr_binding_cref(b)
       def binding_parameters(b) = Primitive.zr_binding_parameters(b)
 
       # What the walk reads of the frame that called eval, through its

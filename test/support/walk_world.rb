@@ -90,7 +90,6 @@ module Zr
 
         def cref = CALLER
         def same?(a, b) = a.equal?(b) || a == CALLER || b == CALLER
-        def cref_under(mod, outer) = Cref.new(mod, outer, 0, false)
         def cref_push(mod, outer) = Cref.new(mod, outer, 0, false)
         def cref_klass(cref) = cref.klass
         def cref_definee(cref) = cref.klass
@@ -124,9 +123,6 @@ module Zr
         def binding_scopes(b) = [b.local_variables]
         def binding_get(b, _depth, index) = b.local_variable_get(b.local_variables.fetch(index))
         def binding_set(b, _depth, index, v) = b.local_variable_set(b.local_variables.fetch(index), v)
-        def binding_add(b, name) = b.local_variable_set(name, nil)
-        def binding_receiver(b) = b.receiver
-        def binding_cref(_b) = WalkWorld.cref
         def binding_parameters(b)
           name = b.eval("__method__") or return nil
           b.receiver.method(name).parameters
