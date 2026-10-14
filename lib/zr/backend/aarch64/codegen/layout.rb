@@ -69,6 +69,16 @@ module Zr
         # A branch on one bit of a word (`brif (band x, 2^n) != 0`) is a `tbz`
         # or `tbnz` on the word. The `band` and the compare emit nothing
         # (`@silent`), and the allocator keeps the word live to the branch (`@via`).
+        # The first instruction after `n` of `insts` that is not neutral to
+        # the flags: the one that reads them, if any does. It counts an
+        # index, so no compare copies the rest of its block.
+        #: (Array[IR::Inst] insts, Integer n) -> IR::Inst?
+        def flag_reader(insts, n)
+          j = n + 1
+          j += 1 while j < insts.size && FLAG_NEUTRAL.include?(insts[j].op)
+          insts[j]
+        end
+
         #: () -> void
         def plan_fusion
           @fused = {}
@@ -82,7 +92,7 @@ module Zr
               r = FLAG_SETTERS.include?(cmp.op) ? cmp.results[1] : cmp.results[0]
               next unless (cmp.op == :icmp || cmp.op == :fcmp || FLAG_SETTERS.include?(cmp.op)) && @uses[r] == 1
 
-              reader = insts.drop(n + 1).find { |i| !FLAG_NEUTRAL.include?(i.op) }
+              reader = flag_reader(insts, n)
               next unless reader && (reader.op == :brif || reader.op == :select) && reader.args[0] == r
 
               # In both cases the boolean is never made, so it has no home.
