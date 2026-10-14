@@ -52,7 +52,6 @@ module Prism
         cursor - from
       end
 
-      def strspn_whitespace(from, limit) = strspn_char_kind(from, limit, WHITESPACE)
       def strspn_inline_whitespace(from, limit) = strspn_char_kind(from, limit, INLINE_WHITESPACE)
       def strspn_regexp_option(from, limit) = strspn_char_kind(from, limit, REGEXP_OPTION)
 

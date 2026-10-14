@@ -67,14 +67,6 @@ module OpenSSL
         Lib.BIO_free(bio) if memory
       end
 
-      # A new memory BIO to write into, for membio2str to read.
-      def mem_bio
-        bio = Lib.BIO_new(Lib.BIO_s_mem)
-        raise error(OpenSSLError, "BIO_new") if bio.zero?
-
-        bio
-      end
-
       # The items of an OpenSSL STACK, as addresses.
       def stack_items(stack)
         return [] if stack.zero?

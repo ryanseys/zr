@@ -264,11 +264,7 @@ module Prism
         name, value = SHAREABLE_CONSTANT_VALUES.find { |text, _| value_length == text.bytesize && strncasecmp?(value_start, text, value_length) }
         return invalid_magic_comment_value(key, value_start, value_length) if name.nil?
 
-        scope = @current_scope
-        loop do
-          scope.shareable_constant = value
-          break if scope.closed? || (scope = scope.previous).nil?
-        end
+        scope_shareable_constant_set(value)
       end
     end
   end

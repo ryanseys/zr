@@ -158,11 +158,6 @@ module Psych
       def set_unicode(unicode)
         @unicode = unicode
       end
-
-      # yaml_emitter_set_break
-      def set_break(line_break)
-        @line_break = line_break
-      end
     end
 
     # The event constructors. libyaml checks that every string is valid

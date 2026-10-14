@@ -92,9 +92,6 @@ module OpenSSL
     class << self
       def ec(object) = legacy_key(object, Lib::EVP_PKEY_EC, "EC_KEY", :EVP_PKEY_get0_EC_KEY)
 
-      # EC keys name their own type in the Get macro's message.
-      def ec_pkey(object) = typed_pkey(object, Lib::EVP_PKEY_EC, "EC PKEY")
-
       # ec_key_new_from_group: an EC_KEY over a Group, or over the named
       # curve `arg` names.
       def ec_key_new_from_group(arg)

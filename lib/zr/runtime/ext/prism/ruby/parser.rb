@@ -184,9 +184,6 @@ module Prism
       def current_token = Token.new(@current_type, @current_start, @current_end)
       def previous_token = Token.new(@previous_type, @previous_start, @previous_end)
 
-      # The Symbol of the constant numbered `id`, as the loader makes it.
-      def constant_symbol(id) = @constant_pool.bytes(id).dup.force_encoding(ruby_encoding).to_sym
-
       # The Encoding the source's strings take.
       def ruby_encoding = ::Encoding.find(@encoding.name)
 
