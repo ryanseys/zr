@@ -12,9 +12,6 @@ group :development, :test do
   gem "rake", "~> 13.0"
   # The test framework. `bin/minitest` runs it.
   gem "minitest", "~> 6.0"
-  # The slowest-tests report (SLOW=1), and the JUnit file CI shows a
-  # failure from.
-  gem "minitest-reporters", "~> 1.8"
   # Obj::JIT's in-process host for the checks. A bundled gem, not a default
   # one, in ruby 4.
   gem "fiddle", "~> 1.1"

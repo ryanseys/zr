@@ -126,7 +126,6 @@ To select tests by name, give minitest's own options (`-i`, `-e`) to
 | `ZR_DIFFERENTIAL` | a number | 500 | How many random functions `regalloc_differential_test` generates. |
 | `ZR_SEED` | a number | random | The seed of `regalloc_differential_test`. A failure prints the seed to use. |
 | `OPENSSL_DIR` | a prefix | unset | Where ruby's reference run finds OpenSSL, as for a compiled program. |
-| `CI` | any value | unset | Also writes a JUnit report to `tmp/junit`. |
 
 ## For tools
 

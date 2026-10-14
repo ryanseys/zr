@@ -66,13 +66,6 @@ require_relative "support/progress"
 require_relative "support/last_failures"
 Minitest::Test.parallelize_me!
 
-# Use the Minitest report, and Slow's (support/slow.rb). On CI, write a
-# JUnit file, which the web view uses to show failures.
-if ENV["CI"]
-  require "minitest/reporters"
-  Minitest::Reporters.use!([Minitest::Reporters::JUnitReporter.new(File.expand_path("../tmp/junit", __dir__))])
-end
-
 ROOT = File.expand_path("..", __dir__)
 
 require_relative "support/harness/wasmtime"
