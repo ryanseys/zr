@@ -52,7 +52,7 @@ module Zr
         def of_file(input, gem_set, target)
           require_relative "../../runtime"
           support = EvalSupport.for(target)
-          hir = Hir.build(File.read(input), input, prebuilt: support, target: target, gem_set: gem_set)
+          hir = Hir.build(File.read(input), input, prebuilt: support, target: target, gem_set: gem_set, extensions: Ext)
           Manifest.of_program(hir, support, gem_set)
         rescue Refused => e
           warn Refusals.refusal_report(e)

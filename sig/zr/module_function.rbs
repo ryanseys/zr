@@ -75,6 +75,10 @@ module Zr::Ext
   extend Zr::Ext
 end
 
+module Zr::Hir::Build::Loader::NoExtensions
+  extend Zr::Hir::Build::Loader::NoExtensions
+end
+
 module Zr::Ext::CApi
   extend Zr::Ext::CApi
 end

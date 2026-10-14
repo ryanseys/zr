@@ -7,7 +7,6 @@ require_relative "../library/layout"
 require_relative "../library/roots"
 require_relative "../target"
 require_relative "../config"
-require_relative "../ext"
 require_relative "node"
 require_relative "syntax_report"
 
@@ -105,9 +104,10 @@ module Zr
       # @rbs switches: Switches
       # @rbs using: Integer?
       # @rbs def_base: Integer?
+      # @rbs extensions: Loader::_Extensions
       # @rbs return: Program
       def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
-                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil, def_base: nil)
+                       trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil, def_base: nil, extensions: Loader::NoExtensions)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
@@ -118,7 +118,7 @@ module Zr
           loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
                               gate: gate, description: Library::Roots.description(target), switches: switches, def_base: def_base || 0,
-                              target: target)
+                              extensions: extensions, target: target)
           loader.main!(file)
           loader.eval_using = using
           # Built before the main file, so that the main file's requires

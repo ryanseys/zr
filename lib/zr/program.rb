@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "ext"
+
 module Zr
   # A program's own functions and data, and its runtime. It destructures
   # as `[functions, data, raw]` with the runtime included, for a build
@@ -90,7 +92,7 @@ module Zr
       rt = Runtime.for(target)
       support = EvalSupport.for(target)
       hir = Timing.phase("building the HIR", "hir built") do
-        Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace, switches: switches)
+        Hir.build(source, file, prebuilt: support, target: target, gem_set: gem_set, gate: gate, trace: trace, switches: switches, extensions: Ext)
       end
       redirects = gem_set && !gem_set.empty? ? gem_redirects(hir, support, gem_set, target) : {} #: Hash[String, String]
       # A large program is heavy work too (`GcTuning`): bundler's 1.2 MB of

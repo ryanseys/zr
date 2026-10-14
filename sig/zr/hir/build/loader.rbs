@@ -1,0 +1,16 @@
+# The interface of lib/zr/hir/build/loader.rb. Its methods are inline.
+module Zr
+  module Hir
+    class Build
+      class Loader
+        # What a loader asks of the C extensions that a build links: `Ext`
+        # for a program, `NoExtensions` for every other build.
+        interface _Extensions
+          def bundles: (?target: Target) -> Hash[String, untyped]
+          def bundle_for: (String feature, ?target: Target) -> String?
+          def linked_under?: (Array[String] roots, ?target: Target) -> bool
+        end
+      end
+    end
+  end
+end

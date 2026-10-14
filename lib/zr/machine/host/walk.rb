@@ -2,6 +2,7 @@
 
 require_relative "boot"
 require_relative "../../hir"
+require_relative "../../ext"
 require_relative "../../paths"
 require_relative "walk/frames"
 require_relative "walk/code"
@@ -300,7 +301,7 @@ module Zr
           args.each { |a| k.zr_ary_push(list, string(a)) }
           # As a build reads it: with error_highlight's spots, which a
           # build without eval support leaves out.
-          hir = Hir.build(source, path, target: target, prebuilt: @eval_files)
+          hir = Hir.build(source, path, target: target, prebuilt: @eval_files, extensions: Ext)
           r = program(hir, path, target)
           exc = @qundef
           if r == @qundef

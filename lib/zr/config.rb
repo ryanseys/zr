@@ -195,10 +195,11 @@ module Zr
     def switch?(name, default: false) = Config.on?(value(name), default)
     private :switch?
 
-    # The words of `line` as Shellwords.split gives them. zr does not
-    # require shellwords: the compiled compiler goes into a program with
-    # eval, and shellwords would give that program String#shellsplit,
-    # String#shellescape and Array#shelljoin.
+    # The words of `line` as Shellwords.split gives them. The compiler does
+    # not require shellwords: the compiler goes into a program with eval,
+    # and a require of shellwords there would give the program
+    # String#shellsplit, String#shellescape and Array#shelljoin before the
+    # program asks for them.
     #: (String line) -> Array[String]
     def words(line)
       words = [] #: Array[String]
