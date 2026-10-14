@@ -281,19 +281,10 @@ module Fiddle
     INT_MAX = (1 << 31) - 1
     UINT_MAX = (1 << 32) - 1
 
-    def special_name(value)
-      case value
-      when nil then "nil"
-      when true then "true"
-      when false then "false"
-      else value.class.to_s
-      end
-    end
-
     # rb_to_int
     def to_int(value)
       return value if value.is_a?(Integer)
-      raise TypeError, "no implicit conversion of #{special_name(value)} into Integer" unless value.respond_to?(:to_int, true)
+      raise TypeError, no_implicit_conversion(value, "Integer") unless value.respond_to?(:to_int, true)
 
       result = value.__send__(:to_int)
       return result if result.is_a?(Integer)
@@ -315,7 +306,7 @@ module Fiddle
     # StringValue
     def string_value(value)
       string = check_string_type(value)
-      raise TypeError, "no implicit conversion of #{special_name(value)} into String" if string.nil?
+      raise TypeError, no_implicit_conversion(value, "String") if string.nil?
 
       string
     end
@@ -330,7 +321,7 @@ module Fiddle
 
     # Check_Type(value, T_ARRAY)
     def check_array(value)
-      raise TypeError, "wrong argument type #{special_name(value)} (expected Array)" unless value.is_a?(Array)
+      raise TypeError, "wrong argument type #{conversion_name(value)} (expected Array)" unless value.is_a?(Array)
 
       value
     end

@@ -201,7 +201,7 @@ module OpenSSL
       # pkey_ctx_apply_options: each pair of `options` through
       # EVP_PKEY_CTX_ctrl_str.
       def apply_pkey_options(ctx, options)
-        raise TypeError, "wrong argument type #{type_name(options)} (expected Hash)" unless options.is_a?(Hash)
+        raise TypeError, "wrong argument type #{conversion_name(options)} (expected Hash)" unless options.is_a?(Hash)
 
         options.each do |key, value|
           key = key.to_s if key.is_a?(Symbol)

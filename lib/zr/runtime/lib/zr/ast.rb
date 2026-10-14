@@ -342,7 +342,7 @@ module Zr
       # which returns a tree with ERROR nodes where the source is broken.
       def parse(source, keep_script_lines: false, error_tolerant: false, keep_tokens: false)
         unless source.respond_to?(:to_str)
-          raise TypeError, "no implicit conversion of #{source.nil? ? 'nil' : source.class} into String"
+          raise TypeError, no_implicit_conversion(source, "String")
         end
 
         source = source.to_str

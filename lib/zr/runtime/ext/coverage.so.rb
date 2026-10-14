@@ -59,9 +59,9 @@ module Coverage
 
     stop = clear = true
     unless options.nil?
-      options = Hash.try_convert(options) or raise TypeError, "no implicit conversion of #{options.class} into Hash"
-      stop = options[:stop] ? true : false
-      clear = options[:clear] ? true : false
+      hash = Hash.try_convert(options) or raise TypeError, no_implicit_conversion(options, "Hash")
+      stop = hash[:stop] ? true : false
+      clear = hash[:clear] ? true : false
     end
     if stop && !clear
       warn "stop implies clear", uplevel: 0
@@ -92,7 +92,7 @@ module Coverage
       return {} if args.empty?
       return { lines: true, branches: true, methods: true, eval: true } if args[0] == :all
 
-      options = Hash.try_convert(args[0]) or raise TypeError, "no implicit conversion of #{args[0].class} into Hash"
+      options = Hash.try_convert(args[0]) or raise TypeError, no_implicit_conversion(args[0], "Hash")
       mode = MODES.to_h { |target| [target, options[target] ? true : false] }
       raise RuntimeError, "cannot enable lines and oneshot_lines simultaneously" if mode[:lines] && mode[:oneshot_lines]
 

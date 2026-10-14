@@ -109,7 +109,7 @@ class Date
 
     def text_of(text)
       Primitive.attr! :hidden
-      text = String.try_convert(text) or raise TypeError, "no implicit conversion of #{conversion_name(text)} into String"
+      text = String.try_convert(text) || raise(TypeError, no_implicit_conversion(text, "String"))
       raise ArgumentError, "string should have ASCII compatible encoding" unless text.encoding.ascii_compatible?
 
       text

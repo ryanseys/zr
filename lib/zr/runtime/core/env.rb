@@ -323,7 +323,7 @@ class << ENV
 
   def variable_name(value, role = +"name")
     unless value.is_a?(String)
-      raise TypeError, "no implicit conversion of #{value.nil? ? 'nil' : value.class} into String" unless value.respond_to?(:to_str)
+      raise TypeError, no_implicit_conversion(value, "String") unless value.respond_to?(:to_str)
 
       value = value.to_str
     end

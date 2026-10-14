@@ -548,7 +548,7 @@ module OpenSSL
 
       # rb_convert_type(value, T_ARRAY, "Array", "to_a").
       def convert_to_array(value)
-        raise TypeError, "can't convert #{type_name(value)} into Array" unless value.respond_to?(:to_a)
+        raise TypeError, "can't convert #{conversion_name(value)} into Array" unless value.respond_to?(:to_a)
 
         array = value.to_a
         raise TypeError, cant_convert_gives(value, "Array", :to_a, array) unless array.is_a?(Array)

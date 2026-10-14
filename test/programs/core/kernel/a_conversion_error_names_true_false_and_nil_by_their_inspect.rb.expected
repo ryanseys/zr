@@ -1,0 +1,39 @@
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into Array
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into Array
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of nil into String
+TypeError: no implicit conversion of nil into String
+TypeError: no implicit conversion of nil into String
+no error
+no error
+Encoding::UndefinedConversionError: U+00E9 from UTF-8 to US-ASCII
+TypeError: no implicit conversion of nil into String
+TypeError: no implicit conversion of nil into String
+TypeError: no implicit conversion of nil into String
+TypeError: no implicit conversion of true into Hash
+TypeError: no implicit conversion of false into Hash
+TypeError: no implicit conversion of true into Hash
+TypeError: no implicit conversion of false into Hash
+no error
+TypeError: no implicit conversion of true into String
+TypeError: no implicit conversion of true into Integer
+TypeError: no implicit conversion of true into String
+no error
+TypeError: no implicit conversion of false into String
+TypeError: no implicit conversion of false into Integer
+TypeError: no implicit conversion of false into String

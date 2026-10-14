@@ -50,7 +50,7 @@ module OpenSSL
       # GetHpkeSuite: the suite's IDs packed as the library takes them.
       def hpke_suite(suite)
         unless suite.is_a?(HPKE::Suite)
-          raise TypeError, "wrong argument type #{type_name(suite)} (expected OpenSSL/HPKE_SUITE)"
+          raise TypeError, "wrong argument type #{conversion_name(suite)} (expected OpenSSL/HPKE_SUITE)"
         end
 
         ids = Native.hidden_get(suite, :suite) or raise RuntimeError, "OSSL_HPKE_SUITE wasn't initialized!"

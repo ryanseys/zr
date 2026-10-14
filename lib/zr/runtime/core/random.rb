@@ -244,7 +244,7 @@ class Random
       return rnd.send(:limited, limit) if rnd
 
       value = obj.public_send(:rand, limit + 1)
-      value = Integer.try_convert(value) or raise TypeError, "no implicit conversion of #{conversion_name(value)} into Integer"
+      value = Integer.try_convert(value) || raise(TypeError, no_implicit_conversion(value, "Integer"))
       raise RangeError, "random number too small #{value}" if value.negative?
       raise RangeError, "random number too big #{value}" if value > limit
 

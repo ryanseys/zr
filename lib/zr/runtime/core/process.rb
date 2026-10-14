@@ -999,7 +999,7 @@ module Process
 
     table = options[:unsetenv_others] ? {} : ENV.to_h
     env&.each do |key, value|
-      key = String.try_convert(key) or raise TypeError, "no implicit conversion of #{conversion_name(key)} into String"
+      key = String.try_convert(key) || raise(TypeError, no_implicit_conversion(key, "String"))
       # check_exec_env: no = in a name, and no NUL in a name or a value.
       raise ArgumentError, +"string contains null byte" if key.include?("\0")
       raise ArgumentError, "environment name contains a equal : #{key}" if key.include?("=")

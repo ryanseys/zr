@@ -205,7 +205,7 @@ class Addrinfo
   def marshal_load(ary)
     raise TypeError, "already initialized socket address" unless @sockaddr.nil?
 
-    ary = Array.try_convert(ary) or raise TypeError, "no implicit conversion of #{conversion_name(ary)} into Array"
+    ary = Array.try_convert(ary) || raise(TypeError, no_implicit_conversion(ary, "Array"))
     families = Socket.names(/\A(AF_|PF_)/, "AF_")
     afamily = families.fetch(Primitive.zr_str_operand(ary[0])) { raise TypeError, "unexpected address family" }
     pfamily = families.fetch(Primitive.zr_str_operand(ary[2])) { raise TypeError, "unexpected protocol family" }

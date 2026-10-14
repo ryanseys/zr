@@ -170,9 +170,9 @@ class IO
     given = options[:open_args]
     return File.open(path, mode, **options, &block) if given.nil?
 
-    given = Array.try_convert(given) or raise TypeError, "no implicit conversion of #{given.class} into Array"
-    keywords = given.last.is_a?(Hash) ? given.last : {}
-    positional = keywords.empty? && !given.last.is_a?(Hash) ? given : given[0...-1]
+    args = Array.try_convert(given) or raise TypeError, no_implicit_conversion(given, "Array")
+    keywords = args.last.is_a?(Hash) ? args.last : {}
+    positional = keywords.empty? && !args.last.is_a?(Hash) ? args : args[0...-1]
     raise ArgumentError, "wrong number of arguments (given #{positional.size + 1}, expected 1..3)" if positional.size > 2
 
     File.open(path, *positional, **keywords, &block)

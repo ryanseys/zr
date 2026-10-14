@@ -24,7 +24,7 @@ class Date
   # between NUL bytes renders separately.
   def strftime(format = "%F")
     format = String(format) unless format.is_a?(String)
-    raise TypeError, "no implicit conversion of #{format.class} into String" unless format.is_a?(String)
+    raise TypeError, no_implicit_conversion(format, "String") unless format.is_a?(String)
     raise ArgumentError, "format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
 
     out = format.b.split(/(\0+)/).sum("".b) { |part| part.start_with?("\0") ? part : rendered(part) }

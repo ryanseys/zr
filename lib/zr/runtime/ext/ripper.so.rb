@@ -26,7 +26,7 @@ class Ripper
   # a tab reaching the next multiple of eight, removed in place, as
   # parse.y's dedent_string removes them. Returns the bytes removed.
   def self.dedent_string(input, width)
-    raise TypeError, "no implicit conversion of #{input.class} into String" unless input.is_a?(String)
+    raise TypeError, no_implicit_conversion(input, "String") unless input.is_a?(String)
 
     columns = 0
     removed = 0
@@ -57,7 +57,7 @@ class Ripper
       end
       src = text
     end
-    raise TypeError, "no implicit conversion of #{src.class} into String" unless src.is_a?(String)
+    raise TypeError, no_implicit_conversion(src, "String") unless src.is_a?(String)
 
     @cursor = Cursor.new(src, filename.to_s, Integer(lineno))
   end

@@ -1096,7 +1096,7 @@ class File < IO
     Primitive.attr! :hidden
     unless path.is_a?(String)
       given = path.respond_to?(:to_path) ? path.to_path : path
-      path = String.try_convert(given) or raise TypeError, "no implicit conversion of #{given.nil? ? 'nil' : given.class} into String"
+      path = String.try_convert(given) or raise TypeError, no_implicit_conversion(given, "String")
     end
     unless path.encoding.ascii_compatible?
       raise Encoding::CompatibilityError, "path name must be ASCII-compatible (#{path.encoding}): #{path.inspect}"
@@ -1192,7 +1192,7 @@ class File < IO
         return +"r"
       end
       string = String.try_convert(mode)
-      raise TypeError, "no implicit conversion of #{mode.nil? ? 'nil' : mode.class} into String" if string.nil?
+      raise TypeError, no_implicit_conversion(mode, "String") if string.nil?
 
       access_mode(string)
     end

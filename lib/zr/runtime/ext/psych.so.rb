@@ -89,45 +89,32 @@ module Psych
       FIXNUM_RANGE = (-(2**62)..(2**62) - 1)
       INT_RANGE = (-(2**31)..(2**31) - 1)
 
-      # The name rb_check_type shows for a value.
-      def type_name(value)
-        case value
-        when nil then "nil"
-        when true then "true"
-        when false then "false"
-        else value.class.to_s
-        end
-      end
-
       # Check_Type(value, T_STRING)
       def check_string(value)
         return value if value.is_a?(String)
 
-        raise TypeError, "wrong argument type #{type_name(value)} (expected String)"
+        raise TypeError, "wrong argument type #{conversion_name(value)} (expected String)"
       end
 
       # Check_Type(value, T_ARRAY)
       def check_array(value)
         return value if value.is_a?(Array)
 
-        raise TypeError, "wrong argument type #{type_name(value)} (expected Array)"
+        raise TypeError, "wrong argument type #{conversion_name(value)} (expected Array)"
       end
 
       # Check_Type(value, T_FIXNUM)
       def check_fixnum(value)
         return value if value.is_a?(Integer) && FIXNUM_RANGE.cover?(value)
 
-        raise TypeError, "wrong argument type #{type_name(value)} (expected Integer)"
+        raise TypeError, "wrong argument type #{conversion_name(value)} (expected Integer)"
       end
 
       # StringValue
       def string_value(value)
         return value if value.is_a?(String)
 
-        unless value.respond_to?(:to_str)
-          name = value.nil? || value == true || value == false ? type_name(value) : value.class.to_s
-          raise TypeError, "no implicit conversion of #{name} into String"
-        end
+        raise TypeError, no_implicit_conversion(value, "String") unless value.respond_to?(:to_str)
 
         converted = value.to_str
         return converted if converted.is_a?(String)
@@ -156,13 +143,11 @@ module Psych
           raise RangeError, "float #{value} out of range of integer" unless INT_RANGE.cover?(truncated)
 
           truncated
-        when nil
+        when nil, true, false
           raise TypeError, no_implicit_conversion(value, "Integer")
-        when true, false
-          raise TypeError, "no implicit conversion of #{value} into Integer"
         else
           unless value.respond_to?(:to_int)
-            raise TypeError, "no implicit conversion of #{value.class} into Integer"
+            raise TypeError, no_implicit_conversion(value, "Integer")
           end
 
           num2int(value.to_int)

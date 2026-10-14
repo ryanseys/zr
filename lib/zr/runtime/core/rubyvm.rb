@@ -184,7 +184,7 @@ class RubyVM
       alias new compile
 
       def compile_file(file, options = nil)
-        file = String.try_convert(file) or raise TypeError, "no implicit conversion of #{conversion_name(file)} into String"
+        file = String.try_convert(file) || raise(TypeError, no_implicit_conversion(file, "String"))
         source = begin
           File.read(file)
         rescue SystemCallError => e

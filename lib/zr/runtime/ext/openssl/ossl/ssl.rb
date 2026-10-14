@@ -910,7 +910,7 @@ module OpenSSL
         @context = context
         Ossl.sslctx_setup(context)
         io.nonblock = true if io.respond_to?(:nonblock=)
-        raise TypeError, "wrong argument type #{Ossl.type_name(io)} (expected File)" unless io.is_a?(IO)
+        raise TypeError, "wrong argument type #{conversion_name(io)} (expected File)" unless io.is_a?(IO)
 
         @io = io
         ssl = Lib.SSL_new(ctx)

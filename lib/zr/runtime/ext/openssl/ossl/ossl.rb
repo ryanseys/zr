@@ -197,7 +197,7 @@ module OpenSSL
 
       # Check_Type(value, T_ARRAY).
       def check_array(value)
-        raise TypeError, "wrong argument type #{type_name(value)} (expected Array)" unless value.is_a?(Array)
+        raise TypeError, "wrong argument type #{conversion_name(value)} (expected Array)" unless value.is_a?(Array)
       end
 
       # An Integer that a C struct's ex_data or callback argument contains
@@ -249,7 +249,7 @@ module OpenSSL
         return value if value.is_a?(String)
 
         converted = String.try_convert(value)
-        raise TypeError, "no implicit conversion of #{type_name(value)} into String" if converted.nil?
+        raise TypeError, no_implicit_conversion(value, "String") if converted.nil?
 
         converted
       end
@@ -330,7 +330,7 @@ module OpenSSL
 
       # rb_to_int: an Integer through to_int, or a TypeError.
       def integer(value)
-        raise TypeError, "no implicit conversion of #{type_name(value)} into Integer" unless value.respond_to?(:to_int, true) && !(value == true || value == false)
+        raise TypeError, no_implicit_conversion(value, "Integer") unless value.respond_to?(:to_int, true) && !(value == true || value == false)
 
         converted = value.__send__(:to_int)
         raise TypeError, cant_convert_gives(value, "Integer", :to_int, converted) unless converted.is_a?(Integer)
@@ -348,16 +348,6 @@ module OpenSSL
         raise ArgumentError, "unknown keyword#{"s" if unknown.size > 1}: #{unknown.map(&:inspect).join(", ")}" unless unknown.empty?
 
         options.values_at(*names)
-      end
-
-      # How ruby's conversion errors name a value's class.
-      def type_name(value)
-        case value
-        when nil then "nil"
-        when true then "true"
-        when false then "false"
-        else value.class.to_s
-        end
       end
 
       # ossl_to_der.
@@ -535,7 +525,7 @@ module OpenSSL
       def check(object)
         return if object.is_a?(@klass)
 
-        raise TypeError, "wrong argument type #{Ossl.type_name(object)} (expected #{@name})"
+        raise TypeError, "wrong argument type #{conversion_name(object)} (expected #{@name})"
       end
     end
 

@@ -2384,7 +2384,7 @@ class String
   # receiver's encoding, or plain ASCII where ASCII is one byte.
   def scrub_replacement(text, encoding)
     Primitive.attr! :hidden
-    text = String.try_convert(text) or raise TypeError, "no implicit conversion of #{conversion_name(text)} into String"
+    text = String.try_convert(text) || raise(TypeError, no_implicit_conversion(text, "String"))
     raise ArgumentError, "replacement must be valid byte sequence '#{text.inspect}'" unless text.valid_encoding?
     unless text.ascii_only? ? !Encoding.wide?(encoding) : text.encoding.equal?(encoding)
       raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.shown(encoding)} and #{Encoding.shown(text.encoding)}"
@@ -5161,7 +5161,7 @@ class Encoding
     raise RuntimeError, "string modified" if watched && Primitive.zr_str_bytesize(watched[0]) != watched[1]
     return nil if text.nil?
 
-    String.try_convert(text) || raise(TypeError, "no implicit conversion of #{text.class} into String")
+    String.try_convert(text) || raise(TypeError, no_implicit_conversion(text, "String"))
   end
   private_class_method :fallback
 

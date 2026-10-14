@@ -225,7 +225,7 @@ module NKF
       return value if value.is_a?(String)
 
       String.try_convert(value) or
-        raise TypeError, "no implicit conversion of #{value.nil? || value == true || value == false ? value.inspect : value.class} into String"
+        raise TypeError, no_implicit_conversion(value, "String")
     end
 
     # rb_nkf_enc_get: the Ruby encoding that an nkf encoding name
