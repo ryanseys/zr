@@ -5,7 +5,7 @@
 module Zr
   module Library
     # The gems of the pinned ruby that vendor/ holds, at ruby's versions
-    # (lib/zr/library/vendor.rb, lib/zr/library/roots.rb). The gems whose C zr
+    # (tool/lib/zr/dev/vendored.rb, lib/zr/library/roots.rb). The gems whose C zr
     # ports are in lib/zr/library/ports.rb, at zr's versions.
     module Stdlib
       # The default gems: their files are in Layout::RUBYLIBDIR.

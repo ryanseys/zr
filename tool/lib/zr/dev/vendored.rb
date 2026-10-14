@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Zr
-  module Library
+  module Dev
     # What vendor/ holds, and the one file to edit to change it. vendor/ is
     # upstream code, byte for byte as its authors ship it. Nobody edits a
     # file there: `zr-dev vendor` writes the tree from these lists, from
@@ -25,7 +25,7 @@ module Zr
     # a file there replaces an upstream file of the same name.
     # docs/how-to/update-vendored-code.md has the steps to add or update a
     # gem.
-    module Vendor
+    module Vendored
       # The bundled gems of ruby that vendor/ holds, at the versions in
       # ruby's gems/bundled_gems. A bundled gem with a C part is a port
       # (lib/zr/library/ports.rb, at zr's version), or zr refuses it (rbs,

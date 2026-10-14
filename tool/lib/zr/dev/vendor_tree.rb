@@ -10,14 +10,14 @@ require "stringio"
 require "tmpdir"
 require "yaml"
 require "zlib"
-require_relative "../../../../lib/zr/library/vendor"
+require_relative "vendored"
 require_relative "../../../../lib/zr/library/ports"
 
 module Zr
   module Dev
     # vendor/, as `zr-dev vendor` writes it: each file with its bytes, the
     # sources that it came from, and the text of vendor/vendor.lock and
-    # lib/zr/library/stdlib.rb. lib/zr/library/vendor.rb says what the tree
+    # lib/zr/library/stdlib.rb. tool/lib/zr/dev/vendored.rb says what the tree
     # holds and why.
     #
     # Each source kind is a small class below: a tree at a git revision
@@ -47,7 +47,7 @@ module Zr
       # The digest of what the tree is made from, recorded in the lock, so
       # an offline check sees an edit to the inputs.
       def self.inputs
-        Digest::SHA256.hexdigest([File.binread(Dev.path("lib/zr/library/vendor.rb")), Library::Ports::ALL.inspect, RUBY, RUBY_REVISION].join("\0"))
+        Digest::SHA256.hexdigest([File.binread(Dev.path("tool/lib/zr/dev/vendored.rb")), Library::Ports::ALL.inspect, RUBY, RUBY_REVISION].join("\0"))
       end
 
       # The locked sources and files: `[entries, { rel => sha256 }, inputs]`,
@@ -98,7 +98,7 @@ module Zr
         %w[COPYING BSDL LEGAL].each { |name| add(File.join(Library::Layout::LICENSES, "ruby", name), ruby.read(name)) }
         @defaults = default_gems(ruby)
         rubygems_license
-        @bundled = Library::Vendor::BUNDLED.to_h { |name| [name, stock_bundled(ruby).fetch(name) { @fail.call("#{name} is not in ruby's gems/bundled_gems") }] }
+        @bundled = Vendored::BUNDLED.to_h { |name| [name, stock_bundled(ruby).fetch(name) { @fail.call("#{name} is not in ruby's gems/bundled_gems") }] }
         @bundled.each { |name, version| gem("bundled", name, version) }
         Library::Ports::ALL.each { |name, port| port_gem(ruby, name, port.version) if port.vendored }
         stock_ports!
@@ -112,7 +112,7 @@ module Zr
       # The lock's text: the inputs' digest, each source, then each file.
       def lock_text
         head = <<~TEXT
-          # vendor/vendor.lock: written by `zr-dev vendor` from lib/zr/library/vendor.rb,
+          # vendor/vendor.lock: written by `zr-dev vendor` from tool/lib/zr/dev/vendored.rb,
           # lib/zr/library/ports.rb and lib/zr/ruby_version.rb. Do not edit.
           # `zr-dev vendor --check` checks vendor/ against it.
           #
@@ -136,7 +136,7 @@ module Zr
           module Zr
             module Library
               # The gems of the pinned ruby that vendor/ holds, at ruby's versions
-              # (lib/zr/library/vendor.rb, lib/zr/library/roots.rb). The gems whose C zr
+              # (tool/lib/zr/dev/vendored.rb, lib/zr/library/roots.rb). The gems whose C zr
               # ports are in lib/zr/library/ports.rb, at zr's versions.
               module Stdlib
                 # The default gems: their files are in Layout::RUBYLIBDIR.
@@ -204,7 +204,7 @@ module Zr
         end
       end
 
-      def left_out?(rel) = Library::Vendor::LEFT_OUT.each_key.any? { |entry| entry.end_with?("/") ? rel.start_with?(entry) : rel == entry }
+      def left_out?(rel) = Vendored::LEFT_OUT.each_key.any? { |entry| entry.end_with?("/") ? rel.start_with?(entry) : rel == entry }
 
       # The default gems of this ruby: each specification as its install
       # has it, each gem's license files from its .gem, and its executables,
@@ -255,7 +255,7 @@ module Zr
 
         @entries << Entry.new(kind, name, version, GemSource.url(name, version), @gems.sha(name, version))
         root = Library::Layout.gem_root(name, version)
-        excluded = Library::Vendor::GEM_EXCLUDE.fetch(name, {})
+        excluded = Vendored::GEM_EXCLUDE.fetch(name, {})
         @gems.contents(package).each do |rel, bytes|
           next if excluded.key?(rel) || rel.match?(NATIVE)
 
@@ -282,7 +282,7 @@ module Zr
         tree = GitTree.new(Dev.prism_src, revision, "PRISM_SRC")
         @entries << Entry.new("port", "prism", version, "https://github.com/ruby/prism@#{revision}", nil)
         root = Library::Layout.gem_root("prism", version)
-        excluded = Library::Vendor::GEM_EXCLUDE.fetch("prism", {})
+        excluded = Vendored::GEM_EXCLUDE.fetch("prism", {})
         files = tree.files(%w[lib]).to_h { |rel| [rel, tree.read(rel)] }.merge(prism_rendered(tree, ""))
         files["LICENSE.md"] = tree.read("LICENSE.md")
         files.each { |rel, bytes| add(File.join(root, rel), bytes) unless excluded.key?(rel) }
@@ -355,7 +355,7 @@ module Zr
       # a build of the pinned ruby's release tarball for it.
       def target_rubies
         locked = self.class.lock.first.select { |e| e.kind == "target" }.to_h { |e| [e.name, e] }
-        Library::Vendor::TARGET_RUBIES.each do |triple, recipe|
+        Vendored::TARGET_RUBIES.each do |triple, recipe|
           prefix = "usr/local/"
           rbconfig = "#{prefix}lib/ruby/#{Library::Layout::API}/#{triple}/rbconfig.rb"
           build = TargetBuild.new(triple, recipe, locked[triple], fail: @fail)

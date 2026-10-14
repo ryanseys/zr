@@ -13,7 +13,7 @@ module Zr
     # The directories that a program's `require` reads, and the names that
     # the loader treats as part of the runtime. The directories: the pinned
     # ruby's own library and bundled gems as a stock ruby installs them, in
-    # vendor/ruby (`zr-dev vendor` writes it, lib/zr/library/vendor.rb). zr
+    # vendor/ruby (`zr-dev vendor` writes it, tool/lib/zr/dev/vendored.rb). zr
     # compiles their files into the program, and never loads them itself. A
     # build reads no gem of the host, so it needs no gem but zr, and two
     # machines build the same bytes.

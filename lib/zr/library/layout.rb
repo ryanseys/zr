@@ -12,7 +12,7 @@ module Zr
     # Two kinds of code meet on the load path (Library::Roots.stdlib):
     #
     # - upstream code, as its authors ship it, in vendor/
-    #   (lib/zr/library/vendor.rb): ruby's own library, the default and bundled
+    #   (tool/lib/zr/dev/vendored.rb): ruby's own library, the default and bundled
     #   gems, and the gems whose C zr ports;
     # - zr's own code under lib/zr/runtime/: the C halves in Ruby (EXT) and zr's
     #   own libraries (RUNTIME_LIB). It comes first, so a file there
@@ -43,7 +43,7 @@ module Zr
       # read (prism's templates).
       SOURCES = File.join(Paths::VENDOR, "src")
       # A ruby's headers and rbconfig.rb for each target that is not this
-      # host, laid out as its install prefix (Vendor::TARGET_RUBIES).
+      # host, laid out as its install prefix (Dev::Vendored::TARGET_RUBIES).
       TARGETS = File.join(Paths::VENDOR, "targets")
 
       # The directories below ROOT that hold upstream code a build reads.

@@ -12,7 +12,7 @@ One file says what it holds, and one command writes it:
 
 | Path | What |
 |---|---|
-| `lib/zr/library/vendor.rb` | the input: the bundled gems that `vendor/` holds, and the files that it leaves out, each with its reason |
+| `tool/lib/zr/dev/vendored.rb` | the input: the bundled gems that `vendor/` holds, and the files that it leaves out, each with its reason |
 | `lib/zr/library/ports.rb` | the input: each gem whose C part zr ports, at zr's version |
 | `lib/zr/ruby_version.rb` | the input: the ruby release (`RUBY`, `RUBY_REVISION`), which `zr-dev gen ruby_version` writes from `.ruby-version` |
 | `vendor/ruby/lib/ruby/<ruby_version>/` | ruby's own library, the default gems, rubygems and bundler, from ruby's source |
@@ -66,7 +66,7 @@ See [How to port a C extension](port-a-c-extension.md).
 ### Leave a file out
 
 Add it to `LEFT_OUT` (ruby's library) or `GEM_EXCLUDE` (a gem) in
-`lib/zr/library/vendor.rb`, with the reason. A file that zr refuses (`mkmf`,
+`tool/lib/zr/dev/vendored.rb`, with the reason. A file that zr refuses (`mkmf`,
 `prism/ffi`) must not be in the tree, so that its `require` stops with
 zr's reason.
 
@@ -156,7 +156,7 @@ steps in order:
    twin): `bin/zr-dev gen ruby_version`.
 5. Write the tree: `bin/zr-dev vendor`. If a gem moved between the
    default and the bundled gems, first change
-   `lib/zr/library/vendor.rb` and `lib/zr/library/ports.rb`.
+   `tool/lib/zr/dev/vendored.rb` and `lib/zr/library/ports.rb`.
 6. Install the test reference: `ruby tool/install_reference_gems.rb`.
 7. Write every generated file: `bin/zr-dev gen all`.
 8. Write the expected outputs: `bin/zr-dev expect --all`. Do it again in

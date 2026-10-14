@@ -4,7 +4,7 @@ require "test_helper"
 require "digest"
 require "zr/library/roots"
 
-# vendor/ is upstream code, byte for byte (lib/zr/library/vendor.rb). These
+# vendor/ is upstream code, byte for byte (tool/lib/zr/dev/vendored.rb). These
 # checks need no network: vendor/vendor.lock has the SHA-256 of each
 # file that `zr-dev vendor` wrote.
 #

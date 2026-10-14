@@ -15,7 +15,7 @@ under `lib/zr/` (`Zr::Paths::RUNTIME`).
 Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 
 - `vendor/`: code that other people wrote, byte for byte as they ship
-  it. Nobody edits it; `zr-dev vendor` writes it (`lib/zr/library/vendor.rb`).
+  it. Nobody edits it; `zr-dev vendor` writes it (`tool/lib/zr/dev/vendored.rb`).
 - `lib/zr/runtime/`: code that zr wrote. It comes first on the load
   path, so a file there replaces an upstream file of the same path (an
   overlay).
@@ -48,7 +48,7 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/library/` | `Zr::Library`: the library that a program requires, and where each part of it is |
 | `lib/zr/library/layout.rb` | `Library::Layout`: where `vendor/ruby`, the gem home and zr's own `runtime/ext` and `runtime/lib` are |
 | `lib/zr/library/roots.rb` | `Library::Roots`: the directories that a program's `require` searches, in order, and the names that the loader treats as the runtime's own (the kernel's description, the eval support file) |
-| `lib/zr/library/vendor.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
+| `tool/lib/zr/dev/vendored.rb` | what `vendor/` holds, and what it leaves out and why: the input of `zr-dev vendor` |
 | `lib/zr/library/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
 | `lib/zr/library/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
