@@ -3,7 +3,7 @@
 # `zr-dev vendor --check` checks vendor/ against it.
 #
 # A source: kind name version sha256-of-its-.gem url
-inputs b15b51aecf293205f1debde063702a0380561edfecaa6a5ac5f314bab4963355
+inputs e10eba1321fea094dc89cbb07514e4255244678d20343a3436b03f5a4b3d2534
 
 ruby ruby 4.1.0 - https://github.com/ruby/ruby@2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1
 source prism 1.9.0 - https://github.com/ruby/prism@0a5f9c956cb62b371ab680868d08c82ae0d49201
@@ -492,12 +492,6 @@ af5e252133782dbaeec40ab32abc90c62fdae821f1728adbd353baa4fbc9428b ruby/lib/ruby/4
 729ea83da5d77a626bcf464185a98bc48b0c0b7fcd80d93e91d3906b24c7ecf0 ruby/lib/ruby/4.1.0+5/forwardable/impl.rb
 e132d410357c9a4eeb787eca53a6215786b3a513e50cfbdde7da2e73ddfc626d ruby/lib/ruby/4.1.0+5/io/console/size.rb
 661242ec54b6323e5d5f81eab0b9b85dcfefb3b964cd1a933f560bc33d3e713b ruby/lib/ruby/4.1.0+5/ipaddr.rb
-e064e3679a183d90880440b5021b9fb51aa10e0ffa57858a5f62a87a20bdf40b ruby/lib/ruby/4.1.0+5/json.rb
-3f4d4ae589ffb6c561252daec9a1cf9dbb8c0890f43c24bf1dfdb73b46527d09 ruby/lib/ruby/4.1.0+5/json/common.rb
-16125f50e9ec14b14719276381cfa630a938da0bce6825c96ccbc9d9f19df3d9 ruby/lib/ruby/4.1.0+5/json/ext.rb
-103dae0b2e13aa9dd5e9985f83480c3db34522f4a6601b4ccc3b4108de0b4ec3 ruby/lib/ruby/4.1.0+5/json/ext/generator/state.rb
-b427ed445c15e17434f02680a4f37fc896e2c6f469d990b5ec47ebad5bc4ef6d ruby/lib/ruby/4.1.0+5/json/version.rb
-621e6d9d3eea22371297a40c1c267fcef1764806d07712a160903199b20be87c ruby/lib/ruby/4.1.0+5/mkmf/depend.rb
 f9508062a28f60ada95ae46ba41da9904c4ff2d3d966d62c464e6f4c93e48d4b ruby/lib/ruby/4.1.0+5/monitor.rb
 f851771e8c0275b34fec28dc1c506f07c1a754511c7dfcbb47a109b89e9ed5d8 ruby/lib/ruby/4.1.0+5/net/http.rb
 f9d4a73cc47f998e0e11206b7c75da14bc71e12dee8aa7c7a41e3c6626b8ba5b ruby/lib/ruby/4.1.0+5/net/http/exceptions.rb

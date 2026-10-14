@@ -43,6 +43,9 @@ module Zr
         "ruby/prism/ffi.rb" => "Ruby::Prism's FFI half: zr refuses it (Hir::Build::UNSUPPORTED_LIBRARIES)",
         "win32/" => "only a Windows ruby installs it",
         "mkmf.rb" => "zr runs mkmf in the host ruby, never in a program (Hir::Build::UNSUPPORTED_LIBRARIES)",
+        "mkmf/" => "zr refuses mkmf (Hir::Build::UNSUPPORTED_LIBRARIES)",
+        "json.rb" => "the json port gem comes first on every load path (Ports.roots), so ruby's own copy is never read",
+        "json/" => "the json port gem comes first on every load path (Ports.roots), so ruby's own copy is never read",
         "bundler/man/index.txt" => "ruby's installer leaves it out"
       }.freeze
 

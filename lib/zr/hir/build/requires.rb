@@ -181,6 +181,7 @@ module Zr
       # sentence.
       UNSUPPORTED_LIBRARIES = {
         "mkmf" => "mkmf, which writes a C extension's Makefile: zr runs it in the host ruby when it builds a gem's extension, so mkmf in a program",
+        "mkmf/depend" => "mkmf/depend, a part of mkmf: zr runs mkmf in the host ruby when it builds a gem's extension, so mkmf in a program",
         "ruby/prism/ffi" => "ruby/prism/ffi, the FFI half of Ruby::Prism: this runtime's Ruby::Prism is a Ruby port of the C, so the C half"
       }.freeze
 
