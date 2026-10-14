@@ -540,7 +540,6 @@ class Date
     y, m, d = civil
     y, m = ((y * 12) + (m - 1) + months).divmod(12)
     m += 1
-    jd = nil
     until (jd = self.class.send(:valid_civil_jd, y, m, d, reform))
       d -= 1
       raise Error, "invalid date" if d < 1

@@ -144,7 +144,7 @@ module Enumerable
         nil
       end
     else
-      Primitive.zr_enum_each(self, nil) do |x|
+      Primitive.zr_enum_each(self, nil) do |_x|
         n += 1
         nil
       end

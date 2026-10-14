@@ -26,7 +26,7 @@ module ErrorHighlight
     def self.table
       @table || begin
         table = Ractor.make_shareable(load_table)
-        @table = table unless Primitive.zr_ractor_task_p_m # rubocop:disable ThreadSafety/ClassInstanceVariable
+        @table = table unless Primitive.zr_ractor_task_p_m
         table
       end
     end
@@ -69,7 +69,7 @@ module ErrorHighlight
 
       _, _, first_lineno, first_column, last_lineno, last_column = row
       script_lines = File.read(@path).lines
-      snippet = script_lines[first_lineno - 1..last_lineno - 1].join
+      snippet = script_lines[(first_lineno - 1)..(last_lineno - 1)].join
       snippet += "\n" unless snippet.end_with?("\n")
       { first_lineno:, first_column:, last_lineno:, last_column:, snippet:, script_lines: }
     end

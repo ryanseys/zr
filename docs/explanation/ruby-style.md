@@ -310,8 +310,13 @@ off (`DisabledByDefault`).
   module, and `Dir.chdir`. `ThreadSafety/NewThread` is off, because zr
   starts threads on purpose.
 
-The runtime's core, extensions and libraries are not linted yet: much of
-that code follows upstream code. The kernel gets the Lint cops only.
+The runtime (`lib/zr/runtime`) gets the Lint cops only: its kernel is
+typed Ruby, and its core, extensions and libraries follow CRuby's C and
+upstream ports line for line. A few Lint cops are off for it, each with
+its reason in `.rubocop.yml` (for example, `self` as the value of
+`initialize` mirrors the C), and the todo lists the runtime files that
+the noisier cops flag. A mirror of upstream code that a cop flags gets an
+inline `rubocop:disable` that names its source.
 
 Add another cop only when it finds real problems in this code, one cop
 at a time, with the reason in `.rubocop.yml`. Do not add a cop that

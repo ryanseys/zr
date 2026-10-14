@@ -234,7 +234,7 @@ module FFI
         return_type = return_type.native_type
       end
       FFI.callback_result(return_type, result, value)
-    rescue Exception # rubocop:disable Lint/RescueException
+    rescue Exception
       Primitive.zr_ffi_fill(result, 0, return_type.ffi_type.size)
       raise
     end

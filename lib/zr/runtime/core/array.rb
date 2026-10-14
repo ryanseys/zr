@@ -553,7 +553,7 @@ class Array
 
   def combination(given)
     k = Primitive.zr_index_operand_m(given)
-    return to_enum(:combination, given) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..Primitive.zr_ary_len_m(self) - k).inject(1) { |a, b| a * b }) } unless block_given?
+    return to_enum(:combination, given) { k < 0 || k > Primitive.zr_ary_len_m(self) ? 0 : (1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b } / ((1..k).inject(1) { |a, b| a * b } * (1..(Primitive.zr_ary_len_m(self) - k)).inject(1) { |a, b| a * b }) } unless block_given?
 
     if k == 0
       yield []
@@ -573,7 +573,7 @@ class Array
     unless block_given?
       return to_enum(:permutation, *args) do
         r = args.empty? ? Primitive.zr_ary_len_m(self) : Primitive.zr_index_operand_m(args[0])
-        r < 0 || r > Primitive.zr_ary_len_m(self) ? 0 : (Primitive.zr_ary_len_m(self) - r + 1..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b }
+        r < 0 || r > Primitive.zr_ary_len_m(self) ? 0 : ((Primitive.zr_ary_len_m(self) - r + 1)..Primitive.zr_ary_len_m(self)).inject(1) { |a, b| a * b }
       end
     end
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 0..1)" if args.size > 1
@@ -1648,7 +1648,7 @@ class Array
         end
       else
         rest = f + x
-        (i + 1...Primitive.zr_ary_len_m(self)).each { |j| rest += yield(j) }
+        ((i + 1)...Primitive.zr_ary_len_m(self)).each { |j| rest += yield(j) }
         return rest
       end
       i += 1

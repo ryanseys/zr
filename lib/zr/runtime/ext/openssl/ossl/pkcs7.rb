@@ -181,7 +181,7 @@ module OpenSSL
         return nil if certificates.nil?
 
         x509_ary2sk(certificates)
-      rescue Exception # rubocop:disable Lint/RescueException
+      rescue Exception
         Lib.BIO_free(bio) if bio
         raise
       end
@@ -479,7 +479,7 @@ module OpenSSL
       x509store = Ossl.x509store(store)
       flags = Ossl.optional_int(flags)
       indata = @data if indata.nil?
-      bio, indata = indata.nil? ? [nil, nil] : Ossl.obj2bio(indata)
+      bio, = indata.nil? ? [nil, nil] : Ossl.obj2bio(indata)
       stack = Ossl.certificate_stack(certs, bio)
       out = Lib.BIO_new(Lib.BIO_s_mem)
       if out.zero?

@@ -216,7 +216,7 @@ module OpenSSL
         if ok != 0 && context.instance_variable_get(:@verify_hostname) && Lib.SSL_is_server(ssl).zero? && Lib.X509_STORE_CTX_get_error_depth(ctx).zero?
           begin
             identity = verify_certificate_identity(socket, ctx)
-          rescue Exception => e # rubocop:disable Lint/RescueException
+          rescue Exception => e
             callback_failed(socket, e)
             return 0
           end
@@ -255,7 +255,7 @@ module OpenSSL
             private_pkey(key)
             [certificate, key]
           end
-        rescue Exception # rubocop:disable Lint/RescueException
+        rescue Exception
           nil
         end
         return 0 if pair.nil?
@@ -274,7 +274,7 @@ module OpenSSL
         dh = Lib.EVP_PKEY_get0_DH(pkey(callback.call(socket, is_export, keylength)))
         clear_error if dh.zero?
         dh
-      rescue Exception => e # rubocop:disable Lint/RescueException
+      rescue Exception => e
         callback_failed(socket, e)
         0
       end
@@ -285,7 +285,7 @@ module OpenSSL
         session = begin
           callback = socket.__send__(:session_get_cb)
           callback&.call([socket, Lib.read(buffer, length)])
-        rescue Exception => e # rubocop:disable Lint/RescueException
+        rescue Exception => e
           callback_failed(socket, e)
           return 0
         end
@@ -302,7 +302,7 @@ module OpenSSL
         session = ssl_session_new(session)
         begin
           socket.__send__(:session_new_cb)&.call([socket, session])
-        rescue Exception => e # rubocop:disable Lint/RescueException
+        rescue Exception => e
           callback_failed(socket, e)
         end
         0
@@ -314,7 +314,7 @@ module OpenSSL
         callback = context_of(socket).instance_variable_get(:@keylog_cb)
         callback&.call(socket, Lib.string(line))
         0
-      rescue Exception => e # rubocop:disable Lint/RescueException
+      rescue Exception => e
         callback_failed(socket, e)
         0
       end
@@ -328,7 +328,7 @@ module OpenSSL
         session = ssl_session_new(session)
         begin
           context.instance_variable_get(:@session_remove_cb)&.call([context, session])
-        rescue Exception # rubocop:disable Lint/RescueException
+        rescue Exception
           nil
         end
         0
@@ -352,7 +352,7 @@ module OpenSSL
             raise error(ArgumentError, "servername_cb must return an OpenSSL::SSL::SSLContext object or nil")
           end
           Lib::SSL_TLSEXT_ERR_OK
-        rescue Exception => e # rubocop:disable Lint/RescueException
+        rescue Exception => e
           callback_failed(socket, e)
           Lib::SSL_TLSEXT_ERR_ALERT_FATAL
         end
@@ -406,7 +406,7 @@ module OpenSSL
           end
           selected = string_value(callback.call(protocols))
           raise error(OpenSSL::SSL::SSLError, "Selected protocol name must have length 1..255") unless selected.bytesize.between?(1, 255)
-        rescue Exception => e # rubocop:disable Lint/RescueException
+        rescue Exception => e
           callback_failed(socket, e)
           return Lib::SSL_TLSEXT_ERR_ALERT_FATAL
         end

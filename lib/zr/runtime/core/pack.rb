@@ -502,7 +502,7 @@ module Packing
         raise ArgumentError, +"too few arguments" if at + n > Primitive.zr_ary_len_m(items)
 
         done = Primitive.zr_pack_ints(out, items, at, n, size, big == true)
-        (at + done...at + n).each { |i| push_integer(out, integer_item(Primitive.zr_ary_at_m(items, i)), size, big) }
+        ((at + done)...(at + n)).each { |i| push_integer(out, integer_item(Primitive.zr_ary_at_m(items, i)), size, big) }
         at += n
       end
     end

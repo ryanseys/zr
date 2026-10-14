@@ -1095,7 +1095,7 @@ module Psych
       def scan_block_scalar_breaks(indent, breaks, start_mark, end_mark)
         max_indent = 0
 
-        end_mark = current_mark
+        end_mark = current_mark # rubocop:disable Lint/ShadowedArgument -- scanner.c sets its out-parameter here
 
         loop do
           # Eat the indentation spaces.

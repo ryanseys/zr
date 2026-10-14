@@ -179,7 +179,7 @@ module OpenSSL
 
         # Takes the key that `encapsulated` holds with the private key
         # `private_key`.
-        def decap(encapsulated, private_key, info) # rubocop:disable Naming/PredicateMethod -- ruby's name, which answers true
+        def decap(encapsulated, private_key, info)
           ctx = Ossl::HPKE_CTX.fetch(self)
           pkey = Ossl.pkey(private_key)
           encapsulated = Ossl.string_value(encapsulated)

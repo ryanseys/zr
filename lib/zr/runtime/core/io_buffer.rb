@@ -1000,7 +1000,7 @@ class IO
       self
     end
 
-    def c_try_unlock # rubocop:disable Naming/PredicateMethod -- ruby's name, which unlocks
+    def c_try_unlock
       Primitive.attr! :hidden
       holder = owner
       return false if holder.send(:locks).zero?

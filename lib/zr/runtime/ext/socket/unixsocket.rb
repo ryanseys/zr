@@ -134,7 +134,7 @@ class UNIXSocket < BasicSocket
             else
               begin
                 connect_to(sockaddr)
-              rescue Exception # rubocop:disable Lint/RescueException
+              rescue Exception
                 close
                 raise
               end

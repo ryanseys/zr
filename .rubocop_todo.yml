@@ -3,12 +3,11 @@
 # Zr::Session, then delete the file from this list.
 ThreadSafety/ClassInstanceVariable:
   Exclude:
-    - "lib/zr/cache/parse.rb"
+    - "lib/zr/runtime/**/*"
     - "lib/zr/cli.rb"
     - "lib/zr/eval.rb"
     - "lib/zr/eval/walk.rb"
     - "lib/zr/gc_tuning.rb"
-    - "lib/zr/hir/build/requires.rb"
     - "lib/zr/machine/host.rb"
     - "lib/zr/native/code_cache.rb"
     - "lib/zr/native/resident.rb"
@@ -34,10 +33,12 @@ ThreadSafety/ClassInstanceVariable:
     - "tool/lib/zr/dev/command.rb"
 ThreadSafety/MutableClassInstanceVariable:
   Exclude:
+    - "lib/zr/runtime/**/*"
     - "lib/zr/target.rb"
     - "test/support/harness/child.rb"
 ThreadSafety/DirChdir:
   Exclude:
+    - "lib/zr/runtime/**/*"
     - "bin/setup"
     - "lib/zr/gem_set/resolve.rb"
     - "lib/zr/server.rb"
@@ -58,6 +59,7 @@ ThreadSafety/DirChdir:
 # the file from this list.
 Metrics/ParameterLists:
   Exclude:
+    - "lib/zr/runtime/**/*"
     - "lib/zr/backend/aarch64/assembler.rb"
     - "lib/zr/backend/aarch64/regalloc.rb"
     - "lib/zr/eval/walk.rb"
@@ -78,6 +80,7 @@ Metrics/ParameterLists:
 # Shorten the lines of a file, then delete it from this list.
 Layout/LineLength:
   Exclude:
+    - "lib/zr/runtime/**/*"
     - "lib/zr/eval/walk/tree.rb"
     - "lib/zr/hir/build.rb"
     - "lib/zr/hir/build/patterns.rb"
@@ -92,3 +95,68 @@ Layout/LineLength:
     - "tool/gen/onig_unicode.rb"
     - "tool/gen/prism_encoding_tables.rb"
     - "tool/gen/zlib_tables.rb"
+
+# Runtime files that the Lint cops flagged when they came to the
+# runtime. Each is a mirror of C or of an upstream port; fix a file, then
+# delete it from its list.
+# - A parameter that a port keeps for its C signature. A rename changes
+#   Method#parameters, which programs read.
+Lint/UnusedMethodArgument:
+  Exclude:
+    - "lib/zr/runtime/core/binding.rb"
+    - "lib/zr/runtime/core/hash.rb"
+    - "lib/zr/runtime/core/io.rb"
+    - "lib/zr/runtime/core/kernel.rb"
+    - "lib/zr/runtime/core/module.rb"
+    - "lib/zr/runtime/core/rational.rb"
+    - "lib/zr/runtime/core/regexp/onig/parser.rb"
+    - "lib/zr/runtime/core/rubyvm.rb"
+    - "lib/zr/runtime/ext/date/strptime.rb"
+    - "lib/zr/runtime/ext/digest.so.rb"
+    - "lib/zr/runtime/ext/ffi_c/function.rb"
+    - "lib/zr/runtime/ext/objspace.so.rb"
+    - "lib/zr/runtime/ext/stringio.rb"
+    - "lib/zr/runtime/ext/zlib.rb"
+    - "lib/zr/runtime/lib/zr/ast.rb"
+# - A class that a port declares empty, as its C defines it with no
+#   methods (an error class, a marker).
+Lint/EmptyClass:
+  Exclude:
+    - "lib/zr/runtime/core/box.rb"
+    - "lib/zr/runtime/core/rubyvm.rb"
+    - "lib/zr/runtime/ext/erb/escape.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/bn.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/hmac.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/ns_spki.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/ocsp.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/pkcs7.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/pkey.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/ssl_session.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/ssl.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/ts.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/x509attr.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/x509cert.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/x509crl.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/x509ext.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/x509req.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/x509revoked.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/x509store.rb"
+    - "lib/zr/runtime/ext/psych.so.rb"
+# - A `return` from a `begin` whose value a variable takes, as the C
+#   returns from the middle of the function.
+Lint/NoReturnInBeginEndBlocks:
+  Exclude:
+    - "lib/zr/runtime/core/argf.rb"
+    - "lib/zr/runtime/core/exception.rb"
+    - "lib/zr/runtime/core/set.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/ossl.rb"
+    - "lib/zr/runtime/ext/openssl/ossl/ssl.rb"
+# - `x&.empty?` in a condition, where nil and empty differ on purpose.
+Lint/SafeNavigationWithEmpty:
+  Exclude:
+    - "lib/zr/runtime/core/env.rb"
+    - "lib/zr/runtime/core/file.rb"
+# - The table that the cjk generator will write (it has no generator yet).
+Lint/ImplicitStringConcatenation:
+  Exclude:
+    - "lib/zr/runtime/core/ruled.rb"

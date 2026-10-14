@@ -120,12 +120,12 @@ module OpenSSL
         answer = false
         begin
           context = X509_STORE_CTX.borrow(Native.allocate(X509::StoreContext), ctx)
-        rescue Exception # rubocop:disable Lint/RescueException
+        rescue Exception
           warn("StoreContext initialization failure")
         else
           begin
             answer = proc.call(ok != 0, context)
-          rescue Exception # rubocop:disable Lint/RescueException
+          rescue Exception
             warn("exception in verify_callback is ignored")
           ensure
             X509_STORE_CTX.take(context)
@@ -275,7 +275,7 @@ module OpenSSL
         x509 = cert.nil? ? nil : Ossl.dup_x509(cert)
         begin
           stack = chain.nil? ? nil : Ossl.x509_ary2sk(chain)
-        rescue Exception # rubocop:disable Lint/RescueException
+        rescue Exception
           Lib.X509_free(x509) if x509
           raise
         end

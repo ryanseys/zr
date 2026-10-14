@@ -133,7 +133,7 @@ class << ENV
   def to_h(&block)
     hash = Primitive.zr_environment_list.to_h do |entry|
       i = entry.index("=") || entry.bytesize
-      [external(entry[0, i]), external(entry[i + 1..] || +"")]
+      [external(entry[0, i]), external(entry[(i + 1)..] || +"")]
     end
     block ? hash.to_h(&block) : hash
   end

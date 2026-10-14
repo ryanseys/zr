@@ -325,7 +325,6 @@ class Regexp
         end_code = name_end_code_point(start_code)
         name_end = @end
         r = 0
-        c = 0
 
         raise Error.new(Err::EMPTY_GROUP_NAME) if pend?(p)
 
@@ -430,7 +429,6 @@ class Regexp
         r = 0
         is_num = 0
         sign = 1
-        c = 0
 
         raise Error.new(Err::EMPTY_GROUP_NAME) if pend?(p)
 
@@ -1047,7 +1045,6 @@ class Regexp
                 p = pinc(p)
                 rel = true
               end
-              prev = p
               if gnum < 0
                 name, gnum, p = fetch_name(c, p, true)
               end

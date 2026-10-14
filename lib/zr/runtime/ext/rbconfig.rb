@@ -399,7 +399,7 @@ module RbConfig
       deps |= keys
       keys.clear
       mkconf.each { |k, v| keys << k if re =~ v }
-    end until keys.empty?
+    end until keys.empty? # rubocop:disable Lint/Loop -- rbconfig.rb's own loop, as ruby writes it
     deps.each { |k| conf[k] = mkconf[k].dup }
     deps.each { |k| expand(conf[k]) }
     deps

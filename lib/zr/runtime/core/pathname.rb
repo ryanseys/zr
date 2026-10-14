@@ -293,7 +293,7 @@ class Pathname
     while (r = chop_basename(pre))
       pre, base = r
       case base
-      when "."
+      when "." # rubocop:disable Lint/EmptyWhen -- pathname_builtin.rb's own form: "." adds nothing
       when ".."
         names.unshift(base)
       else

@@ -121,7 +121,7 @@ module OpenSSL
                 else PKey::PKey
                 end
         PKEY.wrap(klass, pkey)
-      rescue Exception # rubocop:disable Lint/RescueException
+      rescue Exception
         Lib.EVP_PKEY_free(pkey)
         raise
       end
@@ -293,7 +293,7 @@ module OpenSSL
         info = Array.new(Lib.EVP_PKEY_CTX_get_keygen_info(ctx, -1)) { |i| Lib.EVP_PKEY_CTX_get_keygen_info(ctx, i) }
         state.first.call(*info)
         1
-      rescue Exception => e # rubocop:disable Lint/RescueException
+      rescue Exception => e
         state[1] = e
         0
       end

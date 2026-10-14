@@ -86,8 +86,8 @@ module Psych
     module Glue
       module_function
 
-      FIXNUM_RANGE = (-(2**62)..(2**62) - 1)
-      INT_RANGE = (-(2**31)..(2**31) - 1)
+      FIXNUM_RANGE = (-(2**62)..((2**62) - 1))
+      INT_RANGE = (-(2**31)..((2**31) - 1))
 
       # Check_Type(value, T_STRING)
       def check_string(value)

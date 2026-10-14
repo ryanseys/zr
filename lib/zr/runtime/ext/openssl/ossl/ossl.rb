@@ -394,7 +394,7 @@ module OpenSSL
           password = begin
             given = block.call(flag != 0)
             given.nil? ? nil : string_value(given)
-          rescue Exception # rubocop:disable Lint/RescueException
+          rescue Exception
             return -1
           end
           return -1 if password.nil?

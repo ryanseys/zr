@@ -216,8 +216,8 @@ class Set
 
     items = to_a.freeze
     parents = (0...items.size).to_a
-    (0...items.size - 1).each do |i|
-      (i + 1...items.size).each do |j|
+    (0...(items.size - 1)).each do |i|
+      ((i + 1)...items.size).each do |j|
         unite(parents, i, j) if yield(items[i], items[j]) && yield(items[j], items[i])
       end
     end

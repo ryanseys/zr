@@ -107,7 +107,7 @@ module FFI
       @big_decimal = begin
         require "bigdecimal"
         true
-      rescue Exception # rubocop:disable Lint/RescueException
+      rescue Exception
         false
       end if @big_decimal.nil?
       @big_decimal ? BigDecimal(format("%.35e", value)) : value

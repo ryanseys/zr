@@ -2847,15 +2847,6 @@ class IO
     unread
   end
 
-  # io_unread: the bytes read ahead go back to the file, so its offset is
-  # where the reader is. A pipe cannot seek, and keeps them.
-  def unread
-    Primitive.attr! :hidden
-    return if @buffer.empty? || @universal
-
-    clear_buffer unless Primitive.zr_io_seek(@fd, -@buffer.bytesize, SEEK_CUR).negative?
-  end
-
   # CRuby's read buffer has a fixed size, set as it is first made: 8192
   # bytes (IO_RBUF_CAPA_MIN), 128 KiB for a stream that converts
   # (IO_CBUF_CAPA_MIN), or the first push back where that is larger.

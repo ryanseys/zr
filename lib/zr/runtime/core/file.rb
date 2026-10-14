@@ -1548,7 +1548,7 @@ class Dir
   # dir_s_glob: one pattern or an Array of them, the matches in the order
   # the walk finds them, each directory's names sorted unless `sort:` is
   # false. FNM_CASEFOLD has no effect here.
-  def self.glob(pattern, _flags = 0, flags: _flags, base: nil, sort: true)
+  def self.glob(pattern, _flags = 0, flags: _flags, base: nil, sort: true) # rubocop:disable Lint/UnderscorePrefixedVariableName -- the name is CRuby's, which Method#parameters shows
     Primitive.attr! :ruby
     flags = (File.send(:implicit_integer, flags) | Glob.sort_option(sort)) & ~File::FNM_CASEFOLD
     base = Glob.base_option(base)

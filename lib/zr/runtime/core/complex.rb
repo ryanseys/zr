@@ -95,7 +95,7 @@ class Complex < Numeric
 
           begin
             value.to_c
-          rescue Exception # rubocop:disable Lint/RescueException
+          rescue Exception
             nil
           end
         else

@@ -1077,7 +1077,7 @@ class Ractor
         answer = body.call(*args)
         Primitive.zr_hidden_set(ractor, :__token__, :exited)
         answer
-      rescue Exception # rubocop:disable Lint/RescueException
+      rescue Exception
         Primitive.zr_hidden_set(ractor, :__token__, :aborted)
         raise
       ensure
@@ -1131,7 +1131,7 @@ class Ractor
     Primitive.zr_hidden_set(ractor, :__taken__, true)
     begin
       Primitive.zr_hidden_get(ractor, :__thread__).value
-    rescue Exception # rubocop:disable Lint/RescueException
+    rescue Exception
       error = RemoteError.new("thrown by remote Ractor.")
       Primitive.zr_hidden_set(error, :__ractor__, ractor)
       raise error

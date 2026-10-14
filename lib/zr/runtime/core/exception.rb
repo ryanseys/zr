@@ -90,7 +90,7 @@ class Exception
     Primitive.zr_hidden_set(Exception, :__decorated__, true)
     %i[ErrorHighlight DidYouMean SyntaxSuggest].each do |name|
       Object.const_get(name) if Object.autoload?(name)
-    rescue Exception # rubocop:disable Lint/RescueException
+    rescue Exception
       nil
     end
     true
@@ -161,12 +161,12 @@ class Exception
     opt = { highlight: highlight }
     errat = begin
       report_backtrace(self)
-    rescue Exception # rubocop:disable Lint/RescueException
+    rescue Exception
       nil
     end
     emesg = begin
       report_message(self, opt)
-    rescue Exception # rubocop:disable Lint/RescueException
+    rescue Exception
       nil
     end
     # error_pos: the main program has finished, so ruby's frame names
@@ -758,18 +758,18 @@ class Thread
                 else head
                 end
         @lineno = shown.to_i
-        @label = row[at + 5...-1]
+        @label = row[(at + 5)...-1]
         @row = row
       end
 
       # The method's own name: no block prefix, no owner.
       def base_label
         at = @label.rindex(" in ")
-        name = at ? @label[at + 4..] : @label
+        name = at ? @label[(at + 4)..] : @label
         return name if name.start_with?("<")
 
         cut = [name.rindex("#"), name.rindex(".")].compact.max
-        cut ? name[cut + 1..] : name
+        cut ? name[(cut + 1)..] : name
       end
 
       # The real path of the frame's file, as ruby fixed it when the file

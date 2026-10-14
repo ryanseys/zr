@@ -15,7 +15,7 @@ module PTY
   # device itself. A block takes the pair and leaves both closed.
   def self.open
     answer = Primitive.zr_pty_open
-    raise RuntimeError, "can't get Master/Slave device" if answer.is_a?(Integer) # rubocop:disable Style/RedundantException
+    raise RuntimeError, "can't get Master/Slave device" if answer.is_a?(Integer)
 
     descriptor, name = answer
     master = IO.new(descriptor, "r+", path: "masterpty:#{name}".freeze)
@@ -47,7 +47,7 @@ module PTY
     Primitive.attr! :hidden
     command = [login_shell] if command.empty?
     answer = Primitive.zr_pty_open
-    raise RuntimeError, "can't get Master/Slave device" if answer.is_a?(Integer) # rubocop:disable Style/RedundantException
+    raise RuntimeError, "can't get Master/Slave device" if answer.is_a?(Integer)
 
     master, name = answer
     slave = Primitive.zr_io_open_flags(name, File::RDWR | File::NOCTTY, 0)

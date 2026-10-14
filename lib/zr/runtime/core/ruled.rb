@@ -87,7 +87,7 @@ class Encoding
     point = if count >= GB18030_PLANES
               count - GB18030_PLANES + 0x10000
             else
-              run = GB18030_RUNS.find { |start, from_count, length| count >= from_count && count < from_count + length }
+              run = GB18030_RUNS.find { |_start, from_count, length| count >= from_count && count < from_count + length }
               run && run[0] + count - run[1]
             end
     return [point.chr(UTF_8), 4] if point && point <= 0x10FFFF

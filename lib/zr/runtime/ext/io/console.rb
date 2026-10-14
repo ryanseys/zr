@@ -544,7 +544,7 @@ class IO
     # the default one too. The other kinds (:cygwin, :msys) are Windows'.
     def default_tty?(types)
       Primitive.attr! :hidden
-      types.empty? || types.reduce(false) do |default, type|
+      types.empty? || types.reduce(false) do |_default, type|
         next true if type.nil?
         raise TypeError, "wrong argument type #{type.class} (expected Symbol)" unless type.is_a?(Symbol)
         raise ArgumentError, "unknown tty type: #{type.inspect}" unless type == :any

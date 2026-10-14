@@ -76,7 +76,7 @@ module Prism
           end
           hash = (hash * SECRET) & MASK64
         else
-          words = length <= 16 ? [0] : (0..length - 8).step(8).to_a
+          words = length <= 16 ? [0] : (0..(length - 8)).step(8).to_a
           words << length - 8 if length <= 16 || (length % 8).nonzero?
           words.each { |at| hash = ((hash ^ bytes.unpack1("Q<", offset: at)) * SECRET) & MASK64 }
         end

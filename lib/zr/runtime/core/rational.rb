@@ -244,7 +244,7 @@ class Rational < Numeric
       nexp = 0
       ok = false
       if text.getbyte(s) != 46
-        n, count, s = read_int(text, s)
+        n, _, s = read_int(text, s)
         return nil if n.nil?
 
         num = n

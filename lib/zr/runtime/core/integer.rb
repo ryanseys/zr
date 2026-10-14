@@ -65,7 +65,6 @@ end
 class Integer
   def to_i = self
   alias to_int to_i
-  alias truncate to_i
 
   def integer? = true
 

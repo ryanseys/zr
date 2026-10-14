@@ -260,7 +260,7 @@ class Thread
       others.each(&:kill)
       others.each do |thread|
         thread.join
-      rescue Exception # rubocop:disable Lint/RescueException
+      rescue Exception
         nil
       end
       nil

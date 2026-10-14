@@ -346,7 +346,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     Primitive.zr_hidden_get(self, :library_roots) || begin
       lines = Primitive.zr_load_names(0).split("\n")
       cut = lines.index("") || lines.size
-      Primitive.zr_state_set(self, :library_roots, [lines[0, cut].freeze, (lines[cut + 1..] || []).freeze].freeze)
+      Primitive.zr_state_set(self, :library_roots, [lines[0, cut].freeze, (lines[(cut + 1)..] || []).freeze].freeze)
     end
   end
 

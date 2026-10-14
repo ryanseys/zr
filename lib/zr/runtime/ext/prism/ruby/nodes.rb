@@ -391,7 +391,7 @@ module Prism
         return flags unless closing.type == :REGEXP_END
 
         unknown = "".b
-        (closing.start + 1...closing.end).each do |at|
+        ((closing.start + 1)...closing.end).each do |at|
           case (byte = @source.getbyte(at))
           when 0x69 then flags |= RegularExpressionFlags::IGNORE_CASE # i
           when 0x6D then flags |= RegularExpressionFlags::MULTI_LINE # m
@@ -1202,8 +1202,8 @@ module Prism
 
         text = @source.byteslice(start, finish - start)
         point = text.index(".")
-        numerator = (text.byteslice(0, point) + text.byteslice(point + 1..)).delete("_").to_i
-        denominator = 10**text.byteslice(point + 1..).delete("_").bytesize
+        numerator = (text.byteslice(0, point) + text.byteslice((point + 1)..)).delete("_").to_i
+        denominator = 10**text.byteslice((point + 1)..).delete("_").bytesize
 
         if numerator != 0 && numerator <= 0xFFFF_FFFF && denominator != 1 && denominator <= 0xFFFF_FFFF
           divisor = numerator.gcd(denominator)

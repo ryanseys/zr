@@ -585,7 +585,7 @@ module Prism
         while breakpoint
           # Whether a line continuation came right before this breakpoint.
           after_continuation = continued
-          continued = false
+          continued = false # rubocop:disable Lint/UselessAssignment -- the next pass of the loop reads it
 
           case @source.getbyte(breakpoint)
           when 0x00

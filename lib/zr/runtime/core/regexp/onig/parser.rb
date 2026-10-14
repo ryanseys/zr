@@ -722,7 +722,7 @@ class Regexp
         end
 
         if state == CCS_VALUE
-          vs, val_israw, val_type, state = next_state_val(cc, asc_cc, vs, 0, val_israw, false, val_type, val_type, state)
+          next_state_val(cc, asc_cc, vs, 0, val_israw, false, val_type, val_type, state)
         end
 
         unless prev_cc.nil?

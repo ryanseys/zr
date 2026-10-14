@@ -682,7 +682,7 @@ module Process
     parent = Primitive.zr_process_id
     begin
       Integer.send(:int_operand, Process.__send__(:_fork))
-    rescue Exception => e # rubocop:disable Lint/RescueException
+    rescue Exception => e
       raise if Primitive.zr_process_id == parent
 
       Primitive.zr_proc_child_exit(e)

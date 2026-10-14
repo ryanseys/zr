@@ -223,7 +223,7 @@ class Date
     # int, so an hour past its range has no result.
     def int_hour(hour)
       Primitive.attr! :hidden
-      raise RangeError, "integer #{hour} too big to convert to 'int'" unless (-2**31...2**31).cover?(hour)
+      raise RangeError, "integer #{hour} too big to convert to 'int'" unless (-2**31...(2**31)).cover?(hour)
 
       hour
     end

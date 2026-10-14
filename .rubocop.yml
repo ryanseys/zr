@@ -1,4 +1,8 @@
 inherit_from: .rubocop_todo.yml
+# The todo's Exclude lists add to the ones here.
+inherit_mode:
+  merge:
+    - Exclude
 
 plugins:
   - rubocop-minitest
@@ -13,12 +17,6 @@ AllCops:
   DisabledByDefault: true
   SuggestExtensions: false
   Exclude:
-    # The runtime's Ruby (core, ext, lib) is not linted yet: much of it
-    # follows upstream code (onigmo, prism, psych, openssl ports). The
-    # kernel gets the Lint cops only (see below).
-    - "lib/zr/runtime/core/**/*"
-    - "lib/zr/runtime/ext/**/*"
-    - "lib/zr/runtime/lib/**/*"
     - "vendor/**/*"       # third-party code
     - "benchmark/**/*"    # programs that zr compiles
     - "test/programs/**/*"
@@ -64,12 +62,34 @@ Lint/UnusedMethodArgument:
 Lint/LambdaWithoutLiteralBlock: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 Lint/BinaryOperatorWithIdenticalOperands: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
 
-# The kernel (lib/zr/runtime/kernel) is typed Ruby: zr lowers it, and
-# `Machine::Host` (lib/zr/machine/host.rb) runs it on ruby too. Only the Lint cops above apply to it.
-Layout: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
-Style: { Exclude: ["lib/zr/runtime/kernel/**/*", "test/**/*"] }
-Naming: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
-Metrics: { Exclude: ["lib/zr/runtime/kernel/**/*"] }
+# Off for the runtime, which mirrors CRuby and its upstream ports:
+# - nkf's TRUE and FALSE and Marshal's type tags are their names in C.
+Lint/DeprecatedConstants: { Exclude: ["lib/zr/runtime/**/*"] }
+# - an enumerator's size block counts the `given` pattern's arguments
+#   exactly, which the cop cannot see.
+Lint/ToEnumArguments: { Exclude: ["lib/zr/runtime/**/*"] }
+# - `self` as the value of initialize, and a setter or `[]=` that returns
+#   its value, mirror the C function, whose value `send` returns.
+Lint/Void: { Exclude: ["lib/zr/runtime/**/*"] }
+Lint/ReturnInVoidContext: { Exclude: ["lib/zr/runtime/**/*"] }
+# - `def dup = super` gives the method the owner that CRuby reports.
+Lint/UselessMethodDefinition: { Exclude: ["lib/zr/runtime/**/*"] }
+# - Float's own methods compare floats exactly, as C does.
+Lint/FloatComparison: { Exclude: ["lib/zr/runtime/**/*"] }
+# - a thread, a callback or a parser stops on any exception, as its C
+#   does, and gives it on.
+Lint/RescueException: { Exclude: ["lib/zr/runtime/**/*"] }
+
+# The runtime (lib/zr/runtime) gets the Lint cops only. Its kernel is
+# typed Ruby that zr lowers and `Machine::Host` (lib/zr/machine/host.rb)
+# runs on ruby too; its core, ext and lib follow upstream code (onigmo,
+# prism, psych, the openssl port) and CRuby's C, line for line. A cop
+# with an Exclude of its own names the runtime there too, because a
+# cop's list replaces its department's.
+Layout: { Exclude: ["lib/zr/runtime/**/*"] }
+Style: { Exclude: ["lib/zr/runtime/**/*", "test/**/*"] }
+Naming: { Exclude: ["lib/zr/runtime/**/*"] }
+Metrics: { Exclude: ["lib/zr/runtime/**/*"] }
 
 # Layout: only what keeps a diff readable. No formatter, so blame stays.
 Layout/LineLength:
@@ -87,6 +107,7 @@ Style/FrozenStringLiteralComment: { Enabled: true }
 # assert_path_exists names the path.
 Minitest:
   Enabled: true
+  Exclude: ["lib/zr/runtime/**/*"]
 Minitest/MultipleAssertions: { Enabled: false }              # a test checks one behavior, with its parts
 Minitest/EmptyLineBeforeAssertionMethods: { Enabled: false } # layout
 Minitest/AssertWithExpectedArgument: { Enabled: false }      # assert(x, message) is the form it flags
@@ -95,10 +116,12 @@ Minitest/AssertWithExpectedArgument: { Enabled: false }      # assert(x, message
 # not need. The compiler's own speed is a feature.
 Performance:
   Enabled: true
+  Exclude: ["lib/zr/runtime/**/*"]
 # A literal list in a loop of a test or a generator runs a few times;
 # in lib/ a loop can be hot.
 Performance/CollectionLiteralInLoop:
   Exclude:
+    - "lib/zr/runtime/**/*"
     - "test/**/*"
     - "tool/**/*"
 
@@ -133,6 +156,7 @@ Style/Semicolon:
   # loads a command when it runs. The require stays literal, so that zr
   # finds the file when it compiles the tools.
   Exclude:
+    - "lib/zr/runtime/**/*"
     - "tool/commands.rb"
     - "tool/gen.rb"
     - "tool/gems.rb"
@@ -168,6 +192,7 @@ Naming/PredicateMethod:
 # purpose (the host's timer, the test pools).
 ThreadSafety:
   Enabled: true
+  Exclude: ["lib/zr/runtime/**/*"]
 ThreadSafety/NewThread: { Enabled: false }
 ThreadSafety/RackMiddlewareInstanceVariable: { Enabled: false } # no Rack
 

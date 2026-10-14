@@ -1338,7 +1338,7 @@ class String
 
       len2 = len - 1
       len2 -= 1 while len2 > 0 && onig.precise_mbclen(char.byteslice(0, len2), 0) == -1
-      (len2 + 1...len).each { |k| char.setbyte(k, wrap) }
+      ((len2 + 1)...len).each { |k| char.setbyte(k, wrap) }
     end
   end
 
@@ -1625,7 +1625,7 @@ class String
       last = offsets
       from = offsets[1]
       to = offsets[2]
-      item = offsets.size > 3 ? (1...(offsets.size - 1) / 2).map { |i| slice_at(offsets[i * 2 + 1], offsets[i * 2 + 2]) } : slice_at(from, to)
+      item = offsets.size > 3 ? (1...((offsets.size - 1) / 2)).map { |i| slice_at(offsets[i * 2 + 1], offsets[i * 2 + 2]) } : slice_at(from, to)
       if block_given?
         Primitive.zr_backref_set(MatchData.send(:for, pattern, self, offsets))
         len = Primitive.zr_str_bytesize(self)
@@ -4056,6 +4056,8 @@ class Encoding
     message.ascii_only? ? message.b : message
   end
 
+  # The names as the registry reads them while the core boots, before the
+  # full `names` below (with "locale", "external" and the rest) exists.
   attr_reader :names
 
   # Every name is a frozen US-ASCII String, the same object on each
@@ -5381,7 +5383,8 @@ class Encoding
   MOVING = %w[locale external filesystem internal].freeze
   private_constant :MOVING
 
-  def names
+  # The boot-time reader above stays: the registry runs before this file ends.
+  def names # rubocop:disable Lint/DuplicateMethods
     moving = []
     moving << "locale" if equal?(Encoding.locale_encoding)
     moving.push("external", "filesystem") if equal?(Encoding.default_external)
