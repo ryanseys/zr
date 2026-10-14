@@ -68,7 +68,7 @@ module Zr
           require_relative "../digests"
           Digest::SHA256.new.tap do |d|
             d << VERSION.to_s << "\0"
-            BACKEND.each { |name| d << name << "\0" << Digests.code_digest(File.binread(File.join(LIB, name))) << "\0" }
+            BACKEND.each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
           end.hexdigest
         end
       end

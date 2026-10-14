@@ -52,7 +52,7 @@ module Zr
       def loads_digest
         Session.current.memo(:kernel_loads_digest) do
           Digest::SHA256.new.tap do |d|
-            LOADS.each { |name| d << name << "\0" << Digests.code_digest(File.binread(File.join(LIB, name))) << "\0" }
+            LOADS.each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
           end.hexdigest
         end
       end

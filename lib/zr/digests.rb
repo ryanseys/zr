@@ -23,24 +23,32 @@ module Zr
     end
 
     # The digest that names a runtime's cache files: the target, the path
-    # root, and each of `files` with its bytes (`bytes` has the ones that a
-    # build already read, so it hashes what it lowered). A file of the
-    # compiler counts by its code (`code`), so an edit of its comments
-    # rebuilds nothing; the kernel and the core count by their bytes,
-    # because a binary holds their line numbers.
-    #: (Target target, Array[String] files, ?Hash[String, String] bytes) -> String
-    def sources(target, files, bytes = {})
+    # root, and each of `files` with its own digest (`file`), taken at its
+    # stamp in `stamps` (else at its stamp now). A build checks the stamps
+    # again before it keeps anything (`Runtime#moved`).
+    #: (Target target, Array[String] files, ?Hash[String, [Rational, Integer]?] stamps) -> String
+    def sources(target, files, stamps = {})
       Digest::SHA256.new.tap do |d|
         d << target.triple << "\0"
         if (root = Paths.root)
           d << "root\0" << root << "\0"
         end
         d << "checked\0" if Config.current.kernel_checked?
-        files.each do |path|
-          data = bytes[path] || File.binread(path)
-          d << path << "\0" << (compiler_file?(path) ? code_digest(data) : data)
-        end
+        files.each { |path| d << path << "\0" << file(path, stamps.fetch(path) { Paths.stamp(path) }) }
       end.hexdigest
+    end
+
+    # The digest of `path` as `sources` counts it: a file of the compiler
+    # by its code (`code_digest`), so an edit of its comments rebuilds
+    # nothing, and the kernel, the core and the gem prelude by their bytes,
+    # because a binary holds their line numbers. A process reads and
+    # hashes each file once for each stamp it sees.
+    #: (String path, ?[Rational, Integer]? stamp) -> String
+    def file(path, stamp = Paths.stamp(path))
+      Session.current.memo([:file_digest, path, stamp]) do
+        bytes = File.binread(path)
+        compiler_file?(path) ? code_digest(bytes) : Digest::SHA256.hexdigest(bytes)
+      end
     end
 
     COMPILER = File.join(__dir__, "") #: String
@@ -65,27 +73,45 @@ module Zr
     # spaces before it. Prism finds the comments, so a `#` in a string
     # stays. A magic comment (`frozen_string_literal`) stays: it changes
     # what the code does.
+    #: (String bytes) -> String
     def code(bytes)
-      out = bytes.b
-      Prism.parse_comments(bytes).reverse_each do |comment|
+      out = String.new(capacity: bytes.bytesize, encoding: Encoding::BINARY)
+      kept = 0
+      Prism.parse_comments(bytes).each do |comment|
         from = comment.location.start_offset
         to = comment.location.end_offset
-        next if MAGIC.match?(out.byteslice(from, to - from))
+        next if MAGIC.match?(bytes.byteslice(from, to - from))
 
-        start = from.zero? ? 0 : (out.rindex("\n", from - 1) || -1) + 1
-        if out.byteslice(start, from - start).strip.empty?
+        start = from.zero? ? 0 : (bytes.byterindex("\n", from - 1) || -1) + 1
+        if blank?(bytes, start, from)
           from = start
-          to += 1 if out.getbyte(to) == 10
+          to += 1 if bytes.getbyte(to) == 10
         else
-          from -= 1 while from > start && BLANKS.include?(out.getbyte(from - 1))
+          from -= 1 while from > start && BLANKS.include?(bytes.getbyte(from - 1))
         end
-        out = out.byteslice(0, from) + out.byteslice(to..)
+        out << piece(bytes, kept, from)
+        kept = to
       end
-      out
+      out << piece(bytes, kept, bytes.bytesize)
+    end
+
+    # The bytes of `bytes` from `from` to `to`, which are in range.
+    #: (String bytes, Integer from, Integer to) -> String
+    def piece(bytes, from, to) = bytes.byteslice(from, to - from) #: String
+
+    # Whether the bytes of `bytes` from `from` to `to` are only what
+    # `strip` removes: the line before a comment that is the whole line.
+    #: (String bytes, Integer from, Integer to) -> bool
+    def blank?(bytes, from, to)
+      from += 1 while from < to && STRIPPED.include?(bytes.getbyte(from))
+      from == to
     end
 
     # A space and a tab: the blanks before a comment after code.
     BLANKS = [32, 9].freeze #: Array[Integer]
+    # The bytes that String#strip removes.
+    STRIPPED = [0, 9, 10, 11, 12, 13, 32].freeze #: Array[Integer]
+    private_class_method :blank?, :piece
 
     MAGIC = /\A#\s*(?:-\*-.*)?(?:frozen_string_literal|encoding|coding|warn_indent|warn_past_scope|shareable_constant_value)\s*:/i
 

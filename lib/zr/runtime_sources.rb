@@ -18,6 +18,7 @@ module Zr
   # top of them, and the data that the compiler lays out next to them.
   class RuntimeSources
     # @rbs @compiler_digest: String?
+    # @rbs @sources: Array[String]?
 
     # Regexp::Onig, the regular expression compiler (lib/zr/runtime/core/regexp/onig).
     # Each file defines what the next file reads.
@@ -106,12 +107,28 @@ module Zr
     #: (String of) -> String
     def self.gem_prelude_list(of) = Cache::Store.path(:meta, "#{of}-gem-prelude")
 
+    # The rows of the symbol table of the runtime of `runtime_digest`
+    # (`symbols_path`), read once per process, or nil when it is not
+    # cached or does not parse. The rows are frozen: every reader shares
+    # them.
+    #: (String runtime_digest) -> Hash[String, untyped]?
+    def self.symbol_rows(runtime_digest)
+      Session.current.memo([:symbol_rows, runtime_digest]) { JSON.parse(File.read(symbols_path(runtime_digest)), freeze: true) }
+    rescue JSON::ParserError, SystemCallError
+      nil
+    end
+
+    # Drops the rows read for `runtime_digest`, after a build wrote them.
+    #: (String runtime_digest) -> void
+    def self.forget_symbol_rows(runtime_digest) = Session.current.forget([:symbol_rows, runtime_digest])
+
     attr_reader :target #: Target
 
     #: (Target target) -> void
     def initialize(target)
       @target = target
       @compiler_digest = nil
+      @sources = nil
     end
 
     # The kernel files: the portable kernel, then its OS layer, then its
@@ -137,7 +154,7 @@ module Zr
     # The source files of the runtime, and the compiler files that lower
     # them.
     #: () -> Array[String]
-    def sources = kernel_files + core_files + compiler_files
+    def sources = @sources ||= (kernel_files + core_files + compiler_files).freeze
 
     # The compiler's files that can reach the runtime object. The runtime
     # (`Paths::RUNTIME`) is under lib/zr too, but it is what the compiler
@@ -163,12 +180,12 @@ module Zr
     # runtime's symbol table is not cached.
     #: (String runtime_digest) -> String?
     def abi_digest(runtime_digest)
-      rows = JSON.parse(File.read(RuntimeSources.symbols_path(runtime_digest)))
+      rows = RuntimeSources.symbol_rows(runtime_digest) or return nil
       Digest::SHA256.new.tap do |d|
         d << "abi 2\0" << compiler_digest << "\0" << rows.fetch("description") << "\0"
         rows.fetch("names").first(rows.fetch("kernel")).each { |name| d << (name ? "+#{name}" : "-") << "\0" }
       end.hexdigest
-    rescue JSON::ParserError, KeyError, SystemCallError
+    rescue KeyError
       nil
     end
 
@@ -179,12 +196,12 @@ module Zr
     #: (String runtime_digest) -> String?
     def eval_digest(runtime_digest)
       abi = abi_digest(runtime_digest) or return nil
-      rows = JSON.parse(File.read(RuntimeSources.symbols_path(runtime_digest)))
+      rows = RuntimeSources.symbol_rows(runtime_digest) or return nil
       Digest::SHA256.new.tap do |d|
         d << "eval 2\0" << abi << "\0" << rows.fetch("sites").to_s
         rows.fetch("names").each { |name| d << (name ? "\0+#{name}" : "\0-") }
       end.hexdigest
-    rescue JSON::ParserError, KeyError, SystemCallError
+    rescue KeyError
       nil
     end
 
@@ -194,13 +211,14 @@ module Zr
     #: () -> String?
     def runtime_digest
       files = sources
-      list = RuntimeSources.gem_prelude_list(Digests.sources(target, files))
+      stamps = files.to_h { |path| [path, Paths.stamp(path)] }
+      list = RuntimeSources.gem_prelude_list(Digests.sources(target, files, stamps))
       return nil unless File.exist?(list)
 
       prelude = JSON.parse(File.read(list))
       return nil unless prelude.all? { |file| File.file?(file) }
 
-      Digests.sources(target, files + prelude)
+      Digests.sources(target, files + prelude, stamps)
     rescue JSON::ParserError, SystemCallError
       nil
     end

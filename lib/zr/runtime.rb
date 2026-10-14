@@ -100,9 +100,9 @@ module Zr
       # share one. A build with a path root (`Paths.root`) writes
       # different names, so the root is also an input.
       @digest ||= Timing.phase("taking the runtime digest", "runtime digest") do
-        files = sources.keys + gem_prelude_files
-        @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
-        digest_of(files)
+        files = RuntimeSources.for(target).sources + gem_prelude_files
+        stamps = @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
+        Digests.sources(target, files, stamps)
       end
     end
 
@@ -129,7 +129,7 @@ module Zr
     # computed again.
     # The cache file that lists them.
     #: () -> String
-    def gem_prelude_path = RuntimeSources.gem_prelude_list(digest_of(sources.keys))
+    def gem_prelude_path = RuntimeSources.gem_prelude_list(Digests.sources(target, RuntimeSources.for(target).sources))
 
     #: () -> Array[String]
     def gem_prelude_files
@@ -143,9 +143,6 @@ module Zr
         files
       end
     end
-
-    #: (Array[String] files) -> String
-    def digest_of(files) = Digests.sources(target, files, sources)
 
     # The symbol table after the core library. It comes from the cache if
     # an earlier build lowered the core with this digest.
@@ -238,9 +235,7 @@ module Zr
 
     #: () -> Hash[Symbol, untyped]?
     def read_cached
-      return unless File.exist?(cache_path)
-
-      rows = JSON.parse(File.read(cache_path))
+      rows = RuntimeSources.symbol_rows(digest) or return nil
       return unless %w[names sites kernel functions data description].all? { |key| rows.key?(key) }
 
       { symbols: Machine::Symbols.new(rows.fetch("names"), sites: rows.fetch("sites")), kernel: rows.fetch("kernel"),
@@ -268,6 +263,7 @@ module Zr
       Cache::Store.write_file(cache_path,
                      JSON.generate({ "names" => @table.names, "sites" => @table.sites, "kernel" => kernel_symbols.names.size,
                                      "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
+      RuntimeSources.forget_symbol_rows(digest)
       { symbols: @table, kernel: kernel_symbols.names.size, wants: { functions: wanted_functions, data: wanted_data },
         description: description }
     end

@@ -74,6 +74,25 @@ class DigestTest < Minitest::Test
     end
   end
 
+  # A process reads each source once: the second digest of the same
+  # files takes each file's digest from the first.
+  def test_two_digests_read_each_source_once
+    reads = Hash.new(0)
+    binread = File.method(:binread)
+    count = lambda do |path, *rest|
+      reads[path] += 1
+      binread.call(path, *rest)
+    end
+    stub_method(Zr::Session, :current, Zr::Session.new) do
+      stub_method(File, :binread, count) do
+        2.times { Zr::RuntimeSources.new(Zr::Target.default).runtime_digest }
+      end
+    end
+
+    assert_operator reads.size, :>, 100
+    assert_empty reads.select { |_, n| n > 1 }
+  end
+
   private
 
   # Yields a copy of the compiler that the test can write. The runtime
