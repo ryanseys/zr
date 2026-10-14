@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/hir"
+require_relative "../support/hir_dump"
 
 # Dumps the HIR of each `test/hir/<name>.rb` as S-expressions and
 # compares it byte for byte with `<name>.hir`. `ZR_BLESS=1` writes the

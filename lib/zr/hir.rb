@@ -9,7 +9,6 @@ require_relative "hir/build"
 require_relative "hir/build/patterns"
 require_relative "hir/escape"
 require_relative "hir/locals"
-require_relative "hir/dump"
 
 module Zr
   module Hir

@@ -87,10 +87,6 @@ module ZrGemSet
   extend ZrGemSet
 end
 
-module Zr::Hir::Dump
-  extend Zr::Hir::Dump
-end
-
 module Zr::Hir::Locals
   extend Zr::Hir::Locals
 end

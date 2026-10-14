@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/hir"
+require_relative "../support/hir_dump"
 
 # `alias $hit $&`.
 #
