@@ -237,6 +237,18 @@ module Zr
           exit 1
         end
 
+        # How the build treats a require that no file answers: it refuses it
+        # (true), leaves it to raise LoadError when it runs
+        # (`--allow-runtime-require`, false), or under `zr build` notes it
+        # (:warn); `run` and `diff` print the program's output alone.
+        #: (Hash[Symbol, untyped] opts) -> (bool | :warn)
+        def gate(opts)
+          if opts[:runtime_require] then false
+          elsif name == "build" then :warn
+          else true
+          end
+        end
+
         # The build and the run of a program: `source`, the text of the
         # file `input` ("-e" or "-" for a program with no file), with the
         # ruby switches `switches`.
@@ -253,10 +265,12 @@ module Zr
           Paths.root = opts[:root]
           link = Config.current.link + opts[:link]
           trace = Options.trace?(opts)
+          gate = gate(opts)
           # The run cache's entry for a runtime of `digest`.
           # @type var entry: ^(String) -> Zr::Cache::Run
           entry = lambda do |digest|
-            Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest, link: link, gems: gems, trace: trace)
+            Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest, link: link, gems: gems, gate: gate,
+                                      trace: trace)
           end
           cache = @missed || kept_run(target, opts[:args], &entry) if name == "run" && emit.nil?
           require_relative "../../runtime"
@@ -268,12 +282,6 @@ module Zr
           if name == "run" && emit.nil? && Zr::Cache::Run.wanted?
             cache ||= entry.call(Runtime.for(target).digest)
           end
-          # Only `zr build` notes a require that will raise LoadError when it
-          # runs; `run` and `diff` print the program's output alone.
-          gate = if opts[:runtime_require] then false
-                 elsif name == "build" then :warn
-                 else true
-                 end #: bool | :warn
           program = lower(input, target, source: source, switches: switches, assemble: emit.nil?, gem_set: gems, gate: gate, trace: trace)
           status = Paths.tmpdir("zr-build-") do |work|
             out = name == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
@@ -335,7 +343,7 @@ module Zr
           gems = kept_gems(opts) or return
           digest = RuntimeSources.for(target).runtime_digest or return
           cache = Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest,
-                                            link: Config.current.link + opts[:link], gems: gems, trace: Options.trace?(opts))
+                                            link: Config.current.link + opts[:link], gems: gems, gate: gate(opts), trace: Options.trace?(opts))
           kept = cache.hit
           exec(Runner.program_env, [kept, kept], *opts[:args]) if kept
           # The build keeps its binary here, with no second digest.

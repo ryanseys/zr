@@ -81,6 +81,17 @@ class RunCacheTest < Minitest::Test
     assert_nil other.hit
   end
 
+  # A build with `--allow-runtime-require` leaves an unanswered require
+  # to raise when it runs, and a plain `zr run` must refuse it, so the
+  # gate is part of the key.
+  def test_a_build_with_another_require_gate_is_a_miss
+    build_and_keep
+    gated = Zr::Cache::Run.new(@main, target: Zr::Target.default, digest: Zr::Runtime.for.digest, link: [], gate: false)
+
+    assert cache.hit
+    assert_nil gated.hit
+  end
+
   # A program from -e has no file: the key holds its text and its ruby
   # switches, so the same words run the kept binary, and other switches
   # do not.

@@ -37,7 +37,7 @@ module Zr
       # @rbs @target: Target
       # @rbs @key: String
 
-      VERSION = 1
+      VERSION = 2
 
       # `ZR_RUN_CACHE=0` builds each run again.
       #: () -> bool
@@ -46,8 +46,10 @@ module Zr
       # `digest` is the runtime's digest (`RuntimeSources#runtime_digest`). `gems` is the
       # build's GemSet: a program built with other gems is another entry,
       # also when the files of the first gems are still there. A build with
-      # its trace events armed (`trace`) is another entry too. `source` is
-      # the program's text, `input`'s bytes unless given.
+      # another require gate (`gate`: a require that no file answers stops
+      # the build, or raises LoadError when it runs) or with its trace
+      # events armed (`trace`) is another entry too. `source` is the
+      # program's text, `input`'s bytes unless given.
       # @rbs input: String
       # @rbs target: Target
       # @rbs digest: String
@@ -55,15 +57,16 @@ module Zr
       # @rbs source: String?
       # @rbs switches: Hir::Switches?
       # @rbs gems: GemSet?
+      # @rbs gate: bool | :warn
       # @rbs trace: bool
       # @rbs return: void
-      def initialize(input, target:, digest:, link:, source: nil, switches: nil, gems: nil, trace: false)
+      def initialize(input, target:, digest:, link:, source: nil, switches: nil, gems: nil, gate: true, trace: false)
         @input = File.expand_path(input)
         config = Config.current
         @digest = digest
         @target = target
         @key = Store.key(VERSION, Zr::VERSION, digest, Digests.link, target.triple, Paths.root.to_s,
-                         config.linker, config.eval_walk?, config.verify?, trace, *link, "\0", gems && !gems.empty? ? gems.digest : "",
+                         config.linker, config.eval_walk?, config.verify?, gate, trace, *link, "\0", gems && !gems.empty? ? gems.digest : "",
                          input, @input, source&.b || File.binread(@input), switches&.key.to_s)
       end
 
