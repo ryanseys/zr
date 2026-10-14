@@ -10,9 +10,9 @@ module Zr
     # @rbs @memos: Hash[Symbol | Array[untyped], untyped]
 
     # The memos that the environment decides: the settings, the cache
-    # directory, and the library roots and directories that follow from
-    # them. A new build reads them again.
-    ENVIRONMENT = %i[config cache library_roots stdlib].freeze
+    # directory, and the library roots, their directories and the ruby
+    # features that they lack. A new build reads them again.
+    ENVIRONMENT = %i[config cache library_roots stdlib missing_features].freeze
 
     # The memos that a build makes: the runtimes and eval supports.
     # A server keeps them for a build with the same settings and the

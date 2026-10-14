@@ -27,6 +27,25 @@ class UnsupportedLibrariesTest < Minitest::Test
     assert_equal %(require of "#{name}"), stop(%(require "#{name}"\n))
   end
 
+  # The list follows the library roots, which the environment decides, so
+  # a new session (a warm server's next build) reads it again.
+  def test_missing_features_follow_the_roots_of_a_new_session
+    target = Zr::Target.default
+    name = Build.missing_features(target).first
+    Dir.mktmpdir("zr-roots-") do |root|
+      file = File.join(root, "#{name}.rb")
+      FileUtils.mkdir_p(File.dirname(file))
+      File.write(file, "")
+      Zr::Session.current.reset!(keep_runtimes: true)
+      Zr::Session.current.set([:stdlib, target.triple], [root])
+
+      refute_includes Build.missing_features(target), name
+    ensure
+      Zr::Session.current.reset!(keep_runtimes: true)
+    end
+    assert_includes Build.missing_features(target), name
+  end
+
   def test_every_reason_is_for_a_library_with_no_file
     assert_equal Build::UNSUPPORTED_LIBRARIES.keys.sort, (Build::UNSUPPORTED_LIBRARIES.keys & Build.missing_features).sort
   end

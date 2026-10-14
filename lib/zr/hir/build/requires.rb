@@ -47,13 +47,16 @@ module Zr
 
       # The ruby features that no library root here contains, and that
       # ruby did not load before the program. A require of one stops with
-      # a message.
+      # a message. The roots follow the environment, so each session reads
+      # them again.
       #: (?Target target) -> Array[String]
       def self.missing_features(target = Target.default)
-        missing = @missing_features ||= {} #: Hash[String, Array[String]]
-        missing[target.triple] ||= FEATURES.reject do |feature|
-          PRELOADED.include?(feature) || Library::Roots.stdlib(target).any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
-        end.sort.freeze
+        Session.current.memo([:missing_features, target.triple]) do
+          roots = Library::Roots.stdlib(target)
+          FEATURES.reject do |feature|
+            PRELOADED.include?(feature) || roots.any? { |root| File.file?(File.join(root, "#{feature}.rb")) }
+          end.sort.freeze
+        end
       end
 
       # A feature ruby loaded before the program, by any of its names:
