@@ -661,7 +661,7 @@ class Rational
 
   def marshal_load(pair)
     Primitive.attr! :hidden
-    raise FrozenError.new("can't modify frozen #{Primitive.zr_real_class(self)}: #{inspect}", receiver: self) if frozen?
+    Primitive.zr_frozen_error(self) if frozen?
     raise TypeError, "wrong argument type #{Primitive.zr_real_class(pair)} (expected Array)" unless pair.is_a?(Array)
     raise ArgumentError, "marshaled rational must have an array whose length is 2 but #{pair.size}" unless pair.size == 2
 

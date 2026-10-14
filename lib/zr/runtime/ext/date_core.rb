@@ -203,7 +203,7 @@ class Date
   # d_lite_initialize_copy: a copy takes the other date's parts. A
   # simple date cannot take the parts of one with a time of day.
   def initialize_copy(date)
-    raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+    Primitive.zr_frozen_error(self) if frozen?
     raise TypeError, "wrong argument type #{conversion_name(date)} (expected Date)" unless date.is_a?(Date)
     return self if equal?(date)
 
@@ -663,7 +663,7 @@ end
   # d_lite_marshal_load: this form, or the older one of an astronomical
   # day number, an offset in days and a reform day.
   def marshal_load(values)
-    raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+    Primitive.zr_frozen_error(self) if frozen?
     raise TypeError, "expected an array" unless values.is_a?(Array)
 
     case values.size

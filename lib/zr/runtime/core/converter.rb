@@ -941,7 +941,7 @@ class Encoding
       source = Converter.send(:string_of, source) unless source.nil?
       offset = Primitive.zr_index_operand_m(offset) unless offset.nil?
       size = Primitive.zr_index_operand_m(size) unless size.nil?
-      raise FrozenError, "can't modify frozen String: #{destination.inspect}" if destination.frozen?
+      Primitive.zr_frozen_error(destination) if destination.frozen?
       raise ArgumentError, +"negative output_byteoffset" if offset&.negative?
       raise ArgumentError, +"output_byteoffset too big" if offset && offset > destination.bytesize
       raise ArgumentError, +"negative output_bytesize" if size&.negative?

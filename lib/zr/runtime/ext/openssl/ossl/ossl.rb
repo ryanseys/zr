@@ -167,7 +167,7 @@ module OpenSSL
 
       # rb_check_frozen.
       def check_frozen(object)
-        raise FrozenError.new("can't modify frozen #{object.class}: #{object.inspect}", receiver: object) if object.frozen?
+        Primitive.zr_frozen_error(object) if object.frozen?
       end
 
       # ossl_want_uninitialized: `object` contains no struct of `type` yet,

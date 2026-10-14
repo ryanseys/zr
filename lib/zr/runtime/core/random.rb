@@ -396,7 +396,7 @@ class Random::Base
 
   def initialize(seed = Random.new_seed)
     # rand_init: a frozen generator takes no seed (rb_check_copyable).
-    raise FrozenError.new("can't modify frozen #{self.class}: #{inspect}", receiver: self) if frozen?
+    Primitive.zr_frozen_error(self) if frozen?
     # rb_to_int: a Float truncates; a Rational or a real Complex converts.
     seed = seed.to_i if seed.is_a?(Float)
     seed = seed.to_i if seed.is_a?(Rational) || seed.is_a?(Complex)

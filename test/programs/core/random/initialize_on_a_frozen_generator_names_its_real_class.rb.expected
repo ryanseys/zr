@@ -1,0 +1,12 @@
+can't modify frozen MyRandom: #<MyRandom:0x>
+true
+can't modify frozen MyEnumerator: #<MyEnumerator: #<Enumerator::Generator:0x>:each>
+true
+can't modify frozen String: "x"
+true
+can't modify frozen String: ""
+true
+can't modify frozen MyDate: #<MyDate: 2026-01-02 ((2461043j,0s,0n),+0s,2299161j)>
+true
+can't modify frozen MyDate: #<MyDate: 2026-01-02 ((2461043j,0s,0n),+0s,2299161j)>
+true

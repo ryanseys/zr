@@ -1099,7 +1099,7 @@ class Array
     # start, as CRuby packs into it; it keeps its encoding.
     unless buffer.nil?
       raise TypeError, "buffer must be String, not #{buffer.class}" unless buffer.is_a?(String)
-      raise FrozenError.new("can't modify frozen String: #{buffer.inspect}", receiver: buffer) if buffer.frozen?
+      Primitive.zr_frozen_error(buffer) if buffer.frozen?
     end
     result = Packing.pack(self, Primitive.zr_str_operand(fmt), buffer ? buffer.b : "".b, buffer)
     return result unless buffer

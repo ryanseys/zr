@@ -767,14 +767,14 @@ module JSON
   # and gives out each document when it is complete.
   class ResumableParser
     def initialize(opts = nil)
-      raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+      Primitive.zr_frozen_error(self) if frozen?
 
       @fields = Ext::ParserConfig.send(:fields_for, opts)
       clear
     end
 
     def <<(text)
-      raise FrozenError, "can't modify frozen #{self.class}: #{inspect}" if frozen?
+      Primitive.zr_frozen_error(self) if frozen?
       raise ArgumentError, "ResumableParser can't be used recursively" if @in_use
 
       @walk.feed(text)

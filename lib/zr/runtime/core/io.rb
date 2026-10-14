@@ -1331,7 +1331,7 @@ class IO
     command = Numeric.send(:int_operand, command)
     result = if argument.is_a?(String)
                # rb_io_ctl: the String is the struct, written in place.
-               raise FrozenError.new("can't modify frozen String: #{argument.inspect}", receiver: argument) if argument.frozen?
+               Primitive.zr_frozen_error(argument) if argument.frozen?
 
                Primitive.zr_io_fcntl_bytes(@fd, command, argument)
              else

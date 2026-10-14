@@ -692,9 +692,7 @@ class IO
     # rb_check_frozen with the message that names the buffer.
     def unfrozen!
       Primitive.attr! :hidden
-      return unless frozen?
-
-      raise FrozenError.new("can't modify frozen #{Primitive.zr_class_path(Primitive.zr_real_class(self))}: #{inspect}", receiver: self)
+      Primitive.zr_frozen_error(self) if frozen?
     end
 
     # io_buffer_try_get_bytes: the memory that holds this view's bytes,

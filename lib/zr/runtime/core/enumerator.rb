@@ -46,7 +46,7 @@ class Enumerator
         block = args[0]
         raise TypeError, "wrong argument type #{block.class} (expected Proc)" unless block.is_a?(Proc)
       end
-      raise FrozenError.new("can't modify frozen #{self.class}: #{inspect}", receiver: self) if frozen?
+      Primitive.zr_frozen_error(self) if frozen?
 
       Primitive.zr_hidden_set(self, :__block__, block)
       self
@@ -240,15 +240,17 @@ class Enumerator
   end
 
   # A lazy shows what it was made with rather than what `each` runs.
+  # inspect_enumerator: the real class, not a `class` override.
   def inspect
-    return Primitive.zr_obj_form("#<#{self.class}: uninitialized>") unless @method
+    name = Primitive.zr_real_class(self)
+    return Primitive.zr_obj_form("#<#{name}: uninitialized>") unless @method
 
     receiver, method, args, kwargs = @shown || [@receiver, @method, @args, @kwargs]
-    return Primitive.zr_obj_form("#<#{self.class}: ...>") if Primitive.zr_recursive_enter(self, :inspect)
+    return Primitive.zr_obj_form("#<#{name}: ...>") if Primitive.zr_recursive_enter(self, :inspect)
 
     begin
       shown = shown_arguments(kwargs.empty? ? args : [*args, kwargs])
-      Primitive.zr_obj_form("#<#{self.class}: #{receiver.inspect}#{":#{method}" if method}#{shown}>")
+      Primitive.zr_obj_form("#<#{name}: #{receiver.inspect}#{":#{method}" if method}#{shown}>")
     ensure
       Primitive.zr_recursive_leave(self, :inspect)
     end
