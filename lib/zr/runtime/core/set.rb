@@ -410,6 +410,8 @@ class Set
   class CoreSet < Set
   end
 
+  # zr port: follows lib/set/subclass_compatible.rb of ruby at RUBY_REVISION (sha256 afee88af1044fce7c797799feb12e8dfe1c97301c774fcfe724e7b6297ba820a)
+  #
   # lib/set/subclass_compatible.rb: the layer a direct subclass takes,
   # which keeps a subclass written for the pure-Ruby Set of Ruby 3 at
   # home. set.c loads it when the first subclass is made, so until then

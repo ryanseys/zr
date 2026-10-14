@@ -4,6 +4,8 @@
 # without a require, and `require "pathname"` adds the Find and rmtree
 # part that ruby keeps on the load path.
 #
+# zr port: follows pathname_builtin.rb of ruby at RUBY_REVISION (sha256 9136d9ffdc9c6c059ebc1cd884d7f792c348cc523fb4caceefcb216a06cfb9e6)
+#
 # This is ruby's pathname_builtin.rb at RUBY_REVISION, with the methods
 # that its pathname.c writes in C in Ruby here. A Pathname is only a
 # string: it never touches the file system for an operation on the name
