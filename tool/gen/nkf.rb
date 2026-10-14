@@ -2,6 +2,7 @@
 
 require_relative "../gen"
 require_relative "../../lib/zr/bytes"
+require_relative "../lib/zr/dev/vendor_tree"
 require "base64"
 require "strscan"
 
@@ -16,7 +17,7 @@ module Zr
         # Shift_JIS rows it swaps -- and they part from ruby's transcoders
         # in many places, so the port reads nkf's own.
         #
-        #   zr-dev gen nkf                         the installed nkf gem
+        #   zr-dev gen nkf                         the .gem that vendor/vendor.lock names
         #   zr-dev gen nkf --source path/to/utf8tbl.c
         #
         # utf8tbl.c declares three shapes of table, and each keeps its shape:
@@ -68,16 +69,17 @@ module Zr
           def defaults
             super
             @source = nil
+            @nkf_gem = nil
           end
 
           def options(o)
             super
-            o.on("--source PATH", "the gem's utf8tbl.c (default: the installed nkf gem's)") { |v| @source = v }
+            o.on("--source PATH", "the gem's utf8tbl.c (default: the locked nkf .gem's)") { |v| @source = v }
           end
 
           def run(_argv)
             Dev.pinned!(name)
-            tables = read_tables(plain_source(source_path))
+            tables = read_tables(plain_source(source))
             starts = unicode_starts(tables)
             inverse = inverse_map(tables)
             ok = Dev.write(self.class.writes, check: check?) { |io| write(io, tables, starts, inverse) }
@@ -85,15 +87,25 @@ module Zr
             ok
           end
 
-          # `--source`, then `NKF_SRC`, then the installed nkf gem's own copy.
-          def source_path
-            @source || ENV["NKF_SRC"] || File.join(Gem::Specification.find_by_name("nkf").gem_dir, "ext/nkf/nkf-utf8/utf8tbl.c")
+          UTF8TBL = "ext/nkf/nkf-utf8/utf8tbl.c"
+
+          # The C of `--source`, then of `NKF_SRC`, then of the nkf .gem that
+          # vendor/vendor.lock names, so the tables do not depend on the
+          # gems of this ruby.
+          def source
+            path = @source || ENV["NKF_SRC"]
+            return File.binread(path) if path
+
+            nkf_gem.last.fetch(UTF8TBL) { fail!("the nkf .gem has no #{UTF8TBL}") }
           end
+
+          # The locked nkf .gem: its version and its files.
+          def nkf_gem = @nkf_gem ||= VendorTree.locked_gem("nkf", fail: method(:fail!))
 
           # The source with its comments and preprocessor lines taken out.
           # Every #ifdef in utf8tbl.c names an option config.h turns on, so
           # every table stays.
-          def plain_source(path) = File.read(path).gsub(%r{/\*.*?\*/}m, " ").gsub(/^[ \t]*#.*$/, "")
+          def plain_source(text) = text.gsub(%r{/\*.*?\*/}m, " ").gsub(/^[ \t]*#.*$/, "")
 
           # One brace initializer, as nested arrays of Integers and Symbols.
           def parse_initializer(scanner)
@@ -339,7 +351,7 @@ module Zr
             io.puts "  end", "  private_constant :Tables", "end"
           end
 
-          def version = source_path[%r{nkf-(\d+\.\d+\.\d+)/}, 1]
+          def version = nkf_gem.first
 
           # Every table the written file answers, against the C source.
           def verify(tables)

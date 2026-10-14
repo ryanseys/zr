@@ -135,7 +135,7 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 |---|---|---|---|
 | `RUBY_SRC` | `zr-dev gen`, `zr-dev vendor`, `zr-dev rubyspec`, `zr-dev cruby-test` | `tmp/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/ruby_version.rb`). The generators read the C sources at that commit, and `zr-dev vendor` ruby's own library. `zr-dev rubyspec` runs its `spec/` directory and `zr-dev cruby-test` its `test/` directory; both need the checkout at that commit. |
 | `PRISM_SRC` | `zr-dev gen prism`, `zr-dev gen prism_encoding_tables`, `zr-dev vendor`, the prism tests | `tmp/prism` | A prism checkout that has the commit that ruby bundles: prism's row of CRuby's `gems/bundled_gems` at `Zr::RUBY_REVISION` (`Dev.prism_revision`). |
-| `NKF_SRC` | `zr-dev gen nkf` | the installed nkf gem's `ext/nkf/nkf-utf8/utf8tbl.c` | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
+| `NKF_SRC` | `zr-dev gen nkf` | `ext/nkf/nkf-utf8/utf8tbl.c` of the nkf .gem that `vendor/vendor.lock` names | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |
 | `ZR_GEM_CORPUS` | `zr-dev gems` | unset | A directory of unpacked gems, `<dir>/<name>`, that `zr-dev gems` looks in first, by name. It never lists the directory. The `--corpus` option has priority. |
 | `HOMEBREW_PREFIX` | `zr-dev gems sweep --c-scan` | `/opt/homebrew` | Where Homebrew keeps the headers of the libraries that a gem's C extension includes. |

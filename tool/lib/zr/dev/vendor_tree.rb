@@ -78,6 +78,15 @@ module Zr
         [entries, files, inputs]
       end
 
+      # The .gem of `name` that the lock names, as its version and
+      # `{ rel => bytes }` of its files. The .gem comes from the cache or
+      # rubygems.org, and must have its locked SHA-256.
+      def self.locked_gem(name, fail:)
+        entry = lock.first.find { |e| e.name == name && e.sha256 } or fail.call("vendor/vendor.lock names no .gem of #{name}")
+        gems = GemSource.new({ "#{name}-#{entry.version}.gem" => entry.sha256 }, fail: fail)
+        [entry.version, gems.contents(gems.fetch(name, entry.version))]
+      end
+
       attr_reader :files, :entries
 
       def initialize(fail:)
