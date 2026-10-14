@@ -464,12 +464,11 @@ module Zr
         @meta = if @twin_of
                   "zr_meta_#{@twin_of}"
                 else
-                  @l.meta(@name, kind, line, end_line: end_line, name: name, parent: @outer&.meta, params: params, locals: @locals,
-                                             env: @has_env, ruby: attributes.include?(:ruby),
-                                             captures: true, node: node_id, cover: method_cover, twin: @twin,
-                                             owns_backref: owns_backref?, reads_backref: reads_backref?, frameless: attributes.include?(:frameless),
-                                             blocks: @blocks, using: own&.using,
-                                             span: own&.span)
+                  words = FrameWords.new(line: line, end_line: end_line, node: node_id, arity: params ? params.arity : 0, env: @has_env,
+                                         ruby: attributes.include?(:ruby), cover: method_cover, owns_backref: owns_backref?,
+                                         reads_backref: reads_backref?, frameless: attributes.include?(:frameless), blocks: @blocks,
+                                         using: own&.using, span: own&.span)
+                  @l.meta(@name, kind, words, name: name, parent: @outer&.meta, params: params, locals: @locals, twin: @twin)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = (line & LINE_MASK) | (node_id << 32)

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../../lower/frame_words"
+
 module Zr
   module Machine
     class Host
@@ -79,6 +81,8 @@ module Zr
           DEPTH = 20_000
 
           PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey noblock].each_with_index.to_h.freeze
+          # The setter of each FrameMeta field that `Zr::Lower::FrameWords` writes.
+          WRITERS = Zr::Lower::FrameWords::FIELDS.to_h { |field| [field, :"#{field}="] }.freeze #: Hash[String, Symbol]
 
           private
 
@@ -134,36 +138,19 @@ module Zr
               row.file = @host.bytes(file)
               row.file_len = unit.internal ? 0 : file.bytesize
               row.kind = kind
-              row.line = line_of(node)
-              row.end_line = node.respond_to?(:end_line) ? node.end_line.to_i : 0
               row.parent = parent
-              row.arity = params ? params.arity : 0
               row.params = params ? param_table(params) : 0
               row.fn = fn
               row.locals = id_table(locals)
-              row.env = open ? 1 : 0
-              row.node = unit.node_ids&.[](node) || 0
               row.hidden = unit.hidden ? 1 : 0
-              row.ruby = ruby ? 1 : 0
-              row.cover = cover ? cover + 1 : 0
-              row.owns_backref = owns_backref ? 1 : 0
-              row.reads_backref = reads_backref ? 1 : 0
-              # Where a def's or block's code starts and ends (`Lower#meta`'s
-              # span), which #source_range and #syntax_tree read.
-              own = node if node.is_a?(Hir::Def) || node.is_a?(Hir::Block)
-              span = own&.span
-              if span
-                row.span_line = span[0]
-                row.column = span[1]
-                row.end_column = span[3]
-              end
-              row.frameless = frameless ? 1 : 0
               row.evaled = unit.evaled ? 1 : 0
-              # The `using` entry of a def or block, plus one, which
-              # super_method searches with (`Lower#meta`'s `using`).
-              using = own&.using
-              row.using = using ? using + 1 : 0
               row.box = m[unit.root].box if unit.root
+              own = node if node.is_a?(Hir::Def) || node.is_a?(Hir::Block)
+              words = Zr::Lower::FrameWords.new(line: line_of(node), end_line: node.respond_to?(:end_line) ? node.end_line.to_i : 0,
+                                            node: unit.node_ids&.[](node) || 0, arity: params ? params.arity : 0, env: open, ruby: ruby,
+                                            cover: cover, owns_backref: owns_backref, reads_backref: reads_backref, frameless: frameless,
+                                            using: own&.using, span: own&.span)
+              words.each_word { |field, word| row.public_send(WRITERS.fetch(field), word) }
               addr
             end
           end

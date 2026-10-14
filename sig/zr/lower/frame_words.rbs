@@ -1,0 +1,24 @@
+# The record of lib/zr/lower/frame_words.rb.
+module Zr
+  class Lower
+    class FrameWords < Data
+      attr_reader line: Integer
+      attr_reader end_line: Integer
+      attr_reader node: Integer
+      attr_reader arity: Integer
+      attr_reader env: bool
+      attr_reader ruby: bool
+      attr_reader cover: Integer?
+      attr_reader owns_backref: bool
+      attr_reader reads_backref: bool
+      attr_reader frameless: bool
+      attr_reader blocks: Integer
+      attr_reader using: Integer?
+      attr_reader span: Array[Integer]?
+
+      def self.new: (line: Integer, ?end_line: Integer, ?node: Integer, ?arity: Integer, ?env: bool, ?ruby: bool, ?cover: Integer?,
+                     ?owns_backref: bool, ?reads_backref: bool, ?frameless: bool, ?blocks: Integer, ?using: Integer?,
+                     ?span: Array[Integer]?) -> instance
+    end
+  end
+end

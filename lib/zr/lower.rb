@@ -5,6 +5,7 @@ require_relative "hir"
 require_relative "ir"
 require_relative "obj/model"
 require_relative "refused"
+require_relative "lower/frame_words"
 require_relative "lower/function"
 
 module Zr
@@ -626,31 +627,18 @@ module Zr
     # fills in the owner and name at definition. A class body's name is
     # the class's, set here. A def or block contains its arity and its
     # parameter entries, and a block contains its function, so a Proc
-    # finds both.
+    # finds both. The scope's own words come in `words`; the file, the
+    # unit's flags and the tables are this lowering's.
     # @rbs fn: String
     # @rbs kind: String
-    # @rbs line: Integer
-    # @rbs end_line: Integer
+    # @rbs words: FrameWords
     # @rbs name: Integer | String | Symbol
     # @rbs parent: String?
     # @rbs params: Hir::Params?
     # @rbs locals: Array[Symbol]
-    # @rbs env: bool
-    # @rbs ruby: bool
-    # @rbs captures: bool
-    # @rbs node: Integer
-    # @rbs cover: Integer?
     # @rbs twin: String?
-    # @rbs owns_backref: bool
-    # @rbs reads_backref: bool
-    # @rbs frameless: bool
-    # @rbs blocks: Integer
-    # @rbs using: Integer?
-    # @rbs span: Array[Integer]?
     # @rbs return: String
-    def meta(fn, kind, line, end_line: 0, name: 0, parent: nil, params: nil, locals: [], env: false, ruby: false,
-             captures: false, node: 0, cover: nil, twin: nil, owns_backref: false, reads_backref: false, frameless: false, blocks: 0,
-             using: nil, span: nil)
+    def meta(fn, kind, words, name: 0, parent: nil, params: nil, locals: [], twin: nil)
       layout = layout("FrameMeta")
       file = file_bytes
       bytes = ("\0" * layout.size).b
@@ -658,36 +646,17 @@ module Zr
       word.call("name", name.is_a?(Integer) ? name : (fixed_id(name) || 0))
       word.call("file_len", internal? ? 0 : shown_file.bytesize)
       word.call("kind", const(kind))
-      word.call("line", line)
-      word.call("end_line", end_line)
-      word.call("node", node)
-      # The def-site entry that this scope uses when it makes a method,
-      # plus one, so 0 means that the program does not measure coverage.
-      word.call("cover", cover ? cover + 1 : 0)
-      word.call("arity", params ? params.arity : 0)
-      word.call("env", env ? 1 : 0)
-      word.call("ruby", ruby ? 1 : 0)
       word.call("hidden", @unit_hidden ? 1 : 0)
-      word.call("owns_backref", owns_backref ? 1 : 0)
-      word.call("reads_backref", reads_backref ? 1 : 0)
-      word.call("frameless", frameless ? 1 : 0)
-      word.call("blocks", blocks)
-      word.call("using", using ? using + 1 : 0)
-      if span
-        word.call("span_line", span[0])
-        word.call("column", span[1])
-        word.call("end_column", span[3])
-      end
       word.call("evaled", @kind == :eval ? 1 + @script : 0)
+      words.each_word(&word)
       relocs = [Obj::Reloc.new(layout.fields.fetch("file").first, :abs64, file)]
       relocs << Obj::Reloc.new(layout.fields.fetch("name").first, :symid, name.to_s) if !name.is_a?(Integer) && !fixed_id(name)
       relocs << Obj::Reloc.new(layout.fields.fetch("parent").first, :abs64, parent) if parent
       relocs << Obj::Reloc.new(layout.fields.fetch("params").first, :abs64, param_table(fn, params)) if params
       relocs << Obj::Reloc.new(layout.fields.fetch("locals").first, :abs64, local_table(fn, locals))
       # A scope's captures are known only after its body is lowered, so
-      # the caller writes that table later and sets `captures` here. The
-      # table name is the same in both cases.
-      relocs << Obj::Reloc.new(layout.fields.fetch("captures").first, :abs64, "zr_captures_#{fn}") if captures
+      # the caller writes that table later (`captures_table`), by this name.
+      relocs << Obj::Reloc.new(layout.fields.fetch("captures").first, :abs64, "zr_captures_#{fn}")
       relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
       relocs << Obj::Reloc.new(layout.fields.fetch("twin").first, :abs64, twin) if twin
       name = "zr_meta_#{fn}"
