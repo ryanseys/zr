@@ -108,6 +108,27 @@ module Warning
     warn(message)
   end
 
+  # The table of redefinition_rows (core/redefinitions.rb) by
+  # `Owner#name` or `Owner.name`, made when a program first redefines a
+  # method of the core.
+  REDEFINITIONS = []
+  private_constant :REDEFINITIONS
+
+  def self.redefinitions
+    Primitive.attr! :hidden
+    REDEFINITIONS[0] ||= begin
+      table = {}
+      redefinition_rows.each_line do |line|
+        owner, *tokens = line.split
+        tokens.each do |token|
+          name, where = token.split(",", 2)
+          table["#{owner}#{name}"] = where == "-" ? false : where
+        end
+      end
+      table.freeze
+    end
+  end
+
   # The runtime's way in when a program redefines a method of the core
   # (lib/zr/runtime/kernel/class.rb, zr_warn_core_redefined): false where ruby
   # gives no warning, nil for a warning that names no line, the
@@ -123,7 +144,7 @@ module Warning
     else
       key = "#{klass.name}##{name}"
     end
-    REDEFINITIONS.fetch(key, true)
+    redefinitions.fetch(key, true)
   end
 
   extend self

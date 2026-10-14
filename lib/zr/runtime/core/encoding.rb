@@ -242,9 +242,11 @@ class Encoding
   # encoding gives no code point. `:more` starts a longer character.
   # The kernel's own rules find where a character ends, because ruby's
   # converters are narrower than its character counts.
+  # MB_POOL holds mb_pool's lines once a conversion reads one.
   MB_TABLES = {}
   MB_WRITERS = {}
-  private_constant :MB_TABLES, :MB_WRITERS
+  MB_POOL = []
+  private_constant :MB_TABLES, :MB_WRITERS, :MB_POOL
 
   def self.mb_table(encoding)
     Primitive.attr! :hidden
@@ -254,24 +256,20 @@ class Encoding
   def self.mb_rows(name)
     Primitive.attr! :hidden
     multi = mb_multi(name)
+    pool = MB_POOL[0] ||= mb_pool.lines
+    numbers = MB.fetch(name).unpack1("m").unpack("w*")
     out = {}
-    MB.fetch(name).each do |prefix, first, _count, id|
+    at = 0
+    while at < numbers.size
+      size = numbers[at]
+      # A walk reaches the entries with bytes.
+      key = numbers[at + 1, size].pack("C*")
+      byte = numbers[at + size + 1]
+      id = numbers[at + size + 3]
+      at += size + 4
       row = {}
-      packed = MB_ROWS[id].unpack1("m")
-      key = prefix.b
-      byte = first
-      value = 0
-      shift = 0
-      at = 0
       point = 0
-      while at < packed.bytesize
-        piece = packed.getbyte(at)
-        at += 1
-        value |= (piece & 0x7F) << shift
-        if piece >= 0x80
-          shift += 7
-          next
-        end
+      pool[id].unpack1("m").unpack("w*").each do |value|
         case value
         when 0 then nil
         when 1 then row[byte] = true
@@ -282,11 +280,7 @@ class Encoding
           row[byte] = point
         end
         byte += 1
-        value = 0
-        shift = 0
       end
-      # The entries are written as literals, which have the source's own
-      # encoding; a walk reaches them with bytes.
       out[key] = row
     end
     out
