@@ -1900,10 +1900,13 @@ module Zr
       # Node class, and links neither the compiler nor the translator.
       #: [T] () { () -> T } -> T
       def naming
-        was, @naming = @naming, true
-        yield
-      ensure
-        @naming = was
+        was = @naming
+        @naming = true
+        begin
+          yield
+        ensure
+          @naming = was
+        end
       end
 
       #: (Prism::ConstantReadNode node, Integer line) -> ConstRead
