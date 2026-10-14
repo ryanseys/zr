@@ -23,14 +23,17 @@ task("gem:release") { abort("rake gem:release: #{RELEASE}") }
 
 ROOT = __dir__
 require_relative "test/support/flag"
+require_relative "lib/zr/gc_tuning"
 
 # Runs `argv` with this ruby, and exits with its status when it fails.
 def ruby!(*argv)
   system(RbConfig.ruby, *argv) || exit($?.exitstatus || 1)
 end
 
-# Builds the runtime for the targets that the Ruby expression names.
+# Builds the runtime for the targets that the Ruby expression names. The
+# build starts with zr's collector limits, which ruby reads only at start.
 def build!(targets)
+  Zr::GcTuning.now
   ruby!("-I#{ROOT}/lib:#{ROOT}/test", "-e", %(require "support/built"; Zr::Test::Built.build(#{targets})))
 end
 

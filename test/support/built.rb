@@ -138,8 +138,11 @@ module Zr
       # Builds the caches of each target in `targets` that is not current,
       # and prints the time of each build. When the machine has the memory
       # for two builds (12 GB), the targets build at the same time. Each
-      # build is a child process with half the jobs.
+      # build is a child process with half the jobs. A build runs with YJIT
+      # (`GcTuning`): the plain wasm32-wasi prelude took 151 s with it and
+      # 210 s without.
       def build(targets, say: $stderr, evals: true)
+        GcTuning.now
         current, targets = targets.partition { |target| built?(target, evals: evals) }
         current.each { |target| say&.puts("zr runtime for #{target.triple} is up to date (cache: #{cache_dir})") }
         return if targets.empty?
