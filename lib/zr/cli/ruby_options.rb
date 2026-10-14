@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../hir/switches"
+require_relative "options"
 
 module Zr
   module CLI
@@ -74,7 +75,7 @@ module Zr
       attr_reader :warnings #: Array[String]
 
       # zr's own flags that ruby mode takes, and whether each takes a value.
-      OWN_FLAGS = { "--trace" => false, "--allow-runtime-require" => false, "--gem" => true, "--gemfile" => true }.freeze
+      OWN_FLAGS = Options::RUBY_MODE.to_h { |flag| [flag, Options::VALUES.key?(flag)] }.freeze #: Hash[String, bool]
 
       # ruby's --enable and --disable features (ruby.c's EACH_FEATURES).
       FEATURES = %w[gems error_highlight did_you_mean syntax_suggest rubyopt frozen_string_literal yjit zjit].freeze

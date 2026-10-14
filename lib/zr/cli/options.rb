@@ -14,6 +14,25 @@ module Zr
     module Options
       EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze #: Hash[String, String?]
 
+      # What `--gem` takes.
+      GEM_VALUE = "<name>=<version> or <name>=<dir>, for example --gem csv=3.3.6"
+
+      # The flags that take a value: the option that each one sets, and
+      # what the value is, for the error when it is missing. `--link` and
+      # `--gem` add to a list; each other flag sets its option.
+      VALUES = {
+        "-o" => [:output, "a path"], "--output" => [:output, "a path"],
+        "--emit" => [:emit, "a kind"], "--target" => [:triple, "a triple"],
+        "--path-root" => [:root, "a directory"], "--link" => [:link, "an argument"],
+        "--gem" => [:gems, GEM_VALUE], "--gemfile" => [:gemfile, "a path"]
+      }.freeze #: Hash[String, [Symbol, String]]
+
+      # The flags that take no value, and the option that each turns on.
+      SWITCHES = { "--print-gems" => :print_gems, "--allow-runtime-require" => :runtime_require, "--trace" => :trace }.freeze #: Hash[String, Symbol]
+
+      # The flags that zr also takes in ruby mode (`RubyOptions`).
+      RUBY_MODE = %w[--trace --allow-runtime-require --gem --gemfile].freeze
+
       module_function
 
       # The options and words of `run`, `build` or `gems`, as a
@@ -29,27 +48,37 @@ module Zr
             next
           end
           name, value = word.start_with?("--") && word.include?("=") ? word.split("=", 2) : [word, nil] #: Array[String?]
+          if (taken = VALUES[name])
+            field, what = taken
+            set(opts, field, value || args.shift || Errors.usage_error("#{name} needs #{what}", command), command)
+            next
+          end
+          if (switch = SWITCHES[name])
+            opts[switch] = true
+            next
+          end
+
           case name
           when "--" then opts[:input] ? opts[:args].concat(args.shift(args.size)) : (opts[:input] = args.shift)
           when "-h", "--help"
             Help.show(command)
             exit
-          when "-o", "--output" then opts[:output] = value || args.shift || Errors.usage_error("#{name} needs a path", command)
-          when "--emit" then opts[:emit] = value || args.shift || Errors.usage_error("--emit needs a kind", command)
-          when "--target" then opts[:triple] = value || args.shift || Errors.usage_error("--target needs a triple", command)
-          when "--path-root" then opts[:root] = value || args.shift || Errors.usage_error("--path-root needs a directory", command)
-          when "--link" then opts[:link] << (value || args.shift || Errors.usage_error("--link needs an argument", command))
-          when "--gem" then opts[:gems] << gem_flag(value || args.shift, command)
-          when "--print-gems" then opts[:print_gems] = true
-          when "--allow-runtime-require" then opts[:runtime_require] = true
-          when "--trace" then opts[:trace] = true
-          when "--gemfile" then opts[:gemfile] = value || args.shift || Errors.usage_error("--gemfile needs a path", command)
           when /\A-./ then Errors.usage_error("unknown option '#{word}'", command)
           else
             opts[:input] ? opts[:args] << word : opts[:input] = word
           end
         end
         check(command, opts)
+      end
+
+      # Sets the option `field` to `value`, or adds it to the option's list.
+      #: (Hash[Symbol, untyped] opts, Symbol field, String value, String command) -> void
+      def set(opts, field, value, command)
+        case field
+        when :gems then opts[:gems] << gem_flag(value, command)
+        when :link then opts[:link] << value
+        else opts[field] = value
+        end
       end
 
       # Whether the build arms the program's trace events: `--trace`, or
@@ -62,7 +91,7 @@ module Zr
       def gem_flag(word, command)
         name, value = word.to_s.split("=", 2)
         if value.to_s.empty? || !name.to_s.match?(/\A[\w.-]+\z/)
-          Errors.usage_error("--gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6", command)
+          Errors.usage_error("--gem needs #{GEM_VALUE}", command)
         end
         # The check above stops the build when `value` is nil.
         [name, value] #: [String, String]
