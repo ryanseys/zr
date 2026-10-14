@@ -18,14 +18,6 @@ module Zr
     # different), :error (zr does not build or run it), or :skip (this
     # machine cannot run it, or the baseline allows its failure).
     class Programs
-      ROOT = ProgramSelection::ROOT
-
-      # Which tests a run has, and where their expected output comes from
-      # (test/support/program_selection.rb).
-      def self.mode = ProgramSelection.mode
-      def self.cases(...) = ProgramSelection.cases(...)
-      def self.label(...) = ProgramSelection.label(...)
-
       attr_reader :runner
 
       def initialize(target: Harness.selected_target, host: false, allowed: host ? Baseline.host : Baseline.for(target))
@@ -38,7 +30,7 @@ module Zr
 
       # Why the baseline allows `test` to fail, or nil. A baseline names
       # only programs below test/programs.
-      def baseline(test) = test.root == ROOT ? @allowed[test.rel] : nil
+      def baseline(test) = test.root == ProgramSelection::ROOT ? @allowed[test.rel] : nil
 
       # `[kind, detail]` for one test. `parts` (a hash, or nil) gets the
       # seconds of each part of its build (`ProgramBuild.answer`).
@@ -75,7 +67,7 @@ module Zr
         case mode
         when :live then live(test)
         when :record
-          written = Expected.record(test)
+          written = record(test)
           return [:error, "zr-dev expect: #{written}"] if written&.start_with?("ruby did not finish")
 
           ProgramRun.expected(test, @runner.platform)
@@ -94,16 +86,11 @@ module Zr
         ProgramRun.ruby(test, ruby: [RbConfig.ruby], env: Harness::Reference.env) || [:error, "the reference ruby did not finish"]
       end
 
-      # zr-dev expect, for `record`: it writes the files of one test.
-      module Expected
-        module_function
-
-        # Writes `test`'s files from the reference ruby. Returns nil when
-        # nothing changed, else what did.
-        def record(test)
-          require_relative "../../tool/expect"
-          Dev::Commands::Expect.new("expect").expect(test)
-        end
+      # Writes `test`'s files from the reference ruby (zr-dev expect).
+      # Returns nil when nothing changed, else what did.
+      def record(test)
+        require_relative "../../tool/expect"
+        Dev::Commands::Expect.new("expect").expect(test)
       end
 
       # The baseline allows `test` to fail: a failure is a skip with the

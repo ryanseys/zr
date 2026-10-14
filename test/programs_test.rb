@@ -39,7 +39,7 @@ require_relative "support/host_program" if host
 
 class ProgramsTest < Minitest::Test
   PROGRAMS = Zr::Test::Programs.new(host: Zr::Test.flag?("ZR_TEST_HOST"))
-  CASES = Zr::Test::Programs.cases.to_h { |test| ["test_#{Zr::Test::Programs.label(test)}", test] }
+  CASES = Zr::Test::ProgramSelection.cases.to_h { |test| ["test_#{Zr::Test::ProgramSelection.label(test)}", test] }
   RESULTS = (Zr::Test::ResultCache.new if Zr::Test::ResultCache.enabled?)
 
   # Why zr did not build or run a program: a test error, not a failure.

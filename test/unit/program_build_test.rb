@@ -11,7 +11,7 @@ class ProgramBuildTest < Minitest::Test
   PROGRAM = "core/comparable/a_failed_comparison_names_its_reason.rb"
 
   def test_a_build_adds_the_time_of_each_part
-    test = Zr::Test::Programs.cases(PROGRAM, base: Zr::Test::Programs::ROOT).fetch(0)
+    test = Zr::Test::ProgramSelection.cases(PROGRAM, base: Zr::Test::ProgramSelection::ROOT).fetch(0)
     parts = {}
     # A kept binary skips the lowering and the link.
     answer = with_env("ZR_TEST_BINARIES" => "0") { Zr::Test::ProgramBuild.answer(test, Zr::Test::Programs.new.runner, parts) }

@@ -9,6 +9,7 @@ require_relative "../support/programs"
 class ProgramTestsTest < Minitest::Test
   Case = Zr::Test::Case
   Programs = Zr::Test::Programs
+  Selection = Zr::Test::ProgramSelection
 
   def with_test(files)
     Dir.mktmpdir("zr-program-tests-") do |root|
@@ -121,37 +122,37 @@ class ProgramTestsTest < Minitest::Test
   end
 
   def test_zr_programs_picks_the_tests_below_its_paths
-    picked = Programs.cases("core/gc, lang/blocks").map(&:rel)
+    picked = Selection.cases("core/gc, lang/blocks").map(&:rel)
 
     refute_empty picked
     assert(picked.all? { |rel| rel.start_with?("core/gc/", "lang/blocks/") })
-    assert_raises(ArgumentError) { Programs.cases("no/such/area") }
+    assert_raises(ArgumentError) { Selection.cases("no/such/area") }
   end
 
   def test_zr_programs_takes_a_program_or_a_directory_anywhere
     with_test("area/foo.rb" => "p 1\n", "area/foo.rb.expected" => "1\n", "area/bare.rb" => "p 2\n") do |root, _|
-      named = Programs.cases(File.join(root, "area/bare.rb"), mode: nil)
+      named = Selection.cases(File.join(root, "area/bare.rb"), mode: nil)
 
       assert_equal [[File.join(root, "area"), "bare.rb"]], named.map { [_1.root, _1.rel] }, "a named program is a test, in its own directory"
-      assert_equal ["foo.rb"], Programs.cases(File.join(root, "area"), mode: nil).map(&:rel), "a directory gives the programs with an output"
-      assert_equal %w[bare.rb foo.rb], Programs.cases(File.join(root, "area"), mode: :live).map(&:rel), "a mode gives every program"
-      assert_equal ["foo.rb"], Programs.cases("area", mode: nil, base: root).map(&:rel), "below the current directory"
+      assert_equal ["foo.rb"], Selection.cases(File.join(root, "area"), mode: nil).map(&:rel), "a directory gives the programs with an output"
+      assert_equal %w[bare.rb foo.rb], Selection.cases(File.join(root, "area"), mode: :live).map(&:rel), "a mode gives every program"
+      assert_equal ["foo.rb"], Selection.cases("area", mode: nil, base: root).map(&:rel), "below the current directory"
     end
   end
 
   def test_a_test_is_named_below_test_programs_or_by_its_path
-    inside = Case.new(Programs::ROOT, "core/gc/x.rb")
+    inside = Case.new(Selection::ROOT, "core/gc/x.rb")
     outside = Case.new("/elsewhere", "try.rb")
 
-    assert_equal "core/gc/x.rb", Programs.label(inside)
-    assert_equal "elsewhere/try.rb", Programs.label(outside, base: "/")
-    assert_equal "/elsewhere/try.rb", Programs.label(outside, base: Programs::ROOT), "a path above the current directory is full"
+    assert_equal "core/gc/x.rb", Selection.label(inside)
+    assert_equal "elsewhere/try.rb", Selection.label(outside, base: "/")
+    assert_equal "/elsewhere/try.rb", Selection.label(outside, base: Selection::ROOT), "a path above the current directory is full"
   end
 
   def test_zr_expected_names_one_of_three_modes
-    with_env("ZR_EXPECTED" => "live") { assert_equal :live, Programs.mode }
-    with_env("ZR_EXPECTED" => nil) { assert_nil Programs.mode }
-    with_env("ZR_EXPECTED" => "bless") { assert_raises(ArgumentError) { Programs.mode } }
+    with_env("ZR_EXPECTED" => "live") { assert_equal :live, Selection.mode }
+    with_env("ZR_EXPECTED" => nil) { assert_nil Selection.mode }
+    with_env("ZR_EXPECTED" => "bless") { assert_raises(ArgumentError) { Selection.mode } }
   end
 
   def test_the_expected_answer_comes_from_the_files_or_ruby_now
@@ -174,7 +175,7 @@ class ProgramTestsTest < Minitest::Test
   def test_a_baseline_names_only_programs_below_test_programs
     programs = Programs.new(allowed: { "area/foo.rb" => "known" })
 
-    assert_equal "known", programs.baseline(Case.new(Programs::ROOT, "area/foo.rb"))
+    assert_equal "known", programs.baseline(Case.new(Selection::ROOT, "area/foo.rb"))
     assert_nil programs.baseline(Case.new("/elsewhere", "area/foo.rb"))
   end
 
