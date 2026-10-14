@@ -57,8 +57,12 @@ end
 
 installed = run.(RbConfig.ruby, "-S", "gem", "install", "--local", gem_file)
 abort "smoke: the install fetched a gem; zr must have no dependencies" if installed.include?("Fetching")
+# The sparse checkout has no lib/, so the version and the pinned ruby
+# come from the gem just installed.
+require File.join(env["GEM_HOME"], "gems", File.basename(gem_file, ".gem"), "lib/zr/version.rb")
 version = run.(zr, "version")
-abort "smoke: zr version printed #{version.inspect}" unless version.match?(/\Azr \S+ \(for ruby 4\.0\.\d+\)\n\z/)
+want = "zr #{Zr::VERSION} (for ruby #{Zr::RUBY_PIN})\n"
+abort "smoke: zr version printed #{version.inspect}, not #{want.inspect}" unless version == want
 run.(zr, "doctor")
 run.(zr, "--help")
 run.(zr, "help", "build")
