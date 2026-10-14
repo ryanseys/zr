@@ -1075,7 +1075,7 @@ module Zr
           Local.new(name, @block_depth + (depths ? depths.fetch(name) : 0), line)
         end
         positional = (p.required + p.optional.map(&:first)).map(&local) #: Array[node]
-        positional << Splat.new(local.call(p.rest), line) if p.rest && p.rest != :implicit
+        positional << Splat.new(local.call(p.rest), line) if p.rest?
         positional += p.post.map(&local)
         # The rest goes in first, in the order that ruby's own zsuper
         # builds the hash.

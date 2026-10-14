@@ -76,11 +76,11 @@ module Zr
             keywords = keywords?(p) ? keywords_binder(p, s) : nil
             arity = arity_check(p)
             block = block_store(p, s)
-            rest_fn = p.rest && p.rest != :implicit ? fn : 0
+            rest_fn = p.rest? ? fn : 0
             # `**nil` refuses keywords before the count is checked, as
             # CRuby's setup_parameters_complex does (`Lower::Function::Params`).
             nokey = p.kwrest == :nokey
-            more = more_args?(s) ? p.required.size + p.post.size + p.optional.size : nil
+            more = more_args?(s) ? p.min_args + p.optional.size : nil
             name = more ? sym(s.def_node.name) : nil
             lambda do |f, argc, argv|
               t = task
@@ -118,7 +118,7 @@ module Zr
             keywords = keywords?(p) ? keywords_binder(p, s) : nil
             arity = arity_check(p)
             block = block_store(p, s)
-            rest_fn = p.rest && p.rest != :implicit
+            rest_fn = p.rest?
             nothing = p.names.empty? && p.plain? && !p.no_block?
             spread = p.spread?
             spread_kind = p.optional.empty? ? 1 : 2
@@ -171,9 +171,9 @@ module Zr
           # The code that checks a count of arguments against the
           # parameters, and raises ArgumentError for a wrong one.
           def arity_check(p)
-            min = p.required.size + p.post.size
-            max = p.rest && p.rest != :implicit ? -1 : min + p.optional.size
-            required = p.keywords.select { |_, d| d.nil? }.map(&:first)
+            min = p.min_args
+            max = p.max_args || -1
+            required = p.required_keywords
             names = required.empty? ? 0 : id_table(required) + 8
             lambda do |given|
               next if given >= min && (max.negative? || given <= max)
@@ -224,7 +224,7 @@ module Zr
             required, post = required_binds(p, s)
             defaults = optional_binder(p, s)
             rest = rest_store(p, s)
-            has_rest = p.rest && p.rest != :implicit
+            has_rest = p.rest?
             lambda do |f, args|
               given = (args.size - front - back).clamp(0, optional)
               front.times { |i| required[i]&.call(f, args.fetch(i, @qnil)) }
@@ -248,7 +248,7 @@ module Zr
           # The code that binds the rest parameter to an Array of its
           # arguments.
           def rest_store(p, s)
-            return unless p.rest && p.rest != :implicit && owns?(p, p.rest, [:rest, 0])
+            return unless p.rest? && owns?(p, p.rest, [:rest, 0])
 
             store = local_store(p.rest, 0, s)
             ->(f, list) { store.call(f, slots(f) { @kern.zr_ary_of(list.size, argv(f, list)) }) }
@@ -313,7 +313,7 @@ module Zr
           #: (Hir::Params p, Scope s) -> ^(Frame, Integer?) -> void
           def keywords_binder(p, s)
             ids = p.keywords.map(&:first)
-            required = p.keywords.select { |_, d| d.nil? }.map(&:first)
+            required = p.required_keywords
             required_table = id_table(required) + 8
             ids_table = id_table(ids) + 8
             keys = p.keywords.each_with_index.map do |(name, default), i|

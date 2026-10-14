@@ -56,7 +56,7 @@ module Zr
           if keywords?(p)
             argc, kwargs_at, tab = take_keywords(argc, argv)
           else
-            argc = drop_keywords(argc, argv, p.rest && p.rest != :implicit ? :def : nil)
+            argc = drop_keywords(argc, argv, p.rest? ? :def : nil)
           end
           # `**nil` refuses keywords before the count is checked, as
           # CRuby's setup_parameters_complex does.
@@ -92,7 +92,7 @@ module Zr
             unless p.simple? || !p.spread?
               keyworded = @f.icmp("ne", @f.fetch("i64", @task_addr, off(@task, "kw")), imm(0))
             end
-            argc = drop_keywords(argc, argv, p.rest && p.rest != :implicit ? :block : nil)
+            argc = drop_keywords(argc, argv, p.rest? ? :block : nil)
           end
           # A table's values are after the positional arguments as given,
           # before any spread.
@@ -247,7 +247,7 @@ module Zr
         # so its common calls allocate no Array (`Hir::CoreDef.attributes`).
         #: (Hir::Params p, String argc, String argv) -> void
         def more_args(p, argc, argv)
-          max = p.required.size + p.post.size + p.optional.size
+          max = p.min_args + p.optional.size
           d = @def #: Hir::Def
           fail_unless(@f.icmp("sle", argc, imm(max))) do
             direct_params.each { |name| write_local(slot_of(name), 0, @qnil) }
@@ -259,9 +259,9 @@ module Zr
         # with optionals, then the names of missing required keywords.
         #: (Hir::Params p, String argc) -> void
         def check_arity(p, argc)
-          req = p.required.size + p.post.size
-          rest = p.rest && p.rest != :implicit
-          max = rest ? -1 : req + p.optional.size
+          req = p.min_args
+          rest = p.rest?
+          max = p.max_args || -1
           ok = if rest
                  @f.icmp("sge", argc, imm(req))
                elsif p.optional.empty?
@@ -269,7 +269,7 @@ module Zr
                else
                  @f.band(@f.icmp("sge", argc, imm(req)), @f.icmp("sle", argc, imm(max)))
                end
-          required = p.keywords.select { |_, default| default.nil? }.map(&:first)
+          required = p.required_keywords
           fail_unless(ok) do
             # The argument slots are not set yet, and the raise below can
             # start a collection.
@@ -289,7 +289,7 @@ module Zr
           return [] unless @kind == :def && !@has_env
 
           p = own_params
-          return [] if keywords?(p) || (p.rest && p.rest != :implicit)
+          return [] if keywords?(p) || p.rest?
 
           p.required.filter_map { |name| name if name.is_a?(Symbol) && p.required.count(name) == 1 }
         end
@@ -314,7 +314,7 @@ module Zr
         # that can change it, so the arguments are read again after each.
         #: (Hir::Params p, String argc, String argv, strict: bool, ?keep: Integer?) -> void
         def bind_positional(p, argc, argv, strict:, keep: nil)
-          req = p.required.size + p.post.size
+          req = p.min_args
           argc = @f.csel(@f.icmp("sgt", argc, imm(req + p.optional.size)), imm(req + p.optional.size), argc) if !strict && !p.rest
           p.required.each_with_index do |name, i|
             v = strict ? arg_at(argv, imm(i)) : arg_or_nil(argc, argv, imm(i))
@@ -332,10 +332,11 @@ module Zr
             end
           end
           given_opt = @f.csel(@f.icmp("slt", avail, imm(p.optional.size)), avail, imm(p.optional.size))
-          if p.rest && p.rest != :implicit
+          if p.rest?
+            rest = p.rest #: Symbol
             start = @f.iadd(imm(p.required.size), given_opt)
             count = @f.isub(avail, given_opt)
-            bind(p.rest, kernel("zr_ary_of", count, @f.iadd(argv, @f.ishl(start, imm(3)))))
+            bind(rest, kernel("zr_ary_of", count, @f.iadd(argv, @f.ishl(start, imm(3)))))
           end
           p.post.each_with_index do |name, i|
             index = @f.iadd(@f.isub(argc, imm(p.post.size)), imm(i))
@@ -434,7 +435,7 @@ module Zr
         #: (Hir::Params p, Integer kwargs_at, String tab, String count, String argv) -> void
         def bind_keywords(p, kwargs_at, tab, count, argv)
           hash = -> { @f.fetch("i64", @rec, kwargs_at) }
-          required = p.keywords.select { |_, default| default.nil? }.map(&:first)
+          required = p.required_keywords
           declared = p.keywords.map(&:first)
           ids, n = keyword_ids(declared)
           shape = @f.symbol_value(@f.symbol(@l.cache_cell("kw", 8 * (1 + declared.size))))

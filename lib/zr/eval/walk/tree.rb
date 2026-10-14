@@ -1097,7 +1097,7 @@ module Zr
               scope.set(name, walk(default, ctx))
             end
           end
-          if params.rest && params.rest != :implicit
+          if params.rest?
             rest = [args.size - params.post.size, 0].max
             scope.set(params.rest, args.shift(rest))
           end

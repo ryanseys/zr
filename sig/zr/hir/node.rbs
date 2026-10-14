@@ -229,6 +229,7 @@ module Zr
       def no_block?: () -> bool
       def arity: () -> Integer
       def rows: () -> Array[Array[Symbol]]
+      def rest_rows: () -> Array[Array[Symbol]]
       def kwrest_rows: () -> Array[Array[Symbol]]
       def block_rows: () -> Array[Array[Symbol]]
     end

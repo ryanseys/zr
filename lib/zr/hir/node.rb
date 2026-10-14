@@ -230,7 +230,7 @@ module Zr
       # optional ones, cause a spread. A single `|a|` does not, and neither
       # do keywords with exactly one positional and no rest.
       def spread?
-        min = required.size + post.size
+        min = min_args
         keyworded = !keywords.empty? || !kwrest.nil?
         return false if positional == 1 && rest.nil? && (min == 1 || keyworded)
 
@@ -261,10 +261,10 @@ module Zr
       # vary. A required keyword counts as one argument. Any other keyword
       # form permits one more.
       def arity
-        min = required.size + post.size + (keywords.any? { |_, default| default.nil? } ? 1 : 0)
-        return -min - 1 if rest && rest != :implicit
+        min = min_args + (keywords.any? { |_, default| default.nil? } ? 1 : 0)
+        return -min - 1 if rest?
 
-        max = required.size + optional.size + post.size + (keywords.any? || (kwrest && kwrest != :nokey) ? 1 : 0)
+        max = min_args + optional.size + (keywords.any? || (kwrest && kwrest != :nokey) ? 1 : 0)
         min == max ? min : -min - 1
       end
 
@@ -275,12 +275,17 @@ module Zr
         [
           *required.map(&positional),
           *optional.map { |name, _| [:opt, name] },
-          *(rest && rest != :implicit ? [[:rest, rest]] : []),
+          *rest_rows,
           *post.map(&positional),
           *keywords.map { |name, default| [default.nil? ? :keyreq : :key, name] },
           *kwrest_rows,
           *block_rows
         ]
+      end
+
+      def rest_rows
+        name = rest
+        name && rest? ? [[:rest, name]] : []
       end
 
       def block_rows
