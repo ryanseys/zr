@@ -313,6 +313,29 @@ module Zr
             message = conversion_message { sequence.pack("C*").dup.force_encoding(encoding).encode("UTF-8") }
             !message.include?(" in conversion from ")
           end
+          # The BMP characters that GB18030 writes in four bytes, as runs of
+          # the first code point, the four-byte count it starts at, and the
+          # run's length, from ruby's own converter.
+          def gb18030_runs
+            (0x80..0xFFFF).each_with_object([]) do |code, runs|
+              next if (0xD800..0xDFFF).cover?(code)
+
+              bytes = code.chr(Encoding::UTF_8).encode(Encoding::GB18030).bytes
+              next unless bytes.size == 4
+
+              count = ((((((bytes[0] - 0x81) * 10) + bytes[1] - 0x30) * 126) + bytes[2] - 0x81) * 10) + bytes[3] - 0x30
+              last = runs.last
+              if last && last[0] + last[2] == code && last[1] + last[2] == count
+                last[2] += 1
+              else
+                runs << [code, count, 1]
+              end
+            end
+          end
+
+          # The ISO-8859-1 byte of each IBM037 byte, in hex.
+          def ebcdic_hex = (0..255).map { |byte| byte.chr.force_encoding("IBM037").encode("ISO-8859-1").ord }.pack("C*").unpack1("H*")
+
           def write(io)
             warn "reading the multibyte encodings off ruby ..."
             plain = [Encoding::UTF_8, Encoding::US_ASCII, Encoding::BINARY]
@@ -485,6 +508,17 @@ module Zr
             core << "  # The carriers' encodings, each read through its carrier's UTF-8:\n"
             core << "  # these rows hold that UTF-8's code points, emoji and all.\n"
             core << "  MB_HUBS = #{HUBS.inspect}.freeze\n\n"
+            core << "  # The runs of BMP characters GB18030 writes in four bytes: each run's\n"
+            core << "  # first code point, the four-byte count it starts at, and its length.\n"
+            core << "  # This file runs before Enumerable, so the triples are literals.\n"
+            core << "  GB18030_RUNS = [\n"
+            gb18030_runs.each_slice(6) { |row| core << "    #{row.map(&:inspect).join(", ")},\n" }
+            core << "  ].freeze\n"
+            core << "  # The four-byte count of U+10000, where the supplementary planes start.\n"
+            core << "  GB18030_PLANES = 189_000\n\n"
+            core << "  # The ISO-8859-1 byte that each IBM037 byte represents, by position, in\n"
+            core << "  # hex: the core library reads this file before Array#pack is defined.\n"
+            core << "  EBCDIC_HEX = #{ebcdic_hex.scan(/.{1,64}/).map(&:inspect).join(" \\\n               ")}.freeze\n\n"
             core << "  private_constant :MB, :MB_ROWS, :MB_PARTIAL, :MB_UTF8, :MB_ENCODE, :MB_MULTI, :MB_SHAPES, :MB_HUBS, :CONVERTERS,\n"
             core << "                   :ASCII_COMPAT, :CONVERTER_FLAGS\n"
             core << "end\n"

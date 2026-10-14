@@ -154,6 +154,3 @@ Lint/SafeNavigationWithEmpty:
     - "lib/zr/runtime/core/env.rb"
     - "lib/zr/runtime/core/file.rb"
 # - The table that the cjk generator will write (it has no generator yet).
-Lint/ImplicitStringConcatenation:
-  Exclude:
-    - "lib/zr/runtime/core/ruled.rb"
