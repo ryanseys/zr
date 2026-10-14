@@ -32,6 +32,7 @@ module Zr
     # @rbs @unit: Machine::Lower?
     # @rbs @released: bool?
     # @rbs @description: Machine::Description?
+    # @rbs @description_text: String?
     # @rbs @raw: Array[String]?
     # @rbs @digest: String?
     # @rbs @stamps: Hash[String, [Rational, Integer]?]?
@@ -84,6 +85,11 @@ module Zr
     def description
       @description ||= Machine::Description.parse(cached.fetch(:description))
     end
+
+    # The kernel's description as text, made once: the core cache keys on
+    # it, and the runtime's cache file keeps it.
+    #: () -> String
+    def description_text = @description_text ||= Machine::Description.of(unit).to_text
 
     #: () -> Array[String]
     def raw = @raw || unit.raw
@@ -259,7 +265,7 @@ module Zr
       end
       wanted_functions = (calls.uniq - defined).sort
       wanted_data = (reads.uniq - data.map(&:name)).sort
-      description = Machine::Description.of(unit).to_text
+      description = description_text
       Cache::Store.write_file(cache_path,
                      JSON.generate({ "names" => @table.names, "sites" => @table.sites, "kernel" => kernel_symbols.names.size,
                                      "functions" => wanted_functions, "data" => wanted_data, "description" => description }))
@@ -284,7 +290,7 @@ module Zr
       @lowered ||= Timing.phase("lowering the core", "core lowered") do
         core = @core_cache = Timing.phase("core cache: opening", "core cache: opened") { Cache::Lowering::Core.for(target) }
         fixed = unit.symbols.ids.dup.freeze
-        functions, data = core ? core.lower(unit, fixed, sources) : Runtime.core(unit, fixed, target, sources)
+        functions, data = core ? core.lower(unit, fixed, sources, description: description_text) : Runtime.core(unit, fixed, target, sources)
         @table = Machine::Symbols.new(kernel_symbols.names, sites: kernel_symbols.sites)
         tag = unit.const_for("SYMBOL_TAG") #: Integer
         [functions, SymbolNumbering.numbered_copies(data, @table, tag)]

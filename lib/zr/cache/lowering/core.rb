@@ -29,17 +29,22 @@ module Zr
         end
 
         # Lowers the core over the kernel `unit`, as `Runtime.core` does, with the
-        # kernel's ids `ids`, taking each file it can from an entry. Returns
+        # kernel's ids `ids` and `description` (`Runtime#description_text`), taking
+        # each file it can from an entry. Returns
         # `[functions, data]`: machine code (`Obj::Code`) for each core
         # function, then the prelude's IR, and the data of each piece. It
         # inlines the kernel, so the object build must not inline again.
-        #: (Machine::Lower unit, Hash[String, Integer] ids, Hash[String, String] sources) -> [Array[Obj::Code | IR::Function], Array[Obj::Datum]]
-        def lower(unit, ids, sources)
+        # @rbs unit: Machine::Lower
+        # @rbs ids: Hash[String, Integer]
+        # @rbs sources: Hash[String, String]
+        # @rbs description: String
+        # @rbs return: [Array[Obj::Code | IR::Function], Array[Obj::Datum]]
+        def lower(unit, ids, sources, description:)
           @unit = unit
           @ids = ids
           @sources = sources
           @base = Timing.phase("core cache: taking the key", "core cache: key") do
-            base_key(Machine::Description.of(unit).to_text, Lower.boot_classes.inspect, *ids.keys)
+            base_key(description, Lower.boot_classes.inspect, *ids.keys)
           end
           paths = RuntimeSources.for(@target).core_files
           @prelude = Runtime.prelude(paths.map { |path| Runtime.core_entry(path) }, unit)
