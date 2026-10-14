@@ -69,7 +69,7 @@ module Zr
       row("ZR_TUNE", "--tune", :switch, nil, "larger GC limits and YJIT for heavy work (on)"),
       row("ZR_CACHE", "--cache-dir", :value, "DIR", "the cache directory (`zr cache path` prints it)"),
       row("ZR_CACHE_MAX_GB", "--cache-max-gb", :value, "GB", "the most GB an installed zr keeps (5; 0: none)"),
-      row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr runs for gems and syntax errors"),
+      row("ZR_HOST_RUBY", "--host-ruby", :value, "RUBY", "the ruby that zr runs to resolve gems"),
       row("ZR_LINK_ARGS", "--link-args", :value, "WORDS", "words for the system linker, split as sh does"),
       row("ZR_EXT_OBJECTS", "--ext-objects", :value, "PATH=OBJ,...", "C extensions to link: each a bundle's path, then its objects"),
       row("ZR_EXT", "--ext", :choice, EXT_MODES, "how a C extension runs: static (its objects; a bundle alone embeds), embed or dynamic"),
@@ -146,8 +146,7 @@ module Zr
       # (default 5; 0 turns the limit off).
       @cache_max_gb = number("ZR_CACHE_MAX_GB", 5.0, "10", kind: :Float, min: 0)
       # `ZR_HOST_RUBY`: the ruby that zr starts when it needs ruby itself:
-      # to resolve gems (lib/zr/gem_set.rb), and for ruby's report of a
-      # syntax error (`CLI::Refusals.syntax_report`).
+      # to resolve gems (lib/zr/gem_set.rb).
       @host_ruby = text("ZR_HOST_RUBY") || running_ruby
       # `ZR_LINK_ARGS`: words for the system linker, as `--link` gives
       # them, split as a shell splits them.

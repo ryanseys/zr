@@ -195,7 +195,7 @@ module Zr
           require_relative "../../hir/syntax_report"
           result = Zr.parse(source, filepath: file, **options.switches.parse_options(true))
           # ruby prints the warnings also for a program that does not parse.
-          parse_warnings(result, file, options.switches.verbose)
+          $stderr.write(Refusals.warning_lines(result, file, options.switches.verbose))
           unless result.errors.empty?
             $stderr.write(Refusals.syntax_text("zr", Hir::SyntaxReport.error(result, file)))
             exit 1
@@ -210,17 +210,6 @@ module Zr
           puts "Syntax OK" if syntax && first
           $stdout.write(tree) if tree
           puts "Syntax OK" if syntax && !first
-        end
-
-        # The parse's warnings, as a run prints them (Loader#warnings): none
-        # under -W0, and those of the -w level only under -w.
-        #: (Prism::ParseResult result, String file, bool | Symbol | nil verbose) -> void
-        def parse_warnings(result, file, verbose)
-          return if verbose.nil?
-
-          result.warnings.each do |w|
-            warn "#{Paths.shown(file)}:#{w.location.start_line}: warning: #{w.message}" if w.level == :default || verbose == true
-          end
         end
 
         #: (Prism::ParseResult result) -> String
@@ -369,44 +358,21 @@ module Zr
           abort "zr: zr cannot compile this program: #{e.message}. This is a limit or a defect in zr. " \
                 "Report it at #{ISSUES_URL}."
         rescue SyntaxError => e
-          # For a program that does not parse, ruby prints a report and exits
-          # 1. The binary does the same, with ruby's own report. A required
-          # file that does not parse raises when the require runs
-          # (`Loader#parsed_unit`).
-          # A program with no file: ruby's report has no syntax_suggest part.
-          given = !File.file?(input) && e.respond_to?(:path) && e.path == input
-          report = given ? Refusals.syntax_text(input, e) : Refusals.syntax_report(input, verbose: options.switches.verbose)
-          unless report
+          # For a program that does not parse, ruby prints the parse's
+          # warnings and a report, and exits 1. The binary does the same
+          # (`Refusals.syntax_error_program`). A required file that does not
+          # parse raises when the require runs (`Loader#parsed_unit`).
+          warned = Refusals.syntax_warnings(input, source, options.switches)
+          unless warned
             warn "zr: a required file does not parse: #{e.message.lines.first.chomp}"
             exit REFUSED
           end
           warn "zr: warning: #{input} does not parse. The output prints ruby's syntax error and exits with status 1" if name == "build"
           # The -r requires still run before it, and their exit handlers after.
-          Program.build(syntax_error_program(input, e, report), input, options.with(gate: false, trace: false))
+          Program.build(Refusals.syntax_error_program(input, e, warned), input, options.with(gate: false, trace: false))
         end
 
         private
-
-        # The program that ends as ruby does for a script that does not
-        # parse, after the -r requires ran: the parse's warnings, then the
-        # error as error_print writes it, through SyntaxError#detailed_message,
-        # which syntax_suggest (and the program) may extend. The api of
-        # syntax_suggest is required here, as its detailed_message requires
-        # it by a name that the build cannot see.
-        #: (String input, SyntaxError error, String report) -> String
-        def syntax_error_program(input, error, report)
-          warned = report[0, report.index("#{input}: ") || 0]
-          <<~RUBY
-            # syntax_suggest's decorator requires its search as it runs.
-            # The binary carries the search; running it now would load the
-            # decorator before the first display, which ruby does not.
-            require "syntax_suggest/api" if false
-            error = SyntaxError.new(#{error.message.inspect})
-            error.instance_variable_set(:@path, #{input.inspect})
-            $stderr.write(#{warned.inspect}, #{input.inspect}, ": ", error.detailed_message(highlight: false), "\\n")
-            exit 1
-          RUBY
-        end
 
         # `zr run --emit wasm` runs the module with wasmtime. Without it, stop
         # before the build.

@@ -4,6 +4,7 @@ require_relative "program_run"
 require_relative "program_build"
 require_relative "harness/child"
 require_relative "harness/clean_env"
+require_relative "ruby_syntax_report"
 require_relative "../../lib/zr/machine/host/walk"
 
 module Zr
@@ -80,7 +81,7 @@ module Zr
             rescue SyntaxError
               # As a binary does (`ProgramBuild.lower`): ruby's report, and
               # exit 1.
-              report = CLI::Refusals.syntax_report(test.rel) or raise
+              report = Test::RubySyntaxReport.of(test.rel) or raise
               w.run(test.rel, test.args, source: "$stderr.write(#{report.inspect})\nexit 1\n")
             end
           rescue Machine::Host::Walk::Unsupported => e

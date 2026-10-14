@@ -549,6 +549,15 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("--disable-gems", "unparsed.rb")
   end
 
+  # A program with no file warns as it parses too: -e, and a script on
+  # standard input.
+  def test_a_program_with_no_file_prints_its_parse_warnings_before_the_report
+    same_as_ruby("-w", "-e", "p 1 if 1; p(")
+    same_as_ruby("-e", "p :a=>1, :a=>2; p(")
+    same_as_ruby("-W0", "-e", "p :a=>1, :a=>2; p(")
+    same_as_ruby("-w", "-", stdin: "p 1 if 1; p(\n")
+  end
+
   # -c prints the parse's warnings at the program's level, before "Syntax
   # OK" or the report of a program that does not parse
   # (test_syntax.rb test_duplicated_when_check_option).

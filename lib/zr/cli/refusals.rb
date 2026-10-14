@@ -3,6 +3,7 @@
 require_relative "../version"
 require_relative "../config"
 require_relative "../refused"
+require_relative "../paths"
 
 module Zr
   module CLI
@@ -16,34 +17,6 @@ module Zr
       # The page that lists what zr supports, for the user who reads a
       # refusal.
       SUPPORT = "#{DOCS_URL}/reference/support.md".freeze
-
-      # The program that writes ruby's report of a syntax error. It loads
-      # zr's own syntax_suggest (vendor/ruby) by its path, as a stock ruby
-      # has it: `api` first, so `core_ext` does not require it by name
-      # (a second core_ext would wrap the message twice). ruby prints the
-      # parse's warnings before the error, so the report has them too. It
-      # exits 2 when the file parses. The host ruby runs it with its gems,
-      # where it finds prism (a bundled gem), and with no autoload of the
-      # message decorators, which would load the host's own syntax_suggest.
-      SYNTAX_REPORT = <<~'RUBY'
-        syntax_suggest, input = ARGV
-        require File.join(syntax_suggest, "api")
-        require File.join(syntax_suggest, "core_ext")
-        warned = +""
-        sink = Object.new
-        sink.define_singleton_method(:write) { |*parts| warned << parts.join }
-        $stderr = sink
-        begin
-          RubyVM::InstructionSequence.compile_file(input)
-        rescue SyntaxError => e
-          error = e
-        ensure
-          # syntax_suggest writes to $stderr as it builds the message.
-          $stderr = STDERR
-        end
-        exit 2 unless error
-        print warned, input, ": ", error.detailed_message(highlight: false), "\n"
-      RUBY
 
       module_function
 
@@ -131,20 +104,48 @@ module Zr
         "#{prefix}: #{first} (#{error.class})\n#{rest}\n"
       end
 
-      # ruby's report for `input`, which does not parse, or nil when it
-      # parses (then a file that it requires did not). The host ruby writes
-      # it (SYNTAX_REPORT) at the program's warning level (`verbose`, $VERBOSE as -w, -W0
-      # or neither set it), so the parse warns as the program's would.
-      #: (String input, ?verbose: bool | Symbol | nil) -> String?
-      def syntax_report(input, verbose: false)
-        require_relative "../library/roots"
-        level = { true => "-W2", nil => "-W0" }.fetch(verbose, "-W1")
-        argv = [Config.current.host_ruby, "--disable=error_highlight,did_you_mean,syntax_suggest", level,
-                "-e", SYNTAX_REPORT, File.join(Library::Roots.pure, "syntax_suggest"), input]
-        out = IO.popen(argv, err: File::NULL, &:read)
-        # `IO.popen` with a block waits for the child, so `$?` is set.
-        status = $? #: Process::Status
-        status.success? ? out : nil
+      # The parse's warnings, as ruby prints them as it parses `input`:
+      # none under -W0 (`verbose` nil), and those of the -w level only
+      # under -w (`verbose` true).
+      #: (Prism::ParseResult result, String input, bool | Symbol | nil verbose) -> String
+      def warning_lines(result, input, verbose)
+        return "" if verbose.nil?
+
+        shown = Paths.shown(input)
+        result.warnings.filter_map do |w|
+          "#{shown}:#{w.location.start_line}: warning: #{w.message}\n" if w.level == :default || verbose == true
+        end.join
+      end
+
+      # The warnings that ruby prints before its report of `source` (the
+      # program `input`), which does not parse; nil when `source` parses,
+      # so a file that it requires did not.
+      #: (String input, String source, Hir::Switches switches) -> String?
+      def syntax_warnings(input, source, switches)
+        require_relative "../parse"
+        result = Zr.parse(source, filepath: input, **switches.parse_options(true))
+        warning_lines(result, input, switches.verbose) unless result.errors.empty?
+      end
+
+      # The program that ends as ruby does for a script that does not
+      # parse, after the -r requires ran: the parse's warnings (`warned`),
+      # then the error as error_print writes it, through
+      # SyntaxError#detailed_message, which syntax_suggest (and the
+      # program) may extend. The api of syntax_suggest is required here, as
+      # its detailed_message requires it by a name that the build cannot
+      # see.
+      #: (String input, SyntaxError error, String warned) -> String
+      def syntax_error_program(input, error, warned)
+        <<~RUBY
+          # syntax_suggest's decorator requires its search as it runs.
+          # The binary carries the search; running it now would load the
+          # decorator before the first display, which ruby does not.
+          require "syntax_suggest/api" if false
+          error = SyntaxError.new(#{error.message.inspect})
+          error.instance_variable_set(:@path, #{input.inspect})
+          $stderr.write(#{warned.inspect}, #{input.inspect}, ": ", error.detailed_message(highlight: false), "\n")
+          exit 1
+        RUBY
       end
     end
   end

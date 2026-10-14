@@ -119,14 +119,13 @@ module Zr
       rescue Backend::Refused => e
         [:backend, e.message]
       rescue SyntaxError => e
-        # For a program that does not parse, ruby prints a report and
-        # exits 1. The binary does the same, with the ruby report.
-        # `CLI::Commands::Compile#lower` does the same, and the two must
-        # stay the same.
-        report = CLI::Refusals.syntax_report(rel)
-        return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless report
+        # For a program that does not parse, ruby prints the parse's
+        # warnings and a report, and exits 1. The binary does the same, as
+        # `CLI::Commands::Compile#lower` builds it.
+        warned = CLI::Refusals.syntax_warnings(rel, source, Hir::Switches::NONE)
+        return [:refused, "a required file does not parse: #{e.message.lines.first.chomp}"] unless warned
 
-        compile("$stderr.write(#{report.inspect})\nexit 1\n", rel, target)
+        compile(CLI::Refusals.syntax_error_program(rel, e, warned), rel, target)
       end
 
       def compile(source, rel, target, gem_set = nil)
