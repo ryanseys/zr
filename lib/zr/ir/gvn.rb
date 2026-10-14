@@ -237,17 +237,20 @@ module Zr
         preds = @analysis.preds
         from = order.to_h { |n| [n, preds[blocks[n].name].map { |p| at.fetch(p) }] }
         bits_of = Array.new(blocks.size, 0)
-        seen = Array.new(blocks.size) #: Array[Object?]
+        # The walk that last passed each block: a count, not an object for
+        # each walk.
+        seen = Array.new(blocks.size, 0)
+        stamp = 0
         loop do
           moved = false
           order.each do |n|
             d = up[n]
             bits = bits_of[n]
-            stamp = Object.new
+            stamp += 1
             from[n].each do |p|
               # @type var x: Integer?
               x = p
-              while x && x != d && !seen[x].equal?(stamp)
+              while x && x != d && seen[x] != stamp
                 seen[x] = stamp
                 bits |= written[x] | bits_of[x]
                 x = up[x]
