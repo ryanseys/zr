@@ -42,6 +42,8 @@ module Zr
           "nkf" => ["lib/zr/runtime/ext/nkf/tables.rb: nkf's conversion tables", -> { require_relative "gen/nkf"; Nkf }],
           "openssl_constants" => ["lib/zr/runtime/ext/openssl/ossl/constants.rb: openssl's Integer constants",
                                   -> { require_relative "gen/openssl_constants"; OpensslConstants }],
+          "ryu_tables" => ["lib/zr/runtime/kernel/ryu_tables.rb: Ryu's powers of five, computed",
+                           -> { require_relative "gen/ryu_tables"; RyuTables }],
           "zlib_tables" => ["lib/zr/runtime/kernel/zlib_tables.rb: zlib's tables, computed as zlib's C computes them",
                             -> { require_relative "gen/zlib_tables"; ZlibTables }],
           "prism" => ["lib/zr/runtime/ext/prism/ruby/*.rb: the pure-Ruby prism", -> { require_relative "gen/prism"; PrismRuby }],
