@@ -3,6 +3,7 @@
 require "digest/sha2"
 require "open3"
 require "rbconfig"
+require_relative "../child_ruby"
 require_relative "makefile"
 require_relative "source"
 require_relative "../refused"
@@ -36,10 +37,9 @@ module Zr
       # @rbs @ruby: String
       # @rbs @target: Target
 
-      # What the child that runs extconf.rb leaves out of zr's
-      # environment: Bundler would hide the gems that an extconf requires.
-      CLEAN_ENV = %w[BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_SETUP BUNDLER_VERSION RUBYOPT RUBYLIB]
-                  .to_h { |name| [name, nil] }.freeze #: Hash[String, nil]
+      # The child that runs extconf.rb runs outside zr's bundle, which
+      # would hide the gems that an extconf requires.
+      CLEAN_ENV = ChildRuby::UNBUNDLED
 
       # The file that mkmf loads as the target's RbConfig.
       TARGET_RBCONFIG = File.expand_path("target_rbconfig.rb", __dir__)

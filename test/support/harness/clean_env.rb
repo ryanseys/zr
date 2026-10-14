@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../../lib/zr/child_ruby"
+
 module Zr
   module Harness
     # The environment that this process started with, before bundler.
@@ -13,7 +15,9 @@ module Zr
     # stops a child from loading a gem that ruby bundles but this Gemfile
     # does not list; prism's own test suite needs such gems.
     module CleanEnv
-      ORIGINAL = (defined?(Bundler) ? Bundler.original_env : ENV).to_h.freeze
+      # bin/minitest sets BUNDLE_GEMFILE before bundler loads, so even
+      # bundler's original environment can hold a bundle.
+      ORIGINAL = (defined?(Bundler) ? Bundler.original_env : ENV).to_h.merge(ChildRuby::UNBUNDLED).compact.freeze
 
       # `ORIGINAL` merged with `overlay`. A nil in `overlay` removes the
       # variable. The caller passes `unsetenv_others: true`, so the child

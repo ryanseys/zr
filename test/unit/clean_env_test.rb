@@ -18,6 +18,12 @@ class CleanEnvTest < Minitest::Test
     refute_operator CleanEnv.env, :key?, "BUNDLER_SETUP"
   end
 
+  # bin/minitest sets BUNDLE_GEMFILE before bundler loads, so bundler's
+  # original environment holds it.
+  def test_env_holds_no_bundle_variable
+    assert_empty CleanEnv.env.keys.grep(/\ABUNDLE/)
+  end
+
   def test_an_overlay_goes_over_it_and_a_nil_takes_a_variable_out
     assert_equal "1", CleanEnv.env("ZR_GC_STRESS" => "1").fetch("ZR_GC_STRESS")
     refute_operator CleanEnv.env("PATH" => nil), :key?, "PATH"

@@ -393,8 +393,7 @@ class RubyModeTest < Minitest::Test
 
   # The environment of both: no bundler and no collector limits of the
   # test run, which ruby would load or warn about.
-  ENV_OF_BOTH = { "RUBYOPT" => nil, "RUBYLIB" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLE_BIN_PATH" => nil, "BUNDLER_SETUP" => nil,
-                  "BUNDLER_VERSION" => nil, "BUNDLE_LOCKFILE" => nil }.merge(Zr::GcTuning::GC_ENV.transform_values { nil }).freeze
+  ENV_OF_BOTH = Zr::ChildRuby::UNBUNDLED.merge(Zr::GcTuning::GC_ENV.transform_values { nil }).freeze
 
   FILES = {
     "in.txt" => "a b\nc d\n",

@@ -5,6 +5,7 @@ require "fileutils"
 require "json"
 require "open3"
 require "tmpdir"
+require_relative "../../../../lib/zr/child_ruby"
 require_relative "../../../../lib/zr/cli/runner"
 require_relative "../../../../lib/zr/timing"
 
@@ -475,7 +476,7 @@ module Zr
         # zr's run gets the environment of the pinned copy, for the zr that
         # its tests start, and the copy's home, as a program that zr runs.
         def env(_dir, zr:)
-          base = { "RUBYOPT" => nil, "RUBYLIB" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil }
+          base = ChildRuby::UNBUNDLED
           zr ? base.merge(Suite.zr_env, "ZR_HOME" => Suite.zr_home) : base
         end
 

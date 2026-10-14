@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "../../lib/zr/child_ruby"
 require_relative "flag"
 require "digest/sha2"
 require "fileutils"
@@ -133,8 +134,7 @@ module Zr
       # The environment of a child that sees the gems installed in this
       # ruby, as a user's ruby and zr do: the test runs under Bundler,
       # which hides every gem outside the bundle.
-      UNBUNDLED = %w[BUNDLE_GEMFILE BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_SETUP BUNDLER_VERSION RUBYOPT RUBYLIB]
-                  .to_h { |name| [name, nil] }.freeze
+      UNBUNDLED = ChildRuby::UNBUNDLED
 
       # The installed gem `name`'s newest version, or nil. It looks where
       # an UNBUNDLED child looks: ruby's own gems and GEM_HOME (the

@@ -2,6 +2,7 @@
 
 require "digest/sha2"
 require "rbconfig"
+require_relative "child_ruby"
 require_relative "paths"
 require_relative "library/ports"
 require_relative "cache/store"
@@ -57,11 +58,6 @@ module Zr
 
     RESOLVE = File.expand_path("gem_set/resolve.rb", __dir__) #: String
     VERSION = 2
-
-    # The environment of the child: the host's gems, without a bundle
-    # that this process runs in.
-    CHILD_ENV = %w[RUBYOPT RUBYLIB BUNDLER_SETUP BUNDLE_BIN_PATH BUNDLE_LOCKFILE BUNDLER_VERSION]
-                .to_h { |name| [name, nil] }.freeze #: Hash[String, String?]
 
     # The variables that change which gems the child finds.
     READS = %w[GEM_HOME GEM_PATH BUNDLE_PATH BUNDLE_APP_CONFIG BUNDLE_WITHOUT BUNDLE_WITH BUNDLE_FROZEN BUNDLE_DEPLOYMENT].freeze
@@ -180,7 +176,8 @@ module Zr
       require "json"
       require_relative "library/roots"
       request = JSON.generate(gemfile: gemfile, flags: flags, ports: Library::Ports::ALL.transform_values(&:compat))
-      child_env = CHILD_ENV.merge("BUNDLE_GEMFILE" => gemfile)
+      # The host's gems, without a bundle that this process runs in.
+      child_env = ChildRuby::UNBUNDLED.merge("BUNDLE_GEMFILE" => gemfile) #: Hash[String, String?]
       READS.each { |name| child_env[name] = env[name] }
       # The child's warnings go to this stderr, where the user sees them.
       command = [ruby, "--disable-gems", "-I", Library::Roots.pure, RESOLVE]

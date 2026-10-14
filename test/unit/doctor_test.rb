@@ -89,7 +89,7 @@ class DoctorTest < Minitest::Test
 
   def zr(*, env: {})
     # rubygems requires BUNDLER_SETUP at boot, so a bundle leaks through it too.
-    unbundled = { "RUBYOPT" => nil, "BUNDLE_GEMFILE" => nil, "BUNDLER_SETUP" => nil, "BUNDLE_BIN_PATH" => nil, "BUNDLER_VERSION" => nil }
+    unbundled = Zr::ChildRuby::UNBUNDLED
     Open3.capture3(unbundled.merge(env), RbConfig.ruby, EXE, *, chdir: ROOT)
   end
 

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "../../child_ruby"
 require_relative "../command"
 require_relative "../options"
 
@@ -55,7 +56,7 @@ module Zr
         #: (Hash[Symbol, untyped] opts) -> Hash[String, String?]
         def ruby_env(opts)
           gemfile = opts[:gemfile] || ENV["BUNDLE_GEMFILE"]
-          env = { "RUBYOPT" => nil, "BUNDLER_SETUP" => nil } #: Hash[String, String?]
+          env = ChildRuby::UNBUNDLED #: Hash[String, String?]
           return env if gemfile.to_s.empty?
 
           env.merge("BUNDLE_GEMFILE" => File.expand_path(gemfile), "RUBYOPT" => "-rbundler/setup")
