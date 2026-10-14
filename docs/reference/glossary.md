@@ -151,10 +151,9 @@ output in files beside it (`foo.rb.expected` and others). zr builds it
 and compares the binary's output with ruby's. `zr-dev expect` writes
 the expected files. See [Program tests](program-tests.md).
 
-**Recording.** The files beside a benchmark that contain ruby's
-output: `.out` (stdout), `.err` (stderr), `.status` (an exit status
-that is not 0) and `.signal`. `zr-dev record` writes them. See
-[Benchmark recordings](benchmark-recordings.md).
+**Recording.** The files beside a program test or a benchmark that
+contain ruby's output (`foo.rb.expected` and others). `zr-dev expect`
+writes them. See [Program tests](program-tests.md).
 
 **Reference ruby.** The ruby that `.ruby-version` names, with only the reference gems
 (`tmp/reference/gems`): the only source of expected outputs

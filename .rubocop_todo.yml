@@ -39,7 +39,6 @@ ThreadSafety/DirChdir:
     - "test/unit/unit_cache_test.rb"
     - "tool/lib/zr/dev/gems/corpus.rb"
     - "tool/probe.rb"
-    - "tool/record.rb"
 
 # Files that had a method with more than 5 positional parameters when
 # Metrics/ParameterLists came in. Pass a record or keywords, then delete

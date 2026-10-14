@@ -41,9 +41,8 @@ expected output by hand.
 
 Every expected file of a program test comes from ruby: `zr-dev expect`
 writes it, and `zr-dev expect --check` checks each one against ruby
-again. The benchmarks in `benchmark/` have ruby's output in their
-recordings, which `zr-dev record` writes. zr records a benchmark one
-time. If the correct output changes, the program has changed, so it is
+again. The benchmarks in `benchmark/` have the same files, which
+`zr-dev expect` writes too. zr records a benchmark one time. If the correct output changes, the program has changed, so it is
 a new program.
 
 The ports obey the same rule. Each one has its own area in

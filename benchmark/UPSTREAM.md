@@ -13,8 +13,8 @@ while zr's dispatch-bound gap on it is still open; the polymorphic
 structure is unchanged.
 
 Each `bm_<name>.rb` prints deterministic output, and carries the pinned ruby's
-recording of it beside it, in the layout of `docs/reference/benchmark-recordings.md`,
-like every other corpus program. `zr-dev bench` builds each one, checks the
+recording of it beside it, in the layout of a program test
+(`docs/reference/program-tests.md`, Benchmarks). `zr-dev bench` builds each one, checks the
 answer against that recording before it keeps a time (a wrong answer
 fails the row, and gets no time), and reports
 the median of five runs against `ruby` and `ruby --yjit`; `README.md`

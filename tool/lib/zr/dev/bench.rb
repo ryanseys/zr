@@ -8,6 +8,7 @@ require "tmpdir"
 require_relative "../../../../test/support/harness/normalize"
 require_relative "../../../../test/support/harness/child"
 require_relative "../../../../test/support/harness/runner"
+require_relative "../../../../test/support/program_run"
 require_relative "process"
 
 module Zr
@@ -16,8 +17,10 @@ module Zr
     # with the run time of ruby, which made the recording.
     #
     # `benchmark/` contains whole programs, as `test/programs` does: a `.rb`
-    # file with ruby's output in `<name>.out` next to it. This class only
-    # measures time and makes the comparison columns.
+    # file with ruby's output in `<name>.rb.expected` next to it, which
+    # `zr-dev expect` writes. Each runs from the root, as a program test
+    # whose root is the checkout (`Test::Case`). This class only measures
+    # time and makes the comparison columns.
     #
     # **The output is checked before a time is kept.** The speed of a
     # wrong output has no meaning. A codegen step must never make the
@@ -114,11 +117,12 @@ module Zr
 
       # Builds the program, checks its output, then times zr, ruby and yjit.
       def one(rb, work)
-        recorded = Harness::Answer.beside(rb)
-        return Row.new(rb, :skipped, "no recording") unless recorded
-
         cwd = @root
         rel = rb.delete_prefix("#{cwd}/")
+        test = Test::Case.new(cwd, rel)
+        return Row.new(rb, :skipped, "no recording") unless test.read("expected")
+
+        recorded = Test::ProgramRun.expected(test, @runner.platform)
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 

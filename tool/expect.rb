@@ -6,12 +6,14 @@ require_relative "lib/zr/dev"
 module Zr
   module Dev
     module Commands
-      # Writes the expected output of program tests from the pinned ruby, the only
-      # reference for correct output (test/support/program_case.rb).
+      # Writes the expected output of program tests and benchmarks from the
+      # pinned ruby, the only reference for correct output
+      # (test/support/program_case.rb).
       #
       #   zr-dev expect                               every test whose program is newer
       #   zr-dev expect test/programs/core/string     an area
       #   zr-dev expect --all test/programs/lang      write again, also if not newer
+      #   zr-dev expect benchmark/bm_so_lists.rb      a benchmark, which runs from the root
       #   zr-dev expect --check                       write nothing; list what differs
       #
       # A test gets `foo.rb.expected` (stdout), and `foo.rb.err.expected` and
@@ -20,9 +22,11 @@ module Zr
       # is not the same as `foo.rb.expected`. When ruby does not finish, the
       # old files stay.
       class Expect < Command
-        summary "Write the expected output of program tests from the pinned ruby"
+        summary "Write the expected output of program tests and benchmarks from the pinned ruby"
         usage "[--all] [--check] [path...]"
         host_ruby!
+
+        PROGRAMS = Dev.path("test/programs")
 
         def defaults
           @all = false
@@ -39,9 +43,8 @@ module Zr
           require_relative "../test/support/program_run"
           require_relative "../test/support/harness/reference"
           require_relative "../lib/zr/native/parallel"
-          root = Dev.path("test/programs")
-          argv = [root] if argv.empty?
-          tests = argv.flat_map { |path| candidates(File.expand_path(path), root) }.uniq
+          argv = [PROGRAMS] if argv.empty?
+          tests = argv.flat_map { |path| candidates(File.expand_path(path)) }.uniq
           tests.select! { |test| stale?(test) } unless @all || @check
           results = Native::Parallel.map(tests, jobs: [Etc.nprocessors, 12].min, weight: ->(_) { 1 }) { |test| expect(test) }
           changed = tests.zip(results).filter_map { |test, result| "#{test.rel}: #{result}" if result }
@@ -50,8 +53,11 @@ module Zr
           !@check || changed.empty?
         end
 
-        # The programs below `path`, with or without expected output yet.
-        def candidates(path, root)
+        # The programs below `path`, with or without expected output yet. A
+        # program test runs in test/programs, and any other program (a
+        # benchmark) in the root.
+        def candidates(path)
+          root = path == PROGRAMS || path.start_with?("#{PROGRAMS}/") ? PROGRAMS : ROOT
           paths = File.file?(path) ? [path] : Dir[File.join(path, "**/*.rb")].sort
           paths.reject { |file| file.include?(".rb.files/") }.map { |file| Test::Case.new(root, file.delete_prefix(File.join(root, ""))) }
         end

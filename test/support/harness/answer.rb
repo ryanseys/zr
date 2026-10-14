@@ -10,22 +10,6 @@ module Zr
         signal ? "signal #{signal}" : "exit #{code}"
       end
 
-      # The recording of ruby's output for the program at `path`. It is
-      # read from the files next to the program: always `<name>.out`, and
-      # `<name>.err`, `<name>.status` and `<name>.signal` when they are
-      # not empty. Each file contains only the raw bytes, so there is
-      # nothing to parse or unescape. `zr-dev record` writes these files for a
-      # benchmark.
-      # Returns nil when there is no recording.
-      def self.beside(path)
-        base = path.delete_suffix(".rb")
-        return nil unless File.file?("#{base}.out")
-
-        part = ->(kind) { File.file?("#{base}.#{kind}") ? File.binread("#{base}.#{kind}") : nil }
-        new(File.binread("#{base}.out"), part.call("err") || +"".b,
-            Integer(part.call("status") || 0), part.call("signal")&.then { |n| Integer(n) })
-      end
-
       # A text that tells how `other` is different from this output: the
       # first line that differs in stdout and in stderr, and the status.
       def apart_from(other)

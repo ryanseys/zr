@@ -49,5 +49,5 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | `irb` gem | `bin/console` | by hand |
 | `vernier` gem ~> 1.0 | profiles the compiler; never part of a build or a test | by hand |
 | wasmtime | runs the wasm tests; a test skips without it | `wasm_test`, the tiers under `ZR_TARGET=wasm32-wasi` |
-| the test reference | the pinned ruby's bundled gems, and each port's gem at zr's version, in `tmp/reference/gems` (`tool/install_reference_gems.rb`). Every expected output comes from ruby with only these gems | `zr-dev expect`, `zr-dev record`, `zr-dev probe`, the program tests of a program that does not parse |
+| the test reference | the pinned ruby's bundled gems, and each port's gem at zr's version, in `tmp/reference/gems` (`tool/install_reference_gems.rb`). Every expected output comes from ruby with only these gems | `zr-dev expect`, `zr-dev probe`, the program tests of a program that does not parse |
 | `nm`, `otool` | read an object and a binary back | `macho_test`, `exe_test`, `native_test` |

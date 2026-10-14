@@ -56,9 +56,8 @@ Facts about commands, formats and layouts.
 - [Gem compatibility](reference/gem-compat.md): how far each gem that
   `zr-dev gems` tried gets with zr
 - [Program tests](reference/program-tests.md): the files beside a
-  program, the run directory, the baselines and the runner's output
-- [Benchmark recordings](reference/benchmark-recordings.md): the files beside a
-  benchmark
+  program or a benchmark, the run directory, the baselines and the
+  runner's output
 - [Repository layout](reference/repository-layout.md)
 - [The kernel subset](reference/kernel-subset.md)
 - [Runtime layouts](reference/runtime-layouts.md)

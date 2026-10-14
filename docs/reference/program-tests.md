@@ -106,6 +106,23 @@ $ bin/zr-dev expect --check                      # write nothing; list what diff
 `zr-dev expect --check` fails when a file is different from ruby's
 output.
 
+## Benchmarks
+
+A benchmark in `benchmark/` is a program with the same files: ruby's
+stdout in `bm_<name>.rb.expected`, and the other files only when it
+needs them. A benchmark runs from the root of the checkout, so it is a
+program test whose root is the checkout (`Test::Case`), and
+`zr-dev expect` records it too:
+
+```console
+$ bin/zr-dev expect benchmark/bm_so_lists.rb     # one benchmark
+$ bin/zr-dev expect --all benchmark              # every benchmark again
+```
+
+`zr-dev bench` (`tool/lib/zr/dev/bench.rb`) reads the files, and
+keeps a time only when the binary's output is ruby's. A benchmark is
+recorded one time: a change of its output is a change of the program.
+
 ## The run directory
 
 Each run of a program, by ruby or by zr, gets a new directory

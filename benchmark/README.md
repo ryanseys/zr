@@ -34,7 +34,7 @@ newest report.
 | Holds | |
 |---|---|
 | `bm_<name>.rb` | one program, deterministic output |
-| `bm_<name>.out` | what the pinned ruby printed, written by `zr-dev record benchmark/bm_<name>.rb` |
+| `bm_<name>.rb.expected` | what the pinned ruby printed, written by `zr-dev expect benchmark/bm_<name>.rb` |
 | `bm_startup.rb` | the floor: a program that prints one line, so its time is the process's start alone |
 | `compile/` | the rungs `zr-dev compile` builds, a ladder of require graphs from `hello` to `bundler` |
 | `results/` | one report a run of the whole bank, `<stamp>-<revision>.txt` |

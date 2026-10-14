@@ -14,7 +14,7 @@ module Zr
       #   zr-dev bench --check [before after]  compare two reports
       #
       # A benchmark is a whole program under `benchmark/`, with ruby's output
-      # in `<name>.out` next to it. A time counts only when the output matches,
+      # in `<name>.rb.expected` next to it. A time counts only when the output matches,
       # so a miscompile never shows as a speedup. A run of all benchmarks
       # writes a report in the benchmark gem's layout to
       # `benchmark/results/<stamp>-<revision>.txt`; commit it with the code it
