@@ -39,12 +39,12 @@ require_relative "support/host_program" if host
 class ProgramsTest < Minitest::Test
   PROGRAMS = Zr::Test::Programs.new(host: ENV["ZR_TEST_HOST"] == "1")
   CASES = Zr::Test::Programs.cases.to_h { |test| ["test_#{Zr::Test::Programs.label(test)}", test] }
-  RESULTS = (Zr::Test::ResultCache.new if PROGRAMS.host? && Zr::Test::ResultCache.enabled?)
+  RESULTS = (Zr::Test::ResultCache.new if Zr::Test::ResultCache.enabled?)
 
   # Why zr did not build or run a program: a test error, not a failure.
   class NotBuilt < StandardError; end
 
-  # Counts the host tests that passed from the result cache.
+  # Counts the tests that passed from the result cache.
   class Cached < Minitest::AbstractReporter
     def initialize(io)
       super()
@@ -61,20 +61,24 @@ class ProgramsTest < Minitest::Test
     end
   end
 
-  # Before the workers fork: the host walks the core once (unless each
-  # selected test passes from the result cache). A build first trims the
-  # kept binaries to their quota, then gets the runtime (and eval
-  # support, when a selected program evals).
+  # Before the workers fork, for the selected tests that do not pass
+  # from the result cache: the host walks the core once, and a build
+  # first trims the kept binaries to their quota, then gets the runtime
+  # (and eval support, when such a program evals). When each one passes
+  # from the cache, neither happens.
   def self.minitest_plugin_init(options)
     selected = filter_runnable_methods(options).map { |name| CASES.fetch(name) }
     return if selected.empty?
 
+    Minitest.reporter << Cached.new(options[:io]) if RESULTS
+    left = RESULTS ? selected.reject { |test| RESULTS.passed?(test, PROGRAMS.baseline(test)) } : selected
+    return if left.empty?
+
     if PROGRAMS.host?
-      Minitest.reporter << Cached.new(options[:io]) if RESULTS
-      Zr::Test::HostProgram.walk unless RESULTS && selected.all? { |test| RESULTS.passed?(test, PROGRAMS.baseline(test)) }
+      Zr::Test::HostProgram.walk
     else
       Zr::Test::Binaries.trim
-      Zr::Test::Built.ready_for_programs!(selected)
+      Zr::Test::Built.ready_for_programs!(left)
     end
   end
 

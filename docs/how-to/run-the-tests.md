@@ -196,13 +196,26 @@ $ bin/zr-dev test --fail-fast --suite unit
 $ ZR_TEST_SECONDS=300 ZR_TEST_TIMEOUT=0 bin/zr-dev test test/programs/stdlib
 ```
 
+## Skip the program tests that passed
+
+A program test that passed with the same inputs passes again at once,
+from a cache (`test/support/result_cache.rb`). The inputs are the
+program and the files beside it, its baseline line, the ruby, the `ZR_*`
+variables, and the checkout without the paths that no program reads:
+the docs, the unit and ext tests, the benchmarks and the Markdown files
+at the top. So after a change to a doc or a unit test, a run builds no
+program again, and after a change below `lib/` it runs each one again.
+`--no-cache` (`ZR_TEST_FRESH=1`) runs each one:
+
+```console
+$ bin/zr-dev test --no-cache test/programs/lang/control
+```
+
 ## Run the program tests on the host
 
 `--no-build` (`ZR_TEST_HOST=1`) runs the program tests on CRuby over
 zr's kernel, with no build. The test file starts ruby again with large
-stacks and `--yjit`. Its baseline is `test/baselines/host.txt`. A host
-test that passed with the same inputs passes again at once, from a
-cache; `--no-cache` (`ZR_TEST_FRESH=1`) runs each one:
+stacks and `--yjit`. Its baseline is `test/baselines/host.txt`:
 
 ```console
 $ bin/zr-dev test --no-build --suite programs

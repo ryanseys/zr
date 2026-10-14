@@ -163,6 +163,11 @@ The first public release.
   also when the run is killed, and `bin/zr-dev test --slowest [N]`
   lists the slowest tests and groups. `ZR_TEST_TMP` moves the files of
   a run, so a suite that a test starts does not write over them.
+- A program test that passed with the same inputs passes again at once,
+  from a result cache, in a compiled run as in a host run. A change to
+  the docs or to a unit test leaves each pass; `--no-cache` runs each
+  test again. `test/unit/core_cache_test.rb` runs only when
+  `ZR_TEST_BY_HAND=1` asks for it.
 - The C extension tests of the top gems run only when `ZR_TOP_GEMS=1`
   is set. The `aarch64` gem is no longer a development dependency: the
   program tests run the machine code that zr's encoder writes.
