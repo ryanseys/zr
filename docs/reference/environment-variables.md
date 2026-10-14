@@ -138,7 +138,6 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 | `PRISM_SRC` | `zr-dev gen prism_encoding_tables`, `zr-dev vendor` | `tmp/prism` when it exists, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
 | `NKF_SRC` | `zr-dev gen nkf` | the installed nkf gem's `ext/nkf/nkf-utf8/utf8tbl.c` | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |
-| `MKCONSTANTS` | `zr-dev gen tables` | the file in `RUBY_SRC` | The path of a copy of `ext/socket/mkconstants.rb` from the source of the pinned ruby. |
 | `ZR_GEM_CORPUS` | `zr-dev gems` | unset | A directory of unpacked gems, `<dir>/<name>`, that `zr-dev gems` looks in first, by name. It never lists the directory. The `--corpus` option has priority. |
 | `HOMEBREW_PREFIX` | `zr-dev gems sweep --c-scan` | `/opt/homebrew` | Where Homebrew keeps the headers of the libraries that a gem's C extension includes. |
 

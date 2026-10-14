@@ -236,7 +236,7 @@ in `tool/gen/`.
 | `zr-dev gen openssl_constants` | `lib/zr/runtime/ext/openssl/ossl/constants.rb`: openssl's Integer constants. Not in `gen all`: the order comes from the host's OpenSSL build, so read the diff. |
 | `zr-dev gen emoji` | `lib/zr/runtime/core/emoji.rb` |
 | `zr-dev gen builtin_lines` | `lib/zr/runtime/core/builtin_lines.rb` |
-| `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`, or from the copy that `MKCONSTANTS` names. |
+| `zr-dev gen tables` | This OS's errno, fcntl, etc and socket tables, into `lib/zr/runtime/core/os/<os>/` and `lib/zr/runtime/ext/os/<os>/`. The socket table reads `ext/socket/mkconstants.rb` from `RUBY_SRC`. |
 | `zr-dev gen gem-compat` | `docs/reference/gem-compat.md`: how far each gem gets with zr, from `log/gems/compat.tsv`. It runs no gem; `zr-dev gems sweep --save` writes the table. The table is not committed, so `gen all` leaves this page out, and without the table the command stops. |
 | `zr-dev gen capi` | `docs/reference/c-api.md`: the functions and data of ruby's C API that the kernel gives C extensions, from `lib/zr/runtime/kernel/capi/*.rb` |
 | `zr-dev gen support` | `docs/reference/support.md`: what zr refuses, from the compiler, and the baseline of each target |

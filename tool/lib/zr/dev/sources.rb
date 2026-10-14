@@ -47,8 +47,7 @@ module Zr
 
     def self.git_show(checkout, revision, path, variable)
       unless File.directory?(checkout)
-        url = variable == "RUBY_SRC" ? "https://github.com/ruby/ruby" : "https://github.com/ruby/prism"
-        fail!("zr-dev: no checkout at #{checkout}. Run 'git clone #{url} #{checkout}', or set #{variable} to a checkout")
+        fail!("zr-dev: no checkout at #{checkout}. Run 'ruby .github/scripts/fetch_sources.rb', or set #{variable} to a checkout")
       end
       text = git("show", "#{revision}:#{path}", dir: checkout)
       return text if text

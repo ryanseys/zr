@@ -59,6 +59,14 @@ class LayoutTest < Minitest::Test
     assert_empty ci.scan(/--branch v\d/), "the prism tag CI reads"
   end
 
+  # CI fetches CRuby and prism through .github/scripts/fetch_sources.rb,
+  # which reads the record and the vendor lock, so no workflow names them.
+  def test_ci_fetches_the_c_sources_through_one_script
+    Dir[File.join(ROOT, ".github/**/*.yml")].each do |path|
+      refute_match %r{github\.com/ruby/(ruby|prism)}, File.read(path), path.delete_prefix("#{ROOT}/")
+    end
+  end
+
   # RuboCop checks zr's own code for the oldest ruby that runs it.
   def test_rubocop_targets_the_oldest_ruby_that_runs_zr
     assert_equal Zr::RUBY_MINIMUM, read(".rubocop.yml")[/TargetRubyVersion: (\S+)/, 1]

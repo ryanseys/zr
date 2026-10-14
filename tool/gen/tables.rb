@@ -46,12 +46,8 @@ module Zr
           end
 
           # The socket table reads ruby's list of names, which is in ruby's
-          # source and not in an install. `MKCONSTANTS` names a copy of the file;
-          # by default it comes from RUBY_SRC.
-          def mkconstants
-            path = ENV["MKCONSTANTS"]
-            path ? File.read(path) : Dev.cruby("ext/socket/mkconstants.rb")
-          end
+          # source (RUBY_SRC) and not in an install.
+          def mkconstants = Dev.cruby("ext/socket/mkconstants.rb")
 
           # The entries of a Hash literal, wrapped to the core's line width.
           def rows(items, indent)
