@@ -24,8 +24,6 @@ D = Steep::Diagnostic
 # The files typed wholly in sig/zr.
 RBS_TYPED = %w[
   lib/zr/hir/node.rb
-  lib/zr/obj/model.rb
-  lib/zr/load_tables.rb
   lib/zr/lower/function/loop.rb
   lib/zr/lower/function/call_site.rb
 ].freeze
@@ -61,7 +59,7 @@ PRESETS = {
 
 target :lib do
   signature "sig/zr", "sig/vendor"
-  library "digest", "json", "socket", "etc", "open3", "fileutils", "pathname", "tempfile", "securerandom", "shellwords", "zlib", "prism"
+  library "digest", "json", "socket", "etc", "open3", "pathname", "shellwords", "zlib", "prism"
 
   LEVELS.each do |level, paths|
     group level do

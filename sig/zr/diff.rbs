@@ -1,12 +1,4 @@
 # The record of lib/zr/diff.rb. Its methods are inline.
-
-# The form of `Open3.popen3` that `Diff.run` calls: an environment
-# first, and a block. RBS's open3 has neither.
-module Open3
-  def self?.popen3: [T] (Hash[String, String?] env, *String cmd, ?chdir: String, ?pgroup: true) { (IO, IO, IO, Process::Waiter) -> T } -> T
-                  | ...
-end
-
 module Zr
   module Diff
     class Answer < Data

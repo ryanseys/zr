@@ -92,6 +92,7 @@ module Zr
       # @rbs target: Target
       # @rbs jobs: Integer
       # @rbs link: Array[String]
+      # @rbs embeds: Array[Obj::MachO::Relink]
       # @rbs return: String?
       def binary(functions, data, out, work:, raw: [], assembled: [], objects: [], strip: false, linker: Config.current.linker, target: Target.default, jobs: Build.jobs, link: [],
                  embeds: [])

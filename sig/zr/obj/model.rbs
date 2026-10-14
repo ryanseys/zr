@@ -1,5 +1,5 @@
-# lib/zr/obj/model.rb. Its Struct records are assigned to constants,
-# which inline RBS cannot type.
+# The records of lib/zr/obj/model.rb: Structs assigned to constants,
+# which inline RBS cannot type. Their methods are inline.
 module Zr
   module Obj
     # A relocation kind (`Reloc#kind`). The comment on `Reloc` tells what
@@ -18,7 +18,6 @@ module Zr
       attr_accessor addend: Integer
 
       def self.new: (Integer offset, reloc_kind kind, String symbol, ?Integer addend) -> instance
-      def initialize: (Integer offset, reloc_kind kind, String symbol, ?Integer addend) -> void
     end
 
     class Code < Struct[untyped]
@@ -29,8 +28,6 @@ module Zr
       attr_accessor linkage: linkage
 
       def self.new: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> instance
-      def initialize: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> void
-      def size: () -> Integer
     end
 
     # `bytes` is a String, or the size (an Integer) in a :bss section. The
@@ -45,25 +42,12 @@ module Zr
       attr_accessor linkage: linkage
 
       def self.new: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> instance
-      def initialize: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> void
-      def size: () -> Integer
     end
 
     # An item that `JIT#layout` places: a Code or a Datum.
     interface _Placeable
       def align: () -> Integer
       def size: () -> Integer
-    end
-
-    class Unit
-      attr_reader functions: Array[Code]
-      attr_reader data: Array[Datum]
-
-      def initialize: () -> void
-      def function: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
-      def datum: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
-      def items: () -> Array[[Symbol, Code | Datum]]
-      def imports: () -> Array[String]
     end
   end
 end

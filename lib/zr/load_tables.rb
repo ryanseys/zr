@@ -39,12 +39,23 @@ module Zr
   # program shares its prebuilt files (a port's `require "json/common"`).
   # A require of such a copy runs the gem's file instead (`zr_require_redirect`), so
   # one copy loads, as in ruby.
+  # @rbs skip -- typed in sig/zr/load_tables.rbs
   LoadTables = Data.define(:computed, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects, :gems)
 
-  # The methods are in a reopened class, not in the block of
-  # `Data.define`, so that the type check (sig/zr/load_tables.rbs) sees
-  # them in the class that they belong to.
+  # The fields are typed in sig/zr/load_tables.rbs, the methods here.
   class LoadTables
+    # @rbs computed: bool
+    # @rbs spots: Hash[String, String]
+    # @rbs coverable: Hash[String, [Integer, Array[Integer]]]
+    # @rbs branches: Hash[String, Array[Array[untyped]]]
+    # @rbs defs: Hash[String, Array[Array[untyped]]]
+    # @rbs sources: Hash[String, String]
+    # @rbs target: Target
+    # @rbs gem_roots: Array[String]
+    # @rbs manifest: String?
+    # @rbs redirects: Hash[String, String]
+    # @rbs gems: bool
+    # @rbs return: void
     def initialize(computed: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
                    manifest: nil, redirects: {}, gems: true)
       super
@@ -52,6 +63,7 @@ module Zr
 
     # The data objects of the tables, with the files `units`: `[path,
     # entry]` pairs. A unit that only stops has no path.
+    #: (?Array[[String, String]] units) -> Array[Obj::Datum]
     def data(units = [])
       units = units.filter_map do |path, entry|
         next unless path.start_with?("/")
@@ -84,6 +96,7 @@ module Zr
     # The texts after the files, in the order of the kernel's LoadTable:
     # each a list of lines. The host gives them to the kernel as a link
     # does (`Machine::Host::Walk`).
+    #: () -> Array[Array[String]]
     def texts
       shown = ->(path) { Paths.shown(path) }
       # A ruby feature that no root here contains, then a tab and the

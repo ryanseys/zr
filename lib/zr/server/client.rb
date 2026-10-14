@@ -11,13 +11,16 @@ module Zr
     # send one message (`put`, `take`).
     class Client
       # One message: its size, then its Marshal.
+      #: (IO io, Hash[Symbol, untyped] message) -> void
       def self.put(io, message)
         bytes = Marshal.dump(message)
         io.write([bytes.bytesize].pack("Q<"), bytes)
       end
 
+      #: (IO io) -> untyped
       def self.take(io)
-        size = io.read(8)&.unpack1("Q<") or raise EOFError
+        header = io.read(8) or raise EOFError
+        size = header.unpack1("Q<") #: Integer
         Marshal.load(io.read(size) || raise(EOFError))
       end
 
@@ -25,11 +28,13 @@ module Zr
       # it execs the program or exits with the build's status. Returns when
       # there is no server, or the server says to build here, and then the
       # caller builds as it would without one.
+      #: (Array[String] argv) -> nil
       def hand_to(argv)
         path = client_socket(argv) or return
         require "socket"
         reply = begin
-          UNIXSocket.open(path) do |sock|
+          # RBS has no UNIXSocket.open; it types IO.open, which takes a descriptor.
+          UNIXSocket.open(path) do |sock| # steep:ignore ArgumentTypeMismatch
             Client.put(sock, { version: VERSION, argv: argv, settings: Config.given, cwd: Dir.pwd, env: ENV.to_h,
                                ruby: RbConfig.ruby, ruby_version: RUBY_VERSION })
             sock.send_io($stdout)
@@ -51,6 +56,7 @@ module Zr
       # take it: a command other than `run` or `build`, a `zr run` of wasm or
       # for another target (the server builds only; the client runs), inside
       # a compiled program, or in the second start of zr.
+      #: (Array[String] argv) -> String?
       def client_socket(argv)
         return nil if Binary.running? || ENV.key?(GcTuning::ADDED) || !%w[run build].include?(argv.first)
         return nil if argv.first == "run" && argv.any? { |word| word.start_with?("--emit", "--target") }
@@ -61,6 +67,7 @@ module Zr
 
       private
 
+      #: (untyped reply) -> nil
       def answer(reply)
         case reply
         in { exit: Integer => code }

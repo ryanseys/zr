@@ -22,6 +22,7 @@ module Zr
 
   # RUBY_DESCRIPTION of a program built for `platform`, which `zr -v`
   # prints as ruby does (lib/zr/runtime/core/ruby_version.rb).
+  #: (String platform) -> String
   def self.ruby_description(platform) = "#{RUBY_DESCRIPTION_HEAD} [#{platform}]"
 end
 
@@ -34,11 +35,13 @@ module Zr
 
   # Whether `version` is of RUBY's series (4.1.x for 4.1.0), which zr is
   # tested with: it runs zr with no warning.
+  #: (String version) -> bool
   def self.tested_ruby?(version) = segments(version).first(2) == segments(RUBY).first(2)
 
   # Whether the running ruby is the pinned one itself, the only ruby that
   # writes zr's tables and expected outputs: the same version, patch level
   # and revision, so a preview does not pass for its release.
+  #: () -> bool
   def self.pinned_ruby? = ::RUBY_VERSION == RUBY && ::RUBY_PATCHLEVEL == RUBY_PATCHLEVEL && ::RUBY_REVISION == RUBY_REVISION
 
   def self.segments(version) = version.split(".").map(&:to_i)

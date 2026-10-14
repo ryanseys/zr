@@ -1,5 +1,5 @@
-# lib/zr/load_tables.rb. A Data record assigned to a constant, which
-# inline RBS cannot type.
+# The record of lib/zr/load_tables.rb. A Data record assigned to a
+# constant, which inline RBS cannot type; its methods are inline.
 module Zr
   class LoadTables < Data
     attr_reader computed: bool
@@ -18,13 +18,5 @@ module Zr
                    ?branches: Hash[String, Array[Array[untyped]]], ?defs: Hash[String, Array[Array[untyped]]],
                    ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
                    ?redirects: Hash[String, String], ?gems: bool) -> instance
-
-    def initialize: (?computed: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
-                     ?branches: Hash[String, Array[Array[untyped]]], ?defs: Hash[String, Array[Array[untyped]]],
-                     ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
-                     ?redirects: Hash[String, String], ?gems: bool) -> void
-
-    def data: (?Array[[String, String]] units) -> Array[Obj::Datum]
-    def texts: () -> Array[Array[String]]
   end
 end

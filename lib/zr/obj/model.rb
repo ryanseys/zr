@@ -19,22 +19,26 @@ module Zr
     # A unit gives a name or requests a slot, and the link sets the number.
     # Thus a unit's code does not depend on what compiled before it. No
     # object writer sees these kinds.
+    # @rbs skip -- typed in sig/zr/obj/model.rbs
     Reloc = Struct.new(:offset, :kind, :symbol, :addend)
 
-    # The methods of a record are in a reopened class, not in the block of
-    # `Struct.new`, so that the type check (sig/zr/obj/model.rbs) sees
-    # them in the class that they belong to.
+    # The fields of a record are typed in sig/zr/obj/model.rbs, its
+    # methods here, in a reopened class.
     class Reloc
+      #: (Integer offset, reloc_kind kind, String symbol, ?Integer addend) -> void
       def initialize(offset, kind, symbol, addend = 0) = super
     end
 
     # The machine code of one function, as a backend assembled it.
     # `linkage`: :export (visible to the link), :local (this object only).
+    # @rbs skip
     Code = Struct.new(:name, :bytes, :relocs, :align, :linkage)
 
     class Code
+      #: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> void
       def initialize(name, bytes, relocs: [], align: 4, linkage: :export) = super(name, bytes.b, relocs, align, linkage)
 
+      #: () -> Integer
       def size
         bytes.bytesize
       end
@@ -44,13 +48,16 @@ module Zr
     # `section`: :text_const (pure bytes), :data_const (contains pointers,
     # read-only after the link), :data (writable), :bss (zeros; `bytes` is
     # then the size).
+    # @rbs skip
     Datum = Struct.new(:name, :section, :bytes, :relocs, :align, :linkage)
 
     class Datum
+      #: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> void
       def initialize(name, section, bytes, relocs: [], align: 8, linkage: :local)
         super(name, section, section == :bss ? bytes : bytes.b, relocs, align, linkage)
       end
 
+      #: () -> Integer
       def size
         section == :bss ? bytes : bytes.bytesize
       end
@@ -60,8 +67,10 @@ module Zr
     # that a relocation refers to and that this unit does not define is
     # an import.
     class Unit
-      attr_reader :functions, :data
+      attr_reader :functions #: Array[Code]
+      attr_reader :data #: Array[Datum]
 
+      #: () -> void
       def initialize
         @functions = []
         @data = []
@@ -69,11 +78,13 @@ module Zr
 
       # `function` and `datum` add one item and return the unit, so a test
       # builds a unit in one expression (test/support/obj_unit.rb).
+      #: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
       def function(name, bytes, **options)
         @functions << Code.new(name, bytes, **options)
         self
       end
 
+      #: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
       def datum(name, section, bytes, **options)
         @data << Datum.new(name, section, bytes, **options)
         self
@@ -81,6 +92,7 @@ module Zr
 
       # Each item with its kind, `:function` or the datum's section, the
       # functions first: what an object writer lays out.
+      #: () -> Array[[Symbol, Code | Datum]]
       def items
         items = @functions.map { |f| [:function, f] } #$ [Symbol, Code | Datum]
         @data.each { |d| items << [d.section, d] }
@@ -89,6 +101,7 @@ module Zr
 
       # A program has more than a million relocations, so this sees each
       # name once, in a Hash, and makes no array of all of them.
+      #: () -> Array[String]
       def imports
         named = (@functions + @data).to_h { |d| [d.name, true] }
         found = {} #: Hash[String, bool]

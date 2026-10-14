@@ -60,19 +60,24 @@ module Zr
       module_function
 
       # The directory of gem `name` at `version` in the gem home.
+      #: (String name, String version) -> String
       def gem_root(name, version) = File.join(GEMS, "#{name}-#{version}")
 
       # The upstream source tree of `name` at `version` in SOURCES.
+      #: (String name, String version) -> String
       def source(name, version) = File.join(SOURCES, "#{name}-#{version}")
 
       # The install prefix of the ruby for the target `triple`.
+      #: (String triple) -> String
       def target_root(triple) = File.join(TARGETS, triple)
 
       # The rbconfig.rb of the ruby for the target `triple`, which finds its
       # headers from where it is.
+      #: (String triple) -> String
       def target_rbconfig(triple) = File.join(target_root(triple), "lib/ruby", API, triple, "rbconfig.rb")
 
       # The OS layer of EXT for `target`.
+      #: (Target target) -> String
       def ext_os(target) = File.join(EXT, "os", target.os_layer)
     end
   end

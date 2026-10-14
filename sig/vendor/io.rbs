@@ -1,0 +1,23 @@
+# The forms of IO that zr calls and RBS's core signatures do not have.
+
+# `IO.select` as lib/zr/server.rb calls it. Steep cannot solve RBS's
+# `Array[X & io]` for an Array of IO.
+#
+# `IO.popen` as lib/zr/native/toolchain.rb calls it. RBS's
+# `redirect_fd` has `[:child, int]`, not `[:child, :out]`.
+class IO
+  def self.select: (Array[IO] read_array, nil, nil, Integer? timeout) -> [Array[IO], Array[IO], Array[IO]]?
+                 | ...
+
+  def self.popen: [X] (Hash[string, string?] env, Array[String] cmd, err: [:child, :out]) { (IO) -> X } -> X
+                | ...
+
+  # The members of IO::Buffer that lib/zr/machine/host/memory.rb uses.
+  class Buffer
+    def self.for: [T] (String) { (IO::Buffer) -> T } -> T
+                | ...
+
+    def get_values: (Array[Symbol] types, Integer offset) -> Array[Integer]
+    def set_values: (Array[Symbol] types, Integer offset, Array[Integer] values) -> Integer
+  end
+end
