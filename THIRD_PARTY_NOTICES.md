@@ -17,8 +17,9 @@ library version of the ruby that `.ruby-version` names (RbConfig's
 
 - `vendor/ruby/lib/ruby/<ruby_version>` holds the pinned ruby's own library, as a
   stock ruby installs it: CRuby's `lib/` and `ext/*/lib`,
-  rubygems, and the default gems (among them the Ruby halves of psych
-  5.3.1, openssl 4.0.2, digest 3.2.1 and socket, whose C zr ports). The
+  rubygems, and the default gems (among them the Ruby halves of psych,
+  openssl, digest and socket, whose C zr ports, at the versions of the
+  table below). The
   license texts are in `vendor/LICENSES`: ruby's own
   (`vendor/LICENSES/ruby`, Ruby or BSD-2-Clause), and each default
   gem's where its gem has one, for example bundler, did_you_mean,
@@ -34,9 +35,10 @@ library version of the ruby that `.ruby-version` names (RbConfig's
 - `vendor/src/prism-1.9.0` holds prism's `config.yml` and templates, from
   the commit that ruby bundles, which only `zr-dev gen prism` reads (MIT).
 - `vendor/targets/aarch64-linux-musl` holds the pinned ruby's C headers
-  (`include/ruby-<ruby_version>`) and its `rbconfig.rb` for that target, as the
-  image `docker.io/library/ruby` that `vendor/vendor.lock` names has
-  them. zr builds a C extension for that target with them. They are
+  (`include/ruby-<ruby_version>`) and its `rbconfig.rb` for that target, from a build of the
+  pinned ruby's release tarball (with the configure of the official ruby
+  image) in the `alpine` image: `vendor/vendor.lock` names the tarball
+  and the image. zr builds a C extension for that target with them. They are
   under Ruby or BSD-2-Clause (`vendor/LICENSES/ruby`).
 
 The gems whose C zr ports, at zr's versions:
@@ -52,35 +54,37 @@ The gems whose C zr ports, at zr's versions:
 | fiddle | 1.1.8 | Ruby or BSD-2-Clause | `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/fiddle-1.1.8` | `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/fiddle-1.1.8/LICENSE.txt` |
 | racc | 1.8.1 | Ruby or BSD-2-Clause | `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/racc-1.8.1` | `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/racc-1.8.1/COPYING`, `BSDL` |
 | debug | 1.11.1 | Ruby or BSD-2-Clause | `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/debug-1.11.1` | `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/debug-1.11.1/LICENSE.txt` |
-| psych | 5.3.1 | MIT | `vendor/ruby/lib/ruby/<ruby_version>/psych` | `vendor/LICENSES/psych/LICENSE` |
+| psych | 5.5.0 | MIT | `vendor/ruby/lib/ruby/<ruby_version>/psych` | `vendor/LICENSES/psych/LICENSE` |
 | openssl | 4.0.2 | Ruby or BSD-2-Clause | `vendor/ruby/lib/ruby/<ruby_version>/openssl` | `vendor/LICENSES/openssl/COPYING`, `BSDL` |
-| digest | 3.2.1 | Ruby or BSD-2-Clause | `vendor/ruby/lib/ruby/<ruby_version>/digest` | `vendor/LICENSES/digest/LICENSE.txt` |
+| digest | 3.3.0 | Ruby or BSD-2-Clause | `vendor/ruby/lib/ruby/<ruby_version>/digest` | `vendor/LICENSES/digest/LICENSE.txt` |
 | socket | the pinned ruby's | Ruby or BSD-2-Clause | `vendor/ruby/lib/ruby/<ruby_version>/socket.rb` | `vendor/LICENSES/ruby/COPYING`, `BSDL` |
 
 ## Code in `lib/zr/runtime/` derived from other work
 
 | File | Derived from | License |
 |---|---|---|
-| `lib/zr/runtime/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as the json gem 3.0.2 vendors it; the license texts are in `licenses/fpconv.txt` | MIT, and Boost-1.0 for the json gem's copy |
+| `lib/zr/runtime/kernel/fpconv.rb` | fpconv (Andreas Samoljuk), as the json gem vendors it, at the version of the table above; the license texts are in `licenses/fpconv.txt` | MIT, and Boost-1.0 for the json gem's copy |
 | `lib/zr/runtime/kernel/float.rb` (the Ryu section), `lib/zr/runtime/kernel/ryu_tables.rb` | Ryu (Ulf Adams); the license texts are in `licenses/ryu.txt` | Apache-2.0 or Boost-1.0 |
-| `lib/zr/runtime/core/regexp/onig.rb`, `lib/zr/runtime/core/regexp/onig/*.rb`, `lib/zr/runtime/core/regexp/unicode_tables.rb`, `lib/zr/runtime/kernel/regexp.rb`, `lib/zr/runtime/kernel/onig_enc.rb`, `lib/zr/runtime/kernel/onig_stack.rb`, `lib/zr/runtime/kernel/onig_match.rb`, `lib/zr/runtime/kernel/onig_cache.rb`, `lib/zr/runtime/kernel/onig_search.rb` | Onigmo, the regular expression engine of CRuby (K. Kosako, K. Takata); the license text is in `lib/zr/runtime/kernel/regexp.rb` | BSD-2-Clause |
+| `lib/zr/runtime/core/regexp/onig.rb`, `lib/zr/runtime/core/regexp/onig/*.rb`, `lib/zr/runtime/core/regexp/unicode_tables.rb`, `lib/zr/runtime/kernel/regexp.rb`, `lib/zr/runtime/kernel/onig_enc.rb`, `lib/zr/runtime/kernel/onig_stack.rb`, `lib/zr/runtime/kernel/onig_match.rb`, `lib/zr/runtime/kernel/onig_cache.rb`, `lib/zr/runtime/kernel/onig_search.rb`, `lib/zr/runtime/kernel/enc_mb.rb`, `lib/zr/runtime/kernel/capi/regex.rb` | Onigmo, the regular expression engine of CRuby (K. Kosako, K. Takata); the license text is in `lib/zr/runtime/kernel/regexp.rb` | BSD-2-Clause |
 | `lib/zr/runtime/core/regexp_pattern.rb` | CRuby's `re.c` (the preprocess, encoding and description functions) | Ruby or BSD-2-Clause |
-| `lib/zr/runtime/ext/prism/prism.rb`, `lib/zr/runtime/ext/prism/ruby/*.rb` | prism 1.9.0's C (the parser, lexer, encodings, options, serializer and extension); the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/prism-1.9.0/LICENSE.md` | MIT |
-| `lib/zr/runtime/ext/openssl.so.rb`, `lib/zr/runtime/ext/openssl/ossl/*.rb` | the C half of ruby's openssl gem 4.0.2 (`ext/openssl/ossl*.c` in CRuby); the license text is in `vendor/LICENSES/openssl/COPYING` | Ruby or BSD-2-Clause |
+| `lib/zr/runtime/ext/prism/prism.rb`, `lib/zr/runtime/ext/prism/ruby.rb`, `lib/zr/runtime/ext/prism/ruby/*.rb`, `lib/zr/runtime/ext/ruby/prism/prism.rb` | prism's C, at the version of the table above (the parser, lexer, encodings, options, serializer and extension); the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/prism-1.9.0/LICENSE.md` | MIT |
+| `lib/zr/runtime/ext/openssl.so.rb`, `lib/zr/runtime/ext/openssl/ossl/*.rb` | the C half of ruby's openssl gem, at the version of the table above (`ext/openssl/ossl*.c` in CRuby); the license text is in `vendor/LICENSES/openssl/COPYING` | Ruby or BSD-2-Clause |
 | `lib/zr/runtime/kernel/zlib_check.rb`, `lib/zr/runtime/kernel/zlib_tables.rb`, `lib/zr/runtime/kernel/zlib_stream.rb`, `lib/zr/runtime/kernel/zlib_inftrees.rb`, `lib/zr/runtime/kernel/zlib_inffast.rb`, `lib/zr/runtime/kernel/zlib_inflate.rb`, `lib/zr/runtime/kernel/zlib_trees.rb`, `lib/zr/runtime/kernel/zlib_deflate.rb`, `lib/zr/runtime/kernel/os/*/zlib.rb` | zlib 1.3.1 (Jean-loup Gailly and Mark Adler); the license text is in `lib/zr/runtime/kernel/zlib.rb` | Zlib |
-| `lib/zr/runtime/core/random.rb` | MT19937 (Makoto Matsumoto and Takuji Nishimura), as CRuby's `missing/mt19937.c` has it; the license text is in `licenses/mt19937.txt` | BSD-3-Clause |
+| `lib/zr/runtime/core/random.rb` | MT19937 (Makoto Matsumoto and Takuji Nishimura), as CRuby's `missing/mt19937.c` has it; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[missing/mt19937.c]` | BSD-3-Clause |
 | `lib/zr/runtime/kernel/os/wasi/libm.rb`, `lib/zr/runtime/kernel/os/wasi/libm_*.rb` | musl 1.2.5's `src/math` (Rich Felker, et al.), with code from FreeBSD's msun (Sun Microsystems) and from Arm Limited's optimized routines; the license texts are in `licenses/musl.txt` | MIT, the Sun notice, and MIT for Arm's files |
 | `lib/zr/runtime/kernel/os/wasi/strtod.rb` | the decimal conversion of Go's strconv package (`decimal.go`, `atof.go`; The Go Authors); the license text is in `licenses/go.txt` | BSD-3-Clause |
-| `lib/zr/runtime/kernel/digest.rb`, `lib/zr/runtime/ext/digest/*.rb`, `lib/zr/runtime/ext/digest.so.rb` | CRuby's `ext/digest`: MD5 (L. Peter Deutsch, Aladdin Enterprises; `licenses/md5.txt`, zlib-style), RIPEMD-160 (Antoon Bosselaers, Katholieke Universiteit Leuven; `licenses/rmd160.txt`, BSD), SHA-2 (Aaron D. Gifford; `licenses/sha2.txt`, BSD-3-Clause), SHA-1 (Steve Reid, public domain), and ruby's own glue | as named, and Ruby or BSD-2-Clause for the glue |
+| `lib/zr/runtime/kernel/digest.rb`, `lib/zr/runtime/ext/digest/*.rb`, `lib/zr/runtime/ext/digest.so.rb` | CRuby's `ext/digest`: MD5 (L. Peter Deutsch, Aladdin Enterprises; zlib-style; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/md5/md5.c]`), RIPEMD-160 (Antoon Bosselaers, Katholieke Universiteit Leuven; BSD; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/rmd160/rmd160.c]`), SHA-2 (Aaron D. Gifford; BSD-3-Clause; the license text is in `vendor/LICENSES/ruby/LEGAL`, section `[ext/digest/sha2/sha2.c]`), SHA-1 (Steve Reid, public domain), and ruby's own glue | as named, and Ruby or BSD-2-Clause for the glue |
 | `lib/zr/runtime/ext/psych/libyaml/*.rb` | libyaml 0.2.5 (Kirill Simonov, Ingy döt Net); the license text is in `licenses/libyaml.txt` | MIT |
-| `lib/zr/runtime/ext/psych.so.rb` | the C half of the psych gem 5.3.1; the license text is in `vendor/LICENSES/psych/LICENSE` | MIT |
-| `lib/zr/runtime/ext/nkf.so.rb`, `lib/zr/runtime/ext/nkf/*.rb` | nkf 2.1.5 (Itaru Ichikawa, Fujitsu; the nkf Project), as the nkf gem 0.3.0 has it; the license text is in `licenses/nkf.txt` | zlib-style |
+| `lib/zr/runtime/ext/psych.so.rb` | the C half of the psych gem, at the version of the table above; the license text is in `vendor/LICENSES/psych/LICENSE` | MIT |
+| `lib/zr/runtime/ext/nkf.so.rb`, `lib/zr/runtime/ext/nkf/*.rb` | nkf 2.1.5 (Itaru Ichikawa, Fujitsu; the nkf Project), as the nkf gem has it, at the version of the table above; the license text is in `licenses/nkf.txt` | zlib-style |
 | `lib/zr/runtime/core/unicode.rb`, `lib/zr/runtime/core/regexp/unicode_tables.rb`, `lib/zr/runtime/kernel/onig_tables.rb`, `vendor/ruby/lib/ruby/<ruby_version>/unicode_normalize/tables.rb` | the Unicode Character Database 17.0.0, as ruby carries it; the license text is in `licenses/unicode.txt` | Unicode-3.0 |
-| `lib/zr/runtime/core/cjk.rb`, `lib/zr/runtime/core/transcode.rb`, `lib/zr/runtime/core/emoji.rb`, `lib/zr/runtime/core/iso2022.rb` | CRuby's `enc/trans` tables; the notices of the mapping data are in `licenses/enc-trans.txt` | Ruby or BSD-2-Clause, and the mapping data's own notices |
-| `lib/zr/runtime/ext/json/ext/*.rb` | the C half of the json gem 3.0.2; the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/json-3.0.2/COPYING` | Ruby or BSD-2-Clause |
-| `lib/zr/runtime/ext/racc/cparse.rb` | the C half of the racc gem 1.8.1 (`cparse.c`); the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/racc-1.8.1/COPYING` | Ruby or BSD-2-Clause |
-| `lib/zr/runtime/ext/ffi_c/*.rb`, `lib/zr/runtime/ext/ffi_c.rb` | the C half of the ffi gem 1.17.4; the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/ffi-1.17.4/LICENSE` | BSD-3-Clause |
-| `lib/zr/runtime/ext/date_core.rb`, `lib/zr/runtime/ext/date/*.rb`, `lib/zr/runtime/ext/stringio.rb`, `lib/zr/runtime/ext/strscan.so.rb`, `lib/zr/runtime/ext/socket/*.rb`, `lib/zr/runtime/ext/socket.so.rb`, `lib/zr/runtime/ext/syslog_ext.rb`, `lib/zr/runtime/ext/debug/debug.so.rb`, `lib/zr/runtime/ext/fiddle.so.rb`, `lib/zr/runtime/ext/ripper.so.rb`, `lib/zr/runtime/lib/zr/ast.rb`, `lib/zr/runtime/ext/os/*/io/console/*.rb`, `lib/zr/runtime/core/hash.rb`, `lib/zr/runtime/core/set.rb`, `lib/zr/runtime/core/time.rb`, `lib/zr/runtime/core/format.rb`, `lib/zr/runtime/core/pathname.rb`, `lib/zr/runtime/kernel/objspace.rb`, `lib/zr/runtime/kernel/os/*/env.rb`, `lib/zr/runtime/kernel/zlib.rb` | the C of CRuby and of its default gems (date, stringio, strscan, socket, syslog, debug, fiddle, io-console, etc and others): these files follow the C functions they name; the license texts are in `vendor/LICENSES/ruby` | Ruby or BSD-2-Clause |
+| `lib/zr/runtime/core/cjk.rb`, `lib/zr/runtime/core/transcode.rb`, `lib/zr/runtime/core/emoji.rb`, `lib/zr/runtime/core/iso2022.rb` | CRuby's `enc/trans` tables; the notices of the mapping data are in `vendor/LICENSES/ruby/LEGAL`, sections `[enc/trans/GB/GB12345%UCS.src]` to `[enc/trans/ucm/windows-950_hkscs-2001.ucm]` | Ruby or BSD-2-Clause, and the mapping data's own notices |
+| `lib/zr/runtime/ext/digest/blake3.rb` | BLAKE3 1.8.5's portable C (`blake3.c`, `blake3_portable.c`; Jack O'Connor and Samuel Neves), as the digest gem has it in `ext/digest/blake3`, at the version of the table above; the license texts are in `licenses/blake3.txt` | CC0-1.0, Apache-2.0 or Apache-2.0 WITH LLVM-exception |
+| `lib/zr/runtime/ext/bigdecimal.so.rb` | the C half of the bigdecimal gem (`ext/bigdecimal/bigdecimal.c`), at the version of the table above; the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/bigdecimal-4.1.3/LICENSE` | Ruby or BSD-2-Clause |
+| `lib/zr/runtime/ext/json/ext/*.rb` | the C half of the json gem, at the version of the table above; the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/json-3.0.2/COPYING` | Ruby or BSD-2-Clause |
+| `lib/zr/runtime/ext/racc/cparse.rb` | the C half of the racc gem, at the version of the table above (`cparse.c`); the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/racc-1.8.1/COPYING` | Ruby or BSD-2-Clause |
+| `lib/zr/runtime/ext/ffi_c/*.rb`, `lib/zr/runtime/ext/ffi_c.rb` | the C half of the ffi gem, at the version of the table above; the license text is in `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/ffi-1.17.4/LICENSE` | BSD-3-Clause |
+| `lib/zr/runtime/ext/date_core.rb`, `lib/zr/runtime/ext/date/*.rb`, `lib/zr/runtime/ext/stringio.rb`, `lib/zr/runtime/ext/strscan.so.rb`, `lib/zr/runtime/ext/socket/*.rb`, `lib/zr/runtime/ext/socket.so.rb`, `lib/zr/runtime/ext/syslog_ext.rb`, `lib/zr/runtime/ext/debug/debug.so.rb`, `lib/zr/runtime/ext/fiddle.so.rb`, `lib/zr/runtime/ext/ripper.so.rb`, `lib/zr/runtime/lib/zr/ast.rb`, `lib/zr/runtime/ext/os/*/io/console/*.rb`, `lib/zr/runtime/core/hash.rb`, `lib/zr/runtime/core/set.rb`, `lib/zr/runtime/core/time.rb`, `lib/zr/runtime/core/format.rb`, `lib/zr/runtime/core/pathname.rb`, `lib/zr/runtime/kernel/objspace.rb`, `lib/zr/runtime/kernel/os/*/env.rb`, `lib/zr/runtime/kernel/zlib.rb`, `lib/zr/runtime/ext/zlib.rb`, `lib/zr/runtime/ext/erb/escape.rb`, `lib/zr/runtime/core/argf.rb`, `lib/zr/runtime/core/c_format.rb`, `lib/zr/runtime/core/converter.rb`, `lib/zr/runtime/kernel/capi/numeric.rb`, `lib/zr/runtime/kernel/crash.rb`, `lib/zr/runtime/lib/zr/eval/arguments.rb` | the C of CRuby and of its default and bundled gems (date, stringio, strscan, socket, syslog, debug, fiddle, io-console, zlib, erb and others): these files follow the C functions they name; the license texts are in `vendor/LICENSES/ruby` | Ruby or BSD-2-Clause |
 
 The full texts of the licenses that have no other copy in the gem are
 in `licenses/`.

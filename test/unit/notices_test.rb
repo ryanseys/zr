@@ -23,8 +23,10 @@ class NoticesTest < Minitest::Test
            .map { |path| path.gsub("<ruby_version>", Zr::RUBY_LIB_VERSION) }
   end
 
+  # Only a path below lib/zr/runtime/ covers a runtime file: a broad path
+  # in the prose (`lib/`) covers nothing.
   def covered?(file)
-    paths.any? { |path| File.fnmatch(path, file, File::FNM_PATHNAME) || file.start_with?("#{path.chomp("/")}/") }
+    paths.grep(%r{\Alib/zr/runtime/.}).any? { |path| File.fnmatch(path, file, File::FNM_PATHNAME) || file.start_with?("#{path.chomp("/")}/") }
   end
 
   def test_every_path_names_a_file
@@ -46,13 +48,25 @@ class NoticesTest < Minitest::Test
   end
 
   # A port's version changes in lib/zr/library/ports.rb and `zr-dev vendor`; its
-  # row must change with it.
+  # row must change with it. Each vendored port has a row, and so has each
+  # other port that the table names (psych, openssl, digest).
   def test_each_port_has_a_row_at_its_version
     missing = Zr::Library::Ports::ALL.filter_map do |name, port|
-      "#{name} #{port.version}" if port.vendored && !NOTICES.include?("| #{name} | #{port.version} |")
+      named = port.vendored || NOTICES.include?("| #{name} | ")
+      "#{name} #{port.version}" if named && !NOTICES.include?("| #{name} | #{port.version} |")
     end
 
     assert_equal [], missing
+  end
+
+  # A row that cites a section of ruby's LEGAL (`[missing/mt19937.c]`)
+  # in place of a text in licenses/ must name a section that LEGAL has.
+  def test_every_cited_legal_section_is_in_legal
+    sections = File.foreach(File.join(ROOT, "vendor/LICENSES/ruby/LEGAL"), chomp: true).grep(/\A\[.+\]\z/)
+    cited = NOTICES.scan(/`(\[[^`\]]+\])`/).flatten
+
+    refute_empty cited
+    assert_equal [], cited - sections
   end
 
   # Each text in licenses/ is there for a part that the notices name.
