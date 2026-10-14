@@ -8,11 +8,11 @@ require_relative "../../lib/zr/runtime"
 # a test that reads stderr gets nothing more.
 class AnnounceTest < Minitest::Test
   def setup
-    Zr::Runtime.instance_variable_set(:@announced, nil)
+    Zr::Session.current.forget(:announced)
   end
 
   def teardown
-    Zr::Runtime.instance_variable_set(:@announced, nil)
+    Zr::Session.current.forget(:announced)
   end
 
   def test_an_installed_zr_says_one_time_that_it_builds_the_runtime

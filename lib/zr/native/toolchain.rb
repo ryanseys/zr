@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../session"
+
 module Zr
   module Native
     # The C toolchain that zr runs: the target's `cc` (`Target#tool`), to link.
@@ -13,14 +15,12 @@ module Zr
     # the SDK. When the user already set DEVELOPER_DIR or SDKROOT, zr
     # keeps those values.
     module Toolchain
-      # @rbs @env: Hash[String, String?]
-
       module_function
 
       # The environment a `cc` runs under.
       #: () -> Hash[String, String?]
       def env
-        @env ||= pinned
+        Session.current.memo(:toolchain_env) { pinned }
       end
 
       # The command for the tool `name` ("cc") of `target`: the host's

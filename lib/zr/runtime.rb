@@ -322,7 +322,7 @@ module Zr
     def self.announce(what, target)
       return if Config.current.timing? || (Paths.checkout? && !$stderr.tty?)
 
-      announced = @announced ||= {} #: Hash[[String, String], bool]
+      announced = Session.current.memo(:announced) { {} } #: Hash[[String, String], bool]
       return if announced.key?([what, target.triple])
 
       announced[[what, target.triple]] = true

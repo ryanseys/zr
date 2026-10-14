@@ -196,6 +196,12 @@ Naming/PredicateMethod:
 ThreadSafety:
   Enabled: true
   Exclude: ["lib/zr/runtime/**/*"]
+# Three modules keep state of their own. Eval reads its back end with
+# no lock, which a trap handler can do. A host View keeps the last
+# layout that it read, on a hot path. Session holds the one session of
+# the process.
+ThreadSafety/ClassInstanceVariable:
+  Exclude: ["lib/zr/eval.rb", "lib/zr/machine/host.rb", "lib/zr/session.rb"]
 ThreadSafety/NewThread: { Enabled: false }
 ThreadSafety/RackMiddlewareInstanceVariable: { Enabled: false } # no Rack
 

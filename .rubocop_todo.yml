@@ -4,18 +4,6 @@
 ThreadSafety/ClassInstanceVariable:
   Exclude:
     - "lib/zr/runtime/**/*"
-    - "lib/zr/cli.rb"
-    - "lib/zr/eval.rb"
-    - "lib/zr/gc_tuning.rb"
-    - "lib/zr/machine/host.rb"
-    - "lib/zr/cache/code.rb"
-    - "lib/zr/native/resident.rb"
-    - "lib/zr/native/toolchain.rb"
-    - "lib/zr/obj/macho/skeleton.rb"
-    - "lib/zr/paths.rb"
-    - "lib/zr/runtime.rb"
-    - "lib/zr/session.rb"
-    - "lib/zr/target.rb"
     - "test/support/binaries.rb"
     - "test/support/fork_pool.rb"
     - "test/support/harness/child.rb"
@@ -34,7 +22,6 @@ ThreadSafety/ClassInstanceVariable:
 ThreadSafety/MutableClassInstanceVariable:
   Exclude:
     - "lib/zr/runtime/**/*"
-    - "lib/zr/target.rb"
     - "test/support/harness/child.rb"
 ThreadSafety/DirChdir:
   Exclude:

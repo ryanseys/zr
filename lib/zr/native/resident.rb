@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../session"
+
 module Zr
   module Native
     # The resident memory size of a process. Ruby has no portable way to
@@ -68,9 +70,7 @@ module Zr
 
       #: () -> { host: Fiddle::Function, stats: Fiddle::Function }?
       def self.host_stats
-        return @host_stats if defined?(@host_stats)
-
-        @host_stats = begin
+        Session.current.memo(:host_stats) do
           require "fiddle"
           handle = ::Fiddle::Handle::DEFAULT
           { host: ::Fiddle::Function.new(handle["mach_host_self"], [], ::Fiddle::TYPE_UINT32_T),
@@ -84,9 +84,7 @@ module Zr
 
       #: () -> Fiddle::Function?
       def self.asker
-        return @asker if defined?(@asker)
-
-        @asker = begin
+        Session.current.memo(:pid_info) do
           require "fiddle"
           ::Fiddle::Function.new(::Fiddle::Handle::DEFAULT["proc_pidinfo"],
                                  [::Fiddle::TYPE_INT, ::Fiddle::TYPE_INT, ::Fiddle::TYPE_UINT64_T, ::Fiddle::TYPE_VOIDP, ::Fiddle::TYPE_INT],

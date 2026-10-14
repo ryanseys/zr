@@ -37,24 +37,25 @@ module Zr
     # first. So two checkouts built with one root write the same bytes.
     # A relative path (often the main file) stays as given, as in ruby.
     #: () -> String?
-    def self.root = @root
+    def self.root = Session.current.memo(:path_root) { nil }
 
     #: (String? root) -> void
     def self.root=(root)
-      @root = root&.then { |r| r == "/" ? "" : r.chomp("/") }
-      @prefixes = root && [ROOT, Dir.pwd].uniq.sort_by { |prefix| -prefix.size }
+      Session.current.set(:path_root, root&.then { |r| r == "/" ? "" : r.chomp("/") })
+      Session.current.set(:path_prefixes, root && [ROOT, Dir.pwd].uniq.sort_by { |prefix| -prefix.size })
     end
 
     # `path` as a build writes it into its output.
     #: (String path) -> String
     def self.shown(path)
-      prefixes = @prefixes
-      return path unless @root && prefixes && path.start_with?("/")
+      root = self.root
+      prefixes = Session.current.memo(:path_prefixes) { nil } #: Array[String]?
+      return path unless root && prefixes && path.start_with?("/")
 
       prefixes.each do |prefix|
         next unless path == prefix || path.start_with?("#{prefix}/")
 
-        shown = "#{@root}#{path[prefix.size..]}"
+        shown = "#{root}#{path[prefix.size..]}"
         return shown.empty? ? "/" : shown
       end
       path
@@ -175,10 +176,10 @@ module Zr
 
       dir = new_tmpdir(prefix, root)
       begin
-        @open = open_tmpdirs + 1
+        Session.current.set(:open_tmpdirs, open_tmpdirs + 1)
         yield dir
       ensure
-        @open = open_tmpdirs - 1
+        Session.current.set(:open_tmpdirs, open_tmpdirs - 1)
         remove(dir)
       end
     end
@@ -199,7 +200,7 @@ module Zr
     private_class_method :new_tmpdir
 
     #: () -> Integer
-    def self.open_tmpdirs = @open || 0
+    def self.open_tmpdirs = Session.current.memo(:open_tmpdirs) { 0 }
 
     # Whether a `tmpdir` block runs now. A process that execs then would
     # leave the directory behind (`GcTuning.heavy!`).

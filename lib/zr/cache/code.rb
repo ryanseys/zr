@@ -66,7 +66,7 @@ module Zr
       # The digests load here, not with this file (see `dir`).
       #: () -> String
       def self.backend_digest
-        @backend_digest ||= begin
+        Session.current.memo(:backend_digest) do
           require_relative "../digests"
           Digest::SHA256.new.tap do |d|
             d << VERSION.to_s << "\0"

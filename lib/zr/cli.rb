@@ -37,8 +37,6 @@ module Zr
   # `run_binary` and `exit_as`) are the calls that `exe/zr` and the build
   # server (lib/zr/server.rb) make.
   module CLI
-    # @rbs @commands: Hash[String, Command]
-
     # Exit status 3: zr does not support the program or the target. The
     # test harness counts this separately from zr's defects.
     REFUSED = 3
@@ -172,7 +170,7 @@ module Zr
     # keeps what `kept!` and `served!` give it.
     #: (String verb) -> Command
     def command(verb)
-      commands = @commands ||= {} #: Hash[String, Command]
+      commands = Session.current.memo(:commands) { {} } #: Hash[String, Command]
       commands[verb] ||= COMMANDS.fetch(verb).new(verb)
     end
 

@@ -41,7 +41,7 @@ module Zr
 
     # The tuning of this process.
     #: () -> GcTuning
-    def self.current = @current ||= new
+    def self.current = Session.current.memo(:gc_tuning) { new }
 
     #: (?String? script, ?Array[String] argv, ?env: Hash[String, String]) -> void
     def self.now(script = nil, argv = ARGV, env: {}) = current.now(script, argv, env: env)

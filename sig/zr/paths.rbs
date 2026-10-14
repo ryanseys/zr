@@ -1,8 +1,0 @@
-# The module instance variables of lib/zr/paths.rb. Its methods are inline.
-module Zr
-  module Paths
-    self.@root: String?
-    self.@prefixes: Array[String]?
-    self.@open: Integer?
-  end
-end

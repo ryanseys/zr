@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../session"
+
 module Zr
   module Obj
     module MachO
@@ -65,7 +67,7 @@ module Zr
         # The files that this process wrote a text into, each with its
         # file stamp and the text.
         #: () -> Hash[String, [[Integer, Integer, Time, Time]?, String]]
-        def self.written = @written ||= {}
+        def self.written = Session.current.memo(:skeletons_written) { {} }
 
         # The file stamp: the inode, the size, the mtime and the ctime.
         #: (String out) -> [Integer, Integer, Time, Time]?
@@ -94,9 +96,7 @@ module Zr
         # it is not available.
         #: () -> ::Fiddle::Function?
         def self.clonefile
-          return @clonefile if defined?(@clonefile)
-
-          @clonefile = begin
+          Session.current.memo(:clonefile) do
             require "fiddle"
             handle = ::Fiddle::Handle::DEFAULT
             ::Fiddle::Function.new(handle["clonefile"], [::Fiddle::TYPE_VOIDP, ::Fiddle::TYPE_VOIDP, ::Fiddle::TYPE_INT],

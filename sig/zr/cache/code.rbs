@@ -1,9 +1,0 @@
-# The class instance variable of lib/zr/cache/code.rb. Its methods
-# are inline.
-module Zr
-  module Cache
-    class Code
-      self.@backend_digest: String?
-    end
-  end
-end
