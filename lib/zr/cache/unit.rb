@@ -57,21 +57,26 @@ module Zr
         @entries = entries
       end
 
-      # `[functions, data]` an earlier build left for `unit`, or nil.
-      # (Marshal gives the value, so its type is not checked.)
-      #: (Hir::Unit unit, String prefix) -> untyped
-      def take(unit, prefix)
-        key = key(unit, prefix) or return nil
+      # A digest of every input of the bytes of `unit` under `prefix`, or
+      # nil if one input is a number that this key cannot contain. A build
+      # takes it once, then takes and keeps the unit by it.
+      #: (Hir::Unit unit, String prefix) -> String?
+      def key(unit, prefix)
+        return nil if unit.source.nil? || unit.activates
 
-        Store.read(:unit, key)
+        Store.key(@stamp, prefix, unit.file, *Unit.parts(unit) { |reached| entry(reached) })
       end
 
-      # Stores the code that this build made for `unit`, for the next build.
-      # Stores nothing if a source changed during the build (`SourceGuard.check!`).
-      #: (Hir::Unit unit, String prefix, Array[Obj::Code | IR::Function] functions, Array[Obj::Datum]? data) -> String?
-      def keep(unit, prefix, functions, data)
-        key = key(unit, prefix) or return nil
+      # `[functions, data]` an earlier build left under `key`, or nil.
+      # (Marshal gives the value, so its type is not checked.)
+      #: (String key) -> untyped
+      def take(key) = Store.read(:unit, key)
 
+      # Stores the code that this build made under `key`, for the next
+      # build. Stores nothing if a source changed during the build
+      # (`SourceGuard.check!`).
+      #: (String key, Array[Obj::Code | IR::Function] functions, Array[Obj::Datum]? data) -> String?
+      def keep(key, functions, data)
         Store.write(:unit, key, [functions, data])
       rescue SystemCallError
         nil
@@ -82,7 +87,7 @@ module Zr
       #: (Hir::Unit unit) { (Hir::entry) -> String } -> Array[Integer | String]
       def self.parts(unit, &)
         source = unit.source or raise ArgumentError, "#{unit.file}: a unit with no source"
-        [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, source.b, *reached(unit.body, &)]
+        [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, source, *reached(unit.body, &)]
       end
 
       # The path and the entry of each unit that a require or an autoload
@@ -103,15 +108,6 @@ module Zr
       end
 
       private
-
-      # A digest of every input of the unit's bytes, or nil if one input is
-      # a number that this key cannot contain.
-      #: (Hir::Unit unit, String prefix) -> String?
-      def key(unit, prefix)
-        return nil if unit.source.nil? || unit.activates
-
-        Store.key(@stamp, prefix, unit.file, *Unit.parts(unit) { |reached| entry(reached) })
-      end
 
       # A unit's entry: a String names it already (a unit of eval support).
       #: (Hir::entry unit) -> String

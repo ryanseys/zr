@@ -61,7 +61,7 @@ class SourceChangedTest < Minitest::Test
       assert_raises(Zr::SourceChanged) { Zr::Cache::Parse.keep(:derived, "moved-probe", "x") }
       cache = Zr::Cache::Unit.new(runtime: "r", traced: 0, entries: [])
       unit = Zr::Hir::Unit.new("probe.rb", [], nil, [], false, nil, false, "1", false)
-      assert_raises(Zr::SourceChanged) { cache.keep(unit, "zr_toplevel", [], []) }
+      assert_raises(Zr::SourceChanged) { cache.keep(cache.key(unit, "zr_toplevel"), [], []) }
       assert_raises(Zr::SourceChanged) { Zr::Test::Binaries.keep(File.join(Zr::Paths.cache, "moved-probe"), @file, nil, "/nowhere") }
     end
     refute_path_exists File.join(Zr::Paths.cache, "moved-probe")

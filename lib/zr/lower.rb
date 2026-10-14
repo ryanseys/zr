@@ -322,11 +322,11 @@ module Zr
       @pool_at = {}
     end
 
-    # The unit's code from an earlier build's cache, with its data added
+    # The code that an earlier build kept under `key`, with its data added
     # to this build's data.
-    #: (Hir::Unit unit) -> Array[Obj::Code]?
-    def taken(unit)
-      kept = @units&.take(unit, @prefix) or return nil
+    #: (String? key) -> Array[Obj::Code]?
+    def taken(key)
+      kept = key && @units&.take(key) or return nil
 
       @data.concat(kept[1])
       kept[0]
@@ -383,7 +383,8 @@ module Zr
         @unit_hidden = u.hidden
         @ids = u.node_ids
         open_unit(unit_entry(i), u.body)
-        kept = finish && taken(u)
+        key = finish && @units&.key(u, @prefix)
+        kept = taken(key)
         if kept
           spent(u)
           next finished.concat(kept)
@@ -397,7 +398,7 @@ module Zr
 
         close_pool
         made = finished_functions(&finish)
-        @units&.keep(u, @prefix, made, @data[from..])
+        @units&.keep(key, made, @data[from..]) if key
         spent(u)
         finished.concat(made)
       end
