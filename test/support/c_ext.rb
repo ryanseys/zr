@@ -15,7 +15,8 @@ module Zr
     # repository holds no C file. It is built as mkmf builds one, with the
     # host ruby's headers and flags: an object for zr to link
     # (`ZR_EXT_OBJECTS`) and a bundle for ruby to load. Each source is
-    # built once, in tmp/test-ext/<digest>.
+    # built once, in tmp/test-ext/<arch>/<digest>. A program's binary goes
+    # after its runs, and `sweep` removes what no run used for KEEP_DAYS.
     #
     # `outputs` runs one program under ruby with the bundle, and as a
     # binary that zr builds with the object, and gives both outputs, so a
@@ -25,6 +26,13 @@ module Zr
       # One directory for each host's ruby: a darwin run and a linux run
       # of one checkout (in a container) build apart.
       DIR = File.join(ROOT, "tmp", "test-ext", RbConfig::CONFIG["arch"])
+      # A built extension that no run used for this many days goes, and so
+      # does the directory of a host whose ruby no longer runs the tests.
+      KEEP_DAYS = 30
+      DAY = 86_400
+
+      # Sweeps once, in the parent, as a run starts (a minitest plugin).
+      def self.minitest_plugin_init(_options) = sweep
 
       # A built extension: its directory, which a program's require
       # searches, and its bundle and object.
@@ -52,7 +60,7 @@ module Zr
         config = RbConfig::CONFIG
         dir = File.join(DIR, Digest::SHA256.hexdigest([name, source, config["ruby_version"], libruby].join("\0"))[0, 16])
         built = Built.new(dir: dir, bundle: File.join(dir, "#{name}.#{config["DLEXT"]}"), object: File.join(dir, "#{name}.o"))
-        return built if File.exist?(built.bundle)
+        return used(built) if File.exist?(built.bundle)
 
         FileUtils.mkdir_p(dir)
         # Test workers run in parallel; one builds, and the others wait.
@@ -61,6 +69,29 @@ module Zr
           compile(config, name, source, built, libruby) unless File.exist?(built.bundle)
         end
         built
+      end
+
+      # Marks the directory of `built` as used, at most once a day, so the
+      # sweep keeps it. Returns `built`.
+      #: (Built built) -> Built
+      def used(built, now = Time.now)
+        File.utime(now, now, built.dir) if File.mtime(built.dir) < now - DAY
+        built
+      end
+
+      # Removes each entry below `root` (`<arch>/<entry>`) that no run used
+      # for KEEP_DAYS, then each host directory that is left empty.
+      #: (?String root, ?Time now) -> void
+      def sweep(root = File.dirname(DIR), now = Time.now)
+        cutoff = now - (KEEP_DAYS * DAY)
+        Dir.glob("*/*", base: root).each do |rel|
+          path = File.join(root, rel)
+          FileUtils.rm_rf(path) if File.mtime(path) < cutoff
+        end
+        Dir.glob("*", base: root).each do |host|
+          path = File.join(root, host)
+          Dir.rmdir(path) if File.directory?(path) && Dir.empty?(path)
+        end
       end
 
       #: (Hash[String, String] config, String name, String source, Built built, bool libruby) -> void
@@ -105,6 +136,8 @@ module Zr
         return [ruby, binary_envs.map { built }] unless built.status.zero?
 
         [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
+      ensure
+        FileUtils.rm_f(bin) if bin
       end
 
       # Runs `program` with several extensions under ruby, and as one zr
@@ -122,6 +155,8 @@ module Zr
         bin = path.delete_suffix(".rb")
         built = run({ "ZR_EXT_OBJECTS" => given }, File.join(ROOT, "bin", "zr"), "build", path, "-o", bin)
         [ruby, built.status.zero? ? run({}, bin) : built]
+      ensure
+        FileUtils.rm_f(bin) if bin
       end
 
       # The environment of a child that sees the gems installed in this
@@ -171,6 +206,8 @@ module Zr
         return [ruby, binary_envs.map { built }] unless built.status.zero?
 
         [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]
+      ensure
+        FileUtils.rm_f(bin) if bin
       end
 
       #: (Hash[String, String] env, *String command) -> Output
@@ -187,3 +224,5 @@ module Zr
     end
   end
 end
+
+Minitest.register_plugin(Zr::Test::CExt)
