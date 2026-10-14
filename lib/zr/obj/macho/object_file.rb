@@ -64,7 +64,7 @@ module Zr
         # section and description in the first word, the value in the
         # second. `strings` is the string table.
         # @rbs skip
-        Read = Struct.new(:sections, :symbols, :strings, keyword_init: true)
+        Read = Struct.new(:sections, :symbols, :strings)
 
         class Read
           # @rbs @names: Hash[Integer, String]?
@@ -106,7 +106,7 @@ module Zr
         # A section as `read` returns it. `relocs` contains two words for
         # each `relocation_info`: the address and the packed other fields.
         # @rbs skip
-        Section =Struct.new(:name, :segment, :addr, :size, :align, :flags, :bytes, :relocs, keyword_init: true)
+        Section = Struct.new(:name, :segment, :addr, :size, :align, :flags, :bytes, :relocs)
 
         module_function
 
@@ -208,13 +208,12 @@ module Zr
         # stay zero until the layout reaches them; `items` holds each item
         # with its offset in the section.
         # @rbs skip
-        SectionBuild = Struct.new(:name, :seg, :flags, :bytes, :size, :align, :items, :relocs, :addr, :offset, :reloff,
-                                  keyword_init: true)
+        SectionBuild = Struct.new(:name, :seg, :flags, :bytes, :size, :align, :items, :relocs, :addr, :offset, :reloff)
 
         # A symbol while `laid_out` builds it. `bare` is the name without the
         # leading `_`. `strx` stays nil until the string table exists.
         # @rbs skip
-        Sym = Struct.new(:name, :bare, :linkage, :sect, :value, :type, :strx, keyword_init: true)
+        Sym = Struct.new(:name, :bare, :linkage, :sect, :value, :type, :strx)
 
         #: (Unit unit) -> Laid
         def laid_out(unit)

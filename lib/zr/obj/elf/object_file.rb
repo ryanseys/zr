@@ -62,13 +62,12 @@ module Zr
         }.freeze #: Hash[Symbol, [String, Integer, Integer]]
 
         # @rbs skip -- typed in sig/zr/obj/elf/object_file.rbs
-        Section = Struct.new(:name, :type, :flags, :bytes, :size, :align, :link, :info, :entsize, :offset, :item,
-                             keyword_init: true)
+        Section = Struct.new(:name, :type, :flags, :bytes, :size, :align, :link, :info, :entsize, :offset, :item)
 
         # One `Elf64_Sym`. `strx` is the name's offset in the string table;
         # `write` sets it after it builds that table.
         # @rbs skip -- typed in sig/zr/obj/elf/object_file.rbs
-        Sym = Struct.new(:name, :bind, :type, :shndx, :value, :size, :strx, keyword_init: true)
+        Sym = Struct.new(:name, :bind, :type, :shndx, :value, :size, :strx)
 
         module_function
 

@@ -33,7 +33,7 @@ module Zr
     # root holds, raises LoadError if it runs, as in a ruby where the
     # extension did not build. The build says so (`Hir::Build#gem_refusal`).
     # @rbs skip -- typed in sig/zr/gem_set.rbs
-    Entry = Struct.new(:name, :version, :source, :roots, :refusal, :native, keyword_init: true) do
+    Entry = Struct.new(:name, :version, :source, :roots, :refusal, :native) do
       # The root of the gem that holds the file `path`, as given or as its
       # real path, or nil: a require finds a file through a symlinked
       # directory by the real path (`Loader#real_root`).

@@ -35,13 +35,13 @@ module Zr
       # constant instruction `count` that holds the slot count, and the
       # index `fill_at` in the entry block where the zero fill goes.
       # @rbs skip -- typed in sig/zr/machine/function.rbs
-      Roots = Struct.new(:slot, :addr, :n, :zero, :count, :fill_at, keyword_init: true)
+      Roots = Struct.new(:slot, :addr, :n, :zero, :count, :fill_at)
 
       # The exit of an inlined body: the `type` of its def, the `block`
       # after the body (nil until the first `return`), and the `value`, the
       # parameter of that block.
       # @rbs skip -- typed in sig/zr/machine/function.rbs
-      Exit = Struct.new(:type, :block, :value, keyword_init: true)
+      Exit = Struct.new(:type, :block, :value)
 
       #: (Lower unit, Def d) -> void
       def initialize(unit, d)
