@@ -5,8 +5,12 @@
 /log/
 /pkg/
 *.gem
-.bundle/
-test/*.tmp
+/.bundle/
+
+# Files that a Mac or an editor writes. An untracked one would change the
+# result cache's digest (test/support/result_cache.rb) on another machine.
+.DS_Store
+/.ruby-lsp/
 
 # Local worktrees.
 /.claude/worktrees/
