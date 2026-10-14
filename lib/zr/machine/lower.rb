@@ -782,11 +782,6 @@ module Zr
       #: () -> Hash[String, Signature]
       def declared_sigs = @sigs
 
-      # The file that declares the constant `name`. Only the tests use it
-      # (test/unit/os_api_test.rb).
-      #: (String name) -> String
-      def const_file(name) = @consts.fetch(name).last
-
       # A constant's value. It is folded on first use, so a declaration
       # can refer to a constant from a later file.
       #: (String name) -> Integer?

@@ -91,8 +91,9 @@ for the forms that the interpreter refuses.
 
 ## Runtime layers
 
-The portable runtime calls a fixed set of OS functions, which
-`lib/zr/runtime/kernel/os.rb` lists. Each OS layer implements all of them:
+The portable runtime calls a set of `zr_os_*` functions, and each OS
+layer defines all of them (`lib/zr/runtime/kernel/os.rb` describes the
+layers):
 
 | Directory | Contains |
 |---|---|

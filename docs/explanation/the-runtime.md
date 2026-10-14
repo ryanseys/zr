@@ -119,10 +119,11 @@ the same results. See
 
 ## The OS and machine layers
 
-The portable kernel calls a fixed list of functions for everything
-that an operating system does in its own way: errno, descriptors,
-stacks, POSIX signals, loading code. `lib/zr/runtime/kernel/os.rb` gives the
-list, and each OS implements it in `lib/zr/runtime/kernel/os/<os>/`. On WASI,
+The portable kernel calls `zr_os_*` functions for everything that an
+operating system does in its own way: errno, descriptors, stacks, POSIX
+signals, loading code. Each OS defines all of them in
+`lib/zr/runtime/kernel/os/<os>/`, and the build of a target refuses a
+call that its layer does not define. On WASI,
 that layer also implements the libc calls, over WASI preview 1.
 
 The architecture layer, in `lib/zr/runtime/kernel/arch/<arch>/`, does
