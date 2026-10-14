@@ -147,41 +147,12 @@ ruby's output byte for byte. See
 
 ## Contribute
 
-The full test suite runs on an Apple Silicon Mac. On aarch64 Linux, the
-program tests run for `aarch64-linux-musl` in an Alpine container, and
-any host can work on the `wasm32-wasi` target
-(`ZR_TARGET=wasm32-wasi bin/minitest ...`); see
-[How to test on another target](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/test-on-another-target.md).
-
-```console
-$ git clone https://github.com/ryanseys/zr.git
-$ cd zr
-$ bin/setup               # install the gems and build the runtime (a few minutes)
-$ bin/zr-dev test test/programs/core/string
-                          # the program tests in one directory
-$ bin/zr-dev test --changed
-                          # the tests that your change can reach
-$ bin/minitest            # all the tests: unit, programs, ext
-```
-
-`bin/minitest` builds the runtime again when a change under `lib/` or
-`lib/zr/runtime/` makes it out of date. Read [CONTRIBUTING.md](https://github.com/ryanseys/zr/blob/v0.1.0/CONTRIBUTING.md)
-before you open a pull request, and the tutorial
-[Add your first program test](https://github.com/ryanseys/zr/blob/v0.1.0/docs/tutorials/add-your-first-program-test.md).
-
-## Development
-
-```console
-$ rake lint       # RuboCop (.rubocop.yml)
-$ rake build      # build the runtime for this host
-$ bin/console     # IRB with zr loaded
-$ rake -T         # every rake task
-$ bin/zr-dev help         # every maintainer tool
-```
-
-See [How to run the tests](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/run-the-tests.md) and
-[Tools](https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/tools.md). All the
-documentation is in [`docs/`](https://github.com/ryanseys/zr/blob/v0.1.0/docs/README.md).
+[CONTRIBUTING.md](https://github.com/ryanseys/zr/blob/v0.1.0/CONTRIBUTING.md) tells how to set up a
+checkout, run the tests near a change, and open a pull request. The
+full test suite runs on an Apple Silicon Mac; on Linux, you can work
+on the `wasm32-wasi` target. [How to run the tests](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/run-the-tests.md),
+[Tools](https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/tools.md) and the rest of
+[`docs/`](https://github.com/ryanseys/zr/blob/v0.1.0/docs/README.md) give the details.
 
 ## Release
 

@@ -267,6 +267,14 @@ def test_h_prints_a_short_usage_and_help_the_long_one
   assert_equal CLI::Help::PAGES.fetch("run"), capture_io { CLI.start(%w[-h run]) }.first
 end
 
+# docs/reference/cli.md opens with the short usage, as `zr -h` prints it.
+def test_the_cli_page_opens_with_the_short_usage
+  short, = capture_io { CLI.start(%w[-h]) }
+  page = File.read(File.join(ROOT, "docs/reference/cli.md"))
+
+  assert_equal short, page[/^```\n(.*?)^```$/m, 1]
+end
+
 # Each setting fits its row: the flag in its column, then what it does,
 # wrapped below 80 columns.
 def test_each_setting_row_fits_in_80_columns

@@ -28,20 +28,10 @@ named `test_<path below test/programs>`, so
 `bin/minitest test/programs_test.rb -i /stdlib.uri/` selects programs
 by name.
 
-`bin/minitest` reads these environment variables. `rake test` and the
-tier tasks read them too, because they call `bin/minitest`.
-
-| Variable | Effect |
-|---|---|
-| `ZR_PROGRAMS=<paths>` | Runs only the program tests below these paths, separated by commas (`ZR_PROGRAMS=core/gc,lang`). A path is a directory or one program, below `test/programs`, below the current directory, or absolute. |
-| `ZR_EXPECTED=<mode>` | Where a program test's expected output comes from: `record`, `verify` or `live` (`zr-dev test`). |
-| `ZR_TEST_HOST=1` | Runs the program tests on CRuby over zr's kernel, with no build (`zr-dev host`). The baseline is `test/baselines/host.txt`. |
-| `ZR_TARGET=<triple>` | Builds and runs the programs for that target. |
-| `ZR_GC_STRESS=1` | Collects at every allocation. |
-| `ZR_TEST_FAIL_FAST=1` | Starts no more tests after one fails. |
-| `ZR_TEST_SECONDS=<n>` | The time limit of each program run and build (default 60). `ZR_TEST_TIMEOUT=0` also lifts the time limit of each test in a worker (default 180). |
-| `SLOW=1` | Reports the 20 slowest tests and groups (test files, and directories of program tests) for a run of any size, with the time that the program tests spent to lower, link and run. `SLOW=<n>` with `n` > 1 reports `n`; `SLOW=0` reports none. Unset, a run of 20 tests or more reports 10. |
-| `MT_CPU=<n>` | The number of worker processes. The default is one for each 2 GB of memory, with a quarter of the memory (at least 4 GB) and two cores kept free. |
+`bin/minitest` reads the variables of
+[Environment variables](environment-variables.md#for-the-tests). `rake test` and the tier
+tasks read them too, because they call `bin/minitest`, and the options
+of `zr-dev test` set most of them.
 
 To time a run, use the shell's `time` (`time bin/minitest test/unit`).
 

@@ -20,9 +20,16 @@ On Linux, you can work on the `wasm32-wasi` target:
 ```console
 $ git clone https://github.com/ryanseys/zr.git
 $ cd zr
-$ bin/setup     # installs the gems and builds the runtime (a few minutes)
-$ bin/minitest  # runs every test: unit, programs, ext
+$ bin/setup                                   # installs the gems and builds the runtime (a few minutes)
+$ bin/zr-dev test test/programs/core/string   # the program tests in one directory
+$ bin/zr-dev test --changed                   # the tests that your change can reach
+$ bin/minitest                                # every test: unit, programs, ext
 ```
+
+`bin/minitest` builds the runtime again when a change under `lib/`
+makes it out of date. `bin/console` opens IRB with zr loaded,
+`rake -T` lists the rake tasks, and `bin/zr-dev help` lists the
+maintainer tools ([Tools](docs/reference/tools.md)).
 
 ## Make a change
 

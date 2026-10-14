@@ -64,14 +64,13 @@ and the GVL lets only one thread run Ruby at a time.
 
 Forks also keep the memory use flat. Ruby does not give heap pages
 back to the system. Thus a worker that grows past `ZR_TEST_RECYCLE_MB`
-(600 MB of growth) stops, and the parent forks a new one. The parent
-does not grow, so the whole run stays near `workers × 600 MB` above
-the parent.
+stops, and the parent forks a new one. The parent does not grow, so
+the whole run stays near `workers × ZR_TEST_RECYCLE_MB` above the
+parent.
 
-`MT_CPU` sets the number of workers. The default is one for each 2 GB
-of memory, after a quarter of the memory (at least 4 GB) is kept free,
-and at most two fewer than the cores (`test/support/workers.rb`). A
-compile and the program it builds need about 2 GB together. A machine
+`MT_CPU` sets the number of workers. Its default keeps memory and two
+cores free (`test/support/workers.rb`), because a compile and the
+program that it builds need some gigabytes together. A machine
 that swaps does not fail: it becomes about ten times slower. The
 memory limit prevents this.
 
@@ -81,14 +80,15 @@ continues.
 
 ## Limits on each test
 
-A test has a time limit (`ZR_TEST_TIMEOUT`, 180 seconds, or a higher
-limit that a unit suite sets). A worker that runs one test for longer
+A test has a time limit (`ZR_TEST_TIMEOUT`, or a higher limit that a
+unit suite sets). A worker that runs one test for longer
 is stopped, and its test fails. Thus a compile that loops costs one
 test, not the tier.
 
-A program that a test runs also has limits: 60 seconds
+A program that a test runs also has limits: a time limit
 (`ZR_TEST_SECONDS`), and memory limits for the build and the run
-(`ZR_TEST_BUILD_MB`, `ZR_TEST_RUN_MB`). The harness reads the resident
+(`ZR_TEST_BUILD_MB`, `ZR_TEST_RUN_MB`). [Environment
+variables](../reference/environment-variables.md#for-the-tests) gives their defaults. The harness reads the resident
 size of the whole process group while it runs, because macOS does not
 enforce `RLIMIT_AS`. When the group passes a limit, the harness stops
 the whole group.
@@ -123,3 +123,55 @@ the build is what it tests.
 A test run writes its progress to `tmp/test-progress.txt` at most
 once a second: how many tests are done, which failed, the rate, and the
 time left. Read the file to look at a run in the background.
+Each failure's full report goes to `tmp/test-failures.txt` as it
+happens, so you can read a diff before the run ends. At the end, the
+run prints the slowest tests and the groups (test files, and
+directories of program tests) that took the most time, and counts the
+passes that came from the result cache (`test/support/progress.rb`).
+
+## Passes that a run keeps
+
+A program test that passed is a key in the cache (the store's kind
+`result`, `test/support/result_cache.rb`). The key is a digest of
+everything that a run of the test reads: the program and the files
+beside it, its line of the baseline, the ruby, each `ZR_*` and `RUBY*`
+variable that can change a result, and the files of zr, of the pinned
+ruby and gems, and of the harness that loads the program tests. A
+later run with the same key passes the test at once, with no build, in
+a compiled run as in a host run.
+
+So an edit to `lib/`, `vendor/` or the harness runs each program test
+again, and an edit to the docs, to a unit test or to a tool does not.
+`bin/zr-dev test --no-cache` (`ZR_TEST_FRESH=1`) runs each test again.
+
+## Times and failures
+
+What lasts from one run to the next is in `tmp/zr-dev-test/`
+(`test/support/history.rb`):
+
+- `times.tsv` holds the time of each test, the date of its run and its
+  group, the slowest first. A run writes each time to a journal of its
+  own as the test ends, so a run that is killed keeps the times so far.
+  A test keeps its time until its file is gone or it has not run for 30
+  days. `bin/zr-dev test --slowest` reads it.
+- `failed.txt` names each test that failed and has not passed since. A
+  run removes each test that it ran and that passed, and adds each that
+  failed. `bin/zr-dev test --failed` runs them.
+
+`ZR_TEST_TMP` moves these files, so a suite that a test starts does not
+write over the run that started it.
+
+## Baselines and pending tests
+
+A target can fail some program tests: `test/baselines/<triple>.txt`
+lists each one with its reason, and `host.txt` does the same for a run
+on CRuby over the kernel (`test/support/baseline.rb`). A listed test
+that fails is a skip that gives the reason. A listed test that passes
+fails the run, so each list stays current.
+
+A new ruby (`.ruby-version`) can change what a program prints before zr
+matches it. `upgrade.txt` lists those program tests for every target,
+and also the unit and extension tests, by file and method
+(`test/support/pending.rb`). Each fix deletes its line, and the upgrade
+is done when the file is gone. With no `upgrade.txt`, the check costs
+nothing.

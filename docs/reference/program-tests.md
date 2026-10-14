@@ -161,18 +161,19 @@ bytes.
 
 ## Limits
 
-| Limit | Default | Change it with |
-|---|---|---|
-| the time of one run | 60 s | `ZR_TEST_SECONDS` |
-| the time of a ruby run | two times the run limit | `ZR_TEST_SECONDS` |
-| the time of a `zr build` (`cli/` only) | five times the run limit | `ZR_TEST_SECONDS` |
-| the memory of a run | 1024 MB | `ZR_TEST_RUN_MB`, or `run_mb=` in `foo.rb.limits` |
-| the memory of a `zr build` (`cli/` only) | 2048 MB | `ZR_TEST_BUILD_MB`, or `build_mb=` in `foo.rb.limits` |
-| the time of one test in a worker | 180 s | `ZR_TEST_TIMEOUT` |
+| Limit | Set by |
+|---|---|
+| the time of one run | `ZR_TEST_SECONDS` |
+| the time of a ruby run | two times `ZR_TEST_SECONDS` |
+| the time of a `zr build` (`cli/` only) | five times `ZR_TEST_SECONDS` |
+| the memory of a run | `ZR_TEST_RUN_MB`, or `run_mb=` in `foo.rb.limits` |
+| the memory of a `zr build` (`cli/` only) | `ZR_TEST_BUILD_MB`, or `build_mb=` in `foo.rb.limits` |
+| the time of one test in a worker | `ZR_TEST_TIMEOUT` |
 
-A value in `foo.rb.limits` applies only when it is higher than the
-default. The memory limit is the resident size of the whole process
-group.
+[Environment variables](environment-variables.md#for-the-tests) gives the default of each
+variable. A value in `foo.rb.limits` applies only when it is higher
+than the default. The memory limit is the resident size of the whole
+process group.
 
 ## Results
 
