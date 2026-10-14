@@ -26,10 +26,10 @@ class CompilerDigestTest < Minitest::Test
   # The compiler files that a plain build and link do not load, but that
   # other builds do, so they stay in the digest: eval support compiles the
   # eval compiler and its walker, a build with --gem loads the gem set, and
-  # a listing, a diff, `zr-dev vendor` and the IR interpreter load the rest
+  # a diff, `zr-dev vendor` and the IR interpreter load the rest
   # on demand.
   LOADED_BY_SOME_BUILDS = %w[
-    backend/aarch64/listing.rb diff.rb eval.rb eval/walk.rb eval/walk/evaluate.rb eval/walk/tree.rb gem_set.rb
+    diff.rb eval.rb eval/walk.rb eval/walk/evaluate.rb eval/walk/tree.rb gem_set.rb
     gem_set/resolve.rb
     ir/interp.rb library/vendor.rb
   ].map { |name| File.join(LIB, "zr", name) }.freeze

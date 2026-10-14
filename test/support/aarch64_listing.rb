@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "registers"
-require_relative "assembler"
-require_relative "codegen"
+require_relative "../../lib/zr/backend/aarch64/registers"
+require_relative "../../lib/zr/backend/aarch64/assembler"
+require_relative "../../lib/zr/backend/aarch64/codegen"
 
 module Zr
   module Backend

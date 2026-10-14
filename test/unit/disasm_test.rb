@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/backend/aarch64/listing"
+require_relative "../support/aarch64_listing"
 require_relative "../native/ops"
 
 # Keeps the instruction selection of the backend in a snapshot. One
