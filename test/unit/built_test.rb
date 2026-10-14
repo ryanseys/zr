@@ -3,6 +3,7 @@
 require "test_helper"
 require_relative "../support/built"
 require_relative "../support/program_case"
+require_relative "../../lib/zr/cache/janitor"
 
 # Tests the runtime build that a tier uses: which targets a tier needs,
 # when a target is built, and that a tier builds only missing targets.
@@ -64,11 +65,14 @@ class BuiltTest < Minitest::Test
     end
   end
 
-  # The mark is the last file that a build writes.
-  def test_build_mark_path_contains_target_digest
-    assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target.default))
-    assert_match(/built-\h+\.ok\z/, Built.mark(Zr::Target::WASM32_WASI))
-    refute_equal Built.mark(Zr::Target.default), Built.mark(Zr::Target::WASM32_WASI)
+  # The mark, the last entry that a build writes, is named by the
+  # target's runtime digest.
+  def test_the_mark_names_the_runtime_digest_of_its_target
+    host = Built.mark(Zr::Target.default)
+
+    assert_equal Zr::Runtime.for(Zr::Target.default).digest, host
+    assert_equal "#{host}-plain", Built.mark(Zr::Target.default, evals: false)
+    refute_equal host, Built.mark(Zr::Target::WASM32_WASI)
   end
 
   def test_a_run_builds_only_what_its_files_declare
@@ -107,17 +111,55 @@ class BuiltTest < Minitest::Test
     end
   end
 
+  # A runtime of digest "33…" whose object is at `dir/runtime.o`, for the
+  # block, in a cache at `dir`.
+  def with_runtime
+    Dir.mktmpdir("zr-cache-") do |dir|
+      Zr::Session.current.set(:cache, dir)
+      object = File.join(dir, "runtime.o")
+      File.write(object, "")
+      runtime = Data.define(:digest, :object_path).new(digest: "3" * 64, object_path: object)
+      stub_method(Zr::Runtime, :for, runtime) { yield runtime }
+    ensure
+      Zr::Session.current.forget(:cache)
+    end
+  end
+
   def test_a_build_with_eval_support_serves_a_run_without
     target = Zr::Target.default
-    full = Built.mark(target, evals: true)
-    plain = Built.mark(target, evals: false)
-    stub_method(File, :exist?, ->(path) { path == full }) do
+    with_runtime do
+      Built.finish(target, evals: true)
       assert Built.built?(target, evals: false)
       assert Built.built?(target, evals: true)
     end
-    stub_method(File, :exist?, ->(path) { path == plain }) do
+    with_runtime do
+      Built.finish(target, evals: false)
       assert Built.built?(target, evals: false)
       refute Built.built?(target, evals: true)
+    end
+  end
+
+  def test_a_mark_without_its_runtime_object_is_not_built
+    target = Zr::Target.default
+    with_runtime do |runtime|
+      Built.finish(target, evals: true)
+      File.unlink(runtime.object_path)
+
+      refute Built.built?(target)
+    end
+  end
+
+  # The mark is a store entry, so a clean of the whole cache, which takes
+  # the runtime object, takes the mark too, and the next run builds.
+  def test_a_clean_of_the_whole_cache_takes_the_mark_with_it
+    target = Zr::Target.default
+    with_runtime do
+      Built.finish(target, evals: true)
+      assert Built.built?(target)
+
+      Zr::Cache::Janitor.clear
+
+      refute Built.built?(target)
     end
   end
 end

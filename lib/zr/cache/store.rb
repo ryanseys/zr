@@ -47,7 +47,8 @@ module Zr
         Kind.new(:run, :dir, "", 2),              # `zr run` binaries
         Kind.new(:ext, :dir, "", nil),            # C extensions that zr built (Ext::Builder)
         Kind.new(:binary, :raw, "", nil),         # program test binaries; quota from ZR_TEST_BINARIES_GB
-        Kind.new(:result, :raw, "", nil),         # host program tests that passed (test/support/result_cache.rb)
+        Kind.new(:result, :raw, "", nil),         # program tests that passed (test/support/result_cache.rb)
+        Kind.new(:built, :raw, "", nil),          # a test run's mark of a whole runtime build (test/support/built.rb)
         Kind.new(:source, :raw, "", nil)          # a compiler file's digest without its comments (Digests.code)
       ].to_h { |kind| [kind.name, kind] }.freeze #: Hash[Symbol, Kind]
 

@@ -101,15 +101,24 @@ module Zr
         true
       end
 
-      # Whether the caches of `target` are complete. A build writes the
-      # mark file last, after every cache file is written. A build with
-      # eval support also serves a run that does not need it.
+      # Whether the caches of `target` are complete: its mark, which a build
+      # writes last, is in the store, and so is its runtime object. A build
+      # with eval support also serves a run that does not need it.
       def built?(target, evals: true)
-        File.exist?(mark(target, evals: true)) || (!evals && File.exist?(mark(target, evals: false)))
+        return false if target.link && !File.exist?(Runtime.for(target).object_path)
+
+        [true, *(false unless evals)].any? { |full| Zr::Cache::Store.read(:built, mark(target, evals: full)) }
       end
 
-      def mark(target, evals: true)
-        File.join(Zr::Paths.cache, "built-#{Runtime.for(target).digest}#{"-plain" unless evals}.ok")
+      # The store key of the mark of a build of `target`.
+      def mark(target, evals: true) = "#{Runtime.for(target).digest}#{"-plain" unless evals}"
+
+      # Writes the mark of a whole build of `target`, after every cache file
+      # of the build. The target's root names only its newest mark, so an
+      # eviction or a clean takes the older ones.
+      def finish(target, evals:)
+        file = Zr::Cache::Store.write(:built, mark(target, evals: evals), "")
+        Zr::Cache::Store.root("#{target.triple}-built#{"-plain" unless evals}", [file])
       end
 
       # Reads the caches of `target` into this process one time.
@@ -176,7 +185,7 @@ module Zr
           why = Native::Build.program(program, File.join(work, "built"), work: work)
           raise "the build did not finish: #{why}" if why
         end
-        Zr::Cache::Store.write_file(mark(target, evals: evals), "")
+        finish(target, evals: evals)
       end
 
       # A WASI module has no linker. Build a plain program and a program
@@ -190,7 +199,7 @@ module Zr
             raise "the build did not finish: #{why}" if why
           end
         end
-        Zr::Cache::Store.write_file(mark(target), "")
+        finish(target, evals: true)
       end
     end
   end

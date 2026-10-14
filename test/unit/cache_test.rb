@@ -65,21 +65,16 @@ class CacheTest < Minitest::Test
   end
 
   # A clean deletes the store's unused entries and the binaries that the
-  # server left. It keeps the harness's marks (`built-<digest>.ok`,
-  # test/support/built.rb), which are outside the store.
-  def test_a_clean_keeps_the_harness_marks_and_removes_old_served_binaries
+  # server left.
+  def test_a_clean_removes_old_served_binaries
     with_cache("5") do |dir, old|
-      mark = File.join(dir, "built-#{"2" * 64}.ok")
       served = File.join(dir, "served", "sum")
-      [mark, served].each do |path|
-        FileUtils.mkdir_p(File.dirname(path))
-        File.write(path, "x")
-      end
+      FileUtils.mkdir_p(File.dirname(served))
+      File.write(served, "x")
       File.utime(Time.now - 7200, Time.now - 7200, served)
 
       gone = Zr::Cache::Janitor.prune
 
-      assert_path_exists mark
       refute_path_exists served
       assert_includes gone, old
       assert_includes gone, served
