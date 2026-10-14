@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# set.c, in ruby: Ruby 4.0's core Set. Its table is a Hash from each
+# set.c, in ruby: ruby's core Set. Its table is a Hash from each
 # member to true, in insertion order, kept in a hidden slot as the C
 # struct keeps its set_table, so a program sees no instance variable on
 # a Set. So is the iteration level: a Set that is being walked takes no
@@ -406,7 +406,7 @@ class Set
     Set.new(self, &block)
   end
 
-  # Ruby 4.0 keeps this subclass, which takes no compatibility layer.
+  # ruby keeps this subclass, which takes no compatibility layer.
   class CoreSet < Set
   end
 

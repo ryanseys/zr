@@ -404,7 +404,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   end
 
   # The feature of Gem's autoload in a program that compiles at run time
-  # (Hir::Build.gem_autoload): it loads rubygems, bundled_gems and the
+  # (Hir::Preludes.gem_autoloads): it loads rubygems, bundled_gems and the
   # program's gems.
   GEM_BOOT = "zr/rubygems"
   private_constant :GEM_BOOT

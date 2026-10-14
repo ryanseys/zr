@@ -9,8 +9,8 @@
 # is an altered version: the same algorithms in Ruby.
 #
 # The files also load under CRuby (test/support/harness/onig.rb), so
-# tools/regexp_diff.rb and the tests can check them against ruby's own
-# engine on the host.
+# test/support/harness/regexp_diff.rb and the tests can check them
+# against ruby's own engine on the host.
 
 class Regexp
   module Onig

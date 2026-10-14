@@ -1,7 +1,7 @@
 module Zr::Kern
   # CRuby's C API, for C extensions: each `rb_*` def here is the function
   # of that name, which an extension's machine code calls. zr's objects
-  # have CRuby 4.0's layout (value.rb, string.rb), so an extension reads
+  # have CRuby's layout (value.rb, string.rb), so an extension reads
   # them inline as it reads ruby's, and calls these functions for the
   # rest.
   #

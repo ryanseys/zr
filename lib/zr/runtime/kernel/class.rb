@@ -4061,8 +4061,8 @@ end
     Machine.value(QNIL)
   end
 
-  # The same, plus the count of reserved entries, for the compiled compiler
-  # in a program: it numbers a snippet's entries after them, then reserves
+  # The same, plus the count of reserved entries, for the compiler that a
+  # program carries (eval support): it numbers a snippet's entries after them, then reserves
   # them.
   #: (value) -> value
   def zr_activations_reserve_m(count)

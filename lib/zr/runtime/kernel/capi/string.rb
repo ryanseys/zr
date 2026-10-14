@@ -542,7 +542,7 @@ module Zr::Kern
   end
 
   # rb_cstr2inum: the Integer that the C string `text` writes in `base`,
-  # as String#to_i reads it. Base 0 is ruby 4.0's strict base 10: no
+  # as String#to_i reads it. Base 0 is ruby's strict base 10: no
   # prefix, and text that is not a number raises, as Integer(text, 10).
   #: (ptr, i32) -> value
   def rb_cstr2inum(text, base)

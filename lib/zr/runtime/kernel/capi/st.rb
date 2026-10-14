@@ -2,7 +2,7 @@ module Zr::Kern
   # The C API's st tables, which C uses for its own maps. A table's type
   # (st_hash_type) compares and hashes its keys: a numtable's keys are
   # words compared as they are (type 0 here), a strtable's are C strings,
-  # and C can give a type of its own. A table has CRuby 4.0's public
+  # and C can give a type of its own. A table has CRuby's public
   # header (st.h), so C reads `num_entries` inline; the rest is zr's own.
   # The entries are in insertion order, as st keeps them, for
   # st_foreach: each is a key, a value and a live word. An index of

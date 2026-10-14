@@ -2,7 +2,7 @@
 
 # RubyVM::AbstractSyntaxTree over prism.
 #
-# CRuby 4.0 returns parse.y's node tree from RubyVM::AbstractSyntaxTree.parse
+# CRuby returns parse.y's node tree from RubyVM::AbstractSyntaxTree.parse
 # (the NODE_* taxonomy that ast.c shows through Node#children). zr has
 # no parse.y, so this file rebuilds that tree from prism's tree. The
 # Translator walks prism's nodes and replays the grammar actions of parse.y
@@ -12,8 +12,8 @@
 # grammar rule gives it. Node#children then reads those fields the way
 # ast.c's node_children does.
 #
-# tools/ast.rb checks the translator against the host's
-# RubyVM::AbstractSyntaxTree, node for node.
+# The program tests in test/programs/core/rubyvm check the translator's
+# dumps against the pinned ruby's RubyVM::AbstractSyntaxTree.
 
 require "prism"
 

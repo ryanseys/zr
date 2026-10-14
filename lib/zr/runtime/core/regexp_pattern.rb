@@ -5,7 +5,8 @@
 # encoding a pattern takes and a match reads it in, a compile again
 # for a subject of another encoding, and the pattern as messages,
 # inspect and to_s show it. `Regexp#source` keeps the text as written.
-# Plain Ruby: it loads under CRuby too, for tools/regexp_diff.rb.
+# Plain Ruby: it loads under CRuby too, for
+# test/support/harness/regexp_diff.rb.
 class Regexp
   module Pattern
     BYTE_ESCAPES = { "n" => 0x0a, "t" => 0x09, "r" => 0x0d, "f" => 0x0c, "v" => 0x0b, "a" => 0x07, "e" => 0x1b, "\\" => 0x5c }.freeze

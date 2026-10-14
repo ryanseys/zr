@@ -3611,7 +3611,8 @@ class SystemCallError
   end
 end
 
-# One class for each row of lib/zr/runtime/core/errno.rb, and its other names.
+# One class for each row of the OS layer's errno.rb
+# (lib/zr/runtime/core/os/<os>/errno.rb), and its other names.
 module Errno
   CODES.each do |name, code|
     klass = Class.new(SystemCallError)

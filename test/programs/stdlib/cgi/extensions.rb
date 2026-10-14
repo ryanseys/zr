@@ -1,6 +1,6 @@
 # In-tree ext/ extensions, activated by `require` and dispatched through the
 # same tables as the core builtins. Each is behind a per-extension build
-# feature (default on). See docs/EXTENSIONS.md.
+# feature (default on).
 
 require "json"
 require "yaml"

@@ -1,5 +1,5 @@
 module Zr::Kern
-  # Values use CRuby 4.0's tagging, bit for bit, so a C extension reads
+  # Values use CRuby's tagging, bit for bit, so a C extension reads
   # them as ruby does. A fixnum is `n << 1 | 1`. false is 0, nil is 4,
   # true is 0x14 and undef is 0x24. A static symbol is
   # `id << 8 | 0x0c`. All other values are pointers to a cell whose header
@@ -126,7 +126,7 @@ module Zr::Kern
   FL_TEMP_NAME = 1 << 14
   # A String's encoding, as ruby's index into `Encoding.list`: 0 is
   # ASCII-8BIT, 1 is UTF-8, 2 is US-ASCII, then one number for each of the
-  # other hundred. It is in bits 22 to 28 of the flags, where CRuby 4.0
+  # other hundred. It is in bits 22 to 28 of the flags, where CRuby
   # keeps it (ENCODING_SHIFT), so a C extension's inline ENCODING_GET
   # reads it. A new String gets UTF-8 from its allocator (FL_STR_NEW).
   FL_ENC_SHIFT = 22

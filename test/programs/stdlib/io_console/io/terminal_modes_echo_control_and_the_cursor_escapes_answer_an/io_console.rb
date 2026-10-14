@@ -1,6 +1,6 @@
 # `io/console` -- terminal modes, echo control, and the cursor escapes. CRuby
 # ships it as a require-gated extension; zr's rows hang unconditionally off
-# the IO table, so the require is ceremony (`docs/EXTENSIONS.md`).
+# the IO table, so the require is ceremony.
 #
 # Nothing here is a terminal, which is the only path a golden can assert
 # without a pty. The streams are a pipe and a regular file rather than STDIN:

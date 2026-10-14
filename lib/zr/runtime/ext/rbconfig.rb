@@ -178,7 +178,7 @@ module RbConfig
     "debugflags" => "-g",
     "warnflags" => "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers",
     # A raise unwinds through the extension's own frames, so its objects
-    # must contain unwind tables (docs/EXTENSIONS.md).
+    # must contain unwind tables.
     "unwindflags" => "-fexceptions -fasynchronous-unwind-tables",
     "CFLAGS" => "$(cflags) -fPIC",
     "CXXFLAGS" => "$(cxxflags) -fPIC",

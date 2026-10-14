@@ -1,8 +1,8 @@
 # `Range#step` over a NON-numeric range walks by `succ`, in both the block
 # and the blockless form.
 #
-# `docs/COMPATIBILITY.md` recorded this as the one outright crash in the
-# document -- "answers the right Enumerator, but WALKING it crashes". It
+# A former compatibility page recorded this as the one outright crash in
+# it -- "answers the right Enumerator, but WALKING it crashes". It
 # does not: every row below matches ruby, so the note is deleted and
 # these rows replace it.
 

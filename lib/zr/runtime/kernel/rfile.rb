@@ -3,7 +3,7 @@ module Zr::Kern
   # object that keeps its fields as ivars, so CRuby's inline GetOpenFile,
   # `RFILE(rb_io_taint_check(io))->fptr`, reads a companion cell of the
   # IO instead: rb_io_taint_check gives it. The cell has CRuby's RFile
-  # layout, and its `fptr` points at a struct rb_io in CRuby 4.0's layout,
+  # layout, and its `fptr` points at a struct rb_io in CRuby's layout,
   # which the C API fills from the IO each time C checks the stream
   # (rb_io_check_closed). The IO keeps its companion in a hidden ivar, so
   # the two live and die together.

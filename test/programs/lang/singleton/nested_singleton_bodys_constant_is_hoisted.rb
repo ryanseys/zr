@@ -1,5 +1,5 @@
-# zr hoists a `class << self` body's constant one level out -- documented in
-# docs/COMPATIBILITY.md, and unchanged since the surrogate was first minted.
+# zr hoists a `class << self` body's constant one level out, unchanged
+# since the surrogate was first minted.
 # A NESTED `class << self` body's constant hoists the same one level: ruby
 # homes it on `K.singleton_class.singleton_class`, zr on
 # `K.singleton_class`.

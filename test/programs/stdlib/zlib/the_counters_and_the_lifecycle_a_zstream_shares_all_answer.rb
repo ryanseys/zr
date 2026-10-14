@@ -30,7 +30,7 @@ end
 # Only the CONTENT is asserted, not whether the queue had anything in it yet:
 # zlib emits the 2-byte stream header as soon as `<<` runs, miniz_oxide holds
 # it until there is compressed data to go with it. Both produce the same
-# stream (see docs/COMPATIBILITY.md).
+# stream.
 show("flush_next_out drains") do
   z = Zlib::Deflate.new
   z << "hello"

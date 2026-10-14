@@ -1,6 +1,6 @@
 module Zr::Kern
   # Strings: a length, a pointer to the bytes, and a capacity, in the
-  # order of CRuby 4.0's heap RString, so a C extension's inline
+  # order of CRuby's heap RString, so a C extension's inline
   # RSTRING_LEN and RSTRING_PTR read them.
   class RString < Layout
     attr_reader :basic #: RBasic
@@ -108,7 +108,7 @@ module Zr::Kern
     RBasic[s].flags = RBasic[s].flags & FL_EMBED_CLEAR & FL_GAP_CLEAR
   end
 
-  # A String's coderange, in CRuby 4.0's bits (ENC_CODERANGE_MASK), so a C
+  # A String's coderange, in CRuby's bits (ENC_CODERANGE_MASK), so a C
   # extension reads and clears it inline as ruby does. Neither bit: not
   # known yet. 7BIT: every byte is below 0x80. VALID: the bytes are valid
   # in the encoding, and one is not ASCII. Both bits (BROKEN): the bytes

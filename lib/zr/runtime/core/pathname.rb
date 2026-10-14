@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# The Pathname class, which ruby 4.0 includes as a builtin: it works
+# The Pathname class, which ruby includes as a builtin: it works
 # without a require, and `require "pathname"` adds the Find and rmtree
 # part that ruby keeps on the load path.
 #
