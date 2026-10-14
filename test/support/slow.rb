@@ -94,7 +94,7 @@ module Zr
         def record(result)
           @rows << Timings.row(result, nil)
           parts = result.metadata[KEY] if result.metadata?
-          @spent[directory(result)].add(result.time, parts) if parts
+          @spent[Timings.group(result)].add(result.time, parts) if parts
         end
 
         def report
@@ -112,13 +112,6 @@ module Zr
           @io.puts format("%-36s %8s %8s %8s %8s %8s", "directory", "examples", *PARTS, "whole")
           rows.first(@count).each { |name, spent| @io.puts format("%-36s %s", name, spent) }
           @io.puts format("%-36s %s", "all #{rows.size} directories", rows.sum(Spent.zero, &:last))
-        end
-
-        # Returns the path of the test file from `test/`, for example
-        # `test/unit/cache_test.rb`.
-        def directory(result)
-          file = result.source_location.first.to_s
-          file[%r{test/.*\z}] || file
         end
       end
     end

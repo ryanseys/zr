@@ -3,6 +3,7 @@
 require "rbconfig"
 require_relative "program_run"
 require_relative "binaries"
+require_relative "slow"
 require_relative "harness/runner"
 require_relative "../../lib/zr/native/build"
 require_relative "../../lib/zr/runtime"
@@ -32,17 +33,20 @@ module Zr
 
       module_function
 
-      def answer(test, runner)
+      # `parts` (a hash, or nil) gets the seconds of the lowering, the
+      # link and the run (`Slow.clock`); a `zr build` counts as lowering.
+      def answer(test, runner, parts = nil)
         target = runner.target
         ProgramRun.within(test) do |run, rb|
           bin = File.join(File.dirname(run), "p")
-          built = cli?(test) ? cli(test, run, bin, runner) : in_process(test, run, bin, target)
+          built = cli?(test) ? Slow.clock(parts, :lower) { cli(test, run, bin, runner) } : in_process(test, run, bin, target, parts)
           next built if built
 
           command, env = runner.run(bin, test.args, cli?(test) && !runner.wasm? ? zr_run_env.merge(test.env) : test.env)
           megabytes = [test.limits[:run_mb] || 0, Harness::Child::RUN_MB].max
-          out, = Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: ProgramRun::LIMIT,
-                                             megabytes: megabytes)
+          out, = Slow.clock(parts, :run) do
+            Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: ProgramRun::LIMIT, megabytes: megabytes)
+          end
           verdict(Harness::Normalize.answer(out, rb, run), megabytes, runner)
         end
       end
@@ -57,18 +61,18 @@ module Zr
       end
 
       # Builds in this process. Returns nil, or `[kind, why]`.
-      def in_process(test, run, bin, target)
+      def in_process(test, run, bin, target, parts = nil)
         source = test.source
         files = test.files ? file_parts(test.files) : {}
         files[".gems"] = test.read("gems") if test.gems.any?
         kept = Binaries.path(target, source, test.rel, files) if Binaries.wanted?(target)
         return nil if Binaries.take(kept, bin)
 
-        program = Dir.chdir(run) { lower(source, test.rel, target, gem_set(test)) }
+        program = Slow.clock(parts, :lower) { Dir.chdir(run) { lower(source, test.rel, target, gem_set(test)) } }
         return program if program.is_a?(Array)
 
         work = File.dirname(bin)
-        why = target.link ? Native::Build.program(program, bin, work: work) : Native::Build.wasm_program(program, bin)
+        why = Slow.clock(parts, :link) { target.link ? Native::Build.program(program, bin, work: work) : Native::Build.wasm_program(program, bin) }
         return [:backend, why] if why
 
         Binaries.keep(kept, bin, program, work)

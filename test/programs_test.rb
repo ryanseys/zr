@@ -89,7 +89,9 @@ class ProgramsTest < Minitest::Test
         next pass
       end
 
-      kind, detail = PROGRAMS.check(test)
+      # SLOW=1 reports the parts of each build (test/support/slow.rb).
+      parts = (metadata[Zr::Test::Slow::KEY] = {}) if Zr::Test::Slow.asked?
+      kind, detail = PROGRAMS.check(test, parts: parts)
       case kind
       when :skip then skip(detail)
       when :fail then flunk(detail)

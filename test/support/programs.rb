@@ -39,9 +39,10 @@ module Zr
       # only programs below test/programs.
       def baseline(test) = test.root == ROOT ? @allowed[test.rel] : nil
 
-      # `[kind, detail]` for one test.
-      def check(test)
-        kind, detail = unmet(test) ? [:skip, unmet(test)] : outcome(test)
+      # `[kind, detail]` for one test. `parts` (a hash, or nil) gets the
+      # seconds of each part of its build (`ProgramBuild.answer`).
+      def check(test, parts: nil)
+        kind, detail = unmet(test) ? [:skip, unmet(test)] : outcome(test, parts: parts)
         baseline(test) ? baselined(test, kind, detail) : [kind, detail]
       end
 
@@ -56,11 +57,11 @@ module Zr
         "needs #{need}" if need
       end
 
-      def outcome(test, mode: ProgramSelection.mode)
+      def outcome(test, mode: ProgramSelection.mode, parts: nil)
         want = expected(test, mode)
         return want if want.is_a?(Array)
 
-        got = @host ? HostProgram.answer(test, @runner) : ProgramBuild.answer(test, @runner)
+        got = @host ? HostProgram.answer(test, @runner) : ProgramBuild.answer(test, @runner, parts)
         return [:error, got.join(": ")] if got.is_a?(Array)
 
         same = %i[stdout stderr code signal].all? { |part| want.public_send(part) == got.public_send(part) }

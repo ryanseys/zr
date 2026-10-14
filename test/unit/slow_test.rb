@@ -26,6 +26,18 @@ class SlowTest < Minitest::Test
     assert_match(/all 2 directories\s+2\s+3\.0\s+1\.0\s+0\.8\s+5\.5/, io.string)
   end
 
+  # Each program test is a method of ProgramsTest in test/programs_test.rb,
+  # so the parts count under the program's directory, not under that file.
+  def test_a_program_test_counts_under_its_program_directory
+    io = StringIO.new
+    reporter = Slow::Reporter.new(io, 20)
+    reporter.record(result("ProgramsTest", "test_core/gc/a.rb", 2.0, "test/programs_test.rb", lower: 1.0, link: 0.5, run: 0.5))
+    reporter.report
+
+    assert_match(%r{test/programs/core/gc\s+1\s+1\.0\s+0\.5\s+0\.5\s+2\.0}, io.string)
+    refute_match(/programs_test\.rb\s+1/, io.string)
+  end
+
   def test_report_without_build_examples_lists_only_tests
     io = StringIO.new
     reporter = Slow::Reporter.new(io, 20)
