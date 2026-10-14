@@ -69,9 +69,10 @@ module Zr
       # and only the real call can tell.
       OPT_CALLS = { getbyte: 1, setbyte: 2, push: 1, pop: 0, shift: 0, empty?: 0 }.freeze
 
-      # `eval_support` is false for an eval: the program already contains
-      # the compiler, so the eval must not compile it again. It is true to
-      # build the compiler into a program with eval. `prebuilt` is an
+      # `program` is true for a whole program, which gets the preludes, the C
+      # extensions and, if it evals, the compiler. It is false for the string
+      # of an eval, whose program already holds them all, and for a core
+      # file. `prebuilt` is an
       # EvalSupport that is already built (`Zr::EvalSupport`), or nil. With
       # it, a program with eval refers to eval support's units and does not
       # build them, also for every file that it shares with eval support.
@@ -91,7 +92,7 @@ module Zr
       # @rbs source: String
       # @rbs file: String
       # @rbs roots: Array[String]
-      # @rbs eval_support: bool
+      # @rbs program: bool
       # @rbs prebuilt: untyped
       # @rbs line: Integer
       # @rbs scopes: Array[Array[Symbol]]?
@@ -106,16 +107,16 @@ module Zr
       # @rbs def_base: Integer?
       # @rbs extensions: Loader::_Extensions
       # @rbs return: Program
-      def self.program(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
+      def self.program(source, file, roots: [], program: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil, target: Target.default,
                        trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil, def_base: nil, extensions: Loader::NoExtensions)
         # The main file's name came from the build's command line, in the
         # build's locale. A program's locale is UTF-8
         # (Encoding.locale_charmap), and the name must not depend on the
         # build machine.
-        file = file.dup.force_encoding(::Encoding::UTF_8) if eval_support && file.encoding != ::Encoding::UTF_8
+        file = file.dup.force_encoding(::Encoding::UTF_8) if program && file.encoding != ::Encoding::UTF_8
         # @type var built: ^(untyped, bool, bool, bool) -> [Loader, Unit, Require?]
         built = lambda do |external, trace, evals, covers|
-          loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !eval_support, external: external, trace: trace,
+          loader = Loader.new(roots + (gem_set&.roots || []) + Library::Roots.stdlib(target), eval: !program, external: external, trace: trace,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt, gem_set: gem_set,
                               gate: gate, description: Library::Roots.description(target), switches: switches, def_base: def_base || 0,
                               extensions: extensions, target: target)
@@ -128,7 +129,7 @@ module Zr
           switched = (Require.new(:load, "zr/ruby_switches", Library::Roots::SWITCHES, loader.add(Library::Roots::SWITCHES), 0) if switches.prelude)
           main = loader.unit(file, source, line, scopes, method: method)
           # A program links the extensions that --native-ext names.
-          loader.extensions! if eval_support
+          loader.extensions! if program
           [loader, main, switched]
         end
         # A build knows three facts only after it reads every file: that
@@ -145,7 +146,7 @@ module Zr
         covers = !def_base.nil? #: bool
         external = nil #: untyped
         loader, main, switched = built.call(external, trace, evals, covers)
-        preludes = eval_support ? Build.preludes(loader, target) : [] #: Array[node]
+        preludes = program ? Build.preludes(loader, target) : [] #: Array[node]
         loop do
           over = loader.evals? ? prebuilt : nil
           break if over.equal?(external) && (loader.traces? || trace) == trace && (loader.covers? || !def_base.nil?) == covers
@@ -155,7 +156,7 @@ module Zr
           trace ||= loader.traces?
           covers = loader.covers? || !def_base.nil?
           loader, main, switched = built.call(external, trace, evals, covers)
-          preludes = eval_support ? Build.preludes(loader, target) : []
+          preludes = program ? Build.preludes(loader, target) : []
         end
         # A program numbers its `using` entries here. Code that makes an
         # entry at run time, a compile in an eval or Proc#refined, cannot
@@ -163,7 +164,7 @@ module Zr
         # made only if the condition is true. So all entries are taken
         # before the first line, and one made at run time comes after the
         # last of them.
-        preludes += [Activations.new(loader.activations, 0)] if eval_support && loader.activations.positive?
+        preludes += [Activations.new(loader.activations, 0)] if program && loader.activations.positive?
         preludes << switched if switched
         loader.native_gems.each do |gem|
           # A gem whose C extension the build links has its C part.
@@ -176,8 +177,8 @@ module Zr
         spots = [main, *loader.units].filter_map { |unit| [unit.file, unit.spots] if unit.spots && !unit.spots.empty? }.to_h
         # A compile at run time gives its lines to a Coverage that runs
         # already, whether or not the file names Coverage.
-        coverable = loader.covers? || !eval_support ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
-        Program.new(main.file, main.locals, body, loader.units, main_warnings(main.warnings, switches.verbose), eval_support && loader.evals?, loader.entries, loader.tracing?,
+        coverable = loader.covers? || !program ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
+        Program.new(main.file, main.locals, body, loader.units, main_warnings(main.warnings, switches.verbose), program && loader.evals?, loader.entries, loader.tracing?,
                     main.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
                     loader.covers? ? loader.defs : {}, loader.eval_using_after)
       end

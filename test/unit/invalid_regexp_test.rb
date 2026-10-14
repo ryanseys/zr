@@ -93,7 +93,7 @@ class InvalidRegexpTest < Minitest::Test
 
   # Returns the HIR of `source`, built as eval support builds it: with no
   # eval support linked in, and the loader in the run-time compile mode.
-  def build(source) = Zr::Hir.build(source, "pattern.rb", eval_support: false)
+  def build(source) = Zr::Hir.build(source, "pattern.rb", program: false)
 
   # The message of the RegexpError that ruby raises for `pattern`.
   def ruby_message(pattern)

@@ -71,10 +71,10 @@ class EvalCallTest < Minitest::Test
   private
 
   # Returns true if `def m` with `body` arms the return catch.
-  # `eval_support: false` leaves out eval support: the test checks only
+  # `program: false` leaves out eval support: the test checks only
   # the front end, and eval support would build 200 units for each case.
   def armed?(body)
-    program = Zr::Hir.build("class C; end\ndef m\n  #{body}\nend\n", "eval_call_test.rb", eval_support: false)
+    program = Zr::Hir.build("class C; end\ndef m\n  #{body}\nend\n", "eval_call_test.rb", program: false)
     defs(program.body).find { |d| d.name == :m }.evals
   end
 

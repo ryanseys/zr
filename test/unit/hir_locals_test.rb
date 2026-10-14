@@ -43,5 +43,5 @@ class HirLocalsTest < Minitest::Test
 
   private
 
-  def body(source) = Zr::Hir.build(source, "locals.rb", eval_support: false).body
+  def body(source) = Zr::Hir.build(source, "locals.rb", program: false).body
 end

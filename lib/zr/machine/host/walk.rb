@@ -240,7 +240,7 @@ module Zr
         #: (?Target target) -> Integer
         def core(target = Target.default)
           RuntimeSources.for(target).core_files.each do |path|
-            hir = Hir.build(File.read(path), path, eval_support: false, target: target)
+            hir = Hir.build(File.read(path), path, program: false, target: target)
             r = toplevel(hir, Unit.new(path, true, hir.units, nil, true), @kern::KIND_MAIN)
             return r if r == @qundef
           end
@@ -592,9 +592,9 @@ module Zr
           k.singleton_class.define_method(:zr_host_prism) { walk.send(:prism!) }
           k.singleton_class.define_method(:zr_host_file_spots) { |path| walk.send(:file_spots, path) }
           unit = Unit.new("<internal:zr_eval>", true, [], nil)
-          check(toplevel(Hir.build(EVAL_SUPPORT, "<internal:zr_eval>", eval_support: false), unit, k::KIND_MAIN))
+          check(toplevel(Hir.build(EVAL_SUPPORT, "<internal:zr_eval>", program: false), unit, k::KIND_MAIN))
           forms = File.join(Paths::RUNTIME, "lib/zr/eval/forms.rb")
-          check(toplevel(Hir.build(File.read(forms), forms, eval_support: false), Unit.new(forms, true, [], nil), k::KIND_MAIN))
+          check(toplevel(Hir.build(File.read(forms), forms, program: false), Unit.new(forms, true, [], nil), k::KIND_MAIN))
         end
 
         # `Zr::Eval#compile`: the code record of the string `source`, as the
@@ -611,7 +611,7 @@ module Zr
           # Its `using` entries take the next free slots of the program's
           # table, now (`Zr::Eval#compiled`); a traced program's eval is
           # traced too.
-          hir = Hir.build(text(source).force_encoding(text(encoding)), text(file), eval_support: false, line: k.zr_fix2long(line),
+          hir = Hir.build(text(source).force_encoding(text(encoding)), text(file), program: false, line: k.zr_fix2long(line),
                                                                                    scopes: [*outer.reverse, own],
                                                                                    method: method == @qnil ? nil : ruby(method),
                                                                                    activations: k.zr_fix2long(k.zr_activations_count), trace: @traced,
@@ -683,7 +683,7 @@ module Zr
           coverage = measuring_coverage
           base = coverage && ruby(check(k.zr_send(coverage, id(:next_def_site), 0, 0)))
           traced = @traced || ruby(k.zr_trace_armed_m)
-          hir = Hir.build(File.read(name), name, eval_support: false, trace: traced, def_base: base)
+          hir = Hir.build(File.read(name), name, program: false, trace: traced, def_base: base)
           @file_spots[name] = (hir.spots || {}).fetch(name, "")
           check(outside([value(hir.coverable), value(hir.defs)]) { |av| k.zr_send(coverage, id(:compiled_lines!), 2, av) }) if coverage
           unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids, false, false, nil, hir.traced)

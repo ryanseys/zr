@@ -366,7 +366,7 @@ module Zr
     # @rbs target: Target
     # @rbs return: [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
     def self.lower_core_file(path, source, unit, fixed, target)
-      Lower.new(Hir.build(source, path, eval_support: false, target: target), unit, nil, entry: core_entry(path), internal: true,
+      Lower.new(Hir.build(source, path, program: false, target: target), unit, nil, entry: core_entry(path), internal: true,
                                                                                    target: target, fixed: fixed).run
     end
 

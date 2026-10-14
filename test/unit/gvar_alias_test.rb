@@ -49,5 +49,5 @@ class GvarAliasTest < Minitest::Test
 
   private
 
-  def dump(source) = Zr::Hir::Dump.program(Zr::Hir.build(source, "alias.rb", eval_support: false))
+  def dump(source) = Zr::Hir::Dump.program(Zr::Hir.build(source, "alias.rb", program: false))
 end

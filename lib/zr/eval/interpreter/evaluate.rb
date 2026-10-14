@@ -49,7 +49,7 @@ module Zr
         # with the program's separators.
         Runtime.plain_separators do
           Runtime.compiling do
-            Hir.build(source, file, eval_support: false, line: line, scopes: [*names.reverse, own], method: params)
+            Hir.build(source, file, program: false, line: line, scopes: [*names.reverse, own], method: params)
           end
         end
       end
