@@ -22,10 +22,13 @@ module Zr
         "#{file.delete_prefix("#{File.expand_path("../..", __dir__)}/")}##{test.name}"
       end
 
-      # Runs after each test, with its result known.
+      # Runs after each test, with its result known. With no upgrade list,
+      # it does nothing more.
       module Hook
         def after_teardown
           super
+          return if Pending.reasons.empty?
+
           key = Pending.key(self) or return
           why = Pending.reasons[key] or return
 

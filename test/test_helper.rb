@@ -78,6 +78,8 @@ Zr::Test::Needs.install!
 Minitest::Test.include(Zr::Test::Needs::Hook)
 require_relative "support/pending"
 Minitest::Test.include(Zr::Test::Pending::Hook)
+# Read once here, so each forked worker has the list.
+Zr::Test::Pending.reasons
 
 # Helpers that the tests share. They are in a module, not at the top
 # level. A top-level method becomes a method on `Object`, and
