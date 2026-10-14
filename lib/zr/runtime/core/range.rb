@@ -269,12 +269,12 @@ class Range
         end
       end
       if @excl
-        while range_less(v, @end) < 0
+        while r_less(v, @end) < 0
           yield v
           v = v.succ
         end
       else
-        while (c = range_less(v, @end)) <= 0
+        while (c = r_less(v, @end)) <= 0
           yield v
           break if c == 0
 
@@ -285,15 +285,12 @@ class Range
     self
   end
 
-  # r_less: `a <=> b` as rb_cmpint reads it, and past the end when the
-  # two do not compare.
-  def range_less(a, b)
+  # r_less: the sign of `a <=> b` as rb_cmpint reads it (-1, 0 or 1), or
+  # INT_MAX, which no direction equals, when the two do not compare.
+  def r_less(a, b)
     Primitive.attr! :hidden
     c = a <=> b
-    return 1 if c.nil?
-    return c <=> 0 if c.is_a?(Integer)
-
-    c > 0 ? 1 : (c < 0 ? -1 : 0)
+    c.nil? ? 2_147_483_647 : Primitive.zr_cmpint(c, a, b)
   end
 
   # Integer ends count down without an Array, which a beginless range
@@ -398,18 +395,10 @@ class Range
   # r_cover_p: `begin <=> v`, then `v <=> end`, each sent once.
   def covers_value?(v)
     Primitive.attr! :hidden
-    return false unless @begin.nil? || Range.send(:r_less, @begin, v) <= 0
+    return false unless @begin.nil? || r_less(@begin, v) <= 0
 
-    @end.nil? || Range.send(:r_less, v, @end) <= (@excl ? -1 : 0)
+    @end.nil? || r_less(v, @end) <= (@excl ? -1 : 0)
   end
-
-  # r_less: `a <=> b` as rb_cmpint reads it, with nil above everything.
-  def self.r_less(a, b)
-    Primitive.attr! :hidden
-    c = a <=> b
-    c.nil? ? 2_147_483_647 : Primitive.zr_cmpint(c, a, b)
-  end
-  private_class_method :r_less
 
   # A String range covers single characters by order and walks the rest.
   # range_include_internal: a range of numbers (or of values that
@@ -526,17 +515,17 @@ class Range
         yield v
         v = v.__send__(:+, n)
       end
-    elsif @begin.is_a?(Numeric) && n.is_a?(Numeric) && ordered(n, 0) < 0
-      while (c = ordered(@end, v)) < 0 || (c.zero? && !@excl)
+    elsif @begin.is_a?(Numeric) && n.is_a?(Numeric) && r_less(n, 0) < 0
+      while (c = r_less(@end, v)) < 0 || (c.zero? && !@excl)
         yield v
         break if c.zero?
 
         v = v.__send__(:+, n)
       end
-    elsif (dir = ordered(@begin, @end)).zero?
+    elsif (dir = r_less(@begin, @end)).zero?
       yield v unless @excl
-    elsif dir == ordered(@begin, @begin.__send__(:+, n))
-      while (c = ordered(v, @end)) == dir || (c.zero? && !@excl)
+    elsif dir == r_less(@begin, @begin.__send__(:+, n))
+      while (c = r_less(v, @end)) == dir || (c.zero? && !@excl)
         yield v
         break if c.zero?
 
@@ -546,19 +535,6 @@ class Range
     self
   end
 
-  # r_less: `a <=> b` as -1, 0 or 1, or a value no direction equals when
-  # the two do not compare.
-  def ordered(a, b)
-    Primitive.attr! :hidden
-    r = a.__send__(:<=>, b)
-    return 2_147_483_647 if r.nil?
-    return r <=> 0 if r.is_a?(Integer)
-
-    if r > 0 then 1
-    elsif r < 0 then -1
-    else 0
-    end
-  end
   # Every `n`th element of a String range, by succ; the argument checks
   # wait for the walk.
   def stepped(n, name, &block)
@@ -676,7 +652,7 @@ class Range
     Primitive.attr! :hidden
     return false if !@end.nil? && v.end.nil?
     return false if !@begin.nil? && v.begin.nil?
-    return false if !v.begin.nil? && !v.end.nil? && ordered(v.begin, v.end) > (v.exclude_end? ? -1 : 0)
+    return false if !v.begin.nil? && !v.end.nil? && r_less(v.begin, v.end) > (v.exclude_end? ? -1 : 0)
     return false if !v.begin.nil? && !cover?(v.begin)
 
     # Two ends that do not compare: no cover.
@@ -684,9 +660,9 @@ class Range
       c = @end <=> v.end
       return false if c.nil?
 
-      cmp_end = c.is_a?(Integer) ? c <=> 0 : (c > 0 ? 1 : (c < 0 ? -1 : 0))
+      cmp_end = Primitive.zr_cmpint(c, @end, v.end)
     else
-      cmp_end = range_less(@end, v.end)
+      cmp_end = r_less(@end, v.end)
     end
     return cmp_end >= 0 if @excl == v.exclude_end?
     return cmp_end > 0 if @excl
@@ -699,14 +675,7 @@ class Range
     end
     return false if v_max.nil?
 
-    ordered(@end, v_max) >= 0
-  end
-
-  # `a <=> b` as an Integer; incomparable counts as far greater.
-  def ordered(a, b)
-    Primitive.attr! :hidden
-    c = a <=> b
-    c.nil? ? 2**31 : c
+    r_less(@end, v_max) >= 0
   end
 
   def bounds
@@ -719,7 +688,7 @@ class Range
     Primitive.attr! :hidden
     return false if low.nil? || high.nil?
 
-    less = range_less(low, high)
+    less = r_less(low, high)
     less > 0 || (excl && less == 0)
   end
 

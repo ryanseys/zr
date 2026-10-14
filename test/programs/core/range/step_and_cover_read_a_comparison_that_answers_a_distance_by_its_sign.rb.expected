@@ -1,0 +1,22 @@
+[M1, M2, M3, M4]
+[M1, M3, M5]
+[M1, M4, M7]
+[M5, M4, M3, M2, M1]
+[M5, M3]
+[M1]
+[]
+[H1, H2, H3, H4]
+[H1, H2, H3]
+[M1, M2, M3, M4]
+[M1, M2, M3]
+[H1, H2, H3]
+true
+false
+false
+true
+false
+true
+false
+true
+true
+false
