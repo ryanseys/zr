@@ -260,7 +260,7 @@ module Zr
     # The ruby that runs zr, or `ruby` on PATH in a binary that zr built,
     # whose `RbConfig.ruby` names zr itself.
     #: () -> String
-    def running_ruby =RbConfig::CONFIG["ruby_install_name"] == "ruby" ? RbConfig.ruby : "ruby"
+    def running_ruby = RbConfig::CONFIG["ruby_install_name"] == "ruby" ? RbConfig.ruby : "ruby"
     private :running_ruby
 
     # The value of `name` when it is one of `values`, or `default` when

@@ -27,7 +27,7 @@ module Zr
       # @rbs @preds: Hash[String, Array[String]]
       # @rbs @types: Hash[String, String?]
 
-      MASK ={ "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
+      MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze
       SWAPPED = { "eq" => "eq", "ne" => "ne", "slt" => "sgt", "sle" => "sge", "sgt" => "slt", "sge" => "sle",
                   "ult" => "ugt", "ule" => "uge", "ugt" => "ult", "uge" => "ule" }.freeze
       # The fewest compares that a table replaces.

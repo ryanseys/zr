@@ -56,7 +56,7 @@ module Zr
     def write_wasm(out) = Native::Build.wasm_program(self, out)
 
     #: (String out, work: String, link: Array[String]) -> String?
-    def write_binary(out, work:, link:) =Native::Build.program(self, out, work: work, link: link)
+    def write_binary(out, work:, link:) = Native::Build.program(self, out, work: work, link: link)
 
     # The bytes of source above which a program's build tunes
     # (`GcTuning.heavy!`). hello and a probe are far below it; the stdlib rung

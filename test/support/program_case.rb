@@ -38,8 +38,9 @@ module Zr
       # (foo.rb.files/) are no programs.
       def self.under(dir, root, every: false)
         paths = File.file?(dir) ? [dir] : Dir[File.join(dir, "**/*.rb")].sort.reject { |path| path.include?(".rb.files/") }
-        paths.select { |path| every || File.file?("#{path}.expected") }
-             .map { |path| new(root, File.expand_path(path).delete_prefix(File.join(File.expand_path(root), ""))) }
+        paths.filter_map do |path|
+          new(root, File.expand_path(path).delete_prefix(File.join(File.expand_path(root), ""))) if every || File.file?("#{path}.expected")
+        end
       end
 
       def path = File.join(root, rel)

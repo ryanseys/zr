@@ -72,7 +72,7 @@ class MachineTest < Minitest::Test
     rb = File.join(ROOT, "test/machine/guards.rb")
     functions, = Zr::Machine.compile(File.read(rb), rb)
     main = functions.find { |f| f.name == "main" }
-    called = main.blocks.flat_map(&:insts).select { |i| i.op == :call }.map { |i| main.callees.find { |c| c.fn == i.callee }.symbol }.uniq.sort
+    called = main.blocks.flat_map(&:insts).filter_map { |i| main.callees.find { |c| c.fn == i.callee }.symbol if i.op == :call }.uniq.sort
 
     assert_equal %w[exit write], called
   end

@@ -97,6 +97,7 @@ Layout/LineLength:
   Max: 150
 Layout/TrailingWhitespace: { Enabled: true, AllowInHeredoc: true } # heredocs are programs and outputs
 Layout/EmptyLines: { Enabled: true }
+Layout/SpaceAroundOperators: { Enabled: true }
 # The kernel has no such comment: zr lowers its literals to bytes, so it
 # has no String to freeze. test/unit/frozen_string_literal_test.rb checks
 # the runtime's core, ext and lib, which this file excludes.
@@ -117,6 +118,8 @@ Minitest/AssertWithExpectedArgument: { Enabled: false }      # assert(x, message
 Performance:
   Enabled: true
   Exclude: ["lib/zr/runtime/**/*"]
+# One pass, with no Array between a select and a map.
+Performance/SelectMap: { Enabled: true }
 # A literal list in a loop of a test or a generator runs a few times;
 # in lib/ a loop can be hot.
 Performance/CollectionLiteralInLoop:

@@ -49,8 +49,7 @@ LEVELS = {
     "lib/zr.rb",
     "lib/zr/*.rb",
     *(Dir.children(File.join(__dir__, "lib/zr")).sort - %w[runtime])
-      .select { |name| File.directory?(File.join(__dir__, "lib/zr", name)) }
-      .map { |name| "lib/zr/#{name}" },
+      .filter_map { |name| "lib/zr/#{name}" if File.directory?(File.join(__dir__, "lib/zr", name)) },
     *RUBY_LOADED_RUNTIME,
   ],
 }.freeze

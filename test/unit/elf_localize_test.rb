@@ -80,7 +80,7 @@ class ElfLocalizeTest < Minitest::Test
     assert_equal %w[Init_a zr_ext_Init_a zr_ext_base_Init_a zr_ext_inits_Init_a zr_ext_inits_end_Init_a
                     zr_ext_offsets_Init_a zr_ext_offsets_end_Init_a], image.defined
     assert_equal %w[printf rb_define_module], image.undefined
-    locals = image.symbols.select { |symbol| symbol.bind == Image::STB_LOCAL }.map(&:name)
+    locals = image.symbols.filter_map { |symbol| symbol.name if symbol.bind == Image::STB_LOCAL }
     assert_includes locals, "buffer_new"
     assert_includes locals, "a_more"
     refute(image.sections.any? { |section| section.name.start_with?(".init_array") }, "the initializers moved")

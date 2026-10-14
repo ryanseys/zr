@@ -10,7 +10,7 @@ require "zr/native/link/darwin"
 # target's runtime, so no list of the functions is kept.
 class OsApiTest < Minitest::Test
   def layers
-    Dir[File.join(ROOT, "lib/zr/runtime/kernel/os/*")].select { |dir| File.directory?(dir) }.map { |dir| File.basename(dir) }.sort
+    Dir[File.join(ROOT, "lib/zr/runtime/kernel/os/*")].filter_map { |dir| File.basename(dir) if File.directory?(dir) }.sort
   end
 
   # The OS layer sets RUBY_PLATFORM to the platform string of the target.

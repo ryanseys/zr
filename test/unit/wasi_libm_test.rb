@@ -73,7 +73,7 @@ class WasiLibmTest < Minitest::Test
   def test_strtod_rounds_halfway_cases_to_even
     rng = Random.new(7)
     doubles = [1.0, Float::MAX.prev_float, Float::MIN, Float::MIN.prev_float, 5.0e-324, 1.0e23, 2.0**53, 0.1] +
-              Array.new(150) { [rng.rand(2**64)].pack("Q").unpack1("D") }.select(&:finite?).map(&:abs)
+              Array.new(150) { [rng.rand(2**64)].pack("Q").unpack1("D") }.filter_map { |x| x.abs if x.finite? }
     doubles.each do |x|
       mid = (x.to_r + x.next_float.to_r) / 2
       text = exact_decimal(mid)

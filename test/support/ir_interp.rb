@@ -31,7 +31,7 @@ module Zr
       # @rbs @sp: Integer
       # @rbs @host: Host
 
-      MASK ={ 8 => 0xFF, 32 => 0xFFFF_FFFF, 64 => (1 << 64) - 1 }.freeze
+      MASK = { 8 => 0xFF, 32 => 0xFFFF_FFFF, 64 => (1 << 64) - 1 }.freeze
       BITS = { "i8" => 8, "i32" => 32, "i64" => 64, "f64" => 64 }.freeze
       # The Ruby operator of each float binary opcode.
       FLOAT_BINOPS = { fadd: :+, fsub: :-, fmul: :*, fdiv: :/ }.freeze

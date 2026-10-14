@@ -197,7 +197,7 @@ module Zr
 
         # Self, or an immediate literal: a value that needs no root.
         #: (Hir::node node) -> bool
-        def rootless?(node) =node.is_a?(Hir::SelfRef) || (node.is_a?(Hir::Literal) && plain_read?(node))
+        def rootless?(node) = node.is_a?(Hir::SelfRef) || (node.is_a?(Hir::Literal) && plain_read?(node))
 
         # The two operands of a direct operator site, in order. While an
         # argument that is not a plain read runs, the receiver waits in the

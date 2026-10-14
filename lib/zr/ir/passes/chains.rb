@@ -19,7 +19,7 @@ module Zr
         # @rbs @uses: Hash[String, Integer]
         # @rbs @after: Hash[Block, Array[Block]]
 
-        MOVABLE =(%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast
+        MOVABLE = (%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast
                       fcvt_from_sint fcvt_to_sint_sat] +
                    Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
         # The instructions after which a load cannot move: each can write

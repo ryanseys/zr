@@ -127,7 +127,7 @@ module Zr
         FLAT_LOOKUP = 0xFE
 
         # The section name and flags for each part.
-        SECTIONS ={ text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
+        SECTIONS = { text: ["__text", CODE], stubs: ["__stubs", CODE], const: ["__const", S_REGULAR],
                      got: ["__got", S_REGULAR], dconst: ["__const", S_REGULAR], data: ["__data", S_REGULAR],
                      bss: ["__bss", S_ZEROFILL] }.freeze
         # The image sections of a program's parts when there is a base: the
