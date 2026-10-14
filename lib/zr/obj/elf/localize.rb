@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "image"
+require_relative "../../bytes"
 require_relative "../../refused"
 
 module Zr
@@ -199,13 +200,13 @@ module Zr
                 0
               else
                 data = @contents.fetch(i) { section.type == SHT_NOBITS ? "" : @image.contents(section) }
-                out << ("\0" * ((-out.bytesize) % [section.align, 1].max))
+                Bytes.pad_align(out, [section.align, 1].max)
                 at = out.bytesize
                 out << data
                 at
               end
             end
-            out << ("\0" * ((-out.bytesize) % 8))
+            Bytes.pad_align(out, 8)
             out[40, 8] = [out.bytesize].pack("Q<")
             @sections.each_with_index do |section, i|
               out << header(section, i, offsets.fetch(i), locals)

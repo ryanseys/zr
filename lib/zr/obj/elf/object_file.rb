@@ -136,12 +136,12 @@ module Zr
           sections.drop(1).each do |s|
             next if s.type == SHT_NOBITS
 
-            out << ("\0" * (Bytes.align(out.bytesize, [s.align, 1].max) - out.bytesize)).b
+            Bytes.pad_align(out, [s.align, 1].max)
             s.offset = out.bytesize
             out << s.bytes
           end
           sections.select { |s| s.type == SHT_NOBITS }.each { |s| s.offset = out.bytesize }
-          out << ("\0" * (Bytes.align(out.bytesize, 8) - out.bytesize)).b
+          Bytes.pad_align(out, 8)
           shoff = out.bytesize
           shnum = sections.size
           shstrndx = shnum - 1

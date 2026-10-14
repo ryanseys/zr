@@ -36,6 +36,22 @@ class BytesTest < Minitest::Test
     assert_equal "abcde".b, result
   end
 
+  def test_pad_align_appends_zero_bytes_to_the_next_multiple
+    bytes = +"abcde".b
+
+    result = Zr::Bytes.pad_align(bytes, 4)
+
+    assert_equal "abcde\0\0\0".b, result
+  end
+
+  def test_pad_align_leaves_an_aligned_string
+    bytes = +"abcd".b
+
+    result = Zr::Bytes.pad_align(bytes, 4)
+
+    assert_equal "abcd".b, result
+  end
+
   def test_pad_returns_the_same_string_it_mutated
     bytes = +"a".b
 

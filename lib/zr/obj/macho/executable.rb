@@ -548,7 +548,7 @@ module Zr
             # page starts.
             table << [22 + (starts.size * 2), PAGE, PTR_64_OFFSET].pack("L<S<2")
             table << [s.vm - BASE].pack("Q<") << [0, starts.size].pack("L<S<") << starts.pack("S<*")
-            table << ("\0".b * (-table.bytesize % 4))
+            Bytes.pad_align(table, 4)
             here
           end
           starts = [order.size].pack("L<") + offsets.pack("L<*") + table
@@ -573,7 +573,7 @@ module Zr
           symbols = merged_symbols(words, names)
           strings = @base.strings + strings
           strings = "\0".b if strings.empty?
-          strings += "\0".b * (-strings.bytesize % 8)
+          Bytes.pad_align(strings, 8)
           @fixups_at = @link_at
           @fixups_size = fixups.bytesize
           @trie_at = Bytes.align(@fixups_at + @fixups_size, 8)
@@ -650,7 +650,7 @@ module Zr
           end
           out = +"".b
           nodes.each { |address, edges| trie_bytes(out, address, edges, offsets) }
-          out << ("\0".b * (-out.bytesize % 8))
+          Bytes.pad_align(out, 8)
         end
 
         # Adds the node for `entries[lo...hi]` to `nodes`, before its child

@@ -21,6 +21,11 @@ module Zr
       bytes
     end
 
+    # Appends zero bytes to `bytes` until its size is a multiple of `a`, a
+    # power of two. Returns `bytes`.
+    #: (String bytes, Integer a) -> String
+    def pad_align(bytes, a) = pad(bytes, align(bytes.bytesize, a))
+
     # `n` as ULEB128: 7 bits per byte, low bits first, the high bit of a
     # byte set on every byte but the last.
     #: (Integer n) -> String

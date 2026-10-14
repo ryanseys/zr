@@ -319,14 +319,14 @@ module Zr
           groups = %i[local export import].map { |l| symbols.count { |sym| sym.linkage == l } }
           out << [LC_DYSYMTAB, dysymtab_cmd, 0, groups[0], groups[0], groups[1], groups[0] + groups[1], groups[2]].pack("L<8")
           out << ([0] * 12).pack("L<12")
-          out << ("\0" * (data_start - out.bytesize)).b
+          Bytes.pad(out, data_start)
           sections.each do |s|
             next if s.flags == S_ZEROFILL
 
-            out << ("\0" * (s.offset - out.bytesize)).b
+            Bytes.pad(out, s.offset)
             out << s.bytes
           end
-          out << ("\0" * (Bytes.align(out.bytesize, 8) - out.bytesize)).b
+          Bytes.pad_align(out, 8)
           sections.each { |s| out << s.relocs.pack("L<*") }
           symbols.each { |sym| out << nlist(sym) }
           out << laid.strtab

@@ -78,20 +78,20 @@ module Zr
 
         text = +"".b
         code[:at].each do |f, off|
-          text << ("\0" * (off - text.bytesize)).b
+          Bytes.pad(text, off)
           text << patched(f, code_base + off, addresses, data_base, got)
         end
         imports.each do |name|
-          text << ("\0" * (stubs[name] - text.bytesize)).b
+          Bytes.pad(text, stubs[name])
           text << STUB << [addresses[name]].pack("Q<")
         end
         bytes = +"".b
         data[:at].each do |d, off|
-          bytes << ("\0" * (off - bytes.bytesize)).b
+          Bytes.pad(bytes, off)
           bytes << (d.section == :bss ? ("\0" * d.size).b : patched(d, data_base + off, addresses, data_base, got))
         end
         imports.each do |name|
-          bytes << ("\0" * (got[name] - bytes.bytesize)).b
+          Bytes.pad(bytes, got[name])
           bytes << [addresses[name]].pack("Q<")
         end
 
