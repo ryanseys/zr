@@ -28,7 +28,7 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/ruby_version.rb` | `Zr::RUBY_PIN`, `Zr::RUBY` and the other facts of the ruby that `.ruby-version` names; `zr-dev gen ruby_version` writes it |
 | `lib/zr/paths.rb` | where zr reads its sources and writes its cache |
 | `lib/zr/host.rb` | `Zr::Host.compiled?`: whether zr runs in a binary that zr compiled, not in CRuby |
-| `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once, and `Config.flag?` for an on-or-off variable |
+| `lib/zr/config.rb` | `Zr::Config`: the `ZR_*` variables that steer a build, read once |
 | `lib/zr/cli.rb` | the command line of `zr`: `CLI.start` runs the command that the first word names (`CLI::COMMANDS`) |
 | `lib/zr/cli/` | the parts of the command line: `command.rb` (the base class), `options.rb` (the option table), `help.rb` (the help text), `errors.rb`, `refusals.rb` (status 3), `runner.rb` (runs the built binary), and `commands/`, one file for each command |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |

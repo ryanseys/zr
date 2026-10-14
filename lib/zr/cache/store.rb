@@ -3,6 +3,7 @@
 require "digest/sha2"
 require_relative "../config"
 require_relative "../paths"
+require_relative "../session"
 require_relative "../source_guard"
 
 module Zr
@@ -47,11 +48,11 @@ module Zr
         Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend
         Kind.new(:run, :dir, "", 2),              # `zr run` binaries
         Kind.new(:ext, :dir, "", nil),            # C extensions that zr built (Ext::Builder)
-        Kind.new(:binary, :raw, "", nil),         # program test binaries; quota from ZR_TEST_BINARIES_GB
-        Kind.new(:result, :raw, "", nil),         # program tests that passed (test/support/result_cache.rb)
-        Kind.new(:built, :raw, "", nil),          # a test run's mark of a whole runtime build (test/support/built.rb)
         Kind.new(:source, :raw, "", nil)          # a compiler file's digest without its comments (Digests.code)
       ].to_h { |kind| [kind.name, kind] }.freeze #: Hash[Symbol, Kind]
+      # The program tests register their own kinds (`register`): the kept
+      # binaries, the passes and the marks of a whole runtime build
+      # (test/support/binaries.rb, result_cache.rb and built.rb).
 
       # A root older than this protects nothing: the zr that wrote it is
       # likely gone.
@@ -80,8 +81,30 @@ module Zr
         digest.hexdigest
       end
 
+      # The kinds of this process: KINDS, and each that a part of it
+      # registered.
+      #: () -> Hash[Symbol, Kind]
+      def kinds = Session.current.memo(:store_kinds) { KINDS.dup }
+
+      # Adds `kind` for this process: its entries are read, written and
+      # evicted as a built-in kind's are.
+      #: (Kind kind) -> Kind
+      def register(kind) = kinds[kind.name] = kind
+
       #: (Symbol name) -> Kind
-      def kind(name) = KINDS.fetch(name)
+      def kind(name) = kinds.fetch(name)
+
+      # The kind `name` that a directory of the store names: a kind of this
+      # process, else one that no part of it registered (another process's,
+      # such as the program tests'), which is raw and has no quota, so that
+      # `zr cache size` and `zr cache clean` still see its entries.
+      #: (Symbol name) -> Kind
+      def found(name) = kinds.fetch(name) { Kind.new(name, :raw, "", nil) }
+
+      # The name of each kind that has entries on disk, and each of this
+      # process.
+      #: () -> Array[Symbol]
+      def on_disk = kinds.keys | (children(dir) - %w[roots]).map(&:to_sym)
 
       #: (Symbol name, String key) -> String
       def path(name, key)
@@ -193,10 +216,10 @@ module Zr
         end.uniq
       end
 
-      # Every entry of the kinds `names` (all kinds by default).
+      # Every entry of the kinds `names` (all kinds on disk by default).
       #: (?Array[Symbol] names) -> Array[Entry]
-      def entries(names = KINDS.keys)
-        names.map { |name| kind(name) }.flat_map do |kind|
+      def entries(names = on_disk)
+        names.map { |name| found(name) }.flat_map do |kind|
           top = File.join(dir, kind.name.to_s)
           children(top).flat_map do |prefix|
             children(File.join(top, prefix)).filter_map do |base|
@@ -216,7 +239,7 @@ module Zr
       # The most bytes of kind `name`, or nil for no quota.
       #: (Symbol name) -> (Integer | Float)?
       def quota(name)
-        gb = name == :binary ? Config.current.test_binaries_gb : kind(name).quota_gb
+        gb = found(name).quota_gb
         gb && (gb * (1 << 30))
       end
 
@@ -226,7 +249,7 @@ module Zr
       # write of a kind with a quota evicts only that kind. Returns the
       # entries it removed.
       #: (?limit: (Integer | Float)?, ?kinds: Array[Symbol], ?now: Time) -> Array[Entry]
-      def evict(limit: nil, kinds: KINDS.keys, now: Time.now)
+      def evict(limit: nil, kinds: on_disk, now: Time.now)
         all = entries(kinds)
         kept = rooted(now).to_h { |line| [line, true] }
         total = all.sum(&:bytes)
@@ -264,7 +287,7 @@ module Zr
       # allows.
       #: () -> Array[String]
       def orphan_locks
-        KINDS.each_key.flat_map do |name|
+        on_disk.flat_map do |name|
           top = File.join(dir, name.to_s)
           children(top).flat_map do |prefix|
             folder = File.join(top, prefix)

@@ -101,7 +101,7 @@ module Zr
     attr_reader :linker, :host_ruby #: String
     attr_reader :wasm_width #: Integer
     attr_reader :cache #: String?
-    attr_reader :cache_max_gb, :test_binaries_gb #: Float
+    attr_reader :cache_max_gb #: Float
     attr_reader :link #: Array[String]
 
     # The C extensions that a build links in (`ZR_EXT_OBJECTS`): the path
@@ -145,9 +145,6 @@ module Zr
       # `ZR_CACHE_MAX_GB`: the most GB an installed zr keeps in its cache
       # (default 5; 0 turns the limit off).
       @cache_max_gb = number("ZR_CACHE_MAX_GB", 5.0, "10", kind: :Float, min: 0)
-      # `ZR_TEST_BINARIES_GB`: the most GB of binaries that the program tests
-      # keeps in the store (default 8). The tests set it; it has no flag.
-      @test_binaries_gb = number("ZR_TEST_BINARIES_GB", 8.0, "8", kind: :Float, min: 0)
       # `ZR_HOST_RUBY`: the ruby that zr starts when it needs ruby itself:
       # to resolve gems (lib/zr/gem_set.rb), and for ruby's report of a
       # syntax error (`CLI::Refusals.syntax_report`).
@@ -416,11 +413,6 @@ module Zr
     # must work when another setting is bad.
     #: () -> bool
     def self.debug? = on?(given.fetch("ZR_DEBUG") { ENV["ZR_DEBUG"] }, false)
-
-    # Whether the environment variable `name` is on. Unset or empty gives
-    # `default`, "0" is off, and any other value is on.
-    #: (String name, ?default: bool) -> bool
-    def self.flag?(name, default: false) = on?(ENV[name], default)
 
     # Whether `value` is on: nil or empty gives `default`, "0" is off,
     # and any other value is on.

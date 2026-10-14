@@ -28,6 +28,8 @@ module Zr
     # test files.
     module Built
       ROOT = File.expand_path("..", __dir__)
+      # The mark of a whole build is an empty entry of the store kind `built`.
+      Zr::Cache::Store.register(Zr::Cache::Store::Kind.new(:built, :raw, "", nil))
 
       # The unit test files that this run loaded: each declares what it
       # needs (`Needs`). The program tests get theirs from ProgramsTest.

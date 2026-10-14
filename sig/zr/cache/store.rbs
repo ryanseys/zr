@@ -6,10 +6,10 @@ module Zr
         attr_reader name: Symbol
         attr_reader codec: Symbol
         attr_reader ext: String
-        attr_reader quota_gb: Integer?
+        attr_reader quota_gb: (Integer | Float)?
 
-        def self.new: (Symbol name, Symbol codec, String ext, Integer? quota_gb) -> instance
-                    | (name: Symbol, codec: Symbol, ext: String, quota_gb: Integer?) -> instance
+        def self.new: (Symbol name, Symbol codec, String ext, (Integer | Float)? quota_gb) -> instance
+                    | (name: Symbol, codec: Symbol, ext: String, quota_gb: (Integer | Float)?) -> instance
       end
 
       class Entry < Data

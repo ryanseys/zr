@@ -27,6 +27,8 @@ module Zr
     # runs every test.
     class ResultCache
       ROOT = File.expand_path("../..", __dir__)
+      # A pass is an empty entry of the store kind `result`.
+      Zr::Cache::Store.register(Zr::Cache::Store::Kind.new(:result, :raw, "", nil))
       TREES = %w[lib vendor gems tool test].freeze
       # The variables that pick or report tests, and so leave a result as
       # it is.

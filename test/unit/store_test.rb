@@ -106,13 +106,27 @@ class StoreTest < Minitest::Test
   end
 
   def test_a_kind_over_its_quota_loses_its_oldest_entries
-    Zr::Config.with(ZR_TEST_BINARIES_GB: (1500.0 / (1 << 30)).to_s) do
-      first, second = %w[first second].map { |name| Store.key(name) }
-      age(Store.write(:binary, first, "x" * 1000), 2)
-      Store.write(:binary, second, "x" * 1000)
+    Store.register(Store::Kind.new(:quota_probe, :raw, "", 1500.0 / (1 << 30)))
+    first, second = %w[first second].map { |name| Store.key(name) }
+    age(Store.write(:quota_probe, first, "x" * 1000), 2)
+    Store.write(:quota_probe, second, "x" * 1000)
 
-      assert_equal [first], Store.evict.map(&:key)
-    end
+    assert_equal [first], Store.evict.map(&:key)
+  ensure
+    Store.kinds.delete(:quota_probe)
+  end
+
+  # A kind that only another process registers, such as the program
+  # tests' binaries, is still on disk: `zr cache` sizes and cleans it.
+  def test_a_kind_that_no_part_of_this_process_registered_is_still_cleaned
+    stray = File.join(@dir, "store/stray/ab/ab#{"0" * 62}")
+    FileUtils.mkdir_p(File.dirname(stray))
+    File.write(stray, "x")
+    age(stray, 3)
+
+    assert_includes Store.entries.map(&:kind), :stray
+    assert_equal [:stray], Store.clean.map(&:kind)
+    refute_path_exists stray
   end
 
   def test_clean_keeps_rooted_entries_and_clear_removes_all

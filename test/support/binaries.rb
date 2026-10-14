@@ -43,6 +43,10 @@ module Zr
     # test builds.
     module Binaries
       VERSION = 6
+      # The most gigabytes of kept binaries: `trim` takes the ones used
+      # longest ago past it (`ZR_TEST_BINARIES_GB`).
+      GIGABYTES = Float(ENV.fetch("ZR_TEST_BINARIES_GB", "8"))
+      Zr::Cache::Store.register(Zr::Cache::Store::Kind.new(:binary, :raw, "", GIGABYTES))
       # The start of a kept binary that is whole: an ELF binary, which has
       # no prelinked image to leave out.
       WHOLE = "zr-whole".b

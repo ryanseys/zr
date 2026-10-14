@@ -107,9 +107,11 @@ environment value sees the value of the first process that loaded the
 file, and a test cannot change it. `Config.with(...)` sets values for a
 test, and a forked child that changes the environment calls
 `Config.reset!`. `test/unit/config_test.rb` fails when another file in
-`lib/` reads a `ZR_*` variable. `Config.flag?` reads a variable that is
-on or off: unset or empty gives the default, `0` is off, and every
-other value is on.
+`lib/` reads a `ZR_*` variable. A variable that is on or off reads as
+`Config#switch?` reads one: unset or empty gives the default, `0` is
+off, and every other value is on. The tests' own flags read the same
+way through `Zr::Test.flag?` (`test/support/flag.rb`), so `lib/` holds
+no test setting.
 
 ## State of the process is in Zr::Session
 

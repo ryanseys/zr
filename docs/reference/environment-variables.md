@@ -9,7 +9,9 @@ three groups:
 - [For tools](#for-tools): the `zr-dev` commands.
 
 A *flag* is a variable that is on or off. Unset or empty gives the
-default. `0` is off. Any other value is on (`Zr::Config.flag?`).
+default. `0` is off. Any other value is on. zr reads its own flags so
+(`Zr::Config#switch?`), and the tests read theirs with `Zr::Test.flag?`
+(`test/support/flag.rb`).
 
 A `ZR_*` value, or a setting's flag, that zr cannot use stops the command with one line and
 exit status 2. The line names the variable and a value that works:
