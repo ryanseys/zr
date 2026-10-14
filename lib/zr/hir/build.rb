@@ -614,11 +614,11 @@ module Zr
         @traced_lines[-1] = nil
         exit_event(node.location.start_line) unless node.is_a?(Prism::BeginNode)
         out = Seq.new([traced, out], traced.line) if traced
-        mark_using(out, {}) if @using
+        mark_using(out, Hash.new.compare_by_identity) if @using
         return out if out.is_a?(Using)
         return out if @usings == made
 
-        nested = usings_in(out, {}).sort_by(&:id)
+        nested = usings_in(out, Hash.new.compare_by_identity).sort_by(&:id)
         return out if nested.empty?
 
         line = node.location.start_line
@@ -627,19 +627,16 @@ module Zr
 
       # The `using` entries in a statement, below its top level, which a
       # condition can skip.
-      #: (untyped node, Hash[Integer, bool] seen, ?Array[Using] out) -> Array[Using]
+      # `seen` holds each node that the walk visited, by identity.
+      #: (untyped node, Hash[untyped, bool] seen, ?Array[Using] out) -> Array[Using]
       def usings_in(node, seen, out = [])
-        return out if node.nil? || seen.key?(node.object_id)
+        return out if seen.key?(node)
 
-        if node.is_a?(Array)
-          node.each { |child| usings_in(child, seen, out) }
-          return out
+        if node.is_a?(Node)
+          seen[node] = true
+          out << node if node.is_a?(Using)
         end
-        return out unless node.is_a?(Node)
-
-        seen[node.object_id] = true
-        out << node if node.is_a?(Using)
-        node.each_pair { |_, child| usings_in(child, seen, out) }
+        Hir.each_child(node) { |child| usings_in(child, seen, out) }
         out
       end
 
@@ -677,21 +674,18 @@ module Zr
       #: () -> Integer?
       def entry_using = (using = @using).is_a?(Integer) ? using : nil
 
-      #: (untyped node, Hash[Integer, bool] seen) -> void
+      # `seen` holds each node that the walk visited, by identity.
+      #: (untyped node, Hash[untyped, bool] seen) -> void
       def mark_using(node, seen)
-        return if node.nil? || seen.key?(node.object_id)
+        return if seen.key?(node)
 
-        if node.is_a?(Array)
-          node.each { |child| mark_using(child, seen) }
-          return
+        if node.is_a?(Node)
+          seen[node] = true
+          case node
+          when Send, Super, AttrOpAssign, IndexOpAssign, Case then node.using ||= @using
+          end
         end
-        return unless node.is_a?(Node)
-
-        seen[node.object_id] = true
-        case node
-        when Send, Super, AttrOpAssign, IndexOpAssign, Case then node.using ||= @using
-        end
-        node.each_pair { |_, child| mark_using(child, seen) }
+        Hir.each_child(node) { |child| mark_using(child, seen) }
       end
 
       # A prism node's HIR, noted with the node's id.
@@ -717,155 +711,155 @@ module Zr
         hir
       end
 
-      #: (Prism::node node, ?taken: bool) -> node
+      #: (untyped node, ?taken: bool) -> node
       def built(node, taken: true)
         line = node.location.start_line
-        case node
-        when Prism::StatementsNode then seq(node, taken: taken)
-        when Prism::ParenthesesNode then node.body ? expr(node.body, taken: taken) : Literal.new(nil, line)
-        when Prism::IntegerNode, Prism::FloatNode then Literal.new(node.value, line)
+        case node.type
+        when :statements_node then seq(node, taken: taken)
+        when :parentheses_node then node.body ? expr(node.body, taken: taken) : Literal.new(nil, line)
+        when :integer_node, :float_node then Literal.new(node.value, line)
         # `3r` and `2i` use the core's Kernel, even if self has no Kernel.
-        when Prism::RationalNode then Send.of(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line)
-        when Prism::ImaginaryNode then Send.of(Core.new(:Kernel, line), :Complex, [Literal.new(0, line), expr(node.numeric)], line)
-        when Prism::StringNode then literal_string(node, unescaped(node), line)
-        when Prism::SymbolNode then literal_symbol(node, line)
-        when Prism::NilNode then Literal.new(nil, line)
-        when Prism::TrueNode then Literal.new(true, line)
-        when Prism::FalseNode then Literal.new(false, line)
-        when Prism::SelfNode then SelfRef.new(line)
-        when Prism::CallNode then call(node)
-        when Prism::DefNode then define(node)
-        when Prism::LocalVariableReadNode then Local.new(node.name, node.depth, line)
-        when Prism::LocalVariableWriteNode then Assign.new(node.name, node.depth, expr(node.value), line)
-        when Prism::MultiWriteNode then MultiAssign.new(multi_target(node), expr(node.value), line, taken)
-        when Prism::LocalVariableOperatorWriteNode
+        when :rational_node then Send.of(Core.new(:Kernel, line), :Rational, [Literal.new(node.numerator, line), Literal.new(node.denominator, line)], line)
+        when :imaginary_node then Send.of(Core.new(:Kernel, line), :Complex, [Literal.new(0, line), expr(node.numeric)], line)
+        when :string_node then literal_string(node, unescaped(node), line)
+        when :symbol_node then literal_symbol(node, line)
+        when :nil_node then Literal.new(nil, line)
+        when :true_node then Literal.new(true, line)
+        when :false_node then Literal.new(false, line)
+        when :self_node then SelfRef.new(line)
+        when :call_node then call(node)
+        when :def_node then define(node)
+        when :local_variable_read_node then Local.new(node.name, node.depth, line)
+        when :local_variable_write_node then Assign.new(node.name, node.depth, expr(node.value), line)
+        when :multi_write_node then MultiAssign.new(multi_target(node), expr(node.value), line, taken)
+        when :local_variable_operator_write_node
           Assign.new(node.name, node.depth, noted(Send.of(Local.new(node.name, node.depth, line), node.binary_operator, [expr(node.value)], line), node), line)
-        when Prism::LocalVariableAndWriteNode
+        when :local_variable_and_write_node
           Assign.new(node.name, node.depth, And.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
-        when Prism::LocalVariableOrWriteNode
+        when :local_variable_or_write_node
           Assign.new(node.name, node.depth, Or.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
-        when Prism::LambdaNode then lambda_literal(node, line)
-        when Prism::ItLocalVariableReadNode then Local.new(IT, 0, line)
-        when Prism::UndefNode then undef_names(node, line)
-        when Prism::SuperNode then super_call(node, line)
-        when Prism::ForwardingSuperNode then zsuper(node, line)
-        when Prism::YieldNode
+        when :lambda_node then lambda_literal(node, line)
+        when :it_local_variable_read_node then Local.new(IT, 0, line)
+        when :undef_node then undef_names(node, line)
+        when :super_node then super_call(node, line)
+        when :forwarding_super_node then zsuper(node, line)
+        when :yield_node
           args, kwargs, = arguments(node.arguments)
           Yield.new(args, line, kwargs)
-        when Prism::BreakNode, Prism::NextNode
+        when :break_node, :next_node
           value = jump_value(node.arguments, line)
           node.is_a?(Prism::BreakNode) ? Break.new(value, line) : Next.new(value, line)
-        when Prism::IfNode then if_branch(node, line, taken: taken)
-        when Prism::CaseMatchNode then case_match(node, taken: taken)
-        when Prism::MatchRequiredNode then match_required(node)
-        when Prism::MatchPredicateNode then match_predicate(node)
-        when Prism::MatchWriteNode then match_write(node)
-        when Prism::UnlessNode then unless_branch(node, line, taken: taken)
-        when Prism::ElseNode then node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
-        when Prism::WhileNode then while_loop(node, line)
-        when Prism::UntilNode then until_loop(node, line)
-        when Prism::ReturnNode
+        when :if_node then if_branch(node, line, taken: taken)
+        when :case_match_node then case_match(node, taken: taken)
+        when :match_required_node then match_required(node)
+        when :match_predicate_node then match_predicate(node)
+        when :match_write_node then match_write(node)
+        when :unless_node then unless_branch(node, line, taken: taken)
+        when :else_node then node.statements ? seq(node.statements, taken: taken) : Literal.new(nil, line)
+        when :while_node then while_loop(node, line)
+        when :until_node then until_loop(node, line)
+        when :return_node
           top_return_warning if node.arguments
           Return.new(jump_value(node.arguments, line), line)
         # The left side decides, so its value is always used. The right
         # side is the result, so it has the pair's `taken`.
-        when Prism::AndNode then And.new(expr(node.left), expr(node.right, taken: taken), line)
-        when Prism::OrNode then Or.new(expr(node.left), expr(node.right, taken: taken), line)
-        when Prism::ClassNode then class_body(node, line)
-        when Prism::ModuleNode then module_body(node, line)
-        when Prism::SingletonClassNode then singleton_class_body(node, line)
-        when Prism::ConstantReadNode then const_read(node, line)
-        when Prism::ConstantPathNode then const_path_read(node, line)
-        when Prism::ConstantWriteNode then ConstWrite.new(nil, node.name, expr(node.value), line)
-        when Prism::ConstantPathWriteNode
+        when :and_node then And.new(expr(node.left), expr(node.right, taken: taken), line)
+        when :or_node then Or.new(expr(node.left), expr(node.right, taken: taken), line)
+        when :class_node then class_body(node, line)
+        when :module_node then module_body(node, line)
+        when :singleton_class_node then singleton_class_body(node, line)
+        when :constant_read_node then const_read(node, line)
+        when :constant_path_node then const_path_read(node, line)
+        when :constant_write_node then ConstWrite.new(nil, node.name, expr(node.value), line)
+        when :constant_path_write_node
           scope, name = constant_path(node.target)
           ConstWrite.new(scope, name, expr(node.value), line)
-        when Prism::InterpolatedStringNode then interpolated_string(node, line)
-        when Prism::SourceFileNode then source_file(node, line)
-        when Prism::SourceLineNode then Literal.new(line, line)
-        when Prism::SourceEncodingNode
+        when :interpolated_string_node then interpolated_string(node, line)
+        when :source_file_node then source_file(node, line)
+        when :source_line_node then Literal.new(line, line)
+        when :source_encoding_node
           Send.of(ConstRead.new(nil, :Encoding, line), :find, [Literal.new(@encoding.name, line)], line)
-        when Prism::InterpolatedSymbolNode then Send.of(interpolation(node, line), :to_sym, [], line)
+        when :interpolated_symbol_node then Send.of(interpolation(node, line), :to_sym, [], line)
         # A static command is a frozen String, as CRuby passes it to `.
-        when Prism::XStringNode then Send.of(nil, :`, [frozen_literal_string(node.unescaped, line)], line)
+        when :x_string_node then Send.of(nil, :`, [frozen_literal_string(node.unescaped, line)], line)
         # Prism gives 0 for a number too big for a variable, which is always nil.
-        when Prism::NumberedReferenceReadNode then node.number.zero? ? Literal.new(nil, line) : BackRef.new(:nth, node.number, line)
-        when Prism::BackReferenceReadNode then back_reference(node, line)
-        when Prism::RegularExpressionNode then regexp_literal(node, line, taken: taken)
-        when Prism::InterpolatedRegularExpressionNode then interpolated_regexp(node, line)
-        when Prism::MatchLastLineNode
+        when :numbered_reference_read_node then node.number.zero? ? Literal.new(nil, line) : BackRef.new(:nth, node.number, line)
+        when :back_reference_read_node then back_reference(node, line)
+        when :regular_expression_node then regexp_literal(node, line, taken: taken)
+        when :interpolated_regular_expression_node then interpolated_regexp(node, line)
+        when :match_last_line_node
           # A bare regexp as a condition matches `$_`.
           Send.of(regexp_literal(node, line), :=~, [GvarRead.new(:$_, line)], line)
-        when Prism::InterpolatedMatchLastLineNode
+        when :interpolated_match_last_line_node
           Send.of(interpolated_regexp(node, line), :=~, [GvarRead.new(:$_, line)], line)
-        when Prism::InterpolatedXStringNode then Send.of(nil, :`, [interpolation(node, line)], line)
-        when Prism::ArrayNode then ArrayLit.new(node.elements.map { |e| array_element(e, line) }, line)
-        when Prism::HashNode then HashLit.new(hash_pairs(node.elements), line)
-        when Prism::FlipFlopNode then flip_flop(node, line)
-        when Prism::ShareableConstantNode then shareable_constant(node, line)
-        when Prism::RangeNode then range_literal(node, line)
-        when Prism::InstanceVariableReadNode then IvarRead.new(node.name, line)
-        when Prism::GlobalVariableReadNode then gvar_read(node.name, line)
-        when Prism::GlobalVariableWriteNode then gvar_write(node.name, expr(node.value), line)
-        when Prism::GlobalVariableOperatorWriteNode
+        when :interpolated_x_string_node then Send.of(nil, :`, [interpolation(node, line)], line)
+        when :array_node then ArrayLit.new(node.elements.map { |e| array_element(e, line) }, line)
+        when :hash_node then HashLit.new(hash_pairs(node.elements), line)
+        when :flip_flop_node then flip_flop(node, line)
+        when :shareable_constant_node then shareable_constant(node, line)
+        when :range_node then range_literal(node, line)
+        when :instance_variable_read_node then IvarRead.new(node.name, line)
+        when :global_variable_read_node then gvar_read(node.name, line)
+        when :global_variable_write_node then gvar_write(node.name, expr(node.value), line)
+        when :global_variable_operator_write_node
           gvar_write(node.name, noted(Send.of(gvar_read(node.name, line), node.binary_operator, [expr(node.value)], line), node), line)
         # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`. The
         # write occurs only if necessary. A frozen receiver, a global's
         # setter and a constant's redefinition warning can see this.
-        when Prism::GlobalVariableOrWriteNode then Or.new(quiet_gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
-        when Prism::GlobalVariableAndWriteNode then And.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
-        when Prism::ClassVariableReadNode then CvarRead.new(node.name, line)
-        when Prism::ClassVariableWriteNode then CvarWrite.new(node.name, expr(node.value), line)
-        when Prism::ClassVariableOperatorWriteNode
+        when :global_variable_or_write_node then Or.new(quiet_gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
+        when :global_variable_and_write_node then And.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
+        when :class_variable_read_node then CvarRead.new(node.name, line)
+        when :class_variable_write_node then CvarWrite.new(node.name, expr(node.value), line)
+        when :class_variable_operator_write_node
           CvarWrite.new(node.name, noted(Send.of(noted(CvarRead.new(node.name, line), node), node.binary_operator, [expr(node.value)], line), node), line)
-        when Prism::ClassVariableOrWriteNode
+        when :class_variable_or_write_node
           If.new(Defined.new(:cvar, node.name, line), Or.new(noted(CvarRead.new(node.name, line), node), noted(CvarWrite.new(node.name, expr(node.value), line), node), line),
                  noted(CvarWrite.new(node.name, expr(node.value), line), node), line)
         # Ruby compiles nothing for a `defined?` whose value is not used.
-        when Prism::DefinedNode then taken ? defined(node.value, line) : Literal.new(nil, line)
-        when Prism::ClassVariableAndWriteNode
+        when :defined_node then taken ? defined(node.value, line) : Literal.new(nil, line)
+        when :class_variable_and_write_node
           And.new(noted(CvarRead.new(node.name, line), node), noted(CvarWrite.new(node.name, expr(node.value), line), node), line)
-        when Prism::ConstantOrWriteNode then ConstOrWrite.new(nil, node.name, expr(node.value), line)
-        when Prism::ConstantPathOrWriteNode
+        when :constant_or_write_node then ConstOrWrite.new(nil, node.name, expr(node.value), line)
+        when :constant_path_or_write_node
           scope, name, prelude = constant_scope(node.target, line)
           with_scope(prelude, noted(ConstOrWrite.new(scope, name, expr(node.value), line), node), line)
-        when Prism::ConstantAndWriteNode
+        when :constant_and_write_node
           And.new(noted(ConstRead.new(nil, node.name, line), node), noted(ConstWrite.new(nil, node.name, expr(node.value), line), node), line)
-        when Prism::ConstantPathAndWriteNode
+        when :constant_path_and_write_node
           scope, name, prelude = constant_scope(node.target, line)
           read = noted(ConstRead.new(scope, name, line, prelude ? true : nil), node)
           with_scope(prelude, And.new(read, noted(ConstWrite.new(scope, name, expr(node.value), line), node), line), line)
-        when Prism::ConstantOperatorWriteNode
+        when :constant_operator_write_node
           ConstWrite.new(nil, node.name, noted(Send.of(noted(ConstRead.new(nil, node.name, line), node), node.binary_operator, [expr(node.value)], line), node), line)
-        when Prism::ConstantPathOperatorWriteNode
+        when :constant_path_operator_write_node
           scope, name, prelude = constant_scope(node.target, line)
           read = noted(ConstRead.new(scope, name, line, prelude ? true : nil), node)
           with_scope(prelude, noted(ConstWrite.new(scope, name, noted(Send.of(read, node.binary_operator, [expr(node.value)], line), node), line), node), line)
-        when Prism::AliasMethodNode then alias_method_names(node, line)
-        when Prism::AliasGlobalVariableNode then alias_global(node, line)
-        when Prism::CaseNode then case_when(node, line, taken: taken)
-        when Prism::IndexOperatorWriteNode, Prism::IndexOrWriteNode, Prism::IndexAndWriteNode then index_op_assign(node, line)
-        when Prism::CallOperatorWriteNode, Prism::CallOrWriteNode, Prism::CallAndWriteNode then attr_op_assign(node, line)
-        when Prism::ForNode then for_loop(node)
-        when Prism::PostExecutionNode then post_execution(node, line)
-        when Prism::PreExecutionNode
+        when :alias_method_node then alias_method_names(node, line)
+        when :alias_global_variable_node then alias_global(node, line)
+        when :case_node then case_when(node, line, taken: taken)
+        when :index_operator_write_node, :index_or_write_node, :index_and_write_node then index_op_assign(node, line)
+        when :call_operator_write_node, :call_or_write_node, :call_and_write_node then attr_op_assign(node, line)
+        when :for_node then for_loop(node)
+        when :post_execution_node then post_execution(node, line)
+        when :pre_execution_node
           unsupported(node, "BEGIN { } outside the toplevel") unless @block_depth.zero?
           node.statements ? seq(node.statements) : Literal.new(nil, line)
-        when Prism::InstanceVariableWriteNode then IvarWrite.new(node.name, expr(node.value), line)
-        when Prism::InstanceVariableOperatorWriteNode
+        when :instance_variable_write_node then IvarWrite.new(node.name, expr(node.value), line)
+        when :instance_variable_operator_write_node
           IvarWrite.new(node.name, noted(Send.of(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line), node), line)
-        when Prism::InstanceVariableOrWriteNode
+        when :instance_variable_or_write_node
           Or.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
-        when Prism::InstanceVariableAndWriteNode
+        when :instance_variable_and_write_node
           And.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
-        when Prism::BeginNode then protected_region(node, taken: taken)
-        when Prism::RescueModifierNode
+        when :begin_node then protected_region(node, taken: taken)
+        when :rescue_modifier_node
           clause = Rescue.new([], nil, expr(node.rescue_expression), line)
           Begin.new(expr(node.expression), [clause], nil, nil, line)
         # Ruby's compiler writes no code for a branch that it knows is
         # never taken, so a `retry` there is never an error.
-        when Prism::RetryNode then @dead.positive? ? Literal.new(nil, line) : Retry.new(line)
-        when Prism::RedoNode then Redo.new(line)
+        when :retry_node then @dead.positive? ? Literal.new(nil, line) : Retry.new(line)
+        when :redo_node then Redo.new(line)
         else unsupported(node)
         end
       end
