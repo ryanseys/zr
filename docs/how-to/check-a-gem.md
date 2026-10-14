@@ -179,7 +179,9 @@ It writes [Gem compatibility](../reference/gem-compat.md) from
 
 ## Help the tool with a gem
 
-A file `gems/<name>.rb` changes how the tool tries the gem `<name>`:
+A file `tmp/gem-sweep/<name>.rb` changes how the tool tries the gem
+`<name>`. Such a file is yours, not the repository's: clearing `tmp/`
+deletes it.
 
 ```ruby
 # zr-gems: skip -- needs a running Redis server
@@ -222,7 +224,7 @@ $ zr-dev gems sweep --corpus <dir> --offline rake thor rack
 The tool finds each gem by its exact path, and never lists the corpus,
 so a corpus can hold every gem. It reads the version, the require paths
 and the extensions from the corpus's marker files when it has them
-(`.zeo-probe-version`, and `.zeo-probe-spec` in JSON), else from
+(`.zr-corpus-version`, and `.zr-corpus-spec` in JSON), else from
 `<name>.gemspec`, else from the directory name (`rake-13.4.2`). Only
 `<name>.gemspec` gives the dependencies.
 

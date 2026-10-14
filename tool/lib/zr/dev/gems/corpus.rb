@@ -12,8 +12,11 @@ module Zr
       class Corpus
         # The marker files that a corpus may have beside each gem: the
         # version, and the metadata of the release (JSON).
-        VERSION = ".zeo-probe-version"
-        SPEC = ".zeo-probe-spec"
+        VERSION = ".zr-corpus-version"
+        SPEC = ".zr-corpus-spec"
+        # The names that the markers had before 2026-10-14. A read gives a
+        # marker its new name, so the fallback can go after 2027-01-01.
+        FORMER = { VERSION => ".zeo-probe-version", SPEC => ".zeo-probe-spec" }.freeze
 
         # Gem::Specification.load evaluates a gemspec in the process, and
         # a gemspec reads files relative to its directory. One thread
@@ -58,11 +61,25 @@ module Zr
         # The corpus's markers, as `{ version:, require_paths:, extensions: }`
         # with nil for each one that is missing.
         def self.marker(dir)
-          version = File.join(dir, VERSION)
-          spec = File.join(dir, SPEC)
+          version = marker_path(dir, VERSION)
+          spec = marker_path(dir, SPEC)
           fields = File.file?(spec) ? JSON.parse(File.read(spec)) : {}
           { version: File.file?(version) ? File.read(version).strip : nil,
             require_paths: fields["require_paths"], extensions: fields["extensions"] }
+        end
+
+        # The path of the marker `name` in `dir`. A marker that still has its
+        # former name gets the new one, or keeps the old one in a corpus
+        # that this user cannot write.
+        def self.marker_path(dir, name)
+          path = File.join(dir, name)
+          former = File.join(dir, FORMER.fetch(name))
+          return path if File.exist?(path) || !File.file?(former)
+
+          File.rename(former, path)
+          path
+        rescue SystemCallError
+          former
         end
 
         # `<name>.gemspec`, or the only gemspec when the name is not known.

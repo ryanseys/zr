@@ -5,7 +5,7 @@ require_relative "../../../../../lib/zr/parse"
 module Zr
   module Dev
     module Gems
-      # A gem's own file, `gems/<name>.rb`, for a gem that the tool cannot
+      # A gem's own file, `tmp/gem-sweep/<name>.rb`, for a gem that the tool cannot
       # guess right:
       #
       #   # zr-gems: skip -- needs a running Redis
@@ -24,7 +24,7 @@ module Zr
         attr_reader :path, :source
 
         # The override of `name` in `dir`, or nil.
-        def self.for(name, dir: HOME)
+        def self.for(name, dir: OVERRIDES)
           path = File.join(dir, "#{name}.rb")
           File.file?(path) ? new(path) : nil
         end

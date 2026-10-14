@@ -26,7 +26,6 @@ AllCops:
     - "test/machine/**/*"
     - "test/hir/**/*"     # input programs for the HIR snapshots
     - ".claude/worktrees/**/*"
-    - "gems/**/*"         # the gem probes that zr compiles
     - "tmp/**/*"
     - "log/**/*"          # logs and the fuzzer's saved cases
     - "lib/zr/hir/features.rb"      # generated

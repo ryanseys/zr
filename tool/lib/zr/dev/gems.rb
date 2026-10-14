@@ -20,8 +20,9 @@ module Zr
     module Gems
       # The fetched gems, the logs, the sweeps and the work directories.
       TMP = Dev.path("tmp/gems")
-      # The overrides (`gems/<name>.rb`), which are committed.
-      HOME = Dev.path("gems")
+      # The overrides (`tmp/gem-sweep/<name>.rb`). They are not committed:
+      # clearing tmp/ deletes them.
+      OVERRIDES = Dev.path("tmp/gem-sweep")
       # The tables (compat.tsv, top.tsv) and the sweeps' logs. They are
       # not committed: log/ is kept when tmp/ is cleared.
       TABLES = Dev.path("log/gems")

@@ -13,7 +13,7 @@ module Zr
       # gem and prints each constant that the require defines. It runs the
       # probe under the pinned ruby (the reference, with each gem's roots on
       # -I) and as a zr binary, and compares the two. An override with a
-      # smoke program (gems/<name>.rb) runs the same way.
+      # smoke program (tmp/gem-sweep/<name>.rb) runs the same way.
       #
       #   refused   zr refuses the gem, or a form in it
       #
@@ -72,7 +72,7 @@ module Zr
 
         attr_reader :work
 
-        def initialize(resolver:, runner: Runner.new, overrides: HOME, logs: File.join(TMP, "logs"),
+        def initialize(resolver:, runner: Runner.new, overrides: OVERRIDES, logs: File.join(TMP, "logs"),
                        work: File.join(TMP, "work"), keep: false, say: nil, reference: Harness::Reference, run: true,
                        c_scan: CScan.new)
           @resolver = resolver

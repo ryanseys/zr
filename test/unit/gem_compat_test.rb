@@ -71,6 +71,17 @@ class GemCompatTest < Minitest::Test
     assert_equal ["ext/cexty/extconf.rb"], CORPUS.find("cexty").extensions
   end
 
+  # A corpus written before the markers' rename gives them their names.
+  def test_the_corpus_renames_a_marker_of_its_former_name
+    dir = File.join(@dir, "old")
+    FileUtils.mkdir_p(File.join(dir, "lib"))
+    File.write(File.join(dir, ".zeo-probe-version"), "3.1.4")
+    File.write(File.join(dir, ".zeo-probe-spec"), '{"require_paths":["lib"]}')
+
+    assert_equal "3.1.4", Zr::Dev::Gems::Corpus.new(@dir).find("old").version
+    assert_equal %w[.zr-corpus-spec .zr-corpus-version lib], Dir.children(dir).sort
+  end
+
   def test_the_corpus_finds_a_gem_only_by_its_exact_path
     assert_nil CORPUS.find("tin")
   end
@@ -620,8 +631,8 @@ class GemCompatTest < Minitest::Test
     dir = File.join(@dir, "json-#{version}")
     FileUtils.mkdir_p(File.join(dir, "lib"))
     File.write(File.join(dir, "lib/json.rb"), "")
-    File.write(File.join(dir, ".zeo-probe-version"), version)
-    File.write(File.join(dir, ".zeo-probe-spec"), '{"extensions":["ext/json/extconf.rb"],"require_paths":["lib"]}')
+    File.write(File.join(dir, ".zr-corpus-version"), version)
+    File.write(File.join(dir, ".zr-corpus-spec"), '{"extensions":["ext/json/extconf.rb"],"require_paths":["lib"]}')
     dir
   end
 

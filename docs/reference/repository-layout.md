@@ -162,6 +162,5 @@ the snapshots that tests in `test/unit/` read.
 |---|---|
 | `licenses/` | the license texts of the parts that have no other copy in the gem; see `THIRD_PARTY_NOTICES.md` |
 | `benchmark/` | the benchmarks: whole programs with their recordings, and the rungs that `zr-dev compile` builds (`benchmark/compile/`); see `benchmark/README.md` |
-| `gems/` | `gems/<name>.rb`: an override that tells `zr-dev gems` how to try one gem, or to skip it; see [How to check a gem](../how-to/check-a-gem.md) |
 | `log/` | not committed, and kept when `tmp/` is cleared: the results of `zr-dev rubyspec` and `zr-dev cruby-test`, and the gem tables and sweeps of `zr-dev gems` (`log/gems/`) |
 | `tmp/` | not committed: the cache (`tmp/cache/`), the test reference (`tmp/reference/`), the `.gem` download cache (`tmp/vendor/`), the test progress file, the bootstrap stages |
