@@ -12,29 +12,11 @@ require_relative "hir/locals"
 
 module Zr
   module Hir
-    # @rbs source: String
-    # @rbs file: String
-    # @rbs roots: Array[String]
-    # @rbs eval_support: bool
-    # @rbs prebuilt: untyped
-    # @rbs line: Integer
-    # @rbs scopes: Array[Array[Symbol]]?
-    # @rbs method: Array[[Symbol, Symbol?]]?
-    # @rbs activations: Integer?
-    # @rbs target: Target
-    # @rbs trace: bool
-    # @rbs gem_set: GemSet?
-    # @rbs gate: bool | Symbol
-    # @rbs switches: Switches
-    # @rbs def_base: Integer?
-    # @rbs extensions: Build::Loader::_Extensions
-    # @rbs return: Program
-    def self.build(source, file, roots: [], eval_support: true, prebuilt: nil, line: 1, scopes: nil, method: nil, activations: nil,
-                   target: Target.default, trace: false, gem_set: nil, gate: false, switches: Switches::NONE, using: nil, def_base: nil,
-                   extensions: Build::Loader::NoExtensions)
-      Build.program(source, file, roots: roots, eval_support: eval_support, prebuilt: prebuilt, line: line, scopes: scopes, method: method,
-                                  activations: activations, target: target, trace: trace, gem_set: gem_set, gate: gate,
-                                  switches: switches, using: using, def_base: def_base, extensions: extensions)
-    end
+    # The program that `source` builds: `Build.program` says how.
+    # @rbs (String source, String file, ?roots: Array[String], ?eval_support: bool, ?prebuilt: untyped, ?line: Integer,
+    #        ?scopes: Array[Array[Symbol]]?, ?method: Array[[Symbol, Symbol?]]?, ?activations: Integer?, ?target: Target,
+    #        ?trace: bool, ?gem_set: GemSet?, ?gate: bool | Symbol, ?switches: Switches, ?using: Integer?, ?def_base: Integer?,
+    #        ?extensions: Build::Loader::_Extensions) -> Program
+    def self.build(...) = Build.program(...)
   end
 end
