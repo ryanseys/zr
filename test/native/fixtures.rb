@@ -7,7 +7,7 @@ module Zr
   module Native
     # The native floor: IR written by hand, owing nothing to a Ruby
     # lowering. Each method answers `[functions, data]`; the binary it
-    # becomes prints `<name>.stdout` and exits 0. Every fact a fixture
+    # becomes prints `<name>.out` and exits 0. Every fact a fixture
     # checks becomes one bit of the exit status, so a wrong answer names
     # itself.
     module Fixtures

@@ -47,9 +47,8 @@ module Zr
 
       # Returns the targets that a run builds for: the host, and also
       # wasm32-wasi when wasmtime is installed and the run selects that
-      # target or `wasm` is true (the unit tier builds WASI modules). This
-      # process does not build other native targets. `E2E.build` builds
-      # them with a separate `zr`, which can need a different toolchain.
+      # target or `wasm` is true (the unit tier builds WASI modules). It
+      # builds no other native target.
       def targets(wasm: false)
         wasm ||= Harness.selected_target == Target::WASM32_WASI
         [Target.default, *(Target::WASM32_WASI if wasm && Harness::Wasmtime.installed?)].uniq
