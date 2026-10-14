@@ -220,6 +220,7 @@ module Zr
       def positional: () -> Integer
       def rest?: () -> bool
       def min_args: () -> Integer
+      def defaults: () -> Array[Hir::node?]
       def max_args: () -> Integer?
       def required_keywords: () -> Array[Symbol]
       def spread?: () -> bool

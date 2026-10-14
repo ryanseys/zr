@@ -9,6 +9,28 @@ module Zr
     module Locals
       module_function
 
+      # The scopes whose Binding a traced program's hooks can read.
+      TRACED = %i[def block top class module sclass].freeze
+      # No default values.
+      NONE = Array.new.freeze #: Array[Hir::node?]
+
+      # Whether a scope of `kind` keeps its locals in an Env: a main or
+      # eval scope; one whose body or default values hold a block or open
+      # its locals; or, in a `traced` program, any def, block, file or
+      # class body, because a hook can read its Binding, and only an Env
+      # gives one. `computed` is as for `opens_locals?`.
+      #: (untyped body, Symbol kind, ?defaults: Array[Hir::node?], ?traced: bool, ?computed: bool) -> bool
+      def env?(body, kind, defaults: NONE, traced: false, computed: true)
+        return true if kind == :main || kind == :eval
+        return true if traced && TRACED.include?(kind)
+
+        keeps?(body, computed) || defaults.any? { |d| keeps?(d, computed) }
+      end
+
+      # Whether `node` holds a block or opens its scope's locals.
+      #: (untyped node, bool computed) -> bool
+      def keeps?(node, computed) = holds_block?(node) || opens_locals?(node, computed:)
+
       # Whether `node` contains a block literal of this scope (not one in
       # a nested def or body, which is a different scope).
       #: (untyped node) -> bool

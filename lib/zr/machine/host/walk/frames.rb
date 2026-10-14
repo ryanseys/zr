@@ -180,21 +180,12 @@ module Zr
           #: (untyped node) -> Integer
           def line_of(node) = node.respond_to?(:line) ? node.line || 1 : 1
 
-          # Whether the scope `node` keeps its locals in an Env, as the
-          # lowering decides (`Lower::Function`, `@has_env`): a main or eval
-          # scope, or one that holds a block or opens its locals (`binding`,
-          # `eval`, `local_variables`). In a traced program, a hook can read a
-          # Binding of any def, block or file, and only an Env gives one.
+          # Whether the scope `node` keeps its locals in an Env, by the
+          # lowering's rule (`Hir::Locals.env?`).
           #: (untyped node, Symbol kind, Unit unit, ?Hir::Params? params) -> bool
           def open?(node, kind, unit, params = nil)
-            return true if %i[main eval].include?(kind)
-            # A traced program's hooks read a Binding of any frame, as the
-            # lowering's `@has_env` gives one.
-            return true if unit.traced && %i[def block top class].include?(kind)
-
-            defaults = [] #: Array[Hir::node?]
-            defaults = params.optional.map(&:last) + params.keywords.filter_map(&:last) if params
-            [node.body, *defaults].any? { |b| Hir::Locals.holds_block?(b) || Hir::Locals.opens_locals?(b, computed: !unit.internal) }
+            defaults = params ? params.defaults : Hir::Locals::NONE
+            Hir::Locals.env?(node.body, kind, defaults:, traced: unit.traced ? true : false, computed: !unit.internal)
           end
 
           # Runs the block in a new frame of the scope `s`: a record in the

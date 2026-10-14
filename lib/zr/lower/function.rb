@@ -187,12 +187,8 @@ module Zr
         # here, in the order of first use, and the ones that it writes.
         @captures = {}
         @writes = []
-        # A traced program's hooks can read a Binding of any frame, and
-        # only an Env gives one.
-        computed = !lower.internal?
-        @has_env = %i[eval main].include?(@kind) || Hir::Locals.holds_block?(body) || Hir::Locals.opens_locals?(body, computed:) ||
-                   default_expressions.any? { |d| Hir::Locals.holds_block?(d) || Hir::Locals.opens_locals?(d, computed:) } ||
-                   (lower.traced? && !lower.internal? && %i[def block top class module sclass].include?(@kind))
+        internal = lower.internal?
+        @has_env = Hir::Locals.env?(body, @kind, defaults: default_expressions, traced: lower.traced? && !internal, computed: !internal)
         @raw_block = nil
         # A def's scope has a Def, and a block's a Block.
         @raw_block = raw_block?(node.params) ? node.params.block : nil if node.is_a?(Hir::Def) || node.is_a?(Hir::Block)
@@ -649,10 +645,9 @@ module Zr
       # A parameter's default runs in the prologue, and stages as the body does.
       #: () -> Array[Hir::node?]
       def default_expressions
-        return [] unless %i[def block].include?(@kind)
+        return Hir::Locals::NONE unless %i[def block].include?(@kind)
 
-        p = own_params
-        p.optional.map(&:last) + p.keywords.filter_map(&:last)
+        own_params.defaults
       end
 
       # The record slots for the prologue: one for a method's keyword

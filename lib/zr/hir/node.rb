@@ -222,6 +222,9 @@ module Zr
       # The most positional arguments that a call gives, or nil with a rest.
       def max_args = rest? ? nil : min_args + optional.size
 
+      # The default values of the optional and keyword parameters.
+      def defaults = optional.map(&:last) + keywords.filter_map(&:last)
+
       # The keywords with no default, which a call must give.
       def required_keywords = keywords.filter_map { |name, default| name if default.nil? }
 
