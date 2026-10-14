@@ -86,7 +86,6 @@ Layout/LineLength:
     - "lib/zr/lower/function.rb"
     - "lib/zr/lower/function/expressions.rb"
     - "lib/zr/native/build.rb"
-    - "lib/zr/parse.rb"
     - "test/support/harness/prism_diff.rb"
     - "test/support/harness/regexp_diff.rb"
     - "test/unit/gc_trace_test.rb"

@@ -3,7 +3,7 @@
 require "digest/sha2"
 require_relative "paths"
 require_relative "config"
-require_relative "prism"
+require_relative "parse"
 require_relative "cache/store"
 
 module Zr

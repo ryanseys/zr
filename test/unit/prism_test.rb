@@ -15,12 +15,12 @@ require "stringio"
 class PrismTest < Minitest::Test
   PrismDiff = Zr::Harness::PrismDiff
 
-  # lib/zr/prism.rb names prism's directory by a literal path, so zr sees
+  # lib/zr/parse.rb names prism's directory by a literal path, so zr sees
   # it when it compiles zr. It must be the directory of the vendored gem.
   def test_the_load_path_names_the_vendored_prism
     rel = Zr::Library::Ports.lib("prism").delete_prefix(File.join(ROOT, ""))
 
-    assert_includes File.read(File.join(ROOT, "lib/zr/prism.rb")), %(File.expand_path("../../#{rel}", __dir__))
+    assert_includes File.read(File.join(ROOT, "lib/zr/parse.rb")), %(File.expand_path("../../#{rel}", __dir__))
   end
 
   def test_the_generated_files_are_current
@@ -194,7 +194,7 @@ end
   # through syntax_suggest.
   def test_lex_compat_returns_same_tokens_as_gem_prism
     source = File.read(File.join(ROOT, "lib/zr/timing.rb"))
-    tokens = lexed(source, "zr/prism")
+    tokens = lexed(source, "zr/parse")
 
     assert_operator tokens.lines.size, :>, 50
     assert_equal lexed(source, "prism"), tokens

@@ -5,7 +5,7 @@ require "fiddle"
 # (`Host#live_roots`). The host is a tool of the tests and of zr-dev; a
 # build never loads it.
 require "debug_inspector"
-require_relative "../prism"
+require_relative "../parse"
 require_relative "description"
 require_relative "lower"
 require_relative "host/memory"

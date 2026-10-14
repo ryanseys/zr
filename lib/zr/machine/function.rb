@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../prism"
+require_relative "../parse"
 require_relative "../ir"
 require_relative "../refused"
 require_relative "../paths"

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../prism"
+require_relative "../parse"
 # ruby makes ErrorHighlight an autoload, and so does a zr program. The
 # compiler that a program carries (eval support) must not load the
 # library itself: that would end the program's autoload.
@@ -46,10 +46,9 @@ module Zr
       # tree and the same Spotter.
       #: (Prism::ParseResult result, String source, Hash[Symbol, untyped] options) -> String
       def for(result, source, options)
-        return digest(result) + of(result.value) unless defined?(Cache::Parse)
-
+        cache = Zr.parse_cache or return digest(result) + of(result.value)
         spotter = ErrorHighlight.method(:spot).source_location&.first or return digest(result) + of(result.value)
-        digest(result) + Cache::Parse.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
+        digest(result) + cache.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
       end
 
       # The record of the code that prism parsed, up to the end of an

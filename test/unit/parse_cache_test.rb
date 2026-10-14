@@ -2,7 +2,7 @@
 
 require "test_helper"
 require "rbconfig"
-require_relative "../../lib/zr/prism"
+require_relative "../../lib/zr/parse"
 require_relative "../../lib/zr/cache/parse"
 require_relative "../../lib/zr/runtime"
 require_relative "../support/harness/prism_diff"
@@ -14,10 +14,10 @@ class ParseCacheTest < Minitest::Test
   ParseCache = Zr::Cache::Parse
 
   # The facts come from a child process, not from this process. A process
-  # that loaded ruby's own C prism first keeps it (see `lib/zr/prism.rb`).
+  # that loaded ruby's own C prism first keeps it (see `lib/zr/parse.rb`).
   # This tier includes the harness that loads the C prism on purpose, so
   # this process does not show what the compiler uses. A fresh ruby that
-  # requires `zr/prism` is the same case as the compiler.
+  # requires `zr/parse` is the same case as the compiler.
   def test_host_parses_with_ruby_port_and_no_c_extension
     parse, gem, node, native = compiler_process.lines(chomp: true)
 
@@ -45,7 +45,7 @@ class ParseCacheTest < Minitest::Test
     [
       "lib/zr/runtime/ext/prism/ruby/parser/core.rb", "lib/zr/runtime/ext/prism/ruby/lexer.rb",
       "lib/zr/runtime/ext/prism/ruby/ast.rb", "lib/zr/runtime/ext/prism/prism.rb",
-      "lib/zr/prism_shim/prism/prism.rb", "lib/zr/prism.rb", "lib/zr/cache/parse.rb"
+      "lib/zr/prism_shim/prism/prism.rb", "lib/zr/parse.rb", "lib/zr/cache/parse.rb"
     ].each { |path| assert_includes files, File.join(ROOT, path) }
     gem = $LOAD_PATH.resolve_feature_path("prism").last
     assert_includes files, gem
@@ -215,10 +215,10 @@ class ParseCacheTest < Minitest::Test
 
   private
 
-  # What a fresh `require "zr/prism"` loads, one fact on each line.
+  # What a fresh `require "zr/parse"` loads, one fact on each line.
   def compiler_process
     said = IO.popen(Zr::Harness::CleanEnv.env, [RbConfig.ruby, "-I#{ROOT}/lib", "-e", <<~RUBY], unsetenv_others: true, &:read)
-      require "zr/prism"
+      require "zr/parse"
       gem = $LOAD_PATH.resolve_feature_path("prism").last
       puts Prism.method(:parse).source_location.first
       puts gem

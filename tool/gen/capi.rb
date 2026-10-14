@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../gen"
-require_relative "../../lib/zr/prism"
+require_relative "../../lib/zr/parse"
 
 module Zr
   module Dev

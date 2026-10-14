@@ -3,7 +3,7 @@
 require "digest/sha2"
 require_relative "../paths"
 require_relative "../binary"
-require_relative "../prism"
+require_relative "../parse"
 require_relative "../source_guard"
 require_relative "store"
 require_relative "../runtime/lib/zr/eval/runtime" if Zr::Binary.running?
@@ -17,7 +17,7 @@ module Zr
     #
     # The key covers every input of a parse: the source bytes, the options,
     # ruby's version (Marshal's format), and the parser itself (the port's
-    # files, the backend's, lib/zr/prism.rb, this file, and the prism gem's
+    # files, the backend's, lib/zr/parse.rb, this file, and the prism gem's
     # Ruby part). A cache file that does not load as a ParseResult is a
     # miss. A cached result has the same values as a parse, but its Strings
     # are not frozen.
@@ -30,7 +30,7 @@ module Zr
     module Parse
       # The files of the parser: these, and every Ruby file under the trees.
       GEM = Library::Ports.lib("prism") #: String
-      FILES = [File.join(Library::Layout::EXT, "prism/prism.rb"), File.expand_path("../prism.rb", __dir__), __FILE__,
+      FILES = [File.join(Library::Layout::EXT, "prism/prism.rb"), File.expand_path("../parse.rb", __dir__), __FILE__,
                File.join(GEM, "prism.rb")].freeze #: Array[String]
       TREES = [File.join(Library::Layout::EXT, "prism/ruby"), File.expand_path("../prism_shim", __dir__),
                File.join(GEM, "prism")].freeze #: Array[String]

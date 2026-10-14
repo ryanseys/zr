@@ -43,7 +43,7 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/bytes.rb` | byte helpers: alignment, padding, LEB128 and zigzag |
 | `lib/zr/timing.rb` | `Zr::Timing.phase`: the phase times that `ZR_TIMING=1` prints |
 | `lib/zr/source_guard.rb` | `Zr::SourceGuard.check!`: a cache write stops if a source changed during the build |
-| `lib/zr/parse.rb` | `Zr.parse`: prism, through the parse cache where there is one |
+| `lib/zr/parse.rb` | loads prism on the host (the vendored prism over zr's port of its C), and `Zr.parse`: prism, through the parse cache where there is one |
 | `lib/zr/backend.rb` | `Zr::Backend`: what the backends share, and `Backend::Refused` |
 | `lib/zr/library/` | `Zr::Library`: the library that a program requires, and where each part of it is |
 | `lib/zr/library/layout.rb` | `Library::Layout`: where `vendor/ruby`, the gem home and zr's own `runtime/ext` and `runtime/lib` are |
@@ -52,7 +52,6 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/library/stdlib.rb` | the name and version of each gem in `vendor/ruby` (`zr-dev vendor` writes it) |
 | `lib/zr/library/ports.rb` | the gems with a C part that zr ports, with their versions and compat ranges |
 | `lib/zr/target.rb` | the targets, and what this host can build |
-| `lib/zr/prism.rb` | loads prism on the host: the vendored prism over zr's port of its C |
 | `lib/zr/line_cursor.rb` | `Zr::LineCursor`: a faster line lookup for prism's sources, with the same answers |
 | `lib/zr/cache/parse.rb` | the host's cache of parse results |
 | `lib/zr/hir.rb`, `lib/zr/hir/` | prism's tree to the HIR: desugaring, requires, refusals |

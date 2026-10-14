@@ -659,14 +659,14 @@ module Zr
           k.zr_raise(exc)
         end
 
-        # prism's files of eval support, required hidden as a binary's
-        # compiler requires them, the first time the host's `Zr::Eval#parse`
-        # runs.
+        # Eval support's lib/zr/parse.rb, which sets up prism, required
+        # hidden as a binary's compiler requires it, the first time the
+        # host's `Zr::Eval#parse` runs.
         #: () -> Integer
         def prism!
           unless @prism
             @prism = true
-            path, unit = @eval_files.units.find { |p, _| p.end_with?("/prism.rb") } || raise(ArgumentError, "eval support has no prism")
+            path, unit = @eval_files.units.find { |p, _| p.end_with?("/zr/parse.rb") } || raise(ArgumentError, "eval support has no prism")
             check(k.zr_require(string(Paths.shown(path)), entry_in(nil, unit), Definitions::REQUIRE_KINDS.fetch(:hidden)))
           end
           @qnil

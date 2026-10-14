@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "zr/prism"
+require "zr/parse"
 
 # Zr::LineCursor answers each line lookup as prism's binary search does
 # (lib/zr/line_cursor.rb), in any order of offsets.

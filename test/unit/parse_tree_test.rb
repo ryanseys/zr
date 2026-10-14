@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../lib/zr/prism"
+require_relative "../../lib/zr/parse"
 require_relative "../../lib/zr/cli/parse_tree"
 
 # `--dump=parsetree` (lib/zr/cli/parse_tree.rb): prism's tree in the format

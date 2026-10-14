@@ -179,7 +179,7 @@ module Zr
           # names around each. It is made on the first call, so that loading
           # this file does not load the prism port (0.25 s).
           def defs_class
-            require_relative "../../lib/zr/prism"
+            require_relative "../../lib/zr/parse"
             @defs_class ||= Class.new(Prism::Visitor) do
               attr_reader :rows
 
