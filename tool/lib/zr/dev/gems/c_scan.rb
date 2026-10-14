@@ -287,7 +287,7 @@ module Zr
             files = Dir.glob("**/*.h", base: root)
             headers = files.map { |file| "HAVE_#{file.upcase.gsub(/[^A-Z0-9]/, "_")}" }
             names = files.flat_map { |file| File.read(File.join(root, file)).scan(/\b((?:rb|ruby)_\w+)\s*\(/).flatten }.uniq
-            functions = names.select { |name| RUBY.include?(name) }.map { |name| "HAVE_#{name.upcase}" }
+            functions = names.filter_map { |name| "HAVE_#{name.upcase}" if RUBY.include?(name) }
             (headers + functions).uniq.sort.map { |macro| "#ifndef #{macro}\n#define #{macro} 1\n#endif\n" }.join
           end
         end

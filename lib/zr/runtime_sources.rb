@@ -169,7 +169,7 @@ module Zr
 
     # The digest of the compiler files (part of the runtime's).
     #: () -> String
-    def compiler_digest =@compiler_digest ||= Digests.sources(target, compiler_files)
+    def compiler_digest = @compiler_digest ||= Digests.sources(target, compiler_files)
 
     # The digest of what code outside the kernel takes from the runtime:
     # the compiler files that lower it, the kernel's description (the

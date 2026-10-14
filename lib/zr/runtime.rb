@@ -196,7 +196,7 @@ module Zr
     # from this runtime's description, so it is never out of date and
     # nobody commits it.
     #: () -> String
-    def carried_text =@carried_text ||= Machine::Description.carried(cached.fetch(:description))
+    def carried_text = @carried_text ||= Machine::Description.carried(cached.fetch(:description))
 
     # `RuntimeSources#abi_digest`: what a program's units and eval support's
     # code take from this runtime. It reads the symbol table's cache, which

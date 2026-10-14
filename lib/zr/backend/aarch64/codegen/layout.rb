@@ -22,7 +22,7 @@ module Zr
           entry = @f.entry_block
           before = Hash.new { |h, k| h[k] = [] } #: Hash[String, Array[String]]
           @f.blocks.each { |b| b.insts.last&.targets&.each { |(to, _)| before[to] << b.name } }
-          cold = Set.new(@f.blocks.select { |b| b.cold && !b.equal?(entry) }.map(&:name))
+          cold = Set.new(@f.blocks.filter_map { |b| b.name if b.cold && !b.equal?(entry) })
           # Most blocks come after the blocks that jump to them, so one pass
           # in order finds most of them, and a loop's head needs another.
           loop do

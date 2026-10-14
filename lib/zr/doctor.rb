@@ -102,7 +102,7 @@ module Zr
       require_relative "ext"
       # A precompiled gem lists no extensions: it ships a bundle for each ruby.
       native = specs.select { |spec| !spec.extensions.empty? || !Ext::Source.precompiled(spec.gem_dir).empty? }
-      ready = native.select { |spec| ready?(spec) }.map(&:name).sort
+      ready = native.filter_map { |spec| spec.name if ready?(spec) }.sort
       detail = "#{ready.size} of #{native.size} installed gems with one need nothing more of zr's C API" \
                "#{": #{ready.join(", ")}" unless ready.empty?}"
       return Check.new(:ok, "C extensions", detail) if make

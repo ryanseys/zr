@@ -53,7 +53,9 @@ module Zr
     # The data objects of the tables, with the files `units`: `[path,
     # entry]` pairs. A unit that only stops has no path.
     def data(units = [])
-      units = units.select { |path, _| path.start_with?("/") }.map do |path, entry|
+      units = units.filter_map do |path, entry|
+        next unless path.start_with?("/")
+
         [Paths.shown(path), entry] #: [String, String]
       end.sort
       out = [] #: Array[Obj::Datum]

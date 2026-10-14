@@ -244,7 +244,9 @@ module Zr
           raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
 
           taken = @functions.flat_map do |f|
-            f.blocks.flat_map(&:insts).select { |i| i.op == :func_addr }.map do |i|
+            f.blocks.flat_map(&:insts).filter_map do |i|
+              next unless i.op == :func_addr
+
               c = f.callees.find { |x| x.fn == i.args[0] } or raise "#{f.name}: no callee #{i.args[0]}"
               c.symbol
             end

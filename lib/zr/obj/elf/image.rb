@@ -72,11 +72,11 @@ module Zr
         # The names, as C writes them, that the file uses and does not
         # define, sorted.
         #: () -> Array[String]
-        def undefined = symbols.select { |s| s.global? && s.undefined? && !s.name.empty? }.map(&:name).uniq.sort
+        def undefined = symbols.filter_map { |s| s.name if s.global? && s.undefined? && !s.name.empty? }.uniq.sort
 
         # The names that the file defines for others to use, sorted.
         #: () -> Array[String]
-        def defined = symbols.select { |s| s.global? && !s.undefined? }.map(&:name).uniq.sort
+        def defined = symbols.filter_map { |s| s.name if s.global? && !s.undefined? }.uniq.sort
 
         # The C strings of the file: those of each section of merged
         # strings that the program loads (`.rodata.str1.1`), as Mach-O

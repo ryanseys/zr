@@ -62,7 +62,7 @@ module Zr
       # The lib directory of each gem that vendor/ holds, in the order a
       # require searches them.
       #: () -> Array[String]
-      def self.roots = ALL.select { |_, port| port.vendored }.map { |name, port| lib(name, port.version) }
+      def self.roots = ALL.filter_map { |name, port| lib(name, port.version) if port.vendored }
 
       # The lib directory of port `name` in vendor/.
       #: (String name, ?String version) -> String

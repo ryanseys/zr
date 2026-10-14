@@ -535,13 +535,13 @@ module Zr
         # Most are methods of String, Symbol and Regexp, so an Array's `[]`
         # does not pay for them; a line read and `print` go to any receiver.
         TEXT_SVAR_SENDS = %i[=~ !~ === ~ match scan sub sub! gsub gsub! index rindex byteindex byterindex [] slice slice!
-                             start_with? partition rpartition last_match].to_h { |name| [name, true] }.freeze
-        LINE_SVAR_SENDS = %i[gets readline print].to_h { |name| [name, true] }.freeze
+                             start_with? partition rpartition last_match].to_set.freeze
+        LINE_SVAR_SENDS = %i[gets readline print].to_set.freeze
 
         def svar_send?(recv, name)
-          return true if LINE_SVAR_SENDS.key?(name)
+          return true if LINE_SVAR_SENDS.include?(name)
 
-          TEXT_SVAR_SENDS.key?(name) && (::String === recv || ::Symbol === recv || ::Regexp === recv || recv.equal?(::Regexp))
+          TEXT_SVAR_SENDS.include?(name) && (::String === recv || ::Symbol === recv || ::Regexp === recv || recv.equal?(::Regexp))
         end
 
         # A call can reach a private method when it has no receiver or its
