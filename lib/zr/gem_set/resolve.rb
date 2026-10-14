@@ -5,8 +5,8 @@
 # So the rubygems and bundler here are the ones that zr ships (vendor/ruby,
 # the pinned ruby's), as JRuby and TruffleRuby run their own: never the
 # host's, which `gem update --system` can change, and never a bundle that
-# zr runs under. zr itself never loads them: the compiled compiler has
-# neither. The request comes as JSON on stdin:
+# zr runs under. zr itself never loads them, so a zr that zr compiled
+# (`zr-dev stage`) needs neither. The request comes as JSON on stdin:
 #
 #   { "gemfile": "/app/Gemfile" or null,
 #     "flags": [["csv", "3.3.6"], ["rainbow", "/src/rainbow"]],

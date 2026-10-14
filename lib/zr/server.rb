@@ -85,8 +85,8 @@ module Zr
     #
     # One loop in the main thread waits for a request, for the end of a
     # build (its child holds the write end of a pipe), and for a client
-    # that goes away. (In ruby 4.0, a `waitpid` in another thread never
-    # returned the child while the main thread waited in `IO.select`.)
+    # that goes away. (A `waitpid` in another thread did not return the
+    # child while the main thread waited in `IO.select`.)
     #: () -> void
     def serve
       path = @path or raise ArgumentError, "the server has no socket (ZR_SERVER=0, or the path is too long)"

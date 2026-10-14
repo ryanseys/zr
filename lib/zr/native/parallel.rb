@@ -75,9 +75,9 @@ module Zr
       # of the parent (WORKER_SHARE), and the workers get three quarters
       # of the available memory.
       #
-      # A worker of the compiled compiler copies about all of the parent:
-      # about 10 GB. Six such workers put a 16 GB machine into swap, and a
-      # run that swaps takes about ten times as long.
+      # A worker of the compiled compiler (`zr-dev stage`) copies about all
+      # of the parent, gigabytes each. A few such workers put a 16 GB
+      # machine into swap, and a run that swaps takes many times as long.
       #
       # `ZR_JOBS` overrides this limit. Use it to measure an entry of the
       # table above `Build.jobs`.

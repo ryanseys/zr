@@ -70,8 +70,9 @@ module Zr
     def activations = meta.fetch("activations")
 
     # The SHA-256 of each file in eval support (as lowered) and of each
-    # file that the gem prelude loads, by path. A compiled compiler keys
-    # its parse cache on these (`Cache::Parse.parser_digests`,
+    # file that the gem prelude loads, by path. A binary with eval support
+    # (and the compiled compiler of `zr-dev stage`) keys its parse cache on
+    # these (`Cache::Parse.parser_digests`,
     # `Cache::Parse.maker`).
     #: () -> Hash[String, String]
     def digests = meta.fetch("digests")

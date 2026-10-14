@@ -50,8 +50,8 @@ module Zr
       #     seconds  17.4   11.4    9.5   11.8   26.9
       #
       # This is the maximum. At fork time, `Parallel.afforded` lowers it
-      # from the parent's memory, which is about 100 times larger for the
-      # compiled compiler than for the compiler under ruby. `ZR_JOBS`
+      # from the parent's memory, which is much larger for the compiled
+      # compiler of `zr-dev stage` than for the compiler under ruby. `ZR_JOBS`
       # overrides both limits; the table above was measured with it.
       #: () -> Integer
       def jobs = Config.current.jobs

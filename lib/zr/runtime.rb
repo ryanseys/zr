@@ -22,7 +22,6 @@ require_relative "cache/lowering/eval_support"
 require_relative "manifest"
 
 module Zr
-
   # The kernel and the core library, lowered once per process, and only
   # as much as a build needs. A program's lowering reads the kernel's
   # description and the symbol table from the cache. Only a build with
@@ -98,13 +97,14 @@ module Zr
     #: () -> String
     def object_path = Cache::Store.path(:object, digest)
 
+    # The digest of every input of the runtime object. The target is the
+    # first input, so two targets never share build output. Each path is
+    # an input with its bytes, because the runtime object contains the
+    # core's file names; so two checkouts never share one. A build with a
+    # path root (`Paths.root`) writes different names, so the root is also
+    # an input.
     #: () -> String
     def digest
-      # The target is the first input, so two targets never share build
-      # output. Each path is an input with its bytes, because the runtime
-      # object contains the core's file names; so two checkouts never
-      # share one. A build with a path root (`Paths.root`) writes
-      # different names, so the root is also an input.
       @digest ||= Timing.phase("taking the runtime digest", "runtime digest") do
         files = RuntimeSources.for(target).sources + gem_prelude_files
         stamps = @stamps = files.to_h { |path| [path, Paths.stamp(path)] }
@@ -128,15 +128,15 @@ module Zr
       nil
     end
 
-    # The files that the gem prelude loads. Only its loader knows them.
-    # The list comes from the cache (keyed on the digest of all other
-    # inputs), or from building the prelude's HIR. If a change to one of
-    # them adds or removes a file, the digest changes and the list is
-    # computed again.
-    # The cache file that lists them.
+    # The cache file that lists the files that the gem prelude loads,
+    # keyed on the digest of all other inputs.
     #: () -> String
     def gem_prelude_path = RuntimeSources.gem_prelude_list(Digests.sources(target, RuntimeSources.for(target).sources))
 
+    # The files that the gem prelude loads. Only its loader knows them.
+    # The list comes from the cache (`gem_prelude_path`), or from building
+    # the prelude's HIR. If a change to one of them adds or removes a
+    # file, the digest changes and the list is computed again.
     #: () -> Array[String]
     def gem_prelude_files
       @gem_prelude_files ||= begin
