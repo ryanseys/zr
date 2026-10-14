@@ -168,7 +168,7 @@ module Zr
           when Hir::PathLiteral then World.path(literal(node.literal))
           when Hir::FrozenString then node.value
           when Hir::SelfRef then ctx.self_
-          when Hir::Trace then nil
+          when Hir::Trace, Hir::Cover then nil
           when Hir::Send then send_node(node, ctx)
           when Hir::Local then read_local(node, ctx)
           when Hir::Assign then write_local(node, walk(node.value, ctx), ctx)
