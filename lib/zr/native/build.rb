@@ -551,11 +551,13 @@ module Zr
         # The wasm backend takes only IR.
         functions = support ? runtime.functions + support.functions : runtime.functions #: Array[IR::Function]
         data = support ? runtime.data + support.data : runtime.data.dup
+        what = support ? "the wasm prelude with eval support" : "the wasm prelude"
         zero_words(functions, data, pending[:data])
-        functions += stops(functions, runtime.raw, data, pending[:functions])
-        IR::Passes.inline(functions).each { |f| IR::Passes.prepare(f) }
-        pre = Backend::Wasm.prelude(functions, data, pending: pending)
-        Cache::Store.write_file(path, Marshal.dump(pre))
+        functions += Timing.phase("finding the stops of #{what}", "stops found") { stops(functions, runtime.raw, data, pending[:functions]) }
+        inlined = Timing.phase("inlining #{what} (#{functions.size} functions)", "#{what} inlined") { IR::Passes.inline(functions) }
+        Timing.phase("preparing #{what} (#{inlined.size} functions)", "#{what} prepared") { inlined.each { |f| IR::Passes.prepare(f) } }
+        pre = Timing.phase("emitting #{what} (#{functions.size} functions)", "#{what} emitted") { Backend::Wasm.prelude(functions, data, pending: pending) }
+        Timing.phase("writing #{what}", "#{what} written") { Cache::Store.write_file(path, Marshal.dump(pre)) }
         preludes[path] = pre
       end
 
