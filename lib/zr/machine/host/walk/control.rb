@@ -131,7 +131,7 @@ module Zr
               when Hir::Break, Hir::Next, Hir::Redo then yield node
               when Hir::While, Hir::Def, Hir::Block, Hir::Lambda, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then return
               end
-              Hir.each_child(node) { |child| visit(child, &) if child.is_a?(Hir::Node) || child.is_a?(Array) }
+              Hir.each_child(node) { |child| visit(child, &) }
             end
           end
 

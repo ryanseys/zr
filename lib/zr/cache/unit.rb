@@ -99,11 +99,8 @@ module Zr
         case body
         when Hir::Require, Hir::Autoload
           out << Paths.shown(body.path.to_s) << (body.unit.nil? ? "-" : yield(body.unit))
-          body.each { |child| reached(child, out, &) if child.is_a?(Hir::Node) || child.is_a?(Array) }
-        when Hir::Node, Array
-          # No array per node: a walk of a large program visits millions.
-          body.each { |child| reached(child, out, &) if child.is_a?(Hir::Node) || child.is_a?(Array) }
         end
+        Hir.each_child(body) { |child| reached(child, out, &) }
         out
       end
 

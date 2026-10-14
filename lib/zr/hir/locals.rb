@@ -21,7 +21,7 @@ module Zr
         when Def then holds_block?(node.receiver)
         when ClassDef, ModuleDef, nil then false
         when SingletonClassDef then holds_block?(node.target)
-        when Node, Array then Hir.each_child(node).any? { |v| holds_block?(v) }
+        when Node, Array then Hir.any_child?(node) { |v| holds_block?(v) }
         else false
         end
       end
@@ -34,7 +34,7 @@ module Zr
         case node
         when ClassDef, ModuleDef then holds_block?(node.body) || body_holds_block?(node.body)
         when Def, Lambda, Block, nil then false
-        when Node, Array then Hir.each_child(node).any? { |v| body_holds_block?(v) }
+        when Node, Array then Hir.any_child?(node) { |v| body_holds_block?(v) }
         else false
         end
       end
@@ -68,7 +68,7 @@ module Zr
         when Block, Lambda, ClassDef, ModuleDef, nil then false
         when Def then opens_locals?(node.receiver, computed:)
         when SingletonClassDef then opens_locals?(node.target, computed:)
-        when Node, Array then Hir.each_child(node).any? { |v| opens_locals?(v, computed:) }
+        when Node, Array then Hir.any_child?(node) { |v| opens_locals?(v, computed:) }
         else false
         end
       end
@@ -136,7 +136,7 @@ module Zr
           when ClassDef then scan.call([n.scope, n.superclass])
           when ModuleDef then scan.call(n.scope)
           when SingletonClassDef then scan.call(n.target)
-          when Node, Array then Hir.each_child(n).any? { |child| scan.call(child) }
+          when Node, Array then Hir.any_child?(n) { |child| scan.call(child) }
           else false
           end
         end

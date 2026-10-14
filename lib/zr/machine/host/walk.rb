@@ -180,7 +180,7 @@ module Zr
             case n
             when Hir::Def, Hir::Block, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then spell(n.locals, seen)
             end
-            Hir.each_child(n) { |child| visit(child, seen) } if n.is_a?(Hir::Node) || n.is_a?(Array)
+            Hir.each_child(n) { |child| visit(child, seen) }
           end
         end
 
@@ -338,7 +338,7 @@ module Zr
             node = stack.pop
             case node
             when Symbol then id(node)
-            when Hir::Node, Array then stack.concat(Hir.each_child(node))
+            when Hir::Node, Array then node.each { |child| stack << child }
             end
           end
         end

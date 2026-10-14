@@ -55,7 +55,7 @@ module Zr
       def loop_body?(node)
         case node
         when Hir::Super, Hir::ZSuper, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef, Hir::Trace, Hir::Cover then false
-        when Hir::Node, Array then Hir.each_child(node).all? { |v| loop_body?(v) }
+        when Hir::Node, Array then Hir.all_children?(node) { |v| loop_body?(v) }
         else true
         end
       end

@@ -74,7 +74,7 @@ module Zr
           when Hir::Using then out << body.id
           when Hir::Send, Hir::Super, Hir::AttrOpAssign, Hir::IndexOpAssign then out << body.using.inspect
           end
-          body.each { |child| usings(child, out) if child.is_a?(Hir::Node) || child.is_a?(Array) } if body.is_a?(Hir::Node) || body.is_a?(Array)
+          Hir.each_child(body) { |child| usings(child, out) }
           out
         end
       end

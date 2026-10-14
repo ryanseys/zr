@@ -799,7 +799,7 @@ module Zr
     def scopes?(node)
       case node
       when Hir::Block, Hir::Lambda, Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then true
-      when Hir::Node, Array then Hir.each_child(node).any? { |v| scopes?(v) }
+      when Hir::Node, Array then Hir.any_child?(node) { |v| scopes?(v) }
       else false
       end
     end

@@ -36,22 +36,30 @@ module Zr
     # never a bare `Array`, `Symbol`, `Integer` or other field value.
     def self.node?(value) = value.is_a?(Node)
 
-    # Yields each child of `node`: the fields of a HIR node, or the
-    # elements of an Array of nodes. Anything else (nil, a literal value,
-    # ...) has no children. Several walks share this fallback for the
-    # fields or elements that their own scope-boundary rules do not name;
-    # each keeps those rules and only reads its children through this.
-    #
-    # With no block, returns the children as an Array instead of an
-    # Enumerator, so a caller can still write `each_child(node).any? { ... }`
-    # without allocating one on every node.
+    # Yields each child of `node` that can hold a node: each field of a
+    # HIR node, or each element of an Array, that is itself a Node or an
+    # Array. A leaf (nil, a Symbol, a literal value) has no children, and
+    # no walk visits one. Several walks share this for the fields or
+    # elements that their own scope-boundary rules do not name. It
+    # allocates nothing: a walk of a large program visits millions of
+    # nodes.
     def self.each_child(node)
-      children = case node
-                 when Node then node.to_a
-                 when Array then node
-                 else [] #: Array[untyped]
-                 end
-      block_given? ? children.each { |child| yield child } : children
+      node.each { |child| yield child if child.is_a?(Node) || child.is_a?(Array) } if node.is_a?(Node) || node.is_a?(Array)
+      nil
+    end
+
+    # Whether the block answers true for a child of `node` (`each_child`).
+    # It stops at the first one.
+    def self.any_child?(node)
+      each_child(node) { |child| return true if yield(child) }
+      false
+    end
+
+    # Whether the block answers true for each child of `node`
+    # (`each_child`). It stops at the first that it does not.
+    def self.all_children?(node)
+      each_child(node) { |child| return false unless yield(child) }
+      true
     end
 
     # Whether `node` reads `$~`, `$_`, a part of `$~` or
@@ -65,8 +73,8 @@ module Zr
       when Send
         return true if node.name == :last_match && node.recv.is_a?(ConstRead) && node.recv.name == :Regexp
 
-        each_child(node).any? { |child| backref_read?(child) }
-      when Node, Array then each_child(node).any? { |child| backref_read?(child) }
+        any_child?(node) { |child| backref_read?(child) }
+      when Node, Array then any_child?(node) { |child| backref_read?(child) }
       else false
       end
     end

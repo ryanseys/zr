@@ -567,10 +567,10 @@ module Zr
       def uses_block?(node)
         case node
         when Hir::Yield then true
-        when Hir::ZSuper, Hir::Super then node.block.nil? || Hir.each_child(node).any? { |c| uses_block?(c) }
+        when Hir::ZSuper, Hir::Super then node.block.nil? || Hir.any_child?(node) { |c| uses_block?(c) }
         when Hir::Defined then node.kind == :yield
         when Hir::Def, Hir::ClassDef, Hir::ModuleDef, Hir::SingletonClassDef then false
-        when Hir::Node, Array then Hir.each_child(node).any? { |c| uses_block?(c) }
+        when Hir::Node, Array then Hir.any_child?(node) { |c| uses_block?(c) }
         else false
         end
       end

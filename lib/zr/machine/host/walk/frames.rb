@@ -312,7 +312,7 @@ module Zr
               when Hir::ClassDef then return [node.scope, node.superclass].each { |part| visit(part, looped, &) }
               when Hir::SingletonClassDef then return visit(node.target, looped, &)
               end
-              Hir.each_child(node) { |child| visit(child, looped, &) if child.is_a?(Hir::Node) || child.is_a?(Array) }
+              Hir.each_child(node) { |child| visit(child, looped, &) }
             end
           end
 
