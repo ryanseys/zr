@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../../lib/zr/diff"
+
 module Zr
   module Harness
     # The output of a program: stdout, stderr, exit status and signal.
@@ -24,22 +26,34 @@ module Zr
             Integer(part.call("status") || 0), part.call("signal")&.then { |n| Integer(n) })
       end
 
-      # A text that tells how `other` is different from this output.
+      # A text that tells how `other` is different from this output: the
+      # first line that differs in stdout and in stderr, and the status.
       def apart_from(other)
-        out = []
-        %i[stdout stderr].each do |what|
-          want, got = public_send(what).lines, other.public_send(what).lines
-          next if want == got
-
-          n = want.zip(got).index { |a, b| a != b }
-          out << if n && n < [want.size, got.size].min
-                   "#{what}: want #{want[n].chomp.inspect}, got #{got[n].chomp.inspect}"
-                 else
-                   "#{what}: want #{want.size} line(s), got #{got.size} -- #{(want[got.size] || got[want.size]).to_s.chomp.inspect}"
-                 end
+        out = %i[stdout stderr].filter_map do |what|
+          want = public_send(what).lines
+          got = other.public_send(what).lines
+          change = Zr::Diff.first_change(want, got) or next
+          _, a, b = change
+          if a && b
+            "#{what}: want #{a.chomp.inspect}, got #{b.chomp.inspect}"
+          else
+            "#{what}: want #{want.size} line(s), got #{got.size} -- #{(a || b).to_s.chomp.inspect}"
+          end
         end
         out << "#{status} vs #{other.status}" if status != other.status
         out.empty? ? "identical text, unequal bytes" : out.join("\n           ")
+      end
+
+      # A unified diff of stderr and of stdout for each that differs from
+      # `got`, then the status when it differs.
+      def diff(got)
+        out = %i[stderr stdout].filter_map do |part|
+          a = public_send(part).b
+          b = got.public_send(part).b
+          "--- expected #{part}\n+++ actual #{part}\n#{Zr::Diff.unified(a, b)}" unless a == b
+        end
+        out << "status: expected #{status}, actual #{got.status}" if status != got.status
+        out.join("\n")
       end
     end
   end

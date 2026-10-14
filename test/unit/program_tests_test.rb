@@ -100,16 +100,17 @@ class ProgramTestsTest < Minitest::Test
     end
   end
 
-  def test_the_diff_marks_each_line
-    lines = Programs::Diff.lines(%W[a\n b\n c\n], %W[a\n x\n c\n])
+  def test_an_answer_apart_from_another_names_its_first_different_line
+    want = Zr::Harness::Answer.new("1\n2\n", "", 0, nil)
 
-    assert_equal [" a\n", "-b\n", "+x\n", " c\n"], lines
+    assert_equal %(stdout: want "2", got "3"), want.apart_from(Zr::Harness::Answer.new("1\n3\n", "", 0, nil))
+    assert_equal %(stdout: want 2 line(s), got 1 -- "2"\n           exit 0 vs exit 1), want.apart_from(Zr::Harness::Answer.new("1\n", "", 1, nil))
   end
 
   def test_the_diff_of_two_answers_names_each_part_that_differs
     want = Zr::Harness::Answer.new("1\n", "", 0, nil)
     got = Zr::Harness::Answer.new("2\n", "", 1, nil)
-    diff = Programs::Diff.of(want, got)
+    diff = want.diff(got)
 
     assert_includes diff, "--- expected stdout"
     assert_includes diff, "-1\n+2\n"

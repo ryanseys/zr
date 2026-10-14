@@ -90,6 +90,10 @@ module Zr
     CONTEXT = 3
     # The mark at the start of each line of a hunk.
     MARKS = { same: " ", del: "-", ins: "+" }.freeze
+    # The most changes that a diff lists. The search keeps a row for each
+    # change that it takes, so its work grows as their square; past the
+    # cap, the diff shows the first change and the size of each side.
+    MAX_CHANGES = 1_000
 
     # A unified diff of two texts, as `diff -u` writes it without its two
     # header lines: hunks of `-` lines (only in `a`), `+` lines (only in
@@ -99,22 +103,43 @@ module Zr
     def unified(a, b)
       old = a.b.lines
       new = b.b.lines
-      edits = script(old, new)
-      return "" if edits.all? { |op, _, _| op == :same }
+      return "" if old == new
 
+      edits = script(old, new) or return capped(old, new)
       hunks(edits).map { |hunk| hunk_text(hunk, old, new) }.join
+    end
+
+    # `[i, a[i], b[i]]` for the first line `i` where the two lists differ,
+    # a side past its end giving nil; nil when they are the same.
+    #: (Array[String] a, Array[String] b) -> [Integer, String?, String?]?
+    def first_change(a, b)
+      i = (0...[a.size, b.size].max).find { |n| a[n] != b[n] } or return nil
+      [i, a[i], b[i]]
+    end
+
+    # One hunk of the first change, then a line that says how much the
+    # cap left out.
+    #: (Array[String] old, Array[String] new) -> String
+    def capped(old, new)
+      change = first_change(old, new) or return ""
+      i, a, b = change
+      out = +"@@ -#{range(i + 1, a ? 1 : 0)} +#{range(i + 1, b ? 1 : 0)} @@\n".b
+      out << marked("-", a) if a
+      out << marked("+", b) if b
+      out << "\\ more than #{MAX_CHANGES} changes in all: #{old.size} lines, then #{new.size}\n"
     end
 
     # The edit script from `old` to `new`: `[op, i, j]` for each line, where
     # op is :same (old[i] is new[j]), :del (old[i] only) or :ins (new[j]
     # only). Myers' algorithm: the shortest script, in O((N+M)D) time.
+    # Nil when it takes more than MAX_CHANGES changes.
     def script(old, new)
       n = old.size
       m = new.size
       max = n + m
       v = { 1 => 0 }
       trace = [] #: Array[Hash[Integer, Integer]]
-      (0..max).each do |d|
+      (0..[max, MAX_CHANGES].min).each do |d|
         trace << v.dup
         (-d..d).step(2) do |k|
           x = k == -d || (k != d && v[k - 1] < v[k + 1]) ? v[k + 1] : v[k - 1] + 1
@@ -127,7 +152,7 @@ module Zr
           return backtrack(trace, n, m) if x >= n && y >= m
         end
       end
-      []
+      nil
     end
 
     def backtrack(trace, x, y)
@@ -175,12 +200,15 @@ module Zr
       b_count = hunk.count { |o, _, _| o != :del }
       out = +"@@ -#{range(a_count.zero? ? a : a + 1, a_count)} +#{range(b_count.zero? ? b : b + 1, b_count)} @@\n".b
       hunk.each do |op, i, j|
-        line = op == :ins ? new[j] : old[i]
-        out << MARKS.fetch(op) << line
-        out << "\n\\ No newline at end of file\n" unless line.end_with?("\n")
+        out << marked(MARKS.fetch(op), op == :ins ? new[j] : old[i])
       end
       out
     end
+
+    # One line of a hunk after its mark, with diff's note when the line
+    # has no newline.
+    #: (String mark, String line) -> String
+    def marked(mark, line) = line.end_with?("\n") ? "#{mark}#{line}" : "#{mark}#{line}\n\\ No newline at end of file\n"
 
     # The line of one side (1 for old, 2 for new) where the hunk starts:
     # its first edit that has a line on that side. A hunk has context

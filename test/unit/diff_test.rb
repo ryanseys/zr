@@ -92,6 +92,21 @@ class DiffTest < Minitest::Test
     row.last
   end
 
+  # Past MAX_CHANGES, the search would grow as the square of the changes,
+  # so the diff shows the first change and the size of each side.
+  def test_a_diff_past_the_cap_shows_the_first_change
+    a = (1..600).map { |i| "a#{i}\n" }.join
+    b = (1..600).map { |i| "b#{i}\n" }.join
+
+    assert_equal ["@@ -1 +1 @@\n", "-a1\n", "+b1\n", "\\ more than 1000 changes in all: 600 lines, then 600\n"], Zr::Diff.unified(a, b).lines
+  end
+
+  def test_the_first_change_is_its_line_and_each_side
+    assert_nil Zr::Diff.first_change(%W[a\n b\n], %W[a\n b\n])
+    assert_equal [1, "b\n", "x\n"], Zr::Diff.first_change(%W[a\n b\n c\n], %W[a\n x\n c\n])
+    assert_equal [2, nil, "c\n"], Zr::Diff.first_change(%W[a\n b\n], %W[a\n b\n c\n])
+  end
+
   def test_the_report_shows_each_part_that_differs
     report = Zr::Diff.report(answer(stdout: "1\n"), answer(stdout: "2\n", status: 1))
 

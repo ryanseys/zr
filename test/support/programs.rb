@@ -58,7 +58,7 @@ module Zr
         return [:error, got.join(": ")] if got.is_a?(Array)
 
         same = %i[stdout stderr code signal].all? { |part| want.public_send(part) == got.public_send(part) }
-        same ? [:pass, nil] : [:fail, Diff.of(want, got)]
+        same ? [:pass, nil] : [:fail, want.diff(got)]
       end
 
       # The answer that `test` expects in `mode` (`MODES`), or `[:error,
@@ -101,61 +101,6 @@ module Zr
         when :pass then [:fail, "this now passes: take it off test/baselines/#{triple}.txt"]
         when :skip then [kind, detail]
         else [:skip, "the #{triple} baseline allows this: #{@allowed.fetch(test.rel)}"]
-        end
-      end
-
-      # A diff of two answers, part by part: unified lines for stdout and
-      # stderr, and the exit status when it differs.
-      module Diff
-        module_function
-
-        def of(want, got)
-          out = []
-          %i[stderr stdout].each do |part|
-            a = want.public_send(part).b
-            b = got.public_send(part).b
-            next if a == b
-
-            out << "--- expected #{part}\n+++ actual #{part}\n#{lines(a.lines, b.lines).join}"
-          end
-          out << "status: expected #{want.status}, actual #{got.status}" if want.status != got.status
-          out.join("\n")
-        end
-
-        # The lines of `a` and `b`, each marked ` `, `-` or `+`, from their
-        # longest common subsequence. Outputs of more than 2,000 lines
-        # compare only up to the first difference, with its context.
-        def lines(a, b)
-          return head(a, b) if a.size * b.size > 4_000_000
-
-          lcs = Array.new(a.size + 1) { Array.new(b.size + 1, 0) }
-          (a.size - 1).downto(0) do |i|
-            (b.size - 1).downto(0) do |j|
-              lcs[i][j] = a[i] == b[j] ? lcs[i + 1][j + 1] + 1 : [lcs[i + 1][j], lcs[i][j + 1]].max
-            end
-          end
-          i = j = 0
-          out = []
-          while i < a.size || j < b.size
-            if i < a.size && j < b.size && a[i] == b[j]
-              out << " #{a[i]}"
-              i += 1
-              j += 1
-            elsif i < a.size && (j == b.size || lcs[i + 1][j] >= lcs[i][j + 1])
-              out << "-#{a[i]}"
-              i += 1
-            else
-              out << "+#{b[j]}"
-              j += 1
-            end
-          end
-          out.map { |line| line.end_with?("\n") ? line : "#{line}\n\\ no newline at end\n" }
-        end
-
-        def head(a, b)
-          n = a.zip(b).index { |x, y| x != y } || [a.size, b.size].min
-          [*a[[n - 3, 0].max...n].map { |line| " #{line}" }, *(("-#{a[n]}") if a[n]), *(("+#{b[n]}") if b[n]),
-           "... (#{a.size} expected lines, #{b.size} actual lines)\n"]
         end
       end
     end
