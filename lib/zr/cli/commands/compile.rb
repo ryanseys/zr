@@ -275,7 +275,7 @@ module Zr
           cache = @missed || kept_run(target, opts[:args], &entry) if name == "run" && emit.nil?
           require_relative "../../runtime"
           require_relative "../../native/build"
-          # Under ruby, lib/zr/parse.rb turns the parse cache on. A compiled
+          # Under ruby, the first parse turns the parse cache on (`Zr.parse_cache`). A compiled
           # compiler turns it on here. A program that calls eval includes the
           # same files but never comes here, so it never writes to the cache.
           require_relative "../../cache/parse" if Binary.running?
