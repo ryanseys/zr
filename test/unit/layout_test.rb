@@ -59,6 +59,19 @@ class LayoutTest < Minitest::Test
     assert_empty ci.scan(/--branch v\d/), "the prism tag CI reads"
   end
 
+  # Each workflow that installs wasmtime pins the version that the tests
+  # are run with.
+  def test_ci_installs_the_wasmtime_of_the_harness
+    require_relative "../support/harness/wasmtime"
+    Dir[File.join(ROOT, ".github/workflows/*.yml")].each do |path|
+      yml = File.read(path)
+      next unless yml.include?("wasmtime/setup@")
+
+      assert_equal [Zr::Harness::Wasmtime::VERSION], yml.scan(/^\s*WASMTIME_VERSION: (\S+)$/).flatten, path.delete_prefix("#{ROOT}/")
+      assert_equal yml.scan("wasmtime/setup@").size, yml.scan("version: ${{ env.WASMTIME_VERSION }}").size, "each setup in #{path} takes the version"
+    end
+  end
+
   # CI fetches CRuby and prism through .github/scripts/fetch_sources.rb,
   # which reads the record and the vendor lock, so no workflow names them.
   def test_ci_fetches_the_c_sources_through_one_script

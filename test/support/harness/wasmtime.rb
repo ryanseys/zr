@@ -19,6 +19,10 @@ module Zr
     # `lib` does not use this: `zr run` starts wasmtime with its defaults.
     module Wasmtime
       COMPILERS = %w[winch cranelift].freeze
+      # The wasmtime that the tests are run with: CI installs this version
+      # (`WASMTIME_VERSION` in each workflow; layout_test checks that they
+      # agree).
+      VERSION = "49.0.2"
 
       module_function
 

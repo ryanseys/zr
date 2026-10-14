@@ -97,7 +97,8 @@ class WasmTest < Minitest::Test
 
   # Initialized data goes before bss, and adjacent objects share a
   # segment. A module that includes the compiler has about 90,000 data
-  # objects, and wasmtime 48 cannot compile more than 65,535 segments.
+  # objects, and wasmtime 48 could not compile more than 65,535 segments
+  # (backend/wasm/codegen.rb, SEGMENT_GAP).
   def test_data_objects_share_a_segment
     functions, data = Zr::Machine.compile(IMPORTED, "imported.rb")
     data += 100.times.flat_map do |i|

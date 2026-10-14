@@ -24,6 +24,10 @@ on:
 permissions:
   contents: read
 
+# The wasmtime of the release checks (test/support/harness/wasmtime.rb, VERSION).
+env:
+  WASMTIME_VERSION: 49.0.2
+
 jobs:
   release:
     runs-on: macos-15
@@ -48,6 +52,8 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
+        with:
+          version: ${{ env.WASMTIME_VERSION }}
 
       # The tag names the version in lib/zr/version.rb, and CHANGELOG.md
       # has a dated section for it, which becomes the release notes.

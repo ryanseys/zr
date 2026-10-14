@@ -54,10 +54,11 @@ module Zr
         SCRATCH = 16
         DATA_BASE = 32
         STACK_PAGES = 16
-        # Data objects at most this many bytes apart share a segment.
-        # wasmtime 48 checks each segment against its own alias region in the
-        # module's startup function, and a function can have at most 65,535
-        # regions. wasm itself allows 100,000 segments.
+        # Data objects at most this many bytes apart share a segment. wasm
+        # allows 100,000 segments, and a module with eval support has about
+        # 90,000 data objects. wasmtime 48 could not compile more than 65,535
+        # segments; 49.0.2 compiles 70,000, but each segment is still a copy
+        # at the module's start.
         SEGMENT_GAP = 16
 
         TYPE = { "i8" => 0x7F, "i32" => 0x7F, "i64" => 0x7E, "f64" => 0x7C }.freeze #: Hash[String, Integer]
