@@ -25,9 +25,9 @@ module Zr
       class Tree
         # @rbs @file: String
         # @rbs @frame: Binding
-        # @rbs @once: Hash[Hir::Once, untyped]?
+        # @rbs @once: Hash[Hir::Once, value]?
         # @rbs @regexps: Hash[Hir::RegexpLit | Hir::RegexpOnce, Regexp]?
-        # @rbs @svars: untyped
+        # @rbs @svars: svars?
 
         # A form that the interpreter does not support yet, with its
         # location. The contract lets zr refuse, but not guess.
@@ -45,9 +45,10 @@ module Zr
         # A signal that carries a value to the frame that its tag names.
         # Each kind's MESSAGE is ruby's error when no frame takes it.
         class Jump < Signal
-          attr_reader :value, :tag #: untyped
+          attr_reader :value #: value
+          attr_reader :tag #: Integer?
 
-          #: (untyped value, untyped tag) -> void
+          #: (value value, Integer? tag) -> void
           def initialize(value, tag)
             @value = value
             @tag = tag
@@ -68,9 +69,9 @@ module Zr
         end
 
         class Redoing < Signal
-          attr_reader :tag #: untyped
+          attr_reader :tag #: Integer?
 
-          #: (untyped tag) -> void
+          #: (Integer? tag) -> void
           def initialize(tag)
             @tag = tag
             super("unexpected redo")
@@ -86,7 +87,7 @@ module Zr
         # makes is a Hash. The scopes outside an eval belong to the calling
         # frame, and `Held` reads them through its `Binding`.
         class Scope
-          # @rbs @values: Hash[Symbol, untyped]
+          # @rbs @values: Hash[Symbol, value]
 
           #: (Array[Symbol] names) -> void
           def initialize(names)
@@ -96,9 +97,9 @@ module Zr
 
           #: (Symbol name) -> bool
           def holds?(name) = @values.key?(name)
-          #: (Symbol name) -> untyped
+          #: (Symbol name) -> value
           def get(name) = @values[name]
-          #: (Symbol name, untyped value) -> untyped
+          #: (Symbol name, value value) -> value
           def set(name, value) = @values[name] = value
           #: () -> Array[Symbol]
           def names = @values.keys
@@ -124,13 +125,13 @@ module Zr
           #: () -> Array[Symbol]
           def names = @names.compact
 
-          #: (Symbol name) -> untyped
+          #: (Symbol name) -> value
           def get(name)
             i = @names.index(name) or return nil
             World.binding_get(@binding, @depth, i)
           end
 
-          #: (Symbol name, untyped value) -> untyped
+          #: (Symbol name, value value) -> value
           def set(name, value)
             i = @names.index(name) or return value
             World.binding_set(@binding, @depth, i, value)
@@ -158,7 +159,7 @@ module Zr
         end
 
         # Runs `hir` in `ctx` and returns the value of its body.
-        #: (Hir::Program hir, Ctx ctx) -> untyped
+        #: (Hir::Program hir, Ctx ctx) -> value
         def run(hir, ctx) = walk(hir.body, ctx)
 
         def walk(node, ctx)
@@ -392,9 +393,9 @@ module Zr
 
         # An array literal, or the positional arguments of a call. A
         # `*splat` spreads in its position.
-        #: (Array[Hir::node] nodes, Ctx ctx) -> Array[untyped]
+        #: (Array[Hir::node] nodes, Ctx ctx) -> Array[value]
         def elements(nodes, ctx)
-          out = [] #: Array[untyped]
+          out = [] #: Array[value]
           nodes.each do |n|
             if n.is_a?(Hir::Splat)
               value = walk(n.value, ctx)
@@ -418,9 +419,9 @@ module Zr
 
         # `{k => v, **h}`: the pairs are flat, key then value. A double
         # splat is a key with a nil value.
-        #: (Array[Hir::node?] pairs, Ctx ctx) -> Hash[untyped, untyped]
+        #: (Array[Hir::node?] pairs, Ctx ctx) -> Hash[value, value]
         def hash_lit(pairs, ctx)
-          out = {} #: Hash[untyped, untyped]
+          out = {} #: Hash[value, value]
           i = 0
           while i < pairs.size
             key = pairs[i]
@@ -603,16 +604,16 @@ module Zr
         # One send. `vcall` marks a bare identifier: if no method is found,
         # the error is a NameError, not a NoMethodError. `breaks` is the
         # block literal of this call; a `break` in it returns from this call.
-        # @rbs recv: untyped
+        # @rbs recv: value
         # @rbs name: Symbol
-        # @rbs args: Array[untyped]
-        # @rbs kwargs: Hash[Symbol, untyped]?
+        # @rbs args: Array[value]
+        # @rbs kwargs: Hash[Symbol, value]?
         # @rbs block: Proc?
         # @rbs private: bool
         # @rbs vcall: bool
         # @rbs breaks: Hir::Block | false | nil
-        # @rbs svars: untyped
-        # @rbs return: untyped
+        # @rbs svars: svars?
+        # @rbs return: value
         def call(recv, name, args, kwargs, block, private:, vcall: false, breaks: nil, svars: nil)
           tag = breaks && breaks.__id__
           if svars
@@ -637,7 +638,7 @@ module Zr
         # and `$_` of this frame, so the frame takes them from the walked
         # code's cell first and gives them back after. A block sees each
         # match that the method makes before it yields (`gsub { $1 }`).
-        #: (untyped recv, Symbol name, Array[untyped] args, Hash[Symbol, untyped]? kwargs, untyped block, bool private, untyped cell) -> untyped
+        #: (value recv, Symbol name, Array[value] args, Hash[Symbol, value]? kwargs, Proc? block, bool private, svars cell) -> value
         def svar_send(recv, name, args, kwargs, block, private, cell)
           $~ = cell[0]
           $_ = cell[1]
@@ -686,14 +687,14 @@ module Zr
         # `home` and `here` are crefs (`World.cref`).
         # @rbs node: Hir::Block
         # @rbs ctx: Ctx
-        # @rbs args: Array[untyped]
-        # @rbs kwargs: Hash[Symbol, untyped]?
+        # @rbs args: Array[value]
+        # @rbs kwargs: Hash[Symbol, value]?
         # @rbs blk: Proc?
         # @rbs lambda: bool
-        # @rbs home: untyped
-        # @rbs here: untyped
-        # @rbs self_: untyped
-        # @rbs return: untyped
+        # @rbs home: cref
+        # @rbs here: cref
+        # @rbs self_: value
+        # @rbs return: value
         def run_block(node, ctx, args, kwargs, blk, lambda:, home: nil, here: nil, self_: nil)
           ctx = ctx.with(self_: self_, cref: here, name: nil, owner: nil, home: nil) if here && !World.same?(here, home)
           tag = node.__id__
@@ -841,14 +842,14 @@ module Zr
           value
         end
 
-        #: (Hir::MultiTarget target, Array[untyped] values, Ctx ctx) -> Array[untyped]
+        #: (Hir::MultiTarget target, Array[value] values, Ctx ctx) -> Array[value]
         def spread(target, values, ctx)
           values = values.dup
           target.lefts.each { |t| write_target(t, values.shift, ctx) }
           rest = target.rest
           if rest
             take = values.size - target.rights.size
-            taken = [] #: Array[untyped]
+            taken = [] #: Array[value]
             taken = values.shift(take) if take.positive?
             write_target(rest, taken, ctx) unless rest == :implicit
           end
@@ -883,7 +884,7 @@ module Zr
         def yield_node(node, ctx)
           block = ctx.block or raise ::LocalJumpError, "no block given (yield)"
           args = elements(node.args, ctx)
-          kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil #: Hash[Symbol, untyped]?
+          kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil #: Hash[Symbol, value]?
           kwargs.nil? || kwargs.empty? ? block.call(*args) : block.call(*args, **kwargs)
         end
 
@@ -904,7 +905,7 @@ module Zr
         # In a method that the string defines, `super` starts after that
         # method's owner. Elsewhere it belongs to the method of the frame
         # that called eval.
-        #: (Ctx ctx, Array[untyped] args, Hash[Symbol, untyped]? kwargs, (^(*untyped) -> untyped)? block) -> untyped
+        #: (Ctx ctx, Array[value] args, Hash[Symbol, value]? kwargs, (^(*value) -> value)? block) -> value
         def call_super(ctx, args, kwargs, block)
           name, owner = super_of(ctx)
           raise ::NoMethodError, "super called outside of method" unless name && owner
@@ -938,7 +939,7 @@ module Zr
 
         # The next method `name` after `owner` in the ancestors of `self_`,
         # or nil.
-        #: (untyped self_, Symbol name, Module owner) -> UnboundMethod?
+        #: (value self_, Symbol name, Module owner) -> UnboundMethod?
         def super_method(self_, name, owner)
           chain = self_.class.ancestors
           chain = self_.singleton_class.ancestors if self_.singleton_class.ancestors.include?(owner)
@@ -1012,7 +1013,7 @@ module Zr
           recv = walk(node.recv, ctx)
           return nil if node.safe && recv.nil?
 
-          none = [] #: Array[untyped]
+          none = [] #: Array[value]
           current = call(recv, node.name, none, nil, nil, private: private_call?(node))
           return current if short_circuit?(node.op, current)
 
@@ -1043,10 +1044,10 @@ module Zr
 
         # `END { }`: the body runs only the first time that execution gets
         # to the site.
-        #: (Hir::Once node, Ctx ctx) -> untyped
+        #: (Hir::Once node, Ctx ctx) -> value
         def once(node, ctx)
           once = @once ||= begin
-            seen = {} #: Hash[Hir::Once, untyped]
+            seen = {} #: Hash[Hir::Once, value]
             seen.compare_by_identity
           end
           return once[node] if once.key?(node)
@@ -1059,8 +1060,8 @@ module Zr
         # and a lambda do it, a block does not.
         # @rbs params: Hir::Params
         # @rbs scope: Scope
-        # @rbs args: Array[untyped]
-        # @rbs kwargs: Hash[Symbol, untyped]?
+        # @rbs args: Array[value]
+        # @rbs kwargs: Hash[Symbol, value]?
         # @rbs blk: Proc?
         # @rbs ctx: Ctx
         # @rbs strict: bool
@@ -1111,7 +1112,7 @@ module Zr
           scope.set(name, value)
         end
 
-        #: (Hir::Params params, Scope scope, Hash[Symbol, untyped] kwargs, Ctx ctx, strict: bool) -> untyped
+        #: (Hir::Params params, Scope scope, Hash[Symbol, value] kwargs, Ctx ctx, strict: bool) -> value
         def bind_keywords(params, scope, kwargs, ctx, strict:)
           rest = kwargs.dup
           params.keywords.each do |name, default|

@@ -2,6 +2,11 @@
 module Zr
   module Machine
     class Function
+      # An expression lowered: an IR value name, nil for a Void, and a
+      # Machine type name. The lowering tests the type, not the value, so
+      # the value is untyped.
+      type typed = [untyped, String]
+
       # `enter_roots` sets `count` and `fill_at` just after it makes the
       # record.
       class Roots < Struct[untyped]

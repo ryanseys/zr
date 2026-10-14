@@ -44,14 +44,14 @@ module Zr
         # @rbs @qfalse: Integer
         # @rbs @qundef: Integer
         # @rbs @ids: Hash[Symbol, Integer]
-        # @rbs @sites: Hash[untyped, Integer]
-        # @rbs @cells: Hash[untyped, Hash[Symbol, Integer]]
-        # @rbs @metas: Hash[untyped, Integer]
+        # @rbs @sites: Hash[Hir::node, Integer]
+        # @rbs @cells: Hash[Hir::node, Hash[Symbol, Integer]]
+        # @rbs @metas: Hash[Hir::node | Hir::Program | Hir::Unit, Integer]
         # @rbs @fns: Hash[untyped, untyped]
         # @rbs @tables: Hash[Array[Integer], Integer]
         # @rbs @rescues: Hash[Integer, Hash[Integer, Array[Integer]]]
         # @rbs @ensure_path: Symbol
-        # @rbs @once: Hash[untyped, untyped]
+        # @rbs @once: Hash[Hir::node, Integer]
         # @rbs @scratch: Integer
         # @rbs @scratch_size: Integer
         # @rbs @task_slot: Integer
@@ -201,16 +201,16 @@ module Zr
           @ids = {}
           @file_spots = {}
           @sites = Hash.new { |h, node| h[node] = h.size + 1 }.compare_by_identity
-          @cells = {} #: Hash[untyped, Hash[Symbol, Integer]]
+          @cells = {} #: Hash[Hir::node, Hash[Symbol, Integer]]
           @cells.compare_by_identity
-          @metas = {} #: Hash[untyped, Integer]
+          @metas = {} #: Hash[Hir::node | Hir::Program | Hir::Unit, Integer]
           @metas.compare_by_identity
           @fns = {} #: Hash[untyped, untyped]
           @fns.compare_by_identity
           @tables = {}
           @rescues = {}
           @ensure_path = :none
-          @once = {} #: Hash[untyped, untyped]
+          @once = {} #: Hash[Hir::node, Integer]
           @once.compare_by_identity
           @spellings = {} #: Hash[untyped, Spelling]
           @spellings.compare_by_identity

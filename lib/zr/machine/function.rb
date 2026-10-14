@@ -190,9 +190,9 @@ module Zr
 
       # The value and type of a statement list: those of the last
       # statement. `want` applies only to the last statement.
-      #: (Prism::StatementsNode node, ?String? want) -> [untyped, String]
+      #: (Prism::StatementsNode node, ?String? want) -> typed
       def statements(node, want = nil)
-        last = [nil, "Void"] #: [untyped, String]
+        last = [nil, "Void"] #: typed
         node.body.each_with_index do |s, i|
           last = expr(s, i == node.body.size - 1 ? want : nil)
           break if @f.terminated?
@@ -201,7 +201,7 @@ module Zr
       end
 
       # Returns `[value, type]`. `want` gives the type of a literal here.
-      #: (Prism::node? node, ?String? want) -> [untyped, String]
+      #: (Prism::node? node, ?String? want) -> typed
       def expr(node, want = nil)
         case node
         when Prism::StatementsNode then statements(node, want)
@@ -274,7 +274,7 @@ module Zr
         [@f.iconst(ir_type(type), n), type]
       end
 
-      #: (Prism::CallNode node, String? want) -> [untyped, String]
+      #: (Prism::CallNode node, String? want) -> typed
       def call(node, want)
         args = node.arguments&.arguments || []
         if node.receiver.nil?
@@ -321,7 +321,7 @@ module Zr
 
       # `view.field` and `view.field = value`, where `view` is `Name[p]`
       # or a local, a parameter or a field that holds a view.
-      #: (Prism::CallNode node, Prism::node receiver, Array[Prism::node] args) -> [untyped, String]
+      #: (Prism::CallNode node, Prism::node receiver, Array[Prism::node] args) -> typed
       def view_field(node, receiver, args)
         ptr, pt = expr(receiver)
         layout = view(pt) or refuse(node, "a call with a receiver that is not Machine or a struct")
@@ -336,7 +336,7 @@ module Zr
       # field of a layout type is read as its address, which is a view of
       # that layout when `view` is set (`RObject[o].iv` is an IvTab).
       # `at` is the node of the address, for the write barrier.
-      #: (Prism::CallNode node, Layout layout, String fname, String ptr, Prism::node? at, Prism::node? value_node, view: bool) -> [untyped, String]
+      #: (Prism::CallNode node, Layout layout, String fname, String ptr, Prism::node? at, Prism::node? value_node, view: bool) -> typed
       def access(node, layout, fname, ptr, at, value_node, view:)
         off, type = layout.fields.fetch(fname) { refuse(node, "#{layout.name} has no field #{fname}") }
         if @unit.struct_for(type)
@@ -714,7 +714,7 @@ module Zr
 
       # A call to an import (`Libc.name`) or to a def of this unit. A bare
       # call goes only to a def or a raw function.
-      #: (Prism::CallNode node, String name, Array[Prism::node] args, ?imports: bool) -> [untyped, String]
+      #: (Prism::CallNode node, String name, Array[Prism::node] args, ?imports: bool) -> typed
       def target(node, name, args, imports: true)
         callee = @unit.def_for(name) || @unit.import_for(name)
         callee = nil if !imports && callee.is_a?(Import)
@@ -752,7 +752,7 @@ module Zr
       # a small def) jumps with its value to a block after the body. The
       # last value of the body also jumps there. The parameter of that
       # block is the result of the call.
-      #: (Def d, Array[untyped] values) -> [untyped, String]
+      #: (Def d, Array[untyped] values) -> typed
       def inline(d, values)
         # @type ivar @exit: Exit
         outer = [@locals, @d, @roots, @exit] #: [Hash[String, { type: String, addr: String }], Def, Roots?, Exit]
@@ -777,7 +777,7 @@ module Zr
             @f.switch(exit_block, open: true)
             value = @exit.value
           end
-          d.ret == "Void" ? [nil, "Void"] : [value, d.ret] #: [untyped, String]
+          d.ret == "Void" ? [nil, "Void"] : [value, d.ret] #: typed
         ensure
           @inlining.pop
           @locals, @d, @roots, @exit = outer
@@ -800,7 +800,7 @@ module Zr
       # A call through the pointer `at` with the signature `s`:
       # `Name.call(at, ...)`.
       # `rest` is empty when `at` is nil, and then the first line refuses.
-      #: (Prism::CallNode node, Signature s, Prism::node? at, Array[Prism::node] rest) -> [untyped, String]
+      #: (Prism::CallNode node, Signature s, Prism::node? at, Array[Prism::node] rest) -> typed
       def indirect(node, s, at, rest)
         ptr, pt = expr(at || refuse(node, "#{s.name}.call takes a pointer first"), "Ptr")
         refuse(at, "#{s.name}.call through a #{pt}") unless fits?("Ptr", pt)
@@ -849,6 +849,8 @@ module Zr
       # `[value, type]` of an expression that a branch can test: a Bool.
       # CRuby takes every Integer as true, 0 too, so a test of an integer
       # would mean another thing on the host; it compares instead.
+      # (Its pair is spelled out: `truth(*condition_value(x))` splats it,
+      # and steep does not splat an alias.)
       #: (Prism::node? node) -> [untyped, String]
       def condition_value(node)
         value, type = expr(node)
@@ -860,7 +862,7 @@ module Zr
       # arms lower before the shape of the merge block is known, so their
       # jumps are written last. `then_stmts` is the then arm. `else_part`
       # is the statements of the else arm, an elsif, or nil.
-      #: (Prism::IfNode | Prism::UnlessNode node, String? want, Prism::StatementsNode? then_stmts, Prism::node? else_part) -> [untyped, String]
+      #: (Prism::IfNode | Prism::UnlessNode node, String? want, Prism::StatementsNode? then_stmts, Prism::node? else_part) -> typed
       def branch(node, want, then_stmts, else_part)
         # @type var tv: untyped
         # @type var ev: untyped

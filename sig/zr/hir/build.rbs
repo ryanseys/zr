@@ -1,0 +1,19 @@
+# The node kinds that the literal helpers of lib/zr/hir/build/literals.rb
+# take. Their callers dispatch on `node.type`, which steep cannot narrow.
+module Zr
+  module Hir
+    class Build
+      # A regexp literal: plain or interpolated, alone or as a condition
+      # (`if /x/`), which matches `$_`.
+      type regexp_node = Prism::RegularExpressionNode | Prism::InterpolatedRegularExpressionNode
+                       | Prism::MatchLastLineNode | Prism::InterpolatedMatchLastLineNode
+
+      # A regexp literal with interpolated parts.
+      type interpolated_regexp = Prism::InterpolatedRegularExpressionNode | Prism::InterpolatedMatchLastLineNode
+
+      # A literal whose parts Interp joins.
+      type interpolated = Prism::InterpolatedStringNode | Prism::InterpolatedSymbolNode | Prism::InterpolatedXStringNode
+                        | interpolated_regexp
+    end
+  end
+end

@@ -64,7 +64,7 @@ module Zr
           # @rbs @kern: untyped
           # @rbs @qnil: Integer
           # @rbs @qundef: Integer
-          # @rbs @metas: Hash[untyped, Integer]
+          # @rbs @metas: Hash[Hir::node | Hir::Program | Hir::Unit, Integer]
           # @rbs @rescues: Hash[Integer, Hash[Integer, Array[Integer]]]
           # @rbs @record: Integer
           # @rbs @line_at: Integer

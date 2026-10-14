@@ -48,13 +48,13 @@ module Zr
 
       # Whether prism found a string static (`"a" "b"`, a heredoc with no
       # interpolation). `static_text` joins its parts.
-      #: (untyped node) -> bool
+      #: (Prism::InterpolatedStringNode node) -> bool
       def static_string?(node)
         node.parts.all? { |part| part.is_a?(Prism::StringNode) || (part.is_a?(Prism::InterpolatedStringNode) && static_string?(part)) }
       end
 
-      #: (untyped node) -> String
-      def static_text(node) = node.parts.map { |part| part.is_a?(Prism::StringNode) ? unescaped(part) : static_text(part) }.join
+      #: (Prism::InterpolatedStringNode node) -> String
+      def static_text(node) = node.parts.map { |part| part.is_a?(Prism::InterpolatedStringNode) ? static_text(part) : unescaped(part) }.join
 
       # A string part's text with ruby's encoding: a \u escape makes it
       # UTF-8, and a non-ASCII \x escape in a US-ASCII file makes it
@@ -318,14 +318,14 @@ module Zr
       # A regexp literal's option bits, as Regexp.new takes them.
       # `i`, `x` and `m`, then the two encoding bits: `n` declares the
       # pattern encoding-agnostic, and `e`, `s` and `u` pin it to one.
-      #: (untyped node) -> Integer
+      #: (regexp_node node) -> Integer
       def regexp_options(node)
         (node.ignore_case? ? 1 : 0) | (node.extended? ? 2 : 0) | (node.multi_line? ? 4 : 0) |
           (flag_encoding(node) ? 16 : 0) | (node.ascii_8bit? ? 32 : 0)
       end
 
       # The encoding that a flag letter sets for the pattern, or nil.
-      #: (untyped node) -> Encoding?
+      #: (regexp_node node) -> Encoding?
       def flag_encoding(node)
         if node.euc_jp? then ::Encoding::EUC_JP
         elsif node.windows_31j? then ::Encoding::Windows_31J
@@ -338,7 +338,7 @@ module Zr
       # has it. A pattern with an escaped byte past ASCII in a source that
       # is not UTF-8 is binary, as Prism marks it (reg_fragment_setenc).
       # nil reads it as UTF-8.
-      #: (untyped node) -> Encoding?
+      #: (regexp_node node) -> Encoding?
       def regexp_encoding(node)
         flag = flag_encoding(node)
         return flag if flag
@@ -392,7 +392,7 @@ module Zr
       # literal that is all of an interpolation, before the program runs
       # (parse_regexp_string_part). It joins the fragments that follow
       # each other, which raises for two encodings that do not mix.
-      #: (untyped node, Encoding? pinned) -> void
+      #: (interpolated_regexp node, Encoding? pinned) -> void
       def check_fragments(node, pinned)
         joined = nil #: String?
         text_part = false
@@ -419,7 +419,7 @@ module Zr
       # String literals of encodings that do not mix raise as a join of
       # Strings does; with text of the pattern among them, a byte past
       # ASCII next to a UTF-8 character is the parser's error.
-      #: (untyped node, String joined, String text, bool text_part) -> String
+      #: (interpolated_regexp node, String joined, String text, bool text_part) -> String
       def joined_fragment(node, joined, text, text_part)
         joined + text
       rescue ::Encoding::CompatibilityError
@@ -429,7 +429,7 @@ module Zr
       end
 
       # The text of a literal fragment, or nil for an interpolation.
-      #: (untyped node, Prism::node part, Encoding? pinned) -> String?
+      #: (interpolated_regexp node, Prism::node part, Encoding? pinned) -> String?
       def fragment_text(node, part, pinned)
         if part.is_a?(Prism::EmbeddedStatementsNode) && (body = part.statements&.body) && body.size == 1 && body[0].is_a?(Prism::StringNode)
           part = body[0]
@@ -447,7 +447,7 @@ module Zr
       # fragment alone is often no whole pattern (`(`), which is no error.
       # Its warnings are dropped: ruby warns for the whole pattern, where a
       # fragment's `]` can close a class that another fragment opened.
-      #: (untyped node, String text) -> void
+      #: (interpolated_regexp node, String text) -> void
       def check_fragment(node, text)
         read_pattern(text, regexp_options(node) & 2)
       rescue RegexpError => e
@@ -561,7 +561,7 @@ module Zr
 
       # The parts of an interpolated string, each a String or the value
       # of an embedded expression.
-      #: (untyped node, Integer line) -> Interp
+      #: (interpolated node, Integer line) -> Interp
       def interpolation(node, line)
         parts = node.parts.map do |part|
           case part

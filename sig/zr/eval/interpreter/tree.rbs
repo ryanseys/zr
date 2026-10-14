@@ -3,6 +3,13 @@ module Zr
   class Eval
     class Interpreter < Eval
       class Tree
+        # Any object of the program that the interpreter walks.
+        type value = untyped
+        # A lexical scope of the kernel, as World.cref gives it.
+        type cref = untyped
+        # The `[$~, $_]` cell of a method or a body that a string defines.
+        type svars = [MatchData?, String?]
+
         # Jump has no MESSAGE of its own: each subclass names ruby's.
         class Jump < Signal
           MESSAGE: String
@@ -11,17 +18,17 @@ module Zr
         # `self_` is any object, and `cref` is the kernel's lexical scope.
         # `tag` and `home` are the `__id__` of a node.
         class Ctx < Data
-          attr_reader self_: untyped
-          attr_reader cref: untyped
+          attr_reader self_: value
+          attr_reader cref: cref
           attr_reader chain: Array[Scope | Held]
           attr_reader block: Proc?
           attr_reader name: Symbol?
           attr_reader owner: Module?
-          attr_reader args: Array[untyped]?
-          attr_reader kwargs: Hash[Symbol, untyped]?
+          attr_reader args: Array[value]?
+          attr_reader kwargs: Hash[Symbol, value]?
           attr_reader tag: Integer?
           attr_reader home: Integer?
-          attr_reader svars: untyped
+          attr_reader svars: svars?
 
           def self.new: (*untyped) -> instance
                       | (**untyped) -> instance
