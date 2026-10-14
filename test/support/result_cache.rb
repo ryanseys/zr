@@ -33,7 +33,7 @@ module Zr
       TREES = %w[lib vendor gems tool test].freeze
       # The variables that pick or report tests, and so leave a result as
       # it is.
-      SELECTION = %w[ZR_PROGRAMS ZR_TEST_FRESH ZR_TEST_FAIL_FAST ZR_TEST_TMP ZR_TEST_BY_HAND ZR_TOP_GEMS].freeze
+      SELECTION = %w[ZR_PROGRAMS ZR_TEST_FRESH ZR_TEST_FAIL_FAST ZR_TEST_TMP ZR_TEST_ALL].freeze
       # The paths that no program test reads: the programs themselves (each
       # test's own files are in its key), the docs, the other test tiers,
       # the benchmarks, the type signatures and the repository's own files.

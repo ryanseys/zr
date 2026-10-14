@@ -45,13 +45,6 @@ module Zr
       #: () -> bool
       def supported? = HOSTS.any?(&:native?)
 
-      # Whether the run builds and runs the C extension of each top gem
-      # (test/ext/top_gems_test.rb). Those take more time than all other
-      # tests, so only a run that asks for them has them:
-      # `ZR_TOP_GEMS=1 bin/zr-dev test test/ext/top_gems_test.rb`.
-      #: () -> bool
-      def top_gems? = Zr::Test.flag?("ZR_TOP_GEMS")
-
       # `libruby` links the bundle with ruby's shared library, as mkmf
       # does under a ruby built with --enable-shared.
       #: (String name, String source, ?libruby: bool) -> Built

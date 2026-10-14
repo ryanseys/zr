@@ -12,8 +12,8 @@ require_relative "../support/harness/reference"
 # under ZR_GC_STRESS.
 #
 # Each gem builds its C extension, so these take more time than all other
-# tests: a run has them only with ZR_TOP_GEMS=1 (Zr::Test::CExt.top_gems?),
-# `ZR_TOP_GEMS=1 bin/zr-dev test test/ext/top_gems_test.rb`.
+# tests: a run has them only with ZR_TEST_ALL=1,
+# `ZR_TEST_ALL=1 bin/zr-dev test test/ext/top_gems_test.rb`.
 class CExtTopGemsTest < Minitest::Test
   Reference = Zr::Harness::Reference
 
@@ -413,7 +413,7 @@ RUBY
     skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?
   end
 
-  (Zr::Test::CExt.top_gems? ? PROGRAMS : {}).each do |name, program|
+  (Zr::Test.flag?("ZR_TEST_ALL") ? PROGRAMS : {}).each do |name, program|
     RUNS.each do |suffix, env|
       next if UNSTRESSED.include?(name) && env.key?("ZR_GC_STRESS")
 

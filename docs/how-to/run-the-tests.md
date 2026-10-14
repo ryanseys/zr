@@ -58,7 +58,7 @@ gems need, and runs it in zr, so together they take more time than all
 other tests. Run them by hand after a change to the C API:
 
 ```console
-$ ZR_TOP_GEMS=1 bin/zr-dev test test/ext/top_gems_test.rb
+$ ZR_TEST_ALL=1 bin/zr-dev test test/ext/top_gems_test.rb
 ```
 
 The same is true of each test that takes minutes for code that the
@@ -67,7 +67,7 @@ builds the runtime three times. Run them by hand after a change to that
 code:
 
 ```console
-$ ZR_TEST_BY_HAND=1 bin/zr-dev test test/unit/core_cache_test.rb
+$ ZR_TEST_ALL=1 bin/zr-dev test test/unit/core_cache_test.rb
 ```
 
 ## Run some tests

@@ -1,0 +1,40 @@
+name: Long tests
+
+# The tests that a run has only with ZR_TEST_ALL (docs/reference/
+# environment-variables.md): each top gem's C extension, and the tests
+# that take minutes. Once a week, and by hand. CI does not run them, so
+# .github/scripts/ci_passed.rb never waits for this workflow.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# The wasmtime of every job (test/support/harness/wasmtime.rb, VERSION).
+env:
+  WASMTIME_VERSION: 49.0.2
+
+jobs:
+  long:
+    name: long tests (macOS arm64)
+    runs-on: macos-15
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1.326.0
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - uses: bytecodealliance/actions/wasmtime/setup@9152e710e9f7182e4c29ad218e4f335a7b203613 # v1
+        with:
+          version: ${{ env.WASMTIME_VERSION }}
+      - uses: ./.github/actions/runtime-cache
+      - uses: ./.github/actions/reference
+      - name: Build the runtime
+        run: bundle exec rake build
+      - name: Run the long tests
+        run: ZR_TEST_ALL=1 bin/minitest test/unit/core_cache_test.rb test/ext/top_gems_test.rb

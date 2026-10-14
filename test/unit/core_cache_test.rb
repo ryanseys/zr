@@ -36,8 +36,8 @@ class CoreCacheTest < Minitest::Test
   end
 
   # It builds the runtime three times, which takes minutes, so only a run
-  # by hand has it: `ZR_TEST_BY_HAND=1 bin/zr-dev test test/unit/core_cache_test.rb`.
-  if Zr::Test.flag?("ZR_TEST_BY_HAND")
+  # that asks has it: `ZR_TEST_ALL=1 bin/zr-dev test test/unit/core_cache_test.rb`.
+  if Zr::Test.flag?("ZR_TEST_ALL")
     def test_an_edit_takes_the_other_files_from_entries_and_gives_the_same_object
       kept = File.join(@work, "kept")
       object(kept, "", code_cache: true) # writes the entries

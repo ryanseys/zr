@@ -84,10 +84,11 @@ Zr::Test::Pending.reasons
 # `method_name_collision_test.rb` refuses that collision.
 module Checks
   # The limits for a program that a test runs: Harness::Child::SECONDS,
-  # and the resident megabytes. A program that goes past a limit is killed, and the test
-  # fails. The wasmtime `max-memory-size` option limits only the linear
-  # memory of the module, so the harness watches the resident size.
-  RESIDENT = Integer(ENV.fetch("ZR_TEST_RESIDENT_MB", 2048))
+  # and resident megabytes, Harness::Child::BUILD_MB unless the call
+  # passes its own, as a test's child often builds. A program that goes
+  # past a limit is killed, and the test fails. The wasmtime
+  # `max-memory-size` option limits only the linear memory of the module,
+  # so the harness watches the resident size.
 
   extend Zr::Test::Stubs
 
@@ -113,8 +114,8 @@ module Checks
   # `merge`, stderr goes into stdout. The output is in the default
   # external encoding, as `IO.popen` gives it. The child runs outside
   # this bundle (`Harness::CleanEnv`).
-  def run(argv, env: {}, chdir: Dir.pwd, merge: false)
-    answer, = Zr::Harness::Child.run(argv, cwd: chdir, seconds: Zr::Harness::Child::SECONDS, megabytes: RESIDENT, env: env, merge: merge)
+  def run(argv, env: {}, chdir: Dir.pwd, merge: false, megabytes: Zr::Harness::Child::BUILD_MB)
+    answer, = Zr::Harness::Child.run(argv, cwd: chdir, seconds: Zr::Harness::Child::SECONDS, megabytes: megabytes, env: env, merge: merge)
     answer.stdout.force_encoding(Encoding.default_external)
     answer.stderr.force_encoding(Encoding.default_external)
     answer
@@ -140,7 +141,7 @@ module Checks
   def killed(answer)
     case answer.code
     when :timeout then "#{Zr::Harness::Child::SECONDS}s"
-    when :memory then "#{RESIDENT} MB resident"
+    when :memory then "its memory limit"
     end
   end
 end
