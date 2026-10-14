@@ -204,6 +204,19 @@ module Zr
         required.size + optional.size + post.size
       end
 
+      # Whether a rest takes arguments: `*a` or `*`, not the implicit rest
+      # of `|a,|`, which takes none.
+      def rest? = !rest.nil? && rest != :implicit
+
+      # The fewest positional arguments that a call gives.
+      def min_args = required.size + post.size
+
+      # The most positional arguments that a call gives, or nil with a rest.
+      def max_args = rest? ? nil : min_args + optional.size
+
+      # The keywords with no default, which a call must give.
+      def required_keywords = keywords.filter_map { |name, default| name if default.nil? }
+
       # Whether a single Array argument spreads over the parameters, as
       # CRuby's block setup decides. A required parameter, or two or more
       # optional ones, cause a spread. A single `|a|` does not, and neither

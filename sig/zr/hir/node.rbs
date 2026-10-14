@@ -217,6 +217,10 @@ module Zr
       attr_accessor block: Symbol?
 
       def positional: () -> Integer
+      def rest?: () -> bool
+      def min_args: () -> Integer
+      def max_args: () -> Integer?
+      def required_keywords: () -> Array[Symbol]
       def spread?: () -> bool
       def simple?: () -> bool
       def plain?: () -> bool

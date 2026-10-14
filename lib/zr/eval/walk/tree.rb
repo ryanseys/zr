@@ -1142,8 +1142,8 @@ module Zr
         end
 
         def check_arity(params, args, _kwargs, _ctx)
-          min = params.required.size + params.post.size
-          max = params.rest ? nil : min + params.optional.size
+          min = params.min_args
+          max = params.max_args
           return if args.size >= min && (max.nil? || args.size <= max)
 
           raise ::ArgumentError, "wrong number of arguments (given #{args.size}, expected #{arity_text(min, max)})"
