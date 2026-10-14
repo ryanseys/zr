@@ -34,7 +34,9 @@ $ bin/minitest  # runs every test: unit, programs, ext
    run `bin/zr-dev test` before you open a pull request. A full run takes a
    long time and much memory; `-j 4` uses fewer workers. See
    [How to run the tests](docs/how-to/run-the-tests.md).
-4. Add a line to `CHANGELOG.md` under `[Unreleased]`.
+4. When a user sees the change (a feature, a changed behavior or a
+   fix), add a line to `CHANGELOG.md` under `[Unreleased]`. A change to
+   the tests, the tools or the docs gets no line.
 
 The pinned ruby is the reference: a compiled program must print what ruby
 prints, byte for byte. When zr cannot do that for a form, it refuses the

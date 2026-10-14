@@ -84,3 +84,4 @@ Why zr is as it is.
 - [Bootstrapping](explanation/bootstrapping.md)
 - [Why zr has no C](explanation/why-zr-has-no-c.md)
 - [How zr's Ruby is written](explanation/ruby-style.md)
+- [Roadmap](explanation/roadmap.md): what is planned after this release

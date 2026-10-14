@@ -13,7 +13,8 @@ The first public release.
 
 - `gem install zr` installs the `zr` command on ruby 4.0 or later: `run`,
   `build`, `gems`, `inspect`, `diff`, `doctor`, `cache`, `version` and
-  `help`. The gem has no dependencies: it carries the pinned ruby's
+  `help`. On a ruby of another series than the pinned one, zr gives a
+  warning. The gem has no dependencies: it carries the pinned ruby's
   standard library (`vendor/ruby`), so the install downloads only zr, and
   compiles nothing.
 - A compiled program gives the pinned ruby's output byte for byte, or zr
@@ -94,18 +95,6 @@ The first public release.
 - A fatal signal, a runtime bug and `rb_bug` write ruby's bug report
   (`[BUG]`) to the file or command that `RUBY_CRASH_REPORT` or
   `--crash-report` names, and end the program by the signal.
-- `SCRIPT_LINES__` keeps the lines of each file that a `load` or a
-  `require` runs, in the encoding of the file's magic comment.
-
-### Changed
-
-- `.ruby-version` is the one ruby pin. `mise.toml` is gone.
-- `zr-dev gen ruby_version` derives every ruby version fact from
-  `.ruby-version` and the CRuby source at that tag.
-- zr runs on ruby 4.0 or later. On a ruby of another series than the
-  pinned one, zr gives a warning.
-- The tests check shapes and relations, not the values of one ruby
-  release or build.
 - zr gives the behavior of ruby 4.1, the pinned ruby: a `Regexp` and the
   result of `Symbol#to_s` are frozen; `&nil` block parameters and nested
   `for` targets compile; `Ruby::SourceRange`, `#source_range`,
@@ -120,80 +109,7 @@ The first public release.
   digest, psych, stringio, io-console, bigdecimal and prism). The C API
   follows 4.1's layouts and functions, also for a bundle that links
   ruby's shared library.
-
-### Development
-
-- `bin/setup` installs the gems and builds the runtime;
-  `bin/minitest` runs the tests, `bin/console` opens IRB with zr
-  loaded, and `bin/zr` and `bin/zr-dev` run zr and its tools from the
-  checkout. CI runs every target.
-- Three test tiers: `test/unit` (minitest, plain `def test_...`
-  methods), `test/programs`, which `test/programs_test.rb` runs as one
-  minitest test for each program, and `test/ext`, C extensions checked
-  against ruby. `ZR_PROGRAMS=core/gc,lang` selects program tests by
-  path, `ZR_TEST_HOST=1` runs them on CRuby over zr's kernel,
-  `ZR_TEST_FAIL_FAST=1` stops at the first failure, and
-  `ZR_TEST_SECONDS` sets the time limit of each program.
-- A program test is a plain Ruby program under
-  `test/programs/<area>/`, with ruby's output in files beside it in
-  spinel's format (`foo.rb.expected`, `foo.rb.err.expected`,
-  `foo.rb.args`, `foo.rb.stdin`), and zr's own files (`.status`,
-  `.env`, `.files/`, `.needs`, `.ruby`, `.limits`, `.gems`,
-  `.<platform>.expected`). Forked workers build each program, and a
-  failure prints a unified diff. Tests below `test/programs/cli/`
-  build with `zr build`. See `docs/reference/program-tests.md`.
-- `zr-dev expect [--all] [--check]` writes the expected files of the
-  program tests from the pinned ruby, and `zr-dev record` the recordings
-  of the benchmarks.
-- The baseline of a target lists the program tests that it may fail,
-  keyed by the program's path below `test/programs`, each with its
-  reason.
-- A unit test file that builds a program declares
-  `# zr-test: runtime` or `# zr-test: eval` in its first lines. A run
-  of files without it does not build the runtime. `bin/zr-dev affected`
-  maps a change to unit tests and to program tests, and runs them.
-- `zr-dev rubyspec` and `zr-dev cruby-test` run ruby/spec and CRuby's
-  test-all under ruby and in zr binaries, with the gaps as tags and a
-  ratchet test. Each test-all tag gives the reason for its gap.
-- `bin/zr-dev test` runs any test file, line or program, from anywhere.
-  Its options (`--suite`, `--changed`, `--failed`, `--record`, `--verify`,
-  `--live`, `--no-build`, `-j` and others) set what `bin/minitest`
-  reads.
-- Each run keeps the time of each test in `tmp/zr-dev-test/times.tsv`,
-  also when the run is killed, and `bin/zr-dev test --slowest [N]`
-  lists the slowest tests and groups. `ZR_TEST_TMP` moves the files of
-  a run, so a suite that a test starts does not write over them.
-- A program test that passed with the same inputs passes again at once,
-  from a result cache, in a compiled run as in a host run. A change to
-  the docs or to a unit test leaves each pass; `--no-cache` runs each
-  test again. `test/unit/core_cache_test.rb` runs only when
-  `ZR_TEST_BY_HAND=1` asks for it.
-- The C extension tests of the top gems run only when `ZR_TOP_GEMS=1`
-  is set. The `aarch64` gem is no longer a development dependency: the
-  program tests run the machine code that zr's encoder writes.
-- `zr-dev fuzz` is a differential fuzzer. It writes typed Ruby programs
-  from a seed, mutates the program tests on prism's tree, rewrites
-  programs (opaque literals, dead code, moved statements), and breaks
-  seeds into junk. It runs each program under ruby and as a zr binary,
-  reduces each difference to a small case, buckets it, names the layer
-  at fault from a hosted run, and keeps it in `log/fuzz/`. `reduce`,
-  `recheck`, `replay`, `report` and `gen --check` work on the cases and
-  on the generator.
-- The kernel is typed Ruby: plain Ruby with machine types in inline
-  RBS comments, which `Machine::Host` also runs on CRuby.
-- `bin/steep check` runs Steep on every file of the compiler, with
-  inline RBS annotations and `sig/zr/` for what inline RBS cannot
-  type. Its `kernel` target checks the kernel with the OS layer of one
-  target (`ZR_KERNEL_OS`), and CI checks the layer of each target.
-  `rake lint` runs RuboCop, each cop with its reason in
-  `.rubocop.yml`. `COVERAGE=1 bin/minitest <paths>` measures the
-  coverage of `lib/`. `test/unit/constant_layout_test.rb` checks that
-  each file of `lib/zr` holds the constant that its path names.
-
-### Planned for 0.2
-
-- `--gems host`: build with the gems that the host's rubygems has
-  installed.
-- `zr gem install`: a gem home of zr's own, for gems that a build reads.
+- `SCRIPT_LINES__` keeps the lines of each file that a `load` or a
+  `require` runs, in the encoding of the file's magic comment.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

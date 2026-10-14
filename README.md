@@ -24,12 +24,13 @@ garbage collector are all Ruby. zr's own code has no C or assembler.
 > **Status: pre-1.0, not yet for production.** zr compiles large
 > programs, bundler among them. The command line and the
 > environment variables can change in a minor release until 1.0.
-> See [the changelog](https://github.com/ryanseys/zr/blob/v0.1.0/CHANGELOG.md).
+> See [the changelog](https://github.com/ryanseys/zr/blob/v0.1.0/CHANGELOG.md),
+> and [the roadmap](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/roadmap.md) for what comes next.
 
 ## Install
 
 ```console
-$ ruby -v            # ruby 4.0 or later; the latest Ruby 4 release is best
+$ ruby -v            # ruby 4.0 or later
 $ gem install zr
 $ zr doctor          # what this host has, and what zr can do here
 $ zr run hello.rb
@@ -37,9 +38,8 @@ $ zr run hello.rb
 
 [How to install zr](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/install.md) shows how to get ruby, and what to do when a step fails. You need:
 
-- ruby 4.0 or later. zr targets the latest Ruby 4 release, and checks
-  its output against the ruby that `.ruby-version` names. On a ruby of
-  another series, zr gives a warning. The gem has no dependencies: it
+- ruby 4.0 or later. zr matches one ruby, the one that `zr version`
+  names. On a ruby of another series, zr gives a warning. The gem has no dependencies: it
   carries its ruby's standard library itself, so the install downloads
   only zr;
 - to run the binaries, an Apple Silicon Mac with macOS 14 or later, or

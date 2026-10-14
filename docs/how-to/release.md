@@ -47,9 +47,10 @@ Do these by hand before the first release:
    For the first release, `VERSION` is already 0.1.0.
 2. In `CHANGELOG.md`, change `## [Unreleased]` to
    `## [X.Y.Z] - YYYY-MM-DD`, and add a new empty `## [Unreleased]`
-   section above it. Keep the "Planned" part under `[Unreleased]`:
-   the version's section becomes the release notes. At the end of the
-   file, make the link references:
+   section above it: the version's section becomes the release notes,
+   and a plan for later versions goes in
+   `docs/explanation/roadmap.md`. At the end of the file, make the link
+   references:
 
    ```
    [Unreleased]: https://github.com/ryanseys/zr/compare/vX.Y.Z...HEAD
