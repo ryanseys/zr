@@ -35,14 +35,18 @@ class CoreCacheTest < Minitest::Test
     end
   end
 
-  def test_an_edit_takes_the_other_files_from_entries_and_gives_the_same_object
-    kept = File.join(@work, "kept")
-    object(kept, "", code_cache: true) # writes the entries
-    edited = "\nmodule Comparable\n  def __core_cache_probe = 1\nend\n"
-    cached = object(kept, edited, code_cache: true)
-    full = object(File.join(@work, "full"), edited, code_cache: false)
+  # It builds the runtime three times, which takes minutes, so only a run
+  # by hand has it: `ZR_TEST_BY_HAND=1 bin/zr-dev test test/unit/core_cache_test.rb`.
+  if Zr::Config.flag?("ZR_TEST_BY_HAND")
+    def test_an_edit_takes_the_other_files_from_entries_and_gives_the_same_object
+      kept = File.join(@work, "kept")
+      object(kept, "", code_cache: true) # writes the entries
+      edited = "\nmodule Comparable\n  def __core_cache_probe = 1\nend\n"
+      cached = object(kept, edited, code_cache: true)
+      full = object(File.join(@work, "full"), edited, code_cache: false)
 
-    assert_equal full.bytesize, cached.bytesize
-    assert_equal full, cached, "the object from the core cache differs from a full build"
+      assert_equal full.bytesize, cached.bytesize
+      assert_equal full, cached, "the object from the core cache differs from a full build"
+    end
   end
 end
