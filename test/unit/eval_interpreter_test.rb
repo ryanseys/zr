@@ -49,11 +49,12 @@ class EvalInterpreterTest < Minitest::Test
   end
 
   # The interpreter contains the front end and no backend. The compiler
-  # contains both. They are different files, and each defines `Zr::Eval`.
-  def test_compiler_and_interpreter_files_define_eval_class
-    [Roots::EVAL_COMPILER, Roots::EVAL_INTERPRETER].each do |path|
+  # contains both. They are different files, and each defines a back end
+  # below `Zr::Eval`.
+  def test_compiler_and_interpreter_files_define_a_back_end_of_eval
+    { Roots::EVAL_COMPILER => "Compiler", Roots::EVAL_INTERPRETER => "Interpreter" }.each do |path, name|
       assert_path_exists path
-      assert_match(/^\s*class Eval\b/, File.read(path), path)
+      assert_match(/^\s*class #{name} < Eval\b/, File.read(path), path)
     end
     refute_equal Roots::EVAL_COMPILER, Roots::EVAL_INTERPRETER
   end

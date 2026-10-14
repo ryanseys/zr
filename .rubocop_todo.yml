@@ -6,7 +6,6 @@ ThreadSafety/ClassInstanceVariable:
     - "lib/zr/runtime/**/*"
     - "lib/zr/cli.rb"
     - "lib/zr/eval.rb"
-    - "lib/zr/eval/interpreter.rb"
     - "lib/zr/gc_tuning.rb"
     - "lib/zr/machine/host.rb"
     - "lib/zr/cache/code.rb"

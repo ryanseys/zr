@@ -27,7 +27,7 @@ class CompilerDigestTest < Minitest::Test
   # other builds do, so they stay in the digest: eval support compiles the
   # eval compiler and its walker, a build with --gem loads the gem set, and
   # the first parse on zr's prism port loads the parse cache.
-  LOADED_BY_SOME_BUILDS = %w[cache/parse.rb eval.rb eval/interpreter.rb eval/interpreter/evaluate.rb eval/interpreter/tree.rb
+  LOADED_BY_SOME_BUILDS = %w[cache/parse.rb eval.rb eval/compiler.rb eval/interpreter.rb eval/interpreter/evaluate.rb eval/interpreter/tree.rb
                              gem_set.rb gem_set/resolve.rb]
                           .map { |name| File.join(LIB, "zr", name) }.freeze
 

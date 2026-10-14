@@ -191,7 +191,7 @@ module Zr
 
     # The kernel's description as eval support carries it: the source of
     # `zr_description.rb`, which `require "zr_description"` finds
-    # (lib/zr/eval.rb, `Library::Roots::DESCRIPTION`). The JIT of a binary
+    # (lib/zr/eval/compiler.rb, `Library::Roots::DESCRIPTION`). The JIT of a binary
     # lowers eval'd code against it, not against the kernel. zr makes it
     # from this runtime's description, so it is never out of date and
     # nobody commits it.

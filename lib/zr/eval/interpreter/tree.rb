@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "../../eval"
 require_relative "../../hir"
 require_relative "../../refused"
 
 module Zr
   class Eval
     # The tree-walking back end of eval (`lib/zr/eval/interpreter.rb`).
-    module Interpreter
+    class Interpreter < Eval
       # The tree-walking interpreter, for a program that cannot write
       # machine code while it runs.
       #

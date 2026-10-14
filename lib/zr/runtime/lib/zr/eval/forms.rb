@@ -13,8 +13,7 @@ module Kernel
   def eval(source, binding = nil, file = nil, line = 1)
     using = Primitive.zr_eval_using
     unless binding.nil?
-      raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)
-
+      Zr::Eval::Arguments.binding!(binding)
       name = file || Primitive.zr_eval_source_name
       using = Primitive.zr_binding_using_m(binding)
       code = Zr::Eval.current.compile(source, name, line, Primitive.zr_binding_scopes(binding), Primitive.zr_binding_parameters(binding),
@@ -71,18 +70,12 @@ class Module
 
       return class_exec(self, &block)
     end
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless (1..3).cover?(args.size)
-
+    source, file, line = Zr::Eval::Arguments.under(args)
     # The string runs under the refinements of the call site.
     using = Primitive.zr_eval_using
-    # eval_under: the source and the file name are Strings, and the
-    # line is a C int.
-    args[0] = Primitive.zr_str_operand(args[0])
-    args[1] = Primitive.zr_str_operand(args[1]) unless args[1].nil?
-    args[2] = Primitive.zr_index_operand_m(args[2]) unless args[2].nil?
-    name = args[1] || Primitive.zr_eval_source_name
-    code = Zr::Eval.current.compile(args[0], name, args[2] || 1, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters, using: using)
-    Primitive.zr_trace_script_compiled(args[0], name, args[2] || 1)
+    name = file || Primitive.zr_eval_source_name
+    code = Zr::Eval.current.compile(source, name, line, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters, using: using)
+    Primitive.zr_trace_script_compiled(source, name, line)
     Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_under(self, Primitive.zr_eval_cref), Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
 
@@ -100,19 +93,11 @@ class BasicObject
 
       return instance_exec(self, &block)
     end
-    unless (1..3).cover?(args.size)
-      ::Kernel.raise ::ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)"
-    end
-
+    source, file, line = ::Zr::Eval::Arguments.under(args)
     using = Primitive.zr_eval_using
-    # eval_under: the source and the file name are Strings, and the
-    # line is a C int.
-    args[0] = Primitive.zr_str_operand(args[0])
-    args[1] = Primitive.zr_str_operand(args[1]) unless args[1].nil?
-    args[2] = Primitive.zr_index_operand_m(args[2]) unless args[2].nil?
-    name = args[1] || Primitive.zr_eval_source_name
-    code = ::Zr::Eval.current.compile(args[0], name, args[2] || 1, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters, using: using)
-    Primitive.zr_trace_script_compiled(args[0], name, args[2] || 1)
+    name = file || Primitive.zr_eval_source_name
+    code = ::Zr::Eval.current.compile(source, name, line, Primitive.zr_eval_scopes, Primitive.zr_eval_parameters, using: using)
+    Primitive.zr_trace_script_compiled(source, name, line)
     Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_lazy(self, Primitive.zr_eval_cref), Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
 end

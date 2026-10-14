@@ -39,7 +39,9 @@ class LayeringTest < Minitest::Test
     "backend" => %w[top ir obj],
     "obj" => %w[top],
     "native" => %w[top ir obj backend machine cache ext],
-    "eval" => %w[top],
+    # The eval compiler (`Eval::Compiler`) runs a build's whole pipeline
+    # in the program: the passes, the back end and the loader of its code.
+    "eval" => %w[top ir backend obj],
     "library" => %w[top],
     "prism_shim" => %w[top],
     # The caches between builds (lib/zr/cache/store.rb). A lowering entry

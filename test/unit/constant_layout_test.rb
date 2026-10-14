@@ -40,7 +40,6 @@ class ConstantLayoutTest < Minitest::Test
     "backend/aarch64/codegen/layout.rb" => ["Zr::Backend::Aarch64::Codegen", "the frame layout part of the code generator"],
     "backend/aarch64/codegen/moves.rb" => ["Zr::Backend::Aarch64::Codegen", "the register move part of the code generator"],
     "backend/wasm/shims.rb" => ["Zr::Backend::Wasm::Codegen", "the libc shims of the wasm code generator"],
-    "eval/interpreter.rb" => ["Zr::Eval", "the interpreting part of Eval; the tree walker is in interpreter/tree.rb"],
     "eval/interpreter/evaluate.rb" => ["Zr::Eval::Interpreter", "the entry point of the interpreter, Interpreter.evaluate"],
     "hir/build/coverage.rb" => ["Zr::Hir::Build", "the coverage part of Build"],
     "hir/build/literals.rb" => ["Zr::Hir::Build", "the literal part of Build"],

@@ -3,6 +3,7 @@
 module Zr
   class Eval
     self.@current: Eval?
+    self.@backend: singleton(Eval)?
   end
 
   module Machine

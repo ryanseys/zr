@@ -12,18 +12,17 @@ module Kernel
   # cref of the calling frame, with the receiver as self.
   def eval(source, binding = nil, file = nil, line = 1)
     unless binding.nil?
-      raise TypeError, "wrong argument type #{conversion_name(binding)} (expected binding)" unless binding.is_a?(Binding)
-
+      Zr::Eval::Arguments.binding!(binding)
       name = file || Primitive.zr_eval_source_name
       Primitive.zr_trace_script_compiled(source, name, line)
-      return Zr::Eval.current.run(source, name, line, binding,
-                                   Primitive.zr_binding_receiver(binding), Primitive.zr_binding_cref(binding), nil, add: true)
+      return Zr::Eval::Interpreter.evaluate(source, binding, file: name, line: line, self_: Primitive.zr_binding_receiver(binding),
+                                                             cref: Primitive.zr_binding_cref(binding), block: nil, add: true)
     end
     name = file || Primitive.zr_eval_source_name
     Primitive.zr_trace_script_compiled(source, name, line)
     # A copy of the cref, as the compiler's form gives (forms.rb).
-    Zr::Eval.current.run(source, name, line, Primitive.zr_local_binding,
-                          self, Primitive.zr_cref_dup(Primitive.zr_eval_cref), Primitive.zr_eval_block)
+    Zr::Eval::Interpreter.evaluate(source, Primitive.zr_local_binding, file: name, line: line, self_: self,
+                                                                       cref: Primitive.zr_cref_dup(Primitive.zr_eval_cref), block: Primitive.zr_eval_block)
   end
 
   # Public where it is called on Kernel itself, as the compiler's form
@@ -36,8 +35,8 @@ class Binding
   def eval(source, file = nil, line = 1)
     name = file || Primitive.zr_eval_source_name
     Primitive.zr_trace_script_compiled(source, name, line)
-    Zr::Eval.current.run(source, name, line, self,
-                          Primitive.zr_binding_receiver(self), Primitive.zr_binding_cref(self), nil, add: true)
+    Zr::Eval::Interpreter.evaluate(source, self, file: name, line: line, self_: Primitive.zr_binding_receiver(self),
+                                                 cref: Primitive.zr_binding_cref(self), block: nil, add: true)
   end
 end
 
@@ -50,17 +49,11 @@ class Module
 
       return class_exec(self, &block)
     end
-    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)" unless (1..3).cover?(args.size)
-
-    # eval_under: the source and the file name are Strings, and the
-    # line is a C int, as the compiler's form converts them (forms.rb).
-    args[0] = Primitive.zr_str_operand(args[0])
-    args[1] = Primitive.zr_str_operand(args[1]) unless args[1].nil?
-    args[2] = Primitive.zr_index_operand_m(args[2]) unless args[2].nil?
-    name = args[1] || Primitive.zr_eval_source_name
-    Primitive.zr_trace_script_compiled(args[0], name, args[2] || 1)
-    Zr::Eval.current.run(args[0], name, args[2] || 1, Primitive.zr_local_binding,
-                          self, Primitive.zr_eval_cref_under(self, Primitive.zr_eval_cref), Primitive.zr_eval_block)
+    source, file, line = Zr::Eval::Arguments.under(args)
+    name = file || Primitive.zr_eval_source_name
+    Primitive.zr_trace_script_compiled(source, name, line)
+    Zr::Eval::Interpreter.evaluate(source, Primitive.zr_local_binding, file: name, line: line, self_: self,
+                                                                       cref: Primitive.zr_eval_cref_under(self, Primitive.zr_eval_cref), block: Primitive.zr_eval_block)
   end
 
   alias module_eval class_eval
@@ -77,20 +70,13 @@ class BasicObject
 
       return instance_exec(self, &block)
     end
-    unless (1..3).cover?(args.size)
-      ::Kernel.raise ::ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..3)"
-    end
-
-    # eval_under: the source and the file name are Strings, and the
-    # line is a C int, as the compiler's form converts them (forms.rb).
-    args[0] = Primitive.zr_str_operand(args[0])
-    args[1] = Primitive.zr_str_operand(args[1]) unless args[1].nil?
-    args[2] = Primitive.zr_index_operand_m(args[2]) unless args[2].nil?
+    source, file, line = ::Zr::Eval::Arguments.under(args)
+    name = file || Primitive.zr_eval_source_name
+    Primitive.zr_trace_script_compiled(source, name, line)
     # The singleton class is made when the code first needs it, and a
     # value that has none reads class variables farther out.
-    name = args[1] || Primitive.zr_eval_source_name
-    Primitive.zr_trace_script_compiled(args[0], name, args[2] || 1)
-    ::Zr::Eval.current.run(args[0], name, args[2] || 1, Primitive.zr_local_binding,
-                            self, Primitive.zr_eval_cref_lazy(self, Primitive.zr_eval_cref), Primitive.zr_eval_block)
+    ::Zr::Eval::Interpreter.evaluate(source, Primitive.zr_local_binding, file: name, line: line, self_: self,
+                                                                         cref: Primitive.zr_eval_cref_lazy(self, Primitive.zr_eval_cref),
+                                                                         block: Primitive.zr_eval_block)
   end
 end

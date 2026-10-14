@@ -593,8 +593,11 @@ module Zr
           k.singleton_class.define_method(:zr_host_file_spots) { |path| walk.send(:file_spots, path) }
           unit = Unit.new("<internal:zr_eval>", true, [], nil)
           check(toplevel(Hir.build(EVAL_SUPPORT, "<internal:zr_eval>", program: false), unit, k::KIND_MAIN))
-          forms = File.join(Paths::RUNTIME, "lib/zr/eval/forms.rb")
-          check(toplevel(Hir.build(File.read(forms), forms, program: false), Unit.new(forms, true, [], nil), k::KIND_MAIN))
+          # The forms check their arguments with Eval::Arguments.
+          %w[arguments.rb forms.rb].each do |name|
+            path = File.join(Paths::RUNTIME, "lib/zr/eval", name)
+            check(toplevel(Hir.build(File.read(path), path, program: false), Unit.new(path, true, [], nil), k::KIND_MAIN))
+          end
         end
 
         # `Zr::Eval#compile`: the code record of the string `source`, as the

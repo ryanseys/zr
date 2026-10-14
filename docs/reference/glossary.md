@@ -62,7 +62,7 @@ region.
 
 **Eval compiler.** The part of eval support on a native target: zr's
 own compiler, linked into the program. It compiles each string to
-machine code while the program runs (`lib/zr/eval.rb`).
+machine code while the program runs (`lib/zr/eval/compiler.rb`).
 
 **Eval support.** What zr links into a program that can call `eval`:
 the front end (the prism port and the HIR build) and a back end, which

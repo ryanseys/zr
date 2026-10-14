@@ -1,7 +1,7 @@
 # The record of lib/zr/eval/interpreter/tree.rb.
 module Zr
   class Eval
-    module Interpreter
+    class Interpreter < Eval
       class Tree
         # Jump has no MESSAGE of its own: each subclass names ruby's.
         class Jump < Signal

@@ -165,14 +165,15 @@ string.
 
 ## Where the code is
 
-The code of eval support is in five places. Some files go into the
+The code of eval support is in six places. Some files go into the
 program, and some run on the host that builds it.
 
 | File | What it is | Where it runs |
 |---|---|---|
-| `lib/zr/eval.rb` | `Zr::Eval`, the eval compiler: the entry of eval support on a native target | in the program |
+| `lib/zr/eval.rb` | `Zr::Eval`, the base of both back ends: `Eval.current`, the back end that the program carries, and what both share | in the program |
+| `lib/zr/eval/compiler.rb` | `Zr::Eval::Compiler`, the eval compiler: the entry of eval support on a native target | in the program |
 | `lib/zr/eval/interpreter.rb`, `lib/zr/eval/interpreter/` | the tree-walking interpreter: the entry of eval support on wasm, or with `ZR_EVAL=walk` | in the program; the tests also run the walk on ruby |
-| `lib/zr/runtime/lib/zr/eval/` | what only the runtime can give an eval: the symbol table and `using` (`runtime.rb`), the string forms of `eval` over the compiler (`forms.rb`) or over the interpreter (`interpreter_forms.rb`), and the interpreter's world (`world.rb`) | in the program, as files of the runtime's own library |
+| `lib/zr/runtime/lib/zr/eval/` | what only the runtime can give an eval: the symbol table and `using` (`runtime.rb`), the string forms of `eval` over the compiler (`forms.rb`) or over the interpreter (`interpreter_forms.rb`), the checks of their arguments (`arguments.rb`), and the interpreter's world (`world.rb`) | in the program, as files of the runtime's own library |
 | `lib/zr/eval_support.rb` | `Zr::EvalSupport`, which builds eval support once into its own object, with the metadata that a program needs | on the host |
 | `lib/zr/cache/lowering/eval_support.rb` | the cache of each file's lowering in eval support, so an edit lowers one file again, not all of them | on the host |
 
