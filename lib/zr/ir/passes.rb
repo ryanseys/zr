@@ -524,6 +524,9 @@ module Zr
         MOVABLE =(%i[iconst stack_addr symbol_value func_addr gates icmp fcmp select ireduce uextend sextend bitcast
                       fcvt_from_sint fcvt_to_sint_sat] +
                    Inst::BINOPS + Inst::BITOPS + Inst::FBINOPS + Inst::FUNOPS).to_set.freeze
+        # The instructions after which a load cannot move: each can write
+        # what the load reads.
+        WRITES = %i[store call call_indirect].freeze
 
         #: (Function f) -> Function
         def self.run(f) = new(f).run
@@ -603,27 +606,34 @@ module Zr
         # `b` or its chain cannot move.
         #: (Block b, untyped v, Integer stop) -> Array[Inst]?
         def chain_of(b, v, stop)
-          by_result = {} #: Hash[String, Inst]
-          b.insts.first(stop).each { |i| by_result[i.results[0]] = i if i.results[0] }
-          root = by_result[v] or return
-          last_effect = b.insts.rindex { |i| %i[store call call_indirect].include?(i.op) } || -1
-          moved = {} #: Hash[Integer, Inst]
+          insts = b.insts
+          # The index of the instruction that makes each value before `stop`.
+          at = {} #: Hash[String, Integer]
+          [stop, insts.size].min.times do |k|
+            r = insts[k].results[0]
+            at[r] = k if r
+          end
+          root = at[v] or return
+          last_effect = insts.rindex { |i| WRITES.include?(i.op) } || -1
+          moved = {} #: Hash[Integer, true]
           work = [root]
           until work.empty?
-            i = work.pop #: Inst
-            next if moved.key?(i.object_id)
-            return unless MOVABLE.include?(i.op) || (i.op == :load && (b.insts.index(i) || -1) > last_effect)
+            k = work.pop #: Integer
+            next if moved.key?(k)
+
+            i = insts[k]
+            return unless MOVABLE.include?(i.op) || (i.op == :load && k > last_effect)
             return if i.results.size > 1
 
-            moved[i.object_id] = i
+            moved[k] = true
             i.args.each do |a|
-              d = by_result[a]
+              d = at[a]
               work << d if d && @uses.fetch(a, 0) == 1 && IR.value?(a)
             end
           end
           # Only values that the chain alone reads can move. A value with one
           # reader is read by the chain, because its reader is in the chain.
-          b.insts.first(stop).select { |i| moved.key?(i.object_id) }
+          moved.keys.sort!.map { |k| insts[k] }
         end
       end
 
