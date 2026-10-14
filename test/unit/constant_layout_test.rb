@@ -24,6 +24,7 @@ class ConstantLayoutTest < Minitest::Test
   INFLECT = {
     "aarch64" => "Aarch64",
     "cli" => "CLI",
+    "dce" => "DCE",
     "elf" => "Elf",
     "gvn" => "GVN",
     "ir" => "IR",

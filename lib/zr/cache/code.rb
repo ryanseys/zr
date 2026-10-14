@@ -43,7 +43,9 @@ module Zr
         backend/aarch64/codegen/layout.rb backend/aarch64/codegen/moves.rb backend/aarch64/regalloc.rb
         backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb ir/analysis.rb
         ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb ir/inst.rb ir/licm.rb ir/passes.rb
-        ir/promotion.rb ir/regions.rb ir/statics.rb ir/switches.rb ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
+        ir/passes/blocks.rb ir/passes/chains.rb ir/passes/dce.rb ir/passes/fold.rb ir/passes/forward.rb
+        ir/passes/inline.rb ir/passes/renaming.rb ir/promotion.rb ir/regions.rb ir/statics.rb ir/switches.rb
+        ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
         cache/code.rb session.rb
       ].freeze
 
