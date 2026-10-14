@@ -43,8 +43,23 @@ module Zr
     # elements that their own scope-boundary rules do not name. It
     # allocates nothing: a walk of a large program visits millions of
     # nodes.
+    #
+    # A node's fields go by index, not through Struct#each: in a program
+    # that evals, the compiler runs beside the program, which may
+    # redefine Struct#each.
     def self.each_child(node)
-      node.each { |child| yield child if child.is_a?(Node) || child.is_a?(Array) } if node.is_a?(Node) || node.is_a?(Array)
+      case node
+      when Node
+        i = 0
+        size = node.size
+        while i < size
+          child = node[i]
+          yield child if child.is_a?(Node) || child.is_a?(Array)
+          i += 1
+        end
+      when Array
+        node.each { |child| yield child if child.is_a?(Node) || child.is_a?(Array) }
+      end
       nil
     end
 
