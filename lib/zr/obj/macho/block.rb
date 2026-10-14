@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "object_file"
-require_relative "../patch"
 require_relative "../../bytes"
 require_relative "../relocs/aarch64"
 require_relative "../../refused"

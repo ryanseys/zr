@@ -3,7 +3,7 @@
 module Zr
   # Byte-level arithmetic and encoding that every object writer and backend
   # needs: alignment, padding to a size, and LEB128 numbers. Each was its
-  # own private copy in `Obj::Patch`, the ELF and Mach-O writers, the
+  # own private copy in `Obj::JIT`, the ELF and Mach-O writers, the
   # aarch64 and wasm backends, the tests' IR interpreter and
   # `Machine::Lower`. This is the one copy.
   module Bytes

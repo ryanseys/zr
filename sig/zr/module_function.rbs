@@ -187,10 +187,6 @@ module Zr::Obj::MachO::ObjectFile
   extend Zr::Obj::MachO::ObjectFile
 end
 
-module Zr::Obj::Patch
-  extend Zr::Obj::Patch
-end
-
 module Zr::Obj::Relocs::Aarch64
   extend Zr::Obj::Relocs::Aarch64
 end

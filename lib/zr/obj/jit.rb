@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative "model"
-require_relative "patch"
 require_relative "../bytes"
 require_relative "relocs/aarch64"
 require_relative "../paths"
@@ -102,8 +101,21 @@ module Zr
 
       private
 
-      #: [T < ::Zr::Obj::_Placeable] (Array[T] items, Integer item_align) -> { at: Array[[T, Integer]], size: Integer }
-      def layout(items, item_align) = Patch.layout(items, item_align)
+      # Places `items` one after another. Each item uses the larger of its
+      # own alignment and `least`. Returns the offset of each item and the
+      # total size.
+      #: [T < ::Zr::Obj::_Placeable] (Array[T] items, Integer least) -> { at: Array[[T, Integer]], size: Integer }
+      def layout(items, least)
+        # Steep cannot name the method's `T` in a local's type.
+        at = [] #: Array[untyped]
+        size = 0
+        items.each do |item|
+          size = Bytes.align(size, [item.align, least].max)
+          at << [item, size]
+          size += item.size
+        end
+        { at: at, size: size }
+      end
 
       #: (Integer size, exec: bool, ?at: Integer?, ?near: Integer) -> Integer
       def map(size, exec:, at: nil, near: 0)
@@ -111,9 +123,8 @@ module Zr
       end
 
       # Returns the bytes of `item` at `base`, with all relocations applied.
-      # A symbol that this unit defines uses its own address, unless it is
-      # also an import. An import uses its GOT slot for a GOT relocation,
-      # its stub for a call, and its address for all other relocations.
+      # `abs64` is the same in all formats; `Relocs::Aarch64` holds the bit
+      # patterns of the instruction relocations.
       # @rbs item: Code | Datum
       # @rbs base: Integer
       # @rbs addresses: Hash[String, Integer]
@@ -121,12 +132,30 @@ module Zr
       # @rbs got: Hash[String, Integer]
       # @rbs return: String
       def patched(item, base, addresses, data_base, got)
-        Patch.apply(item, base, Relocs::Aarch64) do |r|
-          if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols[r.symbol]
-          elsif %i[got_page21 got_pageoff12].include?(r.kind) then data_base + got.fetch(r.symbol)
-          elsif r.kind == :branch26 then @symbols.fetch(r.symbol)
-          else addresses.fetch(r.symbol)
+        bytes = item.bytes.b
+        item.relocs.each do |r|
+          target = target_of(r, addresses, data_base, got) + r.addend.to_i
+          if r.kind == :abs64
+            bytes[r.offset, 8] = [target].pack("Q<")
+          elsif Relocs::Aarch64.handles?(r.kind)
+            Relocs::Aarch64.patch(bytes, r, target, base + r.offset)
+          else
+            raise ArgumentError, "no way to apply a #{r.kind} relocation"
           end
+        end
+        bytes
+      end
+
+      # The address that `r` refers to. A symbol that this unit defines uses
+      # its own address, unless it is also an import. An import uses its GOT
+      # slot for a GOT relocation, its stub for a call, and its address for
+      # all other relocations.
+      #: (Reloc r, Hash[String, Integer] addresses, Integer data_base, Hash[String, Integer] got) -> Integer
+      def target_of(r, addresses, data_base, got)
+        if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols.fetch(r.symbol)
+        elsif %i[got_page21 got_pageoff12].include?(r.kind) then data_base + got.fetch(r.symbol)
+        elsif r.kind == :branch26 then @symbols.fetch(r.symbol)
+        else addresses.fetch(r.symbol)
         end
       end
     end

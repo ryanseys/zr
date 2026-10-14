@@ -49,7 +49,7 @@ module Zr
       def size: () -> Integer
     end
 
-    # An item that `Patch.layout` places: a Code or a Datum.
+    # An item that `JIT#layout` places: a Code or a Datum.
     interface _Placeable
       def align: () -> Integer
       def size: () -> Integer
