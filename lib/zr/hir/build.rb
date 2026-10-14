@@ -615,6 +615,21 @@ module Zr
         @usings == made ? out : with_using_defaults(out, node.location.start_line)
       end
 
+      # `x op= v`, `x ||= v` or `x &&= v`, where `read` reads x and the block
+      # writes x with the value that it gets. `x op= v` is `x = x op v`.
+      # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`: the
+      # write occurs only if necessary. A frozen receiver, a global's setter
+      # and a constant's redefinition warning can see this.
+      #: (untyped node, node read) { (node value) -> node } -> node
+      def op_write(node, read)
+        line = read.line
+        type = node.type
+        if type.end_with?("_or_write_node") then Or.new(read, yield(expr(node.value)), line)
+        elsif type.end_with?("_and_write_node") then And.new(read, yield(expr(node.value)), line)
+        else yield noted(Send.of(read, node.binary_operator, [expr(node.value)], line), node)
+        end
+      end
+
       # A prism node's HIR, noted with the node's id.
       #
       # `taken` is false if the program never uses this expression's
@@ -660,7 +675,9 @@ module Zr
         when :local_variable_write_node then Assign.new(node.name, node.depth, expr(node.value), line)
         when :multi_write_node then MultiAssign.new(multi_target(node), expr(node.value), line, taken)
         when :local_variable_operator_write_node
-          Assign.new(node.name, node.depth, noted(Send.of(Local.new(node.name, node.depth, line), node.binary_operator, [expr(node.value)], line), node), line)
+          op_write(node, Local.new(node.name, node.depth, line)) { |value| Assign.new(node.name, node.depth, value, line) }
+        # No program sees the write of a local, so `x &&= v` is `x = x && v`
+        # and `x ||= v` is `x = x || v`.
         when :local_variable_and_write_node
           Assign.new(node.name, node.depth, And.new(Local.new(node.name, node.depth, line), expr(node.value), line), line)
         when :local_variable_or_write_node
@@ -728,40 +745,34 @@ module Zr
         when :instance_variable_read_node then IvarRead.new(node.name, line)
         when :global_variable_read_node then gvar_read(node.name, line)
         when :global_variable_write_node then gvar_write(node.name, expr(node.value), line)
-        when :global_variable_operator_write_node
-          gvar_write(node.name, noted(Send.of(gvar_read(node.name, line), node.binary_operator, [expr(node.value)], line), node), line)
-        # `x ||= v` is `x || (x = v)`, and `x &&= v` is `x && (x = v)`. The
-        # write occurs only if necessary. A frozen receiver, a global's
-        # setter and a constant's redefinition warning can see this.
-        when :global_variable_or_write_node then Or.new(quiet_gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
-        when :global_variable_and_write_node then And.new(gvar_read(node.name, line), gvar_write(node.name, expr(node.value), line), line)
+        when :global_variable_operator_write_node, :global_variable_and_write_node
+          op_write(node, gvar_read(node.name, line)) { |value| gvar_write(node.name, value, line) }
+        when :global_variable_or_write_node
+          op_write(node, quiet_gvar_read(node.name, line)) { |value| gvar_write(node.name, value, line) }
         when :class_variable_read_node then CvarRead.new(node.name, line)
         when :class_variable_write_node then CvarWrite.new(node.name, expr(node.value), line)
-        when :class_variable_operator_write_node
-          CvarWrite.new(node.name, noted(Send.of(noted(CvarRead.new(node.name, line), node), node.binary_operator, [expr(node.value)], line), node), line)
+        when :class_variable_operator_write_node, :class_variable_and_write_node
+          op_write(node, noted(CvarRead.new(node.name, line), node)) { |value| noted(CvarWrite.new(node.name, value, line), node) }
+        # `@@x ||= v` reads an undefined `@@x` as nil, as `defined?` does,
+        # where a read would raise NameError.
         when :class_variable_or_write_node
           If.new(Defined.new(:cvar, node.name, line), Or.new(noted(CvarRead.new(node.name, line), node), noted(CvarWrite.new(node.name, expr(node.value), line), node), line),
                  noted(CvarWrite.new(node.name, expr(node.value), line), node), line)
         # Ruby compiles nothing for a `defined?` whose value is not used.
         when :defined_node then taken ? defined(node.value, line) : Literal.new(nil, line)
-        when :class_variable_and_write_node
-          And.new(noted(CvarRead.new(node.name, line), node), noted(CvarWrite.new(node.name, expr(node.value), line), node), line)
+        # `X ||= v` and `A::X ||= v` write only when X is unset or falsy
+        # (ConstOrWrite). An unset X is not an error, where a read raises
+        # NameError.
         when :constant_or_write_node then ConstOrWrite.new(nil, node.name, expr(node.value), line)
         when :constant_path_or_write_node
           scope, name, prelude = constant_scope(node.target, line)
           with_scope(prelude, noted(ConstOrWrite.new(scope, name, expr(node.value), line), node), line)
-        when :constant_and_write_node
-          And.new(noted(ConstRead.new(nil, node.name, line), node), noted(ConstWrite.new(nil, node.name, expr(node.value), line), node), line)
-        when :constant_path_and_write_node
+        when :constant_operator_write_node, :constant_and_write_node
+          op_write(node, noted(ConstRead.new(nil, node.name, line), node)) { |value| noted(ConstWrite.new(nil, node.name, value, line), node) }
+        when :constant_path_operator_write_node, :constant_path_and_write_node
           scope, name, prelude = constant_scope(node.target, line)
           read = noted(ConstRead.new(scope, name, line, prelude ? true : nil), node)
-          with_scope(prelude, And.new(read, noted(ConstWrite.new(scope, name, expr(node.value), line), node), line), line)
-        when :constant_operator_write_node
-          ConstWrite.new(nil, node.name, noted(Send.of(noted(ConstRead.new(nil, node.name, line), node), node.binary_operator, [expr(node.value)], line), node), line)
-        when :constant_path_operator_write_node
-          scope, name, prelude = constant_scope(node.target, line)
-          read = noted(ConstRead.new(scope, name, line, prelude ? true : nil), node)
-          with_scope(prelude, noted(ConstWrite.new(scope, name, noted(Send.of(read, node.binary_operator, [expr(node.value)], line), node), line), node), line)
+          with_scope(prelude, op_write(node, read) { |value| noted(ConstWrite.new(scope, name, value, line), node) }, line)
         when :alias_method_node then alias_method_names(node, line)
         when :alias_global_variable_node then alias_global(node, line)
         when :case_node then case_when(node, line, taken: taken)
@@ -773,12 +784,8 @@ module Zr
           unsupported(node, "BEGIN { } outside the toplevel") unless @block_depth.zero?
           node.statements ? seq(node.statements) : Literal.new(nil, line)
         when :instance_variable_write_node then IvarWrite.new(node.name, expr(node.value), line)
-        when :instance_variable_operator_write_node
-          IvarWrite.new(node.name, noted(Send.of(IvarRead.new(node.name, line), node.binary_operator, [expr(node.value)], line), node), line)
-        when :instance_variable_or_write_node
-          Or.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
-        when :instance_variable_and_write_node
-          And.new(IvarRead.new(node.name, line), IvarWrite.new(node.name, expr(node.value), line), line)
+        when :instance_variable_operator_write_node, :instance_variable_or_write_node, :instance_variable_and_write_node
+          op_write(node, IvarRead.new(node.name, line)) { |value| IvarWrite.new(node.name, value, line) }
         when :begin_node then protected_region(node, taken: taken)
         when :rescue_modifier_node
           clause = Rescue.new([], nil, expr(node.rescue_expression), line)
