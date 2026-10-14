@@ -43,7 +43,8 @@ desc "Build the zr runtime for this host and for wasm32-wasi"
 task("build:all") { build!("Zr::Test::Built.targets(wasm: true)") }
 
 # The tiers, each one `bin/minitest` run. `bin/minitest <paths>` runs only
-# some test files.
+# some test files; `rake test` runs every tier in one run, so one pool of
+# workers takes the slowest tests of all tiers first.
 TIERS = {
   "test:unit" => ["test/unit", "zr's own internals"],
   "test:programs" => ["test/programs_test.rb", "Ruby programs that zr builds, each checked against the pinned ruby"],
@@ -55,8 +56,8 @@ TIERS.each do |name, (path, what)|
   task(name) { ruby!(File.join(ROOT, "bin/minitest"), path) }
 end
 
-desc "Every test: unit, programs, ext"
-task test: TIERS.keys
+desc "Every test: unit, programs, ext, in one run"
+task(:test) { ruby!(File.join(ROOT, "bin/minitest")) }
 
 desc "Write every generated file again (zr-dev gen all); CHECK=1 only compares"
 task(:gen) { ruby!(File.join(ROOT, "tool/zr-dev.rb"), "gen", "all", *("--check" if ENV["CHECK"])) }

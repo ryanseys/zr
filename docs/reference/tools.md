@@ -67,7 +67,7 @@ no arguments. Give paths and minitest options to `bin/minitest`.
 | Task | Does |
 |---|---|
 | `rake` | `rake lint`, then `rake test`. |
-| `rake test` | The three tiers: unit, programs, ext. |
+| `rake test` | The three tiers, unit, programs and ext, in one `bin/minitest` run. |
 | `rake test:unit` | The unit tier: zr's own internals (`test/unit`). |
 | `rake test:programs` | The program tests: Ruby programs that zr builds, each checked against the pinned ruby (`test/programs_test.rb`). |
 | `rake test:ext` | The C extensions that zr links, each checked against the pinned ruby (`test/ext`). |

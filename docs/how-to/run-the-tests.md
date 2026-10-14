@@ -45,8 +45,7 @@ $ bin/zr-dev test
 
 This runs every `test/**/*_test.rb` file with `bin/minitest`: the unit
 tests, the program tests and the C extension tests. `bin/minitest` with
-no path does the same. `rake test` runs the three tiers, one after the
-other. `rake` runs `rake lint` first, then the tests. To time a run, use
+no path does the same, and so does `rake test`. `rake` runs `rake lint` first, then the tests. To time a run, use
 the shell's `time`:
 
 ```console
