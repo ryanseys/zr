@@ -24,7 +24,9 @@ module Zr
     # Seconds that one run can take.
     LIMIT = 60
 
-    ADDRESS = /0x\h{16}/n
+    # An object address: 0x and 8 to 16 lowercase hex digits, no more.
+    # The program tests' recordings mask it the same way.
+    ADDRESS = /0x[0-9a-f]{8,16}(?![0-9a-f])/n
 
     # The parts of an answer, in the order that a report shows them.
     PARTS = %i[stdout stderr status signal].freeze
@@ -32,7 +34,7 @@ module Zr
     module_function
 
     #: (String text) -> String
-    def unaddressed(text) = text.b.gsub(ADDRESS, "0x...")
+    def unaddressed(text) = text.b.gsub(ADDRESS, "0xADDR")
 
     # Runs `command` in `dir` with an empty stdin and `env` over this
     # environment, in a process group of its own. A run whose program, or

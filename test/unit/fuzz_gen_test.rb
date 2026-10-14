@@ -86,7 +86,7 @@ class FuzzGenTest < Minitest::Test
       out, err, status = Open3.capture3(Zr::Harness::CleanEnv.env(Zr::Harness::Reference.env), RbConfig.ruby, "prog.rb",
                                         chdir: dir, unsetenv_others: true)
       # Object addresses change from run to run; the oracle hides them too.
-      [out.gsub(/0x\h+/, "0x"), err.gsub(/0x\h+/, "0x"), status.exitstatus]
+      [Zr::Diff.unaddressed(out), Zr::Diff.unaddressed(err), status.exitstatus]
     end
   end
 end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "answer"
+require_relative "../../../lib/zr/diff"
 
 module Zr
   module Harness
@@ -24,7 +25,7 @@ module Zr
         rel = abs.start_with?("#{cwd}/") ? abs.byteslice((cwd.bytesize + 1)..) : File.basename(abs)
         out = out.gsub(abs, rel)
         out = out.gsub("#{cwd}/", "")
-        out.gsub(/0x[0-9a-f]+/) { |m| (8..16).cover?(m.bytesize - 2) ? "0xADDR" : m }
+        Zr::Diff.unaddressed(out)
       end
     end
   end

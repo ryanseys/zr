@@ -117,6 +117,6 @@ class DiffTest < Minitest::Test
   end
 
   def test_an_address_is_the_same_in_both
-    assert_equal "#<Object:0x...>", Zr::Diff.unaddressed("#<Object:0x000000012345abcd>")
+    assert_equal "#<Object:0xADDR>", Zr::Diff.unaddressed("#<Object:0x000000012345abcd>")
   end
 end

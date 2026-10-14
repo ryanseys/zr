@@ -237,7 +237,7 @@ for a `build-error`, and 3 when zr refused the program.
 | `refused` | zr does not support the program (the build's status 3). |
 | `build-error` | The build failed for another reason. |
 
-An object address (`0x` and 16 hex digits) is `0x...` in both outputs.
+An object address (`0x` and 8 to 16 hex digits) is `0xADDR` in both outputs.
 ruby reads the same `--gem` directories, and with `--gemfile` or
 `BUNDLE_GEMFILE` it runs as `bundle exec ruby` does. Where ruby has
 other versions of its gems than zr, the two runs can differ for that
