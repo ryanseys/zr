@@ -43,6 +43,7 @@ module Zr
         "nkf" => port("0.3.0"),
         "fiddle" => port("1.1.8"),
         "racc" => port("1.8.1"),
+        "debug" => port("1.11.1"),
         # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
         # if any, is ruby's own at the same version.
         "date" => port("3.6.0", vendored: false),

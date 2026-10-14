@@ -3,7 +3,7 @@
 # `zr-dev vendor --check` checks vendor/ against it.
 #
 # A source: kind name version sha256-of-its-.gem url
-inputs ef237f81239c43ee4480d069a1e278d700cc278c8171ff87a6cf7c26ab05f5c4
+inputs 59e5f34fec33a27785a6d63ac6b2eee37d1d031ce9c5cef531e270314d18445b
 
 ruby ruby 4.1.0 - https://github.com/ruby/ruby@2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1
 source prism 1.9.0 - https://github.com/ruby/prism@0a5f9c956cb62b371ab680868d08c82ae0d49201
@@ -80,6 +80,7 @@ bundled rss 0.3.3 37ef1ec4d691d67edbe92159079a4e89a0965e6a6b32246009ae3d734d12d1
 bundled test-unit 3.7.8 689d1ca53f4d46f678b4e5d68d8e4294f87fc5e8b9238cc4de7c5727e8d65943 https://rubygems.org/downloads/test-unit-3.7.8.gem
 bundled tsort 0.2.0 9650a793f6859a43b6641671278f79cfead60ac714148aabe4e3f0060480089f https://rubygems.org/downloads/tsort-0.2.0.gem
 port bigdecimal 4.1.3 61ebe1e5e559bdc3cc6f2c0ee7f427321fc838f59611c294356eb04d6e21cf66 https://rubygems.org/downloads/bigdecimal-4.1.3.gem
+port debug 1.11.1 2e0b0ac6119f2207a6f8ac7d4a73ca8eb4e440f64da0a3136c30343146e952b6 https://rubygems.org/downloads/debug-1.11.1.gem
 port ffi 1.17.4 bcd1642e06f0d16fc9e09ac6d49c3a7298b9789bcb58127302f934e437d60acf https://rubygems.org/downloads/ffi-1.17.4.gem
 port fiddle 1.1.8 7fa8ee3627271497f3add5503acdbc3f40b32f610fc1cf49634f083ef3f32eee https://rubygems.org/downloads/fiddle-1.1.8.gem
 port json 3.0.2 8e6d7e7b11384c21230430cef90b71f14849a34a1f4452796670f7c981bd19df https://rubygems.org/downloads/json-3.0.2.gem
@@ -961,6 +962,30 @@ a05e9da81af51a2a6a1062680ee5c908142e1624e7d1b18b069c6aa69130d903 ruby/lib/ruby/g
 0d536c4d5dbea6b5e3d9a5237b519594b6d1835dca6402718b577bc2991738e8 ruby/lib/ruby/gems/4.1.0+5/gems/csv-3.3.6/lib/csv/table.rb
 286d1aeeb8b7168766527791c90d7c8f12fc9286d5c95f03a9cc9fc42f7f6aa5 ruby/lib/ruby/gems/4.1.0+5/gems/csv-3.3.6/lib/csv/version.rb
 00acca8d52662d166f74021624aa88ea5bdb6c8f37badce399bebc6f84f550a2 ruby/lib/ruby/gems/4.1.0+5/gems/csv-3.3.6/lib/csv/writer.rb
+a5e3042dacb53eebda91f3b1caefbfec8307711df8c4ed1ed20e4e97c43307a4 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/LICENSE.txt
+ca688c3061d1eefcfd5cab630c0ec593f001a4d131ab38a8096bd81b8692f57b ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug.rb
+6e32634845bf77c582e0008025ba78a703f2fe98df4dbd55ccce176479353ce6 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/abbrev_command.rb
+334a2641953642df769e9913bbd7e8bfd324e7279036f8e3f9f5bba999bebd49 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/breakpoint.rb
+8560c33e2e75c3b9f11f6308536095f4078bb49e0ec4b078cb3043e574b0cd3f ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/client.rb
+dfa5b7f25c309503cd01bd22829dd366902361310963ffa22c22a3d280b9d91c ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/color.rb
+0cf82f8bb90d7f4a5d4484179aec712cb7c699084ba8c15baa010904f76d642a ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/config.rb
+3f2ac45c251f884c6f990eee135c20c83aee0f148377b75231bb98399ca1416e ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/console.rb
+89845045f58ef71ce780fedafdd223807e75a8390eb8bcdfd93874d8dd8fc7fa ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/dap_custom/traceInspector.rb
+796ba07a23aa66d41a62886967471375e3c9a0b2dd742dfd25c697e568d5a44d ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/frame_info.rb
+c5dfa23ae8f59896d3104fc6248c324fcc36b67621ae44e7870c0cc8323c0473 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/irb_integration.rb
+d415675a29662b6fa27f8e2b7255d728615b4dc410d0f88ff5b4e29100c0612d ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/local.rb
+2084d66eb6939421ca578e4f4bfabe7e78d15f80217044833b12c816b9522a95 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/open.rb
+8a2b708bc4374a2028cd06fc092571c17e40315fc5402b7911bde90ba8ce9bb7 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/open_nonstop.rb
+b8e851363d49b2475b37be24112e00bf3c95f921e9d302e0eaa3ab66136792ed ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/prelude.rb
+6c3eca415dc23bf27d3b0cb0e6060b15f984ca4474c0ffbc4754ea09b3ef78b7 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/server.rb
+3d602c11ab9bc3bdaa88e29c4596fcfcf791ac92ad80b79ead24fc588f897003 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/server_cdp.rb
+28b459a93824668bd2d411a201a172e83cbc03fc5aa80da1d434b68a8c499427 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/server_dap.rb
+26f6d937132a8a993f9f80df86dfbb9cb242663ca6c01850a8352a8201b6dde1 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/session.rb
+a91adab9f36cee762192cefa9f9276f36b71466ba62f17137807d7930e561f69 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/source_repository.rb
+95d69cc5efd4892f254dda941a22a913789cb21d2ad3ca0a856c6df0aaf2203f ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/start.rb
+49342af3cfed98c76558fee3d0bd6edae0e7c73c6081f66d17431a24a0322529 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/thread_client.rb
+d0e0ea1ed7feb7500aeeda3659596b7ce2ceab93711d4484655aa3c41e4e542b ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/tracer.rb
+173563436c8913c3a64c384221291f12fd45995addca045430f5b7867b6898e2 ruby/lib/ruby/gems/4.1.0+5/gems/debug-1.11.1/lib/debug/version.rb
 a5e3042dacb53eebda91f3b1caefbfec8307711df8c4ed1ed20e4e97c43307a4 ruby/lib/ruby/gems/4.1.0+5/gems/drb-2.2.3/LICENSE.txt
 cbb8ba6422fe70279e54ab6037010d97512abd786f7e7ab496d8cadbca3de945 ruby/lib/ruby/gems/4.1.0+5/gems/drb-2.2.3/lib/drb.rb
 b93b457add99cdeb358e38abf39d0fad836b0525d710a423adf2ed5a6093d656 ruby/lib/ruby/gems/4.1.0+5/gems/drb-2.2.3/lib/drb/acl.rb
@@ -1603,6 +1628,7 @@ a8703f50aab149abc5b4b251234b954d14db70ef3e85f194b5f00a7d2f5cd696 ruby/lib/ruby/g
 17660401bf77d6740cacb909cdb97ee6d48529887ddcb5531e83a064ae6dd284 ruby/lib/ruby/gems/4.1.0+5/specifications/benchmark-0.5.0.gemspec
 fa5ee4bfe4c87fbbf3dc39612c91734f3dd3821ae51d92259302fbf35ea0dcb4 ruby/lib/ruby/gems/4.1.0+5/specifications/bigdecimal-4.1.3.gemspec
 38767c44f2a1a80513d7743c26c5cc3d169840d620068c75b85377175430caa9 ruby/lib/ruby/gems/4.1.0+5/specifications/csv-3.3.6.gemspec
+374aacc56d340bf372acd929c55783e8ee825d26960dbb22ec0ae5ea39f1f705 ruby/lib/ruby/gems/4.1.0+5/specifications/debug-1.11.1.gemspec
 0d0548dfd0ba5c85152bea6882317b1e2575097323ce1ccd8167c9514c1cfc48 ruby/lib/ruby/gems/4.1.0+5/specifications/default/bundler-4.1.0.beta2.gemspec
 19b7edf360c4e96b02e94b91ffcdda1d8777c6ffc4b6def119f918f771222b7a ruby/lib/ruby/gems/4.1.0+5/specifications/default/date-3.6.0.gemspec
 d126c2cb5dd4e0d9641f7130346e44ac7911933e1acae62a669b34d9b8f17b29 ruby/lib/ruby/gems/4.1.0+5/specifications/default/delegate-0.7.0.gemspec
