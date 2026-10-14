@@ -19,7 +19,7 @@ module Zr
     # object. For wasm it
     # makes two module preludes, without and with eval support. Each is a file in the cache, named by a
     # digest of its sources. After a change under `lib` or `runtime`, the next
-    # build makes them again: about three minutes, and five more for wasm.
+    # build makes them again, which takes minutes, and longer for wasm.
     #
     # `ready!` builds what is missing before the run forks its workers.
     # If each worker built it, eight builds would run at once and time out.

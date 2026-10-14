@@ -32,14 +32,11 @@ date, bigdecimal, nkf, ffi and others). See
 
 ## How large is a binary?
 
-A binary contains the whole runtime and core library. For "hello
-world", on the machine that measured it:
-
-| Output | Size |
-|---|---|
-| `aarch64-apple-darwin` binary | 27 MB |
-| `wasm32-wasi` module | 46 MB |
-| a binary of a program that calls `eval` | about 110 MB (it contains the compiler) |
+A binary contains the whole runtime and core library, so even "hello
+world" is tens of megabytes, and a WASI module is larger. A program
+that calls `eval` also contains the compiler, which makes it some
+times larger. [Performance](performance.md) gives the size of the
+binary of an empty program in the newest measurement.
 
 ## How fast is it?
 

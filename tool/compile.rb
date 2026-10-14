@@ -246,6 +246,7 @@ module Zr
           File.open(path, "w") do |f|
             f.puts "# zr compile cost, the median of #{runs} run(s) at #{Dev.revision}, runtime warm, #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
             f.puts "# host: #{host}"
+            f.puts "# ruby: #{RUBY_DESCRIPTION}"
             table(rows, f)
           end
           warn "wrote #{Dev.rel(path)}"

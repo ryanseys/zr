@@ -97,9 +97,10 @@ fibers, threads or ractors. See [Targets](https://github.com/ryanseys/zr/blob/v0
   and aarch64 Linux (a static musl binary, which also runs on a glibc
   Linux). It builds no x86_64 or Windows binary. Any host builds macOS
   binaries, WASI modules and objects.
-- **Size.** A binary contains the whole runtime: 27 MB for "hello
-  world", 46 MB as a WASI module, and about 110 MB for a program that
-  calls `eval`, which carries the compiler.
+- **Size.** A binary contains the whole runtime, so even "hello
+  world" is tens of megabytes; a program that calls `eval` also
+  carries the compiler. [Performance](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/performance.md) gives the size of the
+  newest measurement.
 - **Libraries.** A program can require all of ruby's library,
   and a pure-Ruby gem through a literal `$LOAD_PATH`. For a gem with a
   C extension, zr uses its Ruby port of the C when it has one. With

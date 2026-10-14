@@ -58,7 +58,7 @@ and the message links [How to install zr](../how-to/install.md).
 | `--link <arg>` | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
 | `--gem <name>=<version\|dir>` | yes | yes | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
 | `--gemfile <path>` | yes | yes | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
-| `--allow-runtime-require` | yes | yes | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler (such a binary is about 110 MB) to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
+| `--allow-runtime-require` | yes | yes | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler, which makes it some times larger, to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
 | `--trace` | yes | yes | Builds the program with its trace events armed (`ZR_TRACE=1` does the same). zr arms them by itself when the code of a file of the program names `TracePoint`, `set_trace_func` or `Coverage`. A program that reaches TracePoint only by a name in a string or a symbol (`Object.const_get("TracePoint")`), or in an eval's code, needs this flag; without it, its code fires no events, and zr warns when it enables a TracePoint. |
 | `--print-gems` | no | yes | After the build, prints the gems that the output was built with, as `zr inspect` does. |
 | `-h`, `--help` | yes | yes | Prints the help for the command. |
@@ -376,8 +376,8 @@ zr: app.rb:2: cannot load such file -- rainbow. Give --gem rainbow=<dir> or a --
 ```
 
 Without the gate, the require would wait for the run time, and the
-binary would carry the compiler (such a binary is about 110 MB) to
-compile what it finds then. A require inside `begin ... rescue LoadError` (or `ScriptError`,
+binary would carry the compiler, which makes it some times larger,
+to compile what it finds then. A require inside `begin ... rescue LoadError` (or `ScriptError`,
 or `Exception`) does not stop the build: the program handles the
 LoadError, as in ruby. A bare `rescue` does not catch LoadError, so it
 does not count. A require in a library's file, and a require of a

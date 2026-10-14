@@ -51,18 +51,20 @@ module Zr
       SCRATCH = "tmp/bench"
       LATEST = "latest.txt"
 
-      # `build` is the compile time, in seconds. `zr`, `ruby` and `yjit`
+      # `build` is the compile time, in seconds, and `size` the bytes of
+      # the binary. `zr`, `ruby` and `yjit`
       # are each a `Benchmark::Tms` of the median run: the wall clock in
       # `real`, and the child's user and system time in `utime` and
       # `stime`. A result with no time has a reason in `why`.
       class Row
-        attr_reader :rb, :bucket, :why, :build, :zr, :ruby, :yjit
+        attr_reader :rb, :bucket, :why, :build, :size, :zr, :ruby, :yjit
 
-        def initialize(rb, bucket, why = nil, build: nil, zr: nil, ruby: nil, yjit: nil)
+        def initialize(rb, bucket, why = nil, build: nil, size: nil, zr: nil, ruby: nil, yjit: nil)
           @rb = rb
           @bucket = bucket
           @why = why
           @build = build
+          @size = size
           @zr = zr
           @ruby = ruby
           @yjit = yjit
@@ -139,7 +141,7 @@ module Zr
         # A threshold of one call: YJIT then compiles a toplevel loop too,
         # which runs once (fannkuch, sieve, matmul).
         jit, = medians("yjit", [RbConfig.ruby, "--yjit", "--yjit-call-threshold=1", rel], cwd, nil, {}, rb, nil)
-        Row.new(rb, :timed, build: build.real, zr: got, ruby: plain, yjit: jit)
+        Row.new(rb, :timed, build: build.real, size: File.size(bin), zr: got, ruby: plain, yjit: jit)
       end
 
       # Returns the median run of `@runs` by wall clock, as a Tms. When
@@ -259,7 +261,8 @@ module Zr
       LABEL = "%-8n"
 
       def text(rows, taken = Time.now.utc)
-        lines = ["# zr bench, the median of #{@runs} run(s) at #{revision}, #{taken.strftime("%Y-%m-%d %H:%M UTC")}"]
+        lines = ["# zr bench, the median of #{@runs} run(s) at #{revision}, #{taken.strftime("%Y-%m-%d %H:%M UTC")}",
+                 "# ruby: #{RUBY_DESCRIPTION}"]
         rows.each do |r|
           lines << ""
           unless r.timed?
@@ -267,7 +270,7 @@ module Zr
             next
           end
 
-          lines << format("%s  built in %.1f s", r.name, r.build)
+          lines << format("%s  built in %.1f s, %d bytes", r.name, r.build, r.size)
           lines << (" " * 8) + Benchmark::CAPTION.chomp
           %i[zr ruby yjit].each do |what|
             t = r.public_send(what) or next

@@ -42,9 +42,9 @@ module Zr
       DEADLINE = Integer(ENV.fetch("ZR_TEST_TIMEOUT", 180))
 
       # The memory, in MB, that a worker can *add* before the pool
-      # replaces it. A process grew 426 MB over 388 compiles, and 696 MB
-      # over the heaviest area. So this limit replaces the heavy workers
-      # and not the usual ones.
+      # replaces it. A worker grows as it compiles, and most over the
+      # heaviest areas. So this limit replaces the heavy workers and not
+      # the usual ones.
       #
       # The limit applies to growth, not to the total resident size. The
       # parent warms the compiler before it forks, so each worker starts

@@ -52,11 +52,11 @@ because their time is mostly the start of the process:
 
 ### Known slow paths
 
-- **Bignum arithmetic on large numbers** (`bm_pidigits`): a
+- **Bignum division on large numbers** (`bm_pidigits`): a
   bignum is an Array of 30-bit limbs in the runtime's Ruby
-  (lib/zr/runtime/core/bignum.rb), multiplied and divided with the
-  schoolbook methods. ruby uses GMP or Karatsuba-class methods
-  in C for large operands.
+  (lib/zr/runtime/core/bignum.rb). Products of long numbers use
+  Karatsuba's method, but division is the schoolbook method;
+  ruby divides with GMP or Karatsuba-class methods in C.
 - **Regexp** (`bm_regexp_scan`): the engine is a port of Onigmo
   in Ruby, which the runtime compiles; ruby runs Onigmo's C.
 - **Small recursive methods** (`bm_ackermann`, `bm_tree_walker`):
@@ -65,17 +65,15 @@ because their time is mostly the start of the process:
 ## Build time
 
 What a build costs, in seconds, with the runtime already built
-and cached. A name with `*` is the build by the compiled
-compiler; the others run the compiler under ruby.
+and cached, with the compiler under ruby.
 The report is "zr compile cost, the median of 3 run(s) at 9133a6bf, runtime warm, 2026-09-24 23:50 UTC".
 
-| Phase | bundler | bundler* | hello | hello* | rubygems | rubygems* | stdlib | stdlib* |
-|---|---|---|---|---|---|---|---|---|
-| hir built | 1.750 | 2.133 | 0.006 | 0.002 | 0.058 | 0.043 | 0.289 | 0.295 |
-| program lowered and assembled | 1.117 | 0.431 | 0.131 | 0.008 | 0.725 | 0.404 | 0.284 | 0.047 |
-| program object written and linked | 2.473 | 2.884 | 0.085 | 0.101 | 0.359 | 0.399 | 0.407 | 0.584 |
-| the whole build | 5.702 | 5.800 | 0.498 | 0.281 | 1.448 | 1.060 | 1.281 | 1.159 |
-| compiled / ruby | - | 1.02x | - | 0.56x | - | 0.73x | - | 0.90x |
+| Phase | bundler | hello | rubygems | stdlib |
+|---|---|---|---|---|
+| hir built | 1.750 | 0.006 | 0.058 | 0.289 |
+| program lowered and assembled | 1.117 | 0.131 | 0.725 | 0.284 |
+| program object written and linked | 2.473 | 0.085 | 0.359 | 0.407 |
+| the whole build | 5.702 | 0.498 | 1.448 | 1.281 |
 
 ## All programs
 

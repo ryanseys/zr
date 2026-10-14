@@ -14,7 +14,7 @@ module Zr
         class Perf < Generator
           writes "docs/explanation/performance.md"
 
-          Row = Data.define(:name, :build, :zr, :ruby, :yjit)
+          Row = Data.define(:name, :build, :size, :zr, :ruby, :yjit)
 
           # A program whose ruby time is under this many times ruby's start
           # (bm_startup) measures mostly the start, not the work.
@@ -51,7 +51,7 @@ module Zr
               #{STARTUP_BOUND} times its own start are not in the mean,
               because their time is mostly the start of the process:
               #{bound.map { |r| "`#{r.name}`" }.join(", ")}.
-
+              #{size(start)}
               ### Slowest against YJIT
 
               #{table(timed.max_by(8) { |r| r.zr / r.yjit })}
@@ -62,11 +62,11 @@ module Zr
 
               ### Known slow paths
 
-              - **Bignum arithmetic on large numbers** (`bm_pidigits`): a
+              - **Bignum division on large numbers** (`bm_pidigits`): a
                 bignum is an Array of 30-bit limbs in the runtime's Ruby
-                (lib/zr/runtime/core/bignum.rb), multiplied and divided with the
-                schoolbook methods. ruby uses GMP or Karatsuba-class methods
-                in C for large operands.
+                (lib/zr/runtime/core/bignum.rb). Products of long numbers use
+                Karatsuba's method, but division is the schoolbook method;
+                ruby divides with GMP or Karatsuba-class methods in C.
               - **Regexp** (`bm_regexp_scan`): the engine is a port of Onigmo
                 in Ruby, which the runtime compiles; ruby runs Onigmo's C.
               - **Small recursive methods** (`bm_ackermann`, `bm_tree_walker`):
@@ -88,16 +88,27 @@ module Zr
             "The report is \"#{line}\"."
           end
 
-          # Each program's block: its name and build time, then a row each for
-          # zr, ruby and yjit with the real time in parentheses.
+          # Each program's block: its name, build time and binary's size (a
+          # report before the size has none), then a row each for zr, ruby
+          # and yjit with the real time in parentheses.
           def rows(text)
             text.split(/^(?=bm_)/).filter_map do |block|
-              name, build = block[/\Abm_\S+/], block[/built in ([\d.]+) s/, 1]
+              name, build, size = block[/\Abm_\S+/], block[/built in ([\d.]+) s/, 1], block[/, (\d+) bytes/, 1]
               real = ->(who) { block[/^#{who}\s.*\(\s*([\d.]+)\)/, 1]&.to_f }
               next unless name && real.call("zr") && real.call("ruby") && real.call("yjit")
 
-              Row.new(name, build.to_f, real.call("zr"), real.call("ruby"), real.call("yjit"))
+              Row.new(name, build.to_f, size&.to_i, real.call("zr"), real.call("ruby"), real.call("yjit"))
             end
+          end
+
+          # A sentence on the size of the binary of an empty program, which
+          # is the runtime's, or nothing for a report that has no size.
+          def size(start)
+            return "" unless start.size
+
+            megabytes = (start.size / 1e6).round
+            "\nThe binary of `bm_startup` is #{megabytes} MB: each binary carries the whole\n" \
+              "runtime, and a program that calls `eval` also carries the compiler.\n"
           end
 
           def table(rows)
@@ -113,19 +124,24 @@ module Zr
             text = File.read(compile_report)
             body = text.lines.reject { |l| l.start_with?("#") || l.strip.empty? }.map(&:rstrip)
             head, *rest = body
-            cols = head.split.drop(1) # the first word names the label column
-            table = ["| Phase | #{cols.join(" | ")} |", "|---|#{"---|" * cols.size}"]
+            # The first word names the label column. A name with `*` is a
+            # build by the compiled compiler (`zr-dev compile --zr`), which
+            # only `zr-dev stage` uses: the page shows the builds under ruby.
+            cols = head.split.drop(1)
+            kept = cols.each_index.reject { |i| cols[i].end_with?("*") }
+            table = ["| Phase | #{cols.values_at(*kept).join(" | ")} |", "|---|#{"---|" * kept.size}"]
             rest.each do |line|
               label, values = line.split(/\s{2,}/, 2)
-              table << "| #{label} | #{values.to_s.split.join(" | ")} |"
+              next if label == "compiled / ruby"
+
+              table << "| #{label} | #{values.to_s.split.values_at(*kept).join(" | ")} |"
             end
             <<~MD
 
               ## Build time
 
               What a build costs, in seconds, with the runtime already built
-              and cached. A name with `*` is the build by the compiled
-              compiler; the others run the compiler under ruby.
+              and cached, with the compiler under ruby.
               #{header(text)}
 
               #{table.join("\n")}

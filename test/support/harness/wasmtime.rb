@@ -8,11 +8,9 @@ module Zr
     #
     # The tests use Winch, wasmtime's baseline compiler, not Cranelift, its
     # optimizing compiler. A test needs the output, not the speed. A zr
-    # module is almost all runtime (35 to 130 MB), and Cranelift compiles
-    # it again for each program, because its cache key is the whole
-    # module. With wasmtime 48.0.2, a 35 MB module took 17.6 s of CPU under
-    # Cranelift and 2.8 s under Winch. The 131 MB module that includes eval
-    # support took 70 s and 12 s. The output and exit status were the same.
+    # module is almost all runtime, and Cranelift compiles it again for
+    # each program, because its cache key is the whole module; Winch
+    # compiles it some times faster, with the same output and exit status.
     # `zr-dev bench` uses Cranelift, because there the speed is the result.
     # `ZR_TEST_WASM_COMPILER=cranelift` selects it for a tier.
     #
@@ -65,9 +63,9 @@ module Zr
 
       # Compiles `module_path` to `<module_path>.cwasm` and returns that
       # path, or nil when the compile fails (a run of the module then
-      # reports why). Winch uses 3.3 GB to compile a 157 MB module with
-      # eval support, and the run of that module uses 0.5 GB. A test
-      # limits the memory of the run, so it must not count the compile.
+      # reports why). The compile of a module with eval support takes some
+      # times the memory of its run. A test limits the memory of the run,
+      # so it must not count the compile.
       def precompile(module_path, compiler: self.compiler)
         out = "#{module_path}.cwasm"
         ok = system(executable, "compile", *flags(compiler: compiler), "-o", out, module_path,
