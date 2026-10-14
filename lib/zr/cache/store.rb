@@ -39,7 +39,8 @@ module Zr
         Kind.new(:meta, :json, ".json", nil),     # symbol tables, gem prelude lists, eval meta
         Kind.new(:wasm, :marshal, ".marshal", nil),
         Kind.new(:gems, :marshal, ".marshal", nil),
-        Kind.new(:parse, :raw, "", nil),          # Prism parse results (Parse encodes them)
+        Kind.new(:parse, :marshal, ".marshal", nil), # Prism parse results (Cache::Parse)
+        Kind.new(:derived, :raw, "", nil),        # what a build derives from a parse: error_highlight's spots (Cache::Parse.derived)
         Kind.new(:unit, :marshal, ".marshal", nil),
         Kind.new(:lowering, :marshal, ".marshal", nil),
         Kind.new(:kernel, :marshal, ".marshal", nil),   # the kernel's lowering (Cache::Kernel)

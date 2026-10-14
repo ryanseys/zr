@@ -75,18 +75,35 @@ class ParseCacheTest < Minitest::Test
   # The process parses with the port that it loaded, and the key identifies
   # the files on disk when the digest was taken. If a port file changes
   # after that, the build does not write a parse under the old key.
-  def test_write_raises_when_a_parser_file_changed
+  def test_keep_raises_when_a_parser_file_changed
     ParseCache.parser
-    stamps = ParseCache.instance_variable_get(:@stamps)
-    file = stamps.keys.first
-    ParseCache.instance_variable_set(:@stamps, stamps.merge(file => [0, 0]))
-    Dir.mktmpdir("zr-parse-") do |dir|
-      error = assert_raises(Zr::SourceChanged) { ParseCache.write(File.join(dir, "x.marshal"), "x") }
-      assert_includes error.message, file
-      refute_path_exists File.join(dir, "x.marshal")
-    end
+    stamps = ParseCache.stamps
+    file, was = stamps.first
+    stamps[file] = [0, 0]
+    key = Zr::Cache::Store.key("moved", Process.pid)
+
+    error = assert_raises(Zr::SourceChanged) { ParseCache.keep(:derived, key, "x") }
+    assert_includes error.message, file
+    refute_path_exists Zr::Cache::Store.path(:derived, key)
   ensure
-    ParseCache.instance_variable_set(:@stamps, stamps)
+    stamps[file] = was
+  end
+
+  # A parse that a build reads back is a use of its entry, so eviction,
+  # which takes the entries used longest ago, keeps it.
+  def test_a_parse_read_from_the_store_touches_its_entry
+    source = "touched_#{Process.pid} = 1\n"
+    ParseCache.parse(source, filepath: "touched.rb")
+    ParseCache.memo.clear
+    path = Zr::Cache::Store.path(:parse, ParseCache.key(source, { filepath: "touched.rb" }))
+    old = Time.now - (3 * 86_400)
+    File.utime(old, old, path)
+
+    ParseCache.parse(source, filepath: "touched.rb")
+
+    assert_operator File.mtime(path), :>, old + 86_400
+  ensure
+    ParseCache.memo.clear
   end
 
   # A build keeps what it derives from a tree (error_highlight's spots)
@@ -127,7 +144,7 @@ class ParseCacheTest < Minitest::Test
   def test_parse_returns_memoized_tree_without_reading_the_cache
     source = "def memoized(a) = a + 1\n"
     first = ParseCache.parse(source, filepath: "memo.rb")
-    File.delete(Zr::Cache::Store.path(:parse, "#{ParseCache.key(source, { filepath: "memo.rb" })}.marshal"))
+    File.delete(Zr::Cache::Store.path(:parse, ParseCache.key(source, { filepath: "memo.rb" })))
     assert_same first, ParseCache.parse(source, filepath: "memo.rb")
   ensure
     ParseCache.memo.clear
@@ -167,31 +184,33 @@ class ParseCacheTest < Minitest::Test
     assert_equal :kept, memo["small"]
   end
 
-  def test_read_returns_the_tree_that_write_wrote
-    Dir.mktmpdir("zr-parse-") do |dir|
-      path = File.join(dir, "result.marshal")
-      source = File.read(File.join(ROOT, "lib/zr/hir/build.rb"))
-      parsed = Prism.parse(source, filepath: "build.rb")
-      ParseCache.write(path, Marshal.dump(parsed))
-      read = ParseCache.read(path)
-      assert_equal parsed.value.inspect, read.value.inspect, "the tree read back differs"
-      assert_equal parsed.value.location.start_line, read.value.location.start_line
-      assert_equal parsed.comments.map(&:slice), read.comments.map(&:slice)
-      assert_equal parsed.errors.map(&:message), read.errors.map(&:message)
-    end
+  def test_a_kept_parse_reads_back_as_the_same_tree
+    key = Zr::Cache::Store.key("round trip", Process.pid)
+    source = File.read(File.join(ROOT, "lib/zr/hir/build.rb"))
+    parsed = Prism.parse(source, filepath: "build.rb")
+    ParseCache.keep(:parse, key, parsed)
+    read = ParseCache.parsed(key, "", {})
+
+    assert_equal parsed.value.inspect, read.value.inspect, "the tree read back differs"
+    assert_equal parsed.value.location.start_line, read.value.location.start_line
+    assert_equal parsed.comments.map(&:slice), read.comments.map(&:slice)
+    assert_equal parsed.errors.map(&:message), read.errors.map(&:message)
+  ensure
+    Zr::Paths.remove(Zr::Cache::Store.path(:parse, key))
   end
 
-  def test_a_file_that_does_not_read_back_is_a_miss
-    Dir.mktmpdir("zr-parse-") do |dir|
-      path = File.join(dir, "result.marshal")
-      assert_nil ParseCache.read(path)
-      File.binwrite(path, Marshal.dump(Prism.parse("1"))[0, 40])
-      assert_nil ParseCache.read(path)
-      File.binwrite(path, "not marshal")
-      assert_nil ParseCache.read(path)
-      File.binwrite(path, Marshal.dump([1, 2]))
-      assert_nil ParseCache.read(path)
+  # A torn entry, bytes that are not Marshal, or another value: each is a
+  # miss, and the port parses the source again.
+  def test_an_entry_that_does_not_read_back_is_a_miss
+    key = Zr::Cache::Store.key("torn", Process.pid)
+    path = Zr::Cache::Store.path(:parse, key)
+    [Marshal.dump(Prism.parse("1"))[0, 40], "not marshal", Marshal.dump([1, 2])].each do |bytes|
+      Zr::Cache::Store.write_file(path, bytes)
+
+      assert_equal "2", ParseCache.parsed(key, "2", {}).value.slice
     end
+  ensure
+    Zr::Paths.remove(path)
   end
 
   private

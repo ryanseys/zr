@@ -58,7 +58,7 @@ class SourceChangedTest < Minitest::Test
       error = assert_raises(Zr::SourceChanged) { Zr::SourceGuard.check! }
       assert_includes error.message, @file
       assert_raises(Zr::SourceChanged) { Zr::Cache::Store.write_file(File.join(Zr::Paths.cache, "moved-probe"), "x") }
-      assert_raises(Zr::SourceChanged) { Zr::Cache::Parse.write(File.join(Zr::Paths.cache, "moved-probe"), "x") }
+      assert_raises(Zr::SourceChanged) { Zr::Cache::Parse.keep(:derived, "moved-probe", "x") }
       cache = Zr::Cache::Unit.new(runtime: "r", traced: 0, entries: [])
       unit = Zr::Hir::Unit.new("probe.rb", [], nil, [], false, nil, false, "1", false)
       assert_raises(Zr::SourceChanged) { cache.keep(unit, "zr_toplevel", [], []) }

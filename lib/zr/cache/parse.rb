@@ -28,10 +28,6 @@ module Zr
     # sets differ (the binary contains only the gem files that the port
     # loads), so ruby and a binary never share a parse.
     module Parse
-      # @rbs @parser: String?
-      # @rbs @stamps: Hash[String, [Rational, Integer]?]?
-      # @rbs @makers: Hash[Array[String], String?]?
-
       # The files of the parser: these, and every Ruby file under the trees.
       GEM = Library::Ports.lib("prism") #: String
       FILES = [File.join(Library::Layout::EXT, "prism/prism.rb"), File.expand_path("../prism.rb", __dir__), __FILE__,
@@ -130,12 +126,15 @@ module Zr
         memo[key] || memo.keep(key, parsed(key, source, options), source.bytesize)
       end
 
-      # The parse for `key`: from an earlier build's cache file, else a new
-      # parse by the port, written for the next build.
+      # The parse for `key`: from an earlier build's entry, else a new parse
+      # by the port, kept for the next build. A read counts as a use, so
+      # eviction keeps the parses that builds read.
       #: (String key, String source, Hash[Symbol, untyped] options) -> Prism::ParseResult
       def parsed(key, source, options)
-        path = Store.path(:parse, "#{key}.marshal")
-        read(path) || Prism.parse(source, **options).tap { |result| write(path, Marshal.dump(result)) }
+        cached = Store.read(:parse, key)
+        return cached if cached.is_a?(Prism::ParseResult)
+
+        Prism.parse(source, **options).tap { |result| keep(:parse, key, result) }
       end
 
       # The parses that this process keeps.
@@ -151,7 +150,13 @@ module Zr
 
       # The digest of the parser, computed once per process.
       #: () -> String
-      def parser = @parser ||= parser_key(parser_digests)
+      def parser = Session.current.memo(:parser_key) { parser_key(parser_digests) }
+
+      # The stamp of each parser file, and of each maker file, when this
+      # process took its digest; `keep` checks them again. Empty in a
+      # compiled compiler, which carries the digests and not the files.
+      #: () -> Hash[String, [Rational, Integer]?]
+      def stamps = Session.current.memo(:parser_stamps) { {} }
 
       # One digest of ruby's version and each parser file (its path and its
       # own digest).
@@ -164,13 +169,13 @@ module Zr
       end
 
       # Each parser file, with the SHA-256 of its bytes. Under ruby, it also
-      # records each file stamp, and `write` checks them again.
+      # records each file stamp (`stamps`).
       #: () -> Hash[String, String]
       def parser_digests
         return ::Zr::Eval::Runtime.sources.select { |path, _| parser_file?(path) } if Host.compiled?
 
         files = parser_files
-        @stamps = files.to_h { |file| [file, Paths.stamp(file)] }
+        stamps.merge!(files.to_h { |file| [file, Paths.stamp(file)] })
         files.to_h { |file| [file, Digest::SHA256.hexdigest(File.binread(file))] }
       end
 
@@ -182,19 +187,19 @@ module Zr
       def derived(kind, source, options, files)
         maker = maker(files) or return yield
 
-        path = Store.path(:parse, "#{Store.key(key(source, options), kind, maker)}.#{kind}")
-        text = File.binread(path).force_encoding(Encoding::UTF_8) if File.file?(path)
+        key = Store.key(key(source, options), kind, maker)
+        text = Store.read(:derived, key)&.force_encoding(Encoding::UTF_8)
         return text if text&.valid_encoding?
 
-        yield.tap { |made| write(path, made.b) }
+        yield.tap { |made| keep(:derived, key, made.b) }
       end
 
       # One digest of `files` (the code that derives a cached form), or nil
       # if one of the files is missing. Under ruby, the files' stamps are
-      # added to the parser's stamps, and `write` checks them again.
+      # added to the parser's stamps (`stamps`).
       #: (Array[String] files) -> String?
       def maker(files)
-        makers = @makers ||= {} #: Hash[Array[String], String?]
+        makers = Session.current.memo(:parse_makers) { {} } #: Hash[Array[String], String?]
         return makers[files] if makers.key?(files)
 
         digests = if Host.compiled?
@@ -204,7 +209,7 @@ module Zr
                     files.to_h { |file| [file, (Digest::SHA256.hexdigest(File.binread(file)) if File.file?(file))] }
                   end
         parser
-        @stamps&.merge!(files.to_h { |file| [file, Paths.stamp(file)] })
+        stamps.merge!(files.to_h { |file| [file, Paths.stamp(file)] }) unless Host.compiled?
         # `all?` makes sure that each digest is a String.
         whole = digests #: Hash[String, String]
         makers[files] = (parser_key(whole) if digests.values.all?)
@@ -223,25 +228,17 @@ module Zr
         FILES.include?(path) || (path.end_with?(".rb") && TREES.any? { |tree| path.start_with?("#{tree}/") })
       end
 
-      #: (String path) -> Prism::ParseResult?
-      def read(path)
-        result = Marshal.load(File.binread(path))
-        result if result.is_a?(Prism::ParseResult)
-      rescue SystemCallError, ArgumentError, TypeError, EOFError
-        nil
-      end
-
-      # Writes the file atomically, so a parallel build never reads half of
-      # it. Writes nothing if a source changed during the build
-      # (`SourceGuard.check!`), or if a parser file changed after its digest. This
-      # process parses with the code that it loaded, but the key identifies
-      # the files on disk.
-      #: (String path, String bytes) -> void
-      def write(path, bytes)
-        moved = (@stamps || {}).find { |file, was| Paths.stamp(file) != was }
+      # Keeps `value` as the entry `key` of `kind` (`:parse` or `:derived`).
+      # Keeps nothing if a source changed during the build
+      # (`SourceGuard.check!`), or if a parser file changed after its
+      # digest: this process parses with the code that it loaded, but the
+      # key names the files on disk.
+      #: (Symbol kind, String key, untyped value) -> void
+      def keep(kind, key, value)
+        moved = stamps.find { |file, was| Paths.stamp(file) != was }
         raise SourceChanged, "#{moved.first} changed while this build ran; nothing it parsed is kept" if moved
 
-        Store.write_file(path, bytes)
+        Store.write(kind, key, value)
       end
     end
   end
