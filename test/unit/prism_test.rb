@@ -29,7 +29,7 @@ class PrismTest < Minitest::Test
   end
 
   def test_the_encoding_tables_are_current
-    skip "no prism source: PRISM_SRC names a prism checkout or a #{Zr::Dev::PRISM} tree" unless Zr::Dev.prism?
+    skip "no prism checkout at #{Zr::Dev.rel(Zr::Dev.prism_src)}; PRISM_SRC names one" unless Zr::Dev.prism?
 
     out, ok = Checks.generate("prism_encoding_tables")
     assert ok, out
