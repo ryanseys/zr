@@ -6,3 +6,16 @@ b94fd1b530ba54faaab068315f400b46bd2ad933
 
 # zr-dev's commands move into Zr::Dev::Commands (indentation only).
 d9831aa1e7bc65cd26516de4ee80fb942e1ffc91
+
+# Code that only tests and tools use moves out of the shipped lib/.
+21ec0da80d9d8b3cc800f3ff7f2b81fb0ae67ac9
+eb8604585dff8274149dfa9f5323a9b695e486f1
+b8c5374987e9e5d2399b70ff1cf0dc95ed8ede79
+98f0c91d586590713b03adc455d7b1e5d0b4b91a
+
+# Names: Zr::Binary, JIT syscalls, Eval::Interpreter, program:, Cache::Code.
+6a5e03a179ab2eb98fad7560aad2bbf36918a350
+6c508b36b22d7cd929cc8d4c31f24ea3650f786a
+beab613f8e0dc3bc65fe8b3f93526f732e8d8056
+33ffda72e87028a37c12cd7657586af129e9d8e3
+bd91de02577ca12717b239e18c552b7c6e3bb0bc
