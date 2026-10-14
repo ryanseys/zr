@@ -1,22 +1,31 @@
 name: Runtime cache
 description: >-
-  Restores and saves the built runtime (the runtime object, the prelinked
-  images, eval support and the wasm prelude). The key covers every input
-  of the runtime's digest, so a run with no change under lib, runtime or
-  vendor skips the build. The unit, parse and binary caches are not
-  kept: they are gigabytes.
+  Restores and saves the kinds of zr's cache store (lib/zr/cache/store.rb)
+  that a runtime build writes: the runtime and eval support objects, the
+  prelinked images, their symbol tables, the wasm preludes, the kernel's
+  lowering, the code packs, the compiler's comment-free digests, the test
+  runs' built marks and the roots that keep them. The key covers every
+  input of the runtime's digest, so a run with no change under lib or
+  vendor skips the build; a run with a change restores the newest entries
+  and rebuilds only what changed. The parse, unit and binary caches are
+  not kept: they are gigabytes. Each job that uses this action ends with
+  `bin/zr cache clean --days 1`, so the saved cache holds only what the
+  run read (tar keeps the mtimes, and a read touches an entry).
 runs:
   using: composite
   steps:
     - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: |
-          tmp/cache/runtime-*.o
-          tmp/cache/symbols-*.json
-          tmp/cache/gem-prelude-*.json
-          tmp/cache/prelink-*.bin
-          tmp/cache/skeleton-*.bin
-          tmp/cache/eval-*
-          tmp/cache/wasm-*.marshal
-          tmp/cache/built-*.ok
+          tmp/cache/store/object
+          tmp/cache/store/image
+          tmp/cache/store/meta
+          tmp/cache/store/wasm
+          tmp/cache/store/source
+          tmp/cache/store/built
+          tmp/cache/store/code
+          tmp/cache/store/lowering
+          tmp/cache/store/kernel
+          tmp/cache/store/roots
         key: runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/**', 'vendor/**', 'Gemfile.lock', '.ruby-version') }}
+        restore-keys: runtime-${{ runner.os }}-${{ runner.arch }}-

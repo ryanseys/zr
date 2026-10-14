@@ -70,6 +70,9 @@ jobs:
           path: |
             /opt/zr/smoke/sum.wasm
             /opt/zr/smoke/sum.o
+      # The runtime cache saves only what this run read.
+      - name: Clean the cache of what this run did not use
+        run: bin/zr cache clean --days 1
 
   # The compiler compiled by itself, twice, to the same bytes: the
   # proof that a build is a function of its inputs.
@@ -90,6 +93,9 @@ jobs:
       - name: Build the runtime for the checks
         run: bundle exec rake build
       - run: bundle exec ruby tool/zr-dev.rb stage 1
+      # The runtime cache saves only what this run read.
+      - name: Clean the cache of what this run did not use
+        run: bin/zr cache clean --days 1
 
   # Each generated file (tables, prism's Ruby, the docs pages) is what its
   # generator writes from the committed inputs. The generators of this
@@ -262,6 +268,9 @@ jobs:
       # Array and Hash tests. The whole tier is hours of wasmtime.
       - name: Run a slice of the program tests for this target
         run: ZR_TARGET=wasm32-wasi ZR_PROGRAMS=lang/methods,core/array,core/hash bin/minitest test/programs_test.rb
+      # The runtime cache saves only what this run read.
+      - name: Clean the cache of what this run did not use
+        run: bin/zr cache clean --days 1
 
   same-bytes:
     name: output does not depend on the host
