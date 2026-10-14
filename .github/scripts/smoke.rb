@@ -9,13 +9,13 @@
 #
 #   ruby .github/scripts/smoke.rb [--user-cache] zr-0.1.0.gem [DIR]
 #
-# DIR (default /opt/zr) holds the gems, the cache and the outputs. CI
-# uses the same path on every host, because the runtime carries its
-# source paths, and the outputs of two hosts must be the same bytes.
-# With --user-cache, zr gets no ZR_CACHE, and uses the cache that a
-# user gets (~/Library/Caches/zr or ~/.cache/zr): the stock-ruby job
-# tests that path. The install must fetch nothing: the gem has no
-# dependencies.
+# DIR holds the gems, the cache and the outputs. Its default is /opt/zr:
+# the same path on every host, because the runtime carries its source
+# paths, and the outputs of two hosts must be the same bytes. With
+# --user-cache, zr gets no ZR_CACHE, and uses the cache that a user
+# gets (~/Library/Caches/zr or ~/.cache/zr): the stock-ruby jobs test
+# that path, and DIR defaults to $RUNNER_TEMP/zr. The install must
+# fetch nothing: the gem has no dependencies.
 
 require "fileutils"
 require "open3"
@@ -23,7 +23,7 @@ require "rbconfig"
 
 user_cache = !ARGV.delete("--user-cache").nil?
 gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb [--user-cache] GEM [DIR]" })
-root = ARGV.fetch(1, "/opt/zr")
+root = ARGV.fetch(1) { user_cache ? File.join(ENV.fetch("RUNNER_TEMP"), "zr") : "/opt/zr" }
 
 # A runner cannot write /opt without sudo.
 unless File.directory?(root)

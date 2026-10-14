@@ -65,7 +65,7 @@ jobs:
       # source paths, so equal bytes need equal paths. The release
       # workflow runs the same script on the gem it publishes.
       - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb zr-*.gem /opt/zr
+        run: ruby .github/scripts/smoke.rb zr-*.gem
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: gem
@@ -151,7 +151,7 @@ jobs:
       # The script checks that this host writes a macOS binary, refuses
       # to run it (status 3), and never starts the self-build.
       - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb zr-*.gem /opt/zr
+        run: ruby .github/scripts/smoke.rb zr-*.gem
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: outputs-linux
@@ -182,7 +182,7 @@ jobs:
         with:
           name: gem
       - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem "$RUNNER_TEMP/zr"
+        run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem
 
   stock-linux:
     name: stock ruby, user cache (Linux)
@@ -204,7 +204,7 @@ jobs:
         with:
           name: gem
       - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem "$RUNNER_TEMP/zr"
+        run: ruby .github/scripts/smoke.rb --user-cache zr-*.gem
 
   # Static aarch64-linux-musl binaries, built and run where musl is the
   # libc. JavaScript actions do not run inside an Alpine container on an

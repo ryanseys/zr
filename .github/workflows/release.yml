@@ -78,12 +78,12 @@ jobs:
       - name: Build the gem
         run: SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" gem build zr.gemspec --output "zr-$VERSION.gem"
       - name: Install the gem and run it as a user would
-        run: ruby .github/scripts/smoke.rb "zr-$VERSION.gem" /opt/zr
+        run: ruby .github/scripts/smoke.rb "zr-$VERSION.gem"
       # Again as a user with no ZR_CACHE gets it: the user cache under
       # HOME. The stock-ruby jobs of CI, which ci_passed.rb requires, ran
       # the same on a ruby with no bundle, on macOS and on Linux.
       - name: Run the gem with the user cache
-        run: ruby .github/scripts/smoke.rb --user-cache "zr-$VERSION.gem" "$RUNNER_TEMP/zr-user"
+        run: ruby .github/scripts/smoke.rb --user-cache "zr-$VERSION.gem"
 
       # The attestation names this repository, this workflow and this
       # commit, for the exact file that the next steps publish.
