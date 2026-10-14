@@ -34,7 +34,7 @@ module Zr
     # constants that the next portable file uses, in ruby's order.
     CORE_NAMES = (%w[
       module warning redefinitions encodings transcode cjk exception enumerable enumerator comparable integer bignum
-      array hash range struct unicode string converter iso2022 ruled emoji kernel float proc binding
+      array hash range struct unicode string symbol encoding converter iso2022 ruled emoji kernel float proc binding
       format c_format os/errno os/io_constants io io_buffer os/process_constants process signal ruby_version env
       os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point
       monitor time set ractor marshal pack

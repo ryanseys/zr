@@ -353,9 +353,12 @@ module Zr
       [functions.concat(f) << prelude(entries, unit), data.concat(d)]
     end
 
-    # The entry of a core file's toplevel.
+    CORE_DIR = File.join(Paths::RUNTIME, "core/")
+
+    # The entry of a core file's toplevel, named by the file's path below
+    # core/, so core/encoding.rb and core/regexp/onig/encoding.rb get two.
     #: (String path) -> String
-    def self.core_entry(path) = "zr_core_#{File.basename(path, ".rb")}"
+    def self.core_entry(path) = "zr_core_#{path.delete_prefix(CORE_DIR).delete_suffix(".rb").tr("/", "_")}"
 
     # `[functions, data]` of one core file over the kernel `unit`, with the
     # kernel's ids `fixed`.
