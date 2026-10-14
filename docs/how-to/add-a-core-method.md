@@ -103,7 +103,7 @@ nothing else changed:
 
 ```console
 $ bin/zr-dev test test/programs/core/string
-$ bin/zr-dev affected
+$ bin/zr-dev test --changed
 ```
 
 ## Mark helpers and Ruby-written methods

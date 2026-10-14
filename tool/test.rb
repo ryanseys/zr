@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
+require_relative "lib/zr/dev/reach"
 require_relative "../test/support/program_selection"
 
 module Zr
@@ -49,7 +50,7 @@ module Zr
           o.on("-n", "--name PATTERN", "only the tests whose name matches (a /regexp/ or a string)") { |v| @minitest += ["--include", v] }
           o.on("-e", "--exclude PATTERN", "no test whose name matches") { |v| @minitest += ["--exclude", v] }
           o.on("--suite LIST", Array, "whole suites: #{SUITES.keys.join(", ")}") { |v| @suites |= v }
-          o.on("--changed [BASE]", "the tests that the change against BASE reaches (main; zr-dev affected)") { |v| @changed = v || "main" }
+          o.on("--changed [BASE]", "the tests that the change against BASE (main) reaches") { |v| @changed = v || "main" }
           o.on("--failed", "the tests that failed and have not passed since") { @failed = true }
           o.separator ""
           o.separator "The expected output of a program test (with none, a program's files, else ruby now):"
@@ -151,16 +152,17 @@ module Zr
           paths
         end
 
-        # What the change against `base` reaches, or nil when nothing.
+        # What the change against `base` reaches (`Dev::Reach`), or nil when
+        # nothing.
         def changed_paths(base)
-          require_relative "affected"
-          files, plan = Affected.test_paths(base)
-          # A full run is a decision for the user, as zr-dev affected says.
-          if plan == :all
+          files = Reach.files(base)
+          tests = Reach.tests(files)
+          # A full run is a decision for the user.
+          if tests == :all
             puts "the change against #{base} reaches every test; `bin/zr-dev test` runs them all"
             return nil
           end
-          return plan.map { |path| Dev.path(path) } unless plan.empty?
+          return tests.map { |path| Dev.path(path) } unless tests.empty?
 
           puts "no test reaches the #{files.size} changed file(s) against #{base}"
           nil

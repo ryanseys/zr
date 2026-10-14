@@ -31,4 +31,4 @@ warn "note: wasmtime is not installed; the tests that run WebAssembly modules wi
 system("bundle", "exec", "rake", "build", exception: true)
 
 puts
-puts "Ready. Run the tests near your change with bin/minitest <path>, or bin/zr-dev affected."
+puts "Ready. Run the tests near your change with bin/minitest <path>, or bin/zr-dev test --changed."

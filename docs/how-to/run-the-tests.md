@@ -164,7 +164,7 @@ build writes, these are the unit tests that load it, and
 `test/programs/cli` when `exe/zr` loads it. A change to the compiler,
 the kernel or the test support reaches every test: then `--changed`
 runs nothing and tells you so, because a full run is a decision for
-you. `zr-dev affected` maps files in the same way.
+you (`tool/lib/zr/dev/reach.rb`).
 
 ## Use fewer workers
 

@@ -71,10 +71,10 @@ class ResultCacheTest < Minitest::Test
   end
 
   # READ names each file that the program tests load, so an edit to one
-  # misses. The walk sees each literal require (tool/affected.rb).
+  # misses. The walk sees each literal require (tool/lib/zr/dev/reach.rb).
   def test_the_key_holds_every_file_that_a_program_test_loads
-    require_relative "../../tool/affected"
-    graph = Zr::Dev::Commands::Affected::LoadGraph.new
+    require_relative "../../tool/lib/zr/dev/reach"
+    graph = Zr::Dev::Reach::LoadGraph.new
     loaded = graph.closure(File.join(ROOT, "test/programs_test.rb")).map { |path| path.delete_prefix("#{ROOT}/") }
     read = ResultCache::READ
 

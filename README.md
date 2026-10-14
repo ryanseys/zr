@@ -158,7 +158,8 @@ $ cd zr
 $ bin/setup               # install the gems and build the runtime (a few minutes)
 $ bin/zr-dev test test/programs/core/string
                           # the program tests in one directory
-$ bin/zr-dev affected     # the tests that your change can reach
+$ bin/zr-dev test --changed
+                          # the tests that your change can reach
 $ bin/minitest            # all the tests: unit, programs, ext
 ```
 

@@ -132,7 +132,7 @@ it, and put the new digest in the line.
 2. Run the tests that the change reaches, one directory at a time:
 
    ```console
-   $ bin/zr-dev affected
+   $ bin/zr-dev test --changed
    ```
 
    If ruby gives a different output with the new version, get the new

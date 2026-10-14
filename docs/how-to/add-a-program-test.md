@@ -82,8 +82,8 @@ test/programs/native/requires.rb.files/native/requires/lib/one.rb
 A symbolic link in `foo.rb.files/` stays a link. When several tests
 need the same files, put them once in `test/fixtures/programs/<name>/`,
 and make each `foo.rb.files` a relative link to that directory
-(`ln -s ../../../fixtures/programs/etc foo.rb.files`). `zr-dev affected`
-then runs each test that links it when a file there changes.
+(`ln -s ../../../fixtures/programs/etc foo.rb.files`). `zr-dev test
+--changed` then runs each test that links it when a file there changes.
 
 ## A test that only some machines can run
 
