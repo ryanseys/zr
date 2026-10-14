@@ -24,6 +24,13 @@ class ChildWatchTest < Minitest::Test
     @reader.close
   end
 
+  # With no limits, a run only waits for its child.
+  def test_a_run_with_no_limits_waits_for_the_child
+    answer, = Zr::Harness::Child.run([RbConfig.ruby, "-e", "sleep 0.2; puts 1"], cwd: Dir.pwd, seconds: nil, megabytes: nil)
+
+    assert_equal ["1\n", 0], [answer.stdout, answer.code]
+  end
+
   def test_the_group_of_a_child_holds_what_it_allocated
     kb = Watch.read({ @pid => true }).fetch(@pid, 0)
 

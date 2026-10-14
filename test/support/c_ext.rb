@@ -2,9 +2,9 @@
 
 require_relative "../../lib/zr/child_ruby"
 require_relative "flag"
+require_relative "harness/child"
 require "digest/sha2"
 require "fileutils"
-require "open3"
 require "rbconfig"
 require_relative "../../lib/zr/config"
 require_relative "../../lib/zr/target"
@@ -182,14 +182,14 @@ module Zr
 
       #: (Hash[String, String] env, *String command) -> Output
       def run(env, *command)
-        out, err, status = Open3.capture3(env, *command)
-        Output.new(stdout: out, stderr: err, status: status.exitstatus || -1)
+        answer, = Harness::Child.run(command, cwd: Dir.pwd, seconds: nil, megabytes: nil, env: env)
+        Output.new(stdout: answer.stdout, stderr: answer.stderr, status: answer.code)
       end
 
       #: (*String command) -> void
       def run!(*command)
-        out, status = Open3.capture2e(*command)
-        raise "#{command.first} failed:\n#{out}" unless status.success?
+        answer, = Harness::Child.run(command, cwd: Dir.pwd, seconds: nil, megabytes: nil, merge: true)
+        raise "#{command.first} failed:\n#{answer.stdout}" unless answer.code.zero?
       end
     end
   end

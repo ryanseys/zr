@@ -33,8 +33,8 @@ module Zr
       module_function
 
       # Returns the output and the seconds it took. The output's code is
-      # :timeout after `seconds`, and :memory above `megabytes`. When
-      # `megabytes` is nil, nothing samples the group's memory and no
+      # :timeout after `seconds`, and :memory above `megabytes`; a nil
+      # limit is no limit. When `megabytes` is nil, nothing samples the group's memory and no
       # other process starts next to the child. A benchmark needs this,
       # because it reads its CPU time from all children of this process.
       # With `merge`, stderr goes into stdout, in the order that the child
@@ -57,7 +57,7 @@ module Zr
           in_w.close
         end
         reader = [out_r, err_r].map { |io| Thread.new { io.binmode.read } }
-        status, over = watch(pid, started + seconds, megabytes)
+        status, over = watch(pid, seconds && started + seconds, megabytes)
         writer.join
         stdout, stderr = reader.map(&:value)
         seconds = now - started
@@ -84,17 +84,19 @@ module Zr
       LOOK = 0.05
 
       # Waits for `pid`. Returns its status, or nil and the limit that it
-      # went above. A thread blocks in `wait2`, so the result comes as
+      # went above. With no limit, it only waits. A thread blocks in `wait2`, so the result comes as
       # soon as the child ends. Polling would add up to one poll interval
       # to each run of a tier. This thread checks the limits between joins.
       def watch(pid, deadline, megabytes)
         @live[pid] = true
+        return [Process.wait2(pid).last, nil] unless deadline || megabytes
+
         Watch.add(pid) if megabytes
         waiter = Thread.new { Process.wait2(pid).last }
         loop do
           return [waiter.value, nil] if waiter.join(LOOK)
 
-          over = if now >= deadline then :timeout
+          over = if deadline && now >= deadline then :timeout
                  elsif megabytes && Watch.resident_kb(pid) > megabytes * 1024 then :memory
                  end
           next unless over
