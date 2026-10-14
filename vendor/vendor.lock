@@ -1678,15 +1678,6 @@ d115e99576c66ff05892002b6ec8710e0f794e5de2f70f7758b4021b20231b4b ruby/lib/ruby/g
 618097c833fb2f59c1faadc6081416ff58b1bc2415181fbd89d538c38304ef51 ruby/lib/ruby/gems/4.1.0+5/specifications/tsort-0.2.0.gemspec
 b471020939ffa8ec28125e4e31c29ef56dee40aa5403640f8311374cc5b413fc src/prism-1.9.0/LICENSE.md
 2e0641cf52c6a7130dee7e060109b2f2ec1f2d904c85efe0036bf4ddf02d33f9 src/prism-1.9.0/config.yml
-18e664523b34a2e30f5eea3c11b71c1c0a0b3ccdb36a970660814186246b1829 src/prism-1.9.0/templates/ext/prism/api_node.c.erb
-79a7bf6c318ca4c1e66d1f405ae4fbde40c455f1f3ccd4b2f3ab98bd33756c70 src/prism-1.9.0/templates/include/prism/ast.h.erb
-312225e75a510464ad15ffd499aa27e7acad0e2d3c9abda18eb264b62b7347b0 src/prism-1.9.0/templates/include/prism/internal/diagnostic.h.erb
-b2c3932c96f2c18b8b5423d547963c4d560858112859cde74f9d6474c8bf299b src/prism-1.9.0/templates/java/api/src/main/java-templates/org/ruby_lang/prism/AbstractNodeVisitor.java.erb
-1c0a4c27705ff51f5e6df44815707ee9cceae6b8562c7d75fe4f87f04bd03dd3 src/prism-1.9.0/templates/java/api/src/main/java-templates/org/ruby_lang/prism/Loader.java.erb
-1f3ebd78cde4e0a665f81b395476df630129df21ee51ca4a31ededb0e5b73b20 src/prism-1.9.0/templates/java/api/src/main/java-templates/org/ruby_lang/prism/Nodes.java.erb
-ca3ffaf4a7e6be6ddc187ac901d9922d7a1483b35e9f01892474bcc9a80737aa src/prism-1.9.0/templates/javascript/src/deserialize.js.erb
-4b8d4cdb3a9eb725cc8539c7191a524f0670f5589562b7af71ee2e61e9737bf8 src/prism-1.9.0/templates/javascript/src/nodes.js.erb
-965329e3913b697c4c1dcc8d0bd516f74b4efad34b70718ed771d5cca880b013 src/prism-1.9.0/templates/javascript/src/visitor.js.erb
 ca9e530c4bd2578da8b199abe44c9beb71f05535b5b4afbfe14c9d81c4bc471c src/prism-1.9.0/templates/lib/prism/compiler.rb.erb
 aef41459fa912a627178c4bea7c804d7cad298c08368c584c078d37b06534daa src/prism-1.9.0/templates/lib/prism/dispatcher.rb.erb
 88bcafa85017d9e7d7f62b6e1cc1741a30e4e287d258ab852e6f2cae38f3abf5 src/prism-1.9.0/templates/lib/prism/dot_visitor.rb.erb
@@ -1698,10 +1689,6 @@ b49f2c82468d32df8ae57ce603ed5075c436ceed615b04201499d33c2a4b1cde src/prism-1.9.0
 792568741d848e0b76923dcca29b2555c89c7d9c63fa4a16f51e9238a1dce5f7 src/prism-1.9.0/templates/lib/prism/serialize.rb.erb
 c3410e5a679d1c9684fcef6d67d5257829e994e5f22f94d616e1b5940376f56f src/prism-1.9.0/templates/lib/prism/visitor.rb.erb
 96ec980f6c2e675f8b217e682560ae697e9965467d817853c258c6be475ab8d2 src/prism-1.9.0/templates/src/diagnostic.c.erb
-bbf61d18082356bf1f91590a434db77b280fb77050bf7da69c8bc2b6ee2f3003 src/prism-1.9.0/templates/src/json.c.erb
-b3f256e7e99cefd8cdbf0d1f78c1eb010e96ab9e0472343475e8e043700df4a5 src/prism-1.9.0/templates/src/node.c.erb
-d040eb45043a56f3547fc089ab220f13a06de76c19e73ba7334fb085dbcda9c7 src/prism-1.9.0/templates/src/prettyprint.c.erb
-52ed5f26110c832904f0879e0e3374a825f27ea73e0401f3b12d58d1f5d009b8 src/prism-1.9.0/templates/src/serialize.c.erb
 51764ff944ce3069dcf68807eee9ab978f126fc850870afe88df87284e1a38e8 src/prism-1.9.0/templates/src/tokens.c.erb
 c43fd9ea929c2cf6e601cbabc55196d6492b3b06f60cde9af2d10034d0a33727 src/prism-1.9.0/templates/template.rb
 2111ba078d8a949c66dac0f2b586539d56b2125154251d9cfc695343cb3d2110 targets/aarch64-linux-musl/include/ruby-4.1.0+5/aarch64-linux-musl/ruby/config.h

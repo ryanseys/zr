@@ -333,16 +333,22 @@ module Zr
         add(File.join(Library::Layout::LICENSES, "minitest", "LICENSE"), "The license of minitest, from its README.rdoc.\n\n#{text.strip}\n")
       end
 
-      # prism's config.yml and templates, at the commit that ruby bundles:
-      # the gem has no templates, and `zr-dev gen prism` renders them.
+      # What `zr-dev gen prism` reads of prism's source, which the gem does
+      # not ship: config.yml, the template driver, the Ruby templates
+      # (PRISM_TEMPLATES), and the two C templates whose tables zr's own
+      # templates read (the diagnostics and the token names).
+      PRISM_SOURCE = %w[config.yml LICENSE.md templates/template.rb templates/src/diagnostic.c.erb templates/src/tokens.c.erb].freeze
+      PRISM_TEMPLATES = "templates/lib"
+
+      # prism's sources that `zr-dev gen prism` reads, at the commit that
+      # ruby bundles.
       def prism_source
         version = Library::Ports::ALL.fetch("prism").version
         revision = Dev.prism_revision
         tree = GitTree.new(Dev.prism_src, revision, "PRISM_SRC")
         @entries << Entry.new("source", "prism", version, "https://github.com/ruby/prism@#{revision}", nil)
         root = Library::Layout.source("prism", version)
-        tree.files(%w[templates]).each { |path| add(File.join(root, path), tree.read(path)) }
-        %w[config.yml LICENSE.md].each { |path| add(File.join(root, path), tree.read(path)) }
+        (tree.files([PRISM_TEMPLATES]) + PRISM_SOURCE).each { |path| add(File.join(root, path), tree.read(path)) }
       end
 
       # The headers and rbconfig.rb of the ruby of each other target, from
