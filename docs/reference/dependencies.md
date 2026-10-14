@@ -41,7 +41,7 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | `rake` gem ~> 13.0 | the tasks | `Rakefile` |
 | `minitest` gem ~> 6.0 | runs every test | `bin/minitest` |
 | `fiddle` gem ~> 1.1 | loads code into the test process | `lib/zr/obj/jit/fiddle.rb`, `Harness::KernelJIT` |
-| `benchmark` gem ~> 0.5 | the clock of `zr-dev bench` and `zr-dev compile` | `test/support/harness/bench.rb`, `tool/compile.rb` |
+| `benchmark` gem ~> 0.5 | the clock of `zr-dev bench` and `zr-dev compile` | `tool/lib/zr/dev/bench.rb`, `tool/compile.rb` |
 | `rubocop` gem ~> 1.89, with `rubocop-performance`, `rubocop-minitest` and `rubocop-thread_safety` | `rake lint` | `.rubocop.yml` |
 | `steep` gem ~> 2.1, `rbs` gem ~> 4.2 | the type check of the compiler | `bin/steep check`, `Steepfile`, `sig/` |
 | `simplecov` gem ~> 1.3 | line and branch coverage with `COVERAGE=1` | `test/support/coverage_run.rb` |

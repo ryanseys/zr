@@ -58,8 +58,8 @@ Metrics/ParameterLists:
     - "lib/zr/machine/function.rb"
     - "lib/zr/native/build.rb"
     - "lib/zr/obj/macho/executable.rb"
-    - "test/support/harness/bench.rb"
     - "tool/gen/onig_unicode.rb"
+    - "tool/lib/zr/dev/bench.rb"
     - "tool/lib/zr/dev/gems/trial.rb"
 
 # Files that had lines over 150 characters when Layout/LineLength came in.

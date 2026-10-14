@@ -5,13 +5,13 @@ require "etc"
 require "fileutils"
 require "rbconfig"
 require "tmpdir"
-require_relative "answer"
-require_relative "child"
-require_relative "runner"
-require_relative "../../../tool/lib/zr/dev/process"
+require_relative "../../../../test/support/harness/answer"
+require_relative "../../../../test/support/harness/child"
+require_relative "../../../../test/support/harness/runner"
+require_relative "process"
 
 module Zr
-  module Harness
+  module Dev
     # `zr-dev bench`: the run time of the binary that zr builds, compared
     # with the run time of ruby, which made the recording.
     #
@@ -80,7 +80,7 @@ module Zr
         @root = root
         @runs = runs
         @show = show
-        @runner = Runner.new(root, target, compiler: "cranelift")
+        @runner = Harness::Runner.new(root, target, compiler: "cranelift")
       end
 
       # All programs under `benchmark/`, or the programs that match a filter.
@@ -97,7 +97,7 @@ module Zr
       # sampler starts `ps` five times a second, and its time would count
       # as the program's time.
       def bounded(argv, cwd, stdin, megabytes, env)
-        Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: LIMIT, megabytes: megabytes).first
+        Harness::Child.run(argv, cwd: cwd, stdin: stdin, env: env, seconds: LIMIT, megabytes: megabytes).first
       end
 
       def run(cases, io = $stdout)
@@ -114,7 +114,7 @@ module Zr
 
       # Builds the program, checks its output, then times zr, ruby and yjit.
       def one(rb, work)
-        recorded = Answer.beside(rb)
+        recorded = Harness::Answer.beside(rb)
         return Row.new(rb, :skipped, "no recording") unless recorded
 
         cwd = @root
@@ -122,11 +122,11 @@ module Zr
         bin = File.join(work, "p")
         File.delete(bin) if File.exist?(bin)
 
-        build, out = clocked("build") { bounded(@runner.build_argv(rel, bin), cwd, nil, Child::BUILD_MB, @runner.build_env) }
+        build, out = clocked("build") { bounded(@runner.build_argv(rel, bin), cwd, nil, Harness::Child::BUILD_MB, @runner.build_env) }
         return Row.new(rb, :refused, first_line(out)) if out.code == 3
         return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{LIMIT}s" : first_line(out)) unless out.code == 0
 
-        want = Normalize.answer(recorded, rb, cwd)
+        want = Harness::Normalize.answer(recorded, rb, cwd)
         argv, run_env = @runner.run(bin, [], {})
         got, wrong = medians("zr", argv, cwd, nil, run_env, rb, want)
         return Row.new(rb, :diverged, wrong) if wrong
@@ -149,7 +149,7 @@ module Zr
           return [nil, "ran past #{LIMIT}s"] if out.code == :timeout
 
           if n.zero? && want
-            got = Normalize.answer(out, rb, cwd)
+            got = Harness::Normalize.answer(out, rb, cwd)
             return [nil, want.apart_from(got)] if got != want
           elsif want.nil? && out.code != 0
             # ruby could not run it (for example, no `--yjit`, or a

@@ -47,7 +47,7 @@ module Zr
         # `zr-dev bench`. It is not committed.
         RESULTS = Dev.path("tmp/bench/compile.txt")
         # Where `--commit` puts a baseline. A subdirectory, because the glob of
-        # `zr-dev bench --check` (Zr::Harness::Bench.results) reads the files
+        # `zr-dev bench --check` (Zr::Dev::Bench.results) reads the files
         # directly under `benchmark/results/`.
         BASELINES = Dev.path("benchmark/results/compile")
         WHOLE = "the whole build"

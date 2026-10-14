@@ -47,14 +47,14 @@ module Zr
 
         def run(argv)
           require_relative "../lib/zr/cli"
-          require_relative "../test/support/harness/bench"
+          require_relative "lib/zr/dev/bench"
           require_relative "../test/support/harness/runner"
           @check ? steady?(argv) : measure(argv)
         end
 
         def measure(filters)
           Dev.tune!
-          runs = @runs || Harness::Bench::RUNS
+          runs = @runs || Dev::Bench::RUNS
           fail!("--runs takes a count of one or more") if runs < 1
           target = @triple ? (Target.fetch(@triple) || fail!("no target #{@triple}; `zr doctor` names them")) : Target.default
 
@@ -63,7 +63,7 @@ module Zr
           why = Harness::Runner.new(ROOT, target).refusal
           fail!(why) if why
 
-          bench = Harness::Bench.new(ROOT, runs: runs, target: target)
+          bench = Dev::Bench.new(ROOT, runs: runs, target: target)
           cases = bench.matching(filters)
           fail!("no program matches #{filters.inspect}") if cases.empty?
           warn "zr-dev bench: #{cases.size} program(s), #{runs} run(s) each"
@@ -72,12 +72,12 @@ module Zr
 
         # Whether no timed row of the newer report moved from the older one.
         def steady?(argv)
-          before, after = argv.empty? ? Harness::Bench.results(ROOT).last(2) : argv.map { |a| report(a) }
+          before, after = argv.empty? ? Dev::Bench.results(ROOT).last(2) : argv.map { |a| report(a) }
           fail!("give two reports, or none for the two newest under benchmark/results") unless after
           [before, after].each { |path| fail!("no report at #{path}") unless File.file?(path) }
 
-          was = Harness::Bench.reals(File.read(before))
-          now = Harness::Bench.reals(File.read(after))
+          was = Dev::Bench.reals(File.read(before))
+          now = Dev::Bench.reals(File.read(after))
           fail!("no zr rows in #{after}") if now.empty?
 
           failed = []
@@ -107,7 +107,7 @@ module Zr
         def report(name)
           return name if File.file?(name)
 
-          Harness::Bench.result_of(ROOT, name) || fail!("no report at #{name}, and none under benchmark/results names that revision")
+          Dev::Bench.result_of(ROOT, name) || fail!("no report at #{name}, and none under benchmark/results names that revision")
         end
       end
     end
