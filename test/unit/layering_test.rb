@@ -30,9 +30,10 @@ class LayeringTest < Minitest::Test
     # links (`Ext.bundles`).
     "hir" => %w[top library ext],
     "ir" => %w[top],
-    # `Lower` reads HIR and emits IR. `machine/description` is the one
-    # kernel-subset file it uses, and it is data only (a struct
-    # layout), not code that runs a backend or writes an object.
+    # `Lower` reads HIR and emits IR. `machine/description` and
+    # `machine/frame_words` are the kernel-subset files it uses, and they
+    # are data only (a struct layout, the words of a FrameMeta), not code
+    # that runs a backend or writes an object.
     "lower" => %w[top hir ir machine],
     "machine" => %w[top obj],
     "backend" => %w[top ir obj],

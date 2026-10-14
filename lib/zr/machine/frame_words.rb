@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 module Zr
-  class Lower
+  module Machine
     # The words of a scope's FrameMeta that come from the scope itself,
     # which a binary's lowering (`Lower#meta`) and the host walker
     # (`Machine::Host::Walk::Frames#meta`) both write. `cover` is the
     # def-site entry that the scope uses when it makes a method, `using`
     # its `using` entry, and `span` where its code starts and ends
     # (#source_range and #syntax_tree read it).
-    # @rbs skip -- typed in sig/zr/lower/frame_words.rbs
+    # @rbs skip -- typed in sig/zr/machine/frame_words.rbs
     FrameWords = Data.define(:line, :end_line, :node, :arity, :env, :ruby, :cover, :owns_backref, :reads_backref, :frameless,
                              :blocks, :using, :span)
 

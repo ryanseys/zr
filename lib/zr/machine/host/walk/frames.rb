@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "../../../lower/frame_words"
+require_relative "../../frame_words"
 
 module Zr
   module Machine
@@ -81,8 +81,8 @@ module Zr
           DEPTH = 20_000
 
           PARAM_KINDS = %i[req opt rest keyreq key keyrest block nokey noblock].each_with_index.to_h.freeze
-          # The setter of each FrameMeta field that `Zr::Lower::FrameWords` writes.
-          WRITERS = Zr::Lower::FrameWords::FIELDS.to_h { |field| [field, :"#{field}="] }.freeze #: Hash[String, Symbol]
+          # The setter of each FrameMeta field that `FrameWords` writes.
+          WRITERS = FrameWords::FIELDS.to_h { |field| [field, :"#{field}="] }.freeze #: Hash[String, Symbol]
 
           private
 
@@ -146,7 +146,7 @@ module Zr
               row.evaled = unit.evaled ? 1 : 0
               row.box = m[unit.root].box if unit.root
               own = node if node.is_a?(Hir::Def) || node.is_a?(Hir::Block)
-              words = Zr::Lower::FrameWords.new(line: line_of(node), end_line: node.respond_to?(:end_line) ? node.end_line.to_i : 0,
+              words = FrameWords.new(line: line_of(node), end_line: node.respond_to?(:end_line) ? node.end_line.to_i : 0,
                                             node: unit.node_ids&.[](node) || 0, arity: params ? params.arity : 0, env: open, ruby: ruby,
                                             cover: cover, owns_backref: owns_backref, reads_backref: reads_backref, frameless: frameless,
                                             using: own&.using, span: own&.span)

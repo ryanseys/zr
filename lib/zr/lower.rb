@@ -5,7 +5,7 @@ require_relative "hir"
 require_relative "ir"
 require_relative "obj/model"
 require_relative "refused"
-require_relative "lower/frame_words"
+require_relative "machine/frame_words"
 require_relative "lower/function"
 
 module Zr
@@ -631,7 +631,7 @@ module Zr
     # unit's flags and the tables are this lowering's.
     # @rbs fn: String
     # @rbs kind: String
-    # @rbs words: FrameWords
+    # @rbs words: Machine::FrameWords
     # @rbs name: Integer | String | Symbol
     # @rbs parent: String?
     # @rbs params: Hir::Params?

@@ -1,6 +1,6 @@
-# The record of lib/zr/lower/frame_words.rb.
+# The record of lib/zr/machine/frame_words.rb.
 module Zr
-  class Lower
+  module Machine
     class FrameWords < Data
       attr_reader line: Integer
       attr_reader end_line: Integer

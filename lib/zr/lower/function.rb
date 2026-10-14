@@ -485,7 +485,7 @@ module Zr
         @meta = if @twin_of
                   "zr_meta_#{@twin_of}"
                 else
-                  words = FrameWords.new(line: line, end_line: end_line, node: node_id, arity: params ? params.arity : 0, env: @has_env,
+                  words = Machine::FrameWords.new(line: line, end_line: end_line, node: node_id, arity: params ? params.arity : 0, env: @has_env,
                                          ruby: attributes.include?(:ruby), cover: method_cover, owns_backref: owns_backref?,
                                          reads_backref: reads_backref?, frameless: attributes.include?(:frameless), blocks: @blocks,
                                          using: own&.using, span: own&.span)
