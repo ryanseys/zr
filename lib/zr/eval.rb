@@ -48,6 +48,7 @@ module Zr
           require_relative "lower"
           require_relative "backend/aarch64"
           require_relative "obj/jit"
+          require_relative "runtime/lib/zr/obj/jit/runtime"
           require "zr_description"
           new(Runtime.new)
         end
@@ -82,7 +83,7 @@ module Zr
       @runtime = runtime
       @description = Machine::Description.parse(Machine::Description::KERNEL)
       @symbols = Machine::Symbols.new(runtime.symbol_names, sites: runtime.sites, intern: runtime.method(:intern))
-      @host = Obj::JIT.host
+      @host = Obj::JIT::Runtime.new
       @count = 0
       @compiled = {}
       @files = {}

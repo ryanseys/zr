@@ -17,8 +17,9 @@ module Zr
     # imported function gets a stub in the code region that jumps through
     # an absolute address.
     #
-    # A `host` makes the system calls: `JIT::Fiddle` under CRuby, or the
-    # runtime's own host, which calls the same libSystem functions.
+    # A `host` makes the system calls: `JIT::Fiddle` under CRuby (the
+    # tests), or `JIT::Runtime`, the runtime's own, in a zr program that
+    # evals (`Eval`). Each calls the same libSystem functions.
     class JIT
       # @rbs @host: _JITHost
 
@@ -31,24 +32,10 @@ module Zr
 
       attr_reader :symbols #: Hash[String, Integer]
 
-      # Not `Kernel#load`: this loads a unit.
-      #: (Unit unit, ?host: _JITHost) -> Hash[String, Integer]
-      def self.load(unit, host: self.host)
-        new(host).place(unit)
-      end
-
-      # The host for system calls: the runtime's host in a zr program, or
-      # Fiddle under CRuby (where no runtime is linked).
-      #: () -> _JITHost
-      def self.host
-        if Host.compiled?
-          require_relative "../runtime/lib/zr/obj/jit/runtime"
-          Runtime.new
-        else
-          require_relative "jit/fiddle"
-          Fiddle.new
-        end
-      end
+      # Not `Kernel#load`: this loads a unit, with `host` for its system
+      # calls.
+      #: (Unit unit, host: _JITHost) -> Hash[String, Integer]
+      def self.load(unit, host:) = new(host).place(unit)
 
       #: (_JITHost host) -> void
       def initialize(host)
