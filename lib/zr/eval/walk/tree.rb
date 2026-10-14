@@ -41,37 +41,29 @@ module Zr
         # that gets a walked block.
         class Signal < ::Exception; end
 
-        class Returning < Signal
+        # A signal that carries a value to the frame that its tag names.
+        # Each kind's MESSAGE is ruby's error when no frame takes it.
+        class Jump < Signal
           attr_reader :value, :tag #: untyped
 
           #: (untyped value, untyped tag) -> void
           def initialize(value, tag)
             @value = value
             @tag = tag
-            super("unexpected return")
+            super(self.class::MESSAGE)
           end
         end
 
-        class Breaking < Signal
-          attr_reader :value, :tag #: untyped
-
-          #: (untyped value, untyped tag) -> void
-          def initialize(value, tag)
-            @value = value
-            @tag = tag
-            super("break from proc-closure")
-          end
+        class Returning < Jump
+          MESSAGE = "unexpected return"
         end
 
-        class Nexting < Signal
-          attr_reader :value, :tag #: untyped
+        class Breaking < Jump
+          MESSAGE = "break from proc-closure"
+        end
 
-          #: (untyped value, untyped tag) -> void
-          def initialize(value, tag)
-            @value = value
-            @tag = tag
-            super("unexpected next")
-          end
+        class Nexting < Jump
+          MESSAGE = "unexpected next"
         end
 
         class Redoing < Signal

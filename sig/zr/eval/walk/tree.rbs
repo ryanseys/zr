@@ -3,6 +3,11 @@ module Zr
   class Eval
     module Walk
       class Tree
+        # Jump has no MESSAGE of its own: each subclass names ruby's.
+        class Jump < Signal
+          MESSAGE: String
+        end
+
         # `self_` is any object, and `cref` is the kernel's lexical scope.
         # `tag` and `home` are the `__id__` of a node.
         class Ctx < Data
