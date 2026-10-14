@@ -203,28 +203,30 @@ module Zr
         # whose line the record stores there (Lower#rescues_table).
         @rescue_lines = []
         @rescue_rows = {}
-        # Set for real in `lower` and `enter`, once this scope's IR
-        # function exists. Nil here fixes this object's ivar order
-        # before then, so every instance has the same shape
-        # (lib/zr/runtime/kernel/cache.rb, guessed_ivar_row). Nothing
-        # reads them before they are set, so their types do not include nil.
-        @f = nil #: untyped
-        @base = nil #: untyped
-        @nvalues = nil #: untyped
-        @sp = nil #: untyped
-        @record = nil #: untyped
-        @rec = nil #: untyped
-        @task_addr = nil #: untyped
-        @prev = nil #: untyped
-        @meta = nil #: untyped
+        abi = if @direct then Function.direct_abi(own_params.required.size)
+              elsif twin_of then :def
+              else kind
+              end
+        @f = IR::Function.new(name, ABI.fetch(abi), "i64")
+        # The prologue (`enter`) sets the record's sizes and the IR names
+        # of its values. They start here, so every instance has the same
+        # ivar order (lib/zr/runtime/kernel/cache.rb, guessed_ivar_row).
+        @base = 0
+        @nvalues = 0
+        @sp = 0
+        @record = ""
+        @rec = ""
+        @task_addr = ""
+        @prev = ""
+        @meta = ""
         @blocks = 0
         @line = nil
-        @proc = nil #: untyped
-        @qnil = nil #: untyped
-        @self = nil #: untyped
-        @cref = nil #: untyped
-        @blk = nil #: untyped
-        @env = nil #: untyped
+        @proc = ""
+        @qnil = ""
+        @self = ""
+        @cref = ""
+        @blk = ""
+        @env = ""
         # `lower`, only for a block: the label its body jumps to, so a
         # `redo` (Control) can jump back to it.
         @body_label = nil
@@ -249,11 +251,6 @@ module Zr
       #: () -> IR::Function
       def lower
         # @type ivar @body_label: String
-        abi = if @direct then Function.direct_abi(own_params.required.size)
-              elsif @twin_of then :def
-              else @kind
-              end
-        @f = IR::Function.new(@name, ABI.fetch(abi), "i64")
         enter
         bind_params
         # A method that only recurses has no back edge. So it yields to
@@ -429,7 +426,20 @@ module Zr
       # Env if a block needs one.
       #: () -> void
       def enter
-        # @type ivar @line: Integer
+        reserve_record
+        link_record
+        write_meta
+        bind_receivers
+        write_header
+        start_file
+        clear_slots
+        make_env if @has_env
+      end
+
+      # The record: its locals (or its Env), the slots that its sends
+      # stage, and the slots of the prologue.
+      #: () -> void
+      def reserve_record
         @base = if stack_env? then 1 + @locals.size
                 elsif @has_env then 1
                 else @locals.size
@@ -439,19 +449,30 @@ module Zr
         @record = @f.slot(@frame.size + (8 * @nvalues))
         @rec = @f.stack_addr(@record)
         @task_addr = @f.fetch("i64", static("current_task"), 0)
-        # A method gets its own entry and the chain node where it was
-        # found (`Machine.sig :method`). Its name and cref come from the
-        # entry. Both go into the record before the stack check, so no
-        # register keeps them across it.
-        # @type var cref: String
+      end
+
+      # The stack check, then the record's link to the task's chain. A
+      # method gets its own entry and the chain node where it was found
+      # (`Machine.sig :method`). Its name and cref come from the entry.
+      # Both go into the record before the stack check, so no register
+      # keeps them across it.
+      #: () -> void
+      def link_record
         if @kind == :def
           @f.store(arg_entry, @rec, off(@frame, "entry"))
           @f.store(arg_found, @rec, off(@frame, "defined"))
-          cref = entry_field("cref")
+          @cref = entry_field("cref")
         end
         stack_check
         @prev = @f.fetch("i64", @task_addr, off(@task, "top"))
         @f.store(@prev, @rec, off(@frame, "prev"))
+      end
+
+      # The scope's FrameMeta (a twin's is its original's), and the line
+      # where the record starts.
+      #: () -> void
+      def write_meta
+        # @type ivar @line: Integer
         d = @def
         line = d ? d.line : 1
         end_line = d&.end_line || 0
@@ -473,6 +494,12 @@ module Zr
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = (line & LINE_MASK) | (node_id << 32)
         @f.store(imm(@line), @rec, off(@frame, "line"))
+      end
+
+      # The scope's self, cref and block, and a block's own Proc. A
+      # method's cref came from its entry (`link_record`).
+      #: () -> void
+      def bind_receivers
         @proc = @twin_of ? entry_field("cref") : @f.args[0] if @kind == :block
         @qnil = imm(@l.const("QNIL"))
         @self = case @kind
@@ -480,12 +507,13 @@ module Zr
                 when :block then @twin_of ? @f.args[0] : proc_field("self")
                 else @f.args[0]
                 end
-        @cref = case @kind
-                when :main, :top then global("G_TOP_CREF")
-                when :def then cref
-                when :block then @twin_of ? twin_cref : proc_field("cref")
-                else @f.args[1]
-                end
+        unless @kind == :def
+          @cref = case @kind
+                  when :main, :top then global("G_TOP_CREF")
+                  when :block then @twin_of ? twin_cref : proc_field("cref")
+                  else @f.args[1]
+                  end
+        end
         # An eval's block is the block of its calling scope, so a `yield`
         # in the string calls the caller's block.
         @blk = case @kind
@@ -494,6 +522,12 @@ module Zr
                when :eval then @f.args[3]
                else @qnil
                end
+      end
+
+      # The record's header after its meta: self, cref, block, the slots
+      # that each kind of scope keeps, and no active refinement.
+      #: () -> void
+      def write_header
         @f.store(@self, @rec, off(@frame, "self"))
         @f.store(@cref, @rec, off(@frame, "cref"))
         @f.store(@blk, @rec, off(@frame, "blk"))
@@ -513,8 +547,21 @@ module Zr
         # An active refinement belongs to the call site, not to the callee.
         # So a new ruby frame starts with none.
         @f.store(@qnil, @task_addr, off(@task, "refine"), region: :task)
-        program_start if @kind == :main && !@l.internal?
-        parse_warnings if %i[main top eval].include?(@kind) && !@l.internal?
+      end
+
+      # A program's file starts: `$0`, then its parse warnings.
+      #: () -> void
+      def start_file
+        return if @l.internal?
+
+        program_start if @kind == :main
+        parse_warnings if %i[main top eval].include?(@kind)
+      end
+
+      # The value slots start as nil, and the record becomes the top of
+      # the task's chain.
+      #: () -> void
+      def clear_slots
         # A required parameter's slot gets the argument directly from argv
         # after the arity check (`bind_method`). Nothing between can start
         # a collection, so the slot needs no nil first.
@@ -522,8 +569,13 @@ module Zr
         (0...@nvalues).each { |i| @f.store(@qnil, @rec, value_offset(i)) unless skip.include?(i) }
         @f.store(@rec, @task_addr, off(@task, "top"))
         unused_block if @blocks == @l.const("BLOCKS_UNUSED")
-        return unless @has_env
+      end
 
+      # The Env of a scope whose locals a block or a binding reads, in the
+      # record's first slot. The program's toplevel gives it to
+      # TOPLEVEL_BINDING.
+      #: () -> void
+      def make_env
         parent = @kind == :block ? proc_field("env") : @qnil
         @env = if @kind == :eval then @f.args[2]
                elsif stack_env? then env_image(parent)
