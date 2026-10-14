@@ -406,7 +406,9 @@ module Zr
       end
       # did_you_mean reads RbConfig, which ruby has loaded by then.
       rbconfig = loader.configures? ? [Hir::Build.rbconfig(loader)] : [] #: Array[Hir::node]
-      body = Hir::Seq.new([*rbconfig, *autoloads, main.body], 0)
+      # rubygems requires monitor.rb as it loads.
+      monitor = loader.resolve(:require, "monitor", main.file) or raise ArgumentError, "no monitor.rb in the library roots"
+      body = Hir::Seq.new([*rbconfig, Hir::Require.new(:require, "monitor", monitor, loader.add(monitor), 0), *autoloads, main.body], 0)
       Hir::Program.new(main.file, main.locals, body, loader.units, main.warnings, false, loader.entries, false, main.node_ids, {})
     end
 

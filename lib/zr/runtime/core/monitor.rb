@@ -2,9 +2,8 @@
 
 # Thread::Monitor: a reentrant lock over a Mutex, in the core since ruby
 # 4.1 (thread_sync.rb), and Monitor names it. The owner may enter again;
-# the lock releases at the outermost exit. MonitorMixin, from monitor.rb,
-# which ruby loads before the program's first line, layers the same over
-# any object.
+# the lock releases at the outermost exit. MonitorMixin is ruby's own
+# monitor.rb, which rubygems loads as ruby starts.
 class Thread::Monitor
   def initialize
     Primitive.attr! :hidden
@@ -122,82 +121,3 @@ class Thread::Monitor
 end
 
 Monitor = Thread::Monitor
-
-# monitor.rb, the half CRuby writes in Ruby, whose instance variables a
-# program sees as ruby's own shows them.
-module MonitorMixin
-  Primitive.attr! :ivars
-
-  ConditionVariable = Monitor::ConditionVariable # :nodoc:
-
-  def self.extend_object(obj) # :nodoc:
-    super(obj)
-    obj.__send__(:mon_initialize)
-  end
-
-  def mon_try_enter
-    @mon_data.try_enter
-  end
-  alias try_mon_enter mon_try_enter
-
-  def mon_enter
-    @mon_data.enter
-  end
-
-  def mon_exit
-    mon_check_owner
-    @mon_data.exit
-  end
-
-  def mon_locked?
-    @mon_data.mon_locked?
-  end
-
-  def mon_owned?
-    @mon_data.mon_owned?
-  end
-
-  def mon_synchronize(&b)
-    @mon_data.synchronize(&b)
-  end
-  alias synchronize mon_synchronize
-
-  def new_cond
-    unless defined?(@mon_data)
-      mon_initialize
-      @mon_initialized_by_new_cond = true
-    end
-    return ConditionVariable.new(@mon_data)
-  end
-
-  private
-
-  def initialize(...)
-    super
-    mon_initialize
-  end
-
-  def mon_initialize
-    if defined?(@mon_data)
-      if defined?(@mon_initialized_by_new_cond)
-        return # already initialized.
-      elsif @mon_data_owner_object_id == self.object_id
-        raise ThreadError, +"already initialized"
-      end
-    end
-    @mon_data = ::Monitor.new
-    @mon_data_owner_object_id = self.object_id
-  end
-
-  def mon_check_owner
-    @mon_data.mon_check_owner
-  end
-end
-
-class Monitor # :nodoc:
-  alias try_mon_enter try_enter
-  alias mon_try_enter try_enter
-  alias mon_enter enter
-  alias mon_exit exit
-  alias mon_synchronize synchronize
-end

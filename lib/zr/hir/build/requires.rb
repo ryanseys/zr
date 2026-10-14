@@ -33,8 +33,7 @@ module Zr
       # and returns true. error_highlight, did_you_mean and syntax_suggest
       # are autoloads until the first error display (Runtime::DECORATIONS).
       # io/wait is part of IO, which provides it at boot.
-      PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set monitor rbconfig enc/encdb enc/trans/transdb
-                     io/wait].freeze
+      PRELOADED = %w[enumerator thread fiber rational complex ruby2_keywords set rbconfig enc/encdb enc/trans/transdb io/wait].freeze
 
       # ruby's encoding and transcoder extensions, which this runtime has
       # built in. A require of one stays for the run time, where the core

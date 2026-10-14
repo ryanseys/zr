@@ -499,6 +499,13 @@ class RubyModeTest < Minitest::Test
     same_as_ruby("-C", "sub", "y.rb")
   end
 
+  # rubygems loads monitor.rb as ruby starts; without gems, the program
+  # loads it itself.
+  def test_monitor_rb_loads_with_rubygems
+    same_as_ruby("-e", "p defined?(MonitorMixin), require('monitor')")
+    same_as_ruby("--disable-gems", "-e", "p defined?(MonitorMixin), require('monitor'), defined?(MonitorMixin)")
+  end
+
   def test_separators_and_encodings
     same_as_ruby("-l", "-00", "-e", "p [$/, $\\]")
     same_as_ruby("-E", "ISO-8859-1:UTF-8", "-e", "p [Encoding.default_external, Encoding.default_internal]")
