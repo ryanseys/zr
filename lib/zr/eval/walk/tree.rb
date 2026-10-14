@@ -221,10 +221,10 @@ module Zr
           when Hir::Defined then defined_node(node, ctx)
           when Hir::IndexOpAssign then index_op_assign(node, ctx)
           when Hir::AttrOpAssign then attr_op_assign(node, ctx)
-          when Hir::Alias then alias_node(node, ctx, node.new_name, node.old_name)
-          when Hir::AliasValue then alias_node(node, ctx, walk(node.new_name, ctx), walk(node.old_name, ctx))
-          when Hir::Undef then undef_node(node, ctx, node.names)
-          when Hir::UndefValue then undef_node(node, ctx, node.names.map { |n| walk(n, ctx) })
+          when Hir::Alias then alias_node(ctx, node.new_name, node.old_name)
+          when Hir::AliasValue then alias_node(ctx, walk(node.new_name, ctx), walk(node.old_name, ctx))
+          when Hir::Undef then undef_node(ctx, node.names)
+          when Hir::UndefValue then undef_node(ctx, node.names.map { |n| walk(n, ctx) })
           when Hir::Core then ::Object.const_get(node.name)
           when Hir::Once then once(node, ctx)
           when Hir::Stop then raise ::NotImplementedError, "#{@file}:#{node.line}: #{node.what}"
@@ -290,8 +290,6 @@ module Zr
         def refuse(node, what)
           raise Refused, "#{@file}:#{node.line}: #{what} is not walked yet"
         end
-
-        def backref_name(node) = node.kind == :nth ? "$#{node.number}" : { last: "$+", pre: "$`", post: "$'" }.fetch(node.kind)
 
         # Locals. The chain is innermost first. The `depth` of a node is the
         # number of scopes out to the scope that contains the name, as the
@@ -903,18 +901,18 @@ module Zr
         def super_node(node, ctx)
           args = elements(node.args, ctx)
           kwargs = node.kwargs ? hash_lit(node.kwargs.pairs, ctx) : nil
-          call_super(node, ctx, args, kwargs, block_for(node.block, ctx) || ctx.block)
+          call_super(ctx, args, kwargs, block_for(node.block, ctx) || ctx.block)
         end
 
         def zsuper_node(node, ctx)
-          call_super(node, ctx, ctx.args || [], ctx.kwargs, block_for(node.block, ctx) || ctx.block)
+          call_super(ctx, ctx.args || [], ctx.kwargs, block_for(node.block, ctx) || ctx.block)
         end
 
         # In a method that the string defines, `super` starts after that
         # method's owner. Elsewhere it belongs to the method of the frame
         # that called eval.
-        #: (untyped node, Ctx ctx, Array[untyped] args, Hash[Symbol, untyped]? kwargs, (^(*untyped) -> untyped)? block) -> untyped
-        def call_super(_node, ctx, args, kwargs, block)
+        #: (Ctx ctx, Array[untyped] args, Hash[Symbol, untyped]? kwargs, (^(*untyped) -> untyped)? block) -> untyped
+        def call_super(ctx, args, kwargs, block)
           name, owner = super_of(ctx)
           raise ::NoMethodError, "super called outside of method" unless name && owner
 
@@ -974,7 +972,8 @@ module Zr
           when :const then defined_const(node, ctx)
           when :method then defined_method(node, ctx)
           when :attrasgn then defined_method(node, ctx)
-          when :expression then defined_expression(node, ctx)
+          # All other forms are expressions: `defined?` does not run them.
+          when :expression then "expression"
           when :global then "global-variable"
           when :backref then walk(node.target, ctx).nil? ? nil : "global-variable"
           when :super then defined_super(ctx)
@@ -1002,10 +1001,6 @@ module Zr
           name, owner = super_of(ctx)
           name && owner && super_method(ctx.self_, name, owner) ? "super" : nil
         end
-
-        # All other forms are expressions. `defined?` returns "expression"
-        # and does not run them.
-        def defined_expression(_node, _ctx) = "expression"
 
         # `recv[args] op= value` and `recv.name op= value`: the receiver
         # and the arguments are evaluated only once.
@@ -1041,13 +1036,13 @@ module Zr
           current.public_send(op, walk(value_node, ctx))
         end
 
-        def alias_node(_node, ctx, new_name, old_name)
+        def alias_node(ctx, new_name, old_name)
           # Steep finds Module#alias_method on World before World#alias_method.
           World.alias_method(World.cref_definee(ctx.cref), new_name.to_sym, old_name.to_sym) # steep:ignore UnexpectedPositionalArgument
           nil
         end
 
-        def undef_node(_node, ctx, names)
+        def undef_node(ctx, names)
           mod = World.cref_definee(ctx.cref)
           names.each { |name| mod.send(:undef_method, name.to_sym) }
           nil
@@ -1086,7 +1081,7 @@ module Zr
             kwargs = nil
           end
           args = splat_array(args.first) if spread && args.size == 1 && args.first.is_a?(::Array) && params.spread?
-          check_arity(params, args, kwargs, ctx) if strict
+          check_arity(params, args) if strict
           bind_positional(params, scope, args, ctx)
           bind_keywords(params, scope, kwargs || {}, ctx, strict: strict)
           if params.no_block?
@@ -1141,7 +1136,7 @@ module Zr
           raise ::ArgumentError, "unknown keyword: #{rest.keys.first.inspect}" if strict && !rest.empty?
         end
 
-        def check_arity(params, args, _kwargs, _ctx)
+        def check_arity(params, args)
           min = params.min_args
           max = params.max_args
           return if args.size >= min && (max.nil? || args.size <= max)

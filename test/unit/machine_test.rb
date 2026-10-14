@@ -29,7 +29,8 @@ class MachineTest < Minitest::Test
   Dir[File.join(ROOT, "test/machine/units/*/")].sort.each do |unit|
     name = File.basename(unit)
     define_method("test_unit_#{name}") do
-      functions, data, raw = Zr::Machine.compile_unit(Dir[File.join(unit, "*.rb")].sort)
+      compiled = Zr::Machine.unit(Dir[File.join(unit, "*.rb")].sort)
+      functions, data, raw = compiled.functions, compiled.data, compiled.raw
       Dir.mktmpdir("zr-machine-") do |dir|
         bin = File.join(dir, name)
         assert_nil Zr::Native::Build.binary(functions, data, bin, work: dir, raw: raw)

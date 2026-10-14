@@ -218,7 +218,8 @@ class WasmTest < Minitest::Test
   Dir[File.join(ROOT, "test/machine/units/*/")].sort.each do |unit|
     name = File.basename(unit)
     define_method("test_zr_unit_#{name}") do
-      functions, data, raw = Zr::Machine.compile_unit(Dir[File.join(unit, "*.rb")].sort)
+      compiled = Zr::Machine.unit(Dir[File.join(unit, "*.rb")].sort)
+      functions, data, raw = compiled.functions, compiled.data, compiled.raw
       Dir.mktmpdir("zr-wasm-") do |dir|
         wasm = File.join(dir, "#{name}.wasm")
         assert_nil Zr::Native::Build.wasm(functions, data, wasm, raw: raw)

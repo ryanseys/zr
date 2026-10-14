@@ -327,7 +327,6 @@ module Zr
       end
       fresh!
       refresh
-      GC.start
       Process.warmup if Process.respond_to?(:warmup)
     end
 

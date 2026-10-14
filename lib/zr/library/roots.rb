@@ -104,10 +104,6 @@ module Zr
       #: (?Target target) -> Array[String]
       def native(target = Target.default) = [Layout.ext_os(target), Layout::EXT, *Ports.roots]
 
-      # Every file of the library, for a stamp of what a build can read.
-      #: () -> Array[String]
-      def files = Dir[File.join(Layout::PREFIX, "lib/**/*")].select { |path| File.file?(path) }
-
       #: (String file) -> bool
       def runtime_file?(file) = File.expand_path(file).start_with?("#{Paths::RUNTIME}/") || given?(file)
 

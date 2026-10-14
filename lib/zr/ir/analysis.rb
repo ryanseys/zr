@@ -31,7 +31,6 @@ module Zr
       # @rbs @post: Hash[String, Integer]
       # @rbs @uses: Hash[String, Integer]?
       # @rbs @loops: Array[Loop]
-      # @rbs @depth: Hash[String, Integer]
 
       # A natural loop: its header, all its blocks (header first), the
       # blocks whose back edge closes it, and its depth (the number of loops
@@ -51,7 +50,7 @@ module Zr
         end
       end
 
-      # `@rpo`, `@pre`, `@post`, `@loops` and `@depth` are nil until their
+      # `@rpo`, `@pre`, `@post` and `@loops` are nil until their
       # first use sets them, so their types do not include nil.
       #: (Function f) -> void
       def initialize(f)
@@ -64,7 +63,6 @@ module Zr
         @post = nil #: untyped
         @uses = nil
         @loops = nil #: untyped
-        @depth = nil #: untyped
       end
 
       # `{ block name => [predecessor name, ...] }`, one entry for each edge.
@@ -137,14 +135,6 @@ module Zr
       #: () -> Array[Loop]
       def loops
         @loops ||= natural_loops
-      end
-
-      # The number of loops that contain `block`: 0 when outside all loops.
-      # Only the tests use it (test/unit/analysis_test.rb).
-      #: (String block) -> Integer
-      def depth_of(block)
-        loops unless @depth
-        @depth.fetch(block, 0)
       end
 
       # What `changed!(:insts)` keeps: the graph facts stay, and the use
@@ -279,11 +269,8 @@ module Zr
         end
         loops = by_header.values
         # The depth of a loop is the number of loops that contain its header.
-        # The depth of a block is the depth of its innermost loop.
-        @depth = {}
         loops.each { |l| l.depth = loops.count { |o| o.body.include?(l.header) } }
         loops.sort_by!(&:depth)
-        loops.each { |l| l.body.each { |b| @depth[b] = l.depth } }
         loops
       end
 

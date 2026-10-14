@@ -74,7 +74,6 @@ module Zr
       def initialize: () -> void
       def function: (String name, String bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
       def datum: (String name, section section, untyped bytes, ?relocs: Array[Reloc], ?align: Integer, ?linkage: linkage) -> self
-      def defined_names: () -> Array[String]
       def imports: () -> Array[String]
     end
   end

@@ -49,14 +49,6 @@ module Zr
       Lower.new([[source, file]], symbols).run
     end
 
-    # Several files as one unit: every declaration is visible to every
-    # file, in any order, and a def may call a def of any file. Only the
-    # tests use it; a build uses `Machine.unit`.
-    #: (Array[String] paths, ?symbols: Symbols) -> [Array[IR::Function], Array[Obj::Datum], Array[String]]
-    def self.compile_unit(paths, symbols: Symbols.new)
-      unit(paths, symbols: symbols).then { |u| [u.functions, u.data, u.raw] }
-    end
-
     # Returns the compiled unit. Another lowering can read its layouts
     # and constants.
     #: (Array[String] paths, ?symbols: Symbols) -> Lower

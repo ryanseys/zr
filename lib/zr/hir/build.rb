@@ -254,14 +254,6 @@ module Zr
         @def_depths = nil
       end
 
-      # The `using` entry in force at the end of the toplevel, or nil. An
-      # eval in a Binding leaves it there for the next eval.
-      #: () -> Integer?
-      def top_using
-        using = @using
-        using.is_a?(Integer) ? using : nil
-      end
-
       # An eval's string runs inside a method. A bare `super` passes the
       # parameters in `rows`, each read from the scope in `scopes`
       # (innermost first) that contains it. A parameter with no name (a

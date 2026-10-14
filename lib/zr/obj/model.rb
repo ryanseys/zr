@@ -79,10 +79,6 @@ module Zr
         self
       end
 
-      def defined_names
-        (@functions + @data).map(&:name)
-      end
-
       # A program has more than a million relocations, so this sees each
       # name once, in a Hash, and makes no array of all of them.
       def imports

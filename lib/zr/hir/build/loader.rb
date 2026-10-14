@@ -574,7 +574,9 @@ module Zr
           # the unit cache cannot keep a file that takes one.
           rows = @activations
           body = build.seq(result.value.statements, hoist: true)
-          @eval_using_after = build.top_using if scopes
+          # The entry in force where the toplevel ends: the next eval in
+          # the Binding starts there.
+          @eval_using_after = build.entry_using if scopes
           # An eval's string has spots only while ruby would keep its lines.
           # A file that a load compiles at run time has its ranges, as ruby
           # reads the file again.

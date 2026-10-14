@@ -54,7 +54,8 @@ class InterpTest < Minitest::Test
   Dir[File.join(ROOT, "test/machine/units/*/")].sort.each do |unit|
     name = File.basename(unit)
     define_method("test_zr_unit_#{name}") do
-      functions, data, raw = Zr::Machine.compile_unit(Dir[File.join(unit, "*.rb")].sort)
+      compiled = Zr::Machine.unit(Dir[File.join(unit, "*.rb")].sort)
+      functions, data, raw = compiled.functions, compiled.data, compiled.raw
       status, out = answers(functions, data, raw, [name])
       assert_equal 0, status, "#{name} exited #{status}"
       assert_equal File.binread(File.join(unit, "out")), out

@@ -844,12 +844,12 @@ module Zr
         when :load64, :load32, :load8
           width = LOAD_WIDTHS[node.name]
           ptr, pt = expr(args[0], "Ptr")
-          refuse(node, "#{node.name} takes a Ptr and an offset") unless fits?("Ptr", pt) && args.size == 2
+          refuse(node, "#{node.name} takes a Ptr and an offset") unless fits?("Ptr", pt)
           type = LOAD_TYPES[node.name]
           [@f.fetch(width, ptr, immediate(args[1])), type]
         when :store64, :store32, :store8
           ptr, pt = expr(args[0], "Ptr")
-          refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless fits?("Ptr", pt) && args.size == 3
+          refuse(node, "#{node.name} takes a Ptr, an offset and a value") unless fits?("Ptr", pt)
           type = STORE_TYPES[node.name]
           value, vt = expr(args[2], type)
           refuse(node, "#{node.name} stores a #{type}, not a #{vt}") unless ir_type(vt) == ir_type(type)
@@ -873,7 +873,7 @@ module Zr
           [@f.gates, "Word"]
         when :gates_set
           value, type = expr(args.first, "Word")
-          refuse(node, "Machine.gates_set takes a Word") unless args.one? && ir_type(type) == "i64"
+          refuse(node, "Machine.gates_set takes a Word") unless ir_type(type) == "i64"
           @f.store(value, gates_addr(node), region: :gates)
           @f.gates_set(value)
           [nil, "Void"]
@@ -901,7 +901,7 @@ module Zr
         when :u8, :u32
           value, type = expr(args.first)
           narrow = node.name == :u8 ? "i8" : "i32"
-          refuse(node, "Machine.#{node.name} of a #{type}") unless args.one? && ir_type(type) == narrow
+          refuse(node, "Machine.#{node.name} of a #{type}") unless ir_type(type) == narrow
           convert(node, :word, value, type)
         when *WRAPS.keys
           refuse(node, "Machine.#{node.name} takes two operands") unless args.size == 2
@@ -928,7 +928,7 @@ module Zr
           if ir_type(type) == "i32"
             refuse(node, "Machine.#{node.name} of an I32 counts 64 bits on CRuby; widen it first (Machine.u32)")
           end
-          refuse(node, "Machine.#{node.name} of a #{type}") unless ir_type(type) == "i64" && args.one?
+          refuse(node, "Machine.#{node.name} of a #{type}") unless ir_type(type) == "i64"
           op = node.name #: IR::op
           [@f.bitop(op, value), type]
         when :sqrt, :floor, :ceil, :trunc, :nearest, :fabs
