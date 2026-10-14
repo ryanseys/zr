@@ -9,7 +9,6 @@ module Zr::Kern
   # The fields of a frame's row (zr_debug_frames_from).
   DEBUG_ROW_SELF = 2
   DEBUG_ROW_BINDING = 3
-  DEBUG_ROW_META = 4
   DEBUG_ROW_CLASS = 5
 
   # rb_debug_inspector_open: `func(dc, data)` with the context of the

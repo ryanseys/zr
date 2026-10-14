@@ -204,11 +204,6 @@ module Zr::Kern
     n
   end
 
-  #: (value) -> word
-  def zr_capi_ulong(v)
-    zr_capi_ulong_of(v, false)
-  end
-
   # An unsigned long, or an unsigned long long when `ll`.
   #: (value, bool) -> word
   def zr_capi_ulong_of(v, ll)

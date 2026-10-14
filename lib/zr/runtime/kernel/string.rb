@@ -2241,11 +2241,6 @@ module Zr::Kern
   end
 
   #: (ptr, word, word) -> value
-  def zr_str_frozen_at(bytes, len, index)
-    zr_str_intern(zr_str_new_at(bytes, len, index))
-  end
-
-  #: (ptr, word, word) -> value
   def zr_str_literal_freeze_at(bytes, len, index)
     if (Machine.gates & GATE_FREEZE) != 0
       return zr_send(zr_str_new_at(bytes, len, index), Machine.id(:freeze), 0, 0)

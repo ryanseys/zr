@@ -106,7 +106,7 @@ module Zr::Kern
   DEF_BL_COUNT_BYTES = 64
   DEF_HEAP_BYTES = 2292
   DEF_DEPTH_BYTES = 576
-  DEF_TAIL_BYTES = 8316
+  DEF_TAIL_BYTES = DEF_LTREE_BYTES + DEF_DTREE_BYTES + DEF_BLTREE_BYTES + DEF_BL_COUNT_BYTES + DEF_HEAP_BYTES + DEF_DEPTH_BYTES
 
   # Returns column `col` of the configuration table (0 good, 1 lazy,
   # 2 nice, 3 chain) for `level`.

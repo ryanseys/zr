@@ -9,7 +9,6 @@ module Zr::Kern
   DIGEST_SHA1 = 1
   DIGEST_SHA256 = 2
   DIGEST_SHA512 = 3
-  DIGEST_RMD160 = 4
   DIGEST_MASK32 = 4294967295
 
   # MD5's sine constants.

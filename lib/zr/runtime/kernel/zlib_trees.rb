@@ -6,7 +6,6 @@ module Zr::Kern
   TR_MAX_BITS = 15
   TR_MAX_BL_BITS = 7
   TR_LITERALS = 256
-  TR_LENGTH_CODES = 29
   TR_L_CODES = 286
   TR_D_CODES = 30
   TR_BL_CODES = 19

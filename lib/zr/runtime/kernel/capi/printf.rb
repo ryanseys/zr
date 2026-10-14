@@ -3,7 +3,6 @@ module Zr::Kern
   # arguments (Machine.va_list), or C's va_list, and gives them to the
   # format of core/c_format.rb. RB_WARN_CATEGORY_* are the categories of
   # rb_category_warn.
-  WARN_CATEGORY_DEPRECATED = 1
   WARN_CATEGORY_EXPERIMENTAL = 2
   WARN_CATEGORY_PERFORMANCE = 3
   WARN_CATEGORY_STRICT_UNUSED_BLOCK = 4

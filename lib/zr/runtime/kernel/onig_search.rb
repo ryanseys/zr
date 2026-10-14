@@ -22,7 +22,6 @@ module Zr::Kern
   ONIG_ANCHOR_LOOK_BEHIND = 4096
   ONIG_ANCHOR_ANYCHAR_STAR = 16384
   ONIG_ANCHOR_ANYCHAR_STAR_ML = 32768
-  ONIG_MAX_PTR_NUM = 100
 
   # The two buffers that a search needs: its region and the match state's
   # arena. They stay between searches, because a malloc and a free for

@@ -2169,31 +2169,6 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  # The tree-walking interpreter (lib/zr/eval/walk.rb) reads and writes
-  # constants through the kernel's own lookup, so a string that it evaluates
-  # finds what compiled code finds. It has no inline cache and no symbol id,
-  # so these functions take the name as a Symbol. They are in place of the
-  # cached forms that the compiler emits.
-  #: (value, value) -> value
-  def zr_const_get_m(cref, name)
-    zr_const_get(cref, zr_sym2id(name))
-  end
-
-  #: (value, value) -> value
-  def zr_const_defined_m(cref, name)
-    zr_const_defined(cref, zr_sym2id(name))
-  end
-
-  #: (value, value) -> value
-  def zr_const_get_at_m(scope, name)
-    zr_const_get_at(scope, zr_sym2id(name))
-  end
-
-  #: (value, value) -> value
-  def zr_const_defined_at_m(scope, name)
-    zr_const_defined_at(scope, zr_sym2id(name))
-  end
-
   # The constant reads of the tree-walking interpreter (lib/zr/runtime/lib/
   # zr/eval/walking.rb). Its own frames are hidden, so a read would see
   # the constants that only eval support set (Zr, Prism). These read as

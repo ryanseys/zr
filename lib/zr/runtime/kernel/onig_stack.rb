@@ -27,7 +27,6 @@ module Zr::Kern
   ONIG_INVALID_STACK_INDEX = 0 - 1
   ONIG_INIT_MATCH_STACK_SIZE = 160
   ONIG_STACK_POP_LEVEL_FREE = 0
-  ONIG_STACK_POP_LEVEL_MEM_START = 1
   ONIG_STACK_POP_LEVEL_ALL = 2
 
   # One stack entry (OnigStackType). The fields a-d have a different

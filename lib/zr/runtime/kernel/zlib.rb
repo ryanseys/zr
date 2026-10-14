@@ -35,7 +35,6 @@ module Zr::Kern
   ZLIB_DEFLATE_RESET = 4
   ZLIB_INFLATE_RESET = 5
   ZLIB_INFLATE_SYNC = 6
-  ZLIB_INFLATE_SYNC_POINT = 7
 
   #: (value) -> ptr
   def zr_zlib_stream(addr)

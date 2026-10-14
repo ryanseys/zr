@@ -13,7 +13,6 @@ module Zr::Kern
   ONIGENC_CTYPE_PRINT = 7
   ONIGENC_CTYPE_WORD = 12
   ONIGENC_CTYPE_ALNUM = 13
-  ONIGENC_CTYPE_ASCII = 14
   # The answers of the functions that zr's encodings do not support.
   ONIG_NO_SUPPORT_CONFIG = 0 - 2
   ONIGERR_INVALID_CHAR_PROPERTY_NAME = 0 - 223

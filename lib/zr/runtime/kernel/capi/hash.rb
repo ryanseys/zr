@@ -111,7 +111,6 @@ module Zr::Kern
   ST_CONTINUE = 0
   ST_STOP = 1
   ST_DELETE = 2
-  ST_CHECK = 3
 
   # rb_hash_foreach: calls `fn(key, value, arg)` for each pair, in order.
   # The function's answer goes on, stops, or deletes the pair. While it

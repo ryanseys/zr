@@ -455,11 +455,6 @@ module Zr::Kern
     zr_miss_error(recv, zr_sym2id(m), Task[zr_task()].missing, argc - 1, argv + 8)
   end
 
-  #: (value, word, bool, word, ptr) -> value
-  def zr_no_method(recv, mid, vcall, argc, argv)
-    zr_no_method_from(recv, mid, vcall, false, false, argc, argv)
-  end
-
   # Raises `private method 'x' called for ...`, or the protected form.
   #: (value, word, word, word, ptr) -> value
   def zr_hidden_method(recv, mid, vis, argc, argv)
@@ -1246,16 +1241,6 @@ module Zr::Kern
   #: (value, word, word, ptr, value) -> value
   def zr_send_blk(recv, mid, argc, argv, blk)
     zr_dispatch(0, recv, mid, argc, argv, 0, blk)
-  end
-
-  # `Hash.ruby2_keywords_hash`: a copy with the flag. The next function
-  # checks for the flag.
-  #: (value) -> value
-  def zr_ruby2_hash_new(h)
-    copy = zr_hash_new()
-    zr_hash_update(copy, h)
-    RBasic[copy].flags = RBasic[copy].flags | FL_RUBY2
-    copy
   end
 
   # Marks `h` as a hash of keywords that a ruby2_keywords method passes on.

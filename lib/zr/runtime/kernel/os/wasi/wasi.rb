@@ -6,7 +6,6 @@ module Zr::Kern
   # wasm32 address.
 
   # WASI's errno numbers, with wasi-libc's E names.
-  WASI_EBADF = 8
   WASI_EINVAL = 28
   WASI_ENOENT = 44
   WASI_ENOSYS = 52

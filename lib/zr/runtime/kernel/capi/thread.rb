@@ -275,6 +275,7 @@ module Zr::Kern
       zr_c_result(zr_raise(zr_c_result(zr_send(zr_core_class(Machine.id(:SystemCallError)), Machine.id(:new), 2, args))))
     end
     job = zr_xmalloc(OffloadJob.size)
+    # Zeroed, the job is JOB_QUEUED.
     Libc.memset(job, Machine.i32(0), OffloadJob.size)
     OffloadJob[job].fn = fn
     OffloadJob[job].data = data

@@ -213,16 +213,6 @@ module Zr::Kern
     out
   end
 
-  # `Kernel#binding`: the caller's scope, kept as a Proc of the Binding
-  # class. Its env, self and cref are those of the scope, so reads and
-  # writes go to the scope. A Binding has no home and no call site. Thus
-  # `serial` is the line of the capture, and `site` marks the single
-  # TOPLEVEL_BINDING, which ruby reports as `<main>` line 0.
-  #: () -> value
-  def zr_binding
-    zr_binding_at(zr_caller_frame())
-  end
-
   # `Kernel#binding` as the program calls it. A core method between
   # (`Method#call`, `UnboundMethod#bind_call`) is a caller with no Ruby
   # scope, and ruby raises for a C caller.

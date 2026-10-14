@@ -2347,11 +2347,6 @@ module Zr::Kern
     out
   end
 
-  #: () -> value
-  def zr_gc_arenas
-    zr_fix(Heap[zr_heap()].arenas)
-  end
-
   # The cell count of all arenas, of all sizes.
   #: () -> word
   def zr_heap_cells
