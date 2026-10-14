@@ -52,7 +52,7 @@ module Zr
       # key can describe it; then it is always made), its weight for the
       # workers, and `make`, which returns `[functions, data]` of IR.
       # @rbs skip -- typed in sig/zr/cache/lowering.rbs
-      Piece = Struct.new(:path, :entry, :key, :weight, :make)
+      Piece = Data.define(:path, :entry, :key, :weight, :make)
 
       attr_reader :code #: Code
 

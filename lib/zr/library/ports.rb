@@ -23,10 +23,10 @@ module Zr
       # a build selects another version of the gem; Ports.requirement), and
       # whether vendor/ holds the gem.
       # @rbs skip -- typed in sig/zr/library/ports.rbs
-      Port = Struct.new(:version, :compat, :vendored, keyword_init: true)
+      Port = Data.define(:version, :compat, :vendored)
 
       #: (String version, ?compat: String, ?vendored: bool) -> Port
-      def self.port(version, compat: "~> #{version}", vendored: true) = Port.new(version: version, compat: compat, vendored: vendored).freeze
+      def self.port(version, compat: "~> #{version}", vendored: true) = Port.new(version: version, compat: compat, vendored: vendored)
 
       ALL = {
         # A gem in vendor/, over a port in lib/zr/runtime/ext.

@@ -13,7 +13,7 @@ module Zr
     # stopped it (nil when it exited). `timeout` is true when the run took
     # longer than its limit and was stopped.
     # @rbs skip
-    Answer = Struct.new(:stdout, :stderr, :status, :signal, :timeout)
+    Answer = Data.define(:stdout, :stderr, :status, :signal, :timeout)
 
     # The fields are typed in sig/zr/diff.rbs, the methods here.
     class Answer

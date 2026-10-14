@@ -26,10 +26,14 @@ module Zr
   # gem, as the paths of its files in a backtrace are.
   module Manifest
     # @rbs skip
-    Row = Struct.new(:name, :version, :source, :dir)
+    Row = Data.define(:name, :version, :source, :dir)
 
     # The fields are typed in sig/zr/manifest.rbs, the methods here.
     class Row
+      # A row that names no directory leaves `dir` nil.
+      #: (name: String, version: String, source: String, ?dir: String?) -> void
+      def initialize(name:, version:, source:, dir: nil) = super
+
       #: () -> Hash[String, String]
       def to_h = { "name" => name, "version" => version, "source" => source, "dir" => dir }.compact
     end

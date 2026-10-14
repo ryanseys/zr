@@ -242,7 +242,9 @@ module Zr
 
           log << "--- #{name}: #{kind}"
           Diff::PARTS.each do |part|
-            log << "--- #{part} (ruby, then zr)\n#{Diff.unified(ruby[part].to_s, zr[part].to_s)}" unless ruby[part] == zr[part]
+            want = ruby.public_send(part)
+            got = zr.public_send(part)
+            log << "--- #{part} (ruby, then zr)\n#{Diff.unified(want.to_s, got.to_s)}" unless want == got
           end
           raise native.call(difference(ruby, zr), :compiles) if natives.any?
 
@@ -302,8 +304,8 @@ module Zr
           return "ruby: exit #{ruby.status}; zr: #{zr.signal ? "signal #{zr.signal}" : "exit #{zr.status}"}" if zr.signal || zr.status != ruby.status
 
           part = ruby.stderr == zr.stderr ? :stdout : :stderr
-          want = utf8(ruby[part]).lines
-          got = utf8(zr[part]).lines
+          want = utf8(ruby.public_send(part)).lines
+          got = utf8(zr.public_send(part)).lines
           n = (0...[want.size, got.size].max).find { |i| want[i] != got[i] }
           "#{part} line #{n + 1}: ruby #{want[n].to_s.chomp.inspect}, zr #{got[n].to_s.chomp.inspect}"
         end

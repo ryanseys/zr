@@ -9,14 +9,14 @@ end
 
 module Zr
   module Diff
-    class Answer < Struct[untyped]
-      attr_accessor stdout: String
-      attr_accessor stderr: String
-      attr_accessor status: untyped
-      attr_accessor signal: untyped
-      attr_accessor timeout: bool?
+    class Answer < Data
+      attr_reader stdout: String
+      attr_reader stderr: String
+      attr_reader status: untyped
+      attr_reader signal: untyped
+      attr_reader timeout: bool?
 
-      def self.new: (String stdout, String stderr, untyped status, untyped signal, ?bool? timeout) -> instance
+      def self.new: (String stdout, String stderr, untyped status, untyped signal, bool? timeout) -> instance
     end
   end
 end

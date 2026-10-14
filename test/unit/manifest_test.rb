@@ -10,7 +10,7 @@ require_relative "../../lib/zr/library/roots"
 class ManifestTest < Minitest::Test
   Manifest = Zr::Manifest
 
-  def rows(*files, gem_set: nil) = Manifest.of(files, gem_set).map { |row| row.to_a.compact }
+  def rows(*files, gem_set: nil) = Manifest.of(files, gem_set).map { |row| row.deconstruct.compact }
 
   def test_a_default_gems_file_is_that_gem
     http = File.join(Zr::Library::Layout::RUBYLIBDIR, "net/http.rb")
@@ -48,7 +48,7 @@ class ManifestTest < Minitest::Test
     set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "csv", version: "3.3.6", source: "--gem csv=/src/csv", roots: ["/src/csv/lib"], refusal: nil)])
 
     assert_equal [["csv", "3.3.6", "--gem", "/src/csv"]], rows("/src/csv/lib/csv.rb", gem_set: set)
-    assert_equal ["csv", "3.3.6", "--gem", nil], Manifest.all(set).find { |row| row.name == "csv" }.to_a
+    assert_equal ["csv", "3.3.6", "--gem", nil], Manifest.all(set).find { |row| row.name == "csv" }.deconstruct
     assert_equal({ "name" => "csv", "version" => "3.3.6", "source" => "--gem", "dir" => "/src/csv" },
 Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
   end
@@ -66,8 +66,8 @@ Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
                           Zr::GemSet::Entry.new(name: "native", version: "1.0.0", source: "--gem", roots: ["/src/native/lib"],
                                                 refusal: "native has a C extension")])
 
-    assert_equal [], Manifest.of([], set).map(&:to_a)
-    assert_equal [["parser", "3.3.12.0", "--gem", "/src/parser"]], Manifest.of([], set, evals: true).map(&:to_a)
+    assert_equal [], Manifest.of([], set).map(&:deconstruct)
+    assert_equal [["parser", "3.3.12.0", "--gem", "/src/parser"]], Manifest.of([], set, evals: true).map(&:deconstruct)
   end
 
   # A program with eval carries its libraries in eval support, not in its
@@ -77,8 +77,8 @@ Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
     support = Struct.new(:units).new({ File.join(Zr::Library::Ports.lib("json"), "json.rb") => "zr_eval_unit_1" })
     json = [["json", Zr::Library::Ports::ALL.fetch("json").version, "port"]]
 
-    assert_equal json, Manifest.of_program(hir.new([], true), support).map { |row| row.to_a.compact }
-    assert_equal [], Manifest.of_program(hir.new([], false), support).map(&:to_a)
+    assert_equal json, Manifest.of_program(hir.new([], true), support).map { |row| row.deconstruct.compact }
+    assert_equal [], Manifest.of_program(hir.new([], false), support).map(&:deconstruct)
   end
 
   def test_all_lists_each_stdlib_gem_and_port_once

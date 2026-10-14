@@ -2,13 +2,13 @@
 module Zr
   module Cache
     class Lowering
-      class Piece < Struct[untyped]
-        attr_accessor path: String?
-        attr_accessor entry: String
-        attr_accessor key: String?
-        attr_accessor weight: Integer
+      class Piece < Data
+        attr_reader path: String?
+        attr_reader entry: String
+        attr_reader key: String?
+        attr_reader weight: Integer
         # `Lower#run`'s type: with no block, the functions are all IR.
-        attr_accessor make: ^() -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
+        attr_reader make: ^() -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
 
         def self.new: (String? path, String entry, String? key, Integer weight, ^() -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]] make) -> instance
       end

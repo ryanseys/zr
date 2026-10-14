@@ -2,10 +2,10 @@
 module Zr
   module Library
     module Ports
-      class Port < Struct[untyped]
-        attr_accessor version: String
-        attr_accessor compat: String
-        attr_accessor vendored: bool
+      class Port < Data
+        attr_reader version: String
+        attr_reader compat: String
+        attr_reader vendored: bool
 
         def self.new: (version: String, compat: String, vendored: bool) -> instance
       end
