@@ -45,7 +45,7 @@ module Zr
           command, env = runner.run(bin, test.args, cli?(test) && !runner.wasm? ? zr_run_env.merge(test.env) : test.env)
           megabytes = [test.limits[:run_mb] || 0, Harness::Child::RUN_MB].max
           out, = Slow.clock(parts, :run) do
-            Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: ProgramRun::LIMIT, megabytes: megabytes)
+            Harness::Child.run(command, cwd: run, stdin: test.stdin, env: env, seconds: Harness::Child::SECONDS, megabytes: megabytes)
           end
           verdict(Harness::Normalize.answer(out, rb, run), megabytes, runner)
         end
@@ -95,7 +95,7 @@ module Zr
       def cli(test, run, bin, runner)
         megabytes = [test.limits[:build_mb] || 0, Harness::Child::BUILD_MB].max
         argv = runner.build_argv(test.rel, bin)
-        out, = Harness::Child.run(argv, cwd: run, env: runner.build_env, seconds: ProgramRun::LIMIT * 5,
+        out, = Harness::Child.run(argv, cwd: run, env: runner.build_env, seconds: Harness::Child::SECONDS * 5,
                                         megabytes: megabytes)
         return nil if out.code == 0
 
@@ -137,7 +137,7 @@ module Zr
       end
 
       # The answer of the binary, or `[kind, why]` when it does not count.
-      def verdict(answer, megabytes, runner, seconds: ProgramRun::LIMIT)
+      def verdict(answer, megabytes, runner, seconds: Harness::Child::SECONDS)
         return [:timeout, "ran past #{seconds}s"] if answer.code == :timeout
         return [:backend, "held more than #{megabytes} MB"] if answer.code == :memory
         return [:backend, "the module trapped:\n#{answer.stderr}"] if runner.trapped?(answer) && !answer.signal
@@ -150,7 +150,7 @@ module Zr
 
       def why(out, megabytes)
         case out.code
-        when :timeout then "ran past #{ProgramRun::LIMIT * 5}s"
+        when :timeout then "ran past #{Harness::Child::SECONDS * 5}s"
         when :memory then "held more than #{megabytes} MB"
         else "exited #{out.code}"
         end

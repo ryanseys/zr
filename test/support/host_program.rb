@@ -27,7 +27,7 @@ module Zr
 
       module_function
 
-      def limit = ENV.key?("ZR_TEST_SECONDS") ? ProgramRun::LIMIT : ProgramRun::LIMIT * SLOWER
+      def limit = ENV.key?("ZR_TEST_SECONDS") ? Harness::Child::SECONDS : Harness::Child::SECONDS * SLOWER
 
       def walk
         @walk ||= Machine::Host::Walk.new.tap(&:prepare)

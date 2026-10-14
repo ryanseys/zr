@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "lib/zr/dev"
+require_relative "../test/support/program_selection"
 
 module Zr
   module Dev
@@ -30,7 +31,6 @@ module Zr
         SUITES = { "unit" => "test/unit", "programs" => "test/programs", "ext" => "test/ext" }.freeze
         PROGRAMS_TEST = "test/programs_test.rb"
         PROGRAMS = Dev.path("test/programs")
-        MODES = %w[record verify live].freeze
 
         def defaults
           @env = {}
@@ -127,7 +127,7 @@ module Zr
         private
 
         def mode!(mode)
-          fail!("give one of --#{MODES.join(", --")}") if @mode && @mode != mode
+          fail!("give one of --#{Zr::Test::ProgramSelection::MODES.join(", --")}") if @mode && @mode != mode
           @mode = mode
         end
 
@@ -238,7 +238,6 @@ module Zr
         end
 
         def list_programs(env)
-          require_relative "../test/support/program_selection"
           selection = env.fetch("ZR_PROGRAMS") { ENV.fetch("ZR_PROGRAMS", "") }
           mode = env.fetch("ZR_EXPECTED") { ENV.fetch("ZR_EXPECTED", "") }
           # bin/minitest runs in the root, and names the tests from there.

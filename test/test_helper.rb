@@ -83,11 +83,10 @@ Minitest::Test.include(Zr::Test::Pending::Hook)
 # level. A top-level method becomes a method on `Object`, and
 # `method_name_collision_test.rb` refuses that collision.
 module Checks
-  # The limits for a program that a test runs, in seconds and in resident
-  # megabytes. A program that goes past a limit is killed, and the test
+  # The limits for a program that a test runs: Harness::Child::SECONDS,
+  # and the resident megabytes. A program that goes past a limit is killed, and the test
   # fails. The wasmtime `max-memory-size` option limits only the linear
   # memory of the module, so the harness watches the resident size.
-  LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
   RESIDENT = Integer(ENV.fetch("ZR_TEST_RESIDENT_MB", 2048))
 
   extend Zr::Test::Stubs
@@ -115,7 +114,7 @@ module Checks
   # external encoding, as `IO.popen` gives it. The child runs outside
   # this bundle (`Harness::CleanEnv`).
   def run(argv, env: {}, chdir: Dir.pwd, merge: false)
-    answer, = Zr::Harness::Child.run(argv, cwd: chdir, seconds: LIMIT, megabytes: RESIDENT, env: env, merge: merge)
+    answer, = Zr::Harness::Child.run(argv, cwd: chdir, seconds: Zr::Harness::Child::SECONDS, megabytes: RESIDENT, env: env, merge: merge)
     answer.stdout.force_encoding(Encoding.default_external)
     answer.stderr.force_encoding(Encoding.default_external)
     answer
@@ -140,7 +139,7 @@ module Checks
   # Returns the limit that stopped `answer`, or nil when it ended normally.
   def killed(answer)
     case answer.code
-    when :timeout then "#{LIMIT}s"
+    when :timeout then "#{Zr::Harness::Child::SECONDS}s"
     when :memory then "#{RESIDENT} MB resident"
     end
   end

@@ -20,6 +20,8 @@ module Zr
       # over the process group.
       BUILD_MB = Integer(ENV.fetch("ZR_TEST_BUILD_MB", "2048"))
       RUN_MB = Integer(ENV.fetch("ZR_TEST_RUN_MB", "1024"))
+      # The seconds for one run of a program, and the base of a build's.
+      SECONDS = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
 
       # How often the group's memory is read, in seconds.
       EVERY = 0.2

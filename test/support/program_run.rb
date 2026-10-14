@@ -16,9 +16,6 @@ module Zr
     # of the run directory, and object addresses), so the two answers
     # can be compared byte for byte.
     module ProgramRun
-      # Seconds for one run of a program, and for one build.
-      LIMIT = Integer(ENV.fetch("ZR_TEST_SECONDS", 60))
-
       module_function
 
       # Makes a new run directory with `test`'s program and files, yields
@@ -63,7 +60,7 @@ module Zr
           gems = test.gems.flat_map { |name, version| Harness::Reference.port_load_path(name, version).flat_map { ["-I", _1] } }
           argv = [*ruby, *gems, *test.ruby_options, test.rel, *test.args]
           out, = Harness::Child.run(argv, cwd: run, stdin: test.stdin, env: env.merge(test.env),
-                                          seconds: LIMIT * 2, megabytes: Harness::Child::RUN_MB)
+                                          seconds: Harness::Child::SECONDS * 2, megabytes: Harness::Child::RUN_MB)
           out.code.is_a?(Integer) ? Harness::Normalize.answer(out, rb, run) : nil
         end
       end

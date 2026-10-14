@@ -3,6 +3,7 @@
 require_relative "flag"
 require "digest"
 require_relative "../../lib/zr/cache/store"
+require_relative "../../tool/lib/zr/dev/process"
 
 module Zr
   module Test
@@ -88,12 +89,12 @@ module Zr
       def file_bytes(path) = File.file?(path) ? File.binread(path) : ""
 
       def tree_digest
-        index = git("ls-files", "-s")
+        index = Dev.git("ls-files", "-s", dir: @root)
         return stamp_digest if index.nil?
 
         digest = Digest::SHA256.new
         index.each_line { |line| digest << line unless self.class.unread?(line.chomp.split("\t", 2).last) }
-        changed = git("ls-files", "-m", "-o", "--exclude-standard").to_s
+        changed = Dev.git("ls-files", "-m", "-o", "--exclude-standard", dir: @root).to_s
         changed.lines(chomp: true).uniq.sort.each do |rel|
           next if self.class.unread?(rel)
 
@@ -111,14 +112,6 @@ module Zr
           digest << path << "\0" << stat.size.to_s << "\0" << stat.mtime.to_r.to_s << "\0"
         end
         digest.hexdigest
-      end
-
-      # The output of git in the root, or nil when it fails.
-      def git(*args)
-        out = IO.popen(["git", "-C", @root, *args], err: File::NULL, &:read)
-        out if $?.success?
-      rescue SystemCallError
-        nil
       end
     end
   end

@@ -38,11 +38,14 @@ module Zr
       CLI.tune!
     end
 
-    # The output of `git` with `args` in `dir`, or nil when it fails.
+    # The output of `git` with `args` in `dir`, or nil when it fails or
+    # there is no git.
     # `args` are an argument list, never a shell string.
     def self.git(*args, dir: ROOT, err: File::NULL)
       out = IO.popen(["git", "-C", dir, *args], err: err, &:read)
       out if $?.success?
+    rescue SystemCallError
+      nil
     end
 
     # The short hash of HEAD in `dir` (`length` digits, or git's own

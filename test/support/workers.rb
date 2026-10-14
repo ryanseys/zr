@@ -2,6 +2,7 @@
 
 require_relative "flag"
 require "etc"
+require_relative "../../lib/zr/native/parallel"
 
 module Zr
   module Test
@@ -31,13 +32,8 @@ module Zr
       # machine, and at least 4 GB.
       def self.reserve(gigabytes) = [4, gigabytes / 4].max
 
-      # The physical memory of this machine, in GB. The POSIX call works
-      # on macOS and on musl. If it fails, assume a small machine.
-      def self.gigabytes
-        Etc.sysconf(Etc::SC_PHYS_PAGES) * Etc.sysconf(Etc::SC_PAGE_SIZE) / (1 << 30)
-      rescue StandardError, NotImplementedError
-        8
-      end
+      # The physical memory of this machine, in GB.
+      def self.gigabytes = Native::Parallel.machine_bytes >> 30
 
       # The maximum time for one example, in seconds. After this time, the
       # pool kills the worker and reports that example as a failure. Thus a
