@@ -2629,33 +2629,6 @@ class String
     ranges.any? { |range| cp >= range.begin && cp <= range.end }
   end
 
-  # The place `cp` last takes in the expanded spec, or nil. A spec may
-  # name a character twice, and ruby lets the later place win.
-  def charset_index(ranges, cp)
-    Primitive.attr! :hidden
-    at = nil
-    base = 0
-    ranges.each do |range|
-      at = base + cp - range.begin if cp >= range.begin && cp <= range.end
-      base += range.end - range.begin + 1
-    end
-    at
-  end
-
-  # The codepoint at position `n` in the expanded spec. The last one
-  # is used for every position past the end.
-  def charset_at(ranges, n)
-    Primitive.attr! :hidden
-    base = 0
-    ranges.each do |range|
-      width = range.end - range.begin + 1
-      return range.begin + n - base if n - base < width
-
-      base += width
-    end
-    ranges.last.end
-  end
-
   # tr_trans, as CRuby runs it: each character of `src` maps to the
   # character at the same place in `repl` (trnext reads both, with ranges
   # and `\` escapes), the last of `repl` standing in for the rest, and a
@@ -3610,19 +3583,6 @@ class String
     raise IndexError, "offset #{start + length} does not land on character boundary" unless char_boundary?(start + length)
 
     [start, length]
-  end
-
-  def byte_range(range)
-    Primitive.attr! :hidden
-    first = range.begin || 0
-    first += Primitive.zr_str_bytesize(self) if first < 0
-    raise RangeError, "#{range} out of range" if first < 0 || first > Primitive.zr_str_bytesize(self)
-
-    last = range.end.nil? ? Primitive.zr_str_bytesize(self) - 1 : range.end
-    last += Primitive.zr_str_bytesize(self) if last < 0
-    last -= 1 if range.exclude_end? && !range.end.nil?
-    last = Primitive.zr_str_bytesize(self) - 1 if last >= Primitive.zr_str_bytesize(self)
-    [first, [last - first + 1, 0].max]
   end
 
   # The one option each case method takes, checked as ruby checks it.
@@ -4830,39 +4790,6 @@ class Encoding
   end
   private_class_method :mb_to_utf8
 
-  # Whether the bytes from `at` start a character that the text ends
-  # inside. A conversion in pieces keeps those bytes for the next piece
-  # rather than refusing them.
-  def self.incomplete_tail?(bytes, at, encoding)
-    Primitive.attr! :hidden
-    rest = bytes.bytesize - at
-    return false if rest <= 0 || encoding.nil?
-
-    if encoding.equal?(UTF_8) || utf8_like?(encoding)
-      point, _length, kind = utf8_step(bytes.bytes, at)
-      return point.nil? && kind == :ended
-    end
-    unit, = UNITS[encoding.name]
-    if unit
-      return true if rest < unit
-      return false unless unit == 2 && rest < 4
-
-      code = (bytes.getbyte(at) << 8) | bytes.getbyte(at + 1)
-      code = ((code & 0xFF) << 8) | (code >> 8) unless UNITS[encoding.name][1]
-      return code.between?(0xD800, 0xDBFF)
-    end
-    return false unless mb?(encoding)
-
-    table = mb_table(encoding)
-    prefix = +"".b
-    steps = 0
-    while (row = table[prefix]) && (byte = bytes.getbyte(at + steps)) && row[byte] == :more
-      prefix << byte
-      steps += 1
-    end
-    !row.nil? && bytes.getbyte(at + steps).nil?
-  end
-
   # An encoding that writes its characters as UTF-8 writes them: only
   # the form parts. UTF8-MAC stores each one decomposed, which ruby
   # calls NFD, and reads it back composed.
@@ -5472,43 +5399,6 @@ class Encoding
     writer = mb?(target) ? mb_writer(target) : nil
     points = unit || writer || target.equal?(ASCII_8BIT) || target.equal?(US_ASCII) || !tabled?(target) ? nil : target.send(:points)
     [unit, big, points, writer, target.equal?(UTF_8) || utf8_like?(target), target.name.start_with?("ISO-2022-JP", "CP5022")]
-  end
-
-  # ISO-2022-JP keeps a state: its characters are the bytes of
-  # stateless-ISO-2022-JP with the high bit off, inside an escape that
-  # says so, and the text ends back in ASCII.
-  JIS_IN = "\e$B"
-  JIS_OUT = "\e(B"
-  private_constant :JIS_IN, :JIS_OUT
-
-  # JIS X 0208's own entries, which are the set that the escape selects.
-  # Ruby marks that set with a 0x92 byte in stateless-ISO-2022-JP, and
-  # the two bytes after it are the character with their high bits on. A
-  # character that never follows the marker is one ISO-2022-JP cannot write.
-  JIS_0208 = []
-  private_constant :JIS_0208
-
-  def self.jis_writer
-    Primitive.attr! :hidden
-    JIS_0208[0] ||= begin
-      out = {}
-      mb_table(find("stateless-ISO-2022-JP")).each do |prefix, row|
-        next unless prefix.bytesize == 2 && prefix.getbyte(0) == 0x92
-
-        row.each do |byte, slot|
-          next unless slot.is_a?(Integer)
-
-          bytes = [prefix.getbyte(1) & 0x7F, byte & 0x7F].pack("C*")
-          out[slot] = bytes if out[slot].nil? || bytes < out[slot]
-        end
-      end
-      out
-    end
-  end
-
-  def self.jis_bytes(point)
-    Primitive.attr! :hidden
-    jis_writer[point]
   end
 
   # enc_compatible_p: the encoding that two objects with encodings can

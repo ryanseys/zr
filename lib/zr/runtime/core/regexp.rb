@@ -1030,11 +1030,3 @@ class MatchData
     row[1].reverse.find { |g| begin_at(g) >= 0 } || row[1].last
   end
 end
-
-class Symbol
-  def =~(pattern) = own_text =~ pattern
-
-  def match(*args, &block) = own_text.match(*args, &block)
-
-  def match?(*args) = own_text.match?(*args)
-end

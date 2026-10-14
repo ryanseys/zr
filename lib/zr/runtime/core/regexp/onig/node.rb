@@ -201,7 +201,6 @@ class Regexp
 
       def str_cat(bytes) = @s << bytes.b
       def str_set(bytes) = @s = bytes.b
-      def str_clear = (@s = "".b; @flag = 0)
       def str_len = @s.bytesize
       def str_raw? = (@flag & StrFlag::RAW) != 0
       def str_ambig? = (@flag & StrFlag::AMBIG) != 0
@@ -583,22 +582,9 @@ class Regexp
         e.nil? ? nil : e.back_refs
       end
 
-      # onig_foreach_name
-      def each_name(&block)
-        @name_table&.each_value { |e| block.call(e.name, e.back_refs) }
-      end
-
       # onig_renumber_name_table
       def renumber_name_table(map)
         @name_table&.each_value { |e| e.back_refs.map! { |n| map[n] } }
-      end
-
-      # onig_noname_group_capture_is_active
-      def noname_group_capture_active?
-        return false if (@options & Option::DONT_CAPTURE_GROUP) != 0
-        return false if number_of_names > 0 && Syntax.bv?(Syntax::CAPTURE_ONLY_NAMED_GROUP) && (@options & Option::CAPTURE_GROUP) == 0
-
-        true
       end
     end
 

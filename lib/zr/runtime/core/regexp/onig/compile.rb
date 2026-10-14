@@ -174,7 +174,6 @@ class Regexp
       def add_mem_num(num) = @bytes << [num].pack("s<")
       def add_option(option) = @bytes << [option].pack("L<")
       def add_bytes(s) = @bytes << s.b
-      def add_code_point(code) = @bytes << [code].pack("L<")
 
       def add_bitset(bs)
         @bytes << Array.new(Op::SIZE_BITSET) { |i| (bs >> (8 * i)) & 0xff }.pack("C*")
@@ -183,11 +182,6 @@ class Regexp
       def add_opcode_rel_addr(op, addr)
         add_opcode(op)
         add_rel_addr(addr)
-      end
-
-      def add_opcode_option(op, option)
-        add_opcode(op)
-        add_option(option)
       end
 
       # BBUF_WRITE of an absolute address at `offset`.

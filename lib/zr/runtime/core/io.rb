@@ -2364,12 +2364,6 @@ class IO
     @name || @path || "fd #{@fd}"
   end
 
-  def mark_closed
-    Primitive.attr! :hidden
-    @closed = true
-    own_descriptor
-  end
-
   # Points the stream's Closer at its descriptor while the stream owns it
   # and has it open, and at none otherwise. The first descriptor that the
   # stream owns registers the Closer as a finalizer.

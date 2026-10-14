@@ -68,16 +68,6 @@ class Regexp
           c < 0x80 ? [c, n] : nil
         end
 
-        # onigenc_mbclen_approximate: the length the lead byte announces
-        # even past `e`.
-        def len_approx(s, p, e)
-          ret = precise_len(s, p, e)
-          if ret > 0 then ret
-          elsif ret < -1 then (e - p) + (-1 - ret)
-          else 1
-          end
-        end
-
         # enclen (regenc.h:94)
         def enclen(s, p, e) = max_len == min_len ? (p < e ? min_len : 0) : len(s, p, e)
 
@@ -91,16 +81,6 @@ class Regexp
           return nil if p <= start
 
           left_adjust_char_head(s, start, p - 1, e)
-        end
-
-        def step_back(s, start, p, e, n)
-          while !p.nil? && n > 0
-            n -= 1
-            return nil if p <= start
-
-            p = left_adjust_char_head(s, start, p - 1, e)
-          end
-          p
         end
 
         def step(s, p, e, n)
