@@ -30,6 +30,7 @@ AllCops:
     - ".claude/worktrees/**/*"
     - "gems/**/*"         # the gem probes that zr compiles
     - "tmp/**/*"
+    - "log/**/*"          # logs and the fuzzer's saved cases
     - "lib/zr/hir/features.rb"      # generated
     - "lib/zr/library/stdlib.rb"    # generated
 

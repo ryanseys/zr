@@ -604,16 +604,17 @@ module Zr
         # source is in the encoding named `encoding`. The parser's warnings
         # print as the code runs, or now under `warn_now`.
         #: (Integer source, Integer file, Integer line, Integer scopes, Integer method, Integer using, Integer encoding, Integer warn_now) -> Integer
-        def eval_compile(source, file, line, scopes, method, using, encoding, warn_now)
+        def eval_compile(source, file, line, scopes, method, using, encoding, warn_now) # rubocop:disable Metrics/ParameterLists -- the kernel's call passes eight words
           outer = ruby(scopes).map { |names| names.map(&:to_sym) } #: Array[Array[Symbol]]
           own = [] #: Array[Symbol]
           # Its `using` entries take the next free slots of the program's
           # table, now (`Zr::Eval#compiled`); a traced program's eval is
           # traced too.
-          hir = Hir.build(text(source).force_encoding(text(encoding)), text(file), eval_support: false, line: k.zr_fix2long(line), scopes: [*outer.reverse, own],
-                                                    method: method == @qnil ? nil : ruby(method),
-                                                    activations: k.zr_fix2long(k.zr_activations_count), trace: @traced,
-                                                    using: using == @qnil ? nil : k.zr_fix2long(using))
+          hir = Hir.build(text(source).force_encoding(text(encoding)), text(file), eval_support: false, line: k.zr_fix2long(line),
+                                                                                   scopes: [*outer.reverse, own],
+                                                                                   method: method == @qnil ? nil : ruby(method),
+                                                                                   activations: k.zr_fix2long(k.zr_activations_count), trace: @traced,
+                                                                                   using: using == @qnil ? nil : k.zr_fix2long(using))
           k.zr_activations_reserve(hir.activations)
           warnings = Array(hir.warnings)
           if warn_now == @qtrue

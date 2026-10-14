@@ -910,8 +910,8 @@ module Zr
           roots = [] #: Array[[bool, Array[String]]]
           # @type var walk: ^(Prism::node) -> void
           walk = lambda do |n|
-            if n.is_a?(Prism::CallNode) && (receiver = n.receiver).is_a?(Prism::GlobalVariableReadNode) && %i[$LOAD_PATH $:].include?(receiver.name) &&
-               %i[unshift push <<].include?(n.name) && (arguments = n.arguments)
+            if n.is_a?(Prism::CallNode) && (receiver = n.receiver).is_a?(Prism::GlobalVariableReadNode) &&
+               %i[$LOAD_PATH $:].include?(receiver.name) && %i[unshift push <<].include?(n.name) && (arguments = n.arguments)
               paths = arguments.arguments.filter_map { |a| literal_path(a, file) }
               roots << [n.name == :unshift, paths] unless paths.empty?
             end

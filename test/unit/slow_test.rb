@@ -61,8 +61,8 @@ class SlowTest < Minitest::Test
     Slow::SMALL.times { |i| reporter.record(result("Many", "test_#{i}", i * 0.1, "test/unit/many_test.rb", lower: 0.1)) }
     reporter.report
 
-    assert_match(/The 10 slowest of #{Slow::SMALL} tests/, large.string)
-    assert_match(/\d+\.\d s\s+#{Slow::SMALL} tests  test\/unit\/many_test\.rb/, large.string)
+    assert_match(/The 10 slowest of #{Slow::SMALL} tests/o, large.string)
+    assert_match(%r{\d+\.\d s\s+#{Slow::SMALL} tests  test/unit/many_test\.rb}o, large.string)
     refute_match(/What the examples/, large.string, "the build parts print only when SLOW asks")
   end
 

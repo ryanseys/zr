@@ -1699,7 +1699,7 @@ module Zr
       # `*value`, or a bare `*`: the anonymous rest parameter that the
       # method forwards, anywhere a splat can be.
       #: (Prism::SplatNode node, Integer line) -> Splat
-      def splat(node, line)
+      def splat(node, _line)
         # The splat's own line: its conversion reports it (splatarray).
         line = node.location.start_line
         noted(Splat.new(node.expression ? expr(node.expression) : anonymous(:rest, line), line), node)

@@ -213,7 +213,8 @@ class ForkPoolTest < Minitest::Test
   def child(source, work, env)
     file = File.join(work, "bounded_suite.rb")
     File.write(file, source)
-    out = IO.popen({ "ZR_TEST_FAIL_FAST" => nil, "ZR_TEST_TMP" => work, **env }, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file], err: %i[child out], &:read)
+    out = IO.popen({ "ZR_TEST_FAIL_FAST" => nil, "ZR_TEST_TMP" => work, **env }, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file],
+                   err: %i[child out], &:read)
     assert_path_exists File.join(work, "test-progress.txt"), "the child suite writes its progress in its own directory"
     [out, $?]
   end

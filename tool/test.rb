@@ -75,7 +75,10 @@ module Zr
         end
 
         def run(argv)
-          return slowest(@slowest) if @slowest
+          if @slowest
+            print_slowest(@slowest)
+            return true
+          end
 
           paths = selected(argv)
           return true if paths.nil?
@@ -163,10 +166,9 @@ module Zr
           nil
         end
 
-        # The tests that failed and have not passed since, or nil when none.
-        # The `count` slowest tests that the runs so far timed, with the
-        # date of each time, and the groups that took the most time.
-        def slowest(count)
+        # Prints the `count` slowest tests that the runs so far timed, with
+        # the date of each time, and the groups that took the most time.
+        def print_slowest(count)
           require_relative "../test/support/timings"
           Zr::Test::Timings.merge
           rows = Zr::Test::Timings.read.values
@@ -175,9 +177,9 @@ module Zr
           else
             Zr::Test::Timings.report(rows, count, $stdout, dated: true)
           end
-          true
         end
 
+        # The tests that failed and have not passed since, or nil when none.
         def failed_paths
           require_relative "../test/support/last_failures"
           lines = Zr::Test::LastFailures.read

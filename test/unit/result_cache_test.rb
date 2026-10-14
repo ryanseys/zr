@@ -84,7 +84,8 @@ class ResultCacheTest < Minitest::Test
   end
 
   def test_the_variables_that_can_change_a_run_are_in_the_key
-    pairs = { "ZR_LINKER" => "ruby", "RUBYOPT" => "-W0", "ZR_PROGRAMS" => "core/gc", "ZR_TEST_FRESH" => "1", "MT_CPU" => "3", "ZR_TEST_TMP" => "/tmp/x" }
+    pairs = { "ZR_LINKER" => "ruby", "RUBYOPT" => "-W0", "ZR_PROGRAMS" => "core/gc", "ZR_TEST_FRESH" => "1", "MT_CPU" => "3",
+              "ZR_TEST_TMP" => "/tmp/x" }
     with_env(pairs) do
       names = ResultCache.variables.map(&:first)
 

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "baseline"
+require_relative "../../lib/zr/session"
 
 module Zr
   module Test
@@ -13,7 +14,7 @@ module Zr
     module Pending
       module_function
 
-      def reasons = @reasons ||= Baseline.upgrade.select { |key, _| key.include?("#") }
+      def reasons = Session.current.memo(:pending_reasons) { Baseline.upgrade.select { |key, _| key.include?("#") } }
 
       # The key of `test`, an instance of a Minitest::Test.
       def key(test)
