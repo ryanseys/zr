@@ -24,6 +24,18 @@ class DiffTest < Minitest::Test
     }.each { |kind, zr| assert_equal kind, Zr::Diff.kind(ruby, zr) }
   end
 
+  # A program whose child outlives it keeps the pipes open: the run ends
+  # at its limit with the whole process group, and does not wait for the
+  # child.
+  def test_a_run_ends_at_its_limit_when_a_child_keeps_the_pipes
+    began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    answer = Zr::Diff.run([RbConfig.ruby, "-e", "fork { sleep 30 }; puts 1"], limit: 1)
+
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - began, :<, 10
+    assert answer.timeout
+    assert_equal "1\n", answer.stdout
+  end
+
   def test_same_texts_have_no_diff
     assert_equal "", Zr::Diff.unified("a\nb\n", "a\nb\n")
   end

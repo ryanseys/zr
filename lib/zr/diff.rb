@@ -35,18 +35,32 @@ module Zr
     def unaddressed(text) = text.b.gsub(ADDRESS, "0x...")
 
     # Runs `command` in `dir` with an empty stdin and `env` over this
-    # environment. A run longer than `limit` seconds is killed.
+    # environment, in a process group of its own. A run whose program, or
+    # a child that holds its output open, takes longer than `limit`
+    # seconds is stopped: its whole group is killed.
     #: (Array[String] command, ?dir: String, ?env: Hash[String, String?], ?limit: (Integer | Float)?) -> Answer
     def run(command, dir: Dir.pwd, env: {}, limit: LIMIT)
-      Open3.popen3(env, *command, chdir: dir) do |stdin, stdout, stderr, waiter|
+      Open3.popen3(env, *command, chdir: dir, pgroup: true) do |stdin, stdout, stderr, waiter|
         stdin.close
         out = Thread.new { stdout.read }
         err = Thread.new { stderr.read }
-        stopped = !waiter.join(limit)
-        Process.kill("KILL", waiter.pid) if stopped
+        deadline = limit && (clock + limit)
+        stopped = [waiter, out, err].any? { |thread| !thread.join(deadline && [deadline - clock, 0].max) }
+        kill_group(waiter.pid) if stopped
         status = waiter.value
         Answer.new(unaddressed(out.value), unaddressed(err.value), status.exitstatus, status.termsig, stopped)
       end
+    end
+
+    #: () -> Float
+    def clock = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    # Kills the process group `pid`: the program and every child it left.
+    #: (Integer pid) -> void
+    def kill_group(pid)
+      Process.kill("KILL", -pid)
+    rescue Errno::ESRCH
+      nil
     end
 
     # The kind of difference between ruby's answer and zr's, in words:
