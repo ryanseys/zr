@@ -2,7 +2,6 @@
 
 require "test_helper"
 require "prism"
-require_relative "../../tool/lib/zr/dev"
 require_relative "../../lib/zr/runtime/core/regexp/unicode_tables"
 
 # lib/zr/runtime/core/regexp/unicode_tables.rb (the plain-Ruby parser's tables)
@@ -14,17 +13,10 @@ require_relative "../../lib/zr/runtime/core/regexp/unicode_tables"
 # `zr-dev gen onig_unicode` (tool/gen/onig_unicode.rb) computes each
 # value once and writes it twice, so the two files cannot drift apart.
 # This test decodes both encodings straight from the committed files
-# and checks that they hold the same data.
+# and checks that they hold the same data. `zr-dev gen all --check` (CI)
+# checks that the files are current.
 class OnigUnicodeTest < Minitest::Test
   KERNEL_PATH = File.join(ROOT, "lib/zr/runtime/kernel/onig_tables.rb")
-
-  def test_the_generated_files_are_current
-    skip "no CRuby source: RUBY_SRC names a ruby checkout" unless Zr::Dev.ruby_src?
-
-    out, ok = Checks.generate("onig_unicode")
-
-    assert ok, out
-  end
 
   def test_ctype_bits_are_the_same_256_words_in_both_files
     core_words = Regexp::Onig::Unicode::CTYPE_BITS.unpack("v*")
