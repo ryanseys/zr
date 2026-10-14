@@ -127,7 +127,15 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   # A literal name is resolved when the program is compiled. A computed
   # one is found when the call runs, as ruby finds it.
-  def require(name) = Kernel.required(name)
+  #
+  # rubygems, which ruby loads as it starts, puts its own Ruby method in
+  # Kernel#require, and Kernel.require stays the C one.
+  def self.require(name) = required(name)
+
+  def require(path)
+    Primitive.attr! :ruby
+    Kernel.required(path)
+  end
 
   # A require's search and load, which Kernel#require and Kernel.require
   # share.

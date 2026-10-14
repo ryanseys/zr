@@ -425,13 +425,5 @@ module Kernel
                   :autoload, :autoload?, :autoload_relative, :binding, :block_given?, :caller, :caller_locations,
                   :catch, :eval, :exec, :exit, :exit!, :fail, :format, :gets, :global_variables, :iterator?, :lambda,
                   :load, :local_variables, :loop, :open, :p, :print, :printf, :proc, :putc, :puts, :raise, :readline,
-                  :readlines, :require, :require_relative, :sleep, :spawn, :sprintf, :system, :throw, :trap, :warn, :`
-
-  # rubygems, which ruby loads as it starts, puts its own Ruby method in
-  # Kernel#require, and Kernel.require stays the C one.
-  def require(path)
-    Primitive.attr! :ruby
-    Kernel.required(path)
-  end
-  private :require
+                  :readlines, :require_relative, :sleep, :spawn, :sprintf, :system, :throw, :trap, :warn, :`
 end
