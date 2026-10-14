@@ -29,8 +29,8 @@ module Zr
       LOADS = (%w[
         binary.rb bytes.rb config.rb ir.rb ir/analysis.rb ir/effects.rb
         ir/function.rb ir/inst.rb ir/mem2reg.rb ir/promotion.rb library/layout.rb library/ports.rb line_cursor.rb
-        machine/description.rb machine/function.rb machine/lower.rb obj/model.rb parse.rb paths.rb
-        prism_shim/prism/prism.rb refused.rb ruby_version.rb session.rb version.rb
+        machine/description.rb machine/function.rb machine/function/intrinsics.rb machine/lower.rb obj/model.rb
+        parse.rb paths.rb prism_shim/prism/prism.rb refused.rb ruby_version.rb session.rb version.rb
       ] + Dir.glob("runtime/ext/prism/**/*.rb", base: LIB) - %w[runtime/ext/prism/ruby/import.rb]).sort.freeze #: Array[String]
 
       module_function
