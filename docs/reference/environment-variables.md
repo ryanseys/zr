@@ -122,7 +122,7 @@ To select tests by name, give minitest's own options (`-i`, `-e`) to
 | `ZR_TEST_WASM_COMPILER` | `winch`, `cranelift` | `winch` | The wasmtime compiler for the tests. Winch is wasmtime's baseline compiler. It compiles fast, and a test needs the output, not the speed. `zr-dev bench` uses Cranelift. |
 | `ZR_TEST_WASM_MEMORY` | bytes | 1 GiB | wasmtime's `max-memory-size` in the tests. |
 | `WASMTIME` | a command | `wasmtime` | The wasmtime that the tests run. |
-| `ZR_BLESS` | flag | off | A snapshot test writes its expected file again, in place of a comparison: the HIR dumps, the disassembly listing and the libSystem list. A unit test that checks a generated file (prism's Ruby, its encoding tables, the builtin lines, Onigmo's Unicode tables, the libSystem list) runs the generator to write it, in place of `--check`. |
+| `ZR_BLESS` | flag | off | A snapshot test writes its expected file again, in place of a comparison: the HIR dumps, the disassembly listing and the libSystem list. A unit test that checks a generated file (prism's Ruby, its encoding tables, the builtin lines, the libSystem list) runs the generator to write it, in place of `--check`. |
 | `ZR_DIFFERENTIAL` | a number | 500 | How many random functions `regalloc_differential_test` generates. |
 | `ZR_SEED` | a number | random | The seed of `regalloc_differential_test`. A failure prints the seed to use. |
 | `OPENSSL_DIR` | a prefix | unset | Where ruby's reference run finds OpenSSL, as for a compiled program. |

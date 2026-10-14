@@ -12,7 +12,7 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 | Script | Does |
 |---|---|
 | `bin/setup` | Installs the gems (`bundle install`), sets up the reference ruby (`tool/install_reference_gems.rb`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
-| `ruby tool/install_reference_gems.rb` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: the pinned ruby's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/library/ports.rb`). It installs only the missing gems, tells you about other versions in the directory, and then writes `tmp/reference/STAMP`. `bin/setup` runs it. `expect`, `record`, `probe` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). |
+| `ruby tool/install_reference_gems.rb` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: the pinned ruby's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/library/ports.rb`). It installs only the missing gems, tells you about other versions in the directory, and then writes `tmp/reference/STAMP`. `bin/setup` runs it. `zr-dev expect`, `zr diff` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). |
 | `bin/minitest [paths] [minitest options]` | Runs the tests (minitest's own binstub). With no paths, it runs every `test/**/*_test.rb`: the unit tests and the program tests (`test/programs_test.rb`). It builds the runtime first if the tests need it and it is not built. |
 | `bin/zr` | The binstub of `exe/zr`, the `zr` command of this checkout. |
 | `bin/zr-dev` | The binstub of `tool/zr-dev.rb`, the [`zr-dev`](#zr-dev) commands. |
@@ -215,9 +215,10 @@ NAME,...` leaves out more. CI runs `gen all --check`.
 
 The generators read the CRuby source from the checkout that `RUBY_SRC`
 names (default `tmp/ruby`), at `Zr::RUBY_REVISION` (`lib/zr/ruby_version.rb`). They read
-prism from `PRISM_SRC` (default `tmp/prism` when it exists, else
-`tmp/prism-1.9.0`). With no checkout there, a generator stops and says
-which `git clone` to run. The code of each generator is
+prism from `PRISM_SRC` (default `tmp/prism`), at the commit that ruby
+bundles (`Dev.prism_revision`). With no checkout there, a generator
+stops and says to run `ruby .github/scripts/fetch_sources.rb`, which
+fetches both. The code of each generator is
 in `tool/gen/`.
 
 | Command | Writes |
@@ -229,7 +230,7 @@ in `tool/gen/`.
 | `zr-dev gen transcode` | `lib/zr/runtime/core/transcode.rb`: single-byte encoding tables |
 | `zr-dev gen cjk` | `lib/zr/runtime/core/cjk.rb`: multibyte encoding tables |
 | `zr-dev gen enc_mb` | `lib/zr/runtime/kernel/enc_mb.rb`: multibyte encoding descriptors |
-| `zr-dev gen onig_unicode` | `lib/zr/runtime/core/regexp/unicode_tables.rb` and `lib/zr/runtime/kernel/onig_tables.rb`: Onigmo's Unicode tables, from CRuby's `enc/unicode` at `RUBY_SRC`. Both files come from one computed value; `test/unit/onig_unicode_test.rb` checks that they agree. |
+| `zr-dev gen onig_unicode` | `lib/zr/runtime/core/regexp/unicode_tables.rb` and `lib/zr/runtime/kernel/onig_tables.rb`: Onigmo's Unicode tables, from CRuby's `enc/unicode` at `RUBY_SRC`. Both files come from one computed value; `test/unit/onig_unicode_test.rb` checks that they agree, and `gen all --check` that they are current. |
 | `zr-dev gen onig_encodings` | `lib/zr/runtime/core/regexp/onig/encoding_tables.rb`: Onigmo's encodings past UTF-8, from CRuby's `enc/*.c` |
 | `zr-dev gen nkf [--source PATH]` | `lib/zr/runtime/ext/nkf/tables.rb`: nkf's conversion tables, from `utf8tbl.c` of the nkf .gem that `vendor/vendor.lock` names (or `NKF_SRC`) |
 | `zr-dev gen zlib_tables` | `lib/zr/runtime/kernel/zlib_tables.rb`: the tables that zlib 1.3.1 computes |
@@ -241,13 +242,13 @@ in `tool/gen/`.
 | `zr-dev gen capi` | `docs/reference/c-api.md`: the functions and data of ruby's C API that the kernel gives C extensions, from `lib/zr/runtime/kernel/capi/*.rb` |
 | `zr-dev gen support` | `docs/reference/support.md`: what zr refuses, from the compiler, and the baseline of each target |
 | `zr-dev gen perf` | `docs/explanation/performance.md`: the run and build times, from the newest reports in `benchmark/results/` |
-| `zr-dev gen redefinitions` | `lib/zr/runtime/core/redefinitions.rb`: the core methods whose redefinition makes ruby warn. It runs ruby once for each core method, so it takes some minutes. |
+| `zr-dev gen redefinitions` | `lib/zr/runtime/core/redefinitions.rb`: the core methods whose redefinition makes ruby warn. It runs ruby for each core method, in parallel. |
 
 #### Generated files that the unit tier tests
 
 The unit tier writes these files again and compares them with the
-committed files. The tests of `builtin_lines` and `onig_unicode` skip
-without a CRuby checkout (`RUBY_SRC`). Thus a file that is out of date makes a test fail.
+committed files. The test of `builtin_lines` skips without a CRuby
+checkout (`RUBY_SRC`). Thus a file that is out of date makes a test fail.
 
 | Command | Writes | Tested by |
 |---|---|---|
@@ -255,7 +256,6 @@ without a CRuby checkout (`RUBY_SRC`). Thus a file that is out of date makes a t
 | `zr-dev gen prism` | `lib/zr/runtime/ext/prism/ruby/*.rb`, from the templates in `tool/gen/prism/templates` | `test/unit/prism_test.rb` |
 | `zr-dev gen prism_encoding_tables` | `lib/zr/runtime/ext/prism/ruby/encoding_tables.rb` | `test/unit/prism_test.rb` |
 | `zr-dev gen builtin_lines` | `lib/zr/runtime/core/builtin_lines.rb` | `test/unit/builtin_lines_test.rb` |
-| `zr-dev gen onig_unicode` | `lib/zr/runtime/core/regexp/unicode_tables.rb`, `lib/zr/runtime/kernel/onig_tables.rb` | `test/unit/onig_unicode_test.rb` |
 
 `ZR_BLESS=1` on one of these tests writes its file again, in place of
 the check. `ZR_BLESS=1` on `test/unit/libsystem_test.rb` writes the

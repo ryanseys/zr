@@ -86,10 +86,10 @@ module Zr
 
       # The library roots for `target`, in search order. zr's own code
       # comes first: the OS layer's native parts and tables, then the
-      # portable ones, then zr's own libraries. A file there replaces an upstream file of the same
-      # name (an overlay, which names the file it replaces). Then the port gems,
-      # which win over ruby's own copies as an installed gem wins over a
-      # default gem (json 3.0.2, not 2.18.0), then ruby's own library,
+      # portable ones, then zr's own libraries. A file there replaces an
+      # upstream file of the same name (an overlay, which names the file it
+      # replaces). Then the port gems, which win over ruby's own copies as
+      # an installed gem wins over a default gem, then ruby's own library,
       # then the bundled gems in their own directories.
       #: (?Target target) -> Array[String]
       def stdlib(target = Target.default)

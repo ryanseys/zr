@@ -9,7 +9,7 @@ version, its license, and where its license text is.
 `vendor/` holds code that other people wrote, byte for byte as they
 ship it. Nobody edits a file there: `zr-dev vendor` writes it from
 `tool/lib/zr/dev/vendored.rb`, and `vendor/vendor.lock` names each source (a ruby
-revision, a `.gem` with its SHA-256, a git tag) and the SHA-256 of each
+revision, a `.gem` with its SHA-256, a git commit) and the SHA-256 of each
 file. A program that zr builds carries the files it requires from it,
 under each one's own license. `<ruby_version>` in a path below is the
 library version of the ruby that `.ruby-version` names (RbConfig's
@@ -32,7 +32,7 @@ library version of the ruby that `.ruby-version` names (RbConfig's
   from its README, is in `vendor/LICENSES/minitest`), rexml and rss are
   BSD-2-Clause, and test-unit is Ruby, BSD-2-Clause or PSFL.
 - `vendor/src/prism-1.9.0` holds prism's `config.yml` and templates, from
-  its git tag, which only `zr-dev gen prism` reads (MIT).
+  the commit that ruby bundles, which only `zr-dev gen prism` reads (MIT).
 - `vendor/targets/aarch64-linux-musl` holds the pinned ruby's C headers
   (`include/ruby-<ruby_version>`) and its `rbconfig.rb` for that target, as the
   image `docker.io/library/ruby` that `vendor/vendor.lock` names has

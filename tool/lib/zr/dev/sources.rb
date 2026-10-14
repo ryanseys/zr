@@ -4,8 +4,10 @@ module Zr
   module Dev
     # Where a generator reads the C sources that zr's tables come from.
     # `RUBY_SRC` names a CRuby checkout that holds RUBY_REVISION, and
-    # `PRISM_SRC` a prism checkout that holds prism_revision. Neither is
-    # vendored: a table is written from them once and then committed.
+    # `PRISM_SRC` a prism checkout that holds prism_revision. A table is
+    # written from them once and then committed; of prism, vendor/src keeps
+    # only what `zr-dev gen prism` reads (VendorTree#prism_source).
+
     # `RUBY_SRC`, else tmp/ruby.
     def self.ruby_src
       return File.expand_path(ENV["RUBY_SRC"]) unless ENV["RUBY_SRC"].to_s.empty?

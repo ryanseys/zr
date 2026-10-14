@@ -41,8 +41,8 @@ support in the HIR, with a message that gives the form and the line.
 ## The IR: one form for every backend
 
 `Zr::Lower` (`lib/zr/lower/`) lowers the HIR to the IR (`lib/zr/ir/`), a
-control-flow graph in SSA form with block parameters. The IR has 54
-opcodes and four types: `i8`, `i32`, `i64` and `f64`. The kernel's
+control-flow graph in SSA form with block parameters. Its opcodes are
+the `op` type of `sig/zr/ir/inst.rbs`, and it has four types: `i8`, `i32`, `i64` and `f64`. The kernel's
 typed lowering (`lib/zr/machine/`) lowers to the same IR. Thus every backend
 reads one form, from a program or from the runtime.
 

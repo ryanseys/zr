@@ -14,7 +14,7 @@ module Zr
       # tests (test/programs_test.rb):
       #
       #   zr-dev test                                  every test
-      #   zr-dev test test/unit/cli_test.rb:40         the test on line 40
+      #   zr-dev test test/unit/cli_test.rb:17         the test on line 17
       #   zr-dev test test/programs/core/gc            the programs below it
       #   zr-dev test scratch/try.rb                   a program of your own, against ruby now
       #   zr-dev test --suite unit,ext -n /help/       two suites, the tests whose name matches

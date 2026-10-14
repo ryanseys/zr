@@ -87,7 +87,7 @@ To run the test at one line of a test file, give the line after the
 path:
 
 ```console
-$ bin/zr-dev test test/unit/cli_test.rb:214
+$ bin/zr-dev test test/unit/cli_test.rb:17
 ```
 
 `--name` (`-n`) selects tests by name, and `--exclude` (`-e`) leaves
@@ -237,8 +237,8 @@ A value that the collector does not find then fails at once.
 
 Some tests compare output with a file in the repository: the HIR dumps,
 the disassembly listing, the libSystem list and the files that some
-generators write (prism's Ruby, its encoding tables, the builtin lines
-and Onigmo's Unicode tables). If your change must change one of these
+generators write (prism's Ruby, its encoding tables and the builtin
+lines). If your change must change one of these
 files, write it again with `ZR_BLESS=1`, then read the diff:
 
 ```console

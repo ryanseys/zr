@@ -13,8 +13,8 @@ module Zr
         # Writes the generated files of the pure-Ruby prism, and checks the
         # generated files of the vendored gem. Both render from prism 1.9.0's
         # config.yml with the locals of its template driver
-        # (vendor/src/prism-1.9.0/templates/template.rb, from prism's git
-        # tag, because the gem has no templates):
+        # (vendor/src/prism-1.9.0/templates/template.rb, from the prism
+        # commit that ruby bundles, because the gem has no templates):
         #
         # * zr's templates (tool/gen/prism/templates/*.rb.erb) render into
         #   lib/zr/runtime/ext/prism/ruby/*.rb.

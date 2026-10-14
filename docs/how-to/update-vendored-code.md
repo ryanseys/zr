@@ -19,7 +19,7 @@ One file says what it holds, and one command writes it:
 | `vendor/ruby/lib/ruby/gems/<ruby_version>/gems/<name>-<version>/` | each bundled gem and each port gem: its `lib` and its license files, from its `.gem` |
 | `vendor/ruby/lib/ruby/gems/<ruby_version>/specifications/` | the gemspec of each gem |
 | `vendor/ruby/gem_prelude.rb` | ruby's `gem_prelude.rb` |
-| `vendor/src/prism-1.9.0/` | prism's `config.yml` and templates, from its git tag, for `zr-dev gen prism` |
+| `vendor/src/prism-1.9.0/` | prism's `config.yml` and templates, from the commit that ruby bundles, for `zr-dev gen prism` |
 | `vendor/LICENSES/` | the license texts that no gem directory holds |
 | `vendor/vendor.lock` | the output: each source, and the SHA-256 of each `.gem` and each file |
 | `lib/zr/library/stdlib.rb` | the output: the name and version of each gem (`Zr::Library::Stdlib`) |
@@ -87,7 +87,7 @@ The tool reads:
 - each `.gem` from rubygems.org, into `tmp/vendor/cache`. It stops when
   a file's SHA-256 is not the one in `vendor/vendor.lock`. A gem that is
   not in the lock yet must have the SHA-256 that rubygems.org publishes.
-- prism's templates from its git tag (`PRISM_SRC`).
+- prism's templates from the commit that ruby bundles (`PRISM_SRC`).
 
 It removes the files that a source no longer has. A second run changes
 nothing.
