@@ -3,7 +3,7 @@
 require "fileutils"
 require "tmpdir"
 require_relative "program_case"
-require_relative "harness/answer"
+require_relative "harness/normalize"
 require_relative "harness/child"
 require_relative "harness/reference"
 

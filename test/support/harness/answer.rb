@@ -4,10 +4,6 @@ module Zr
   module Harness
     # The output of a program: stdout, stderr, exit status and signal.
     Answer = Struct.new(:stdout, :stderr, :code, :signal) do
-      def self.blank
-        new(+"".b, +"".b, 0, nil)
-      end
-
       def status
         signal ? "signal #{signal}" : "exit #{code}"
       end
@@ -44,56 +40,6 @@ module Zr
         end
         out << "#{status} vs #{other.status}" if status != other.status
         out.empty? ? "identical text, unequal bytes" : out.join("\n           ")
-      end
-    end
-
-    # The host requirement for each `needs:` name. A program gives a
-    # name in a program test's `foo.rb.needs` (test/support/program_case.rb).
-    module Needs
-      # True when libssl 3 is where `require "openssl"` looks for it
-      # (lib/zr/runtime/ext/openssl/ossl/library.rb). That is only OPENSSL_DIR's
-      # lib when OPENSSL_DIR is set, else the Homebrew and MacPorts
-      # prefixes. Only a macOS binary opens a library. The linux and wasi
-      # targets cannot.
-      def self.libssl?(platform)
-        return false unless platform == "macos"
-
-        prefix = ENV.fetch("OPENSSL_DIR", "")
-        dirs = prefix.empty? ? %w[/opt/homebrew/opt/openssl@3/lib /usr/local/opt/openssl@3/lib /opt/local/lib] : [File.join(prefix, "lib")]
-        dirs.any? { |dir| File.exist?(File.join(dir, "libssl.3.dylib")) }
-      end
-
-      # True when the tests do not run as root, as on a developer machine:
-      # root may change any id and chroot, so a test of what a user is
-      # refused gives other answers (a container that runs as root).
-      def self.nonroot?(_platform) = !Process.euid.zero?
-
-      CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?) }.freeze
-
-      def self.met?(name, platform) = CHECKS.fetch(name).call(platform)
-    end
-
-    # Removes the parts of an output that change from run to run, so that
-    # two outputs can be compared. It changes CRLF to LF, and the
-    # program's absolute path to its path relative to the run directory.
-    # It also removes the run directory and object addresses.
-    module Normalize
-      module_function
-
-      # A process that a signal stopped has no exit status. Only the
-      # signal counts.
-      def answer(a, source, run_cwd)
-        Answer.new(bytes(a.stdout, source, run_cwd), bytes(a.stderr, source, run_cwd), a.signal ? nil : a.code, a.signal)
-      end
-
-      def bytes(b, source, run_cwd)
-        out = b.b.gsub("\r\n", "\n")
-        abs = File.expand_path(source)
-        cwd = File.expand_path(run_cwd)
-        rel = abs.start_with?("#{cwd}/") ? abs.byteslice((cwd.bytesize + 1)..) : File.basename(abs)
-        out = out.gsub(abs, rel)
-        out = out.gsub("#{cwd}/", "")
-        out.gsub(/0x[0-9a-f]+/) { |m| (8..16).cover?(m.bytesize - 2) ? "0xADDR" : m }
       end
     end
   end

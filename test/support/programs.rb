@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "baseline"
+require_relative "harness/requirements"
 require_relative "harness/selected_target"
 require_relative "program_build"
 require_relative "program_selection"
@@ -53,7 +54,7 @@ module Zr
         platforms, needs = test.needs.partition { |name| Harness::Runner::PLATFORMS.value?(name) }
         return "runs only on #{platforms.join(", ")}" unless platforms.empty? || platforms.include?(@runner.platform)
 
-        need = needs.find { |name| !Harness::Needs.met?(name, @runner.platform) }
+        need = needs.find { |name| !Harness::Requirements.met?(name, @runner.platform) }
         "needs #{need}" if need
       end
 

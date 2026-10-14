@@ -2,7 +2,7 @@
 # zr-test: runtime
 
 require "test_helper"
-require_relative "../support/harness/answer"
+require_relative "../support/harness/requirements"
 
 # `require "openssl"` opens the host's libssl 3 when the program runs.
 # When the library is not there, it raises LoadError with a message that
@@ -30,7 +30,7 @@ class OpenSSLTest < Minitest::Test
   end
 
   def test_digest_uses_host_library_when_present
-    skip "libssl 3 is not installed" unless Zr::Harness::Needs.met?("libssl", "macos")
+    skip "libssl 3 is not installed" unless Zr::Harness::Requirements.met?("libssl", "macos")
 
     assert_equal "#{`printf zr | shasum -a 256`.split.first}\n", run_program({})
   end

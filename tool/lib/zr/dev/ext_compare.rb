@@ -5,7 +5,7 @@ require "open3"
 require "rbconfig"
 require "timeout"
 require_relative "../dev"
-require_relative "../../../../test/support/harness/answer"
+require_relative "../../../../test/support/harness/normalize"
 
 module Zr
   module Dev
