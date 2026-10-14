@@ -69,8 +69,8 @@ class AnalysisTest < Minitest::Test
     assert_equal b[:head], loop.header
     assert_equal [b[:head], b[:body], b[:left], b[:right], b[:join]].sort, loop.body.sort
     assert_equal 1, loop.depth
-    assert_includes loop.body, b[:join]
-    refute_includes loop.body, b[:done]
+    assert_includes loop, b[:join]
+    refute_includes loop, b[:done]
   end
 
   def test_uses_count_every_read_and_a_jump_argument

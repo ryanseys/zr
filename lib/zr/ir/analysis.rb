@@ -36,6 +36,8 @@ module Zr
       # blocks whose back edge closes it, and its depth (the number of loops
       # that contain it, itself included).
       class Loop
+        # @rbs @members: Hash[String, true]
+
         attr_reader :header #: String
         attr_reader :body #: Array[String]
         attr_reader :latches #: Array[String]
@@ -45,8 +47,20 @@ module Zr
         def initialize(header)
           @header = header
           @body = [header]
+          @members = { header => true }
           @latches = []
           @depth = 1
+        end
+
+        # Whether the block `name` is in the loop.
+        #: (String name) -> bool
+        def include?(name) = @members.key?(name)
+
+        # Adds the block `name` to the loop's body.
+        #: (String name) -> void
+        def add(name)
+          @members[name] = true
+          @body << name
         end
       end
 
@@ -269,7 +283,7 @@ module Zr
         end
         loops = by_header.values
         # The depth of a loop is the number of loops that contain its header.
-        loops.each { |l| l.depth = loops.count { |o| o.body.include?(l.header) } }
+        loops.each { |l| l.depth = loops.count { |o| o.include?(l.header) } }
         loops.sort_by!(&:depth)
         loops
       end
@@ -278,15 +292,13 @@ module Zr
       # loop header.
       #: (Loop loop, String from) -> void
       def collect(loop, from)
-        seen = loop.body.to_h { |b| [b, true] }
         work = [from]
         until work.empty?
           b = work.pop #: String
-          next if seen[b]
+          next if loop.include?(b)
 
-          seen[b] = true
-          loop.body << b
-          preds.fetch(b).each { |p| work << p unless seen[p] }
+          loop.add(b)
+          preds.fetch(b).each { |p| work << p unless loop.include?(p) }
         end
       end
     end
