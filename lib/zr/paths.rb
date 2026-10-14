@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "config"
-require_relative "host"
+require_relative "binary"
 require_relative "version"
 
 module Zr

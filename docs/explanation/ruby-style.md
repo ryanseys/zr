@@ -220,7 +220,7 @@ functions on `module Zr`:
 | `Zr::GcTuning` | `gc_tuning.rb` | the collector limits and YJIT of a compile (`GcTuning.current`) |
 | `Zr::Runtime.for`, `Zr::EvalSupport.for`, `Zr::Program.build` | `runtime.rb`, `eval_support.rb`, `program.rb` | the runtime of a target, the eval support of a target, and a program's build |
 | `Zr::LoadTables`, `Zr::SymbolNumbering` | `load_tables.rb`, `symbol_numbering.rb` | the load tables that a binary carries, and the link's numbers for symbols |
-| `Zr::Host`, `Zr::Timing`, `Zr::SourceGuard` | `host.rb`, `timing.rb`, `source_guard.rb` | `Host.compiled?`, the phase times, and the check that no source changed during a build |
+| `Zr::Binary`, `Zr::Timing`, `Zr::SourceGuard` | `binary.rb`, `timing.rb`, `source_guard.rb` | `Binary.running?`, the phase times, and the check that no source changed during a build |
 
 ## Types
 

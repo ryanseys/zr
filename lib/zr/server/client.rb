@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
-require_relative "../host"
+require_relative "../binary"
 
 module Zr
   class Server
@@ -52,7 +52,7 @@ module Zr
       # for another target (the server builds only; the client runs), inside
       # a compiled program, or in the second start of zr.
       def client_socket(argv)
-        return nil if Host.compiled? || ENV.key?(GcTuning::ADDED) || !%w[run build].include?(argv.first)
+        return nil if Binary.running? || ENV.key?(GcTuning::ADDED) || !%w[run build].include?(argv.first)
         return nil if argv.first == "run" && argv.any? { |word| word.start_with?("--emit", "--target") }
 
         path = Server.socket

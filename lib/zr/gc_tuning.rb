@@ -122,6 +122,6 @@ module Zr
     private
 
     #: () -> bool
-    def limited? = ENV.key?("RUBY_GC_MALLOC_LIMIT") || Host.compiled?
+    def limited? = ENV.key?("RUBY_GC_MALLOC_LIMIT") || Binary.running?
   end
 end

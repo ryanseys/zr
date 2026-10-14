@@ -278,7 +278,7 @@ module Zr
           # Under ruby, lib/zr/parse.rb turns the parse cache on. A compiled
           # compiler turns it on here. A program that calls eval includes the
           # same files but never comes here, so it never writes to the cache.
-          require_relative "../../cache/parse" if Host.compiled?
+          require_relative "../../cache/parse" if Binary.running?
           if name == "run" && emit.nil? && Zr::Cache::Run.wanted?
             cache ||= entry.call(Runtime.for(target).digest)
           end
@@ -317,7 +317,7 @@ module Zr
         #: (Array[String] argv) -> void
         def kept!(argv)
           ruby = CLI.ruby_mode?(argv)
-          return unless (argv.first == "run" || ruby) && !ENV.key?(GcTuning::ADDED) && !Host.compiled?
+          return unless (argv.first == "run" || ruby) && !ENV.key?(GcTuning::ADDED) && !Binary.running?
 
           require_relative "../../cache/run"
           return unless Zr::Cache::Run.wanted? && Refusals.host_refusal.nil?

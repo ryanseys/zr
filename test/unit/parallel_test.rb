@@ -54,7 +54,7 @@ class ParallelTest < Minitest::Test
   # into swap. A run that swaps does not fail, but it takes ten times as
   # long.
   def test_a_worker_of_the_compiled_compiler_costs_the_whole_parent
-    stub_method(Zr::Host, :compiled?, -> { true }) do
+    stub_method(Zr::Binary, :running?, -> { true }) do
       on_a_machine_of(16, available: 12) { assert_equal 2, holding(4) { Parallel.afforded(6) } }
     end
   end

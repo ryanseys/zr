@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "host"
+require_relative "binary"
 require_relative "prism"
 
 module Zr
@@ -14,4 +14,4 @@ end
 
 # ruby's own prism parses fast enough without a cache, and a binary has no
 # cache to write.
-require_relative "cache/parse" if !Zr::Host.compiled? && Prism.method(:parse).source_location&.first == File.join(Zr::Library::Layout::EXT, "prism/prism.rb")
+require_relative "cache/parse" if !Zr::Binary.running? && Prism.method(:parse).source_location&.first == File.join(Zr::Library::Layout::EXT, "prism/prism.rb")

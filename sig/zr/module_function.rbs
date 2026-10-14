@@ -19,6 +19,10 @@ module Zr::Backend::Wasm
   extend Zr::Backend::Wasm
 end
 
+module Zr::Binary
+  extend Zr::Binary
+end
+
 module Zr::Bytes
   extend Zr::Bytes
 end
@@ -97,10 +101,6 @@ end
 
 module Zr::Hir::Spots
   extend Zr::Hir::Spots
-end
-
-module Zr::Host
-  extend Zr::Host
 end
 
 module Zr::IR::Effects

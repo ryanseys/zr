@@ -68,7 +68,7 @@ module Zr
       # compilers find vendor/ruby beside themselves.
       #: () -> [String, Array[String]]?
       def carried
-        return nil unless Host.compiled? && defined?(::Zr::Eval::Runtime)
+        return nil unless Binary.running? && defined?(::Zr::Eval::Runtime)
 
         from_load_names(::Zr::Eval::Runtime.library_roots)
       end
