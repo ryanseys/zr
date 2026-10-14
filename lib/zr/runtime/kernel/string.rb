@@ -2862,4 +2862,52 @@ G_FROZEN_LITERALS = 52
     zr_str_modified(dst)
     dst
   end
+
+  # String#downcase(:fold) of a valid UTF-8 string: each character through
+  # Onigmo's case fold (zr_onig_fold_lookup), into a new String in the
+  # string's encoding. A character with no fold stays as it is.
+  #: (value) -> value
+  def zr_str_fold_utf8_m(s)
+    n = RString[s].len
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    i = 0
+    while i < n
+      p = RString[s].ptr + i
+      len = zr_utf8_char_len(p, n - i)
+      row = zr_onig_fold_lookup(zr_onig_utf8_to_code(p, p + len))
+      if row != 0
+        count = Machine.u32(Machine.load32(row, 4))
+        j = 0
+        while j < count
+          zr_buf_utf8(b, Machine.u32(Machine.load32(row + (j * 4), 8)))
+          j += 1
+        end
+      else
+        zr_buf_push(b, p, len)
+      end
+      i += len
+    end
+    zr_str_copy_encoding(zr_buf_take(b), s)
+  end
+
+  # Appends the UTF-8 bytes of the code point `code`.
+  #: (ptr, word) -> void
+  def zr_buf_utf8(b, code)
+    if code < 128
+      zr_buf_byte(b, code)
+    elsif code < 2048
+      zr_buf_byte(b, 192 | (code >> 6))
+      zr_buf_byte(b, 128 | (code & 63))
+    elsif code < 65536
+      zr_buf_byte(b, 224 | (code >> 12))
+      zr_buf_byte(b, 128 | ((code >> 6) & 63))
+      zr_buf_byte(b, 128 | (code & 63))
+    else
+      zr_buf_byte(b, 240 | (code >> 18))
+      zr_buf_byte(b, 128 | ((code >> 12) & 63))
+      zr_buf_byte(b, 128 | ((code >> 6) & 63))
+      zr_buf_byte(b, 128 | (code & 63))
+    end
+  end
 end
