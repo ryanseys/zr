@@ -93,6 +93,7 @@ module Zr
           case file
           when %r{\Atest/unit/.*_test\.rb\z} then File.exist?(File.join(ROOT, file)) ? [file] : []
           when %r{\A(test/programs/.+?\.rb)(?:\.|\z)} then File.exist?(File.join(ROOT, $1)) ? [$1] : []
+          when %r{\Atest/fixtures/programs/([^/]+)/} then linking($1)
           when %r{\Alib/zr/runtime/kernel/}, %r{\Alib/zr/runtime/(ext/os|lib)/}, %r{\Atest/(support|test_helper)}, "Rakefile" then :all
           when %r{\Alib/zr/runtime/core/os/[^/]+/([^/]+)\.rb\z} then core($1)
           when %r{\Alib/zr/runtime/core/([^/]+?)(?:/.*)?\.rb\z} then core($1)
@@ -103,6 +104,15 @@ module Zr
           when "Gemfile.lock", "zr.gemspec" then :all
           else []
           end
+        end
+
+        # The programs whose files are a link to the shared tree `name` below
+        # test/fixtures/programs.
+        def linking(name)
+          shared = File.join(ROOT, "test/fixtures/programs", name)
+          Dir[File.join(PROGRAMS, "**/*.rb.files")].filter_map do |dir|
+            Dev.rel(dir.delete_suffix(".files")) if File.symlink?(dir) && File.expand_path(File.readlink(dir), File.dirname(dir)) == shared
+          end.sort
         end
 
         # The test paths that a change to `file` under lib/zr reaches.

@@ -56,6 +56,15 @@ class AffectedTest < Minitest::Test
     refute graph.reaches?(test, File.join(Zr::Dev::ROOT, "lib/zr/doctor.rb"))
   end
 
+  # A program's files can be a link to a tree below test/fixtures/programs
+  # that other programs share; a change there reaches each of them.
+  def test_a_change_below_a_shared_fixture_reaches_the_programs_that_link_it
+    plan = affected.plan(["test/fixtures/programs/securerandom/stdlib/securerandom/securerandom.rb"])
+
+    assert_equal 6, plan.size
+    assert(plan.all? { |path| path.start_with?("test/programs/stdlib/securerandom/") && path.end_with?(".rb") })
+  end
+
   def test_a_doc_change_reaches_nothing
     assert_equal [], affected.plan(%w[docs/README.md])
   end

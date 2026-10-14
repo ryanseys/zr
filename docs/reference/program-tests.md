@@ -36,7 +36,7 @@ zr adds these files, in the same style:
 |---|---|---|
 | `foo.rb.status` | `exit N`, or `signal N` for a program that a signal stopped | `exit 0` |
 | `foo.rb.env` | `NAME=value` lines, added to the program's environment | nothing is added |
-| `foo.rb.files/` | a tree of files that the run directory holds (the fixtures) | no files |
+| `foo.rb.files/` | a tree of files that the run directory holds (the fixtures), or a relative link to one that several tests share below `test/fixtures/programs/` | no files |
 | `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, `nonroot` (a user that is not root), or a platform (`macos`, `linux`, `wasi`) | the test runs everywhere |
 | `foo.rb.ruby` | command-line options for ruby only, such as `-W:no-experimental`; zr ignores them | no options |
 | `foo.rb.limits` | `build_mb=N` and `run_mb=N` lines: memory limits above the defaults | the defaults |
@@ -117,8 +117,9 @@ Each run of a program, by ruby or by zr, gets a new directory
 2. It copies the program to `run/<rel>`, where `<rel>` is the path of
    the program below `test/programs` (for example
    `core/string/blocks/foo.rb`).
-3. It copies the tree of `foo.rb.files/` into `run/`. A symbolic link
-   stays a link. A file that must be beside the program goes in
+3. It copies the tree of `foo.rb.files/` into `run/`, through the link
+   when `foo.rb.files` is one. A symbolic link inside the tree stays a
+   link. A file that must be beside the program goes in
    `foo.rb.files/<directory of rel>/`.
 4. It starts the program in `run/`, as `ruby <rel> <args>` or as the
    binary with the same arguments. Thus `__FILE__` and a backtrace give
