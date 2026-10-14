@@ -18,7 +18,7 @@ module Zr
     # @rbs @runtime: Runtime
     # @rbs @description: Machine::Description
     # @rbs @symbols: Machine::Symbols
-    # @rbs @host: Obj::_JITHost
+    # @rbs @syscalls: Obj::JIT::_Syscalls
     # @rbs @count: Integer
     # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
     # @rbs @files: Hash[[String, String], [Integer, String?]]
@@ -83,7 +83,7 @@ module Zr
       @runtime = runtime
       @description = Machine::Description.parse(Machine::Description::KERNEL)
       @symbols = Machine::Symbols.new(runtime.symbol_names, sites: runtime.sites, intern: runtime.method(:intern))
-      @host = Obj::JIT::Runtime.new
+      @syscalls = Obj::JIT::Runtime.new
       @count = 0
       @compiled = {}
       @files = {}
@@ -172,7 +172,7 @@ module Zr
         coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
         ext = Library::Roots.internal_library?(path)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
-        top = Obj::JIT.load(unit(functions, data), host: @host).fetch(name)
+        top = Obj::JIT.load(unit(functions, data), syscalls: @syscalls).fetch(name)
         @files[key] = [top, @file_spots[path]] if reuse
         top
       end
@@ -269,7 +269,7 @@ module Zr
       script = keep ? kept_script((hir.spots || {}).fetch(string(file), ""), string(source), line.to_int) : 0
       functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new,
                                                                    script: script).run
-      symbols = Obj::JIT.load(unit(functions, data), host: @host)
+      symbols = Obj::JIT.load(unit(functions, data), syscalls: @syscalls)
       metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
       code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"),
               metas, hir.using] #: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]

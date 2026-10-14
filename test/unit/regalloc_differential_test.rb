@@ -57,7 +57,7 @@ class RegallocDifferentialTest < Minitest::Test
   # The functions loaded into this process, each callable by name.
   def loaded(functions, allocate:)
     unit = Zr::Backend::Aarch64.unit(functions.map(&:dup), [], allocate: allocate)
-    symbols = Zr::Obj::JIT.load(unit, host: Zr::Obj::JIT::Fiddle.new)
+    symbols = Zr::Obj::JIT.load(unit, syscalls: Zr::Obj::JIT::Fiddle.new)
     functions.to_h do |f|
       types = f.params.map { |t| t == "f64" ? Fiddle::TYPE_DOUBLE : Fiddle::TYPE_LONG }
       [f.name, Fiddle::Function.new(symbols.fetch(f.name), types, Fiddle::TYPE_LONG)]

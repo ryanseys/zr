@@ -1,0 +1,18 @@
+# The interface of lib/zr/obj/jit.rb that its two implementations share.
+module Zr
+  module Obj
+    class JIT
+      # The system calls that a JIT makes: `JIT::Fiddle` under CRuby, or
+      # `JIT::Runtime` in a zr binary.
+      interface _Syscalls
+        def reserve: (Integer size) -> Integer?
+        def release: (Integer at, Integer size) -> untyped
+        def map: (Integer size, exec: bool, ?at: Integer?, ?near: Integer) -> Integer?
+        def symbol: (String name) -> Integer
+        def write_data: (Integer at, String bytes) -> untyped
+        def write_code: (Integer at, String bytes) -> untyped
+        def call: (Integer at) -> Integer
+      end
+    end
+  end
+end

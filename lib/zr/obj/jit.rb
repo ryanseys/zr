@@ -16,11 +16,11 @@ module Zr
     # imported function gets a stub in the code region that jumps through
     # an absolute address.
     #
-    # A `host` makes the system calls: `JIT::Fiddle` under CRuby (the
+    # Its `syscalls` make the system calls: `JIT::Fiddle` under CRuby (the
     # tests), or `JIT::Runtime`, the runtime's own, in a zr program that
     # evals (`Eval`). Each calls the same libSystem functions.
     class JIT
-      # @rbs @host: _JITHost
+      # @rbs @syscalls: _Syscalls
 
       MAP_ANON_PRIVATE = 0x1002
       MAP_FIXED = 0x10
@@ -31,14 +31,14 @@ module Zr
 
       attr_reader :symbols #: Hash[String, Integer]
 
-      # Not `Kernel#load`: this loads a unit, with `host` for its system
+      # Not `Kernel#load`: this loads a unit, with `syscalls` for its system
       # calls.
-      #: (Unit unit, host: _JITHost) -> Hash[String, Integer]
-      def self.load(unit, host:) = new(host).place(unit)
+      #: (Unit unit, syscalls: _Syscalls) -> Hash[String, Integer]
+      def self.load(unit, syscalls:) = new(syscalls).place(unit)
 
-      #: (_JITHost host) -> void
-      def initialize(host)
-        @host = host
+      #: (_Syscalls syscalls) -> void
+      def initialize(syscalls)
+        @syscalls = syscalls
         @symbols = {}
       end
 
@@ -57,11 +57,11 @@ module Zr
         # anywhere, and in a busy process it does. The data is mapped at its
         # address in the reservation. A MAP_JIT mapping cannot use
         # MAP_FIXED (EINVAL), so this releases the code part first and maps
-        # it by hint; the kernel then uses the free hole. A host with no
+        # it by hint; the kernel then uses the free hole. Syscalls with no
         # reservation maps by hint only. This checks the reach in both cases.
-        if (base = @host.reserve(code_size + data_size))
+        if (base = @syscalls.reserve(code_size + data_size))
           data_base = map(data_size, exec: false, at: base + code_size)
-          @host.release(base, code_size)
+          @syscalls.release(base, code_size)
           code_base = map(code_size, exec: true, near: base)
         else
           code_base = map(code_size, exec: true)
@@ -72,7 +72,7 @@ module Zr
 
         code[:at].each { |f, off| @symbols[f.name] = code_base + off }
         data[:at].each { |d, off| @symbols[d.name] = data_base + off }
-        addresses = imports.to_h { |name| [name, @host.symbol(name)] }
+        addresses = imports.to_h { |name| [name, @syscalls.symbol(name)] }
         stubs.each { |name, off| @symbols[name] = code_base + off }
 
         text = +"".b
@@ -94,8 +94,8 @@ module Zr
           bytes << [addresses[name]].pack("Q<")
         end
 
-        @host.write_data(data_base, bytes)
-        @host.write_code(code_base, text)
+        @syscalls.write_data(data_base, bytes)
+        @syscalls.write_code(code_base, text)
         @symbols
       end
 
@@ -119,7 +119,7 @@ module Zr
 
       #: (Integer size, exec: bool, ?at: Integer?, ?near: Integer) -> Integer
       def map(size, exec:, at: nil, near: 0)
-        @host.map(size, exec: exec, at: at, near: near) or raise "mmap of #{size} bytes failed"
+        @syscalls.map(size, exec: exec, at: at, near: near) or raise "mmap of #{size} bytes failed"
       end
 
       # Returns the bytes of `item` at `base`, with all relocations applied.
