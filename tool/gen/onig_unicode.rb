@@ -34,6 +34,8 @@ module Zr
         # the other fixed-width. This generator computes each value once
         # and writes it twice, so the two files cannot drift apart.
         class OnigUnicode < Command
+          include ByteTables
+
           host_ruby!
           usage "[--check]"
 
@@ -423,18 +425,6 @@ module Zr
                 end
               end
             RUBY
-          end
-
-          # A def of `Zr::Kern` that gives `bytes`. The later lines of the
-          # literal are inside the String, so they have no indent.
-          def emit_bytes(io, ename, bytes, comment)
-            rows = bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02X", b) }.join }
-            io.print "  # #{comment}\n"
-            io.print "  #: () -> ptr\n"
-            io.print "  def #{ename}\n"
-            io.print "    Machine.bytes(\n"
-            io.print "    \"#{rows.join("\\\n")}\")\n"
-            io.print "  end\n"
           end
 
           def write_kernel(io, tables, order, ctype_bits, case_fold)

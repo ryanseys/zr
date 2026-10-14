@@ -90,9 +90,29 @@ module Zr
         end
       end
 
+      # The byte tables that a generator writes into the kernel.
+      module ByteTables
+        # A binary String literal of `bytes` (Integers), as the kernel's
+        # byte tables read: rows of 32 bytes joined by line continuations.
+        # The later rows are inside the String, so they have no indent.
+        def bytes_literal(bytes)
+          rows = bytes.each_slice(32).map { |row| row.map { |byte| format("\\x%02X", byte) }.join }
+          "\"#{rows.join("\\\n")}\""
+        end
+
+        # A def of `Zr::Kern` named `name` that gives `bytes`, under the
+        # line `comment`.
+        def emit_bytes(io, name, bytes, comment)
+          io.print "  # #{comment}\n" if comment
+          io.print "  #: () -> ptr\n  def #{name}\n    Machine.bytes(\n    #{bytes_literal(bytes)})\n  end\n"
+        end
+      end
+
       # One generated file. A subclass names the file with `writes`, and
       # prints it into `io` in `write(io)`.
       class Generator < Command
+        include ByteTables
+
         class << self
           def writes(rel = nil)
             rel ? @writes = rel : @writes

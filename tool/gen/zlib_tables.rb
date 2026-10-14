@@ -277,21 +277,12 @@ module Zr
               base_length: base_length, base_dist: base_dist }
           end
 
-          # `words` as little-endian 32-bit cells, in rows of 32 bytes
-          # joined by line continuations, as the kernel's byte tables read.
-          # A blank line comes before each def but the first. The later
-          # lines of the literal are inside the String, so they have no
-          # indent.
+          # `words` as little-endian 32-bit cells (`emit_bytes`). A blank
+          # line comes before each def but the first.
           def emit_u32(io, name, words, comment)
-            rows = words.pack("V*").bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02X", b) }.join }
             io.puts if @emitted
             @emitted = true
-            io.puts "  # #{comment}"
-            io.puts "  #: () -> ptr"
-            io.puts "  def #{name}"
-            io.puts "    Machine.bytes("
-            io.puts "    \"#{rows.join("\\\n")}\")"
-            io.puts "  end"
+            emit_bytes(io, name, words.pack("V*").bytes, comment)
           end
         end
       end

@@ -391,15 +391,9 @@ module Zr
             end
           end
 
-          # A binary String literal of `bytes`, in lines of 32 bytes.
-          def literal(bytes)
-            lines = bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02X", b) }.join }
-            "\"#{lines.join("\\\n")}\""
-          end
-
-          def u16(values) = literal(values.pack("v*").bytes)
-          def u8(values) = literal(values.map { |v| v & 0xff })
-          def u32(values) = literal(values.pack("V*").bytes)
+          def u16(values) = bytes_literal(values.pack("v*").bytes)
+          def u8(values) = bytes_literal(values.map { |v| v & 0xff })
+          def u32(values) = bytes_literal(values.pack("V*").bytes)
           def pairs8(map) = map ? u8(map.flatten) : "nil"
           def state_table(rows) = u8(rows.flatten)
         end

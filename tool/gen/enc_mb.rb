@@ -51,11 +51,6 @@ module Zr
             ranges(list).map { |from, to| from == to ? "#{name} == #{from}" : "#{name} >= #{from} && #{name} <= #{to}" }.join(" || ")
           end
 
-          def bytes_literal(bytes)
-            lines = bytes.bytes.each_slice(32).map { |row| row.map { |b| format("\\x%02x", b) }.join }
-            "\"#{lines.join("\\\n")}\""
-          end
-
           def def_name(enc) = "zr_enc_mb_#{enc.name.downcase.tr("-", "_")}"
 
           def write(io)
@@ -126,7 +121,7 @@ module Zr
             # they have no indent.
             blobs.each_key do |enc|
               kernel << "\n  #: () -> ptr\n  def #{def_name(enc)}\n"
-              kernel << "    Machine.bytes(\n    #{bytes_literal(enc.descriptor)})\n  end\n"
+              kernel << "    Machine.bytes(\n    #{bytes_literal(enc.descriptor.bytes)})\n  end\n"
             end
             kernel << "end\n"
             io.print kernel

@@ -25,14 +25,14 @@ module Zr
             numbers(body.gsub(%r{//[^\n]*}, ""))
           end
 
-          def bytes_literal(values)
+          def table_literal(values)
             raise "a byte table has #{values.size} entries" unless values.size == 256
 
             values.pack("C*").unpack1("H*").scan(/../).each_slice(16).map { |row| "      \"#{row.map { |h| "\\x#{h}" }.join}\"" }.join(" \\\n")
           end
 
           # Byte tables, one after another, as one literal.
-          def tables_literal(tables) = tables.map { |table| bytes_literal(table) }.join(" \\\n")
+          def tables_literal(tables) = tables.map { |table| table_literal(table) }.join(" \\\n")
 
           def ranges_literal(values)
             values.each_slice(2).map { |low, high| "0x#{low.to_s(16).upcase}, 0x#{high.to_s(16).upcase}" }.each_slice(6).map { |row| "      #{row.join(", ")}," }.join("\n")
@@ -88,7 +88,7 @@ module Zr
                     # pm_encoding_unicode_table: bit 0 alphabetic, 1 alphanumeric,
                     # 2 uppercase, for the first 256 code points.
                     UNICODE_TABLE = (
-              #{bytes_literal(array(source, "pm_encoding_unicode_table"))}
+              #{table_literal(array(source, "pm_encoding_unicode_table"))}
                     ).b.freeze
 
                     # pm_utf_8_dfa: 256 byte types, then 16 transitions per state.
@@ -96,7 +96,7 @@ module Zr
 
                     # pm_encoding_ascii_table.
                     ASCII_TABLE = (
-              #{bytes_literal(ascii)}
+              #{table_literal(ascii)}
                     ).b.freeze
 
                     # Each other distinct pm_encoding_<name>_table, 256 bytes
