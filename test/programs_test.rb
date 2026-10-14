@@ -16,19 +16,18 @@
 #                                                          no build (test/baselines/host.txt)
 #
 # The walker of the host nests Ruby frames, so a host run starts ruby
-# again with the stacks and YJIT of `zr-dev host`. ruby reads both only
-# as it starts. A host test that passed before with the same inputs
-# passes again at once (test/support/result_cache.rb; ZR_TEST_FRESH=1
-# runs each one).
+# again with the stacks and YJIT of `zr-dev host`
+# (lib/zr/machine/host/launch.rb). ruby reads both only as it starts. A
+# host test that passed before with the same inputs passes again at once
+# (test/support/result_cache.rb; ZR_TEST_FRESH=1 runs each one).
 require_relative "support/flag"
 host = Zr::Test.flag?("ZR_TEST_HOST")
 if host
-  require_relative "../tool/hosted"
-  stacks = Zr::Dev::Commands::Host::STACK
-  unless stacks.all? { |name, value| ENV[name] == value }
+  require_relative "../lib/zr/machine/host/launch"
+  unless Zr::Machine::Host.stacked?
     # bin/minitest requires each file as `./<path>`, from here.
     file = Pathname(__FILE__).relative_path_from(Dir.pwd).to_s
-    exec(stacks, RbConfig.ruby, "--yjit", $PROGRAM_NAME, file, *ARGV)
+    exec(Zr::Machine::Host::STACK, RbConfig.ruby, "--yjit", $PROGRAM_NAME, file, *ARGV)
   end
 end
 

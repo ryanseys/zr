@@ -112,7 +112,7 @@ $ bin/zr-dev gems help            # the commands of a group
 The tables below write `zr-dev` for `bin/zr-dev` (see
 [The binstubs](#the-binstubs)). The code of
 each command is in `tool/<command>.rb`, with `_` for `-`
-(`tool/cruby_test.rb`); `zr-dev host` is in `tool/hosted.rb`. The header comment of each file
+(`tool/cruby_test.rb`). The header comment of each file
 gives more examples.
 
 ### Tests

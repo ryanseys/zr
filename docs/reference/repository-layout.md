@@ -117,7 +117,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `bin/minitest`, `bin/rake`, `bin/rubocop`, ... | the binstubs of the gems; `bin/minitest` runs the tests |
 | `Rakefile` | the rake tasks: build, test, gen, lint and release |
 | `tool/zr-dev.rb` | the `zr-dev` command, which lists and starts the maintainer tools; see [Tools](tools.md#zr-dev) |
-| `tool/*.rb` | the body of each `zr-dev` command, a class in `Zr::Dev::Commands`, one file for each command (`tool/bench.rb` for `zr-dev bench`, `tool/hosted.rb` for `zr-dev host`); `tool/commands.rb` lists them |
+| `tool/*.rb` | the body of each `zr-dev` command, a class in `Zr::Dev::Commands`, one file for each command (`tool/bench.rb` for `zr-dev bench`); `tool/commands.rb` lists them |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/lib/zr/dev/parallel.rb` | `Dev.parallel_map`: the one worker pool of the tools, with the results in the order of the items |
 | `tool/install_reference_gems.rb` | installs the gems of the reference ruby into `tmp/reference/gems`; `bin/setup` runs it |

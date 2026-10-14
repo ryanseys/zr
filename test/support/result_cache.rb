@@ -42,7 +42,7 @@ module Zr
       ].freeze
       # The tools on that load path: the walker of `ZR_TEST_HOST`, the
       # recorder of `ZR_EXPECTED=record`, and what they load.
-      TOOLS = %w[tool/hosted.rb tool/expect.rb tool/lib/zr/dev.rb tool/lib/zr/dev/command.rb tool/lib/zr/dev/files.rb
+      TOOLS = %w[tool/expect.rb tool/lib/zr/dev.rb tool/lib/zr/dev/command.rb tool/lib/zr/dev/files.rb
                  tool/lib/zr/dev/parallel.rb tool/lib/zr/dev/process.rb tool/lib/zr/dev/sources.rb].freeze
       # What a run reads, below the root: zr itself, the pinned ruby, the
       # locked gems, the baselines, and HARNESS and TOOLS.

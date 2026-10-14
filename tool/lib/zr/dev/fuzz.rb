@@ -12,7 +12,7 @@ require_relative "../../../../test/support/workers"
 
 module Zr
   module Dev
-    # The parts of `zr-dev fuzz` (tool/fuzzer.rb), a differential fuzzer:
+    # The parts of `zr-dev fuzz` (tool/fuzz.rb), a differential fuzzer:
     # it writes Ruby programs, runs each one under ruby and as a zr
     # binary, and keeps each difference as a small case below log/fuzz.
     module Fuzz

@@ -13,12 +13,12 @@ class ResultCacheTest < Minitest::Test
   def test_each_change_to_the_checkout_outside_the_programs_misses
     in_checkout do |root|
       digest = ResultCache.new(root: root).tree
-      File.write(File.join(root, "tool/hosted.rb"), "# a change to the walker\n")
+      File.write(File.join(root, "tool/expect.rb"), "# a change to the recorder\n")
       edited = ResultCache.new(root: root).tree
 
       refute_equal digest, edited, "a change that git does not have yet"
       assert_equal edited, ResultCache.new(root: root).tree, "no change since: the same digest"
-      git(root, "add", "tool/hosted.rb")
+      git(root, "add", "tool/expect.rb")
 
       refute_equal digest, ResultCache.new(root: root).tree, "a staged change"
       staged = ResultCache.new(root: root).tree
@@ -131,7 +131,7 @@ class ResultCacheTest < Minitest::Test
     Dir.mktmpdir("zr-result-cache-") do |root|
       FileUtils.mkdir_p(File.join(root, "tool"))
       FileUtils.mkdir_p(File.join(root, "test/programs/core"))
-      File.write(File.join(root, "tool/hosted.rb"), "# the walker\n")
+      File.write(File.join(root, "tool/expect.rb"), "# the recorder\n")
       File.write(File.join(root, "test/programs/core/x.rb"), "p 1\n")
       more.each do |rel|
         FileUtils.mkdir_p(File.dirname(File.join(root, rel)))

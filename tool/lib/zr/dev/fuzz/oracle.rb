@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require_relative "../../../../../lib/zr/machine/host/launch"
 
 module Zr
   module Dev
@@ -61,11 +62,6 @@ module Zr
 
         HOST = File.expand_path("host.rb", __dir__)
 
-        # The stack sizes of a hosted run (`Commands::Host::STACK`): the
-        # walker nests a Ruby frame in another for each call.
-        HOST_STACK = %w[RUBY_THREAD_VM_STACK_SIZE RUBY_THREAD_MACHINE_STACK_SIZE RUBY_FIBER_VM_STACK_SIZE
-                        RUBY_FIBER_MACHINE_STACK_SIZE].to_h { |name| [name, (256 << 20).to_s] }.freeze
-
         # What `source` gives when it runs hosted on the zr at `pin`: CRuby
         # over zr's kernel, with no build. Slower than a binary, so it gets
         # a minute.
@@ -75,7 +71,7 @@ module Zr
           FileUtils.mkdir_p(run)
           File.binwrite(File.join(run, NAME), source)
           answer, = Harness::Child.run([Dev.ruby, "--yjit", HOST, pin, NAME], cwd: run, seconds: 60, megabytes: 4096,
-                                                                              env: HOST_STACK.merge(@builder&.env || {}))
+                                                                              env: Machine::Host::STACK.merge(@builder&.env || {}))
           normalize(answer, run)
         ensure
           FileUtils.rm_rf(dir) if dir && !@keep
