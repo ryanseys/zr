@@ -25,12 +25,8 @@ class CompilerDigestTest < Minitest::Test
 
   # The compiler files that a plain build and link do not load, but that
   # other builds do, so they stay in the digest: eval support compiles the
-  # eval compiler and its walker, a build with --gem loads the gem set, and
-  # a diff loads the rest on demand.
-  LOADED_BY_SOME_BUILDS = %w[
-    diff.rb eval.rb eval/walk.rb eval/walk/evaluate.rb eval/walk/tree.rb gem_set.rb
-    gem_set/resolve.rb
-  ].map { |name| File.join(LIB, "zr", name) }.freeze
+  # eval compiler and its walker, and a build with --gem loads the gem set.
+  LOADED_BY_SOME_BUILDS = %w[eval.rb eval/walk.rb eval/walk/evaluate.rb eval/walk/tree.rb gem_set.rb gem_set/resolve.rb].map { |name| File.join(LIB, "zr", name) }.freeze
 
   # The other side of the first test: a new file that only drives zr must
   # go in DRIVER_ONLY (or the list above), so that an edit to it does not

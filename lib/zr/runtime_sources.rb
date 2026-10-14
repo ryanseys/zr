@@ -61,7 +61,8 @@ module Zr
 
     # The compiler files that drive zr but that neither a build nor a link
     # loads: the caches of whole runs and the janitor of the cache, the
-    # server, `zr doctor`, the reader of ruby's switches, the printer of
+    # server, `zr diff`'s runner (which zr-dev's probe, gem trials and
+    # fuzzer share), `zr doctor`, the reader of ruby's switches, the printer of
     # `--dump=parsetree`, the host machine that runs the kernel on CRuby
     # (machine/host.rb and each file under machine/host/), and the RbConfig
     # that the host ruby loads for an extconf.rb of another target (the
@@ -70,7 +71,7 @@ module Zr
     # on it. `compiler_digest_test.rb` checks that a build and a link load
     # none of them, and that it lists each compiler file that they do not
     # load.
-    DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb doctor.rb ext/target_rbconfig.rb
+    DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb diff.rb doctor.rb ext/target_rbconfig.rb
                       machine/host.rb server.rb server/client.rb]
                      .map { |name| File.join(__dir__, name) } +
                    Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze
