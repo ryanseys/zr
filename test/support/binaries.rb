@@ -32,21 +32,20 @@ module Zr
     #
     # The key fails closed. It contains the runtime digest for the target
     # (all code that lowers and emits the runtime), the link digest, the
-    # library files that a program can require (`libraries`), the target, the environment variables that change the bytes of a build,
-    # the path and source of the program, and each fixture written next to
-    # it (a symbolic link by its target). A test whose files have no
-    # key builds as usual. A hole is cut only where the bytes of the binary
-    # are equal to the bytes of the prelinked image. When `take` cannot
-    # restore the whole binary, it returns false and the test builds.
+    # library files that a program can require (`libraries`), the target,
+    # each setting that steers a build (`Config#fingerprint`), the path and
+    # source of the program, and each fixture written next to it (a
+    # symbolic link by its target). A test whose files have no key builds
+    # as usual. A `ZR_VERIFY` run takes no kept binary: it builds, so that
+    # the lowering checks itself. A hole is cut only where the bytes of
+    # the binary are equal to the bytes of the prelinked image. When
+    # `take` cannot restore the whole binary, it returns false and the
+    # test builds.
     module Binaries
-      VERSION = 5
+      VERSION = 6
       # The start of a kept binary that is whole: an ELF binary, which has
       # no prelinked image to leave out.
       WHOLE = "zr-whole".b
-      # The environment variables that change the bytes of a build. Also
-      # `ZR_VERIFY`, which makes the lowering verify itself: with it, a
-      # run lowers again and does not use a kept binary.
-      ENVIRONMENT = %w[ZR_LINKER ZR_EVAL ZR_VERIFY ZR_WASM_NAMES ZR_WASM_WIDTH].freeze
       PAGE = Obj::MachO::Prelink::PAGE
 
       module_function
@@ -59,16 +58,18 @@ module Zr
         end
       end
 
-      # Returns the path of the kept binary for this test, or nil when
-      # no key can describe it.
+      # Returns the path of the kept binary for this test, or nil when no
+      # key can describe it or the run verifies its lowering.
       def path(target, source, rb, files)
+        config = Config.current
+        return nil if config.verify?
+
         parts = files.sort.map { |name, bytes| [name, bytes.is_a?(Hash) ? "-> #{bytes.fetch(:symlink)}" : bytes] }
         return nil unless parts.all? { |_, bytes| bytes.is_a?(String) }
 
-        key = Digest::SHA256.new
-        [VERSION, Runtime.for(target).digest, Zr::Digests.link, libraries, target.triple,
-         *ENVIRONMENT.map { |name| ENV[name].to_s }, rb, source, *parts.flatten].each { |part| key << part.to_s << "\0" }
-        Zr::Cache::Store.path(:binary, "#{key.hexdigest}#{".wasm" unless target.link}")
+        key = Zr::Cache::Store.key(VERSION, Runtime.for(target).digest, Zr::Digests.link, libraries, target.triple,
+                                   *config.fingerprint.flatten, rb, source, *parts.flatten)
+        Zr::Cache::Store.path(:binary, "#{key}#{".wasm" unless target.link}")
       end
 
       # The digest of the library files that a program can require and that

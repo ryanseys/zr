@@ -40,6 +40,30 @@ class BinaryCacheTest < Minitest::Test
     refute_equal a, b
   end
 
+  # The key holds `Config#fingerprint`, so a setting added there misses
+  # with no edit here.
+  def test_each_setting_that_steers_a_build_is_in_the_key
+    target = Zr::Target.default
+    runtime = Data.define(:digest).new(digest: "runtime")
+    key = proc { stub_method(Zr::Runtime, :for, runtime) { Binaries.path(target, SOURCE, "p.rb", {}) } }
+    plain = Zr::Config.with(&key)
+
+    Zr::Config::SETTINGS.select(&:steers).each do |setting|
+      next if setting.env == "ZR_VERIFY"
+
+      value = case setting
+              in { kind: :choice, values: } then values.last
+              in { env: "ZR_EXT_CONFIG" } then "gem=1"
+              else "2"
+              end
+      refute_equal plain, Zr::Config.with(setting.env.to_sym => value, &key), "#{setting.env}=#{value} must miss"
+    end
+  end
+
+  def test_a_verify_run_takes_no_kept_binary
+    assert_nil Zr::Config.with(ZR_VERIFY: "1") { Binaries.path(Zr::Target.default, SOURCE, "p.rb", {}) }
+  end
+
   def test_a_kept_binary_comes_back_byte_for_byte
     kept = File.join(@work, "kept")
     Binaries.keep(kept, @bin, @program, @work)
