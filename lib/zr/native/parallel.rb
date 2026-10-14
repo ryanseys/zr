@@ -60,7 +60,7 @@ module Zr
       # the objects that the fork gave it.
       #: () -> void
       def warmed
-        Process.warmup if Process.respond_to?(:warmup)
+        Timing.phase("warming the heap for the workers", "heap warmed") { Process.warmup } if Process.respond_to?(:warmup)
       end
 
       # Limits the worker count to the number that fits in this machine's
