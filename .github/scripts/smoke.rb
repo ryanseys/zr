@@ -22,7 +22,7 @@ require "open3"
 require "rbconfig"
 
 user_cache = !ARGV.delete("--user-cache").nil?
-gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb [--user-cache] ZR_GEM [DIR]" })
+gem_file = File.expand_path(ARGV.fetch(0) { abort "usage: ruby .github/scripts/smoke.rb [--user-cache] GEM [DIR]" })
 root = ARGV.fetch(1, "/opt/zr")
 
 # A runner cannot write /opt without sudo.

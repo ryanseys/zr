@@ -103,7 +103,7 @@ To select tests by name, give minitest's own options (`-i`, `-e`) to
 | `ZR_EXPECTED` | `record`, `verify`, `live` | unset | Where a program test's expected output comes from: the pinned ruby, written beside the program first (`record`); the files beside the program, and a program with none fails (`verify`); the pinned ruby now, with no file read or written (`live`). Unset, a test reads its files, and a program with none asks the pinned ruby. `zr-dev test --record`, `--verify` and `--live` set it. |
 | `ZR_TARGET` | a triple | this host | Builds and runs the programs for that target. See [How to test on another target](../how-to/test-on-another-target.md). |
 | `ZR_GC_STRESS` | `1` | unset | Each program that a test runs gets `ZR_GC_STRESS=1` in its environment, and collects at every allocation. |
-| `ZR_TEST_FAIL_FAST` | `1` | unset | The run starts no more tests after one fails. |
+| `ZR_TEST_FAIL_FAST` | flag | off | The run starts no more tests after one fails. |
 | `ZR_TEST_TMP` | directory | `tmp` | Where a run writes `test-progress.txt`, `test-failures.txt`, and `zr-dev-test/failed.txt` and `times.tsv`. A suite that a test starts (`test/unit/fork_pool_test.rb`) gets a directory of its own, so it does not write over the files of the run that started it. |
 | `ZR_TEST_ALL` | flag | off | Defines the tests that a run has only when you ask: those of `test/ext/top_gems_test.rb`, which build the C extension of each top gem and take more time than all other tests, and those that take minutes for code that other tests cover in part, such as `test/unit/core_cache_test.rb`. The long-tests workflow runs them each week. |
 | `SLOW` | `0`, `1`, or a number | unset | The report of the slowest tests and groups at the end of a run. Unset, a run of 20 tests or more reports 10 of each. `1` reports 20 of each for a run of any size, with the time that the program tests spent to lower, link and run; a number above 1 is the count; `0` reports nothing. Each run keeps its times in `tmp/zr-dev-test/times.tsv` in any case (`zr-dev test --slowest`). |
@@ -114,15 +114,15 @@ To select tests by name, give minitest's own options (`-i`, `-e`) to
 | `ZR_TEST_SECONDS` | seconds | 60 | The time limit for a program that a test runs. A ruby run of a program test gets two times this limit, and a `zr build` of a test below `test/programs/cli/` five times. |
 | `ZR_TEST_BUILD_MB` | megabytes | 2048 | The memory limit for a build, summed over its process group, and for a program that a test runs through `Checks` (`test/test_helper.rb`). A program test below `test/programs/cli/` can have a higher limit with `build_mb=` in its `.rb.limits` file. |
 | `ZR_TEST_RUN_MB` | megabytes | 1024 | The memory limit for a run. A program test can have a higher limit with `run_mb=` in its `.rb.limits` file. |
-| `ZR_TEST_HOST` | `1` | unset | The program tests run on CRuby over zr's kernel (`test/support/host_program.rb`), not as binaries. `test/programs_test.rb` then starts ruby again with large stacks and `--yjit`. The baseline is `test/baselines/host.txt`. |
-| `ZR_TEST_FRESH` | `1` | unset | The run builds and runs each program test, also one that passed before with the same inputs, which the result cache (`test/support/result_cache.rb`) otherwise passes at once. |
+| `ZR_TEST_HOST` | flag | off | The program tests run on CRuby over zr's kernel (`test/support/host_program.rb`), not as binaries. `test/programs_test.rb` then starts ruby again with large stacks and `--yjit`. The baseline is `test/baselines/host.txt`. |
+| `ZR_TEST_FRESH` | flag | off | The run builds and runs each program test, also one that passed before with the same inputs, which the result cache (`test/support/result_cache.rb`) otherwise passes at once. |
 | `ZR_TEST_BUILT` | flag | on | `0`: the run does not build or load the runtime before it forks its workers. A file that builds then builds the runtime cold. A unit file without `# zr-test: runtime` or `# zr-test: eval` in its first lines builds nothing, so the run does not build the runtime for it (`test/support/needs.rb`). |
 | `ZR_TEST_BINARIES` | `0`, `1` | on for a native target | The program tests keep each program's binary in the cache, keyed by every input of its bytes. A later run of an unchanged program uses the kept binary and does not build. A test below `test/programs/cli/` always builds. `1` also keeps WASI modules. `0` keeps nothing. `zr cache clean` deletes old ones. |
 | `ZR_TEST_BINARIES_GB` | gigabytes | 8 | The maximum size of the kept binaries (`<cache>/store/binary/`). Before a tier starts, it deletes the ones used least recently. |
 | `ZR_TEST_WASM_COMPILER` | `winch`, `cranelift` | `winch` | The wasmtime compiler for the tests. Winch is wasmtime's baseline compiler. It compiles fast, and a test needs the output, not the speed. `zr-dev bench` uses Cranelift. |
 | `ZR_TEST_WASM_MEMORY` | bytes | 1 GiB | wasmtime's `max-memory-size` in the tests. |
 | `WASMTIME` | a command | `wasmtime` | The wasmtime that the tests run. |
-| `ZR_BLESS` | `1` | unset | A snapshot test writes its expected file again, in place of a comparison: the HIR dumps, the disassembly listing and the libSystem list. A unit test that checks a generated file (prism's Ruby, its encoding tables, the builtin lines, Onigmo's Unicode tables, the libSystem list) runs the generator to write it, in place of `--check`. |
+| `ZR_BLESS` | flag | off | A snapshot test writes its expected file again, in place of a comparison: the HIR dumps, the disassembly listing and the libSystem list. A unit test that checks a generated file (prism's Ruby, its encoding tables, the builtin lines, Onigmo's Unicode tables, the libSystem list) runs the generator to write it, in place of `--check`. |
 | `ZR_DIFFERENTIAL` | a number | 500 | How many random functions `regalloc_differential_test` generates. |
 | `ZR_SEED` | a number | random | The seed of `regalloc_differential_test`. A failure prints the seed to use. |
 | `OPENSSL_DIR` | a prefix | unset | Where ruby's reference run finds OpenSSL, as for a compiled program. |
@@ -134,11 +134,13 @@ The `zr-dev` commands read these. See [Tools](tools.md#zr-dev).
 | Variable | Command | Default | Effect |
 |---|---|---|---|
 | `RUBY_SRC` | `zr-dev gen`, `zr-dev vendor`, `zr-dev rubyspec`, `zr-dev cruby-test` | `tmp/ruby` | A CRuby checkout that has the commit `Zr::RUBY_REVISION` (`lib/zr/ruby_version.rb`). The generators read the C sources at that commit, and `zr-dev vendor` ruby's own library. `zr-dev rubyspec` runs its `spec/` directory and `zr-dev cruby-test` its `test/` directory; both need the checkout at that commit. |
-| `PRISM_SRC` | `zr-dev gen prism_encoding_tables`, `zr-dev vendor` | `tmp/prism` when it exists, else `tmp/prism-1.9.0` | A prism checkout that has the tag `v1.9.0`, or a release tree of prism 1.9.0. |
+| `PRISM_SRC` | `zr-dev gen prism`, `zr-dev gen prism_encoding_tables`, `zr-dev vendor`, the prism tests | `tmp/prism` | A prism checkout that has the commit that ruby bundles: prism's row of CRuby's `gems/bundled_gems` at `Zr::RUBY_REVISION` (`Dev.prism_revision`). |
 | `NKF_SRC` | `zr-dev gen nkf` | the installed nkf gem's `ext/nkf/nkf-utf8/utf8tbl.c` | The path of nkf's `utf8tbl.c`. The `--source` option has priority. |
 | `CHECK` | `rake gen` | unset | Any value: compare each generated file, and write nothing (`zr-dev gen all --check`). |
 | `ZR_GEM_CORPUS` | `zr-dev gems` | unset | A directory of unpacked gems, `<dir>/<name>`, that `zr-dev gems` looks in first, by name. It never lists the directory. The `--corpus` option has priority. |
 | `HOMEBREW_PREFIX` | `zr-dev gems sweep --c-scan` | `/opt/homebrew` | Where Homebrew keeps the headers of the libraries that a gem's C extension includes. |
+| `ZR_KERNEL_OS` | `bin/steep check --group=kernel` | this host's (`darwin` or `linux`) | The OS layer of the kernel that the type check reads with the portable files: `darwin`, `linux` or `wasi` (`Steepfile`). |
+| `STEEP_LEVEL` | `bin/steep check` | each file's own level | `default` or `strict`: checks every file at that level of diagnostics (`Steepfile`). |
 
 `zr-dev rubyspec` sets `MSPEC_RUNNER` and `SPEC_SKIP_HANGS` in the
 runs that it starts; they are not for a person to set.

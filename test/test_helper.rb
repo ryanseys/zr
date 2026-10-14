@@ -8,22 +8,8 @@
 #   bin/zr-dev test test/programs/core/gc try.rb  programs, from anywhere
 #   bin/minitest test/unit/cli_test.rb -i /help/  bin/minitest itself, and its options
 #
-# The run reads these variables (a `zr-dev test` option sets most):
-#   MT_CPU=<n>             the number of worker processes
-#   ZR_TEST_FAIL_FAST=1    run no more tests after one fails
-#   ZR_TEST_SECONDS=<n>    the time limit of each program run and build
-#                          (default 60; the host doubles it unless it is set)
-#   ZR_TEST_TIMEOUT=<n>    the time limit of each test in a worker (default
-#                          180; 0 waits forever)
-#   ZR_TARGET=<triple>     build and run the programs for that target
-#   ZR_GC_STRESS=1         the programs collect at every allocation
-#   ZR_PROGRAMS=<paths>    the program tests to run (test/programs_test.rb)
-#   ZR_EXPECTED=<mode>     a program test's expected output: record, verify
-#                          or live (test/support/program_selection.rb)
-#   SLOW=<n>               report the <n> slowest tests and groups (SLOW=1:
-#                          20, with the build parts; SLOW=0: none; a run of 20
-#                          tests or more reports 10)
-#   COVERAGE=1             measure lib/ (test/support/coverage_run.rb)
+# The variables that a run reads, and the `zr-dev test` options that set
+# most of them: docs/reference/environment-variables.md#for-the-tests.
 
 # `COVERAGE=1` measures lib/. It starts before zr loads, because a file
 # that loads earlier has no coverage.
