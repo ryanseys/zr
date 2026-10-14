@@ -208,7 +208,7 @@ class Integer
     # `a * m` for a fixnum m below the limb base.
     def big_mul_small_mag(a, m)
       Primitive.attr! :hidden
-      Primitive.zr_big_mul_mag(a, m == 0 ? [] : [m])
+      Primitive.zr_big_mul_small_mag(a, m)
     end
 
     # `[quotient, remainder]` of a magnitude by a fixnum above zero and
@@ -273,10 +273,19 @@ class Integer
 
     def big_add(x, y)
       Primitive.attr! :hidden
-      xm = big_mag(x)
-      ym = big_mag(y)
-      xn = big_neg?(x)
-      if xn == big_neg?(y)
+      big_sum(big_mag(x), big_neg?(x), big_mag(y), big_neg?(y))
+    end
+
+    # `x + -y`, with no copy of y.
+    def big_sub(x, y)
+      Primitive.attr! :hidden
+      big_sum(big_mag(x), big_neg?(x), big_mag(y), !big_neg?(y))
+    end
+
+    # The sum of two magnitudes, each with its sign.
+    def big_sum(xm, xn, ym, yn)
+      Primitive.attr! :hidden
+      if xn == yn
         big_build(xn, big_add_mag(xm, ym))
       elsif big_cmp_mag(xm, ym) >= 0
         big_build(xn, big_sub_mag(xm, ym))
@@ -285,14 +294,21 @@ class Integer
       end
     end
 
-    def big_sub(x, y)
-      Primitive.attr! :hidden
-      big_add(x, big_negate(y))
-    end
-
+    # A factor below the limb base takes one pass and no limb Array of
+    # its own.
     def big_mul(x, y)
       Primitive.attr! :hidden
-      big_build(big_neg?(x) != big_neg?(y), big_mul_mag(big_mag(x), big_mag(y)))
+      neg = big_neg?(x) != big_neg?(y)
+      return big_build(neg, big_mul_small_mag(big_mag(x), y.abs)) if big_small?(y)
+      return big_build(neg, big_mul_small_mag(big_mag(y), x.abs)) if big_small?(x)
+
+      big_build(neg, big_mul_mag(big_mag(x), big_mag(y)))
+    end
+
+    # Whether `n` is a fixnum whose size is below the limb base.
+    def big_small?(n)
+      Primitive.attr! :hidden
+      Primitive.zr_fixnum_p_m(n) && n > -LIMB_BASE && n < LIMB_BASE
     end
 
     # Floored `[quotient, remainder]`, the remainder taking the
@@ -475,18 +491,18 @@ class Integer
     end
   end
 
-  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_mul, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
+  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_sum, :big_mul, :big_small?, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
 
   # The kernel's route for a fixnum builtin whose receiver or operand
-  # is a bignum: `op` is the builtin's name, `args` its arguments.
-  def big_op(op, *args)
+  # is a bignum: `op` is the builtin's name, then its arguments. An
+  # operator's one operand takes no Array.
+  def big_op(op, other = (given = 0; nil), *more)
     Primitive.attr! :hidden
-    other = args[0]
     case op
     when :to_s
-      raise ArgumentError, wrong_arity(args.size, 0..1) if args.size > 1
+      raise ArgumentError, wrong_arity(1 + Primitive.zr_ary_len_m(more), 0..1) unless Primitive.zr_ary_len_m(more) == 0
 
-      base = args.empty? ? 10 : Primitive.zr_index_operand_m(args[0])
+      base = given == 0 ? 10 : Primitive.zr_index_operand_m(other)
       raise ArgumentError, "invalid radix #{base}" if base < 2 || base > 36
 
       Integer.send(:big_to_s, self, base)

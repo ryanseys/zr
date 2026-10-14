@@ -86,18 +86,7 @@ module Zr::Kern
     x = RArray[a].ptr
     y = RArray[b].ptr
     if m == 1
-      f = zr_big_at(y, 0)
-      o = RArray[out].ptr
-      carry = 0
-      i = 0
-      while i < n
-        t = (zr_big_at(x, i) * f) + carry
-        zr_big_put(o, i, t & BIG_MASK)
-        carry = t >> BIG_BITS
-        i += 1
-      end
-      zr_big_put(o, n, carry)
-      return zr_big_done(out, n + 1)
+      return zr_big_mul_word(out, a, zr_big_at(y, 0))
     end
     sums = zr_big_zeros(n + m)
     i = 0
@@ -116,6 +105,31 @@ module Zr::Kern
       i += 1
     end
     zr_big_fill(out, sums, n + m)
+  end
+
+  # `a * m` for the fixnum `m`, at least zero and below 2^30.
+  #: (value, value) -> value
+  def zr_big_mul_small_mag(a, m)
+    zr_big_mul_word(zr_ary_new(RArray[a].len + 1), a, zr_fix2long(m))
+  end
+
+  # Writes `a * f` into `out`, which has room for one limb more than `a`,
+  # and returns it: one pass, with no sums.
+  #: (value, value, word) -> value
+  def zr_big_mul_word(out, a, f)
+    n = RArray[a].len
+    x = RArray[a].ptr
+    o = RArray[out].ptr
+    carry = 0
+    i = 0
+    while i < n
+      t = (zr_big_at(x, i) * f) + carry
+      zr_big_put(o, i, t & BIG_MASK)
+      carry = t >> BIG_BITS
+      i += 1
+    end
+    zr_big_put(o, n, carry)
+    zr_big_done(out, n + 1)
   end
 
   # `[quotient, remainder]` of `a` by the fixnum `m`, which is above zero
