@@ -3,7 +3,7 @@
 require "test_helper"
 require_relative "../../lib/zr/diff"
 
-# How `zr diff` and `zr-dev probe` compare a run under ruby with a run of
+# How `zr diff` and the fuzzer compare a run under ruby with a run of
 # the zr binary (lib/zr/diff.rb). The diff is zr's own, in Ruby: zr runs
 # no `diff` program.
 class DiffTest < Minitest::Test

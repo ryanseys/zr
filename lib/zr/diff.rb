@@ -4,7 +4,7 @@ require "open3"
 
 module Zr
   # Runs a program and compares two runs of it: under ruby and as a zr
-  # binary. `zr diff` and `zr-dev probe` use it.
+  # binary. `zr diff` and the fuzzer use it.
   #
   # An object address (`0x` and 16 hex digits) is never the same in two
   # processes, so both outputs have each one as `0x...`.

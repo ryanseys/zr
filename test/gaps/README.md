@@ -6,10 +6,11 @@ ruby's. `<name>.rb.expected` is ruby's stdout
 the comment at the top says what zr does instead.
 
 The program tier does not run these files. To see which gaps are still
-open, run them under ruby and as zr binaries:
+open, run them as program tests:
 
-    bin/zr-dev probe test/gaps -j 2
+    bin/zr-dev test test/gaps
 
-`SAME` means that zr now gives ruby's output. Move that program to
+A test that passes is a gap that zr closed: zr now gives ruby's
+output. Move that program to
 `test/programs/<area>/`, add edge cases, write its sidecars with
 `bin/zr-dev expect`, and delete its `.expected` file here.

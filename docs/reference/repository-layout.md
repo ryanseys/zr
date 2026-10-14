@@ -32,7 +32,7 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/cli.rb` | the command line of `zr`: `CLI.start` runs the command that the first word names (`CLI::COMMANDS`) |
 | `lib/zr/cli/` | the parts of the command line: `command.rb` (the base class), `options.rb` (the option table), `help.rb` (the help text), `errors.rb`, `refusals.rb` (status 3), `runner.rb` (runs the built binary), and `commands/`, one file for each command |
 | `lib/zr/doctor.rb` | the checks of `zr doctor` |
-| `lib/zr/diff.rb` | `Zr::Diff`: runs a program under ruby and as a zr binary, and compares the runs (`zr diff`, `zr-dev probe`) |
+| `lib/zr/diff.rb` | `Zr::Diff`: runs a program under ruby and as a zr binary, and compares the runs (`zr diff`, the fuzzer) |
 | `lib/zr/manifest.rb` | `Zr::Manifest`: the gems that a binary carries, which `zr inspect` and `--print-gems` print |
 | `lib/zr/gem_set.rb`, `lib/zr/gem_set/` | `Zr::GemSet`: the gems that a build reads before zr's library (`--gem`, a Gemfile.lock) |
 | `lib/zr/ext.rb`, `lib/zr/ext/` | `Zr::Ext`: the C extensions that `--native-ext` links in, how zr builds them, and the C API that they may call |

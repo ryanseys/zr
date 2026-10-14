@@ -6,10 +6,10 @@
 #
 #   ruby builder.rb PIN [--coverage]
 #
-# It loads the compiler and the runtime once, as `zr-dev probe` does, and
-# builds each program in a fork of itself, so a build costs its own
-# compile and link, not a start of zr. Requests come on stdin and answers
-# go on stdout, one JSON object to a line:
+# It loads the compiler and the runtime once, and builds each program in
+# a fork of itself, so a build costs its own compile and link, not a
+# start of zr. Requests come on stdin and answers go on stdout, one JSON
+# object to a line:
 #
 #   {"id": 7, "dir": "/abs/run", "file": "prog.rb", "out": "/abs/bin"}
 #   {"id": 7, "status": 0, "signal": null, "stderr": "", "seconds": 0.41, "lines": [...]}
