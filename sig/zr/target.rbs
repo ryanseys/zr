@@ -1,9 +1,7 @@
-# The class instance variable and the type aliases of lib/zr/target.rb.
-# Its methods are inline. Inline RBS cannot declare an alias.
+# The record and the type aliases of lib/zr/target.rb. Its methods are
+# inline. Inline RBS cannot declare an alias.
 module Zr
-  class Target
-    self.@registry: Hash[String, Target]
-
+  class Target < Data
     type arch = :aarch64 | :wasm32
     type os = :darwin | :linux | :wasi
     type object_format = :macho | :elf | :wasm
@@ -12,5 +10,21 @@ module Zr
     type link = :darwin | :static
     # `:native` (a binary), `:obj` (an object), `:wasm` (a module).
     type output = :native | :obj | :wasm
+
+    attr_reader triple: String
+    attr_reader arch: arch
+    attr_reader os: os
+    attr_reader libc: libc?
+    attr_reader object_format: object_format
+    attr_reader word: Integer
+    attr_reader page: Integer
+    attr_reader symbol_prefix: String
+    attr_reader ruby_platform: String
+    attr_reader link: link?
+    attr_reader outputs: Array[output]
+    attr_reader min_os: String?
+
+    def self.new: (triple: String, arch: arch, os: os, object_format: object_format, page: Integer, symbol_prefix: String,
+                   ruby_platform: String, link: link?, outputs: Array[output], ?libc: libc?, ?word: Integer, ?min_os: String?) -> instance
   end
 end

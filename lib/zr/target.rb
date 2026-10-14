@@ -7,22 +7,16 @@ module Zr
   # object format, and the facts that a build reads from them. The gem
   # runs on any host. A target tells what it builds, and `refusal` tells
   # whether this host can build it.
-  class Target
-    attr_reader :triple, :symbol_prefix, :ruby_platform #: String
-    attr_reader :arch #: arch
-    attr_reader :os #: os
-    attr_reader :object_format #: object_format
-    attr_reader :libc #: libc?
-    attr_reader :link #: link?
-    attr_reader :word, :page #: Integer
-    attr_reader :outputs #: Array[output]
-    attr_reader :min_os #: String?
+  #
+  # `outputs` are the outputs zr can build for the target: `:native` (a
+  # binary), `:obj` (an object) and `:wasm` (a module). `min_os` is the
+  # oldest OS version that a binary loads on ("14.0"), or nil when the
+  # target records none.
+  # @rbs skip -- typed in sig/zr/target.rbs
+  Target = Data.define(:triple, :arch, :os, :libc, :object_format, :word, :page, :symbol_prefix, :ruby_platform, :link, :outputs,
+                       :min_os)
 
-    # `outputs` are the outputs zr can build for the target: `:native`
-    # (a binary), `:obj` (an object) and `:wasm` (a module). `min_os` is
-    # the oldest OS version that a binary loads on ("14.0"), or nil when
-    # the target records none.
-    #
+  class Target
     # @rbs triple: String
     # @rbs arch: arch
     # @rbs os: os
@@ -38,18 +32,7 @@ module Zr
     # @rbs return: void
     def initialize(triple:, arch:, os:, object_format:, page:, symbol_prefix:, ruby_platform:, link:, outputs:, libc: nil, word: 8,
                    min_os: nil)
-      @triple = triple
-      @arch = arch
-      @os = os
-      @libc = libc
-      @object_format = object_format
-      @word = word
-      @page = page
-      @symbol_prefix = symbol_prefix
-      @ruby_platform = ruby_platform
-      @link = link
-      @outputs = outputs
-      @min_os = min_os
+      super
     end
 
     #: () -> String
@@ -72,9 +55,6 @@ module Zr
     #: () -> String
     def arch_layer = ARCH_LAYERS.fetch(arch)
 
-    # Every target, by triple (`Target.register`).
-    @registry = {} #: Hash[String, Target]
-
     # The oldest macOS that a darwin binary loads on.
     MIN_MACOS = "14.0"
 
@@ -89,27 +69,27 @@ module Zr
     #: () -> Array[Integer]
     def min_os_parts = [*(min_os or raise("#{triple} has no min_os")).split(".").map(&:to_i), 0, 0].first(3)
 
-    #: (Target target) -> Target
-    def self.register(target)
-      @registry[target.triple] = target
-    end
+    AARCH64_DARWIN = new(triple: "aarch64-apple-darwin", arch: :aarch64, os: :darwin, object_format: :macho,
+                         page: 16_384, symbol_prefix: "_", ruby_platform: darwin_platform(MIN_MACOS),
+                         link: :darwin, outputs: %i[native obj], min_os: MIN_MACOS) #: Target
+    AARCH64_LINUX_MUSL = new(triple: "aarch64-linux-musl", arch: :aarch64, os: :linux, libc: :musl,
+                             object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux-musl",
+                             link: :static, outputs: %i[native obj]) #: Target
+    WASM32_WASI = new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
+                      page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
+                      link: nil, outputs: %i[wasm]) #: Target
 
-    AARCH64_DARWIN = register(new(triple: "aarch64-apple-darwin", arch: :aarch64, os: :darwin, object_format: :macho,
-                                  page: 16_384, symbol_prefix: "_", ruby_platform: darwin_platform(MIN_MACOS),
-                                  link: :darwin, outputs: %i[native obj], min_os: MIN_MACOS)) #: Target
-    AARCH64_LINUX_MUSL = register(new(triple: "aarch64-linux-musl", arch: :aarch64, os: :linux, libc: :musl,
-                                      object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux-musl",
-                                      link: :static, outputs: %i[native obj])) #: Target
-    WASM32_WASI = register(new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
-                               page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
-                               link: nil, outputs: %i[wasm])) #: Target
+    # Every target.
+    ALL = [AARCH64_DARWIN, AARCH64_LINUX_MUSL, WASM32_WASI].freeze #: Array[Target]
+    # Every target, by triple.
+    BY_TRIPLE = ALL.to_h { |target| [target.triple, target] }.freeze #: Hash[String, Target]
 
     # The target with this `triple`, or nil.
     #: (String triple) -> Target?
-    def self.fetch(triple) = @registry[triple]
+    def self.fetch(triple) = BY_TRIPLE[triple]
 
     #: () -> Array[Target]
-    def self.all = @registry.values
+    def self.all = ALL
 
     # This host as a triple: `aarch64-apple-darwin`, `aarch64-linux-musl`,
     # or what ruby says.

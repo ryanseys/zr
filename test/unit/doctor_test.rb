@@ -61,7 +61,7 @@ class DoctorTest < Minitest::Test
 
   def test_a_target_that_this_host_cannot_link_warns
     target = Zr::Target.fetch("aarch64-linux-musl")
-    check = stub_method(target, :linkable?, false) { Zr::Doctor.targets([target]).first }
+    check = stub_method(Zr::Target, :tool?, false) { Zr::Doctor.targets([target]).first }
 
     assert_equal :warn, check.status
     assert_equal "aarch64-linux-musl     binary, obj; this host: obj", check.detail
