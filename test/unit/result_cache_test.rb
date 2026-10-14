@@ -56,17 +56,42 @@ class ResultCacheTest < Minitest::Test
     end
   end
 
+  # A tool that no program test loads (zr-dev bench) is no input, so an
+  # edit to it keeps each pass; an edit to lib/ misses.
+  def test_an_edit_to_a_tool_keeps_each_pass_and_an_edit_to_lib_does_not
+    in_checkout(%w[tool/bench.rb lib/zr.rb]) do |root|
+      digest = ResultCache.new(root: root).tree
+      File.write(File.join(root, "tool/bench.rb"), "# changed\n")
+
+      assert_equal digest, ResultCache.new(root: root).tree
+      File.write(File.join(root, "lib/zr.rb"), "# changed\n")
+
+      refute_equal digest, ResultCache.new(root: root).tree
+    end
+  end
+
+  # READ names each file that the program tests load, so an edit to one
+  # misses. The walk sees each literal require (tool/affected.rb).
+  def test_the_key_holds_every_file_that_a_program_test_loads
+    require_relative "../../tool/affected"
+    graph = Zr::Dev::Commands::Affected::LoadGraph.new
+    loaded = graph.closure(File.join(ROOT, "test/programs_test.rb")).map { |path| path.delete_prefix("#{ROOT}/") }
+    read = ResultCache::READ
+
+    assert_empty loaded.reject { |rel| read.any? { |entry| rel == entry || rel.start_with?("#{entry}/") } }
+  end
+
   def test_a_copy_that_is_no_checkout_leaves_out_the_other_test_tiers
     Dir.mktmpdir("zr-result-cache-") do |root|
       FileUtils.mkdir_p(File.join(root, "test/unit"))
       FileUtils.mkdir_p(File.join(root, "test/support"))
       File.write(File.join(root, "test/unit/a_test.rb"), "1\n")
-      File.write(File.join(root, "test/support/b.rb"), "1\n")
+      File.write(File.join(root, "test/support/programs.rb"), "1\n")
       digest = ResultCache.new(root: root).tree
       File.write(File.join(root, "test/unit/a_test.rb"), "22\n")
 
       assert_equal digest, ResultCache.new(root: root).tree
-      File.write(File.join(root, "test/support/b.rb"), "22\n")
+      File.write(File.join(root, "test/support/programs.rb"), "22\n")
 
       refute_equal digest, ResultCache.new(root: root).tree, "the test support is an input"
     end
