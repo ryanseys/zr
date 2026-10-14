@@ -5,7 +5,7 @@ require "test_helper"
 require_relative "../support/programs"
 
 # A program test times the parts of its build for `SLOW=1`
-# (test/support/slow.rb): ProgramBuild adds the seconds of the lowering,
+# (test/support/progress.rb): ProgramBuild adds the seconds of the lowering,
 # the link and the run to the hash that it gets.
 class ProgramBuildTest < Minitest::Test
   PROGRAM = "core/comparable/a_failed_comparison_names_its_reason.rb"

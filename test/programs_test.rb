@@ -45,23 +45,6 @@ class ProgramsTest < Minitest::Test
   # Why zr did not build or run a program: a test error, not a failure.
   class NotBuilt < StandardError; end
 
-  # Counts the tests that passed from the result cache.
-  class Cached < Minitest::AbstractReporter
-    def initialize(io)
-      super()
-      @io = io
-      @count = 0
-    end
-
-    def record(result)
-      @count += 1 if result.metadata[:cached]
-    end
-
-    def report
-      @io.puts "\n#{@count} of the passes came from the result cache (ZR_TEST_FRESH=1 runs them)" if @count.positive?
-    end
-  end
-
   # Before the workers fork, for the selected tests that do not pass
   # from the result cache: the host walks the core once, and a build
   # first trims the kept binaries to their quota, then gets the runtime
@@ -71,7 +54,6 @@ class ProgramsTest < Minitest::Test
     selected = filter_runnable_methods(options).map { |name| CASES.fetch(name) }
     return if selected.empty?
 
-    Minitest.reporter << Cached.new(options[:io]) if RESULTS
     left = RESULTS ? selected.reject { |test| RESULTS.passed?(test, PROGRAMS.baseline(test)) } : selected
     return if left.empty?
 
@@ -90,8 +72,8 @@ class ProgramsTest < Minitest::Test
         next pass
       end
 
-      # SLOW=1 reports the parts of each build (test/support/slow.rb).
-      parts = (metadata[Zr::Test::Slow::KEY] = {}) if Zr::Test::Slow.asked?
+      # SLOW=1 reports the parts of each build (test/support/progress.rb).
+      parts = (metadata[Zr::Test::Progress::PARTS_KEY] = {}) if Zr::Test::Progress.parts?
       kind, detail = PROGRAMS.check(test, parts: parts)
       case kind
       when :skip then skip(detail)

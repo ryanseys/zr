@@ -169,22 +169,22 @@ module Zr
         # Prints the `count` slowest tests that the runs so far timed, with
         # the date of each time, and the groups that took the most time.
         def print_slowest(count)
-          require_relative "../test/support/timings"
-          Zr::Test::Timings.merge
-          rows = Zr::Test::Timings.read.values
+          require_relative "../test/support/history"
+          Zr::Test::History.merge
+          rows = Zr::Test::History.current(Zr::Test::History.read.values)
           if rows.empty?
-            puts "no test has a saved time yet (#{relative(Zr::Test::Timings::TABLE)}): run some tests first"
+            puts "no test has a saved time yet (#{relative(Zr::Test::History::TABLE)}): run some tests first"
           else
-            Zr::Test::Timings.report(rows, count, $stdout, dated: true)
+            Zr::Test::History.report(rows, count, $stdout, dated: true)
           end
         end
 
         # The tests that failed and have not passed since, or nil when none.
         def failed_paths
-          require_relative "../test/support/last_failures"
-          lines = Zr::Test::LastFailures.read
+          require_relative "../test/support/history"
+          lines = Zr::Test::History.failed
           if lines.empty?
-            puts "no test has failed since the last pass (#{relative(Zr::Test::LastFailures::PATH)})"
+            puts "no test has failed since the last pass (#{relative(Zr::Test::History::FAILED)})"
             return nil
           end
 

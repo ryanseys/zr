@@ -194,30 +194,4 @@ class ProgramTestsTest < Minitest::Test
     assert_equal "known", programs.baseline(Case.new(Selection::ROOT, "area/foo.rb"))
     assert_nil programs.baseline(Case.new("/elsewhere", "area/foo.rb"))
   end
-
-  def test_the_failure_list_drops_passes_and_keeps_what_did_not_run
-    require_relative "../support/last_failures"
-    Dir.mktmpdir("zr-failures-") do |dir|
-      path = File.join(dir, "failed.txt")
-      File.write(path, "test/unit/a_test.rb:3\ntest/unit/b_test.rb:5\n")
-      reporter = Zr::Test::LastFailures::Reporter.new(path)
-      reporter.record(result("AT", "test_a", ["test/unit/a_test.rb", 3]))
-      reporter.record(result("ProgramsTest", "test_core/x.rb", ["test/programs_test.rb", 80], failed: true))
-      reporter.record(result("CT", "test_c", ["test/unit/c_test.rb", 7], skipped: true))
-      reporter.report
-
-      assert_equal ["test/unit/b_test.rb:5", "program core/x.rb"], Zr::Test::LastFailures.read(path)
-    end
-  end
-
-  private
-
-  def result(klass, name, location, failed: false, skipped: false)
-    result = Minitest::Result.new(name)
-    result.klass = klass
-    result.source_location = location
-    result.failures << Minitest::Assertion.new("no") if failed
-    result.failures << Minitest::Skip.new("later") if skipped
-    result
-  end
 end

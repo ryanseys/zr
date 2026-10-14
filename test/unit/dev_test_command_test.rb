@@ -82,17 +82,18 @@ class DevTestCommandTest < Minitest::Test
   end
 
   def test_slowest_prints_the_saved_times_and_runs_nothing
-    require_relative "../support/timings"
-    rows = { "AT#test_a" => Zr::Test::Timings::Row.new(2.0, "2026-01-03", "test/unit/a_test.rb", "AT#test_a") }
-    stub_method(Zr::Test::Timings, :merge, nil) do
-      stub_method(Zr::Test::Timings, :read, rows) do
+    require_relative "../support/history"
+    today = Date.today.iso8601
+    rows = { "AT#test_a" => Zr::Test::History::Row.new(2.0, today, "test/unit/dev_test_command_test.rb", "AT#test_a") }
+    stub_method(Zr::Test::History, :merge, nil) do
+      stub_method(Zr::Test::History, :read, rows) do
         out, = capture_io { assert Zr::Dev::Commands::Test.new("test").start(["--slowest", "5"]) }
 
         assert_match(/The 1 slowest of 1 tests/, out)
-        assert_match(/2\.00 s  AT#test_a  \(2026-01-03\)/, out)
+        assert_match(/2\.00 s  AT#test_a  \(#{today}\)/, out)
         refute_includes out, "bin/minitest"
       end
-      stub_method(Zr::Test::Timings, :read, {}) do
+      stub_method(Zr::Test::History, :read, {}) do
         out, = capture_io { Zr::Dev::Commands::Test.new("test").start(["--slowest"]) }
 
         assert_includes out, "no test has a saved time yet"
@@ -102,14 +103,14 @@ class DevTestCommandTest < Minitest::Test
 
   def test_failed_runs_the_failures_that_still_exist_and_never_every_test
     lines = ["test/unit/cli_test.rb:40", "program core/signal/sigvtalrm_does_nothing.rb", "program gone/away.rb"]
-    stub_method(Zr::Test::LastFailures, :read, lines) do
+    stub_method(Zr::Test::History, :failed, lines) do
       _, out = listed("--failed")
       line = command_line(out)
 
       assert_includes line, "ZR_PROGRAMS=#{File.join(ROOT, PROGRAM)} "
       assert_includes line, "test/unit/cli_test.rb:40 test/programs_test.rb"
     end
-    stub_method(Zr::Test::LastFailures, :read, ["program gone/away.rb"]) do
+    stub_method(Zr::Test::History, :failed, ["program gone/away.rb"]) do
       _, out = listed("--failed")
 
       assert_equal "none of the 1 failed test(s) is there any more\n", out
