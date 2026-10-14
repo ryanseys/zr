@@ -44,6 +44,7 @@ class ConstantLayoutTest < Minitest::Test
     "hir/build/coverage.rb" => ["Zr::Hir::Build", "the coverage part of Build"],
     "hir/build/literals.rb" => ["Zr::Hir::Build", "the literal part of Build"],
     "hir/build/requires.rb" => ["Zr::Hir::Build", "the require part of Build"],
+    "hir/build/usings.rb" => ["Zr::Hir::Build", "the using part of Build"],
     "hir/features.rb" => ["Zr::Hir", "the feature table of the Hir namespace"],
     "hir/preludes.rb" => ["Zr::Hir::Build", "the prelude part of Build"],
     "lower/function/sends/arith.rb" => ["Zr::Lower::Function::Sends", "the arithmetic part of Sends"],
