@@ -26,3 +26,28 @@ def mixed(limbs, seed) = (seed**((BITS * limbs) / Math.log2(seed)).floor) | (1 <
   show("#{limbs} a*small", a * mixed(2, 11))
   puts "#{limbs} exact: #{(a * b) / b == a && (a * b) % a == 0}"
 end
+
+# Digits of long Integers around the length where to_s splits a value
+# in two (80 limbs, then each split again): all nines and runs of zero
+# digits in the middle, which the lower half must pad, signs mixed, and
+# bases that are not powers of two. Each shows its length, ends, byte
+# sum and whether it reads back.
+def digits(label, n, base)
+  text = n.to_s(base)
+  puts "#{label} in #{base}: #{text.size} #{text[0, 12]}..#{text[-12..]} #{text.sum} #{Integer(text, base) == n} #{text.encoding}"
+end
+
+[79, 80, 81, 161, 403, 1000].each do |limbs|
+  digits_wide = (BITS * limbs * 0.30103).floor
+  a = mixed(limbs, 3)
+  [10, 3, 7, 36].each do |base|
+    digits("#{limbs} a", a, base)
+    digits("#{limbs} -a", -a, base)
+  end
+  digits("#{limbs} nines", (10**digits_wide) - 1, 10)
+  digits("#{limbs} 10^k", 10**digits_wide, 10)
+  digits("#{limbs} 10^k+1", (10**digits_wide) + 1, 10)
+  digits("#{limbs} -(10^k+7)", -((10**digits_wide) + 7), 10)
+  digits("#{limbs} 2^k", 1 << (BITS * limbs), 10)
+  digits("#{limbs} 36^k-1", (36**(digits_wide / 2)) - 1, 36)
+end

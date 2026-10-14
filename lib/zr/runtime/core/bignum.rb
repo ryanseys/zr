@@ -11,7 +11,13 @@ class Integer
   LIMB_MASK = LIMB_BASE - 1
   # The digits of every base to 36.
   DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
-  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK, :DIGITS
+  # The length in limbs from which `to_s` splits a magnitude in two by a
+  # power of the base; below it, the kernel divides by one word.
+  TO_S_SPLIT = 80
+  # By base, the powers that `to_s` splits by, each the square of the
+  # one before, with the count of digits that each one shifts.
+  POWERS = {}
+  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK, :DIGITS, :TO_S_SPLIT, :POWERS
 
   class << self
     # A bignum from a 64-bit word split as `high << 32 | low` by the
@@ -397,30 +403,52 @@ class Integer
       end
     end
 
-    # Digits in `base`, by repeated division with the largest power of
-    # the base below the limb base; a base that is a power of two reads
-    # the bits instead.
+    # Digits in `base`. A base that is a power of two reads the bits; any
+    # other divides, in the kernel below TO_S_SPLIT limbs, and above it
+    # splits the value in two halves of digits first.
     def big_to_s(x, base)
       Primitive.attr! :hidden
       return big_to_s_bits(x, base) if (base & (base - 1)).zero?
 
-      chunk = base
-      per = 1
-      while chunk * base < LIMB_BASE
-        chunk *= base
-        per += 1
-      end
       mag = big_mag(x)
-      parts = []
-      until mag.empty?
-        mag, rem = big_divmod_small_mag(mag, chunk)
-        parts << rem
+      return Primitive.zr_big_to_digits(mag, base, big_neg?(x), 0) if mag.size < TO_S_SPLIT
+
+      big_digits_into(+(big_neg?(x) ? "-" : ""), mag, base, 0).force_encoding(Encoding::US_ASCII)
+    end
+
+    # Appends to `text` the digits of the magnitude `mag`, with zeros in
+    # front up to `width`: the digits of `mag` divided by the largest
+    # power of the base with at most half its limbs, then those of the
+    # remainder, which fill exactly the power's digits.
+    def big_digits_into(text, mag, base, width)
+      Primitive.attr! :hidden
+      return text << Primitive.zr_big_to_digits(mag, base, false, width) if mag.size < TO_S_SPLIT
+
+      power, digits = big_to_s_power(base, mag.size / 2)
+      high, low = big_divmod_mag(mag, power)
+      big_digits_into(text, high, base, width - digits)
+      big_digits_into(text, low, base, digits)
+    end
+
+    # The largest power of `base` that POWERS keeps, or makes, with at
+    # most `limbs` limbs, and its count of digits. The first is the
+    # largest power below the limb base.
+    def big_to_s_power(base, limbs)
+      Primitive.attr! :hidden
+      powers = POWERS[base] ||= begin
+        chunk = base
+        per = 1
+        while chunk * base < LIMB_BASE
+          chunk *= base
+          per += 1
+        end
+        [[[chunk], per]]
       end
-      parts.reverse!
-      text = parts[0].to_s(base)
-      (1...parts.size).each { |i| text << parts[i].to_s(base).rjust(per, "0") }
-      text = "-#{text}" if big_neg?(x)
-      text.force_encoding(Encoding::US_ASCII)
+      while powers.last[0].size * 2 <= limbs
+        mag, digits = powers.last
+        powers << [big_mul_mag(mag, mag), digits * 2]
+      end
+      powers.reverse_each.find { |mag, _| mag.size <= limbs }
     end
 
     # The digits of a base that is a power of two, the lowest first from
@@ -491,7 +519,7 @@ class Integer
     end
   end
 
-  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_sum, :big_mul, :big_small?, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
+  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_sum, :big_mul, :big_small?, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_digits_into, :big_to_s_power, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
 
   # The kernel's route for a fixnum builtin whose receiver or operand
   # is a bignum: `op` is the builtin's name, then its arguments. An

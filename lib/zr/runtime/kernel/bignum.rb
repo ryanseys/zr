@@ -190,6 +190,83 @@ module Zr::Kern
     out
   end
 
+  # The digits of the magnitude `a` in `base`, which is not a power of
+  # two, with zeros in front up to `width` digits and then a minus sign
+  # when `neg` is true: a US-ASCII String. A word copy of the limbs is
+  # divided in place by `chunk`, the largest power of the base below
+  # 2^30, and each remainder gives `per` digits, the lowest first, into
+  # one block that turns at the end. Each step reads only the words
+  # still above zero, and nothing allocates in the loop.
+  #: (value, value, value, value) -> value
+  def zr_big_to_digits(a, base, neg, width)
+    b = zr_fix2long(base)
+    chunk = b
+    per = 1
+    while chunk * b <= BIG_MASK
+      chunk *= b
+      per += 1
+    end
+    n = RArray[a].len
+    words = zr_big_words_of(a)
+    # A chunk takes more than (bits of chunk - 1) bits off the value.
+    room = ((((n * BIG_BITS) / (zr_big_word_bits(chunk) - 1)) + 1) * per) + 1
+    w = zr_fix2long(width)
+    if room <= w
+      room = w + 1
+    end
+    text = zr_xmalloc(room)
+    at = 0
+    while n > 0
+      rem = 0
+      i = n
+      while i > 0
+        i -= 1
+        t = (rem << BIG_BITS) + Machine.load64(words + (i * 8), 0)
+        q = t / chunk
+        Machine.store64(words + (i * 8), 0, q)
+        rem = t - (q * chunk)
+      end
+      while n > 0 && Machine.load64(words + ((n - 1) * 8), 0) == 0
+        n -= 1
+      end
+      k = 0
+      while k < per && (n > 0 || rem > 0)
+        d = rem % b
+        Machine.store8(text + at, 0, Machine.i8(d < 10 ? 48 + d : 87 + d))
+        rem /= b
+        at += 1
+        k += 1
+      end
+    end
+    while at < w
+      Machine.store8(text + at, 0, Machine.i8(48))
+      at += 1
+    end
+    if neg == QTRUE
+      Machine.store8(text + at, 0, Machine.i8(45))
+      at += 1
+    end
+    zr_big_bytes_turn(text, at)
+    s = zr_usascii_str_new(text, at)
+    zr_xfree(text)
+    zr_xfree(words)
+    s
+  end
+
+  # Turns the `n` bytes at `p` end for end.
+  #: (ptr, word) -> void
+  def zr_big_bytes_turn(p, n)
+    i = 0
+    j = n - 1
+    while i < j
+      low = Machine.load8(p + i, 0)
+      Machine.store8(p + i, 0, Machine.load8(p + j, 0))
+      Machine.store8(p + j, 0, low)
+      i += 1
+      j -= 1
+    end
+  end
+
   # Knuth's algorithm D: `[quotient, remainder]` of `a` by `b`, for a
   # divisor of two limbs or more and `a >= b`.
   #: (value, value) -> value
