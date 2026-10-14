@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "benchmark"
 require "fileutils"
 require "tmpdir"
 require_relative "lib/zr/dev"
@@ -89,7 +88,6 @@ module Zr
         def run(argv)
           return profile(@profile) if @profile
 
-          require "benchmark"
           require_relative "../lib/zr/cli"
           runs = @runs || RUNS
           fail!("--runs takes a count of one or more") if runs < 1
@@ -136,8 +134,8 @@ module Zr
             functions.map do |f|
               insts = f.blocks.sum { |b| b.insts.size }
               blocks = f.blocks.size
-              prepared = Benchmark.realtime { IR::Passes.prepare(f) }
-              assembled = Benchmark.realtime { emitter.assemble(f, defined) }
+              _, prepared = Dev.timed { IR::Passes.prepare(f) }
+              _, assembled = Dev.timed { emitter.assemble(f, defined) }
               [f.name, blocks, insts, prepared, assembled]
             end
           end
@@ -172,7 +170,7 @@ module Zr
             command = [COMPILED]
           end
           lines = status = nil
-          took = Benchmark.realtime do
+          _, took = Dev.timed do
             read, write = IO.pipe
             pid = Process.spawn(env, *command, "build", rb, "-o", out, out: File::NULL, err: write, chdir: ROOT)
             write.close
@@ -205,7 +203,7 @@ module Zr
           Dir.mktmpdir("zr-compile-") { |work| build(rung, File.join(work, "out")) }
           print "the compiled compiler ... "
           FileUtils.mkdir_p(File.dirname(COMPILED))
-          took = Benchmark.realtime do
+          _, took = Dev.timed do
             system(GcTuning::GC_ENV, Dev.ruby, Dev.path("exe/zr"), "build", Dev.path("exe/zr"),
                    "-o", COMPILED, out: File::NULL, chdir: ROOT) or fail!("the compiler did not build")
           end
