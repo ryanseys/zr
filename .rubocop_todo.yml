@@ -23,6 +23,7 @@ ThreadSafety/ClassInstanceVariable:
     - "test/support/host_program.rb"
     - "test/support/needs.rb"
     - "test/support/runtime_programs.rb"
+    - "test/unit/big_words_test.rb"
     - "test/unit/effects_test.rb"
     - "test/unit/host_boot_test.rb"
     - "test/unit/onig_match_test.rb"

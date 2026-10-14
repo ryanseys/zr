@@ -9,8 +9,7 @@ module Zr::Kern
   # allocates in the loop, so the pointers hold. `zr_big_done` then sets
   # the length. Work that needs room for raw words (a product's sums, the
   # division's normalized operands) has a block of words that it frees.
-  BIG_BITS = 30
-  BIG_MASK = 1073741823
+  # BIG_BITS and BIG_MASK are in big_words.rb, with the long products.
 
   # `a + b`.
   #: (value, value) -> value
@@ -71,7 +70,8 @@ module Zr::Kern
     zr_big_done(out, n)
   end
 
-  # `a * b`, by the schoolbook method. A one-limb factor needs no sums.
+  # `a * b`, by the schoolbook method. A one-limb factor needs no sums,
+  # and two long ones split by Karatsuba's (zr_big_kara).
   #: (value, value) -> value
   def zr_big_mul_mag(a, b)
     if RArray[a].len < RArray[b].len
@@ -87,6 +87,9 @@ module Zr::Kern
     y = RArray[b].ptr
     if m == 1
       return zr_big_mul_word(out, a, zr_big_at(y, 0))
+    end
+    if m >= BIG_KARATSUBA
+      return zr_big_mul_long(out, a, b)
     end
     sums = zr_big_zeros(n + m)
     i = 0
@@ -105,6 +108,37 @@ module Zr::Kern
       i += 1
     end
     zr_big_fill(out, sums, n + m)
+  end
+
+  # Writes `a * b` into `out` for two long factors, `a` the longer: their
+  # limbs as words, then Karatsuba's products (big_words.rb).
+  #: (value, value, value) -> value
+  def zr_big_mul_long(out, a, b)
+    n = RArray[a].len
+    m = RArray[b].len
+    x = zr_big_words_of(a)
+    y = zr_big_words_of(b)
+    product = zr_xmalloc((n + m) * 8)
+    work = zr_xmalloc(zr_big_kara_work(n) * 8)
+    zr_big_kara(product, x, n, y, m, work)
+    zr_xfree(work)
+    zr_xfree(y)
+    zr_xfree(x)
+    zr_big_fill(out, product, n + m)
+  end
+
+  # A block of the limbs of the Array `a` as words. The caller frees it.
+  #: (value) -> ptr
+  def zr_big_words_of(a)
+    n = RArray[a].len
+    out = zr_xmalloc((n + 1) * 8)
+    p = RArray[a].ptr
+    i = 0
+    while i < n
+      Machine.store64(out + (i * 8), 0, zr_big_at(p, i))
+      i += 1
+    end
+    out
   end
 
   # `a * m` for the fixnum `m`, at least zero and below 2^30.
