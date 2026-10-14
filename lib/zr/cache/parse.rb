@@ -145,7 +145,7 @@ module Zr
 
       #: (String source, Hash[Symbol, untyped] options) -> String
       def key(source, options)
-        Digest::SHA256.new.tap { |digest| digest << parser << "\0" << options.inspect.b << "\0" << source.b }.hexdigest
+        Digest::SHA256.new.tap { |digest| digest << parser << "\0" << options.inspect << "\0" << source }.hexdigest
       end
 
       # The digest of the parser, computed once per process.
