@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "flag"
 require "fileutils"
 require "tmpdir"
 require_relative "../../lib/zr/runtime"
@@ -62,7 +63,7 @@ module Zr
       # it is built only when a file declares `eval`. Nil means that the run
       # is not known.
       def ready!(wasm: false, files: nil)
-        return unless Config.flag?("ZR_TEST_BUILT", default: true)
+        return unless Zr::Test.flag?("ZR_TEST_BUILT", default: true)
 
         need = files ? Needs.most(files) : :eval
         return if need == :none
@@ -74,7 +75,7 @@ module Zr
       # `ready!` for a run of program tests (`Case`s): they need the
       # runtime, and eval support when one of their programs evals.
       def ready_for_programs!(tests, wasm: false)
-        return unless Config.flag?("ZR_TEST_BUILT", default: true)
+        return unless Zr::Test.flag?("ZR_TEST_BUILT", default: true)
         return if tests.empty?
 
         build(targets(wasm: wasm), evals: programs_eval?(tests))

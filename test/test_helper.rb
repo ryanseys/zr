@@ -27,6 +27,7 @@
 
 # `COVERAGE=1` measures lib/. It starts before zr loads, because a file
 # that loads earlier has no coverage.
+require_relative "support/flag"
 require_relative "support/coverage_run"
 Zr::Test::CoverageRun.start(root: File.expand_path("..", __dir__)) if Zr::Test::CoverageRun.requested?
 
@@ -120,10 +121,13 @@ module Checks
     answer
   end
 
+  # Whether a snapshot test writes its file again (`ZR_BLESS=1`).
+  def bless? = Zr::Test.flag?("ZR_BLESS")
+
   # Runs `zr-dev gen <name>` with `--check`, or with `ZR_BLESS=1`
   # writes the file again. Returns `[output, success]`.
   def generate(name, *argv)
-    argv += ["--check"] unless ENV["ZR_BLESS"] == "1"
+    argv += ["--check"] unless bless?
     out = IO.popen([RbConfig.ruby, File.join(ROOT, "tool/zr-dev.rb"), "gen", name, *argv], err: %i[child out], &:read)
     [out, $?.success?]
   end

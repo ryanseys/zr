@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "flag"
 require "digest/sha2"
 require "fileutils"
 require "open3"
@@ -48,7 +49,7 @@ module Zr
       # tests, so only a run that asks for them has them:
       # `ZR_TOP_GEMS=1 bin/zr-dev test test/ext/top_gems_test.rb`.
       #: () -> bool
-      def top_gems? = Config.flag?("ZR_TOP_GEMS")
+      def top_gems? = Zr::Test.flag?("ZR_TOP_GEMS")
 
       # `libruby` links the bundle with ruby's shared library, as mkmf
       # does under a ruby built with --enable-shared.

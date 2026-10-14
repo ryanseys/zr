@@ -12,7 +12,7 @@ class HirTest < Minitest::Test
     define_method("test_#{name}") do
       got = Zr::Hir::Dump.program(Zr::Hir.build(File.read(rb), "#{name}.rb"))
       want = rb.sub(/\.rb\z/, ".hir")
-      if ENV["ZR_BLESS"]
+      if Checks.bless?
         File.write(want, got)
       else
         assert File.file?(want), "#{want} is missing (ZR_BLESS=1 records it)"

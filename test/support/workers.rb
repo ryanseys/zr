@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "flag"
 require "etc"
 
 module Zr
@@ -58,7 +59,7 @@ module Zr
       RECYCLE_MB = Integer(ENV.fetch("ZR_TEST_RECYCLE_MB", 600))
 
       # Whether a run stops at its first failure (`ZR_TEST_FAIL_FAST=1`).
-      def self.fail_fast? = ENV["ZR_TEST_FAIL_FAST"] == "1"
+      def self.fail_fast? = Zr::Test.flag?("ZR_TEST_FAIL_FAST")
     end
   end
 end

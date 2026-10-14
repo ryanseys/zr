@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "flag"
 require "digest"
 require_relative "../../lib/zr/cache/store"
 
@@ -43,7 +44,7 @@ module Zr
         UNREAD.any? { |path| rel == path || rel.start_with?("#{path}/") } || (!rel.include?("/") && rel.end_with?(".md"))
       end
 
-      def self.enabled? = ENV["ZR_TEST_FRESH"] != "1"
+      def self.enabled? = !Zr::Test.flag?("ZR_TEST_FRESH")
 
       # `root` is the checkout whose state the key holds.
       def initialize(root: ROOT)

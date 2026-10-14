@@ -20,7 +20,8 @@
 # as it starts. A host test that passed before with the same inputs
 # passes again at once (test/support/result_cache.rb; ZR_TEST_FRESH=1
 # runs each one).
-host = ENV["ZR_TEST_HOST"] == "1"
+require_relative "support/flag"
+host = Zr::Test.flag?("ZR_TEST_HOST")
 if host
   require_relative "../tool/hosted"
   stacks = Zr::Dev::Commands::Host::STACK
@@ -37,7 +38,7 @@ require_relative "support/result_cache"
 require_relative "support/host_program" if host
 
 class ProgramsTest < Minitest::Test
-  PROGRAMS = Zr::Test::Programs.new(host: ENV["ZR_TEST_HOST"] == "1")
+  PROGRAMS = Zr::Test::Programs.new(host: Zr::Test.flag?("ZR_TEST_HOST"))
   CASES = Zr::Test::Programs.cases.to_h { |test| ["test_#{Zr::Test::Programs.label(test)}", test] }
   RESULTS = (Zr::Test::ResultCache.new if Zr::Test::ResultCache.enabled?)
 

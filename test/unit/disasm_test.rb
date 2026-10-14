@@ -25,7 +25,7 @@ class DisasmTest < Minitest::Test
 
   def test_every_opcode_lowers_as_it_did
     text = render
-    if ENV["ZR_BLESS"] == "1"
+    if Checks.bless?
       File.write(SNAPSHOT, text)
       skip "blessed #{SNAPSHOT}"
     end

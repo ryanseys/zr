@@ -22,6 +22,7 @@ Rake::Task["gem:release"].clear
 task("gem:release") { abort("rake gem:release: #{RELEASE}") }
 
 ROOT = __dir__
+require_relative "test/support/flag"
 
 # Runs `argv` with this ruby, and exits with its status when it fails.
 def ruby!(*argv)
@@ -60,7 +61,7 @@ desc "Every test: unit, programs, ext, in one run"
 task(:test) { ruby!(File.join(ROOT, "bin/minitest")) }
 
 desc "Write every generated file again (zr-dev gen all); CHECK=1 only compares"
-task(:gen) { ruby!(File.join(ROOT, "tool/zr-dev.rb"), "gen", "all", *("--check" if ENV["CHECK"])) }
+task(:gen) { ruby!(File.join(ROOT, "tool/zr-dev.rb"), "gen", "all", *("--check" if Zr::Test.flag?("CHECK"))) }
 
 desc "Check the code with RuboCop's Lint cops (.rubocop.yml)"
 task(:lint) { sh "rubocop", verbose: false }

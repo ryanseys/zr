@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "flag"
 require "fileutils"
 
 module Zr
@@ -29,11 +30,8 @@ module Zr
 
       module_function
 
-      # `COVERAGE` is a flag, as in `Zr::Config.flag?`, but zr has not
-      # loaded when this is asked.
-      def requested?
-        !ENV.fetch("COVERAGE", "").then { it.empty? || it == "0" }
-      end
+      # `COVERAGE=1`. It is asked before zr loads.
+      def requested? = Zr::Test.flag?("COVERAGE")
 
       # Starts SimpleCov, unless it runs. Removes the results of an
       # earlier run first, so that the report is of this run only.

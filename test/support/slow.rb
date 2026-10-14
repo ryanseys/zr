@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "flag"
 require "minitest"
 require_relative "../../lib/zr/config"
 require_relative "../../lib/zr/timing"
@@ -29,7 +30,7 @@ module Zr
       ASKED = 20
       SMALL = 20
 
-      def self.asked? = Config.flag?("SLOW")
+      def self.asked? = Zr::Test.flag?("SLOW")
 
       def self.off? = ENV["SLOW"] == "0"
 
