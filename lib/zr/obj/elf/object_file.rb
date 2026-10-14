@@ -75,9 +75,7 @@ module Zr
         # Returns the bytes of the object file.
         #: (Unit unit) -> String
         def write(unit)
-          functions = unit.functions.map { |f| [:function, f] } #$ [Symbol, Code | Datum]
-          data = unit.data.map { |d| [d.section, d] } #$ [Symbol, Code | Datum]
-          items = functions + data
+          items = unit.items
           sections = [Section.new(name: "", type: 0, flags: 0, bytes: "".b, size: 0, align: 0, link: 0, info: 0, entsize: 0)]
           items.each do |kind, item|
             prefix, type, flags = SECTIONS.fetch(kind) { raise ArgumentError, "no ELF section for #{kind}" }

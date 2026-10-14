@@ -79,6 +79,14 @@ module Zr
         self
       end
 
+      # Each item with its kind, `:function` or the datum's section, the
+      # functions first: what an object writer lays out.
+      def items
+        items = @functions.map { |f| [:function, f] } #$ [Symbol, Code | Datum]
+        @data.each { |d| items << [d.section, d] }
+        items
+      end
+
       # A program has more than a million relocations, so this sees each
       # name once, in a Hash, and makes no array of all of them.
       def imports

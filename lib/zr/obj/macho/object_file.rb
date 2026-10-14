@@ -218,9 +218,7 @@ module Zr
 
         #: (Unit unit) -> Laid
         def laid_out(unit)
-          functions = unit.functions.map { |f| [:function, f] } #$ [Symbol, Code | Datum]
-          data = unit.data.map { |d| [d.section, d] } #$ [Symbol, Code | Datum]
-          items = functions + data
+          items = unit.items
           placed = [] #: Array[Placed]
           sections = SECTIONS.map do |name, seg, flags, _kinds|
             SectionBuild.new(name: name, seg: seg, flags: flags, bytes: +"".b, size: 0, align: 0, items: [], relocs: [],
