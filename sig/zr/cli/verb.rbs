@@ -1,0 +1,14 @@
+# The record of lib/zr/cli.rb.
+module Zr
+  module CLI
+    class Verb < Data
+      attr_reader name: String
+      attr_reader command: singleton(Command)
+      attr_reader usage: String
+      attr_reader about: String
+
+      def self.new: (String name, singleton(Command) command, String usage, String about) -> instance
+                  | (name: String, command: singleton(Command), usage: String, about: String) -> instance
+    end
+  end
+end

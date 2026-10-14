@@ -43,19 +43,27 @@ module Zr
     # test harness counts this separately from zr's defects.
     REFUSED = 3
 
-    # The command that each first word names. The order is the order of
-    # `zr help`.
-    COMMANDS = {
-      "run" => Commands::Compile,
-      "build" => Commands::Compile,
-      "doctor" => Commands::Doctor,
-      "gems" => Commands::Gems,
-      "inspect" => Commands::Inspect,
-      "diff" => Commands::Diff,
-      "version" => Commands::Version,
-      "help" => Commands::Help,
-      "cache" => Commands::Cache
-    }.freeze #: Hash[String, singleton(Command)]
+    # A command of `zr`: its first word, the class that runs it, and its
+    # row in `zr help`.
+    # @rbs skip -- typed in sig/zr/cli/verb.rbs
+    Verb = Data.define(:name, :command, :usage, :about)
+
+    # The commands, in the order of `zr help`.
+    VERBS = [
+      Verb.new("run", Commands::Compile, "run <file.rb> [args...]", "compile a program, run it, then delete the build"),
+      Verb.new("build", Commands::Compile, "build <file.rb> -o <out>",
+               "compile a program to a binary, a WASI module or an object (`compile` is another name)"),
+      Verb.new("gems", Commands::Gems, "gems [<file.rb>]", "list the gems of a build and their sources"),
+      Verb.new("inspect", Commands::Inspect, "inspect <binary>", "print the gems that a binary was built with"),
+      Verb.new("diff", Commands::Diff, "diff <file.rb> [args...]", "run a program in ruby and as a zr binary; compare"),
+      Verb.new("doctor", Commands::Doctor, "doctor", "check this host: ruby, targets, wasmtime, OpenSSL, gems, cache"),
+      Verb.new("cache", Commands::Cache, "cache [path|size|clean]", "show or clean the build cache"),
+      Verb.new("version", Commands::Version, "version", "print the version"),
+      Verb.new("help", Commands::Help, "help [<command>]", "print help for zr or for one command")
+    ].freeze #: Array[Verb]
+
+    # The command that each first word names.
+    COMMANDS = VERBS.to_h { |verb| [verb.name, verb.command] }.freeze #: Hash[String, singleton(Command)]
 
     # Other names of commands.
     ALIASES = { "compile" => "build" }.freeze #: Hash[String, String]
@@ -172,7 +180,7 @@ module Zr
     #: (String? verb) -> bot
     def unknown_verb(verb)
       if verb.nil?
-        warn Help::SHORT
+        warn Help.short
         exit 2
       end
       return Errors.usage_error("unknown option '#{verb}'") if verb.start_with?("-")
