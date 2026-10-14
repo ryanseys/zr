@@ -70,6 +70,20 @@ class ProgramTestsTest < Minitest::Test
     end
   end
 
+  # A link inside the files stays a link, and a files directory that is
+  # itself a link (to a shared fixture) gives the fixture's contents.
+  def test_a_link_in_the_files_stays_a_link
+    with_test("area/foo.rb" => "", "area/foo.rb.expected" => "", "shared/data/x.txt" => "x") do |root, test|
+      File.symlink("../shared", File.join(root, "area/foo.rb.files"))
+      File.symlink("data/x.txt", File.join(root, "shared/link.txt"))
+      Zr::Test::ProgramRun.within(test) do |run, _|
+        assert_equal "data/x.txt", File.readlink(File.join(run, "link.txt"))
+        assert_equal "x", File.read(File.join(run, "link.txt"))
+        refute File.symlink?(File.join(run, "data"))
+      end
+    end
+  end
+
   def test_the_diff_marks_each_line
     lines = Programs::Diff.lines(%W[a\n b\n c\n], %W[a\n x\n c\n])
 

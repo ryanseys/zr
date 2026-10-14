@@ -34,24 +34,9 @@ module Zr
         end
       end
 
-      # Copies the tree under `from` into `run`, symbolic links as links.
-      def copy_files(from, run)
-        Dir.glob("**/*", File::FNM_DOTMATCH, base: from).sort.each do |name|
-          next if File.basename(name) == "."
-
-          source = File.join(from, name)
-          target = File.join(run, name)
-          if File.symlink?(source)
-            FileUtils.mkdir_p(File.dirname(target))
-            File.symlink(File.readlink(source), target)
-          elsif File.directory?(source)
-            FileUtils.mkdir_p(target)
-          else
-            FileUtils.mkdir_p(File.dirname(target))
-            File.binwrite(target, File.binread(source))
-          end
-        end
-      end
+      # Copies the tree under `from` into `run`. A link inside it stays a
+      # link; `from` itself may be a link (a shared fixture).
+      def copy_files(from, run) = FileUtils.cp_r(File.join(from, "."), run)
 
       # What `ruby` answers for `test`. `ruby` is the command, `env` the
       # environment that it needs (the reference ruby's gems).
