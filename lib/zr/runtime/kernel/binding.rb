@@ -234,7 +234,7 @@ module Zr::Kern
   end
 
   # The scope of the running frame itself. The tree-walking interpreter's
-  # toplevel for a required file (lib/zr/runtime/lib/zr/eval/walk_file.rb)
+  # toplevel for a required file (lib/zr/runtime/lib/zr/eval/interpreter_file.rb)
   # takes it: a new top-level scope each time it runs, with main as self.
   #: () -> value
   def zr_own_binding
@@ -357,7 +357,7 @@ module Zr::Kern
     b
   end
 
-  # The tree-walking interpreter (lib/zr/eval/walk/tree.rb) reads the
+  # The tree-walking interpreter (lib/zr/eval/interpreter/tree.rb) reads the
   # frame that called eval through its Binding, where compiled eval code
   # has the frame itself.
 

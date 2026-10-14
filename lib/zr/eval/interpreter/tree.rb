@@ -5,8 +5,8 @@ require_relative "../../refused"
 
 module Zr
   class Eval
-    # The tree-walking back end of eval (`lib/zr/eval/walk.rb`).
-    module Walk
+    # The tree-walking back end of eval (`lib/zr/eval/interpreter.rb`).
+    module Interpreter
       # The tree-walking interpreter, for a program that cannot write
       # machine code while it runs.
       #
@@ -145,7 +145,7 @@ module Zr
         # leaves; it is nil when there is no such method. `svars` is the
         # `[$~, $_]` cell of a method or body that the string defines; nil
         # is the cell of the frame that called eval.
-        # @rbs skip -- typed in sig/zr/eval/walk/tree.rbs
+        # @rbs skip -- typed in sig/zr/eval/interpreter/tree.rbs
         Ctx = Data.define(:self_, :cref, :chain, :block, :name, :owner, :args, :kwargs, :tag, :home, :svars)
 
         # `frame` is the Binding of the frame that called eval: the scope

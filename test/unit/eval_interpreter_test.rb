@@ -10,7 +10,7 @@ require_relative "../../lib/zr/runtime"
 # writes machine code into the running process. A wasm module cannot do
 # this: its code is fixed when the engine instantiates it, and WASI gives
 # a guest no way to make a second module. Thus a wasm program includes
-# the front end and the tree-walking interpreter (lib/zr/eval/walk.rb).
+# the front end and the tree-walking interpreter (lib/zr/eval/interpreter.rb).
 # The two kinds must never share a cache.
 class EvalInterpreterTest < Minitest::Test
   Roots = Zr::Library::Roots

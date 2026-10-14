@@ -32,7 +32,7 @@ half is different: it walks the tree that the front end made. zr
 refuses a form that the tree-walking interpreter does not support, with
 a message that gives the form and the line.
 
-`lib/zr/eval.rb` is the eval compiler, and `lib/zr/eval/walk.rb` is the
+`lib/zr/eval.rb` is the eval compiler, and `lib/zr/eval/interpreter.rb` is the
 tree-walking interpreter. `Library::Roots.eval_file` selects one of them for
 the target.
 
@@ -125,7 +125,7 @@ that must both agree with ruby.
 The interpreter evaluates the HIR node by node. It calls the program
 through the methods that any Ruby program uses: `__send__`,
 `define_method`, `instance_variable_get`. For what only the runtime
-knows, it uses `Zr::Eval::World` (`lib/zr/runtime/lib/zr/eval/walking.rb`):
+knows, it uses `Zr::Eval::World` (`lib/zr/runtime/lib/zr/eval/world.rb`):
 the lexical scope of a cref, the scopes of a Binding, and the constant,
 class-variable and global tables. Each of these is in place of code
 that the compiler writes inline.
@@ -143,7 +143,7 @@ that frame's method as compiled eval code does (`zr_binding_return`),
 and `super` outside a `def` of the string calls that method's super.
 
 The tests run the interpreter on CRuby, over a `World` of plain Ruby
-(`test/support/walk_world.rb`, `test/unit/eval_walk_test.rb`), so a
+(`test/support/interpreter_world.rb`, `test/unit/eval_walk_test.rb`), so a
 change to it is checked in a fraction of a second with no build.
 
 The tree-walking interpreter refuses these forms, with a message that
@@ -171,8 +171,8 @@ program, and some run on the host that builds it.
 | File | What it is | Where it runs |
 |---|---|---|
 | `lib/zr/eval.rb` | `Zr::Eval`, the eval compiler: the entry of eval support on a native target | in the program |
-| `lib/zr/eval/walk.rb`, `lib/zr/eval/walk/` | the tree-walking interpreter: the entry of eval support on wasm, or with `ZR_EVAL=walk` | in the program; the tests also run the walk on ruby |
-| `lib/zr/runtime/lib/zr/eval/` | what only the runtime can give an eval: the symbol table and `using` (`runtime.rb`), the string forms of `eval` over the compiler (`forms.rb`) or over the interpreter (`walk_forms.rb`), and the interpreter's tables (`walking.rb`) | in the program, as files of the runtime's own library |
+| `lib/zr/eval/interpreter.rb`, `lib/zr/eval/interpreter/` | the tree-walking interpreter: the entry of eval support on wasm, or with `ZR_EVAL=walk` | in the program; the tests also run the walk on ruby |
+| `lib/zr/runtime/lib/zr/eval/` | what only the runtime can give an eval: the symbol table and `using` (`runtime.rb`), the string forms of `eval` over the compiler (`forms.rb`) or over the interpreter (`interpreter_forms.rb`), and the interpreter's world (`world.rb`) | in the program, as files of the runtime's own library |
 | `lib/zr/eval_support.rb` | `Zr::EvalSupport`, which builds eval support once into its own object, with the metadata that a program needs | on the host |
 | `lib/zr/cache/lowering/eval_support.rb` | the cache of each file's lowering in eval support, so an edit lowers one file again, not all of them | on the host |
 

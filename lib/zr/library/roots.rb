@@ -37,7 +37,7 @@ module Zr
       # code into itself. Both contain the same front end. `Zr::Eval`
       # gives the back end that each one runs.
       EVAL_COMPILER = File.expand_path("../eval.rb", __dir__) #: String
-      EVAL_INTERPRETER = File.expand_path("../eval/walk.rb", __dir__) #: String
+      EVAL_INTERPRETER = File.expand_path("../eval/interpreter.rb", __dir__) #: String
 
       module_function
 

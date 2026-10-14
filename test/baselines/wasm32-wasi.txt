@@ -15,7 +15,7 @@ cli/core/fiber/fiber_resume.rb	can't allocate fiber stack: Function not implemen
 cli/core/thread/threads_join.rb	can't allocate fiber stack: Function not implemented
 cli/core/thread/thread_queue_handoff.rb	can't allocate fiber stack: Function not implemented
 
-# On wasi, eval uses the tree-walking interpreter (lib/zr/eval/walk.rb).
+# On wasi, eval uses the tree-walking interpreter (lib/zr/eval/interpreter.rb).
 # These programs use eval, but eval support does not cause their
 # failure.
 cli/stdlib/ffi/ffi_libc_call.rb	dlopen has no wasm form

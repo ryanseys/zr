@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "../../lib/zr/hir"
-require_relative "../../lib/zr/runtime/lib/zr/eval/walking"
-require_relative "../../lib/zr/eval/walk/evaluate"
+require_relative "../../lib/zr/runtime/lib/zr/eval/world"
+require_relative "../../lib/zr/eval/interpreter/evaluate"
 
 module Zr
   class Eval
@@ -16,7 +16,7 @@ module Zr
   end
 
   module Test
-    # Runs the tree-walking interpreter (lib/zr/eval/walk/tree.rb) on CRuby,
+    # Runs the tree-walking interpreter (lib/zr/eval/interpreter/tree.rb) on CRuby,
     # so its tests take milliseconds and build nothing. The interpreter
     # reaches the runtime only through `Eval::World`, whose methods call
     # the kernel. Here each one is plain Ruby over CRuby's own reflection.
@@ -25,7 +25,7 @@ module Zr
     # always the scope it was written in: CRuby cannot read a caller's
     # cref, so a walked block that `class_exec` runs keeps its own. A
     # Binding has one scope, its `local_variables`.
-    module WalkWorld
+    module InterpreterWorld
       # A lexical scope: its module, the scope outside it, the default
       # visibility of a `def` (0 public, 1 private, 2 protected), and
       # whether `module_function` is on.
@@ -41,7 +41,7 @@ module Zr
       # Walks `source` as `eval(source, scope)` would, under `nesting`.
       #: (String source, Binding scope, ?nesting: Array[Module], ?block: Proc?, ?file: String, ?line: Integer) -> untyped
       def self.eval(source, scope, nesting: [], block: nil, file: "(eval)", line: 1)
-        Eval::Walk.evaluate(source, scope, file: file, line: line, self_: scope.receiver, cref: cref(nesting), block: block)
+        Eval::Interpreter.evaluate(source, scope, file: file, line: line, self_: scope.receiver, cref: cref(nesting), block: block)
       end
 
       # A `return` of a walked string, which `in_method` catches as the
@@ -138,18 +138,18 @@ module Zr
           [name, b.receiver.method(name).owner]
         end
 
-        def nesting(cref) = WalkWorld.lexical(cref)
+        def nesting(cref) = InterpreterWorld.lexical(cref)
         # CRuby has no way to chill a String that exists.
         def chill(string) = string
         def path(string) = string
 
         def const_get(cref, name)
-          found = WalkWorld.lexical(cref).find { |mod| mod.const_defined?(name, false) }
+          found = InterpreterWorld.lexical(cref).find { |mod| mod.const_defined?(name, false) }
           found ? found.const_get(name, false) : cref.klass.const_get(name)
         end
 
         def const_defined?(cref, name)
-          WalkWorld.lexical(cref).any? { |mod| mod.const_defined?(name, false) } || cref.klass.const_defined?(name)
+          InterpreterWorld.lexical(cref).any? { |mod| mod.const_defined?(name, false) } || cref.klass.const_defined?(name)
         end
 
         def const_get_at(scope, name) = scope.const_get(name)

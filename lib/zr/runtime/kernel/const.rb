@@ -2170,7 +2170,7 @@ module Zr::Kern
   end
 
   # The constant reads of the tree-walking interpreter (lib/zr/runtime/lib/
-  # zr/eval/walking.rb). Its own frames are hidden, so a read would see
+  # zr/eval/world.rb). Its own frames are hidden, so a read would see
   # the constants that only eval support set (Zr, Prism). These read as
   # the walked program: `kind` 0 is `Name` under `at` (a cref), 1 is
   # `defined?(Name)`, 2 is `at::Name` and 3 is `defined?(at::Name)`.

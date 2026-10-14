@@ -197,7 +197,7 @@ programs (`test/programs`) and ext (`test/ext`). See
 [How the tests run](../explanation/how-the-tests-run.md).
 
 **Tree-walking interpreter.** The part of eval support on wasm. It
-runs the HIR of a string node by node (`lib/zr/eval/walk.rb`).
+runs the HIR of a string node by node (`lib/zr/eval/interpreter.rb`).
 `ZR_EVAL=walk` uses it on a native target too.
 
 **Typed Ruby.** The language of the kernel, a subset of Ruby: one

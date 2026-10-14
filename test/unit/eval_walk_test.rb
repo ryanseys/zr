@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../support/walk_world"
+require_relative "../support/interpreter_world"
 
 # The tree-walking interpreter, which runs eval in a wasm program
-# (lib/zr/eval/walk/tree.rb), checked against CRuby's own eval. It runs
-# on CRuby over the plain Ruby World of test/support/walk_world.rb, so
+# (lib/zr/eval/interpreter/tree.rb), checked against CRuby's own eval. It runs
+# on CRuby over the plain Ruby World of test/support/interpreter_world.rb, so
 # these tests build nothing.
 class EvalWalkTest < Minitest::Test
-  World = Zr::Test::WalkWorld
+  World = Zr::Test::InterpreterWorld
 
   # A string's value walked and evaluated by ruby, each in a binding that
   # `setup` gives the same locals, or the error each raises.

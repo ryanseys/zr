@@ -1,4 +1,4 @@
-# The types of lib/zr/runtime/lib/zr/eval/walking.rb that inline RBS
+# The types of lib/zr/runtime/lib/zr/eval/world.rb that inline RBS
 # cannot give. World calls `module_function`, but steepfile_test.rb reads
 # sig/zr/module_function.rbs only for the files outside lib/zr/runtime.
 module Zr::Eval::World

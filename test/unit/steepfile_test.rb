@@ -34,7 +34,7 @@ class SteepfileTest < Minitest::Test
   def test_the_runtime_is_checked_only_where_ruby_loads_it
     loaded = Dir.glob("lib/zr/runtime/**/*.rb", base: ROOT).select { |file| level(file) }
 
-    assert_equal %w[lib/zr/runtime/lib/zr/eval/runtime.rb lib/zr/runtime/lib/zr/eval/walking.rb lib/zr/runtime/lib/zr/obj/jit/runtime.rb],
+    assert_equal %w[lib/zr/runtime/lib/zr/eval/runtime.rb lib/zr/runtime/lib/zr/eval/world.rb lib/zr/runtime/lib/zr/obj/jit/runtime.rb],
                  loaded.sort
   end
 

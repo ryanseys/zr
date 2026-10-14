@@ -146,7 +146,7 @@ module Zr
     # itself while it runs. Eval support does this. A wasm module's code
     # is fixed when the engine instantiates it, and WASI gives a guest no
     # way to make a second module. So there, eval uses the tree-walking
-    # interpreter (lib/zr/eval/walk.rb).
+    # interpreter (lib/zr/eval/interpreter.rb).
     #: () -> bool
     def jits? = arch != :wasm32
 

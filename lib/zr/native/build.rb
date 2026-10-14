@@ -516,7 +516,7 @@ module Zr
       # the cached prelude; this emits only the program's own functions.
       #
       # On wasm, eval support is the tree-walking interpreter
-      # (lib/zr/eval/walk.rb): the front end and no backend. Wasm has no
+      # (lib/zr/eval/interpreter.rb): the front end and no backend. Wasm has no
       # second object to link, so a program that uses eval gets a prelude
       # that also contains eval support. Its 16,000 functions then compile
       # once for each cache, not once for each program (about 280 s).

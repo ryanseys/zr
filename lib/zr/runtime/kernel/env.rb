@@ -620,7 +620,7 @@ module Zr::Kern
     Machine.load64(zr_hidden_loader(), 0) != 0
   end
 
-  # The tree-walking interpreter (lib/zr/eval/walk.rb) runs the program's
+  # The tree-walking interpreter (lib/zr/eval/interpreter.rb) runs the program's
   # code inside its own files, which are hidden from the program. While it
   # runs, the program is the caller. Thus a constant that the evaluated
   # string defines on Object belongs to the program and is never hidden.

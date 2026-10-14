@@ -4,14 +4,14 @@ require_relative "tree"
 
 module Zr
   class Eval
-    module Walk
+    module Interpreter
       # Walks `source` in `scope` (the Binding of the calling frame), with
       # `self_` and `cref`. `block` is the block that a `yield` in the
       # string calls. `add` marks a `Binding#eval`: a new local of the
       # string becomes a local of the Binding, as in ruby.
       #
       # It reads the runtime only through `World`, so the tests run it on
-      # CRuby over a `World` of plain Ruby (test/support/walk_world.rb).
+      # CRuby over a `World` of plain Ruby (test/support/interpreter_world.rb).
       #: (untyped source, Binding scope, file: untyped, line: _ToInt, self_: untyped, cref: untyped, block: untyped, ?add: bool) -> untyped
       def self.evaluate(source, scope, file:, line:, self_:, cref:, block:, add: false)
         file = string(file)

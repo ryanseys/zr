@@ -31,11 +31,11 @@ RBS_TYPED = %w[
 ].freeze
 
 # The runtime files that ruby loads: the eval interpreter and the JIT's
-# runtime half. Not eval/forms.rb and eval/walk_forms.rb: they define
+# runtime half. Not eval/forms.rb and eval/interpreter_forms.rb: they define
 # core methods (`Kernel#eval`, `BasicObject#instance_eval`) again, which
 # RBS's core signatures already declare.
 RUBY_LOADED_RUNTIME = %w[
-  lib/zr/runtime/lib/zr/eval/walking.rb
+  lib/zr/runtime/lib/zr/eval/world.rb
   lib/zr/runtime/lib/zr/eval/runtime.rb
   lib/zr/runtime/lib/zr/obj/jit/runtime.rb
 ].freeze

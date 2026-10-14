@@ -5,7 +5,7 @@
 # A program on wasm cannot write machine code while it runs: a module's
 # code is fixed when the engine instantiates it, and WASI gives a guest
 # no way to load a second module. So a program there includes only the
-# front end and walks the tree it builds (lib/zr/eval/walk.rb). The
+# front end and walks the tree it builds (lib/zr/eval/interpreter.rb). The
 # walk is ordinary Ruby and reaches the program through ordinary calls
 # (`__send__`, `define_method`, `instance_variable_get`) for all but
 # the tables that the compiler reaches through inline caches.

@@ -2,7 +2,7 @@
 
 # The eval forms that take a string of ruby, over the tree-walking
 # interpreter that a program includes where it cannot write machine code
-# (lib/zr/eval/walk.rb). Each one gives the interpreter the scope of the
+# (lib/zr/eval/interpreter.rb). Each one gives the interpreter the scope of the
 # calling frame, the self for the string and the lexical scope that its
 # constants read. The block forms are the ones that every program keeps,
 # and are here without changes.

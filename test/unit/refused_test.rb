@@ -7,7 +7,7 @@ require_relative "../../lib/zr/ir/types"
 require_relative "../support/ir_interp"
 require_relative "../../lib/zr/backend/aarch64/assembler"
 require_relative "../../lib/zr/obj/macho/block"
-require_relative "../../lib/zr/eval/walk/tree"
+require_relative "../../lib/zr/eval/interpreter/tree"
 require_relative "../../lib/zr/backend/aarch64/codegen"
 require_relative "../../lib/zr/backend/wasm/codegen"
 require_relative "../../lib/zr/lower"
@@ -25,7 +25,7 @@ class RefusedTest < Minitest::Test
     Zr::IR::Interp::Refused,
     Zr::Backend::Aarch64::Assembler::Refused,
     Zr::Obj::MachO::Refused,
-    Zr::Eval::Walk::Tree::Refused,
+    Zr::Eval::Interpreter::Tree::Refused,
     # Inherit `Zr::Refusal` from a stage's own `Refused` above, rather
     # than including it a second time.
     Zr::Backend::Aarch64::Codegen::Refused,
@@ -45,7 +45,7 @@ class RefusedTest < Minitest::Test
   end
 
   def test_eval_tree_refused_keeps_not_implemented_error_as_its_superclass
-    assert_operator Zr::Eval::Walk::Tree::Refused, :<, ::NotImplementedError
+    assert_operator Zr::Eval::Interpreter::Tree::Refused, :<, ::NotImplementedError
   end
 
   def test_a_refusal_instance_answers_is_a_refusal

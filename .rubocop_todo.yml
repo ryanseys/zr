@@ -6,7 +6,7 @@ ThreadSafety/ClassInstanceVariable:
     - "lib/zr/runtime/**/*"
     - "lib/zr/cli.rb"
     - "lib/zr/eval.rb"
-    - "lib/zr/eval/walk.rb"
+    - "lib/zr/eval/interpreter.rb"
     - "lib/zr/gc_tuning.rb"
     - "lib/zr/machine/host.rb"
     - "lib/zr/native/code_cache.rb"
@@ -62,8 +62,8 @@ Metrics/ParameterLists:
     - "lib/zr/runtime/**/*"
     - "lib/zr/backend/aarch64/assembler.rb"
     - "lib/zr/backend/aarch64/regalloc.rb"
-    - "lib/zr/eval/walk.rb"
-    - "lib/zr/eval/walk/tree.rb"
+    - "lib/zr/eval/interpreter.rb"
+    - "lib/zr/eval/interpreter/tree.rb"
     - "lib/zr/gem_set/resolve.rb"
     - "lib/zr/lower/function.rb"
     - "lib/zr/lower/function/sends.rb"
@@ -80,7 +80,7 @@ Metrics/ParameterLists:
 Layout/LineLength:
   Exclude:
     - "lib/zr/runtime/**/*"
-    - "lib/zr/eval/walk/tree.rb"
+    - "lib/zr/eval/interpreter/tree.rb"
     - "lib/zr/hir/build.rb"
     - "lib/zr/hir/build/patterns.rb"
     - "lib/zr/lower/function.rb"
