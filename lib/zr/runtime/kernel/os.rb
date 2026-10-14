@@ -56,6 +56,9 @@
 #   zr_os_fault_address [Ptr] => Word
 #   zr_os_c_frames       [Ptr, I32] => Word
 #   zr_os_crash_exit     [I32] => Void
+#   zr_os_crash_spawn    [Ptr, Ptr] => Word
+#   zr_os_crash_wait     [Word] => Void
+#   zr_os_symbol_of      [Ptr, Ptr] => Word
 #   zr_os_unblock_signals [] => Void
 #   zr_os_poll_start     [] => Void
 #   zr_os_malloc_size    [Ptr] => Word
