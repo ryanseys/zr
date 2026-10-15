@@ -37,6 +37,21 @@ class PassesTest < Minitest::Test
     assert_equal 42, answer(f, [34])
   end
 
+  # A Hash copies and interns each String key that is not frozen, so the
+  # names of values and blocks are interned, also when the lowering cache
+  # loads a function.
+  def test_names_are_interned_when_made_and_when_loaded
+    f = function("names", ["i64"], "i64") { |f, arg| f.ret(f.iadd(arg, f.iconst("i64", 1))) }
+    names = f.blocks.flat_map { |b| [b.name, *b.params.map(&:first), *b.insts.flat_map(&:results)] }
+    assert names.all?(&:frozen?), "a new name is frozen"
+
+    copy = Marshal.load(Marshal.dump(f), Zr::IR::INTERNED)
+    loaded = copy.blocks.flat_map { |b| [b.name, *b.params.map(&:first), *b.insts.flat_map(&:results)] }
+    assert_equal names, loaded
+    assert loaded.zip(names).all? { |a, b| a.equal?(b) }, "a loaded name is the one interned String"
+    refute_predicate Marshal.load(Marshal.dump("\x00\x01".b), Zr::IR::INTERNED), :frozen?, "bytes stay as they are"
+  end
+
   def test_constants_fold_through_the_integer_operations
     f = function("fold", [], "i64") do |f|
       a = f.iadd(f.iconst("i64", 40), f.iconst("i64", 2))

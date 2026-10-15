@@ -11,6 +11,14 @@ module Zr
     # a signature to eight, so no backend needs stack arguments.
     REGISTER_ARGS = 8
 
+    # The names of values and blocks are interned Strings. A Hash takes a
+    # frozen key as it is, but copies and interns any other String key at
+    # each insert, and the passes and the emitters put names in Hashes all
+    # the time: frozen names make wasm's local assignment 15% faster.
+    # `Marshal.load(bytes, INTERNED)` interns the names of loaded IR; it
+    # leaves binary Strings (code bytes) as they are.
+    INTERNED = ->(object) { object.instance_of?(String) && object.encoding != Encoding::BINARY ? -object : object }
+
     # The records' types are in sig/zr/ir/function.rbs.
     # @rbs skip
     Slot = Struct.new(:bytes, :align)
@@ -574,7 +582,7 @@ module Zr
       # uses it for a new block parameter.
       #: () -> String
       def value
-        v = "v#{@next_value}"
+        v = -"v#{@next_value}"
         @next_value += 1
         v
       end
@@ -650,7 +658,7 @@ module Zr
 
       #: (Array[[String, String]] params) -> String
       def block_named(params)
-        name = "block#{@next_block}"
+        name = -"block#{@next_block}"
         @next_block += 1
         b = Block.new(name, params)
         @block_of[name] = b

@@ -202,7 +202,7 @@ module Zr
             # `stale` made sure the code cache has each kept key.
             blob = blobs ? blobs.fetch(key) : code.blob(key) #: String
             known[name] = [key, blob]
-            functions << Marshal.load(blob)
+            functions << Marshal.load(blob, IR::INTERNED)
           end
           data.concat(Marshal.load(record[:data]))
         end
