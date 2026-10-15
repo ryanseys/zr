@@ -189,7 +189,7 @@ class RubyVM
           File.read(file)
         rescue SystemCallError => e
           # pm_load_file: the error names the path alone.
-          raise SystemCallError.new(file, e.errno)
+          raise SystemCallError.new(file, e.errno), cause: nil
         end
         iseq = compile(source, file, File.expand_path(file))
         Primitive.zr_hidden_set(iseq, :__label__, +"<main>")
