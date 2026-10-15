@@ -1448,13 +1448,6 @@ module Zr::Kern
   # respond_to? nor is_a?. Returns QUNDEF when a call raised.
   #: (value, value) -> value
   def zr_check_call(v, name)
-    zr_check_call_or(v, name, Machine.value(QNIL))
-  end
-
-  # zr_check_call that returns `none` when no call happened, so an
-  # implicit conversion tells a method that gave nil from no method.
-  #: (value, value, value) -> value
-  def zr_check_call_or(v, name, none)
     mid = zr_sym2id(name)
     responds = zr_check_funcall(v, mid)
     return responds if responds == QUNDEF
@@ -1464,24 +1457,24 @@ module Zr::Kern
       # check_funcall_missing: with no method and the core's
       # method_missing, the call does not happen.
       if zr_find_method(klass, mid) == 0 && (missing == 0 || MEntry[missing].core != 0)
-        return none
+        return Machine.value(QNIL)
       end
       return zr_send(v, mid, 0, 0)
     end
     if missing == 0 || MEntry[missing].core != 0
-      return none
+      return Machine.value(QNIL)
     end
     answers = zr_find_method(klass, Machine.id(:respond_to_missing?))
     asks = zr_find_method(klass, Machine.id(:respond_to?))
     if (answers != 0 && MEntry[answers].core == 0) || (asks != 0 && MEntry[asks].core == 0)
-      return none
+      return Machine.value(QNIL)
     end
     r = zr_send(v, mid, 0, 0)
     if r == QUNDEF
       exc = zr_rescuable()
       if exc != QUNDEF && zr_is_a(exc, zr_global(G_NO_METHOD_ERROR))
         Task[zr_task()].pending = Machine.value(QNIL)
-        return none
+        return Machine.value(QNIL)
       end
     end
     r
