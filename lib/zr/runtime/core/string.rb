@@ -320,9 +320,16 @@ class String
     # rb_str_update: the encodings are checked before the index.
     Encoding.compatible?(self, other) || Encoding.incompatible(self, other)
     count = Primitive.zr_str_length_m(self)
-    index += count + 1 if index < 0
-    raise IndexError, "index #{index} out of string" if index < 0 || index > count
+    # rb_str_insert steps a negative index one up, past the end, and
+    # rb_str_update names that index when it is out of range.
+    if index < 0
+      index += 1
+      raise IndexError, "index #{index} out of string" if index + count < 0
 
+      index += count
+    elsif index > count
+      raise IndexError, "index #{index} out of string"
+    end
     at = Primitive.zr_str_char_offset_m(self, index)
     Primitive.zr_str_splice(self, at, 0, other)
   end

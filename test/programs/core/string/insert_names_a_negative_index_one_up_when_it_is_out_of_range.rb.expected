@@ -1,0 +1,12 @@
+-1: abX
+-2: aXb
+-3: Xab
+-4: index -3 out of string
+-5: index -4 out of string
+-9: index -8 out of string
+0: Xab
+2: abX
+3: index 3 out of string
+7: index 7 out of string
+"hél·lo"
+"index -8 out of string"
