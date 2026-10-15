@@ -348,21 +348,20 @@ class Float
     # rounds the truncated Integer.
     return digits > 0 ? self : 0 if zero?
     return to_i.round(digits, half: mode) if digits < 0
+    # ROUND_CALL(mode, round, (number, 1.0)), then dbl2ival: half_down
+    # takes 2**53 one down, and half_even makes an infinity NaN.
+    if digits == 0
+      return Primitive.zr_flo_round_m(self, 0) if mode == :up
+
+      return (mode == :even ? half_even(self, 1.0) : half_down(self, 1.0)).to_i
+    end
 
     plain = Primitive.zr_flo_round_m(self, digits)
     return exactly(digits, :round, half: mode) if plain.nil?
     return plain if mode == :up || !finite?
 
-    if digits > 0
-      s = 10.0**digits
-      return (mode == :even ? half_even(self, s) : half_down(self, s)) / s
-    end
-
-    scaled = self
-    return plain unless scaled - scaled.floor == 0.5
-
-    base = scaled.floor
-    mode == :down ? (self > 0 ? base : base + 1) : (base.even? ? base : base + 1)
+    s = 10.0**digits
+    (mode == :even ? half_even(self, s) : half_down(self, s)) / s
   end
 
   # numeric.c's round_half_down and round_half_even: `x` scaled by `s`,
@@ -380,9 +379,14 @@ class Float
 
   def half_even(x, s)
     Primitive.attr! :hidden
-    u = x.truncate.to_f
+    # modf: an infinity is all whole part, with a zero of its sign for
+    # the fraction; NaN is NaN in both.
+    u = x.finite? ? x.truncate.to_f : x
+    fraction = if x.finite? || x.nan? then x - u
+               else x > 0 ? 0.0 : -0.0
+               end
     us = u * s
-    vs = (x - u) * s
+    vs = fraction * s
     if x > 0.0
       f = vs.floor.to_f
       uf = us + f
@@ -391,8 +395,8 @@ class Float
           elsif d == 0.5 || (uf + 0.5) / s <= x then uf.remainder(2.0)
           else 0.0
           end
-      us + f + d
-    else
+      us + (f + d)
+    elsif x < 0.0
       f = vs.ceil.to_f
       uf = us + f
       d = f - vs
@@ -400,7 +404,9 @@ class Float
           elsif d == 0.5 || (uf - 0.5) / s >= x then (-uf).remainder(2.0)
           else 0.0
           end
-      us + f - d
+      us + (f - d)
+    else
+      us + x
     end
   end
 
