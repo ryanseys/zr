@@ -16,10 +16,11 @@ module Zr
     #
     # For a native target the build makes the runtime object, the
     # prelinked runtime image and, when a test needs it, the eval support
-    # object. For wasm it
-    # makes two module preludes, without and with eval support. Each is a file in the cache, named by a
-    # digest of its sources. After a change under `lib` or `runtime`, the next
-    # build makes them again, which takes minutes, and longer for wasm.
+    # object. For wasm it makes the module prelude without eval support and,
+    # when a test needs it, the one with eval support. Each is a file in
+    # the cache, named by a digest of its sources. After a change under `lib`
+    # or `runtime`, the next build makes them again, which takes minutes, and
+    # longer for wasm.
     #
     # `ready!` builds what is missing before the run forks its workers.
     # If each worker built it, eight builds would run at once and time out.
@@ -167,7 +168,7 @@ module Zr
           ENV["ZR_JOBS"] = jobs.to_s
           Config.reset!
           began = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          target.link ? build_binary(target, evals: evals) : build_module(target)
+          target.link ? build_binary(target, evals: evals) : build_module(target, evals: evals)
           say&.puts(format("built the zr runtime for %s in %.1f s (cache: %s)",
                            target.triple, Process.clock_gettime(Process::CLOCK_MONOTONIC) - began, cache_dir))
         end
@@ -193,18 +194,18 @@ module Zr
         finish(target, evals: evals)
       end
 
-      # A WASI module has no linker. Build a plain program and a program
-      # that evals, because each uses a different prelude: the second
-      # prelude also contains eval support.
-      def build_module(target)
+      # A WASI module has no linker. Build a plain program, and with
+      # `evals` a program that evals, because each uses a different
+      # prelude: the second prelude also contains eval support.
+      def build_module(target, evals: true)
         Dir.mktmpdir("zr-build-") do |work|
-          [PLAIN, EVALS].each_with_index do |source, i|
+          [PLAIN, *(EVALS if evals)].each_with_index do |source, i|
             program = Program.build(source, "built.rb", BuildOptions.new(target: target))
             why = Native::Build.wasm_program(program, File.join(work, "built#{i}.wasm"))
             raise "the build did not finish: #{why}" if why
           end
         end
-        finish(target, evals: true)
+        finish(target, evals: evals)
       end
     end
   end
