@@ -1778,16 +1778,17 @@ class Array
     [start, len]
   end
 
-  # The first n items of one zip argument: an Array as it is, else
+  # The first n items of one zip argument: a copy of an Array, else
   # what its `each` yields, sent by name as take_items sends it.
   def zip_column(other, n)
     Primitive.attr! :hidden
     Primitive.attr! :sends_each
     # take_items: rb_check_array_type, so a to_ary that gives nil walks
-    # the value with each.
+    # the value with each. An Array is copied (rb_ary_subseq), so a block
+    # that changes it later does not change the rows.
     array = Array.try_convert(other)
-    return array if array
     return [] if n == 0
+    return Primitive.zr_ary_aref2_m(array, 0, n) if array
 
     raise TypeError, "wrong argument type #{other.class} (must respond to :each)" unless other.respond_to?(:each)
 
