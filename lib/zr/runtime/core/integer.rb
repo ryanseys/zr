@@ -215,9 +215,9 @@ class Integer
   # Without an encoding: US-ASCII below 128, else one binary byte.
   # A nil encoding is a name to look up, as any other given value is.
   def chr(encoding = (none = true; nil))
+    Primitive.attr! :more_args
     unless none
-      # rb_num_to_uint first: a code point is an unsigned int.
-      raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 0xFFFF_FFFF
+      char_range!
 
       encoding = Encoding.find(encoding) unless encoding.is_a?(Encoding)
       index = Encoding.carried(encoding)
@@ -626,6 +626,22 @@ class Integer
   def ceil(digits = 0) = round_to(Numeric.send(:int_operand, digits), :ceil)
 
   def truncate(digits = 0) = round_to(Numeric.send(:int_operand, digits), :truncate)
+
+  # int_chr: rb_num_to_uint first, as a code point is an unsigned int,
+  # before the count of arguments (`more_args`).
+  def char_range!
+    Primitive.attr! :hidden
+    raise RangeError, "#{Primitive.zr_fixnum_p_m(self) ? self : "bignum"} out of char range" if self < 0 || self > 0xFFFF_FFFF
+  end
+  private :char_range!
+
+  # The calls of chr with more than one argument.
+  def more_args(name, *args)
+    Primitive.attr! :hidden
+    char_range! if name == :chr
+    raise ArgumentError, wrong_arity(args.size, 0..1)
+  end
+  private :more_args
 
   def allbits?(mask)
     mask = bit_mask(mask)

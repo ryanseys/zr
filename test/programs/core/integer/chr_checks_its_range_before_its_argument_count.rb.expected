@@ -1,0 +1,9 @@
+[RangeError, "bignum out of char range"]
+[ArgumentError, "wrong number of arguments (given 2, expected 0..1)"]
+[RangeError, "-1 out of char range"]
+[ArgumentError, "wrong number of arguments (given 2, expected 0..1)"]
+[RangeError, "bignum out of char range"]
+[RangeError, "300 out of char range"]
+"\xC8"
+"A"
+"あ"
