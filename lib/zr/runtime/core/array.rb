@@ -280,15 +280,38 @@ class Array
 
   # Floats add with Kahan-Babuska compensation, as CRuby's sum does,
   # from the first Float met while the sum is still a Float.
+  # rb_ary_sum: Integers and Rationals add exactly, a Float start too,
+  # which joins the exact sum at the end; the first Float element (or any
+  # other with a Float start) turns to the compensated Float walk, and
+  # anything else adds with `+`.
   def sum(init = 0)
-    acc = init
+    return init if Primitive.zr_ary_len_m(self) == 0
+
+    float_init = init.is_a?(Float)
+    acc = float_init ? 0 : init
     i = 0
-    while i < Primitive.zr_ary_len_m(self)
-      x = block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_ary_aref1_m(self, i)
-      if acc.is_a?(Float) || (x.is_a?(Float) && (acc.is_a?(Integer) || acc.is_a?(Rational)))
-        return float_sum(acc.to_f, x, i + 1) { |j| block_given? ? yield(Primitive.zr_ary_aref1_m(self, j)) : Primitive.zr_ary_aref1_m(self, j) }
+    x = nil
+    if float_init || init.is_a?(Integer) || init.is_a?(Rational)
+      while i < Primitive.zr_ary_len_m(self)
+        x = block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_ary_aref1_m(self, i)
+        break unless x.is_a?(Integer) || x.is_a?(Rational)
+
+        acc += x
+        i += 1
+      end
+      return float_init ? init + acc : acc if i == Primitive.zr_ary_len_m(self)
+
+      if float_init && !x.is_a?(Float)
+        acc = init + acc
+      elsif float_init || x.is_a?(Float)
+        start = float_init ? acc.to_f + init : acc.to_f
+        return float_sum(start, x, i + 1) { |j| block_given? ? yield(Primitive.zr_ary_aref1_m(self, j)) : Primitive.zr_ary_aref1_m(self, j) }
       end
       acc += x
+      i += 1
+    end
+    while i < Primitive.zr_ary_len_m(self)
+      acc += block_given? ? yield(Primitive.zr_ary_aref1_m(self, i)) : Primitive.zr_ary_aref1_m(self, i)
       i += 1
     end
     acc
@@ -1658,7 +1681,7 @@ class Array
     Primitive.attr! :hidden
     c = 0.0
     i = from - 1
-    loop do
+    while true
       if x.is_a?(Float) || x.is_a?(Integer) || x.is_a?(Rational)
         v = x.to_f
         if v.nan? || v.infinite? || f.nan? || f.infinite?
