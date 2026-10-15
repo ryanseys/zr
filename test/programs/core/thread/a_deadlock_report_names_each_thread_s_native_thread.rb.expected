@@ -1,0 +1,6 @@
+No live threads left. Deadlock?
+1 threads, 1 sleeps current:0xADDR main thread:0xADDR
+* #<Thread:0xADDR sleep_forever>
+   rb_thread_t:0xADDR native:0xADDR int:0
+   core/thread/a_deadlock_report_names_each_thread_s_native_thread.rb:5:in 'Thread::Queue#pop'
+   core/thread/a_deadlock_report_names_each_thread_s_native_thread.rb:5:in '<main>'

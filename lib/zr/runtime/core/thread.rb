@@ -506,7 +506,9 @@ class Thread
       out = +"\n#{live.size} threads, #{live.count { |t| t.send(:sleeping?) }} sleeps " \
              "current:#{address(@current)} main thread:#{address(@main)}\n"
       live.each do |thread|
-        out << "* #{thread.inspect}\n   rb_thread_t:#{address(thread)} native:N/A int:0"
+        # Each thread has a native thread in ruby (th->nt), which the
+        # report names by address; zr's threads share one.
+        out << "* #{thread.inspect}\n   rb_thread_t:#{address(thread)} native:#{address(@main)} int:0"
         thread.send(:joiners).each { |joiner| out << "\n    depended by: tb_thread_id:#{address(joiner)}" }
         frames = Primitive.zr_fiber_backtrace_m(thread.send(:local_fiber), 0, -1)
         out << "\n   " << frames.to_a.join("\n   ") << "\n"
