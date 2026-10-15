@@ -921,7 +921,8 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     base = -base if base < 0
     raise ArgumentError, "invalid radix #{base}" if base == 1 || base > 36
 
-    s = text.strip
+    # rb_int_parse_cstr reads bytes, whatever the text's encoding says.
+    s = text.b.strip
     sign = 1
     if s.start_with?("-", "+")
       sign = -1 if s.start_with?("-")

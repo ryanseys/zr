@@ -1,0 +1,19 @@
+"ok"
+"ok"
+"ok"
+"ok"
+[ArgumentError, "both of block and replacement given"]
+[TypeError, "no implicit conversion of Integer into String"]
+[ArgumentError, "invalid value for Integer(): \"\\xFF\""]
+[ArgumentError, "invalid value for Integer(): \"1\\xFF\""]
+nil
+[ArgumentError, "invalid value for Integer(): \"12あ\""]
+[ArgumentError, "invalid value for Float(): \"\\xFF\""]
+[ArgumentError, "invalid value for convert(): \"\\xFF\""]
+[ArgumentError, "invalid value for convert(): \"\\xFF\""]
+0
+[ArgumentError, "invalid value for convert(): \"1+2i\\xFF\""]
+(0+3i)
+(-0.4161468365471424+0.9092974268256817i)
+31
+1000

@@ -208,7 +208,8 @@ class Complex < Numeric
 
         raise ArgumentError, +"string contains null byte"
       end
-      body = text.strip
+      # read_comp reads bytes, whatever the text's encoding says.
+      body = text.b.strip
       if (m = forms[:polar].match(body))
         return polar(real_part(m[1]), real_part(m[2]))
       end
