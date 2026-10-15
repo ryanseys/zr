@@ -1468,7 +1468,14 @@ class String
   def each_codepoint(&block)
     return to_enum(:each_codepoint) { Primitive.zr_str_length_m(self) } unless block
 
-    OWN[:each_char].bind_call(self) { |c| yield c.ord }
+    # rb_str_enumerate_codepoints: a String whose characters are single
+    # bytes walks them as each_byte does, reading the String as it goes;
+    # any other walks a frozen copy.
+    if Primitive.zr_str_ascii_only_m(self) || Regexp.encoder(Encoding.at(Primitive.zr_str_encoding_index_m(self))).max_len == 1
+      OWN[:each_byte].bind_call(self, &block)
+    else
+      OWN[:each_char].bind_call(self) { |c| yield c.ord }
+    end
     self
   end
 
@@ -1652,7 +1659,7 @@ class String
   end
 
   def codepoints
-    return OWN[:each_char].bind_call(self) { |c| yield c.ord } if block_given?
+    return OWN[:each_codepoint].bind_call(self) { |c| yield c } if block_given?
 
     characters.map(&:ord)
   end
@@ -3866,7 +3873,7 @@ class String
   # The method entries as they are at boot, which String's own methods
   # call as the C calls its functions: a subclass's or a program's
   # redefinition of one does not change what another reaches.
-  OWN = %i[[] each_char each_byte end_with? start_with? index rindex lstrip strip rstrip succ reverse capitalize
+  OWN = %i[[] each_char each_byte each_codepoint end_with? start_with? index rindex lstrip strip rstrip succ reverse capitalize
            downcase upcase swapcase delete squeeze chomp chop sub scrub tr tr_s count lines each_line scan include?
            unicode_normalize encode force_encoding b grapheme_clusters <=> ==].to_h { |name| [name, instance_method(name)] }.freeze
   # The encodings whose characters rb_enc_unicode_p says are Unicode.
