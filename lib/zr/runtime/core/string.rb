@@ -1568,6 +1568,8 @@ class String
     self
   end
 
+  # rb_str_partition: a String separator that matches is the middle
+  # element itself; every other piece is new.
   def partition(sep)
     sep = String.send(:quoted_pattern, sep)
     if sep.is_a?(Regexp)
@@ -1581,7 +1583,7 @@ class String
       return [byteslice_of(0, from), match[0], byteslice_of(to, Primitive.zr_str_bytesize(self) - to)]
     end
     at = byte_index(sep, 0)
-    at ? [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)] : [copied, empty_like, empty_like]
+    at ? [byteslice_of(0, at), sep, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)] : [copied, empty_like, empty_like]
   end
 
   def rpartition(sep)
@@ -1600,7 +1602,7 @@ class String
     return [empty_like, empty_like, copied] unless at
 
     at = Primitive.zr_str_char_offset_m(self, at)
-    [byteslice_of(0, at), sep.dup, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)]
+    [byteslice_of(0, at), sep, byteslice_of(at + sep.bytesize, Primitive.zr_str_bytesize(self) - at - sep.bytesize)]
   end
 
   def sum(bits = 16)
