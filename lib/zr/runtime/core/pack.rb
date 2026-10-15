@@ -1096,7 +1096,9 @@ class Array
     # The directives read the elements as the C does, never through a
     # subclass's size or [], and see a conversion that changes the Array.
     # With a buffer, packing starts at its bytes, so `@` counts from its
-    # start, as CRuby packs into it; it keeps its encoding.
+    # start, as CRuby packs into it. It keeps its encoding when a
+    # directive writes arbitrary bytes, else it takes the pack's US-ASCII
+    # or UTF-8.
     unless buffer.nil?
       raise TypeError, "buffer must be String, not #{buffer.class}" unless buffer.is_a?(String)
       Primitive.zr_frozen_error(buffer) if buffer.frozen?
@@ -1106,7 +1108,7 @@ class Array
 
     associates = Packing.associated(result)
     Packing.associate(buffer, associates) if associates
-    encoding = buffer.encoding
+    encoding = result.encoding == Encoding::BINARY ? buffer.encoding : result.encoding
     buffer.replace(result).force_encoding(encoding)
   end
 end

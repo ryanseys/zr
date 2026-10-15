@@ -1,0 +1,19 @@
+["C", "éA", #<Encoding:UTF-8>, true]
+["C", "ab\xE9", #<Encoding:UTF-8>, false]
+["U", "abé", #<Encoding:UTF-8>, true]
+["U", "abé", #<Encoding:UTF-8>, true]
+["UC", "AB", #<Encoding:BINARY (ASCII-8BIT)>, true]
+["CU", "AB", #<Encoding:BINARY (ASCII-8BIT)>, true]
+["U", "a\u0000b\u0000A", #<Encoding:UTF-8>, true]
+["m", "abeA==\n", #<Encoding:US-ASCII>, true]
+["M", "abx=\n", #<Encoding:US-ASCII>, true]
+["u", "ab!>```\n", #<Encoding:US-ASCII>, true]
+["", "ab", #<Encoding:US-ASCII>, true]
+["C", "ab\xC8", #<Encoding:US-ASCII>, false]
+["U", "ab\u0001", #<Encoding:UTF-8>, true]
+["mU", "eA==\n\u0001", #<Encoding:UTF-8>, true]
+["Um", "\u0001eA==\n", #<Encoding:UTF-8>, true]
+["a*", "ab\xC3\xA9", #<Encoding:Windows-1252>, true]
+#<Encoding:UTF-8>
+#<Encoding:US-ASCII>
+#<Encoding:US-ASCII>
