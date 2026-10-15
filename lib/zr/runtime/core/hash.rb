@@ -208,7 +208,7 @@ class Hash
   # have.
   def update_from(other)
     Primitive.attr! :hidden
-    hash = Hash.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Hash")
+    hash = Primitive.zr_convert_type(other, Hash, :to_hash)
     Primitive.zr_hash_foreach(hash) do |k, v|
       if block_given? && Primitive.zr_hash_key_p_m(self, k)
         # rb_hash_update_block_i: the block runs inside the update of the
@@ -268,7 +268,7 @@ class Hash
   def transform_keys(mapping = (none = true; nil))
     return to_enum(:transform_keys) { size } if none && !block_given?
 
-    mapping = Hash.try_convert(mapping) || raise(TypeError, no_implicit_conversion(mapping, "Hash")) unless none
+    mapping = Primitive.zr_convert_type(mapping, Hash, :to_hash) unless none
     out = {}
     Primitive.zr_hash_foreach(self) do |k, v|
       new_key = if mapping && Primitive.zr_hash_key_p_m(mapping, k) then Primitive.zr_hash_fetch_m(mapping, k, nil)
@@ -287,7 +287,7 @@ class Hash
   def transform_keys!(mapping = (none = true; nil))
     return to_enum(:transform_keys!) { size } if none && !block_given?
 
-    mapping = Hash.try_convert(mapping) || raise(TypeError, no_implicit_conversion(mapping, "Hash")) unless none
+    mapping = Primitive.zr_convert_type(mapping, Hash, :to_hash) unless none
     Primitive.zr_frozen_error(self) if frozen?
     moved = {}
     pairs = []
@@ -311,7 +311,7 @@ class Hash
     return self if equal?(other)
     raise RuntimeError, +"can't replace hash during iteration" if Primitive.zr_hash_iterating_p(self)
 
-    hash = Hash.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Hash")
+    hash = Primitive.zr_convert_type(other, Hash, :to_hash)
     Primitive.zr_hash_replace_m(self, hash)
   end
 
@@ -500,9 +500,10 @@ class Hash
     true
   end
 
+  # rb_to_hash_type: to_hash must give a Hash, nil too.
   def hash_operand(other)
     Primitive.attr! :hidden
-    Hash.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Hash")
+    Primitive.zr_convert_type(other, Hash, :to_hash)
   end
 
   def to_proc

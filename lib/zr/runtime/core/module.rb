@@ -404,7 +404,7 @@ class << Module
     Primitive.attr! :hidden
     return name if name.is_a?(Symbol)
 
-    text = String.try_convert(name) or raise TypeError, no_implicit_conversion(name, "String")
+    text = Primitive.zr_convert_type(name, String, :to_str)
     STRING_TO_SYM.bind_call(text) unless text.valid_encoding?
     text
   end

@@ -1303,7 +1303,7 @@ module Kernel
     converted = Hash.try_convert(value)
     return converted if converted
 
-    raise TypeError, "can't convert #{value.class} into Hash"
+    raise TypeError, cant_convert(value, "Hash")
   end
 
   def display(port = $>)

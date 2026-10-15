@@ -636,7 +636,7 @@ class Encoding
     replace = options[:replace]
     return if replace.nil?
 
-    replace = String.try_convert(replace) or raise TypeError, no_implicit_conversion(options[:replace], "String")
+    replace = Primitive.zr_convert_type(replace, String, :to_str)
     raise ArgumentError, "replacement string is broken: #{replace.dump} as #{replace.encoding}" unless replace.valid_encoding?
   end
   private_class_method :check_options
@@ -1155,7 +1155,7 @@ class Encoding
     raise RuntimeError, "string modified" if watched && Primitive.zr_str_bytesize(watched[0]) != watched[1]
     return nil if text.nil?
 
-    String.try_convert(text) || raise(TypeError, no_implicit_conversion(text, "String"))
+    Primitive.zr_convert_type(text, String, :to_str)
   end
   private_class_method :fallback
 
@@ -1247,8 +1247,7 @@ class Encoding
     Primitive.attr! :hidden
     return name if name.is_a?(Encoding)
 
-    text = String.try_convert(name)
-    raise TypeError, no_implicit_conversion(name, "String") if text.nil?
+    text = Primitive.zr_convert_type(name, String, :to_str)
     # rb_to_encoding_index: a name must be in an ASCII-compatible encoding.
     return yield(+"invalid encoding name (non ASCII)") unless text.encoding.ascii_compatible?
     # rb_enc_find_index: a NUL ends the C string, so a name has none.
@@ -1315,8 +1314,7 @@ class Encoding
   # in a wide encoding, a NUL character is.
   def self.c_name(name)
     Primitive.attr! :hidden
-    text = String.try_convert(name)
-    raise TypeError, no_implicit_conversion(name, "String") if text.nil?
+    text = Primitive.zr_convert_type(name, String, :to_str)
 
     bytes = text.b
     if wide?(text.encoding)

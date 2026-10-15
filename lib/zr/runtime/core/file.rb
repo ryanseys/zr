@@ -1197,8 +1197,7 @@ class File < IO
 
         return +"r"
       end
-      string = String.try_convert(mode)
-      raise TypeError, no_implicit_conversion(mode, "String") if string.nil?
+      string = Primitive.zr_convert_type(mode, String, :to_str)
 
       access_mode(string)
     end

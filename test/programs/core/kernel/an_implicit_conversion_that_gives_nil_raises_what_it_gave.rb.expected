@@ -1,0 +1,30 @@
+Array#replace: TypeError: can't convert NilConv into Array (NilConv#to_ary gives nil)
+Array#product: TypeError: can't convert NilConv into Array (NilConv#to_ary gives nil)
+Array#transpose: TypeError: can't convert NilConv into Array (NilConv#to_ary gives nil)
+Array#concat: TypeError: can't convert NilConv into Array (NilConv#to_ary gives nil)
+Array#+: TypeError: can't convert NilConv into Array (NilConv#to_ary gives nil)
+Array#zip: TypeError: wrong argument type NilConv (must respond to :each)
+Array#zip none: []
+Hash#merge!: TypeError: can't convert NilConv into Hash (NilConv#to_hash gives nil)
+Hash#update: TypeError: can't convert NilConv into Hash (NilConv#to_hash gives nil)
+Hash#merge: TypeError: can't convert NilConv into Hash (NilConv#to_hash gives nil)
+Hash#replace: TypeError: can't convert NilConv into Hash (NilConv#to_hash gives nil)
+Hash#transform_keys: TypeError: can't convert NilConv into Hash (NilConv#to_hash gives nil)
+tally_by: TypeError: can't convert NilConv into Hash (NilConv#to_hash gives nil)
+String#+: TypeError: can't convert NilConv into String (NilConv#to_str gives nil)
+String#scrub: TypeError: can't convert NilConv into String (NilConv#to_str gives nil)
+encode replace: TypeError: can't convert NilConv into String (NilConv#to_str gives nil)
+const_get: TypeError: can't convert NilConv into String (NilConv#to_str gives nil)
+Hash(): TypeError: can't convert NilConv into Hash
+Hash(true): TypeError: can't convert true into Hash
+Hash(1): TypeError: can't convert Integer into Hash
+**: TypeError: can't convert NilConv into Hash (NilConv#to_hash gives nil)
+Array(): [nc]
+String(): "nc"
+flatten: [nc]
+splat: [nc]
+multiple assign: [nc, nil]
+no method: TypeError: no implicit conversion of Plain into Hash
+no method ary: TypeError: no implicit conversion of Plain into Array
+wrong ary: TypeError: can't convert Wrong into Array (Wrong#to_ary gives Integer)
+wrong hash: TypeError: can't convert Wrong into Hash (Wrong#to_hash gives String)

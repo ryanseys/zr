@@ -1265,6 +1265,45 @@ module Zr::Kern
     end
   end
 
+  # rb_convert_type: `v` when it is a `klass`, else what its conversion
+  # method `name` (a Symbol) gives, which must be a `klass`: nil too.
+  # Without the method it is "no implicit conversion".
+  #: (value, value, value) -> value
+  def zr_convert_type(v, klass, name)
+    if zr_is_a(v, klass)
+      return v
+    end
+    mid = zr_sym2id(name)
+    out = Machine.slot(8)
+    converted = zr_convert_call(v, mid, out)
+    return converted if converted == QUNDEF
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    if converted == QTRUE
+      got = Machine.value(Machine.load64(out, 0))
+      if zr_is_a(got, klass)
+        return got
+      end
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+      zr_buf_cname(b, v)
+      zr_buf_push(b, Machine.bytes(" into "), 6)
+      zr_buf_str(b, zr_class_path(klass))
+      zr_buf_push(b, Machine.bytes(" ("), 2)
+      zr_buf_cname(b, v)
+      zr_buf_push(b, Machine.bytes("#"), 1)
+      zr_buf_push(b, zr_symbol_name_ptr(mid), zr_symbol_name_len(mid))
+      zr_buf_push(b, Machine.bytes(" gives "), 7)
+      zr_buf_cname(b, got)
+      zr_buf_push(b, Machine.bytes(")"), 1)
+    else
+      zr_buf_push(b, Machine.bytes("no implicit conversion of "), 26)
+      zr_buf_cname(b, v)
+      zr_buf_push(b, Machine.bytes(" into "), 6)
+      zr_buf_str(b, zr_class_path(klass))
+    end
+    zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8))
+  end
+
   # Raises CRuby's rb_cant_convert_invalid_return: the conversion of `obj`
   # into the type named by `tname` (`tlen` bytes) gave `got`, which is no
   # such value. `gives` (`glen` bytes) is "#to_ary gives " for to_ary:

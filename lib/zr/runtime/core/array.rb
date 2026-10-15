@@ -172,7 +172,7 @@ class Array
   end
 
   def +(other)
-    other = Array.try_convert(other) || raise(TypeError, no_implicit_conversion(other, "Array"))
+    other = Primitive.zr_convert_type(other, Array, :to_ary)
     out = Array.new(self)
     i = 0
     while i < other.size
@@ -769,7 +769,7 @@ class Array
   def concat(*others)
     Primitive.zr_frozen_error(self) if frozen?
     pieces = others.map do |o|
-      ary = Array.try_convert(o) || raise(TypeError, no_implicit_conversion(o, "Array"))
+      ary = Primitive.zr_convert_type(o, Array, :to_ary)
       ary.equal?(self) ? ary.dup : ary
     end
     pieces.each { |o| Primitive.zr_ary_splice(self, Primitive.zr_ary_len_m(self), 0, o) }
@@ -845,7 +845,7 @@ class Array
   def replace(other)
     # rb_ary_replace: the frozen check comes before the conversion.
     Primitive.zr_frozen_error(self) if frozen?
-    array = Array.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Array")
+    array = Primitive.zr_convert_type(other, Array, :to_ary)
     replaced(array)
   end
 
@@ -1304,7 +1304,7 @@ class Array
     i = 0
     while i < others.size
       other = others[i]
-      arrays << (Array.try_convert(other) or raise TypeError, no_implicit_conversion(other, "Array"))
+      arrays << Primitive.zr_convert_type(other, Array, :to_ary)
       i += 1
     end
     total = 1
@@ -1355,7 +1355,7 @@ class Array
     return [] if (Primitive.zr_ary_len_m(self) == 0)
 
     rows = map do |row|
-      Array.try_convert(row) or raise TypeError, no_implicit_conversion(row, "Array")
+      Primitive.zr_convert_type(row, Array, :to_ary)
     end
     n = rows[0].size
     rows.each { |row| raise IndexError, "element size differs (#{row.size} should be #{n})" if row.size != n }
@@ -1783,9 +1783,12 @@ class Array
   def zip_column(other, n)
     Primitive.attr! :hidden
     Primitive.attr! :sends_each
-    return other if other.is_a?(Array)
-    return other.to_ary if other.respond_to?(:to_ary)
+    # take_items: rb_check_array_type, so a to_ary that gives nil walks
+    # the value with each.
+    array = Array.try_convert(other)
+    return array if array
     return [] if n == 0
+
     raise TypeError, "wrong argument type #{other.class} (must respond to :each)" unless other.respond_to?(:each)
 
     out = []

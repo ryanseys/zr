@@ -170,7 +170,7 @@ class IO
     given = options[:open_args]
     return File.open(path, mode, **options, &block) if given.nil?
 
-    args = Array.try_convert(given) or raise TypeError, no_implicit_conversion(given, "Array")
+    args = Primitive.zr_convert_type(given, Array, :to_ary)
     keywords = args.last.is_a?(Hash) ? args.last : {}
     positional = keywords.empty? && !args.last.is_a?(Hash) ? args : args[0...-1]
     raise ArgumentError, wrong_arity(positional.size + 1, 1..3) if positional.size > 2
@@ -248,8 +248,7 @@ class IO
     if mode.is_a?(Integer)
       text = File.send(:open_mode, mode)
     elsif !mode.nil?
-      string = String.try_convert(mode)
-      raise TypeError, no_implicit_conversion(mode, "String") if string.nil?
+      string = Primitive.zr_convert_type(mode, String, :to_str)
 
       head, tail = string.split(":", 2)
       text = access_mode(string)

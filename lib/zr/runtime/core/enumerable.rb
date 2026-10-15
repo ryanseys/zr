@@ -617,7 +617,7 @@ module Enumerable
   # enum_tally: a given Hash, nil included, must convert.
   def tally(counts = (none = true; nil))
     unless none
-      counts = Hash.try_convert(counts) || raise(TypeError, no_implicit_conversion(counts, "Hash"))
+      counts = Primitive.zr_convert_type(counts, Hash, :to_hash)
       Primitive.zr_frozen_error(counts) if counts.frozen?
 
       Primitive.zr_enum_each(self, nil) do |x|

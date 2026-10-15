@@ -47,8 +47,7 @@ stream = Class.new do
       return
     end
 
-    text = String.try_convert(ext)
-    raise TypeError, no_implicit_conversion(ext, "String") if text.nil?
+    text = Primitive.zr_convert_type(ext, String, :to_str)
     # StringValueCStr: a NUL character, which in UTF-16 or UTF-32 is not
     # a NUL byte alone.
     nul = Encoding.wide?(text.encoding) ? text.each_char.any? { |c| c.ord.zero? } : text.b.include?("\0")

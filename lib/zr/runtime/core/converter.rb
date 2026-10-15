@@ -685,8 +685,7 @@ class Encoding
 
     def self.string_of(value)
       Primitive.attr! :hidden
-      text = String.try_convert(value)
-      raise TypeError, no_implicit_conversion(value, "String") if text.nil?
+      text = Primitive.zr_convert_type(value, String, :to_str)
 
       text
     end

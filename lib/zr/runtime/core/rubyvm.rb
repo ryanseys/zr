@@ -184,7 +184,7 @@ class RubyVM
       alias new compile
 
       def compile_file(file, options = nil)
-        file = String.try_convert(file) || raise(TypeError, no_implicit_conversion(file, "String"))
+        file = Primitive.zr_convert_type(file, String, :to_str)
         source = begin
           File.read(file)
         rescue SystemCallError => e

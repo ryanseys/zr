@@ -949,15 +949,14 @@ module Process
     if first
       raise ArgumentError, +"wrong first argument" unless first.size == 2
 
-      first = first.map { |part| String.try_convert(part) or raise TypeError, no_implicit_conversion(part, "String") }
+      first = first.map { |part| Primitive.zr_convert_type(part, String, :to_str) }
       raise ArgumentError, +"string contains null byte" if first[1].include?("\0")
 
       args = [[first[0]]] + args.drop(1)
     end
     words = args.size == 1 ? shell_words(args.first) : args.map { |arg| arg.is_a?(Array) ? arg.first : arg }
     words = words.map do |word|
-      string = String.try_convert(word)
-      raise TypeError, no_implicit_conversion(word, "String") if string.nil?
+      string = Primitive.zr_convert_type(word, String, :to_str)
 
       string
     end
@@ -971,8 +970,7 @@ module Process
   # valid in its encoding, as rb_exec_fillarg reads it.
   def self.script_text(command)
     Primitive.attr! :hidden
-    text = String.try_convert(command)
-    raise TypeError, no_implicit_conversion(command, "String") if text.nil?
+    text = Primitive.zr_convert_type(command, String, :to_str)
 
     text.valid_encoding? ? text : text.b
   end
@@ -1026,14 +1024,14 @@ module Process
 
     table = options[:unsetenv_others] ? {} : ENV.to_h
     env&.each do |key, value|
-      key = String.try_convert(key) || raise(TypeError, no_implicit_conversion(key, "String"))
+      key = Primitive.zr_convert_type(key, String, :to_str)
       # check_exec_env: no = in a name, and no NUL in a name or a value.
       raise ArgumentError, +"string contains null byte" if key.include?("\0")
       raise ArgumentError, "environment name contains a equal : #{key}" if key.include?("=")
       if value.nil?
         table.delete(key)
       else
-        table[key] = String.try_convert(value) or raise TypeError, no_implicit_conversion(value, "String")
+        table[key] = Primitive.zr_convert_type(value, String, :to_str)
         raise ArgumentError, +"string contains null byte" if table[key].include?("\0")
       end
     end

@@ -2468,7 +2468,7 @@ class String
   # receiver's encoding, or plain ASCII where ASCII is one byte.
   def scrub_replacement(text, encoding)
     Primitive.attr! :hidden
-    text = String.try_convert(text) || raise(TypeError, no_implicit_conversion(text, "String"))
+    text = Primitive.zr_convert_type(text, String, :to_str)
     raise ArgumentError, "replacement must be valid byte sequence '#{text.inspect}'" unless text.valid_encoding?
     unless text.ascii_only? ? !Encoding.wide?(encoding) : text.encoding.equal?(encoding)
       raise Encoding::CompatibilityError, "incompatible character encodings: #{Encoding.shown(encoding)} and #{Encoding.shown(text.encoding)}"

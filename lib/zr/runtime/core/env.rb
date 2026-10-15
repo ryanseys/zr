@@ -212,7 +212,7 @@ class << ENV
 
   def update(*others)
     others.each do |given|
-      other = Hash.try_convert(given) or raise TypeError, no_implicit_conversion(given, "Hash")
+      other = Primitive.zr_convert_type(given, Hash, :to_hash)
       other.each do |k, v|
         k = variable_name(k)
         self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
@@ -285,7 +285,7 @@ class << ENV
   # The names that the Hash gives are set, each checked as it is. Every
   # other name is removed, as env_replace leaves the environment.
   def replace(given)
-    hash = Hash.try_convert(given) or raise TypeError, no_implicit_conversion(given, "Hash")
+    hash = Primitive.zr_convert_type(given, Hash, :to_hash)
     names = keys
     hash.each do |name, value|
       self[name] = value
