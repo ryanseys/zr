@@ -1574,6 +1574,10 @@ class Fiber
     # the value it was handed, or the kill or the exception left for it.
     def take_action(value)
       Primitive.attr! :hidden
+      # fiber_check_killed: a killed main fiber ends the program as soon
+      # as control comes back to it.
+      return Primitive.zr_fiber_kill_main if Primitive.zr_hidden_get(current, :__killed__)
+
       action = Primitive.zr_hidden_get(current, :__action__)
       return value if action.nil?
 
@@ -1594,11 +1598,9 @@ class Fiber
     # the thread.
     thread = Thread.current
     thread.send(:kill_here) if thread.send(:root?, self) && !thread.equal?(Thread.main)
-    # The main thread's own fiber has no tag: it ignores its own kill,
-    # and another thread's resume of it is refused.
-    tag = Primitive.zr_hidden_get(self, :__kill__)
-    return self if tag.nil? && thread.send(:root?, self)
+    return kill_main if Thread.main.send(:root?, self)
 
+    tag = Primitive.zr_hidden_get(self, :__kill__)
     if equal?(Fiber.current)
       Kernel.throw(tag)
     else
@@ -1668,6 +1670,23 @@ class Fiber
   # fiber_raise: the action reaches the fiber this one resumed, if any;
   # the current fiber raises it, a fiber that transferred away is
   # transferred to, and one that yielded is resumed.
+  # The kill of the program's main fiber marks it first, as
+  # rb_fiber_m_kill does, so a second kill does nothing. Killing itself
+  # ends the program. A fiber it resumed raises an empty RuntimeError (the
+  # kill's nil error, raised into the fiber that runs), and another
+  # thread's kill is refused, as a resume of it is; either way the
+  # program ends as control comes back to the main fiber.
+  def kill_main
+    Primitive.attr! :hidden
+    return false if Primitive.zr_hidden_get(self, :__killed__)
+
+    Primitive.zr_hidden_set(self, :__killed__, true)
+    return Primitive.zr_fiber_kill_main if equal?(Fiber.current)
+    raise FiberError, +"attempt to resume a transferring fiber" unless Thread.current.equal?(Thread.main)
+
+    Kernel.raise RuntimeError, +""
+  end
+
   def deliver(action)
     Primitive.attr! :hidden
     return Kernel.raise(action) if equal?(Fiber.current)

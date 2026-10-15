@@ -656,10 +656,25 @@ end
   def zr_ensure_take(out)
     t = zr_task()
     top = Task[t].top
-    if Task[t].pending_kind == PENDING_FATAL && top != 0 && !zr_meta_native_p(Frame[top].meta)
+    # The kill of the main fiber has no exception to raise, so it stays
+    # fatal.
+    if Task[t].pending_kind == PENDING_FATAL && top != 0 && !zr_meta_native_p(Frame[top].meta) && !zr_special_p(Task[t].pending)
       Task[t].pending_kind = PENDING_RAISE
     end
     zr_signal_take(out)
+  end
+
+  # Fiber#kill of the main thread's root fiber (fiber_check_killed): a
+  # fatal unwind whose error is no exception but RUBY_FATAL_FIBER_KILLED,
+  # the Integer 2. No rescue stops it, each ensure clause runs, and the
+  # program ends with status 1 after its exit handlers, which see it as
+  # `$!`.
+  #: () -> value
+  def zr_fiber_kill_main
+    t = zr_task()
+    Task[t].pending = zr_fix(2)
+    Task[t].pending_kind = PENDING_FATAL
+    Machine.value(QUNDEF)
   end
 
   #: (value, ptr) -> value
@@ -1195,6 +1210,18 @@ end
   # circular cause, so the loop always ends.
   #: (value, value) -> void
   def zr_error_print_upto(exc, stop)
+    # An error that is no exception (a killed main fiber's Integer) has
+    # no message: error_print names the main file and the class.
+    if zr_special_p(exc)
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_str(b, zr_global(G_ARGV0))
+      zr_buf_push(b, Machine.bytes(": "), 2)
+      zr_buf_class(b, zr_class_of(exc))
+      zr_buf_byte(b, 10)
+      zr_write_stderr(zr_buf_take(b))
+      return
+    end
     # Exception#uncaught_report writes as rb_error_write does. The frames
     # below are for a runtime that cannot run it yet.
     arg = Machine.slot(8)
