@@ -32,8 +32,11 @@ end
 
 # Builds the runtime for the targets that the Ruby expression names. The
 # build starts with zr's collector limits, which ruby reads only at start.
+# It prints each phase and its seconds as it goes (ZR_TIMING=0 stops it),
+# so a slow build shows where its time goes.
 def build!(targets)
   Zr::GcTuning.now
+  ENV["ZR_TIMING"] ||= "1"
   ruby!("-I#{ROOT}/lib:#{ROOT}/test", "-e", %(require "support/built"; Zr::Test::Built.build(#{targets})))
 end
 
