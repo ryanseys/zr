@@ -499,10 +499,15 @@ module Packing
         size, _, order = INTEGERS.fetch(c)
         big = order == :big if order
         n = count == :all ? Primitive.zr_ary_len_m(items) - at : (count || 1)
-        raise ArgumentError, +"too few arguments" if at + n > Primitive.zr_ary_len_m(items)
+        # pack_pack converts each element as it comes to it, so a bad one
+        # raises before the elements run out.
+        here = Primitive.zr_ary_len_m(items) - at
+        done = Primitive.zr_pack_ints(out, items, at, n < here ? n : here, size, big == true)
+        ((at + done)...(at + n)).each do |i|
+          raise ArgumentError, +"too few arguments" if i >= Primitive.zr_ary_len_m(items)
 
-        done = Primitive.zr_pack_ints(out, items, at, n, size, big == true)
-        ((at + done)...(at + n)).each { |i| push_integer(out, integer_item(Primitive.zr_ary_at_m(items, i)), size, big) }
+          push_integer(out, integer_item(Primitive.zr_ary_at_m(items, i)), size, big)
+        end
         at += n
       end
     end
