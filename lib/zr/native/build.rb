@@ -548,7 +548,7 @@ module Zr
         key = Digest::SHA256.hexdigest("#{runtime.digest}\n#{support&.key}\n#{pending.inspect}")
         path = Cache::Store.path(:wasm, key)
         preludes = Session.current.memo(:wasm_preludes) { {} } #: Hash[String, Backend::Wasm::Codegen::Prelude | false]
-        kept = preludes[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
+        kept = preludes[path] ||= File.exist?(path) && Marshal.load(File.binread(path)).tap { wasm_root(runtime, path, support) }
         return kept if kept
 
         functions, leaves = wasm_inlined(runtime)
@@ -568,7 +568,19 @@ module Zr
           Backend::Wasm.prelude(functions, data, pending: pending) { |all, codegen| prepared_bodies(all, codegen, Cache::Code.wasm("prelude")) }
         end
         Timing.phase("writing #{what}", "#{what} written") { Cache::Store.write_file(path, Marshal.dump(pre)) }
+        wasm_root(runtime, path, support)
         preludes[path] = pre
+      end
+
+      # Names the store entries that a wasm program reads, so no eviction
+      # removes them: its prelude, and the body packs that the next prelude
+      # takes its bodies from. A prelude with eval support and one without
+      # each have a root.
+      #: (Runtime runtime, String path, EvalSupport? support) -> void
+      def wasm_root(runtime, path, support)
+        Cache::Store.root("#{runtime.target.triple}-prelude-#{support ? "eval" : "plain"}", [path, Cache::Code.dir(:wasm32)])
+      rescue SystemCallError, SourceChanged
+        nil # a root that is not written protects less; the build goes on
       end
 
       # The runtime's functions for a wasm prelude, inlined once for each

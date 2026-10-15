@@ -158,6 +158,23 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # The janitor keeps what a wasm program reads: its prelude, and the body
+  # packs that the next prelude takes its bodies from.
+  def test_a_wasm_prelude_roots_itself_and_the_body_packs
+    Dir.mktmpdir("zr-wasm-root-") do |dir|
+      with_env("ZR_CACHE" => dir) do
+        runtime = Data.define(:target).new(Zr::Target::WASM32_WASI)
+        path = Zr::Cache::Store.path(:wasm, "0" * 64)
+
+        Zr::Native::Build.wasm_root(runtime, path, nil)
+
+        rooted = Zr::Cache::Store.rooted_paths(prefix: "wasm32-wasi-prelude-plain")
+        assert_includes rooted, path
+        assert_includes rooted, Zr::Cache::Code.dir(:wasm32)
+      end
+    end
+  end
+
   # A body only reads the type section that the layout made, so another
   # process can emit it. A type that the layout did not add raises at
   # once: in a worker, it would be lost.
