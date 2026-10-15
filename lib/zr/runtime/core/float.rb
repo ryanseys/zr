@@ -28,21 +28,28 @@ class Float
   def positive? = self > 0.0
   def negative? = self < 0.0
   # A negative count of digits rounds the Integer the value becomes.
-  def floor(digits = 0)
+  def floor(digits = 0) = floored(digits)
+  def ceil(digits = 0) = ceiled(digits)
+
+  # flo_truncate calls flo_floor or flo_ceil in C: no frame of either.
+  def truncate(digits = 0) = self > 0 ? floored(digits) : ceiled(digits)
+
+  def floored(digits)
+    Primitive.attr! :hidden
     digits = Primitive.zr_index_operand_m(digits)
     return Primitive.zr_flo_floor_m(self, 0).floor(digits) if digits < 0
 
     Primitive.zr_flo_floor_m(self, digits) || exactly(digits, :floor)
   end
 
-  def ceil(digits = 0)
+  def ceiled(digits)
+    Primitive.attr! :hidden
     digits = Primitive.zr_index_operand_m(digits)
     return Primitive.zr_flo_ceil_m(self, 0).ceil(digits) if digits < 0
 
     Primitive.zr_flo_ceil_m(self, digits) || exactly(digits, :ceil)
   end
-
-  def truncate(digits = 0) = self > 0 ? floor(digits) : ceil(digits)
+  private :floored, :ceiled
   def fdiv(other) = self / other
 
   # flo_quo: `/` under a guard, as num_funcall1 sends it, so a `/` that

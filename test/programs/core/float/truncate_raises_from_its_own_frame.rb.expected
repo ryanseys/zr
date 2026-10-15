@@ -1,0 +1,9 @@
+[FloatDomainError, "Infinity", ["Float#truncate", "block in <main>"]]
+[FloatDomainError, "-Infinity", ["Float#truncate", "block in <main>"]]
+[FloatDomainError, "Infinity", ["Float#floor", "block in <main>"]]
+[TypeError, "no implicit conversion of String into Integer", ["Float#truncate", "block in <main>"]]
+1.7
+-1.7
+1
+-1
+10
