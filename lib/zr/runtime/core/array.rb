@@ -451,12 +451,13 @@ class Array
   end
 
   # rb_ary_union_multi: arrays that are short together are merged by
-  # rb_eql, and longer ones through a Hash.
+  # rb_eql, and longer ones through one Set.
   def union(*others)
     others = others.map { |other| ary_operand(other) }
     if others.sum(Primitive.zr_ary_len_m(self)) { |o| Primitive.zr_ary_len_m(o) } > SMALL_ARRAY_LEN
-      out = unique
-      others.each { |other| out |= other }
+      out = []
+      seen = Array.send(:union_set, {}, self, out)
+      others.each { |other| Array.send(:union_set, seen, other, out) }
       return out
     end
 
@@ -472,13 +473,13 @@ class Array
     long = Primitive.zr_ary_len_m(self) > SMALL_ARRAY_LEN
     tables = others.map do |other|
       other = ary_operand(other)
-      long && Primitive.zr_ary_len_m(other) > SMALL_ARRAY_LEN ? other.to_h { |x| [x, true] } : other
+      long && Primitive.zr_ary_len_m(other) > SMALL_ARRAY_LEN ? Array.send(:union_set, {}, other) : other
     end
     out = []
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       x = Primitive.zr_ary_aref1_m(self, i)
-      found = tables.any? { |table| table.is_a?(Hash) ? table.key?(x) : Array.send(:includes_by_eql, table, x) }
+      found = tables.any? { |table| table.is_a?(Hash) ? Primitive.zr_hash_set_lookup_m(table, x) : Array.send(:includes_by_eql, table, x) }
       out << x unless found
       i += 1
     end
@@ -501,15 +502,10 @@ class Array
       return false
     end
     shorter, longer = Primitive.zr_ary_len_m(self) > Primitive.zr_ary_len_m(other) ? [other, self] : [self, other]
-    table = {}
-    i = 0
-    while i < Primitive.zr_ary_len_m(shorter)
-      table[Primitive.zr_ary_aref1_m(shorter, i)] = true
-      i += 1
-    end
+    table = Array.send(:union_set, {}, shorter)
     i = 0
     while i < Primitive.zr_ary_len_m(longer)
-      return true if table.key?(Primitive.zr_ary_aref1_m(longer, i))
+      return true if Primitive.zr_hash_set_lookup_m(table, Primitive.zr_ary_aref1_m(longer, i))
 
       i += 1
     end
@@ -656,20 +652,23 @@ class Array
   def uniq(&block) = unique(&block)
 
   # rb_ary_uniq, which uniq!, union and & call as a function.
+  # rb_ary_uniq: one or no element is a copy, with no call of the block;
+  # any more go into a Set, by the block's keys when one is given.
   def unique
     Primitive.attr! :hidden
-    return Array.new(self) if Primitive.zr_ary_len_m(self) <= 1 && !block_given?
+    return Array.new(self) if Primitive.zr_ary_len_m(self) <= 1
+    unless block_given?
+      out = []
+      Array.send(:union_set, {}, self, out)
+      return out
+    end
 
     seen = {}
     out = []
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       x = Primitive.zr_ary_aref1_m(self, i)
-      key = block_given? ? yield(x) : x
-      unless seen.key?(key)
-        seen[key] = true
-        out << x
-      end
+      out << x if Primitive.zr_hash_add_new_m(seen, yield(x), true)
       i += 1
     end
     out
@@ -1159,14 +1158,11 @@ class Array
     other = ary_operand(other)
     out = []
     small = Primitive.zr_ary_len_m(self) <= SMALL_ARRAY_LEN || Primitive.zr_ary_len_m(other) <= SMALL_ARRAY_LEN
-    unless small
-      members = {}
-      other.each { |x| members[x] = true }
-    end
+    members = Array.send(:union_set, {}, other) unless small
     i = 0
     while i < Primitive.zr_ary_len_m(self)
       x = Primitive.zr_ary_aref1_m(self, i)
-      out << x unless small ? Array.send(:includes_by_eql, other, x) : members.key?(x)
+      out << x unless small ? Array.send(:includes_by_eql, other, x) : Primitive.zr_hash_set_lookup_m(members, x)
       i += 1
     end
     out
@@ -1188,9 +1184,16 @@ class Array
       end
       return out
     end
-    members = {}
-    other.each { |x| members[x] = true }
-    unique.select { |x| members.key?(x) }
+    # Each element found is taken out of the Set, so it is kept once.
+    members = Array.send(:union_set, {}, other)
+    out = []
+    i = 0
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
+      out << x if Primitive.zr_hash_set_delete_m(members, x)
+      i += 1
+    end
+    out
   end
 
   # CRuby's SMALL_ARRAY_LEN: up to this length, a set operation walks
@@ -1211,6 +1214,22 @@ class Array
   end
   private_class_method :includes_by_eql
 
+  # rb_ary_union_set: the elements of `ary` that `set` (a Hash standing in
+  # for ruby's hidden Set) does not hold yet go in, each hashed once, and
+  # onto `out` when one is given.
+  def self.union_set(set, ary, out = nil)
+    Primitive.attr! :hidden
+    i = 0
+    while i < Primitive.zr_ary_len_m(ary)
+      x = Primitive.zr_ary_aref1_m(ary, i)
+      added = Primitive.zr_hash_add_new_m(set, x, true)
+      out << x if added && out
+      i += 1
+    end
+    set
+  end
+  private_class_method :union_set
+
   # rb_ary_union: each element of `ary` that `out` does not hold yet.
   def self.merge_by_eql(out, ary)
     Primitive.attr! :hidden
@@ -1228,7 +1247,12 @@ class Array
   # through a Hash.
   def |(other)
     other = ary_operand(other)
-    return Array.new(self).concat(other).uniq if Primitive.zr_ary_len_m(self) + Primitive.zr_ary_len_m(other) > SMALL_ARRAY_LEN
+    if Primitive.zr_ary_len_m(self) + Primitive.zr_ary_len_m(other) > SMALL_ARRAY_LEN
+      out = []
+      seen = Array.send(:union_set, {}, self, out)
+      Array.send(:union_set, seen, other, out)
+      return out
+    end
 
     out = []
     Array.send(:merge_by_eql, out, self)

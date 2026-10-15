@@ -1663,6 +1663,61 @@ module Zr::Kern
     zr_hash_aset(h, 2, slot, Machine.value(QNIL), Machine.value(QNIL))
   end
 
+  # rb_set_add_no_check, for a Hash that stands in for ruby's hidden Set:
+  # adds `key` as it is (no frozen copy of a String) when the Hash does
+  # not hold it, with one call of the key's `hash`. True when it added.
+  #: (value, value, value) -> value
+  def zr_hash_add_new_m(h, key, value)
+    slot = Machine.slot(8)
+    unless zr_key_hash(h, key, slot)
+      return Machine.value(QUNDEF)
+    end
+    code = Machine.load64(slot, 0)
+    e = zr_hash_find(h, key, code)
+    if e == HASH_RAISED
+      return Machine.value(QUNDEF)
+    end
+    if e != 0
+      return Machine.value(QFALSE)
+    end
+    zr_hash_append(h, key, code, value)
+    Machine.value(QTRUE)
+  end
+
+  # set_lookup and set_delete of that Set: unlike a Hash's lookup, they
+  # call the key's `hash` also when the set is empty.
+  #: (value, value) -> ptr
+  def zr_hash_set_entry(h, key)
+    code = Machine.slot(8)
+    unless zr_key_hash(h, key, code)
+      return Machine.ptr(HASH_RAISED)
+    end
+    zr_hash_find(h, key, Machine.load64(code, 0))
+  end
+
+  #: (value, value) -> value
+  def zr_hash_set_lookup_m(h, key)
+    e = zr_hash_set_entry(h, key)
+    if e == HASH_RAISED
+      return Machine.value(QUNDEF)
+    end
+    zr_bool(e != 0)
+  end
+
+  # True when the key was in the set, which no longer holds it.
+  #: (value, value) -> value
+  def zr_hash_set_delete_m(h, key)
+    e = zr_hash_set_entry(h, key)
+    if e == HASH_RAISED
+      return Machine.value(QUNDEF)
+    end
+    if e == 0
+      return Machine.value(QFALSE)
+    end
+    zr_hash_remove(h, e)
+    Machine.value(QTRUE)
+  end
+
   #: (value, value) -> value
   def zr_hash_key_p_m(h, key)
     slot = Machine.slot(8)
