@@ -40,9 +40,12 @@ module Zr
         # @rbs @shims: Array[String]
         # @rbs @index: Hash[String, Integer]
         # @rbs @types: Array[signature]
+        # @rbs @type_at: Hash[signature, Integer]
         # @rbs @data_at: Hash[String, Integer]
         # @rbs @data_end: Integer
         # @rbs @table: Array[String]
+        # @rbs @table_at: Hash[String, Integer]
+        # @rbs @import_named: Hash[String, Import]
         # @rbs @promised: promised
         # @rbs @function_named: Hash[String, IR::Function]?
 
@@ -224,15 +227,16 @@ module Zr
             missing = pre.pending[:functions] - @functions.map(&:name)
             raise Refused, "the prelude waits for #{missing.join(", ")}" unless missing.empty?
 
-            first = pre.pending[:functions]
-            @functions = @functions.sort_by.with_index { |f, i| [first.index(f.name) || first.size, i] }
+            first = rank(pre.pending[:functions])
+            @functions = @functions.sort_by.with_index { |f, i| [first.fetch(f.name, first.size), i] }
           end
           # Initialized data comes before bss, so the written bytes are one
           # run, not one segment between each pair of zero objects.
-          first = pre ? pre.pending[:data].keys : [] #: Array[String]
-          @data = @data.sort_by.with_index { |d, i| [first.index(d.name) || first.size, d.section == :bss ? 1 : 0, i] }
+          first = rank(pre ? pre.pending[:data].keys : [])
+          @data = @data.sort_by.with_index { |d, i| [first.fetch(d.name, first.size), d.section == :bss ? 1 : 0, i] }
           @functions.each { |f| @index[f.name] = @index.size }
           @types = pre ? pre.types.dup : []
+          @type_at = rank(@types)
           place_data(pre ? pre.data_end : DATA_BASE, pre ? pre.data_at.dup : {})
           pre&.pending&.[](:data)&.each do |name, at|
             raise Refused, "#{name} is at #{@data_at[name].inspect}, not the #{at} the prelude promised" unless @data_at[name] == at
@@ -254,6 +258,15 @@ module Zr
           named = @data.flat_map { |d| d.relocs.map(&:symbol) }.select { |name| @index.key?(name) }
           table = pre ? pre.table : [] #: Array[String]
           @table = (table + taken + named).uniq
+          # A function address is its table index, from 1, so it is never zero.
+          @table_at = @table.each_with_index.to_h { |name, i| [name, i + 1] }
+          @import_named = @imports.to_h { |import| [import.name, import] }
+        end
+
+        # The position of each item of `items`: the first, when one repeats.
+        #: [T] (Array[T] items) -> Hash[T, Integer]
+        def rank(items)
+          items.each_with_index.with_object({}) { |(item, i), at| at[item] ||= i }
         end
 
         # The module's own imports, then each import that its functions
@@ -309,7 +322,7 @@ module Zr
 
         #: (signature t) -> Integer
         def type_index(t)
-          @types.index(t) || (@types << t).size - 1
+          @type_at[t] ||= (@types << t).size - 1
         end
 
         #: (String name) -> Integer
@@ -329,13 +342,13 @@ module Zr
           f = named[name]
           return signature(f) if f
 
-          @imports.find { |import| import.name == name }&.then { |import| [import.params, import.results] }
+          @import_named[name]&.signature
         end
 
         # The table index that represents the address of `name`.
         #: (String name) -> Integer
         def table_index(name)
-          (@table.index(name) or raise "#{name} is not in the table") + 1
+          @table_at.fetch(name) { raise "#{name} is not in the table" }
         end
 
         # The wasm type of an IR signature.

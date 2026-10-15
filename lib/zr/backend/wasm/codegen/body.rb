@@ -1,4 +1,8 @@
+# encoding: ascii-8bit
 # frozen_string_literal: true
+
+# The String literals here are wasm bytes. The binary source encoding makes
+# each one a frozen binary String, so a write of one allocates nothing.
 
 require_relative "../../../bytes"
 require_relative "../../../config"
@@ -14,6 +18,7 @@ module Zr
           # @rbs @m: Codegen
           # @rbs @f: IR::Function
           # @rbs @local: Hash[String, Integer]
+          # @rbs @at: Hash[String, Integer]
           # @rbs @types: IR::Types
           # @rbs @type: Hash[String, String?]
           # @rbs @code: String
@@ -46,7 +51,7 @@ module Zr
             @local = {}
             @types = IR::Types.new(f)
             @type = {}
-            @code = +"".b
+            @code = +""
           end
 
           #: () -> String
@@ -54,7 +59,7 @@ module Zr
             assign
             prologue
             dispatch
-            @code << "\x0B".b
+            @code << "\x0B"
             locals = @locals.chunk_while { |a, b| a == b }.map { |run| Bytes.leb(run.size) + run.first.chr }
             @m.vec_bytes(@m.vec(locals) + @code)
           end
@@ -71,6 +76,8 @@ module Zr
             # The IR gives the type of every value (`IR::Types`), so this
             # backend and the other backends read each value as the same type.
             @type = @types.all
+            @at = {}
+            @f.blocks.each_with_index { |b, k| @at[b.name] = k }
             @f.blocks.first.params.each do |v, _|
               @local[v] = n
               n += 1
@@ -128,28 +135,28 @@ module Zr
           def divide(i)
             a, b = i.args
             wide = wide?(a)
-            type = wide ? "\x7E".b : "\x7F".b
-            zero = wide ? "\x42\x00".b : "\x41\x00".b
+            type = wide ? "\x7E" : "\x7F"
+            zero = wide ? "\x42\x00" : "\x41\x00"
             table = ops(a)
             get(b)
-            @code << (wide ? "\x50".b : "\x45".b) << "\x04".b << type
+            @code << (wide ? "\x50" : "\x45") << "\x04" << type
             if %i[urem srem].include?(i.op)
               get(a)
             else
               @code << zero
             end
-            @code << "\x05".b
+            @code << "\x05"
             if i.op == :sdiv
               get(b)
-              @code << (wide ? "\x42\x7F".b : "\x41\x7F".b) << table.fetch(:eq).chr << "\x04".b << type << zero
+              @code << (wide ? "\x42\x7F" : "\x41\x7F") << table.fetch(:eq).chr << "\x04" << type << zero
               get(a)
-              @code << table.fetch(:sub).chr << "\x05".b
+              @code << table.fetch(:sub).chr << "\x05"
             end
             get(a)
             get(b)
             @code << table.fetch(DIVIDE_OPS[i.op]).chr
-            @code << "\x0B".b if i.op == :sdiv
-            @code << "\x0B".b
+            @code << "\x0B" if i.op == :sdiv
+            @code << "\x0B"
             set(i.results[0])
           end
 
@@ -163,7 +170,7 @@ module Zr
             i = @const[v]
             return constant(i) if i
 
-            @code << "\x20".b << Bytes.leb(@local.fetch(v))
+            @code << "\x20" << leb(@local.fetch(v))
           end
 
           # The instructions whose value is a constant or comes from the frame
@@ -183,8 +190,9 @@ module Zr
           FBINOP_OPCODES = { fadd: 0xA0, fsub: 0xA1, fmul: 0xA2, fdiv: 0xA3 }.freeze #: Hash[IR::op, Integer]
           FUNOP_OPCODES = { fabs: 0x99, fneg: 0x9A, ceil: 0x9B, floor: 0x9C, trunc: 0x9D, nearest: 0x9E, sqrt: 0x9F }.freeze #: Hash[IR::op, Integer]
 
-          # The load opcode and its alignment of each type.
-          LOAD_OPCODES = { "i64" => "\x29\x03".b, "i32" => "\x28\x02".b, "i8" => "\x2D\x00".b, "f64" => "\x2B\x03".b }.freeze #: Hash[String, String]
+          # The load and store opcodes and their alignment of each type.
+          LOAD_OPCODES = { "i64" => "\x29\x03", "i32" => "\x28\x02", "i8" => "\x2D\x00", "f64" => "\x2B\x03" }.freeze #: Hash[String, String]
+          STORE_OPCODES = { "i64" => "\x37\x03", "i32" => "\x36\x02", "i8" => "\x3A\x00", "f64" => "\x39\x03" }.freeze #: Hash[String, String]
 
           # The opcodes of `emit_bswap` (const, and, or, shl, shr, rotl) and
           # its mask and shift steps, for a wide and for a narrow type.
@@ -201,33 +209,41 @@ module Zr
               n = i.args[0]
               n -= 1 << 64 if i.type == "i64" && n >= 1 << 63
               n -= 1 << 32 if i.type != "i64" && n >= 1 << 31
-              @code << (i.type == "i64" ? "\x42".b : "\x41".b) << Bytes.sleb(n)
+              @code << (i.type == "i64" ? "\x42" : "\x41") << Bytes.sleb(n)
             when :symbol_value
-              @code << "\x42".b << Bytes.sleb(@m.data_address(global(i.args[0]).symbol))
+              @code << "\x42" << Bytes.sleb(@m.data_address(global(i.args[0]).symbol))
             when :func_addr
-              @code << "\x42".b << Bytes.sleb(@m.table_index(callee(i.args[0]).symbol))
+              @code << "\x42" << Bytes.sleb(@m.table_index(callee(i.args[0]).symbol))
             when :stack_addr
-              @code << "\x20".b << Bytes.leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A".b << "\xAD".b
+              @code << "\x20" << leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A" << "\xAD"
             end
           end
 
+          # The LEB128 form of each number below 128 is its one byte. The local,
+          # label and offset numbers of a body are almost all that small, so most
+          # writes take a frozen String from this table and allocate nothing.
+          SMALL_LEB = Array.new(128) { it.chr.freeze }.freeze #: Array[String]
+
+          #: (Integer n) -> String
+          def leb(n) = n < 128 ? SMALL_LEB[n] : Bytes.leb(n)
+
           #: (String v) -> void
           def set(v)
-            @code << "\x21".b << Bytes.leb(@local.fetch(v))
+            @code << "\x21" << leb(@local.fetch(v))
           end
 
           # The frame: global 0 is the stack pointer. It is saved in the
           # frame base local and incremented past the slots.
           #: () -> void
           def prologue
-            @code << "\x23\x00".b << "\x22".b << Bytes.leb(@fp)
-            @code << @m.i32c(@frame) << "\x6A".b << "\x24\x00".b
-            @code << @m.i32c(0) << "\x21".b << Bytes.leb(@bb)
+            @code << "\x23\x00" << "\x22" << leb(@fp)
+            @code << @m.i32c(@frame) << "\x6A" << "\x24\x00"
+            @code << @m.i32c(0) << "\x21" << leb(@bb)
           end
 
           #: () -> void
           def epilogue
-            @code << "\x20".b << Bytes.leb(@fp) << "\x24\x00".b
+            @code << "\x20" << leb(@fp) << "\x24\x00"
           end
 
           # loop { block ... block { br_table } body0 end body1 end ... }
@@ -242,28 +258,28 @@ module Zr
           #: () -> void
           def dispatch
             n = @f.blocks.size
-            @code << "\x03\x40".b
+            @code << "\x03\x40"
             if n <= LADDER
               ladder(@f.blocks, 0, 0)
             else
               @width = Config.current.wasm_width
               groups = @f.blocks.each_slice(@width).to_a
               @groups = groups.size
-              groups.size.times { @code << "\x02\x40".b }
-              @code << "\x20".b << Bytes.leb(@bb) << @m.i32c(@width) << "\x6E".b
+              groups.size.times { @code << "\x02\x40" }
+              @code << "\x20" << leb(@bb) << @m.i32c(@width) << "\x6E"
               table(groups.size)
               groups.each_with_index do |group, k|
-                @code << "\x0B".b
-                @code << "\x03\x40".b
+                @code << "\x0B"
+                @code << "\x03\x40"
                 @gk = k
                 ladder(group, k * @width, groups.size - k)
-                @code << "\x0B".b << "\x00".b
+                @code << "\x0B" << "\x00"
               end
             end
-            @code << "\x0B".b
+            @code << "\x0B"
             # Every block ends in a branch or a return, so the end of the
             # loop is unreachable. `unreachable` tells this to the validator.
-            @code << "\x00".b
+            @code << "\x00"
           end
 
           # One group of blocks with its own `br_table`. `first` is the index
@@ -273,15 +289,15 @@ module Zr
           #: (Array[IR::Block] blocks, Integer first, Integer outer) -> void
           def ladder(blocks, first, outer)
             m = blocks.size
-            m.times { @code << "\x02\x40".b }
-            @code << "\x20".b << Bytes.leb(@bb)
-            @code << @m.i32c(first) << "\x6B".b unless first.zero?
+            m.times { @code << "\x02\x40" }
+            @code << "\x20" << leb(@bb)
+            @code << @m.i32c(first) << "\x6B" unless first.zero?
             table(m)
             @group = first..(first + m - 1)
             @outer = outer
             @span = m
             blocks.each_with_index do |b, j|
-              @code << "\x0B".b
+              @code << "\x0B"
               @row = j
               @bias = 0
               b.insts.each { |inst| emit_inst(inst) }
@@ -293,9 +309,9 @@ module Zr
           # a block of this function.
           #: (Integer count) -> void
           def table(count)
-            @code << "\x0E".b << Bytes.leb(count)
-            count.times { |i| @code << Bytes.leb(i) }
-            @code << Bytes.leb(0)
+            @code << "\x0E" << leb(count)
+            count.times { |i| @code << leb(i) }
+            @code << leb(0)
           end
 
           # A branch to `name`: set the block index, then branch to the
@@ -308,9 +324,9 @@ module Zr
           # 4.93 s without it. Thus every branch goes through a `br_table`.
           #: (String name) -> void
           def go(name)
-            at = @f.blocks.index { |b| b.name == name } #: Integer
-            @code << @m.i32c(at) << "\x21".b << Bytes.leb(@bb)
-            @code << "\x0C".b << Bytes.leb((@span - 1 - @row + @bias) + reach(at))
+            at = @at.fetch(name)
+            @code << @m.i32c(at) << "\x21" << leb(@bb)
+            @code << "\x0C" << leb((@span - 1 - @row + @bias) + reach(at))
           end
 
           # The number of constructs past this group's loop that a branch to the
@@ -327,8 +343,8 @@ module Zr
             ahead.positive? ? ahead : @outer
           end
 
-          WIDE_BITOPS = { clz: "\x79".b, ctz: "\x7A".b, popcnt: "\x7B".b }.freeze #: Hash[IR::op, String]
-          NARROW_BITOPS = { clz: "\x67".b, ctz: "\x68".b, popcnt: "\x69".b }.freeze #: Hash[IR::op, String]
+          WIDE_BITOPS = { clz: "\x79", ctz: "\x7A", popcnt: "\x7B" }.freeze #: Hash[IR::op, String]
+          NARROW_BITOPS = { clz: "\x67", ctz: "\x68", popcnt: "\x69" }.freeze #: Hash[IR::op, String]
 
           # wasm has no byte swap. Swap the bytes in pairs, then the pairs,
           # then the halves: `(x & m) << k | (x >> k) & m` for each mask, and a
@@ -342,32 +358,31 @@ module Zr
             from = i.args[0]
             steps.each do |mask, k|
               get(from)
-              @code << const.b << Bytes.sleb(mask) << and_.b << const.b << Bytes.sleb(k) << shl.b
+              @code << const << Bytes.sleb(mask) << and_ << const << Bytes.sleb(k) << shl
               get(from)
-              @code << const.b << Bytes.sleb(k) << shr.b << const.b << Bytes.sleb(mask) << and_.b << or_.b
+              @code << const << Bytes.sleb(k) << shr << const << Bytes.sleb(mask) << and_ << or_
               set(v)
               from = v
             end
             get(from)
-            @code << const.b << Bytes.sleb(wide ? 32 : 16) << rotl.b
+            @code << const << Bytes.sleb(wide ? 32 : 16) << rotl
             set(v)
           end
 
           #: (IR::Inst i) -> void
           def emit_load(i)
             get(i.args[0])
-            @code << "\xA7".b
-            @code << LOAD_OPCODES.fetch(i.type) << Bytes.leb(i.offset)
+            @code << "\xA7"
+            @code << LOAD_OPCODES.fetch(i.type) << leb(i.offset)
             set(i.results[0])
           end
 
           #: (IR::Inst i) -> void
           def emit_store(i)
             get(i.args[1])
-            @code << "\xA7".b
+            @code << "\xA7"
             get(i.args[0])
-            store = { "i64" => "\x37\x03".b, "i32" => "\x36\x02".b, "i8" => "\x3A\x00".b, "f64" => "\x39\x03".b }.fetch(@type[i.args[0]])
-            @code << store << Bytes.leb(i.offset)
+            @code << STORE_OPCODES.fetch(@type[i.args[0]]) << leb(i.offset)
           end
 
           #: (IR::Inst i) -> void
@@ -375,12 +390,12 @@ module Zr
             ptr, *args = i.args
             args.each { |a| get(a) }
             get(ptr)
-            @code << "\xA7".b
+            @code << "\xA7"
             params, results = @m.sig_type(sig_named(i.callee))
-            @code << "\x11".b << Bytes.leb(@m.type_index([params, results])) << "\x00".b
+            @code << "\x11" << leb(@m.type_index([params, results])) << "\x00"
             if i.results.empty?
               # Drop a return value that the instruction does not use.
-              @code << "\x1A".b unless results.empty?
+              @code << "\x1A" unless results.empty?
             else
               set(i.results[0])
             end
@@ -394,16 +409,16 @@ module Zr
             params, results = @m.function_type(name) || @m.sig_type(sig_named(callee(i.callee).sig))
             i.args.zip(params).each do |a, want|
               get(a)
-              @code << "\xA7".b if wide?(a) && want == 0x7F
-              @code << "\xAD".b if !wide?(a) && want == 0x7E && @type[a] != "f64"
+              @code << "\xA7" if wide?(a) && want == 0x7F
+              @code << "\xAD" if !wide?(a) && want == 0x7E && @type[a] != "f64"
             end
-            @code << "\x10".b << Bytes.leb(@m.function_index(name))
+            @code << "\x10" << leb(@m.function_index(name))
             if i.results.empty?
               # Drop a return value that the text signature does not give.
-              @code << "\x1A".b unless results.empty?
+              @code << "\x1A" unless results.empty?
             else
-              @code << "\xA7".b if results.first == 0x7E && !wide?(i.results[0])
-              @code << "\xAD".b if results.first == 0x7F && wide?(i.results[0])
+              @code << "\xA7" if results.first == 0x7E && !wide?(i.results[0])
+              @code << "\xAD" if results.first == 0x7F && wide?(i.results[0])
               set(i.results[0])
             end
           end
@@ -447,8 +462,8 @@ module Zr
             get(i.args[0])
             # A wide condition is tested, not wrapped: any nonzero
             # value selects the first operand.
-            @code << "\x50".b << "\x45".b if wide?(i.args[0])
-            @code << "\x1B".b
+            @code << "\x50" << "\x45" if wide?(i.args[0])
+            @code << "\x1B"
             set(i.results[0])
           end
 
@@ -467,10 +482,10 @@ module Zr
             get(i.results[0])
             @code << ops(i.args[0]).fetch(:xor).chr
             if i.op == :ssub_overflow
-              @code << (wide?(i.args[0]) ? "\x42\x7F".b : "\x41\x7F".b) << ops(i.args[0]).fetch(:xor).chr
+              @code << (wide?(i.args[0]) ? "\x42\x7F" : "\x41\x7F") << ops(i.args[0]).fetch(:xor).chr
             end
             @code << ops(i.args[0]).fetch(:and).chr
-            @code << (wide?(i.args[0]) ? "\x42\x00".b : "\x41\x00".b) << ops(i.args[0]).fetch(:lt_s).chr
+            @code << (wide?(i.args[0]) ? "\x42\x00" : "\x41\x00") << ops(i.args[0]).fetch(:lt_s).chr
             set(i.results[1])
           end
 
@@ -480,42 +495,42 @@ module Zr
 
             get(i.args[0])
             get(i.args[1])
-            @code << "\x7E".b
+            @code << "\x7E"
             set(i.results[0])
             # overflow when a != 0 and r / a != b, or a == -1 and b == MIN
             get(i.args[0])
-            @code << "\x50".b
-            @code << "\x04\x7F".b
-            @code << "\x41\x00".b
-            @code << "\x05".b
+            @code << "\x50"
+            @code << "\x04\x7F"
+            @code << "\x41\x00"
+            @code << "\x05"
             get(i.args[0])
-            @code << "\x42\x7F".b << "\x51".b
-            @code << "\x04\x7F".b
+            @code << "\x42\x7F" << "\x51"
+            @code << "\x04\x7F"
             get(i.args[1])
-            @code << "\x42".b << Bytes.sleb(-(1 << 63)) << "\x51".b
-            @code << "\x05".b
+            @code << "\x42" << Bytes.sleb(-(1 << 63)) << "\x51"
+            @code << "\x05"
             get(i.results[0])
             get(i.args[0])
-            @code << "\x7F".b
+            @code << "\x7F"
             get(i.args[1])
-            @code << "\x52".b
-            @code << "\x0B\x0B".b
+            @code << "\x52"
+            @code << "\x0B\x0B"
             set(i.results[1])
           end
 
           #: (IR::Inst i) -> void
           def emit_brif(i)
             get(i.args[0])
-            @code << (wide?(i.args[0]) ? "\x50".b : "\x45".b)
+            @code << (wide?(i.args[0]) ? "\x50" : "\x45")
             # The value on the stack is 1 when the condition is false, and
             # the `if` adds one label between here and the loop.
-            @code << "\x04\x40".b
+            @code << "\x04\x40"
             @bias += 1
             go(i.targets[1][0])
-            @code << "\x05".b
+            @code << "\x05"
             go(i.targets[0][0])
             @bias -= 1
-            @code << "\x0B".b
+            @code << "\x0B"
           end
 
           # A jump table as a compare for each key: wasm's own `br_table`
@@ -531,12 +546,12 @@ module Zr
               get(v)
               k -= 1 << 64 if wide && k >= 1 << 63
               k -= 1 << 32 if !wide && k >= 1 << 31
-              @code << (wide ? "\x42".b : "\x41".b) << Bytes.sleb(k) << ops(v).fetch(:eq).chr
-              @code << "\x04\x40".b
+              @code << (wide ? "\x42" : "\x41") << Bytes.sleb(k) << ops(v).fetch(:eq).chr
+              @code << "\x04\x40"
               @bias += 1
               go(to)
               @bias -= 1
-              @code << "\x0B".b
+              @code << "\x0B"
             end
             go(default)
           end
@@ -567,11 +582,11 @@ module Zr
             # The gate word is global 2. Each use reads it again, because a
             # call can set it before a later read of the value.
             when :gates
-              @code << "\x23\x02".b
+              @code << "\x23\x02"
               set(i.results[0])
             when :gates_set, :gates_enter
               get(i.args[0])
-              @code << "\x24\x02".b
+              @code << "\x24\x02"
             when :call_indirect then emit_call_indirect(i)
             when :call then emit_call(i)
             when :icmp then emit_icmp(i)
@@ -585,15 +600,15 @@ module Zr
               set(i.results[0])
             when :fcvt_from_sint
               get(i.args[0])
-              @code << "\xB9".b
+              @code << "\xB9"
               set(i.results[0])
             when :fcvt_to_sint_sat
               get(i.args[0])
-              @code << "\xFC\x06".b
+              @code << "\xFC\x06"
               set(i.results[0])
             when :bitcast
               get(i.args[0])
-              @code << (i.type == "f64" ? "\xBF".b : "\xBD".b)
+              @code << (i.type == "f64" ? "\xBF" : "\xBD")
               set(i.results[0])
             when :udiv, :sdiv, :urem, :srem
               divide(i)
@@ -601,15 +616,15 @@ module Zr
             when :select then emit_select(i)
             when :ireduce
               get(i.args[0])
-              @code << "\xA7".b if wide?(i.args[0])
+              @code << "\xA7" if wide?(i.args[0])
               set(i.results[0])
             when :uextend
               get(i.args[0])
-              @code << "\xAD".b if i.type == "i64"
+              @code << "\xAD" if i.type == "i64"
               set(i.results[0])
             when :sextend
               get(i.args[0])
-              @code << "\xAC".b if i.type == "i64"
+              @code << "\xAC" if i.type == "i64"
               set(i.results[0])
             when :sadd_overflow, :ssub_overflow then emit_overflow(i)
             when :smul_overflow then emit_smul_overflow(i)
@@ -619,7 +634,7 @@ module Zr
             when :return
               epilogue
               get(i.args[0]) unless i.args.empty?
-              @code << "\x0F".b
+              @code << "\x0F"
             else
               raise Refused, "no wasm lowering for #{i.op}"
             end
