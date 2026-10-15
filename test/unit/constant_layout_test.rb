@@ -48,6 +48,7 @@ class ConstantLayoutTest < Minitest::Test
     "hir/features.rb" => ["Zr::Hir", "the feature table of the Hir namespace"],
     "hir/preludes.rb" => ["Zr::Hir::Build", "the prelude part of Build"],
     "machine/function/intrinsics.rb" => ["Zr::Machine::Function", "the intrinsic part of Function"],
+    "machine/host/launch.rb" => ["Zr::Machine::Host", "the launcher part of Host: Host.walk with its STACK"],
     "lower/function/sends/arith.rb" => ["Zr::Lower::Function::Sends", "the arithmetic part of Sends"],
     "lower/function/sends/in_place.rb" => ["Zr::Lower::Function::Sends", "the in-place update part of Sends"],
     "lower/function/sends/refinements.rb" => ["Zr::Lower::Function::Sends", "the refinement part of Sends"],
