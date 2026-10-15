@@ -1114,7 +1114,13 @@ module Zr::Kern
   # Makes `{k => v, ...}` from `n` pairs in `argv`.
   #: (word, ptr) -> value
   def zr_hash_of(n, argv)
-    h = zr_hash_new()
+    zr_hash_store_pairs(zr_hash_new(), n, argv)
+  end
+
+  # Stores `n` pairs from `argv` into `h` in order, as core#hash_merge_ptr
+  # inserts a run of literal pairs after all their values have run.
+  #: (value, word, ptr) -> value
+  def zr_hash_store_pairs(h, n, argv)
     i = 0
     while i < n
       r = zr_hash_store(h, Machine.value(Machine.load64(argv + (i * 16), 0)), Machine.value(Machine.load64(argv + (i * 16), 8)))
@@ -1467,6 +1473,39 @@ module Zr::Kern
     zr_hash_copy_from(out, h)
     RHash[out].default = Machine.value(QNIL)
     RHash[out].default_proc = Machine.value(QNIL)
+    out
+  end
+
+  # core#hash_merge_kwd for a literal that starts `**first, **kw`: kw
+  # converts first, then `first`. A nil side gives a copy of the other
+  # as rb_hash_resurrect makes it, which keeps the default (a default
+  # proc becomes the default value) and compare_by_identity.
+  #: (value, value) -> value
+  def zr_hash_splat_merge(first, kw)
+    if kw != QNIL
+      kw = zr_hash_convert(kw)
+      return kw if kw == QUNDEF
+      return zr_hash_resurrect(kw) if first == QNIL
+      out = zr_hash_splat_copy(first)
+      return out if out == QUNDEF
+      return zr_hash_update(out, kw)
+    end
+    return zr_hash_new() if first == QNIL
+    h = zr_hash_convert(first)
+    return h if h == QUNDEF
+    zr_hash_resurrect(h)
+  end
+
+  # rb_hash_resurrect: a plain Hash with h's pairs and compare_by_identity,
+  # and h's default or default proc as its default value.
+  #: (value) -> value
+  def zr_hash_resurrect(h)
+    out = zr_hash_new()
+    zr_hash_copy_from(out, h)
+    if RHash[h].default_proc != QNIL
+      RHash[out].default = RHash[h].default_proc
+      RHash[out].default_proc = Machine.value(QNIL)
+    end
     out
   end
 

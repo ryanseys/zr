@@ -241,31 +241,37 @@ module Zr
             return node.frozen ? kernel("zr_literal_freeze", hash) : hash
           end
 
+          # As prism_compile.c builds it: each run of pairs runs all its
+          # keys and values, then stores them; a leading `**first` stays
+          # unconverted in the slot until the part after it merges in.
           slot = reserve(1)
           at = value_offset(slot)
+          hash = -> { @f.fetch("i64", @rec, at) }
           pairs = node.pairs
-          if first.is_a?(Hir::HashSplat)
-            value = expr(first.value)
-            here.call
-            @f.store(checked(kernel("zr_hash_splat_copy", value)), @rec, at)
-            pairs = pairs.drop(2)
-          else
-            @f.store(kernel("zr_hash_new"), @rec, at)
-          end
-          pairs.each_slice(2) do |key, value|
-            if key.is_a?(Hir::HashSplat)
-              splat = expr(key.value)
+          leading = first.is_a?(Hir::HashSplat)
+          pairs = pairs.drop(2) if leading
+          @f.store(leading ? expr(first.value) : @qnil, @rec, at)
+          parts = pairs.each_slice(2).slice_when { |(a, _), (b, _)| a.is_a?(Hir::HashSplat) || b.is_a?(Hir::HashSplat) }
+          parts.each_with_index do |run, i|
+            part = run.flatten(1)
+            fresh = i.zero? && !leading
+            if part.first.is_a?(Hir::HashSplat)
+              splat = expr(part.first.value)
               here.call
-              checked(kernel("zr_hash_update", @f.fetch("i64", @rec, at), splat))
+              merged = checked(kernel(leading && i.zero? ? "zr_hash_splat_merge" : "zr_hash_update", hash.call, splat))
+              @f.store(merged, @rec, at)
             else
-              staged([key, value]) do |argv|
+              staged(part) do |argv|
                 here.call
-                checked(kernel("zr_hash_store", @f.fetch("i64", @rec, at), @f.fetch("i64", argv), @f.fetch("i64", argv, 8)))
+                count = imm(part.size / 2)
+                base = fresh ? kernel("zr_hash_new") : hash.call
+                base = checked(kernel("zr_hash_splat_copy", base)) if leading && i.zero?
+                @f.store(checked(kernel("zr_hash_store_pairs", base, count, argv)), @rec, at)
               end
             end
           end
           @sp = slot
-          @f.fetch("i64", @rec, at)
+          hash.call
         end
 
         #: (Hir::Seq node) -> String

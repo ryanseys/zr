@@ -1,0 +1,25 @@
+**bad, s:: "no implicit conversion of true into Hash" [2]
+**bad, s:, u:: "no implicit conversion of true into Hash" [2, 3]
+z:, **bad, k:: "no implicit conversion of true into Hash" [1]
+**h, **bad, k:: "no implicit conversion of true into Hash" []
+**bad, **h: "no implicit conversion of true into Hash" [{a: 1}]
+**bad, k:, **h: "no implicit conversion of true into Hash" [3]
+z:, **h, k:, **bad, m:: "no implicit conversion of true into Hash" [1, 2]
+{**bad, s:}: "no implicit conversion of true into Hash" [2]
+{**h, Key => v}: {a: 1, Key1 => 1, Key2 => 2} [1, 2, "hash 1", "hash 2"]
+{Key => v, Key => v}: {Key1 => 1, Key2 => 2} [1, 2, "hash 1", "hash 2"]
+{**Pairs, **h}: {z: 26, a: 1} [{a: 1}, "to_hash"]
+{**h, **Pairs}: {a: 1, z: 26} [{a: 1}, "to_hash"]
+{**Pairs, k:}: {z: 26, k: 1} [1, "to_hash"]
+{**bad, **h}: "no implicit conversion of true into Hash" [true, {a: 1}]
+5
+5
+nil
+Proc
+nil
+Proc
+true
+true
+true
+{}
+{a: 1}

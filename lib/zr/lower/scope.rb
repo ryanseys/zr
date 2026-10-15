@@ -189,12 +189,15 @@ module Zr
         [base + 1, *parts.map { |p| staging(p, base + 1) }].max #: Integer
       end
 
-      # A hash literal with a `**`: the hash in one slot, each plain pair
-      # staged in two slots above it, and each spread evaluated there.
+      # A hash literal with a `**`: the hash in one slot, each run of
+      # plain pairs staged in the slots above it, and each spread
+      # evaluated there.
       #: (Array[untyped] pairs, Integer base) -> Integer
       def spread_pairs(pairs, base)
-        tops = pairs.each_slice(2).map do |key, value|
-          key.is_a?(Hir::HashSplat) ? staging(key.value, base + 1) : row([key, value], base + 1)
+        runs = pairs.each_slice(2).slice_when { |(a, _), (b, _)| a.is_a?(Hir::HashSplat) || b.is_a?(Hir::HashSplat) }
+        tops = runs.map do |run|
+          key = run.first.first
+          key.is_a?(Hir::HashSplat) ? staging(key.value, base + 1) : row(run.flatten(1), base + 1)
         end
         [base + 1, *tops].max #: Integer
       end
