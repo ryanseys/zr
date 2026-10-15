@@ -1,0 +1,7 @@
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+[TypeError, "no implicit conversion of nil into Integer"]
+[IndexError, "index 3 out of string"]
+1180591620717411303489
+66.9
+[TypeError, "no implicit conversion of String into Integer"]

@@ -105,12 +105,15 @@ class String
   # The index converts as getbyte's index does and is checked first.
   # Then the byte converts as rb_to_int converts one, and its low eight
   # bits are written. The return value is the byte as it was given.
+  # rb_str_setbyte: the index, then the byte, convert before the range
+  # check.
   def setbyte(i, byte)
     at = Primitive.zr_index_operand_m(i)
+    value = to_integer(byte) & 0xff
     size = Primitive.zr_str_bytesize(self)
     raise IndexError, "index #{at} out of string" if at >= size || at < -size
 
-    Primitive.zr_str_setbyte(self, at, to_integer(byte) & 0xff)
+    Primitive.zr_str_setbyte(self, at, value)
     byte
   end
 
