@@ -527,9 +527,11 @@ class Regexp
     yield result
   end
 
-  # `match` with no frame of its own, for `=~` and `===`.
+  # `match` with no frame of its own, for `=~` and `===`. The position
+  # goes through NUM2LONG first, as rb_reg_match_m reads it.
   def matched(text, pos = 0)
     Primitive.attr! :hidden
+    pos = Primitive.zr_index_operand_m(pos)
     if text.nil?
       Primitive.zr_backref_set(nil)
       return nil
@@ -537,7 +539,6 @@ class Regexp
     # reg_operand: a Symbol's name, else what to_str gives.
     text = text.is_a?(Symbol) ? text.to_s : Primitive.zr_str_operand(text)
 
-    pos = implicit_integer(pos)
     pos += Primitive.zr_str_length_m(text) if pos < 0
     if pos < 0 || pos > Primitive.zr_str_length_m(text)
       Primitive.zr_backref_set(nil)
@@ -552,13 +553,15 @@ class Regexp
   def match?(text, pos = 0) = matches?(text, pos)
 
   # rb_reg_match_p, which String#match? calls in C: no frame of match?.
+  # The position goes through NUM2LONG first, so a Bignum is a
+  # RangeError even with no text.
   def matches?(text, pos)
     Primitive.attr! :hidden
+    pos = Primitive.zr_index_operand_m(pos)
     return false if text.nil?
 
     # rb_reg_match_p: a Symbol's name, else StringValue.
     text = text.is_a?(Symbol) ? text.to_s : Primitive.zr_str_operand(text)
-    pos = implicit_integer(pos)
     # From the start, no character of the text needs a count.
     return !Primitive.zr_regexp_search(self, program_for(text), text, 0, false).nil? if pos == 0
 
