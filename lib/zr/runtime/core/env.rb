@@ -210,13 +210,17 @@ class << ENV
     to_h.reject(&block)
   end
 
+  # env_update walks the arguments and each Hash's pairs in C, so the
+  # block runs under this frame alone.
   def update(*others)
-    others.each do |given|
-      other = Primitive.zr_convert_type(given, Hash, :to_hash)
-      other.each do |k, v|
+    i = 0
+    while i < others.size
+      other = Primitive.zr_convert_type(others[i], Hash, :to_hash)
+      Primitive.zr_hash_foreach(other) do |k, v|
         k = variable_name(k)
         self[k] = block_given? && key?(k) ? yield(k, self[k], v) : v
       end
+      i += 1
     end
     self
   end

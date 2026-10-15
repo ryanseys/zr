@@ -1,0 +1,6 @@
+update: 'block (2 levels) in <main>' < 'update' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
+merge!: 'block (2 levels) in <main>' < 'merge!' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
+fetch: 'block (2 levels) in <main>' < 'fetch' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
+delete: 'block (2 levels) in <main>' < 'delete' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
+"1"
+nil
