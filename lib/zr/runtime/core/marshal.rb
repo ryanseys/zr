@@ -854,6 +854,18 @@ module Marshal
           return hash(Hash, tag == HASH_DEF, identity: true)
         end
       end
+      # An Array or a Hash of the user class is built as its record is read,
+      # as r_object_for relabels the value, so a link inside it finds it.
+      need(1)
+      tag = @bytes.getbyte(@pos)
+      if tag == ARRAY && klass < Array
+        @pos += 1
+        return array(klass)
+      elsif (tag == HASH || tag == HASH_DEF) && klass < Hash
+        @pos += 1
+        return hash(klass, tag == HASH_DEF)
+      end
+      slot = @objects.size
       value = read_value
       return relabeled_struct(klass, value) if value.is_a?(Struct)
 
@@ -870,7 +882,8 @@ module Marshal
       # subclass's own initialize, which CRuby does not call either.
       when Regexp then Regexp.send(:seat, built, value.source, value.options)
       end
-      @objects[@objects.size - 1] = built
+      # The value is linked at the slot it took before its own elements.
+      @objects[slot] = built
       built
     end
 
