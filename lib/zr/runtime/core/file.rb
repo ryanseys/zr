@@ -10,22 +10,25 @@ class File < IO
 
   def self.basename(path, suffix = (none = true; nil))
     path = path_of(path)
-    suffix = Primitive.zr_str_operand(suffix) unless none
+    suffix = ascii_compatible_path(Primitive.zr_str_operand(suffix)) unless none
 
-    return +"/" if path.delete("/").empty? && !path.empty?
+    # ruby_enc_find_basename reads the path by its bytes: one that is no
+    # character is no error.
+    bytes = path.b
+    return +"/" if bytes.delete("/").empty? && !bytes.empty?
 
-    name = path.split("/").reject(&:empty?).last || +""
+    name = (bytes.split("/").reject(&:empty?).last || +"").force_encoding(path.encoding)
     return name if suffix.nil? || name == suffix
 
-    # ruby_enc_find_basename: the extension is past the leading dots, so
-    # ".." and ".bashrc" keep their whole name.
+    # The extension is past the leading dots, so ".." and ".bashrc" keep
+    # their whole name.
     if suffix == +".*"
       lead = 0
-      lead += 1 while lead < name.size && name[lead] == +"."
-      dot = name.rindex(".")
-      return dot && dot >= lead ? name[0, dot] : name
+      lead += 1 while lead < name.bytesize && name.getbyte(lead) == 46
+      dot = name.byterindex(".")
+      return dot && dot >= lead ? name.byteslice(0, dot) : name
     end
-    name.end_with?(suffix) ? name[0, name.size - suffix.size] : name
+    name.end_with?(suffix) ? name.byteslice(0, name.bytesize - suffix.bytesize) : name
   end
 
   def self.dirname(path, level = 1)
@@ -36,9 +39,11 @@ class File < IO
     # rb_file_dirname_n: each level drops the last name and the
     # separators before it. The separators inside the rest stay as they
     # were, and a run of them at the start is one root.
-    # The result keeps the path's encoding, a "." or "/" too.
+    # The result keeps the path's encoding, a "." or "/" too. The path
+    # reads by its bytes: one that is no character is no error.
     encoding = path.encoding
     level.times do
+      path = path.b
       root = path.start_with?("/")
       body = path.sub(%r{\A/+}, "").sub(%r{/+\z}, "")
       cut = body.rindex("/")
@@ -152,18 +157,20 @@ class File < IO
 
   # An absolute path with its `.` and `..` names and repeated slashes
   # gone. The slashes that start it stay as they are, as
-  # rb_file_expand_path_internal copies them.
+  # rb_file_expand_path_internal copies them. It reads the path by its
+  # bytes: one that is no character is no error.
   def self.normalized(full)
     Primitive.attr! :hidden
+    bytes = full.b
     parts = []
-    full.split("/").each do |part|
+    bytes.split("/").each do |part|
       case part
       when "", "." then nil
       when ".." then parts.pop
       else parts << part
       end
     end
-    full[%r{\A/+}] + parts.join("/")
+    (bytes[%r{\A/+}] + parts.join("/")).force_encoding(full.encoding)
   end
   private_class_method :normalized
 
@@ -1108,14 +1115,21 @@ class File < IO
       given = path.respond_to?(:to_path) ? path.to_path : path
       path = String.try_convert(given) or raise TypeError, no_implicit_conversion(given, "String")
     end
-    unless path.encoding.ascii_compatible?
-      raise Encoding::CompatibilityError, "path name must be ASCII-compatible (#{path.encoding}): #{path.inspect}"
-    end
-    raise ArgumentError, +"path name contains null byte" if path.include?("\0")
+    raise ArgumentError, +"path name contains null byte" if ascii_compatible_path(path).include?("\0")
 
     path
   end
   private_class_method :path_of
+
+  # check_path_encoding: a path, or basename's suffix, in an encoding
+  # that is ASCII compatible.
+  def self.ascii_compatible_path(path)
+    Primitive.attr! :hidden
+    return path if path.encoding.ascii_compatible?
+
+    raise Encoding::CompatibilityError, "path name must be ASCII-compatible (#{path.encoding}): #{path.inspect}"
+  end
+  private_class_method :ascii_compatible_path
 
   # rb_str_encode_ospath: on macOS a path in an encoding other than
   # binary or UTF-8 goes to the system as UTF-8, where it converts.

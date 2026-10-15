@@ -1,0 +1,106 @@
+basename "\xFF": "\xFF" (UTF-8)
+basename .* "\xFF": "\xFF" (UTF-8)
+basename .rb "\xFF": "\xFF" (UTF-8)
+extname "\xFF": "" (UTF-8)
+dirname "\xFF": "." (UTF-8)
+dirname 2 "\xFF": "." (UTF-8)
+split "\xFF": [".", "\xFF"]
+join "\xFF": "d/\xFF/e" (UTF-8)
+expand_path "\xFF": "/r/\xFF" (UTF-8)
+absolute_path "\xFF": "/r/\xFF" (UTF-8)
+absolute_path? "\xFF": false
+exist? "\xFF": false
+fnmatch "\xFF": true
+basename "a\xFF/b\xFE.r\xFFb": "b\xFE.r\xFFb" (UTF-8)
+basename .* "a\xFF/b\xFE.r\xFFb": "b\xFE" (UTF-8)
+basename .rb "a\xFF/b\xFE.r\xFFb": "b\xFE.r\xFFb" (UTF-8)
+extname "a\xFF/b\xFE.r\xFFb": ".r\xFFb" (UTF-8)
+dirname "a\xFF/b\xFE.r\xFFb": "a\xFF" (UTF-8)
+dirname 2 "a\xFF/b\xFE.r\xFFb": "." (UTF-8)
+split "a\xFF/b\xFE.r\xFFb": ["a\xFF", "b\xFE.r\xFFb"]
+join "a\xFF/b\xFE.r\xFFb": "d/a\xFF/b\xFE.r\xFFb/e" (UTF-8)
+expand_path "a\xFF/b\xFE.r\xFFb": "/r/a\xFF/b\xFE.r\xFFb" (UTF-8)
+absolute_path "a\xFF/b\xFE.r\xFFb": "/r/a\xFF/b\xFE.r\xFFb" (UTF-8)
+absolute_path? "a\xFF/b\xFE.r\xFFb": false
+exist? "a\xFF/b\xFE.r\xFFb": false
+fnmatch "a\xFF/b\xFE.r\xFFb": true
+basename "/\xFF/": "\xFF" (UTF-8)
+basename .* "/\xFF/": "\xFF" (UTF-8)
+basename .rb "/\xFF/": "\xFF" (UTF-8)
+extname "/\xFF/": "" (UTF-8)
+dirname "/\xFF/": "/" (UTF-8)
+dirname 2 "/\xFF/": "/" (UTF-8)
+split "/\xFF/": ["/", "\xFF"]
+join "/\xFF/": "d/\xFF/e" (UTF-8)
+expand_path "/\xFF/": "/\xFF" (UTF-8)
+absolute_path "/\xFF/": "/\xFF" (UTF-8)
+absolute_path? "/\xFF/": true
+exist? "/\xFF/": false
+fnmatch "/\xFF/": true
+basename "\xFF.": "\xFF." (UTF-8)
+basename .* "\xFF.": "\xFF" (UTF-8)
+basename .rb "\xFF.": "\xFF." (UTF-8)
+extname "\xFF.": "." (UTF-8)
+dirname "\xFF.": "." (UTF-8)
+dirname 2 "\xFF.": "." (UTF-8)
+split "\xFF.": [".", "\xFF."]
+join "\xFF.": "d/\xFF./e" (UTF-8)
+expand_path "\xFF.": "/r/\xFF." (UTF-8)
+absolute_path "\xFF.": "/r/\xFF." (UTF-8)
+absolute_path? "\xFF.": false
+exist? "\xFF.": false
+fnmatch "\xFF.": true
+basename ".\xFF": ".\xFF" (UTF-8)
+basename .* ".\xFF": ".\xFF" (UTF-8)
+basename .rb ".\xFF": ".\xFF" (UTF-8)
+extname ".\xFF": "" (UTF-8)
+dirname ".\xFF": "." (UTF-8)
+dirname 2 ".\xFF": "." (UTF-8)
+split ".\xFF": [".", ".\xFF"]
+join ".\xFF": "d/.\xFF/e" (UTF-8)
+expand_path ".\xFF": "/r/.\xFF" (UTF-8)
+absolute_path ".\xFF": "/r/.\xFF" (UTF-8)
+absolute_path? ".\xFF": false
+exist? ".\xFF": false
+fnmatch ".\xFF": false
+basename "a/\xFF\xFE/": "\xFF\xFE" (UTF-8)
+basename .* "a/\xFF\xFE/": "\xFF\xFE" (UTF-8)
+basename .rb "a/\xFF\xFE/": "\xFF\xFE" (UTF-8)
+extname "a/\xFF\xFE/": "" (UTF-8)
+dirname "a/\xFF\xFE/": "a" (UTF-8)
+dirname 2 "a/\xFF\xFE/": "." (UTF-8)
+split "a/\xFF\xFE/": ["a", "\xFF\xFE"]
+join "a/\xFF\xFE/": "d/a/\xFF\xFE/e" (UTF-8)
+expand_path "a/\xFF\xFE/": "/r/a/\xFF\xFE" (UTF-8)
+absolute_path "a/\xFF\xFE/": "/r/a/\xFF\xFE" (UTF-8)
+absolute_path? "a/\xFF\xFE/": false
+exist? "a/\xFF\xFE/": false
+fnmatch "a/\xFF\xFE/": true
+basename "\xFF//\xFE": "\xFE" (UTF-8)
+basename .* "\xFF//\xFE": "\xFE" (UTF-8)
+basename .rb "\xFF//\xFE": "\xFE" (UTF-8)
+extname "\xFF//\xFE": "" (UTF-8)
+dirname "\xFF//\xFE": "\xFF" (UTF-8)
+dirname 2 "\xFF//\xFE": "." (UTF-8)
+split "\xFF//\xFE": ["\xFF", "\xFE"]
+join "\xFF//\xFE": "d/\xFF//\xFE/e" (UTF-8)
+expand_path "\xFF//\xFE": "/r/\xFF/\xFE" (UTF-8)
+absolute_path "\xFF//\xFE": "/r/\xFF/\xFE" (UTF-8)
+absolute_path? "\xFF//\xFE": false
+exist? "\xFF//\xFE": false
+fnmatch "\xFF//\xFE": true
+basename "\xE9t\xE9.txt": "\xE9t\xE9.txt" (ASCII-8BIT)
+basename .* "\xE9t\xE9.txt": "\xE9t\xE9" (ASCII-8BIT)
+basename .rb "\xE9t\xE9.txt": "\xE9t\xE9.txt" (ASCII-8BIT)
+extname "\xE9t\xE9.txt": ".txt" (ASCII-8BIT)
+dirname "\xE9t\xE9.txt": "." (ASCII-8BIT)
+dirname 2 "\xE9t\xE9.txt": "." (ASCII-8BIT)
+split "\xE9t\xE9.txt": [".", "\xE9t\xE9.txt"]
+join "\xE9t\xE9.txt": "d/\xE9t\xE9.txt/e" (ASCII-8BIT)
+expand_path "\xE9t\xE9.txt": "/r/\xE9t\xE9.txt" (ASCII-8BIT)
+absolute_path "\xE9t\xE9.txt": "/r/\xE9t\xE9.txt" (ASCII-8BIT)
+absolute_path? "\xE9t\xE9.txt": false
+exist? "\xE9t\xE9.txt": false
+fnmatch "\xE9t\xE9.txt": true
+basename suffix with a bad byte: "\xFF" (UTF-8)
+basename UTF-16 suffix: Encoding::CompatibilityError: path name must be ASCII-compatible (UTF-16LE): ".rb"
