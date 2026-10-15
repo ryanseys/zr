@@ -392,7 +392,7 @@ module Zr
             get(ptr)
             @code << "\xA7"
             params, results = @m.sig_type(sig_named(i.callee))
-            @code << "\x11" << leb(@m.type_index([params, results])) << "\x00"
+            @code << "\x11" << leb(@m.known_type_index([params, results])) << "\x00"
             if i.results.empty?
               # Drop a return value that the instruction does not use.
               @code << "\x1A" unless results.empty?

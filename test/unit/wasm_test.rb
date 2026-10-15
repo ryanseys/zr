@@ -112,6 +112,40 @@ class WasmTest < Minitest::Test
     end
   end
 
+  NO_PENDING = { functions: [], data: [] }.freeze
+
+  # A prelude's bodies are the same from workers and from this process,
+  # and neither way changes the IR that it got. So the next prelude of
+  # the process inlines and prepares the same IR
+  # (`Native::Build.wasm_inlined`), not IR that the passes already ran on.
+  def test_a_prelude_prepares_copies_in_workers_or_here
+    functions, data = Zr::Native::Fixtures.build("indirect")
+    functions = Zr::IR::Passes.inline(functions)
+    before = functions.map { |f| Zr::IR::Fingerprint.of(f, Set.new) }
+
+    preludes = %w[1 2].map do |jobs|
+      with_env("ZR_JOBS" => jobs) do
+        Zr::Backend::Wasm.prelude(functions, data, pending: NO_PENDING) { |all, body| Zr::Native::Build.prepared_bodies(all, body) }
+      end
+    end
+
+    assert_equal before, functions.map { |f| Zr::IR::Fingerprint.of(f, Set.new) }
+    refute_empty preludes.first.bodies
+    assert_equal preludes.first.bodies, preludes.last.bodies
+  end
+
+  # A body only reads the type section that the layout made, so another
+  # process can emit it. A type that the layout did not add raises at
+  # once: in a worker, it would be lost.
+  def test_a_body_refuses_a_type_that_the_layout_did_not_add
+    functions, data = Zr::Native::Fixtures.build("indirect")
+    codegen = Zr::Backend::Wasm::Codegen.new(functions, data, pending: NO_PENDING)
+    codegen.prelude { |all, body| all.map { |f| body.call(Zr::IR::Passes.prepare(f)) } }
+
+    error = assert_raises(RuntimeError) { codegen.known_type_index([[0x7C] * 9, []]) }
+    assert_match "is not in the type section", error.message
+  end
+
   # The number of segments in the data section of a module.
   def data_segments(bytes)
     at = 8

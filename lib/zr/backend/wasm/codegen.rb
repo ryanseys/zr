@@ -122,10 +122,14 @@ module Zr
         end
 
         # Returns a Prelude of these functions and data, for modules to extend.
-        #: () -> Prelude
+        # A body reads only the layout, so a block can emit the bodies in
+        # other processes: it gets the functions and the emitter of one
+        # body, and returns the bodies in the order of the functions.
+        #: () ?{ (Array[IR::Function], ^(IR::Function) -> String) -> Array[String] } -> Prelude
         def prelude
           layout
-          bodies = @functions.map { |f| Body.new(self, f).emit }
+          body = ->(f) { Body.new(self, f).emit } #: ^(IR::Function) -> String
+          bodies = block_given? ? yield(@functions, body) : @functions.map(&body)
           Prelude.new(@imports, @shims, @functions.to_h { |f| [f.name, signature(f)] }, bodies, @types, @data_at, @data_end,
                       placed_data, @table, @promised)
         end
@@ -248,20 +252,34 @@ module Zr
           unknown = used - @shims - @promised[:functions]
           raise Refused, "no wasm shim for #{unknown.join(", ")}" unless unknown.empty?
 
-          taken = @functions.flat_map do |f|
-            f.blocks.flat_map(&:insts).filter_map do |i|
-              next unless i.op == :func_addr
-
-              c = f.callees.find { |x| x.fn == i.args[0] } or raise "#{f.name}: no callee #{i.args[0]}"
-              c.symbol
-            end
-          end
+          taken = [] #: Array[String]
+          @functions.each { |f| survey(f, taken) }
           named = @data.flat_map { |d| d.relocs.map(&:symbol) }.select { |name| @index.key?(name) }
           table = pre ? pre.table : [] #: Array[String]
           @table = (table + taken + named).uniq
           # A function address is its table index, from 1, so it is never zero.
           @table_at = @table.each_with_index.to_h { |name, i| [name, i + 1] }
           @import_named = @imports.to_h { |import| [import.name, import] }
+        end
+
+        # Adds the symbol of each function address that `f` takes to `taken`,
+        # and the type of each of its indirect calls to the type section, in
+        # the order that the bodies use them. A body then only reads the
+        # layout, so it can be emitted in another process.
+        #: (IR::Function f, Array[String] taken) -> void
+        def survey(f, taken)
+          f.blocks.each do |b|
+            b.insts.each do |i|
+              case i.op
+              when :func_addr
+                c = f.callees.find { |x| x.fn == i.args[0] } or raise "#{f.name}: no callee #{i.args[0]}"
+                taken << c.symbol
+              when :call_indirect
+                sig = f.sigs.find { |x| x.sig == i.callee } or raise "#{f.name}: no signature #{i.callee}"
+                type_index(sig_type(sig))
+              end
+            end
+          end
         end
 
         # The module's own imports, then each import that its functions
@@ -318,6 +336,12 @@ module Zr
         #: (signature t) -> Integer
         def type_index(t)
           @type_at[t] ||= (@types << t).size - 1
+        end
+
+        # The index of a type that `layout` added (`survey`).
+        #: (signature t) -> Integer
+        def known_type_index(t)
+          @type_at.fetch(t) { raise "#{t.inspect} is not in the type section" }
         end
 
         #: (String name) -> Integer

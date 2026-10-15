@@ -42,6 +42,10 @@ module Zr
       # it saves.
       PARALLEL_THRESHOLD = 200_000
 
+      # The cost of a function's passes and assembly, for `Parallel.map`:
+      # its instruction count.
+      SIZE = ->(f) { f.blocks.sum { |b| b.insts.size } } #: ^(IR::Function) -> Integer
+
       # The number of workers for a large unit: `ZR_JOBS`, else one per
       # core, at most six. More than six workers compete for memory. Time
       # to build the runtime object on a twelve-core M2 Pro with 16 GB:
@@ -432,7 +436,7 @@ module Zr
           next cached(all, defined, emitter, cache, jobs, floor, known) if cache
 
           Timing.phase("assembling the unit (#{all.size} functions)", "unit assembled (#{all.size} functions)") do
-            Parallel.map(all, jobs: jobs, weight: ->(f) { f.blocks.sum { |b| b.insts.size } }, floor: floor) do |f| #$ IR::Function, Obj::Code
+            Parallel.map(all, jobs: jobs, weight: SIZE, floor: floor) do |f| #$ IR::Function, Obj::Code
               IR::Passes.prepare(f)
               emitter.assemble(f, defined)
             end
@@ -461,8 +465,7 @@ module Zr
         ir = all.each_index.select { |i| all[i].is_a?(IR::Function) }
         # The functions at `ir` are IR.
         functions = all.values_at(*ir) #: Array[IR::Function]
-        weight = ->(f) { f.blocks.sum { |b| b.insts.size } } #: ^(IR::Function) -> Integer
-        answers = Parallel.map(functions, jobs: jobs, weight: weight, floor: floor) do |f| #$ IR::Function, [String, untyped, bool]
+        answers = Parallel.map(functions, jobs: jobs, weight: SIZE, floor: floor) do |f| #$ IR::Function, [String, untyped, bool]
           key = IR::Fingerprint.of(f, defined)
           # The code and its bytes with `verify`, else only the bytes.
           found = verify ? cache.take(key) : cache.blob(key) #: untyped
@@ -548,17 +551,53 @@ module Zr
         kept = preludes[path] ||= File.exist?(path) && Marshal.load(File.binread(path))
         return kept if kept
 
-        # The wasm backend takes only IR.
-        functions = support ? runtime.functions + support.functions : runtime.functions #: Array[IR::Function]
-        data = support ? runtime.data + support.data : runtime.data.dup
+        functions, leaves = wasm_inlined(runtime)
+        data = runtime.data.dup
+        if support
+          # The wasm backend takes only IR.
+          own = support.functions #: Array[IR::Function]
+          functions += Timing.phase("inlining eval support (#{own.size} functions)", "eval support inlined") do
+            IR::Passes::Inline.new(own, sources: leaves).run
+          end
+          data += support.data
+        end
         what = support ? "the wasm prelude with eval support" : "the wasm prelude"
         zero_words(functions, data, pending[:data])
         functions += Timing.phase("finding the stops of #{what}", "stops found") { stops(functions, runtime.raw, data, pending[:functions]) }
-        inlined = Timing.phase("inlining #{what} (#{functions.size} functions)", "#{what} inlined") { IR::Passes.inline(functions) }
-        Timing.phase("preparing #{what} (#{inlined.size} functions)", "#{what} prepared") { inlined.each { |f| IR::Passes.prepare(f) } }
-        pre = Timing.phase("emitting #{what} (#{functions.size} functions)", "#{what} emitted") { Backend::Wasm.prelude(functions, data, pending: pending) }
+        pre = Timing.phase("preparing and emitting #{what} (#{functions.size} functions)", "#{what} emitted") do
+          Backend::Wasm.prelude(functions, data, pending: pending) { |all, body| prepared_bodies(all, body) }
+        end
         Timing.phase("writing #{what}", "#{what} written") { Cache::Store.write_file(path, Marshal.dump(pre)) }
         preludes[path] = pre
+      end
+
+      # The runtime's functions for a wasm prelude, inlined once for each
+      # process, and the leaves among them that eval support can inline.
+      # The passes never run on these: a prelude prepares a copy of each
+      # (`prepared_bodies`), so the next prelude finds them as inlining left
+      # them.
+      #: (Runtime runtime) -> [Array[IR::Function], Array[IR::Function]]
+      def wasm_inlined(runtime)
+        Session.current.memo([:wasm_inlined, runtime.digest]) do
+          # The wasm backend takes only IR.
+          functions = runtime.functions #: Array[IR::Function]
+          inliner = IR::Passes::Inline.new(functions)
+          Timing.phase("inlining the runtime (#{functions.size} functions)", "runtime inlined") { inliner.run }
+          [functions, functions.select { |f| inliner.settled_leaf?(f.name) }]
+        end
+      end
+
+      # Each function's passes, then its wasm body from `body`, in `jobs`
+      # workers. A worker prepares its own copy of the function, after the
+      # fork. In this process (one job), each function is prepared as a copy,
+      # so the IR stays as `wasm_inlined` keeps it.
+      #: (Array[IR::Function] functions, ^(IR::Function) -> String body) -> Array[String]
+      def prepared_bodies(functions, body)
+        parent = Process.pid
+        Parallel.map(functions, jobs: jobs, weight: SIZE) do |f| #$ IR::Function, String
+          f = Marshal.load(Marshal.dump(f)) if Process.pid == parent
+          body.call(IR::Passes.prepare(f))
+        end
       end
 
       # The data symbols that `functions` refer to and `data` does not define.
