@@ -52,7 +52,11 @@ module Comparable
       Primitive.zr_cmperr(low, high) if c.nil?
       raise ArgumentError, +"min argument must be less than or equal to max argument" if c > 0
     end
-    return low if !low.nil? && Comparable.cmp(self, low) < 0
+    unless low.nil?
+      c = Comparable.cmp(self, low)
+      return self if c == 0
+      return low if c < 0
+    end
     return high if !high.nil? && Comparable.cmp(self, high) > 0
 
     self
@@ -67,8 +71,13 @@ module Comparable
 
     c = left <=> right
     Primitive.zr_cmperr(left, right) if c.nil?
+    return c > 0 ? 1 : (c < 0 ? -1 : 0) if c.is_a?(Integer)
 
-    c
+    # rb_cmpint: any other answer is asked > 0, then < 0.
+    return 1 if c > 0
+    return -1 if c < 0
+
+    0
   end
 end
 

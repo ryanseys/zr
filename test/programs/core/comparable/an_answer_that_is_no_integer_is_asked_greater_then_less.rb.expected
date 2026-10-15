@@ -1,0 +1,10 @@
+>>>>>>>> 1: [false, false, true, true, false, Integer]
+><><><><><>< -1: [true, true, false, false, false, Integer]
+><><><><><><>< 0: [false, true, false, true, true, Box]
+true
+true
+true
+[NoMethodError, "undefined method '>' for false"]
+[ArgumentError, "comparison of String with 0 failed: comparator returned nil"]
+false
+[ArgumentError, "comparison of Box with 1 failed: comparator returned nil"]
