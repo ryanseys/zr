@@ -345,7 +345,11 @@ class String
 
   def capitalize(option = (given = 0; nil), other = (given ||= 1; nil))
     Primitive.attr! :more_args
-    mapped_case(:title, case_mode(:title, given || 2, option, other))
+    mode = case_mode(:title, given || 2, option, other)
+    # rb_str_capitalize returns an empty String itself, not a copy.
+    return self if Primitive.zr_str_bytesize(self) == 0
+
+    mapped_case(:title, mode)
   end
 
   def swapcase(option = (given = 0; nil), other = (given ||= 1; nil))

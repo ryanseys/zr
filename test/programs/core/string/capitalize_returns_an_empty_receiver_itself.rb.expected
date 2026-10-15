@@ -1,0 +1,15 @@
+true
+"x"
+true
+true
+false
+true
+[:upcase, false]
+[:downcase, false]
+[:swapcase, false]
+false
+"Ab"
+"invalid option"
+"too many options"
+Sub
+true
