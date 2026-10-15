@@ -120,6 +120,13 @@ class ParallelTest < Minitest::Test
     assert_empty Zr::Timing.tallies, "the report clears the tallies"
   end
 
+  def test_a_worker_collects_without_a_full_mark_and_the_parent_is_unchanged
+    full_marks = Parallel.map((1..4).to_a, jobs: 2, weight: ->(x) { x }) { GC.config[:rgengc_allow_full_mark] }
+
+    assert_equal [false] * 4, full_marks
+    assert GC.config[:rgengc_allow_full_mark]
+  end
+
   def test_a_worker_that_ends_with_no_answer_raises
     error = assert_raises(RuntimeError) do
       Parallel.map((1..4).to_a, jobs: 2, weight: ->(x) { x }) { |x| x == 4 ? exit!(3) : x }

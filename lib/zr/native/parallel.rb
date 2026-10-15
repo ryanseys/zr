@@ -182,6 +182,7 @@ module Zr
           queue.binmode
           r.close
           w.binmode
+          minor_only
           Timing.tallies.clear
           answered(items, queue, work) do |message|
             bytes = Marshal.dump(message)
@@ -192,6 +193,18 @@ module Zr
         end
         w.close
         [pid, Thread.new { read_messages(pid, r.binmode, inbox) }]
+      end
+
+      # Keeps a worker's collections minor. A major one marks the whole
+      # heap that the fork gave the worker: gigabytes for eval support's
+      # prelude, where lldb found each worker in such a mark at every
+      # sample. After `warmed` the parent's objects are old, and a worker
+      # lives only for its map, so the garbage it makes is young and a
+      # minor collection finds it. The cost: an object that the worker
+      # promotes and then drops stays until the worker ends.
+      #: () -> void
+      def minor_only
+        GC.config(rgengc_allow_full_mark: false)
       end
 
       #: (Integer pid, IO r, Thread::Queue inbox) -> void
