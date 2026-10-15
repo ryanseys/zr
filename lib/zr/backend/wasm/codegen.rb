@@ -227,16 +227,17 @@ module Zr
             missing = pre.pending[:functions] - @functions.map(&:name)
             raise Refused, "the prelude waits for #{missing.join(", ")}" unless missing.empty?
 
-            first = rank(pre.pending[:functions])
+            first = pre.pending[:functions].each_with_index.to_h
             @functions = @functions.sort_by.with_index { |f, i| [first.fetch(f.name, first.size), i] }
           end
           # Initialized data comes before bss, so the written bytes are one
           # run, not one segment between each pair of zero objects.
-          first = rank(pre ? pre.pending[:data].keys : [])
+          waiting = pre ? pre.pending[:data].keys : [] #: Array[String]
+          first = waiting.each_with_index.to_h
           @data = @data.sort_by.with_index { |d, i| [first.fetch(d.name, first.size), d.section == :bss ? 1 : 0, i] }
           @functions.each { |f| @index[f.name] = @index.size }
           @types = pre ? pre.types.dup : []
-          @type_at = rank(@types)
+          @type_at = @types.each_with_index.to_h
           place_data(pre ? pre.data_end : DATA_BASE, pre ? pre.data_at.dup : {})
           pre&.pending&.[](:data)&.each do |name, at|
             raise Refused, "#{name} is at #{@data_at[name].inspect}, not the #{at} the prelude promised" unless @data_at[name] == at
@@ -261,12 +262,6 @@ module Zr
           # A function address is its table index, from 1, so it is never zero.
           @table_at = @table.each_with_index.to_h { |name, i| [name, i + 1] }
           @import_named = @imports.to_h { |import| [import.name, import] }
-        end
-
-        # The position of each item of `items`: the first, when one repeats.
-        #: [T] (Array[T] items) -> Hash[T, Integer]
-        def rank(items)
-          items.each_with_index.with_object({}) { |(item, i), at| at[item] ||= i }
         end
 
         # The module's own imports, then each import that its functions
