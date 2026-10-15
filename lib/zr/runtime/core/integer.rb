@@ -69,7 +69,16 @@ class Integer
   def integer? = true
 
   def **(other)
-    return to_f**other if other.is_a?(Float)
+    if other.is_a?(Float)
+      # fix_pow: a zero exponent, and a base of 0 or 1, answer before
+      # C's pow, which gives NaN for 0**NaN.
+      if Primitive.zr_fixnum_p_m(self)
+        return 1.0 if other == 0.0
+        return other < 0 ? Float::INFINITY : 0.0 if self == 0
+        return 1.0 if self == 1
+      end
+      return to_f**other
+    end
     # fix_pow coerces a Rational, so the result stays a Rational.
     return Rational(self, 1)**other if other.is_a?(Rational)
     return Complex(self, 0)**other if other.is_a?(Complex)
@@ -133,9 +142,11 @@ class Integer
   def pow(exponent, modulus = (omitted = true; nil))
     return self**exponent if omitted
     raise TypeError, +"Integer#pow() 2nd argument not allowed unless a 1st argument is integer" unless exponent.is_a?(Integer)
-    raise TypeError, +"Integer#pow() 2nd argument not allowed unless all arguments are integers" unless modulus.is_a?(Integer)
-    raise ZeroDivisionError, +"divided by 0" if modulus.zero?
     raise RangeError, +"Integer#pow() 1st argument cannot be negative when 2nd argument specified" if exponent < 0
+    raise TypeError, +"Integer#pow() 2nd argument not allowed unless all arguments are integers" unless modulus.is_a?(Integer)
+    # rb_int_powm: 0**x is 0 for any x but 0, before the modulus is read.
+    return 0 if zero? && !exponent.zero?
+    raise ZeroDivisionError, +"divided by 0" if modulus.zero?
 
     result = 1 % modulus
     base = self % modulus
