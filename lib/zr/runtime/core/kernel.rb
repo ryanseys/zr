@@ -903,10 +903,10 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     Primitive.attr! :hidden
     return 0 if status == true
     return 1 if status == false
-    return status if status.is_a?(Integer)
 
-    # NUM2INT: a Float truncates, anything else goes through to_int.
-    Primitive.zr_index_operand_m(status)
+    # NUM2INT: a Float truncates, anything else goes through to_int, and
+    # the status must fit a C int.
+    Integer.send(:int_operand, status)
   end
 
   # The strict form: whitespace around, a sign, a `0x`, `0b`, `0o` or

@@ -391,8 +391,15 @@ class SystemExit < Exception
   attr_reader :status
 
   def initialize(*args)
+    # exit_initialize: true, false, or what rb_check_to_int makes of the
+    # first argument; anything else is the message.
     status = true
-    status = args.shift if args[0] == true || args[0] == false || args[0].is_a?(Integer)
+    if args[0] == true || args[0] == false
+      status = args.shift
+    elsif !args.empty? && (code = Integer.try_convert(args[0]))
+      args.shift
+      status = code
+    end
     @status = status == true ? 0 : status == false ? 1 : status
     super(*args)
   end
