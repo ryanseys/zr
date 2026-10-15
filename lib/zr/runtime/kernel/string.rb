@@ -2477,8 +2477,16 @@ G_FROZEN_LITERALS = 52
     if argc == 2 && !zr_special_p(recv) && RBasic[recv].klass == zr_global(G_STRING) && (Machine.gates & GATE_SETBYTE) == 0
       i = Machine.value(Machine.load64(argv, 0))
       b = Machine.value(Machine.load64(argv, 8))
-      if zr_fixnum_p(i) && zr_fixnum_p(b)
-        return zr_str_setbyte(recv, i, b)
+      # Only a write that cannot raise or warn: the method raises in its
+      # own frame, as String#setbyte's backtrace shows it.
+      if zr_fixnum_p(i) && zr_fixnum_p(b) && (RBasic[recv].flags & (FL_FREEZE | FL_CHILLED)) == 0
+        n = zr_fix2long(i)
+        if n < 0
+          n += RString[recv].len
+        end
+        if n >= 0 && n < RString[recv].len
+          return zr_str_setbyte(recv, i, b)
+        end
       end
     end
     zr_dispatch(0, recv, mid, argc, argv, mode, Machine.value(QNIL))

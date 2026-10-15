@@ -1,0 +1,7 @@
+[IndexError, "index 0 out of string", ["String#setbyte", "Holder#initialize"]]
+[FrozenError, "can't modify frozen String: \"ab\"", ["String#setbyte", "Holder#initialize"]]
+[IndexError, "index -3 out of string", ["String#setbyte", "block in <main>"]]
+[IndexError, "index 2 out of string", ["String#setbyte", "block in <main>"]]
+122
+377
+"yz"
