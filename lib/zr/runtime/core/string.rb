@@ -2349,7 +2349,9 @@ class String
     self
   end
 
+  # str_encode_bang: the frozen check comes before the arguments.
   def encode!(*args, **options)
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     Primitive.zr_str_replace(self, OWN[:encode].bind_call(self, *args, **options))
   end
 

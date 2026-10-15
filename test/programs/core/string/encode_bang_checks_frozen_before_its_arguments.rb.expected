@@ -1,0 +1,5 @@
+["bad argument", FrozenError, "can't modify frozen String: \"x\""]
+["unknown name", FrozenError, "can't modify frozen String: \"x\""]
+["unknown option value", FrozenError, "can't modify frozen String: \"x\""]
+["thawed bad argument", TypeError, "no implicit conversion of Integer into String"]
+["thawed", [120, 0]]
