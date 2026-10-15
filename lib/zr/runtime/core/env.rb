@@ -144,7 +144,8 @@ class << ENV
   def size = to_h.size
   alias length size
   def empty? = to_h.empty?
-  def key(value) = to_h.key(variable_name(value))
+  # env_key compares the value's bytes, so any String is asked for.
+  def key(value) = to_h.key(Primitive.zr_str_operand(value))
   def values_at(*names) = names.map { |n| self[n] }
 
   # env_fetch_values (ruby 4.1): each name's value as a fetch of one
@@ -185,8 +186,9 @@ class << ENV
     value = value.to_str if !value.is_a?(String) && value.respond_to?(:to_str)
     return nil unless value.is_a?(String)
 
+    # The name is a new String, not the frozen one that ENV hands out.
     pair = to_h.find { |_, held| held == value }
-    pair && [pair[0], value]
+    pair && [+pair[0], value]
   end
 
   # Without a block, an Enumerator that reads the variables when it runs.

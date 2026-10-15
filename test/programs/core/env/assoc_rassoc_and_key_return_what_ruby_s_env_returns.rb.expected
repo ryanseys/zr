@@ -1,0 +1,24 @@
+["ZR_ENV_PAIRS_TEST", "pair value"]
+true
+[false, true]
+["ZR_ENV_PAIRS_TEST", "pair value"]
+true
+[false, false]
+false
+"ZR_ENV_PAIRS_TEST"
+true
+false
+false
+["ZR_ENV_PAIRS_TEST", "pair value"]
+nil
+nil
+["key with a NUL", nil]
+key of an Integer: TypeError: no implicit conversion of Integer into String
+["rassoc with a NUL", nil]
+["rassoc of an Integer", nil]
+assoc with a NUL: ArgumentError: bad environment variable name: contains null byte
+assoc of an Integer: TypeError: no implicit conversion of Integer into String
+["assoc of a missing name", nil]
+["key of a missing value", nil]
+nil
+nil
