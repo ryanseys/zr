@@ -59,22 +59,24 @@ module Zr
 
     # The digest of `bytes` without their comments (`code`), kept in the
     # store by the digest of the bytes, so only a file that changed is
-    # read again.
-    #: (String bytes) -> String
-    def code_digest(bytes)
+    # read again. With `lines`, the digest of the code with its lines.
+    #: (String bytes, ?lines: bool) -> String
+    def code_digest(bytes, lines: false)
       key = Digest::SHA256.hexdigest(bytes)
-      Cache::Store.read(:source, key) || Digest::SHA256.hexdigest(code(bytes)).tap { |d| Cache::Store.write(:source, key, d) }
+      key = Digest::SHA256.hexdigest("lines\0#{key}") if lines
+      Cache::Store.read(:source, key) || Digest::SHA256.hexdigest(code(bytes, lines: lines)).tap { |d| Cache::Store.write(:source, key, d) }
     rescue SourceChanged
-      Digest::SHA256.hexdigest(code(bytes))
+      Digest::SHA256.hexdigest(code(bytes, lines: lines))
     end
 
     # The Ruby source `bytes` without its comments: a comment that is
     # the whole line goes with its line, and one after code goes with the
     # spaces before it. Prism finds the comments, so a `#` in a string
     # stays. A magic comment (`frozen_string_literal`) stays: it changes
-    # what the code does.
-    #: (String bytes) -> String
-    def code(bytes)
+    # what the code does. With `lines`, each line stays, so the code
+    # keeps its line numbers: a comment leaves only its line breaks.
+    #: (String bytes, ?lines: bool) -> String
+    def code(bytes, lines: false)
       out = String.new(capacity: bytes.bytesize, encoding: Encoding::BINARY)
       kept = 0
       Prism.parse_comments(bytes).each do |comment|
@@ -85,11 +87,13 @@ module Zr
         start = from.zero? ? 0 : (bytes.byterindex("\n", from - 1) || -1) + 1
         if blank?(bytes, start, from)
           from = start
-          to += 1 if bytes.getbyte(to) == 10
+          to += 1 if !lines && bytes.getbyte(to) == 10
         else
           from -= 1 while from > start && BLANKS.include?(bytes.getbyte(from - 1))
         end
         out << piece(bytes, kept, from)
+        # A comment of many lines (=begin) keeps its line breaks.
+        out << ("\n" * piece(bytes, from, to).count("\n")) if lines
         kept = to
       end
       out << piece(bytes, kept, bytes.bytesize)
@@ -115,15 +119,19 @@ module Zr
 
     MAGIC = /\A#\s*(?:-\*-.*)?(?:frozen_string_literal|encoding|coding|warn_indent|warn_past_scope|shareable_constant_value)\s*:/i
 
-    # The key of what eval support reads: the eval digest and the bytes of
-    # each file (`EvalSupport#files_key`). `bytes` has the ones that a build
-    # already read. `absent` lists the paths that must still not exist.
+    # The key of what eval support reads: the eval digest and each file
+    # (`EvalSupport#files_key`). `bytes` has the ones that a build already
+    # read. `absent` lists the paths that must still not exist. A compiler
+    # file counts by its code with its lines (`code`): eval support holds
+    # the line numbers of what it compiles, but not the comments. So an
+    # edit of a comment that keeps the lines keeps eval support.
     #: (String eval_digest, Array[String] files, ?Hash[String, String] bytes, ?Array[String] absent) -> String
     def eval_files_key(eval_digest, files, bytes = {}, absent = [])
       Digest::SHA256.new.tap do |d|
-        d << eval_digest
+        d << eval_digest << "\0lines"
         files.each do |path|
-          d << path << "\0" << (bytes[path] || (File.exist?(path) ? File.binread(path) : ""))
+          source = bytes[path] || (File.exist?(path) ? File.binread(path) : "")
+          d << path << "\0" << (compiler_file?(path) ? code_digest(source, lines: true) : source)
         end
         # The paths where a feature that the lowering stopped on would be:
         # each one that exists now changes the key. `absent` names the form

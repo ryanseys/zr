@@ -61,6 +61,24 @@ class CompilerDigestTest < Minitest::Test
     refute_equal Zr::Digests.code(plain), Zr::Digests.code(plain.sub("x\nend", "x + 1\nend"))
   end
 
+  # Eval support compiles the compiler's files and holds their line
+  # numbers. So a comment edit that keeps every line keeps its key, and
+  # one that adds a line does not. A file that a binary holds as it is
+  # (the core) counts by its bytes.
+  def test_eval_support_keeps_its_key_for_a_comment_edit_that_keeps_the_lines
+    plain = "def f\n  x = 1\n  x\nend\n"
+    key = ->(path, source) { Zr::Digests.eval_files_key("eval", [path], { path => source }) }
+    compiler = File.join(LIB, "zr/lower.rb")
+    core = File.join(Zr::Paths::RUNTIME, "core/array.rb")
+
+    assert_equal key.(compiler, plain), key.(compiler, "def f # f\n  x = 1 # one\n  x\nend\n")
+    assert_equal key.(compiler, "a\n# one\nb\n"), key.(compiler, "a\n# two, longer\nb\n")
+    assert_equal key.(compiler, "a\n\n\n\nb\n"), key.(compiler, "a\n=begin\nx\n=end\nb\n")
+    refute_equal key.(compiler, plain), key.(compiler, "# f\n#{plain}"), "a new line moves the lines after it"
+    refute_equal key.(compiler, plain), key.(compiler, plain.sub("x = 1", "x = 2"))
+    refute_equal key.(core, plain), key.(core, "def f # f\n  x = 1\n  x\nend\n")
+  end
+
   # A comment edit moves the lines of the code after it, and the code
   # digest does not see that. So no compiler file may read its own line.
   def test_no_compiler_file_reads_its_line
