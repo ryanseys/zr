@@ -235,11 +235,11 @@ class String
   def []=(*args)
     raise ArgumentError, wrong_arity(args.size, 2..3) unless args.size == 2 || args.size == 3
 
-    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     value = args.pop
 
     # rb_str_aset_m: the replacement converts only after the place it
-    # goes is found, as rb_str_subpat_set and rb_str_update check it.
+    # goes is found, as rb_str_subpat_set and rb_str_update check it; a
+    # frozen String is refused last, when the bytes change.
     index = args[0]
     count = Primitive.zr_str_length_m(self)
     if Regexp === index
@@ -297,6 +297,7 @@ class String
     end
     from = Primitive.zr_str_char_offset_m(self, start)
     to = Primitive.zr_str_char_offset_m(self, length > count - start ? count : start + length)
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     Primitive.zr_str_splice(self, from, to - from, value)
     value
   end

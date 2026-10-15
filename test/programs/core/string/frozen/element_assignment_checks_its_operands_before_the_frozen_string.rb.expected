@@ -1,0 +1,27 @@
+nil index: TypeError: no implicit conversion of nil into Integer
+float index: FrozenError: can't modify frozen String: "abc"
+integer index: FrozenError: can't modify frozen String: "abc"
+integer index, integer value: TypeError: no implicit conversion of Integer into String
+index past the end: IndexError: index 9 out of string
+index past the end, integer value: TypeError: no implicit conversion of Integer into String
+negative index past the start: IndexError: index -9 out of string
+start and length: FrozenError: can't modify frozen String: "abc"
+nil length: TypeError: no implicit conversion of nil into Integer
+negative length: IndexError: negative length -1
+start past the end: TypeError: no implicit conversion of Integer into String
+range: FrozenError: can't modify frozen String: "abc"
+range out of range: RangeError: 5..6 out of range
+range out of range, integer value: RangeError: 5..6 out of range
+range, integer value: TypeError: no implicit conversion of Integer into String
+substring found: FrozenError: can't modify frozen String: "abc"
+substring missing: IndexError: string not matched
+substring, integer value: TypeError: no implicit conversion of Integer into String
+regexp matches: FrozenError: can't modify frozen String: "abc"
+regexp misses: IndexError: regexp not matched
+regexp, integer value: TypeError: no implicit conversion of Integer into String
+regexp group out of range: IndexError: index 9 out of regexp
+regexp group not matched: IndexError: regexp group 1 not matched
+incompatible encoding: Encoding::CompatibilityError: incompatible character encodings: UTF-8 and UTF-16LE
+one argument: ArgumentError: wrong number of arguments (given 1, expected 2..3)
+"xQC"
+false
