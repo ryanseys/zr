@@ -1,0 +1,23 @@
+entries unknown: ArgumentError: unknown encoding name - nope
+entries integer: TypeError: no implicit conversion of Integer into String
+entries integer path: ArgumentError: unknown encoding name - nope
+entries missing: Errno::ENOENT: No such file or directory @ dir_initialize - /no/such/directory/for/this/test
+children unknown: ArgumentError: unknown encoding name - nope
+children integer: TypeError: no implicit conversion of Integer into String
+children integer path: ArgumentError: unknown encoding name - nope
+children missing: Errno::ENOENT: No such file or directory @ dir_initialize - /no/such/directory/for/this/test
+each_child unknown: ArgumentError: unknown encoding name - nope
+each_child missing: Errno::ENOENT: No such file or directory @ dir_initialize - /no/such/directory/for/this/test
+each_child enumerator: Enumerator
+foreach unknown: ArgumentError: unknown encoding name - nope
+foreach missing: Errno::ENOENT: No such file or directory @ dir_initialize - /no/such/directory/for/this/test
+foreach enumerator: Enumerator
+new unknown: ArgumentError: unknown encoding name - nope
+new integer path: ArgumentError: unknown encoding name - nope
+open integer: TypeError: no implicit conversion of Integer into String
+open missing: Errno::ENOENT: No such file or directory @ dir_initialize - /no/such/directory/for/this/test
+open block: ArgumentError: unknown encoding name - nope
+entries binary: [#<Encoding:BINARY (ASCII-8BIT)>]
+children encoding object: [#<Encoding:UTF-8>]
+new nil: [#<Encoding:UTF-8>]
+new latin1: #<Encoding:ISO-8859-1>

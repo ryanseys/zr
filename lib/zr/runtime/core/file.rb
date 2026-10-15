@@ -1281,6 +1281,8 @@ class Dir
   # they return their own parameters, under CRuby's names.
   def initialize(name, encoding: nil)
     Primitive.attr! :ruby
+    # dir_initialize finds the encoding before it reads the path.
+    @encoding = encoding.nil? ? nil : Encoding.find(encoding)
     @path = File.path(name)
     names = IO.send(:gc_for_fd) { Primitive.zr_io_dir_names(File.send(:os_path, @path)) }
     raise SystemCallError.new(@path, -names, +"dir_initialize") if names.is_a?(Integer)
@@ -1289,7 +1291,6 @@ class Dir
     raise SystemCallError.new(@path, -fd, +"dir_initialize") if fd < 0
 
     take_names(@path, names, fd)
-    @encoding = encoding.nil? ? nil : Encoding.find(encoding)
     self
   end
 
@@ -1471,11 +1472,11 @@ class Dir
   # gives the encoding of the names. The runtime reads the file system
   # in one encoding, so the names are tagged with it.
   def self.entries(path, encoding: nil)
+    encoding = Encoding.find(encoding) unless encoding.nil?
     path = File.send(:path_of, path)
     names = File.send(:without_gvl) { Primitive.zr_io_dir_names(File.send(:os_path, path)) }
     raise SystemCallError.new(path, -names, +"dir_initialize") if names.is_a?(Integer)
 
-    encoding = Encoding.find(encoding) unless encoding.nil?
     names.map { |name| external_name(name, encoding) }
   end
 
