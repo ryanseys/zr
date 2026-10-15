@@ -156,13 +156,13 @@ module Zr
             @code << "\x05"
             if i.op == :sdiv
               get(b)
-              @code << (wide ? "\x42\x7F" : "\x41\x7F") << table.fetch(:eq).chr << "\x04" << type << zero
+              @code << (wide ? "\x42\x7F" : "\x41\x7F") << table.fetch(:eq) << "\x04" << type << zero
               get(a)
-              @code << table.fetch(:sub).chr << "\x05"
+              @code << table.fetch(:sub) << "\x05"
             end
             get(a)
             get(b)
-            @code << table.fetch(DIVIDE_OPS[i.op]).chr
+            @code << table.fetch(DIVIDE_OPS[i.op])
             @code << "\x0B" if i.op == :sdiv
             @code << "\x0B"
             set(i.results[0])
@@ -217,7 +217,7 @@ module Zr
               n = i.args[0]
               n -= 1 << 64 if i.type == "i64" && n >= 1 << 63
               n -= 1 << 32 if i.type != "i64" && n >= 1 << 31
-              @code << (i.type == "i64" ? "\x42" : "\x41") << Bytes.sleb(n)
+              @code << (i.type == "i64" ? "\x42" : "\x41") << sleb(n)
             when :symbol_value
               @code << "\x42"
               refer(:data, global(i.args[0]).symbol)
@@ -225,7 +225,7 @@ module Zr
               @code << "\x42"
               refer(:table, callee(i.args[0]).symbol)
             when :stack_addr
-              @code << "\x20" << leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A" << "\xAD"
+              @code << "\x20" << leb(@fp) << "\x41" << sleb(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A" << "\xAD"
             end
           end
 
@@ -236,6 +236,10 @@ module Zr
 
           #: (Integer n) -> String
           def leb(n) = n < 128 ? SMALL_LEB[n] : Bytes.leb(n)
+
+          # SLEB128 of a number from -64 to 63 is one byte too: its low 7 bits.
+          #: (Integer n) -> String
+          def sleb(n) = n.between?(-64, 63) ? SMALL_LEB[n & 0x7F] : Bytes.sleb(n)
 
           # Cuts the body here for a reference to the layout.
           #: (Symbol kind, String | signature of) -> void
@@ -254,8 +258,8 @@ module Zr
           #: () -> void
           def prologue
             @code << "\x23\x00" << "\x22" << leb(@fp)
-            @code << @m.i32c(@frame) << "\x6A" << "\x24\x00"
-            @code << @m.i32c(0) << "\x21" << leb(@bb)
+            @code << "\x41" << sleb(@frame) << "\x6A" << "\x24\x00"
+            @code << "\x41" << sleb(0) << "\x21" << leb(@bb)
           end
 
           #: () -> void
@@ -283,7 +287,7 @@ module Zr
               groups = @f.blocks.each_slice(@width).to_a
               @groups = groups.size
               groups.size.times { @code << "\x02\x40" }
-              @code << "\x20" << leb(@bb) << @m.i32c(@width) << "\x6E"
+              @code << "\x20" << leb(@bb) << "\x41" << sleb(@width) << "\x6E"
               table(groups.size)
               groups.each_with_index do |group, k|
                 @code << "\x0B"
@@ -308,7 +312,7 @@ module Zr
             m = blocks.size
             m.times { @code << "\x02\x40" }
             @code << "\x20" << leb(@bb)
-            @code << @m.i32c(first) << "\x6B" unless first.zero?
+            @code << "\x41" << sleb(first) << "\x6B" unless first.zero?
             table(m)
             @group = first..(first + m - 1)
             @outer = outer
@@ -342,7 +346,7 @@ module Zr
           #: (String name) -> void
           def go(name)
             at = @at.fetch(name)
-            @code << @m.i32c(at) << "\x21" << leb(@bb)
+            @code << "\x41" << sleb(at) << "\x21" << leb(@bb)
             @code << "\x0C" << leb((@span - 1 - @row + @bias) + reach(at))
           end
 
@@ -375,14 +379,14 @@ module Zr
             from = i.args[0]
             steps.each do |mask, k|
               get(from)
-              @code << const << Bytes.sleb(mask) << and_ << const << Bytes.sleb(k) << shl
+              @code << const << sleb(mask) << and_ << const << sleb(k) << shl
               get(from)
-              @code << const << Bytes.sleb(k) << shr << const << Bytes.sleb(mask) << and_ << or_
+              @code << const << sleb(k) << shr << const << sleb(mask) << and_ << or_
               set(v)
               from = v
             end
             get(from)
-            @code << const << Bytes.sleb(wide ? 32 : 16) << rotl
+            @code << const << sleb(wide ? 32 : 16) << rotl
             set(v)
           end
 
@@ -447,7 +451,7 @@ module Zr
           def emit_icmp(i)
             get(i.args[0])
             get(i.args[1])
-            @code << ops(i.args[0]).fetch(Codegen::COND.fetch(i.cond)).chr
+            @code << ops(i.args[0]).fetch(Codegen::COND.fetch(i.cond))
             set(i.results[0])
           end
 
@@ -455,7 +459,7 @@ module Zr
           def emit_fcmp(i)
             get(i.args[0])
             get(i.args[1])
-            @code << FCMP_OPCODES.fetch(i.cond).chr
+            @code << FCMP_OPCODES.fetch(i.cond)
             set(i.results[0])
           end
 
@@ -463,7 +467,7 @@ module Zr
           def emit_fbinop(i)
             get(i.args[0])
             get(i.args[1])
-            @code << FBINOP_OPCODES.fetch(i.op).chr
+            @code << FBINOP_OPCODES.fetch(i.op)
             set(i.results[0])
           end
 
@@ -471,7 +475,7 @@ module Zr
           def emit_binop(i)
             get(i.args[0])
             get(i.args[1])
-            @code << ops(i.args[0]).fetch(BINOP_KEYS[i.op]).chr
+            @code << ops(i.args[0]).fetch(BINOP_KEYS[i.op])
             set(i.results[0])
           end
 
@@ -493,19 +497,19 @@ module Zr
             # add) b, or from a and not b (for sub).
             get(i.args[0])
             get(i.args[1])
-            @code << ops(i.args[0]).fetch(i.op == :sadd_overflow ? :add : :sub).chr
+            @code << ops(i.args[0]).fetch(i.op == :sadd_overflow ? :add : :sub)
             set(i.results[0])
             get(i.args[0])
             get(i.results[0])
-            @code << ops(i.args[0]).fetch(:xor).chr
+            @code << ops(i.args[0]).fetch(:xor)
             get(i.args[1])
             get(i.results[0])
-            @code << ops(i.args[0]).fetch(:xor).chr
+            @code << ops(i.args[0]).fetch(:xor)
             if i.op == :ssub_overflow
-              @code << (wide?(i.args[0]) ? "\x42\x7F" : "\x41\x7F") << ops(i.args[0]).fetch(:xor).chr
+              @code << (wide?(i.args[0]) ? "\x42\x7F" : "\x41\x7F") << ops(i.args[0]).fetch(:xor)
             end
-            @code << ops(i.args[0]).fetch(:and).chr
-            @code << (wide?(i.args[0]) ? "\x42\x00" : "\x41\x00") << ops(i.args[0]).fetch(:lt_s).chr
+            @code << ops(i.args[0]).fetch(:and)
+            @code << (wide?(i.args[0]) ? "\x42\x00" : "\x41\x00") << ops(i.args[0]).fetch(:lt_s)
             set(i.results[1])
           end
 
@@ -527,7 +531,7 @@ module Zr
             @code << "\x42\x7F" << "\x51"
             @code << "\x04\x7F"
             get(i.args[1])
-            @code << "\x42" << Bytes.sleb(-(1 << 63)) << "\x51"
+            @code << "\x42" << sleb(-(1 << 63)) << "\x51"
             @code << "\x05"
             get(i.results[0])
             get(i.args[0])
@@ -566,7 +570,7 @@ module Zr
               get(v)
               k -= 1 << 64 if wide && k >= 1 << 63
               k -= 1 << 32 if !wide && k >= 1 << 31
-              @code << (wide ? "\x42" : "\x41") << Bytes.sleb(k) << ops(v).fetch(:eq).chr
+              @code << (wide ? "\x42" : "\x41") << sleb(k) << ops(v).fetch(:eq)
               @code << "\x04\x40"
               @bias += 1
               go(to)
@@ -581,7 +585,7 @@ module Zr
             name, args = i.targets[0]
             params = block_named(name).params
             args.each { |a| get(a) }
-            args.each_index.reverse_each { |k| set(params[k][0]) }
+            (args.size - 1).downto(0) { |k| set(params[k][0]) }
             go(name)
           end
 
@@ -616,7 +620,7 @@ module Zr
             # IR::Inst::FUNOPS, written out.
             when :fneg, :fabs, :sqrt, :floor, :ceil, :trunc, :nearest
               get(i.args[0])
-              @code << FUNOP_OPCODES.fetch(i.op).chr
+              @code << FUNOP_OPCODES.fetch(i.op)
               set(i.results[0])
             when :fcvt_from_sint
               get(i.args[0])
