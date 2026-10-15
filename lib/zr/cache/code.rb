@@ -35,27 +35,33 @@ module Zr
       # The newest packs of one kind that a build keeps.
       KEPT = 3
 
-      # The files that `IR::Passes.prepare` and `Backend::Aarch64.assemble`
-      # load, relative to lib/zr. `code_cache_test.rb` checks that a new
-      # process that requires them loads no other file of zr.
-      BACKEND = %w[
-        backend.rb backend/aarch64.rb backend/aarch64/assembler.rb backend/aarch64/codegen.rb
-        backend/aarch64/codegen/layout.rb backend/aarch64/codegen/moves.rb backend/aarch64/regalloc.rb
-        backend/aarch64/registers.rb backend/aarch64/stub.rb bytes.rb config.rb ir/analysis.rb
-        ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb ir/inst.rb ir/licm.rb ir/passes.rb
-        ir/passes/blocks.rb ir/passes/chains.rb ir/passes/dce.rb ir/passes/fold.rb ir/passes/forward.rb
-        ir/passes/inline.rb ir/passes/renaming.rb ir/promotion.rb ir/regions.rb ir/statics.rb ir/switches.rb
-        ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb refused.rb
-        cache/code.rb session.rb
+      # The files that `IR::Passes.prepare` and each backend load, relative
+      # to lib/zr: the files of the passes, then the backend's own.
+      # `code_cache_test.rb` checks that a new process that requires them
+      # loads no other file of zr.
+      PASSES = %w[
+        backend.rb bytes.rb config.rb ir/analysis.rb ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb
+        ir/inst.rb ir/licm.rb ir/passes.rb ir/passes/blocks.rb ir/passes/chains.rb ir/passes/dce.rb
+        ir/passes/fold.rb ir/passes/forward.rb ir/passes/inline.rb ir/passes/renaming.rb ir/promotion.rb
+        ir/regions.rb ir/statics.rb ir/switches.rb ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb
+        refused.rb cache/code.rb session.rb
       ].freeze
+      BACKENDS = {
+        aarch64: %w[
+          backend/aarch64.rb backend/aarch64/assembler.rb backend/aarch64/codegen.rb
+          backend/aarch64/codegen/layout.rb backend/aarch64/codegen/moves.rb backend/aarch64/regalloc.rb
+          backend/aarch64/registers.rb backend/aarch64/stub.rb
+        ],
+        wasm32: %w[backend/wasm.rb backend/wasm/codegen.rb backend/wasm/codegen/body.rb backend/wasm/locals.rb backend/wasm/shims.rb]
+      }.transform_values { |own| (PASSES + own).freeze }.freeze #: Hash[Symbol, Array[String]]
 
       LIB = File.expand_path("..", __dir__) #: String
 
       #: () -> String
       def self.mode = Config.current.code_cache
 
-      # The cache for objects of `kind` (such as "runtime"), or nil when the
-      # cache is off or the target has another backend.
+      # The cache of aarch64 code for objects of `kind` (such as "runtime"),
+      # or nil when the cache is off or the target has another backend.
       #: (String kind, Target target) -> Code?
       def self.for(kind, target)
         return nil if mode == "0" || target.arch != :aarch64
@@ -63,34 +69,39 @@ module Zr
         new(kind)
       end
 
+      # The cache of wasm bodies for preludes of `kind`
+      # (`Native::Build.prepared_bodies`), or nil when the cache is off.
+      #: (String kind) -> Code?
+      def self.wasm(kind) = mode == "0" ? nil : new(kind, :wasm32)
+
       # The digests load here, not with this file (see `dir`).
-      #: () -> String
-      def self.backend_digest
-        Session.current.memo(:backend_digest) do
+      #: (?Symbol arch) -> String
+      def self.backend_digest(arch = :aarch64)
+        Session.current.memo([:backend_digest, arch]) do
           require_relative "../digests"
           Digest::SHA256.new.tap do |d|
             d << VERSION.to_s << "\0"
-            BACKEND.each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
+            BACKENDS.fetch(arch).each { |name| d << name << "\0" << Digests.file(File.join(LIB, name)) << "\0" }
           end.hexdigest
         end
       end
 
       # The store (and `Paths`, which `keep` uses) loads here, not with
-      # this file: a file that the backend loads is in BACKEND, and an edit
+      # this file: a file that the backend loads is in BACKENDS, and an edit
       # to the store must not make every pack a miss.
-      #: () -> String
-      def self.dir
+      #: (?Symbol arch) -> String
+      def self.dir(arch = :aarch64)
         require_relative "store"
-        key = backend_digest[0, 32] #: String
+        key = backend_digest(arch)[0, 32] #: String
         Store.path(:code, key)
       end
 
       attr_reader :hits, :misses #: Integer
 
-      #: (String kind) -> void
-      def initialize(kind)
+      #: (String kind, ?Symbol arch) -> void
+      def initialize(kind, arch = :aarch64)
         @kind = kind
-        @dir = self.class.dir
+        @dir = self.class.dir(arch)
         @index = {}
         # Only this kind's packs: the functions of one kind of object are not
         # in another's, and eval support's indexes alone take a second.

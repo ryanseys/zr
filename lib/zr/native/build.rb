@@ -565,7 +565,7 @@ module Zr
         zero_words(functions, data, pending[:data])
         functions += Timing.phase("finding the stops of #{what}", "stops found") { stops(functions, runtime.raw, data, pending[:functions]) }
         pre = Timing.phase("preparing and emitting #{what} (#{functions.size} functions)", "#{what} emitted") do
-          Backend::Wasm.prelude(functions, data, pending: pending) { |all, body| prepared_bodies(all, body) }
+          Backend::Wasm.prelude(functions, data, pending: pending) { |all, codegen| prepared_bodies(all, codegen, Cache::Code.wasm("prelude")) }
         end
         Timing.phase("writing #{what}", "#{what} written") { Cache::Store.write_file(path, Marshal.dump(pre)) }
         preludes[path] = pre
@@ -587,17 +587,39 @@ module Zr
         end
       end
 
-      # Each function's passes, then its wasm body from `body`, in `jobs`
-      # workers. A worker prepares its own copy of the function, after the
-      # fork. In this process (one job), each function is prepared as a copy,
-      # so the IR stays as `wasm_inlined` keeps it.
-      #: (Array[IR::Function] functions, ^(IR::Function) -> String body) -> Array[String]
-      def prepared_bodies(functions, body)
+      # The unlinked wasm body of each function (`Codegen#body`), in `jobs`
+      # workers. With a `cache`, a function whose key it has takes its body
+      # from there; any other runs its passes and is emitted, and the cache
+      # keeps every body as its newest pack. The key is the function's IR
+      # (`IR::Fingerprint`, before the passes), the wasm type of each
+      # function it calls (`Codegen#call_types`) and the dispatch width.
+      #
+      # A worker prepares its own copy of a function, after the fork. In
+      # this process (one job), it prepares a copy too, so the IR stays as
+      # `wasm_inlined` keeps it.
+      #: (Array[IR::Function] functions, Backend::Wasm::Codegen codegen, ?Cache::Code? cache) -> Array[Array[String | Backend::Wasm::Codegen::reference]]
+      def prepared_bodies(functions, codegen, cache = nil)
         parent = Process.pid
-        Parallel.map(functions, jobs: jobs, weight: SIZE) do |f| #$ IR::Function, String
+        none = Set.new #: Set[String]
+        width = Config.current.wasm_width
+        verify = cache&.verify?
+        answers = Parallel.map(functions, jobs: jobs, weight: SIZE) do |f| #$ IR::Function, [String?, String, bool]
+          key = cache && Digest::SHA256.hexdigest("#{IR::Fingerprint.of(f, none)}\n#{codegen.call_types(f).inspect}\n#{width}")
+          found = key && cache&.blob(key)
+          next [key, found, false] if found && !verify
+
           f = Marshal.load(Marshal.dump(f)) if Process.pid == parent
-          body.call(IR::Passes.prepare(f))
+          made = codegen.body(IR::Passes.prepare(f))
+          raise "the wasm body cache has another body for #{f.name}" if found && Marshal.load(found) != made
+
+          [key, Marshal.dump(made), true]
         end
+        if cache
+          kept = answers.filter_map { |key, blob, _| [key, blob] if key } #: Array[[String, String]]
+          Timing.phase("keeping the wasm body cache", "wasm body cache kept") { cache.keep(kept) }
+          warn format("zr: wasm body cache: %d of %d functions emitted", answers.count(&:last), functions.size) if Config.current.timing?
+        end
+        Timing.phase("loading the wasm bodies", "wasm bodies loaded") { answers.map { |_, blob, _| Marshal.load(blob) } }
       end
 
       # The data symbols that `functions` refer to and `data` does not define.

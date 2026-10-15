@@ -14,11 +14,11 @@ module Zr
       def emit(functions, data, prelude: nil) = Codegen.new(functions, data, prelude: prelude).emit
 
       # Returns the runtime's prelude. `pending` gives the symbols that a
-      # program defines. A block can emit the bodies (`Codegen#prelude`).
+      # program defines. A block can make the bodies (`Codegen#prelude`).
       # @rbs functions: Array[IR::Function]
       # @rbs data: Array[Obj::Datum]
       # @rbs pending: Codegen::pending
-      # @rbs &bodies: ? (Array[IR::Function], ^(IR::Function) -> String) -> Array[String]
+      # @rbs &bodies: ? (Array[IR::Function], Codegen) -> Array[Array[String | Codegen::reference]]
       # @rbs return: Codegen::Prelude
       def prelude(functions, data, pending:, &bodies) = Codegen.new(functions, data, pending: pending).prelude(&bodies)
 

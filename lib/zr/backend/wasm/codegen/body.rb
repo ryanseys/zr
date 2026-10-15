@@ -22,6 +22,7 @@ module Zr
           # @rbs @types: IR::Types
           # @rbs @type: Hash[String, String?]
           # @rbs @code: String
+          # @rbs @parts: Array[String | reference]
           # @rbs @const: Hash[String, IR::Inst]
           # @rbs @locals: Array[Integer]
           # @rbs @bb: Integer
@@ -52,16 +53,23 @@ module Zr
             @types = IR::Types.new(f)
             @type = {}
             @code = +""
+            @parts = [] #: Array[String | reference]
           end
 
-          #: () -> String
+          # The body before its link (`Codegen#link`): its bytes, cut where
+          # it refers to the layout. Each cut is a `[kind, of]` reference:
+          # `:call` a function's index, `:type` a type's index, `:table` the
+          # table index and `:data` the address that a constant gives. So a
+          # body does not depend on where the layout put what it refers to,
+          # and a cache can keep it.
+          #: () -> Array[String | reference]
           def emit
             assign
             prologue
             dispatch
             @code << "\x0B"
             locals = @locals.chunk_while { |a, b| a == b }.map { |run| Bytes.leb(run.size) + run.first.chr }
-            @m.vec_bytes(@m.vec(locals) + @code)
+            [@m.vec(locals), *@parts, @code]
           end
 
           private
@@ -211,9 +219,11 @@ module Zr
               n -= 1 << 32 if i.type != "i64" && n >= 1 << 31
               @code << (i.type == "i64" ? "\x42" : "\x41") << Bytes.sleb(n)
             when :symbol_value
-              @code << "\x42" << Bytes.sleb(@m.data_address(global(i.args[0]).symbol))
+              @code << "\x42"
+              refer(:data, global(i.args[0]).symbol)
             when :func_addr
-              @code << "\x42" << Bytes.sleb(@m.table_index(callee(i.args[0]).symbol))
+              @code << "\x42"
+              refer(:table, callee(i.args[0]).symbol)
             when :stack_addr
               @code << "\x20" << leb(@fp) << @m.i32c(@slot_at[Integer(i.args[0].delete_prefix("ss"))]) << "\x6A" << "\xAD"
             end
@@ -226,6 +236,13 @@ module Zr
 
           #: (Integer n) -> String
           def leb(n) = n < 128 ? SMALL_LEB[n] : Bytes.leb(n)
+
+          # Cuts the body here for a reference to the layout.
+          #: (Symbol kind, String | signature of) -> void
+          def refer(kind, of)
+            @parts << @code << [kind, of]
+            @code = +""
+          end
 
           #: (String v) -> void
           def set(v)
@@ -392,7 +409,9 @@ module Zr
             get(ptr)
             @code << "\xA7"
             params, results = @m.sig_type(sig_named(i.callee))
-            @code << "\x11" << leb(@m.known_type_index([params, results])) << "\x00"
+            @code << "\x11"
+            refer(:type, [params, results])
+            @code << "\x00"
             if i.results.empty?
               # Drop a return value that the instruction does not use.
               @code << "\x1A" unless results.empty?
@@ -412,7 +431,8 @@ module Zr
               @code << "\xA7" if wide?(a) && want == 0x7F
               @code << "\xAD" if !wide?(a) && want == 0x7E && @type[a] != "f64"
             end
-            @code << "\x10" << leb(@m.function_index(name))
+            @code << "\x10"
+            refer(:call, name)
             if i.results.empty?
               # Drop a return value that the text signature does not give.
               @code << "\x1A" unless results.empty?

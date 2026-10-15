@@ -7,6 +7,10 @@ module Zr
         # The wasm parameter and result types of a function.
         type signature = [Array[Integer], Array[Integer]]
 
+        # A body's reference to the layout (`Body#emit`): a function, a type,
+        # a table slot or a data address.
+        type reference = [Symbol, String | signature]
+
         # The names that a program defines for a prelude, in order.
         type pending = { functions: Array[String], data: Array[String] }
 

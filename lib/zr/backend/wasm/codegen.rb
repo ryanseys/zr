@@ -122,16 +122,46 @@ module Zr
         end
 
         # Returns a Prelude of these functions and data, for modules to extend.
-        # A body reads only the layout, so a block can emit the bodies in
-        # other processes: it gets the functions and the emitter of one
-        # body, and returns the bodies in the order of the functions.
-        #: () ?{ (Array[IR::Function], ^(IR::Function) -> String) -> Array[String] } -> Prelude
+        # A body reads only the layout, so a block can make the bodies in
+        # other processes, or take them from a cache: it gets the functions
+        # and this emitter (`body`, `call_types`), and returns the unlinked
+        # bodies in the order of the functions.
+        #: () ?{ (Array[IR::Function], Codegen) -> Array[Array[String | reference]] } -> Prelude
         def prelude
           layout
-          body = ->(f) { Body.new(self, f).emit } #: ^(IR::Function) -> String
-          bodies = block_given? ? yield(@functions, body) : @functions.map(&body)
-          Prelude.new(@imports, @shims, @functions.to_h { |f| [f.name, signature(f)] }, bodies, @types, @data_at, @data_end,
-                      placed_data, @table, @promised)
+          bodies = block_given? ? yield(@functions, self) : @functions.map { |f| body(f) }
+          Prelude.new(@imports, @shims, @functions.to_h { |f| [f.name, signature(f)] }, bodies.map { |b| link(b) }, @types,
+                      @data_at, @data_end, placed_data, @table, @promised)
+        end
+
+        # The unlinked body of `f` (`Body#emit`).
+        #: (IR::Function f) -> Array[String | reference]
+        def body(f) = Body.new(self, f).emit
+
+        # The wasm type of each function that `f` calls, as its body reads
+        # them: a call converts each argument and the result to the callee's
+        # type. With `f`'s IR, they decide its body.
+        #: (IR::Function f) -> Array[signature?]
+        def call_types(f) = f.callees.map { |c| function_type(c.symbol) }
+
+        # The bytes of an unlinked body, with each reference filled in from
+        # the layout.
+        #: (Array[String | reference] parts) -> String
+        def link(parts)
+          code = "".b
+          parts.each do |part|
+            next code << part if part.is_a?(String)
+
+            kind, of = part
+            next code << leb(known_type_index(of)) unless of.is_a?(String)
+
+            code << case kind
+                    when :call then leb(function_index(of))
+                    when :table then sleb(table_index(of))
+                    else sleb(data_address(of))
+                    end
+          end
+          vec_bytes(code)
         end
 
         # `[address, bytes]` of each initialized data object.
@@ -150,7 +180,7 @@ module Zr
           raise Refused, "no _start without a prelude or a main" unless pre || @functions.any? { |f| f.name == "main" }
 
           @index["_start"] = @index.size
-          own = @functions.map { |f| Body.new(self, f).emit }
+          own = @functions.map { |f| link(body(f)) }
           bodies = @shims.map { |name| shim(name) } + (pre ? pre.bodies : []) + own + [start_body]
           sigs = pre ? pre.sigs.values : [] #: Array[signature]
           start = [[], []] #: signature

@@ -125,7 +125,7 @@ class WasmTest < Minitest::Test
 
     preludes = %w[1 2].map do |jobs|
       with_env("ZR_JOBS" => jobs) do
-        Zr::Backend::Wasm.prelude(functions, data, pending: NO_PENDING) { |all, body| Zr::Native::Build.prepared_bodies(all, body) }
+        Zr::Backend::Wasm.prelude(functions, data, pending: NO_PENDING) { |all, codegen| Zr::Native::Build.prepared_bodies(all, codegen) }
       end
     end
 
@@ -134,13 +134,37 @@ class WasmTest < Minitest::Test
     assert_equal preludes.first.bodies, preludes.last.bodies
   end
 
+  # The wasm body cache gives the bodies that the passes and the emitter
+  # give, and a warm build runs no pass. A body that refers to the layout
+  # keeps only the names, so the link puts in this layout's numbers.
+  def test_a_prelude_from_the_body_cache_is_the_one_emitted
+    functions, data = Zr::Native::Fixtures.build("indirect")
+    functions = Zr::IR::Passes.inline(functions)
+    Dir.mktmpdir("zr-wasm-cache-") do |dir|
+      with_env("ZR_CACHE" => dir, "ZR_JOBS" => "1", "ZR_CODE_CACHE" => nil) do
+        build = lambda do
+          Zr::Backend::Wasm.prelude(functions, data, pending: NO_PENDING) do |all, codegen|
+            Zr::Native::Build.prepared_bodies(all, codegen, Zr::Cache::Code.wasm("test"))
+          end
+        end
+        cold = build.call
+        warm = stub_method(Zr::IR::Passes, :prepare, ->(*) { flunk "a warm build ran the passes" }) { build.call }
+
+        assert_equal Zr::Backend::Wasm.prelude(functions, data, pending: NO_PENDING) { |all, codegen|
+          all.map { |f| codegen.body(Zr::IR::Passes.prepare(Marshal.load(Marshal.dump(f)))) }
+        }.bodies, cold.bodies
+        assert_equal cold.bodies, warm.bodies
+      end
+    end
+  end
+
   # A body only reads the type section that the layout made, so another
   # process can emit it. A type that the layout did not add raises at
   # once: in a worker, it would be lost.
   def test_a_body_refuses_a_type_that_the_layout_did_not_add
     functions, data = Zr::Native::Fixtures.build("indirect")
     codegen = Zr::Backend::Wasm::Codegen.new(functions, data, pending: NO_PENDING)
-    codegen.prelude { |all, body| all.map { |f| body.call(Zr::IR::Passes.prepare(f)) } }
+    codegen.prelude { |all, emitter| all.map { |f| emitter.body(Zr::IR::Passes.prepare(f)) } }
 
     error = assert_raises(RuntimeError) { codegen.known_type_index([[0x7C] * 9, []]) }
     assert_match "is not in the type section", error.message

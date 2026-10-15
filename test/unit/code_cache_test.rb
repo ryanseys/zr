@@ -44,19 +44,26 @@ class CodeCacheTest < Minitest::Test
     refute_equal Fingerprint.of(function, none), Fingerprint.of(function, Set["zr_other"])
   end
 
-  def test_the_backend_list_is_every_file_that_assembly_loads
-    code = <<~RUBY
-      before = $LOADED_FEATURES.dup
-      require #{File.join(Code::LIB, "cache/code.rb").inspect}
-      require #{File.join(Code::LIB, "ir/passes.rb").inspect}
-      require #{File.join(Code::LIB, "backend/aarch64.rb").inspect}
-      puts ($LOADED_FEATURES - before).select { |f| f.start_with?(#{"#{Code::LIB}/".inspect}) }.map { |f| f.delete_prefix(#{"#{Code::LIB}/".inspect}) }.sort
-    RUBY
-    # A ruby outside this bundle: bundler's setup reads zr.gemspec, which
-    # loads version.rb before the list starts.
-    out, status = Open3.capture2(Zr::Harness::CleanEnv.env, RbConfig.ruby, "-e", code, unsetenv_others: true)
-    assert_predicate status, :success?
-    assert_equal Code::BACKEND.sort, out.split("\n"), "Cache::Code::BACKEND must list each file that the passes and the backend load"
+  def test_each_backend_list_is_every_file_that_its_passes_and_emitter_load
+    { aarch64: "backend/aarch64.rb", wasm32: "backend/wasm.rb" }.each do |arch, entry|
+      code = <<~RUBY
+        before = $LOADED_FEATURES.dup
+        require #{File.join(Code::LIB, "cache/code.rb").inspect}
+        require #{File.join(Code::LIB, "ir/passes.rb").inspect}
+        require #{File.join(Code::LIB, entry).inspect}
+        puts ($LOADED_FEATURES - before).select { |f| f.start_with?(#{"#{Code::LIB}/".inspect}) }.map { |f| f.delete_prefix(#{"#{Code::LIB}/".inspect}) }.sort
+      RUBY
+      # A ruby outside this bundle: bundler's setup reads zr.gemspec, which
+      # loads version.rb before the list starts.
+      out, status = Open3.capture2(Zr::Harness::CleanEnv.env, RbConfig.ruby, "-e", code, unsetenv_others: true)
+      assert_predicate status, :success?
+      assert_equal Code::BACKENDS.fetch(arch).sort, out.split("\n"),
+                   "Cache::Code::BACKENDS[#{arch.inspect}] must list each file that the passes and #{entry} load"
+    end
+  end
+
+  def test_each_backend_keeps_its_code_in_its_own_directory
+    refute_equal Code.dir(:aarch64), Code.dir(:wasm32)
   end
 
   # Part of the runtime, so that the test takes seconds: the object of its
