@@ -366,7 +366,7 @@ class File < IO
   end
   private_class_method :accessible?
 
-  def self.delete(*paths) = each_path(paths) { |path| Primitive.zr_io_unlink(os_path(path)) }
+  def self.delete(*paths) = each_path(paths) { |path| Primitive.zr_io_unlink(path) }
 
   def self.unlink(*paths) = delete(*paths)
 
@@ -867,12 +867,12 @@ class File < IO
 
   def self.chmod(mode, *paths)
     mode = mode_operand(mode)
-    each_path(paths) { |path| Primitive.zr_chmod_m(os_path(path), mode) }
+    each_path(paths) { |path| Primitive.zr_chmod_m(path, mode) }
   end
 
   def self.lchmod(mode, *paths)
     mode = mode_operand(mode)
-    each_path(paths) { |path| Primitive.zr_fs_call(9, os_path(path), mode, 0) }
+    each_path(paths) { |path| Primitive.zr_fs_call(9, path, mode, 0) }
   end
 
   # NUM2MODET: to_int, an unsigned long that keeps the bits of a mode_t.
@@ -886,23 +886,23 @@ class File < IO
   end
   private_class_method :mode_operand
 
-  def self.chown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(0, os_path(path), owner || -1, group || -1) }
+  def self.chown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(0, path, owner || -1, group || -1) }
 
-  def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, os_path(path), owner || -1, group || -1) }
+  def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, path, owner || -1, group || -1) }
 
   # utime takes its times in seconds, as Integers, Floats or Times, to
   # the nanosecond. Both times nil are now, as utimensat(2) takes no
   # times.
   def self.utime(atime, mtime, *paths)
     times = timespecs(atime, mtime)
-    each_path(paths) { |path| Primitive.zr_utimens_m(os_path(path), times, false) }
+    each_path(paths) { |path| Primitive.zr_utimens_m(path, times, false) }
   end
 
   # A link takes its own times, rather than passing them on to what it
   # points at.
   def self.lutime(atime, mtime, *paths)
     times = timespecs(atime, mtime)
-    each_path(paths) { |path| Primitive.zr_utimens_m(os_path(path), times, true) }
+    each_path(paths) { |path| Primitive.zr_utimens_m(path, times, true) }
   end
 
   def self.timespecs(atime, mtime)
@@ -931,10 +931,11 @@ class File < IO
 
   # apply2files: runs the block over each path in one call that can
   # block, and returns how many paths it changed. The first failure
-  # raises with CRuby's own label.
+  # raises with CRuby's own label, and names the path as the system
+  # got it (rb_str_encode_ospath).
   def self.each_path(paths)
     Primitive.attr! :hidden
-    paths = paths.map { |path| path_of(path) }
+    paths = paths.map { |path| os_path(path_of(path)) }
     code = 0
     failed = without_gvl { paths.find { |path| (code = yield(path)).negative? } }
     raise SystemCallError.new(failed, -code, +"apply2files") if failed

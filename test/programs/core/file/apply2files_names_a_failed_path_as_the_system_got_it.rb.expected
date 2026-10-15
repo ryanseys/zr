@@ -1,0 +1,11 @@
+["No such file or directory @ apply2files - ルd/f", #<Encoding:UTF-8>]
+["No such file or directory @ apply2files - ルd/g", #<Encoding:UTF-8>]
+["No such file or directory @ apply2files - café/f", #<Encoding:UTF-8>]
+["No such file or directory @ apply2files - café/g", #<Encoding:UTF-8>]
+["No such file or directory @ apply2files - \xFF/f", #<Encoding:BINARY (ASCII-8BIT)>]
+["No such file or directory @ apply2files - \xFF/g", #<Encoding:BINARY (ASCII-8BIT)>]
+["No such file or directory @ apply2files - ok/f", #<Encoding:UTF-8>]
+["No such file or directory @ apply2files - ok/g", #<Encoding:UTF-8>]
+1
+[]
+["No such file or directory @ rb_sysopen - \x{838B}", #<Encoding:Shift_JIS>]
