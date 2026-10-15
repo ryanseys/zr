@@ -34,7 +34,8 @@ module Zr
         jobs = [jobs, items.size].min
         return items.map(&work) if jobs <= 1 || weights.sum < floor || !Process.respond_to?(:fork)
 
-        # The workers' answers come back through Marshal.
+        # The workers' answers come back through Marshal, as bytes until
+        # every worker is done.
         answers = Array.new(items.size) #: Array[untyped]
         warmed
         asked = jobs
@@ -50,11 +51,34 @@ module Zr
         inbox = Thread::Queue.new
         workers = Array.new(jobs) { started(items, queue, feed, work, inbox) }
         queue.close
-        failures = collected(workers, inbox, answers, progress)
+        failures = without_collections { collected(workers, inbox, answers, progress) }
         feeder.join
         progress&.finish(items, label)
         raise_first(failures) unless failures.empty?
-        answers
+        answers.map! { |bytes| Marshal.load(bytes) }
+      end
+
+      # The header of a worker's message: its kind, the item's index, the
+      # item's seconds, and the size of the Marshal bytes that follow.
+      HEAD = "CLEQ"
+      HEAD_BYTES = 21
+      ITEM = 0
+      RAISED = 1
+      DONE = 2
+
+      # Runs the block with the collector off. While it collects, this
+      # process makes only the answers, which it keeps, so a collection
+      # would free almost nothing and mark the whole heap: 8 major
+      # collections of 48 s in all, for eval support's prelude, while the
+      # workers waited to write.
+      #: [T] () { () -> T } -> T
+      def without_collections
+        was_off = GC.disable
+        begin
+          yield
+        ensure
+          GC.enable unless was_off
+        end
       end
 
       # Prepares the heap before the fork. `Process.warmup` runs a full
@@ -184,9 +208,9 @@ module Zr
           w.binmode
           minor_only
           Timing.tallies.clear
-          answered(items, queue, work) do |message|
-            bytes = Marshal.dump(message)
-            w.write([bytes.bytesize].pack("Q"), bytes)
+          answered(items, queue, work) do |kind, i, seconds, payload|
+            bytes = Marshal.dump(payload)
+            w.write([kind, i, seconds, bytes.bytesize].pack(HEAD), bytes)
           end
           w.close
           exit!(0)
@@ -207,22 +231,24 @@ module Zr
         GC.config(rgengc_allow_full_mark: false)
       end
 
+      # Puts each message of the worker in `inbox` as `[pid, kind, index,
+      # seconds, bytes]`, then `[pid]` at the end of the pipe.
       #: (Integer pid, IO r, Thread::Queue inbox) -> void
       def read_messages(pid, r, inbox)
-        while (head = r.read(8))
-          size = head.unpack1("Q") #: Integer
-          inbox << [pid, r.read(size)]
+        while (head = r.read(HEAD_BYTES))
+          kind, i, seconds, size = head.unpack(HEAD) #: [Integer, Integer, Float, Integer]
+          inbox << [pid, kind, i, seconds, r.read(size)]
         end
       ensure
         r.close
-        inbox << [pid, nil]
+        inbox << [pid]
       end
 
-      # Yields `[:item, index, result, seconds]` for each item, then
-      # `[:done, tallies]` with the worker's `Timing.tallies`. For the first
-      # item that raises, it yields `[:raised, index, class name, message]`
+      # Yields `ITEM, index, seconds, result` for each item, then `DONE`
+      # with the worker's `Timing.tallies`. For the first item that raises,
+      # it yields `RAISED, index` with the error's class name and message
       # instead and stops; the other workers take the rest.
-      #: [Item] (Array[Item] items, IO queue, ^(Item) -> untyped work) { (Array[untyped]) -> void } -> void
+      #: [Item] (Array[Item] items, IO queue, ^(Item) -> untyped work) { (Integer, Integer, Float, untyped) -> void } -> void
       def answered(items, queue, work)
         while (word = queue.read(4))
           i = word.unpack1("L") #: Integer
@@ -230,39 +256,38 @@ module Zr
           begin
             answer = work.call(items[i])
           rescue StandardError => e
-            return yield [:raised, i, e.class.name, e.message]
+            return yield RAISED, i, 0.0, [e.class.name, e.message]
           end
-          yield [:item, i, answer, Timing.now - began]
+          yield ITEM, i, Timing.now - began, answer
         end
-        yield [:done, Timing.tallies]
+        yield DONE, 0, 0.0, Timing.tallies
       end
 
-      # Reads the workers' messages until each pipe ends. It puts each
-      # result at its index, adds each worker's tallies to this process's,
-      # and returns the failures. A message is what a worker wrote with
-      # Marshal, so it is untyped.
+      # Reads the workers' messages until each pipe ends. It keeps each
+      # answer's bytes at its index, adds each worker's tallies to this
+      # process's, and returns the failures as `[index, class name,
+      # message]`. Only the header is read here, so a worker's write never
+      # waits on a Marshal.load.
       #: (Array[[Integer, Thread]] workers, Thread::Queue inbox, Array[untyped] answers, Progress? progress) -> Array[Array[untyped]]
       def collected(workers, inbox, answers, progress)
         failures = [] #: Array[Array[untyped]]
         ended = {} #: Hash[Integer, bool]
         open = workers.size
         while open.positive?
-          pid, bytes = inbox.pop
-          if bytes.nil?
+          pid, kind, i, seconds, bytes = inbox.pop
+          if kind.nil?
             open -= 1
             next
           end
 
-          tag, *rest = Marshal.load(bytes)
-          case tag
-          when :item
-            i, answer, seconds = rest
-            answers[i] = answer
+          case kind
+          when ITEM
+            answers[i] = bytes
             progress&.done(i, seconds)
-          when :raised then failures << rest
-          when :done then Timing.add(rest.first)
+          when RAISED then failures << [i, *Marshal.load(bytes)]
+          when DONE then Timing.add(Marshal.load(bytes))
           end
-          ended[pid] = true unless tag == :item
+          ended[pid] = true unless kind == ITEM
         end
         workers.each do |pid, reader|
           reader.join

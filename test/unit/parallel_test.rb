@@ -26,6 +26,13 @@ class ParallelTest < Minitest::Test
       end
     end
     assert_equal "first 11", error.message
+    refute GC.enable, "the map turns the collector on again"
+  end
+
+  def test_a_map_keeps_the_collector_off_while_it_collects_and_restores_it
+    GC.disable
+    assert_equal [2, 4], Zr::Native::Parallel.map([1, 2], jobs: 2, weight: ->(x) { x }) { |x| x * 2 }
+    assert GC.enable, "a collector that was off stays off"
   end
 
   def test_kernel_object_bytes_are_the_same_for_any_worker_count
