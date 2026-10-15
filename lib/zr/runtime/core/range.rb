@@ -602,9 +602,10 @@ class Range
   end
 
   def bsearch(&block)
-    # range_bsearch refuses ends it cannot search, block or not.
-    unless [@begin, @end].all? { |e| e.nil? || e.is_a?(Integer) || e.is_a?(Float) }
-      raise TypeError, "can't do binary search for #{(@begin.nil? ? @end : @begin).class}"
+    # range_bsearch refuses ends it cannot search, block or not, and a
+    # Range with no end at all.
+    if (@begin.nil? && @end.nil?) || ![@begin, @end].all? { |e| e.nil? || e.is_a?(Integer) || e.is_a?(Float) }
+      raise TypeError, "can't do binary search for #{@begin.class}"
     end
     return to_enum(:bsearch) unless block
     return float_bsearch(&block) if @begin.is_a?(Float) || @end.is_a?(Float)
