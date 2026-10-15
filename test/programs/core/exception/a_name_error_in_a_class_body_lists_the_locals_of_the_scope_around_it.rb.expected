@@ -1,0 +1,16 @@
+[:a]
+[:b]
+[:inner, :top, :later]
+[:deep, :inner, :top, :later]
+[:blk, :deep, :inner, :top, :later]
+[:single]
+[:anon, :inner, :top, :later]
+[:q, :top, :later]
+[:top, :later]
+[:top, :later]
+undefined local variable or method 'lat' for class F (NameError)
+
+    lat
+    ^^^
+Did you mean?  later
+1

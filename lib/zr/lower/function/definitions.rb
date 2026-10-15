@@ -100,7 +100,7 @@ module Zr
         # run the body function with the class as self.
         #: (Hir::ClassDef | Hir::ModuleDef node) -> String
         def class_body(node)
-          fn = @l.body(node)
+          fn = @l.body(node, self)
           scope = scope_class(node.scope)
           id = sym_word(node.name)
           at_node(node)

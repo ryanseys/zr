@@ -49,6 +49,7 @@ module Zr
       # @rbs @kind: kind
       # @rbs @direct: bool
       # @rbs @outer: Function | Outer | nil
+      # @rbs @lexical: Function?
       # @rbs @frame: Machine::Layout
       # @rbs @task: Machine::Layout
       # @rbs @cref_layout: Machine::Layout
@@ -164,9 +165,11 @@ module Zr
       # @rbs outer: Function | Outer | nil
       # @rbs twin: String?
       # @rbs twin_of: String?
+      # @rbs lexical: Function?
       # @rbs return: void
-      def initialize(lower, name, locals, body, node, kind, outer: nil, twin: nil, twin_of: nil)
+      def initialize(lower, name, locals, body, node, kind, outer: nil, twin: nil, twin_of: nil, lexical: nil)
         @l = lower
+        @lexical = lexical
         @name = name
         @twin = twin
         @twin_of = twin_of
@@ -489,7 +492,8 @@ module Zr
                                          ruby: attributes.include?(:ruby), cover: method_cover, owns_backref: owns_backref?,
                                          reads_backref: reads_backref?, frameless: attributes.include?(:frameless), blocks: @blocks,
                                          using: own&.using, span: own&.span)
-                  @l.meta(@name, kind, words, name: name, parent: @outer&.meta, params: params, locals: @locals, twin: @twin)
+                  @l.meta(@name, kind, words, name: name, parent: @outer&.meta, params: params, locals: @locals, twin: @twin,
+                                         lexical: @lexical&.meta)
                 end
         @f.store(@f.symbol_value(@f.symbol(@meta)), @rec, off(@frame, "meta"))
         @line = (line & LINE_MASK) | (node_id << 32)

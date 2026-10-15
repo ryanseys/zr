@@ -72,6 +72,11 @@ module Zr::Kern
     # spots (Zr::Eval#kept_script), or 1 when it keeps none: its code has
     # no absolute path. 0 for any other scope.
     attr_accessor :evaled #: word
+    # For a class or module body, the meta of the scope that it is
+    # written in, else 0. rb_iseq_local_variables walks out of such a
+    # body (not out of `class << x`), so a NameError there lists those
+    # locals too.
+    attr_accessor :lexical #: ptr
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it

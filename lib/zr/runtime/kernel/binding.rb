@@ -178,7 +178,8 @@ module Zr::Kern
   end
 
   # The locals of the scope of `meta` and, for a block or an eval, of the
-  # scopes around it, innermost first.
+  # scopes around it, innermost first. As rb_iseq_local_variables, it
+  # also walks out of a class or module body.
   #: (ptr) -> value
   def zr_reachable_local_names(meta)
     out = zr_ary_new(0)
@@ -192,10 +193,13 @@ module Zr::Kern
         end
       end
       kind = FrameMeta[meta].kind
-      if kind != KIND_BLOCK && kind != KIND_EVAL && kind != KIND_HIDDEN
+      if kind == KIND_CLASS || kind == KIND_MODULE
+        meta = FrameMeta[meta].lexical
+      elsif kind == KIND_BLOCK || kind == KIND_EVAL || kind == KIND_HIDDEN
+        meta = FrameMeta[meta].parent
+      else
         return out
       end
-      meta = FrameMeta[meta].parent
     end
     out
   end

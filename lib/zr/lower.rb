@@ -637,8 +637,9 @@ module Zr
     # @rbs params: Hir::Params?
     # @rbs locals: Array[Symbol]
     # @rbs twin: String?
+    # @rbs lexical: String?
     # @rbs return: String
-    def meta(fn, kind, words, name: 0, parent: nil, params: nil, locals: [], twin: nil)
+    def meta(fn, kind, words, name: 0, parent: nil, params: nil, locals: [], twin: nil, lexical: nil)
       layout = layout("FrameMeta")
       file = file_bytes
       bytes = ("\0" * layout.size).b
@@ -659,6 +660,7 @@ module Zr
       relocs << Obj::Reloc.new(layout.fields.fetch("captures").first, :abs64, "zr_captures_#{fn}")
       relocs << Obj::Reloc.new(layout.fields.fetch("fn").first, :abs64, fn) if kind == "KIND_BLOCK" || kind == "KIND_HIDDEN"
       relocs << Obj::Reloc.new(layout.fields.fetch("twin").first, :abs64, twin) if twin
+      relocs << Obj::Reloc.new(layout.fields.fetch("lexical").first, :abs64, lexical) if lexical
       name = "zr_meta_#{fn}"
       @data << (@metas[name] = Obj::Datum.new(name, :data, bytes, relocs: relocs, align: 8))
       name
@@ -749,12 +751,13 @@ module Zr
     #
     # A `class << self` body keeps `outer`, the Function that contains it,
     # as the parent of its frame metadata, so a `return` in it finds its
-    # method.
-    #: (untyped node, ?Function? outer) -> String
-    def body(node, outer = nil)
+    # method. A class or module body keeps it as its lexical scope.
+    #: (untyped node, Function outer) -> String
+    def body(node, outer)
       kind = { Hir::ClassDef => :class, Hir::ModuleDef => :module, Hir::SingletonClassDef => :sclass }.fetch(node.class) #: Function::kind
       name = "#{@prefix}_body_#{number}_#{kind == :sclass ? "singleton" : node.name}"
-      Function.new(self, name, node.locals, node.body, node, kind, outer: kind == :sclass ? outer : nil).lower
+      sclass = kind == :sclass
+      Function.new(self, name, node.locals, node.body, node, kind, outer: (outer if sclass), lexical: (outer unless sclass)).lower
       name
     end
 
