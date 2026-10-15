@@ -287,14 +287,14 @@ class Addrinfo
         node = nil if node.is_a?(String) && host == node.b.sub(/\0.*/m, "")
         if service.is_a?(String)
           service = nil if port == service.b.sub(/\0.*/m, "")
-        elsif Primitive.zr_fixnum_p_m(service) && port.to_i == service
+        elsif Primitive.zr_fixnum_p_m(service) && Socket.send(:atoi, port) == Integer.send(:int_operand, service)
           service = nil
         end
       end
       name = node.is_a?(String) ? node.dup : nil
       if service.is_a?(String)
         name = name.nil? ? ":#{Socket.cstr(service)}" : name << ":#{Socket.cstr(service)}"
-      elsif Primitive.zr_fixnum_p_m(service) && service.nonzero?
+      elsif Primitive.zr_fixnum_p_m(service) && Integer.send(:int_operand, service).nonzero?
         name = name.nil? ? ":#{service}" : name << ":#{service}"
       end
       name&.freeze

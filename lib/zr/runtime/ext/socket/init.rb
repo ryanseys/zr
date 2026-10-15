@@ -255,6 +255,14 @@ class Socket < BasicSocket
       !text.nil? && text.match?(/\A\s*[-+]?\d+\z/)
     end
 
+    # atoi: strtol's long, which stops at its bounds, cut to a C int, so
+    # "4294967296" reads as 0.
+    def atoi(text)
+      Primitive.attr! :hidden
+      n = text.to_i.clamp(-(2**63), (2**63) - 1)
+      ((n + (2**31)) % (2**32)) - (2**31)
+    end
+
     NUMERIC_SOCKTYPES = [[SOCK_STREAM, IPPROTO_TCP], [SOCK_DGRAM, IPPROTO_UDP], [SOCK_RAW, 0]].freeze
     private_constant :NUMERIC_SOCKTYPES
 
@@ -317,7 +325,7 @@ class Socket < BasicSocket
     # service, and an entry with no kind or protocol takes the hint's.
     def darwin_getaddrinfo(node, service, family, socktype, protocol, flags)
       Primitive.attr! :hidden
-      if node && service && number?(service) && service.to_i.zero?
+      if node && service && number?(service) && atoi(service).zero?
         service = nil
         flags &= ~AI_NUMERICSERV unless flags.zero?
       end

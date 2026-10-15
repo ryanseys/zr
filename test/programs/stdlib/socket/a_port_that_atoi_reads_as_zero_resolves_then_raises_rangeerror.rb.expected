@@ -1,0 +1,7 @@
+[80, 80, "#<Addrinfo: 127.0.0.1:80 TCP>"]
+[4294967295, Socket::ResolutionError, "getaddrinfo: nodename nor servname provided, or not known"]
+[4294967296, RangeError, "integer 4294967296 too big to convert to 'int'"]
+[8589934592, RangeError, "integer 8589934592 too big to convert to 'int'"]
+[-4294967296, RangeError, "integer -4294967296 too small to convert to 'int'"]
+[4611686018427387904, TypeError, "no implicit conversion of Integer into String"]
+"integer 8589934592 too big to convert to 'int'"
