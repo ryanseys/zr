@@ -1,0 +1,13 @@
+"Command failed with exit 4: sh"
+"Command failed with exit 3: sh"
+"Command failed with exit 5: exit 5"
+"Command failed with exit 1: false"
+"Command failed with exit 1: false"
+"Command failed with exit 1: /usr/bin/false"
+"Command failed with exit 1: false"
+"Command failed with exit 1: false; true; false"
+"Command failed with SIGKILL (signal 9): sh"
+"Command failed with SIGKILL (signal 9): kill -9 $$"
+"Command failed with exit 1: A=1 false"
+true
+true

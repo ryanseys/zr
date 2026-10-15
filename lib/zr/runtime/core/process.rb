@@ -133,11 +133,16 @@ module Process
     # `other`, so a Float or another Status compares by its value.
     def ==(other) = Primitive.zr_rb_equal(@to_i, other)
 
-    def to_s
-      return "pid #{@pid} exit #{exitstatus}" if exited?
-      return "pid #{@pid} stopped #{signal_shown(stopsig)}" if stopped?
+    def to_s = "pid #{@pid} #{message}"
 
-      "pid #{@pid} #{signal_shown(termsig)}#{coredump? ? ' (core dumped)' : ''}"
+    # pst_message_status: how the child ended, as to_s and a failed
+    # system call name it.
+    private def message
+      Primitive.attr! :hidden
+      return "exit #{exitstatus}" if exited?
+      return "stopped #{signal_shown(stopsig)}" if stopped?
+
+      "#{signal_shown(termsig)}#{coredump? ? ' (core dumped)' : ''}"
     end
 
     # pst_message_status: a signal by its name and number, or by its
@@ -962,6 +967,35 @@ module Process
     [words, first&.last]
   end
 
+  # A one-String command as the shell reads it: bytes, when it is not
+  # valid in its encoding, as rb_exec_fillarg reads it.
+  def self.script_text(command)
+    Primitive.attr! :hidden
+    text = String.try_convert(command)
+    raise TypeError, no_implicit_conversion(command, "String") if text.nil?
+
+    text.valid_encoding? ? text : text.b
+  end
+
+  # Whether a one-String command needs the shell: shell syntax, a shell
+  # word first, or an `=` in the first word, which makes it an
+  # assignment, as rb_exec_fillarg reads it.
+  def self.shell_script?(command)
+    Primitive.attr! :hidden
+    first = command.split(" ").first || +""
+    command.each_char.any? { |c| SHELL_META.include?(c) } || Primitive.zr_table_member_p(SHELL_WORDS, first) || first.include?("=")
+  end
+
+  # The command that a failed system call names: a shell script whole,
+  # else the program, as rb_f_system reads invoke.sh.shell_script, whose
+  # place invoke.cmd.command_name shares.
+  def self.failed_name(args)
+    Primitive.attr! :hidden
+    _, args, = exec_args(args, {})
+    script = args.size == 1 && !args.first.is_a?(Array) && script_text(args.first)
+    script && shell_script?(script) ? script : command_words(args).first
+  end
+
   # The PATH the child searches: the one its environment gives, else
   # this process's.
   def self.search_path(env)
@@ -972,20 +1006,11 @@ module Process
   def self.shell_words(command)
     return [command.first] if command.is_a?(Array)
 
-    text = String.try_convert(command)
-    raise TypeError, no_implicit_conversion(command, "String") if text.nil?
-
-    # The command is bytes to the shell: one that is not valid in its
-    # encoding is read as bytes, as rb_exec_fillarg reads it.
-    command = text.valid_encoding? ? text : text.b
-
-    # An `=` inside the first word makes it an assignment, which only a
-    # shell can do, as rb_exec_fillarg reads it.
-    first = command.split(" ").first || +""
+    command = script_text(command)
     # rb_exec_fillarg gives the shell its own name as argv[0], which is
     # the name that a shell puts in front of its own error messages, and
     # the spawn finds it on PATH.
-    return [+"sh", +"-c", command] if command.each_char.any? { |c| SHELL_META.include?(c) } || Primitive.zr_table_member_p(SHELL_WORDS, first) || first.include?("=")
+    return [+"sh", +"-c", command] if shell_script?(command)
 
     words = command.split(" ")
     # A command of no words still gives a program: rb_exec_fillarg
@@ -1015,7 +1040,8 @@ module Process
     table.map { |key, value| "#{key}=#{value}" }
   end
 
-  private_class_method :spawn_command, :start_error, :unenterable, :command_words, :command_line, :search_path, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn
+  private_class_method :spawn_command, :start_error, :unenterable, :command_words, :command_line, :search_path, :shell_words, :environment, :exec_args, :executable, :forked_spawn, :tty_spawn,
+                       :script_text, :shell_script?, :failed_name
 end
 
 # The ids a process runs as. Process::Sys makes the system calls by
@@ -1307,7 +1333,7 @@ module Kernel
     # (SIGCHLD ignored) gives a status of pid -1 and exit 0, not an error.
     Process.send(:status!, Process::Status.wait(pid))
     return true if $?.success?
-    raise RuntimeError, "Command failed with exit #{$?.exitstatus}: #{args.join(' ')}" if exception
+    raise RuntimeError, "Command failed with #{$?.send(:message)}: #{Process.send(:failed_name, args)}" if exception
 
     false
   end
