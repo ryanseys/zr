@@ -1,0 +1,2 @@
+lang/exceptions/retry_in_an_ensure_clause_is_a_syntax_error_before_the_program_runs.rb: 
+lang/exceptions/retry_in_an_ensure_clause_is_a_syntax_error_before_the_program_runs.rb:13: Invalid retry (SyntaxError)

@@ -1,0 +1,14 @@
+2
+2
+2
+[3]
+1
+(eval at lang/exceptions/retry_is_valid_only_directly_in_a_rescue_clause.rb:72):1: Invalid retry
+(eval at lang/exceptions/retry_is_valid_only_directly_in_a_rescue_clause.rb:72):1: Invalid retry
+(eval at lang/exceptions/retry_is_valid_only_directly_in_a_rescue_clause.rb:72):1: Invalid retry
+(eval at lang/exceptions/retry_is_valid_only_directly_in_a_rescue_clause.rb:72):1: Invalid retry
+(eval at lang/exceptions/retry_is_valid_only_directly_in_a_rescue_clause.rb:72):1: syntax error found
+> 1 | begin; ensure; retry; end
+    |                ^~~~~ Invalid retry after ensure
+(eval at lang/exceptions/retry_is_valid_only_directly_in_a_rescue_clause.rb:72):1: Invalid retry
+:dead_code_compiles

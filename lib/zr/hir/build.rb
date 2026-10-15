@@ -220,6 +220,9 @@ module Zr
         @singleton = false
         @body_marks = []
         @block_depth = 0
+        # The clauses and blocks around the node: a `retry` is valid only
+        # where the innermost is a rescue clause (`retry_in`).
+        @retry_scopes = [] #: Array[Symbol]
         # An eval starts under the refinements of its call site.
         @using = eval ? loader&.eval_using : nil
         # The number of `using` entries that this build made. `statement`
@@ -384,6 +387,7 @@ module Zr
       #: [T] () { () -> T } -> T
       def in_block
         @block_depth += 1
+        @retry_scopes.push(:block)
         using = @using
         @temps.push([])
         @last_lines.push(-1)
@@ -394,6 +398,7 @@ module Zr
           yield
         ensure
           @block_depth -= 1
+          @retry_scopes.pop
           @using = using unless @path == [Object.name] && !@in_def
           @temps.pop
           @last_lines.pop
@@ -788,11 +793,17 @@ module Zr
           op_write(node, IvarRead.new(node.name, line)) { |value| IvarWrite.new(node.name, value, line) }
         when :begin_node then protected_region(node, taken: taken)
         when :rescue_modifier_node
-          clause = Rescue.new([], nil, expr(node.rescue_expression), line)
+          clause = Rescue.new([], nil, retry_in(:rescue) { expr(node.rescue_expression) }, line)
           Begin.new(expr(node.expression), [clause], nil, nil, line)
         # Ruby's compiler writes no code for a branch that it knows is
         # never taken, so a `retry` there is never an error.
-        when :retry_node then @dead.positive? ? Literal.new(nil, line) : Retry.new(line)
+        when :retry_node
+          if @dead.positive? then Literal.new(nil, line)
+          # Ruby compiles an ensure clause, a block and END as code of
+          # their own, where a `retry` has no rescue clause to run again.
+          elsif @retry_scopes.last != :rescue then invalid(node, "Invalid retry")
+          else Retry.new(line)
+          end
         when :redo_node then Redo.new(line)
         else unsupported(node)
         end
@@ -823,7 +834,7 @@ module Zr
         else_statements = else_clause&.statements
         else_body = else_clause && (else_statements ? seq(else_statements, taken: taken) : Literal.new(nil, line))
         ensure_clause = node.ensure_clause
-        ensure_body = ensure_clause && silent_ensure(ensure_clause.statements ? seq(ensure_clause.statements, taken: false) : Literal.new(nil, line), ensure_clause)
+        ensure_body = ensure_clause && silent_ensure(retry_in(:ensure) { ensure_clause.statements ? seq(ensure_clause.statements, taken: false) : Literal.new(nil, line) }, ensure_clause)
         Begin.new(body, rescues, else_body, ensure_body, line)
       end
 
@@ -851,13 +862,23 @@ module Zr
         end
       end
 
+      # Builds the body of a rescue clause, an ensure clause or a block
+      # (`kind`), for the check of `retry`.
+      #: [T] (Symbol kind) { () -> T } -> T
+      def retry_in(kind)
+        @retry_scopes.push(kind)
+        yield
+      ensure
+        @retry_scopes.pop
+      end
+
       #: (Prism::RescueNode node) -> Rescue
       def rescue_clause(node)
         line = node.location.start_line
         classes = node.exceptions.map { |e| e.is_a?(Prism::SplatNode) ? splat(e, line) : expr(e) }
         reference = node.reference
         statements = node.statements
-        Rescue.new(classes, reference && target(reference), statements ? seq(statements) : Literal.new(nil, line), line)
+        Rescue.new(classes, reference && target(reference), retry_in(:rescue) { statements ? seq(statements) : Literal.new(nil, line) }, line)
       end
 
       # The value of `return`, `break` and `next`: none is nil, one value
@@ -1515,7 +1536,7 @@ module Zr
                    target(index)
                  end
         target = deepen(target, 0)
-        body = node.statements ? deepen(seq(node.statements), 0) : Literal.new(nil, line)
+        body = node.statements ? deepen(retry_in(:block) { seq(node.statements) }, 0) : Literal.new(nil, line)
         value = Local.new(:"*for", 0, line)
         if target.is_a?(MultiTarget)
           # `for a, b in o` takes all yielded values, as `|a, b|` does. The
@@ -1963,7 +1984,7 @@ module Zr
         # `END { }` shares the enclosing scope. As in CRuby, a block runs
         # once and registers the body as a block of its own, so the body
         # is two blocks deeper (`block (2 levels) in <main>`).
-        body = deepen(deepen(node.statements ? seq(node.statements) : Literal.new(nil, line), 0), 0)
+        body = deepen(deepen(node.statements ? retry_in(:block) { seq(node.statements) } : Literal.new(nil, line), 0), 0)
         none = Params.new([], [], nil, [], [], nil, nil)
         register = Send.of(Core.new(:Kernel, line), :end_proc, [], line, block: Block.new(none, [], body, line))
         # It registers once for its site, however many times the site runs.

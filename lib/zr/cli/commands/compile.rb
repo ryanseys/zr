@@ -350,6 +350,12 @@ module Zr
 
           Native::Build.lower(source, input, options, sources: name == "run")
         rescue Refused => e
+          # A form of the program that ruby's compiler refuses (`Hir::Invalid`)
+          # ends as ruby's SyntaxError does, before any of the program runs.
+          if (invalid = Refusals.invalid_program(input, e))
+            warn "zr: warning: #{input} does not compile in ruby. The output prints ruby's SyntaxError and exits with status 1" if name == "build"
+            return Program.build(invalid, input, options.with(gate: false, trace: false))
+          end
           warn Refusals.refusal_report(e)
           exit REFUSED
         rescue Backend::Refused => e

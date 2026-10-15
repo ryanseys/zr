@@ -127,6 +127,16 @@ module Zr
         warning_lines(result, input, switches.verbose) unless result.errors.empty?
       end
 
+      # The program that ends as ruby does for `input` when ruby's compiler
+      # refuses a form in it (`Hir::Invalid`): its SyntaxError, before any
+      # line runs. nil for a refusal of zr's own or one in another file.
+      #: (String input, Exception error) -> String?
+      def invalid_program(input, error)
+        return unless error.is_a?(Hir::Invalid) && error.message.start_with?("#{input}:")
+
+        syntax_error_program(input, SyntaxError.new(error.message), "")
+      end
+
       # The program that ends as ruby does for a script that does not
       # parse, after the -r requires ran: the parse's warnings (`warned`),
       # then the error as error_print writes it, through

@@ -102,7 +102,8 @@ module Zr
       def lower(source, rel, target, gem_set = nil)
         compile(source, rel, target, gem_set)
       rescue *REFUSALS => e
-        [:refused, e.message]
+        # A form that ruby's compiler refuses ends as ruby's SyntaxError.
+        (invalid = CLI::Refusals.invalid_program(rel, e)) ? compile(invalid, rel, target) : [:refused, e.message]
       rescue Backend::Refused => e
         [:backend, e.message]
       rescue SyntaxError => e
