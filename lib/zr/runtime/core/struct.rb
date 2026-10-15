@@ -40,7 +40,7 @@ class Struct
       end
       # setup_struct: each member's setter is its name with `=`, which an
       # operator other than [] cannot take (rb_id_attrset).
-      operator = members.find { |m| OPERATORS.include?(m) }
+      operator = members.find { |m| Primitive.zr_table_member_p(OPERATORS, m) }
       raise NameError.new("cannot make operator ID #{operator.inspect} attrset", operator) if operator
 
       klass.define_singleton_method(:new, Class.instance_method(:new))
