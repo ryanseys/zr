@@ -502,8 +502,9 @@ module Zr
     # `low..high` / `low...high`. A missing bound is nil. `static` if both
     # ends are Integer or nil literals: one frozen Range for the site.
     RangeLit = Node.new(:low, :high, :exclusive, :line, :static)
-    # `"a#{b}c"`: literal and expression parts in order.
-    Interp = Node.new(:parts, :line)
+    # `"a#{b}c"`: literal and expression parts in order. `held` marks
+    # `"#{b}#{""}"`, one part whose String the literal gives itself.
+    Interp = Node.new(:parts, :line, :held)
     # `/#{x}/o`: the interpolated regexp that its site keeps after the
     # first run.
     RegexpOnce = Node.new(:value, :line)

@@ -581,7 +581,29 @@ module Zr
         # part into the text first, and a String or Symbol value skips the
         # refined `to_s` at run time.
         parts = parts.map { |part| folded?(part) ? part : Send.of(part, :to_s, [], line, interp: true) } if @using
+        return Interp.new(parts.take(1), line, true) if held?(node)
+
         Interp.new(parts, line)
+      end
+
+      # `"#{x}#{""}"`: one embedded part, then only empty literal text.
+      # Ruby's peephole optimizer drops an empty literal just before
+      # concatstrings, and then the concatstrings of one part, so the
+      # result is the String that the part gives, not a new one.
+      #: (interpolated node) -> bool
+      def held?(node)
+        return false unless node.is_a?(Prism::InterpolatedStringNode)
+
+        first, *rest = node.parts
+        !literal_text(first) && !rest.empty? && rest.all? { |part| literal_text(part) == "" }
+      end
+
+      # The text of a part that prism_compile.c folds into the literal
+      # text: a String, or `#{}` around one String.
+      #: (Prism::node? part) -> String?
+      def literal_text(part)
+        part = part.statements&.body&.first if part.is_a?(Prism::EmbeddedStatementsNode) && part.statements&.body&.size == 1
+        part.unescaped if part.is_a?(Prism::StringNode)
       end
 
       # The code of a `#{}`, whose own literals keep the source's encoding

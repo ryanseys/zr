@@ -339,6 +339,8 @@ module Zr
         # This saves an allocation, a malloc and a copy per part.
         #: (Hir::Interp node) -> String
         def interp(node)
+          return checked(kernel("zr_obj_as_string", expr(node.parts.first))) if node.held
+
           staged(node.parts, evaluate: ->(part) { interp_part(part) }) do |argv|
             checked(kernel("zr_str_interp", imm(node.parts.size), argv))
           end

@@ -325,6 +325,8 @@ module Zr
                 code(part, s)
               end
             end
+            return ->(f) { check(@kern.zr_obj_as_string(parts.first.call(f))) } if node.held
+
             lambda do |f|
               values = parts.map { |part| part.call(f) }
               slots(f) { check(@kern.zr_str_interp(values.size, argv(f, values))) }

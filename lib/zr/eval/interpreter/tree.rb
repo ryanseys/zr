@@ -445,6 +445,11 @@ module Zr
         end
 
         def interp(node, ctx)
+          if node.held
+            value = walk(node.parts.first, ctx)
+            return value.is_a?(::String) ? value : stringify(value)
+          end
+
           out = +""
           node.parts.each do |part|
             value = walk(part, ctx)

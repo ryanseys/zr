@@ -1,0 +1,17 @@
+line continuation: true false
+empty braces: true false
+two empty parts: true false
+adjacent empty literal: false false
+alone: false false
+empty text first: false false
+text after: false false
+two values: false false
+"abc"
+true
+false
+"sym"
+"12"
+true
+true
+true
+false
