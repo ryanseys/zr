@@ -108,21 +108,28 @@ module Zr
 
         # Sets `@in[block]`, the values live into the block, and
         # `@out[block]`, a Hash of the values live out of it. It walks back
-        # from each use.
+        # from each use, one value at a time, so `seen` marks each block
+        # once for each value: a value read in many blocks walks its range
+        # once, not once for each block that reads it.
         #: () -> void
         def live
           n = @f.blocks.size
           @in = Array.new(n) { [] }
           @out = Array.new(n) { {} }
           seen = Array.new(n) #: Array[Integer?]
-          @uses.each_with_index do |used, bi|
-            used.each do |v|
-              home = @home[v]
-              next if home == bi || home.nil? || seen[bi] == v
+          work = [] #: Array[Integer]
+          read_in = {} #: Hash[Integer, Array[Integer]]
+          @uses.each_with_index { |used, bi| used.each { |v| (read_in[v] ||= []) << bi } }
+          read_in.each do |v, blocks|
+            home = @home[v]
+            next if home.nil?
+
+            blocks.each do |bi|
+              next if home == bi || seen[bi] == v
 
               seen[bi] = v
               @in[bi] << v
-              work = [bi]
+              work << bi
               while (w = work.pop)
                 @pred[w].each do |p|
                   @out[p][v] = true
