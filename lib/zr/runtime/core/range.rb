@@ -260,12 +260,10 @@ class Range
       Range.new(v.to_s, @end&.to_s, @excl).each { |s| yield s.to_sym }
     elsif (text = String.try_convert(v))
       if @end.nil?
-        while true
-          yield text
-          text = text.succ
-        end
+        text.send(:endless_upto) { |s| yield s }
+      else
+        text.upto(@end, @excl) { |s| yield s }
       end
-      text.upto(@end, @excl) { |s| yield s }
     else
       # range_each_func: any object that responds to succ walks toward the
       # end while <=> says it has not passed it.

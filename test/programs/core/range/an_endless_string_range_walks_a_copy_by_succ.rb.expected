@@ -1,0 +1,11 @@
+b! c! d! 
+"b"
+["y", String]
+["z", String]
+["aa", String]
+[["08", #<Encoding:US-ASCII>], ["09", #<Encoding:US-ASCII>], ["10", #<Encoding:US-ASCII>], ["11", #<Encoding:US-ASCII>]]
+["9", "10", "11"]
+["zz", "aaa"]
+["a9", "b0", "b1"]
+[:x, :y, :z, :aa]
+["q", "r", "s"]

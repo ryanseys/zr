@@ -1587,6 +1587,31 @@ class String
     self
   end
 
+  # rb_str_upto_endless_each, the walk of `(str..)`: all digits count up
+  # in US-ASCII at the receiver's width; any other text walks a plain
+  # copy by succ, which it takes before each yield, and stops at an
+  # empty String.
+  def endless_upto
+    Primitive.attr! :hidden
+    if digits?
+      width = Primitive.zr_str_bytesize(self)
+      n = to_i
+      while true
+        text = n.to_s
+        yield text.bytesize < width ? ("0" * (width - text.bytesize) + text).force_encoding(Encoding::US_ASCII) : text
+        n += 1
+      end
+    end
+    current = copied
+    while true
+      following = current.succ
+      yield current
+      current = Primitive.zr_str_operand(following)
+      break if Primitive.zr_str_bytesize(current) == 0
+    end
+    self
+  end
+
   # rb_str_partition: a String separator that matches is the middle
   # element itself; every other piece is new.
   def partition(sep)
