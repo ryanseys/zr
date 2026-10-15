@@ -1557,36 +1557,40 @@ module Zr
       end
 
       # `node` as read from one block scope deeper: every local at
-      # `level` or more is one scope further out.
-      #: (untyped node, Integer level) -> untyped
-      def deepen(node, level)
+      # `level` or more is one scope further out. A node that the tree
+      # holds in two places (a pattern's subject) moves once (`seen`).
+      #: (untyped node, Integer level, ?Hash[untyped, bool] seen) -> untyped
+      def deepen(node, level, seen = {}.compare_by_identity)
+        return node if Hir.node?(node) && seen.key?(node)
+
+        seen[node] = true if Hir.node?(node)
         case node
         when Local, Assign
           node.depth += 1 if node.depth >= level
-          node.value = deepen(node.value, level) if node.is_a?(Assign) && node.value
+          node.value = deepen(node.value, level, seen) if node.is_a?(Assign) && node.value
           node
         when Block
-          node.body = deepen(node.body, level + 1)
-          node.params.optional.each { |pair| pair[1] = deepen(pair[1], level + 1) }
-          node.params.keywords.each { |pair| pair[1] = deepen(pair[1], level + 1) if pair[1] }
+          node.body = deepen(node.body, level + 1, seen)
+          node.params.optional.each { |pair| pair[1] = deepen(pair[1], level + 1, seen) }
+          node.params.keywords.each { |pair| pair[1] = deepen(pair[1], level + 1, seen) if pair[1] }
           node
         when Def
-          node.receiver = deepen(node.receiver, level) if node.receiver
+          node.receiver = deepen(node.receiver, level, seen) if node.receiver
           node
         when ClassDef
-          node.scope = deepen(node.scope, level) if Hir.node?(node.scope)
-          node.superclass = deepen(node.superclass, level) if node.superclass
+          node.scope = deepen(node.scope, level, seen) if Hir.node?(node.scope)
+          node.superclass = deepen(node.superclass, level, seen) if node.superclass
           node
         when ModuleDef
-          node.scope = deepen(node.scope, level) if Hir.node?(node.scope)
+          node.scope = deepen(node.scope, level, seen) if Hir.node?(node.scope)
           node
         when SingletonClassDef
-          node.target = deepen(node.target, level)
+          node.target = deepen(node.target, level, seen)
           node
         when Node
-          node.each_pair { |k, v| node[k] = deepen(v, level) if Hir.node?(v) || v.is_a?(Array) }
+          node.each_pair { |k, v| node[k] = deepen(v, level, seen) if Hir.node?(v) || v.is_a?(Array) }
           node
-        when Array then node.map! { |v| Hir.node?(v) || v.is_a?(Array) ? deepen(v, level) : v }
+        when Array then node.map! { |v| Hir.node?(v) || v.is_a?(Array) ? deepen(v, level, seen) : v }
         else node
         end
       end

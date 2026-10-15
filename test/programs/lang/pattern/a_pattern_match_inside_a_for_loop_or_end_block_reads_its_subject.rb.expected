@@ -1,0 +1,10 @@
+small 1
+pair 2 3
+hash 4
+pair 5 6
+string s
+list 7 [8, 9]
+other nil
+[1, 4]
+[:block, 1]
+[:end, 1, 2]
