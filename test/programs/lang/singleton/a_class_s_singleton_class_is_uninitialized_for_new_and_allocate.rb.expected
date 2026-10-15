@@ -1,0 +1,9 @@
+object new: TypeError: can't create instance of singleton class
+object allocate: TypeError: can't create instance of singleton class
+string allocate: TypeError: can't create instance of singleton class
+class new: TypeError: can't instantiate uninitialized class
+class allocate: TypeError: can't instantiate uninitialized class
+String's: TypeError: can't instantiate uninitialized class
+twice: TypeError: can't instantiate uninitialized class
+bound new: TypeError: can't instantiate uninitialized class
+module's: NoMethodError: undefined method 'allocate' for class #<Class:Kernel>

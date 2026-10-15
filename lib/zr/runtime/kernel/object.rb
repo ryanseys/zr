@@ -726,8 +726,10 @@ module Zr::Kern
   #: (value) -> value
   def zr_class_allocate(recv)
     recv = zr_alloc_class(recv)
-    # The checks of CRuby's class_call_alloc_func, in the same order.
-    if RClass[recv].superclass == QNIL && recv != zr_global(G_BASIC_OBJECT)
+    # The checks of CRuby's class_call_alloc_func, in the same order. A
+    # class's singleton class (make_metaclass) is never marked initialized.
+    metaclass = (RBasic[recv].flags & FL_SINGLETON) != 0 && !zr_special_p(RClass[recv].attached) && zr_type(RClass[recv].attached) == T_CLASS
+    if metaclass || (RClass[recv].superclass == QNIL && recv != zr_global(G_BASIC_OBJECT))
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't instantiate uninitialized class"), 37)
     end
     if (RBasic[recv].flags & FL_SINGLETON) != 0
