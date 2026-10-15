@@ -37,13 +37,17 @@ module Zr
             code << "\x00".b
           when "malloc"
             # r = heap; heap += n rounded to 16; grow when heap passes the
-            # memory's end; return r.
+            # memory's end; return r. When the memory cannot grow (its
+            # limit), heap = r and return 0, as libc's malloc does: then
+            # `zr_xmalloc` ends the program with ruby's message, where an
+            # address past the end would trap at its first write.
             code << "\x23\x01".b << "\x21\x01".b
             code << "\x23\x01".b << "\x20\x00".b << "\xA7".b << i32c(15) << "\x6A".b << i32c(-16) << "\x71".b << "\x6A".b << "\x24\x01".b
             code << "\x23\x01".b << "\x3F\x00".b << i32c(16) << "\x74".b << "\x4B".b
             code << "\x04\x40".b
             code << "\x23\x01".b << "\x3F\x00".b << i32c(16) << "\x74".b << "\x6B".b << i32c(PAGE - 1) << "\x6A".b << i32c(16) << "\x76".b
-            code << "\x40\x00".b << "\x1A".b
+            code << "\x40\x00".b << i32c(-1) << "\x46".b
+            code << "\x04\x40".b << "\x20\x01".b << "\x24\x01".b << "\x42\x00".b << "\x0F".b << "\x0B".b
             code << "\x0B".b
             code << "\x20\x01".b << "\xAD".b
           when "posix_memalign"

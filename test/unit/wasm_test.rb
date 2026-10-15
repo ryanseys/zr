@@ -83,6 +83,46 @@ class WasmTest < Minitest::Test
     end
   end
 
+  # A malloc that the memory cannot grow for gives 0, as libc's does, so
+  # `zr_xmalloc` ends the program with ruby's message. It must not give an
+  # address past the memory's end, where the first write traps far from
+  # the cause.
+  EXHAUSTED = <<~RUBY
+    module Zr::Kern
+      module Libc
+        #: (word) -> ptr
+        def self.malloc(n) = Machine.import
+        #: (i32, ptr, word) -> word
+        def self.write(i, p, n) = Machine.import
+      end
+
+      #: (i32, ptr) -> i32
+      def main(argc, argv)
+        i = 0
+        while i < 64
+          p = Libc.malloc(1048576)
+          if p == 0
+            Libc.write(Machine.i32(1), Machine.bytes("no memory\\n"), 10)
+            return 0
+          end
+          Machine.store64(p + 1048568, 0, 1)
+          i += 1
+        end
+        Libc.write(Machine.i32(1), Machine.bytes("all given\\n"), 10)
+        0
+      end
+    end
+  RUBY
+
+  def test_a_malloc_past_the_memory_limit_gives_zero
+    functions, data = Zr::Machine.compile(EXHAUSTED, "exhausted.rb")
+    Dir.mktmpdir("zr-wasm-") do |dir|
+      wasm = File.join(dir, "exhausted.wasm")
+      assert_nil Zr::Native::Build.wasm(functions, data, wasm)
+      with_env("ZR_TEST_WASM_MEMORY" => (16 << 20).to_s) { run_module(wasm, "no memory\n") }
+    end
+  end
+
   # An import of a name that the module imports already, with another
   # signature, is refused, and the message gives both imports.
   def test_an_import_with_another_signature_is_refused
