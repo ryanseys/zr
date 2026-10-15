@@ -96,6 +96,7 @@ class Regexp
     end
 
     def incompatible(encoding, text_encoding)
+      Primitive.attr! :hidden
       raise Encoding::CompatibilityError,
             "incompatible encoding regexp match (#{inspect_name(encoding)} regexp with #{inspect_name(text_encoding)} string)"
     end

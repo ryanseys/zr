@@ -2139,7 +2139,7 @@ class String
     block && !result.nil? ? yield(result) : result
   end
 
-  def match?(pattern, pos = 0) = String.send(:pattern_of, pattern).match?(self, pos)
+  def match?(pattern, pos = 0) = String.send(:pattern_of, pattern).send(:matches?, self, pos)
 
   # get_pat: a Regexp, or a String compiled as one.
   def self.pattern_of(pattern)

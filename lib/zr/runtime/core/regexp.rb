@@ -549,7 +549,11 @@ class Regexp
   end
   private :matched
 
-  def match?(text, pos = 0)
+  def match?(text, pos = 0) = matches?(text, pos)
+
+  # rb_reg_match_p, which String#match? calls in C: no frame of match?.
+  def matches?(text, pos)
+    Primitive.attr! :hidden
     return false if text.nil?
 
     # rb_reg_match_p: a Symbol's name, else StringValue.
@@ -563,6 +567,7 @@ class Regexp
 
     !Primitive.zr_regexp_search(self, program_for(text), text, Primitive.zr_str_char_offset_m(text, pos), false).nil?
   end
+  private :matches?
 
   # The character the search matched at (before a `\K`), or nil. Ruby
   # runs `=~` as an instruction (opt_regexpmatch2), with no frame.
