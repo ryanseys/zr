@@ -1,0 +1,70 @@
+readpartial[nil]: TypeError: no implicit conversion of nil into Integer
+readpartial[nil, 3]: TypeError: no implicit conversion of nil into Integer
+readpartial[1, 3]: TypeError: no implicit conversion of Integer into String
+readpartial[1, :s]: TypeError: no implicit conversion of Symbol into String
+readpartial[-1]: ArgumentError: negative length -1 given
+readpartial[-1, 3]: ArgumentError: negative length -1 given
+readpartial[-1, ""]: ArgumentError: negative length -1 given
+readpartial[Two]: "he"
+readpartial["2"]: TypeError: no implicit conversion of String into Integer
+readpartial[2.9]: "he"
+readpartial[0.5]: ""
+readpartial[2.5, "he"]: "he"
+readpartial[2, "frozen"]: FrozenError: can't modify frozen String: "frozen"
+readpartial[0, "frozen"]: FrozenError: can't modify frozen String: "frozen"
+readpartial[0, 3]: TypeError: no implicit conversion of Integer into String
+readpartial[18446744073709551616]: RangeError: bignum too big to convert into 'long'
+readpartial[NaN]: RangeError: float NaN out of range of integer
+read_nonblock[nil]: TypeError: no implicit conversion of nil into Integer
+read_nonblock[nil, 3]: TypeError: no implicit conversion of nil into Integer
+read_nonblock[1, 3]: TypeError: no implicit conversion of Integer into String
+read_nonblock[1, :s]: TypeError: no implicit conversion of Symbol into String
+read_nonblock[-1]: ArgumentError: negative length -1 given
+read_nonblock[-1, 3]: ArgumentError: negative length -1 given
+read_nonblock[-1, ""]: ArgumentError: negative length -1 given
+read_nonblock[Two]: "he"
+read_nonblock["2"]: TypeError: no implicit conversion of String into Integer
+read_nonblock[2.9]: "he"
+read_nonblock[0.5]: ""
+read_nonblock[2.5, "he"]: "he"
+read_nonblock[2, "frozen"]: FrozenError: can't modify frozen String: "frozen"
+read_nonblock[0, "frozen"]: FrozenError: can't modify frozen String: "frozen"
+read_nonblock[0, 3]: TypeError: no implicit conversion of Integer into String
+read_nonblock[18446744073709551616]: RangeError: bignum too big to convert into 'long'
+read_nonblock[NaN]: RangeError: float NaN out of range of integer
+sysread[nil]: TypeError: no implicit conversion of nil into Integer
+sysread[nil, 3]: TypeError: no implicit conversion of nil into Integer
+sysread[1, 3]: TypeError: no implicit conversion of Integer into String
+sysread[1, :s]: TypeError: no implicit conversion of Symbol into String
+sysread[-1]: ArgumentError: negative string size (or size too big)
+sysread[-1, 3]: TypeError: no implicit conversion of Integer into String
+sysread[-1, ""]: Errno::EINVAL: Invalid argument
+sysread[Two]: "he"
+sysread["2"]: TypeError: no implicit conversion of String into Integer
+sysread[2.9]: "he"
+sysread[0.5]: ""
+sysread[2.5, "he"]: "he"
+sysread[2, "frozen"]: FrozenError: can't modify frozen String: "frozen"
+sysread[0, "frozen"]: FrozenError: can't modify frozen String: "frozen"
+sysread[0, 3]: TypeError: no implicit conversion of Integer into String
+sysread[18446744073709551616]: RangeError: bignum too big to convert into 'long'
+sysread[NaN]: RangeError: float NaN out of range of integer
+bad exception: with a bad length: TypeError: no implicit conversion of nil into Integer
+bad exception: with a bad buffer: TypeError: no implicit conversion of Integer into String
+bad exception:: ArgumentError: expected true or false as exception: 1
+no exception at the end: [nil, ""]
+sysread of a file: Errno::EINVAL
+pread[-1, 0]: ArgumentError
+pread[-1, 0, ""]: Errno::EINVAL
+pread[-1, 0, 3]: TypeError
+pread[-1, nil]: TypeError
+pread[18446744073709551616, 0]: RangeError
+pread[18446744073709551615, 0, 3]: TypeError
+pread[9223372036854775808, 0]: ArgumentError
+pread[9223372036854775808, 0, ""]: Errno::EINVAL
+pread[1, -1]: Errno::EINVAL
+pread[1, 0, "f"]: FrozenError
+pread[0, 0, "f"]: FrozenError
+pread[nil, 0]: TypeError
+pread[2.5, 0]: "# "
+pread[2, 0, "zz"]: "# "

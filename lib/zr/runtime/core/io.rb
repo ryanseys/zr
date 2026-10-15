@@ -1483,15 +1483,19 @@ class IO
   # own where it was, buffer included.
   # rb_io_pread: the arguments convert first, and a length of 0 returns
   # the buffer as it is, or an empty String, before the IO is checked.
+  # rb_io_pread: a negative length makes no new buffer, and pread(2)
+  # refuses it for a buffer that was given.
   def pread(length, offset, buffer = nil)
-    length = Primitive.zr_index_operand_m(length)
+    length = size_length(length)
     offset = Primitive.zr_index_operand_m(offset)
-    raise ArgumentError, +"negative string size (or size too big)" if length.negative?
+    raise ArgumentError, +"negative string size (or size too big)" if length.negative? && buffer.nil?
 
-    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
+    buffer = read_buffer(buffer)
     return buffer || +"".b if length.zero?
 
     check_readable
+    raise SystemCallError.new(label, Errno::EINVAL::Errno, +"rb_io_pread") if length.negative?
+
     IO.send(:room_for!, length)
     text = if (scheduler = IO.send(:scheduler_taking, :io_pread))
              IO::Buffer.send(:lent, "\0".b * length) do |memory|
@@ -1999,17 +2003,19 @@ class IO
   # These three all read what is there and fill a buffer when one is
   # given; the end of the stream is an error, not a nil.
   # rb_io_sysread: one read(2) of the descriptor, past the buffer, which
-  # must be empty.
+  # must be empty. A negative length makes no new buffer, and read(2)
+  # refuses it for a buffer that was given.
   def sysread(length, buffer = nil)
     length = Primitive.zr_index_operand_m(length)
-    raise ArgumentError, "negative length #{length} given" if length < 0
+    raise ArgumentError, +"negative string size (or size too big)" if length < 0 && buffer.nil?
 
-    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
+    buffer = read_buffer(buffer)
     return buffer || +"".b if length.zero?
 
     check_readable
     check_byte_readable
     raise IOError, +"sysread for buffered IO" unless @buffer.empty?
+    raise SystemCallError.new(@name || @path, Errno::EINVAL::Errno, +"rb_io_sysread") if length < 0
 
     IO.send(:room_for!, length)
     chunk = locking(buffer) do
@@ -2017,7 +2023,7 @@ class IO
       loop do
         chunk = read_memory(length)
         break chunk unless chunk.is_a?(Integer)
-        raise SystemCallError.new(label, -chunk, +"sysread") unless -chunk == Errno::EAGAIN::Errno
+        raise SystemCallError.new(@name || @path, -chunk, +"rb_io_sysread") unless -chunk == Errno::EAGAIN::Errno
 
         wait_again(READABLE)
       end
@@ -2026,8 +2032,8 @@ class IO
   end
 
   def readpartial(length, buffer = nil)
-    # io_setstrbuf: the buffer converts before the stream is read.
-    buffer = Primitive.zr_str_operand(buffer) unless buffer.nil?
+    length = read_length(length)
+    buffer = read_buffer(buffer)
     check_byte_readable
     filled(locking(buffer) { read_some(length) }, buffer)
   end
@@ -2036,9 +2042,9 @@ class IO
   # own parameters, under CRuby's names.
   def read_nonblock(len, buf = nil, exception: true)
     Primitive.attr! :ruby
+    len = read_length(len)
+    buf = read_buffer(buf)
     exception = exception_flag(exception)
-    raise ArgumentError, "negative length #{len} given" if len < 0
-
     check_readable
     check_byte_readable
     set_nonblock(true) unless nonblock_flag?
@@ -2792,6 +2798,36 @@ class IO
   # rb_str_locktmp_ensure: while a read waits to fill the caller's
   # buffer, the String is locked, so another thread that changes it
   # raises. The buffer must be one that can change (io_setstrbuf).
+  # io_getpartial and io_read_nonblock: the length is a long (NUM2LEN),
+  # read before the buffer.
+  def read_length(length)
+    Primitive.attr! :hidden
+    length = Primitive.zr_index_operand_m(length)
+    raise ArgumentError, "negative length #{length} given" if length < 0
+
+    length
+  end
+
+  # NUM2SIZET: an Integer below 2**64, which a read then takes as a long,
+  # so one from 2**63 up is negative there.
+  def size_length(length)
+    Primitive.attr! :hidden
+    return Primitive.zr_index_operand_m(length) unless length.is_a?(Integer) && length >= 0x8000_0000_0000_0000
+    raise RangeError, +"bignum too big to convert into 'unsigned long long'" if length > 0xffff_ffff_ffff_ffff
+
+    length - 0x1_0000_0000_0000_0000
+  end
+
+  # io_setstrbuf: a buffer is a String that the read may change.
+  def read_buffer(buffer)
+    Primitive.attr! :hidden
+    return nil if buffer.nil?
+
+    buffer = Primitive.zr_str_operand(buffer)
+    Primitive.zr_frozen_error(buffer) if Primitive.zr_modify_frozen_m(buffer)
+    buffer
+  end
+
   def locking(buffer)
     Primitive.attr! :hidden
     return yield if buffer.nil?
