@@ -278,11 +278,25 @@ module Zr
           hash.call
         end
 
-        #: (Hir::Seq node) -> String
-        def seq(node)
+        # A statement whose value is not used. A range literal there makes
+        # no Range, as compile.c drops newrange when it is popped: only its
+        # ends run. A parenthesized one is a Seq, all of it unused.
+        #: (Hir::node node) -> String
+        def unused(node)
+          case node
+          when Hir::RangeLit
+            [node.low, node.high].each { |part| expr(part) unless @f.terminated? }
+            @qnil
+          when Hir::Seq then seq(node, used: false)
+          else expr(node)
+          end
+        end
+
+        #: (Hir::Seq node, ?used: bool) -> String
+        def seq(node, used: true)
           last = nil #: String?
-          node.stmts.each do |s|
-            last = expr(s)
+          node.stmts.each_with_index do |s, i|
+            last = used && i == node.stmts.size - 1 ? expr(s) : unused(s)
             break if @f.terminated?
           end
           last || @qnil
