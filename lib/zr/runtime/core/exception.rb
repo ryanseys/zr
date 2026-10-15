@@ -104,7 +104,9 @@ class Exception
     bottom = checked_order(opt[:order])
     opt[:highlight] = highlight
     at = caller_locations(1, 1).first
-    out = +""
+    # exc_full_message writes into rb_str_new2(""): binary until a part
+    # with text past ASCII gives it that part's encoding.
+    out = "".b
     error_write(out, opt, report_backtrace(self), report_message(self, opt), highlight, bottom, at && "#{at.path}:#{at.lineno}:in 'full_message': ", {}.compare_by_identity)
     out
   end
@@ -256,7 +258,10 @@ class Exception
       name = !emesg.nil? && Primitive.zr_class_of_is(exc, RuntimeError) ? +"unhandled exception" : exc.class.to_s
       out << (highlight ? "#{UNDERLINE}#{name}#{RESET}" : name) << "\n"
     else
-      out << emesg << "\n"
+      # write_warn_enc: a message in an encoding the text cannot join
+      # goes in as its bytes.
+      Encoding.compatible?(out, emesg) ? out << emesg : out.force_encoding(Encoding::BINARY) << emesg.b
+      out << "\n"
     end
   end
 
@@ -285,27 +290,33 @@ class Exception
   end
 
   # Ruby's `rb_decorate_message`: the class rides on the message's first
-  # line, and an empty message is the class alone.
+  # line, and an empty message is the class alone. The text starts in
+  # US-ASCII, which a part past ASCII changes, and a message in an
+  # encoding that is not ASCII-compatible counts as empty.
   def decorate(text, highlight)
     Primitive.attr! :hidden
-    if Primitive.zr_class_of_is(self, RuntimeError) && text.empty?
-      return highlight ? "#{UNDERLINE}unhandled exception#{RESET}" : +"unhandled exception"
+    text = +"" unless text.encoding.ascii_compatible?
+    out = String.new(encoding: Encoding::US_ASCII)
+    if text.empty?
+      name = Primitive.zr_class_of_is(self, RuntimeError) ? +"unhandled exception" : self.class.to_s
+      return highlight ? out << UNDERLINE << name << RESET : out << name
     end
 
     path = self.class.to_s
-    return highlight ? "#{UNDERLINE}#{path}#{RESET}" : path if text.empty?
-    return highlight ? "#{BOLD}#{text}#{RESET}" : text if path.start_with?("#")
-
-    first, sep, rest = text.partition("\n")
-    out = +""
+    path = nil if path.start_with?("#")
+    newline = text.b.index("\n")
     out << BOLD if highlight
-    out << first << " ("
-    out << UNDERLINE if highlight
-    out << path
-    out << "#{RESET}#{BOLD}" if highlight
-    out << ")"
-    out << RESET if highlight
-    return out if sep.empty? || rest.empty?
+    out << (newline ? text.byteslice(0, newline) : text)
+    if path
+      out << " ("
+      out << UNDERLINE if highlight
+      out << path
+      out << "#{RESET}#{BOLD}" if highlight
+      out << ")"
+      out << RESET if highlight
+    end
+    rest = newline && text.byteslice(newline + 1, text.bytesize)
+    return out if rest.nil? || rest.empty?
 
     # Each later line is bold on its own, as rb_decorate_message writes it.
     out << "\n" << (highlight ? rest.gsub(/^(.+)$/) { "#{BOLD}#{::Regexp.last_match(1)}#{RESET}" } : rest)
