@@ -1,0 +1,16 @@
+unrelated: old <- handled
+cleanup: work failed
+three: a <- c <- b
+itself: itself
+explicit: e <- seed
+replaced: e <- other
+nil keeps: e <- other
+itself keeps: e <- other
+nil then $!: fresh <- outer
+[ArgumentError, "circular causes", nil]
+["x", nil]
+[false, "other", "seed"]
+[true, nil, nil]
+[true, nil]
+["thread", nil]
+100

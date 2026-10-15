@@ -357,14 +357,39 @@ end
   # task, and returns `undef` for the caller to pass on.
   #: (value, ptr) -> value
   def zr_raise_from(exc, top)
+    zr_raise_caused(exc, top, Machine.value(QUNDEF))
+  end
+
+  # rb_longjmp: exc_setup_message, then setup_exception. Without an
+  # explicit `cause` (undef), an exception with no cause yet takes `$!`,
+  # and one with a cause keeps it. A cause whose chain leads back to the
+  # exception raises `circular causes`. The cause it takes gets a cause of
+  # nil if it had none (exc_setup_cause), so raising that one again later
+  # keeps it and closes no ring.
+  #: (value, ptr, value) -> value
+  def zr_raise_caused(exc, top, cause)
+    if cause == QUNDEF && RException[exc].cause == QUNDEF
+      cause = Task[zr_task()].errinfo
+    end
+    if cause != QUNDEF
+      r = zr_exc_check_cause(exc, cause)
+      return r if r == QUNDEF
+    end
     if zr_frozen_p(exc)
       # setup_exception raises a copy of a frozen exception that has a
-      # backtrace or a cause. One with neither goes as it is, with none.
-      if RException[exc].rows == 0 && RException[exc].bt == QNIL && RException[exc].cause == QUNDEF
+      # backtrace or keeps its cause. Another goes as it is, as the
+      # writes of its cause and backtrace fail.
+      if RException[exc].rows == 0 && RException[exc].bt == QNIL && cause != QUNDEF
         return zr_raise_as_is(exc, top)
       end
       exc = zr_send(exc, Machine.id(:dup), 0, 0)
       return exc if exc == QUNDEF
+    end
+    if cause != QNIL && cause != QUNDEF && cause != exc
+      RException[exc].cause = cause
+      if RException[cause].cause == QUNDEF && !zr_frozen_p(cause)
+        RException[cause].cause = Machine.value(QNIL)
+      end
     end
     if RException[exc].bt == QFALSE
       zr_xfree(RException[exc].rows)
@@ -387,13 +412,6 @@ end
       RException[exc].rows = 0
       RException[exc].nrows = 0
       RException[exc].strs = Machine.value(QNIL)
-    end
-    t = zr_task()
-    if RException[exc].cause == QUNDEF
-      cause = Task[t].errinfo
-      r = zr_exc_check_cause(exc, cause)
-      return r if r == QUNDEF
-      RException[exc].cause = cause == exc ? Machine.value(QNIL) : cause
     end
     zr_raise_as_is(exc, top)
   end
@@ -729,20 +747,9 @@ end
     if cause != QUNDEF && cause != QNIL && (zr_special_p(cause) || zr_type(cause) != T_EXCEPTION)
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
     end
-    # exc_setup_cause: an explicit nil keeps a cause the exception has,
-    # and stops `$!` from becoming the cause of one that has none.
-    if cause == QNIL
-      if RException[e].cause == QUNDEF
-        RException[e].cause = Machine.value(QNIL)
-      end
-    elsif cause != QUNDEF
-      r = zr_exc_check_cause(e, cause)
-      return r if r == QUNDEF
-      RException[e].cause = cause == e ? Machine.value(QNIL) : cause
-    end
     r = zr_trace_raise_jump(e)
     return r if r == QUNDEF
-    zr_raise_from(e, top)
+    zr_raise_caused(e, top, cause)
   end
 
   # rb_raise_jump: a `raise` that the program called leaves its own frame
@@ -844,20 +851,20 @@ end
       e = zr_make_exception(argc, RArray[args].ptr)
       return e if e == QUNDEF
     end
+    # The cause replaces any the exception has, nil too; the exception
+    # itself as its cause is nil. A frozen exception takes it in a copy.
     if given == QFALSE
       cause = Task[zr_task()].errinfo
-    elsif cause == QNIL
-      # exc_setup_cause: an explicit nil sets nothing, so an exception
-      # raised again keeps the cause it has.
-      if RException[e].cause == QUNDEF
-        RException[e].cause = Machine.value(QNIL)
-      end
-      return e
-    elsif zr_special_p(cause) || zr_type(cause) != T_EXCEPTION
-      return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
     elsif cause != QNIL
+      if zr_special_p(cause) || zr_type(cause) != T_EXCEPTION
+        return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception object expected"), 25)
+      end
       r = zr_exc_check_cause(e, cause)
       return r if r == QUNDEF
+    end
+    if zr_frozen_p(e)
+      e = zr_send(e, Machine.id(:dup), 0, 0)
+      return e if e == QUNDEF
     end
     RException[e].cause = cause == e ? Machine.value(QNIL) : cause
     e
