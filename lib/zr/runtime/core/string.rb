@@ -1428,14 +1428,22 @@ class String
   end
 
   # Bytes and Strings appended as they are, whatever the encodings.
+  # rb_str_append_as_bytes: every part is checked before any byte goes
+  # in, and the String must be modifiable even with no parts.
   def append_as_bytes(*parts)
+    parts.each do |part|
+      next if part.is_a?(Integer) || part.is_a?(String)
+
+      raise TypeError, "wrong argument type #{Primitive.zr_real_class(part)} (expected String or Integer)"
+    end
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+    # The length is set once at the end, so self appends its first bytes.
+    size = Primitive.zr_str_bytesize(self)
     parts.each do |part|
       if part.is_a?(Integer)
         Primitive.zr_str_push_byte(self, part & 0xFF)
-      elsif part.is_a?(String)
-        part.each_byte { |b| Primitive.zr_str_push_byte(self, b) }
       else
-        raise TypeError, "wrong argument type #{Primitive.zr_real_class(part)} (expected String or Integer)"
+        (part.equal?(self) ? size : part.bytesize).times { |i| Primitive.zr_str_push_byte(self, part.getbyte(i)) }
       end
     end
     self

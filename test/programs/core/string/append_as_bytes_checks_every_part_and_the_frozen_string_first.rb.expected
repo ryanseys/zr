@@ -1,0 +1,18 @@
+["bad last part", TypeError, "wrong argument type Symbol (expected String or Integer)"]
+"ab"
+["bad first part", TypeError, "wrong argument type NilClass (expected String or Integer)"]
+"ab"
+["frozen, no parts", FrozenError, "can't modify frozen String: \"fr\""]
+["frozen, a part", FrozenError, "can't modify frozen String: \"fr\""]
+["frozen, a bad part", TypeError, "wrong argument type Symbol (expected String or Integer)"]
+["self", "abab"]
+["self twice", 12]
+["integers", [65, 66, 255, 67]]
+["returns self", true]
+"éé"
+true
+2
+#<Encoding:US-ASCII>
+false
+"\xC3\xA9"
+#<Encoding:BINARY (ASCII-8BIT)>

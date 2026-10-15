@@ -2756,9 +2756,6 @@ G_FROZEN_LITERALS = 52
     if (zr_fix2long(byte) & 255) >= 128 || !zr_enc_ascii_compat_p(zr_str_encoding_index(recv))
       zr_str_modified(recv)
     end
-    if zr_str_encoding_index(recv) == ENC_USASCII && zr_fix2long(byte) >= 128
-      zr_str_set_index(recv, ENC_UTF8)
-    end
     recv
   end
 
