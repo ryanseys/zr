@@ -1942,6 +1942,8 @@ module Zr::Kern
   end
 
   # `select`/`reject`: `keep` tells which block results keep the element.
+  # select reads the element again after the block (rb_ary_elt), and
+  # reject keeps the one it yielded, as array.c does.
   #: (value, value, bool) -> value
   def zr_ary_filter(recv, blk, keep)
     out = zr_ary_new(4)
@@ -1951,7 +1953,7 @@ module Zr::Kern
       r = zr_yield1(blk, v)
       return r if r == QUNDEF
       if (r != QNIL && r != QFALSE) == keep
-        zr_ary_push(out, zr_ary_at(recv, i))
+        zr_ary_push(out, keep ? zr_ary_at(recv, i) : v)
       end
       i += 1
     end
