@@ -96,20 +96,24 @@ class Enumerator
       Primitive.zr_hidden_set(self, :__block__, block)
     end
 
+    # producer_each: a loop in C under rb_rescue2, so no frame of loop,
+    # and a StopIteration ends it with its result.
     def each
       block = Primitive.zr_hidden_get(self, :__block__)
       value = Primitive.zr_hidden_get(self, :__initial__)
-      if Primitive.zr_hidden_get(self, :__has_initial__)
-        yield value
-      else
-        value = block.call(nil)
-        yield value
+      begin
+        if Primitive.zr_hidden_get(self, :__has_initial__)
+          yield value
+        else
+          value = nil
+        end
+        while true
+          value = block.call(value)
+          yield value
+        end
+      rescue StopIteration => e
+        e.result
       end
-      loop do
-        value = block.call(value)
-        yield value
-      end
-      self
     end
   end
 
