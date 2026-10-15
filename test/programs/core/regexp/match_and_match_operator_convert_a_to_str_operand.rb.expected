@@ -1,0 +1,20 @@
+#<MatchData "needle">
+true
+"a "
+nil
+nil
+2
+#<MatchData "needle">
+true
+true
+" here"
+nil
+nil
+#<MatchData "needle">
+0
+TypeError: no implicit conversion of Integer into String
+TypeError: no implicit conversion of Object into String
+TypeError: can't convert Broken into String (Broken#to_str gives Integer)
+false
+nil
+nil

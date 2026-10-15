@@ -534,8 +534,8 @@ class Regexp
       Primitive.zr_backref_set(nil)
       return nil
     end
-    text = text.to_s if text.is_a?(Symbol)
-    raise TypeError, no_implicit_conversion(text, "String") unless text.is_a?(String)
+    # reg_operand: a Symbol's name, else what to_str gives.
+    text = text.is_a?(Symbol) ? text.to_s : Primitive.zr_str_operand(text)
 
     pos = implicit_integer(pos)
     pos += Primitive.zr_str_length_m(text) if pos < 0
