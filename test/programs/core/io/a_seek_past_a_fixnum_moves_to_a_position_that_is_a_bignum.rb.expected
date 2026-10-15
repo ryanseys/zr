@@ -1,0 +1,10 @@
+[4611686018427387903, 2, 4611686018427387919, nil, true]
+[4611686018427387904, 0, 4611686018427387904, nil, true]
+[9223372036854775807, 0, 9223372036854775807, nil, true]
+[4611686018427387887, 1, 4611686018427387887, nil, true]
+[-4611686018427387904, 1, Errno::EINVAL, "Invalid argument @ rb_io_seek - PATH"]
+[9223372036854775807, 2, Errno::EOVERFLOW, "Value too large to be stored in data type @ rb_io_seek - PATH"]
+4611686018427387909
+4611686018427387909
+#<RangeError: bignum too big to convert into 'long long'>
+"HELLO"

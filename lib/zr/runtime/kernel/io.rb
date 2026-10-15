@@ -238,9 +238,19 @@ module Zr::Kern
     zr_io_status(Libc.fsync(Machine.i32(zr_fix2long(fd))))
   end
 
+  # The new position, or the negated errno. An off_t past a fixnum is a
+  # Bignum both ways: the offset, which the core checked fits 64 bits,
+  # and the position.
   #: (value, value, value) -> value
   def zr_io_seek(fd, offset, whence)
-    zr_io_failed(Libc.lseek(Machine.i32(zr_fix2long(fd)), zr_fix2long(offset), Machine.i32(zr_fix2long(whence))))
+    at = Machine.slot(8)
+    if zr_fixnum_p(offset)
+      Machine.store64(at, 0, zr_fix2long(offset))
+    else
+      zr_big_to_long(offset, at)
+    end
+    r = Libc.lseek(Machine.i32(zr_fix2long(fd)), Machine.load64(at, 0), Machine.i32(zr_fix2long(whence)))
+    r < 0 ? zr_fix(0 - zr_errno()) : zr_int_from_word(r)
   end
 
   #: (value) -> value
