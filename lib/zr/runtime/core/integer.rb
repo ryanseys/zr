@@ -692,7 +692,7 @@ class Integer
   end
 
   # The bytes a bignum's magnitude takes; a fixnum's word.
-  def size = Primitive.zr_fixnum_p_m(self) ? 8 : (bit_length + 7) / 8
+  def size = Primitive.zr_fixnum_p_m(self) ? 8 : (abs.bit_length + 7) / 8
 
   def coerce(other)
     return [other, to_f] if other.is_a?(Float)
