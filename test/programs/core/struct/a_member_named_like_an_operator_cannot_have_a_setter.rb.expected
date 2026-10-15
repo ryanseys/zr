@@ -1,0 +1,34 @@
+[:==, NameError, "cannot make operator ID :== attrset", :==]
+foo? ok  foo! ok  [:+, NameError, "cannot make operator ID :+ attrset", :+]
+[] ok  []= ok  [:<=>, NameError, "cannot make operator ID :<=> attrset", :<=>]
+[:!, NameError, "cannot make operator ID :! attrset", :!]
+[:!=, NameError, "cannot make operator ID :!= attrset", :!=]
+Foo ok  @a ok  $b ok  a_b ok  _x ok  [:+@, NameError, "cannot make operator ID :+@ attrset", :+@]
+[:-@, NameError, "cannot make operator ID :-@ attrset", :-@]
+[:~, NameError, "cannot make operator ID :~ attrset", :~]
+[:`, NameError, "cannot make operator ID :` attrset", :`]
+[:===, NameError, "cannot make operator ID :=== attrset", :===]
+[:=~, NameError, "cannot make operator ID :=~ attrset", :=~]
+[:!~, NameError, "cannot make operator ID :!~ attrset", :!~]
+[:**, NameError, "cannot make operator ID :** attrset", :**]
+[:<<, NameError, "cannot make operator ID :<< attrset", :<<]
+[:>>, NameError, "cannot make operator ID :>> attrset", :>>]
+[:&, NameError, "cannot make operator ID :& attrset", :&]
+[:|, NameError, "cannot make operator ID :| attrset", :|]
+[:^, NameError, "cannot make operator ID :^ attrset", :^]
+[:%, NameError, "cannot make operator ID :% attrset", :%]
+[:/, NameError, "cannot make operator ID :/ attrset", :/]
+[:*, NameError, "cannot make operator ID :* attrset", :*]
+[:<, NameError, "cannot make operator ID :< attrset", :<]
+[:>, NameError, "cannot make operator ID :> attrset", :>]
+[:<=, NameError, "cannot make operator ID :<= attrset", :<=]
+[:>=, NameError, "cannot make operator ID :>= attrset", :>=]
+
+"duplicate member: =="
+"cannot make operator ID :== attrset"
+"cannot make operator ID :== attrset"
+true
+[:==]
+[:[]=, :<=]
+"invalid data member: foo="
+"invalid data member: Bar="

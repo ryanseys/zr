@@ -13,7 +13,8 @@ class Data
       members = members.map do |m|
         name = m.is_a?(String) ? m.to_sym : m
         raise TypeError, "#{m.inspect} is not a symbol nor a string" unless name.is_a?(Symbol)
-        raise ArgumentError, "invalid data member: #{name}" if name.end_with?("=")
+        # rb_is_attrset_sym: a setter's name (`x=`), not an operator (`==`).
+        raise ArgumentError, "invalid data member: #{name}" if name.end_with?("=") && Struct.send(:plain_member?, name.name.delete_suffix("="))
 
         name
       end

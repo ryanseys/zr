@@ -8,6 +8,10 @@ class Struct
   include Enumerable
   Primitive.zr_undef_alloc(self)
 
+  # The operator method names, which no setter can be made from.
+  OPERATORS = %i[+ - * / % ** == != < > <= >= <=> === =~ !~ ! ~ +@ -@ << >> & | ^ `].freeze
+  private_constant :OPERATORS
+
   class << self
     def new(*members, keyword_init: nil, &body)
       # rb_struct_s_def: a first argument that is no Symbol is the name,
@@ -34,6 +38,11 @@ class Struct
         end
         const_set(name, klass)
       end
+      # setup_struct: each member's setter is its name with `=`, which an
+      # operator other than [] cannot take (rb_id_attrset).
+      operator = members.find { |m| OPERATORS.include?(m) }
+      raise NameError.new("cannot make operator ID #{operator.inspect} attrset", operator) if operator
+
       klass.define_singleton_method(:new, Class.instance_method(:new))
       klass.define_singleton_method(:[], Class.instance_method(:new))
       klass.define_singleton_method(:members) { Primitive.zr_struct_members(self).dup }
