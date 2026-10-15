@@ -1,0 +1,23 @@
+A then b_, no items: ArgumentError: too few arguments
+A then b_, one item: ArgumentError: '_' allowed only after types sSiIlLqQjJ
+b_ alone: ArgumentError: '_' allowed only after types sSiIlLqQjJ
+C then a_: ArgumentError: too few arguments
+C then %: ArgumentError: too few arguments
+C then %, one item: ArgumentError: % is not supported
+C then s<>: ArgumentError: too few arguments
+C then s<>, one item: RangeError: Can't use both '<' and '>'
+a then huge count: ArgumentError: too few arguments
+a then x! with no alignment: ArgumentError: too few arguments
+a then unknown: ArgumentError: too few arguments
+q then a!: ArgumentError: '!' allowed only after types sSiIlLqQjJ
+q then a!, String: TypeError: no implicit conversion of String into Integer
+U then b_: RangeError: pack(U): value out of range
+unpack m then b_: ArgumentError: invalid base64
+unpack X then b_: ArgumentError: X outside of string
+unpack C then b_: ArgumentError: '_' allowed only after types sSiIlLqQjJ
+unpack @ then %: ArgumentError: @ outside of string
+unpack1 C then b_: 97
+unpack1 C then unknown: 97
+U then a: #<Encoding:BINARY (ASCII-8BIT)>
+m then U: #<Encoding:UTF-8>
+u then m: #<Encoding:US-ASCII>

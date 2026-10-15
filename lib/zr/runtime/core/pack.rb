@@ -13,10 +13,8 @@ module Packing
   BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".freeze
   private_constant :INTEGERS, :BASE64
 
-  # The directives a template may name, the bytes a space is written
-  # with, the modifiers that follow a directive, and the star and the
-  # digits a count is written in.
-  KNOWN = "CcSsLlQqJjIinNvVUwRraAZHhBbmMuxX@dDeEfFgGpP^".freeze
+  # The bytes a space is written with, the modifiers that follow a
+  # directive, and the star and the digits a count is written in.
   SPACE = [32, 9, 10, 11, 12, 13].freeze
   NATIVE = "sSiIlLqQjJ".freeze
   MODIFIERS = [60, 62, 95, 33].freeze     # < > _ !
@@ -24,7 +22,7 @@ module Packing
   LONG_MAX = 0x7FFF_FFFF_FFFF_FFFF
   DIGIT_0 = 48
   DIGIT_9 = 57
-  private_constant :KNOWN, :SPACE, :NATIVE, :MODIFIERS, :STAR, :LONG_MAX, :DIGIT_0, :DIGIT_9
+  private_constant :SPACE, :NATIVE, :MODIFIERS, :STAR, :LONG_MAX, :DIGIT_0, :DIGIT_9
 
   # pack_alignof on this machine: the alignment of each type that `x!`
   # and `@!` take, and of a native `l` or `L` (a C long).
@@ -35,20 +33,23 @@ module Packing
   ULONG_MAX = 0xFFFF_FFFF_FFFF_FFFF
   private_constant :ALIGNMENTS, :NATIVE_LONG, :ULONG_MAX
 
-  # The template as [directive, count, big?] triples; count is nil
-  # for none, :all for `*`. `check` off keeps an unknown directive, so
-  # a caller that reads the template as it goes refuses in ruby's
-  # order.
+  # Yields each directive of the template as it reads it, as
+  # pack_pack and pack_unpack do: a directive, its count (nil for none,
+  # :all for `*`) and big?. A bad modifier or count raises only once the
+  # directives before it are done, and the caller refuses an unknown
+  # directive where it is.
   #
   # Read by its bytes, with one String cut of it a directive:
   # `template[i]` made one of every byte it looked at, and a program
   # packs the same short template again and again -- one build of the
   # compiler packs 555,616 times, mostly with `L<` and `Q<`.
-  def self.directives(template, kind, check: true)
+  def self.each_directive(template)
     # pack_pack and pack_unpack read the template as ASCII.
     raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{template.encoding}" unless template.encoding.ascii_compatible?
 
-    out = []
+    # The bytes as they were: the caller sees a conversion that changes
+    # the template.
+    template = template.dup unless template.frozen?
     i = 0
     size = template.bytesize
     while i < size
@@ -67,7 +68,7 @@ module Packing
       # or to a type's alignment, and take no count.
       if (b == 120 || b == 64) && i < size && template.getbyte(i) == 33
         alignment, i = alignment_at(template, i + 1, size)
-        out << [b == 120 ? +"x!" : +"@!", alignment, nil]
+        yield b == 120 ? +"x!" : +"@!", alignment, nil
         next
       end
       big = nil
@@ -85,9 +86,6 @@ module Packing
         i += 1
       end
       raise ArgumentError, +"% is not supported" if c == +"%"
-      if check && !KNOWN.include?(c)
-        raise ArgumentError, unknown_directive(kind, b, template)
-      end
       c = c == +"L" ? +"Q" : +"q" if native && (c == +"L" || c == +"l")
       count = nil
       if i < size && template.getbyte(i) == STAR
@@ -102,9 +100,9 @@ module Packing
         # STRTOUL into a long: a count past LONG_MAX is out of range.
         raise RangeError, +"pack length too big" if count > LONG_MAX
       end
-      out << [c, count, big]
+      yield c, count, big
     end
-    out
+    nil
   end
 
   # pack_alignment_size: the alignment after `x!` or `@!`, as digits or
@@ -378,15 +376,7 @@ module Packing
     # `x!` aligns from where a buffer's own bytes end.
     base = out.bytesize
     associates = nil
-    list = directives(template, "pack", check: false)
     encoding = Encoding::US_ASCII
-    list.each do |c, _, _|
-      if c == +"U"
-        encoding = Encoding::UTF_8 if encoding == Encoding::US_ASCII
-      elsif !"mMu".include?(c)
-        encoding = Encoding::BINARY
-      end
-    end
     # pack_pack: a conversion that changes the template stops the pack, at
     # the next byte of the template that it reads: a directive, or a space
     # after the last one.
@@ -396,8 +386,14 @@ module Packing
     # CRuby packs into the buffer itself: a conversion that changes the
     # buffer leaves the pack to go on from what is in it then.
     mark = buffer && Primitive.zr_str_bytesize(buffer)
-    list.each do |c, count, big|
+    each_directive(template) do |c, count, big|
       raise RuntimeError, +"format string modified" if template.bytesize != template_size
+
+      if c == +"U"
+        encoding = Encoding::UTF_8 if encoding == Encoding::US_ASCII
+      elsif !"mMu".include?(c)
+        encoding = Encoding::BINARY
+      end
 
       case c
       when "x!", "@!"
@@ -762,7 +758,7 @@ module Packing
     at = base
     # pack_unpack_internal reads the template as it goes: an unknown
     # directive raises where it is, and unpack1 stops before a later one.
-    directives(template, "unpack", check: false).each do |c, count, big|
+    each_directive(template) do |c, count, big|
       case c
       when "x!", "@!"
         n = align_pad(at, c == +"@!" ? 0 : base, count)
