@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "open3"
 require "test_helper"
 require "zr/gc_tuning"
 
@@ -76,7 +77,8 @@ class GcTuningTest < Minitest::Test
     with_env(GcTuning::ADDED => "1", "RUBY_GC_MALLOC_LIMIT" => "64000000") do
       tuning.limits(nil, [], {})
       refute ENV.key?(GcTuning::ADDED), "the mark is gone"
-      assert_equal({ "RUBY_GC_MALLOC_LIMIT" => nil, "RUBY_GC_OLDMALLOC_LIMIT" => nil }, tuning.program_env)
+      assert_equal({ "RUBY_GC_MALLOC_LIMIT" => nil, "RUBY_GC_MALLOC_LIMIT_MAX" => nil,
+                     "RUBY_GC_OLDMALLOC_LIMIT" => nil, "RUBY_GC_OLDMALLOC_LIMIT_MAX" => nil }, tuning.program_env)
     end
   end
 
@@ -86,5 +88,18 @@ class GcTuningTest < Minitest::Test
       tuning.limits(nil, [], {})
       assert_empty tuning.program_env, "the user's own limits stay"
     end
+  end
+
+  # Ruby caps each malloc limit at its `_MAX` (32 MiB and 128 MiB unless
+  # set), so a limit above the cap holds only until the first collection.
+  def test_the_malloc_limits_hold_after_collections
+    churn = 'keep = []; 300.times { keep << ("x" * 2_000_000); keep.shift if keep.size > 20 }; ' \
+            "print GC.stat(:malloc_increase_bytes_limit), ' ', GC.stat(:oldmalloc_increase_bytes_limit)"
+    out, status = Open3.capture2(GcTuning::GC_ENV, RbConfig.ruby, "-e", churn)
+    assert_predicate status, :success?
+    limit, old = out.split.map(&:to_i)
+
+    assert_operator limit, :>=, Integer(GcTuning::GC_ENV.fetch("RUBY_GC_MALLOC_LIMIT"))
+    assert_operator old, :>=, Integer(GcTuning::GC_ENV.fetch("RUBY_GC_OLDMALLOC_LIMIT"))
   end
 end

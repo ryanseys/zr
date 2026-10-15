@@ -33,7 +33,13 @@ module Zr
     # @rbs @pending: bool
     # @rbs @restart: [String?, Array[String], Hash[String, String]]?
 
-    GC_ENV = { "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_OLDMALLOC_LIMIT" => "128000000" }.freeze #: Hash[String, String]
+    # Ruby caps each malloc limit at its `_MAX` (32 MiB and 128 MiB unless
+    # set), so each limit has its cap too, or the first collection takes
+    # it back to 32 MiB.
+    GC_ENV = {
+      "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_MALLOC_LIMIT_MAX" => "64000000",
+      "RUBY_GC_OLDMALLOC_LIMIT" => "128000000", "RUBY_GC_OLDMALLOC_LIMIT_MAX" => "128000000"
+    }.freeze #: Hash[String, String]
 
     # Set with the limits when zr starts itself again, so that the new
     # process knows that the limits are zr's, not the user's.
