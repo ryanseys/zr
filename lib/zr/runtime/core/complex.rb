@@ -31,6 +31,31 @@ class Complex < Numeric
     end
     private :safe_mul
 
+    # complex.c's f_add, f_sub and f_mul: an exact 0 or 1 operand gives the
+    # other operand itself, so a Float's signed zero survives `x + 0`.
+    def f_add(x, y)
+      Primitive.attr! :hidden
+      return y if x.is_a?(Integer) && 0.equal?(x)
+      return x if 0.equal?(y) && (x.is_a?(Integer) || x.is_a?(Float) || x.is_a?(Rational))
+
+      x + y
+    end
+
+    def f_sub(x, y)
+      Primitive.attr! :hidden
+      0.equal?(y) ? x : x - y
+    end
+
+    def f_mul(x, y)
+      Primitive.attr! :hidden
+      if x.is_a?(Integer)
+        return 0 if 0.equal?(y) || (0.equal?(x) && y.is_a?(Integer))
+        return y if 1.equal?(x)
+      end
+      1.equal?(y) ? x : x * y
+    end
+    private :f_add, :f_sub, :f_mul
+
     # nucomp_real_check: a real number, or a Complex whose imaginary part
     # is zero, as its real part. Else "not a real".
     def real_part_of(num)
@@ -333,16 +358,17 @@ class Complex < Numeric
     case other
     when Complex
       floating = [real, imaginary, other.real, other.imaginary].any? { |x| x.is_a?(Float) }
-      if other.real.abs > other.imaginary.abs
-        r = other.imaginary.quo(other.real)
-        n = other.real * (1 + r * r)
-        x = (real + imaginary * r).quo(n)
-        y = (imaginary - real * r).quo(n)
+      ar, ai, br, bi = real, imaginary, other.real, other.imaginary
+      if br.abs > bi.abs
+        r = bi.quo(br)
+        n = Complex.send(:f_mul, br, Complex.send(:f_add, 1, Complex.send(:f_mul, r, r)))
+        x = Complex.send(:f_add, ar, Complex.send(:f_mul, ai, r)).quo(n)
+        y = Complex.send(:f_sub, ai, Complex.send(:f_mul, ar, r)).quo(n)
       else
-        r = other.real.quo(other.imaginary)
-        n = other.imaginary * (1 + r * r)
-        x = (real * r + imaginary).quo(n)
-        y = (imaginary * r - real).quo(n)
+        r = br.quo(bi)
+        n = Complex.send(:f_mul, bi, Complex.send(:f_add, 1, Complex.send(:f_mul, r, r)))
+        x = Complex.send(:f_add, Complex.send(:f_mul, ar, r), ai).quo(n)
+        y = Complex.send(:f_sub, Complex.send(:f_mul, ai, r), ar).quo(n)
       end
       with_parts(floating ? x : canonical(x), floating ? y : canonical(y))
     when Integer, Float, Rational

@@ -368,7 +368,8 @@ class Float
   # rounded, and checked against `x` once more after the division.
   def half_down(x, s)
     Primitive.attr! :hidden
-    f = (x * s).round.to_f
+    xs = x * s
+    f = c_whole(xs.round, xs)
     if x > 0
       f -= 1 if (f - 0.5) / s >= x
     elsif (f + 0.5) / s <= x
@@ -377,18 +378,27 @@ class Float
     f
   end
 
+  # A whole number that C's round, floor, ceil or modf gives for `x`:
+  # a zero keeps the sign of `x`, which the Integer `n` has lost.
+  def c_whole(n, x)
+    Primitive.attr! :hidden
+    return n.to_f unless n == 0 && (x < 0 || (x == 0 && 1.0 / x < 0))
+
+    -0.0
+  end
+
   def half_even(x, s)
     Primitive.attr! :hidden
     # modf: an infinity is all whole part, with a zero of its sign for
     # the fraction; NaN is NaN in both.
-    u = x.finite? ? x.truncate.to_f : x
+    u = x.finite? ? c_whole(x.truncate, x) : x
     fraction = if x.finite? || x.nan? then x - u
                else x > 0 ? 0.0 : -0.0
                end
     us = u * s
     vs = fraction * s
     if x > 0.0
-      f = vs.floor.to_f
+      f = c_whole(vs.floor, vs)
       uf = us + f
       d = vs - f
       d = if d > 0.5 then 1.0
@@ -397,7 +407,7 @@ class Float
           end
       us + (f + d)
     elsif x < 0.0
-      f = vs.ceil.to_f
+      f = c_whole(vs.ceil, vs)
       uf = us + f
       d = f - vs
       d = if d > 0.5 then 1.0
