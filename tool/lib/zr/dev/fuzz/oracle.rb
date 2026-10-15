@@ -151,10 +151,18 @@ module Zr
           normalize(answer, run)
         end
 
+        # The directories that hold the default gems and the bundled gems
+        # of ruby and of zr's vendored copy: a library's frames name the
+        # same file under either, so only the part after them counts.
+        LIBRARY = %r{\S*/lib/ruby/(?:gems/)?\d[\w.+-]*/(?=\S)|\S*/tmp/reference/gems/}
+
         def normalize(answer, run)
           return answer unless answer.code.is_a?(Integer) || answer.signal
 
-          Harness::Normalize.answer(answer, File.join(run, NAME), run)
+          answer = Harness::Normalize.answer(answer, File.join(run, NAME), run)
+          answer.stdout = answer.stdout.gsub(LIBRARY, "<lib>/")
+          answer.stderr = answer.stderr.gsub(LIBRARY, "<lib>/")
+          answer
         end
       end
     end
