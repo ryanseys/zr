@@ -388,13 +388,28 @@ class String
 
   def reverse! = Primitive.zr_str_replace(self, OWN[:reverse].bind_call(self))
   def delete!(*sets) = shrunk(OWN[:delete].bind_call(self, *sets))
-  def strip!(*selectors) = shrunk(OWN[:strip].bind_call(self, *selectors))
-  def lstrip!(*selectors) = shrunk(OWN[:lstrip].bind_call(self, *selectors))
-  def rstrip!(*selectors) = shrunk(OWN[:rstrip].bind_call(self, *selectors))
+  # The strip family and chomp! check a frozen receiver before their
+  # arguments (str_modify_keep_cr, str_modifiable).
+  def strip!(*selectors)
+    modifiable
+    shrunk(OWN[:strip].bind_call(self, *selectors))
+  end
+
+  def lstrip!(*selectors)
+    modifiable
+    shrunk(OWN[:lstrip].bind_call(self, *selectors))
+  end
+
+  def rstrip!(*selectors)
+    modifiable
+    shrunk(OWN[:rstrip].bind_call(self, *selectors))
+  end
+
   # rb_str_chomp_bang: an empty String gives nil before the separator
   # converts.
   def chomp!(separator = $/)
-    return shrunk(self) if Primitive.zr_str_bytesize(self) == 0
+    modifiable
+    return nil if Primitive.zr_str_bytesize(self) == 0
 
     shrunk(OWN[:chomp].bind_call(self, separator))
   end
@@ -3210,6 +3225,12 @@ class String
 
   # `mutate` for a bang form that only takes bytes away: the same size
   # means that it took none.
+  # Raises for a frozen receiver; warns once for a chilled one.
+  def modifiable
+    Primitive.attr! :hidden
+    Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
+  end
+
   def shrunk(result)
     Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)

@@ -1,0 +1,1 @@
+core/string/strip_and_chomp_bang_check_frozen_before_their_arguments.rb:21: warning: literal string will be frozen in the future (run with --debug-frozen-string-literal for more information)
