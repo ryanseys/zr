@@ -484,13 +484,14 @@ module Zr
             iterate(node, recv, argv, argc)
           elsif node.block
             call_with_block(node, recv, argv, argc)
-          elsif node.args.size == 1 && node.kwargs.nil? && OPS.key?(node.name) && !node.vcall && !owner_using?(node) && !traced?
+          # An operator takes one operand only when no splat spreads its arguments.
+          elsif node.args.size == 1 && fixed_args?(node) && OPS.key?(node.name) && !node.vcall && !owner_using?(node) && !traced?
             operator(node, recv, argv)
           elsif node.args.empty? && node.kwargs.nil? && UNARY.key?(node.name) && explicit?(node) && !owner_using?(node) && !traced?
             unary(node, recv, argv)
-          elsif node.name == :<=> && node.args.size == 1 && node.kwargs.nil? && !node.vcall && native_operators? && !traced?
+          elsif node.name == :<=> && node.args.size == 1 && fixed_args?(node) && !node.vcall && native_operators? && !traced?
             native_compare(node, recv, argv)
-          elsif node.name == :between? && node.args.size == 2 && node.kwargs.nil? && explicit?(node) && native_operators? && !traced?
+          elsif node.name == :between? && node.args.size == 2 && fixed_args?(node) && explicit?(node) && native_operators? && !traced?
             # The core library's range checks of its own integers, which C
             # writes as two comparisons.
             checked(kernel("zr_native_between", recv, argv))
@@ -498,6 +499,11 @@ module Zr
             dispatch(node, recv, argv, argc)
           end.tap { deactivate(node) }
         end
+
+        # Whether the call passes exactly its written arguments: no keywords,
+        # and no splat that spreads an Array into them.
+        #: (Hir::Send node) -> bool
+        def fixed_args?(node) = node.kwargs.nil? && !Scope.spread?(node.args)
 
         # The calls whose string runs under the refinements of the call
         # site, or whose Binding keeps them for an eval.
