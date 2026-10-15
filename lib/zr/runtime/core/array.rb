@@ -61,10 +61,12 @@ class Array
   # The calls of find, detect and rfind with more than two arguments
   # (`Primitive.attr! :more_args`): with no block, the enumerator takes
   # them all; with one, the count is wrong. inject and reduce have
-  # Enumerable's count.
+  # Enumerable's count, and fetch takes one or two, as rb_ary_fetch
+  # checks them in its own frame.
   def more_args(name, *args, &block)
     Primitive.attr! :hidden
     return inject_arity(args.size, block) if name == :inject || name == :reduce
+    raise ArgumentError, wrong_arity(args.size, 1..2) if name == :fetch
     return to_enum(name, *args) unless block
 
     raise ArgumentError, wrong_arity(args.size, 0..1)
@@ -1114,7 +1116,10 @@ class Array
 
   # rb_ary_fetch: the element at `index`, else the block's value for it,
   # else `default`.
-  def fetch(index, default = (none = true; nil))
+  def fetch(index = (missing = true; nil), default = (none = true; nil))
+    Primitive.attr! :more_args
+    raise ArgumentError, wrong_arity(0, 1..2) if missing
+
     Primitive.zr_warn_here_m("block supersedes default value argument") if block_given? && !none
     given = index
     index = Primitive.zr_index_operand_m(index)
