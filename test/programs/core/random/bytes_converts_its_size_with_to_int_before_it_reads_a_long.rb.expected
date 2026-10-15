@@ -1,0 +1,15 @@
+Infinity: FloatDomainError: Infinity | FloatDomainError: Infinity | RangeError: float Inf out of range of integer
+-Infinity: FloatDomainError: -Infinity | FloatDomainError: -Infinity | RangeError: float -Inf out of range of integer
+NaN: FloatDomainError: NaN | FloatDomainError: NaN | RangeError: float NaN out of range of integer
+1.0e+30: RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long' | RangeError: float 1e+30 out of range of integer
+-1.0e+30: RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long' | RangeError: float -1e+30 out of range of integer
+2.9: String(2) | String(2) | String(2)
+-0.5: String(0) | String(0) | String(0)
+0.0: String(0) | String(0) | String(0)
+18446744073709551616: RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long' | RangeError: bignum too big to convert into 'long'
+-1: ArgumentError: negative string size (or size too big) | ArgumentError: negative string size (or size too big) | ArgumentError: negative string size (or size too big)
+nil: TypeError: no implicit conversion of nil into Integer | TypeError: no implicit conversion of nil into Integer | TypeError: no implicit conversion of nil into Integer
+"3": TypeError: no implicit conversion of String into Integer | TypeError: no implicit conversion of String into Integer | TypeError: no implicit conversion of String into Integer
+Two: String(2) | String(2) | String(2)
+Bad: TypeError: can't convert Bad into Integer (Bad#to_int gives String) | TypeError: can't convert Bad into Integer (Bad#to_int gives String) | TypeError: can't convert Bad into Integer (Bad#to_int gives String)
+(5/2): String(2) | String(2) | String(2)

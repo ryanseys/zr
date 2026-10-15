@@ -423,8 +423,10 @@ class Random::Base
 
   # `n` random bytes, four per draw, least significant first.
   # random_bytes: the size is a C long (NUM2LEN), as urandom reads it.
+  # random_bytes: the size is rb_to_int's, so a Float goes through its
+  # to_int, and then a long.
   def bytes(size)
-    size = Primitive.zr_index_operand_m(size)
+    size = Primitive.zr_index_operand_m(implicit_integer(size))
     raise ArgumentError, +"negative string size (or size too big)" if size < 0
 
     out = "".b
