@@ -1,0 +1,8 @@
+["bad value for range", 19]
+[:cmp, 21]
+["bad value for range", 21]
+[:cmp, 25]
+["bad value for range", 25]
+1..2
+"a"..
+..3

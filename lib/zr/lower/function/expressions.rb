@@ -62,7 +62,11 @@ module Zr
           when Hir::RangeLit
             staged([node.low, node.high]) do |argv|
               ends = [@f.fetch("i64", argv), @f.fetch("i64", argv, 8), imm(node.exclusive ? 1 : 0)]
-              checked(node.static ? kernel("zr_range_literal", site_word, *ends) : kernel("zr_range_new", *ends))
+              next checked(kernel("zr_range_literal", site_word, *ends)) if node.static
+
+              # newrange's line: a `<=>` of the ends may fail there.
+              at_node(node) if @l.node_id(node) != 0
+              checked(kernel("zr_range_new", *ends))
             end
           when Hir::Interp then interp(node)
           when Hir::RegexpLit
