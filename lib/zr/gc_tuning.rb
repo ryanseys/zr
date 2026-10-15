@@ -35,10 +35,13 @@ module Zr
 
     # Ruby caps each malloc limit at its `_MAX` (32 MiB and 128 MiB unless
     # set), so each limit has its cap too, or the first collection takes
-    # it back to 32 MiB.
+    # it back to 32 MiB. The passes and the wasm emitter grow large Hashes
+    # and Strings, so most of their collections came from malloc: the plain
+    # wasm prelude took 46 s with these limits, 51-53 s with a quarter of
+    # them, for 5% more peak memory (3.07 GB, not 2.92 GB).
     GC_ENV = {
-      "RUBY_GC_MALLOC_LIMIT" => "64000000", "RUBY_GC_MALLOC_LIMIT_MAX" => "64000000",
-      "RUBY_GC_OLDMALLOC_LIMIT" => "128000000", "RUBY_GC_OLDMALLOC_LIMIT_MAX" => "128000000"
+      "RUBY_GC_MALLOC_LIMIT" => "256000000", "RUBY_GC_MALLOC_LIMIT_MAX" => "256000000",
+      "RUBY_GC_OLDMALLOC_LIMIT" => "512000000", "RUBY_GC_OLDMALLOC_LIMIT_MAX" => "512000000"
     }.freeze #: Hash[String, String]
 
     # Set with the limits when zr starts itself again, so that the new
