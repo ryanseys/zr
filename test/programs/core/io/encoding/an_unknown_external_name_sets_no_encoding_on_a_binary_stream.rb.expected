@@ -1,0 +1,14 @@
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:BINARY (ASCII-8BIT)>, nil, #<Encoding:BINARY (ASCII-8BIT)>, false]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, false]
+[#<Encoding:BINARY (ASCII-8BIT)>, nil, #<Encoding:BINARY (ASCII-8BIT)>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+[#<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, true]
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>

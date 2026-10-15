@@ -1588,6 +1588,9 @@ class IO
     else
       external, internal = IO.send(:default_encodings, IO.send(:found_encoding, external))
     end
+    # A name that matched nothing sets no encoding, so a binary stream
+    # reads in the default external encoding, as it does after nil.
+    @textual = true if @binmode && external.nil?
     options = {} if !one && internal.nil? && options.empty?
     conversion = IO.send(:conversion_options, options, @universal)
     IO.send(:check_binmode, @readable, @binmode, external, internal, conversion)
