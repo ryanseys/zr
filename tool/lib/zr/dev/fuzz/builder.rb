@@ -82,7 +82,7 @@ build = lambda do |req, err, cov|
   Dir.mkdir(work) unless Dir.exist?(work)
   status = 0
   begin
-    program = Zr::CLI.command("build").lower(req.fetch("file"), Zr::Target.default, assemble: true)
+    program = Zr::CLI.command("build").lower(req.fetch("file"), Zr::BuildOptions.new, assemble: true)
     why = Zr::Native::Build.program(program, req.fetch("out"), work: work, jobs: 1)
     if why
       warn "zr: #{why}"

@@ -2,6 +2,9 @@
 
 require "fileutils"
 require_relative "../../../../../lib/zr/machine/host/launch"
+require_relative "../../../../../test/support/harness/child"
+require_relative "../../../../../test/support/harness/normalize"
+require_relative "../../../../../test/support/harness/reference"
 
 module Zr
   module Dev
