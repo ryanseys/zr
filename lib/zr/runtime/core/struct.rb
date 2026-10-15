@@ -51,7 +51,7 @@ class Struct
       # The accessors are entries of the kernel's (lib/zr/runtime/kernel/struct.rb).
       Primitive.zr_struct_readers(klass, members)
       Primitive.zr_struct_writers(klass, members)
-      klass.class_eval(&body) if body
+      Primitive.zr_mod_eval_block(klass, body) if body
       klass
     end
 

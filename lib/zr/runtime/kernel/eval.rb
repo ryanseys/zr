@@ -92,6 +92,15 @@ module Zr::Kern
     recv
   end
 
+  # rb_mod_module_eval called from C (Struct.new, Data.define): the block
+  # runs under `klass`, with no frame of class_eval.
+  #: (value, value) -> value
+  def zr_mod_eval_block(klass, blk)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(klass))
+    zr_yield_under(blk, klass, klass, 1, slot)
+  end
+
   #: (value, word, ptr, value, value) -> value
   def zr_module_initialize(recv, argc, argv, cref, blk)
     if blk != QNIL

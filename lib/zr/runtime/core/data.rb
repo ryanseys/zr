@@ -30,7 +30,7 @@ class Data
       klass.define_singleton_method(:members) { Primitive.zr_struct_members(self).dup }
       klass.define_singleton_method(:inspect) { to_s }
       Primitive.zr_struct_readers(klass, members)
-      klass.class_eval(&body) if body
+      Primitive.zr_mod_eval_block(klass, body) if body
       klass
     end
   end
