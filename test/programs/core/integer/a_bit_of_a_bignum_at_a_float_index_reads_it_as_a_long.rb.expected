@@ -1,0 +1,43 @@
+["big[0.0]", 1]
+["-big[0.0]", 1]
+["5[0.0]", 1]
+["big[2.9]", 1]
+["-big[2.9]", 0]
+["5[2.9]", 1]
+["big[70.5]", 1]
+["-big[70.5]", 0]
+["5[70.5]", 0]
+["big[-1.5]", 0]
+["-big[-1.5]", 0]
+["5[-1.5]", 0]
+["big[1000.0]", 0]
+["-big[1000.0]", 1]
+["5[1000.0]", 0]
+["big[4.611686018427388e+18]", 0]
+["-big[4.611686018427388e+18]", 1]
+["5[4.611686018427388e+18]", 0]
+big[9.223372036854776e+18]: RangeError: float 9.223372037e+18 out of range of integer
+-big[9.223372036854776e+18]: RangeError: float 9.223372037e+18 out of range of integer
+["5[9.223372036854776e+18]", 0]
+["big[-9.223372036854776e+18]", 0]
+["-big[-9.223372036854776e+18]", 0]
+["5[-9.223372036854776e+18]", 0]
+big[-1.8446744073709552e+19]: RangeError: float -1.844674407e+19 out of range of integer
+-big[-1.8446744073709552e+19]: RangeError: float -1.844674407e+19 out of range of integer
+["5[-1.8446744073709552e+19]", 0]
+big[-1.0e+30]: RangeError: float -1e+30 out of range of integer
+-big[-1.0e+30]: RangeError: float -1e+30 out of range of integer
+["5[-1.0e+30]", 0]
+big[Infinity]: RangeError: float Inf out of range of integer
+-big[Infinity]: RangeError: float Inf out of range of integer
+5[Infinity]: FloatDomainError: Infinity
+big[-Infinity]: RangeError: float -Inf out of range of integer
+-big[-Infinity]: RangeError: float -Inf out of range of integer
+5[-Infinity]: FloatDomainError: -Infinity
+big[NaN]: RangeError: float NaN out of range of integer
+-big[NaN]: RangeError: float NaN out of range of integer
+5[NaN]: FloatDomainError: NaN
+big[nil]: TypeError: no implicit conversion of nil into Integer
+5[nil]: TypeError: no implicit conversion of nil into Integer
+["big[rational]", 1]
+big[float, 2]: FloatDomainError: NaN

@@ -179,8 +179,13 @@ class Integer
       return shifted & ((1 << span) - 1)
     end
 
-    # rb_big_aref reads one bit with NUM2LONG's message for nil.
-    raise TypeError, no_implicit_conversion(bit, "Integer") if bit.nil? && !Primitive.zr_fixnum_p_m(self)
+    # rb_big_aref reads one bit through NUM2LONG, with its messages for nil
+    # and for a Float that is no long.
+    unless Primitive.zr_fixnum_p_m(self)
+      raise TypeError, no_implicit_conversion(bit, "Integer") if bit.nil?
+
+      bit.send(:index_range_error) if bit.is_a?(Float) && !(bit >= -9.223372036854775808e18 && bit < 9.223372036854775808e18)
+    end
 
     bit_at(to_integer(bit))
   end
