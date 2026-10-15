@@ -69,7 +69,8 @@ module Zr
       #: (Function f) -> void
       def initialize(f)
         @f = f
-        @blocks = f.blocks.to_h { |b| [b.name, b] }
+        @blocks = {} #: Hash[String, Block]
+        f.blocks.each { |b| @blocks[b.name] = b }
         @preds = nil
         @rpo = nil #: untyped
         @idom = nil
@@ -85,10 +86,8 @@ module Zr
       #: () -> Hash[String, Array[String]]
       def preds
         @preds ||= begin
-          into = @f.blocks.to_h do |b|
-            names = [] #: Array[String]
-            [b.name, names]
-          end
+          into = {} #: Hash[String, Array[String]]
+          @f.blocks.each { |b| into[b.name] = [] }
           @f.blocks.each { |b| b.insts.last&.targets&.each { |(name, _)| into[name] << b.name } }
           into
         end

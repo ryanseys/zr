@@ -36,7 +36,7 @@ module Zr
               next unless IR.value?(a)
               raise Error, "#{f.name}: #{b.name} uses #{a}, which nothing defines" unless defined.key?(a)
             end
-            (i.targets || []).each do |name, args|
+            i.targets&.each do |name, args|
               target = blocks[name] or raise Error, "#{f.name}: #{b.name} jumps to #{name}, which does not exist"
               if args.size != target.params.size
                 raise Error, "#{f.name}: #{b.name} passes #{args.size} argument(s) to #{name}, which takes #{target.params.size}"

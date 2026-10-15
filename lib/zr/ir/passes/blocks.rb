@@ -90,7 +90,8 @@ module Zr
           into = edges
           joined = {} #: Hash[Block, bool]
                    .compare_by_identity
-          laid = @f.blocks.each_with_index.to_h { |b, at| [b.name, at] }
+          laid = {} #: Hash[String, Integer]
+          @f.blocks.each_with_index { |b, at| laid[b.name] = at }
           @f.blocks.each do |b|
             next if b.nil? || b.equal?(@f.entry_block) || into[b.name].size != 1
 

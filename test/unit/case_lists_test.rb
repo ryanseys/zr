@@ -165,9 +165,20 @@ class CaseListsTest < Minitest::Test
     assert found, "no arm of verify.rb lists #{list}"
   end
 
+  def test_fold_writes_out_binops_and_bitops
+    # Arrange
+    lists = [Inst::BINOPS, Inst::BITOPS]
+
+    # Act
+    missing = lists.reject { |list| arm_with?("ir/passes/fold.rb", list) }
+
+    # Assert
+    assert_empty missing, "fold.rb has no arm that lists these"
+  end
+
   def test_the_files_have_no_splat_arm_of_these_lists
     # Arrange
-    paths = ["backend/wasm/codegen/body.rb", "backend/aarch64/codegen.rb", "ir/verify.rb", INTERP]
+    paths = ["backend/wasm/codegen/body.rb", "backend/aarch64/codegen.rb", "ir/verify.rb", "ir/passes/fold.rb", INTERP]
 
     # Act
     splats = paths.select { |path| File.read(File.expand_path(path, LIB)).match?(/^\s*when .*\*(IR::)?(Inst::)?[A-Z]/) }

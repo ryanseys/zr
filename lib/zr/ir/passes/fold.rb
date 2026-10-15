@@ -49,7 +49,8 @@ module Zr
         #: () -> Function
         def run
           arriving = Hash.new { |h, name| h[name] = [] } #: Hash[String, Array[Array[String]]]
-          laid = @f.blocks.each_with_index.to_h { |b, at| [b.name, at] }
+          laid = {} #: Hash[String, Integer]
+          @f.blocks.each_with_index { |b, at| laid[b.name] = at }
           before = @f.analysis.preds
           @f.blocks.each_with_index do |b, at|
             settled = !b.equal?(@f.entry_block) && before[b.name].all? { |p| laid.fetch(p) < at }
@@ -117,8 +118,11 @@ module Zr
         def fold(i)
           case i.op
           when :iconst then @const[i.results[0]] = [i.args[0], i.type]
-          when *Inst::BINOPS then fold_binop(i)
-          when *Inst::BITOPS then fold_bitop(i)
+          # IR::Inst::BINOPS, written out: a splat arm builds an Array for
+          # each instruction (test/unit/case_lists_test.rb checks it).
+          when :iadd, :isub, :imul, :udiv, :sdiv, :urem, :srem, :band, :bor, :bxor, :ishl, :ushr, :sshr then fold_binop(i)
+          # IR::Inst::BITOPS, written out.
+          when :ctz, :clz, :popcnt, :bswap then fold_bitop(i)
           when :icmp then fold_compare(i)
           when :select then fold_select(i)
           when :uextend, :ireduce, :sextend then fold_width(i)

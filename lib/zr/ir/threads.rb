@@ -37,7 +37,8 @@ module Zr
         @f = f
         @const = {}
         @f.blocks.each { |b| b.insts.each { |i| @const[i.results[0]] = [i.args[0] & MASK.fetch(i.type), i.type] if i.op == :iconst } }
-        @named = @f.blocks.to_h { |b| [b.name, b] }
+        @named = {} #: Hash[String, Block]
+        @f.blocks.each { |b| @named[b.name] = b }
         # The blocks that read each value. The pass only moves edges, so
         # this stays a superset.
         @read_in = Hash.new { |h, v| h[v] = Set.new }
