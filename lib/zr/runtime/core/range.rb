@@ -133,7 +133,8 @@ class Range
   # The calls of first, last, min, max and clamp with more than two
   # arguments (`Primitive.attr! :more_args`), checked in their order: the
   # bounds first, then the count that the method they go to takes.
-  # inject and reduce have Enumerable's count.
+  # inject and reduce have Enumerable's count, and Enumerable#find_index
+  # takes the one argument of the default.
   def more_args(name, *args, &block)
     Primitive.attr! :hidden
     expected = "1"

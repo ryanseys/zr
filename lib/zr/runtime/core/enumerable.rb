@@ -706,9 +706,10 @@ module Enumerable
     out
   end
 
-  def find_index(v = (omitted = true; nil), _extra = (one = true), &blk)
+  # More than one argument goes to more_args.
+  def find_index(v = (omitted = true; nil), &blk)
+    Primitive.attr! :more_args
     return to_enum(:find_index) if omitted && !blk
-    raise ArgumentError, +"wrong number of arguments (given 2, expected 1)" unless one
 
     Primitive.zr_warn_here_m("given block not used") if blk && !omitted
 
@@ -879,10 +880,13 @@ module Enumerable
     acc
   end
 
-  # The calls of inject and reduce with more than two arguments
-  # (`Primitive.attr! :more_args`).
-  def more_args(_name, *args, &block)
+  # The calls of inject and reduce with more than two arguments, and of
+  # find_index with more than one (`Primitive.attr! :more_args`).
+  # enum_find_index scans its arguments as "1" once it has any.
+  def more_args(name, *args, &block)
     Primitive.attr! :hidden
+    raise ArgumentError, wrong_arity(args.size, 1) if name == :find_index
+
     inject_arity(args.size, block)
   end
   private :more_args
