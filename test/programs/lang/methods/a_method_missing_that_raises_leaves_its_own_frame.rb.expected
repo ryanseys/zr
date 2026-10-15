@@ -1,0 +1,8 @@
+[NoMethodError, ["Ghost#method_missing", "block in <main>", "block in <main>", "Array#each", "<main>"]]
+[NoMethodError, ["block in <main>", "block in <main>", "Array#each", "<main>"]]
+[NoMethodError, ["block in <main>", "block in <main>", "Array#each", "<main>"]]
+[NoMethodError, ["UnboundMethod#bind_call", "block in <main>", "block in <main>", "Array#each", "<main>"]]
+[NoMethodError, ["Method#call", "block in <main>", "block in <main>", "Array#each", "<main>"]]
+[ArgumentError, ["BasicObject#method_missing", "UnboundMethod#bind_call", "block in <main>", "block in <main>", "Array#each", "<main>"]]
+[ArgumentError, ["BasicObject#method_missing", "UnboundMethod#bind_call", "block in <main>", "block in <main>", "Array#each", "<main>"]]
+:found

@@ -39,7 +39,7 @@ module Zr::Kern
     end
     traced = zr_trace_missing_raise(e)
     return traced if traced == QUNDEF
-    zr_raise(e)
+    zr_raise_missing(e)
   end
 
   # Raises `wrong number of arguments (given 3, expected 1..2)`. `max` is
@@ -431,6 +431,22 @@ module Zr::Kern
     zr_no_method_from(recv, mid, reason == MISS_VCALL, false, reason == MISS_IMPLICIT, argc, argv)
   end
 
+  # Raises the error of a miss. BasicObject#method_missing, when a call
+  # runs it, leaves its own frame first (rb_vm_pop_cfunc_frame), so the
+  # backtrace starts at its caller.
+  #: (value) -> value
+  def zr_raise_missing(e)
+    t = zr_task()
+    rec = Task[t].top
+    unless rec != 0 && Frame[rec].entry != 0 && MEntry[Frame[rec].entry].fn == Machine.addr(:zr_obj_method_missing)
+      return zr_raise(e)
+    end
+    Task[t].top = Frame[rec].prev
+    r = zr_raise(e)
+    Task[t].top = rec
+    r
+  end
+
   # `BasicObject#method_missing`: raises the NoMethodError for a miss.
   #: (value, word, ptr, value, value) -> value
   def zr_obj_method_missing(recv, argc, argv, cref, blk)
@@ -474,7 +490,7 @@ module Zr::Kern
     zr_exc_detail(e, Machine.id(:private_call), Machine.value(QFALSE))
     traced = zr_trace_missing_raise(e)
     return traced if traced == QUNDEF
-    zr_raise(e)
+    zr_raise_missing(e)
   end
 
   # Writes how a message shows the receiver: main, a special constant,
