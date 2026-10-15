@@ -483,18 +483,40 @@ module Enumerable
   # rb_nmin_run converts and checks a count before `each` runs, and a
   # count of zero runs nothing.
   def min(n = nil, &blk)
-    return elements.min(&blk) if n.nil?
+    return blk ? elements.min(&blk) : extreme(-1) if n.nil?
 
     n = nmin_count(n)
     n == 0 ? [] : elements.min(n, &blk)
   end
 
   def max(n = nil, &blk)
-    return elements.max(&blk) if n.nil?
+    return blk ? elements.max(&blk) : extreme(1) if n.nil?
 
     n = nmin_count(n)
     n == 0 ? [] : elements.max(n, &blk)
   end
+
+  # min_i and max_i: each element against the best so far, as
+  # OPTIMIZED_CMP(i, best) compares them, so the new element is the
+  # receiver of `<=>` (Array#min and #max send it to the best).
+  def extreme(sign)
+    Primitive.attr! :hidden
+    found = false
+    best = nil
+    Primitive.zr_enum_each(self, []) do |x|
+      if found
+        c = x <=> best
+        Primitive.zr_cmperr(x, best) if c.nil?
+        best = x if Primitive.zr_cmpint(c, x, best) * sign > 0
+      else
+        found = true
+        best = x
+      end
+      nil
+    end
+    best
+  end
+  private :extreme
 
   def nmin_count(n)
     Primitive.attr! :hidden

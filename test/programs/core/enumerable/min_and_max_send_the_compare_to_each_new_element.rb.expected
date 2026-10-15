@@ -1,0 +1,18 @@
+P3<=>P1 P2<=>P3 P3
+P3<=>P1 P2<=>P1 P1
+P1<=>P3 P3<=>P2 P3
+P1<=>P3 P1<=>P2 P1
+P3<=>P1 P2<=>P3 P3
+nil
+nil
+5
+comparison of Float with 2.0 failed: comparator returned nil
+comparison of Float with 2.0 failed: comparator returned nil
+comparison of Float with NaN failed: comparator returned nil
+comparison of Float with 2.0 failed: comparator returned nil
+comparison of Float with NaN failed: comparator returned nil
+comparison of Float with NaN failed: comparator returned nil
+comparison of String with 1 failed: comparator returned nil
+comparison of String with 1 failed: comparator returned nil
+[:b, 2]
+[1, 2]
