@@ -469,10 +469,8 @@ module Kernel
       out
     end
 
-    # %f, %e and %g round the shortest round-trip digits half to even,
-    # as CRuby's dtoa comes out; past those digits, and when the
-    # rounding place comes before the first digit, the exact value
-    # decides.
+    # %f, %e and %g of a Float take their digits from dtoa and lay them
+    # out as BSD_vfprintf does (bsd_float_text); %a writes the bits.
     def float(value, flags, width, precision, style, upper)
       Primitive.attr! :hidden
       return exact_fixed(value, flags, width, precision || 6) if style == :f && (value.is_a?(Integer) || value.is_a?(Rational))
@@ -489,11 +487,11 @@ module Kernel
       end
       x = x.abs
       prefix = style == :a ? (upper ? +"0X" : +"0x") : +""
-      body = case style
-             when :f then fixed_text(x, precision || 6, flags)
-             when :e then exponent_text(x, precision || 6, flags, upper)
-             when :a then hex_text(x, precision, flags, upper)
-             else general_text(x, precision, flags, upper)
+      body = if style == :a
+               hex_text(x, precision, flags, upper)
+             else
+               conversion = style == :f ? "f" : (style == :e ? "e" : "g")
+               bsd_float_text(x, upper ? conversion.upcase : conversion, precision, flags.include?("#"))
              end
       if flags.include?("0") && !flags.include?("-") && width && sign.size + prefix.size + body.size < width
         body = "0" * (width - sign.size - prefix.size - body.size) + body
@@ -544,126 +542,296 @@ module Kernel
       [text[0].to_i(16), text[1..], power]
     end
 
-    def fixed_text(x, precision, flags)
+    # The powers of ten that dtoa keeps as doubles (tens and bigtens).
+    TENS = [1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
+            1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22].freeze
+    BIGTENS = [1e16, 1e32, 1e64, 1e128, 1e256].freeze
+    # The most digits that the double arithmetic of dtoa tries
+    # (Quick_max), and the largest power of ten in a double integer
+    # (Int_max).
+    QUICK_MAX = 14
+    INT_MAX = 14
+    # BSD_vfprintf's MAXFRACT: the most digits it asks dtoa for.
+    MAX_FRACT = 1026
+    # 2**52, which scales a double by its precision (P - 1 bits).
+    PRECISION = 4_503_599_627_370_496.0
+
+    # BSD_vfprintf's %e, %f and %g of a finite, positive `x`, without the
+    # sign and the field width: `ch` is the conversion, `prec` the given
+    # precision or nil, `alt` the `#` flag.
+    def bsd_float_text(x, ch, prec, alt)
       Primitive.attr! :hidden
-      return zero_text(precision, flags) if x.zero?
-
-      digits, point = Primitive.zr_float_shortest(x)
-      k = point + precision
-      if k <= 0
-        exact, _ = exact_digits(x, 800)
-        exact = exact[0, exact.size - 1] while exact.end_with?("0")
-        return zero_text(precision, flags) unless k == 0 && exact > "5"
-
-        digits = +"1"
-        point = 1 - precision
+      fixed = ch == "f"
+      fprec = 0
+      if ch == "e" || ch == "E"
+        alt ||= prec != 0
+        prec.nil? ? prec = 7 : fprec = prec += 1
       else
-        digits, point = rounded_digits(x, digits, point, k)
+        alt ||= fixed && prec != 0
+        prec.nil? ? prec = 6 : fprec = prec
       end
-      whole = point <= 0 ? +"0" : (digits[0, point] + ("0" * (point > digits.size ? point - digits.size : 0)))
-      fraction = point >= 0 ? digits[point..].to_s : "0" * -point + digits
-      fraction = fraction[0, precision] + ("0" * (precision > fraction.size ? precision - fraction.size : 0))
-      precision == 0 && !flags.include?("#") ? whole : "#{whole}.#{fraction}"
-    end
-
-    # The first k digits of x: the shortest digits rounded half to
-    # even when they are longer, else the exact digits.
-    def rounded_digits(x, digits, point, k)
-      Primitive.attr! :hidden
-      return exact_digits(x, k) if digits.size < k
-      return [digits, point] if digits.size == k
-
-      kept = digits[0, k]
-      rest = digits[k..]
-      n = kept.to_i
-      n += 1 if rest[0] > "5" || (rest[0] == +"5" && (rest[1..].delete("0") != +"" || n.odd?))
-      digits = n.to_s
-      if digits.size > k
-        digits = digits[0, k]
-        point += 1
+      # cvt: the digits, and with `#` the zeros that dtoa left out.
+      ndigits = prec < MAX_FRACT ? prec : MAX_FRACT
+      digits, expt = dtoa(x, fixed ? 3 : 2, ndigits)
+      if alt
+        size = ndigits + (fixed ? expt : 0)
+        digits << "0" * (size - digits.size) if digits.size < size
       end
-      [digits, point]
-    end
-
-    # The first k significant digits of x's exact decimal value, rounded
-    # half to even, and where the point falls after them, as ecvt(3)
-    # gives them: x is its mantissa times a power of two, so the digits
-    # are one Integer division.
-    def exact_digits(x, k)
-      Primitive.attr! :hidden
-      low, high = Primitive.zr_float_halves(x)
-      bits = (high << 32) | low
-      biased = (bits >> 52) & 0x7ff
-      mantissa = bits & 0xf_ffff_ffff_ffff
-      return ["0" * k, 1] if biased == 0 && mantissa == 0
-
-      if biased == 0
-        biased = 1
-      else
-        mantissa |= 1 << 52
+      ndig = digits.size
+      if ch == "g" || ch == "G"
+        ch = expt <= -4 || (expt > prec && expt > 1) ? (ch == "g" ? "e" : "E") : "g"
       end
-      shift = biased - 1075
-      num, den = shift >= 0 ? [mantissa << shift, 1] : [mantissa, 1 << -shift]
-      # 10**(point - 1) <= num / den < 10**point
-      point = num.to_s.size - den.to_s.size
-      point += 1 while num >= den * 10**point
-      point -= 1 while num * 10 < den * 10**point
-      scale = k - point
-      num *= 10**scale if scale.positive?
-      den *= 10**-scale if scale.negative?
-      q, r = num.divmod(den)
-      q += 1 if 2 * r > den || (2 * r == den && q.odd?)
-      return [q.to_s, point] unless q == 10**k
+      return exponent_form(x, digits, expt - 1, ch, alt, fprec) if ch == "e" || ch == "E"
 
-      [(q / 10).to_s, point + 1]
-    end
-
-    def zero_text(precision, flags)
-      Primitive.attr! :hidden
-      precision == 0 && !flags.include?("#") ? +"0" : "0." + "0" * precision
-    end
-
-    def exponent_text(x, precision, flags, upper)
-      Primitive.attr! :hidden
       if x.zero?
-        digits = "0" * (precision + 1)
-        exponent = 0
-      else
-        digits, point = Primitive.zr_float_shortest(x)
-        digits, point = rounded_digits(x, digits, point, precision + 1)
-        digits += "0" * (precision + 1 - digits.size)
-        exponent = point - 1
+        return +"0" if ndig <= 1 && !alt
+
+        return "0." + "0" * (ndig >= fprec ? ndig - 1 : fprec - (fixed ? 0 : 1))
       end
-      mantissa = precision == 0 && !flags.include?("#") ? digits[0] : "#{digits[0]}.#{digits[1..]}"
-      "#{mantissa}#{upper ? 'E' : 'e'}#{exponent < 0 ? '-' : '+'}#{format('%02d', exponent.abs)}"
+      pad = fprec - ndig + (fixed ? expt : 0)
+      tail = alt && pad > 0 ? "0" * pad : +""
+      if expt == 0 && ndig == 0 && !alt
+        +"0"
+      elsif expt <= 0
+        "0." + "0" * -expt + digits + tail
+      elsif expt >= ndig
+        digits + "0" * (expt - ndig) + (alt ? "." : "")
+      else
+        "#{digits[0, expt]}.#{digits[expt..]}#{tail}"
+      end
     end
 
-    def general_text(x, precision, flags, upper)
+    # The `e` form: one digit, the point and the others, then the
+    # exponent in at least two digits.
+    def exponent_form(x, digits, exponent, ch, alt, fprec)
       Primitive.attr! :hidden
-      precision = 6 if precision.nil?
-      precision = 1 if precision == 0
-      exponent = x.zero? ? 0 : rounded_digits(x, *Primitive.zr_float_shortest(x), precision)[1] - 1
-      text = if exponent < -4 || exponent >= precision
-               exponent_text(x, precision - 1, flags, upper)
-             else
-               fixed_text(x, precision - 1 - exponent, flags)
-             end
-      return text if flags.include?("#")
-
-      trim_zeros(text)
+      ndig = digits.size
+      out = +digits[0]
+      if ndig > 1 || alt
+        out << "." << (x.zero? ? "0" * (ndig - 1) : digits[1..])
+        out << "0" * (fprec - ndig) if alt && fprec > ndig
+      end
+      out << ch << (exponent < 0 ? "-" : "+") << (exponent.abs < 10 ? "0" : "") << exponent.abs.to_s
     end
 
-    # Trailing zeros of a fraction go, and the point after them.
-    def trim_zeros(text)
+    # BSD__dtoa of CRuby's missing/dtoa.c, in mode 2 (`ndigits`
+    # significant digits) and mode 3 (`ndigits` past the point): the
+    # digits of a finite, positive `x` and where the point falls after
+    # them (decpt). Trailing zeros mostly go. It first tries double
+    # arithmetic, whose remainder within its error bound of one half is a
+    # tie that goes to an even digit, and that tie also biases the exact
+    # count when the doubles cannot settle the digits.
+    def dtoa(x, mode, ndigits)
       Primitive.attr! :hidden
-      e = text.index("e") || text.index("E")
-      mantissa = e ? text[0, e] : text
-      tail = e ? text[e..] : +""
-      return text unless mantissa.include?(".")
+      return [+"0", 1] if x.zero?
 
-      mantissa = mantissa[0, mantissa.size - 1] while mantissa.end_with?("0")
-      mantissa = mantissa[0, mantissa.size - 1] if mantissa.end_with?(".")
-      mantissa + tail
+      low, high = Primitive.zr_float_halves(x)
+      biased = high >> 20
+      fraction = ((high & 0xf_ffff) << 32) | low
+      # d2b: x is b * 2**be, with b odd and bbits bits long.
+      b = biased == 0 ? fraction : fraction | (1 << 52)
+      be = (biased == 0 ? -1074 : biased - 1075)
+      shift = (b & -b).bit_length - 1
+      b >>= shift
+      be += shift
+      bbits = b.bit_length
+      if biased == 0
+        # A subnormal: its top 32 bits make the estimate.
+        i = bbits + be + 1074
+        top = i > 32 ? ((high << (64 - i)) | (low >> (i - 32))) : low << (32 - i)
+        d2 = (top & 0xffff_ffff).to_f / 2_147_483_648.0
+        i -= 1075
+      else
+        d2 = (fraction | (1 << 52)).to_f / PRECISION
+        i = biased - 1023
+      end
+      # k = floor(log10(x)), estimated from above or exact.
+      ds = (d2 - 1.5) * 0.289529654602168 + 0.1760912590558 + i * 0.301029995663981
+      k = ds.to_i
+      k -= 1 if ds < 0 && ds != k
+      k_check = true
+      if k >= 0 && k < TENS.size
+        k -= 1 if x < TENS[k]
+        k_check = false
+      end
+      if mode == 2
+        ndigits = 1 if ndigits <= 0
+        ilim = ilim1 = ndigits
+      else
+        ilim = ndigits + k + 1
+        ilim1 = ilim - 1
+      end
+      half = false
+      if ilim >= 0 && ilim <= QUICK_MAX
+        quick = quick_digits(x, k, ilim, ilim1, ndigits, k_check)
+        return quick if quick.is_a?(Array)
+
+        half = quick == :half
+      end
+      return small_integer_digits(x, k, ilim, ndigits) if be >= 0 && k <= INT_MAX
+
+      exact_digits(b, be, k, ilim, ilim1, mode, ndigits, k_check, half)
+    end
+
+    # dtoa's try_quick: the digits in double arithmetic, with a bound on
+    # its error. Returns the digits and decpt, or :half for a remainder
+    # that the bound leaves at one half after an even digit, or nil when
+    # it cannot tell.
+    def quick_digits(d, k, ilim, ilim1, ndigits, k_check)
+      Primitive.attr! :hidden
+      i = 0
+      ieps = 2
+      if k > 0
+        ds = TENS[k & 0xf]
+        j = k >> 4
+        if j & 0x10 != 0
+          j &= 0xf
+          d /= BIGTENS[4]
+          ieps += 1
+        end
+        while j != 0
+          if j.odd?
+            ieps += 1
+            ds *= BIGTENS[i]
+          end
+          j >>= 1
+          i += 1
+        end
+        d /= ds
+      elsif k < 0
+        d *= TENS[-k & 0xf]
+        j = -k >> 4
+        while j != 0
+          if j.odd?
+            ieps += 1
+            d *= BIGTENS[i]
+          end
+          j >>= 1
+          i += 1
+        end
+      end
+      if k_check && d < 1.0 && ilim > 0
+        return nil if ilim1 <= 0
+
+        ilim = ilim1
+        k -= 1
+        d *= 10.0
+        ieps += 1
+      end
+      eps = (ieps * d + 7.0) / PRECISION
+      if ilim == 0
+        d -= 5.0
+        return [+"1", k + 2] if d > eps
+        return [+"", -ndigits] if d < -eps
+
+        return nil
+      end
+      eps *= TENS[ilim - 1]
+      s = +""
+      n = 1
+      loop do
+        digit = d.to_i
+        d -= digit
+        ilim = n if d.zero?
+        s << (48 + digit)
+        if n == ilim
+          return bump_up(s, k) if d > 0.5 + eps
+          return [trim_zeros(s), k + 1] if d < 0.5 - eps
+          return bump_up(s, k) if s.getbyte(-1).odd?
+
+          return :half
+        end
+        n += 1
+        d *= 10.0
+      end
+    end
+
+    # A positive integer below 10**15 in double arithmetic, which is
+    # exact: its digits stop at a zero remainder, else at ilim with the
+    # last one rounded half to even, and keep any zeros before that.
+    def small_integer_digits(d, k, ilim, ndigits)
+      Primitive.attr! :hidden
+      ds = TENS[k]
+      if ndigits < 0 && ilim <= 0
+        return [+"", -ndigits] if ilim < 0 || d <= 5 * ds
+
+        return [+"1", k + 2]
+      end
+      s = +""
+      n = 1
+      loop do
+        digit = (d / ds).to_i
+        d -= digit * ds
+        s << (48 + digit)
+        break if d.zero?
+
+        if n == ilim
+          d += d
+          return bump_up(s, k) if d > ds || (d == ds && digit.odd?)
+
+          break
+        end
+        n += 1
+        d *= 10.0
+      end
+      [s, k + 1]
+    end
+
+    # The digits of b * 2**be over 10**k, by long division, the last
+    # rounded half to even. After a tie that the quick count saw, an odd
+    # last digit only goes up, and the nines before it go.
+    def exact_digits(b, be, k, ilim, ilim1, mode, ndigits, k_check, half)
+      Primitive.attr! :hidden
+      num = be >= 0 ? b << be : b
+      den = be >= 0 ? 1 : 1 << -be
+      k >= 0 ? den *= 10**k : num *= 10**-k
+      if k_check && num < den
+        k -= 1
+        num *= 10
+        ilim = ilim1
+      end
+      if ilim <= 0 && mode == 3
+        return [+"", -ndigits] if ilim < 0 || num <= den * 5
+
+        return [+"1", k + 2]
+      end
+      s = +""
+      n = 1
+      digit = 0
+      loop do
+        digit, num = num.divmod(den)
+        s << (48 + digit)
+        return [s, k + 1] if num.zero?
+        break if n >= ilim
+
+        num *= 10
+        n += 1
+      end
+      twice = num << 1
+      return [trim_zeros(s), k + 1] unless twice > den || (twice == den && digit.odd?)
+
+      s.chop! while s.end_with?("9")
+      return [+"1", k + 2] if s.empty?
+
+      s.setbyte(-1, s.getbyte(-1) + 1) if !half || s.getbyte(-1).odd?
+      [s, k + 1]
+    end
+
+    def trim_zeros(s)
+      Primitive.attr! :hidden
+      s.chop! while s.end_with?("0")
+      s
+    end
+
+    # bump_up: the last digit goes up, a nine carries, and all nines
+    # become a 1 one place higher.
+    def bump_up(s, k)
+      Primitive.attr! :hidden
+      s.chop! while s.end_with?("9")
+      return [+"1", k + 2] if s.empty?
+
+      s.setbyte(-1, s.getbyte(-1) + 1)
+      [s, k + 1]
     end
   end
 
