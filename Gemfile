@@ -33,6 +33,11 @@ group :development do
   gem "irb"
   # The sampling profiler for the compiler's hot paths.
   gem "vernier", "~> 1.0"
+  # The objects that a step allocates and keeps, by file and line: most of
+  # a cold build's collector time marks them.
+  gem "memory_profiler", "~> 1.1", require: false
+  # Two forms of one hot method, compared with their variance.
+  gem "benchmark-ips", "~> 2.14", require: false
   # `rake lint`: RuboCop's Lint cops and the cops that .rubocop.yml adds.
   gem "rubocop", "~> 1.89", require: false
   # The Performance cops find allocations and calls that the compiler's
