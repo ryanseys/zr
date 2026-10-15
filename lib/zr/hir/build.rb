@@ -1561,7 +1561,10 @@ module Zr
       # holds in two places (a pattern's subject) moves once (`seen`).
       #: (untyped node, Integer level, ?Hash[untyped, bool]? seen) -> untyped
       def deepen(node, level, seen = nil)
-        seen ||= ({} #: Hash[untyped, bool]).compare_by_identity
+        if seen.nil?
+          seen = {} #: Hash[untyped, bool]
+          seen.compare_by_identity
+        end
         return node if Hir.node?(node) && seen.key?(node)
 
         seen[node] = true if Hir.node?(node)
