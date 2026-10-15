@@ -490,8 +490,12 @@ module Marshal
     # number as a bignum, whatever its class.
     def integer(n)
       return @out << "i" << long(n) if n >= -1073741824 && n <= 1073741823
+      return linked(n, 0) unless Primitive.zr_fixnum_p_m(n)
 
-      linked(n, 0)
+      # w_object writes a wider Fixnum as a new Bignum each time: it
+      # takes an index, and no later record links to it.
+      @count += 1
+      @out << "l" << bignum(n)
     end
 
     # The magnitude as 16-bit words, the lowest first: its hexadecimal
