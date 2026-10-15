@@ -44,7 +44,7 @@ module Zr
         ir/inst.rb ir/licm.rb ir/passes.rb ir/passes/blocks.rb ir/passes/chains.rb ir/passes/dce.rb
         ir/passes/fold.rb ir/passes/forward.rb ir/passes/inline.rb ir/passes/renaming.rb ir/promotion.rb
         ir/regions.rb ir/statics.rb ir/switches.rb ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb
-        refused.rb cache/code.rb session.rb
+        refused.rb cache/code.rb session.rb timing.rb
       ].freeze
       BACKENDS = {
         aarch64: %w[

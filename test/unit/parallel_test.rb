@@ -90,6 +90,43 @@ class ParallelTest < Minitest::Test
     end
   end
 
+  def test_with_timing_a_map_shows_each_tenth_of_its_weight_and_its_slowest_items
+    items = (1..40).to_a
+    squares = nil
+    _, err = capture_io do
+      Zr::Config.with(ZR_TIMING: "1") do |_|
+        squares = Parallel.map(items, jobs: 3, weight: ->(x) { x }, label: ->(x) { "item #{x}" }) { |x| x * x }
+      end
+    end
+
+    assert_equal items.map { |x| x * x }, squares
+    # No item weighs a tenth of the total (40 of 820), so each tenth has its line.
+    assert_equal 10, err.scan(/^zr: +\d+% of the weight/).size
+    assert_match(/^zr: 100% of the weight \(40 of 40 items\) in \d+:\d\d, about 0:00 left$/, err)
+    slowest = err.lines.grep(/^zr: +[\d.]+s  weight +\d+  item \d+$/)
+    assert_equal Parallel::Progress::SLOWEST, slowest.size
+  end
+
+  def test_with_timing_a_map_adds_the_tallies_of_its_workers
+    _, err = capture_io do
+      Zr::Config.with(ZR_TIMING: "1") do |_|
+        Parallel.map((1..6).to_a, jobs: 2, weight: ->(x) { x }) { |x| Zr::Timing.tally("nap") { sleep 0.01 } && x }
+      end
+    end
+
+    napped = err[/^zr: +nap +([\d.]+)s/, 1]
+    refute_nil napped, err
+    assert_operator napped.to_f, :>=, 0.06
+    assert_empty Zr::Timing.tallies, "the report clears the tallies"
+  end
+
+  def test_a_worker_that_ends_with_no_answer_raises
+    error = assert_raises(RuntimeError) do
+      Parallel.map((1..4).to_a, jobs: 2, weight: ->(x) { x }) { |x| x == 4 ? exit!(3) : x }
+    end
+    assert_match(/a worker stopped without an answer/, error.message)
+  end
+
   private
 
   Parallel = Zr::Native::Parallel

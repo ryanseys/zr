@@ -46,6 +46,12 @@ module Zr
       # its instruction count.
       SIZE = ->(f) { f.blocks.sum { |b| b.insts.size } } #: ^(IR::Function) -> Integer
 
+      # A function's name in the timing report of `Parallel.map`.
+      # (Steep types a lambda, not a Symbol's proc.)
+      # rubocop:disable Style/SymbolProc
+      NAME = ->(f) { f.name } #: ^(IR::Function) -> String
+      # rubocop:enable Style/SymbolProc
+
       # The number of workers for a large unit: `ZR_JOBS`, else one per
       # core, at most six. More than six workers compete for memory. Time
       # to build the runtime object on a twelve-core M2 Pro with 16 GB:
@@ -436,9 +442,9 @@ module Zr
           next cached(all, defined, emitter, cache, jobs, floor, known) if cache
 
           Timing.phase("assembling the unit (#{all.size} functions)", "unit assembled (#{all.size} functions)") do
-            Parallel.map(all, jobs: jobs, weight: SIZE, floor: floor) do |f| #$ IR::Function, Obj::Code
+            Parallel.map(all, jobs: jobs, weight: SIZE, floor: floor, label: NAME) do |f| #$ IR::Function, Obj::Code
               IR::Passes.prepare(f)
-              emitter.assemble(f, defined)
+              Timing.tally("assembly") { emitter.assemble(f, defined) }
             end
           end
         end
@@ -465,7 +471,7 @@ module Zr
         ir = all.each_index.select { |i| all[i].is_a?(IR::Function) }
         # The functions at `ir` are IR.
         functions = all.values_at(*ir) #: Array[IR::Function]
-        answers = Parallel.map(functions, jobs: jobs, weight: SIZE, floor: floor) do |f| #$ IR::Function, [String, untyped, bool]
+        answers = Parallel.map(functions, jobs: jobs, weight: SIZE, floor: floor, label: NAME) do |f| #$ IR::Function, [String, untyped, bool]
           key = IR::Fingerprint.of(f, defined)
           # The code and its bytes with `verify`, else only the bytes.
           found = verify ? cache.take(key) : cache.blob(key) #: untyped
@@ -615,13 +621,16 @@ module Zr
         none = Set.new #: Set[String]
         width = Config.current.wasm_width
         verify = cache&.verify?
-        answers = Parallel.map(functions, jobs: jobs, weight: SIZE) do |f| #$ IR::Function, [String?, String, bool]
-          key = cache && Digest::SHA256.hexdigest("#{IR::Fingerprint.of(f, none)}\n#{codegen.call_types(f).inspect}\n#{width}")
+        answers = Parallel.map(functions, jobs: jobs, weight: SIZE, label: NAME) do |f| #$ IR::Function, [String?, String, bool]
+          key = cache && Timing.tally("body cache key") do
+            Digest::SHA256.hexdigest("#{IR::Fingerprint.of(f, none)}\n#{codegen.call_types(f).inspect}\n#{width}")
+          end
           found = key && cache&.blob(key)
           next [key, found, false] if found && !verify
 
           f = Marshal.load(Marshal.dump(f)) if Process.pid == parent
-          made = codegen.body(IR::Passes.prepare(f))
+          prepared = IR::Passes.prepare(f)
+          made = Timing.tally("wasm emit") { codegen.body(prepared) }
           raise "the wasm body cache has another body for #{f.name}" if found && Marshal.load(found) != made
 
           [key, Marshal.dump(made), true]

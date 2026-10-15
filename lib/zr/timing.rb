@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "config"
+require_relative "session"
 
 module Zr
   # With `ZR_TIMING=1`, each build phase prints a line to stderr when it
@@ -45,6 +46,48 @@ module Zr
       %i[count major_gc_count marking_time sweeping_time].map { |key| GC.stat(key).to_i }
     rescue StandardError
       [0, 0, 0, 0]
+    end
+
+    # Runs the block and returns its value. With timing on, its seconds
+    # add to the tally of `part`: a part that runs many times, such as a
+    # pass over each function, then shows its sum (`report`).
+    #: [T] (Module | String part) { () -> T } -> T
+    def tally(part)
+      return yield unless Config.current.timing?
+
+      began = now
+      begin
+        yield
+      ensure
+        tallies[part] += now - began
+      end
+    end
+
+    # `{ part => seconds }` of this process since the last `report`. A
+    # forked worker sends its own to the parent, which adds them (`add`).
+    #: () -> Hash[Module | String, Float]
+    def tallies = Session.current.memo(:timing_tallies) { Hash.new(0.0) }
+
+    #: (Hash[Module | String, Float] more) -> void
+    def add(more)
+      sums = tallies
+      more.each { |part, seconds| sums[part] += seconds }
+    end
+
+    # Prints each tally, the largest first, with its share of `total`
+    # seconds, and clears them. A part may hold another (emit holds its
+    # locals), so the shares need not sum to 100%.
+    #: (String title, Float total) -> void
+    def report(title, total)
+      sums = tallies
+      return if sums.empty? || !total.positive?
+
+      warn "zr: #{title}"
+      sums.sort_by { |_, seconds| -seconds }.each do |part, seconds|
+        name = part.is_a?(Module) ? part.name.to_s[/\w+\z/] : part
+        warn format("zr:   %-24s %9.2fs %5.1f%%", name, seconds, 100 * seconds / total)
+      end
+      sums.clear
     end
   end
 end

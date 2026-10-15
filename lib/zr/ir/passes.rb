@@ -2,6 +2,7 @@
 
 require_relative "function"
 require_relative "../config"
+require_relative "../timing"
 require_relative "gvn"
 require_relative "licm"
 require_relative "statics"
@@ -47,19 +48,14 @@ module Zr
       # loop has one copy of each value. `Threads` runs after `Chains`, whose
       # split tests it can skip. `Switches` runs after both, on the tests
       # that are left, and `Blocks` drops the blocks they leave.
+      #
+      # With timing on, each pass adds its seconds to its tally, the two
+      # folds to one.
+      PIPELINE = [Fold, Forward, Statics, GVN, LICM, Fold, Chains, Threads, Switches, Blocks, DCE].freeze
+
       #: (Function f) -> Function
       def run(f)
-        Fold.run(f)
-        Forward.run(f)
-        Statics.run(f)
-        GVN.run(f)
-        LICM.run(f)
-        Fold.run(f)
-        Chains.run(f)
-        Threads.run(f)
-        Switches.run(f)
-        Blocks.run(f)
-        DCE.run(f)
+        PIPELINE.each { |pass| Timing.tally(pass) { pass.run(f) } }
         f
       end
 
@@ -70,7 +66,7 @@ module Zr
       #: (Function f, ?strict: bool) -> Function
       def prepare(f, strict: Config.current.verify?)
         run(f)
-        Verify.check(f, strict: strict)
+        Timing.tally(Verify) { Verify.check(f, strict: strict) }
       end
     end
   end

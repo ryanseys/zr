@@ -7,6 +7,7 @@
 require_relative "../../../bytes"
 require_relative "../../../config"
 require_relative "../../../ir/types"
+require_relative "../../../timing"
 require_relative "../locals"
 
 module Zr
@@ -103,7 +104,8 @@ module Zr
                 end
               end
             end
-            shared, @locals = Locals.of(@f, values, n)
+            # Its seconds are also in the emit's.
+            shared, @locals = Timing.tally(Locals) { Locals.of(@f, values, n) }
             @local.merge!(shared)
             @bb = n + @locals.size
             @locals << 0x7F

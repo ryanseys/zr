@@ -4,6 +4,7 @@ require "etc"
 require_relative "resident"
 require_relative "../config"
 require_relative "../paths"
+require_relative "../timing"
 
 module Zr
   module Native
@@ -11,8 +12,10 @@ module Zr
     # that computes and has no side effects (a cold unit's passes and
     # assembly). The workers take the items from one queue, the heaviest
     # first, so a weight that is wrong costs little: a worker that is done
-    # takes the next item. Each worker writes its results to a pipe. The
-    # results are in item order, so they do not depend on `jobs`.
+    # takes the next item. Each worker writes each result to a pipe as
+    # soon as it has it, so with timing on the parent shows the progress
+    # (`Progress`). The results are in item order, so they do not depend
+    # on `jobs`.
     module Parallel
       module_function
 
@@ -20,12 +23,13 @@ module Zr
       SMALL_MACHINE = 8 * (1 << 30)
 
       # Runs `work` over `items` in `jobs` workers at most. `weight` returns
-      # the cost of an item. The map runs in this process when the total
-      # cost is below `floor`, when there is one job, or when fork is not
-      # available. When workers raise, this raises the error of the first
-      # item (in item order) that raised.
-      #: [Item, Answer] (Array[Item] items, jobs: Integer, weight: ^(Item) -> Integer, ?floor: Integer) { (Item) -> Answer } -> Array[Answer]
-      def map(items, jobs:, weight:, floor: 0, &work)
+      # the cost of an item, and `label` its name in the timing report. The
+      # map runs in this process when the total cost is below `floor`, when
+      # there is one job, or when fork is not available. When workers raise,
+      # this raises the error of the first item (in item order) that raised.
+      # @rbs [Item, Answer] (Array[Item] items, jobs: Integer, weight: ^(Item) -> Integer, ?floor: Integer,
+      #                     ?label: (^(Item) -> String)?) { (Item) -> Answer } -> Array[Answer]
+      def map(items, jobs:, weight:, floor: 0, label: nil, &work)
         weights = items.map(&weight)
         jobs = [jobs, items.size].min
         return items.map(&work) if jobs <= 1 || weights.sum < floor || !Process.respond_to?(:fork)
@@ -39,12 +43,16 @@ module Zr
           warn format("zr: %d items in %d of %d workers%s", items.size, jobs, asked,
                       jobs < asked ? " (the free memory allows no more)" : "")
         end
+        progress = Progress.new(weights) if Config.current.timing?
+        Timing.tallies.clear
         queue, feed = IO.pipe
         feeder = fed(feed, weights)
-        workers = Array.new(jobs) { started(items, queue, feed, work) }
+        inbox = Thread::Queue.new
+        workers = Array.new(jobs) { started(items, queue, feed, work, inbox) }
         queue.close
+        failures = collected(workers, inbox, answers, progress)
         feeder.join
-        failures = workers.filter_map { |pid, reader| collected(pid, reader, answers) }
+        progress&.finish(items, label)
         raise_first(failures) unless failures.empty?
         answers
       end
@@ -163,54 +171,155 @@ module Zr
 
       # Forks a worker that takes items from `queue`. The worker closes its
       # copy of `feed`, so its read after the last index gets nil. A thread
-      # reads the worker's result while the worker writes, so a full pipe
-      # does not block it.
-      #: [Item] (Array[Item] items, IO queue, IO feed, ^(Item) -> untyped work) -> [Integer, Thread]
-      def started(items, queue, feed, work)
+      # reads the worker's messages while the worker writes, so a full pipe
+      # does not block it, and puts each in `inbox` as `[pid, bytes]`, then
+      # `[pid, nil]` at the end of the pipe.
+      #: [Item] (Array[Item] items, IO queue, IO feed, ^(Item) -> untyped work, Thread::Queue inbox) -> [Integer, Thread]
+      def started(items, queue, feed, work, inbox)
         r, w = IO.pipe
         pid = fork do
           feed.close
           queue.binmode
           r.close
           w.binmode
-          w.write(Marshal.dump(answered(items, queue, work)))
+          Timing.tallies.clear
+          answered(items, queue, work) do |message|
+            bytes = Marshal.dump(message)
+            w.write([bytes.bytesize].pack("Q"), bytes)
+          end
           w.close
           exit!(0)
         end
         w.close
-        [pid, Thread.new { r.binmode.read.tap { r.close } }]
+        [pid, Thread.new { read_messages(pid, r.binmode, inbox) }]
       end
 
-      # Returns `[:ok, [[index, result]…]]`, or `[:raised, index, class
-      # name, message]` for the first item that raised. A worker stops at
-      # its first failure; the others take the rest.
-      #: [Item] (Array[Item] items, IO queue, ^(Item) -> untyped work) -> Array[untyped]
+      #: (Integer pid, IO r, Thread::Queue inbox) -> void
+      def read_messages(pid, r, inbox)
+        while (head = r.read(8))
+          size = head.unpack1("Q") #: Integer
+          inbox << [pid, r.read(size)]
+        end
+      ensure
+        r.close
+        inbox << [pid, nil]
+      end
+
+      # Yields `[:item, index, result, seconds]` for each item, then
+      # `[:done, tallies]` with the worker's `Timing.tallies`. For the first
+      # item that raises, it yields `[:raised, index, class name, message]`
+      # instead and stops; the other workers take the rest.
+      #: [Item] (Array[Item] items, IO queue, ^(Item) -> untyped work) { (Array[untyped]) -> void } -> void
       def answered(items, queue, work)
-        done = [] #: Array[[Integer, untyped]]
         while (word = queue.read(4))
           i = word.unpack1("L") #: Integer
+          began = Timing.now
           begin
-            done << [i, work.call(items[i])]
+            answer = work.call(items[i])
           rescue StandardError => e
-            return [:raised, i, e.class.name, e.message]
+            return yield [:raised, i, e.class.name, e.message]
           end
+          yield [:item, i, answer, Timing.now - began]
         end
-        [:ok, done]
+        yield [:done, Timing.tallies]
       end
 
-      # Puts the worker's results at their indexes. Returns its failure, if any.
-      # The answer is what a worker wrote with Marshal, so it is untyped.
-      #: (Integer pid, Thread reader, Array[untyped] answers) -> Array[untyped]?
-      def collected(pid, reader, answers)
-        bytes = reader.value
-        _, status = Process.wait2(pid)
-        raise "a worker stopped without an answer (#{status})" if bytes.empty?
+      # Reads the workers' messages until each pipe ends. It puts each
+      # result at its index, adds each worker's tallies to this process's,
+      # and returns the failures. A message is what a worker wrote with
+      # Marshal, so it is untyped.
+      #: (Array[[Integer, Thread]] workers, Thread::Queue inbox, Array[untyped] answers, Progress? progress) -> Array[Array[untyped]]
+      def collected(workers, inbox, answers, progress)
+        failures = [] #: Array[Array[untyped]]
+        ended = {} #: Hash[Integer, bool]
+        open = workers.size
+        while open.positive?
+          pid, bytes = inbox.pop
+          if bytes.nil?
+            open -= 1
+            next
+          end
 
-        tag, *rest = Marshal.load(bytes)
-        return rest if tag == :raised
+          tag, *rest = Marshal.load(bytes)
+          case tag
+          when :item
+            i, answer, seconds = rest
+            answers[i] = answer
+            progress&.done(i, seconds)
+          when :raised then failures << rest
+          when :done then Timing.add(rest.first)
+          end
+          ended[pid] = true unless tag == :item
+        end
+        workers.each do |pid, reader|
+          reader.join
+          _, status = Process.wait2(pid)
+          raise "a worker stopped without an answer (#{status})" unless ended[pid]
+        end
+        failures
+      end
 
-        rest.first.each { |i, answer| answers[i] = answer }
-        nil
+      # The progress of a map in workers, for a person who waits on a long
+      # build (timing on). It prints a line at each tenth of the total
+      # weight, with the time so far and the time left at the same rate
+      # (the heaviest items go first, so that time is high at the start),
+      # and at the end the slowest items.
+      class Progress
+        # @rbs @weights: Array[Integer]
+        # @rbs @total: Integer
+        # @rbs @weighed: Integer
+        # @rbs @count: Integer
+        # @rbs @tenth: Integer
+        # @rbs @began: Float
+        # @rbs @seconds: Array[[Float, Integer]]
+
+        # The slowest items that `finish` names.
+        SLOWEST = 10
+
+        #: (Array[Integer] weights) -> void
+        def initialize(weights)
+          @weights = weights
+          @total = weights.sum
+          @weighed = 0
+          @count = 0
+          @tenth = 1
+          @began = Timing.now
+          @seconds = [] #: Array[[Float, Integer]]
+        end
+
+        #: (Integer i, Float seconds) -> void
+        def done(i, seconds)
+          @count += 1
+          @weighed += @weights.fetch(i)
+          @seconds << [seconds, i]
+          return if @total.zero? || @weighed * 10 < @tenth * @total
+
+          @tenth = (@weighed * 10 / @total) + 1
+          elapsed = Timing.now - @began
+          warn format("zr: %3d%% of the weight (%d of %d items) in %s, about %s left", @weighed * 100 / @total,
+                      @count, @weights.size, clock(elapsed), clock(elapsed * (@total - @weighed) / @weighed))
+        end
+
+        # Prints the slowest items, by `label` or by index, and the time by
+        # part that the workers tallied, as a share of the items' seconds.
+        #: [Item] (Array[Item] items, (^(Item) -> String)? label) -> void
+        def finish(items, label)
+          work = @seconds.sum(0.0) { |seconds, _| seconds }
+          warn format("zr: %.1f s of work in %.1f s", work, Timing.now - @began)
+          warn "zr: the slowest items"
+          @seconds.max(SLOWEST).each do |seconds, i|
+            warn format("zr:   %8.2fs  weight %8d  %s", seconds, @weights.fetch(i), label ? label.call(items.fetch(i)) : "item #{i}")
+          end
+          Timing.report("the time by part, in all workers", work)
+        end
+
+        private
+
+        #: (Float seconds) -> String
+        def clock(seconds)
+          minutes, rest = seconds.round.divmod(60)
+          format("%d:%02d", minutes, rest)
+        end
       end
 
       # Raises the failure of the lowest item. It uses the original error
