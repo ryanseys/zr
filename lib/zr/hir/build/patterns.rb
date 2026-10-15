@@ -84,7 +84,7 @@ module Zr
           subject = temp(:subject)
           match = Match.new(self, nil, nil, nil)
           test = match.pattern(node.pattern, subject)
-          Seq.new([set(subject, expr(node.value), line), If.new(test, Literal.new(true, line), Literal.new(false, line), line)], line)
+          Seq.new([set(subject, expr(node.value), line), *match.resets(line), If.new(test, Literal.new(true, line), Literal.new(false, line), line)], line)
         end
 
         # `/(?<x>.)/ =~ text`: the named groups are assigned to locals (nil if
