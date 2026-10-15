@@ -252,7 +252,10 @@ class File < IO
     end
 
     unless options[:mode].nil?
-      raise ArgumentError, +"mode specified twice" unless no_mode || mode.nil?
+      unless no_mode || mode.nil?
+        IO.send(:open_options, mode, {})
+        raise ArgumentError, +"mode specified twice"
+      end
 
       mode = options[:mode]
     end

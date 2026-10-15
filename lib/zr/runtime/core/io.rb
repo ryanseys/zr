@@ -237,7 +237,12 @@ class IO
   def self.open_options(mode, options)
     Primitive.attr! :hidden
     unless options[:mode].nil?
-      raise ArgumentError, +"mode specified twice" unless mode.nil?
+      # The given mode is read first: a bad one raises, and its encoding
+      # warns, before the second mode does.
+      unless mode.nil?
+        open_options(mode, {})
+        raise ArgumentError, +"mode specified twice"
+      end
 
       mode = options[:mode]
     end
