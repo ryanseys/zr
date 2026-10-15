@@ -129,7 +129,9 @@ module Process
 
     def success? = exited? ? exitstatus == 0 : nil
 
-    def ==(other) = other.is_a?(Integer) ? @to_i == other : (other.is_a?(Status) && @to_i == other.to_i)
+    # pst_equal: the same status, else rb_equal of the status word and
+    # `other`, so a Float or another Status compares by its value.
+    def ==(other) = Primitive.zr_rb_equal(@to_i, other)
 
     def to_s
       return "pid #{@pid} exit #{exitstatus}" if exited?
