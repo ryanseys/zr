@@ -587,6 +587,7 @@ class File < IO
     def initialize(pattern, path, flags, enc)
       @pat = pattern
       @str = path
+      @encoding = enc
       @onig = Regexp.encoder(enc)
       @period = (flags & File::FNM_DOTMATCH).zero?
       @pathname = (flags & File::FNM_PATHNAME) != 0
@@ -643,7 +644,12 @@ class File < IO
 
     def ends?(bytes, i) = at(bytes, i).zero? || (@pathname && at(bytes, i) == SLASH)
 
-    def code(bytes, i) = @onig.mbc_to_code(bytes, i, bytes.bytesize)
+    # rb_enc_codepoint: the character at i, which must be whole and valid.
+    def code(bytes, i)
+      raise ArgumentError, "invalid byte sequence in #{@encoding}" unless @onig.precise_mbclen(bytes, i).positive?
+
+      @onig.mbc_to_code(bytes, i, bytes.bytesize)
+    end
 
     # rb_enc_toupper: ASCII letters alone have another case here.
     def upper(c) = c.between?(0x61, 0x7A) ? c - 0x20 : c
