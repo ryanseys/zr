@@ -1,0 +1,5 @@
+["Psych::Parser#_native_parse", "Psych::Parser#parse", "Psych.parse_stream", "Psych.parse", "<main>"]
+["Psych::Parser#_native_parse", "Psych::Parser#parse", "Psych.parse_stream", "Psych.parse", "<main>"]
+"(<unknown>): did not find expected ',' or ']' while parsing a flow sequence at line 1 column 4"
+["H#scalar", "Psych::Parser#_native_parse", "Psych::Parser#parse", "<main>"]
+{"a" => [1, 2]}

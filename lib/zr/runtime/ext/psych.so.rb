@@ -284,7 +284,10 @@ module Psych
       end
     end
 
+    # The walk of _native_parse, which is C in psych: no frame of its own,
+    # and a plain loop, so an error shows _native_parse as its method.
     def parse_events(handler, yaml, path)
+      Primitive.attr! :hidden
       glue = LibYAML::Glue
       parser = glue.reset_native_parser(self)
       internal = Encoding.default_internal
@@ -300,7 +303,7 @@ module Psych
         parser.set_input_string(yaml)
       end
 
-      loop do
+      while true
         event = parser.error == LibYAML::NO_ERROR ? parser.parse : nil
         if event.nil?
           exception = glue.make_exception(parser, path)
