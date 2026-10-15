@@ -943,7 +943,8 @@ class String
     replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless none || replacement.is_a?(String)
     match = first_match(pattern, 0)
     Primitive.zr_backref_set(match)
-    return copied unless match
+    # sub! answers by its own match, whatever `$~` a block left.
+    return bang ? nil : copied unless match
 
     from = match.send(:begin_at, 0)
     to = match.send(:end_at, 0)
@@ -969,6 +970,13 @@ class String
   def gsub(pattern, replacement = (none = true; nil), &block)
     return to_enum(:gsub, pattern) if none && block.nil?
 
+    gsubbed(pattern, replacement, none, &block) || copied
+  end
+
+  # str_gsub: the new text, or nil when nothing matched, so gsub! answers
+  # by its own matches, whatever `$~` a block left.
+  def gsubbed(pattern, replacement, none, &block)
+    Primitive.attr! :hidden
     # A replacement that was given converts, nil too, as in sub.
     replacement = Hash.try_convert(replacement) || Primitive.zr_str_operand(replacement) unless none || replacement.is_a?(String)
     regexp = pattern.is_a?(Regexp) ? pattern : nil
@@ -999,7 +1007,7 @@ class String
       end
     end
     Primitive.zr_backref_set(last)
-    return copied unless out
+    return unless out
 
     cat_range(out, start, Primitive.zr_str_bytesize(self) - start) if Primitive.zr_str_bytesize(self) > start
     out
@@ -1021,15 +1029,15 @@ class String
     sub_arity(given ||= 2, block)
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
     result = subbed(pattern, replacement, true, given == 1, &block)
-    $~ ? replaced(result) : nil
+    result && replaced(result)
   end
 
   def gsub!(pattern, replacement = (none = true; nil), &block)
     return to_enum(:gsub!, pattern) if none && block.nil?
 
     Primitive.zr_frozen_error(self) if Primitive.zr_modify_frozen_m(self)
-    result = none ? gsub(pattern, &block) : gsub(pattern, replacement, &block)
-    $~ ? replaced(result) : nil
+    result = gsubbed(pattern, replacement, none, &block)
+    result && replaced(result)
   end
 
   # `include?`, and a String `[]`, search the way `index` does, so the
