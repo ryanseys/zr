@@ -438,7 +438,9 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # Whether ruby loaded `feature` before the program, by any of its names.
   def self.preloaded?(feature)
     Primitive.attr! :hidden
-    Primitive.zr_load_names(2).split("\n").include?(feature.sub(/\.(?:rb|so|bundle)\z/, ""))
+    # By its bytes: a name with a byte that is no character is no error.
+    suffix = %w[.rb .so .bundle].find { |ext| feature.end_with?(ext) }
+    Primitive.zr_load_names(2).split("\n").include?(suffix ? feature.delete_suffix(suffix) : feature)
   end
 
   # Whether a require of `feature` would read no file, because the

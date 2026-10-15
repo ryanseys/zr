@@ -1,0 +1,2 @@
+core/kernel/a_require_of_a_name_with_a_byte_that_is_no_character_is_a_load_error.rb:19:in 'Kernel#require': LoadError
+	from core/kernel/a_require_of_a_name_with_a_byte_that_is_no_character_is_a_load_error.rb:19:in '<main>'

@@ -1,0 +1,21 @@
+require "\xFF": LoadError, path "\xFF"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+load "\xFF": LoadError, path "\xFF"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+require "a\xFE/b": LoadError, path "a\xFE/b"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+load "a\xFE/b": LoadError, path "a\xFE/b"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+require "\xFF.rb": LoadError, path "\xFF.rb"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+load "\xFF.rb": LoadError, path "\xFF.rb"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+require "\xFF.so": LoadError, path "\xFF.so"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+load "\xFF.so": LoadError, path "\xFF.so"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+require "./\xFF": LoadError, path "./\xFF"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+load "./\xFF": LoadError, path "./\xFF"
+  message: #<ArgumentError: invalid byte sequence in UTF-8>
+require_relative: LoadError

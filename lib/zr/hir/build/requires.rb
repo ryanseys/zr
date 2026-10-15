@@ -16,13 +16,16 @@ module Zr
       AUTOLOADS = %i[autoload autoload_relative].freeze
 
       # A require's name at compile time: a String literal, or a path built
-      # from `__dir__` with a literal.
+      # from `__dir__` with a literal. A name with a byte that is no
+      # character stays for the run time, which searches for it as ruby
+      # does.
       #: (untyped node) -> String?
       def literal_feature(node)
         args = node.arguments&.arguments
         return nil unless args&.size == 1
 
-        args[0].is_a?(Prism::StringNode) ? args[0].unescaped : @loader.literal_path(args[0], @file)
+        feature = args[0].is_a?(Prism::StringNode) ? args[0].unescaped : @loader.literal_path(args[0], @file)
+        feature if feature.nil? || feature.valid_encoding?
       end
 
       # The features that ruby loads before a program starts, so a require
