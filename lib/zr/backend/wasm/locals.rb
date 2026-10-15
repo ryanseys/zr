@@ -34,7 +34,8 @@ module Zr
         # @rbs @last: Array[Hash[Integer, Integer]]
         # @rbs @uses: Array[Array[Integer]]
         # @rbs @in: Array[Array[Integer]]
-        # @rbs @out: Array[Hash[Integer, bool]]
+        # @rbs @out: Array[Array[Integer]]
+        # @rbs @live_out: Array[Integer?]
         # @rbs @reached: Integer
         # @rbs @colour: Array[Integer?]
         # @rbs @types: Array[Integer]
@@ -107,7 +108,7 @@ module Zr
         end
 
         # Sets `@in[block]`, the values live into the block, and
-        # `@out[block]`, a Hash of the values live out of it. It walks back
+        # `@out[block]`, the values live out of it. It walks back
         # from each use, one value at a time, so `seen` marks each block
         # once for each value: a value read in many blocks walks its range
         # once, not once for each block that reads it.
@@ -115,8 +116,11 @@ module Zr
         def live
           n = @f.blocks.size
           @in = Array.new(n) { [] }
-          @out = Array.new(n) { {} }
+          @out = Array.new(n) { [] }
           seen = Array.new(n) #: Array[Integer?]
+          # The value that the walk last put out of each block, so a block
+          # that two successors reach takes the value once.
+          put_out = Array.new(n) #: Array[Integer?]
           work = [] #: Array[Integer]
           read_in = {} #: Hash[Integer, Array[Integer]]
           @uses.each_with_index { |used, bi| used.each { |v| (read_in[v] ||= []) << bi } }
@@ -132,7 +136,10 @@ module Zr
               work << bi
               while (w = work.pop)
                 @pred[w].each do |p|
-                  @out[p][v] = true
+                  unless put_out[p] == v
+                    put_out[p] = v
+                    @out[p] << v
+                  end
                   next if p == home || seen[p] == v
 
                   seen[p] = v
@@ -184,6 +191,9 @@ module Zr
           @freed = Hash.new { |h, t| h[t] = [] }
           @cursor = Hash.new(0)
           @busy = []
+          # `@live_out[value]` is the stamp of the block that the value is
+          # live out of, while that block takes its locals.
+          @live_out = Array.new(@wasm.size)
           @stamp = 0
           # The reached blocks in reverse postorder, then the rest.
           order.first(@reached).reverse_each { |bi| colour_block(bi) }
@@ -209,7 +219,8 @@ module Zr
             c = colour[n]
             busy[c] = stamp if c
           end
-          out = @out[bi]
+          out = @live_out
+          @out[bi].each { |n| out[n] = stamp }
           last = @last[bi]
           id = @id
           unless b.params.empty?
@@ -217,25 +228,25 @@ module Zr
             # parameter keeps its own local until the jump writes the last one.
             params = b.params.filter_map { |v, _| id[v] }
             params.each { |n| take(n) }
-            params.each { |n| release(n) unless last.key?(n) || out.key?(n) }
+            params.each { |n| release(n) unless last.key?(n) || out[n] == stamp }
           end
           b.insts.each_with_index do |i, k|
             results = i.results
             results.each { |v| (n = id[v]) && take(n) }
-            i.args.each { |a| (n = id[a]) && last[n] == k && free_read(n, last, out) }
-            i.targets&.each { |(_, args)| args.each { |a| (n = id[a]) && last[n] == k && free_read(n, last, out) } }
+            i.args.each { |a| (n = id[a]) && last[n] == k && free_read(n, last) }
+            i.targets&.each { |(_, args)| args.each { |a| (n = id[a]) && last[n] == k && free_read(n, last) } }
             results.each do |v|
               n = id[v]
-              release(n) if n && !last.key?(n) && !out.key?(n)
+              release(n) if n && !last.key?(n) && out[n] != stamp
             end
           end
         end
 
         # A value that is not live out of its block frees its local at its
         # last read in the block. It frees the local one time only.
-        #: (Integer n, Hash[Integer, Integer] last, Hash[Integer, bool] out) -> void
-        def free_read(n, last, out)
-          return if out.key?(n)
+        #: (Integer n, Hash[Integer, Integer] last) -> void
+        def free_read(n, last)
+          return if @live_out[n] == @stamp
 
           last.delete(n)
           release(n)
