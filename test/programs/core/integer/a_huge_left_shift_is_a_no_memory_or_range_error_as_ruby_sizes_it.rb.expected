@@ -1,0 +1,28 @@
+1 << 2**60: NoMemoryError: failed to allocate memory
+1 << fixnum max: NoMemoryError: failed to allocate memory
+-5 << 2**61: NoMemoryError: failed to allocate memory
+256 >> -(2**61): NoMemoryError: failed to allocate memory
+2**70 << 2**60: NoMemoryError: failed to allocate memory
+-(2**70) >> -(2**60): NoMemoryError: failed to allocate memory
+256 << 2**64: NoMemoryError: failed to allocate memory
+256 << 2**65: NoMemoryError: failed to allocate memory
+1 << 2**66 - 128: NoMemoryError: failed to allocate memory
+1 << 2**66 - 64: RangeError: shift width too big
+1 << 2**66: RangeError: shift width too big
+1 << 2**67 - 1: RangeError: shift width too big
+1 << 2**67: RangeError: shift width too big
+1 << 2**100: RangeError: shift width too big
+256 >> -(2**64): NoMemoryError: failed to allocate memory
+256 >> -(2**100): RangeError: shift width too big
+2**70 << 2**64: NoMemoryError: failed to allocate memory
+2**70 >> -(2**100): RangeError: shift width too big
+send << 2**64: NoMemoryError: failed to allocate memory
+256 >> 2**64: 0
+-256 >> 2**64: -1
+256 << -(2**64): 0
+-(2**70) << -(2**100): -1
+0 << 2**100: 0
+0 << 2**62: 0
+1 << 2**10 has bits: 1025
+TypeError: class or module required for rescue clause; cause NoMemoryError
+rescued RangeError

@@ -9,6 +9,13 @@ class Integer
   LIMB_BITS = 30
   LIMB_BASE = 1 << LIMB_BITS
   LIMB_MASK = LIMB_BASE - 1
+  # CRuby's limits on a left shift: the count has at most 67 bits (two
+  # size_t words, the high one under CHAR_BIT), and the result's 32-bit
+  # digits (BDIGIT) number fewer than LONG_MAX / 4. Past 2**31 bits, the
+  # result's bytes go to the allocator first.
+  SHIFT_COUNT_BITS = 67
+  LONG_DIGITS = 0x1FFF_FFFF_FFFF_FFFF
+  ROOM_CHECKED_BITS = 0x8000_0000
   # The digits of every base to 36.
   DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz"
   # The length in limbs from which `to_s` splits a magnitude in two by a
@@ -17,7 +24,7 @@ class Integer
   # By base, the powers that `to_s` splits by, each the square of the
   # one before, with the count of digits that each one shifts.
   POWERS = {}
-  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK, :DIGITS, :TO_S_SPLIT, :POWERS
+  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK, :SHIFT_COUNT_BITS, :LONG_DIGITS, :ROOM_CHECKED_BITS, :DIGITS, :TO_S_SPLIT, :POWERS
 
   class << self
     # A bignum from a 64-bit word split as `high << 32 | low` by the
@@ -493,18 +500,32 @@ class Integer
       big_neg?(x) ? -f : f
     end
 
-    # `x << n` when `left`, else `x >> n`. A Bignum count moves every bit:
-    # out to the right it leaves 0, or -1 below zero; to the left only
-    # zero can go, as CRuby's rb_int_lshift decides.
+    # `x << n` when `left`, else `x >> n`. A Bignum count moves every bit
+    # out to the right: it leaves 0, or -1 below zero. To the left, CRuby's
+    # big_shift2 and big_shift3 refuse a count of 2**67 or more and a
+    # result of LONG_MAX bytes or more, then allocate the result's
+    # digits, which raises NoMemoryError when the allocator cannot supply
+    # them.
     def big_shift(x, n, left)
       Primitive.attr! :hidden
       return 0 if x.zero?
-      unless Primitive.zr_fixnum_p_m(n)
-        return x.negative? ? -1 : 0 if left == n.negative?
 
-        raise RangeError, +"shift width too big"
+      left = !left if n.negative?
+      count = n.abs
+      unless left
+        return x.negative? ? -1 : 0 unless Primitive.zr_fixnum_p_m(count)
+
+        return big_shr(x, count)
       end
-      left ? big_shl(x, n) : big_shr(x, n)
+      # Only a result of 256 MB or more needs the allocator's answer.
+      if count >= ROOM_CHECKED_BITS
+        digits = (count >> 5) + ((x.abs.bit_length + 31) >> 5)
+        raise RangeError, +"shift width too big" if count.bit_length > SHIFT_COUNT_BITS || digits >= LONG_DIGITS
+
+        bytes = (digits + 1) * 4
+        Primitive.zr_no_memory unless Primitive.zr_fixnum_p_m(bytes) && Primitive.zr_memory_for_p(bytes)
+      end
+      big_shl(x, count)
     end
 
     # An exact comparison with a Float: through its integer part, then
