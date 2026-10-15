@@ -549,6 +549,7 @@ module Zr
     class Interp < Node
       attr_accessor parts: Array[node]
       attr_accessor line: Integer
+      attr_accessor held: bool?
     end
 
     class RegexpOnce < Node

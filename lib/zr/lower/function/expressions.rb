@@ -250,7 +250,7 @@ module Zr
           pairs = node.pairs
           leading = first.is_a?(Hir::HashSplat)
           pairs = pairs.drop(2) if leading
-          @f.store(leading ? expr(first.value) : @qnil, @rec, at)
+          @f.store(first.is_a?(Hir::HashSplat) ? expr(first.value) : @qnil, @rec, at)
           parts = pairs.each_slice(2).slice_when { |(a, _), (b, _)| a.is_a?(Hir::HashSplat) || b.is_a?(Hir::HashSplat) }
           parts.each_with_index do |run, i|
             part = run.flatten(1)

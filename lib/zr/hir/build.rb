@@ -37,6 +37,7 @@ module Zr
       # @rbs @singleton: bool
       # @rbs @body_marks: Array[Symbol]
       # @rbs @block_depth: Integer
+      # @rbs @retry_scopes: Array[Symbol]
       # @rbs @using: using
       # @rbs @usings: Integer
       # @rbs @in_def: bool
@@ -222,7 +223,7 @@ module Zr
         @block_depth = 0
         # The clauses and blocks around the node: a `retry` is valid only
         # where the innermost is a rescue clause (`retry_in`).
-        @retry_scopes = [] #: Array[Symbol]
+        @retry_scopes = []
         # An eval starts under the refinements of its call site.
         @using = eval ? loader&.eval_using : nil
         # The number of `using` entries that this build made. `statement`
