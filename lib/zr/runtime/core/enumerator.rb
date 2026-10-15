@@ -171,9 +171,13 @@ class Enumerator
   end
 
   # A size that responds to call is called, a Proc or not.
+  # enumerator_size: rb_check_funcall of `call`, of any visibility,
+  # with the enumerator's arguments, else the size as it was given.
   def size
     initialized!
-    @size.respond_to?(:call) ? @size.call : @size
+    return @size unless @size.respond_to?(:call, true)
+
+    @size.__send__(:call, *@args, **@kwargs)
   end
 
   # Without a block, the enumerator shows the offset only as it was given.
