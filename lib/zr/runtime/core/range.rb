@@ -547,19 +547,22 @@ class Range
     self
   end
 
-  # Every `n`th element of a String range, by succ; the argument checks
-  # wait for the walk.
+  # Every `n`th element of a String or Symbol range, by succ, as
+  # range_step's step_i counts: down from one, so the begin comes first,
+  # then again from `n`. A step of zero or less never counts down to zero
+  # again, so the walk yields the begin alone and goes on to the end.
   def stepped(n, name, &block)
     Primitive.attr! :hidden
-    return added(n, name, &block) unless n.is_a?(Integer)
+    return added(n, name, &block) unless Primitive.zr_fixnum_p_m(n)
     return to_enum(name, n) unless block
-    raise ArgumentError, +"step can't be negative" if n < 0
-    raise ArgumentError, +"step can't be 0" if n == 0
 
-    i = 0
+    left = 1
     each do |v|
-      yield v if i % n == 0
-      i += 1
+      left -= 1
+      next unless left == 0
+
+      left = n
+      yield v
     end
     self
   end
