@@ -1,0 +1,19 @@
+===: comparison of Float with NaN failed: comparator returned nil
+cover?: comparison of Float with NaN failed: comparator returned nil
+include?: comparison of Float with NaN failed: comparator returned nil
+member?: comparison of Float with NaN failed: comparator returned nil
+exclusive: comparison of Float with NaN failed: comparator returned nil
+endless: comparison of Float with NaN failed: comparator returned nil
+beginless: comparison of Float with 5.0 failed: comparator returned nil
+beginless exclusive: comparison of Float with 5.0 failed: comparator returned nil
+infinite: comparison of Float with NaN failed: comparator returned nil
+["integer begin", false]
+integer end: comparison of Float with NaN failed: comparator returned nil
+["integer range", false]
+["integer range cover?", false]
+["nan begin", "bad value for range"]
+["range in range", "bad value for range"]
+when: comparison of Float with NaN failed: comparator returned nil
+grep: comparison of Float with NaN failed: comparator returned nil
+["grep before nan", [0.0, 5.0]]
+["in range", [true, true, false, true]]

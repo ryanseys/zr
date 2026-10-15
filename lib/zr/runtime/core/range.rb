@@ -299,7 +299,12 @@ class Range
   def r_less(a, b)
     Primitive.attr! :hidden
     c = a <=> b
-    c.nil? ? 2_147_483_647 : Primitive.zr_cmpint(c, a, b)
+    return Primitive.zr_cmpint(c, a, b) unless c.nil?
+    # OPTIMIZED_CMP compares two Floats with rb_float_cmp, which refuses
+    # a NaN.
+    return Primitive.zr_cmperr(a, b) if a.is_a?(Float) && b.is_a?(Float)
+
+    2_147_483_647
   end
 
   # Integer ends count down without an Array, which a beginless range
