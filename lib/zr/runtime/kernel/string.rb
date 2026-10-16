@@ -2157,6 +2157,13 @@ module Zr::Kern
     !zr_special_p(s) && zr_type(s) == T_STRING && (RBasic[s].flags & FL_CHILLED) != 0
   end
 
+  # The same question for the core and its extensions (StringIO's
+  # str_chilled_p).
+  #: (value) -> value
+  def zr_str_chilled_m(s)
+    zr_bool(zr_str_chilled_p(s))
+  end
+
   # Whether a change to `v` is refused because `v` is frozen, as
   # rb_check_frozen checks. A chilled String changes, and warns first when
   # deprecation warnings are on, as CHILLED_STRING_MUTATED does.

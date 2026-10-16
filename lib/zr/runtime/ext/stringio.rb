@@ -465,7 +465,8 @@ class StringIO
             end
           end
     ptr.enc = enc
-    ptr.string.force_encoding(enc) if !ptr.string.nil? && writable? && !ptr.string.frozen?
+    # A chilled String keeps its encoding, as str_chilled_p spares it.
+    ptr.string.force_encoding(enc) if !ptr.string.nil? && writable? && !ptr.string.frozen? && !Primitive.zr_str_chilled_m(ptr.string)
     self
   end
 
@@ -515,8 +516,9 @@ class StringIO
       val
     end
 
-    def read_nonblock(*args, **opts)
-      val = read(*args)
+    # strio_read_nonblock takes one or two arguments, and any keywords.
+    def read_nonblock(length, buffer = (no_buffer = true; nil), **opts)
+      val = no_buffer ? read(length) : read(length, buffer)
       return nil if val.nil? && opts[:exception] == false
       raise EOFError, "end of file reached" if val.nil?
 
@@ -938,6 +940,9 @@ class StringIO
         string << str
       end
     else
+      # strio_extend: the end must fit in a long.
+      raise ArgumentError, "string size too big" if len > MAX_LENGTH - ptr.pos
+
       body = string.b
       body << ("\0" * (ptr.pos - olen)) if ptr.pos > olen
       body[ptr.pos, len] = str.b

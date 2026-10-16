@@ -1,0 +1,17 @@
+#<ArgumentError: negative length -1 given>
+#<ArgumentError: wrong number of arguments (given 3, expected 1..2)>
+#<ArgumentError: wrong number of arguments (given 0, expected 1..2)>
+#<ArgumentError: wrong number of arguments (given 3, expected 1..2)>
+"\xE3"
+"\x81\x82"
+"\xE3\x81\x84"
+nil
+#<EOFError: end of file reached>
+#<ArgumentError: string size too big>
+""
+true
+#<ArgumentError: string size too big>
+#<Encoding:UTF-8>
+true
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:BINARY (ASCII-8BIT)>
