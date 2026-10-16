@@ -152,13 +152,20 @@ class Hash
 
   # A subclass returns a plain Hash with the same pairs, default and
   # compare_by_identity, as rb_hash_to_h copies them.
-  def to_h
-    unless block_given?
+  def to_h(&block)
+    unless block
       return self if instance_of?(Hash)
 
       return Primitive.zr_hash_replace_m({}, self)
     end
 
+    mapped_to_h(&block)
+  end
+
+  # rb_hash_to_h_block: a Hash of the pair that the block gives for each
+  # pair. ENV#to_h shares it.
+  def mapped_to_h
+    Primitive.attr! :hidden
     out = {}
     Primitive.zr_hash_foreach(self) do |k, v|
       given = yield(k, v)

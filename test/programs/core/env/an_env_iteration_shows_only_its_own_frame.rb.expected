@@ -6,6 +6,7 @@ select: 'block (2 levels) in <main>' < 'select' < 'block in <main>' < 'block in 
 filter: 'block (2 levels) in <main>' < 'filter' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
 reject: 'block (2 levels) in <main>' < 'reject' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
 select!: 'block (2 levels) in <main>' < 'select!' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
+filter!: 'block (2 levels) in <main>' < 'filter!' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
 reject!: 'block (2 levels) in <main>' < 'reject!' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
 keep_if: 'block (2 levels) in <main>' < 'keep_if' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
 delete_if: 'block (2 levels) in <main>' < 'delete_if' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
@@ -13,3 +14,24 @@ filter_map: 'block (2 levels) in <main>' < 'each' < 'Enumerable#filter_map' < 'b
 to_h: 'block (2 levels) in <main>' < 'to_h' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
 any?: 'block (2 levels) in <main>' < 'each' < 'Enumerable#any?' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
 map: 'block (2 levels) in <main>' < 'each' < 'Enumerable#map' < 'block in <main>' < 'block in <main>' < 'Hash#each' < '<main>'
+{"FRAMES_A" => "1", "FRAMES_C" => "3"}
+{"FRAMES_B" => "2", "FRAMES_C" => "3"}
+{"FRAMES_C" => "3"}
+[["frames_a", "1"], ["frames_b", "2"], ["frames_c", "3"]]
+#<TypeError: wrong element type Integer (expected array)>
+#<ArgumentError: element has wrong array length (expected 2, was 1)>
+[["FRAMES_A", "1"], ["FRAMES_B", "2"], ["FRAMES_C", "3"]]
+{"FRAMES_A" => "1", "FRAMES_B" => "2"}
+["FRAMES_A", "FRAMES_B"]
+true
+nil
+nil
+true
+true
+true
+{"FRAMES_A" => "1"}
+true
+Enumerator
+true
+["FRAMES_A"]
+["1"]

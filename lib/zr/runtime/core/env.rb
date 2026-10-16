@@ -108,25 +108,27 @@ class << ENV
   alias include? key?
   alias member? key?
 
+  # ENV's walks run in C in CRuby, so a block runs under the method's
+  # frame alone. env_each_pair and its kin read every pair first.
   def each
     return to_enum(:each) { size } unless block_given?
 
-    to_h.each { |k, v| yield k, v }
+    Primitive.zr_hash_foreach(to_h) { |k, v| yield k, v }
     self
   end
   alias each_pair each
 
-  def each_key(&block)
-    return to_enum(:each_key) { size } unless block
+  def each_key
+    return to_enum(:each_key) { size } unless block_given?
 
-    keys.each(&block)
+    Primitive.zr_hash_foreach(to_h) { |k, _| yield k }
     self
   end
 
-  def each_value(&block)
-    return to_enum(:each_value) { size } unless block
+  def each_value
+    return to_enum(:each_value) { size } unless block_given?
 
-    values.each(&block)
+    Primitive.zr_hash_foreach(to_h) { |_, v| yield v }
     self
   end
 
@@ -135,7 +137,8 @@ class << ENV
       i = entry.index("=") || entry.bytesize
       [external(entry[0, i]), external(entry[(i + 1)..] || +"")]
     end
-    block ? hash.to_h(&block) : hash
+    # rb_hash_to_h_block, in C.
+    block ? hash.send(:mapped_to_h, &block) : hash
   end
   alias to_hash to_h
 
@@ -192,22 +195,43 @@ class << ENV
   end
 
   # Without a block, an Enumerator that reads the variables when it runs.
-  def select(&block)
-    return to_enum(:select) { size } unless block
+  def select
+    return to_enum(:select) { size } unless block_given?
 
-    to_h.select(&block)
+    taken = {}
+    each_variable { |name, value| taken[name] = value if yield(name, value) }
+    taken
   end
 
-  def filter(&block)
-    return to_enum(:filter) { size } unless block
+  def filter
+    return to_enum(:filter) { size } unless block_given?
 
-    to_h.select(&block)
+    taken = {}
+    each_variable { |name, value| taken[name] = value if yield(name, value) }
+    taken
   end
 
-  def reject(&block)
-    return to_enum(:reject) { size } unless block
+  def reject
+    return to_enum(:reject) { size } unless block_given?
 
-    to_h.reject(&block)
+    taken = {}
+    each_variable { |name, value| taken[name] = value unless yield(name, value) }
+    taken
+  end
+
+  # The names as env_keys reads them, then each value read again at its
+  # turn, as env_select, env_reject and the bang forms walk them: a
+  # variable that the block removed is skipped.
+  def each_variable
+    Primitive.attr! :hidden
+    names = keys
+    i = 0
+    while i < names.size
+      name = names[i]
+      value = self[name]
+      yield name, value unless value.nil?
+      i += 1
+    end
   end
 
   # env_update walks the arguments and each Hash's pairs in C, so the
@@ -245,45 +269,45 @@ class << ENV
   def rehash = nil
   def except(*names) = to_h.except(*names)
 
-  def reject!
-    return to_enum(:reject!) { size } unless block_given?
+  def reject!(&block)
+    return to_enum(:reject!) { size } unless block
 
-    deleted = false
-    to_h.each do |name, value|
-      next unless yield(name, value)
-
-      delete(name)
-      deleted = true
-    end
-    deleted ? self : nil
+    remove_where(false, &block) ? self : nil
   end
 
   def delete_if(&block)
     return to_enum(:delete_if) { size } unless block
 
-    reject!(&block)
+    remove_where(false, &block)
     self
   end
 
-  def select!
-    return to_enum(:select!) { size } unless block_given?
+  def select!(&block)
+    return to_enum(:select!) { size } unless block
 
-    deleted = false
-    to_h.each do |name, value|
-      next if yield(name, value)
-
-      delete(name)
-      deleted = true
-    end
-    deleted ? self : nil
+    remove_where(true, &block) ? self : nil
   end
   alias filter! select!
 
   def keep_if(&block)
     return to_enum(:keep_if) { size } unless block
 
-    select!(&block)
+    remove_where(true, &block)
     self
+  end
+
+  # env_reject_bang and env_select_bang: each variable for which the
+  # block's answer is not `kept` goes. Whether any went.
+  def remove_where(kept)
+    Primitive.attr! :hidden
+    removed = false
+    each_variable do |name, value|
+      next if (yield(name, value) ? true : false) == kept
+
+      delete(name)
+      removed = true
+    end
+    removed
   end
 
   # The names that the Hash gives are set, each checked as it is. Every
