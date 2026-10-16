@@ -1,0 +1,10 @@
+[:T_STRUCT, true]
+[:T_FILE, true]
+[:T_MATCH, true]
+[:T_COMPLEX, true]
+[:T_RATIONAL, true]
+[:TOTAL, :FREE, :T_OBJECT, :T_CLASS, :T_MODULE, :T_FLOAT, :T_STRING, :T_REGEXP, :T_ARRAY, :T_HASH, :T_STRUCT, :T_BIGNUM, :T_FILE, :T_DATA, :T_MATCH, :T_COMPLEX, :T_RATIONAL, :T_IMEMO, :T_ICLASS]
+true
+true
+true
+10

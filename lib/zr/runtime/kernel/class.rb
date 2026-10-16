@@ -63,6 +63,9 @@ module Zr::Kern
     attr_accessor :owner #: word
     # The tables that a growth of mtab or saved replaced (zr_retire_table).
     attr_accessor :retired #: ptr
+    # The CRuby type of the class's instances plus one, or 0 before
+    # ObjectSpace first asks (zr_class_census).
+    attr_accessor :census #: word
   end
   # `orig` is the name of the first definition of the method, which an
   # alias keeps. `from` is the ancestor list node where an alias or a

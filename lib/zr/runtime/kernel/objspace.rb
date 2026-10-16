@@ -5,6 +5,11 @@
 # never sees a cell that it made.
 
 module Zr::Kern
+  # CRuby's type tags of the objects that zr keeps as plain ones, which a
+  # census counts under them (zr_class_census).
+  T_MATCH = 13
+  T_COMPLEX = 14
+  T_RATIONAL = 15
   # Whether cell `v` is an object that a program can get, as
   # internal_object_p decides. It is not a runtime record, not a hidden
   # object, and not the singleton class of a class while that singleton
@@ -79,7 +84,7 @@ module Zr::Kern
     while t < 32
       if t == T_CLASS || t == T_MODULE || t == T_FLOAT || t == T_STRING || t == T_REGEXP || t == T_ARRAY || t == T_HASH ||
          t == T_BIGNUM || t == T_PROC || t == T_METHOD || t == T_FIBER || t == T_DATA || t == T_CREF || t == T_ENV || t == T_ICLASS ||
-         t == T_FILE
+         t == T_FILE || t == T_STRUCT || t == T_MATCH || t == T_COMPLEX || t == T_RATIONAL
         named += Machine.load64(counts + (t * 8), 0)
       end
       t += 1
@@ -93,8 +98,13 @@ module Zr::Kern
     zr_census_store(result, Machine.id(:T_REGEXP), Machine.load64(counts + (T_REGEXP * 8), 0))
     zr_census_store(result, Machine.id(:T_ARRAY), Machine.load64(counts + (T_ARRAY * 8), 0))
     zr_census_store(result, Machine.id(:T_HASH), Machine.load64(counts + (T_HASH * 8), 0))
+    zr_census_store(result, Machine.id(:T_STRUCT), Machine.load64(counts + (T_STRUCT * 8), 0))
     zr_census_store(result, Machine.id(:T_BIGNUM), Machine.load64(counts + (T_BIGNUM * 8), 0))
+    zr_census_store(result, Machine.id(:T_FILE), Machine.load64(counts + (T_FILE * 8), 0))
     zr_census_store(result, Machine.id(:T_DATA), Machine.load64(counts + (T_DATA * 8), 0) + Machine.load64(counts + (T_PROC * 8), 0) + Machine.load64(counts + (T_METHOD * 8), 0) + Machine.load64(counts + (T_FIBER * 8), 0))
+    zr_census_store(result, Machine.id(:T_MATCH), Machine.load64(counts + (T_MATCH * 8), 0))
+    zr_census_store(result, Machine.id(:T_COMPLEX), Machine.load64(counts + (T_COMPLEX * 8), 0))
+    zr_census_store(result, Machine.id(:T_RATIONAL), Machine.load64(counts + (T_RATIONAL * 8), 0))
     zr_census_store(result, Machine.id(:T_IMEMO), Machine.load64(counts + (T_CREF * 8), 0) + Machine.load64(counts + (T_ENV * 8), 0))
     zr_census_store(result, Machine.id(:T_ICLASS), Machine.load64(counts + (T_ICLASS * 8), 0))
     result
@@ -120,8 +130,19 @@ module Zr::Kern
       bytes = ArenaHead[base].cell
       i = zr_arena_next_allocated(base, 0)
       while i < ARENA_CELLS
-        flags = Machine.load64(first + (i * bytes), 0)
-        slot = counts + ((flags & T_MASK) * 8)
+        cell = first + (i * bytes)
+        tag = Machine.load64(cell, 0) & T_MASK
+        if tag == T_OBJECT || tag == T_DATA
+          # A cell of the runtime itself may have no class.
+          k = RBasic[Machine.value(cell)].klass
+          if Machine.word(k) != 0 && !zr_special_p(k) && zr_type(k) == T_CLASS
+            census = zr_class_census(k)
+            if census != T_NONE
+              tag = census
+            end
+          end
+        end
+        slot = counts + (tag * 8)
         Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
         live_cells += 1
         i = zr_arena_next_allocated(base, i + 1)
@@ -129,6 +150,48 @@ module Zr::Kern
       a += 1
     end
     live_cells
+  end
+
+  # The CRuby type of the instances of `klass` that zr keeps as plain
+  # objects: T_STRUCT for a Struct, a Range or a Data, T_FILE for an IO,
+  # and T_MATCH, T_COMPLEX or T_RATIONAL; T_NONE for any other class. A
+  # subclass has its superclass's, and the class keeps it.
+  #: (value) -> word
+  def zr_class_census(klass)
+    ext = RClass[klass].ext
+    known = ClassExt[ext].census
+    if known != 0
+      return known - 1
+    end
+    t = T_NONE
+    k = klass
+    while k != QNIL && t == T_NONE
+      t = zr_census_root(k)
+      k = RClass[k].superclass
+    end
+    ClassExt[ext].census = t + 1
+    t
+  end
+
+  # The CRuby type of the core class `k` itself, or T_NONE.
+  #: (value) -> word
+  def zr_census_root(k)
+    if k == zr_core_class(Machine.id(:Struct)) || k == zr_core_class(Machine.id(:Range)) || k == zr_core_class(Machine.id(:Data))
+      return T_STRUCT
+    end
+    if k == zr_core_class(Machine.id(:IO))
+      return T_FILE
+    end
+    if k == zr_core_class(Machine.id(:MatchData))
+      return T_MATCH
+    end
+    if k == zr_core_class(Machine.id(:Complex))
+      return T_COMPLEX
+    end
+    if k == zr_core_class(Machine.id(:Rational))
+      return T_RATIONAL
+    end
+    T_NONE
   end
 
   # The heap by type: the total cells, the free cells, then the live cells
