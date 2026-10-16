@@ -97,6 +97,8 @@ class Date
 
       at = directive(format, percent, out)
     end
+    raise Errno::ERANGE, format if out.bytesize > room_for(format)
+
     out
   end
 
@@ -202,10 +204,20 @@ class Date
 
   # A width, from its first digit at `at`, and where its digits end. A
   # width the C renderer has no room for is a range error.
+  # date_strftime_alloc's last try: a buffer that doubles from 1024 bytes
+  # until it holds 1024 bytes for each byte of the format. The result
+  # must fit in it beside its NUL, or the call fails with ERANGE.
+  def room_for(format)
+    Primitive.attr! :hidden
+    size = 1024
+    size *= 2 while size < 1024 * format.bytesize
+    size - 1
+  end
+
   def width_at(format, at)
     Primitive.attr! :hidden
     digits = format.byteslice(at, format.bytesize - at)[/\A\d+/]
-    raise Errno::ERANGE, format if digits.to_i > INT_MAX
+    raise Errno::ERANGE, format if digits.to_i > INT_MAX || digits.to_i > room_for(format)
 
     [digits.to_i, at + digits.bytesize - 1]
   end
@@ -284,17 +296,21 @@ class DateTime < Date
   def to_s = strftime("%Y-%m-%dT%H:%M:%S%:z").force_encoding(Encoding::US_ASCII)
 
   # ISO 8601, with `digits` of a second when the caller requests them.
-  def iso8601(digits = 0)
-    return strftime("%Y-%m-%dT%H:%M:%S%:z").force_encoding(Encoding::US_ASCII) if digits.zero?
-
-    strftime("%Y-%m-%dT%H:%M:%S.%#{digits}N%:z").force_encoding(Encoding::US_ASCII)
-  end
+  def iso8601(digits = 0) = (strftime("%Y-%m-%d") << timediv(digits)).force_encoding(Encoding::US_ASCII)
 
   alias xmlschema iso8601
 
   alias rfc3339 iso8601
 
-  def jisx0301(digits = 0)
-    "#{send(:jisx0301_date)}T#{iso8601(digits).split('T').last}".force_encoding(Encoding::US_ASCII)
+  def jisx0301(digits = 0) = (jisx0301_date << timediv(digits)).force_encoding(Encoding::US_ASCII)
+
+  private
+
+  # iso8601_timediv: the time, with `digits` (read as NUM2LONG reads
+  # it, so 3.5 is 3) of a second when it is positive, and the zone.
+  def timediv(digits)
+    Primitive.attr! :hidden
+    n = Primitive.zr_index_operand_m(digits)
+    strftime(n.positive? ? "T%H:%M:%S.%#{n}N%:z" : "T%H:%M:%S%:z")
   end
 end
