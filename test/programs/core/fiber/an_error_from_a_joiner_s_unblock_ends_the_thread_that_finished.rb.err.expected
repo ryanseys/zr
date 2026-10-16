@@ -1,0 +1,2 @@
+#<Thread:0xADDR core/fiber/an_error_from_a_joiner_s_unblock_ends_the_thread_that_finished.rb:32 run> terminated with exception (report_on_exception is true):
+core/fiber/fiber_scheduler/scheduler.rb:466:in 'BrokenUnblockScheduler#unblock': Broken unblock! (RuntimeError)

@@ -1120,9 +1120,24 @@ class Thread
     Primitive.attr! :hidden
     Primitive.zr_thread_event(EVENT_SUSPENDED, self)
     Primitive.zr_thread_event(EVENT_EXITED, self)
-    @status = :dead
     Thread.send(:forget, self)
+    wake_joiners
+    # THREAD_KILLED comes after the wakeup, so a report from it shows
+    # the thread as it runs.
+    @status = :dead
+  end
+
+  # rb_threadptr_join_list_wakeup runs inside the thread's own tag, so an
+  # error from a joiner's scheduler (its unblock) ends the thread with
+  # that error, reported as one from the body is, and the rest of the
+  # joiners still wake: each one that woke is left out of the next try.
+  def wake_joiners
+    Primitive.attr! :hidden
     Thread.send(:rouse, @waiters.dup)
+  rescue Exception => e
+    @exception = e
+    report(e) if @report_on_exception && !e.is_a?(SystemExit)
+    retry
   end
 
   def report(e)
@@ -1396,6 +1411,7 @@ class Fiber
     def woken? = @woken
 
     def wakeup
+      Primitive.attr! :hidden
       return self if @woken
 
       @woken = true
