@@ -50,14 +50,15 @@ module Zr
       # normalizer, the pretty printer, the syntax tree translator): a
       # program with eval can need any of them, and here they are lowered
       # once, not with each such program.
-      # The compiler never loads error_highlight (lib/zr/hir/spots.rb), so
-      # its require waits for run time. Else its files would be hidden
-      # units, and a program that requires error_highlight would link in
-      # that copy, whose sends find the core's own methods.
+      # The compiler never loads error_highlight (lib/zr/hir/spots.rb) or
+      # timeout (only prism's ruby_parser translation requires it), so
+      # their requires wait for run time. Else their files would be hidden
+      # units, and a program that requires one would link in that copy,
+      # whose sends find the core's own methods, not the program's.
       #: (?Target target) -> Loader
       def self.eval_support(target = Target.default)
         Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target),
-                                                  deferred: %w[error_highlight]).tap do |loader|
+                                                  deferred: %w[error_highlight timeout]).tap do |loader|
           eval_require(loader, target)
           rubygems(loader)
           loader.add(LAZY_RUBYGEMS)

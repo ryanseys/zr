@@ -1,0 +1,12 @@
+2
+current_scheduler
+[:timeout_after, 5, Timeout::ExitException, "execution expired"]
+:ok
+current_scheduler
+[:custom, 1, true, "custom message"]
+[:raised, "custom message"]
+nil
+:after
+[Timeout::Error, "execution expired"]
+false
+["timeout.rb"]
