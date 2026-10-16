@@ -384,7 +384,9 @@ class Struct
     case key
     when Symbol, String
       i = members.index(key.to_sym)
-      raise NameError.new("no member '#{key}' in struct", key.to_sym) unless i
+      # invalid_struct_pos: rb_name_err_raise names the key as given and
+      # the struct as the receiver, which did_you_mean reads.
+      raise NameError.new("no member '#{key}' in struct", key, receiver: self) unless i
 
       i
     else
