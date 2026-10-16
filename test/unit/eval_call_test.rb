@@ -56,6 +56,8 @@ class EvalCallTest < Minitest::Test
       "send" => %q{send(:eval, "return 1")},
       "__send__" => %q{__send__(:eval, "return 1")},
       "method" => %q{method(:eval).call("return 1")},
+      "send with a String name" => %q{send("eval", "return 1")},
+      "method with a String name" => %q{method("instance_eval").call("return 1")},
       "binding" => %q{binding.eval("return 1")}
     }
     sources.each do |what, call|
@@ -66,6 +68,15 @@ class EvalCallTest < Minitest::Test
   def test_a_def_the_eval_writes_keeps_its_own_return
     refute armed?(%q{def inner; return 1; end})
     refute armed?(%q{[1].each { |x| x }})
+  end
+
+  # A send takes its method's name as a Symbol or as a String.
+  def test_a_literal_name_is_a_symbol_or_a_string
+    assert_equal :eval, Build.literal_name(Zr::Hir::Literal.new(:eval, 1, false))
+    assert_equal :eval, Build.literal_name(Zr::Hir::Literal.new(+"eval", 1, true))
+    assert_equal :eval, Build.literal_name(Zr::Hir::FrozenString.new("eval", 1, false))
+    assert_nil Build.literal_name(Zr::Hir::Literal.new(1, 1, false))
+    assert_nil Build.literal_name(Zr::Hir::Local.new(:name, 1))
   end
 
   private

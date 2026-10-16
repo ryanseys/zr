@@ -195,6 +195,17 @@ module Zr
       SENDS = %i[send __send__ public_send].freeze
       FETCHES = %i[method public_method instance_method].freeze
 
+      # The method name that a send or a fetch takes as its first
+      # argument, when that is a literal: a Symbol, or a String, which the
+      # call turns into one.
+      #: (untyped arg) -> Symbol?
+      def self.literal_name(arg)
+        case (value = arg.value if arg.is_a?(Literal) || arg.is_a?(FrozenString))
+        when Symbol then value
+        when String then value.to_sym
+        end
+      end
+
       # Whether a call of `name` with `argc` arguments compiles ruby that
       # runs in the caller's frame. `named` is the first argument if it is
       # a literal Symbol, so the check sees through a send or a fetch to

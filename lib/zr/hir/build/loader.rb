@@ -405,7 +405,7 @@ module Zr
         #: (Symbol name, Array[untyped] args, ?kernel: bool) -> void
         def evals!(name, args, kernel: true)
           @evals = true if AUTOLOADS.include?(name)
-          named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
+          named = Build.literal_name(args.first)
           @evals = true if Build.eval_call?(name, named: named, argc: args.size)
           if named && SENDS.include?(name)
             name, args = named, args.drop(1)
@@ -531,12 +531,12 @@ module Zr
 
         #: (Symbol name, Array[untyped] args) -> void
         def normalizes!(name, args)
-          named = args.first.value if args.first.is_a?(Literal) && args.first.value.is_a?(Symbol)
+          named = Build.literal_name(args.first)
           @normalizes = true if NORMALIZES.include?(name) || ENCODES.include?(name) ||
                                 ((SENDS + FETCHES).include?(name) && (NORMALIZES + ENCODES).include?(named))
           # A program that calls pp includes pp.rb, which the first call loads.
-          # A send whose name is computed (or a String) may reach pp too.
-          dynamic = (SENDS + FETCHES).include?(name) && args.first && !(args.first.is_a?(Literal) && args.first.value.is_a?(Symbol))
+          # A send whose name is computed may reach pp too.
+          dynamic = (SENDS + FETCHES).include?(name) && args.first && named.nil?
           @pretty_prints = true if name == :pp || ((SENDS + FETCHES).include?(name) && named == :pp) || dynamic
           # A program that calls irb includes irb, which `binding.irb` loads.
           @irbs = true if name == :irb || ((SENDS + FETCHES).include?(name) && named == :irb)

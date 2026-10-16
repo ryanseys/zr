@@ -987,12 +987,13 @@ module Zr
       end
 
       # `Build.eval_call?` for a prism call, whose arguments are still
-      # nodes. A leading Symbol literal is the method name that a send
-      # calls or a fetch returns.
+      # nodes. A leading Symbol or String literal is the method name that
+      # a send calls or a fetch returns.
       #: (Prism::CallNode node) -> bool
       def eval_call?(node)
         args = node.arguments&.arguments || [] #: Array[untyped]
-        named = args.first.unescaped.to_sym if args.first.is_a?(Prism::SymbolNode)
+        first = args.first
+        named = first.unescaped.to_sym if first.is_a?(Prism::SymbolNode) || first.is_a?(Prism::StringNode)
         Build.eval_call?(node.name, named: named, argc: args.size)
       end
 

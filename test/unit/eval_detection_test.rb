@@ -18,6 +18,15 @@ class EvalDetectionTest < Minitest::Test
     assert carried?(%(v = "1"\n1.instance_eval(v)\n))
   end
 
+  # A send or a fetch names its method by a Symbol or a String alike.
+  def test_a_send_of_eval_by_a_string_name_includes_eval_support
+    assert carried?(%(send("eval", "1")\n))
+    assert carried?(%(method("instance_eval").call("1")\n))
+    refute carried?(%(p 1.send("to_s")\n)), "a String name that is not eval needs no compiler"
+    refute_predicate loaded(%(p 1.send("to_s")\n)), :pretty_prints?, "nor pp, which carries the compiler"
+    assert_predicate loaded(%(name = "pp"\n1.send(name)\n)), :pretty_prints?, "a name made at run time may be pp"
+  end
+
   def test_eval_of_a_block_does_not_include_eval_support
     refute carried?(%(class K; end\nK.class_eval { def a = 1 }\n))
     refute carried?(%(1.instance_eval { self }\n))
