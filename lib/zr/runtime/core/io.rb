@@ -3727,45 +3727,67 @@ end
 
 # Waiting on one descriptor, over poll(2). Named events return the
 # stream itself; a plain events mask returns the events that became ready.
+# The names are wait_mode_sym's, which has none for priority.
 class IO
   EVENT_NAMES = { read: POLL_IN, readable: POLL_IN, r: POLL_IN,
                   write: POLL_OUT, writable: POLL_OUT, w: POLL_OUT,
-                  priority: POLL_PRI, rw: POLL_IN | POLL_OUT, read_write: POLL_IN | POLL_OUT,
+                  rw: POLL_IN | POLL_OUT, read_write: POLL_IN | POLL_OUT,
                   readable_writable: POLL_IN | POLL_OUT }.freeze
   private_constant :EVENT_NAMES
 
   # io_wait: two arguments that are not Symbols are an event mask and a
   # timeout, and the result is the events that came ready. Any other form
   # takes event names and at most one timeout, and returns the stream.
+  # Bytes already in the read buffer answer a wait for reading at once
+  # (rb_io_read_pending): true for the named form, READABLE for a mask.
   def wait(*args)
     if args.size == 2 && args.none?(Symbol)
       events = Integer.send(:int_operand, args[0])
       raise ArgumentError, +"Events must be positive integer!" unless events.positive?
 
-      ready = poll_once(events, args[1])
-      return ready.zero? ? nil : ready
-    end
-    events = 0
-    timeout = given = nil
-    args.each do |arg|
-      if arg.is_a?(Symbol)
-        events |= EVENT_NAMES.fetch(arg) { raise ArgumentError, "unsupported mode: #{arg}" }
-      elsif given
-        raise ArgumentError, +"timeout given more than once"
-      else
-        IO.send(:time_interval, arg)
-        timeout = arg
-        given = true
+      timeout = args[1]
+    else
+      named = true
+      events = 0
+      timeout = given = nil
+      args.each do |arg|
+        if arg.is_a?(Symbol)
+          events |= EVENT_NAMES.fetch(arg) { raise ArgumentError, "unsupported mode: #{arg}" }
+        elsif given
+          raise ArgumentError, +"timeout given more than once"
+        else
+          IO.send(:time_interval, arg)
+          timeout = arg
+          given = true
+        end
       end
+      events = READABLE if events.zero?
     end
-    poll_once(events.zero? ? POLL_IN : events, timeout).zero? ? nil : self
+    if events.anybits?(READABLE)
+      check_open
+      return named ? true : READABLE if buffered?
+    end
+    waited(events, timeout, named)
   end
 
-  def wait_readable(timeout = nil) = poll_once(POLL_IN, timeout).zero? ? nil : self
+  def wait_readable(timeout = nil)
+    check_readable
+    return true if buffered?
 
-  def wait_writable(timeout = nil) = poll_once(POLL_OUT, timeout).zero? ? nil : self
+    waited(READABLE, timeout, true)
+  end
 
-  def wait_priority(timeout = nil) = poll_once(POLL_PRI, timeout).zero? ? nil : self
+  def wait_writable(timeout = nil)
+    check_writable
+    waited(WRITABLE, timeout, true)
+  end
+
+  def wait_priority(timeout = nil)
+    check_readable
+    return true if buffered?
+
+    waited(PRIORITY, timeout, true)
+  end
 
   # The wait of C on descriptors that no stream wraps
   # (rb_wait_for_single_fd, rb_thread_fd_select): the events each of
@@ -3779,14 +3801,26 @@ class IO
 
   private
 
-  # The events that came ready, or zero when the time ran out.
-  def poll_once(events, timeout)
+  # io_wait_event: nil when the time ran out, else the stream (or the
+  # events that came ready), or false when none of `events` did.
+  def waited(events, timeout, as_io)
     Primitive.attr! :hidden
-    timeout = IO.send(:time_interval, timeout)
-    if (scheduler = Fiber.current_scheduler)
-      ready = scheduler.io_wait(self, events, timeout)
-      return ready.is_a?(Integer) ? ready & events : 0
-    end
+    ready = ready_events(events, timeout)
+    return nil unless ready
+    return false unless Integer.send(:int_operand, ready).anybits?(events)
+
+    as_io ? self : ready
+  end
+
+  # rb_io_wait: the events that came ready, or false when the time ran
+  # out. A nil timeout waits as long as IO#timeout says. A fiber
+  # scheduler's io_wait answers in its place, with the timeout as given.
+  def ready_events(events, timeout)
+    Primitive.attr! :hidden
+    scheduler = Fiber.current_scheduler
+    return scheduler.io_wait(self, events, timeout) if scheduler
+
+    timeout = IO.send(:time_interval, timeout.nil? ? @timeout : timeout)
     # rb_timeout_to_hrtime: a wait takes no infinite timeout, where select does.
     raise RangeError, +"Inf out of Time range" if timeout == Float::INFINITY
 
@@ -3794,6 +3828,7 @@ class IO
     ready = Thread.current.send(:wait_io, fileno, events, deadline, gives_way: true)
     raise SystemCallError.new(label, -ready, +"io_wait") if ready.negative?
 
-    ready & events
+    check_open
+    ready.zero? ? false : ready
   end
 end

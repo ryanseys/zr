@@ -1,0 +1,34 @@
+gets: ".\n"
+wait(0): true
+wait(): true
+wait(:read): true
+wait(:read, 0): true
+wait(:rw, 0): true
+wait(1, 0): 1
+wait(5, 0): 1
+wait(:priority): [ArgumentError, "unsupported mode: priority"]
+wait_readable(0): true
+wait_priority(0): true
+wait_writable(0) of r: [IOError, "not opened for writing"]
+wait_readable(0) of w: [IOError, "not opened for reading"]
+wait_priority(0) of w: [IOError, "not opened for reading"]
+wait_writable(0) of w: true
+wait_writable(1, 2) of w: [ArgumentError, "wrong number of arguments (given 2, expected 0..1)"]
+wait(:read, 0) of w: nil
+wait(1, 0) of w: nil
+wait(1, 'x'): 1
+wait(:read, 'x'): [TypeError, "can't convert String into time interval"]
+wait(0, 0): [ArgumentError, "Events must be positive integer!"]
+read rest: "!"
+wait(0) empty: nil
+wait(1, 0) empty: nil
+wait_readable(0) empty: nil
+wait_priority(0) empty: nil
+wait_readable with IO#timeout: nil
+wait with IO#timeout: nil
+wait(1, nil) with IO#timeout: nil
+wait_readable ready: true
+wait(1, 1) ready: 1
+closed wait_readable: [IOError, "closed stream"]
+closed wait: [IOError, "closed stream"]
+closed wait(:read): [IOError, "closed stream"]
