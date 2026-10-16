@@ -401,6 +401,10 @@ module Zr::Kern
     zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:initialize), Machine.addr(:zr_obj_initialize), 0)
     zr_builtin_private(zr_global(G_BASIC_OBJECT), Machine.id(:method_missing), Machine.addr(:zr_obj_method_missing), 0 - 1)
     zr_builtin_private(zr_global(G_KERNEL), Machine.id(:respond_to_missing?), Machine.addr(:zr_obj_respond_to_missing), 2)
+    # Exception defines both again, with the same C functions, so its own
+    # reflection shows them and a miss leaves no frame of its own.
+    zr_builtin_private(zr_global(G_EXCEPTION), Machine.id(:method_missing), Machine.addr(:zr_obj_method_missing), 0 - 1)
+    zr_builtin_private(zr_global(G_EXCEPTION), Machine.id(:respond_to_missing?), Machine.addr(:zr_obj_respond_to_missing), 2)
     zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:==), Machine.addr(:zr_obj_eq), 1)
     zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:equal?), Machine.addr(:zr_obj_eq), 1)
     zr_builtin(zr_global(G_BASIC_OBJECT), Machine.id(:!=), Machine.addr(:zr_obj_ne), 1)

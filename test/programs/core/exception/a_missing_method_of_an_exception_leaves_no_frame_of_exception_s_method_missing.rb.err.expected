@@ -1,0 +1,4 @@
+core/exception/a_missing_method_of_an_exception_leaves_no_frame_of_exception_s_method_missing.rb:31:in '<main>': undefined method 'zzz' for an instance of RuntimeError (NoMethodError)
+
+RuntimeError.new.zzz
+                ^^^^

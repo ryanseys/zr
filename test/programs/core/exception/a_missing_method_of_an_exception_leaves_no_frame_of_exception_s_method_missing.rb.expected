@@ -1,0 +1,9 @@
+[:initialize, :method_missing, :respond_to_missing?]
+[-1, 2]
+Exception
+false
+["undefined method 'nothing_here' for an instance of RuntimeError", :nothing_here, ["Object#call_missing", "<main>"]]
+["undefined method 'other' for an instance of ArgumentError", [1], "<main>"]
+[:known, [1]]
+[true, false]
+["undefined method 'other' for an instance of #<Class:0xADDR>", ["method_missing", "<main>"]]

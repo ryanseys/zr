@@ -354,15 +354,10 @@ class Exception
 end
 
 class NoMemoryError < Exception; end
-# Ruby defines these two on Exception itself, so its own reflection
-# shows them; each behaves as the method it is in place of.
+
+# Exception#method_missing and #respond_to_missing? are builtins that the
+# kernel defines (kernel/main.rb), as CRuby defines them again on Exception.
 class Exception
-  def method_missing(name, *args, &block) = super
-
-  private :method_missing
-
-  def respond_to_missing?(name, include_private) = super
-
   # The parts that CRuby keeps as hidden ivars of an exception, which
   # Marshal writes after the message and the backtrace under CRuby's
   # names, and gives back to the loaded exception.
