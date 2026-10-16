@@ -249,12 +249,15 @@ class IO
   end
 
   # The position that the terminal itself reports. A reply that is not in
-  # the shape ESC [ row ; column R gives nil.
+  # the shape ESC [ row ; column R gives nil. The query goes out in raw
+  # mode, as read_vt_response writes it, so the reply is never echoed.
   def cursor
     check_open
-    write("#{CSI}6n")
-    flush
-    ttymode(:raw_mode) { console_read_position }
+    ttymode(:raw_mode) do
+      write("#{CSI}6n")
+      flush
+      console_read_position
+    end
   end
 
   def cursor=(position)
@@ -305,8 +308,10 @@ class IO
 
   # The controlling terminal, opened once and kept. A process that has
   # none returns nil, as in CRuby: it does not raise. A Symbol gives an
-  # entry to send to the terminal instead.
-  def self.console(*args)
+  # entry to send to the terminal instead, with the keywords given
+  # (rb_funcallv_kw); keywords alone are a Hash where the Symbol goes.
+  def self.console(*args, **keywords)
+    args << keywords if args.empty? && !keywords.empty?
     name = args.first
     raise TypeError, "wrong argument type #{conversion_name(name)} (expected Symbol)" unless args.empty? || name.is_a?(Symbol)
 
@@ -321,7 +326,7 @@ class IO
     return held if args.empty?
     return nil if held.nil?
 
-    held.public_send(name, *args[1..])
+    held.public_send(name, *args[1..], **keywords)
   end
 
   # /dev/tty for reading and writing, and nil when the process has no
@@ -404,30 +409,32 @@ class IO
 
   # ESC [ row ; column R, counted from one, which ruby reports counted
   # from zero.
+  # read_vt_response: ESC [, then numbers that `;` ends, up to the byte
+  # that ends the reply. A position is two numbers and an R.
   def console_read_position
     Primitive.attr! :hidden
     return nil unless getbyte == 0x1b && getbyte == 0x5b
 
-    digits = +""
-    digits << getbyte.chr while (0x30..0x3b).cover?(peek_position_byte)
-    return nil unless getbyte == 0x52
+    numbers = []
+    number = 0
+    while (byte = getbyte)
+      if byte == 0x3b
+        numbers << number
+        number = 0
+      elsif byte.between?(0x30, 0x39)
+        number = (number * 10) + byte - 0x30
+      else
+        numbers << number
+        break
+      end
+    end
+    return nil unless numbers.size == 2 && byte == 0x52
 
-    row, column = digits.split(";")
-    return nil if column.nil?
-
-    [row.to_i - 1, column.to_i - 1]
-  end
-
-  def peek_position_byte
-    Primitive.attr! :hidden
-    byte = getbyte
-    ungetbyte(byte) if byte
-    byte || 0
+    numbers.map { |n| n - 1 }
   end
 
   private :ttymode, :console_fds, :console_read_fd, :console_write_fd, :console_mode_bytes,
-          :console_set_mode, :console_move, :console_scroll, :escape, :console_read_position,
-          :peek_position_byte
+          :console_set_mode, :console_move, :console_scroll, :escape, :console_read_position
 
   class << self
     # cfmakeraw and the three keyword arguments that follow it.
