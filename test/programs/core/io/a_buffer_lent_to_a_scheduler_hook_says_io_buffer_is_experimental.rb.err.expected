@@ -1,0 +1,2 @@
+core/io/a_buffer_lent_to_a_scheduler_hook_says_io_buffer_is_experimental.rb:24: warning: IO::Buffer is experimental and both the Ruby and C interface may change in the future!
+after

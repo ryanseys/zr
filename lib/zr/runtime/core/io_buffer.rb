@@ -231,6 +231,8 @@ class IO
     # scheduler hook: locked while the hook has it, and freed when the
     # hook returns.
     def self.lent(bytes, readonly: false)
+      # rb_io_buffer_new allocates as IO::Buffer.new does, so it announces.
+      announce
       buffer = Primitive.zr_class_build(Storage).send(:borrowed, bytes, readonly ? READONLY : 0)
       yield buffer
     ensure
