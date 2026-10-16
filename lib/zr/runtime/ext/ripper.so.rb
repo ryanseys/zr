@@ -12,6 +12,9 @@ require "prism/translation/ripper"
 class Ripper
   Version = "0.1.0"
 
+  # T_DATA, of a type that is not frozen-shareable.
+  Ractor.send(:data_class!, self)
+
   # The tables ripper/core.rb reads, which ripper/lexer.rb adds to.
   PARSER_EVENT_TABLE = Prism::Translation::Ripper::PARSER_EVENT_TABLE.dup
   SCANNER_EVENT_TABLE = Prism::Translation::Ripper::SCANNER_EVENT_TABLE.dup

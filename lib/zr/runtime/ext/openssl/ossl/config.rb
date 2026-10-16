@@ -21,7 +21,7 @@ module OpenSSL
   module Ossl
     CONFIG = DataType.new("OpenSSL/CONF", Config, :NCONF_free, [RuntimeError, "CONF is not initialized"], alloc: lambda {
       Lib.NCONF_new(nil).tap { |conf| raise Ossl.error(ConfigError, "NCONF_new") if conf.zero? }
-    })
+    }, shareable: true)
 
     class << self
       # GetConfig.

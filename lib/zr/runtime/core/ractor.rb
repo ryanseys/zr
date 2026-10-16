@@ -666,9 +666,30 @@ class Ractor
          Enumerator, Binding, Fiber, Random, TracePoint, Thread::Backtrace::Location, ObjectSpace::WeakMap,
          ObjectSpace::WeakKeyMap, IO::Buffer, IO, Dir, File::Stat, Encoding::Converter
       true
-    else false
+    else unshareable_data?(Primitive.zr_real_class(obj))
     end
   end
+
+  # A class whose objects CRuby keeps as T_DATA of a type that does not
+  # set RUBY_TYPED_FROZEN_SHAREABLE, which make_shareable refuses frozen
+  # or not. A port marks each such class of its C (StringIO, a psych
+  # Parser, OpenSSL's types but BN and Config).
+  def self.data_class!(klass)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_set(klass, :__unshareable_data__, true)
+  end
+  private_class_method :data_class!
+
+  def self.unshareable_data?(klass)
+    Primitive.attr! :hidden
+    while klass
+      return true if Primitive.zr_hidden_get(klass, :__unshareable_data__)
+
+      klass = klass.superclass
+    end
+    false
+  end
+  private_class_method :unshareable_data?
 
   # Whether ruby keeps `obj` as C data (a T_DATA, or an IO's T_FILE).
   # ractor.c's courier copies such an object only through a dump hook,

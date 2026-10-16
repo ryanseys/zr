@@ -1,0 +1,28 @@
+Psych::Parser: Ractor::Error
+Psych::Emitter: Ractor::Error
+StringIO: Ractor::Error
+StringScanner: Ractor::Error
+Zlib::Deflate: Ractor::Error
+Zlib::Inflate: Ractor::Error
+Digest::SHA256: Ractor::Error
+Date: ok
+DateTime: ok
+OpenSSL::Digest: Ractor::Error
+OpenSSL::BN: ok
+OpenSSL::PKey::EC: Ractor::Error
+OpenSSL::Cipher: Ractor::Error
+OpenSSL::X509::Name: Ractor::Error
+OpenSSL::X509::Store: Ractor::Error
+OpenSSL::SSL::SSLContext: Ractor::Error
+OpenSSL::HMAC: Ractor::Error
+BigDecimal: ok
+Addrinfo: ok
+Socket::Option: ok
+Ripper: Ractor::Error
+Pathname: ok
+Etc::Passwd: ok
+[true, false]
+Ractor::Error
+Ractor::Error
+[Ractor::Error, "can not make shareable object for #<Stri"]
+true

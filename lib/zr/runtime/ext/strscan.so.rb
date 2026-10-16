@@ -22,6 +22,9 @@
 # `instance_variables` for the program's own variables.
 class StringScanner
   Error = Class.new(StandardError)
+
+  # T_DATA, of a type that is not frozen-shareable.
+  Ractor.send(:data_class!, self)
   # strscan 3.1.9 no longer defines Id, or ScanError on Object.
   Version = "3.1.9.dev"
 

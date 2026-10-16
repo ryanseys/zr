@@ -250,6 +250,9 @@ module Psych
 
   # Reads a YAML stream and calls the handler for every event in it.
   class Parser
+    # T_DATA, of a type that is not frozen-shareable.
+    Ractor.send(:data_class!, self)
+
     # Any encoding: let the parser choose the encoding
     ANY = LibYAML::ANY_ENCODING
     # UTF-8 encoding
@@ -370,6 +373,9 @@ module Psych
   # Writes the events a handler is given back out as YAML text, through
   # libyaml's emitter.
   class Emitter < Handler
+    # T_DATA, of a type that is not frozen-shareable.
+    Ractor.send(:data_class!, self)
+
     # Create a new Psych::Emitter that writes to +io+.
     def initialize(*args)
       unless args.size.between?(1, 2)

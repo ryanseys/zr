@@ -66,7 +66,7 @@ module OpenSSL
   class BN; end
 
   module Ossl
-    BIGNUM = DataType.new("OpenSSL/BN", OpenSSL::BN, :BN_clear_free, [RuntimeError, "BN wasn't initialized!"], alloc: -> { Ossl.new_bignum })
+    BIGNUM = DataType.new("OpenSSL/BN", OpenSSL::BN, :BN_clear_free, [RuntimeError, "BN wasn't initialized!"], alloc: -> { Ossl.new_bignum }, shareable: true)
 
     class << self
       # ossl_bn_ctx_get: the BN_CTX every operation borrows, made once

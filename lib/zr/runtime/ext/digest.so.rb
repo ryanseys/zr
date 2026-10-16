@@ -106,6 +106,9 @@ module Digest
   end
 
   class Base < Class
+    # T_DATA, of a type that is not frozen-shareable.
+    Ractor.send(:data_class!, self)
+
     class << self
       # rb_digest_base_alloc refuses before anything is made.
       def allocate

@@ -460,7 +460,10 @@ module OpenSSL
     class DataType
       def name = @name
 
-      def initialize(name, klass, free, missing = nil, alloc: nil, create: nil)
+      # A type is frozen-shareable only where ossl's sets
+      # RUBY_TYPED_FROZEN_SHAREABLE (BN and Config).
+      def initialize(name, klass, free, missing = nil, alloc: nil, create: nil, shareable: false)
+        Ractor.send(:data_class!, klass) unless shareable
         @name = name
         @klass = klass
         @free = free

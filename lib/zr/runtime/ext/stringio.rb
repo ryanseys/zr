@@ -9,6 +9,9 @@
 class StringIO
   include Enumerable
 
+  # T_DATA, of a type that is not frozen-shareable.
+  Ractor.send(:data_class!, self)
+
   VERSION = "3.2.1.dev"
   MAX_LENGTH = 0x7fff_ffff_ffff_ffff
 

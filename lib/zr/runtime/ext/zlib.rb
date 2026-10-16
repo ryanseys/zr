@@ -726,6 +726,8 @@ module Zlib
 
   class ZStream
     Primitive.zr_undef_allocator(self)
+    # T_DATA, of a type that is not frozen-shareable.
+    Ractor.send(:data_class!, self)
 
     def avail_out = zstream.avail_out
 
@@ -1049,6 +1051,9 @@ module Zlib
   end
 
   class GzipFile
+    # T_DATA, of a type that is not frozen-shareable.
+    Ractor.send(:data_class!, self)
+
     # gzfile_raise sets `@input` where a program sees it.
     class Error < Zlib::Error
       def input = Primitive.zr_hidden_get(self, :@input)
