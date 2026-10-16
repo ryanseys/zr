@@ -630,6 +630,24 @@ module Zr::Kern
     zr_alias(klass, Machine.load64(made, 0), Machine.load64(had, 0))
   end
 
+  # `alias` for eval support's forms, which load after the runtime: the
+  # copy's frames show its own name, as a core alias's do, so module_eval
+  # shows 'Module#module_eval' where CRuby defines it apart.
+  #: (value, value, value) -> value
+  def zr_alias_named_m(klass, new_name, old_name)
+    r = zr_alias_value(klass, new_name, old_name)
+    return r if r == QUNDEF
+    made = Machine.slot(8)
+    zr_name_id(new_name, made)
+    copy = zr_find_method_at(zr_origin(klass), Machine.load64(made, 0))
+    meta = MEntry[copy].meta
+    label = zr_xmalloc(FrameMeta.size)
+    zr_memcpy(label, meta, FrameMeta.size)
+    FrameMeta[label].name = Machine.load64(made, 0)
+    MEntry[copy].label = label
+    Machine.value(QNIL)
+  end
+
   # `alias new old` and `alias_method`: the old entry again under the new
   # name. It keeps its meta, so a backtrace shows the original name.
   #: (value, word, word) -> value

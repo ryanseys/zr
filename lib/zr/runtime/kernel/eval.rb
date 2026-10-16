@@ -130,6 +130,15 @@ module Zr::Kern
     zr_yield_under(blk, recv, recv, 1, slot)
   end
 
+  # The block form of eval support's class_eval: the block runs as the
+  # builtin runs it, with no frame of class_exec between.
+  #: (value, value) -> value
+  def zr_mod_class_eval_block_m(mod, blk)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(mod))
+    zr_yield_under(blk, mod, mod, 1, slot)
+  end
+
   #: (value, word, ptr, value, value) -> value
   def zr_mod_class_exec(recv, argc, argv, cref, blk)
     if blk == QNIL
@@ -176,6 +185,15 @@ module Zr::Kern
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(recv))
     zr_yield_under(blk, recv, zr_eval_definee(recv), 1, slot)
+  end
+
+  # The block form of eval support's instance_eval, with no frame of
+  # instance_exec between.
+  #: (value, value) -> value
+  def zr_obj_instance_eval_block_m(obj, blk)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(obj))
+    zr_yield_under(blk, obj, zr_eval_definee(obj), 1, slot)
   end
 
   #: (value, word, ptr, value, value) -> value

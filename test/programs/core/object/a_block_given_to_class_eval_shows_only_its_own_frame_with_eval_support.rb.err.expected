@@ -1,0 +1,3 @@
+core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:43:in 'block in <main>': uncaught (RuntimeError)
+	from core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:43:in 'Module#class_eval'
+	from core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:43:in '<main>'

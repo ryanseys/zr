@@ -68,7 +68,7 @@ class Module
     if block
       raise ArgumentError, wrong_arity(args.size, 0) unless args.empty?
 
-      return class_exec(self, &block)
+      return Primitive.zr_mod_class_eval_block_m(self, block)
     end
     source, file, line = Zr::Eval::Arguments.under(args)
     # The string runs under the refinements of the call site.
@@ -79,7 +79,7 @@ class Module
     Primitive.zr_eval_run(code, self, Primitive.zr_eval_cref_under(self, Primitive.zr_eval_cref), Primitive.zr_eval_env, Primitive.zr_eval_block)
   end
 
-  alias module_eval class_eval
+  Primitive.zr_alias_named_m(self, :module_eval, :class_eval)
 end
 
 class BasicObject
@@ -91,7 +91,7 @@ class BasicObject
         ::Kernel.raise ::ArgumentError, "wrong number of arguments (given #{args.size}, expected 0)"
       end
 
-      return instance_exec(self, &block)
+      return Primitive.zr_obj_instance_eval_block_m(self, block)
     end
     source, file, line = ::Zr::Eval::Arguments.under(args)
     using = Primitive.zr_eval_using

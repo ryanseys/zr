@@ -1,0 +1,16 @@
+["17:block in <main>", "17:Module#class_eval"]
+["18:block in <main>", "18:Module#module_eval"]
+["19:block in <main>", "19:Module#class_exec"]
+["20:block in <main>", "20:Module#module_exec"]
+["21:block in <main>", "21:BasicObject#instance_eval"]
+["22:block in <main>", "22:BasicObject#instance_exec"]
+["23:block in <main>", "23:BasicObject#instance_eval"]
+class_eval: core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:25:in 'block (2 levels) in <main>' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:25:in 'Module#class_eval' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:25:in 'block in <main>'
+module_eval: core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:26:in 'block (2 levels) in <main>' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:26:in 'Module#module_eval' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:26:in 'block in <main>'
+instance_eval: core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:27:in 'block (2 levels) in <main>' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:27:in 'BasicObject#instance_eval' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:27:in 'block in <main>'
+instance_exec: core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:28:in 'block (2 levels) in <main>' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:28:in 'BasicObject#instance_exec' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:28:in 'block in <main>'
+Box
+Box
+Box
+[:only]
+thread: core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:36:in 'block (2 levels) in <main>' | core/object/a_block_given_to_class_eval_shows_only_its_own_frame_with_eval_support.rb:36:in 'Module#class_eval'
