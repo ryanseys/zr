@@ -168,6 +168,17 @@ class Thread
       thread.send(:at_blocking) if thread.pending_interrupt?
     end
 
+    # rb_nogvl around work that touches only memory (zlib's inflate and
+    # deflate runs): a thread that waits for the GVL takes it there, so
+    # here each thread that can run takes its turn first, and an
+    # interrupt that waits for a blocking call arrives.
+    def nogvl_point
+      Primitive.attr! :hidden
+      return unless Primitive.zr_threaded
+
+      current.send(:give_way, [], [])
+    end
+
     # Whether a deadlock goes unreported: every thread then waits for
     # good, where a signal's handler may still wake one.
     def ignore_deadlock = equal?(Thread) ? @ignore_deadlock == true : Thread.ignore_deadlock

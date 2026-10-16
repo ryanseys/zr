@@ -681,6 +681,8 @@ module Zlib
     def run_func(source, flush, block)
       while true
         filled = buf_filled
+        # zstream_run_once_begin: zlib runs without the GVL.
+        Thread.send(:nogvl_point)
         err = Primitive.zr_zlib_call(@stream, @kind, flush, @buf, @avail_out)
         left, _, @avail_out = fields
         if @shared
