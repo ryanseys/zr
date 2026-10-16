@@ -1960,7 +1960,13 @@ class Thread::Queue
 
       items = converted
     end
-    @items = items.nil? ? [] : items.dup
+    # queue_initialize gives the queue a new buffer, and with no items it
+    # keeps the old count: a queue initialized again holds that many slots
+    # that nothing wrote, which read nil here.
+    @items = if items then items.dup
+             elsif @items then Array.new(@items.size)
+             else []
+             end
     @waiters = []
     nil
   end
