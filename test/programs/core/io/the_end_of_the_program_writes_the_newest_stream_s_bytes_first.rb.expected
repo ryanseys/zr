@@ -1,0 +1,4 @@
+a, b, c => 321
+c, b, a => 321
+b, a, a dup of c, c => 4321
+a, STDOUT, STDERR, b, both reopened onto c => 21eo

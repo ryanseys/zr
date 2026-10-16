@@ -23,6 +23,12 @@ class IO
   PENDING = []
   private_constant :PENDING
 
+  # How many streams the program has made. Each stream keeps its number,
+  # so the end of the program writes the newest stream first. Lock plan:
+  # under the GVL; an atomic add without one.
+  BIRTHS = [0]
+  private_constant :BIRTHS
+
   # The descriptor of a stream that owns it and has it open. The stream's
   # finalizer closes it when the collector frees the stream, as CRuby's
   # fptr_finalize does. A stream with buffered bytes is in PENDING, so the
@@ -938,6 +944,7 @@ class IO
     text, binary, external, internal, conversion = IO.send(:open_options, mode, options)
     external, internal = IO.send(:default_encodings, external) if internal.nil? && !binary
     @fd = fd
+    @born = BIRTHS[0] += 1
     @mode = text
     # What the mode allows, decided once: every read and write checks it.
     @readable = !text.start_with?("w", "a") || text.include?("+")
@@ -1102,6 +1109,7 @@ class IO
   # close or a reopen of one leaves the other where it was.
   def initialize_copy(other)
     @fd = fd = cloexec_dup(other.fileno)
+    @born = BIRTHS[0] += 1
     # rb_io_init_copy: a duplex handle's write end is copied too.
     @twin = cloexec_dup(@twin) if @twin
     @autoclose = true
@@ -1247,9 +1255,12 @@ class IO
 
   # Writes out every stream that contains buffered bytes. The end of the
   # program calls this. If a stream cannot take the bytes any more, the
-  # program does not see the error.
+  # program does not see the error. The newest stream writes first, as
+  # CRuby's finalizers run at the end: each freed stream goes on the head
+  # of the zombie list, so STDERR writes before STDOUT.
   def self.flush_pending
     Primitive.attr! :hidden
+    PENDING.sort_by! { |io| io.send(:born) }
     until PENDING.empty?
       io = PENDING.pop
       begin
@@ -2371,6 +2382,11 @@ class IO
   def to_io = self
 
   private
+
+  def born
+    Primitive.attr! :hidden
+    @born || 0
+  end
 
   # What an error of this stream names, as rb_sys_fail_path(fptr->pathv):
   # the path, or the name of a standard stream. A pipe, a socket or an
