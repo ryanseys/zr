@@ -510,9 +510,15 @@ class BasicSocket < IO
   end
 
   # rb_io_wait: whether the descriptor came ready for `events` before
-  # `timeout` seconds ran out. Another green thread runs meanwhile.
+  # `timeout` seconds ran out. Another green thread runs meanwhile. A
+  # non-blocking fiber's scheduler waits in its place, and only its
+  # false is a timeout.
   def wait_ready(events, timeout)
     Primitive.attr! :hidden
+    if (scheduler = Fiber.current_scheduler)
+      return !IO.send(:blocking_operation, self) { scheduler.io_wait(self, events, timeout) }.equal?(false)
+    end
+
     deadline = timeout && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + (timeout * 1e9).round
     ready = Thread.current.send(:wait_io, @fd, events, deadline)
     raise SystemCallError.new(nil, -ready, "io_wait") if ready.negative?

@@ -61,7 +61,11 @@ class IPSocket < BasicSocket
     error = 0
     syscall = nil
     begin
-      remote.each_with_index do |(family, socktype, protocol, sockaddr), i|
+      # init_inetsock_internal walks the addresses in C: no frame of an
+      # iterator shows in a wait's backtrace.
+      i = -1
+      while (i += 1) < remote.size
+        family, socktype, protocol, sockaddr = remote[i]
         bound = nil
         if local
           bound = local.find { |row| row[0] == family }
@@ -166,8 +170,9 @@ class UDPSocket < IPSocket
   def connect(host, port)
     rows = Socket.resolve(host, port, family: descriptor_family, socktype: Socket::SOCK_DGRAM, socktype_hack: true)
     error = nil
-    rows.each do |row|
-      error = connect_to(row[3])
+    i = -1
+    while (i += 1) < rows.size
+      error = connect_to(rows[i][3])
       return 0 if error.nil?
     end
     Socket.syserr_fail_host_port(error, "connect(2)", host, port)
@@ -195,10 +200,11 @@ class UDPSocket < IPSocket
     flags = Integer.send(:int_operand, flags)
     rows = Socket.resolve(host, port, family: descriptor_family, socktype: Socket::SOCK_DGRAM, socktype_hack: true)
     error = nil
-    rows.each do |row|
-      loop do
+    i = -1
+    while (i += 1) < rows.size
+      while true
         check_open
-        sent = Primitive.zr_sock_send(fd, mesg, flags, row[3])
+        sent = Primitive.zr_sock_send(fd, mesg, flags, rows[i][3])
         return sent unless sent.negative?
 
         error = -sent

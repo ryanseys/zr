@@ -1,0 +1,4 @@
+io_wait TCPSocket 5 nil ["'TCPSocket#initialize'", "'IO.new'", "'block (2 levels) in <main>'"]
+"x"
+io_wait Socket 5 nil ["'Socket#connect'", "'block (2 levels) in <main>'"]
+0
