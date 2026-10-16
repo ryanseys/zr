@@ -14,10 +14,20 @@ module ErrorHighlight
     def self.find(location)
       path = location.absolute_path or return nil
       id = RubyVM::AbstractSyntaxTree.node_id_for_backtrace_location(location)
-      rows = table.dig(location.path, id) or return nil
+      rows = table.dig(location.path, id) || loaded(location.path)&.dig(id) or return nil
 
       new(path, rows)
     end
+
+    # The spots of a file that a load compiled at run time, which the
+    # eval support finds when they are first asked for.
+    def self.loaded(path)
+      return nil unless defined?(::Zr::Eval)
+
+      text = ::Zr::Eval.current.highlight_spots(path) or return nil
+      rows(text.split("\n"))
+    end
+    private_class_method :loaded
 
     # `{ file => { node id => [[point, name, line, column, last line,
     # last column], ...] } }`, read from the program once. The table is

@@ -1,0 +1,60 @@
+uninitialized constant Holder::NotDefined (NameError)
+--
+uninitialized constant Holder::NotDefined (NameError)
+--
+undefined method '+' for nil (NoMethodError)
+
+show { Holder::Nil += 1 }
+                   ^
+--
+undefined method 'foo' for nil (NoMethodError)
+--
+undefined method 'time' for an instance of Integer (NoMethodError)
+
+1.time {}
+ ^^^^^
+Did you mean?  times
+--
+undefined method 'time' for an instance of Integer (NoMethodError)
+
+	 	1.time {}
+	 	 ^^^^^
+Did you mean?  times
+--
+undefined method 'size' for nil (NoMethodError)
+
+x.size
+ ^^^^^
+--
+uninitialized constant Holder::NotDefined (NameError)
+
+show { Holder::NotDefined::Other }
+             ^^^^^^^^^^^^
+--
+uninitialized constant Holder::Inner::NotDefined (NameError)
+
+show { Holder::Inner::NotDefined }
+                    ^^^^^^^^^^^^
+--
+uninitialized constant Holder::NotDefined (NameError)
+
+show { Holder::NotDefined }
+             ^^^^^^^^^^^^
+--
+uninitialized constant NotDefined (NameError)
+
+show { NotDefined::Other }
+       ^^^^^^^^^^
+--
+uninitialized constant NotDefined (NameError)
+
+show { ::NotDefined::Other }
+       ^^^^^^^^^^^^
+--
+uninitialized constant Holder::NotDefined (NameError)
+--
+uninitialized constant Holder::NotDefined (NameError)
+
+  NotDefined }
+  ^^^^^^^^^^
+--

@@ -108,6 +108,9 @@ module Zr
       def of(tree, spotted: true)
         rows = +""
         queue = [tree]
+        # The ids of the parts of a constant path that its outermost node
+        # already spotted.
+        parts = {} #: Hash[Integer, true]
         while (node = queue.shift)
           queue.concat(node.compact_child_nodes)
           range(rows, node.node_id, node.location) if RANGES[node.type]
@@ -115,20 +118,49 @@ module Zr
           # A value that `when` or `in` tests with ===.
           node.conditions.each { |test| range(rows, test.node_id, test.location) unless RANGES[test.type] } if node.is_a?(Prism::WhenNode)
           range(rows, pinned(node.pattern).node_id, pinned(node.pattern).location) if node.is_a?(Prism::InNode) && !RANGES[pinned(node.pattern).type]
-          next unless spotted
+          next unless spotted && !parts.key?(node.node_id)
 
           points = POINTS[node.type] or next
 
+          # `Foo::Bar::Baz` is one instruction (opt_getconstant_path), and
+          # the frame of a NameError in any of its parts names the whole
+          # path's node, so each part takes the whole path's spots: the
+          # Spotter picks the part by the name, or none when two parts
+          # have it.
+          ids = [node.node_id]
+          path_parts(node)&.each do |part|
+            ids << part.node_id
+            parts[part.node_id] = true
+          end
           names(node).each do |name|
             points.each do |point|
               spot = spot(node, point, name) or next
 
-              rows << [node.node_id, point == :name ? "n" : "a", name || "-",
-                       spot[:first_lineno], spot[:first_column], spot[:last_lineno], spot[:last_column]].join(" ") << "\n"
+              ids.each do |id|
+                rows << [id, point == :name ? "n" : "a", name || "-",
+                         spot[:first_lineno], spot[:first_column], spot[:last_lineno], spot[:last_column]].join(" ") << "\n"
+              end
             end
           end
         end
         rows
+      end
+
+      # The inner parts of a constant path whose base is a constant or
+      # `::` (the paths opt_getconstant_path reads at once), or nil.
+      #: (untyped node) -> Array[untyped]?
+      def path_parts(node)
+        return unless node.type == :constant_path_node
+
+        found = [] #: Array[untyped]
+        part = node.parent
+        while part.is_a?(Prism::ConstantPathNode)
+          found << part
+          part = part.parent
+        end
+        return unless part.nil? || part.is_a?(Prism::ConstantReadNode)
+
+        part ? found << part : found
       end
 
       # The value that a pinned pattern tests, or the pattern itself.

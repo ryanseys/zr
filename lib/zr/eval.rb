@@ -15,6 +15,7 @@ module Zr
   # `Eval.current`.
   class Eval
     # @rbs @file_spots: Hash[String, String?]
+    # @rbs @highlights: Hash[String, String]
     # @rbs @scripts: Array[String]
     # @rbs @script_sources: Array[[String, Integer]]
 
@@ -108,6 +109,7 @@ module Zr
     #: () -> void
     def initialize
       @file_spots = {}
+      @highlights = {}
       @scripts = []
       @script_sources = []
     end
@@ -121,6 +123,18 @@ module Zr
     # compiled at run time, or nil.
     #: (String path) -> String?
     def file_spots(path) = @file_spots[path]
+
+    # error_highlight's spots of a file that a load or require compiled
+    # at run time, found when an error first asks for them, as ruby
+    # parses the file again then: the compile itself must not load
+    # error_highlight, which is the program's autoload. Nil for a file
+    # that no run-time compile read.
+    #: (String path) -> String?
+    def highlight_spots(path)
+      return nil unless @file_spots.key?(path)
+
+      @highlights[path] ||= Eval.plainly { Hir::Spots.of(Prism.parse(File.read(path), filepath: path).value) }
+    end
 
     # The spots (Hir::Spots) of the eval that `kept_script` numbered.
     #: (Integer number) -> String
