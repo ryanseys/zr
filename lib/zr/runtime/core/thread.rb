@@ -304,6 +304,10 @@ class Thread
       @sleepers = []
       @io_waiters = []
       @main = @current
+      # rb_thread_atfork: the scheduler no longer runs, and is cleared with
+      # no close; rb_fiber_atfork: the current fiber, now the root, blocks.
+      @current.send(:scheduler=, nil)
+      Primitive.zr_hidden_set(Fiber.current, :__blocking__, true)
       Primitive.zr_fiber_after_fork
       Primitive.zr_autoload_after_fork
       Primitive.zr_poll_after_fork
