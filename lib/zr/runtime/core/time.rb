@@ -13,6 +13,8 @@ class Time
   MONTHS = %w[jan feb mar apr may jun jul aug sep oct nov dec].freeze
   MONTH_NAMES = %w[January February March April May June July August September October November December].freeze
   DAY_NAMES = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday].freeze
+  # The days of each month of a common year.
+  MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31].freeze
   SPACE = " \t\n\v\f\r"
   # The strftime directives that represent a format of other directives.
   COMPOUNDS = { "c" => "%a %b %e %H:%M:%S %Y", "x" => "%m/%d/%y", "X" => "%H:%M:%S", "D" => "%m/%d/%y",
@@ -29,7 +31,7 @@ class Time
     [2026, 2032, 2033, 2034, 2035, 2030, 2036], [2030, 2036, 2026, 2032, 2033, 2034, 2035]
   ].freeze
   COMPAT_LEAP_YEARS = [2032, 2016, 2028, 2012, 2024, 2036, 2020].freeze
-  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES, :SPACE, :COMPOUNDS, :INT_MAX, :COMPAT_COMMON_YEARS, :COMPAT_LEAP_YEARS
+  private_constant :NS, :MONTHS, :MONTH_NAMES, :DAY_NAMES, :MONTH_DAYS, :SPACE, :COMPOUNDS, :INT_MAX, :COMPAT_COMMON_YEARS, :COMPAT_LEAP_YEARS
 
   class << self
     def now(**options)
@@ -288,7 +290,7 @@ class Time
       raise ArgumentError, +"hour out of range" if hour && hour > 24
       raise ArgumentError, +"min out of range" if min && min > 59
       raise ArgumentError, +"sec out of range" if sec && sec >= 61
-      civil_parts(year, mon || 1, mday || 1, hour || 0, min || 0, sec || 0, zone)
+      civil_parts(year, mon || 1, mday || 1, hour || 0, min || 0, sec || 0, zone, kept: true)
     end
 
     # The year a time string opens with: a sign, then four digits or
@@ -417,7 +419,9 @@ class Time
 
     # The nanoseconds and the kind a civil date names, which the caller
     # seats in whichever Time it is filling.
-    def civil_parts(year, month, day, hour, min, sec, zone, usec = nil, dst: false)
+    # Time.new's fields are `kept`: in UTC its Time shows them as given,
+    # with no wday or yday yet, as time_init_vtm keeps its vtm.
+    def civil_parts(year, month, day, hour, min, sec, zone, usec = nil, dst: false, kept: false)
       # obj2vint: a String reads as decimal digits, anything else as to_int.
       year = year.is_a?(String) ? Integer(year, 10) : to_integer(year)
       month = month_arg(month)
@@ -460,11 +464,78 @@ class Time
       kind = zone.nil? ? :local : parse_zone(zone)
       needs!(kind, :local_to_utc)
       case kind
-      when :utc then [local_ns, :utc]
-      when Integer, Rational then [local_ns - (kind * NS), kind]
+      when :utc then [local_ns, :utc, (kept_row(year, month, day, hour, min, sec) if kept)]
+      when Integer, Rational
+        at = local_ns - (kind * NS)
+        # vtm_add_offset moves the 31st on to the 32nd, which the 5 bits of
+        # mday hold as 0: the day before the 1st of its month.
+        at -= 32 * 86_400 * NS if day == 31 && offset_carry(hour, min, sec, sec_ns, kind) == 1 && month_days(year, month) < 31
+        [at, kind]
       when :local then [local_ns - local_offset_for(local_ns.div(NS), dst) * NS, :local]
       else [(zone_utc_seconds(kind, local_ns.div(NS)) * NS) + (local_ns % NS), kind]
       end
+    end
+
+    # The fields that time_init_vtm keeps for a Time in UTC, after
+    # vtm_day_wraparound: hour 24 is hour 0 of the next day, which
+    # vtm_add_day counts without a check that the day is in its month.
+    # Their wday is 7 and their yday 0: unknown (see Time#filled).
+    def kept_row(year, month, day, hour, min, sec)
+      yday = 0
+      if hour == 24
+        hour = 0
+        if month == 12 && day == 31
+          year, month, day, yday = year + 1, 1, 1, 1
+        elsif day == month_days(year, month)
+          month, day = month + 1, 1
+        else
+          day = (day + 1) & 31
+        end
+      end
+      [year, month, day, hour, min, sec, 7, yday]
+    end
+
+    # The day that vtm_add_offset carries when it takes `offset` from
+    # the fields: -1, 0 or 1. It carries a unit only where the offset
+    # has one, so an hour of 24 with no hours in the offset stays.
+    def offset_carry(hour, min, sec, sec_ns, offset)
+      sign = offset.negative? ? 1 : -1
+      off, subsec = offset.abs.divmod(1)
+      off, off_sec = off.divmod(60)
+      off_hour, off_min = off.divmod(60)
+      off_hour %= 24
+      carry_sec = 0
+      unless subsec.zero?
+        sub = sec_ns + (sign * subsec * NS)
+        carry_sec = -1 if sub.negative?
+        carry_sec = 1 if sub >= NS
+      end
+      carry_min = carry_hour = 0
+      total_sec = (sign * off_sec) + carry_sec
+      unless total_sec.zero?
+        total_sec += sec
+        carry_min = -1 if total_sec.negative?
+        carry_min = 1 if total_sec >= 60
+      end
+      total_min = (sign * off_min) + carry_min
+      unless total_min.zero?
+        total_min += min
+        carry_hour = -1 if total_min.negative?
+        carry_hour = 1 if total_min >= 60
+      end
+      total_hour = (sign * off_hour) + carry_hour
+      return 0 if total_hour.zero?
+
+      total_hour += hour
+      return -1 if total_hour.negative?
+
+      total_hour >= 24 ? 1 : 0
+    end
+
+    def month_days(year, month)
+      return MONTH_DAYS[month - 1] unless month == 2
+
+      (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 ? 29 : 28
     end
 
     def month_arg(month)
@@ -595,7 +666,7 @@ class Time
       return set(*self.class.send(:string_parts, text, zone, digits)).send(:local_filled)
     end
 
-    set(*self.class.send(:civil_parts, year, mon, mday, hour, min, sec, zone)).send(:local_filled)
+    set(*self.class.send(:civil_parts, year, mon, mday, hour, min, sec, zone, kept: true)).send(:local_filled)
   end
 
   def year = fields[0]
@@ -606,8 +677,8 @@ class Time
   def hour = fields[3]
   def min = fields[4]
   def sec = fields[5]
-  def wday = fields[6]
-  def yday = fields[7]
+  def wday = filled(6)[6]
+  def yday = filled(7)[7]
 
   def usec = ((ns % NS) / 1000).floor
   alias tv_usec usec
@@ -658,7 +729,11 @@ class Time
   end
   alias isdst dst?
 
-  def to_a = [sec, min, hour, day, month, year, wday, yday, dst?, zone]
+  # time_to_a fills only a row with no yday: a kept row's wday stays 7.
+  def to_a
+    row = filled(7)
+    [row[5], row[4], row[3], row[2], row[1], row[0], row[6], row[7], dst?, zone]
+  end
 
   def sunday? = wday == 0
   def monday? = wday == 1
@@ -744,7 +819,7 @@ class Time
   # A whole count of nanoseconds shows as digits; a fraction between two
   # nanoseconds shows as the Rational of the second it is.
   def inspect
-    text = strftime("%Y-%m-%d %H:%M:%S")
+    text = formatted("%Y-%m-%d %H:%M:%S")
     rest = ns % NS
     if rest.is_a?(Rational)
       text = "#{text} #{rest / NS}"
@@ -756,10 +831,10 @@ class Time
 
   # US-ASCII, as time_to_s writes it and time_inspect writes `inspect`.
   def to_s
-    (utc? ? strftime("%Y-%m-%d %H:%M:%S UTC") : strftime("%Y-%m-%d %H:%M:%S %z")).force_encoding(Encoding::US_ASCII)
+    (utc? ? formatted("%Y-%m-%d %H:%M:%S UTC") : formatted("%Y-%m-%d %H:%M:%S %z")).force_encoding(Encoding::US_ASCII)
   end
 
-  def ctime = strftime("%a %b %e %H:%M:%S %Y").force_encoding(Encoding::US_ASCII)
+  def ctime = formatted("%a %b %e %H:%M:%S %Y").force_encoding(Encoding::US_ASCII)
   alias asctime ctime
 
   # ISO 8601: `Z` for UTC, the offset otherwise, and `digits` places of
@@ -767,29 +842,39 @@ class Time
   # Past nine digits the fraction comes from the exact subsecond, as
   # time_xmlschema writes it.
   def iso8601(digits = 0)
-    text = strftime("%Y-%m-%dT%H:%M:%S")
+    text = formatted("%Y-%m-%dT%H:%M:%S")
     if digits > 9
       places = digits.to_i
       text = "#{text}.#{(subsec * (10**places)).floor.to_s.rjust(places, '0')}"
     elsif digits > 0
       text = "#{text}.#{format("%09d", nsec)[0, digits]}"
     end
-    "#{text}#{utc? ? 'Z' : strftime('%:z')}".force_encoding(Encoding::US_ASCII)
+    "#{text}#{utc? ? 'Z' : formatted('%:z')}".force_encoding(Encoding::US_ASCII)
   end
   alias xmlschema iso8601
 
   def deconstruct_keys(keys)
     raise TypeError, "wrong argument type #{keys.class} (expected Array or nil)" unless keys.nil? || keys.is_a?(Array)
 
-    all = { year: year, month: month, day: day, yday: yday, wday: wday,
-            hour: hour, min: min, sec: sec, subsec: subsec, dst: dst?, zone: zone }
+    row = filled(7)
+    all = { year: row[0], month: row[1], day: row[2], yday: row[7], wday: row[6],
+            hour: row[3], min: row[4], sec: row[5], subsec: subsec, dst: dst?, zone: zone }
     return all if keys.nil?
 
     all.slice(*keys)
   end
 
-  # time_strftime: the format's directives rendered in its encoding.
+  # time_strftime: the format's directives rendered in its encoding,
+  # with the fields made whole first.
   def strftime(format)
+    filled(7)
+    formatted(format)
+  end
+
+  # rb_strftime_alloc: the fields as they stand, which inspect, to_s,
+  # ctime and xmlschema write.
+  def formatted(format)
+    Primitive.attr! :hidden
     built!
     format = Primitive.zr_str_operand(format)
     raise ArgumentError, +"format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
@@ -869,7 +954,7 @@ class Time
   # seconds of an offset that has them, run together, as time.c does.
   def offset_shown
     Primitive.attr! :hidden
-    return strftime("%z") if utc_offset % 60 == 0
+    return formatted("%z") if utc_offset % 60 == 0
 
     offset = utc_offset
     sign = offset < 0 ? +"-" : +"+"
@@ -884,12 +969,12 @@ class Time
     raise TypeError, +"uninitialized Time" unless Primitive.zr_hidden_get(self, :__built__)
   end
 
-  def set(at, of_kind)
+  def set(at, of_kind, row = nil)
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(self, :__built__, true)
     Primitive.zr_hidden_set(self, :__ns__, Time.send(:canonical, at))
     Primitive.zr_hidden_set(self, :__kind__, of_kind)
-    Primitive.zr_hidden_set(self, :__fields__, nil)
+    Primitive.zr_hidden_set(self, :__fields__, row)
     if Time.send(:zone_object?, of_kind)
       # zone_localtime: the object gives the offset; `zone` is the object.
       Primitive.zr_hidden_set(self, :__offset__, Time.send(:zone_offset_at, of_kind, at.div(NS)))
@@ -933,6 +1018,24 @@ class Time
 
     unit = 10**(9 - digits)
     shifted(yield(ns, unit))
+  end
+
+  # MAKE_TM_ENSURE: a row that Time.new kept has no wday (7) and no yday
+  # (0). A reader that needs field `at` makes the row again from the
+  # instant, as force_make_tm does, so later readers see that row too.
+  def filled(at)
+    Primitive.attr! :hidden
+    row = fields
+    return row unless row[at] == (at == 6 ? 7 : 0)
+
+    Primitive.zr_state_set(self, :__fields__, nil)
+    fields
+  end
+
+  # strftime's %a and %A of an unknown wday: "?".
+  def day_name
+    Primitive.attr! :hidden
+    DAY_NAMES[fields[6]] || +"?"
   end
 
   # year, month, day, hour, min, sec, wday, yday in the shown zone.
@@ -1023,28 +1126,29 @@ class Time
     when "%" then put_word(out, "%", width, padding, left)
     when "n" then put_word(out, "\n", width, padding, left)
     when "t" then put_word(out, "\t", width, padding, left)
-    when "a" then put_word(out, DAY_NAMES[wday][0, 3], width, padding, left, (:up if upper || swap))
-    when "A" then put_word(out, DAY_NAMES[wday], width, padding, left, (:up if upper || swap))
+    when "a" then put_word(out, day_name[0, 3], width, padding, left, (:up if upper || swap))
+    when "A" then put_word(out, day_name, width, padding, left, (:up if upper || swap))
     when "b", "h" then put_word(out, MONTH_NAMES[month - 1][0, 3], width, padding, left, (:up if upper || swap))
     when "B" then put_word(out, MONTH_NAMES[month - 1], width, padding, left, (:up if upper || swap))
     when "p" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, swap ? :down : (:up if upper))
     when "P" then put_word(out, hour < 12 ? "AM" : "PM", width, padding, left, upper ? :up : (:down unless swap))
     when "Z" then put_word(out, utc? ? "UTC" : zone_word(out, zone_abbreviation, box), width, padding, left, swap ? :down : (:up if upper))
-    when "d" then put_number(out, day, "0", 2, width, padding, left)
-    when "e" then put_number(out, day, " ", 2, width, padding, left)
+    # range(1, mday, 31): a kept row's day 0 shows as 1.
+    when "d" then put_number(out, day.clamp(1, 31), "0", 2, width, padding, left)
+    when "e" then put_number(out, day.clamp(1, 31), " ", 2, width, padding, left)
     when "H" then put_number(out, hour, "0", 2, width, padding, left)
     when "k" then put_number(out, hour, " ", 2, width, padding, left)
     when "I" then put_number(out, (hour + 11) % 12 + 1, "0", 2, width, padding, left)
     when "l" then put_number(out, (hour + 11) % 12 + 1, " ", 2, width, padding, left)
-    when "j" then put_number(out, yday, "0", 3, width, padding, left)
+    when "j" then put_number(out, fields[7], "0", 3, width, padding, left)
     when "m" then put_number(out, month, "0", 2, width, padding, left)
     when "M" then put_number(out, min, "0", 2, width, padding, left)
     when "S" then put_number(out, sec, "0", 2, width, padding, left)
     when "s" then put_number(out, to_i, "0", 1, width, padding, left)
-    when "U" then put_number(out, (yday - 1 + 7 - wday) / 7, "0", 2, width, padding, left)
-    when "W" then put_number(out, (yday - 1 + 7 - (wday + 6) % 7) / 7, "0", 2, width, padding, left)
-    when "w" then put_number(out, wday, "0", 1, width, padding, left)
-    when "u" then put_number(out, wday.zero? ? 7 : wday, "0", 1, width, padding, left)
+    when "U" then put_number(out, (fields[7] - 1 + 7 - fields[6]) / 7, "0", 2, width, padding, left)
+    when "W" then put_number(out, (fields[7] - 1 + 7 - (fields[6] + 6) % 7) / 7, "0", 2, width, padding, left)
+    when "w" then put_number(out, fields[6], "0", 1, width, padding, left)
+    when "u" then put_number(out, fields[6].zero? ? 7 : fields[6], "0", 1, width, padding, left)
     when "V" then put_number(out, iso_week[1], "0", 2, width, padding, left)
     when "Y" then put_number(out, year, "0", year.negative? && Primitive.zr_fixnum_p_m(year) ? 5 : 4, width, padding, left)
     when "G" then put_number(out, iso_week[0], "0", iso_week[0].negative? && Primitive.zr_fixnum_p_m(iso_week[0]) ? 5 : 4, width, padding, left)
@@ -1172,8 +1276,8 @@ class Time
   # The ISO 8601 week-numbering year and week.
   def iso_week
     Primitive.attr! :hidden
-    monday_based = (wday + 6) % 7
-    week = (yday - monday_based + 9) / 7
+    monday_based = (fields[6] + 6) % 7
+    week = (fields[7] - monday_based + 9) / 7
     if week < 1
       [year - 1, Time.send(:iso_weeks_in, year - 1)]
     elsif week > Time.send(:iso_weeks_in, year)
