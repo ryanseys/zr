@@ -1,4 +1,0 @@
-TestCoverage#test_branch_coverage_for_eval_repeated	fail
-TestCoverage#test_peek_result_branches_after_eval_adds_branches	fail
-TestCoverage#test_peek_result_methods_after_eval_adds_methods	fail
-TestCoverage#test_tag_break_with_branch_coverage	fail
