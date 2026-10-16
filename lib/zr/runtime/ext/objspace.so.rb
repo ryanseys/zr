@@ -55,20 +55,30 @@ module ObjectSpace
   # each byte as it is, but these escapes and other control bytes as \u00XX.
   JSON_ESCAPES = { "\\" => "\\\\", '"' => '\\"', "\b" => "\\b", "\t" => "\\t", "\f" => "\\f",
                    "\n" => "\\n", "\r" => "\\r", "\x7f" => "\\u007f" }.freeze
-  private_constant :HEAP_TYPES, :DATA_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :AR_TABLE, :JSON_ESCAPES
+  # objspace.c reads each object's struct and runs none of its methods,
+  # so a program's own `===`, `name` or `fileno` must not answer here:
+  # the port binds the core's methods.
+  TYPE_OF = Module.instance_method(:===)
+  NAME = Module.instance_method(:name)
+  SINGLETON = Module.instance_method(:singleton_class?)
+  SUPERCLASS = Class.instance_method(:superclass)
+  FILENO = IO.instance_method(:fileno)
+  CLOSED = IO.instance_method(:closed?)
+  private_constant :HEAP_TYPES, :DATA_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :AR_TABLE, :JSON_ESCAPES,
+                   :TYPE_OF, :NAME, :SINGLETON, :SUPERCLASS, :FILENO, :CLOSED
 
   module_function
 
   def memsize_of(obj) = Primitive.zr_objspace_memsize(obj)
 
   def memsize_of_all(klass = nil)
-    raise TypeError, "class or module required" unless klass.nil? || klass.is_a?(Module)
+    raise TypeError, "class or module required" unless klass.nil? || a?(klass, Module)
 
     Primitive.zr_objspace_objects(klass).sum { |obj| Primitive.zr_objspace_memsize(obj) }
   end
 
   def count_objects_size(result = {})
-    raise TypeError, "non-hash given" unless result.is_a?(Hash)
+    raise TypeError, "non-hash given" unless a?(result, Hash)
 
     sizes = Hash.new(0)
     Primitive.zr_objspace_objects(nil).each do |obj|
@@ -82,23 +92,26 @@ module ObjectSpace
 
   # Every symbol lives as long as the program: none is mortal.
   def count_symbols(result = {})
-    raise TypeError, "non-hash given" unless result.is_a?(Hash)
+    raise TypeError, "non-hash given" unless a?(result, Hash)
 
     total = Symbol.all_symbols.size
     result.update(mortal_dynamic_symbol: 0, immortal_dynamic_symbol: 0, immortal_static_symbol: total, immortal_symbol: total)
   end
 
   def count_tdata_objects(result = {})
-    raise TypeError, "non-hash given" unless result.is_a?(Hash)
+    raise TypeError, "non-hash given" unless a?(result, Hash)
 
     Primitive.zr_objspace_objects(nil).each do |obj|
-      result[obj.class] = result.fetch(obj.class, 0) + 1 if heap_type(obj) == "DATA"
+      next unless heap_type(obj) == "DATA"
+
+      klass = Primitive.zr_real_class(obj)
+      result[klass] = result.fetch(klass, 0) + 1
     end
     result
   end
 
   def count_imemo_objects(result = {})
-    raise TypeError, "non-hash given" unless result.is_a?(Hash)
+    raise TypeError, "non-hash given" unless a?(result, Hash)
 
     result
   end
@@ -106,10 +119,10 @@ module ObjectSpace
   # A Bignum's class is no reference the collector follows.
   def reachable_objects_from(obj)
     return nil if Primitive.zr_special_p_m(obj)
-    return [] if obj.is_a?(Integer)
+    return [] if a?(obj, Integer)
 
     found = Primitive.zr_objspace_reachable(obj)
-    return found unless obj.is_a?(Set)
+    return found unless a?(obj, Set)
 
     # ruby's Set is a T_DATA that marks its elements; zr's keeps them as
     # the keys of a table, which ruby has no object for.
@@ -122,7 +135,7 @@ module ObjectSpace
   def internal_class_of(obj) = Primitive.zr_real_class(obj)
 
   def internal_super_of(klass)
-    raise TypeError, "wrong argument type #{klass.class} (expected Class or Module)" unless klass.is_a?(Module)
+    raise TypeError, "wrong argument type #{Primitive.zr_real_class(klass)} (expected Class or Module)" unless a?(klass, Module)
 
     found = Primitive.zr_objspace_super(klass)
     found.is_a?(Integer) ? InternalObjectWrapper.send(:of, found, :T_ICLASS) : found
@@ -174,23 +187,26 @@ module ObjectSpace
   class << self
     private
 
+    # Whether `obj` is a `klass`, by the core's Module#===.
+    def a?(obj, klass) = TYPE_OF.bind_call(klass, obj)
+
     def heap_type(obj)
       return "DATA" if data_type(obj)
 
-      HEAP_TYPES.find { |klass, _| obj.is_a?(klass) }&.last || "OBJECT"
+      HEAP_TYPES.find { |klass, _| a?(obj, klass) }&.last || "OBJECT"
     end
 
     # The rb_data_type_t of a T_DATA object: [class, name, frees at once].
-    def data_type(obj) = DATA_TYPES.find { |klass, _, _| obj.is_a?(klass) }
+    def data_type(obj) = DATA_TYPES.find { |klass, _, _| a?(obj, klass) }
 
     # One object as dump writes it (dump_append_special_const): a special
     # constant as its JSON value, a static Symbol as its name, a flonum in
     # "%#g", and anything else as an object with its address, type and
     # class, on a line of its own.
     def dumped(obj)
-      return "null" if obj.nil?
-      return obj.to_s if obj == true || obj == false
       if Primitive.zr_special_p_m(obj)
+        return "null" if obj.nil?
+        return obj.to_s if obj.equal?(true) || obj.equal?(false)
         return obj.to_s if obj.is_a?(Integer)
         return format("%#g", obj) if obj.is_a?(Float)
         return "{\"type\":\"SYMBOL\", \"value\":#{json(obj)}}" if obj.is_a?(Symbol)
@@ -208,7 +224,7 @@ module ObjectSpace
       klass = Primitive.zr_real_class(obj)
       fields = { address: address(obj), type: heap_type(obj), shape_id: 0,
                  slot_size: Primitive.zr_objspace_slot_size(obj), class: address(klass) }
-      fields[:frozen] = true if obj.frozen?
+      fields[:frozen] = true if Primitive.zr_frozen_p_m(obj)
       type_fields(obj, bits, fields)
       references = reachable_objects_from(obj).reject { |ref| ref.equal?(klass) }
       fields[:references] = references.map { |ref| address(ref) } unless references.empty?
@@ -221,18 +237,20 @@ module ObjectSpace
 
     def type_fields(obj, bits, fields)
       case obj
-      when String then string_fields(obj, bits, fields)
+      # A String subclass's own methods do not answer for its bytes.
+      when String then string_fields(String.equal?(Primitive.zr_real_class(obj)) ? obj : String.new(obj), bits, fields)
       when Symbol then string_content(obj.name, EMBEDDED, fields)
       when Float then fields[:value] = format("%#g", obj)
       when Hash
-        fields[:size] = obj.size
+        fields[:size] = Primitive.zr_hash_len_m(obj)
         fields[:ar_table] = true if bits.anybits?(AR_TABLE)
-        fields[:default] = address(obj.default_proc) if obj.default_proc
+        default = Primitive.zr_hash_default_proc(obj)
+        fields[:default] = address(default) if default
       when Array
-        fields[:length] = obj.size
+        fields[:length] = Primitive.zr_ary_len_m(obj)
         fields[:embedded] = true if bits.anybits?(EMBEDDED)
       when Module then module_fields(obj, fields)
-      when IO then fields[:fd] = obj.fileno unless obj.closed?
+      when IO then fields[:fd] = FILENO.bind_call(obj) unless CLOSED.bind_call(obj)
       else
         if (type = data_type(obj))
           # dump_object's T_DATA: the type's name, and a type that does not
@@ -275,22 +293,25 @@ module ObjectSpace
     end
 
     def module_fields(mod, fields)
-      fields[:variation_count] = 0 if mod.is_a?(Class)
-      superclass = mod.is_a?(Class) ? mod.superclass : nil
+      klass = a?(mod, Class)
+      fields[:variation_count] = 0 if klass
+      superclass = SUPERCLASS.bind_call(mod) if klass
       fields[:superclass] = address(superclass) if superclass
-      if mod.name
-        fields[:name] = mod.name
-      elsif mod.singleton_class?
+      singleton = SINGLETON.bind_call(mod)
+      if (name = NAME.bind_call(mod))
+        fields[:name] = name
+      elsif singleton
         real = mod
-        real = real.superclass while real&.singleton_class?
-        fields[:real_class_name] = real.name if real&.name
+        real = SUPERCLASS.bind_call(real) while real && SINGLETON.bind_call(real)
+        name = NAME.bind_call(real) if real
+        fields[:real_class_name] = name if name
       end
-      fields[:singleton] = true if mod.singleton_class?
+      fields[:singleton] = true if singleton
     end
 
     def object_fields(obj, bits, fields)
       fields[:embedded] = true if bits.anybits?(EMBEDDED)
-      fields[:ivars] = obj.instance_variables.size
+      fields[:ivars] = Primitive.zr_ivar_names_m(obj).size
     end
 
     def allocation_fields(obj, fields)
@@ -309,7 +330,7 @@ module ObjectSpace
     def gc_flags(obj, bits)
       flags = { wb_protected: true, age: bits.anybits?(OLD) ? 3 : 0 }
       flags[:old] = true if bits.anybits?(OLD)
-      flags[:shareable] = true if bits.anybits?(FSTRING) || obj.is_a?(Module)
+      flags[:shareable] = true if bits.anybits?(FSTRING) || a?(obj, Module)
       flags
     end
 
@@ -331,7 +352,7 @@ module ObjectSpace
     end
 
     def written(out, text)
-      out.is_a?(String) ? out << text : out.write(text)
+      a?(out, String) ? out << text : out.write(text)
       out
     end
   end

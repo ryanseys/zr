@@ -1,0 +1,17 @@
+object: {"type" => "OBJECT", "ivars" => 1}
+named_module: {"type" => "MODULE", "name" => "Named"}
+module_function: {"type" => "MODULE", "name" => "Functions"}
+class: {"type" => "CLASS", "variation_count" => 0}
+hash_subclass: {"type" => "HASH", "size" => 1}
+array_subclass: {"type" => "ARRAY", "length" => 3}
+string_subclass: {"type" => "STRING", "bytesize" => 3, "value" => "abc", "encoding" => "UTF-8", "coderange" => "7bit"}
+io_subclass: true
+basic_object: {"type" => "OBJECT", "ivars" => 0}
+singleton_of_named: {"type" => "CLASS", "singleton" => true, "real_class_name" => "Module"}
+dump_all: true
+count_objects_size: true
+count_tdata_objects: true
+memsize_of_all: true
+reachable: 7
+not_a_module: TypeError: class or module required
+not_a_hash: TypeError: non-hash given
