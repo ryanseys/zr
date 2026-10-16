@@ -1,0 +1,8 @@
+[:min0, nil, true]
+[:min0_time, nil, true, true]
+[:nonblock, nil, true]
+[:sysread, EOFError]
+["a", 1]
+["1", 11]
+"234567890"
+[true, true]

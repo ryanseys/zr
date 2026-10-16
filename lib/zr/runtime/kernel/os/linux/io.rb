@@ -68,6 +68,10 @@ module Zr::Kern
   # struct termios: four flag ints, the line discipline, 32 control
   # characters, and the two speeds.
   TERMIOS_LEN = 60
+  # c_cc[VMIN] and c_cc[VTIME]: after the four flag ints and the line
+  # discipline, control characters 6 and 5.
+  TERMIOS_VMIN = 17 + 6
+  TERMIOS_VTIME = 17 + 5
 
   # The name in a directory entry. Before the name, musl's struct dirent
   # has an 8-byte inode, an 8-byte seek offset, the record length as a

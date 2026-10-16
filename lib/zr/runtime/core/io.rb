@@ -2070,11 +2070,20 @@ class IO
     check_byte_readable
     set_nonblock(true) unless nonblock_flag?
     if !buffered? && !len.zero? && would_block?(READABLE)
-      return :wait_readable unless exception
+      # A terminal whose read needs no byte never polls ready, and its
+      # read(2) answers: nothing (the end) or EAGAIN.
+      text = tty_read_deadline(READABLE, @fd) ? Primitive.zr_io_read(@fd, len) : -Errno::EAGAIN::Errno
+      if text.is_a?(Integer)
+        # rb_syserr_fail_path
+        raise SystemCallError.new(@path, -text) unless -text == Errno::EAGAIN::Errno
+        return :wait_readable unless exception
 
-      raise EAGAINWaitReadable, +"read would block"
+        raise EAGAINWaitReadable, +"read would block"
+      end
+      text = text&.b
+    else
+      text = read_some(len)
     end
-    text = read_some(len)
     return buf&.clear && nil if text.nil? && !exception
 
     filled(text, buf)
@@ -2510,7 +2519,21 @@ class IO
     return wait_timeout(event, fd) if @timeout
     return unless @nonblock || (Primitive.zr_threaded && !Thread.send(:alone?))
 
-    Thread.current.send(:wait_io, fd, event, nil)
+    Thread.current.send(:wait_io, fd, event, tty_read_deadline(event, fd))
+  end
+
+  # A terminal whose read needs no byte (VMIN 0) never polls ready: its
+  # read returns at once, or after VTIME tenths of a second, as CRuby's
+  # read(2) does in its own thread. So the wait ends by then. A read
+  # that finds nothing after the wait waits VTIME once more.
+  def tty_read_deadline(event, fd)
+    Primitive.attr! :hidden
+    return nil unless event == READABLE && @tty
+
+    tenths = Primitive.zr_io_tty_read_limit(fd)
+    return nil if tenths.negative?
+
+    Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + tenths * 100_000_000
   end
 
   # Whether a call on this descriptor would wait. A non-blocking call

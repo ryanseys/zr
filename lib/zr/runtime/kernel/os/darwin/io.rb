@@ -77,6 +77,10 @@ module Zr::Kern
   # two speeds. ruby gets the bytes without change, because ruby selects
   # the flags that a mode changes.
   TERMIOS_LEN = 72
+  # c_cc[VMIN] and c_cc[VTIME]: after the four 8-byte flag words,
+  # control characters 16 and 17.
+  TERMIOS_VMIN = 32 + 16
+  TERMIOS_VTIME = 32 + 17
 
   # The name in a directory entry. Before the name, darwin's struct dirent
   # has an 8-byte inode, an 8-byte seek offset, the record and name

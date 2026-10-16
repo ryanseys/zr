@@ -290,6 +290,19 @@ module Zr::Kern
     zr_str_new(buf, TERMIOS_LEN)
   end
 
+  # The tenths of a second that a read of the terminal waits at most:
+  # with VMIN 0, the read returns after VTIME tenths even with no byte,
+  # and poll(2) never reports such a terminal ready. -1 for a terminal
+  # that waits for a byte, or a descriptor that is not a terminal.
+  #: (value) -> value
+  def zr_io_tty_read_limit(fd)
+    buf = Machine.slot(TERMIOS_LEN)
+    return zr_fix(-1) if Libc.tcgetattr(Machine.i32(zr_fix2long(fd)), buf) < Machine.i32(0)
+    return zr_fix(-1) if Machine.u8(Machine.load8(buf, TERMIOS_VMIN)) != 0
+
+    zr_fix(Machine.u8(Machine.load8(buf, TERMIOS_VTIME)))
+  end
+
   # The bytes of a struct termios, which an allocated IO::Console::Mode
   # holds as zeros (conmode_alloc).
   #: () -> value
