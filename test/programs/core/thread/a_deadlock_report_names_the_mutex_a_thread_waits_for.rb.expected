@@ -1,0 +1,23 @@
+No live threads left. Deadlock?
+5 threads, 5 sleeps current:0xADDR main thread:0xADDR
+* #<Thread:0xADDR sleep_forever>
+   rb_thread_t:0xADDR native:0xADDR int:0
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:17:in 'Thread#join'
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:17:in '<main>'
+* #<Thread:0xADDR core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:9 sleep_forever>
+   rb_thread_t:0xADDR native:0xADDR int:0
+    depended by: tb_thread_id:0xADDR
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:9:in 'Thread::Queue#pop'
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:9:in 'block in <main>'
+* #<Thread:0xADDR core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:11 sleep_forever>
+   rb_thread_t:0xADDR native:0xADDR int:0 mutex:4 cond:2
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:11:in 'Thread::Mutex#lock'
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:11:in 'block (2 levels) in <main>'
+* #<Thread:0xADDR core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:11 sleep_forever>
+   rb_thread_t:0xADDR native:0xADDR int:0 mutex:4 cond:2
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:11:in 'Thread::Mutex#lock'
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:11:in 'block (2 levels) in <main>'
+* #<Thread:0xADDR core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:14 sleep_forever>
+   rb_thread_t:0xADDR native:0xADDR int:0 mutex:1 cond:1
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:14:in 'Thread::Mutex#lock'
+   core/thread/a_deadlock_report_names_the_mutex_a_thread_waits_for.rb:14:in 'block in <main>'

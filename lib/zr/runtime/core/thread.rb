@@ -533,6 +533,10 @@ class Thread
         # Each thread has a native thread in ruby (th->nt), which the
         # report names by address; zr's threads share one.
         out << "* #{thread.inspect}\n   rb_thread_t:#{address(thread)} native:#{address(@main)} int:0"
+        # The mutex it waits for: the serial of the fiber that holds it,
+        # and how many wait.
+        mutex = Primitive.zr_hidden_get(thread, :__locking__)
+        out << " mutex:#{Fiber.send(:serial_of, mutex.send(:owner))} cond:#{mutex.send(:waiters).size}" if mutex
         thread.send(:joiners).each { |joiner| out << "\n    depended by: tb_thread_id:#{address(joiner)}" }
         frames = Primitive.zr_fiber_backtrace_m(thread.send(:local_fiber), 0, -1)
         out << "\n   " << frames.to_a.join("\n   ") << "\n"
@@ -1473,9 +1477,26 @@ class Fiber
     Primitive.zr_hidden_set(self, :__block__, block)
     Primitive.zr_hidden_set(self, :__storage__, table)
     Primitive.zr_hidden_set(self, :__blocking__, blocking ? true : false)
+    Primitive.zr_hidden_set(self, :__serial__, Fiber.send(:next_serial))
   end
 
   class << self
+    # rb_ec_serial: each execution context's number, in the order they are
+    # made. The main fiber's is 1.
+    def next_serial
+      Primitive.attr! :hidden
+      serial = (Primitive.zr_hidden_get(Fiber, :__serials__) || 1) + 1
+      Primitive.zr_hidden_set(Fiber, :__serials__, serial)
+      serial
+    end
+
+    def serial_of(fiber)
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(fiber, :__serial__) || 1
+    end
+
+    private :next_serial, :serial_of
+
     # 1 while the current fiber blocks, as CRuby counts the thread's
     # blocking fibers, and false while it does not.
     def blocking? = current.blocking? ? 1 : false
@@ -1824,7 +1845,13 @@ class Thread::Mutex
         raise ThreadError, +"deadlock; lock already owned by another fiber belonging to the same thread"
       end
 
-      Thread.current.send(:wait_on, waiters, nil, true, self)
+      # th->locking_mutex, which the deadlock report names.
+      Primitive.zr_hidden_set(Thread.current, :__locking__, self)
+      begin
+        Thread.current.send(:wait_on, waiters, nil, true, self)
+      ensure
+        Primitive.zr_hidden_set(Thread.current, :__locking__, nil)
+      end
     end
     Primitive.zr_state_set(self, :__owner__, Fiber.current)
     Primitive.zr_state_set(self, :__thread__, Thread.current)
