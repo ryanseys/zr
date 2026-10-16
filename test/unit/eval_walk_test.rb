@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "tmpdir"
 require_relative "../support/interpreter_world"
 
 # The tree-walking interpreter, which runs eval in a wasm program
@@ -107,6 +108,32 @@ class EvalWalkTest < Minitest::Test
     assert_equal "eval_walk_test_walked", Object.autoload?(:EvalWalkTestWalked)
   ensure
     Object.send(:remove_const, :EvalWalkTestWalked) if Object.autoload?(:EvalWalkTestWalked)
+  end
+
+  def test_defined_of_a_literal_tests_each_part_as_the_compiler_does
+    assert_walks_like_ruby("[defined?([1, 2]), defined?([nope]), defined?([1, *nope]), defined?([String, Nope]), defined?([@unset])]")
+    assert_walks_like_ruby("[defined?({ a: nope }), defined?({ **nope }), defined?([[1, [$stdout]]]), defined?([$no_such_gvar])]")
+    assert_walks_like_ruby("@set = 1; [defined?([@set, size]), defined?({ k: 1, **{} })]")
+  end
+
+  def test_a_multiple_assignment_stages_its_send_targets_before_the_value
+    source = "log = []; o = Struct.new(:a, :b).new; f = ->(t) { log << t; o }; " \
+             "f.(:r1).a, f.(:r2).b = (log << :rhs; [1, 2]); [log, o.a, o.b]"
+    assert_walks_like_ruby(source)
+    assert_walks_like_ruby("h = {}; k = ->(x) { (@keys ||= []) << x; x }; h[k.(1)], h[k.(2)] = :a, :b; [h, @keys]")
+    assert_walks_like_ruby("o = nil; r = begin; raise e; rescue => o&.x; :rescued; end; [o, r]")
+    assert_walks_like_ruby("m = Module.new; s = -> { (@at ||= []) << :scope; m }; s.()::K, z = 1, 2; [m::K, z, @at]")
+  end
+
+  def test_a_require_that_the_build_resolves_runs_at_run_time
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "walked_feature.rb")
+      File.write(path, "$walked_feature = ($walked_feature || 0) + 1\n")
+      source = "[require(#{path.inspect}), require(#{path.inspect}), $walked_feature, load(#{path.inspect}), $walked_feature]"
+      assert_equal [true, false, 1, true, 2], World.eval(source, binding)
+    ensure
+      $walked_feature = nil
+    end
   end
 
   private

@@ -223,7 +223,7 @@ module Zr
           when Hir::Once then once(node, ctx)
           when Hir::Stop then raise ::NotImplementedError, "#{@file}:#{node.line}: #{node.what}"
           when Hir::ExtInit then raise ::NotImplementedError, "#{node.path}: a C extension runs only in a binary"
-          when Hir::Require then refuse(node, "require of #{node.feature.inspect}")
+          when Hir::Require then require_node(node, ctx)
           when Hir::Autoload then autoload_node(node, ctx)
           when Hir::BackRef then backref(node, ctx)
           when Hir::RegexpOnce then regexps[node] ||= regexp_once(node.value, ctx)
@@ -841,49 +841,79 @@ module Zr
         end
 
         # `a, (b, *c), *d, e = value`.
+        # The receivers and arguments of its send targets, and the scopes
+        # of its constants, are evaluated left to right before the value,
+        # as the compiler stages them.
         def multi_assign(node, ctx)
+          prepared = {}.compare_by_identity #: Hash[Hir::node, untyped]
+          prepare(node.target, prepared, ctx)
           value = walk(node.value, ctx)
-          spread(node.target, splat_array(value), ctx)
+          spread(node.target, splat_array(value), ctx, prepared)
           value
         end
 
-        #: (Hir::MultiTarget target, Array[value] values, Ctx ctx) -> Array[value]
-        def spread(target, values, ctx)
+        #: (Hir::node target, Hash[Hir::node, untyped] prepared, Ctx ctx) -> void
+        def prepare(target, prepared, ctx)
+          case target
+          when Hir::MultiTarget
+            target.lefts.each { |t| prepare(t, prepared, ctx) }
+            prepare(target.rest, prepared, ctx) unless target.rest.nil? || target.rest == :implicit
+            target.rights.each { |t| prepare(t, prepared, ctx) }
+          when Hir::Send then prepared[target] = send_parts(target, ctx)
+          when Hir::ConstWrite then prepared[target] = const_base(target, ctx)
+          end
+        end
+
+        #: (Hir::MultiTarget target, Array[value] values, Ctx ctx, ?Hash[Hir::node, untyped]? prepared) -> Array[value]
+        def spread(target, values, ctx, prepared = nil)
           values = values.dup
-          target.lefts.each { |t| write_target(t, values.shift, ctx) }
+          target.lefts.each { |t| write_target(t, values.shift, ctx, prepared) }
           rest = target.rest
           if rest
             take = values.size - target.rights.size
             taken = [] #: Array[value]
             taken = values.shift(take) if take.positive?
-            write_target(rest, taken, ctx) unless rest == :implicit
+            write_target(rest, taken, ctx, prepared) unless rest == :implicit
           end
-          target.rights.each { |t| write_target(t, values.shift, ctx) }
+          target.rights.each { |t| write_target(t, values.shift, ctx, prepared) }
           values
         end
 
         # One target of a multiple assignment, of a rescue `=> e`, or of a
         # destructuring parameter: a local, a variable, a constant, a
         # `h[k]` or an attribute, or a nested target.
-        def write_target(target, value, ctx)
+        def write_target(target, value, ctx, prepared = nil)
           case target
           when Hir::Assign then write_local(target, value, ctx)
           when Hir::IvarWrite then ctx.self_.instance_variable_set(target.name, value)
           when Hir::GvarWrite then World.gvar_set(target.shown || target.name, target.name, value)
           when Hir::CvarWrite then World.cvar_set(ctx.cref, target.name, value)
           # Steep finds Module#const_set on World before World#const_set.
-          when Hir::ConstWrite then World.const_set(const_base(target, ctx), target.name, value) # steep:ignore UnexpectedPositionalArgument
-          when Hir::MultiTarget then spread(target, splat_array(value), ctx)
-          when Hir::Send then write_send(target, value, ctx)
+          when Hir::ConstWrite then World.const_set(prepared&.fetch(target, nil) || const_base(target, ctx), target.name, value) # steep:ignore UnexpectedPositionalArgument
+          when Hir::MultiTarget then spread(target, splat_array(value), ctx, prepared)
+          when Hir::Send then write_send(target, value, ctx, prepared&.fetch(target, nil))
           else refuse(target, "#{target.class.name.split("::").last} as an assignment target")
           end
         end
 
-        def write_send(target, value, ctx)
-          recv = target.recv ? walk(target.recv, ctx) : ctx.self_
-          args = elements(target.args, ctx)
+        def write_send(target, value, ctx, parts = nil)
+          recv, args = parts || send_parts(target, ctx)
+          # `o&.x = v` writes nothing when `o` is nil.
+          return value if target.safe && recv.nil?
+
           call(recv, target.name, args + [value], nil, nil, private: private_call?(target))
           value
+        end
+
+        # The receiver and the arguments of a send target.
+        def send_parts(target, ctx) = [target.recv ? walk(target.recv, ctx) : ctx.self_, elements(target.args, ctx)]
+
+        # A require that the build found the file of: the program's own
+        # require, load or require_relative runs at run time with the
+        # file's path, as the compiled require runs the file's unit.
+        def require_node(node, ctx)
+          name = node.kind == :load ? :load : :require
+          call(ctx.self_, name, [node.path], nil, nil, private: true)
         end
 
         def yield_node(node, ctx)
@@ -976,7 +1006,25 @@ module Zr
           when :global then "global-variable"
           when :backref then walk(node.target, ctx).nil? ? nil : "global-variable"
           when :super then defined_super(ctx)
+          when :list then node.target.all? { |part| part_defined?(part, ctx) } ? "expression" : nil
           else refuse(node, "defined?(#{node.kind})")
+          end
+        end
+
+        # Whether a part of an Array or Hash literal is defined, as the
+        # compiler's part_defined tests it: a name by its form, any other
+        # expression is.
+        def part_defined?(part, ctx)
+          case part
+          when Hir::Send then !defined_method(Hir::Defined.new(:method, part, part.line), ctx).nil?
+          when Hir::Splat then part_defined?(part.value, ctx)
+          when Hir::ArrayLit then part.elements.all? { |element| part_defined?(element, ctx) }
+          when Hir::HashLit then part.pairs.compact.all? { |pair| part_defined?(pair.is_a?(Hir::HashSplat) ? pair.value : pair, ctx) }
+          when Hir::ConstRead then !defined_const(Hir::Defined.new(:const, part, part.line), ctx).nil?
+          when Hir::IvarRead then ctx.self_.instance_variable_defined?(part.name)
+          when Hir::GvarRead then truthy?(World.gvar_defined?(part.name))
+          when Hir::CvarRead then truthy?(World.cvar_defined?(ctx.cref, part.name))
+          else true
           end
         end
 
