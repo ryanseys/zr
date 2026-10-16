@@ -114,7 +114,8 @@ module Zr
       tables = LoadTables.new(computed: hir.evals || !Ext.bundles(target: target).empty?, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_roots(gem_set, target) : [],
-                              manifest: Manifest.bytes(gems, target), redirects: redirects, gems: options.switches.gems)
+                              manifest: Manifest.bytes(gems, target), redirects: redirects, gems: options.switches.gems,
+                              metas: hir.traced ? true : false)
       new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
     end
 

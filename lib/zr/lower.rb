@@ -33,7 +33,8 @@ module Zr
     # @rbs @warnings: Array[String]
     # @rbs @data: Array[Obj::Datum]
     # @rbs @metas: Hash[String, Obj::Datum]
-    # @rbs @nested_lines: Array[Array[Integer]]?
+    # @rbs @nested_scopes: Array[Lower::Nested]?
+    # @rbs @unit_end: Integer?
     # @rbs @functions: Array[IR::Function]
     # @rbs @prefix: String
     # @rbs @next: Integer
@@ -443,6 +444,7 @@ module Zr
       @unit_internal = u.internal
       @unit_hidden = u.hidden
       @ids = u.node_ids
+      @unit_end = u.source&.then { |source| source.count("\n") + (source.end_with?("\n") ? 0 : 1) } || 0
       open_unit(unit_entry(index), u.body)
     end
 
@@ -498,6 +500,10 @@ module Zr
       unit.locals = nil
       unit.source = nil
     end
+
+    # The last line of the current unit's file, or 0.
+    #: () -> Integer
+    def unit_end = @unit_end || 0
 
     # The prefix of each function name in the current unit.
     #: () -> String
@@ -682,20 +688,33 @@ module Zr
       @metas.fetch("zr_meta_#{fn}").relocs << Obj::Reloc.new(offset, :abs64, table)
     end
 
+    # What a traced build keeps of the scopes in a scope: the lines of
+    # their :line events, and their metas, in the order they finished.
+    # @rbs skip -- typed in sig/zr/lower/nested.rbs
+    Nested = Struct.new(:lines, :children)
+
     # The :line events of the scope `fn` as data that its FrameMeta
     # `lines` points at: the count of its own events and their lines, then
-    # the count and lines of the events of the scopes in it.
-    #: (String fn, Array[Integer] own, Array[Integer] nested) -> void
+    # the count and lines of the events of the scopes in it. Its
+    # `children` points at the count of the scopes written directly in it
+    # and their metas, as RubyVM::InstructionSequence#each_child gives
+    # them.
+    #: (String fn, Array[Integer] own, Nested nested) -> void
     def lines_table(fn, own, nested)
-      table = id_table("zr_lines_#{fn}", [own.size, *own, nested.size, *nested])
-      offset = layout("FrameMeta").fields.fetch("lines").first
-      @metas.fetch("zr_meta_#{fn}").relocs << Obj::Reloc.new(offset, :abs64, table)
+      meta = @metas.fetch("zr_meta_#{fn}")
+      fields = layout("FrameMeta").fields
+      lines = id_table("zr_lines_#{fn}", [own.size, *own, nested.lines.size, *nested.lines])
+      children = nested.children.each_with_index.map { |child, i| Obj::Reloc.new((i + 1) * 8, :abs64, child) }
+      @data << Obj::Datum.new("zr_children_#{fn}", :data_const, [nested.children.size, *[0] * nested.children.size].pack("q<*"),
+                              relocs: children, align: 8)
+      meta.relocs << Obj::Reloc.new(fields.fetch("lines").first, :abs64, lines)
+      meta.relocs << Obj::Reloc.new(fields.fetch("children").first, :abs64, "zr_children_#{fn}")
     end
 
-    # For each scope that is being lowered, innermost last, the lines of
-    # the :line events of the scopes in it that finished lowering.
-    #: () -> Array[Array[Integer]]
-    def nested_lines = @nested_lines ||= []
+    # For each scope that is being lowered, innermost last, what it keeps
+    # of the scopes in it that finished lowering (Nested).
+    #: () -> Array[Nested]
+    def nested_scopes = @nested_scopes ||= []
 
     # The scope's locals as data: the count, then one name id for each,
     # in slot order. An eval and a Binding read the scope's names here.

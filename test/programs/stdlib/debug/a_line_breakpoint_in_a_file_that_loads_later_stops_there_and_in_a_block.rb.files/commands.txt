@@ -1,0 +1,7 @@
+break stdlib/debug/later.rb:3
+break stdlib/debug/later.rb:8
+continue
+p y
+continue
+p z
+continue

@@ -4,6 +4,7 @@ module Zr
   class LoadTables < Data
     attr_reader computed: bool
     attr_reader gems: bool
+    attr_reader metas: bool
     attr_reader spots: Hash[String, String]
     attr_reader coverable: Hash[String, [Integer, Array[Integer]]]
     attr_reader branches: Hash[String, Array[Array[untyped]]]
@@ -17,6 +18,6 @@ module Zr
     def self.new: (?computed: bool, ?spots: Hash[String, String], ?coverable: Hash[String, [Integer, Array[Integer]]],
                    ?branches: Hash[String, Array[Array[untyped]]], ?defs: Hash[String, Array[Array[untyped]]],
                    ?sources: Hash[String, String], ?target: Target, ?gem_roots: Array[String], ?manifest: String?,
-                   ?redirects: Hash[String, String], ?gems: bool) -> instance
+                   ?redirects: Hash[String, String], ?gems: bool, ?metas: bool) -> instance
   end
 end

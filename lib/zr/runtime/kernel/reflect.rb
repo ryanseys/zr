@@ -1041,6 +1041,47 @@ module Zr::Kern
     out
   end
 
+  # The metas of the scopes written directly in the FrameMeta at
+  # `meta_word`, as Integer addresses, in the order they were compiled;
+  # nil when the build kept none.
+  #: (value) -> value
+  def zr_iseq_meta_children(meta_word)
+    meta = Machine.ptr(zr_fix2long(meta_word))
+    if meta == 0 || FrameMeta[meta].children == 0
+      return Machine.value(QNIL)
+    end
+    table = FrameMeta[meta].children
+    n = Machine.load64(table, 0)
+    out = zr_ary_new(n)
+    i = 0
+    while i < n
+      zr_ary_push(out, zr_fix(Machine.load64(table + ((i + 1) * 8), 0)))
+      i += 1
+    end
+    out
+  end
+
+  # The metas of the program's code that a traced build keeps: the main
+  # file's and each compiled-in file's toplevel. The main file's meta is
+  # the one of the main task's first frame.
+  #: () -> value
+  def zr_iseq_metas
+    out = zr_unit_metas()
+    rec = Task[Machine.static(:task, Task.size)].top
+    main = 0
+    while rec != 0
+      meta = Frame[rec].meta
+      if meta != 0 && FrameMeta[meta].kind == KIND_MAIN && FrameMeta[meta].lines != 0
+        main = meta
+      end
+      rec = Frame[rec].prev
+    end
+    if main != 0
+      zr_ary_unshift(out, zr_fix(Machine.word(main)))
+    end
+    out
+  end
+
   #: (value) -> value
   def zr_iseq_meta_word(body)
     zr_fix(Machine.word(zr_iseq_meta(body)))

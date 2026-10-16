@@ -10,7 +10,9 @@ module Zr
   # The tables that `zr_load_tables` points to. A require with a computed
   # name reads them at run time. They are, in order:
   # - the count of compiled-in files, and one record (path bytes, length,
-  #   toplevel) for each;
+  #   toplevel, the toplevel's meta) for each. The meta is there only in a
+  #   traced build (`metas`), which reads the code of a file as an
+  #   instruction sequence; else it is 0;
   # - as (bytes, length), one name per line: the library directories to
   #   search after $LOAD_PATH, the ruby features that this runtime has no
   #   file for, the features ruby loads before the program, and the
@@ -40,10 +42,14 @@ module Zr
   # A require of such a copy runs the gem's file instead (`zr_require_redirect`), so
   # one copy loads, as in ruby.
   # @rbs skip -- typed in sig/zr/load_tables.rbs
-  LoadTables = Data.define(:computed, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects, :gems)
+  LoadTables = Data.define(:computed, :spots, :coverable, :branches, :defs, :sources, :target, :gem_roots, :manifest, :redirects, :gems,
+                           :metas)
 
   # The fields are typed in sig/zr/load_tables.rbs, the methods here.
   class LoadTables
+    # The bytes of a file's record.
+    ROW = 32
+
     # @rbs computed: bool
     # @rbs spots: Hash[String, String]
     # @rbs coverable: Hash[String, [Integer, Array[Integer]]]
@@ -55,9 +61,10 @@ module Zr
     # @rbs manifest: String?
     # @rbs redirects: Hash[String, String]
     # @rbs gems: bool
+    # @rbs metas: bool
     # @rbs return: void
     def initialize(computed: false, spots: {}, coverable: {}, branches: {}, defs: {}, sources: {}, target: Target.default, gem_roots: [],
-                   manifest: nil, redirects: {}, gems: true)
+                   manifest: nil, redirects: {}, gems: true, metas: false)
       super
     end
 
@@ -76,8 +83,9 @@ module Zr
       row_relocs = [] #: Array[Obj::Reloc]
       units.each_with_index do |(path, entry), i|
         text.call("zr_unit_path_#{i}", path)
-        row_relocs << Obj::Reloc.new(i * 24, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * 24) + 16, :abs64, entry)
-        rows << [0, path.bytesize, 0].pack("Q<3")
+        row_relocs << Obj::Reloc.new(i * ROW, :abs64, "zr_unit_path_#{i}") << Obj::Reloc.new((i * ROW) + 16, :abs64, entry)
+        row_relocs << Obj::Reloc.new((i * ROW) + 24, :abs64, "zr_meta_#{entry}") if metas
+        rows << [0, path.bytesize, 0, 0].pack("Q<4")
       end
       out << Obj::Datum.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
       words = [units.size, 0]

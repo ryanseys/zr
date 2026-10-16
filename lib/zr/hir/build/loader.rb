@@ -198,6 +198,14 @@ module Zr
         TRACE_CALLS = %i[set_trace_func add_trace_func trace_object_allocations trace_object_allocations_start trace_points].freeze
         COVERAGE_CONSTANTS = %i[Coverage].freeze
 
+        # The debug gem: a debugger steps through the program, so the
+        # program fires its events, though the gem names TracePoint only in
+        # its own files.
+        DEBUGGER = %r{/gems/debug-[^/]+/lib/debug/session\.rb\z}
+
+        #: (String file) -> bool
+        def debugger?(file) = DEBUGGER.match?(file)
+
         #: (Prism::node tree) -> bool
         def names_tracing?(tree) = names_of?(tree, TRACE_CONSTANTS, TRACE_CALLS)
 
@@ -705,6 +713,9 @@ module Zr
         #: (String path) -> entry
         def add(path)
           return @index[path] if @index.key?(path)
+
+          # A file of eval support counts too, though this build reads none.
+          @traces ||= debugger?(path)
           # After a build finds that the program evals, it will run again
           # with eval support (`Build.program` uses it as `external`). So
           # from here, it refers to each eval support file as that build

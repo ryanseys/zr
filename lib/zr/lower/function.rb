@@ -259,7 +259,7 @@ module Zr
       #: () -> IR::Function
       def lower
         # @type ivar @body_label: String
-        @l.nested_lines << [] if lines_kept?
+        @l.nested_scopes << Lower::Nested.new([], []) if lines_kept?
         enter
         bind_params
         # A method that only recurses has no back edge. So it yields to
@@ -287,18 +287,22 @@ module Zr
       end
 
       # In a traced build, each scope's meta lists the lines of its :line
-      # events, and then those of the scopes in it, which a TracePoint's
-      # `target_line` and RubyVM::InstructionSequence#trace_points read. A
-      # scope in it finished lowering before this one does, so its lines
-      # are already among `nested`.
+      # events, then those of the scopes in it, and the scopes written
+      # directly in it. A TracePoint's `target_line` and
+      # RubyVM::InstructionSequence#trace_points and #each_child read them.
+      # A scope in it finished lowering before this one does, so it is
+      # already in `nested`.
       #: () -> bool
       def lines_kept? = traced? && !@twin_of
 
       #: () -> void
       def keep_lines
-        nested = @l.nested_lines.pop || []
+        nested = @l.nested_scopes.pop || Lower::Nested.new([], [])
         @l.lines_table(@name, @trace_lines, nested)
-        @l.nested_lines.last&.concat(@trace_lines, nested)
+        return unless (outer = @l.nested_scopes.last)
+
+        outer.lines.concat(@trace_lines, nested.lines)
+        outer.children << "zr_meta_#{@name}"
       end
 
       # The def-site entry that this scope uses when it makes a method, or
@@ -500,7 +504,9 @@ module Zr
         # @type ivar @line: Integer
         d = @def
         line = d ? d.line : 1
-        end_line = d&.end_line || 0
+        # A traced build gives a file's code its last line, where a debugger
+        # looks for the lines that the file can stop on.
+        end_line = d&.end_line || (@kind == :top && traced? ? @l.unit_end : 0)
         name = d.is_a?(Hir::ClassDef) || d.is_a?(Hir::ModuleDef) ? d.name : 0
         own = d if d.is_a?(Hir::Def) || d.is_a?(Hir::Block)
         params = own_params if %i[def block].include?(@kind)

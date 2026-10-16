@@ -463,7 +463,7 @@ module Zr
           units.sort_by!(&:first)
           rows = units.flat_map do |path, unit|
             bytes = path.b
-            [@host.bytes(bytes), bytes.bytesize, entry_in(hir.units, unit)]
+            [@host.bytes(bytes), bytes.bytesize, entry_in(hir.units, unit), 0]
           end
           at = Memory.zeroed([rows.size * 8, 8].max, 8)
           Memory.set_words(at, rows) unless rows.empty?

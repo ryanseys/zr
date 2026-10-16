@@ -833,16 +833,20 @@ module Zr::Kern
   # inline in the frame that contains it. A computed require comes here
   # through hidden frames, which `zr_frame_with_file` skips. In both cases
   # the result is the requiring frame, which ruby reports, with its self.
-  #: (value, word) -> value
-  def zr_trace_required(path, kind)
+  #
+  # `meta` is the file's toplevel meta when the build kept it (a traced
+  # build), so the event's instruction sequence is the file's code, whose
+  # children and lines a debugger walks.
+  #: (value, word, ptr) -> value
+  def zr_trace_required(path, kind, meta)
     if (Machine.load64(Machine.static(:trace_events, 8), 0) & TRACE_SCRIPT_COMPILED) == 0
       return Machine.value(QNIL)
     end
     rec = zr_frame_with_file(Task[zr_task()].top)
     mid = kind == 1 ? Machine.id(:require_relative) : (kind == 2 ? Machine.id(:load) : Machine.id(:require))
-    zr_trace_compiled(rec,
-                      zr_trace_compiled_value(Machine.value(QNIL), path, Machine.bytes("<top (required)>"), 16, zr_fix(0)),
-                      rec == 0 ? Machine.value(QNIL) : Frame[rec].self, mid, zr_global(G_KERNEL))
+    value = zr_trace_compiled_value(Machine.value(QNIL), path, Machine.bytes("<top (required)>"), 16, zr_fix(0))
+    zr_ary_push(value, zr_fix(Machine.word(meta)))
+    zr_trace_compiled(rec, value, rec == 0 ? Machine.value(QNIL) : Frame[rec].self, mid, zr_global(G_KERNEL))
   end
 
   #: (value) -> value
@@ -947,11 +951,12 @@ module Zr::Kern
     zr_param_rows(FrameMeta[meta].params, FrameMeta[meta].kind == KIND_BLOCK && lambda != QTRUE)
   end
 
-  # Whether the code of `meta_word` is `target` or is inside it, as a
-  # targeted TracePoint hooks an iseq and its children.
+  # Whether the code of `meta_word` is the target's, whose meta is at
+  # `goal_word`, or is inside it, as a targeted TracePoint hooks an iseq
+  # and its children.
   #: (value, value) -> value
-  def zr_trace_within(meta_word, target)
-    goal = zr_iseq_meta(target)
+  def zr_trace_within(meta_word, goal_word)
+    goal = Machine.ptr(zr_fix2long(goal_word))
     meta = Machine.ptr(zr_fix2long(meta_word))
     while meta != 0
       if meta == goal

@@ -228,7 +228,7 @@ class TracePoint
         return false unless row[5] == target.name
       end
 
-      Primitive.zr_trace_within(row[9], target) == true
+      Primitive.zr_trace_within(row[9], Primitive.zr_hidden_get(point, :__target_meta__)) == true
     end
 
     def current_row
@@ -598,8 +598,11 @@ class TracePoint
   def instruction_sequence
     raise RuntimeError, +"not supported by this event" unless event == :script_compiled
 
-    _script, path, label, line = row[1]
-    RubyVM::InstructionSequence.send(:made, nil, nil, label, label, path, line)
+    _script, path, label, line, meta = row[1]
+    iseq = RubyVM::InstructionSequence.send(:made, nil, nil, label, label, path, line)
+    # A traced build keeps the file's code, which a debugger walks.
+    Primitive.zr_hidden_set(iseq, :__meta__, meta) if meta&.nonzero?
+    iseq
   end
 
   private
@@ -635,10 +638,13 @@ class TracePoint
   end
 
   # rb_tracepoint_enable_for_target: the code the target runs, which
-  # must be Ruby's, and the line in it, which only a :line event has.
+  # must be Ruby's, and the line in it, which only a :line event has. A
+  # target is a method, a proc, or an instruction sequence itself, as a
+  # debugger gives.
   def aim(target, line)
     Primitive.attr! :hidden
-    raise ArgumentError, +"specified target is not supported" if RubyVM::InstructionSequence.of(target).nil?
+    iseq = target.is_a?(RubyVM::InstructionSequence) ? target : RubyVM::InstructionSequence.of(target)
+    raise ArgumentError, +"specified target is not supported" if iseq.nil?
     raise ArgumentError, +"can't nest-enable a targeting TracePoint" if enabled?
 
     events = Primitive.zr_hidden_get(self, :__events__)
@@ -646,12 +652,13 @@ class TracePoint
 
     # rb_iseq_add_local_tracepoint_recursively: a hook only for an event
     # that the target's code fires, and only on a line of it.
-    raise ArgumentError, +"can not enable any hooks" if (events & (TARGET_EVENTS.fetch(target.is_a?(Proc)) | C_EVENTS)).zero?
+    raise ArgumentError, +"can not enable any hooks" if (events & (TARGET_EVENTS.fetch(iseq.send(:code_type) == :block) | C_EVENTS)).zero?
 
     line = line.is_a?(Integer) ? line : Primitive.zr_index_operand_m(line) unless line.nil?
-    raise ArgumentError, +"can not enable any hooks" if line && (line.negative? || !target_line?(target, line))
+    raise ArgumentError, +"can not enable any hooks" if line && (line.negative? || !target_line?(iseq, line))
 
     Primitive.zr_hidden_set(self, :__target__, target)
+    Primitive.zr_hidden_set(self, :__target_meta__, Primitive.zr_hidden_get(iseq, :__meta__) || 0)
     Primitive.zr_hidden_set(self, :__target_line__, line)
   end
 
@@ -666,10 +673,10 @@ class TracePoint
   # Whether `line` of `target`, or of the code in it, fires a :line
   # event (rb_iseq_add_local_tracepoint_recursively). A build that kept
   # no lines knows only that a line before the target's first does not.
-  def target_line?(target, line)
+  def target_line?(iseq, line)
     Primitive.attr! :hidden
-    lines = RubyVM::InstructionSequence.of(target).send(:target_lines)
-    lines ? lines.include?(line) : line >= target.source_location[1]
+    lines = iseq.send(:target_lines)
+    lines ? lines.include?(line) : line >= iseq.first_lineno
   end
 
   def switch(on)
@@ -685,6 +692,7 @@ class TracePoint
       points.delete(self)
       Primitive.zr_hidden_set(self, :__thread__, nil)
       Primitive.zr_hidden_set(self, :__target__, nil)
+      Primitive.zr_hidden_set(self, :__target_meta__, nil)
       Primitive.zr_hidden_set(self, :__target_line__, nil)
     end
     TracePoint.send(:rearm)

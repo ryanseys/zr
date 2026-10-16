@@ -1021,7 +1021,7 @@ module Zr::Kern
     # `:script_compiled`. A file that only the runtime loads is hidden from
     # the program, so it fires nothing.
     if !hidden
-      r = zr_trace_required(path, kind)
+      r = zr_trace_required(path, kind, zr_unit_meta(fn))
       if r == QUNDEF
         zr_feature_loaded(path) if loading
         return r
@@ -1136,8 +1136,12 @@ module Zr::Kern
     Machine.ptr(Machine.load64(Machine.extern(:zr_load_tables), 0))
   end
 
+  # The bytes of a compiled-in file's record (LoadTables::ROW).
+  UNIT_ROW = 32
+
   # Returns the compiled toplevel of the program's file at `path`, as an
-  # Integer address, or nil. Each entry is (path bytes, length, toplevel),
+  # Integer address, or nil. Each entry is (path bytes, length, toplevel,
+  # meta),
   # so a require with a computed name can find a compiled-in file. The
   # rows are in byte order of their paths (LoadTables#data), so this is a
   # binary search: a program with eval support has thousands of them.
@@ -1148,7 +1152,7 @@ module Zr::Kern
     hi = LoadTable[t].units
     while lo < hi
       mid = (lo + hi) >> 1
-      row = LoadTable[t].rows + (mid * 24)
+      row = LoadTable[t].rows + (mid * UNIT_ROW)
       c = zr_bytes_cmp(Machine.ptr(Machine.load64(row, 0)), Machine.load64(row, 8), RString[path].ptr, RString[path].len)
       if c == 0
         return zr_fix(Machine.load64(row, 16))
@@ -1160,6 +1164,40 @@ module Zr::Kern
       end
     end
     Machine.value(QNIL)
+  end
+
+  # The meta of the compiled toplevel `fn`, which a traced build keeps, or
+  # 0.
+  #: (ptr) -> ptr
+  def zr_unit_meta(fn)
+    t = zr_load_table()
+    i = 0
+    while i < LoadTable[t].units
+      row = LoadTable[t].rows + (i * UNIT_ROW)
+      if Machine.ptr(Machine.load64(row, 16)) == fn
+        return Machine.ptr(Machine.load64(row, 24))
+      end
+      i += 1
+    end
+    0
+  end
+
+  # The metas of the compiled-in files that a traced build keeps, as
+  # Integer addresses (ObjectSpace.each_iseq): the program's code, whose
+  # metas keep their lines, not the code of eval support or the core.
+  #: () -> value
+  def zr_unit_metas
+    t = zr_load_table()
+    out = zr_ary_new(LoadTable[t].units)
+    i = 0
+    while i < LoadTable[t].units
+      meta = Machine.ptr(Machine.load64(LoadTable[t].rows + (i * UNIT_ROW), 24))
+      if meta != 0 && FrameMeta[meta].lines != 0
+        zr_ary_push(out, zr_fix(Machine.word(meta)))
+      end
+      i += 1
+    end
+    out
   end
 
   # Returns a text that a require with a computed name reads, one name on

@@ -80,6 +80,9 @@ module Zr::Kern
     # In a traced build, the lines of the scope's :line events, and then
     # those of the scopes in it (Lower#lines_table); 0 in another build.
     attr_accessor :lines #: ptr
+    # In a traced build, the count of the scopes written directly in this
+    # one, then their metas; 0 in another build.
+    attr_accessor :children #: ptr
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it

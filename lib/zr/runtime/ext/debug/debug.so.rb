@@ -57,13 +57,35 @@ class RubyVM
 end
 
 module ObjectSpace
-  # The instruction sequences alive in the process: the code this
-  # runtime compiled is not objects, so there are none to walk.
-  def self.each_iseq
+  # The instruction sequences of the program's code: in a traced build
+  # (a program that loads the debugger is one), the main file's and each
+  # loaded file's, and the code in them, as CRuby's iseq list has them.
+  # Another build keeps none.
+  def self.each_iseq(&block)
     return to_enum(:each_iseq) unless block_given?
 
-    0
+    iseqs.each(&block).size
   end
 
-  def self.count_iseq = 0
+  def self.count_iseq = iseqs.size
+
+  class << self
+    private
+
+    # A file's code is there once the file has loaded, as CRuby compiles
+    # it then.
+    def iseqs
+      found = []
+      loaded = $LOADED_FEATURES.to_set
+      pending = Primitive.zr_iseq_metas.filter_map do |meta|
+        iseq = RubyVM::InstructionSequence.send(:of_frame, meta)
+        iseq if iseq.send(:code_type) == :main || loaded.include?(iseq.absolute_path)
+      end
+      while (iseq = pending.shift)
+        found << iseq
+        iseq.each_child { |child| pending << child }
+      end
+      found
+    end
+  end
 end

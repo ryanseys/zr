@@ -424,8 +424,24 @@ class RubyVM
       misc[:parser] = :prism
       # ISEQ_MAJOR_VERSION and ISEQ_MINOR_VERSION are ruby's API version.
       major, minor = RUBY_VERSION.split(".").first(2).map(&:to_i)
-      ["YARVInstructionSequence/SimpleDataFormat", major, minor, 1, misc, label, path, absolute_path, first_lineno, code_type, locals, {}, [], []]
+      ["YARVInstructionSequence/SimpleDataFormat", major, minor, 1, misc, label, path, absolute_path, first_lineno, code_type, locals, {}, [],
+       events]
     end
+
+    # The body of `to_a`: zr has no instructions, so only the line of each
+    # event, then the event, as ruby's list has them before each
+    # instruction that fires one (a debugger reads the lines a body can
+    # stop on from them).
+    def events
+      Primitive.attr! :hidden
+      meta = Primitive.zr_hidden_get(self, :__meta__)
+      points = if syntax then trace_points
+               elsif meta && Primitive.zr_iseq_meta_lines(meta) then built_trace_points
+               else []
+               end
+      points.flat_map { |line, event| [line, :"RUBY_EVENT_#{event.upcase}"] }
+    end
+    private :events
 
     # :top for a compiled string, :method for a method's code and :block
     # for a block's.
@@ -434,7 +450,9 @@ class RubyVM
       case Primitive.zr_hidden_get(self, :__body__)
       when Method, UnboundMethod then :method
       when Proc then :block
-      else :top
+      else
+        meta = Primitive.zr_hidden_get(self, :__meta__)
+        meta ? Primitive.zr_iseq_meta_info(meta)[2] : :top
       end
     end
     private :code_type
@@ -456,7 +474,11 @@ class RubyVM
     # The code that this code contains directly: each method, block and
     # class body it writes, in the order the compiler finds them.
     def each_child(&block)
-      node = syntax or return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#each_child of a block or a method")
+      node = syntax
+      if node.nil?
+        built_children.each(&block)
+        return self
+      end
 
       # The rescue and ensure clauses come first, from the catch table.
       handlers, rest = [], []
@@ -493,6 +515,17 @@ class RubyVM
       opening, closing = SCOPE_EVENTS[type]
       points = own.map { |line| [line, :line] }
       opening ? [[first, opening], *points, [last, closing]] : points
+    end
+
+    # The code written directly in compiled code, from the scopes that a
+    # traced build keeps in its meta.
+    def built_children
+      Primitive.attr! :hidden
+      meta = Primitive.zr_hidden_get(self, :__meta__)
+      children = Primitive.zr_iseq_meta_children(meta) if meta
+      return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#each_child of a block or a method") if children.nil?
+
+      children.map { |child| self.class.send(:of_frame, child) }
     end
 
     # The lines where a TracePoint that targets this code can fire :line

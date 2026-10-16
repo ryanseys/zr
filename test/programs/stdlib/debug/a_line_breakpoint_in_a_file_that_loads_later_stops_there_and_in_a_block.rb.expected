@@ -1,0 +1,43 @@
+(rdbg:commands.txt) break stdlib/debug/later.rb:3
+#0  BP - Line (pending)  stdlib/debug/later.rb:3
+(rdbg:commands.txt) break stdlib/debug/later.rb:8
+#1  BP - Line (pending)  stdlib/debug/later.rb:8
+(rdbg:commands.txt) continue
+start
+[1, 10] in stdlib/debug/later.rb
+     1| def later(x)
+     2|   y = x * 2
+=>   3|   y + 1
+     4| end
+     5| 
+     6| def each_twice(list)
+     7|   list.map do |z|
+     8|     z * 2
+     9|   end
+    10| end
+=>#0	Object#later(x=3) at stdlib/debug/later.rb:3
+  #1	<main> at stdlib/debug/a_line_breakpoint_in_a_file_that_loads_later_stops_there_and_in_a_block.rb:7
+
+Stop by #0  BP - Line  stdlib/debug/later.rb:3 (line)
+(rdbg:commands.txt) p y
+=> 6
+(rdbg:commands.txt) continue
+7
+[3, 10] in stdlib/debug/later.rb
+     3|   y + 1
+     4| end
+     5| 
+     6| def each_twice(list)
+     7|   list.map do |z|
+=>   8|     z * 2
+     9|   end
+    10| end
+=>#0	block {|z=5|} in Object#each_twice at stdlib/debug/later.rb:8
+  #1	[C] Array#map at #<none>:0
+  # and 2 frames (use `bt' command for all frames)
+
+Stop by #1  BP - Line  stdlib/debug/later.rb:8 (line)
+(rdbg:commands.txt) p z
+=> 5
+(rdbg:commands.txt) continue
+[10]

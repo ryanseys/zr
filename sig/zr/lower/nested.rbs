@@ -1,0 +1,11 @@
+# The record of lib/zr/lower.rb that a traced build keeps of the scopes in a scope.
+module Zr
+  class Lower
+    class Nested < Struct[untyped]
+      attr_accessor lines: Array[Integer]
+      attr_accessor children: Array[String]
+
+      def self.new: (Array[Integer] lines, Array[String] children) -> instance
+    end
+  end
+end
