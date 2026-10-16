@@ -144,7 +144,8 @@ class IO
       # A newline, whatever $/ is (io-console 0.9).
       target.write("\n")
     end
-    answer&.chomp
+    # str_chomp: the default separator, whatever $/ is.
+    answer&.chomp("\n")
   end
 
   def console_mode

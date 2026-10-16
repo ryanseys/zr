@@ -2883,12 +2883,15 @@ class IO
   end
 
   # rb_io_check_char_readable: bytes that wait to be written go out
-  # before a read.
+  # before a read. The end of the stream is not kept from one read to
+  # the next, as CRuby keeps no such flag: each read asks the descriptor
+  # again, so a terminal read that timed out, or a ^D, reads on after.
   def check_readable
     Primitive.attr! :hidden
     check_open
     raise IOError, +"not opened for reading" unless @readable
 
+    @eof = false
     write_pending unless @wbuf.empty?
   end
 

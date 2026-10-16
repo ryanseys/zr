@@ -1,0 +1,15 @@
+getch min 0: nil
+getch min 0 time: nil
+getch min 1 time 1: "a"
+getch time 1: "b"
+getch min 2: "x"
+raw min/time: "y"
+getch waits: "z"
+getpass with $/ = '.': "asdf"
+prompt: "abxy> \r\n"
+cursor: [[11, 33], "\e[6n"]
+cursor short reply: [nil, "\e[6n"]
+^D then more: [nil, "more\n"]
+pipe read: ["a", :wait_readable]
+pipe after empty read: "b"
+pipe at the end: ["", "", nil, true, EOFError]
