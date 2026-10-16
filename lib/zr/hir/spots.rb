@@ -1,11 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "../parse"
-# ruby makes ErrorHighlight an autoload, and so does a zr program. The
-# compiler never requires the library itself: in a program, that would
-# end the program's autoload, and the first eval would load it while
-# the compiler starts. Where neither defines it (--disable-gems), no
-# error shows a highlight, and the spots are empty.
+# ruby makes ErrorHighlight an autoload, and so does a zr program
+# (`Spots.spotter?`).
 require "zlib"
 
 module Zr
@@ -41,13 +38,32 @@ module Zr
 
       module_function
 
+      # The library whose Spotter finds the spots, by a name that no build
+      # compiles in.
+      SPOTTER = "error_highlight"
+
+      # Whether the Spotter is there. A build on the host loads it whatever
+      # the host's gems (zr runs with --disable-gems), as the spots are the
+      # program's. The compiler in a program never loads it: that would end
+      # the program's autoload, and the first eval would load it while the
+      # compiler starts. Where the program has none (--disable-gems), no
+      # error shows a highlight, and the spots are empty.
+      #: () -> bool
+      def spotter?
+        return true if defined?(ErrorHighlight)
+        return false if Binary.running?
+
+        require SPOTTER
+        true
+      end
+
       # The spots of a file's tree, cached next to its parse when the
       # parse cache is on (`Cache::Parse.derived`). Finding them is a third of
       # a warm build's HIR time, and the spots are the same for the same
       # tree and the same Spotter.
       #: (Prism::ParseResult result, String source, Hash[Symbol, untyped] options) -> String
       def for(result, source, options)
-        return digest(result) unless defined?(ErrorHighlight)
+        return digest(result) unless spotter?
 
         cache = Zr.parse_cache or return digest(result) + of(result.value)
         spotter = ErrorHighlight.method(:spot).source_location&.first or return digest(result) + of(result.value)
@@ -244,7 +260,7 @@ module Zr
       # (Ruby::Prism), not of the prism gem that zr parses with.
       #: (untyped node, Symbol point, Symbol? name) -> Hash[Symbol, Integer]?
       def spot(node, point, name)
-        return nil unless defined?(ErrorHighlight)
+        return nil unless spotter?
 
         name ||= node.binary_operator if node.type == :call_operator_write_node
         ErrorHighlight.const_get(:Spotter).new(node, point_type: point, name: name).spot
