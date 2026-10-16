@@ -64,6 +64,12 @@ module Zr
           "objspace" => "ObjectSpace's dump of CRuby's heap"
         }.freeze
 
+        # The directories of test/ that test another copy of a library than
+        # the one ruby and zr load, and why.
+        OTHER_COPY = {
+          "json" => "the checkout's own json, which differs from the json gem that ruby and zr load"
+        }.freeze
+
         # The files of test/ruby that test CRuby's VM, and why.
         CRUBY_ONLY_FILES = {
           "ruby/test_iseq.rb" => "RubyVM::InstructionSequence's bytecode",
@@ -130,13 +136,14 @@ module Zr
         def dir!(root, word)
           word = word.delete_suffix("/")
           fail!("test/#{word} is CRuby's alone: #{CRUBY_ONLY[word]}") if CRUBY_ONLY.key?(word)
+          fail!("test/#{word} tests #{OTHER_COPY[word]}") if OTHER_COPY.key?(word)
           fail!("no directory test/#{word} in #{root}") unless File.directory?(File.join(root, "test", word))
           word
         end
 
         def all_dirs(root)
           dirs = Dir.children(File.join(root, "test")).sort.select do |d|
-            File.directory?(File.join(root, "test", d)) && !CRUBY_ONLY.key?(d) && !%w[lib fixtures].include?(d)
+            File.directory?(File.join(root, "test", d)) && !CRUBY_ONLY.key?(d) && !OTHER_COPY.key?(d) && !%w[lib fixtures].include?(d)
           end
           FIRST + (dirs - FIRST)
         end

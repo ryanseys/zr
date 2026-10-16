@@ -10,7 +10,6 @@ etc	1	16	16	0	0
 fiber	15	108	105	0	0
 fileutils	4	428	428	0	0
 io	6	67	66	0	0
-json	1	0	0	0	0
 monitor	1	14	14	0	0
 net	9	245	245	0	0
 open-uri	4	52	52	0	0
@@ -29,4 +28,4 @@ strscan	2	176	176	0	0
 uri	10	93	93	0	0
 yaml	2	11	11	0	0
 zlib	1	98	97	0	0
-total	544	18390	17724	0	0
+total	543	18390	17724	0	0
