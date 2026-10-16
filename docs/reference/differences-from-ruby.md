@@ -25,8 +25,8 @@ The program tests in `test/programs/` hold zr to each row.
 |---|---|---|
 | `RubyVM::InstructionSequence#disasm`, `#disassemble`, `#to_a` | `NotImplementedError`: zr compiles to machine code, and has no YARV bytecode to show | the bytecode |
 | `RubyVM::InstructionSequence#to_binary` of a compiled string | `NotImplementedError`, for the same reason | the bytecode as a String |
-| `#each_child` and `#trace_points` of the iseq of a running block or method (`RubyVM::InstructionSequence.of`) | `NotImplementedError`: the binary does not keep the source of a block. The children of a compiled string answer both. | the child iseqs, and the events |
-| `Coverage.setup(eval: true)`, then an eval while coverage runs | `NotImplementedError` at the eval: the string is not a file that the build read, so zr cannot measure its lines. A program that asks for eval coverage and never evals gets ruby's result. | the lines of the eval in the result |
+| `#each_child` and `#trace_points` of the iseq of a block or method (`RubyVM::InstructionSequence.of`) in a program that names none of `TracePoint`, `Coverage`, `trace_points` and the debug gem | `NotImplementedError`: only a traced build keeps each scope's events and the scopes in it. The children of a compiled string answer both. | the child iseqs, and the events |
+| `Coverage.setup(eval: true)`, then an eval while coverage runs, in a program that evaluates with the walker (wasm32-wasi, `ZR_EVAL=walk`) | no lines of the eval in the result: the walker counts no lines yet | the lines of the eval in the result |
 | The message of a `SyntaxError` from `RubyVM::AbstractSyntaxTree.parse` | prism's message: zr parses only with prism | the message of ruby's older parser, parse.y |
 | A method that the program reaches only through a name that it builds at run time, such as `send("ev" + "al", ...)` | `NotImplementedError` when the method needs a part of the runtime that the program did not ask for (the compiler, the normalization tables, pp.rb) | the method's result |
 
@@ -82,6 +82,7 @@ These give other output than ruby's:
 
 | What | zr | ruby |
 |---|---|---|
+| `--jit`, `--yjit`, `--zjit` and their options | a warning that Ruby was built without that JIT, as a ruby built without JIT support gives; `RubyVM::YJIT` and `RubyVM::ZJIT` are not defined (test/gaps/rubyvm_has_no_yjit_or_zjit_as_a_ruby_built_without_jit_support.rb) | the JIT, when ruby is built with it |
 | `-v`, `--version` | zr's version, `zr 0.1.0 (for ruby <version>)` | `RUBY_DESCRIPTION` |
 | `-h`, `--help` | zr's usage: short for `-h`, long for `--help` | ruby's list of switches: short for `-h`, long for `--help` |
 | `--disable=did_you_mean`, `error_highlight`, `syntax_suggest` | no effect: every program loads them as it starts | the program starts without them |
