@@ -337,6 +337,14 @@ module Zr
       #: (Prism::Location location) -> Array[Integer]
       def span(location) = [location.start_line, location.start_column, location.end_line, location.end_column]
 
+      # Where CRuby records a safe call's branches: the call without its
+      # block literal, to the closing parenthesis or the method's name.
+      #: (Prism::CallNode node) -> Array[Integer]
+      def safe_call_span(node)
+        last = node.closing_loc || node.arguments&.location || node.message_loc
+        span(last ? node.location.join(last) : node.location)
+      end
+
       # The branches of an `if`, a ternary or an `elsif`. A then with no
       # statements is at the empty width after the predicate. A missing
       # else covers the whole `if`. CRuby records the same.

@@ -1431,7 +1431,10 @@ module Zr
         # Both branches of a safe call have the call's location, as CRuby
         # records. `branch_covers` returns nils if nothing is measured, and
         # then the Send has no covers.
-        covers = safe ? branch_covers(:"&.", span(node.location), [[:then, span(node.location)], [:else, span(node.location)]]) : nil
+        if safe
+          at = safe_call_span(node)
+          covers = branch_covers(:"&.", at, [[:then, at], [:else, at]])
+        end
         Send.new(recv, node.name, args, message_line(node), node.variable_call?, opt,
                  blk, kwargs, safe, node.attribute_write?, nil, covers&.first && covers)
       end
