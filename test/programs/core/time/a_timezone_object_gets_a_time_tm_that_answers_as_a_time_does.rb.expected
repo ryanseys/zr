@@ -1,0 +1,22 @@
+name: ["Time::tm", Object, false, []]
+fields: [4, 3600, Zone]
+seen: [Time::tm]
+strftime_Z: "ZZ"
+seen_after_abbr: [:abbr, Time::tm]
+from_time: [Time::tm, 1000000000, 0, true, "UTC", "2001-09-09 01:46:40 UTC", "2001-09-09 01:46:40 UTC"]
+new: [2001, 2, 2, 3, 3, 13, 5, 6, [6, 5, 13, 3, 2, 2001, 6, 34, false, "JST"], false, false, 32400, 32400, false]
+new_month_name: "2001-02-03 09:00:00 +0900"
+new_seven: "2001-02-03 13:05:06 +0900"
+new_zero_args: ArgumentError: wrong number of arguments (given 0, expected 1..7)
+new_eight_args: ArgumentError: wrong number of arguments (given 8, expected 1..7)
+plus: [Time::tm, "2001-02-03 09:01:00 +0900"]
+minus: [Time::tm, "2001-02-03 08:58:59 +0900", (1/2)]
+minus_time: TypeError: can't convert Time into an exact number
+minus_tm: TypeError: can't convert Time::tm into an exact number
+utc: [Time, false, "2001-02-03 09:00:00 +0900"]
+to_time: Time
+conversions: [981158400, 981158400.0, (981158400/1), 981158400, 0, 0, 0, 0]
+allocate: TypeError: uninitialized Time::tm
+from_time_bad: TypeError: wrong argument type Integer (expected time)
+not_a_time: false
+methods: [:+, :-, :day, :dst?, :gmt?, :gmt_offset, :gmtoff, :hour, :inspect, :isdst, :mday, :min, :mon, :month, :nsec, :sec, :subsec, :to_a, :to_f, :to_i, :to_r, :to_s, :to_time, :tv_nsec, :tv_sec, :tv_usec, :usec, :utc, :utc?, :utc_offset, :year, :zone]

@@ -168,12 +168,12 @@ class Time
       zone.respond_to?(:local_to_utc) || zone.respond_to?(:utc_to_local)
     end
 
-    # The Time that a timezone object's methods take: UTC, with no
-    # subsecond, at `secs`.
+    # The Time::tm that a timezone object's methods take: UTC, with no
+    # subsecond, at `secs` (tm_from_time).
     def zone_tm(secs)
       t = Time.allocate
       t.send(:set, secs * NS, :utc)
-      t
+      TM.send(:kept, t)
     end
 
     # zone_localtime: the offset in seconds that `zone` gives at the instant
@@ -911,7 +911,7 @@ class Time
     Primitive.attr! :hidden
     shown = zone
     return shown.to_s if shown.nil? || shown.is_a?(String)
-    return shown.abbr(self).to_s if shown.respond_to?(:abbr)
+    return shown.abbr(TM.from_time(self)).to_s if shown.respond_to?(:abbr)
 
     shown.respond_to?(:name) ? shown.name.to_s : shown.to_s
   end
@@ -1345,4 +1345,68 @@ class Time
     (digits.getbyte(0) >> 4) * 100 + (digits.getbyte(0) & 0xf) * 10 + (digits.getbyte(1).to_i >> 4)
   end
   private_class_method :sub_nanoseconds
+end
+
+class Time
+  # Time::tm (Init_tm): the time that the methods of a timezone object
+  # get, an Object, not a Time, that answers as a Time does through the
+  # one it keeps. `from_time` keeps a UTC time with no subsecond, as
+  # tm_from_time does. `new` keeps the instant of Time.utc of its fields
+  # but answers in local time, as tm_initialize's time does; +, - and
+  # #utc keep that zone.
+  tm = Class.new do
+    class << self
+      def from_time(time)
+        raise TypeError, "wrong argument type #{Primitive.zr_real_class(time)} (expected time)" unless time.is_a?(Time)
+
+        kept(Time.at(time.to_i).utc)
+      end
+
+      private
+
+      def kept(time)
+        Primitive.attr! :hidden
+        tm = allocate
+        Primitive.zr_hidden_set(tm, :__time__, time)
+        tm
+      end
+    end
+
+    def initialize(*fields)
+      raise ArgumentError, "wrong number of arguments (given #{fields.size}, expected 1..7)" unless fields.size.between?(1, 7)
+
+      Primitive.zr_hidden_set(self, :__time__, Time.utc(*fields.first(6)).localtime)
+    end
+
+    %i[sec min hour mday day mon month year isdst dst? zone gmtoff gmt_offset utc_offset utc? gmt? to_s inspect to_a
+       tv_sec tv_usec usec tv_nsec nsec subsec to_i to_f to_r].each do |name|
+      define_method(name) { time.public_send(name) }
+    end
+
+    # time_add0 takes only a number, never a Time.
+    def +(offset) = self.class.send(:kept, time + exact(offset))
+    def -(offset) = self.class.send(:kept, time - exact(offset))
+
+    # tm_to_time: a Time with this one's instant and zone.
+    def utc = time.dup
+    alias_method :to_time, :utc
+
+    private
+
+    def time
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__time__) || raise(TypeError, "uninitialized #{self.class}")
+    end
+
+    def exact(offset)
+      Primitive.attr! :hidden
+      raise TypeError, "can't convert #{Primitive.zr_real_class(offset)} into an exact number" if offset.is_a?(Time) || offset.is_a?(TM)
+
+      offset
+    end
+  end
+  # The class takes its name from the first constant: Time::tm.
+  Primitive.zr_const_set_m(self, :tm, tm)
+  TM = tm
+  private_constant :TM
 end
