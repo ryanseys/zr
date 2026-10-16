@@ -1295,7 +1295,9 @@ module Marshal
       value
     end
 
-    # The words, turned and read as hexadecimal digits.
+    # The words, read as hexadecimal digits, low nibble first, then
+    # turned: the digits are ASCII, so the turn is byte for byte however
+    # the source is encoded.
     def bignum
       sign = byte.chr
       size = length * 2
@@ -1303,7 +1305,7 @@ module Marshal
       words = @bytes.byteslice(@pos, size)
       short! if words.nil? || words.bytesize < size
       @pos += size
-      value = words.reverse.unpack1("H*").to_i(16)
+      value = words.unpack1("h*").reverse.to_i(16)
       sign == "-" ? -value : value
     end
 
