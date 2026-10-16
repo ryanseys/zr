@@ -1,0 +1,6 @@
+[:@dictionaries]
+true
+[39649590, 42074437]
+"foofoofoo"
+#<Zlib::NeedDict: need dictionary>
+#<Zlib::NeedDict: need dictionary>

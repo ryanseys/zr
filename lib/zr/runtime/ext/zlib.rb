@@ -969,7 +969,10 @@ module Zlib
       self
     end
 
+    # rb_inflate_add_dictionary: the ivar that rb_inflate_s_allocate set,
+    # which the program sees.
     def add_dictionary(dictionary)
+      Primitive.attr! :ivars
       @dictionaries[Zlib.adler32(dictionary)] = dictionary
       self
     end
