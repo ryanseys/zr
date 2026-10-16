@@ -2,9 +2,10 @@
 
 require_relative "../parse"
 # ruby makes ErrorHighlight an autoload, and so does a zr program. The
-# compiler that a program carries (eval support) must not load the
-# library itself: that would end the program's autoload.
-require "error_highlight" unless defined?(ErrorHighlight)
+# compiler never requires the library itself: in a program, that would
+# end the program's autoload, and the first eval would load it while
+# the compiler starts. Where neither defines it (--disable-gems), no
+# error shows a highlight, and the spots are empty.
 require "zlib"
 
 module Zr
@@ -46,6 +47,8 @@ module Zr
       # tree and the same Spotter.
       #: (Prism::ParseResult result, String source, Hash[Symbol, untyped] options) -> String
       def for(result, source, options)
+        return digest(result) unless defined?(ErrorHighlight)
+
         cache = Zr.parse_cache or return digest(result) + of(result.value)
         spotter = ErrorHighlight.method(:spot).source_location&.first or return digest(result) + of(result.value)
         digest(result) + cache.derived("spots", source, options, [__FILE__, spotter]) { of(result.value) }
@@ -240,6 +243,8 @@ module Zr
       # (Ruby::Prism), not of the prism gem that zr parses with.
       #: (untyped node, Symbol point, Symbol? name) -> Hash[Symbol, Integer]?
       def spot(node, point, name)
+        return nil unless defined?(ErrorHighlight)
+
         name ||= node.binary_operator if node.type == :call_operator_write_node
         ErrorHighlight.const_get(:Spotter).new(node, point_type: point, name: name).spot
       rescue StandardError, NotImplementedError
