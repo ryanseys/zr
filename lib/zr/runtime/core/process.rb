@@ -18,6 +18,30 @@ module Process
   end
   private_class_method :checked
 
+  # What a fiber scheduler's process_wait gives for a blocking wait, as it
+  # gives it (rb_process_status_wait), or UNSCHEDULED when no scheduler
+  # takes the wait: a WNOHANG wait never enters one.
+  UNSCHEDULED = Object.new.freeze
+  private_constant :UNSCHEDULED
+
+  def self.scheduled_wait(pid, flags)
+    Primitive.attr! :hidden
+    return UNSCHEDULED if flags.anybits?(WNOHANG)
+
+    scheduler = Fiber.current_scheduler
+    scheduler.respond_to?(:process_wait) ? scheduler.process_wait(pid, flags) : UNSCHEDULED
+  end
+  private_class_method :scheduled_wait
+
+  # rb_check_typeddata: a scheduler's answer must be a Process::Status.
+  def self.status_of(answer)
+    Primitive.attr! :hidden
+    return answer if answer.is_a?(Status)
+
+    raise TypeError, "wrong argument type #{conversion_name(answer)} (expected Process::Status)"
+  end
+  private_class_method :status_of
+
   # waitpid(2) as rb_waitpid runs it: `[pid, status word]`, `[0, 0]` for
   # a WNOHANG child still running, or the negated errno. A thread among
   # others parks on the pipe SIGCHLD writes to between WNOHANG tries,
@@ -30,11 +54,14 @@ module Process
     Primitive.attr! :hidden
     pid = Integer.send(:int_operand, pid)
     flags = Integer.send(:int_operand, flags)
-    # A non-blocking fiber's scheduler may wait for the child itself.
-    scheduler = Fiber.current_scheduler
-    if scheduler.respond_to?(:process_wait)
-      status = scheduler.process_wait(pid, flags)
-      return status && [status.pid, status.to_i]
+    # A non-blocking fiber's scheduler may wait for the child itself; a
+    # nil answer is no child, as rb_waitpid reads it.
+    answer = scheduled_wait(pid, flags)
+    unless answer.equal?(UNSCHEDULED)
+      return nil if answer.nil?
+
+      status = status_of(answer)
+      return [status.pid, status.to_i]
     end
     return Primitive.zr_proc_wait(pid, flags) if flags.anybits?(WNOHANG) || !Primitive.zr_threaded || Thread.send(:alone?)
 
@@ -105,7 +132,12 @@ module Process
     # Process.wait's status and not its pid, leaving `$?` alone: nil
     # while a WNOHANG child still runs, and pid -1 when there is none to
     # wait for.
+    # A fiber scheduler's process_wait answers in its place, as it gives
+    # its answer.
     def self.wait(pid = -1, flags = 0)
+      answer = Process.send(:scheduled_wait, Integer.send(:int_operand, pid), Integer.send(:int_operand, flags))
+      return answer unless answer.equal?(UNSCHEDULED)
+
       result = Process.send(:reap, pid, flags)
       return reaped(-1, 0) if result.is_a?(Integer)
 
@@ -423,6 +455,7 @@ module Process
 
   def wait(pid = -1, flags = 0)
     result = Process.send(:reap, pid, flags)
+    return nil if result.nil?
     raise SystemCallError.new(nil, -result) if result.is_a?(Integer)
 
     child, raw = result
@@ -447,6 +480,7 @@ module Process
     children = []
     loop do
       result = Process.send(:reap, -1, 0)
+      break if result.nil?
       if result.is_a?(Integer)
         break if -result == Errno::ECHILD::Errno
 
@@ -1329,7 +1363,7 @@ module Kernel
     end
     # rb_process_status_wait: a child that the system already reaped
     # (SIGCHLD ignored) gives a status of pid -1 and exit 0, not an error.
-    Process.send(:status!, Process::Status.wait(pid))
+    Process.send(:status!, Process.send(:status_of, Process::Status.wait(pid)))
     return true if $?.success?
     raise RuntimeError, "Command failed with #{$?.send(:message)}: #{Process.send(:failed_name, args)}" if exception
 
