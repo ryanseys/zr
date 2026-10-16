@@ -70,7 +70,7 @@ module Zr
       # The zr that a test starts as its ruby: the copy, pinned to the host
       # ruby and the checkout's cache, so it starts with any environment,
       # as a ruby binary does.
-      def zr_ruby = Zr::CLI::Runner.pinned_launcher(zr, ruby: Dev.ruby, flags: ["--cache-dir=#{Dev.path("tmp/cache")}"])
+      def zr_ruby = Zr::CLI::Runner.pinned_launcher(zr, ruby: Dev.ruby, flags: ["--cache-dir=#{Dev.path("tmp/cache")}"], name: "ruby")
 
       # The environment of the copy. It is not a checkout, so its cache
       # is named: the checkout's, whose entries are keyed by digests. It

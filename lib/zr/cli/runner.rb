@@ -43,9 +43,10 @@ module Zr
         Dir.fchdir(lost.fileno) if lost
         env = GcTuning.program_env
         launcher = $PROGRAM_NAME
-        return env unless File.basename(launcher) == "zr" && File.file?(launcher)
+        name = File.basename(launcher)
+        return env unless %w[zr ruby].include?(name) && File.file?(launcher)
 
-        env.merge("ZR_RUBY" => pinned_launcher(EXE), "ZR_HOME" => HOME)
+        env.merge("ZR_RUBY" => pinned_launcher(EXE, name: name), "ZR_HOME" => HOME)
       end
 
       # A ruby may start in a directory that is gone; its program finds
@@ -76,15 +77,16 @@ module Zr
       # the PATH to find a ruby; its twin in the cache names `ruby` itself.
       # The twin is the zr that ran the program, so it keeps zr's own cache
       # directory, as a flag: the program's environment stays the
-      # program's. One twin serves each ruby, launcher and cache. Without a
-      # cache to write to, the launcher stands as it is.
-      #: (String exe, ?ruby: String, ?flags: Array[String]) -> String
-      def pinned_launcher(exe, ruby: RbConfig.ruby, flags: pinned_flags)
+      # program's. One twin serves each ruby, launcher, cache and name.
+      # Without a cache to write to, the launcher stands as it is. Named
+      # `ruby`, zr acts as ruby where its own CLI differs (`--version`).
+      #: (String exe, ?ruby: String, ?flags: Array[String], ?name: String) -> String
+      def pinned_launcher(exe, ruby: RbConfig.ruby, flags: pinned_flags, name: "zr")
         exe = File.realpath(exe)
         cache = Paths.cache or return exe
-        key = Digest::SHA256.hexdigest([ruby, exe, *flags].join("\0"))[0, 16] #: String
+        key = Digest::SHA256.hexdigest([ruby, exe, *flags, name].join("\0"))[0, 16] #: String
         dir = File.join(cache, "launcher", key)
-        twin = File.join(dir, "zr")
+        twin = File.join(dir, name)
         return twin if File.file?(twin)
 
         Paths.mkdir_p(dir)

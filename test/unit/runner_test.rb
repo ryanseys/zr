@@ -63,6 +63,26 @@ class RunnerTest < Minitest::Test
     end
   end
 
+  def test_a_twin_named_ruby_is_a_twin_of_its_own
+    in_cache do |dir|
+      exe = launcher(dir, "puts File.basename($PROGRAM_NAME)")
+      ruby = Runner.pinned_launcher(exe, flags: [], name: "ruby")
+      assert_equal "ruby", File.basename(ruby)
+      refute_equal Runner.pinned_launcher(exe, flags: []), ruby
+      assert_equal "ruby\n", IO.popen([ruby], &:read), "the program reads the name it ran under"
+    end
+  end
+
+  def test_a_program_that_zr_runs_as_ruby_gets_a_ruby_twin
+    in_cache do
+      was = $PROGRAM_NAME
+      $PROGRAM_NAME = Runner.pinned_launcher(Runner::EXE, name: "ruby")
+      assert_equal "ruby", File.basename(Runner.program_env["ZR_RUBY"])
+    ensure
+      $PROGRAM_NAME = was
+    end
+  end
+
   def test_with_no_cache_to_write_to_the_launcher_stands
     Zr::Paths.tmpdir("zr-runner-") do |dir|
       blocked = File.join(dir, "file")

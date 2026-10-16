@@ -62,9 +62,10 @@ module Zr
             warn "zr: #{why}"
             exit REFUSED
           end
-          # -v gives ruby's description, as ruby does; --version gives zr's.
-          puts Zr.ruby_description(Target.default.ruby_platform) if options.version
-          puts Version::LINE if options.version_only
+          # -v gives ruby's description, as ruby does; --version gives zr's,
+          # except when zr runs as `ruby`.
+          puts Zr.ruby_description(Target.default.ruby_platform) if options.version || (options.version_only && as_ruby?)
+          puts Version::LINE if options.version_only && !as_ruby?
           puts RUBY_COPYRIGHT if options.copyright
           # The program replaces this process, which writes its lines first.
           $stdout.flush
@@ -221,10 +222,15 @@ module Zr
         # Prints the line of an error before the program runs, as ruby
         # does, and exits 1: after the program's name, or the script's.
         #: (String line, ?prefix: String) -> bot
-        def fatal(line, prefix: "zr")
+        def fatal(line, prefix: as_ruby? ? $PROGRAM_NAME : "zr")
           warn "#{prefix}: #{line}"
           exit 1
         end
+
+        # Whether zr runs under the name `ruby`, as a launcher that stands
+        # for ruby names it (Runner.pinned_launcher).
+        #: () -> bool
+        def as_ruby? = File.basename($PROGRAM_NAME) == "ruby"
 
         # How the build treats a require that no file answers: it refuses it
         # (true), leaves it to raise LoadError when it runs

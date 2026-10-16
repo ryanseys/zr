@@ -1,4 +1,3 @@
-TestRubyOptions#test_version	cli: zr --version prints zr's version
 TestRubyOptions#test_script_from_stdin	cli: after a script read from a terminal, the program's reads of the terminal differ
 TestRubyOptions#test_notfound	cli: zr's LoadError names zr's program, not RbConfig's ruby
 TestRubyOptions#test_parser_flag	cli: zr has no --parser=parse.y or --dump=parsetree
