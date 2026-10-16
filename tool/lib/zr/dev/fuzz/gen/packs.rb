@@ -15,7 +15,7 @@ module Zr
         module Packs
           # The packs whose statements come from `<pack>_statement`.
           STATEMENT_PACKS = %w[methods blocks objects exceptions pattern meta eval fiber_thread collections strings numeric stdlib
-                               gc_pressure explore].freeze
+                               io process encoding trace gc_pressure explore].freeze
 
           def setup_packs
             %w[methods objects exceptions meta stdlib].each { |pack| send(:"setup_#{pack}") if swarm.on?(pack) }
@@ -497,6 +497,79 @@ module Zr
               end
             end
             "__show(\"#{label}\", #{expr})"
+          end
+
+          # ---- IO: pipes, buffers, and the errors of closed ends ----
+
+          def io_statement(d)
+            r = fresh("r")
+            w = "#{r}_w"
+            weighted([
+              [2, -> { "#{r}, #{w} = IO.pipe\n#{w}.write(#{value(:str, d)}, \"\n\", #{value(:int, d)})\n#{w}.close\n__show(\"#{label}\", [#{r}.read, #{r}.eof?, #{r}.read, #{r}.read(1)])" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n#{w} << \"a\nbb\n\nccc\"\n#{w}.close\n__show(\"#{label}\", #{r}.#{pick(%w[readlines each_line(chomp:\ true).to_a gets("") each_char.first(4) readpartial(3) read(2) getc each_byte.to_a.size readlines(2)])})" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n#{r}.close\nbegin\n  #{w}.write(\"x\")\nrescue => e\n  __show(\"#{label}\", [e.class, e.message])\nend" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n#{w}.close\n__show(\"#{label}\", [#{r}.read_nonblock(4, exception: false), (#{r}.sysread(1) rescue $!.class)])" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n__show(\"#{label}\", [#{r}.read_nonblock(4, exception: false), (#{r}.read_nonblock(4) rescue $!.class.ancestors.include?(IO::WaitReadable))])" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n#{w}.puts(#{value(:ints, d)})\n#{w}.print :x, 1.5\n#{w}.printf(\"%05.1f\", 2.25)\n#{w}.close\n__show(\"#{label}\", #{r}.read)" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n#{w}.close\n__show(\"#{label}\", [#{w}.closed?, (#{w}.puts(1) rescue [$!.class, $!.message]), #{r}.closed?, #{r}.close_read, #{r}.closed?])" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n#{w}.write(\"é\".encode(\"UTF-8\") * 3)\n#{w}.close\n#{r}.set_encoding(#{pick(%w["BINARY" "UTF-8" "UTF-8:UTF-16LE" "ISO-8859-1"])})\n__show(\"#{label}\", #{r}.read.then { |s| [s.encoding, s.bytesize] })" }],
+              [1, -> { "#{r}, #{w} = IO.pipe\n__show(\"#{label}\", [IO.select([#{r}], [#{w}], nil, 0)&.map(&:size), #{r}.fileno.is_a?(Integer), #{w}.sync, #{r}.binmode?, #{r}.inspect.start_with?(\"#<IO:fd \")])" }],
+              [1, -> { "require \"stringio\"\n#{r}, #{w} = IO.pipe\nIO.copy_stream(StringIO.new(#{value(:str, d)} * 3), #{w})\n#{w}.close\n__show(\"#{label}\", #{r}.read.size)" }],
+              [1, -> { "__show(\"#{label}\", [$stdout.fileno, $stderr.fileno, $stdin.fileno, STDOUT.tty?.class, $stdout.sync.class])" }]
+            ])
+          end
+
+          # ---- processes and signals ----
+
+          def process_statement(d)
+            q = fresh("q")
+            weighted([
+              [2, -> { "#{q} = fork { exit!(#{int(0..9)}) }\n__show(\"#{label}\", Process.wait2(#{q}).last.then { |s| [s.exited?, s.exitstatus, s.success?, s.signaled?] })" }],
+              [1, -> { "#{q} = fork { Process.kill(:TERM, Process.pid); sleep 1 }\n__show(\"#{label}\", Process.wait2(#{q}).last.then { |s| [s.signaled?, s.termsig, s.exitstatus, s.to_s.sub(/\\d+/, \"N\")] })" }],
+              [1, -> { "#{q} = []\nold = Signal.trap(:USR1) { #{q} << :usr1 }\nProcess.kill(:USR1, Process.pid)\nsleep 0.05 until #{q}.any?\nSignal.trap(:USR1, old)\n__show(\"#{label}\", [#{q}, old.class])" }],
+              [1, -> { "__show(\"#{label}\", [Signal.list[\"INT\"], Signal.signame(#{int(1..15)}), Signal.list.key?(\"KILL\"), (Signal.trap(:KILL) {} rescue $!.class)])" }],
+              [1, -> { "#{q}, w = IO.pipe\npid = fork { #{q}.close; w.write(#{value(:str, d)}.upcase); w.close }\nw.close\nProcess.wait(pid)\n__show(\"#{label}\", [#{q}.read, $?.exitstatus])" }],
+              [1, -> { "__show(\"#{label}\", [(Process.kill(:USR2, 0x3fffffff) rescue $!.class), (Process.wait rescue $!.class), (Process.kill(:NOPE, 0) rescue $!.class)])" }],
+              [1, -> { "#{q} = fork { at_exit { puts :child_at_exit }; puts :child; exit #{int(0..3)} }\nProcess.wait(#{q})\n__show(\"#{label}\", $?.exitstatus)" }],
+              [1, -> { "__show(\"#{label}\", [Process.clock_gettime(Process::CLOCK_MONOTONIC).class, Process.clock_gettime(Process::CLOCK_REALTIME, :millisecond).class, Process.respond_to?(:fork), Process.ppid.positive?])" }],
+              [1, -> { "#{q} = Process.detach(fork { exit 3 })\n__show(\"#{label}\", [#{q}.value.exitstatus, #{q}.class, #{q}.alive?])" }]
+            ])
+          end
+
+          # ---- encodings and converters ----
+
+          ENCODINGS = %w["UTF-8" "UTF-16LE" "UTF-16BE" "UTF-32LE" "ISO-8859-1" "Windows-1252" "Shift_JIS" "EUC-JP" "GB18030" "Big5" "KOI8-R" "US-ASCII" "BINARY"].freeze
+
+          def encoding_statement(d)
+            s = fresh("s")
+            weighted([
+              [2, -> { "#{s} = #{value(:str, d)}\n__show(\"#{label}\", (#{s}.encode(#{pick(ENCODINGS)}, invalid: :replace, undef: :replace).then { |t| [t.encoding, t.bytes.first(8), t.encode(\"UTF-8\", invalid: :replace, undef: :replace)] }))" }],
+              [1, -> { "__show(\"#{label}\", (\"caf\u00e9 \u65e5\u672c\".encode(#{pick(ENCODINGS)}) rescue [$!.class, $!.message]))" }],
+              [1, -> { "#{s} = Encoding::Converter.new(#{pick(ENCODINGS)}, #{pick(ENCODINGS)}, #{pick(["undef: :replace", "invalid: :replace", "universal_newline: true", "crlf_newline: true", "xml: :text", ""])}) rescue $!\n__show(\"#{label}\", #{s}.is_a?(Exception) ? [#{s}.class, #{s}.message] : [#{s}.source_encoding, #{s}.destination_encoding, (#{s}.convert(\"a\nb\") rescue $!.class)])" }],
+              [1, -> { "#{s} = Encoding::Converter.new(\"UTF-8\", \"ISO-8859-1\")\nsrc = +\"a\u3042b\"\ndst = +\"\"\n__show(\"#{label}\", [#{s}.primitive_convert(src, dst), dst, src, #{s}.primitive_errinfo.first(3), #{s}.last_error&.class])" }],
+              [1, -> { "__show(\"#{label}\", #{value(:str, d)}.force_encoding(#{pick(ENCODINGS)}).then { |t| [t.valid_encoding?, t.length, t.chars.size, t.scrub(\"?\").bytesize, t.inspect.size] })" }],
+              [1, -> { "__show(\"#{label}\", (Encoding::Converter.search_convpath(#{pick(ENCODINGS)}, #{pick(ENCODINGS)}) rescue [$!.class, $!.message]))" }],
+              [1, -> { "__show(\"#{label}\", [Encoding.compatible?(\"a\", \"\u00e9\".encode(\"ISO-8859-1\")), Encoding.compatible?(\"\u00e9\", \"\u00e9\".encode(\"ISO-8859-1\")), (\"\u00e9\" + \"\u00e9\".encode(\"ISO-8859-1\") rescue $!.class)])" }],
+              [1, -> { "__show(\"#{label}\", \"\u00e9\u0301 \uFB01 \u2163\".#{pick(%w[unicode_normalize(:nfd).bytesize unicode_normalize(:nfkc) unicode_normalized? upcase downcase(:fold) grapheme_clusters.size each_codepoint.to_a])})" }],
+              [1, -> { "__show(\"#{label}\", [Encoding.find(#{pick(ENCODINGS)}).names.first(3), Encoding.find(#{pick(ENCODINGS)}).dummy?, Encoding.find(#{pick(ENCODINGS)}).ascii_compatible?])" }]
+            ])
+          end
+
+          # ---- TracePoint ----
+
+          TRACE_EVENTS = %w[:call :return :c_call :c_return :line :raise :b_call :b_return :class :end :rescue].freeze
+
+          def trace_statement(d)
+            t = fresh("t")
+            events = Array.new(rng.rand(1..3)) { pick(TRACE_EVENTS) }.uniq.join(", ")
+            body = pick(["#{value(:ints, d)}.map { _1 * 2 }.sum", "Integer(#{value(:str, d)}) rescue 0", "Class.new { def m = 1 }.new.m",
+                         "[3, 1, 2].sort_by { -_1 }.first", "#{value(:int, d)}.times.select(&:even?)", "\"ab\".each_char.to_a"])
+            weighted([
+              [3, -> { "#{t} = []\nTracePoint.new(#{events}) { |tp| #{t} << [tp.event, tp.method_id, tp.lineno - __LINE__] }.enable do\n  #{body}\nend\n__show(\"#{label}\", #{t})" }],
+              [1, -> { "#{t} = TracePoint.new(:call) {}\n__show(\"#{label}\", [#{t}.enabled?, #{t}.enable, #{t}.enabled?, #{t}.disable, #{t}.enabled?, (#{t}.lineno rescue $!.class)])" }],
+              [1, -> { "#{t} = []\ntp = TracePoint.trace(:raise) { |x| #{t} << [x.raised_exception.class, x.lineno - __LINE__] }\nbegin\n  #{body}\n  raise IOError\nrescue IOError\nend\ntp.disable\n__show(\"#{label}\", #{t})" }],
+              [1, -> { "#{t} = []\nTracePoint.new(:c_call) { |tp| #{t} << tp.method_id }.enable(target_thread: Thread.current) do\n  #{body}\nend\n__show(\"#{label}\", #{t}.tally.sort)" }]
+            ])
           end
 
           # ---- the collector: objects that must survive collections ----

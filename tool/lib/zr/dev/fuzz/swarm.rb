@@ -16,7 +16,7 @@ module Zr
           "values" => 1.0, "control" => 1.0, "methods" => 0.6, "blocks" => 0.6, "objects" => 0.5,
           "exceptions" => 0.5, "pattern" => 0.4, "meta" => 0.35, "eval" => 0.15, "fiber_thread" => 0.3,
           "collections" => 0.6, "strings" => 0.6, "numeric" => 0.5, "stdlib" => 0.25, "gc_pressure" => 0.15,
-          "explore" => 0.3, "ending" => 0.3
+          "explore" => 0.3, "io" => 0.25, "process" => 0.15, "encoding" => 0.3, "trace" => 0.15, "ending" => 0.3
         }.freeze
 
         attr_reader :packs, :weights
