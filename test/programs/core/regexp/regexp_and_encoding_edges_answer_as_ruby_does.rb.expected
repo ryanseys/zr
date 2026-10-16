@@ -1,0 +1,45 @@
+fold: [0, 0, 0, nil, 0, 0]
+props: [["Ω", "漢", "ア"], 0, 0, nil, 0, 0, RegexpError, nil]
+grapheme: ["é", "x", "🇯🇵"]
+recursion: 0
+cond: ["ab", "c"]
+keep: "fooX"
+absent: "/* a */"
+backref_level: nil
+G: ["a", "a"]
+lookbehind_var: 3
+named_assign: "12"
+match_methods: [[2, 4], 2, "ll", 2, 1, ["ll"], 2, 3]
+regex_options: [7, #<Encoding:US-ASCII>, #<Encoding:UTF-8>, "\\xff", "/a/ix", "/a/mi", false]
+regex_enc_err: !Encoding::CompatibilityError: incompatible encoding regexp match (UTF-8 regexp with ISO-8859-1 string)
+regex_bad: !RegexpError: premature end of char-class: /[a-/
+regex_warn_dup: /[aa]/
+sjis_regex: nil
+euc_regex: 3
+utf16_regex: 1
+gsub_hash_enc: "ae"
+enc_list: [103, 175, 71, "UTF-8", "UTF-8", [[#<Encoding:ISO-8859-1>, #<Encoding:UTF-8>], [#<Encoding:UTF-8>, #<Encoding:EUC-JP>]]]
+enc_dummy: [true, true, true, true]
+iso2022: [27, 36, 66, 70, 124, 75, 92, 56, 108, 27, 40, 66]
+iso2022_back: "日本"
+cp50221: [27, 40, 73, 49, 27, 40, 66]
+gb18030: [[162, 227], [144, 48, 129, 48]]
+big5: [164, 164, 164, 229]
+big5hkscs: [163, 225]
+euctw: !Encoding::ConverterNotFoundError: code converter not found (UTF-8 to EUC-TW)
+utf7: Encoding::ConverterNotFoundError
+cesu: [237, 160, 128, 237, 176, 128]
+emacs_mule: Encoding::ConverterNotFoundError
+windows: "U+20AC from UTF-8 to IBM437"
+mac: [142]
+ibm: [81]
+converter: [[164, 162], "", #<Encoding:UTF-8>, "?"]
+converter_err: [[:undefined_conversion, "UTF-8", "ISO-8859-1", "\xE3\x81\x82", ""], Encoding::UndefinedConversionError, "a"]
+converter_newline: !Encoding::ConverterNotFoundError: code converter not found (UTF-8 to UTF-8 with universal_newline)
+str_encode_utf32: 8
+mbc_case: ["ÀÉÎ", "ǈ", "Ss", "ʼN", "İ", "ı", "σασ", "ΑΙ", "Ffi"]
+casefold: ["ss", "ǆ", true]
+str_sjis_ops: [2, "示表", 1, "表而", 8]
+inspect_enc: ["\"\\x{A4A2}\"", "\"\\xA4\"", "\"a\"", "\"\\xE3\\x81\\x82\""]
+sym_enc: [#<Encoding:UTF-8>, :"a", #<Encoding:US-ASCII>, ":\"\\xC3\\xA9\""]
+unicode_ver: ["17.0.0", "17.0"]

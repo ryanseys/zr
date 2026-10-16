@@ -1,0 +1,40 @@
+refined_send: [:ra, :ra, :ra, true, :ra]
+refined_symproc: [:ra]
+import_methods: :h
+refinements_api: [[String], [RefA, RefB], Refinement]
+refined_to_s_interp: "abc"
+refine_module: :rme
+warning_override: [["hello", nil], ["dep2", :deprecated]]
+warning_categories: [:deprecated, :experimental, :performance, :strict_unused_block]
+warning_bad_cat: !ArgumentError: unknown category: nope
+pm_nomatch_msg: !NoMatchingPatternError: [1, 2]: [1, 2] length mismatch (given 2, expected 1)
+pm_key_err: !NoMatchingPatternKeyError: {a: 1}: key not found: :b
+pm_deconstruct_keys_nil: [:x]
+pm_pin_ivar: :ok
+pm_in_bool: [true, false]
+pm_guard_unless: 3
+pm_array_splat_pin: :pinned
+pm_find_err: !NoMatchingPatternError: [1, 2]: [1, 2] does not match to find pattern
+pm_hash_rest: {b: 2}
+pm_const_paren: NoMatchingPatternError
+pp_nested: "{list:\n  [1,\n   2,\n   3,\n   4,\n   5,\n   6,\n   7,\n   8,\n   9,\n   10,\n   11,\n   12,\n   13,\n   14,\n   15,\n   16,\n   17,\n   18,\n   19,\n   20,\n   21,\n   22,\n   23,\n   24,\n   25,\n   26,\n   27,\n   28,\n   29,\n   30],\n nested:\n  {deep:\n    {deeper:\n      [\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n       \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]}},\n str: \"x\"}\n"
+pp_struct_data: "[#<data D2\n  alpha=\n   \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n  beta=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]>,\n #<struct S2\n  gamma=\n   \"gggggggggggggggggggggggggggggg\",\n  delta={k: 1}>]\n"
+pp_set: "Set[1,\n 2,\n 3,\n 4,\n 5,\n 6,\n 7,\n 8,\n 9,\n 10,\n 11,\n 12,\n 13,\n 14,\n 15,\n 16,\n 17,\n 18,\n 19,\n 20,\n 21,\n 22,\n 23,\n 24,\n 25,\n 26,\n 27,\n 28,\n 29,\n 30,\n 31,\n 32,\n 33,\n 34,\n 35,\n 36,\n 37,\n 38,\n 39,\n 40]\n"
+pp_cycle: "{a: [1, [...]]}\n"
+inspect_ivars_order: "#<Object:X @z=1, @a=[#<Object:X ...>]>"
+inspect_custom_ivars: "#<#<Class:X>:X @b=2>"
+full_message_variants: [4, true, "\e[1mm (\e[1;4mRuntimeError\e[m\e[1m)\e[m"]
+exception_to_s_nil: ["RuntimeError", "5", "IOError"]
+exception_exception: [true, "b", false]
+exception_backtrace_set: [["a:1"], nil]
+exception_bt_locations_set: Array
+frozen_error_receiver: ["x", "can't modify frozen String: \"x\""]
+nomethod_args: [[1, 2], false, :foo]
+name_error_local: [:undefined_local_zz, Array, "undefined local variable or method 'undefined_local_zz' for main"]
+key_error_custom: [{}, :k]
+stop_iteration_result: [1]
+systemexit: [3, false, "exit"]
+uncaught_throw: [:zz, 1, "uncaught throw :zz"]
+errno_new: ["No such file or directory", "No such file or directory - x", 2, Errno::ENOENT, "Unknown error: 99999"]
+signal_exception: [2, "SIGTERM", 2]
+nested_cause_cycle: ["circular causes", "b"]

@@ -1,0 +1,1 @@
+core/thread/a_thread_runs_while_zlib_deflates_and_ractors_sum_side_by_side.rb:9: warning: Ractor API is experimental and may change in future versions of Ruby.

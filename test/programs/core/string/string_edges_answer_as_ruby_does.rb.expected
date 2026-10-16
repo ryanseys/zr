@@ -1,0 +1,27 @@
+enc: [6, [104, 0, 233, 0], [104, 233, 108, 108, 111], true, "?", 3]
+enc2: [[147, 250, 150, 123], "\"\\x{C6FC}\\x{CBDC}\"", [101, 204, 129], "ǆ", "SS", [105, 204, 135], "FF", "dŽ"]
+enc_err: !Encoding::InvalidByteSequenceError: "\xFF" on UTF-8
+enc_undef: !Encoding::UndefinedConversionError: U+00E9 from UTF-8 to US-ASCII
+enc_opts: ["*\r\n", "&lt;&#xE9;&gt;", "e"]
+compat: "aé"
+compat2: !Encoding::CompatibilityError: incompatible character encodings: BINARY (ASCII-8BIT) and UTF-8
+inspect: ["\"\\e\\u0000​😀\"", "\"\\xFF\\xFE\"", "\"a\\\"b\\\\\"", "\"1\\\#{x}\"", "\"\\u00E9\"", "\"\\x80\""]
+dump: ["\"\\u00E9\\n\\x01\"", "é"]
+fmt_str: ["***abc***", "xaba", "日本        |", "abd", "ba", "aaa00", "b0", "AAa", ""]
+split: [["a", "b", "", "c"], ["a", "b", "", "c", "", ""], ["a", "b"], ["a", "b", "c"], ["a", "1", "b", "2"], ["a", "bXc"], "abc"]
+scan: [["1", "22", "333"], [["a", "b"], ["a", "b"]], "hell4 w7rld", "aBc", "aaaa", "<x>-<y>"]
+regex: ["on ", "!", {"y" => "2024", "m" => "05"}, [8, 10], ["2024", "05"], {y: "2024"}, "2024"]
+regex2: [0, 0, "漢字", nil, 4, 0, 0, "xab"]
+regex_timeout: nil
+regex_timeout2: false
+regex_linear: [true, false]
+regex_union: [/a\.b|(?i-mx:c)/, "a\\*b\\?", "a", "(?-mix:a1b)", "end pattern with unmatched parenthesis: /(/"]
+sym: [-1, 3, ":\"foo bar\"", :x, NoMethodError, ":é", ":\"9a\"", ":[]=", ":@@a", ":$1", ":a=", ":!"]
+str_misc: !ArgumentError: too few arguments
+str_unicode: [["é", "a"], ["🇯🇵", "🇺🇸"], "ä", "A", false]
+heredoc: "a\n  b\nc\n"
+str_cmp: [0, true, -1, false, true, true]
+sprintf_enc: "\u00E9"
+str_mult: ["ababab", "negative argument", 97, "\xE9", "é", "256 out of char range", "😀"]
+crypt: "abzlUXK5ed5rs"
+sum: [294, 38, "$1DZtVSdc0si6"]

@@ -1,0 +1,35 @@
+spawn: true
+backtick: ["a\n", 0, "", 3, "#<Process::Status: pid N exit 3>"]
+system: [true, false, nil, false, 2]
+popen: "x"
+popen_env: "q\n"
+fork: ["child", 4]
+fork_status: [true, 15, "pid N SIGTERM (signal 15)"]
+wait2: 7
+waitpid_nohang: nil
+detach: Process::Status
+redirect: "err\n"
+redirect2: "o\ne\n"
+chdir: "/\n"
+umask_spawn: "0077\n"
+rlimit: true
+clock: [Float, Integer, Float, Float]
+times: Process::Tms
+trap: [:got]
+trap_ign: :alive
+trap_list: {"INT" => 2, "KILL" => 9, "EXIT" => 0}
+signame: "TERM"
+trap_exit: :ok
+kill_bad: !ArgumentError: unsupported signal 'SIGNOPE'
+interrupt: ""
+open3: ["out\n", "err\n", 1]
+open3_pipe: "ABC\n"
+exec_fail: 9
+pgid: true
+euid: [true, Process::Status]
+daemon: true
+warmup: true
+argv0: ["core/process/process_edges_answer_as_ruby_does.rb", "core/process/process_edges_answer_as_ruby_does.rb", "core/process/process_edges_answer_as_ruby_does.rb", String]
+setproctitle: "zz"
+last_status: 5
+pty: nil

@@ -1,0 +1,3 @@
+lang/globals/switch_globals_and_a_verbose_redefinition_warning_read_as_ruby_s.rb:5: warning: method redefined; discarding old x
+lang/globals/switch_globals_and_a_verbose_redefinition_warning_read_as_ruby_s.rb:4: warning: previous definition of x was here
+done

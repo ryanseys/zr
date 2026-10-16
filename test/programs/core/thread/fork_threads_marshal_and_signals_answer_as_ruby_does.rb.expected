@@ -1,0 +1,30 @@
+fork_threads: "1"
+fork_mutex: 1
+epipe: !Errno::EPIPE: Broken pipe
+sigpipe_default: :set
+thread_stop_wakeup: :woke
+thread_run: 5
+thread_raise_sleep: "wake"
+thread_kill_ensure: [:ensured]
+thread_exit_value: nil
+thread_join_timeout: nil
+thread_variable_fiber: [1, nil]
+fiber_local_vs_thread: nil
+mutex_owned: [true, false]
+mutex_sleep: NilClass
+queue_num_waiting: 1
+cv_broadcast: 3
+report_on_exception_default: true
+thread_group_add: [1, true]
+pending_interrupt: false
+sleep_forever_interrupt: Thread
+marshal_compat: "[1, \"s\", :sym, 2.5, 1208925819614629174706176, {k: [nil]}, 1970-01-01 00:00:00.123456789 UTC, 1..2, [1], \"\\u00E9\"]\n"
+marshal_user_class: [28, [:@a, :@b]]
+marshal_extended: true
+marshal_ivar_string: 1
+marshal_depth: !ArgumentError: exceed depth limit
+marshal_io: !TypeError: can't dump IO
+marshal_singleton: !TypeError: singleton can't be dumped
+marshal_load_proc: [2, "a"]
+marshal_float_special: ["NaN", "-0.0", "Infinity"]
+objectspace_weakmap_gc: true

@@ -1,0 +1,40 @@
+pack_R: [1, 172, 2, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 1]
+pack_r: [127, 212, 125, 63, 192, 127]
+unpack_R: [300, 1]
+unpack_caret: [300, 2, 1, 3]
+pack_xbang: [1, 0, 0, 0, 0, 0, 0, 2]
+pack_atbang: [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]
+unpack_xbang: [1, 2]
+env_fetch_values: ["x"]
+env_fetch_values_miss: !KeyError: key not found: "NOPE_ZZ"
+env_fetch_values_blk: ["x", "nope_zz"]
+bit_count: [0, 1, 8, 100]
+bit_count_neg: !ArgumentError: bit_count is undefined for negative integers
+integer_at: [34, 34, 12]
+integer_at_base: 255
+descendants: ["B", "C2"]
+descendants_m: ["C2"]
+method_defined3: [false, true]
+id2ref: !NoMethodError: undefined method '_id2ref' for module ObjectSpace
+range_clamp: 3..5
+range_clamp2: 5..10
+regexp_frozen: [true, true, false]
+to_set_args: !ArgumentError: wrong number of arguments (given 1, expected 0)
+bit_get: 1
+bit_ops: [true, 4, "\xF0", "\f", "\xF0"]
+bit_set: "\u0001"
+tr_hash: "heLL0"
+tr_hash_multi: !ArgumentError: keys must be of size 1
+sym_to_s_frozen: true
+tvar_nil: []
+source_range: #<Ruby::SourceRange lang/misc/each_ruby_4_1_feature_answers_as_ruby_does.rb:(38,19)-(38,41)>
+autoload_relative: true
+ruby_prism: "constant"
+ruby_prism_parse: Ruby::Prism::ProgramNode
+proc_refined: 6
+struct_index: !IndexError: offset 1099511627776 too large for struct(size:1)
+urandom_big: !RangeError: bignum too big to convert into 'long'
+ractor_value_twice: [1, Ractor::Error]
+make_shareable_io: !Ractor::Error: can not make shareable object for #<IO:<STDOUT>>
+shareable_io: false
+r2k_hash: false

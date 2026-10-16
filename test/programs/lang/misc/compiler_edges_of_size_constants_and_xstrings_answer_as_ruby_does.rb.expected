@@ -1,0 +1,25 @@
+using_in_block: :refined
+using_send: !RuntimeError: Module#using is not called on self
+many_args: [1, 12]
+many_args_direct: 11
+many_kwargs: [1, 10]
+many_block_args: [1, 10]
+huge_method: 4501500
+deep_nesting: [1]
+big_literal: 200010000
+big_frame: 2001
+case_big: 998
+string_huge_interp: 2000
+const_dyn: 1
+const_dyn2: 3
+const_dyn3: 3
+singleton_def_expr: 9
+class_expr_super: 1
+class_reopen_mismatch: !TypeError: superclass mismatch for class String2
+xstring_interp: "hi\n"
+xstring_redef: "cmd:ls"
+redo: [1, 1, 2]
+retry_loop: 3
+break_from_proc: !LocalJumpError: break from proc-closure
+next_in_method_block: [0, 2]
+return_from_lambda: 5

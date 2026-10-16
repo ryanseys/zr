@@ -1,0 +1,43 @@
+core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:1:in 'Object#a1': boom (ArgumentError)
+
+def a1 = raise(ArgumentError, "boom")
+               ^^^^^^^^^^^^^^^^^^^^^
+	from core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:2:in 'Object#a2'
+	from core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:4:in '<main>'
+["Object#a1", "a1", 1]
+["Object#a2", "a2", 2]
+["<main>", "<main>", 4]
+boom (ArgumentError)
+
+def a1 = raise(ArgumentError, "boom")
+               ^^^^^^^^^^^^^^^^^^^^^
+core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:11:in 'Array#fetch': index 5 outside of array bounds: -1...1 (IndexError)
+	from core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:11:in '<main>'
+["key not found: :b", :b, {a: 1}]
+#<ArgumentError: invalid value for Integer(): "zz">
+core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:26:in 'Foo#bar': undefined local variable or method 'baz' for an instance of Foo (NameError)
+
+  def bar = baz
+            ^^^
+Did you mean?  bar
+	from core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:29:in '<main>'
+:baz
+Foo
+core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:35:in '<main>': undefined method 'upcase' for nil (NoMethodError)
+
+  nil.upcase
+     ^^^^^^^
+nil
+nil
+#<RuntimeError: inner>
+core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:45:in '<main>': outer (TypeError)
+
+    raise TypeError, "outer"
+          ^^^^^^^^^^^^^^^^^^
+core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:43:in '<main>': inner (RuntimeError)
+"Exception"
+"StandardError"
+32
+core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:60:in '<main>': custom
+["core/exception/full_messages_backtrace_locations_and_detailed_messages_read_as_ruby_s.rb:71:in '<main>'"]
+bye

@@ -1,0 +1,50 @@
+alias_fallback: :ok
+alias_prepend: 1
+mod_clone_const: 1
+pattern_deconstruct: [1, 3]
+pattern_find: [42, [5]]
+pattern_nomatch: !NoMatchingPatternError: 1: String === 1 does not return true
+pattern_keyerr: !NoMatchingPatternKeyError: {a: 1}: key not found: :b
+pin_expr: :y
+it_param: [2, 4]
+numbered: [3]
+anon_fwd: [[1], {z: 2}, 3]
+dots: [[1, 2], {k: 3}]
+endless: 25
+hash_shorthand: {x: 1, y: 2}
+rescue_mod: "b"
+retry: 3
+throw: 5
+throw_uncaught: !UncaughtThrowError: uncaught throw :nope
+flipflop: !ArgumentError: bad value for range
+begin_end_while: 1
+defined: [nil, nil, nil, "constant", nil, "method", "method", "global-variable"]
+block_local: 1
+masgn: [1, 2, [3, 4], 5]
+op_asgn: {a: 1, c: 3}
+safe_nav: nil
+str_frozen_lit: false
+chilled: "abcd"
+symbol_proc_refine: ["A", "B"]
+obj_inspect: "#<Object:X @a=1>"
+data: [#<data D a=1, b=2>, #<data D a=1, b=3>, {a: 1, b: 2}, "missing keyword: :b"]
+struct_kw: [#<struct S a=1, b=2>, #<struct S a=1, b=2>, [1, nil]]
+set_inspect: ["Set[1, 2]", "Set[]", "Set[Set[1]]"]
+hash_inspect: "{1 => 2, a: 3, \"b\" => :c, nil => nil, \"a b\": 1, a?: 1, B: 2, \"+\": 3}"
+refinement: "A!"
+ractor_basic: 6
+ractor_port: 42
+warning_cat: false
+const_missing: !NameError: uninitialized constant NoSuchThingZZ
+method_missing_msg: !NoMethodError: undefined method 'nosuch' for an instance of Integer
+nomethod_private: !NoMethodError: private method 'puts' called for an instance of Object
+frozen_err: !FrozenError: can't modify frozen String: "a"
+frozen_err_hash: !FrozenError: can't modify frozen Hash: {}
+zerodiv: !ZeroDivisionError: divided by 0
+argerr: !ArgumentError: wrong number of arguments (given 0, expected 1+; required keyword: d)
+argerr_kw: !ArgumentError: missing keyword: :a
+params: [[:req, :a], [:opt, :b], [:rest, :c], [:req, :d], [:keyreq, :e], [:key, :f], [:keyrest, :g], [:block, :h]]
+arity: [2, -2, -1, [[:opt]]]
+curry: 6
+compose: 8
+obj_respond_missing: [true, 1, NoMethodError]

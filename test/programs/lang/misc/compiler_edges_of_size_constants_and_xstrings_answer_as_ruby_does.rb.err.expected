@@ -1,0 +1,3 @@
+lang/misc/compiler_edges_of_size_constants_and_xstrings_answer_as_ruby_does.rb:40: warning: regex literal in condition
+lang/misc/compiler_edges_of_size_constants_and_xstrings_answer_as_ruby_does.rb:24: warning: already initialized constant ConstDyn3::A
+lang/misc/compiler_edges_of_size_constants_and_xstrings_answer_as_ruby_does.rb:24: warning: previous definition of A was here

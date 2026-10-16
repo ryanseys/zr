@@ -1,0 +1,50 @@
+read: ["l1\nl2\r\nl3", ["l1", "l2", "l3"], 3, 5]
+binread: "1\nl"
+open_modes: "abc"
+append: "abcx"
+excl: !Errno::EEXIST: File exists @ rb_sysopen - b.txt
+textmode: "l1\nl2\nl3"
+crlf: "l1\nl2\nl3"
+enc_read: "é"
+bom: "hi"
+gets_sep: ["l1\nl2\r\nl3", nil]
+gets_limit: ["l", "1\nl", 1, false]
+each_line: ["l1", "l2", "l3"]
+readpartial: ["abc", IO::EAGAINWaitReadable, :wait_readable]
+sysrw: ["sy", 0, "sys"]
+pread: ["l2", 0]
+stat: [9, true, false, 3, 1, "file", nil]
+lstat_link: [true, "a.txt", true, true]
+path_ops: ["a/b/c", "y", ".gz", "/a", ["/a", "b"], true, "/r/x", true, true]
+dir: [[".h", "x.rb"], ["d/x.rb"], ["d/.", "d/.h", "d/x.rb"], ["core/io/io_edges_answer_as_ruby_does.rb", "d/x.rb"], [".", "..", ".h", "x.rb"], true, false]
+glob_brace: ["a.txt", "c.txt"]
+glob_base: ["x.rb"]
+dir_each: [[".h", "x.rb"], Integer, "d"]
+flock: [0, 0]
+truncate: "12"
+utime: 100
+chmod: 384
+enoent: !Errno::ENOENT: No such file or directory @ rb_sysopen - nope.txt
+eacces: !Errno::EACCES: Permission denied @ rb_sysopen - ro.txt
+eisdir: !Errno::EISDIR: Is a directory @ io_fread - d
+closed: !IOError: closed stream
+select: 1
+io_wait: !NoMethodError: undefined method 'ready?' for an instance of IO
+io_timeout: !IO::TimeoutError: Blocking operation timed out!
+copy_stream: 9
+stringio: ["ab\n", "cd", 5, nil, "ab\ncx"]
+fdopen: 1
+sync: [false, true, false, false]
+003.1
+a1
+pq
+A
+printf: nil
+ios: [0, "#<IO:<STDOUT>>", #<Encoding:UTF-8>, nil, #<Encoding:UTF-8>, nil]
+tempfile: "q"
+tmpdir: true
+fileutils: ["e2/f", "e2/f/g", "e2/f/g/h"]
+pathname: [#<Pathname:/a/c.rb>, ".rb", #<Pathname:/a/b/..>, #<Pathname:c.rb>, #<Pathname:x/y>, true]
+argf: ARGF.class
+io_buffer: [3735928559, 8, [222, 173, 190, 239], "abc"]
+io_buffer_rw: "hey"
