@@ -1,3 +1,4 @@
 rdoc: !ArgumentError: wrong number of arguments (given 1, expected 0)
 rbs: "Array[Integer | String]"
 typeprof: Module
+repl_type_completor: Module
