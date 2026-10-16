@@ -101,7 +101,9 @@ module Zr
       #: (String path) -> Integer
       def compile_file(path)
         Eval.plainly do
-          source = File.read(path)
+          # Source bytes, as the parser reads a file: never transcoded to
+          # the default internal encoding.
+          source = File.binread(path).force_encoding(Encoding::UTF_8)
           coverage = covering
           reuse = coverage.nil? && !@runtime.traced_for_now?
           key = [-path, -source] #: [String, String]

@@ -57,7 +57,8 @@ module Zr
         @interpreter_file ||= me
         path = @files.pop or return
 
-        Interpreter.evaluate(File.read(path), scope, file: path, line: 1, self_: scope.receiver, cref: cref, block: nil)
+        source = File.binread(path).force_encoding(Encoding::UTF_8)
+        Interpreter.evaluate(source, scope, file: path, line: 1, self_: scope.receiver, cref: cref, block: nil)
       end
 
       # `RubyVM::InstructionSequence.compile` and the loader of a Ractor
