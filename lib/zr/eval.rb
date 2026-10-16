@@ -37,10 +37,27 @@ module Zr
     end
 
     # The back end starts at the first eval, not when the program boots:
-    # most programs that can eval never do.
-    #: () -> Eval
+    # most programs that can eval never do. A Ractor other than main
+    # reaches it through OnMain, because the back end's objects are the
+    # main Ractor's.
+    #: () -> (Eval | OnMain)
     def self.current
+      return OnMain.new unless Ractor.main?
+
       @current || LOADING.synchronize { @current ||= plainly { (@backend || raise(NotImplementedError, "no back end of eval")).start } }
+    end
+
+    # Each call of the back end from a Ractor other than main runs on the
+    # main Ractor, as rb_ractor_require runs a require there; its result
+    # or its error comes back to the Ractor that called.
+    class OnMain < BasicObject
+      #: (Symbol name, *untyped args, **untyped options) ?{ (*untyped) -> untyped } -> untyped
+      def method_missing(name, *args, **options, &block)
+        ::Ractor.__send__(:on_main) { Eval.current.__send__(name, *args, **options, &block) }
+      end
+
+      #: (Symbol name, ?bool include_all) -> bool
+      def respond_to_missing?(name, include_all = false) = true
     end
 
     # The back end's instance (`current`).

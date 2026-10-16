@@ -1,0 +1,8 @@
+"Hello, world!"
+"\n1\n\n2\n\n"
+"12"
+["2", "2"]
+[21, 40, 3, :hi, false]
+[SyntaxError, "(eval at lang/eval/a_ractor_other_than_main_evals_strings_as_the_main_one_does.rb:21):1: syntax errors found"]
+[ArgumentError, "from the string", "block in <main>"]
+42
