@@ -797,6 +797,13 @@ class File < IO
   end
   private_class_method :stat_fields
 
+  def self.stat_either(file)
+    Primitive.attr! :hidden
+    io = stat_io(file)
+    io ? Primitive.zr_fstat_m(io.fileno) : stat_fields(file)
+  end
+  private_class_method :stat_either
+
   # rb_check_realpath_internal: realpath(3), and where it stops at a
   # file in the middle or at a name that exists after all, the walk of
   # rb_check_realpath_emulate.
@@ -1076,9 +1083,12 @@ class File < IO
   private_class_method :stat_field
 
   # The same file: one device and one inode.
+  # rb_file_identical_p reads each side through rb_stat: an IO, or an
+  # object whose to_io gives one, by fstat(2) on its descriptor, so a
+  # pipe or a socket compares too.
   def self.identical?(a, b)
-    left = File.send(:stat_fields, a)
-    right = File.send(:stat_fields, b)
+    left = File.send(:stat_either, a)
+    right = File.send(:stat_either, b)
     left.is_a?(Array) && right.is_a?(Array) && left[0] == right[0] && left[1] == right[1]
   end
 
