@@ -593,11 +593,11 @@ module Zr::Kern
     if RProc[p].cref != QNIL
       t = zr_task()
       Task[t].refine = RProc[p].cref
-      r = zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 3, blk)
+      r = zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 3 | SEND_FUNCALL, blk)
       Task[t].refine = Machine.value(QNIL)
       return r
     end
-    zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 3, blk)
+    zr_dispatch(0, Machine.value(Machine.load64(argv, 0)), zr_sym2id(RProc[p].self), argc - 1, argv + 8, 3 | SEND_FUNCALL, blk)
   end
 
   # Returns the Proc of `sym` under the refinements that are active in the

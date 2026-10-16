@@ -263,9 +263,10 @@ module Enumerable
   # size, or one whose size is unknown, leaves the enumerator's unknown
   # too. `enum_size` calls rb_check_funcall, which calls a method that the
   # receiver keeps private, and takes its return value as it is.
+  # rb_check_funcall(obj, id_size), whose call TracePoint hears.
   def enumerable_size
     Primitive.attr! :hidden
-    respond_to?(:size, true) ? size : nil
+    respond_to?(:size, true) ? Primitive.zr_funcall0_m(self, :size) : nil
   end
 
   # What a cycle counts: nothing when the receiver counts nothing or
@@ -854,13 +855,16 @@ module Enumerable
 
       acc = given == 2 ? init : nil
       first = given != 2
+      # ary_inject_op: an Array whose each is the core's is read directly.
+      return array_injected(acc, first, op) if is_a?(Array) && Primitive.zr_basic_method_m(self, :each)
+
       Primitive.zr_enum_each(self, nil) do |x|
         if first
           acc = x
           first = false
         else
           # rb_funcallv_public: the operator by name, public only.
-          acc = acc.public_send(op, x)
+          acc = Primitive.zr_public_funcall1_m(acc, op, x)
         end
         nil
       end
@@ -876,6 +880,29 @@ module Enumerable
         acc = block.call(acc, x)
       end
       nil
+    end
+    acc
+  end
+
+  # The operator form of inject over an Array, with no `each`
+  # (ary_inject_op): `+` on Integers adds them with no call, until an
+  # element that is not one; any other operator is called by name.
+  def array_injected(acc, first, op)
+    Primitive.attr! :hidden
+    i = 0
+    adding = op == :+ && Primitive.zr_basic_method_m(0, :+)
+    while i < Primitive.zr_ary_len_m(self)
+      x = Primitive.zr_ary_aref1_m(self, i)
+      if first
+        acc = x
+        first = false
+      elsif adding && acc.is_a?(Integer) && x.is_a?(Integer)
+        acc += x
+      else
+        adding = false
+        acc = Primitive.zr_public_funcall1_m(acc, op, x)
+      end
+      i += 1
     end
     acc
   end

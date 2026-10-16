@@ -250,7 +250,7 @@ class Array
     list = Array.try_convert(x)
     return list if list
 
-    Primitive.zr_obj_as_string(x)
+    Primitive.zr_obj_as_string_called(x)
   end
 
   def compact

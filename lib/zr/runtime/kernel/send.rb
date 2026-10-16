@@ -589,6 +589,10 @@ module Zr::Kern
   # stamp, as any definition does, and closes the gate of the name that it
   # refines (zr_method_add_row). A `using` also increments the stamp.
   SEND_USING = 16
+  # A send that CRuby's C makes by name (rb_funcall, rb_check_funcall,
+  # a Symbol's to_proc): TracePoint hears the C method that it calls,
+  # whatever frame is on top, as vm_call0 fires its events.
+  SEND_FUNCALL = 32
 
   # `argv` points at `argc` Values that the caller keeps rooted. `mode` is
   # 0 for an implicit or self receiver, 1 for a bare identifier, 2 for an
@@ -634,7 +638,7 @@ module Zr::Kern
     if (mode & SEND_MODE) == 3 && MEntry[e].kind == KIND_MISSING && MEntry[e].from != QNIL
       return zr_method_missing(recv, mid, argc, argv, blk, kw, MISS_SUPER)
     end
-    if zr_trace_sends_p() && (mode & SEND_CORE) == 0 && zr_trace_c_caller_p()
+    if zr_trace_sends_p() && ((mode & SEND_FUNCALL) != 0 || ((mode & SEND_CORE) == 0 && zr_trace_c_caller_p()))
       if zr_trace_ruby_entry_p(e)
         return zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, TRACE_CALL)
       end

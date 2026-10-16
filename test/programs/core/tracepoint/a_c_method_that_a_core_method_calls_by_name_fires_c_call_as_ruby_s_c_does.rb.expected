@@ -1,0 +1,17 @@
+map_sym: Array#map String#upcase String#upcase
+sort_sym: Array#map Array#sort
+each_slice: Enumerable#each_slice Array#size Array#each
+sort_by: Enumerable#sort_by Array#each
+inject_sym: Enumerable#inject
+sum: Array#sum
+min_by: Enumerable#min_by Array#each
+hash_each: Hash#each
+struct_new: #<Class:Struct>#new Class#inherited BasicObject#singleton_method_added BasicObject#singleton_method_added BasicObject#singleton_method_added BasicObject#singleton_method_added BasicObject#singleton_method_added Module#method_added Module#method_added Struct#initialize
+puts_obj: BasicObject#initialize BasicObject#singleton_method_added IO#write
+array_join: Array#join Integer#to_s
+uniq: Array#uniq
+max: Array#max
+group_by_sym: Enumerable#group_by Array#each String#size String#size
+inject_block: Enumerable#inject Array#each Integer#+
+inject_range: Enumerable#inject Range#each Integer#+ Integer#+
+join_nested: Array#join Integer#to_s Integer#to_s

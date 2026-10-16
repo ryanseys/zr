@@ -1099,6 +1099,37 @@ module Zr::Kern
     r
   end
 
+  # A call of `name` with no arguments that the core makes as CRuby's C
+  # does (rb_funcall, rb_check_funcall), whose method TracePoint hears.
+  #: (value, value) -> value
+  def zr_funcall0_m(recv, name)
+    zr_dispatch(0, recv, zr_sym2id(name), 0, 0, SEND_FUNCALL, Machine.value(QNIL))
+  end
+
+  # A public call of `name` with one argument that the core makes as
+  # CRuby's C does (rb_funcallv_public), whose method TracePoint hears.
+  #: (value, value, value) -> value
+  def zr_public_funcall1_m(recv, name, arg)
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(arg))
+    zr_dispatch(0, recv, zr_sym2id(name), 1, slot, 3 | SEND_FUNCALL, Machine.value(QNIL))
+  end
+
+  # rb_obj_as_string where CRuby's C calls it for a value of the program
+  # (Array#join): its to_s is an rb_funcall, which TracePoint hears.
+  #: (value) -> value
+  def zr_obj_as_string_called(v)
+    if !zr_special_p(v) && (RBasic[v].flags & T_MASK) == T_STRING
+      return v
+    end
+    s = zr_dispatch(0, v, Machine.id(:to_s), 0, 0, SEND_FUNCALL, Machine.value(QNIL))
+    return s if s == QUNDEF
+    if !zr_special_p(s) && (RBasic[s].flags & T_MASK) == T_STRING
+      return s
+    end
+    zr_any_to_s(v)
+  end
+
   # `public_send`: the same as `send`, with visibility applied.
   #: (value, word, ptr, value, value) -> value
   def zr_obj_public_send(recv, argc, argv, cref, blk)

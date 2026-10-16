@@ -1,0 +1,2 @@
+each_slice_enum: Enumerable#each_slice Enumerable#to_a Enumerator#each Enumerable#each_slice Array#size Array#each
+enum_next: Enumerable#each_slice Enumerator#next Enumerator#each Enumerable#each_slice Array#size Array#each
