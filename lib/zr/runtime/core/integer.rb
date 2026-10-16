@@ -976,7 +976,24 @@ class Numeric
 
     raise RangeError, "integer #{n} too #{n.negative? ? "small" : "big"} to convert to 'int'"
   end
-  private_class_method :half_mode, :int_operand
+
+  # CRuby's NUM2UINT: an operand that fits in a C unsigned int. As
+  # rb_num2uint does, a negative one down to INT_MIN passes too, so a
+  # uid of -2 is 4294967294. rb_num2ulong reads a Bignum first, so one
+  # whose magnitude is past 64 bits names unsigned long.
+  def self.uint_operand(n)
+    Primitive.attr! :hidden
+    if n.is_a?(Integer)
+      raise RangeError, "bignum too big to convert into 'unsigned long'" unless n.abs < 2**64
+    else
+      n = Primitive.zr_index_operand_m(n)
+    end
+    raise RangeError, "integer #{n} too big to convert to 'unsigned int'" if n > 2**32 - 1
+    raise RangeError, "integer #{n} too small to convert to 'unsigned int'" if n < -2**31
+
+    n
+  end
+  private_class_method :half_mode, :int_operand, :uint_operand
 
   # num_step: `step(limit, step)` or `step(to:, by:)`. Without a block,
   # an ArithmeticSequence over numbers, else an Enumerator; with one,

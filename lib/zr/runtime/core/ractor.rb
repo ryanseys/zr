@@ -326,6 +326,16 @@ class Ractor
 
   def self.main? = current.equal?(main)
 
+  # ractor_unsafe_check: a method that CRuby defines while
+  # RB_EXT_RACTOR_SAFE is false raises in any Ractor but main.
+  def self.main_only!
+    Primitive.attr! :hidden
+    return if Primitive.zr_ractor_number_m.zero?
+
+    raise UnsafeError, "ractor unsafe method called from not main ractor"
+  end
+  private_class_method :main_only!
+
   # rb_ractor_require: a non-main ractor's require runs on the main ractor,
   # which may read what the ractor cannot; its value or its error comes
   # back to the ractor.

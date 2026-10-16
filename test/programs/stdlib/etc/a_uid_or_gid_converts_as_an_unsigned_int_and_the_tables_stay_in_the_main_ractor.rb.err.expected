@@ -1,0 +1,3 @@
+#<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+stdlib/etc/a_uid_or_gid_converts_as_an_unsigned_int_and_the_tables_stay_in_the_main_ractor.rb:39:in 'Etc::Passwd.each': ractor unsafe method called from not main ractor (Ractor::UnsafeError)
+	from stdlib/etc/a_uid_or_gid_converts_as_an_unsigned_int_and_the_tables_stay_in_the_main_ractor.rb:39:in 'block in <main>'

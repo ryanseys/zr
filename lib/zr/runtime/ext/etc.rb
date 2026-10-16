@@ -14,16 +14,25 @@ module Etc
   # cursors are spelled on the row class as ruby spells them:
   # `Etc::Passwd.each` walks the same table `Etc.passwd` walks.
   Passwd = Struct.new(*PASSWD_MEMBERS)
-  def Passwd.each(&block) = block ? Etc.passwd(&block) : to_enum(:each)
+  def Passwd.each(&block)
+    Ractor.send(:main_only!)
+    block ? Etc.passwd(&block) : to_enum(:each)
+  end
 
   if const_defined?(:GROUP_MEMBERS, false)
     Group = Struct.new(*GROUP_MEMBERS)
-    def Group.each(&block) = block ? Etc.group(&block) : to_enum(:each)
+    def Group.each(&block)
+      Ractor.send(:main_only!)
+      block ? Etc.group(&block) : to_enum(:each)
+    end
   end
 
+  # The table readers, as etc.c defines them while RB_EXT_RACTOR_SAFE is
+  # false (Bug #21115), raise in any Ractor but main.
   module_function
 
   def getpwnam(name)
+    Ractor.send(:main_only!)
     row = Primitive.zr_pw_name(Etc.send(:string_arg, name))
     raise ArgumentError, "can't find user for #{name}" unless row
 
@@ -31,14 +40,16 @@ module Etc
   end
 
   def getpwuid(uid = (given = false; nil))
+    Ractor.send(:main_only!)
     uid = Process.uid if given == false
-    row = Primitive.zr_pw_uid(Integer.send(:int_operand, uid))
+    row = Primitive.zr_pw_uid(Integer.send(:uint_operand, uid))
     raise ArgumentError, "can't find user for #{uid}" unless row
 
     Passwd.new(*row)
   end
 
   def getgrnam(name)
+    Ractor.send(:main_only!)
     row = Primitive.zr_gr_name(Etc.send(:string_arg, name))
     raise ArgumentError, "can't find group for #{name}" unless row
 
@@ -46,24 +57,42 @@ module Etc
   end
 
   def getgrgid(gid = (given = false; nil))
+    Ractor.send(:main_only!)
     gid = Process.gid if given == false
-    row = Primitive.zr_gr_gid(Integer.send(:int_operand, gid))
+    row = Primitive.zr_gr_gid(Integer.send(:uint_operand, gid))
     raise ArgumentError, "can't find group for #{gid}" unless row
 
     Group.new(*row)
   end
 
-  def setpwent = Primitive.zr_pw_rewind
-  def endpwent = Primitive.zr_pw_done
-  def setgrent = Primitive.zr_gr_rewind
-  def endgrent = Primitive.zr_gr_done
+  def setpwent
+    Ractor.send(:main_only!)
+    Primitive.zr_pw_rewind
+  end
+
+  def endpwent
+    Ractor.send(:main_only!)
+    Primitive.zr_pw_done
+  end
+
+  def setgrent
+    Ractor.send(:main_only!)
+    Primitive.zr_gr_rewind
+  end
+
+  def endgrent
+    Ractor.send(:main_only!)
+    Primitive.zr_gr_done
+  end
 
   def getpwent
+    Ractor.send(:main_only!)
     row = Primitive.zr_pw_next
     row && Passwd.new(*row)
   end
 
   def getgrent
+    Ractor.send(:main_only!)
     row = Primitive.zr_gr_next
     row && Group.new(*row)
   end
@@ -71,12 +100,14 @@ module Etc
   # Without a block the whole table comes back as an array, which is what
   # ruby does too.
   def passwd
+    Ractor.send(:main_only!)
     return each_row(:getpwent) { |row| yield row } if block_given?
 
     getpwent
   end
 
   def group
+    Ractor.send(:main_only!)
     return each_row(:getgrent) { |row| yield row } if block_given?
 
     getgrent
@@ -86,8 +117,15 @@ module Etc
   def each_group(&block) = block ? group(&block) : to_enum(:each_group)
 
   def nprocessors = Primitive.zr_nprocessors
-  def getlogin = Primitive.zr_login_name
-  def sysconfdir = RbConfig::CONFIG["sysconfdir"]
+  def getlogin
+    Ractor.send(:main_only!)
+    Primitive.zr_login_name
+  end
+
+  def sysconfdir
+    Ractor.send(:main_only!)
+    RbConfig::CONFIG["sysconfdir"]
+  end
   def systmpdir = ENV["TMPDIR"] || "/tmp"
 
   def uname
