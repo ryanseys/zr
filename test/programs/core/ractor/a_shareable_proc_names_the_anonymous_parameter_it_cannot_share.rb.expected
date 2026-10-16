@@ -1,0 +1,3 @@
+can not make a Proc shareable because it accesses outer variables (☃⚡).
+cannot make a shareable Proc because it can refer unshareable object [] from variable '☃⚡'
+cannot make a shareable Proc because it can refer unshareable object [] from variable '*'

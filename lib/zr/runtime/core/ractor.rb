@@ -294,7 +294,10 @@ class Ractor
     rows.reverse_each do |name, _, rebound|
       raise IsolationError, "cannot make a shareable Proc because the outer variable '#{name}' may be reassigned." if rebound
 
-      value = scope.local_variable_get(name)
+      # An anonymous parameter (`*`, `**`, `&`) is a local that no
+      # Binding names, so its slot is read by place.
+      at = scope.send(:place, name.to_sym)
+      value = Primitive.zr_binding_get(scope, at[0], at[1])
       raise IsolationError, "cannot make a shareable Proc because it can refer unshareable object #{value.inspect} from variable '#{name}'" unless shareable?(value)
     end
     Primitive.zr_proc_isolated_m(block, receiver, lambda)
