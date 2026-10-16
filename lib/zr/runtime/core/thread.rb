@@ -780,8 +780,12 @@ class Thread
 
   # Fiber-local storage, keyed by the fiber this thread runs, which is
   # the caller's fiber only where the caller is the thread itself.
+  # The current fiber's `:__recursive_key__` is the recursion guards'
+  # Hash (threadptr_local_aref), which keys and key? do not list.
   def [](key)
     key = local_key(key)
+    return Primitive.zr_recursive_hash if key == :__recursive_key__ && local_fiber.equal?(Fiber.current)
+
     @locals[local_fiber]&.[](key)
   end
 
@@ -789,6 +793,7 @@ class Thread
   def []=(key, value)
     key = local_key(key)
     Kernel.raise FrozenError.new("can't modify frozen thread locals", receiver: self) if frozen?
+    return Primitive.zr_recursive_hash_set(value) if key == :__recursive_key__ && local_fiber.equal?(Fiber.current)
     return @locals[local_fiber]&.delete(key) && nil if value.nil?
 
     (@locals[local_fiber] ||= {})[key] = value

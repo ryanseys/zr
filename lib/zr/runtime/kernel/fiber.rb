@@ -177,6 +177,7 @@ module Zr::Kern
     Task[t].errinfo = Machine.value(QNIL)
     Task[t].kw = 0
     Task[t].guards = Machine.value(QNIL)
+    Task[t].recursive = Machine.value(QNIL)
     Task[t].catches = Machine.value(QNIL)
     Task[t].throw_tag = Machine.value(QNIL)
     Task[t].missing = 0

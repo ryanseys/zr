@@ -896,6 +896,10 @@ module Zr::Kern
     attr_accessor :kw #: word
     attr_accessor :stack_limit #: ptr
     attr_accessor :guards #: value
+    # `Thread.current[:__recursive_key__]` of the fiber (CRuby's
+    # local_storage_recursive_hash): nil, or what the program set there,
+    # which the guards read too.
+    attr_accessor :recursive #: value
     attr_accessor :catches #: value
     attr_accessor :throw_tag #: value
     attr_accessor :missing #: word
@@ -1474,6 +1478,7 @@ module Zr::Kern
     zr_mark(Task[t].pending)
     zr_mark(Task[t].errinfo)
     zr_mark(Task[t].guards)
+    zr_mark(Task[t].recursive)
     zr_mark(Task[t].catches)
     zr_mark(Task[t].throw_tag)
     zr_mark(Task[t].found)
