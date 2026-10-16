@@ -213,21 +213,36 @@ module Zr
         def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [])
 
         # Whether the tree's code uses one of `constants` or calls one of
-        # `calls`. A string or a symbol does not count: a help text or a
-        # table of these names (as in this file) is not a trace, and the
-        # events cost code size and time in every file. A program that
-        # reaches TracePoint only by a name in a string, a symbol or an
-        # eval's code is built with `--trace` (or `ZR_TRACE=1`); without
-        # it, the TracePoint warns when it is enabled.
+        # `calls`, also in a literal String that an eval form compiles. Any
+        # other string or symbol does not count: a help text or a table of
+        # these names (as in this file) is not a trace, and the events cost
+        # code size and time in every file. A program that reaches
+        # TracePoint only by a name in a string, a symbol or code that it
+        # builds at run time is built with `--trace` (or `ZR_TRACE=1`);
+        # without it, the TracePoint warns when it is enabled.
         #: (Prism::node tree, Array[Symbol] constants, Array[Symbol] calls) -> bool
         def names_of?(tree, constants, calls)
           !tree.breadth_first_search do |n|
             case n
             when Prism::ConstantReadNode then constants.include?(n.name)
             when Prism::ConstantPathNode then n.parent.nil? && constants.include?(n.name)
-            when Prism::CallNode then calls.include?(n.name)
+            when Prism::CallNode then calls.include?(n.name) || evaluated_names?(n, constants, calls)
             end #: bool
           end.nil?
+        end
+
+        # The calls that compile their first argument as code: eval, the
+        # *_eval forms, Binding#eval and RubyVM::InstructionSequence.compile.
+        EVAL_FORMS = %i[eval instance_eval class_eval module_eval compile].freeze
+
+        # Whether `call` compiles a literal String whose code uses one of
+        # `constants` or calls one of `calls`.
+        #: (Prism::CallNode call, Array[Symbol] constants, Array[Symbol] calls) -> bool
+        def evaluated_names?(call, constants, calls)
+          code = call.arguments&.arguments&.first
+          return false unless EVAL_FORMS.include?(call.name) && code.is_a?(Prism::StringNode)
+
+          names_of?(Zr.parse(code.unescaped).value, constants, calls)
         end
 
         # Whether a file uses Coverage. Also, for each file, its line count

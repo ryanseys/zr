@@ -1,1 +1,4 @@
 [[:call, :double], [:return, :double]]
+[:open]
+[[:double, 4]]
+:double
