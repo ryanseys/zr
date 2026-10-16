@@ -1,0 +1,32 @@
+lone lead le: [[97, 0], [0], [216, 98]]
+  each: 3 true
+lone lead be: [[0, 97], [216], [0, 0]]
+  each: 3 true
+lone trail le: [[97, 0], [0], [220, 98]]
+  each: 3 true
+lone trail be: [[0, 97], [220], [0, 0]]
+  each: 3 true
+lead at the end: [[97, 0]]
+  each: 1 true
+two leads: [[0], [216, 0], [216, 98]]
+  each: 3 true
+a pair: [[97, 0], [61, 216, 0, 222], [98, 0]]
+  each: 3 true
+a pair be: [[0, 97], [216, 61, 222, 0], [0, 98]]
+  each: 3 true
+odd tail: [[97, 0]]
+  each: 1 true
+combining after a lone lead: [[0], [216, 1]]
+  each: 2 true
+crlf: [[13, 0, 10, 0], [97, 0]]
+  each: 2 true
+utf-32 surrogate: [[97, 0, 0, 0], [0, 216, 0, 0], [98, 0, 0, 0]]
+  each: 3 true
+utf-32 past unicode: [[0, 0, 17, 0], [97, 0, 0, 0]]
+  each: 2 true
+utf-32 past unicode le: [[0, 0, 17, 0], [97, 0, 0, 0]]
+  each: 2 true
+utf-32 short tail: [[97, 0, 0, 0]]
+  each: 1 true
+empty: []
+  each: 0 true

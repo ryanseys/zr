@@ -2627,7 +2627,7 @@ class String
   # characters of the receiver taken in those counts.
   def wide_clusters
     Primitive.attr! :hidden
-    chars = engine_whole(characters)
+    chars = engine_units
     text = chars.map { |c| Primitive.zr_str_valid_p(c) ? c.encode(Encoding::UTF_8) : +"\uFFFD" }.join
     at = 0
     OWN[:grapheme_clusters].bind_call(text).map do |cluster|
@@ -2658,29 +2658,48 @@ class String
     Primitive.zr_real_class(self).equal?(String) ? self : copied
   end
 
+  # The units that the engine's `\X` walks in a UTF-16 or UTF-32 string:
+  # a UTF-32 unit is 4 bytes, and a UTF-16 unit a character, or one byte
+  # where a lone surrogate makes none. They end where a lead needs more
+  # bytes than are left: `\X` matches no more there, and ruby's clusters
+  # end. CESU-8's engine reads its characters.
+  def engine_units
+    Primitive.attr! :hidden
+    name = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name
+    return characters if name == +"CESU-8"
+
+    little = name.end_with?("LE")
+    wide = name.start_with?("UTF-32")
+    size = Primitive.zr_str_bytesize(self)
+    out = []
+    at = 0
+    while at < size
+      length = wide ? (4 if size - at >= 4) : utf16_unit(at, size, little)
+      break unless length
+
+      out << Primitive.zr_str_byteslice(self, at, length)
+      at += length
+    end
+    out
+  end
+
+  # The length of the UTF-16 unit at byte `at`, as utf16le_mbc_enc_len
+  # and utf16be_mbc_enc_len give it, or nil where it needs more bytes.
+  def utf16_unit(at, size, little)
+    Primitive.attr! :hidden
+    return if size - at < 2
+
+    high = Primitive.zr_str_byte_at(self, little ? at + 1 : at)
+    return 2 if high & 0xF8 != 0xD8
+    return 1 unless high & 0xFC == 0xD8
+    return if size - at < 4
+
+    Primitive.zr_str_byte_at(self, little ? at + 3 : at + 2) & 0xFC == 0xDC ? 4 : 1
+  end
+
   # The characters as an Array, walked as each_char walks them, for the
   # methods that read them all: an Enumerator over the receiver would
   # call its each_char again.
-  # The characters up to the first whose lead needs more bytes than
-  # are left: the engine's `\X` does not match there, and ruby's clusters
-  # end. (A lone lead surrogate in the middle of a UTF-16 string stays
-  # one character here; ruby's engine splits its bytes.)
-  def engine_whole(chars)
-    Primitive.attr! :hidden
-    name = Encoding.at(Primitive.zr_str_encoding_index_m(self)).name
-    return chars if name == +"CESU-8"
-
-    size = Primitive.zr_str_bytesize(self)
-    at = 0
-    chars.take_while do |c|
-      lead = name.end_with?("LE") ? c.getbyte(1) : c.getbyte(0)
-      want = name.start_with?("UTF-32") || (lead && lead & 0xFC == 0xD8) ? 4 : 2
-      whole = at + want <= size
-      at += Primitive.zr_str_bytesize(c)
-      whole
-    end
-  end
-
   def characters
     Primitive.attr! :hidden
     out = []
