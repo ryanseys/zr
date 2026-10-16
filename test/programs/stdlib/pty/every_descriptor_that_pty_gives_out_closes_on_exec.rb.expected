@@ -1,0 +1,4 @@
+[:open, true, true]
+[:spawn, true, true, true]
+[:block, true, true]
+[:child_sees, 0]

@@ -65,7 +65,8 @@ module PTY
     end
     path = name.dup.freeze
     reader = stream(master, "r", path)
-    writer = stream(Primitive.zr_io_dup(master), "w", path)
+    # pty.c gives the writer rb_cloexec_dup of the master.
+    writer = stream(reader.send(:cloexec_dup, master), "w", path)
     writer.sync = true
     ends = [reader, writer, pid]
     return ends unless block_given?
