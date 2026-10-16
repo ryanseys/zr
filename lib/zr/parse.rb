@@ -11,9 +11,10 @@ require_relative "line_cursor"
 # prism/prism.rb. A process that loaded ruby's prism first keeps it,
 # because both return the same objects. The paths are literal, so zr
 # sees them when it compiles zr (`Library::Ports.lib("prism")` names the first;
-# prism_test.rb checks that they agree).
+# prism_test.rb checks that they agree). A binary that carries the compiler
+# found them when it was built, and its program sees ruby's load path.
 $LOAD_PATH.unshift(File.expand_path("../../vendor/ruby/lib/ruby/gems/4.1.0+5/gems/prism-1.9.0/lib", __dir__),
-                   File.expand_path("prism_shim", __dir__))
+                   File.expand_path("prism_shim", __dir__)) unless Zr::Binary.running?
 require "prism"
 
 Prism::Source.prepend(Zr::LineCursor)
