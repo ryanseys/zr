@@ -1,0 +1,22 @@
+dup frozen?: M
+dup class: true
+clone class: true
+detailed: "boom (E)"
+full: "core/object/core_methods_read_an_object_s_class_and_fields_past_its_overrides.rb:20:in 'full_message': boom (E)\n"
+exc == bt: true
+exc == class: true
+exc == other: false
+range ==: [true, true]
+range == liar: false
+range dup: 1..2
+io inspect: "#<F:/dev/null>"
+comparable ==: false
+comparable <: true
+marshal singleton?: 6
+marshal anon: TypeError: can't dump anonymous class #<Class:0x>
+marshal_load missing: TypeError: instance of C2 needs to have method 'marshal_load'
+_load missing: TypeError: class C3 needs to have method '_load'
+struct compat: #<struct S a=1>
+conv inspect: "#<#<Class:0x>: UTF-8 to EUC-JP>"
+type error: TypeError: no implicit conversion of Liar into Integer
+range step: TypeError: Liar can't be coerced into Integer

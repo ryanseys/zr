@@ -844,7 +844,7 @@ class Encoding
       end
     end
 
-    def inspect = Primitive.zr_obj_form("#<#{self.class}: #{Converter.send(:describe, @source_name, @destination_name, @flags)}>")
+    def inspect = Primitive.zr_obj_form("#<#{Primitive.zr_class_name_of(self)}: #{Converter.send(:describe, @source_name, @destination_name, @flags)}>")
 
     def ==(other)
       return nil unless other.is_a?(Converter)

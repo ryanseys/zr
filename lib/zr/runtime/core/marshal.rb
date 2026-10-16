@@ -67,7 +67,8 @@ module Marshal
   # Module#name, as CRuby's class2path reads a class's name: a `name`
   # that the program wrote for a class does not change what is dumped.
   MODULE_NAME = Module.instance_method(:name)
-  private_constant :MODULE_NAME
+  SINGLETON_CLASS_P = Module.instance_method(:singleton_class?)
+  private_constant :MODULE_NAME, :SINGLETON_CLASS_P
 
   FREEZE = Kernel.instance_method(:freeze)
   private_constant :FREEZE
@@ -347,7 +348,7 @@ module Marshal
         # A module with no name cannot be named on the wire, and w_extended
         # says "class" wherever it says this.
         name = MODULE_NAME.bind_call(mod)
-        raise TypeError, "can't dump anonymous class #{mod.inspect}" if name.nil?
+        raise TypeError, "can't dump anonymous class #{Primitive.zr_class_path(mod)}" if name.nil?
 
         @out << "e" << symbol_bytes(name.to_sym)
       end
@@ -451,12 +452,12 @@ module Marshal
     end
 
     def class_path(mod)
-      raise TypeError, "singleton class can't be dumped" if mod.singleton_class?
+      raise TypeError, "singleton class can't be dumped" if SINGLETON_CLASS_P.bind_call(mod)
 
       # The class's own name: a `name` that the program wrote does not count.
       name = MODULE_NAME.bind_call(mod)
       # must_not_be_anonymous: a temporary name starts with `#`.
-      raise TypeError, "can't dump anonymous #{mod.is_a?(Class) ? "class" : "module"} #{name || mod.inspect}" if name.nil? || name.start_with?("#")
+      raise TypeError, "can't dump anonymous #{Class === mod ? "class" : "module"} #{Primitive.zr_class_path(mod)}" if name.nil? || name.start_with?("#")
 
       name
     end
@@ -778,7 +779,7 @@ module Marshal
 
     # A class whose `_load` reads a `u` record.
     def loader(klass)
-      raise TypeError, "class #{klass.name} needs to have method '_load'" unless klass.respond_to?(:_load, true)
+      raise TypeError, "class #{Primitive.zr_class_path(klass)} needs to have method '_load'" unless klass.respond_to?(:_load, true)
 
       klass
     end
@@ -825,7 +826,7 @@ module Marshal
       if found.is_a?(Class)
         value = read_value
         klass = Primitive.zr_class_of(value)
-        raise ArgumentError, "prepended class #{path} differs from class #{klass.name}" unless klass.equal?(found)
+        raise ArgumentError, "prepended class #{path} differs from class #{Primitive.zr_class_path(klass)}" unless klass.equal?(found)
 
         single = value.singleton_class
         PREPEND_FEATURES.bind_call(modules.pop, single) until modules.empty?
@@ -897,7 +898,7 @@ module Marshal
     def relabeled_struct(klass, value)
       Primitive.attr! :hidden
       raise ArgumentError, "dump format error (user class)" unless klass <= value.class || klass < Struct
-      raise TypeError, "struct #{klass.name} not compatible (struct size differs)" unless value.size == klass.members.size
+      raise TypeError, "struct #{Primitive.zr_class_path(klass)} not compatible (struct size differs)" unless value.size == klass.members.size
 
       built = Primitive.zr_class_allocate(klass)
       value.to_a.each_with_index { |member, i| built[i] = member }
@@ -978,8 +979,8 @@ module Marshal
       size = length
       built = Primitive.zr_class_allocate(klass)
       members = struct_members(klass)
-      raise TypeError, "class #{klass.name} not a struct" if members.nil?
-      raise TypeError, "struct #{klass.name} not compatible (struct size differs)" unless members.size == size
+      raise TypeError, "class #{Primitive.zr_class_path(klass)} not a struct" if members.nil?
+      raise TypeError, "struct #{Primitive.zr_class_path(klass)} not compatible (struct size differs)" unless members.size == size
 
       @objects[here] = built
       values = Array.new(size)
@@ -990,7 +991,7 @@ module Marshal
       while i < size
         member = members[i]
         slot = symbol_or_link
-        raise TypeError, "struct #{klass.name} not compatible (:#{slot} for :#{member})" unless slot == member
+        raise TypeError, "struct #{Primitive.zr_class_path(klass)} not compatible (:#{slot} for :#{member})" unless slot == member
 
         values[i] = read
         @readable -= 2
@@ -1118,7 +1119,7 @@ module Marshal
       # rb_marshal_define_compat: Complex and Rational load through a
       # loader that reflection does not show.
       unless built.respond_to?(:marshal_load, true) || built.is_a?(Complex) || built.is_a?(Rational)
-        raise TypeError, "instance of #{klass.name} needs to have method 'marshal_load'"
+        raise TypeError, "instance of #{Primitive.zr_class_path(klass)} needs to have method 'marshal_load'"
       end
 
       data = read

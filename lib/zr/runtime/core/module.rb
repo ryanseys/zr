@@ -109,8 +109,9 @@ module Kernel
   private def initialize_copy(orig)
     return self if equal?(orig)
 
-    Primitive.zr_frozen_error(self) if frozen?
-    raise TypeError, +"initialize_copy should take same class object" unless orig.instance_of?(self.class)
+    # The flag and the classes themselves, never the methods that answer them.
+    Primitive.zr_frozen_error(self) if Primitive.zr_frozen_p_m(self)
+    raise TypeError, +"initialize_copy should take same class object" unless Primitive.zr_real_class(orig).equal?(Primitive.zr_real_class(self))
 
     self
   end

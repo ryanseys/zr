@@ -576,7 +576,7 @@ class Range
     return true if Primitive.zr_recursive_enter_paired(self, other, :==)
 
     begin
-      @begin == other.begin && @end == other.end && @excl == other.exclude_end?
+      @begin == field(other, 0) && @end == field(other, 1) && @excl == field(other, 2)
     ensure
       Primitive.zr_recursive_leave(self, :==)
     end
@@ -653,7 +653,7 @@ class Range
     return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
     begin
-      @begin.eql?(other.begin) && @end.eql?(other.end) && @excl == other.exclude_end?
+      @begin.eql?(field(other, 0)) && @end.eql?(field(other, 1)) && @excl == field(other, 2)
     ensure
       Primitive.zr_recursive_leave(self, :eql?)
     end
@@ -793,9 +793,9 @@ class Range
   # What `dup` and `clone` fill a copy with: the other Range's bounds.
   def initialize_copy(other)
     modify!
-    raise TypeError, +"initialize_copy should take same class object" unless other.instance_of?(self.class)
+    raise TypeError, +"initialize_copy should take same class object" unless Primitive.zr_real_class(other).equal?(Primitive.zr_real_class(self))
 
-    bound(other.begin, other.end, other.exclude_end?)
+    bound(field(other, 0), field(other, 1), field(other, 2))
     self
   end
 
@@ -804,6 +804,20 @@ class Range
     Primitive.attr! :hidden
     Primitive.zr_frozen_error(self) if frozen?
     raise NameError.new(+"'initialize' called twice", :initialize, receiver: self) if Primitive.zr_hidden_get(self, :__built__)
+  end
+
+  # A field of another Range, as range.c reads RANGE_BEG, RANGE_END and
+  # RANGE_EXCL: the `begin` that a subclass writes never runs.
+  FIELDS = [instance_method(:begin), instance_method(:end), instance_method(:exclude_end?)].freeze
+  private_constant :FIELDS
+
+  def field(other, at)
+    Primitive.attr! :hidden
+    if Primitive.zr_real_class(other).equal?(Range)
+      return at == 0 ? other.begin : at == 1 ? other.end : other.exclude_end?
+    end
+
+    FIELDS[at].bind_call(other)
   end
 
   def bound(low, high, exclude_end)

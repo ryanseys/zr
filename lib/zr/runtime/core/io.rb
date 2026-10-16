@@ -1630,7 +1630,7 @@ class IO
     text = if shown then @closed ? "#{shown} (closed)" : shown
            else @closed ? +"(closed)" : "fd #{@fd}"
            end
-    Primitive.zr_obj_form("#<#{self.class}:#{text}>")
+    Primitive.zr_obj_form("#<#{Primitive.zr_class_name_of(self)}:#{text}>")
   end
 
   # The arguments are walked without Array's own methods: a program

@@ -40,13 +40,21 @@ class Exception
     copy
   end
 
+  # exc_backtrace: the stored backtrace, whatever `backtrace` a subclass writes.
+  BACKTRACE = instance_method(:backtrace)
+  private_constant :BACKTRACE
+
   # Ruby compares the message a raise STORED, not the one `to_s`
   # builds, so two uncaught throws of different tags are equal.
   def ==(other)
     return true if equal?(other)
 
-    if other.class == self.class
+    # exc_equal compares the classes themselves and reads the stored
+    # backtraces, except of a value that only converts to an exception.
+    own = Primitive.zr_real_class(self)
+    if Primitive.zr_real_class(other).equal?(own)
       mesg = Primitive.zr_exc_raw_message(other)
+      theirs = BACKTRACE.bind_call(other)
     else
       return false unless other.respond_to?(:exception)
 
@@ -55,11 +63,12 @@ class Exception
       rescue StandardError
         return false
       end
-      return false unless other.class == self.class
+      return false unless Primitive.zr_real_class(other).equal?(own)
 
       mesg = other.message
+      theirs = other.backtrace
     end
-    Primitive.zr_exc_raw_message(self) == mesg && backtrace == other.backtrace
+    Primitive.zr_exc_raw_message(self) == mesg && BACKTRACE.bind_call(self) == theirs
   end
 
   def detailed_message(highlight: UNSET, **opt)
@@ -255,7 +264,7 @@ class Exception
     if emesg.nil? || emesg.empty?
       # No message at all (no detailed_message) shows the class; an
       # empty one from a RuntimeError says so.
-      name = !emesg.nil? && Primitive.zr_class_of_is(exc, RuntimeError) ? +"unhandled exception" : exc.class.to_s
+      name = !emesg.nil? && Primitive.zr_class_of_is(exc, RuntimeError) ? +"unhandled exception" : Primitive.zr_class_name_of(exc)
       out << (highlight ? "#{UNDERLINE}#{name}#{RESET}" : name) << "\n"
     else
       # write_warn_enc: a message in an encoding the text cannot join
@@ -298,11 +307,12 @@ class Exception
     text = +"" unless text.encoding.ascii_compatible?
     out = String.new(encoding: Encoding::US_ASCII)
     if text.empty?
-      name = Primitive.zr_class_of_is(self, RuntimeError) ? +"unhandled exception" : self.class.to_s
+      name = Primitive.zr_class_of_is(self, RuntimeError) ? +"unhandled exception" : Primitive.zr_class_name_of(self)
       return highlight ? out << UNDERLINE << name << RESET : out << name
     end
 
-    path = self.class.to_s
+    # rb_decorate_message names the class by its path (rb_class_name).
+    path = Primitive.zr_class_name_of(self)
     path = nil if path.start_with?("#")
     newline = text.b.index("\n")
     out << BOLD if highlight
