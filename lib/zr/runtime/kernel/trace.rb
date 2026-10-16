@@ -147,6 +147,19 @@ module Zr::Kern
     zr_trace_program_frame_p(Task[zr_task()].top)
   end
 
+  # Whether TracePoint hears a call that the core makes by name
+  # (SEND_FUNCALL): the nearest frame with a file is the program's, so
+  # the core runs for the program, and not for eval's compiler or
+  # another hidden part of the runtime.
+  #: () -> bool
+  def zr_trace_funcall_heard_p
+    rec = Task[zr_task()].top
+    while rec != 0 && FrameMeta[Frame[rec].meta].file_len == 0
+      rec = Frame[rec].prev
+    end
+    rec == 0 || zr_trace_program_frame_p(rec)
+  end
+
   # Whether the frame `rec` is the program's, not the core library's.
   #: (ptr) -> bool
   def zr_trace_program_frame_p(rec)

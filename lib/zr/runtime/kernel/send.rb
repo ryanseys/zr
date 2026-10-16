@@ -638,7 +638,7 @@ module Zr::Kern
     if (mode & SEND_MODE) == 3 && MEntry[e].kind == KIND_MISSING && MEntry[e].from != QNIL
       return zr_method_missing(recv, mid, argc, argv, blk, kw, MISS_SUPER)
     end
-    if zr_trace_sends_p() && ((mode & SEND_FUNCALL) != 0 || ((mode & SEND_CORE) == 0 && zr_trace_c_caller_p()))
+    if zr_trace_sends_p() && ((mode & SEND_CORE) == 0 && zr_trace_c_caller_p() || ((mode & SEND_FUNCALL) != 0 && zr_trace_funcall_heard_p()))
       if zr_trace_ruby_entry_p(e)
         return zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, TRACE_CALL)
       end
