@@ -13,6 +13,8 @@ module Zr
                      -> { require_relative "rubyspec"; Commands::RubySpec }],
       "cruby-test" => ["Run CRuby's test-all in ruby and in zr binaries, and compare each test",
                        -> { require_relative "cruby_test"; Commands::CRubyTest }],
+      "gem-tests" => ["Run the bundled gems' own tests in ruby and in zr, and compare each test",
+                      -> { require_relative "gem_tests"; Commands::GemTests }],
       "fuzz" => ["Write Ruby programs, run them in ruby and in zr, and keep each difference",
                  -> { require_relative "fuzz"; Commands::Fuzz }],
       "expect" => ["Write the expected output of program tests and benchmarks from the pinned ruby",
