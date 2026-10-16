@@ -1,0 +1,24 @@
+Date._parse: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+Date.parse: ArgumentError: string length (145) exceeds the limit 128 | Date | Date | Date | ArgumentError: string length (145) exceeds the limit 10 | Date | ArgumentError: string length (145) exceeds the limit 3
+Date._iso8601: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+Date.iso8601: ArgumentError: string length (145) exceeds the limit 128 | Date | Date | Date | ArgumentError: string length (145) exceeds the limit 10 | Date | ArgumentError: string length (145) exceeds the limit 3
+Date._rfc3339: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+Date._xmlschema: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+Date._rfc2822: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+Date._rfc822: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+Date._httpdate: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+Date._jisx0301: ArgumentError: string length (145) exceeds the limit 128 | Hash | Hash | Hash | ArgumentError: string length (145) exceeds the limit 10 | Hash | ArgumentError: string length (145) exceeds the limit 3
+DateTime.parse: ArgumentError: string length (145) exceeds the limit 128 | DateTime | DateTime | DateTime | ArgumentError: string length (145) exceeds the limit 10 | DateTime | ArgumentError: string length (145) exceeds the limit 3
+DateTime.iso8601: ArgumentError: string length (145) exceeds the limit 128 | DateTime | DateTime | DateTime | ArgumentError: string length (145) exceeds the limit 10 | DateTime | ArgumentError: string length (145) exceeds the limit 3
+DateTime.rfc3339: ArgumentError: string length (145) exceeds the limit 128 | DateTime | DateTime | DateTime | ArgumentError: string length (145) exceeds the limit 10 | DateTime | ArgumentError: string length (145) exceeds the limit 3
+DateTime.xmlschema: ArgumentError: string length (145) exceeds the limit 128 | DateTime | DateTime | DateTime | ArgumentError: string length (145) exceeds the limit 10 | DateTime | ArgumentError: string length (145) exceeds the limit 3
+DateTime.jisx0301: ArgumentError: string length (144) exceeds the limit 128 | DateTime | DateTime | DateTime | ArgumentError: string length (144) exceeds the limit 10 | DateTime | ArgumentError: string length (144) exceeds the limit 3
+{}
+{}
+#<TypeError: no implicit conversion of nil into String>
+#<TypeError: no implicit conversion of Symbol into String>
+#<TypeError: no implicit conversion of String into Integer>
+-Infinity
+(1929/15625)
+#<Date: -4712-01-01 ((0j,0s,0n),+0s,2299161j)>
+#<DateTime: -4712-01-01T00:00:00+00:00 ((0j,0s,0n),+0s,2299161j)>

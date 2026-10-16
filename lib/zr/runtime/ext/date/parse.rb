@@ -73,8 +73,8 @@ class Date
 
   class << self
     # Every element a loose string names, as far as the reader gets.
-    def _parse(text, comp = true)
-      str = +text_of(text).gsub(BLANK_RE, " ")
+    def _parse(text, comp = true, **opts)
+      str = +text_of(limited(text, opts)).gsub(BLANK_RE, " ")
       found = { _comp: comp }
       parse_day(str, found) if ascii?(str, :alpha)
       parse_time(str, found) if ascii?(str, :digit)
@@ -88,6 +88,22 @@ class Date
     end
 
     private
+
+    # check_limit: the text as a String, at most `limit:` bytes long.
+    # With no keywords the limit is 128; keywords without `limit:`, or a
+    # nil one, set none. The limit is read as NUM2SIZET reads it, so a
+    # negative one is no limit.
+    def limited(text, opts)
+      Primitive.attr! :hidden
+      text = Primitive.zr_str_operand(text)
+      limit = opts.empty? ? 128 : opts[:limit]
+      return text if limit.nil?
+
+      limit = Primitive.zr_index_operand_m(limit)
+      raise ArgumentError, "string length (#{text.bytesize}) exceeds the limit #{limit}" if !limit.negative? && text.bytesize > limit
+
+      text
+    end
 
     # The date shapes, in the order that ruby tries them: the first that
     # fits wins, and the others never see the text it read.

@@ -22,14 +22,16 @@ class Date
                    :HTTPDATE1_RE, :HTTPDATE2_RE, :HTTPDATE3_RE, :JISX0301_RE
 
   class << self
-    def _iso8601(text)
+    def _iso8601(text, **opts)
+      text = limited(text, opts) unless text.nil?
       found = {}
       iso_ext_datetime(text, found) || iso_bas_datetime(text, found) ||
         iso_ext_time(text, found) || iso_bas_time(text, found)
       found
     end
 
-    def _rfc3339(text)
+    def _rfc3339(text, **opts)
+      text = limited(text, opts) unless text.nil?
       found = {}
       m = RFC3339_RE.match(text) or return found
 
@@ -45,13 +47,15 @@ class Date
       found
     end
 
-    def _xmlschema(text)
+    def _xmlschema(text, **opts)
+      text = limited(text, opts) unless text.nil?
       found = {}
       xsd_datetime(text, found) || xsd_time(text, found) || xsd_trunc(text, found)
       found
     end
 
-    def _rfc2822(text)
+    def _rfc2822(text, **opts)
+      text = limited(text, opts) unless text.nil?
       found = {}
       m = RFC2822_RE.match(text) or return found
 
@@ -65,14 +69,17 @@ class Date
 
     alias _rfc822 _rfc2822
 
-    def _httpdate(text)
+    def _httpdate(text, **opts)
+      text = limited(text, opts) unless text.nil?
       found = {}
       httpdate1(text, found) || httpdate2(text, found) || httpdate3(text, found)
       found
     end
 
-    def _jisx0301(text)
-      return _iso8601(text) unless /\A\s*[mtshr]?\d{2}\.\d{2}\.\d{2}/i.match?(text)
+    def _jisx0301(text, **opts)
+      text = limited(text, opts) unless text.nil?
+      # date__jisx0301 falls back to the reader in C, past the check.
+      return _iso8601(text, limit: nil) unless /\A\s*[mtshr]?\d{2}\.\d{2}\.\d{2}/i.match?(text)
 
       found = {}
       m = JISX0301_RE.match(text) or return found

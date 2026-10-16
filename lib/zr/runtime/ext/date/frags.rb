@@ -20,21 +20,21 @@ class Date
   private_constant :FRAG_SETS
 
   class << self
-    def parse(text, comp = true, start = ITALY) = frags_date(_parse(text, comp), start) || raise(Error, "invalid date")
+    def parse(text = "-4712-01-01", comp = true, start = ITALY, **opts) = frags_date(_parse(text, comp, **opts), start) || raise(Error, "invalid date")
 
-    def iso8601(text = "-4712-01-01", start = ITALY) = frags_date(_iso8601(text), start) || raise(Error, "invalid date")
+    def iso8601(text = "-4712-01-01", start = ITALY, **opts) = frags_date(_iso8601(text, **opts), start) || raise(Error, "invalid date")
 
-    def rfc3339(text = "-4712-01-01T00:00:00+00:00", start = ITALY) = frags_date(_rfc3339(text), start) || raise(Error, "invalid date")
+    def rfc3339(text = "-4712-01-01T00:00:00+00:00", start = ITALY, **opts) = frags_date(_rfc3339(text, **opts), start) || raise(Error, "invalid date")
 
-    def xmlschema(text = "-4712-01-01", start = ITALY) = frags_date(_xmlschema(text), start) || raise(Error, "invalid date")
+    def xmlschema(text = "-4712-01-01", start = ITALY, **opts) = frags_date(_xmlschema(text, **opts), start) || raise(Error, "invalid date")
 
-    def rfc2822(text = "Mon, 1 Jan -4712 00:00:00 +0000", start = ITALY) = frags_date(_rfc2822(text), start) || raise(Error, "invalid date")
+    def rfc2822(text = "Mon, 1 Jan -4712 00:00:00 +0000", start = ITALY, **opts) = frags_date(_rfc2822(text, **opts), start) || raise(Error, "invalid date")
 
     alias rfc822 rfc2822
 
-    def httpdate(text = "Mon, 01 Jan -4712 00:00:00 GMT", start = ITALY) = frags_date(_httpdate(text), start) || raise(Error, "invalid date")
+    def httpdate(text = "Mon, 01 Jan -4712 00:00:00 GMT", start = ITALY, **opts) = frags_date(_httpdate(text, **opts), start) || raise(Error, "invalid date")
 
-    def jisx0301(text = "-4712-01-01", start = ITALY) = frags_date(_jisx0301(text), start) || raise(Error, "invalid date")
+    def jisx0301(text = "-4712-01-01", start = ITALY, **opts) = frags_date(_jisx0301(text, **opts), start) || raise(Error, "invalid date")
 
     def strptime(text = "-4712-01-01", format = "%F", start = ITALY) = frags_date(_strptime(text, format), start) || raise(Error, "invalid date")
 
@@ -204,21 +204,21 @@ end
 
 class DateTime < Date
   class << self
-    def parse(text, comp = true, start = Date::ITALY) = frags_date(_parse(text, comp), start) || raise(Date::Error, "invalid date")
+    def parse(text = "-4712-01-01T00:00:00+00:00", comp = true, start = Date::ITALY, **opts) = frags_date(_parse(text, comp, **opts), start) || raise(Date::Error, "invalid date")
 
-    def iso8601(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY) = frags_date(_iso8601(text), start) || raise(Date::Error, "invalid date")
+    def iso8601(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY, **opts) = frags_date(_iso8601(text, **opts), start) || raise(Date::Error, "invalid date")
 
-    def rfc3339(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY) = frags_date(_rfc3339(text), start) || raise(Date::Error, "invalid date")
+    def rfc3339(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY, **opts) = frags_date(_rfc3339(text, **opts), start) || raise(Date::Error, "invalid date")
 
-    def xmlschema(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY) = frags_date(_xmlschema(text), start) || raise(Date::Error, "invalid date")
+    def xmlschema(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY, **opts) = frags_date(_xmlschema(text, **opts), start) || raise(Date::Error, "invalid date")
 
-    def rfc2822(text = "Mon, 1 Jan -4712 00:00:00 +0000", start = Date::ITALY) = frags_date(_rfc2822(text), start) || raise(Date::Error, "invalid date")
+    def rfc2822(text = "Mon, 1 Jan -4712 00:00:00 +0000", start = Date::ITALY, **opts) = frags_date(_rfc2822(text, **opts), start) || raise(Date::Error, "invalid date")
 
     alias rfc822 rfc2822
 
-    def httpdate(text = "Mon, 01 Jan -4712 00:00:00 GMT", start = Date::ITALY) = frags_date(_httpdate(text), start) || raise(Date::Error, "invalid date")
+    def httpdate(text = "Mon, 01 Jan -4712 00:00:00 GMT", start = Date::ITALY, **opts) = frags_date(_httpdate(text, **opts), start) || raise(Date::Error, "invalid date")
 
-    def jisx0301(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY) = frags_date(_jisx0301(text), start) || raise(Date::Error, "invalid date")
+    def jisx0301(text = "-4712-01-01T00:00:00+00:00", start = Date::ITALY, **opts) = frags_date(_jisx0301(text, **opts), start) || raise(Date::Error, "invalid date")
 
     # datetime_s__strptime: Date's reader, with a time and a zone in the
     # format that it takes by default.
