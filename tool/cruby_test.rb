@@ -73,11 +73,10 @@ module Zr
 
         # The files of test/ruby that test CRuby's VM, and why.
         CRUBY_ONLY_FILES = {
-          "ruby/test_iseq.rb" => "RubyVM::InstructionSequence's bytecode",
           "ruby/test_yjit.rb" => "YJIT",
           "ruby/test_zjit.rb" => "ZJIT",
+          "ruby/test_zjit_cli.rb" => "ZJIT's command line, which only CRuby's VM runs",
           "ruby/test_yjit_exit_locations.rb" => "YJIT",
-          "ruby/test_rubyvm.rb" => "RubyVM's internals",
           "ruby/test_shapes.rb" => "CRuby's object shapes"
         }.freeze
 

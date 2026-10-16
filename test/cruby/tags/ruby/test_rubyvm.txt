@@ -1,0 +1,1 @@
+TestRubyVM#test_stat	fail

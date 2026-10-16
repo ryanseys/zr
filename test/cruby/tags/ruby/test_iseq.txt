@@ -1,0 +1,50 @@
+TestISeq#test_to_binary_with_hidden_local_variables	no YARV binary (W11 drops it)
+TestISeq#test_super_with_block	no YARV binary (W11 drops it)
+TestISeq#test_frozen_string_literal_compile_option_file	fail
+TestISeq#test_each_child	fail
+TestISeq#test_super_with_block_hash_0	no YARV binary (W11 drops it)
+TestISeq#test_iseq_builtin_to_a	fail
+TestISeq#test_invalid_source_no_memory_leak	fail
+TestISeq#test_to_binary_pattern_matching	no YARV binary (W11 drops it)
+TestISeq#test_invalid_source	fail
+TestISeq#test_to_binary_class_tracepoint	no YARV binary (W11 drops it)
+TestISeq#test_to_binary_with_objects	no YARV binary (W11 drops it)
+TestISeq#test_to_binary_line_info	no YARV binary (W11 drops it)
+TestISeq#test_super_with_anonymous_block	no YARV binary (W11 drops it)
+TestISeq#test_trace_points	fail
+TestISeq#test_to_binary_line_tracepoint	no YARV binary (W11 drops it)
+TestISeq#test_to_binary_b_call_tracepoint	no YARV binary (W11 drops it)
+TestISeq#test_serialize_anonymous_outer_variables	no YARV binary (W11 drops it)
+TestISeq#test_lambda_with_ractor_roundtrip	no YARV binary (W11 drops it)
+TestISeq#test_compile_prism_with_invalid_object_type	fail
+TestISeq#test_ractor_unshareable_outer_variable	fail
+TestISeq#test_to_binary_dumps_nokey	no YARV binary (W11 drops it)
+TestISeq#test_disasm_with_tracepoint	no YARV instructions (W11 drops them)
+TestISeq#test_to_binary_dumps_noblock	no YARV binary (W11 drops it)
+TestISeq#test_forwardable	no YARV binary (W11 drops it)
+TestISeq#test_safe_call_chain	fail
+TestISeq#test_ibf_bignum	no YARV binary (W11 drops it)
+TestISeq#test_iseq_option_debug_level	fail
+TestISeq#test_iseq_builtin_load	no YARV binary (W11 drops it)
+TestISeq#test_empty_iseq_lineno	fail
+TestISeq#test_ractor_shareable_value_frozen_core	no YARV binary (W11 drops it)
+TestISeq#test_to_binary_return_tracepoint	no YARV binary (W11 drops it)
+TestISeq#test_compile_file_options	fail
+TestISeq#test_disasm_mandatory_only_overloaded	no YARV instructions (W11 drops them)
+TestISeq#test_compile_prism_with_file	fail
+TestISeq#test_anon_rest_param_in_disasm	no YARV instructions (W11 drops them)
+TestISeq#test_load_from_binary_only_accepts_string_param	no YARV binary (W11 drops it)
+TestISeq#test_anon_keyrest_param_in_disasm	no YARV instructions (W11 drops them)
+TestISeq#test_to_binary_b_return_tracepoint	no YARV binary (W11 drops it)
+TestISeq#test_to_binary_end_tracepoint	no YARV binary (W11 drops it)
+TestISeq#test_cdhash_after_roundtrip	no YARV binary (W11 drops it)
+TestISeq#test_unused_param	fail
+TestISeq#test_super_with_block_and_kwrest	no YARV binary (W11 drops it)
+TestISeq#test_anon_block_param_in_disasm	no YARV instructions (W11 drops them)
+TestISeq#test_while_in_until_condition	fail
+TestISeq#test_disasm_encoding	no YARV instructions (W11 drops them)
+TestISeq#test_iseq_of	fail
+TestISeq#test_to_a_lines	fail
+TestISeq#test_compile_options	fail
+TestISeq#test_label_fstring	fail
+TestISeq#test_compile_file_encoding	fail
