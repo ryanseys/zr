@@ -845,19 +845,20 @@ module Zr
         # of its constants, are evaluated left to right before the value,
         # as the compiler stages them.
         def multi_assign(node, ctx)
-          prepared = {}.compare_by_identity #: Hash[Hir::node, untyped]
+          prepared = {} #: Hash[Hir::node, untyped]
+          prepared.compare_by_identity
           prepare(node.target, prepared, ctx)
           value = walk(node.value, ctx)
           spread(node.target, splat_array(value), ctx, prepared)
           value
         end
 
-        #: (Hir::node target, Hash[Hir::node, untyped] prepared, Ctx ctx) -> void
+        #: (Hir::node | :implicit | nil target, Hash[Hir::node, untyped] prepared, Ctx ctx) -> void
         def prepare(target, prepared, ctx)
           case target
           when Hir::MultiTarget
             target.lefts.each { |t| prepare(t, prepared, ctx) }
-            prepare(target.rest, prepared, ctx) unless target.rest.nil? || target.rest == :implicit
+            prepare(target.rest, prepared, ctx)
             target.rights.each { |t| prepare(t, prepared, ctx) }
           when Hir::Send then prepared[target] = send_parts(target, ctx)
           when Hir::ConstWrite then prepared[target] = const_base(target, ctx)
