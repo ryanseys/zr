@@ -34,7 +34,7 @@ module Zr
     # @rbs @data: Array[Obj::Datum]
     # @rbs @metas: Hash[String, Obj::Datum]
     # @rbs @nested_scopes: Array[Lower::Nested]?
-    # @rbs @unit_end: Integer?
+    # @rbs @unit_source: String?
     # @rbs @functions: Array[IR::Function]
     # @rbs @prefix: String
     # @rbs @next: Integer
@@ -444,7 +444,7 @@ module Zr
       @unit_internal = u.internal
       @unit_hidden = u.hidden
       @ids = u.node_ids
-      @unit_end = u.source&.then { |source| source.count("\n") + (source.end_with?("\n") ? 0 : 1) } || 0
+      @unit_source = u.source
       open_unit(unit_entry(index), u.body)
     end
 
@@ -501,9 +501,14 @@ module Zr
       unit.source = nil
     end
 
-    # The last line of the current unit's file, or 0.
+    # The last line of the current unit's file, or 0. A file's bytes need
+    # not be valid in its encoding.
     #: () -> Integer
-    def unit_end = @unit_end || 0
+    def unit_end
+      bytes = @unit_source&.b or return 0
+
+      bytes.count("\n") + (bytes.end_with?("\n") ? 0 : 1)
+    end
 
     # The prefix of each function name in the current unit.
     #: () -> String
