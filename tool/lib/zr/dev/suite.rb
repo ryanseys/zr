@@ -100,8 +100,12 @@ module Zr
       # "error", "skip" or "missing" (the run ended before the example).
       # `complete` says that the files are all the files of the area, so the
       # summary can count the area from them.
+      # An area as a file name: its path with dashes, and "top" for the
+      # files at the root (".").
+      def slug(area) = area == "." ? "top" : area.tr("/", "-")
+
       def write_results(dir, area, files, complete:)
-        path = File.join(dir, "results", "#{area.tr("/", "-")}.json")
+        path = File.join(dir, "results", "#{slug(area)}.json")
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, JSON.pretty_generate({ "format" => FORMAT, "revision" => RUBY_REVISION, "zr" => zr_version,
                                                 "area" => area, "complete" => complete, "files" => files }))
@@ -346,9 +350,7 @@ module Zr
         # the name "*". The last line of a run that ended is {"done":true}.
         def issues = File.join(@out, "issues", "#{slug}.jsonl")
 
-        # The area as a file name: its path with dashes, and "top" for the
-        # files at the root (".").
-        def slug = @area == "." ? "top" : @area.tr("/", "-")
+        def slug = Suite.slug(@area)
 
         # The live log of zr's runs, `<out>/tests/<area>.log`: each line of
         # output as it comes, after the time and the file, so `tail -f`
