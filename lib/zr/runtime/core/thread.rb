@@ -237,19 +237,28 @@ class Thread
     # Wakes the waiters that still sleep, `count` of them at the most.
     # A thread that is awake already has its turn coming, and a dead
     # one takes none; so one item pushed wakes one more waiter, not
-    # the same one twice.
+    # the same one twice. A fiber that waits through its scheduler is
+    # claimed here, and its scheduler's unblock runs after, outside the
+    # atomic part: unblock is the program's code, and may sleep.
     def rouse(waiters, count = waiters.size)
       Primitive.attr! :hidden
       woken = 0
+      fibers = nil
       atomically do
-        waiters.each do |thread|
+        waiters.each do |waiter|
           break if woken >= count
-          next unless thread.send(:sleeping?)
+          next unless waiter.send(:sleeping?)
 
-          thread.wakeup
+          if waiter.respond_to?(:claim)
+            waiter.claim
+            (fibers ||= []) << waiter
+          else
+            waiter.wakeup
+          end
           woken += 1
         end
       end
+      fibers&.each(&:unblock)
       nil
     end
 
@@ -678,7 +687,9 @@ class Thread
     Kernel.raise ThreadError, +"Target thread must not be main thread" if equal?(Thread.main) && !Thread.current.equal?(Thread.main)
 
     deadline = join_deadline(limit)
-    while alive?
+    # A thread is joinable once its body ends (th->value is set), before
+    # its joiners wake and before it is dead.
+    while alive? && !@joinable
       return nil if deadline && Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) >= deadline
 
       Thread.current.send(:wait_on, @waiters, deadline, true, self)
@@ -1120,10 +1131,13 @@ class Thread
     Primitive.attr! :hidden
     Primitive.zr_thread_event(EVENT_SUSPENDED, self)
     Primitive.zr_thread_event(EVENT_EXITED, self)
-    Thread.send(:forget, self)
+    # The joiners wake while the thread still runs, as in
+    # thread_start_func_2: a scheduler unblock that sleeps sleeps in it,
+    # and a report from it shows the thread as it runs. THREAD_KILLED
+    # comes after.
+    @joinable = true
     wake_joiners
-    # THREAD_KILLED comes after the wakeup, so a report from it shows
-    # the thread as it runs.
+    Thread.send(:forget, self)
     @status = :dead
   end
 
@@ -1414,9 +1428,21 @@ class Fiber
       Primitive.attr! :hidden
       return self if @woken
 
-      @woken = true
-      @scheduler.unblock(@blocker, @fiber)
+      claim
+      unblock
       self
+    end
+
+    # The two halves of a wakeup: the claim marks the fiber woken, once;
+    # unblock tells its scheduler.
+    def claim
+      Primitive.attr! :hidden
+      @woken = true
+    end
+
+    def unblock
+      Primitive.attr! :hidden
+      @scheduler.unblock(@blocker, @fiber)
     end
   end
   private_constant :Blocked
