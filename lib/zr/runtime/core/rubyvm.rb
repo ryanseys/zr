@@ -2,7 +2,9 @@
 
 # RubyVM: what CRuby tells a program about its virtual machine. This
 # runtime compiles every file with prism ahead of time, so it behaves as
-# a CRuby whose instruction sequences prism compiled, with YJIT off.
+# a CRuby whose instruction sequences prism compiled, built without JIT
+# support: it has no RubyVM::YJIT or RubyVM::ZJIT (vm.c's empty
+# Init_builtin_yjit and Init_builtin_zjit).
 class RubyVM
   Primitive.zr_undef_alloc(self)
 
@@ -685,25 +687,5 @@ class RubyVM
       # Without the mark of a frame at a body's entry (Hir::Spots::ENTRY).
       id.nil? || id.zero? ? nil : id & 0x3fffffff
     end
-  end
-
-  module YJIT
-    def self.enabled? = false
-    def self.enable(**) = false
-    def self.stats_enabled? = false
-    def self.log_enabled? = false
-    def self.trace_exit_locations_enabled? = false
-    def self.runtime_stats(key = nil) = nil
-    def self.stats_string = +""
-    def self.insns_compiled(iseq) = nil
-    def self.exit_locations = nil
-    def self.log = nil
-    def self.reset_stats! = nil
-    def self.code_gc = nil
-    def self.disasm(iseq) = nil
-    def self.dump_exit_locations(filename)
-      raise ArgumentError, +"--yjit-trace-exits must be enabled to use dump_exit_locations."
-    end
-    def self.simulate_oom! = nil
   end
 end

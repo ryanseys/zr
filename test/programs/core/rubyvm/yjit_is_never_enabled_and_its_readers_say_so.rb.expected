@@ -1,4 +1,0 @@
-[false, false, false, false]
-[nil, nil, nil]
-[ArgumentError, "--yjit-trace-exits must be enabled to use dump_exit_locations."]
-[nil, nil]

@@ -561,7 +561,13 @@ module Zr
             @verbose = [true]
           end
           words.split(/[\s,]+/).each { |word| debug_feature!(word) }
-        when "jit", "yjit", "zjit", /\A[yz]jit-/ then nil # zr compiles ahead of time.
+        # zr is a ruby built without JIT support (ruby.c's warnings then).
+        when "jit" then @warnings << "zr: warning: Ruby was built without JIT support"
+        when "yjit", /\Ayjit-/
+          @warnings << "zr: warning: Ruby was built without YJIT support. " \
+                       "You may need to install rustc and configure with --enable-yjit to build Ruby with YJIT."
+        when "zjit", /\Azjit-/
+          @warnings << "zr: warning: Ruby was built without ZJIT support. You may need to install rustc to build Ruby with ZJIT."
         when "crash-report" then @crash_report = argument(name, given, argv)
         when "encoding" then encoding!(argument(name, given, argv), "--encoding")
         when "external-encoding" then external_once!(argument(name, given, argv))

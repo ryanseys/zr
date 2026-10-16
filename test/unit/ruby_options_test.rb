@@ -141,7 +141,8 @@ class RubyOptionsTest < Minitest::Test
     assert_equal [false, true], [switches.gems, switches.frozen_string_literal]
     assert_equal [false, false], parse("--disable=g,f-s-l", "x.rb").switches.then { |s| [s.gems, s.frozen_string_literal] }
     assert parse("--disable", "all", "--enable=frozen", "x.rb").switches.frozen_string_literal
-    assert_empty parse("--disable-jit", "--yjit", "x.rb").warnings
+    # --disable=jit cancels a JIT; --yjit still warns, as ruby.c does without YJIT.
+    assert_equal 1, parse("--disable-jit", "--yjit", "x.rb").warnings.size
     assert_equal 2, parse("--enable=bogus", "x.rb").warnings.size
   end
 
@@ -225,6 +226,20 @@ class RubyOptionsTest < Minitest::Test
     assert_equal ["US-ASCII", "ASCII-8BIT"], [options.external, options.switches.source_encoding]
     assert_equal "EUC-JP", parse("-Ks", "-Ke", "x.rb").switches.source_encoding
     assert_equal "Windows-31J", parse("-Ks", "-Ke", "x.rb").external
+  end
+
+  # zr is a ruby built without JIT support: each JIT switch, with its
+  # options or not, warns as ruby.c does then, and turns nothing on.
+  def test_jit_switches_warn_as_a_ruby_built_without_jit_support
+    yjit = "zr: warning: Ruby was built without YJIT support. You may need to install rustc and configure with --enable-yjit to build Ruby with YJIT."
+    zjit = "zr: warning: Ruby was built without ZJIT support. You may need to install rustc to build Ruby with ZJIT."
+    assert_equal ["zr: warning: Ruby was built without JIT support"], parse("--jit", "x.rb").warnings
+    assert_equal [yjit], parse("--yjit", "x.rb").warnings
+    assert_equal [yjit], parse("--yjit-stats=quiet", "x.rb").warnings
+    assert_equal [yjit], parse("--yjit=x", "x.rb").warnings
+    assert_equal [zjit], parse("--zjit-call-threshold=2", "x.rb").warnings
+    assert_equal [yjit, zjit], parse("--yjit", "--zjit", "x.rb").warnings
+    assert_empty parse("x.rb").warnings
   end
 
   def test_k_warns_under_w_only
