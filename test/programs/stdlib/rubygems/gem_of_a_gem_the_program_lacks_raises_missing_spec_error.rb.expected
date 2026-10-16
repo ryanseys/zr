@@ -1,0 +1,6 @@
+[Gem::MissingSpecError, [Gem::MissingSpecError, Gem::LoadError, LoadError, ScriptError, Exception], "zr_no_such_gem", ">= 0"]
+Could not find 'zr_no_such_gem' (>= 0) among N total gem(s)
+[Gem::MissingSpecError, [Gem::MissingSpecError, Gem::LoadError, LoadError, ScriptError, Exception], "zr_no_such_gem", "~> 1.2"]
+Could not find 'zr_no_such_gem' (~> 1.2) among N total gem(s)
+[Gem::MissingSpecError, [Gem::MissingSpecError, Gem::LoadError, LoadError, ScriptError, Exception], "zr_no_such_gem", ">= 1, < 3"]
+Could not find 'zr_no_such_gem' (>= 1, < 3) among N total gem(s)

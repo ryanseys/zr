@@ -62,17 +62,18 @@ unless rows.empty?
     requirements.pop if requirements.last.is_a?(Hash)
     dep = Gem::Dependency.new(dep, requirements) unless dep.respond_to?(:name) && dep.respond_to?(:requirement)
     spec = specs[dep.name]
+    # A gem the program has none of: rubygems' own error, which counts
+    # the gems it knows and names GEM_PATH.
+    raise Gem::MissingSpecError.new(dep.name, dep.requirement) if spec.nil? && !unversioned.include?(dep.name)
+
     unless spec && dep.matches_spec?(spec)
       message = if unversioned.include?(dep.name)
                   "zr built this program with #{dep.name} from a directory that has no gemspec, so its version " \
                     "is unknown and does not match #{dep.requirement}. Give --gem #{dep.name}=DIR of a directory " \
                     "with a gemspec, then build again."
-                elsif spec
+                else
                   "can't activate #{dep}, already activated #{spec.full_name}. " \
                     "Make sure all dependencies are added to Gemfile."
-                else
-                  "#{dep.name} is not part of this program: zr built it without #{dep.name}. " \
-                    "Add #{dep.name} to the Gemfile, or give --gem #{dep.name}=DIR, then build again."
                 end
       error = Gem::LoadError.new(message)
       error.name = dep.name
