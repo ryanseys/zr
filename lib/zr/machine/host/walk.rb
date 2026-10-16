@@ -683,10 +683,15 @@ module Zr
           name = text(path)
           coverage = measuring_coverage
           base = coverage && ruby(check(k.zr_send(coverage, id(:next_def_site), 0, 0)))
+          branch_base = coverage && ruby(check(k.zr_send(coverage, id(:next_branch_id), 0, 0)))
           traced = @traced || ruby(k.zr_trace_armed_m)
-          hir = Hir.build(File.read(name), name, BuildOptions.new(trace: traced), program: false, def_base: base)
+          hir = Hir.build(File.read(name), name, BuildOptions.new(trace: traced), program: false, def_base: base, branch_base: branch_base)
           @file_spots[name] = (hir.spots || {}).fetch(name, "")
-          check(outside([value(hir.coverable), value(hir.defs)]) { |av| k.zr_send(coverage, id(:compiled_lines!), 2, av) }) if coverage
+          if coverage
+            check(outside([value(hir.coverable), value(hir.defs), value(false), value(hir.branches)]) do |av|
+              k.zr_send(coverage, id(:compiled_lines!), 4, av)
+            end)
+          end
           unit = Unit.new(Paths.shown(name), Library::Roots.internal_library?(name), hir.units, hir.node_ids, false, false, nil, hir.traced)
           fn = @host.callable(-> { toplevel(hir, unit, k::KIND_TOP) })
           (fn << 1) | 1

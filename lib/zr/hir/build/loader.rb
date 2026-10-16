@@ -110,11 +110,12 @@ module Zr
         # @rbs prebuilt_eval: untyped
         # @rbs description: (^() -> String?)?
         # @rbs def_base: Integer
+        # @rbs branch_base: Integer
         # @rbs extensions: _Extensions
         # @rbs return: void
         def initialize(roots, options = BuildOptions.new, eval: false, external: nil, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil,
-                       description: nil, def_base: 0, extensions: NoExtensions)
+                       description: nil, def_base: 0, branch_base: 0, extensions: NoExtensions)
           @deferred = deferred
           # The C extensions that a require may find: a program's (`Ext`),
           # or none (`NoExtensions`).
@@ -141,7 +142,7 @@ module Zr
           @covers = covers
           @coverable = {}
           @branches = {}
-          @branch_count = 0
+          @branch_count = branch_base
           @defs = {}
           @def_count = def_base
           @roots = roots.map { |r| File.expand_path(r) }

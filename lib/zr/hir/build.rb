@@ -100,10 +100,11 @@ module Zr
       # @rbs activations: Integer?
       # @rbs using: Integer?
       # @rbs def_base: Integer?
+      # @rbs branch_base: Integer?
       # @rbs extensions: Loader::_Extensions
       # @rbs return: Program
       def self.program(source, file, options = BuildOptions.new, roots: [], program: true, prebuilt: nil, line: 1, scopes: nil, method: nil,
-                       activations: nil, using: nil, def_base: nil, extensions: Loader::NoExtensions)
+                       activations: nil, using: nil, def_base: nil, branch_base: nil, extensions: Loader::NoExtensions)
         target = options.target
         switches = options.switches
         # The main file's name came from the build's command line, in the
@@ -115,7 +116,8 @@ module Zr
         built = lambda do |external, options, evals, covers|
           loader = Loader.new(roots + (options.gem_set&.roots || []) + Library::Roots.stdlib(target), options, eval: !program, external: external,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt,
-                              description: Library::Roots.description(target), def_base: def_base || 0, extensions: extensions)
+                              description: Library::Roots.description(target), def_base: def_base || 0, branch_base: branch_base || 0,
+                              extensions: extensions)
           loader.main!(file)
           loader.eval_using = using
           # Built before the main file, so that the main file's requires

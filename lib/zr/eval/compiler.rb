@@ -113,17 +113,20 @@ module Zr
 
           @count += 1
           name = "zr_load_#{@count}"
-          # While Coverage measures, the file gets its :line events and its
-          # def sites, and Coverage learns which of its lines can run and where
-          # each of its methods is.
+          # While Coverage measures, the file gets its :line events, its def
+          # sites and its branch counters, after those of the program, and
+          # Coverage learns which of its lines can run, where each of its
+          # methods is, and its branches.
           base = coverage&.send(:next_def_site)
+          branch_base = coverage&.send(:next_branch_id)
           # The file's `using` entries come after every entry in use, as an
           # eval's do (`compiled`): numbered from 0, they would take the
           # entries of the program and of eval support (prism's parser).
-          hir = Hir.build(source, path, BuildOptions.new(trace: @runtime.tracing?), program: false, def_base: base, activations: @runtime.activations)
+          hir = Hir.build(source, path, BuildOptions.new(trace: @runtime.tracing?), program: false, def_base: base, branch_base: branch_base,
+                                                                                    activations: @runtime.activations)
           @file_spots[path] = (hir.spots || {}).fetch(path, "")
           @runtime.take_activations(hir.activations)
-          coverage&.send(:compiled_lines!, hir.coverable, hir.defs)
+          coverage&.send(:compiled_lines!, hir.coverable, hir.defs, false, hir.branches)
           ext = Library::Roots.internal_library?(path)
           functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
           top = Obj::JIT.load(unit(functions, data), syscalls: @syscalls).fetch(name)

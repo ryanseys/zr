@@ -232,11 +232,12 @@ module Coverage
       Primitive.zr_hidden_get(self, :__coverable__) || Primitive.zr_hidden_set(self, :__coverable__, compiled_lines)
     end
 
-    # The lines and the def sites of a file that a require compiled while
-    # the program ran: `{path => [line count, [line, ...]]}` and
-    # `{path => [[id, *span], ...]}`. An eval's lines (`eval`) count only
-    # under `eval: true`, and only until coverage stops.
-    def compiled_lines!(rows, defs, eval = false)
+    # The lines, the def sites and the branches of a file that a require
+    # compiled while the program ran: `{path => [line count, [line, ...]]}`,
+    # `{path => [[id, *span], ...]}` and `{path => [[kind, counter, root,
+    # *span], ...]}`. An eval's lines (`eval`) count only under `eval:
+    # true`, and only until coverage stops.
+    def compiled_lines!(rows, defs, eval = false, branches = {})
       return if eval && !Primitive.zr_hidden_get(self, :__mode__)&.fetch(:eval, false)
 
       # A file compiled before coverage starts is not measured, even when
@@ -262,6 +263,9 @@ module Coverage
       end
       sites = def_table
       defs.each { |path, list| list.each { |id, *span| sites[id] = [path, span] } }
+      # A file compiled again counts its branches anew, as a new iseq does.
+      branch_table.update(branches)
+      branches.each_value { |list| list.each { |_, counter| branch_mark(counter + 1) } }
     end
 
     # The size of the line array that an earlier eval gave `path`, or nil.
@@ -274,6 +278,24 @@ module Coverage
 
       (def_table.keys.max || -1) + 1
     end
+
+    # The first branch counter that no compiled branch has, as the
+    # counters of all files share one array; nil while Coverage does not
+    # measure. Code compiled before keeps its counters, so none is given
+    # out twice.
+    def next_branch_id
+      return nil if state == :idle
+
+      Primitive.zr_hidden_get(self, :__next_branch__) || branch_mark(0)
+    end
+
+    # Keeps `counter` as the next free one unless a later one is.
+    def branch_mark(counter)
+      Primitive.zr_hidden_set(self, :__next_branch__, [Primitive.zr_hidden_get(self, :__next_branch__) || compiled_branch_end, counter].max)
+    end
+
+    # One past the last counter that the build gave out.
+    def compiled_branch_end = (compiled_branches.each_value.flat_map { |rows| rows.map { |row| row[1] } }.max || -1) + 1
 
     def compiled_lines
       Primitive.zr_load_names(5).lines(chomp: true).to_h do |row|
