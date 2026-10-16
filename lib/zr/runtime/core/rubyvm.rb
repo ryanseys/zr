@@ -418,7 +418,8 @@ class RubyVM
       locals = node.respond_to?(:locals) ? node.locals : []
       location = node&.location
       misc = { arg_size: 0, local_size: locals.size, stack_max: 0 }
-      misc[:node_id] = node.node_id if node
+      id = node_id
+      misc[:node_id] = id if id
       misc[:source_hash] = source_hash
       misc[:code_location] = [location.start_line, location.start_column, location.end_line, location.end_column] if location
       misc[:parser] = :prism
@@ -442,6 +443,14 @@ class RubyVM
       points.flat_map { |line, event| [line, :"RUBY_EVENT_#{event.upcase}"] }
     end
     private :events
+
+    # The id of this code's node in its parse (iseq_node_id): from the meta
+    # of compiled code, else from the parse of a compiled string.
+    def node_id
+      meta = Primitive.zr_hidden_get(self, :__meta__)
+      id = Primitive.zr_iseq_meta_node(meta) if meta
+      id&.positive? ? id : syntax&.node_id
+    end
 
     # :top for a compiled string, :method for a method's code and :block
     # for a block's.

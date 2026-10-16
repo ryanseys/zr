@@ -1082,6 +1082,16 @@ module Zr::Kern
     out
   end
 
+  # The prism node id of the code of the FrameMeta at `meta_word`, or 0.
+  #: (value) -> value
+  def zr_iseq_meta_node(meta_word)
+    meta = Machine.ptr(zr_fix2long(meta_word))
+    if meta == 0
+      return zr_fix(0)
+    end
+    zr_fix(FrameMeta[meta].node)
+  end
+
   #: (value) -> value
   def zr_iseq_meta_word(body)
     zr_fix(Machine.word(zr_iseq_meta(body)))
