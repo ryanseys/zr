@@ -1886,6 +1886,13 @@ module Zr::Kern
   # `to_sym`: a Symbol is its bytes and their encoding, the key that
   # rb_str_intern uses. ASCII bytes give the same Symbol in every encoding.
   # Bytes that are invalid in their encoding give no Symbol.
+  # rb_str_intern for the core: the Symbol of a String, which no
+  # program's String#to_sym answers (Symbol#upcase and the others).
+  #: (value) -> value
+  def zr_str_sym_m(s)
+    zr_str_to_sym(s, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
+  end
+
   #: (value, word, ptr, value, value) -> value
   def zr_str_to_sym(recv, argc, argv, cref, blk)
     if zr_str_ascii_bytes_p(recv)

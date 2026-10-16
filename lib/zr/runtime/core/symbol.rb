@@ -5,13 +5,6 @@
 class Symbol
   include Comparable
 
-  # The String method entries as they are at boot. Ruby reaches its own
-  # C functions from here, so a prepend or a redefinition of a String
-  # method does not change Symbol's.
-  STRING = %i[[] upcase downcase capitalize swapcase succ start_with? end_with? casecmp casecmp?]
-             .to_h { |name| [name, String.instance_method(name)] }.freeze
-  private_constant :STRING
-
   # Ruby keeps one frozen name String per symbol (rb_sym2str), so `to_s`,
   # `name` and `id2name` return the same object each time.
   NAMES = Hash.new { |cache, symbol| cache[symbol] = Primitive.zr_sym_name_m(symbol) }
@@ -24,9 +17,30 @@ class Symbol
     NAMES[self]
   end
 
-  def [](index, length = (absent = true; nil))
-    absent ? STRING[:[]].bind_call(own_text, index) : STRING[:[]].bind_call(own_text, index, length)
+  # String's own methods on the name, as CRuby's sym_* functions call
+  # rb_str_* in C: a prepend or a redefinition of a String method does
+  # not change Symbol's, and from this hidden frame String's frame does
+  # not show in a backtrace (zr_frame_shown_p).
+  def text_aref(index, length, absent)
+    Primitive.attr! :hidden
+    absent ? own_text[index] : own_text[index, length]
   end
+
+  def on_text(name, args)
+    Primitive.attr! :hidden
+    text = own_text
+    case name
+    when :upcase then text.upcase(*args)
+    when :downcase then text.downcase(*args)
+    when :capitalize then text.capitalize(*args)
+    when :swapcase then text.swapcase(*args)
+    when :succ then text.succ
+    when :start_with? then text.start_with?(*args)
+    when :end_with? then text.end_with?(*args)
+    end
+  end
+
+  def [](index, length = (absent = true; nil)) = text_aref(index, length, absent)
   alias slice []
 
   def length = Primitive.zr_str_length_m(own_text)
@@ -36,15 +50,15 @@ class Symbol
   def match(*args, &block) = own_text.match(*args, &block)
   def match?(*args) = own_text.match?(*args)
 
-  def upcase(*options) = STRING[:upcase].bind_call(own_text, *options).to_sym
-  def downcase(*options) = STRING[:downcase].bind_call(own_text, *options).to_sym
-  def capitalize(*options) = STRING[:capitalize].bind_call(own_text, *options).to_sym
-  def swapcase(*options) = STRING[:swapcase].bind_call(own_text, *options).to_sym
-  def succ = STRING[:succ].bind_call(own_text).to_sym
+  def upcase(*options) = Primitive.zr_str_sym_m(on_text(:upcase, options))
+  def downcase(*options) = Primitive.zr_str_sym_m(on_text(:downcase, options))
+  def capitalize(*options) = Primitive.zr_str_sym_m(on_text(:capitalize, options))
+  def swapcase(*options) = Primitive.zr_str_sym_m(on_text(:swapcase, options))
+  def succ = Primitive.zr_str_sym_m(on_text(:succ, nil))
   alias next succ
 
-  def start_with?(*prefixes) = STRING[:start_with?].bind_call(own_text, *prefixes)
-  def end_with?(*suffixes) = STRING[:end_with?].bind_call(own_text, *suffixes)
+  def start_with?(*prefixes) = on_text(:start_with?, prefixes)
+  def end_with?(*suffixes) = on_text(:end_with?, suffixes)
   def empty? = Primitive.zr_str_bytesize(own_text) == 0
 
   # A name that contains a character outside ASCII. If all its
@@ -102,9 +116,9 @@ class Symbol
 
   def intern = self
 
-  def casecmp(other) = other.is_a?(Symbol) ? STRING[:casecmp].bind_call(own_text, other.own_text) : nil
+  def casecmp(other) = other.is_a?(Symbol) ? own_text.casecmp(other.own_text) : nil
 
-  def casecmp?(other) = other.is_a?(Symbol) ? STRING[:casecmp?].bind_call(own_text, other.own_text) : nil
+  def casecmp?(other) = other.is_a?(Symbol) ? own_text.casecmp?(other.own_text) : nil
 
   def to_s = NAMES[self]
   alias id2name to_s
