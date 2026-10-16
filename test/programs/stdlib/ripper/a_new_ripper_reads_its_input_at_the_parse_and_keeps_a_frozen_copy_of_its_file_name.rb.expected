@@ -1,0 +1,23 @@
+default: ["(ripper)", true]
+nil name: "(ripper)"
+copy: ["ripper", true]
+to_str name: "via_to_str"
+symbol name: TypeError: no implicit conversion of Symbol into String
+nul name: ArgumentError: string contains null byte
+lineno: true
+string lineno: TypeError: no implicit conversion of String into Integer
+float lineno: nil
+big lineno: RangeError: integer 1099511627776 too big to convert to 'int'
+to_str source: [:program, [[:binary, [:@int, "1", [1, 0]], :+, [:@int, "1", [1, 4]]]]]
+integer source: TypeError: no implicit conversion of Integer into String
+unread before parse: 0
+sexp of gets: [:program, [:stmts_add, [:stmts_add, [:stmts_new], [:assign, [:var_field, [:@ident, "a", [1, 0]]], [:@int, "1", [1, 4]]]], [:var_ref, [:@ident, "a", [2, 0]]]]]
+parse: nil
+read at parse: 3
+second parse: nil
+gets of 0: TypeError: gets returned Integer (expected String or nil)
+gets of a symbol: TypeError: gets returned Symbol (expected String or nil)
+new of a bad gets: Ripper
+io source: [:program, [[:array, [[:@int, "1", [1, 1]], [:@int, "2", [2, 1]]]]]]
+erb sexp: nil
+erb sexp_raw: nil

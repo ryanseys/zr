@@ -52,17 +52,20 @@ class Ripper
     removed
   end
 
-  def initialize(src, filename = "(ripper)", lineno = 1)
-    if src.respond_to?(:gets)
-      text = +""
-      while (line = src.gets)
-        text << line
-      end
-      src = text
+  # As ripper_initialize: an IO or an object with `gets` is read when
+  # the parse starts, anything else is a String (StringValue). The file
+  # name is a frozen copy (StringValueCStr), and the line a C int.
+  def initialize(src, filename = nil, lineno = nil)
+    if src.is_a?(IO) || src.respond_to?(:gets)
+      @input = src
+      src = nil
+    else
+      src = Primitive.zr_str_operand(src)
     end
-    raise TypeError, no_implicit_conversion(src, "String") unless src.is_a?(String)
+    filename = filename.nil? ? "(ripper)".freeze : Primitive.zr_str_operand(filename)
+    raise ArgumentError, "string contains null byte" if File.send(:nul_char?, filename)
 
-    @cursor = Cursor.new(src, filename.to_s, Integer(lineno))
+    @cursor = Cursor.new(src, filename.dup.freeze, lineno.nil? ? 1 : Integer.send(:int_operand, lineno))
   end
 
   def filename = @cursor.filename
@@ -75,8 +78,8 @@ class Ripper
   def token = @cursor.parsing ? @cursor.token : nil
 
   def error? = @cursor.error
-  def end_seen? = @cursor.parsed && !Prism.parse(@cursor.source).data_loc.nil?
-  def encoding = Prism.parse(@cursor.source).encoding
+  def end_seen? = @cursor.parsed && !Prism.parse(source_text).data_loc.nil?
+  def encoding = Prism.parse(source_text).encoding
 
   def yydebug = false
   def yydebug=(flag); end
@@ -92,6 +95,7 @@ class Ripper
 
     @cursor.parsing = true
     begin
+      source_text
       Events.new(self, @cursor).parse
     ensure
       @cursor.parsing = false
@@ -102,6 +106,21 @@ class Ripper
   private
 
   def dedent_string(input, width) = Ripper.dedent_string(input, width)
+
+  # The source: the String given, or the lines that the input gives
+  # until nil, as ripper_lex_io_get and ripper_lex_get_generic read
+  # them; a line of another class is a TypeError.
+  def source_text
+    @cursor.source ||= begin
+      text = +""
+      while (line = @input.public_send(:gets))
+        raise TypeError, "gets returned #{line.class} (expected String or nil)" unless line.is_a?(String)
+
+        text << line
+      end
+      text
+    end
+  end
 
   # A parse's source and the positions of its events.
   Cursor = Struct.new(:source, :filename, :first_lineno, :lineno, :column, :state, :token, :parsing, :parsed, :error) do
@@ -171,6 +190,10 @@ class Ripper
       before = nil
       params = DefParams.new
       lexed.each do |(line, col), event, text, lex_state|
+        # Ripper has no event for the end of the input, which prism's
+        # lex_compat leaves in place when the source is invalid.
+        next if event == :on_eof
+
         # parse.y leaves the state after a heredoc's body as it was, where
         # prism's lexer moves it on.
         lex_state = before if event == :on_heredoc_end && before
