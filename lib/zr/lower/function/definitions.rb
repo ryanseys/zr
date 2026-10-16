@@ -11,6 +11,7 @@ module Zr
         # @rbs @l: Lower
         # @rbs @kind: Function::kind
         # @rbs @qnil: String
+        # @rbs @rec: String
 
         private
 

@@ -19,6 +19,7 @@ module Zr
         # @rbs @name: String
         # @rbs @native_each: bool?
         # @rbs @native_operators: bool?
+        # @rbs @sends_all: bool?
         # @rbs @proc_layout: Machine::Layout
         # @rbs @qnil: String
         # @rbs @rec: String

@@ -161,6 +161,7 @@ module Zr
         return unless node.type == :constant_path_node
 
         found = [] #: Array[untyped]
+        # @type var part: Prism::node?
         part = node.parent
         while part.is_a?(Prism::ConstantPathNode)
           found << part
