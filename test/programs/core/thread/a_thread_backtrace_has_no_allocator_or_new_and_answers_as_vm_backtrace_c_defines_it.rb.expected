@@ -1,0 +1,10 @@
+allocate: NotImplementedError: allocate() function is unimplemented on this machine
+new: NoMethodError: undefined method 'new' for class Thread::Backtrace
+instance_methods: [:clone, :dup]
+private: [:initialize_copy]
+singleton: [:limit]
+superclass: Object
+limit: -1
+subclass_allocate: NotImplementedError: allocate() function is unimplemented on this machine
+respond_to_dup: true
+location_allocate: TypeError: allocator undefined for Thread::Backtrace::Location

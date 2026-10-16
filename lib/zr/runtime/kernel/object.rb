@@ -736,6 +736,9 @@ module Zr::Kern
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("can't create instance of singleton class"), 40)
     end
     kind = zr_alloc_kind(recv)
+    if kind == ALLOC_NOTIMPLEMENT
+      return zr_notimplement(Machine.bytes("allocate"), 8)
+    end
     if zr_alloc_undefined_p(kind)
       b = Machine.slot(Buf.size)
       zr_buf_init(b)
@@ -822,6 +825,9 @@ module Zr::Kern
   ALLOC_REGEXP = 9
   ALLOC_NONE = 10
   ALLOC_FIBER = 11
+  # An allocator that raises NotImplementedError, as backtrace_no_allocator
+  # does: Marshal needs the class to have one.
+  ALLOC_NOTIMPLEMENT = 12
   # A kind at or above this is the address of a C extension's allocation
   # function (rb_define_alloc_func), which a subclass inherits as it
   # inherits the others.
@@ -847,7 +853,7 @@ module Zr::Kern
   # (Zlib::ZStream).
   #: (word) -> bool
   def zr_alloc_undefined_p(kind)
-    kind == ALLOC_UNDEF || kind == ALLOC_NONE
+    kind == ALLOC_UNDEF || kind == ALLOC_NONE || kind == ALLOC_NOTIMPLEMENT
   end
 
   #: (value) -> word
@@ -910,6 +916,13 @@ module Zr::Kern
   #: (value) -> value
   def zr_undef_allocator(klass)
     ClassExt[RClass[klass].ext].alloc = ALLOC_NONE
+    Machine.value(QNIL)
+  end
+
+  # An allocator that raises NotImplementedError (backtrace_no_allocator).
+  #: (value) -> value
+  def zr_notimplement_alloc(klass)
+    ClassExt[RClass[klass].ext].alloc = ALLOC_NOTIMPLEMENT
     Machine.value(QNIL)
   end
 

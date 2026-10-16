@@ -715,8 +715,20 @@ class Thread
   private_class_method :frame_locations, :frame_iseq
 
   class Backtrace
+    # Init_vm_backtrace: the allocator raises (Marshal needs one), there is
+    # no `new`, a clone copies the frames, and a dup is not implemented.
+    Primitive.zr_notimplement_alloc(self)
+    class << self
+      undef_method :new
+    end
+
     # `--backtrace-limit`, or -1 when no limit was given.
     def self.limit = Primitive.zr_backtrace_limit_m
+
+    def clone = super()
+    def dup = raise(NotImplementedError, +"dup() function is unimplemented on this machine")
+
+    private def initialize_copy(original) = nil
 
     # One row of `caller_locations`, parsed from its `file:line:in
     # 'label'` form.
