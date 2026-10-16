@@ -1,0 +1,12 @@
+write to a pipe whose reader closed: Errno::EPIPE: Broken pipe
+syswrite to it: Errno::EPIPE: Broken pipe
+print to it: Errno::EPIPE: Broken pipe
+write_nonblock to it: Errno::EPIPE: Broken pipe
+write through IO.new of its descriptor: Errno::EPIPE: Broken pipe
+write to a socket whose peer closed: Errno::EPIPE: Broken pipe
+pos of a pipe: Errno::ESPIPE: Illegal seek
+seek of a pipe: Errno::ESPIPE: Illegal seek
+pread of a pipe: Errno::ESPIPE: Illegal seek
+seek of STDIN on a pipe: Errno::ESPIPE: Illegal seek @ rb_io_seek - <STDIN>
+seek of a fifo opened by path: Errno::ESPIPE: Illegal seek @ rb_io_seek - DIR/fifo
+pos of it: Errno::ESPIPE: Illegal seek @ rb_io_tell - DIR/fifo

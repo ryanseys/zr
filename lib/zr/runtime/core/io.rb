@@ -2372,9 +2372,13 @@ class IO
 
   private
 
+  # What an error of this stream names, as rb_sys_fail_path(fptr->pathv):
+  # the path, or the name of a standard stream. A pipe, a socket or an
+  # IO made from a descriptor has none, so its message is the errno's
+  # text alone.
   def label
     Primitive.attr! :hidden
-    @name || @path || "fd #{@fd}"
+    @path || @name
   end
 
   # Points the stream's Closer at its descriptor while the stream owns it
