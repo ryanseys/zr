@@ -107,6 +107,7 @@ end
 # The rest is also Ruby in CRuby, and reports its parameters by name.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :sends_all
   Primitive.attr! :sends_each
   Primitive.attr! :ivars
 
@@ -378,6 +379,7 @@ end
 # The file's own questions, each one call to File.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :sends_all
   Primitive.attr! :ivars
 
   def each_line(...) = File.foreach(@path, ...)
@@ -427,6 +429,7 @@ end
 # The FileTest questions.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :sends_all
   Primitive.attr! :ivars
 
   def blockdev? = FileTest.blockdev?(@path)
@@ -459,6 +462,7 @@ end
 # The directory's questions.
 class Pathname
   Primitive.attr! :ruby
+  Primitive.attr! :sends_all
   Primitive.attr! :ivars
 
   def self.glob(*args, **kwargs)

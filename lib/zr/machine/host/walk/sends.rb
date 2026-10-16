@@ -400,6 +400,7 @@ module Zr
           # an operator, as `native_operators?` says.
           def core_send?(name, s)
             return false unless s.internal?
+            return false if s.def_node && attributes(s.def_node).include?(:sends_all)
             return native_operators?(s) if Hir::CoreDef::SENT_OPS.include?(name)
 
             name == :each ? !(s.def_node && attributes(s.def_node).include?(:sends_each)) : !PROTOCOL.include?(name)
@@ -409,7 +410,7 @@ module Zr
           # (`Arith#native_operators?`): core code outside a method that
           # CRuby writes in Ruby (`Primitive.attr! :ruby`) or whose C sends its
           # operators by name (`:sends_ops`).
-          def native_operators?(s) = s.internal? && !(s.def_node && attributes(s.def_node).intersect?(%i[ruby sends_ops]))
+          def native_operators?(s) = s.internal? && !(s.def_node && attributes(s.def_node).intersect?(%i[ruby sends_ops sends_all]))
 
           # A call of a block's function (`Block.call`).
           def call_block(pr, argc, av, blk)

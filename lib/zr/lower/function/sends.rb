@@ -617,11 +617,13 @@ module Zr
         # compiler for every name, as ruby's compiler is C that sends
         # nothing by name; in the core library for any name but PROTOCOL,
         # for `each` as CRuby's C sends it (`native_each?`), and for an
-        # operator as CRuby's C sends it (`native_operators?`).
+        # operator as CRuby's C sends it (`native_operators?`); never in a
+        # def that CRuby writes in Ruby alone (`sends_all?`).
         #: (Symbol name) -> bool
         def core_send?(name)
           return true if @l.support?
           return false unless @l.internal?
+          return false if sends_all?
           return native_operators? if Hir::CoreDef::SENT_OPS.include?(name)
 
           name == :each ? native_each? : !PROTOCOL.include?(name)

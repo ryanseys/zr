@@ -1,0 +1,6 @@
+#<Pathname:../bar>
+#<Pathname:../bar>
+[#<Pathname:dirname>, #<Pathname:basename>]
+#<TypeError: wrong argument type nil (expected Array)>
+#<Pathname:b.rb>
+[["/a/b.rb"]]

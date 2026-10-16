@@ -24,7 +24,9 @@ module Zr
       # `:hidden` marks a helper that has no CRuby method; it has no
       # backtrace entry. `:ruby` marks a method that CRuby writes in Ruby.
       # `:sends_ops` marks a method whose operators on its values send by
-      # name, so a redefined Integer#+ applies.
+      # name, so a redefined Integer#+ applies. `:sends_all` marks a method
+      # that CRuby writes in Ruby alone: every send in it goes by name, so a
+      # program's prepend or redefinition answers it.
       # `:frameless` marks a method that ruby runs as an instruction: it is
       # listed as any method is, and has no backtrace entry.
       # `:more_args` marks a method that CRuby lets take any count: a call

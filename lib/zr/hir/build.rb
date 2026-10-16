@@ -1354,7 +1354,7 @@ module Zr
         @loader.gems!(name) if @loader && !@loader.ahead?(@file) && !Library::Roots.runtime_file?(@file)
       end
 
-      # `Primitive.attr! :ruby`, `:hidden`, `:ivars`, `:sends_each` or `:sends_ops` in a
+      # `Primitive.attr! :ruby`, `:hidden`, `:ivars`, `:sends_each`, `:sends_ops` or `:sends_all` in a
       # class body of the core library: every later def in that body gets
       # the attribute, as if each def started with it. `:ruby` marks
       # methods that CRuby writes in Ruby. `:hidden` marks a class of
@@ -1362,11 +1362,13 @@ module Zr
       # whose instance variables CRuby shows. `:sends_each` marks methods
       # that send `each` by name, as CRuby's rb_block_call does. `:sends_ops`
       # marks methods whose operators send by name, as CRuby's f_add does.
+      # `:sends_all` marks methods that CRuby writes in Ruby with no C behind
+      # them (Pathname's): every send goes by name, as Ruby's do.
       #: (Prism::CallNode node) -> Symbol?
       def body_mark(node)
         mark = node.arguments&.arguments&.first
         return unless !@in_def && node.name == :attr! && (receiver = node.receiver).is_a?(Prism::ConstantReadNode) && receiver.name == :Primitive &&
-                      mark.is_a?(Prism::SymbolNode) && %w[ruby hidden ivars sends_each sends_ops].include?(mark.unescaped)
+                      mark.is_a?(Prism::SymbolNode) && %w[ruby hidden ivars sends_each sends_ops sends_all].include?(mark.unescaped)
 
         mark.unescaped.to_sym
       end

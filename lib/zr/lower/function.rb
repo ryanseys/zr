@@ -97,6 +97,7 @@ module Zr
       # @rbs @scope_reads_backref: bool?
       # @rbs @native_operators: bool?
       # @rbs @native_each: bool?
+      # @rbs @sends_all: bool?
 
       include Expressions
       include Definitions

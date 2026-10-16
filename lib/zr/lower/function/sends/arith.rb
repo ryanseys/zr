@@ -430,7 +430,7 @@ module Zr
             fn = up
           end
           # False, not nil, for a program's code, so the memo holds.
-          @native_operators = @l.internal? || @l.support? ? !fn.attributes.intersect?(%i[ruby sends_ops]) : false
+          @native_operators = @l.internal? || @l.support? ? !fn.attributes.intersect?(%i[ruby sends_ops sends_all]) : false
         end
 
         # Whether `each` finds the core's own method. Ruby's C walks its
@@ -453,7 +453,22 @@ module Zr
           while fn.kind == :block && (up = fn.outer).is_a?(Function)
             fn = up
           end
-          @native_each = @l.internal? || @l.support? ? !fn.attributes.include?(:sends_each) : false
+          @native_each = @l.internal? || @l.support? ? !fn.attributes.intersect?(%i[sends_each sends_all]) : false
+        end
+
+        # Whether the def is one that CRuby writes in Ruby alone
+        # (`:sends_all`), so its every send goes by name, as Ruby's do.
+        #: () -> bool
+        def sends_all?
+          # Nil only until the first call sets it.
+          known = @sends_all
+          return known unless known.nil?
+
+          fn = self #: Function
+          while fn.kind == :block && (up = fn.outer).is_a?(Function)
+            fn = up
+          end
+          @sends_all = fn.attributes.include?(:sends_all)
         end
 
         # Whether all the given gates are clear: one test of the gate word,
