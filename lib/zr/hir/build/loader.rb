@@ -191,9 +191,11 @@ module Zr
         # not arm the events for every statement and cause a second build.
         # An allocation trace also needs the line of each statement, and
         # the frame of each core method, which an inline iterator has not.
-        TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage|trace_object_allocations\w*)\b/
+        # An instruction sequence's list of events (`trace_points`) needs the
+        # lines that each scope's events are on.
+        TRACE_NAMES = /\b(?:TracePoint|set_trace_func|add_trace_func|Coverage|trace_object_allocations\w*|trace_points)\b/
         TRACE_CONSTANTS = %i[TracePoint Coverage].freeze
-        TRACE_CALLS = %i[set_trace_func add_trace_func trace_object_allocations trace_object_allocations_start].freeze
+        TRACE_CALLS = %i[set_trace_func add_trace_func trace_object_allocations trace_object_allocations_start trace_points].freeze
         COVERAGE_CONSTANTS = %i[Coverage].freeze
 
         #: (Prism::node tree) -> bool

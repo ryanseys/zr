@@ -1009,6 +1009,38 @@ module Zr::Kern
     zr_param_rows(FrameMeta[meta].params, as_proc == QTRUE)
   end
 
+  # `[own, all]`: the lines of the :line events of the FrameMeta at
+  # `meta_word`, and those with the events of the scopes in it; nil when
+  # the build kept no lines.
+  #: (value) -> value
+  def zr_iseq_meta_lines(meta_word)
+    meta = Machine.ptr(zr_fix2long(meta_word))
+    if meta == 0 || FrameMeta[meta].lines == 0
+      return Machine.value(QNIL)
+    end
+    table = FrameMeta[meta].lines
+    own = Machine.load64(table, 0)
+    nested = Machine.load64(table + ((own + 1) * 8), 0)
+    lines = zr_ary_new(own)
+    all = zr_ary_new(own + nested)
+    i = 0
+    while i < own
+      line = zr_fix(Machine.load64(table + ((i + 1) * 8), 0))
+      zr_ary_push(lines, line)
+      zr_ary_push(all, line)
+      i += 1
+    end
+    i = 0
+    while i < nested
+      zr_ary_push(all, zr_fix(Machine.load64(table + ((own + 2 + i) * 8), 0)))
+      i += 1
+    end
+    out = zr_ary_new(2)
+    zr_ary_push(out, lines)
+    zr_ary_push(out, all)
+    out
+  end
+
   #: (value) -> value
   def zr_iseq_meta_word(body)
     zr_fix(Machine.word(zr_iseq_meta(body)))

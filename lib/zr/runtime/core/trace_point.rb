@@ -663,13 +663,13 @@ class TracePoint
   }.freeze
   private_constant :TARGET_EVENTS
 
-  # Whether `line` of `target` fires a :line event. For a block, whose
-  # lines zr does not list, a line before its first one does not.
+  # Whether `line` of `target`, or of the code in it, fires a :line
+  # event (rb_iseq_add_local_tracepoint_recursively). A build that kept
+  # no lines knows only that a line before the target's first does not.
   def target_line?(target, line)
     Primitive.attr! :hidden
-    RubyVM::InstructionSequence.of(target).trace_points.any? { |at, _| at == line }
-  rescue NotImplementedError
-    line >= target.source_location[1]
+    lines = RubyVM::InstructionSequence.of(target).send(:target_lines)
+    lines ? lines.include?(line) : line >= target.source_location[1]
   end
 
   def switch(on)

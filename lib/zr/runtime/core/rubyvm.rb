@@ -442,7 +442,8 @@ class RubyVM
     # as prism flags it, outside the methods, blocks and class bodies in
     # it, which are code of their own.
     def trace_points
-      node = syntax or return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#trace_points of a block or a method")
+      node = syntax
+      return built_trace_points if node.nil?
 
       # The :call, :b_call or :class event of a def, block or class body
       # is on its first line, so a statement there gives no :line event.
@@ -474,6 +475,38 @@ class RubyVM
     def script_lines = nil
 
     private
+
+    # The opening and closing events of each type of code.
+    SCOPE_EVENTS = { method: %i[call return], block: %i[b_call b_return], class: %i[class end] }.freeze
+    private_constant :SCOPE_EVENTS
+
+    # The events of compiled code, from the lines that a traced build
+    # keeps in its meta: the opening event on its first line, its :line
+    # events, and the closing event on its last line.
+    def built_trace_points
+      Primitive.attr! :hidden
+      meta = Primitive.zr_hidden_get(self, :__meta__)
+      own, = (Primitive.zr_iseq_meta_lines(meta) if meta)
+      return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence#trace_points of a block or a method") if own.nil?
+
+      _, first, type, last = Primitive.zr_iseq_meta_info(meta)
+      opening, closing = SCOPE_EVENTS[type]
+      points = own.map { |line| [line, :line] }
+      opening ? [[first, opening], *points, [last, closing]] : points
+    end
+
+    # The lines where a TracePoint that targets this code can fire :line
+    # events: its own and those of the code in it; nil when the build kept
+    # none.
+    def target_lines
+      Primitive.attr! :hidden
+      if syntax
+        trace_points.map(&:first)
+      else
+        meta = Primitive.zr_hidden_get(self, :__meta__)
+        Primitive.zr_iseq_meta_lines(meta)&.last if meta
+      end
+    end
 
     # The child code under `node`, as iseqs made of their labels: a def
     # is its name, a block is "block in" the code around it, a class

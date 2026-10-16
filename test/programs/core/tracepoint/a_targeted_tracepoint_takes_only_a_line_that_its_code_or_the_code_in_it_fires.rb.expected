@@ -1,0 +1,18 @@
+line5: [5]
+line6: [6]
+line8: [8, 8]
+line10: [10]
+line11: [11]
+line15: ArgumentError: can not enable any hooks
+line4: ArgumentError: can not enable any hooks
+line12: ArgumentError: can not enable any hooks
+line13: :inner
+line16: :inner
+line40: ArgumentError: can not enable any hooks
+line-1: ArgumentError: can not enable any hooks
+no_target: ArgumentError: only target_line is specified
+call_event: ArgumentError: target_line is specified, but line event is not specified
+string_line: TypeError: no implicit conversion of String into Integer
+proc_body: [39]
+proc_open: ArgumentError: can not enable any hooks
+define_method: [47]

@@ -17,6 +17,7 @@ module Zr
         # @rbs @ensure_path: Symbol
         # @rbs @jump_line: Integer?
         # @rbs @body: Hir::node?
+        # @rbs @trace_lines: Array[Integer]
 
         # ruby's RUBY_EVENT_* bits.
         EVENTS = { line: 0x1, class: 0x2, end: 0x4, call: 0x8, return: 0x10, b_call: 0x100, b_return: 0x200 }.freeze #: Hash[Symbol, Integer]
@@ -43,7 +44,10 @@ module Zr
           return @qnil unless line
 
           line == node.line ? at_node(node) : at_line(line)
-          fire(:line) if traced?
+          if traced?
+            fire(:line)
+            @trace_lines << line
+          end
           @qnil
         end
 

@@ -68,6 +68,7 @@ module Zr
       # @rbs @retries: Array[[String, Integer, Integer]]
       # @rbs @rescue_lines: Array[Integer]
       # @rbs @rescue_rows: Hash[Integer, Array[Integer]]
+      # @rbs @trace_lines: Array[Integer]
       # @rbs @f: IR::Function
       # @rbs @base: Integer
       # @rbs @nvalues: Integer
@@ -207,6 +208,9 @@ module Zr
         # whose line the record stores there (Lower#rescues_table).
         @rescue_lines = []
         @rescue_rows = {}
+        # The lines of the :line events that the scope fires, in the order
+        # they are lowered (Lower#lines_table).
+        @trace_lines = []
         abi = if @direct then Function.direct_abi(own_params.required.size)
               elsif twin_of then :def
               else kind
@@ -255,6 +259,7 @@ module Zr
       #: () -> IR::Function
       def lower
         # @type ivar @body_label: String
+        @l.nested_lines << [] if lines_kept?
         enter
         bind_params
         # A method that only recurses has no back edge. So it yields to
@@ -276,8 +281,24 @@ module Zr
         # captures table that its meta refers to can be written.
         @l.captures_table(@name, capture_rows, (own = @def).is_a?(Hir::Block) && Hir::Locals.yields?(own)) unless @twin_of
         @l.rescues_table(@name, @rescue_rows) unless @twin_of || @rescue_rows.empty?
+        keep_lines if lines_kept?
         @l.functions << @f
         @f
+      end
+
+      # In a traced build, each scope's meta lists the lines of its :line
+      # events, and then those of the scopes in it, which a TracePoint's
+      # `target_line` and RubyVM::InstructionSequence#trace_points read. A
+      # scope in it finished lowering before this one does, so its lines
+      # are already among `nested`.
+      #: () -> bool
+      def lines_kept? = traced? && !@twin_of
+
+      #: () -> void
+      def keep_lines
+        nested = @l.nested_lines.pop || []
+        @l.lines_table(@name, @trace_lines, nested)
+        @l.nested_lines.last&.concat(@trace_lines, nested)
       end
 
       # The def-site entry that this scope uses when it makes a method, or

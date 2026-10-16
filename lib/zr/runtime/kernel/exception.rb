@@ -77,6 +77,9 @@ module Zr::Kern
     # body (not out of `class << x`), so a NameError there lists those
     # locals too.
     attr_accessor :lexical #: ptr
+    # In a traced build, the lines of the scope's :line events, and then
+    # those of the scopes in it (Lower#lines_table); 0 in another build.
+    attr_accessor :lines #: ptr
   end
 
   # FrameMeta `blocks` of a program's method: whether it uses the block it

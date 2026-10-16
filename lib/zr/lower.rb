@@ -33,6 +33,7 @@ module Zr
     # @rbs @warnings: Array[String]
     # @rbs @data: Array[Obj::Datum]
     # @rbs @metas: Hash[String, Obj::Datum]
+    # @rbs @nested_lines: Array[Array[Integer]]?
     # @rbs @functions: Array[IR::Function]
     # @rbs @prefix: String
     # @rbs @next: Integer
@@ -680,6 +681,21 @@ module Zr
       offset = layout("FrameMeta").fields.fetch("rescues").first
       @metas.fetch("zr_meta_#{fn}").relocs << Obj::Reloc.new(offset, :abs64, table)
     end
+
+    # The :line events of the scope `fn` as data that its FrameMeta
+    # `lines` points at: the count of its own events and their lines, then
+    # the count and lines of the events of the scopes in it.
+    #: (String fn, Array[Integer] own, Array[Integer] nested) -> void
+    def lines_table(fn, own, nested)
+      table = id_table("zr_lines_#{fn}", [own.size, *own, nested.size, *nested])
+      offset = layout("FrameMeta").fields.fetch("lines").first
+      @metas.fetch("zr_meta_#{fn}").relocs << Obj::Reloc.new(offset, :abs64, table)
+    end
+
+    # For each scope that is being lowered, innermost last, the lines of
+    # the :line events of the scopes in it that finished lowering.
+    #: () -> Array[Array[Integer]]
+    def nested_lines = @nested_lines ||= []
 
     # The scope's locals as data: the count, then one name id for each,
     # in slot order. An eval and a Binding read the scope's names here.
