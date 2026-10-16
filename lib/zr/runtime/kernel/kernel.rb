@@ -122,6 +122,25 @@ module Zr::Kern
     end
   end
 
+  # rb_write_error_str for the core's warnings: while `$stderr` is STDERR,
+  # the bytes go to fd 2 at once, past the stream's buffer, as CRuby's
+  # fwrite to C's stderr does. Else `$stderr.write` takes them, and what
+  # it raises passes up.
+  #: (value) -> value
+  def zr_write_error_m(s)
+    out = zr_gvar_get(Machine.id(:$stderr))
+    if zr_special_p(out) || out == zr_core_class(Machine.id(:STDERR))
+      zr_write_err(RString[s].ptr, RString[s].len)
+      return Machine.value(QNIL)
+    end
+    slot = Machine.slot(8)
+    Machine.store64(slot, 0, Machine.word(s))
+    r = zr_send(out, Machine.id(:write), 1, slot)
+    return r if r == QUNDEF
+
+    Machine.value(QNIL)
+  end
+
   # Writes a line on stderr: the output of `warn`.
   #: (value) -> value
   def zr_warn_line(s)

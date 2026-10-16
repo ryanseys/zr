@@ -27,8 +27,7 @@ module Warning
     raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{message.encoding}" unless message.encoding.ascii_compatible?
     return nil unless category.nil? || Warning[category]
 
-    $stderr.write(message)
-    nil
+    Primitive.zr_write_error_m(message)
   end
 
   # rb_warning_category_from_name: a Symbol that names a category.

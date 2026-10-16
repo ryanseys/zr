@@ -866,7 +866,7 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     end
     # Warning itself writes the text, as rb_warning_string does there, so a
     # Warning#warn that calls super does not come back to itself.
-    return $stderr.write(text) && nil if equal?(Warning)
+    return Primitive.zr_write_error_m(text) if equal?(Warning)
 
     Warning.send(:emit, text, category)
     nil

@@ -330,7 +330,7 @@ class Exception
     text = to_s
     text = Primitive.zr_any_to_s(self) unless text.is_a?(String)
     at = raised.backtrace_locations&.first
-    $stderr.write(at ? "Exception '#{self.class}' at #{at.path}:#{at.lineno} - #{text}\n" : "Exception '#{self.class}' - #{text}\n")
+    Primitive.zr_write_error_m(at ? "Exception '#{self.class}' at #{at.path}:#{at.lineno} - #{text}\n" : "Exception '#{self.class}' - #{text}\n")
   end
 
   def checked_highlight(value, tty)
