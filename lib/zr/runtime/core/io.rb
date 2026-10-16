@@ -2007,7 +2007,7 @@ class IO
       if chunk.is_a?(Integer)
         raise SystemCallError.new(label, -chunk, +"io_fread") unless -chunk == Errno::EAGAIN::Errno
 
-        wait_again(READABLE)
+        wait_again(READABLE) { SystemCallError.new(label, -chunk, +"io_fread") }
       else
         text << chunk.b
       end
@@ -2036,12 +2036,15 @@ class IO
     raise SystemCallError.new(@name || @path, Errno::EINVAL::Errno, +"rb_io_sysread") if length < 0
 
     IO.send(:room_for!, length)
+    # A scheduler's io_read answers once: rb_io_sysread fails on its
+    # EAGAIN with no wait.
+    scheduled = IO.send(:scheduler_taking, :io_read)
     chunk = locking(buffer) do
-      park_to_read unless IO.send(:scheduler_taking, :io_read)
+      park_to_read unless scheduled
       loop do
         chunk = read_memory(length)
         break chunk unless chunk.is_a?(Integer)
-        raise SystemCallError.new(@name || @path, -chunk, +"rb_io_sysread") unless -chunk == Errno::EAGAIN::Errno
+        raise SystemCallError.new(@name || @path, -chunk, +"rb_io_sysread") if scheduled || -chunk != Errno::EAGAIN::Errno
 
         wait_again(READABLE)
       end
@@ -2618,7 +2621,7 @@ class IO
       if wrote.negative?
         raise SystemCallError.new(label, -wrote, +"rb_sys_fail_on_write") unless -wrote == Errno::EAGAIN::Errno
 
-        wait_again(WRITABLE)
+        wait_again(WRITABLE) { SystemCallError.new(label, -wrote, +"rb_sys_fail_on_write") }
       else
         from += wrote
       end
@@ -2626,13 +2629,21 @@ class IO
     text.bytesize
   end
 
-  # fptr_wait_readable and its writable twin: a call that said "not yet"
-  # waits for the descriptor, in the scheduler where the fiber has one,
-  # before it comes round again.
+  # rb_io_maybe_wait_readable and its writable twin: a call that said
+  # "not yet" (EAGAIN) waits for the descriptor, in the scheduler where
+  # the fiber has one, before it comes round again. The scheduler's
+  # io_wait answers: false is a timeout, and nil or 0 is no event, where
+  # the call fails with its own errno, the error the block gives.
   def wait_again(event)
     Primitive.attr! :hidden
     scheduler = Fiber.current_scheduler
-    scheduler ? scheduler.io_wait(self, event, @timeout) : Thread.pass
+    return Thread.pass unless scheduler
+
+    ready = scheduler.io_wait(self, event, @timeout)
+    if ready == false
+      raise IO::TimeoutError, "Timed out waiting for IO to become #{event == WRITABLE ? "writable" : "readable"}!"
+    end
+    raise yield if ready.nil? || Integer.send(:int_operand, ready).zero?
   end
 
   # io_bufread: `length` bytes, or fewer at the end. With nothing buffered
@@ -2650,7 +2661,7 @@ class IO
         if chunk.is_a?(Integer)
           raise SystemCallError.new(label, -chunk, +"io_fread") unless -chunk == Errno::EAGAIN::Errno
 
-          wait_again(READABLE)
+          wait_again(READABLE) { SystemCallError.new(label, -chunk, +"io_fread") }
         else
           out << chunk
         end
@@ -2815,7 +2826,7 @@ class IO
 
         raise SystemCallError.new(label, -chunk, +"io_getpartial") unless -chunk == Errno::EAGAIN::Errno
 
-        wait_again(READABLE)
+        wait_again(READABLE) { SystemCallError.new(label, -chunk, +"io_getpartial") }
       end
     end
 
@@ -2935,11 +2946,16 @@ class IO
       # A descriptor that cannot wait says "nothing yet" rather than
       # waiting, so the read tries again.
       # A directory gives EISDIR only on the read. Ruby reports it
-      # from the outer call, not from the buffer filler.
-      site = -chunk == Errno::EISDIR::Errno ? +"io_fread" : +"io_fillbuf"
-      raise SystemCallError.new(label, -chunk, site) unless -chunk == Errno::EAGAIN::Errno
+      # from the outer call, not from the buffer filler, which names
+      # the stream by its descriptor and then its path.
+      if -chunk == Errno::EISDIR::Errno
+        raise SystemCallError.new(label, -chunk, +"io_fread")
+      end
 
-      wait_again(READABLE)
+      named = "fd:#{@fd} #{label}"
+      raise SystemCallError.new(named, -chunk, +"io_fillbuf") unless -chunk == Errno::EAGAIN::Errno
+
+      wait_again(READABLE) { SystemCallError.new(named, -chunk, +"io_fillbuf") }
     else
       # The bytes join the buffer as they are: the buffer's own
       # encoding decides what was read, not the chunk's.
@@ -3505,7 +3521,7 @@ class IO
       return chunk && Primitive.zr_str_set_binary(chunk) unless chunk.is_a?(Integer)
       raise SystemCallError.new(offset.negative? ? +"read" : +"pread", -chunk) unless -chunk == Errno::EAGAIN::Errno
 
-      wait_again(READABLE)
+      wait_again(READABLE) { SystemCallError.new(offset.negative? ? +"read" : +"pread", -chunk) }
     end
   end
 
