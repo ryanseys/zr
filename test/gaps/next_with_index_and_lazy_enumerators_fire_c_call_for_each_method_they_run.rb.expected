@@ -1,0 +1,3 @@
+enum_next: Enumerable#each_slice Enumerator#next Enumerator#each Enumerable#each_slice Array#size Array#each => [1]
+with_index: Enumerable#each_with_index Enumerable#map Enumerator#each Enumerable#each_with_index Array#each Integer#+ String#* Integer#+ String#* => ["a", "bb"]
+lazy: Enumerable#lazy Enumerator::Lazy#map Enumerator::Generator#initialize Enumerable#first Enumerator#each Enumerator::Generator#each Enumerator#each Array#each Integer#* Enumerator::Yielder#<< Integer#* Enumerator::Yielder#<< => [2, 4]

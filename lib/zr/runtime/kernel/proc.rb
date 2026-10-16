@@ -689,6 +689,18 @@ module Zr::Kern
     zr_enum_send_each(recv, RArray[args].len, RArray[args].ptr, p)
   end
 
+  # A call of `name` that the core makes with the Array `args`, whose
+  # last element is a keyword Hash when `kw` is true, and the block
+  # `blk`, as rb_block_call_kw makes it: a private method answers, and
+  # TracePoint hears the call.
+  #: (value, value, value, value, value) -> value
+  def zr_funcall_args_m(recv, name, args, kw, blk)
+    if kw == QTRUE
+      zr_kw_pass()
+    end
+    zr_dispatch(0, recv, zr_sym2id(name), RArray[args].len, RArray[args].ptr, SEND_FUNCALL, blk)
+  end
+
   # The `each` of an Enumerable method: sent by name, as rb_block_call
   # sends it, except inside eval's compiler, which takes the core's own
   # (zr_eval_compiling_m).

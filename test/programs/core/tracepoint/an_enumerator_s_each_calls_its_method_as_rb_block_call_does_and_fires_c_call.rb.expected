@@ -1,0 +1,6 @@
+each_slice_enum: Enumerable#each_slice Enumerable#to_a Enumerator#each Enumerable#each_slice Array#size Array#each => [[1], [2]]
+extra_args: Enumerable#each_slice Enumerator#each Enumerable#to_a Enumerator#each Enumerable#each_slice Array#size Array#each => [[3, 1], [2]]
+private_with_keywords: Kernel#to_enum Enumerable#to_a Enumerator#each Enumerable#each_slice Array#size Array#each Array#sum Integer#* Array#sum Integer#* => [30, 70]
+string_name: Kernel#enum_for Enumerable#to_a Enumerator#each Enumerable#each_slice Array#size Array#each Array#sum Integer#* Array#sum Integer#* => [5, 6]
+[2, 4]
+[2, 4]

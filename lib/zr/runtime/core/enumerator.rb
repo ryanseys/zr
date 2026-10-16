@@ -171,8 +171,22 @@ class Enumerator
       return copy
     end
 
-    @receiver.__send__(@method, *@args, *extra, **@kwargs, &block)
+    # enumerator_block_call: the method by name with the arguments and
+    # keywords kept, as rb_block_call_kw calls it, which TracePoint hears.
+    args = extra.empty? ? @args : @args + extra
+    name = Enumerator.send(:method_symbol, @method)
+    return Primitive.zr_funcall_args_m(@receiver, name, args, false, block) if @kwargs.empty?
+
+    Primitive.zr_funcall_args_m(@receiver, name, [*args, @kwargs.dup], true, block)
   end
+
+  # The Symbol of a method name that to_enum took: a Symbol, or what
+  # to_str gives.
+  def self.method_symbol(method)
+    Primitive.attr! :hidden
+    method.is_a?(Symbol) ? method : String.try_convert(method).to_sym
+  end
+  private_class_method :method_symbol
 
   # A size that responds to call is called, a Proc or not.
   # enumerator_size: rb_check_funcall of `call`, of any visibility,
@@ -415,7 +429,12 @@ module Kernel
     Enumerator.for(self, method, args, kwargs, size)
   end
 
-  alias enum_for to_enum
+  # A definition of its own, as CRuby defines both names: a TracePoint
+  # names the one that the program called.
+  def enum_for(method = :each, *args, **kwargs, &size)
+    Enumerator.send(:method_name, method)
+    Enumerator.for(self, method, args, kwargs, size)
+  end
 
   # What a builtin iterator returns without a block: its count comes
   # last.
@@ -973,8 +992,11 @@ class Enumerator::Lazy < Enumerator
 
     # The block's value goes back to the method, as enumerator_block_call
     # passes it: `lazy.to_enum(:chunk).each { ... }` chunks by it.
-    def run_send(_packing, &)
-      @receiver.__send__(@method, *@args, **@kwargs, &)
+    def run_send(_packing, &block)
+      name = Enumerator.send(:method_symbol, @method)
+      return Primitive.zr_funcall_args_m(@receiver, name, @args, false, block) if @kwargs.empty?
+
+      Primitive.zr_funcall_args_m(@receiver, name, [*@args, @kwargs.dup], true, block)
     end
 
     # The four stages that keep no state go through the kernel's
