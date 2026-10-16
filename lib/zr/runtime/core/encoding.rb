@@ -448,7 +448,10 @@ class Encoding
     return exchange(text, target, [from, target], options) if carrier?(from) && carrier?(target)
 
     path = from.equal?(UTF_8) || target.equal?(UTF_8) ? [from, target] : [from, UTF_8, target]
-    (1...path.size).each { |i| converter(path[i - 1], path[i], path, text.ascii_only?, decorators(options)) }
+    # str_transcode0 opens no converter only for ASCII text between two
+    # encodings that contain ASCII.
+    ascii = text.ascii_only? && from.ascii_compatible? && target.ascii_compatible?
+    (1...path.size).each { |i| converter(path[i - 1], path[i], path, ascii, decorators(options)) }
     text = to_utf8(text, path, options) unless from.equal?(UTF_8)
     text = from_utf8(text, target, path, options) unless target.equal?(UTF_8)
     text

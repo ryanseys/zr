@@ -1,0 +1,45 @@
+EUC-TW to UTF-8: "abc"
+EUC-TW to ISO-8859-1: "abc"
+EUC-TW to UTF-16LE: Encoding::ConverterNotFoundError: code converter not found (EUC-TW to UTF-16LE)
+EUC-TW to UTF-32BE: Encoding::ConverterNotFoundError: code converter not found (EUC-TW to UTF-32BE)
+EUC-TW to UTF-16: Encoding::ConverterNotFoundError: code converter not found (EUC-TW to UTF-16)
+EUC-TW with xml: Encoding::ConverterNotFoundError: code converter not found (EUC-TW to UTF-8 with xml_text)
+Emacs-Mule to UTF-8: "abc"
+Emacs-Mule to ISO-8859-1: "abc"
+Emacs-Mule to UTF-16LE: Encoding::ConverterNotFoundError: code converter not found (Emacs-Mule to UTF-16LE)
+Emacs-Mule to UTF-32BE: Encoding::ConverterNotFoundError: code converter not found (Emacs-Mule to UTF-32BE)
+Emacs-Mule to UTF-16: Encoding::ConverterNotFoundError: code converter not found (Emacs-Mule to UTF-16)
+Emacs-Mule with xml: Encoding::ConverterNotFoundError: code converter not found (Emacs-Mule to UTF-8 with xml_text)
+GB1988 to UTF-8: "abc"
+GB1988 to ISO-8859-1: "abc"
+GB1988 to UTF-16LE: Encoding::ConverterNotFoundError: code converter not found (GB1988 to UTF-16LE)
+GB1988 to UTF-32BE: Encoding::ConverterNotFoundError: code converter not found (GB1988 to UTF-32BE)
+GB1988 to UTF-16: Encoding::ConverterNotFoundError: code converter not found (GB1988 to UTF-16)
+GB1988 with xml: Encoding::ConverterNotFoundError: code converter not found (GB1988 to UTF-8 with xml_text)
+MacJapanese to UTF-8: "abc"
+MacJapanese to ISO-8859-1: "abc"
+MacJapanese to UTF-16LE: Encoding::ConverterNotFoundError: code converter not found (MacJapanese to UTF-16LE)
+MacJapanese to UTF-32BE: Encoding::ConverterNotFoundError: code converter not found (MacJapanese to UTF-32BE)
+MacJapanese to UTF-16: Encoding::ConverterNotFoundError: code converter not found (MacJapanese to UTF-16)
+MacJapanese with xml: Encoding::ConverterNotFoundError: code converter not found (MacJapanese to UTF-8 with xml_text)
+Windows-1258 to UTF-8: "abc"
+Windows-1258 to ISO-8859-1: "abc"
+Windows-1258 to UTF-16LE: Encoding::ConverterNotFoundError: code converter not found (Windows-1258 to UTF-16LE)
+Windows-1258 to UTF-32BE: Encoding::ConverterNotFoundError: code converter not found (Windows-1258 to UTF-32BE)
+Windows-1258 to UTF-16: Encoding::ConverterNotFoundError: code converter not found (Windows-1258 to UTF-16)
+Windows-1258 with xml: Encoding::ConverterNotFoundError: code converter not found (Windows-1258 to UTF-8 with xml_text)
+macCentEuro to UTF-8: "abc"
+macCentEuro to ISO-8859-1: "abc"
+macCentEuro to UTF-16LE: Encoding::ConverterNotFoundError: code converter not found (macCentEuro to UTF-16LE)
+macCentEuro to UTF-32BE: Encoding::ConverterNotFoundError: code converter not found (macCentEuro to UTF-32BE)
+macCentEuro to UTF-16: Encoding::ConverterNotFoundError: code converter not found (macCentEuro to UTF-16)
+macCentEuro with xml: Encoding::ConverterNotFoundError: code converter not found (macCentEuro to UTF-8 with xml_text)
+macThai to UTF-8: "abc"
+macThai to ISO-8859-1: "abc"
+macThai to UTF-16LE: Encoding::ConverterNotFoundError: code converter not found (macThai to UTF-16LE)
+macThai to UTF-32BE: Encoding::ConverterNotFoundError: code converter not found (macThai to UTF-32BE)
+macThai to UTF-16: Encoding::ConverterNotFoundError: code converter not found (macThai to UTF-16)
+macThai with xml: Encoding::ConverterNotFoundError: code converter not found (macThai to UTF-8 with xml_text)
+UTF-16LE to Emacs-Mule: Encoding::ConverterNotFoundError: code converter not found (UTF-16LE to Emacs-Mule)
+UTF-8 to Emacs-Mule: [97, 98, 99]
+Windows-1252 to UTF-16LE: [97, 0, 98, 0, 99, 0]
