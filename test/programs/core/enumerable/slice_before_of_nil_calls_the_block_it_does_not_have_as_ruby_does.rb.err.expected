@@ -1,0 +1,7 @@
+core/enumerable/slice_before_of_nil_calls_the_block_it_does_not_have_as_ruby_does.rb:17:in 'Array#each': undefined method 'call' for nil (NoMethodError)
+
+[1, 2].slice_before(nil).each { p _1 }
+                        ^^^^^
+	from core/enumerable/slice_before_of_nil_calls_the_block_it_does_not_have_as_ruby_does.rb:17:in 'Enumerator::Generator#each'
+	from core/enumerable/slice_before_of_nil_calls_the_block_it_does_not_have_as_ruby_does.rb:17:in 'Enumerator#each'
+	from core/enumerable/slice_before_of_nil_calls_the_block_it_does_not_have_as_ruby_does.rb:17:in '<main>'

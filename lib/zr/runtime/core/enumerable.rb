@@ -1159,7 +1159,9 @@ module Enumerable
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{block ? 0 : 1})" unless args.size == (block ? 0 : 1)
 
     pattern = args[0]
-    test = block || ->(x) { pattern === x }
+    # enum_slice_before keeps a nil pattern as no pattern, and its walk
+    # then calls the block it does not have: nil.call raises.
+    test = block || (->(x) { pattern === x } unless pattern.nil?)
     source = self
     Enumerator.new do |y|
       slice = nil

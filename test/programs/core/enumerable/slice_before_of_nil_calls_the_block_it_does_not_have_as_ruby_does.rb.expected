@@ -1,0 +1,10 @@
+array: NoMethodError: undefined method 'call' for nil
+enumerator: NoMethodError: undefined method 'call' for nil
+empty: []
+size: nil
+hash: NoMethodError: undefined method 'call' for nil
+range: NoMethodError: undefined method 'call' for nil
+false pattern: [[1], [false, 2]]
+no pattern: ArgumentError: wrong number of arguments (given 0, expected 1)
+after nil: [[1, nil], [2]]
+block: [[1], [2, 3]]
