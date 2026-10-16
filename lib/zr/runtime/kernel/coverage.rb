@@ -28,6 +28,11 @@ module Zr::Kern
     attr_accessor :counts #: ptr
     attr_accessor :size #: word
     attr_accessor :measured #: word
+    # Under `oneshot_lines`, each line that ran, in the order of its first
+    # run: `log_len` words of `log_capa`.
+    attr_accessor :log #: ptr
+    attr_accessor :log_len #: word
+    attr_accessor :log_capa #: word
   end
 
   #: () -> ptr
@@ -48,11 +53,39 @@ module Zr::Kern
     n = zr_fix2long(state)
     if n == 0
       zr_coverage_forget(c)
+    elsif Coverage[c].setup == 0
+      Machine.store64(Machine.static(:coverage_main_ran, 8), 0, zr_coverage_main_started() ? 1 : 0)
     end
     Coverage[c].setup = n == 0 ? 0 : 1
     Coverage[c].running = n == 2 ? 1 : 0
     zr_trace_events_arm()
     Machine.value(QNIL)
+  end
+
+  # `oneshot_lines: true`: each line counts once, at its first run, as
+  # CRuby removes a line's event after it fires.
+  #: (value) -> value
+  def zr_coverage_oneshot_set(on)
+    Machine.store64(Machine.static(:coverage_oneshot, 8), 0, on == QTRUE ? 1 : 0)
+    on
+  end
+
+  # Whether the main script's own lines started when Coverage is set up.
+  # ruby compiles the main script after the -r libraries ran, so it
+  # measures the script when one of them set Coverage up. Those libraries
+  # run as the preludes of the main frame, at its line 0. Outside the main
+  # frame (another thread), the script has started.
+  #: () -> bool
+  def zr_coverage_main_started
+    rec = Task[zr_task()].top
+    while rec != 0
+      meta = Frame[rec].meta
+      if meta != 0 && FrameMeta[meta].kind == KIND_MAIN
+        return Frame[rec].line > 0
+      end
+      rec = Frame[rec].prev
+    end
+    true
   end
 
   # `eval: true`: the code that eval compiles is measured too.
@@ -66,9 +99,12 @@ module Zr::Kern
   def zr_coverage_forget(c)
     i = 0
     while i < Coverage[c].len
-      counts = CovRow[Coverage[c].rows + (i * CovRow.size)].counts
-      if counts != 0
-        zr_xfree(counts)
+      row = Coverage[c].rows + (i * CovRow.size)
+      if CovRow[row].counts != 0
+        zr_xfree(CovRow[row].counts)
+      end
+      if CovRow[row].log != 0
+        zr_xfree(CovRow[row].log)
       end
       i += 1
     end
@@ -124,6 +160,9 @@ module Zr::Kern
     CovRow[row].counts = 0
     CovRow[row].size = 0
     CovRow[row].measured = toplevel ? 1 : 0
+    CovRow[row].log = 0
+    CovRow[row].log_len = 0
+    CovRow[row].log_capa = 0
     Coverage[c].last = row
     row
   end
@@ -133,15 +172,16 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_coverage_line(rec)
     c = zr_coverage()
-    if Coverage[c].setup == 0 || rec == 0
+    if rec == 0
       return
     end
     meta = Frame[rec].meta
-    if FrameMeta[meta].file_len == 0
+    kind = FrameMeta[meta].kind
+    if Coverage[c].setup == 0 || FrameMeta[meta].file_len == 0
       return
     end
-    kind = FrameMeta[meta].kind
-    toplevel = kind == KIND_TOP || (kind == KIND_EVAL && Machine.load64(Machine.static(:coverage_evals, 8), 0) != 0)
+    toplevel = kind == KIND_TOP || (kind == KIND_MAIN && Machine.load64(Machine.static(:coverage_main_ran, 8), 0) == 0) ||
+               (kind == KIND_EVAL && Machine.load64(Machine.static(:coverage_evals, 8), 0) != 0)
     row = zr_coverage_row(c, FrameMeta[meta].file, FrameMeta[meta].file_len, toplevel)
     line = zr_frame_line(rec)
     if CovRow[row].measured == 0 || Coverage[c].running == 0 || line <= 0
@@ -159,7 +199,60 @@ module Zr::Kern
       CovRow[row].size = size
     end
     slot = CovRow[row].counts + ((line - 1) * 8)
+    if Machine.load64(Machine.static(:coverage_oneshot, 8), 0) != 0
+      if Machine.load64(slot, 0) != 0
+        return
+      end
+      zr_coverage_log(row, line)
+    end
     Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
+  end
+
+  # Appends `line` to the row's first-run log.
+  #: (ptr, word) -> void
+  def zr_coverage_log(row, line)
+    if CovRow[row].log_len == CovRow[row].log_capa
+      capa = CovRow[row].log_capa == 0 ? 16 : CovRow[row].log_capa * 2
+      log = zr_xmalloc(capa * 8)
+      if CovRow[row].log_len > 0
+        zr_memcpy(log, CovRow[row].log, CovRow[row].log_len * 8)
+        zr_xfree(CovRow[row].log)
+      end
+      CovRow[row].log = log
+      CovRow[row].log_capa = capa
+    end
+    Machine.store64(CovRow[row].log + (CovRow[row].log_len * 8), 0, line)
+    CovRow[row].log_len = CovRow[row].log_len + 1
+  end
+
+  # Each measured file as `[path, lines]`, with the lines in the order of
+  # their first run. If `clear` is set, this empties the logs; a line that
+  # ran stays done, so it is never logged again.
+  #: (value) -> value
+  def zr_coverage_oneshot_lines(clear)
+    c = zr_coverage()
+    out = zr_ary_new(Coverage[c].len)
+    i = 0
+    while i < Coverage[c].len
+      row = Coverage[c].rows + (i * CovRow.size)
+      if CovRow[row].measured != 0
+        lines = zr_ary_new(CovRow[row].log_len)
+        j = 0
+        while j < CovRow[row].log_len
+          zr_ary_push(lines, zr_fix(Machine.load64(CovRow[row].log + (j * 8), 0)))
+          j += 1
+        end
+        if clear == QTRUE
+          CovRow[row].log_len = 0
+        end
+        pair = zr_ary_new(2)
+        zr_ary_push(pair, zr_str_new(CovRow[row].file, CovRow[row].file_len))
+        zr_ary_push(pair, lines)
+        zr_ary_push(out, pair)
+      end
+      i += 1
+    end
+    out
   end
 
   # Adds one run to branch `id` while coverage runs. The branches of all

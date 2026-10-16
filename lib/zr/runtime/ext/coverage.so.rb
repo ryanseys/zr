@@ -25,6 +25,7 @@ module Coverage
     mode = mode_of(args)
     Primitive.zr_hidden_set(self, :__mode__, mode)
     Primitive.zr_coverage_evals_set(mode[:eval] ? true : false)
+    Primitive.zr_coverage_oneshot_set(mode[:oneshot_lines] ? true : false)
     Primitive.zr_hidden_set(self, :__eval_lines__, {})
     shift(:suspended)
     nil
@@ -112,7 +113,10 @@ module Coverage
     def measured(clear)
       mode = Primitive.zr_hidden_get(self, :__mode__)
       totals = Hash.new { |hash, path| hash[path] = [] }
-      Primitive.zr_coverage_counts(clear).each do |path, counts|
+      # Under oneshot_lines a count says only that the line ran, which a
+      # clear does not undo.
+      oneshot = Primitive.zr_coverage_oneshot_lines(clear).to_h if mode[:oneshot_lines]
+      Primitive.zr_coverage_counts(clear && !oneshot).each do |path, counts|
         into = totals[path]
         counts.each_with_index { |count, i| into[i] = (into[i] || 0) + count }
       end
@@ -125,7 +129,7 @@ module Coverage
 
         shaped = {}
         shaped[:lines] = lines.freeze if mode[:lines]
-        shaped[:oneshot_lines] = lines.each_index.select { |i| lines[i]&.positive? }.map { |i| i + 1 }.freeze if mode[:oneshot_lines]
+        shaped[:oneshot_lines] = oneshot.fetch(path, []).freeze if oneshot
         # rb_coverage_peek_result freezes the line arrays only.
         shaped[:branches] = branches_of(path, runs) if runs
         shaped[:methods] = claims[path] || {} if claims
