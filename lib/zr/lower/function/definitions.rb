@@ -221,7 +221,15 @@ module Zr
         # `class Name` reports it.
         #: (Hir::ConstWrite node) -> String
         def const_write(node)
-          scope = scope_class(node.scope)
+          # A scope that only an expression holds stays in a slot, where
+          # the collector sees it, while the value runs.
+          return staged([node.scope]) { |_, base| const_set(node, @f.fetch("i64", @rec, value_offset(base))) } if Scope.held_scope?(node.scope)
+
+          const_set(node, scope_class(node.scope))
+        end
+
+        #: (Hir::ConstWrite node, String scope) -> String
+        def const_set(node, scope)
           v = expr(node.value)
           at_node(node)
           refinement_self_check

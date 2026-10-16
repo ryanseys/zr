@@ -60,6 +60,12 @@ module Zr
         end
       end
 
+      # Whether a constant write keeps its scope in a slot while its value
+      # runs: a scope that only an expression holds (`m::Z = v`). A
+      # constant, `self` or a core class stays alive without one.
+      #: (Hir::scope scope) -> bool
+      def held_scope?(scope) = scope.is_a?(Hir::Node) && [Hir::ConstRead, Hir::SelfRef, Hir::Core].none? { scope.is_a?(_1) }
+
       # The maximum record slots above `base` that the sends under `node`
       # need at one time. A send keeps its receiver and arguments while an
       # argument's own sends run above them. An ensure body can run from a
@@ -100,7 +106,9 @@ module Zr
         when Hir::RegexpOnce then staging(node.value, base)
         when Hir::RangeLit then row([node.low, node.high], base)
         when Hir::Interp then row(node.parts, base)
-        when Hir::Assign, Hir::IvarWrite, Hir::ConstWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)
+        when Hir::Assign, Hir::IvarWrite, Hir::GvarWrite, Hir::CvarWrite then staging(node.value, base)
+        when Hir::ConstWrite
+          held_scope?(node.scope) ? [base + 1, staging(node.scope, base + 1), staging(node.value, base + 1)].max : staging(node.value, base)
         when Hir::Not then gathered([node.value], base)
         when Hir::ConstOrWrite then [staging(node.scope, base), staging(node.value, base)].max
         when Hir::Defined then staging(node.target, base + 1)
