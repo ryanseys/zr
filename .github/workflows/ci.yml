@@ -58,7 +58,6 @@ jobs:
         with:
           version: ${{ env.WASMTIME_VERSION }}
       - uses: ./.github/actions/runtime-cache
-      - uses: ./.github/actions/reference
       # Under ZR_VERIFY=1 every IR function is checked for dominance and
       # operand types before it is assembled, and a pass that changed a
       # function without saying so is refused: the runtime's forty
@@ -110,7 +109,6 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
       - uses: ./.github/actions/runtime-cache
-      - uses: ./.github/actions/reference
       - name: Build the runtime for the checks
         run: bundle exec rake build
       - run: bundle exec ruby tool/zr-dev.rb stage 1
@@ -215,8 +213,6 @@ jobs:
         run: docker exec alpine git config --global --add safe.directory /zr
       - name: Install the bundle
         run: docker exec alpine bundle install
-      - name: Install the reference gems
-        run: docker exec alpine ruby tool/install_reference_gems.rb
       # A stock image of the pinned ruby: vendor/ must be upstream code, byte for
       # byte: ruby's own library at RUBY_REVISION, the .gem files that
       # vendor/vendor.lock names, and prism's templates at its locked commit. The
@@ -261,7 +257,6 @@ jobs:
         with:
           version: ${{ env.WASMTIME_VERSION }}
       - uses: ./.github/actions/runtime-cache
-      - uses: ./.github/actions/reference
       - name: Build the runtime for the checks, and the wasm32-wasi one
         run: bundle exec rake build:all
       - name: Run the units this target answers

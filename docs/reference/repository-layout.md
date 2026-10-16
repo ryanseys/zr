@@ -120,7 +120,6 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `tool/*.rb` | the body of each `zr-dev` command, a class in `Zr::Dev::Commands`, one file for each command (`tool/bench.rb` for `zr-dev bench`); `tool/commands.rb` lists them |
 | `tool/lib/zr/dev.rb`, `tool/lib/zr/dev/` | the code that the commands share: the command class, the paths, the host ruby and the C sources |
 | `tool/lib/zr/dev/parallel.rb` | `Dev.parallel_map`: the one worker pool of the tools, with the results in the order of the items |
-| `tool/install_reference_gems.rb` | installs the gems of the reference ruby into `tmp/reference/gems`; `bin/setup` runs it |
 | `Steepfile` | the type check of the compiler: the level of each file of `lib/` (strict, or default for two record files); `bin/steep check` runs it |
 | `sig/zr/` | the types that inline RBS cannot give: `Struct` and `Data` records, `module_function` modules, the HIR nodes |
 | `sig/vendor/` | the members that `lib/` uses of the gems that have no signatures (fiddle, debug_inspector, Bundler, mkmf), and the core overloads that RBS does not give (`IO`, `Exception`, `Open3`) |
@@ -132,7 +131,6 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `docs/` | this documentation |
 | `.github/workflows/` | CI (`ci.yml`) and the release (`release.yml`) |
 | `.github/actions/runtime-cache/` | the CI step that keeps the built runtime between runs |
-| `.github/actions/reference/` | the CI step that keeps the test reference (`tmp/reference`) between runs |
 | `.github/scripts/` | the scripts of CI and the release: the smoke test of a built gem, the type check, and the check that CI passed for a tag |
 | `test/test_helper.rb` | what every test file requires |
 | `test/programs_test.rb` | the program tests: one minitest test for each program below `test/programs/` |
@@ -163,4 +161,4 @@ the snapshots that tests in `test/unit/` read.
 | `licenses/` | the license texts of the parts that have no other copy in the gem; see `THIRD_PARTY_NOTICES.md` |
 | `benchmark/` | the benchmarks: whole programs with their recordings, and the rungs that `zr-dev compile` builds (`benchmark/compile/`); see `benchmark/README.md` |
 | `log/` | not committed, and kept when `tmp/` is cleared: the results of `zr-dev rubyspec` and `zr-dev cruby-test`, and the gem tables and sweeps of `zr-dev gems` (`log/gems/`) |
-| `tmp/` | not committed: the cache (`tmp/cache/`), the test reference (`tmp/reference/`), the `.gem` download cache (`tmp/vendor/`), the test progress file, the bootstrap stages |
+| `tmp/` | not committed: the cache (`tmp/cache/`), the `.gem` download cache (`tmp/vendor/`), the test progress file, the bootstrap stages |

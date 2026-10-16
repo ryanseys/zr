@@ -52,16 +52,7 @@ the shell's `time`:
 $ time bin/zr-dev test --suite unit
 ```
 
-A run does not have the tests of `test/ext/top_gems_test.rb` unless you
-ask for them. Each one builds the C extension of a gem that many top
-gems need, and runs it in zr, so together they take more time than all
-other tests. Run them by hand after a change to the C API:
-
-```console
-$ ZR_TEST_ALL=1 bin/zr-dev test test/ext/top_gems_test.rb
-```
-
-The same is true of each test that takes minutes for code that the
+A run does not have the tests that take minutes for code that the
 other tests cover in part, such as `test/unit/core_cache_test.rb`, which
 builds the runtime three times. Run them by hand after a change to that
 code:

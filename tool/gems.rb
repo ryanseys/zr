@@ -65,14 +65,6 @@ module Zr
             fail!(e.message)
           end
 
-          # The trials compare with the reference ruby
-          # (tool/install_reference_gems.rb). A build-only trial runs no ruby.
-          def reference!
-            return if @build_only
-
-            fail!("the reference ruby is not set up; run `ruby tool/install_reference_gems.rb`") unless Harness::Reference.ready?
-          end
-
           # Puts the result's row, with the commit and the downloads, into
           # each table, and writes the tables.
           def record(tables, result)

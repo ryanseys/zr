@@ -42,8 +42,7 @@ module Zr
       # environment that it needs (the reference ruby's gems).
       def ruby(test, ruby:, env: {})
         within(test) do |run, rb|
-          gems = test.gems.flat_map { |name, version| Harness::Reference.port_load_path(name, version).flat_map { ["-I", _1] } }
-          argv = [*ruby, *gems, *test.ruby_options, test.rel, *test.args]
+          argv = [*ruby, *test.ruby_options, test.rel, *test.args]
           out, = Harness::Child.run(argv, cwd: run, stdin: test.stdin, env: env.merge(test.env),
                                           seconds: Harness::Child::SECONDS * 2, megabytes: Harness::Child::RUN_MB)
           out.code.is_a?(Integer) ? Harness::Normalize.answer(out, rb, run) : nil

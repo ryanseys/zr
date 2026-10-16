@@ -69,8 +69,7 @@ module Zr
         return nil if config.verify?
 
         key = Zr::Cache::Store.key(VERSION, Runtime.for(target).digest, Zr::Digests.link, libraries, target.triple,
-                                   *config.fingerprint.flatten, test.rel, source, *test.sidecar_parts.flatten,
-                                   *test.fixture_parts.flatten)
+                                   *config.fingerprint.flatten, test.rel, source, *test.fixture_parts.flatten)
         Zr::Cache::Store.path(:binary, "#{key}#{".wasm" unless target.link}")
       end
 

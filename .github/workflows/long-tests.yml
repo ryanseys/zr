@@ -33,8 +33,7 @@ jobs:
         with:
           version: ${{ env.WASMTIME_VERSION }}
       - uses: ./.github/actions/runtime-cache
-      - uses: ./.github/actions/reference
       - name: Build the runtime
         run: bundle exec rake build
       - name: Run the long tests
-        run: ZR_TEST_ALL=1 bin/minitest test/unit/core_cache_test.rb test/ext/top_gems_test.rb
+        run: ZR_TEST_ALL=1 bin/minitest test/unit/core_cache_test.rb

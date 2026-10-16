@@ -62,7 +62,6 @@ module Zr
             fail!("give gems, or --top N") if words.empty?
             fail!("--c-scan writes no rows, so it takes no --save") if @c_scan && @save
             requests = words.uniq.map { |word| request(word) }
-            reference! unless @c_scan
 
             base = File.join(LOG, "sweep-#{Time.now.strftime("%Y%m%d-%H%M%S")}")
             tables = @c_scan ? [] : [Dev::Gems::Table.new("#{base}.tsv")]

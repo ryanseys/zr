@@ -31,6 +31,8 @@ Steps for a goal that you already have.
 - [How to check a gem](how-to/check-a-gem.md): which gems zr compiles,
   and what stops the others
 - [How to update the vendored code](how-to/update-vendored-code.md)
+- [How to set up the reference gems](how-to/set-up-the-reference-gems.md):
+  the gems that ruby's side of a test sees
 - [How to test on another target](how-to/test-on-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
 - [How to release zr](how-to/release.md)

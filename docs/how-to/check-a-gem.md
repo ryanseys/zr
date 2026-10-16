@@ -12,11 +12,8 @@ and never compiles C.
 
 ## Before you start
 
-Set up the reference ruby. The tool compares each probe with it:
-
-```
-$ ruby tool/install_reference_gems.rb
-```
+The tool compares each probe with the pinned ruby and the gems of its
+own install (see [Set up the reference gems](set-up-the-reference-gems.md)).
 
 This guide writes `zr-dev` for `bin/zr-dev`.
 

@@ -29,7 +29,6 @@ module Zr
           def run(argv)
             fail!("give one gem: NAME, NAME=VERSION or a path with a /") unless argv.size == 1
             wanted = request(argv.first)
-            reference!
             trial = trial(keep: @keep || false, say: ->(text) { puts text })
             result = trial.call(wanted)
             diff = File.read(result.log)[/^--- (probe|smoke)\.rb: .*?(?=^result: )/m]

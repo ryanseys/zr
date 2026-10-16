@@ -40,10 +40,9 @@ zr adds these files, in the same style:
 | `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, `nonroot` (a user that is not root), or a platform (`macos`, `linux`, `wasi`) | the test runs everywhere |
 | `foo.rb.ruby` | command-line options for ruby only, such as `-W:no-experimental`; zr ignores them | no options |
 | `foo.rb.limits` | `build_mb=N` and `run_mb=N` lines: memory limits above the defaults | the defaults |
-| `foo.rb.gems` | `name version` lines: another version of a gem whose C zr ports, which ruby takes on `-I` and the build with `--gem` | the version in `vendor/ruby` |
 | `foo.rb.<platform>.expected` | the stdout on that platform (`linux`, `wasi`), when it is different | `foo.rb.expected` |
 
-In `.env`, `.needs`, `.limits` and `.gems`, an empty line and a line
+In `.env`, `.needs` and `.limits`, an empty line and a line
 that starts with `#` do not count.
 
 Nothing is escaped and nothing has a marker. Thus a program can write
@@ -99,9 +98,8 @@ $ bin/zr-dev expect --check                      # write nothing; list what diff
   to `.args`, `.env`, `.stdin` or `.files/` alone, give `--all` and the
   path.
 - When ruby does not finish, the old files stay.
-- It runs ruby with only the reference gems
-  (`test/support/harness/reference.rb`, `tool/install_reference_gems.rb`), and the
-  options of `foo.rb.ruby`.
+- It runs ruby with the reference gems
+  (`test/support/harness/reference.rb`), and the options of `foo.rb.ruby`.
 
 `zr-dev expect --check` fails when a file is different from ruby's
 output.

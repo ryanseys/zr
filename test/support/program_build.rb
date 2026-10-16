@@ -66,7 +66,7 @@ module Zr
         kept = Binaries.path(target, test, source) if Binaries.wanted?(target)
         return nil if Binaries.take(kept, bin)
 
-        program = Progress.clock(parts, :lower) { Dir.chdir(run) { lower(source, test.rel, target, gem_set(test)) } }
+        program = Progress.clock(parts, :lower) { Dir.chdir(run) { lower(source, test.rel, target) } }
         return program if program.is_a?(Array)
 
         work = File.dirname(bin)
@@ -90,17 +90,9 @@ module Zr
         [:build, "`zr build` #{why(out, megabytes)}\n#{tail}"]
       end
 
-      # The gems of foo.rb.gems, as `--gem name=dir` gives them, or nil.
-      def gem_set(test)
-        return nil if test.gems.empty?
-
-        require_relative "../../lib/zr/gem_set"
-        GemSet.resolve(test.gems.map { |name, version| [name, Harness::Reference.port_gem(name, version)] })
-      end
-
       # Returns the program, or `[kind, why]` when zr does not build it.
-      def lower(source, rel, target, gem_set = nil)
-        compile(source, rel, target, gem_set)
+      def lower(source, rel, target)
+        compile(source, rel, target)
       rescue *REFUSALS => e
         # A form that ruby's compiler refuses ends as ruby's SyntaxError.
         (invalid = CLI::Refusals.invalid_program(rel, e)) ? compile(invalid, rel, target) : [:refused, e.message]
@@ -116,11 +108,11 @@ module Zr
         compile(CLI::Refusals.syntax_error_program(rel, e, warned), rel, target)
       end
 
-      def compile(source, rel, target, gem_set = nil)
+      def compile(source, rel, target)
         if target.link
-          Native::Build.lower(source, rel, BuildOptions.new(target: target, gem_set: gem_set))
+          Native::Build.lower(source, rel, BuildOptions.new(target: target))
         else
-          Zr::Program.build(source, rel, BuildOptions.new(target: target, gem_set: gem_set))
+          Zr::Program.build(source, rel, BuildOptions.new(target: target))
         end
       end
 

@@ -72,17 +72,15 @@ class ProgramTestsTest < Minitest::Test
   end
 
   # A kept binary's key holds each file beside the program by its bytes,
-  # a link by its target, and the gems that the program loads.
-  def test_a_tests_parts_are_its_files_links_and_gems
-    files = { "area/foo.rb" => "", "area/foo.rb.gems" => "csv 3.3.6\n", "area/foo.rb.files/lib/x.rb" => "x" }
+  # and a link by its target.
+  def test_a_tests_parts_are_its_files_and_links
+    files = { "area/foo.rb" => "", "area/foo.rb.files/lib/x.rb" => "x" }
     with_test(files) do |root, test|
       File.symlink("lib/x.rb", File.join(root, "area/foo.rb.files/link.rb"))
       assert_equal [["lib/x.rb", "x"], ["link.rb", "-> lib/x.rb"]], test.fixture_parts
-      assert_equal [[".gems", "csv 3.3.6\n"]], test.sidecar_parts
     end
     with_test("area/foo.rb" => "") do |_, test|
       assert_empty test.fixture_parts
-      assert_empty test.sidecar_parts
     end
   end
 

@@ -7,7 +7,6 @@ ThreadSafety/ClassInstanceVariable:
     - "test/support/binaries.rb"
     - "test/support/fork_pool.rb"
     - "test/support/harness/child.rb"
-    - "test/support/harness/reference.rb"
     - "test/support/host_program.rb"
     - "test/support/needs.rb"
     - "test/support/runtime_programs.rb"

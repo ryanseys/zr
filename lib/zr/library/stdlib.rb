@@ -88,8 +88,7 @@ module Zr
 
       # The other bundled gems of the pinned ruby. vendor/ does not hold
       # them at ruby's version: zr ports their C (lib/zr/library/ports.rb), or
-      # refuses them. The test reference ruby has them
-      # (test/support/harness/reference.rb).
+      # refuses them. The pinned ruby's own install has them.
       OTHER_BUNDLED = {
         "rbs" => "4.2.0",
         "typeprof" => "0.33.2",

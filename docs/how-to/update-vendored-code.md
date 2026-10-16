@@ -121,13 +121,9 @@ it, and put the new digest in the line.
 
 ## Then
 
-1. Install the test reference again. The expected output of each program
-   test comes from ruby with the same gem versions as `vendor/`, in
-   `tmp/reference/gems`. `bin/setup` also runs this step.
-
-   ```console
-   $ ruby tool/install_reference_gems.rb
-   ```
+1. Install the new gem versions into the pinned ruby, so the expected
+   output of each program test comes from the same versions as
+   `vendor/` (see [Set up the reference gems](set-up-the-reference-gems.md)).
 
 2. Run the tests that the change reaches, one directory at a time:
 
@@ -157,7 +153,8 @@ steps in order:
 5. Write the tree: `bin/zr-dev vendor`. If a gem moved between the
    default and the bundled gems, first change
    `tool/lib/zr/dev/vendored.rb` and `lib/zr/library/ports.rb`.
-6. Install the test reference: `ruby tool/install_reference_gems.rb`.
+6. Install the gem versions of `vendor/` into the pinned ruby
+   ([Set up the reference gems](set-up-the-reference-gems.md)).
 7. Write every generated file: `bin/zr-dev gen all`.
 8. Write the expected outputs: `bin/zr-dev expect --all`. Do it again in
    the Alpine container for the `.linux.expected` files (see

@@ -11,8 +11,7 @@ steps to run the tests, see [How to run the tests](../how-to/run-the-tests.md).
 
 | Script | Does |
 |---|---|
-| `bin/setup` | Installs the gems (`bundle install`), sets up the reference ruby (`tool/install_reference_gems.rb`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
-| `ruby tool/install_reference_gems.rb` | Installs the gems of the ruby that every expected output comes from, into `tmp/reference/gems`: the pinned ruby's bundled gems, and zr's versions of the gems whose C it ports (`lib/zr/library/ports.rb`). It installs only the missing gems, tells you about other versions in the directory, and then writes `tmp/reference/STAMP`. `bin/setup` runs it. `zr-dev expect`, `zr diff` and the program tests run ruby with only these gems (`test/support/harness/reference.rb`). |
+| `bin/setup` | Installs the gems (`bundle install`) and builds the runtime for this host (`rake build`). It tells you if wasmtime is not installed. |
 | `bin/minitest [paths] [minitest options]` | Runs the tests (minitest's own binstub). With no paths, it runs every `test/**/*_test.rb`: the unit tests and the program tests (`test/programs_test.rb`). It builds the runtime first if the tests need it and it is not built. |
 | `bin/zr` | The binstub of `exe/zr`, the `zr` command of this checkout. |
 | `bin/zr-dev` | The binstub of `tool/zr-dev.rb`, the [`zr-dev`](#zr-dev) commands. |

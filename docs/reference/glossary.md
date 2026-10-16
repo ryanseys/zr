@@ -155,9 +155,9 @@ the expected files. See [Program tests](program-tests.md).
 contain ruby's output (`foo.rb.expected` and others). `zr-dev expect`
 writes them. See [Program tests](program-tests.md).
 
-**Reference ruby.** The ruby that `.ruby-version` names, with only the reference gems
-(`tmp/reference/gems`): the only source of expected outputs
-(`Harness::Reference`).
+**Reference ruby.** The ruby that `.ruby-version` names, with the gems of
+its own install (or of `ZR_REFERENCE_GEM_HOME`): the only source of
+expected outputs (`Harness::Reference`).
 
 **Refusal.** zr does not support a form, so it does not compile it. It
 prints the form and the line, and exits with status 3.

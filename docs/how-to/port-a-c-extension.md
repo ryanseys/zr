@@ -35,7 +35,8 @@ Never edit the vendored files. If the gem does not work, fix zr. To
 replace one of its files, write an overlay under `lib/zr/runtime/ext` (see
 [Replace an upstream file](update-vendored-code.md#replace-an-upstream-file)).
 
-`ruby tool/install_reference_gems.rb` then installs that version for the tests. Add a
+Install that version into the pinned ruby, so the tests compare with it
+(see [Set up the reference gems](set-up-the-reference-gems.md)). Add a
 row for the gem to `THIRD_PARTY_NOTICES.md`, and to
 [Library versions](../reference/differences-from-ruby.md#library-versions)
 when its version is not the pinned ruby's.

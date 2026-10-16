@@ -603,7 +603,7 @@ class GemCompatTest < Minitest::Test
                     work: File.join(@dir, "work"), reference: Reference)
   end
 
-  # The reference ruby, without tmp/reference.
+  # The reference ruby, with no environment of its own.
   module Reference
     def self.env = {}
   end

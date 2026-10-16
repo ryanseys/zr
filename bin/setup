@@ -5,7 +5,6 @@
 # this host. The first build takes a few minutes. After that, bin/minitest
 # runs the tests.
 
-require "rbconfig"
 require_relative "../lib/zr/version"
 
 root = File.expand_path("..", __dir__)
@@ -20,10 +19,6 @@ unless Zr.pinned_ruby?
 end
 
 system("bundle", "install", exception: true)
-
-# The ruby that the tests compare with: its bundled gems, and
-# zr's versions of the gems whose C it ports, in tmp/reference.
-system(RbConfig.ruby, "tool/install_reference_gems.rb", exception: true)
 
 wasmtime = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? { |dir| File.executable?(File.join(dir, "wasmtime")) }
 warn "note: wasmtime is not installed; the tests that run WebAssembly modules will skip (https://wasmtime.dev)" unless wasmtime

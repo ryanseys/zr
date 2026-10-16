@@ -2,7 +2,6 @@
 
 require "test_helper"
 require_relative "../../lib/zr/obj/macho/image"
-require_relative "../support/harness/reference"
 
 # Checks `Obj::MachO::Image`, zr's reader of linked Mach-O images, against
 # the tools that read them for Apple: `nm` for the symbols, `otool -l` for
@@ -16,11 +15,9 @@ class MachOImageTest < Minitest::Test
     skip "needs an aarch64-apple-darwin host" unless Zr::Target::AARCH64_DARWIN.native?
   end
 
-  # Every C extension bundle of the host ruby and the reference gems.
+  # Every C extension bundle of the host ruby.
   def self.bundles
-    roots = [Gem.default_dir, Zr::Harness::Reference::GEMS]
-    roots.flat_map { |root| Dir[File.join(root, "{extensions,gems}", "**", "*.bundle")] }
-         .reject { |path| path.include?(".dSYM/") }.uniq.sort
+    Dir[File.join(Gem.default_dir, "{extensions,gems}", "**", "*.bundle")].reject { |path| path.include?(".dSYM/") }.uniq.sort
   end
 
   def bundles
