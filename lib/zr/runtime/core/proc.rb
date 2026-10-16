@@ -19,10 +19,52 @@ class Proc
   # A copy of the Proc whose body, and the blocks and methods that it
   # writes, run with the refinements of `mods` in use; the receiver is
   # left as it is. No module gives the receiver itself.
+  # proc_refined: a copy of the block whose body runs with the
+  # refinements of `mods`. ruby copies the block's code at the copy's
+  # first call (`refined_copy`) and keeps one copy for each block; a Proc
+  # whose block is itself such a copy is never memoized, so its refined
+  # Proc is copied now.
   def refined(*mods)
     return self if mods.empty?
 
-    Primitive.zr_proc_refine_m(self, mods)
+    copied = Primitive.zr_hidden_get(self, :__refined__) && !Primitive.zr_hidden_get(self, :__copy__).nil?
+    Warning.performance("Proc#refined on a Proc whose block was already copied by Proc#refined is not memoized") if copied
+    refined = Primitive.zr_proc_refine_m(self, mods)
+    Primitive.zr_state_set(refined, :__copy__, Primitive.zr_ruby2_marked_p(refined)) if copied
+    refined
+  end
+
+  # The copy of each block that its refined Procs run: the refinements it
+  # was made with, and whether the block was a ruby2_keywords one then
+  # (rb_iseq_dup_with_independent_caches keeps the flag).
+  REFINED_MEMO = {}
+  private_constant :REFINED_MEMO
+
+  # refinement_memo_lookup, at the first call of a refined Proc: the memo
+  # of its block holds its copy when the same refinements made it with
+  # the same ruby2_keywords flag; else ruby copies the block again, warns,
+  # and the memo holds the new copy.
+  private def refined_copy
+    Primitive.attr! :hidden
+    block = Primitive.zr_iseq_meta_word(self)
+    recipe = Primitive.zr_proc_refinements(self)
+    marked = Primitive.zr_ruby2_marked_p(self)
+    if (memo = REFINED_MEMO[block])
+      if same_refinements?(memo[0], recipe)
+        return Primitive.zr_state_set(self, :__copy__, marked) if memo[1] == marked
+
+        Warning.performance("Proc#refined re-copies the block because the ruby2_keywords flag changed after the copy was memoized")
+      else
+        Warning.performance("Proc#refined called with different modules for the same block disables memoization")
+      end
+    end
+    REFINED_MEMO[block] = [recipe, marked]
+    Primitive.zr_state_set(self, :__copy__, marked)
+  end
+
+  private def same_refinements?(memoized, recipe)
+    Primitive.attr! :hidden
+    memoized.size == recipe.size && memoized.each_index.all? { |i| memoized[i].equal?(recipe[i]) }
   end
 
   # Where the block's code starts and ends, or nil for a Proc that the

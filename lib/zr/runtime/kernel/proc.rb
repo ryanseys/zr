@@ -468,14 +468,34 @@ module Zr::Kern
   # with the Proc's refinements (zr_using_toplevel_refine).
   #: (value, word, ptr, value) -> value
   def zr_refined_block(p, argc, argv, blk)
-    # Proc#ruby2_keywords marks a refined Proc itself, not its block's
-    # function, which the source Proc and its other refined Procs share:
-    # the keywords reach the block as one flagged Hash.
+    # The first call of a Proc that Proc#refined returned makes the copy of
+    # the block that it runs, as ruby copies the block's code then
+    # (Proc#refined_copy, which warns). A Proc that such a body made only
+    # inherits the refinements: it is code of the copy.
     t = zr_task()
     kw = Task[t].kw
+    copy = Machine.value(QTRUE)
+    if !zr_special_p(p) && zr_type(p) == T_PROC && zr_hidden_get(p, zr_sym(Machine.id(:__refined__))) == QTRUE
+      copy = zr_hidden_get(p, zr_sym(Machine.id(:__copy__)))
+    end
+    if copy == QNIL
+      Task[t].kw = 0
+      r = zr_dispatch(0, p, Machine.id(:refined_copy), 0, argv, SEND_CORE, Machine.value(QNIL))
+      Task[t].kw = kw
+      return r if r == QUNDEF
+      copy = zr_hidden_get(p, zr_sym(Machine.id(:__copy__)))
+    end
+    # Proc#ruby2_keywords marks a refined Proc itself, not its block's
+    # function, which the source Proc and its other refined Procs share:
+    # the keywords reach the block as one flagged Hash. A copy made before
+    # the block's own mark keeps the block as it was then: its keywords
+    # reach the block as a plain Hash.
     if kw != 0 && zr_hidden_get(p, zr_sym(Machine.id(:__ruby2__))) == QTRUE
       Task[t].kw = 0
       argc = zr_kw_hash_in(kw, argc, argv, 1)
+    elsif kw != 0 && copy == QFALSE && zr_ruby2_marked_p(p) == QTRUE
+      Task[t].kw = 0
+      argc = zr_kw_hash_in(kw, argc, argv, 0)
     end
     running = Machine.static(:imports_running, 8)
     Machine.store64(running, 0, Machine.load64(running, 0) + 1)
@@ -487,6 +507,23 @@ module Zr::Kern
       zr_methods_changed()
     end
     r
+  end
+
+  # The refinement holders that a refined Proc's body runs with.
+  #: (value) -> value
+  def zr_proc_refinements(p)
+    RProc[p].refined
+  end
+
+  # Whether the block of `p` is a ruby2_keywords one: Proc#ruby2_keywords
+  # marks the block's function, which all its Procs share.
+  #: (value) -> value
+  def zr_ruby2_marked_p(p)
+    meta = RProc[p].meta
+    if meta == 0
+      return Machine.value(QFALSE)
+    end
+    zr_bool(zr_ivtab_get(zr_ruby2_fns(), Machine.word(FrameMeta[meta].fn)) != QUNDEF)
   end
 
   # Whether the caller of the core method that calls this runs code that

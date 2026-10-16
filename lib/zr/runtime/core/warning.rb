@@ -73,6 +73,15 @@ module Warning
     emit("#{Primitive.zr_warn_position}warning: #{message}\n", :experimental)
   end
 
+  # rb_category_warn(RB_WARN_CATEGORY_PERFORMANCE, ...): a notice where
+  # the program runs, while the category is on.
+  def self.performance(message)
+    Primitive.attr! :hidden
+    return nil unless self[:performance]
+
+    emit("#{Primitive.zr_warn_position}warning: #{message}\n", :performance)
+  end
+
   # The runtime's way in when a program writes over one of the core's
   # basic operators (lib/zr/runtime/kernel/class.rb, zr_warn_operator).
   def self.operator_redefined(klass, name)

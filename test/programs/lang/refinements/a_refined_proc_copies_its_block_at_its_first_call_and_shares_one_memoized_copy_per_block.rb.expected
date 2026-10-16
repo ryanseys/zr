@@ -1,0 +1,23 @@
+"1"
+[]
+"2"
+[[:performance, "Proc#refined called with different modules for the same block disables memoization"]]
+"2"
+[]
+[]
+[]
+"1"
+[[:performance, "Proc#refined called with different modules for the same block disables memoization"]]
+"2"
+[[:performance, "Proc#refined on a Proc whose block was already copied by Proc#refined is not memoized"]]
+ArgumentError
+[1, 2]
+[1, 2]
+[[:performance, "Proc#refined re-copies the block because the ruby2_keywords flag changed after the copy was memoized"]]
+ArgumentError
+[1, 2]
+[]
+"1"
+"2"
+"1"
+[]
