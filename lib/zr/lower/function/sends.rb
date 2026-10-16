@@ -182,10 +182,11 @@ module Zr
         # operands in the record only on the send branch, so the fast
         # branch stores and releases nothing. A unary operator has one
         # operand, and nothing runs between its read and the test, so any
-        # receiver is permitted.
+        # receiver is permitted. A safe call (`a&.== b`) tests its receiver
+        # for nil first, so it has no fast path here.
         #: (Hir::Send node, Hir::node recv_node) -> bool
         def direct_operands?(node, recv_node)
-          return false if node.block || node.kwargs || node.write || node.vcall || owner_using?(node) || traced?
+          return false if node.block || node.kwargs || node.write || node.vcall || node.safe || owner_using?(node) || traced?
 
           if node.args.size == 1 && OPS.key?(node.name)
             arg = node.args.first
