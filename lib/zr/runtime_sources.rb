@@ -33,7 +33,7 @@ module Zr
     # layer, under lib/zr/runtime/core/os/<os>/. It gives each OS's values for the
     # constants that the next portable file uses, in ruby's order.
     CORE_NAMES = (%w[
-      module warning redefinitions encodings transcode cjk exception enumerable enumerator comparable integer bignum
+      module warning redefinitions encodings transcode cjk exception enumerable enumerator comparable integer bignum os/integer_constants
       array hash range struct unicode string symbol encoding converter iso2022 ruled emoji kernel float proc binding
       format c_format os/errno os/io_constants io io_buffer os/process_constants process signal ruby_version env
       os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point

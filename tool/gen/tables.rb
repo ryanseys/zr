@@ -32,6 +32,7 @@ module Zr
             Dev.pinned!(name)
             @current = true
             errno
+            gmp
             fcntl
             etc
             socket
@@ -98,6 +99,22 @@ module Zr
                 private_constant :LIST
               end
             RUBY
+          end
+
+          # Integer::GMP_VERSION, which ruby defines only when its build links
+          # GMP, as the reference ruby on darwin and linux does.
+          def gmp
+            version = Integer::GMP_VERSION if Integer.const_defined?(:GMP_VERSION)
+            write("core", "integer_constants.rb", gmp_text(version))
+          end
+
+          # The table's text; ruby's String is not frozen.
+          def gmp_text(version)
+            head = "# frozen_string_literal: true\n\n# Written by `zr-dev gen tables` on #{os}; do not edit.\n"
+            return "#{head}# ruby on #{os} links no GMP, so it defines no Integer::GMP_VERSION.\n" unless version
+
+            "#{head}# The version of GMP that ruby links, as ruby names it.\n" \
+              "class Integer\n  GMP_VERSION = +#{version.inspect}\nend\n"
           end
 
           # The output includes only the names that the platform has.
