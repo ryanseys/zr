@@ -1,0 +1,9 @@
+nil
+undefined method 'foo' for nil (NoMethodError)
+--
+nil
+uninitialized constant Probe::OP_CDECL_TEST::NotDefined (NameError)
+--
+nil
+nil
+nil

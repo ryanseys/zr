@@ -132,13 +132,18 @@ module Zr
             ids << part.node_id
             parts[part.node_id] = true
           end
-          names(node).each do |name|
+          names = names(node)
+          names.each do |name|
             points.each do |point|
-              spot = spot(node, point, name) or next
+              spot = spot(node, point, name)
+              # A name whose own spot is none (it spans lines) shows no
+              # snippet; a row of zeros keeps it from the spot that
+              # applies to any other name.
+              next unless spot || (name && names.include?(nil))
 
+              numbers = spot ? spot.values_at(:first_lineno, :first_column, :last_lineno, :last_column) : [0, 0, 0, 0]
               ids.each do |id|
-                rows << [id, point == :name ? "n" : "a", name || "-",
-                         spot[:first_lineno], spot[:first_column], spot[:last_lineno], spot[:last_column]].join(" ") << "\n"
+                rows << [id, point == :name ? "n" : "a", name || "-", *numbers].join(" ") << "\n"
               end
             end
           end

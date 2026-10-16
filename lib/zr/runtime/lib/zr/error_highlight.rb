@@ -75,9 +75,10 @@ module ErrorHighlight
     def spot(point_type, name)
       row = @rows.find { |point, row_name| point == point_type && row_name == name } ||
             @rows.find { |point, row_name| point == point_type && row_name.nil? }
-      return nil unless row
-
       _, _, first_lineno, first_column, last_lineno, last_column = row
+      # A row of zeros: the name has no spot of its own.
+      return nil if row.nil? || first_lineno.zero?
+
       script_lines = File.read(@path).lines
       snippet = script_lines[(first_lineno - 1)..(last_lineno - 1)].join
       snippet += "\n" unless snippet.end_with?("\n")
