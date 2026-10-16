@@ -1,0 +1,11 @@
+raise: Encoding::UndefinedConversionError: U+10FFFF from UTF-8 to UTF8-MAC
+first of plane 16: Encoding::UndefinedConversionError: U+100000 from UTF-8 to UTF8-MAC
+error: ["\u{10FFFF}", #<Encoding:UTF-8>, #<Encoding:UTF8-MAC>]
+replace: [97, 90, 101, 204, 129]
+default replace: [63, 120]
+xml: [97, 38, 35, 120, 49, 48, 70, 70, 70, 70, 59]
+fallback: [101, 204, 129, 81]
+plane 15: [243, 191, 191, 191, 101, 204, 129]
+from latin1: [99, 97, 102, 101, 204, 129]
+from UTF-16LE: Encoding::UndefinedConversionError: U+10FFFF to UTF8-MAC in conversion from UTF-16LE to UTF-8 to UTF8-MAC
+back: "é"

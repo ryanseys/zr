@@ -880,7 +880,23 @@ class Encoding
     Primitive.attr! :hidden
     return exchange(text, target, path, options) if carrier?(target)
 
-    text.unicode_normalize(:nfd).dup.force_encoding(target)
+    text = text.unicode_normalize(:nfd)
+    return text.dup.force_encoding(target) unless text.each_codepoint.any? { |point| point >= 0x100000 }
+
+    # Ruby's UTF8-MAC table has no lead byte F4: a character of plane 16
+    # is undefined in it.
+    out = +""
+    text.each_char do |char|
+      point = char.ord
+      if point < 0x100000
+        out << char
+      elsif options[:xml]
+        out << "&#x#{format('%X', point)};"
+      else
+        undefined("U+#{format('%04X', point)}", UTF_8, target, path, options, char) { |mark| out << mark }
+      end
+    end
+    out.force_encoding(target)
   end
 
   # `text`, in UTF-8 or a carrier's encoding, into `target`, the other
