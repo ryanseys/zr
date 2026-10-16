@@ -1,0 +1,29 @@
+[#<Encoding:US-ASCII>, true, true]
+["block in foobar", #<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:US-ASCII>]
+[["<compiled>", "US-ASCII", "<compiled>"], [["<class:C>", "ASCII-8BIT", "<class:C>"], [["m", "US-ASCII", "m"], [["rescue in m", "ASCII-8BIT", "m"]], [["ensure in m", "ASCII-8BIT", "m"]], [["block in m", "ASCII-8BIT", "m"]]]], [["é", "UTF-8", "é"]]]
+[true, true, nil, nil]
+[true, "<main>"]
+[1, {lead_num: 1, post_num: 1, post_start: 2, rest_start: 1, block_start: 7, kwbits: 5, keyword: [:e, [:f, 2]], kwrest: 6, use_block: true}]
+[2, {lead_num: 2, use_block: true}]
+[3, {rest_start: 0, use_block: true}]
+[4, {}]
+[5, {}]
+[6, {use_block: true}]
+[7, {use_block: true}]
+[8, {lead_num: 1, rest_start: 1, block_start: 3, kwrest: 2}]
+[9, {}]
+[10, {kwbits: 8, keyword: [[:f], [:g, :y], [:h], [:i, nil], [:j, 1.5], [:k, (2/1)], [:l, -1], [:m, true]]}]
+[11, {kwrest: 0}]
+[12, {block_start: 0, use_block: true}]
+[13, {use_block: true}]
+[14, {use_block: true}]
+[15, {}]
+{lead_num: 1, ambiguous_param0: true}
+{lead_num: 1}
+{lead_num: 1, ambiguous_param0: true}
+{lead_num: 1, ambiguous_param0: true}
+{lead_num: 2}
+{lead_num: 1, ambiguous_param0: true}
+{lead_num: 1, ambiguous_param0: true}
+{lead_num: 1, rest_start: 1, block_start: 2, use_block: true}
+{lead_num: 2}

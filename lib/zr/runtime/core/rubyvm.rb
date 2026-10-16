@@ -151,6 +151,10 @@ class RubyVM
 
     class << self
       def of(body)
+        case body
+        when InstructionSequence then return body
+        when Thread::Backtrace::Location then return of_location(body)
+        end
         return nil unless Primitive.zr_iseq_p(body)
 
         path, line = body.source_location
@@ -159,21 +163,23 @@ class RubyVM
         iseq
       end
 
-      # The options come as a last Hash or as keywords. frozen_string_literal
-      # is the one the compile reads; a magic comment of the source wins.
-      def compile(source, file = +"<compiled>", path = file, line = 1, options = nil, **keywords)
-        source = source.read if source.is_a?(IO)
-        # A nil file is ruby's default, as irb's syntax check passes it.
+      # The options come as a last argument or as keywords, as
+      # make_compile_option takes them. frozen_string_literal is the one
+      # the compile reads; a magic comment of the source wins. A nil file,
+      # path or line is ruby's default, as irb's syntax check passes them.
+      def compile(source, file = nil, path = nil, line = nil, options = nil, **keywords)
+        option = compile_option_of(options, keywords)
         file = +"<compiled>" if file.nil?
         path = file if path.nil?
+        line = 1 if line.nil?
+        source = source_text(source)
         return Primitive.zr_unimplemented(+"RubyVM::InstructionSequence.compile") unless defined?(::Zr::Eval)
 
-        given = (options || {}).merge(keywords)
-        frozen = given[:frozen_string_literal]
+        frozen = option[:frozen_string_literal]
         # The option as a magic comment, on a line before the source's first.
         magic = "# frozen_string_literal: #{frozen ? true : false}\n" unless frozen.nil? || source.match?(/^#.*frozen[-_]string[-_]literal:/i)
         code = ::Zr::Eval.current.compile("#{magic}#{source}", file, magic ? line - 1 : line, [], warn_now: true,
-                                                                                         debug_frozen: given[:debug_frozen_string_literal] ? true : false)
+                                                                                         debug_frozen: option[:debug_frozen_string_literal])
         Primitive.zr_box_compiled(code[1])
         iseq = made(nil, code, "<compiled>", "<compiled>", file, line)
         Primitive.zr_hidden_set(iseq, :__source__, source)
@@ -187,14 +193,14 @@ class RubyVM
       def compile_file(file, options = nil)
         file = Primitive.zr_convert_type(file, String, :to_str)
         source = begin
-          File.read(file)
+          file_text(file)
         rescue SystemCallError => e
           # pm_load_file: the error names the path alone.
           raise SystemCallError.new(file, e.errno), cause: nil
         end
-        iseq = compile(source, file, File.expand_path(file))
-        Primitive.zr_hidden_set(iseq, :__label__, +"<main>")
-        Primitive.zr_hidden_set(iseq, :__base_label__, +"<main>")
+        iseq = compile(source, file, File.expand_path(file), 1, options)
+        Primitive.zr_hidden_set(iseq, :__label__, -"<main>")
+        Primitive.zr_hidden_set(iseq, :__base_label__, -"<main>")
         iseq
       end
       alias compile_file_prism compile_file
@@ -246,7 +252,7 @@ class RubyVM
 
           given = options[key]
           case key
-          when :debug_level then [key, Integer(given)]
+          when :debug_level then [key, Primitive.zr_convert_type(given, Integer, :to_int)]
           when :frozen_string_literal then [key, given.nil? ? nil : (given ? true : false)]
           else [key, given ? true : false]
           end
@@ -264,6 +270,60 @@ class RubyVM
 
       private
 
+      # The options of one compile: a Hash or keywords set the ones they
+      # name over the current options, and true or false sets them all.
+      def compile_option_of(options, keywords)
+        Primitive.attr! :hidden
+        case options
+        when nil then compile_option_from(keywords)
+        when Hash then compile_option_from(keywords.empty? ? options : options.merge(keywords))
+        when true then COMPILE_OPTION_TRUE
+        when false then COMPILE_OPTION_FALSE
+        else raise TypeError, "Compile option must be Hash/true/false/nil"
+        end
+      end
+
+      # The code to compile: a String, or the file of an IO, which the
+      # parser reads by its path (rb_io_path dups it).
+      def source_text(source)
+        Primitive.attr! :hidden
+        if source.is_a?(IO)
+          path = source.path
+          return path ? file_text(path.dup) : source.read
+        end
+        Primitive.zr_convert_type(source, String, :to_str)
+      end
+
+      # A source file's bytes, which the parser reads as UTF-8 until a
+      # magic comment says otherwise, whatever the default external.
+      def file_text(path)
+        Primitive.attr! :hidden
+        File.binread(path).force_encoding(Encoding::UTF_8)
+      end
+
+      # The code of a location's frame. A Location keeps no code, so the
+      # labels and the first line are the location's own.
+      def of_location(location)
+        Primitive.attr! :hidden
+        path = location.path or return nil
+        label = location.label
+        at = label.rindex(" in ")
+        base = location.base_label
+        made(nil, nil, at ? "#{label[0, at + 4]}#{base}" : base, base, path, location.lineno)
+      end
+
+      # A label as ruby keeps it, an fstring: a name in its Symbol's
+      # encoding, and a label that the compiler formats ("<class:C>",
+      # "block in m") in ASCII-8BIT.
+      def label_text(text)
+        Primitive.attr! :hidden
+        return text if text.nil?
+        return -text unless text.ascii_only?
+
+        formatted = text.start_with?("<class:", "<module:", "block ", "rescue in ", "ensure in ")
+        -(+text).force_encoding(formatted ? Encoding::BINARY : Encoding::US_ASCII)
+      end
+
       # The code a frame runs, by the address of its FrameMeta, as a
       # debugger reads a frame's.
       def of_frame(meta_word)
@@ -279,8 +339,8 @@ class RubyVM
         iseq = Primitive.zr_class_build(self)
         Primitive.zr_hidden_set(iseq, :__body__, body)
         Primitive.zr_hidden_set(iseq, :__code__, code)
-        Primitive.zr_hidden_set(iseq, :__label__, label)
-        Primitive.zr_hidden_set(iseq, :__base_label__, base_label)
+        Primitive.zr_hidden_set(iseq, :__label__, label_text(label))
+        Primitive.zr_hidden_set(iseq, :__base_label__, label_text(base_label))
         Primitive.zr_hidden_set(iseq, :__path__, path)
         Primitive.zr_hidden_set(iseq, :__first_lineno__, line)
         iseq
@@ -315,23 +375,29 @@ class RubyVM
       tree, shift = if script&.positive? then InstructionSequence.send(:parse_script, script)
                     else [InstructionSequence.send(:parse_again, range.path, range.absolute_path), 0]
                     end
-      return nil unless tree
-      queue = [[tree, nil]]
-      while (node, parent = queue.shift)
-        if [node.start_line + shift, node.start_column, node.end_line + shift, node.end_column] == [range.start_line, range.start_column, range.end_line, range.end_column]
-          case node.type
-          # A `for` body is a block whose source is the whole loop.
-          when :def_node, :lambda_node, :for_node then return node
-          when :block_node then return parent
-          end
-        end
-        node.compact_child_nodes.each { |child| queue << [child, node] }
-      end
-      nil
+      tree && InstructionSequence.send(:scope_at, tree, range, shift)
     end
 
     class << self
       private
+
+      # The node in `tree` whose source is `range`, shifted by `shift`
+      # lines: a def, lambda or `for`, or the call a block is for.
+      def scope_at(tree, range, shift)
+        Primitive.attr! :hidden
+        queue = [[tree, nil]]
+        while (node, parent = queue.shift)
+          if [node.start_line + shift, node.start_column, node.end_line + shift, node.end_column] == [range.start_line, range.start_column, range.end_line, range.end_column]
+            case node.type
+            # A `for` body is a block whose source is the whole loop.
+            when :def_node, :lambda_node, :for_node then return node
+            when :block_node then return parent
+            end
+          end
+          node.compact_child_nodes.each { |child| queue << [child, node] }
+        end
+        nil
+      end
 
       # The tree of the eval whose source RubyVM.keep_script_lines kept,
       # and how far its lines are from the eval's.
@@ -426,9 +492,135 @@ class RubyVM
       misc[:parser] = :prism
       # ISEQ_MAJOR_VERSION and ISEQ_MINOR_VERSION are ruby's API version.
       major, minor = RUBY_VERSION.split(".").first(2).map(&:to_i)
-      ["YARVInstructionSequence/SimpleDataFormat", major, minor, 1, misc, label, path, absolute_path, first_lineno, code_type, locals, {}, [],
-       events]
+      ["YARVInstructionSequence/SimpleDataFormat", major, minor, 1, misc, label, path, absolute_path, first_lineno, code_type, locals,
+       params_of(node || body_node), [], events]
     end
+
+    # The def, block or lambda node of a method's or a block's code.
+    def body_node
+      Primitive.attr! :hidden
+      body = Primitive.zr_hidden_get(self, :__body__) or return nil
+
+      tree = defined?(::Zr::Eval) ? compiler_tree(body) : syntax_tree
+      tree&.type == :call_node ? tree.block : tree
+    end
+
+    # The same through the parse of eval support's compiler: in a program
+    # that evals, the program's own prism would compile at run time.
+    def compiler_tree(body)
+      Primitive.attr! :hidden
+      range = body.source_range or return nil
+      script = Primitive.zr_hidden_get(range, :__script__)
+      if script&.positive?
+        source, line = ::Zr::Eval.current.script_source(script)
+        shift = line - 1
+      else
+        path = range.absolute_path
+        return nil unless path && File.file?(path)
+
+        source = File.binread(path).force_encoding(Encoding::UTF_8)
+        shift = 0
+      end
+      InstructionSequence.send(:scope_at, ::Zr::Eval.current.parse(source, 1), range, shift)
+    end
+    private :compiler_tree
+    private :body_node
+
+    # The parameters part of `to_a`, as iseq_data_to_ary writes it from
+    # the local table: lead, optionals, rest, posts, keywords, the
+    # keyword bits, the keyword rest and the block, in that order. The
+    # labels of the optionals' code are instruction offsets, which zr
+    # has none of, so `opt` is not given. The node is the compiler's
+    # prism or the program's Ruby::Prism, so it goes by its type.
+    def params_of(node)
+      Primitive.attr! :hidden
+      out = {}
+      kind = node&.type
+      list = node.parameters if kind == :def_node || kind == :block_node || kind == :lambda_node
+      list = list.parameters if list&.type == :block_parameters_node
+      case list&.type
+      when :numbered_parameters_node
+        out[:lead_num] = list.maximum
+        out[:ambiguous_param0] = true if list.maximum == 1
+      when :it_parameters_node
+        out[:lead_num] = 1
+        out[:ambiguous_param0] = true
+      when :parameters_node
+        params_into(out, list, kind != :def_node)
+      end
+      out[:use_block] = true if kind == :def_node && uses_block?(node)
+      out
+    end
+    private :params_of
+
+    def params_into(out, list, block)
+      Primitive.attr! :hidden
+      lead = list.requireds.size
+      rest = list.rest&.type == :rest_parameter_node
+      # `...` after other parameters is a rest, a keyword rest and a block.
+      split = list.keyword_rest&.type == :forwarding_parameter_node && !(list.requireds.empty? && list.optionals.empty?)
+      keys = list.keywords.partition { |key| key.type == :required_keyword_parameter_node }.flatten
+      at = lead + list.optionals.size
+      out[:lead_num] = lead if lead.positive?
+      rest_start = at if rest || split
+      at += 1 if rest_start
+      unless list.posts.empty?
+        out[:post_num] = list.posts.size
+        out[:post_start] = at
+        at += list.posts.size
+      end
+      out[:rest_start] = rest_start if rest_start
+      kw_at = at + keys.size
+      kwrest = kw_at + (keys.empty? ? 0 : 1) if list.keyword_rest&.type == :keyword_rest_parameter_node || split
+      block_at = (kwrest || kw_at + (keys.empty? ? -1 : 0)) + 1
+      out[:block_start] = block_at if list.block || split
+      unless keys.empty?
+        out[:kwbits] = kw_at
+        out[:keyword] = keys.map { |key| key.type == :required_keyword_parameter_node ? key.name : [key.name, *default_of(key.value)] }
+      end
+      out[:kwrest] = kwrest if kwrest
+      plain = list.optionals.empty? && !list.rest && list.posts.empty? && list.keywords.empty? && !list.keyword_rest && !list.block
+      out[:ambiguous_param0] = true if block && lead == 1 && plain
+      out[:use_block] = true if block && list.block
+    end
+    private :params_into
+
+    # A keyword's default that the local table keeps: a static literal's
+    # value, which the compiler needs no code for.
+    def default_of(node)
+      Primitive.attr! :hidden
+      case node.type
+      when :integer_node, :float_node, :rational_node, :imaginary_node then [node.value]
+      when :symbol_node then [node.unescaped.to_sym]
+      when :nil_node then [nil]
+      when :true_node then [true]
+      when :false_node then [false]
+      else []
+      end
+    end
+    private :default_of
+
+    # Whether a def's code reads its block: a block parameter, a lone
+    # `...`, or yield or super anywhere in it outside the defs it holds.
+    def uses_block?(node)
+      Primitive.attr! :hidden
+      list = node.parameters
+      if list
+        return true if list.block
+        return true if list.keyword_rest&.type == :forwarding_parameter_node && list.requireds.empty? && list.optionals.empty?
+      end
+
+      queue = node.body ? [node.body] : []
+      while (part = queue.shift)
+        case part.type
+        when :yield_node, :super_node, :forwarding_super_node, :forwarding_arguments_node then return true
+        when :def_node then next
+        end
+        queue.concat(part.compact_child_nodes)
+      end
+      false
+    end
+    private :uses_block?
 
     # The body of `to_a`: zr has no instructions, so only the line of each
     # event, then the event, as ruby's list has them before each
@@ -462,7 +654,16 @@ class RubyVM
       when Proc then :block
       else
         meta = Primitive.zr_hidden_get(self, :__meta__)
-        meta ? Primitive.zr_iseq_meta_info(meta)[2] : :top
+        return Primitive.zr_iseq_meta_info(meta)[2] if meta
+
+        case Primitive.zr_hidden_get(self, :__syntax__)
+        when ::Prism::DefNode then :method
+        when ::Prism::BlockNode, ::Prism::LambdaNode, ::Prism::ForNode then :block
+        when ::Prism::ClassNode, ::Prism::ModuleNode, ::Prism::SingletonClassNode then :class
+        when ::Prism::RescueNode then :rescue
+        when ::Prism::EnsureNode then :ensure
+        else :top
+        end
       end
     end
     private :code_type
@@ -478,7 +679,14 @@ class RubyVM
       seed = scope?(node) ? [node.location.start_line] : []
       lines = seed.dup
       line_events(node, lines)
-      lines.drop(seed.size).map { |line| [line, :line] }
+      points = lines.drop(seed.size).map { |line| [line, :line] }
+      # A singleton class body fires neither :class nor :end.
+      opening, closing = SCOPE_EVENTS[code_type] unless node.is_a?(::Prism::SingletonClassNode)
+      return [[node.location.start_line, opening], *points, [node.location.end_line, closing]] if opening
+
+      # A rescue clause fires :rescue after its first statement's :line.
+      points.insert(points.empty? ? 0 : 1, [node.statements&.location&.start_line || node.location.start_line, :rescue]) if node.is_a?(::Prism::RescueNode)
+      points
     end
 
     # The code that this code contains directly: each method, block and
@@ -557,9 +765,10 @@ class RubyVM
     def nested(node, handlers, out)
       Primitive.attr! :hidden
       node.compact_child_nodes.each do |child|
+        block = child.is_a?(::Prism::BlockNode) || child.is_a?(::Prism::LambdaNode) || child.is_a?(::Prism::ForNode)
         name = case child
                when ::Prism::DefNode then child.name.to_s
-               when ::Prism::BlockNode, ::Prism::LambdaNode then "block in #{label}"
+               when ::Prism::BlockNode, ::Prism::LambdaNode, ::Prism::ForNode then block_label
                when ::Prism::ClassNode then "<class:#{child.constant_path.slice}>"
                when ::Prism::ModuleNode then "<module:#{child.constant_path.slice}>"
                when ::Prism::SingletonClassNode then +"singleton class"
@@ -569,13 +778,27 @@ class RubyVM
         next nested(child, handlers, out) unless name
 
         handler = child.is_a?(::Prism::RescueNode) || child.is_a?(::Prism::EnsureNode)
-        base = handler || child.is_a?(::Prism::BlockNode) || child.is_a?(::Prism::LambdaNode) ? label : name
         # An ensure clause's code starts at its first statement.
         line = (child.statements&.location&.start_line if child.is_a?(::Prism::EnsureNode)) || child.location.start_line
-        iseq = self.class.send(:made, nil, nil, name, base, path, line)
+        iseq = self.class.send(:made, nil, nil, name, handler || block ? base_label : name, path, line)
         Primitive.zr_hidden_set(iseq, :__syntax__, child)
+        Primitive.zr_hidden_set(iseq, :__depth__, block_depth + 1) if block
         (handler ? handlers : out) << iseq
       end
+    end
+
+    # How many blocks deep this code is in its method, class body or file.
+    def block_depth
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(self, :__depth__) || 0
+    end
+
+    # The label of a block written in this code: "block in m", then
+    # "block (2 levels) in m" a block deeper.
+    def block_label
+      Primitive.attr! :hidden
+      depth = block_depth + 1
+      depth == 1 ? "block in #{base_label}" : "block (#{depth} levels) in #{base_label}"
     end
 
     # The tree of this code: the parsed string, or the node of a child.
@@ -592,7 +815,7 @@ class RubyVM
     # other than the last event's, as the compiler emits them, outside the
     # code of its own that a def, block, class body or rescue clause is.
     # An ensure clause is both: the compiler puts a copy of it inline.
-    def line_events(node, lines)
+    def line_events(node, lines, popped = false)
       Primitive.attr! :hidden
       node.compact_child_nodes.each do |child|
         line = child.location.start_line
@@ -601,8 +824,17 @@ class RubyVM
         # event takes the place of its own; so does a condition that is a
         # literal, which leaves only the branch it takes. With no branch,
         # the last statement of a list still gives its value, a nil.
-        own = live.nil? || (live == false && node.is_a?(::Prism::StatementsNode) && child.equal?(node.body.last))
-        lines << line if child.newline? && lines.last != line && !(child.is_a?(::Prism::BeginNode) && child.statements) && own
+        listed = node.is_a?(::Prism::StatementsNode)
+        own = live.nil? || (live == false && listed && child.equal?(node.body.last))
+        # A literal whose value no one reads compiles to nothing.
+        own &&= !(listed && inert?(child) && (popped || !child.equal?(node.body.last)))
+        if child.is_a?(::Prism::BeginNode) && child.statements.nil? && child.rescue_clause
+          # An empty begin's event is the rescue clause's line.
+          line = child.rescue_clause.location.start_line
+        elsif child.is_a?(::Prism::BeginNode) && child.statements
+          own = false
+        end
+        lines << line if child.newline? && lines.last != line && own
         next if scope?(child) || (child.is_a?(::Prism::RescueNode) && !node.is_a?(::Prism::RescueNode))
         if live
           # An elsif is a statement of its own there.
@@ -611,7 +843,25 @@ class RubyVM
         end
         next if live == false
 
-        line_events(child, lines)
+        # A loop's body gives no value.
+        line_events(child, lines, node.is_a?(::Prism::WhileNode) || node.is_a?(::Prism::UntilNode))
+      end
+    end
+
+    # Whether `node` is a literal or a read that compiles to nothing when
+    # its value is not used: no call, no hook, no autoload.
+    def inert?(node)
+      Primitive.attr! :hidden
+      case node
+      when ::Prism::IntegerNode, ::Prism::FloatNode, ::Prism::RationalNode, ::Prism::ImaginaryNode, ::Prism::StringNode,
+           ::Prism::SymbolNode, ::Prism::NilNode, ::Prism::TrueNode, ::Prism::FalseNode, ::Prism::SelfNode,
+           ::Prism::RegularExpressionNode, ::Prism::SourceFileNode, ::Prism::SourceLineNode, ::Prism::SourceEncodingNode,
+           ::Prism::LocalVariableReadNode, ::Prism::InstanceVariableReadNode
+        true
+      when ::Prism::ArrayNode then node.elements.all? { |element| inert?(element) }
+      when ::Prism::HashNode then node.elements.all? { |pair| pair.is_a?(::Prism::AssocNode) && inert?(pair.key) && inert?(pair.value) }
+      when ::Prism::RangeNode then (node.left.nil? || inert?(node.left)) && (node.right.nil? || inert?(node.right))
+      else false
       end
     end
 
@@ -633,7 +883,7 @@ class RubyVM
     # Whether `node` is code of its own: a def, a block or a class body.
     def scope?(node)
       Primitive.attr! :hidden
-      node.is_a?(::Prism::DefNode) || node.is_a?(::Prism::BlockNode) || node.is_a?(::Prism::LambdaNode) ||
+      node.is_a?(::Prism::DefNode) || node.is_a?(::Prism::BlockNode) || node.is_a?(::Prism::LambdaNode) || node.is_a?(::Prism::ForNode) ||
         node.is_a?(::Prism::ClassNode) || node.is_a?(::Prism::ModuleNode) || node.is_a?(::Prism::SingletonClassNode)
     end
   end

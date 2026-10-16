@@ -1,0 +1,17 @@
+nil: TypeError: no implicit conversion of nil into String
+symbol: TypeError: no implicit conversion of Symbol into String
+integer: TypeError: no implicit conversion of Integer into String
+object to compile_prism: TypeError: no implicit conversion of Object into String
+nil file, path and line: ["<compiled>", 1]
+options as a last Hash: [false, true]
+options true: false
+options of a wrong type: TypeError: Compile option must be Hash/true/false/nil
+a String debug level: TypeError: no implicit conversion of String into Integer
+a debug level checked first: TypeError: no implicit conversion of String into Integer
+an Integer debug level: RubyVM::InstructionSequence
+compile_file with keywords: [true, false]
+compile_file with a Hash: [[false, false], [true, false]]
+a File at its end: ["foo", "1foo"]
+new of a File: ["foo", "1foo"]
+a closed File: ["foo", "1foo"]
+a UTF-8 file under US-ASCII: [[#<Encoding:UTF-8>], {"\u00DE" => "Th", "\u00DF" => "ss"}]
