@@ -142,7 +142,7 @@ module OpenSSL
     def self.ERR_GET_LIB(code) = code & ERR_SYSTEM_FLAG == 0 ? (code >> 23) & 0xff : 2
 
     %i[SSL_CTX_set_mode SSL_CTX_set_dh_auto].zip([SSL_CTRL_MODE, SSL_CTRL_SET_DH_AUTO]).each do |name, ctrl|
-      define_singleton_method(name) { |ctx, value| SSL_CTX_ctrl(ctx, ctrl, value, nil) }
+      define_singleton_method(name, &Ractor.make_shareable(proc { |ctx, value| SSL_CTX_ctrl(ctx, ctrl, value, nil) }))
     end
 
     # SSL_CTX_set_min_proto_version and SSL_CTX_set_max_proto_version
@@ -710,13 +710,16 @@ module OpenSSL
 
   module SSL
     class SSLContext
+      # rb_attr: accessors of the instance variables, which the port reads
+      # by their visible names. Their blocks are shareable, so any Ractor
+      # may call them.
       %i[cert key client_ca ca_file ca_path timeout verify_mode verify_depth verify_callback verify_hostname
          cert_store extra_chain_cert client_cert_cb tmp_dh_callback session_id_context session_get_cb
          session_new_cb session_remove_cb renegotiation_cb npn_protocols npn_select_cb alpn_protocols
          alpn_select_cb keylog_cb].each do |name|
         variable = :"@#{name}"
-        define_method(name) { instance_variable_get(variable) }
-        define_method(:"#{name}=") { |value| instance_variable_set(variable, value) }
+        define_method(name, &Ractor.make_shareable(proc { instance_variable_get(variable) }))
+        define_method(:"#{name}=", &Ractor.make_shareable(proc { |value| instance_variable_set(variable, value) }))
       end
       alias ssl_timeout timeout
       alias ssl_timeout= timeout=

@@ -385,11 +385,12 @@ module OpenSSL
     end
 
     class Factory
-      # rb_attr: the C reads each through its instance variable.
+      # rb_attr: the C reads each through its instance variable. Their
+      # blocks are shareable, so any Ractor may call them.
       %i[allowed_digests default_policy_id serial_number gen_time additional_certs].each do |name|
         variable = :"@#{name}"
-        define_method(name) { instance_variable_get(variable) }
-        define_method(:"#{name}=") { |value| instance_variable_set(variable, value) }
+        define_method(name, &Ractor.make_shareable(proc { instance_variable_get(variable) }))
+        define_method(:"#{name}=", &Ractor.make_shareable(proc { |value| instance_variable_set(variable, value) }))
       end
 
       def create_timestamp(key, certificate, request)

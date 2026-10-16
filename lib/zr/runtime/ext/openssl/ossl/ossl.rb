@@ -109,12 +109,26 @@ module OpenSSL
   # The helpers of ossl.c that the other files share.
   module Ossl
     class << self
+      # A static of ossl's C: hidden state of the module, which code in
+      # any Ractor reads and writes as C does its statics, so no instance
+      # variable of a module made by the main Ractor is read elsewhere.
+      def static(key)
+        Native.hidden_get(Ossl, key) || yield.tap { |value| Native.hidden_set(Ossl, key, value) }
+      end
+
+      # The next number of the counter `key`, from 1.
+      def next_id(key)
+        id = (Native.hidden_get(Ossl, key) || 0) + 1
+        Native.hidden_set(Ossl, key, id)
+        id
+      end
+
       # dOSSL: whether the error queue's entries are written to stderr as
       # they are dropped.
-      def debug = @debug || false
+      def debug = Native.hidden_get(Ossl, :debug) || false
 
       def debug=(value)
-        @debug = value
+        Native.hidden_set(Ossl, :debug, value)
       end
 
       # ossl_make_error: an instance of `klass` whose message is `message`
@@ -206,13 +220,12 @@ module OpenSSL
       def reference(object)
         return 0 if object.nil?
 
-        @references ||= ObjectSpace::WeakMap.new
-        @reference_id = (@reference_id || 0) + 1
-        @references[@reference_id] = object
-        @reference_id
+        id = next_id(:reference_id)
+        static(:references) { ObjectSpace::WeakMap.new }[id] = object
+        id
       end
 
-      def dereference(id) = id.zero? ? nil : @references&.[](id)
+      def dereference(id) = id.zero? ? nil : Native.hidden_get(Ossl, :references)&.[](id)
 
       # The DER an i2d function writes for `object`: its length first,
       # then its bytes, raising `klass` with `message` when either fails.
@@ -369,19 +382,18 @@ module OpenSSL
       # Runs `yield` with `password` and `block` where PEM_PASSWORD_CB
       # finds them: the Integer to pass as the callback's data argument.
       def with_password(password, block)
-        @passwords ||= {}
-        @password_id = (@password_id || 0) + 1
-        id = @password_id
-        @passwords[id] = [password, block]
+        passwords = static(:passwords) { {} }
+        id = next_id(:password_id)
+        passwords[id] = [password, block]
         yield id
       ensure
-        @passwords.delete(id)
+        passwords&.delete(id)
       end
 
       # ossl_pem_passwd_cb: the password in `with_password`, or its block's
       # return value, copied into OpenSSL's buffer; -1 when there is none.
       def pem_password(buffer, max_length, flag, id)
-        password, block = @passwords&.fetch(id, nil)
+        password, block = Native.hidden_get(Ossl, :passwords)&.fetch(id, nil)
         unless password.nil?
           return -1 unless password.is_a?(String) && password.bytesize <= max_length
 
@@ -455,6 +467,9 @@ module OpenSSL
         @missing = missing
         @alloc = alloc
         @create = create
+        # A type is a C constant in ossl, so every Ractor reads it: the
+        # whole of it, its procs too, is shareable.
+        Ractor.make_shareable(self)
       end
 
       # Whether `object` contains a struct, with none made for it.
@@ -535,17 +550,17 @@ module OpenSSL
       # OBJ_NAME_do_all_sorted, OSSL_PROVIDER_do_all and lh_doall_arg all
       # call back with the item first and the data argument second.
       def collect
-        @collections ||= {}
-        id = @collection_id = (@collection_id || 0) + 1
-        @collections[id] = items = []
+        collections = static(:collections) { {} }
+        id = next_id(:collection_id)
+        collections[id] = items = []
         yield COLLECT_CB, id
         items
       ensure
-        @collections.delete(id)
+        collections&.delete(id)
       end
 
       def collected(item, id)
-        @collections[id] << item
+        Native.hidden_get(Ossl, :collections)[id] << item
         1
       end
 

@@ -203,7 +203,7 @@ module OpenSSL
        T61String VideotexString IA5String GraphicString ISO64String GeneralString UniversalString
        BMPString Null ObjectId UTCTime GeneralizedTime Sequence Set EndOfContent].each do |name|
       klass = const_get(name)
-      define_method(name) { |*args| klass.new(*args) }
+      define_method(name, &Ractor.make_shareable(proc { |*args| klass.new(*args) }))
       module_function name
     end
 

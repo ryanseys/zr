@@ -69,9 +69,15 @@ module OpenSSL
     BIGNUM = DataType.new("OpenSSL/BN", OpenSSL::BN, :BN_clear_free, [RuntimeError, "BN wasn't initialized!"], alloc: -> { Ossl.new_bignum })
 
     class << self
-      # ossl_bn_ctx_get: the BN_CTX every operation borrows, made once.
+      # ossl_bn_ctx_get: the BN_CTX every operation borrows, made once
+      # for each Ractor, as ossl keeps it in Ractor-local storage.
       def bn_ctx
-        @bn_ctx ||= Lib.BN_CTX_new.tap { |ctx| raise RuntimeError, "Cannot init BN_CTX" if ctx.zero? }
+        ractor = Ractor.current
+        Native.hidden_get(ractor, :ossl_bn_ctx) || Lib.BN_CTX_new.tap do |ctx|
+          raise RuntimeError, "Cannot init BN_CTX" if ctx.zero?
+
+          Native.hidden_set(ractor, :ossl_bn_ctx, ctx)
+        end
       end
 
       # GetBN.

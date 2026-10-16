@@ -29,7 +29,7 @@ module OpenSSL
       size_t: ->(word) { word & WORD_MASK },
       pointer: ->(word) { word & WORD_MASK },
       string: ->(word) { word.zero? ? nil : Lib.string(word & WORD_MASK) }
-    }.freeze
+    }.then { |table| Ractor.make_shareable(table) }
 
     PARAMS = %i[int uint uchar long int64 ulong uint64 size_t pointer string buffer double].freeze
     # The parameters C passes in 32 bits.
@@ -79,7 +79,7 @@ module OpenSSL
           number = RETURNS[:ulong].(Native.call(version, []))
           next tried << format("%s (OpenSSL %#x is older than 3.0)", path, number) if number < MINIMUM_VERSION
 
-          @path = path
+          @path = Ractor.make_shareable(path.dup)
           return @handle = handle
         end
         raise LoadError, "OpenSSL 3 was not found; set OPENSSL_DIR to its prefix. Looked for: #{tried.join(", ")}"
@@ -105,14 +105,17 @@ module OpenSSL
 
         answer = RETURNS.fetch(returns)
         arity = params.size
-        strings = params.each_index.select { |i| params[i] == :string }
+        strings = params.each_index.select { |i| params[i] == :string }.freeze
         double = params.last == :double
         raise ArgumentError, "#{name}: a :double call has no errno" if double && errno
         # Past eight arguments some go on the stack, where an int takes
         # four bytes: such a call goes through libffi with each width.
-        widths = params.map { |type| NARROW.include?(type) ? 32 : 64 } if arity > 8
+        widths = params.map { |type| NARROW.include?(type) ? 32 : 64 }.freeze if arity > 8
         raise ArgumentError, "#{name}: a call past eight arguments takes no :double or errno" if widths && (double || errno)
-        define_singleton_method(as) do |*args|
+        # The function is a C function of libcrypto, which every Ractor
+        # may call, so its method's block is shareable: it reads only
+        # frozen values.
+        call = Ractor.make_shareable(proc do |*args|
           raise ArgumentError, "wrong number of arguments (given #{args.size}, expected #{arity}) for #{name}" unless args.size == arity
 
           strings.each { |i| args[i] = Native.cstring(args[i]) if args[i].is_a?(String) }
@@ -127,7 +130,8 @@ module OpenSSL
           else
             answer.(Native.call(address, args.map! { |arg| Lib.word(arg) }))
           end
-        end
+        end)
+        define_singleton_method(as, &call)
       end
 
       # Binds each of `table`'s rows: name => [params, returns].
@@ -171,11 +175,18 @@ module OpenSSL
       # the rest mean nothing) and returns the block's return value, an
       # Integer. Each is made once, where the C extension has a static
       # function, because the kernel keeps a fixed number of entries.
+      # The table lives in hidden state and the dispatcher closes over it,
+      # so a callback that runs in a Ractor other than main reads no
+      # instance variable of the module, as a C static would be read.
       def callback(&block)
-        @callbacks ||= []
-        Native.dispatch(->(index, args) { @callbacks[index].call(*args) }) if @callbacks.empty?
-        @callbacks << block
-        address = Native.callback(@callbacks.size - 1)
+        table = Native.hidden_get(self, :callbacks)
+        unless table
+          table = []
+          Native.hidden_set(self, :callbacks, table)
+          Native.dispatch(->(index, args) { table[index].call(*args) })
+        end
+        table << block
+        address = Native.callback(table.size - 1)
         raise ScriptError, "the port holds more C callbacks than the kernel has entries" if address.nil?
 
         address
