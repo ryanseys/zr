@@ -1066,11 +1066,13 @@ class IO
 
     # rb_io_close_m checks no freeze: a frozen stream closes too. A core
     # ivar has no `@` in its name.
+    interrupted = interrupt_blocking
     finish_writing
     finalize_flush
     Primitive.zr_state_set(self, :closed, true)
     own_descriptor
     Thread.send(:fd_closed, @fd) if Primitive.zr_threaded
+    wait_blocking if interrupted
     if @twin
       twin = @twin
       Fiber.send(:offloaded) { Primitive.zr_io_close(twin) }
@@ -1514,7 +1516,7 @@ class IO
     IO.send(:room_for!, length)
     text = if (scheduler = IO.send(:scheduler_taking, :io_pread))
              IO::Buffer.send(:lent, "\0".b * length) do |memory|
-               read = IO.send(:io_result, scheduler.io_pread(self, memory, offset, 0, length))
+               read = IO.send(:io_result, IO.send(:blocking_operation, self) { scheduler.io_pread(self, memory, offset, 0, length) })
                read.positive? ? memory.get_string(0, read) : (read.zero? ? nil : read)
              end
            else
@@ -1531,7 +1533,7 @@ class IO
     check_writable
     result = if (scheduler = IO.send(:scheduler_taking, :io_pwrite))
                IO::Buffer.send(:lent, text.b, readonly: true) do |memory|
-                 IO.send(:io_result, scheduler.io_pwrite(self, memory, offset, 0, memory.size))
+                 IO.send(:io_result, IO.send(:blocking_operation, self) { scheduler.io_pwrite(self, memory, offset, 0, memory.size) })
                end
              else
                Primitive.zr_io_pwrite(@fd, text, offset)
@@ -2514,7 +2516,7 @@ class IO
     if (scheduler = Fiber.current_scheduler)
       return if Primitive.zr_io_wait(fd, event, 0) != 0
 
-      return scheduler.io_wait(self, event, @timeout)
+      return IO.send(:blocking_operation, self) { scheduler.io_wait(self, event, @timeout) }
     end
     return wait_timeout(event, fd) if @timeout
     return unless @nonblock || (Primitive.zr_threaded && !Thread.send(:alone?))
@@ -2612,6 +2614,81 @@ class IO
   end
   private_class_method :scheduler_taking, :io_result
 
+  # rb_thread_io_blocking_operation: a scheduler hook that may block on
+  # `io` runs as one of the IO's blocking operations, which a close of
+  # the IO elsewhere interrupts. An operation that the close interrupted
+  # raises the close's error once the hook returns.
+  def self.blocking_operation(io)
+    Primitive.attr! :hidden
+    operation = [Fiber.current, Fiber.current_scheduler, nil]
+    io.send(:blocking_operations) << operation
+    begin
+      result = yield
+      error = operation[2] && Fiber.send(:target_exception, operation[2])
+      Kernel.raise error if error
+
+      result
+    ensure
+      io.send(:blocking_operation_ended, operation)
+    end
+  end
+  private_class_method :blocking_operation
+
+  # The blocking operations that run on this IO: each the fiber, its
+  # scheduler, and the target that a close gave it.
+  def blocking_operations
+    Primitive.attr! :hidden
+    operations = Primitive.zr_hidden_get(self, :__blocking__)
+    return operations if operations
+
+    operations = []
+    Primitive.zr_state_set(self, :__blocking__, operations)
+    operations
+  end
+
+  # rb_io_blocking_operation_exit: the operation's target interrupts
+  # nothing more, and a close that waits for the operations wakes.
+  def blocking_operation_ended(operation)
+    Primitive.attr! :hidden
+    Fiber.send(:invalidate_target, operation[2]) if operation[2]
+    blocking_operations.delete_if { |each| each.equal?(operation) }
+    fiber, thread = Primitive.zr_hidden_get(self, :__closer__)
+    return unless fiber
+
+    scheduler = thread.send(:scheduler)
+    scheduler ? scheduler.unblock(self, fiber) : thread.wakeup
+  end
+
+  # rb_thread_io_close_interrupt: each fiber that waits on this IO hears
+  # of the close through its scheduler's fiber_interrupt
+  # (thread_io_close_notify_all). True when an operation must end before
+  # the descriptor closes.
+  def interrupt_blocking
+    Primitive.attr! :hidden
+    operations = Primitive.zr_hidden_get(self, :__blocking__)
+    return false if operations.nil? || operations.empty? || Primitive.zr_hidden_get(self, :__closer__)
+
+    Primitive.zr_state_set(self, :__closer__, [Fiber.current, Thread.current])
+    error = IOError.new(+"stream closed in another thread")
+    operations.dup.each do |operation|
+      operation[2] ||= Fiber.send(:interrupt_target, operation[0], error)
+      operation[1].fiber_interrupt(operation[2], error)
+    end
+    true
+  end
+
+  # rb_thread_io_close_wait: the close waits until every operation that
+  # it interrupted has ended, so none of them meets a closed descriptor.
+  def wait_blocking
+    Primitive.attr! :hidden
+    until blocking_operations.empty?
+      scheduler = Fiber.current_scheduler
+      scheduler ? scheduler.kernel_sleep : Thread.current.send(:wait, nil, true)
+    end
+  ensure
+    Primitive.zr_state_set(self, :__closer__, nil)
+  end
+
   # rb_io_read_memory: at most `size` bytes, which a scheduler's io_read
   # reads into a buffer lent it; a String, nil at the end, or the
   # negative errno.
@@ -2621,7 +2698,7 @@ class IO
     return Primitive.zr_io_read(@fd, size) unless scheduler
 
     IO::Buffer.send(:lent, "\0".b * size) do |memory|
-      read = IO.send(:io_result, scheduler.io_read(self, memory, 0, size))
+      read = IO.send(:io_result, IO.send(:blocking_operation, self) { scheduler.io_read(self, memory, 0, size) })
       next read if read.negative?
 
       read.zero? ? nil : memory.get_string(0, read)
@@ -2639,7 +2716,7 @@ class IO
     while from < text.bytesize
       rest = text.byteslice(from, text.bytesize - from)
       wrote = IO::Buffer.send(:lent, rest, readonly: true) do |memory|
-        IO.send(:io_result, scheduler.io_write(self, memory, 0, memory.size))
+        IO.send(:io_result, IO.send(:blocking_operation, self) { scheduler.io_write(self, memory, 0, memory.size) })
       end
       if wrote.negative?
         raise SystemCallError.new(label, -wrote, +"rb_sys_fail_on_write") unless -wrote == Errno::EAGAIN::Errno
@@ -2662,7 +2739,7 @@ class IO
     scheduler = Fiber.current_scheduler
     return Thread.pass unless scheduler
 
-    ready = scheduler.io_wait(self, event, @timeout)
+    ready = IO.send(:blocking_operation, self) { scheduler.io_wait(self, event, @timeout) }
     if ready == false
       raise IO::TimeoutError, "Timed out waiting for IO to become #{event == WRITABLE ? "writable" : "readable"}!"
     end
@@ -3860,7 +3937,7 @@ class IO
   def ready_events(events, timeout)
     Primitive.attr! :hidden
     scheduler = Fiber.current_scheduler
-    return scheduler.io_wait(self, events, timeout) if scheduler
+    return IO.send(:blocking_operation, self) { scheduler.io_wait(self, events, timeout) } if scheduler
 
     timeout = IO.send(:time_interval, timeout.nil? ? @timeout : timeout)
     # rb_timeout_to_hrtime: a wait takes no infinite timeout, where select does.

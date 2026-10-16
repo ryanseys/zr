@@ -594,7 +594,7 @@ class IO
       return 0 if length.zero?
 
       scheduler = IO.send(:scheduler_taking, :io_read)
-      return scheduler.io_read(io, self, offset, length) if scheduler
+      return IO.send(:blocking_operation, io) { scheduler.io_read(io, self, offset, length) } if scheduler
 
       # The scheduler's capability check (respond_to?) can run Ruby and
       # change the view, so it is checked again, as rb_io_buffer_read does.
@@ -615,7 +615,7 @@ class IO
       return 0 if length.zero?
 
       scheduler = IO.send(:scheduler_taking, :io_pread)
-      return scheduler.io_pread(io, self, from, offset, length) if scheduler
+      return IO.send(:blocking_operation, io) { scheduler.io_pread(io, self, from, offset, length) } if scheduler
 
       # The scheduler's capability check (respond_to?) can run Ruby and
       # change the view, so it is checked again, as rb_io_buffer_read does.
@@ -632,7 +632,7 @@ class IO
       return 0 if length.zero?
 
       scheduler = IO.send(:scheduler_taking, :io_write)
-      return scheduler.io_write(io, self, offset, length) if scheduler
+      return IO.send(:blocking_operation, io) { scheduler.io_write(io, self, offset, length) } if scheduler
 
       # The scheduler's capability check can run Ruby and change the view.
       revalidate(offset, length, false) if Fiber.current_scheduler
@@ -652,7 +652,7 @@ class IO
       return 0 if length.zero?
 
       scheduler = IO.send(:scheduler_taking, :io_pwrite)
-      return scheduler.io_pwrite(io, self, from, offset, length) if scheduler
+      return IO.send(:blocking_operation, io) { scheduler.io_pwrite(io, self, from, offset, length) } if scheduler
 
       # The scheduler's capability check can run Ruby and change the view.
       revalidate(offset, length, false) if Fiber.current_scheduler

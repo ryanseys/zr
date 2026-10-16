@@ -1,0 +1,15 @@
+== a fiber closes what another reads
+#<IOError: stream closed in another thread>
+== the interrupt stays in its operation
+[[:source, IOError, "stream closed in another thread"], [:source, IOError, "stream closed in another thread"], [:source, IOError, "stream closed in another thread"], [:source, IOError, "stream closed in another thread"]]
+== another thread closes what a fiber reads
+#<IOError: stream closed in another thread>
+nil
+Object
+false
+nil
+nil
+TypeError
+TypeError
+== a fiber closes what a thread reads
+#<IOError: stream closed in another thread>

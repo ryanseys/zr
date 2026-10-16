@@ -1497,6 +1497,32 @@ class Fiber
 
     private :next_serial, :serial_of
 
+    # rb_fiber_scheduler_interrupt_target_new: what a close gives the
+    # scheduler's fiber_interrupt for a fiber that waits on the IO.
+    def interrupt_target(fiber, exception)
+      Primitive.attr! :hidden
+      target = Primitive.zr_obj_alloc(Primitive.zr_hidden_get(Fiber, :__interrupt_target__))
+      Primitive.zr_hidden_set(target, :__fiber__, fiber)
+      Primitive.zr_hidden_set(target, :__exception__, exception)
+      target
+    end
+
+    # The exception of a target whose operation still runs, else nil.
+    def target_exception(target)
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_get(target, :__exception__)
+    end
+
+    # rb_fiber_scheduler_interrupt_target_invalidate: the operation ended,
+    # so the target interrupts nothing more.
+    def invalidate_target(target)
+      Primitive.attr! :hidden
+      Primitive.zr_hidden_set(target, :__fiber__, nil)
+      Primitive.zr_hidden_set(target, :__exception__, nil)
+    end
+
+    private :interrupt_target, :target_exception, :invalidate_target
+
     # 1 while the current fiber blocks, as CRuby counts the thread's
     # blocking fibers, and false while it does not.
     def blocking? = current.blocking? ? 1 : false
@@ -1804,6 +1830,31 @@ end
 # A mutex keeps its owner and its waiters in core-only state, which
 # `freeze` does not freeze: a frozen Mutex still locks, as CRuby's
 # C fields let it.
+# scheduler.c's InterruptTarget: an anonymous class with no allocator. A
+# target stands for a fiber that a close interrupts until its operation
+# ends; after that it is not alive?, and raise and transfer do nothing.
+Primitive.zr_hidden_set(Fiber, :__interrupt_target__, Class.new do
+  Primitive.zr_undef_allocator(self)
+
+  def alive?
+    fiber = Primitive.zr_hidden_get(self, :__fiber__)
+    fiber ? fiber.alive? : false
+  end
+
+  def raise(*args)
+    fiber = Primitive.zr_hidden_get(self, :__fiber__)
+    fiber&.raise(*args)
+  end
+
+  # interrupt_target_transfer: the fiber gets the close's exception.
+  def transfer
+    fiber = Primitive.zr_hidden_get(self, :__fiber__)
+    return unless fiber&.alive?
+
+    fiber.raise(Primitive.zr_hidden_get(self, :__exception__))
+  end
+end)
+
 class Thread::Mutex
   def initialize
     Primitive.zr_state_set(self, :__owner__, nil)
