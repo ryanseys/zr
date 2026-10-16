@@ -25,6 +25,7 @@ module Coverage
     mode = mode_of(args)
     Primitive.zr_hidden_set(self, :__mode__, mode)
     Primitive.zr_coverage_evals_set(mode[:eval] ? true : false)
+    Primitive.zr_coverage_branch_jumps_set(mode[:branches] ? true : false)
     Primitive.zr_coverage_oneshot_set(mode[:oneshot_lines] ? true : false)
     Primitive.zr_hidden_set(self, :__eval_lines__, {})
     shift(:suspended)

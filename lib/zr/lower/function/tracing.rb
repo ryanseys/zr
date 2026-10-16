@@ -45,10 +45,22 @@ module Zr
 
           line == node.line ? at_node(node) : at_line(line)
           if traced?
-            fire(:line)
+            node.event == :branch_jump ? when_branches_count { fire(:line) } : fire(:line)
             @trace_lines << line
           end
           @qnil
+        end
+
+        # Runs the block's code only while Coverage counts branches.
+        #: () { () -> void } -> void
+        def when_branches_count
+          on = @f.label
+          off = @f.label
+          @f.brif(@f.icmp("ne", @f.fetch("i64", static("coverage_branch_jumps"), 0), imm(0)), on, off)
+          switch(on)
+          yield
+          @f.jump(off)
+          switch(off)
         end
 
         # `Hir::Cover`: counts one run of a branch that Coverage measures.

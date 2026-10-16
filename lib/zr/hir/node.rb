@@ -354,7 +354,8 @@ module Zr
     # compile to nothing depends on the path that runs the body, as CRuby
     # compiles the body once per path: a `:raise_line` fires on a raise,
     # and an `:exit_line` on the normal exit. An `:unused` one fires
-    # never.
+    # never. A `:branch_jump` fires while Coverage counts branches: the
+    # jump that ends an `if`'s branch over its else's counter.
     Trace = Node.new(:event, :line)
 
     class Trace

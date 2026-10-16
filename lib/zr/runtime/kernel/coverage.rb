@@ -95,6 +95,14 @@ module Zr::Kern
     on
   end
 
+  # `branches: true`: the jump of an `if` branch over its else's counter
+  # carries a :line event (Hir::Trace :branch_jump).
+  #: (value) -> value
+  def zr_coverage_branch_jumps_set(on)
+    Machine.store64(Machine.static(:coverage_branch_jumps, 8), 0, on == QTRUE ? 1 : 0)
+    on
+  end
+
   #: (ptr) -> void
   def zr_coverage_forget(c)
     i = 0

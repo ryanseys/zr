@@ -62,13 +62,13 @@ module Zr
       def traces_here? = (@loader&.tracing? || false) && !Library::Roots.runtime_file?(@file)
 
       # The event that waits for the next instruction, on `line`.
-      #: (Integer line) -> Trace
-      def traced(line)
+      #: (Integer line, ?Symbol event) -> Trace
+      def traced(line, event = :line)
         @pending_events[-1] = false
         @ensure_exits[-1] = nil
         @traced_lines[-1] = line
         @loader.line_event!(@file, line)
-        Trace.new(:line, line)
+        Trace.new(event, line)
       end
 
       # A statement whose value nothing uses and that compiles to nothing
@@ -259,18 +259,19 @@ module Zr
       # gives it to the next instruction: the jump, whose line is `line`
       # (the `if`, `elsif`, `when` or `in`, or the `case`). The caller asks
       # only for a branch that a jump ends, one that another branch's code
-      # follows.
-      #: (Prism::StatementsNode? statements, Integer line, taken: bool) -> Trace?
-      def jump_event(statements, line, taken:)
+      # follows. A jump that only branch coverage makes, over the else's
+      # counter, fires only while Coverage counts branches (`:branch_jump`).
+      #: (Prism::StatementsNode? statements, Integer line, taken: bool, ?coverage: bool) -> Trace?
+      def jump_event(statements, line, taken:, coverage: false)
         return nil if taken || statements.nil? || !traces_here? || !@pending_events.last || @dead.positive?
 
-        traced(line)
+        traced(line, coverage ? :branch_jump : :line)
       end
 
       # The branch `body` with the event of the jump that ends it.
-      #: (node body, Prism::StatementsNode? statements, Integer line, taken: bool) -> node
-      def jumping(body, statements, line, taken:)
-        jump = jump_event(statements, line, taken: taken)
+      #: (node body, Prism::StatementsNode? statements, Integer line, taken: bool, ?coverage: bool) -> node
+      def jumping(body, statements, line, taken:, coverage: false)
+        jump = jump_event(statements, line, taken: taken, coverage: coverage)
         jump ? Seq.new([body, jump], line) : body
       end
 

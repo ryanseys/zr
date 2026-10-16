@@ -1759,11 +1759,15 @@ module Zr
         then_cover, else_cover = chosen.nil? ? branch_covers(:if, span(node.location), if_sides(node)) : [nil, nil]
         then_live, else_live = reaches(node.predicate)
         # CRuby's jump over an `elsif` carries the event of a silent end of
-        # the branch (`jump_event`); an `else` it folds away.
+        # the branch (`jump_event`); an `else` it folds away, except under
+        # branch coverage, where a counter starts the else, given or not.
         then_body = node.statements && elsewhere(other_engine_test?(node.predicate)) do
           dead(!then_live) do
             body = seq(node.statements, taken: taken && chosen != false)
-            node.subsequent.is_a?(Prism::IfNode) ? jumping(body, node.statements, line, taken: taken) : body
+            if node.subsequent.is_a?(Prism::IfNode) then jumping(body, node.statements, line, taken: taken)
+            elsif else_cover then jumping(body, node.statements, line, taken: taken, coverage: true)
+            else body
+            end
           end
         end
         built = If.new(predicate,
