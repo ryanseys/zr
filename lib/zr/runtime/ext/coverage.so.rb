@@ -139,19 +139,32 @@ module Coverage
 
     # A file's branches: each root, and under it each of its sides with
     # the times that side ran. The key is `[kind, id, start line, start
-    # column, end line, end column]` with the id counted from 0 a file,
-    # which is what the rows are already in the order of.
+    # column, end line, end column]` with the id counted from 0 a file, in
+    # the order of the rows. Evals of the same code into a file give the
+    # same kinds and spans: those share one key, whose count adds theirs.
     def branches_of(path, runs)
       rows = branch_table[path] or return {}
 
       out = {}
+      # For each root's row: its sides, and their keys by kind and span.
+      # `merged` holds the same pair for each root's kind and span.
       roots = {}
+      merged = {}
+      ids = 0
       rows.each_with_index do |(kind, counter, root, *where), i|
-        key = [kind, i, *where].freeze
         if root.nil?
-          roots[i] = (out[key] = {})
+          roots[i] = merged[[kind, *where]] ||= begin
+            sides = out[[kind, ids, *where].freeze] = {}
+            ids += 1
+            [sides, {}]
+          end
         else
-          roots[root][key] = runs[counter] || 0
+          sides, keys = roots.fetch(root)
+          unless (key = keys[[kind, *where]])
+            key = keys[[kind, *where]] = [kind, ids, *where].freeze
+            ids += 1
+          end
+          sides[key] = sides.fetch(key, 0) + (runs[counter] || 0)
         end
       end
       out
@@ -267,10 +280,26 @@ module Coverage
       end
       sites = def_table
       defs.each { |path, list| list.each { |id, *span| sites[id] = [path, span] } }
-      # A file compiled again counts its branches anew, as a new iseq does.
-      branch_table.update(branches)
-      branches.each_value { |list| list.each { |_, counter| branch_mark(counter + 1) } }
+      add_branches(branches, eval)
     end
+
+    # A file compiled again counts its branches anew, as a new iseq does.
+    # An eval's branches join those of its file, each root's index moved
+    # past the rows that the file has.
+    def add_branches(branches, eval)
+      branches.each do |path, list|
+        if eval && (rows = branch_table[path])
+          base = rows.size
+          rows.concat(list.map { |kind, counter, root, *where| [kind, counter, root && root + base, *where] })
+        else
+          branch_table[path] = list
+        end
+        list.each { |_, counter| branch_mark(counter + 1) }
+      end
+    end
+
+    # Whether Coverage measures the code that eval compiles now.
+    def measures_evals? = state != :idle && Primitive.zr_hidden_get(self, :__mode__)&.fetch(:eval, false)
 
     # The size of the line array that an earlier eval gave `path`, or nil.
     def known_size(path) = eval_lines[path]&.first

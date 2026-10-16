@@ -188,8 +188,12 @@ module Zr
         # the next compile.
         begin
           switches = Hir::Switches.new(debug_frozen_string_literal: debug_frozen, keep_script_lines: keep)
+          # Under `eval: true`, the eval gets its def sites and branch
+          # counters too, after those already in use.
+          measured = coverage&.send(:measures_evals?)
           hir = Hir.build(source, file, BuildOptions.new(trace: @runtime.tracing?, switches: switches), program: false,
-                          line: line.to_int, scopes: [*scopes.reverse, []], method: method, activations: @runtime.activations, using: using)
+                          line: line.to_int, scopes: [*scopes.reverse, []], method: method, activations: @runtime.activations, using: using,
+                          def_base: (coverage.send(:next_def_site) if measured), branch_base: (coverage.send(:next_branch_id) if measured))
         rescue Hir::Invalid, SyntaxError => e
           @compiled[key] = e.dup if reuse
           raise warned(e)
@@ -208,8 +212,7 @@ module Zr
         coverable = hir.coverable
         if coverable && !coverable.empty?
           size = source.b.count("\n") + line.to_int - 1
-          no_defs = {} #: Hash[String, Array[Array[Integer]]]
-          coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, no_defs, true)
+          coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, hir.defs, true, hir.branches)
         end
         script = keep ? kept_script((hir.spots || {}).fetch(file, ""), source, line.to_int) : 0
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new,
