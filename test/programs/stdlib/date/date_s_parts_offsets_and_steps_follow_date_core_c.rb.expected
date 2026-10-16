@@ -1,0 +1,66 @@
+Date.julian_leap?(o): [TypeError, "invalid year (not numeric)"]
+Date.gregorian_leap?(o): [TypeError, "invalid year (not numeric)"]
+Date.leap?(o): [TypeError, "invalid year (not numeric)"]
+Date.jd(o): [TypeError, "invalid jd (not numeric)"]
+Date.new(o): [TypeError, "invalid year (not numeric)"]
+Date.new(1, o): [TypeError, "invalid month (not numeric)"]
+Date.new(1, 1, o): [TypeError, "invalid day (not numeric)"]
+Date.ordinal(o): [TypeError, "invalid year (not numeric)"]
+Date.ordinal(1, o): [TypeError, "invalid yday (not numeric)"]
+Date.commercial(o): [TypeError, "invalid year (not numeric)"]
+Date.commercial(1, o): [TypeError, "invalid cweek (not numeric)"]
+Date.commercial(1, 1, o): [TypeError, "invalid cwday (not numeric)"]
+DateTime.jd(o): [TypeError, "invalid jd (not numeric)"]
+DateTime.jd(1, o): [TypeError, "invalid hour (not numeric)"]
+DateTime.jd(1, 1, o): [TypeError, "invalid minute (not numeric)"]
+DateTime.jd(1, 1, 1, o): [TypeError, "invalid second (not numeric)"]
+DateTime.new(o): [TypeError, "invalid year (not numeric)"]
+DateTime.new(1, o): [TypeError, "invalid month (not numeric)"]
+DateTime.new(1, 1, o): [TypeError, "invalid day (not numeric)"]
+DateTime.new(1, 1, 1, o): [TypeError, "invalid hour (not numeric)"]
+DateTime.new(1, 1, 1, 1, o): [TypeError, "invalid minute (not numeric)"]
+DateTime.new(1, 1, 1, 1, 1, o): [TypeError, "invalid second (not numeric)"]
+DateTime.ordinal(o): [TypeError, "invalid year (not numeric)"]
+DateTime.ordinal(1, o): [TypeError, "invalid yday (not numeric)"]
+DateTime.ordinal(1, 1, o): [TypeError, "invalid hour (not numeric)"]
+DateTime.ordinal(1, 1, 1, o): [TypeError, "invalid minute (not numeric)"]
+DateTime.ordinal(1, 1, 1, 1, o): [TypeError, "invalid second (not numeric)"]
+DateTime.commercial(o): [TypeError, "invalid year (not numeric)"]
+DateTime.commercial(1, o): [TypeError, "invalid cweek (not numeric)"]
+DateTime.commercial(1, 1, o): [TypeError, "invalid cwday (not numeric)"]
+DateTime.commercial(1, 1, 1, o): [TypeError, "invalid hour (not numeric)"]
+DateTime.commercial(1, 1, 1, 1, o): [TypeError, "invalid minute (not numeric)"]
+DateTime.commercial(1, 1, 1, 1, 1, o): [TypeError, "invalid second (not numeric)"]
+Date.julian_leap?("4"): [TypeError, "invalid year (not numeric)"]
+Date.gregorian_leap?(nil): [TypeError, "invalid year (not numeric)"]
+Date.julian_leap?(4.0): true
+Date.gregorian_leap?((2000/1)): true
+Date.gregorian_leap?(1900.5): false
+DateTime.respond_to?(:today): false
+DateTime.today: [NoMethodError, "undefined method 'today' for class DateTime"]
+Date.respond_to?(:today): true
+new_offset((3/8)): (3/8)
+new_offset("+0900"): (3/8)
+new_offset(Rat): [TypeError, "wrong argument type Rat (expected Rational)"]
+new_offset(One): (1/1)
+new_offset(Half): (1/2)
+new_offset(Str): (3/8)
+new_offset((1/172800)): (1/86400)
+new_offset((3/2)): (0/1)
+new_offset(1180591620717411303424): (0/1)
+new_offset((1180591620717411303424/3)): (0/1)
+new_offset(:x): [TypeError, "expected numeric"]
+new_offset(nil): [TypeError, "expected numeric"]
+new_offset(1.5): (0/1)
+new_offset(-1): (-1/1)
+new_offset(1): (1/1)
+new_offset(2): (0/1)
+step nil-cmp: [ArgumentError, "comparison of Object with 0 failed: comparator returned nil"]
+step nil-cmp block: [ArgumentError, "comparison of Object with 0 failed: comparator returned nil"]
+step two: []
+step 0 enum: Enumerator
+step 0 block: 3
+step -1: ["2000-01-01", "1999-12-31"]
+step 1/2: ["2000-01-01", "2000-01-01", "2000-01-02"]
+step 'x': [ArgumentError, "comparison of String with 0 failed: comparator returned nil"]
+step no limit: [ArgumentError, "wrong number of arguments (given 0, expected 1..2)"]

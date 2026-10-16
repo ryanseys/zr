@@ -64,6 +64,8 @@ class Date
       fi += 1 while modifier?(format, fi)
       letter = format[fi]
       return literal(format, start) if letter.nil?
+      # date__strptime_internal fails a colon that no z follows.
+      return refuse if letter == ":"
       return unknown(format, start, fi) unless take(letter, format, fi)
 
       fi + 1
@@ -75,7 +77,7 @@ class Date
       case format[fi]
       when "E" then "cCxXyY".include?(format[fi + 1].to_s)
       when "O" then "deHImMSuUVwWy".include?(format[fi + 1].to_s)
-      when ":" then format[fi..(fi + 2)].to_s.match?(/\A:{0,2}z/)
+      when ":" then format[fi, 4].to_s.match?(/\A:{1,3}z/)
       else false
       end
     end

@@ -169,11 +169,12 @@ class Date
     jd.integer? ? date : date + (jd - jd.floor)
   end
 
-  # date_s_civil: a date from its civil parts. It never calls the
-  # initialize that a subclass defines.
+  # date_s_civil: a date from its civil parts, moved on by the fraction
+  # of its day. It never calls the initialize that a subclass defines.
   def self.civil(year = -4712, month = 1, day = 1, start = ITALY)
     jd, start = civil_day(year, month, day, start)
-    at(jd, 0, 0, 0, start, simple: true)
+    date = at(jd, 0, 0, 0, start, simple: true)
+    day.integer? ? date : date + (day - day.floor)
   end
 
   # date_initialize reads the parts last to first. A fraction of a day
@@ -268,13 +269,16 @@ class Date
     !send(:valid_commercial_jd, integer(cwyear), cweek.to_i, cwday.to_i, valid_start(start)).nil?
   end
 
-  def self.gregorian_leap?(year) = (year % 4).zero? && (!(year % 100).zero? || (year % 400).zero?)
+  def self.gregorian_leap?(year)
+    year = numeric(year, "year")
+    (year % 4).zero? && (!(year % 100).zero? || (year % 400).zero?)
+  end
 
   class << self
     alias leap? gregorian_leap?
   end
 
-  def self.julian_leap?(year) = (year % 4).zero?
+  def self.julian_leap?(year) = (numeric(year, "year") % 4).zero?
 
   # check_numeric: each part of a date is a Numeric.
   def self.numeric(value, name)
@@ -453,7 +457,7 @@ class Date
     Primitive.attr! :hidden
     sign = of.negative? ? "-" : "+"
     of = of.abs
-    format("%s%02d:%02d", sign, of / 3600, (of % 3600) / 60)
+    format("%s%02d:%02d", sign, of / 3600, (of % 3600) / 60).force_encoding(Encoding::US_ASCII)
   end
 
   # val2off: an offset as a count of seconds, from a number of days or a
@@ -470,8 +474,10 @@ class Date
 
   # offset_to_sec: the seconds, or nil for an offset past a day. An
   # Integer is a whole day; a Float or a Rational rounds to the second,
-  # with a warning under -w when that drops a fraction.
-  private_class_method def self.offset_to_sec(offset)
+  # with a warning under -w when that drops a fraction. Another Numeric
+  # is read through to_r, whose answer is read again by these rules; a
+  # second to_r that gives no Rational is a TypeError.
+  private_class_method def self.offset_to_sec(offset, again = true)
     Primitive.attr! :hidden
     case offset
     when Integer
@@ -486,14 +492,19 @@ class Date
     when String
       seconds = zone_to_diff(offset)
       seconds.is_a?(Integer) && seconds.between?(-DAY, DAY) ? seconds : nil
+    when Rational
+      seconds = offset * DAY
+      whole = seconds.round
+      Primitive.zr_warn_here_m(+"fraction of offset is ignored") if $VERBOSE && whole != seconds
+      whole.between?(-DAY, DAY) ? whole : nil
     else
       raise TypeError, "expected numeric" unless offset.is_a?(Numeric)
 
       days = offset.to_r
-      seconds = days * DAY
-      whole = seconds.round
-      Primitive.zr_warn_here_m(+"fraction of offset is ignored") if $VERBOSE && whole != seconds
-      whole.between?(-DAY, DAY) ? whole : nil
+      return offset_to_sec(days) if days.is_a?(Rational)
+      raise TypeError, "wrong argument type #{days.class} (expected Rational)" unless again
+
+      offset_to_sec(days, false)
     end
   end
 
@@ -501,10 +512,19 @@ class Date
   def +(other)
     case other
     when Integer then days_later(other)
-    when Numeric then add_nanoseconds((Rational(other) * DAY * NANOSECOND).round)
+    when Float then add_nanoseconds((Rational(other) * DAY * NANOSECOND).round)
+    when Numeric then add_nanoseconds(exact(Rational(other) * DAY * NANOSECOND))
     else raise TypeError, "expected numeric"
     end
   end
+
+  # A Rational step keeps its fraction of a nanosecond, as date_core.c
+  # keeps a Rational sf; a whole one is an Integer again.
+  def exact(count)
+    Primitive.attr! :hidden
+    count.denominator == 1 ? count.to_i : count
+  end
+  private :exact
 
   # Whole days keep a simple date simple.
   def days_later(count)
@@ -522,6 +542,7 @@ class Date
     total = (((jd * DAY) + df) * NANOSECOND) + sf + count
     jd, rest = total.divmod(DAY * NANOSECOND)
     df, sf = rest.divmod(NANOSECOND)
+    sf = exact(sf) if sf.is_a?(Rational)
     self.class.send(:at, jd, df, sf, of, sg, simple: df.zero? && sf.zero? && of.zero?)
   end
   private :add_nanoseconds
@@ -595,19 +616,25 @@ end
 
   def hash = ajd.hash
 
-  # Every date from here to `limit`, `step` days apart.
-  def step(limit, step = 1)
-    raise ArgumentError, "step can't be 0" if step.zero?
-    return to_enum(:step, limit, step) unless block_given?
+  # d_lite_step: every date from here to `limit`, `step` days apart. The
+  # sign of the step comes from its own <=>, and a step of 0 yields this
+  # date for good, as date_core.c, whose zero check is compiled out.
+  def step(limit, step = (one = true; 1))
+    unless block_given?
+      return one ? to_enum(:step, limit) : to_enum(:step, limit, step)
+    end
 
     date = self
-    if step.positive?
-      while (date <=> limit) <= 0
+    sign = Primitive.zr_cmpint(step <=> 0, step, 0)
+    if sign.negative?
+      while (date <=> limit) >= 0
         yield date
         date += step
       end
+    elsif sign.zero?
+      loop { yield date }
     else
-      while (date <=> limit) >= 0
+      while (date <=> limit) <= 0
         yield date
         date += step
       end
@@ -686,7 +713,12 @@ end
 end
 
 # DateTime: the same value, with the time of day and the offset shown.
+# date_core.c undefines `today` on it: `now` gives its time of day.
 class DateTime < Date
+  class << self
+    undef_method :today
+  end
+
   def self.new(*args)
     raise ArgumentError, wrong_arity(args.size, 0..8) if args.size > 8
 
@@ -749,20 +781,29 @@ class DateTime < Date
   end
 
   # The time parts after the day keep their positions, so the fraction
-  # rule of `new` sees the same last part.
+  # rule of `new` sees the same last part. A day part that is last may
+  # have a fraction, which moves the result on.
   def self.jd(jd = 0, *rest)
-    date = Date.jd(send(:numeric, jd, "jd").floor, rest.size > 4 ? rest[4] : Date::ITALY)
-    new(date.year, date.mon, date.mday, *rest)
+    jd, fraction = send(:whole_part, jd, "jd", 1, rest.empty?, 0)
+    date = Date.jd(jd, rest.size > 4 ? rest[4] : Date::ITALY)
+    send(:moved, new(date.year, date.mon, date.mday, *rest), fraction)
   end
 
   def self.ordinal(year = -4712, yday = 1, *rest)
+    yday, fraction = send(:whole_part, yday, "yday", 1, rest.empty?, 0)
     date = Date.ordinal(year, yday, rest.size > 4 ? rest[4] : Date::ITALY)
-    new(date.year, date.mon, date.mday, *rest)
+    send(:moved, new(date.year, date.mon, date.mday, *rest), fraction)
   end
 
   def self.commercial(cwyear = -4712, cweek = 1, cwday = 1, *rest)
+    cwday, fraction = send(:whole_part, cwday, "cwday", 1, rest.empty?, 0)
     date = Date.commercial(cwyear, cweek, cwday, rest.size > 4 ? rest[4] : Date::ITALY)
-    new(date.year, date.mon, date.mday, *rest)
+    send(:moved, new(date.year, date.mon, date.mday, *rest), fraction)
+  end
+
+  private_class_method def self.moved(date, fraction)
+    Primitive.attr! :hidden
+    fraction.zero? ? date : date + fraction
   end
 
   def hour = clock[0]

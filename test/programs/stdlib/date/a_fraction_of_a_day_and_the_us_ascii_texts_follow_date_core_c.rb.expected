@@ -1,0 +1,23 @@
+jd 2451944.5: 2451944
+jd 2451944.5 dt: [2451944, 12]
+jd Rational 2451944.5: 2451944
+civil 3.5: [2001, 2, 3, (1/2)]
+ordinal 2.5: [2, (1/2)]
+commercial 3.5: [3, (1/2)]
+jd 2451944.5 frac: (1/2)
+jd 1.5 class: Date
+m192 date: [(4903887/2), -Infinity, "2001-02-03", 2451944]
+m192 datetime: [(11769327817/4800), (3/8), -Infinity, "2001-02-03T04:05:06+09:00"]
+zone enc: #<Encoding:US-ASCII>
+to_s enc: [#<Encoding:US-ASCII>, #<Encoding:US-ASCII>, #<Encoding:US-ASCII>, #<Encoding:US-ASCII>]
+inspect enc: [#<Encoding:US-ASCII>, #<Encoding:US-ASCII>]
+iso8601 enc: [#<Encoding:US-ASCII>, #<Encoding:US-ASCII>, #<Encoding:US-ASCII>, #<Encoding:US-ASCII>]
+strftime fmt enc: [#<Encoding:UTF-8>, #<Encoding:BINARY (ASCII-8BIT)>]
+to_time subsec: [3, (456789123456789123/1000000000000000000)]
+to_time subsec offset: [3, (1/3), 32400]
+sec_fraction: (456789123456789123/1000000000000000000)
+strptime %:::z: {zone: "+00", offset: 0}
+strptime %:::z 2: [{zone: "+09", offset: 32400}, {zone: "-05", offset: -18000}, {zone: "+09:30", offset: 34200}, {zone: "+0930", offset: 34200}, {zone: "Z", offset: 0}, {zone: "+0", offset: 0}, {zone: "+090000", offset: 32400}]
+strptime %::z: [{zone: "+09:30:15", offset: 34215}, {zone: "+09", offset: 32400}, {zone: "+0930", offset: 34200}]
+strptime %:z: [{zone: "+09:30", offset: 34200}, {zone: "+09", offset: 32400}, {zone: "+0930", offset: 34200}]
+strptime fails: [nil, nil, nil]

@@ -17,12 +17,16 @@ class Date
                 "T" => "%H:%M:%S", "X" => "%H:%M:%S", "R" => "%H:%M", "r" => "%I:%M:%S %p", "v" => "%e-%^b-%Y",
                 "+" => "%a %b %e %H:%M:%S %Z %Y" }.freeze
   INT_MAX = 0x7fff_ffff
-  private_constant :COMPOUNDS, :INT_MAX
+  # The default formats, US-ASCII as date_core.c makes them, so a
+  # strftime with no format gives a US-ASCII String.
+  DATE_FORMAT = "%F".dup.force_encoding(Encoding::US_ASCII).freeze
+  DATE_TIME_FORMAT = "%FT%T%:z".dup.force_encoding(Encoding::US_ASCII).freeze
+  private_constant :COMPOUNDS, :INT_MAX, :DATE_FORMAT, :DATE_TIME_FORMAT
 
   # date_strftime_internal: the format's directives rendered in its
   # encoding. A NUL byte ends what the C renderer reads, so each run
   # between NUL bytes renders separately.
-  def strftime(format = "%F")
+  def strftime(format = DATE_FORMAT)
     format = String(format) unless format.is_a?(String)
     raise TypeError, no_implicit_conversion(format, "String") unless format.is_a?(String)
     raise ArgumentError, "format should have ASCII compatible encoding" unless format.encoding.ascii_compatible?
@@ -291,7 +295,7 @@ class Date
 end
 
 class DateTime < Date
-  def strftime(format = "%FT%T%:z") = super
+  def strftime(format = DATE_TIME_FORMAT) = super
 
   def to_s = strftime("%Y-%m-%dT%H:%M:%S%:z").force_encoding(Encoding::US_ASCII)
 
