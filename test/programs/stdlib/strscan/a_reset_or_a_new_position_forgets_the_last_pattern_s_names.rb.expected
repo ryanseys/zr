@@ -1,0 +1,17 @@
+after a scan: {"t" => "test"} true
+after a failed scan: {"x" => nil} false
+after reset: {} false
+after terminate: {} false
+after unscan: {} false
+after string=: {} false
+after a String scan: {} true
+after getch: {} true
+after get_byte: {} true
+after scan_byte: {} true
+nil
+after scan_integer: {} false
+[false, false, false, true, true]
+[#<Encoding:UTF-8>, #<Encoding:UTF-8>, false]
+[#<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:BINARY (ASCII-8BIT)>, false]
+[#<Encoding:EUC-JP>, #<Encoding:EUC-JP>, false]
+[#<Encoding:BINARY (ASCII-8BIT)>, #<Encoding:BINARY (ASCII-8BIT)>, false]

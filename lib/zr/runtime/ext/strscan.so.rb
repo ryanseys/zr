@@ -31,7 +31,8 @@ class StringScanner
     raise ArgumentError, +"wrong number of arguments (given 3, expected 1..2)" unless no_dup || no_anchor
 
     Primitive.zr_hidden_set(self, :__string__, Primitive.zr_str_operand(string))
-    Primitive.zr_hidden_set(self, :__anchor__, fixed_anchor)
+    # RTEST(fixed_anchor): any value but nil and false.
+    Primitive.zr_hidden_set(self, :__anchor__, fixed_anchor ? true : false)
     reset
   end
 
@@ -89,7 +90,7 @@ class StringScanner
   def eos? = pos >= string.bytesize
 
   # Past the end of a string that shrank, the rest is empty.
-  def rest = eos? ? +"" : string.byteslice(pos, string.bytesize - pos)
+  def rest = eos? ? empty_text : string.byteslice(pos, string.bytesize - pos)
 
   def rest_size = eos? ? 0 : string.bytesize - pos
 
@@ -149,7 +150,7 @@ class StringScanner
     len = Primitive.zr_index_operand_m(len)
     raise ArgumentError, "negative string size (or size too big)" if len.negative?
 
-    string.byteslice(pos, len) || ""
+    string.byteslice(pos, len) || empty_text
   end
 
   def peek_byte
@@ -366,12 +367,13 @@ class StringScanner
   # pointer moves past them.
   def run(pattern, anchored, answer, advance)
     Primitive.attr! :hidden
-    Primitive.zr_hidden_set(self, :__regex__, pattern.is_a?(Regexp) ? pattern : nil)
-    unless pattern.is_a?(Regexp)
-      pattern = Primitive.zr_str_operand(pattern)
-    end
     text = string
     clear_match
+    if pattern.is_a?(Regexp)
+      Primitive.zr_hidden_set(self, :__regex__, pattern)
+    else
+      pattern = Primitive.zr_str_operand(pattern)
+    end
     return nil if pos > text.bytesize
 
     was = pos
@@ -443,12 +445,20 @@ class StringScanner
     string.byteslice(at, len)
   end
 
+  # CLEAR_MATCH_STATUS: no match, and no Regexp for named_captures.
   def clear_match
     Primitive.attr! :hidden
+    Primitive.zr_hidden_set(self, :__regex__, nil)
     Primitive.zr_hidden_set(self, :__from__, nil)
     Primitive.zr_hidden_set(self, :__len__, 0)
     Primitive.zr_hidden_set(self, :__groups__, nil)
     nil
+  end
+
+  # str_new(p, "", 0): an empty String in the string's encoding.
+  def empty_text
+    Primitive.attr! :hidden
+    (+"").force_encoding(string.encoding)
   end
 
   # inspect1 and inspect2: the five bytes on each side of the pointer,
