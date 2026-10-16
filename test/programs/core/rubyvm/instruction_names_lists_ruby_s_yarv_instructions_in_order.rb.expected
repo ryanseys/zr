@@ -1,0 +1,10 @@
+259
+["nop", "getlocal", "setlocal", "getblockparam", "setblockparam"]
+["zjit_opt_succ", "zjit_opt_not", "zjit_opt_regexpmatch2"]
+true
+true
+true
+true
+true
+true
+["direct threaded code", "operands unification", "inline method cache"]

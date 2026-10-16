@@ -29,6 +29,8 @@ module Zr
           "emoji" => ["lib/zr/runtime/core/emoji.rb: the carriers' emoji", -> { require_relative "gen/emoji"; Emoji }],
           "builtin_lines" => ["lib/zr/runtime/core/builtin_lines.rb: CRuby's own Ruby methods",
                               -> { require_relative "gen/builtin_lines"; BuiltinLines }],
+          "yarv_insns" => ["lib/zr/runtime/core/yarv_insns.rb: the names of ruby's YARV instructions",
+                           -> { require_relative "gen/yarv_insns"; YarvInsns }],
           "redefinitions" => ["lib/zr/runtime/core/redefinitions.rb: the core methods whose redefinition warns",
                               -> { require_relative "gen/redefinitions"; Redefinitions }],
           "unicode" => ["lib/zr/runtime/core/unicode.rb: the case mappings", -> { require_relative "gen/unicode"; Unicode }],

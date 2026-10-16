@@ -31,7 +31,6 @@ class RubyVM
     fiber_vm_stack_size: param("RUBY_FIBER_VM_STACK_SIZE", 131_072, 16_384),
     fiber_machine_stack_size: param("RUBY_FIBER_MACHINE_STACK_SIZE", 524_288, 131_072)
   }.freeze
-  INSTRUCTION_NAMES = [].freeze
 
   KEEP_SCRIPT_LINES = [false]
   private_constant :KEEP_SCRIPT_LINES
