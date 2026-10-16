@@ -442,6 +442,23 @@ module Zr::Kern
     zr_bool(meta != 0 && FrameMeta[meta].kind == KIND_EVAL)
   end
 
+  # mod_using's checks of the frame that called `using`: 1 when it runs
+  # in a method (a def, or a block inside one, as prev_frame_func finds
+  # its method), 2 when its self is not `mod`, else 0.
+  #: (value) -> value
+  def zr_using_caller(mod)
+    rec = zr_frame_with_file(Frame[Task[zr_task()].top].prev)
+    return zr_fix(0) if rec == 0
+
+    meta = Frame[rec].meta
+    while meta != 0 && FrameMeta[meta].kind == KIND_BLOCK
+      meta = FrameMeta[meta].parent
+    end
+    return zr_fix(1) if meta != 0 && FrameMeta[meta].kind == KIND_DEF
+
+    zr_fix(Frame[rec].self == mod ? 0 : 2)
+  end
+
   #: () -> value
   def zr_process_id
     zr_fix(Machine.u32(Libc.getpid()))

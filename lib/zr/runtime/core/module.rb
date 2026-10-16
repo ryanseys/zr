@@ -282,12 +282,21 @@ class Module
 
   # `using` does its work where it is written, which the compiler sees;
   # anywhere else it is the refusal. A block, where ruby permits it,
-  # reaches this too, and an argument that is no Module is the TypeError
-  # of rb_using_module.
-  def using(mod)
-    raise TypeError, "wrong argument type #{Primitive.zr_class_name_of(mod)} (expected Module)" unless mod.is_a?(Module)
+  # reaches this too. Before that come mod_using's checks, in its order:
+  # the calling frame, the block it ignores, a refined Proc, and the
+  # Check_Type of rb_using_module (a Class is no T_MODULE).
+  def using(mod, &block)
+    case Primitive.zr_using_caller(self)
+    when 1 then raise RuntimeError, +"Module#using is not permitted in methods"
+    when 2 then raise RuntimeError, +"Module#using is not called on self"
+    end
+    module_operand = mod.is_a?(Module) && !mod.is_a?(Class)
+    raise TypeError, "wrong argument type #{conversion_name(mod)} (expected Module)" if block && !module_operand
+
+    warn("Module#using doesn't call the given block#{", maybe for Module.new" if mod.name.nil?}.", uplevel: 0) if block
     # The refinements of a refined Proc are fixed when it is made.
     raise RuntimeError, +"Module#using is not permitted in a proc with refinements" if Primitive.zr_refined_caller_m
+    raise TypeError, "wrong argument type #{conversion_name(mod)} (expected Module)" unless module_operand
 
     raise RuntimeError, +"Module#using is not permitted in methods"
   end

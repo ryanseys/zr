@@ -1,0 +1,10 @@
+block at the top: RuntimeError: Module#using is not called on self
+method: RuntimeError: Module#using is not permitted in methods
+block in a method: RuntimeError: Module#using is not permitted in methods
+__send__ of a class: RuntimeError: Module#using is not called on self
+a class: TypeError: wrong argument type Class (expected Module)
+an integer: TypeError: wrong argument type Integer (expected Module)
+nil: TypeError: wrong argument type nil (expected Module)
+a class with a block: TypeError: wrong argument type Class (expected Module)
+in a method on self: RuntimeError: Module#using is not permitted in methods
+not refined: false
