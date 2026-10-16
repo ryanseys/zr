@@ -569,6 +569,15 @@ class IO
       memory.byteslice(start + offset, length).each_byte.sum(&:bit_count)
     end
 
+    # get_io_buffer_view_for_writing (or for reading) and
+    # io_buffer_validate_range once more.
+    def revalidate(offset, length, writing)
+      Primitive.attr! :hidden
+      modifiable if writing
+      within(offset, length)
+    end
+    private :revalidate
+
     # rb_io_buffer_read and the related methods: one system call over at
     # most `length` bytes of the buffer from `offset`, or the scheduler's
     # hook where a non-blocking fiber's scheduler has one. Each returns
@@ -584,6 +593,10 @@ class IO
 
       scheduler = IO.send(:scheduler_taking, :io_read)
       return scheduler.io_read(io, self, offset, length) if scheduler
+
+      # The scheduler's capability check (respond_to?) can run Ruby and
+      # change the view, so it is checked again, as rb_io_buffer_read does.
+      revalidate(offset, length, true) if Fiber.current_scheduler
 
       target = writable
       fd = io.fileno
@@ -602,6 +615,10 @@ class IO
       scheduler = IO.send(:scheduler_taking, :io_pread)
       return scheduler.io_pread(io, self, from, offset, length) if scheduler
 
+      # The scheduler's capability check (respond_to?) can run Ruby and
+      # change the view, so it is checked again, as rb_io_buffer_read does.
+      revalidate(offset, length, true) if Fiber.current_scheduler
+
       target = writable
       taken(target, offset, Primitive.zr_io_pread(io.fileno, length, from))
     end
@@ -614,6 +631,9 @@ class IO
 
       scheduler = IO.send(:scheduler_taking, :io_write)
       return scheduler.io_write(io, self, offset, length) if scheduler
+
+      # The scheduler's capability check can run Ruby and change the view.
+      revalidate(offset, length, false) if Fiber.current_scheduler
 
       memory, start = readable
       fd = io.send(:write_descriptor)
@@ -631,6 +651,9 @@ class IO
 
       scheduler = IO.send(:scheduler_taking, :io_pwrite)
       return scheduler.io_pwrite(io, self, from, offset, length) if scheduler
+
+      # The scheduler's capability check can run Ruby and change the view.
+      revalidate(offset, length, false) if Fiber.current_scheduler
 
       memory, start = readable
       Primitive.zr_io_pwrite(io.send(:write_descriptor), memory.byteslice(start + offset, length), from)

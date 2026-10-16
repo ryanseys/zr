@@ -1,0 +1,8 @@
+[:resize, :read, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
+[:resize, :write, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
+[:resize, :pread, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
+[:resize, :pwrite, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
+[:advance, :read, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
+[:advance, :write, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
+[:advance, :pread, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
+[:advance, :pwrite, [ArgumentError, "Specified offset+length is bigger than the buffer size!"], true, false, "AAAABBBB", "cccccccc"]
