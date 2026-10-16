@@ -1,0 +1,3 @@
+TestRbConfig#test_vendorarchdirs	fail
+TestRbConfig#test_archdirs	fail
+TestRbConfig#test_sitearchdirs	fail

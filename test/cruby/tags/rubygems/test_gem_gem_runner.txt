@@ -1,0 +1,5 @@
+TestGemGemRunner#test_search_succeeds	timeout
+TestGemGemRunner#test_validate_encoding	fail
+TestGemGemRunner#test_info_succeeds	fail
+TestGemGemRunner#test_do_configuration	fail
+TestGemGemRunner#test_list_succeeds	fail

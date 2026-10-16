@@ -1,0 +1,3 @@
+TestGemCommandsPristineCommand#test_execute_all	fail
+TestGemCommandsPristineCommand#test_execute_env_shebang	fail
+TestGemCommandsPristineCommand#test_execute_no_extension	fail

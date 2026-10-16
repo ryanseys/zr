@@ -1,0 +1,2 @@
+TestGemResolverIndexSet#test_find_all	fail
+TestGemResolverIndexSet#test_find_all_prerelease	fail

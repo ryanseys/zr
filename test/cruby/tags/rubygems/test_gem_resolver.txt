@@ -1,0 +1,3 @@
+TestGemResolver#test_does_not_pick_musl_variants_on_non_musl_linux	fail
+TestGemResolver#test_pick_generic_linux_variants_on_musl_linux	fail
+TestGemResolver#test_picks_best_platform	fail

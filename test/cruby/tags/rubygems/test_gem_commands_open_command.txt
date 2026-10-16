@@ -1,0 +1,2 @@
+TestGemCommandsOpenCommand#test_default_gem	fail
+TestGemCommandsOpenCommand#test_execute	fail

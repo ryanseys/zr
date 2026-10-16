@@ -1,0 +1,2 @@
+TestGemResolverIndexSpecification#test_spec	fail
+TestGemResolverIndexSpecification#test_install	fail

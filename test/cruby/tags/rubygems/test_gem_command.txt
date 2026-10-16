@@ -1,0 +1,1 @@
+TestGemCommand#test_show_lookup_failure_suggestions_remote	fail

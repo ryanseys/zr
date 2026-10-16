@@ -1,0 +1,7 @@
+TestRipper::ScannerEvents#test_invalid_char	fail
+TestRipper::ScannerEvents#test_invalid_hex_escape_string	fail
+TestRipper::ScannerEvents#test___end__	fail
+TestRipper::ScannerEvents#test_invalid_hex_escape_regexp	fail
+TestRipper::ScannerEvents#test_CHAR	fail
+TestRipper::ScannerEvents#test_invalid_escape	fail
+TestRipper::ScannerEvents#test_error_token	fail

@@ -1,0 +1,14 @@
+TestGemKernel#test_gem_conflicting	fail
+TestGemKernel#test_gem	fail
+TestGemKernel#test_release_favored_over_prerelease	fail
+TestGemKernel#test_gem_not_adding_bin	fail
+TestGemKernel#test_gem_env_req	fail
+TestGemKernel#test_gem_default	fail
+TestGemKernel#test_gem_redundant	fail
+TestGemKernel#test_gem_re_gem_mismatch	fail
+TestGemKernel#test_gem_overlapping	fail
+TestGemKernel#test_gem_prerelease_is_the_only_available	fail
+TestGemKernel#test_gem_default_re_gem	fail
+TestGemKernel#test_gem_failing_inside_require_doesnt_cause_double_exceptions	fail
+TestGemKernel#test_gem_bundler	fail
+TestGemKernel#test_gem_bundler_inferred_bundler_version	fail

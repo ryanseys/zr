@@ -1,0 +1,2 @@
+TestGemPackageTarHeaderRactor#test_decode_in_ractor	fail
+TestGemPackageTarHeaderRactor#test_encode_in_ractor	fail

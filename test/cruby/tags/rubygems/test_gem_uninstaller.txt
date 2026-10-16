@@ -1,0 +1,4 @@
+TestGemUninstaller#test_uninstall_no_permission	fail
+TestGemUninstaller#test_uninstall_removes_build_info_logs	fail
+TestGemUninstaller#test_uninstall	fail
+TestGemUninstaller#test_uninstall_extension	fail

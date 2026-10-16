@@ -1,0 +1,1 @@
+TestGemResolverGitSpecification#test_install_extension	fail

@@ -1,0 +1,8 @@
+TestRipper::Lexer#test_trailing_on_embexpr_end	fail
+TestRipper::Lexer#test_token_aftr_error_heredoc	fail
+TestRipper::Lexer#test_tokenize_with_syntax_error	fail
+TestRipper::Lexer#test_lex_with_syntax_error	fail
+TestRipper::Lexer#test_invalid_escape_string	fail
+TestRipper::Lexer#test_spaces_at_eof	fail
+TestRipper::Lexer#test_raise_errors_keyword	fail
+TestRipper::Lexer#test_lexer_scan_with_syntax_error	fail

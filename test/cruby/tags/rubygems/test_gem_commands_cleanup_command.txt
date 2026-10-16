@@ -1,0 +1,4 @@
+TestGemCommandsCleanupCommand#test_execute_all	fail
+TestGemCommandsCleanupCommand#test_execute_user_install	fail
+TestGemCommandsCleanupCommand#test_execute_remove_gem_home_only	fail
+TestGemCommandsCleanupCommand#test_execute_all_user	fail

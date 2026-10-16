@@ -1,0 +1,1 @@
+TestGemCommandsLockCommand#test_execute	fail

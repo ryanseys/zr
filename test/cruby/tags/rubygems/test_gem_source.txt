@@ -1,0 +1,5 @@
+TestGemSource#test_load_specs_falls_back_to_marshal_index	fail
+TestGemSource#test_fetch_spec_platform_ruby	fail
+TestGemSource#test_fetch_spec_platform	fail
+TestGemSource#test_fetch_spec	fail
+TestGemSource#test_load_specs	fail

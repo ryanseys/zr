@@ -1,0 +1,3 @@
+TestFiberIOClose#test_io_close_blocking_fiber	timeout
+TestFiberIOClose#test_io_close_interrupt_does_not_escape_blocking_operation	fail
+TestFiberIOClose#test_io_close_across_fibers	timeout

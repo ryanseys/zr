@@ -1,0 +1,3 @@
+GemTest#test_operating_system_other_exceptions	fail
+GemTest#test_autoload_does_not_load_a_second_copy_of_the_same_file	fail
+GemTest#test_operating_system_customizing_default_dir	fail

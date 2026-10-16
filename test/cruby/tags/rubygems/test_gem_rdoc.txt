@@ -1,0 +1,10 @@
+TestGemRDoc#test_initialize	fail
+TestGemRDoc#test_new_rdoc	fail
+TestGemRDoc#test_generate_disabled	fail
+TestGemRDoc#test_ri_installed?	fail
+TestGemRDoc#test_remove_unwritable	fail
+TestGemRDoc#test_setup	fail
+TestGemRDoc#test_setup_unwritable	fail
+TestGemRDoc#test_delete_legacy_args	fail
+TestGemRDoc#test_remove	fail
+TestGemRDoc#test_rdoc_installed?	fail

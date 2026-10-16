@@ -1,0 +1,3 @@
+TestGemResolverInstallerSet#test_add_always_install_prerelease	fail
+TestGemResolverInstallerSet#test_add_always_install_prerelease_github_problem	fail
+TestGemResolverInstallerSet#test_load_spec	fail

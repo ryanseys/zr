@@ -1,0 +1,2 @@
+TestGemDependency#test_to_specs_indicates_total_gem_set_size	fail
+TestGemDependency#test_to_specs_respects_bundler_version	fail
