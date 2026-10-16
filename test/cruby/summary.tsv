@@ -1,5 +1,5 @@
 area	files	ruby_passes	zr_passes	no_build	no_load
-.	21	505	501	0	0
+.	21	505	502	0	0
 cgi	1	434	434	0	0
 coverage	1	52	36	0	0
 date	12	148	148	0	0
@@ -30,4 +30,4 @@ strscan	2	176	176	0	0
 uri	10	93	93	0	0
 yaml	2	11	11	0	0
 zlib	1	98	97	0	0
-total	567	18895	18231	0	0
+total	567	18895	18232	0	0
