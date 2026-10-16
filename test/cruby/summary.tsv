@@ -19,7 +19,7 @@ pathname	2	297	297	0	0
 prism	1	1	1	0	0
 psych	48	542	542	0	0
 resolv	7	85	85	0	0
-ripper	12	454	396	0	0
+ripper	12	454	401	0	0
 ruby	158	9987	9714	0	0
 rubygems	162	3420	3109	0	0
 socket	9	200	197	0	0
@@ -28,4 +28,4 @@ strscan	2	176	176	0	0
 uri	10	93	93	0	0
 yaml	2	11	11	0	0
 zlib	1	98	97	0	0
-total	543	18390	17724	0	0
+total	543	18390	17729	0	0
