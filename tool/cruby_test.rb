@@ -13,7 +13,8 @@ module Zr
       #
       #   zr-dev cruby-test ruby                      test/ruby
       #   zr-dev cruby-test ruby -f test_array        the files that match
-      #   zr-dev cruby-test json stringio             some directories
+      #   zr-dev cruby-test stringio strscan          some directories
+      #   zr-dev cruby-test .                         the files at the root of test/
       #   zr-dev cruby-test --all [--shard 2/4]       every directory
       #   zr-dev cruby-test ruby --update-tags        write the tags again
       #
@@ -135,6 +136,8 @@ module Zr
 
         def dir!(root, word)
           word = word.delete_suffix("/")
+          return word if word == "."
+
           fail!("test/#{word} is CRuby's alone: #{CRUBY_ONLY[word]}") if CRUBY_ONLY.key?(word)
           fail!("test/#{word} tests #{OTHER_COPY[word]}") if OTHER_COPY.key?(word)
           fail!("no directory test/#{word} in #{root}") unless File.directory?(File.join(root, "test", word))
@@ -145,7 +148,7 @@ module Zr
           dirs = Dir.children(File.join(root, "test")).sort.select do |d|
             File.directory?(File.join(root, "test", d)) && !CRUBY_ONLY.key?(d) && !OTHER_COPY.key?(d) && !%w[lib fixtures].include?(d)
           end
-          FIRST + (dirs - FIRST)
+          FIRST + (dirs - FIRST) + ["."]
         end
 
         def shard(dirs)
@@ -179,7 +182,9 @@ module Zr
           def initialize(root, dir, filter:, **)
             @src = root
             base = File.join(root, "test")
-            files = Dir.glob(File.join(base, dir, "**", "test_*.rb")).sort
+            # The root's own files, or a directory's files at any depth.
+            pattern = dir == "." ? "test_*.rb" : File.join(dir, "**", "test_*.rb")
+            files = Dir.glob(File.join(base, pattern)).sort
             files.reject! { |f| CRUBY_ONLY_FILES.key?(f.delete_prefix("#{base}/")) || f.include?("/-ext-/") }
             files.select! { |f| f.match?(filter) } if filter
             super(out: OUT, root: base, area: dir, files: files, filtered: !filter.nil?, **)

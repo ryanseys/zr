@@ -273,7 +273,7 @@ module Zr
           @keep = keep
           @update = update
           @filtered = filtered
-          @work = Dev.path(File.join("tmp", File.basename(out), "work", area.tr("/", "-")))
+          @work = Dev.path(File.join("tmp", File.basename(out), "work", slug))
         end
 
         # The count of examples that ruby passes and zr does not.
@@ -344,12 +344,16 @@ module Zr
         # ruby passes and zr does not, with zr's status and message and
         # its tag, if any; or a file that did not build, load or end, with
         # the name "*". The last line of a run that ended is {"done":true}.
-        def issues = File.join(@out, "issues", "#{@area.tr("/", "-")}.jsonl")
+        def issues = File.join(@out, "issues", "#{slug}.jsonl")
+
+        # The area as a file name: its path with dashes, and "top" for the
+        # files at the root (".").
+        def slug = @area == "." ? "top" : @area.tr("/", "-")
 
         # The live log of zr's runs, `<out>/tests/<area>.log`: each line of
         # output as it comes, after the time and the file, so `tail -f`
         # shows each test start and end, and the one that hangs.
-        def tests_log = File.join(@out, "tests", "#{@area.tr("/", "-")}.log")
+        def tests_log = File.join(@out, "tests", "#{slug}.log")
 
         def tested(file, line)
           @tests_lock.synchronize { @tests.puts("#{Time.now.strftime("%H:%M:%S")} #{rel(file)}: #{line}") }
@@ -507,7 +511,7 @@ module Zr
         # The report of the area, `<out>/<area>.txt`: each example that
         # ruby passes and zr does not, with zr's message.
         def report(results, seconds)
-          path = File.join(@out, "#{@area.tr("/", "-")}.txt")
+          path = File.join(@out, "#{slug}.txt")
           gaps = 0
           File.open(path, "w") do |f|
             f.puts "# #{@area}: #{results.size} file(s) at ruby #{RUBY}, #{seconds.round}s"
