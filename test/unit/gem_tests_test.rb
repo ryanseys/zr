@@ -62,6 +62,13 @@ class GemTestsTest < Minitest::Test
     assert_includes GemTests::MINITEST_RUN, 'require "./#{it}"'
   end
 
+  def test_reline_requires_its_test_files_under_utf_8
+    argv = GemTests.argv("reline", ruby: "/r/ruby", rake: "/r/rake")
+
+    assert_equal ["/r/ruby", "-I.", "-Ilib", "-Itest", "-e", GemTests::RELINE_RUN, "--", "-v"], argv
+    assert_includes GemTests::RELINE_RUN, "RELINE_TEST_ENCODING = Encoding::UTF_8"
+  end
+
   def test_rbs_runs_its_stdlib_tests_and_skips_the_files_of_the_list
     argv = GemTests.argv("rbs", ruby: "/r/ruby", rake: "/r/rake", rbs_skips: ["/a/skip", "/a/skip_win"])
 

@@ -100,12 +100,19 @@ module Zr
       # The script that requires each of minitest's test files.
       MINITEST_RUN = 'Dir.glob("test/minitest/test_*.rb").sort.each { require "./#{it}" }'
 
+      # The script that requires each of reline's test files, as its
+      # Rakefile's UTF-8 task does.
+      RELINE_RUN = 'RELINE_TEST_ENCODING = Encoding::UTF_8; Dir.glob("test/reline/test_*.rb").sort.each { require "./#{it}" }'
+
       # The command of a gem's tests, run in the gem's directory, as
       # CRuby's runner has it: `rake test`, or the gem's own script. Each
       # asks for the verbose report: one line a test, with its name and
       # its result. `rake` is the rake of the host's install. minitest's
       # Rakefile needs hoe, which CRuby's runner has from the gems' bundle,
-      # so its test files are required directly.
+      # so its test files are required directly. So are reline's: its
+      # tasks load each file as a feature, so a TESTOPTS of -v is a file
+      # too. They run under UTF-8, one of the four encodings that its
+      # Rakefile runs them under, because each run has the same names.
       def self.argv(name, ruby:, rake:, rbs_skips: [])
         case name
         when "rbs"
@@ -115,6 +122,7 @@ module Zr
         when "test-unit" then [ruby, "test/run.rb", "-v"]
         when "csv" then [ruby, "run-test.rb", "-v"]
         when "minitest" then [ruby, "-Ilib", "-Itest", "-e", MINITEST_RUN, "--", "-v"]
+        when "reline" then [ruby, "-I.", "-Ilib", "-Itest", "-e", RELINE_RUN, "--", "-v"]
         else [ruby, rake, "test", "TESTOPTS=-v"]
         end
       end
