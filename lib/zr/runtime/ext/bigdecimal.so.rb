@@ -353,7 +353,7 @@ class BigDecimal < Numeric
       point = whole.length + power.to_i - ("#{whole}#{fraction}".length - figures.length)
       from_int(value.negative? ? -1 : 1, figures[0, DOUBLE_FIG].to_i, point)
     end
-    
+
     # CheckGetValue: a value that is not finite, which the modes refuse.
     def checked(value)
       Primitive.attr! :hidden
@@ -402,8 +402,14 @@ class BigDecimal < Numeric
   def precision_scale = [precision, scale]
 
   # The point moved `n` places to the right, which is what ruby's own
-  # square root uses to halve an exponent.
-  def _decimal_shift(n) = finite? ? BigDecimal.build(@sign, @digits, @exp + n) : self
+  # square root uses to halve an exponent. BigDecimal_decimal_shift checks
+  # a value that is not finite, and the exponent's range.
+  def _decimal_shift(n)
+    n = Integer.try_convert(given = n) or raise TypeError, no_implicit_conversion(given, "Integer")
+    return checked(self) if !finite? || zero? || n.zero?
+  
+    BigDecimal.from_int(@sign, @digits, @exp + n)
+  end
 
   # BigDecimal_neg and BigDecimal_abs check the value as a result.
   def -@ = checked(negated)
@@ -427,47 +433,39 @@ class BigDecimal < Numeric
   def *(other) = limited(product(other))
 
   def /(other) = divide(other, 0)
-
-  def quo(other, digits = 0) = divide(other, digits.to_int)
-
-  # With no digits given, this is the Integer quotient, as ruby's own
-  # `div` is; with digits it is the division rounded there.
+  
+  # BigDecimal_quo: a precision of 0 or none is the quotient of `/`.
+  def quo(other, digits = (none = true; nil))
+    digits = none ? 0 : precision_argument(digits)
+    digits.positive? ? divide(other, digits, coerce: false) : divide(other, 0)
+  end
+  
+  # BigDecimal_div2: with no digits, the floored quotient as an Integer,
+  # as Float#div gives it; with digits, the quotient rounded there, of
+  # another kind of value only one that becomes a BigDecimal.
   def div(other, digits = nil)
-    return divide(other, digits.to_int) if digits
-
+    return divide(other, precision_argument(digits), coerce: false) unless digits.nil?
+  
     them = cast(other) or return coerced(other, :div)
-    quotient, = floored(them)
-    quotient
+    checked(divmod_parts(them, false).first).to_i
   end
-
-  # BigDecimal_DoDivmod: the floor of the quotient and what is left. A
-  # finite value over an infinite one is 0 with itself left, or -1 with
-  # the infinity left where their signs differ.
+  
   def modulo(other)
-    them = cast(other) or return coerced(other, :modulo)
-    return BigDecimal.nan_result(true) if nan? || them.nan?
-    raise ZeroDivisionError, +"divided by 0" if them.zero?
-    return BigDecimal.nan_result unless finite?
-    return floored(them).last unless them.finite?
-
-    self - (them * BigDecimal((self / them).floor))
+    them = cast(other) or return coerced(other, :%)
+    checked(divmod_parts(them, false).last)
   end
-
+  
   alias % modulo
-
+  
   def remainder(other)
     them = cast(other) or return coerced(other, :remainder)
-    return BigDecimal.nan_result(true) if nan? || them.nan?
-    raise ZeroDivisionError, +"divided by 0" if them.zero?
-    return BigDecimal.nan_result unless finite?
-    return self unless them.finite?
-
-    self - (them * BigDecimal((self / them).truncate))
+    checked(divmod_parts(them, true).last)
   end
-
+  
   def divmod(other)
     them = cast(other) or return coerced(other, :divmod)
-    floored(them)
+    quotient, rest = divmod_parts(them, false)
+    [checked(quotient).to_i, checked(rest)]
   end
 
   # BigDecimalCmp: NaN is neither less nor more than anything.
@@ -479,12 +477,7 @@ class BigDecimal < Numeric
   # BigDecimalCmp: another kind of value compares through its coerce.
   def <=>(other)
     them = cast(other)
-    if them.nil?
-      return nil unless other.respond_to?(:coerce)
-
-      a, b = other.coerce(self)
-      return a <=> b
-    end
+    return coerce_compare(other, :<=>) if them.nil?
     return nil if nan? || them.nan?
     return infinite_compare(them) unless finite? && them.finite?
 return @sign <=> them.sign_bit if !zero? && !them.zero? && @sign != them.sign_bit
@@ -498,7 +491,8 @@ align(them) { |mine, theirs, _| mine <=> theirs }
 
   def ==(other)
     them = cast(other)
-    return false if them.nil? || nan? || them.nan?
+    return coerce_compare(other, :==) ? true : false if them.nil?
+    return false if nan? || them.nan?
 
     (self <=> them)&.zero? || false
   end
@@ -517,11 +511,23 @@ align(them) { |mine, theirs, _| mine <=> theirs }
 
   alias to_int to_i
 
+  # BigDecimal_to_f: a value past a Float's exponents, or one that reads as
+  # zero or infinite, underflows or overflows, which the modes refuse.
   def to_f
     return Float::NAN if nan?
     return @sign.negative? ? -Float::INFINITY : Float::INFINITY if @special == :infinity
-
-    to_s.to_f
+    return @sign.negative? ? -0.0 : 0.0 if zero?
+  
+    # VpVtoD's exponent: the word's, in decimal digits.
+    word = -(-@exp).div(9) * 9
+    return float_overflow if word > Float::MAX_10_EXP + 9
+    return float_underflow if word < Float::MIN_10_EXP - Float::DIG
+  
+    value = to_s.to_f
+    return float_underflow if value.zero?
+    return float_overflow if value.infinite?
+  
+    value
   end
 
   def to_r
@@ -579,7 +585,7 @@ align(them) { |mine, theirs, _| mine <=> theirs }
 
   def sub(other, digits) = with_precision(digits) { |n| combine(other, :-, n) }
 
-  def mult(other, digits) = with_precision(digits) { product(other) }
+  def mult(other, digits) = with_precision(digits) { |n| product(other, n) }
 
   # BigDecimal_to_s: a leading space or `+` for the sign, then digits for
   # the group size, up to the first other character, which is `F` for the
@@ -592,8 +598,6 @@ align(them) { |mine, theirs, _| mine <=> theirs }
   # The text of to_s and inspect.
   def shown(format, none)
     Primitive.attr! :hidden
-    return (nan? ? +"NaN" : "#{@sign.negative? ? '-' : ''}Infinity").force_encoding(Encoding::US_ASCII) unless finite?
-
     plus = nil
     groups = 0
     plain = false
@@ -609,11 +613,12 @@ align(them) { |mine, theirs, _| mine <=> theirs }
         groups = groups * 10 + c.to_i
       end
     elsif !none
-      raise TypeError, no_implicit_conversion(format, "Integer") if format.nil? || !format.respond_to?(:to_int)
-
-      groups = format.to_int
-      raise ArgumentError, "argument must be positive" if groups < 0
+      groups = Integer.send(:int_operand, format)
+      raise ArgumentError, +"argument must be positive" unless groups.positive?
     end
+    # VpToSpecialString: the sign mark goes only before a positive infinity.
+    return (nan? ? +"NaN" : "#{@sign.negative? ? '-' : plus}Infinity").force_encoding(Encoding::US_ASCII) unless finite?
+
     lead = @sign.negative? ? "-" : plus.to_s
     "#{lead}#{plain ? plain_body(groups) : exponent_body(groups)}".force_encoding(Encoding::US_ASCII)
   end
@@ -626,7 +631,17 @@ align(them) { |mine, theirs, _| mine <=> theirs }
   # nine, then the value.
   def _dump(_limit = nil) = "#{word_count * 9}:#{self}".b
 
-  def self._load(text) = BigDecimal(text.split(":", 2).last)
+  # BigDecimal_load: the precision before the colon is skipped, and any
+  # character there but a digit refuses the data.
+  def self._load(text)
+    text = String.try_convert(given = text) or raise TypeError, no_implicit_conversion(given, "String")
+    raise ArgumentError, +"string contains null byte" if text.include?("\0")
+  
+    precision, colon, body = text.partition(":")
+    raise TypeError, +"load failed: invalid character in the marshaled string" unless precision.match?(/\A\d*\z/)
+  
+    checked(read(colon.empty? ? "" : body, true))
+  end
 
   def split
     return [0, "NaN", 10, 0] if nan?
@@ -677,21 +692,26 @@ return [@sign, "Infinity", 10, 0] unless finite?
 
   # VpGetPrecisionInt: the precision of add, sub and mult.
 def with_precision(digits)
-  raise TypeError, no_implicit_conversion(digits, "Integer") if digits.nil?
-
-  digits = Integer.send(:int_operand, digits)
-  raise ArgumentError, "negative precision" if digits.negative?
-
+  digits = precision_argument(digits)
   answer = yield digits
   return limited(answer) if digits.zero? || !answer.is_a?(BigDecimal)
 
   answer.round_significant(digits)
 end
 
-# The exact product, before the global limit.
-def product(other)
-  them = cast(other)
-  return coerced(other, :*) unless them
+# check_int_precision: a precision as NUM2LONG reads it, not negative.
+def precision_argument(digits)
+  n = Integer.try_convert(digits) or raise TypeError, no_implicit_conversion(digits, "Integer")
+  raise RangeError, +"bignum too big to convert into 'long'" unless n.bit_length < 64
+  raise ArgumentError, +"negative precision" if n.negative?
+
+  n
+end
+
+# The exact product, before the global limit. With a precision (mult),
+# another kind of value must become a BigDecimal: no coerce.
+def product(other, digits = nil)
+  them = cast(other, digits || 0) or return digits ? not_coercible(other) : coerced(other, :*)
   return product_special(them) if @special || them.special
 
   digits = @digits * them.digits
@@ -713,16 +733,48 @@ end
   def signed_word(n) = ((n + (2**63)) % (2**64)) - (2**63)
 
   def checked(value) = BigDecimal.checked(value)
+  
+  def float_overflow
+    raise FloatDomainError, +"BigDecimal to Float conversion" unless BigDecimal.exception_mode.nobits?(EXCEPTION_OVERFLOW)
+  
+    @sign.negative? ? -Float::INFINITY : Float::INFINITY
+  end
+  
+  def float_underflow
+    raise FloatDomainError, +"BigDecimal to Float conversion" unless BigDecimal.exception_mode.nobits?(EXCEPTION_UNDERFLOW)
+  
+    @sign.negative? ? -0.0 : 0.0
+  end
 
   # The other side as a BigDecimal, or nil when ruby calls coerce on
   # the other side instead.
-  def cast(other)
+  # GetBDValueWithPrec: a Rational divides out to the precision of the
+  # operation, or of the receiver's words, and never fewer than 32 digits
+  # (GetCoercePrec).
+  def cast(other, digits = 0)
     case other
     when BigDecimal then other
     when Integer then BigDecimal(other)
-    when Rational then BigDecimal(other, [precision + DOUBLE_FIG, 2 * DOUBLE_FIG].max)
+    when Rational then BigDecimal(other, [digits.zero? ? word_count * 9 : digits, 2 * DOUBLE_FIG].max)
     when Float then BigDecimal(other, 0)
     end
+  end
+  
+  # cannot_be_coerced_into_BigDecimal.
+  def not_coercible(other)
+    raise TypeError, "#{BigDecimal.send(:named, other)} can't be coerced into BigDecimal"
+  end
+
+  # rb_num_coerce_cmp: the other side's coerce, then `op`, or nil where it
+  # has no coerce or its coerce gives nil.
+  def coerce_compare(other, op)
+    return nil unless other.respond_to?(:coerce)
+
+    pair = other.coerce(self)
+    return nil if pair.nil?
+    raise TypeError, +"coerce must return [x, y]" unless pair.is_a?(Array) && pair.size == 2
+
+    pair[0].send(op, pair[1])
   end
 
   def coerced(other, op)
@@ -752,19 +804,28 @@ end
     yield(self <=> them)
   end
 
-  # The floor of the quotient, and what is left, for div, divmod and %.
-  def floored(them)
-    raise FloatDomainError, BigDecimal.send(:refused, self) if nan?
+  # BigDecimal_DoDivmod: the quotient, truncated toward zero or floored,
+  # and what is left, both exact whatever the limit.
+  def divmod_parts(them, truncate)
+    return [BigDecimal::NAN, BigDecimal::NAN] if nan? || them.nan? || (!finite? && !them.finite?)
     raise ZeroDivisionError, +"divided by 0" if them.zero?
-    raise FloatDomainError, BigDecimal.send(:refused, BigDecimal::NAN) if them.nan? || (!finite? && !them.finite?)
-    raise FloatDomainError, BigDecimal.send(:refused, self) unless finite?
-    return [0, self] if zero? && !them.finite?
-    return (@sign == them.sign_bit ? [0, self] : [-1, them]) unless them.finite?
-
-    quotient = (self / them).floor
-    [quotient, self - (them * BigDecimal(quotient))]
+    return [@sign == them.sign_bit ? BigDecimal::INFINITY : NEGATIVE_INFINITY, BigDecimal::NAN] unless finite?
+    return [POSITIVE_ZERO, self] if zero?
+    unless them.finite?
+      return !truncate && @sign != them.sign_bit ? [BigDecimal.build(-1, 1, 1), them] : [POSITIVE_ZERO, self]
+    end
+  
+    align(them) do |mine, theirs, low|
+      quotient = mine.abs / theirs.abs * (@sign * them.sign_bit)
+      rest = mine - (quotient * theirs)
+      if !truncate && !rest.zero? && @sign != them.sign_bit
+        quotient -= 1
+        rest += theirs
+      end
+      [BigDecimal.from_int(quotient.negative? ? -1 : 1, quotient.abs, quotient.abs.to_s.length), sum(rest, low)]
+    end
   end
-
+  
   # The nine-digit words that the digits take, aligned at the point.
   def word_count
     return 1 unless finite? && !@digits.zero?
@@ -777,16 +838,15 @@ end
   # other's last digit and the precision takes part as a single unit just
   # below both: it can then only push the rounding, as it does exactly
   # (the C's optimization for a large exponent difference).
-  def combine(other, op, digits = 0)
-    them = cast(other)
-    return coerced(other, op) unless them
+  def combine(other, op, digits = nil)
+    them = cast(other, digits || 0) or return digits ? not_coercible(other) : coerced(other, op)
   
     them = them.negated if op == :-
     return sum_special(them) if @special || them.special
     return sum_zero(them) if zero? || them.zero?
   
     mine = self
-    if digits.positive?
+    if digits&.positive?
       if (low = far_below(digits)) && them.exp < low
         them = BigDecimal.build(them.sign_bit, 1, low)
       elsif (low = them.send(:far_below, digits)) && @exp < low
@@ -850,12 +910,18 @@ end
   # `a / b` to `digits` significant digits. With none given, ruby uses
   # the wider operand's own width plus a Float's worth, and never fewer
   # than two of those.
-  def divide(other, digits)
-    them = cast(other)
-    return coerced(other, :/) unless them
+  def divide(other, digits, coerce: true)
+    them = cast(other, digits) or return coerce ? coerced(other, :/) : not_coercible(other)
     return divide_special(them) if @special || them.special || them.zero? || zero?
 
-    want = digits.positive? ? digits : [[precision, them.precision].max + DOUBLE_FIG, 2 * DOUBLE_FIG].max
+    # BigDecimal_div2's width: the given digits, else the wider operand's
+    # plus a Float's, at least two Floats', and at most the limit.
+    want = digits
+    if want.zero?
+      want = [[precision, them.precision].max + DOUBLE_FIG, 2 * DOUBLE_FIG].max
+      limit = BigDecimal.precision_limit
+      want = limit if limit.positive? && limit < want
+    end
     shift = [want + 1 + them.n_significant_digits - n_significant_digits, 0].max
     quotient, rest = (@digits * (10**shift)).divmod(them.digits)
     # A remainder that is left over says the true value lies past the
@@ -865,7 +931,7 @@ end
     drop = [quotient.to_s.length - want, 0].max
     kept = drop.zero? ? quotient : shorten(quotient, drop, BigDecimal.rounding_mode, @sign)
     answer = BigDecimal.from_int(@sign * them.sign_bit, kept, kept.to_s.length + drop + point - them.point - shift)
-    digits.positive? ? answer : limited(answer)
+    answer
   end
 
   # Ruby's process-wide limit on how many digits a result keeps.
@@ -926,12 +992,12 @@ end
     end
   end
 
-  def grouped(text, size) = size.zero? ? text : text.scan(/.{1,#{size}}/).join(" ")
+  def grouped(text, size) = size.zero? || size >= text.length ? text : text.scan(/.{1,#{size}}/).join(" ")
 
   # An integer part groups from the right, a fraction from the left,
   # which is how ruby writes them.
   def grouped_whole(text, size)
-    return text if size.zero?
+    return text if size.zero? || size >= text.length
 
     text.reverse.scan(/.{1,#{size}}/).map(&:reverse).reverse.join(" ")
   end
