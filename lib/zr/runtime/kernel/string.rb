@@ -2150,8 +2150,10 @@ module Zr::Kern
 
   # A String that a literal made in a file with no frozen_string_literal
   # setting (STR_CHILLED). It is not frozen, but its first change warns
-  # that it will be frozen, and after that it is an ordinary String.
-  FL_CHILLED = 1 << 15
+  # that it will be frozen, and after that it is an ordinary String. The
+  # bit is ruby 4.1's STR_CHILLED (RUBY_FL_USER2), which C reads (stringio's
+  # str_chilled_p); a class's FL_TEMP_NAME shares it.
+  FL_CHILLED = 1 << 14
   FL_CHILLED_CLEAR = 0 - FL_CHILLED - 1
 
   #: (ptr, word) -> value

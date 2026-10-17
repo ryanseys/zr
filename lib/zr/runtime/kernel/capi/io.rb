@@ -59,53 +59,24 @@ module Zr::Kern
   end
 
   # rb_io_puts: each argument and a newline through `out.write`, as
-  # IO#puts writes them: an Array's elements one a line (`[...]` for an
-  # Array inside itself), no second newline after a line that has one,
-  # and one newline when there is no argument.
+  # IO#puts writes them (`IO.c_puts`): an Array's elements one a line, an
+  # object marked before its #to_ary runs, so one inside itself is
+  # `[...]`, and one newline when there is no argument.
   #: (i32, ptr, value) -> value
   def rb_io_puts(argc, argv, out)
     Machine.gates_enter
     zr_c_entered()
     n = Machine.sword(argc)
-    if n == 0
-      zr_capi_call1(out, Machine.id(:write), zr_str_new(Machine.bytes("\n"), 1))
-    end
-    seen = zr_ary_new(4)
+    objects = zr_ary_new(n)
     i = 0
     while i < n
-      zr_capi_puts(out, Machine.value(Machine.load64(argv + (i * 8), 0)), seen)
+      zr_ary_push(objects, Machine.value(Machine.load64(argv + (i * 8), 0)))
       i += 1
     end
-    Machine.value(QNIL)
-  end
-
-  # Writes one argument of rb_io_puts. `seen` holds the Arrays that it is
-  # inside.
-  #: (value, value, value) -> void
-  def zr_capi_puts(out, v, seen)
-    if !zr_special_p(v) && zr_type(v) == T_ARRAY
-      if zr_c_result(zr_capi_call1(seen, Machine.id(:include?), v)) == QTRUE
-        zr_capi_puts(out, zr_str_new(Machine.bytes("[...]"), 5), seen)
-        return
-      end
-      zr_ary_push(seen, v)
-      i = 0
-      while i < RArray[v].len
-        zr_capi_puts(out, zr_ary_at(v, i), seen)
-        i += 1
-      end
-      zr_ary_pop(seen, 0, Machine.ptr(0), Machine.value(QNIL), Machine.value(QNIL))
-      return
-    end
-    line = !zr_special_p(v) && zr_type(v) == T_STRING ? v : zr_c_result(zr_obj_as_string(v))
-    len = RString[line].len
-    # An empty line writes the newline alone.
-    if len > 0
-      zr_capi_call1(out, Machine.id(:write), line)
-    end
-    if len == 0 || Machine.u8(Machine.load8(RString[line].ptr + (len - 1), 0)) != 10
-      zr_capi_call1(out, Machine.id(:write), zr_str_new(Machine.bytes("\n"), 1))
-    end
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(out))
+    Machine.store64(args, 8, Machine.word(objects))
+    zr_c_result(zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:c_puts), 2, args))
   end
 
   # rb_eof_error: raises EOFError, `end of file reached`.

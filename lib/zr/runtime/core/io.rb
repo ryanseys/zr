@@ -1889,6 +1889,14 @@ class IO
     nil
   end
 
+  # rb_io_puts for C (the C API): `objects` written to `out` as IO#puts
+  # writes them, through its `write`.
+  def self.c_puts(out, objects)
+    Primitive.attr! :hidden
+    each_line_of(objects) { |*parts| writev(out, parts) }
+    nil
+  end
+
   # rb_io_writev: the pieces in one `write`, or one `write` each when the
   # method takes one argument (with a deprecation warning under
   # $VERBOSE, except for $stderr).

@@ -164,7 +164,9 @@ module Zr::Kern
   def rb_io_gets(io)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_io_send(io, Machine.id(:gets))
+    # rb_io_getline_1(rb_default_rs): a line ends at "\n", whatever $/
+    # holds (io/console's getpass reads so).
+    zr_capi_call1(io, Machine.id(:gets), zr_str_new(Machine.bytes("\n"), 1))
   end
 
   #: (value) -> value

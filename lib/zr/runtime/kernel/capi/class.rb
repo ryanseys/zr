@@ -7,7 +7,40 @@ module Zr::Kern
   def rb_define_module(name)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_module_define(zr_global(G_OBJECT), zr_capi_name(name), 0))
+    mid = zr_capi_name(name)
+    zr_capi_define_check(zr_global(G_OBJECT), mid, T_MODULE)
+    zr_c_result(zr_module_define(zr_global(G_OBJECT), mid, 0))
+  end
+
+  # rb_define_module_id_under's and rb_define_class_id_under's TypeError
+  # for a constant `mid` of `outer` that holds another kind of value:
+  # "Etc is not a module (Cell)", with `outer` named when it is not
+  # Object.
+  #: (value, word, word) -> void
+  def zr_capi_define_check(outer, mid, type)
+    e = zr_const_row_kept(zr_const_holder(outer, true), mid)
+    if e == 0
+      return
+    end
+    v = CEntry[e].value
+    if v == QUNDEF || (!zr_special_p(v) && zr_type(v) == type)
+      return
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    if outer != zr_global(G_OBJECT)
+      zr_buf_class(b, outer)
+      zr_buf_push(b, Machine.bytes("::"), 2)
+    end
+    zr_buf_sym(b, mid)
+    if type == T_MODULE
+      zr_buf_push(b, Machine.bytes(" is not a module ("), 18)
+    else
+      zr_buf_push(b, Machine.bytes(" is not a class ("), 17)
+    end
+    zr_buf_class(b, zr_real_class(v))
+    zr_buf_byte(b, 41)
+    zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
   end
 
   # rb_define_module_under: the module `name` in `outer`, new or the one
@@ -17,7 +50,9 @@ module Zr::Kern
   def rb_define_module_under(outer, name)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_module_define(outer, zr_capi_name(name), 0))
+    mid = zr_capi_name(name)
+    zr_capi_define_check(outer, mid, T_MODULE)
+    zr_c_result(zr_module_define(outer, mid, 0))
   end
 
   # rb_define_class: the toplevel class `name` with the superclass
@@ -26,7 +61,9 @@ module Zr::Kern
   def rb_define_class(name, super_)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_class_define(zr_global(G_OBJECT), zr_capi_name(name), super_, 0))
+    mid = zr_capi_name(name)
+    zr_capi_define_check(zr_global(G_OBJECT), mid, T_CLASS)
+    zr_c_result(zr_class_define(zr_global(G_OBJECT), mid, super_, 0))
   end
 
   # rb_define_class_under: the class `name` in `outer`, as
@@ -35,7 +72,9 @@ module Zr::Kern
   def rb_define_class_under(outer, name, super_)
     Machine.gates_enter
     zr_c_entered()
-    zr_c_result(zr_class_define(outer, zr_capi_name(name), super_, 0))
+    mid = zr_capi_name(name)
+    zr_capi_define_check(outer, mid, T_CLASS)
+    zr_c_result(zr_class_define(outer, mid, super_, 0))
   end
 
   # rb_define_module_id_under and rb_define_class_id_under: the forms
@@ -45,6 +84,7 @@ module Zr::Kern
   def rb_define_module_id_under(outer, id)
     Machine.gates_enter
     zr_c_entered()
+    zr_capi_define_check(outer, zr_capi_mid(id), T_MODULE)
     zr_c_result(zr_module_define(outer, zr_capi_mid(id), 0))
   end
 
@@ -52,6 +92,7 @@ module Zr::Kern
   def rb_define_class_id_under(outer, id, super_)
     Machine.gates_enter
     zr_c_entered()
+    zr_capi_define_check(outer, zr_capi_mid(id), T_CLASS)
     zr_c_result(zr_class_define(outer, zr_capi_mid(id), super_, 0))
   end
 
@@ -156,6 +197,17 @@ module Zr::Kern
       zr_capi_arity_error(arity)
     end
     mid = zr_capi_name(name)
+    # rb_f_notimplement's entry: a call raises NotImplementedError, and
+    # respond_to? and method_defined? answer false.
+    if Machine.word(fn) == Machine.word(Machine.addr(:rb_f_notimplement))
+      zr_builtin(klass, mid, Machine.addr(:zr_f_notimplement), 0 - 1)
+      return
+    end
+    # rb_method_entry_make: these names are private in a class that is
+    # not a singleton class, whatever visibility C asked for.
+    if (RBasic[klass].flags & FL_SINGLETON) == 0 && zr_capi_private_name_p(mid)
+      vis = VIS_PRIVATE
+    end
     meta = zr_meta_new()
     FrameMeta[meta].arity = arity
     FrameMeta[meta].fn = fn
@@ -168,6 +220,12 @@ module Zr::Kern
       MEntry[e].body = fn
     end
     zr_capi_define_unsafe(meta)
+  end
+
+  #: (word) -> bool
+  def zr_capi_private_name_p(mid)
+    mid == Machine.id(:initialize) || mid == Machine.id(:initialize_copy) || mid == Machine.id(:initialize_clone) ||
+      mid == Machine.id(:initialize_dup) || mid == Machine.id(:respond_to_missing?)
   end
 
   # rb_define_method's `arity out of range: N for -2..15` (ArgumentError).

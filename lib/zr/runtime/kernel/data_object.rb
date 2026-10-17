@@ -67,6 +67,18 @@ module Zr::Kern
     Machine.ptr(RTypedData[v].type & (0 - 2))
   end
 
+  # RUBY_TYPED_FROZEN_SHAREABLE: a frozen object of the type may move
+  # between Ractors.
+  TYPED_FROZEN_SHAREABLE = 1 << 8
+
+  # Whether `v` is C data whose type does not let a frozen object be
+  # shared (no RUBY_TYPED_FROZEN_SHAREABLE), which Ractor.make_shareable
+  # refuses.
+  #: (value) -> value
+  def zr_data_unshareable_p_m(v)
+    zr_bool(!zr_special_p(v) && zr_type(v) == T_DATA && (DataType[zr_data_type(v)].flags & TYPED_FROZEN_SHAREABLE) == 0)
+  end
+
   # The struct of T_DATA `v` (RTYPEDDATA_GET_DATA, DATA_PTR).
   #: (value) -> ptr
   def zr_data_ptr(v)

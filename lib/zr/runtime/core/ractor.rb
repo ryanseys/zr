@@ -669,7 +669,7 @@ class Ractor
          Enumerator, Binding, Fiber, Random, TracePoint, Thread::Backtrace::Location, ObjectSpace::WeakMap,
          ObjectSpace::WeakKeyMap, IO::Buffer, IO, Dir, File::Stat, Encoding::Converter
       true
-    else unshareable_data?(Primitive.zr_real_class(obj))
+    else Primitive.zr_data_unshareable_p_m(obj) || unshareable_data?(Primitive.zr_real_class(obj))
     end
   end
 
