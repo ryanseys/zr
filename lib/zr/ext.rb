@@ -3,6 +3,7 @@
 require_relative "config"
 require_relative "refused"
 require_relative "target"
+require_relative "library/ports"
 require_relative "ext/source"
 require_relative "ext/builder"
 
@@ -18,6 +19,10 @@ module Zr
     # a build asks at each require that it resolves.
     BUNDLES = ObjectSpace::WeakKeyMap.new #: ObjectSpace::WeakKeyMap[Config, Hash[String, Hash[String, Source]]]
 
+    # The bundles of each build that it did not ask for: those of a port
+    # that puts its gem's C first (`wanted`).
+    OPTIONAL = ObjectSpace::WeakKeyMap.new #: ObjectSpace::WeakKeyMap[Config, Hash[String, Hash[String, String]]]
+
     module_function
 
     # Each extension of the build, by the path of the bundle that a
@@ -26,10 +31,45 @@ module Zr
     #: (?Config config, ?target: Target) -> Hash[String, Source]
     def bundles(config = Config.current, target: Target.default)
       (BUNDLES[config] ||= {})[target.triple] ||= begin
+        optional = {} #: Hash[String, String]
         given = config.ext_objects.map { |bundle, objects| Source.given(bundle, objects) }
-        installed = config.native_ext.flat_map { |name, version| installed(name, version, config, target: target) }
+        installed = wanted(config, target).flat_map do |name, (version, asked)|
+          sources = installed(name, version, config, target: target)
+          sources.each { |source| optional[source.bundle] = name } unless asked
+          sources
+        rescue Refused
+          # A port that puts its gem's C first stands in where that C is
+          # not here: the ruby lacks the gem, or it has no C to link.
+          raise if asked
+
+          []
+        end
+        (OPTIONAL[config] ||= {})[target.triple] = optional.freeze
         (given + installed).to_h { |source| [source.bundle, source.for_mode(config.ext_mode)] }.freeze
       end
+    end
+
+    # The gem whose port puts its C first, when that is why the build has
+    # the bundle at `path`, or nil. The program links such a bundle only
+    # when a require reaches it, so a program that never requires the gem
+    # carries none of its C, and a program whose gems give that gem itself
+    # (a Gemfile.lock's json) uses that gem, with the port.
+    #: (String path, ?Config config, ?target: Target) -> String?
+    def optional_gem(path, config = Config.current, target: Target.default)
+      bundles(config, target: target)
+      OPTIONAL[config]&.fetch(target.triple)&.[](path)
+    end
+
+    # The gems whose own C extension the build links, each with the version
+    # it asks for and whether the build asked for it: the ports that put
+    # their gem's C first (`Library::Ports::Port#c_first`), in a build for
+    # this host, then the gems that `--native-ext` names. `-NAME` there
+    # keeps NAME's port.
+    #: (Config config, Target target) -> Hash[String, [String?, bool]]
+    def wanted(config, target)
+      first = Library::Ports::ALL.select { |_, port| port.c_first && target.native? }.to_h { |name, port| [name, [port.version, false]] }
+      asked = config.native_ext.reject { |_, version| version == false }.to_h { |name, version| [name, [version || nil, true]] }
+      first.except(*config.native_ext.keys).merge(asked)
     end
 
     # The extensions of the build by the feature that requires each, its

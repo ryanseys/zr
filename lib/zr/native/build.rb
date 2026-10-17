@@ -131,7 +131,8 @@ module Zr
           # C API. An ELF binary links each static extension's object, with
           # its names its own (`ext_object`).
           target = program.runtime.target
-          sources = Ext.bundles(target: target).values
+          linked = Ext.bundles(target: target)
+          sources = program.bundles ? linked.values_at(*program.bundles).compact : linked.values
           Ext::CApi.check!(sources)
           embeds = [] #: Array[Obj::MachO::Relink]
           if target.object_format == :elf

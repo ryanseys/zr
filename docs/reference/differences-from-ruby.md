@@ -96,7 +96,9 @@ These give other output than ruby's:
 
 zr carries the pure-Ruby files of the pinned ruby's default and bundled
 gems at the versions that it ships (`Zr::Library::Stdlib`). The gems with a
-C part are zr's own ports (`Zr::Library::Ports`). A port can be at a later
+C part are zr's own ports (`Zr::Library::Ports`), except where a build
+for this host links the gem's own C extension (json, from the pinned
+ruby's install). A port can be at a later
 version than the pinned ruby ships. Its Ruby files and its behavior are
 then those of the later version. `lib/zr/library/ports.rb` gives the
 version of each port, and `vendor/vendor.lock` gives the version of each

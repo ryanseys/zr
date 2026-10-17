@@ -7,10 +7,11 @@ module Zr
     attr_reader evals: EvalSupport?
     attr_reader sources: Hash[String, String]?
     attr_reader gems: Array[Manifest::Row]
+    attr_reader bundles: Array[String]?
 
     def self.new: (Runtime runtime, Array[Obj::Code | IR::Function] functions, Array[Obj::Datum] data, EvalSupport? evals,
-                   ?Hash[String, String]? sources, ?Array[Manifest::Row] gems) -> instance
+                   ?Hash[String, String]? sources, ?Array[Manifest::Row] gems, ?Array[String]? bundles) -> instance
                 | (runtime: Runtime, functions: Array[Obj::Code | IR::Function], data: Array[Obj::Datum], evals: EvalSupport?,
-                   ?sources: Hash[String, String]?, ?gems: Array[Manifest::Row]) -> instance
+                   ?sources: Hash[String, String]?, ?gems: Array[Manifest::Row], ?bundles: Array[String]?) -> instance
   end
 end

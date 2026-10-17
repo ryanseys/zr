@@ -147,5 +147,10 @@ The first public release.
   of a file that the build compiled in.
 - A binary reads RUBYOPT as it starts: `-d`, `-w`, `-W`, `-v`, `-E`, `-U`
   and `--backtrace-limit`, before the switches of its build.
+- A build for this host links json's own C extension, as the pinned ruby
+  installed it, in place of zr's port (`ZR_NATIVE_EXT=-json` keeps the
+  port). A json outside the versions that the port implements builds
+  without its C part, or with its own C under `--native-ext`, where it
+  used to stop the build.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

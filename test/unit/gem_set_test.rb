@@ -115,13 +115,14 @@ class GemSetTest < Minitest::Test
     assert set.gems.first.native, "only its C part is refused"
   end
 
-  def test_a_port_outside_its_compat_range_is_refused_and_inside_is_used
+  def test_a_port_outside_its_compat_range_compiles_its_ruby_and_needs_its_own_c
     old = gem_dir("json", "2.18.0", extensions: ["ext/json/extconf.rb"])
 
     refusal = resolve([["json", old]], "BUNDLE_GEMFILE" => nil).gems.first.refusal
 
     assert_includes refusal, "zr implements the C part of json #{Zr::Library::Ports::ALL.fetch("json").compat} only"
-    refute resolve([["json", old]], "BUNDLE_GEMFILE" => nil).gems.first.native, "a port at another version is refused whole"
+    assert_includes refusal, "--native-ext json=2.18.0"
+    assert resolve([["json", old]], "BUNDLE_GEMFILE" => nil).gems.first.native, "only its C part is refused"
   end
 
   def test_a_port_inside_its_compat_range_uses_zrs_c

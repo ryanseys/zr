@@ -6,8 +6,9 @@ module Zr
         attr_reader version: String
         attr_reader compat: String
         attr_reader vendored: bool
+        attr_reader c_first: bool
 
-        def self.new: (version: String, compat: String, vendored: bool) -> instance
+        def self.new: (version: String, compat: String, vendored: bool, c_first: bool) -> instance
       end
     end
   end

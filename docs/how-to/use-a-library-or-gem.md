@@ -31,7 +31,11 @@ small number of names have no file in zr, for example `mkmf`. A
 [What zr supports](../reference/support.md) lists them.
 
 A library with a C extension, such as `json`, `psych` or `zlib`, works
-because zr has a Ruby port of its C. Some ports are at a later version
+because zr has a Ruby port of its C. For json, a build for the machine
+it runs on links the gem's own C extension instead, the one that the
+pinned ruby installed (`ZR_NATIVE_EXT=-json` keeps the port); the port
+serves a build for another target, a ruby without the gem, and the
+compiler inside a program that evals. Some ports are at a later version
 than the pinned ruby ships, for example json 3.0.2; see
 [Library versions](../reference/differences-from-ruby.md#library-versions).
 To port another one, see
@@ -127,10 +131,11 @@ a C extension:
   [Library versions](../reference/differences-from-ruby.md#library-versions))
   works when its version is in the range whose C zr implements. zr
   then uses the gem's Ruby files with its own port of the C. Another
-  version stops the build at the `require`:
+  version builds without its C part, as below, and says so; give it
+  to `--native-ext` to link its own C:
 
   ```
-  zr: app.rb:1: require of "json": json 2.18.0 (Gemfile.lock): zr implements the C part of json >= 2.20, < 3.1 only. Put a version in that range in the Gemfile, then run 'bundle install'.
+  zr: warning: json 2.18.0 (Gemfile.lock): zr implements the C part of json >= 2.20, < 3.1 only. Put a version in that range in the Gemfile, then run 'bundle install', or link the gem's own C with --native-ext json=2.18.0: its Ruby files compile, and a require of its C part raises LoadError if it runs
   ```
 
 - Any other gem with a C extension builds without its C part: zr
@@ -147,7 +152,8 @@ a C extension:
   ruby's own version. zr then uses its standard library's copy of the
   gem's files, and for a port, the version rule above: when the default
   json of the pinned ruby is older than the range that the json port
-  implements, a lock with it stops a build that requires json.
+  implements, a lock with it builds json without its C part unless
+  `--native-ext` links that C.
 
 A program that uses eval carries zr's own copy of some libraries
 (fileutils, pp, irb, reline, rubygems and others). A build of such a

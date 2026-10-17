@@ -2,6 +2,7 @@
 
 require "test_helper"
 require_relative "../../lib/zr/config"
+require_relative "../../lib/zr/ext"
 
 # `Zr::Config` collects every `ZR_*` environment variable that steers a
 # build in one place. Each test sets only the variables it cares about
@@ -62,6 +63,7 @@ class ConfigTest < Minitest::Test
       assert_equal({ "msgpack" => nil, "nokogiri" => "1.19.4", "json" => nil }, config.native_ext)
     end
     Zr::Config.with(ZR_NATIVE_EXT: nil) { |config| assert_empty config.native_ext }
+    Zr::Config.with(ZR_NATIVE_EXT: "-json msgpack") { |config| assert_equal({ "json" => false, "msgpack" => nil }, config.native_ext) }
     error = assert_raises(Zr::Config::Invalid) { Zr::Config.with(ZR_NATIVE_EXT: "msgpack=") { |_| } }
     assert_equal 'ZR_NATIVE_EXT has "msgpack=". Give each gem as NAME or NAME=VERSION, for example ZR_NATIVE_EXT=msgpack.',
                  error.message
@@ -258,5 +260,20 @@ class ConfigTest < Minitest::Test
     end
 
     assert_equal READERS, readers.map { |path| path.delete_prefix("#{ROOT}/") }.sort
+  end
+  # A port that puts its gem's C first (json) links that C in a build for
+  # this host unless `-NAME` keeps the port; a build for another target
+  # keeps the port, and a gem that --native-ext names comes too.
+  def test_a_c_first_port_links_its_gem_s_own_c_in_a_build_for_this_host
+    host = Zr::Target.default
+    other = Zr::Target::ALL.find { |target| target.triple != host.triple } || skip("no other target")
+
+    Zr::Config.with(ZR_NATIVE_EXT: nil) do |config|
+      assert_equal ["3.0.2", false], Zr::Ext.wanted(config, host).fetch("json")
+      refute Zr::Ext.wanted(config, other).key?("json")
+    end
+    Zr::Config.with(ZR_NATIVE_EXT: "-json msgpack") do |config|
+      assert_equal({ "msgpack" => [nil, true] }, Zr::Ext.wanted(config, host))
+    end
   end
 end

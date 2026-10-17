@@ -33,8 +33,10 @@ module ZrGemSet
   def gem(name, version, source, roots, extensions, ports)
     refusal = refusal(name, version, source, extensions, ports)
     # A C extension that zr does not port refuses only its C part
-    # (GemSet::Entry#native); a port's gem at another version refuses all.
-    native = !refusal.nil? && extensions && !ports.key?(name)
+    # (GemSet::Entry#native), as does a port's gem at a version whose C
+    # the port does not implement: its Ruby compiles, and its own C
+    # extension links with --native-ext.
+    native = !refusal.nil? && extensions
     { "name" => name, "version" => version, "source" => source, "roots" => roots, "refusal" => refusal, "native" => native }
   end
 
@@ -49,7 +51,7 @@ module ZrGemSet
             else
               "Put a version in that range in the Gemfile, then run 'bundle install'"
             end
-      "#{name} #{version || "(no version)"} (#{source}): zr implements the C part of #{name} #{compat} only. #{fix}."
+      "#{name} #{version || "(no version)"} (#{source}): zr implements the C part of #{name} #{compat} only. #{fix}, or link the gem's own C with --native-ext #{name}=#{version}"
     elsif extensions
       "#{name} #{version} (#{source}) has a C extension, and zr has no port of it. zr compiles only Ruby"
     end

@@ -15,7 +15,7 @@ module Zr
   #
   # The record's fields are typed in sig/zr/program.rbs.
   # @rbs skip
-  Program = Data.define(:runtime, :functions, :data, :evals, :sources, :gems)
+  Program = Data.define(:runtime, :functions, :data, :evals, :sources, :gems, :bundles)
 
   # The methods are in a reopened class, not in the block of
   # `Data.define`, so that the type check sees them in their class.
@@ -26,8 +26,9 @@ module Zr
     # @rbs evals: EvalSupport?
     # @rbs sources: Hash[String, String]?
     # @rbs gems: Array[Manifest::Row]
+    # @rbs bundles: Array[String]?
     # @rbs return: void
-    def initialize(runtime:, functions:, data:, evals:, sources: nil, gems: [])
+    def initialize(runtime:, functions:, data:, evals:, sources: nil, gems: [], bundles: nil)
       super
     end
 
@@ -94,6 +95,11 @@ module Zr
       # Before the lowering, which lets go of each unit's source.
       sources = (built_from(source, file, hir) if sources) #: Hash[String, String]?
       gems = Manifest.of_program(hir, support, gem_set)
+      # The C extensions that the program links: each that the build asked
+      # for, and each of a port that puts its gem's C first that one of
+      # the program's requires reached (`Ext.optional_gem`).
+      files = hir.units.to_h { |unit| [unit.file, true] }
+      bundles = Ext.bundles(target: target).keys.select { |path| files.key?(path) || !Ext.optional_gem(path, target: target) }
       symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
       # Only the kernel's names have fixed ids. The link numbers all other
       # names from `symbols`, so a unit's code does not depend on the
@@ -112,12 +118,12 @@ module Zr
       tag = rt.description.const_for("SYMBOL_TAG") #: Integer
       SymbolNumbering.number(data, symbols, tag)
       # A C extension's rb_require is a require of a computed name.
-      tables = LoadTables.new(computed: hir.evals || !Ext.bundles(target: target).empty?, spots: hir.spots || {}, coverable: hir.coverable || {},
+      tables = LoadTables.new(computed: hir.evals || !bundles.empty?, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_roots(gem_set, target) : [],
                               manifest: Manifest.bytes(gems, target, Manifest.files_of(hir, support)), redirects: redirects, gems: options.switches.gems,
                               metas: hir.traced ? true : false)
-      new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems)
+      new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems, bundles)
     end
 
     # The roots of the gems whose files a require at run time can load: a

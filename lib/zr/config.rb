@@ -111,9 +111,9 @@ module Zr
     attr_reader :ext_objects #: Hash[String, Array[String]]
 
     # The gems whose C extension a build links as the host ruby built it
-    # (`ZR_NATIVE_EXT`), by name, each with the version it asks for or nil
-    # for the newest installed.
-    attr_reader :native_ext #: Hash[String, String?]
+    # (`ZR_NATIVE_EXT`), by name, each with the version it asks for, nil
+    # for the newest installed, or false for `-NAME`: NAME's port.
+    attr_reader :native_ext #: Hash[String, String | false | nil]
 
     # The gems whose C extension zr builds with arguments for its
     # extconf.rb (`ZR_EXT_CONFIG`), by name.
@@ -156,7 +156,7 @@ module Zr
       @ext_objects = words(value("ZR_EXT_OBJECTS")).to_h { |word| ext_object(word) }.freeze
       @ext_mode = choice("ZR_EXT", EXT_MODES, "static")
       # `ZR_NATIVE_EXT`: gem names, split at commas and spaces, each
-      # `name` or `name=version`.
+      # `name`, `name=version` or `-name`.
       @native_ext = value("ZR_NATIVE_EXT").to_s.split(/[\s,]+/).reject(&:empty?).to_h { |word| native_gem(word) }.freeze
       # `ZR_EXT_CONFIG`: shell words, each `gem=argument`; a gem's
       # arguments in their order.
@@ -246,9 +246,13 @@ module Zr
     end
     private :ext_argument
 
-    # One word of `ZR_NATIVE_EXT`: a gem's name, and its version or nil.
-    #: (String word) -> [String, String?]
+    # One word of `ZR_NATIVE_EXT`: a gem's name, and its version, nil, or
+    # false for `-name`.
+    #: (String word) -> [String, String | false | nil]
     def native_gem(word)
+      # `-NAME`: NAME's port, not its gem's own C (lib/zr/ext.rb, `wanted`).
+      return [word.delete_prefix("-"), false] if word.match?(/\A-[^=]+\z/)
+
       name, version = word.split("=", 2)
       if name.to_s.empty? || version&.empty?
         source = source("ZR_NATIVE_EXT")

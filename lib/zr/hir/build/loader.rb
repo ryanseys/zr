@@ -73,6 +73,9 @@ module Zr
 
           #: (Array[String] roots, ?target: Target) -> bool
           def linked_under?(_roots, target: Target.default) = false
+
+          #: (String path, ?target: Target) -> String?
+          def optional_gem(_path, target: Target.default) = nil
         end
 
         attr_reader :units #: Array[Unit]
@@ -862,7 +865,7 @@ module Zr
         # it finds any file of the program.
         #: () -> void
         def extensions!
-          @extensions.bundles(target: @target).each_key { |path| add(path) }
+          @extensions.bundles(target: @target).each_key { |path| add(path) unless @extensions.optional_gem(path, target: @target) }
         end
 
         # The files that a C extension's C may require as it runs
@@ -964,8 +967,18 @@ module Zr
             # zr's ports gives way to the C extension that the build links
             # for the feature (`--native-ext`).
             linked = @extensions.bundle_for(feature, target: @target)
+            # A port's gem that the program's gems give at their own version
+            # keeps the port.
+            gem = linked && @extensions.optional_gem(linked, target: @target)
+            linked = nil if gem && @gem_set&.gems&.any? { |entry| entry.name == gem }
+            # A port's gem at a version whose C the port does not implement
+            # (`GemSet::Entry#native`) has no C of zr's: its C part is the
+            # gem's own extension, linked or missing.
+            unported = @gem_set&.gems&.any? do |entry|
+              entry.native && Library::Ports::ALL.key?(entry.name) && (feature == entry.name || feature.start_with?("#{entry.name}/"))
+            end
             @roots.each do |root|
-              next if linked && native_root?(root)
+              next if (linked || unported) && native_root?(root)
 
               real = real_root(root)
               found = candidate(File.join(real, feature)) || native(root, feature) || extension(real, feature)

@@ -57,7 +57,7 @@ module Zr
     class Unresolved < StandardError; end
 
     RESOLVE = File.expand_path("gem_set/resolve.rb", __dir__) #: String
-    VERSION = 2
+    VERSION = 3
 
     # The variables that change which gems the child finds.
     READS = %w[GEM_HOME GEM_PATH BUNDLE_PATH BUNDLE_APP_CONFIG BUNDLE_WITHOUT BUNDLE_WITH BUNDLE_FROZEN BUNDLE_DEPLOYMENT].freeze

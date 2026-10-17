@@ -20,20 +20,26 @@ module Zr
     module Ports
       # One port: the gem's version, the versions whose C interface the port
       # implements (rubygems requirements, joined with ", ", read only when
-      # a build selects another version of the gem; Ports.requirement), and
-      # whether vendor/ holds the gem.
+      # a build selects another version of the gem; Ports.requirement),
+      # whether vendor/ holds the gem, and whether a build for this host
+      # links the gem's own C extension in place of the port (`c_first`,
+      # lib/zr/ext.rb): the port then serves only where that C cannot run
+      # or build (wasm, another target with no toolchain, a ruby that lacks
+      # the gem) and the compiler that eval support carries.
       # @rbs skip -- typed in sig/zr/library/ports.rbs
-      Port = Data.define(:version, :compat, :vendored)
+      Port = Data.define(:version, :compat, :vendored, :c_first)
 
-      #: (String version, ?compat: String, ?vendored: bool) -> Port
-      def self.port(version, compat: "~> #{version}", vendored: true) = Port.new(version: version, compat: compat, vendored: vendored)
+      #: (String version, ?compat: String, ?vendored: bool, ?c_first: bool) -> Port
+      def self.port(version, compat: "~> #{version}", vendored: true, c_first: false)
+        Port.new(version: version, compat: compat, vendored: vendored, c_first: c_first)
+      end
 
       ALL = {
         # A gem in vendor/, over a port in lib/zr/runtime/ext.
         "prism" => port("1.9.0"),
         # json 2.20 and 2.21 have 3.0's C interface; the port acts as 2.x
         # where 2.x deprecates what 3.0 refuses (ext/json/ext).
-        "json" => port("3.0.2", compat: ">= 2.20, < 3.1"),
+        "json" => port("3.0.2", compat: ">= 2.20, < 3.1", c_first: true),
         "psych" => port("5.5.0", vendored: false),
         "bigdecimal" => port("4.1.3"),
         "digest" => port("3.3.0", vendored: false),
