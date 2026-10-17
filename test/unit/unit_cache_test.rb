@@ -49,7 +49,7 @@ class UnitCacheTest < Minitest::Test
   end
 
   def key(unit, entries)
-    cache = Zr::Cache::Unit.new(runtime: "rt", traced: 0, entries: entries)
+    cache = Zr::Cache::Unit.new(runtime: "rt", traced: 0, plain_new: 0, entries: entries)
     cache.send(:key, unit, "zr_toplevel_unit_0")
   end
 

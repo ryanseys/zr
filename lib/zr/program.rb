@@ -100,7 +100,8 @@ module Zr
       # compile order or on the core. So an earlier build's code for a unit
       # is correct for this build while the kernel's ABI is the same.
       units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, entries: Lower.entries_of("zr_toplevel", hir.units))
-      lower = Lower.new(hir, rt.description, symbols, target: target, fixed: rt.fixed_ids, units: units || nil)
+      lower = Lower.new(hir, rt.description, symbols, target: target, fixed: rt.fixed_ids, units: units || nil,
+                        plain_new: hir.plain_new ? true : false)
       doing, done = finish ? ["lowering and assembling the program", "program lowered and assembled"] : ["lowering the program", "program lowered"]
       functions, data = Timing.phase(doing, done) do
         finish ? lower.run { |f| yield(f, lower.entry) } : lower.run

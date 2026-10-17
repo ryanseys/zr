@@ -26,6 +26,7 @@ module Zr
         # @rbs @eval: bool
         # @rbs @trace: bool
         # @rbs @traces: bool
+        # @rbs @plain_new: bool
         # @rbs @covers: bool
         # @rbs @coverable: Hash[String, [Integer, Array[Integer]]]
         # @rbs @branches: Hash[String, Array[Array[Symbol | Integer | nil]]]
@@ -139,6 +140,7 @@ module Zr
           @eval = eval
           @trace = options.trace
           @traces = false
+          @plain_new = false
           @covers = covers
           @coverable = {}
           @branches = {}
@@ -184,6 +186,10 @@ module Zr
         #: () -> bool
         def tracing? = @trace
 
+        # Whether a file turns off CRuby's specialized instructions.
+        #: () -> bool
+        def plain_new? = @plain_new
+
         # The names in a program that wants `:line` events. The source
         # bytes are checked first, because almost no file contains these
         # words, and a regexp is much faster than a tree walk. If a file
@@ -211,6 +217,49 @@ module Zr
 
         #: (Prism::node tree) -> bool
         def names_coverage?(tree) = names_of?(tree, COVERAGE_CONSTANTS, [])
+
+        # Whether the tree sets `RubyVM::InstructionSequence.compile_option`
+        # to a value that turns off CRuby's specialized instructions. A
+        # file that ruby compiles after it then sends `new` as a call of
+        # Class#new, which a TracePoint hears (power_assert sets it). zr
+        # compiles every file of the program before it runs, so all of
+        # them send `new`. A value that the build cannot read counts.
+        #: (Prism::node tree) -> bool
+        def turns_off_specialized?(tree)
+          !tree.breadth_first_search do |n|
+            n.is_a?(Prism::CallNode) && n.name == :compile_option= && iseq_class?(n.receiver) &&
+              specialized_off?(n.arguments&.arguments&.first)
+          end.nil?
+        end
+
+        #: (Prism::node? node) -> bool
+        def iseq_class?(node)
+          return false unless node.is_a?(Prism::ConstantPathNode) && node.name == :InstructionSequence
+
+          vm = node.parent
+          vm.is_a?(Prism::ConstantReadNode) ? vm.name == :RubyVM : vm.is_a?(Prism::ConstantPathNode) && vm.parent.nil? && vm.name == :RubyVM
+        end
+
+        # rb_iseq_compile_option_set: true and false both turn the option
+        # off, nil changes nothing, and a Hash takes the truth of its
+        # `specialized_instruction:` value.
+        #: (Prism::node? value) -> bool
+        def specialized_off?(value)
+          case value
+          when Prism::NilNode then false
+          when Prism::HashNode, Prism::KeywordHashNode
+            value.elements.any? do |e|
+              !e.is_a?(Prism::AssocNode) || (specialized_key?(e.key) && !true_literal?(e.value))
+            end
+          else true
+          end
+        end
+
+        #: (Prism::node key) -> bool
+        def specialized_key?(key) = key.is_a?(Prism::SymbolNode) && key.unescaped == "specialized_instruction"
+
+        #: (Prism::node value) -> bool
+        def true_literal?(value) = [Prism::TrueNode, Prism::IntegerNode, Prism::SymbolNode, Prism::StringNode].any? { value.is_a?(it) }
 
         # Whether the tree's code uses one of `constants` or calls one of
         # `calls`, also in a literal String that an eval form compiles. Any
@@ -605,6 +654,7 @@ module Zr
           configures! if !configures? && names_rbconfig?(result.value)
           @traces ||= !Library::Roots.runtime_file?(file) && TRACE_NAMES.match?(source.b) && names_tracing?(result.value)
           @covers ||= !Library::Roots.runtime_file?(file) && COVERAGE_NAMES.match?(source.b) && names_coverage?(result.value)
+          @plain_new ||= source.b.include?("compile_option") && turns_off_specialized?(result.value)
           @coverable[file] = [source.lines.size, []] if @trace && !Library::Roots.runtime_file?(file)
           build = Build.new(file, self, source_encoding(result, source, !scopes.nil?), shadowed: shadowed(result.value), root: result.value,
                                                                          eval: !scopes.nil?)

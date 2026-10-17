@@ -44,16 +44,17 @@ module Zr
       def self.for(program, runtime:, entries:)
         return nil if program.coverable&.any?
 
-        new(runtime: runtime, traced: program.traced ? 1 : 0, entries: entries)
+        new(runtime: runtime, traced: program.traced ? 1 : 0, plain_new: program.plain_new ? 1 : 0, entries: entries)
       end
 
-      #: (runtime: String, traced: Integer, entries: Array[String]) -> void
-      def initialize(runtime:, traced:, entries:)
+      #: (runtime: String, traced: Integer, plain_new: Integer, entries: Array[String]) -> void
+      def initialize(runtime:, traced:, plain_new:, entries:)
         # `runtime` is the runtime's ABI digest (`RuntimeSources#abi_digest`):
         # the compiler, the kernel's description and the kernel's names. A
         # unit's code has only the kernel's ids and calls the core only by
-        # name, so no core edit changes it.
-        @stamp = "#{VERSION}\0#{runtime}\0#{traced}"
+        # name, so no core edit changes it. `traced` and `plain_new` change
+        # the code of every send.
+        @stamp = "#{VERSION}\0#{runtime}\0#{traced}\0#{plain_new}"
         @entries = entries
       end
 

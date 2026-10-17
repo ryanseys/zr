@@ -112,8 +112,10 @@ module Zr
     # name, in Coverage's order. `defs` contains each file's def and
     # block spans; a definition uses its span to become a method entry.
     # `using` is the `using` entry in force at the end of an eval's toplevel.
+    # `plain_new` tells that the program turns off CRuby's specialized
+    # instructions, so its `new` is a send of Class#new.
     Program = Node.new(:file, :locals, :body, :units, :warnings, :evals, :entries, :traced, :node_ids, :spots,
-                       :coverable, :activations, :branches, :defs, :using)
+                       :coverable, :activations, :branches, :defs, :using, :plain_new)
     # `hidden` if the unit loads only for the runtime's own use, as the
     # eval support files do.
     # `source` is the bytes that the unit was built from. `activates`

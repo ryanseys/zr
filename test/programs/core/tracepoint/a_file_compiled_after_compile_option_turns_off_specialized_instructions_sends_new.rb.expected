@@ -1,0 +1,12 @@
+false
+[:c_call, :new, 7, nil]
+[:c_return, :new, 7, "Set"]
+[:c_call, :new, 7, nil]
+[:c_return, :new, 7, "Set"]
+[:c_call, :new, 8, nil]
+[:c_return, :new, 8, "Object"]
+[:c_call, :new, 9, nil]
+[:c_return, :new, 9, nil]
+[:c_call, :new, 10, nil]
+[:c_return, :new, 10, nil]
+false

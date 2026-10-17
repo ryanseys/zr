@@ -179,7 +179,7 @@ module Zr
         coverable = loader.covers? || !program ? loader.coverable : {} #: Hash[String, [Integer, Array[Integer]]]
         Program.new(main.file, main.locals, body, loader.units, main_warnings(main.warnings, switches.verbose), program && loader.evals?, loader.entries, loader.tracing?,
                     main.node_ids, spots, coverable, loader.activations, loader.covers? ? loader.branches : {},
-                    loader.covers? ? loader.defs : {}, loader.eval_using_after)
+                    loader.covers? ? loader.defs : {}, loader.eval_using_after, loader.plain_new?)
       end
 
       # The main file's parse-time warnings under the -W level it was
