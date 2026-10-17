@@ -252,7 +252,7 @@ module Zr::Kern
   # one when a removal leaves few enough fields.
   #: (value, ptr) -> void
   def zr_obj_ivtab_reembed(o, t)
-    if zr_type(o) != T_OBJECT || zr_ivtab_embedded_p(t)
+    if !zr_object_shaped_p(zr_type(o)) || zr_type(o) == T_BIGNUM || zr_ivtab_embedded_p(t)
       return
     end
     cap = (zr_cell_bytes(o) - RObject.size) / IvEntry.size

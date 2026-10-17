@@ -49,7 +49,7 @@ module Zr::Kern
       return 0
     end
     t = RBasic[v].flags & T_MASK
-    if t == T_OBJECT || t == T_BIGNUM
+    if t == T_OBJECT || t == T_BIGNUM || t == T_RATIONAL || t == T_COMPLEX
       Machine.ptr(RObject[v].iv)
     elsif t == T_CLASS || t == T_MODULE
       Machine.ptr(ClassExt[RClass[v].ext].iv)
@@ -103,12 +103,29 @@ module Zr::Kern
     IvTab[t].rows == t + IvTab.size
   end
 
+  # The types whose cells have a plain object's layout, with its ivar
+  # table: an object, and the T_BIGNUM, T_RATIONAL and T_COMPLEX that the
+  # core makes of one, so that C reads ruby's type (RB_TYPE_P).
+  #: (word) -> bool
+  def zr_object_shaped_p(t)
+    t == T_OBJECT || t == T_BIGNUM || t == T_RATIONAL || t == T_COMPLEX
+  end
+
+  # Gives `obj`, made as a plain object, the type `t` (T_RATIONAL,
+  # T_COMPLEX), which keeps a plain object's layout.
+  #: (value, value) -> value
+  def zr_retype_m(obj, t)
+    RBasic[obj].flags = (RBasic[obj].flags & (0 - T_MASK - 1)) | zr_fix2long(t)
+    obj
+  end
+
   # Returns the object whose cell contains `t`'s ivar entries, or nil when
-  # they are on the heap. Only a T_OBJECT keeps its entries in its own
-  # cell, so only a T_OBJECT can return non-nil.
+  # they are on the heap. Only a cell with a plain object's layout keeps
+  # its entries in itself (zr_object_shaped_p), so only one can return
+  # non-nil.
   #: (value) -> value
   def zr_ivtab_owner(obj)
-    if !zr_special_p(obj) && ((RBasic[obj].flags & T_MASK) == T_OBJECT || (RBasic[obj].flags & T_MASK) == T_BIGNUM)
+    if !zr_special_p(obj) && zr_object_shaped_p(RBasic[obj].flags & T_MASK)
       return obj
     end
     Machine.value(QNIL)

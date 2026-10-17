@@ -360,7 +360,7 @@ module Zr::Kern
     elsif t == T_HASH
       # A copy can fill a Hash without zr_hash_append, so the size counts too.
       bits = bits | ((RBasic[v].flags & FL_HASH_ST) == 0 && RHash[v].live <= HASH_AR_MAX ? DUMP_AR_TABLE : 0)
-    elsif t == T_OBJECT || t == T_BIGNUM
+    elsif t == T_OBJECT || t == T_BIGNUM || t == T_RATIONAL || t == T_COMPLEX
       bits = bits | (zr_ivtab_embedded_p(Machine.ptr(RObject[v].iv)) ? DUMP_EMBEDDED : 0)
     end
     zr_fix(bits)

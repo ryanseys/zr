@@ -281,6 +281,12 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes("Data"), 4)
     elsif t == T_FILE
       zr_buf_push(b, Machine.bytes("File"), 4)
+    elsif t == T_RATIONAL
+      zr_buf_push(b, Machine.bytes("Rational"), 8)
+    elsif t == T_COMPLEX
+      zr_buf_push(b, Machine.bytes("Complex"), 7)
+    elsif t == T_MATCH
+      zr_buf_push(b, Machine.bytes("MatchData"), 9)
     elsif t == T_SYMBOL
       zr_buf_push(b, Machine.bytes("Symbol"), 6)
     elsif t == T_NIL

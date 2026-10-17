@@ -14,7 +14,8 @@ class Complex < Numeric
 
     def build(real, imag)
       Primitive.attr! :hidden
-      c = Primitive.zr_class_build(self)
+      # T_COMPLEX, which C reads (RB_TYPE_P).
+      c = Primitive.zr_retype_m(Primitive.zr_class_build(self), 14)
       Primitive.zr_hidden_set(c, :__real__, real)
       Primitive.zr_hidden_set(c, :__imag__, imag)
       c.freeze

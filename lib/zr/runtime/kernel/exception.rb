@@ -296,7 +296,7 @@ end
       return true
     end
     me = Frame[rec].self
-    !zr_special_p(me) && zr_type(me) == T_OBJECT && me != Frame[helper].self
+    !zr_special_p(me) && (zr_type(me) == T_OBJECT || zr_type(me) == T_RATIONAL || zr_type(me) == T_COMPLEX) && me != Frame[helper].self
   end
 
   # Whether `rec` runs a helper: a hidden def, or a block written in one.

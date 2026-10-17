@@ -28,7 +28,7 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_copy_payload(copy, orig)
     t = zr_type(orig)
-    if t == T_OBJECT
+    if t == T_OBJECT || t == T_RATIONAL || t == T_COMPLEX
       # The copy has the cell's bytes, including the ivar entries pointer.
       zr_obj_ivtab_init(copy)
       zr_ivtab_copy(Machine.ptr(RObject[copy].iv), Machine.ptr(RObject[orig].iv), copy)

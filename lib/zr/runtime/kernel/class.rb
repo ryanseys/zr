@@ -3510,7 +3510,7 @@ end
   #: (value) -> void
   def zr_mark_children(v)
     t = RBasic[v].flags & T_MASK
-    if t == T_OBJECT || t == T_BIGNUM
+    if t == T_OBJECT || t == T_BIGNUM || t == T_RATIONAL || t == T_COMPLEX
       zr_mark_ivtab(Machine.ptr(RObject[v].iv))
     elsif t == T_ARRAY
       zr_mark_ary(v)
@@ -3584,7 +3584,7 @@ end
   #: (value) -> void
   def zr_release(v)
     t = RBasic[v].flags & T_MASK
-    if t == T_OBJECT || t == T_BIGNUM
+    if t == T_OBJECT || t == T_BIGNUM || t == T_RATIONAL || t == T_COMPLEX
       zr_release_ivtab(Machine.ptr(RObject[v].iv))
     elsif t == T_STRING
       zr_str_buf_free(v)

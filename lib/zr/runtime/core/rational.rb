@@ -18,7 +18,8 @@ class Rational < Numeric
       end
       g = n.gcd(d)
       g = 1 if g == 0
-      r = Primitive.zr_class_build(self)
+      # T_RATIONAL, which C reads (RB_TYPE_P) as date's and bigdecimal's do.
+      r = Primitive.zr_retype_m(Primitive.zr_class_build(self), 15)
       Primitive.zr_hidden_set(r, :__num__, n / g)
       Primitive.zr_hidden_set(r, :__den__, d / g)
       r.freeze
