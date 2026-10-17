@@ -18,9 +18,10 @@ class TraceNamesTest < Minitest::Test
     refute traces?("=begin\nCoverage\n=end\np 1\n")
   end
 
+  # A literal string that an eval form compiles is code too.
   def test_code_that_refers_to_tracing_enables_it
     ["TracePoint.new(:line) { }.enable", "::TracePoint", "set_trace_func(proc { })",
-     "add_trace_func(proc { })", "Coverage.start"].each do |source|
+     "add_trace_func(proc { })", "Coverage.start", %(eval("TracePoint.new(:call) { }"))].each do |source|
       assert traces?("#{source}\n"), source
     end
   end
@@ -31,7 +32,7 @@ class TraceNamesTest < Minitest::Test
   def test_a_name_in_a_string_or_a_symbol_does_not_arm_it
     refute traces?(%(Object.const_get("TracePoint")\n))
     refute traces?(%(send(:set_trace_func, proc { })\n))
-    refute traces?(%(eval("TracePoint.new(:call) { }")\n))
+    refute traces?(%(eval("Trace" + "Point.new(:call) { }")\n))
     refute traces?(%(NAMES = %i[TracePoint Coverage].freeze\n))
   end
 
