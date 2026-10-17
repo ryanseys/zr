@@ -1279,13 +1279,15 @@ class IO
   end
 
   # rb_stdio_set_default_encoding: as the program starts, the standard
-  # streams take the default encodings that the command line set. With no
-  # internal one they stay as they are: a stream that writes keeps none.
+  # streams take the default encodings that the command line set, as
+  # `set_encoding(nil)` gives them: a stream that reads takes the
+  # defaults, and one that writes keeps none. With no internal one they
+  # stay as they are.
   def self.stdio_encodings
     Primitive.attr! :hidden
-    internal = Encoding.default_internal or return
-    external = Encoding.default_external
-    [STDIN, STDOUT, STDERR].each { |io| io.set_encoding(external, internal == external ? nil : internal) }
+    return unless Encoding.default_internal
+
+    [STDIN, STDOUT, STDERR].each { |io| io.set_encoding(nil) }
     nil
   end
 
