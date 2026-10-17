@@ -1,0 +1,44 @@
+TestIRB::TestCase::TestIRB::InputMethodTest::TestIRB::DisplayDocumentTest#test_perfectly_matched_namespace_triggers_document_display	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::BacktraceFilteringTest#test_backtrace_filtering	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::BacktraceFilteringTest#test_backtrace_filtering_with_backtrace_filter	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::CDTest#test_cd_basic_object_or_frozen	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::ContextModeTest#test_context_mode_ruby_box	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::CustomCommandIntegrationTest#test_arguments_propagation	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::CustomCommandIntegrationTest#test_command_name_local_variable	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::CustomCommandIntegrationTest#test_command_registration_accepts_string_too	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::CustomCommandIntegrationTest#test_no_meta_command_also_works	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_backtrace	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_break	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_catch	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_continue	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_debug	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_debug_class_to_s_return_nil	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_debug_command_only_runs_once	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_delete	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_exit	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_finish	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_force_exit	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_help_command_is_delegated_to_the_debugger	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_help_display_different_content_when_debugger_is_enabled	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_info	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_input_is_evaluated_in_the_context_of_the_current_thread	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_irb_command_can_check_local_variables	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_irb_commands_are_available_after_moving_around_with_the_debugger	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_irb_passes_empty_input_to_debugger_to_repeat_the_last_command	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_irb_switches_debugger_interface_if_debug_was_already_activated	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_long_stepping	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_multi_irb_commands_are_not_available_after_activating_the_debugger	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_next	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_prompt_irb_name_is_kept	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_prompt_line_number_continues	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_quit	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::DebuggerIntegrationTest#test_step	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::HelperMethodIntegrationTest#test_arguments_propogation	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::HelperMethodIntegrationTest#test_helper_method_instances_are_memoized	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::IRBHistoryIntegrationTest#test_direct_debug_session_loads_history	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::IRBHistoryIntegrationTest#test_history_saving_with_debug	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::IRBHistoryIntegrationTest#test_history_saving_with_debug_without_prior_history	debug: after a debugger command, the zr child prints nothing more
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::ShowSourceTest#test_show_source_keep_script_lines	fail
+TestIRB::TestCase::TestIRB::IntegrationTestCase::TestIRB::ShowSourceTest#test_show_source_shows_binary_source	fail
+TestIRB::TestCase::TestIRB::RubyLexTest#test_initialising_the_old_top_level_ruby_lex	fail
+TestIRB::TestCase::TestIRB::WorkSpaceTest#test_toplevel_binding_local_variables	fail

@@ -1,0 +1,1 @@
+TestMinitestRunner#test_run_parallel	fail
