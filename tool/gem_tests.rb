@@ -58,6 +58,11 @@ module Zr
         # test that starts zr builds a program first, and prints nothing.
         IDLE = 300
 
+        # The scale of the time limits of the rubies a test starts
+        # (EnvUtil.apply_timeout_scale), as `zr-dev cruby-test` gives it:
+        # in zr, each one builds its program first.
+        TIMEOUT_SCALE = "10"
+
         # The form of ruby's kept runs, and of the environment they ran in.
         VERSION = 2
 
@@ -194,11 +199,11 @@ module Zr
 
           # The environment of a run: no bundler of the tools' own, the
           # load paths of prism, no coverage (CRuby's runner sets the
-          # same), and, in zr's, its cache.
+          # same), and, in zr's, its cache and the scaled time limits.
           def env(tmp, zr:)
             base = ChildRuby::UNBUNDLED.merge("RUBYLIB" => @rubylib, "SIMPLECOV_DISABLE" => "1", "TMPDIR" => tmp,
                                               "RUBY" => zr ? Suite.zr_ruby : Dev.ruby)
-            zr ? base.merge(Suite.zr_env) : base
+            zr ? base.merge(Suite.zr_env, "RUBY_TEST_TIMEOUT_SCALE" => TIMEOUT_SCALE) : base
           end
 
           # The report of the gem, `log/gem-tests/<gem>.txt`: each test that
