@@ -127,7 +127,7 @@ module Zr
         SourceGuard.check!
         objects = objects_of(program)
         form = if kept.end_with?(".wasm") then bytes
-               elsif program.runtime.target.object_format == :macho && Native::Build.prelink_path(objects) then sparse(bytes, objects)
+               elsif program.runtime.target.object_format == :macho && Native::Build.prelink_path(objects) then sparse(bytes, objects) || whole(bytes)
                else whole(bytes)
                end
         Zr::Paths.write_atomic(kept, form)
@@ -174,9 +174,14 @@ module Zr
       # image. The form is a head (binary size, objects, holes), then the
       # deflated bytes between the holes. At the fastest level, machine
       # code deflates to half its size at 10 ms per MB. Inflate takes a
-      # third of that time.
+      # third of that time. Returns nil when zr's linker refuses the
+      # objects: cc linked the binary then, so no part of it is the base.
       def sparse(bytes, objects)
-        base = Native::Build.prelink(objects)
+        base = begin
+          Native::Build.prelink(objects)
+        rescue Obj::MachO::Refused
+          return nil
+        end
         holes = cuts(bytes, base).select { |at, size, name| bytes[at, size] == filling(base, name) }
         head = Marshal.dump({ size: bytes.bytesize, objects: objects.map { |o| File.basename(o, ".o") }, holes: holes })
         body = +"".b
