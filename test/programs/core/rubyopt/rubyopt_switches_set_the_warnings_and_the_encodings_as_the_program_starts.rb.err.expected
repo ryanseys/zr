@@ -1,0 +1,3 @@
+core/rubyopt/rubyopt_switches_set_the_warnings_and_the_encodings_as_the_program_starts.rb:10:in 'Object#c': deep (RuntimeError)
+	from core/rubyopt/rubyopt_switches_set_the_warnings_and_the_encodings_as_the_program_starts.rb:9:in 'Object#b'
+	 ... 2 levels...

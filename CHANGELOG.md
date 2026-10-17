@@ -145,5 +145,7 @@ The first public release.
 - A program's own `Kernel#require` (bootsnap's, zeitwerk's, a test's
   stand-in through `define_method`) hears each literal `require`, also
   of a file that the build compiled in.
+- A binary reads RUBYOPT as it starts: `-d`, `-w`, `-W`, `-v`, `-E`, `-U`
+  and `--backtrace-limit`, before the switches of its build.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

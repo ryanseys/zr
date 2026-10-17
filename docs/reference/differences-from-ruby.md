@@ -87,7 +87,7 @@ These give other output than ruby's:
 | `-v`, `--version` | zr's version, `zr 0.1.0 (for ruby <version>)` | `RUBY_DESCRIPTION` |
 | `-h`, `--help` | zr's usage: short for `-h`, long for `--help` | ruby's list of switches: short for `-h`, long for `--help` |
 | `--disable=did_you_mean`, `error_highlight`, `syntax_suggest` | no effect: every program loads them as it starts | the program starts without them |
-| `RUBYOPT` | not read: zr's own ruby reads it | its switches come after the command line's |
+| `RUBYOPT` of a binary that runs alone | only `-d`, `-w`, `-W`, `-v`, `-E`, `-U`, `--verbose`, `--debug`, `--encoding` and `--backtrace-limit`, as the program starts (lib/zr/runtime/core/rubyopt.rb); `-I`, `-r`, `-K`, `--enable` and `--disable` belong to the build, so `zr build` takes them from its own RUBYOPT | every switch that RUBYOPT can give, after the command line's |
 | `-d` | the program's own exceptions | also the `LoadError`s that rubygems' boot rescues, because ruby loads rubygems before every program and zr only before one that uses it |
 | `-r` of a library that no directory has | the `LoadError` comes from the prelude that runs the switches | the `LoadError` comes from `Kernel#require` in rubygems |
 | `$-i` and `ARGF.inplace_mode` | two values: `-i` sets both, and an assignment sets only its own | one value |

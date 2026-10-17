@@ -41,7 +41,8 @@ module Zr
       def program_env
         lost = @lost_cwd # rubocop:disable ThreadSafety/ClassInstanceVariable
         Dir.fchdir(lost.fileno) if lost
-        env = GcTuning.program_env
+        # zr read RUBYOPT as it built the program (lib/zr/runtime/core/rubyopt.rb).
+        env = GcTuning.program_env.merge("ZR_RUBYOPT_READ" => "1")
         launcher = $PROGRAM_NAME
         name = File.basename(launcher)
         return env unless %w[zr ruby].include?(name) && File.file?(launcher)

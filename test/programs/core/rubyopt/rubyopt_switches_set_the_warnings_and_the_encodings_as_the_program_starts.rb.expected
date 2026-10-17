@@ -1,0 +1,9 @@
+true
+false
+true
+false
+true
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+nil
+"-w -W:no-experimental W:performance -Eascii-8bit:utf-8 --backtrace-limit=1"

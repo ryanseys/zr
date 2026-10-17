@@ -39,7 +39,7 @@ module Zr
       os/file_constants file argf data os/clock_constants gc random thread builtin_lines trace_point
       monitor time set ractor marshal pack
     ] + ONIG_NAMES + %w[
-      regexp_pattern regexp pathname rational complex objectspace rubyvm yarv_insns box aliases
+      regexp_pattern regexp pathname rational complex objectspace rubyvm yarv_insns box rubyopt aliases
     ]).freeze
 
     # The compiler files that no runtime object can depend on: the command
