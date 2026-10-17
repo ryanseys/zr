@@ -45,10 +45,15 @@ module Zr::Kern
 
   TYPED_DATA_EMBEDDED = 1
   # DataType#flags: RUBY_TYPED_FREE_IMMEDIATELY, RUBY_TYPED_EMBEDDABLE,
+  # RUBY_TYPED_THREAD_SAFE_FREE (ruby 4.1: a dfree that any thread may
+  # run, which implies RUBY_TYPED_FREE_IMMEDIATELY),
   # RUBY_TYPED_WB_PROTECTED (RUBY_FL_WB_PROTECTED) and
   # RUBY_TYPED_DECL_MARKING (RUBY_FL_USER2).
   TYPED_FREE_IMMEDIATELY = 1
   TYPED_EMBEDDABLE = 2
+  TYPED_THREAD_SAFE_FREE = 4
+  # The flags with which dfree runs as the collector sweeps the object.
+  TYPED_FREES_NOW = 5
   TYPED_WB_PROTECTED = 1 << 5
   TYPED_DECL_MARKING = 1 << 14
   # RUBY_DEFAULT_FREE, a free function that is ruby_xfree, and
@@ -117,7 +122,7 @@ module Zr::Kern
     type = zr_data_type(v)
     free = DataType[type].dfree
     embedded = (RTypedData[v].type & TYPED_DATA_EMBEDDED) != 0
-    now = (DataType[type].flags & TYPED_FREE_IMMEDIATELY) != 0
+    now = (DataType[type].flags & TYPED_FREES_NOW) != 0
     # An embeddable type that did not fit in the cell owns its malloc'd
     # struct too.
     owned = (DataType[type].flags & TYPED_EMBEDDABLE) != 0 && !embedded

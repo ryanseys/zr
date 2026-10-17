@@ -22,7 +22,7 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
     flags = DataType[type].flags
-    if (flags & TYPED_EMBEDDABLE) != 0 && (flags & TYPED_FREE_IMMEDIATELY) == 0
+    if (flags & TYPED_EMBEDDABLE) != 0 && (flags & TYPED_FREES_NOW) == 0
       zr_c_raise(zr_global(G_TYPE_ERROR), Machine.bytes("Embeddable TypedData must be freed immediately"), 46)
     end
     v = zr_capi_typed_data(klass, Machine.ptr(0), type)

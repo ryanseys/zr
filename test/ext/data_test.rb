@@ -148,6 +148,33 @@ class CExtDataTest < Minitest::Test
       rb_define_alloc_func(mod, box_alloc);
       return Qnil;
     }
+/* A slot keeps its struct in the object's cell when it fits, and its
+   dfree is one that any thread may run, as json 3's parser declares
+   (ruby 4.1's RUBY_TYPED_THREAD_SAFE_FREE implies free-immediately). */
+struct slot { VALUE held; long n; };
+static void slot_mark(void *p) { rb_gc_mark(((struct slot *)p)->held); }
+static const rb_data_type_t slot_type = {
+  "slot", { slot_mark, RUBY_TYPED_DEFAULT_FREE, 0, }, 0, 0,
+  RUBY_TYPED_THREAD_SAFE_FREE | RUBY_TYPED_WB_PROTECTED | RUBY_TYPED_EMBEDDABLE
+};
+static VALUE slot_alloc(VALUE klass) {
+  struct slot *s;
+  VALUE obj = TypedData_Make_Struct(klass, struct slot, &slot_type, s);
+  s->held = Qnil;
+  return obj;
+}
+static VALUE slot_set(VALUE self, VALUE v) {
+  struct slot *s;
+  TypedData_Get_Struct(self, struct slot, &slot_type, s);
+  RB_OBJ_WRITE(self, &s->held, v);
+  s->n++;
+  return self;
+}
+static VALUE slot_get(VALUE self) {
+  struct slot *s;
+  TypedData_Get_Struct(self, struct slot, &slot_type, s);
+  return rb_ary_new_from_args(2, s->held, LONG2NUM(s->n));
+}
     static VALUE is_box(VALUE self, VALUE obj) { return rb_typeddata_is_kind_of(obj, &box_type) ? Qtrue : Qfalse; }
 
     void Init_store(void) {
@@ -168,6 +195,10 @@ class CExtDataTest < Minitest::Test
       rb_define_method(pair, "right", pair_right, 0);
       VALUE loud = rb_define_class_under(m, "Loud", rb_cObject);
       rb_define_alloc_func(loud, loud_alloc);
+      VALUE slot = rb_define_class_under(m, "Slot", rb_cObject);
+      rb_define_alloc_func(slot, slot_alloc);
+      rb_define_method(slot, "set", slot_set, 1);
+      rb_define_method(slot, "get", slot_get, 0);
       rb_define_module_function(m, "legacy", legacy_new, 1);
       rb_define_module_function(m, "legacy_get", legacy_get, 1);
       rb_define_module_function(m, "registered", get_registered, 0);
@@ -206,6 +237,18 @@ class CExtDataTest < Minitest::Test
       assert_equal [shown.(ruby.stdout), ruby.status], [shown.(zr.stdout), zr.status],
                    "zr's output differs from ruby's under #{env}\nzr stderr:\n#{zr.stderr}"
     end
+  end
+
+  def test_an_embeddable_struct_with_a_thread_safe_free_is_made_and_freed
+    assert_same_as_ruby(<<~RUBY)
+      require "store"
+      slots = Array.new(50) { |i| Store::Slot.new.set("slot \#{i}" * 2) }
+      GC.start
+      p slots.first.get, slots.last.get, slots.size
+      200.times { Store::Slot.new.set(+"garbage") }
+      GC.start
+      p slots[25].set(:again).get
+    RUBY
   end
 
   def test_a_struct_keeps_the_values_that_its_mark_function_marks
