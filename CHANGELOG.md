@@ -29,8 +29,8 @@ The first public release.
 - zr's own code has no C. prism 1.9.0 parses through a Ruby port of its C; zlib is
   a port of zlib 1.3.1; `Regexp` is a port of Onigmo, CRuby's
   engine; json, psych (with libyaml), openssl, socket, digest, date,
-  stringio, strscan, bigdecimal, nkf, ffi and others have Ruby ports of
-  their C halves. `require "openssl"` in a macOS binary opens the
+  stringio, strscan, bigdecimal, nkf, ffi, rbs and others have Ruby ports
+  of their C halves, so rdoc, typeprof and repl_type_completor run too. `require "openssl"` in a macOS binary opens the
   host's OpenSSL 3 when it runs.
 - A program can require all of ruby's library, and a pure-Ruby
   gem through a literal `$LOAD_PATH`. A program that evals, or requires
