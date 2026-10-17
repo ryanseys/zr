@@ -114,6 +114,32 @@ module Zr::Kern
     id < 0 ? Machine.value(QNIL) : zr_sym(id)
   end
 
+  # rb_check_id: the ID of the name at `*namep`, a Symbol or a String
+  # (or what `to_str` gives, which goes back to `*namep`), when a Symbol
+  # of it exists, else 0: it makes none. Any other value is a TypeError.
+  #: (ptr) -> word
+  def rb_check_id(namep)
+    Machine.gates_enter
+    zr_c_entered()
+    name = Machine.value(Machine.load64(namep, 0))
+    if zr_symbol_p(name)
+      return zr_capi_id(zr_sym2id(name))
+    end
+    str = zr_capi_check_convert(name, T_STRING, Machine.bytes("String"), 6, Machine.id(:to_str))
+    if str == QNIL
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_str(b, zr_c_result(zr_inspect(name)))
+      zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
+      zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+    end
+    Machine.store64(namep, 0, Machine.word(str))
+    index = zr_str_encoding_index(str)
+    tag = zr_bytes_ascii_only_p(RString[str].ptr, RString[str].len) ? 0 : (index < 2 ? 1 - index : index)
+    id = zr_symbol_index_find(RString[str].ptr, RString[str].len, tag)
+    id < 0 ? 0 : zr_capi_id(id)
+  end
+
   # rb_to_id: the ID of a Symbol, or of a String (or what `to_str`
   # gives), which it interns; any other value is a TypeError.
   #: (value) -> word

@@ -801,6 +801,82 @@ class Encoding
       found && Encoding.find(found)
     end
 
+    # rb_econv_result_t: the results of rb_econv_convert, in C's order.
+    C_RESULTS = %i[invalid_byte_sequence undefined_conversion destination_buffer_full source_buffer_empty
+                   finished after_output incomplete_input].freeze
+    private_constant :C_RESULTS
+
+    # rb_econv_prepare_opts for C (the C API): the flag word of `options`
+    # and the options that a converter keeps, the replacement as a frozen
+    # String, or nil when there is none.
+    def self.c_prepare(options)
+      Primitive.attr! :hidden
+      return [0, nil] if options.nil?
+
+      replace = options[:replace]
+      [flags_of(options), replace.nil? ? nil : { replace: String.new(Primitive.zr_str_operand(replace)).freeze }.freeze]
+    end
+
+    # rb_econv_open_opts for C: a converter from `source` to `target`, or
+    # nil where no conversion joins them.
+    def self.c_open(source, target, flags, options)
+      Primitive.attr! :hidden
+      converter = new(source, target, flags)
+      converter.replacement = options[:replace] if options && !options[:replace].nil?
+      converter
+    rescue ConverterNotFoundError
+      nil
+    end
+
+    # rb_econv_convert for C: converts `input` (nil for no more input) into
+    # at most `room` bytes, and gives the index of the result in C's enum,
+    # the count of input bytes it took, and the bytes it wrote.
+    def self.c_convert(converter, input, room, flags)
+      Primitive.attr! :hidden
+      source = input&.dup
+      out = String.new(capacity: room)
+      result = converter.primitive_convert(source, out, nil, room, flags)
+      [C_RESULTS.index(result), input ? input.bytesize - source.bytesize : 0, out]
+    end
+
+    # rb_econv_check_error for C: raises the error of the last conversion.
+    def self.c_check_error(converter)
+      Primitive.attr! :hidden
+      error = converter.last_error
+      raise error if error
+
+      nil
+    end
+
+    # rb_econv_str_convert for C: the whole of `str`, converted, as binary
+    # bytes, which the caller gives its encoding.
+    def self.c_str_convert(converter, str, flags)
+      Primitive.attr! :hidden
+      out = String.new
+      converter.primitive_convert(str.dup, out, nil, nil, flags)
+      out.force_encoding(Encoding::BINARY)
+    end
+
+    # rb_str_conv_enc_opts for C: `str` from `from` to `to`; `str` itself
+    # where there is nothing to convert or the conversion fails, and a
+    # copy that only changes its encoding where its bytes are ASCII.
+    def self.c_str_conv(str, from, to, flags, options)
+      Primitive.attr! :hidden
+      return str if to.nil?
+
+      from ||= str.encoding
+      return str if from.equal?(to)
+
+      if (to.ascii_compatible? && str.dup.force_encoding(from).ascii_only?) || Encoding::BINARY.equal?(to)
+        return str.encoding.equal?(to) ? str : str.dup.force_encoding(to)
+      end
+      converter = c_open(from.name, to.name, flags, options) or return str
+      out = String.new
+      converter.primitive_convert(str.b, out, nil, nil, 0) == :finished ? out.force_encoding(to) : str
+    rescue ArgumentError
+      str
+    end
+
     def initialize(*args, **options)
       raise TypeError, +"already initialized" if defined?(@steps)
 

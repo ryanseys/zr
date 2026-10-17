@@ -343,6 +343,47 @@ class IO
     [options.fetch(:mode, mode), File.send(:open_flags, text), fmode, *encodings]
   end
 
+  # rb_io_extract_encoding_option for C: nil when `options` names no
+  # encoding, else the two encodings that rb_io_ext_int_to_encs makes:
+  # the internal and the external one when they differ, else the
+  # external one alone, where nil is none. A nil :external_encoding
+  # names none, and a nil or "-" :internal_encoding asks for none.
+  def self.c_encoding_option(options)
+    Primitive.attr! :hidden
+    return nil if options.nil?
+
+    encoding = options[:encoding]
+    external_given = !options[:external_encoding].nil?
+    internal_given = options.key?(:internal_encoding)
+    if (external_given || internal_given) && !encoding.nil?
+      used = external_given ? "external_encoding" : "internal_encoding"
+      warn("Ignoring encoding parameter '#{encoding}': #{used} is used", uplevel: 0) unless $VERBOSE.nil?
+      encoding = nil
+    end
+    external = Encoding.find(options[:external_encoding]) if external_given
+    if internal_given
+      value = options[:internal_encoding]
+      internal = value.nil? || String.try_convert(value) == "-" ? false : Encoding.find(value)
+      internal = false if internal.equal?(external)
+    end
+    if !encoding.nil?
+      if (name = String.try_convert(encoding))
+        external, internal, = mode_encodings(name)
+      else
+        external = Encoding.find(encoding)
+        internal = nil
+      end
+    elsif !external_given && !internal_given
+      return nil
+    end
+    default = external.nil?
+    external ||= Encoding.default_external
+    internal = Encoding::BINARY.equal?(external) ? nil : internal.nil? ? Encoding.default_internal : internal
+    return [default && !internal.equal?(external) ? nil : external, nil] if !internal || internal.equal?(external)
+
+    [internal, external]
+  end
+
   # parse_mode_enc: "ext", "ext:int" or "ext:-", split at the last colon.
   # A name that matches no encoding warns and leaves its slot at the
   # default, and `bom|` before a UTF encoding lets the bytes give it.
@@ -3612,6 +3653,13 @@ class IO
   def buffered_bytes(length)
     Primitive.attr! :hidden
     take(length.negative? ? @buffer.bytesize : [length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
+  end
+
+  # rb_io_read_pending for C (the C API): the count of bytes that the
+  # read buffer holds.
+  def c_read_pending
+    Primitive.attr! :hidden
+    @buffer ? @buffer.bytesize : 0
   end
 
   # One read(2) past the buffer, or a pread(2) at `offset`; nil at the end.

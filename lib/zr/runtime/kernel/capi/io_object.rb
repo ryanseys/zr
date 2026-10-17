@@ -209,6 +209,51 @@ module Zr::Kern
     zr_capi_io_send(io, Machine.id(:timeout))
   end
 
+  # rb_io_closed_p: IO#closed? of `io`.
+  #: (value) -> value
+  def rb_io_closed_p(io)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_io_send(io, Machine.id(:closed?))
+  end
+
+  # rb_io_get_write_io: the stream that writes for `io`. A duplex popen
+  # writes through the same IO in zr, so it is `io` itself.
+  #: (value) -> value
+  def rb_io_get_write_io(io)
+    Machine.gates_enter
+    zr_c_entered()
+    io
+  end
+
+  # rb_io_read_pending: the count of bytes in the read buffer of the
+  # stream of `fptr`.
+  #: (ptr) -> i32
+  def rb_io_read_pending(fptr)
+    Machine.gates_enter
+    zr_c_entered()
+    Machine.i32(zr_fix2long(zr_capi_io_send(zr_capi_fptr_io(fptr), Machine.id(:c_read_pending))))
+  end
+
+  # rb_io_extract_encoding_option: the encodings that the options give
+  # (:encoding, :external_encoding and :internal_encoding), into `*enc_p`
+  # and `*enc2_p` as rb_io_ext_int_to_encs makes them; 1 when the
+  # options name any, else 0 with the pointers as they were.
+  #: (value, ptr, ptr, ptr) -> i32
+  def rb_io_extract_encoding_option(opt, enc_p, enc2_p, fmode_p)
+    Machine.gates_enter
+    zr_c_entered()
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(opt))
+    r = zr_c_result(zr_send(zr_core_class(Machine.id(:IO)), Machine.id(:c_encoding_option), 1, arg))
+    if r == QNIL
+      return Machine.i32(0)
+    end
+    Machine.store64(enc_p, 0, Machine.word(zr_capi_enc_of(zr_ary_at(r, 0))))
+    Machine.store64(enc2_p, 0, Machine.word(zr_capi_enc_of(zr_ary_at(r, 1))))
+    Machine.i32(1)
+  end
+
   #: (value, word) -> value
   def zr_capi_io_send(io, mid)
     zr_c_result(zr_send(io, mid, 0, Machine.ptr(0)))

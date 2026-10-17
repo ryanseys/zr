@@ -385,6 +385,38 @@ module Zr::Kern
     zr_capi_new_instance(klass, Machine.sword(argc), argv, Machine.i32(Task[zr_task()].c_keywords))
   end
 
+  # rb_ext_resolve_symbol: the address of the C function `symbol` of the
+  # extension `fname`, or NULL. An extension embedded in the binary names
+  # its exports `zr_ext_sym_Init_<name>_<symbol>` (Obj::MachO::Relink),
+  # after the base name of its feature; a bundle that dlopen loaded has
+  # them under their own names.
+  #: (ptr, ptr) -> ptr
+  def rb_ext_resolve_symbol(fname, symbol)
+    Machine.gates_enter
+    zr_c_entered()
+    len = zr_cstr_len(fname)
+    start = len
+    while start > 0 && Machine.u8(Machine.load8(fname + start - 1, 0)) != 47
+      start -= 1
+    end
+    stop = start
+    while stop < len && Machine.u8(Machine.load8(fname + stop, 0)) != 46
+      stop += 1
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("zr_ext_sym_Init_"), 16)
+    zr_buf_push(b, fname + start, stop - start)
+    zr_buf_byte(b, 95)
+    zr_buf_push(b, symbol, zr_cstr_len(symbol))
+    at = zr_os_symbol(zr_str_new(Buf[b].ptr, Buf[b].len))
+    zr_buf_free(b)
+    if at == QNIL
+      at = zr_os_symbol(zr_str_new(symbol, zr_cstr_len(symbol)))
+    end
+    at == QNIL ? Machine.ptr(0) : Machine.ptr(zr_fix2long(at))
+  end
+
   # rb_require: `require feature`, Qtrue or Qfalse.
   #: (ptr) -> value
   def rb_require(feature)
@@ -585,6 +617,15 @@ module Zr::Kern
   # zr keeps it as it is, and returns it.
   #: (value) -> value
   def rb_obj_hide(obj)
+    Machine.gates_enter
+    zr_c_entered()
+    obj
+  end
+
+  # rb_obj_reveal: undoes rb_obj_hide, which zr leaves as a no-op, so
+  # `obj` already has its class.
+  #: (value, value) -> value
+  def rb_obj_reveal(obj, klass)
     Machine.gates_enter
     zr_c_entered()
     obj

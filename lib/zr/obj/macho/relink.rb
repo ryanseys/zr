@@ -101,16 +101,20 @@ module Zr
         # The names that the program's require of the extension reads
         # (`zr_ext_embedded`): its Init function, the start and the end of
         # its initializers' pointers and of their offsets, and the bundle's
-        # start, which the offsets count from.
+        # start, which the offsets count from. Each name that the bundle
+        # exports follows, after `_zr_ext_sym_<Init>_`, so that
+        # rb_ext_resolve_symbol finds a function of one extension that
+        # another calls (digest's rb_digest_wrap_metadata).
         #: () -> Hash[String, Integer]
         def symbols
           init = @image.exports.find { |e| e.name == "_#{@init}" } or raise Refused, "the bundle has no #{@init}"
           pointers = range(MOD_INIT_FUNC_POINTERS)
           offsets = range(INIT_FUNC_OFFSETS)
-          { "_zr_ext_#{@init}" => @vm + (init.address || 0),
-            "_zr_ext_inits_#{@init}" => pointers.begin, "_zr_ext_inits_end_#{@init}" => pointers.end,
-            "_zr_ext_offsets_#{@init}" => offsets.begin, "_zr_ext_offsets_end_#{@init}" => offsets.end,
-            "_zr_ext_base_#{@init}" => @vm + segments.first.vmaddr }
+          own = @image.exports.select(&:address).to_h { |e| ["_zr_ext_sym_#{@init}_#{e.name.delete_prefix("_")}", @vm + e.address.to_i] }
+          own.merge("_zr_ext_#{@init}" => @vm + (init.address || 0),
+                    "_zr_ext_inits_#{@init}" => pointers.begin, "_zr_ext_inits_end_#{@init}" => pointers.end,
+                    "_zr_ext_offsets_#{@init}" => offsets.begin, "_zr_ext_offsets_end_#{@init}" => offsets.end,
+                    "_zr_ext_base_#{@init}" => @vm + segments.first.vmaddr)
         end
 
         # The slots that the executable fills, with each bind's import and

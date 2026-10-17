@@ -82,6 +82,20 @@ module Zr::Kern
     zr_c_result(zr_send(recv, zr_capi_mid(mid), Machine.sword(argc), argv))
   end
 
+  # rb_check_funcall: `recv.mid(*argv)` when `recv` responds to `mid`
+  # (as a conversion asks, respond_to? and respond_to_missing? included),
+  # else Qundef, with no call.
+  #: (value, word, i32, ptr) -> value
+  def rb_check_funcall(recv, mid, argc, argv)
+    Machine.gates_enter
+    zr_c_entered()
+    m = zr_capi_mid(mid)
+    if zr_c_result(zr_check_funcall(recv, m)) != QTRUE
+      return Machine.value(QUNDEF)
+    end
+    zr_c_result(zr_send(recv, m, Machine.sword(argc), argv))
+  end
+
   # rb_funcallv_public: the same, for a public method only, as a call
   # with an explicit receiver.
   #: (value, word, i32, ptr) -> value

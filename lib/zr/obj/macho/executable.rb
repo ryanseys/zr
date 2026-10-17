@@ -568,7 +568,7 @@ module Zr
           @link_vm = Bytes.align(@segments.map { |s| s.vm + s.vmsize }.max, PAGE)
           fixups = chained_fixups
           trie = exports_trie
-          words, strings, names = @top.symbols(@ordinals, @base.strings.bytesize)
+          words, strings, names = with_embed_exports(*@top.symbols(@ordinals, @base.strings.bytesize))
           symbols = merged_symbols(words, names)
           strings = @base.strings + strings
           strings = "\0".b if strings.empty?
@@ -592,6 +592,28 @@ module Zr
           out << symbols << strings
           Bytes.pad(out, @sig_at - @link_at)
           @linkedit = out
+        end
+
+        # An absolute symbol (`n_type` N_ABS): its address is in no section.
+        N_ABS = 0x2
+
+        # The program's symbol table entries (`Block#symbols`), with the
+        # exports of each embedded C extension (`_zr_ext_sym_<Init>_<name>`,
+        # Relink#symbols) among them as absolute symbols, still sorted by
+        # name: rb_ext_resolve_symbol finds them at run time.
+        #: (Array[Integer?] words, String strings, Array[String] names) -> [Array[Integer?], String, Array[String]]
+        def with_embed_exports(words, strings, names)
+          exports = @embed_symbols.select { |name, _| name.start_with?("_zr_ext_sym_") }
+          return [words, strings, names] if exports.empty?
+
+          rows = names.each_with_index.map { |name, i| [name, words[2 * i], words[(2 * i) + 1]] }
+          strings = strings.dup
+          exports.each do |name, address|
+            rows << [name, (@base.strings.bytesize + strings.bytesize) | (N_ABS << 32), address]
+            strings << name << "\0"
+          end
+          rows.sort_by!(&:first)
+          [rows.flat_map { |_, strx, address| [strx, address] }, strings, rows.map(&:first)]
         end
 
         # Merges the program's symbol table entries into the base's. Both
