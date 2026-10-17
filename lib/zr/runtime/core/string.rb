@@ -2385,10 +2385,14 @@ class String
   # scrub (str_mod_check).
   def scrub(replacement = nil)
     raise ArgumentError, +"both of block and replacement given" if block_given? && !replacement.nil?
-    return copied if Primitive.zr_str_valid_p(self)
+    # enc_str_scrub returns early only for a coderange that a scan kept,
+    # and checks the replacement before it scans.
+    return copied if Primitive.zr_str_known_clean_p(self)
 
     encoding = Encoding.at(Primitive.zr_str_encoding_index_m(self))
     replacement = scrub_replacement(replacement, encoding) unless replacement.nil?
+    return copied if Primitive.zr_str_valid_p(self)
+
     # U+FFFD in UTF-8 itself and in UTF-16 and UTF-32; "?" in every other
     # encoding, UTF8-MAC and CESU-8 as well.
     if replacement.nil? && !block_given?
@@ -2501,6 +2505,9 @@ class String
     # enc_str_scrub checks the pair first. A valid String is then left
     # alone, frozen or not.
     raise ArgumentError, +"both of block and replacement given" if block && !replacement.nil?
+    return self if Primitive.zr_str_known_clean_p(self)
+
+    scrub_replacement(replacement, Encoding.at(Primitive.zr_str_encoding_index_m(self))) unless replacement.nil?
     return self if Primitive.zr_str_valid_p(self)
 
     mutate(OWN[:scrub].bind_call(self, replacement, &block))

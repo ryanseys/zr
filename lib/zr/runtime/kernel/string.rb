@@ -143,11 +143,20 @@ module Zr::Kern
   end
   inline :zr_str_known_ascii_p
 
+  # Whether a scan already found the bytes of `s` valid (ENC_CODERANGE_CLEAN_P
+  # of the kept coderange). It scans nothing itself.
+  #: (value) -> value
+  def zr_str_known_clean_p(s)
+    cr = RBasic[s].flags & FL_CR_MASK
+    zr_bool(cr == FL_CR_7BIT || cr == FL_CR_VALID)
+  end
+
   # Keeps `cr`, one of the FL_CR_ values, as the coderange of `s`.
   #: (value, word) -> void
   def zr_str_set_coderange(s, cr)
     RBasic[s].flags = (RBasic[s].flags & FL_CR_CLEAR) | cr
   end
+  inline :zr_str_set_coderange
 
   # Whether `s` did not change since MatchData.snapshot last copied it.
   #: (value) -> value
@@ -747,7 +756,20 @@ module Zr::Kern
     zr_buf_str(b, recv)
     zr_buf_str(b, other)
     index = zr_str_join_index(recv, other)
-    zr_str_set_index(zr_buf_take(b), index)
+    s = zr_str_set_index(zr_buf_take(b), index)
+    if zr_enc_ascii_compat_p(index)
+      zr_str_set_coderange(s, zr_str_coderange_and(RBasic[recv].flags & FL_CR_MASK, RBasic[other].flags & FL_CR_MASK))
+    end
+    s
+  end
+
+  # The coderange of two Strings joined, as ENC_CODERANGE_AND gives it.
+  #: (word, word) -> word
+  def zr_str_coderange_and(a, b)
+    return b if a == FL_CR_7BIT
+    return 0 if a != FL_CR_VALID
+
+    b == FL_CR_7BIT ? FL_CR_VALID : b
   end
 
   #: (value, word, ptr, value, value) -> value
@@ -2386,6 +2408,8 @@ G_FROZEN_LITERALS = 52
     if found != QUNDEF
       return found
     end
+    # CRuby scans the coderange of each String that it interns.
+    zr_str_valid_p(s)
     RBasic[s].flags = RBasic[s].flags | FL_FREEZE | FL_FSTR
     zr_hash_store(table, s, s)
     s

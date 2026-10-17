@@ -398,14 +398,32 @@ module Zr
         def symbol_address(name) = @f.symbol_value(@f.symbol(name, colocated: false))
 
         # A String literal, built by `fn` and tagged with the file's script
-        # encoding. UTF-8 is the usual encoding and needs no number.
+        # encoding. UTF-8 is the usual encoding and needs no number. A new
+        # String gets the coderange that CRuby's compiler scans its literal
+        # for; a shared one gets it as it is interned.
         #: (String text, String fn) -> String
         def string_literal(text, fn)
           bytes = @f.symbol_value(@f.symbol(@l.literal(text)))
           index = ENCODING_INDEX.fetch(text.encoding)
-          return kernel(fn, bytes, imm(text.bytesize)) if index == ENCODING_INDEX.fetch(::Encoding::UTF_8)
+          s = if index == ENCODING_INDEX.fetch(::Encoding::UTF_8) then kernel(fn, bytes, imm(text.bytesize))
+              else kernel("#{fn}_at", bytes, imm(text.bytesize), imm(index))
+              end
+          return s unless NEW_STRINGS.include?(fn)
 
-          kernel("#{fn}_at", bytes, imm(text.bytesize), imm(index))
+          kernel("zr_str_set_coderange", s, imm(@l.const(coderange(text))))
+          s
+        end
+
+        # The kernel functions that make a new String of a literal's bytes.
+        NEW_STRINGS = %w[zr_str_new zr_str_new_chilled].freeze #: Array[String]
+
+        # The name of the coderange that a scan of `text` keeps.
+        #: (String text) -> String
+        def coderange(text)
+          if text.ascii_only? && text.encoding.ascii_compatible? then "FL_CR_7BIT"
+          elsif text.valid_encoding? then "FL_CR_VALID"
+          else "FL_CR_BROKEN"
+          end
         end
 
         # A String literal under --debug=frozen-string-literal: the kernel

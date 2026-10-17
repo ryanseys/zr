@@ -1,0 +1,19 @@
+lit: "abc"
+inspect: TypeError
+inspect scanned: "[]"
+dup: "abc"
+plus: "ab"
+to_s: TypeError
+bang lit: "abc"
+bang inspect: TypeError
+sym: "ab"
+interp: TypeError
+nil: "[]"
+frozen valid bang: "[]"
+broken: TypeError
+broken ok: "a?"
+block: "a<ff>"
+plus mixed: "éb"
+plus scanned: "12b"
+plus broken: "a?b"
+uminus: "12"
