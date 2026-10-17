@@ -577,7 +577,24 @@ module Zr::Kern
   def rb_num_coerce_bin(x, y, id)
     Machine.gates_enter
     zr_c_entered()
+    # do_coerce with err: no coerce is coerce_failed's TypeError, and a
+    # coerce must give a pair.
+    if zr_c_result(zr_check_funcall(y, Machine.id(:coerce))) != QTRUE
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      if zr_special_p(y)
+        zr_buf_str(b, zr_c_result(zr_inspect(y)))
+      else
+        zr_buf_class(b, zr_real_class(y))
+      end
+      zr_buf_push(b, Machine.bytes(" can't be coerced into "), 23)
+      zr_buf_class(b, zr_real_class(x))
+      zr_c_result(zr_raise_buf(zr_global(G_TYPE_ERROR), b))
+    end
     pair = zr_capi_call1(y, Machine.id(:coerce), x)
+    if zr_special_p(pair) || zr_type(pair) != T_ARRAY || RArray[pair].len != 2
+      zr_c_result(zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("coerce must return [x, y]"), 25))
+    end
     zr_capi_call1(zr_ary_at(pair, 0), zr_capi_mid(id), zr_ary_at(pair, 1))
   end
 

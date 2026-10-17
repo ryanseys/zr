@@ -5,7 +5,8 @@ require "test_helper"
 require_relative "../support/c_ext"
 
 # The C API that the own C of bigdecimal, nkf and syslog calls:
-# rb_Rational, rb_complex_real/imag, rb_opts_exception_p, rb_f_sprintf
+# rb_Rational, rb_complex_real/imag, rb_opts_exception_p, rb_f_sprintf,
+# rb_num_coerce_bin's errors
 # and rb_define_dummy_encoding, each against ruby's answer.
 class CExtBundledGemsCApiTest < Minitest::Test
   SOURCE = <<~'C'
@@ -18,6 +19,7 @@ class CExtBundledGemsCApiTest < Minitest::Test
     static VALUE b_parts(VALUE self, VALUE z) { return rb_assoc_new(rb_complex_real(z), rb_complex_imag(z)); }
     static VALUE b_exception(VALUE self, VALUE opts) { return INT2FIX(rb_opts_exception_p(opts, 7)); }
     static VALUE b_sprintf(VALUE self, VALUE args) { return rb_f_sprintf((int)RARRAY_LEN(args), RARRAY_CONST_PTR(args)); }
+    static VALUE b_coerce(VALUE self, VALUE x, VALUE y) { return rb_num_coerce_bin(x, y, '+'); }
     static VALUE b_dummy(VALUE self, VALUE name) {
       int index = rb_define_dummy_encoding(StringValueCStr(name));
       return rb_enc_from_encoding(rb_enc_from_index(index));
@@ -30,6 +32,7 @@ class CExtBundledGemsCApiTest < Minitest::Test
       rb_define_module_function(m, "exception", b_exception, 1);
       rb_define_module_function(m, "sprintf", b_sprintf, 1);
       rb_define_module_function(m, "dummy", b_dummy, 1);
+      rb_define_module_function(m, "coerce", b_coerce, 2);
     }
   C
 
@@ -44,7 +47,16 @@ class CExtBundledGemsCApiTest < Minitest::Test
     p BundledCApi.sprintf(["%05.1f|%-3s|%x", 3.14159, "a", 255]), BundledCApi.sprintf(["plain"])
     e = BundledCApi.dummy("X-ZR-TEST")
     p e, e.dummy?, e.name, Encoding.find("X-ZR-TEST").equal?(e), Encoding.list.include?(e), "a".force_encoding(e).encoding
-    p((BundledCApi.dummy("UTF-8") rescue [$!.class, $!.message]))
+p((BundledCApi.dummy("UTF-8") rescue [$!.class, $!.message]))
+bad = Object.new
+def bad.coerce(_) = 1
+good = Object.new
+def good.coerce(x) = [x, 2]
+[["s"], [nil], [bad], [good], [2.5]].each do |(y)|
+  p BundledCApi.coerce(1, y)
+rescue TypeError => e
+  p [e.class, e.message]
+end
   RUBY
 
   def setup
