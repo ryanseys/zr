@@ -100,6 +100,14 @@ module Zr
       # The script that requires each of minitest's test files.
       MINITEST_RUN = 'Dir.glob("test/minitest/test_*.rb").sort.each { require "./#{it}" }'
 
+      # The files of rbs's stdlib_test task, as its bin/test_runner.rb loads
+      # them: its Ractor, Encoding and CGI-escape tests run apart, in a
+      # process of their own each, and the dbm and mutex_m ones are known
+      # not to load. The first argument is RBS_SKIP_TESTS.
+      RBS_RUN = 'ENV["RBS_SKIP_TESTS"] = ARGV.shift; ENV["SKIP_RBS_VALIDATION"] = "true"; ' \
+                'Dir.glob("test/stdlib/**/*_test.rb").reject { it.match?(/Ractor|Encoding|CGI-escape_test/) }.sort.each do |f| ' \
+                'begin; load f; rescue LoadError => e; raise unless e.message.match?(/-- (?:dbm|mutex_m)\z/); end; end'
+
       # The script that requires each of reline's test files, as its
       # Rakefile's UTF-8 task does.
       RELINE_RUN = 'RELINE_TEST_ENCODING = Encoding::UTF_8; Dir.glob("test/reline/test_*.rb").sort.each { require "./#{it}" }'
@@ -113,12 +121,12 @@ module Zr
       # tasks load each file as a feature, so a TESTOPTS of -v is a file
       # too. They run under UTF-8, one of the four encodings that its
       # Rakefile runs them under, because each run has the same names.
-      # rss's rake task runs its script with no TESTOPTS.
+      # rss's rake task runs its script with no TESTOPTS. rbs's Rakefile
+      # needs rake-compiler, so the files of its stdlib_test task load as
+      # its bin/test_runner.rb loads them.
       def self.argv(name, ruby:, rake:, rbs_skips: [])
         case name
-        when "rbs"
-          [ruby, rake, "stdlib_test", "validate", "RBS_SKIP_TESTS=#{rbs_skips.join(File::PATH_SEPARATOR)}",
-           "SKIP_RBS_VALIDATION=true", "TESTOPTS=-v"]
+        when "rbs" then [ruby, "-Ilib", "-e", RBS_RUN, "--", rbs_skips.join(File::PATH_SEPARATOR), "-v"]
         when "rexml" then [ruby, "test/run.rb", "--ignore-name=/linear_performance/", "-v"]
         when "test-unit" then [ruby, "test/run.rb", "-v"]
         when "csv" then [ruby, "run-test.rb", "-v"]

@@ -76,8 +76,8 @@ class GemTestsTest < Minitest::Test
   def test_rbs_runs_its_stdlib_tests_and_skips_the_files_of_the_list
     argv = GemTests.argv("rbs", ruby: "/r/ruby", rake: "/r/rake", rbs_skips: ["/a/skip", "/a/skip_win"])
 
-    assert_equal ["/r/ruby", "/r/rake", "stdlib_test", "validate", "RBS_SKIP_TESTS=/a/skip:/a/skip_win",
-                  "SKIP_RBS_VALIDATION=true", "TESTOPTS=-v"], argv
+    assert_equal ["/r/ruby", "-Ilib", "-e", GemTests::RBS_RUN, "--", "/a/skip:/a/skip_win", "-v"], argv
+    assert_includes GemTests::RBS_RUN, 'ENV["RBS_SKIP_TESTS"] = ARGV.shift'
   end
 
   def test_rexml_runs_its_script_without_the_performance_test
