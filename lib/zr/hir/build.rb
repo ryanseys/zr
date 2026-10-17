@@ -102,9 +102,10 @@ module Zr
       # @rbs def_base: Integer?
       # @rbs branch_base: Integer?
       # @rbs extensions: Loader::_Extensions
+      # @rbs aliases: (^(Symbol) -> Symbol?)?
       # @rbs return: Program
       def self.program(source, file, options = BuildOptions.new, roots: [], program: true, prebuilt: nil, line: 1, scopes: nil, method: nil,
-                       activations: nil, using: nil, def_base: nil, branch_base: nil, extensions: Loader::NoExtensions)
+                       activations: nil, using: nil, def_base: nil, branch_base: nil, extensions: Loader::NoExtensions, aliases: nil)
         target = options.target
         switches = options.switches
         # The main file's name came from the build's command line, in the
@@ -117,7 +118,7 @@ module Zr
           loader = Loader.new(roots + (options.gem_set&.roots || []) + Library::Roots.stdlib(target), options, eval: !program, external: external,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt,
                               description: Library::Roots.description(target), def_base: def_base || 0, branch_base: branch_base || 0,
-                              extensions: extensions)
+                              extensions: extensions, aliases: aliases)
           loader.main!(file)
           loader.eval_using = using
           # Built before the main file, so that the main file's requires
@@ -1675,6 +1676,11 @@ module Zr
         end
       end
 
+      # The hidden global that `alias $name $&` sets when it runs: the old
+      # name, as a Symbol.
+      #: (Symbol name) -> Symbol
+      def self.alias_record(name) = :"$%alias#{name}"
+
       # Every `alias $x $&` the file always runs, by identity.
       #: (Prism::node? node, ?Hash[Prism::node, bool]? out) -> Hash[Prism::node, bool]
       def self.certain_aliases(node, out = nil)
@@ -1946,9 +1952,13 @@ module Zr
           # that does not run (`if false; alias $x $&; end` leaves `$x`
           # nil). So a conditional alias sets its own flag when it runs,
           # and each use of the name reads the flag.
-          flag = certain_alias?(node) ? nil : :"$%alias#{node.new_name.name}"
-          @loader&.back_ref!(node.new_name.name, node.old_name, flag)
-          flag ? Seq.new([GvarWrite.new(flag, Literal.new(true, line), line, nil), Literal.new(nil, line)], line) : Literal.new(nil, line)
+          #
+          # Each alias that runs also leaves its old name in that global, so
+          # code that compiles later, at run time, resolves the new name too
+          # (Loader#back_ref): test-unit's files use English's $POSTMATCH.
+          record = Build.alias_record(node.new_name.name)
+          @loader&.back_ref!(node.new_name.name, node.old_name, (record unless certain_alias?(node)))
+          Seq.new([GvarWrite.new(record, Literal.new(node.old_name.slice.to_sym, line), line, nil), Literal.new(nil, line)], line)
         end
       end
 

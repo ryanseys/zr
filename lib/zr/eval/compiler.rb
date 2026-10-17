@@ -21,6 +21,7 @@ module Zr
       # @rbs @description: Machine::Description
       # @rbs @symbols: Machine::Symbols
       # @rbs @syscalls: Obj::JIT::_Syscalls
+      # @rbs @aliases: ^(Symbol) -> Symbol?
       # @rbs @count: Integer
       # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
       # @rbs @files: Hash[[String, String], [Integer, String?]]
@@ -46,6 +47,7 @@ module Zr
         @description = Machine::Description.parse(Machine::Description::KERNEL)
         @symbols = Machine::Symbols.new(runtime.symbol_names, sites: runtime.sites, intern: runtime.method(:intern))
         @syscalls = Obj::JIT::Runtime.new
+        @aliases = ->(name) { runtime.alias_of(name) }
         @count = 0
         @compiled = {}
         @files = {}
@@ -125,7 +127,7 @@ module Zr
           # eval's do (`compiled`): numbered from 0, they would take the
           # entries of the program and of eval support (prism's parser).
           hir = Hir.build(source, path, BuildOptions.new(trace: @runtime.tracing?), program: false, def_base: base, branch_base: branch_base,
-                                                                                    activations: @runtime.activations)
+                                                                                    activations: @runtime.activations, aliases: @aliases)
           @file_spots[path] = (hir.spots || {}).fetch(path, "")
           @runtime.take_activations(hir.activations)
           coverage&.send(:compiled_lines!, hir.coverable, hir.defs, false, hir.branches)
@@ -186,7 +188,8 @@ module Zr
           measured = coverage&.send(:measures_evals?)
           hir = Hir.build(source, file, BuildOptions.new(trace: @runtime.tracing?, switches: switches), program: false,
                           line: line.to_int, scopes: [*scopes.reverse, []], method: method, activations: @runtime.activations, using: using,
-                          def_base: (coverage.send(:next_def_site) if measured), branch_base: (coverage.send(:next_branch_id) if measured))
+                          def_base: (coverage.send(:next_def_site) if measured), branch_base: (coverage.send(:next_branch_id) if measured),
+                          aliases: @aliases)
         rescue Hir::Invalid, SyntaxError => e
           @compiled[key] = e.dup if reuse
           raise warned(e)

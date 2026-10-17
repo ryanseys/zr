@@ -20,6 +20,11 @@ module Zr
       #: () -> Integer
       def activations = Primitive.zr_activations_count
 
+      # The old name of `alias $name $&` once that alias has run
+      # (Hir::Build.alias_record), or nil.
+      #: (Symbol name) -> Symbol?
+      def alias_of(name) = Primitive.zr_gvar_get_m(Hir::Build.alias_record(name))
+
       # An eval compiles its string with TracePoint's events when one is
       # enabled, as ruby's instructions fire them, and always in a program
       # built with them: a TracePoint enabled later sees the eval's code

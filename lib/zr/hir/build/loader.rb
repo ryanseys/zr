@@ -49,6 +49,7 @@ module Zr
         # @rbs @activations: Integer
         # @rbs @back_refs: Hash[Symbol, Prism::node]
         # @rbs @alias_flags: Hash[Symbol, Symbol?]
+        # @rbs @aliases: (^(Symbol) -> Symbol?)?
         # @rbs @hiding: bool?
         # @rbs @switches: Switches
         # @rbs @extensions: _Extensions
@@ -113,10 +114,11 @@ module Zr
         # @rbs def_base: Integer
         # @rbs branch_base: Integer
         # @rbs extensions: _Extensions
+        # @rbs aliases: (^(Symbol) -> Symbol?)?
         # @rbs return: void
         def initialize(roots, options = BuildOptions.new, eval: false, external: nil, evals: false, covers: false, activations: nil,
                        deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil,
-                       description: nil, def_base: 0, branch_base: 0, extensions: NoExtensions)
+                       description: nil, def_base: 0, branch_base: 0, extensions: NoExtensions, aliases: nil)
           @deferred = deferred
           # The C extensions that a require may find: a program's (`Ext`),
           # or none (`NoExtensions`).
@@ -170,14 +172,21 @@ module Zr
           @activations = activations || external&.activations || 0
           @back_refs = {}
           @alias_flags = {}
+          @aliases = aliases
         end
 
         # `alias $MATCH $&` and similar: the old name is in the frame, not
         # the global table, so the new name is a second name that the
         # lowering resolves. It does not write a global entry. All of them
-        # come from English.rb.
+        # come from English.rb. A compile at run time also knows each such
+        # alias that has run, from `aliases` (Build.alias_record).
         #: (Symbol name) -> Prism::node?
-        def back_ref(name) = @back_refs[name]
+        def back_ref(name)
+          @back_refs.fetch(name) do
+            old = @aliases&.call(name)
+            @back_refs[name] = Prism.parse(old.to_s).value.statements.body.first if old
+          end
+        end
 
         # Whether a file uses TracePoint or set_trace_func, and whether
         # this build fires the events that a TracePoint listens for.

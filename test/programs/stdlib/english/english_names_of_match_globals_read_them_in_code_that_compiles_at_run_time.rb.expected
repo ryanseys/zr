@@ -1,0 +1,10 @@
+["a", "b", "c", MatchData]
+["x", "y", "z", "y", "y"]
+[nil, nil, nil]
+["", "test_failed", ""]
+["", "run", ""]
+nil
+"line"
+["boom", Array]
+nil
+nil
