@@ -8,9 +8,11 @@ module Zr
     module_function
 
     # Whether a zr binary runs this code (the compiled compiler, or a
-    # program with eval support), and not CRuby. A zr binary gives the same
-    # RUBY_ENGINE and RubyVM as the pinned ruby, but its RbConfig gives zr
-    # as the interpreter (lib/zr/runtime/ext/rbconfig.rb).
-    def running? = RbConfig::CONFIG["ruby_install_name"] == "zr"
+    # program with eval support), and not CRuby. Each build of this file
+    # ends with lib/zr/runtime/lib/zr/binary.rb (`Hir::Build::Loader.tails`),
+    # which sets BUILT. RbConfig cannot tell: a zr binary gives the pinned
+    # ruby's RUBY_ENGINE and RubyVM, and an RbConfig that names the
+    # launcher that started it (lib/zr/runtime/ext/rbconfig.rb).
+    def running? = defined?(BUILT) ? true : false
   end
 end

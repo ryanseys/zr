@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rbconfig"
+require_relative "binary"
 require_relative "session"
 
 module Zr
@@ -258,9 +259,9 @@ module Zr
     private :native_gem
 
     # The ruby that runs zr, or `ruby` on PATH in a binary that zr built,
-    # whose `RbConfig.ruby` names zr itself.
+    # whose `RbConfig.ruby` names the zr that started it.
     #: () -> String
-    def running_ruby = RbConfig::CONFIG["ruby_install_name"] == "ruby" ? RbConfig.ruby : "ruby"
+    def running_ruby = Binary.running? ? "ruby" : RbConfig.ruby
     private :running_ruby
 
     # The value of `name` when it is one of `values`, or `default` when
