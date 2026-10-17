@@ -1,0 +1,15 @@
+module Greeter
+  VERSION: String
+
+  def self.greet: (String name, ?loud: bool) -> String
+end
+
+class Person
+  include Greeter
+  @name: String
+  def initialize: (String) -> void
+  def name: () -> String
+  alias full_name name
+end
+["::Greeter", "::Person"]
+["::Greeter::VERSION"]

@@ -264,10 +264,11 @@ module Zr
         @entries << Entry.new(kind, name, version, GemSource.url(name, version), @gems.sha(name, version))
         root = Library::Layout.gem_root(name, version)
         excluded = Vendored::GEM_EXCLUDE.fetch(name, {})
+        dirs = ["lib/", *Vendored::GEM_DATA.fetch(name, {}).keys]
         @gems.contents(package).each do |rel, bytes|
           next if excluded.key?(rel) || rel.match?(NATIVE)
 
-          add(File.join(root, rel), bytes) if rel.start_with?("lib/") || (!rel.include?("/") && rel.match?(LICENSE))
+          add(File.join(root, rel), bytes) if rel.start_with?(*dirs) || (!rel.include?("/") && rel.match?(LICENSE))
         end
         add(File.join(Library::Layout::SPECIFICATIONS, "#{spec.full_name}.gemspec"), spec.to_ruby)
       end
@@ -462,20 +463,29 @@ module Zr
         def files(dirs)
           path = Dev.path("#{CACHE}/target-#{@triple}-#{key}.tar")
           build(path) unless File.file?(path)
-          @sha256 = Digest::SHA256.file(path).hexdigest
-          if @locked && @sha256 != @locked.sha256
-            @fail.call("#{Dev.rel(path)}: SHA-256 #{@sha256}, not #{@locked.sha256} (vendor/vendor.lock)")
-          end
           out = {}
           File.open(path, "rb") do |io|
             Gem::Package::TarReader.new(io).each do |entry|
               out[entry.full_name] = entry.read.to_s.b if entry.file? && dirs.any? { |dir| entry.full_name.start_with?(dir) }
             end
           end
+          @sha256 = digest(out)
+          if @locked && @sha256 != @locked.sha256
+            @fail.call("#{Dev.rel(path)}: SHA-256 #{@sha256}, not #{@locked.sha256} (vendor/vendor.lock)")
+          end
           out
         end
 
         private
+
+        # The SHA-256 of the build's files: each name and its bytes, in name
+        # order. The tar's own bytes hold the build's mtimes, so only a
+        # rebuild that makes other files has another digest.
+        def digest(files)
+          sha = Digest::SHA256.new
+          files.sort.each { |name, bytes| sha << name << "\0" << [bytes.bytesize].pack("Q>") << bytes }
+          sha.hexdigest
+        end
 
         # What the build is made from.
         def key = Digest::SHA256.hexdigest([@tarball_sha, @recipe.inspect, CONFIGURE.inspect].join("\0"))[0, 16]

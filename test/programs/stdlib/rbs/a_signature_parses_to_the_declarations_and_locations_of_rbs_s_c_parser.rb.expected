@@ -1,0 +1,34 @@
+RBS::Buffer
+[]
+[RBS::AST::Declarations::Class, "Point", 2, 8]
+"A point.\n"
+[RBS::AST::Members::AttrReader, "x", "attr_reader x: T"]
+[RBS::AST::Members::MethodDefinition, "initialize", "def initialize: (x: T, ?y: T) -> void"]
+"(x: T, ?y: T) -> void"
+[RBS::AST::Members::MethodDefinition, "+", "def +: (Point[T]) -> Point[T]"]
+"(Point[T]) -> Point[T]"
+"(T) -> Point[T]"
+[RBS::AST::Members::MethodDefinition, "origin", "def self.origin: () -> Point[Integer]"]
+"() -> Point[Integer]"
+[RBS::AST::Declarations::Module, "Shape", 10, 13]
+nil
+[RBS::AST::Declarations::TypeAlias, "kind", "type kind = :circle | :square | [Integer, String?]"]
+[RBS::AST::Members::MethodDefinition, "area", "def area: () -> Float"]
+"() -> Float"
+[RBS::AST::Declarations::Interface, "_Area", 15, 17]
+nil
+[RBS::AST::Members::MethodDefinition, "area", "def area: () -> Float"]
+"() -> Float"
+["T < Numeric"]
+"Object"
+["_Area"]
+":circle | :square | [ Integer, String? ]"
+"Hash[Symbol, ^(Integer) -> String?] | nil"
+"[A] (A, *untyped, k: bool, **Integer) { (A) -> void } -> A"
+0...14
+"Array"
+"[Integer]"
+RBS::ParsingError
+"a.rbs:3:0...3:3: Syntax error: unexpected token for simple type, token=`end` (kEND)"
+25
+[[:kDEF, "def"], [:tTRIVIA, " "], [:tLIDENT, "foo"], [:pCOLON, ":"], [:tTRIVIA, " "], [:pLPAREN, "("], [:tUIDENT, "Integer"], [:pRPAREN, ")"], [:tTRIVIA, " "], [:pARROW, "->"], [:tTRIVIA, " "], [:kVOID, "void"], [:pEOF, ""]]

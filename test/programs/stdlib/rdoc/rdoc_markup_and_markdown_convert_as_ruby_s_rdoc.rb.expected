@@ -1,0 +1,55 @@
+
+<span id="label-Title" class="legacy-anchor"></span>
+<h1 id="title"><a href="#title">Title</a></h1>
+
+<p>Some <strong>bold</strong>, <em>em</em> and <code>code</code> text, with a link to <a href="https://ruby-lang.org">ruby-lang.org</a>.</p>
+<ul><li>
+<p>one</p>
+</li><li>
+<p>two</p>
+<ol><li>
+<p>nested</p>
+</li></ol>
+</li></ul>
+<dl class="rdoc-list label-list"><dt>term</dt>
+<dd>
+<p>its description</p>
+</dd></dl>
+
+<pre class="ruby"><span class="ruby-keyword">def</span> <span class="ruby-identifier">indented</span>
+  <span class="ruby-value">:</span><span class="ruby-value">code</span>
+<span class="ruby-keyword">end</span>
+</pre>
+== Section
+
+A paragraph that the formatter wraps at its width, which is long enough to
+wrap.
+# Head
+
+*   a
+*   b
+
+<span id="label-Heading" class="legacy-anchor"></span>
+<h1 id="heading"><a href="#heading">Heading</a></h1>
+
+<p>A <a href="https://example.com">link</a> and <code>code</code>, <strong>strong</strong> and <em>em</em>.</p>
+
+<pre class="ruby"><span class="ruby-identifier">p</span> <span class="ruby-value">1</span>
+</pre>
+
+<table role="table">
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+["A", "B", "C"]
+"8.1.0"

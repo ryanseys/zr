@@ -28,12 +28,12 @@ module Zr
     module Vendored
       # The bundled gems of ruby that vendor/ holds, at the versions in
       # ruby's gems/bundled_gems. A bundled gem with a C part is a port
-      # (lib/zr/library/ports.rb, at zr's version: debug among them), or zr
-      # refuses it (rbs, typeprof, rdoc, repl_type_completor), or only a
+      # (lib/zr/library/ports.rb, at zr's version: debug and rbs among them), or zr
+      # refuses it (typeprof, repl_type_completor), or only a
       # Windows ruby installs it (win32ole, win32-registry).
       BUNDLED = %w[
         abbrev base64 benchmark csv drb getoptlong irb logger matrix minitest mutex_m net-imap
-        net-smtp observer ostruct power_assert prime pstore rake readline reline resolv-replace
+        net-smtp observer ostruct power_assert prime pstore rake rdoc readline reline resolv-replace
         rexml rinda rss test-unit tsort
       ].freeze
 
@@ -55,6 +55,13 @@ module Zr
         "prism" => { "lib/prism/ffi.rb" => "prism's FFI half: zr refuses it (Hir::Build::UNSUPPORTED_LIBRARIES)" }
       }.freeze
 
+      # The directories of a gem other than lib/ that vendor/ holds, with the
+      # reason: data that the gem reads at run time from its own directory.
+      GEM_DATA = {
+        "rbs" => { "core/" => "RBS::EnvironmentLoader::DEFAULT_CORE_ROOT, the signatures of the core classes",
+                   "stdlib/" => "RBS::Repository::DEFAULT_STDLIB_ROOT, the signatures of the standard library" }
+      }.freeze
+      
       # For each target other than this host, how to build the pinned ruby
       # for it: the image that builds it (pinned by digest), its platform,
       # and the packages that its configure finds. `zr-dev vendor` builds
