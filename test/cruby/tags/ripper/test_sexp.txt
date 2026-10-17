@@ -1,1 +1,0 @@
-TestRipper::Sexp#test_command	fail

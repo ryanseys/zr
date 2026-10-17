@@ -1,7 +1,4 @@
-TestRipper::ScannerEvents#test_invalid_char	fail
-TestRipper::ScannerEvents#test_invalid_hex_escape_string	fail
-TestRipper::ScannerEvents#test___end__	fail
-TestRipper::ScannerEvents#test_invalid_hex_escape_regexp	fail
-TestRipper::ScannerEvents#test_CHAR	fail
-TestRipper::ScannerEvents#test_invalid_escape	fail
-TestRipper::ScannerEvents#test_error_token	fail
+TestRipper::ScannerEvents#test_invalid_hex_escape_string	parse.y: its lexer ends a string's content token at an invalid escape, where prism's token holds the whole content
+TestRipper::ScannerEvents#test_invalid_hex_escape_regexp	parse.y: its lexer ends a regexp's content token at an invalid escape, where prism's token holds the whole content
+TestRipper::ScannerEvents#test_CHAR	parse.y: its lexer gives no CHAR token for an invalid character literal, and reports the error at the literal's own text
+TestRipper::ScannerEvents#test_error_token	parse.y: its error recovery reports the error at an empty token
