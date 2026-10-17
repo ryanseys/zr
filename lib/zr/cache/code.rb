@@ -40,7 +40,7 @@ module Zr
       # `code_cache_test.rb` checks that a new process that requires them
       # loads no other file of zr.
       PASSES = %w[
-        backend.rb bytes.rb config.rb ir/analysis.rb ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb
+        backend.rb binary.rb bytes.rb config.rb ir/analysis.rb ir/effects.rb ir/fingerprint.rb ir/function.rb ir/gvn.rb
         ir/inst.rb ir/licm.rb ir/passes.rb ir/passes/blocks.rb ir/passes/chains.rb ir/passes/dce.rb
         ir/passes/fold.rb ir/passes/forward.rb ir/passes/inline.rb ir/passes/renaming.rb ir/promotion.rb
         ir/regions.rb ir/statics.rb ir/switches.rb ir/threads.rb ir/types.rb ir/verify.rb obj/model.rb
