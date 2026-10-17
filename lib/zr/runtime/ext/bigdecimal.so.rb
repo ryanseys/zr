@@ -233,23 +233,24 @@ class BigDecimal < Numeric
     # Reading a decimal out of text. `strict` refuses anything left
     # over, which is what `BigDecimal("1x")` does; loose reading keeps
     # as much as it understood.
-    def read(source, strict)
+    def read(source, strict, exception = true)
       Primitive.attr! :hidden
       # An underscore stands between two digits, or after the last one.
       text = source.gsub(/(?<=\d)_(?=\d|\s*\z)/, "")
       if (special = text[/\A\s*(NaN|[-+]?Infinity)\s*\z/, 1])
-        value = special == "NaN" ? NAN : (special.start_with?("-") ? -INFINITY : INFINITY)
-        bit = value.nan? ? EXCEPTION_NaN : EXCEPTION_INFINITY
-        raise FloatDomainError, refused(value) unless exception_mode.nobits?(bit)
-
-        return value
+        # A new value, as the C makes for text; the shared ones come from Floats.
+        return checked(special == "NaN" ? build(1, 0, 0, :nan) : build(special.start_with?("-") ? -1 : 1, 0, 0, :infinity))
       end
 
       match = /\A\s*([-+]?)(\d*)(?:\.(\d*))?(?:[eEdD]([-+]?\d+))?/.match(text)
       whole = match[2].to_s
       fraction = match[3].to_s
       empty = whole.empty? && fraction.empty?
-      raise ArgumentError, "invalid value for BigDecimal(): #{source.inspect}" if strict && (empty || !text[match.end(0)..].to_s.strip.empty?)
+      if strict && (empty || !text[match.end(0)..].to_s.strip.empty?)
+        return nil unless exception
+
+        raise ArgumentError, "invalid value for BigDecimal(): #{source.inspect}"
+      end
       return build(1, 0, 0) if empty
 
       sign = match[1] == "-" ? -1 : 1
@@ -308,22 +309,59 @@ class BigDecimal < Numeric
 
     # A Float has no more digits than its own round trip shows, so with
     # no precision given, those are the digits it gives.
-    def from_float(value, precision)
+    # rb_convert_to_BigDecimal: `digits` is nil when the caller gave none.
+    # With exceptions off, only the cases that the C checks answer nil.
+    def convert(value, digits, exception)
       Primitive.attr! :hidden
-      raise ArgumentError, "negative precision" if precision.negative?
-      return value.positive? ? INFINITY : -INFINITY if value.infinite?
-      return NAN if value.nan?
-      raise ArgumentError, "precision too large." if precision > DOUBLE_FIG
-      return read(value.to_s, false) if precision.zero?
-
-      read(format("%.*e", [precision, 17].max, value), false).round_significant(precision)
+      case value
+      when nil, true, false
+        exception ? raise(TypeError, "can't convert #{value.inspect} into BigDecimal") : nil
+      when BigDecimal then checked(digits ? value.send(:copy) : value)
+      when Integer then from_int(value.negative? ? -1 : 1, value.abs, value.abs.to_s.length)
+      when Float then from_float(value, digits, exception)
+      when Rational
+        return BigDecimal(value.numerator).div(value.denominator, digits) if digits
+        exception ? raise(ArgumentError, +"can't omit precision for a Rational.") : nil
+      when Complex
+        return convert(value.real, digits, exception) if value.imaginary.zero?
+        exception ? raise(ArgumentError, +"Unable to make a BigDecimal from non-zero imaginary number") : nil
+      else
+        text = value.is_a?(String) ? value : String.try_convert(value)
+        return c_text(text, exception) && read(text, true, exception) if text
+        exception ? raise(TypeError, "can't convert #{value.class} into BigDecimal") : nil
+      end
     end
-
-    def from_rational(value, precision)
+    
+    # rb_float_convert_to_BigDecimal: NaN, the infinities and the zeros are
+    # the shared values; other digits come from the shortest form that
+    # reads back, or rounded to `digits` (dtoa's modes 0 and 2), of which
+    # the C keeps at most 16, cut off with no rounding.
+    def from_float(value, digits, exception = true)
       Primitive.attr! :hidden
-      raise ArgumentError, "can't omit precision for a Rational." if precision.zero?
-
-      BigDecimal(value.numerator).div(BigDecimal(value.denominator), precision)
+      return checked(value.nan? ? NAN : (value.positive? ? INFINITY : NEGATIVE_INFINITY)) unless value.finite?
+      return (1 / value).negative? ? NEGATIVE_ZERO : POSITIVE_ZERO if value.zero?
+      if digits && digits > DOUBLE_FIG
+        return nil unless exception
+    
+        raise ArgumentError, +"precision too large."
+      end
+    
+      text = digits.nil? || digits.zero? ? value.abs.to_s : format("%.*e", digits - 1, value.abs)
+      mantissa, power = text.split("e")
+      whole, fraction = mantissa.split(".")
+      figures = "#{whole}#{fraction}".sub(/\A0+/, "")
+      point = whole.length + power.to_i - ("#{whole}#{fraction}".length - figures.length)
+      from_int(value.negative? ? -1 : 1, figures[0, DOUBLE_FIG].to_i, point)
+    end
+    
+    # CheckGetValue: a value that is not finite, which the modes refuse.
+    def checked(value)
+      Primitive.attr! :hidden
+      unless value.finite?
+        bit = value.nan? ? EXCEPTION_NaN : EXCEPTION_INFINITY
+        raise FloatDomainError, refused(value) unless exception_mode.nobits?(bit)
+      end
+      value
     end
   end
 
@@ -660,6 +698,9 @@ def product(other)
   BigDecimal.from_int(@sign * them.sign_bit, digits, digits.to_s.length + point + them.point)
 end
 
+  # A new value with these fields: BigDecimal(value, digits) copies.
+  def copy = BigDecimal.build(@sign, @digits, @exp, @special)
+
   def setup(sign, digits, exponent, special)
     @sign = sign
     @digits = digits
@@ -671,14 +712,7 @@ end
   # `n` as a C ssize_t holds it.
   def signed_word(n) = ((n + (2**63)) % (2**64)) - (2**63)
 
-  # CheckGetValue: a value that is not finite, which the modes refuse.
-  def checked(value)
-    unless value.finite?
-      bit = value.nan? ? EXCEPTION_NaN : EXCEPTION_INFINITY
-      raise FloatDomainError, BigDecimal.send(:refused, value) unless BigDecimal.exception_mode.nobits?(bit)
-    end
-    value
-  end
+  def checked(value) = BigDecimal.checked(value)
 
   # The other side as a BigDecimal, or nil when ruby calls coerce on
   # the other side instead.
@@ -928,34 +962,28 @@ end
 
 BigDecimal.const_set(:INFINITY, BigDecimal.build(1, 0, 0, :infinity))
 BigDecimal.const_set(:NAN, BigDecimal.build(1, 0, 0, :nan))
+# The shared values that the C makes once: a Float's zeros and infinities.
+BigDecimal.const_set(:NEGATIVE_INFINITY, BigDecimal.build(-1, 0, 0, :infinity))
+BigDecimal.const_set(:POSITIVE_ZERO, BigDecimal.build(1, 0, 0))
+BigDecimal.const_set(:NEGATIVE_ZERO, BigDecimal.build(-1, 0, 0))
+BigDecimal.send(:private_constant, :NEGATIVE_INFINITY, :POSITIVE_ZERO, :NEGATIVE_ZERO)
 
 module Kernel
   # `BigDecimal(value)`: text is read as it is written, an Integer is
   # exact, and a Float or a Rational needs a precision because their
   # own digits do not stop where a decimal's do.
-  def BigDecimal(value, precision = 0, exception: true)
-    case value
-    when BigDecimal then value
-    when Integer then BigDecimal.from_int(value.negative? ? -1 : 1, value.abs, value.abs.to_s.length)
-    when Float then BigDecimal.from_float(value, precision)
-    when Rational then BigDecimal.from_rational(value, precision)
-    when Complex
-      raise ArgumentError, "Unable to make a BigDecimal from non-zero imaginary number" unless value.imaginary.zero?
-
-      BigDecimal(value.real, precision, exception: exception)
-    when String
-      text = BigDecimal.send(:c_text, value, exception) or return nil
-      BigDecimal.read(text, true)
-    when nil then raise TypeError, "can't convert nil into BigDecimal"
-    else
-      raise TypeError, "can't convert #{conversion_name(value)} into BigDecimal" unless value.respond_to?(:to_str)
-
-      BigDecimal(value.to_str, precision, exception: exception)
+  def BigDecimal(value, digits = (omitted = true; nil), exception: true)
+    raise ArgumentError, "expected true or false as exception: #{exception.inspect}" unless exception == true || exception == false
+  
+    unless omitted
+      digits = Integer.try_convert(given = digits) or raise TypeError, no_implicit_conversion(given, "Integer")
+      if digits.negative?
+        return nil unless exception
+  
+        raise ArgumentError, +"negative precision"
+      end
     end
-  rescue ArgumentError, TypeError, FloatDomainError
-    raise if exception
-
-    nil
+    BigDecimal.send(:convert, value, digits, exception)
   end
 
   module_function :BigDecimal

@@ -1,0 +1,50 @@
+[TypeError, "no implicit conversion of nil into Integer"]
+[TypeError, "no implicit conversion of String into Integer"]
+0.1e1
+[ArgumentError, "negative precision"]
+nil
+[ArgumentError, "expected true or false as exception: 1"]
+[ArgumentError, "expected true or false as exception: nil"]
+0.3e0
+0.1234567891234567e9
+0.1e21
+0.1e-19
+0.5e-323
+0.1797693134862315e309
+0.2e1
+0.12e0
+-0.1235e0
+0.1e-1
+[ArgumentError, "precision too large."]
+nil
+[true, true, -1]
+[true, true]
+true
+false
+[0.5e0, -1, "9.05", 3.141592653589793]
+[ArgumentError, "can't omit precision for a Rational."]
+nil
+0.31415929203539823008849557522124e1
+[0.125e1, 0.31415929203539823008849557522124e1, 0.31415929203539823008849557522124e1]
+[ArgumentError, "negative precision"]
+0.333333333333333333333e0
+0.1e1
+0.1e1
+0.333333333333333333333e0
+[ArgumentError, "Unable to make a BigDecimal from non-zero imaginary number"]
+nil
+[0.1e1, 0.1234567e0, 0.1235e0]
+[true, false, true]
+[TypeError, "can't convert nil into BigDecimal"]
+[TypeError, "can't convert true into BigDecimal"]
+[TypeError, "can't convert Symbol into BigDecimal"]
+[TypeError, "can't convert Object into BigDecimal"]
+nil
+nil
+nil
+nil
+nil
+[ArgumentError, "string contains null byte"]
+[FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
+[FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
+[FloatDomainError, "Computation results in 'NaN' (Not a Number)"]
