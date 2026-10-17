@@ -15,7 +15,8 @@ module Zr
     # The program that `source` builds: `Build.program` says how.
     # @rbs (String source, String file, ?BuildOptions options, ?roots: Array[String], ?program: bool, ?prebuilt: untyped,
     #        ?line: Integer, ?scopes: Array[Array[Symbol]]?, ?method: Array[[Symbol, Symbol?]]?, ?activations: Integer?,
-    #        ?using: Integer?, ?def_base: Integer?, ?branch_base: Integer?, ?extensions: Build::Loader::_Extensions) -> Program
+    #        ?using: Integer?, ?def_base: Integer?, ?branch_base: Integer?, ?extensions: Build::Loader::_Extensions,
+    #        ?aliases: (^(Symbol) -> Symbol?)?) -> Program
     def self.build(...) = Build.program(...)
   end
 end
