@@ -78,7 +78,11 @@ module Zr
     def of(files, gem_set = nil, evals: false)
       rows = files.filter_map { |file| row_for(File.expand_path(file), gem_set) }
       rows += gem_set.gems.reject(&:refusal).map { |gem| gem_row(gem) } if evals && gem_set
-      rows.uniq.sort_by(&:name)
+      # A gem of `gem_set` stands in place of zr's copy of that gem: a
+      # file that every program shares (a port's prebuilt part) does not
+      # list zr's version beside the program's.
+      given = gem_set&.gems&.to_h { |gem| [gem.name, true] } || {}
+      rows.uniq.reject { |row| given.key?(row.name) && %w[stdlib port].include?(row.source) }.sort_by(&:name)
     end
 
     # The bytes that a binary carries: MAGIC, then one line of JSON. Beside
