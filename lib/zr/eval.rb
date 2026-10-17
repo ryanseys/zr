@@ -53,12 +53,12 @@ module Zr
     # or its error comes back to the Ractor that called.
     class OnMain < BasicObject
       #: (Symbol name, *untyped args, **untyped options) ?{ (*untyped) -> untyped } -> untyped
-      def method_missing(name, *args, **options, &block)
-        ::Ractor.__send__(:on_main) { Eval.current.__send__(name, *args, **options, &block) }
+      def method_missing(name, ...)
+        ::Ractor.__send__(:on_main) { Eval.current.__send__(name, ...) }
       end
 
       #: (Symbol name, ?bool include_all) -> bool
-      def respond_to_missing?(name, include_all = false) = true
+      def respond_to_missing?(_name, _include_all = false) = true
     end
 
     # The back end's instance (`current`).

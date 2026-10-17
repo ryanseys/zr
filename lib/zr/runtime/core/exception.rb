@@ -747,7 +747,7 @@ class Thread
     def clone = super()
     def dup = raise(NotImplementedError, +"dup() function is unimplemented on this machine")
 
-    private def initialize_copy(original) = nil
+    private def initialize_copy(_original) = nil
 
     # One row of `caller_locations`, parsed from its `file:line:in
     # 'label'` form.
