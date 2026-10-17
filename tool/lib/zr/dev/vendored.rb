@@ -54,8 +54,14 @@ module Zr
         "prism" => { "lib/prism/ffi.rb" => "prism's FFI half: zr refuses it (Hir::Build::UNSUPPORTED_LIBRARIES)" }
       }.freeze
 
-      # The directories of a gem other than lib/ that vendor/ holds, with the
-      # reason: data that the gem reads at run time from its own directory.
+      # Each gem's signatures, as ruby installs a gem whole: rbs reads them
+      # from the directory of the gem that Gem::Specification finds
+      # (RBS::EnvironmentLoader.gem_sig_path).
+      SIGNATURES = "sig/"
+
+      # The other directories of a gem, beyond lib/ and SIGNATURES, that
+      # vendor/ holds, with the reason: data that the gem reads at run time
+      # from its own directory.
       GEM_DATA = {
         "rbs" => { "core/" => "RBS::EnvironmentLoader::DEFAULT_CORE_ROOT, the signatures of the core classes",
                    "stdlib/" => "RBS::Repository::DEFAULT_STDLIB_ROOT, the signatures of the standard library" }

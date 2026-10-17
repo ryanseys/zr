@@ -1,0 +1,6 @@
+true
+["(::Integer value, ?::Prime::PseudoPrimeGenerator generator) -> bool"]
+["(::String bin) -> ::String"]
+["() -> bool"]
+true
+Cannot find type definitions for library: no_such_library_here ([nil])

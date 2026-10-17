@@ -264,7 +264,7 @@ module Zr
         @entries << Entry.new(kind, name, version, GemSource.url(name, version), @gems.sha(name, version))
         root = Library::Layout.gem_root(name, version)
         excluded = Vendored::GEM_EXCLUDE.fetch(name, {})
-        dirs = ["lib/", *Vendored::GEM_DATA.fetch(name, {}).keys]
+        dirs = ["lib/", Vendored::SIGNATURES, *Vendored::GEM_DATA.fetch(name, {}).keys]
         @gems.contents(package).each do |rel, bytes|
           next if excluded.key?(rel) || rel.match?(NATIVE)
 
