@@ -737,11 +737,14 @@ class DateTime < Date
     raise Date::Error, "invalid date" unless jd
 
     df, fraction = send(:time_of_day, hour || 0, minute || 0, second || 0, fraction)
+    # A Float fraction is added after, as the C adds it (add_frac), with
+    # the rounding of Float days to nanoseconds.
+    added, fraction = fraction.is_a?(Float) ? [fraction, 0] : [0, fraction]
     nanoseconds = (((jd * DAY) + df - of) * NANOSECOND) + (fraction * DAY * NANOSECOND)
     jd, rest = nanoseconds.divmod(DAY * NANOSECOND)
     df, sf = rest.divmod(NANOSECOND)
     sf = sf.to_i if sf.is_a?(Rational) && sf.denominator == 1
-    send(:at, jd, df.to_i, sf, of, start)
+    send(:moved, send(:at, jd, df.to_i, sf, of, start), added)
   end
 
   # num2int_with_frac: the whole part, and the fraction as a part of a
@@ -753,7 +756,10 @@ class DateTime < Date
 
     raise Date::Error, "invalid fraction" unless last
 
-    [value.floor, Rational(value - value.floor) / per_day]
+    # d_trunc: a Float's fraction stays a Float, which the C adds with its
+    # own rounding (add_frac); a Rational's stays exact.
+    part = value.modulo(1)
+    [value.floor, value.is_a?(Float) ? part / per_day : Rational(part) / per_day]
   end
 
   class << self
