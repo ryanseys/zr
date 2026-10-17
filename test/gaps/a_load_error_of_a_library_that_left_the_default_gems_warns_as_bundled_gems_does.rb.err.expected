@@ -1,0 +1,1 @@
+test/gaps/a_load_error_of_a_library_that_left_the_default_gems_warns_as_bundled_gems_does.rb:9: warning: win32ole is not part of the default gems since Ruby 4.0.0. Install win32ole from RubyGems.
