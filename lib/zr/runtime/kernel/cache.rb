@@ -313,7 +313,8 @@ module Zr::Kern
     if fn == Machine.addr(:zr_obj_eq)
       return SHAPE_EQ
     end
-    if fn == Machine.addr(:zr_class_new_instance)
+    # A refined Class#new is a send at every site (zr_class_new_refined_p).
+    if fn == Machine.addr(:zr_class_new_instance) && !zr_class_new_refined_p()
       return SHAPE_NEW
     end
     if fn == Machine.addr(:zr_obj_ne) || fn == Machine.addr(:zr_obj_eqq)
@@ -744,7 +745,10 @@ module Zr::Kern
     # C's rb_ary_new or rb_class_new_instance, with no frame, so it always
     # takes the fast path below.
     core = (mode & SEND_CORE) != 0
-    plain = e != 0 && (blk == QNIL || core) && (MEntry[e].fn == Machine.addr(:zr_class_new_instance) || (core && MEntry[e].fn == Machine.addr(:zr_class_s_new)))
+    # A refinement of Class#new, in use or not, makes the program's `new`
+    # a send, as in CRuby (zr_class_new_refined_p).
+    plain = e != 0 && (blk == QNIL || core) && (core || !zr_class_new_refined_p()) &&
+            (MEntry[e].fn == Machine.addr(:zr_class_new_instance) || (core && MEntry[e].fn == Machine.addr(:zr_class_s_new)))
     if !plain || MEntry[e].vis != VIS_PUBLIC
       return zr_send_cached(cc, recv, Machine.id(:new), argc, argv, blk, mode)
     end

@@ -823,6 +823,7 @@ module Zr::Kern
     # there does (zr_define_method_as).
     if zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
       Machine.gates_set(Machine.gates | zr_gate_bit(ClassExt[RClass[klass].ext].refined, id))
+      zr_refinement_defined(ClassExt[RClass[klass].ext].refined, id)
     end
     zr_method_undefined(klass, id)
   end
@@ -2050,6 +2051,7 @@ module Zr::Kern
     over = klass
     if zr_type(klass) == T_MODULE && ClassExt[RClass[klass].ext].refined != QNIL
       over = ClassExt[RClass[klass].ext].refined
+      zr_refinement_defined(over, mid)
     end
     # A def in a box's shadow of a core class closes the gate of the
     # shared class: a site cannot tell which box runs it.
@@ -2595,6 +2597,24 @@ module Zr::Kern
   #: () -> void
   def zr_runtime_written
     Machine.store64(Machine.static(:program_started, 8), 0, 1)
+  end
+
+  # Whether a refinement of Class defines or undefines `new`. In CRuby
+  # that makes Class's own entry for `new` a refined one, whether or not
+  # a `using` is in force, so opt_new no longer finds the builtin and
+  # sends `new` (vm_opt_new): a TracePoint hears the call, as power_assert
+  # needs (its enable_tracepoint_events refines Class#new for this).
+  #: () -> bool
+  def zr_class_new_refined_p
+    Machine.load64(Machine.static(:class_new_refined, 8), 0) != 0
+  end
+
+  # Notes a def or undef of `mid` in a refinement of `refined`.
+  #: (value, word) -> void
+  def zr_refinement_defined(refined, mid)
+    if refined == zr_global(G_CLASS) && mid == Machine.id(:new)
+      Machine.store64(Machine.static(:class_new_refined, 8), 0, 1)
+    end
   end
 
   # Saves entry `e` of `ext`, a core library entry that a program is about

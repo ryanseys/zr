@@ -1,0 +1,13 @@
+[Object, []]
+[Point, []]
+[Object, [[:c_call, :new, Class], [:c_return, :new, Class]]]
+[Point, [[:c_call, :new, Class], [:c_return, :new, Class]]]
+3
+[Point, [[:c_call, :new, Class], [:c_return, :new, Class]]]
+:refined
+:refined
+Object
+[String, [[:c_call, :new, #<Class:String>], [:c_return, :new, #<Class:String>]]]
+[Array, [[:c_call, :new, #<Class:Array>], [:c_return, :new, #<Class:Array>]]]
+[Point, [[:c_call, :new, Class], [:c_return, :new, Class]]]
+NoMethodError
