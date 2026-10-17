@@ -44,9 +44,6 @@ module Zr
         asking.each_key.flat_map { |flag| taken.fetch(flag, []) }
       end
 
-      # The requires that eval support leaves for run time (eval_support).
-      EVAL_DEFERRED = %w[error_highlight timeout rdoc rdoc/ri/driver repl_type_completor].freeze
-
       # Only the compiler, as the units of eval support. The loader built
       # them, and its flags tell what else a program that links them in
       # needs. Eval support also contains the preludes (rbconfig, the
@@ -57,15 +54,15 @@ module Zr
       # timeout (only prism's ruby_parser translation requires it), so
       # their requires wait for run time. Else their files would be hidden
       # units, and a program that requires one would link in that copy,
-      # whose sends find the core's own methods, not the program's. irb
-      # requires rdoc (for its document dialog and show_doc) and
-      # repl_type_completor (for its type completion), both through rbs,
-      # only when those run: they wait too, so eval support stays within
-      # the reach of one linked image.
+      # whose sends find the core's own methods, not the program's.
+      # A bundled gem that requires another one inside a method (irb its
+      # rdoc and repl_type_completor) loads it only when that method runs:
+      # those requires wait too (`apart`), as in ruby, and eval support
+      # stays within the reach of one linked image.
       #: (?Target target) -> Loader
       def self.eval_support(target = Target.default)
         Loader.new(Library::Roots.stdlib(target), description: Library::Roots.description(target),
-                                                  deferred: EVAL_DEFERRED).tap do |loader|
+                                                  deferred: %w[error_highlight timeout], apart: true).tap do |loader|
           eval_require(loader, target)
           rubygems(loader)
           loader.add(LAZY_RUBYGEMS)

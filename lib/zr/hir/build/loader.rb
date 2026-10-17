@@ -14,6 +14,7 @@ module Zr
         # @rbs @description: (^() -> String?)?
         # @rbs @gem_set: GemSet?
         # @rbs @gate: bool | Symbol
+        # @rbs @apart: bool
         # @rbs @own: Hash[String, bool]
         # @rbs @main: String?
         # @rbs @data: Hash[String, Integer]
@@ -93,6 +94,9 @@ module Zr
         # there. In these files, a require inside a method waits for run
         # time, which finds and compiles the file then. So does an autoload
         # of a file outside `booted` (the files that the boot reads).
+        # With `apart`, a require inside a method of one bundled gem that
+        # finds another bundled gem waits for run time too: the gem loads
+        # it only when that method runs (irb its rdoc, for a document).
         # `options` steer the build (`BuildOptions`). The roots of its gem
         # set come first in `roots`. With its `gate`, a literal require in
         # the program's own files that no root has stops the build
@@ -109,6 +113,7 @@ module Zr
         # @rbs preloaded: Array[String]
         # @rbs ahead: Array[String]
         # @rbs booted: Array[String]
+        # @rbs apart: bool
         # @rbs prebuilt_eval: untyped
         # @rbs description: (^() -> String?)?
         # @rbs def_base: Integer
@@ -117,7 +122,7 @@ module Zr
         # @rbs aliases: (^(Symbol) -> Symbol?)?
         # @rbs return: void
         def initialize(roots, options = BuildOptions.new, eval: false, external: nil, evals: false, covers: false, activations: nil,
-                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, prebuilt_eval: nil,
+                       deferred: [], preloaded: PRELOADED, ahead: Build.ahead, booted: Build.booted, apart: false, prebuilt_eval: nil,
                        description: nil, def_base: 0, branch_base: 0, extensions: NoExtensions, aliases: nil)
           @deferred = deferred
           # The C extensions that a require may find: a program's (`Ext`),
@@ -137,6 +142,7 @@ module Zr
           @preloaded = preloaded
           @ahead = ahead
           @booted = booted
+          @apart = apart
           @gems = false
           @native_gems = [] #: Array[GemSet::Entry]
           @eval = eval
@@ -386,6 +392,16 @@ module Zr
 
         #: (String path) -> bool
         def booted?(path) = @booted.include?(path)
+
+        # Whether a require inside a method of `file` that finds `path`
+        # waits for run time (`apart`).
+        #: (String file, String path) -> bool
+        def apart?(file, path)
+          return false unless @apart
+
+          from, to = [file, path].map { |f| Library::Roots.bundled_roots.find { f.start_with?("#{it}/") } }
+          !from.nil? && !to.nil? && from != to
+        end
 
         attr_reader :preloaded #: Array[String]
 

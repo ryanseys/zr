@@ -99,6 +99,7 @@ module Zr
         gem_refusal(node, feature, path)
         stop = path.nil? && node.name != :require_relative && stop_for(node, feature) #: Stop | false | nil
         return stop if stop
+        return plain_call(node, compiles: false) if path && @in_def && @loader.apart?(@file, path)
 
         # No file found: the call searches at run time, in the $LOAD_PATH
         # that the program has then. The build never uses the host's
