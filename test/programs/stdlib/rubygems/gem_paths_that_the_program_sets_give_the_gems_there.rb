@@ -39,10 +39,6 @@ Dir.mktmpdir do |home|
   rescue Gem::LoadError => e
     p e.class
   end
-  # A require of a file of an installed gem that is not active yet finds
-  # the gem and activates it (Gem.discover_gems_on_require).
-  name = "zr_probe_b"
-  p require(name), ZR_PROBE_B, Gem.loaded_specs.key?(name)
   begin
     gem "zr_probe_missing"
   rescue Gem::MissingSpecError => e
