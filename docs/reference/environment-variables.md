@@ -83,8 +83,8 @@ them.
 | `ZR_RUBY` | a path | set by `zr` | The `zr` that ran the program: `zr run` and `zr app.rb` set it to the path of the `zr` command. `RbConfig.ruby` gives it, so `system(RbConfig.ruby, "-e", ...)` runs zr. Without it, `RbConfig.ruby` is `$ZR_BINDIR/zr` when `ZR_BINDIR` or `ZR_PREFIX` is set, else the first `zr` on `PATH`, else `~/.zr/bin/zr`. |
 | `ZR_HOME` | a directory | set by `zr` | The ruby tree of the `zr` that ran the program (`vendor/ruby` in zr's gem), which has an installed ruby's layout. `zr run` and `zr app.rb` set it, as they set `ZR_RUBY`. It is the install prefix of `RbConfig` and `$LOAD_PATH` unless `ZR_PREFIX` is set, as JRuby and TruffleRuby give their home. A program that no zr ran has no home, and its `RbConfig::TOPDIR` is nil, as for a ruby that is not installed. The program's `ENV` does not show it. |
 | `ZR_PREFIX` | a directory | `$ZR_HOME`, else `~/.zr` | The install prefix that `RbConfig` and `$LOAD_PATH` give. `RbConfig::TOPDIR` is the prefix when its `lib/ruby/<ruby_version>` exists (the pinned ruby's library version). |
-| `ZR_BINDIR` | a directory | the `exe` directory of zr's gem under `ZR_HOME`, else `$ZR_PREFIX/bin` | `RbConfig::CONFIG["bindir"]`. |
-| `ZR_RUBY_INSTALL_NAME` | a name | `zr` | `RbConfig::CONFIG["ruby_install_name"]`. |
+| `ZR_BINDIR` | a directory | the directory of `ZR_RUBY`, else the `exe` directory of zr's gem under `ZR_HOME`, else `$ZR_PREFIX/bin` | `RbConfig::CONFIG["bindir"]`. |
+| `ZR_RUBY_INSTALL_NAME` | a name | the name of `ZR_RUBY` (`zr`, or `ruby` where zr runs as ruby), else `zr` | `RbConfig::CONFIG["ruby_install_name"]`, so that `RbConfig.ruby` is `bindir` plus this name, as in ruby. |
 | `ZR_CEXT_HDRDIR`, `ZR_CEXT_ARCHHDRDIR` | directories | below `$ZR_PREFIX/include` | The header directories that `RbConfig` gives. |
 | `CC`, `CXX`, `LD` | commands | `cc`, `c++`, `ld` | The compilers that `RbConfig` gives. |
 

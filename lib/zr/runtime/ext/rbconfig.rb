@@ -59,11 +59,16 @@ module RbConfig
   hdrdir = ENV["ZR_CEXT_HDRDIR"] || "#{prefix}/include/ruby-#{ruby_version}"
   archhdrdir = ENV["ZR_CEXT_ARCHHDRDIR"] || "#{hdrdir}/#{RUBY_PLATFORM}"
 
-  # `RbConfig.ruby` is `bindir` plus `ruby_install_name`, and rubygems
-  # spawns exactly that string. The interpreter is zr: under a zr home
-  # (`<zr>/vendor/ruby`) it is `<zr>/exe/zr`.
-  zr_bindir = ENV["ZR_BINDIR"] || (zr_home && !ENV["ZR_PREFIX"] ? File.expand_path("../../exe", zr_home) : "#{prefix}/bin")
-  zr_ruby_name = ENV["ZR_RUBY_INSTALL_NAME"] || "zr"
+  # `RbConfig.ruby` is `bindir` plus `ruby_install_name`, as in ruby, and
+  # rubygems spawns exactly that string. The interpreter is the launcher
+  # that started the program (`ZR_RUBY`): `zr`, or `ruby` where zr stands
+  # for ruby. Without one, it is zr: under a zr home (`<zr>/vendor/ruby`),
+  # `<zr>/exe/zr`.
+  launcher = Primitive.zr_hidden_get(ENV, :__zr_ruby__)
+  launcher = nil if launcher && launcher.empty?
+  zr_bindir = ENV["ZR_BINDIR"] || (launcher && File.dirname(launcher)) ||
+              (zr_home && !ENV["ZR_PREFIX"] ? File.expand_path("../../exe", zr_home) : "#{prefix}/bin")
+  zr_ruby_name = ENV["ZR_RUBY_INSTALL_NAME"] || (launcher ? File.basename(launcher) : "zr")
 
   # The staging root of `make install`, empty for an installed ruby.
   DESTDIR = ""
@@ -368,10 +373,11 @@ module RbConfig
   TOPDIR = File.directory?(CONFIG["rubylibdir"]) ? prefix : nil
 
   # `RbConfig.ruby` -- the full path to the running interpreter, which is
-  # zr: the `zr` that ran the program (`ZR_RUBY`, which `zr run` and `zr
-  # app.rb` set), else the one in `ZR_BINDIR` or `ZR_PREFIX`, else the
-  # first `zr` on PATH, else `~/.zr/bin/zr`. So `system(RbConfig.ruby,
-  # "-e", ...)` runs zr, as it runs ruby in a ruby program.
+  # zr: the launcher that ran the program (`ZR_RUBY`, which `zr run` and
+  # `zr app.rb` set; `bindir` and `ruby_install_name` name it too), else
+  # the one in `ZR_BINDIR` or `ZR_PREFIX`, else the first `zr` on PATH,
+  # else `~/.zr/bin/zr`. So `system(RbConfig.ruby, "-e", ...)` runs zr,
+  # as it runs ruby in a ruby program.
   def self.ruby
     given = Primitive.zr_hidden_get(ENV, :__zr_ruby__)
     return given unless given.nil? || given.empty?
