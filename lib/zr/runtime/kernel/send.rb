@@ -963,11 +963,28 @@ module Zr::Kern
     cref = Frame[rec].cref
     while cref != QNIL && RCref[cref].eval != 0
       if RCref[cref].entry != 0
-        return RCref[cref].entry
+        return zr_bmethod_body_p(rec, RCref[cref].entry) ? RCref[cref].entry : 0
       end
       cref = RCref[cref].next
     end
     0
+  end
+
+  # Whether the frame runs in the body of the define_method entry `e`,
+  # and not in a def written in that body, which shares the body's cref
+  # (`def obj.m` in the block): the def is a method of its own, as its
+  # frame's method entry is in CRuby.
+  #: (ptr, ptr) -> bool
+  def zr_bmethod_body_p(rec, e)
+    body = RProc[MEntry[e].cref].meta
+    meta = Frame[rec].meta
+    while meta != 0 && meta != body
+      if FrameMeta[meta].kind == KIND_DEF
+        return false
+      end
+      meta = FrameMeta[meta].parent
+    end
+    true
   end
 
   # Returns the meta of the def that contains the frame, through its
