@@ -1,0 +1,434 @@
+# zr bench, the median of 5 run(s) at 86ef4c5a4, 2026-10-17 07:05 UTC
+# ruby: ruby 4.1.0preview1 (2026-10-11 master 2d08b5f42f) +YJIT +PRISM [arm64-darwin27]
+
+bm_ackermann  built in 0.3 s, 39161182 bytes
+              user     system      total        real
+zr        0.103481   0.003389   0.106870 (  0.108488)
+ruby      0.315278   0.006180   0.321458 (  0.323893)
+yjit      0.053528   0.005109   0.058637 (  0.060400)
+
+bm_ao_render  built in 1.8 s, 39579438 bytes
+              user     system      total        real
+zr        0.773626   0.007469   0.781095 (  0.783084)
+ruby      1.602277   0.012292   1.614569 (  1.617077)
+yjit      0.645228   0.012124   0.657352 (  0.659709)
+
+bm_attr_accessor  built in 0.3 s, 39179438 bytes
+              user     system      total        real
+zr        0.296071   0.004476   0.300547 (  0.302644)
+ruby      1.282349   0.010331   1.292680 (  1.294835)
+yjit      0.124505   0.005303   0.129808 (  0.131655)
+
+bm_bigint_fib  built in 0.2 s, 39143982 bytes
+              user     system      total        real
+zr        0.007766   0.003673   0.011439 (  0.012918)
+ruby      0.016729   0.004648   0.021377 (  0.023062)
+yjit      0.016638   0.004760   0.021398 (  0.023017)
+
+bm_bigint_mul  built in 0.4 s, 39178654 bytes
+              user     system      total        real
+zr        0.777502   0.012949   0.790451 (  0.792254)
+ruby      0.096893   0.006310   0.103203 (  0.105355)
+yjit      0.097652   0.006300   0.103952 (  0.105972)
+
+bm_bigint_to_s  built in 0.4 s, 39178638 bytes
+              user     system      total        real
+zr        0.095548   0.003540   0.099088 (  0.100918)
+ruby      0.024269   0.004774   0.029043 (  0.030691)
+yjit      0.024844   0.004939   0.029783 (  0.031469)
+
+bm_binary_trees  built in 0.3 s, 39179998 bytes
+              user     system      total        real
+zr        0.013475   0.003044   0.016519 (  0.018598)
+ruby      0.032123   0.004893   0.037016 (  0.038877)
+yjit      0.021683   0.005102   0.026785 (  0.028569)
+
+bm_case_class  built in 0.4 s, 39240270 bytes
+              user     system      total        real
+zr        0.180105   0.003643   0.183748 (  0.185931)
+ruby      1.024267   0.009357   1.033624 (  1.036379)
+yjit      0.370033   0.007094   0.377127 (  0.379293)
+
+bm_case_symbol  built in 0.3 s, 39162334 bytes
+              user     system      total        real
+zr        0.097810   0.003094   0.100904 (  0.102549)
+ruby      0.552896   0.006873   0.559769 (  0.561914)
+yjit      0.295737   0.006368   0.302105 (  0.303947)
+
+bm_csv_process  built in 0.4 s, 39180702 bytes
+              user     system      total        real
+zr        0.354269   0.004590   0.358859 (  0.361289)
+ruby      0.436243   0.006752   0.442995 (  0.445476)
+yjit      0.372496   0.006844   0.379340 (  0.381415)
+
+bm_data_new  built in 0.3 s, 39161214 bytes
+              user     system      total        real
+zr        0.271868   0.004203   0.276071 (  0.278006)
+ruby      0.393602   0.006882   0.400484 (  0.402833)
+yjit      0.394130   0.006751   0.400881 (  0.403095)
+
+bm_empty_rest  built in 0.3 s, 39164414 bytes
+              user     system      total        real
+zr        1.137241   0.007905   1.145146 (  1.147446)
+ruby      1.424622   0.011735   1.436357 (  1.439249)
+yjit      1.423257   0.011482   1.434739 (  1.436784)
+
+bm_fannkuch  built in 0.4 s, 39196798 bytes
+              user     system      total        real
+zr        0.061359   0.003068   0.064427 (  0.066001)
+ruby      0.429408   0.006876   0.436284 (  0.438389)
+yjit      0.122117   0.006246   0.128363 (  0.130154)
+
+bm_fasta  built in 0.4 s, 39198606 bytes
+              user     system      total        real
+zr        0.008867   0.002823   0.011690 (  0.013421)
+ruby      0.018790   0.004779   0.023569 (  0.025479)
+yjit      0.020175   0.005360   0.025535 (  0.027342)
+
+bm_fib  built in 0.2 s, 39160974 bytes
+              user     system      total        real
+zr        0.080170   0.003072   0.083242 (  0.084749)
+ruby      0.440127   0.006663   0.446790 (  0.448752)
+yjit      0.074696   0.004930   0.079626 (  0.081387)
+
+bm_gcbench  built in 0.3 s, 39181774 bytes
+              user     system      total        real
+zr        0.783001   0.017561   0.800562 (  0.804684)
+ruby      1.789715   0.015507   1.805222 (  1.808134)
+yjit      0.757228   0.013092   0.770320 (  0.773213)
+
+bm_getivar  built in 0.3 s, 39162686 bytes
+              user     system      total        real
+zr        0.023744   0.002950   0.026694 (  0.028294)
+ruby      0.106443   0.005035   0.111478 (  0.113372)
+yjit      0.027851   0.004905   0.032756 (  0.034637)
+
+bm_getivar_module  built in 0.3 s, 39162350 bytes
+              user     system      total        real
+zr        0.195225   0.003866   0.199091 (  0.201359)
+ruby      0.937393   0.009440   0.946833 (  0.949354)
+yjit      0.367994   0.006670   0.374664 (  0.376909)
+
+bm_huffman  built in 0.5 s, 39215950 bytes
+              user     system      total        real
+zr        0.024406   0.003073   0.027479 (  0.028979)
+ruby      0.051487   0.004971   0.056458 (  0.058160)
+yjit      0.045290   0.005232   0.050522 (  0.052244)
+
+bm_inline  built in 0.4 s, 39181630 bytes
+              user     system      total        real
+zr        0.296148   0.004406   0.300554 (  0.302365)
+ruby      1.249574   0.010552   1.260126 (  1.262177)
+yjit      0.881331   0.008942   0.890273 (  0.892838)
+
+bm_io_wordcount  built in 0.3 s, 39181054 bytes
+              user     system      total        real
+zr        0.071515   0.004041   0.075556 (  0.077889)
+ruby      0.056272   0.006073   0.062345 (  0.064510)
+yjit      0.052955   0.006070   0.059025 (  0.061060)
+
+bm_jekyll_lite  built in 0.8 s, 39327614 bytes
+              user     system      total        real
+zr        0.007266   0.003099   0.010365 (  0.011528)
+ruby      0.016645   0.004508   0.021153 (  0.023022)
+yjit      0.024541   0.006696   0.031237 (  0.032975)
+
+bm_json_parse  built in 0.5 s, 39236254 bytes
+              user     system      total        real
+zr        0.171543   0.003417   0.174960 (  0.176375)
+ruby      0.215198   0.005746   0.220944 (  0.222736)
+yjit      0.154293   0.006050   0.160343 (  0.162280)
+
+bm_keyword_args  built in 0.3 s, 39161886 bytes
+              user     system      total        real
+zr        0.053351   0.002955   0.056306 (  0.057955)
+ruby      0.158095   0.005769   0.163864 (  0.165919)
+yjit      0.139651   0.005264   0.144915 (  0.146765)
+
+bm_life  built in 0.4 s, 39182174 bytes
+              user     system      total        real
+zr        0.281963   0.004842   0.286805 (  0.289434)
+ruby      0.524802   0.007541   0.532343 (  0.534566)
+yjit      0.299084   0.006736   0.305820 (  0.308136)
+
+bm_linked_list  built in 0.3 s, 39180318 bytes
+              user     system      total        real
+zr        0.077152   0.006556   0.083708 (  0.086611)
+ruby      0.206688   0.006765   0.213453 (  0.215788)
+yjit      0.146119   0.006770   0.152889 (  0.155113)
+
+bm_loops_times  built in 0.3 s, 39161550 bytes
+              user     system      total        real
+zr        0.096517   0.003108   0.099625 (  0.101568)
+ruby      0.712460   0.007951   0.720411 (  0.722478)
+yjit      0.196044   0.005723   0.201767 (  0.203813)
+
+bm_mandel_term  built in 0.3 s, 39178814 bytes
+              user     system      total        real
+zr        0.010193   0.002873   0.013066 (  0.015001)
+ruby      0.026773   0.004729   0.031502 (  0.033327)
+yjit      0.020469   0.005392   0.025861 (  0.028090)
+
+bm_matmul  built in 0.4 s, 39179886 bytes
+              user     system      total        real
+zr        0.057724   0.003010   0.060734 (  0.062486)
+ruby      0.251187   0.005511   0.256698 (  0.258663)
+yjit      0.080544   0.005488   0.086032 (  0.088429)
+
+bm_micro_lisp  built in 0.8 s, 39329102 bytes
+              user     system      total        real
+zr        0.007062   0.002783   0.009845 (  0.011384)
+ruby      0.016612   0.004568   0.021180 (  0.022931)
+yjit      0.024595   0.006832   0.031427 (  0.033818)
+
+bm_nbody  built in 0.8 s, 39286510 bytes
+              user     system      total        real
+zr        0.098170   0.003074   0.101244 (  0.103530)
+ruby      0.254459   0.005942   0.260401 (  0.262302)
+yjit      0.101279   0.006369   0.107648 (  0.109505)
+
+bm_nested_loop  built in 0.3 s, 39160974 bytes
+              user     system      total        real
+zr        0.042222   0.002980   0.045202 (  0.047256)
+ruby      0.441761   0.006496   0.448257 (  0.450340)
+yjit      0.053526   0.004825   0.058351 (  0.060518)
+
+bm_nqueens  built in 0.3 s, 39179918 bytes
+              user     system      total        real
+zr        0.055217   0.002886   0.058103 (  0.060309)
+ruby      0.178322   0.005348   0.183670 (  0.185590)
+yjit      0.053760   0.005755   0.059515 (  0.061755)
+
+bm_object_new  built in 0.3 s, 39161758 bytes
+              user     system      total        real
+zr        0.030404   0.002928   0.033332 (  0.034852)
+ruby      0.076665   0.005386   0.082051 (  0.083974)
+yjit      0.068186   0.005157   0.073343 (  0.075394)
+
+bm_object_new_init  built in 0.3 s, 39161886 bytes
+              user     system      total        real
+zr        0.050800   0.002960   0.053760 (  0.055127)
+ruby      0.109497   0.005105   0.114602 (  0.116460)
+yjit      0.070366   0.005135   0.075501 (  0.077476)
+
+bm_object_new_no_escape  built in 0.3 s, 39162238 bytes
+              user     system      total        real
+zr        0.062902   0.003025   0.065927 (  0.067535)
+ruby      0.161221   0.005634   0.166855 (  0.168702)
+yjit      0.076510   0.005338   0.081848 (  0.083607)
+
+bm_partial_sums  built in 0.4 s, 39178894 bytes
+              user     system      total        real
+zr        0.433032   0.004876   0.437908 (  0.440409)
+ruby      0.784766   0.008505   0.793271 (  0.795666)
+yjit      0.430066   0.006912   0.436978 (  0.439215)
+
+bm_pidigits  built in 0.3 s, 39178222 bytes
+              user     system      total        real
+zr        0.343266   0.039279   0.382545 (  0.387866)
+ruby      0.627430   0.040481   0.667911 (  0.673190)
+yjit      0.626227   0.040753   0.666980 (  0.672416)
+
+bm_poly_cells  built in 0.3 s, 39181902 bytes
+              user     system      total        real
+zr        0.006999   0.002858   0.009857 (  0.011375)
+ruby      0.016357   0.004633   0.020990 (  0.022661)
+yjit      0.017112   0.005067   0.022179 (  0.023808)
+
+bm_range_each  built in 0.3 s, 39160878 bytes
+              user     system      total        real
+zr        1.058426   0.008069   1.066495 (  1.069127)
+ruby     14.667478   0.071055  14.738533 ( 14.741566)
+yjit     10.184702   0.051996  10.236698 ( 10.240848)
+
+bm_rbtree  built in 0.5 s, 39216318 bytes
+              user     system      total        real
+zr        0.083574   0.004790   0.088364 (  0.089931)
+ruby      0.329414   0.005977   0.335391 (  0.337414)
+yjit      0.084845   0.005814   0.090659 (  0.093124)
+
+bm_regexp_scan  built in 0.3 s, 39162382 bytes
+              user     system      total        real
+zr        0.135052   0.004484   0.139536 (  0.141325)
+ruby      0.124084   0.005266   0.129350 (  0.130940)
+yjit      0.122225   0.005497   0.127722 (  0.129942)
+
+bm_ruby_xor  built in 0.3 s, 39161630 bytes
+              user     system      total        real
+zr        0.103358   0.003761   0.107119 (  0.108924)
+ruby      0.954094   0.006566   0.960660 (  0.963505)
+yjit      0.202763   0.006474   0.209237 (  0.211591)
+
+bm_send_bmethod  built in 0.3 s, 39178878 bytes
+              user     system      total        real
+zr        0.059606   0.002965   0.062571 (  0.063888)
+ruby      0.163849   0.005555   0.169404 (  0.171245)
+yjit      0.027058   0.004826   0.031884 (  0.033580)
+
+bm_send_cfunc_block  built in 0.3 s, 39163422 bytes
+              user     system      total        real
+zr        0.057483   0.003109   0.060592 (  0.062138)
+ruby      0.815568   0.009391   0.824959 (  0.827952)
+yjit      0.238809   0.006129   0.244938 (  0.246774)
+
+bm_send_rubyfunc_block  built in 0.3 s, 39161662 bytes
+              user     system      total        real
+zr        0.086390   0.003028   0.089418 (  0.091526)
+ruby      0.555668   0.007431   0.563099 (  0.565757)
+yjit      0.512976   0.007358   0.520334 (  0.522343)
+
+bm_setivar  built in 0.3 s, 39162302 bytes
+              user     system      total        real
+zr        0.023533   0.002883   0.026416 (  0.028051)
+ruby      0.076253   0.004759   0.081012 (  0.083150)
+yjit      0.021058   0.004724   0.025782 (  0.027602)
+
+bm_setivar_object  built in 0.3 s, 39162494 bytes
+              user     system      total        real
+zr        0.023486   0.002938   0.026424 (  0.028645)
+ruby      0.076488   0.004861   0.081349 (  0.083058)
+yjit      0.022582   0.004811   0.027393 (  0.029167)
+
+bm_setivar_young  built in 0.3 s, 39162910 bytes
+              user     system      total        real
+zr        0.023457   0.002866   0.026323 (  0.027919)
+ruby      0.076395   0.004915   0.081310 (  0.083032)
+yjit      0.021064   0.004773   0.025837 (  0.027585)
+
+bm_sieve  built in 0.3 s, 39161278 bytes
+              user     system      total        real
+zr        0.057843   0.004751   0.062594 (  0.064463)
+ruby      0.404669   0.008386   0.413055 (  0.416039)
+yjit      0.087449   0.006435   0.093884 (  0.096351)
+
+bm_sinatra_mini  built in 0.4 s, 39203022 bytes
+              user     system      total        real
+zr        0.006883   0.002832   0.009715 (  0.011326)
+ruby      0.016469   0.004671   0.021140 (  0.023337)
+yjit      0.018122   0.005267   0.023389 (  0.025225)
+
+bm_so_lists  built in 0.3 s, 39161950 bytes
+              user     system      total        real
+zr        0.116893   0.005951   0.122844 (  0.125417)
+ruby      0.240700   0.008262   0.248962 (  0.251965)
+yjit      0.127450   0.007833   0.135283 (  0.137963)
+
+bm_so_mandelbrot  built in 0.3 s, 39178510 bytes
+              user     system      total        real
+zr        0.325912   0.004662   0.330574 (  0.332359)
+ruby      0.934251   0.009201   0.943452 (  0.946170)
+yjit      0.415951   0.007360   0.423311 (  0.425493)
+
+bm_sort_by  built in 0.3 s, 39162606 bytes
+              user     system      total        real
+zr        0.178603   0.006090   0.184693 (  0.187223)
+ruby      0.240613   0.007755   0.248368 (  0.250645)
+yjit      0.140778   0.006742   0.147520 (  0.149964)
+
+bm_spectral_norm  built in 0.4 s, 39180878 bytes
+              user     system      total        real
+zr        0.018078   0.002822   0.020900 (  0.022594)
+ruby      0.048355   0.004772   0.053127 (  0.054890)
+yjit      0.025442   0.005278   0.030720 (  0.032471)
+
+bm_splay  built in 0.5 s, 39216718 bytes
+              user     system      total        real
+zr        0.044353   0.003409   0.047762 (  0.049736)
+ruby      0.117939   0.005184   0.123123 (  0.125709)
+yjit      0.049327   0.006743   0.056070 (  0.057787)
+
+bm_stark_field  built in 0.8 s, 39347166 bytes
+              user     system      total        real
+zr        0.233664   0.005216   0.238880 (  0.240933)
+ruby      0.743420   0.009503   0.752923 (  0.755517)
+yjit      0.257316   0.010875   0.268191 (  0.270615)
+
+bm_startup  built in 0.2 s, 39143822 bytes
+              user     system      total        real
+zr        0.006952   0.002710   0.009662 (  0.011234)
+ruby      0.016320   0.004638   0.020958 (  0.023236)
+yjit      0.016318   0.004682   0.021000 (  0.022866)
+
+bm_str_concat  built in 0.2 s, 39161038 bytes
+              user     system      total        real
+zr        0.126559   0.009902   0.136461 (  0.139195)
+ruby      0.220326   0.009112   0.229438 (  0.231735)
+yjit      0.081851   0.007873   0.089724 (  0.092065)
+
+bm_struct_eq  built in 0.3 s, 39161710 bytes
+              user     system      total        real
+zr        0.483053   0.005330   0.488383 (  0.490802)
+ruby      0.460382   0.006748   0.467130 (  0.469114)
+yjit      0.460282   0.007052   0.467334 (  0.469402)
+
+bm_struct_new  built in 0.3 s, 39161614 bytes
+              user     system      total        real
+zr        0.123531   0.003280   0.126811 (  0.128804)
+ruby      0.192753   0.006441   0.199194 (  0.201220)
+yjit      0.166965   0.005521   0.172486 (  0.174619)
+
+bm_structaref  built in 0.3 s, 39162142 bytes
+              user     system      total        real
+zr        0.040074   0.003003   0.043077 (  0.045290)
+ruby      0.150576   0.005031   0.155607 (  0.157488)
+yjit      0.027860   0.004769   0.032629 (  0.034480)
+
+bm_structaset  built in 0.3 s, 39161790 bytes
+              user     system      total        real
+zr        0.041822   0.003300   0.045122 (  0.046632)
+ruby      0.134809   0.005098   0.139907 (  0.142293)
+yjit      0.023452   0.004796   0.028248 (  0.030129)
+
+bm_sudoku  built in 0.9 s, 39305342 bytes
+              user     system      total        real
+zr        0.017530   0.002942   0.020472 (  0.022652)
+ruby      0.090808   0.004962   0.095770 (  0.097952)
+yjit      0.042906   0.008034   0.050940 (  0.052980)
+
+bm_tak  built in 0.2 s, 39161134 bytes
+              user     system      total        real
+zr        0.057498   0.003008   0.060506 (  0.062229)
+ruby      0.393106   0.006719   0.399825 (  0.401825)
+yjit      0.070774   0.005385   0.076159 (  0.078143)
+
+bm_tarai  built in 0.3 s, 39161166 bytes
+              user     system      total        real
+zr        0.047115   0.003259   0.050374 (  0.051610)
+ruby      0.287033   0.006638   0.293671 (  0.296168)
+yjit      0.056736   0.004976   0.061712 (  0.063349)
+
+bm_template  built in 0.3 s, 39180206 bytes
+              user     system      total        real
+zr        0.414083   0.004768   0.418851 (  0.421082)
+ruby      0.496754   0.007476   0.504230 (  0.506948)
+yjit      0.381196   0.007138   0.388334 (  0.390698)
+
+bm_throw  built in 0.3 s, 39162270 bytes
+              user     system      total        real
+zr        0.046095   0.003049   0.049144 (  0.050565)
+ruby      0.151351   0.005557   0.156908 (  0.158920)
+yjit      0.127164   0.005326   0.132490 (  0.134608)
+
+bm_tree_walker  built in 0.4 s, 39200414 bytes
+              user     system      total        real
+zr        0.125902   0.003468   0.129370 (  0.131317)
+ruby      0.350071   0.007080   0.357151 (  0.359398)
+yjit      0.093503   0.005570   0.099073 (  0.101082)
+
+bm_tree_walker_frames  built in 0.5 s, 39257582 bytes
+              user     system      total        real
+zr        0.086863   0.003520   0.090383 (  0.092121)
+ruby      0.254140   0.005826   0.259966 (  0.261956)
+yjit      0.068538   0.005790   0.074328 (  0.076801)
+
+bm_unicode_fold  built in 0.3 s, 39161726 bytes
+              user     system      total        real
+zr        0.877014   0.007104   0.884118 (  0.886208)
+ruby      0.076088   0.006146   0.082234 (  0.084260)
+yjit      0.075571   0.005718   0.081289 (  0.083229)
+
+bm_wordfreq  built in 0.3 s, 39162862 bytes
+              user     system      total        real
+zr        0.136232   0.004170   0.140402 (  0.141708)
+ruby      0.189821   0.005763   0.195584 (  0.197598)
+yjit      0.145798   0.005821   0.151619 (  0.153730)
