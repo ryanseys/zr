@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-# zr-test: runtime
+# zr-test: eval
 
 require "test_helper"
 require "tmpdir"
@@ -68,6 +68,20 @@ class RunCacheTest < Minitest::Test
 
     assert_nil program.sources
     assert_nil cache.hit
+  end
+
+  # A program with eval support compiles a file that its require finds
+  # as it runs, so a file that appears later changes what the same
+  # binary does, as it changes what ruby does.
+  def test_a_program_with_eval_keeps_its_binary_past_a_require_left_for_the_run_time
+    File.write(@main, %(eval("1")\nbegin; require_relative "later"; rescue LoadError; puts 0; end\nputs Later.v if defined?(Later)\n))
+    program = build_and_keep
+    kept = cache.hit
+
+    assert_equal [@main], program.sources.keys
+    assert_equal "0\n", `#{kept}`
+    File.write(File.join(@work, "later.rb"), "module Later; def self.v = 2; end\n")
+    assert_equal "2\n", `#{kept}`
   end
 
   # The files of both gem sets are still there, so only the key tells

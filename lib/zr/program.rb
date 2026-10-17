@@ -159,11 +159,13 @@ module Zr
     # with `source`, and each unit that has its own file. A program from
     # -e or standard input has no file; the run cache keys on its text. nil
     # when a require stays for the run time (a file that did not exist, or
-    # a name built at run time): a file that appears later would change
-    # the build, and no list of paths can say which.
+    # a name built at run time) in a program without eval support: a file
+    # that appears later would change the build, and no list of paths can
+    # say which. A program with eval support compiles such a file when it
+    # runs, from the file as it is then, so the same binary serves.
     #: (String source, String file, Hir::Program hir) -> Hash[String, String]?
     def self.built_from(source, file, hir)
-      return nil if run_time_require?([hir.body, *hir.units.map(&:body)])
+      return nil if !hir.evals && run_time_require?([hir.body, *hir.units.map(&:body)])
 
       # The filter keeps only the units that have a source.
       main = File.file?(file) ? [[file, source]] : [] #: Array[[String, String]]
