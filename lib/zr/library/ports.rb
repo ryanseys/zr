@@ -44,9 +44,7 @@ module Zr
         # dylib that is not the system's (libyaml, libssl), which a binary
         # cannot carry.
         "psych" => port("5.5.0", vendored: false),
-        # bigdecimal keeps its port first: its own C tests RB_TYPE_P(v, T_RATIONAL)
-        # and T_COMPLEX, tags that zr's Rational and Complex do not carry (W18 L0).
-        "bigdecimal" => port("4.1.3"),
+        "bigdecimal" => port("4.1.3", c_first: true),
         "digest" => port("3.3.0", vendored: false, c_first: true),
         "syslog" => port("0.4.0", c_first: true),
         "ffi" => port("1.17.4"),
@@ -58,9 +56,7 @@ module Zr
         "rbs" => port("4.2.0", c_first: true),
         # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
         # if any, is ruby's own at the same version.
-        # date keeps its port first: its own C tests RB_TYPE_P(x, T_RATIONAL),
-        # which reads a type tag that zr's Rational does not carry (W18 L0).
-        "date" => port("3.6.0", vendored: false),
+        "date" => port("3.6.0", vendored: false, c_first: true),
         "stringio" => port("3.2.1.dev", vendored: false, c_first: true),
         "strscan" => port("3.1.9.dev", vendored: false, c_first: true),
         # zlib keeps its port first: its own C inflates without the GVL,
