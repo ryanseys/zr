@@ -58,8 +58,8 @@ module Zr
         # test that starts zr builds a program first, and prints nothing.
         IDLE = 300
 
-        # The form of ruby's kept runs.
-        VERSION = 1
+        # The form of ruby's kept runs, and of the environment they ran in.
+        VERSION = 2
 
         # Runs `exec` with the second word on as the command, and the first
         # as the file for its standard error, so that the error of a gem
@@ -116,7 +116,12 @@ module Zr
 
         # The load paths of the prism gem, which several gems need and
         # their tests start rubies without (CRuby's runner presets them).
-        def rubylib = @rubylib ||= host_output("old = $:.dup; require 'prism'; puts $:-old").split("\n").join(File::PATH_SEPARATOR)
+        # After them comes CRuby's gems/lib, with the test helpers
+        # (core_assertions, envutil) that many gems' tests require.
+        def rubylib
+          @rubylib ||= [*host_output("old = $:.dup; require 'prism'; puts $:-old").split("\n"),
+                        File.join(Dev.ruby_src, "gems/lib")].join(File::PATH_SEPARATOR)
+        end
 
         def host_output(script)
           out = IO.popen(ChildRuby::UNBUNDLED, [Dev.ruby, "-e", script], &:read)
