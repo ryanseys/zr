@@ -828,7 +828,9 @@ module Zr
         # The UUID is the hash of all page hashes, so two links of the same
         # program give the same UUID. (`ld` gives every link a new UUID, so
         # `Obj::MachO::Stamps` ignores it.) The signature then hashes the
-        # header page again, because the UUID is now in it.
+        # header's pages again, because the UUID is now in one of them:
+        # past the first page when many segments come before it (a binary
+        # with eight embedded C extensions).
         #
         # `CSMAGIC_EMBEDDED_SIGNATURE` over one ad-hoc `CodeDirectory`, all of
         # it big-endian.
@@ -837,8 +839,10 @@ module Zr
           hashes = page_hashes
           uuid = Digest::SHA256.digest(hashes)[0, 16] #: String
           @header.bytesplice(@uuid_at, 16, uuid)
-          first = @header.byteslice(0, HASH_PAGE) #: String
-          hashes.bytesplice(0, 32, Digest::SHA256.digest(first))
+          (0..((@uuid_at + 15) / HASH_PAGE)).each do |n|
+            page = @header.byteslice(n * HASH_PAGE, HASH_PAGE) #: String
+            hashes.bytesplice(n * 32, 32, Digest::SHA256.digest(page))
+          end
           ident = "#{File.basename(@out)}\0".b
           cd = [0xFADE_0C02, 88 + ident.bytesize + hashes.bytesize, 0x20400, 0x2,
                 88 + ident.bytesize, 88, 0, hashes.bytesize / 32, @sig_at].pack("L>9")
