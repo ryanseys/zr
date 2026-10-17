@@ -71,6 +71,12 @@ module Zr::Kern
   # between Ractors.
   TYPED_FROZEN_SHAREABLE = 1 << 8
 
+  # Whether `v` is a C extension's T_DATA.
+  #: (value) -> value
+  def zr_data_p_m(v)
+    zr_bool(!zr_special_p(v) && zr_type(v) == T_DATA)
+  end
+
   # Whether `v` is C data whose type does not let a frozen object be
   # shared (no RUBY_TYPED_FROZEN_SHAREABLE), which Ractor.make_shareable
   # refuses.

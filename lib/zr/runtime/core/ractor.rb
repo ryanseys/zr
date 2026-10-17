@@ -821,6 +821,9 @@ class Ractor
     return value if immutable?(value) || (!deeply && shareable?(value)) || location?(value)
     return seen[value] if seen.key?(value)
     return hooked(value, seen, deeply) if !given && c_data?(value)
+    # ractor.c copies a C extension's T_DATA with rb_obj_clone, so the
+    # extension's initialize_copy copies its struct (date's).
+    return seen[value] = value.clone if !given && Primitive.zr_data_p_m(value)
 
     copy = Primitive.zr_copy_cell(value)
     seen[value] = copy
