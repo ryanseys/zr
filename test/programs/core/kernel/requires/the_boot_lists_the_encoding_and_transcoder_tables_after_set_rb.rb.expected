@@ -1,0 +1,4 @@
+["enumerator.so", "monitor.so", "thread.rb", "fiber.so", "rational.so", "complex.so", "pathname.so", "ruby2_keywords.rb", "set.rb", "encdb.bundle", "transdb.bundle"]
+["/enc/encdb.bundle", "/enc/trans/transdb.bundle"]
+false
+false

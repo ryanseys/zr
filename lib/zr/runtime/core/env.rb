@@ -389,6 +389,11 @@ Primitive.zr_hidden_set(
     "#{Primitive.zr_environment_get(+"HOME") || "/tmp"}/.zr"
 )
 
+# ruby's boot loads its tables of encodings and transcoders, which this
+# runtime has built in, and lists them after set.rb.
+$LOADED_FEATURES.insert($LOADED_FEATURES.index("set.rb") + 1, "#{Kernel.archdir}/enc/encdb.#{Kernel.dlext}",
+                        "#{Kernel.archdir}/enc/trans/transdb.#{Kernel.dlext}")
+
 # Paths that the system gives take the locale's encoding from the start.
 Encoding.send(:follow_paths) unless Encoding.locale_charmap == +"UTF-8"
 
