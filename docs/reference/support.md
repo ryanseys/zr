@@ -37,50 +37,9 @@ and [How to use a C extension](../how-to/use-a-c-extension.md)).
 
 ### `aarch64-apple-darwin`, `aarch64-linux-musl`, `wasm32-wasi`
 
-- `digest/blake3`
-- `digest/crc32`
 - `mkmf`, which writes a C extension's Makefile: zr runs it in the host ruby when it builds a gem's extension
-- `ruby/prism`
-- `ruby/prism/compiler`
-- `ruby/prism/desugar_compiler`
-- `ruby/prism/dispatcher`
-- `ruby/prism/dot_visitor`
-- `ruby/prism/dsl`
-- `ruby/prism/ffi`
-- `ruby/prism/inspect_visitor`
-- `ruby/prism/lex_compat`
-- `ruby/prism/mutation_compiler`
-- `ruby/prism/node`
-- `ruby/prism/node_ext`
-- `ruby/prism/node_find`
-- `ruby/prism/parse_result`
-- `ruby/prism/parse_result/comments`
-- `ruby/prism/parse_result/errors`
-- `ruby/prism/parse_result/newlines`
-- `ruby/prism/pattern`
-- `ruby/prism/polyfill/append_as_bytes`
-- `ruby/prism/polyfill/byteindex`
-- `ruby/prism/polyfill/scan_byte`
-- `ruby/prism/polyfill/unpack1`
-- `ruby/prism/polyfill/warn`
-- `ruby/prism/reflection`
-- `ruby/prism/relocation`
-- `ruby/prism/serialize`
-- `ruby/prism/string_query`
-- `ruby/prism/translation`
-- `ruby/prism/translation/parser`
-- `ruby/prism/translation/parser/builder`
-- `ruby/prism/translation/parser/compiler`
-- `ruby/prism/translation/parser/lexer`
-- `ruby/prism/translation/parser_current`
-- `ruby/prism/translation/parser_versions`
-- `ruby/prism/translation/ripper`
-- `ruby/prism/translation/ripper/filter`
-- `ruby/prism/translation/ripper/lexer`
-- `ruby/prism/translation/ripper/sexp`
-- `ruby/prism/translation/ripper/shim`
-- `ruby/prism/translation/ruby_parser`
-- `ruby/prism/visitor`
+- `mkmf/depend`, a part of mkmf: zr runs mkmf in the host ruby when it builds a gem's extension
+- `ruby/prism/ffi`, the FFI half of Ruby::Prism: this runtime's Ruby::Prism is a Ruby port of the C
 - 59 encoding libraries under `enc/`: ruby loads them itself, and zr's runtime has every encoding built in
 
 ## Tests that a target may fail
