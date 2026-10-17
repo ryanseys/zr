@@ -42,6 +42,9 @@ class MethodNameCollisionTest < Minitest::Test
   def test_no_zr_method_shadows_an_object_method
     inherited = Object.instance_methods + Object.private_instance_methods
     shadows = under(Zr, { Zr => true }).each_key.flat_map do |mod|
+      # A BasicObject proxy (Eval::OnMain) has no Object method to shadow.
+      next [] if mod.is_a?(Class) && !(mod <= Object)
+
       own = mod.instance_methods(false) + mod.private_instance_methods(false)
       (own & inherited - DELIBERATE).map { |name| "#{mod}##{name}" }
     end
