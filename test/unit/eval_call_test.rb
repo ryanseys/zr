@@ -77,6 +77,12 @@ class EvalCallTest < Minitest::Test
     assert_equal :eval, Build.literal_name(Zr::Hir::FrozenString.new("eval", 1, false))
     assert_nil Build.literal_name(Zr::Hir::Literal.new(1, 1, false))
     assert_nil Build.literal_name(Zr::Hir::Local.new(:name, 1))
+    assert_nil Build.literal_name(Zr::Hir::Literal.new(+"\xFF", 1, true)), "a String that is no text names nothing"
+  end
+
+  # base64's tests send a String of a byte that is no character.
+  def test_a_send_of_a_string_that_is_no_text_builds
+    refute armed?(%q{send("\xFF")})
   end
 
   private

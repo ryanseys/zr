@@ -993,7 +993,7 @@ module Zr
       def eval_call?(node)
         args = node.arguments&.arguments || [] #: Array[untyped]
         first = args.first
-        named = first.unescaped.to_sym if first.is_a?(Prism::SymbolNode) || first.is_a?(Prism::StringNode)
+        named = Build.literal_name(first.unescaped) if first.is_a?(Prism::SymbolNode) || first.is_a?(Prism::StringNode)
         Build.eval_call?(node.name, named: named, argc: args.size)
       end
 

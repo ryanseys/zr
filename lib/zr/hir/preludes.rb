@@ -196,13 +196,15 @@ module Zr
       FETCHES = %i[method public_method instance_method].freeze
 
       # The method name that a send or a fetch takes as its first
-      # argument, when that is a literal: a Symbol, or a String, which the
-      # call turns into one.
+      # argument, when that is a literal (a node, or the bytes of a prism
+      # one): a Symbol, or a String, which the call turns into one. A
+      # String that is no valid text names nothing: the call raises
+      # EncodingError when it runs.
       #: (untyped arg) -> Symbol?
       def self.literal_name(arg)
-        case (value = arg.value if arg.is_a?(Literal) || arg.is_a?(FrozenString))
+        case (value = arg.is_a?(Literal) || arg.is_a?(FrozenString) ? arg.value : arg)
         when Symbol then value
-        when String then value.to_sym
+        when String then value.to_sym if value.valid_encoding?
         end
       end
 
