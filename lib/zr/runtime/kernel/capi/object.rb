@@ -294,9 +294,6 @@ module Zr::Kern
     end
   end
 
-  # CRuby's type number of a Struct: zr's Struct is a T_OBJECT.
-  T_STRUCT = 9
-
   # `recv.mid(arg)`, private methods too; a raise unwinds out of C.
   #: (value, word, value) -> value
   def zr_capi_call1(recv, mid, arg)

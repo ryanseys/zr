@@ -7,6 +7,7 @@
 module Zr::Kern
   # CRuby's type tags of the objects that zr keeps as plain ones, which a
   # census counts under them (zr_class_census).
+  T_STRUCT = 9
   T_MATCH = 13
   T_COMPLEX = 14
   T_RATIONAL = 15
