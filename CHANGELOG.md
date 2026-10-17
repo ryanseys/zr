@@ -152,8 +152,8 @@ The first public release.
   port). A json outside the versions that the port implements builds
   without its C part, or with its own C under `--native-ext`, where it
   used to stop the build.
-- stringio, strscan, date, digest, etc, bigdecimal, nkf, syslog and rbs
-  link their own C extensions too, the default gems' from the pinned ruby's arch directory:
+- stringio, strscan, date, digest, etc, fcntl, bigdecimal, nkf, syslog,
+  rbs, racc, ffi and prism link their own C extensions too, the default gems' from the pinned ruby's arch directory:
   stringio passes more of its own tests than its port did. The C
   API gains the transcoder (`rb_econv_*`), `rb_check_funcall`,
   `rb_check_id`, `rb_ext_resolve_symbol` and the other functions that

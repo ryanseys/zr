@@ -36,7 +36,7 @@ module Zr
 
       ALL = {
         # A gem in vendor/, over a port in lib/zr/runtime/ext.
-        "prism" => port("1.9.0"),
+        "prism" => port("1.9.0", c_first: true),
         # json 2.20 and 2.21 have 3.0's C interface; the port acts as 2.x
         # where 2.x deprecates what 3.0 refuses (ext/json/ext).
         "json" => port("3.0.2", compat: ">= 2.20, < 3.1", c_first: true),
@@ -47,11 +47,11 @@ module Zr
         "bigdecimal" => port("4.1.3", c_first: true),
         "digest" => port("3.3.0", vendored: false, c_first: true),
         "syslog" => port("0.4.0", c_first: true),
-        "ffi" => port("1.17.4"),
+        "ffi" => port("1.17.4", c_first: true),
         "openssl" => port("4.0.2", vendored: false),
         "nkf" => port("0.3.0", c_first: true),
         "fiddle" => port("1.1.8"),
-        "racc" => port("1.8.1"),
+        "racc" => port("1.8.1", c_first: true),
         "debug" => port("1.11.1"),
         "rbs" => port("4.2.0", c_first: true),
         # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
@@ -67,7 +67,7 @@ module Zr
         # (W18 L4). With it, its tests pass 35 of 39 where the port passes 26.
         "io-console" => port("0.9.4", vendored: false),
         "etc" => port("1.5.0", vendored: false, c_first: true),
-        "fcntl" => port("1.3.0", vendored: false)
+        "fcntl" => port("1.3.0", vendored: false, c_first: true)
       }.freeze #: Hash[String, Port]
 
       # The rubygems requirement of a port's `compat`.
