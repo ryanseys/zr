@@ -60,10 +60,15 @@ module Zr
     # and for a program with eval, every file of eval support (`support`),
     # which holds the libraries that the program and its evals load.
     #: (Hir::Program hir, EvalSupport support, ?GemSet? gem_set) -> Array[Row]
-    def of_program(hir, support, gem_set = nil)
+    def of_program(hir, support, gem_set = nil) = of(files_of(hir, support), gem_set, evals: hir.evals)
+
+    # The files of the program `hir`, and for a program with eval, of eval
+    # support (`support`).
+    #: (Hir::Program hir, EvalSupport support) -> Array[String]
+    def files_of(hir, support)
       files = hir.units.filter_map { |unit| unit.file if unit.file&.start_with?("/") }
       files += support.units.keys.select { |file| file.start_with?("/") } if hir.evals
-      of(files, gem_set, evals: hir.evals)
+      files
     end
 
     # The rows of the gems that `files` (a build's files) come from. A
@@ -76,10 +81,30 @@ module Zr
       rows.uniq.sort_by(&:name)
     end
 
-    # The bytes that a binary carries: MAGIC, then one line of JSON.
-    #: (Array[Row] rows, Target target) -> String
-    def bytes(rows, target)
-      "#{MAGIC}#{JSON.generate({ "zr" => VERSION, "ruby" => RUBY, "target" => target.triple, "gems" => rows.map(&:to_h) })}\n".b
+    # The bytes that a binary carries: MAGIC, then one line of JSON. Beside
+    # the rows of the gems it carries, it names the default (`default`)
+    # and bundled (`bundled`) gems of ruby's install, which rubygems lists
+    # whether or not a program carries them, and the gem of each of
+    # `files` (the build's files) that is a gem of ruby's library or a
+    # port, by the path that the program sees (`owners`).
+    #: (Array[Row] rows, Target target, ?Array[String] files) -> String
+    def bytes(rows, target, files = [])
+      install = Library::Stdlib::DEFAULT.map { |name, version| Row.new(name, version, "default").to_h } +
+                Library::Stdlib::BUNDLED.map { |name, version| Row.new(name, version, "bundled").to_h }
+      manifest = { "zr" => VERSION, "ruby" => RUBY, "target" => target.triple, "install" => install, "gems" => rows.map(&:to_h),
+                   "owners" => owners(files) }
+      "#{MAGIC}#{JSON.generate(manifest)}\n".b
+    end
+
+    # The files of each gem of ruby's library and of each port in `files`,
+    # by the gem's name. ruby's files that no gem has (`ruby`) and
+    # rubygems' own are no gem's.
+    #: (Array[String] files) -> Array[Hash[String, untyped]]
+    def owners(files)
+      by_gem = files.group_by { |file| row_for(File.expand_path(file), nil)&.name }
+      by_gem.filter_map do |name, paths|
+        { "name" => name, "files" => paths.map { |path| Paths.shown(path) }.uniq.sort } unless name.nil? || %w[ruby rubygems].include?(name)
+      end.sort_by { |owner| owner["name"] }
     end
 
     # The manifest in the bytes of a binary, as a Hash, or nil. The text

@@ -355,6 +355,23 @@ module Zr::Kern
     0
   end
 
+  # `Kernel.plain_require?`: whether the `require` that `recv` finds is
+  # ruby's own (a core entry) or the body of `standard`, an UnboundMethod
+  # of rubygems' Kernel#require (nil before rubygems loads). A `require`
+  # that the program undefined counts as ruby's own.
+  #: (value, value) -> value
+  def zr_plain_require_p_m(recv, standard)
+    e = zr_find_method(zr_class_of(recv), Machine.id(:require))
+    if e == 0 || MEntry[e].core != 0 || MEntry[e].kind == KIND_UNDEF
+      return Machine.value(QTRUE)
+    end
+    meta = zr_method_meta(e)
+    if standard != QNIL && meta != 0 && meta == zr_method_meta(Machine.ptr(RMethod[standard].entry))
+      return Machine.value(QTRUE)
+    end
+    Machine.value(QFALSE)
+  end
+
   # A compiled def has the arity of its parameters. A builtin's arity is
   # in its entry. A core def returns what C returns (-1 for any optional
   # count), unless CRuby also writes that method in Ruby.

@@ -99,4 +99,24 @@ Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
     assert_equal [Zr::VERSION, Zr::Target.default.triple, "net-http"], [found["zr"], found["target"], found["gems"].first["name"]]
     assert_nil Manifest.find("no manifest here")
   end
+
+  def test_the_manifest_names_the_default_and_bundled_gems_of_ruby_s_install
+    found = Manifest.find(Manifest.bytes([], Zr::Target.default))
+    sources = found["install"].to_h { |row| [row["name"], row["source"]] }
+
+    assert_equal "default", sources["fileutils"]
+    assert_equal "bundled", sources["abbrev"]
+    assert_equal [], found["gems"]
+  end
+
+  def test_owners_names_the_gem_of_each_file_of_ruby_s_library
+    lib = Zr::Library::Layout::RUBYLIBDIR
+    abbrev = File.join(Zr::Library::Layout.gem_root("abbrev", Zr::Library::Stdlib::BUNDLED.fetch("abbrev")), "lib/abbrev.rb")
+    files = ["#{lib}/fileutils.rb", "#{lib}/net/http.rb", "#{lib}/net/http/response.rb", abbrev, "#{lib}/rubygems.rb", "#{lib}/rubygems/specification.rb", "/app/main.rb"]
+
+    owners = Manifest.owners(files)
+
+    assert_equal [["abbrev", [abbrev]], ["fileutils", ["#{lib}/fileutils.rb"]], ["net-http", ["#{lib}/net/http.rb", "#{lib}/net/http/response.rb"]]],
+                 owners.map { |owner| [owner["name"], owner["files"]] }
+  end
 end

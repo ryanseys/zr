@@ -927,6 +927,17 @@ module Zr::Kern
     r
   end
 
+  # rubygems activates the gem of a file that a require or an autoload
+  # loads, before the file runs (its Kernel#require, which a require that
+  # the build resolved does not call). `Kernel.activating` answers once
+  # rubygems has loaded. QUNDEF when it raised.
+  #: (value) -> value
+  def zr_gem_activating(path)
+    args = Machine.slot(8)
+    Machine.store64(args, 0, Machine.word(path))
+    zr_send(zr_global(G_KERNEL), Machine.id(:activating), 1, args)
+  end
+
   # The same, for a require with a name that the program computed.
   # Kernel#require found the file and has its own frame, so the file's
   # toplevel runs under that frame. `fn` is the toplevel's address as an
@@ -993,6 +1004,10 @@ module Zr::Kern
         zr_hidden_add(path)
       else
         if zr_hidden_p(path)
+          if kind == 0
+            r = zr_gem_activating(path)
+            return r if r == QUNDEF
+          end
           zr_feature_reveal(path)
           zr_autoload_provided(Machine.value(QNIL), path)
           return Machine.value(QTRUE)
@@ -1016,6 +1031,14 @@ module Zr::Kern
     if loading
       zr_ary_push(zr_global_list(G_LOADING_FEATURES), path)
       zr_ary_push(zr_global_list(G_LOADING_FEATURES), zr_fix(Machine.word(zr_task())))
+    end
+    if kind == 0 && !hidden
+      r = zr_gem_activating(path)
+      if r == QUNDEF
+        zr_feature_loaded(path) if loading
+        zr_ary_delete_string(visible, path)
+        return r
+      end
     end
     # The file is compiled and about to run, where ruby fires
     # `:script_compiled`. A file that only the runtime loads is hidden from

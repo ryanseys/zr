@@ -651,6 +651,25 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     false
   end
 
+  # The kernel asks here before a require or an autoload runs a file at
+  # `path`, where rubygems' Kernel#require activates the file's gem. The
+  # program's gem manifest answers once rubygems has loaded
+  # (lib/zr/runtime/lib/zr/gem_manifest.rb); before that, nothing does,
+  # and the manifest activates the gems of the files loaded until then.
+  def self.activating(path)
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(self, :__activate__)&.call(path)
+  end
+
+  # Whether a require that the build resolved runs its file at once: the
+  # `require` that `recv` finds is ruby's own, or rubygems' (the one that
+  # the gem manifest keeps as `__require__`). Otherwise the require calls
+  # the program's `require` (lib/zr/hir/build/requires.rb, `heard`).
+  def self.plain_require?(recv)
+    Primitive.attr! :hidden
+    Primitive.zr_plain_require_p_m(recv, Primitive.zr_hidden_get(self, :__require__))
+  end
+
   # A file that the program was not compiled with, compiled by the
   # compiler that a program with a computed require links in.
   def self.compile(path)

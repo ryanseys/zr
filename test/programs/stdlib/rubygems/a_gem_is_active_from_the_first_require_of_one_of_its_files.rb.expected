@@ -1,0 +1,10 @@
+[]
+["shellwords"]
+["shellwords", "abbrev"]
+true
+false
+"/gems/abbrev-0.1.2"
+true
+["shellwords", "abbrev", "fileutils", "tsort"]
+true
+false

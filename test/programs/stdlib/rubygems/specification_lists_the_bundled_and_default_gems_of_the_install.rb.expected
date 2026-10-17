@@ -1,0 +1,10 @@
+["abbrev", true]
+["prime", true]
+["rake", true]
+["minitest", true]
+["test-unit", true]
+["fileutils", true]
+["json", true]
+"0.1.4"
+true
+false
