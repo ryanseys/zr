@@ -358,9 +358,14 @@ module Zr::Kern
   # `Kernel.plain_require?`: whether the `require` that `recv` finds is
   # ruby's own (a core entry) or the body of `standard`, an UnboundMethod
   # of rubygems' Kernel#require (nil before rubygems loads). A `require`
-  # that the program undefined counts as ruby's own.
+  # that the program undefined counts as ruby's own. So does any require
+  # of code that the program does not see (eval support's compiler and
+  # what it loads), which ruby does not have.
   #: (value, value) -> value
   def zr_plain_require_p_m(recv, standard)
+    if zr_hidden_now()
+      return Machine.value(QTRUE)
+    end
     e = zr_find_method(zr_class_of(recv), Machine.id(:require))
     if e == 0 || MEntry[e].core != 0 || MEntry[e].kind == KIND_UNDEF
       return Machine.value(QTRUE)
