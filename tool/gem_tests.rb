@@ -56,7 +56,9 @@ module Zr
 
         # Seconds with no output after which zr's run counts as hung: a
         # test that starts zr builds a program first, and prints nothing.
-        IDLE = 300
+        # rbs loads its 131 test files, each compiled as it loads, before
+        # its first line of output.
+        IDLE = Hash.new(300).merge("rbs" => 900).freeze
 
         # The scale of the time limits of the rubies a test starts
         # (EnvUtil.apply_timeout_scale), as `zr-dev cruby-test` gives it:
@@ -191,7 +193,7 @@ module Zr
               stderr = File.join(tmp, "stderr")
               argv = [Dev.ruby, "-e", EXEC, stderr, *command(zr ? Suite.zr_ruby : Dev.ruby)]
               limit = LIMIT[@name] * (zr ? ZR_SCALE : 1)
-              out, timed_out = Suite.capture(env(tmp, zr: zr), argv, @checkout.dir, limit, idle: (IDLE if zr))
+              out, timed_out = Suite.capture(env(tmp, zr: zr), argv, @checkout.dir, limit, idle: (IDLE[@name] if zr))
               read = Dev::GemTests.read(out)
               read.merge(timed_out: timed_out, error: (error(stderr) if read[:examples].empty?))
             end
