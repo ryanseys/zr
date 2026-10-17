@@ -56,13 +56,18 @@ module Zr
         "rbs" => port("4.2.0"),
         # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
         # if any, is ruby's own at the same version.
-        "date" => port("3.6.0", vendored: false, c_first: true),
+        # date keeps its port first: its own C tests RB_TYPE_P(x, T_RATIONAL),
+        # which reads a type tag that zr's Rational does not carry (W18 L0).
+        "date" => port("3.6.0", vendored: false),
         "stringio" => port("3.2.1.dev", vendored: false, c_first: true),
         "strscan" => port("3.1.9.dev", vendored: false, c_first: true),
         # zlib keeps its port first: its own C inflates without the GVL,
         # and a thread killed there corrupts the heap (W9a).
         "zlib" => port("3.2.4", vendored: false),
-        "io-console" => port("0.9.4", vendored: false, c_first: true),
+        # io-console keeps its port first: its own C tests RB_TYPE_P(io, T_FILE),
+        # a tag that zr's IO does not carry, so IO#cursor queries nothing
+        # (W18 L4). With it, its tests pass 35 of 39 where the port passes 26.
+        "io-console" => port("0.9.4", vendored: false),
         "etc" => port("1.5.0", vendored: false, c_first: true),
         "fcntl" => port("1.3.0", vendored: false)
       }.freeze #: Hash[String, Port]

@@ -152,9 +152,9 @@ The first public release.
   port). A json outside the versions that the port implements builds
   without its C part, or with its own C under `--native-ext`, where it
   used to stop the build.
-- stringio, strscan, date, digest, etc and io-console link their
-  own C extensions too, from the pinned ruby's arch directory: io-console
-  and stringio pass more of their own tests than the ports did. The C
+- stringio, strscan, digest and etc link their own C extensions too,
+  from the pinned ruby's arch directory: stringio passes more of its own
+  tests than its port did. The C
   API gains the transcoder (`rb_econv_*`), `rb_check_funcall`,
   `rb_check_id`, `rb_ext_resolve_symbol` and the other functions that
   their C calls.
