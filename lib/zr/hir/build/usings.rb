@@ -54,13 +54,17 @@ module Zr
         Using.new(@using, from, value, node.location.start_line)
       end
 
-      # `x = using mod`: the activation, whose value (self) the local gets.
-      #: (Prism::node node) -> Assign?
+      # `x = using mod` and `X = using mod`: the activation, whose value
+      # (self) the local or the constant gets.
+      #: (Prism::node node) -> (Assign | ConstWrite)?
       def assigned_using(node)
-        return nil unless node.is_a?(Prism::LocalVariableWriteNode)
+        return nil unless node.is_a?(Prism::LocalVariableWriteNode) || node.is_a?(Prism::ConstantWriteNode)
 
         activation = using_activation(node.value) or return nil
-        Assign.new(node.name, node.depth, activation, node.location.start_line)
+        line = node.location.start_line
+        return ConstWrite.new(nil, node.name, activation, line) if node.is_a?(Prism::ConstantWriteNode)
+
+        Assign.new(node.name, node.depth, activation, line)
       end
 
       # The activation entry in force here, for a def or block that keeps it
