@@ -464,12 +464,17 @@ class StringIO
             begin
               Encoding.find(ext_enc.is_a?(Encoding) ? ext_enc.name : ext_enc.to_str)
             rescue ArgumentError
-              IO.send(:open_options, "r:#{ext_enc}", {})[2]
+              # A name that only a mode reads ("bom|utf-8"): the C takes the
+              # mode's second encoding (convconfig.enc2), nil unless the mode
+              # names an internal one.
+              _, _, external, internal = IO.send(:open_options, "r:#{ext_enc}", {})
+              internal && external
             end
           end
     ptr.enc = enc
     # A chilled String keeps its encoding, as str_chilled_p spares it.
-    ptr.string.force_encoding(enc) if !ptr.string.nil? && writable? && !ptr.string.frozen? && !Primitive.zr_str_chilled_m(ptr.string)
+    # With no encoding, rb_enc_associate gives the string index 0: BINARY.
+    ptr.string.force_encoding(enc || Encoding::BINARY) if !ptr.string.nil? && writable? && !ptr.string.frozen? && !Primitive.zr_str_chilled_m(ptr.string)
     self
   end
 
@@ -665,6 +670,9 @@ class StringIO
     raise ArgumentError, wrong_arity(args.size, 0..2) if args.size > 2
 
     string, vmode = args
+    # rb_io_extract_modeenc: a mode given in both places raises, after the
+    # first one is read.
+    IO.send(:open_options, vmode, opts) unless vmode.nil? || opts[:mode].nil?
     vmode = opts[:mode] if vmode.nil? && opts.key?(:mode)
     flags, enc = mode_of(vmode, opts)
     if !string.nil?
@@ -709,9 +717,9 @@ class StringIO
               bits
             end
     spec = mode.is_a?(String) ? mode : nil
-    bom = spec&.split(":", 2)&.[](1)&.match?(/\Abom\|/i)
-    _, binary, external, internal = IO.send(:open_options, spec, opts.except(:mode))
-    flags |= SETENC_BY_BOM if bom
+    # A `bom|` prefix in the mode or in `encoding:` (parse_mode_enc).
+    _, binary, external, internal, conversion = IO.send(:open_options, spec, opts.except(:mode))
+    flags |= SETENC_BY_BOM if conversion[:bom]
     flags |= BINMODE if binary || opts[:binmode]
     enc = internal || external
     enc ||= Encoding::BINARY if flags.anybits?(BINMODE)

@@ -1,0 +1,20 @@
+["ab", #<Encoding:UTF-8>, 5]
+["ab", #<Encoding:UTF-8>, 5]
+["ab", #<Encoding:UTF-8>, 5]
+["ab", #<Encoding:UTF-8>, 5]
+["ab", #<Encoding:UTF-8>, 5]
+["ab", #<Encoding:UTF-8>, 2]
+["a", #<Encoding:UTF-16BE>, 4]
+["a", #<Encoding:UTF-16LE>, 4]
+#<ArgumentError: unknown encoding name - bom|utf-8>
+["ab", #<Encoding:UTF-8>, 5]
+#<ArgumentError: encoding specified twice>
+#<ArgumentError: mode specified twice>
+#<ArgumentError: mode specified twice>
+#<ArgumentError: mode specified twice>
+#<Encoding:BINARY (ASCII-8BIT)>
+5
+#<Encoding:BINARY (ASCII-8BIT)>
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
+#<Encoding:UTF-8>
