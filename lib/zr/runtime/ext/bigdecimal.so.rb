@@ -50,10 +50,12 @@ class BigDecimal < Numeric
   # As many digits as a Float has, which is the number that a division
   # adds to the wider operand before it stops.
   DOUBLE_FIG = 16
-  # The widest exponent a value keeps: past it a value is infinite, and
-  # below its negative a value is zero.
-  EXPONENT_MAX = (2**63) - 1
-  private_constant :DOUBLE_FIG, :EXPONENT_MAX
+  # The exponents a value keeps, in decimal digits: the C keeps one per
+  # nine-digit word, in a signed word (VP_EXPONENT_MAX and _MIN, with C's
+  # division, which truncates). Past them a value is infinite or zero.
+  EXPONENT_MAX = ((2**63) - 1) / 9 * 9
+  EXPONENT_MIN = (-(((2**63) - 8) / 9) * 9) - 8
+  private_constant :DOUBLE_FIG, :EXPONENT_MAX, :EXPONENT_MIN
 
   # The three settings, each the current fiber's own, as the C keeps them
   # (rb_thread_local_aref), under the C's names.
@@ -250,9 +252,43 @@ class BigDecimal < Numeric
       raise ArgumentError, "invalid value for BigDecimal(): #{source.inspect}" if strict && (empty || !text[match.end(0)..].to_s.strip.empty?)
       return build(1, 0, 0) if empty
 
+      sign = match[1] == "-" ? -1 : 1
       digits = "#{whole}#{fraction}"
+      # VpCtoV checks the exponent of the integer part's first digit, up to
+      # a whole word: past the range, a nonzero value with a positive
+      # exponent is infinite, and any other is zero.
+      written = match[4].to_i + whole.sub(/\A0+/, "").length
+      word = -(-written).div(9) * 9
+      return read_overflow(sign, digits.match?(/[1-9]/) && word.positive?) unless word.between?(EXPONENT_MIN, EXPONENT_MAX)
+    
       lead = digits.length - digits.sub(/\A0+/, "").length
-      from_int(match[1] == "-" ? -1 : 1, digits.to_i, whole.length + match[4].to_i - lead)
+      from_int(sign, digits.to_i, whole.length + match[4].to_i - lead)
+    end
+    
+    # VpCtoV past the exponent range: infinite under EXCEPTION_INFINITY's
+    # "exponent overflow", or zero.
+    def read_overflow(sign, infinite)
+      Primitive.attr! :hidden
+      return build(sign, 0, 0) unless infinite
+      raise FloatDomainError, +"exponent overflow" unless exception_mode.nobits?(EXCEPTION_INFINITY)
+    
+      sign.negative? ? -INFINITY : INFINITY
+    end
+    
+    # AddExponent: a result past the range is infinite or zero, which
+    # EXCEPTION_OVERFLOW and EXCEPTION_UNDERFLOW refuse.
+    def exponent_overflow(sign)
+      Primitive.attr! :hidden
+      raise FloatDomainError, +"Exponent overflow" unless exception_mode.nobits?(EXCEPTION_OVERFLOW)
+    
+      sign.negative? ? -INFINITY : INFINITY
+    end
+    
+    def exponent_underflow(sign)
+      Primitive.attr! :hidden
+      raise FloatDomainError, +"Exponent underflow" unless exception_mode.nobits?(EXCEPTION_UNDERFLOW)
+    
+      build(sign, 0, 0)
     end
 
     # A value from an Integer of digits, with the trailing zeros taken
@@ -264,8 +300,8 @@ class BigDecimal < Numeric
       while (digits % 10).zero?
         digits /= 10
       end
-      return infinity_result(sign, "in") if exponent > EXPONENT_MAX
-      return build(sign, 0, 0) if exponent < -EXPONENT_MAX
+      return exponent_overflow(sign) if exponent > EXPONENT_MAX
+      return exponent_underflow(sign) if exponent < EXPONENT_MIN
 
       build(sign, digits, exponent)
     end
@@ -313,15 +349,17 @@ class BigDecimal < Numeric
 
   # Every digit from the first that counts to the last, which is more
   # than the significant ones when the value has zeros to hold place.
+  # VpCountPrecisionAndScale counts in a signed word, which wraps for an
+  # exponent near the bottom of the range: the C's count is the one kept.
   def precision
     return 0 unless finite? && !@digits.zero?
 
-    [@exp, @exp.negative? ? n_significant_digits - @exp : n_significant_digits].max
+    signed_word([@exp, @exp.negative? ? n_significant_digits - @exp : n_significant_digits].max)
   end
 
   def n_significant_digits = finite? && !@digits.zero? ? @digits.to_s.length : 0
 
-  def scale = finite? ? [n_significant_digits - @exp, 0].max : 0
+  def scale = finite? ? signed_word([n_significant_digits - @exp, 0].max) : 0
 
   def precision_scale = [precision, scale]
 
@@ -329,11 +367,12 @@ class BigDecimal < Numeric
   # square root uses to halve an exponent.
   def _decimal_shift(n) = finite? ? BigDecimal.build(@sign, @digits, @exp + n) : self
 
-  def -@ = @special ? BigDecimal.build(-@sign, 0, 0, @special) : BigDecimal.build(-@sign, @digits, @exp)
+  # BigDecimal_neg and BigDecimal_abs check the value as a result.
+  def -@ = checked(negated)
 
   def +@ = self
 
-  def abs = @sign.negative? ? -self : self
+  def abs = checked(@sign.negative? ? -self : self)
 
   # BigDecimal_coerce: a number of the kinds that meet a BigDecimal.
   def coerce(other)
@@ -498,9 +537,9 @@ align(them) { |mine, theirs, _| mine <=> theirs }
   def fix = finite? ? truncate(0) : self
 
   # A precision given here wins over the global limit; 0 keeps the limit.
-  def add(other, digits) = with_precision(digits) { combine(other, :+) }
+  def add(other, digits) = with_precision(digits) { |n| combine(other, :+, n) }
 
-  def sub(other, digits) = with_precision(digits) { combine(other, :-) }
+  def sub(other, digits) = with_precision(digits) { |n| combine(other, :-, n) }
 
   def mult(other, digits) = with_precision(digits) { product(other) }
 
@@ -592,6 +631,10 @@ return [@sign, "Infinity", 10, 0] unless finite?
 
   def special = @special
 
+  # The value with the other sign, unchecked: a difference negates its
+  # operand as VpAddSub does, by the operation.
+  def negated = @special ? BigDecimal.build(-@sign, 0, 0, @special) : BigDecimal.build(-@sign, @digits, @exp)
+
   private
 
   # VpGetPrecisionInt: the precision of add, sub and mult.
@@ -601,7 +644,7 @@ def with_precision(digits)
   digits = Integer.send(:int_operand, digits)
   raise ArgumentError, "negative precision" if digits.negative?
 
-  answer = yield
+  answer = yield digits
   return limited(answer) if digits.zero? || !answer.is_a?(BigDecimal)
 
   answer.round_significant(digits)
@@ -623,6 +666,18 @@ end
     @exp = exponent
     @special = special
     freeze
+  end
+
+  # `n` as a C ssize_t holds it.
+  def signed_word(n) = ((n + (2**63)) % (2**64)) - (2**63)
+
+  # CheckGetValue: a value that is not finite, which the modes refuse.
+  def checked(value)
+    unless value.finite?
+      bit = value.nan? ? EXCEPTION_NaN : EXCEPTION_INFINITY
+      raise FloatDomainError, BigDecimal.send(:refused, value) unless BigDecimal.exception_mode.nobits?(bit)
+    end
+    value
   end
 
   # The other side as a BigDecimal, or nil when ruby calls coerce on
@@ -683,14 +738,41 @@ end
     ((@exp - 1).div(9)) - ((@exp - n_significant_digits).div(9)) + 1
   end
 
-  def combine(other, op)
+  # BigDecimal_addsub_with_coerce: the sum, with `them` negated for a
+  # difference. With a precision, an operand that lies wholly below the
+  # other's last digit and the precision takes part as a single unit just
+  # below both: it can then only push the rounding, as it does exactly
+  # (the C's optimization for a large exponent difference).
+  def combine(other, op, digits = 0)
     them = cast(other)
     return coerced(other, op) unless them
-
-    them = -them if op == :-
+  
+    them = them.negated if op == :-
     return sum_special(them) if @special || them.special
-
-    align(them) { |mine, theirs, low| sum(mine + theirs, low) }
+    return sum_zero(them) if zero? || them.zero?
+  
+    mine = self
+    if digits.positive?
+      if (low = far_below(digits)) && them.exp < low
+        them = BigDecimal.build(them.sign_bit, 1, low)
+      elsif (low = them.send(:far_below, digits)) && @exp < low
+        mine = BigDecimal.build(@sign, 1, low)
+      end
+    end
+    mine.send(:align, them) { |a, b, at| sum(a + b, at) }
+  end
+  
+  # The exponent below which another operand cannot reach the digits that
+  # a sum with this one keeps to `digits`.
+  def far_below(digits) = [@exp - n_significant_digits, @exp - digits].min - 2
+  
+  # VpAddSub with a zero operand: the other one, and of two zeros a
+  # negative zero only when both are negative.
+  def sum_zero(them)
+    return them unless them.zero?
+    return self unless zero?
+  
+    BigDecimal.build(@sign.negative? && them.sign_bit.negative? ? -1 : 1, 0, 0)
   end
 
   # The two values as Integers over one shared power of ten.
@@ -707,11 +789,13 @@ end
     BigDecimal.from_int(total.negative? ? -1 : 1, total.abs, low + total.abs.to_s.length)
   end
 
+  # A NaN operand comes back as it is, checked as a value; infinities go
+  # through VpIsDefOP, which raises "results to" under the modes.
   def sum_special(them)
     return BigDecimal.nan_result(true) if nan? || them.nan?
-    return them if finite?
-    return self if them.finite? || @sign == them.sign_bit
-
+    return BigDecimal.infinity_result(them.sign_bit) if finite?
+    return BigDecimal.infinity_result(@sign) if them.finite? || @sign == them.sign_bit
+  
     BigDecimal.nan_result
   end
 

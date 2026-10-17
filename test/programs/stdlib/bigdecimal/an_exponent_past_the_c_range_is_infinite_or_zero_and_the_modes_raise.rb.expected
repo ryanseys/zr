@@ -1,0 +1,29 @@
+0.1e max: 0.1e9223372036854775800 2
+0.1e max+1: Infinity 3
+-0.1e max+1: -Infinity -3
+0.1e min: 0.1e-9223372036854775808 2
+0.1e min-1: 0.0 1
+-0.1e min-1: -0.0 -1
+0e max+9: 0.0 1
+1e huge: Infinity 3
+1e -huge: 0.0 1
+0.0001e max+3: Infinity 3
+huge * 10: Infinity 3
+-huge * 10: -Infinity -3
+tiny / 10: 0.0 1
+-tiny / 10: -0.0 -1
+tiny * tiny: 0.0 1
+-9223372036854775807
+-9223372036854775807
+[-9223372036854775807, -9223372036854775807]
+-9223372036854775808
+1000000001
+9223372036854775800
+0
+overflow: huge * 10: FloatDomainError: Exponent overflow
+overflow: text: FloatDomainError: exponent overflow
+underflow: tiny / 10: FloatDomainError: Exponent underflow
+underflow: text: 0.0 1
+infinity: -Infinity: FloatDomainError: Computation results in 'Infinity'
+infinity: abs: FloatDomainError: Computation results in '-Infinity'
+nan: -NaN: FloatDomainError: Computation results in 'NaN' (Not a Number)

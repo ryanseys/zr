@@ -1,0 +1,52 @@
+0 + 0: 0.0 1
+-0 + 0: 0.0 1
+-0 + -0: -0.0 -1
+-0 - 0: -0.0 -1
+-0 - -0: 0.0 1
+0 - 1: -0.1e1 -2
+1 + -0: 0.1e1 2
+huge + 0: Infinity 3
+huge - 0: Infinity 3
+huge.add(0, 10): Infinity 3
+big.add(small, 10): 0.1e1000000000001 2
+small.sub(big, 10): -0.1e1000000000001 -2
+small.add(0, 10): 0.1e-999999999999 2
+down big.add(small, 10): 0.1e1000000000001 2
+down big.sub(small, 10): 0.9999999999e1000000000000 2
+down -big.add(small, 10): -0.9999999999e1000000000000 -2
+down 1.5.add(1e-50, 1): 0.1e1 2
+down 1.5.sub(1e-50, 1): 0.1e1 2
+down 25.add(-1e-90, 1): 0.2e2 2
+up big.add(small, 10): 0.1000000001e1000000000001 2
+up big.sub(small, 10): 0.1e1000000000001 2
+up -big.add(small, 10): -0.1e1000000000001 -2
+up 1.5.add(1e-50, 1): 0.2e1 2
+up 1.5.sub(1e-50, 1): 0.2e1 2
+up 25.add(-1e-90, 1): 0.3e2 2
+half_even big.add(small, 10): 0.1e1000000000001 2
+half_even big.sub(small, 10): 0.1e1000000000001 2
+half_even -big.add(small, 10): -0.1e1000000000001 -2
+half_even 1.5.add(1e-50, 1): 0.2e1 2
+half_even 1.5.sub(1e-50, 1): 0.1e1 2
+half_even 25.add(-1e-90, 1): 0.2e2 2
+ceiling big.add(small, 10): 0.1000000001e1000000000001 2
+ceiling big.sub(small, 10): 0.1e1000000000001 2
+ceiling -big.add(small, 10): -0.9999999999e1000000000000 -2
+ceiling 1.5.add(1e-50, 1): 0.2e1 2
+ceiling 1.5.sub(1e-50, 1): 0.2e1 2
+ceiling 25.add(-1e-90, 1): 0.3e2 2
+floor big.add(small, 10): 0.1e1000000000001 2
+floor big.sub(small, 10): 0.9999999999e1000000000000 2
+floor -big.add(small, 10): -0.1e1000000000001 -2
+floor 1.5.add(1e-50, 1): 0.1e1 2
+floor 1.5.sub(1e-50, 1): 0.1e1 2
+floor 25.add(-1e-90, 1): 0.2e2 2
+1.25.add(1e-30, 40): 0.1250000000000000000000000000001e1 2
+inf + inf: Infinity 3
+inf - inf: NaN 0
+1 + inf: -Infinity -3
+inf + inf raises: FloatDomainError: Computation results to 'Infinity'
+-inf + -inf raises: FloatDomainError: Computation results in '-Infinity'
+1 - inf raises: FloatDomainError: Computation results to '-Infinity'
+inf - inf raises: FloatDomainError: Computation results to 'NaN'
+nan + 1 raises: FloatDomainError: Computation results in 'NaN' (Not a Number)
