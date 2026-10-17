@@ -60,7 +60,7 @@ module Zr
         "rbs" => { "core/" => "RBS::EnvironmentLoader::DEFAULT_CORE_ROOT, the signatures of the core classes",
                    "stdlib/" => "RBS::Repository::DEFAULT_STDLIB_ROOT, the signatures of the standard library" }
       }.freeze
-      
+
       # For each target other than this host, how to build the pinned ruby
       # for it: the image that builds it (pinned by digest), its platform,
       # and the packages that its configure finds. `zr-dev vendor` builds

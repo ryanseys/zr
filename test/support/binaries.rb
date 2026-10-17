@@ -180,8 +180,10 @@ module Zr
         base = begin
           Native::Build.prelink(objects)
         rescue Obj::MachO::Refused
-          return nil
+          nil
         end
+        return nil unless base
+
         holes = cuts(bytes, base).select { |at, size, name| bytes[at, size] == filling(base, name) }
         head = Marshal.dump({ size: bytes.bytesize, objects: objects.map { |o| File.basename(o, ".o") }, holes: holes })
         body = +"".b
