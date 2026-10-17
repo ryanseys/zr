@@ -273,7 +273,10 @@ class ConfigTest < Minitest::Test
       refute Zr::Ext.wanted(config, other).key?("json")
     end
     Zr::Config.with(ZR_NATIVE_EXT: "-json msgpack") do |config|
-      assert_equal({ "msgpack" => [nil, true] }, Zr::Ext.wanted(config, host))
+      wanted = Zr::Ext.wanted(config, host)
+      refute wanted.key?("json")
+      assert_equal [nil, true], wanted.fetch("msgpack")
+      assert_equal ["3.2.1.dev", false], wanted.fetch("stringio")
     end
   end
 end

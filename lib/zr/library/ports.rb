@@ -40,9 +40,12 @@ module Zr
         # json 2.20 and 2.21 have 3.0's C interface; the port acts as 2.x
         # where 2.x deprecates what 3.0 refuses (ext/json/ext).
         "json" => port("3.0.2", compat: ">= 2.20, < 3.1", c_first: true),
+        # psych and openssl keep their ports first: their own C loads a
+        # dylib that is not the system's (libyaml, libssl), which a binary
+        # cannot carry.
         "psych" => port("5.5.0", vendored: false),
         "bigdecimal" => port("4.1.3"),
-        "digest" => port("3.3.0", vendored: false),
+        "digest" => port("3.3.0", vendored: false, c_first: true),
         "syslog" => port("0.4.0"),
         "ffi" => port("1.17.4"),
         "openssl" => port("4.0.2", vendored: false),
@@ -53,12 +56,14 @@ module Zr
         "rbs" => port("4.2.0"),
         # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
         # if any, is ruby's own at the same version.
-        "date" => port("3.6.0", vendored: false),
-        "stringio" => port("3.2.1.dev", vendored: false),
-        "strscan" => port("3.1.9.dev", vendored: false),
+        "date" => port("3.6.0", vendored: false, c_first: true),
+        "stringio" => port("3.2.1.dev", vendored: false, c_first: true),
+        "strscan" => port("3.1.9.dev", vendored: false, c_first: true),
+        # zlib keeps its port first: its own C inflates without the GVL,
+        # and a thread killed there corrupts the heap (W9a).
         "zlib" => port("3.2.4", vendored: false),
-        "io-console" => port("0.9.4", vendored: false),
-        "etc" => port("1.5.0", vendored: false),
+        "io-console" => port("0.9.4", vendored: false, c_first: true),
+        "etc" => port("1.5.0", vendored: false, c_first: true),
         "fcntl" => port("1.3.0", vendored: false)
       }.freeze #: Hash[String, Port]
 
