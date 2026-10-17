@@ -588,6 +588,88 @@ module Zr::Kern
     zr_capi_str(bytes, len, zr_fix2long(zr_c_result(zr_send(enc, Machine.id(:index), 0, Machine.ptr(0)))))
   end
 
+  # rb_filesystem_str_new and its _cstr form: in the filesystem encoding.
+  #: (ptr, word) -> value
+  def rb_filesystem_str_new(bytes, len)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_str_found(bytes, len, Machine.bytes("filesystem"), 10)
+  end
+
+  #: (ptr) -> value
+  def rb_filesystem_str_new_cstr(text)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_str_found(text, zr_cstr_len(text), Machine.bytes("filesystem"), 10)
+  end
+
+  # rb_locale_str_new and its _cstr form: in the locale encoding.
+  #: (ptr, word) -> value
+  def rb_locale_str_new(bytes, len)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_str_found(bytes, len, Machine.bytes("locale"), 6)
+  end
+
+  #: (ptr) -> value
+  def rb_locale_str_new_cstr(text)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_str_found(text, zr_cstr_len(text), Machine.bytes("locale"), 6)
+  end
+
+  # A String of `len` bytes at `bytes` in the encoding that
+  # Encoding.find gives for the `n`-byte name at `name`.
+  #: (ptr, word, ptr, word) -> value
+  def zr_capi_str_found(bytes, len, name, n)
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(zr_str_new(name, n)))
+    enc = zr_c_result(zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:find), 1, arg))
+    zr_capi_str(bytes, len, zr_fix2long(zr_c_result(zr_send(enc, Machine.id(:index), 0, Machine.ptr(0)))))
+  end
+
+  # rb_str_inspect: String#inspect of `str`.
+  #: (value) -> value
+  def rb_str_inspect(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(str, Machine.id(:inspect), 0, Machine.ptr(0)))
+  end
+
+  # rb_str_resurrect: a new, unfrozen String with `str`'s bytes and
+  # encoding, as a literal's copy is.
+  #: (value) -> value
+  def rb_str_resurrect(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_str_copy_encoding(zr_str_new(RString[str].ptr, RString[str].len), str)
+  end
+
+  # rb_str_locktmp and rb_str_unlocktmp: lock `str` against changes
+  # while C holds its bytes, and let it go.
+  #: (value) -> value
+  def rb_str_locktmp(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_str_locktmp_m(str))
+  end
+
+  #: (value) -> value
+  def rb_str_unlocktmp(str)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_str_unlocktmp_m(str))
+  end
+
+  # rb_interned_str_cstr: the frozen, deduplicated String of the C
+  # string `text`, in US-ASCII as rb_interned_str gives it.
+  #: (ptr) -> value
+  def rb_interned_str_cstr(text)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_str_intern(zr_capi_str(text, zr_cstr_len(text), ENC_USASCII))
+  end
+
   # rb_cstr_to_dbl: the Float that the C string `text` writes; with
   # `badcheck`, text that is not one raises as Float() does, else it reads
   # as String#to_f does.
@@ -654,7 +736,19 @@ module Zr::Kern
   def rb_cstr_to_inum(text, base, badcheck)
     Machine.gates_enter
     zr_c_entered()
-    str = zr_str_new(text, zr_cstr_len(text))
+    zr_capi_str_to_inum(zr_str_new(text, zr_cstr_len(text)), base, badcheck)
+  end
+
+  # rb_str_to_inum: the same for the String `str`.
+  #: (value, i32, i32) -> value
+  def rb_str_to_inum(str, base, badcheck)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_str_to_inum(str, base, badcheck)
+  end
+
+  #: (value, i32, i32) -> value
+  def zr_capi_str_to_inum(str, base, badcheck)
     b = Machine.sword(base)
     if Machine.sword(badcheck) != 0
       args = Machine.slot(16)
@@ -680,6 +774,30 @@ module Zr::Kern
     Machine.gates_enter
     zr_c_entered()
     zr_value_hash(str)
+  end
+
+  # rb_memhash: the hash of the `len` bytes at `ptr`, as a String of
+  # those bytes hashes.
+  #: (ptr, word) -> word
+  def rb_memhash(ptr, len)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_bytes_hash(ptr, len)
+  end
+
+  # rb_str_format: `format(fmt, *argv)` of the `argc` values at `argv`.
+  #: (i32, ptr, value) -> value
+  def rb_str_format(argc, argv, fmt)
+    Machine.gates_enter
+    zr_c_entered()
+    n = Machine.sword(argc)
+    args = zr_ary_new(n)
+    i = 0
+    while i < n
+      zr_ary_push(args, Machine.value(Machine.load64(argv + (i * 8), 0)))
+      i += 1
+    end
+    zr_capi_call1(fmt, Machine.id(:%), args)
   end
 
   # rb_str_hash_cmp: 0 when `a` and `b` are the same key of a Hash (the

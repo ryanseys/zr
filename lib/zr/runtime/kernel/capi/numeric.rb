@@ -602,6 +602,48 @@ module Zr::Kern
     r
   end
 
+  # rb_num_coerce_cmp: `x id y` after `y.coerce(x)`, or nil when `y`
+  # has no coerce or its coerce gives nil, as a comparison of a number
+  # with what it does not know answers.
+  #: (value, value, word) -> value
+  def rb_num_coerce_cmp(x, y, id)
+    Machine.gates_enter
+    zr_c_entered()
+    if zr_c_result(zr_check_funcall(y, Machine.id(:coerce))) != QTRUE
+      return Machine.value(QNIL)
+    end
+    pair = zr_capi_call1(y, Machine.id(:coerce), x)
+    if pair == QNIL
+      return Machine.value(QNIL)
+    end
+    zr_capi_call1(zr_ary_at(pair, 0), zr_capi_mid(id), zr_ary_at(pair, 1))
+  end
+
+  # rb_int_positive_pow: the Integer `x ** y` for a C long and an
+  # unsigned long.
+  #: (word, word) -> value
+  def rb_int_positive_pow(x, y)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(zr_int_from_word(x), Machine.id(:**), zr_capi_unsigned(y))
+  end
+
+  # rb_rational_num and rb_rational_den: a Rational's numerator and
+  # denominator.
+  #: (value) -> value
+  def rb_rational_num(rat)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(rat, Machine.id(:numerator), 0, Machine.ptr(0)))
+  end
+
+  #: (value) -> value
+  def rb_rational_den(rat)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(rat, Machine.id(:denominator), 0, Machine.ptr(0)))
+  end
+
   # rb_num2short, rb_fix2short and rb_num2ushort: an Integer as a C
   # short, with CRuby's RangeError past it.
   #: (value) -> i32

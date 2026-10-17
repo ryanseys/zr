@@ -63,6 +63,53 @@ module Zr::Kern
     Machine.word(value)
   end
 
+  # ruby_strtoul: the unsigned long that the text at `str` starts with,
+  # after white space and a sign, in base `base` (0 reads a `0x` or `0`
+  # prefix), as util.c reads it: a minus sign negates the value, and one
+  # too large gives ULONG_MAX with ERANGE. `*endptr` gets the first byte
+  # after the number, or `str` when there is none.
+  #: (ptr, ptr, i32) -> word
+  def ruby_strtoul(str, endptr, base)
+    Machine.gates_enter
+    zr_c_entered()
+    b = Machine.sword(base)
+    if b < 0 || b == 1 || b > 36
+      zr_os_set_errno(EINVAL)
+      return 0
+    end
+    at = str
+    c = Machine.u8(Machine.load8(at, 0))
+    while c == 32 || (c >= 9 && c <= 13)
+      at += 1
+      c = Machine.u8(Machine.load8(at, 0))
+    end
+    negative = c == 45
+    at += 1 if c == 43 || c == 45
+    found = str
+    if Machine.u8(Machine.load8(at, 0)) == 48
+      found = at + 1
+      x = Machine.u8(Machine.load8(at, 1))
+      if (b == 0 || b == 16) && (x == 120 || x == 88)
+        b = 16
+        at += 2
+      else
+        b = 8 if b == 0
+        at += 1
+      end
+    elsif b == 0
+      b = 10
+    end
+    counts = Machine.slot(16)
+    value = ruby_scan_digits(at, 0 - 1, Machine.i32(b), counts, counts + 8)
+    found = at + Machine.load64(counts, 0) if Machine.load64(counts, 0) > 0
+    Machine.store64(endptr, 0, Machine.word(found)) if Machine.word(endptr) != 0
+    if Machine.load32(counts + 8, 0) != 0
+      zr_os_set_errno(ERANGE)
+      return 0 - 1
+    end
+    negative ? 0 - value : value
+  end
+
   # ruby_scan_hex: the value of the hexadecimal digits at `str`, up to
   # `len` bytes; `*retlen` gets their count.
   #: (ptr, word, ptr) -> word
