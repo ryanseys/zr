@@ -44,16 +44,18 @@ module Zr
         # dylib that is not the system's (libyaml, libssl), which a binary
         # cannot carry.
         "psych" => port("5.5.0", vendored: false),
+        # bigdecimal keeps its port first: its own C tests RB_TYPE_P(v, T_RATIONAL)
+        # and T_COMPLEX, tags that zr's Rational and Complex do not carry (W18 L0).
         "bigdecimal" => port("4.1.3"),
         "digest" => port("3.3.0", vendored: false, c_first: true),
-        "syslog" => port("0.4.0"),
+        "syslog" => port("0.4.0", c_first: true),
         "ffi" => port("1.17.4"),
         "openssl" => port("4.0.2", vendored: false),
-        "nkf" => port("0.3.0"),
+        "nkf" => port("0.3.0", c_first: true),
         "fiddle" => port("1.1.8"),
         "racc" => port("1.8.1"),
         "debug" => port("1.11.1"),
-        "rbs" => port("4.2.0"),
+        "rbs" => port("4.2.0", c_first: true),
         # The C of the pinned ruby's default gem, in lib/zr/runtime/ext. Its Ruby half,
         # if any, is ruby's own at the same version.
         # date keeps its port first: its own C tests RB_TYPE_P(x, T_RATIONAL),
