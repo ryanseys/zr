@@ -1,0 +1,18 @@
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:16: warning: constant ::Old is deprecated
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:16: warning: constant ::Old is deprecated
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:16: warning: constant ::Old is deprecated
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:16: warning: constant ::Old is deprecated
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:13: warning: constant ::Old is deprecated
+1
+1
+1
+1
+1
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:17: warning: constant Box::Inner is deprecated
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:17: warning: constant Box::Inner is deprecated
+"constant"
+2
+2
+:deprecated lang/constants/a_deprecated_constant_of_object_warns_with_a_leading_double_colon.rb:19: warning: constant ::Old is deprecated
+1
+1

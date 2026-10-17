@@ -809,11 +809,13 @@ module Zr::Kern
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("constant "), 9)
+    # A constant of Object is `::Name`, as rb_const_warn_if_deprecated
+    # names it.
     owner = CEntry[e].owner
     if owner != zr_global(G_OBJECT)
       zr_buf_str(b, zr_class_to_s(owner, 0, 0, Machine.value(QNIL), Machine.value(QNIL)))
-      zr_buf_push(b, Machine.bytes("::"), 2)
     end
+    zr_buf_push(b, Machine.bytes("::"), 2)
     zr_buf_sym(b, id)
     zr_buf_push(b, Machine.bytes(" is deprecated"), 14)
     slot = Machine.slot(8)
