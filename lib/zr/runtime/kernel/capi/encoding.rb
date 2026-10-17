@@ -128,6 +128,10 @@ module Zr::Kern
     if !zr_special_p(obj) && zr_type(obj) == T_STRING
       return zr_str_encoding_index(obj)
     end
+    # An Encoding is its own encoding, as rb_enc_get_index reads one.
+    if !zr_special_p(obj) && zr_is_a(obj, zr_core_class(Machine.id(:Encoding)))
+      return zr_fix2long(zr_c_result(zr_send(obj, Machine.id(:index), 0, Machine.ptr(0))))
+    end
     if zr_c_result(zr_check_funcall(obj, Machine.id(:encoding))) == QTRUE
       enc = zr_c_result(zr_send(obj, Machine.id(:encoding), 0, Machine.ptr(0)))
       return zr_fix2long(zr_c_result(zr_send(enc, Machine.id(:index), 0, Machine.ptr(0))))
@@ -420,8 +424,8 @@ module Zr::Kern
     Machine.store64(args, 8, Machine.word(b))
     enc = zr_c_result(zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:compatible?), 2, args))
     if enc == QNIL
-      Machine.store64(args, 0, Machine.word(zr_c_result(zr_send(a, Machine.id(:encoding), 0, Machine.ptr(0)))))
-      Machine.store64(args, 8, Machine.word(zr_c_result(zr_send(b, Machine.id(:encoding), 0, Machine.ptr(0)))))
+      Machine.store64(args, 0, Machine.word(zr_capi_encoding_object(zr_capi_obj_enc_index(a))))
+      Machine.store64(args, 8, Machine.word(zr_capi_encoding_object(zr_capi_obj_enc_index(b))))
       zr_c_result(zr_send(zr_str_new(Machine.bytes(""), 0), Machine.id(:buf_incompatible), 2, args))
     end
     zr_capi_encoding(zr_capi_to_enc_index(enc))

@@ -270,8 +270,51 @@ module Zr::Kern
   def rb_enc_codelen(code, enc)
     Machine.gates_enter
     zr_c_entered()
-    Machine.i32(zr_capi_onig_write(RbEncoding[enc].onig, Machine.u32(code), Machine.slot(8)))
+    onig = RbEncoding[enc].onig
+    c = Machine.u32(code)
+    n = zr_capi_code_to_mbclen(onig, c)
+    if n == 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("invalid codepoint 0x"), 20)
+      zr_buf_str(b, zr_c_result(zr_capi_call1(zr_int_from_word(c), Machine.id(:to_s), zr_fix(16))))
+      zr_buf_push(b, Machine.bytes(" in "), 4)
+      zr_buf_str(b, zr_c_result(zr_send(zr_capi_encoding_object(zr_capi_enc_index(enc)), Machine.id(:name), 0, Machine.ptr(0))))
+      zr_c_result(zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b))
+    end
+    Machine.i32(n)
   end
+
+  # ONIGENC_CODE_TO_MBCLEN: the byte length of `code` in the encoding, or
+  # Onigmo's error for a code that it has no character for, as the
+  # single-byte and Unicode encodings give it (regenc.c, utf_8.c,
+  # utf_16le.c); another multibyte encoding gives the length it writes.
+  #: (word, word) -> word
+  def zr_capi_code_to_mbclen(onig, code)
+    kind = zr_onig_enc_kind(onig)
+    if kind == ONIG_ENC_KIND_SINGLE_BYTE
+      return code > 255 ? ONIGERR_INVALID_CODE_POINT_VALUE : 1
+    end
+    if kind == ONIG_ENC_KIND_UTF8
+      return 1 if code < 128
+      return 2 if code < 2048
+      return 3 if code < 65536
+      return 4 if code <= 1114111
+      return 1 if code == 4294967294 || code == 4294967295
+
+      return ONIGERR_TOO_BIG_WIDE_CHAR_VALUE
+    end
+    if kind == ONIG_ENC_KIND_UTF16LE || kind == ONIG_ENC_KIND_UTF16BE
+      return code > 65535 ? 4 : 2
+    end
+    return 4 if kind == ONIG_ENC_KIND_UTF32LE || kind == ONIG_ENC_KIND_UTF32BE
+
+    zr_capi_onig_write(onig, code, Machine.slot(8))
+  end
+
+  # Onigmo's errors for a code point that an encoding has no character for.
+  ONIGERR_INVALID_CODE_POINT_VALUE = 0 - 400
+  ONIGERR_TOO_BIG_WIDE_CHAR_VALUE = 0 - 401
 
   # rb_enc_uint_chr: the String of the character of `code`, as
   # Integer#chr makes it, with its errors.

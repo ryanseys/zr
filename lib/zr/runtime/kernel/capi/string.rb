@@ -969,11 +969,19 @@ module Zr::Kern
     zr_c_result(zr_send(str, Machine.id(:-@), 0, Machine.ptr(0)))
   end
 
-  # rb_str_buf_cat_ascii: appends the ASCII C string `text`.
+  # rb_str_buf_cat_ascii: appends the ASCII C string `text`, as characters
+  # of `str`'s encoding: in an encoding that is not ASCII compatible
+  # (UTF-16), each byte becomes that encoding's character.
   #: (value, ptr) -> value
   def rb_str_buf_cat_ascii(str, text)
     Machine.gates_enter
     zr_c_entered()
-    zr_capi_call1(str, Machine.id(:<<), zr_str_new(text, zr_cstr_len(text)))
+    index = zr_str_encoding_index(str)
+    ascii = zr_capi_str(text, zr_cstr_len(text), ENC_USASCII)
+    enc = zr_capi_encoding_object(index)
+    if zr_c_result(zr_send(enc, Machine.id(:ascii_compatible?), 0, Machine.ptr(0))) != QTRUE
+      ascii = zr_capi_call1(ascii, Machine.id(:encode), enc)
+    end
+    zr_capi_call1(str, Machine.id(:<<), ascii)
   end
 end

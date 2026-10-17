@@ -7,7 +7,9 @@ require_relative "../support/c_ext"
 # The C API that the own C of zlib, etc, io/console and digest calls:
 # the transcoder (rb_econv_*), rb_str_conv_enc_opts, the String helpers,
 # rb_check_funcall, rb_check_id, the IO helpers, and
-# rb_ext_resolve_symbol, each against ruby's answer.
+# rb_ext_resolve_symbol, and rb_obj_freeze of a hidden TypedData (digest
+# freezes its metadata so), rb_enc_codelen, rb_enc_check of an Encoding
+# and rb_str_buf_cat_ascii, which stringio's C calls, each against ruby's answer.
 class CExtDefaultGemsCApiTest < Minitest::Test
   SOURCE = <<~'C'
     #include <ruby.h>
@@ -93,6 +95,22 @@ class CExtDefaultGemsCApiTest < Minitest::Test
       VALUE (*f)(void) = (VALUE (*)(void))rb_ext_resolve_symbol("defaultgems.so", "defaultgems_marker");
       return f ? f() : Qnil;
     }
+    static const rb_data_type_t hidden_type = { "hidden", { 0, 0, 0 }, 0, 0, 0 };
+    static VALUE g_hidden_freeze(VALUE self) {
+      VALUE obj = rb_obj_freeze(TypedData_Wrap_Struct(0, &hidden_type, (void *)&hidden_type));
+      return OBJ_FROZEN(obj) ? Qtrue : Qfalse;
+    }
+    static VALUE g_codelen(VALUE self, VALUE code, VALUE name) {
+      return INT2FIX(rb_enc_codelen(NUM2INT(code), rb_enc_find(StringValueCStr(name))));
+    }
+    static VALUE g_enc_check(VALUE self, VALUE name, VALUE str) {
+      return rb_enc_from_encoding(rb_enc_check(rb_enc_from_encoding(rb_enc_find(StringValueCStr(name))), str));
+    }
+    static VALUE g_cat_ascii(VALUE self, VALUE name) {
+      VALUE s = rb_enc_str_new(0, 0, rb_enc_find(StringValueCStr(name)));
+      rb_str_buf_cat_ascii(s, "a\n");
+      return s;
+    }
     static VALUE g_obj_reveal(VALUE self) {
       VALUE s = rb_str_new_cstr("x");
       rb_obj_hide(s);
@@ -114,6 +132,10 @@ class CExtDefaultGemsCApiTest < Minitest::Test
       rb_define_module_function(m, "encoding_option", g_encoding_option, 1);
       rb_define_module_function(m, "resolve", g_resolve, 0);
       rb_define_module_function(m, "obj_reveal", g_obj_reveal, 0);
+      rb_define_module_function(m, "codelen", g_codelen, 2);
+      rb_define_module_function(m, "enc_check", g_enc_check, 2);
+      rb_define_module_function(m, "cat_ascii", g_cat_ascii, 1);
+      rb_define_module_function(m, "hidden_freeze", g_hidden_freeze, 0);
     }
   C
 
@@ -152,7 +174,16 @@ class CExtDefaultGemsCApiTest < Minitest::Test
     p DefaultGems.encoding_option({ encoding: "EUC-JP:UTF-8" }), DefaultGems.encoding_option({ external_encoding: "UTF-16LE" })
     p DefaultGems.encoding_option({ external_encoding: "EUC-JP", internal_encoding: "UTF-8" })
     p DefaultGems.encoding_option({ internal_encoding: nil }), DefaultGems.encoding_option({ external_encoding: "BINARY", internal_encoding: "UTF-8" })
-    p DefaultGems.resolve, DefaultGems.obj_reveal
+    p DefaultGems.resolve, DefaultGems.obj_reveal, DefaultGems.hidden_freeze
+    [[0x41, "UTF-8"], [0x3042, "UTF-8"], [0x1F363, "UTF-8"], [0x1ffffff, "UTF-8"], [0x41, "UTF-16LE"], [0x1F363, "UTF-16BE"],
+     [0x41, "UTF-32LE"], [0xff, "ISO-8859-1"], [0x100, "ISO-8859-1"]].each { |code, name| p [code, name, DefaultGems.codelen(code, name)] }
+    p DefaultGems.enc_check("UTF-8", "abc"), DefaultGems.enc_check("Windows-31J", "abc")
+    begin
+      DefaultGems.enc_check("Windows-31J", "\u{1f363}")
+    rescue Encoding::CompatibilityError => e
+      p e.message
+    end
+    p DefaultGems.cat_ascii("UTF-8"), DefaultGems.cat_ascii("UTF-16LE").bytes, DefaultGems.cat_ascii("UTF-32BE").bytesize
   RUBY
 
   def setup
