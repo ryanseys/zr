@@ -28,13 +28,12 @@ module Zr
     module Vendored
       # The bundled gems of ruby that vendor/ holds, at the versions in
       # ruby's gems/bundled_gems. A bundled gem with a C part is a port
-      # (lib/zr/library/ports.rb, at zr's version: debug and rbs among them), or zr
-      # refuses it (typeprof, repl_type_completor), or only a
-      # Windows ruby installs it (win32ole, win32-registry).
+      # (lib/zr/library/ports.rb, at zr's version: debug and rbs among them),
+      # or only a Windows ruby installs it (win32ole, win32-registry).
       BUNDLED = %w[
         abbrev base64 benchmark csv drb getoptlong irb logger matrix minitest mutex_m net-imap
-        net-smtp observer ostruct power_assert prime pstore rake rdoc readline reline resolv-replace
-        rexml rinda rss test-unit tsort
+        net-smtp observer ostruct power_assert prime pstore rake rdoc readline reline repl_type_completor
+        resolv-replace rexml rinda rss test-unit tsort typeprof
       ].freeze
 
       # The parts of ruby's library that vendor/ leaves out, with the

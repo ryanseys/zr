@@ -79,12 +79,14 @@ module Zr
         "rdoc" => "8.1.0",
         "readline" => "0.0.4",
         "reline" => "0.7.0",
+        "repl_type_completor" => "0.1.16",
         "resolv-replace" => "0.2.0",
         "rexml" => "3.4.4",
         "rinda" => "0.2.0",
         "rss" => "0.3.3",
         "test-unit" => "3.7.8",
-        "tsort" => "0.2.0"
+        "tsort" => "0.2.0",
+        "typeprof" => "0.33.2"
       }.freeze
 
       # The other bundled gems of the pinned ruby. vendor/ does not hold
@@ -92,13 +94,11 @@ module Zr
       # refuses them. The pinned ruby's own install has them.
       OTHER_BUNDLED = {
         "rbs" => "4.2.0",
-        "typeprof" => "0.33.2",
         "debug" => "1.11.1",
         "racc" => "1.8.1",
         "bigdecimal" => "4.1.3",
         "nkf" => "0.3.0",
         "syslog" => "0.4.0",
-        "repl_type_completor" => "0.1.16",
         "prism" => "1.9.0",
         "win32ole" => "1.9.3",
         "fiddle" => "1.1.8",

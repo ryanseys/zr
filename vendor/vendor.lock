@@ -3,7 +3,7 @@
 # `zr-dev vendor --check` checks vendor/ against it.
 #
 # A source: kind name version sha256-of-its-.gem url
-inputs 538c3b576311e6088bf21136f600ea8e17d8d97c001b050385dbc381f991f10b
+inputs c5855c2003f75b5d5e1d074a8f33646f78b62b3a43f2e825b3f0781c5ec2a3ce
 
 ruby ruby 4.1.0 - https://github.com/ruby/ruby@2d08b5f42f2cbed4a4e6ecf8d62987a4f21f98c1
 source prism 1.9.0 - https://github.com/ruby/prism@0a5f9c956cb62b371ab680868d08c82ae0d49201
@@ -74,12 +74,14 @@ bundled rake 13.4.2 cb825b2bd5f1f8e91ca37bddb4b9aaf345551b4731da62949be002fa8928
 bundled rdoc 8.1.0 befc37880a5cfd36dcb176c748b5fd5ee39dd3536a75e81824e4972ce230f60a https://rubygems.org/downloads/rdoc-8.1.0.gem
 bundled readline 0.0.4 6138eef17be2b98298b672c3ea63bf9cb5158d401324f26e1e84f235879c1d6a https://rubygems.org/downloads/readline-0.0.4.gem
 bundled reline 0.7.0 5b012d8e55dbf9d450f12bde2cf7d15ff546ae80b3f8f3b30e570d431815583d https://rubygems.org/downloads/reline-0.7.0.gem
+bundled repl_type_completor 0.1.16 f7048de5e758504c04a6c80d02ff4c7c4c6ff2785151928b830a6ac0ed416b5b https://rubygems.org/downloads/repl_type_completor-0.1.16.gem
 bundled resolv-replace 0.2.0 76d2c92dc6a744b9e27a915d1962b641c52e2c6ef6662a23335672a3ca593b30 https://rubygems.org/downloads/resolv-replace-0.2.0.gem
 bundled rexml 3.4.4 19e0a2c3425dfbf2d4fc1189747bdb2f849b6c5e74180401b15734bc97b5d142 https://rubygems.org/downloads/rexml-3.4.4.gem
 bundled rinda 0.2.0 bb4566af73c9b78e80bc41202140860e33150ee2a0eacdf6dfe583e1aa0b03fa https://rubygems.org/downloads/rinda-0.2.0.gem
 bundled rss 0.3.3 37ef1ec4d691d67edbe92159079a4e89a0965e6a6b32246009ae3d734d12d1ab https://rubygems.org/downloads/rss-0.3.3.gem
 bundled test-unit 3.7.8 689d1ca53f4d46f678b4e5d68d8e4294f87fc5e8b9238cc4de7c5727e8d65943 https://rubygems.org/downloads/test-unit-3.7.8.gem
 bundled tsort 0.2.0 9650a793f6859a43b6641671278f79cfead60ac714148aabe4e3f0060480089f https://rubygems.org/downloads/tsort-0.2.0.gem
+bundled typeprof 0.33.2 aa777c684d578ed27dc3e5d4bc4104c9eb5a76eedf7f5dd3366d571eaa6ca7c3 https://rubygems.org/downloads/typeprof-0.33.2.gem
 port bigdecimal 4.1.3 61ebe1e5e559bdc3cc6f2c0ee7f427321fc838f59611c294356eb04d6e21cf66 https://rubygems.org/downloads/bigdecimal-4.1.3.gem
 port debug 1.11.1 2e0b0ac6119f2207a6f8ac7d4a73ca8eb4e440f64da0a3136c30343146e952b6 https://rubygems.org/downloads/debug-1.11.1.gem
 port ffi 1.17.4 bcd1642e06f0d16fc9e09ac6d49c3a7298b9789bcb58127302f934e437d60acf https://rubygems.org/downloads/ffi-1.17.4.gem
@@ -2027,6 +2029,15 @@ d52e50823c26a1c0e96124d8745c1eb33f75e34e310d0c48226b811f670aad70 ruby/lib/ruby/g
 efad838ca5f95d0863bd2951051a34d7f0aa63666ef018d7b1385a3561369615 ruby/lib/ruby/gems/4.1.0+5/gems/reline-0.7.0/lib/reline/unicode/east_asian_width.rb
 19a71aa34dfbefbde8cd0e074079665f3ab55767c71b3b069501893643bf1d24 ruby/lib/ruby/gems/4.1.0+5/gems/reline-0.7.0/lib/reline/version.rb
 e7409d801d92423a61603e8a36fc8c6b05105f22d0a38e39f02572ac279191e7 ruby/lib/ruby/gems/4.1.0+5/gems/reline-0.7.0/license_of_rb-readline
+3a1b903d393c07a42ae1d9ae49891be835117bc7896ffaebcc2f5792d0a52efa ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/LICENSE.txt
+b9e7c46777d2e3711d476643b642a0f81855c3cdac27c94f07574a3712c4e337 ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor.rb
+d3f208e6f217512bdeff17480cb6b3ebd63f2d81ee551902fce6454d919a0799 ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor/methods.rb
+398bdf24f46713b38c5e78862616a128da8d3b7211b4b5eba90a0013205eeaba ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor/require_paths.rb
+955994501154f6bea9619fd84dd8d8ae88d2c57fd9dde75bda421387d4e6d13d ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor/result.rb
+40165f09f5acf03f84a375822dcd8cf28da4dfc7ebab80095c560b64e12036ad ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor/scope.rb
+ea939a6f744d520b0d659e56f5e0e9bd1131a474678aec887f6cf8c2ee93b19a ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor/type_analyzer.rb
+0f917bc6dd2e4e296d8257a36bfdaaabfba528b8f12e63aba0514d7ae5c86e5e ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor/types.rb
+6493e7c2ff9512064adab4b40ac4b80c6909d6e662d4fff10cb03b2d8ce9a9a4 ruby/lib/ruby/gems/4.1.0+5/gems/repl_type_completor-0.1.16/lib/repl_type_completor/version.rb
 36a9a6e7347214bbba599a412617204e65bff065dcbe5c46f5cb454c80de9eb0 ruby/lib/ruby/gems/4.1.0+5/gems/resolv-replace-0.2.0/BSDL
 967586d538a28955ec2541910cf63c5ac345fcdea94bfb1f1705a1f6eb36bcbb ruby/lib/ruby/gems/4.1.0+5/gems/resolv-replace-0.2.0/COPYING
 1e4c69287e4784a33992c0de175e9d11e5d04657685e3b9f343d695e68f0f36d ruby/lib/ruby/gems/4.1.0+5/gems/resolv-replace-0.2.0/lib/resolv-replace.rb
@@ -2202,6 +2213,49 @@ d80c0cd595e886a5e74ec1f2454e61ce3a4b21fad3fb916003a045fc2ea8b78d ruby/lib/ruby/g
 86a53bbe5e6b4cb325b3273cf82fefd5f6b24098324eda212191beb265277dee ruby/lib/ruby/gems/4.1.0+5/gems/test-unit-3.7.8/lib/test/unit/worker-context.rb
 a5e3042dacb53eebda91f3b1caefbfec8307711df8c4ed1ed20e4e97c43307a4 ruby/lib/ruby/gems/4.1.0+5/gems/tsort-0.2.0/LICENSE.txt
 6bcb55163ca31d1e8fa09d3e73bcca5f096909853449f98184ef2d029045e414 ruby/lib/ruby/gems/4.1.0+5/gems/tsort-0.2.0/lib/tsort.rb
+95cd21d4a07b334e02652b823c3f2f95bde5b0e361190da46769ba4e95d4d328 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/LICENSE
+23b5b108f64fd04d7a0cea0a1cdf481a3e96fec9ef7c924d6b4ffc1af42d5a5b ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof.rb
+4df6e04acd640badf180304e1fed772641b8ca98da1ebdc6fa175899f9dc159d ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/cli.rb
+be34410a694243fcc06aee80d67fac66b32f77766f4e892db90d13ac9aea3aae ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/cli/cli.rb
+6c8492f8d08a98d93ef1ef196c64a33aeabe9648c531bed9fee91f960b413aab ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/code_range.rb
+32d14a96cecc56bd1cbdf953a7462d08a982787d8d44ed0bf09c11945f6d5b75 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core.rb
+56345de5e1e75dbde72badc6283c2f1705dd415845102ed1eff2f820f863bb82 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast.rb
+623a01bdc9e3b74a4da9a75c0197ea8b9e1d35fc743297325c776dbd2ee70d46 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/base.rb
+5a1246497306263f2ca13d4f6b050811b530e446eaa88bfe4b0d29251c1e3d85 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/call.rb
+98606fd3258bcd208af3d383499be0ec00cafbe682b2cd95a151c80c6915d113 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/const.rb
+7abf587984f0fef39e3ef68b6a1625ca290615625afa79c5c8496ffda26bc433 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/control.rb
+344003e40333b67202e18839dc217c5cea9778297879a162bdbe2e6151fbb068 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/meta.rb
+688444ea210e7d2ca3cb54ff3c5e6c3b595d91559c489b6a8ea585e0937de187 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/method.rb
+3a76bac5aee5d2ded58300387dea22948a067d7a21f3a9fb267025afca3abc82 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/misc.rb
+124ad7d854a7673c936614cfb8abdff0e061b5f974b6eb214b7327b8b1293c47 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/module.rb
+c2fa6a5eb2ff3b5efc3ce468f24ec156e5822910193b9e4c3d5e91a8196c7b35 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/pattern.rb
+6dac2667d243f991da25447cacc976337d47ae89a17e384d5a67a82106e5d758 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/sig_decl.rb
+f087fa1a2f5a1d7e3695c1fecc4b55bbe9065850e1b00ca0d32c326527d74620 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/sig_type.rb
+1e0e94cc58d0b922c224432ee6cff1a3bdf4d0665fcda500a981ef6a36a810e8 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/value.rb
+807b93d98c09cd7ad469c2e73ae53a6b332285d78ebc77b4890b06879f966ad0 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/ast/variable.rb
+9aab0b69f4fe0259a863e94dded7edfc807047b5aa251a66c1d063b92784a468 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/builtin.rb
+4e2cf26e5cd320d0cc2a74e15d36968caf25c4fc4714ecd7882a87f96c98f8ca ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env.rb
+ab74b13676108d4e3b3ed06ba3f8460fff44243d1c926b54ae1a66f8741f5e2f ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env/method.rb
+1cf97854bcd68cd302cca6f834b180ebb3d35be5e816f3f3db1364f180ab6dec ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env/method_entity.rb
+e2935403203e6b1cbd21b306169f12776eaefb491a9bd001c2db58d6378f9b15 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env/module_entity.rb
+cf55b253bf011e73f1d2710dae6582538e95f34963d004ff3eb359f4295f6be7 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env/narrowing.rb
+73024afae20a4197c0d86289c803f524587888793eeddce9c78e658686fbe34f ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env/static_read.rb
+01067a2b9939edd0c87a5e54679bac6045a9c7e199de3bbe739cceb0abe96644 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env/type_alias_entity.rb
+a68faf3663809aadc3392cc70fe27574ce41d73660147ce374ca83fa99e59bbd ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/env/value_entity.rb
+c4c74ae79b26b2b38f88945b2cfeb180e63e4a48ab063c0ae6de038d0990cf9a ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/graph/box.rb
+38a55b7b306427fcdfed392f2dff44e971f5447f5b3f29dda74a16e371a2a033 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/graph/change_set.rb
+fbd010ff65c2df528d6955c45e4feeefbe17f7836ed404f4f87110c97f6a5fe9 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/graph/filter.rb
+5228d13c88baf766de27847108cf9b64f892621e3ba33114fd6dcb987a8d3838 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/graph/vertex.rb
+405c69cef0dd534edf8fb1bbf6ca7565a65a1388a44ea57536960c58ad1b10f7 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/service.rb
+b0da12c455bfd814d8280a835d41387159c3784f5e597e2d7035f845debed01a ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/type.rb
+68919c32475c7bffd9db182c6fa94cc9d221f9a6956383bbdf66e630e3ed0034 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/core/util.rb
+7434e90b20a64047fd1a389b76f68a4db5e4efd16989072835751ee808b55f4c ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/diagnostic.rb
+d055a8d8ff552ccf25ab09f68c7707b4356c824233b523ad5dc91f9556cf715b ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/lsp.rb
+04d4f3c8ae7e44f36d6fda9918a223c0895b931afd23ec6696569fe27ad25a48 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/lsp/messages.rb
+2f22df9677c1967d7ff3721ae825ecc23abe237e68f7d2b1cd482dc4efff8e6a ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/lsp/server.rb
+28e1fa22da564e1270c2ff73ef6f9f1254a4ef7f404c651f388562f40e2abdb2 ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/lsp/text.rb
+e5546ede46a191956deca895ecfa0167ca330a5600598d4feff476b81b40039d ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/lsp/util.rb
+49f6f5dbcd4ffc6b9c102bf8c97d8faae79c2a5d56c9d351c8c1f0f9c78641df ruby/lib/ruby/gems/4.1.0+5/gems/typeprof-0.33.2/lib/typeprof/version.rb
 d48f5a24fb2e762fdadadd6ecf8cbae5128583a1ed3c5a42ff79872b5738256e ruby/lib/ruby/gems/4.1.0+5/specifications/abbrev-0.1.2.gemspec
 a8703f50aab149abc5b4b251234b954d14db70ef3e85f194b5f00a7d2f5cd696 ruby/lib/ruby/gems/4.1.0+5/specifications/base64-0.3.0.gemspec
 17660401bf77d6740cacb909cdb97ee6d48529887ddcb5531e83a064ae6dd284 ruby/lib/ruby/gems/4.1.0+5/specifications/benchmark-0.5.0.gemspec
@@ -2276,6 +2330,7 @@ d7977ab4987e88a4d0040d5418d7ffd2e1b7c08a30556e567bb990c344072631 ruby/lib/ruby/g
 286f29f443c4beb13b8d7a077931dd94cb96c30fd748211122151122cd93994a ruby/lib/ruby/gems/4.1.0+5/specifications/rdoc-8.1.0.gemspec
 53cdd7c7481e51e50a4f4366a1f49779beefb4de4f9c24a11e0d9a29d2601a5b ruby/lib/ruby/gems/4.1.0+5/specifications/readline-0.0.4.gemspec
 0688fe1a0b7dee23a928e5c6de6a127ca7261e0591cc787efdac3c3382534794 ruby/lib/ruby/gems/4.1.0+5/specifications/reline-0.7.0.gemspec
+e3f5b97feeed7f37ace92094ade7c1a34386ed76f93b86072713cb148d6ac6d8 ruby/lib/ruby/gems/4.1.0+5/specifications/repl_type_completor-0.1.16.gemspec
 f5d0d2986ce73529f706a0a26f75392247946c179ca5508d3ad717e5dea70a5e ruby/lib/ruby/gems/4.1.0+5/specifications/resolv-replace-0.2.0.gemspec
 f7cf96f9ed66f619c842e6de8b54d9e648aa755b89235b52b3372ca1cfe70b98 ruby/lib/ruby/gems/4.1.0+5/specifications/rexml-3.4.4.gemspec
 d115e99576c66ff05892002b6ec8710e0f794e5de2f70f7758b4021b20231b4b ruby/lib/ruby/gems/4.1.0+5/specifications/rinda-0.2.0.gemspec
@@ -2283,6 +2338,7 @@ d115e99576c66ff05892002b6ec8710e0f794e5de2f70f7758b4021b20231b4b ruby/lib/ruby/g
 60b1ab810150da01a336a184184c1d36247f38d8df475cb6693259c4f3f6b55d ruby/lib/ruby/gems/4.1.0+5/specifications/syslog-0.4.0.gemspec
 7cba5704c1b763c317787ad98965265aaed78c8b09940a11125c7838c16e4516 ruby/lib/ruby/gems/4.1.0+5/specifications/test-unit-3.7.8.gemspec
 618097c833fb2f59c1faadc6081416ff58b1bc2415181fbd89d538c38304ef51 ruby/lib/ruby/gems/4.1.0+5/specifications/tsort-0.2.0.gemspec
+0db98a62f1c380ecd771d23c2e7771a1d3f404e2ba93c25ff57f8253d8a3a345 ruby/lib/ruby/gems/4.1.0+5/specifications/typeprof-0.33.2.gemspec
 b471020939ffa8ec28125e4e31c29ef56dee40aa5403640f8311374cc5b413fc src/prism-1.9.0/LICENSE.md
 2e0641cf52c6a7130dee7e060109b2f2ec1f2d904c85efe0036bf4ddf02d33f9 src/prism-1.9.0/config.yml
 ca9e530c4bd2578da8b199abe44c9beb71f05535b5b4afbfe14c9d81c4bc471c src/prism-1.9.0/templates/lib/prism/compiler.rb.erb

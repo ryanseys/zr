@@ -1,0 +1,6 @@
+rdoc: "\n<span id=\"label-Head\" class=\"legacy-anchor\"></span>\n<h1 id=\"head\"><a href=\"#head\">Head</a></h1>\n\n<p><strong>bold</strong> <em>em</em> <code>code</code></p>\n"
+rdoc_options: !ArgumentError: wrong number of arguments (given 1, expected 0)
+rbs: "Array[Integer | String]"
+typeprof: "class Greeter\n  def initialize: (String) -> void\n  def greet: (true) -> String\nend\n"
+repl_type_completor: [["p", "p!", "x"], ["case", "case!", "to"]]
+versions: ["8.1.0", "4.2.0", "0.33.2", "0.1.16"]
