@@ -86,10 +86,13 @@ class IO
     # the flag that ruby set.
     reader.send(:set_nonblock, true)
     writer.send(:set_nonblock, true)
-    return [reader, writer] unless block_given?
+    pair = [reader, writer]
+    return pair unless block_given?
 
+    # rb_io_s_pipe yields the pair as one Array: a block of one
+    # parameter gets both ends.
     begin
-      yield reader, writer
+      yield pair
     ensure
       closing(reader)
       closing(writer)
