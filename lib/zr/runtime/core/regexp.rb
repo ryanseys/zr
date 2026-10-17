@@ -265,6 +265,10 @@ class Regexp
     warning = nil
     unless engine == text_encoding || (ascii && engine == Encoding::US_ASCII)
       enc, warning = Pattern.prepared_encoding(engine, encoding, options, text_encoding, ascii)
+      # A subject the pattern cannot read: the error in place of the
+      # warning, raised from this hidden frame.
+      raise warning if enc.nil?
+
       Primitive.zr_warn_here_m(warning) if warning
       unless enc == engine
         program_in(enc, warns: true)

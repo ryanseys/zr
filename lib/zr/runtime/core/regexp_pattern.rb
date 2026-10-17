@@ -77,15 +77,18 @@ class Regexp
     # `text_encoding` (`ascii`: all its bytes below 128) reads a pattern
     # in, when the engine reads it in `engine` and the pattern's own is
     # `encoding`, and the warning ruby gives of a /n pattern read as
-    # characters: [encoding, warning or nil]. A subject the pattern
-    # cannot read is refused.
+    # characters: [encoding, warning or nil]. For a subject the pattern
+    # cannot read, [nil, the Encoding::CompatibilityError]: the match
+    # raises it from its own frame (this file is plain Ruby, so it has no
+    # frame to hide).
     def prepared_encoding(engine, encoding, bits, text_encoding, ascii)
       return [engine, nil] if engine == text_encoding
       return [engine, nil] if ascii && engine == Encoding::US_ASCII
 
-      incompatible(encoding, text_encoding) unless text_encoding.ascii_compatible?
+      return [nil, incompatible(encoding, text_encoding)] unless text_encoding.ascii_compatible?
       if bits & FIXEDENCODING != 0
-        incompatible(encoding, text_encoding) unless engine.ascii_compatible? && ascii
+        return [nil, incompatible(encoding, text_encoding)] unless engine.ascii_compatible? && ascii
+
         return [engine, nil]
       end
       if bits & NOENCODING != 0 && text_encoding != Encoding::BINARY && !ascii
@@ -96,9 +99,9 @@ class Regexp
     end
 
     def incompatible(encoding, text_encoding)
-      Primitive.attr! :hidden
-      raise Encoding::CompatibilityError,
-            "incompatible encoding regexp match (#{inspect_name(encoding)} regexp with #{inspect_name(text_encoding)} string)"
+      Encoding::CompatibilityError.new(
+        "incompatible encoding regexp match (#{inspect_name(encoding)} regexp with #{inspect_name(text_encoding)} string)"
+      )
     end
 
     # rb_enc_inspect_name.

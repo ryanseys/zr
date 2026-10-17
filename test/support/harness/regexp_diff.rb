@@ -206,7 +206,9 @@ module Zr
 
           engine = compiled.programs.fetch(:engine, compiled.encoding)
           unless engine == subject.encoding || (subject.ascii_only? && engine == Encoding::US_ASCII)
-            enc, = @pattern.prepared_encoding(engine, compiled.encoding, compiled.options, subject.encoding, subject.ascii_only?)
+            enc, refusal = @pattern.prepared_encoding(engine, compiled.encoding, compiled.options, subject.encoding, subject.ascii_only?)
+            raise refusal if enc.nil?
+
             unless enc == engine || enc == compiled.encoding
               entry = compiled.programs[enc] ||= begin
                 reg, = @pattern.recompile(compiled.source, compiled.options, compiled.encoding, enc)
