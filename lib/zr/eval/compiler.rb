@@ -25,6 +25,8 @@ module Zr
       # @rbs @count: Integer
       # @rbs @compiled: Hash[Array[untyped], [Integer, Integer, Integer, Integer, Array[Integer], Integer?] | Exception]
       # @rbs @files: Hash[[String, String], [Integer, String?]]
+      # @rbs @fixed: Hash[String?, Integer]?
+      # @rbs @loaded: Cache::Loaded?
 
       # The compiler loads at the first eval (`Eval.current`). Loading it
       # makes about 100,000 objects, and about 90,000 stay live for the rest
@@ -36,6 +38,8 @@ module Zr
         require_relative "../backend/aarch64"
         require_relative "../obj/jit"
         require_relative "../runtime/lib/zr/obj/jit/runtime"
+        require_relative "../symbol_numbering"
+        require_relative "../cache/loaded"
         require "zr_description"
         new(Runtime.new)
       end
@@ -45,7 +49,12 @@ module Zr
         super()
         @runtime = runtime
         @description = Machine::Description.parse(Machine::Description::KERNEL)
-        @symbols = Machine::Symbols.new(runtime.symbol_names, sites: runtime.sites, intern: runtime.method(:intern))
+        names = runtime.symbol_names
+        @symbols = Machine::Symbols.new(names, sites: runtime.sites, intern: runtime.method(:intern))
+        # A file compiled at run time has the kernel's ids in its code, and
+        # pool words for the other names (`compile_file`).
+        kernel = @description.kernel_names
+        @fixed = (names.first(kernel).each_with_index.to_h if kernel) #: Hash[String?, Integer]?
         @syscalls = Obj::JIT::Runtime.new
         @aliases = ->(name) { runtime.alias_of(name) }
         @count = 0
@@ -115,31 +124,110 @@ module Zr
             next top
           end
 
-          @count += 1
-          name = "zr_load_#{@count}"
-          # While Coverage measures, the file gets its :line events, its def
-          # sites and its branch counters, after those of the program, and
-          # Coverage learns which of its lines can run, where each of its
-          # methods is, and its branches.
-          base = coverage&.send(:next_def_site)
-          branch_base = coverage&.send(:next_branch_id)
-          # The file's `using` entries come after every entry in use, as an
-          # eval's do (`compiled`): numbered from 0, they would take the
-          # entries of the program and of eval support (prism's parser).
-          hir = Hir.build(source, path, BuildOptions.new(trace: @runtime.tracing?), program: false, def_base: base, branch_base: branch_base,
-                                                                                    activations: @runtime.activations, aliases: @aliases)
-          @file_spots[path] = (hir.spots || {}).fetch(path, "")
-          @runtime.take_activations(hir.activations)
-          coverage&.send(:compiled_lines!, hir.coverable, hir.defs, false, hir.branches)
-          ext = Library::Roots.internal_library?(path)
-          functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext).run
-          top = Obj::JIT.load(unit(functions, data), syscalls: @syscalls).fetch(name)
+          top = (kept_file(path, source) if reuse) || compiled_file(path, source, coverage, keep: reuse)
           @files[key] = [top, @file_spots[path]] if reuse
           top
         end
       end
 
       private
+
+      # The toplevel of the code that an earlier run kept for the file
+      # (`Cache::Loaded`), placed in this process, or nil.
+      #: (String path, String source) -> Integer?
+      def kept_file(path, source)
+        cache = loaded_cache
+        return nil if cache.nil? || cache.verify?
+
+        entry = cache.take(cache.key("file", path, source, @runtime.tracing?), @aliases) or return nil
+        @file_spots[path] = entry.spots
+        place(entry.unit).fetch(entry.top)
+      end
+
+      # Compiles the file and places its code. `keep` lets the code go to
+      # the cache, under a toplevel name from its key, so that the code is
+      # the same in every run.
+      #: (String path, String source, untyped coverage, keep: bool) -> Integer
+      def compiled_file(path, source, coverage, keep:)
+        cache = loaded_cache if keep
+        key = cache&.key("file", path, source, @runtime.tracing?)
+        @count += 1
+        name = key ? "zr_load_#{key[0, 16]}" : "zr_load_#{@count}"
+        Timing.phase("compiling #{path}", "compiled #{File.basename(path)}") do
+          # While Coverage measures, the file gets its :line events, its def
+          # sites and its branch counters, after those of the program, and
+          # Coverage learns which of its lines can run, where each of its
+          # methods is, and its branches.
+          base = coverage&.send(:next_def_site)
+          branch_base = coverage&.send(:next_branch_id)
+          taken = @runtime.activations
+          asked = {} #: Hash[Symbol, Symbol?]
+          aliases = ->(old) { asked[old] = @aliases.call(old) }
+          # The file's `using` entries come after every entry in use, as an
+          # eval's do (`compiled`): numbered from 0, they would take the
+          # entries of the program and of eval support (prism's parser).
+          hir = Hir.build(source, path, BuildOptions.new(trace: @runtime.tracing?), program: false, def_base: base, branch_base: branch_base,
+                                                                                    activations: taken, aliases: aliases)
+          @file_spots[path] = (hir.spots || {}).fetch(path, "")
+          @runtime.take_activations(hir.activations)
+          coverage&.send(:compiled_lines!, hir.coverable, hir.defs, false, hir.branches)
+          # Before the lowering, which lets go of each unit's source.
+          read = read_files(hir, path)
+          ext = Library::Roots.internal_library?(path)
+          functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :top, ext: ext, fixed: @fixed).run
+          code = unit(functions, data)
+          if cache && key && hir.activations == taken
+            entry = Cache::Loaded::Entry.new(code, name, @file_spots.fetch(path) || "", read, asked, nil)
+            check_kept(cache, key, entry) if cache.verify?
+            cache.keep(key, entry)
+          end
+          place(code).fetch(name)
+        end
+      end
+
+      # The path and the SHA-256 of each file other than `path` that the
+      # compile of `path` read: the files that its literal requires
+      # compiled in.
+      #: (Hir::Program hir, String path) -> Hash[String, String]
+      def read_files(hir, path)
+        hir.units.filter_map do |unit|
+          source = unit.source
+          [unit.file, Digest::SHA256.hexdigest(source)] if source && unit.file != path && unit.file.start_with?("/")
+        end.to_h
+      end
+
+      # `ZR_CODE_CACHE=verify`: the code that the cache has for `key` must
+      # be the code of this compile.
+      #: (Cache::Loaded cache, String key, Cache::Loaded::Entry entry) -> void
+      def check_kept(cache, key, entry)
+        kept = cache.take(key, @aliases) or return
+        return if Marshal.dump(kept.unit) == Marshal.dump(entry.unit)
+
+        raise "zr: the code that the cache kept for #{key} differs from the code of a new compile"
+      end
+
+      # The code cache of the files that this program compiles as it runs,
+      # or nil when it is off. A kept file's code holds the kernel's ids and
+      # calls into the kernel and the core by name, so the compiler's files,
+      # the kernel's description and names, and the library directories
+      # that its requires search are what it depends on in this program.
+      #: () -> Cache::Loaded?
+      def loaded_cache
+        return @loaded if defined?(@loaded)
+
+        fixed = @fixed or return @loaded = nil
+        stamp = Cache::Store.key(RUBY_PLATFORM, *Runtime.sources.sort.flatten, Machine::Description::KERNEL, *fixed.keys,
+                                 *Runtime.library_roots)
+        @loaded = Cache::Loaded.for(stamp)
+      end
+
+      # Numbers the code's symbols and sites in this process's table, and
+      # loads it. Returns its symbols.
+      #: (Obj::Unit code) -> Hash[String, Integer]
+      def place(code)
+        SymbolNumbering.number(code.data, @symbols, @description.const_for("SYMBOL_TAG") || raise("the kernel declares no SYMBOL_TAG"))
+        Obj::JIT.load(code, syscalls: @syscalls)
+      end
 
       # @rbs source: untyped
       # @rbs file: untyped
@@ -174,8 +262,20 @@ module Zr
         end
 
         taken = @runtime.activations
+        # A later run can take the code from the disk too (`Cache::Loaded`),
+        # unless the code holds a number of this run: a `using` entry, or
+        # the index of its kept script lines.
+        cache = loaded_cache if reuse && using.nil? && !keep
+        disk = cache&.key("eval", source, source.encoding, file, line.to_int, scopes, method, warn_now, debug_frozen, plain_new,
+                          @runtime.tracing?)
+        if cache && disk && !cache.verify? && (entry = cache.take(disk, @aliases))
+          locals, used = entry.shape || raise("zr: an eval's cache entry has no shape")
+          return @compiled[key] = placed_eval(entry.unit, entry.top, locals, used)
+        end
+
         @count += 1
-        name = "zr_eval_#{@count}"
+        name = disk ? "zr_eval_#{disk[0, 16]}" : "zr_eval_#{@count}"
+        asked = {} #: Hash[Symbol, Symbol?]
         # A `using` entry is a slot in one table that the whole program
         # shares. The build numbered the program's own entries, and all are
         # in use before the first line runs. So an eval takes the next free
@@ -189,28 +289,43 @@ module Zr
           hir = Hir.build(source, file, BuildOptions.new(trace: @runtime.tracing?, switches: switches), program: false,
                           line: line.to_int, scopes: [*scopes.reverse, []], method: method, activations: @runtime.activations, using: using,
                           def_base: (coverage.send(:next_def_site) if measured), branch_base: (coverage.send(:next_branch_id) if measured),
-                          aliases: @aliases)
+                          aliases: ->(old) { asked[old] = @aliases.call(old) })
         rescue Hir::Invalid, SyntaxError => e
           @compiled[key] = e.dup if reuse
           raise warned(e)
         end
         @runtime.take_activations(hir.activations)
         # RubyVM::InstructionSequence.compile: the parser warns as it reads,
-        # not when the code runs.
+        # not when the code runs. A kept copy would not warn.
+        warned_now = warn_now && hir.warnings.any?
         if warn_now
           hir.warnings.each { |text| parse_warning(text) }
           hir.warnings.clear
         end
         Eval.cover_eval(coverage, hir, source, line.to_int) if coverage
         script = keep ? kept_script((hir.spots || {}).fetch(file, ""), source, line.to_int) : 0
+        read = read_files(hir, file)
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new,
-                                                                     script: script).run
-        symbols = Obj::JIT.load(unit(functions, data), syscalls: @syscalls)
-        metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
-        code = [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), hir.locals.size, symbols.fetch("zr_locals_#{name}"),
-                metas, hir.using] #: [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
+                                                                     script: script, fixed: @fixed).run
+        compiled = unit(functions, data)
+        if cache && disk && hir.activations == taken && !warned_now
+          entry = Cache::Loaded::Entry.new(compiled, name, "", read, asked, [hir.locals.size, hir.using])
+          check_kept(cache, disk, entry) if cache.verify?
+          cache.keep(disk, entry)
+        end
+        code = placed_eval(compiled, name, hir.locals.size, hir.using)
         @compiled[key] = code if reuse && hir.activations == taken
         code
+      end
+
+      # An eval's code, placed: its toplevel's address, its FrameMeta, its
+      # Env's slot count and names, the metas of its scopes, and its `using`
+      # entry (`compile`).
+      #: (Obj::Unit compiled, String name, Integer locals, Integer? used) -> [Integer, Integer, Integer, Integer, Array[Integer], Integer?]
+      def placed_eval(compiled, name, locals, used)
+        symbols = place(compiled)
+        metas = symbols.select { |symbol, _| symbol.start_with?("zr_meta_") }.values
+        [symbols.fetch(name), symbols.fetch("zr_meta_#{name}"), locals, symbols.fetch("zr_locals_#{name}"), metas, used]
       end
 
       # Whether ruby keeps the script lines of the code that it compiles

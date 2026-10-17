@@ -1,0 +1,18 @@
+# The records of lib/zr/cache/loaded.rb.
+module Zr
+  module Cache
+    class Loaded
+      class Entry < Data
+        attr_reader unit: Obj::Unit
+        attr_reader top: String
+        attr_reader spots: String
+        attr_reader files: Hash[String, String]
+        attr_reader aliases: Hash[Symbol, Symbol?]
+        attr_reader shape: [Integer, Integer?]?
+
+        def self.new: (Obj::Unit unit, String top, String spots, Hash[String, String] files, Hash[Symbol, Symbol?] aliases, [Integer, Integer?]? shape) -> instance
+                    | (unit: Obj::Unit, top: String, spots: String, files: Hash[String, String], aliases: Hash[Symbol, Symbol?], shape: [Integer, Integer?]?) -> instance
+      end
+    end
+  end
+end

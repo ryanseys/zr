@@ -13,7 +13,9 @@ class CarriedDescriptionTest < Minitest::Test
   def test_the_carried_text_is_the_runtimes_description
     runtime = Zr::Runtime.for(Zr::Target.default)
 
-    assert_equal Zr::Machine::Description.carried(runtime.send(:cached).fetch(:description)), runtime.carried_text
+    cached = runtime.send(:cached)
+
+    assert_equal Zr::Machine::Description.carried("#{cached.fetch(:description)}k #{cached.fetch(:kernel)}\n"), runtime.carried_text
   end
 
   def test_the_loader_resolves_zr_description_to_its_fixed_name

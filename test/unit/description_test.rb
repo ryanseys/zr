@@ -111,4 +111,14 @@ class DescriptionTest < Minitest::Test
     refute_equal reads, changed.rows(reads)
     refute_equal reads, defined.rows(reads)
   end
+
+  # A program's description ends with the count of the kernel's names,
+  # the ids that a compile at run time keeps in its code.
+  def test_the_carried_text_gives_the_count_of_the_kernel_s_names
+    runtime = Zr::Runtime.for(TARGETS.first)
+    text = runtime.carried_text[/<<~ROWS\n(.*?)^\s*ROWS$/m, 1].gsub(/^ +/, "")
+
+    assert_equal runtime.fixed_ids.size, Zr::Machine::Description.parse(text).kernel_names
+    assert_nil Zr::Machine::Description.parse(ROWS).kernel_names
+  end
 end

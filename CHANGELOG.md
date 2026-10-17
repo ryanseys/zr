@@ -132,5 +132,10 @@ The first public release.
   `--zjit` warn as such a ruby does.
 - `zr` run under the name `ruby` answers `--version` with ruby's
   description, and names itself in its errors.
+- A program with eval support keeps the machine code of each file and
+  eval string that it compiles as it runs, and its next run maps that
+  code with no compile (`<cache>/store/loaded/`; `ZR_CODE_CACHE=0`
+  turns it off). `zr run` also keeps the binary of such a program when
+  a require stays for the run time.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

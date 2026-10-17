@@ -73,6 +73,20 @@ For each string, the eval compiler:
 4. loads the machine code into the process with `Obj::JIT`, through the
    runtime's own calls to map and protect memory.
 
+The machine code of a file that a require or a `load` compiles as the
+program runs, and of an eval's string, goes into the cache too (a
+`loaded` entry of the store, `lib/zr/cache/loaded.rb`). The next run of
+a program on the same eval support maps that code and compiles nothing.
+For example, a child ruby that runs `require "irb"` starts in 0.6 s,
+not 5.4 s: fileutils and delegate eval strings as they load. The code
+has only the kernel's symbol ids, and each process numbers its other
+names from its own table. A hit needs each file that the compile read
+to be as it was. Code that holds a number of one run is never kept:
+code under Coverage, code that takes `using` entries, and code that
+keeps its script lines. `ZR_CODE_CACHE=0` turns this cache off, and
+`ZR_CODE_CACHE=verify` compiles each hit again and stops when the code
+differs.
+
 The string's calls into the runtime and the program are resolved by
 name. zr's linker sorts the symbol table of the image by name
 (`Obj::MachO::Executable`), so the kernel finds each name with a

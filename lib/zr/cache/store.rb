@@ -43,6 +43,7 @@ module Zr
         Kind.new(:parse, :marshal, ".marshal", nil), # Prism parse results (Cache::Parse)
         Kind.new(:derived, :raw, "", nil),        # what a build derives from a parse: error_highlight's spots (Cache::Parse.derived)
         Kind.new(:unit, :marshal, ".marshal", nil),
+        Kind.new(:loaded, :marshal, ".marshal", nil), # code a running program compiled for a file (Cache::Loaded)
         Kind.new(:lowering, :marshal, ".marshal", nil),
         Kind.new(:kernel, :marshal, ".marshal", nil),   # the kernel's lowering (Cache::Kernel)
         Kind.new(:code, :dir, "", nil),           # packs of machine code, one directory per backend

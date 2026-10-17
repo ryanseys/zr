@@ -206,13 +206,16 @@ module Zr
       # One line for each entry. A def line gives its return type, then
       # its parameters. An `e` line gives the effects of a def. A const
       # line gives its value. A layout line gives its size and alignment,
-      # then its fields. The format is text because a program contains it
-      # as one frozen literal and reads it with only String#split.
+      # then its fields. The `k` line of the text that a program carries
+      # gives the count of the kernel's symbol names. The format is text
+      # because a program contains it as one frozen literal and reads it
+      # with only String#split.
       #: (String text) -> Description
       def self.parse(text)
         defs = {} #: Hash[String, Def]
         consts = {} #: Hash[String, Integer]
         structs = {} #: Hash[String, Layout]
+        kernel_names = nil #: Integer?
         text.each_line do |line|
           # A row that `to_text` wrote: its fields are there.
           kind, name, *rest = line.split(" ") #: Array[untyped]
@@ -226,9 +229,10 @@ module Zr
               [n, [Integer(at), type]] #: [String, [Integer, String]]
             end
             structs[name] = Layout.new(name, fields, Integer(rest[0]), Integer(rest[1]))
+          when "k" then kernel_names = Integer(name)
           end
         end
-        new(defs, consts, structs)
+        new(defs, consts, structs, kernel_names)
       end
 
       #: () -> String
@@ -240,11 +244,16 @@ module Zr
         rows.map { |row| "#{row.join(" ")}\n" }.join
       end
 
-      #: (Hash[String, Def] defs, Hash[String, Integer] consts, Hash[String, Layout] structs) -> void
-      def initialize(defs, consts, structs)
+      # The count of the kernel's symbol names, the first ids of every
+      # table (`Runtime#fixed_ids`), or nil for a text with no `k` line.
+      attr_reader :kernel_names #: Integer?
+
+      #: (Hash[String, Def] defs, Hash[String, Integer] consts, Hash[String, Layout] structs, ?Integer? kernel_names) -> void
+      def initialize(defs, consts, structs, kernel_names = nil)
         @defs = defs
         @consts = consts
         @structs = structs
+        @kernel_names = kernel_names
       end
 
       #: (String name) -> Def?

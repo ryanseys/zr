@@ -194,9 +194,10 @@ module Zr
     # (lib/zr/eval/compiler.rb, `Library::Roots::DESCRIPTION`). The JIT of a binary
     # lowers eval'd code against it, not against the kernel. zr makes it
     # from this runtime's description, so it is never out of date and
-    # nobody commits it.
+    # nobody commits it. Its last line gives the count of the kernel's
+    # names, so a compile at run time knows which ids are fixed.
     #: () -> String
-    def carried_text = @carried_text ||= Machine::Description.carried(cached.fetch(:description))
+    def carried_text = @carried_text ||= Machine::Description.carried("#{cached.fetch(:description)}k #{cached.fetch(:kernel)}\n")
 
     # `RuntimeSources#abi_digest`: what a program's units and eval support's
     # code take from this runtime. It reads the symbol table's cache, which
