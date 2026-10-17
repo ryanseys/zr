@@ -373,7 +373,9 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # (`digest/sha1.rb`, `digest/sha1.so`) under a root marked `=`.
   def self.linked_c?(name)
     Primitive.attr! :hidden
-    bundle = "#{name.sub(/\.(?:rb|so|bundle)\z/, "")}.#{Kernel.dlext}"
+    # A name with a byte that is no character (`require "\xff"`) never
+    # meets a pattern, which would raise.
+    bundle = "#{name.delete_suffix(".rb").delete_suffix(".so").delete_suffix(".bundle")}.#{Kernel.dlext}"
     library_roots[0].any? { |dir| dir.start_with?("=") && compiled_in(dir.delete_prefix("="), bundle) }
   end
 
