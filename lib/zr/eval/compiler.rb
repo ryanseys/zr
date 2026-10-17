@@ -104,7 +104,7 @@ module Zr
           # Source bytes, as the parser reads a file: never transcoded to
           # the default internal encoding.
           source = File.binread(path).force_encoding(Encoding::UTF_8)
-          coverage = covering
+          coverage = Eval.covering
           reuse = coverage.nil? && !@runtime.traced_for_now?
           key = [-path, -source] #: [String, String]
           if reuse && @files.key?(key)
@@ -139,15 +139,6 @@ module Zr
 
       private
 
-      # The Coverage module, when the program loaded it. It is reached by a
-      # symbol: a constant that names it in code arms the trace events of the
-      # build (`Loader#names_of?`), and this code only reports to it.
-      #: () -> untyped
-      def covering
-        coverage = Object.const_defined?(:Coverage) && Object.const_get(:Coverage) #: untyped
-        coverage.respond_to?(:compiled_lines!, true) ? coverage : nil
-      end
-
       # @rbs source: untyped
       # @rbs file: untyped
       # @rbs line: _ToInt
@@ -163,7 +154,7 @@ module Zr
         # eval_make_iseq: a source that is not ASCII compatible cannot be read.
         raise ArgumentError, "invalid source encoding" unless source.encoding.ascii_compatible?
 
-        coverage = covering
+        coverage = Eval.covering
         # The machine code of an eval is never freed, so a string that runs
         # again, in a scope of the same shape, runs the code that its first
         # compile made, or raises a copy of the error that its first compile
@@ -207,15 +198,7 @@ module Zr
           hir.warnings.each { |text| parse_warning(text) }
           hir.warnings.clear
         end
-        # Coverage is there only when the program loads it. Under `eval:
-        # true` it counts the eval's lines as lines of the eval's file. Ruby
-        # gives the file as many lines as the code has newlines, after the
-        # lines before the eval's first one.
-        coverable = hir.coverable
-        if coverable && !coverable.empty?
-          size = source.b.count("\n") + line.to_int - 1
-          coverage&.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, hir.defs, true, hir.branches)
-        end
+        Eval.cover_eval(coverage, hir, source, line.to_int) if coverage
         script = keep ? kept_script((hir.spots || {}).fetch(file, ""), source, line.to_int) : 0
         functions, data = Zr::Lower.new(hir, @description, @symbols, entry: name, kind: :eval, outer: outer(scopes), plain_new: plain_new,
                                                                      script: script).run

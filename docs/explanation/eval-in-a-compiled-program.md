@@ -160,6 +160,10 @@ A literal `require` or `load` in the string runs the program's own
 `binding` in the string copies the string's own locals: a later write
 in the string does not reach that Binding.
 
+Under `Coverage.start(eval: true)`, the walk counts the lines and the
+branches that it runs, as compiled eval code does. A TracePoint hears
+no event from walked code.
+
 Backtraces give the interpreter's own files, not the line of the
 string.
 

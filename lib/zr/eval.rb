@@ -106,6 +106,28 @@ module Zr
     end
     private_class_method :name_of
 
+    # The Coverage module, when the program loaded it. It is reached by a
+    # symbol: a constant that names it in code arms the trace events of the
+    # build (`Loader#names_of?`), and this code only reports to it.
+    #: () -> untyped
+    def self.covering
+      coverage = Object.const_defined?(:Coverage) && Object.const_get(:Coverage) #: untyped
+      coverage.respond_to?(:compiled_lines!, true) ? coverage : nil
+    end
+
+    # Gives Coverage the lines and branches of an eval's tree. Under
+    # `eval: true` it counts the eval's lines as lines of the eval's file.
+    # Ruby gives the file as many lines as the code has newlines, after
+    # the lines before the eval's first one.
+    #: (untyped coverage, Hir::Program hir, String source, Integer line) -> void
+    def self.cover_eval(coverage, hir, source, line)
+      coverable = hir.coverable
+      return if coverable.nil? || coverable.empty?
+
+      size = source.b.count("\n") + line - 1
+      coverage.send(:compiled_lines!, coverable.transform_values { |(_, lines)| [size, lines] }, hir.defs, true, hir.branches)
+    end
+
     #: () -> void
     def initialize
       @file_spots = {}

@@ -26,7 +26,6 @@ The program tests in `test/programs/` hold zr to each row.
 | `RubyVM::InstructionSequence#disasm`, `#disassemble`, `#to_a` | `NotImplementedError`: zr compiles to machine code, and has no YARV bytecode to show | the bytecode |
 | `RubyVM::InstructionSequence#to_binary` of a compiled string | `NotImplementedError`, for the same reason | the bytecode as a String |
 | `#each_child` and `#trace_points` of the iseq of a block or method (`RubyVM::InstructionSequence.of`) in a program that names none of `TracePoint`, `Coverage`, `trace_points` and the debug gem | `NotImplementedError`: only a traced build keeps each scope's events and the scopes in it. The children of a compiled string answer both. | the child iseqs, and the events |
-| `Coverage.setup(eval: true)`, then an eval while coverage runs, in a program that evaluates with the walker (wasm32-wasi, `ZR_EVAL=walk`) | no lines of the eval in the result: the walker counts no lines yet | the lines of the eval in the result |
 | The message of a `SyntaxError` from `RubyVM::AbstractSyntaxTree.parse` | prism's message: zr parses only with prism | the message of ruby's older parser, parse.y |
 | A method that the program reaches only through a name that it builds at run time, such as `send("ev" + "al", ...)` | `NotImplementedError` when the method needs a part of the runtime that the program did not ask for (the compiler, the normalization tables, pp.rb) | the method's result |
 

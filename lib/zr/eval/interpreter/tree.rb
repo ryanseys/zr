@@ -170,7 +170,8 @@ module Zr
           when Hir::PathLiteral then World.path(literal(node.literal))
           when Hir::FrozenString then node.value
           when Hir::SelfRef then ctx.self_
-          when Hir::Trace, Hir::Cover then nil
+          when Hir::Trace then trace(node)
+          when Hir::Cover then World.coverage_branch(node.id)
           when Hir::Send then send_node(node, ctx)
           when Hir::Local then read_local(node, ctx)
           when Hir::Assign then write_local(node, walk(node.value, ctx), ctx)
@@ -838,6 +839,16 @@ module Zr
           return truthy?(svar_send(v, :===, [subject.first], nil, nil, false, svars(ctx))) if v.is_a?(::Regexp)
 
           truthy?(v === subject.first)
+        end
+
+        # A line event counts for Coverage, as compiled code's does;
+        # TracePoint hears no walked code. The event of an ensure body that
+        # compiles to nothing waits for the path that runs the body, which
+        # the walk does not follow, so it counts no line.
+        #: (Hir::Trace node) -> nil
+        def trace(node)
+          World.coverage_line(@file, node.line, node.event == :branch_jump) if node.event == :line || node.event == :branch_jump
+          nil
         end
 
         # `a, (b, *c), *d, e = value`.

@@ -36,7 +36,9 @@ module Zr
 
       # Builds the tree one scope inside the scopes of the frame, as the
       # eval compiler does. A write to a name that the frame has goes to the
-      # frame. A new name stays in the scope of the string.
+      # frame. A new name stays in the scope of the string. Under Coverage's
+      # `eval: true`, the tree gets its line events and branch counters
+      # after those already in use, as a compiled eval's does.
       #: (String source, String file, Integer line, Binding scope) -> Hir::Program
       def self.built(source, file, line, scope)
         # Hir only tests a name for membership, so a slot with no name
@@ -47,11 +49,17 @@ module Zr
         # The front end joins, splits and reads lines with ruby's defaults,
         # as the eval compiler's does (`Eval.plainly`); the walk itself runs
         # with the program's separators.
-        Runtime.plain_separators do
+        coverage = covering
+        measured = coverage&.send(:measures_evals?) || false
+        hir = Runtime.plain_separators do
           Runtime.compiling do
-            Hir.build(source, file, program: false, line: line, scopes: [*names.reverse, own], method: params)
+            Hir.build(source, file, BuildOptions.new(trace: measured), program: false, line: line, scopes: [*names.reverse, own], method: params,
+                                                                    def_base: (coverage.send(:next_def_site) if measured),
+                                                                    branch_base: (coverage.send(:next_branch_id) if measured))
           end
         end
+        cover_eval(coverage, hir, source, line) if coverage
+        hir
       end
 
       # The scopes of the frame, innermost first, in the order of lookup.

@@ -89,6 +89,11 @@ module Zr
       # the Binding's, as the eval compiler leaves them.
       def binding_push(b, names) = Primitive.zr_binding_push_m(b, names)
 
+      # Coverage's counters, for the line events and branch counters of
+      # walked code (`Hir::Trace`, `Hir::Cover`).
+      def coverage_line(path, line, jump) = Primitive.zr_coverage_line_at_m(path, line, jump)
+      def coverage_branch(id) = Primitive.zr_coverage_branch_m(id)
+
       # `Module.nesting` under `cref`, and a String literal's chill.
       def nesting(cref) = Primitive.zr_cref_nesting(cref)
       def chill(string) = Primitive.zr_str_chill(string)

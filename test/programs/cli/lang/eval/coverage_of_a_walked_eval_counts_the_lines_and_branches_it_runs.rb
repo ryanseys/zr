@@ -1,8 +1,6 @@
 # Coverage.start(eval: true) counts the lines and branches of code that
-# eval compiles. A program built with ZR_EVAL=walk (or for wasm32-wasi)
-# walks eval code in place of compiling it. The walker ignores the
-# counters, as it ignores TracePoint's events, so zr gives the eval's
-# value but reports no lines or branches for it (nil).
+# eval runs. A program built with ZR_EVAL=walk (as for wasm32-wasi) walks
+# eval code in place of compiling it, and the walk counts them too.
 require "coverage"
 
 Coverage.start(lines: true, branches: true, eval: true)

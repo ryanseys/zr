@@ -190,8 +190,45 @@ module Zr::Kern
     end
     toplevel = kind == KIND_TOP || (kind == KIND_MAIN && Machine.load64(Machine.static(:coverage_main_ran, 8), 0) == 0) ||
                (kind == KIND_EVAL && Machine.load64(Machine.static(:coverage_evals, 8), 0) != 0)
-    row = zr_coverage_row(c, FrameMeta[meta].file, FrameMeta[meta].file_len, toplevel)
-    line = zr_frame_line(rec)
+    zr_coverage_count(c, zr_coverage_row(c, FrameMeta[meta].file, FrameMeta[meta].file_len, toplevel), zr_frame_line(rec))
+  end
+
+  # A :line event of code that the eval walker runs, which has no frame:
+  # line `line` of the file named by the String `path`. An eval's file is
+  # measured under `eval: true`, as compiled eval code's is. A `jump`
+  # event (`:branch_jump`) counts only while Coverage counts branches.
+  #: (value, value, value) -> value
+  def zr_coverage_line_at_m(path, line, jump)
+    c = zr_coverage()
+    if Coverage[c].setup == 0 || (jump == QTRUE && Machine.load64(Machine.static(:coverage_branch_jumps, 8), 0) == 0)
+      return QNIL
+    end
+    zr_coverage_count(c, zr_coverage_named_row(c, path), zr_fix2long(line))
+    QNIL
+  end
+
+  # The record of the file named by the String `path`, found by its bytes.
+  # A new record keeps its own copy of the name, so it never points into
+  # a String that the collector can free.
+  #: (ptr, value) -> ptr
+  def zr_coverage_named_row(c, path)
+    i = 0
+    while i < Coverage[c].len
+      row = Coverage[c].rows + (i * CovRow.size)
+      if zr_bytes_eq(CovRow[row].file, CovRow[row].file_len, RString[path].ptr, RString[path].len)
+        return row
+      end
+      i += 1
+    end
+    name = zr_xmalloc(RString[path].len + 1)
+    zr_memcpy(name, RString[path].ptr, RString[path].len)
+    zr_coverage_row(c, name, RString[path].len, Machine.load64(Machine.static(:coverage_evals, 8), 0) != 0)
+  end
+
+  # Adds one run to `line` of `row`, if coverage measures the file and
+  # coverage runs.
+  #: (ptr, ptr, word) -> void
+  def zr_coverage_count(c, row, line)
     if CovRow[row].measured == 0 || Coverage[c].running == 0 || line <= 0
       return
     end
@@ -290,6 +327,13 @@ module Zr::Kern
     end
     slot = Coverage[c].branches + (id * 8)
     Machine.store64(slot, 0, Machine.load64(slot, 0) + 1)
+  end
+
+  # zr_coverage_branch for the eval walker, with the id as a Fixnum.
+  #: (value) -> value
+  def zr_coverage_branch_m(id)
+    zr_coverage_branch(zr_fix2long(id))
+    QNIL
   end
 
   # All branch counters, by id, up to the last one that ran. If `clear` is

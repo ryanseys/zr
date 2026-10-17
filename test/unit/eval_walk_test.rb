@@ -94,9 +94,9 @@ class EvalWalkTest < Minitest::Test
     assert_equal "/tmp/x", World.eval("__dir__", binding, file: "/tmp/x/y.rb")
   end
 
-  # A string that names Coverage gets a counter on each branch. The walker
-  # ignores the counters, as it ignores TracePoint's events
-  # (test/gaps/coverage_of_eval_in_a_walked_program.rb).
+  # A string that names Coverage gets a counter on each branch, which the
+  # walker counts through World
+  # (test/programs/stdlib/coverage/coverage_of_eval_counts_the_lines_and_branches_that_the_walker_runs.rb).
   def test_a_string_that_names_coverage_walks_its_branches
     assert_walks_like_ruby("Coverage if false; x = 2; x > 1 ? :big : :small")
     assert_walks_like_ruby("Coverage if false; case 3 when 1 then :one else :other end")
