@@ -1,0 +1,2 @@
+stdlib/rubygems/a_load_error_whose_path_has_a_byte_that_is_no_character_has_a_message_that_raises.rb:17:in 'Kernel#require': LoadError
+	from stdlib/rubygems/a_load_error_whose_path_has_a_byte_that_is_no_character_has_a_message_that_raises.rb:17:in '<main>'

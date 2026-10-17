@@ -1242,6 +1242,9 @@ module Zr::Kern
     LoadTable[zr_load_table()].gems_off_len != 0
   end
 
+  #: () -> value
+  def zr_gems_off_m = zr_bool(zr_gems_off_p())
+
   # Whether `e` is a String with the same bytes as the String `s`.
   #: (value, value) -> bool
   def zr_string_of(e, s)

@@ -1,0 +1,4 @@
+#<ArgumentError: invalid byte sequence in UTF-8>
+false
+"no path"
+"cannot load such file -- no/such/file"

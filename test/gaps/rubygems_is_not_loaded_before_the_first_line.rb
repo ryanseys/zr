@@ -1,11 +1,6 @@
 # ruby loads rubygems and bundled_gems before the program's first line,
-# so bundled_gems' LoadError#message is there from the start: it reads
-# the path with String#tr, which raises for a byte that is no character,
-# and the uncaught error then shows only its class. zr loads them at the
-# first use of Gem, so until then the message is LoadError's own.
-begin
-  require "\xff"
-rescue LoadError => e
-  p((e.message rescue $!))
-end
-p $LOADED_FEATURES.grep(/bundled_gems\.rb\z/).size
+# so $LOADED_FEATURES lists them from the start. zr loads them at the
+# first use of Gem, which keeps a program's start as fast as ruby's with
+# --disable-gems; until then they are not listed. (bundled_gems'
+# LoadError#message is copied: stdlib/rubygems/a_load_error_whose_path_…)
+p $LOADED_FEATURES.grep(/(rubygems|bundled_gems)\.rb\z/).map { |f| File.basename(f) }

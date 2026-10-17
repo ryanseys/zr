@@ -1,2 +1,1 @@
-#<ArgumentError: invalid byte sequence in UTF-8>
-1
+["rubygems.rb", "bundled_gems.rb"]

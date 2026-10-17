@@ -389,6 +389,15 @@ class LoadError < ScriptError
   # The feature a require could not load, which CRuby keeps where a
   # program sees it.
   def path = Primitive.zr_hidden_get(self, :@path)
+
+  # ruby loads bundled_gems before the program's first line, unless gems
+  # are off, and its LoadError#message reads the path with String#tr
+  # first, which raises for a byte that is no character. This one keeps
+  # that step until rubygems loads the real one.
+  def message
+    path&.tr("/", "-") unless Primitive.zr_gems_off_m
+    super
+  end
 end
 class NotImplementedError < ScriptError; end
 class SyntaxError < ScriptError
