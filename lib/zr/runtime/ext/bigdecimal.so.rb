@@ -55,49 +55,86 @@ class BigDecimal < Numeric
   EXPONENT_MAX = (2**63) - 1
   private_constant :DOUBLE_FIG, :EXPONENT_MAX
 
-  class << self
-    # `mode(ROUND_MODE)` reads or writes the rounding; every other
-    # selector is a bit in the word that says which results raise.
-    def mode(selector, value = nil)
-      @mode ||= ROUND_HALF_UP
-      @flags ||= 0
-      return @mode = value.nil? ? @mode : rounding(value) if selector == ROUND_MODE
-      return @flags if value.nil?
-      raise ArgumentError, +"second argument must be true or false" unless value == true || value == false
+  # The three settings, each the current fiber's own, as the C keeps them
+  # (rb_thread_local_aref), under the C's names.
+  EXCEPTION_MODE_KEY = :"BigDecimal.exception_mode"
+  ROUNDING_MODE_KEY = :"BigDecimal.rounding_mode"
+  PRECISION_LIMIT_KEY = :"BigDecimal.precision_limit"
+  # The bits of the exception word, in the order BigDecimal_mode sets them.
+  EXCEPTION_BITS = [EXCEPTION_INFINITY, EXCEPTION_NaN, EXCEPTION_UNDERFLOW, EXCEPTION_ZERODIVIDE].freeze
+  private_constant :EXCEPTION_MODE_KEY, :ROUNDING_MODE_KEY, :PRECISION_LIMIT_KEY, :EXCEPTION_BITS
 
-      @flags = value ? @flags | selector : @flags & ~selector
+  class << self
+    # BigDecimal_mode: a selector with an exception bit reads or sets
+    # those bits; ROUND_MODE reads or sets the rounding.
+    def mode(selector, value = nil)
+      flags = Integer.send(:int_operand, selector)
+      if flags.anybits?(EXCEPTION_ALL)
+        word = exception_mode
+        return word if value.nil?
+        raise ArgumentError, +"second argument must be true or false" unless value == true || value == false
+
+        EXCEPTION_BITS.each { |bit| word = value ? word | bit : word & ~bit if flags.anybits?(bit) }
+        return Thread.current[EXCEPTION_MODE_KEY] = word
+      end
+      if flags == ROUND_MODE
+        return rounding_mode if value.nil?
+
+        return Thread.current[ROUNDING_MODE_KEY] = rounding(value)
+      end
+      raise TypeError, +"first argument for BigDecimal.mode invalid"
     end
 
-    # The limit returns its old value, so a caller can restore it.
+    # BigDecimal_limit: the old limit, so a caller can restore it.
     def limit(digits = nil)
-      @limit ||= 0
-      was = @limit
-      @limit = digits.to_int unless digits.nil?
+      was = precision_limit
+      unless digits.nil?
+        digits = Integer.send(:int_operand, digits)
+        raise ArgumentError, +"argument must be positive" if digits.negative?
+
+        Thread.current[PRECISION_LIMIT_KEY] = digits
+      end
       was
     end
 
     def double_fig = DOUBLE_FIG
 
     def save_rounding_mode
-      was = mode(ROUND_MODE)
+      was = rounding_mode
       yield
     ensure
-      mode(ROUND_MODE, was)
+      Thread.current[ROUNDING_MODE_KEY] = was
     end
 
     def save_limit
-      was = limit
+      was = precision_limit
       yield
     ensure
-      limit(was)
+      Thread.current[PRECISION_LIMIT_KEY] = was
     end
 
     def save_exception_mode
-      was = mode(EXCEPTION_ALL)
+      was = exception_mode
       yield
     ensure
-      mode(EXCEPTION_ALL, false)
-      mode(was, true) unless was.zero?
+      Thread.current[EXCEPTION_MODE_KEY] = was
+    end
+
+    # VpGetException, VpGetRoundMode and VpGetPrecLimit: a fiber that has
+    # none yet gets the default, which the C writes there.
+    def exception_mode
+      Primitive.attr! :hidden
+      Thread.current[EXCEPTION_MODE_KEY] ||= 0
+    end
+
+    def rounding_mode
+      Primitive.attr! :hidden
+      Thread.current[ROUNDING_MODE_KEY] ||= ROUND_HALF_UP
+    end
+
+    def precision_limit
+      Primitive.attr! :hidden
+      Thread.current[PRECISION_LIMIT_KEY] ||= 0
     end
 
     # The results that ruby refuses to return when the matching bit is
@@ -106,7 +143,7 @@ class BigDecimal < Numeric
     # brings in "results in" it, as VpException words the two.
     def nan_result(given = false)
       Primitive.attr! :hidden
-      unless (mode(EXCEPTION_ALL) & EXCEPTION_NaN).zero?
+      unless exception_mode.nobits?(EXCEPTION_NaN)
         raise FloatDomainError, given ? refused(NAN) : +"Computation results to 'NaN'"
       end
 
@@ -115,7 +152,7 @@ class BigDecimal < Numeric
 
     def infinity_result(sign, word = "to")
       Primitive.attr! :hidden
-      unless (mode(EXCEPTION_ALL) & EXCEPTION_INFINITY).zero?
+      unless exception_mode.nobits?(EXCEPTION_INFINITY)
         raise FloatDomainError, "Computation results #{word} '#{sign.negative? ? '-' : ''}Infinity'"
       end
 
@@ -124,7 +161,7 @@ class BigDecimal < Numeric
 
     def zero_divide_result(sign)
       Primitive.attr! :hidden
-      raise FloatDomainError, +"Divide by zero" unless (mode(EXCEPTION_ALL) & EXCEPTION_ZERODIVIDE).zero?
+      raise FloatDomainError, +"Divide by zero" unless exception_mode.nobits?(EXCEPTION_ZERODIVIDE)
 
       infinity_result(sign, "in")
     end
@@ -201,7 +238,7 @@ class BigDecimal < Numeric
       if (special = text[/\A\s*(NaN|[-+]?Infinity)\s*\z/, 1])
         value = special == "NaN" ? NAN : (special.start_with?("-") ? -INFINITY : INFINITY)
         bit = value.nan? ? EXCEPTION_NaN : EXCEPTION_INFINITY
-        raise FloatDomainError, refused(value) unless (mode(EXCEPTION_ALL) & bit).zero?
+        raise FloatDomainError, refused(value) unless exception_mode.nobits?(bit)
 
         return value
       end
@@ -438,7 +475,7 @@ align(them) { |mine, theirs, _| mine <=> theirs }
       name = half.is_a?(Symbol) ? half.to_s : String.try_convert(half)
       mode = HALVES[name&.to_sym] or raise ArgumentError, "invalid rounding mode (#{name || half.inspect})"
     end
-    mode = BigDecimal.mode(ROUND_MODE) if mode.nil?
+    mode = BigDecimal.rounding_mode if mode.nil?
     mode = BigDecimal.send(:rounding, mode)
     place = whole ? 0 : Integer.send(:int_operand, digits)
     raise FloatDomainError, BigDecimal.send(:refused, self) if !finite? && whole && plain && plain_half
@@ -529,7 +566,7 @@ return [@sign, "Infinity", 10, 0] unless finite?
     return self if digits <= 0 || n_significant_digits <= digits
 
     drop = n_significant_digits - digits
-    kept = shorten(@digits, drop, BigDecimal.mode(ROUND_MODE), @sign)
+    kept = shorten(@digits, drop, BigDecimal.rounding_mode, @sign)
     BigDecimal.from_int(@sign, kept, kept.to_s.length + drop + point)
   end
 
@@ -708,14 +745,15 @@ end
     # exact half.
     quotient += 1 if !rest.zero? && [0, 5].include?(quotient % 10)
     drop = [quotient.to_s.length - want, 0].max
-    kept = drop.zero? ? quotient : shorten(quotient, drop, BigDecimal.mode(ROUND_MODE), @sign)
+    kept = drop.zero? ? quotient : shorten(quotient, drop, BigDecimal.rounding_mode, @sign)
     answer = BigDecimal.from_int(@sign * them.sign_bit, kept, kept.to_s.length + drop + point - them.point - shift)
     digits.positive? ? answer : limited(answer)
   end
 
   # Ruby's process-wide limit on how many digits a result keeps.
   def limited(answer)
-    BigDecimal.limit.zero? ? answer : answer.round_significant(BigDecimal.limit)
+    limit = BigDecimal.precision_limit
+    limit.zero? ? answer : answer.round_significant(limit)
   end
 
   def divide_special(them)

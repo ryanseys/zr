@@ -1,0 +1,28 @@
+[ArgumentError, "second argument must be true or false"]
+[ArgumentError, "invalid rounding mode (256)"]
+[ArgumentError, "invalid rounding mode (xyzzy)"]
+[TypeError, "first argument for BigDecimal.mode invalid"]
+[TypeError, "first argument for BigDecimal.mode invalid"]
+[TypeError, "no implicit conversion of String into Integer"]
+7
+7
+18
+18
+0
+[ArgumentError, "argument must be positive"]
+0
+3
+3
+3
+[TypeError, "no implicit conversion of String into Integer"]
+0.33e0
+2
+[3, 0, 0]
+7
+[3, 0]
+[1, 2, 5]
+[:"BigDecimal.exception_mode", :"BigDecimal.precision_limit", :"BigDecimal.rounding_mode"]
+:inside
+1
+2
+5
