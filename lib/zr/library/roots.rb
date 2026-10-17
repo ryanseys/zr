@@ -50,6 +50,14 @@ module Zr
       #: () -> Array[String]
       def bundled_roots = upstream.last
 
+      # The lib directory of every gem that the pinned ruby bundles: those
+      # of Stdlib::BUNDLED, then each other one whose C zr ports, which
+      # vendor/ holds at zr's version (Stdlib::OTHER_BUNDLED).
+      #: () -> Array[String]
+      def bundled_gem_roots
+        bundled_roots + Stdlib::OTHER_BUNDLED.keys.filter_map { |name| Ports.lib(name) if Ports::ALL[name]&.vendored }
+      end
+
       # The lib directory of the bundled gem `name`.
       #: (String name) -> String
       def lib_of(name) = bundled_roots.fetch(Stdlib::BUNDLED.keys.index(name) || raise(KeyError, "no bundled gem #{name}"))

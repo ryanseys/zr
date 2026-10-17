@@ -399,7 +399,8 @@ module Zr
         def apart?(file, path)
           return false unless @apart
 
-          from, to = [file, path].map { |f| Library::Roots.bundled_roots.find { f.start_with?("#{it}/") } }
+          roots = Library::Roots.bundled_gem_roots
+          from, to = [file, path].map { |f| roots.find { f.start_with?("#{it}/") } }
           !from.nil? && !to.nil? && from != to
         end
 

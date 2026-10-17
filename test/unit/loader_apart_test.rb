@@ -13,6 +13,14 @@ class LoaderApartTest < Minitest::Test
     assert loader(apart: true).apart?(file("irb", "irb/input-method.rb"), file("rdoc", "rdoc.rb"))
   end
 
+  # debug is a bundled gem whose C zr ports: its files are a gem of their
+  # own too, so irb's debugger loads them only when it starts.
+  def test_a_require_of_a_bundled_gem_that_zr_ports_waits
+    debug = File.join(Zr::Library::Ports.lib("debug"), "debug/session.rb")
+
+    assert loader(apart: true).apart?(file("irb", "irb/debug.rb"), debug)
+  end
+
   def test_a_file_of_a_gem_requiring_its_own_files_does_not_wait
     refute loader(apart: true).apart?(file("irb", "irb/debug.rb"), file("irb", "irb/debug/ui.rb"))
   end
