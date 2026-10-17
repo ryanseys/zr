@@ -12,10 +12,18 @@ module Zr
           host_ruby!
           writes "lib/zr/runtime/core/encodings.rb"
 
+          # A ruby's environment, without this bundle.
+          PLAIN = { "RUBYOPT" => nil, "RUBYLIB" => nil, "BUNDLE_GEMFILE" => nil }.freeze
+
+          # The encodings whose tables a new program starts with: `inspect`
+          # shows "(autoload)" for each other one. A new ruby answers,
+          # because this process has loaded more by now (`gen all` requires
+          # each generator before the first one runs).
+          LOADED = 'puts Encoding.list.reject { it.inspect.include?("(autoload)") }.map(&:name)'
+
           def write(io)
-            # Before any code uses an encoding, `inspect` shows if its table is
-            # already loaded. A new program starts in this state.
-            loaded = Encoding.list.to_h { |encoding| [encoding.name, !encoding.inspect.include?("(autoload)")] }
+            started = IO.popen(PLAIN, [RbConfig.ruby, "-e", LOADED], &:read).lines(chomp: true)
+            loaded = Encoding.list.to_h { |encoding| [encoding.name, started.include?(encoding.name)] }
 
             # Whether one byte is always one character: no pair of bytes in the
             # encoding makes a single character.
