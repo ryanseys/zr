@@ -70,7 +70,10 @@ unless rows.empty?
 
   rubygems_finish_resolve = Gem.method(:finish_resolve)
   Gem.singleton_class.send(:define_method, :finish_resolve) { |*args| booted.call ? [] : rubygems_finish_resolve.call(*args) }
-  Gem.singleton_class.send(:define_method, :discover_gems_on_require) { booted.call ? false : @discover_gems_on_require }
+  # rubygems' own ivar: an `@name` in zr's runtime files is a hidden one.
+  Gem.singleton_class.send(:define_method, :discover_gems_on_require) do
+    booted.call ? false : instance_variable_get(:@discover_gems_on_require)
+  end
 
   specs.each_value do |spec|
     spec.activated = true
