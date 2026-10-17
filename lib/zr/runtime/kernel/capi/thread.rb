@@ -480,6 +480,33 @@ module Zr::Kern
     zr_c_result(zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:[]=), 2, args))
   end
 
+  # rb_ractor_local_storage_ptr_newkey, rb_ractor_local_storage_ptr and
+  # rb_ractor_local_storage_ptr_set: the same storage for a C pointer,
+  # kept as an Integer (NULL where the Ractor has none). The type's mark
+  # and free functions are not called: zr's Ractors share one heap.
+  #: (ptr) -> ptr
+  def rb_ractor_local_storage_ptr_newkey(type)
+    rb_ractor_local_storage_value_newkey()
+  end
+
+  #: (ptr) -> ptr
+  def rb_ractor_local_storage_ptr(key)
+    Machine.gates_enter
+    zr_c_entered()
+    v = zr_ary_at(zr_capi_ractor_local(key), 1)
+    v == QNIL ? Machine.ptr(0) : Machine.ptr(zr_fix2long(v))
+  end
+
+  #: (ptr, ptr) -> void
+  def rb_ractor_local_storage_ptr_set(key, ptr)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.load64(key, 0))
+    Machine.store64(args, 8, Machine.word(zr_int_from_word(Machine.word(ptr))))
+    zr_c_result(zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:[]=), 2, args))
+  end
+
   # rb_nativethread_lock_*: rb_nativethread_lock_t is a pthread mutex.
   #: (ptr) -> void
   def rb_nativethread_lock_initialize(lock)

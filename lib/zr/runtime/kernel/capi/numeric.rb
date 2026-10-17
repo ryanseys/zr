@@ -61,7 +61,7 @@ module Zr::Kern
         if d < Machine.f64(F64_TWO_63) && d >= Machine.f64(0) - Machine.f64(F64_TWO_63)
           return Machine.to_int(Machine.trunc(d))
         end
-        zr_capi_float_range(v)
+        zr_capi_float_range(v, ll ? 1 : 0)
       end
       if zr_big_p(v)
         out = Machine.slot(8)
@@ -222,7 +222,7 @@ module Zr::Kern
           end
           return Machine.to_int(Machine.trunc(d))
         end
-        zr_capi_float_range(v)
+        zr_capi_float_range(v, ll ? 2 : 0)
       end
       if zr_big_p(v)
         return zr_capi_big_ulong(v, ll)
@@ -315,6 +315,15 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" into Float"), 11)
       zr_c_result(zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8)))
     end
+    # rb_convert_type_with_id: an object with no to_f cannot convert.
+    if !zr_fixnum_p(v) && zr_c_result(zr_check_funcall(v, Machine.id(:to_f))) != QTRUE
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't convert "), 14)
+      zr_buf_cname(b, v)
+      zr_buf_push(b, Machine.bytes(" into Float"), 11)
+      zr_c_result(zr_raise_new(zr_global(G_TYPE_ERROR), zr_buf_take_at(b, ENC_UTF8)))
+    end
     zr_float_value(zr_c_result(zr_send(v, Machine.id(:to_f), 0, Machine.slot(8))))
   end
 
@@ -393,9 +402,10 @@ module Zr::Kern
   end
 
   # FLOAT_OUT_OF_RANGE's RangeError: `float 1e+20 out of range of integer`,
-  # with the Float as `%-.10g` gives it.
-  #: (value) -> void
-  def zr_capi_float_range(v)
+  # with the Float as `%-.10g` gives it. rb_num2ll and rb_num2ull name
+  # their C type instead (`kind` 1 and 2).
+  #: (value, word) -> void
+  def zr_capi_float_range(v, kind)
     argv = Machine.slot(16)
     Machine.store64(argv, 0, Machine.word(zr_str_new(Machine.bytes("%-.10g"), 6)))
     Machine.store64(argv, 8, Machine.word(v))
@@ -404,7 +414,13 @@ module Zr::Kern
     zr_buf_init(b)
     zr_buf_push(b, Machine.bytes("float "), 6)
     zr_buf_str(b, text)
-    zr_buf_push(b, Machine.bytes(" out of range of integer"), 24)
+    if kind == 1
+      zr_buf_push(b, Machine.bytes(" out of range of long long"), 26)
+    elsif kind == 2
+      zr_buf_push(b, Machine.bytes(" out of range of unsigned long long"), 35)
+    else
+      zr_buf_push(b, Machine.bytes(" out of range of integer"), 24)
+    end
     zr_c_result(zr_raise_buf(zr_core_class(Machine.id(:RangeError)), b))
   end
 

@@ -83,6 +83,14 @@ module Zr::Kern
     zr_c_result(zr_ary_store(ary, offset, v))
   end
 
+  # rb_ary_replace: `copy.replace(orig)`.
+  #: (value, value) -> value
+  def rb_ary_replace(copy, orig)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_capi_call1(copy, Machine.id(:replace), orig)
+  end
+
   # rb_ary_clear: empties the Array, and returns it.
   #: (value) -> value
   def rb_ary_clear(ary)

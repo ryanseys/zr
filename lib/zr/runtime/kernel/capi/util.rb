@@ -8,6 +8,12 @@ module Zr::Kern
   #: () -> void
   def zr_capi_util_init
     zr_memcpy(Machine.global(:ruby_hexdigits, 33), Machine.bytes("0123456789abcdef0123456789ABCDEF"), 32)
+    # ruby_version: RUBY_VERSION as a C string (prism's C reads it).
+    e = zr_const_row_kept(zr_const_holder(zr_global(G_OBJECT), true), Machine.id(:RUBY_VERSION))
+    if e != 0
+      version = CEntry[e].value
+      zr_memcpy(Machine.global(:ruby_version, 16), RString[version].ptr, RString[version].len)
+    end
     table = Machine.global(:ruby_digit36_to_number_table, 256)
     b = 0
     while b < 256
