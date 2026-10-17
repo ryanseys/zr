@@ -199,12 +199,13 @@ module Zr
 
           # The environment of a run: no bundler of the tools' own, the
           # load paths of prism, no coverage (CRuby's runner sets the
-          # same), one minitest worker, and, in zr's, its cache and the
-          # scaled time limits. Parallel tests print their verbose lines
-          # interleaved, as threads happen to run, and the report reads one
-          # line a test.
+          # same), one minitest worker, CI's time limits, and, in zr's, its
+          # cache and the scaled time limits. Parallel tests print their
+          # verbose lines interleaved, as threads happen to run, and the
+          # report reads one line a test. irb gives a child ruby 3 seconds,
+          # or 30 under CI, where CRuby runs these tests.
           def env(tmp, zr:)
-            base = ChildRuby::UNBUNDLED.merge("RUBYLIB" => @rubylib, "SIMPLECOV_DISABLE" => "1", "MT_CPU" => "1", "TMPDIR" => tmp,
+            base = ChildRuby::UNBUNDLED.merge("RUBYLIB" => @rubylib, "SIMPLECOV_DISABLE" => "1", "MT_CPU" => "1", "CI" => "1", "TMPDIR" => tmp,
                                               "RUBY" => zr ? Suite.zr_ruby : Dev.ruby)
             zr ? base.merge(Suite.zr_env, "RUBY_TEST_TIMEOUT_SCALE" => TIMEOUT_SCALE) : base
           end
