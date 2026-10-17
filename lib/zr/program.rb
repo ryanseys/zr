@@ -100,6 +100,7 @@ module Zr
       # the program's requires reached (`Ext.optional_gem`).
       files = hir.units.to_h { |unit| [unit.file, true] }
       bundles = Ext.bundles(target: target).keys.select { |path| files.key?(path) || !Ext.optional_gem(path, target: target) }
+      redirects = redirects.merge(c_redirects(support, bundles, target)) if hir.evals
       symbols = hir.evals ? support.symbols : Machine::Symbols.new(rt.symbols.names, sites: rt.symbols.sites)
       # Only the kernel's names have fixed ids. The link numbers all other
       # names from `symbols`, so a unit's code does not depend on the
@@ -121,8 +122,8 @@ module Zr
       tables = LoadTables.new(computed: hir.evals || !bundles.empty?, spots: hir.spots || {}, coverable: hir.coverable || {},
                               branches: hir.branches || {}, defs: hir.defs || {}, sources: hir.evals ? support.digests : {},
                               target: target, gem_roots: gem_set ? gem_roots(gem_set, target) : [],
-                              manifest: Manifest.bytes(gems, target, Manifest.files_of(hir, support)), redirects: redirects, gems: options.switches.gems,
-                              metas: hir.traced ? true : false)
+                              manifest: Manifest.bytes(gems, target, Manifest.files_of(hir, support)), redirects: redirects,
+                              gems: options.switches.gems, metas: hir.traced ? true : false)
       new(rt, functions, data + SymbolNumbering.names_table(symbols) + tables.data(units), (support if hir.evals), sources, gems, bundles)
     end
 
@@ -156,6 +157,26 @@ module Zr
           root = gem.root_of(unit.file) or next
           copy = carried[unit.file.delete_prefix("#{root}/")]
           redirects[copy] = unit.file if copy && copy != unit.file
+        end
+      end
+      redirects
+    end
+
+    # Eval support's port of each C extension that the program links
+    # (`<ext>/digest/sha2.so.rb`), mapped to the linked bundle: a require of
+    # the port from eval support's files (the compiler's own `require
+    # "digest/sha2"`) runs the program's C, so the port's C never loads
+    # beside the gem's.
+    #: (EvalSupport support, Array[String] bundles, Target target) -> Hash[String, String]
+    def self.c_redirects(support, bundles, target)
+      redirects = {} #: Hash[String, String]
+      Ext.linked_features(target: target).each do |feature|
+        bundle = Ext.bundle_for(feature, target: target)
+        next unless bundle && bundles.include?(bundle)
+
+        ["#{feature}.so.rb", "#{feature}.rb"].each do |name|
+          copy = File.join(Library::Layout::EXT, name)
+          redirects[copy] = bundle if support.units.key?(copy)
         end
       end
       redirects
@@ -197,6 +218,6 @@ module Zr
       false
     end
 
-    private_class_method :gem_redirects, :built_from, :run_time_require?
+    private_class_method :gem_redirects, :c_redirects, :built_from, :run_time_require?
   end
 end

@@ -19,6 +19,7 @@ module Zr
         # @rbs @main: String?
         # @rbs @data: Hash[String, Integer]
         # @rbs @prebuilt_eval: untyped
+        # @rbs @relinked_tops: Array[String]?
         # @rbs @preloaded: Array[String]
         # @rbs @ahead: Array[String]
         # @rbs @booted: Array[String]
@@ -76,6 +77,9 @@ module Zr
 
           #: (String path, ?target: Target) -> String?
           def optional_gem(_path, target: Target.default) = nil
+
+          #: (?target: Target) -> Array[String]
+          def linked_features(target: Target.default) = []
         end
 
         attr_reader :units #: Array[Unit]
@@ -161,7 +165,7 @@ module Zr
           @roots = roots.map { |r| File.expand_path(r) }
           @units = []
           @stopped = []
-          @index = external ? external.units.dup : {}
+          @index = external ? external.units.reject { |path, _| relinked?(path) } : {}
           # A build that already read the program knows that it evals. A
           # build with eval support cannot find it again, because the
           # files that told it are in eval support and are not read.
@@ -816,7 +820,7 @@ module Zr
           # will, and reads none of them. Without this, `require "rubygems"`
           # (which evals at its first line) reads and builds about a
           # hundred files only to discard them.
-          if @prebuilt_eval && @evals && (entry = @prebuilt_eval.units[path])
+          if @prebuilt_eval && @evals && (entry = @prebuilt_eval.units[path]) && !relinked?(path)
             return @index[path] = entry
           end
 
@@ -863,9 +867,16 @@ module Zr
         # require reached. A computed require (debug_inspector's
         # `require "debug_inspector.#{dlext}"`) finds one as it runs, as
         # it finds any file of the program.
+        # A port's gem that puts its C first links all of its C once a
+        # require reached one of its extensions, so a require of a computed
+        # name finds the rest (digest's `Digest(:SHA256)`) and never the
+        # port's C beside the gem's.
         #: () -> void
         def extensions!
-          @extensions.bundles(target: @target).each_key { |path| add(path) unless @extensions.optional_gem(path, target: @target) }
+          bundles = @extensions.bundles(target: @target).keys
+          gems = bundles.to_h { |path| [path, @extensions.optional_gem(path, target: @target)] }
+          reached = bundles.filter_map { |path| gems[path] if @index.key?(path) }
+          bundles.each { |path| add(path) if gems[path].nil? || reached.include?(gems[path]) }
         end
 
         # The files that a C extension's C may require as it runs
@@ -946,6 +957,20 @@ module Zr
         # that the link names.
         #: (String path) -> String
         def self.real_path(path) = File.exist?(path) ? File.realpath(path) : path
+
+        # Whether `path` is a file of ruby's library whose C this build
+        # links (`--native-ext`, or a port that puts its gem's C first):
+        # eval support's copy of it requires the port's C, so the program
+        # builds its own copy, which requires the linked C (digest.rb's
+        # `require "digest.so"`).
+        #: (String path) -> bool
+        def relinked?(path)
+          feature = path.delete_prefix("#{Library::Layout::RUBYLIBDIR}/")
+          return false if feature == path
+
+          tops = @relinked_tops ||= @extensions.linked_features(target: @target).map { |linked| linked.split("/").first.to_s }.uniq
+          tops.any? { |top| feature == "#{top}.rb" || feature.start_with?("#{top}/") }
+        end
 
         # The file for `feature`, required from `from`, or nil.
         #: (Symbol kind, String feature, String from) -> String?

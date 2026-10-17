@@ -123,7 +123,15 @@ module Zr
                 # (json's of json/common) finds the gem's file, not the port's.
                 linked = gem_roots.select { |root| Ext.linked_under?([root], target: target) }
                 later = (gem_roots - linked) + (Library::Roots.stdlib(target) - native)
-                [[*(linked + native).map(&shown), "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED, [shown[Library::Layout::EXT]]]
+                # A default gem's C that the build links is in ruby's arch
+                # directory, where only the files compiled in count (`=`): a
+                # bundle there that the build did not link is no file here.
+                # A root of zr's ports of C (`*`) gives way to such C, as in
+                # the build (`Loader#resolve`).
+                archdir = RbConfig::CONFIG["archdir"]
+                arch = Ext.bundles(target: target).each_key.any? { |path| path.start_with?("#{archdir}/") } ? ["=#{shown[archdir]}"] : []
+                [[*arch, *linked.map(&shown), *native.map { |root| "*#{shown[root]}" }, "", *later.map(&shown)], uncarried, Hir::Build::PRELOADED,
+                 [shown[Library::Layout::EXT]]]
               else
                 none = [] #: Array[String]
                 [none] * 4

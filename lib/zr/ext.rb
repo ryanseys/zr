@@ -82,12 +82,20 @@ module Zr
     # gem's own C.
     #: (String feature, ?Config config, ?target: Target) -> String?
     def bundle_for(feature, config = Config.current, target: Target.default)
+      features(config, target: target)[feature.sub(/\.(?:so|bundle)\z/, "")]
+    end
+
+    # The features of the extensions that the build links (`json/ext/parser`).
+    #: (?Config config, ?target: Target) -> Array[String]
+    def linked_features(config = Config.current, target: Target.default) = features(config, target: target).keys
+
+    #: (Config config, target: Target) -> Hash[String, String]
+    def features(config, target:)
       archdir = "#{RbConfig::CONFIG["archdir"]}/"
-      features = (FEATURES[config] ||= {})[target.triple] ||= bundles(config, target: target).each_key.to_h do |path|
+      (FEATURES[config] ||= {})[target.triple] ||= bundles(config, target: target).each_key.to_h do |path|
         feature = path.start_with?(archdir) ? path.delete_prefix(archdir) : path[(path.rindex("/lib/").to_i + 5)..].to_s
         [feature.sub(/\.(?:so|bundle)\z/, ""), path]
       end
-      features[feature.sub(/\.(?:so|bundle)\z/, "")]
     end
 
     # Whether the build links a C extension under one of `roots`: the gem

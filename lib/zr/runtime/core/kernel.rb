@@ -346,14 +346,35 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # ports come before $LOAD_PATH: an installed copy of such a gem that
     # rubygems activates has a C part that no program here can load. The
     # others come after it, as ruby's own library does, so a directory the
-    # program adds can shadow them.
+    # program adds can shadow them. A root marked `=` (ruby's arch
+    # directory, where a default gem's linked C is) gives only the files
+    # compiled into the program, and a root of zr's ports of C (`*`)
+    # nothing for a feature whose C the program links there.
     ports, libraries = library_roots
     dirs = ports + $LOAD_PATH.map { |dir| File.path(dir) } + libraries
     dirs.each do |dir|
-      path = found_in(dir, name)
+      path = if dir.start_with?("=") then compiled_in(dir.delete_prefix("="), name)
+             elsif dir.start_with?("*") then linked_c?(name) ? nil : found_in(dir.delete_prefix("*"), name)
+             else found_in(dir, name)
+             end
       return path if path
     end
     nil
+  end
+
+  # `name` under `dir`, when the program was compiled with that file.
+  def self.compiled_in(dir, name)
+    Primitive.attr! :hidden
+    path = under(dir, name)
+    path if Primitive.zr_unit_for(path)
+  end
+
+  # Whether the program links the C extension of the feature `name`
+  # (`digest/sha1.rb`, `digest/sha1.so`) under a root marked `=`.
+  def self.linked_c?(name)
+    Primitive.attr! :hidden
+    bundle = "#{name.sub(/\.(?:rb|so|bundle)\z/, "")}.#{Kernel.dlext}"
+    library_roots[0].any? { |dir| dir.start_with?("=") && compiled_in(dir.delete_prefix("="), bundle) }
   end
 
   # The roots that the build lists, split once: the ports of C, then the

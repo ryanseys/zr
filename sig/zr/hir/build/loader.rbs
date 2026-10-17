@@ -10,6 +10,7 @@ module Zr
           def bundle_for: (String feature, ?target: Target) -> String?
           def linked_under?: (Array[String] roots, ?target: Target) -> bool
           def optional_gem: (String path, ?target: Target) -> String?
+          def linked_features: (?target: Target) -> Array[String]
         end
       end
     end
