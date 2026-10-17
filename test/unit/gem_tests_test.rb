@@ -62,6 +62,10 @@ class GemTestsTest < Minitest::Test
     assert_includes GemTests::MINITEST_RUN, 'require "./#{it}"'
   end
 
+  def test_rss_runs_its_script_verbosely
+    assert_equal ["/r/ruby", "test/run-test.rb", "-v"], GemTests.argv("rss", ruby: "/r/ruby", rake: "/r/rake")
+  end
+
   def test_reline_requires_its_test_files_under_utf_8
     argv = GemTests.argv("reline", ruby: "/r/ruby", rake: "/r/rake")
 

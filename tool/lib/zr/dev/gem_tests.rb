@@ -113,6 +113,7 @@ module Zr
       # tasks load each file as a feature, so a TESTOPTS of -v is a file
       # too. They run under UTF-8, one of the four encodings that its
       # Rakefile runs them under, because each run has the same names.
+      # rss's rake task runs its script with no TESTOPTS.
       def self.argv(name, ruby:, rake:, rbs_skips: [])
         case name
         when "rbs"
@@ -121,6 +122,7 @@ module Zr
         when "rexml" then [ruby, "test/run.rb", "--ignore-name=/linear_performance/", "-v"]
         when "test-unit" then [ruby, "test/run.rb", "-v"]
         when "csv" then [ruby, "run-test.rb", "-v"]
+        when "rss" then [ruby, "test/run-test.rb", "-v"]
         when "minitest" then [ruby, "-Ilib", "-Itest", "-e", MINITEST_RUN, "--", "-v"]
         when "reline" then [ruby, "-I.", "-Ilib", "-Itest", "-e", RELINE_RUN, "--", "-v"]
         else [ruby, rake, "test", "TESTOPTS=-v"]
