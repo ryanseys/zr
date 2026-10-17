@@ -112,7 +112,8 @@ Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
   def test_owners_names_the_gem_of_each_file_of_ruby_s_library
     lib = Zr::Library::Layout::RUBYLIBDIR
     abbrev = File.join(Zr::Library::Layout.gem_root("abbrev", Zr::Library::Stdlib::BUNDLED.fetch("abbrev")), "lib/abbrev.rb")
-    files = ["#{lib}/fileutils.rb", "#{lib}/net/http.rb", "#{lib}/net/http/response.rb", abbrev, "#{lib}/rubygems.rb", "#{lib}/rubygems/specification.rb", "/app/main.rb"]
+    files = ["#{lib}/fileutils.rb", "#{lib}/net/http.rb", "#{lib}/net/http/response.rb", abbrev,
+             "#{lib}/rubygems.rb", "#{lib}/rubygems/specification.rb", "/app/main.rb"]
 
     owners = Manifest.owners(files)
 
