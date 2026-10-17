@@ -87,7 +87,7 @@ module Zr
         end
         if node.name == :require && preloaded?(feature)
           @loader.configures! if feature.to_s.delete_suffix(".rb") == "rbconfig"
-          return Literal.new(false, line)
+          return heard(node, Literal.new(false, line))
         end
 
         return plain_call(node, compiles: false) if @loader.deferred?(feature) || (@in_def && @loader.ahead?(@file))
@@ -142,7 +142,22 @@ module Zr
         required = Require.new(node.name, feature, path, @loader.add(path), line)
         rubygems = node.name == :require && feature.delete_suffix(".rb") == "rubygems" && @loader.boots_gems? &&
                    !Library::Roots.runtime_file?(@file)
-        rubygems ? after_gem_autoload(required, line) : required
+        rubygems ? after_gem_autoload(required, line) : heard(node, required)
+      end
+
+      # In ruby each require is a call of `require` on self, so a `require`
+      # that the program defines (bootsnap's, zeitwerk's, a test's stand-in)
+      # hears each one, and its `super` or alias finds the file, which stays
+      # compiled in. The file runs at once while the `require` that self
+      # finds is ruby's own or rubygems' (`Kernel.plain_require?`). zr's
+      # runtime files call no program's require.
+      #: (Prism::CallNode node, node required) -> node
+      def heard(node, required)
+        return required unless node.name == :require && !Library::Roots.runtime_file?(@file)
+
+        line = node.location.start_line
+        plain = Send.of(Core.new(:Kernel, line), :plain_require?, [SelfRef.new(line)], line)
+        If.new(plain, required, plain_call(node, compiles: false), line)
       end
 
       # A library that only eval support reaches (rdoc, through irb) can

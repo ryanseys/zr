@@ -137,5 +137,13 @@ The first public release.
   code with no compile (`<cache>/store/loaded/`; `ZR_CODE_CACHE=0`
   turns it off). `zr run` also keeps the binary of such a program when
   a require stays for the run time.
+- A default or bundled gem is active from the first `require` of one of
+  its files, as in ruby, and `Gem::Specification` lists every default
+  and bundled gem of ruby's install, also in a binary that runs where
+  no zr is installed. Only the gems of the build's Gemfile.lock or
+  `--gem` are active from the start.
+- A program's own `Kernel#require` (bootsnap's, zeitwerk's, a test's
+  stand-in through `define_method`) hears each literal `require`, also
+  of a file that the build compiled in.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

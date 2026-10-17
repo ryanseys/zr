@@ -1,0 +1,12 @@
+require set
+false
+require rbconfig
+false
+require shellwords
+true
+require shellwords
+false
+"a\\ b"
+require abbrev
+true
+2
