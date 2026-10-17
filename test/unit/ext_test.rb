@@ -163,6 +163,20 @@ class ExtTest < Minitest::Test
     end
   end
 
+  # A default gem's C is in ruby's arch directory, where ruby's require
+  # finds it: the bundles that the gem's files or its extconf.rb
+  # directories name, and only those that are there.
+  def test_a_default_gem_gives_the_bundles_of_ruby_s_arch_directory
+    dlext = RbConfig::CONFIG["DLEXT"]
+    archdir = RbConfig::CONFIG["archdir"]
+    skip "ruby has no stringio.#{dlext} in #{archdir}" unless File.file?(File.join(archdir, "stringio.#{dlext}"))
+
+    sources = Zr::Ext::Source.archdir(["lib/stringio.rb", "stringio.#{dlext}"], ["ext/stringio/extconf.rb", "ext/nothing_here/extconf.rb"])
+
+    assert_equal [File.join(archdir, "stringio.#{dlext}")], sources.map(&:bundle)
+    assert_equal ["Init_stringio", :embed, sources.first.bundle], [sources.first.init, sources.first.mode, sources.first.library]
+  end
+
   # The Makefile that the host's install of a gem with a C extension left
   # gives the objects that the install compiled.
   def test_a_real_makefile_lists_the_objects_that_its_install_made
@@ -257,7 +271,8 @@ class ExtTest < Minitest::Test
 
       Zr::Config.with(ZR_EXT_OBJECTS: given.values.join(" ")) do
         assert_equal({ "point" => true, "frames" => true, "quiet" => false },
-                     Zr::Ext.bundles.to_h { |path, source| [File.basename(path, ".bundle"), source.traces?] })
+                     Zr::Ext.bundles.select { |path, _| path.start_with?("#{lib}/") }
+                       .to_h { |path, source| [File.basename(path, ".bundle"), source.traces?] })
       end
       # Each program links the one extension that it is given, which a
       # computed require may load as well as a literal one.

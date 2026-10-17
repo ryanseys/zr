@@ -74,6 +74,21 @@ module Zr
         end
       end
 
+      # The extensions of a default gem, which ruby's own build compiled
+      # into its arch directory, where a require finds them in ruby too:
+      # each bundle there that the gem's `files` name, or that the
+      # directory of one of its `extensions` names
+      # (`ext/digest/md5/extconf.rb` builds `digest/md5.bundle`).
+      #: (Array[String] files, Array[String] extensions) -> Array[Source]
+      def self.archdir(files, extensions)
+        dlext = RbConfig::CONFIG["DLEXT"]
+        names = files.grep(/\.#{dlext}\z/) + extensions.map { |extconf| "#{File.dirname(extconf).delete_prefix("ext/")}.#{dlext}" }
+        names.uniq.sort.filter_map do |name|
+          path = File.join(RbConfig::CONFIG["archdir"], name)
+          new(bundle: path, init: init_of(path), objects: [], libraries: [], library: path, mode: :embed) if File.file?(path)
+        end
+      end
+
       # An extension given as a bundle's path and its objects
       # (`ZR_EXT_OBJECTS`), or as the bundle alone, which then embeds: its
       # Init function is named after the bundle.

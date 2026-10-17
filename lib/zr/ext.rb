@@ -82,8 +82,10 @@ module Zr
     # gem's own C.
     #: (String feature, ?Config config, ?target: Target) -> String?
     def bundle_for(feature, config = Config.current, target: Target.default)
+      archdir = "#{RbConfig::CONFIG["archdir"]}/"
       features = (FEATURES[config] ||= {})[target.triple] ||= bundles(config, target: target).each_key.to_h do |path|
-        [path[(path.rindex("/lib/").to_i + 5)..].to_s.sub(/\.(?:so|bundle)\z/, ""), path]
+        feature = path.start_with?(archdir) ? path.delete_prefix(archdir) : path[(path.rindex("/lib/").to_i + 5)..].to_s
+        [feature.sub(/\.(?:so|bundle)\z/, ""), path]
       end
       features[feature.sub(/\.(?:so|bundle)\z/, "")]
     end
@@ -110,6 +112,8 @@ module Zr
         raise Refused, "--native-ext #{name}: zr's C API is ruby #{ABI}'s, and this ruby is #{RUBY_VERSION}; " \
                        "run zr with a ruby #{ABI}"
       end
+      raise Refused, "--native-ext #{name}: this ruby runs without rubygems (--disable-gems), so it finds no installed gem" unless defined?(::Gem::Specification)
+
       specs = version ? Gem::Specification.find_all_by_name(name, version) : Gem::Specification.find_all_by_name(name)
       # RubyGems' signatures leave out a specification's directories.
       spec = specs.max_by(&:version) #: untyped
@@ -118,6 +122,7 @@ module Zr
       dir = spec.gem_dir #: String
       args = config.ext_config[name]
       sources = args || !target.native? ? built(spec, args || [], target) : Source.installed(dir, spec.extension_dir)
+      sources = Source.archdir(spec.files, spec.extensions) if sources.empty? && !args && target.native? && spec.default_gem?
       sources = built(spec, [], target) if sources.empty?
       return sources unless sources.empty?
 
