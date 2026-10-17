@@ -27,7 +27,7 @@ class PortVersionsTest < Minitest::Test
 
   # The ports whose version is in the gem's Ruby half, which vendor/ or
   # ruby's own library holds at that version.
-  RUBY_HALF = %w[date digest ffi fiddle json openssl prism psych racc].freeze
+  RUBY_HALF = %w[date digest ffi fiddle json openssl prism psych racc rbs].freeze
 
   def test_each_port_is_in_one_list
     assert_equal Zr::Library::Ports::ALL.keys.sort, (CONSTANTS.keys + RUBY_HALF).sort
