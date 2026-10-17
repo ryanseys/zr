@@ -111,5 +111,26 @@ The first public release.
   ruby's shared library.
 - `SCRIPT_LINES__` keeps the lines of each file that a `load` or a
   `require` runs, in the encoding of the file's magic comment.
+- TracePoint and Coverage give ruby's events and counts:
+  - `:c_call` fires for the methods that ruby's C calls by name, such as
+    a Symbol block's send and an `Enumerator#each`;
+  - `TracePoint#enable(target_line:)` refuses a line that the target
+    never fires;
+  - `Coverage.start(branches: true)` counts every branch, also in eval
+    code and in files required at run time, and in walked eval code;
+  - `oneshot_lines` lists each line in the order of its first run;
+  - a `-r` library that starts Coverage measures the main script.
+- `RubyVM::InstructionSequence` gives debugger-grade ISeqs without
+  instructions: `of` a method, block, class body or backtrace location,
+  `each_child`, `trace_points`, `node_id`, `script_lines`, `to_a`'s
+  header and `RubyVM::INSTRUCTION_NAMES`. The debug gem's line
+  breakpoints resolve when their file loads.
+- `IO#close` interrupts each fiber that waits on the IO through its
+  scheduler's `fiber_interrupt`, as ruby does.
+- `Integer::GMP_VERSION`, `Time::tm`, and a `RubyVM` without `YJIT` and
+  `ZJIT`, as on a ruby built without JIT support; `--jit`, `--yjit` and
+  `--zjit` warn as such a ruby does.
+- `zr` run under the name `ruby` answers `--version` with ruby's
+  description, and names itself in its errors.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main
