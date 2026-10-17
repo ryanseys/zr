@@ -50,9 +50,16 @@ class GemTestsTest < Minitest::Test
   end
 
   def test_most_gems_run_rake_test_with_the_verbose_option
-    argv = GemTests.argv("minitest", ruby: "/r/ruby", rake: "/r/rake")
+    argv = GemTests.argv("rake", ruby: "/r/ruby", rake: "/r/rake")
 
     assert_equal ["/r/ruby", "/r/rake", "test", "TESTOPTS=-v"], argv
+  end
+
+  def test_minitest_requires_its_test_files_without_the_rakefile_that_needs_hoe
+    argv = GemTests.argv("minitest", ruby: "/r/ruby", rake: "/r/rake")
+
+    assert_equal ["/r/ruby", "-Ilib", "-Itest", "-e", GemTests::MINITEST_RUN, "--", "-v"], argv
+    assert_includes GemTests::MINITEST_RUN, 'require "./#{it}"'
   end
 
   def test_rbs_runs_its_stdlib_tests_and_skips_the_files_of_the_list
