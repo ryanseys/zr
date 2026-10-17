@@ -1,0 +1,6 @@
+[[:a, :b], 2, true]
+[[], true]
+[[:k], WalkedBody]
+[[:b, :o, :x, :y], true, 2]
+3
+2

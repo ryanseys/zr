@@ -89,6 +89,18 @@ class EvalWalkTest < Minitest::Test
     assert_walks_like_ruby("y = 1; b = binding; [b.local_variable_get(:y), b.local_variable_get(:x)]", "x = 2")
   end
 
+  # A method that the string defines has its own self and locals: its
+  # binding has none of the caller's.
+  def test_binding_in_a_method_of_the_string_is_that_method_s
+    source = "def probe(a) = (b = a + 1; binding); s = probe(1); [s.local_variables.sort, s.local_variable_get(:b), s.receiver.equal?(self)]"
+    assert_walks_like_ruby(source, "x = 2")
+    assert_walks_like_ruby("o = Object.new; def o.probe = binding; s = o.probe; [s.local_variables, s.receiver.equal?(o)]", "x = 2")
+  end
+
+  def test_binding_in_a_class_body_of_the_string_has_its_self_and_locals
+    assert_walks_like_ruby("b = class WalkedBody; k = 1; binding; end; [b.local_variables, b.receiver.name.split("::").last]", "x = 2")
+  end
+
   def test_dir_is_the_given_file_s
     assert_walks_like_ruby("__dir__")
     assert_equal "/tmp/x", World.eval("__dir__", binding, file: "/tmp/x/y.rb")

@@ -572,17 +572,24 @@ module Zr
         end
 
         # `binding` in the string: the caller's Binding, with the locals
-        # that the string's own scopes hold. It copies their values: a later
-        # write in the string does not reach it.
+        # that the string's own scopes hold. In a method or a body that the
+        # string defines, or under another self, it is a new Binding of
+        # that self with only the string's locals. It copies their values:
+        # a later write in the string does not reach it.
         def scope_binding(ctx)
-          scope = @frame.dup
+          caller = ctx.chain.any?(Held) && World.same?(ctx.self_, @frame.receiver)
+          scope = caller ? @frame.dup : ctx.self_.instance_exec(&BARE_BINDING)
           ctx.chain.each do |held|
-            next unless held.is_a?(Scope)
+            next if caller && held.is_a?(Held)
 
             held.names.each { |name| scope.local_variable_set(name, held.get(name)) unless scope.local_variable_defined?(name) }
           end
           scope
         end
+
+        # A Binding with no locals, of the self that `instance_exec` gives.
+        BARE_BINDING = proc { binding }
+        private_constant :BARE_BINDING
 
         def body_visibility(node, ctx)
           node.name == :module_function ? World.set_module_function(ctx.cref) : World.set_vis(ctx.cref, VISIBILITY.fetch(node.name))
