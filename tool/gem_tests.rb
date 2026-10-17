@@ -119,13 +119,16 @@ module Zr
         # The rake of the host's install, which runs every gem's tests.
         def rake = @rake ||= host_output("puts Gem.bin_path('rake', 'rake')").strip
 
-        # The load paths of the prism gem, which several gems need and
-        # their tests start rubies without (CRuby's runner presets them).
-        # After them comes CRuby's gems/lib, with the test helpers
-        # (core_assertions, envutil) that many gems' tests require.
+        # The load paths of the host's prism gem, which several gems need
+        # and their tests start rubies without (CRuby's runner presets
+        # them), and after them CRuby's gems/lib, with the test helpers
+        # (core_assertions, envutil) that many gems' tests require. Each
+        # zr binary has its own prism, so a zr run gets only the helpers:
+        # the host's prism would load a second copy.
         def rubylib
-          @rubylib ||= [*host_output("old = $:.dup; require 'prism'; puts $:-old").split("\n"),
-                        File.join(Dev.ruby_src, "gems/lib")].join(File::PATH_SEPARATOR)
+          helpers = File.join(Dev.ruby_src, "gems/lib")
+          @rubylib ||= { ruby: [*host_output("old = $:.dup; require 'prism'; puts $:-old").split("\n"), helpers], zr: [helpers] }
+                       .transform_values { it.join(File::PATH_SEPARATOR) }
         end
 
         def host_output(script)
@@ -198,15 +201,15 @@ module Zr
           def error(path) = File.file?(path) ? File.read(path).scrub.lines.first(5).join[0, 400] : nil
 
           # The environment of a run: no bundler of the tools' own, the
-          # load paths of prism, no coverage (CRuby's runner sets the
+          # load paths (`rubylib`), no coverage (CRuby's runner sets the
           # same), one minitest worker, CI's time limits, and, in zr's, its
           # cache and the scaled time limits. Parallel tests print their
           # verbose lines interleaved, as threads happen to run, and the
           # report reads one line a test. irb gives a child ruby 3 seconds,
           # or 30 under CI, where CRuby runs these tests.
           def env(tmp, zr:)
-            base = ChildRuby::UNBUNDLED.merge("RUBYLIB" => @rubylib, "SIMPLECOV_DISABLE" => "1", "MT_CPU" => "1", "CI" => "1", "TMPDIR" => tmp,
-                                              "RUBY" => zr ? Suite.zr_ruby : Dev.ruby)
+            base = ChildRuby::UNBUNDLED.merge("RUBYLIB" => @rubylib.fetch(zr ? :zr : :ruby), "SIMPLECOV_DISABLE" => "1", "MT_CPU" => "1",
+                                              "CI" => "1", "TMPDIR" => tmp, "RUBY" => zr ? Suite.zr_ruby : Dev.ruby)
             zr ? base.merge(Suite.zr_env, "RUBY_TEST_TIMEOUT_SCALE" => TIMEOUT_SCALE) : base
           end
 
