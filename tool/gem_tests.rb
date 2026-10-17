@@ -52,7 +52,7 @@ module Zr
 
         # zr's run gets this many times the time of ruby's: it builds the
         # programs that it runs.
-        ZR_SCALE = 3
+        LIMIT_SCALE = 3
 
         # Seconds with no output after which zr's run counts as hung: a
         # test that starts zr builds a program first, and prints nothing.
@@ -192,7 +192,7 @@ module Zr
             Dir.mktmpdir("zr-gem-tests-") do |tmp|
               stderr = File.join(tmp, "stderr")
               argv = [Dev.ruby, "-e", EXEC, stderr, *command(zr ? Suite.zr_ruby : Dev.ruby)]
-              limit = LIMIT[@name] * (zr ? ZR_SCALE : 1)
+              limit = LIMIT[@name] * (zr ? LIMIT_SCALE : 1)
               out, timed_out = Suite.capture(env(tmp, zr: zr), argv, @checkout.dir, limit, idle: (IDLE[@name] if zr))
               read = Dev::GemTests.read(out)
               read.merge(timed_out: timed_out, error: (error(stderr) if read[:examples].empty?))
