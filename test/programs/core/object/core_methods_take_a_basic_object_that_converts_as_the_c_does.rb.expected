@@ -1,0 +1,18 @@
+exist: true
+file_new: File
+open: File
+dir_exist: true
+basename: "b"
+start_with: true
+sub: "axc"
+plus: "ab"
+slice: "b"
+values_at: [1]
+ary_plus: [1, 2]
+ary_fetch: 6
+integer: 3
+join: "1-2"
+mkdir_p: ["/tmp"]
+blank_str: !TypeError: no implicit conversion of Blank into String
+blank_int: !TypeError: no implicit conversion of Blank into Integer
+own_respond_to: true

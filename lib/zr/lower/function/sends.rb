@@ -121,6 +121,9 @@ module Zr
         # The flag bit of a send under `using` (SEND_USING). Its cells
         # contain the result of the lookup with the site's refinements.
         SEND_USING = 16
+        # The flag bit of any send from the core library's stand-ins for C
+        # (SEND_INTERNAL).
+        SEND_INTERNAL = 64
         # The number of cells of a send site (lib/zr/runtime/kernel/cache.rb, CALL_WAYS).
         CALL_WAYS = 4
         # The names that numeric code sends to a Float. Their sites find a
@@ -612,6 +615,7 @@ module Zr
           # A literal `send` in the core is rb_funcall: the program's own
           # method answers it, as any send from CRuby's C does.
           mode |= SEND_CORE if core_send?(node.name) && !@funcalls&.key?(node)
+          mode |= SEND_INTERNAL if (@l.support? || @l.internal?) && !sends_all?
           node.using ? mode | SEND_USING : mode
         end
 

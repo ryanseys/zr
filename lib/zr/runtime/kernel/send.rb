@@ -593,6 +593,20 @@ module Zr::Kern
   # a Symbol's to_proc): TracePoint hears the C method that it calls,
   # whatever frame is on top, as vm_call0 fires its events.
   SEND_FUNCALL = 32
+  # A send from the core library, of any name: its object questions
+  # reach any object, as the C that it stands in for asks them with no
+  # send (zr_object_question_p).
+  SEND_INTERNAL = 64
+
+  # Whether `mid` is a question that CRuby's C answers for any object
+  # with no send (zr_dispatch): rb_obj_is_kind_of, NIL_P, CLASS_OF, and
+  # rb_respond_to, which checks the methods of an object that has no
+  # respond_to? of its own.
+  #: (word) -> bool
+  def zr_object_question_p(mid)
+    mid == Machine.id(:is_a?) || mid == Machine.id(:kind_of?) || mid == Machine.id(:instance_of?) || mid == Machine.id(:nil?) ||
+      mid == Machine.id(:frozen?) || mid == Machine.id(:equal?) || mid == Machine.id(:class) || mid == Machine.id(:respond_to?)
+  end
 
   # `argv` points at `argc` Values that the caller keeps rooted. `mode` is
   # 0 for an implicit or self receiver, 1 for a bare identifier, 2 for an
@@ -614,6 +628,12 @@ module Zr::Kern
     end
     if e == 0
       e = zr_find_method(klass, mid)
+    end
+    # CRuby's C asks these of any object with no send (rb_obj_is_kind_of,
+    # NIL_P, CLASS_OF, ...), so a BasicObject, whose chain has no Kernel,
+    # gets the core's own answer too.
+    if e == 0 && (mode & SEND_INTERNAL) != 0 && zr_object_question_p(mid)
+      e = zr_find_core_method(zr_global(G_KERNEL), mid)
     end
     # A box's own Object methods reach every object of the box; the site
     # keeps no entry of one, which the other boxes must not see.
