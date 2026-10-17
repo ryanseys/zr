@@ -3,7 +3,7 @@
 # and a class body that the string defines have their own, and a block
 # under another self keeps the string's locals with that self.
 x = 2
-o = Object.new
+o = Object.new # rubocop:disable Lint/UselessAssignment -- the strings read it
 p eval(<<~RUBY)
   def probe(a) = (b = a + 1; binding)
   s = probe(1)

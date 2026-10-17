@@ -98,7 +98,7 @@ class EvalWalkTest < Minitest::Test
   end
 
   def test_binding_in_a_class_body_of_the_string_has_its_self_and_locals
-    assert_walks_like_ruby("b = class WalkedBody; k = 1; binding; end; [b.local_variables, b.receiver.name.split("::").last]", "x = 2")
+    assert_walks_like_ruby("b = class WalkedBody; k = 1; binding; end; [b.local_variables, b.receiver.name.split('::').last]", "x = 2")
   end
 
   def test_dir_is_the_given_file_s
