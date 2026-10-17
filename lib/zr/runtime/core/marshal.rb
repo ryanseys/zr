@@ -257,9 +257,11 @@ module Marshal
     end
 
     # Ruby keeps an exception's message, its backtrace and an errno next
-    # to its instance variables, under names of its own.
+    # to its instance variables, under names of its own. Both are the
+    # stored ones, whatever `message` or `backtrace` a subclass writes.
     def exception_parts(exception)
-      parts = [[:mesg, Primitive.zr_exc_raw_message(exception)], [:bt, exception.backtrace]]
+      stored = Exception.instance_method(:backtrace).bind_call(exception)
+      parts = [[:mesg, Primitive.zr_exc_raw_message(exception)], [:bt, stored]]
       parts.concat(exception.send(:marshal_parts))
       parts << [:cause, exception.cause] if Primitive.zr_exc_cause_set_p(exception)
       parts << [:errno, exception.errno] if exception.is_a?(SystemCallError)

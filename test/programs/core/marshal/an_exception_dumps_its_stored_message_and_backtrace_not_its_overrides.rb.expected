@@ -1,0 +1,13 @@
+true
+true
+["Unexpected exception", nil]
+["test.rb:1:in 'run'"]
+"RuntimeError: Neutered Exception"
+"\x04\bo:\rWrapping\b:\tmesgI\"\x19Unexpected exception\x06:\x06ET:\abt0:\v@erroro:\x11RuntimeError\a;\x06I\"\x17Neutered Exception\x06;\aT;\b[\x06I\"\x17test.rb:1:in 'run'\x06;\aT"
+true
+true
+true
+true
+["a:1", "b:2"]
+nil
+"\x04\bo:\x12ArgumentError\a:\tmesgI\"\nplain\x06:\x06ET:\abt[\aI\"\ba:1\x06;\aTI\"\bb:2\x06;\aT"
