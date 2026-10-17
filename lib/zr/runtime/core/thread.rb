@@ -1981,9 +1981,10 @@ class Thread::ConditionVariable
   # The value that Mutex#sleep returns: the seconds slept, or nil on the timeout.
   def wait(mutex, timeout = nil)
     Primitive.attr! :ruby
-    # rb_condvar_wait sends sleep(timeout) to what it is given; a Mutex
-    # of the core is waited on here.
-    return mutex.__send__(:sleep, timeout) unless mutex.is_a?(Thread::Mutex)
+    # rb_condvar_wait sends sleep(timeout) to what it is given, with the
+    # thread in the list that signal wakes; a Mutex of the core is waited
+    # on here.
+    return duck_wait(mutex, timeout) unless mutex.is_a?(Thread::Mutex)
 
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
     deadline = timeout.nil? ? nil : started + (Thread.send(:interval, timeout) * 1e9).to_i
@@ -2007,6 +2008,21 @@ class Thread::ConditionVariable
   end
 
   private
+
+  # A wait on what is no Mutex (Mutex_m's object): its sleep, while the
+  # thread is listed, so signal and broadcast wake it as they wake a
+  # thread in Mutex#sleep.
+  def duck_wait(mutex, timeout)
+    Primitive.attr! :hidden
+    list = waiters
+    me = Thread.current
+    Thread.send(:atomically) { list << me }
+    begin
+      mutex.__send__(:sleep, timeout)
+    ensure
+      Thread.send(:atomically) { list.delete(me) }
+    end
+  end
 
   # The threads that wait, none in a forked child. A frozen condition
   # variable still waits, so the list is state that freeze does not lock.
