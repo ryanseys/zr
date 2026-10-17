@@ -48,7 +48,10 @@ module Zr::Kern
     zr_str_set_binary(text)
     Machine.store64(args, 0, Machine.word(text))
     Machine.store64(args, 8, Machine.word(zr_fix(Machine.word(list))))
-    formatter = CEntry[zr_const_row_in(zr_global(G_KERNEL), Machine.id(:CFormatter), false)].value
+    # The runtime's own constant, read as the runtime reads it: C that an
+    # allocator runs (`Class#new`, which has no frame of its own) has the
+    # program's frame on top, which does not see concealed constants.
+    formatter = CEntry[zr_const_row_kept(zr_const_holder(zr_global(G_KERNEL), true), Machine.id(:CFormatter))].value
     zr_send(formatter, Machine.id(:render), 2, args)
   end
 end

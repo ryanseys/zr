@@ -1983,10 +1983,11 @@ module Zr::Kern
       RBasic[recv].flags = (RBasic[recv].flags | FL_FREEZE) & (zr_type(recv) == T_STRING ? FL_CHILLED_CLEAR : 0 - 1)
       # The singleton class freezes with its object, and its own
       # singleton class with it, up the chain, as CRuby's
-      # rb_freeze_singleton_class does.
+      # rb_freeze_singleton_class does. A hidden object (a C extension's
+      # TypedData of class 0) has no class.
       attached = recv
       k = RBasic[attached].klass
-      while zr_singleton_p(k) && !zr_frozen_p(k) && RClass[k].attached == attached
+      while k != 0 && zr_singleton_p(k) && !zr_frozen_p(k) && RClass[k].attached == attached
         RBasic[k].flags = RBasic[k].flags | FL_FREEZE
         attached = k
         k = RBasic[attached].klass

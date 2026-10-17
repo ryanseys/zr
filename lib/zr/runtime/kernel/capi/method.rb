@@ -24,6 +24,9 @@ module Zr::Kern
     end
     rec = Task[t].top
     meta = Frame[rec].meta
+    if zr_capi_ractor_check(meta) == QUNDEF
+      return Machine.value(QUNDEF)
+    end
     arity = FrameMeta[meta].arity
     # Self and up to fifteen arguments, at least the eight words that
     # zr_call_c reads.
@@ -515,7 +518,11 @@ module Zr::Kern
     if zr_modify_frozen_p(klass)
       zr_c_result(zr_frozen_error(klass))
     end
+    # rb_add_method, not rb_undef: C's undef of initialize does not warn.
+    quiet = Machine.static(:c_undef, 8)
+    Machine.store64(quiet, 0, 1)
     zr_method_add(klass, zr_intern(name, zr_cstr_len(name)), 0, 0, KIND_UNDEF, 0, Machine.value(QNIL))
+    Machine.store64(quiet, 0, 0)
   end
 
   # rb_f_notimplement: the body of a method that this platform cannot

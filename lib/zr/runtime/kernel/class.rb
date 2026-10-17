@@ -2541,9 +2541,10 @@ module Zr::Kern
       zr_buf_push(b, Machine.bytes(" may cause infinite loop"), 24)
       zr_warn_here(Buf[b].ptr, Buf[b].len)
     else
-      if kind == KIND_UNDEF && zr_serious_name_p(mid, true)
+      if kind == KIND_UNDEF && zr_serious_name_p(mid, true) && Machine.load64(Machine.static(:c_undef, 8), 0) == 0
         # rb_undef warns for the names that ruby itself depends on, then
-        # adds its undef entry as any new entry is added.
+        # adds its undef entry as any new entry is added. C's
+        # rb_undef_method adds the entry with no warning.
         zr_buf_push(b, Machine.bytes("undefining '"), 12)
         zr_buf_sym(b, mid)
         zr_buf_push(b, Machine.bytes("' may cause serious problems"), 28)

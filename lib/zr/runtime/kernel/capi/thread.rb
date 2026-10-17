@@ -358,12 +358,65 @@ module Zr::Kern
     zr_xfree(job)
   end
 
-  # rb_ext_ractor_safe: the extension says that its functions may run in
-  # any Ractor. zr runs C in the main Ractor only, so this changes nothing.
+  # rb_ext_ractor_safe: whether the methods that the extension defines
+  # from here on may run in any Ractor. Each extension's Init starts
+  # unsafe (`zr_capi_ractor_unsafe_init`), as each load of one does in ruby.
   #: (i32) -> void
   def rb_ext_ractor_safe(flag)
     Machine.gates_enter
     zr_c_entered()
+    Machine.store64(Machine.static(:ext_ractor_safe, 8), 0, Machine.sword(flag) != 0 ? 1 : 0)
+  end
+
+  # Before an extension's Init: its methods are unsafe until it says so.
+  #: () -> void
+  def zr_capi_ractor_unsafe_init
+    Machine.store64(Machine.static(:ext_ractor_safe, 8), 0, 0)
+  end
+
+  # The C methods defined while their extension was not Ractor-safe, by
+  # their FrameMeta: a growing C array (`unsafe_cfuncs`: the array, its
+  # count, its room), which holds no Values.
+  #: (ptr) -> void
+  def zr_capi_define_unsafe(meta)
+    if Machine.load64(Machine.static(:ext_ractor_safe, 8), 0) != 0
+      return
+    end
+    list = Machine.static(:unsafe_cfuncs, 24)
+    n = Machine.load64(list, 8)
+    if n == Machine.load64(list, 16)
+      room = n == 0 ? 64 : n * 2
+      grown = zr_xmalloc(room * 8)
+      if n > 0
+        zr_memcpy(grown, Machine.ptr(Machine.load64(list, 0)), n * 8)
+        zr_xfree(Machine.ptr(Machine.load64(list, 0)))
+      end
+      Machine.store64(list, 0, Machine.word(grown))
+      Machine.store64(list, 16, room)
+    end
+    Machine.store64(Machine.ptr(Machine.load64(list, 0)) + (n * 8), 0, Machine.word(meta))
+    Machine.store64(list, 8, n + 1)
+  end
+
+  # ractor_unsafe_check: a C method that its extension did not mark as
+  # Ractor-safe raises Ractor::UnsafeError in any Ractor but main. Only
+  # a call outside the main Ractor looks.
+  #: (ptr) -> value
+  def zr_capi_ractor_check(meta)
+    if Task[zr_task()].ractor == 0
+      return Machine.value(QNIL)
+    end
+    list = Machine.static(:unsafe_cfuncs, 24)
+    n = Machine.load64(list, 8)
+    at = Machine.ptr(Machine.load64(list, 0))
+    i = 0
+    while i < n
+      if Machine.load64(at + (i * 8), 0) == Machine.word(meta)
+        return zr_send(zr_core_class(Machine.id(:Ractor)), Machine.id(:main_only!), 0, Machine.ptr(0))
+      end
+      i += 1
+    end
+    Machine.value(QNIL)
   end
 
   # rb_ractor_local_storage_value_newkey: a key of Ractor-local storage.

@@ -167,6 +167,7 @@ module Zr::Kern
     if e != 0
       MEntry[e].body = fn
     end
+    zr_capi_define_unsafe(meta)
   end
 
   # rb_define_method's `arity out of range: N for -2..15` (ArgumentError).

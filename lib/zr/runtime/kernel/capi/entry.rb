@@ -35,6 +35,7 @@ module Zr::Kern
   #: (ptr) -> value
   def zr_ext_init(init)
     zr_capi_init()
+    zr_capi_ractor_unsafe_init
     argv = Machine.slot(64)
     # Init is void: the word it leaves is that of the last function it
     # called (bindex's ends in rb_tracepoint_enable's undef), so only an
