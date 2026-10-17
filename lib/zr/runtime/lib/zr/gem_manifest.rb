@@ -13,6 +13,14 @@
 #   and raises Gem::LoadError for any other gem or version. Its message
 #   is bundler's, and its answer is rubygems' (false: already active).
 #
+# This holds while rubygems searches the gem directories that the program
+# started with. A program that points rubygems at others (Gem.use_paths,
+# Gem.paths=, or GEM_HOME and GEM_PATH with Gem.clear_paths, as
+# rubygems' own tests do) gets rubygems' own answers from them, as in
+# ruby: the gems there, `gem` and `require` that activate them, and
+# Gem.finish_resolve. Each of these asks when it runs, because
+# Gem.paths= resets the specifications before it sets the new paths.
+#
 # The prelude requires this file after rubygems, and Kernel#gem's first
 # call (lib/zr/runtime/core/kernel.rb) does the same.
 # A `--gem` directory with no gemspec has no version (null), and here
@@ -35,30 +43,44 @@ unless rows.empty?
     [name, spec]
   end
 
+  home = Gem.dir
+  path = Gem.path
+  booted = -> { Gem.dir == home && Gem.path == path }
+
   # As bundler's setup adds them (Bundler::RubygemsIntegration#add_default_gems_to),
   # the default gems of the ruby tree that runs the program stand beside its
   # gems, so Gem.bin_path finds bundler's `bundle`. They stay stubs, which
   # read a gemspec only when something asks for the whole spec. A program
   # that no zr ran has no such tree, and no default gems.
-  install = lambda do
+  own_record = lambda do
     defaults = Gem::Specification.default_stubs.reject { |stub| specs.key?(stub.name) }
-    record = Gem::Specification.specification_record
+    record = Gem::SpecificationRecord.new(Gem::SpecificationRecord.dirs_with_abi(Gem::Specification.dirs))
     record.all = specs.values
     record.instance_variable_set(:@stubs, specs.values + defaults)
     record.instance_variable_set(:@stubs_by_name, record.stubs.group_by(&:name))
     record.instance_variable_set(:@all, nil) unless defaults.empty?
+    record
   end
-  install.call
-  Gem.post_reset(&install)
-  Gem.singleton_class.send(:define_method, :finish_resolve) { |*| [] }
-  Gem.discover_gems_on_require = false
+  record = nil
+  Gem.post_reset { record = nil }
+  rubygems_record = Gem::Specification.method(:specification_record)
+  Gem::Specification.singleton_class.send(:define_method, :specification_record) do
+    booted.call ? (record ||= own_record.call) : rubygems_record.call
+  end
+
+  rubygems_finish_resolve = Gem.method(:finish_resolve)
+  Gem.singleton_class.send(:define_method, :finish_resolve) { |*args| booted.call ? [] : rubygems_finish_resolve.call(*args) }
+  Gem.singleton_class.send(:define_method, :discover_gems_on_require) { booted.call ? false : @discover_gems_on_require }
 
   specs.each_value do |spec|
     spec.activated = true
     Gem.loaded_specs[spec.name] = spec
   end
 
+  rubygems_gem = Kernel.instance_method(:gem)
   Kernel.send(:define_method, :gem) do |dep, *requirements|
+    next rubygems_gem.bind_call(self, dep, *requirements) unless booted.call
+
     requirements.pop if requirements.last.is_a?(Hash)
     dep = Gem::Dependency.new(dep, requirements) unless dep.respond_to?(:name) && dep.respond_to?(:requirement)
     spec = specs[dep.name]

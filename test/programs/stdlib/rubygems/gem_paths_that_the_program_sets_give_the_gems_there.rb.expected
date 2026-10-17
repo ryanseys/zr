@@ -1,0 +1,16 @@
+true
+true
+["zr_probe_a-1.2", "zr_probe_a-2.0"]
+["zr_probe_a-1.2", "zr_probe_a-2.0", "zr_probe_b-0.1"]
+true
+"1.2"
+Gem::LoadError
+true
+"0.1"
+true
+Gem::MissingSpecError
+"zr_probe_missing"
+true
+true
+false
+["a", "b"]
