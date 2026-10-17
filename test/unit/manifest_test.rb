@@ -106,6 +106,8 @@ Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
 
     assert_equal "default", sources["fileutils"]
     assert_equal "bundled", sources["abbrev"]
+    assert_equal "bundled", sources["prism"]
+    assert_includes found["ports"], "prism"
     assert_equal [], found["gems"]
   end
 

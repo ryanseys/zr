@@ -92,6 +92,14 @@ Gem.singleton_class.send(:define_method, :discover_gems_on_require) do
   booted.call ? false : instance_variable_get(:@discover_gems_on_require)
 end
 
+# A gem whose C zr ports has its extension built in, so rubygems does
+# not skip the install's copy of it for an extension directory that
+# zr never builds (Gem::BasicSpecification#ignored?).
+ported = Primitive.zr_load_names(9)[/"ports":\[([^\]]*)\]/, 1].to_s.scan(/"([^"]+)"/).flatten
+Gem::BasicSpecification.prepend(Module.new do
+  define_method(:ignored?) { ported.include?(name) ? false : super() }
+end)
+
 # The gem of each file that the program carries (lib/zr/manifest.rb's
 # `owners`), by the path that the program sees.
 carried = {}

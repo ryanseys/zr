@@ -86,13 +86,14 @@ module Zr
     # and bundled (`bundled`) gems of ruby's install, which rubygems lists
     # whether or not a program carries them, and the gem of each of
     # `files` (the build's files) that is a gem of ruby's library or a
-    # port, by the path that the program sees (`owners`).
+    # port, by the path that the program sees (`owners`), and the gems
+    # whose C zr ports (`ports`).
     #: (Array[Row] rows, Target target, ?Array[String] files) -> String
     def bytes(rows, target, files = [])
       install = Library::Stdlib::DEFAULT.map { |name, version| Row.new(name, version, "default").to_h } +
-                Library::Stdlib::BUNDLED.map { |name, version| Row.new(name, version, "bundled").to_h }
+                Library::Stdlib::BUNDLED.merge(Library::Stdlib::OTHER_BUNDLED).map { |name, version| Row.new(name, version, "bundled").to_h }
       manifest = { "zr" => VERSION, "ruby" => RUBY, "target" => target.triple, "install" => install, "gems" => rows.map(&:to_h),
-                   "owners" => owners(files) }
+                   "owners" => owners(files), "ports" => Library::Ports::ALL.keys.sort }
       "#{MAGIC}#{JSON.generate(manifest)}\n".b
     end
 
