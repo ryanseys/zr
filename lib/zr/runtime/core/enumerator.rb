@@ -430,7 +430,8 @@ module Kernel
   end
 
   # A definition of its own, as CRuby defines both names: a TracePoint
-  # names the one that the program called.
+  # names the one that the program called (core/aliases.rb joins them
+  # for `==`).
   def enum_for(method = :each, *args, **kwargs, &size)
     Enumerator.send(:method_name, method)
     Enumerator.for(self, method, args, kwargs, size)

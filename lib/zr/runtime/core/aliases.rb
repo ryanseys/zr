@@ -16,6 +16,7 @@
   [IO, :fsync, :fdatasync], [IO, :path, :to_path], [Dir, :tell, :pos],
   [Enumerable, :map, :collect], [Enumerable, :flat_map, :collect_concat], [Enumerable, :to_a, :entries],
   [Enumerable, :inject, :reduce], [Enumerator, :each_with_object, :with_object], [Kernel, :format, :sprintf],
+  [Kernel, :to_enum, :enum_for],
   [Module, :const_added, :extended], [Module, :const_added, :included], [Module, :const_added, :method_added],
   [Module, :const_added, :method_removed], [Module, :const_added, :method_undefined], [Module, :const_added, :prepended],
   [BasicObject, :singleton_method_added, :singleton_method_removed],
