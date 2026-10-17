@@ -167,14 +167,17 @@ module Zr
         end
 
         # A block with no parameters accepts any arguments. A lambda
-        # (including a `define_method` body) accepts none.
+        # (including a `define_method` body) accepts none, and keywords
+        # count as one Hash argument there. Either way the task's keyword
+        # word is cleared, so that it cannot reach the body's first send.
         #: (Hir::Params p) -> void
         def strict_empty(p)
+          argc = drop_keywords(@f.args[1], @f.args[2], nil)
           go = @f.label
           strict = @f.label
           @f.brif(lambda?, strict, go)
           switch(strict)
-          check_arity(p, @f.args[1])
+          check_arity(p, argc)
           @f.jump(go)
           switch(go)
         end
