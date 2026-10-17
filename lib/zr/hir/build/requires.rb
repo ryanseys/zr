@@ -138,7 +138,26 @@ module Zr
         # A require in a file that only eval support loads belongs to the
         # compiler. The runtime knows this at run time, so one unit serves
         # eval support and a program that requires the same file.
-        Require.new(node.name, feature, path, @loader.add(path), line)
+        required = Require.new(node.name, feature, path, @loader.add(path), line)
+        rubygems = node.name == :require && feature.delete_suffix(".rb") == "rubygems" && @loader.boots_gems? &&
+                   !Library::Roots.runtime_file?(@file)
+        rubygems ? after_gem_autoload(required, line) : required
+      end
+
+      # A library that only eval support reaches (rdoc, through irb) can
+      # require rubygems while `Gem` is still its autoload
+      # (Preludes.gem_autoloads). rubygems' own `module Gem` would then
+      # load the autoload in the middle of rubygems, and the program's
+      # gems before rubygems has its Specification. So the require loads
+      # the autoload first: rubygems, bundled_gems and the program's gems,
+      # in the prelude's order. Then it answers false, as ruby's require
+      # does after ruby's boot loaded rubygems.
+      #: (Require required, Integer line) -> If
+      def after_gem_autoload(required, line)
+        object = Core.new(:Object, line)
+        pending = Send.of(object, :autoload?, [Literal.new(:Gem, line)], line)
+        autoload = Seq.new([Send.of(object, :const_get, [Literal.new(:Gem, line)], line), Literal.new(false, line)], line)
+        If.new(pending, autoload, required, line)
       end
 
       # A literal require in the program's own file that no root has stays

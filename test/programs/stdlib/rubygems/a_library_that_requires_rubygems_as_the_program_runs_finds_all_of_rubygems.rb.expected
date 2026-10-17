@@ -1,0 +1,7 @@
+RDoc::Options
+[true, true]
+nil
+Gem::Specification
+true
+false
+true
