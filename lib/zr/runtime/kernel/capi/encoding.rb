@@ -233,6 +233,17 @@ module Zr::Kern
     zr_fix2long(zr_c_result(zr_send(enc, Machine.id(:index), 0, Machine.ptr(0))))
   end
 
+  # rb_define_dummy_encoding: a new dummy encoding named `name`, and its
+  # index (`Encoding.c_define_dummy`).
+  #: (ptr) -> i32
+  def rb_define_dummy_encoding(name)
+    Machine.gates_enter
+    zr_c_entered()
+    arg = Machine.slot(8)
+    Machine.store64(arg, 0, Machine.word(zr_str_new(name, zr_cstr_len(name))))
+    Machine.i32(zr_fix2long(zr_c_result(zr_send(zr_core_class(Machine.id(:Encoding)), Machine.id(:c_define_dummy), 1, arg))))
+  end
+
   # rb_enc_find_index: the index of the encoding named `name`, or -1.
   #: (ptr) -> i32
   def rb_enc_find_index(name)

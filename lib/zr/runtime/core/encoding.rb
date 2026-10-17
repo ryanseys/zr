@@ -184,6 +184,22 @@ class Encoding
     LIST[index]
   end
 
+  # rb_define_dummy_encoding for C (the C API): a new dummy encoding named
+  # `name`, at the next index, as nkf registers one that ruby lacks. The
+  # tables stay frozen: each is replaced by one with the new encoding.
+  def self.c_define_dummy(name)
+    Primitive.attr! :hidden
+    raise ArgumentError, "invalid encoding name (non ASCII)" unless name.ascii_only?
+    raise ArgumentError, "encoding #{name} is already registered" if BY_NAME.key?(name)
+
+    encoding = Primitive.zr_class_build(self)
+    encoding.send(:initialize, LIST.size, [name.dup.freeze].freeze, true, false, true, true)
+    Primitive.zr_const_replace_m(self, :LIST, (LIST + [encoding]).freeze)
+    Primitive.zr_const_replace_m(self, :BY_NAME, BY_NAME.merge(name => encoding).freeze)
+    @by_name = nil
+    encoding.index
+  end
+
   # Whether this encoding gives every byte from 128 up a code point of
   # its own, which is what reading its characters needs.
   def self.tabled?(encoding)

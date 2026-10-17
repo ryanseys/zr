@@ -407,6 +407,35 @@ module Zr::Kern
     zr_c_result(zr_super(Machine.ptr(0), Task[zr_task()].top, n, argv, Machine.value(QNIL)))
   end
 
+  # rb_opts_exception_p: the `exception:` keyword of `opts` (nil for
+  # none), true or false, else `default_value`; any other value, or any
+  # other keyword, raises ArgumentError as rb_bool_expected and
+  # rb_get_kwargs do.
+  #: (value, i32) -> i32
+  def rb_opts_exception_p(opts, default_value)
+    Machine.gates_enter
+    zr_c_entered()
+    if opts == QNIL
+      return default_value
+    end
+    table = Machine.slot(8)
+    Machine.store64(table, 0, zr_capi_id(Machine.id(:exception)))
+    value = Machine.slot(8)
+    if Machine.sword(rb_get_kwargs(opts, table, Machine.i32(0), Machine.i32(1), value)) == 0
+      return default_value
+    end
+    v = Machine.value(Machine.load64(value, 0))
+    if v == QTRUE || v == QFALSE
+      return Machine.i32(v == QTRUE ? 1 : 0)
+    end
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_push(b, Machine.bytes("expected true or false as exception: "), 37)
+    zr_buf_str(b, zr_c_result(zr_inspect(v)))
+    zr_c_result(zr_raise_buf(zr_global(G_ARGUMENT_ERROR), b))
+    default_value
+  end
+
   # rb_get_kwargs: takes the `required` and `optional` keywords that the
   # IDs at `table` name out of `hash` into `values` (undef for a missing
   # optional one), as rb_get_kwargs deletes them from the caller's copy.

@@ -628,6 +628,33 @@ module Zr::Kern
     zr_capi_call1(zr_int_from_word(x), Machine.id(:**), zr_capi_unsigned(y))
   end
 
+  # rb_Rational: `Rational(num, den)`, which converts and raises as the
+  # Kernel method does.
+  #: (value, value) -> value
+  def rb_Rational(num, den)
+    Machine.gates_enter
+    zr_c_entered()
+    args = Machine.slot(16)
+    Machine.store64(args, 0, Machine.word(num))
+    Machine.store64(args, 8, Machine.word(den))
+    zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:Rational), 2, args))
+  end
+
+  # rb_complex_real and rb_complex_imag: a Complex's parts.
+  #: (value) -> value
+  def rb_complex_real(z)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(z, Machine.id(:real), 0, Machine.ptr(0)))
+  end
+
+  #: (value) -> value
+  def rb_complex_imag(z)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(z, Machine.id(:imaginary), 0, Machine.ptr(0)))
+  end
+
   # rb_rational_num and rb_rational_den: a Rational's numerator and
   # denominator.
   #: (value) -> value

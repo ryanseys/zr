@@ -2218,4 +2218,16 @@ module Zr::Kern
   def zr_const_set_m(klass, name, v)
     zr_const_set(klass, zr_sym2id(name), v)
   end
+
+  # Replaces the value of the core's own constant `name` of `klass`, which
+  # must exist, with no warning: a table that the runtime grows (Encoding's
+  # list, when C defines a dummy encoding).
+  #: (value, value, value) -> value
+  def zr_const_replace_m(klass, name, v)
+    e = zr_const_row_kept(zr_const_holder(klass, true), zr_sym2id(name))
+    CEntry[e].value = v
+    zr_write_barrier(klass, v)
+    zr_consts_changed()
+    v
+  end
 end

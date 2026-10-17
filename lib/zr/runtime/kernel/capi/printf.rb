@@ -16,6 +16,14 @@ module Zr::Kern
     zr_c_result(zr_c_format(fmt, list))
   end
 
+  # rb_f_sprintf: Kernel#format of the `argc` values at `argv`.
+  #: (i32, ptr) -> value
+  def rb_f_sprintf(argc, argv)
+    Machine.gates_enter
+    zr_c_entered()
+    zr_c_result(zr_send(zr_global(G_KERNEL), Machine.id(:format), Machine.sword(argc), argv))
+  end
+
   # rb_vsprintf: the same, with C's va_list.
   #: (ptr, ptr) -> value
   def rb_vsprintf(fmt, ap)
