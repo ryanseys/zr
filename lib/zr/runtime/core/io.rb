@@ -489,7 +489,7 @@ class IO
   # reads is universal until an option names another line end.
   def self.conversion_options(options, universal)
     Primitive.attr! :hidden
-    Encoding.send(:check_options, options)
+    options = Encoding.send(:check_options, options)
     given = options.key?(:newline) || %i[universal_newline crlf_newline cr_newline lf_newline].any? { |name| !options[name].nil? }
     lines = given ? Encoding.send(:newline_decorators, options) : (universal ? [:universal_newline] : [])
     encode = options.slice(:invalid, :undef, :replace, :xml).compact
@@ -690,6 +690,9 @@ class IO
     command, mode = args
     mode = Primitive.zr_str_operand(mode) unless mode.nil? || mode.is_a?(Integer)
     raise ArgumentError, +"wrong number of arguments (given 0, expected 1+)" if args.empty?
+
+    # rb_io_popen: an Array, else the String that to_str gives.
+    command = Array.try_convert(command) || Primitive.zr_str_operand(command)
     return popen_fork((mode || "r").to_s, &block) if command == +"-"
 
     mode ||= options[:mode]

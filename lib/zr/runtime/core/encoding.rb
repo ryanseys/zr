@@ -642,7 +642,9 @@ class Encoding
   private_class_method :point_bytes
 
   # econv_opts and rb_econv_prepare_options: invalid: and undef: take
-  # only :replace, and a replacement is whole in its own encoding.
+  # only :replace, and a replacement is whole in its own encoding. The
+  # options come back with the replacement as the String that to_str
+  # gives.
   def self.check_options(options)
     Primitive.attr! :hidden
     raise ArgumentError, +"unknown value for invalid character option" unless options[:invalid].nil? || options[:invalid] == :replace
@@ -653,10 +655,12 @@ class Encoding
     end
 
     replace = options[:replace]
-    return if replace.nil?
+    return options if replace.nil?
 
-    replace = Primitive.zr_convert_type(replace, String, :to_str)
-    raise ArgumentError, "replacement string is broken: #{replace.dump} as #{replace.encoding}" unless replace.valid_encoding?
+    text = Primitive.zr_convert_type(replace, String, :to_str)
+    raise ArgumentError, "replacement string is broken: #{text.dump} as #{text.encoding}" unless text.valid_encoding?
+
+    String === replace ? options : options.merge(replace: text)
   end
   private_class_method :check_options
 

@@ -663,11 +663,7 @@ class Enumerator::ArithmeticSequence < Enumerator
   # are no number, so a beginless sequence of Floats has no first value.
   def num2dbl(x)
     Primitive.attr! :hidden
-    case x
-    when Float then x
-    when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(x, "Float")
-    else x.to_f
-    end
+    Float.send(:num2dbl, x)
   end
 
   # ruby_float_step_size: the count allows for rounding in the last

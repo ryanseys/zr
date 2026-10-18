@@ -958,11 +958,15 @@ class Numeric
     Primitive.attr! :hidden
     return :up if half.nil?
 
-    name = half.is_a?(String) ? half : half.to_s
-    raise ArgumentError, "invalid rounding mode: #{half}" unless half.is_a?(Symbol) || half.is_a?(String)
+    # rb_num_get_rounding_option: a Symbol's name, a String, or what
+    # to_str gives, read without regard to case.
+    name = half.is_a?(Symbol) ? half.name : String.try_convert(half)
+    raise ArgumentError, "invalid rounding mode: #{half}" if name.nil?
     # rb_must_asciicompat: a String in a wide encoding is no name.
     raise Encoding::CompatibilityError, "ASCII incompatible encoding: #{name.encoding}" unless name.encoding.ascii_compatible?
-    return name.to_sym if %w[up even down].include?(name)
+
+    mode = %i[up even down].find { |m| m.name.casecmp?(name.b) }
+    return mode if mode
 
     raise ArgumentError, "invalid rounding mode: #{half}"
   end

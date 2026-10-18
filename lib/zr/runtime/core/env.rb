@@ -34,9 +34,8 @@ $LOAD_PATH = []
 # there; a port of a C extension is the `.so` kind, under the name that
 # ruby's own extension has.
 def $LOAD_PATH.resolve_feature_path(feature)
-  name = String.try_convert(feature)
-  raise TypeError, no_implicit_conversion(feature, "String") if name.nil?
-
+  # rb_get_path: what to_path gives, else the String that to_str gives.
+  name = File.send(:path_of, feature)
   path = Kernel.send(:search, name.end_with?(".rb") ? name : "#{name}.rb")
   unless path
     return nil if name.end_with?(".rb")

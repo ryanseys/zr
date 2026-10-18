@@ -2202,7 +2202,7 @@ class String
       explicit = options[:invalid] == :replace
       options = { invalid: :replace, undef: :replace, **options }
     end
-    Encoding.send(:check_options, options)
+    options = Encoding.send(:check_options, options)
     from, target = Encoding.pair(source.nil? ? Encoding.at(Primitive.zr_str_encoding_index_m(self)) : source, target)
     options = Encoding.send(:one_newline, options, from, target)
     Encoding.send(:check_replacement, self, from, target, options)

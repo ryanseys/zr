@@ -7,8 +7,18 @@ module Marshal
   MAJOR_VERSION = 4
   MINOR_VERSION = 8
 
-  def dump(obj, io = nil, limit = -1)
-    io, limit = nil, io if io.is_a?(Integer)
+  # marshal_dump: with two arguments a Fixnum is the limit and anything
+  # else but nil the port; with three, the limit is a C int (NUM2INT)
+  # and the port must not be nil.
+  def dump(obj, io = (given = 1; nil), limit = (given ||= 2; nil))
+    given ||= 3
+    raise TypeError, +"instance of IO needed" if given > 1 && io.nil?
+
+    if given == 2 && Primitive.zr_fixnum_p_m(io)
+      io, limit = nil, io
+    elsif given == 3
+      limit = limit.nil? ? -1 : Integer.send(:int_operand, limit)
+    end
     limit = -1 if limit.nil?
     # marshal_dump: a port must write, and is put in binmode first.
     unless io.nil?

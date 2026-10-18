@@ -1,0 +1,35 @@
+round half to_str: [38, 20, 2]
+round half case: [2, 2, 2, 20]
+round half bad: !ArgumentError: invalid rounding mode: upp
+round half blank: !NoMethodError: undefined method 'to_s' for an instance of Blank
+test to_int: true
+test wide: [true, true]
+test empty: !TypeError: no implicit conversion of String into Integer
+test to_str: !TypeError: no implicit conversion of ToStr into Integer
+test unknown: ["unknown command '\\''", "unknown command '\\\\'", "unknown command 'q'", "unknown command \"\\x00\"", "unknown command \"\\xFFFFFFC8\"", "unknown command \"\\x1F\""]
+unpack offset: [[98], 98, [98]]
+unpack offset str: !TypeError: no implicit conversion of String into Integer
+regexp timeout: [1.5, 2.0, 0.5]
+regexp timeout str: !TypeError: no implicit conversion of String into Float
+regexp timeout blank: !TypeError: can't convert Blank into Float
+regexp timeout neg: !ArgumentError: invalid timeout: -1.0
+full_message order: 1
+full_message order int: !TypeError: 1 is not a symbol nor a string
+full_message order bad: !ArgumentError: expected :top or :bottom as order: "x"
+marshal limit: [8, 8]
+marshal limit float: 8
+marshal limit nil: 8
+marshal nil port: !TypeError: instance of IO needed
+marshal nil port limit: !TypeError: instance of IO needed
+marshal bignum port: !TypeError: instance of IO needed
+marshal limit two: !ArgumentError: exceed depth limit
+encode replace: 2
+encode! replace: 2
+encode replace int: !TypeError: no implicit conversion of Integer into String
+struct member: [:a, :b]
+struct member int: !TypeError: 1 is not a symbol nor a string
+time zone: [32400, 32400]
+popen: ["hi\n", "1\n", "x\n"]
+popen int: !TypeError: no implicit conversion of Integer into String
+resolve_feature_path: [:rb, nil]
+resolve_feature_path int: !TypeError: no implicit conversion of Integer into String

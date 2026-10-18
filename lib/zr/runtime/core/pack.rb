@@ -287,7 +287,10 @@ module Packing
   # it is, from there on: a copy of a long String for each unpack1 at
   # an offset makes a reader of records quadratic.
   # A negative offset counts back from the end (ruby 4.1).
+  # The offset is a C long (NUM2LONG): a Float is cut, and any other
+  # value converts with to_int.
   def self.from(text, offset)
+    offset = Primitive.zr_index_operand_m(offset)
     offset += text.bytesize if offset < 0
     raise ArgumentError, +"offset outside of string" if offset < 0 || offset > text.bytesize
 

@@ -683,13 +683,11 @@ class Regexp
     Primitive.attr! :hidden
     return 0 if seconds.nil?
 
-    # NUM2DBL.
-    raise TypeError, no_implicit_conversion(seconds, "Float") if seconds.is_a?(String) || seconds.is_a?(Symbol) || true.equal?(seconds) || false.equal?(seconds)
-    raise TypeError, cant_convert(seconds, "Float") unless seconds.is_a?(Numeric)
-    raise ArgumentError, "invalid timeout: #{seconds}" unless seconds.to_f.positive?
+    given = Float.send(:num2dbl, seconds)
+    raise ArgumentError, "invalid timeout: #{seconds}" unless given.positive?
 
     # double2hrtime saturates; Infinity has no Integer.
-    nanoseconds = seconds.to_f * 1e9
+    nanoseconds = given * 1e9
     nanoseconds >= LIMIT_MAX ? LIMIT_MAX : nanoseconds.to_i
   end
 

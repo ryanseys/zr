@@ -10,6 +10,26 @@ class Float
   end
   private :index_range_error
 
+  # rb_num2dbl (NUM2DBL): a Float as it is, an Integer or a Rational as
+  # its Float; nil, true, false, a Symbol and a String have no implicit
+  # conversion; any other object converts with to_f, which must give a
+  # Float.
+  def self.num2dbl(x)
+    Primitive.attr! :hidden
+    case x
+    when Float then x
+    when Integer, Rational then x.to_f
+    when nil, true, false, Symbol, String then raise TypeError, no_implicit_conversion(x, "Float")
+    else
+      converted = Primitive.zr_check_call(x, :to_f)
+      raise TypeError, cant_convert(x, "Float") if converted.nil?
+      raise TypeError, cant_convert_gives(x, "Float", :to_f, converted) unless converted.is_a?(Float)
+
+      converted
+    end
+  end
+  private_class_method :num2dbl
+
   INFINITY = 1.0 / 0.0
   NAN = 0.0 / 0.0
   EPSILON = 2.220446049250313e-16

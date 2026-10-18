@@ -356,8 +356,14 @@ class Exception
   def checked_order(value)
     Primitive.attr! :hidden
     return false if value.nil?
-    return true if value == :bottom || value == +"bottom"
-    return false if value == :top || value == +"top"
+
+    # rb_check_id: a Symbol, a String, or the String that to_str gives.
+    name = value.is_a?(Symbol) ? value : String.try_convert(value)
+    raise TypeError, "#{value.inspect} is not a symbol nor a string" if name.nil?
+
+    name = name.to_sym
+    return true if name == :bottom
+    return false if name == :top
 
     raise ArgumentError, "expected :top or :bottom as order: #{value.inspect}"
   end

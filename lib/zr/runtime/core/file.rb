@@ -2200,7 +2200,9 @@ module Kernel
   # `test(command, file, other = nil)`: one letter that selects the
   # check on a file, as the shell's own test does.
   def test(command, file, other = nil)
-    command = command.is_a?(String) ? command : command.chr
+    # NUM2CHR: a String's first byte, else the low byte of the C int
+    # that the value converts to.
+    command = (command.is_a?(String) && !command.empty? ? command.getbyte(0) : Integer.send(:int_operand, command) & 0xff).chr
     case command
     when "b" then File.blockdev?(file)
     when "c" then File.chardev?(file)
@@ -2228,7 +2230,14 @@ module Kernel
     when "=" then File.mtime(file) == File.mtime(other)
     when "<" then File.mtime(file) < File.mtime(other)
     when ">" then File.mtime(file) > File.mtime(other)
-    else raise ArgumentError, "unknown command '#{command}'"
+    else
+      # rb_f_test: a printable command as itself, with a backslash before
+      # a quote or a backslash, and any other byte in hex, as the int that
+      # a signed char widens to.
+      byte = command.ord
+      raise ArgumentError, format('unknown command "\\x%02X"', byte < 0x80 ? byte : 0xFFFFFF00 | byte) unless byte.between?(0x20, 0x7e)
+
+      raise ArgumentError, "unknown command '#{'\\' if command == "'" || command == '\\'}#{command}'"
     end
   end
   private :test

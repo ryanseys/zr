@@ -80,11 +80,13 @@ class Struct
       arg
     end
 
+    # rb_to_symbol: a Symbol, a String, or the String that to_str gives.
     # rb_is_attrset_sym: a setter's name (`x=`) is no member.
     def member_name(m)
-      raise TypeError, "#{m.inspect} is not a symbol nor a string" unless m.is_a?(Symbol) || m.is_a?(String)
-
-      m = m.to_sym
+      unless m.is_a?(Symbol)
+        text = String.try_convert(m) or raise TypeError, "#{m.inspect} is not a symbol nor a string"
+        m = text.to_sym
+      end
       text = m.name
       raise ArgumentError, "invalid struct member: #{m}" if text.end_with?("=") && plain_member?(text.delete_suffix("="))
 
