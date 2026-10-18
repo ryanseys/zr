@@ -36,6 +36,12 @@ module Zr::Kern
     def self.call(fn, n1, n2, n3, n4, n5, n6, n7, x) = Machine.indirect
   end
 
+  # ffi_call's own signature, for a call in a region.
+  module FfiCall
+    #: (ptr, word, word, word, word) -> void
+    def self.call(fn, cif, f, rvalue, avalues) = Machine.indirect
+  end
+
   RTLD_LAZY = 1
   # The callable that a closure runs, and the pending unwind that a
   # callback left. The pending unwind waits until the C call that ran the
@@ -256,8 +262,13 @@ module Zr::Kern
   # If a callback raised, threw or broke out while C ran, it left a
   # pending unwind. The unwind continues from here, after C is done. A C
   # call inside that callback keeps its own pending unwind.
-  #: (value, value, value, value) -> value
-  def zr_ffi_call(cif, fn, rvalue, avalues)
+  #
+  # A `blocking` function (FFI's `blocking: true`, Fiddle's default) runs
+  # without the GVL with native threads, while the program's other threads
+  # run, as ruby's FFI and Fiddle run it. A callback from it takes the GVL
+  # back (zr_ffi_closure_run).
+  #: (value, value, value, value, value) -> value
+  def zr_ffi_call(cif, fn, rvalue, avalues, blocking)
     outer = zr_global(G_FFI_UNWIND)
     zr_set_global(G_FFI_UNWIND, Machine.value(QNIL))
     call = zr_ffi_fn(Machine.static(:ffi_call_fn, 8), Machine.bytes("ffi_call\0"))
@@ -266,12 +277,33 @@ module Zr::Kern
     Machine.store64(words, 8, Machine.word(zr_ffi_ptr(fn)))
     Machine.store64(words, 16, Machine.word(zr_ffi_ptr(rvalue)))
     Machine.store64(words, 24, Machine.word(zr_ffi_ptr(avalues)))
-    zr_call_c(call, words, 4)
-    errno = zr_errno()
+    if blocking == QTRUE && zr_threads_native() && zr_threaded() == QTRUE
+      Machine.store64(words, 32, Machine.word(call))
+      out = Machine.slot(8)
+      if !zr_region_run(Machine.addr(:zr_ffi_region_call), words, Machine.ptr(0 - 1), Machine.ptr(0), out)
+        zr_set_global(G_FFI_UNWIND, outer)
+        return Machine.value(QUNDEF)
+      end
+      errno = Machine.sword(Machine.load64(words, 40))
+    else
+      zr_call_c(call, words, 4)
+      errno = zr_errno()
+    end
     if zr_ffi_resume(outer)
       return Machine.value(QUNDEF)
     end
     zr_fix(errno)
+  end
+
+  # ffi_call in a region, on the thread's own OS thread: the four words of
+  # zr_ffi_call, then ffi_call, then errno as the call left it.
+  any_thread :zr_ffi_region_call
+
+  #: (ptr, ptr) -> ptr
+  def zr_ffi_region_call(words, unused)
+    FfiCall.call(Machine.ptr(Machine.load64(words, 32)), Machine.load64(words, 0), Machine.load64(words, 8), Machine.load64(words, 16), Machine.load64(words, 24))
+    Machine.store64(words, 40, Machine.word(zr_errno()))
+    Machine.ptr(0)
   end
 
   # After a C call: returns true when a callback left a pending unwind,
@@ -355,9 +387,37 @@ module Zr::Kern
   # The function that C calls through a closure. A pending unwind from the
   # callable cannot go back through C frames, so it waits for
   # zr_ffi_call.
+  #
+  # C that runs in a region (a blocking FFI call) calls it without the
+  # GVL: it takes the GVL for the callable, as rb_thread_call_with_gvl
+  # does, and gives it away again after.
+  any_thread :zr_ffi_closure_run
+
   #: (ptr, ptr, ptr, ptr) -> void
   def zr_ffi_closure_run(cif, ret, args, user)
     Machine.gates_enter
+    me = zr_region_self()
+    if me == 0
+      zr_ffi_closure_call(ret, args, user)
+      return
+    end
+    block = Machine.slot(24)
+    Machine.store64(block, 0, Machine.word(ret))
+    Machine.store64(block, 8, Machine.word(args))
+    Machine.store64(block, 16, Machine.word(user))
+    zr_region_with_gvl(me, Machine.addr(:zr_ffi_closure_thunk), block)
+  end
+
+  # The callback with the GVL, through rb_thread_call_with_gvl's path.
+  #: (ptr) -> ptr
+  def zr_ffi_closure_thunk(block)
+    Machine.gates_enter
+    zr_ffi_closure_call(Machine.ptr(Machine.load64(block, 0)), Machine.ptr(Machine.load64(block, 8)), Machine.ptr(Machine.load64(block, 16)))
+    Machine.ptr(0)
+  end
+
+  #: (ptr, ptr, ptr) -> void
+  def zr_ffi_closure_call(ret, args, user)
     argv = Machine.slot(24)
     Machine.store64(argv, 0, Machine.word(zr_fix(Machine.word(user))))
     Machine.store64(argv, 8, Machine.word(zr_ffi_addr(ret)))

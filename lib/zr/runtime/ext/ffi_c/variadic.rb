@@ -44,7 +44,7 @@ module FFI
       values = ::Array.new(types.size) { |i| parameter_values[i] }
       cif = FFIType.cif(@return_type, types, instance_variable_get(:@fixed).size)
       params, addresses, keep = FFI.call_params(values, nil, -1, types, callbacks, @enums)
-      FFI.call_prepared(cif, @address, @return_type, params, addresses, keep)
+      FFI.call_prepared(cif, @address, @return_type, params, addresses, keep, @blocking == true)
     end
 
     def return_type = @return_type

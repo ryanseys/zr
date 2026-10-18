@@ -184,6 +184,7 @@ module Zr
           pthread_self
           pthread_setspecific
           pthread_sigmask
+          pthread_threadid_np
           ptsname
           pwrite
           qsort_r

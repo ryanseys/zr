@@ -48,7 +48,7 @@ module OpenSSL
         values = words.pack("q*")
         pointers = Array.new(words.size) { |i| address(values) + (8 * i) }.pack("J*")
         result = "\0".b * 8
-        Primitive.zr_ffi_call(address(cif), address, address(result), address(pointers))
+        Primitive.zr_ffi_call(address(cif), address, address(result), address(pointers), false)
         result.unpack1("q")
       end
 

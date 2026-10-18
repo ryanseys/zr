@@ -325,6 +325,7 @@ class Thread
       @current.send(:scheduler=, nil)
       Primitive.zr_hidden_set(Fiber.current, :__blocking__, true)
       Primitive.zr_fiber_after_fork
+      Primitive.zr_gvl_after_fork
       Primitive.zr_autoload_after_fork
       Primitive.zr_poll_after_fork
     end
@@ -652,8 +653,9 @@ class Thread
              "current:#{address(@current)} main thread:#{address(@main)}\n"
       live.each do |thread|
         # Each thread has a native thread in ruby (th->nt), which the
-        # report names by address; zr's threads share one.
-        out << "* #{thread.inspect}\n   rb_thread_t:#{address(thread)} native:#{address(@main)} int:0"
+        # report names by its pthread_t; green threads share one.
+        native = Primitive.zr_thread_pthread(Primitive.zr_hidden_get(thread, :root))
+        out << "* #{thread.inspect}\n   rb_thread_t:#{address(thread)} native:#{native ? format("0x%x", native) : address(@main)} int:0"
         # The mutex it waits for: the serial of the fiber that holds it,
         # and how many wait.
         mutex = Primitive.zr_hidden_get(thread, :__locking__)
@@ -848,6 +850,7 @@ class Thread
 
     if @status == :created
       Thread.send(:dequeue, self)
+      Primitive.zr_thread_cancel(@root)
       finish
     elsif equal?(Thread.current)
       Kernel.exit if equal?(Thread.main)
@@ -1072,12 +1075,12 @@ class Thread
     Thread::Backtrace::Location.send(:of_fiber, local_fiber, start, length.nil? ? -1 : length)
   end
 
-  # An id of its own for as long as the thread lives, as the native
-  # thread of a CRuby thread has.
+  # The id of the thread's OS thread for as long as the thread lives.
+  # Green threads share one OS thread, so each gets an id of its own.
   def native_thread_id
     return nil if @status == :dead
 
-    @native_thread_id ||= Thread.send(:next_native_id)
+    Primitive.zr_thread_native_id(@root) || (@native_thread_id ||= Thread.send(:next_native_id))
   end
 
   # Whether an exception another thread sent waits for this one.
@@ -1170,6 +1173,7 @@ class Thread
     # The fiber heads a thread of its own, so every fiber made on it
     # belongs to this thread.
     Primitive.zr_fiber_rehome(@fiber)
+    Primitive.zr_thread_spawn(@root)
     Primitive.zr_preempt_arm(Thread, :preempt)
     Primitive.zr_thread_event(EVENT_STARTED, self)
     Thread.send(:enqueue, self)

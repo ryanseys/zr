@@ -114,6 +114,8 @@ module Zr::Kern
     #: (ptr, i32) -> i32
     def self.pthread_kill(p, i) = Machine.import
     #: (ptr, ptr) -> i32
+    def self.pthread_threadid_np(p1, p2) = Machine.import
+    #: (ptr, ptr) -> i32
     def self.pthread_key_create(p1, p2) = Machine.import
     #: (word, ptr) -> i32
     def self.pthread_setspecific(k, p) = Machine.import

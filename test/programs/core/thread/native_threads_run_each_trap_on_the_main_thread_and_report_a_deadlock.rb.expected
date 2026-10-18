@@ -1,0 +1,8 @@
+[:trapped, true]
+:sent
+:while_sleeping
+[:trapped, true]
+2000000
+fatal
+No live threads left. Deadlock?
+3

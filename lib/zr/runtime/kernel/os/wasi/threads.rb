@@ -44,4 +44,51 @@ module Zr::Kern
   def zr_idle_sleep(ns)
     zr_nanosleep(ns)
   end
+
+  #: () -> bool
+  def zr_threads_native
+    false
+  end
+
+  #: () -> ptr
+  def zr_region_self
+    Machine.ptr(0)
+  end
+
+  # No region: the call runs with the GVL.
+  #: (ptr, ptr, ptr, ptr, ptr) -> bool
+  def zr_region_run(fn, data, ubf, ubf_data, out)
+    Machine.store64(out, 0, zr_gc_call(fn, data, Machine.ptr(0)))
+    true
+  end
+
+  #: (ptr, ptr, ptr) -> ptr
+  def zr_region_with_gvl(me, fn, data)
+    Machine.ptr(0)
+  end
+
+  #: (value) -> value
+  def zr_thread_spawn(root)
+    Machine.value(QNIL)
+  end
+
+  #: (value) -> value
+  def zr_thread_native_id(root)
+    Machine.value(QNIL)
+  end
+
+  #: (value) -> value
+  def zr_thread_pthread(root)
+    Machine.value(QNIL)
+  end
+
+  #: (value) -> value
+  def zr_thread_cancel(root)
+    Machine.value(QNIL)
+  end
+
+  #: () -> value
+  def zr_gvl_after_fork
+    Machine.value(QNIL)
+  end
 end

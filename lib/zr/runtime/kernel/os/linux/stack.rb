@@ -24,6 +24,14 @@ module Zr::Kern
     zr_program_stack_high()
   end
 
+  # This OS thread's id, as gettid gives it.
+  any_thread :zr_os_thread_id
+
+  #: () -> word
+  def zr_os_thread_id
+    Machine.u32(Libc.gettid())
+  end
+
   # PROT_READ | PROT_WRITE, and MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK.
   STACK_PROT = 3
   STACK_MAP_FLAGS = 131106

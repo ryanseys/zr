@@ -24,6 +24,12 @@ module FFI
 
     def param_types = @params.dup
 
+    # Whether a call runs without the GVL (`blocking: true`).
+    def ffi_blocking
+      Primitive.attr! :hidden
+      @blocking == true
+    end
+
     def ffi_native
       Primitive.attr! :hidden
       NATIVE[:FUNCTION]
@@ -251,13 +257,15 @@ module FFI
     def call_function(args, block, address, info)
       Primitive.attr! :hidden
       params, values, keep = call_params(args, block, info.ffi_params.size, info.ffi_params, info.ffi_callbacks, info.ffi_enums)
-      call_prepared(info.ffi_cif, address, info.return_type, params, values, keep)
+      call_prepared(info.ffi_cif, address, info.return_type, params, values, keep, info.ffi_blocking)
     end
 
-    def call_prepared(cif, address, return_type, params, values, keep)
+    # A blocking call (rbffi_do_blocking_call) runs without the GVL, while
+    # the program's other threads run.
+    def call_prepared(cif, address, return_type, params, values, keep, blocking = false)
       Primitive.attr! :hidden
       result = storage([return_type.ffi_type.size, 8].max)
-      errno = Primitive.zr_ffi_call(address_of(cif[0]), address, address_of(result), address_of(values))
+      errno = Primitive.zr_ffi_call(address_of(cif[0]), address, address_of(result), address_of(values), blocking)
       LastError.save(errno)
       native_to_ruby(return_type, address_of(result))
     end

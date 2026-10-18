@@ -28,8 +28,10 @@ module Zr::Kern
     attr_accessor :cond #: ptr
     # 1 from the handoff that gives this thread the GVL until it wakes.
     attr_accessor :turn #: word
-    # The OS thread, or 0 until its first turn starts it.
+    # The OS thread (pthread_t), or 0 until Thread.new starts it, and its
+    # id (Thread#native_thread_id), or 0 until it has run.
     attr_accessor :pthread #: word
+    attr_accessor :tid #: word
     # The thread's root fiber, whose stack the OS thread runs on.
     attr_accessor :fiber #: word
     # The context of the OS thread's own stack. A thread that ends
@@ -44,6 +46,8 @@ module Zr::Kern
     attr_accessor :ubf_data #: ptr
     # The next thread in the GVL's list of threads back from a region.
     attr_accessor :back #: ptr
+    # 1 when the thread ended before its first turn: its OS thread ends.
+    attr_accessor :cancel #: word
   end
 
   # The GVL's state for the threads that run C without it. The GVL
@@ -90,7 +94,8 @@ module Zr::Kern
   end
 
   # The state of the thread whose root fiber is `root`. The first one of
-  # the running thread names this OS thread; any other starts unstarted.
+  # the running thread names this OS thread; any other has no OS thread
+  # until zr_thread_spawn or its first turn starts one.
   #: (value, bool) -> ptr
   def zr_thread_state(root, running)
     ts = RFiber[root].native
@@ -104,11 +109,13 @@ module Zr::Kern
     Libc.pthread_cond_init(ThreadState[ts].cond, Machine.ptr(0))
     ThreadState[ts].turn = 0
     ThreadState[ts].pthread = running ? Machine.word(Libc.pthread_self()) : 0
+    ThreadState[ts].tid = running ? zr_os_thread_id() : 0
     ThreadState[ts].fiber = Machine.word(root)
     ThreadState[ts].entry = zr_xmalloc(CONTEXT_BYTES)
     ThreadState[ts].next = Machine.ptr(0)
     ThreadState[ts].region = 0
     ThreadState[ts].back = Machine.ptr(0)
+    ThreadState[ts].cancel = 0
     RFiber[root].native = ts
     ts
   end
@@ -162,14 +169,110 @@ module Zr::Kern
     ThreadState[ts].turn = 1
     Libc.pthread_cond_broadcast(ThreadState[ts].cond)
     Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
-    if !started
-      tid = Machine.slot(8)
-      if Libc.pthread_create(tid, Machine.ptr(0), Machine.addr(:zr_thread_entry), ts) != Machine.i32(0)
-        zr_bug(Machine.bytes("can't create a native thread\n"), 29)
-      end
+    if !started && zr_thread_start(ts) != 0
+      zr_bug(Machine.bytes("can't create a native thread\n"), 29)
+    end
+  end
+
+  # Starts the OS thread of `ts`, which waits for its first turn. Returns
+  # 0, or pthread_create's error.
+  any_thread :zr_thread_start
+
+  #: (ptr) -> word
+  def zr_thread_start(ts)
+    tid = Machine.slot(8)
+    err = Machine.u32(Libc.pthread_create(tid, Machine.ptr(0), Machine.addr(:zr_thread_entry), ts))
+    if err == 0
       ThreadState[ts].pthread = Machine.load64(tid, 0)
       Libc.pthread_detach(Machine.ptr(Machine.load64(tid, 0)))
     end
+    err
+  end
+
+  # Thread.new with native threads: the thread's OS thread starts now, as
+  # in ruby, and waits for its first turn. Raises ThreadError as
+  # thread_create_core does when the OS gives no thread.
+  #: (value) -> value
+  def zr_thread_spawn(root)
+    if !zr_threads_native()
+      return Machine.value(QNIL)
+    end
+    err = zr_thread_start(zr_thread_state(root, false))
+    if err != 0
+      b = Machine.slot(Buf.size)
+      zr_buf_init(b)
+      zr_buf_push(b, Machine.bytes("can't create Thread: "), 21)
+      text = Libc.strerror(Machine.i32(err))
+      zr_buf_push(b, text, zr_cstr_len(text))
+      return zr_raise_buf(zr_core_class(Machine.id(:ThreadError)), b)
+    end
+    Machine.value(QNIL)
+  end
+
+  # Thread#native_thread_id with native threads: the OS's id of the
+  # thread's OS thread, which a thread that has not run yet gives as soon
+  # as its OS thread has started. Nil with green threads.
+  #: (value) -> value
+  def zr_thread_native_id(root)
+    if !zr_threads_native()
+      return Machine.value(QNIL)
+    end
+    running = root == RFiber[zr_fiber_current()].home
+    ts = zr_thread_state(root, running)
+    if ThreadState[ts].pthread == 0 && zr_thread_start(ts) != 0
+      return Machine.value(QNIL)
+    end
+    Libc.pthread_mutex_lock(ThreadState[ts].mutex)
+    while ThreadState[ts].tid == 0
+      Libc.pthread_cond_wait(ThreadState[ts].cond, ThreadState[ts].mutex)
+    end
+    Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
+    zr_fix(ThreadState[ts].tid)
+  end
+
+  # A thread that ends before its first turn (Thread#kill of a new
+  # thread): its OS thread, which waits for that turn, ends instead.
+  #: (value) -> value
+  def zr_thread_cancel(root)
+    ts = RFiber[root].native
+    if ts != 0 && ThreadState[ts].pthread != 0
+      ThreadState[ts].cancel = 1
+      zr_gvl_give(ts)
+    end
+    Machine.value(QNIL)
+  end
+
+  # The pthread_t of a thread's OS thread, as the deadlock report names it
+  # (`native:`), or nil with green threads.
+  #: (value) -> value
+  def zr_thread_pthread(root)
+    if !zr_threads_native() || RFiber[root].native == 0
+      return Machine.value(QNIL)
+    end
+    zr_fix(ThreadState[RFiber[root].native].pthread)
+  end
+
+  # In a forked child only the thread that forked runs: its OS thread has a
+  # new id, and the GVL's lock and pipe are the child's own.
+  #: () -> value
+  def zr_gvl_after_fork
+    if !zr_threads_native()
+      return Machine.value(QNIL)
+    end
+    ts = zr_thread_state(RFiber[zr_fiber_current()].home, true)
+    ThreadState[ts].pthread = Machine.word(Libc.pthread_self())
+    ThreadState[ts].tid = zr_os_thread_id()
+    g = Machine.static(:gvl, Gvl.size)
+    if Gvl[g].mutex != 0
+      Libc.close(Machine.i32(Gvl[g].wake_r))
+      Libc.close(Machine.i32(Gvl[g].wake_w))
+      zr_xfree(Gvl[g].mutex)
+      Gvl[g].mutex = Machine.ptr(0)
+      Gvl[g].free = 0
+      Gvl[g].back = Machine.ptr(0)
+      zr_gvl()
+    end
+    Machine.value(QNIL)
   end
 
   # Waits until a handoff gives this thread the GVL.
@@ -209,7 +312,16 @@ module Zr::Kern
   def zr_thread_entry(ts)
     Machine.gates_enter
     altstack = zr_crash_thread_init()
+    # Its id, for Thread#native_thread_id, which may wait for it.
+    Libc.pthread_mutex_lock(ThreadState[ts].mutex)
+    ThreadState[ts].tid = zr_os_thread_id()
+    Libc.pthread_cond_broadcast(ThreadState[ts].cond)
+    Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
     zr_gvl_wait(ts)
+    if ThreadState[ts].cancel != 0
+      zr_crash_thread_end(altstack)
+      return Machine.ptr(0)
+    end
     zr_gvl_enter(ThreadState[ts].fiber)
     zr_gates_reload()
     zr_switch(ThreadState[ts].entry, RFiber[Machine.value(ThreadState[ts].fiber)].ctx)
@@ -268,14 +380,26 @@ module Zr::Kern
   # comes meanwhile calls `ubf(ubf_data)`, and arrives after.
   #: (ptr, ptr, ptr, ptr) -> ptr
   def zr_region_call(fn, data, ubf, ubf_data)
+    out = Machine.slot(8)
+    if !zr_region_run(fn, data, ubf, ubf_data, out)
+      zr_c_unwind()
+    end
+    Machine.ptr(Machine.load64(out, 0))
+  end
+
+  # `fn(data)` in a region, its result into `out`. False when an
+  # interrupt raised, before the call or after it: the task's pending
+  # unwind.
+  #: (ptr, ptr, ptr, ptr, ptr) -> bool
+  def zr_region_run(fn, data, ubf, ubf_data, out)
     thread = zr_core_class(Machine.id(:Thread))
     if zr_send(thread, Machine.id(:blocking_point), 0, Machine.ptr(0)) == QUNDEF
-      zr_c_unwind()
+      return false
     end
     cur = zr_fiber_current()
     me = zr_thread_state(RFiber[cur].home, true)
     zr_region_release(me, Machine.word(cur), zr_region_plan(), ubf, ubf_data)
-    r = Machine.ptr(zr_gc_call(fn, data, Machine.ptr(0)))
+    Machine.store64(out, 0, zr_gc_call(fn, data, Machine.ptr(0)))
     # Only defs with no root frame run until the GVL is back: a root
     # frame's link and unlink write the holder's kernel root chain.
     if ThreadState[me].region != 0
@@ -283,10 +407,10 @@ module Zr::Kern
       zr_gvl_enter(Machine.word(cur))
       zr_gates_reload()
       if zr_region_left(cur, took, true) == QUNDEF
-        zr_c_unwind()
+        return false
       end
     end
-    r
+    true
   end
 
   # Where the GVL goes for a region (Thread.region_enter): 0 when this

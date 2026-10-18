@@ -38,6 +38,17 @@ module Zr::Kern
     Machine.word(Libc.pthread_get_stackaddr_np(Libc.pthread_self()))
   end
 
+  # This OS thread's id, as pthread_threadid_np gives it.
+  any_thread :zr_os_thread_id
+
+  #: () -> word
+  def zr_os_thread_id
+    id = Machine.slot(8)
+    Machine.store64(id, 0, 0)
+    Libc.pthread_threadid_np(Machine.ptr(0), id)
+    Machine.load64(id, 0)
+  end
+
   # PROT_READ | PROT_WRITE, and MAP_PRIVATE | MAP_ANON.
   STACK_PROT = 3
   STACK_MAP_FLAGS = 4098
