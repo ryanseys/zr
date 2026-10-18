@@ -112,8 +112,9 @@ class TracePoint
       raise RuntimeError, +"No need to allow reentrance." if row.nil?
 
       Primitive.zr_hidden_set(Fiber.current, :__trace_row__, nil)
+      # rb_ensure(rb_yield, Qnil): the block gets nil.
       begin
-        yield
+        yield nil
       ensure
         Primitive.zr_hidden_set(Fiber.current, :__trace_row__, row)
       end

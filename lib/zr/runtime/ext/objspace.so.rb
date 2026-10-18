@@ -145,8 +145,9 @@ module ObjectSpace
     raise ArgumentError, "no block given" unless block_given?
 
     trace_object_allocations_start
+    # rb_ensure(rb_yield, Qnil): the block gets nil.
     begin
-      yield
+      yield nil
     ensure
       trace_object_allocations_stop
     end

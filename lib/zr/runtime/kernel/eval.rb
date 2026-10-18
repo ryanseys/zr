@@ -457,12 +457,10 @@ module Zr::Kern
   inline :zr_bmethod_cref_kept
 
   # Runs the body of a `refine` block with the holder module as self. A
-  # `def` in it defines into the holder, and the block gets the holder as
-  # its argument.
+  # `def` in it defines into the holder.
   #: (value, value) -> value
   def zr_refine_body(blk, holder)
-    slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(holder))
-    zr_yield_under(blk, holder, holder, 1, slot)
+    # rb_yield_refine_block yields no value.
+    zr_yield_under(blk, holder, holder, 0, 0)
   end
 end
