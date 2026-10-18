@@ -8,16 +8,16 @@ true
 nil
 "pop\n"
 nil
-[Errno::ECHILD, "No child processes"]
+[Errno::ECHILD, nil]
 #<Process::Status: pid -1 exit 0>
-[Errno::ECHILD, "No child processes"]
-[Errno::ECHILD, "No child processes"]
+[Errno::ECHILD, nil]
+[Errno::ECHILD, nil]
 []
 #<Process::Status: pid -1 exit 0>
 nil
 nil
 nil
-[Errno::ENOENT, "No such file or directory - zr-test-no-such-command"]
+[Errno::ENOENT, "zr-test-no-such-command"]
 #<Process::Status: pid -1 exit 0>
 "IGNORE"
 [true, -1]

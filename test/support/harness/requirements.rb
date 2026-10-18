@@ -23,7 +23,16 @@ module Zr
       # refused gives other answers (a container that runs as root).
       def self.nonroot?(_platform) = !Process.euid.zero?
 
-      CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?) }.freeze
+      # True when the shell runs under any argv0, as the commands that
+      # the tests start do on macOS and glibc systems. A busybox
+      # multi-call binary (Alpine's sh and its other commands) picks what
+      # it runs by argv0, so `["sh", "my-shell"]` finds nothing to run.
+      def self.argv0?(_platform)
+        sh = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).map { |dir| File.join(dir, "sh") }.find { |path| File.executable?(path) }
+        !sh.nil? && File.basename(File.realpath(sh)) != "busybox"
+      end
+
+      CHECKS = { "libssl" => method(:libssl?), "nonroot" => method(:nonroot?), "argv0" => method(:argv0?) }.freeze
 
       def self.met?(name, platform) = CHECKS.fetch(name).call(platform)
     end

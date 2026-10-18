@@ -1,8 +1,12 @@
 # When a program ignores SIGCHLD, the system reaps each child itself.
 # `system` then returns true with a status of pid -1 and exit 0, as
 # rb_process_status_wait makes one. A wait for the child finds none.
+# A system call's error shows its class and the command that it names:
+# its text is the libc's (strerror), and musl words ECHILD otherwise.
 def outcome
   yield
+rescue SystemCallError => e
+  [e.class, e.message[/ - (.*)\z/, 1]]
 rescue => e
   [e.class, e.message]
 end

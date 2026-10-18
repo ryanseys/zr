@@ -37,7 +37,7 @@ zr adds these files, in the same style:
 | `foo.rb.status` | `exit N`, or `signal N` for a program that a signal stopped | `exit 0` |
 | `foo.rb.env` | `NAME=value` lines, added to the program's environment | nothing is added |
 | `foo.rb.files/` | a tree of files that the run directory holds (the fixtures), or a relative link to one that several tests share below `test/fixtures/programs/` | no files |
-| `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, `nonroot` (a user that is not root), or a platform (`macos`, `linux`, `wasi`) | the test runs everywhere |
+| `foo.rb.needs` | what the machine must have, one item on each line: `libssl`, `nonroot` (a user that is not root), `argv0` (a shell that runs under any argv0, which busybox does not), or a platform (`macos`, `linux`, `wasi`) | the test runs everywhere |
 | `foo.rb.ruby` | command-line options for ruby only, such as `-W:no-experimental`; zr ignores them | no options |
 | `foo.rb.limits` | `build_mb=N` and `run_mb=N` lines: memory limits above the defaults | the defaults |
 | `foo.rb.<platform>.expected` | the stdout on that platform (`linux`, `wasi`), when it is different | `foo.rb.expected` |

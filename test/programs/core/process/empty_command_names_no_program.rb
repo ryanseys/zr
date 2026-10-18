@@ -22,6 +22,7 @@ refusal("system(nil)") { system(nil) }
 refusal("system('true', 1)") { system("true", 1) }
 refusal("system()") { system }
 
-# A command that is only a shell word still reaches the shell.
-refusal("system(';')") { [system(";"), $?&.exitstatus] }
+# A command that is only a shell word still reaches the shell, whose
+# syntax error each shell words its own way.
+refusal("system(';')") { [system(";", err: File::NULL), $?&.exitstatus] }
 

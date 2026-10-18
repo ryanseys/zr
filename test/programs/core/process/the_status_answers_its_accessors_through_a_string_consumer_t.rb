@@ -1,8 +1,7 @@
 # Process.spawn + Process.waitpid2 + Process::Status.
 #
-# true/false are spelled /usr/bin/... because that is where macOS keeps them;
-# /bin/true and /bin/false do not exist there, and spawning them raised an
-# uncaught Errno::ENOENT part way through this file. Both paths exist on Linux.
+# true and false come from PATH: macOS keeps them only in /usr/bin, and
+# Alpine only in /bin.
 #
 # CRuby semantics:
 #   Process.spawn(cmd, *args, opts) -> Integer pid
@@ -23,7 +22,7 @@
 # 5) The boxed status in a String consumer. The accessors give Integers on a
 #    boxed receiver, and interpolation shows them as Integers.
 r, w = IO.pipe
-pid = Process.spawn("/usr/bin/false", out: w)
+pid = Process.spawn("false", out: w)
 w.close
 r.read
 res = Process.waitpid2(pid)

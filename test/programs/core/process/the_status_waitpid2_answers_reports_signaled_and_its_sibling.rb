@@ -1,8 +1,7 @@
 # Process.spawn + Process.waitpid2 + Process::Status.
 #
-# true/false are spelled /usr/bin/... because that is where macOS keeps them;
-# /bin/true and /bin/false do not exist there, and spawning them raised an
-# uncaught Errno::ENOENT part way through this file. Both paths exist on Linux.
+# true and false come from PATH: macOS keeps them only in /usr/bin, and
+# Alpine only in /bin.
 #
 # CRuby semantics:
 #   Process.spawn(cmd, *args, opts) -> Integer pid
@@ -23,7 +22,7 @@
 # 4) The boxed status: waitpid2's second element, read by index. Its
 #    .exited? and .success? find the Process::Status methods at run time.
 r, w = IO.pipe
-pid = Process.spawn("/usr/bin/true", out: w)
+pid = Process.spawn("true", out: w)
 w.close
 r.read
 result = Process.waitpid2(pid)
