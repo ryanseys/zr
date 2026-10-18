@@ -44,7 +44,8 @@ module OpenSSL
       # is read first), and the String that contains those bytes, which the
       # caller keeps while the BIO is in use.
       def obj2bio(object)
-        object = object.read if object.is_a?(File)
+        # ossl_obj2bio: an IO (T_FILE) gives what it reads.
+        object = object.read if object.is_a?(IO)
         object = string_value(object)
         bio = Lib.BIO_new_mem_buf(object, object.bytesize)
         raise error(OpenSSLError, "BIO_new_mem_buf") if bio.zero?
