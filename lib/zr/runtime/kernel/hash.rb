@@ -296,6 +296,12 @@ module Zr::Kern
     if zr_special_p(v) || zr_float_p(v) || zr_type(v) == T_STRING
       return zr_fix(zr_value_hash(v))
     end
+    # rb_check_funcall_basic_kw: Kernel#hash itself, called directly,
+    # while no TracePoint hears the call it would make.
+    e = zr_find_method(zr_box_view(zr_class_of(v)), Machine.id(:hash))
+    if e != 0 && MEntry[e].fn == Machine.addr(:zr_obj_hash) && !zr_trace_sends_p()
+      return zr_obj_hash(v, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
+    end
     r = zr_send(v, Machine.id(:hash), 0, 0)
     # rb_hash: a hash that is not a Fixnum is reduced: a bignum by its own
     # hash, anything else by to_int.
