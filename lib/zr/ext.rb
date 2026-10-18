@@ -131,6 +131,9 @@ module Zr
       args = config.ext_config[name]
       sources = args || !target.native? ? built(spec, args || [], target) : Source.installed(dir, spec.extension_dir)
       sources = Source.archdir(spec.files, spec.extensions) if sources.empty? && !args && target.native? && spec.default_gem?
+      # A static binary loads no library, so only objects link into one
+      # (`Native::Build.ext_object`).
+      sources = sources.select { |source| source.mode == :static } if target.link == :static
       sources = built(spec, [], target) if sources.empty?
       return sources unless sources.empty?
 
@@ -142,7 +145,8 @@ module Zr
     #: (untyped spec, Array[String] args, ?Target target) -> Array[Source]
     def built(spec, args, target = Target.default)
       dir = spec.gem_dir #: String
-      extconfs = spec.extensions.grep(/extconf\.rb\z/) #: Array[String]
+      # A default gem's directory holds no ext/: ruby's own build compiled it.
+      extconfs = spec.extensions.grep(/extconf\.rb\z/).select { |extconf| File.file?(File.join(dir, extconf)) } #: Array[String]
       extconfs.map { |extconf| Builder.new(File.join(dir, extconf), args: args, target: target).source(dir) }
     end
   end

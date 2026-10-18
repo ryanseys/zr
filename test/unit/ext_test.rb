@@ -177,6 +177,18 @@ class ExtTest < Minitest::Test
     assert_equal ["Init_stringio", :embed, sources.first.bundle], [sources.first.init, sources.first.mode, sources.first.library]
   end
 
+  # A static binary loads no library, so a default gem whose C ruby
+  # compiled into a bundle has no C for it: the build refuses, and a
+  # port that puts the gem's C first stands in (`Ext.bundles`).
+  def test_a_static_target_takes_no_compiled_bundle_of_a_default_gem
+    dlext = RbConfig::CONFIG["DLEXT"]
+    skip "ruby has no stringio.#{dlext}" unless File.file?(File.join(RbConfig::CONFIG["archdir"], "stringio.#{dlext}"))
+    static = Zr::Target.default.with(link: :static)
+
+    error = assert_raises(Zr::Refused) { Zr::Ext.installed("stringio", nil, target: static) }
+    assert_includes error.message, "has no C extension"
+  end
+
   # The Makefile that the host's install of a gem with a C extension left
   # gives the objects that the install compiled.
   def test_a_real_makefile_lists_the_objects_that_its_install_made
