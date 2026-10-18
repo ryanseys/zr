@@ -161,7 +161,7 @@ class Random
     # obj_random_bytes: `n` bytes that the object's public `bytes` returns.
     def bytes_of(obj, n)
       Primitive.attr! :hidden
-      bytes = obj.public_send(:bytes, n)
+      bytes = Primitive.zr_public_call1_m(obj, :bytes, n)
       raise TypeError, "wrong argument type #{conversion_name(bytes)} (expected String)" unless bytes.is_a?(String)
       raise RangeError, "random data too short #{bytes.bytesize}" if bytes.bytesize < n
       raise RangeError, "random data too long #{bytes.bytesize}" if bytes.bytesize > n
@@ -243,7 +243,7 @@ class Random
       rnd = generator_of(obj)
       return rnd.send(:limited, limit) if rnd
 
-      value = obj.public_send(:rand, limit + 1)
+      value = Primitive.zr_public_call1_m(obj, :rand, limit + 1)
       value = Integer.try_convert(value) || raise(TypeError, no_implicit_conversion(value, "Integer"))
       raise RangeError, "random number too small #{value}" if value.negative?
       raise RangeError, "random number too big #{value}" if value > limit

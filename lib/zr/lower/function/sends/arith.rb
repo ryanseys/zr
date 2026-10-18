@@ -456,6 +456,13 @@ module Zr
           @native_each = @l.internal? || @l.support? ? !fn.attributes.intersect?(%i[sends_each sends_all]) : false
         end
 
+        # Whether the code stands in for CRuby's C: the core library or
+        # eval's compiler, outside the defs that CRuby writes in Ruby.
+        #: () -> bool
+        def c_stand_in?
+          (@l.internal? || @l.support?) && !sends_all?
+        end
+
         # Whether the def is one that CRuby writes in Ruby alone
         # (`:sends_all`), so its every send goes by name, as Ruby's do.
         #: () -> bool
@@ -497,11 +504,14 @@ module Zr
         # `!v` inline for nil, true and false while none of their classes
         # redefines `!` (GATE_NOT). All other receivers send `!` through
         # the site's own cell, as a call does. The three are the only
-        # Values below 28 with their low two bits clear.
+        # Values below 28 with their low two bits clear. In the core's
+        # stand-ins for C, `!v` is CRuby's !RTEST(v), which sends nothing.
         #: (Hir::Not node) -> String
         def negate(node)
           staged([node.value]) do |slots, base|
             v = @f.fetch("i64", @rec, value_offset(base))
+            next @f.csel(truthy(v), imm(@l.const("QFALSE")), imm(@l.const("QTRUE"))) if c_stand_in?
+
             fast = @f.label
             slow = @f.label
             merge, (result,) = @f.block(["i64"]) #: [String, [String]]

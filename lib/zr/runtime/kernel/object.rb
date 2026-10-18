@@ -1162,6 +1162,16 @@ module Zr::Kern
     zr_dispatch(0, recv, Machine.load64(slot, 0), argc - 1, argv + 8, 3, blk)
   end
 
+  # rb_funcallv_public with one argument, for the core: the receiver's
+  # public method `name`, found as public_send finds it, though a
+  # BasicObject has no public_send.
+  #: (value, value, value) -> value
+  def zr_public_call1_m(recv, name, arg)
+    argv = Machine.slot(8)
+    Machine.store64(argv, 0, Machine.word(arg))
+    zr_dispatch(0, recv, zr_sym2id(name), 1, argv, 3, Machine.value(QNIL))
+  end
+
   # `Object#===`: the same as `==`.
   #: (value, word, ptr, value, value) -> value
   def zr_obj_eqq(recv, argc, argv, cref, blk)
@@ -1240,24 +1250,15 @@ module Zr::Kern
     if argc < 1 || argc > 2
       return zr_wrong_arity_range(argc, 1, 2)
     end
-    m = Machine.value(Machine.load64(argv, 0))
-    if !zr_special_p(m) && zr_type(m) == T_STRING
-      m = zr_str_to_sym(m, 0, 0, Machine.value(QNIL), Machine.value(QNIL))
-      return m if m == QUNDEF
-    end
-    unless zr_symbol_p(m)
-      b = Machine.slot(Buf.size)
-      zr_buf_init(b)
-      s = zr_inspect(m)
-      return s if s == QUNDEF
-      zr_buf_str(b, s)
-      zr_buf_push(b, Machine.bytes(" is not a symbol nor a string"), 29)
-      return zr_raise_buf(zr_global(G_TYPE_ERROR), b)
-    end
+    # rb_check_id: a Symbol, a String, or what to_str gives.
+    out = Machine.slot(8)
+    r = zr_name_id(Machine.value(Machine.load64(argv, 0)), out)
+    return r if r == QUNDEF
+    mid = Machine.load64(out, 0)
     all = argc == 2 && Machine.value(Machine.load64(argv, 8)) != QNIL && Machine.value(Machine.load64(argv, 8)) != QFALSE
-    e = zr_find_method(zr_box_view(zr_class_of(recv)), zr_sym2id(m))
+    e = zr_find_method(zr_box_view(zr_class_of(recv)), mid)
     if e == 0 || zr_entry_hidden_p(e)
-      return zr_respond_to_missing(recv, zr_sym2id(m), zr_bool(all))
+      return zr_respond_to_missing(recv, mid, zr_bool(all))
     end
     if MEntry[e].fn == Machine.addr(:zr_f_notimplement)
       return Machine.value(QFALSE)
@@ -1266,7 +1267,7 @@ module Zr::Kern
       return Machine.value(QTRUE)
     end
     # method_boundp finds no public method, so respond_to_missing? answers.
-    zr_respond_to_missing(recv, zr_sym2id(m), Machine.value(QFALSE))
+    zr_respond_to_missing(recv, mid, Machine.value(QFALSE))
   end
 
   # Writes `#<Name:0x...` with sixteen hex digits into `b`.
@@ -2052,6 +2053,19 @@ module Zr::Kern
     if m == QNIL
       name = zr_class_name_of(recv)
       return zr_str_new_at(RString[name].ptr, RString[name].len, zr_str_encoding_index(name))
+    end
+    # rb_String: what to_str gives, else what to_s gives.
+    if !zr_special_p(m) && zr_type(m) != T_STRING
+      out = Machine.slot(8)
+      converted = zr_convert_call(m, Machine.id(:to_str), out)
+      return converted if converted == QUNDEF
+      if converted == QTRUE
+        s = Machine.value(Machine.load64(out, 0))
+        if zr_special_p(s) || zr_type(s) != T_STRING
+          return zr_raise_gives(m, Machine.bytes("String"), 6, Machine.bytes("#to_str gives "), 14, s)
+        end
+        return s
+      end
     end
     if zr_special_p(m) || zr_type(m) != T_STRING
       return zr_send(m, Machine.id(:to_s), 0, 0)

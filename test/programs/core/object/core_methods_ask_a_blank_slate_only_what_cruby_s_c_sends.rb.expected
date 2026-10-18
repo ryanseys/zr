@@ -1,0 +1,33 @@
+array ==: false
+hash ==: false
+string ==: false
+string ===: false
+string == to_str: true
+exception same: true
+exception message: "b"
+message to_s: "q"
+message to_str: "q"
+message to_str bad: !TypeError: can't convert Object into String (Object#to_str gives Integer)
+exit status: 3
+exit true: 0
+system exit: ["x", "y", 0]
+exit! in a child: 4
+marshal freeze: true
+marshal proc freeze: true
+respond_to? to_str: true
+respond_to? blank: !NoMethodError: undefined method 'inspect' for an instance of Blank
+hash assoc asks the key: [[:a, 1], nil]
+k == :a
+hash assoc order: nil
+hash assoc float: [1, 2]
+not tilde: false
+sample: 1
+sample n: [1, 2]
+shuffle: [2, 3, 1]
+shuffle!: [2, 3, 1]
+raise to_str: [RuntimeError, "m"]
+raise to_str bad: !TypeError: can't convert Object into String (Object#to_str gives Integer)
+raise to_str and exception: [RuntimeError, "s"]
+raise blank exception: [ArgumentError, "z"]
+raise respond_to_missing: [IOError, "mm"]
+raise blank: !TypeError: exception class/object expected

@@ -844,16 +844,16 @@ module Zr::Kern
   # `recv == other` for an `other` of another type: when `other` responds
   # to the conversion `conv` (to_ary for Array#==, to_hash for Hash#==),
   # `other == recv` decides, as rb_ary_equal and rb_hash_equal do. Else
-  # false.
+  # false. rb_respond_to asks a respond_to? that the program defines, and
+  # finds the method itself on any other object, a BasicObject too.
   #: (value, value, word) -> value
   def zr_eq_by_conversion(recv, other, conv)
-    slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(zr_sym(conv)))
-    responds = zr_send(other, Machine.id(:respond_to?), 1, slot)
+    responds = zr_check_funcall(other, conv)
     return responds if responds == QUNDEF
-    if responds == QNIL || responds == QFALSE
+    if responds == QFALSE
       return Machine.value(QFALSE)
     end
+    slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(recv))
     r = zr_send(other, Machine.id(:==), 1, slot)
     return r if r == QUNDEF

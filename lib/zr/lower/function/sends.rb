@@ -147,6 +147,7 @@ module Zr
             return call(funcall(node, name))
           end
           return primitive(node) if primitive?(node)
+          return identity(node) if identity?(node)
 
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           return direct_operator(node, recv_node) if direct_operands?(node, recv_node)
@@ -171,6 +172,31 @@ module Zr
               r = send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size))
               node.write ? @f.fetch("i64", slots, 8 * node.args.size) : r
             end
+          end
+        end
+
+        # `a.equal?(b)` in the core's stand-ins for C is CRuby's `a == b` on
+        # two VALUEs: no send, whatever either object defines or undefines.
+        # So is `a == b` and `a != b` where one side is nil, true, false or
+        # a Symbol literal, as C compares a VALUE with Qnil or a sym_ name.
+        #: (Hir::Send node) -> bool
+        def identity?(node)
+          return false unless node.recv && node.args.size == 1 && !node.args[0].is_a?(Hir::Splat)
+          return false if node.block || node.kwargs || node.safe || node.write || !c_stand_in?
+
+          node.name == :equal? || (%i[== !=].include?(node.name) && [node.recv, node.args[0]].any? { immediate_literal?(it) })
+        end
+
+        #: (Hir::node node) -> bool
+        def immediate_literal?(node)
+          node.is_a?(Hir::Literal) && (node.value.nil? || node.value == true || node.value == false || node.value.is_a?(Symbol))
+        end
+
+        #: (Hir::Send node) -> String
+        def identity(node)
+          staged([node.recv, node.args[0]]) do |_, base|
+            same = @f.icmp(node.name == :!= ? "ne" : "eq", @f.fetch("i64", @rec, value_offset(base)), @f.fetch("i64", @rec, value_offset(base + 1)))
+            @f.csel(same, imm(@l.const("QTRUE")), imm(@l.const("QFALSE")))
           end
         end
 
@@ -278,10 +304,11 @@ module Zr
         end
 
         # Whether a test of `node` branches on the comparison itself: a
-        # comparison of plain reads (`direct_operands?`).
+        # comparison of plain reads (`direct_operands?`), unless it is an
+        # identity test (`identity?`).
         #: (Hir::Send node) -> bool
         def relation_test?(node)
-          RELATIONS.key?(node.name) && direct_operands?(node, node.recv || Hir::SelfRef.new(node.line))
+          RELATIONS.key?(node.name) && direct_operands?(node, node.recv || Hir::SelfRef.new(node.line)) && !identity?(node)
         end
 
         # `a < b` and the other comparisons as a test (`Control#jump_if`).

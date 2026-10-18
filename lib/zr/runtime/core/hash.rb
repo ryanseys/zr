@@ -431,7 +431,8 @@ class Hash
   def rehash = Primitive.zr_hash_rehash(self)
 
   def assoc(key)
-    Primitive.zr_hash_foreach(self) { |k, v| return [k, v] if k == key }
+    # assoc_i: rb_equal(key, k), so the key given is asked.
+    Primitive.zr_hash_foreach(self) { |k, v| return [k, v] if Primitive.zr_rb_equal(key, k) }
     nil
   end
 

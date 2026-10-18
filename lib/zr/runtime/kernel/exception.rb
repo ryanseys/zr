@@ -828,7 +828,23 @@ end
       return r if r == QUNDEF
       return e
     end
-    if zr_find_method(zr_class_of(first), Machine.id(:exception)) == 0
+    # rb_check_string_type: an object alone whose to_str gives a String
+    # is a RuntimeError's message too.
+    if !zr_special_p(first) && zr_type(first) != T_STRING && argc == 1
+      out = Machine.slot(8)
+      converted = zr_convert_call(first, Machine.id(:to_str), out)
+      return converted if converted == QUNDEF
+      if converted == QTRUE
+        text = Machine.value(Machine.load64(out, 0))
+        if zr_special_p(text) || zr_type(text) != T_STRING
+          return zr_raise_gives(first, Machine.bytes("String"), 6, Machine.bytes("#to_str gives "), 14, text)
+        end
+        return zr_make_exception(1, out)
+      end
+    end
+    responds = zr_check_funcall(first, Machine.id(:exception))
+    return responds if responds == QUNDEF
+    if responds != QTRUE
       return zr_raise_msg(zr_global(G_TYPE_ERROR), Machine.bytes("exception class/object expected"), 31)
     end
     e = zr_send_for_caller(first, Machine.id(:exception), argc > 1 ? 1 : 0, argv + 8, Machine.value(QNIL))

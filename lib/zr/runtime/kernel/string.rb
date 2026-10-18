@@ -1216,17 +1216,7 @@ module Zr::Kern
     if !zr_special_p(other) && zr_type(other) == T_STRING
       return zr_str_eq(recv, argc, argv, cref, blk)
     end
-    slot = Machine.slot(8)
-    Machine.store64(slot, 0, Machine.word(zr_sym(Machine.id(:to_str))))
-    responds = zr_send(other, Machine.id(:respond_to?), 1, slot)
-    return responds if responds == QUNDEF
-    if responds == QNIL || responds == QFALSE
-      return Machine.value(QFALSE)
-    end
-    Machine.store64(slot, 0, Machine.word(recv))
-    r = zr_send(other, Machine.id(:==), 1, slot)
-    return r if r == QUNDEF
-    zr_bool(r != QNIL && r != QFALSE)
+    zr_eq_by_conversion(recv, other, Machine.id(:to_str))
   end
 
   #: (value, word, ptr, value, value) -> value
