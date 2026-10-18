@@ -336,13 +336,15 @@ module Zr::Kern
   # The facts about `v`'s cell that ObjectSpace.dump writes, as bits:
   # DUMP_EMBEDDED when a String, an Array or an object keeps its contents
   # in the cell, DUMP_FSTRING for a String in the fstring table,
-  # DUMP_CHILLED for a chilled String, and DUMP_OLD when the cell lived
-  # through a collection.
+  # DUMP_CHILLED for a chilled String, and DUMP_OLD for an old cell. The
+  # bits from DUMP_AGE_SHIFT up are the collections that the cell lived
+  # through, at most 3.
   DUMP_EMBEDDED = 1
   DUMP_FSTRING = 2
   DUMP_CHILLED = 4
   DUMP_OLD = 8
   DUMP_AR_TABLE = 16
+  DUMP_AGE_SHIFT = 5
 
   #: (value) -> value
   def zr_objspace_dump_bits(v)
@@ -350,7 +352,7 @@ module Zr::Kern
       return zr_fix(0)
     end
     t = RBasic[v].flags & T_MASK
-    bits = zr_old_p(v) ? DUMP_OLD : 0
+    bits = (zr_old_p(v) ? DUMP_OLD : 0) | (zr_age(v) << DUMP_AGE_SHIFT)
     if t == T_STRING
       bits = bits | (zr_str_embedded_p(v) ? DUMP_EMBEDDED : 0)
       bits = bits | ((RBasic[v].flags & FL_FSTR) != 0 ? DUMP_FSTRING : 0)

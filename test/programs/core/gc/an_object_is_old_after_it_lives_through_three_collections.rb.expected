@@ -1,0 +1,10 @@
+0: "flags":{"wb_protected":true, "age":0} "flags":{"wb_protected":true, "age":0} "flags":{"wb_protected":true, "age":0}
+1: "flags":{"wb_protected":true, "age":1} "flags":{"wb_protected":true, "age":1} "flags":{"wb_protected":true, "age":1}
+2: "flags":{"wb_protected":true, "age":2} "flags":{"wb_protected":true, "age":2} "flags":{"wb_protected":true, "age":2}
+3: "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true} "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true} "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true}
+4: "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true} "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true} "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true}
+y0: "flags":{"wb_protected":true, "age":0}
+y1: "flags":{"wb_protected":true, "age":1}
+y2: "flags":{"wb_protected":true, "age":2}
+y3: "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true}
+y: "flags":{"wb_protected":true, "age":3, "old":true, "uncollectible":true, "marked":true}

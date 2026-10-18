@@ -51,6 +51,7 @@ module ObjectSpace
   CHILLED = 4
   OLD = 8
   AR_TABLE = 16
+  AGE_SHIFT = 5
   # How dump writes the bytes of a JSON string (dump_append_string_value):
   # each byte as it is, but these escapes and other control bytes as \u00XX.
   JSON_ESCAPES = { "\\" => "\\\\", '"' => '\\"', "\b" => "\\b", "\t" => "\\t", "\f" => "\\f",
@@ -64,7 +65,7 @@ module ObjectSpace
   SUPERCLASS = Class.instance_method(:superclass)
   FILENO = IO.instance_method(:fileno)
   CLOSED = IO.instance_method(:closed?)
-  private_constant :HEAP_TYPES, :DATA_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :AR_TABLE, :JSON_ESCAPES,
+  private_constant :HEAP_TYPES, :DATA_TYPES, :TYPE_ORDER, :EMBEDDED, :FSTRING, :CHILLED, :OLD, :AR_TABLE, :AGE_SHIFT, :JSON_ESCAPES,
                    :TYPE_OF, :NAME, :SINGLETON, :SUPERCLASS, :FILENO, :CLOSED
 
   module_function
@@ -326,11 +327,12 @@ module ObjectSpace
     end
 
     # The flags of the GC that CRuby writes. Every store here goes through
-    # the write barrier, a cell that lived through a collection is old,
-    # and fstrings and modules are shareable.
+    # the write barrier, and fstrings and modules are shareable. An old
+    # cell is uncollectible by a minor, and its mark stays between
+    # collections, as in CRuby.
     def gc_flags(obj, bits)
-      flags = { wb_protected: true, age: bits.anybits?(OLD) ? 3 : 0 }
-      flags[:old] = true if bits.anybits?(OLD)
+      flags = { wb_protected: true, age: bits >> AGE_SHIFT }
+      flags.update(old: true, uncollectible: true, marked: true) if bits.anybits?(OLD)
       flags[:shareable] = true if bits.anybits?(FSTRING) || a?(obj, Module)
       flags
     end

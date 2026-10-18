@@ -36,11 +36,12 @@ module Zr::Kern
   ARENA_TABLE = 64
   # MARK_BYTES: the bytes of an arena's mark bitmap, one bit for each cell.
   # ARENA_MAPS: the number of bitmaps of that shape before the cells (the
-  # marks, the ages, the remembered set, the allocated cells). ALL_MARKED:
+  # marks, the ages, the remembered set, the allocated cells, the two bits
+  # of each cell's count and the barrier's stores). ALL_MARKED:
   # a bitmap word in which all cells are live. The compiler's barrier reads
   # the first two (`Zr::Lower::Function#cell_barrier`).
   MARK_BYTES = ARENA_CELLS >> 3
-  ARENA_MAPS = 4
+  ARENA_MAPS = 7
   ALL_MARKED = 0 - 1
   CELL_MIN = 32
   CELL_MAX = 256
@@ -427,9 +428,9 @@ module Zr::Kern
     a + ARENA_HEAD
   end
 
-  # Arena `a`'s age bitmap, next to its marks. It is a copy of the marks at
-  # the end of the last collection: the cells that survived it. These are
-  # the old objects. The write barrier and a minor collection read this
+  # Arena `a`'s age bitmap, next to its marks: the old objects, which lived
+  # through three collections (zr_arena_count_low). The write barrier and a
+  # minor collection read this
   # map. The marks go back to zero at the end of each collection, so no
   # cell is marked outside a collection. Thus ObjectSpace's walk of an
   # object's references (lib/zr/runtime/kernel/objspace.rb) can use the mark
@@ -455,6 +456,37 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_arena_allocated(a)
     a + ARENA_HEAD + (MARK_BYTES * 3)
+  end
+
+  # Arena `a`'s two bitmaps of a count for each cell, after its allocated
+  # map: the low bit and the high bit.
+  #
+  # A young cell counts the collections that it lived through. The third
+  # makes it old, as RVALUE_OLD_AGE does in CRuby, and the sweep moves its
+  # bit to the ages. So an object that dies soon after a collection does
+  # not wait in the old generation for a major.
+  #
+  # An old cell counts the collections in which it stays remembered. A
+  # promotion and a store of a young object (zr_arena_stored) set it to
+  # two. A young object that the cell then contains is at least one
+  # collection old, so it is old itself after two more. CRuby finds the
+  # same cells with `rgengc_check_relation`, a check of each reference in
+  # each trace; a count costs the trace nothing.
+  #: (ptr) -> ptr
+  def zr_arena_count_low(a)
+    a + ARENA_HEAD + (MARK_BYTES * 4)
+  end
+
+  #: (ptr) -> ptr
+  def zr_arena_count_high(a)
+    a + ARENA_HEAD + (MARK_BYTES * 5)
+  end
+
+  # Arena `a`'s map of the old cells that the barrier remembered since the
+  # last collection. The sweep sets their counts.
+  #: (ptr) -> ptr
+  def zr_arena_stored(a)
+    a + ARENA_HEAD + (MARK_BYTES * 6)
   end
 
   # The first cell of arena `a`, after its head and its bitmaps.
@@ -587,6 +619,25 @@ module Zr::Kern
     (Machine.load64(zr_ages_word(a, i), 0) & zr_marks_bit(i)) != 0
   end
 
+  # The collections that `v` lived through, at most 3 (old), for
+  # ObjectSpace.dump's age.
+  #: (value) -> word
+  def zr_age(v)
+    if zr_special_p(v) || (RBasic[v].flags & FL_STACK) != 0
+      return 0
+    end
+    a = zr_arena_of(v)
+    i = zr_cell_index_in(a, v)
+    w = (i >> 6) * 8
+    bit = zr_marks_bit(i)
+    if (Machine.load64(zr_arena_ages(a) + w, 0) & bit) != 0
+      return 3
+    end
+    high = (Machine.load64(zr_arena_count_high(a) + w, 0) & bit) != 0
+    low = (Machine.load64(zr_arena_count_low(a) + w, 0) & bit) != 0
+    (high ? 2 : 0) + (low ? 1 : 0)
+  end
+
   #: (value) -> bool
   def zr_old_p(v)
     !zr_special_p(v) && (RBasic[v].flags & FL_STACK) == 0 && zr_aged_p(v)
@@ -602,8 +653,11 @@ module Zr::Kern
   def zr_remember(v)
     a = zr_arena_of(v)
     i = zr_cell_index_in(a, v)
+    bit = zr_marks_bit(i)
     at = zr_remembered_word(a, i)
-    Machine.store64(at, 0, Machine.load64(at, 0) | zr_marks_bit(i))
+    Machine.store64(at, 0, Machine.load64(at, 0) | bit)
+    at = zr_arena_stored(a) + ((i >> 6) * 8)
+    Machine.store64(at, 0, Machine.load64(at, 0) | bit)
     ArenaHead[a].remembered = 1
   end
 
@@ -644,7 +698,7 @@ module Zr::Kern
 
   inline :zr_write_barrier_all
 
-  # The bytes of an arena of size class `c`: its head, its four bitmaps and
+  # The bytes of an arena of size class `c`: its head, its bitmaps and
   # its cells. This does not include the exivar slots; an arena that needs
   # them mallocs them.
   #: (word) -> word
@@ -1598,12 +1652,13 @@ module Zr::Kern
 
   # Sweeps one arena, one word of its maps at a time. Cells that are
   # allocated and not marked died in this collection, and each is freed by
-  # its bit. The marks become the allocated map and the ages, and then go
-  # to zero with the remembered set. Thus no cell is marked outside a
-  # collection, and ObjectSpace's walk of an object's references
-  # (lib/zr/runtime/kernel/objspace.rb) can mark and unmark. A free cell is never
-  # touched, and a word of live cells costs only the four stores. Returns
-  # the live cell count; an arena with none becomes reserved.
+  # its bit. The marks become the allocated map, and then go to zero. Thus
+  # no cell is marked outside a collection, and ObjectSpace's walk of an
+  # object's references (lib/zr/runtime/kernel/objspace.rb) can mark and
+  # unmark. Each count moves on (zr_arena_count_low), and the old cells
+  # whose count is not zero make the remembered set. A free cell is never
+  # touched. Returns the live cell count; an arena with none becomes
+  # reserved.
   #: (ptr) -> word
   def zr_sweep_arena(a)
     bytes = ArenaHead[a].cell
@@ -1612,25 +1667,49 @@ module Zr::Kern
     ages = zr_arena_ages(a)
     remembered = zr_arena_remembered(a)
     allocated = zr_arena_allocated(a)
+    low = zr_arena_count_low(a)
+    high = zr_arena_count_high(a)
+    stored = zr_arena_stored(a)
     watched = AllocTrace[zr_alloc_trace()].used != 0 || Heap[zr_heap()].stress != 0 || zr_trace_internal_armed(TRACE_FREEOBJ)
     live = 0
+    remembers = 0
     w = 0
     while w < MARK_BYTES
       mark = Machine.load64(marks + w, 0)
-      dead = Machine.load64(allocated + w, 0) & (0 - 1 - mark)
-      while dead != 0
-        i = Machine.ctz(dead)
-        dead &= Machine.sub_wrap(dead, 1)
-        zr_free_cell(first + (((w << 3) + i) * bytes), bytes, watched)
+      had = Machine.load64(allocated + w, 0)
+      # A word with no cell, before and after, has all its maps at zero.
+      if (mark | had) != 0
+        dead = had & (0 - 1 - mark)
+        while dead != 0
+          i = Machine.ctz(dead)
+          dead &= Machine.sub_wrap(dead, 1)
+          zr_free_cell(first + (((w << 3) + i) * bytes), bytes, watched)
+        end
+        was_old = Machine.load64(ages + w, 0) & mark
+        young = mark & (0 - 1 - was_old)
+        was_low = Machine.load64(low + w, 0)
+        was_high = Machine.load64(high + w, 0)
+        # Young: 0 -> 1 -> 2 -> old. Old: 2 -> 1 -> 0, and back to 2 on a
+        # promotion or a store.
+        promoted = young & was_high
+        old = was_old | promoted
+        hit = (Machine.load64(stored + w, 0) | promoted) & old
+        new_low = (young & (0 - 1 - (was_low | was_high))) | (was_old & was_high & (0 - 1 - hit))
+        new_high = (young & was_low) | hit
+        kept = (new_low | new_high) & old
+        Machine.store64(allocated + w, 0, mark)
+        Machine.store64(ages + w, 0, old)
+        Machine.store64(marks + w, 0, 0)
+        Machine.store64(remembered + w, 0, kept)
+        Machine.store64(low + w, 0, new_low)
+        Machine.store64(high + w, 0, new_high)
+        Machine.store64(stored + w, 0, 0)
+        remembers |= kept
+        live += Machine.popcnt(mark)
       end
-      Machine.store64(allocated + w, 0, mark)
-      Machine.store64(ages + w, 0, mark)
-      Machine.store64(marks + w, 0, 0)
-      Machine.store64(remembered + w, 0, 0)
-      live += Machine.popcnt(mark)
       w += 8
     end
-    ArenaHead[a].remembered = 0
+    ArenaHead[a].remembered = remembers == 0 ? 0 : 1
     if live == 0
       zr_arena_reserve(a)
     end
