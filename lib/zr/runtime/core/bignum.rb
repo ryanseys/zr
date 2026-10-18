@@ -21,10 +21,15 @@ class Integer
   # The length in limbs from which `to_s` splits a magnitude in two by a
   # power of the base; below it, the kernel divides by one word.
   TO_S_SPLIT = 80
+  # The divisor and quotient length in limbs from which a division
+  # recurses by Burnikel and Ziegler's method, and the quotient bits at
+  # which the recursion stops: the schoolbook is faster below them.
+  BZ_LIMBS = 1000
+  BZ_LIMIT = 150 * LIMB_BITS
   # By base, the powers that `to_s` splits by, each the square of the
   # one before, with the count of digits that each one shifts.
   POWERS = {}
-  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK, :SHIFT_COUNT_BITS, :LONG_DIGITS, :ROOM_CHECKED_BITS, :DIGITS, :TO_S_SPLIT, :POWERS
+  private_constant :LIMB_BITS, :LIMB_BASE, :LIMB_MASK, :SHIFT_COUNT_BITS, :LONG_DIGITS, :ROOM_CHECKED_BITS, :DIGITS, :TO_S_SPLIT, :BZ_LIMBS, :BZ_LIMIT, :POWERS
 
   class << self
     # A bignum from a 64-bit word split as `high << 32 | low` by the
@@ -240,8 +245,75 @@ class Integer
         q, r = big_divmod_small_mag(a, b[0])
         return [q, r == 0 ? [] : [r]]
       end
+      if b.size >= BZ_LIMBS && a.size - b.size > BZ_LIMBS + 1
+        q, r = big_bz_divmod(big_build(false, a.dup), big_build(false, b.dup))
+        return [big_mag(q).dup, big_mag(r).dup]
+      end
 
       Primitive.zr_big_divmod_mag(a, b)
+    end
+
+    # Burnikel and Ziegler's recursive division of non-negative Integers,
+    # as CPython's _pylong writes it: `a` in digits of the divisor's bit
+    # length, each step two half-size divisions (big_bz_3n2n), down to a
+    # quotient of at most BZ_LIMIT bits, which the schoolbook divides. Its
+    # products are Karatsuba's, so a long division costs a few products,
+    # not the square of its length.
+    def big_bz_divmod(a, b)
+      Primitive.attr! :hidden
+      n = b.bit_length
+      mask = (1 << n) - 1
+      digits = []
+      while a > 0
+        digits << (a & mask)
+        a >>= n
+      end
+      q = 0
+      r = 0
+      digits.reverse_each do |digit|
+        part, r = big_bz_2n1n((r << n) | digit, b, n)
+        q = (q << n) | part
+      end
+      [q, r]
+    end
+
+    # `a.divmod(b)` for `a` below `b << n`, `b` of `n` bits.
+    def big_bz_2n1n(a, b, n)
+      Primitive.attr! :hidden
+      return a.divmod(b) if a.bit_length - n <= BZ_LIMIT
+
+      pad = n & 1
+      if pad == 1
+        a <<= 1
+        b <<= 1
+        n += 1
+      end
+      half = n >> 1
+      mask = (1 << half) - 1
+      b1 = b >> half
+      b2 = b & mask
+      q1, r = big_bz_3n2n(a >> n, (a >> half) & mask, b, b1, b2, half)
+      q2, r = big_bz_3n2n(r, a & mask, b, b1, b2, half)
+      r >>= 1 if pad == 1
+      [(q1 << half) | q2, r]
+    end
+
+    # The quotient and remainder of `a12 << n | a3` by `b = b1 << n | b2`,
+    # the quotient below 2**n.
+    def big_bz_3n2n(a12, a3, b, b1, b2, n)
+      Primitive.attr! :hidden
+      if (a12 >> n) == b1
+        q = (1 << n) - 1
+        r = a12 - (b1 << n) + b1
+      else
+        q, r = big_bz_2n1n(a12, b1, n)
+      end
+      r = ((r << n) | a3) - (q * b2)
+      while r < 0
+        q -= 1
+        r += b
+      end
+      [q, r]
     end
 
     # A magnitude shifted left `bits` (any count) or right (below the
@@ -487,7 +559,7 @@ class Integer
     end
   end
 
-  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_sum, :big_mul, :big_small?, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_bitwise, :big_to_s, :big_digits_into, :big_to_s_power, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
+  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_bz_divmod, :big_bz_2n1n, :big_bz_3n2n, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_sum, :big_mul, :big_small?, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_bitwise, :big_to_s, :big_digits_into, :big_to_s_power, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
 
   # The kernel's route for a fixnum builtin whose receiver or operand
   # is a bignum: `op` is the builtin's name, then its arguments. An
