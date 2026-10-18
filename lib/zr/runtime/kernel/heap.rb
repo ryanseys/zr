@@ -223,6 +223,26 @@ module Zr::Kern
     Heap[h].old_limit = limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit
   end
 
+  # Makes each allocated cell old, as rb_gc_prepare_heap does for
+  # Process.warmup after its major collection: then each live cell is
+  # old, so none contains a young object and none needs to be remembered.
+  #: () -> value
+  def zr_gc_promote_all
+    n = Heap[zr_heap()].arenas
+    i = 0
+    while i < n
+      a = zr_arena_at(i)
+      if ArenaHead[a].reserved == 0
+        zr_memcpy(zr_arena_ages(a), zr_arena_allocated(a), MARK_BYTES)
+        Libc.memset(zr_arena_remembered(a), Machine.i32(0), MARK_BYTES)
+        Libc.memset(zr_arena_count_low(a), Machine.i32(0), MARK_BYTES * 3)
+        ArenaHead[a].remembered = 0
+      end
+      i += 1
+    end
+    Machine.value(QNIL)
+  end
+
   # RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR, which GC.read_tuning gives in
   # hundredths.
   #: (value) -> value

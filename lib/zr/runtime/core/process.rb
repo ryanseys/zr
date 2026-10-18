@@ -600,14 +600,16 @@ module Process
   end
 
   # A hint to settle the heap before forking workers, as
-  # rb_gc_prepare_heap does it: a major collection, which leaves each live
-  # object old and gives back the arenas it left empty, then a compaction.
+  # rb_gc_prepare_heap does it: a major collection, which gives back the
+  # arenas and pages it left empty, each survivor made old, then a
+  # compaction.
   # Strings keep the coderange that their scans found.
   def warmup
     # proc_warmup loads the libraries that decorate a message now, not at
     # the first error display.
     Exception.send(:load_decorations)
     GC.start
+    Primitive.zr_gc_promote_all
     GC.compact
     true
   end
