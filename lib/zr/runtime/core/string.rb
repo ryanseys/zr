@@ -2354,8 +2354,8 @@ class String
     end
   end
 
-  # `String.new(source, encoding:, capacity:)`. The capacity is not
-  # reserved: the buffer grows as the bytes arrive.
+  # `String.new(source, encoding:, capacity:)`. The capacity is reserved,
+  # as rb_str_init does, so the bytes that arrive fill it with no growth.
   #
   # With no source the String keeps its bytes, unless a capacity is
   # given, which discards the bytes. In both cases it keeps its
@@ -2379,6 +2379,7 @@ class String
     else
       Primitive.zr_str_initialize_m(self, Primitive.zr_str_operand(source))
     end
+    Primitive.zr_str_reserve_m(self, capacity) if capacity
     OWN[:force_encoding].bind_call(self, encoding) unless same
     self
   end

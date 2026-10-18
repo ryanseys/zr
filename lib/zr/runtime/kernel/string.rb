@@ -108,6 +108,50 @@ module Zr::Kern
     RBasic[s].flags = RBasic[s].flags & FL_EMBED_CLEAR & FL_GAP_CLEAR
   end
 
+  # Room for `n` bytes, the bytes kept, as rb_str_modify_expand gives the
+  # buffer of a read (io_setstrbuf) and String.new(capacity:).
+  #: (value, value) -> value
+  def zr_str_reserve_m(s, n)
+    zr_str_reserve(s, zr_fix2long(n))
+    Machine.store8(RString[s].ptr + RString[s].len, 0, Machine.i8(0))
+    s
+  end
+
+  # Gives back the room that a String being frozen cannot use again, as
+  # rb_str_freeze's rb_str_resize to its own length does: bytes that fit
+  # the cell move into it, and a buffer with more spare room than its
+  # length (at most 1 KB) is cut to the length.
+  #: (value) -> void
+  def zr_str_freeze_trim(s)
+    if zr_str_embedded_p(s)
+      return
+    end
+    len = RString[s].len
+    if len <= zr_str_embed_capa(s)
+      old = RString[s].ptr
+      gap = zr_str_gap(s)
+      capa = RString[s].capa
+      at = Machine.ptr(s) + RString.size
+      zr_memcpy(at, old, len)
+      Machine.store8(at + len, 0, Machine.i8(0))
+      RString[s].ptr = at
+      RString[s].capa = zr_str_embed_capa(s)
+      RBasic[s].flags = (RBasic[s].flags | FL_EMBED) & FL_GAP_CLEAR
+      zr_sized_xfree(old - gap, capa + gap + 1)
+      return
+    end
+    spare = RString[s].capa - len
+    if spare > (len < 1024 ? len : 1024)
+      p = zr_xmalloc(len + 1)
+      zr_memcpy(p, RString[s].ptr, len)
+      Machine.store8(p + len, 0, Machine.i8(0))
+      zr_str_buf_free(s)
+      RString[s].ptr = p
+      RString[s].capa = len
+      RBasic[s].flags = RBasic[s].flags & FL_GAP_CLEAR
+    end
+  end
+
   # A String's coderange, in CRuby's bits (ENC_CODERANGE_MASK), so a C
   # extension reads and clears it inline as ruby does. Neither bit: not
   # known yet. 7BIT: every byte is below 0x80. VALID: the bytes are valid
@@ -1970,6 +2014,9 @@ module Zr::Kern
       return owned if owned == QUNDEF
     end
     unless zr_special_p(recv)
+      if zr_type(recv) == T_STRING && !zr_frozen_p(recv)
+        zr_str_freeze_trim(recv)
+      end
       RBasic[recv].flags = (RBasic[recv].flags | FL_FREEZE) & (zr_type(recv) == T_STRING ? FL_CHILLED_CLEAR : 0 - 1)
       # The singleton class freezes with its object, and its own
       # singleton class with it, up the chain, as CRuby's

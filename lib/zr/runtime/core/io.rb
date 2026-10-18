@@ -1574,7 +1574,7 @@ class IO
            end
     raise SystemCallError.new(label, -text, +"rb_io_pread") if text.is_a?(Integer)
 
-    filled(text&.force_encoding(Encoding::BINARY), buffer)
+    filled(text&.force_encoding(Encoding::BINARY), buffer, length)
   end
 
   def pwrite(text, offset)
@@ -2036,7 +2036,7 @@ class IO
         text = bufread(length)
         return buffer&.clear && nil if text.empty? && length > 0
 
-        return filled(text, buffer)
+        return filled(text, buffer, length)
       end
       # io_bufread: what the buffer holds, then the rest with no buffer.
       text = take([length, @buffer.bytesize].min).force_encoding(Encoding::BINARY)
@@ -2049,7 +2049,7 @@ class IO
       # At the end, the buffer is emptied, as io_read does.
       return buffer&.clear && nil if text.empty? && length > 0
 
-      return filled(text, buffer)
+      return filled(text, buffer, length)
     end
     buffer ? buffer.replace(out) : out
   end
@@ -2109,14 +2109,14 @@ class IO
         wait_again(READABLE)
       end
     end
-    filled(chunk&.b, buffer)
+    filled(chunk&.b, buffer, length)
   end
 
   def readpartial(length, buffer = nil)
     length = read_length(length)
     buffer = read_buffer(buffer)
     check_byte_readable
-    filled(locking(buffer) { read_some(length) }, buffer)
+    filled(locking(buffer) { read_some(length) }, buffer, length)
   end
 
   # CRuby writes these three in Ruby (its io.rb), so they return their
@@ -2146,7 +2146,7 @@ class IO
     end
     return buf&.clear && nil if text.nil? && !exception
 
-    filled(text, buf)
+    filled(text, buf, len)
   end
 
   def write_nonblock(buf, exception: true)
@@ -3041,7 +3041,9 @@ class IO
 
   # The bytes a read took, in the caller's buffer where there is one,
   # which keeps its own encoding.
-  def filled(text, buffer)
+  # A buffer given gets room for `length` bytes, as io_setstrbuf gives it
+  # before a read, and keeps it after.
+  def filled(text, buffer, length = nil)
     Primitive.attr! :hidden
     if text.nil?
       buffer&.clear
@@ -3051,6 +3053,8 @@ class IO
 
     encoding = buffer.encoding
     buffer.replace(text).force_encoding(encoding)
+    Primitive.zr_str_reserve_m(buffer, length) if length
+    buffer
   end
 
   # rb_io_check_char_readable: bytes that wait to be written go out
