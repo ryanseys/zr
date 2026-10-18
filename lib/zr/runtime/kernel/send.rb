@@ -145,6 +145,10 @@ module Zr::Kern
   # CRuby makes for a kwrest or a positional Hash. Tables are addresses,
   # far above it.
   KW_LENT = 3
+  # The word of a Hash that the call built for this call alone, which a
+  # def's kwrest may keep as it is, as CRuby's VM_CALL_KW_SPLAT_MUT lets
+  # it. Every other reader reads it as 1.
+  KW_MUT = 2
 
   # zr_kw_argc for a lone `**h`: an empty Hash passes no keywords, any
   # other is lent.
@@ -165,12 +169,21 @@ module Zr::Kern
   # in its argument slot, and the word 1, also in the task.
   #: (word) -> word
   def zr_kw_own(kw)
+    t = zr_task()
+    if kw == KW_MUT
+      if Task[t].kw == KW_MUT
+        Task[t].kw = 1
+      end
+      return 1
+    end
     if kw != KW_LENT
       return kw
     end
-    t = zr_task()
     at = Task[t].kw_at
-    Machine.store64(at, 0, Machine.word(zr_hash_dup_m(Machine.value(Machine.load64(at, 0)))))
+    # A copy is a plain keywords Hash, also of a ruby2_keywords one.
+    copy = zr_hash_dup_m(Machine.value(Machine.load64(at, 0)))
+    RBasic[copy].flags = RBasic[copy].flags ^ (RBasic[copy].flags & FL_RUBY2)
+    Machine.store64(at, 0, Machine.word(copy))
     if Task[t].kw == KW_LENT
       Task[t].kw = 1
     end
@@ -204,7 +217,8 @@ module Zr::Kern
     if RHash[h].live == 0
       return argc - 1
     end
-    zr_kw_pass()
+    # The call built the Hash for itself (KW_MUT).
+    Task[zr_task()].kw = KW_MUT
     argc
   end
 
@@ -299,10 +313,22 @@ module Zr::Kern
   # keywords, in a new Hash without the flag.
   #: (word, ptr) -> word
   def zr_kw_ruby2_out(argc, argv)
-    if !zr_kw_ruby2_tail(argc, argv)
+    if !zr_kw_ruby2_flagged(argc, argv)
       return argc
     end
-    zr_kw_argc(argc, argv)
+    # The flagged Hash is lent as a `**h` is: a copy without the flag
+    # only where the callee keeps it (zr_kw_own).
+    zr_kw_argc_lent(argc, argv)
+  end
+
+  # Whether the last of `argc` arguments is a flagged Hash.
+  #: (word, ptr) -> bool
+  def zr_kw_ruby2_flagged(argc, argv)
+    if argc == 0
+      return false
+    end
+    h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+    !zr_special_p(h) && zr_type(h) == T_HASH && (RBasic[h].flags & FL_RUBY2) != 0
   end
 
   # The same for a yield, where an empty flagged Hash still counts as

@@ -26,6 +26,7 @@ module Zr
         # @rbs @rec: String
         # @rbs @self: String
         # @rbs @slot_of: Hash[Symbol, Integer]
+        # @rbs @kw_mut: String?
         # @rbs @task: Machine::Layout
         # @rbs @task_addr: String
         # @rbs @twin_of: String?
@@ -201,6 +202,9 @@ module Zr
         def take_keywords(argc, argv)
           at = value_offset(reserve(1))
           kw = take_keyword_word
+          # A Hash that the call built for this call alone (KW_MUT, 2) can
+          # be the def's kwrest (`bind_keywords`).
+          @kw_mut = @f.icmp("eq", kw, imm(2))
           table = @f.label
           hashed = @f.label
           have = @f.label
@@ -508,7 +512,8 @@ module Zr
             if from_table
               checked(kernel("zr_kw_rest_tab", tab, @f.iadd(argv, @f.ishl(count, imm(3))), ids, n))
             else
-              checked(kernel(shared_rest?(p.kwrest) ? "zr_kw_rest_of" : "zr_kw_rest", hash.call, ids, n))
+              mut = @kw_mut || imm(0)
+              checked(kernel(shared_rest?(p.kwrest) ? "zr_kw_rest_of_mut" : "zr_kw_rest_mut", hash.call, ids, n, mut))
             end
           end
           bind(p.kwrest, rest)

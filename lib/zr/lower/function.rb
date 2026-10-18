@@ -56,6 +56,7 @@ module Zr
       # @rbs @proc_layout: Machine::Layout
       # @rbs @env_layout: Machine::Layout
       # @rbs @slot_of: Hash[Symbol, Integer]
+      # @rbs @kw_mut: String?
       # @rbs @captures: Hash[Symbol, Integer]
       # @rbs @writes: Array[Symbol]
       # @rbs @has_env: bool

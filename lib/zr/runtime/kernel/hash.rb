@@ -1412,6 +1412,34 @@ module Zr::Kern
     out
   end
 
+  # The kwrest of a call's keywords Hash. A Hash that the call built for
+  # itself (`mut`, KW_MUT) becomes the kwrest, without the declared
+  # keywords, with no copy.
+  #: (value, ptr, word, word) -> value
+  def zr_kw_rest_mut(hash, ids, n, mut)
+    if mut == 0 || hash == QNIL
+      return zr_kw_rest(hash, ids, n)
+    end
+    i = 0
+    while i < n
+      # A Symbol key hashes with no call, so no entry search raises.
+      e = zr_hash_entry(hash, zr_sym(Machine.load64(ids + (i * 8), 0)))
+      if e != 0 && e != HASH_RAISED
+        zr_hash_remove(hash, e)
+      end
+      i += 1
+    end
+    hash
+  end
+
+  #: (value, ptr, word, word) -> value
+  def zr_kw_rest_of_mut(hash, ids, n, mut)
+    if hash == QNIL
+      return zr_global(G_EMPTY_KWREST)
+    end
+    zr_kw_rest_mut(hash, ids, n, mut)
+  end
+
   G_EMPTY_KWREST = 77
 
   # A def's `**rest` that its body only spreads (`Hir::Escape.spread_only?`):
