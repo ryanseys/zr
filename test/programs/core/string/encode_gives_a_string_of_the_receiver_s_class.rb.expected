@@ -1,0 +1,5 @@
+encode: [Mine, Mine, Mine, Mine]
+text: [242, "\"Rubyע\""]
+frozen: false
+encode!: [Mine, "a\r\nb"]
+plain: String

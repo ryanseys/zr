@@ -2196,7 +2196,7 @@ class String
   # decorator converts, within the receiver's own encoding.
   def encode(target = (implicit = true; Encoding.default_internal), source = nil, **options)
     if implicit
-      return copied if target.nil? && options.empty?
+      return encoded_dup(copied) if target.nil? && options.empty?
 
       target ||= Encoding.at(Primitive.zr_str_encoding_index_m(self))
       explicit = options[:invalid] == :replace
@@ -2233,8 +2233,19 @@ class String
     # broken, and its scan reads the bytes as ASCII-8BIT, so the result
     # is valid without a check, also where the target's own reading of
     # the bytes says otherwise (a Big5-HKSCS character from 0x87).
-    from.equal?(target) ? converted : Primitive.zr_str_mark_valid_m(converted)
+    encoded_dup(from.equal?(target) ? converted : Primitive.zr_str_mark_valid_m(converted))
   end
+
+  # encoded_dup: the result has the receiver's class, which the C sets
+  # on it with no initialize.
+  def encoded_dup(text)
+    Primitive.attr! :hidden
+    klass = Primitive.zr_real_class(self)
+    return text if klass.equal?(String)
+
+    Primitive.zr_str_replace(klass.allocate, text)
+  end
+  private :encoded_dup
 
   # ruby's newline decorators work on the ASCII side of the
   # conversion: before it when the source is ASCII-compatible, after
