@@ -1,0 +1,36 @@
+[0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 10]
+[1, true, true, true, true, true]
+[1, 1, 1]
+[2, true, true, true, true, true]
+[1, 1, 2]
+[3, true, true, true, true, true]
+[1, 2, 2]
+[30, true, true, true, true, true]
+[4, 15, 16]
+[31, true, true, true, true, true]
+[4, 16, 16]
+[32, true, true, true, true, true]
+[5, 16, 17]
+[61, true, true, true, true, true]
+[8, 31, 31]
+[62, true, true, true, true, true]
+[8, 31, 32]
+[63, true, true, true, true, true]
+[8, 32, 32]
+[64, true, true, true, true, true]
+[9, 32, 33]
+[100, true, true, true, true, true]
+[13, 50, 51]
+[1000, true, true, true, true, true]
+[126, 500, 501]
+[9000, true, true, true, true, true]
+[1126, 4500, 4501]
+[50000, true, true, true, true, true]
+[6251, 25000, 25001]
+2147483647
+2147483648
+4294967296
+2
+100000000000000000000
+Math::DomainError
+TypeError

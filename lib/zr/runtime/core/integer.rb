@@ -713,9 +713,11 @@ class Integer
     raise Math::DomainError, +'Numerical argument is out of domain - "isqrt"' if value < 0
     return value if value < 2
 
+    # Newton's steps from a power of two at or above the root, so they
+    # take the log of the bit length, not half the bits.
     n = value
-    x = n
-    y = (x + 1) / 2
+    x = 1 << ((n.bit_length + 1) / 2)
+    y = (x + (n / x)) / 2
     while y < x
       x = y
       y = (x + n / x) / 2
