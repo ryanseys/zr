@@ -86,27 +86,26 @@ module Zr::Kern
         Machine.store64(WeakList[l].ptr + (kept * 8), 0, Machine.word(h))
         kept += 1
         zr_weak_prune_table(h, h == finalizers)
+        # GC.latest_gc_info counts the objects that hold weak references,
+        # as CRuby counts each one that declares them: a program's table,
+        # empty or not, is one.
+        if h != finalizers
+          Heap[heap].weak_refs = Heap[heap].weak_refs + 1
+        end
       end
     end
     WeakList[l].len = kept
   end
 
-  # Drops the entries of weak table `h` whose weak key or value died. The
-  # weak references of a program's table count for GC.latest_gc_info: a
-  # key, and a value too where it is weak.
+  # Drops the entries of weak table `h` whose weak key or value died.
   #: (value, bool) -> void
   def zr_weak_prune_table(h, finalizer)
     both = (RBasic[h].flags & FL_WEAK) != 0
-    refs = both ? 2 : 1
-    heap = zr_heap()
     n = RHash[h].len
     i = 0
     while i < n
       e = RHash[h].entries + (i * HEntry.size)
       dead = HEntry[e].live != 0 && (zr_dead_p(HEntry[e].key) || (both && zr_dead_p(HEntry[e].value)))
-      if HEntry[e].live != 0 && !finalizer
-        Heap[heap].weak_refs = Heap[heap].weak_refs + refs
-      end
       if dead
         if finalizer
           zr_weak_list_push(zr_finalizer_queue(), HEntry[e].value)
