@@ -178,5 +178,10 @@ The first public release.
   ruby, so a short-lived object does not wait in the old generation for a
   major collection. `ObjectSpace.dump` gives its age and generational
   flags as ruby does.
+- The heap gives memory back: a full collection returns each free page,
+  also in a part of the heap that still holds live objects, and a heap
+  keeps free room for its live set as a whole, not for each cell size.
+  An eval loop, and classes or refinements made in a loop, keep the
+  process's memory flat. `Process.warmup` makes each object it keeps old.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main
