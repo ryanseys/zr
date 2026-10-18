@@ -183,5 +183,12 @@ The first public release.
   keeps free room for its live set as a whole, not for each cell size.
   An eval loop, and classes or refinements made in a loop, keep the
   process's memory flat. `Process.warmup` makes each object it keeps old.
+- A String keeps its coderange as ruby does, and `ObjectSpace.dump` writes
+  it, `"unknown"` until a scan. `Process.warmup` scans each String and
+  gives back every empty page of the heap.
+- Unicode case mapping, case folding and `String#inspect` run about eight
+  times faster, and long Integers' bitwise operators, shifts, squares,
+  divisions and `Integer.sqrt` faster too (`Integer.sqrt` of a 90,000-bit
+  square took a minute).
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main
