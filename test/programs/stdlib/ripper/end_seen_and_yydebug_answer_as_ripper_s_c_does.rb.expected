@@ -1,0 +1,6 @@
+end_seen? unparsed: false
+end_seen? parsed: true
+end_seen? no end: false
+yydebug: [false, 1, true, nil, false]
+yydebug=: :x
+ivars: false

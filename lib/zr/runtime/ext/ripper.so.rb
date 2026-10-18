@@ -78,11 +78,16 @@ class Ripper
   def token = @cursor.parsing ? @cursor.token : nil
 
   def error? = @cursor.error ? true : false
-  def end_seen? = @cursor.parsed && !Prism.parse(source_text).data_loc.nil?
+  def end_seen? = @cursor.parsed ? !Prism.parse(source_text).data_loc.nil? : false
   def encoding = Prism.parse(source_text).encoding
 
-  def yydebug = false
-  def yydebug=(flag); end
+  # The parser's debug flag, which a prism parse reads nowhere.
+  def yydebug = Primitive.zr_hidden_get(self, :__yydebug__) || false
+
+  def yydebug=(flag)
+    Primitive.zr_hidden_set(self, :__yydebug__, flag ? true : false)
+    flag
+  end
   def debug_output = nil
   def debug_output=(output); end
 
