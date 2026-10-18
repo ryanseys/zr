@@ -243,6 +243,30 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Finds and keeps the coderange of each String, as
+  # rb_gc_prepare_heap_process_object does for Process.warmup: a later
+  # check has it at once, and a forked child writes no page to keep it.
+  #: () -> value
+  def zr_gc_scan_strings
+    n = Heap[zr_heap()].arenas
+    i = 0
+    while i < n
+      a = zr_arena_at(i)
+      first = zr_arena_first(a)
+      bytes = ArenaHead[a].cell
+      c = zr_arena_next_allocated(a, 0)
+      while c < ARENA_CELLS
+        v = Machine.value(first + (c * bytes))
+        if (RBasic[v].flags & T_MASK) == T_STRING && Machine.word(RBasic[v].klass) != 0
+          zr_str_valid_p(v)
+        end
+        c = zr_arena_next_allocated(a, c + 1)
+      end
+      i += 1
+    end
+    Machine.value(QNIL)
+  end
+
   # RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR, which GC.read_tuning gives in
   # hundredths.
   #: (value) -> value

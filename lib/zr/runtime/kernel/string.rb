@@ -195,6 +195,22 @@ module Zr::Kern
     zr_bool(cr == FL_CR_7BIT || cr == FL_CR_VALID)
   end
 
+  # The coderange that `s` keeps, as ObjectSpace.dump names it: 0 while
+  # nothing found one, then 1 (7bit), 2 (valid) or 3 (broken). It scans
+  # nothing itself.
+  #: (value) -> value
+  def zr_str_coderange_m(s)
+    zr_fix((RBasic[s].flags & FL_CR_MASK) >> 20)
+  end
+
+  # Whether each byte of `s` is below 0x80, by the coderange that `s`
+  # keeps or else by a scan that keeps nothing (dump_string_ascii_only).
+  #: (value) -> value
+  def zr_str_ascii_peek_m(s)
+    cr = RBasic[s].flags & FL_CR_MASK
+    zr_bool(cr == FL_CR_7BIT || (cr == 0 && zr_str_scan_ascii(s)))
+  end
+
   # Keeps `cr`, one of the FL_CR_ values, as the coderange of `s`.
   #: (value, word) -> void
   def zr_str_set_coderange(s, cr)
@@ -242,7 +258,7 @@ module Zr::Kern
     end
     zr_str_take_bytes(recv, src)
     zr_str_modified(recv)
-    zr_str_copy_encoding(recv, src)
+    zr_str_exact_copy(recv, src)
   end
 
   # Puts the bytes of `src` in place of the bytes of `recv`, in a buffer of
@@ -439,6 +455,47 @@ module Zr::Kern
   #: (value, value) -> value
   def zr_str_copy_encoding(s, src)
     zr_str_set_index(s, zr_str_encoding_index(src))
+  end
+
+  # `String#b`: a binary copy, as rb_str_b makes it. A binary String is
+  # never broken, so a known coderange of text in an ASCII-compatible
+  # encoding gives 7bit or valid; any other copy is unknown.
+  #: (value) -> value
+  def zr_str_b_m(s)
+    cr = RBasic[s].flags & FL_CR_MASK
+    out = zr_str_set_index(zr_str_new(RString[s].ptr, RString[s].len), ENC_BINARY)
+    if cr != 0 && zr_enc_ascii_compat_p(zr_str_encoding_index(s))
+      zr_str_set_coderange(out, cr == FL_CR_7BIT ? FL_CR_7BIT : FL_CR_VALID)
+    end
+    out
+  end
+
+  # rb_enc_cr_str_exact_copy: the encoding of `src`, and its coderange as
+  # it is, scanned or not, as a whole copy of it takes them.
+  #: (value, value) -> value
+  def zr_str_exact_copy(s, src)
+    zr_str_copy_encoding(s, src)
+    zr_str_set_coderange(s, RBasic[src].flags & FL_CR_MASK)
+    s
+  end
+
+  # rb_enc_cr_str_copy_for_substr: the encoding of `src`, and the
+  # coderange that `s`, made of some of its bytes, has for sure: an empty
+  # or 7-bit `s` is 7bit, a piece of valid text is valid or 7bit, and a
+  # piece of other text is unknown.
+  #: (value, value) -> value
+  def zr_str_copy_coderange(s, src)
+    zr_str_copy_encoding(s, src)
+    compat = zr_enc_ascii_compat_p(zr_str_encoding_index(src))
+    cr = RBasic[src].flags & FL_CR_MASK
+    if RString[s].len == 0
+      zr_str_set_coderange(s, compat ? FL_CR_7BIT : FL_CR_VALID)
+    elsif cr == FL_CR_7BIT
+      zr_str_set_coderange(s, FL_CR_7BIT)
+    elsif cr == FL_CR_VALID
+      zr_str_set_coderange(s, !compat || !zr_str_scan_ascii(s) ? FL_CR_VALID : FL_CR_7BIT)
+    end
+    s
   end
 
   # Whether the String encodes its characters as UTF-8 does: in UTF-8, or
@@ -848,7 +905,11 @@ module Zr::Kern
         Buf[b].len = Buf[b].len + chunk
       end
     end
-    zr_str_copy_encoding(zr_buf_take(b), recv)
+    # No copy keeps no coderange: rb_str_times returns early for 0.
+    if n == 0
+      return zr_str_copy_encoding(zr_buf_take(b), recv)
+    end
+    zr_str_copy_coderange(zr_buf_take(b), recv)
   end
 
   # Appends an Integer as a character: a byte of a binary string, or a
@@ -1979,7 +2040,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_str_uplus(recv, argc, argv, cref, blk)
     if zr_frozen_p(recv) || zr_str_chilled_p(recv)
-      copy = zr_str_copy_encoding(zr_str_new(RString[recv].ptr, RString[recv].len), recv)
+      copy = zr_str_exact_copy(zr_str_new(RString[recv].ptr, RString[recv].len), recv)
       RBasic[copy].klass = zr_real_class(recv)
       return copy
     end
@@ -1996,7 +2057,7 @@ module Zr::Kern
     if zr_frozen_p(recv)
       return bare ? zr_str_intern(recv) : recv
     end
-    copy = zr_str_copy_encoding(zr_str_new(RString[recv].ptr, RString[recv].len), recv)
+    copy = zr_str_exact_copy(zr_str_new(RString[recv].ptr, RString[recv].len), recv)
     if zr_real_class(recv) != zr_global(G_STRING)
       RBasic[copy].klass = zr_real_class(recv)
       RBasic[copy].flags = RBasic[copy].flags | FL_FREEZE
@@ -2619,15 +2680,11 @@ G_FROZEN_LITERALS = 52
   end
 
   # A new String of the `len` bytes at `bytes`, which are in `src`, with
-  # the encoding of `src`. Bytes from a plain ASCII String are plain ASCII
-  # too, so the piece gets that scan's results with no scan of its own.
+  # the encoding of `src` and the coderange a piece of it has, as
+  # str_byte_substr gives them.
   #: (value, ptr, word) -> value
   def zr_str_piece(src, bytes, len)
-    out = zr_str_copy_encoding(zr_str_new(bytes, len), src)
-    if zr_str_known_ascii_p(src)
-      zr_str_set_coderange(out, FL_CR_7BIT)
-    end
-    out
+    zr_str_copy_coderange(zr_str_new(bytes, len), src)
   end
 
   # Replaces the bytes of the receiver with the bytes of `other`.
@@ -2638,11 +2695,7 @@ G_FROZEN_LITERALS = 52
     end
     zr_str_take_bytes(s, other)
     zr_str_modified(s)
-    zr_str_copy_encoding(s, other)
-    # rb_enc_cr_str_exact_copy: the String takes the other's coderange
-    # too, as it is, scanned or not.
-    zr_str_set_coderange(s, RBasic[other].flags & FL_CR_MASK)
-    s
+    zr_str_exact_copy(s, other)
   end
 
   # `setbyte`: sets the byte at the fixnum `i` to the fixnum `byte` modulo

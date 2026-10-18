@@ -311,7 +311,7 @@ class String
   end
 
   # A copy whose bytes are its characters (CRuby's ASCII-8BIT).
-  def b = Primitive.zr_str_set_binary(copied)
+  def b = Primitive.zr_str_b_m(self)
 
   def clear = Primitive.zr_str_discard(self)
 

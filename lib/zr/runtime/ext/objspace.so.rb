@@ -284,15 +284,15 @@ module ObjectSpace
         capacity = Primitive.zr_objspace_str_capa(str)
         fields[:capacity] = capacity unless capacity == str.bytesize
       end
-      fields[:value] = str if !str.empty? && str.encoding.ascii_compatible? && str.ascii_only?
+      fields[:value] = str if !str.empty? && str.encoding.ascii_compatible? && Primitive.zr_str_ascii_peek_m(str)
     end
 
-    def coderange(str)
-      if str.ascii_only? then "7bit"
-      elsif str.valid_encoding? then "valid"
-      else "broken"
-      end
-    end
+    # The coderange the String keeps, as the dump reads it with no scan:
+    # "unknown" until something checks the bytes.
+    CODERANGES = %w[unknown 7bit valid broken].freeze
+    private_constant :CODERANGES
+
+    def coderange(str) = CODERANGES[Primitive.zr_str_coderange_m(str)]
 
     def module_fields(mod, fields)
       klass = a?(mod, Class)

@@ -618,6 +618,7 @@ module Process
     # the first error display.
     Exception.send(:load_decorations)
     GC.start
+    Primitive.zr_gc_scan_strings
     Primitive.zr_gc_promote_all
     GC.compact
     true
