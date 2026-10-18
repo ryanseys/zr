@@ -215,7 +215,7 @@ in `tool/gen/`.
 |---|---|
 | `zr-dev gen ruby_version` | `lib/zr/ruby_version.rb` (`Zr::RUBY_PIN`, `Zr::RUBY`, `Zr::RUBY_REVISION`, `Zr::RUBY_API`, `Zr::RUBY_LIB_VERSION` and the rest) and `lib/zr/runtime/core/ruby_version.rb` (the `RUBY_*` constants that a program sees), from `.ruby-version` and the CRuby source at that tag in `RUBY_SRC`, never from the running ruby. It runs first: the other generators, `zr-dev vendor` and the gem read what it writes. To change the ruby, see [How to update the vendored code](../how-to/update-vendored-code.md#a-new-ruby). |
 | `zr-dev gen features` | `lib/zr/hir/features.rb`: the names that `require` accepts |
-| `zr-dev gen unicode` | `lib/zr/runtime/core/unicode.rb`: case mappings |
+| `zr-dev gen unicode` | `lib/zr/runtime/kernel/case_tables.rb`: case mappings |
 | `zr-dev gen encodings` | `lib/zr/runtime/core/encodings.rb`: the encoding registry |
 | `zr-dev gen transcode` | `lib/zr/runtime/core/transcode.rb`: single-byte encoding tables |
 | `zr-dev gen cjk` | `lib/zr/runtime/core/cjk.rb`: multibyte encoding tables |

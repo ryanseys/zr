@@ -3080,6 +3080,131 @@ G_FROZEN_LITERALS = 52
     zr_str_copy_encoding(zr_buf_take(b), s)
   end
 
+  # String#upcase, downcase, capitalize and swapcase of a valid UTF-8
+  # String (`kind` 0 to 3, the order of zr-dev gen unicode's tables), each
+  # character through the pinned ruby's Unicode mappings, into a new
+  # String in the string's encoding. capitalize maps the first character
+  # by its title case and the rest down. With `turkic`, the dotted and
+  # dotless i take Turkish rules first.
+  #: (value, value, value) -> value
+  def zr_str_case_utf8_m(s, kind, turkic)
+    k = zr_fix2long(kind)
+    n = RString[s].len
+    b = Machine.slot(Buf.size)
+    zr_buf_init(b)
+    zr_buf_reserve(b, n)
+    step = k
+    i = 0
+    while i < n
+      p = RString[s].ptr + i
+      len = zr_utf8_char_len(p, n - i)
+      code = zr_utf8_decode(p, len)
+      mapped = turkic == QTRUE ? zr_case_turkic(step, code) : 0 - 1
+      if mapped >= 0
+        zr_buf_utf8(b, mapped)
+      else
+        row = zr_case_row(zr_case_multi_table(step), code, 20)
+        if row != 0
+          count = Machine.u32(Machine.load32(row, 4))
+          j = 0
+          while j < count
+            zr_buf_utf8(b, Machine.u32(Machine.load32(row + (j * 4), 8)))
+            j += 1
+          end
+        else
+          run = zr_case_run(zr_case_runs_table(step), code)
+          if run == 0
+            zr_buf_push(b, p, len)
+          else
+            zr_buf_utf8(b, code + Machine.u32(Machine.load32(run, 8)) - CASE_BIAS)
+          end
+        end
+      end
+      i += len
+      if k == 2
+        step = 1
+      end
+    end
+    zr_str_copy_encoding(zr_buf_take(b), s)
+  end
+
+  # The Turkish mapping of the dotted and dotless i for case `step`, or -1
+  # where it has none.
+  #: (word, word) -> word
+  def zr_case_turkic(step, code)
+    if code == 105 && step != 1
+      return 304
+    end
+    if code == 73 && (step == 1 || step == 3)
+      return 305
+    end
+    if code == 304 && (step == 1 || step == 3)
+      return 105
+    end
+    0 - 1
+  end
+
+  #: (word) -> ptr
+  def zr_case_runs_table(step)
+    return zr_case_up_runs() if step == 0
+    return zr_case_down_runs() if step == 1
+    return zr_case_title_runs() if step == 2
+    zr_case_swap_runs()
+  end
+
+  #: (word) -> ptr
+  def zr_case_multi_table(step)
+    return zr_case_up_multi() if step == 0
+    return zr_case_down_multi() if step == 1
+    return zr_case_title_multi() if step == 2
+    zr_case_swap_multi()
+  end
+
+  # The row of `table` (a count, then rows of `size` bytes sorted by their
+  # first word) whose first word is `code`, or 0.
+  #: (ptr, word, word) -> ptr
+  def zr_case_row(table, code, size)
+    rows = table + 4
+    low = 0
+    high = Machine.u32(Machine.load32(table, 0))
+    while low < high
+      x = (low + high) >> 1
+      row = rows + (x * size)
+      from = Machine.u32(Machine.load32(row, 0))
+      if from == code
+        return row
+      end
+      if from < code
+        low = x + 1
+      else
+        high = x
+      end
+    end
+    Machine.ptr(0)
+  end
+
+  # The run of a RUNS table (first, how many, delta) that holds `code`,
+  # or 0.
+  #: (ptr, word) -> ptr
+  def zr_case_run(table, code)
+    rows = table + 4
+    low = 0
+    high = Machine.u32(Machine.load32(table, 0))
+    while low < high
+      x = (low + high) >> 1
+      row = rows + (x * 12)
+      first = Machine.u32(Machine.load32(row, 0))
+      if code < first
+        high = x
+      elsif code >= first + Machine.u32(Machine.load32(row, 4))
+        low = x + 1
+      else
+        return row
+      end
+    end
+    Machine.ptr(0)
+  end
+
   # The code point of the `len` bytes at `p`, a sequence that
   # zr_utf8_char_len found whole and valid.
   #: (ptr, word) -> word

@@ -342,6 +342,12 @@ class String
     Primitive.zr_str_splice(self, at, 0, other)
   end
 
+  # The case methods that the kernel maps: by their tables' order
+  # (zr_str_case_utf8_m) and, for ASCII text, by zr_str_map_case's codes.
+  CASE_KINDS = { up: 0, down: 1, title: 2, swap: 3 }.freeze
+  KERNEL_CASE = { up: 1, down: 2, title: 3 }.freeze
+  private_constant :CASE_KINDS, :KERNEL_CASE
+
   # The four case mappings, each character through the Unicode tables.
   # `:ascii` leaves everything above 127 alone, `:turkic` gives the
   # dotted and dotless i their own rules, and `:fold` is downcasing
@@ -3814,14 +3820,9 @@ class String
     # The fold is Onigmo's case fold, which the kernel reads.
     return Primitive.zr_str_fold_utf8_m(self) if mode == :fold
 
-    out = empty_like
-    chars = characters
-    chars.each_index do |i|
-      char = chars[i]
-      step = kind == :title ? (i.zero? ? :title : :down) : kind
-      out << case_char(char, step, mode)
-    end
-    out
+    return ascii_cased(kind, encoding) if mode == :ascii
+
+    Primitive.zr_str_case_utf8_m(self, CASE_KINDS.fetch(kind), mode == :turkic)
   end
 
   # A byte of a longer character is left alone, even where it spells an
@@ -3879,40 +3880,6 @@ class String
     wide.send(:mapped_case, kind, mode).encode(target).b
   rescue Encoding::UndefinedConversionError
     nil
-  end
-
-  def case_char(char, kind, mode)
-    Primitive.attr! :hidden
-    return char if mode == :ascii && char.getbyte(0) > 127
-
-    code = char.ord
-    return TURKIC.fetch(kind).fetch(code).chr(Encoding::UTF_8) if mode == :turkic && TURKIC.fetch(kind).key?(code)
-
-    mapped = CASE_MULTI.fetch(kind)[code]
-    return mapped.pack("U*") if mapped
-
-    moved = case_delta(CASE_RUNS.fetch(kind), code)
-    moved.zero? ? char : (code + moved).chr(Encoding::UTF_8)
-  end
-
-  # How far `code` moves in a table of (first, how many, how far)
-  # triples, found by halving.
-  def case_delta(runs, code)
-    Primitive.attr! :hidden
-    low = 0
-    high = (runs.size / 3) - 1
-    while low <= high
-      middle = (low + high) / 2
-      first = runs[middle * 3]
-      if code < first
-        high = middle - 1
-      elsif code >= first + runs[(middle * 3) + 1]
-        low = middle + 1
-      else
-        return runs[(middle * 3) + 2]
-      end
-    end
-    0
   end
 
   # rb_enc_check: a String argument must join with the receiver before
