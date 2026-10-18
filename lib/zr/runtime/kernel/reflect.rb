@@ -805,6 +805,7 @@ module Zr::Kern
       zr_memmove(e, e + IvEntry.size, last - e)
     end
     IvTab[t].len = IvTab[t].len - 1
+    zr_obj_ivtab_reembed(recv, t)
     v
   end
 
