@@ -248,38 +248,12 @@ class Integer
     # limb width, bits lost).
     def big_shl_mag(a, bits)
       Primitive.attr! :hidden
-      return a.dup if bits == 0
-
-      limbs = bits / LIMB_BITS
-      bits %= LIMB_BITS
-      out = Array.new(limbs, 0)
-      carry = 0
-      i = 0
-      while i < a.size
-        t = (a[i] << bits) | carry
-        out << (t & LIMB_MASK)
-        carry = t >> LIMB_BITS
-        i += 1
-      end
-      out << carry if carry > 0
-      out.pop while !out.empty? && out.last == 0
-      out
+      Primitive.zr_big_shl_mag(a, bits)
     end
 
     def big_shr_mag(a, bits)
       Primitive.attr! :hidden
-      return a.dup if bits == 0
-
-      out = Array.new(a.size, 0)
-      carry = 0
-      i = a.size - 1
-      while i >= 0
-        out[i] = (a[i] >> bits) | carry
-        carry = (a[i] << (LIMB_BITS - bits)) & LIMB_MASK
-        i -= 1
-      end
-      out.pop while !out.empty? && out.last == 0
-      out
+      Primitive.zr_big_shr_mag(a, bits)
     end
 
     # --- signed arithmetic ----------------------------------------------
@@ -356,12 +330,8 @@ class Integer
       return big_shl(x, -bits) if bits < 0
 
       mag = big_mag(x)
-      limbs = bits / LIMB_BITS
-      rest = bits % LIMB_BITS
-      lost = mag[0, limbs].any? { |l| l != 0 } || (limbs < mag.size && rest > 0 && (mag[limbs] & ((1 << rest) - 1)) != 0)
-      kept = big_shr_mag(mag[limbs..] || [], rest)
-      n = big_build(big_neg?(x), kept)
-      big_neg?(x) && lost ? big_sub(n, 1) : n
+      n = big_build(big_neg?(x), big_shr_mag(mag, bits))
+      big_neg?(x) && Primitive.zr_big_low_bits_p(mag, bits) ? big_sub(n, 1) : n
     end
 
     def big_cmp(x, y)
@@ -374,40 +344,18 @@ class Integer
       xn ? -c : c
     end
 
-    # Bitwise operations run over two's complement limbs, with the sign
-    # represented by an infinite run of ones.
-    def big_twos(x, len)
-      Primitive.attr! :hidden
-      if big_neg?(x)
-        mag = big_sub_mag(big_mag(x), [1])
-        Array.new(len) { |i| (i < mag.size ? mag[i] : 0) ^ LIMB_MASK }
-      else
-        mag = big_mag(x)
-        Array.new(len) { |i| i < mag.size ? mag[i] : 0 }
-      end
-    end
-
-    def big_from_twos(limbs, neg)
-      Primitive.attr! :hidden
-      return big_build(false, limbs) unless neg
-
-      big_build(true, big_add_mag(limbs.map { |l| l ^ LIMB_MASK }, [1]))
-    end
-
+    # Bitwise operations over two's complement limbs, with the sign as an
+    # endless run of ones; the kernel forms them as it goes.
     def big_bitwise(x, y, op)
       Primitive.attr! :hidden
-      x_size = big_mag(x).size
-      y_size = big_mag(y).size
-      len = (x_size > y_size ? x_size : y_size) + 1
-      a = big_twos(x, len)
-      b = big_twos(y, len)
       xn = big_neg?(x)
       yn = big_neg?(y)
-      case op
-      when :& then big_from_twos(Array.new(len) { |i| a[i] & b[i] }, xn && yn)
-      when :| then big_from_twos(Array.new(len) { |i| a[i] | b[i] }, xn || yn)
-      else big_from_twos(Array.new(len) { |i| a[i] ^ b[i] }, xn != yn)
-      end
+      code, neg = case op
+                  when :& then [0, xn && yn]
+                  when :| then [1, xn || yn]
+                  else [2, xn != yn]
+                  end
+      big_build(neg, Primitive.zr_big_bitwise_mag(big_mag(x), xn, big_mag(y), yn, code, neg))
     end
 
     # Digits in `base`. A base that is a power of two reads the bits; any
@@ -490,9 +438,8 @@ class Integer
       mag = big_mag(x)
       bits = (mag.size - 1) * LIMB_BITS + mag.last.bit_length
       drop = bits - 62
-      top = big_build(false, big_shr_mag(mag[(drop / LIMB_BITS)..], drop % LIMB_BITS))
-      sticky = mag[0, drop / LIMB_BITS].any? { |l| l != 0 } || (mag[drop / LIMB_BITS] & ((1 << (drop % LIMB_BITS)) - 1)) != 0
-      top |= 1 if sticky
+      top = big_build(false, big_shr_mag(mag, drop))
+      top |= 1 if Primitive.zr_big_low_bits_p(mag, drop)
       # top fits a fixnum, and `top * 1.0` converts it natively: a
       # program's Integer#to_f may itself convert a Bignum.
       f = (top * 1.0) * (2.0**drop)
@@ -540,7 +487,7 @@ class Integer
     end
   end
 
-  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_sum, :big_mul, :big_small?, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_twos, :big_from_twos, :big_bitwise, :big_to_s, :big_digits_into, :big_to_s_power, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
+  private_class_method :big_from_word, :big_from_float, :big_parse, :big_parse_bits, :big_build, :big_mag, :big_neg?, :big_limbs_of, :big_negate, :big_cmp_mag, :big_add_mag, :big_sub_mag, :big_mul_mag, :big_mul_small_mag, :big_divmod_small_mag, :big_divmod_mag, :big_shl_mag, :big_shr_mag, :big_add, :big_sub, :big_sum, :big_mul, :big_small?, :big_divmod, :big_shl, :big_shr, :big_cmp, :big_bitwise, :big_to_s, :big_digits_into, :big_to_s_power, :big_to_s_bits, :big_to_f, :big_shift, :big_cmp_float
 
   # The kernel's route for a fixnum builtin whose receiver or operand
   # is a bignum: `op` is the builtin's name, then its arguments. An

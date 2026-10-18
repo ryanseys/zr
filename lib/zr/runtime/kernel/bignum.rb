@@ -341,6 +341,126 @@ module Zr::Kern
     out
   end
 
+  # `a` shifted left by the fixnum `bits`.
+  #: (value, value) -> value
+  def zr_big_shl_mag(a, bits)
+    n = RArray[a].len
+    count = zr_fix2long(bits)
+    limbs = count / BIG_BITS
+    rest = count % BIG_BITS
+    out = zr_ary_new(n + limbs + 1)
+    x = RArray[a].ptr
+    o = RArray[out].ptr
+    i = 0
+    while i < limbs
+      zr_big_put(o, i, 0)
+      i += 1
+    end
+    carry = 0
+    i = 0
+    while i < n
+      t = (zr_big_at(x, i) << rest) | carry
+      zr_big_put(o, limbs + i, t & BIG_MASK)
+      carry = t >> BIG_BITS
+      i += 1
+    end
+    zr_big_put(o, limbs + n, carry)
+    zr_big_done(out, n + limbs + 1)
+  end
+
+  # `a` shifted right by the fixnum `bits`; the bits shifted out are lost.
+  #: (value, value) -> value
+  def zr_big_shr_mag(a, bits)
+    n = RArray[a].len
+    count = zr_fix2long(bits)
+    limbs = count / BIG_BITS
+    rest = count % BIG_BITS
+    if limbs >= n
+      return zr_ary_new(0)
+    end
+    out = zr_ary_new(n - limbs)
+    x = RArray[a].ptr
+    o = RArray[out].ptr
+    i = 0
+    while i < n - limbs
+      high = limbs + i + 1 < n ? zr_big_at(x, limbs + i + 1) : 0
+      zr_big_put(o, i, (zr_big_at(x, limbs + i) >> rest) | ((high << (BIG_BITS - rest)) & BIG_MASK))
+      i += 1
+    end
+    zr_big_done(out, n - limbs)
+  end
+
+  # Whether any of the low `bits` (a fixnum) of `a` is set: what a right
+  # shift of a negative value loses, which moves its floor.
+  #: (value, value) -> value
+  def zr_big_low_bits_p(a, bits)
+    n = RArray[a].len
+    count = zr_fix2long(bits)
+    limbs = count / BIG_BITS
+    x = RArray[a].ptr
+    i = 0
+    while i < limbs && i < n
+      if zr_big_at(x, i) != 0
+        return Machine.value(QTRUE)
+      end
+      i += 1
+    end
+    rest = count % BIG_BITS
+    zr_bool(limbs < n && rest > 0 && (zr_big_at(x, limbs) & ((1 << rest) - 1)) != 0)
+  end
+
+  # The magnitude of `x op y` (`op` 0 for &, 1 for |, 2 for ^) for the
+  # magnitudes `a` and `b` and their signs, over two's complement limbs
+  # that it forms as it goes: a negative operand is its magnitude's
+  # complement plus one, with an endless run of ones above it. `neg` says
+  # whether the result is negative, so its magnitude is the complement of
+  # the bits plus one again.
+  #: (value, value, value, value, value, value) -> value
+  def zr_big_bitwise_mag(a, aneg, b, bneg, op, neg)
+    n = RArray[a].len
+    m = RArray[b].len
+    len = (n > m ? n : m) + 1
+    k = zr_fix2long(op)
+    # An & with a non-negative operand has no bit above that operand's.
+    if k == 0 && aneg == QFALSE && n < len
+      len = n
+    end
+    if k == 0 && bneg == QFALSE && m < len
+      len = m
+    end
+    out = zr_ary_new(len)
+    x = RArray[a].ptr
+    y = RArray[b].ptr
+    o = RArray[out].ptr
+    ca = 1
+    cb = 1
+    cr = 1
+    i = 0
+    while i < len
+      p = i < n ? zr_big_at(x, i) : 0
+      if aneg == QTRUE
+        t = (p ^ BIG_MASK) + ca
+        p = t & BIG_MASK
+        ca = t >> BIG_BITS
+      end
+      q = i < m ? zr_big_at(y, i) : 0
+      if bneg == QTRUE
+        t = (q ^ BIG_MASK) + cb
+        q = t & BIG_MASK
+        cb = t >> BIG_BITS
+      end
+      r = k == 0 ? p & q : (k == 1 ? p | q : p ^ q)
+      if neg == QTRUE
+        t = (r ^ BIG_MASK) + cr
+        r = t & BIG_MASK
+        cr = t >> BIG_BITS
+      end
+      zr_big_put(o, i, r)
+      i += 1
+    end
+    zr_big_done(out, len)
+  end
+
   # -1, 0 or 1 as `a` is below, equal to or above `b`.
   #: (value, value) -> value
   def zr_big_cmp_mag(a, b)
