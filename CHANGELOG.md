@@ -158,5 +158,12 @@ The first public release.
   API gains the transcoder (`rb_econv_*`), `rb_check_funcall`,
   `rb_check_id`, `rb_ext_resolve_symbol` and the other functions that
   their C calls.
+- Core methods take an argument that only converts, as CRuby's C takes
+  it, also a BasicObject that undefines every method: an object with
+  `begin`, `end` and `exclude_end?` as a Range, an object whose `to_io`
+  gives an IO for File's times and FileTest's checks, and `to_str`,
+  `to_int`, `to_f` or `to_path` where the C converts with them. The
+  core's comparisons by identity and its truth tests send nothing to
+  the argument.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main
