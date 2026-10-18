@@ -106,6 +106,8 @@ module Zr::Kern
     attr_accessor :verifying #: word
     attr_accessor :live #: word
     attr_accessor :old_limit #: word
+    # RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR, in hundredths (OLD_LIMIT_FACTOR).
+    attr_accessor :old_factor #: word
     attr_accessor :majors #: word
     attr_accessor :marking #: word
     attr_accessor :sweeping #: word
@@ -199,6 +201,30 @@ module Zr::Kern
   # times the live count of the last major.
   OLD_LIMIT_FACTOR = 2
   OLD_LIMIT_MIN = 16777216
+
+  # The old-generation limit after a major: `old_factor` hundredths of the
+  # live set, at least OLD_LIMIT_MIN. A factor below one makes every
+  # collection a major one, as CRuby's does when its limit is below the
+  # old objects.
+  #: (ptr, word) -> void
+  def zr_old_limit_update(h, live)
+    if Heap[h].old_factor < 100
+      Heap[h].old_limit = 0
+      return
+    end
+    limit = (live / 100) * Heap[h].old_factor
+    Heap[h].old_limit = limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit
+  end
+
+  # RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR, which GC.read_tuning gives in
+  # hundredths.
+  #: (value) -> value
+  def zr_gc_old_factor_set_m(hundredths)
+    h = zr_heap()
+    Heap[h].old_factor = zr_fix2long(hundredths)
+    zr_old_limit_update(h, Heap[h].live)
+    Machine.value(QNIL)
+  end
 
   # A second limit: the number of minor collections before a major, even
   # if the old set does not grow. A program with a constant old generation
@@ -968,6 +994,7 @@ module Zr::Kern
     h = zr_heap()
     Heap[h].malloc_limit = MALLOC_LIMIT
     Heap[h].old_limit = OLD_LIMIT_MIN
+    Heap[h].old_factor = OLD_LIMIT_FACTOR * 100
     Machine.store64(zr_full(), 0, ALL_MARKED)
     c = 0
     while c < SIZE_CLASSES
@@ -1795,8 +1822,7 @@ module Zr::Kern
     live = zr_live_bytes()
     Heap[h].live = live
     if major
-      limit = live * OLD_LIMIT_FACTOR
-      Heap[h].old_limit = limit < OLD_LIMIT_MIN ? OLD_LIMIT_MIN : limit
+      zr_old_limit_update(h, live)
       Heap[h].reclaimed = was > live ? was - live : 0
     end
     if measured

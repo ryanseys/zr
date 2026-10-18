@@ -1,0 +1,11 @@
+invalid string for RUBY_GC_HEAP_FREE_SLOTS: x
+RUBY_GC_HEAP_INIT_BYTES=0 (default value: 2621440) is ignored because it must be greater than 1023.
+RUBY_GC_RACTOR_HEAP_INIT_BYTES=99999999999999999g is ignored because it overflows
+RUBY_GC_HEAP_GROWTH_FACTOR=2.000000 (default value: 1.800000)
+RUBY_GC_HEAP_GROWTH_MAX_BYTES=409600 (default value: 0)
+RUBY_GC_HEAP_FREE_SLOTS_MIN_RATIO=2.000000 (default value: 0.200000) is ignored because it must be lower than 1.000000.
+RUBY_GC_HEAP_FREE_SLOTS_GOAL_RATIO=0.000000 (default value: 0.400000)
+RUBY_GC_MALLOC_LIMIT=60000000 (default value: 16777216)
+RUBY_GC_MALLOC_LIMIT_MAX=167772160 (default value: 33554432)
+RUBY_GC_OLDMALLOC_LIMIT=1024 (default value: 16777216)
+RUBY_GC_OLDMALLOC_LIMIT_GROWTH_FACTOR=0.500000 (default value: 1.200000) is ignored because it must be greater than 1.000000.

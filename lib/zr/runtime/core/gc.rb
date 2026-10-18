@@ -93,6 +93,108 @@ module GC
     end
   end
 
+  # The tuning variables that rb_gc_impl_set_params reads, in its order,
+  # each with its default, its bounds and whether 0 passes: a size
+  # (strtoll with a k, m or g suffix) or a double (strtod). Under -w each
+  # one that is set prints what became of it, in CRuby's words.
+  TUNING = [
+    [:size, "RUBY_GC_HEAP_FREE_SLOTS", 4096, 0],
+    [:size, "RUBY_GC_HEAP_INIT_BYTES", 2560 * 1024, 1023],
+    [:size, "RUBY_GC_RACTOR_HEAP_INIT_BYTES", 0, 1023],
+    [:double, "RUBY_GC_HEAP_GROWTH_FACTOR", 1.8, 1.0, 0.0, false],
+    [:size, "RUBY_GC_HEAP_GROWTH_MAX_BYTES", 0, 0],
+    [:double, "RUBY_GC_HEAP_FREE_SLOTS_MIN_RATIO", 0.20, 0.0, 1.0, false],
+    [:double, "RUBY_GC_HEAP_FREE_SLOTS_MAX_RATIO", 0.65, :min_ratio, 1.0, false],
+    [:double, "RUBY_GC_HEAP_FREE_SLOTS_GOAL_RATIO", 0.40, :min_ratio, :max_ratio, true],
+    [:double, "RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR", 2.0, 0.0, 0.0, true],
+    [:double, "RUBY_GC_HEAP_REMEMBERED_WB_UNPROTECTED_OBJECTS_LIMIT_RATIO", 0.01, 0.0, 0.0, true],
+    [:size, "RUBY_GC_MALLOC_LIMIT", 16 * 1024 * 1024, 0],
+    [:size, "RUBY_GC_MALLOC_LIMIT_MAX", 32 * 1024 * 1024, 0],
+    [:double, "RUBY_GC_MALLOC_LIMIT_GROWTH_FACTOR", 1.4, 1.0, 0.0, false],
+    [:size, "RUBY_GC_OLDMALLOC_LIMIT", 16 * 1024 * 1024, 0],
+    [:size, "RUBY_GC_OLDMALLOC_LIMIT_MAX", 128 * 1024 * 1024, 0],
+    [:double, "RUBY_GC_OLDMALLOC_LIMIT_GROWTH_FACTOR", 1.2, 1.0, 0.0, false]
+  ].freeze
+  private_constant :TUNING
+
+  # rb_gc_impl_set_params, once, as a program starts: the collector takes
+  # the old-object limit factor; the other values only answer as CRuby's.
+  def self.read_tuning
+    Primitive.attr! :hidden
+    values = {}
+    TUNING.each do |kind, name, default, *rest|
+      text = Primitive.zr_environment_get(name)
+      next values[name] = default if text.nil? || text.empty?
+
+      values[name] = kind == :size ? tuning_size(name, text, default, *rest) : tuning_double(name, text, default, *rest.map { tuning_bound(it, values) })
+    end
+    Primitive.zr_gc_old_factor_set_m((values["RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR"] * 100).round)
+    nil
+  end
+
+  # A ratio bound that an earlier variable sets.
+  def self.tuning_bound(bound, values)
+    Primitive.attr! :hidden
+    case bound
+    when :min_ratio then values["RUBY_GC_HEAP_FREE_SLOTS_MIN_RATIO"]
+    when :max_ratio then values["RUBY_GC_HEAP_FREE_SLOTS_MAX_RATIO"]
+    else bound
+    end
+  end
+
+  # get_envparam_size.
+  def self.tuning_size(name, text, default, lower)
+    Primitive.attr! :hidden
+    m = text.match(/\A\s*([-+]?(?:0[xX]\h+|0[0-7]*|[1-9]\d*))([kKmMgG]?)\s*\z/)
+    unless m
+      $stderr.write("invalid string for #{name}: #{text}\n") if $VERBOSE
+      return default
+    end
+    val = Integer(m[1], m[1].match?(/\A[-+]?0[xX]/) ? 16 : (m[1].match?(/\A[-+]?0\d/) ? 8 : 10))
+    unit = { "k" => 1024, "m" => 1024**2, "g" => 1024**3 }[m[2].downcase] || 0
+    if unit.positive?
+      if val.abs > (2**63 - 1) / unit
+        $stderr.write("#{name}=#{text} is ignored because it overflows\n") if $VERBOSE
+        return default
+      end
+      val *= unit
+    end
+    if val.positive? && val > lower
+      $stderr.write("#{name}=#{val} (default value: #{default})\n") if $VERBOSE
+      return val
+    end
+    $stderr.write("#{name}=#{val} (default value: #{default}) is ignored because it must be greater than #{lower}.\n") if $VERBOSE
+    default
+  end
+
+  # get_envparam_double.
+  def self.tuning_double(name, text, default, lower, upper, accept_zero)
+    Primitive.attr! :hidden
+    val = begin
+      Float(text.strip.empty? ? "x" : text)
+    rescue ArgumentError
+      nil
+    end
+    if val.nil?
+      $stderr.write("invalid string for #{name}: #{text}\n") if $VERBOSE
+      return default
+    end
+    shown = ->(x) { format("%f", x) }
+    unless accept_zero && val.zero?
+      if val <= lower
+        $stderr.write("#{name}=#{shown.(val)} (default value: #{shown.(default)}) is ignored because it must be greater than #{shown.(lower)}.\n") if $VERBOSE
+        return default
+      end
+      if upper != 0.0 && val > upper
+        $stderr.write("#{name}=#{shown.(val)} (default value: #{shown.(default)}) is ignored because it must be lower than #{shown.(upper)}.\n") if $VERBOSE
+        return default
+      end
+    end
+    $stderr.write("#{name}=#{shown.(val)} (default value: #{shown.(default)})\n") if $VERBOSE
+    val
+  end
+  private_class_method :read_tuning, :tuning_bound, :tuning_size, :tuning_double
+
   # The keys of GC.stat(scope: :global).
   GLOBAL_KEYS = %i[count time marking_time sweeping_time minor_gc_count major_gc_count global_gc_count].freeze
   private_constant :GLOBAL_KEYS
