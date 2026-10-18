@@ -28,6 +28,15 @@ class HostBootTest < Minitest::Test
     assert_equal @k::CFrame.size + @k::CONTEXT_BYTES, @k::CFRAME_BYTES
   end
 
+  # The walker's binders read the task's keyword word as the kernel
+  # writes it: a word above KW_LENT is a table, any other is a Hash.
+  def test_the_walker_knows_the_kernel_s_keyword_words
+    require_relative "../../lib/zr/machine/host/walk"
+    arguments = Zr::Machine::Host::Walk::Arguments
+    assert_equal @k::KW_MUT, arguments::KW_MUT
+    assert_equal @k::KW_LENT, arguments::KW_LENT
+  end
+
   # A C call in a C frame record gives C's result, and leaves no record
   # linked in the task.
   def test_a_c_call_returns_what_c_returns

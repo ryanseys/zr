@@ -21,6 +21,12 @@ module Zr
           # @rbs @task_kw: ^(Integer) -> untyped
           # @rbs @task_set_kw: ^(Integer, untyped) -> untyped
 
+          # The task's keyword words (kernel/send.rb): above KW_LENT the
+          # word is a table; KW_MUT and KW_LENT, as 1, are a Hash in the
+          # last argument, which the call built for itself or lends.
+          KW_MUT = 2
+          KW_LENT = 3
+
           private
 
           # The code that binds a def's `argc` arguments at `argv` in its
@@ -87,12 +93,13 @@ module Zr
               kw = @task_kw.call(t)
               @task_set_kw.call(t, 0)
               kwhash = nil
+              mut = kw == KW_MUT ? 1 : 0
               if keywords
-                if kw > 1
+                if kw > KW_LENT
                   argc = @kern.zr_kw_tab_in(kw, argc, argv)
                   kw = 1
                 end
-                if kw == 1
+                if kw != 0 && argc.positive?
                   argc -= 1
                   kwhash = Memory.word(argv + (argc * 8))
                 end
@@ -100,12 +107,12 @@ module Zr
                 argc = @kern.zr_kw_undeclared(kw, argc, argv, rest_fn)
               end
               args = Memory.words(argv, argc)
-              keywords&.call(f, kwhash) if nokey
+              keywords&.call(f, kwhash, mut) if nokey
               next MoreArgs.new(check(@kern.zr_more_args(f.self_, name, argc, argv, f.blk))) if more && argc > more
 
               arity.call(args.size)
               positional.call(f, args)
-              keywords&.call(f, kwhash) unless nokey
+              keywords&.call(f, kwhash, mut) unless nokey
               block&.call(f, f.blk)
             end
           end
@@ -137,8 +144,9 @@ module Zr
               if keywords
                 # A table's values become one Hash argument; a table of no
                 # keywords (an empty `**h` at a yield) makes none.
+                mut = kw == KW_MUT ? 1 : 0
                 hashed = kw
-                if kw > 1
+                if kw > KW_LENT
                   argc = @kern.zr_kw_tab_in(kw, argc, argv)
                   hashed = @kern.zr_kw_hashed(kw)
                 end
@@ -152,7 +160,7 @@ module Zr
               next arity.call(argc) if nothing && strict
 
               arity.call(argc) if strict
-              keyworded = keywords ? kw > 1 || (!kwhash.nil? && kwhash != @qnil) : guarded && kw != 0
+              keyworded = keywords ? kw > KW_LENT || (!kwhash.nil? && kwhash != @qnil) : guarded && kw != 0
               if spread && !strict && !keyworded
                 out = f.stack.take(16)
                 n = check(@kern.zr_block_args(argc, argv, spread_kind, out, out + 8))
@@ -161,7 +169,7 @@ module Zr
               end
               args = Memory.words(argv, argc)
               (strict ? positional : relaxed).call(f, args)
-              keywords&.call(f, kwhash)
+              keywords&.call(f, kwhash, mut)
               block&.call(f, blk)
             end
           end
@@ -321,7 +329,7 @@ module Zr
             end
             kwrest = p.kwrest
             rest = kwrest && kwrest != :nokey && owns?(p, kwrest, [:kwrest, 0]) ? local_store(kwrest, 0, s) : nil
-            lambda do |f, kwhash|
+            lambda do |f, kwhash, mut|
               hash = kwhash || @qnil
               check(@kern.zr_kw_missing(hash == @qnil ? @kern.zr_hash_new : hash, required_table, required.size)) unless required.empty?
               check(@kern.zr_kw_unknown(hash, ids_table, ids.size)) if kwrest.nil? && hash != @qnil
@@ -335,7 +343,7 @@ module Zr
               if kwrest == :nokey
                 check(@kern.zr_kw_none(hash))
               else
-                v = hash == @qnil ? @kern.zr_hash_new : check(@kern.zr_kw_rest(hash, ids_table, ids.size))
+                v = hash == @qnil ? @kern.zr_hash_new : check(@kern.zr_kw_rest_mut(hash, ids_table, ids.size, mut))
                 rest&.call(f, v)
               end
             end
