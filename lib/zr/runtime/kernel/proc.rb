@@ -1209,7 +1209,9 @@ module Zr::Kern
   # Calls the block with `argc` arguments. Each yield is a back edge of the
   # loop that makes it, so this one place yields to the scheduler for every
   # kernel iterator. Thus a thread that walks a large table yields to the
-  # scheduler as a compiled loop does, and a kill reaches it.
+  # scheduler as a compiled loop does, and a kill reaches it. A block of
+  # the core library is no safe point: each core method runs whole, as
+  # CRuby's C does, so the scheduler's own lists never change under it.
   #: (value, word, ptr) -> value
   def zr_yield(blk, argc, argv)
     if blk == QNIL
@@ -1220,8 +1222,11 @@ module Zr::Kern
     # The caller flagged its keywords in the task. A switch at the poll
     # runs other code, whose calls take the flag, so it is kept aside.
     kw = zr_kw_take()
-    tick = zr_preempt()
-    return tick if tick == QUNDEF
+    meta = RProc[blk].meta
+    if meta == 0 || FrameMeta[meta].kind != KIND_HIDDEN
+      tick = zr_preempt()
+      return tick if tick == QUNDEF
+    end
     Task[zr_task()].kw = kw
     Block.call(RProc[blk].fn, blk, argc, argv, Machine.value(QNIL))
   end

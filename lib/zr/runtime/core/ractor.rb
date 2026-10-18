@@ -970,9 +970,10 @@ class Ractor
   # Sends `[ractor, :exited]` on `port` when the ractor ends and its
   # block returned, `[ractor, :aborted]` when something was raised out of
   # it. A ractor that has already ended sends it immediately and returns
-  # false.
+  # false. A ractor whose end has sent its tokens counts as ended, also
+  # while its task still reports the error that ended it.
   def monitor(port)
-    unless Ractor.__send__(:live?, self)
+    if Primitive.zr_hidden_get(self, :__ended__) || !Ractor.__send__(:live?, self)
       port.send([self, Ractor.__send__(:token, self)])
       return false
     end

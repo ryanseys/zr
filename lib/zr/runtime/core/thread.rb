@@ -903,6 +903,8 @@ class Thread
   private def interrupt
     Primitive.attr! :hidden
     @interrupted_asleep = true if @status == :sleep
+    # A new interrupt sets ruby's flag again, so a kill that waited goes.
+    @kill_waits = false
     # A thread that runs C without the GVL is stopped by the C's own
     # unblocking function, or a signal that ends its system call.
     Primitive.zr_region_unblock(@root) if Thread.send(:in_region?, self)
@@ -1330,11 +1332,14 @@ class Thread
     if @pending && !masked?(@pending) && (!@killed || @raised_first || @aborting)
       e = @pending
       @pending = nil
+      # ruby clears the thread's interrupt flag as the error arrives, so a
+      # kill queued behind it waits for the thread's next blocking call.
+      @kill_waits = @killed
       # The thread raises the error again: its `exception` runs here, as
       # rb_threadptr_execute_interrupts calls it.
       Kernel.raise e.exception
     end
-    kill_here if @killed && !@aborting
+    kill_here if @killed && !@aborting && (@blocking || !@kill_waits)
   end
 
   # Sleep until `wakeup`, or until `deadline` nanoseconds on the
@@ -1348,8 +1353,9 @@ class Thread
     Thread.send(:sleep_until, self, deadline) if deadline
     begin
       @blocking = true
-      # An exception held for a blocking call arrives as the wait starts.
-      interrupted if @pending
+      # An exception held for a blocking call, or a kill that waited for
+      # one, arrives as the wait starts.
+      interrupted if @pending || @kill_waits
       Thread.send(:switch, deadly && deadline.nil?)
     ensure
       @blocking = false

@@ -1,0 +1,12 @@
+core/ractor/a_ractor_that_fails_before_its_value_is_asked_gives_its_error.rb:19: warning: Ractor API is experimental and may change in future versions of Ruby.
+#<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+core/ractor/a_ractor_that_fails_before_its_value_is_asked_gives_its_error.rb:19:in 'block in <main>': bad (ArgumentError)
+
+value_of(:raises, Ractor.new { raise ArgumentError, "bad" })
+                                     ^^^^^^^^^^^^^^^^^^^^
+#<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+core/ractor/a_ractor_that_fails_before_its_value_is_asked_gives_its_error.rb:21:in 'block in <main>': closed (IOError)
+#<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+core/ractor/a_ractor_that_fails_before_its_value_is_asked_gives_its_error.rb:23:in 'block (2 levels) in <main>': ractor 1 (RuntimeError)
+#<Thread:0xADDR run> terminated with exception (report_on_exception is true):
+core/ractor/a_ractor_that_fails_before_its_value_is_asked_gives_its_error.rb:23:in 'block (2 levels) in <main>': ractor 3 (RuntimeError)

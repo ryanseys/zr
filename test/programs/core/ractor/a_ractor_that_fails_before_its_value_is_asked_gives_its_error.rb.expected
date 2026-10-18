@@ -1,0 +1,8 @@
+[:raises, ArgumentError, "bad"]
+[:returns, :done]
+[:join_raises, IOError]
+[:join_returns, :joined]
+[0, 0]
+[1, RuntimeError, "ractor 1"]
+[2, 2]
+[3, RuntimeError, "ractor 3"]
