@@ -61,6 +61,12 @@ module Zr::Kern
     attr_accessor :remembered #: word
     attr_accessor :next #: ptr
     attr_accessor :exivars #: ptr
+    # Two words each, one bit for each RELEASE_PAGE of the cells
+    # (zr_arena_pages_trim).
+    attr_accessor :idle_low #: word
+    attr_accessor :idle_high #: word
+    attr_accessor :gone_low #: word
+    attr_accessor :gone_high #: word
   end
 
   # One cell size. `cursor` is the allocated-map word that gives the next
@@ -777,6 +783,10 @@ module Zr::Kern
     sc = zr_size_class(c)
     SizeClass[sc].arenas = SizeClass[sc].arenas + 1
     ArenaHead[a].exivars = 0
+    ArenaHead[a].idle_low = 0
+    ArenaHead[a].idle_high = 0
+    ArenaHead[a].gone_low = 0
+    ArenaHead[a].gone_high = 0
     Libc.memset(zr_arena_marks(a), Machine.i32(0), MARK_BYTES * ARENA_MAPS)
     zr_arena_reserve(a)
   end
@@ -811,6 +821,7 @@ module Zr::Kern
   # cell's address (`zr_cell_take`).
   #: (ptr, ptr, ptr) -> void
   def zr_cursor_set(sc, a, at)
+    zr_arena_pages_taken(a, at)
     SizeClass[sc].cursor = at
     # The origin is a virtual address, and it can be below 0: only the
     # sum in zr_cell_take is a real address.
@@ -832,6 +843,7 @@ module Zr::Kern
       stop = zr_arena_allocated(a) + MARK_BYTES
       while at < stop
         if Machine.load64(at, 0) != ALL_MARKED
+          zr_arena_pages_taken(a, at)
           SizeClass[sc].cursor = at
           return true
         end
@@ -879,6 +891,15 @@ module Zr::Kern
   # the GC benchmark, a release at each major made the run 2.4% slower.
   #: (bool) -> void
   def zr_arenas_release(now)
+    n = Heap[zr_heap()].arenas
+    i = 0
+    while i < n
+      a = zr_arena_at(i)
+      if ArenaHead[a].reserved == 0
+        zr_arena_pages_trim(a, now)
+      end
+      i += 1
+    end
     c = 0
     while c < SIZE_CLASSES
       sc = zr_size_class(c)
@@ -900,6 +921,124 @@ module Zr::Kern
         a = ArenaHead[a].next
       end
       c += 1
+    end
+  end
+
+  # The first RELEASE_PAGE boundary in arena `a`'s cells: page 0 of its
+  # page bits.
+  #: (ptr) -> word
+  def zr_arena_page_base(a)
+    (Machine.word(zr_arena_first(a)) + RELEASE_PAGE - 1) & (0 - RELEASE_PAGE)
+  end
+
+  # The bit of page `p` in the two words of a page map, as a mask in the
+  # word that `high` names.
+  #: (word) -> word
+  def zr_page_bit(p)
+    Machine.shl_wrap(1, p & 63)
+  end
+
+  # Gives back the whole pages of in-use arena `a` whose cells are all free
+  # after a major collection. CRuby's pages are smaller than its heap's
+  # unit of growth, and its sweep frees each empty one; an arena here is
+  # the unit, so a heap whose live cells are spread over many arenas kept
+  # all their pages. A page goes back when it was free at the major before
+  # this one too (`idle`), as an arena does, unless `now` (GC.start). A
+  # page that went back (`gone`) comes back as zeros at its first touch:
+  # no cell is read before an allocation writes it. The cursor clears its
+  # bit when it takes cells on it again (zr_arena_pages_taken).
+  #: (ptr, bool) -> void
+  def zr_arena_pages_trim(a, now)
+    first = Machine.word(zr_arena_first(a))
+    shift = ArenaHead[a].shift
+    base = zr_arena_page_base(a)
+    stop = (first + (ARENA_CELLS << shift)) & (0 - RELEASE_PAGE)
+    allocated = zr_arena_allocated(a)
+    idle_low = 0
+    idle_high = 0
+    gone_low = ArenaHead[a].gone_low
+    gone_high = ArenaHead[a].gone_high
+    run = 0
+    page = base
+    p = 0
+    while page < stop
+      lo = (page - first) >> shift
+      hi = (page + RELEASE_PAGE - 1 - first) >> shift
+      free = true
+      i = lo
+      while free && i <= hi
+        bits = Machine.load64(allocated + ((i >> 6) * 8), 0) >> (i & 63)
+        span = 64 - (i & 63)
+        if span > hi - i + 1
+          span = hi - i + 1
+        end
+        mask = span == 64 ? ALL_MARKED : Machine.shl_wrap(1, span) - 1
+        free = (bits & mask) == 0
+        i += span
+      end
+      bit = zr_page_bit(p)
+      high = p >= 64
+      was_idle = ((high ? ArenaHead[a].idle_high : ArenaHead[a].idle_low) & bit) != 0
+      gone = ((high ? gone_high : gone_low) & bit) != 0
+      give = free && !gone && (now || was_idle)
+      if free && !give && !gone
+        if high
+          idle_high |= bit
+        else
+          idle_low |= bit
+        end
+      end
+      if give
+        if high
+          gone_high |= bit
+        else
+          gone_low |= bit
+        end
+        if run == 0
+          run = page
+        end
+      elsif run != 0
+        zr_os_release_pages(Machine.ptr(run), page - run)
+        run = 0
+      end
+      page += RELEASE_PAGE
+      p += 1
+    end
+    if run != 0
+      zr_os_release_pages(Machine.ptr(run), page - run)
+    end
+    ArenaHead[a].idle_low = idle_low
+    ArenaHead[a].idle_high = idle_high
+    ArenaHead[a].gone_low = gone_low
+    ArenaHead[a].gone_high = gone_high
+  end
+
+  # The cursor of arena `a` moves to allocated word `at`: the pages of its
+  # 64 cells are in memory again.
+  #: (ptr, ptr) -> void
+  def zr_arena_pages_taken(a, at)
+    if (ArenaHead[a].gone_low | ArenaHead[a].gone_high) == 0
+      return
+    end
+    first = Machine.word(zr_arena_first(a))
+    shift = ArenaHead[a].shift
+    base = zr_arena_page_base(a)
+    i = (at - zr_arena_allocated(a)) << 3
+    from = first + (i << shift)
+    to = first + ((i + 64) << shift) - 1
+    if to < base
+      return
+    end
+    p = from < base ? 0 : (from - base) / RELEASE_PAGE
+    last = (to - base) / RELEASE_PAGE
+    while p <= last && p < 128
+      bit = zr_page_bit(p)
+      if p >= 64
+        ArenaHead[a].gone_high = ArenaHead[a].gone_high & (0 - 1 - bit)
+      else
+        ArenaHead[a].gone_low = ArenaHead[a].gone_low & (0 - 1 - bit)
+      end
+      p += 1
     end
   end
 
