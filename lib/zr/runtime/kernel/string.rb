@@ -3063,7 +3063,8 @@ G_FROZEN_LITERALS = 52
         zr_buf_byte(b, zr_onig_ascii_lower(c))
       else
         len = zr_utf8_char_len(p, n - i)
-        row = zr_onig_fold_lookup(zr_utf8_decode(p, len))
+        code = zr_utf8_decode(p, len)
+        row = zr_onig_fold_lookup(code)
         if row != 0
           count = Machine.u32(Machine.load32(row, 4))
           j = 0
@@ -3072,7 +3073,7 @@ G_FROZEN_LITERALS = 52
             j += 1
           end
         else
-          zr_buf_push(b, p, len)
+          zr_buf_utf8(b, code)
         end
       end
       i += len
@@ -3226,20 +3227,26 @@ G_FROZEN_LITERALS = 52
   # Appends the UTF-8 bytes of the code point `code`.
   #: (ptr, word) -> void
   def zr_buf_utf8(b, code)
+    zr_buf_reserve(b, 4)
+    at = Buf[b].ptr + Buf[b].len
     if code < 128
-      zr_buf_byte(b, code)
+      Machine.store8(at, 0, Machine.i8(code))
+      Buf[b].len = Buf[b].len + 1
     elsif code < 2048
-      zr_buf_byte(b, 192 | (code >> 6))
-      zr_buf_byte(b, 128 | (code & 63))
+      Machine.store8(at, 0, Machine.i8(192 | (code >> 6)))
+      Machine.store8(at, 1, Machine.i8(128 | (code & 63)))
+      Buf[b].len = Buf[b].len + 2
     elsif code < 65536
-      zr_buf_byte(b, 224 | (code >> 12))
-      zr_buf_byte(b, 128 | ((code >> 6) & 63))
-      zr_buf_byte(b, 128 | (code & 63))
+      Machine.store8(at, 0, Machine.i8(224 | (code >> 12)))
+      Machine.store8(at, 1, Machine.i8(128 | ((code >> 6) & 63)))
+      Machine.store8(at, 2, Machine.i8(128 | (code & 63)))
+      Buf[b].len = Buf[b].len + 3
     else
-      zr_buf_byte(b, 240 | (code >> 18))
-      zr_buf_byte(b, 128 | ((code >> 12) & 63))
-      zr_buf_byte(b, 128 | ((code >> 6) & 63))
-      zr_buf_byte(b, 128 | (code & 63))
+      Machine.store8(at, 0, Machine.i8(240 | (code >> 18)))
+      Machine.store8(at, 1, Machine.i8(128 | ((code >> 12) & 63)))
+      Machine.store8(at, 2, Machine.i8(128 | ((code >> 6) & 63)))
+      Machine.store8(at, 3, Machine.i8(128 | (code & 63)))
+      Buf[b].len = Buf[b].len + 4
     end
   end
 end
