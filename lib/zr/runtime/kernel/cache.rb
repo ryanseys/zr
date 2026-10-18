@@ -211,7 +211,7 @@ module Zr::Kern
   #: (value, word, ptr, ptr, value, value) -> value
   def zr_direct_fn(recv, argc, argv, e, blk, found)
     t = zr_task()
-    kw = Task[t].kw
+    kw = zr_kw_own(Task[t].kw)
     if kw != 0
       Task[t].kw = 0
       argc = zr_kw_undeclared(kw, argc, argv, 0)
@@ -544,8 +544,8 @@ module Zr::Kern
   def zr_builtin_fn(recv, argc, argv, e, blk, found)
     t = zr_task()
     Task[t].found = found
-    kw = Task[t].kw
-    if kw > 1
+    kw = zr_kw_own(Task[t].kw)
+    if kw > KW_LENT
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end

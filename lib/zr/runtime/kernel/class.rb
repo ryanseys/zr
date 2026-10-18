@@ -1885,7 +1885,7 @@ module Zr::Kern
     zr_buf_long(b, FrameMeta[meta].line)
     zr_buf_push(b, Machine.bytes(" may be ignored\n"), 16)
     t = zr_task()
-    kw = Task[t].kw
+    kw = zr_kw_own(Task[t].kw)
     slot = Machine.slot(24)
     Machine.store64(slot, 0, Machine.word(zr_buf_take(b)))
     Machine.store64(slot, 8, Machine.word(relaxed ? Machine.value(QTRUE) : Machine.value(QFALSE)))

@@ -1465,6 +1465,36 @@ module Zr::Kern
     h
   end
 
+  # A call's keywords of a `**value` alone: zr_hash_coerce's Hash, but an
+  # empty Hash goes as it is, which no callee sees (zr_kw_argc drops it),
+  # so `f(**{})` makes no Hash, as CRuby's VM passes no keywords.
+  #: (value) -> value
+  def zr_kw_coerce(value)
+    # `**nil` passes no keywords either.
+    if value == QNIL
+      return zr_global(G_EMPTY_KWREST)
+    end
+    h = zr_hash_convert(value)
+    return h if h == QUNDEF
+    if h == value
+      if RHash[h].live == 0
+        return h
+      end
+      return zr_hash_dup_m(h)
+    end
+    h
+  end
+
+  # zr_kw_coerce for a `**value` that the call lends (zr_kw_argc_lent): a
+  # Hash goes as it is, and is copied only where the callee keeps it.
+  #: (value) -> value
+  def zr_kw_lend(value)
+    if value == QNIL
+      return zr_global(G_EMPTY_KWREST)
+    end
+    zr_hash_convert(value)
+  end
+
   # core#hash_merge_ptr's start: `{**value, ...}` (ruby 4.1) begins as a
   # plain Hash with the value's pairs and compare_by_identity, as
   # hash_dup_capa copies them, but not its default.

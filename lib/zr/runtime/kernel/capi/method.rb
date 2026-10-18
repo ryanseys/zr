@@ -14,7 +14,7 @@ module Zr::Kern
   #: (value, word, ptr, value, value) -> value
   def zr_cfunc_call(recv, argc, argv, cref, blk)
     t = zr_task()
-    kw = Task[t].kw
+    kw = zr_kw_own(Task[t].kw)
     keywords = Task[t].c_keywords
     Task[t].c_keywords = 0
     if kw != 0

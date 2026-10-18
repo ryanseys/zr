@@ -290,9 +290,13 @@ module Zr::Kern
     r
   end
 
-  # Adds the elements of the splat `*v` to the Array `a`.
+  # Adds the elements of the splat `*v` to the Array `a`. `*nil` adds
+  # nothing and makes no Array (splatarray).
   #: (value, value) -> value
   def zr_ary_splat(a, v)
+    if v == QNIL
+      return a
+    end
     v = zr_splat_to_a(v)
     return v if v == QUNDEF
     i = 0
@@ -301,6 +305,56 @@ module Zr::Kern
       i += 1
     end
     a
+  end
+
+  # The task's spread stack: Arrays that a call with a splat stages its
+  # arguments in, so that the call makes no Array of its own, as CRuby's
+  # VM spreads them on its stack. A call takes the Array at the top and
+  # gives back all from its mark when it returns; a rescue or a catch
+  # gives back what the calls that its unwind left took. The callee
+  # reads the arguments in place and copies what it keeps (a rest).
+  # The marks are Fixnums, so that a record slot can keep one.
+  #: () -> value
+  def zr_spread_mark
+    zr_fix(Task[zr_task()].spread_top)
+  end
+
+  #: () -> value
+  def zr_spread_take
+    t = zr_task()
+    list = Task[t].spread
+    if list == QNIL
+      list = zr_ary_new(4)
+      Task[t].spread = list
+    end
+    i = Task[t].spread_top
+    if i >= RArray[list].len
+      zr_ary_push(list, zr_ary_new(8))
+    end
+    a = zr_ary_at(list, i)
+    RArray[a].len = 0
+    Task[t].spread_top = i + 1
+    a
+  end
+
+  # Gives back the Arrays from `mark` up. One that a large splat grew is
+  # replaced, so the task keeps no large buffer.
+  #: (value) -> void
+  def zr_spread_give(mark)
+    t = zr_task()
+    i = zr_fix2long(mark)
+    while i < Task[t].spread_top
+      list = Task[t].spread
+      a = zr_ary_at(list, i)
+      RArray[a].len = 0
+      if RArray[a].capa > 64
+        zr_ary_store(list, i, zr_ary_new(8))
+      end
+      i += 1
+    end
+    if zr_fix2long(mark) < Task[t].spread_top
+      Task[t].spread_top = zr_fix2long(mark)
+    end
   end
 
   # `Array#initialize`: nothing, `(size, fill = nil)`, `(size) { |i| }`

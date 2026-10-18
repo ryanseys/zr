@@ -473,7 +473,7 @@ module Zr::Kern
     # (Proc#refined_copy, which warns). A Proc that such a body made only
     # inherits the refinements: it is code of the copy.
     t = zr_task()
-    kw = Task[t].kw
+    kw = zr_kw_own(Task[t].kw)
     copy = Machine.value(QTRUE)
     if !zr_special_p(p) && zr_type(p) == T_PROC && zr_hidden_get(p, zr_sym(Machine.id(:__refined__))) == QTRUE
       copy = zr_hidden_get(p, zr_sym(Machine.id(:__copy__)))

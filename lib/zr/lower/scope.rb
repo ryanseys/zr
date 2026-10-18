@@ -80,7 +80,8 @@ module Zr
           # A safe call or an interpolated part's `to_s` keeps its receiver,
           # and a `new` its new object.
           extra = keyword_slots(node.kwargs) + (node.safe || node.interp ? 1 : 0) + (node.name == :new ? 1 : 0)
-          top = base + (spread?(node.args) ? 2 : 1 + node.args.size) + extra
+          # A spread call keeps the spread stack's mark too.
+          top = base + (spread?(node.args) ? 3 : 1 + node.args.size) + extra
           # An inline iterator keeps its block's locals and its index
           # above the receiver, and the body stages above those.
           block = node.block
@@ -111,7 +112,7 @@ module Zr
           held_scope?(node.scope) ? [base + 1, staging(node.scope, base + 1), staging(node.value, base + 1)].max : staging(node.value, base)
         when Hir::Not then gathered([node.value], base)
         when Hir::ConstOrWrite then [staging(node.scope, base), staging(node.value, base)].max
-        when Hir::Defined then staging(node.target, base + 1)
+        when Hir::Defined then staging(node.target, base + 2)
         when Hir::Slot then base
         when Hir::Case
           top = base + 3
@@ -134,10 +135,10 @@ module Zr
           [staging(node.value, top), top + spread + targets(node.target), *inner].max
         when Hir::Break, Hir::Next, Hir::Return then staging(node.value, base + 1)
         when Hir::Begin
-          # An ensure keeps three slots. During a pending unwind, its body
+          # A rescue keeps three slots, and an ensure three. During a pending unwind, its body
           # runs in a region with two more slots, which restores `$!` if
           # the body jumps out.
-          top = base + (node.rescues.empty? ? 0 : 2) + (node.ensure_body ? 3 : 0)
+          top = base + (node.rescues.empty? ? 0 : 3) + (node.ensure_body ? 3 : 0)
           inside = [top, staging(node.body, top), *node.rescues.map { |r| staging(r, top) }, staging(node.else_body, top)].max
           node.ensure_body ? [inside + 2, staging(node.ensure_body, inside + 3)].max : inside
         when Hir::Rescue

@@ -46,7 +46,9 @@ module Zr::Kern
     zr_ary_push(list, tag)
     slot = Machine.slot(8)
     Machine.store64(slot, 0, Machine.word(tag))
+    mark = zr_spread_mark()
     r = zr_yield(blk, 1, slot)
+    zr_spread_give(mark)
     RArray[list].len = RArray[list].len - 1
     zr_caught(r, tag)
   end

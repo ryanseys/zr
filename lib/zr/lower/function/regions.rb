@@ -133,14 +133,18 @@ module Zr
         def rescue_region(node)
           return expr(node.body) if node.rescues.empty?
 
-          region = Region.new(@f.cold(@f.label), nil, reserve(2))
+          region = Region.new(@f.cold(@f.label), nil, reserve(3))
           exc_at = value_offset(region.slot)
           prev_at = value_offset(region.slot + 1)
+          spread_at = value_offset(region.slot + 2)
           head = @f.label
           merge, (result,) = @f.block(["i64"]) #: [String, [String]]
           # When a clause ends, `$!` is restored to its value here, not to
           # the value that an ensure on the way out put in it.
           @f.store(kernel("zr_errinfo"), @rec, prev_at)
+          # A clause gives back the spread Arrays that the calls the raise
+          # left took (zr_spread_take).
+          @f.store(kernel("zr_spread_mark"), @rec, spread_at)
           @f.jump(head)
           switch(head)
           @regions << region
@@ -172,6 +176,7 @@ module Zr
             # The clause takes the exception that the landing took: its test
             # can raise and rescue, which clears the pending slot.
             kernel("zr_rescue_take", @f.fetch("i64", @rec, exc_at))
+            kernel("zr_spread_give", @f.fetch("i64", @rec, spread_at))
             # `:rescue` fires at the matched clause, so the call is here,
             # not in `zr_rescue_take` (`guarded` discards a raise from
             # `defined?` with `zr_rescue_enter`). Ruby reports the clause's first
@@ -205,9 +210,11 @@ module Zr
         # this to test a receiver.
         #: () { () -> String } -> String
         def guarded
-          region = Region.new(@f.cold(@f.label), nil, reserve(1))
+          region = Region.new(@f.cold(@f.label), nil, reserve(2))
           prev_at = value_offset(region.slot)
+          spread_at = value_offset(region.slot + 1)
           merge, (result,) = @f.block(["i64"]) #: [String, [String]]
+          @f.store(kernel("zr_spread_mark"), @rec, spread_at)
           @regions << region
           v = yield
           @regions.pop
@@ -218,6 +225,7 @@ module Zr
           @f.brif(@f.icmp("eq", exc, qundef), landing, give_up)
           switch(give_up)
           @f.store(kernel("zr_rescue_enter"), @rec, prev_at)
+          kernel("zr_spread_give", @f.fetch("i64", @rec, spread_at))
           kernel("zr_errinfo_set", @f.fetch("i64", @rec, prev_at))
           @f.jump(merge, [@qnil])
           switch(merge)

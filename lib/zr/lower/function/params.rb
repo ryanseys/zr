@@ -206,7 +206,8 @@ module Zr
           have = @f.label
           none = @f.label
           merge, (count, hash, tab) = @f.block(%w[i64 i64 i64]) #: [String, [String, String, String]]
-          @f.brif(@f.icmp("ugt", kw, imm(1)), table, hashed)
+          # Above KW_LENT (3) the word is a table (kernel/send.rb).
+          @f.brif(@f.icmp("ugt", kw, imm(3)), table, hashed)
           switch(table)
           @f.jump(merge, [@f.isub(argc, @f.fetch("i64", kw)), @qnil, kw])
           switch(hashed)

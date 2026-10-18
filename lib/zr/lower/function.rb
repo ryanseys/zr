@@ -91,6 +91,7 @@ module Zr
       # @rbs @bindings: Hash[Symbol, Integer]?
       # @rbs @bound: Array[Symbol]?
       # @rbs @funcalls: Hash[Hir::Send, bool]?
+      # @rbs @keywords: Hash[Hir::HashLit, Symbol]?
       # @rbs @landing: String?
       # @rbs @inline_scope: Iterators::InlineScope?
       # @rbs @line_rec: String?

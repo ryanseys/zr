@@ -921,6 +921,12 @@ module Zr::Kern
     attr_accessor :parked #: value
     # Whether the C method that runs got keywords (rb_keyword_given_p).
     attr_accessor :c_keywords #: word
+    # The spread stack (zr_spread_take): an Array of Arrays, or nil, and
+    # the index of the first one that no call holds.
+    attr_accessor :spread #: value
+    attr_accessor :spread_top #: word
+    # The argument slot of a lent keyword Hash (KW_LENT).
+    attr_accessor :kw_at #: ptr
   end
 
   # The runtime's own roots: the core classes and the main object.
@@ -1486,6 +1492,7 @@ module Zr::Kern
     zr_mark(Task[t].root_env)
     zr_mark(Task[t].flip_flops)
     zr_mark(Task[t].parked)
+    zr_mark(Task[t].spread)
     # C's frames hold Values that no record lists: each C call's range of
     # the stack is read word by word.
     c = Task[t].cframe

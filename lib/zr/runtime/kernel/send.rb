@@ -138,6 +138,45 @@ module Zr::Kern
     Task[zr_task()].kw = 1
   end
 
+  # The word of a `**h` that is lent: the Hash is the caller's own, in the
+  # argument slot at `Task#kw_at`. A compiled def that reads keywords
+  # reads it in place, as CRuby's VM passes a splatted Hash; every other
+  # reader makes it the callee's own first (`zr_kw_own`), as the copy that
+  # CRuby makes for a kwrest or a positional Hash. Tables are addresses,
+  # far above it.
+  KW_LENT = 3
+
+  # zr_kw_argc for a lone `**h`: an empty Hash passes no keywords, any
+  # other is lent.
+  #: (word, ptr) -> word
+  def zr_kw_argc_lent(argc, argv)
+    at = argv + ((argc - 1) * 8)
+    h = Machine.value(Machine.load64(at, 0))
+    if RHash[h].live == 0
+      return argc - 1
+    end
+    t = zr_task()
+    Task[t].kw = KW_LENT
+    Task[t].kw_at = at
+    argc
+  end
+
+  # The keyword word `kw` with a lent Hash made the callee's own: a copy
+  # in its argument slot, and the word 1, also in the task.
+  #: (word) -> word
+  def zr_kw_own(kw)
+    if kw != KW_LENT
+      return kw
+    end
+    t = zr_task()
+    at = Task[t].kw_at
+    Machine.store64(at, 0, Machine.word(zr_hash_dup_m(Machine.value(Machine.load64(at, 0)))))
+    if Task[t].kw == KW_LENT
+      Task[t].kw = 1
+    end
+    1
+  end
+
   # Puts the table's values into one Hash, in place of the first value.
   # Returns the new argument count.
   #: (word, word, ptr) -> word
@@ -241,10 +280,11 @@ module Zr::Kern
   # for a ruby2_keywords rest. Returns the new argument count.
   #: (word, word, ptr, word) -> word
   def zr_kw_hash_in(kw, argc, argv, marked)
+    kw = zr_kw_own(kw)
     # A table of no keywords (an empty `**{}` given to a block) makes no
     # Hash, so the last argument is a positional one and takes no flag.
     hashed = kw == 1
-    if kw > 1
+    if kw > KW_LENT
       hashed = zr_kw_hashed(Machine.ptr(kw)) == 1
       argc = zr_kw_tab_in(kw, argc, argv)
     end
@@ -298,6 +338,15 @@ module Zr::Kern
     t = zr_task()
     kw = Task[t].kw
     Task[t].kw = 0
+    zr_kw_own(kw)
+  end
+
+  # zr_kw_take for a caller that hands the word on: a lent Hash stays lent.
+  #: () -> word
+  def zr_kw_take_lent
+    t = zr_task()
+    kw = Task[t].kw
+    Task[t].kw = 0
     kw
   end
 
@@ -316,13 +365,14 @@ module Zr::Kern
   # the arguments. The base `method_missing` raises as a plain miss does.
   #: (value, word, word, ptr, value, word, word) -> value
   def zr_method_missing(recv, mid, argc, argv, blk, kw, reason)
+    kw = zr_kw_own(kw)
     if reason != MISS_PRIVATE && reason != MISS_PROTECTED && reason != MISS_SUPER
       e = zr_imported_refined_method(recv, mid)
       if e != 0
         return zr_invoke(e, recv, argc, argv, blk, kw)
       end
     end
-    if kw > 1
+    if kw > KW_LENT
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
@@ -616,7 +666,8 @@ module Zr::Kern
   # entry (cache.rb), which gets the result, or 0 for a send without one.
   #: (ptr, value, word, word, ptr, word, value) -> value
   def zr_dispatch(cc, recv, mid, argc, argv, mode, blk)
-    kw = zr_kw_take()
+    # A lent Hash stays lent to a compiled def (zr_invoke).
+    kw = zr_kw_take_lent()
     klass = zr_box_view(zr_class_of(recv))
     e = 0
     if zr_imports_running_p()
@@ -1113,9 +1164,13 @@ module Zr::Kern
   #: (ptr, value, word, ptr, value, word) -> value
   def zr_invoke(e, recv, argc, argv, blk, kw)
     kind = MEntry[e].kind
+    # Only a compiled def reads a lent Hash in place.
+    if kind != KIND_DEF
+      kw = zr_kw_own(kw)
+    end
     # Proc#call gives the block the keyword word as it is, so a table
     # of no keywords still keeps a lone Array whole.
-    if kw > 1 && kind != KIND_DEF && kind != KIND_BMETHOD && (MEntry[e].fn != Machine.addr(:zr_proc_call) || Machine.load64(kw, 0) != 0)
+    if kw > KW_LENT && kind != KIND_DEF && kind != KIND_BMETHOD && (MEntry[e].fn != Machine.addr(:zr_proc_call) || Machine.load64(kw, 0) != 0)
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
@@ -1124,7 +1179,7 @@ module Zr::Kern
       if arity >= 0
         # For a def with a fixed count, which declares no keywords, the
         # table's values are one Hash argument.
-        given = kw > 1 ? argc - Machine.load64(kw, 0) + zr_kw_hashed(kw) : argc
+        given = kw > KW_LENT ? argc - Machine.load64(kw, 0) + zr_kw_hashed(kw) : argc
         if given != arity
           return zr_wrong_arity_in(given, arity, e, recv)
         end

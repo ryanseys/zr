@@ -188,6 +188,8 @@ module Zr::Kern
     Task[t].pending_from = 0
     Task[t].root_env = Machine.value(QNIL)
     Task[t].flip_flops = Machine.value(QNIL)
+    Task[t].spread = Machine.value(QNIL)
+    Task[t].spread_top = 0
     Task[t].cframe = 0
     Task[t].parked = Machine.value(QNIL)
     Task[t].c_keywords = 0
@@ -388,7 +390,7 @@ module Zr::Kern
     end
     # The first resume's keywords reach the block as keywords; a later
     # resume's arrive as a Hash, the value of Fiber.yield.
-    if kw > 1
+    if kw > KW_LENT
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end

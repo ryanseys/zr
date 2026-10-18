@@ -9,6 +9,7 @@ module Zr
         # @type instance: Function
         # @rbs @cref: String
         # @rbs @f: IR::Function
+        # @rbs @keywords: Hash[Hir::HashLit, Symbol]?
         # @rbs @l: Lower
         # @rbs @name: String
         # @rbs @qnil: String
@@ -223,6 +224,9 @@ module Zr
         # for `**h` alone, core#hash_merge_ptr before more), which keeps
         # its compare_by_identity and calls no key's `hash`.
         #: (Hir::HashLit node) -> String
+        # How a call's lone `**value` becomes its keywords (`Sends#keyword_args`).
+        KEYWORD_COERCE = { lent: "zr_kw_lend", copied: "zr_kw_coerce" }.freeze #: Hash[Symbol, String]
+
         def hash_literal(node)
           first = node.pairs.first
           # The frame stands at the literal while a key's `hash` or a
@@ -231,7 +235,7 @@ module Zr
           if first.is_a?(Hir::HashSplat) && node.pairs.size == 2
             value = expr(first.value)
             here.call
-            return checked(kernel("zr_hash_coerce", value))
+            return checked(kernel(@keywords ? KEYWORD_COERCE.fetch(@keywords[node], "zr_hash_coerce") : "zr_hash_coerce", value))
           end
           if (words = immediate_words(node.pairs))
             hash = checked(kernel("zr_hash_of", imm(words.size / 2), @f.symbol_value(@f.symbol(@l.word_table(words)))))

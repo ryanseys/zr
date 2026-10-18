@@ -179,6 +179,7 @@ module Zr::Kern
   # The event after the call has nil when the call raises.
   #: (ptr, value, word, word, ptr, value, word, word) -> value
   def zr_trace_send_invoke(e, recv, mid, argc, argv, blk, kw, before)
+    kw = zr_kw_own(kw)
     zr_trace_owned_invoke(e, zr_method_owner(zr_box_view(zr_class_of(recv)), mid), recv, argc, argv, blk, kw, before)
   end
 

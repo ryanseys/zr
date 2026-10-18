@@ -13,6 +13,7 @@ module Zr
         # @rbs @env: String
         # @rbs @f: IR::Function
         # @rbs @funcalls: Hash[Hir::Send, bool]?
+        # @rbs @keywords: Hash[Hir::HashLit, Symbol]?
         # @rbs @kind: Function::kind
         # @rbs @l: Lower
         # @rbs @locals: Array[Symbol]
@@ -154,17 +155,22 @@ module Zr
 
           args = node.args + keyword_args(node)
           if args.any?(Hir::Splat)
-            staged([recv_node], 1) do |slots, base|
-              ary = gather(args, base + 1)
+            staged([recv_node], 2) do |slots, base|
+              # The arguments go in an Array of the spread stack, which
+              # the call gives back when it returns (zr_spread_take).
+              @f.store(kernel("zr_spread_mark"), @rec, value_offset(base + 2))
+              ary = gather(args, base + 1, spread: true)
               # A write returns the value that it wrote (the last collected
               # element), not the writer's return value.
-              if node.write
-                last = kernel("zr_ary_at", ary, @f.isub(array_len(ary), imm(1))) #: String
-                send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
-                last
-              else
-                send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
-              end
+              r = if node.write
+                    last = kernel("zr_ary_at", ary, @f.isub(array_len(ary), imm(1))) #: String
+                    send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
+                    last
+                  else
+                    send_staged(node, @f.fetch("i64", slots), array_ptr(ary), array_len(ary))
+                  end
+              kernel("zr_spread_give", @f.fetch("i64", @rec, value_offset(base + 2))) unless @f.terminated?
+              r
             end
           else
             staged([recv_node, *args]) do |slots|
@@ -567,9 +573,10 @@ module Zr
         # `slot`. A Splat spreads its value. Returns the Array. The frame
         # stands at `at` (an Array literal), or else at the splat, while a
         # splat converts its value, as splatarray's node is.
-        #: (Array[Hir::node?] parts, Integer slot, ?Hir::node? at) -> String
-        def gather(parts, slot, at = nil)
-          @f.store(kernel("zr_ary_new", imm(parts.size)), @rec, value_offset(slot))
+        # With `spread`, the Array is the spread stack's (a call's).
+        #: (Array[Hir::node?] parts, Integer slot, ?Hir::node? at, ?spread: bool) -> String
+        def gather(parts, slot, at = nil, spread: false)
+          @f.store(spread ? kernel("zr_spread_take") : kernel("zr_ary_new", imm(parts.size)), @rec, value_offset(slot))
           parts.each do |part|
             if part.is_a?(Hir::Splat)
               value = expr(part.value)
@@ -601,9 +608,24 @@ module Zr
         def keyword_args(node)
           kwargs = node.kwargs
           return [] unless kwargs
-          return [kwargs] unless Scope.literal_keywords?(kwargs)
+          unless Scope.literal_keywords?(kwargs)
+            # The literal is a call's keywords: a lone `**h` is lent to the
+            # callee, or copied for a Proc's call or yield, which pass it on
+            # to a block (`hash_literal`, `keyword_argc`).
+            (@keywords ||= {}.compare_by_identity)[kwargs] = lent_keywords?(node) ? :lent : :copied
+            return [kwargs]
+          end
 
           kwargs.pairs.each_slice(2).map(&:last)
+        end
+
+        # Whether the call's keywords are a lone `**h` that it lends.
+        #: (Hir::Send | Hir::Super node) -> bool
+        def lent_keywords?(node)
+          kwargs = node.kwargs
+          return false unless kwargs && kwargs.pairs.size == 2 && kwargs.pairs.first.is_a?(Hir::HashSplat)
+
+          !(node.is_a?(Hir::Send) && %i[call yield].include?(node.name))
         end
 
         # The count that the callee sees: a keywords Hash goes last and
@@ -623,6 +645,7 @@ module Zr
           end
           # Proc#call and Proc#yield pass a `**h` on to the block as a yield
           # does, also an empty one (vm_call_opt_call).
+          return kernel("zr_kw_argc_lent", argc, argv) if lent_keywords?(node)
           return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_argc_yield" : "zr_kw_argc", argc, argv) if node.kwargs
           if node.args.any?(Hir::Splat)
             return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_ruby2_out_yield" : "zr_kw_ruby2_out", argc, argv)
