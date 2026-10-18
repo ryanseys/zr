@@ -44,7 +44,7 @@ module GC
       counted = counter(hash_or_key)
       return counted unless counted.nil?
     end
-    pages, freed_pages = Primitive.zr_gc_pages
+    pages, freed_pages, eden_pages = Primitive.zr_gc_pages
     count = Primitive.zr_gc_count
     majors, marking, sweeping = Primitive.zr_gc_phases
     malloc_total, free_total = Primitive.zr_gc_malloc_totals
@@ -52,7 +52,8 @@ module GC
       count: count, time: Primitive.zr_gc_nanoseconds / 1_000_000,
       marking_time: marking / 1_000_000, sweeping_time: sweeping / 1_000_000,
       total_malloc_bytes: malloc_total, total_free_bytes: free_total,
-      heap_allocated_pages: pages, heap_empty_pages: 0, heap_allocatable_bytes: 0, heap_eden_pages: pages,
+      heap_allocated_pages: pages, heap_empty_pages: pages - eden_pages, heap_allocatable_bytes: 0,
+      heap_eden_pages: eden_pages,
       total_allocated_pages: pages + freed_pages, total_freed_pages: freed_pages,
       malloc_increase_bytes: Primitive.zr_gc_malloced, malloc_increase_bytes_limit: Primitive.zr_gc_malloc_limit,
       minor_gc_count: count - majors, major_gc_count: majors, global_gc_count: 0, compact_count: COMPACTED[1],
@@ -428,9 +429,10 @@ module GC
     { **CONFIG, implementation: +"default" }
   end
 
-  # The four pools of 32, 64, 128 and 256-byte cells, and a fifth that
-  # stays empty, so every pool index that ruby returns is valid here too.
-  POOLS = 5
+  # The four pools of 32, 64, 128 and 256-byte cells, then empty pools of
+  # larger sizes, as many as ruby has (HEAP_COUNT), so every pool index
+  # that ruby returns is valid here too.
+  POOLS = INTERNAL_CONSTANTS[:HEAP_COUNT]
   private_constant :POOLS
 
   # One pool's numbers, or every pool's under its index, as
@@ -441,8 +443,9 @@ module GC
     if heap_name.nil?
       raise TypeError, +"non-hash given" unless hash_or_key.nil? || hash_or_key.is_a?(Hash)
 
+      numbers = Primitive.zr_gc_pools(POOLS)
       out = hash_or_key || {}
-      POOLS.times { |pool| out[pool] = pool_stats(pool, out[pool].is_a?(Hash) ? out[pool] : {}) }
+      POOLS.times { |pool| out[pool] = pool_stats(pool, out[pool].is_a?(Hash) ? out[pool] : {}, numbers) }
       return out
     end
     raise TypeError, +"heap_name must be nil or an Integer" unless heap_name.is_a?(Integer)
@@ -460,18 +463,29 @@ module GC
     end
   end
 
-  # Pool `pool`'s numbers written into `out`, in CRuby's key order. An
-  # arena here is a page; nothing waits to be finalized or forces a
-  # major collection.
-  def self.pool_stats(pool, out)
+  # Pool `pool`'s numbers written into `out`, in CRuby's key order, key by
+  # key, so a Hash given again gets no new object. An arena here is a
+  # page; nothing waits to be finalized or forces a major collection.
+  def self.pool_stats(pool, out, numbers = Primitive.zr_gc_pools(pool + 1))
     Primitive.attr! :hidden
-    slot_size, live, free, pages, allocated = Primitive.zr_gc_pool(pool)
-    out.merge!(
-      slot_size: slot_size, heap_live_slots: live, heap_free_slots: free, heap_final_slots: 0,
-      heap_eden_pages: pages, heap_eden_slots: live + free, heap_allocatable_slots: 0, total_allocated_pages: pages,
-      force_major_gc_count: 0, force_incremental_marking_finish_count: 0,
-      total_allocated_objects: allocated, total_freed_objects: [allocated - live, 0].max
-    )
+    at = pool * 5
+    live = numbers[at + 1]
+    free = numbers[at + 2]
+    pages = numbers[at + 3]
+    allocated = numbers[at + 4]
+    out[:slot_size] = numbers[at]
+    out[:heap_live_slots] = live
+    out[:heap_free_slots] = free
+    out[:heap_final_slots] = 0
+    out[:heap_eden_pages] = pages
+    out[:heap_eden_slots] = live + free
+    out[:heap_allocatable_slots] = 0
+    out[:total_allocated_pages] = pages
+    out[:force_major_gc_count] = 0
+    out[:force_incremental_marking_finish_count] = 0
+    out[:total_allocated_objects] = allocated
+    out[:total_freed_objects] = allocated > live ? allocated - live : 0
+    out
   end
   private_class_method :pool_stats
 

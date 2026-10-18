@@ -1089,14 +1089,16 @@ module Zr::Kern
     end
   end
 
-  # GC.stat's page counts: the arenas that hold memory, and the arenas
-  # whose memory went back to the system since the start.
+  # GC.stat's page counts: the arenas that hold memory, the arenas whose
+  # memory went back to the system since the start, and the arenas in use
+  # (not reserved), which GC.stat_heap counts as each pool's eden pages.
   #: () -> value
   def zr_gc_pages
     h = zr_heap()
-    out = zr_ary_new(2)
+    out = zr_ary_new(3)
     zr_ary_push(out, zr_fix(Heap[h].arenas - Heap[h].released))
     zr_ary_push(out, zr_fix(Heap[h].freed_pages))
+    zr_ary_push(out, zr_fix(zr_heap_cells() / ARENA_CELLS))
     out
   end
 
@@ -2605,35 +2607,44 @@ module Zr::Kern
     zr_fix(n)
   end
 
-  # Size class `c` for GC.stat_heap: its cell size, live cells, free
-  # cells, arenas in use (not reserved, zr_heap_cells) and allocated
-  # object count. A pool after the fourth has only its size.
+  # The first `n` pools for GC.stat_heap, five numbers each: the cell size,
+  # live cells, free cells, arenas in use (not reserved, zr_heap_cells) and
+  # allocated object count. A pool after the fourth has only its size. The
+  # result is made before the count, and its pool leaves it out, so
+  # GC.stat_heap agrees with GC.stat, as CRuby's allocates nothing.
   #: (value) -> value
-  def zr_gc_pool(c)
-    i = zr_fix2long(c)
-    bytes = CELL_MIN << i
-    live = 0
-    arenas = 0
-    allocated = 0
-    if i < SIZE_CLASSES
-      sc = zr_size_class(i)
-      allocated = SizeClass[sc].allocated
-      a = 0
-      while a < Heap[zr_heap()].arenas
-        base = zr_arena_at(a)
-        if ArenaHead[base].index == i && ArenaHead[base].reserved == 0
-          live += zr_arena_live(base)
-          arenas += 1
+  def zr_gc_pools(n)
+    pools = zr_fix2long(n)
+    out = zr_ary_new(pools * 5)
+    own = ArenaHead[zr_arena_of(out)].index
+    i = 0
+    while i < pools
+      live = 0
+      arenas = 0
+      allocated = 0
+      if i < SIZE_CLASSES
+        allocated = SizeClass[zr_size_class(i)].allocated
+        if i == own
+          allocated -= 1
+          live -= 1
         end
-        a += 1
+        a = 0
+        while a < Heap[zr_heap()].arenas
+          base = zr_arena_at(a)
+          if ArenaHead[base].index == i && ArenaHead[base].reserved == 0
+            live += zr_arena_live(base)
+            arenas += 1
+          end
+          a += 1
+        end
       end
+      zr_ary_push(out, zr_fix(CELL_MIN << i))
+      zr_ary_push(out, zr_fix(live))
+      zr_ary_push(out, zr_fix((arenas * ARENA_CELLS) - live))
+      zr_ary_push(out, zr_fix(arenas))
+      zr_ary_push(out, zr_fix(allocated))
+      i += 1
     end
-    out = zr_ary_new(5)
-    zr_ary_push(out, zr_fix(bytes))
-    zr_ary_push(out, zr_fix(live))
-    zr_ary_push(out, zr_fix((arenas * ARENA_CELLS) - live))
-    zr_ary_push(out, zr_fix(arenas))
-    zr_ary_push(out, zr_fix(allocated))
     out
   end
 

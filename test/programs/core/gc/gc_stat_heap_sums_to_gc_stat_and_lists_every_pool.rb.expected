@@ -1,0 +1,13 @@
+[:heap_live_slots, true]
+[:heap_free_slots, true]
+[:heap_final_slots, true]
+[:heap_eden_pages, true]
+[:total_allocated_objects, true]
+[:total_freed_objects, true]
+true
+true
+true
+true
+"size pool index out of range"
+true
+true
