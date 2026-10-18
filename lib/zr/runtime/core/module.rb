@@ -356,6 +356,8 @@ class Refinement
   # declared with. Ruby copies rather than includes, so what the module
   # inherits stays out.
   def import_methods(*modules)
+    raise ArgumentError, wrong_arity(0, 1..) if modules.empty?
+
     modules.each do |mod|
       raise TypeError, "wrong argument type #{conversion_name(mod)} (expected Module)" unless mod.instance_of?(Module)
     end

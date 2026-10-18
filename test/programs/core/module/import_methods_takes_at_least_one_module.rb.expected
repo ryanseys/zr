@@ -1,0 +1,1 @@
+results: [[ArgumentError, "wrong number of arguments (given 0, expected 1+)"], Refinement, Refinement, [TypeError, "wrong argument type Class (expected Module)"]]
