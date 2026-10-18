@@ -5,7 +5,8 @@ require "test_helper"
 require_relative "../support/c_ext"
 
 # C that runs without the GVL (rb_thread_call_without_gvl): on a worker
-# OS thread, while the program's other threads run; its unblocking
+# OS thread with green threads, or on the thread's own OS thread with
+# native ones, while the program's other threads run; its unblocking
 # function stops it for Thread#kill and Thread#raise; and it calls back
 # into Ruby with rb_thread_call_with_gvl. Each program gives ruby's
 # output, also under ZR_GC_STRESS.
@@ -51,7 +52,7 @@ class CExtThreadTest < Minitest::Test
     }
   C
 
-  RUNS = [{}, { "ZR_GC_STRESS" => "1" }].freeze
+  RUNS = [{}, { "ZR_GC_STRESS" => "1" }, { "ZR_THREADS" => "native" }, { "ZR_THREADS" => "native", "ZR_GC_STRESS" => "1" }].freeze
 
   def setup
     skip Zr::Test::CExt::UNSUPPORTED unless Zr::Test::CExt.supported?

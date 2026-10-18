@@ -1,7 +1,9 @@
 module Zr::Kern
   # C that runs without the GVL: rb_thread_call_without_gvl and its kin.
-  # zr's threads are green, so such C runs on a worker OS thread of the
-  # offload pool, and the green thread that called it waits for the job's
+  # With native threads it runs on the calling thread's own OS thread
+  # while another thread holds the GVL (zr_region_call,
+  # kernel/os/posix/gvl.rb). With green threads it runs on a worker OS
+  # thread of the offload pool, and the green thread that called it waits for the job's
   # pipe as for any descriptor (`Thread#offload_wait`): the other threads
   # run meanwhile. A thread that is alone calls the C itself.
   #
@@ -89,6 +91,10 @@ module Zr::Kern
   #: (ptr, ptr) -> ptr
   def rb_thread_call_with_gvl(fn, data)
     Machine.gates_enter
+    me = zr_region_self()
+    if me != 0
+      return zr_region_with_gvl(me, fn, data)
+    end
     pool = Machine.ptr(Machine.load64(Machine.static(:offload_pool, 8), 0))
     job = pool == 0 ? Machine.ptr(0) : Libc.pthread_getspecific(OffloadPool[pool].key)
     if job == 0
@@ -120,11 +126,14 @@ module Zr::Kern
     Machine.i32(1)
   end
 
-  # ruby_thread_has_gvl_p: 0 on a worker of the pool, which runs C
-  # without the GVL, else 1.
+  # ruby_thread_has_gvl_p: 0 in a region or on a worker of the pool,
+  # which run C without the GVL, else 1.
   #: () -> i32
   def ruby_thread_has_gvl_p
     Machine.gates_enter
+    if zr_region_self() != 0
+      return Machine.i32(0)
+    end
     pool = Machine.ptr(Machine.load64(Machine.static(:offload_pool, 8), 0))
     pool != 0 && Libc.pthread_getspecific(OffloadPool[pool].key) != 0 ? Machine.i32(0) : Machine.i32(1)
   end
@@ -160,6 +169,9 @@ module Zr::Kern
       argv = Machine.slot(64)
       Machine.store64(argv, 0, Machine.word(data))
       return Machine.ptr(zr_c_result(Machine.value(zr_call_c(fn, argv, 1))))
+    end
+    if zr_threads_native()
+      return zr_region_call(fn, data, ubf, ubf_data)
     end
     pool = zr_offload_pool()
     job = zr_offload_submit(pool, fn, data, ubf, ubf_data)

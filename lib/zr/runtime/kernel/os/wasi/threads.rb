@@ -17,4 +17,31 @@ module Zr::Kern
   #: (ptr) -> void
   def zr_thread_state_free(ts)
   end
+
+  # No thread runs C without the GVL, so none comes back from it.
+  #: () -> value
+  def zr_gvl_returned
+    Machine.value(QNIL)
+  end
+
+  #: () -> value
+  def zr_gvl_wake_fd
+    Machine.value(QNIL)
+  end
+
+  #: (value) -> value
+  def zr_gvl_release_idle(exiting)
+    Machine.value(QFALSE)
+  end
+
+  #: (value) -> value
+  def zr_region_unblock(root)
+    Machine.value(QNIL)
+  end
+
+  # The scheduler sleeps until the first deadline.
+  #: (value) -> value
+  def zr_idle_sleep(ns)
+    zr_nanosleep(ns)
+  end
 end

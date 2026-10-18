@@ -47,6 +47,8 @@ module Zr
        %w[crash_armed crash_bug crash_done crash_out crash_signal crash_template]],
       [:async, :atomic, "rb_postponed_job_trigger may run in a signal handler; registration is under the GVL",
        %w[postponed_data postponed_funcs postponed_marks postponed_pending]],
+      [:async, :atomic, "the GVL's free flag and the threads back from a region, under the GVL's own mutex",
+       %w[gvl]],
       [:async, :atomic, "C without the GVL posts its jobs through the pool's own mutex",
        %w[offload_pool]],
 

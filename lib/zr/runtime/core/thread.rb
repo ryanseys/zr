@@ -20,6 +20,9 @@ class Thread
   # The threads parked on a descriptor: `[fd, events, thread]` rows,
   # which the scheduler polls when no thread can run.
   @io_waiters = []
+  # With native threads, the threads that run C without the GVL, each on
+  # its own OS thread (rb_thread_call_without_gvl).
+  @regions = []
   Primitive.zr_undef_alloc(self)
   # rb_uninterruptible's mask: every interrupt waits. A mask is read as
   # pairs; a Hash keyed by Object would hash the class, which gives it an
@@ -102,7 +105,7 @@ class Thread
     # turn and none is asleep.
     def alone?
       Primitive.attr! :hidden
-      @queue.empty? && @sleepers.empty? && @io_waiters.empty?
+      @queue.empty? && @sleepers.empty? && @io_waiters.empty? && @regions.empty?
     end
 
     # The current thread sleeps until `wakeup`. With no other thread
@@ -315,6 +318,7 @@ class Thread
       @queue = []
       @sleepers = []
       @io_waiters = []
+      @regions = []
       @main = @current
       # rb_thread_atfork: the scheduler no longer runs, and is cleared with
       # no close; rb_fiber_atfork: the current fiber, now the root, blocks.
@@ -356,6 +360,7 @@ class Thread
     def preempt
       return nil if @switching || @atomic || Primitive.zr_hidden_get(@current, :status) != :run
 
+      came_back
       Primitive.zr_finalizers_due
       wake_due
       # A thread parked on a descriptor wakes when it is ready even while
@@ -393,13 +398,54 @@ class Thread
       Primitive.attr! :hidden
       @switching = true
       from = @current
+      loop do
+        to = next_to_run(from, deadly)
+        return to if to == :returned
+
+        @switching = false
+        unless to.equal?(from)
+          handover(from, to)
+          to.send(:take_over, from)
+        end
+        # Handed the GVL while still asleep (region_enter): this thread
+        # waits for the others' deadlines and descriptors until its own
+        # wait ends.
+        break unless from.send(:sleeping?) && Primitive.zr_hidden_get(Thread, :current).equal?(from)
+
+        @switching = true
+      end
+      switched(from)
+    end
+
+    # The thread that runs next: the run queue's head, else the sleeper
+    # whose deadline comes first once it passes. With neither, a deadly
+    # wait is a deadlock, and a plain sleep waits forever. :returned when
+    # the switch is over (a deadlock raised, or the GVL went free and came
+    # back to `from`).
+    def next_to_run(from, deadly)
+      Primitive.attr! :hidden
       while (to = @queue.shift).nil?
+        next if came_back
         if !@io_waiters.empty?
           poll_waiters
           wake_due
         elsif @sleepers.empty?
           @switching = false
-          return deadlock if deadly && !@ignore_deadlock
+          # Threads that run C without the GVL may come back to wake this
+          # one: the GVL goes free until one does.
+          unless @regions.empty?
+            if Primitive.zr_gvl_release_idle(Primitive.zr_hidden_get(from, :status) == :dead)
+              switched(from)
+              return :returned
+            end
+
+            @switching = true
+            next
+          end
+          if deadly && !@ignore_deadlock
+            deadlock
+            return :returned
+          end
 
           @switching = true
           Primitive.zr_nanosleep(1_000_000_000)
@@ -408,15 +454,80 @@ class Thread
         end
         signal_wakes_main
       end
-      @switching = false
-      unless to.equal?(from)
-        handover(from, to)
-        to.send(:take_over, from)
-      end
+      to
+    end
+
+    # Back in `from` after a switch.
+    def switched(from)
+      Primitive.attr! :hidden
       # A signal that came while another thread ran waits for the main
       # thread, which runs its command at its next safe point.
       Primitive.zr_trap_rearm if from.equal?(@main)
       from.send(:interrupted)
+    end
+
+    # rb_thread_call_without_gvl's start with native threads: the head of
+    # the run queue takes the GVL while this thread runs the C on its own
+    # OS thread. Returns the fiber to hand it to, false when it goes free
+    # (no thread to run and nothing to watch), or nil when this thread
+    # keeps it (the scheduler is busy).
+    def region_enter
+      Primitive.attr! :hidden
+      return nil if @switching || @atomic
+
+      from = @current
+      to = @queue.shift
+      # With no thread to run, a thread that sleeps with a deadline or on
+      # a descriptor takes the GVL to watch them, still asleep (switch).
+      watcher = to.nil? && (@sleepers.first&.last || @io_waiters.first&.last)
+      @regions << from
+      Primitive.zr_hidden_set(from, :fiber, Fiber.current)
+      Primitive.zr_thread_event(EVENT_SUSPENDED, from)
+      if watcher
+        Primitive.zr_hidden_set(Thread, :current, watcher)
+        return Primitive.zr_hidden_get(watcher, :fiber)
+      end
+      return false if to.nil?
+
+      Primitive.zr_thread_event(EVENT_RESUMED, to)
+      to.send(:take_turn)
+      Primitive.zr_hidden_get(to, :fiber)
+    end
+
+    # The C returned and this thread, of root fiber `root`, holds the GVL
+    # again: handed back by a switch, or taken while it was free (`took`).
+    # With `check`, an interrupt that came meanwhile arrives now, as
+    # blocking_region_end lets it.
+    def region_leave(root, took, check)
+      Primitive.attr! :hidden
+      thread = @regions.find { |t| Primitive.zr_hidden_get(t, :root).equal?(root) }
+      @regions.delete(thread)
+      if took
+        Primitive.zr_thread_event(EVENT_RESUMED, thread)
+        thread.send(:take_turn)
+      end
+      thread.send(:at_blocking) if check
+      nil
+    end
+
+    # Whether `thread` runs C without the GVL now.
+    def in_region?(thread)
+      Primitive.attr! :hidden
+      @regions.include?(thread)
+    end
+
+    # The threads that came back from C without the GVL join the run
+    # queue. Whether any did.
+    def came_back
+      Primitive.attr! :hidden
+      return false if @regions.empty?
+
+      roots = Primitive.zr_gvl_returned
+      roots&.each do |root|
+        thread = @regions.find { |t| Primitive.zr_hidden_get(t, :root).equal?(root) }
+        enqueue(thread) if thread
+      end
+      !roots.nil?
     end
 
     # The events of a switch, in the order thread_sched_yield gives them:
@@ -445,7 +556,7 @@ class Thread
       @sleepers.sort! { |a, b| a[0] <=> b[0] }
       deadline, thread = @sleepers.first
       left = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
-      return nil if left > 0 && !Primitive.zr_nanosleep(left)
+      return nil if left > 0 && !Primitive.zr_idle_sleep(left)
 
       @sleepers.shift
       thread.send(:timed_out)
@@ -463,7 +574,14 @@ class Thread
       left = deadline && [((deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)) / 1_000_000.0).ceil, 0].max
       left = 0 unless wait
       waiters = @io_waiters.dup
-      ready = Primitive.zr_io_wait_fds(waiters.map { |fd, _, _| fd }, waiters.map { |_, events, _| events }, left || -1)
+      fds = waiters.map { |fd, _, _| fd }
+      events = waiters.map { |_, wanted, _| wanted }
+      # A thread back from C without the GVL writes to the GVL's pipe.
+      if (wake = Primitive.zr_gvl_wake_fd)
+        fds << wake
+        events << IO::READABLE
+      end
+      ready = Primitive.zr_io_wait_fds(fds, events, left || -1)
       if ready.is_a?(Integer)
         # A descriptor closed under its waiter: every waiter looks again.
         waiters.each { |_, _, thread| thread.wakeup if thread.send(:sleeping?) }
@@ -782,6 +900,9 @@ class Thread
   private def interrupt
     Primitive.attr! :hidden
     @interrupted_asleep = true if @status == :sleep
+    # A thread that runs C without the GVL is stopped by the C's own
+    # unblocking function, or a signal that ends its system call.
+    Primitive.zr_region_unblock(@root) if Thread.send(:in_region?, self)
     wakeup
   end
 
@@ -1178,12 +1299,18 @@ class Thread
   # with `from`.
   def take_over(from)
     Primitive.attr! :hidden
+    take_turn
+    Primitive.zr_hidden_set(from, :fiber, Fiber.current)
+    Primitive.zr_fiber_scheduler_switch(@fiber, Primitive.zr_hidden_get(from, :status) == :dead)
+  end
+
+  # This thread is the running one from here.
+  def take_turn
+    Primitive.attr! :hidden
     Primitive.zr_hidden_set(Thread, :current, self)
     @status = :run
     @interrupted_asleep = false
     @ticks = 0
-    Primitive.zr_hidden_set(from, :fiber, Fiber.current)
-    Primitive.zr_fiber_scheduler_switch(@fiber, Primitive.zr_hidden_get(from, :status) == :dead)
   end
 
   # Back from a switch: a kill or an exception another thread sent

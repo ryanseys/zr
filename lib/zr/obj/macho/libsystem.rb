@@ -176,6 +176,7 @@ module Zr
           pthread_getspecific
           pthread_jit_write_protect_np
           pthread_key_create
+          pthread_kill
           pthread_mutex_destroy
           pthread_mutex_init
           pthread_mutex_lock

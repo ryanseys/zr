@@ -77,6 +77,8 @@ module Zr::Kern
     def self.pthread_cond_destroy(p) = Machine.import
     #: (i32, ptr, ptr) -> i32
     def self.pthread_sigmask(i, p1, p2) = Machine.import
+    #: (ptr, i32) -> i32
+    def self.pthread_kill(p, i) = Machine.import
     #: (ptr, ptr) -> i32
     def self.pthread_key_create(p1, p2) = Machine.import
     #: (word, ptr) -> i32
