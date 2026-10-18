@@ -1,0 +1,14 @@
+test_no_parameters: ok
+test_required_parameter: ok
+test_optional_parameter: ok
+test_positional_splat_parameter: ok
+test_required_and_positional_splat_parameters: ok
+test_positional_splat_and_post_parameters: ok
+test_keyword_parameter: ok
+test_keyword_splat_parameter: ok
+test_keyword_and_keyword_splat_parameter: ok
+test_required_positional_and_keyword_parameter: ok
+test_positional_splat_and_keyword_parameter: ok
+test_required_and_keyword_splat_parameter: ok
+test_positional_splat_and_keyword_splat_parameter: ok
+test_ruby2_keywords: ok

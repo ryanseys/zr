@@ -629,14 +629,13 @@ module Zr
         # keys go as trailing values, with a static table of the keys that
         # the task gets just before the send. All other keywords go as one
         # Hash that the task flags (lib/zr/runtime/kernel/send.rb).
-        #: (Hir::Send | Hir::Super node) -> Array[Hir::node?]
+        #: (Hir::Send | Hir::Super | Hir::Yield node) -> Array[Hir::node?]
         def keyword_args(node)
           kwargs = node.kwargs
           return [] unless kwargs
           unless Scope.literal_keywords?(kwargs)
             # The literal is a call's keywords: a lone `**h` is lent to the
-            # callee, or copied for a Proc's call or yield, which pass it on
-            # to a block (`hash_literal`, `keyword_argc`).
+            # callee (`hash_literal`, `keyword_argc`).
             (@keywords ||= {}.compare_by_identity)[kwargs] = lent_keywords?(node) ? :lent : :copied
             return [kwargs]
           end
@@ -645,12 +644,10 @@ module Zr
         end
 
         # Whether the call's keywords are a lone `**h` that it lends.
-        #: (Hir::Send | Hir::Super node) -> bool
+        #: (Hir::Send | Hir::Super | Hir::Yield node) -> bool
         def lent_keywords?(node)
           kwargs = node.kwargs
-          return false unless kwargs && kwargs.pairs.size == 2 && kwargs.pairs.first.is_a?(Hir::HashSplat)
-
-          !(node.is_a?(Hir::Send) && %i[call yield].include?(node.name))
+          !!(kwargs && kwargs.pairs.size == 2 && kwargs.pairs.first.is_a?(Hir::HashSplat))
         end
 
         # The count that the callee sees: a keywords Hash goes last and
@@ -672,7 +669,11 @@ module Zr
           end
           # Proc#call and Proc#yield pass a `**h` on to the block as a yield
           # does, also an empty one (vm_call_opt_call).
-          return kernel("zr_kw_argc_lent", argc, argv) if lent_keywords?(node)
+          # Proc#call and Proc#yield pass even an empty `**h` on to the block
+          # as a yield does (vm_call_opt_call).
+          if lent_keywords?(node)
+            return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_argc_lent_yield" : "zr_kw_argc_lent", argc, argv)
+          end
           return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_argc_yield" : "zr_kw_argc", argc, argv) if node.kwargs
           if node.args.any?(Hir::Splat)
             return kernel(node.is_a?(Hir::Send) && %i[call yield].include?(node.name) ? "zr_kw_ruby2_out_yield" : "zr_kw_ruby2_out", argc, argv)

@@ -438,25 +438,44 @@ module Zr
 
         #: (Hir::Yield node) -> String
         def yield_block(node)
-          parts = node.args + [node.kwargs].compact
+          # The keywords go as a call's do (`Sends#keyword_args`): `k: v`
+          # pairs by a table, a lone `**h` lent, any other as one Hash.
+          parts = node.args + keyword_args(node)
           if parts.any?(Hir::Splat)
-            slot = reserve(1)
-            ary = gather(parts, slot)
+            # The arguments go on the spread stack, as a call's do.
+            slot = reserve(2)
+            @f.store(kernel("zr_spread_mark"), @rec, value_offset(slot + 1))
+            ary = gather(parts, slot, spread: true)
             at_node(node)
-            argc = array_len(ary)
-            # As a call's, a splat's last element can be a ruby2_keywords Hash.
-            argc = node.kwargs ? kernel("zr_kw_argc_yield", argc, array_ptr(ary)) : kernel("zr_kw_ruby2_out_yield", argc, array_ptr(ary))
+            argc = yield_keyword_argc(node, array_len(ary), array_ptr(ary))
             r = checked(block_call(argc, array_ptr(ary)))
+            kernel("zr_spread_give", @f.fetch("i64", @rec, value_offset(slot + 1))) unless @f.terminated?
             @sp = slot
             return r
           end
 
           staged(parts) do |argv|
             at_node(node)
-            argc = imm(parts.size)
-            argc = kernel("zr_kw_argc_yield", argc, argv) if node.kwargs
-            checked(block_call(argc, argv))
+            checked(block_call(yield_keyword_argc(node, imm(parts.size), argv), argv))
           end
+        end
+
+        # A yield's count, as `Sends#keyword_argc` makes a call's: an empty
+        # Hash still counts as keywords given (zr_kw_argc_yield), and so
+        # does a splat's flagged Hash (zr_kw_ruby2_out_yield).
+        #: (Hir::Yield node, String argc, String argv) -> String
+        def yield_keyword_argc(node, argc, argv)
+          kwargs = node.kwargs
+          return node.args.any?(Hir::Splat) ? kernel("zr_kw_ruby2_out_yield", argc, argv) : argc unless kwargs
+          return kernel("zr_kw_argc_lent_yield", argc, argv) if lent_keywords?(node)
+          return kernel("zr_kw_argc_yield", argc, argv) unless Scope.literal_keywords?(kwargs)
+
+          keys = kwargs.pairs.each_slice(2).map do |key, _|
+            literal = key #: Hir::Literal
+            literal.value #: Symbol
+          end
+          @f.store(@f.symbol_value(@f.symbol(@l.keyword_table([keys.size, *keys]))), @task_addr, off(@task, "kw"), region: :task)
+          argc
         end
 
         # Calls the block at the site, as zr_yield does: test that there

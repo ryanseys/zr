@@ -98,8 +98,10 @@ module Zr
         when Hir::KwSplatElement then staging(node.pairs, base)
         when Hir::Once then staging(node.body, base)
         when Hir::Yield
-          parts = node.args + [node.kwargs].compact
-          spread?(parts) ? gathered(parts, base) : row(parts, base)
+          # Its keywords go as a call's (`Sends#keyword_args`); a spread
+          # keeps the spread stack's mark too.
+          parts = node.args + keyword_parts(node.kwargs)
+          spread?(parts) ? [base + 2, *parts.map { |p| staging(p, base + 2) }].max : row(parts, base)
         when Hir::ArrayLit then spread?(node.elements) ? gathered(node.elements, base) : row(node.elements, base)
         when Hir::HashLit then spread?(node.pairs) ? spread_pairs(node.pairs, base) : row(node.pairs, base)
         when Hir::AliasValue then row([node.new_name, node.old_name], base)
@@ -224,6 +226,14 @@ module Zr
       def literal_keywords?(kwargs)
         names = kwargs.pairs.each_slice(2).map { |key, _| key.value if key.is_a?(Hir::Literal) }
         names.all?(Symbol) && names.uniq.size == names.size
+      end
+
+      # The arguments that a call's keywords add (`Sends#keyword_args`).
+      #: (Hir::HashLit? kwargs) -> Array[untyped]
+      def keyword_parts(kwargs)
+        return [] unless kwargs
+
+        literal_keywords?(kwargs) ? kwargs.pairs.each_slice(2).map(&:last) : [kwargs]
       end
 
       # The record slots for a call's keywords, in addition to its arguments.

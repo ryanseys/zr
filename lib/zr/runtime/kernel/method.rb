@@ -268,7 +268,7 @@ module Zr::Kern
     if zr_trace_sends_p() && zr_trace_c_entry_p(e) && top != 0 && zr_trace_program_frame_p(Frame[top].prev)
       return zr_trace_send_invoke(e, RMethod[m].recv, MEntry[e].mid, argc, argv, blk, zr_kw_take(), TRACE_C_CALL)
     end
-    zr_invoke(e, RMethod[m].recv, argc, argv, blk, zr_kw_take())
+    zr_invoke(e, RMethod[m].recv, argc, argv, blk, zr_kw_take_lent())
   end
 
   # A send that a core method makes for the program that called it, as

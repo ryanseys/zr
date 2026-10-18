@@ -165,6 +165,13 @@ module Zr::Kern
     argc
   end
 
+  # Whether the entry hands the keyword word on to a block as it is
+  # (Proc#call, #[] and #yield): the block's own prologue reads it.
+  #: (ptr) -> bool
+  def zr_kw_forwards_p(e)
+    MEntry[e].fn == Machine.addr(:zr_proc_call)
+  end
+
   # The count of positional arguments among `argc` under the keyword
   # word `kw`: a table's values or a Hash are the last ones.
   #: (word, word) -> word
@@ -192,6 +199,18 @@ module Zr::Kern
     Task[t].kw = KW_LENT
     Task[t].kw_at = argv + ((argc - 1) * 8)
     argc
+  end
+
+  # zr_kw_argc_lent for a yield, or a Proc's call: an empty Hash is a
+  # table of no keywords, as zr_kw_argc_yield gives.
+  #: (word, ptr) -> word
+  def zr_kw_argc_lent_yield(argc, argv)
+    h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
+    if RHash[h].live == 0
+      Task[zr_task()].kw = Machine.word(Machine.static(:kw_none, 8))
+      return argc - 1
+    end
+    zr_kw_argc_lent(argc, argv)
   end
 
   # The keyword word `kw` with a lent Hash made the callee's own: a copy
@@ -273,7 +292,8 @@ module Zr::Kern
       Task[zr_task()].kw = Machine.word(Machine.static(:kw_none, 8))
       return argc - 1
     end
-    zr_kw_pass()
+    # The yield built the Hash for itself (KW_MUT).
+    Task[zr_task()].kw = KW_MUT
     argc
   end
 
@@ -365,27 +385,11 @@ module Zr::Kern
   # (zr_kw_argc_yield, Bug #19759).
   #: (word, ptr) -> word
   def zr_kw_ruby2_out_yield(argc, argv)
-    if !zr_kw_ruby2_tail(argc, argv)
+    if !zr_kw_ruby2_flagged(argc, argv)
       return argc
     end
-    zr_kw_argc_yield(argc, argv)
-  end
-
-  # Whether the last of `argc` arguments is a flagged Hash; if so, it is
-  # replaced with a copy without the flag.
-  #: (word, ptr) -> bool
-  def zr_kw_ruby2_tail(argc, argv)
-    if argc == 0
-      return false
-    end
-    h = Machine.value(Machine.load64(argv + ((argc - 1) * 8), 0))
-    if zr_special_p(h) || zr_type(h) != T_HASH || (RBasic[h].flags & FL_RUBY2) == 0
-      return false
-    end
-    copy = zr_hash_new()
-    zr_hash_update(copy, h)
-    Machine.store64(argv + ((argc - 1) * 8), 0, Machine.word(copy))
-    true
+    # Lent as zr_kw_ruby2_out lends it; an empty one is still keywords.
+    zr_kw_argc_lent_yield(argc, argv)
   end
 
   #: () -> word
@@ -1219,13 +1223,15 @@ module Zr::Kern
   #: (ptr, value, word, ptr, value, word) -> value
   def zr_invoke(e, recv, argc, argv, blk, kw)
     kind = MEntry[e].kind
-    # Only a compiled def reads a lent Hash in place.
-    if kind != KIND_DEF
+    # Only a compiled def, or a block through Proc#call, reads a lent
+    # Hash in place.
+    forwards = zr_kw_forwards_p(e)
+    if kind != KIND_DEF && !forwards
       kw = zr_kw_own(kw)
     end
-    # Proc#call gives the block the keyword word as it is, so a table
-    # of no keywords still keeps a lone Array whole.
-    if kw > KW_LENT && kind != KIND_DEF && kind != KIND_BMETHOD && (MEntry[e].fn != Machine.addr(:zr_proc_call) || Machine.load64(kw, 0) != 0)
+    # Proc#call gives the block the keyword word as it is: a table, as a
+    # yield gives one, and a table of no keywords keeps a lone Array whole.
+    if kw > KW_LENT && kind != KIND_DEF && kind != KIND_BMETHOD && !forwards
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end

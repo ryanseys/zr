@@ -532,7 +532,8 @@ module Zr::Kern
   #: (value, word, ptr, ptr, value, value) -> value
   def zr_invoke_fn(recv, argc, argv, e, blk, found)
     Task[zr_task()].found = found
-    zr_invoke(e, recv, argc, argv, blk, zr_kw_take())
+    # zr_invoke makes a lent Hash the callee's own where it must.
+    zr_invoke(e, recv, argc, argv, blk, zr_kw_take_lent())
   end
 
   # Runs a hit on a builtin entry. It does only the dispatch steps for a
@@ -544,8 +545,11 @@ module Zr::Kern
   def zr_builtin_fn(recv, argc, argv, e, blk, found)
     t = zr_task()
     Task[t].found = found
-    kw = zr_kw_own(Task[t].kw)
-    if kw > KW_LENT
+    kw = Task[t].kw
+    if !zr_kw_forwards_p(e)
+      kw = zr_kw_own(kw)
+    end
+    if kw > KW_LENT && !zr_kw_forwards_p(e)
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
