@@ -13,6 +13,5 @@ TestGc#test_stat_global_scope_preserves_nested_ractor_history	timeout
 TestGc#test_stat_heap_all	gc: zr has no size pools like CRuby's heaps
 TestGc#test_stat_global_scope_retains_finished_ractor_history	gc: zr has one heap for all Ractors, so the per-Ractor and global counts and scopes differ
 TestGc#test_heaps_grow_independently	gc: zr has no size pools like CRuby's heaps
-TestGc#test_old_to_young_reference	gc: zr's objspace dump has no generational flags
 TestGc#test_stat_global_gc_count_is_per_ractor	gc: zr has one heap for all Ractors, so the per-Ractor and global counts and scopes differ
 TestGc#test_stat_global_scope_global_gc_count_retains_unjoined_ractor	gc: zr has one heap for all Ractors, so the per-Ractor and global counts and scopes differ
