@@ -438,6 +438,7 @@ module Zr
             end
 
             word = tables[order[12]]
+            print = tables[order[7]]
             rows = case_fold.sort.map { |from, list| [from, list.size, *list, *[0] * (3 - list.size)] }
 
             io.print(<<~RUBY)
@@ -454,6 +455,8 @@ module Zr
             emit_bytes(io, "zr_onig_ctype_bits", ctype_bits.pack("V*").bytes, "The 8859-1 ctype bits of each code point under 256, as 256 words (unicode.c).")
             io.print "\n"
             emit_bytes(io, "zr_onig_word_ranges", ([word.size] + word.flatten).pack("V*").bytes, "CR_Word: the count, then (low, high) pairs of code points, as words.")
+            io.print "\n"
+            emit_bytes(io, "zr_onig_print_ranges", ([print.size] + print.flatten).pack("V*").bytes, "CR_Print: the count, then (low, high) pairs of code points, as words.")
             io.print "\n"
             emit_bytes(io, "zr_onig_fold_rows", ([rows.size] + rows.flatten).pack("V*").bytes, "CaseFold_11 sorted by code point: the count, then rows of five words (from, how many, three codes).")
             io.print "end\n"

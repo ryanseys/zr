@@ -203,6 +203,37 @@ module Zr::Kern
     zr_fix((RBasic[s].flags & FL_CR_MASK) >> 20)
   end
 
+  # Where the run of characters that `inspect` writes as they are ends in
+  # the UTF-8 String `s`, from byte `from`: printable ASCII other than `"`,
+  # `\` and `#`, and, when `own` (the String is in the encoding that
+  # inspect returns), each whole character of Onigmo's Print class. The
+  # caller writes the character at the end its own way.
+  #: (value, value, value) -> value
+  def zr_str_inspect_run_m(s, from, own)
+    n = RString[s].len
+    p = RString[s].ptr
+    i = zr_fix2long(from)
+    while i < n
+      c = Machine.u8(Machine.load8(p + i, 0))
+      if c < 128
+        if c < 32 || c == 127 || c == 34 || c == 92 || c == 35
+          return zr_fix(i)
+        end
+        i += 1
+      else
+        if own == QFALSE
+          return zr_fix(i)
+        end
+        len = zr_utf8_char_len(p + i, n - i)
+        if len == 0 || !zr_onig_in_code_range_p(zr_onig_print_ranges(), zr_onig_utf8_to_code(p + i, p + i + len))
+          return zr_fix(i)
+        end
+        i += len
+      end
+    end
+    zr_fix(i)
+  end
+
   # Whether each byte of `s` is below 0x80, by the coderange that `s`
   # keeps or else by a scan that keeps nothing (dump_string_ascii_only).
   #: (value) -> value
@@ -3007,20 +3038,29 @@ G_FROZEN_LITERALS = 52
     n = RString[s].len
     b = Machine.slot(Buf.size)
     zr_buf_init(b)
+    # Most folds keep the length of the text.
+    zr_buf_reserve(b, n)
     i = 0
     while i < n
       p = RString[s].ptr + i
-      len = zr_utf8_char_len(p, n - i)
-      row = zr_onig_fold_lookup(zr_onig_utf8_to_code(p, p + len))
-      if row != 0
-        count = Machine.u32(Machine.load32(row, 4))
-        j = 0
-        while j < count
-          zr_buf_utf8(b, Machine.u32(Machine.load32(row + (j * 4), 8)))
-          j += 1
-        end
+      # The fold of an ASCII character is its lower case.
+      c = Machine.u8(Machine.load8(p, 0))
+      len = 1
+      if c < 128
+        zr_buf_byte(b, zr_onig_ascii_lower(c))
       else
-        zr_buf_push(b, p, len)
+        len = zr_utf8_char_len(p, n - i)
+        row = zr_onig_fold_lookup(zr_onig_utf8_to_code(p, p + len))
+        if row != 0
+          count = Machine.u32(Machine.load32(row, 4))
+          j = 0
+          while j < count
+            zr_buf_utf8(b, Machine.u32(Machine.load32(row + (j * 4), 8)))
+            j += 1
+          end
+        else
+          zr_buf_push(b, p, len)
+        end
       end
       i += len
     end

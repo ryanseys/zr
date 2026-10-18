@@ -1892,6 +1892,13 @@ class String
     out = +"\""
     i = 0
     while i < Primitive.zr_str_bytesize(self)
+      # The characters that print as themselves go over as one run.
+      run = Primitive.zr_str_inspect_run_m(self, i, own)
+      if run > i
+        Primitive.zr_str_cat_range(out, self, i, run - i)
+        i = run
+        next
+      end
       n = Primitive.zr_str_char_len_at_m(self, i)
       if n == 1
         byte = Primitive.zr_str_byte_at(self, i)
