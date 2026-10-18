@@ -2252,9 +2252,12 @@ module Zr::Kern
   # its size in one step, with no overshoot.
   #
   # `wanting` (the class whose empty free list started this collection)
-  # always grows, to free cells equal to the whole heap's live *bytes*. A
+  # grows so that the whole heap has free bytes equal to its live bytes. A
   # collection marks all live objects of all sizes, so its cost is shared
-  # across all of them. The unit is bytes, not cells: with cells, the
+  # across all of them. The budget is the heap's, not each class's: with
+  # free bytes equal to the live bytes in each class that ran out, an eval
+  # loop with 8 MB live grew each of the four classes to 8 MB free, and
+  # touched all of it. The unit is bytes, not cells: with cells, the
   # 256-byte class got eight times the room of the 32-byte class for the
   # same count.
   #
@@ -2281,6 +2284,15 @@ module Zr::Kern
     pressed = zr_heap_pressed()
     goal = pressed ? FREE_FLOOR : FREE_GOAL
     live_bytes = zr_live_bytes()
+    free_bytes = 0
+    c = 0
+    while c < SIZE_CLASSES
+      if c != wanting
+        free_bytes += SizeClass[zr_size_class(c)].freed * (CELL_MIN << c)
+      end
+      c += 1
+    end
+    budget = live_bytes > free_bytes ? live_bytes - free_bytes : 0
     c = 0
     while c < SIZE_CLASSES
       sc = zr_size_class(c)
@@ -2289,12 +2301,14 @@ module Zr::Kern
       live = capacity - free
       want = capacity
       most = (capacity * GROWTH) / 100
-      if c == wanting && !pressed
-        want = live + (live_bytes / (CELL_MIN << c))
-      elsif c == wanting && short
+      if c == wanting && short
         want = most
-      elsif free * 100 < capacity * FREE_FLOOR
-        want = (live * 100) / (100 - goal)
+      elsif c == wanting && !pressed
+        want = live + (budget / (CELL_MIN << c))
+      end
+      if free * 100 < capacity * FREE_FLOOR
+        floor = (live * 100) / (100 - goal)
+        want = want > floor ? want : floor
       end
       cells = want < most ? want : most
       while SizeClass[sc].arenas * ARENA_CELLS < cells
