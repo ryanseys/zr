@@ -1743,6 +1743,7 @@ class Fiber
   def backtrace(start = 0, length = nil)
     return caller(start, length) if equal?(Fiber.current)
     return [] if !alive? || Primitive.zr_fiber_unborn_p(self)
+    return Primitive.zr_fiber_backtrace_m(self, 0, -1)&.[](start) if Range === start
 
     Primitive.zr_fiber_backtrace_m(self, start, length.nil? ? -1 : length)
   end
@@ -1750,6 +1751,7 @@ class Fiber
   def backtrace_locations(start = 0, length = nil)
     return caller_locations(start, length) if equal?(Fiber.current)
     return [] if !alive? || Primitive.zr_fiber_unborn_p(self)
+    return Thread::Backtrace::Location.send(:of_fiber, self, 0, -1)&.[](start) if Range === start
 
     Thread::Backtrace::Location.send(:of_fiber, self, start, length.nil? ? -1 : length)
   end

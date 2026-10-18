@@ -1,0 +1,7 @@
+unborn: [[], []]
+all: true
+start: [true, true]
+length: [true, true]
+range: [true, true, []]
+locations: [true, true]
+dead: [[], []]
