@@ -275,6 +275,19 @@ module Zr::Kern
     end
     b = zr_binding_at(rec)
     RProc[b].self = main
+    # A method that keeps its locals only in its frame record (no Env)
+    # lends the command a snapshot of them: the command reads them, as the
+    # interrupted frame's own locals, and its writes stay in the snapshot.
+    meta = Frame[rec].meta
+    if RProc[b].env == QNIL && FrameMeta[meta].env == 0 && FrameMeta[meta].kind == KIND_DEF && FrameMeta[meta].locals != 0
+      table = FrameMeta[meta].locals
+      n = Machine.load64(table, 0)
+      env = zr_env_new(Machine.value(QNIL), n, table)
+      zr_memcpy(REnv[env].slots, rec + Frame.size, n * 8)
+      zr_write_barrier_all(env)
+      RProc[b].env = env
+      zr_write_barrier(b, env)
+    end
     b
   end
 
