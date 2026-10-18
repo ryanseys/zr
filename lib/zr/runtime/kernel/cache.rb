@@ -546,7 +546,7 @@ module Zr::Kern
     t = zr_task()
     Task[t].found = found
     kw = Task[t].kw
-    if !zr_kw_forwards_p(e)
+    if kw != 0 && !zr_kw_forwards_p(e)
       kw = zr_kw_own(kw)
     end
     if kw > KW_LENT && !zr_kw_forwards_p(e)

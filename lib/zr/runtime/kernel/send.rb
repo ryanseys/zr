@@ -172,6 +172,8 @@ module Zr::Kern
     MEntry[e].fn == Machine.addr(:zr_proc_call)
   end
 
+  inline :zr_kw_forwards_p
+
   # The count of positional arguments among `argc` under the keyword
   # word `kw`: a table's values or a Hash are the last ones.
   #: (word, word) -> word
@@ -217,6 +219,10 @@ module Zr::Kern
   # in its argument slot, and the word 1, also in the task.
   #: (word) -> word
   def zr_kw_own(kw)
+    # No keywords, a Hash or a table: nothing to do.
+    if kw < KW_MUT || kw > KW_LENT
+      return kw
+    end
     t = zr_task()
     if kw == KW_MUT
       if Task[t].kw == KW_MUT
@@ -1225,13 +1231,12 @@ module Zr::Kern
     kind = MEntry[e].kind
     # Only a compiled def, or a block through Proc#call, reads a lent
     # Hash in place.
-    forwards = zr_kw_forwards_p(e)
-    if kind != KIND_DEF && !forwards
+    if kw != 0 && kind != KIND_DEF && !zr_kw_forwards_p(e)
       kw = zr_kw_own(kw)
     end
     # Proc#call gives the block the keyword word as it is: a table, as a
     # yield gives one, and a table of no keywords keeps a lone Array whole.
-    if kw > KW_LENT && kind != KIND_DEF && kind != KIND_BMETHOD && !forwards
+    if kw > KW_LENT && kind != KIND_DEF && kind != KIND_BMETHOD && !zr_kw_forwards_p(e)
       argc = zr_kw_tab_in(kw, argc, argv)
       kw = zr_kw_hashed(kw)
     end
