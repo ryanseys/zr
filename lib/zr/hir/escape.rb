@@ -37,6 +37,45 @@ module Zr
       #: (untyped node, Symbol name) -> bool
       def self.spread_only?(node, name) = new(name).spread?(node, 0)
 
+      # The anonymous `*`, `**` and `&` that `...` binds.
+      FORWARDED = %i[* ** &].freeze
+
+      # Whether `node` reads the anonymous `*`, `**` and `&` only in calls
+      # that forward all three in place (`f(x, ...)`) in the def's own
+      # scope, not in a block: then the def keeps its arguments where its
+      # caller put them, and each such call passes them on from there
+      # (`Zr::Lower::Function::Params#forwards?`).
+      #: (untyped node) -> bool
+      def self.forward_only?(node)
+        case node
+        when Local, Assign then !FORWARDED.include?(node.name) && (!node.is_a?(Assign) || forward_only?(node.value))
+        when Send
+          parts = forward_call?(node) ? [node.recv, *node.args[0...-1]] : node.to_a
+          parts.all? { forward_only?(it) }
+        when Def then forward_only?(node.receiver)
+        when ClassDef then forward_only?(node.scope) && forward_only?(node.superclass)
+        when ModuleDef then forward_only?(node.scope)
+        when SingletonClassDef then forward_only?(node.target)
+        when Node, Array then Hir.all_children?(node) { forward_only?(it) }
+        else true
+        end
+      end
+
+      # A call that forwards the anonymous `*`, `**` and `&` of its own
+      # def's scope as its last arguments, its keywords and its block.
+      #: (Send node) -> bool
+      def self.forward_call?(node)
+        rest = node.args.last
+        kwargs = node.kwargs
+        block = node.block
+        return false if node.safe || !rest.is_a?(Splat) || !kwargs.is_a?(HashLit) || !block.is_a?(BlockPass)
+        return false unless kwargs.pairs.size == 2 && kwargs.pairs.first.is_a?(HashSplat)
+
+        [[rest.value, :*], [kwargs.pairs.first.value, :**], [block.value, :&]].all? do |value, name|
+          value.is_a?(Local) && value.name == name && value.depth.zero?
+        end
+      end
+
       #: (Symbol name) -> void
       def initialize(name)
         @name = name

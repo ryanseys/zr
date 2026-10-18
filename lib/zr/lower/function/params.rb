@@ -27,6 +27,9 @@ module Zr
         # @rbs @self: String
         # @rbs @slot_of: Hash[Symbol, Integer]
         # @rbs @kw_mut: String?
+        # @rbs @forwards: bool?
+        # @rbs @forward_at: Integer?
+        # @rbs @forwarding: bool?
         # @rbs @task: Machine::Layout
         # @rbs @task_addr: String
         # @rbs @twin_of: String?
@@ -51,6 +54,8 @@ module Zr
 
         #: (Hir::Params p, String argc, String argv) -> void
         def bind_method(p, argc, argv)
+          return bind_forwarding(p, argc, argv) if forwards?(p)
+
           # Both are set when `keywords?(p)`, and only then read:
           # @type var kwargs_at: Integer
           # @type var tab: String
@@ -67,6 +72,42 @@ module Zr
           bind_positional(p, argc, argv, strict: true)
           bind_keywords(p, kwargs_at, tab, argc, argv) if keywords?(p) && p.kwrest != :nokey
           bind_block_param(p, @blk)
+        end
+
+        # Whether the def's `...` (or its anonymous `*`, `**` and `&`) only
+        # forwards (`Hir::Escape.forward_only?`): then the arguments stay
+        # where the caller put them, and each forwarding call passes them
+        # on from there (`Sends#forward_call`), with no Array or Hash, as
+        # CRuby's VM forwards them. Nothing can read the locals otherwise:
+        # no Env, Binding, eval or hook.
+        #: (Hir::Params p) -> bool
+        def forwards?(p)
+          return @forwards unless @forwards.nil?
+
+          @forwards = @kind == :def && p.rest == :* && p.kwrest == :** && p.block == :& && p.optional.empty? && p.post.empty? &&
+                      p.keywords.empty? && p.required.all?(Symbol) && !@has_env && !@l.traced? &&
+                      !Hir::Locals.opens_locals?(@body, computed: !@l.internal?) && Hir::Escape.forward_only?([@body, *default_expressions])
+        end
+
+        # The prologue of a forwarding def: it keeps its argument count,
+        # its argument vector and its keyword word in record slots, as
+        # Fixnums, and binds only its leading parameters and its block.
+        #: (Hir::Params p, String argc, String argv) -> void
+        def bind_forwarding(p, argc, argv)
+          @forward_at = reserve(3)
+          kw = take_keyword_word
+          [argc, argv, kw].each_with_index { |v, i| @f.store(@f.bor(@f.ishl(v, imm(1)), imm(1)), @rec, value_offset(@forward_at + i)) }
+          check_arity(p, kernel("zr_kw_positional", kw, argc))
+          p.required.each_with_index { |name, i| bind(name, arg_at(argv, imm(i))) }
+          %i[* **].each { |name| bind(name, @qnil) }
+          bind_block_param(p, @blk)
+        end
+
+        # The forwarding def's count, vector and keyword word (`bind_forwarding`).
+        #: () -> [String, String, String]
+        def forwarded
+          at = @forward_at #: Integer
+          Array.new(3) { |i| @f.sshr(@f.fetch("i64", @rec, value_offset(at + i)), imm(1)) }
         end
 
         # A lambda checks its arity and never spreads. One function serves

@@ -307,6 +307,16 @@ module Zr::Kern
     a
   end
 
+  # Pushes the `n` Values at `p` onto `a`.
+  #: (value, ptr, word) -> void
+  def zr_ary_push_words(a, p, n)
+    i = 0
+    while i < n
+      zr_ary_push(a, Machine.value(Machine.load64(p + (i * 8), 0)))
+      i += 1
+    end
+  end
+
   # The task's spread stack: Arrays that a call with a splat stages its
   # arguments in, so that the call makes no Array of its own, as CRuby's
   # VM spreads them on its stack. A call takes the Array at the top and

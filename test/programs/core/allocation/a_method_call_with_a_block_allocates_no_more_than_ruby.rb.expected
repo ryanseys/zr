@@ -11,4 +11,6 @@ test_required_positional_and_keyword_parameter: ok
 test_positional_splat_and_keyword_parameter: ok
 test_required_and_keyword_splat_parameter: ok
 test_positional_splat_and_keyword_splat_parameter: ok
+test_argument_forwarding: ok
+test_nested_argument_forwarding: ok
 test_ruby2_keywords: ok

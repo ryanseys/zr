@@ -165,6 +165,35 @@ module Zr::Kern
     argc
   end
 
+  # The count of positional arguments among `argc` under the keyword
+  # word `kw`: a table's values or a Hash are the last ones.
+  #: (word, word) -> word
+  def zr_kw_positional(kw, argc)
+    if kw == 0
+      return argc
+    end
+    if kw > KW_LENT
+      return argc - Machine.load64(kw, 0)
+    end
+    argc - 1
+  end
+
+  # A forwarding call's keywords (Function#forward_call): the word that
+  # its def got, with a Hash lent from where it now is, the last of the
+  # `argc` arguments at `argv`. A table goes as it is: its values stay the
+  # last ones. Returns `argc`.
+  #: (word, ptr, word) -> word
+  def zr_kw_forward(argc, argv, kw)
+    t = zr_task()
+    if kw == 0 || kw > KW_LENT
+      Task[t].kw = kw
+      return argc
+    end
+    Task[t].kw = KW_LENT
+    Task[t].kw_at = argv + ((argc - 1) * 8)
+    argc
+  end
+
   # The keyword word `kw` with a lent Hash made the callee's own: a copy
   # in its argument slot, and the word 1, also in the task.
   #: (word) -> word

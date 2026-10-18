@@ -14,7 +14,10 @@ nill = nill = nil
 block = block = lambda {}
 $counts = {}
 $more = []
+# Each call runs once before it is measured, so a cache that its first
+# run fills does not count.
 def row(arrays, hashes, code)
+  yield
   ObjectSpace.count_objects($counts)
   a = $counts[:T_ARRAY]
   h = $counts[:T_HASH]
@@ -363,6 +366,81 @@ group(:test_positional_splat_and_keyword_splat_parameter) do
   row(1, 1, "splat_and_keyword_splat(*r2k_array, &block)") { splat_and_keyword_splat(*r2k_array, &block) }
   row(1, 1, "splat_and_keyword_splat(*r2k_empty_array1, &block)") { splat_and_keyword_splat(*r2k_empty_array1, &block) }
   row(1, 1, "splat_and_keyword_splat(*r2k_array1, &block)") { splat_and_keyword_splat(*r2k_array1, &block) }
+end
+
+def self.argument_forwarding(...); end
+
+group(:test_argument_forwarding) do
+  row(0, 0, "argument_forwarding(1, a: 2, &block)") { argument_forwarding(1, a: 2, &block) }
+  row(0, 0, "argument_forwarding(1, *empty_array, a: 2, &block)") { argument_forwarding(1, *empty_array, a: 2, &block) }
+  row(0, 1, "argument_forwarding(1, a:2, **empty_hash, &block)") { argument_forwarding(1, a:2, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, **empty_hash, a: 2, &block)") { argument_forwarding(1, **empty_hash, a: 2, &block) }
+  row(0, 0, "argument_forwarding(1, **nil, &block)") { argument_forwarding(1, **nil, &block) }
+  row(0, 0, "argument_forwarding(1, **empty_hash, &block)") { argument_forwarding(1, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(1, **hash1, &block)") { argument_forwarding(1, **hash1, &block) }
+  row(0, 0, "argument_forwarding(1, *empty_array, **hash1, &block)") { argument_forwarding(1, *empty_array, **hash1, &block) }
+  row(0, 1, "argument_forwarding(1, **hash1, **empty_hash, &block)") { argument_forwarding(1, **hash1, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, **empty_hash, **hash1, &block)") { argument_forwarding(1, **empty_hash, **hash1, &block) }
+  row(0, 0, "argument_forwarding(1, *empty_array, &block)") { argument_forwarding(1, *empty_array, &block) }
+  row(1, 0, "argument_forwarding(1, *empty_array, *empty_array, **empty_hash, &block)") { argument_forwarding(1, *empty_array, *empty_array, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(*array1, a: 2, &block)") { argument_forwarding(*array1, a: 2, &block) }
+  row(0, 0, "argument_forwarding(**nill, &block)") { argument_forwarding(**nill, &block) }
+  row(0, 0, "argument_forwarding(*nil, **nill, &block)") { argument_forwarding(*nil, **nill, &block) }
+  row(0, 0, "argument_forwarding(*array1, **nill, &block)") { argument_forwarding(*array1, **nill, &block) }
+  row(0, 0, "argument_forwarding(*array1, **empty_hash, &block)") { argument_forwarding(*array1, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(*array1, **hash1, &block)") { argument_forwarding(*array1, **hash1, &block) }
+  row(1, 0, "argument_forwarding(*array1, *empty_array, **hash1, &block)") { argument_forwarding(*array1, *empty_array, **hash1, &block) }
+  row(1, 0, "argument_forwarding(*array1, *empty_array, &block)") { argument_forwarding(*array1, *empty_array, &block) }
+  row(1, 0, "argument_forwarding(*array1, *empty_array, **empty_hash, &block)") { argument_forwarding(*array1, *empty_array, **empty_hash, &block) }
+  row(1, 1, "argument_forwarding(*array1, *empty_array, a: 2, **empty_hash, &block)") { argument_forwarding(*array1, *empty_array, a: 2, **empty_hash, &block) }
+  row(1, 1, "argument_forwarding(*array1, *empty_array, **hash1, **empty_hash, &block)") { argument_forwarding(*array1, *empty_array, **hash1, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, *empty_array, a: 2, **empty_hash, &block)") { argument_forwarding(1, *empty_array, a: 2, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, *empty_array, **hash1, **empty_hash, &block)") { argument_forwarding(1, *empty_array, **hash1, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(*array1, **empty_hash, a: 2, &block)") { argument_forwarding(*array1, **empty_hash, a: 2, &block) }
+  row(0, 1, "argument_forwarding(*array1, **hash1, **empty_hash, &block)") { argument_forwarding(*array1, **hash1, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(*array1, **nil, &block)") { argument_forwarding(*array1, **nil, &block) }
+  row(0, 0, "argument_forwarding(*r2k_empty_array, &block)") { argument_forwarding(*r2k_empty_array, &block) }
+  row(0, 0, "argument_forwarding(*r2k_array, &block)") { argument_forwarding(*r2k_array, &block) }
+  row(0, 0, "argument_forwarding(*r2k_empty_array1, &block)") { argument_forwarding(*r2k_empty_array1, &block) }
+  row(0, 0, "argument_forwarding(*r2k_array1, &block)") { argument_forwarding(*r2k_array1, &block) }
+end
+
+def self.t(...) end
+def self.argument_forwarding(...); t(...) end
+
+group(:test_nested_argument_forwarding) do
+  row(0, 0, "argument_forwarding(1, a: 2, &block)") { argument_forwarding(1, a: 2, &block) }
+  row(0, 0, "argument_forwarding(1, *empty_array, a: 2, &block)") { argument_forwarding(1, *empty_array, a: 2, &block) }
+  row(0, 1, "argument_forwarding(1, a:2, **empty_hash, &block)") { argument_forwarding(1, a:2, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, **empty_hash, a: 2, &block)") { argument_forwarding(1, **empty_hash, a: 2, &block) }
+  row(0, 0, "argument_forwarding(1, **nil, &block)") { argument_forwarding(1, **nil, &block) }
+  row(0, 0, "argument_forwarding(1, **empty_hash, &block)") { argument_forwarding(1, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(1, **hash1, &block)") { argument_forwarding(1, **hash1, &block) }
+  row(0, 0, "argument_forwarding(1, *empty_array, **hash1, &block)") { argument_forwarding(1, *empty_array, **hash1, &block) }
+  row(0, 1, "argument_forwarding(1, **hash1, **empty_hash, &block)") { argument_forwarding(1, **hash1, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, **empty_hash, **hash1, &block)") { argument_forwarding(1, **empty_hash, **hash1, &block) }
+  row(0, 0, "argument_forwarding(1, *empty_array, &block)") { argument_forwarding(1, *empty_array, &block) }
+  row(1, 0, "argument_forwarding(1, *empty_array, *empty_array, **empty_hash, &block)") { argument_forwarding(1, *empty_array, *empty_array, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(*array1, a: 2, &block)") { argument_forwarding(*array1, a: 2, &block) }
+  row(0, 0, "argument_forwarding(**nill, &block)") { argument_forwarding(**nill, &block) }
+  row(0, 0, "argument_forwarding(*nil, **nill, &block)") { argument_forwarding(*nil, **nill, &block) }
+  row(0, 0, "argument_forwarding(*array1, **nill, &block)") { argument_forwarding(*array1, **nill, &block) }
+  row(0, 0, "argument_forwarding(*array1, **empty_hash, &block)") { argument_forwarding(*array1, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(*array1, **hash1, &block)") { argument_forwarding(*array1, **hash1, &block) }
+  row(1, 0, "argument_forwarding(*array1, *empty_array, **hash1, &block)") { argument_forwarding(*array1, *empty_array, **hash1, &block) }
+  row(1, 0, "argument_forwarding(*array1, *empty_array, &block)") { argument_forwarding(*array1, *empty_array, &block) }
+  row(1, 0, "argument_forwarding(*array1, *empty_array, **empty_hash, &block)") { argument_forwarding(*array1, *empty_array, **empty_hash, &block) }
+  row(1, 1, "argument_forwarding(*array1, *empty_array, a: 2, **empty_hash, &block)") { argument_forwarding(*array1, *empty_array, a: 2, **empty_hash, &block) }
+  row(1, 1, "argument_forwarding(*array1, *empty_array, **hash1, **empty_hash, &block)") { argument_forwarding(*array1, *empty_array, **hash1, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, *empty_array, a: 2, **empty_hash, &block)") { argument_forwarding(1, *empty_array, a: 2, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(1, *empty_array, **hash1, **empty_hash, &block)") { argument_forwarding(1, *empty_array, **hash1, **empty_hash, &block) }
+  row(0, 1, "argument_forwarding(*array1, **empty_hash, a: 2, &block)") { argument_forwarding(*array1, **empty_hash, a: 2, &block) }
+  row(0, 1, "argument_forwarding(*array1, **hash1, **empty_hash, &block)") { argument_forwarding(*array1, **hash1, **empty_hash, &block) }
+  row(0, 0, "argument_forwarding(*array1, **nil, &block)") { argument_forwarding(*array1, **nil, &block) }
+  row(0, 0, "argument_forwarding(*r2k_empty_array, &block)") { argument_forwarding(*r2k_empty_array, &block) }
+  row(0, 0, "argument_forwarding(*r2k_array, &block)") { argument_forwarding(*r2k_array, &block) }
+  row(0, 0, "argument_forwarding(*r2k_empty_array1, &block)") { argument_forwarding(*r2k_empty_array1, &block) }
+  row(0, 0, "argument_forwarding(*r2k_array1, &block)") { argument_forwarding(*r2k_array1, &block) }
 end
 
 def self.r2k(*a, &block); end

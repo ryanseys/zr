@@ -14,6 +14,8 @@ module Zr
         # @rbs @f: IR::Function
         # @rbs @funcalls: Hash[Hir::Send, bool]?
         # @rbs @keywords: Hash[Hir::HashLit, Symbol]?
+        # @rbs @forward_at: Integer?
+        # @rbs @forwarding: bool?
         # @rbs @kind: Function::kind
         # @rbs @l: Lower
         # @rbs @locals: Array[Symbol]
@@ -149,6 +151,7 @@ module Zr
           end
           return primitive(node) if primitive?(node)
           return identity(node) if identity?(node)
+          return forward_call(node) if @forward_at && Hir::Escape.forward_call?(node)
 
           recv_node = node.recv || Hir::SelfRef.new(node.line)
           return direct_operator(node, recv_node) if direct_operands?(node, recv_node)
@@ -178,6 +181,28 @@ module Zr
               r = send_staged(node, @f.fetch("i64", slots), @f.iadd(slots, imm(8)), imm(args.size))
               node.write ? @f.fetch("i64", slots, 8 * node.args.size) : r
             end
+          end
+        end
+
+        # `f(x, ...)` in a forwarding def (`Params#forwards?`): the leading
+        # arguments, then the def's own arguments after its leading
+        # parameters, go on the spread stack; the keywords go as the def got
+        # them, a Hash lent (`zr_kw_forward`), and the block as it is.
+        #: (Hir::Send node) -> String
+        def forward_call(node)
+          recv_node = node.recv || Hir::SelfRef.new(node.line)
+          staged([recv_node], 2) do |slots, base|
+            @f.store(kernel("zr_spread_mark"), @rec, value_offset(base + 2))
+            ary = gather(node.args[0...-1], base + 1, spread: true)
+            argc, argv, kw = forwarded
+            start = own_params.required.size
+            kernel("zr_ary_push_words", ary, @f.iadd(argv, imm(8 * start)), @f.isub(argc, imm(start)))
+            count = kernel("zr_kw_forward", array_len(ary), array_ptr(ary), kw)
+            @forwarding = true
+            r = send_staged(node, @f.fetch("i64", slots), array_ptr(ary), count)
+            @forwarding = false
+            kernel("zr_spread_give", @f.fetch("i64", @rec, value_offset(base + 2))) unless @f.terminated?
+            r
           end
         end
 
@@ -633,6 +658,8 @@ module Zr
         # Hash.
         #: (Hir::Send | Hir::Super node, String argc, String argv) -> String
         def keyword_argc(node, argc, argv)
+          # A forwarding call set the word itself (`forward_call`).
+          return argc if @forwarding
           kwargs = node.kwargs
           if kwargs && Scope.literal_keywords?(kwargs)
             # `literal_keywords?` found a Symbol literal in each key.

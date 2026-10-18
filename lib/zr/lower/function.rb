@@ -57,6 +57,9 @@ module Zr
       # @rbs @env_layout: Machine::Layout
       # @rbs @slot_of: Hash[Symbol, Integer]
       # @rbs @kw_mut: String?
+      # @rbs @forwards: bool?
+      # @rbs @forward_at: Integer?
+      # @rbs @forwarding: bool?
       # @rbs @captures: Hash[Symbol, Integer]
       # @rbs @writes: Array[Symbol]
       # @rbs @has_env: bool
@@ -745,7 +748,8 @@ module Zr
         p = own_params
         nested = (p.required + p.post).filter_map { |t| Scope.targets(t) if t.is_a?(Hir::MultiTarget) }.max || 0
         spread = @kind == :block && p.spread? ? 1 : 0
-        (keywords?(p) ? 1 : 0) + spread + nested
+        # A forwarding def keeps three words (`bind_forwarding`).
+        (keywords?(p) ? 1 : 0) + spread + nested + (@kind == :def && forwards?(p) ? 2 : 0)
       end
 
       # The scope returns `value`. It fires its closing event first,
