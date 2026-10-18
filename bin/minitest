@@ -12,5 +12,8 @@ ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
 
 require "rubygems"
 require "bundler/setup"
+# Before minitest requires prism: zr's prism, when the bundle's is not it.
+require_relative "../test/support/prism_first"
+Zr::Test::PrismFirst.ensure!
 
 load Gem.bin_path("minitest", "minitest")
