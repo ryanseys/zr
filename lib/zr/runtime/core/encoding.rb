@@ -1189,7 +1189,8 @@ class Encoding
            else
              return nil unless fallback.respond_to?(:[])
 
-             fallback.public_send(:[], char)
+             # aref_fallback: rb_funcallv_public, which a BasicObject answers too.
+             Primitive.zr_public_call1_m(fallback, :[], char)
            end
     raise RuntimeError, "string modified" if watched && Primitive.zr_str_bytesize(watched[0]) != watched[1]
     return nil if text.nil?
