@@ -23,25 +23,38 @@ is the direct mapping, and it is fast: zr does not copy stacks.
 
 ## Threads
 
-A `Thread` is green: each one runs on a fiber of its own, and one
-thread runs at a time. A scheduler in the core library
-(`lib/zr/runtime/core/thread.rb`) keeps the run queue, the sleeping threads,
-and the threads that wait on a descriptor. A thread yields to the
-scheduler when it blocks: on `join`, `sleep`, a `Queue`, a `Mutex`, or
-a read that must wait.
+A `Thread` runs on an OS thread of its own, and one thread runs at a
+time: the one that holds the GVL. A scheduler in the core library
+(`lib/zr/runtime/core/thread.rb`) keeps the run queue, the sleeping
+threads, and the threads that wait on a descriptor, and it chooses the
+next thread. A switch hands the GVL to that thread's OS thread
+(`lib/zr/runtime/kernel/os/posix/gvl.rb`). A thread gives the GVL up
+when it blocks: on `join`, `sleep`, a `Queue`, a `Mutex`, or a read
+that must wait.
 
 A thread that never blocks is preempted. When a program starts its
 second thread, the runtime starts a timer thread that sets the *poll
 word* every 100 ms, which is also CRuby's quantum. Compiled code reads
 the word at safe points and yields to the scheduler.
 
-### Why green threads
+C that runs without the GVL (`rb_thread_call_without_gvl`, an FFI
+function with `blocking: true`, a Fiddle call) runs on its thread's
+own OS thread while the others run. When it returns, the thread waits
+for the GVL again.
+
+### Why a GVL
 
 CRuby also runs one thread at a time, under its GVL. A program that
-runs on CRuby does not depend on parallel threads, so green threads
-give it the same results. They also make every kernel operation atomic
-without locks, and they keep the collector simple: it stops nothing,
-because nothing else runs.
+runs on CRuby does not depend on parallel threads, so a GVL gives it
+the same results. It also makes every kernel operation atomic without
+locks, and it keeps the collector simple: only the GVL holder runs
+Ruby, so the collector stops nothing. Only three words are each
+thread's own: the current fiber, the current task and the kernel's
+roots. A handoff saves them and the next thread loads its own.
+
+On wasm32-wasi, and with `ZR_THREADS=green`, threads are green: each
+runs on a fiber of its own, all on one OS thread, and the same
+scheduler switches fibers where it would hand the GVL on.
 
 ## Ractors
 
@@ -57,7 +70,7 @@ All ractors share one heap. Thus `ObjectSpace.each_object` in a ractor
 also finds the objects of the others, and `GC.stat` counts the whole
 heap ([Differences from ruby](../reference/differences-from-ruby.md#details-that-zr-does-not-copy)).
 
-Ractors run on green tasks, as threads do. A program gets ruby's
+Ractors run under the one GVL, as threads do. A program gets ruby's
 results, but not parallel speed.
 
 ## On WebAssembly

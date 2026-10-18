@@ -190,5 +190,11 @@ The first public release.
   times faster, and long Integers' bitwise operators, shifts, squares,
   divisions and `Integer.sqrt` faster too (`Integer.sqrt` of a 90,000-bit
   square took a minute).
+- Each thread runs on an OS thread of its own under a GVL, on macOS and
+  Linux, as in ruby: C without the GVL (`rb_thread_call_without_gvl`, an
+  FFI function with `blocking: true`, Fiddle) runs on its thread while
+  the others run, `Thread#native_thread_id` is the OS thread's id, traps
+  run on the main thread, and a fork keeps only the thread that forked.
+  `ZR_THREADS=green` puts every thread on one OS thread, as on wasm.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

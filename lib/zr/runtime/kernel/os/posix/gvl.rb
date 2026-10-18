@@ -19,7 +19,8 @@ module Zr::Kern
   # signal interrupts the blocking call of the thread that runs, as it
   # does on one OS thread.
   #
-  # ZR_THREADS=native turns this on; by default threads stay green.
+  # Threads are native by default; ZR_THREADS=green keeps every thread on
+  # one OS thread, switched as fibers (the wasi model).
 
   # One thread's OS thread and its turn. The root fiber of each Ruby
   # thread has one (RFiber#native) from its first handoff.
@@ -76,13 +77,13 @@ module Zr::Kern
   THREADS_GREEN = 1
   THREADS_NATIVE = 2
 
-  # Whether threads are native: ZR_THREADS=native, read once.
+  # Whether threads are native: unless ZR_THREADS=green, read once.
   #: () -> bool
   def zr_threads_native
     mode = Machine.static(:threads_mode, 8)
     if Machine.load64(mode, 0) == 0
       v = Libc.getenv(Machine.bytes("ZR_THREADS\0"))
-      native = v != 0 && zr_bytes_eq(v, zr_cstr_len(v), Machine.bytes("native"), 6)
+      native = v == 0 || !zr_bytes_eq(v, zr_cstr_len(v), Machine.bytes("green"), 5)
       Machine.store64(mode, 0, native ? THREADS_NATIVE : THREADS_GREEN)
     end
     Machine.load64(mode, 0) == THREADS_NATIVE

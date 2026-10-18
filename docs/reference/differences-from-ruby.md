@@ -52,7 +52,7 @@ The programs in `test/programs/core/rubyvm/` test the parts of
 | `RUBY_PLATFORM` and `RbConfig::CONFIG["arch"]` | the platform of the target that zr built the binary for: `arm64-darwin23` (the Darwin version of macOS 14, the oldest macOS that the binary loads on), `aarch64-linux-musl` or `wasm32-wasi` | the platform that ruby was built for, so `arm64-darwin24` for a ruby built on macOS 15 |
 | `OpenSSL::OPENSSL_LIBRARY_VERSION` | the OpenSSL library that zr runs on. `OPENSSL_VERSION` is ruby's. | the library that ruby's openssl was built against |
 | The core library's own helpers (for example `Packing`, or a private constant such as `Array`'s `SMALL_ARRAY_LEN`) | hidden from the program: a read, `defined?`, `const_get` and the reflection do not find them, and a program's constant of the same name is its own | not there |
-| Threads | green: every thread runs on one OS thread, and a switch happens where a thread blocks or at a safe point once the 100 ms timer fires. `Thread#priority` is kept and read back, but does not change the order. A call into C code (FFI, Fiddle, a port's library call) blocks every thread until it returns. | threads run under the GVL, one at a time, and a blocking C call releases it; the timeslice shrinks or grows with the priority |
+| Threads | each thread runs on an OS thread of its own under a GVL, one at a time, and the GVL goes to another thread where a thread blocks or at a safe point once the 100 ms timer fires, as in ruby. A port's own library call (zlib's inflate, a digest's rounds) holds the GVL until it returns, where ruby's C releases it. On wasm32-wasi, and with `ZR_THREADS=green`, threads are green: all run on one OS thread, and a call into C blocks every thread. | threads run under the GVL, one at a time, and a blocking C call releases it; the timeslice shrinks or grows with the priority |
 | A gem's real C extension (`--native-ext`, [How to use a C extension](../how-to/use-a-c-extension.md)) | runs on macOS on Apple silicon and in a static aarch64-linux-musl binary, with the differences under [C extensions](#c-extensions) | every C extension, on every platform |
 | `method(:format) == method(:sprintf)` | false: they are two methods, so that a backtrace names the one that the program called | true: both names define one C function |
 | `Ruby::Box` (`RUBY_BOX=1`) | zr links each library into the program. A box's `require` of a library that its own load path does not hold, such as a C extension, runs it once through main and gives the box the constants that it made. All boxes share one rubygems, so one `Gem`. A method that main adds to a core module, such as `Math`, shows in the root box too. zr reads `BUNDLER_SETUP` when it builds the program. | each box loads its own copy of each library, of rubygems and of a C extension, from its own load path |
@@ -64,7 +64,7 @@ The programs in `test/programs/core/rubyvm/` test the parts of
 A static aarch64-linux-musl binary links a C extension from its objects,
 and cannot open OpenSSL. Each extension keeps its own copy of a global
 name that another one defines too, also on Linux, where ruby shares one
-copy. C that holds the GVL blocks every green thread; C in
+copy. With green threads (`ZR_THREADS=green`), C in
 `rb_thread_call_without_gvl` runs on a worker thread while the others
 run. `TYPE()` of an Exception, a Proc, a Method or a Fiber is zr's own
 tag, not ruby's, and C reaches an IO's `struct rb_io` through

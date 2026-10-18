@@ -7,10 +7,10 @@
 # (lib/zr/runtime/kernel/send.rb, zr_preempt). The core library's own
 # Ruby has no safe points, so each of its methods runs whole. The class
 # keeps the running thread, the run queue, and the sleepers with a
-# deadline. Threads are green, all on one OS thread, unless
-# ZR_THREADS=native gives each one an OS thread of its own; then the
-# switch hands the GVL to the next thread's OS thread
-# (lib/zr/runtime/kernel/os/posix/gvl.rb).
+# deadline. Each thread has an OS thread of its own, and the switch
+# hands the GVL to the next thread's OS thread
+# (lib/zr/runtime/kernel/os/posix/gvl.rb). On wasi, or with
+# ZR_THREADS=green, threads are green: all on one OS thread.
 class Thread
   @report_on_exception = true
   @abort_on_exception = false
@@ -1078,7 +1078,8 @@ class Thread
   end
 
   # The id of the thread's OS thread for as long as the thread lives.
-  # Green threads share one OS thread, so each gets an id of its own.
+  # Green threads share one OS thread, so each of those gets an id of
+  # its own.
   def native_thread_id
     return nil if @status == :dead
 

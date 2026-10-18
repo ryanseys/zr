@@ -54,6 +54,10 @@ module Zr
           def zr_arch_context_sp(ctx) = Memory.read(ctx + 24, 8).unpack1("q<")
           #: (Integer from, Integer to) -> nil
           def zr_switch(from, to) = self::BOOT.switch(from, to)
+          # The walker's threads stay green: each runs on a ruby Fiber, and
+          # no kernel code may run on an OS thread that ruby did not make.
+          #: () -> bool
+          def zr_threads_native = false
           #: (Integer record, Integer fn, Integer argv, Integer argc) -> Integer
           def zr_cframe_call(record, fn, argv, argc) = self::BOOT.cframe_call(record, fn, argv, argc)
           #: (Integer record) -> bot

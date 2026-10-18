@@ -100,9 +100,10 @@ that uses thread-local variables, or that links a library outside macOS.
 
 ## What is different from ruby
 
-- C that runs holds every green thread, as it holds the GVL in ruby.
-  C that releases the GVL (`rb_thread_call_without_gvl`) runs on a worker
-  thread, and the other threads run meanwhile.
+- C holds the GVL while it runs, as in ruby. C that releases the GVL
+  (`rb_thread_call_without_gvl`) runs on its thread's own OS thread, and
+  the other threads run meanwhile. With green threads
+  (`ZR_THREADS=green`), it runs on a worker thread instead.
 - `TYPE()` of an Exception, a Proc, a Method or a Fiber is not ruby's:
   zr keeps its own tags for them. C that reads them through functions
   (`rb_obj_is_proc`) gets ruby's answer.

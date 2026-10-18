@@ -5,5 +5,3 @@
 # The run skips a listed test that fails, and prints its reason. A listed
 # test that passes fails the run, with a message to remove it from this
 # file. Thus the file cannot become out of date.
-
-stdlib/ffi/a_thread_runs_off_the_process_main_thread.rb	a Thread is a green one and shares the main OS thread, so pthread_main_np answers 1 inside it
