@@ -1312,12 +1312,13 @@ class Thread
     Thread.send(:unwatch, self)
   end
 
-  # One park on `fd`: it ends when the scheduler finds `fd` ready, or when
-  # another thread wakes this one. The caller checks again what it
-  # waits for.
-  def park_io(fd, events)
+  # One park on `fd`: it ends when the scheduler finds `fd` ready, when
+  # another thread wakes this one, or at `deadline` (monotonic
+  # nanoseconds) if one is given. The caller checks again what it waits
+  # for.
+  def park_io(fd, events, deadline = nil)
     Primitive.attr! :hidden
-    watching([fd], [events]) { wait(nil, false) }
+    watching([fd], [events]) { wait(deadline, false) }
   end
 
   # Takes `mutex` back after Mutex#sleep or ConditionVariable#wait, as

@@ -42,6 +42,10 @@ module Process
   end
   private_class_method :status_of
 
+  # The longest park of a thread that waits for a child (reap).
+  PARK_NS = 100_000_000
+  private_constant :PARK_NS
+
   # waitpid(2) as rb_waitpid runs it: `[pid, status word]`, `[0, 0]` for
   # a WNOHANG child still running, or the negated errno. A thread among
   # others parks on the pipe SIGCHLD writes to between WNOHANG tries,
@@ -49,7 +53,9 @@ module Process
   # before each try tells a signal that came since from one drained.
   # Each wakeup ends the park, and the thread that drains the pipe
   # wakes the other waiters, so a signal that one thread drained still
-  # sends every waiter back to its try.
+  # sends every waiter back to its try. A waiter that the drain came
+  # between its count and its park is not asleep yet, and no wakeup
+  # reaches it, so a park ends after PARK_NS too.
   def self.reap(pid, flags)
     Primitive.attr! :hidden
     pid = Integer.send(:int_operand, pid)
@@ -76,7 +82,10 @@ module Process
         result = Primitive.zr_proc_wait(pid, flags | WNOHANG)
         return result if result.is_a?(Integer) || !result[0].zero?
 
-        Thread.current.send(:park_io, fd, IO::READABLE) if Primitive.zr_chld_count == seen
+        if Primitive.zr_chld_count == seen
+          deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond) + PARK_NS
+          Thread.current.send(:park_io, fd, IO::READABLE, deadline)
+        end
         Primitive.zr_chld_drain
         tell_waiters(waiters)
       end
