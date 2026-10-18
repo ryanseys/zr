@@ -69,6 +69,8 @@ module Zr::Kern
   #: (ptr) -> ptr
   def zr_poll_timer(arg)
     Machine.gates_enter
+    # The thread that runs Ruby takes the signals, not the timer.
+    zr_signals_mask(true)
     ts = Machine.slot(16)
     Machine.store64(ts, 0, 0)
     Machine.store64(ts, 8, 100000000)

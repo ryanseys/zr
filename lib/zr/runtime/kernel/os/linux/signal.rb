@@ -67,6 +67,19 @@ module Zr::Kern
     Libc.sigaltstack(ss, Machine.ptr(0))
   end
 
+  # sigaltstack(2)'s SS_DISABLE.
+  SS_DISABLE = 2
+
+  # Turns this thread's alternate signal stack off.
+  #: () -> i32
+  def zr_os_altstack_off
+    ss = Machine.slot(24)
+    Machine.store64(ss, 0, 0)
+    Machine.store64(ss, 16, 0)
+    Machine.store64(ss, 8, SS_DISABLE)
+    Libc.sigaltstack(ss, Machine.ptr(0))
+  end
+
   # The pid in a siginfo_t that a process sent (SI_USER, SI_QUEUE or
   # SI_TKILL), or -1 for a signal that the system raised. si_code is at 8
   # and si_pid at 16.

@@ -99,6 +99,8 @@ module Zr
        %w[fiber_pool]],
       [:gvl, :vm_lock, "the timer thread starts once, with the receiver of its safe points",
        %w[poll_started preempt_mid preempt_to]],
+      [:gvl, :immutable, "whether threads are native: ZR_THREADS, read at the first switch",
+       %w[threads_mode]],
       [:gvl, :main, "the root fiber of the main thread, and whether the program has begun",
        %w[root_fiber program_started]],
       [:gvl, :main, "the count of each signal whose Ruby handler ran: only the main thread runs them",

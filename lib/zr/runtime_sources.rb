@@ -64,7 +64,8 @@ module Zr
     # loads: the caches of whole runs and the janitor of the cache, the
     # server, `zr diff`'s runner (which zr-dev's probe, gem trials and
     # fuzzer share), `zr doctor`, the reader of ruby's switches, the printer of
-    # `--dump=parsetree`, the host machine that runs the kernel on CRuby
+    # `--dump=parsetree`, the kernel's lock plan (lib/zr/lock_plan.rb, which
+    # only a test reads), the host machine that runs the kernel on CRuby
     # (machine/host.rb and each file under machine/host/), and the RbConfig
     # that the host ruby loads for an extconf.rb of another target (the
     # extension build key covers it). An edit to one of them rebuilt the
@@ -73,7 +74,7 @@ module Zr
     # none of them, and that it lists each compiler file that they do not
     # load.
     DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb diff.rb doctor.rb ext/target_rbconfig.rb
-                      machine/host.rb server.rb server/client.rb]
+                      lock_plan.rb machine/host.rb server.rb server/client.rb]
                      .map { |name| File.join(__dir__, name) } +
                    Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze
 
@@ -131,15 +132,18 @@ module Zr
       @sources = nil
     end
 
-    # The kernel files: the portable kernel, then its OS layer, then its
+    # The kernel files: the portable kernel, then the POSIX layer that the
+    # OSes with POSIX threads share (not wasm), then its OS layer, then its
     # architecture layer, then the C API for a target that runs native C
     # extensions (not wasm).
     #: () -> Array[String]
     def kernel_files
+      native = target.arch != :wasm32
       Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
+        (native ? Dir[File.join(Paths::RUNTIME, "kernel/os/posix/*.rb")].sort : []) +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/arch/#{target.arch_layer}/*.rb")].sort +
-        (target.arch == :wasm32 ? [] : Dir[File.join(Paths::RUNTIME, "kernel/capi/*.rb")].sort)
+        (native ? Dir[File.join(Paths::RUNTIME, "kernel/capi/*.rb")].sort : [])
     end
 
     # The core library files, in the order their toplevels run.

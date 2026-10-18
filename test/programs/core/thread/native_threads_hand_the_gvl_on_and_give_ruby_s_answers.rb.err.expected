@@ -1,0 +1,1 @@
+core/thread/native_threads_hand_the_gvl_on_and_give_ruby_s_answers.rb:74: warning: Ractor API is experimental and may change in future versions of Ruby.

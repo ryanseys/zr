@@ -1,13 +1,16 @@
 # frozen_string_literal: true
 
-# Threads are green: each one runs on a fiber of its own, all on one OS
-# thread. Control moves between them where a thread blocks (join,
-# sleep, a Queue, a Mutex, Thread.stop, Thread.pass), and at a safe
-# point of compiled code once the timer has fired: every 100 ms after a
-# second thread starts (lib/zr/runtime/kernel/send.rb, zr_preempt). The
-# core library's own Ruby has no safe points, so each of its methods
-# runs whole. The class keeps the running thread, the run queue, and
-# the sleepers with a deadline.
+# Each thread runs on a fiber of its own. Control moves between them
+# where a thread blocks (join, sleep, a Queue, a Mutex, Thread.stop,
+# Thread.pass), and at a safe point of compiled code once the timer has
+# fired: every 100 ms after a second thread starts
+# (lib/zr/runtime/kernel/send.rb, zr_preempt). The core library's own
+# Ruby has no safe points, so each of its methods runs whole. The class
+# keeps the running thread, the run queue, and the sleepers with a
+# deadline. Threads are green, all on one OS thread, unless
+# ZR_THREADS=native gives each one an OS thread of its own; then the
+# switch hands the GVL to the next thread's OS thread
+# (lib/zr/runtime/kernel/os/posix/gvl.rb).
 class Thread
   @report_on_exception = true
   @abort_on_exception = false
@@ -1170,7 +1173,9 @@ class Thread
   end
 
   # Control comes here from `from`: this thread's own fiber runs, from
-  # wherever it stopped.
+  # wherever it stopped. With native threads, it runs on this thread's
+  # OS thread, and `from`'s OS thread waits for its next turn, or ends
+  # with `from`.
   def take_over(from)
     Primitive.attr! :hidden
     Primitive.zr_hidden_set(Thread, :current, self)
@@ -1178,7 +1183,7 @@ class Thread
     @interrupted_asleep = false
     @ticks = 0
     Primitive.zr_hidden_set(from, :fiber, Fiber.current)
-    Primitive.zr_fiber_scheduler_switch(@fiber)
+    Primitive.zr_fiber_scheduler_switch(@fiber, Primitive.zr_hidden_get(from, :status) == :dead)
   end
 
   # Back from a switch: a kill or an exception another thread sent

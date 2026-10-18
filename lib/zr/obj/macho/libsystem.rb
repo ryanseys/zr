@@ -166,6 +166,7 @@ module Zr
           pow
           pread
           pthread_cond_broadcast
+          pthread_cond_destroy
           pthread_cond_init
           pthread_cond_wait
           pthread_create
@@ -181,6 +182,7 @@ module Zr
           pthread_mutex_unlock
           pthread_self
           pthread_setspecific
+          pthread_sigmask
           ptsname
           pwrite
           qsort_r

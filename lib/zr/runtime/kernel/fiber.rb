@@ -19,6 +19,9 @@ module Zr::Kern
     attr_accessor :home #: value
     attr_accessor :kw #: word
     attr_accessor :pooled #: word
+    # A thread's root fiber with native threads: its OS thread
+    # (ThreadState, kernel/os/posix/gvl.rb), or 0.
+    attr_accessor :native #: ptr
   end
 
   T_FIBER = 30
@@ -243,6 +246,7 @@ module Zr::Kern
       RFiber[f].stack = 0
       RFiber[f].kroots = 0
       RFiber[f].pooled = 0
+      RFiber[f].native = Machine.ptr(0)
       RFiber[f].blk = Machine.value(QNIL)
       RFiber[f].status = FIBER_RESUMED
       RFiber[f].prev = Machine.value(QNIL)
@@ -273,6 +277,7 @@ module Zr::Kern
     RFiber[f].stack = 0
     RFiber[f].kroots = 0
     RFiber[f].pooled = 0
+    RFiber[f].native = Machine.ptr(0)
     RFiber[f].blk = Machine.value(QNIL)
     RFiber[f].status = FIBER_CREATED
     RFiber[f].prev = Machine.value(QNIL)
@@ -347,6 +352,13 @@ module Zr::Kern
     if Task[RFiber[from].task].ractor != Task[RFiber[to].task].ractor
       zr_consts_changed()
     end
+    zr_switch_fibers(from, to)
+  end
+
+  # The switch itself: the statics that identify the running fiber
+  # change, and the machine stack does.
+  #: (value, value) -> void
+  def zr_switch_fibers(from, to)
     RFiber[from].kroots = Machine.ptr(Machine.load64(zr_kroots(), 0))
     Machine.store64(Machine.static(:current_fiber, 8), 0, Machine.word(to))
     Machine.store64(zr_current_task_slot(), 0, Machine.word(RFiber[to].task))
@@ -444,6 +456,17 @@ module Zr::Kern
   # `from`. Returns the value, or QUNDEF with the pending unwind.
   #: (value, value, word, ptr) -> value
   def zr_fiber_run(from, to, argc, argv)
+    zr_fiber_run_prepare(to, argc, argv)
+    zr_fiber_switch(from, to)
+    v = RFiber[from].value
+    RFiber[from].value = Machine.value(QNIL)
+    v
+  end
+
+  # Gives `to` the `argc` arguments of a switch into it, and marks it as
+  # running.
+  #: (value, word, ptr) -> void
+  def zr_fiber_run_prepare(to, argc, argv)
     if RFiber[to].status == FIBER_CREATED
       RFiber[to].value = zr_ary_of(argc, argv)
     else
@@ -452,10 +475,6 @@ module Zr::Kern
     RFiber[to].status = FIBER_RESUMED
     # A fiber that runs again no longer waits as a transfer left it.
     RFiber[to].transferred = 0
-    zr_fiber_switch(from, to)
-    v = RFiber[from].value
-    RFiber[from].value = Machine.value(QNIL)
-    v
   end
 
   # Returns the fiber that gets control when the current fiber yields or
@@ -773,6 +792,9 @@ module Zr::Kern
   #: (value) -> void
   def zr_release_fiber(f)
     zr_fiber_pool_give(f)
+    if RFiber[f].native != 0
+      zr_thread_state_free(RFiber[f].native)
+    end
     zr_xfree(RFiber[f].ctx)
     if RFiber[f].stack != 0
       Libc.munmap(RFiber[f].stack, FIBER_STACK_BYTES)
@@ -782,13 +804,24 @@ module Zr::Kern
 
   # The switch for the thread scheduler. It moves control to `to` with no
   # checks and sets no flag, so both fibers keep their resume and
-  # transfer state.
-  #: (value) -> value
-  def zr_fiber_scheduler_switch(to)
+  # transfer state. With native threads, `to` runs on its thread's own
+  # OS thread (zr_native_switch), and control comes back to this one at
+  # its next turn; a thread that has ended (`exiting`) gets none.
+  #: (value, value) -> value
+  def zr_fiber_scheduler_switch(to, exiting)
     cur = zr_fiber_current()
     if to == cur
       return Machine.value(QNIL)
     end
-    zr_fiber_run(cur, to, 0, 0)
+    if Task[RFiber[cur].task].ractor != Task[RFiber[to].task].ractor
+      zr_consts_changed()
+    end
+    zr_fiber_run_prepare(to, 0, 0)
+    if !zr_native_switch(cur, to, exiting == QTRUE)
+      zr_switch_fibers(cur, to)
+    end
+    v = RFiber[cur].value
+    RFiber[cur].value = Machine.value(QNIL)
+    v
   end
 end
