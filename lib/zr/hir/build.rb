@@ -165,6 +165,9 @@ module Zr
         # before the first line, and one made at run time comes after the
         # last of them.
         preludes += [Activations.new(loader.activations, 0)] if program && loader.activations.positive?
+        # Code compiled at run time that names RubyVM::AbstractSyntaxTree
+        # loads the translator that eval support carries, once.
+        preludes << Build.ast_translator(loader) if !program && loader.asts?
         preludes << switched if switched
         loader.native_gems.each do |gem|
           # A gem whose C extension the build links has its C part.

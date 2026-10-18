@@ -1,0 +1,4 @@
+parse: :SCOPE
+children: :OPCALL
+node class: "RubyVM::AbstractSyntaxTree::Node"
+again: :LASGN
