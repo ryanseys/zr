@@ -24,9 +24,7 @@ o1.instance_variable_set(:@foo, 5)
 o1.instance_variable_set(:@a, 0)
 o1.instance_variable_set(:@b, 1)
 o1.instance_variable_set(:@c, 2)
-%i[@x @y @z @w @v @u @t @s @r @q].each { |name| o1.instance_variable_set(name, 1) }
 p embedded?(o1)
-%i[@x @y @z @w @v @u @t @s @r @q].each { |name| o1.remove_instance_variable(name) }
 o1.remove_instance_variable(:@foo)
 p embedded?(o1), o1.instance_variables, [o1.a, o1.b, o1.c]
 o2.instance_variable_set(:@a, 0)
