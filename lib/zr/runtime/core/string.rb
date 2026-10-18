@@ -213,6 +213,9 @@ class String
     raise ArgumentError, wrong_arity(args.size, 1..2) unless args.size == 1 || args.size == 2
     # str_modify_keep_cr: a frozen String raises, though nothing would change.
     Primitive.zr_frozen_error(self) if frozen?
+    # rb_range_values: an object that answers begin, end and exclude_end?
+    # removes as a Range.
+    args[0] = Primitive.zr_range_duck_m(args[0]) || args[0] if args.size == 1 && !(args[0].is_a?(Integer) || args[0].is_a?(String) || args[0].is_a?(Regexp) || args[0].is_a?(Range))
     unless args[0].is_a?(String) || args[0].is_a?(Regexp) || args[0].is_a?(Range)
       args[0] = Primitive.zr_index_operand_m(args[0])
       args[1] = Primitive.zr_index_operand_m(args[1]) if args.size == 2
@@ -295,7 +298,9 @@ class String
         length = index.size
         value = Primitive.zr_str_operand(value)
       else
-        return send(:[]=, Primitive.zr_index_operand_m(index), value)
+        # rb_range_values: an object that answers begin, end and
+        # exclude_end? sets as a Range.
+        return send(:[]=, Primitive.zr_range_duck_m(index) || Primitive.zr_index_operand_m(index), value)
       end
     end
     from = Primitive.zr_str_char_offset_m(self, start)
@@ -3712,9 +3717,11 @@ class String
   # A Range of byte offsets as [start, length] within the text.
   # rb_range_beg_len with err 2, for bytesplice: a Range's start and
   # length in `size` bytes, a RangeError past the ends, and a TypeError
-  # for any other value.
+  # for any other value. An object that answers begin, end and
+  # exclude_end? is a Range (rb_range_values).
   def splice_range(range, size)
     Primitive.attr! :hidden
+    range = Primitive.zr_range_duck_m(range) || range unless range.is_a?(Range)
     raise TypeError, "wrong argument type #{range.class} (expected Range)" unless range.is_a?(Range)
 
     first = range.begin.nil? ? 0 : Primitive.zr_index_operand_m(range.begin)

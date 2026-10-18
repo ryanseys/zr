@@ -1550,6 +1550,16 @@ end
     if argc > 2
       return zr_wrong_arity_range(argc, 0, 2)
     end
+    if argc == 1 && !zr_fixnum_p(Machine.value(Machine.load64(argv, 0))) && !zr_is_a(Machine.value(Machine.load64(argv, 0)), zr_global(G_RANGE))
+      # rb_range_beg_len: an object that answers begin, end and
+      # exclude_end? selects as a Range (rb_range_values).
+      duck = zr_range_duck(Machine.value(Machine.load64(argv, 0)))
+      return duck if duck == QUNDEF
+      if duck != QNIL
+        argv = Machine.slot(8)
+        Machine.store64(argv, 0, Machine.word(duck))
+      end
+    end
     if argc == 1 && zr_is_a(Machine.value(Machine.load64(argv, 0)), zr_global(G_RANGE))
       # `caller(range)`: the frames from this method's own outward, then the
       # range of them, as `caller(0)[range]` (ec_backtrace_to_ary).

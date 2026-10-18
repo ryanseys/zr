@@ -1,0 +1,19 @@
+array fill: [1, 0, 0, 4]
+array fill excl to_int: [1, 0, 3, 4]
+array fill block: [1, 2, 20, 30]
+array fill out: !NoMethodError: undefined method 'inspect' for an instance of Span
+array slice!: [[2, 3], [1, 4]]
+array slice! excl: [[2, 3], [1, 4]]
+array []: [2, 3]
+array values_at: [2, 3, 1]
+string []: "bc"
+string []=: "aXd"
+string slice!: ["bc", "ad"]
+string bytesplice: "aXd"
+string bytesplice both: "aXYd"
+string bytesplice blank: !TypeError: wrong argument type Blank (expected Range)
+match []: ["a", "b"]
+match values_at: ["a", "b", "abc"]
+caller: 1
+caller_locations: 1
+caller to_int: 3

@@ -919,6 +919,9 @@ class Array
   def slice!(start, len = nil)
     Primitive.zr_frozen_error(self) if frozen?
     if len.nil?
+      # rb_range_values: an object that answers begin, end and
+      # exclude_end? removes as a Range.
+      start = Primitive.zr_range_duck_m(start) || start unless start.is_a?(Integer) || start.is_a?(Range)
       if start.is_a?(Range)
         part = Primitive.zr_ary_aref1_m(self, start)
         return nil if part.nil?
@@ -1395,10 +1398,14 @@ class Array
 
     # rb_ary_fill: a Range alone is a span, its ends converted with
     # to_int; a Range with a length is a start that must be an Integer.
+    # An object that answers begin, end and exclude_end? is a Range
+    # (rb_range_values), and an error shows that object.
+    shown = args[0]
+    args[0] = Primitive.zr_range_duck_m(args[0]) || args[0] if args.size == 1 && !(args[0].is_a?(Integer) || args[0].is_a?(Range))
     if args.size == 1 && args[0].is_a?(Range)
       first = args[0].begin.nil? ? 0 : Primitive.zr_index_operand_m(args[0].begin)
       first += Primitive.zr_ary_len_m(self) if first < 0
-      raise RangeError, "#{args[0]} out of range" if first < 0
+      raise RangeError, "#{shown.inspect} out of range" if first < 0
 
       last = args[0].end.nil? ? Primitive.zr_ary_len_m(self) - 1 : Primitive.zr_index_operand_m(args[0].end)
       last += Primitive.zr_ary_len_m(self) if last < 0

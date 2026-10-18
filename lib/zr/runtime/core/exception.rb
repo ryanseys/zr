@@ -979,6 +979,9 @@ module Kernel
   # A Range selects from the locations outward from this method's
   # caller, as `caller_locations(0)[range]`.
   def caller_locations(start = 1, length = nil)
+    # rb_range_values: an object that answers begin, end and exclude_end?
+    # selects as a Range.
+    start = Primitive.zr_range_duck_m(start) || start if length.nil? && !(start.is_a?(Integer) || Range === start)
     if Range === start
       all = caller_locations(0).drop(1)
       return all[start]

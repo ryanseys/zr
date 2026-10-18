@@ -858,6 +858,9 @@ class MatchData
   def [](index, length = nil)
     return to_a[index, length] if length
 
+    # match_ary_aref: an object that answers begin, end and exclude_end?
+    # is a run of groups (rb_range_values).
+    index = Primitive.zr_range_duck_m(index) || index unless index.is_a?(Integer) || index.is_a?(String) || index.is_a?(Symbol) || index.is_a?(Range)
     case index
     when String, Symbol then group(named_group(index))
     when Range then to_a[index]
@@ -873,7 +876,10 @@ class MatchData
 
   def values_at(*indexes)
     out = []
-    indexes.each { |i| i.is_a?(Range) ? out.concat(to_a.values_at(i)) : out << self[i] }
+    indexes.each do |i|
+      i = Primitive.zr_range_duck_m(i) || i unless i.is_a?(Integer) || i.is_a?(String) || i.is_a?(Symbol) || i.is_a?(Range)
+      i.is_a?(Range) ? out.concat(to_a.values_at(i)) : out << self[i]
+    end
     out
   end
 
