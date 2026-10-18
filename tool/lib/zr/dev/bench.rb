@@ -9,6 +9,7 @@ require_relative "../../../../test/support/harness/normalize"
 require_relative "../../../../test/support/harness/child"
 require_relative "../../../../test/support/harness/runner"
 require_relative "../../../../test/support/program_run"
+require_relative "../../../../test/support/built"
 require_relative "process"
 
 module Zr
@@ -83,6 +84,7 @@ module Zr
 
       def initialize(root, runs: RUNS, show: 10, target: Target.default)
         @root = root
+        @target = target
         @runs = runs
         @show = show
         @runner = Harness::Runner.new(root, target, compiler: "cranelift")
@@ -107,6 +109,7 @@ module Zr
 
       def run(cases, io = $stdout)
         io.sync = true
+        ready(cases)
         Dir.mktmpdir("zr-bench-") do |work|
           cases.map.with_index do |rb, n|
             io.print format("[%d/%d] %s ... ", n + 1, cases.size, File.basename(rb, ".rb"))
@@ -115,6 +118,15 @@ module Zr
             row
           end
         end
+      end
+
+      # Builds the runtime first, and eval support when a program evals,
+      # as the program tests do (Test::Built): after an edit under lib/,
+      # that build takes minutes and more memory than one program's build
+      # may use.
+      def ready(cases)
+        tests = cases.map { |rb| Test::Case.new(@root, rb.delete_prefix("#{@root}/")) }
+        Test::Built.build([@target], evals: Test::Built.programs_eval?(tests))
       end
 
       # Builds the program, checks its output, then times zr, ruby and yjit.
@@ -130,7 +142,7 @@ module Zr
 
         build, out = clocked("build") { bounded(@runner.build_argv(rel, bin), cwd, nil, Harness::Child::BUILD_MB, @runner.build_env) }
         return Row.new(rb, :refused, first_line(out)) if out.code == 3
-        return Row.new(rb, :backend, out.code == :timeout ? "the build ran past #{LIMIT}s" : first_line(out)) unless out.code == 0
+        return Row.new(rb, :backend, failed(out)) unless out.code == 0
 
         want = Harness::Normalize.answer(recorded, rb, cwd)
         argv, run_env = @runner.run(bin, [], {})
@@ -177,6 +189,15 @@ module Zr
         answer = nil
         took = Benchmark.measure { answer = yield }
         [Benchmark::Tms.new(took.cutime, took.cstime, 0.0, 0.0, took.real, label), answer]
+      end
+
+      # Why a build failed: its limit, or its first line.
+      def failed(out)
+        case out.code
+        when :timeout then "the build ran past #{LIMIT}s"
+        when :memory then "the build used more than #{Harness::Child::BUILD_MB} MB"
+        else first_line(out)
+        end
       end
 
       def first_line(out)
