@@ -908,9 +908,19 @@ class File < IO
   end
   private_class_method :mode_operand
 
-  def self.chown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(0, path, owner || -1, group || -1) }
+  def self.chown(owner, group, *paths) = owned_paths(0, owner, group, paths)
 
-  def self.lchown(owner, group, *paths) = each_path(paths) { |path| Primitive.zr_fs_call(1, path, owner || -1, group || -1) }
+  def self.lchown(owner, group, *paths) = owned_paths(1, owner, group, paths)
+
+  # to_uid and to_gid: nil keeps the id (-1), else NUM2UIDT, before any
+  # path is touched.
+  def self.owned_paths(kind, owner, group, paths)
+    Primitive.attr! :hidden
+    owner = owner.nil? ? -1 : Integer.send(:uint_operand, owner)
+    group = group.nil? ? -1 : Integer.send(:uint_operand, group)
+    each_path(paths) { |path| Primitive.zr_fs_call(kind, path, owner, group) }
+  end
+  private_class_method :owned_paths
 
   # utime takes its times in seconds, as Integers, Floats or Times, to
   # the nanosecond. Both times nil are now, as utimensat(2) takes no
@@ -1269,6 +1279,7 @@ class Dir
   # A directory reached through a descriptor: the path it was opened
   # under is not knowable, so the names come from the descriptor.
   def self.for_fd(fd)
+    fd = Integer.send(:int_operand, fd)
     names = Primitive.zr_io_dir_names_fd(fd)
     raise SystemCallError.new(+"fdopendir", -names) if names.is_a?(Integer)
 

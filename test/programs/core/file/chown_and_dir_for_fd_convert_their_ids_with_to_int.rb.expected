@@ -1,0 +1,9 @@
+chown to_int: 1
+chown nil: [1, 2, 1]
+chown to_int group: 1
+lchown: [1, 1]
+File#chown: [0, 0, 0]
+chown string: !TypeError: no implicit conversion of String into Integer
+chown float: 1
+dir for_fd: Dir
+dir for_fd string: !TypeError: no implicit conversion of String into Integer
