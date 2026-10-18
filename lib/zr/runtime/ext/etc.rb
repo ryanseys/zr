@@ -16,14 +16,21 @@ module Etc
   Passwd = Struct.new(*PASSWD_MEMBERS)
   def Passwd.each(&block)
     Ractor.send(:main_only!)
-    block ? Etc.passwd(&block) : to_enum(:each)
+    return to_enum(:each) unless block
+
+    # etc_each_passwd returns the class.
+    Etc.passwd(&block)
+    self
   end
 
   if const_defined?(:GROUP_MEMBERS, false)
     Group = Struct.new(*GROUP_MEMBERS)
     def Group.each(&block)
       Ractor.send(:main_only!)
-      block ? Etc.group(&block) : to_enum(:each)
+      return to_enum(:each) unless block
+
+      Etc.group(&block)
+      self
     end
   end
 
