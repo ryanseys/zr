@@ -2724,11 +2724,18 @@ G_FROZEN_LITERALS = 52
   end
 
   # A new String of the `len` bytes at `bytes`, which are in `src`, with
-  # the encoding of `src` and the coderange a piece of it has, as
-  # str_byte_substr gives them.
+  # the encoding of `src` and the coderange that str_byte_substr gives a
+  # piece: 7bit from 7-bit text, valid or 7bit when empty, else unknown,
+  # because a piece may cut a character.
   #: (value, ptr, word) -> value
   def zr_str_piece(src, bytes, len)
-    zr_str_copy_coderange(zr_str_new(bytes, len), src)
+    out = zr_str_copy_encoding(zr_str_new(bytes, len), src)
+    if len == 0
+      zr_str_set_coderange(out, zr_enc_ascii_compat_p(zr_str_encoding_index(src)) ? FL_CR_7BIT : FL_CR_VALID)
+    elsif zr_str_known_ascii_p(src)
+      zr_str_set_coderange(out, FL_CR_7BIT)
+    end
+    out
   end
 
   # Replaces the bytes of the receiver with the bytes of `other`.
