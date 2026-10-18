@@ -71,6 +71,69 @@ module Zr::Kern
     end
   end
 
+  # `r = x * x` for `x` of `n` words, `n >= 1`. `r` has room for 2n
+  # words; `work` has zr_big_kara_work(n). A square needs about half the
+  # products of a general one: below BIG_KARATSUBA the schoolbook square
+  # (zr_big_square_school), and above it three squares of half length,
+  # x0^2, x1^2 and (x0 + x1)^2, whose difference is the middle term.
+  #: (ptr, ptr, word, ptr) -> void
+  def zr_big_kara_square(r, x, n, work)
+    if n < BIG_KARATSUBA
+      zr_big_square_school(r, x, n)
+      return
+    end
+    h = (n + 1) / 2
+    zr_big_kara_square(r, x, h, work)
+    zr_big_kara_square(r + (2 * h * 8), x + (h * 8), n - h, work)
+    xs = work
+    middle = work + ((h + 1) * 8)
+    zr_big_words_sum(xs, x, h, x + (h * 8), n - h)
+    zr_big_kara_square(middle, xs, h + 1, middle + (2 * (h + 1) * 8))
+    zr_big_words_sub(middle, r, 2 * h)
+    zr_big_words_sub(middle, r + (2 * h * 8), (2 * n) - (2 * h))
+    span = 2 * (h + 1)
+    if span > (2 * n) - h
+      span = (2 * n) - h
+    end
+    zr_big_words_add(r + (h * 8), middle, span)
+  end
+
+  # `r = x * x` by the schoolbook: each product of two different words
+  # once, the sum doubled, then each word's own square. `r` has 2n words.
+  #: (ptr, ptr, word) -> void
+  def zr_big_square_school(r, x, n)
+    zr_big_words_zero(r, 2 * n)
+    i = 0
+    while i < n
+      xi = Machine.load64(x + (i * 8), 0)
+      carry = 0
+      j = i + 1
+      while j < n
+        at = r + ((i + j) * 8)
+        t = Machine.load64(at, 0) + (xi * Machine.load64(x + (j * 8), 0)) + carry
+        Machine.store64(at, 0, t & BIG_MASK)
+        carry = t >> BIG_BITS
+        j += 1
+      end
+      Machine.store64(r + ((i + n) * 8), 0, carry)
+      i += 1
+    end
+    # Doubles the cross products and adds the squares, one word at a
+    # time from the bottom.
+    carry = 0
+    i = 0
+    while i < 2 * n
+      t = (Machine.load64(r + (i * 8), 0) << 1) + carry
+      if (i & 1) == 0
+        xi = Machine.load64(x + ((i >> 1) * 8), 0)
+        t += xi * xi
+      end
+      Machine.store64(r + (i * 8), 0, t & BIG_MASK)
+      carry = t >> BIG_BITS
+      i += 1
+    end
+  end
+
   # `r = x * y` by the schoolbook: one row of sums for each word of `y`.
   #: (ptr, ptr, word, ptr, word) -> void
   def zr_big_school(r, x, n, y, m)

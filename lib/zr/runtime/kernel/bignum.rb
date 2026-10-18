@@ -88,6 +88,10 @@ module Zr::Kern
     if m == 1
       return zr_big_mul_word(out, a, zr_big_at(y, 0))
     end
+    # `a * a` takes about half the products.
+    if a == b
+      return zr_big_square(out, a)
+    end
     if m >= BIG_KARATSUBA
       return zr_big_mul_long(out, a, b)
     end
@@ -125,6 +129,19 @@ module Zr::Kern
     zr_xfree(y)
     zr_xfree(x)
     zr_big_fill(out, product, n + m)
+  end
+
+  # Writes `a * a` into `out`, by squares (big_words.rb).
+  #: (value, value) -> value
+  def zr_big_square(out, a)
+    n = RArray[a].len
+    x = zr_big_words_of(a)
+    product = zr_xmalloc(2 * n * 8)
+    work = zr_xmalloc(zr_big_kara_work(n) * 8)
+    zr_big_kara_square(product, x, n, work)
+    zr_xfree(work)
+    zr_xfree(x)
+    zr_big_fill(out, product, 2 * n)
   end
 
   # A block of the limbs of the Array `a` as words. The caller frees it.
