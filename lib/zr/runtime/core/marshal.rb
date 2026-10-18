@@ -1258,11 +1258,13 @@ module Marshal
 
       missing = @pos + count - @bytes.bytesize
       if missing == 1 && @readable <= 0 && @io.respond_to?(:getbyte)
+        # r_byte: NUM2CHR of what getbyte gives.
         b = @io.getbyte
-        @bytes << b.chr if b
+        @bytes << (b.is_a?(String) && !b.empty? ? b.getbyte(0) : Integer.send(:int_operand, b) & 0xff).chr unless b.nil?
       else
+        # r_bytes: StringValue of what read gives.
         more = @io.read([missing, @readable].max)
-        @bytes << more.b if more
+        @bytes << Primitive.zr_str_operand(more).b unless more.nil?
       end
     end
 
