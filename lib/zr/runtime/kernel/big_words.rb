@@ -11,6 +11,8 @@ module Zr::Kern
   # The length of the shorter factor from which a product splits by
   # Karatsuba's method; below it, the schoolbook is faster.
   BIG_KARATSUBA = 32
+  # The same for a square, whose schoolbook takes half the products.
+  BIG_SQUARE_KARATSUBA = 64
 
   # The words of the work block that zr_big_kara needs for a longer
   # factor of `n` words: each split takes about 2n words, and the next
@@ -73,12 +75,12 @@ module Zr::Kern
 
   # `r = x * x` for `x` of `n` words, `n >= 1`. `r` has room for 2n
   # words; `work` has zr_big_kara_work(n). A square needs about half the
-  # products of a general one: below BIG_KARATSUBA the schoolbook square
+  # products of a general one: below BIG_SQUARE_KARATSUBA the schoolbook square
   # (zr_big_square_school), and above it three squares of half length,
   # x0^2, x1^2 and (x0 + x1)^2, whose difference is the middle term.
   #: (ptr, ptr, word, ptr) -> void
   def zr_big_kara_square(r, x, n, work)
-    if n < BIG_KARATSUBA
+    if n < BIG_SQUARE_KARATSUBA
       zr_big_square_school(r, x, n)
       return
     end
