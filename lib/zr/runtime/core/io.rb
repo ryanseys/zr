@@ -1525,7 +1525,8 @@ class IO
       result = Primitive.zr_io_fcntl(fd, F_SETFD, wanted)
       raise SystemCallError.new(@path, -result) if result.negative?
     end
-    flag
+    # rb_io_set_close_on_exec returns nil.
+    nil
   end
 
   # One character at a time, as rb_io_each_codepoint reads them: a byte
@@ -2238,6 +2239,8 @@ class IO
   def timeout=(seconds)
     IO.send(:time_interval, seconds) if seconds
     @timeout = seconds
+    # rb_io_set_timeout returns the IO.
+    self
   end
 
   # A byte order mark at the head of the stream gives the encoding.
