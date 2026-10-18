@@ -1,14 +1,11 @@
 TestRubyOptimization#test_tailcall_not_to_grow_stack	yarv: zr has no tail-call optimization
 TestRubyOptimization#test_peephole_string_literal_range	yarv: zr compiles to machine code and has no YARV instruction sequences
-TestRubyOptimization#test_block_parameter_should_not_create_objects	allocation counts: zr makes a Proc for a block parameter
-TestRubyOptimization#test_string_freeze_saves_memory	memsize: zr does not resize an IO buffer string as CRuby does
 TestRubyOptimization#test_tailcall_condition_block	yarv: zr has no tail-call optimization
 TestRubyOptimization#test_opt_new	yarv: zr compiles to machine code and has no YARV instruction sequences
 TestRubyOptimization#test_opt_newarray_send_include_p	yarv: zr compiles to machine code and has no YARV instruction sequences
 TestRubyOptimization#test_peephole_hash_freeze_empty	yarv: zr compiles to machine code and has no YARV instruction sequences
 TestRubyOptimization#test_peephole_array_freeze	yarv: zr compiles to machine code and has no YARV instruction sequences
 TestRubyOptimization#test_callinfo_unreachable_path	yarv: zr compiles to machine code and has no YARV instruction sequences
-TestRubyOptimization#test_block_param_proxy_should_not_create_objects	allocation counts: zr makes a Proc for a block parameter
 TestRubyOptimization#test_peephole_array_freeze_empty	yarv: zr compiles to machine code and has no YARV instruction sequences
 TestRubyOptimization#test_opt_case_dispatch	yarv: zr compiles to machine code and has no YARV instruction sequences
 TestRubyOptimization#test_block_param_proxy_aref_yield_and_eqq	yarv: zr compiles to machine code and has no YARV instruction sequences
