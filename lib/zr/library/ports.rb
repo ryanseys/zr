@@ -64,7 +64,7 @@ module Zr
         "zlib" => port("3.2.4", vendored: false),
         # io-console keeps its port first: its own C tests RB_TYPE_P(io, T_FILE),
         # a tag that zr's IO does not carry, so IO#cursor queries nothing
-        # (W18 L4). With it, its tests pass 35 of 39 where the port passes 26.
+        # (W18 L4); its tests pass 35 of 39 with that C, and 39 with the port.
         "io-console" => port("0.9.4", vendored: false),
         "etc" => port("1.5.0", vendored: false, c_first: true),
         "fcntl" => port("1.3.0", vendored: false, c_first: true)
