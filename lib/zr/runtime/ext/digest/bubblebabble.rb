@@ -31,6 +31,10 @@ module Digest
     (out << "x").b
   end
 
+  # rb_define_module_function: a private instance method too.
+  def bubblebabble(str) = Digest.bubblebabble(str)
+  private :bubblebabble
+
   module Instance
     def bubblebabble = Digest.bubblebabble(digest)
   end
