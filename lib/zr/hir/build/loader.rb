@@ -995,7 +995,9 @@ module Zr
             # A port's gem that the program's gems give at their own version
             # keeps the port.
             gem = linked && @extensions.optional_gem(linked, target: @target)
-            linked = nil if gem && @gem_set&.gems&.any? { |entry| entry.name == gem }
+            # So does one whose gems hold the library's Ruby under another
+            # name (its `json.rb` or `json/`): that Ruby goes with the port.
+            linked = nil if gem && @gem_set&.gems&.any? { |entry| entry.name == gem || gives_library?(entry, feature) }
             # A port's gem at a version whose C the port does not implement
             # (`GemSet::Entry#native`) has no C of zr's: its C part is the
             # gem's own extension, linked or missing.
@@ -1015,6 +1017,14 @@ module Zr
             here = File.expand_path(feature)
             kind == :load && File.file?(here) ? here : nil
           end
+        end
+
+        # Whether the gem `entry` holds the Ruby of the library that
+        # `feature` belongs to: the file or directory of its first part.
+        #: (untyped entry, String feature) -> bool
+        def gives_library?(entry, feature)
+          top = feature.split("/").first.to_s.sub(/\.(?:rb|so|bundle)\z/, "")
+          entry.roots.any? { |root| File.file?(File.join(root, "#{top}.rb")) || File.directory?(File.join(root, top)) }
         end
 
         # The real path of directory `root`, or `root` when it is not there.
