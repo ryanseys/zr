@@ -40,11 +40,12 @@ stream = Class.new do
   # it edits with no backup, or the backup's extension.
   def inplace_mode = @inplace_mode&.dup
 
-  # argf_inplace_mode_set: a false value stops the edit in place.
+  # argf_inplace_mode_set: a false value stops the edit in place. It
+  # returns ARGF.
   def inplace_mode=(ext)
     unless ext
       @inplace_mode = nil
-      return
+      return self
     end
 
     text = Primitive.zr_convert_type(ext, String, :to_str)
@@ -54,6 +55,7 @@ stream = Class.new do
     raise ArgumentError, +"string contains null byte" if nul
 
     @inplace_mode = text.dup.freeze
+    self
   end
 
   # argf_initialize_copy: a copy reads on its own, from a copy of the
