@@ -619,6 +619,7 @@ module Process
     Exception.send(:load_decorations)
     GC.start
     Primitive.zr_gc_scan_strings
+    Primitive.zr_gc_release_spares
     Primitive.zr_gc_promote_all
     GC.compact
     true

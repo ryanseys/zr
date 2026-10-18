@@ -243,6 +243,26 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
+  # Gives the memory of every reserved arena back to the system, the
+  # spares that zr_arenas_release keeps too, as rb_gc_impl_prepare_heap
+  # frees each empty page for Process.warmup. The cursor takes them back
+  # as it needs room.
+  #: () -> value
+  def zr_gc_release_spares
+    c = 0
+    while c < SIZE_CLASSES
+      a = SizeClass[zr_size_class(c)].reserve
+      while a != 0
+        if ArenaHead[a].reserved != ARENA_RELEASED
+          zr_arena_pages(a, true)
+        end
+        a = ArenaHead[a].next
+      end
+      c += 1
+    end
+    Machine.value(QNIL)
+  end
+
   # Finds and keeps the coderange of each String, as
   # rb_gc_prepare_heap_process_object does for Process.warmup: a later
   # check has it at once, and a forked child writes no page to keep it.
