@@ -165,5 +165,11 @@ The first public release.
   `to_int`, `to_f` or `to_path` where the C converts with them. The
   core's comparisons by identity and its truth tests send nothing to
   the argument.
+- Calls make no more Arrays or Hashes than ruby's VM, in each of CRuby's
+  allocation checks of method calls and Proc#call: a splat's arguments
+  go on a reused per-task stack, a lone `**h` is lent to the callee and
+  copied only where the callee keeps it, a kwrest keeps the Hash that
+  the call built, and a def whose `...` only forwards passes its
+  arguments on in place. A yield passes keywords as a call does.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main
