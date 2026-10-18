@@ -2,11 +2,13 @@
 
 module Zr
   module Backend
-    module Aarch64
-      class Codegen
-        # Moves between the places of values: the parallel copies of a
-        # branch edge and of a function's parameters.
-
+    module Native
+      # Moves between the places of values: the parallel copies of a
+      # branch edge and of a function's parameters. A backend's Codegen
+      # includes it, with `SCRATCH` (two registers that no value lives
+      # in), `register?(x)`, `load_value`, `store_value`, `store_param`
+      # and `value_in`, and an assembler `mov` between two registers.
+      module Moves
         private
 
         # Parallel moves between registers and values. Each `[to, v]` of
@@ -20,8 +22,8 @@ module Zr
           reads = Hash.new(0)
           dests.each_with_index do |(to, v), n|
             src = srcs[n]
-            from = src.is_a?(Register) ? src : place(src)
-            next if to == from && (v.nil? || src.is_a?(Register) || type_of(v) == type_of(src))
+            from = register?(src) ? src : place(src)
+            next if to == from && (v.nil? || register?(src) || type_of(v) == type_of(src))
 
             pending[to] = [v, src]
             reads[from] += 1
@@ -31,7 +33,7 @@ module Zr
             while (p = ready.pop)
               v, src = pending.delete(p) #: [String?, String | Registers::Register]
               move_register(p, v, src)
-              from = src.is_a?(Register) ? src : place(src)
+              from = register?(src) ? src : place(src)
               reads[from] -= 1
               ready << from if reads[from].zero? && pending.key?(from)
             end
@@ -39,19 +41,19 @@ module Zr
 
             start = pending.keys.first
             v, src = pending.delete(start) #: [String?, String | Registers::Register]
-            src.is_a?(Register) ? @asm.mov(SCRATCH[1], src) : load_value(src, SCRATCH[1])
-            at = src.is_a?(Register) ? src : place(src)
+            register?(src) ? @asm.mov(self.class::SCRATCH[1], src) : load_value(src, self.class::SCRATCH[1])
+            at = register?(src) ? src : place(src)
             while at != start && pending.key?(at)
               d, s = pending.delete(at) #: [String?, String | Registers::Register]
               move_register(at, d, s)
-              at = s.is_a?(Register) ? s : place(s)
+              at = register?(s) ? s : place(s)
             end
             if v.nil?
               # A destination with no value is a register.
               reg = start #: Registers::Register
-              @asm.mov(reg, SCRATCH[1])
+              @asm.mov(reg, self.class::SCRATCH[1])
             else
-              store_value(v, SCRATCH[1])
+              store_value(v, self.class::SCRATCH[1])
             end
           end
         end
@@ -62,11 +64,11 @@ module Zr
         def move_register(to, v, src)
           if v.nil?
             reg = to #: Registers::Register
-            src.is_a?(Register) ? @asm.mov(reg, src) : load_value(src, reg)
-          elsif src.is_a?(Register)
+            register?(src) ? @asm.mov(reg, src) : load_value(src, reg)
+          elsif register?(src)
             store_param(v, src)
           else
-            store_value(v, value_in(src, SCRATCH[0]))
+            store_value(v, value_in(src, self.class::SCRATCH[0]))
           end
         end
 
@@ -90,7 +92,7 @@ module Zr
         #: (String v) -> (Registers::Register | String)
         def unhomed(v)
           return v if @remade.include?(v)
-          return GATES if @pinned.include?(v)
+          return self.class::GATES if @pinned.include?(v)
 
           raise KeyError, v
         end
@@ -157,14 +159,14 @@ module Zr
         def break_cycle(pending)
           start = pending.keys.first
           held, source = pending.delete(start) #: [String, String]
-          load_value(source, SCRATCH[1])
+          load_value(source, self.class::SCRATCH[1])
           at = place(source)
           while at != start
             d, s = pending.delete(at) #: [String, String]
             copy(d, s)
             at = place(s)
           end
-          store_value(held, SCRATCH[1])
+          store_value(held, self.class::SCRATCH[1])
         end
 
         # Copies one value to the place of another. A source with a register
@@ -175,7 +177,7 @@ module Zr
           home = @reg[dest]
           return load_value(source, home) if home
 
-          store_value(dest, value_in(source, SCRATCH[0]))
+          store_value(dest, value_in(source, self.class::SCRATCH[0]))
         end
       end
     end

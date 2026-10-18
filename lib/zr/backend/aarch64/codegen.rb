@@ -5,11 +5,11 @@ require_relative "registers"
 require_relative "assembler"
 require_relative "../../ir/function"
 require_relative "../../ir/types"
+require_relative "../native/moves"
 require_relative "../native/planner"
 require_relative "../native/regalloc"
 require_relative "../../obj/model"
 require_relative "codegen/layout"
-require_relative "codegen/moves"
 
 module Zr
   module Backend
@@ -34,7 +34,8 @@ module Zr
       #
       # Encodings come from `Backend::Aarch64`. This class records each
       # relocation at the instruction's offset. `Native::Planner` and
-      # `codegen/layout.rb` plan the layout, and `codegen/moves.rb` makes the parallel moves.
+      # `codegen/layout.rb` plan the layout, and `Native::Moves` makes the
+      # parallel moves.
       class Codegen
         # @rbs @f: IR::Function
         # @rbs @defined: Set[String] | Spelled
@@ -81,6 +82,7 @@ module Zr
         # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
         include Native::Planner
+        include Native::Moves
 
         # The two registers that `parallel_copy` moves values through. An
         # instruction that needs more uses x11 and x12. x13 to x15 belong to
@@ -351,6 +353,9 @@ module Zr
         def w(x)
           Registers.w(x.to_i)
         end
+
+        #: (untyped x) -> bool
+        def register?(x) = x.is_a?(Register)
 
         #: (String v) -> bool
         def wide?(v)
