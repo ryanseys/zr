@@ -174,5 +174,9 @@ The first public release.
 - A program reads the `RUBY_GC_*` variables as it starts, as ruby does,
   and under `-w` reports each value it reads or ignores in ruby's words.
   `RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR` sets when a major collection runs.
+- An object becomes old after it lives through three collections, as in
+  ruby, so a short-lived object does not wait in the old generation for a
+  major collection. `ObjectSpace.dump` gives its age and generational
+  flags as ruby does.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main
