@@ -5,6 +5,7 @@ require_relative "registers"
 require_relative "assembler"
 require_relative "../../ir/function"
 require_relative "../../ir/types"
+require_relative "../native/planner"
 require_relative "../native/regalloc"
 require_relative "../../obj/model"
 require_relative "codegen/layout"
@@ -32,8 +33,8 @@ module Zr
       # frame chain, x18 is never used, and sp stays 16-byte aligned.
       #
       # Encodings come from `Backend::Aarch64`. This class records each
-      # relocation at the instruction's offset. `codegen/layout.rb` plans
-      # the layout, and `codegen/moves.rb` makes the parallel moves.
+      # relocation at the instruction's offset. `Native::Planner` and
+      # `codegen/layout.rb` plan the layout, and `codegen/moves.rb` makes the parallel moves.
       class Codegen
         # @rbs @f: IR::Function
         # @rbs @defined: Set[String] | Spelled
@@ -79,6 +80,7 @@ module Zr
 
         # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
         include Registers
+        include Native::Planner
 
         # The two registers that `parallel_copy` moves values through. An
         # instruction that needs more uses x11 and x12. x13 to x15 belong to
@@ -97,9 +99,6 @@ module Zr
           "eq" => "eq", "ne" => "ne", "slt" => "sgt", "sle" => "sge", "sgt" => "slt", "sge" => "sle",
           "ult" => "ugt", "ule" => "uge", "ugt" => "ult", "uge" => "ule"
         }.freeze #: Hash[String, String]
-        # The bits that an operand of each type gives to an instruction:
-        # the width that its load gives it.
-        WIDTH_MASK = { "i8" => 0xFF, "i32" => 0xFFFF_FFFF, "i64" => 0xFFFF_FFFF_FFFF_FFFF }.freeze #: Hash[String, Integer]
         # The condition that is true only when the other is false. arm64
         # numbers them in pairs, so this is the code with its low bit
         # inverted, written out so that it is easy to read.
