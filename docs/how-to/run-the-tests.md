@@ -224,6 +224,24 @@ $ ZR_GC_STRESS=1 rake test:programs
 
 A value that the collector does not find then fails at once.
 
+## Hand the GVL on at every safe point
+
+After a change to the threads, the scheduler or the kernel's shared
+state, run the thread areas with `--gvl-stress` (`ZR_GVL_STRESS=1`),
+which hands the GVL to the next thread at every safe point, and with
+`--gvl-check` (`ZR_GVL_CHECK=1`), which stops the program when C API
+code runs on an OS thread that does not hold the GVL.
+`--green-threads` (`ZR_THREADS=green`) runs every thread on one OS
+thread, as on wasm32-wasi:
+
+```console
+$ bin/zr-dev test --gvl-stress --gvl-check test/programs/core/thread
+$ bin/zr-dev test --green-threads test/programs/core/thread
+```
+
+A state that two threads share without a rule in `lib/zr/lock_plan.rb`
+then shows at once.
+
 ## Accept a new snapshot
 
 Some tests compare output with a file in the repository: the HIR dumps,

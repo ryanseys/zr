@@ -45,12 +45,14 @@ class DevTestCommandTest < Minitest::Test
   end
 
   def test_options_set_the_variables_that_the_run_reads
-    _, out = listed("--jobs", "3", "--timeout", "30", "--no-build", "--no-cache", "--gc-stress", "--fail-fast",
-                    "--target", "aarch64-linux-musl", "--verify", PROGRAM)
+    _, out = listed("--jobs", "3", "--timeout", "30", "--no-build", "--no-cache", "--gc-stress", "--gvl-check",
+                    "--gvl-stress", "--green-threads", "--fail-fast", "--target", "aarch64-linux-musl", "--verify",
+                    PROGRAM)
     line = command_line(out)
 
     %w[MT_CPU=3 ZR_TEST_TIMEOUT=30 ZR_TEST_SECONDS=30 ZR_TEST_HOST=1 ZR_TEST_FRESH=1 ZR_GC_STRESS=1
-       ZR_TEST_FAIL_FAST=1 ZR_TARGET=aarch64-linux-musl ZR_EXPECTED=verify].each { |pair| assert_includes line, pair }
+       ZR_GVL_CHECK=1 ZR_GVL_STRESS=1 ZR_THREADS=green ZR_TEST_FAIL_FAST=1 ZR_TARGET=aarch64-linux-musl
+       ZR_EXPECTED=verify].each { |pair| assert_includes line, pair }
   end
 
   def test_minitest_options_pass_on_in_order

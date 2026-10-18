@@ -1447,10 +1447,41 @@ module Zr::Kern
   # the scheduler.
   PREEMPT_TICKS = 20_000
 
+  # The test switches of the GVL, read at boot: ZR_GVL_CHECK makes each
+  # C API call check that its OS thread holds the GVL, and
+  # ZR_GVL_STRESS makes every safe point of a program with threads a
+  # tick of the scheduler's quantum (zr_gvl_stressed), so a thread of
+  # priority 0 hands the GVL on at each one.
+  GVL_CHECK = 1
+  GVL_STRESS = 2
+
+  #: () -> void
+  def zr_gvl_debug_init
+    bits = 0
+    if Libc.getenv(Machine.bytes("ZR_GVL_CHECK\0")) != 0
+      bits = GVL_CHECK
+    end
+    if Libc.getenv(Machine.bytes("ZR_GVL_STRESS\0")) != 0
+      bits |= GVL_STRESS
+    end
+    Machine.store64(Machine.static(:gvl_debug, 8), 0, bits)
+  end
+
+  # Under ZR_GVL_STRESS, from the start of a second thread, the poll word
+  # stays set: each safe point runs the scheduler's preempt.
+  #: () -> bool
+  def zr_gvl_stressed
+    (Machine.load64(Machine.static(:gvl_debug, 8), 0) & GVL_STRESS) != 0 &&
+      Machine.load64(Machine.static(:preempt_mid, 8), 0) != 0
+  end
+
   #: (value, value) -> value
   def zr_preempt_arm(receiver, message)
     Machine.store64(Machine.static(:preempt_mid, 8), 0, zr_sym2id(message))
     Machine.store64(Machine.static(:preempt_to, 8), 0, Machine.word(receiver))
+    if zr_gvl_stressed()
+      zr_poll_set()
+    end
     zr_os_poll_start()
     Machine.value(QNIL)
   end
@@ -1501,7 +1532,7 @@ module Zr::Kern
   # here.
   #: () -> value
   def zr_preempt_expired
-    Machine.store64(zr_poll_slot(), 0, 0)
+    Machine.store64(zr_poll_slot(), 0, zr_gvl_stressed() ? 1 : 0)
     Machine.store64(Machine.static(:preempt_count, 8), 0, PREEMPT_TICKS)
     if zr_trap_check() == QUNDEF || zr_postponed_run() == QUNDEF
       return Machine.value(QUNDEF)

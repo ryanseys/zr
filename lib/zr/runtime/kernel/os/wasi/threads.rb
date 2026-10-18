@@ -45,6 +45,11 @@ module Zr::Kern
     zr_nanosleep(ns)
   end
 
+  # One OS thread always holds the GVL.
+  #: () -> void
+  def zr_gvl_check
+  end
+
   #: () -> bool
   def zr_threads_native
     false

@@ -198,6 +198,7 @@ module Zr
           recvmsg
           rename
           rmdir
+          sched_yield
           send
           sendmsg
           sendto

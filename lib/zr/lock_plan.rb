@@ -103,6 +103,8 @@ module Zr
        %w[poll_started preempt_mid preempt_to]],
       [:gvl, :immutable, "whether threads are native: ZR_THREADS, read at the first switch",
        %w[threads_mode]],
+      [:boot, :immutable, "ZR_GVL_CHECK and ZR_GVL_STRESS, read at boot",
+       %w[gvl_debug]],
       [:gvl, :main, "the root fiber of the main thread, and whether the program has begun",
        %w[root_fiber program_started]],
       [:gvl, :main, "the count of each signal whose Ruby handler ran: only the main thread runs them",

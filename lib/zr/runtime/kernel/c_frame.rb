@@ -115,10 +115,14 @@ module Zr::Kern
   end
 
   # Marks the low end of the C frames of the innermost C call: a slot of
-  # this frame, which is below the frame of the def that C called.
+  # this frame, which is below the frame of the def that C called. Under
+  # ZR_GVL_CHECK it checks that this OS thread holds the GVL.
   #: () -> void
   def zr_c_entered
     zr_c_frames_end(Machine.slot(8))
+    if (Machine.load64(Machine.static(:gvl_debug, 8), 0) & GVL_CHECK) != 0
+      zr_gvl_check()
+    end
   end
 
   # Unwinds out of the innermost C call: its zr_call_c returns undef. A

@@ -63,6 +63,9 @@ module Zr
           o.on("-j", "--jobs N", Integer, "the worker processes [MT_CPU]") { |v| @env["MT_CPU"] = v.to_s }
           o.on("--target TRIPLE", "build and run the programs for that target [ZR_TARGET]") { |v| @env["ZR_TARGET"] = v }
           o.on("--gc-stress", "the programs collect at every allocation [ZR_GC_STRESS=1]") { @env["ZR_GC_STRESS"] = "1" }
+          o.on("--gvl-check", "each C API call checks that its thread holds the GVL [ZR_GVL_CHECK=1]") { @env["ZR_GVL_CHECK"] = "1" }
+          o.on("--gvl-stress", "the programs hand the GVL on at every safe point [ZR_GVL_STRESS=1]") { @env["ZR_GVL_STRESS"] = "1" }
+          o.on("--green-threads", "the programs run every thread on one OS thread [ZR_THREADS=green]") { @env["ZR_THREADS"] = "green" }
           o.on("--no-build", "run the programs on CRuby over zr's kernel, with no build [ZR_TEST_HOST=1]") { @env["ZR_TEST_HOST"] = "1" }
           o.on("--no-cache", "run each test again, also one that passed with the same inputs [ZR_TEST_FRESH=1]") { @env["ZR_TEST_FRESH"] = "1" }
           o.on("--fail-fast", "run no more tests after one fails [ZR_TEST_FAIL_FAST=1]") { @env["ZR_TEST_FAIL_FAST"] = "1" }

@@ -27,8 +27,14 @@ module Zr::Kern
   class ThreadState < Layout
     attr_accessor :mutex #: ptr
     attr_accessor :cond #: ptr
-    # 1 from the handoff that gives this thread the GVL until it wakes.
+    # 1 from the handoff that gives this thread the GVL until it wakes,
+    # and 1 while it sleeps on `cond` for that, so a handoff signals only
+    # a thread that sleeps.
     attr_accessor :turn #: word
+    attr_accessor :sleeping #: word
+    # How many times its next wait yields its CPU before it sleeps
+    # (zr_gvl_wait).
+    attr_accessor :spins #: word
     # The OS thread (pthread_t), or 0 until Thread.new starts it, and its
     # id (Thread#native_thread_id), or 0 until it has run.
     attr_accessor :pthread #: word
@@ -89,6 +95,26 @@ module Zr::Kern
     Machine.load64(mode, 0) == THREADS_NATIVE
   end
 
+  # ZR_GVL_CHECK's check at a C API call: the GVL holder's root fiber
+  # runs on this OS thread, and the thread is in no region.
+  #: () -> void
+  def zr_gvl_check
+    if !zr_threads_native()
+      return
+    end
+    if zr_region_self() != 0
+      zr_bug(Machine.bytes("[BUG] a C API call from a thread that gave the GVL up\n"), 54)
+    end
+    home = RFiber[zr_fiber_current()].home
+    if home == QNIL || RFiber[home].native == 0
+      return
+    end
+    pthread = ThreadState[RFiber[home].native].pthread
+    if pthread != 0 && pthread != Machine.word(Libc.pthread_self())
+      zr_bug(Machine.bytes("[BUG] a C API call on an OS thread that does not hold the GVL\n"), 62)
+    end
+  end
+
   #: () -> value
   def zr_threads_native_m
     zr_bool(zr_threads_native())
@@ -109,6 +135,8 @@ module Zr::Kern
     Libc.pthread_mutex_init(ThreadState[ts].mutex, Machine.ptr(0))
     Libc.pthread_cond_init(ThreadState[ts].cond, Machine.ptr(0))
     ThreadState[ts].turn = 0
+    ThreadState[ts].sleeping = 0
+    ThreadState[ts].spins = GVL_SPINS
     ThreadState[ts].pthread = running ? Machine.word(Libc.pthread_self()) : 0
     ThreadState[ts].tid = running ? zr_os_thread_id() : 0
     ThreadState[ts].fiber = Machine.word(root)
@@ -168,7 +196,9 @@ module Zr::Kern
     started = ThreadState[ts].pthread != 0
     Libc.pthread_mutex_lock(ThreadState[ts].mutex)
     ThreadState[ts].turn = 1
-    Libc.pthread_cond_broadcast(ThreadState[ts].cond)
+    if ThreadState[ts].sleeping != 0
+      Libc.pthread_cond_broadcast(ThreadState[ts].cond)
+    end
     Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
     if !started && zr_thread_start(ts) != 0
       zr_bug(Machine.bytes("can't create a native thread\n"), 29)
@@ -276,14 +306,41 @@ module Zr::Kern
     Machine.value(QNIL)
   end
 
-  # Waits until a handoff gives this thread the GVL.
+  # The most times a thread that waits for its turn reads it again before
+  # it sleeps on its condition variable: a few microseconds of CPU. A
+  # handoff that comes within them, as a Queue's pop and push between two
+  # threads give, wakes no thread from the kernel.
+  GVL_SPINS = 65_536
+
+  # Waits until a handoff gives this thread the GVL. The spin reads the
+  # turn without the lock; the lock then orders the reads after it. A
+  # spin that finds the turn doubles the thread's budget, and one that
+  # does not quarters it, so a thread whose waits are mostly long (on a
+  # pipe that another thread fills) hardly spins.
   any_thread :zr_gvl_wait
 
   #: (ptr) -> void
   def zr_gvl_wait(ts)
+    budget = ThreadState[ts].spins
+    spins = 0
+    while ThreadState[ts].turn == 0 && spins < budget
+      spins += 1
+      # The call keeps the read in the loop, and lets another thread
+      # have this CPU now and then.
+      if (spins & 4095) == 0
+        Libc.sched_yield()
+      end
+    end
     Libc.pthread_mutex_lock(ThreadState[ts].mutex)
+    if ThreadState[ts].turn == 0
+      ThreadState[ts].spins = budget >> 2
+    elsif budget < GVL_SPINS
+      ThreadState[ts].spins = budget < 64 ? 64 : budget << 1
+    end
     while ThreadState[ts].turn == 0
+      ThreadState[ts].sleeping = 1
       Libc.pthread_cond_wait(ThreadState[ts].cond, ThreadState[ts].mutex)
+      ThreadState[ts].sleeping = 0
     end
     ThreadState[ts].turn = 0
     Libc.pthread_mutex_unlock(ThreadState[ts].mutex)
