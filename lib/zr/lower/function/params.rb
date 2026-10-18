@@ -186,15 +186,17 @@ module Zr
         end
 
         # A `&b` parameter stays a stack block if every use in the body and
-        # the parameter defaults permits it (`Hir::Escape`), nothing opens
-        # the scope's locals (a Binding or an eval reads the Proc), and no
-        # hook can get a Binding of the frame.
+        # the parameter defaults permits it (`Hir::Escape`) and nothing in
+        # the scope opens its locals (a Binding or an eval reads the Proc).
+        # A hook's Binding of a traced frame escapes the frame's Env, which
+        # makes the block a Proc then (zr_env_escape), so tracing changes
+        # nothing that a program counts.
         #: (Hir::Params p) -> bool
         def raw_block?(p)
           name = p.block or return false
           return false if p.no_block?
 
-          !@l.traced? && !Hir::Locals.opens_locals?(@body, computed: !@l.internal?) && Hir::Escape.raw_block?([@body, *default_expressions], name)
+          !Hir::Locals.opens_locals?(@body, computed: !@l.internal?) && Hir::Escape.raw_block?([@body, *default_expressions], name)
         end
 
         # A def's `*rest` or `**rest` that no argument fills can be the one
