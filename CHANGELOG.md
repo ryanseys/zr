@@ -171,5 +171,8 @@ The first public release.
   copied only where the callee keeps it, a kwrest keeps the Hash that
   the call built, and a def whose `...` only forwards passes its
   arguments on in place. A yield passes keywords as a call does.
+- A program reads the `RUBY_GC_*` variables as it starts, as ruby does,
+  and under `-w` reports each value it reads or ignores in ruby's words.
+  `RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR` sets when a major collection runs.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main
