@@ -88,6 +88,8 @@ module Zr
     # a file. A directory not listed here is in every target's digest.
     PER_TARGET = {
       "backend/aarch64" => ->(target) { target.arch == :aarch64 },
+      "backend/x86_64" => ->(target) { target.arch == :x86_64 },
+      "obj/relocs/x86_64" => ->(target) { target.arch == :x86_64 },
       "backend/wasm" => ->(target) { target.arch == :wasm32 },
       "obj/macho" => ->(target) { target.object_format == :macho },
       "obj/elf" => ->(target) { target.object_format == :elf }
@@ -133,25 +135,32 @@ module Zr
     end
 
     # The kernel files: the portable kernel, then the POSIX layer that the
-    # OSes with POSIX threads share (not wasm), then its OS layer, then its
-    # architecture layer, then the C API for a target that runs native C
-    # extensions (not wasm).
+    # OSes with POSIX threads share (not wasm), then its OS layer and that
+    # layer's part for the architecture, then its architecture layer,
+    # then the C API for a target that runs native C extensions (not wasm).
     #: () -> Array[String]
     def kernel_files
       native = target.arch != :wasm32
       Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
         (native ? Dir[File.join(Paths::RUNTIME, "kernel/os/posix/*.rb")].sort : []) +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
+        Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/arch/#{target.arch_layer}/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/arch/#{target.arch_layer}/*.rb")].sort +
         (native ? Dir[File.join(Paths::RUNTIME, "kernel/capi/*.rb")].sort : [])
     end
 
-    # The core library files, in the order their toplevels run.
+    # The core library files, in the order their toplevels run. An OS
+    # file comes from the OS layer for the architecture (`linux-x86_64`)
+    # when that layer has it, else from the OS layer.
     #: () -> Array[String]
     def core_files
       layer = target.os_layer
       CORE_NAMES.map do |name|
-        File.join(Paths::RUNTIME, name.start_with?("os/") ? "core/os/#{layer}/#{name.delete_prefix("os/")}.rb" : "core/#{name}.rb")
+        next File.join(Paths::RUNTIME, "core/#{name}.rb") unless name.start_with?("os/")
+
+        file = "#{name.delete_prefix("os/")}.rb"
+        own = File.join(Paths::RUNTIME, "core/os/#{layer}-#{target.arch_layer}", file)
+        File.exist?(own) ? own : File.join(Paths::RUNTIME, "core/os/#{layer}", file)
       end
     end
 

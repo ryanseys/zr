@@ -8,7 +8,7 @@ require_relative "../target"
 require_relative "link"
 require_relative "link/darwin"
 require_relative "link/static"
-require_relative "../backend/aarch64"
+require_relative "../backend/native"
 require_relative "../backend/wasm"
 require_relative "../obj/macho/object_file"
 require_relative "../obj/elf/object_file"
@@ -67,10 +67,8 @@ module Zr
       def jobs = Config.current.jobs
 
       # The native backend for `target`.
-      #: (Target target) -> singleton(Backend::Aarch64)
-      def backend(target)
-        { aarch64: Backend::Aarch64 }.fetch(target.arch) { raise ArgumentError, "no native backend for #{target}" }
-      end
+      #: (Target target) -> untyped
+      def backend(target) = Backend::Native.for(target)
 
       # The object writer for `target`.
       #: (Target target) -> (singleton(Obj::MachO::ObjectFile) | singleton(Obj::Elf::ObjectFile))
@@ -401,7 +399,7 @@ module Zr
           functions = nil # rubocop:disable Lint/UselessAssignment -- the frame would keep the IR alive
           release.call
         end
-        File.binwrite(obj, Timing.phase("writing the object file", "object file written") { writer(target).write(built) })
+        File.binwrite(obj, Timing.phase("writing the object file", "object file written") { writer(target).write(built, arch: target.arch) })
         nil
       rescue Backend::Refused => e
         e.message

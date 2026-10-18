@@ -195,7 +195,11 @@ module Zr
 
         # Returns the bytes of the object file.
         #: (Unit unit, ?minos: Array[Integer]) -> String
-        def write(unit, minos: Target::AARCH64_DARWIN.min_os_parts) = bytes(laid_out(unit), minos)
+        def write(unit, minos: Target::AARCH64_DARWIN.min_os_parts, arch: :aarch64)
+          raise ArgumentError, "a Mach-O object of zr is arm64, not #{arch}" unless arch == :aarch64
+
+          bytes(laid_out(unit), minos)
+        end
 
         # The layout before any bytes are written: the sections and their
         # bytes, the symbol table, the relocations and the string table.

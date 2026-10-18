@@ -23,6 +23,20 @@ target starts: a binary on its own host, a WASI module under wasmtime.
 For `wasm32-wasi`, build the WASI runtime first (`rake build:wasm`),
 and install [wasmtime](https://wasmtime.dev).
 
+## Run a target's binaries on another machine
+
+The tests build each program on this host and can start the binary
+through a command that you give in `ZR_TEST_EXEC`: the binary and its
+arguments follow its words. The command runs the binary on a host of
+the target, in the test's directory, with the test's environment. The
+other host must see this checkout and `TMPDIR` at the same paths, so
+that the paths that a program prints are the same. For example, with
+a wrapper script that starts the binary in an x86_64 Linux machine:
+
+```console
+$ ZR_TEST_EXEC=~/bin/on-x86_64 TMPDIR=$PWD/tmp/run bin/zr-dev test --target x86_64-linux-musl test/programs/cli
+```
+
 ## Let a target fail what it cannot do yet
 
 A new target does not pass every test at first. Its baseline file,

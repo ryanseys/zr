@@ -3,6 +3,7 @@
 require_relative "model"
 require_relative "../bytes"
 require_relative "relocs/aarch64"
+require_relative "relocs/x86_64"
 require_relative "../paths"
 
 module Zr
@@ -26,19 +27,24 @@ module Zr
       MAP_FIXED = 0x10
       MAP_JIT = 0x800
       PAGE = 16_384
-      # `ldr x16, [pc, #8]; br x16; .quad address`
-      STUB = [0x58000050, 0xD61F0200].pack("L<2") #: String
+      # Each architecture's import stub, which the absolute address
+      # follows: `ldr x16, [pc, #8]; br x16` and `jmp [rip + 0]`.
+      STUBS = { aarch64: [0x58000050, 0xD61F0200].pack("L<2"), x86_64: "\xFF\x25\0\0\0\0".b }.freeze #: Hash[Symbol, String]
+      # The relocations of each architecture's code.
+      RELOCS = { aarch64: Relocs::Aarch64, x86_64: Relocs::X86_64 }.freeze #: Hash[Symbol, untyped]
 
       attr_reader :symbols #: Hash[String, Integer]
 
       # Not `Kernel#load`: this loads a unit, with `syscalls` for its system
-      # calls.
-      #: (Unit unit, syscalls: _Syscalls) -> Hash[String, Integer]
-      def self.load(unit, syscalls:) = new(syscalls).place(unit)
+      # calls, and `arch` its machine code's architecture.
+      #: (Unit unit, syscalls: _Syscalls, ?arch: Symbol) -> Hash[String, Integer]
+      def self.load(unit, syscalls:, arch: :aarch64) = new(syscalls, arch).place(unit)
 
-      #: (_Syscalls syscalls) -> void
-      def initialize(syscalls)
+      #: (_Syscalls syscalls, ?Symbol arch) -> void
+      def initialize(syscalls, arch = :aarch64)
         @syscalls = syscalls
+        @stub = STUBS.fetch(arch)
+        @relocs = RELOCS.fetch(arch)
         @symbols = {}
       end
 
@@ -82,7 +88,7 @@ module Zr
         end
         imports.each do |name|
           Bytes.pad(text, stubs[name])
-          text << STUB << [addresses[name]].pack("Q<")
+          text << @stub << [addresses[name]].pack("Q<")
         end
         bytes = +"".b
         data[:at].each do |d, off|
@@ -123,8 +129,8 @@ module Zr
       end
 
       # Returns the bytes of `item` at `base`, with all relocations applied.
-      # `abs64` is the same in all formats; `Relocs::Aarch64` holds the bit
-      # patterns of the instruction relocations.
+      # `abs64` is the same in all formats; `Relocs::Aarch64` and
+      # `Relocs::X86_64` hold the instruction relocations.
       # @rbs item: Code | Datum
       # @rbs base: Integer
       # @rbs addresses: Hash[String, Integer]
@@ -137,8 +143,8 @@ module Zr
           target = target_of(r, addresses, data_base, got) + r.addend.to_i
           if r.kind == :abs64
             bytes[r.offset, 8] = [target].pack("Q<")
-          elsif Relocs::Aarch64.handles?(r.kind)
-            Relocs::Aarch64.patch(bytes, r, target, base + r.offset)
+          elsif @relocs.handles?(r.kind)
+            @relocs.patch(bytes, r, target, base + r.offset)
           else
             raise ArgumentError, "no way to apply a #{r.kind} relocation"
           end
@@ -153,8 +159,8 @@ module Zr
       #: (Reloc r, Hash[String, Integer] addresses, Integer data_base, Hash[String, Integer] got) -> Integer
       def target_of(r, addresses, data_base, got)
         if @symbols.key?(r.symbol) && !addresses.key?(r.symbol) then @symbols.fetch(r.symbol)
-        elsif %i[got_page21 got_pageoff12].include?(r.kind) then data_base + got.fetch(r.symbol)
-        elsif r.kind == :branch26 then @symbols.fetch(r.symbol)
+        elsif %i[got_page21 got_pageoff12 gotpcrel].include?(r.kind) then data_base + got.fetch(r.symbol)
+        elsif r.kind == :branch26 || r.kind == :plt32 then @symbols.fetch(r.symbol)
         else addresses.fetch(r.symbol)
         end
       end

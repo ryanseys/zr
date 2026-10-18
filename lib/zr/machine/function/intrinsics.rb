@@ -10,7 +10,7 @@ module Zr
       # kind of its ABI: darwin arm64's is the address of the next
       # argument; AAPCS64's is a 32-byte struct and its save areas for the
       # eight x registers and the eight v registers (16 bytes each).
-      VA_LIST_KINDS = { 0 => 8, 1 => 32 + 64 + 128 }.freeze
+      VA_LIST_KINDS = { 0 => 8, 1 => 32 + 64 + 128, 2 => 24 + 48 + 128 }.freeze
 
       # The IR width and the Machine type that each load and store gives or
       # takes, and the Machine type of each conversion.

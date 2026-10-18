@@ -124,18 +124,24 @@ class ElfTest < Minitest::Test
     end
   end
 
-  # A cross toolchain can link here, but only an aarch64-linux-musl host
-  # can run the binary. On other hosts, the test reads the binary's
-  # header.
+  # A cross toolchain can link here, but only a host of the target can
+  # run the binary. On other hosts, the test reads the binary's header.
   def test_a_native_fixture_links_statically_and_runs
-    target = Zr::Target::AARCH64_LINUX_MUSL
-    skip "a static link needs an aarch64-linux-musl host or toolchain" unless target.linkable?
+    fixtures_run(Zr::Target::AARCH64_LINUX_MUSL, 183)
+  end
+
+  def test_a_native_fixture_links_statically_and_runs_on_x86_64
+    fixtures_run(Zr::Target::X86_64_LINUX_MUSL, 62)
+  end
+
+  def fixtures_run(target, machine)
+    skip "a static link needs a #{target} host or toolchain" unless target.linkable?
     Zr::Native::Fixtures::NAMES.each do |name|
       functions, data = Zr::Native::Fixtures.build(name)
       Dir.mktmpdir("zr-elf-") do |dir|
         bin = File.join(dir, name)
         assert_nil Zr::Native::Build.binary(functions, data, bin, work: dir, target: target)
-        assert_static_aarch64_executable File.binread(bin), name
+        assert_static_executable File.binread(bin), machine, name
         next unless target.native?
 
         out = IO.popen([bin], &:read)
@@ -145,12 +151,12 @@ class ElfTest < Minitest::Test
     end
   end
 
-  # Checks for ET_EXEC for EM_AARCH64, with no PT_INTERP, so no loader
+  # Checks for ET_EXEC for `machine`, with no PT_INTERP, so no loader
   # runs first.
-  def assert_static_aarch64_executable(bytes, name)
+  def assert_static_executable(bytes, machine, name)
     assert_equal "\x7FELF".b, bytes.byteslice(0, 4), name
-    type, machine = bytes.byteslice(16, 4).unpack("S<S<")
-    assert_equal [2, 183], [type, machine], name
+    type, kind = bytes.byteslice(16, 4).unpack("S<S<")
+    assert_equal [2, machine], [type, kind], name
     phoff = bytes.byteslice(32, 8).unpack1("Q<")
     phentsize, phnum = bytes.byteslice(54, 4).unpack("S<S<")
     kinds = Array.new(phnum) { |i| bytes.byteslice(phoff + (i * phentsize), 4).unpack1("L<") }

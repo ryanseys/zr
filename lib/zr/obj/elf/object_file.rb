@@ -41,8 +41,8 @@ module Zr
         SHN_LORESERVE = 0xFF00
         SHN_XINDEX = 0xFFFF
 
-        # The AArch64 relocation type for each kind that `Backend::Aarch64`
-        # records.
+        # The relocation type for each kind that each backend records,
+        # and the machine of its objects.
         RELOC = {
           abs64: 257,          # R_AARCH64_ABS64
           branch26: 283,       # R_AARCH64_CALL26
@@ -51,6 +51,14 @@ module Zr
           got_page21: 311,     # R_AARCH64_ADR_GOT_PAGE
           got_pageoff12: 312   # R_AARCH64_LD64_GOT_LO12_NC
         }.freeze #: Hash[reloc_kind, Integer]
+        X86_64_RELOC = {
+          abs64: 1,      # R_X86_64_64
+          pc32: 2,       # R_X86_64_PC32
+          plt32: 4,      # R_X86_64_PLT32
+          gotpcrel: 42   # R_X86_64_REX_GOTPCRELX
+        }.freeze #: Hash[reloc_kind, Integer]
+        EM_X86_64 = 62
+        MACHINES = { aarch64: [EM_AARCH64, RELOC], x86_64: [EM_X86_64, X86_64_RELOC] }.freeze #: Hash[Symbol, [Integer, Hash[reloc_kind, Integer]]]
 
         # Each `Obj` section's ELF name prefix, type and flags.
         SECTIONS = {
@@ -73,7 +81,8 @@ module Zr
 
         # Returns the bytes of the object file.
         #: (Unit unit) -> String
-        def write(unit)
+        def write(unit, arch: :aarch64)
+          machine, relocs = MACHINES.fetch(arch)
           items = unit.items
           sections = [Section.new(name: "", type: 0, flags: 0, bytes: "".b, size: 0, align: 0, link: 0, info: 0, entsize: 0)]
           items.each do |kind, item|
@@ -92,7 +101,7 @@ module Zr
             next if s.item.relocs.empty?
 
             rows = s.item.relocs.sort_by(&:offset).map do |r|
-              type = RELOC.fetch(r.kind) { raise ArgumentError, "no AArch64 relocation for #{r.kind}" }
+              type = relocs.fetch(r.kind) { raise ArgumentError, "no #{arch} relocation for #{r.kind}" }
               [r.offset, (index.fetch(r.symbol) << 32) | type, r.addend.to_i].pack("Q<Q<q<")
             end.join
             sections << Section.new(name: ".rela#{s.name}", type: SHT_RELA, flags: SHF_INFO_LINK, bytes: rows, size: rows.bytesize,
@@ -149,7 +158,7 @@ module Zr
           sections.each_with_index do |s, i|
             out << [names[i], s.type, s.flags, 0, s.offset.to_i, s.size, s.link, s.info, s.align, s.entsize].pack("L<L<Q<Q<Q<Q<L<L<Q<Q<")
           end
-          out[0, 64] = header(shoff, shnum >= SHN_LORESERVE ? 0 : shnum, shstrndx >= SHN_LORESERVE ? SHN_XINDEX : shstrndx)
+          out[0, 64] = header(machine, shoff, shnum >= SHN_LORESERVE ? 0 : shnum, shstrndx >= SHN_LORESERVE ? SHN_XINDEX : shstrndx)
           out
         end
 
@@ -172,10 +181,10 @@ module Zr
           [null] + locals + globals
         end
 
-        #: (Integer shoff, Integer shnum, Integer shstrndx) -> String
-        def header(shoff, shnum, shstrndx)
+        #: (Integer machine, Integer shoff, Integer shnum, Integer shstrndx) -> String
+        def header(machine, shoff, shnum, shstrndx)
           ident = "\x7FELF".b + [2, 1, 1, 0].pack("C4") + ("\0" * 8).b
-          ident + [ET_REL, EM_AARCH64, 1, 0, 0, shoff, 0, 64, 0, 0, 64, shnum, shstrndx].pack("S<S<L<Q<Q<Q<L<S<S<S<S<S<S<")
+          ident + [ET_REL, machine, 1, 0, 0, shoff, 0, 64, 0, 0, 64, shnum, shstrndx].pack("S<S<L<Q<Q<Q<L<S<S<S<S<S<S<")
         end
       end
     end

@@ -37,7 +37,7 @@ module Zr
           return "ZR_LINKER=ruby: zr has no linker of its own for an ELF binary. Set ZR_LINKER=auto or cc" if linker == "ruby"
 
           obj = File.join(work, "unit.o")
-          File.binwrite(obj, Obj::Elf::ObjectFile.write(image))
+          File.binwrite(obj, Obj::Elf::ObjectFile.write(image, arch: target.arch))
           Link.run(objects + [obj], out, flags: FLAGS + (strip ? STRIP_FLAGS : []) + link, target: target)
         end
 

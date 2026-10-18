@@ -10,8 +10,9 @@ module Zr
   module Harness
     # Builds a whole program for one target, runs the result, and selects
     # the recording to check the output against. A native binary runs on
-    # its own host. A wasm module runs under wasmtime, with the test
-    # directory preopened and each environment variable passed by name.
+    # its own host, or through `ZR_TEST_EXEC`. A wasm module runs under
+    # wasmtime, with the test directory preopened and each environment
+    # variable passed by name.
     class Runner
       # The platform name in recording file names, for each OS.
       PLATFORMS = { darwin: "macos", linux: "linux", wasi: "wasi" }.freeze
@@ -37,7 +38,7 @@ module Zr
 
           return "#{@target.triple} modules run under wasmtime, which is not on the PATH"
         end
-        return nil if @target.runs_here?
+        return nil if @target.runs_here? || exec
 
         "#{@target.triple} binaries run only on their own host, and this host is #{Target.host_triple}"
       end
@@ -53,6 +54,11 @@ module Zr
 
       def build_env = GcTuning::GC_ENV
 
+      # The command words that run a binary on a host of the target, from
+      # `ZR_TEST_EXEC`: the binary and its arguments follow them, in the
+      # test's directory and environment.
+      def exec = ENV["ZR_TEST_EXEC"]&.split&.then { |words| words.empty? ? nil : words }
+
       # The command that runs `out` with `args` under `env`, and the
       # environment for the process itself.
       #
@@ -64,6 +70,7 @@ module Zr
       # module is compiled first (`Wasmtime.precompile`), so the memory
       # limit of a run counts the program and not wasmtime's compiler.
       def run(out, args, env)
+        return [[*exec, out, *args], env] if exec && !wasm?
         return [[out, *args], env] unless wasm?
 
         dirs = { "." => ".", Dir.tmpdir => "/tmp" }

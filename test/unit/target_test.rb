@@ -48,7 +48,7 @@ class TargetTest < Minitest::Test
   end
 
   # A static musl binary runs on any Linux of the same machine, so a
-  # glibc aarch64 host builds and runs aarch64-linux-musl by default.
+  # glibc host builds and runs its machine's musl target by default.
   def test_a_glibc_aarch64_host_runs_the_musl_target
     Checks.with_host("aarch64-linux-gnu") do
       musl = Zr::Target::AARCH64_LINUX_MUSL
@@ -59,7 +59,7 @@ class TargetTest < Minitest::Test
       refute_predicate Zr::Target::AARCH64_DARWIN, :runs_here?
     end
     Checks.with_host("x86_64-linux-gnu") do
-      assert_nil Zr::Target.host
+      assert_same Zr::Target::X86_64_LINUX_MUSL, Zr::Target.host
       refute_predicate Zr::Target::AARCH64_LINUX_MUSL, :runs_here?
     end
   end

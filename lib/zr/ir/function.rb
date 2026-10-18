@@ -484,7 +484,8 @@ module Zr
       # in the slot `slot`, which the prologue fills as the C ABI `kind`
       # passes them (Machine::Function::VA_LIST_KINDS): 0, darwin arm64's,
       # the address of the first argument on the stack; 1, AAPCS64's
-      # struct, with the save areas of x0-x7 and d0-d7 after it. Only the
+      # struct, with the save areas of x0-x7 and d0-d7 after it; 2, System
+      # V's, with the save area of rdi..r9 and xmm0..xmm7 after it. Only the
       # function's own frame knows them, so a function with one is never
       # inlined. `offset` holds the kind.
       #: (String slot, Integer kind) -> String

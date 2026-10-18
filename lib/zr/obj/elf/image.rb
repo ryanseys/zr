@@ -10,6 +10,7 @@ module Zr
       # Obj::Elf::Localize rewrites the symbols that it reads.
       class Image
         EM_AARCH64 = 183
+        EM_X86_64 = 62
         SHT_SYMTAB = 2
         SHT_STRTAB = 3
         SHT_SYMTAB_SHNDX = 18
@@ -61,8 +62,8 @@ module Zr
         #: (String bytes) -> void
         def initialize(bytes)
           @bytes = bytes
-          unless Image.elf?(bytes) && bytes.getbyte(4) == 2 && bytes.getbyte(5) == 1 && bytes.unpack1("S<", offset: 18) == EM_AARCH64
-            raise ArgumentError, "not a 64-bit little-endian aarch64 ELF file"
+          unless Image.elf?(bytes) && bytes.getbyte(4) == 2 && bytes.getbyte(5) == 1 && [EM_AARCH64, EM_X86_64].include?(bytes.unpack1("S<", offset: 18))
+            raise ArgumentError, "not a 64-bit little-endian aarch64 or x86-64 ELF file"
           end
 
           @sections = read_sections

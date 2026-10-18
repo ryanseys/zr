@@ -9,7 +9,7 @@ require_relative "../ir/fingerprint"
 require_relative "../ir/passes"
 require_relative "code"
 require_relative "../native/parallel"
-require_relative "../backend/aarch64"
+require_relative "../backend/native"
 
 module Zr
   module Cache
@@ -160,7 +160,7 @@ module Zr
         named = (functions.flat_map { |f| f.callees.map(&:symbol) + f.globals.map(&:symbol) }).uniq
         defined = own | @fixed_names
         # A code cache is only for this backend (`Cache::Code.for`).
-        emitter = Backend::Aarch64
+        emitter = Backend::Native.for(@target)
         blobs = {} #: Hash[String, String]
         prints = functions.map do |f|
           key = IR::Fingerprint.of(f, defined)

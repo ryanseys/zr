@@ -9,12 +9,6 @@ module Zr::Kern
     argv
   end
 
-  # RUBY_PLATFORM, as ruby built against musl gives it.
-  #: () -> value
-  def zr_os_ruby_platform
-    zr_str_new(Machine.bytes("aarch64-linux-musl"), 18)
-  end
-
   # Whether this OS takes a path in UTF-8: no, it takes its bytes,
   # whatever their encoding, as ruby's rb_str_encode_ospath gives it
   # outside macOS and Windows.

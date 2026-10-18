@@ -837,7 +837,8 @@ module Zr
           refuse(node, "#{name} is #{@statics[name]} bytes, not #{size}") if @statics[name] != size
         else
           @statics[name] = size
-          @data << Obj::Datum.new("zr_static_#{name}", :bss, size, align: 16)
+          # The gate word is exported: on x86-64, every unit's `gates` reads it.
+          @data << Obj::Datum.new("zr_static_#{name}", :bss, size, align: 16, linkage: name == "gates" ? :export : :local)
         end
         "zr_static_#{name}"
       end

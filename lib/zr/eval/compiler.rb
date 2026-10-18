@@ -17,6 +17,11 @@ module Zr
     # starts from the program's own table. So an eval uses the same kernel
     # and the same symbol ids as the code around it.
     class Compiler < Eval
+      # The machine of this process: the backend that compiles an eval,
+      # and the code that the JIT loader places. A binary bakes
+      # RUBY_PLATFORM from its target.
+      ARCH = RUBY_PLATFORM.start_with?("x86_64") ? :x86_64 : :aarch64 #: Symbol
+
       # @rbs @runtime: Runtime
       # @rbs @description: Machine::Description
       # @rbs @symbols: Machine::Symbols
@@ -36,6 +41,7 @@ module Zr
         require_relative "../hir"
         require_relative "../lower"
         require_relative "../backend/aarch64"
+        require_relative "../backend/x86_64"
         require_relative "../obj/jit"
         require_relative "../runtime/lib/zr/obj/jit/runtime"
         require_relative "../symbol_numbering"
@@ -226,7 +232,7 @@ module Zr
       #: (Obj::Unit code) -> Hash[String, Integer]
       def place(code)
         SymbolNumbering.number(code.data, @symbols, @description.const_for("SYMBOL_TAG") || raise("the kernel declares no SYMBOL_TAG"))
-        Obj::JIT.load(code, syscalls: @syscalls)
+        Obj::JIT.load(code, syscalls: @syscalls, arch: ARCH)
       end
 
       # @rbs source: untyped
@@ -382,7 +388,7 @@ module Zr
       def unit(lowered, data)
         functions = lowered #: Array[IR::Function]
         functions.each { |f| IR::Passes.prepare(f) }
-        Backend::Aarch64.unit(functions, data)
+        (ARCH == :x86_64 ? Backend::X86_64 : Backend::Aarch64).unit(functions, data)
       end
     end
   end

@@ -42,7 +42,7 @@ module Zr
     # lib/zr/runtime/core/os/ and lib/zr/runtime/ext/os/ each contain one directory per layer.
     OS_LAYERS = { darwin: "darwin", linux: "linux", wasi: "wasi" }.freeze #: Hash[os, String]
     # The machine layer, under lib/zr/runtime/kernel/arch/.
-    ARCH_LAYERS = { aarch64: "aarch64", wasm32: "wasm32" }.freeze #: Hash[arch, String]
+    ARCH_LAYERS = { aarch64: "aarch64", x86_64: "x86_64", wasm32: "wasm32" }.freeze #: Hash[arch, String]
 
     #: () -> String
     def os_layer = OS_LAYERS.fetch(os)
@@ -75,12 +75,15 @@ module Zr
     AARCH64_LINUX_MUSL = new(triple: "aarch64-linux-musl", arch: :aarch64, os: :linux, libc: :musl,
                              object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux-musl",
                              link: :static, outputs: %i[native obj]) #: Target
+    X86_64_LINUX_MUSL = new(triple: "x86_64-linux-musl", arch: :x86_64, os: :linux, libc: :musl,
+                            object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "x86_64-linux-musl",
+                            link: :static, outputs: %i[native obj]) #: Target
     WASM32_WASI = new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
                       page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
                       link: nil, outputs: %i[wasm]) #: Target
 
     # Every target.
-    ALL = [AARCH64_DARWIN, AARCH64_LINUX_MUSL, WASM32_WASI].freeze #: Array[Target]
+    ALL = [AARCH64_DARWIN, AARCH64_LINUX_MUSL, X86_64_LINUX_MUSL, WASM32_WASI].freeze #: Array[Target]
     # Every target, by triple.
     BY_TRIPLE = ALL.to_h { |target| [target.triple, target] }.freeze #: Hash[String, Target]
 

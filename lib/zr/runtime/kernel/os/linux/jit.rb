@@ -146,7 +146,7 @@ module Zr::Kern
     to = Machine.ptr(zr_fix2long(at))
     len = RString[bytes].len
     zr_memcpy(to, RString[bytes].ptr, len)
-    Libc.__clear_cache(to, to + len)
+    zr_os_jit_flush(to, len)
     Machine.value(QNIL)
   end
 
