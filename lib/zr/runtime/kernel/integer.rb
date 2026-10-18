@@ -35,8 +35,8 @@ module Zr::Kern
   GATE_POP = 1 << 35
   GATE_SHIFT = 1 << 36
   GATE_EMPTY_P = 1 << 37
-  # Proc#call on a `&b` parameter that is bound to the block that the
-  # caller gave (zr_opt_block_call).
+  # Proc#call, #[], #yield and #=== on a `&b` parameter that is bound to
+  # the block that the caller gave (zr_opt_block_call).
   GATE_PROC_CALL = 1 << 38
   # `is_a?`, `kind_of?` and `instance_of?` from Kernel, for every object.
   # These two gates close when any class defines a method of that name,

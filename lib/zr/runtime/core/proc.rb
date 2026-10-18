@@ -5,8 +5,6 @@ class Proc
   # The scope the block was written in.
   def binding = Primitive.zr_proc_binding(self)
 
-  alias === call
-
   # `lambda: true` reports a plain positional as :req and `false` as
   # :opt; nil takes the view this proc has of its own.
   def parameters(lambda: nil)

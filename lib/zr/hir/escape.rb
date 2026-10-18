@@ -37,6 +37,10 @@ module Zr
       #: (untyped node, Symbol name) -> bool
       def self.spread_only?(node, name) = new(name).spread?(node, 0)
 
+      # The calls of a Proc that run its block: a stack block serves each
+      # (`Function#dispatch`, zr_opt_block_call).
+      BLOCK_CALLS = %i[call [] yield ===].freeze
+
       # The anonymous `*`, `**` and `&` that `...` binds.
       FORWARDED = %i[* ** &].freeze
 
@@ -179,7 +183,7 @@ module Zr
       def raw_send?(node, level)
         recv = node.recv
         own = if recv.is_a?(Local) && mine?(recv, level)
-                node.name == :call && node.block.nil?
+                BLOCK_CALLS.include?(node.name) && node.block.nil?
               else
                 raw?(recv, level)
               end

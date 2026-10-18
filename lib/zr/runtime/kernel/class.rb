@@ -1507,7 +1507,7 @@ module Zr::Kern
       GATE_SHIFT
     elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:empty?)
       GATE_EMPTY_P
-    elsif klass == zr_global(G_PROC) && mid == Machine.id(:call)
+    elsif klass == zr_global(G_PROC) && (mid == Machine.id(:call) || mid == Machine.id(:[]) || mid == Machine.id(:yield) || mid == Machine.id(:===))
       GATE_PROC_CALL
     elsif klass == zr_global(G_ARRAY) && mid == Machine.id(:each)
       GATE_EACH
@@ -1547,7 +1547,7 @@ module Zr::Kern
     attr_accessor :vis #: word
   end
 
-  GATE_ROWS = 58
+  GATE_ROWS = 61
 
   #: (word, word, word, word) -> word
   def zr_gate_row(i, klass, mid, bit)
@@ -1608,6 +1608,9 @@ module Zr::Kern
     i = zr_gate_row(i, G_ARRAY, Machine.id(:shift), GATE_SHIFT)
     i = zr_gate_row(i, G_ARRAY, Machine.id(:empty?), GATE_EMPTY_P)
     i = zr_gate_row(i, G_PROC, Machine.id(:call), GATE_PROC_CALL)
+    i = zr_gate_row(i, G_PROC, Machine.id(:[]), GATE_PROC_CALL)
+    i = zr_gate_row(i, G_PROC, Machine.id(:yield), GATE_PROC_CALL)
+    i = zr_gate_row(i, G_PROC, Machine.id(:===), GATE_PROC_CALL)
     i = zr_gate_row(i, G_ARRAY, Machine.id(:each), GATE_EACH)
     i = zr_gate_row(i, G_ARRAY, Machine.id(:map), GATE_MAP)
     i = zr_gate_row(i, G_ARRAY, Machine.id(:select), GATE_SELECT)

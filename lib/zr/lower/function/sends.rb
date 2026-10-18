@@ -721,8 +721,8 @@ module Zr
           activate(node)
           if node.opt && !owner_using?(node) && !traced?
             checked(opt_send(node, recv, argc, argv))
-          elsif node.name == :call && node.block.nil? && !owner_using?(node) && raw_block_recv?(node.recv)
-            checked(kernel("zr_opt_block_call", recv, sym_word(:call), argc, argv, imm(send_mode(node))))
+          elsif Hir::Escape::BLOCK_CALLS.include?(node.name) && node.block.nil? && !owner_using?(node) && raw_block_recv?(node.recv)
+            checked(kernel("zr_opt_block_call", recv, sym_word(node.name), argc, argv, imm(send_mode(node))))
           elsif math_call?(node)
             checked(math_send(node, recv, argc, argv))
           elsif node.name == :new && !@l.plain_new?

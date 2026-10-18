@@ -292,6 +292,8 @@ module Zr::Kern
     zr_define_method(zr_global(G_PROC), Machine.id(:call), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
     zr_define_method(zr_global(G_PROC), Machine.id(:[]), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
     zr_define_method(zr_global(G_PROC), Machine.id(:yield), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
+    # Proc#=== is a method of its own over proc_call, as CRuby defines it.
+    zr_define_method(zr_global(G_PROC), Machine.id(:===), Machine.addr(:zr_proc_call), 0 - 1, KIND_FRAMELESS, 0, Machine.value(QNIL))
     zr_builtin(zr_global(G_PROC), Machine.id(:lambda?), Machine.addr(:zr_proc_lambda_p), 0)
     zr_builtin(zr_global(G_PROC), Machine.id(:inspect), Machine.addr(:zr_proc_inspect), 0)
     zr_builtin(zr_global(G_PROC), Machine.id(:to_s), Machine.addr(:zr_proc_inspect), 0)
