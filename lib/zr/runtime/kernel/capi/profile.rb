@@ -38,6 +38,7 @@ module Zr::Kern
 
   #: (ptr, word, word, ptr, ptr) -> word
   def zr_profile_frames(rec, start, limit, buff, lines)
+    Machine.store64(zr_profiled(), 0, 1)
     i = 0
     while rec != 0 && i < limit
       if zr_frame_shown_p(rec)

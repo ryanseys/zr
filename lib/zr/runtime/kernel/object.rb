@@ -2201,12 +2201,13 @@ module Zr::Kern
   end
 
   # The FrameMeta of a method that `define_method` or an attribute defines
-  # at the current position of the frame `rec`. Frames and backtrace rows
-  # point to a FrameMeta, so none is ever freed. A definition at the same
+  # at the current position of the frame `rec`. A definition at the same
   # place, with the same name, for the same owner, takes the FrameMeta that
-  # the last one made, so a loop of definitions does not grow.
-  # G_SITE_METAS maps the place and the name, as the bytes of a String, to
-  # that FrameMeta.
+  # the last one made, so a loop of definitions does not grow. For another
+  # owner it is a copy that the owner frees with itself
+  # (zr_meta_copy_owned). G_SITE_METAS maps the place and the name, as the
+  # bytes of a String, to the last FrameMeta and its owner, which the table
+  # keeps alive, so the FrameMeta is never one that a class freed.
   G_SITE_METAS = 69
 
   #: (ptr, word, value) -> ptr
@@ -2222,15 +2223,21 @@ module Zr::Kern
       table = zr_hash_new()
       zr_set_global(G_SITE_METAS, table)
     end
+    home = zr_origin(owner)
     found = zr_hash_lookup(table, k)
     if found != QUNDEF
-      meta = Machine.ptr(zr_fix2long(found))
-      if FrameMeta[meta].owner == zr_origin(owner)
-        return meta
+      last = Machine.ptr(zr_fix2long(zr_ary_at(found, 0)))
+      if zr_ary_at(found, 1) == home
+        return last
       end
+      meta = zr_meta_copy_owned(home, last)
+    else
+      meta = zr_meta_at(rec)
     end
-    meta = zr_meta_at(rec)
-    zr_hash_store(table, k, zr_fix(Machine.word(meta)))
+    pair = zr_ary_new(2)
+    zr_ary_push(pair, zr_fix(Machine.word(meta)))
+    zr_ary_push(pair, home)
+    zr_hash_store(table, k, pair)
     meta
   end
 

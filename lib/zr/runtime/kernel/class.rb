@@ -66,6 +66,11 @@ module Zr::Kern
     # The CRuby type of the class's instances plus one, or 0 before
     # ObjectSpace first asks (zr_class_census).
     attr_accessor :census #: word
+    # The FrameMeta copies that the class's own methods got, which go with
+    # it (zr_meta_copy_owned), their count and the list's room.
+    attr_accessor :copies #: ptr
+    attr_accessor :ncopies #: word
+    attr_accessor :copies_cap #: word
   end
   # `orig` is the name of the first definition of the method, which an
   # alias keeps. `from` is the ancestor list node where an alias or a
@@ -185,6 +190,9 @@ module Zr::Kern
     RClass[c].attached = Machine.value(QNIL)
     RClass[c].origin = Machine.value(QNIL)
     ext = zr_xmalloc(ClassExt.size)
+    ClassExt[ext].copies = 0
+    ClassExt[ext].ncopies = 0
+    ClassExt[ext].copies_cap = 0
     ClassExt[ext].mtab = 0
     ClassExt[ext].mlen = 0
     ClassExt[ext].mcap = 0
@@ -438,6 +446,9 @@ module Zr::Kern
     ClassExt[RClass[klass].ext].saved = 0
     ClassExt[RClass[klass].ext].slen = 0
     ClassExt[RClass[klass].ext].retired = 0
+    ClassExt[RClass[klass].ext].copies = 0
+    ClassExt[RClass[klass].ext].ncopies = 0
+    ClassExt[RClass[klass].ext].copies_cap = 0
     i = 0
     while i < ClassExt[ext].mlen
       e = ClassExt[ext].mtab + (i * MEntry.size)
@@ -1749,21 +1760,23 @@ module Zr::Kern
     end
     klass = zr_origin(klass)
     relabel = false
-    if meta == 0
+    fresh = meta == 0
+    if fresh
       meta = zr_meta_new()
       FrameMeta[meta].arity = arity
+      zr_meta_copy_keep(klass, meta)
     elsif Machine.word(FrameMeta[meta].owner) != 0 && FrameMeta[meta].owner != klass
       # The same def run under a different class (a class body in a block
       # that runs two times) gets its own meta, so each keeps its owner.
-      copy = zr_xmalloc(FrameMeta.size)
-      zr_memcpy(copy, meta, FrameMeta.size)
-      meta = copy
+      meta = zr_meta_copy_owned(klass, meta)
       relabel = true
     end
     first = Machine.word(FrameMeta[meta].owner) == 0
     FrameMeta[meta].name = mid
     FrameMeta[meta].owner = klass
-    if first
+    # A def site's own meta keeps its first owner; a fresh meta is the
+    # class's, and goes with it.
+    if first && !fresh
       zr_keep_meta_owner(klass)
     end
     if FrameMeta[meta].blocks == BLOCKS_USED
@@ -1905,10 +1918,63 @@ module Zr::Kern
     if meta == 0 || FrameMeta[meta].owner == owner
       return meta
     end
-    copy = zr_xmalloc(FrameMeta.size)
-    zr_memcpy(copy, meta, FrameMeta.size)
+    copy = zr_meta_copy_owned(owner, meta)
     FrameMeta[copy].owner = owner
     copy
+  end
+
+  # A copy of `meta` for the methods of `klass`, which frees it with
+  # itself (zr_meta_copies_free).
+  #: (value, ptr) -> ptr
+  def zr_meta_copy_owned(klass, meta)
+    copy = zr_xmalloc(FrameMeta.size)
+    zr_memcpy(copy, meta, FrameMeta.size)
+    zr_meta_copy_keep(klass, copy)
+    copy
+  end
+
+  #: (value, ptr) -> void
+  def zr_meta_copy_keep(klass, meta)
+    ext = RClass[zr_origin(klass)].ext
+    n = ClassExt[ext].ncopies
+    if n == ClassExt[ext].copies_cap
+      capa = n == 0 ? 4 : n * 2
+      grown = zr_xmalloc(capa * 8)
+      if n > 0
+        zr_memcpy(grown, ClassExt[ext].copies, n * 8)
+        zr_xfree(ClassExt[ext].copies)
+      end
+      ClassExt[ext].copies = grown
+      ClassExt[ext].copies_cap = capa
+    end
+    Machine.store64(ClassExt[ext].copies + (n * 8), 0, Machine.word(meta))
+    ClassExt[ext].ncopies = n + 1
+  end
+
+  # Frees the meta copies of a freed class. Each entry that names one
+  # keeps the class alive (zr_mark_entry), and so does a backtrace row
+  # (zr_mark_backtrace_rows). A sampling profiler keeps raw meta
+  # addresses as its frames (capi/profile.rb), so after the first sample
+  # the copies stay.
+  #: (ptr) -> void
+  def zr_meta_copies_free(ext)
+    if ClassExt[ext].copies == 0
+      return
+    end
+    if Machine.load64(zr_profiled(), 0) == 0
+      i = 0
+      while i < ClassExt[ext].ncopies
+        zr_xfree(Machine.ptr(Machine.load64(ClassExt[ext].copies + (i * 8), 0)))
+        i += 1
+      end
+    end
+    zr_xfree(ClassExt[ext].copies)
+  end
+
+  # Nonzero once a profiler took frames (rb_profile_frames).
+  #: () -> ptr
+  def zr_profiled
+    Machine.static(:profiled, 8)
   end
 
   # The visibility that a definition under `cref` gets: the body's current
@@ -3502,6 +3568,16 @@ end
   def zr_mark_entry(e)
     zr_mark(MEntry[e].cref)
     zr_mark(MEntry[e].from)
+    # An entry that a copy put in another class names the first class's
+    # meta, which goes with that class.
+    meta = MEntry[e].meta
+    if meta != 0
+      zr_mark(FrameMeta[meta].owner)
+    end
+    label = MEntry[e].label
+    if label != 0
+      zr_mark(FrameMeta[label].owner)
+    end
     if MEntry[e].kind == KIND_BMETHOD
       zr_mark(zr_bmethod_cref_kept(e))
     end
@@ -3616,6 +3692,7 @@ end
     if t == T_ICLASS
       if RClass[RClass[v].attached].origin == v
         zr_meta_owners_drop(RClass[v].ext, v)
+        zr_meta_copies_free(RClass[v].ext)
         if ClassExt[RClass[v].ext].mtab != 0
           zr_xfree(ClassExt[RClass[v].ext].mtab)
         end
@@ -3626,6 +3703,7 @@ end
     elsif t == T_CLASS || t == T_MODULE
       ext = RClass[v].ext
       zr_meta_owners_drop(ext, v)
+      zr_meta_copies_free(ext)
       if ClassExt[ext].mtab != 0
         zr_xfree(ClassExt[ext].mtab)
       end
