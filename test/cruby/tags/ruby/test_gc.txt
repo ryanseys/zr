@@ -4,7 +4,6 @@ TestGc#test_stat_global_scope_global_gc_count_sums_ractor_counts	gc: zr has one 
 TestGc#test_ast_node_buffer	timeout
 TestGc#test_stat_global_scope_fork_inherits_archived_and_live_history	gc: zr has one heap for all Ractors, so the per-Ractor and global counts and scopes differ
 TestGc#test_gc_start_ractor_global_true	gc: zr has one heap for all Ractors, so the per-Ractor and global counts and scopes differ
-TestGc#test_latest_gc_info_weak_references_count	gc: zr counts no weak references
 TestGc#test_stat_global_scope_preserves_measured_time_when_measurement_disabled	gc: zr has one heap for all Ractors, so the per-Ractor and global counts and scopes differ
 TestGc#test_stat_global_scope_counts_global_collection_once	gc: zr has one heap for all Ractors, so the per-Ractor and global counts and scopes differ
 TestGc#test_stat_global_scope_preserves_nested_ractor_history	timeout
