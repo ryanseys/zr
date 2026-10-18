@@ -641,6 +641,28 @@ module Zr::Kern
     low < n && code >= Machine.u32(Machine.load32(data + (low * 8), 0))
   end
 
+  # The (low, high) pair of `ranges` that holds `code`, in the layout of
+  # zr_onig_in_code_range_p, or 0 for none.
+  #: (ptr, word) -> ptr
+  def zr_onig_code_range_at(ranges, code)
+    n = Machine.u32(Machine.load32(ranges, 0))
+    data = ranges + 4
+    low = 0
+    high = n
+    while low < high
+      x = (low + high) >> 1
+      if code > Machine.u32(Machine.load32(data + (x * 8), 4))
+        low = x + 1
+      else
+        high = x
+      end
+    end
+    if low < n && code >= Machine.u32(Machine.load32(data + (low * 8), 0))
+      return data + (low * 8)
+    end
+    Machine.ptr(0)
+  end
+
   # ONIGENC_IS_ASCII_CODE_CTYPE(code, WORD)
   #: (word) -> bool
   def zr_onig_ascii_word_p(code)
@@ -709,14 +731,18 @@ module Zr::Kern
 
   # onigenc_unicode_fold_lookup: the fold entry of `code` in
   # zr_onig_fold_rows, or 0 for none. Each entry is from, n, c0, c1, c2 as
-  # u32, and the entries are sorted by from.
+  # u32, and the entries are sorted by from. zr_onig_fold_pages narrows
+  # the search to the rows of the code's 256-code page.
   #: (word) -> ptr
   def zr_onig_fold_lookup(code)
-    table = zr_onig_fold_rows()
-    n = Machine.u32(Machine.load32(table, 0))
-    rows = table + 4
-    low = 0
-    high = n
+    pages = zr_onig_fold_pages()
+    page = code >> 8
+    if page >= Machine.u32(Machine.load32(pages, 0))
+      return Machine.ptr(0)
+    end
+    rows = zr_onig_fold_rows() + 4
+    low = Machine.u32(Machine.load32(pages + 4 + (page * 4), 0))
+    high = Machine.u32(Machine.load32(pages + 8 + (page * 4), 0))
     while low < high
       x = (low + high) >> 1
       row = rows + (x * 20)

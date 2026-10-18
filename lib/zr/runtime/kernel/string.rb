@@ -213,6 +213,10 @@ module Zr::Kern
     n = RString[s].len
     p = RString[s].ptr
     i = zr_fix2long(from)
+    # The Print range of the last character: the next one of its script
+    # is most often in it too, and needs no search.
+    low = 1
+    high = 0
     while i < n
       c = Machine.u8(Machine.load8(p + i, 0))
       if c < 128
@@ -225,8 +229,17 @@ module Zr::Kern
           return zr_fix(i)
         end
         len = zr_utf8_char_len(p + i, n - i)
-        if len == 0 || !zr_onig_in_code_range_p(zr_onig_print_ranges(), zr_onig_utf8_to_code(p + i, p + i + len))
+        if len == 0
           return zr_fix(i)
+        end
+        code = zr_utf8_decode(p + i, len)
+        if code < low || code > high
+          pair = zr_onig_code_range_at(zr_onig_print_ranges(), code)
+          if pair == 0
+            return zr_fix(i)
+          end
+          low = Machine.u32(Machine.load32(pair, 0))
+          high = Machine.u32(Machine.load32(pair, 4))
         end
         i += len
       end
@@ -3050,7 +3063,7 @@ G_FROZEN_LITERALS = 52
         zr_buf_byte(b, zr_onig_ascii_lower(c))
       else
         len = zr_utf8_char_len(p, n - i)
-        row = zr_onig_fold_lookup(zr_onig_utf8_to_code(p, p + len))
+        row = zr_onig_fold_lookup(zr_utf8_decode(p, len))
         if row != 0
           count = Machine.u32(Machine.load32(row, 4))
           j = 0
@@ -3066,6 +3079,24 @@ G_FROZEN_LITERALS = 52
     end
     zr_str_copy_encoding(zr_buf_take(b), s)
   end
+
+  # The code point of the `len` bytes at `p`, a sequence that
+  # zr_utf8_char_len found whole and valid.
+  #: (ptr, word) -> word
+  def zr_utf8_decode(p, len)
+    c = Machine.u8(Machine.load8(p, 0))
+    if len == 1
+      return c
+    end
+    if len == 2
+      return ((c & 31) << 6) | (Machine.u8(Machine.load8(p, 1)) & 63)
+    end
+    if len == 3
+      return ((c & 15) << 12) | ((Machine.u8(Machine.load8(p, 1)) & 63) << 6) | (Machine.u8(Machine.load8(p, 2)) & 63)
+    end
+    ((c & 7) << 18) | ((Machine.u8(Machine.load8(p, 1)) & 63) << 12) | ((Machine.u8(Machine.load8(p, 2)) & 63) << 6) | (Machine.u8(Machine.load8(p, 3)) & 63)
+  end
+  inline :zr_utf8_decode
 
   # Appends the UTF-8 bytes of the code point `code`.
   #: (ptr, word) -> void

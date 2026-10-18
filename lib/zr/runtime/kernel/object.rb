@@ -1831,6 +1831,7 @@ module Zr::Kern
     end
     len
   end
+  inline :zr_utf8_char_len
 
   # Writes `n` bytes double-quoted and escaped, as String#inspect does. A
   # binary string writes each high byte in hex. A text string keeps a
