@@ -14,7 +14,11 @@ Dir.mktmpdir do |dir|
   p t { d.fileno }
   p t { d.read }
 
-  e = Dir.for_fd(File.open(dir).fileno)
+  # The Dir takes the descriptor, so the File must not close it again when
+  # a collection finalizes it: by then its number can be another file's.
+  source = File.open(dir)
+  source.autoclose = false
+  e = Dir.for_fd(source.fileno)
   p e.fileno.is_a?(Integer)
   e.close
 
