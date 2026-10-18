@@ -412,7 +412,7 @@ class File < IO
     def self.of(path, site)
       Primitive.attr! :hidden
       fields = File.send(:stat_fields, path)
-      raise SystemCallError.new(path, -fields, site) if fields.is_a?(Integer)
+      raise SystemCallError.new(File.send(:path_of, path), -fields, site) if fields.is_a?(Integer)
 
       allocate.send(:take, fields)
     end
@@ -782,16 +782,21 @@ class File < IO
 
   def self.stat(path) = Stat.send(:of, path_of(path), "rb_file_s_stat")
   def self.lstat(path) = Stat.send(:link, path_of(path))
-  def self.mtime(path) = Stat.of(path_of(path), "rb_file_s_mtime").mtime
-  def self.atime(path) = Stat.of(path_of(path), "rb_file_s_atime").atime
-  def self.ctime(path) = Stat.of(path_of(path), "rb_file_s_ctime").ctime
+  # rb_stat: an IO, or an object whose to_io gives one, by fstat(2).
+  def self.mtime(path) = Stat.of(path, "rb_file_s_mtime").mtime
+  def self.atime(path) = Stat.of(path, "rb_file_s_atime").atime
+  def self.ctime(path) = Stat.of(path, "rb_file_s_ctime").ctime
   def self.ftype(path) = Stat.send(:link, path, "rb_file_s_ftype").ftype
   def self.symlink?(path) = File.send(:stat_fields, path, false).then { |f| f.is_a?(Array) && (f[2] & 0o170000) == 0o120000 }
 
   # stat(2), or lstat(2) where `follow` is false, as the call that may
-  # block: the fields, or the negative errno.
+  # block: the fields, or the negative errno. As rb_stat asks it, stat(2)
+  # takes an IO, or an object whose to_io gives one, by fstat(2).
   def self.stat_fields(path, follow = true)
     Primitive.attr! :hidden
+    io = stat_io(path) if follow
+    return Primitive.zr_fstat_m(io.fileno) if io
+
     path = path_of(path)
     without_gvl { Primitive.zr_stat_m(os_path(path), follow) }
   end
@@ -1011,7 +1016,7 @@ class File < IO
 
   def self.umask(mask = nil) = Primitive.zr_umask_m(mask.nil? ? nil : mode_operand(mask))
 
-  def self.birthtime(path) = Stat.of(path_of(path), "rb_file_s_birthtime").birthtime
+  def self.birthtime(path) = Stat.of(path, "rb_file_s_birthtime").birthtime
 
   def self.blockdev?(path) = File.send(:mode_kind?, path, 0o060000)
   def self.chardev?(path) = File.send(:mode_kind?, path, 0o020000)

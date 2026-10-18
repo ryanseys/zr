@@ -1,0 +1,14 @@
+pipe?: [false, true]
+owned?: true
+grpowned?: true
+world_readable?: true
+world_writable?: nil
+sticky? setuid? setgid?: [false, false, false]
+socket? blockdev? chardev?: [false, false, false]
+times: [Time, Time, Time]
+times of an IO: true
+mtime same: true
+to_io not an IO: !TypeError: can't convert ToIO into IO (ToIO#to_io gives Integer)
+closed: !IOError: closed stream
+symlink? takes no IO: false
+missing path: !Errno::ENOENT: No such file or directory @ rb_file_s_mtime - /nonexistent/zr-file
