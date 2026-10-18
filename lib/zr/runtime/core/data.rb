@@ -159,14 +159,14 @@ class Data
 
   def ==(other)
     return true if equal?(other)
-    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
+    return false unless Primitive.zr_real_class(other).equal?(Primitive.zr_real_class(self))
 
     values_store == other.send(:values_store)
   end
 
   def eql?(other)
     return true if equal?(other)
-    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
+    return false unless Primitive.zr_real_class(other).equal?(Primitive.zr_real_class(self))
 
     values_store.eql?(other.send(:values_store))
   end

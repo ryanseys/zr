@@ -299,7 +299,7 @@ class Struct
 
   def ==(other)
     return true if equal?(other)
-    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
+    return false unless Primitive.zr_real_class(other).equal?(Primitive.zr_real_class(self))
 
     # rb_exec_recursive_paired: the same pair met again is equal.
     return true if Primitive.zr_recursive_enter_paired(self, other, :==)
@@ -313,13 +313,23 @@ class Struct
 
   def eql?(other)
     return true if equal?(other)
-    return false unless Primitive.zr_real_class(other) == Primitive.zr_real_class(self)
+    return false unless Primitive.zr_real_class(other).equal?(Primitive.zr_real_class(self))
 
     # rb_exec_recursive_paired: the same pair met again is equal.
     return true if Primitive.zr_recursive_enter_paired(self, other, :eql?)
 
+    # recursive_eql: rb_eql of each pair of values; one class has one
+    # count of members.
     begin
-      Primitive.zr_struct_values(self).eql?(Primitive.zr_struct_values(other))
+      mine = Primitive.zr_struct_values(self)
+      theirs = Primitive.zr_struct_values(other)
+      i = 0
+      while i < Primitive.zr_ary_len_m(mine)
+        return false unless Primitive.zr_rb_eql(Primitive.zr_ary_aref1_m(mine, i), Primitive.zr_ary_aref1_m(theirs, i))
+
+        i += 1
+      end
+      true
     ensure
       Primitive.zr_recursive_leave(self, :eql?)
     end
