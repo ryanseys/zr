@@ -1,0 +1,4 @@
+all events: [false, []]
+block form: (1/1)
+line only: !ArgumentError: can not enable any hooks
+call and line: false

@@ -209,7 +209,7 @@ class TracePoint
 
     # A targeted point sees the events its target's code fires, in the
     # code itself or a block written inside it, and no C event; with a
-    # target line, only the :line events of that line.
+    # target line, only the events that fire on that line.
     def targets?(point, row)
       Primitive.attr! :hidden
       target = Primitive.zr_hidden_get(point, :__target__)
@@ -217,7 +217,7 @@ class TracePoint
       return false if (row[0] & C_EVENTS).nonzero?
 
       line = Primitive.zr_hidden_get(point, :__target_line__)
-      return false unless line.nil? || (row[0] == EVENTS[:line] && row[3] == line)
+      return false unless line.nil? || row[3] == line
       # A core method that CRuby writes in Ruby (Integer#times) fires its
       # call at its caller, but is never the target's own code.
       return false if Primitive.zr_trace_core_entry_m(row[10])
@@ -652,10 +652,13 @@ class TracePoint
 
     # rb_iseq_add_local_tracepoint_recursively: a hook only for an event
     # that the target's code fires, and only on a line of it.
-    raise ArgumentError, +"can not enable any hooks" if (events & (TARGET_EVENTS.fetch(iseq.send(:code_type) == :block) | C_EVENTS)).zero?
+    fired = events & (TARGET_EVENTS.fetch(iseq.send(:code_type) == :block) | C_EVENTS)
+    raise ArgumentError, +"can not enable any hooks" if fired.zero?
 
+    # A line that the code does not have takes only the :line events off:
+    # the point still hooks the others, which fire only on that line.
     line = line.is_a?(Integer) ? line : Primitive.zr_index_operand_m(line) unless line.nil?
-    raise ArgumentError, +"can not enable any hooks" if line && (line.negative? || !target_line?(iseq, line))
+    raise ArgumentError, +"can not enable any hooks" if line && (line.negative? || !target_line?(iseq, line)) && (fired & ~EVENTS[:line]).zero?
 
     Primitive.zr_hidden_set(self, :__target__, target)
     Primitive.zr_hidden_set(self, :__target_meta__, Primitive.zr_hidden_get(iseq, :__meta__) || 0)
