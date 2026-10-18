@@ -114,10 +114,6 @@ module Zr
         include Registers
       end
 
-      class Regalloc
-        include Registers
-      end
-
       module Stub
         include Registers
       end

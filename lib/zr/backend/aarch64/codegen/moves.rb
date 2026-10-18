@@ -90,7 +90,7 @@ module Zr
         #: (String v) -> (Registers::Register | String)
         def unhomed(v)
           return v if @remade.include?(v)
-          return Regalloc::GATES if @pinned.include?(v)
+          return GATES if @pinned.include?(v)
 
           raise KeyError, v
         end

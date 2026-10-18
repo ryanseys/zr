@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
-require_relative "registers"
+require_relative "pools"
+require_relative "../../ir/inst"
 
 module Zr
   module Backend
-    module Aarch64
+    module Native
       # Selects the values that stay in a register for all of their life.
       # The other values stay in the frame.
       #
@@ -13,21 +14,23 @@ module Zr
       # that home, so the allocator can be conservative and still correct.
       # When it has no free register, it spills a value by leaving it in its home.
       #
-      # Two pools. A value live across a call gets one of the callee-saved
-      # `x19`..`x27`. The frame saves and restores each one that the function
-      # uses. A value that crosses no call gets one of `CALLER` first, which
-      # nothing saves: most values in a kernel function live between two
-      # calls, and a callee-saved register for each costs the saves of all
-      # ten. It gets a callee-saved register only when `CALLER` is empty. A
-      # crossing value never gets a caller-saved register.
+      # Two pools, which the architecture gives (`Pools`). A value live
+      # across a call gets a callee-saved register, which the frame saves
+      # and restores once for each one that the function uses. A value that
+      # crosses no call gets a caller-saved one first, which nothing saves:
+      # most values in a kernel function live between two calls, and a
+      # callee-saved register for each costs the saves of all of them. It
+      # gets a callee-saved register only when the caller-saved pool is
+      # empty. A crossing value never gets a caller-saved register.
       #
-      # The argument registers `x0`..`x7` are in `CALLER`. A call clobbers
-      # them, but a value that crosses no call is dead at that point. Arguments
-      # and parameters move as one parallel copy (`Codegen#load_args`,
-      # `#prologue`), so a value can use an argument register. Reserved:
-      # `x9`..`x12` (lowering scratch), `x16` and `x17` (linker), `x18`
-      # (platform), and `x28` (the program's gate word, `GATES`; a `gates`
-      # value reads it and gets no register).
+      # The argument registers can be in the caller-saved pool (on aarch64,
+      # `x0`..`x7`). A call clobbers them, but a value that crosses no call
+      # is dead at that point. Arguments and parameters move as one parallel
+      # copy (`Aarch64::Codegen#load_args`, `#prologue`), so a value can use
+      # an argument register. The registers that the codegen keeps for
+      # itself are in no pool (on aarch64: `x9`..`x12` for scratch, `x16`
+      # and `x17` for the linker, `x18` for the platform, and `x28` for the
+      # gate word).
       #
       # Every value, block and instruction gets a number first, and the
       # code indexes arrays by these numbers. Allocation is most of the
@@ -35,6 +38,7 @@ module Zr
       # when compiling the compiler), and a String key hashes its bytes at each use.
       class Regalloc
         # @rbs @f: IR::Function
+        # @rbs @pools: Pools
         # @rbs @skip: Set[String]?
         # @rbs @via: Hash[String, String]?
         # @rbs @order: Hash[String, Integer]
@@ -49,35 +53,24 @@ module Zr
         # @rbs @points: Integer
         # @rbs @successors: Array[Array[Integer]]?
 
-        # @rbs skip -- in sig/zr/backend/aarch64/registers.rbs
-        include Registers
-
-        CALLEE = [X19, X20, X21, X22, X23, X24, X25, X26, X27].freeze #: Array[Registers::Register]
-        GATES = X28 #: Registers::Register
-        CALLER = [X0, X1, X2, X3, X4, X5, X6, X7, X8, X13, X14, X15].freeze #: Array[Registers::Register]
-
-        # Whether `reg` is one the callee saves.
-        #: (Registers::Register reg) -> bool
-        def self.callee?(reg) = reg.to_i >= 19
-        #: (untyped name) -> bool
-        def self.value?(name) = IR.value?(name)
-
-        # Returns `{ "v3" => X19, ... }` for the values that get a register.
+        # Returns `{ "v3" => X19, ... }` for the values that get a register
+        # of `pools`.
         # `skip` gives the values that the backend makes at each read. They
         # need no register and must not block one. `via` maps a value that
         # the backend reads through another value to that other value, which
         # is then live at every read of the first.
-        #: (IR::Function function, ?skip: Set[String]?, ?via: Hash[String, String]?) -> Hash[String, Registers::Register]
-        def self.of(function, skip: nil, via: nil) = new(function, skip, via).assign
+        #: (IR::Function function, Pools pools, ?skip: Set[String]?, ?via: Hash[String, String]?) -> Hash[String, register]
+        def self.of(function, pools, skip: nil, via: nil) = new(function, pools, skip, via).assign
 
-        #: (IR::Function function, ?Set[String]? skip, ?Hash[String, String]? via) -> void
-        def initialize(function, skip = nil, via = nil)
+        #: (IR::Function function, Pools pools, ?Set[String]? skip, ?Hash[String, String]? via) -> void
+        def initialize(function, pools, skip = nil, via = nil)
           @f = function
+          @pools = pools
           @skip = skip
           @via = via
         end
 
-        #: () -> Hash[String, Registers::Register]
+        #: () -> Hash[String, register]
         def assign
           # A block emitted two times gives one name two positions in the
           # numbering, and every interval is then wrong. The builder does
@@ -159,7 +152,7 @@ module Zr
         # nil when `a` is not a value or is made at its reads.
         #: (untyped a) -> Integer?
         def read(a)
-          return nil unless Regalloc.value?(a)
+          return nil unless IR.value?(a)
 
           via = @via
           a = via[a] || a if via
@@ -431,11 +424,11 @@ module Zr
         # @rbs from: Array[Integer]
         # @rbs to: Array[Integer]
         # @rbs crossing: Hash[Integer, bool]
-        # @rbs return: Hash[Integer, Registers::Register]
+        # @rbs return: Hash[Integer, register]
         def scan(order, from, to, crossing)
-          free = { callee: CALLEE.dup, caller: CALLER.dup }
+          free = { callee: @pools.callee.dup, caller: @pools.caller.dup }
           active = [] #: Array[Integer]
-          taken = {} #: Hash[Integer, Registers::Register]
+          taken = {} #: Hash[Integer, register]
           arrives = arrival_registers
           order.each do |value|
             first = from[value]
@@ -450,7 +443,7 @@ module Zr
             reg = free[:caller].delete(arrives[value]) || free[:caller].shift unless crossing[value]
             reg ||= free[:callee].shift
             if reg.nil?
-              held = crossing[value] ? active.select { |other| Regalloc.callee?(taken[other]) } : active
+              held = crossing[value] ? active.select { |other| @pools.callee?(taken.fetch(other)) } : active
               longest = held.max_by { |other| to[other] }
               next if longest.nil? || to[value] > to[longest]
 
@@ -465,31 +458,34 @@ module Zr
 
         # Returns `{ value number => register }` for the integer parameters
         # of the entry block, from the argument register of each.
-        #: () -> Hash[Integer, Registers::Register]
+        #: () -> Hash[Integer, register]
         def arrival_registers
-          arrives = {} #: Hash[Integer, Registers::Register]
+          arrives = {} #: Hash[Integer, register]
+          args = @pools.args
           ints = 0
           @f.entry_block.params.each do |v, t|
             next if t == "f64"
 
             n = numbered(v)
-            arrives[n] = Registers.x(ints) if n && ints < CALLER.size
+            arrives[n] = args.fetch(ints) if n && ints < args.size
             ints += 1
           end
           arrives
         end
 
         # Puts `reg` back in its pool, in pool order.
-        #: (Hash[Symbol, Array[Registers::Register]] free, Registers::Register reg) -> void
+        #: (Hash[Symbol, Array[register]] free, register reg) -> void
         def release(free, reg)
-          pool = free[Regalloc.callee?(reg) ? :callee : :caller]
-          at = pool.index { |other| other.to_i > reg.to_i } || pool.size
+          pools = @pools
+          pool = free.fetch(pools.callee?(reg) ? :callee : :caller)
+          rank = pools.rank(reg)
+          at = pool.index { |other| pools.rank(other) > rank } || pool.size
           pool.insert(at, reg)
         end
 
         # The backend looks up values by name, so this is the one place
         # where numbers change back to names.
-        #: (Hash[Integer, Registers::Register] taken) -> Hash[String, Registers::Register]
+        #: (Hash[Integer, register] taken) -> Hash[String, register]
         def named(taken)
           return {} if taken.empty?
 

@@ -5,7 +5,7 @@ require_relative "registers"
 require_relative "assembler"
 require_relative "../../ir/function"
 require_relative "../../ir/types"
-require_relative "regalloc"
+require_relative "../native/regalloc"
 require_relative "../../obj/model"
 require_relative "codegen/layout"
 require_relative "codegen/moves"
@@ -82,7 +82,7 @@ module Zr
 
         # The two registers that `parallel_copy` moves values through. An
         # instruction that needs more uses x11 and x12. x13 to x15 belong to
-        # the allocator, in `Regalloc::CALLER`.
+        # the allocator, in `POOLS.caller`.
         SCRATCH = [X9, X10].freeze #: [Registers::Register, Registers::Register]
         # Maps IR condition codes to arm64 condition codes.
         CONDS = {
@@ -172,7 +172,7 @@ module Zr
           plan_bytes
           plan_fusion
           plan_pairs
-          @reg = @allocate ? Regalloc.of(@f, skip: @silent, via: @via) : {}
+          @reg = @allocate ? Native::Regalloc.of(@f, POOLS, skip: @silent, via: @via) : {}
           assign_homes
           @f.blocks.each { |b| @labels[b.name] = @asm.make_label(b.name) }
           @epilogue = @asm.make_label("epilogue") if @returns > 1
@@ -260,7 +260,7 @@ module Zr
         # integer registers.
         #: (String v, Registers::Register reg) -> void
         def load_value(v, reg)
-          return @asm.mov(reg, Regalloc::GATES) if @pinned.include?(v)
+          return @asm.mov(reg, GATES) if @pinned.include?(v)
 
           home = @reg[v]
           return narrow(reg, home, @clean.include?(v) ? "i64" : type_of(v)) if home
@@ -294,7 +294,7 @@ module Zr
         # byte to a 32-bit operation.
         #: (String v, Registers::Register scratch) -> Registers::Register
         def value_in(v, scratch)
-          return Regalloc::GATES if @pinned.include?(v)
+          return GATES if @pinned.include?(v)
 
           home = @reg[v]
           return home if home && (type_of(v) != "i8" || @clean.include?(v))
@@ -543,9 +543,9 @@ module Zr
             return if @pinned.include?(i.results[0])
 
             d = result_in(i.results[0], X9)
-            @asm.mov d, Regalloc::GATES
+            @asm.mov d, GATES
             store_value(i.results[0], d)
-          when :gates_set, :gates_enter then @asm.mov Regalloc::GATES, value_in(i.args[0], X9)
+          when :gates_set, :gates_enter then @asm.mov GATES, value_in(i.args[0], X9)
           when :va_list
             # The prologue filled it (`va_list_prologue`).
             d = result_in(i.results[0], X9)

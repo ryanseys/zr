@@ -230,8 +230,8 @@ module Zr
               @def_of[i.results[0]] = i if i.results[0]
               @returns += 1 if i.op == :return
               @enters = true if i.op == :gates_enter
-              i.args.each { |a| @uses[a] += 1 if Regalloc.value?(a) }
-              i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 if Regalloc.value?(a) } }
+              i.args.each { |a| @uses[a] += 1 if IR.value?(a) }
+              i.targets&.each { |(_, args)| args.each { |a| @uses[a] += 1 if IR.value?(a) } }
             end
           end
         end
@@ -384,7 +384,7 @@ module Zr
           a, b = i.args
           a, b = b, a if constant(a, "i64") && !constant(b, "i64")
           k = constant(b, "i64")
-          return nil if k.nil? || constant(a, "i64") || !Regalloc.value?(a)
+          return nil if k.nil? || constant(a, "i64") || !IR.value?(a)
 
           [a, k >= 1 << 63 ? k - (1 << 64) : k]
         end
@@ -456,8 +456,8 @@ module Zr
           # collector's scan of the C frames reads them
           # (`zr_mark_task`).
           @saved_at = {}
-          saved = @reg.values.uniq.select { |r| Regalloc.callee?(r) }
-          saved = (saved + Regalloc::CALLEE + [Regalloc::GATES]).uniq if @enters
+          saved = @reg.values.uniq.select { |r| POOLS.callee?(r) }
+          saved = (saved + POOLS.callee + [GATES]).uniq if @enters
           saved.sort_by(&:to_i).each do |r|
             @saved_at[r] = off
             off += 8

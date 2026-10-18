@@ -49,8 +49,8 @@ module Zr
       BACKENDS = {
         aarch64: %w[
           backend/aarch64.rb backend/aarch64/assembler.rb backend/aarch64/codegen.rb
-          backend/aarch64/codegen/layout.rb backend/aarch64/codegen/moves.rb backend/aarch64/regalloc.rb
-          backend/aarch64/registers.rb backend/aarch64/stub.rb
+          backend/aarch64/codegen/layout.rb backend/aarch64/codegen/moves.rb backend/aarch64/registers.rb
+          backend/aarch64/stub.rb backend/native/pools.rb backend/native/regalloc.rb
         ],
         wasm32: %w[backend/wasm.rb backend/wasm/codegen.rb backend/wasm/codegen/body.rb backend/wasm/locals.rb backend/wasm/shims.rb]
       }.transform_values { |own| (PASSES + own).freeze }.freeze #: Hash[Symbol, Array[String]]

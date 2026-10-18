@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../native/pools"
+
 module Zr
   module Backend
     module Aarch64
@@ -69,6 +71,18 @@ module Zr
         WSP = Register.new(31, wide: false, sp: true)
         XZR = Register.new(31, wide: true)
         WZR = Register.new(31, wide: false)
+
+        # What the register allocator gives out (`Native::Regalloc`): the
+        # callee-saved `x19`..`x27`, and the caller-saved ones that no
+        # lowering keeps for itself, with the argument registers among
+        # them. The codegen keeps `x9`..`x12` for scratch, `x16` and `x17`
+        # are the linker's, and `x18` is the platform's.
+        POOLS = Native::Pools.new(callee: [X19, X20, X21, X22, X23, X24, X25, X26, X27],
+                                  caller: [X0, X1, X2, X3, X4, X5, X6, X7, X8, X13, X14, X15],
+                                  args: [X0, X1, X2, X3, X4, X5, X6, X7]) #: Native::Pools
+        # The program's gate word: a `gates` value reads it and gets no
+        # register.
+        GATES = X28 #: Register
       end
     end
   end
