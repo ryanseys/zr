@@ -2433,8 +2433,8 @@ module Zr::Kern
   end
 
   # Size class `c` for GC.stat_heap: its cell size, live cells, free
-  # cells, arenas and allocated object count. A pool after the fourth has
-  # only its size.
+  # cells, arenas in use (not reserved, zr_heap_cells) and allocated
+  # object count. A pool after the fourth has only its size.
   #: (value) -> value
   def zr_gc_pool(c)
     i = zr_fix2long(c)
@@ -2444,13 +2444,13 @@ module Zr::Kern
     allocated = 0
     if i < SIZE_CLASSES
       sc = zr_size_class(i)
-      arenas = SizeClass[sc].arenas
       allocated = SizeClass[sc].allocated
       a = 0
       while a < Heap[zr_heap()].arenas
         base = zr_arena_at(a)
-        if ArenaHead[base].index == i
+        if ArenaHead[base].index == i && ArenaHead[base].reserved == 0
           live += zr_arena_live(base)
+          arenas += 1
         end
         a += 1
       end
@@ -2464,10 +2464,22 @@ module Zr::Kern
     out
   end
 
-  # The cell count of all arenas, of all sizes.
+  # The cell count of the arenas in use, of all sizes. A reserved arena is
+  # all free and gives cells only when the others are full, as a page that
+  # CRuby has freed to its pool: GC.stat and ObjectSpace.count_objects do
+  # not count it.
   #: () -> word
   def zr_heap_cells
-    Heap[zr_heap()].arenas * ARENA_CELLS
+    h = zr_heap()
+    n = 0
+    a = 0
+    while a < Heap[h].arenas
+      if ArenaHead[zr_arena_at(a)].reserved == 0
+        n += 1
+      end
+      a += 1
+    end
+    n * ARENA_CELLS
   end
 
   #: (value) -> value
