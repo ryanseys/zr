@@ -179,12 +179,13 @@ module Zr
         # two VALUEs: no send, whatever either object defines or undefines.
         # So is `a == b` and `a != b` where one side is nil, true, false or
         # a Symbol literal, as C compares a VALUE with Qnil or a sym_ name.
+        # An implicit receiver is self.
         #: (Hir::Send node) -> bool
         def identity?(node)
-          return false unless node.recv && node.args.size == 1 && !node.args[0].is_a?(Hir::Splat)
+          return false unless node.args.size == 1 && !node.args[0].is_a?(Hir::Splat)
           return false if node.block || node.kwargs || node.safe || node.write || !c_stand_in?
 
-          node.name == :equal? || (%i[== !=].include?(node.name) && [node.recv, node.args[0]].any? { immediate_literal?(it) })
+          node.name == :equal? || (node.recv && %i[== !=].include?(node.name) && [node.recv, node.args[0]].any? { immediate_literal?(it) })
         end
 
         #: (Hir::node node) -> bool
@@ -194,7 +195,7 @@ module Zr
 
         #: (Hir::Send node) -> String
         def identity(node)
-          staged([node.recv, node.args[0]]) do |_, base|
+          staged([node.recv || Hir::SelfRef.new(node.line), node.args[0]]) do |_, base|
             same = @f.icmp(node.name == :!= ? "ne" : "eq", @f.fetch("i64", @rec, value_offset(base)), @f.fetch("i64", @rec, value_offset(base + 1)))
             @f.csel(same, imm(@l.const("QTRUE")), imm(@l.const("QFALSE")))
           end

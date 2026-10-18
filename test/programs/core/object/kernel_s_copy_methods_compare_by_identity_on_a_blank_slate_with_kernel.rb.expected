@@ -1,0 +1,7 @@
+clone: JustKernel
+dup: JustKernel
+initialize_copy: JustKernel
+initialize_clone: JustKernel
+initialize_dup: JustKernel
+same: 0
+other: !NoMethodError: undefined method '==' for an instance of JustKernel
