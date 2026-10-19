@@ -65,7 +65,7 @@ was built for:
 
 The program tests that a target is allowed to fail are in its
 baseline, `test/baselines/<triple>.txt`.
-See [How to test on another target](../how-to/test-on-another-target.md).
+See [Run the tests for another target](../how-to/run-the-tests.md#run-the-tests-for-another-target).
 
 ### What wasm cannot do
 

@@ -17,3 +17,6 @@
 
 # Local notes.
 /CLAUDE.md
+
+# Local databases that tools write in the checkout.
+/*.db

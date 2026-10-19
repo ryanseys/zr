@@ -39,7 +39,7 @@ class ReadmeTest < Minitest::Test
   # An example such as `zr-dev test test/unit/cli_test.rb:17` names the
   # line of a test, so a reader who runs it runs one test.
   def test_each_cited_test_line_is_the_line_of_a_test
-    files = Dir[File.join(ROOT, "{docs/**/*.md,tool/**/*.rb,README.md,CONTRIBUTING.md}")]
+    files = Dir[File.join(ROOT, "{docs/**/*.md,tool/**/*.rb,README.md}")]
     wrong = files.flat_map do |file|
       File.read(file).scan(%r{\b(test/[\w/]+_test\.rb):(\d+)}).filter_map do |path, line|
         text = File.file?(File.join(ROOT, path)) ? File.readlines(File.join(ROOT, path))[line.to_i - 1] : nil

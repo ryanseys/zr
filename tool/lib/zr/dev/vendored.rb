@@ -23,8 +23,8 @@ module Zr
     #
     # zr's own code (lib/zr/runtime/) comes before this tree on the load path, so
     # a file there replaces an upstream file of the same name.
-    # docs/how-to/update-vendored-code.md has the steps to add or update a
-    # gem.
+    # To add or update a gem, change its version here or in
+    # lib/zr/library/ports.rb, then run `zr-dev vendor`.
     module Vendored
       # The bundled gems of ruby that vendor/ holds, at the versions in
       # ruby's gems/bundled_gems. A bundled gem with a C part is a port

@@ -145,12 +145,12 @@ ruby's output byte for byte. See
 [Architecture](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/architecture.md) and
 [The contract](https://github.com/ryanseys/zr/blob/v0.1.0/docs/explanation/the-contract.md).
 
-## Contribute
+## Develop
 
-[CONTRIBUTING.md](https://github.com/ryanseys/zr/blob/v0.1.0/CONTRIBUTING.md) tells how to set up a
-checkout, run the tests near a change, and open a pull request. The
+[How to run the tests](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/run-the-tests.md) tells how to set up a
+checkout and run the tests near a change. The
 full test suite runs on an Apple Silicon Mac; on Linux, you can work
-on the `wasm32-wasi` target. [How to run the tests](https://github.com/ryanseys/zr/blob/v0.1.0/docs/how-to/run-the-tests.md),
+on the Linux targets and on `wasm32-wasi`.
 [Tools](https://github.com/ryanseys/zr/blob/v0.1.0/docs/reference/tools.md) and the rest of
 [`docs/`](https://github.com/ryanseys/zr/blob/v0.1.0/docs/README.md) give the details.
 

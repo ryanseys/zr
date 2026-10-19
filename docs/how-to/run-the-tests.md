@@ -11,9 +11,20 @@ tier runs, see [How the tests run](../explanation/how-the-tests-run.md).
 
 ## Before you start
 
+You need the ruby that `.ruby-version` names (for example
+`mise install ruby@$(cat .ruby-version)` or
+`rbenv install $(cat .ruby-version)`). The full test suite runs on an
+Apple Silicon Mac with 16 GB of memory or more. On Linux, you can work
+on the Linux targets and on `wasm32-wasi` (see
+[Run the tests for another target](#run-the-tests-for-another-target)).
+[wasmtime](https://wasmtime.dev) is optional; without it, the tests
+that run WebAssembly modules skip.
+
 Set up the checkout one time:
 
 ```console
+$ git clone https://github.com/ryanseys/zr.git
+$ cd zr
 $ bin/setup
 ```
 
@@ -271,11 +282,96 @@ Without `--check`, `zr-dev expect` writes the files again. See
 
 ## Run the tests for another target
 
+The pinned ruby on macOS gives every expected output. A target is
+correct when it gives the same output. Set the target with `--target`
+(`ZR_TARGET`):
+
 ```console
 $ bin/zr-dev test --target wasm32-wasi test/programs/cli
+$ bin/zr-dev test --target aarch64-linux-musl test/programs/lang/methods
 ```
 
-See [How to test on another target](test-on-another-target.md).
+The tests build each program for that target and start it as that
+target starts: a binary on its own host, a WASI module under wasmtime.
+For `wasm32-wasi`, build the WASI runtime first (`rake build:wasm`). For
+the targets and what each one supports, see
+[Targets](../reference/targets.md).
+
+To run a target's binaries on another machine, give a command in
+`ZR_TEST_EXEC`. The binary and its arguments follow its words, and the
+command runs them on a host of the target, in the test's directory,
+with the test's environment. The other host must see this checkout and
+`TMPDIR` at the same paths:
+
+```console
+$ ZR_TEST_EXEC=~/bin/on-x86_64 TMPDIR=$PWD/tmp/run bin/zr-dev test --target x86_64-linux-musl test/programs/cli
+```
+
+### The baselines
+
+A target's baseline file, `test/baselines/<triple>.txt`, lists the
+program tests that the target can fail, and the reason for each. One
+line has a key (the path below `test/programs`), a tab, and the reason.
+A line that starts with `#` is a comment:
+
+```
+# wasi has no processes and no signals.
+cli/core/process/process_spawn.rb	spawn() is unimplemented on wasi
+```
+
+A test in the baseline that fails is skipped, with the reason. A test
+in the baseline that **passes** makes the run fail, with the message
+`this now passes: take it off test/baselines/<triple>.txt`. Add a line
+only when the target cannot do what the test needs; a line is not a
+place for a bug.
+
+### Output that is correct only on one platform
+
+A program test can keep the stdout of a platform in its own file,
+`foo.rb.linux.expected` or `foo.rb.wasi.expected`. A test on that
+platform compares with that file, and a test on another platform with
+`foo.rb.expected`. On Linux, `zr-dev expect` writes
+`foo.rb.linux.expected` when the stdout is not the same as
+`foo.rb.expected`. A test that a platform cannot run gives the platforms
+that can run it in `foo.rb.needs` (`macos`, `linux`, `wasi`). See
+[Program tests](../reference/program-tests.md).
+
+### The Linux tests in the container that CI uses
+
+```console
+$ docker run -d --name alpine -v "$PWD:/zr" -w /zr "ruby:$(cat .ruby-version)-alpine" sleep infinity
+$ docker exec alpine apk add --no-cache build-base git
+$ docker exec alpine git config --global --add safe.directory /zr
+$ docker exec alpine bundle config set --global without development
+$ docker exec alpine bundle install
+$ docker exec alpine bundle exec rake build
+$ docker exec alpine bin/zr-dev test --target aarch64-linux-musl test/programs/cli
+```
+
+## The reference ruby and its gems
+
+Every expected output comes from the ruby that `.ruby-version` names
+(`test/support/harness/reference.rb`). That ruby runs with the gems of
+its own install, and without this checkout's bundle, `RUBYOPT` or
+`RUBYLIB`. A stock install is enough for most tests. When `vendor/`
+carries another version of a gem than the install has (a port at zr's
+version, see `lib/zr/library/ports.rb`), install that version into the
+pinned ruby, so both sides load the same code:
+
+```console
+$ gem install json -v 3.0.2
+```
+
+To keep the reference apart from your other gems, fill a directory and
+name it in `ZR_REFERENCE_GEM_HOME`. The reference ruby then uses it as
+its `GEM_HOME` and `GEM_PATH`:
+
+```console
+$ gem install --install-dir ~/zr-reference --no-document json:3.0.2 rbs:4.2.0
+$ export ZR_REFERENCE_GEM_HOME=~/zr-reference
+```
+
+Record and check with the same set of gems.
 
 ## Check the bootstrap
 
@@ -326,8 +422,24 @@ and run, by directory. `SLOW=0` prints nothing:
 $ SLOW=1 bin/zr-dev test --suite unit
 ```
 
-## Check the code style
+## Check the code style and the types
 
 ```console
 $ rake lint
+$ bin/steep check
 ```
+
+`rake lint` runs RuboCop: the Lint cops and the cops that `.rubocop.yml`
+adds, each with its reason. `bin/steep check` runs Steep on the compiler
+and on the kernel. Annotate methods with inline RBS
+(`#: (Integer) -> String`). A declaration that inline RBS cannot type
+has `# @rbs skip` above it and its types in `sig/zr/`.
+
+`COVERAGE=1 bin/minitest <paths>` measures the line and branch coverage
+of `lib/` and writes `tmp/coverage/index.html`. It gates nothing.
+
+## Write a changelog line
+
+When a user sees a change (a feature, a changed behavior or a fix), add
+a line to `CHANGELOG.md` under `[Unreleased]`. A change to the tests,
+the tools or the docs gets no line.

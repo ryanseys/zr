@@ -45,7 +45,7 @@ This guide writes `zr-dev` for `bin/zr-dev`; see
 If zr refuses the program, the test has an error (`E`) and the message
 gives the form. Make zr support the form, or, for a target that cannot
 do it, add the test to the target's baseline (see
-[How to test on another target](test-on-another-target.md)).
+[Run the tests for another target](run-the-tests.md#run-the-tests-for-another-target)).
 
 ## Give the program arguments, input or an environment
 

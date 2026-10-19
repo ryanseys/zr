@@ -93,7 +93,7 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `vendor/ruby/lib/ruby/gems/<ruby_version>/` | the bundled gems and the gems whose C zr ports, each from its `.gem`, not edited |
 | `vendor/ruby/gem_prelude.rb` | ruby's `gem_prelude.rb` |
 | `vendor/LICENSES/` | the license texts that no gem directory holds |
-| `vendor/vendor.lock` | each source of `vendor/`, and the SHA-256 of each file; see [How to update the vendored code](../how-to/update-vendored-code.md) |
+| `vendor/vendor.lock` | each source of `vendor/`, and the SHA-256 of each file; see `zr-dev vendor` in [Tools](tools.md) |
 
 ### What the host loads
 
@@ -143,7 +143,7 @@ The gem's only require path is `lib/`. `lib/zr/runtime/` is below
 | `test/gaps/` | programs where zr does not give ruby's output yet; no tier runs them (`test/gaps/README.md`) |
 | `test/rubyspec/`, `test/cruby/` | the results of the last `zr-dev rubyspec` and `zr-dev cruby-test` runs (`summary.tsv`), and the tags of the examples that zr fails |
 | `test/programs/` | the program tests: plain Ruby programs with ruby's output beside them, in areas (`lang/`, `core/`, `stdlib/`, `compiler/`, and `cli/`, which builds with `zr build`); those in `native/` run only on a native target. See [Program tests](program-tests.md) |
-| `test/baselines/` | the baseline of each target, the host too (`<triple>.txt`), and of another project's program tests (`corpus/<project>-<triple>.txt`); see [How to test on another target](../how-to/test-on-another-target.md) |
+| `test/baselines/` | the baseline of each target, the host too (`<triple>.txt`), and of another project's program tests (`corpus/<project>-<triple>.txt`); see [Run the tests for another target](../how-to/run-the-tests.md#run-the-tests-for-another-target) |
 | `test/fixtures/` | the gems that `gem_compat_test` reads (`gems/`), the file trees that several program tests share (`programs/<name>/`, which their `foo.rb.files` links name), and the regexp sample of `regexp_diff_test` |
 
 The next four directories are not tiers. They hold the programs and

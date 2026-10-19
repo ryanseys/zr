@@ -238,7 +238,7 @@ cli/core/process/process_spawn.rb	spawn() is unimplemented on wasi
   `this now passes: take it off test/baselines/<triple>.txt`. Thus the
   file cannot become out of date.
 
-See [How to test on another target](../how-to/test-on-another-target.md).
+See [Run the tests for another target](../how-to/run-the-tests.md#run-the-tests-for-another-target).
 
 ## Workers
 

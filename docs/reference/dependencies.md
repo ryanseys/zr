@@ -51,5 +51,5 @@ Tools does not use its `ld` with an SDK that it cannot read. zr keeps a
 | `memory_profiler` gem ~> 1.1 | counts the objects that a step of the compiler allocates and keeps | by hand |
 | `benchmark-ips` gem ~> 2.14 | compares two forms of one hot method | by hand |
 | wasmtime | runs the wasm tests; a test skips without it | `wasm_test`, the tiers under `ZR_TARGET=wasm32-wasi` |
-| the reference gems | the gems of the pinned ruby's own install, or of `ZR_REFERENCE_GEM_HOME`. Every expected output comes from ruby with these gems ([Set up the reference gems](../how-to/set-up-the-reference-gems.md)) | `zr-dev expect`, `zr diff`, the program tests of a program that does not parse |
+| the reference gems | the gems of the pinned ruby's own install, or of `ZR_REFERENCE_GEM_HOME`. Every expected output comes from ruby with these gems ([The reference ruby and its gems](../how-to/run-the-tests.md#the-reference-ruby-and-its-gems)) | `zr-dev expect`, `zr diff`, the program tests of a program that does not parse |
 | `nm`, `otool` | read an object and a binary back | `macho_test`, `exe_test`, `native_test` |

@@ -16,7 +16,7 @@ module Zr
         #
         # A new ruby is one edit: write its name into `.ruby-version`, check
         # out its tag in RUBY_SRC, run this generator, then `zr-dev vendor`
-        # and the other generators (docs/how-to/update-vendored-code.md).
+        # and the other generators (`zr-dev gen all`).
         class RubyVersion < Command
           RECORD = "lib/zr/ruby_version.rb"
           RUNTIME = "lib/zr/runtime/core/ruby_version.rb"

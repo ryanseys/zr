@@ -8,7 +8,7 @@ module Zr
     # sees.
     #
     # ZR_REFERENCE_GEM_HOME names a GEM_HOME to use instead, one you fill
-    # by hand (docs/how-to/set-up-the-reference-gems.md).
+    # by hand (docs/how-to/run-the-tests.md).
     module Reference
       module_function
 

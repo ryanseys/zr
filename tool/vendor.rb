@@ -8,8 +8,7 @@ module Zr
     module Commands
       # `zr-dev vendor`: writes vendor/ from tool/lib/zr/dev/vendored.rb,
       # lib/zr/library/ports.rb and lib/zr/ruby_version.rb. vendor/ is upstream
-      # code, byte for byte; see tool/lib/zr/dev/vendored.rb and
-      # docs/how-to/update-vendored-code.md.
+      # code, byte for byte; see tool/lib/zr/dev/vendored.rb.
       #
       #   zr-dev vendor                 fetch, check and write vendor/, its lock and lib/zr/library/stdlib.rb
       #   zr-dev vendor --check         offline: each file of vendor/ matches the lock, and the

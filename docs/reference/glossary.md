@@ -4,7 +4,7 @@ The docs use one term for one concept. This page defines the terms.
 
 **Baseline.** The file `test/baselines/<triple>.txt`: the program
 tests that a target is allowed to fail, each with a reason. See
-[How to test on another target](../how-to/test-on-another-target.md).
+[Run the tests for another target](../how-to/run-the-tests.md#run-the-tests-for-another-target).
 
 **Binary.** A native executable that zr builds, for
 `aarch64-apple-darwin` or `aarch64-linux-musl`.

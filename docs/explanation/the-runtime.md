@@ -114,8 +114,7 @@ A gem such as `json` or `digest` has a Ruby half and a C half. zr
 includes the Ruby half without edits (in `vendor/ruby`) and
 writes the C half in Ruby (`lib/zr/runtime/ext/<name>.so.rb`). The gem's own
 Ruby code then runs as it does on CRuby, over a native half that gives
-the same results. See
-[How to port a C extension](../how-to/port-a-c-extension.md).
+the same results.
 
 ## The OS and machine layers
 

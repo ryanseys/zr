@@ -9,9 +9,6 @@ Lessons that take you, step by step, to a result.
 - [Compile your first program](tutorials/compile-your-first-program.md):
   install zr, and build one Ruby file as a binary and as a WebAssembly
   module.
-- [Add your first program test](tutorials/add-your-first-program-test.md):
-  work in a checkout, let ruby write the expected output, and see zr
-  give the same output.
 
 ## How-to guides: do a task
 
@@ -26,14 +23,8 @@ Steps for a goal that you already have.
 - [How to run the tests](how-to/run-the-tests.md)
 - [How to add a program test](how-to/add-a-program-test.md)
 - [How to debug a wrong answer](how-to/debug-a-wrong-answer.md)
-- [How to add a method to the core library](how-to/add-a-core-method.md)
-- [How to port a C extension](how-to/port-a-c-extension.md)
 - [How to check a gem](how-to/check-a-gem.md): which gems zr compiles,
   and what stops the others
-- [How to update the vendored code](how-to/update-vendored-code.md)
-- [How to set up the reference gems](how-to/set-up-the-reference-gems.md):
-  the gems that ruby's side of a test sees
-- [How to test on another target](how-to/test-on-another-target.md)
 - [How to measure performance](how-to/measure-performance.md)
 - [How to release zr](how-to/release.md)
 

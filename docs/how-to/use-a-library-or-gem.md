@@ -44,8 +44,7 @@ keeps its port until zr's IO objects carry the T_FILE tag that its C
 tests. Some ports are at a later version
 than the pinned ruby ships, for example json 3.0.2; see
 [Library versions](../reference/differences-from-ruby.md#library-versions).
-To port another one, see
-[How to port a C extension](port-a-c-extension.md). On macOS and on
+On macOS and on
 aarch64 Linux, a binary can also run a gem's real C extension; see
 [How to use a C extension](use-a-c-extension.md).
 

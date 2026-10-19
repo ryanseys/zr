@@ -45,7 +45,7 @@ $ exe/zr run small.rb
 
 A small program makes the cause easy to see. When you fix it, keep the
 small program as a new program test, as in
-[Add your first program test](../tutorials/add-your-first-program-test.md).
+[How to add a program test](add-a-program-test.md).
 
 ## Find which part of zr is wrong
 

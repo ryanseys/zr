@@ -13,7 +13,7 @@ and never compiles C.
 ## Before you start
 
 The tool compares each probe with the pinned ruby and the gems of its
-own install (see [Set up the reference gems](set-up-the-reference-gems.md)).
+own install (see [The reference ruby and its gems](run-the-tests.md#the-reference-ruby-and-its-gems)).
 
 This guide writes `zr-dev` for `bin/zr-dev`.
 
