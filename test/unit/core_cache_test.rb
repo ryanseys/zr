@@ -29,6 +29,11 @@ class CoreCacheTest < Minitest::Test
       runtime = Zr::Runtime.new(Zr::Target.default)
       path = File.join(Zr::Paths::ROOT, EDITED)
       runtime.sources[path] = File.read(path) + extra
+      # The digest reads the files on disk, which the edit leaves as they
+      # are: without its own digest, the edited build found the first
+      # build's object in the cache, and the test compared that one.
+      digest = "#{runtime.digest}-#{Digest::SHA256.hexdigest(extra)[0, 12]}"
+      runtime.define_singleton_method(:digest) { digest }
       File.binread(Zr::Native::Build.runtime_object(runtime))
     ensure
       Zr::Session.current.forget(:cache)
