@@ -33,9 +33,8 @@ module Zr
   # zr as a ruby (`ruby_mode?`): `zr app.rb args`, `zr -e 'p 1'`. A
   # command's name always wins, so a script named like one runs as
   # `zr ./build` or `zr -- build`. The process's
-  # entry points (`start`, `guard`, `kept!`, `served!`, `tune!`,
-  # `run_binary` and `exit_as`) are the calls that `exe/zr` and the build
-  # server (lib/zr/server.rb) make.
+  # entry points (`start`, `guard`, `kept!`, `tune!`, `run_binary` and
+  # `exit_as`) are the calls that `exe/zr` makes.
   module CLI
     # Exit status 3: zr does not support the program or the target. The
     # test harness counts this separately from zr's defects.
@@ -167,7 +166,7 @@ module Zr
     end
 
     # The command for `verb`. The process keeps it, so a compile command
-    # keeps what `kept!` and `served!` give it.
+    # keeps what `kept!` gives it.
     #: (String verb) -> Command
     def command(verb)
       commands = Session.current.memo(:commands) { {} } #: Hash[String, Command]
@@ -194,12 +193,6 @@ module Zr
     def kept!(argv)
       run = command("run") #: Commands::Compile
       run.kept!(argv)
-    end
-
-    #: () { (String binary, Array[String] rest, bool temp) -> Object? } -> void
-    def served!(&)
-      run = command("run") #: Commands::Compile
-      run.served!(&)
     end
 
     #: (String binary, Array[String] rest) -> Process::Status

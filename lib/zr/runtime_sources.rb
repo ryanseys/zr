@@ -61,8 +61,8 @@ module Zr
     ].map { |name| File.join(__dir__, name) }.freeze
 
     # The compiler files that drive zr but that neither a build nor a link
-    # loads: the caches of whole runs and the janitor of the cache, the
-    # server, `zr diff`'s runner (which zr-dev's probe, gem trials and
+    # loads: the caches of whole runs and the janitor of the cache,
+    # `zr diff`'s runner (which zr-dev's probe, gem trials and
     # fuzzer share), `zr doctor`, the reader of ruby's switches, the printer of
     # `--dump=parsetree`, the kernel's lock plan (lib/zr/lock_plan.rb, which
     # only a test reads), the host machine that runs the kernel on CRuby
@@ -74,7 +74,7 @@ module Zr
     # none of them, and that it lists each compiler file that they do not
     # load.
     DRIVER_ONLY = (%w[cache/janitor.rb cache/run.rb cli/parse_tree.rb cli/ruby_options.rb diff.rb doctor.rb ext/target_rbconfig.rb
-                      lock_plan.rb machine/host.rb server.rb server/client.rb]
+                      lock_plan.rb machine/host.rb]
                      .map { |name| File.join(__dir__, name) } +
                    Dir[File.join(__dir__, "machine/host/**/*.rb")]).sort.freeze
 

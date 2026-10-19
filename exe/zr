@@ -6,8 +6,7 @@
 #
 # Use require_relative, not require: the collector tuning starts this file
 # again, and it must load this same copy of zr. A `zr run` whose binary
-# is in the run cache execs it at once. When `zr-dev serve` runs, it
-# builds the program (lib/zr/server.rb). A compile starts ruby again with
+# is in the run cache execs it at once. A compile starts ruby again with
 # the collector limits at its first step of heavy work (lib/zr/gc_tuning.rb).
 # `CLI.guard` turns an error into one line and an exit status.
 #
@@ -18,12 +17,10 @@ $DEBUG = false
 require_relative "../lib/zr/cli"
 Zr::CLI.guard do
   Zr::CLI::Runner.keep_lost_cwd
-  # A bad setting stops here, before the server gets the command.
+  # A bad setting stops here, before any build.
   argv = Zr::CLI.settings!(ARGV)
   Zr::Config.current
   Zr::CLI.kept!(argv)
-  require_relative "../lib/zr/server"
-  Zr::Server.hand_to(argv)
 
   Zr::CLI.tune!(__FILE__, later: true) if Zr::CLI.compiles?(argv)
   Zr::CLI.start(argv)

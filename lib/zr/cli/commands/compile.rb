@@ -18,17 +18,14 @@ module Zr
       # `run` and `build`: compile a program, then run it, or keep the
       # binary, the WASI module or the object.
       #
-      # A compile command also holds what a process that serves builds
-      # needs: the binary that a `zr run` found in the run cache
-      # (`kept!`), and the block that takes a binary in place of running it
-      # (`served!`).
+      # A compile command also holds the binary that a `zr run` found in
+      # the run cache (`kept!`).
       #
       # In `Commands`, `Cache` names the command `cache`: the caches are
       # `Zr::Cache`.
       class Compile < Command
         # @rbs @missed: Zr::Cache::Run?
         # @rbs @exec: String?
-        # @rbs @served: (^(String, Array[String], bool) -> Object?)?
         # @rbs @options: RubyOptions?
         # @rbs @given: [String, String]?
 
@@ -295,18 +292,8 @@ module Zr
           Runner.exit_as(status) if status.is_a?(Process::Status)
         end
 
-        # In a build that the server runs (lib/zr/server.rb), `zr run` gives
-        # its binary to the block, in place of running it: the path, the
-        # program's arguments, and whether the path is in the build directory,
-        # which goes away when the build ends.
-        #: () { (String binary, Array[String] rest, bool temp) -> Object? } -> void
-        def served!(&back)
-          @served = back
-        end
-
         # A `zr run` whose binary is in the run cache: execs the binary now,
-        # before zr hands the command to a build server or starts again with
-        # the collector limits (40 ms each). This process then is the program, so
+        # before zr starts again with the collector limits (40 ms). This process then is the program, so
         # its status and signals are the program's own. Does nothing for any
         # other command, for a `zr run` that needs a build, and in the second
         # start (whose first start already looked).
@@ -448,8 +435,6 @@ module Zr
           return unless name == "run"
 
           kept = cache&.keep(out, program, work)
-          served = @served
-          return served.call(kept || out, rest, kept.nil?) if served
           # A kept binary outlives the build directory: zr execs it once the
           # build is gone, so the program has zr's pid, as a ruby script has
           # ruby's.

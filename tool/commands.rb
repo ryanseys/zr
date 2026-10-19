@@ -30,8 +30,7 @@ module Zr
       "gems" => ["Check which gems zr compiles, and group what stops the others", -> { require_relative "gems"; Commands::Gems }],
       "vendor" => ["Write vendor/ (ruby's library and gems, as upstream ships them) again, or check it",
                    -> { require_relative "vendor"; Commands::Vendor }],
-      "ext" => ["Tools for C extensions: what one imports from ruby", -> { require_relative "ext"; Commands::Ext }],
-      "serve" => ["Keep a warm compiler that zr run and zr build of this checkout use", -> { require_relative "serve"; Commands::Serve }]
+      "ext" => ["Tools for C extensions: what one imports from ruby", -> { require_relative "ext"; Commands::Ext }]
     }.freeze
 
     # `zr-dev` itself: the group of all the commands, with no name of its

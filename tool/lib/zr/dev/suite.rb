@@ -74,9 +74,8 @@ module Zr
 
       # The environment of the copy. It is not a checkout, so its cache
       # is named: the checkout's, whose entries are keyed by digests. It
-      # trims nothing, and builds alone, as the build server builds from
-      # the checkout.
-      def zr_env = { "ZR_CACHE" => Dev.path("tmp/cache"), "ZR_CACHE_MAX_GB" => "0", "ZR_SERVER" => "0" }
+      # trims nothing.
+      def zr_env = { "ZR_CACHE" => Dev.path("tmp/cache"), "ZR_CACHE_MAX_GB" => "0" }
 
       # The ruby tree of the copy, which a program that the copy runs gets as
       # its home (ZR_HOME, `CLI::Runner.program_env`).

@@ -134,8 +134,7 @@ class ConfigTest < Minitest::Test
       "ZR_EXT_CONFIG" => [["--ext-config", "nokogiri=--use-system-libraries"], :ext_config, { "nokogiri" => ["--use-system-libraries"] }],
       "ZR_RUN_CACHE" => [%w[--no-run-cache], :run_cache?, false],
       "ZR_TRACE" => [%w[--trace], :trace?, true],
-      "ZR_CODE_CACHE" => [%w[--code-cache verify], :code_cache, "verify"],
-      "ZR_SERVER" => [%w[--server 0], :server, "0"]
+      "ZR_CODE_CACHE" => [%w[--code-cache verify], :code_cache, "verify"]
     }
     assert_equal Zr::Config::SETTINGS.map(&:env) - %w[ZR_DEBUG], cases.keys
 
@@ -180,12 +179,12 @@ class ConfigTest < Minitest::Test
     Zr::Config.given!({})
   end
 
-  # A build server builds only for the same fingerprint; the timing and
-  # the server's socket do not change what a build writes.
+  # A kept binary is keyed on the fingerprint; the timing and the
+  # backtrace do not change what a build writes.
   def test_the_fingerprint_holds_the_settings_that_steer_a_build
     plain = Zr::Config.new({}, {}).fingerprint
 
-    assert_equal plain, Zr::Config.new({ "ZR_TIMING" => "1", "ZR_SERVER" => "0" }, {}).fingerprint
+    assert_equal plain, Zr::Config.new({ "ZR_TIMING" => "1", "ZR_DEBUG" => "1" }, {}).fingerprint
     refute_equal plain, Zr::Config.new({ "ZR_KERNEL_CHECKED" => "1" }, {}).fingerprint
     refute_equal plain, Zr::Config.new({}, { "ZR_LINKER" => "cc" }).fingerprint
   end

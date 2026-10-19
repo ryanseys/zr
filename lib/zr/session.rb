@@ -5,7 +5,7 @@ module Zr
   # that a module reads from the environment or the disk, or builds,
   # once per process. A module keeps it here (`memo`), not in its own
   # instance variables, so one call starts the next build as a new zr
-  # would (`reset!`): a warm server does that before each build.
+  # would (`reset!`): the tests do that between their builds.
   class Session
     # @rbs @memos: Hash[Symbol | Array[untyped], untyped]
 

@@ -126,13 +126,11 @@ def self.loaded = Session.current.memo(:runtimes) { {} }  # lib/zr/runtime.rb
 
 `Session#reset!` drops the memos that the environment decides and the
 built runtimes, so the next build makes them again as a new process
-would. The warm server (`Server#fresh!`, `lib/zr/server.rb`) calls it
-before each build. It keeps the runtimes (`reset!(keep_runtimes: true)`)
-when the settings and the runtime digest stay the same and the build
-has no `--path-root`. A test that needs a value of its own calls
+would. A test that builds twice in one process calls it between the
+builds, and keeps the runtimes (`reset!(keep_runtimes: true)`) when
+the settings and the runtime digest stay the same. A test that needs a value of its own calls
 `Session#set` and `Session#forget`. The ThreadSafety cops (see
-[Lint](#lint)) find state on a class or a module, because the server,
-the test workers and the host machine run threads.
+[Lint](#lint)) find state on a class or a module, because the test workers and the host machine run threads.
 
 ## Layers depend downward
 
@@ -216,7 +214,6 @@ functions on `module Zr`:
 | `Zr::Library::Layout`, `Roots`, `Ports`, `Vendor`, `Stdlib` | `library/` | the library that a program requires, and where each part of it is |
 | `Zr::Cache::Store`, `Janitor`, `Parse`, `Unit`, `Run`, `Lowering`, `Lowering::Core`, `Lowering::EvalSupport` | `cache/` | the caches between builds, all in one content store |
 | `Zr::CLI::Commands::*` | `cli/commands/` | one class for each `zr` command |
-| `Zr::Server`, `Zr::Server::Client` | `server.rb`, `server/client.rb` | the warm compiler of `zr-dev serve`, and the client in `exe/zr` |
 | `Zr::GcTuning` | `gc_tuning.rb` | the collector limits and YJIT of a compile (`GcTuning.current`) |
 | `Zr::Runtime.for`, `Zr::EvalSupport.for`, `Zr::Program.build` | `runtime.rb`, `eval_support.rb`, `program.rb` | the runtime of a target, the eval support of a target, and a program's build |
 | `Zr::LoadTables`, `Zr::SymbolNumbering` | `load_tables.rb`, `symbol_numbering.rb` | the load tables that a binary carries, and the link's numbers for symbols |

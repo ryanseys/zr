@@ -27,7 +27,6 @@ ThreadSafety/DirChdir:
     - "lib/zr/runtime/**/*"
     - "bin/setup"
     - "lib/zr/gem_set/resolve.rb"
-    - "lib/zr/server.rb"
     - "test/support/built.rb"
     - "test/support/host_program.rb"
     - "test/support/program_build.rb"

@@ -88,10 +88,9 @@ class LayeringTest < Minitest::Test
 
   def requires(file) = file.readlines.filter_map { |line| line[/require_relative\s+["']([^"']+)["']/, 1] }
 
-  # The files of `cli/` and `server/` are the command line
-  # (lib/zr/cli.rb) and the build server (lib/zr/server.rb) in parts, so
-  # they have the layer of those files: "top".
-  TOP_PARTS = %w[cli server].freeze
+  # The files of `cli/` are the command line (lib/zr/cli.rb) in parts, so
+  # they have the layer of that file: "top".
+  TOP_PARTS = %w[cli].freeze
 
   def layer_of(path)
     parts = path.relative_path_from(LIB).to_s.split("/")

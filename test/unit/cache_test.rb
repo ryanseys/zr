@@ -64,22 +64,14 @@ class CacheTest < Minitest::Test
     end
   end
 
-  # A clean deletes the store's unused entries and the binaries that the
-  # server left.
-  def test_a_clean_removes_old_served_binaries
+  # A clean deletes the store's unused entries, and names the kind of each.
+  def test_a_clean_removes_unused_entries
     with_cache("5") do |dir, old|
-      served = File.join(dir, "served", "sum")
-      FileUtils.mkdir_p(File.dirname(served))
-      File.write(served, "x")
-      File.utime(Time.now - 7200, Time.now - 7200, served)
-
       gone = Zr::Cache::Janitor.prune
 
-      refute_path_exists served
       assert_includes gone, old
-      assert_includes gone, served
-      assert_equal "served", Zr::Cache::Janitor.kind(served)
       assert_equal "object", Zr::Cache::Janitor.kind(Zr::Cache::Store.path(:object, "1" * 64))
+      assert_nil Zr::Cache::Janitor.kind(File.join(dir, "elsewhere"))
     end
   end
 end

@@ -283,26 +283,6 @@ See [How to measure performance](../how-to/measure-performance.md).
 
 See [Bootstrapping](../explanation/bootstrapping.md).
 
-### Build server
-
-| Command | Does |
-|---|---|
-| `zr-dev serve [--idle MINUTES] [--socket PATH]` | Keeps one warm compiler for the edit loop, which each `zr run` and `zr build` of this checkout uses while it runs. |
-
-The server holds the compiler loaded, YJIT warm, and the runtime's
-description, symbols and prelinked images in memory. It forks one child
-for each build. The client then runs the program itself, so the program
-keeps the terminal, the signals and the exit status. A Ctrl-C in the
-client stops the build. The server starts again when a file of zr that
-it loaded changes, and stops after `--idle` minutes with no request
-(default 30). It listens at `<cache>/server.sock`. `ZR_SERVER=0` makes
-a command build alone, and `ZR_SERVER=PATH` uses the server at `PATH`.
-
-On 2026-09-29, after an edit to a core file, `zr run` of hello took
-4.2 s with the server and 4.9 s without it; after an edit to a
-program, 0.23 s against 0.25 s (hello) and 0.40 s against 0.46 s (a
-program with eval). The server held about 700 MB.
-
 ## The binstubs
 
 `bin/zr` and `bin/zr-dev` are binstubs, as the gems' binstubs in `bin/`

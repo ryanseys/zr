@@ -76,7 +76,6 @@ Two kinds of code meet on a program's load path (`Zr::Library::Layout`):
 | `lib/zr/cache/lowering.rb`, `lib/zr/cache/lowering/core.rb`, `lib/zr/cache/lowering/eval_support.rb` | the core files and eval support's files that a build takes from an earlier build's machine code, and the checks that keep that code the same as a full build's |
 | `lib/zr/cache/run.rb` | the binaries that `zr run` keeps, and the files each was built from |
 | `lib/zr/gc_tuning.rb` | the collector limits and YJIT of a compile |
-| `lib/zr/server.rb`, `lib/zr/server/client.rb` | the build server of `zr-dev serve`, and its client that `exe/zr` uses |
 | `lib/zr/eval.rb`, `lib/zr/eval/compiler.rb` | the base of eval's back ends, and the eval compiler |
 | `lib/zr/eval/interpreter.rb`, `lib/zr/eval/interpreter/` | the tree-walking interpreter |
 | `lib/zr/runtime/` | the runtime: the source that zr compiles into each program, not code of the compiler |

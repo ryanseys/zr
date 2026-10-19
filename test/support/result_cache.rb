@@ -50,7 +50,7 @@ module Zr
       # The variables that change no result: they pick, report or speed up
       # tests, or bound the caches.
       IGNORED = %w[ZR_PROGRAMS ZR_TEST_FRESH ZR_TEST_FAIL_FAST ZR_TEST_TMP ZR_MINITEST_RUN ZR_TEST_ALL ZR_TEST_BUILT ZR_TEST_BINARIES
-                   ZR_TEST_BINARIES_GB ZR_TEST_RECYCLE_MB ZR_JOBS ZR_SERVER ZR_TIMING ZR_CACHE_MAX_GB ZR_BLESS].freeze
+                   ZR_TEST_BINARIES_GB ZR_TEST_RECYCLE_MB ZR_JOBS ZR_TIMING ZR_CACHE_MAX_GB ZR_BLESS].freeze
       # The variables outside ZR_ and RUBY that change a run.
       READ_ENV = %w[WASMTIME OPENSSL_DIR].freeze
 

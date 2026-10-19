@@ -56,8 +56,7 @@ module Zr
     # (`--timing`, `--no-timing`); a `:choice` takes one of its values; a
     # `:value` takes a word that `Config` checks as it reads it
     # (`--jobs=4` or `--jobs 4`). A setting that `steers` changes what a
-    # build writes, so a build server with other values does not build
-    # for it.
+    # build writes, so the test harness keys a kept binary on it.
     SETTINGS = [
       row("ZR_LINKER", "--linker", :choice, LINKERS, "the macOS linker: auto, ruby (zr's own) or cc"),
       row("ZR_JOBS", "--jobs", :value, "N", "the workers that assemble a large unit (-j N)"),
@@ -79,7 +78,6 @@ module Zr
       row("ZR_RUN_CACHE", "--run-cache", :switch, nil, "keep the binary of each run and run it again (on)"),
       row("ZR_TRACE", "--trace", :switch, nil, "arm the trace events in the program's code"),
       row("ZR_CODE_CACHE", "--code-cache", :choice, CODE_CACHES, "keep the runtime's code (1), not (0), or check it"),
-      row("ZR_SERVER", "--server", :value, "0|SOCKET", "0: build alone; a path: the build server's socket", steers: false),
       row("ZR_DEBUG", "--backtrace", :switch, nil, "show the backtrace of an error that stops zr", steers: false)
     ].freeze #: Array[Setting]
 
@@ -165,13 +163,12 @@ module Zr
       @run_cache = switch?("ZR_RUN_CACHE", default: true)
       @trace = switch?("ZR_TRACE")
       @code_cache = choice("ZR_CODE_CACHE", CODE_CACHES, "1")
-      @server = text("ZR_SERVER")
       @fingerprint = SETTINGS.select(&:steers).to_h { |setting| [setting.env, value(setting.env)] }.freeze
       freeze
     end
 
-    # The value of each setting that changes what a build writes: a build
-    # server builds only for a client whose fingerprint is its own.
+    # The value of each setting that changes what a build writes
+    # (test/support/binaries.rb keys a kept binary on it).
     attr_reader :fingerprint #: Hash[String, String]
 
     # The value of `name`: its flag's, else its variable's, else "".
@@ -341,10 +338,6 @@ module Zr
 
     # `ZR_CODE_CACHE`: "1", "0" or "verify" (`Cache::Code`).
     attr_reader :code_cache #: String
-
-    # `ZR_SERVER`: nil (use the server if one listens at its default
-    # socket), "0" (never), or the path of a socket (lib/zr/server.rb).
-    attr_reader :server #: String?
 
     # Whether `ZR_JOBS` sets the worker count. Then it also overrides the
     # memory limit (`Native::Parallel.afforded`).

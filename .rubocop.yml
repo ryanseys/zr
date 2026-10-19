@@ -187,8 +187,8 @@ Naming/PredicateMethod:
   Enabled: true
   AllowedMethods: [call, run]
 
-# State on a class or a module is shared by every thread: the server,
-# the test workers and the host machine run threads. An object owns its
+# State on a class or a module is shared by every thread: the test
+# workers and the host machine run threads. An object owns its
 # state; a process-wide memo goes in Zr::Session. Dir.chdir changes the
 # directory of every thread. NewThread stays off: zr starts threads on
 # purpose (the host's timer, the test pools).
