@@ -221,8 +221,51 @@ class File < IO
     end
 
     path = path_of(path)
-    without_gvl { Primitive.zr_path_kind(os_path(path)) }
+    kind = without_gvl { Primitive.zr_path_kind(os_path(path)) }
+    kind == 0 && compiled_in?(path) ? 2 : kind
   end
+
+  # Whether the program has the file at `path` compiled in, where a
+  # require or load of it runs it with no file on disk, or carries its
+  # bytes, which a library reads (`embedded_bytes`). Where the disk has no
+  # such file, it is a readable file, so a library that looks for its own
+  # files on the load path (IRB::Locale) finds them.
+  def self.compiled_in?(path)
+    Primitive.attr! :hidden
+    path.start_with?("/") && (!Primitive.zr_unit_for(path).nil? || embedded.key?(path))
+  end
+
+  # The bytes of the file at `path` that the program carries, where the
+  # disk has no such file, else nil (lib/zr/embedded_files.rb).
+  def self.embedded_bytes(path)
+    Primitive.attr! :hidden
+    return nil if embedded.empty?
+
+    path = File.expand_path(path_of(path))
+    bytes = embedded[path]
+    bytes if bytes && Primitive.zr_path_kind(os_path(path)) == 0
+  end
+
+  # The files that the program carries, by path: the load tables' text of
+  # records, each a path, a byte count and the bytes, each part after a
+  # newline (`LoadTables#embedded_text`).
+  def self.embedded
+    Primitive.attr! :hidden
+    Primitive.zr_hidden_get(File, :__embedded__) || begin
+      text = Primitive.zr_load_names(13).b
+      files = {}
+      at = 0
+      while at < text.bytesize
+        line = text.byteindex("\n", at)
+        size_end = text.byteindex("\n", line + 1)
+        size = text.byteslice(line + 1, size_end - line - 1).to_i
+        files[text.byteslice(at, line - at).force_encoding(Encoding::UTF_8)] = text.byteslice(size_end + 1, size).freeze
+        at = size_end + 1 + size
+      end
+      Primitive.zr_state_set(File, :__embedded__, files.freeze)
+    end
+  end
+  private_class_method :compiled_in?, :embedded_bytes, :embedded
 
   # rb_stat: an IO, or an object whose `to_io` gives one, is asked with
   # fstat(2) on its descriptor, not by a path. Else nil.
@@ -372,7 +415,7 @@ class File < IO
   def self.accessible?(path, mode)
     Primitive.attr! :hidden
     path = path_of(path)
-    without_gvl { Primitive.zr_path_access(os_path(path), mode) }
+    without_gvl { Primitive.zr_path_access(os_path(path), mode) } || (mode == 4 && compiled_in?(path) && kind_of_path(path) == 2)
   end
   private_class_method :accessible?
 
@@ -835,6 +878,9 @@ class File < IO
     # ENOSYS: the system has no realpath (WASI), and ruby built without
     # HAVE_REALPATH walks the path in the same way.
     return realpath_walk(path, false) if -result == Errno::ENOSYS::Errno
+    # A file compiled into the program, with no file on disk, is its own
+    # real path: no link leads to it.
+    return File.expand_path(path) if -result == Errno::ENOENT::Errno && compiled_in?(File.expand_path(path))
     return realpath_walk(path, false) if -result == Errno::ENOTDIR::Errno || (-result == Errno::ENOENT::Errno && exist?(path))
 
     raise SystemCallError.new(path, -result, +"rb_check_realpath_internal")

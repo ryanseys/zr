@@ -102,6 +102,10 @@ class IO
   # rb_io_s_binread opens the file binary, so no default encoding
   # converts what it reads.
   def self.binread(path, length = nil, offset = nil)
+    if (bytes = File.send(:embedded_bytes, path))
+      return carried(bytes.b, length, offset)
+    end
+
     File.open(File.send(:path_of, path), "rb") do |file|
       file.seek(offset) if offset
       length ? file.read(length) : file.read
@@ -115,12 +119,28 @@ class IO
   def self.read(path, length = nil, offset = nil, extra = (none = true; nil), **options)
     raise ArgumentError, +"wrong number of arguments (given 3, expected 0..2)" unless none
     raise ArgumentError, "negative offset #{offset} given" if offset && (offset = IO.send(:offset_of, offset)).negative?
+    if options.empty? && (bytes = File.send(:embedded_bytes, path))
+      return carried(length ? bytes.b : bytes.dup.force_encoding(Encoding.default_external), length, offset)
+    end
 
     opened(File.send(:path_of, path), options[:mode].nil? ? "r" : nil, options) do |file|
       file.seek(offset) if offset
       length ? file.read(length) : file.read
     end
   end
+
+  # A read of a file that the program carries (`File.embedded_bytes`):
+  # `length` bytes from `offset`, as a read of the file gives them, nil
+  # for a length past the end.
+  def self.carried(text, length, offset)
+    Primitive.attr! :hidden
+    text = text.byteslice(offset..) || +"" if offset
+    return text unless length
+    return nil if text.empty? && length.positive?
+
+    text.byteslice(0, length)
+  end
+  private_class_method :carried
 
   def self.write(path, content, offset = nil, **options) = written(path, content, offset, false, options)
 
@@ -144,6 +164,10 @@ class IO
     line = options.key?(:chomp) ? { chomp: options.delete(:chomp) } : {}
     path = File.send(:path_of, path)
     args = line_args(args)
+    if options.empty? && (args.empty? || args[1] == -1) && (bytes = File.send(:embedded_bytes, path))
+      return bytes.dup.force_encoding(Encoding.default_external).each_line(*args.first(1), **line).to_a
+    end
+
     opened(path, options[:mode].nil? ? "r" : nil, options) { |file| file.readlines(*args, **line) }
   end
 

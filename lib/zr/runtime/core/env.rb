@@ -374,7 +374,10 @@ Primitive.zr_environment_set(+"ZR_RUBY", nil)
 # The install prefix of RbConfig and $LOAD_PATH, fixed at start as ruby's
 # is: ZR_PREFIX when the user gives one, else ZR_HOME, the home of the zr
 # that runs the program (its vendored ruby tree, laid out as an installed
-# ruby's prefix, as JRuby and TruffleRuby use their home), else ~/.zr.
+# ruby's prefix, as JRuby and TruffleRuby use their home), else the home
+# that the build compiled the library from. Then the load path names the
+# files compiled in, wherever the program runs, and a computed require or
+# load of one of them finds it.
 # RbConfig::TOPDIR is the prefix only when its library directory exists
 # (ext/rbconfig.rb), so a program that no zr ran has none, as a ruby that
 # is not installed has none. Like ZR_RUBY, ZR_HOME leaves the program's
@@ -385,7 +388,7 @@ Primitive.zr_hidden_set(ENV, :__zr_home__, nil) if Primitive.zr_hidden_get(ENV, 
 Primitive.zr_hidden_set(
   ENV, :__zr_prefix__,
   Primitive.zr_environment_get(+"ZR_PREFIX") || Primitive.zr_hidden_get(ENV, :__zr_home__) ||
-    "#{Primitive.zr_environment_get(+"HOME") || "/tmp"}/.zr"
+    Primitive.zr_load_names(12).then { |home| home.empty? ? "/" : home }
 )
 
 # ruby's boot loads its tables of encodings and transcoders, which this

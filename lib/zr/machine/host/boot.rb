@@ -364,9 +364,9 @@ module Zr
             at += name.bytesize
           end
           empty = Memory.zeroed(8)
-          # The load tables: no compiled-in file, and eleven empty texts.
-          words = Memory.zeroed(8 * 24)
-          Memory.write(words, ([0, empty] + ([empty, 0] * 11)).pack("Q<*"))
+          # The load tables: no compiled-in file, and fourteen empty texts.
+          words = Memory.zeroed(8 * 30)
+          Memory.write(words, ([0, empty] + ([empty, 0] * 14)).pack("Q<*"))
           {
             "zr_symbol_names" => table, "zr_symbol_count" => word(names.size), "zr_site_count" => word(0),
             "zr_load_tables" => word(words), "environ" => Fiddle::Handle::DEFAULT["environ"]

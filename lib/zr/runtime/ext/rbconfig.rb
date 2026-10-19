@@ -376,7 +376,7 @@ module RbConfig
   # zr: the launcher that ran the program (`ZR_RUBY`, which `zr run` and
   # `zr app.rb` set; `bindir` and `ruby_install_name` name it too), else
   # the one in `ZR_BINDIR` or `ZR_PREFIX`, else the first `zr` on PATH,
-  # else `~/.zr/bin/zr`. So `system(RbConfig.ruby, "-e", ...)` runs zr,
+  # else `zr` in the prefix's bindir. So `system(RbConfig.ruby, "-e", ...)` runs zr,
   # as it runs ruby in a ruby program.
   def self.ruby
     given = Primitive.zr_hidden_get(ENV, :__zr_ruby__)

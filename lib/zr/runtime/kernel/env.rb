@@ -1136,7 +1136,7 @@ module Zr::Kern
 
   # The table that the compiler writes for a require with a computed name
   # (lib/zr/runtime.rb, `load_tables`): the count of compiled-in files,
-  # their entries, and ten (bytes, length) texts.
+  # their entries, and fourteen (bytes, length) texts.
   class LoadTable < Layout
     attr_accessor :units #: word
     attr_accessor :rows #: ptr
@@ -1164,6 +1164,10 @@ module Zr::Kern
     attr_accessor :redirects_len #: word
     attr_accessor :gems_off #: ptr
     attr_accessor :gems_off_len #: word
+    attr_accessor :home #: ptr
+    attr_accessor :home_len #: word
+    attr_accessor :embedded #: ptr
+    attr_accessor :embedded_len #: word
   end
 
   #: () -> ptr
@@ -1244,6 +1248,8 @@ module Zr::Kern
   # 7: the def and block spans that identify a method entry. 8: the digest
   # of each source file of the compiler that the program links in, each
   # after a path and a tab. 9: the gem manifest (lib/zr/manifest.rb).
+  # 12: the home of the build's library (`LoadTables#texts`). 13: the
+  # files that its libraries read as data (`LoadTables#embedded_text`).
   # The last text, the redirects, is read only by `zr_require_redirect`.
   #: (value) -> value
   def zr_load_names(which)
@@ -1267,6 +1273,10 @@ module Zr::Kern
       return zr_str_new(LoadTable[t].sources, LoadTable[t].sources_len)
     elsif w == 9
       return zr_str_new(LoadTable[t].manifest, LoadTable[t].manifest_len)
+    elsif w == 12
+      return zr_str_new(LoadTable[t].home, LoadTable[t].home_len)
+    elsif w == 13
+      return zr_str_new(LoadTable[t].embedded, LoadTable[t].embedded_len)
     end
     zr_str_new(LoadTable[t].ext, LoadTable[t].ext_len)
   end

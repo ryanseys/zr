@@ -210,5 +210,13 @@ The first public release.
 - A `Ruby::Box` starts with a copy of the load path as the program started
   with it, and its `require` of a Ruby library on that path runs a copy of
   the library for the box, nested requires included.
+- A binary runs its compiled-in libraries where they are not on disk. The
+  install prefix (`ZR_PREFIX`) defaults to the directory that the build
+  compiled ruby's library from, not `~/.zr`, so `$LOAD_PATH` names the
+  compiled files. `File.exist?`, `File.file?` and `File.readable?` find
+  such a file, and the files that a library reads as data by a path from
+  its own directory (`File.read(File.join(__dir__, ...))`, as rubygems
+  does) are carried in the binary. A library that searches the load path
+  for files to `Kernel.load` (irb's locale messages) finds them too.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "binary"
+require_relative "embedded_files"
 require_relative "ext"
 require_relative "obj/model"
 require_relative "paths"
@@ -72,6 +74,7 @@ module Zr
     # entry]` pairs. A unit that only stops has no path.
     #: (?Array[[String, String]] units) -> Array[Obj::Datum]
     def data(units = [])
+      embedded = embedded_text(units.map(&:first))
       units = units.filter_map do |path, entry|
         next unless path.start_with?("/")
 
@@ -90,7 +93,7 @@ module Zr
       out << Obj::Datum.new("zr_unit_rows", :data_const, rows.empty? ? "\0".b * 8 : rows, relocs: row_relocs, align: 8)
       words = [units.size, 0]
       relocs = [Obj::Reloc.new(8, :abs64, "zr_unit_rows")]
-      texts.each_with_index do |lines, i|
+      [*texts, [embedded]].each_with_index do |lines, i|
         joined = lines.join("\n")
         text.call("zr_load_names_#{i}", joined)
         relocs << Obj::Reloc.new(words.size * 8, :abs64, "zr_load_names_#{i}")
@@ -99,6 +102,19 @@ module Zr
       out << Obj::Datum.new("zr_load_table_words", :data_const, words.pack("Q<*"), relocs: relocs, align: 8)
       out << Obj::Datum.new("zr_load_tables", :data_const, "\0".b * 8, relocs: [Obj::Reloc.new(0, :abs64, "zr_load_table_words")], align: 8,
                                                                           linkage: :export)
+    end
+
+    # The files that the library files among `paths` read as data
+    # (`EmbeddedFiles`), as one text: for each, its path as the build
+    # writes it, its byte count, and its bytes, each part after a newline.
+    # Only a build reads them: a compile in a running program reads no
+    # library of the build machine.
+    #: (Array[String] paths) -> String
+    def embedded_text(paths)
+      return "" if Binary.running?
+
+      files = EmbeddedFiles.for(paths.select { |path| path.start_with?("/") }, [Library::Layout::PREFIX, *gem_roots])
+      files.sort.map { |path, bytes| "#{Paths.shown(path)}\n#{bytes.bytesize}\n#{bytes.b}" }.join.b
     end
 
     # The texts after the files, in the order of the kernel's LoadTable:
@@ -160,6 +176,11 @@ module Zr
       # gem_prelude.rb, so error_highlight, did_you_mean and
       # syntax_suggest do not load.
       names << (gems ? [] : ["off"])
+      # The home that the build compiled ruby's library and the bundled
+      # gems from, the prefix of their paths in the table: the install
+      # prefix of a program that no zr runs (`ZR_PREFIX`), so its
+      # $LOAD_PATH names the files that it has compiled in.
+      names << [shown[Library::Layout::PREFIX]]
     end
   end
 end
