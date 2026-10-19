@@ -360,11 +360,16 @@ module Zr::Kern
   # of rubygems' Kernel#require (nil before rubygems loads). A `require`
   # that the program undefined counts as ruby's own. So does any require
   # of code that the program does not see (eval support's compiler and
-  # what it loads), which ruby does not have.
-  #: (value, value) -> value
-  def zr_plain_require_p_m(recv, standard)
+  # what it loads), which ruby does not have. Any other require searches
+  # when `off` is true: its file is in a directory that the program took
+  # off $LOAD_PATH.
+  #: (value, value, value) -> value
+  def zr_plain_require_p_m(recv, standard, off)
     if zr_hidden_now()
       return Machine.value(QTRUE)
+    end
+    if off == QTRUE
+      return Machine.value(QFALSE)
     end
     e = zr_find_method(zr_class_of(recv), Machine.id(:require))
     if e == 0 || MEntry[e].core != 0 || MEntry[e].kind == KIND_UNDEF

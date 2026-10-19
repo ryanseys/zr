@@ -182,7 +182,23 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
 
   def self.archdir
     Primitive.attr! :hidden
-    "#{Primitive.zr_hidden_get(ENV, :__zr_prefix__)}/lib/ruby/#{Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__)}/#{RUBY_PLATFORM}"
+    "#{rubylibdir}/#{RUBY_PLATFORM}"
+  end
+
+  # ruby's library directory, as the start's $LOAD_PATH names it.
+  def self.rubylibdir
+    Primitive.attr! :hidden
+    "#{Primitive.zr_hidden_get(ENV, :__zr_prefix__)}/lib/ruby/#{Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__)}"
+  end
+
+  # Whether ruby's library directory is on $LOAD_PATH. ruby finds the
+  # files of its library only through $LOAD_PATH, so a program that takes
+  # the directory off loads none of them by a name, not even one that it
+  # has loaded: rb_feature_p reads $LOAD_PATH too.
+  def self.library_on_load_path?
+    Primitive.attr! :hidden
+    dir = rubylibdir
+    $LOAD_PATH.include?(dir) || $LOAD_PATH.any? { |entry| File.expand_path(entry) == dir }
   end
 
   # CRuby's rb_feature_p for the name as it was written, before any file
@@ -349,8 +365,11 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # program adds can shadow them. A root marked `=` (ruby's arch
     # directory, where a default gem's linked C is) gives only the files
     # compiled into the program, and a root of zr's ports of C (`*`)
-    # nothing for a feature whose C the program links there.
+    # nothing for a feature whose C the program links there. ruby's
+    # library, by the path that the build compiled it from, counts only
+    # while its directory is on $LOAD_PATH.
     ports, libraries = library_roots
+    libraries -= [compiled_rubylibdir] unless library_on_load_path?
     dirs = ports + $LOAD_PATH.map { |dir| File.path(dir) } + libraries
     dirs.each do |dir|
       path = if dir.start_with?("=") then compiled_in(dir.delete_prefix("="), name)
@@ -377,6 +396,13 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
     # meets a pattern, which would raise.
     bundle = "#{name.delete_suffix(".rb").delete_suffix(".so").delete_suffix(".bundle")}.#{Kernel.dlext}"
     library_roots[0].any? { |dir| dir.start_with?("=") && compiled_in(dir.delete_prefix("="), bundle) }
+  end
+
+  # ruby's library directory under the home that the build compiled it
+  # from (lib/zr/load_tables.rb), as the roots that the build lists name it.
+  def self.compiled_rubylibdir
+    Primitive.attr! :hidden
+    "#{Primitive.zr_load_names(12)}/lib/ruby/#{Primitive.zr_hidden_get(Kernel, :__zr_ruby_lib_version__)}"
   end
 
   # The roots that the build lists, split once: the ports of C, then the
@@ -687,10 +713,12 @@ def <=>(other) = equal?(other) || self == other ? 0 : nil
   # Whether a require that the build resolved runs its file at once: the
   # `require` that `recv` finds is ruby's own, or rubygems' (the one that
   # the gem manifest keeps as `__require__`). Otherwise the require calls
-  # the program's `require` (lib/zr/hir/build/requires.rb, `heard`).
-  def self.plain_require?(recv)
+  # the program's `require` (lib/zr/hir/build/requires.rb, `heard`). A
+  # file of ruby's library (`library`) does not run at once while its
+  # directory is off $LOAD_PATH: the require searches, as ruby's does.
+  def self.plain_require?(recv, library = false)
     Primitive.attr! :hidden
-    Primitive.zr_plain_require_p_m(recv, Primitive.zr_hidden_get(self, :__require__))
+    Primitive.zr_plain_require_p_m(recv, Primitive.zr_hidden_get(self, :__require__), library && !library_on_load_path?)
   end
 
   # A file that the program was not compiled with, compiled by the

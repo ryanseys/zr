@@ -149,14 +149,17 @@ module Zr
       # that the program defines (bootsnap's, zeitwerk's, a test's stand-in)
       # hears each one, and its `super` or alias finds the file, which stays
       # compiled in. The file runs at once while the `require` that self
-      # finds is ruby's own or rubygems' (`Kernel.plain_require?`). zr's
-      # runtime files call no program's require.
+      # finds is ruby's own or rubygems' (`Kernel.plain_require?`), and,
+      # for a file of ruby's library, while its directory is on $LOAD_PATH.
+      # zr's runtime files call no program's require.
       #: (Prism::CallNode node, node required) -> node
       def heard(node, required)
         return required unless node.name == :require && !Library::Roots.runtime_file?(@file)
 
         line = node.location.start_line
-        plain = Send.of(Core.new(:Kernel, line), :plain_require?, [SelfRef.new(line)], line)
+        args = [SelfRef.new(line)] #: Array[node]
+        args << Literal.new(true, line) if required.is_a?(Require) && required.path.to_s.start_with?("#{Library::Roots.pure}/")
+        plain = Send.of(Core.new(:Kernel, line), :plain_require?, args, line)
         If.new(plain, required, plain_call(node, compiles: false), line)
       end
 
