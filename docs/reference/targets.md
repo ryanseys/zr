@@ -7,8 +7,10 @@ ruby 4.0 or later. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 | Target | Outputs | Object format | Runtime layers |
 |---|---|---|---|
 | `aarch64-apple-darwin` (the default on a Mac, and on a host that runs no target) | binary, object file | Mach-O | `os/darwin`, `arch/aarch64` |
-| `aarch64-linux-musl` (the default on aarch64 Linux) | binary, object file | ELF | `os/linux`, `arch/aarch64` |
-| `x86_64-linux-musl` (the default on x86_64 Alpine) | binary, object file | ELF | `os/linux`, `os/linux/arch/x86_64`, `arch/x86_64` |
+| `aarch64-linux-musl` (the default on aarch64 Alpine) | binary, object file | ELF | `os/linux`, `os/linux/libc/musl`, `os/linux/arch/aarch64`, `arch/aarch64` |
+| `x86_64-linux-musl` (the default on x86_64 Alpine) | binary, object file | ELF | `os/linux`, `os/linux/libc/musl`, `os/linux/arch/x86_64`, `arch/x86_64` |
+| `x86_64-linux-gnu` (the default on x86_64 glibc Linux) | binary, object file | ELF, dynamic | `os/linux`, `os/linux/libc/glibc`, `os/linux/arch/x86_64`, `arch/x86_64` |
+| `aarch64-linux-gnu` (the default on aarch64 glibc Linux) | binary, object file | ELF, dynamic | `os/linux`, `os/linux/libc/glibc`, `os/linux/arch/aarch64`, `arch/aarch64` |
 | `wasm32-wasi` | WASI module | wasm | `os/wasi`, `arch/wasm32` |
 
 ## What each host can build
@@ -18,6 +20,7 @@ ruby 4.0 or later. `Zr::Target` (`lib/zr/target.rb`) defines each target.
 | `aarch64-apple-darwin` binary | any host: zr links it |
 | `aarch64-linux-musl` binary | an aarch64 Linux host with musl's `cc`: Alpine's own, or on a glibc Linux the compiler that `CC` names, `aarch64-linux-musl-gcc` or `musl-gcc` (`apt install musl-tools`). Any other host needs `aarch64-linux-musl-gcc` on the `PATH`. |
 | `x86_64-linux-musl` binary | an x86_64 Alpine host, or any host with `x86_64-linux-musl-gcc` on the `PATH` |
+| `x86_64-linux-gnu` or `aarch64-linux-gnu` binary | a glibc Linux host of that machine with `cc` (`apt install build-essential`), or any host with `<triple>-gcc` on the `PATH`. The binary loads libc, libm and libcrypt with ld.so, and exports ruby's C API for the C extensions that it loads |
 | WASI module | any host |
 | Mach-O or ELF object file | any host |
 
@@ -40,6 +43,8 @@ was built for:
 | `aarch64-apple-darwin` | macOS 14 | `arm64-darwin23` (Darwin 23 is macOS 14) |
 | `aarch64-linux-musl` | any aarch64 Linux kernel that musl supports | `aarch64-linux-musl` |
 | `x86_64-linux-musl` | any x86-64-v2 Linux kernel that musl supports | `x86_64-linux-musl` |
+| `x86_64-linux-gnu` | the glibc that it was linked against (2.35 for Ubuntu 22.04) | `x86_64-linux` |
+| `aarch64-linux-gnu` | the glibc that it was linked against | `aarch64-linux` |
 | `wasm32-wasi` | any WASI preview 1 engine | `wasm32-wasi` |
 
 `Zr::Target::MIN_MACOS` holds the macOS version. zr's Mach-O linker and

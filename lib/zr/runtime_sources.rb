@@ -54,7 +54,7 @@ module Zr
       cli.rb cli/command.rb cli/errors.rb cli/help.rb cli/options.rb cli/refusals.rb cli/runner.rb
       cli/commands/cache.rb cli/commands/compile.rb cli/commands/diff.rb cli/commands/doctor.rb cli/commands/gems.rb cli/commands/help.rb
       cli/commands/inspect.rb cli/commands/version.rb
-      ext/c_api.rb native/link.rb native/link/darwin.rb native/link/static.rb native/toolchain.rb
+      ext/c_api.rb native/link.rb native/link/darwin.rb native/link/dynamic.rb native/link/static.rb native/toolchain.rb
       obj/jit.rb obj/jit/fiddle.rb
       obj/macho/block.rb obj/macho/executable.rb obj/macho/image.rb obj/macho/libsystem.rb obj/macho/prelink.rb
       obj/macho/skeleton.rb
@@ -135,8 +135,9 @@ module Zr
     end
 
     # The kernel files: the portable kernel, then the POSIX layer that the
-    # OSes with POSIX threads share (not wasm), then its OS layer and that
-    # layer's part for the architecture, then its architecture layer,
+    # OSes with POSIX threads share (not wasm), then its OS layer, that
+    # layer's part for the C library and its part for the architecture,
+    # then its architecture layer,
     # then the C API for a target that runs native C extensions (not wasm).
     #: () -> Array[String]
     def kernel_files
@@ -144,6 +145,7 @@ module Zr
       Dir[File.join(Paths::RUNTIME, "kernel/*.rb")].sort +
         (native ? Dir[File.join(Paths::RUNTIME, "kernel/os/posix/*.rb")].sort : []) +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/*.rb")].sort +
+        Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/libc/#{target.libc}/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/os/#{target.os_layer}/arch/#{target.arch_layer}/*.rb")].sort +
         Dir[File.join(Paths::RUNTIME, "kernel/arch/#{target.arch_layer}/*.rb")].sort +
         (native ? Dir[File.join(Paths::RUNTIME, "kernel/capi/*.rb")].sort : [])

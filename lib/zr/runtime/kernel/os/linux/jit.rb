@@ -60,7 +60,7 @@ module Zr::Kern
   end
 
   # The program's own symbol table. musl's dlsym finds nothing in a static
-  # binary. But the binary keeps its ELF .symtab (the linker links all of a
+  # binary, and glibc's finds only the names that the binary exports. But the binary keeps its ELF .symtab (the linker links all of a
   # program that evals), and a non-PIE link puts each symbol at its own
   # value. Thus zr maps /proc/self/exe one time and finds the table from
   # its section headers. The slot contains the first symbol entry, the
@@ -136,7 +136,7 @@ module Zr::Kern
       end
       i += 1
     end
-    Machine.value(QNIL)
+    zr_os_symbol_loaded(name)
   end
 
   # Writes into the code mapping, then flushes the instruction cache for

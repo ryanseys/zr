@@ -4,7 +4,8 @@ module Zr::Kern
   # the OS's routine. For macOS, this file has the Bentley-McIlroy
   # algorithm, on records of `stride` bytes whose first word is the Value
   # to compare. It uses indexes in place of pointers. musl's smoothsort is
-  # in lib/zr/runtime/kernel/os/linux/smoothsort.rb.
+  # in lib/zr/runtime/kernel/os/linux/libc/musl/smoothsort.rb, and
+  # glibc's merge sort in lib/zr/runtime/kernel/os/linux/libc/glibc/libc.rb.
   #
   # The comparator runs Ruby. After a comparison raises, every later
   # comparison returns 0 and runs no Ruby. The sort finishes on its copy,

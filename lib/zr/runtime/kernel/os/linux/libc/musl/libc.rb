@@ -32,4 +32,26 @@ module Zr::Kern
   def zr_os_sha256_blocks(h, p, n)
     false
   end
+
+  #: () -> value
+  def zr_os_issetugid
+    zr_bool(Libc.issetugid() != Machine.i32(0))
+  end
+
+  # A name that the binary's own symbol table does not define. musl's
+  # dlsym finds nothing in a static binary, so there is none.
+  #: (value) -> value
+  def zr_os_symbol_loaded(name)
+    Machine.value(QNIL)
+  end
+
+  # RUBY_PLATFORM, as ruby built against musl gives it: the architecture
+  # (`n` bytes at `arch`), then "-linux-musl".
+  #: (ptr, word) -> value
+  def zr_os_platform(arch, n)
+    b = Machine.slot(32)
+    zr_memcpy(b, arch, n)
+    zr_memcpy(b + n, Machine.bytes("-linux-musl"), 11)
+    zr_str_new(b, n + 11)
+  end
 end

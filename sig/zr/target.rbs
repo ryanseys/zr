@@ -2,12 +2,12 @@
 # inline. Inline RBS cannot declare an alias.
 module Zr
   class Target < Data
-    type arch = :aarch64 | :wasm32
+    type arch = :aarch64 | :x86_64 | :wasm32
     type os = :darwin | :linux | :wasi
     type object_format = :macho | :elf | :wasm
-    type libc = :musl
-    # zr's own Mach-O link, or a static link with cc.
-    type link = :darwin | :static
+    type libc = :musl | :glibc
+    # zr's own Mach-O link, or a static or dynamic link with cc.
+    type link = :darwin | :static | :dynamic
     # `:native` (a binary), `:obj` (an object), `:wasm` (a module).
     type output = :native | :obj | :wasm
 

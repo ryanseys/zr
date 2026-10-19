@@ -47,21 +47,31 @@ class TargetTest < Minitest::Test
     assert_nil darwin.refusal(nil) unless ENV["ZR_LINKER"] == "cc"
   end
 
-  # A static musl binary runs on any Linux of the same machine, so a
-  # glibc host builds and runs its machine's musl target by default.
-  def test_a_glibc_aarch64_host_runs_the_musl_target
+  # A glibc host builds its own dynamic target by default. A static musl
+  # binary runs on any Linux of the same machine, so it runs there too.
+  def test_a_glibc_host_builds_its_own_target_and_runs_the_musl_one
     Checks.with_host("aarch64-linux-gnu") do
+      gnu = Zr::Target::AARCH64_LINUX_GNU
       musl = Zr::Target::AARCH64_LINUX_MUSL
-      assert_same musl, Zr::Target.host
-      assert_same musl, Zr::Target.default
+      assert_same gnu, Zr::Target.host
+      assert_same gnu, Zr::Target.default
+      assert_predicate gnu, :native?
       assert_predicate musl, :runs_here?
       refute_predicate musl, :native?
       refute_predicate Zr::Target::AARCH64_DARWIN, :runs_here?
     end
     Checks.with_host("x86_64-linux-gnu") do
-      assert_same Zr::Target::X86_64_LINUX_MUSL, Zr::Target.host
+      assert_same Zr::Target::X86_64_LINUX_GNU, Zr::Target.host
+      assert_predicate Zr::Target::X86_64_LINUX_MUSL, :runs_here?
       refute_predicate Zr::Target::AARCH64_LINUX_MUSL, :runs_here?
     end
+  end
+
+  # ruby names a glibc platform with no C library.
+  def test_a_glibc_target_s_platform_has_no_libc
+    assert_equal "x86_64-linux", Zr::Target::X86_64_LINUX_GNU.ruby_platform
+    assert_equal "aarch64-linux", Zr::Target::AARCH64_LINUX_GNU.ruby_platform
+    assert_equal :dynamic, Zr::Target::X86_64_LINUX_GNU.link
   end
 
   # There, musl's wrapper links, or the compiler that CC names.
@@ -87,6 +97,7 @@ class TargetTest < Minitest::Test
         assert_equal "apk add build-base", Zr::Target.cc_hint(os_release: release)
         File.write(release, %(NAME="Ubuntu"\nID=ubuntu\nID_LIKE=debian\n))
         assert_equal "apt install musl-tools", Zr::Target.cc_hint(os_release: release)
+        assert_equal "apt install build-essential", Zr::Target.cc_hint(os_release: release, libc: :glibc)
         assert_match(/musl-gcc/, Zr::Target.cc_hint(os_release: File.join(dir, "none")))
       end
       Checks.with_host("aarch64-apple-darwin") do

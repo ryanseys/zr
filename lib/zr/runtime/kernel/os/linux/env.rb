@@ -139,8 +139,4 @@ module Zr::Kern
     Machine.sword(Libc.getgroups(Machine.i32(n), list))
   end
 
-  #: () -> value
-  def zr_os_issetugid
-    zr_bool(Libc.issetugid() != Machine.i32(0))
-  end
 end

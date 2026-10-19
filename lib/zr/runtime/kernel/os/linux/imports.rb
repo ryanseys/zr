@@ -14,6 +14,8 @@ module Zr::Kern
     def self.setegid(i) = Machine.import
     #: () -> i32
     def self.issetugid = Machine.import
+    #: (word) -> word
+    def self.getauxval(n) = Machine.import
 
     #: () -> ptr
     def self.__errno_location = Machine.import

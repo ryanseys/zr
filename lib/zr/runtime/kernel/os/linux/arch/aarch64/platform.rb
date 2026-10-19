@@ -1,7 +1,7 @@
 module Zr::Kern
-  # RUBY_PLATFORM, as ruby built against musl gives it.
+  # RUBY_PLATFORM: this architecture, then the C library's part.
   #: () -> value
   def zr_os_ruby_platform
-    zr_str_new(Machine.bytes("aarch64-linux-musl"), 18)
+    zr_os_platform(Machine.bytes("aarch64"), 7)
   end
 end

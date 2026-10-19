@@ -78,12 +78,21 @@ module Zr
     X86_64_LINUX_MUSL = new(triple: "x86_64-linux-musl", arch: :x86_64, os: :linux, libc: :musl,
                             object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "x86_64-linux-musl",
                             link: :static, outputs: %i[native obj]) #: Target
+    # The glibc targets link dynamically: ld.so loads libc, and dlopen
+    # loads C extensions and FFI libraries. ruby names their platform
+    # with no C library.
+    X86_64_LINUX_GNU = new(triple: "x86_64-linux-gnu", arch: :x86_64, os: :linux, libc: :glibc,
+                           object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "x86_64-linux",
+                           link: :dynamic, outputs: %i[native obj]) #: Target
+    AARCH64_LINUX_GNU = new(triple: "aarch64-linux-gnu", arch: :aarch64, os: :linux, libc: :glibc,
+                            object_format: :elf, page: 4096, symbol_prefix: "", ruby_platform: "aarch64-linux",
+                            link: :dynamic, outputs: %i[native obj]) #: Target
     WASM32_WASI = new(triple: "wasm32-wasi", arch: :wasm32, os: :wasi, object_format: :wasm,
                       page: 65_536, symbol_prefix: "", ruby_platform: "wasm32-wasi",
                       link: nil, outputs: %i[wasm]) #: Target
 
     # Every target.
-    ALL = [AARCH64_DARWIN, AARCH64_LINUX_MUSL, X86_64_LINUX_MUSL, WASM32_WASI].freeze #: Array[Target]
+    ALL = [AARCH64_DARWIN, AARCH64_LINUX_MUSL, X86_64_LINUX_MUSL, X86_64_LINUX_GNU, AARCH64_LINUX_GNU, WASM32_WASI].freeze #: Array[Target]
     # Every target, by triple.
     BY_TRIPLE = ALL.to_h { |target| [target.triple, target] }.freeze #: Hash[String, Target]
 
@@ -191,14 +200,14 @@ module Zr
          .find { |path| File.file?(path) && File.executable?(path) }
     end
 
-    # How to get a C compiler on this host.
-    #: (?os_release: String) -> String
-    def self.cc_hint(os_release: "/etc/os-release")
+    # How to get a C compiler on this host for a target with `libc`.
+    #: (?os_release: String, ?libc: libc?) -> String
+    def self.cc_hint(os_release: "/etc/os-release", libc: :musl)
       return "xcode-select --install" if host_triple.end_with?("-darwin")
 
       id = File.file?(os_release) ? File.read(os_release)[/^ID(?:_LIKE)?="?([\w ]+)/, 1].to_s : ""
       return "apk add build-base" if id.include?("alpine")
-      return "apt install musl-tools" if id.match?(/debian|ubuntu/)
+      return libc == :glibc ? "apt install build-essential" : "apt install musl-tools" if id.match?(/debian|ubuntu/)
 
       "install musl-gcc, or set CC to a C compiler for musl"
     end
@@ -213,7 +222,7 @@ module Zr
       return nil if linkable?
 
       if native? || musl_on_linux?
-        "a native binary needs cc on the PATH (#{Target.cc_hint}); " \
+        "a native binary needs cc on the PATH (#{Target.cc_hint(libc: libc)}); " \
           "--emit wasm and --emit obj work without it"
       else
         "a native binary for #{triple} needs a #{triple} host with cc, or #{triple}-gcc " \

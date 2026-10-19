@@ -8,6 +8,7 @@ require_relative "../target"
 require_relative "link"
 require_relative "link/darwin"
 require_relative "link/static"
+require_relative "link/dynamic"
 require_relative "../backend/native"
 require_relative "../backend/wasm"
 require_relative "../obj/macho/object_file"
@@ -78,9 +79,9 @@ module Zr
       end
 
       # The linker for `target`.
-      #: (Target target) -> (singleton(Link::Darwin) | singleton(Link::Static))
+      #: (Target target) -> (singleton(Link::Darwin) | singleton(Link::Static) | singleton(Link::Dynamic))
       def linker(target)
-        { darwin: Link::Darwin, static: Link::Static }.fetch(target.link) { raise ArgumentError, "no linker for #{target}" }
+        { darwin: Link::Darwin, static: Link::Static, dynamic: Link::Dynamic }.fetch(target.link) { raise ArgumentError, "no linker for #{target}" }
       end
 
       # Returns nil, or the message of the step that refused. `objects` are
