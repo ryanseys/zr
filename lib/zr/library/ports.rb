@@ -59,9 +59,7 @@ module Zr
         "date" => port("3.6.0", vendored: false, c_first: true),
         "stringio" => port("3.2.1.dev", vendored: false, c_first: true),
         "strscan" => port("3.1.9.dev", vendored: false, c_first: true),
-        # zlib keeps its port first: its own C inflates without the GVL,
-        # and a thread killed there corrupts the heap (W9a).
-        "zlib" => port("3.2.4", vendored: false),
+        "zlib" => port("3.2.4", vendored: false, c_first: true),
         # io-console keeps its port first: its own C tests RB_TYPE_P(io, T_FILE),
         # a tag that zr's IO does not carry, so IO#cursor queries nothing
         # (W18 L4); its tests pass 35 of 39 with that C, and 39 with the port.

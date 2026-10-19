@@ -32,14 +32,13 @@ small number of names have no file in zr, for example `mkmf`. A
 
 A library with a C extension, such as `json`, `psych` or `zlib`, works
 because zr has a Ruby port of its C. For json, stringio, strscan,
-date, digest, etc, fcntl, bigdecimal, nkf, syslog, rbs, racc, ffi and prism,
+date, digest, etc, fcntl, bigdecimal, nkf, syslog, rbs, racc, ffi, prism and zlib,
 a build for the machine it runs on
 links the gem's own C extension instead, the one that the pinned ruby
 installed (`ZR_NATIVE_EXT=-json` keeps json's port). The port serves a
 build for another target and a ruby without the gem. psych and openssl
 keep their ports, because their own C loads a library (libyaml,
-libssl) that a binary cannot carry, and so does zlib, whose own C
-corrupts the heap when a thread that inflates is killed. io-console
+libssl) that a binary cannot carry. io-console
 keeps its port until zr's IO objects carry the T_FILE tag that its C
 tests. Some ports are at a later version
 than the pinned ruby ships, for example json 3.0.2; see
