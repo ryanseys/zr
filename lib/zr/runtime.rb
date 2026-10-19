@@ -361,11 +361,11 @@ module Zr
     #: (String path) -> String
     def self.core_entry(path) = "zr_core_#{path.delete_prefix(CORE_DIR).delete_suffix(".rb").tr("/", "_")}"
 
-    # `[functions, data]` of one core file over the kernel `unit`, with the
-    # kernel's ids `fixed`.
+    # `[functions, data]` of one core file over the kernel `unit` (or its
+    # description), with the kernel's ids `fixed`.
     # @rbs path: String
     # @rbs source: String
-    # @rbs unit: Machine::Lower
+    # @rbs unit: Machine::Lower | Machine::Description
     # @rbs fixed: Hash[String, Integer]
     # @rbs target: Target
     # @rbs return: [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
@@ -375,7 +375,7 @@ module Zr
     end
 
     # `[functions, data]` of the gem prelude's program `hir`.
-    #: (Hir::Program hir, Machine::Lower unit, Hash[String, Integer] fixed, Target target) -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
+    #: (Hir::Program hir, Machine::Lower | Machine::Description unit, Hash[String, Integer] fixed, Target target) -> [Array[IR::Function | Obj::Code], Array[Obj::Datum]]
     def self.lower_gem_prelude(hir, unit, fixed, target)
       Lower.new(hir, unit, nil, entry: GEM_PRELUDE_ENTRY, kind: :top, target: target, fixed: fixed).run
     end

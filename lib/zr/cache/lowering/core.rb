@@ -30,7 +30,9 @@ module Zr
 
         # Lowers the core over the kernel `unit`, as `Runtime.core` does, with the
         # kernel's ids `ids` and `description` (`Runtime#description_text`), taking
-        # each file it can from an entry. Returns
+        # each file it can from an entry. A piece lowers over the description,
+        # which records the rows that it reads, so a kernel edit keeps each
+        # piece that reads none of the changed rows. Returns
         # `[functions, data]`: machine code (`Obj::Code`) for each core
         # function, then the prelude's IR, and the data of each piece. It
         # inlines the kernel, so the object build must not inline again.
@@ -43,8 +45,9 @@ module Zr
           @unit = unit
           @ids = ids
           @sources = sources
+          @description = Machine::Description.parse(description)
           @base = Timing.phase("core cache: taking the key", "core cache: key") do
-            base_key(description, Lower.boot_classes.inspect, *ids.keys)
+            base_key(Lower.boot_classes.inspect, *ids.keys)
           end
           paths = RuntimeSources.for(@target).core_files
           @prelude = Runtime.prelude(paths.map { |path| Runtime.core_entry(path) }, unit)
@@ -72,7 +75,7 @@ module Zr
           entry = Runtime.core_entry(path)
           source = @sources.fetch(path) { File.read(path) }
           Piece.new(path, entry, key_of(path, entry, source), source.bytesize,
-                    -> { Runtime.lower_core_file(path, source, @unit, @ids, @target) })
+                    -> { Runtime.lower_core_file(path, source, @description, @ids, @target) })
         end
 
         # The key text of the gem prelude: the path and the bytes of each file
@@ -85,7 +88,7 @@ module Zr
           entry = Runtime::GEM_PRELUDE_ENTRY
           source = gem_source
           Piece.new(Library::Layout::GEM_PRELUDE, entry, key_of(Library::Layout::GEM_PRELUDE, entry, source), source.bytesize,
-                    -> { Runtime.lower_gem_prelude(@gem_hir, @unit, @ids, @target) })
+                    -> { Runtime.lower_gem_prelude(@gem_hir, @description, @ids, @target) })
         end
       end
     end
