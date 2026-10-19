@@ -47,7 +47,7 @@ ports, such as json 3.0.2) is not fetched. The fetched gems are in
 `tmp/gems`, a gem home as `gem install` leaves one (`gems/`,
 `specifications/`, `cache/`), so `GEM_PATH=tmp/gems ruby` reads them too.
 
-You can name a gem in three ways, as with `zr build --gem`:
+You can name a gem in three ways:
 
 | Word | Gem |
 |---|---|

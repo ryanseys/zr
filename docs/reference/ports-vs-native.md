@@ -21,9 +21,9 @@ native extension.
 - **Programs**: each program in `test/programs/stdlib/<gem>/`, less
   the ones that pin their own gem version (a `.gems` file).
 - **Builds**: each program is built two times. The port build uses no
-  flag. The native build uses `--native-ext <gem> --gem <gem>=<version>`,
-  where the version is the newest installed one. So the gem's own Ruby
-  files come with its C.
+  flag. The native build uses `--native-ext <gem>`, which links the C
+  of the newest installed version. The gem's own Ruby files of that
+  version come with its C.
 - **Pass**: the number of programs whose output and exit status are the
   same as ruby's recorded output (`<program>.expected`). Addresses and
   paths are masked, as the program tests mask them.

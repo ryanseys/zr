@@ -7,9 +7,9 @@ zr compiles each file that a program requires into the binary, when it
 builds. So a `require` works only for a file that zr can find at build
 time, or for a file that the binary can compile when it runs (see
 [A require that zr cannot read at build time](#a-require-that-zr-cannot-read-at-build-time)).
-zr reads no installed gem unless you name it with `--gem` or a
-Gemfile.lock ([Another version of a gem](#another-version-of-a-gem)):
-the same source gives the same binary on any machine.
+zr finds gems as ruby does: from the gems that rubygems has installed,
+or from a Gemfile.lock when `BUNDLE_GEMFILE` names one
+([Installed gems and Gemfiles](#installed-gems-and-gemfiles)).
 
 ## Ruby's own library: nothing to do
 
@@ -24,8 +24,9 @@ require "csv"        # a bundled gem
 
 zr reads these files from its own copy of the pinned ruby's standard
 library (`vendor/ruby` in the gem): the default and bundled gems, at
-the versions that the pinned ruby ships. A gem that you install on the host
-(for example a newer `csv`) does not change what the program gets. A
+the versions that the pinned ruby ships. An installed gem that is newer
+than zr's copy (for example a newer `csv`) comes first, as in ruby; see
+[Installed gems and Gemfiles](#installed-gems-and-gemfiles). A
 small number of names have no file in zr, for example `mkmf`. A
 `require` of one of them raises `LoadError` when it runs.
 [What zr supports](../reference/support.md) lists them.
@@ -82,52 +83,84 @@ A gem that needs a C extension does not work this way unless you give
 it to `--native-ext` ([How to use a C extension](use-a-c-extension.md)).
 The rules below tell what zr does with one.
 
-## Another version of a gem
+## Installed gems and Gemfiles
 
-zr reads each gem from one of three places, in this order:
+zr finds gems from the environment, as ruby, rubygems and bundler do.
+zr has no options for this.
 
-1. a `--gem` option of `zr run` or `zr build`;
-2. the Gemfile.lock of `--gemfile PATH`, or of `BUNDLE_GEMFILE` (which
-   `bundle exec` sets), as `bundle exec ruby` reads it;
-3. zr's standard library, which is the pinned ruby's.
-
-`--gem NAME=VERSION` uses a version that rubygems has installed, and
-`--gem NAME=DIR` uses a directory with a gemspec or a `lib/`:
-
-```console
-$ zr run --gem csv=3.3.6 app.rb
-$ zr build --gem rainbow=vendor/rainbow-3.1.1 app.rb -o app
-```
-
-With a Gemfile, run `bundle install`, then give the Gemfile to the
-build. The build reads every gem in the lock, as installed on this
-machine, and no other installed gem:
+With `BUNDLE_GEMFILE` set (`bundle exec` sets it), the build reads
+every gem of that Gemfile's lock (`Gemfile.lock`, or `gems.locked` for
+`gems.rb`). These gems come before zr's standard library, as
+`bundle exec ruby` puts them first on the load path. Run
+`bundle install`, then build:
 
 ```console
-$ zr build --gemfile Gemfile app.rb -o app
+$ BUNDLE_GEMFILE=Gemfile zr build app.rb -o app
 $ bundle exec zr build app.rb -o app          # the same, with zr in the Gemfile
 ```
+
+zr's own development Gemfile never counts.
+
+Without `BUNDLE_GEMFILE`, the build reads the gems that rubygems has
+installed on its path, at the newest version of each. The path is
+`GEM_PATH` (else `~/.gem/ruby/<ruby_version>` and the default gem
+directory of the ruby on `PATH`), then `GEM_HOME` (else that default
+directory). These gems come after zr's standard library, as ruby
+searches `$LOAD_PATH` first and its gems only then. There are two
+exceptions, as in rubygems' `Kernel#require`:
+
+- An installed gem that is newer than zr's copy of a default gem, a
+  bundled gem or a port comes first. ruby's `require` of a default
+  gem's file activates the newest installed version.
+- A literal `gem` line in the program's main file selects a version.
+  The build takes the newest installed version that meets the
+  requirement, and that gem comes first:
+
+  ```ruby
+  gem "json", "2.19.1"
+  require "json"
+  ```
+
+To use a gem from a source directory that is not installed, do one of
+these:
+
+- Give its `lib` directory with `-I DIR/lib`, or add it to
+  `$LOAD_PATH` as in
+  [A pure-Ruby gem that ruby does not ship](#a-pure-ruby-gem-that-ruby-does-not-ship).
+- Put `gem "rainbow", path: "vendor/rainbow-3.1.1"` in a Gemfile, then
+  build with `BUNDLE_GEMFILE` or `bundle exec`.
+- Install the gem (`gem install`, or a directory in `GEM_HOME` or
+  `GEM_PATH`).
+
+`zr gems` lists the gems that a build reads, with the version and the
+source of each ([`zr gems`](../reference/cli.md#zr-gems-options-filerb)).
 
 zr needs no `bundle exec`, and does not use the host's bundler. It
 reads the lock with its own copy of rubygems and bundler, which are
 the pinned ruby's, as JRuby and TruffleRuby use their own. A Gemfile in the
-program's directory does nothing until you name it, as for
+program's directory does nothing until `BUNDLE_GEMFILE` names it, as for
 `ruby app.rb`.
 
 The binary contains the gems' files, so it does not need them when it
 runs. A build with other gems is another build: `zr run` does not use
-a binary that it kept for other gems.
+a binary that it kept for other gems. The build cache key includes the
+gem path variables and the time of each gem directory's
+`specifications`, so the next build after a `gem install` or a
+`gem uninstall` finds the gems again. The same source can build a
+different binary on a machine with other installed gems. `zr inspect`
+lists the gems that a binary carries.
 
-Inside the binary, these gems are active from the start, as under
-`bundle exec`. The binary carries each gem's name and version (its
-gem manifest, which `zr inspect` prints), and `Gem.loaded_specs` has
-them before the first line. `Gem::Specification` lists them with the
-default and bundled gems of the ruby install that runs the binary. A
-default or bundled gem is active from the first `require` of one of
-its files, as in ruby. `gem "rainbow", "~> 3.1"` succeeds when the
-build had rainbow at a version that matches, and raises
-`Gem::LoadError` otherwise. A `--gem` directory with no gemspec has no
-version, so `gem` accepts it only with no requirement.
+The binary carries each gem's name and version (its gem manifest,
+which `zr inspect` prints). Inside the binary, the gems of a Gemfile's
+lock are active from the start, as under bundler's setup, and
+`Gem.loaded_specs` has them before the first line. An installed gem
+is active from the first `require` of one of its files, as rubygems
+does it. A default or bundled gem is also active from the first
+`require` of one of its files, as in ruby. `Gem::Specification` lists
+the gems with the default and bundled gems of the ruby install that
+runs the binary. `gem "rainbow", "~> 3.1"` succeeds when the build had
+rainbow at a version that matches, and raises `Gem::LoadError`
+otherwise.
 
 Unless you give it to `--native-ext`, these rules apply to a gem with
 a C extension:
@@ -171,9 +204,11 @@ Run 'bundle install'`.
 
 ## A require that zr cannot find
 
-A literal `require` in your own files that zr finds nowhere stops the
-build, and the message tells you what to do: give the gem with
-`--gem` or `--gemfile`, add the file, or guard the require:
+A literal `require` in your own files that zr finds nowhere makes the
+build warn. The require raises `LoadError` if it runs. The message
+tells you what to do: install the gem (`GEM_HOME`, `GEM_PATH`), name a
+Gemfile that has it (`BUNDLE_GEMFILE`), add the file, or build with
+`--allow-runtime-require`. A guarded require gives no warning:
 
 ```ruby
 begin
@@ -213,6 +248,6 @@ See [Eval in a compiled program](../explanation/eval-in-a-compiled-program.md).
 
 zr has no gem dependencies, so you can add it to a Gemfile
 (`gem "zr", group: :development`) or install it with `gem install zr`.
-Under `bundle exec` (or with `--gemfile`), a build reads the lock's gems
-first; see
-[Another version of a gem](#another-version-of-a-gem).
+Under `bundle exec` (or with `BUNDLE_GEMFILE`), a build reads the lock's
+gems first; see
+[Installed gems and Gemfiles](#installed-gems-and-gemfiles).

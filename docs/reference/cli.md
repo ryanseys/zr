@@ -56,9 +56,7 @@ and the message links [How to install zr](../how-to/install.md).
 | `--target <triple>` | yes | yes | Builds for `<triple>`: `aarch64-apple-darwin`, `aarch64-linux-musl` or `wasm32-wasi`. `zr doctor` shows what this host can build. `--emit wasm` without `--target` means `wasm32-wasi`. |
 | `--path-root <dir>` | yes | yes | Writes source paths in the output as `<dir>` plus the path below zr's root or the working directory. `<dir>` must be an absolute path. |
 | `--link <arg>` | yes | yes | Gives `<arg>` to the system linker (`cc`) for a native binary, once for each argument: an object, an archive, `-framework <name>`, `-Wl,<flags>` such as `-Wl,-sectcreate,<segment>,<section>,<file>` or `-Wl,-exported_symbols_list,<file>`. With a link argument, zr links with `cc`, not with its own linker, so the host needs a C toolchain. With `--emit obj` or `--emit wasm` it is a usage error. `ZR_LINK_ARGS` gives the same arguments. |
-| `--gem <name>=<version\|dir>` | yes | yes | Uses this gem in place of the one in the Gemfile.lock or in zr's standard library, once for each gem: an installed version (`--gem csv=3.3.6`), or a directory with a gemspec or a `lib/` (`--gem rainbow=vendor/rainbow`). See [How to use a library or a gem](../how-to/use-a-library-or-gem.md#another-version-of-a-gem). |
-| `--gemfile <path>` | yes | yes | Reads the gems of `<path>`'s lock (`Gemfile.lock`, or `gems.locked` for `gems.rb`) before zr's standard library, as `bundle exec ruby` does. `BUNDLE_GEMFILE` does the same. zr reads the lock with its own bundler, not the host's. |
-| `--allow-runtime-require` | yes | yes | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler, which makes it some times larger, to compile what it finds then. Without it, such a require stops the build; see [the require gate](#the-require-gate). |
+| `--allow-runtime-require` | yes | yes | Lets a literal `require` in the program's own files that zr cannot find wait for the run time. The binary then carries the compiler, which makes it some times larger, to compile what it finds then. Without it, the build warns about such a require, and the require raises `LoadError` if it runs; see [the require gate](#the-require-gate). |
 | `--trace` | yes | yes | Builds the program with its trace events armed (`ZR_TRACE=1` does the same). zr arms them by itself when the code of a file of the program names `TracePoint`, `set_trace_func` or `Coverage`. A program that reaches TracePoint only by a name in a string or a symbol (`Object.const_get("TracePoint")`), or in an eval's code, needs this flag; without it, its code fires no events, and zr warns when it enables a TracePoint. |
 | `--print-gems` | no | yes | After the build, prints the gems that the output was built with, as `zr inspect` does. |
 | `-h`, `--help` | yes | yes | Prints the help for the command. |
@@ -133,8 +131,8 @@ script's first line when that line starts with `#!` and names ruby
 | `--help`, `--dump=help` | zr's long usage, as `zr --help` prints it. With `-h` too, as in ruby, the long one. |
 | `--version`, `--dump=version` | zr's version. |
 
-zr's own flags `--trace`, `--gem`, `--gemfile` and
-`--allow-runtime-require` can come before the script. A switch that ruby
+zr's own flags `--trace` and `--allow-runtime-require` can come
+before the script. A switch that ruby
 does not know stops zr as it stops ruby, with status 1:
 `zr: invalid option -q  (-h will show valid options) (RuntimeError)`.
 
@@ -196,11 +194,16 @@ path exists on the machine that runs the program.
 
 Prints each gem that a build can read, with its version and its
 source: `stdlib` (the pinned ruby's library in zr), `port` (a gem with a C
-part that zr ports), `Gemfile.lock` or `--gem`. For a gem that
-replaces a port, the row also gives the versions whose C zr
-implements. With `<file.rb>`, it prints only the gems that the build
-of `<file.rb>` reads. `--gem`, `--gemfile` and `--target` work as for
-`zr build`, and `--json` prints one JSON object for each gem.
+part that zr ports), `Gemfile.lock` or `installed`. zr finds the gems
+as ruby does, from the environment: with `BUNDLE_GEMFILE` (which
+`bundle exec` sets), the gems of that Gemfile's lock; else the newest
+version of each gem that rubygems has installed on its path
+(`GEM_HOME`, `GEM_PATH`). See
+[How to use a library or a gem](../how-to/use-a-library-or-gem.md#installed-gems-and-gemfiles).
+For a gem that replaces a port, the row also gives the versions whose
+C zr implements. With `<file.rb>`, it prints only the gems that the
+build of `<file.rb>` reads. `--target` works as for `zr build`, and
+`--json` prints one JSON object for each gem.
 
 ```
 $ zr gems app.rb
@@ -238,8 +241,8 @@ for a `build-error`, and 3 when zr refused the program.
 | `build-error` | The build failed for another reason. |
 
 An object address (`0x` and 8 to 16 hex digits) is `0xADDR` in both outputs.
-ruby reads the same `--gem` directories, and with `--gemfile` or
-`BUNDLE_GEMFILE` it runs as `bundle exec ruby` does. Where ruby has
+ruby runs with the same environment, so it finds the same gems. With
+`BUNDLE_GEMFILE`, it runs as `bundle exec ruby`. Where ruby has
 other versions of its gems than zr, the two runs can differ for that
 reason; `zr gems` shows zr's.
 
@@ -307,7 +310,7 @@ SHA-256 digest of every input of the entry:
 | `kernel` | the kernel's lowering, so an edit to the core or to `lib/zr/lower` does not lower the kernel again |
 | `unit` | the machine code of each file of a program |
 | `parse` | parsed trees |
-| `gems` | the gems that `--gem` and a Gemfile.lock resolved |
+| `gems` | the gems that a Gemfile.lock or rubygems' path resolved |
 | `wasm` | the prelude of a WASI module |
 | `run` | the binaries of `zr run` (at most 2 GB) |
 | `ext` | the C extensions that zr built from a gem's sources (`--native-ext`) |
@@ -369,19 +372,21 @@ The link names the docs of this zr version.
 
 A literal `require` in the program's own files (the main file, and
 each file that it reaches by `require_relative` or by a path) that zr
-finds nowhere stops the build, with status 1:
+finds nowhere makes the build warn:
 
 ```
-zr: app.rb:2: cannot load such file -- rainbow. Give --gem rainbow=<dir> or a --gemfile that has it, put the require in `begin ... rescue LoadError`, or build with --allow-runtime-require
+zr: warning: app.rb:2: cannot load such file -- rainbow; the require raises LoadError if it runs. To load it, install the rainbow gem (GEM_HOME, GEM_PATH) or name a Gemfile that has it (BUNDLE_GEMFILE), or build with --allow-runtime-require
 ```
+
+For a require of a path, the message says `add the file`.
 
 Without the gate, the require would wait for the run time, and the
 binary would carry the compiler, which makes it some times larger,
 to compile what it finds then. A require inside `begin ... rescue LoadError` (or `ScriptError`,
-or `Exception`) does not stop the build: the program handles the
+or `Exception`) does not make the build warn: the program handles the
 LoadError, as in ruby. A bare `rescue` does not catch LoadError, so it
 does not count. A require in a library's file, and a require of a
-computed name, do not stop the build either.
+computed name, do not make the build warn either.
 
 When a backend cannot compile code that the front end accepted, the
 message starts with `zr: zr cannot compile this program`, and says

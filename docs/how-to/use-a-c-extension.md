@@ -32,16 +32,16 @@ ok    C extensions       3 of 34 installed gems with one need nothing more of zr
 
 ## Build with the gem's C extension
 
-Give the gem to `--native-ext`, with the gem itself (`--gem
-NAME=VERSION`, or your Gemfile.lock). `--native-ext`, `--ext`,
-`--ext-config` and `--link-args` are settings: they go right after the
-command, before the program and its options.
+Give the gem to `--native-ext`. zr links the C of the newest installed
+version, and the build takes the Ruby files of that version too.
+`--native-ext`, `--ext`, `--ext-config` and `--link-args` are settings:
+they go right after the command, before the program and its options.
 
 ```
 $ cat app.rb
 require "msgpack"
 p MessagePack.unpack({ "a" => [1, 2.5] }.to_msgpack)
-$ zr build --native-ext msgpack --gem msgpack=1.8.0 app.rb -o app
+$ zr build --native-ext msgpack app.rb -o app
 $ ./app
 {"a" => [1, 2.5]}
 ```
@@ -49,6 +49,10 @@ $ ./app
 `--native-ext` takes several gems, separated by commas, and a version
 for each: `--native-ext msgpack,nokogiri=1.19.4`. The environment
 variable `ZR_NATIVE_EXT` does the same.
+
+To use a different version, put a `gem` line in the program, for
+example `gem "msgpack", "1.8.0"`, or use a Gemfile; see
+[How to use a library or a gem](use-a-library-or-gem.md#installed-gems-and-gemfiles).
 
 ## Choose how the binary runs the extension
 
@@ -69,7 +73,7 @@ the host ruby runs the gem's `extconf.rb` in zr's cache, then zr runs
 
 ```
 $ zr build --native-ext nokogiri --ext-config nokogiri=--use-system-libraries \
-    --gem nokogiri=1.19.4 app.rb -o app
+    app.rb -o app
 ```
 
 zr keeps the build for the gem's sources, the options and the ruby, and
@@ -146,7 +150,7 @@ On Linux, the bcrypt and thrift tests skip: their Ruby requires
 From a Mac, give the target and the gem, as for any other build:
 
 ```console
-$ zr build --native-ext msgpack --target aarch64-linux-musl --gem msgpack=1.8.0 app.rb -o app
+$ zr build --native-ext msgpack --target aarch64-linux-musl app.rb -o app
 ```
 
 zr builds the gem's extension for the target, as `gem install` would
@@ -170,7 +174,7 @@ xz-static`):
 ```console
 $ zr build --native-ext nokogiri --ext-config nokogiri=--use-system-libraries \
     --link-args "$(pkg-config --static --libs libxml-2.0 libxslt libexslt)" \
-    --gem nokogiri=1.19.4 app.rb -o app
+    app.rb -o app
 ```
 
 Some C needs an option for Alpine. Alpine's headers check
@@ -179,7 +183,7 @@ Turn it off for the gem:
 
 ```console
 $ zr build --native-ext zstd-ruby --ext-config zstd-ruby=--with-cflags=-U_FORTIFY_SOURCE \
-    --gem zstd-ruby=<version> app.rb -o app
+    app.rb -o app
 ```
 
 A C++ extension links with Alpine's static libstdc++ (`unf_ext`, for

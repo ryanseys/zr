@@ -29,8 +29,8 @@ A `require` of one of these names compiles, and raises
 `LoadError` with the reason when it runs, so a guarded
 require that never runs costs nothing. Every other library of
 the ruby that zr pins is there: the default and bundled gems, and ruby's
-own `lib/`. A gem that ruby does not ship comes from `--gem` or a
-Gemfile.lock. A gem with a C extension needs a port, or
+own `lib/`. A gem that ruby does not ship comes from the gems that rubygems has
+installed, or from the Gemfile.lock that `BUNDLE_GEMFILE` names. A gem with a C extension needs a port, or
 `--native-ext` on macOS or aarch64 Linux (see
 [How to use a library or a gem](../how-to/use-a-library-or-gem.md)
 and [How to use a C extension](../how-to/use-a-c-extension.md)).

@@ -49,17 +49,28 @@ The first public release.
   cleans. Each build names in a root what the next build needs, so a
   clean keeps it, and an installed zr evicts the entries used longest
   ago to stay under `ZR_CACHE_MAX_GB`.
-- `zr run` and `zr build` read another version of a gem from
-  `--gem NAME=VERSION` or `--gem NAME=DIR`, and from the Gemfile.lock
-  of `--gemfile` or `BUNDLE_GEMFILE`, before zr's standard library. zr
-  reads the lock with its own copy of bundler and needs no `bundle exec`. A gem with a C
-  extension that zr does not port, or a port's gem outside the
-  versions whose C zr implements, stops the build at its `require`.
+- `zr run` and `zr build` find gems as ruby does, from the
+  environment. With `BUNDLE_GEMFILE` (which `bundle exec` sets), they
+  read every gem of that Gemfile's lock before zr's standard library.
+  Without it, they read the newest version of each gem that rubygems
+  has installed on its path (`GEM_PATH`, `GEM_HOME`), after zr's
+  standard library. An installed gem newer than zr's copy comes first,
+  and so does the version that a literal `gem "name", "requirement"`
+  line in the main file asks for, and so does a gem whose own C the
+  build links (`--native-ext`). The build cache key includes the gem
+  path variables and the time of each gem directory's `specifications`,
+  so a `gem install` or `gem uninstall` makes the next build find the
+  gems again. zr reads the lock with its own copy of bundler and needs
+  no `bundle exec`. A gem with a C extension that zr does not port, or
+  a port's gem outside the versions whose C zr implements, stops the
+  build at its `require`.
 - `zr gems` lists the gems that a build reads and where each comes
-  from. Each binary carries a manifest of its gems, which
-  `zr inspect` and `zr build --print-gems` print. `zr diff` runs a
+  from (`stdlib`, `port`, `Gemfile.lock` or `installed`). Each binary
+  carries a manifest of its gems, which `zr inspect` and
+  `zr build --print-gems` print. `zr diff` runs a
   program under ruby and as a zr binary, and names and shows the
-  difference.
+  difference. ruby runs with the same environment, as `bundle exec
+  ruby` when `BUNDLE_GEMFILE` is set.
 - A literal `require` in the program's own files that zr cannot find
   stops the build with the fix, unless `rescue LoadError` guards it
   or the build has `--allow-runtime-require`.
@@ -148,8 +159,10 @@ The first public release.
 - A default or bundled gem is active from the first `require` of one of
   its files, as in ruby, and `Gem::Specification` lists every default
   and bundled gem of ruby's install, also in a binary that runs where
-  no zr is installed. Only the gems of the build's Gemfile.lock or
-  `--gem` are active from the start.
+  no zr is installed. An installed gem is active from the first
+  `require` of one of its files, as in rubygems. Only the gems of the
+  build's Gemfile.lock are active from the start, as under bundler's
+  setup.
 - A program's own `Kernel#require` (bootsnap's, zeitwerk's, a test's
   stand-in through `define_method`) hears each literal `require`, also
   of a file that the build compiled in.

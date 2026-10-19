@@ -138,7 +138,7 @@ occurs in some containers and CI jobs.
 ### `Gem::LoadError` or `Bundler` errors under `bundle exec`
 
 zr needs no bundle. Run `zr` directly. To build a program with the gems
-of a Gemfile, give `--gemfile Gemfile`; see
+of a Gemfile, set `BUNDLE_GEMFILE=Gemfile` for the `zr` command; see
 [How to use a library or a gem](use-a-library-or-gem.md). If `RUBYOPT`
 has `-rbundler/setup`, remove it for the `zr` command.
 
