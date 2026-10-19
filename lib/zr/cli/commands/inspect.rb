@@ -22,7 +22,18 @@ module Zr
           return puts(JSON.generate(manifest)) if json
 
           puts "#{path}: zr #{manifest["zr"]}, ruby #{manifest["ruby"]}, #{manifest["target"]}"
+          glibc = Inspect.glibc(path)
+          puts "needs glibc #{glibc} or newer" if glibc
           print Gems.table(manifest["gems"].map { |row| Manifest::Row.new(row["name"], row["version"], row["source"]) })
+        end
+
+        # The newest glibc version that the ELF binary at `path` needs, or
+        # nil for another binary.
+        #: (String path) -> String?
+        def self.glibc(path)
+          require_relative "../../obj/elf/image"
+          bytes = File.binread(path)
+          Obj::Elf::Image.elf?(bytes) ? Obj::Elf::Image.read(bytes).glibc : nil
         end
       end
     end

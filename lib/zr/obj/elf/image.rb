@@ -3,10 +3,11 @@
 module Zr
   module Obj
     module Elf
-      # A reader of 64-bit little-endian aarch64 ELF files: an object that
-      # `cc -c` writes, or one that `cc -r` joins. It gives what the build
-      # asks of a C extension's objects, as Obj::MachO::Image gives it of a
-      # bundle: the names that it defines and imports, and its C strings.
+      # A reader of 64-bit little-endian aarch64 and x86-64 ELF files: an
+      # object that `cc -c` writes, or one that `cc -r` joins. It gives what
+      # the build asks of a C extension's objects, as Obj::MachO::Image
+      # gives it of a bundle: the names that it defines and imports, and its
+      # C strings. Of a linked binary, it gives the glibc that it needs.
       # Obj::Elf::Localize rewrites the symbols that it reads.
       class Image
         EM_AARCH64 = 183
@@ -14,6 +15,7 @@ module Zr
         SHT_SYMTAB = 2
         SHT_STRTAB = 3
         SHT_SYMTAB_SHNDX = 18
+        SHT_GNU_VERNEED = 0x6FFFFFFE
         SHF_ALLOC = 0x2
         SHF_MERGE = 0x10
         SHF_STRINGS = 0x20
@@ -62,7 +64,8 @@ module Zr
         #: (String bytes) -> void
         def initialize(bytes)
           @bytes = bytes
-          unless Image.elf?(bytes) && bytes.getbyte(4) == 2 && bytes.getbyte(5) == 1 && [EM_AARCH64, EM_X86_64].include?(bytes.unpack1("S<", offset: 18))
+          machine = bytes.unpack1("S<", offset: 18) if bytes.bytesize >= 20
+          unless Image.elf?(bytes) && bytes.getbyte(4) == 2 && bytes.getbyte(5) == 1 && [EM_AARCH64, EM_X86_64].include?(machine)
             raise ArgumentError, "not a 64-bit little-endian aarch64 or x86-64 ELF file"
           end
 
@@ -99,6 +102,39 @@ module Zr
         # The index of the section header table entry of .symtab, or nil.
         #: () -> Integer?
         def symtab_index = sections.index { |s| s.type == SHT_SYMTAB }
+
+        # The symbol versions that a dynamic binary needs, by the shared
+        # object that defines them: `{"libc.so.6" => ["GLIBC_2.2.5", ...]}`
+        # from .gnu.version_r. Each Elf64_Verneed entry names a file and
+        # links its Elf64_Vernaux entries, one for each version.
+        #: () -> Hash[String, Array[String]]
+        def needed_versions
+          section = sections.find { |s| s.type == SHT_GNU_VERNEED && s.size.positive? } or return {}
+          names = sections.fetch(section.link).offset
+          needed = {} #: Hash[String, Array[String]]
+          at = section.offset
+          loop do
+            _version, count, file, aux, following = bytes.unpack("S<S<L<L<L<", offset: at) #: [Integer, Integer, Integer, Integer, Integer]
+            entry = at + aux
+            needed[string(names, file)] = Array.new(count) do
+              _hash, _flags, _other, name, step = bytes.unpack("L<S<S<L<L<", offset: entry) #: [Integer, Integer, Integer, Integer, Integer]
+              entry += step
+              string(names, name)
+            end
+            break if following.zero?
+
+            at += following
+          end
+          needed
+        end
+
+        # The newest glibc version that the binary needs ("2.34"), or nil
+        # when it needs none: the binary loads on that glibc and newer.
+        #: () -> String?
+        def glibc
+          needed_versions.values.flatten.filter_map { |name| name[/\AGLIBC_([\d.]+)\z/, 1] }
+                         .max_by { |version| version.split(".").map(&:to_i) }
+        end
 
         private
 
