@@ -142,6 +142,7 @@ module Warning
   # gives no warning, nil for a warning that names no line, the
   # <internal:*> line of the previous definition, or true for a name that
   # is not one of ruby's methods, which the runtime judges by itself.
+  # Such a name that a file of ruby's boot defines does not warn.
   def self.redefinition(klass, name)
     Primitive.attr! :hidden
     if klass.singleton_class?
@@ -152,7 +153,17 @@ module Warning
     else
       key = "#{klass.name}##{name}"
     end
-    redefinitions.fetch(key, true)
+    redefinitions.fetch(key) { !booted?(Primitive.zr_caller_file) }
+  end
+
+  # Whether `file`, which makes a definition, is one that ruby loads as
+  # it boots: rubygems' or bundled_gems'. ruby makes their definitions
+  # (Kernel#gem, LoadError#message) before the program, over no method;
+  # the core keeps a stand-in for each until they load.
+  def self.booted?(file)
+    Primitive.attr! :hidden
+    lib = Kernel.compiled_rubylibdir
+    file.is_a?(String) && (file == "#{lib}/rubygems.rb" || file == "#{lib}/bundled_gems.rb" || file.start_with?("#{lib}/rubygems/"))
   end
 
   extend self

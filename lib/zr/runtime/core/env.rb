@@ -455,6 +455,15 @@ $LOAD_PATH.concat(
   end.call
 )
 
+# With gems off, ruby has no Kernel#gem and no LoadError#message of its
+# own: rubygems and bundled_gems define them as they load. So the core's
+# stand-ins for them go (core/kernel.rb, core/exception.rb): `gem` is a
+# NoMethodError, and a program that requires rubygems redefines nothing.
+if Primitive.zr_gems_off_m
+  Kernel.send(:remove_method, :gem)
+  LoadError.send(:remove_method, :message)
+end
+
 # CRuby's module functions of Kernel: the same methods, public on
 # Kernel itself.
 module Kernel

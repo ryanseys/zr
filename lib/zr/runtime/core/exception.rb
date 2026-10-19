@@ -399,9 +399,10 @@ class LoadError < ScriptError
   # ruby loads bundled_gems before the program's first line, unless gems
   # are off, and its LoadError#message reads the path with String#tr
   # first, which raises for a byte that is no character. This one keeps
-  # that step until rubygems loads the real one.
+  # that step until rubygems loads the real one. With gems off it goes
+  # at boot (core/env.rb).
   def message
-    path&.tr("/", "-") unless Primitive.zr_gems_off_m
+    path&.tr("/", "-")
     super
   end
 end
