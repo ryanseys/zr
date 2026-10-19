@@ -1,4 +1,4 @@
-# The program tests that can fail on aarch64-linux-musl, and why. Each
+# The program tests that can fail on x86_64-linux-musl, and why. Each
 # line is a program's path below test/programs and a reason, separated by
 # a tab. A `#` line is a comment (test/support/baseline.rb).
 #

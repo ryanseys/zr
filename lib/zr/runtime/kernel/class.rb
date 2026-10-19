@@ -189,34 +189,17 @@ module Zr::Kern
     RClass[c].superclass = sup
     RClass[c].attached = Machine.value(QNIL)
     RClass[c].origin = Machine.value(QNIL)
+    # Every field starts at zero, then the ones that do not.
     ext = zr_xmalloc(ClassExt.size)
-    ClassExt[ext].copies = 0
-    ClassExt[ext].ncopies = 0
-    ClassExt[ext].copies_cap = 0
-    ClassExt[ext].mtab = 0
-    ClassExt[ext].mlen = 0
-    ClassExt[ext].mcap = 0
-    ClassExt[ext].ctab = 0
-    ClassExt[ext].clen = 0
-    ClassExt[ext].ccap = 0
-    ClassExt[ext].cidx = 0
-    ClassExt[ext].cbins = 0
+    Libc.memset(ext, Machine.i32(0), ClassExt.size)
     zr_ivtab_init(Machine.ptr(ClassExt[ext].iv))
     zr_ivtab_init(Machine.ptr(ClassExt[ext].cv))
     ClassExt[ext].refined = Machine.value(QNIL)
     ClassExt[ext].active = Machine.value(QNIL)
     ClassExt[ext].boxed = Machine.value(QNIL)
     ClassExt[ext].shadow = Machine.value(QNIL)
-    ClassExt[ext].alloc = 0
-    ClassExt[ext].saved = 0
-    ClassExt[ext].slen = 0
-    ClassExt[ext].supers = 0
-    ClassExt[ext].rank = 0
-    ClassExt[ext].midx = 0
-    ClassExt[ext].mbins = 0
     ClassExt[ext].obj_bytes = RObject.size
     ClassExt[ext].autoloads = Machine.value(QFALSE)
-    ClassExt[ext].retired = 0
     ClassExt[ext].owner = (Machine.gates & GATE_RACTOR) == 0 ? 0 : Task[zr_task()].ractor
     counter = Machine.static(:class_serial, 8)
     Machine.store64(counter, 0, Machine.load64(counter, 0) + 1)
