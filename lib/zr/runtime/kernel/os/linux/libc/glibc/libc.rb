@@ -1,52 +1,22 @@
 module Zr::Kern
   # The parts of glibc that ruby behavior shows. qsort_r sets the order of
-  # equal elements in a sort. glibc's qsort_r is a stable top-down merge
-  # sort (stdlib/msort.c) in every release; zr_glibc_msort makes each
-  # comparison that it makes, in the same order.
+  # equal elements in a sort, and its algorithm changed between releases
+  # (a merge sort, then introsort in 2.37 and 2.38, then a merge sort
+  # again). So the sort calls the qsort_r of the glibc that the program
+  # runs on, as ruby does, and the order is that ruby's on the same system.
   #: (ptr, word) -> void
   def zr_os_sort(st, n)
-    # The merge buffer is an Array, so the collector sees the elements
-    # that a comparison's Ruby can see only there.
-    words = (n * Sort[st].stride) / 8
-    tmp = zr_ary_new(words)
-    Libc.memset(RArray[tmp].ptr, Machine.i32(0), words * 8)
-    RArray[tmp].len = words
-    zr_glibc_msort(st, RArray[tmp].ptr, 0, n)
-    RArray[tmp].len = 0
+    Libc.qsort_r(Sort[st].base, n, Sort[st].stride, Machine.addr(:zr_glibc_qsort_cmp), Machine.word(st))
   end
 
-  # Sorts the `n` records from index `b` with `tmp` for the merge, as
-  # msort_with_tmp does: the first half, the second half, then a merge
-  # that takes from the first half while it compares at most equal.
-  #: (ptr, ptr, word, word) -> void
-  def zr_glibc_msort(st, tmp, b, n)
-    if n <= 1
-      return
-    end
-    n1 = n / 2
-    n2 = n - n1
-    zr_glibc_msort(st, tmp, b, n1)
-    zr_glibc_msort(st, tmp, b + n1, n2)
-    s = Sort[st].stride
-    i = b
-    j = b + n1
-    out = tmp
-    while n1 > 0 && n2 > 0
-      if zr_sort_cmp(st, i, j) <= 0
-        zr_memcpy(out, Sort[st].base + (i * s), s)
-        i += 1
-        n1 -= 1
-      else
-        zr_memcpy(out, Sort[st].base + (j * s), s)
-        j += 1
-        n2 -= 1
-      end
-      out += s
-    end
-    if n1 > 0
-      zr_memcpy(out, Sort[st].base + (i * s), n1 * s)
-    end
-    zr_memcpy(Sort[st].base + (b * s), tmp, (n - n2) * s)
+  # qsort_r calls this C-entry def with two records and the sort. A
+  # comparison that raises does not unwind through glibc's frames: it
+  # marks the sort failed, and each later comparison answers 0
+  # (zr_sort_cmp_values).
+  #: (ptr, ptr, ptr) -> i32
+  def zr_glibc_qsort_cmp(a, b, st)
+    Machine.gates_enter
+    Machine.i32(zr_sort_cmp_values(st, Machine.value(Machine.load64(a, 0)), Machine.value(Machine.load64(b, 0))))
   end
 
   # ruby_qsort: glibc's qsort_r takes C's comparator, `cmp(a, b, data)`,
