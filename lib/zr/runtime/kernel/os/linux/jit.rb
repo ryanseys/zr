@@ -60,12 +60,15 @@ module Zr::Kern
   end
 
   # The program's own symbol table. musl's dlsym finds nothing in a static
-  # binary, and glibc's finds only the names that the binary exports. But the binary keeps its ELF .symtab (the linker links all of a
-  # program that evals), and a non-PIE link puts each symbol at its own
+  # binary, and glibc's finds only the names that the binary exports. But
+  # the binary keeps its ELF .symtab (the linker links all of a program
+  # that evals), and a non-PIE link puts each symbol at its own
   # value. Thus zr maps /proc/self/exe one time and finds the table from
   # its section headers. The slot contains the first symbol entry, the
-  # entry count and the string table. The count is -1 if zr cannot read
-  # the binary.
+  # entry count, the string table, and an index: an open-addressed table
+  # of the defined global and weak names (an entry number plus 1 in each
+  # bin, 0 for an empty bin), with its bin count less 1. The count is -1
+  # if zr cannot read the binary.
   ELF_SHOFF = 40
   ELF_SHENTSIZE = 58
   ELF_SHNUM = 60
@@ -77,7 +80,7 @@ module Zr::Kern
 
   #: () -> ptr
   def zr_linux_symtab
-    cell = Machine.static(:linux_symtab, 24)
+    cell = Machine.static(:linux_symtab, 40)
     if Machine.load64(cell, 8) != 0
       return cell
     end
@@ -106,7 +109,60 @@ module Zr::Kern
       end
       i += 1
     end
+    if Machine.load64(cell, 8) != 0 - 1
+      zr_linux_symtab_index(cell)
+    end
     cell
+  end
+
+  # Fills the slot's index. A binary that evals has about 330,000
+  # symbols, so a scan for each lookup is too slow for the JIT's loader.
+  #: (ptr) -> void
+  def zr_linux_symtab_index(cell)
+    rows = Machine.load64(cell, 8)
+    table = Machine.ptr(Machine.load64(cell, 0))
+    strings = Machine.ptr(Machine.load64(cell, 16))
+    bins = 1024
+    while bins < rows * 2
+      bins *= 2
+    end
+    index = zr_xmalloc(bins * 8)
+    Libc.memset(index, Machine.i32(0), bins * 8)
+    mask = bins - 1
+    i = 0
+    while i < rows
+      row = table + (i * SYM_LEN)
+      if zr_linux_symbol_defined(row)
+        name = strings + Machine.u32(Machine.load32(row, 0))
+        bin = zr_bytes_hash(name, zr_linux_cstr_len(name)) & mask
+        while Machine.load64(index + (bin * 8), 0) != 0
+          bin = (bin + 1) & mask
+        end
+        Machine.store64(index + (bin * 8), 0, i + 1)
+      end
+      i += 1
+    end
+    Machine.store64(cell, 24, Machine.word(index))
+    Machine.store64(cell, 32, mask)
+  end
+
+  # Whether a symbol entry defines a global or weak name. st_info has the
+  # binding in its high nibble. Then come st_other and the section index,
+  # which is 0 for a name defined in a different object.
+  #: (ptr) -> bool
+  def zr_linux_symbol_defined(row)
+    info = Machine.u32(Machine.load32(row, 4))
+    bind = (info & 255) >> 4
+    (bind == 1 || bind == 2) && (info >> 16) != 0
+  end
+
+  #: (ptr) -> word
+  def zr_linux_cstr_len(p)
+    n = 0
+    while Machine.load8(p + n, 0) != Machine.i8(0)
+      n += 1
+    end
+    n
   end
 
   # The address of a name that is already in this process, or nil. The
@@ -120,21 +176,20 @@ module Zr::Kern
     end
     table = Machine.ptr(Machine.load64(cell, 0))
     strings = Machine.ptr(Machine.load64(cell, 16))
+    index = Machine.ptr(Machine.load64(cell, 24))
+    mask = Machine.load64(cell, 32)
     want = RString[name].ptr
     len = RString[name].len
-    i = 0
-    while i < rows
-      row = table + (i * SYM_LEN)
-      # st_info has the binding in its high nibble. Then come st_other and
-      # the section index, which is 0 for a name defined in a different
-      # object.
-      info = Machine.u32(Machine.load32(row, 4))
-      bind = (info & 255) >> 4
+    bin = zr_bytes_hash(want, len) & mask
+    at = Machine.load64(index + (bin * 8), 0)
+    while at != 0
+      row = table + ((at - 1) * SYM_LEN)
       shown = strings + Machine.u32(Machine.load32(row, 0))
-      if (bind == 1 || bind == 2) && (info >> 16) != 0 && zr_bytes_eq(shown, len, want, len) && Machine.load8(shown + len, 0) == Machine.i8(0)
+      if zr_bytes_eq(shown, len, want, len) && Machine.load8(shown + len, 0) == Machine.i8(0)
         return zr_fix(Machine.load64(row, 8))
       end
-      i += 1
+      bin = (bin + 1) & mask
+      at = Machine.load64(index + (bin * 8), 0)
     end
     zr_os_symbol_loaded(name)
   end
