@@ -347,8 +347,10 @@ module Zr::Kern
     a
   end
 
-  # Gives back the Arrays from `mark` up. One that a large splat grew is
-  # replaced, so the task keeps no large buffer.
+  # Gives back the Arrays from `mark` up. One that a large splat grew
+  # gives back its buffer, so the task keeps no large one. It does so in
+  # place: the call's result is in no record slot yet (Sends#call), so
+  # this must not allocate a cell, which could run the collector.
   #: (value) -> void
   def zr_spread_give(mark)
     t = zr_task()
@@ -358,7 +360,8 @@ module Zr::Kern
       a = zr_ary_at(list, i)
       RArray[a].len = 0
       if RArray[a].capa > 64
-        zr_ary_store(list, i, zr_ary_new(8))
+        zr_ary_buf_free(a)
+        zr_ary_buf_new(a, 8)
       end
       i += 1
     end
