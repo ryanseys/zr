@@ -30,31 +30,40 @@ module Zr
     # contains the path and the entry of each unit that this unit's
     # requires and autoloads reach, and no other entry: a `require` added
     # to one file lowers only that file again, not every unit.
+    #
+    # So is the build around a file. The switches that apply to every
+    # file (`Switches#unit_key`) and what the builder read of the program
+    # for the file (`Hir::Unit#context`, such as whether it is the
+    # program's own file) shape its HIR: a `require "rubygems"` lowers one
+    # way with gems and another without.
     class Unit
       # @rbs @stamp: String
       # @rbs @entries: Array[String]
 
       # The format of the cache entries. Increase it to make every entry
       # from an older zr a miss.
-      VERSION = 4
+      VERSION = 5
 
       # The cache for `program`, or nil if no key can describe this
-      # program. `entries` are the program's unit entries, in order.
-      #: (Hir::Program program, runtime: String, entries: Array[String]) -> Unit?
-      def self.for(program, runtime:, entries:)
+      # program. `entries` are the program's unit entries, in order, and
+      # `switches` are the ruby switches that it was built with.
+      #: (Hir::Program program, runtime: String, entries: Array[String], switches: Hir::Switches) -> Unit?
+      def self.for(program, runtime:, entries:, switches:)
         return nil if program.coverable&.any?
 
-        new(runtime: runtime, traced: program.traced ? 1 : 0, plain_new: program.plain_new ? 1 : 0, entries: entries)
+        new(runtime: runtime, traced: program.traced ? 1 : 0, plain_new: program.plain_new ? 1 : 0, entries: entries,
+            switches: switches.unit_key)
       end
 
-      #: (runtime: String, traced: Integer, plain_new: Integer, entries: Array[String]) -> void
-      def initialize(runtime:, traced:, plain_new:, entries:)
+      #: (runtime: String, traced: Integer, plain_new: Integer, entries: Array[String], ?switches: String) -> void
+      def initialize(runtime:, traced:, plain_new:, entries:, switches: "")
         # `runtime` is the runtime's ABI digest (`RuntimeSources#abi_digest`):
         # the compiler, the kernel's description and the kernel's names. A
         # unit's code has only the kernel's ids and calls the core only by
         # name, so no core edit changes it. `traced` and `plain_new` change
-        # the code of every send.
-        @stamp = "#{VERSION}\0#{runtime}\0#{traced}\0#{plain_new}"
+        # the code of every send, and `switches` (`Switches#unit_key`) the
+        # HIR of every file.
+        @stamp = "#{VERSION}\0#{runtime}\0#{traced}\0#{plain_new}\0#{switches}"
         @entries = entries
       end
 
@@ -83,12 +92,13 @@ module Zr
         nil
       end
 
-      # The inputs of a unit's bytes after its file: its flags, its source,
-      # and what `reached` gives. The block gives the entry of a unit.
+      # The inputs of a unit's bytes after its file: its flags, the facts
+      # of the build that shaped it (`context`), its source, and what
+      # `reached` gives. The block gives the entry of a unit.
       #: (Hir::Unit unit) { (Hir::entry) -> String } -> Array[Integer | String]
       def self.parts(unit, &)
         source = unit.source or raise ArgumentError, "#{unit.file}: a unit with no source"
-        [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, source, *reached(unit.body, &)]
+        [unit.internal ? 1 : 0, unit.hidden ? 1 : 0, *unit.context, "\0", source, *reached(unit.body, &)]
       end
 
       # The path and the entry of each unit that a require or an autoload

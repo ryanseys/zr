@@ -76,6 +76,7 @@ module Zr
       attr_accessor source: String?
       attr_accessor activates: bool?
       attr_accessor node_ids: Hash[Node, Integer]?
+      attr_accessor context: Array[Integer]?
     end
 
     class Require < Node

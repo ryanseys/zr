@@ -1,0 +1,12 @@
+== --disable=gems
+String
+false
+0
+== 
+String
+false
+0
+== --enable=frozen-string-literal
+String
+true
+0

@@ -82,6 +82,11 @@ module Zr
         [prelude.to_s, command_line, frozen_string_literal.inspect, gems, inline, verbose.inspect, source_encoding.to_s,
          debug_frozen_string_literal, keep_script_lines].join("\0")
       end
+
+      # The part of `key` that shapes the HIR of every file, not only the
+      # main one's: the key of a required file's unit (lib/zr/cache/unit.rb).
+      #: () -> String
+      def unit_key = [frozen_string_literal.inspect, gems, debug_frozen_string_literal, keep_script_lines].join("\0")
     end
   end
 end

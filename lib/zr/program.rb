@@ -106,7 +106,8 @@ module Zr
       # names from `symbols`, so a unit's code does not depend on the
       # compile order or on the core. So an earlier build's code for a unit
       # is correct for this build while the kernel's ABI is the same.
-      units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, entries: Lower.entries_of("zr_toplevel", hir.units))
+      units = finish && Cache::Unit.for(hir, runtime: rt.abi_digest, entries: Lower.entries_of("zr_toplevel", hir.units),
+                                        switches: options.switches)
       lower = Lower.new(hir, rt.description, symbols, target: target, fixed: rt.fixed_ids, units: units || nil,
                         plain_new: hir.plain_new ? true : false)
       doing, done = finish ? ["lowering and assembling the program", "program lowered and assembled"] : ["lowering the program", "program lowered"]

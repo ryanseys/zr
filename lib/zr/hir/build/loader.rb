@@ -662,6 +662,7 @@ module Zr
         # @rbs return: Unit
         def unit(file, source = File.read(file), line = 1, scopes = nil, method: nil)
           options = @switches.parse_options(main?(file) && scopes.nil?)
+          computed = load_path_computed?
           # An eval's code starts in the encoding of its String, as
           # rb_parser reads it, until a magic comment on its first line.
           options = options.merge(encoding: source.encoding) if scopes && source.encoding.ascii_compatible?
@@ -709,8 +710,12 @@ module Zr
           elsif !((@eval && !@switches.keep_script_lines) || @hiding || file.start_with?("<") || Library::Roots.runtime_file?(file))
             spots = Spots.for(result, source, { filepath: file, line: line })
           end
+          # The requires of rubygems and of a library name read whether the
+          # file is the program's or a gem's, and whether the program's
+          # $LOAD_PATH was computed before or while this file was built.
+          context = [own?(file), gem_file?(file), computed, load_path_computed?].map { |fact| fact ? 1 : 0 }
           Unit.new(file, result.value.locals + build.temps, body, warnings(result, file) + build.warnings,
-                   Library::Roots.internal_library?(file), spots, @hiding, source, @activations != rows, build.node_ids)
+                   Library::Roots.internal_library?(file), spots, @hiding, source, @activations != rows, build.node_ids, context)
         end
 
         # An eval's outer scopes for prism. A method's anonymous `*`, `**`

@@ -41,15 +41,15 @@ class UnitCacheTest < Minitest::Test
   end
 
   # A unit as the key reads it, with a require of the unit at index 1.
-  Unit = Struct.new(:source, :file, :internal, :hidden, :activates, :body)
+  Unit = Struct.new(:source, :file, :internal, :hidden, :activates, :body, :context)
 
-  def unit(path: "/app/lib/b.rb", target: 1)
+  def unit(path: "/app/lib/b.rb", target: 1, context: [0, 0, 0, 0])
     body = [Zr::Hir::Require.new(:require_relative, "b", path, target, 1)]
-    Unit.new("require_relative 'b'\n", "/app/main.rb", false, false, nil, body)
+    Unit.new("require_relative 'b'\n", "/app/main.rb", false, false, nil, body, context)
   end
 
-  def key(unit, entries)
-    cache = Zr::Cache::Unit.new(runtime: "rt", traced: 0, plain_new: 0, entries: entries)
+  def key(unit, entries, switches: "")
+    cache = Zr::Cache::Unit.new(runtime: "rt", traced: 0, plain_new: 0, entries: entries, switches: switches)
     cache.send(:key, unit, "zr_toplevel_unit_0")
   end
 
@@ -64,6 +64,27 @@ class UnitCacheTest < Minitest::Test
 
   def test_the_path_of_a_reached_unit_is_in_the_key
     refute_equal key(unit(path: "/app/lib/b.rb"), %w[main b]), key(unit(path: "/app/vendor/b.rb"), %w[main b])
+  end
+
+  # The same source lowers another way for the program's own file than
+  # for a library's: a require of rubygems reads which it is.
+  def test_the_facts_of_the_build_that_shaped_the_unit_are_in_the_key
+    refute_equal key(unit(context: [0, 0, 0, 0]), %w[main b]), key(unit(context: [1, 0, 0, 0]), %w[main b])
+  end
+
+  # Gems off or frozen string literals change the HIR of every file.
+  def test_the_switches_that_shape_every_file_are_in_the_key
+    off = Zr::Hir::Switches.new(gems: false).unit_key
+    frozen = Zr::Hir::Switches.new(frozen_string_literal: true).unit_key
+
+    refute_equal key(unit, %w[main b], switches: Zr::Hir::Switches::NONE.unit_key), key(unit, %w[main b], switches: off)
+    refute_equal key(unit, %w[main b], switches: Zr::Hir::Switches::NONE.unit_key), key(unit, %w[main b], switches: frozen)
+  end
+
+  # The `-e` text and the main file's switches stay out: a new `ruby -e`
+  # child lowers no library again.
+  def test_the_switches_of_the_main_file_alone_leave_the_key
+    assert_equal Zr::Hir::Switches::NONE.unit_key, Zr::Hir::Switches.new(prelude: "p 1", inline: true).unit_key
   end
 
   def test_a_require_nested_in_a_def_counts

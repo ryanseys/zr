@@ -124,8 +124,10 @@ module Zr
     # not a digest, because the loader also runs in a program with eval,
     # and there it must not require a library that it would then have to
     # load. `node_ids` maps each HIR node of the unit, by identity, to its
-    # prism node id.
-    Unit = Node.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden, :source, :activates, :node_ids)
+    # prism node id. `context` holds the facts of the build, beyond the
+    # source and the switches, that the builder read for this file: they
+    # shape its HIR too, so the unit cache keys on them.
+    Unit = Node.new(:file, :locals, :body, :warnings, :internal, :spots, :hidden, :source, :activates, :node_ids, :context)
     # `require`, `require_relative` or `load` of a literal name: `path`
     # is the resolved file and `unit` is that file's index. Both are nil
     # if no file is found.
