@@ -308,10 +308,12 @@ module Zr
           end
           # A run of some files keeps the results of the others, and its
           # results are complete when the earlier ones were.
+          # Only the files that ran get their tags written again: an
+          # earlier result can be older than the tags.
+          results.each { |r, result| write_tags(r, result) } if @update
           earlier = (Suite.results(@out)[@area] if @filtered) || {}
           results = earlier.fetch("files", {}).merge(results).sort.to_h
           Suite.write_results(@out, @area, results, complete: !@filtered || earlier["complete"] == true)
-          results.each { |r, result| write_tags(r, result) } if @update
           File.open(issues, "a") { |io| io.puts JSON.generate({ done: true, area: @area, files: results.size }) }
           report(results, now - started)
         ensure

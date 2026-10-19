@@ -1,0 +1,5 @@
+true
+[:constant_cache_invalidations, :constant_cache_misses, :global_cvar_state, :mine, :next_shape_id, :shape_cache_size]
+true
+true
+"non-hash or symbol given"

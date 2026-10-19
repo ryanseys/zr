@@ -136,7 +136,8 @@ class RubyVM
   def self.stat(key = nil)
     stats = { constant_cache_invalidations: 0, constant_cache_misses: 0, global_cvar_state: 0, next_shape_id: 0, shape_cache_size: 0 }
     return stats if key.nil?
-    return stats.merge!(key) && key if key.is_a?(Hash)
+    # vm_stat fills a given Hash with each counter and returns it.
+    return key.merge!(stats) if key.is_a?(Hash)
     raise TypeError, +"non-hash or symbol given" unless key.is_a?(Symbol)
 
     stats.fetch(key) { raise ArgumentError, "unknown key: #{key}" }
