@@ -2046,6 +2046,7 @@ end
 # The rest of `Build`, by topic. They load after the class body, because
 # they read `Library::Roots.pure` when they load.
 require_relative "preludes"
+require_relative "build/literal_paths"
 require_relative "build/loader"
 require_relative "build/literals"
 require_relative "build/coverage"
