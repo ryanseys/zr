@@ -173,7 +173,7 @@ module Zr
     end
 
     # Other names that a cross toolchain can use for a tool.
-    CROSS_NAMES = { "cc" => %w[gcc] }.freeze #: Hash[String, Array[String]]
+    CROSS_NAMES = { "cc" => %w[gcc], "c++" => %w[g++] }.freeze #: Hash[String, Array[String]]
     # The names of musl's wrapper for a tool, on a host with another libc.
     MUSL_NAMES = { "cc" => %w[musl-gcc] }.freeze #: Hash[String, Array[String]]
 

@@ -121,7 +121,7 @@ module Zr
       # The rbconfig.rb of the target's ruby, which vendor/ holds.
       #: () -> String
       def rbconfig
-        path = Library::Layout.target_rbconfig(@target.triple)
+        path = Library::Layout.target_rbconfig(@target)
         return path if File.file?(path)
 
         raise Refused, "#{File.basename(File.dirname(@extconf))}: zr has no ruby headers for #{@target.triple} " \

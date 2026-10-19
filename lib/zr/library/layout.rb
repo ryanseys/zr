@@ -71,10 +71,11 @@ module Zr
       #: (String triple) -> String
       def target_root(triple) = File.join(TARGETS, triple)
 
-      # The rbconfig.rb of the ruby for the target `triple`, which finds its
-      # headers from where it is.
-      #: (String triple) -> String
-      def target_rbconfig(triple) = File.join(target_root(triple), "lib/ruby", API, triple, "rbconfig.rb")
+      # The rbconfig.rb of the ruby for `target`, which finds its headers
+      # from where it is. Its directory is ruby's arch, which is the
+      # platform ("aarch64-linux" for aarch64-linux-gnu).
+      #: (Target target) -> String
+      def target_rbconfig(target) = File.join(target_root(target.triple), "lib/ruby", API, target.ruby_platform, "rbconfig.rb")
 
       # The OS layer of EXT for `target`.
       #: (Target target) -> String

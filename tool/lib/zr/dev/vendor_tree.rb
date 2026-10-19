@@ -12,6 +12,7 @@ require "yaml"
 require "zlib"
 require_relative "vendored"
 require_relative "../../../../lib/zr/library/ports"
+require_relative "../../../../lib/zr/target"
 
 module Zr
   module Dev
@@ -366,7 +367,7 @@ module Zr
         locked = self.class.lock.first.select { |e| e.kind == "target" }.to_h { |e| [e.name, e] }
         Vendored::TARGET_RUBIES.each do |triple, recipe|
           prefix = "usr/local/"
-          rbconfig = "#{prefix}lib/ruby/#{Library::Layout::API}/#{triple}/rbconfig.rb"
+          rbconfig = "#{prefix}#{Library::Layout.target_rbconfig(Target.fetch(triple)).delete_prefix("#{Library::Layout.target_root(triple)}/")}"
           build = TargetBuild.new(triple, recipe, locked[triple], fail: @fail)
           files = build.files(["#{prefix}include/ruby-#{Library::Layout::API}/", rbconfig])
           text = files.fetch(rbconfig) { @fail.call("the #{triple} build has no #{rbconfig}") }
@@ -437,6 +438,11 @@ module Zr
         # The configure of the official ruby image (docker-library/ruby),
         # less the JITs, which change no header.
         CONFIGURE = ["--disable-install-doc", "--enable-shared", "LDFLAGS=-Wl,-z,relro -Wl,-z,now"].freeze
+        # The command that installs the recipe's packages, for each tool.
+        INSTALLERS = {
+          apk: "apk add --no-cache %s",
+          apt: "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends %s"
+        }.freeze
 
         attr_reader :sha256
 
@@ -498,10 +504,10 @@ module Zr
           @fail.call("#{File.basename(@tarball)}: SHA-256 #{sha}, but ruby-lang.org publishes #{@tarball_sha}") unless sha == @tarball_sha
 
           name = File.basename(path)
-          rbconfig = "usr/local/lib/ruby/#{Library::Layout::API}/#{@triple}/rbconfig.rb"
+          rbconfig = "usr/local/#{Library::Layout.target_rbconfig(Target.fetch(@triple)).delete_prefix("#{Library::Layout.target_root(@triple)}/")}"
           script = <<~SH
             set -eu
-            apk add --no-cache #{@recipe.fetch(:packages).join(" ")}
+            #{INSTALLERS.fetch(@recipe.fetch(:installer)) % @recipe.fetch(:packages).join(" ")}
             mkdir /build
             tar -xzf /work/#{File.basename(source)} -C /build --strip-components=1
             cd /build

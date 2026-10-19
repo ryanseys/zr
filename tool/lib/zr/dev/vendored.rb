@@ -69,19 +69,39 @@ module Zr
 
       # For each target other than this host, how to build the pinned ruby
       # for it: the image that builds it (pinned by digest), its platform,
-      # and the packages that its configure finds. `zr-dev vendor` builds
+      # the packages that its configure finds, and the package tool that
+      # installs them (`:apk` or `:apt`). `zr-dev vendor` builds
       # the release tarball there (ruby-lang.org's releases.yml gives its
       # URL and SHA-256) as the official ruby image does, and its headers
       # and rbconfig.rb go into Layout.target_root. A C extension for that
       # target compiles against them (`Ext::Builder`, mkmf's
       # --target-rbconfig). Its config.h is what ruby's configure wrote
       # there, which no source has.
+      UBUNTU_22_04 = "docker.io/library/ubuntu@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956"
+      # The packages of the official ruby image's Debian build, with
+      # build-essential for the compiler.
+      GNU_PACKAGES = %w[build-essential ca-certificates libbz2-dev libffi-dev libgdbm-dev libgmp-dev libncurses-dev
+                        libreadline-dev libssl-dev libyaml-dev zlib1g-dev].freeze
       TARGET_RUBIES = {
         "aarch64-linux-musl" => {
           image: "docker.io/library/alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
           platform: %w[linux arm64],
           packages: %w[build-base bzip2-dev gdbm-dev gmp-dev libffi-dev linux-headers ncurses-dev openssl-dev
-                       readline-dev yaml-dev zlib-dev]
+                       readline-dev yaml-dev zlib-dev],
+          installer: :apk
+        },
+        # The glibc floor, 2.35: Ubuntu 22.04.
+        "aarch64-linux-gnu" => {
+          image: UBUNTU_22_04,
+          platform: %w[linux arm64],
+          packages: GNU_PACKAGES,
+          installer: :apt
+        },
+        "x86_64-linux-gnu" => {
+          image: UBUNTU_22_04,
+          platform: %w[linux amd64],
+          packages: GNU_PACKAGES,
+          installer: :apt
         }
       }.freeze
     end

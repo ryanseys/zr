@@ -90,14 +90,19 @@ class ExtBuilderTest < Minitest::Test
     refute_predicate Zr::Ext::Makefile.read(File.join(dir, "Makefile")), :standard?
   end
 
-  MUSL = Zr::Target::AARCH64_LINUX_MUSL
+  # For each Linux target, mkmf takes that target's RbConfig: the objects
+  # are ELF, the library is lib/<feature>.so, and have_func finds the
+  # functions that zr's C API has and no others. The Makefile names the
+  # target ruby's arch, which is the platform.
+  [Zr::Target::AARCH64_LINUX_MUSL, Zr::Target::AARCH64_LINUX_GNU, Zr::Target::X86_64_LINUX_GNU].each do |target|
+    define_method(:"test_an_extension_for_#{target.triple.tr("-", "_")}_compiles_with_its_cross_toolchain_and_headers") do
+      skip "needs #{target.triple}'s cc" unless target.tool("cc")
+      cross_build(target)
+    end
+  end
 
-  # For aarch64-linux-musl, mkmf takes that target's RbConfig: the
-  # objects are ELF, the library is lib/<feature>.so, and have_func finds
-  # the functions that zr's C API has and no others.
-  def test_an_extension_for_musl_compiles_with_its_cross_toolchain_and_headers
-    skip "needs aarch64-linux-musl's cc" unless MUSL.tool("cc")
-    builder = Zr::Ext::Builder.new(extconf(<<~RUBY), target: MUSL)
+  def cross_build(target)
+    builder = Zr::Ext::Builder.new(extconf(<<~RUBY), target: target)
       require "mkmf"
       abort "no rb_define_module" unless have_func("rb_define_module", "ruby.h")
       abort "rb_thread_select is no function of zr's" if have_func("rb_thread_select", "ruby.h")
@@ -109,7 +114,9 @@ class ExtBuilderTest < Minitest::Test
     assert_equal [File.join(@gem, "lib", "tiny", "tiny.so"), "Init_tiny", :static], [source.bundle, source.init, source.mode]
     assert_includes image.undefined, "rb_define_module_function"
     assert_includes image.defined, "Init_tiny"
-    assert_includes File.read(File.join(builder.build, "Makefile")), "aarch64-linux-musl"
+    assert_equal({ aarch64: Zr::Obj::Elf::Image::EM_AARCH64, x86_64: Zr::Obj::Elf::Image::EM_X86_64 }.fetch(target.arch),
+                 File.binread(source.objects.first).unpack1("S<", offset: 18))
+    assert_includes File.read(File.join(builder.build, "Makefile")), target.ruby_platform
     refute_equal Zr::Ext::Builder.new(File.join(@ext, "extconf.rb")).build, builder.build, "each target builds apart"
   end
 
