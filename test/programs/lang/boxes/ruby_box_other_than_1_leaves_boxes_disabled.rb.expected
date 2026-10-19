@@ -1,0 +1,4 @@
+false
+nil
+false
+"Ruby Box is disabled. Set RUBY_BOX=1 environment variable to use Ruby::Box."

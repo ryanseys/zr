@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "open3"
 require_relative "../../lib/zr/cli/runner"
 
 # The zr that a program's RbConfig.ruby names: like a ruby binary, it
@@ -13,7 +14,7 @@ class RunnerTest < Minitest::Test
       exe = launcher(dir, "puts :ran")
       twin = Runner.pinned_launcher(exe)
       lines = File.readlines(twin, chomp: true)
-      assert_equal "#!#{RbConfig.ruby}", lines.first
+      assert_equal "#!#{RbConfig.ruby} -W:no-experimental", lines.first
       assert_includes lines, "load #{File.realpath(exe).dump}"
       assert File.executable?(twin), "the twin runs as a command"
       assert_equal "zr", File.basename(twin), "the twin still reads as zr"
@@ -28,6 +29,17 @@ class RunnerTest < Minitest::Test
       assert_equal twin, Runner.pinned_launcher(exe), "the same launcher reuses its twin"
       assert_equal "# kept", File.readlines(twin, chomp: true).last, "and leaves it as it is"
       refute_equal twin, Runner.pinned_launcher(launcher(dir, "", name: "other/zr")), "another launcher gets its own twin"
+    end
+  end
+
+  # Under RUBY_BOX the twin's ruby makes boxes of its own, quietly: the
+  # program keeps the variable and prints the notice itself.
+  def test_the_twin_keeps_the_box_notice_of_its_own_ruby_quiet
+    in_cache do |dir|
+      exe = launcher(dir, "puts ENV.fetch('RUBY_BOX')")
+      out, err, status = Open3.capture3({ "RUBY_BOX" => "1" }, Runner.pinned_launcher(exe))
+      assert_predicate status, :success?, err
+      assert_equal ["1\n", ""], [out, err]
     end
   end
 
@@ -58,7 +70,7 @@ class RunnerTest < Minitest::Test
       plain = Runner.pinned_launcher(exe, flags: [])
       refute_equal plain, Runner.pinned_launcher(exe, flags: ["--cache-dir=/elsewhere"])
       refute_equal plain, Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: [])
-      assert_equal "#!/opt/other/ruby", File.readlines(Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: []), chomp: true).first
+      assert_equal "#!/opt/other/ruby -W:no-experimental", File.readlines(Runner.pinned_launcher(exe, ruby: "/opt/other/ruby", flags: []), chomp: true).first
       refute_includes File.read(plain), "ARGV", "no flags, no words added"
     end
   end

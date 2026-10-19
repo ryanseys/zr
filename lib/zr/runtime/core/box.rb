@@ -88,7 +88,24 @@ module Ruby
       def load(...) = super
     end
 
-    def self.enabled? = !ENV["RUBY_BOX"].nil?
+    # As Init_enable_box reads it, once: only "1" enables boxes.
+    Primitive.zr_hidden_set(self, :enabled, Primitive.zr_environment_get(+"RUBY_BOX") == "1")
+
+    def self.enabled? = Primitive.zr_hidden_get(self, :enabled)
+
+    # rb_initialize_mandatory_boxes's notice, which each program asks for
+    # after its switches (`-W:no-experimental`), under the name of the
+    # ruby that runs it.
+    def self.notice
+      Primitive.attr! :hidden
+      return if !enabled? || $VERBOSE.nil? || !Warning[:experimental]
+
+      name = Primitive.zr_hidden_get(ENV, :__zr_ruby__) || Primitive.zr_argv0_m
+      docs = RUBY_PATCHLEVEL == -1 ? "master" : RUBY_VERSION[/\A\d+\.\d+/]
+      Warning.emit("#{name}: warning: Ruby::Box is experimental, and the behavior may change in the future!\n" \
+                   "See https://docs.ruby-lang.org/en/#{docs}/Ruby/Box.html for known issues, etc.\n", :experimental)
+    end
+    private_class_method :notice
 
     # An autoload that a box registers loads its feature through that
     # box's `require`, which the box may decorate, wherever the constant
@@ -112,7 +129,7 @@ module Ruby
     def self.current = Primitive.zr_box_reach || (enabled? ? main : nil)
 
     def initialize
-      raise RuntimeError, +"Ruby::Box is disabled" unless Box.enabled?
+      raise RuntimeError, +"Ruby Box is disabled. Set RUBY_BOX=1 environment variable to use Ruby::Box." unless Box.enabled?
 
       (Primitive.zr_hidden_get(Box, :boxes) || Primitive.zr_hidden_set(Box, :boxes, [])) << self
       # User boxes are numbered from 4, after master, root and main.

@@ -47,6 +47,18 @@ module Zr::Kern
     Machine.static(:args_cell, 16)
   end
 
+  # The program's argv[0] as the system gave it, which a notice before
+  # the first line starts with, as ruby's does.
+  #: () -> value
+  def zr_argv0_m
+    table = Machine.ptr(Machine.load64(zr_args_cell(), 0))
+    if table == 0 || Machine.load64(table, 0) == 0
+      return zr_str_new(Machine.bytes("ruby"), 4)
+    end
+    arg = Machine.ptr(Machine.load64(table, 0))
+    zr_path_str(zr_str_new(arg, zr_cstr_len(arg)))
+  end
+
   # setproctitle as ruby does it: the title goes over the memory of the
   # program's arguments, which `ps` reads. The memory is the strings that
   # follow argv[0] with no gap. A longer title is cut to fit.

@@ -81,11 +81,14 @@ module Zr
       # program's. One twin serves each ruby, launcher, cache and name.
       # Without a cache to write to, the launcher stands as it is. Named
       # `ruby`, zr acts as ruby where its own CLI differs (`--version`).
+      # Under RUBY_BOX, the ruby that runs zr makes boxes of its own; its
+      # `#!` line keeps that ruby from printing their notice, which the
+      # program prints (`Ruby::Box.notice`).
       #: (String exe, ?ruby: String, ?flags: Array[String], ?name: String) -> String
       def pinned_launcher(exe, ruby: RbConfig.ruby, flags: pinned_flags, name: "zr")
         exe = File.realpath(exe)
         cache = Paths.cache or return exe
-        key = Digest::SHA256.hexdigest([ruby, exe, *flags, name].join("\0"))[0, 16] #: String
+        key = Digest::SHA256.hexdigest([SHEBANG, ruby, exe, *flags, name].join("\0"))[0, 16] #: String
         dir = File.join(cache, "launcher", key)
         twin = File.join(dir, name)
         return twin if File.file?(twin)
@@ -93,12 +96,15 @@ module Zr
         Paths.mkdir_p(dir)
         draft = "#{twin}.#{Process.pid}"
         given = "ARGV.unshift(#{flags.map(&:dump).join(", ")})\n" unless flags.empty?
-        File.open(draft, "w", 0o755) { |file| file.write("#!#{ruby}\n# frozen_string_literal: true\n\n#{given}load #{exe.dump}\n") }
+        File.open(draft, "w", 0o755) { |file| file.write("#!#{ruby} #{SHEBANG}\n# frozen_string_literal: true\n\n#{given}load #{exe.dump}\n") }
         File.rename(draft, twin)
         twin
       rescue SystemCallError
         exe
       end
+
+      # The one flag of a twin's `#!` line.
+      SHEBANG = "-W:no-experimental"
 
       # The settings that the twin keeps: a cache directory zr was given.
       #: () -> Array[String]

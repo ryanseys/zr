@@ -204,5 +204,8 @@ The first public release.
   the others run, `Thread#native_thread_id` is the OS thread's id, traps
   run on the main thread, and a fork keeps only the thread that forked.
   `ZR_THREADS=green` puts every thread on one OS thread, as on wasm.
+- `Ruby::Box` (`RUBY_BOX=1`, as in ruby: no other value enables it) prints
+  ruby's experimental notice after the program's switches, so
+  `-W:no-experimental` silences it.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

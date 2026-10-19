@@ -1,7 +1,7 @@
 TestBox#test_root_box_iclasses_should_be_boxable	box: a method that main adds to a core module, such as Math, shows in the root box
-TestBox#test_prelude_gems_and_loaded_features	box: the experimental warning comes from the ruby that runs zr, so it names that ruby
+TestBox#test_prelude_gems_and_loaded_features	box: the notice names the ruby that zr runs as, and the test looks for RbConfig's ruby_install_name, which is zr
 TestBox#test_boxes_have_different_rubygems	box: zr links one rubygems into the program, so each box has the same Gem
 TestBox#test_calling_root_box_methods_does_not_change_user_boxes_newly_created	box: zr links each library into the program, so the constants of a library that main loads, such as Find, show in the root box and in other boxes
-TestBox#test_prelude_gems_and_loaded_features_with_disable_gems	box: the experimental warning comes from the ruby that runs zr, so it names that ruby
+TestBox#test_prelude_gems_and_loaded_features_with_disable_gems	box: the notice names the ruby that zr runs as, and the test looks for RbConfig's ruby_install_name, which is zr
 TestBox#test_bundler_setup_loaded_only_in_main_box	box: zr reads BUNDLER_SETUP when it builds the program, not when a box starts
 TestBox#test_loading_extension_from_deep_path_in_user_box	box: zr links a C extension into the program and does not load it from a path
