@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../../../lib/zr/child_ruby"
+require_relative "../../../lib/zr/gc_tuning"
 
 module Zr
   module Harness
@@ -21,8 +22,10 @@ module Zr
 
       # `ORIGINAL` merged with `overlay`. A nil in `overlay` removes the
       # variable. The caller passes `unsetenv_others: true`, so the child
-      # gets only this hash.
-      def self.env(overlay = {}) = ORIGINAL.merge(overlay).compact
+      # gets only this hash. The collector limits that bin/minitest set for
+      # itself go (`GcTuning.program_env`), as `zr run` takes them out: a
+      # program under -w reports each RUBY_GC_* variable it sees.
+      def self.env(overlay = {}) = ORIGINAL.merge(GcTuning.program_env, overlay).compact
     end
   end
 end

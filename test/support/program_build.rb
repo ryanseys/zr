@@ -54,11 +54,10 @@ module Zr
       def cli?(test) = test.rel.start_with?("cli/")
 
       # What `zr run` gives the binary that it runs (CLI::Runner.program_env):
-      # RbConfig.ruby is zr, and zr's ruby tree is its home, and the
-      # collector limits that this process set for itself go
-      # (`GcTuning.program_env`). A test below `cli/` runs as a user runs it.
+      # RbConfig.ruby is zr, and zr's ruby tree is its home. A test below
+      # `cli/` runs as a user runs it.
       def zr_run_env
-        GcTuning.program_env.merge("ZR_RUBY" => CLI::Runner.pinned_launcher(CLI::Runner::EXE), "ZR_HOME" => CLI::Runner::HOME)
+        { "ZR_RUBY" => CLI::Runner.pinned_launcher(CLI::Runner::EXE), "ZR_HOME" => CLI::Runner::HOME }
       end
 
       # Builds in this process. Returns nil, or `[kind, why]`.
