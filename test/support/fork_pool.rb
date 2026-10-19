@@ -49,6 +49,7 @@ module Zr
         @fail_fast = fail_fast
         @queue = Thread::Queue.new
         @threads = []
+        @workers = {}
         @interrupted = false
         @failed = false
       end
@@ -69,6 +70,7 @@ module Zr
         # not mark (and so copy) the whole warmed compiler. Without it, the
         # pages stay shared only until the first GC.
         Process.warmup
+        interrupt_workers
         @threads = Array.new(@size) { Thread.new { serve } }
       end
 
@@ -80,9 +82,27 @@ module Zr
       def shutdown
         @size.times { @queue << nil }
         @threads.each(&:join)
+        Signal.trap("INT", @before) if @before
       end
 
       private
+
+      # A ^C reaches this process but not the workers, which have process
+      # groups of their own. So the pool sends it on: each worker stops the
+      # example that it runs and dies, the pool starts no more examples,
+      # and minitest reports what ran. A second ^C stops this process.
+      def interrupt_workers
+        @before = Signal.trap("INT") do
+          Signal.trap("INT", "DEFAULT")
+          @interrupted = true
+          # A copy of the keys: a pool thread can add a worker meanwhile.
+          @workers.keys.each do |pid|
+            Process.kill("INT", pid)
+          rescue Errno::ESRCH, Errno::EPERM
+            nil
+          end
+        end
+      end
 
       def serve
         worker = nil
@@ -90,26 +110,29 @@ module Zr
           break if @interrupted || @failed
 
           klass, name, reporter = job
-          worker ||= Worker.open
+          worker ||= Worker.open.tap { |opened| @workers[opened.pid] = true }
           reporter.synchronize { reporter.prerecord klass, name }
           result = worker.ask(klass, name)
           if result.nil?
             result = worker.epitaph(klass, name)
             @interrupted ||= worker.interrupted?
+            @workers.delete(worker.pid)
             worker = worker.close
           elsif worker.grown > @recycle_mb
+            @workers.delete(worker.pid)
             worker = worker.close
           end
           reporter.synchronize { reporter.record result }
           @failed ||= @fail_fast && !result.passed? && !result.skipped?
         end
       ensure
+        @workers.delete(worker.pid) if worker
         worker&.close
       end
 
       # One forked process and its two pipes.
       class Worker
-        attr_reader :resident, :grown
+        attr_reader :pid, :resident, :grown
 
         def self.open
           jobs = IO.pipe
@@ -121,13 +144,15 @@ module Zr
             # more processes. An orphan keeps its pipe open and uses about
             # 100 MB after the run stops the example.
             Process.setpgid(0, 0)
-            # `stop!` sends SIGTERM first. The children that
-            # `Harness::Child` starts have their own process groups, so the
-            # worker kills them before it stops.
-            Signal.trap("TERM") do
-              Zr::Harness::Child.stop_all if defined?(Zr::Harness::Child)
-              Signal.trap("TERM", "DEFAULT")
-              Process.kill("TERM", Process.pid)
+            # `stop!` sends SIGTERM first, and the pool sends on a ^C. The
+            # children that `Harness::Child` starts have their own process
+            # groups, so the worker kills them before it stops.
+            %w[TERM INT].each do |signal|
+              Signal.trap(signal) do
+                Zr::Harness::Child.stop_all if defined?(Zr::Harness::Child)
+                Signal.trap(signal, "DEFAULT")
+                Process.kill(signal, Process.pid)
+              end
             end
             jobs.last.close
             back.first.close

@@ -19,6 +19,36 @@ ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
 missing = ARGV.grep(/\A[^-].*\.rb(?::\d+)?\z/).map { |arg| arg.sub(/:\d+\z/, "") }.reject { |path| File.exist?(path) }
 abort "bin/minitest: no such test file: #{missing.join(", ")}" unless missing.empty?
 
+# Each run keeps its output in log/minitest/ as it goes, beside its
+# status and failures (test/support/run_files.rb), so a run that stops
+# early keeps all that it printed. The run is a child, whose output this
+# process copies to the terminal and to the log.
+unless ENV["ZR_MINITEST_RUN"]
+  require "rbconfig"
+  require_relative "../test/support/run_files"
+  files = Zr::Test::RunFiles
+  files.start("log")
+  reader, writer = IO.pipe
+  pid = spawn({ "ZR_MINITEST_RUN" => files.base }, RbConfig.ruby, __FILE__, *ARGV, out: writer, err: writer)
+  writer.close
+  # A ^C reaches the run too, which prints its summary and stops; this
+  # process copies until then.
+  trap("INT") {}
+  File.open(files.path("log"), "wb") do |file|
+    file.sync = true
+    loop do
+      chunk = reader.readpartial(1 << 16)
+      $stdout.write(chunk)
+      file.write(chunk)
+    rescue EOFError
+      break
+    end
+  end
+  Process.wait(pid)
+  warn "bin/minitest: the output is in #{files.path("log")}"
+  exit($?.exitstatus || 1)
+end
+
 require_relative "../lib/zr/gc_tuning"
 Zr::GcTuning.now(__FILE__)
 

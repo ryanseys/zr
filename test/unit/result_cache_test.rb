@@ -110,7 +110,7 @@ class ResultCacheTest < Minitest::Test
 
   def test_the_variables_that_can_change_a_run_are_in_the_key
     pairs = { "ZR_LINKER" => "ruby", "RUBYOPT" => "-W0", "ZR_PROGRAMS" => "core/gc", "ZR_TEST_FRESH" => "1", "MT_CPU" => "3",
-              "ZR_TEST_TMP" => "/tmp/x" }
+              "ZR_TEST_TMP" => "/tmp/x", "ZR_MINITEST_RUN" => "/tmp/x/run" }
     with_env(pairs) do
       names = ResultCache.variables.map(&:first)
 
@@ -120,6 +120,7 @@ class ResultCacheTest < Minitest::Test
       refute_includes names, "ZR_TEST_FRESH", "it picks tests"
       refute_includes names, "MT_CPU", "the worker count changes no result"
       refute_includes names, "ZR_TEST_TMP", "it moves the run files"
+      refute_includes names, "ZR_MINITEST_RUN", "it names the run files"
     end
   end
 

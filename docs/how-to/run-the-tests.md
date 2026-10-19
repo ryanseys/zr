@@ -291,12 +291,18 @@ alone. See [Bootstrapping](../explanation/bootstrapping.md).
 
 ## See the progress of a long run
 
-A test run writes its progress to `tmp/test-progress.txt`. From
-another terminal:
+A test run writes its progress to `log/minitest/latest.progress.log`,
+and each failure's full report to `log/minitest/latest.failures.log`
+as it happens. From another terminal:
 
 ```console
-$ cat tmp/test-progress.txt
+$ cat log/minitest/latest.progress.log
+$ cat log/minitest/latest.failures.log
 ```
+
+`log/minitest/latest.log` holds all of the run's output. A run that
+you stop with ^C keeps these files, and prints the report of the tests
+that ran.
 
 ## Find the slow tests
 

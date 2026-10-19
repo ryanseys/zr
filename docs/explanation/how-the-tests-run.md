@@ -120,11 +120,22 @@ the build is what it tests.
 
 ## Progress
 
-A test run writes its progress to `tmp/test-progress.txt` at most
-once a second: how many tests are done, which failed, the rate, and the
-time left. Read the file to look at a run in the background.
-Each failure's full report goes to `tmp/test-failures.txt` as it
-happens, so you can read a diff before the run ends. At the end, the
+Each run keeps its files in `log/minitest/`, under one name for the
+run (`test/support/run_files.rb`):
+
+- `<run>.log`: all of the run's output, which `bin/minitest` copies
+  there as the run goes.
+- `<run>.progress.log`: the status, at most once a second and at each
+  failure: how many tests are done, which failed, the rate, and the
+  time left. Read the file to look at a run in the background.
+- `<run>.failures.log`: each failure's full report, with its location
+  and backtrace, as it happens. The report also goes to the output.
+
+`latest.log`, `latest.progress.log` and `latest.failures.log` name the
+newest run's files, and the 30 newest runs stay. A run that stops
+early keeps all that it wrote until then. A ^C stops the examples that
+run, starts no more, and prints the report of what ran; a second ^C
+stops the run at once. At the end, the
 run prints the slowest tests and the groups (test files, and
 directories of program tests) that took the most time, and counts the
 passes that came from the result cache (`test/support/progress.rb`).
@@ -158,8 +169,9 @@ What lasts from one run to the next is in `tmp/zr-dev-test/`
   run removes each test that it ran and that passed, and adds each that
   failed. `bin/zr-dev test --failed` runs them.
 
-`ZR_TEST_TMP` moves these files, so a suite that a test starts does not
-write over the run that started it.
+`ZR_TEST_TMP` moves these files and the run's files in
+`log/minitest/`, so a suite that a test starts does not write over the
+run that started it.
 
 ## Baselines and pending tests
 

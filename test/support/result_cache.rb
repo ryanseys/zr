@@ -37,7 +37,7 @@ module Zr
         test/support/flag.rb test/support/fork_pool.rb test/support/history.rb test/support/host_program.rb
         test/support/needs.rb test/support/pending.rb test/support/program_build.rb test/support/program_case.rb
         test/support/program_run.rb test/support/program_selection.rb test/support/programs.rb test/support/progress.rb
-        test/support/result_cache.rb test/support/ruby_syntax_report.rb test/support/scratch.rb test/support/stubs.rb
+        test/support/result_cache.rb test/support/ruby_syntax_report.rb test/support/run_files.rb test/support/scratch.rb test/support/stubs.rb
         test/support/workers.rb test/support/harness
       ].freeze
       # The tools on that load path: the walker of `ZR_TEST_HOST`, the
@@ -49,7 +49,7 @@ module Zr
       READ = ["lib", "vendor", "exe", ".ruby-version", "Gemfile.lock", "test/baselines", *HARNESS, *TOOLS].freeze
       # The variables that change no result: they pick, report or speed up
       # tests, or bound the caches.
-      IGNORED = %w[ZR_PROGRAMS ZR_TEST_FRESH ZR_TEST_FAIL_FAST ZR_TEST_TMP ZR_TEST_ALL ZR_TEST_BUILT ZR_TEST_BINARIES
+      IGNORED = %w[ZR_PROGRAMS ZR_TEST_FRESH ZR_TEST_FAIL_FAST ZR_TEST_TMP ZR_MINITEST_RUN ZR_TEST_ALL ZR_TEST_BUILT ZR_TEST_BINARIES
                    ZR_TEST_BINARIES_GB ZR_TEST_RECYCLE_MB ZR_JOBS ZR_SERVER ZR_TIMING ZR_CACHE_MAX_GB ZR_BLESS].freeze
       # The variables outside ZR_ and RUBY that change a run.
       READ_ENV = %w[WASMTIME OPENSSL_DIR].freeze

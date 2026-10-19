@@ -215,7 +215,7 @@ class ForkPoolTest < Minitest::Test
     File.write(file, source)
     out = IO.popen({ "ZR_TEST_FAIL_FAST" => nil, "ZR_TEST_TMP" => work, **env }, [RbConfig.ruby, "-I#{ROOT}/lib", "-I#{ROOT}/test", file],
                    err: %i[child out], &:read)
-    assert_path_exists File.join(work, "test-progress.txt"), "the child suite writes its progress in its own directory"
+    refute_empty Dir[File.join(work, "*.progress.log")], "the child suite writes its progress in its own directory"
     [out, $?]
   end
 

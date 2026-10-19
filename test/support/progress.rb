@@ -3,6 +3,7 @@
 require "minitest"
 require_relative "flag"
 require_relative "history"
+require_relative "run_files"
 require_relative "../../lib/zr/timing"
 
 module Zr
@@ -14,8 +15,10 @@ module Zr
     # runs in the background: the examples done and the total, the
     # failures, the rate, the time left and the last example. The file
     # changes at most once a second, and once more at the end. Each
-    # failure's full report goes to FAILURES as it happens, so you can
-    # read a diff before the run ends.
+    # failure's full report goes to FAILURES and to the run's output as it
+    # happens, so you can read a diff before the run ends, and a run that
+    # stops early keeps every report until then. Both files are the run's
+    # (RunFiles).
     #
     # At the end, it prints where the time went: the slowest tests by
     # name and the groups (test files, and directories of program tests)
@@ -27,8 +30,8 @@ module Zr
     # time, so the time does not include the pool. Last, it counts the
     # passes that came from the result cache.
     module Progress
-      PATH = File.join(History::TMP, "test-progress.txt")
-      FAILURES = File.join(History::TMP, "test-failures.txt")
+      PATH = RunFiles.path("progress.log")
+      FAILURES = RunFiles.path("failures.log")
       EVERY = 1.0
 
       # The metadata key for the build part times of an example, in seconds.
@@ -117,6 +120,7 @@ module Zr
           @began = Timing.now
           @started_at = Time.now.strftime("%H:%M:%S")
           @total = counted
+          %w[progress.log failures.log].each { |suffix| RunFiles.start(suffix) }
           File.write(FAILURES, "")
           write
         end
@@ -124,7 +128,8 @@ module Zr
         def record(result)
           @done += 1
           @skipped += 1 if result.skipped?
-          if !result.passed? && !result.skipped?
+          failed = !result.passed? && !result.skipped?
+          if failed
             @failed << "#{result.klass}##{result.name}"
             log_failure(result)
           end
@@ -135,7 +140,8 @@ module Zr
             @spent[History.group(result)].add(result.time, spent) if spent
           end
           @last = format("%s#%s (%.1f s)", result.klass, result.name, result.time)
-          write if @status && Timing.now - @written >= EVERY
+          # A failure shows at once, whatever the time since the last write.
+          write if @status && (failed || Timing.now - @written >= EVERY)
         end
 
         def report
@@ -169,14 +175,14 @@ module Zr
 
         def clock(seconds) = format("%d:%02d", seconds / 60, seconds % 60)
 
+        # The report has the test's location, and an error's backtrace.
         def log_failure(result)
           return unless @status
 
-          File.open(FAILURES, "a") do |file|
-            file << "== #{result.klass}##{result.name}\n"
-            result.failures.each { |failure| file << failure.message << "\n" }
-            file << "\n"
-          end
+          report = "== #{result.klass}##{result.name}\n#{result}\n"
+          @io.print "\n#{report}"
+          @io.flush
+          File.open(FAILURES, "a") { |file| file << report }
         rescue SystemCallError
           nil
         end
