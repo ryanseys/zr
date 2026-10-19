@@ -3,10 +3,6 @@
 # Each module extends itself here, which gives its module functions the
 # inline types of its instance methods. test/unit/steepfile_test.rb
 # checks that this list names every such module.
-module Zr::Backend::Aarch64
-  extend Zr::Backend::Aarch64
-end
-
 module Zr::Backend::Aarch64::Registers
   extend Zr::Backend::Aarch64::Registers
 end
@@ -201,4 +197,24 @@ end
 
 module Zr::Timing
   extend Zr::Timing
+end
+
+module Zr::Backend::X86_64::Stub
+  extend Zr::Backend::X86_64::Stub
+end
+
+module Zr::EmbeddedFiles
+  extend Zr::EmbeddedFiles
+end
+
+module Zr::LockPlan
+  extend Zr::LockPlan
+end
+
+module Zr::Native::Link::Dynamic
+  extend Zr::Native::Link::Dynamic
+end
+
+module Zr::Obj::Relocs::X86_64
+  extend Zr::Obj::Relocs::X86_64
 end
