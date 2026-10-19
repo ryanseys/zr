@@ -207,5 +207,8 @@ The first public release.
 - `Ruby::Box` (`RUBY_BOX=1`, as in ruby: no other value enables it) prints
   ruby's experimental notice after the program's switches, so
   `-W:no-experimental` silences it.
+- A `Ruby::Box` starts with a copy of the load path as the program started
+  with it, and its `require` of a Ruby library on that path runs a copy of
+  the library for the box, nested requires included.
 
 [Unreleased]: https://github.com/ryanseys/zr/commits/main

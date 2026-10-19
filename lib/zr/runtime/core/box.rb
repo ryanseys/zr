@@ -72,19 +72,23 @@ module Ruby
 
       private
 
-      # zr links a library into the program, so a box cannot load a copy
-      # of its own: the box gets the constants that the require made.
+      # A require in a box's own code loads into that box, as the box's
+      # own `require` does.
       def require(feature)
         box = Primitive.zr_box_reach
         return super if box.nil? || Primitive.zr_hidden_get(box, :kind) == :main
 
-        from = Primitive.zr_box_object_consts_m
-        loaded = super
-        box.send(:adopt, Primitive.zr_box_object_consts_from_m(from))
-        loaded
+        box.send(:load_feature, File.path(feature), true)
       end
 
-      def require_relative(...) = super
+      def require_relative(feature)
+        box = Primitive.zr_box_reach
+        return super if box.nil? || Primitive.zr_hidden_get(box, :kind) == :main
+
+        here = File.dirname(caller_locations(1, 1).first.path)
+        box.send(:load_feature, File.expand_path(File.path(feature), here), true)
+      end
+
       def load(...) = super
     end
 
@@ -93,19 +97,23 @@ module Ruby
 
     def self.enabled? = Primitive.zr_hidden_get(self, :enabled)
 
-    # rb_initialize_mandatory_boxes's notice, which each program asks for
-    # after its switches (`-W:no-experimental`), under the name of the
-    # ruby that runs it.
-    def self.notice
+    # rb_initialize_mandatory_boxes, which each program runs after its
+    # switches (`-I`, `-W:no-experimental`): the load path that each new
+    # box copies, and the notice, under the name of the ruby that runs the
+    # program.
+    def self.boot
       Primitive.attr! :hidden
-      return if !enabled? || $VERBOSE.nil? || !Warning[:experimental]
+      return unless enabled?
+
+      Primitive.zr_hidden_set(self, :load_path, $LOAD_PATH.dup)
+      return if $VERBOSE.nil? || !Warning[:experimental]
 
       name = Primitive.zr_hidden_get(ENV, :__zr_ruby__) || Primitive.zr_argv0_m
       docs = RUBY_PATCHLEVEL == -1 ? "master" : RUBY_VERSION[/\A\d+\.\d+/]
       Warning.emit("#{name}: warning: Ruby::Box is experimental, and the behavior may change in the future!\n" \
                    "See https://docs.ruby-lang.org/en/#{docs}/Ruby/Box.html for known issues, etc.\n", :experimental)
     end
-    private_class_method :notice
+    private_class_method :boot
 
     # An autoload that a box registers loads its feature through that
     # box's `require`, which the box may decorate, wherever the constant
@@ -146,7 +154,9 @@ module Ruby
       @loaded = {}
       @globals = {}
       Primitive.zr_box_master_gvars.each { |key, value| @globals[key] = value }
-      @load_path = []
+      # box_entry_initialize copies the load path as the program started
+      # with it, not with main's later changes.
+      @load_path = (Primitive.zr_hidden_get(Box, :load_path) || $LOAD_PATH).dup
       @globals[Primitive.zr_box_gvar_key(:$LOAD_PATH)] = @load_path
       @globals[Primitive.zr_box_gvar_key(:$LOADED_FEATURES)] = []
       object = Class.new(Object)
@@ -247,16 +257,24 @@ module Ruby
     end
 
     # A file the box reads and runs for itself, so a feature main has
-    # already loaded runs again here.
+    # already loaded runs again here. A library with a C part
+    # (`ruby_only?`) stays main's.
     def load_feature(feature, once)
       setup if @slot.nil? && %i[root master].include?(Primitive.zr_hidden_get(self, :kind))
       path = resolve(feature)
-      return linked_require(feature) unless path
-      return false if once && @loaded[path]
+      return false if path && once && @loaded[path]
+      return linked_require(feature) if path.nil? || !ruby_only?(path)
 
+      # As in ruby, the file is listed once it has run, after the files
+      # that it required, and not at all when it raises.
       @loaded[path] = true
+      begin
+        run(::Zr::Eval.current.compile(File.read(path), path, 1, []), path)
+      rescue Exception
+        @loaded.delete(path)
+        raise
+      end
       @globals[Primitive.zr_box_gvar_key(:$LOADED_FEATURES)] << path
-      run(::Zr::Eval.current.compile(File.read(path), path, 1, []), path)
       true
     end
 
@@ -270,6 +288,27 @@ module Ruby
       loaded = Kernel.instance_method(:require).bind_call(TOPLEVEL_BINDING.receiver, feature)
       adopt(Primitive.zr_box_object_consts_from_m(from))
       loaded
+    end
+
+    # REQUIRE: a literal require or require_relative at the start of a line.
+    REQUIRE = /^\s*require(_relative)?[\s(]+["']([^"'#]+)["']/
+    private_constant :REQUIRE
+
+    # Whether the file at `path`, with each file that it requires by a
+    # literal name, is Ruby that the box's load path holds. A C extension,
+    # which zr links into the program and a box cannot load again, holds
+    # no Ruby (digest/loader requires digest.so), so the library stays
+    # main's, with its C half.
+    def ruby_only?(path, seen = {})
+      return true if seen[path]
+
+      seen[path] = true
+      File.read(path).scan(REQUIRE).all? do |relative, name|
+        found = resolve(relative ? File.expand_path(name, File.dirname(path)) : name)
+        found && ruby_only?(found, seen)
+      end
+    rescue SystemCallError, ArgumentError
+      false
     end
 
     def resolve(feature)

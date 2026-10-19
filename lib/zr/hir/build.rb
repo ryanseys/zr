@@ -172,8 +172,9 @@ module Zr
         # The collector's RUBY_GC_* variables, read after the switches
         # (-w) as rb_gc_impl_set_params reads them after ruby's options.
         preludes << Send.of(Core.new(:GC, 0), :__send__, [Literal.new(:read_tuning, 0)], 0) if program
-        # Ruby::Box's experimental notice, under the switches' warnings.
-        preludes << Send.of(Send.of(Core.new(:Ruby, 0), :const_get, [Literal.new(:Box, 0)], 0), :__send__, [Literal.new(:notice, 0)], 0) if program
+        # Ruby::Box's start, after the switches: the load path that a box
+        # copies, and the experimental notice under the switches' warnings.
+        preludes << Send.of(Send.of(Core.new(:Ruby, 0), :const_get, [Literal.new(:Box, 0)], 0), :__send__, [Literal.new(:boot, 0)], 0) if program
         loader.native_gems.each do |gem|
           # A gem whose C extension the build links has its C part.
           next if loader.extension_in?(gem.roots)
