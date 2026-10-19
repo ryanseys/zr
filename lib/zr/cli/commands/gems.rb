@@ -34,9 +34,9 @@ module Zr
           require_relative "../../manifest"
           json = !argv.delete("--json").nil?
           opts = Options.parse(name, argv)
-          gem_set = Options.gem_set(opts)
+          Errors.file!(opts[:input]) if opts[:input]
+          gem_set = Options.gem_set(opts[:input] ? File.read(opts[:input]) : "")
           rows = if opts[:input]
-                   Errors.file!(opts[:input])
                    of_file(opts[:input], gem_set, Options.target_for(opts[:triple], opts[:emit], name))
                  else
                    Manifest.all(gem_set)

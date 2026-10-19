@@ -189,7 +189,7 @@ module Zr
 
         name = feature.to_s.delete_suffix(".rb")
         fix = if node.name == :require && !name.start_with?("/", ".", "~")
-                "give --gem #{name.split("/").first}=<dir> or a --gemfile that has it"
+                "install the #{name.split("/").first} gem (GEM_HOME, GEM_PATH) or name a Gemfile that has it (BUNDLE_GEMFILE)"
               else
                 "add the file"
               end

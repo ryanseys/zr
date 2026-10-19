@@ -26,7 +26,6 @@ module Zr
           # `input` is one of the words, so `index` finds it.
           at = argv.index(input) #: Integer
           options = argv.take(at)
-          gem_set = Options.gem_set(opts)
           Paths.tmpdir("zr-diff-") do |work|
             out = File.join(work, "program")
             built = Zr::Diff.run([RbConfig.ruby, File.join(Paths::ROOT, "exe/zr"), "build", *options, input, "-o", out], limit: nil)
@@ -35,7 +34,7 @@ module Zr
               $stderr.print built.stderr
               exit(built.status == REFUSED ? REFUSED : 2)
             end
-            ruby = Zr::Diff.run([RbConfig.ruby, *ruby_flags(gem_set), input, *opts[:args]], env: ruby_env(opts))
+            ruby = Zr::Diff.run([RbConfig.ruby, input, *opts[:args]], env: ruby_env)
             zr = Zr::Diff.run([out, *opts[:args]])
             kind = Zr::Diff.kind(ruby, zr)
             puts kind
@@ -46,16 +45,11 @@ module Zr
 
         private
 
-        # ruby reads the same `--gem` roots that the build read.
-        #: (GemSet gem_set) -> Array[String]
-        def ruby_flags(gem_set)
-          gem_set.gems.reject(&:refusal).flat_map(&:roots).flat_map { |root| ["-I", root] }
-        end
-
-        # With a Gemfile, ruby runs as `bundle exec ruby` does.
-        #: (Hash[Symbol, untyped] opts) -> Hash[String, String?]
-        def ruby_env(opts)
-          gemfile = opts[:gemfile] || ENV["BUNDLE_GEMFILE"]
+        # ruby reads the gems of the same environment as the build. With
+        # BUNDLE_GEMFILE, it runs as `bundle exec ruby` does.
+        #: () -> Hash[String, String?]
+        def ruby_env
+          gemfile = ENV["BUNDLE_GEMFILE"]
           env = ChildRuby::UNBUNDLED #: Hash[String, String?]
           return env if gemfile.to_s.empty?
 

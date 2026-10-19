@@ -115,7 +115,12 @@ module Zr
         file = file.dup.force_encoding(::Encoding::UTF_8) if program && file.encoding != ::Encoding::UTF_8
         # @type var built: ^(untyped, BuildOptions, bool, bool) -> [Loader, Unit, Require?]
         built = lambda do |external, options, evals, covers|
-          loader = Loader.new(roots + (options.gem_set&.roots || []) + Library::Roots.stdlib(target), options, eval: !program, external: external,
+          # A bundle's gems come before the standard library, as `bundle
+          # exec` puts them; installed gems after it, as rubygems activates
+          # one only for a file that the load path does not have.
+          gems = options.gem_set
+          searched = roots + (gems&.roots || []) + Library::Roots.stdlib(target) + (gems&.installed_roots || [])
+          loader = Loader.new(searched, options, eval: !program, external: external,
                               evals: evals, covers: covers, activations: activations, prebuilt_eval: prebuilt,
                               description: Library::Roots.description(target), def_base: def_base || 0, branch_base: branch_base || 0,
                               extensions: extensions, aliases: aliases)

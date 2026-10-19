@@ -271,7 +271,7 @@ class RubyOptionsTest < Minitest::Test
   end
 
   def test_zrs_own_flags_go_to_zr
-    assert_equal %w[--trace --gem csv=3.3.6], parse("--trace", "--gem", "csv=3.3.6", "x.rb").zr
+    assert_equal %w[--trace --allow-runtime-require], parse("--trace", "--allow-runtime-require", "x.rb").zr
   end
 
   def test_a_switch_that_ruby_rejects_raises

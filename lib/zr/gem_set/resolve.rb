@@ -9,13 +9,19 @@
 # (`zr-dev stage`) needs neither. The request comes as JSON on stdin:
 #
 #   { "gemfile": "/app/Gemfile" or null,
-#     "flags": [["csv", "3.3.6"], ["rainbow", "/src/rainbow"]],
+#     "requests": { "json": ["2.19.1"], ... },
 #     "ports": { "json": "~> 3.0.2", ... } }
+#
+# With a Gemfile, the gems are its lock's, as `bundle exec ruby` has them.
+# Without one, they are the gems installed on rubygems' path (GEM_HOME,
+# GEM_PATH, ~/.gem and the default directory), as a plain `ruby` finds
+# them: the newest version of each, or the newest that meets the program's
+# literal `gem "name", "requirement"` (`requests`).
 #
 # The answer is JSON on stdout: { "gems": [gem, ...] } in search order, or
 # { "error": "..." }. Each gem is
 #
-#   { "name", "version", "source", "roots", "refusal" }
+#   { "name", "version", "source", "roots", "refusal", "native", "requested" }
 #
 # `refusal` is nil for a gem that a build can use. A gem with a C part
 # that zr does not port, or a port's gem outside the versions whose C zr
@@ -46,8 +52,8 @@ module ZrGemSet
     if compat
       return nil if version && Gem::Requirement.new(*compat.split(", ")).satisfied_by?(Gem::Version.new(version))
 
-      fix = if source.start_with?("--gem")
-              "Give a version in that range, or remove the flag"
+      fix = if source == INSTALLED
+              "Install a version in that range"
             else
               "Put a version in that range in the Gemfile, then run 'bundle install'"
             end
@@ -81,40 +87,26 @@ module ZrGemSet
     end
   end
 
-  # `--gem NAME=VERSION`: that version as rubygems has it installed.
-  # `--gem NAME=PATH`: a gem's directory (with a gemspec or a lib/), or
-  # a directory of Ruby files.
-  #: (String name, String value, Hash[String, String] ports) -> Hash[String, untyped]
-  def flagged(name, value, ports)
-    source = "--gem #{name}=#{value}"
-    return installed(name, value, source, ports) if value.match?(/\A\d+(\.[0-9A-Za-z]+)*\z/)
+  # The source of a gem that rubygems has installed on its path.
+  INSTALLED = "installed"
 
-    dir = File.expand_path(value)
-    raise Error, "#{source}: no such directory: #{dir}" unless File.directory?(dir)
+  # The gems that a plain `ruby` finds on rubygems' path: the newest
+  # version of each, as `Gem::Specification.find_by_path` takes the first
+  # stub, which is the newest. A default gem has no root (its files are
+  # ruby's own library, which zr's copies), so it adds nothing.
+  #: (Hash[String, String] ports, Hash[String, Array[String]] requests) -> Array[Hash[String, untyped]]
+  def installed(ports, requests)
+    Gem::Specification.stubs.group_by(&:name).filter_map do |name, stubs|
+      next if name == "bundler"
 
-    spec = gemspecs(dir).lazy.filter_map do |file|
-      Dir.chdir(dir) { Gem::Specification.load(file) }
-    end.find { |candidate| candidate.name == name }
-    if spec
-      roots = spec.require_paths.map { |path| File.expand_path(path, dir) }
-      gem(name, spec.version.to_s, source, roots, !spec.extensions.empty?, ports)
-    else
-      version = File.basename(dir)[/\A#{Regexp.escape(name)}-(\d[\w.]*)\z/, 1]
-      lib = File.join(dir, "lib")
-      gem(name, version, source, [File.directory?(lib) ? lib : dir], false, ports)
-    end
-  end
+      asked = requests[name]
+      wanted = asked ? Gem::Requirement.new(*asked) : Gem::Requirement.default
+      spec = stubs.select { |stub| wanted.satisfied_by?(stub.version) }.max_by(&:version)&.to_spec or next
+      paths = roots(spec)
+      next if paths.empty?
 
-  # The gemspecs that can describe the gem in `dir`: first the one that
-  # rubygems wrote when it installed the gem (`<home>/gems/rake-13.3.1`
-  # has `<home>/specifications/rake-13.3.1.gemspec`), then the gem's own.
-  # A gem's own gemspec can read `git ls-files`, which an installed copy
-  # cannot answer.
-  #: (String dir) -> Array[String]
-  def gemspecs(dir)
-    installed = File.join(File.dirname(dir, 2), "specifications", "#{File.basename(dir)}.gemspec")
-    own = Dir.children(dir).grep(/\.gemspec\z/).sort.map { |file| File.join(dir, file) }
-    [installed].select { |file| File.basename(File.dirname(dir)) == "gems" && File.file?(file) } + own
+      gem(name, spec.version.to_s, INSTALLED, paths, !spec.extensions.empty?, ports).merge("requested" => !asked.nil?)
+    end.sort_by { |gem| gem["name"] }
   end
 
   # The gem's own require paths, without the directory that rubygems
@@ -130,14 +122,6 @@ module ZrGemSet
     paths.map { |path| File.expand_path(path, spec.full_gem_path) }
   end
 
-  #: (String name, String version, String source, Hash[String, String] ports) -> Hash[String, untyped]
-  def installed(name, version, source, ports)
-    spec = Gem::Specification.find_all_by_name(name, "= #{version}").first
-    raise Error, "#{source}: #{name} #{version} is not installed. Run 'gem install #{name} -v #{version}'" unless spec
-
-    gem(name, spec.version.to_s, source, roots(spec), !spec.extensions.empty?, ports)
-  end
-
   # The directory that rubygems loaded from, which zr checks is its own.
   #: () -> String
   def rubygems = File.dirname($LOADED_FEATURES.find { |path| path.end_with?("/rubygems.rb") }.to_s)
@@ -146,10 +130,8 @@ module ZrGemSet
   #: (Hash[String, untyped] request) -> Hash[String, untyped]
   def answer(request)
     ports = request.fetch("ports")
-    flags = request.fetch("flags").map { |name, value| flagged(name, value, ports) } #: Array[Hash[String, untyped]]
-    locked = request["gemfile"] ? locked(request["gemfile"], ports) : [] #: Array[Hash[String, untyped]]
-    named = flags.to_h { |gem| [gem["name"], true] }
-    { "gems" => flags + locked.reject { |gem| named[gem["name"]] }, "rubygems" => rubygems }
+    gems = request["gemfile"] ? locked(request["gemfile"], ports) : installed(ports, request.fetch("requests", {}))
+    { "gems" => gems, "rubygems" => rubygems }
   rescue Error => e
     { "error" => e.message }
   end

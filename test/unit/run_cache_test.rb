@@ -91,7 +91,7 @@ class RunCacheTest < Minitest::Test
   # the two builds apart.
   def test_a_build_with_other_gems_is_a_miss
     build_and_keep
-    gems = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "dep", version: "2.0.0", source: "--gem", roots: [@work], refusal: nil)])
+    gems = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "dep", version: "2.0.0", source: "Gemfile.lock", roots: [@work], refusal: nil)])
 
     other = Zr::Cache::Run.new(@main, target: Zr::Target.default, digest: Zr::Runtime.for.digest, link: [], gems: gems)
 

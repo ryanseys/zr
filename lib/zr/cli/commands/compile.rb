@@ -249,7 +249,7 @@ module Zr
         # ruby switches `switches`.
         #: (Hash[Symbol, untyped] opts, String source, String input, Hir::Switches switches) -> void
         def compile(opts, source, input, switches)
-          gems = Options.gem_set(opts)
+          gems = Options.gem_set(source)
 
           target = Options.target_for(opts[:triple], opts[:emit], name)
           emit = opts[:emit] || ("wasm" if target.outputs == [:wasm])
@@ -336,7 +336,7 @@ module Zr
 
           Paths.root = opts[:root]
           # A set that does not resolve goes on to the build, which says why.
-          gems = kept_gems(opts) or return
+          gems = kept_gems(source) or return
           digest = RuntimeSources.for(target).runtime_digest or return
           cache = Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest,
                                             link: Config.current.link + opts[:link], gems: gems, gate: gate(opts), trace: Options.trace?(opts))
@@ -487,10 +487,10 @@ module Zr
 
         # The GemSet of a `zr run` before the build, or nil when it does not
         # resolve.
-        #: (Hash[Symbol, untyped] opts) -> GemSet?
-        def kept_gems(opts)
+        #: (String source) -> GemSet?
+        def kept_gems(source)
           require_relative "../../gem_set"
-          GemSet.resolve(opts[:gems], gemfile: opts[:gemfile])
+          GemSet.resolve(requests: GemSet.requests(source))
         rescue GemSet::Unresolved
           nil
         end

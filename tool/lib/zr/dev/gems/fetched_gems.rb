@@ -13,8 +13,7 @@ module Zr
       #   gems/<name>-<version>/                    the unpacked files
       #   specifications/<name>-<version>.gemspec
       #
-      # So ruby reads it with GEM_PATH, and `zr build --gem NAME=DIR` reads
-      # the specification next to the gem's directory, as it does for any
+      # So ruby and `zr build` read it with GEM_PATH, as they read any
       # installed gem.
       #
       # The unpack is Gem::Package's, in Ruby: no `gem install`, so no C

@@ -79,9 +79,9 @@ class CExtJsonTest < Minitest::Test
   def test_a_json_below_the_port_s_versions_has_no_c_without_native_ext
     dir = Dir.mktmpdir("zr-json-old-")
     path = File.join(dir, "old.rb")
-    File.write(path, %(begin\n  require "json"\nrescue LoadError => e\n  puts e.class\nend\n))
+    File.write(path, %(gem "json", "#{OLD}"\nbegin\n  require "json"\nrescue LoadError => e\n  puts e.class\nend\n))
     env = Zr::Test::CExt::UNBUNDLED.merge("GEM_PATH" => [old_json_home, *Gem.path].join(File::PATH_SEPARATOR))
-    built = Zr::Test::CExt.run(env, File.join(Zr::Test::CExt::ROOT, "bin", "zr"), "build", "--gem", "json=#{OLD}", path, "-o", "#{path}.bin")
+    built = Zr::Test::CExt.run(env, File.join(Zr::Test::CExt::ROOT, "bin", "zr"), "build", path, "-o", "#{path}.bin")
     assert_equal 0, built.status, built.stderr
     assert_includes built.stderr, "link the gem's own C with --native-ext json=#{OLD}"
     assert_equal "LoadError\n", Zr::Test::CExt.run(env, "#{path}.bin").stdout

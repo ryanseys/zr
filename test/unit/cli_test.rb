@@ -136,14 +136,13 @@ class CliParseTest < Minitest::Test
     assert_equal ["a.o", "-Wl,-x", "-framework", "AppKit"], opts[:link]
   end
 
-  def test_gem_collects_each_name_and_value_in_order
-    opts = Options.parse("build", %w[app.rb -o app --gem csv=3.3.6 --gem=rainbow=vendor/rainbow])
-
-    assert_equal [%w[csv 3.3.6], %w[rainbow vendor/rainbow]], opts[:gems]
-  end
-
-  def test_gemfile_names_the_lock_to_read
-    assert_equal "app/Gemfile", Options.parse("run", %w[--gemfile app/Gemfile app.rb])[:gemfile]
+  # The gems come from GEM_HOME, GEM_PATH and BUNDLE_GEMFILE, as ruby's;
+  # zr has no flags of its own for them.
+  def test_gem_and_gemfile_are_not_options
+    %w[--gem --gemfile].each do |flag|
+      _, err = assert_exit(2) { Options.parse("build", ["app.rb", "-o", "app", flag, "x"]) }
+      assert_equal "zr build: unknown option '#{flag}'\nRun 'zr help build' for usage.\n", err
+    end
   end
 
   def test_emit_binary_is_the_default_kind
@@ -162,8 +161,7 @@ class CliParseTest < Minitest::Test
       %w[build --bogus app.rb -o app] => "zr build: unknown option '--bogus'",
       %w[build app.rb -o] => "zr build: -o needs a path",
       %w[build app.rb -o app --link] => "zr build: --link needs an argument",
-      %w[build app.rb -o no/such/dir/app] => "zr build: -o no/such/dir/app: the directory no/such/dir does not exist",
-      %w[build app.rb -o app --gem csv] => "zr build: --gem needs <name>=<version> or <name>=<dir>, for example --gem csv=3.3.6"
+      %w[build app.rb -o no/such/dir/app] => "zr build: -o no/such/dir/app: the directory no/such/dir does not exist"
     }.each do |(command, *args), line|
       _, err = assert_exit(2) { Options.parse(command, args) }
       assert_equal "#{line}\nRun 'zr help #{command}' for usage.\n", err, args.inspect

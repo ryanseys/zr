@@ -59,15 +59,12 @@ module Zr
       end
 
       # The flags of a build with the gem's own C: `--native-ext` links the
-      # C of the newest installed version, and `--gem` takes that version's
-      # Ruby half with it, as docs/how-to/use-a-c-extension.md says. Ruby's
-      # copy of a default gem can be older than the C (strscan 3.1.8's
+      # C of the newest installed version, whose Ruby half the build takes
+      # too, as ruby's require of a default gem's file activates the newest
+      # installed version (docs/how-to/use-a-c-extension.md). Ruby's copy
+      # of a default gem can be older than the C (strscan 3.1.8's
       # strscan.rb requires its Ruby methods; 3.1.6's C did).
-      def native_flags(gem)
-        specs = Dir[File.join(Gem.default_dir, "specifications", "#{gem}-*.gemspec")].filter_map { Gem::Specification.load(_1) }
-        version = specs.select { _1.name == gem }.max_by(&:version)&.version
-        ["--native-ext", gem, *(["--gem", "#{gem}=#{version}"] if version)]
-      end
+      def native_flags(gem) = ["--native-ext", gem]
 
       # The answer of `command`, killed after LIMIT seconds (its code is
       # then :timeout).

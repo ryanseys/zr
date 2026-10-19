@@ -15,7 +15,7 @@ module Zr
     # main file. The ones that act before the build (-C, -c, -v,
     # --version, -S) are read here and done by `Commands::Compile#ruby`.
     #
-    # zr's own flags of `zr run` (--trace, --gem, --gemfile,
+    # zr's own flags of `zr run` (--trace and
     # --allow-runtime-require) can come before the script too.
     class RubyOptions
       # @rbs @warning_categories: Hash[Symbol, bool]

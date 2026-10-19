@@ -70,7 +70,9 @@ class UnsupportedLibrariesTest < Minitest::Test
 
   # The reason that the only statement of `source` stops for.
   def stop(source)
+    # The main file's statements are a Seq after the boot's sends.
     node = Zr::Hir.build(source, "uncarried.rb").body.stmts.last
+    node = node.stmts.last while node.is_a?(Zr::Hir::Seq)
 
     assert_instance_of Zr::Hir::Stop, node
     node.what

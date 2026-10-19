@@ -8,12 +8,16 @@ module Zr
       attr_accessor roots: Array[String]
       attr_accessor refusal: String?
       attr_accessor native: bool?
+      attr_accessor requested: bool?
+
+      def installed?: () -> bool
 
       def root_of: (String path) -> String?
 
       def holds?: (String path) -> bool
 
-      def self.new: (name: String, version: String, source: String, roots: Array[String], ?refusal: String?, ?native: bool?) -> instance
+      def self.new: (name: String, version: String, source: String, roots: Array[String], ?refusal: String?, ?native: bool?,
+                     ?requested: bool?) -> instance
                   | (**untyped fields) -> instance
     end
   end

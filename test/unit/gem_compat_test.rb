@@ -212,7 +212,7 @@ class GemCompatTest < Minitest::Test
 
     assert_equal ["packed", "0.4.0", "rubygems", File.join(store.gems, "packed-0.4.0")], [subject.name, subject.version, subject.source, subject.root]
     assert File.file?(File.join(subject.root, "lib/packed.rb"))
-    assert_equal "packed", Gem::Specification.load(File.join(store.specifications, "packed-0.4.0.gemspec")).name, "zr build --gem reads this gemspec"
+    assert_equal "packed", Gem::Specification.load(File.join(store.specifications, "packed-0.4.0.gemspec")).name, "ruby and zr build read this gemspec on GEM_PATH"
     assert_equal [subject], store.versions("packed")
     assert_equal subject, store.find("packed", "0.4.0")
     assert_equal subject, store.unpack(package("packed", "0.4.0", "lib/packed.rb" => "module Packed; end\n"))
@@ -311,7 +311,7 @@ class GemCompatTest < Minitest::Test
 
     assert_equal [:loads, nil], [result.tier, result.kind]
     assert_equal %i[build ruby zr], runner.steps
-    assert_includes runner.argvs.first, "helper=#{CORPUS.find("helper").root}"
+    assert_includes runner.build_homes.first, CORPUS.find("helper").root, "zr finds the gem on its GEM_PATH, as ruby does"
     assert File.file?(result.log)
   end
 
@@ -321,7 +321,7 @@ class GemCompatTest < Minitest::Test
     result = trial(runner).call(Gems::Request.parse(dir))
 
     assert_equal :loads, result.tier
-    assert_includes runner.argvs[0], "json=#{dir}", "zr builds the gem's Ruby half with its port"
+    assert_includes runner.build_homes[0], dir, "zr builds the gem's Ruby half with its port"
     refute_includes runner.argvs[1], File.join(dir, "lib"), "the unpacked gem has no compiled C for ruby"
   end
 
@@ -329,7 +329,7 @@ class GemCompatTest < Minitest::Test
     runner = Runner.new
     trial(runner).call(Gems::Request.parse(json_at(Zr::Library::Ports::ALL["json"].version)))
 
-    refute_includes runner.argvs[0], "--gem"
+    assert_empty runner.build_homes[0], "zr's own copy serves it"
   end
 
   def test_ruby_finds_each_gem_on_its_gem_path_too
@@ -386,7 +386,7 @@ class GemCompatTest < Minitest::Test
 
     assert_equal :verified, result.tier
     assert_equal %i[build ruby zr build ruby zr], runner.steps
-    assert_includes runner.argvs.first, "helper=#{CORPUS.find("helper").root}", "each dependency is a --gem"
+    assert_includes runner.build_homes.first, CORPUS.find("helper").root, "each dependency is on the build's GEM_PATH"
   end
 
   def test_an_override_skips_a_gem_before_it_is_found
@@ -398,7 +398,7 @@ class GemCompatTest < Minitest::Test
   end
 
   # `zr build`'s warning for a gem whose C part it does not port.
-  NATIVE_WARNING = "zr: warning: cexty 1.0.0 (--gem cexty=/c) has a C extension, and zr has no port of it. zr compiles only Ruby: " \
+  NATIVE_WARNING = "zr: warning: cexty 1.0.0 (installed) has a C extension, and zr has no port of it. zr compiles only Ruby: " \
                    "its Ruby files compile, and a require of its C part raises LoadError if it runs\n"
 
   def test_a_gem_whose_c_part_zr_does_not_port_builds_and_names_it
@@ -645,7 +645,7 @@ class GemCompatTest < Minitest::Test
   # Answers for each step of a trial: `build`, `ruby` and `zr` (the
   # binary). By default each one succeeds, and ruby and zr agree.
   class Runner
-    attr_reader :steps, :argvs, :homes
+    attr_reader :steps, :argvs, :homes, :build_homes
 
     def initialize(**answers)
       same = Zr::Diff::Answer.new("Only Module\n  \n", "", 0, nil, false)
@@ -653,21 +653,24 @@ class GemCompatTest < Minitest::Test
       @steps = []
       @argvs = []
       @homes = []
+      @build_homes = []
     end
 
-    # For ruby, what its GEM_PATH holds: each specification, and where
-    # each gem's link leads.
+    # For ruby and for the build, what its GEM_PATH holds: each
+    # specification, and where each gem's link leads.
     def run(argv, env: {}, **)
       step = if argv.include?("build") then :build
              elsif argv.first.start_with?("./") then :zr
              else :ruby
              end
       @steps << step
-      if step == :ruby
+      held = lambda do
         home = env.fetch("GEM_PATH", "").split(File::PATH_SEPARATOR).last.to_s
-        @homes << Dir.glob("#{home}/specifications/*.gemspec").map { |spec| File.basename(spec) }.sort +
-                  Dir.glob("#{home}/gems/*").map { |link| File.readlink(link) }.sort
+        Dir.glob("#{home}/specifications/*.gemspec").map { |spec| File.basename(spec) }.sort +
+          Dir.glob("#{home}/gems/*").map { |link| File.readlink(link) }.sort
       end
+      @homes << held.call if step == :ruby
+      @build_homes << held.call if step == :build
       @argvs << argv
       [@answers.fetch(step), nil]
     end

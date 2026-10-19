@@ -14,24 +14,20 @@ module Zr
     module Options
       EMITS = { "binary" => nil, "obj" => "obj", "wasm" => "wasm" }.freeze #: Hash[String, String?]
 
-      # What `--gem` takes.
-      GEM_VALUE = "<name>=<version> or <name>=<dir>, for example --gem csv=3.3.6"
-
       # The flags that take a value: the option that each one sets, and
-      # what the value is, for the error when it is missing. `--link` and
-      # `--gem` add to a list; each other flag sets its option.
+      # what the value is, for the error when it is missing. `--link` adds
+      # to a list; each other flag sets its option.
       VALUES = {
         "-o" => [:output, "a path"], "--output" => [:output, "a path"],
         "--emit" => [:emit, "a kind"], "--target" => [:triple, "a triple"],
-        "--path-root" => [:root, "a directory"], "--link" => [:link, "an argument"],
-        "--gem" => [:gems, GEM_VALUE], "--gemfile" => [:gemfile, "a path"]
+        "--path-root" => [:root, "a directory"], "--link" => [:link, "an argument"]
       }.freeze #: Hash[String, [Symbol, String]]
 
       # The flags that take no value, and the option that each turns on.
       SWITCHES = { "--print-gems" => :print_gems, "--allow-runtime-require" => :runtime_require, "--trace" => :trace }.freeze #: Hash[String, Symbol]
 
       # The flags that zr also takes in ruby mode (`RubyOptions`).
-      RUBY_MODE = %w[--trace --allow-runtime-require --gem --gemfile].freeze
+      RUBY_MODE = %w[--trace --allow-runtime-require].freeze
 
       module_function
 
@@ -40,7 +36,7 @@ module Zr
       # The values have one type for each key, so the Hash is untyped.
       #: (String command, Array[String] args) -> Hash[Symbol, untyped]
       def parse(command, args)
-        opts = { args: [], link: [], gems: [] } #: Hash[Symbol, untyped]
+        opts = { args: [], link: [] } #: Hash[Symbol, untyped]
         until args.empty?
           word = args.shift
           if opts[:input] && command == "run"
@@ -75,7 +71,6 @@ module Zr
       #: (Hash[Symbol, untyped] opts, Symbol field, String value, String command) -> void
       def set(opts, field, value, command)
         case field
-        when :gems then opts[:gems] << gem_flag(value, command)
         when :link then opts[:link] << value
         else opts[field] = value
         end
@@ -86,24 +81,14 @@ module Zr
       #: (Hash[Symbol, untyped] opts) -> bool
       def trace?(opts) = opts[:trace] || Config.current.trace?
 
-      # `--gem NAME=VERSION` or `--gem NAME=DIR`, as [name, value].
-      #: (String? word, String command) -> [String, String]
-      def gem_flag(word, command)
-        name, value = word.to_s.split("=", 2)
-        if value.to_s.empty? || !name.to_s.match?(/\A[\w.-]+\z/)
-          Errors.usage_error("--gem needs #{GEM_VALUE}", command)
-        end
-        # The check above stops the build when `value` is nil.
-        [name, value] #: [String, String]
-      end
-
-      # The gems that a compile reads before zr's standard library: the
-      # `--gem` flags, then the Gemfile.lock of `--gemfile` or
-      # BUNDLE_GEMFILE (lib/zr/gem_set.rb).
-      #: (Hash[Symbol, untyped] opts) -> GemSet
-      def gem_set(opts)
+      # The gems that a compile reads, as ruby finds them: a Gemfile's lock
+      # when BUNDLE_GEMFILE names one, else the gems installed on rubygems'
+      # path, with the versions that `source`'s literal `gem` calls ask for
+      # (lib/zr/gem_set.rb).
+      #: (String source) -> GemSet
+      def gem_set(source)
         require_relative "../gem_set"
-        GemSet.resolve(opts[:gems], gemfile: opts[:gemfile])
+        GemSet.resolve(requests: GemSet.requests(source))
       rescue GemSet::Unresolved => e
         abort "zr: #{e.message}"
       end

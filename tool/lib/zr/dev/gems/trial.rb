@@ -204,9 +204,11 @@ module Zr
           # A gem at the version that zr carries (its standard library and
           # its ports) comes from zr, and from the reference ruby's copy.
           gems = gems.reject { |gem| Resolver::Provided.versions[gem.name] == gem.version }
-          flags = gems.flat_map { |gem| ["--gem", "#{gem.name}=#{gem.root}"] }
-          built, limit = run(log, "zr build", [Dev.ruby, Dev.path("exe/zr"), "build", *flags, name, "-o", exe],
-                             dir: dir, seconds: BUILD_SECONDS, megabytes: Harness::Child::BUILD_MB, env: { "BUNDLE_GEMFILE" => nil })
+          # zr finds the gems as ruby does, on rubygems' path: a gem home
+          # of just these.
+          build_env = { "BUNDLE_GEMFILE" => nil, "GEM_PATH" => gem_home(dir, gems, "build-gem-home") }
+          built, limit = run(log, "zr build", [Dev.ruby, Dev.path("exe/zr"), "build", name, "-o", exe],
+                             dir: dir, seconds: BUILD_SECONDS, megabytes: Harness::Child::BUILD_MB, env: build_env)
           raise build_failure(built, limit) unless built.status&.zero?
 
           natives = built.stderr.to_s.scan(NATIVE).flatten.uniq
@@ -258,8 +260,8 @@ module Zr
         # also holds gems with a C extension that was never built, and
         # ruby warns "Ignoring json-3.0.2 because its extensions are not
         # built" for each one, which the diff counts as zr's error.
-        def gem_home(dir, gems)
-          home = File.join(dir, "gem-home")
+        def gem_home(dir, gems, name = "gem-home")
+          home = File.join(dir, name)
           FileUtils.rm_rf(home)
           FileUtils.mkdir_p([File.join(home, "gems"), File.join(home, "specifications")])
           gems.each do |gem|

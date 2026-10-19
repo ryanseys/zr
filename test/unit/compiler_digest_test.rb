@@ -25,7 +25,7 @@ class CompilerDigestTest < Minitest::Test
 
   # The compiler files that a plain build and link do not load, but that
   # other builds do, so they stay in the digest: eval support compiles the
-  # eval compiler and its walker, a build with --gem loads the gem set, and
+  # eval compiler and its walker, a build with installed gems loads the gem set, and
   # the first parse on zr's prism port loads the parse cache.
   LOADED_BY_SOME_BUILDS = %w[cache/loaded.rb cache/parse.rb eval.rb eval/compiler.rb eval/interpreter.rb eval/interpreter/evaluate.rb eval/interpreter/tree.rb
                              gem_set.rb gem_set/resolve.rb]

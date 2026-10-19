@@ -24,7 +24,7 @@ class GemRubygemsBootTest < Minitest::Test
     lib = File.join(@dir, "boots", "lib")
     FileUtils.mkdir_p(lib)
     File.write(File.join(lib, "boots.rb"), "require 'rubygems'\nmodule Boots; end\n")
-    gems = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "boots", version: "1.0.0", roots: [lib], refusal: nil, source: "--gem")])
+    gems = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "boots", version: "1.0.0", roots: [lib], refusal: nil, source: "installed", requested: true)])
 
     hir = Zr::Hir.build(%(require "boots"\n), File.join(@dir, "main.rb"), Zr::BuildOptions.new(gem_set: gems))
 

@@ -7,6 +7,7 @@ require "digest/sha2"
 require "fileutils"
 require "rbconfig"
 require_relative "../../lib/zr/config"
+require_relative "../../lib/zr/gem_set"
 require_relative "../../lib/zr/target"
 
 module Zr
@@ -179,6 +180,7 @@ module Zr
       # Runs `program`, which requires the installed gem `name` at
       # `version`, under ruby and as a zr binary that links the gem's real
       # C extension (`--native-ext`), once in each of `binary_envs`. The
+      # program asks for the version as any program does, with `gem`. The
       # build runs under `build_env` too (`ZR_EXT_CONFIG`). `home` is the
       # gem home that holds the gem, or the homes of the gem and of its
       # dependencies, or nil for this ruby's own.
@@ -193,6 +195,7 @@ module Zr
         # The gem's homes come first; ruby's own gems stay, for zr itself
         # and for the gem's other dependencies.
         env = home ? UNBUNDLED.merge("GEM_PATH" => [*home, *Gem.path].join(File::PATH_SEPARATOR)) : UNBUNDLED
+        program = %(gem #{name.inspect}, #{version.inspect}\n#{program}) unless GemSet.requests(program).key?(name)
         dir = File.join(DIR, "gem-#{name}-#{version}")
         FileUtils.mkdir_p(dir)
         path = File.join(dir, "prog_#{Digest::SHA256.hexdigest(program)[0, 12]}.rb")
@@ -201,8 +204,7 @@ module Zr
         # Each set of runs has its own binary: two tests of one program
         # build at the same time.
         bin = "#{path.delete_suffix(".rb")}-#{Digest::SHA256.hexdigest([binary_envs, build_env, home].inspect)[0, 8]}"
-        gem = "#{name}=#{version}"
-        built = run(env.merge(build_env), File.join(ROOT, "bin", "zr"), "build", "--native-ext", gem, "--gem", gem, path, "-o", bin)
+        built = run(env.merge(build_env), File.join(ROOT, "bin", "zr"), "build", "--native-ext", "#{name}=#{version}", path, "-o", bin)
         return [ruby, binary_envs.map { built }] unless built.status.zero?
 
         [ruby, binary_envs.map { |extra| run(env.merge(extra), bin) }]

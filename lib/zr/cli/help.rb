@@ -37,12 +37,6 @@ module Zr
       PRINT_GEMS = "  --print-gems           print the gems that the output was built with\n"
       # The options that choose the gems of a build.
       GEMS = <<~TEXT.gsub(/^/, "  ") #: String
-        --gem <name>=<version|dir>
-                               use this gem in place of the Gemfile.lock's or zr's
-                               own: an installed version, or a directory with a
-                               gemspec or lib/; once for each gem
-        --gemfile <path>       read the gems of <path>'s lock before zr's own, as
-                               `bundle exec ruby` does (BUNDLE_GEMFILE also names it)
         --allow-runtime-require
                                let a require in the program's files that zr cannot
                                find wait for the run time (the binary then carries
@@ -97,12 +91,15 @@ module Zr
           that this host can make. Exits with status 1 if a check fails.
         TEXT
         "gems" => <<~TEXT,
-          Usage: zr gems [--gem <name>=<version|dir>]... [--gemfile <path>] [--json] [<file.rb>]
+          Usage: zr gems [--json] [<file.rb>]
 
           Lists each gem that a build can read, with its version and its
           source: stdlib (ruby's own library, in zr), port (a gem with a C
-          part that zr ports), Gemfile.lock, or --gem. With <file.rb>, lists
-          only the gems that the build of <file.rb> reads.
+          part that zr ports), Gemfile.lock, or installed. As in ruby, the
+          gems are the lock's of the Gemfile that BUNDLE_GEMFILE names (as
+          `bundle exec` sets it), else the newest of each gem installed on
+          rubygems' path (GEM_HOME, GEM_PATH). With <file.rb>, lists only the
+          gems that the build of <file.rb> reads.
 
           --json                 print JSON, one object for each gem
           --target <triple>      the target of the build of <file.rb>
@@ -124,8 +121,8 @@ module Zr
           of each part. Exits with status 0 when the two are the same, 1 when
           they differ, 2 when the build failed, and 3 when zr refused it.
 
-          ruby reads the same --gem directories, and runs as `bundle exec
-          ruby` does with --gemfile or BUNDLE_GEMFILE. The two runs can
+          ruby reads the gems of the same environment, and runs as `bundle
+          exec ruby` does with BUNDLE_GEMFILE. The two runs can
           differ where ruby has other versions of its gems than zr: see
           `zr gems`.
 
