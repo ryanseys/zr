@@ -35,7 +35,7 @@ module Zr
           SAVED.each { |name, r| a.store([RDI, CONTEXT.fetch(name)], r) }
           a.lea RAX, [RSP, 8]
           a.store([RDI, CONTEXT[:rsp]], RAX)
-          a.load RAX, [RSP, 0]
+          a.ld RAX, [RSP, 0]
           a.store([RDI, CONTEXT[:rip]], RAX)
           a.stmxcsr [RDI, CONTEXT[:mxcsr]]
           a.fnstcw [RDI, CONTEXT[:fpucw]]
@@ -75,17 +75,17 @@ module Zr
           a.lea RSI, [R12, 48]
           a.mov RDI, RSP
           a.put_label copy
-          a.load RDX, [RSI, 0]
+          a.ld RDX, [RSI, 0]
           a.store([RDI, 0], RDX)
           a.add RSI, 8
           a.add RDI, 8
           a.sub RAX, 1
           a.j :ne, copy
           a.put_label call
-          ARGS.each_with_index { |r, n| a.load(r, [R12, 8 * n]) }
+          ARGS.each_with_index { |r, n| a.ld(r, [R12, 8 * n]) }
           a.mov_imm RAX.w, 0
           a.call_reg R11
-          a.load RSP, [RBX, CFRAME_CONTEXT + CONTEXT[:rsp]]
+          a.ld RSP, [RBX, CFRAME_CONTEXT + CONTEXT[:rsp]]
           a.pop R12
           a.pop RBX
           a.pop RBP
@@ -137,8 +137,8 @@ module Zr
           a.mov RSI, RSP
           relocs = [] #: Array[Obj::Reloc]
           a.call_rel { |at| relocs << Obj::Reloc.new(at, :plt32, PAIR_RESULTS.fetch(name), -4) }
-          a.load RAX, [RSP, 0]
-          a.load RDX, [RSP, 8]
+          a.ld RAX, [RSP, 0]
+          a.ld RDX, [RSP, 8]
           a.mov RSP, RBP
           a.pop RBP
           a.ret
@@ -160,11 +160,11 @@ module Zr
         # Loads a context from `base` and jumps to its rip.
         #: (Assembler a, Registers::Register base) -> void
         def load_context(a, base)
-          SAVED.each { |name, r| a.load(r, [base, CONTEXT.fetch(name)]) }
+          SAVED.each { |name, r| a.ld(r, [base, CONTEXT.fetch(name)]) }
           a.ldmxcsr [base, CONTEXT[:mxcsr]]
           a.fldcw [base, CONTEXT[:fpucw]]
-          a.load RSP, [base, CONTEXT[:rsp]]
-          a.load RAX, [base, CONTEXT[:rip]]
+          a.ld RSP, [base, CONTEXT[:rsp]]
+          a.ld RAX, [base, CONTEXT[:rip]]
           a.jmp_reg RAX
         end
 

@@ -86,7 +86,7 @@ module Zr
 
         # The two registers that `parallel_copy` moves values through. An
         # instruction that needs more uses x11 and x12. x13 to x15 belong to
-        # the allocator, in `POOLS.caller`.
+        # the allocator, in `POOLS.caller_saved`.
         SCRATCH = [X9, X10].freeze #: [Registers::Register, Registers::Register]
         # Maps IR condition codes to arm64 condition codes.
         CONDS = {

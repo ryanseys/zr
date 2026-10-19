@@ -68,7 +68,7 @@ module Zr
         # callee-saved rbx and r12..r15, and the caller-saved rdi, rsi, r8
         # and r9. The codegen keeps rax, rcx (shift counts), rdx (division)
         # and r10, r11 for itself, and rbp holds the frame.
-        POOLS = Native::Pools.new(callee: [RBX, R12, R13, R14, R15], caller: [RDI, RSI, R8, R9], args: ARGS) #: Native::Pools
+        POOLS = Native::Pools.new(callee: [RBX, R12, R13, R14, R15], caller_saved: [RDI, RSI, R8, R9], args: ARGS) #: Native::Pools
       end
     end
   end

@@ -125,7 +125,7 @@ module Zr
         # A load of `d`'s width; an 8-bit load zero-extends into the 32-bit
         # register.
         #: (Registers::Register d, untyped mem) -> self
-        def load(d, mem)
+        def ld(d, mem)
           return movsd_load(d, mem) if d.float?
           return rm([0x0F, 0xB6], d, mem, w: false) if d.byte?
 
@@ -193,7 +193,7 @@ module Zr
         end
 
         #: (Registers::Register d, Registers::Register | Integer s) -> self
-        def test(d, s)
+        def tst(d, s)
           return rr([0x85], s, d, w: d.wide?) unless s.is_a?(Integer)
 
           rr([0xF7], 0, d, w: d.wide?)

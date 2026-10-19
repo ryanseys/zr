@@ -426,7 +426,7 @@ module Zr
         # @rbs crossing: Hash[Integer, bool]
         # @rbs return: Hash[Integer, register]
         def scan(order, from, to, crossing)
-          free = { callee: @pools.callee.dup, caller: @pools.caller.dup }
+          free = { callee: @pools.callee.dup, caller: @pools.caller_saved.dup }
           active = [] #: Array[Integer]
           taken = {} #: Hash[Integer, register]
           arrives = arrival_registers

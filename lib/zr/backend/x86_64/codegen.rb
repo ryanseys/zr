@@ -199,9 +199,9 @@ module Zr
 
           off = @home.fetch(v)
           case type_of(v)
-          when "i64", "f64" then @asm.load(reg, frame(off))
-          when "i32" then @asm.load(reg.w, frame(off))
-          when "i8" then @asm.load(reg.b, frame(off))
+          when "i64", "f64" then @asm.ld(reg, frame(off))
+          when "i32" then @asm.ld(reg.w, frame(off))
+          when "i8" then @asm.ld(reg.b, frame(off))
           else raise Refused, "#{@f.name}: a #{type_of(v)} value"
           end
         end
@@ -270,7 +270,7 @@ module Zr
           held = ints.first(ARGS.size)
           move_registers(held.map { |v| [place(v), v] }, ARGS.first(held.size))
           ints.drop(ARGS.size).each_with_index do |v, n|
-            @asm.load(RAX, [RBP, 16 + (8 * n)])
+            @asm.ld(RAX, [RBP, 16 + (8 * n)])
             store_param(v, RAX)
           end
           floats.each_with_index do |v, n|
@@ -313,7 +313,7 @@ module Zr
 
         #: () -> void
         def epilogue
-          @saved_at.each { |r, off| @asm.load(r, frame(off)) }
+          @saved_at.each { |r, off| @asm.ld(r, frame(off)) }
           @asm.mov RSP, RBP
           @asm.pop RBP
           @asm.ret
@@ -432,7 +432,7 @@ module Zr
             cond = fused
           else
             r = reg_for(i.args[0], value_in(i.args[0], RAX))
-            @asm.test r, r
+            @asm.tst r, r
             cond = :ne
           end
           if yes == @next
@@ -494,7 +494,7 @@ module Zr
           cond = @fused[i]
           unless cond
             r = reg_for(c, value_in(c, RAX))
-            @asm.test r, r
+            @asm.tst r, r
             cond = :ne
           end
           x = value_in(a, RCX)
@@ -508,9 +508,9 @@ module Zr
           d = result_in(i.results[0], RAX)
           at = through(i.args[0], RCX, i.offset)
           case i.type
-          when "i64", "f64" then @asm.load(d, at)
-          when "i32" then @asm.load(d.w, at)
-          when "i8" then @asm.load(d.b, at)
+          when "i64", "f64" then @asm.ld(d, at)
+          when "i32" then @asm.ld(d.w, at)
+          when "i8" then @asm.ld(d.b, at)
           else raise Refused, "#{@f.name}: load.#{i.type}"
           end
           store_value(i.results[0], d)
@@ -627,9 +627,9 @@ module Zr
           if (x, mask = @mask_tests[i])
             r = reg_for(x, value_in(x, RAX))
             if mask.is_a?(Integer)
-              @asm.test r, imm32(mask, wide?(x)) || raise(Refused, "#{@f.name}: a mask past 32 bits")
+              @asm.tst r, imm32(mask, wide?(x)) || raise(Refused, "#{@f.name}: a mask past 32 bits")
             else
-              @asm.test r, reg_for(x, value_in(mask, RCX))
+              @asm.tst r, reg_for(x, value_in(mask, RCX))
             end
             return CONDS.fetch(i.cond)
           end
@@ -739,7 +739,7 @@ module Zr
           signed = i.op == :sdiv || i.op == :srem
           rem = i.op == :urem || i.op == :srem
           minus = nil #: Assembler::Label?
-          @asm.test cx, cx
+          @asm.tst cx, cx
           @asm.j :e, zero
           if signed
             minus = @asm.make_label("minus")
@@ -832,7 +832,7 @@ module Zr
           @asm.ucomisd XMM0, XMM0
           @asm.j :p, nan
           @asm.movq RCX, XMM0
-          @asm.test RCX, RCX
+          @asm.tst RCX, RCX
           @asm.j :s, done
           @asm.mov_imm RAX, (1 << 63) - 1
           @asm.jmp done
