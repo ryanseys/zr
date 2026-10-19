@@ -26,6 +26,16 @@ module Zr
       #: () -> Array[String]
       def all = Store.entries.map(&:path)
 
+      # The crash logs (CLI::Errors.crash_log) older than `days`.
+      #: (?days: Integer | Float) -> Array[String]
+      def crashes(days: 30)
+        old = Time.now - (days * 86_400)
+        Dir[File.join(Paths.cache, "crash", "*.log")].select { |path| File.mtime(path) < old }
+      end
+
+      #: (Array[String] paths) -> Array[String]
+      def remove(paths) = paths.each { |path| Paths.remove(path) }
+
       # The entries that this zr uses: each entry that a fresh root of the
       # store names. A build writes its roots: the runtime and eval support
       # objects, their images and metadata, and the code and lowering
@@ -51,9 +61,10 @@ module Zr
       end
 
       # Deletes the entries that this zr does not use and that were not used
-      # in the last `days`. Returns the paths it deleted.
+      # in the last `days`, and the crash logs older than 30 days. Returns
+      # the paths it deleted.
       #: (?days: Integer | Float) -> Array[String]
-      def prune(days: 0) = Store.clean(days: days).map(&:path)
+      def prune(days: 0) = Store.clean(days: days).map(&:path) + remove(crashes)
 
       # Deletes the whole cache, also the entries this zr uses. Returns the
       # paths it deleted.
@@ -61,7 +72,7 @@ module Zr
       def clear
         files = all
         Store.clear
-        files
+        files + remove(crashes(days: 0))
       end
 
       # The most GB that an installed zr keeps in its cache before a build
@@ -86,6 +97,7 @@ module Zr
         return if File.exist?(stamp) && Time.now - File.mtime(stamp) < CHECK_EVERY
 
         Paths.write_atomic(stamp, "")
+        remove(crashes)
         Store.evict(limit: limit_gb * (1 << 30))
       rescue SystemCallError
         nil # a cache that cannot be measured or cleaned does not stop a build

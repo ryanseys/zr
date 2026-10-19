@@ -191,8 +191,9 @@ module Zr
         Settings, before the command or right after its name. Each one also
         reads its variable (--jobs reads ZR_JOBS); the flag wins:
         #{SETTINGS}
-        Exit status: 0 success; 1 error; 2 usage error or a bad setting;
-        3 zr does not support the program, the target or this ruby; 130 Ctrl-C.
+        Exit status: 0 success; 1 error; 2 usage error, a bad setting or an
+        unsafe cache; 3 zr does not support the program, the target or this
+        ruby; 70 a defect in zr; 130 Ctrl-C.
         `zr run` exits with the program's status.
         Environment variables: reference/environment-variables.md in the docs at
         #{DOCS_URL}

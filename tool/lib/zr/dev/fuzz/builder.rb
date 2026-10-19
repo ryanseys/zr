@@ -15,8 +15,8 @@
 #   {"id": 7, "status": 0, "signal": null, "stderr": "", "seconds": 0.41, "lines": [...]}
 #
 # `status` is the status of the build: 0 when the binary is written, 3
-# for a refusal, 1 for an internal error or a backend refusal, as `zr
-# build` gives them. `lines` are the compiler lines that the build ran
+# for a refusal, 1 for a backend refusal and 70 for an internal error, as
+# `zr build` gives them. `lines` are the compiler lines that the build ran
 # and the warm-up did not, as "file:line", when `--coverage` is given.
 #
 # The first line it writes is {"ready": true, "env": {...}}: the
@@ -93,7 +93,7 @@ build = lambda do |req, err, cov|
   rescue StandardError, ScriptError, SystemStackError, NoMemoryError => e
     warn "zr: internal error: #{e.class}: #{e.message}"
     (e.backtrace || []).first(40).each { |line| warn "\tfrom #{line.delete_prefix("#{lib}/")}" }
-    status = 1
+    status = Zr::CLI::Errors::DEFECT
   end
   if coverage
     lines = Coverage.result(stop: false, clear: false).flat_map do |file, data|

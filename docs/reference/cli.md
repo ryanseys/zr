@@ -399,8 +399,9 @@ Report it at https://github.com/ryanseys/zr/issues.
 |---|---|
 | 0 | Success. For `zr run`, the program's own status. |
 | 1 | An error. A build step failed, or a require in the program's own files has no file; the message tells which. For `zr diff`, the two runs differ. In ruby mode (`zr app.rb`, `zr -e`), the statuses that ruby gives: 1 for a missing script or a switch that ruby rejects. |
-| 2 | A usage error: the command line is wrong, the file that a command names does not exist, or a setting (a `ZR_*` variable or its flag) has a value that zr cannot use. For `zr diff`, the build failed. |
+| 2 | A usage error: the command line is wrong, the file that a command names does not exist, or a setting (a `ZR_*` variable or its flag) has a value that zr cannot use, or the cache is not yours alone (see `SECURITY.md`). For `zr diff`, the build failed. |
 | 3 | A refusal: zr does not support the program, or this host cannot build or run the target, or the ruby is older than 4.0. The message gives the form and its line, or the missing tool. `zr diff` also exits 3 when zr refused the program. |
+| 70 | A defect in zr: an error that zr did not expect. The message names zr's version, ruby's and the host's, and a crash log in `<cache>/crash/` with the backtrace; report it with that log. |
 | 130 | Ctrl-C stopped zr. zr removes its temporary files first. |
 
 A program that does not parse still builds, and `zr build` gives a

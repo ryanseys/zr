@@ -318,11 +318,48 @@ end
     _, err = assert_exit(2) { CLI.guard { raise Zr::Paths::Untrusted, "other users can write to the cache /c." } }
     assert_equal "zr: other users can write to the cache /c.\n", err
 
-    _, err = assert_exit(1) { CLI.guard { raise NoMethodError, "undefined method 'x'" } }
-    assert_equal "zr: internal error: NoMethodError: undefined method 'x'. This is a defect in zr. Report it at " \
-                 "#{Zr::ISSUES_URL} with the output of 'zr doctor'. Run zr --backtrace (or set ZR_DEBUG=1) to see the backtrace.\n", err
-
     assert_exit(130) { CLI.guard { raise Interrupt } }
+  end
+
+  # An error that zr did not expect is a defect: status 70, a line that
+  # names zr's version, and a crash log with the backtrace.
+  def test_a_defect_exits_70_with_the_version_and_a_crash_log
+    Dir.mktmpdir do |dir|
+      Zr::Session.current.set(:cache, dir)
+      _, err = assert_exit(70) { CLI.guard { raise NoMethodError, "undefined method 'x'" } }
+      log = err[%r{the crash log (\S+/crash/\S+\.log)}, 1]
+
+      assert err.start_with?("zr: internal error: NoMethodError: undefined method 'x'. This is a defect in zr (zr #{Zr::VERSION}, ruby "), err
+      assert_includes err, "Report it at #{Zr::ISSUES_URL} with the crash log"
+      assert log, err
+      assert_equal 0o600, File.stat(log).mode & 0o777
+      assert_includes File.read(log), "NoMethodError: undefined method 'x'"
+      assert_includes File.read(log), "\tfrom #{__FILE__}"
+    ensure
+      Zr::Session.current.forget(:cache)
+    end
+  end
+
+  def test_a_stack_overflow_and_a_load_error_are_defects
+    stub_method(CLI::Errors, :crash_log, nil) do
+      [SystemStackError, LoadError, NotImplementedError].each do |error|
+        _, err = assert_exit(70) { CLI.guard { raise error, "x" } }
+        assert_includes err, "with the output of 'zr doctor'"
+      end
+    end
+  end
+
+  def test_an_exit_and_a_signal_go_through_the_guard
+    assert_exit(4) { CLI.guard { exit 4 } }
+    assert_raises(SignalException) { CLI.guard { raise SignalException, "TERM" } }
+  end
+
+  # A crash log that cannot be written leaves the line.
+  def test_a_defect_whose_log_fails_still_says_so
+    stub_method(Zr::Paths, :cache, -> { raise Errno::EACCES, "/c" }) do
+      _, err = assert_exit(70) { CLI.guard { raise TypeError, "no" } }
+      assert_includes err, "zr: internal error: TypeError: no."
+    end
   end
 
   # The flags of settings come off the front of the words and right after
