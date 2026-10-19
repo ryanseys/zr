@@ -55,8 +55,10 @@ module Zr
         Options:
           --emit <kind>          binary (the default), obj, or wasm
           --target <triple>      build for <triple>: aarch64-apple-darwin,
-                                 aarch64-linux-musl or wasm32-wasi (`zr doctor`
-                                 shows what this host can build)
+                                 aarch64-linux-musl, x86_64-linux-musl,
+                                 x86_64-linux-gnu, aarch64-linux-gnu or
+                                 wasm32-wasi (`zr doctor` shows what this host
+                                 can build)
           --path-root <dir>      write source paths in the output as <dir> plus the
                                  path below zr's root or the working directory,
                                  so that two checkouts make the same bytes

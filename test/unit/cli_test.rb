@@ -215,7 +215,7 @@ class CliParseTest < Minitest::Test
   def test_an_unknown_target_lists_the_targets
     _, err = assert_exit(2) { Options.target_for("sparc", nil, "build") }
     assert_equal "zr build: unknown target 'sparc'. The targets are aarch64-apple-darwin, aarch64-linux-musl, " \
-                 "wasm32-wasi\nRun 'zr help build' for usage.\n", err
+                 "x86_64-linux-musl, x86_64-linux-gnu, aarch64-linux-gnu, wasm32-wasi\nRun 'zr help build' for usage.\n", err
   end
 
   # `-v` prints the description of the ruby that zr matches, as ruby -v
@@ -293,11 +293,11 @@ end
     assert_equal "zr: No such file or directory -- no_such_file.rb (LoadError)\n", err
   end
 
-  # A host that runs no native target (x86_64 Linux) builds a darwin
+  # A host that runs no native target (riscv64 Linux) builds a darwin
   # binary by default. `zr build` says so, and `zr run` refuses with a
   # way to run the program there.
   def test_a_host_that_cannot_run_the_default_target_says_what_to_do
-    Checks.with_host("x86_64-linux-gnu") do
+    Checks.with_host("riscv64-linux-gnu") do
       target = Zr::Target.default
       _, err = assert_exit(Zr::CLI::REFUSED) { CLI::Refusals.refuse("app.rb", "run", nil, target, chosen: false) }
       assert_equal "zr: app.rb: this computer cannot run aarch64-apple-darwin binaries. zr builds one for macOS on " \
