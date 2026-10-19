@@ -41,10 +41,10 @@ class DoctorTest < Minitest::Test
     assert_includes check.detail, "--emit wasm"
   end
 
-  def test_a_glibc_aarch64_host_runs_the_musl_target
+  def test_a_glibc_aarch64_host_builds_its_own_glibc_target
     Checks.with_host("aarch64-linux-gnu") do
       check = Zr::Doctor.host
-      assert_includes check.detail, "runs aarch64-linux-musl" if check.status == :ok
+      assert_equal "aarch64-linux-gnu", check.detail if check.status == :ok
       assert_includes check.detail, "no cc to link a binary" if check.status == :warn
     end
   end

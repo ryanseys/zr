@@ -33,7 +33,7 @@ class WasmLibcShimsTest < Minitest::Test
     # `zr_release_fiber` unmaps the stack of a fiber, and a fiber on wasi
     # has no stack: `zr_os_stack_map` (lib/zr/runtime/kernel/os/wasi/stack.rb)
     # returns 0 with ENOSYS, so `RFiber.stack(f) != 0` is never true there.
-    "munmap" => "zr_release_other"
+    "munmap" => "zr_release_fiber"
   }.freeze
 
   # One test, so the wasm runtime lowers once (seconds): the roots must

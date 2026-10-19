@@ -14,10 +14,17 @@ class OsApiTest < Minitest::Test
   end
 
   # The OS layer sets RUBY_PLATFORM to the platform string of the target.
+  # darwin and wasi name their platform in the OS layer; Linux joins the
+  # arch layer's name with the C library's part (`zr_os_platform`).
   def test_os_layer_sets_target_ruby_platform
     Zr::Target.all.select { |target| target.os_layer == target.os.to_s }.each do |target|
-      text = File.read(File.join(ROOT, "lib/zr/runtime/kernel/os/#{target.os}/env.rb"))
-      assert_includes text, %(zr_str_new(Machine.bytes("#{target.ruby_platform}"), #{target.ruby_platform.bytesize})), target.triple
+      if target.os == :linux
+        text = File.read(File.join(ROOT, "lib/zr/runtime/kernel/os/linux/arch/#{target.arch}/platform.rb"))
+        assert_includes text, %(zr_os_platform(Machine.bytes("#{target.arch}"), #{target.arch.to_s.bytesize})), target.triple
+      else
+        text = File.read(File.join(ROOT, "lib/zr/runtime/kernel/os/#{target.os}/env.rb"))
+        assert_includes text, %(zr_str_new(Machine.bytes("#{target.ruby_platform}"), #{target.ruby_platform.bytesize})), target.triple
+      end
     end
   end
 

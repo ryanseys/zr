@@ -5,7 +5,7 @@ require "test_helper"
 require_relative "../../lib/zr/native/build"
 
 # A def that only spreads its `*rest` and `**rest` binds empty ones to the
-# one shared frozen Array and Hash (`zr_rest_of`, `zr_kw_rest_of`). A def
+# one shared frozen Array and Hash (`zr_rest_of`, `zr_kw_rest_of_mut`). A def
 # that reads either, or whose locals something else can read, gathers new
 # ones (`Hir::Escape.spread_only?`, `Params#shared_rest?`).
 class RestParamTest < Minitest::Test
@@ -20,14 +20,14 @@ class RestParamTest < Minitest::Test
     def keyword_default(*a, x: a.size, **k) = g(*a, **k)
   RUBY
 
-  BOTH = %w[zr_kw_rest_of zr_rest_of].freeze
+  BOTH = %w[zr_kw_rest_of_mut zr_rest_of].freeze
 
   # The shared rests of each def. A keyword's default reads `a`, but the
   # def only spreads `k`.
   SHARED = {
     "forward" => BOTH, "bare_super" => BOTH, "literals" => BOTH,
     "kept" => [], "changed" => [], "captured" => [], "bound" => [],
-    "keyword_default" => %w[zr_kw_rest_of]
+    "keyword_default" => %w[zr_kw_rest_of_mut]
   }.freeze
 
   def test_a_def_that_only_spreads_its_rests_shares_the_empty_ones
@@ -40,7 +40,7 @@ class RestParamTest < Minitest::Test
   def rest_calls
     Zr::Program.build(PROGRAM, "rest.rb").functions.filter_map do |f|
       name = f.name[/\Azr_toplevel_def_\d+_(\w+)\z/, 1] or next
-      [name, f.callees.map(&:symbol).grep(/\Azr_(kw_)?rest_of\z/).sort]
+      [name, f.callees.map(&:symbol).grep(/\Azr_(?:rest_of|kw_rest_of_mut)\z/).sort]
     end.to_h
   end
 end
