@@ -26,6 +26,14 @@ The first public release.
   any host, static `aarch64-linux-musl` binaries with a musl toolchain,
   and object files. zr links a macOS binary itself, so it needs no C
   compiler and no linker.
+- Linux targets: static `x86_64-linux-musl`, and dynamic
+  `x86_64-linux-gnu` and `aarch64-linux-gnu`, which load on glibc 2.35
+  and later (Ubuntu 22.04, Debian 12). An x86-64 backend emits
+  x86-64-v2 code. A glibc binary links through the host's `cc`,
+  exports the C API to the C extensions that it loads, and sorts as
+  glibc's `qsort_r` does, so equal elements keep ruby's order there.
+  `RUBY_PLATFORM` is `x86_64-linux` or `aarch64-linux`, as ruby gives
+  it. `zr inspect` prints the glibc that a binary needs.
 - zr's own code has no C. prism 1.9.0 parses through a Ruby port of its C; zlib is
   a port of zlib 1.3.1; `Regexp` is a port of Onigmo, CRuby's
   engine; json, psych (with libyaml), openssl, socket, digest, date,
