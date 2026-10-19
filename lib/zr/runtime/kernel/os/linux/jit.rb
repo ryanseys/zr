@@ -18,6 +18,10 @@ module Zr::Kern
   # free; else the kernel selects an address.
   MAP_FIXED_NOREPLACE = 1048576
   JIT_GAP = 1073741824
+  # 256 MiB steps up to 1 GiB past the gap: the farthest mapping starts
+  # 2 GiB above the program.
+  JIT_STEP = 268435456
+  JIT_TRIES = 4
   PAGE_MASK = 0 - 4096
 
   # No reservation is necessary: the mapping cursor keeps the mappings
@@ -48,7 +52,16 @@ module Zr::Kern
     if want == 0
       want = Machine.load64(cursor, 0)
     end
+    # The hint can be taken: glibc's malloc grows its heap up from the
+    # program's end. Then each later hint is one more step up, while the
+    # mapping stays within adrp's and rip's reach of the program.
     at = Libc.mmap(Machine.ptr(want), bytes, Machine.i32(prot), Machine.i32(MAP_ANON_PRIVATE | MAP_FIXED_NOREPLACE), Machine.i32(0 - 1), 0)
+    tries = 0
+    while Machine.word(at) == 0 - 1 && tries < JIT_TRIES
+      want += JIT_STEP
+      tries += 1
+      at = Libc.mmap(Machine.ptr(want), bytes, Machine.i32(prot), Machine.i32(MAP_ANON_PRIVATE | MAP_FIXED_NOREPLACE), Machine.i32(0 - 1), 0)
+    end
     if Machine.word(at) == 0 - 1
       at = Libc.mmap(Machine.ptr(0), bytes, Machine.i32(prot), Machine.i32(MAP_ANON_PRIVATE), Machine.i32(0 - 1), 0)
     end

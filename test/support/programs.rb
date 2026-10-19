@@ -46,7 +46,7 @@ module Zr
         platforms, needs = test.needs.partition { |name| Harness::Runner::PLATFORMS.value?(name) }
         return "runs only on #{platforms.join(", ")}" unless platforms.empty? || platforms.include?(@runner.platform)
 
-        need = needs.find { |name| !Harness::Requirements.met?(name, @runner.platform) }
+        need = needs.find { |name| !Harness::Requirements.met?(name, @runner) }
         "needs #{need}" if need
       end
 

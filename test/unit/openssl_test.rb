@@ -30,7 +30,7 @@ class OpenSSLTest < Minitest::Test
   end
 
   def test_digest_uses_host_library_when_present
-    skip "libssl 3 is not installed" unless Zr::Harness::Requirements.met?("libssl", "macos")
+    skip "libssl 3 is not installed" unless Zr::Harness::Requirements.macos_libssl?
 
     assert_equal "#{`printf zr | shasum -a 256`.split.first}\n", run_program({})
   end
