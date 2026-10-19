@@ -277,12 +277,16 @@ module Zr
           options = BuildOptions.new(target: target, gem_set: gems, gate: gate, trace: trace, switches: switches)
           program = lower(input, options, source: source, assemble: emit.nil?)
           status = Paths.tmpdir("zr-build-") do |work|
-            out = name == "run" ? File.join(work, "program") : File.expand_path(opts[:output])
-            case emit
-            when "obj" then object(program, out)
-            when "wasm" then wasm(program, out, opts[:args])
-            else native(program, out, work, opts[:args], link: link, cache: cache)
+            # @type var write: ^(String) -> Object?
+            write = lambda do |out|
+              case emit
+              when "obj" then object(program, out)
+              when "wasm" then wasm(program, out, opts[:args])
+              else native(program, out, work, opts[:args], link: link, cache: cache)
+              end
             end
+            # `zr build` puts its output in place in one rename (`Paths.publish`).
+            name == "run" ? write.call(File.join(work, "program")) : Paths.publish(File.expand_path(opts[:output]), &write)
           end
           print Gems.table(program.gems) if opts[:print_gems]
           require_relative "../../cache/janitor"
@@ -328,7 +332,11 @@ module Zr
           cache = Zr::Cache::Run.new(input, source: source, switches: switches, target: target, digest: digest,
                                             link: Config.current.link + opts[:link], gems: gems, gate: gate(opts), trace: Options.trace?(opts))
           kept = cache.hit
-          exec(Runner.program_env, [kept, kept], *opts[:args]) if kept
+          begin
+            exec(Runner.program_env, [kept, kept], *opts[:args]) if kept
+          rescue Errno::ENOENT
+            nil # another zr replaced the entry since the hit: build it
+          end
           # The build keeps its binary here, with no second digest.
           @missed = cache
         end

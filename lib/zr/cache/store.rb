@@ -116,14 +116,28 @@ module Zr
       end
 
       # The value of the entry, or nil when there is none or it does not
-      # decode.
+      # decode: a missing file, a short or bad Marshal or JSON, or an old
+      # class. Another error is a defect, and goes on. Under ZR_DEBUG, a
+      # miss that is not a missing file says why.
       #: (Symbol name, String key) -> untyped
       def read(name, key)
         file = path(name, key)
         value = decode(kind(name).codec, file)
         touch(file)
         value
-      rescue StandardError # a missing file, a bad Marshal or JSON, an old class: a miss
+      rescue Errno::ENOENT
+        nil
+      rescue SystemCallError, IOError, TypeError, ArgumentError, EncodingError, RangeError => e
+        miss(file, e)
+      rescue StandardError => e
+        raise unless defined?(::JSON::ParserError) && e.is_a?(::JSON::ParserError)
+
+        miss(file, e)
+      end
+
+      #: (String? file, Exception error) -> nil
+      def miss(file, error)
+        warn "zr: cache: #{file}: #{error.class}: #{error.message.gsub(/\s+/, " ")}; building it again" if Config.debug?
         nil
       end
 
@@ -349,8 +363,11 @@ module Zr
         end
       end
 
-      # Fills a new directory with the block, then renames it to `file`. A
-      # second writer that renames first wins; this one's copy goes.
+      # Fills a new directory with the block, then renames it to `file`. An
+      # older entry there moves aside and goes, so the newer one stays: a
+      # `run` key does not hold the digests of the files that a program
+      # requires, so a rebuild after an edit writes the same key. A second
+      # writer that renames in the same instant keeps its entry.
       #: (String file) { (String) -> void } -> String
       def write_dir(file)
         Paths.mkdir_p(File.dirname(file))
@@ -360,15 +377,36 @@ module Zr
           Dir.mkdir(fresh)
           yield fresh
           SourceGuard.check!
-          Paths.remove(file)
-          File.rename(fresh, file)
+          begin
+            File.rename(fresh, file)
+          rescue Errno::EEXIST, Errno::ENOTEMPTY
+            replace(fresh, file)
+          end
           file
         ensure
           Paths.remove(fresh) if File.exist?(fresh)
         end
       end
 
-      private_class_method :children, :touch, :json, :decode, :encode, :write_dir, :roots_of
+      # Moves the entry at `file` aside, renames `fresh` to it, then removes
+      # the old one. A reader that already runs the old binary keeps it.
+      #: (String fresh, String file) -> void
+      def replace(fresh, file)
+        aside = "#{file}.#{Process.pid}.#{Thread.current.object_id}0"
+        begin
+          File.rename(file, aside)
+        rescue Errno::ENOENT
+          nil
+        end
+        begin
+          File.rename(fresh, file)
+        rescue Errno::EEXIST, Errno::ENOTEMPTY
+          nil # another writer renamed its entry in between
+        end
+        Paths.remove(aside)
+      end
+
+      private_class_method :children, :touch, :json, :decode, :encode, :write_dir, :replace, :miss, :roots_of
     end
   end
 end

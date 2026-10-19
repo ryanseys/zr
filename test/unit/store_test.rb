@@ -57,6 +57,36 @@ class StoreTest < Minitest::Test
     assert_equal [path], Dir[File.join(File.dirname(path), "*")]
   end
 
+  # A rebuild after an edit writes the same `run` key: the newer entry
+  # takes the place of the older one, and nothing stays aside.
+  def test_a_newer_directory_entry_replaces_the_older
+    key = Store.key("run")
+    Store.write(:run, key) { |dir| File.write(File.join(dir, "program"), "old") }
+    path = Store.write(:run, key) { |dir| File.write(File.join(dir, "program"), "new") }
+
+    assert_equal "new", File.read(File.join(path, "program"))
+    assert_equal [path], Dir[File.join(File.dirname(path), "*")]
+  end
+
+  def test_a_broken_entry_says_why_under_zr_debug
+    key = Store.key("broken")
+    Zr::Paths.write_atomic(Store.path(:unit, key), "not marshal")
+
+    stub_method(Zr::Config, :debug?, true) do
+      assert_output(nil, /zr: cache: .*#{key}.*building it again/) { assert_nil Store.read(:unit, key) }
+    end
+  end
+
+  # A defect in a decode is not a miss: it goes on, so it shows.
+  def test_an_unexpected_error_in_a_read_goes_on
+    key = Store.key("defect")
+    Store.write(:unit, key, [1])
+
+    stub_method(Marshal, :load, ->(*) { raise NoMethodError, "undefined method 'x'" }) do
+      assert_raises(NoMethodError) { Store.read(:unit, key) }
+    end
+  end
+
   def test_once_builds_the_file_one_time
     key = Store.key("once")
     calls = 0

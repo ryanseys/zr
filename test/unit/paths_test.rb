@@ -217,4 +217,45 @@ class PathsTest < Minitest::Test
       assert_includes error.message, "belongs to another user (uid 4242)"
     end
   end
+
+  # zr build writes its output beside it, then renames it in place, under
+  # the output's own name.
+  def test_publish_renames_the_draft_into_place
+    Dir.mktmpdir do |dir|
+      out = File.join(dir, "app")
+      File.write(out, "old")
+      Zr::Paths.publish(out) do |draft|
+        assert_equal "app", File.basename(draft)
+        refute_equal dir, File.dirname(draft)
+        File.write(draft, "new")
+      end
+
+      assert_equal "new", File.read(out)
+      assert_equal ["app"], Dir.children(dir)
+    end
+  end
+
+  def test_publish_leaves_the_old_file_when_the_build_stops
+    Dir.mktmpdir do |dir|
+      out = File.join(dir, "app")
+      File.write(out, "old")
+      assert_raises(RuntimeError) do
+        Zr::Paths.publish(out) do |draft|
+          File.write(draft, "half")
+          raise "stopped"
+        end
+      end
+
+      assert_equal "old", File.read(out)
+      assert_equal ["app"], Dir.children(dir)
+      assert_raises(Errno::EISDIR) { Zr::Paths.publish(dir) { nil } }
+    end
+  end
+
+  def test_an_executable_mode_follows_the_umask
+    was = File.umask(0o027)
+    assert_equal 0o750, Zr::Paths.exec_mode
+  ensure
+    File.umask(was)
+  end
 end

@@ -167,6 +167,31 @@ module Zr
       path
     end
 
+    # Writes the file at `out` through a draft beside it: the block writes
+    # the draft, then a rename puts it in place. So a build that stops
+    # leaves the old file as it was, and a binary that runs from `out`
+    # keeps its bytes. The draft has `out`'s own name, in a new directory
+    # of its own, because a Mach-O code signature names the file
+    # (Obj::MachO::Executable#signature) and the bytes must not depend on
+    # the draft.
+    #: [T] (String out) { (String draft) -> T } -> T
+    def self.publish(out)
+      raise Errno::EISDIR, out if File.directory?(out)
+
+      dir = new_tmpdir(".zr-#{File.basename(out)}.", File.dirname(out))
+      draft = File.join(dir, File.basename(out))
+      result = yield draft
+      File.rename(draft, out) if File.exist?(draft)
+      result
+    ensure
+      remove(dir) if dir
+    end
+
+    # The mode of an executable that zr writes: 0755 less the umask, as a
+    # new file gets.
+    #: () -> Integer
+    def self.exec_mode = 0o755 & ~File.umask
+
     # Copies `from` to `to` with its mode and times, as `FileUtils.cp`
     # with `preserve: true` does.
     #: (String from, String to) -> void

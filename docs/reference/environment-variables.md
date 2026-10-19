@@ -94,6 +94,21 @@ them.
 A program also reads the variables that ruby reads, for example
 `HOME`, `TMPDIR`, `PATH` and `RUBY_BOX`, with the same meaning.
 
+### Set by zr for a C extension build
+
+`--native-ext` for another target runs the gem's `extconf.rb` with a
+ruby that loads `lib/zr/ext/target_rbconfig.rb`. zr gives that ruby
+these variables (`lib/zr/ext/builder.rb`). They are not for a person to
+set.
+
+| Variable | Value | What it does |
+|---|---|---|
+| `ZR_TARGET_RBCONFIG` | a file | The `rbconfig.rb` of the target (`vendor/targets/<triple>`), which mkmf loads in place of the host's. |
+| `ZR_TARGET_CC` | a command | The target's C compiler, as `RbConfig::CONFIG["CC"]`. |
+| `ZR_TARGET_CXX` | a command | The target's C++ compiler, as `RbConfig::CONFIG["CXX"]`. |
+| `ZR_TARGET_AR` | a command | The target's archiver, as `RbConfig::CONFIG["AR"]`. |
+| `ZR_TARGET_LIBDIR` | a directory | The target's library directory, so that mkmf's link checks (`have_func`) find the target's libraries. |
+
 ## For the tests
 
 `bin/minitest`, the rake test tasks and the test harness read these.

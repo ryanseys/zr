@@ -46,7 +46,7 @@ module Zr
             yield file, kept
             file.truncate(file.pos)
           end
-          File.chmod(0o755, out)
+          File.chmod(Paths.exec_mode, out)
           written[out] = [stamp(out), text]
         end
 

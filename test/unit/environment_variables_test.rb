@@ -11,11 +11,8 @@ class EnvironmentVariablesTest < Minitest::Test
   # Names that a test gives to its own child or program, not settings.
   # A prefix that code matches to find a group of variables
   # (test/support/result_cache.rb) is not a variable either, nor is a
-  # macro in a C fixture (test/unit/c_scan_test.rb). `Ext::Builder` gives
-  # ZR_TARGET_CC and the others to the ruby that runs an extconf.rb for another
-  # target (lib/zr/ext/target_rbconfig.rb).
-  NOT_SETTINGS = %w[ZR_CAPI ZR_POOL_PID ZR_POOL_PIDS ZR_SCAN_LIB ZR_SCAN_TEST_UNKNOWN
-                    ZR_TARGET_AR ZR_TARGET_CC ZR_TARGET_CXX ZR_TARGET_LIBDIR ZR_TARGET_RBCONFIG].freeze
+  # macro in a C fixture (test/unit/c_scan_test.rb).
+  NOT_SETTINGS = %w[ZR_CAPI ZR_POOL_PID ZR_POOL_PIDS ZR_SCAN_LIB ZR_SCAN_TEST_UNKNOWN].freeze
 
   def read_by_code
     dirs = %w[lib bin tool exe test/support test/unit test/ext test/test_helper.rb test/programs_test.rb Rakefile Steepfile .github]

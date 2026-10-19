@@ -215,7 +215,7 @@ module Zr
           signed = Timing.phase("link: signing", "link: signed") { signature }
           if @base.empty?
             File.open(@out, "wb") { |file| write_after(file, 0, signed) }
-            File.chmod(0o755, @out)
+            File.chmod(Paths.exec_mode, @out)
           else
             # The first segment is the header page and the base's text.
             # The file at `out`, or the skeleton, already contains it.
