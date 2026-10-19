@@ -7,12 +7,12 @@
 #
 # - Gem::Specification lists the gems of the ruby install that runs the
 #   program, as rubygems finds them: its default and bundled gems. Each
-#   gem of the program's Gemfile.lock or `--gem` stands in place of the
-#   install's gem of that name, and a gem of the build that the install
-#   lacks is listed too. A program that no zr ran has no install, and
+#   gem of the program's Gemfile.lock or of the build's gem path stands
+#   in place of the install's gem of that name, and a gem of the build
+#   that the install lacks is listed too. A program that no zr ran has no install, and
 #   lists only its own gems.
-# - The gems of the program's Gemfile.lock and `--gem` are active from
-#   the start, as bundler's setup activates a bundle. Any other gem is
+# - The gems of the program's Gemfile.lock are active from the start, as
+#   bundler's setup activates a bundle. Any other gem is
 #   active from the first require (or autoload) that loads one of its
 #   files, as rubygems' Kernel#require activates it: the kernel asks
 #   `Kernel.activating` before such a file runs, and rubygems' own
@@ -34,8 +34,7 @@
 #
 # The prelude requires this file after rubygems, and Kernel#gem's first
 # call (lib/zr/runtime/core/kernel.rb) does the same.
-# A `--gem` directory with no gemspec has no version (null), and here
-# counts as version 0.
+# A gem with no version (null) counts as version 0.
 rows = Primitive.zr_load_names(9).scan(/\{"name":"([^"]+)","version":(?:"([^"]+)"|null),"source":"([^"]*)"(?:,"dir":"((?:[^"\\]|\\.)*)")?/)
 # The rows of ruby's install (`default` and `bundled`) come first, so a
 # gem that the program carries takes the place of its install row.
@@ -61,8 +60,9 @@ specs = rows.to_h do |name, version, _source, dir|
   [name, spec]
 end
 # The gems of the program's own bundle: not ruby's library (`stdlib`),
-# not zr's ports (`port`) and not the install's list.
-own = specs.slice(*rows.filter_map { |name, _version, source| name unless %w[stdlib port default bundled].include?(source) })
+# not zr's ports (`port`), not the install's list, and not a gem from
+# rubygems' path (`installed`), which activates at its first require.
+own = specs.slice(*rows.filter_map { |name, _version, source| name unless %w[stdlib port default bundled installed].include?(source) })
 
 home = Gem.dir
 path = Gem.path
@@ -181,8 +181,7 @@ Kernel.send(:define_method, :gem) do |dep, *requirements|
   unless spec && dep.matches_spec?(spec)
     message = if unversioned.include?(dep.name)
                 "zr built this program with #{dep.name} from a directory that has no gemspec, so its version " \
-                  "is unknown and does not match #{dep.requirement}. Give --gem #{dep.name}=DIR of a directory " \
-                  "with a gemspec, then build again."
+                  "is unknown and does not match #{dep.requirement}."
               else
                 "can't activate #{dep}, already activated #{spec.full_name}. " \
                   "Make sure all dependencies are added to Gemfile."

@@ -39,35 +39,33 @@ class ManifestTest < Minitest::Test
     assert_equal [], rows("/app/main.rb", "/app/lib/greeter.rb")
   end
 
-  # The source of a `--gem` gem is only `--gem`, without the words of the
-  # flag. Its row names the gem's directory, which the program gives as
-  # the spec's full_gem_path: the directory where the build found it, as
-  # the paths of its files are. So two machines that have the gem at one
-  # path build the same bytes.
-  def test_a_gem_of_the_gem_set_names_its_directory_and_not_its_flag
-    set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "csv", version: "3.3.6", source: "--gem csv=/src/csv", roots: ["/src/csv/lib"], refusal: nil)])
+  # A gem's row names the gem's directory, which the program gives as the
+  # spec's full_gem_path: the directory where the build found it, as the
+  # paths of its files are.
+  def test_a_gem_of_the_gem_set_names_its_directory
+    set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "csv", version: "3.3.6", source: "installed", roots: ["/src/csv/lib"], refusal: nil)])
 
-    assert_equal [["csv", "3.3.6", "--gem", "/src/csv"]], rows("/src/csv/lib/csv.rb", gem_set: set)
-    assert_equal ["csv", "3.3.6", "--gem", nil], Manifest.all(set).find { |row| row.name == "csv" }.deconstruct
-    assert_equal({ "name" => "csv", "version" => "3.3.6", "source" => "--gem", "dir" => "/src/csv" },
-Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
+    assert_equal [["csv", "3.3.6", "installed", "/src/csv"]], rows("/src/csv/lib/csv.rb", gem_set: set)
+    assert_equal ["csv", "3.3.6", "installed", nil], Manifest.all(set).find { |row| row.name == "csv" }.deconstruct
+    assert_equal({ "name" => "csv", "version" => "3.3.6", "source" => "installed", "dir" => "/src/csv" },
+                 Manifest.of(["/src/csv/lib/csv.rb"], set).first.to_h)
   end
 
   def test_a_gem_whose_root_is_not_lib_names_its_root
-    set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "flat", version: "1.0", source: "--gem", roots: ["/src/flat"], refusal: nil)])
+    set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "flat", version: "1.0", source: "installed", roots: ["/src/flat"], refusal: nil)])
 
-    assert_equal [["flat", "1.0", "--gem", "/src/flat"]], rows("/src/flat/flat.rb", gem_set: set)
+    assert_equal [["flat", "1.0", "installed", "/src/flat"]], rows("/src/flat/flat.rb", gem_set: set)
   end
 
   # A program with eval can require any gem of its set at run time, so
   # each has a row, and one that the build refused has none.
   def test_a_program_with_eval_has_a_row_for_each_gem_of_its_set
-    set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "parser", version: "3.3.12.0", source: "--gem", roots: ["/src/parser/lib"], refusal: nil),
-                          Zr::GemSet::Entry.new(name: "native", version: "1.0.0", source: "--gem", roots: ["/src/native/lib"],
+    set = Zr::GemSet.new([Zr::GemSet::Entry.new(name: "parser", version: "3.3.12.0", source: "installed", roots: ["/src/parser/lib"], refusal: nil),
+                          Zr::GemSet::Entry.new(name: "native", version: "1.0.0", source: "installed", roots: ["/src/native/lib"],
                                                 refusal: "native has a C extension")])
 
     assert_equal [], Manifest.of([], set).map(&:deconstruct)
-    assert_equal [["parser", "3.3.12.0", "--gem", "/src/parser"]], Manifest.of([], set, evals: true).map(&:deconstruct)
+    assert_equal [["parser", "3.3.12.0", "installed", "/src/parser"]], Manifest.of([], set, evals: true).map(&:deconstruct)
   end
 
   # A program with eval carries its libraries in eval support, not in its

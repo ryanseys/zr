@@ -15,9 +15,10 @@ module Zr
   #
   # A row names the gem, its version and its source: `stdlib` (ruby's
   # own library in zr, a default or bundled gem), `port` (a gem with a C
-  # part that zr ports, lib/zr/library/ports.rb), `Gemfile.lock` or `--gem`
-  # (lib/zr/gem_set.rb). A file of ruby itself that no gem ships
-  # (`pathname.rb`) is the row `ruby`. The program's own files have no row.
+  # part that zr ports, lib/zr/library/ports.rb), `Gemfile.lock` or
+  # `installed` (a gem from rubygems' path, lib/zr/gem_set.rb). A file
+  # of ruby itself that no gem ships (`pathname.rb`) is the row `ruby`.
+  # The program's own files have no row.
   #
   # A gem of the GemSet also names its directory (`dir`), which the
   # program's Gem::Specification gives as `full_gem_path`, as an
@@ -52,7 +53,7 @@ module Zr
       Library::Stdlib::DEFAULT.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
       Library::Stdlib::BUNDLED.each { |name, version| rows[name] = Row.new(name, version, "stdlib") }
       Library::Ports::ALL.each { |name, port| rows[name] = Row.new(name, port.version, "port") }
-      gem_set&.gems&.each { |gem| rows[gem.name] = Row.new(gem.name, gem.version, source_of(gem)) }
+      gem_set&.gems&.each { |gem| rows[gem.name] = Row.new(gem.name, gem.version, gem.source) }
       rows.values.sort_by(&:name)
     end
 
@@ -89,24 +90,25 @@ module Zr
     # the rows of the gems it carries, it names the default (`default`)
     # and bundled (`bundled`) gems of ruby's install, which rubygems lists
     # whether or not a program carries them, and the gem of each of
-    # `files` (the build's files) that is a gem of ruby's library or a
-    # port, by the path that the program sees (`owners`), and the gems
-    # whose C zr ports (`ports`).
-    #: (Array[Row] rows, Target target, ?Array[String] files) -> String
-    def bytes(rows, target, files = [])
+    # `files` (the build's files) that is a gem of ruby's library, a port
+    # or a gem of `gem_set`, by the path that the program sees (`owners`),
+    # and the gems whose C zr ports (`ports`).
+    #: (Array[Row] rows, Target target, ?Array[String] files, ?GemSet? gem_set) -> String
+    def bytes(rows, target, files = [], gem_set = nil)
       install = Library::Stdlib::DEFAULT.map { |name, version| Row.new(name, version, "default").to_h } +
                 Library::Stdlib::BUNDLED.merge(Library::Stdlib::OTHER_BUNDLED).map { |name, version| Row.new(name, version, "bundled").to_h }
       manifest = { "zr" => VERSION, "ruby" => RUBY, "target" => target.triple, "install" => install, "gems" => rows.map(&:to_h),
-                   "owners" => owners(files), "ports" => Library::Ports::ALL.keys.sort }
+                   "owners" => owners(files, gem_set), "ports" => Library::Ports::ALL.keys.sort }
       "#{MAGIC}#{JSON.generate(manifest)}\n".b
     end
 
-    # The files of each gem of ruby's library and of each port in `files`,
-    # by the gem's name. ruby's files that no gem has (`ruby`) and
-    # rubygems' own are no gem's.
-    #: (Array[String] files) -> Array[Hash[String, untyped]]
-    def owners(files)
-      by_gem = files.group_by { |file| row_for(File.expand_path(file), nil)&.name }
+    # The files of each gem of ruby's library, of each port and of each gem
+    # of `gem_set` in `files`, by the gem's name, so that a require of one
+    # activates its gem, as rubygems' require does. ruby's files that no
+    # gem has (`ruby`) and rubygems' own are no gem's.
+    #: (Array[String] files, ?GemSet? gem_set) -> Array[Hash[String, untyped]]
+    def owners(files, gem_set = nil)
+      by_gem = files.group_by { |file| row_for(File.expand_path(file), gem_set)&.name }
       by_gem.filter_map do |name, paths|
         { "name" => name, "files" => paths.map { |path| Paths.shown(path) }.uniq.sort } unless name.nil? || %w[ruby rubygems].include?(name)
       end.sort_by { |owner| owner["name"] }
@@ -137,18 +139,13 @@ module Zr
       nil
     end
 
-    # A GemSet gem's source, without the path of a `--gem` directory, so
-    # that the same build on two machines carries the same bytes.
-    #: (GemSet::Entry gem) -> String
-    def source_of(gem) = gem.source.start_with?("--gem") ? "--gem" : gem.source
-
     # The row of a GemSet gem: its directory is the parent of its `lib`
     # root, or its root.
     #: (GemSet::Entry gem) -> Row
     def gem_row(gem)
       root = gem.roots.first
       dir = root && (File.basename(root) == "lib" ? File.dirname(root) : root)
-      Row.new(gem.name, gem.version, source_of(gem), dir)
+      Row.new(gem.name, gem.version, gem.source, dir)
     end
 
     #: (String file, GemSet? gem_set) -> Row?
