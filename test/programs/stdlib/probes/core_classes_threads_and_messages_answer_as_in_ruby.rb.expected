@@ -1,0 +1,43 @@
+marshal: true
+marshal bytes: 1417
+marshal err: TypeError: incompatible marshal file format (can't be read)
+	format version 4.8 required; 4.9 given
+marshal proc: TypeError: no _dump_data is defined for class Proc
+enumerator: [1, 2, 3, 3, StopIteration, 3]
+enum new: [1, 2, [3, 4]]
+enum with_index: ["1a", "2b", [["a", 0], ["b", 1]]]
+enum produce: [1, 3, 9, 27]
+enum chain: [1, 2, 3, 4]
+enum product: [[1, 3], [2, 3]]
+fiber: [10, 11, false]
+fiber err: FiberError: attempt to resume a terminated fiber
+thread: [0, 1, 4]
+thread value: [1, nil]
+thread exc: RuntimeError: boom
+mutex: 400
+cv: :woke
+sized queue: [1, 1, ThreadError, 1]
+process: [7, false, true]
+spawn: "sp\n"
+signal: [:got]
+at_exit order: :skip
+chilled: "litx"
+frozen sym: true
+name error: "undefined local variable or method 'undefined_thing' for main"
+no method msg: "undefined method 'upcase' for an instance of Integer"
+arg error: "wrong number of arguments (given 2, expected 0..1)"
+arg error2: "wrong number of arguments (given 0, expected 1)"
+kw error: "missing keyword: :a"
+type error: [TypeError, "String can't be coerced into Integer"]
+zero div: ["divided by 0", Infinity, 2, [-4, 1], 3.5, (1/2), 1, 1.0]
+range: [[1, 4, 7, 10], [1.0, 1.5, 2.0], [["a", "b"], ["c", "d"], ["e"]], [1, 2], true, 9, [1, 2]]
+comparable clamp: [3, 3, 2]
+integer: [[4, 6], 12, 2, "3w5e11264sgsg", 5, 35, 3, -3, 12.3]
+string misc: [["a", "b", "c"], ["a", "b", "", "c"], ["a", "b", "", "c"], ["a", "b"], ["a", "b", "c"], 3, 120, "", "ababab", true]
+string bytes: [6, "é", 3, 104, 6, true]
+symbol: [-1, NoMethodError, ["a", "b"], ":\"foo bar\"", 1, ":\"9\""]
+object_id ints: [3, 4, 20]
+freeze: [true, FrozenError, false, true, false]
+hash default: [{3 => 6}, 2, 5, true]
+to_s inspect: ["nil", "1.0", "1.0e-10", "-0.0", "\"a\\tb\\e\"", "\"é\"", "\"\\xFF\"", "[nil, [true]]", "{1 => \"a\", b: :c}"]
+gc api: [true, true, true]

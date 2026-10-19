@@ -1,0 +1,22 @@
+mkdir_p: ["a", "a/b", "a/b/c", "a/b/c/f.txt"]
+cp_r: ["z/b", "z/b/c", "z/b/c/f.txt"]
+mv: [true, ["b", "g.txt"]]
+ln_s: [true, "a/b", true]
+find: ["a", "a/b", "a/b/c", "a/b/c/f.txt"]
+pathname: ["a/b/c/f.txt", "f.txt", ".txt", "a/b/../b/c", ["a", "b", "..", "b", "c", "f.txt"], "/x/z", "../b"]
+pathname io: ["hi\nthere\n", 2, 9, true, Errno::ENOTDIR]
+file ops: ["b", ".gz", "a/b/c", "/y/x", ["/a", "b"], true]
+file stat: [9, true, false, 3, false]
+io each: ["hi\n", 1, "there\n", true, 9]
+io modes: ["bc", 3, "bc"]
+io append: ["abcd", ["hi", "there"]]
+tempfile: [".rb", 1, true]
+tempfile create: 2
+stringio: ["a\n", ["b\n", "c"], true, "a\nb\ncd", "d", ["x", "y", "z"]]
+stringio w: "0071\n2\nef3"
+open3: ["out\n", "err\n", 3]
+open3 pipe: "a\nb\n"
+popen: "x y\nq"
+system: [true, false, 4, "hi\n"]
+dir: [true, [".", "..", "b"], 1, ["a", "z"]]
+rm_rf: []

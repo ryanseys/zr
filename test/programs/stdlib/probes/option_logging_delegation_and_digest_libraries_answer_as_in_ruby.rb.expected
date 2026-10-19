@@ -1,0 +1,32 @@
+optparse: [{verbose: true, n: 3, list: ["x", "y"]}, ["rest"]]
+optparse err: OptionParser::InvalidArgument: invalid argument: -n x
+optparse help: "Usage: x\n    -a, --all                        Show all\n"
+optparse missing: OptionParser::MissingArgument: missing argument: -n
+logger: NameError: uninitialized constant StringIO
+forwardable: [2, 1, 2]
+delegate: [2, [1, 2], false, true, Class]
+singleton: [true, NoMethodError]
+timeout: Timeout::Error: execution expired
+timeout ok: :ok
+monitor: true
+benchmark: Benchmark::Tms
+weakref: [true, 1]
+English: ["a", "b", String]
+tsort: [3, 2, 1, 4]
+ipaddr: [true, true, 167772161, "192.168.1.0", "4.3.2.1.in-addr.arpa"]
+digest: ["0cc175b9c0f1b6a831c399e269772661", "e3b0c44298fc1c14", "EfatjsUqKYSrqv18O1FlA3hcIHI=", "2d408a07"]
+zlib: [12, 100, 891568578, 38600999, "q"]
+bigdecimal: [0.33e1, "0.33333e0", 0.1, BigDecimal, "0.01", "0.1234e3"]
+comparable: [true, 3, 2]
+exceptions: [ArgumentError, "invalid value for Integer(): \"x\"", "invalid value for Integer(): \"x\" (ArgumentError)\n"]
+exc detail: [:foo, nil, "undefined method 'foo' for nil"]
+frozen: [FrozenError, "can't modify frozen String: \"a\"", "a"]
+keyerror: ["key not found: :b", :b, {a: 1}]
+catch: 3
+method: [1, Integer, 3, 4, [10, 20]]
+proc: [-3, [[:opt, :a], [:opt], [:rest, :d], [:key, :e], [:block, :f]], [1, 2, 3, [4, 5], 1], Proc, true]
+refine: 10
+object: [[:hi], true, false, false, true]
+pattern: ["x", 3]
+pattern find: [:b, [2]]
+pattern err: NoMatchingPatternError: 5: String === 5 does not return true

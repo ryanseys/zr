@@ -1,0 +1,37 @@
+erb: "3y"
+erb h: "&lt;a href=&#39;x&#39;&gt;&amp;&lt;/a&gt;"
+erb url: "a%20b%26c%2F%C3%BC"
+cgi esc: "&lt;&quot;&#39;&amp;&gt;"
+cgi unesc: "<'A&\""
+cgi escape: "a+b%2Bc%2F%C3%BC"
+uri parse: ["http", "user", "ex.com", 8080, "/p/a", "q=1", "f"]
+uri join: "http://a/b/g"
+uri www: "a=1&b=x+y&b=z"
+uri decode: [["a", "1"], ["b", "x y"], ["b", "z"]]
+uri regexp: 2
+uri gen: "http://h/p?a=1"
+uri mailto: "a@b.c"
+base64: ["/wBhYg==", "Pz8-Pg", "abc"]
+base64 err: ArgumentError: invalid base64
+secure: [8, 0, 5]
+shellwords: [["a", "b c", "d\"e", "f g"], "it\\'s\\ here", "a b\\ c"]
+shell err: ArgumentError: Unmatched quote at 2: ...'
+format: "ab   |003.1|+ff|10|1.234568e+04|      abcd|%|A|101"
+format2: "1-2"
+format3: "0xff 010 0b101  3 1.23e+06 0.0001 1E+20"
+unpack: ["ab", 99, 1, 2]
+pack: [0, 1, 2, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0]
+tr: "hip"
+succ: ["ba", "aaa", "b0", "AAa", "2.0", ""]
+center: ["**ab***", "ab121", "ab"]
+scan: [["1"], ["22"], ["333"]]
+sub: "Smith, Johna45b"
+encode: [104, 233, 108, 108, 111, 120, 130, 160]
+unicode: ["STRASSE", "ǆ", "FF", [105, 204, 135], 4]
+casecmp: [true, -1, true]
+each_grapheme: 2
+string fmt: "1234567.89 1.0e+100 0.30000000000000004 1.23e-05"
+int fmt: ["11111111", "-ff", [0, 1], 4, 9, 4]
+float round: [3, 4, 2.68, 1.2, 10, 1.235, "-0.0"]
+rational: [(5/6), (22/7), (3/2), 4]
+complex: [(-5+10i), 5, [5.0, 0.927]]
