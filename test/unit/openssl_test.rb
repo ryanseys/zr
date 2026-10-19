@@ -37,26 +37,19 @@ class OpenSSLTest < Minitest::Test
 
   private
 
-  # Runs the program and returns its stdout. The binary is built once per process.
+  # Runs the program with `zr run` and returns its stdout. The program is
+  # at a fixed path, so the run cache keeps its binary for every worker
+  # and every later run; each test built it again with `zr build`, 18 s.
   def run_program(env)
-    answer = Checks.run([binary], env: env)
+    answer = Checks.run([RbConfig.ruby, "--disable-gems", File.join(ROOT, "exe/zr"), "run", program], env: env)
     assert_nil Checks.killed(answer), "the program was killed"
     answer.stdout
   end
 
-  def binary
-    self.class.instance_variable_get(:@binary) || self.class.instance_variable_set(:@binary, build)
-  end
-
-  def build
-    dir = Dir.mktmpdir("zr-openssl-")
-    Minitest.after_run { FileUtils.rm_rf(dir) }
-    rb = File.join(dir, "require_openssl.rb")
-    File.write(rb, PROGRAM)
-    bin = File.join(dir, "require_openssl")
-    out = IO.popen([RbConfig.ruby, "--disable-gems", File.join(ROOT, "exe/zr"), "build", rb, "-o", bin],
-                   err: %i[child out], &:read)
-    assert_predicate $?, :success?, "the build failed: #{out}"
-    bin
+  def program
+    path = File.join(ROOT, "tmp", "test-openssl", "require_openssl.rb")
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, PROGRAM) unless File.exist?(path) && File.read(path) == PROGRAM
+    path
   end
 end
