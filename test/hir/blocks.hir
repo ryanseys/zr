@@ -1,58 +1,86 @@
 (seq
-  (assign x
-    (int 1))
-  (send each
-    (array
-      (int 10)
-      (int 20))
-    (block (a) locals (a y)
-      (seq
-        (assign y
-          (local a))
-        (assign x ^1
-          (send +
-            (local x ^1)
-            (int 1)))
-        (send each
-          (array
-            (int 2))
-          (block (d) locals (d)
-            (seq
-              (assign y ^1
-                (send +
-                  (local d)
-                  (local x ^2)))
-              (send self p
-                (array
-                  (local a ^1)
-                  (local y ^1)))))))))
-  (send self p
-    (local x))
-  (def m () locals ()
-    (seq
-      (yield
-        (int 1)
-        (int 2))
-      (if
-        (send self block_given?)
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (assign x
+      (int 1))
+    (send each
+      (array
+        (int 10)
+        (int 20))
+      (block (a) locals (a y)
         (seq
-          (return
-            (int 3)))
-        (none))
-      (int 4)))
-  (send self p
-    (send self m
-      (block (k j) locals (k j)
-        (seq
-          (send self p
+          (assign y
+            (local a))
+          (assign x ^1
+            (send +
+              (local x ^1)
+              (int 1)))
+          (send each
             (array
-              (local k)
-              (local j)))
-          (next
-            (local k))))))
-  (def with_break () locals (r)
-    (seq
-      (assign r
+              (int 2))
+            (block (d) locals (d)
+              (seq
+                (assign y ^1
+                  (send +
+                    (local d)
+                    (local x ^2)))
+                (send self p
+                  (array
+                    (local a ^1)
+                    (local y ^1)))))))))
+    (send self p
+      (local x))
+    (def m () locals ()
+      (seq
+        (yield
+          (int 1)
+          (int 2))
+        (if
+          (send self block_given?)
+          (seq
+            (return
+              (int 3)))
+          (none))
+        (int 4)))
+    (send self p
+      (send self m
+        (block (k j) locals (k j)
+          (seq
+            (send self p
+              (array
+                (local k)
+                (local j)))
+            (next
+              (local k))))))
+    (def with_break () locals (r)
+      (seq
+        (assign r
+          (send each
+            (array
+              (int 1)
+              (int 2)
+              (int 3))
+            (block (v) locals (v)
+              (seq
+                (if
+                  (send ==
+                    (local v)
+                    (int 2))
+                  (seq
+                    (break
+                      (send *
+                        (local v)
+                        (int 10))))
+                  (none))))))
+        (send self p
+          (local r))
         (send each
           (array
             (int 1)
@@ -65,213 +93,194 @@
                   (local v)
                   (int 2))
                 (seq
-                  (break
-                    (send *
-                      (local v)
-                      (int 10))))
-                (none))))))
-      (send self p
-        (local r))
-      (send each
+                  (return
+                    (local v)))
+                (none)))))
+        (sym :never)))
+    (send self p
+      (vcall self with_break))
+    (send times
+      (int 3)
+      (block (i) locals (i)
+        (seq
+          (send self puts
+            (local i)))))
+    (send self p
+      (send map
         (array
           (int 1)
           (int 2)
           (int 3))
         (block (v) locals (v)
           (seq
-            (if
-              (send ==
+            (send *
+              (local v)
+              (local v)))))
+      (send select
+        (array
+          (int 1)
+          (int 2)
+          (int 3)
+          (int 4))
+        (block (v) locals (v)
+          (seq
+            (send ==
+              (send %
                 (local v)
                 (int 2))
-              (seq
-                (return
-                  (local v)))
-              (none)))))
-      (sym :never)))
-  (send self p
-    (vcall self with_break))
-  (send times
-    (int 3)
-    (block (i) locals (i)
-      (seq
-        (send self puts
-          (local i)))))
-  (send self p
-    (send map
-      (array
-        (int 1)
-        (int 2)
-        (int 3))
-      (block (v) locals (v)
-        (seq
-          (send *
-            (local v)
-            (local v)))))
-    (send select
-      (array
-        (int 1)
-        (int 2)
-        (int 3)
-        (int 4))
-      (block (v) locals (v)
-        (seq
-          (send ==
-            (send %
-              (local v)
-              (int 2))
-            (int 0)))))
-    (send reject
-      (array
-        (int 1)
-        (int 2)
-        (int 3))
-      (block (v) locals (v)
-        (seq
-          (send >
-            (local v)
-            (int 1))))))
-  (send each
-    (array
-      (array
-        (int 1)
-        (int 2))
-      (array
-        (int 3)
-        (int 4)))
-    (block (a b) locals (a b)
-      (seq
-        (send self p
-          (send +
-            (local a)
-            (local b))))))
-  (send each_with_index
-    (array
-      (array
-        (int 1)
-        (int 2)))
-    (block (a i) locals (a i)
-      (seq
-        (send self p
-          (local i)))))
-  (assign n
-    (int 0))
-  (send self loop
-    (block () locals ()
-      (seq
-        (assign n ^1
-          (send +
-            (local n ^1)
-            (int 1)))
-        (if
-          (send >
-            (local n ^1)
-            (int 4))
+              (int 0)))))
+      (send reject
+        (array
+          (int 1)
+          (int 2)
+          (int 3))
+        (block (v) locals (v)
           (seq
-            (break
-              (const nil)))
-          (none)))))
-  (send self p
-    (local n))
-  (send upto
-    (int 1)
-    (int 3)
-    (block (i) locals (i print_it)
-      (seq
-        (assign print_it
-          (local i))
-        (send self p
-          (local print_it)))))
-  (send self p
+            (send >
+              (local v)
+              (int 1))))))
     (send each
       (array
-        (int 1)
-        (int 2))
-      (block (v) locals (v)
-        (const nil))))
-  (def deep () locals ()
-    (seq
+        (array
+          (int 1)
+          (int 2))
+        (array
+          (int 3)
+          (int 4)))
+      (block (a b) locals (a b)
+        (seq
+          (send self p
+            (send +
+              (local a)
+              (local b))))))
+    (send each_with_index
+      (array
+        (array
+          (int 1)
+          (int 2)))
+      (block (a i) locals (a i)
+        (seq
+          (send self p
+            (local i)))))
+    (assign n
+      (int 0))
+    (send self loop
+      (block () locals ()
+        (seq
+          (assign n ^1
+            (send +
+              (local n ^1)
+              (int 1)))
+          (if
+            (send >
+              (local n ^1)
+              (int 4))
+            (seq
+              (break
+                (const nil)))
+            (none)))))
+    (send self p
+      (local n))
+    (send upto
+      (int 1)
+      (int 3)
+      (block (i) locals (i print_it)
+        (seq
+          (assign print_it
+            (local i))
+          (send self p
+            (local print_it)))))
+    (send self p
       (send each
         (array
-          (int 1))
-        (block () locals ()
-          (seq
-            (send each
-              (array
-                (int 2))
-              (block () locals ()
-                (seq
-                  (yield
-                    (int 5))))))))))
-  (send self deep
-    (block (v) locals (v)
+          (int 1)
+          (int 2))
+        (block (v) locals (v)
+          (const nil))))
+    (def deep () locals ()
       (seq
-        (send self p
-          (local v)))))
-  (assign pr
-    (send each
-      (array
-        (int 1))
+        (send each
+          (array
+            (int 1))
+          (block () locals ()
+            (seq
+              (send each
+                (array
+                  (int 2))
+                (block () locals ()
+                  (seq
+                    (yield
+                      (int 5))))))))))
+    (send self deep
       (block (v) locals (v)
-        (const nil))))
-  (def esc () locals ()
-    (seq
+        (seq
+          (send self p
+            (local v)))))
+    (assign pr
       (send each
         (array
           (int 1))
         (block (v) locals (v)
-          (seq
-            (return
-              (int 9)))))))
-  (send self p
-    (vcall self esc))
-  (send each
-    (array
-      (int 1)
-      (int 2))
-    (block (v) locals (v)
+          (const nil))))
+    (def esc () locals ()
       (seq
+        (send each
+          (array
+            (int 1))
+          (block (v) locals (v)
+            (seq
+              (return
+                (int 9)))))))
+    (send self p
+      (vcall self esc))
+    (send each
+      (array
+        (int 1)
+        (int 2))
+      (block (v) locals (v)
+        (seq
+          (if
+            (send ==
+              (local v)
+              (int 1))
+            (seq
+              (next
+                (const nil)))
+            (none))
+          (send self p
+            (local v)))))
+    (assign i
+      (int 0))
+    (while
+      (send <
+        (local i)
+        (int 5))
+      (seq
+        (assign i
+          (send +
+            (local i)
+            (int 1)))
         (if
           (send ==
-            (local v)
-            (int 1))
+            (local i)
+            (int 2))
           (seq
             (next
               (const nil)))
           (none))
+        (if
+          (send ==
+            (local i)
+            (int 4))
+          (seq
+            (break
+              (const nil)))
+          (none))
         (send self p
-          (local v)))))
-  (assign i
-    (int 0))
-  (while
-    (send <
-      (local i)
-      (int 5))
-    (seq
-      (assign i
-        (send +
-          (local i)
-          (int 1)))
-      (if
-        (send ==
-          (local i)
-          (int 2))
+          (local i))))
+    (send each
+      (array
+        (int 1))
+      (block (v) locals (v)
         (seq
-          (next
-            (const nil)))
-        (none))
-      (if
-        (send ==
-          (local i)
-          (int 4))
-        (seq
-          (break
-            (const nil)))
-        (none))
-      (send self p
-        (local i))))
-  (send each
-    (array
-      (int 1))
-    (block (v) locals (v)
-      (seq
-        (vcall self raise_it)))))
+          (vcall self raise_it))))))

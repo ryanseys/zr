@@ -1,217 +1,226 @@
 (seq
-  (assign x
-    (int 1))
-  (assign y
-    (int 2))
-  (assign h
-    (hash
-      (sym :x)
-      (local x)
-      (sym :y)
-      (local y)))
-  (send self p
-    (local h))
-  (send self p
-    (send map
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (assign x
+      (int 1))
+    (assign y
+      (int 2))
+    (assign h
+      (hash
+        (sym :x)
+        (local x)
+        (sym :y)
+        (local y)))
+    (send self p
+      (local h))
+    (send self p
+      (send map
+        (array
+          (int 1)
+          (int 2)
+          (int 3))
+        (block (%it) locals (%it)
+          (seq
+            (send *
+              (local %it)
+              (int 2)))))
+      (send map
+        (array
+          (int 1)
+          (int 2))
+        (block (_1) locals (_1)
+          (seq
+            (send +
+              (local _1)
+              (int 1)))))
+      (send map
+        (array
+          (array
+            (int 1)
+            (int 2)))
+        (block (_1 _2) locals (_1 _2)
+          (seq
+            (send +
+              (local _1)
+              (local _2))))))
+    (masgn
+      (targets
+        (assign a)
+        (gvar-set $g1
+          (none))
+        (ivar-set @i))
       (array
         (int 1)
         (int 2)
-        (int 3))
-      (block (%it) locals (%it)
+        (int 3)))
+    (send self p
+      (local a)
+      (gvar $g1)
+      (ivar @i))
+    (class U
+      (seq
+        (def gone () locals ()
+          (seq
+            (int 1)))
+        (def stays () locals ()
+          (seq
+            (int 2)))
+        (undef gone)
+        (begin
+          (send self undef_method
+            (sym :stays))
+          (rescue
+            (send self p
+              (send class
+                (gvar $!))))
+          (none)
+          (none))))
+    (begin
+      (seq
+        (send gone
+          (send new
+            (const U))))
+      (rescue
+        (const NoMethodError)
+        (into
+          (assign e))
         (seq
-          (send *
-            (local %it)
-            (int 2)))))
-    (send map
+          (send self puts
+            (send message
+              (local e)))))
+      (none)
+      (none))
+    (assign errs
       (array
-        (int 1)
-        (int 2))
-      (block (_1) locals (_1)
+        (const ArgumentError)
+        (const TypeError)))
+    (begin
+      (seq
+        (send self raise
+          (const TypeError)
+          (str "t")))
+      (rescue
+        (splat
+          (local errs))
+        (into
+          (assign e))
         (seq
-          (send +
-            (local _1)
-            (int 1)))))
-    (send map
-      (array
-        (array
-          (int 1)
-          (int 2)))
-      (block (_1 _2) locals (_1 _2)
-        (seq
-          (send +
-            (local _1)
-            (local _2))))))
-  (masgn
-    (targets
-      (assign a)
-      (gvar-set $g1
-        (none))
-      (ivar-set @i))
-    (array
-      (int 1)
-      (int 2)
-      (int 3)))
-  (send self p
-    (local a)
-    (gvar $g1)
-    (ivar @i))
-  (class U
-    (seq
-      (def gone () locals ()
-        (seq
-          (int 1)))
-      (def stays () locals ()
-        (seq
-          (int 2)))
-      (undef gone)
-      (begin
-        (send self undef_method
-          (sym :stays))
-        (rescue
           (send self p
             (send class
-              (gvar $!))))
-        (none)
-        (none))))
-  (begin
-    (seq
-      (send gone
-        (send new
-          (const U))))
-    (rescue
-      (const NoMethodError)
-      (into
-        (assign e))
-      (seq
-        (send self puts
-          (send message
-            (local e)))))
-    (none)
-    (none))
-  (assign errs
-    (array
-      (const ArgumentError)
-      (const TypeError)))
-  (begin
-    (seq
-      (send self raise
-        (const TypeError)
-        (str "t")))
-    (rescue
-      (splat
-        (local errs))
-      (into
-        (assign e))
-      (seq
-        (send self p
-          (send class
-            (local e)))))
-    (none)
-    (none))
-  (assign smalls
-    (array
-      (int 1)
+              (local e)))))
+      (none)
+      (none))
+    (assign smalls
+      (array
+        (int 1)
+        (int 2)
+        (int 3)))
+    (case
       (int 2)
-      (int 3)))
-  (case
-    (int 2)
-    (when
-      (splat
-        (local smalls))
+      (when
+        (splat
+          (local smalls))
+        (seq
+          (send self p
+            (sym :small))))
+      (none))
+    (begin
       (seq
-        (send self p
-          (sym :small))))
-    (none))
-  (begin
-    (seq
-      (send self raise
-        (str "iv")))
-    (rescue
-      (into
-        (ivar-set @err))
-      (const nil))
-    (none)
-    (none))
-  (send self p
-    (ivar @err))
-  (def kw_yield () locals ()
-    (seq
-      (yield
+        (send self raise
+          (str "iv")))
+      (rescue
+        (into
+          (ivar-set @err))
+        (const nil))
+      (none)
+      (none))
+    (send self p
+      (ivar @err))
+    (def kw_yield () locals ()
+      (seq
+        (yield
+          (int 1)
+          (hash
+            (sym :k)
+            (int 2)))))
+    (send self kw_yield
+      (block (a k:) locals (a k)
+        (seq
+          (send self p
+            (array
+              (local a)
+              (local k))))))
+    (def anon_rest (**) locals (*)
+      (seq
+        (send self other_rest
+          (splat
+            (local *)))))
+    (def other_rest (*a) locals (a)
+      (seq
+        (local a)))
+    (send self p
+      (send self anon_rest
+        (int 1)
+        (int 2)))
+    (def anon_kw (****) locals (**)
+      (seq
+        (send self other_kw
+          (hash
+            (double-splat
+              (local **))
+            (none)))))
+    (def other_kw (**k) locals (k)
+      (seq
+        (local k)))
+    (send self p
+      (send self anon_kw
+        (hash
+          (sym :a)
+          (int 1))))
+    (def anon_blk (&&) locals (&)
+      (seq
+        (send self other_blk
+          (block-pass
+            (local &)))))
+    (def other_blk () locals ()
+      (seq
+        (yield)))
+    (send self p
+      (send self anon_blk
+        (block () locals ()
+          (seq
+            (sym :blk)))))
+    (def fwd (** **** &&) locals (* ** &)
+      (seq
+        (send self other_all
+          (splat
+            (local *))
+          (hash
+            (double-splat
+              (local **))
+            (none))
+          (block-pass
+            (local &)))))
+    (def other_all (*a **k &b) locals (a k b)
+      (seq
+        (array
+          (local a)
+          (local k)
+          (send safe call
+            (local b)))))
+    (send self p
+      (send self fwd
         (int 1)
         (hash
-          (sym :k)
-          (int 2)))))
-  (send self kw_yield
-    (block (a k:) locals (a k)
-      (seq
-        (send self p
-          (array
-            (local a)
-            (local k))))))
-  (def anon_rest (**) locals (*)
-    (seq
-      (send self other_rest
-        (splat
-          (local *)))))
-  (def other_rest (*a) locals (a)
-    (seq
-      (local a)))
-  (send self p
-    (send self anon_rest
-      (int 1)
-      (int 2)))
-  (def anon_kw (****) locals (**)
-    (seq
-      (send self other_kw
-        (hash
-          (double-splat
-            (local **))
-          (none)))))
-  (def other_kw (**k) locals (k)
-    (seq
-      (local k)))
-  (send self p
-    (send self anon_kw
-      (hash
-        (sym :a)
-        (int 1))))
-  (def anon_blk (&&) locals (&)
-    (seq
-      (send self other_blk
-        (block-pass
-          (local &)))))
-  (def other_blk () locals ()
-    (seq
-      (yield)))
-  (send self p
-    (send self anon_blk
-      (block () locals ()
-        (seq
-          (sym :blk)))))
-  (def fwd (** **** &&) locals (* ** &)
-    (seq
-      (send self other_all
-        (splat
-          (local *))
-        (hash
-          (double-splat
-            (local **))
-          (none))
-        (block-pass
-          (local &)))))
-  (def other_all (*a **k &b) locals (a k b)
-    (seq
-      (array
-        (local a)
-        (local k)
-        (send safe call
-          (local b)))))
-  (send self p
-    (send self fwd
-      (int 1)
-      (hash
-        (sym :z)
-        (int 2))
-      (block () locals ()
-        (seq
-          (int 3))))))
+          (sym :z)
+          (int 2))
+        (block () locals ()
+          (seq
+            (int 3)))))))

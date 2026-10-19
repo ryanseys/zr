@@ -1,267 +1,276 @@
 (seq
-  (assign sq
-    (lambda
-      (block (x) locals (x)
-        (seq
-          (send *
-            (local x)
-            (local x))))))
-  (send self p
-    (send call
-      (local sq)
-      (int 3))
-    (send call
-      (local sq)
-      (int 4))
-    (send []
-      (local sq)
-      (int 5))
-    (send lambda?
-      (local sq))
-    (send lambda?
-      (send self proc
-        (block () locals ()
-          (const nil)))))
-  (assign add
-    (send self lambda
-      (block (a b) locals (a b)
-        (seq
-          (send +
-            (local a)
-            (local b))))))
-  (send self p
-    (send call
-      (local add)
-      (int 1)
-      (int 2)))
-  (begin
-    (seq
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (assign sq
+      (lambda
+        (block (x) locals (x)
+          (seq
+            (send *
+              (local x)
+              (local x))))))
+    (send self p
+      (send call
+        (local sq)
+        (int 3))
+      (send call
+        (local sq)
+        (int 4))
+      (send []
+        (local sq)
+        (int 5))
+      (send lambda?
+        (local sq))
+      (send lambda?
+        (send self proc
+          (block () locals ()
+            (const nil)))))
+    (assign add
+      (send self lambda
+        (block (a b) locals (a b)
+          (seq
+            (send +
+              (local a)
+              (local b))))))
+    (send self p
       (send call
         (local add)
-        (int 1)))
-    (rescue
-      (const ArgumentError)
-      (into
-        (assign e))
-      (seq
-        (send self puts
-          (send message
-            (local e)))
-        (send self puts
-          (send backtrace
-            (local e)))))
-    (none)
-    (none))
-  (assign two
-    (lambda
-      (block (a b) locals (a b)
-        (seq
-          (array
-            (local a)
-            (local b))))))
-  (begin
-    (seq
-      (send call
-        (local two)
-        (array
-          (int 1)
-          (int 2))))
-    (rescue
-      (const ArgumentError)
-      (into
-        (assign e))
-      (seq
-        (send self puts
-          (send message
-            (local e)))))
-    (none)
-    (none))
-  (assign pr
-    (send self proc
-      (block (a b) locals (a b)
-        (seq
-          (array
-            (local a)
-            (local b))))))
-  (send self p
-    (send call
-      (local pr)
-      (array
         (int 1)
         (int 2)))
-    (send call
-      (local pr)
-      (int 1))
-    (send call
-      (local pr)
-      (int 1)
-      (int 2)
-      (int 3)))
-  (def ret_test () locals (l v)
-    (seq
-      (assign l
-        (lambda
-          (block () locals ()
-            (seq
-              (return
-                (sym :from_lambda))))))
-      (assign v
+    (begin
+      (seq
         (send call
-          (local l)))
-      (array
-        (local v)
-        (sym :after))))
-  (send self p
-    (vcall self ret_test))
-  (def ret_proc () locals (pr)
-    (seq
-      (assign pr
+          (local add)
+          (int 1)))
+      (rescue
+        (const ArgumentError)
+        (into
+          (assign e))
+        (seq
+          (send self puts
+            (send message
+              (local e)))
+          (send self puts
+            (send backtrace
+              (local e)))))
+      (none)
+      (none))
+    (assign two
+      (lambda
+        (block (a b) locals (a b)
+          (seq
+            (array
+              (local a)
+              (local b))))))
+    (begin
+      (seq
+        (send call
+          (local two)
+          (array
+            (int 1)
+            (int 2))))
+      (rescue
+        (const ArgumentError)
+        (into
+          (assign e))
+        (seq
+          (send self puts
+            (send message
+              (local e)))))
+      (none)
+      (none))
+    (assign pr
+      (send self proc
+        (block (a b) locals (a b)
+          (seq
+            (array
+              (local a)
+              (local b))))))
+    (send self p
+      (send call
+        (local pr)
+        (array
+          (int 1)
+          (int 2)))
+      (send call
+        (local pr)
+        (int 1))
+      (send call
+        (local pr)
+        (int 1)
+        (int 2)
+        (int 3)))
+    (def ret_test () locals (l v)
+      (seq
+        (assign l
+          (lambda
+            (block () locals ()
+              (seq
+                (return
+                  (sym :from_lambda))))))
+        (assign v
+          (send call
+            (local l)))
+        (array
+          (local v)
+          (sym :after))))
+    (send self p
+      (vcall self ret_test))
+    (def ret_proc () locals (pr)
+      (seq
+        (assign pr
+          (send self proc
+            (block () locals ()
+              (seq
+                (return
+                  (sym :from_proc))))))
+        (send call
+          (local pr))
+        (sym :not_reached)))
+    (send self p
+      (vcall self ret_proc))
+    (def brk () locals (l)
+      (seq
+        (assign l
+          (lambda
+            (block () locals ()
+              (seq
+                (break
+                  (sym :broke))))))
+        (array
+          (send call
+            (local l))
+          (sym :after_break))))
+    (send self p
+      (vcall self brk))
+    (assign nx
+      (lambda
+        (block (x) locals (x)
+          (seq
+            (next
+              (send *
+                (local x)
+                (int 2)))))))
+    (send self p
+      (send call
+        (local nx)
+        (int 4)))
+    (def outer_proc () locals ()
+      (seq
         (send self proc
           (block () locals ()
             (seq
-              (return
-                (sym :from_proc))))))
-      (send call
-        (local pr))
-      (sym :not_reached)))
-  (send self p
-    (vcall self ret_proc))
-  (def brk () locals (l)
-    (seq
-      (assign l
-        (lambda
-          (block () locals ()
-            (seq
               (break
-                (sym :broke))))))
-      (array
+                (sym :b)))))))
+    (begin
+      (seq
         (send call
-          (local l))
-        (sym :after_break))))
-  (send self p
-    (vcall self brk))
-  (assign nx
-    (lambda
-      (block (x) locals (x)
+          (vcall self outer_proc)))
+      (rescue
+        (const LocalJumpError)
+        (into
+          (assign e))
         (seq
-          (next
-            (send *
-              (local x)
-              (int 2)))))))
-  (send self p
-    (send call
-      (local nx)
-      (int 4)))
-  (def outer_proc () locals ()
-    (seq
-      (send self proc
-        (block () locals ()
-          (seq
-            (break
-              (sym :b)))))))
-  (begin
-    (seq
+          (send self puts
+            (send message
+              (local e)))))
+      (none)
+      (none))
+    (begin
+      (seq
+        (send new
+          (const Proc)))
+      (rescue
+        (const ArgumentError)
+        (into
+          (assign e))
+        (seq
+          (send self puts
+            (send message
+              (local e)))))
+      (none)
+      (none))
+    (send self p
       (send call
-        (vcall self outer_proc)))
-    (rescue
-      (const LocalJumpError)
-      (into
-        (assign e))
+        (send new
+          (const Proc)
+          (block (x) locals (x)
+            (seq
+              (local x))))
+        (int 9)))
+    (def yielder (&b) locals (b)
       (seq
-        (send self puts
-          (send message
-            (local e)))))
-    (none)
-    (none))
-  (begin
-    (seq
-      (send new
-        (const Proc)))
-    (rescue
-      (const ArgumentError)
-      (into
-        (assign e))
-      (seq
-        (send self puts
-          (send message
-            (local e)))))
-    (none)
-    (none))
-  (send self p
-    (send call
-      (send new
-        (const Proc)
+        (local b)))
+    (assign b
+      (send self yielder
         (block (x) locals (x)
           (seq
-            (local x))))
-      (int 9)))
-  (def yielder (&b) locals (b)
-    (seq
-      (local b)))
-  (assign b
-    (send self yielder
-      (block (x) locals (x)
-        (seq
-          (send +
-            (local x)
-            (int 1))))))
-  (send self p
-    (send call
-      (local b)
-      (int 1))
-    (send lambda?
-      (local b)))
-  (assign m
-    (lambda
-      (block (x y= *r k:=) locals (x y r k)
-        (int 1)
-        (int 2)
-        (seq
-          (array
-            (local x)
-            (local y)
-            (local r)
-            (local k))))))
-  (send self p
-    (send call
-      (local m)
-      (int 1))
-    (send call
-      (local m)
-      (int 1)
-      (int 2)
-      (int 3)
-      (hash
-        (sym :k)
-        (int 4))))
-  (send self p
-    (send call
-      (seq
-        (lambda
-          (block () locals ()
-            (seq
-              (sym :zero)))))))
-  (send self p
-    (send map
-      (array
-        (int 1)
-        (int 2)
-        (int 3))
-      (block-pass
-        (local sq))))
-  (assign counter
-    (int 0))
-  (assign inc
-    (lambda
-      (block () locals ()
-        (seq
-          (assign counter ^1
             (send +
-              (local counter ^1)
-              (int 1)))))))
-  (send call
-    (local inc))
-  (send call
-    (local inc))
-  (send self p
-    (local counter)))
+              (local x)
+              (int 1))))))
+    (send self p
+      (send call
+        (local b)
+        (int 1))
+      (send lambda?
+        (local b)))
+    (assign m
+      (lambda
+        (block (x y= *r k:=) locals (x y r k)
+          (int 1)
+          (int 2)
+          (seq
+            (array
+              (local x)
+              (local y)
+              (local r)
+              (local k))))))
+    (send self p
+      (send call
+        (local m)
+        (int 1))
+      (send call
+        (local m)
+        (int 1)
+        (int 2)
+        (int 3)
+        (hash
+          (sym :k)
+          (int 4))))
+    (send self p
+      (send call
+        (seq
+          (lambda
+            (block () locals ()
+              (seq
+                (sym :zero)))))))
+    (send self p
+      (send map
+        (array
+          (int 1)
+          (int 2)
+          (int 3))
+        (block-pass
+          (local sq))))
+    (assign counter
+      (int 0))
+    (assign inc
+      (lambda
+        (block () locals ()
+          (seq
+            (assign counter ^1
+              (send +
+                (local counter ^1)
+                (int 1)))))))
+    (send call
+      (local inc))
+    (send call
+      (local inc))
+    (send self p
+      (local counter))))

@@ -1,120 +1,129 @@
 (seq
-  (class Point
-    (seq
-      (send self attr_accessor
-        (sym :x)
-        (sym :y))
-      (const-set ORIGIN
-        (int 0))
-      (def initialize (x y) locals (x y)
-        (seq
-          (ivar-set @x
-            (local x))
-          (ivar-set @y
-            (local y))))
-      (def to_s () locals ()
-        (seq
-          (str "point")))
-      (def sum () locals ()
-        (seq
-          (send +
-            (ivar @x)
-            (ivar @y))))))
-  (module Shapes
-    (seq
-      (class Square
-        (seq
-          (def area (n) locals (n)
-            (seq
-              (send *
-                (local n)
-                (local n))))))
-      (const-set SIDES
-        (int 4))))
-  (assign pt
-    (send new
-      (const Point)
-      (int 1)
-      (int 2)))
-  (send self p
-    (local pt))
-  (send self puts
-    (local pt)
-    (send sum
-      (local pt))
-    (send x
-      (local pt)))
-  (send x=
-    (local pt)
-    (int 10))
-  (send self p
-    (send x
-      (local pt)))
-  (send self p
-    (const Point)
-    (send name
-      (const Point))
-    (send superclass
-      (const Point))
-    (send area
-      (send new
-        (const (scope)::Square
-          (const Shapes)))
-      (int 3))
-    (const (scope)::SIDES
-      (const Shapes)))
-  (send self p
-    (send class
-      (local pt))
-    (send is_a?
-      (local pt)
-      (const Point))
-    (send is_a?
-      (local pt)
-      (const Object))
-    (send is_a?
-      (int 1)
-      (const Point))
-    (send respond_to?
-      (local pt)
-      (sym :sum))
-    (send respond_to?
-      (local pt)
-      (sym :nope)))
-  (send self p
-    (sym :sym)
-    (sym :"with space")
-    (str "str\n\"q\"")
-    (const nil)
-    (const true)
-    (const (scope)::ORIGIN
-      (const Point)))
-  (send self p
-    (send ==
-      (local pt)
-      (local pt))
-    (send !=
-      (local pt)
-      (local pt))
-    (send nil?
-      (local pt))
-    (send nil?
-      (const nil)))
-  (class Point
-    (seq
-      (def double () locals ()
-        (seq
-          (send new
-            (const Point)
-            (send *
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (class Point
+      (seq
+        (send self attr_accessor
+          (sym :x)
+          (sym :y))
+        (const-set ORIGIN
+          (int 0))
+        (def initialize (x y) locals (x y)
+          (seq
+            (ivar-set @x
+              (local x))
+            (ivar-set @y
+              (local y))))
+        (def to_s () locals ()
+          (seq
+            (str "point")))
+        (def sum () locals ()
+          (seq
+            (send +
               (ivar @x)
-              (int 2))
-            (send *
-              (ivar @y)
-              (int 2)))))))
-  (send self p
-    (send sum
-      (send double
-        (local pt))))
-  (send self p
-    (const Nope)))
+              (ivar @y))))))
+    (module Shapes
+      (seq
+        (class Square
+          (seq
+            (def area (n) locals (n)
+              (seq
+                (send *
+                  (local n)
+                  (local n))))))
+        (const-set SIDES
+          (int 4))))
+    (assign pt
+      (send new
+        (const Point)
+        (int 1)
+        (int 2)))
+    (send self p
+      (local pt))
+    (send self puts
+      (local pt)
+      (send sum
+        (local pt))
+      (send x
+        (local pt)))
+    (send x=
+      (local pt)
+      (int 10))
+    (send self p
+      (send x
+        (local pt)))
+    (send self p
+      (const Point)
+      (send name
+        (const Point))
+      (send superclass
+        (const Point))
+      (send area
+        (send new
+          (const (scope)::Square
+            (const Shapes)))
+        (int 3))
+      (const (scope)::SIDES
+        (const Shapes)))
+    (send self p
+      (send class
+        (local pt))
+      (send is_a?
+        (local pt)
+        (const Point))
+      (send is_a?
+        (local pt)
+        (const Object))
+      (send is_a?
+        (int 1)
+        (const Point))
+      (send respond_to?
+        (local pt)
+        (sym :sum))
+      (send respond_to?
+        (local pt)
+        (sym :nope)))
+    (send self p
+      (sym :sym)
+      (sym :"with space")
+      (str "str\n\"q\"")
+      (const nil)
+      (const true)
+      (const (scope)::ORIGIN
+        (const Point)))
+    (send self p
+      (send ==
+        (local pt)
+        (local pt))
+      (send !=
+        (local pt)
+        (local pt))
+      (send nil?
+        (local pt))
+      (send nil?
+        (const nil)))
+    (class Point
+      (seq
+        (def double () locals ()
+          (seq
+            (send new
+              (const Point)
+              (send *
+                (ivar @x)
+                (int 2))
+              (send *
+                (ivar @y)
+                (int 2)))))))
+    (send self p
+      (send sum
+        (send double
+          (local pt))))
+    (send self p
+      (const Nope))))

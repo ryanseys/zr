@@ -1,354 +1,363 @@
 (seq
-  (class Foo
-    (seq
-      (def old () locals ()
-        (seq
-          (sym :old)))
-      (alias new1 old)
-      (send self alias_method
-        (sym :new2)
-        (sym :old))
-      (def raiser () locals ()
-        (seq
-          (send self raise
-            (str "x"))))
-      (alias raiser2 raiser)))
-  (send self p
-    (send new1
-      (send new
-        (const Foo)))
-    (send new2
-      (send new
-        (const Foo))))
-  (begin
-    (seq
-      (send raiser2
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (class Foo
+      (seq
+        (def old () locals ()
+          (seq
+            (sym :old)))
+        (alias new1 old)
+        (send self alias_method
+          (sym :new2)
+          (sym :old))
+        (def raiser () locals ()
+          (seq
+            (send self raise
+              (str "x"))))
+        (alias raiser2 raiser)))
+    (send self p
+      (send new1
+        (send new
+          (const Foo)))
+      (send new2
         (send new
           (const Foo))))
-    (rescue
-      (into
-        (assign e))
+    (begin
       (seq
-        (send self puts
-          (send first
-            (send backtrace
-              (local e))))))
-    (none)
-    (none))
-  (def classify (x) locals (x)
-    (seq
-      (case
-        (local x)
-        (when
-          (int 1)
-          (int 2)
-          (seq
-            (sym :small)))
-        (when
-          (const Integer)
-          (seq
-            (sym :int)))
-        (when
-          (frozen shared "a")
-          (sym :b)
-          (seq
-            (sym :ab)))
-        (when
-          (const String)
-          (seq
-            (sym :str)))
-        (when
-          (const nil)
-          (seq
-            (sym :nil)))
+        (send raiser2
+          (send new
+            (const Foo))))
+      (rescue
+        (into
+          (assign e))
         (seq
-          (sym :other)))))
-  (send self p
-    (send self classify
-      (int 1))
-    (send self classify
-      (int 9))
-    (send self classify
-      (str "a"))
-    (send self classify
-      (sym :b))
-    (send self classify
-      (str "z"))
-    (send self classify
-      (const nil))
-    (send self classify
-      (array)))
-  (assign v
-    (case
+          (send self puts
+            (send first
+              (send backtrace
+                (local e))))))
       (none)
-      (when
-        (const false)
-        (seq
-          (int 1)))
-      (when
-        (send >
-          (int 1)
+      (none))
+    (def classify (x) locals (x)
+      (seq
+        (case
+          (local x)
+          (when
+            (int 1)
+            (int 2)
+            (seq
+              (sym :small)))
+          (when
+            (const Integer)
+            (seq
+              (sym :int)))
+          (when
+            (frozen shared "a")
+            (sym :b)
+            (seq
+              (sym :ab)))
+          (when
+            (const String)
+            (seq
+              (sym :str)))
+          (when
+            (const nil)
+            (seq
+              (sym :nil)))
+          (seq
+            (sym :other)))))
+    (send self p
+      (send self classify
+        (int 1))
+      (send self classify
+        (int 9))
+      (send self classify
+        (str "a"))
+      (send self classify
+        (sym :b))
+      (send self classify
+        (str "z"))
+      (send self classify
+        (const nil))
+      (send self classify
+        (array)))
+    (assign v
+      (case
+        (none)
+        (when
+          (const false)
+          (seq
+            (int 1)))
+        (when
+          (send >
+            (int 1)
+            (int 0))
+          (seq
+            (int 2)))
+        (none)))
+    (send self p
+      (local v))
+    (send self p
+      (case
+        (int 5)
+        (when
+          (int 6)
+          (seq
+            (sym :no)))
+        (none)))
+    (class Counter
+      (seq
+        (cvar-set @@count
           (int 0))
-        (seq
-          (int 2)))
-      (none)))
-  (send self p
-    (local v))
-  (send self p
-    (case
-      (int 5)
-      (when
-        (int 6)
-        (seq
-          (sym :no)))
-      (none)))
-  (class Counter
-    (seq
-      (cvar-set @@count
-        (int 0))
-      (cvar-set @@names
-        (array))
-      (sdef count () locals ()
-        (self)
-        (seq
-          (cvar @@count)))
-      (def initialize (name) locals (name)
-        (seq
-          (cvar-set @@count
-            (send +
-              (cvar @@count)
-              (int 1)))
-          (send <<
-            (cvar @@names)
-            (local name))
-          (if
-            (defined? cvar @@last)
-            (or
-              (cvar @@last)
+        (cvar-set @@names
+          (array))
+        (sdef count () locals ()
+          (self)
+          (seq
+            (cvar @@count)))
+        (def initialize (name) locals (name)
+          (seq
+            (cvar-set @@count
+              (send +
+                (cvar @@count)
+                (int 1)))
+            (send <<
+              (cvar @@names)
+              (local name))
+            (if
+              (defined? cvar @@last)
+              (or
+                (cvar @@last)
+                (cvar-set @@last
+                  (local name)))
               (cvar-set @@last
-                (local name)))
-            (cvar-set @@last
-              (local name)))))
-      (def names () locals ()
-        (seq
-          (cvar @@names)))
-      (def last () locals ()
-        (seq
-          (cvar @@last)))))
-  (send new
-    (const Counter)
-    (sym :a))
-  (send new
-    (const Counter)
-    (sym :b))
-  (send self p
-    (send count
-      (const Counter))
-    (send names
-      (send new
-        (const Counter)
-        (sym :c)))
-    (send last
-      (send new
-        (const Counter)
-        (sym :d))))
-  (class Sub
-    (const Counter)
-    (seq
-      (def sub_count () locals ()
-        (seq
-          (cvar @@count)))))
-  (send self p
-    (send sub_count
-      (send new
-        (const Sub)
-        (sym :e))))
-  (class NoCvar
-    (seq
-      (def x () locals ()
-        (seq
-          (cvar @@nope)))))
-  (begin
-    (seq
-      (send x
-        (send new
-          (const NoCvar))))
-    (rescue
-      (const NameError)
-      (into
-        (assign e))
-      (seq
-        (send self puts
-          (send message
-            (local e)))))
-    (none)
-    (none))
-  (gvar-set $g
-    (int 1))
-  (gvar-set $g
-    (send +
-      (gvar $g)
-      (int 2)))
-  (send self p
-    (gvar $g)
-    (gvar $unset))
-  (def glob () locals ()
-    (seq
-      (send *
-        (gvar $g)
-        (int 10))))
-  (send self p
-    (vcall self glob))
-  (assign h
-    (hash
-      (sym :a)
-      (int 1)))
-  (index-op-assign +
-    (local h)
-    (sym :a)
-    (int 5))
-  (index-op-assign or
-    (local h)
-    (sym :b)
-    (int 7))
-  (index-op-assign and
-    (local h)
-    (sym :a)
-    (int 0))
-  (send self p
-    (local h))
-  (assign arr
-    (array
-      (int 1)
-      (int 2)))
-  (index-op-assign *
-    (local arr)
-    (int 0)
-    (int 10))
-  (send self p
-    (local arr))
-  (class Box
-    (seq
-      (send self attr_accessor
-        (sym :v))))
-  (assign b
+                (local name)))))
+        (def names () locals ()
+          (seq
+            (cvar @@names)))
+        (def last () locals ()
+          (seq
+            (cvar @@last)))))
     (send new
-      (const Box)))
-  (send v=
-    (local b)
-    (int 1))
-  (attr-op-assign v +
-    (local b)
-    (int 1))
-  (attr-op-assign v or
-    (local b)
-    (int 9))
-  (send self p
-    (send v
-      (local b)))
-  (assign n
-    (const nil))
-  (send self p
-    (send safe length
-      (local n))
-    (send safe length
-      (str "abc"))
-    (send safe foo
-      (local n)
-      (int 1)
-      (int 2)))
-  (const-or-set X
-    (int 5))
-  (const-or-set X
-    (int 6))
-  (send self p
-    (const X))
-  (class WithLocals
-    (seq
-      (assign base
-        (int 10))
-      (const-set SIZE
-        (send *
-          (local base)
-          (int 2)))))
-  (send self p
-    (const (scope)::SIZE
-      (const WithLocals)))
-  (send each
-    (array
-      (int 1)
-      (int 2)
-      (int 3))
-    (block (*for) locals (*for)
+      (const Counter)
+      (sym :a))
+    (send new
+      (const Counter)
+      (sym :b))
+    (send self p
+      (send count
+        (const Counter))
+      (send names
+        (send new
+          (const Counter)
+          (sym :c)))
+      (send last
+        (send new
+          (const Counter)
+          (sym :d))))
+    (class Sub
+      (const Counter)
       (seq
-        (assign i ^1
-          (local *for))
-        (redo-point)
+        (def sub_count () locals ()
+          (seq
+            (cvar @@count)))))
+    (send self p
+      (send sub_count
+        (send new
+          (const Sub)
+          (sym :e))))
+    (class NoCvar
+      (seq
+        (def x () locals ()
+          (seq
+            (cvar @@nope)))))
+    (begin
+      (seq
+        (send x
+          (send new
+            (const NoCvar))))
+      (rescue
+        (const NameError)
+        (into
+          (assign e))
         (seq
-          (assign last ^1
-            (local i ^1))))))
-  (send self p
-    (local i)
-    (local last))
-  (send each
-    (array
+          (send self puts
+            (send message
+              (local e)))))
+      (none)
+      (none))
+    (gvar-set $g
+      (int 1))
+    (gvar-set $g
+      (send +
+        (gvar $g)
+        (int 2)))
+    (send self p
+      (gvar $g)
+      (gvar $unset))
+    (def glob () locals ()
+      (seq
+        (send *
+          (gvar $g)
+          (int 10))))
+    (send self p
+      (vcall self glob))
+    (assign h
+      (hash
+        (sym :a)
+        (int 1)))
+    (index-op-assign +
+      (local h)
+      (sym :a)
+      (int 5))
+    (index-op-assign or
+      (local h)
+      (sym :b)
+      (int 7))
+    (index-op-assign and
+      (local h)
+      (sym :a)
+      (int 0))
+    (send self p
+      (local h))
+    (assign arr
       (array
         (int 1)
-        (int 2))
-      (array
-        (int 3)
-        (int 4)))
-    (block (**for) locals (*for)
+        (int 2)))
+    (index-op-assign *
+      (local arr)
+      (int 0)
+      (int 10))
+    (send self p
+      (local arr))
+    (class Box
       (seq
-        (masgn
-          (targets
-            (assign a ^1)
-            (assign b ^1))
-          (if
-            (send ==
-              (send size
-                (local *for))
-              (int 1))
-            (send []
-              (local *for)
-              (int 0))
-            (local *for)))
-        (redo-point)
-        (seq
-          (send self p
-            (array
-              (local a ^1)
-              (local b ^1)))))))
-  (assign r
+        (send self attr_accessor
+          (sym :v))))
+    (assign b
+      (send new
+        (const Box)))
+    (send v=
+      (local b)
+      (int 1))
+    (attr-op-assign v +
+      (local b)
+      (int 1))
+    (attr-op-assign v or
+      (local b)
+      (int 9))
+    (send self p
+      (send v
+        (local b)))
+    (assign n
+      (const nil))
+    (send self p
+      (send safe length
+        (local n))
+      (send safe length
+        (str "abc"))
+      (send safe foo
+        (local n)
+        (int 1)
+        (int 2)))
+    (const-or-set X
+      (int 5))
+    (const-or-set X
+      (int 6))
+    (send self p
+      (const X))
+    (class WithLocals
+      (seq
+        (assign base
+          (int 10))
+        (const-set SIZE
+          (send *
+            (local base)
+            (int 2)))))
+    (send self p
+      (const (scope)::SIZE
+        (const WithLocals)))
     (send each
       (array
         (int 1)
-        (int 2))
+        (int 2)
+        (int 3))
       (block (*for) locals (*for)
         (seq
-          (assign q ^1
+          (assign i ^1
             (local *for))
           (redo-point)
           (seq
+            (assign last ^1
+              (local i ^1))))))
+    (send self p
+      (local i)
+      (local last))
+    (send each
+      (array
+        (array
+          (int 1)
+          (int 2))
+        (array
+          (int 3)
+          (int 4)))
+      (block (**for) locals (*for)
+        (seq
+          (masgn
+            (targets
+              (assign a ^1)
+              (assign b ^1))
             (if
               (send ==
-                (local q ^1)
-                (int 2))
-              (seq
-                (break
-                  (send *
-                    (local q ^1)
-                    (int 100))))
-              (none)))))))
-  (send self p
-    (local r))
-  (send self p
-    (seq
+                (send size
+                  (local *for))
+                (int 1))
+              (send []
+                (local *for)
+                (int 0))
+              (local *for)))
+          (redo-point)
+          (seq
+            (send self p
+              (array
+                (local a ^1)
+                (local b ^1)))))))
+    (assign r
       (send each
-        (array)
+        (array
+          (int 1)
+          (int 2))
         (block (*for) locals (*for)
           (seq
-            (assign z ^1
+            (assign q ^1
               (local *for))
             (redo-point)
-            (const nil)))))))
+            (seq
+              (if
+                (send ==
+                  (local q ^1)
+                  (int 2))
+                (seq
+                  (break
+                    (send *
+                      (local q ^1)
+                      (int 100))))
+                (none)))))))
+    (send self p
+      (local r))
+    (send self p
+      (seq
+        (send each
+          (array)
+          (block (*for) locals (*for)
+            (seq
+              (assign z ^1
+                (local *for))
+              (redo-point)
+              (const nil))))))))

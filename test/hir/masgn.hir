@@ -1,291 +1,300 @@
 (seq
-  (masgn
-    (targets
-      (assign a)
-      (assign b))
-    (array
-      (int 1)
-      (int 2)))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (masgn
-    (targets
-      (assign a)
-      (assign b))
-    (array
-      (local b)
-      (local a)))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (masgn
-    (targets
-      (assign a)
-      (assign b)
-      (assign c))
-    (array
-      (int 1)
-      (int 2)))
-  (send self p
-    (array
-      (local a)
-      (local b)
-      (local c)))
-  (masgn
-    (targets
-      (assign a)
-      (rest
-        (assign b)))
-    (array
-      (int 1)
-      (int 2)
-      (int 3)))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (masgn
-    (targets
-      (rest
-        (assign a))
-      (assign b))
-    (array
-      (int 1)
-      (int 2)
-      (int 3)))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (masgn
-    (targets
-      (assign a)
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (masgn
       (targets
+        (assign a)
+        (assign b))
+      (array
+        (int 1)
+        (int 2)))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (masgn
+      (targets
+        (assign a)
+        (assign b))
+      (array
+        (local b)
+        (local a)))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (masgn
+      (targets
+        (assign a)
         (assign b)
         (assign c))
-      (assign d))
-    (array
-      (int 1)
       (array
+        (int 1)
+        (int 2)))
+    (send self p
+      (array
+        (local a)
+        (local b)
+        (local c)))
+    (masgn
+      (targets
+        (assign a)
+        (rest
+          (assign b)))
+      (array
+        (int 1)
         (int 2)
-        (int 3))
-      (int 4)))
-  (send self p
-    (array
-      (local a)
-      (local b)
-      (local c)
-      (local d)))
-  (masgn
-    (targets
-      (assign a)
-      (assign b))
-    (int 5))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (masgn
-    (targets
-      (assign a)
-      (assign b))
-    (const nil))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (assign x
-    (seq
-      (masgn
+        (int 3)))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (masgn
+      (targets
+        (rest
+          (assign a))
+        (assign b))
+      (array
+        (int 1)
+        (int 2)
+        (int 3)))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (masgn
+      (targets
+        (assign a)
         (targets
-          (assign a)
-          (assign b))
-        (array
-          (int 7)
-          (int 8)))))
-  (send self p
-    (local x))
-  (masgn
-    (targets
-      (assign a)
-      (rest))
-    (array
-      (int 9)
-      (int 10)))
-  (send self p
-    (local a))
-  (masgn
-    (targets
-      (assign a)
-      (assign b)
-      (rest
-        (assign c))
-      (assign d))
-    (array
-      (int 1)
-      (int 2)
-      (int 3)
-      (int 4)
-      (int 5)
-      (int 6)))
-  (send self p
-    (array
-      (local a)
-      (local b)
-      (local c)
-      (local d)))
-  (class Pt
-    (seq
-      (send self attr_reader
-        (sym :x)
-        (sym :y))
-      (def set () locals ()
-        (seq
-          (masgn
-            (targets
-              (ivar-set @x)
-              (ivar-set @y))
-            (array
-              (int 1)
-              (int 2)))
-          (self)))))
-  (assign q
-    (send set
-      (send new
-        (const Pt))))
-  (send self p
-    (array
-      (send x
-        (local q))
-      (send y
-        (local q))))
-  (send each
-    (array
+          (assign b)
+          (assign c))
+        (assign d))
       (array
         (int 1)
         (array
           (int 2)
-          (int 3)))
-      (array
-        (int 4)
-        (array
-          (int 5)
-          (int 6))))
-    (block (a (b c)) locals (a b c %arg1)
-      (seq
-        (send self p
-          (array
-            (local a)
-            (local b)
-            (local c))))))
-  (send each
-    (hash
-      (sym :k)
-      (array
-        (int 1)
-        (int 2)))
-    (block (key (a b)) locals (key a b %arg2)
-      (seq
-        (send self p
-          (array
-            (local key)
-            (local a)
-            (local b))))))
-  (send each_with_index
-    (array
-      (array
-        (int 1)
-        (int 2))
-      (array
-        (int 3)
+          (int 3))
         (int 4)))
-    (block ((a b) i) locals (a b i %arg3)
+    (send self p
+      (array
+        (local a)
+        (local b)
+        (local c)
+        (local d)))
+    (masgn
+      (targets
+        (assign a)
+        (assign b))
+      (int 5))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (masgn
+      (targets
+        (assign a)
+        (assign b))
+      (const nil))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (assign x
       (seq
-        (send self p
+        (masgn
+          (targets
+            (assign a)
+            (assign b))
           (array
-            (local a)
-            (local b)
-            (local i))))))
-  (def two () locals ()
-    (seq
+            (int 7)
+            (int 8)))))
+    (send self p
+      (local x))
+    (masgn
+      (targets
+        (assign a)
+        (rest))
+      (array
+        (int 9)
+        (int 10)))
+    (send self p
+      (local a))
+    (masgn
+      (targets
+        (assign a)
+        (assign b)
+        (rest
+          (assign c))
+        (assign d))
       (array
         (int 1)
-        (int 2))))
-  (masgn
-    (targets
-      (assign a)
-      (assign b))
-    (vcall self two))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (class Pair
-    (seq
-      (def to_ary () locals ()
-        (seq
+        (int 2)
+        (int 3)
+        (int 4)
+        (int 5)
+        (int 6)))
+    (send self p
+      (array
+        (local a)
+        (local b)
+        (local c)
+        (local d)))
+    (class Pt
+      (seq
+        (send self attr_reader
+          (sym :x)
+          (sym :y))
+        (def set () locals ()
+          (seq
+            (masgn
+              (targets
+                (ivar-set @x)
+                (ivar-set @y))
+              (array
+                (int 1)
+                (int 2)))
+            (self)))))
+    (assign q
+      (send set
+        (send new
+          (const Pt))))
+    (send self p
+      (array
+        (send x
+          (local q))
+        (send y
+          (local q))))
+    (send each
+      (array
+        (array
+          (int 1)
           (array
-            (sym :l)
-            (sym :r))))))
-  (masgn
-    (targets
-      (assign a)
-      (assign b))
-    (send new
-      (const Pair)))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (masgn
-    (targets
-      (assign a)
-      (assign b))
-    (array
-      (splat
+            (int 2)
+            (int 3)))
+        (array
+          (int 4)
+          (array
+            (int 5)
+            (int 6))))
+      (block (a (b c)) locals (a b c %arg1)
+        (seq
+          (send self p
+            (array
+              (local a)
+              (local b)
+              (local c))))))
+    (send each
+      (hash
+        (sym :k)
         (array
           (int 1)
           (int 2)))
-      (int 3)))
-  (send self p
-    (array
-      (local a)
-      (local b)))
-  (masgn
-    (targets
-      (assign first)
-      (rest
-        (assign rest)))
-    (str "just one"))
-  (send self p
-    (array
-      (local first)
-      (local rest)))
-  (assign h
-    (hash))
-  (masgn
-    (targets
-      (send []=
-        (local h)
-        (sym :x))
-      (send []=
-        (local h)
-        (sym :y)))
-    (array
-      (int 1)
-      (int 2)))
-  (send self p
-    (local h))
-  (masgn
-    (targets
-      (assign a)
-      (rest))
-    (array
-      (int 1)
-      (int 2)
-      (int 3)))
-  (send self p
-    (local a)))
+      (block (key (a b)) locals (key a b %arg2)
+        (seq
+          (send self p
+            (array
+              (local key)
+              (local a)
+              (local b))))))
+    (send each_with_index
+      (array
+        (array
+          (int 1)
+          (int 2))
+        (array
+          (int 3)
+          (int 4)))
+      (block ((a b) i) locals (a b i %arg3)
+        (seq
+          (send self p
+            (array
+              (local a)
+              (local b)
+              (local i))))))
+    (def two () locals ()
+      (seq
+        (array
+          (int 1)
+          (int 2))))
+    (masgn
+      (targets
+        (assign a)
+        (assign b))
+      (vcall self two))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (class Pair
+      (seq
+        (def to_ary () locals ()
+          (seq
+            (array
+              (sym :l)
+              (sym :r))))))
+    (masgn
+      (targets
+        (assign a)
+        (assign b))
+      (send new
+        (const Pair)))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (masgn
+      (targets
+        (assign a)
+        (assign b))
+      (array
+        (splat
+          (array
+            (int 1)
+            (int 2)))
+        (int 3)))
+    (send self p
+      (array
+        (local a)
+        (local b)))
+    (masgn
+      (targets
+        (assign first)
+        (rest
+          (assign rest)))
+      (str "just one"))
+    (send self p
+      (array
+        (local first)
+        (local rest)))
+    (assign h
+      (hash))
+    (masgn
+      (targets
+        (send []=
+          (local h)
+          (sym :x))
+        (send []=
+          (local h)
+          (sym :y)))
+      (array
+        (int 1)
+        (int 2)))
+    (send self p
+      (local h))
+    (masgn
+      (targets
+        (assign a)
+        (rest))
+      (array
+        (int 1)
+        (int 2)
+        (int 3)))
+    (send self p
+      (local a))))

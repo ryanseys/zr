@@ -1,200 +1,209 @@
 (seq
-  (class A
-    (seq
-      (def hi (x y= *r k:= &b) locals (x y r k b)
-        (int 2)
-        (int 1)
-        (seq
-          (array
-            (sym :A)
-            (local x)
-            (local y)
-            (local r)
-            (local k)
-            (if
-              (local b)
-              (seq
-                (send call
-                  (local b)))
-              (seq
-                (const nil))))))
-      (def plain () locals ()
-        (seq
-          (sym :A_plain)))
-      (def blk () locals ()
-        (seq
-          (yield
-            (sym :from_A))))))
-  (class B
-    (const A)
-    (seq
-      (def hi (x y= *r k:= &b) locals (x y r k b)
-        (int 5)
-        (int 3)
-        (seq
-          (send <<
-            (local r)
-            (sym :b))
-          (super
-            (local x)
-            (local y)
-            (splat
-              (local r))
-            (hash
-              (sym :k)
-              (local k))
-            (block-pass
-              (local b)))))
-      (def plain () locals ()
-        (seq
-          (array
-            (super)
-            (super)
-            (sym :B))))
-      (def blk () locals ()
-        (seq
-          (super
-            (block (v) locals (v)
-              (seq
-                (array
-                  (local v)
-                  (sym :B)))))))
-      (def blk2 () locals ()
-        (seq
-          (send self blk
-            (block (v) locals (v)
-              (seq
-                (array
-                  (local v)
-                  (sym :outer)))))))
-      (def nope () locals ()
-        (seq
-          (super)))))
-  (send self p
-    (send hi
-      (send new
-        (const B))
-      (int 1))
-    (send hi
-      (send new
-        (const B))
-      (int 1)
-      (int 9)
-      (int 8)
-      (hash
-        (sym :k)
-        (int 7))
-      (block () locals ()
-        (seq
-          (sym :blk)))))
-  (send self p
-    (send plain
-      (send new
-        (const B)))
-    (send blk
-      (send new
-        (const B)))
-    (send blk2
-      (send new
-        (const B))))
-  (begin
-    (seq
-      (send nope
-        (send new
-          (const B))))
-    (rescue
-      (const NoMethodError)
-      (into
-        (assign e))
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (class A
       (seq
-        (send self puts
-          (send message
-            (local e)))
-        (send self puts
-          (send backtrace
-            (local e)))))
-    (none)
-    (none))
-  (module M
-    (seq
-      (def hi (*a) locals (a)
-        (seq
-          (array
-            (sym :M)
+        (def hi (x y= *r k:= &b) locals (x y r k b)
+          (int 2)
+          (int 1)
+          (seq
+            (array
+              (sym :A)
+              (local x)
+              (local y)
+              (local r)
+              (local k)
+              (if
+                (local b)
+                (seq
+                  (send call
+                    (local b)))
+                (seq
+                  (const nil))))))
+        (def plain () locals ()
+          (seq
+            (sym :A_plain)))
+        (def blk () locals ()
+          (seq
+            (yield
+              (sym :from_A))))))
+    (class B
+      (const A)
+      (seq
+        (def hi (x y= *r k:= &b) locals (x y r k b)
+          (int 5)
+          (int 3)
+          (seq
+            (send <<
+              (local r)
+              (sym :b))
             (super
+              (local x)
+              (local y)
               (splat
-                (local a))))))))
-  (class C
-    (const B)
-    (seq
-      (send self include
-        (const M))
-      (def hi (*a) locals (a)
-        (seq
-          (array
-            (sym :C)
-            (super
-              (splat
-                (local a))
+                (local r))
               (hash
                 (sym :k)
-                (int 0))))))))
-  (send self p
-    (send hi
-      (send new
-        (const C))
-      (int 4)))
-  (class D
-    (const A)
-    (seq
-      (def hi (x) locals (x)
-        (seq
-          (send map
+                (local k))
+              (block-pass
+                (local b)))))
+        (def plain () locals ()
+          (seq
             (array
-              (int 1)
-              (int 2))
-            (block (i) locals (i)
-              (seq
-                (super
-                  (send +
-                    (local x ^1)
-                    (local i))))))))))
-  (send self p
-    (send hi
-      (send new
-        (const D))
-      (int 10)))
-  (class E
-    (const A)
-    (seq
-      (def hi (x) locals (x)
+              (super)
+              (super)
+              (sym :B))))
+        (def blk () locals ()
+          (seq
+            (super
+              (block (v) locals (v)
+                (seq
+                  (array
+                    (local v)
+                    (sym :B)))))))
+        (def blk2 () locals ()
+          (seq
+            (send self blk
+              (block (v) locals (v)
+                (seq
+                  (array
+                    (local v)
+                    (sym :outer)))))))
+        (def nope () locals ()
+          (seq
+            (super)))))
+    (send self p
+      (send hi
+        (send new
+          (const B))
+        (int 1))
+      (send hi
+        (send new
+          (const B))
+        (int 1)
+        (int 9)
+        (int 8)
+        (hash
+          (sym :k)
+          (int 7))
+        (block () locals ()
+          (seq
+            (sym :blk)))))
+    (send self p
+      (send plain
+        (send new
+          (const B)))
+      (send blk
+        (send new
+          (const B)))
+      (send blk2
+        (send new
+          (const B))))
+    (begin
+      (seq
+        (send nope
+          (send new
+            (const B))))
+      (rescue
+        (const NoMethodError)
+        (into
+          (assign e))
         (seq
-          (assign x
-            (int 99))
-          (super
-            (local x))))))
-  (send self p
-    (send hi
-      (send new
-        (const E))
-      (int 1)))
-  (class F
-    (seq
-      (sdef make () locals ()
-        (self)
-        (seq
-          (array
-            (sym :F)
-            (self))))))
-  (class G
-    (const F)
-    (seq
-      (sdef make () locals ()
-        (self)
-        (seq
-          (array
-            (sym :G)
-            (super))))))
-  (send self p
-    (send make
-      (const G))))
+          (send self puts
+            (send message
+              (local e)))
+          (send self puts
+            (send backtrace
+              (local e)))))
+      (none)
+      (none))
+    (module M
+      (seq
+        (def hi (*a) locals (a)
+          (seq
+            (array
+              (sym :M)
+              (super
+                (splat
+                  (local a))))))))
+    (class C
+      (const B)
+      (seq
+        (send self include
+          (const M))
+        (def hi (*a) locals (a)
+          (seq
+            (array
+              (sym :C)
+              (super
+                (splat
+                  (local a))
+                (hash
+                  (sym :k)
+                  (int 0))))))))
+    (send self p
+      (send hi
+        (send new
+          (const C))
+        (int 4)))
+    (class D
+      (const A)
+      (seq
+        (def hi (x) locals (x)
+          (seq
+            (send map
+              (array
+                (int 1)
+                (int 2))
+              (block (i) locals (i)
+                (seq
+                  (super
+                    (send +
+                      (local x ^1)
+                      (local i))))))))))
+    (send self p
+      (send hi
+        (send new
+          (const D))
+        (int 10)))
+    (class E
+      (const A)
+      (seq
+        (def hi (x) locals (x)
+          (seq
+            (assign x
+              (int 99))
+            (super
+              (local x))))))
+    (send self p
+      (send hi
+        (send new
+          (const E))
+        (int 1)))
+    (class F
+      (seq
+        (sdef make () locals ()
+          (self)
+          (seq
+            (array
+              (sym :F)
+              (self))))))
+    (class G
+      (const F)
+      (seq
+        (sdef make () locals ()
+          (self)
+          (seq
+            (array
+              (sym :G)
+              (super))))))
+    (send self p
+      (send make
+        (const G)))))

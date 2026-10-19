@@ -1,180 +1,431 @@
 (seq
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
   (seq
-    (assign %subject1
-      (array
-        (int 1)
-        (int 2)
-        (int 3)))
-    (assign %deconstructed5
-      (const nil))
-    (assign %why2
-      (const nil))
-    (assign %key3
-      (const nil))
-    (assign %matchee4
-      (const nil))
-    (if
-      (and
-        (and
-          (and
-            (and
-              (or
-                (send respond_to?
-                  (local %subject1)
-                  (sym :deconstruct))
-                (seq
-                  (assign %why2
-                    (interp
-                      (send format
-                        (core Kernel)
-                        (str "%p")
-                        (local %subject1))
-                      (str " does not respond to #deconstruct")))
-                  (assign %key3
-                    (const nil))
-                  (const false)))
-              (seq
-                (assign %elements6
-                  (or
-                    (local %deconstructed5)
-                    (assign %deconstructed5
-                      (send deconstruct
-                        (local %subject1)))))
-                (if
-                  (send is_a?
-                    (local %elements6)
-                    (core Array))
-                  (const true)
-                  (send raise
-                    (core Kernel)
-                    (core TypeError)
-                    (str "deconstruct must return Array")))))
-            (or
-              (send >=
-                (send size
-                  (local %elements6))
-                (int 1))
-              (seq
-                (assign %why2
-                  (interp
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %elements6))
-                    (str " length mismatch (given ")
-                    (send size
-                      (local %elements6))
-                    (str ", expected 1+)")))
-                (assign %key3
-                  (const nil))
-                (const false))))
-          (seq
-            (assign %part7
-              (send []
-                (local %elements6)
-                (int 0)))
-            (or
-              (send ===
-                (assign %pattern8
-                  (int 1))
-                (local %part7))
-              (seq
-                (assign %why2
-                  (interp
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %pattern8))
-                    (str " === ")
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %part7))
-                    (str " does not return true")))
-                (assign %key3
-                  (const nil))
-                (const false)))))
-        (seq
-          (assign rest
-            (send []
-              (local %elements6)
-              (int 1)
-              (send -
-                (send size
-                  (local %elements6))
-                (int 1))))
-          (const true)))
-      (seq
-        (send self p
-          (local rest)))
+    (seq
+      (assign %subject1
+        (array
+          (int 1)
+          (int 2)
+          (int 3)))
+      (assign %deconstructed5
+        (const nil))
+      (assign %why2
+        (const nil))
+      (assign %key3
+        (const nil))
+      (assign %matchee4
+        (const nil))
       (if
-        (local %key3)
-        (send raise
-          (core Kernel)
-          (send new
-            (core NoMatchingPatternKeyError)
-            (send format
-              (core Kernel)
-              (str "%p: %s")
-              (local %subject1)
-              (local %why2))
-            (hash
-              (sym :matchee)
-              (local %matchee4)
-              (sym :key)
-              (local %key3))))
-        (send raise
-          (core Kernel)
-          (core NoMatchingPatternError)
-          (send format
-            (core Kernel)
-            (str "%p: %s")
-            (local %subject1)
-            (local %why2))))))
-  (seq
-    (assign %subject9
-      (hash
-        (sym :name)
-        (str "a")
-        (sym :age)
-        (int 2)))
-    (assign %why10
-      (const nil))
-    (assign %key11
-      (const nil))
-    (assign %matchee12
-      (const nil))
-    (if
-      (and
         (and
           (and
             (and
               (and
                 (or
                   (send respond_to?
-                    (local %subject9)
-                    (sym :deconstruct_keys))
+                    (local %subject1)
+                    (sym :deconstruct))
                   (seq
-                    (assign %why10
+                    (assign %why2
                       (interp
                         (send format
                           (core Kernel)
                           (str "%p")
-                          (local %subject9))
-                        (str " does not respond to #deconstruct_keys")))
-                    (assign %key11
+                          (local %subject1))
+                        (str " does not respond to #deconstruct")))
+                    (assign %key3
                       (const nil))
                     (const false)))
                 (seq
-                  (assign %pairs13
-                    (send deconstruct_keys
-                      (local %subject9)
-                      (array
-                        (sym :name)
-                        (sym :age))))
+                  (assign %elements6
+                    (or
+                      (local %deconstructed5)
+                      (assign %deconstructed5
+                        (send deconstruct
+                          (local %subject1)))))
                   (if
                     (send is_a?
-                      (local %pairs13)
+                      (local %elements6)
+                      (core Array))
+                    (const true)
+                    (send raise
+                      (core Kernel)
+                      (core TypeError)
+                      (str "deconstruct must return Array")))))
+              (or
+                (send >=
+                  (send size
+                    (local %elements6))
+                  (int 1))
+                (seq
+                  (assign %why2
+                    (interp
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %elements6))
+                      (str " length mismatch (given ")
+                      (send size
+                        (local %elements6))
+                      (str ", expected 1+)")))
+                  (assign %key3
+                    (const nil))
+                  (const false))))
+            (seq
+              (assign %part7
+                (send []
+                  (local %elements6)
+                  (int 0)))
+              (or
+                (send ===
+                  (assign %pattern8
+                    (int 1))
+                  (local %part7))
+                (seq
+                  (assign %why2
+                    (interp
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %pattern8))
+                      (str " === ")
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %part7))
+                      (str " does not return true")))
+                  (assign %key3
+                    (const nil))
+                  (const false)))))
+          (seq
+            (assign rest
+              (send []
+                (local %elements6)
+                (int 1)
+                (send -
+                  (send size
+                    (local %elements6))
+                  (int 1))))
+            (const true)))
+        (seq
+          (send self p
+            (local rest)))
+        (if
+          (local %key3)
+          (send raise
+            (core Kernel)
+            (send new
+              (core NoMatchingPatternKeyError)
+              (send format
+                (core Kernel)
+                (str "%p: %s")
+                (local %subject1)
+                (local %why2))
+              (hash
+                (sym :matchee)
+                (local %matchee4)
+                (sym :key)
+                (local %key3))))
+          (send raise
+            (core Kernel)
+            (core NoMatchingPatternError)
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject1)
+              (local %why2))))))
+    (seq
+      (assign %subject9
+        (hash
+          (sym :name)
+          (str "a")
+          (sym :age)
+          (int 2)))
+      (assign %why10
+        (const nil))
+      (assign %key11
+        (const nil))
+      (assign %matchee12
+        (const nil))
+      (if
+        (and
+          (and
+            (and
+              (and
+                (and
+                  (or
+                    (send respond_to?
+                      (local %subject9)
+                      (sym :deconstruct_keys))
+                    (seq
+                      (assign %why10
+                        (interp
+                          (send format
+                            (core Kernel)
+                            (str "%p")
+                            (local %subject9))
+                          (str " does not respond to #deconstruct_keys")))
+                      (assign %key11
+                        (const nil))
+                      (const false)))
+                  (seq
+                    (assign %pairs13
+                      (send deconstruct_keys
+                        (local %subject9)
+                        (array
+                          (sym :name)
+                          (sym :age))))
+                    (if
+                      (send is_a?
+                        (local %pairs13)
+                        (core Hash))
+                      (const true)
+                      (send raise
+                        (core Kernel)
+                        (core TypeError)
+                        (str "deconstruct_keys must return Hash")))))
+                (or
+                  (send key?
+                    (local %pairs13)
+                    (sym :name))
+                  (seq
+                    (assign %why10
+                      (interp
+                        (str "key not found: ")
+                        (send format
+                          (core Kernel)
+                          (str "%p")
+                          (sym :name))))
+                    (assign %key11
+                      (sym :name))
+                    (assign %matchee12
+                      (local %pairs13))
+                    (const false))))
+              (seq
+                (assign %part14
+                  (send []
+                    (local %pairs13)
+                    (sym :name)))
+                (and
+                  (or
+                    (send ===
+                      (assign %pattern15
+                        (const String))
+                      (local %part14))
+                    (seq
+                      (assign %why10
+                        (interp
+                          (send format
+                            (core Kernel)
+                            (str "%p")
+                            (local %pattern15))
+                          (str " === ")
+                          (send format
+                            (core Kernel)
+                            (str "%p")
+                            (local %part14))
+                          (str " does not return true")))
+                      (assign %key11
+                        (const nil))
+                      (const false)))
+                  (seq
+                    (assign n
+                      (local %part14))
+                    (const true)))))
+            (or
+              (send key?
+                (local %pairs13)
+                (sym :age))
+              (seq
+                (assign %why10
+                  (interp
+                    (str "key not found: ")
+                    (send format
+                      (core Kernel)
+                      (str "%p")
+                      (sym :age))))
+                (assign %key11
+                  (sym :age))
+                (assign %matchee12
+                  (local %pairs13))
+                (const false))))
+          (seq
+            (assign age
+              (send []
+                (local %pairs13)
+                (sym :age)))
+            (const true)))
+        (seq
+          (send self p
+            (local n)
+            (local age)))
+        (if
+          (local %key11)
+          (send raise
+            (core Kernel)
+            (send new
+              (core NoMatchingPatternKeyError)
+              (send format
+                (core Kernel)
+                (str "%p: %s")
+                (local %subject9)
+                (local %why10))
+              (hash
+                (sym :matchee)
+                (local %matchee12)
+                (sym :key)
+                (local %key11))))
+          (send raise
+            (core Kernel)
+            (core NoMatchingPatternError)
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject9)
+              (local %why10))))))
+    (seq
+      (assign %subject16
+        (int 5))
+      (assign %why17
+        (const nil))
+      (assign %key18
+        (const nil))
+      (assign %matchee19
+        (const nil))
+      (if
+        (and
+          (and
+            (or
+              (or
+                (send ===
+                  (assign %pattern20
+                    (const Integer))
+                  (local %subject16))
+                (seq
+                  (assign %why17
+                    (interp
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %pattern20))
+                      (str " === ")
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %subject16))
+                      (str " does not return true")))
+                  (assign %key18
+                    (const nil))
+                  (const false)))
+              (or
+                (send ===
+                  (assign %pattern21
+                    (const Float))
+                  (local %subject16))
+                (seq
+                  (assign %why17
+                    (interp
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %pattern21))
+                      (str " === ")
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %subject16))
+                      (str " does not return true")))
+                  (assign %key18
+                    (const nil))
+                  (const false))))
+            (seq
+              (assign n
+                (local %subject16))
+              (const true)))
+          (or
+            (send >
+              (local n)
+              (int 1))
+            (seq
+              (assign %why17
+                (str "guard clause does not return true"))
+              (assign %key18
+                (const nil))
+              (const false))))
+        (seq
+          (send self p
+            (local n)))
+        (if
+          (local %key18)
+          (send raise
+            (core Kernel)
+            (send new
+              (core NoMatchingPatternKeyError)
+              (send format
+                (core Kernel)
+                (str "%p: %s")
+                (local %subject16)
+                (local %why17))
+              (hash
+                (sym :matchee)
+                (local %matchee19)
+                (sym :key)
+                (local %key18))))
+          (send raise
+            (core Kernel)
+            (core NoMatchingPatternError)
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject16)
+              (local %why17))))))
+    (seq
+      (assign %subject22
+        (hash
+          (sym :a)
+          (int 1)
+          (sym :b)
+          (int 2)))
+      (assign %why23
+        (const nil))
+      (assign %key24
+        (const nil))
+      (assign %matchee25
+        (const nil))
+      (if
+        (and
+          (and
+            (and
+              (and
+                (or
+                  (send respond_to?
+                    (local %subject22)
+                    (sym :deconstruct_keys))
+                  (seq
+                    (assign %why23
+                      (interp
+                        (send format
+                          (core Kernel)
+                          (str "%p")
+                          (local %subject22))
+                        (str " does not respond to #deconstruct_keys")))
+                    (assign %key24
+                      (const nil))
+                    (const false)))
+                (seq
+                  (assign %pairs26
+                    (send deconstruct_keys
+                      (local %subject22)
+                      (const nil)))
+                  (if
+                    (send is_a?
+                      (local %pairs26)
                       (core Hash))
                     (const true)
                     (send raise
@@ -183,240 +434,331 @@
                       (str "deconstruct_keys must return Hash")))))
               (or
                 (send key?
-                  (local %pairs13)
-                  (sym :name))
+                  (local %pairs26)
+                  (sym :a))
                 (seq
-                  (assign %why10
+                  (assign %why23
                     (interp
                       (str "key not found: ")
                       (send format
                         (core Kernel)
                         (str "%p")
-                        (sym :name))))
-                  (assign %key11
-                    (sym :name))
-                  (assign %matchee12
-                    (local %pairs13))
+                        (sym :a))))
+                  (assign %key24
+                    (sym :a))
+                  (assign %matchee25
+                    (local %pairs26))
                   (const false))))
             (seq
-              (assign %part14
+              (assign a
                 (send []
-                  (local %pairs13)
-                  (sym :name)))
+                  (local %pairs26)
+                  (sym :a)))
+              (const true)))
+          (seq
+            (assign rest
+              (seq
+                (assign %copy27
+                  (send dup
+                    (local %pairs26)))
+                (send delete
+                  (local %copy27)
+                  (sym :a))
+                (local %copy27)))
+            (const true)))
+        (seq
+          (send self p
+            (local a)
+            (local rest)))
+        (if
+          (local %key24)
+          (send raise
+            (core Kernel)
+            (send new
+              (core NoMatchingPatternKeyError)
+              (send format
+                (core Kernel)
+                (str "%p: %s")
+                (local %subject22)
+                (local %why23))
+              (hash
+                (sym :matchee)
+                (local %matchee25)
+                (sym :key)
+                (local %key24))))
+          (send raise
+            (core Kernel)
+            (core NoMatchingPatternError)
+            (send format
+              (core Kernel)
+              (str "%p: %s")
+              (local %subject22)
+              (local %why23))))))
+    (assign x
+      (array
+        (int 1)
+        (array
+          (int 2)
+          (int 3))))
+    (seq
+      (assign %subject28
+        (local x))
+      (assign %deconstructed32
+        (const nil))
+      (assign %deconstructed37
+        (const nil))
+      (assign %why29
+        (const nil))
+      (assign %key30
+        (const nil))
+      (assign %matchee31
+        (const nil))
+      (if
+        (and
+          (and
+            (and
               (and
                 (or
-                  (send ===
-                    (assign %pattern15
-                      (const String))
-                    (local %part14))
+                  (send respond_to?
+                    (local %subject28)
+                    (sym :deconstruct))
                   (seq
-                    (assign %why10
+                    (assign %why29
                       (interp
                         (send format
                           (core Kernel)
                           (str "%p")
-                          (local %pattern15))
+                          (local %subject28))
+                        (str " does not respond to #deconstruct")))
+                    (assign %key30
+                      (const nil))
+                    (const false)))
+                (seq
+                  (assign %elements33
+                    (or
+                      (local %deconstructed32)
+                      (assign %deconstructed32
+                        (send deconstruct
+                          (local %subject28)))))
+                  (if
+                    (send is_a?
+                      (local %elements33)
+                      (core Array))
+                    (const true)
+                    (send raise
+                      (core Kernel)
+                      (core TypeError)
+                      (str "deconstruct must return Array")))))
+              (or
+                (send ==
+                  (send size
+                    (local %elements33))
+                  (int 2))
+                (seq
+                  (assign %why29
+                    (interp
+                      (send format
+                        (core Kernel)
+                        (str "%p")
+                        (local %elements33))
+                      (str " length mismatch (given ")
+                      (send size
+                        (local %elements33))
+                      (str ", expected 2)")))
+                  (assign %key30
+                    (const nil))
+                  (const false))))
+            (seq
+              (assign %part34
+                (send []
+                  (local %elements33)
+                  (int 0)))
+              (and
+                (or
+                  (send ===
+                    (assign %pattern35
+                      (const Integer))
+                    (local %part34))
+                  (seq
+                    (assign %why29
+                      (interp
+                        (send format
+                          (core Kernel)
+                          (str "%p")
+                          (local %pattern35))
                         (str " === ")
                         (send format
                           (core Kernel)
                           (str "%p")
-                          (local %part14))
+                          (local %part34))
                         (str " does not return true")))
-                    (assign %key11
+                    (assign %key30
                       (const nil))
                     (const false)))
                 (seq
-                  (assign n
-                    (local %part14))
+                  (assign head
+                    (local %part34))
                   (const true)))))
-          (or
-            (send key?
-              (local %pairs13)
-              (sym :age))
-            (seq
-              (assign %why10
-                (interp
-                  (str "key not found: ")
-                  (send format
-                    (core Kernel)
-                    (str "%p")
-                    (sym :age))))
-              (assign %key11
-                (sym :age))
-              (assign %matchee12
-                (local %pairs13))
-              (const false))))
+          (seq
+            (assign %part36
+              (send []
+                (local %elements33)
+                (int 1)))
+            (and
+              (and
+                (and
+                  (and
+                    (and
+                      (or
+                        (send respond_to?
+                          (local %part36)
+                          (sym :deconstruct))
+                        (seq
+                          (assign %why29
+                            (interp
+                              (send format
+                                (core Kernel)
+                                (str "%p")
+                                (local %part36))
+                              (str " does not respond to #deconstruct")))
+                          (assign %key30
+                            (const nil))
+                          (const false)))
+                      (seq
+                        (assign %elements38
+                          (or
+                            (local %deconstructed37)
+                            (assign %deconstructed37
+                              (send deconstruct
+                                (local %part36)))))
+                        (if
+                          (send is_a?
+                            (local %elements38)
+                            (core Array))
+                          (const true)
+                          (send raise
+                            (core Kernel)
+                            (core TypeError)
+                            (str "deconstruct must return Array")))))
+                    (or
+                      (send ==
+                        (send size
+                          (local %elements38))
+                        (int 2))
+                      (seq
+                        (assign %why29
+                          (interp
+                            (send format
+                              (core Kernel)
+                              (str "%p")
+                              (local %elements38))
+                            (str " length mismatch (given ")
+                            (send size
+                              (local %elements38))
+                            (str ", expected 2)")))
+                        (assign %key30
+                          (const nil))
+                        (const false))))
+                  (seq
+                    (assign %part39
+                      (send []
+                        (local %elements38)
+                        (int 0)))
+                    (seq
+                      (assign _
+                        (local %part39))
+                      (const true))))
+                (seq
+                  (assign %part40
+                    (send []
+                      (local %elements38)
+                      (int 1)))
+                  (seq
+                    (assign _
+                      (local %part40))
+                    (const true))))
+              (seq
+                (assign tail
+                  (local %part36))
+                (const true)))))
         (seq
-          (assign age
-            (send []
-              (local %pairs13)
-              (sym :age)))
-          (const true)))
-      (seq
-        (send self p
-          (local n)
-          (local age)))
-      (if
-        (local %key11)
-        (send raise
-          (core Kernel)
-          (send new
-            (core NoMatchingPatternKeyError)
+          (send self p
+            (local head)
+            (local tail)))
+        (if
+          (local %key30)
+          (send raise
+            (core Kernel)
+            (send new
+              (core NoMatchingPatternKeyError)
+              (send format
+                (core Kernel)
+                (str "%p: %s")
+                (local %subject28)
+                (local %why29))
+              (hash
+                (sym :matchee)
+                (local %matchee31)
+                (sym :key)
+                (local %key30))))
+          (send raise
+            (core Kernel)
+            (core NoMatchingPatternError)
             (send format
               (core Kernel)
               (str "%p: %s")
-              (local %subject9)
-              (local %why10))
-            (hash
-              (sym :matchee)
-              (local %matchee12)
-              (sym :key)
-              (local %key11))))
-        (send raise
-          (core Kernel)
-          (core NoMatchingPatternError)
-          (send format
-            (core Kernel)
-            (str "%p: %s")
-            (local %subject9)
-            (local %why10))))))
-  (seq
-    (assign %subject16
-      (int 5))
-    (assign %why17
-      (const nil))
-    (assign %key18
-      (const nil))
-    (assign %matchee19
-      (const nil))
-    (if
-      (and
-        (and
-          (or
-            (or
-              (send ===
-                (assign %pattern20
-                  (const Integer))
-                (local %subject16))
-              (seq
-                (assign %why17
-                  (interp
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %pattern20))
-                    (str " === ")
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %subject16))
-                    (str " does not return true")))
-                (assign %key18
-                  (const nil))
-                (const false)))
-            (or
-              (send ===
-                (assign %pattern21
-                  (const Float))
-                (local %subject16))
-              (seq
-                (assign %why17
-                  (interp
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %pattern21))
-                    (str " === ")
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %subject16))
-                    (str " does not return true")))
-                (assign %key18
-                  (const nil))
-                (const false))))
-          (seq
-            (assign n
-              (local %subject16))
-            (const true)))
-        (or
-          (send >
-            (local n)
+              (local %subject28)
+              (local %why29))))))
+    (send self p
+      (seq
+        (seq
+          (assign %subject41
             (int 1))
-          (seq
-            (assign %why17
-              (str "guard clause does not return true"))
-            (assign %key18
-              (const nil))
-            (const false))))
-      (seq
-        (send self p
-          (local n)))
+          (if
+            (send ===
+              (const Integer)
+              (local %subject41))
+            (const true)
+            (const false)))))
+    (seq
+      (assign %subject42
+        (hash
+          (sym :k)
+          (int 1)))
+      (assign %why43
+        (const nil))
+      (assign %key44
+        (const nil))
+      (assign %matchee45
+        (const nil))
       (if
-        (local %key18)
-        (send raise
-          (core Kernel)
-          (send new
-            (core NoMatchingPatternKeyError)
-            (send format
-              (core Kernel)
-              (str "%p: %s")
-              (local %subject16)
-              (local %why17))
-            (hash
-              (sym :matchee)
-              (local %matchee19)
-              (sym :key)
-              (local %key18))))
-        (send raise
-          (core Kernel)
-          (core NoMatchingPatternError)
-          (send format
-            (core Kernel)
-            (str "%p: %s")
-            (local %subject16)
-            (local %why17))))))
-  (seq
-    (assign %subject22
-      (hash
-        (sym :a)
-        (int 1)
-        (sym :b)
-        (int 2)))
-    (assign %why23
-      (const nil))
-    (assign %key24
-      (const nil))
-    (assign %matchee25
-      (const nil))
-    (if
-      (and
         (and
           (and
             (and
               (or
                 (send respond_to?
-                  (local %subject22)
+                  (local %subject42)
                   (sym :deconstruct_keys))
                 (seq
-                  (assign %why23
+                  (assign %why43
                     (interp
                       (send format
                         (core Kernel)
                         (str "%p")
-                        (local %subject22))
+                        (local %subject42))
                       (str " does not respond to #deconstruct_keys")))
-                  (assign %key24
+                  (assign %key44
                     (const nil))
                   (const false)))
               (seq
-                (assign %pairs26
+                (assign %pairs46
                   (send deconstruct_keys
-                    (local %subject22)
-                    (const nil)))
+                    (local %subject42)
+                    (array
+                      (sym :k))))
                 (if
                   (send is_a?
-                    (local %pairs26)
+                    (local %pairs46)
                     (core Hash))
                   (const true)
                   (send raise
@@ -425,384 +767,51 @@
                     (str "deconstruct_keys must return Hash")))))
             (or
               (send key?
-                (local %pairs26)
-                (sym :a))
+                (local %pairs46)
+                (sym :k))
               (seq
-                (assign %why23
+                (assign %why43
                   (interp
                     (str "key not found: ")
                     (send format
                       (core Kernel)
                       (str "%p")
-                      (sym :a))))
-                (assign %key24
-                  (sym :a))
-                (assign %matchee25
-                  (local %pairs26))
-                (const false))))
-          (seq
-            (assign a
-              (send []
-                (local %pairs26)
-                (sym :a)))
-            (const true)))
-        (seq
-          (assign rest
-            (seq
-              (assign %copy27
-                (send dup
-                  (local %pairs26)))
-              (send delete
-                (local %copy27)
-                (sym :a))
-              (local %copy27)))
-          (const true)))
-      (seq
-        (send self p
-          (local a)
-          (local rest)))
-      (if
-        (local %key24)
-        (send raise
-          (core Kernel)
-          (send new
-            (core NoMatchingPatternKeyError)
-            (send format
-              (core Kernel)
-              (str "%p: %s")
-              (local %subject22)
-              (local %why23))
-            (hash
-              (sym :matchee)
-              (local %matchee25)
-              (sym :key)
-              (local %key24))))
-        (send raise
-          (core Kernel)
-          (core NoMatchingPatternError)
-          (send format
-            (core Kernel)
-            (str "%p: %s")
-            (local %subject22)
-            (local %why23))))))
-  (assign x
-    (array
-      (int 1)
-      (array
-        (int 2)
-        (int 3))))
-  (seq
-    (assign %subject28
-      (local x))
-    (assign %deconstructed32
-      (const nil))
-    (assign %deconstructed37
-      (const nil))
-    (assign %why29
-      (const nil))
-    (assign %key30
-      (const nil))
-    (assign %matchee31
-      (const nil))
-    (if
-      (and
-        (and
-          (and
-            (and
-              (or
-                (send respond_to?
-                  (local %subject28)
-                  (sym :deconstruct))
-                (seq
-                  (assign %why29
-                    (interp
-                      (send format
-                        (core Kernel)
-                        (str "%p")
-                        (local %subject28))
-                      (str " does not respond to #deconstruct")))
-                  (assign %key30
-                    (const nil))
-                  (const false)))
-              (seq
-                (assign %elements33
-                  (or
-                    (local %deconstructed32)
-                    (assign %deconstructed32
-                      (send deconstruct
-                        (local %subject28)))))
-                (if
-                  (send is_a?
-                    (local %elements33)
-                    (core Array))
-                  (const true)
-                  (send raise
-                    (core Kernel)
-                    (core TypeError)
-                    (str "deconstruct must return Array")))))
-            (or
-              (send ==
-                (send size
-                  (local %elements33))
-                (int 2))
-              (seq
-                (assign %why29
-                  (interp
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %elements33))
-                    (str " length mismatch (given ")
-                    (send size
-                      (local %elements33))
-                    (str ", expected 2)")))
-                (assign %key30
-                  (const nil))
-                (const false))))
-          (seq
-            (assign %part34
-              (send []
-                (local %elements33)
-                (int 0)))
-            (and
-              (or
-                (send ===
-                  (assign %pattern35
-                    (const Integer))
-                  (local %part34))
-                (seq
-                  (assign %why29
-                    (interp
-                      (send format
-                        (core Kernel)
-                        (str "%p")
-                        (local %pattern35))
-                      (str " === ")
-                      (send format
-                        (core Kernel)
-                        (str "%p")
-                        (local %part34))
-                      (str " does not return true")))
-                  (assign %key30
-                    (const nil))
-                  (const false)))
-              (seq
-                (assign head
-                  (local %part34))
-                (const true)))))
-        (seq
-          (assign %part36
-            (send []
-              (local %elements33)
-              (int 1)))
-          (and
-            (and
-              (and
-                (and
-                  (and
-                    (or
-                      (send respond_to?
-                        (local %part36)
-                        (sym :deconstruct))
-                      (seq
-                        (assign %why29
-                          (interp
-                            (send format
-                              (core Kernel)
-                              (str "%p")
-                              (local %part36))
-                            (str " does not respond to #deconstruct")))
-                        (assign %key30
-                          (const nil))
-                        (const false)))
-                    (seq
-                      (assign %elements38
-                        (or
-                          (local %deconstructed37)
-                          (assign %deconstructed37
-                            (send deconstruct
-                              (local %part36)))))
-                      (if
-                        (send is_a?
-                          (local %elements38)
-                          (core Array))
-                        (const true)
-                        (send raise
-                          (core Kernel)
-                          (core TypeError)
-                          (str "deconstruct must return Array")))))
-                  (or
-                    (send ==
-                      (send size
-                        (local %elements38))
-                      (int 2))
-                    (seq
-                      (assign %why29
-                        (interp
-                          (send format
-                            (core Kernel)
-                            (str "%p")
-                            (local %elements38))
-                          (str " length mismatch (given ")
-                          (send size
-                            (local %elements38))
-                          (str ", expected 2)")))
-                      (assign %key30
-                        (const nil))
-                      (const false))))
-                (seq
-                  (assign %part39
-                    (send []
-                      (local %elements38)
-                      (int 0)))
-                  (seq
-                    (assign _
-                      (local %part39))
-                    (const true))))
-              (seq
-                (assign %part40
-                  (send []
-                    (local %elements38)
-                    (int 1)))
-                (seq
-                  (assign _
-                    (local %part40))
-                  (const true))))
-            (seq
-              (assign tail
-                (local %part36))
-              (const true)))))
-      (seq
-        (send self p
-          (local head)
-          (local tail)))
-      (if
-        (local %key30)
-        (send raise
-          (core Kernel)
-          (send new
-            (core NoMatchingPatternKeyError)
-            (send format
-              (core Kernel)
-              (str "%p: %s")
-              (local %subject28)
-              (local %why29))
-            (hash
-              (sym :matchee)
-              (local %matchee31)
-              (sym :key)
-              (local %key30))))
-        (send raise
-          (core Kernel)
-          (core NoMatchingPatternError)
-          (send format
-            (core Kernel)
-            (str "%p: %s")
-            (local %subject28)
-            (local %why29))))))
-  (send self p
-    (seq
-      (seq
-        (assign %subject41
-          (int 1))
-        (if
-          (send ===
-            (const Integer)
-            (local %subject41))
-          (const true)
-          (const false)))))
-  (seq
-    (assign %subject42
-      (hash
-        (sym :k)
-        (int 1)))
-    (assign %why43
-      (const nil))
-    (assign %key44
-      (const nil))
-    (assign %matchee45
-      (const nil))
-    (if
-      (and
-        (and
-          (and
-            (or
-              (send respond_to?
-                (local %subject42)
-                (sym :deconstruct_keys))
-              (seq
-                (assign %why43
-                  (interp
-                    (send format
-                      (core Kernel)
-                      (str "%p")
-                      (local %subject42))
-                    (str " does not respond to #deconstruct_keys")))
+                      (sym :k))))
                 (assign %key44
-                  (const nil))
-                (const false)))
-            (seq
-              (assign %pairs46
-                (send deconstruct_keys
-                  (local %subject42)
-                  (array
-                    (sym :k))))
-              (if
-                (send is_a?
-                  (local %pairs46)
-                  (core Hash))
-                (const true)
-                (send raise
-                  (core Kernel)
-                  (core TypeError)
-                  (str "deconstruct_keys must return Hash")))))
-          (or
-            (send key?
-              (local %pairs46)
-              (sym :k))
-            (seq
-              (assign %why43
-                (interp
-                  (str "key not found: ")
-                  (send format
-                    (core Kernel)
-                    (str "%p")
-                    (sym :k))))
-              (assign %key44
-                (sym :k))
-              (assign %matchee45
-                (local %pairs46))
-              (const false))))
-        (seq
-          (assign k
-            (send []
-              (local %pairs46)
-              (sym :k)))
-          (const true)))
-      (const nil)
-      (if
-        (local %key44)
-        (send raise
-          (core Kernel)
-          (send new
-            (core NoMatchingPatternKeyError)
+                  (sym :k))
+                (assign %matchee45
+                  (local %pairs46))
+                (const false))))
+          (seq
+            (assign k
+              (send []
+                (local %pairs46)
+                (sym :k)))
+            (const true)))
+        (const nil)
+        (if
+          (local %key44)
+          (send raise
+            (core Kernel)
+            (send new
+              (core NoMatchingPatternKeyError)
+              (send format
+                (core Kernel)
+                (str "%p: %s")
+                (local %subject42)
+                (local %why43))
+              (hash
+                (sym :matchee)
+                (local %matchee45)
+                (sym :key)
+                (local %key44))))
+          (send raise
+            (core Kernel)
+            (core NoMatchingPatternError)
             (send format
               (core Kernel)
               (str "%p: %s")
               (local %subject42)
-              (local %why43))
-            (hash
-              (sym :matchee)
-              (local %matchee45)
-              (sym :key)
-              (local %key44))))
-        (send raise
-          (core Kernel)
-          (core NoMatchingPatternError)
-          (send format
-            (core Kernel)
-            (str "%p: %s")
-            (local %subject42)
-            (local %why43))))))
-  (send self p
-    (local k)))
+              (local %why43))))))
+    (send self p
+      (local k))))

@@ -1,48 +1,57 @@
 (seq
-  (class K
-    (seq
-      (def greet () locals ()
-        (seq
-          (str "hi")))
-      (alias-value
-        (send to_sym
-          (interp
-            (str "say_")
-            (seq
-              (int 1))))
-        (sym :greet))
-      (def farewell () locals ()
-        (seq
-          (str "bye")))
-      (def part () locals ()
-        (seq
-          (str "part")))
-      (undef-value
-        (sym :farewell)
-        (send to_sym
-          (interp
-            (seq
-              (frozen shared "pa"))
-            (str "rt"))))))
-  (send self p
-    (send say_1
-      (send new
-        (const K))))
-  (send self p
-    (send sort
-      (send instance_methods
-        (const K)
-        (const false))))
-  (assign name
-    (str "greet"))
-  (send class_eval
-    (const K)
-    (block () locals ()
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (class K
       (seq
-        (send self alias_method
-          (sym :hello)
-          (local name ^1)))))
-  (send self p
-    (send hello
-      (send new
-        (const K)))))
+        (def greet () locals ()
+          (seq
+            (str "hi")))
+        (alias-value
+          (send to_sym
+            (interp
+              (str "say_")
+              (seq
+                (int 1))))
+          (sym :greet))
+        (def farewell () locals ()
+          (seq
+            (str "bye")))
+        (def part () locals ()
+          (seq
+            (str "part")))
+        (undef-value
+          (sym :farewell)
+          (send to_sym
+            (interp
+              (seq
+                (frozen shared "pa"))
+              (str "rt"))))))
+    (send self p
+      (send say_1
+        (send new
+          (const K))))
+    (send self p
+      (send sort
+        (send instance_methods
+          (const K)
+          (const false))))
+    (assign name
+      (str "greet"))
+    (send class_eval
+      (const K)
+      (block () locals ()
+        (seq
+          (send self alias_method
+            (sym :hello)
+            (local name ^1)))))
+    (send self p
+      (send hello
+        (send new
+          (const K))))))

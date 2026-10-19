@@ -1,21 +1,56 @@
 (seq
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
   (seq
-    (send self p
-      (sym :first)))
-  (once
-    (send post_exe
-      (core Kernel)
-      (block () locals ()
-        (send end_proc
-          (core Kernel)
-          (block () locals ()
-            (seq
-              (send self p
-                (sym :last))))))))
-  (def match (pattern subject) locals (pattern subject)
     (seq
-      (send =~
-        (local subject)
+      (send self p
+        (sym :first)))
+    (once
+      (send post_exe
+        (core Kernel)
+        (block () locals ()
+          (send end_proc
+            (core Kernel)
+            (block () locals ()
+              (seq
+                (send self p
+                  (sym :last))))))))
+    (def match (pattern subject) locals (pattern subject)
+      (seq
+        (send =~
+          (local subject)
+          (regexp-once
+            (send post_exe
+              (core Kernel)
+              (block () locals ()
+                (send interpolated
+                  (const Regexp)
+                  (array
+                    (interp
+                      (str ""))
+                    (interp
+                      (seq
+                        (local pattern ^1))))
+                  (int 0)
+                  (const nil))))))))
+    (send self p
+      (send self match
+        (str "a")
+        (str "abc")))
+    (send self p
+      (send self match
+        (str "z")
+        (str "abc")))
+    (assign x
+      (str "b"))
+    (send self p
+      (send source
         (regexp-once
           (send post_exe
             (core Kernel)
@@ -27,34 +62,8 @@
                     (str ""))
                   (interp
                     (seq
-                      (local pattern ^1))))
+                      (local x ^1))))
                 (int 0)
-                (const nil))))))))
-  (send self p
-    (send self match
-      (str "a")
-      (str "abc")))
-  (send self p
-    (send self match
-      (str "z")
-      (str "abc")))
-  (assign x
-    (str "b"))
-  (send self p
-    (send source
-      (regexp-once
-        (send post_exe
-          (core Kernel)
-          (block () locals ()
-            (send interpolated
-              (const Regexp)
-              (array
-                (interp
-                  (str ""))
-                (interp
-                  (seq
-                    (local x ^1))))
-              (int 0)
-              (const nil)))))))
-  (send self p
-    (sym :body)))
+                (const nil)))))))
+    (send self p
+      (sym :body))))

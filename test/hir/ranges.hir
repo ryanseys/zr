@@ -1,230 +1,239 @@
 (seq
-  (assign r
-    (seq
-      (range
-        (int 1)
-        (int 3))))
-  (send self p
-    (local r)
-    (seq
-      (range exclusive
-        (int 1)
-        (int 3)))
-    (send first
-      (local r))
-    (send last
-      (local r))
-    (send min
-      (local r))
-    (send max
-      (local r))
-    (send size
-      (local r))
-    (send size
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (assign r
       (seq
-        (range exclusive
+        (range
           (int 1)
           (int 3))))
-    (send to_a
-      (local r))
-    (send to_a
+    (send self p
+      (local r)
       (seq
         (range exclusive
           (int 1)
-          (int 3)))))
-  (begin
-    (send self p
-      (send include?
-        (local r)
-        (int 2))
-      (send include?
-        (local r)
-        (int 4))
-      (send ===
-        (local r)
-        (int 2))
+          (int 3)))
       (send first
+        (local r))
+      (send last
+        (local r))
+      (send min
+        (local r))
+      (send max
+        (local r))
+      (send size
+        (local r))
+      (send size
+        (seq
+          (range exclusive
+            (int 1)
+            (int 3))))
+      (send to_a
+        (local r))
+      (send to_a
+        (seq
+          (range exclusive
+            (int 1)
+            (int 3)))))
+    (begin
+      (send self p
+        (send include?
+          (local r)
+          (int 2))
+        (send include?
+          (local r)
+          (int 4))
+        (send ===
+          (local r)
+          (int 2))
+        (send first
+          (seq
+            (range
+              (int 1)
+              (const nil)))
+          (int 2)))
+      (rescue
+        (send self p
+          (gvar $!)))
+      (none)
+      (none))
+    (send self p
+      (send each
+        (local r)
+        (block (i) locals (i)
+          (seq
+            (send self print
+              (local i)))))
+      (send to_a
         (seq
           (range
+            (int 3)
+            (int 1))))
+      (send begin
+        (local r))
+      (send end
+        (local r))
+      (send exclude_end?
+        (local r))
+      (send exclude_end?
+        (seq
+          (range exclusive
             (int 1)
-            (const nil)))
-        (int 2)))
-    (rescue
-      (send self p
-        (gvar $!)))
-    (none)
-    (none))
-  (send self p
-    (send each
-      (local r)
-      (block (i) locals (i)
+            (int 3)))))
+    (send self p
+      (send to_a
         (seq
-          (send self print
-            (local i)))))
-    (send to_a
-      (seq
+          (range
+            (frozen shared "a")
+            (frozen shared "c"))))
+      (send include?
+        (seq
+          (range
+            (frozen shared "a")
+            (frozen shared "c")))
+        (str "b")))
+    (case
+      (int 5)
+      (when
         (range
-          (int 3)
-          (int 1))))
-    (send begin
-      (local r))
-    (send end
-      (local r))
-    (send exclude_end?
-      (local r))
-    (send exclude_end?
-      (seq
-        (range exclusive
           (int 1)
-          (int 3)))))
-  (send self p
-    (send to_a
-      (seq
-        (range
-          (frozen shared "a")
-          (frozen shared "c"))))
-    (send include?
-      (seq
-        (range
-          (frozen shared "a")
-          (frozen shared "c")))
-      (str "b")))
-  (case
-    (int 5)
-    (when
-      (range
-        (int 1)
-        (int 3))
-      (seq
-        (send self p
-          (sym :low))))
-    (when
-      (range
-        (int 4)
-        (int 6))
-      (seq
-        (send self p
-          (sym :mid))))
-    (none))
-  (send self p
-    (send map
-      (local r)
-      (block (x) locals (x)
+          (int 3))
         (seq
-          (send *
+          (send self p
+            (sym :low))))
+      (when
+        (range
+          (int 4)
+          (int 6))
+        (seq
+          (send self p
+            (sym :mid))))
+      (none))
+    (send self p
+      (send map
+        (local r)
+        (block (x) locals (x)
+          (seq
+            (send *
+              (local x)
+              (int 2)))))
+      (send select
+        (local r)
+        (block-pass
+          (sym :odd?)))
+      (send sum
+        (local r))
+      (send reduce
+        (local r)
+        (sym :+)))
+    (masgn
+      (targets
+        (assign x)
+        (assign y))
+      (array
+        (int 2)
+        (int 4)))
+    (send self p
+      (send to_a
+        (seq
+          (range
             (local x)
-            (int 2)))))
-    (send select
-      (local r)
-      (block-pass
-        (sym :odd?)))
-    (send sum
-      (local r))
-    (send reduce
-      (local r)
-      (sym :+)))
-  (masgn
-    (targets
-      (assign x)
-      (assign y))
-    (array
-      (int 2)
-      (int 4)))
-  (send self p
-    (send to_a
-      (seq
-        (range
-          (local x)
-          (local y))))
-    (send count
-      (seq
-        (range exclusive
-          (local x)
-          (local y))))
-    (send ==
-      (local r)
-      (seq
-        (range
-          (int 1)
-          (int 3))))
-    (send ==
-      (local r)
-      (seq
-        (range exclusive
-          (int 1)
-          (int 3))))
-    (send eql?
-      (local r)
-      (range
-        (int 1)
-        (int 3)))
-    (send ==
-      (send hash
+            (local y))))
+      (send count
+        (seq
+          (range exclusive
+            (local x)
+            (local y))))
+      (send ==
+        (local r)
         (seq
           (range
             (int 1)
             (int 3))))
-      (send hash
+      (send ==
+        (local r)
         (seq
-          (range
+          (range exclusive
             (int 1)
-            (int 3))))))
-  (send self p
-    (send cover?
-      (local r)
-      (int 2))
-    (send cover?
-      (local r)
-      (int 9)))
-  (send self p
-    (send to_a
-      (seq
-        (range
-          (int 1)
-          (int 0))))
-    (send to_a
-      (seq
-        (range
-          (int 1)
-          (int 1)))))
-  (send times
-    (int 5)
-    (block (i) locals (i)
-      (seq
-        (if
-          (send odd?
-            (local i))
-          (seq
-            (next
-              (const nil)))
-          (none))
-        (send self print
-          (local i)))))
-  (vcall self puts)
-  (send self p
-    (send inject
-      (seq
+            (int 3))))
+      (send eql?
+        (local r)
         (range
           (int 1)
           (int 3)))
-      (block (a b) locals (a b)
+      (send ==
+        (send hash
+          (seq
+            (range
+              (int 1)
+              (int 3))))
+        (send hash
+          (seq
+            (range
+              (int 1)
+              (int 3))))))
+    (send self p
+      (send cover?
+        (local r)
+        (int 2))
+      (send cover?
+        (local r)
+        (int 9)))
+    (send self p
+      (send to_a
         (seq
-          (send *
-            (local a)
-            (local b))))))
-  (send self p
-    (send to_s
-      (seq
-        (range
-          (int 1)
-          (int 3))))
-    (send inspect
-      (seq
-        (range
-          (int 1)
-          (int 3))))
-    (send inspect
-      (seq
-        (range
-          (frozen shared "a")
-          (frozen shared "b"))))))
+          (range
+            (int 1)
+            (int 0))))
+      (send to_a
+        (seq
+          (range
+            (int 1)
+            (int 1)))))
+    (send times
+      (int 5)
+      (block (i) locals (i)
+        (seq
+          (if
+            (send odd?
+              (local i))
+            (seq
+              (next
+                (const nil)))
+            (none))
+          (send self print
+            (local i)))))
+    (vcall self puts)
+    (send self p
+      (send inject
+        (seq
+          (range
+            (int 1)
+            (int 3)))
+        (block (a b) locals (a b)
+          (seq
+            (send *
+              (local a)
+              (local b))))))
+    (send self p
+      (send to_s
+        (seq
+          (range
+            (int 1)
+            (int 3))))
+      (send inspect
+        (seq
+          (range
+            (int 1)
+            (int 3))))
+      (send inspect
+        (seq
+          (range
+            (frozen shared "a")
+            (frozen shared "b")))))))

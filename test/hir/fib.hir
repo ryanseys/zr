@@ -1,22 +1,31 @@
 (seq
-  (def fib (n) locals (n)
-    (seq
-      (if
-        (send <
-          (local n)
-          (int 2))
-        (seq
-          (local n))
-        (seq
-          (send +
-            (send self fib
-              (send -
-                (local n)
-                (int 1)))
-            (send self fib
-              (send -
-                (local n)
-                (int 2))))))))
-  (send self puts
-    (send self fib
-      (int 25))))
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (def fib (n) locals (n)
+      (seq
+        (if
+          (send <
+            (local n)
+            (int 2))
+          (seq
+            (local n))
+          (seq
+            (send +
+              (send self fib
+                (send -
+                  (local n)
+                  (int 1)))
+              (send self fib
+                (send -
+                  (local n)
+                  (int 2))))))))
+    (send self puts
+      (send self fib
+        (int 25)))))

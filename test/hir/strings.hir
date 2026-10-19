@@ -1,135 +1,144 @@
 (seq
-  (send self puts
-    (send upcase
-      (frozen shared "abc"))
-    (send downcase
-      (frozen shared "ABC"))
-    (send length
-      (frozen shared "abc"))
-    (send reverse
-      (frozen shared "abc"))
-    (send +
-      (frozen shared "a")
-      (frozen shared "b"))
-    (send *
-      (frozen shared "ab")
-      (int 3)))
-  (assign s
-    (frozen shared "hello"))
-  (send self puts
-    (send capitalize
-      (local s))
-    (send include?
-      (local s)
-      (frozen shared "ell"))
-    (send index
-      (local s)
-      (frozen shared "l"))
-    (send inspect
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (send self puts
+      (send upcase
+        (frozen shared "abc"))
+      (send downcase
+        (frozen shared "ABC"))
+      (send length
+        (frozen shared "abc"))
+      (send reverse
+        (frozen shared "abc"))
+      (send +
+        (frozen shared "a")
+        (frozen shared "b"))
+      (send *
+        (frozen shared "ab")
+        (int 3)))
+    (assign s
+      (frozen shared "hello"))
+    (send self puts
+      (send capitalize
+        (local s))
+      (send include?
+        (local s)
+        (frozen shared "ell"))
       (send index
         (local s)
-        (frozen shared "zz"))))
-  (send self p
-    (send succ
-      (frozen shared "x"))
-    (send succ
-      (frozen shared "az"))
-    (send succ
-      (frozen shared "zz"))
-    (send succ
-      (frozen shared "a9"))
-    (send succ
-      (frozen shared "Zz"))
-    (send succ
-      (frozen shared "1.9"))
-    (send succ
-      (frozen shared "-"))
-    (send succ
-      (frozen shared "")))
-  (assign name
-    (frozen shared "world"))
-  (assign count
-    (int 3))
-  (def wrap (x) locals (x)
-    (seq
+        (frozen shared "l"))
+      (send inspect
+        (send index
+          (local s)
+          (frozen shared "zz"))))
+    (send self p
+      (send succ
+        (frozen shared "x"))
+      (send succ
+        (frozen shared "az"))
+      (send succ
+        (frozen shared "zz"))
+      (send succ
+        (frozen shared "a9"))
+      (send succ
+        (frozen shared "Zz"))
+      (send succ
+        (frozen shared "1.9"))
+      (send succ
+        (frozen shared "-"))
+      (send succ
+        (frozen shared "")))
+    (assign name
+      (frozen shared "world"))
+    (assign count
+      (int 3))
+    (def wrap (x) locals (x)
+      (seq
+        (interp
+          (str "<")
+          (seq
+            (local x))
+          (str ">"))))
+    (send self puts
       (interp
-        (str "<")
+        (str "hello, ")
         (seq
-          (local x))
-        (str ">"))))
-  (send self puts
-    (interp
-      (str "hello, ")
-      (seq
-        (local name))
-      (str "! ")
-      (seq
-        (local count))
-      (str " ")
-      (seq
-        (send *
-          (local count)
-          (int 2)))
-      (str " ")
-      (seq
-        (send +
-          (int 1)
-          (int 2)))))
-  (send self puts
-    (interp
-      (seq
-        (send self wrap
-          (int 1)))
-      (str " ")
-      (seq
-        (send self wrap
-          (frozen shared "two")))
-      (str " ")
-      (seq
-        (send self wrap
-          (const nil)))
-      (str " ")
-      (seq
-        (array
-          (int 1)
-          (sym :a)))))
-  (assign t
-    (frozen shared "x"))
-  (assign t
-    (send +
+          (local name))
+        (str "! ")
+        (seq
+          (local count))
+        (str " ")
+        (seq
+          (send *
+            (local count)
+            (int 2)))
+        (str " ")
+        (seq
+          (send +
+            (int 1)
+            (int 2)))))
+    (send self puts
+      (interp
+        (seq
+          (send self wrap
+            (int 1)))
+        (str " ")
+        (seq
+          (send self wrap
+            (frozen shared "two")))
+        (str " ")
+        (seq
+          (send self wrap
+            (const nil)))
+        (str " ")
+        (seq
+          (array
+            (int 1)
+            (sym :a)))))
+    (assign t
+      (frozen shared "x"))
+    (assign t
+      (send +
+        (local t)
+        (frozen shared "y")))
+    (send self p
       (local t)
-      (frozen shared "y")))
-  (send self p
-    (local t)
-    (send ==
-      (local t)
-      (frozen shared "xy"))
-    (send !=
-      (local t)
-      (frozen shared "xy"))
-    (send empty?
-      (local t))
-    (send empty?
-      (frozen shared ""))
-    (send to_sym
-      (frozen shared "ab"))
-    (send frozen?
-      (local s))
-    (send frozen?
-      (local t))
-    (send frozen?
+      (send ==
+        (local t)
+        (frozen shared "xy"))
+      (send !=
+        (local t)
+        (frozen shared "xy"))
+      (send empty?
+        (local t))
+      (send empty?
+        (frozen shared ""))
+      (send to_sym
+        (frozen shared "ab"))
+      (send frozen?
+        (local s))
+      (send frozen?
+        (local t))
+      (send frozen?
+        (send dup
+          (local s))))
+    (assign u
       (send dup
-        (local s))))
-  (assign u
-    (send dup
-      (frozen shared "a")))
-  (send <<
+        (frozen shared "a")))
     (send <<
-      (local u)
-      (frozen shared "b"))
-    (frozen shared "c"))
-  (send self p
-    (local u))
-  (send <<
-    (local s)
-    (frozen shared "!")))
+      (send <<
+        (local u)
+        (frozen shared "b"))
+      (frozen shared "c"))
+    (send self p
+      (local u))
+    (send <<
+      (local s)
+      (frozen shared "!"))))

@@ -1,5 +1,13 @@
 (seq
   (activations 3)
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
   (seq
     (module Shout
       (seq

@@ -1,38 +1,47 @@
 (seq
-  (const-set SPAN
-    (range
-      (frozen shared "a")
-      (frozen shared "c")))
-  (const-set DEEP
-    (send make_shareable
-      (const Ractor)
-      (array
-        (int 1)
-        (frozen shared "s")
-        (hash frozen
-          (sym :k)
-          (array frozen
-            (int 2)
-            (sym :z)))
-        (send ensure_shareable
-          (const Ractor)
-          (path "shareable.rb")
-          (str "DEEP")))))
-  (const-set WITH_RANGE
-    (send make_shareable
-      (const Ractor)
-      (array
-        (range
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (const-set SPAN
+      (range
+        (frozen shared "a")
+        (frozen shared "c")))
+    (const-set DEEP
+      (send make_shareable
+        (const Ractor)
+        (array
           (int 1)
-          (int 2)))))
-  (const-set HELD
-    (send make_shareable
-      (const Ractor)
-      (array
-        (int 1)
-        (send ensure_shareable
-          (const Ractor)
-          (send freeze
-            (send b
-              (str "s")))
-          (str "HELD"))))))
+          (frozen shared "s")
+          (hash frozen
+            (sym :k)
+            (array frozen
+              (int 2)
+              (sym :z)))
+          (send ensure_shareable
+            (const Ractor)
+            (path "shareable.rb")
+            (str "DEEP")))))
+    (const-set WITH_RANGE
+      (send make_shareable
+        (const Ractor)
+        (array
+          (range
+            (int 1)
+            (int 2)))))
+    (const-set HELD
+      (send make_shareable
+        (const Ractor)
+        (array
+          (int 1)
+          (send ensure_shareable
+            (const Ractor)
+            (send freeze
+              (send b
+                (str "s")))
+            (str "HELD")))))))

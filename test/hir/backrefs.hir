@@ -1,40 +1,49 @@
 (seq
-  (send =~
-    (str "hello world")
-    (regexp "(w)(o)(r)" 0))
-  (send self p
-    (gvar $~)
-    (backref nth 0)
-    (backref pre)
-    (backref post)
-    (backref last))
-  (send self p
-    (backref nth 1)
-    (backref nth 2)
-    (backref nth 3)
-    (backref nth 4))
-  (if
-    (send match?
-      (str "abc")
-      (regexp "b" 0))
-    (seq
-      (send =~
+  (send __send__
+    (core GC)
+    (sym :read_tuning))
+  (send __send__
+    (send const_get
+      (core Ruby)
+      (sym :Box))
+    (sym :boot))
+  (seq
+    (send =~
+      (str "hello world")
+      (regexp "(w)(o)(r)" 0))
+    (send self p
+      (gvar $~)
+      (backref nth 0)
+      (backref pre)
+      (backref post)
+      (backref last))
+    (send self p
+      (backref nth 1)
+      (backref nth 2)
+      (backref nth 3)
+      (backref nth 4))
+    (if
+      (send match?
         (str "abc")
-        (regexp "(b)" 0))
-      (send self p
-        (backref nth 1)))
-    (none))
-  (def last_group (s) locals (s)
-    (seq
-      (send =~
-        (local s)
-        (regexp "(a)(b)?" 0))
-      (array
-        (backref nth 1)
-        (backref nth 2)
-        (backref last))))
-  (send self p
-    (send self last_group
-      (str "ab"))
-    (send self last_group
-      (str "a"))))
+        (regexp "b" 0))
+      (seq
+        (send =~
+          (str "abc")
+          (regexp "(b)" 0))
+        (send self p
+          (backref nth 1)))
+      (none))
+    (def last_group (s) locals (s)
+      (seq
+        (send =~
+          (local s)
+          (regexp "(a)(b)?" 0))
+        (array
+          (backref nth 1)
+          (backref nth 2)
+          (backref last))))
+    (send self p
+      (send self last_group
+        (str "ab"))
+      (send self last_group
+        (str "a")))))
