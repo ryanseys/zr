@@ -52,16 +52,16 @@ was built for:
 
 ## Differences between targets
 
-| | darwin | linux-musl | wasi |
-|---|---|---|---|
-| Linker | zr's own (`Obj::MachO::Executable`) | `cc -static` | none: one module |
-| `Fiber`, `Thread`, `Ractor` | yes | yes | no: a module has one stack; `Fiber.new` raises `FiberError` |
-| `eval` of a string | yes, with the eval compiler | yes, with the eval compiler | yes, with the tree-walking interpreter |
-| FFI (`ffi`, `fiddle`) | yes | no | no |
-| A gem's real C extension (`--native-ext`) | yes: `static`, `embed` or `dynamic` | yes: `static` only | no: ports only |
-| OpenSSL (`require "openssl"`) | yes, with OpenSSL 3 on the machine | no: a static binary cannot open it | no |
-| Preemption | a timer thread | a timer thread | a count at each safe point |
-| Expected output | `foo.rb.expected` | the same, or `foo.rb.linux.expected` | the same, or `foo.rb.wasi.expected` |
+| | darwin | linux-musl | linux-gnu | wasi |
+|---|---|---|---|---|
+| Linker | zr's own (`Obj::MachO::Executable`) | `cc -static` | `cc`, dynamic, with the C API exported | none: one module |
+| `Fiber`, `Thread`, `Ractor` | yes | yes | yes | no: a module has one stack; `Fiber.new` raises `FiberError` |
+| `eval` of a string | yes, with the eval compiler | yes, with the eval compiler | yes, with the eval compiler | yes, with the tree-walking interpreter |
+| FFI (`ffi`, `fiddle`) | yes | no | yes, through dlopen | no |
+| A gem's real C extension (`--native-ext`) | yes: `static`, `embed` or `dynamic` | yes: `static` only | yes: `static` only, against the headers of Ubuntu 22.04's ruby | no: ports only |
+| OpenSSL (`require "openssl"`) | yes, with OpenSSL 3 on the machine | no: a static binary cannot open it | yes, with the machine's libssl.so.3 (HPKE needs OpenSSL 3.2) | no |
+| Preemption | a timer thread | a timer thread | a timer thread | a count at each safe point |
+| Expected output | `foo.rb.expected` | the same, or `foo.rb.linux.expected` | the same, or `foo.rb.linux.expected` | the same, or `foo.rb.wasi.expected` |
 
 The program tests that a target is allowed to fail are in its
 baseline, `test/baselines/<triple>.txt`.
