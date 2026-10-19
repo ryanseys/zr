@@ -25,9 +25,11 @@ class RunnerTest < Minitest::Test
     in_cache do |dir|
       exe = launcher(dir, "")
       twin = Runner.pinned_launcher(exe)
-      File.write(twin, "#!/bin/sh\n# kept\n")
+      written = File.binread(twin)
       assert_equal twin, Runner.pinned_launcher(exe), "the same launcher reuses its twin"
-      assert_equal "# kept", File.readlines(twin, chomp: true).last, "and leaves it as it is"
+      File.write(twin, "#!/bin/sh\n# changed\n")
+      assert_equal twin, Runner.pinned_launcher(exe)
+      assert_equal written, File.binread(twin), "a changed twin is written again"
       refute_equal twin, Runner.pinned_launcher(launcher(dir, "", name: "other/zr")), "another launcher gets its own twin"
     end
   end

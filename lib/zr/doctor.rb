@@ -129,6 +129,8 @@ module Zr
       return Check.new(:fail, "cache", "#{dir} is not writable. #{CACHE_FIX}") unless File.writable?(dir)
 
       Check.new(:ok, "cache", format("%s, %d MB", dir, Cache::Janitor.megabytes(Cache::Janitor.all)))
+    rescue Paths::Untrusted => e
+      Check.new(:fail, "cache", e.message)
     rescue SystemCallError => e
       Check.new(:fail, "cache", "#{dir}: #{e.message}. #{CACHE_FIX}")
     end

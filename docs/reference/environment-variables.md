@@ -32,7 +32,7 @@ lists the flags (`Zr::Config::SETTINGS`).
 
 | Variable | Flag | Values | Default | Effect |
 |---|---|---|---|---|
-| `ZR_CACHE` | `--cache-dir DIR` | a directory | `tmp/cache` in a checkout; `$XDG_CACHE_HOME/zr` if `XDG_CACHE_HOME` is set; else `~/Library/Caches/zr` on macOS and `~/.cache/zr` on other hosts | Where zr keeps the built runtime, eval support, the prelinked images and the other cache files. |
+| `ZR_CACHE` | `--cache-dir DIR` | a directory | `tmp/cache` in a checkout; `$XDG_CACHE_HOME/zr` if `XDG_CACHE_HOME` is set; else `~/Library/Caches/zr` on macOS and `~/.cache/zr` on other hosts | Where zr keeps the built runtime, eval support, the prelinked images and the other cache files. zr makes it with mode 0700, and stops with status 2 when another user owns it or can write to it (see `SECURITY.md`). |
 | `XDG_CACHE_HOME` | | a directory | unset | The base of the user cache for an installed gem (see `ZR_CACHE`). |
 | `HOME` | | a directory | the user's | The user cache is below it when `XDG_CACHE_HOME` is not set. With no `HOME` (some containers and CI jobs), zr stops and says to set `HOME` or `ZR_CACHE`. |
 | `ZR_CACHE_MAX_GB` | `--cache-max-gb GB` | a number of GB, 0 or more | 5 | After a build, an installed zr deletes the cache entries that were used longest ago and that no root names, when the cache is larger than this. It measures at most once a day. `0` turns this off. A checkout never does it; use `zr cache clean`. |

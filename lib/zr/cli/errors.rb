@@ -9,15 +9,18 @@ module Zr
       # The errors that say what the user must change, not a defect in zr.
       # They print their message only. Named as strings: not every command
       # loads the file that defines each one.
-      EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing].freeze
+      EXPECTED = %w[Zr::Config::Invalid Zr::SourceChanged Zr::GemSet::Unresolved Zr::Paths::Missing Zr::Paths::Untrusted].freeze
+      # The expected errors of a setting or a cache that the user must
+      # change before any build: status 2, as a usage error.
+      SETUP = %w[Zr::Config::Invalid Zr::Paths::Untrusted].freeze
       # The errors of a directory that zr cannot write to or that is full.
       UNWRITABLE = %w[EACCES EROFS ENOSPC EPERM].freeze
 
       module_function
 
       # Runs the command, and turns an error that escapes it into one line
-      # and an exit status: 130 for Ctrl-C, 2 for a bad setting, 1 for any
-      # other error. An error that zr did not expect is a defect: the line
+      # and an exit status: 130 for Ctrl-C, 2 for a bad setting or an unsafe
+      # cache, 1 for any other error. An error that zr did not expect is a defect: the line
       # says so and where to report it. --backtrace or ZR_DEBUG=1 shows the backtrace.
       #: [T] () { () -> T } -> T
       def guard
@@ -29,7 +32,7 @@ module Zr
         raise if Config.debug?
 
         warn "zr: #{error_line(e)}"
-        exit(e.is_a?(Config::Invalid) ? 2 : 1)
+        exit(SETUP.include?(e.class.name) ? 2 : 1)
       end
 
       # The line that `guard` prints for `error`.

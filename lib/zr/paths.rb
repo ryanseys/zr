@@ -80,6 +80,11 @@ module Zr
     # A directory that zr needs and that this environment does not give.
     class Missing < StandardError; end
 
+    # A cache that is not this user's alone. zr loads code from the files
+    # of its cache and runs the binaries in it, so a user who can write
+    # there can run code as each user of that cache.
+    class Untrusted < StandardError; end
+
     # The cache directory for the runtime's build output (`ZR_CACHE`). A
     # checkout uses its own tmp/. An installed gem writes nothing under
     # itself. Its files are keyed on the digest of all their inputs: the
@@ -92,7 +97,41 @@ module Zr
     # `getpwuid` has no wasm form, so reading the home directory at load
     # would stop the module before its first line.
     #: () -> String
-    def self.cache = Session.current.memo(:cache) { Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache) }
+    def self.cache
+      Session.current.memo(:cache) { trusted!(Config.current.cache || (checkout? ? File.join(ROOT, "tmp/cache") : user_cache)) }
+    end
+
+    # `dir`, made with mode 0700 when it is missing. Raises Untrusted when
+    # another user owns it or can write to it, or when a directory above
+    # it lets every user rename it away (world-writable without the sticky
+    # bit; /tmp has the bit). root may own it. WASI has no users.
+    #: (String dir) -> String
+    def self.trusted!(dir)
+      return dir if RUBY_PLATFORM.include?("wasi")
+
+      mkdir_p(dir, 0o700)
+      stat = File.stat(dir)
+      fix = "zr loads code from its cache, so the cache must be yours alone"
+      unless stat.owned? || stat.uid.zero?
+        raise Untrusted, "the cache #{dir} belongs to another user (uid #{stat.uid}). #{fix}: set ZR_CACHE to a directory of your own."
+      end
+      unless (stat.mode & 0o022).zero?
+        mode = format("%04o", stat.mode & 0o7777)
+        raise Untrusted, "other users can write to the cache #{dir} (mode #{mode}). " \
+                         "#{fix}: run chmod go-w #{dir}, or set ZR_CACHE to a directory of your own."
+      end
+      above = File.dirname(File.expand_path(dir))
+      loop do
+        mode = File.stat(above).mode
+        if (mode & 0o002).positive? && (mode & 0o1000).zero?
+          raise Untrusted, "every user can write to #{above}, above the cache #{dir}. #{fix}: set ZR_CACHE to a directory of your own."
+        end
+        break if above == File.dirname(above)
+
+        above = File.dirname(above)
+      end
+      dir
+    end
 
     # The functions that the compiler needs from fileutils and tmpdir,
     # without those libraries. A compiled compiler loads a library when it
@@ -100,13 +139,14 @@ module Zr
     # Verbose methods with a `module_eval` of a string each: about a
     # hundred eval compiles, half a second before a build starts.
 
-    # Makes `dir` and each missing directory above it.
-    #: (String dir) -> void
-    def self.mkdir_p(dir)
+    # Makes `dir` and each missing directory above it. `dir` itself gets
+    # `mode` (less the umask); the directories above it get the default.
+    #: (String dir, ?Integer mode) -> void
+    def self.mkdir_p(dir, mode = 0o777)
       return if File.directory?(dir)
 
       mkdir_p(File.dirname(dir))
-      Dir.mkdir(dir)
+      Dir.mkdir(dir, mode)
     rescue Errno::EEXIST
       raise unless File.directory?(dir)
     end

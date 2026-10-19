@@ -51,6 +51,28 @@ class RunCacheTest < Minitest::Test
     assert_equal "1\n", `#{kept}`
   end
 
+  # A hit runs only the binary that zr kept: another file in its place
+  # is a miss, even with the same name and mode.
+  def test_a_replaced_binary_is_a_miss
+    build_and_keep
+    kept = cache.hit
+    File.write("#{kept}.new", "#!/bin/sh\necho replaced\n")
+    File.chmod(0o755, "#{kept}.new")
+    File.rename("#{kept}.new", kept)
+
+    assert_nil cache.hit
+  end
+
+  # A new mtime alone makes the hit read the binary's hash, which is the
+  # same, so it still hits.
+  def test_a_touched_binary_still_hits
+    build_and_keep
+    kept = cache.hit
+    File.utime(Time.now + 60, Time.now + 60, kept)
+
+    assert_equal kept, cache.hit
+  end
+
   def test_an_edit_to_a_required_file_is_a_miss
     build_and_keep
     File.write(@dep, "module Dep; def self.v = 2; end\n")

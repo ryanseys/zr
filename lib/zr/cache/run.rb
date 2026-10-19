@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
+require "json"
 require_relative "../config"
 require_relative "../paths"
 require_relative "../source_guard"
@@ -26,7 +27,10 @@ module Zr
     # The entry then lists every file that the build compiled, with the
     # digest of its bytes, and the key of eval support for a program that
     # evals. A hit needs each of them to be the same now, so an edit to a
-    # required file is a miss, as a make rule would see it.
+    # required file is a miss, as a make rule would see it. The entry also
+    # names the binary's SHA-256, size, inode and mtime: a hit runs only
+    # the binary that zr kept. When the stat is the same, the hash is not
+    # read again (46 ms for a 39 MB binary).
     #
     # The binary runs from the cache. A new file is slow to start the first
     # time (macOS checks it: 61 ms against 11 ms), so a copy per run would
@@ -37,7 +41,7 @@ module Zr
       # @rbs @target: Target
       # @rbs @key: String
 
-      VERSION = 2
+      VERSION = 3
 
       # `ZR_RUN_CACHE=0` builds each run again.
       #: () -> bool
@@ -76,9 +80,9 @@ module Zr
       def hit
         entry = Store.read(:run, @key) or return nil
         binary = File.join(entry, "program")
-        sources = Marshal.load(File.binread(File.join(entry, "sources")))
-        File.executable?(binary) && current?(sources) ? binary : nil
-      rescue SystemCallError, TypeError, ArgumentError, EOFError
+        sources = JSON.parse(File.read(File.join(entry, "sources")))
+        kept?(binary, sources.fetch("program")) && current?(sources) ? binary : nil
+      rescue SystemCallError, JSON::ParserError, KeyError, TypeError
         nil
       end
 
@@ -91,13 +95,17 @@ module Zr
       def keep(out, program, work)
         given = program.sources or return
         return if SourceGuard.changed_file
-        return if File.binread(out).include?(work)
 
-        sources = given.dup #: Hash[String | Symbol, untyped]
-        sources[:eval] = [program.evals.meta_path, program.evals.key] if program.evals
+        bytes = File.binread(out)
+        return if bytes.include?(work)
+
+        evals = program.evals
         entry = Store.write(:run, @key) do |dir|
-          kept(out, File.join(dir, "program"))
-          File.binwrite(File.join(dir, "sources"), Marshal.dump(sources))
+          binary = File.join(dir, "program")
+          kept(out, binary)
+          sources = { "files" => given, "eval" => evals && [evals.meta_path, evals.key],
+                      "program" => stamp(binary).merge("sha256" => Digest::SHA256.hexdigest(bytes)) }
+          File.write(File.join(dir, "sources"), JSON.generate(sources))
         end
         Store.evict(kinds: [:run])
         File.join(entry, "program")
@@ -106,6 +114,27 @@ module Zr
       end
 
       private
+
+      # The stat of the kept binary that a hit compares: its size, inode and
+      # mtime in nanoseconds. Not its ctime: the removal of the build's
+      # second name for the file changes that.
+      #: (String binary) -> Hash[String, Integer]
+      def stamp(binary)
+        stat = File.lstat(binary)
+        { "size" => stat.size, "ino" => stat.ino, "mtime" => (stat.mtime.to_r * 1_000_000_000).to_i }
+      end
+
+      # Whether `binary` is the file that zr kept: a regular file of this
+      # user that runs, with the stat that zr recorded, or else the same
+      # SHA-256.
+      #: (String binary, Hash[String, untyped] program) -> bool
+      def kept?(binary, program)
+        stat = File.lstat(binary)
+        return false unless stat.file? && stat.owned? && stat.executable?
+        return true if stamp(binary) == program.slice("size", "ino", "mtime")
+
+        stat.size == program.fetch("size") && Digest::SHA256.file(binary).hexdigest == program.fetch("sha256")
+      end
 
       # Puts the binary at `to`: a second name for the same file where the
       # volume allows, else a copy. A copy of a binary with eval support
@@ -132,17 +161,13 @@ module Zr
         false
       end
 
-      # (Marshal gives `sources`, so its keys and values are not checked.)
-      #: (Hash[untyped, untyped] sources) -> bool
+      # (JSON gives `sources`, so its keys and values are not checked.)
+      #: (Hash[String, untyped] sources) -> bool
       def current?(sources)
-        sources.all? do |path, digest|
-          if path == :eval
-            meta_path, key = digest
-            eval_current?(meta_path, key)
-          else
-            File.file?(path) && Digest::SHA256.file(path).hexdigest == digest
-          end
-        end
+        meta_path, key = sources["eval"]
+        return false if meta_path && !eval_current?(meta_path, key)
+
+        sources.fetch("files").all? { |path, digest| File.file?(path) && Digest::SHA256.file(path).hexdigest == digest }
       end
     end
   end

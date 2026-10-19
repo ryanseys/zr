@@ -315,6 +315,9 @@ end
     _, err = assert_exit(1) { CLI.guard { raise Zr::Paths::Missing, "HOME is not set." } }
     assert_equal "zr: HOME is not set.\n", err
 
+    _, err = assert_exit(2) { CLI.guard { raise Zr::Paths::Untrusted, "other users can write to the cache /c." } }
+    assert_equal "zr: other users can write to the cache /c.\n", err
+
     _, err = assert_exit(1) { CLI.guard { raise NoMethodError, "undefined method 'x'" } }
     assert_equal "zr: internal error: NoMethodError: undefined method 'x'. This is a defect in zr. Report it at " \
                  "#{Zr::ISSUES_URL} with the output of 'zr doctor'. Run zr --backtrace (or set ZR_DEBUG=1) to see the backtrace.\n", err

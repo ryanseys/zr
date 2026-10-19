@@ -79,7 +79,9 @@ module Zr
       # The twin is the zr that ran the program, so it keeps zr's own cache
       # directory, as a flag: the program's environment stays the
       # program's. One twin serves each ruby, launcher, cache and name.
-      # Without a cache to write to, the launcher stands as it is. Named
+      # Without a cache to write to, the launcher stands as it is. A twin
+      # whose bytes are not the ones zr writes is written again, so a
+      # file that another hand put in the cache does not run. Named
       # `ruby`, zr acts as ruby where its own CLI differs (`--version`).
       # Under RUBY_BOX, the ruby that runs zr makes boxes of its own; its
       # `#!` line keeps that ruby from printing their notice, which the
@@ -91,12 +93,13 @@ module Zr
         key = Digest::SHA256.hexdigest([SHEBANG, ruby, exe, *flags, name].join("\0"))[0, 16] #: String
         dir = File.join(cache, "launcher", key)
         twin = File.join(dir, name)
-        return twin if File.file?(twin)
+        text = twin_text(exe, ruby, flags)
+        return twin if File.file?(twin) && File.binread(twin) == text
 
         Paths.mkdir_p(dir)
         draft = "#{twin}.#{Process.pid}"
-        given = "ARGV.unshift(#{flags.map(&:dump).join(", ")})\n" unless flags.empty?
-        File.open(draft, "w", 0o755) { |file| file.write("#!#{ruby} #{SHEBANG}\n# frozen_string_literal: true\n\n#{given}load #{exe.dump}\n") }
+        # The mode of a new file is less the umask.
+        File.open(draft, "w", 0o755) { |file| file.write(text) }
         File.rename(draft, twin)
         twin
       rescue SystemCallError
@@ -105,6 +108,13 @@ module Zr
 
       # The one flag of a twin's `#!` line.
       SHEBANG = "-W:no-experimental"
+
+      # The bytes of the twin of `exe` for `ruby` and `flags`.
+      #: (String exe, String ruby, Array[String] flags) -> String
+      def twin_text(exe, ruby, flags)
+        given = "ARGV.unshift(#{flags.map(&:dump).join(", ")})\n" unless flags.empty?
+        "#!#{ruby} #{SHEBANG}\n# frozen_string_literal: true\n\n#{given}load #{exe.dump}\n".b
+      end
 
       # The settings that the twin keeps: a cache directory zr was given.
       #: () -> Array[String]

@@ -169,4 +169,52 @@ class PathsTest < Minitest::Test
       assert_equal ["file"], Dir.children(dir)
     end
   end
+
+  # zr loads code from its cache, so the cache must be this user's alone.
+  def test_a_new_cache_is_private
+    Dir.mktmpdir do |dir|
+      cache = File.join(dir, "a/cache")
+
+      assert_equal cache, Zr::Paths.trusted!(cache)
+      assert_equal 0o700, File.stat(cache).mode & 0o777
+    end
+  end
+
+  def test_a_cache_that_others_can_write_is_refused
+    Dir.mktmpdir do |dir|
+      File.chmod(0o777, dir)
+      error = assert_raises(Zr::Paths::Untrusted) { Zr::Paths.trusted!(dir) }
+
+      assert_includes error.message, "other users can write to the cache #{dir} (mode 0777)"
+      assert_includes error.message, "chmod go-w #{dir}"
+    end
+  end
+
+  # /tmp is world-writable with the sticky bit: no other user can rename
+  # a directory in it away.
+  def test_a_cache_below_a_sticky_directory_is_trusted
+    Dir.mktmpdir do |dir|
+      shared = File.join(dir, "shared")
+      Dir.mkdir(shared)
+      File.chmod(0o1777, shared)
+
+      assert Zr::Paths.trusted!(File.join(shared, "cache"))
+      File.chmod(0o777, shared)
+      assert_raises(Zr::Paths::Untrusted) { Zr::Paths.trusted!(File.join(shared, "cache")) }
+    end
+  end
+
+  def test_a_cache_of_another_user_is_refused
+    Dir.mktmpdir do |dir|
+      real = File.method(:stat)
+      theirs = Struct.new(:mode, :uid) do
+        def owned? = false
+      end.new(0o40700, 4242)
+      error = stub_method(File, :stat, ->(path) { path == dir ? theirs : real.call(path) }) do
+        assert_raises(Zr::Paths::Untrusted) { Zr::Paths.trusted!(dir) }
+      end
+
+      assert_includes error.message, "belongs to another user (uid 4242)"
+    end
+  end
 end
