@@ -881,6 +881,33 @@ module Zr
           bundles.each { |path| add(path) if gems[path].nil? || reached.include?(gems[path]) }
         end
 
+        # The globals of the load path, in a file's source.
+        SEARCHES_LOAD_PATH = /\$(?::|LOAD_PATH)(?!\w)/
+
+        # A library file that loads a file by a computed name
+        # (IRB::Locale's `Kernel.load(found)` of irb/lc/error.rb) finds it
+        # among the files beside it: the .rb files under its own directory,
+        # never a whole root. They go into the program, so the load runs a
+        # compiled file wherever the program runs, with no file on disk. A
+        # program's own load reads the disk as it runs, as in ruby.
+        #
+        # Only a file that searches the load path (`$:` or `$LOAD_PATH`)
+        # loads its library's own files. Others load a path that their
+        # caller gives (rubygems' target_rbconfig.rb, bundler's `exec` of
+        # a script), and compiling in their directories put 1,074 files of
+        # rubygems, bundler, irb and rdoc into the gem prelude, not 50.
+        #: (String file) -> void
+        def computed_load!(file)
+          return if own?(file) || !File.read(file).match?(SEARCHES_LOAD_PATH)
+
+          dir = File.dirname(file)
+          return if @roots.include?(dir) || @roots.none? { |root| dir.start_with?("#{root}/") }
+          return if (@computed_loads ||= {}).key?(dir)
+
+          @computed_loads[dir] = true
+          Dir.glob("**/*.rb", base: dir).sort.each { |rel| add(File.join(dir, rel)) }
+        end
+
         # The files that a C extension's C may require as it runs
         # (`Ext::Source#required_features`) go into the program, so that
         # require finds them, as a computed require finds any file of the

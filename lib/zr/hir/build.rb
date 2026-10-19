@@ -1244,6 +1244,7 @@ module Zr
 
         message, encoding = c_message(node)
         @c_messages&.store(message, encoding) if message && encoding
+        @loader.computed_load!(@file) if computed_load?(node)
         send = plain_call(node)
         relative_in_file(node, send)
       end
@@ -1399,6 +1400,17 @@ module Zr
 
         send.args = [Literal.new(File.expand_path(feature, File.dirname(Loader.real_path(@file))), send.line)]
         send
+      end
+
+      # A `Kernel.load` of a name that is not a literal, in a build of a
+      # program (`Loader#computed_load!`). A bare `load` is often a
+      # library's own method of that name (JSON.load, Psych.load).
+      #: (Prism::CallNode node) -> bool
+      def computed_load?(node)
+        return false unless node.name == :load && node.block.nil? && @loader && !@loader.eval? && node.arguments
+        return false unless node.receiver.is_a?(Prism::ConstantReadNode) && node.receiver.name == :Kernel
+
+        !node.arguments.arguments.first.is_a?(Prism::StringNode)
       end
 
       # A call as a plain Send, with none of the special forms above.
